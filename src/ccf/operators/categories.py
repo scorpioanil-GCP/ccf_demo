@@ -112,27 +112,65 @@ def _bounded_walk(
 ) -> tuple[tuple[EntityRecord, ...], tuple[RelationshipRecord, ...]]:
     """The one bounded typed walk both traversal operators run (INV-CH7-24).
 
-    `GQ-10` at docs/GRAPH_QUERY_SEMANTICS.md:201. Breadth-first from every
-    entity of a seed class over edges of the permitted types, at most
-    ``depth_limit`` hops; a hop lands only on an admitted class when
-    ``admitted`` is a set (starts are never filtered — `GQ-11` at
-    docs/GRAPH_QUERY_SEMANTICS.md:221 selects them), and an entity absent
-    from the view's class map is not a hop. ``forward`` decides the adjacency:
-    ``False`` adds both endpoints (the undirected NEIGHBORHOOD,
-    :class:`TraversalNeighborhood`); ``True`` adds only ``subject → object``
-    as stored (the directed DESCENDANTS walk, :class:`TraversalDescendants`,
-    ledger row ``24.5-L-06``). One function rather than two copies so the two
-    walks differ in exactly that line and nothing else — the same shape
-    ``src/ccf/graph/fallback.py::_walk`` keeps, which is what holds every
-    pushed answer to these operators differentially.
+    **The sequence is universe, close, walk** — the traversal-family rule
+    (`D-IMPL-267` D-08, mechanism `D-IMPL-268`, ledger row ``CP04-G-28``,
+    semantics version 1.3.0). The admitted entity universe is constructed
+    first from the view's entity claims; the working edge set is then
+    endpoint-closed against that universe (`GQ-16` at
+    docs/GRAPH_QUERY_SEMANTICS.md:316); only then does the walk expand.
 
-    Returns the reached entities and the TRAVERSABLE edges — every edge of a
-    permitted type, not only those among reached nodes; the caller's
-    :func:`_substitute` prunes to the reached endpoints (INV-CH7-40).
+    An **unresolved reference** — an edge endpoint carrying no entity claim
+    in the view — is legal persisted state (whitepaper §7.3, INV-CH7-20:
+    edges are first-class claims, never derived joins) and stays in the
+    view the caller handed in. It is not a traversal member: never a walk
+    start, never an intermediate hop, and it consumes no depth, so it lies
+    on no path and closes no cycle. Depth counts admitted traversal hops,
+    not persisted edge hops through entities the traversal universe does
+    not hold (`GQ-13` at docs/GRAPH_QUERY_SEMANTICS.md:261 — hop
+    admissibility, prune before walking). Persisted graph state and
+    traversal membership are not the same universe.
+
+    `GQ-10` at docs/GRAPH_QUERY_SEMANTICS.md:201. Breadth-first from every
+    entity of a seed class over endpoint-closed edges of the permitted
+    types, at most ``depth_limit`` hops; a hop lands only on an admitted
+    class when ``admitted`` is a set (starts are never filtered — `GQ-11`
+    at docs/GRAPH_QUERY_SEMANTICS.md:221 selects them). ``forward`` decides
+    the adjacency: ``False`` adds both endpoints (the undirected
+    NEIGHBORHOOD, :class:`TraversalNeighborhood`); ``True`` adds only
+    ``subject → object`` as stored (the directed DESCENDANTS walk,
+    :class:`TraversalDescendants`, ledger row ``24.5-L-06``). One function
+    rather than two copies so the two walks differ in exactly that line and
+    nothing else — the same shape ``src/ccf/graph/fallback.py::_walk``
+    keeps, which is what holds every pushed answer to these operators
+    differentially. The query tier reaches the same rule by a different
+    route: its caller closes before handing the walk its state. Shared
+    semantics, not a shared helper (`D-IMPL-268`).
+
+    Returns the reached entities and the TRAVERSABLE edges — every
+    endpoint-closed edge of a permitted type, not only those among reached
+    nodes; the caller's :func:`_substitute` prunes to the reached endpoints
+    (whitepaper §7.4, INV-CH7-40), which is unchanged.
     """
-    traversable = tuple(
+    # Universe, then closure, then the walk (`D-IMPL-267` D-08; Dave's
+    # mechanism ruling `D-IMPL-268`: the operator "conforms by
+    # endpoint-closing its working edge set against the claimed/admitted
+    # entity universe before `_bounded_walk` traverses it … No new public
+    # helper or SDK surface is introduced solely to share the predicate").
+    # `GQ-16` at docs/GRAPH_QUERY_SEMANTICS.md:316 (closure before every
+    # walk, semantics version 1.3.0) and `GQ-13` at
+    # docs/GRAPH_QUERY_SEMANTICS.md:261 (a path through an unresolved
+    # reference does not exist). P-1: the view KEEPS its dangling edges as
+    # state; this function simply does not traverse them. Ledger row
+    # ``CP04-G-28``.
+    universe = {record.claim.entity_uri for record in view.entities}
+    closed = tuple(
         edge
         for edge in view.relationships
+        if edge.claim.subject_uri in universe and edge.claim.object_uri in universe
+    )
+    traversable = tuple(
+        edge
+        for edge in closed
         if edge.claim.relationship_type in relationship_types
     )
     adjacency: dict[str, set[str]] = {}
@@ -146,8 +184,10 @@ def _bounded_walk(
             )
 
     # The class map, built once: admission reads the REACHED node's class
-    # (`GQ-10` at docs/GRAPH_QUERY_SEMANTICS.md:201, 1.1.0), and a node
-    # absent from the view has no class and is not admitted.
+    # (`GQ-10` at docs/GRAPH_QUERY_SEMANTICS.md:201, 1.1.0). It is consulted
+    # only when ``admitted`` is a set, so it is NOT what keeps an unclaimed
+    # endpoint out — the closure above already removed every edge naming one,
+    # so no such URI is an adjacency key and none can be reached at all.
     class_of = {
         record.claim.entity_uri: record.claim.entity_class
         for record in view.entities
@@ -461,9 +501,17 @@ class TraversalNeighborhood:
     semantics version 1.1.0; ledger row ``24.5-L-05``). When
     ``admitted_entity_classes`` is present, a hop lands only on an entity
     whose ``entity_class`` is a member; walk starts are selected by `GQ-11`
-    at docs/GRAPH_QUERY_SEMANTICS.md:221 and are never filtered by admission,
-    and an entity absent from the view's class map is not a hop. ``None``
-    admits every class — the behavior every earlier parameter set carried.
+    at docs/GRAPH_QUERY_SEMANTICS.md:221 and are never filtered by
+    admission. ``None`` admits every class — the behavior every earlier
+    parameter set carried.
+
+    **An unresolved reference is never a hop, under every admission
+    setting.** An edge endpoint carrying no entity claim in the view is
+    legal persisted state and is not a traversal member: the walk
+    endpoint-closes the edges against the view's entity universe before it
+    expands, so such an endpoint is never a start, never a hop, and
+    consumes no depth (`GQ-16` at docs/GRAPH_QUERY_SEMANTICS.md:316,
+    semantics version 1.3.0; `D-IMPL-267`, ledger row ``CP04-G-28``).
     The adjacency is undirected here — ``read_intent`` emits
     ``direction="undirected"`` — and the directed walk is the sibling
     :class:`TraversalDescendants` (ledger row ``24.5-L-06``); both run
@@ -550,7 +598,13 @@ class TraversalDescendants:
     every backend that cannot express a directed walk declines to
     ``src/ccf/graph/fallback.py::_walk`` (D-04, `GQ-32` at
     docs/GRAPH_QUERY_SEMANTICS.md:583). Node-class admission is the
-    neighborhood's, unchanged. Runs last, as every traversal does.
+    neighborhood's, unchanged, and so is the closure that precedes the walk:
+    an edge endpoint carrying no entity claim in the view is an unresolved
+    reference, never a start and never a hop, because the edges are
+    endpoint-closed against the view's entity universe before the walk
+    expands (`GQ-16` at docs/GRAPH_QUERY_SEMANTICS.md:316, semantics version
+    1.3.0; `D-IMPL-267`, ledger row ``CP04-G-28``). Runs last, as every
+    traversal does.
     """
 
     key = "traversal.typed-descendants"

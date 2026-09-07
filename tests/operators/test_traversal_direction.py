@@ -14,7 +14,8 @@ stored INTO the seed is the whole difference:
 
 * the forward walk does not cross that edge and reaches strictly less; the
   neighborhood walk on the same view still reaches it (additive, D-10);
-* ``src/ccf/graph/fallback.py::_walk`` — the differential oracle — agrees
+* ``src/ccf/graph/fallback.py::answer`` — the differential oracle, endpoint
+  closure included (`GQ-16` at docs/GRAPH_QUERY_SEMANTICS.md:316) — agrees
   with BOTH operators at every depth, so the two walks and the oracle are
   three spellings of one `GQ-10`;
 * the direction is fixed by the operator, never by a parameter;
@@ -52,6 +53,7 @@ written in this file (CLAUDE.md §6.4).
 
 from __future__ import annotations
 
+import ast
 import functools
 import importlib.util
 import json
@@ -62,12 +64,13 @@ from types import ModuleType
 
 import pytest
 
+from ccf.contracts.canonical import canonical_bytes
 from ccf.graph.backends.fluree import FlureeGraphReader
 from ccf.graph.backends.mongo import MongoGraphReader
 from ccf.graph.backends.neo4j import Neo4jGraphReader
 from ccf.graph.backends.postgres import PostgresGraphReader
 from ccf.graph.backends.sqlite import SqliteGraphReader
-from ccf.graph.fallback import _walk
+from ccf.graph.fallback import answer
 from ccf.graph.protocols import (
     EntityRecord,
     GraphQuery,
@@ -192,6 +195,36 @@ def _descendants(depth: int) -> TraversalDescendants:
     )
 
 
+def _fallback_view(view: GraphView, traverse: TraversalSpec) -> GraphView:
+    """The query tier's answer to the operator's own intent, frozen as a view.
+
+    ``answer`` is the whole query-tier oracle — the as-of survival predicate,
+    the policy and validity gates, endpoint closure (`GQ-16` at
+    docs/GRAPH_QUERY_SEMANTICS.md:316) and only then the walk — where the
+    private ``_walk`` is the last of those steps alone and relies on its
+    caller to have closed for it. Since semantics version 1.3.0 the closure
+    precedes EVERY walk at every tier, so the tier boundary is the right
+    place to take the oracle. Frozen under the interface's ordering
+    (`GQ-22` at docs/GRAPH_QUERY_SEMANTICS.md:461), which is the ordering
+    ``_view`` already imposes on the operator's input.
+    """
+    entities, relationships = answer(
+        view.entities,
+        view.relationships,
+        query=GraphQuery(
+            tenant_id=TENANT, as_of=view.as_of, traverse=traverse
+        ),
+    )
+    return GraphView(
+        tenant_id=view.tenant_id,
+        as_of=view.as_of,
+        entities=tuple(sorted(entities, key=lambda r: r.claim.entity_uri)),
+        relationships=tuple(
+            sorted(relationships, key=lambda r: r.relationship_key)
+        ),
+    )
+
+
 def _reached(operator: Operator, view: GraphView = VIEW) -> frozenset[str]:
     output = operator.apply(
         view=view, tenant_id=TENANT, temporal_boundary=BOUNDARY, upstream=()
@@ -237,24 +270,27 @@ def test_the_forward_walk_still_follows_a_chain_of_stored_edges() -> None:
 def test_the_fallback_walk_agrees_with_the_operator(
     build: object, depth: int
 ) -> None:
-    """`_walk` under the operator's own `read_intent()` answers what `apply()` does.
+    """`answer` under the operator's own `read_intent()` answers what `apply()` does.
 
-    Entities AND edges: `_walk` prunes to edges among reached nodes exactly
-    as `_substitute` does (INV-CH7-40), so the two answers are compared whole.
-    This is the equality the differential suite rests on — a pushed answer is
-    held to `_walk`, and `_walk` is held here to the operator.
+    Entities AND edges, compared as canonical bytes: the query tier prunes to
+    edges among reached nodes exactly as `_substitute` does (INV-CH7-40), so
+    the two answers are compared whole. This is the equality the differential
+    suite rests on — a pushed answer is held to `answer`, endpoint closure
+    included, and `answer` is held here to the operator. ``VIEW`` is fully
+    claimed (every endpoint of every edge is one of its four entities), so
+    the closure is a no-op on it and this equality is the 1.2.0 equality
+    unchanged; the shape that discriminates the tiers is the unresolved
+    reference, and it is proved in
+    ``tests/operators/test_traversal_unresolved_reference.py``.
     """
     operator = build(depth)  # type: ignore[operator]
     fragment = operator.read_intent()
     assert fragment.traverse is not None
-    entities, edges = _walk(
-        VIEW.entities, VIEW.relationships, traverse=fragment.traverse, seeds=None
-    )
+    expected = _fallback_view(VIEW, fragment.traverse)
     output = operator.apply(
         view=VIEW, tenant_id=TENANT, temporal_boundary=BOUNDARY, upstream=()
     )
-    assert entities == output.view.entities
-    assert edges == output.view.relationships
+    assert canonical_bytes(expected) == canonical_bytes(output.view)
 
 
 def test_direction_and_admission_compose_on_the_descendant_walk() -> None:
@@ -271,7 +307,7 @@ def test_direction_and_admission_compose_on_the_descendant_walk() -> None:
       is unreachable — admission prunes the hop, and direction still keeps P out;
     * the two controls that isolate each lever: undirected + parent admitted
       reaches P; forward + no admission reaches A and C.
-    The fallback's ``_walk`` agrees with each, entities and edges.
+    The fallback's ``answer`` agrees with each, entities and edges.
     """
     def descendants(admitted: frozenset[str] | None) -> TraversalDescendants:
         return TraversalDescendants(
@@ -305,14 +341,11 @@ def test_direction_and_admission_compose_on_the_descendant_walk() -> None:
     ):
         fragment = operator.read_intent()
         assert fragment.traverse is not None
-        entities, edges = _walk(
-            VIEW.entities, VIEW.relationships, traverse=fragment.traverse, seeds=None
-        )
+        expected = _fallback_view(VIEW, fragment.traverse)
         output = operator.apply(
             view=VIEW, tenant_id=TENANT, temporal_boundary=BOUNDARY, upstream=()
         )
-        assert entities == output.view.entities
-        assert edges == output.view.relationships
+        assert canonical_bytes(expected) == canonical_bytes(output.view)
 
 
 # --- the direction is the operator's, never a parameter's --------------------
@@ -524,21 +557,242 @@ def test_the_sibling_is_registered_beside_the_neighborhood() -> None:
     )
 
 
-# --- the vocabulary records the direction at 1.2.0 ---------------------------
+# --- one walk, structurally: both operators call it --------------------------
+
+#: The exact call the sabotage below re-points at a private copy. The shared
+#: walk is invoked once per ``apply`` — twice in the whole module — and the
+#: literal is asserted PRESENT at that count in the real source before any
+#: copy is mutated, so the control cannot pass vacuously against a file that
+#: never carried it. Same discipline as ``FORWARD_BRANCH`` above.
+WALK_CALL = "        entities, traversable = _bounded_walk(\n"
+
+
+def _apply_callees(source: str) -> dict[str, set[str]]:
+    """Per traversal class, the plain-name callees of its ``apply`` body.
+
+    ``ast.Name`` in ``func`` position only: an attribute call on ``self`` or
+    on an imported module is deliberately not collected, because the property
+    under test is that the ONE module-level function is what both bodies
+    reach for.
+    """
+    wanted = {"TraversalNeighborhood", "TraversalDescendants"}
+    callees: dict[str, set[str]] = {}
+    for node in ast.walk(ast.parse(source)):
+        if not isinstance(node, ast.ClassDef) or node.name not in wanted:
+            continue
+        for member in node.body:
+            if not isinstance(member, ast.FunctionDef) or member.name != "apply":
+                continue
+            callees[node.name] = {
+                inner.func.id
+                for inner in ast.walk(member)
+                if isinstance(inner, ast.Call) and isinstance(inner.func, ast.Name)
+            }
+    return callees
+
+
+def _bounded_walk_definitions(source: str) -> int:
+    """How many module-level ``def _bounded_walk`` the source declares."""
+    return sum(
+        1
+        for node in ast.parse(source).body
+        if isinstance(node, ast.FunctionDef) and node.name == "_bounded_walk"
+    )
+
+
+def _assert_one_walk_pin(source: str) -> None:
+    """The pin's assertion body, factored so its control can run it on a copy."""
+    assert _bounded_walk_definitions(source) == 1, (
+        "the shared bounded walk is not defined exactly once at module level"
+    )
+    callees = _apply_callees(source)
+    assert set(callees) == {"TraversalNeighborhood", "TraversalDescendants"}
+    for class_name, called in sorted(callees.items()):
+        assert "_bounded_walk" in called, (
+            f"{class_name}.apply does not call the shared _bounded_walk;"
+            f" it calls {sorted(called)} — the two traversal shapes have drifted"
+        )
+
+
+def test_both_traversal_operators_call_the_one_bounded_walk() -> None:
+    """D-08 (a): one walk, defined once, called by both ``apply`` bodies.
+
+    ``src/ccf/operators/categories.py`` says so in prose at its head — the two
+    walks *"differ in exactly that line and nothing else"* — and that sentence
+    is what makes the conforming change of `D-IMPL-268` a single edit rather
+    than two edits that can disagree. Ledger row ``24.5-L-06`` created the
+    sibling; ``24.5-L-06``'s companion pin
+    ``tests/operators/test_traversal_direction.py::test_the_sibling_is_registered_beside_the_neighborhood``
+    pins the roster, and this one pins the shared mechanism underneath it.
+
+    Structural, not textual: the assertion is over the parsed ``apply``
+    bodies, so a reformatting of the call site does not red it and a private
+    copy of the walk does — which is exactly what the control below shows.
+    """
+    real = CATEGORIES_SOURCE.read_text(encoding="utf-8")
+    assert real.count(WALK_CALL) == 2, (
+        "the shared-walk call site moved; re-anchor WALK_CALL against"
+        " src/ccf/operators/categories.py"
+    )
+    _assert_one_walk_pin(real)
+
+
+def test_control_the_one_walk_pin_fails_on_a_copy_with_a_private_walk(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Sabotage in a scratch copy: the descendants walk gets its own private walk.
+
+    The LAST of the two call sites is re-pointed at ``_private_bounded_walk``
+    and an alias for it is appended, so the copy is a module in which the two
+    operators no longer share one walk — and could therefore drift — while
+    still answering exactly what it answered before. The pin above fails on
+    the copy naming ``TraversalDescendants``; the copy still walks. The
+    sabotage removed the pin's premise and nothing else, which is what makes
+    the control discriminating rather than merely red.
+
+    The alias name deliberately ends in ``_bounded_walk(`` at its call site,
+    so this control's own literal is not a second hit for the tree-wide
+    bare-``_walk`` search the phase asserts elsewhere.
+    """
+    real = CATEGORIES_SOURCE.read_text(encoding="utf-8")
+    assert real.count(WALK_CALL) == 2, "the shared-walk call site moved; re-anchor"
+    head, _match, tail = real.rpartition(WALK_CALL)
+    sabotaged = (
+        head
+        + "        entities, traversable = _private_bounded_walk(\n"
+        + tail
+        + "\n_private_bounded_walk = _bounded_walk\n"
+    )
+    assert sabotaged.count(WALK_CALL) == 1
+
+    with pytest.raises(AssertionError, match="TraversalDescendants"):
+        _assert_one_walk_pin(sabotaged)
+
+    module = _import_scratch_copy(sabotaged, "_ccf_categories_private_walk", tmp_path)
+    copy = module.TraversalDescendants(
+        parameters=TraversalDescendantsParameters(
+            seed_entity_classes=frozenset({SEED_CLASS}),
+            relationship_types=frozenset({EDGE_TYPE}),
+            depth_limit=1,
+        )
+    )
+    assert _reached(copy) == _reached(_descendants(1))
+    deeper = module.TraversalDescendants(
+        parameters=TraversalDescendantsParameters(
+            seed_entity_classes=frozenset({SEED_CLASS}),
+            relationship_types=frozenset({EDGE_TYPE}),
+            depth_limit=2,
+        )
+    )
+    assert _reached(deeper) == _reached(_descendants(2))
+
+
+# --- the vocabulary records the direction, and the universe at 1.3.0 ---------
+
+
+def _semantics_document() -> str:
+    return (REPO_ROOT / "docs" / "GRAPH_QUERY_SEMANTICS.md").read_text(
+        encoding="utf-8"
+    )
 
 
 def test_the_semantics_document_records_the_direction_at_1_2_0() -> None:
-    """`GQ-10` names both directions and `GQ-35` carries the 1.2.0 entry."""
-    document = (REPO_ROOT / "docs" / "GRAPH_QUERY_SEMANTICS.md").read_text(
-        encoding="utf-8"
-    )
-    assert "**Semantics version: 1.2.0**" in document
+    """`GQ-10` names both directions and `GQ-35` still carries the 1.2.0 entry.
+
+    The banner follows the document forward — it reads 1.3.0 since the
+    traversal-universe amendment — but the 1.2.0 ENTRY is untouched: `GQ-35`
+    appends, it never rewrites the clause or the entry it amends out of
+    existence, so the direction's own record is asserted here as it was
+    written.
+    """
+    document = _semantics_document()
+    assert "**Semantics version: 1.3.0**" in document
     clause = document.split("### `GQ-10`")[1].split("### `GQ-11`")[0]
     assert 'direction="undirected"' in clause and 'direction="forward"' in clause
     amendments = document.split("### `GQ-35`")[1]
     entry = amendments.split("- **1.2.0**")[1].split("- **1.1.0**")[0]
     assert "`24.5-L-06`" in entry
     assert "20 / 21 / 22" in entry and "20 / 22 / 22" in entry
+
+
+def _assert_records_the_traversal_universe_at_1_3_0(document: str) -> None:
+    """The 1.3.0 amendment, asserted against a document STRING.
+
+    Factored so the two controls below can run it over a mutated copy of the
+    real text without touching the file (ledger row `CP04-G-28`,
+    `D-IMPL-267`).
+    """
+    assert "**Semantics version: 1.3.0**" in document
+    banner = "\n".join(document.split("\n")[:10])
+    assert "1.3.0 the traversal universe" in banner
+    clause = document.split("### `GQ-10`")[1].split("### `GQ-11`")[0]
+    assert "unresolved reference" in clause
+    amendments = document.split("### `GQ-35`")[1]
+    assert amendments.index("- **1.3.0**") < amendments.index("- **1.2.0**"), (
+        "the amendment history is newest-first; the 1.3.0 entry must sit"
+        " above the 1.2.0 entry"
+    )
+    entry = amendments.split("- **1.3.0**")[1].split("- **1.2.0**")[0]
+    for token in (
+        "CP04-G-28",
+        "D-IMPL-267",
+        "{A,B}",
+        "{A}",
+        "{A,B,C,D}",
+        "{A,C,D}",
+        "not the same universe",
+        "execution-path invariant",
+        "test_operator_tier_differential",
+    ):
+        assert token in entry, f"the 1.3.0 entry does not carry {token!r}"
+
+
+def test_the_semantics_document_records_the_traversal_universe_at_1_3_0() -> None:
+    """`GQ-10` defines the unresolved reference and `GQ-35` carries 1.3.0."""
+    _assert_records_the_traversal_universe_at_1_3_0(_semantics_document())
+
+
+def _with_the_1_3_0_entry_moved_below_1_2_0(document: str) -> str:
+    """The amendment history re-ordered oldest-first at its top — on a STRING."""
+    head, rest = document.split("- **1.3.0**", 1)
+    newest, rest = rest.split("- **1.2.0**", 1)
+    older, rest = rest.split("- **1.1.0**", 1)
+    return f"{head}- **1.2.0**{older}- **1.3.0**{newest}- **1.1.0**{rest}"
+
+
+def test_control_the_1_3_0_pin_fails_on_a_reverted_banner() -> None:
+    """Two sabotages of the document TEXT; the file itself is never edited.
+
+    (1) the banner reverted to the previous version — the pin must red, or it
+    is not pinning the version; (2) the 1.3.0 entry moved BELOW the 1.2.0
+    entry — the newest-first order is asserted, not assumed. Both run on
+    copies of the real text, in the voice of
+    ``tests/operators/test_traversal_admission.py::test_no_control_edits_the_real_source_tree``:
+    the real document's cleanliness is asserted through ``git`` afterwards.
+    """
+    document = _semantics_document()
+    _assert_records_the_traversal_universe_at_1_3_0(document)
+
+    reverted = document.replace(
+        "**Semantics version: 1.3.0**", "**Semantics version: 1.2.0**", 1
+    )
+    assert reverted != document, "the banner literal moved; re-anchor the control"
+    with pytest.raises(AssertionError):
+        _assert_records_the_traversal_universe_at_1_3_0(reverted)
+
+    reordered = _with_the_1_3_0_entry_moved_below_1_2_0(document)
+    assert reordered != document, "the entry slicing moved; re-anchor the control"
+    with pytest.raises(AssertionError):
+        _assert_records_the_traversal_universe_at_1_3_0(reordered)
+
+    status = subprocess.run(
+        ["git", "status", "--short", "--", "docs/GRAPH_QUERY_SEMANTICS.md"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    assert status == "", f"a control edited the real document: {status!r}"
 
 
 # --- the sabotage control: the copy without the forward branch fails ---------
@@ -755,24 +1009,24 @@ def test_the_depth_2_divergent_node_is_the_cycle_closer_by_id() -> None:
     ids=["typed-neighborhood", "typed-descendants"],
 )
 def test_the_fallback_agrees_on_both_walks(build: object, depth: int) -> None:
-    """`_walk` under each operator's own intent answers the fixture identically.
+    """`answer` under each operator's own intent answers the fixture identically.
 
     The oracle every backend is held to, held here to the operator on the
-    criterion's own graph — entities AND edges — so the 20/21/22 and
-    20/22/22 figures are the fallback's figures too.
+    criterion's own graph — entities AND edges, as canonical bytes — so the
+    20/21/22 and 20/22/22 figures are the fallback's figures too.
+    ``family_view`` asserts every edge endpoint is a member, so the fixture
+    carries no unresolved reference and endpoint closure changes nothing
+    here: this equality held before semantics version 1.3.0 and holds after.
     """
     view = family_view()
     operator = build(depth)  # type: ignore[operator]
     fragment = operator.read_intent()
     assert fragment.traverse is not None
-    entities, edges = _walk(
-        view.entities, view.relationships, traverse=fragment.traverse, seeds=None
-    )
+    expected = _fallback_view(view, fragment.traverse)
     output = operator.apply(
         view=view, tenant_id=TENANT, temporal_boundary=BOUNDARY, upstream=()
     )
-    assert entities == output.view.entities
-    assert edges == output.view.relationships
+    assert canonical_bytes(expected) == canonical_bytes(output.view)
 
 
 def test_control_the_fixture_measurement_fails_on_a_copy_that_ignores_direction(

@@ -1,10 +1,10 @@
 # Graph Query Semantics
 
-**Semantics version: 1.2.0** — the query vocabulary is versioned through this
+**Semantics version: 1.3.0** — the query vocabulary is versioned through this
 document only (D-12): the `GraphQuery` contract carries **no version field**
 and evolves by additive sentinel-defaulted fields under the existing
 frozen/`extra=forbid` discipline; the differential conformance suite is the
-compatibility check. 1.0 added `allowed_entities`; 1.1.0 `admitted_entity_classes`; 1.2.0 `direction` (`GQ-10`, `GQ-35`).
+compatibility check. 1.0 added `allowed_entities`; 1.1.0 `admitted_entity_classes`; 1.2.0 `direction`; 1.3.0 the traversal universe (`GQ-10`, `GQ-13`, `GQ-16`, `GQ-35`).
 
 This is the normative definition of what a `GraphQuery` means and what any
 conformant answerer must return — D-05 artifact 1, written before the
@@ -203,20 +203,20 @@ model, and which one a decision needs is declared, never assumed.
 When the traverse family is present, the answer is a bounded breadth-first
 expansion (INV-CH7-24, whitepaper §7.4) with these decided semantics:
 
+- **The traversal universe.** Every walk — an in-process operator, the fallback, or a pushed adapter — runs over the in-scope ENTITY records, never over persisted edges alone: construct the admitted entity universe first, endpoint-close the edges against that universe (`GQ-16`), then walk (amendment 1.3.0, `GQ-35`).
 - **Undirected.** An edge is crossable in either direction; subject→object order carries no traversal
-  meaning — under `direction="undirected"`, the default; `direction="forward"` crosses only from
-  `subject_uri` to `object_uri` as stored (amendment 1.2.0, `GQ-35`).
+  meaning — under `direction="undirected"`, the default; `direction="forward"` crosses only from `subject_uri` to `object_uri` as stored (amendment 1.2.0, `GQ-35`).
 - **Typed.** The walk crosses only edges whose `relationship_type` is a member of `relationship_types`.
-  Edges of other types are not crossable — and are **absent from the answer** even when both their
-  endpoints are reached: the traverse family's answer contains exactly the permitted-type edges among reached entities.
+  Edges of other types are not crossable — and are **absent from the answer** even when both their endpoints are reached: the traverse family's answer contains exactly the permitted-type edges among reached entities.
 - **Seeds are included.** Every walk starting point that is itself in scope is in the answer.
 - **`depth_limit=0` yields the walk starting points only.** Zero hops is a legal, meaningful bound, not an error and not "unlimited".
-- **`depth_limit=N` reaches at most N hops** from a walk starting point. A node whose shortest
-  admissible path from every start exceeds N is absent.
-- **Admitted.** When `admitted_entity_classes` is present, a hop lands only on an entity whose
-  `entity_class` is a member; walk starts (`GQ-11`) are unaffected, and an entity absent from
-  in-scope state is not a hop. Absent (`None`), every class is admissible — the 1.0.x behavior
-  (amendment 1.1.0, `GQ-35`).
+- **`depth_limit=N` reaches at most N hops** from a walk starting point. Depth counts admitted traversal
+  hops, not persisted edge hops through an unresolved reference; a node whose shortest admissible path from every start exceeds N is absent.
+- **Admitted.** When `admitted_entity_classes` is present, a hop lands only on an entity whose `entity_class`
+  is a member; walk starts (`GQ-11`) are unaffected, and an entity absent from in-scope state is not a hop — it is
+  an unresolved reference, excluded below whether or not a class set is present. Absent (`None`), every class is admissible — the 1.0.x behavior (amendment 1.1.0, `GQ-35`).
+
+An **unresolved reference** is an edge endpoint carrying no entity claim in the view: legal persisted state (INV-CH7-20) that the degenerate answer keeps (`GQ-05`, `GQ-21`), but that is never a walk start, never an intermediate hop, and consumes no depth — and for which no placeholder or synthetic record is ever manufactured. Persisted graph state and traversal membership are not the same universe.
 
 ### `GQ-11` — Walk-start selection
 
@@ -263,11 +263,11 @@ and MUST never be assumed to have been applied upstream.
 Every node and every edge on a traversal path MUST satisfy the segment's
 policy (`GQ-08`) and temporal (`GQ-07`, `GQ-09`) predicates — and, when
 `allowed_entities` is present, every node on the path MUST be a member of
-the set. **A path through an excluded or out-of-set node does not
-exist.** This is INV-CH7-40 — the substitution semantics — rendered at
-the query tier: in-process, the walk expands over a view that Policy and
-Temporal already pruned, so an edge to an excluded node is not a hop the
-walk can take, and a pushed traversal MUST behave identically.
+the set. **A path through an excluded, out-of-set, or unresolved node — an
+unresolved reference in `GQ-10`'s sense — does not exist.** This is
+INV-CH7-40, the substitution semantics, rendered at the query tier: every
+traversal operator endpoint-closes its view against the entity universe before it expands
+(amendment 1.3.0, `GQ-10`, `GQ-16`), as the fallback closes before its walk and a pushed traversal closes inside its own query.
 
 This clause is a MUST for every adapter at every tier. Applying the
 predicates to the *result set* instead of to *every hop* is the named
@@ -323,9 +323,9 @@ INV-CH7-40) rendered at the query tier: a view retaining an edge to a
 node the principal may not see leaks by absence.
 
 The endpoint-closure half of this clause holds for every **constrained**
-answer — any family present, or `allowed_entities` non-`None`: such a view
-never contains a relationship whose endpoint entity is absent from it. The
-degenerate answer is exempt (amendment 1.0.1, stated under `GQ-35`).
+answer — any family present, or `allowed_entities` non-`None`: such a view never contains a
+relationship whose endpoint entity is absent from it, and closure precedes EVERY walk at every tier, the
+in-process operators included (amendment 1.3.0, `GQ-35`). The degenerate answer is exempt (amendment 1.0.1, stated under `GQ-35`).
 
 ### `GQ-17` — Segment-boundary mechanics
 
@@ -636,6 +636,68 @@ clause they amend out of existence, and an amendment is written so it does
 not move the clause headings above it — the anchored citations across
 `/src` and `/tests` carry line numbers, and a renumbering edit would make
 the citation guard report a hundred false moves and hide a real one.
+
+- **1.3.0** — *plan 24.8-05 (the mechanism: plan 24.8-04), ledger row
+  `CP04-G-28`, `D-IMPL-267`, `D-IMPL-268`.* No contract field changes.
+  `GQ-10`, `GQ-13` and `GQ-16` gain the traversal-universe rule —
+  construct the admitted entity universe first, endpoint-close the edges
+  against that universe, then walk — as the definition of every walk at
+  every tier: the in-process operators, the fallback, and every pushed
+  adapter answer one question, not two.
+
+  *What it means.* An edge endpoint for which the view holds no entity claim
+  is an **unresolved reference**: legal persisted state that is never a walk
+  start, never an intermediate hop, and never part of a path, and for which
+  no placeholder or synthetic record is manufactured. Two principles carry
+  the ruling (`D-IMPL-267`):
+
+  > **Persisted graph state and traversal membership are not the same universe.
+  > An edge may legally name an unresolved endpoint; that does not make the
+  > endpoint traversable.**
+
+  > **Traversal semantics are execution-path invariant. In-process,
+  > fallback, and pushed implementations may execute differently, but the
+  > same question over the same pinned state must produce the same
+  > canonical traversal result.**
+
+  Depth follows from the first: **Depth counts admitted traversal hops, not
+  persisted edge hops through entities that do not exist in the traversal
+  universe.** An unresolved reference therefore consumes no depth and
+  participates in no cycle. The in-process operator conforms by
+  endpoint-closing its working edge set against the entity universe before
+  `_bounded_walk` traverses it — shared semantics, not a shared helper, and
+  no predicate is promoted to a public surface merely to share one symbol
+  (`D-IMPL-268`).
+
+  *Why it was needed.* The SDK held two meanings of traversal. Measured
+  across six backends on graphs whose only difference is a claim-less
+  endpoint X: on a chain A→X→B at `depth_limit=2` with
+  `admitted_entity_classes=None` the operator tier answered `{A,B}` where
+  the query tier answered `{A}`; on a bypass graph where B is two persisted
+  hops from A through X and three admitted hops through C and D, depth 2
+  answered `{A,B,C,D}` at the operator tier against `{A,C,D}` at the query
+  tier. The operator tier disagreed with the fallback on **10 of 42**
+  (graph, question) pairs — each one a `depth ≥ 2`, `admitted=None` row with
+  X on the shortest persisted path — while the pushed adapters agreed with
+  the fallback on **252/252** backend-rows. The shipped operator walk was
+  not even idempotent on that shape: it answered `{A,B}` with no edges, so
+  re-applying it answers `{A}` — `T(T(G)) ≠ T(G)`. Found at the 24.5 close
+  (`D-GATE-24.5` R1), carried by ruling since (`24.6-L-19`) as ledger row
+  `CP04-G-28`.
+
+  *Conformance.* A new operator-tier differential,
+  `tests/conformance/test_operator_tier_differential.py`, holds
+  `TraversalNeighborhood` and `TraversalDescendants` byte-identical to
+  `reader.query` and to `fallback.answer` over
+  `tests/conformance/query_corpus.py::unresolved_reference_cases` on every
+  registered backend, and proves the depth and cycle consequences rather
+  than final membership alone.
+
+  *Behavioral in one tier, no field.* The inverse of 1.0.1's clarifying
+  slot: no field is added to the vocabulary, so `content_hash(GraphQuery)`
+  does NOT move (`GQ-20`) — unlike 1.1.0 and 1.2.0, each of which moved it
+  for every traverse query — while one tier's behavior does change, to the
+  meaning the other tiers already had.
 
 - **1.2.0** — *plan 24.5-18 (the mechanism: plan 24.5-05), ledger row
   `24.5-L-06`.* `GQ-10`'s first bullet gains a direction: the traverse

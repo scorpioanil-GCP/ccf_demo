@@ -3,7 +3,7 @@
 Whitepaper §7.3 (the Context Graph as queryable persisted state) and §7.4
 (the operator categories whose semantics a pushed query renders). The
 normative vocabulary is ``docs/GRAPH_QUERY_SEMANTICS.md`` (semantics version
-1.0.1): the prose decides; this module implements it clause-for-clause; the
+1.3.0): the prose decides; this module implements it clause-for-clause; the
 adapters agree with it under the differential suite (`GQ-31` at
 docs/GRAPH_QUERY_SEMANTICS.md:573); and the property suite audits this module
 against the named invariants — so the oracle is answerable to something it
@@ -13,8 +13,8 @@ does not define (D-05).
 answers any well-formed :class:`~ccf.graph.protocols.GraphQuery` (`GQ-29` at
 docs/GRAPH_QUERY_SEMANTICS.md:554), degrading internally to scan-and-filter
 where it holds no native translation (D-04) — and "scan-and-filter" means
-*this module*, so no second traversal implementation exists in the tree and
-per-substrate divergence has nowhere to live.
+*this module*, so per-substrate divergence has nowhere to live. Since 1.3.0
+the in-process operator walk closes for itself too, by the same rule.
 
 Purity, by construction: pure functions over ``(entities, relationships,
 query)`` returning surviving records. No I/O, no clock reads (``as_of``
@@ -180,16 +180,16 @@ def _endpoint_closure(
     wording said "every answer", 15.2-05 found it contradicted `GQ-05`
     and `GQ-21` on the dangling-edge shape and resolved it here, and the
     15.2-14 phase-close audit moved the ruling into the document that is
-    supposed to hold it. The reasoning below is why, restated so a reader
-    of this function does not have to leave it — its rationale is
-    exclusion: an edge to a node the answer *removed* leaks
-    that node's existence. The degenerate everything-question excludes
-    nothing; its answer is the tenant's full as-of view (`GQ-05` at
-    docs/GRAPH_QUERY_SEMANTICS.md:122), in which a persisted first-class
-    edge whose endpoint carries no entity claim (INV-CH7-20 — edges are
-    never derived joins) is state, not a leak — and `GQ-21` at
-    docs/GRAPH_QUERY_SEMANTICS.md:446 pins that answer byte-identical to
-    the pre-seam ``as_of()``, which never pruned it.
+    supposed to hold it. Its rationale is exclusion: an edge to a node the
+    answer *removed* leaks that node's existence. The degenerate
+    everything-question excludes nothing; its answer is the tenant's full
+    as-of view (`GQ-05` at docs/GRAPH_QUERY_SEMANTICS.md:122), in which a
+    persisted first-class edge whose endpoint carries no entity claim is
+    an unresolved reference (INV-CH7-20 — edges are never derived joins):
+    state, not a leak, and `GQ-21` at docs/GRAPH_QUERY_SEMANTICS.md:446
+    pins that answer byte-identical to the pre-seam ``as_of()``. Since
+    semantics version 1.3.0 this closure precedes EVERY walk at every
+    tier, the in-process operator included (`D-IMPL-268`).
     """
     surviving = {record.claim.entity_uri for record in entities}
     return tuple(

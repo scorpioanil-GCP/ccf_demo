@@ -25,7 +25,13 @@ surfaces here as a byte difference rather than as a silent wrong answer.
 
 **Two classes of input** (D-14): Hypothesis-generated banking-shaped states,
 and the curated edge graphs — empty result, fully policy-filtered, temporal
-boundary — that generation is unlikely to hit reliably.
+boundary, and (since 24.8) an unresolved reference — that generation is
+unlikely to hit reliably.
+
+**One algebraic consequence the pair law cannot see.** The n² law holds under
+both the shipped and the conforming traversal walk on the dangling case, so
+``T(T(G)) = T(G)`` is asserted separately for each traversal shape at the end
+of this module (`D-IMPL-268`, whitepaper §7.4).
 """
 
 from __future__ import annotations
@@ -75,6 +81,17 @@ TRAVERSAL_KEY = "traversal.typed-neighborhood"
 #: variant below. Derived from the registry, so a fifth operator joins here
 #: on its own.
 OTHER_KEYS: tuple[str, ...] = tuple(k for k in OPERATOR_KEYS if k != TRAVERSAL_KEY)
+
+#: Every shipped key in the TRAVERSAL category — the two shapes today
+#: (ledger row ``24.5-L-06``), derived from the registry's own category
+#: assignment rather than by name, so a third shape joins the idempotence
+#: test below on its own.
+TRAVERSAL_KEYS: tuple[str, ...] = tuple(
+    key
+    for key in OPERATOR_KEYS
+    if REGISTRY.registration(key).category
+    == REGISTRY.registration(TRAVERSAL_KEY).category
+)
 
 
 def admitted_traversal() -> TraversalNeighborhood:
@@ -266,6 +283,85 @@ def test_the_policy_filtered_graph_is_actually_emptied_by_policy() -> None:
 
 
 def test_the_curated_set_covers_the_three_named_edge_cases() -> None:
-    """D-14 names them explicitly; a fixture set that dropped one is a defect."""
+    """D-14 names three explicitly; since 24.8 the set is four.
+
+    A fixture set that dropped one is a defect, and the assertion is a subset
+    check so an ADDED case never reds it — which is why the fourth has to be
+    named here rather than left to arrive on its own. ``unresolved-reference``
+    (G-28, `D-IMPL-267`) is the persisted-edge-onto-an-unclaimed-endpoint
+    shape; it is the state the two traversal tiers disagreed on, and the
+    fixture losing it would silently retire the coverage this phase added.
+
+    The node id is deliberately unchanged: the criteria cite it, and a
+    strengthened assertion under the same id is what keeps that citation
+    resolvable. It reads "three named" because D-14 named three; the fourth
+    is 24.8's addition and is asserted below with the rest.
+    """
     names = {case.name for case in CURATED}
-    assert {"empty-result", "policy-filtered", "temporal-boundary"} <= names
+    assert {
+        "empty-result",
+        "policy-filtered",
+        "temporal-boundary",
+        "unresolved-reference",
+    } <= names
+
+
+@pytest.mark.parametrize("key", TRAVERSAL_KEYS, ids=list(TRAVERSAL_KEYS))
+def test_each_traversal_operator_is_idempotent_on_the_unresolved_reference_case(
+    key: str,
+) -> None:
+    """``T(T(G)) = T(G)`` on the dangling case, by bytes — whitepaper §7.4.
+
+    A traversal is a selection: applying it to its own answer must be the
+    answer again, or the operator algebra's fixed point does not exist and a
+    replayed two-segment plan can disagree with the one-segment plan that
+    recorded it. On the shipped in-process walk this FAILS for the undirected
+    neighborhood (RESEARCH F-3): the first application crosses the unclaimed
+    endpoint and returns the entity beyond it, the second application sees a
+    view in which the phantom route is gone and returns strictly less.
+
+    This is coverage with a sharp edge, not the phase's discriminating
+    instrument: the 25-pair composition law itself holds under either walk on
+    this case (24.8-VALIDATION.md, composition row), so the proof of the
+    ruled semantics is the differential and the in-process oracle module.
+    What this test adds is the one algebraic consequence the pair law cannot
+    see. `D-IMPL-268`.
+    """
+    assert len(TRAVERSAL_KEYS) == 2, (
+        "the traversal category's shape roster moved; a third shape joins this"
+        f" test on its own, but the count is pinned so it cannot do so"
+        f" unnoticed: {TRAVERSAL_KEYS}"
+    )
+    case = next(item for item in CURATED if item.name == "unresolved-reference")
+    # The phantom URI is read OFF the case: the edge endpoint that carries no
+    # entity claim. Never a module-level literal — the fixture owns the value.
+    claimed = {record.claim.entity_uri for record in case.view.entities}
+    endpoints = {
+        uri
+        for edge in case.view.relationships
+        for uri in (edge.claim.subject_uri, edge.claim.object_uri)
+    }
+    unresolved = endpoints - claimed
+    assert len(unresolved) == 1, f"the curated case lost its dangling shape: {case.name}"
+    phantom = next(iter(unresolved))
+
+    operator = REGISTRY.resolve(key)
+    once = operator.apply(
+        view=case.view, tenant_id=TENANT, temporal_boundary=BOUNDARY, upstream=()
+    )
+    twice = operator.apply(
+        view=once.view,
+        tenant_id=TENANT,
+        temporal_boundary=BOUNDARY,
+        upstream=(once.provenance,),
+    )
+    assert phantom not in {
+        record.claim.entity_uri for record in once.view.entities
+    }, f"{key} emitted the unresolved endpoint"
+    assert canonical_bytes(twice.view) == canonical_bytes(once.view), (
+        f"{key} is not idempotent on the unresolved-reference case:"
+        " the second application answers"
+        f" {sorted(record.claim.entity_uri for record in twice.view.entities)}"
+        " where the first answered"
+        f" {sorted(record.claim.entity_uri for record in once.view.entities)}"
+    )

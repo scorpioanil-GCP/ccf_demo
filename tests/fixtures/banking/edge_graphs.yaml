@@ -9,8 +9,9 @@
 #
 #   `graphs` — curated graph states holding the edge cases generation is
 #   unlikely to produce reliably: a state every operator empties, a state the
-#   Policy operator removes entirely, and claims sitting exactly on the
-#   temporal boundary in every configuration that matters.
+#   Policy operator removes entirely, claims sitting exactly on the temporal
+#   boundary in every configuration that matters, and — since 24.8 — a
+#   persisted edge onto an endpoint no entity claim covers.
 #
 # The decision boundary these are written against is
 # controlplane.yaml `decision.temporal_boundary` (2026-03-01T10:00:00Z).
@@ -156,3 +157,50 @@ graphs:
         policy_bundle_version: "acme-bank/policy-bundle@2026-03-01"
         observed_at: 2026-03-01T10:00:00Z
         valid_from: 2026-03-01T10:00:00Z
+
+  # 4. A persisted edge whose endpoint carries no entity claim — an UNRESOLVED
+  #    REFERENCE (G-28, `D-IMPL-267`). `acme-bank:facility:unresolved-1` is
+  #    named by two edges and declared under no entity: legal persisted state
+  #    (whitepaper §7.3, INV-CH7-20 — edges are first-class claims, never
+  #    derived joins), and not a traversal member (P-1). This is the shape the
+  #    two tiers disagreed on: the operator tier's in-process walk steps onto
+  #    the claim-less URI, spends a hop of the controlplane's depth-2 budget on
+  #    it, and arrives at the guarantee on the far side; the query tier
+  #    endpoint-closes first and answers the anchor alone.
+  #
+  #    What the case detects here, beyond coverage: `T(T(G)) != T(G)` on the
+  #    shipped neighborhood walk — the second application sees the pruned view,
+  #    in which the phantom route is gone, and answers strictly less. And the
+  #    Traversal∘Policy / Policy∘Traversal orderings both have to close the same
+  #    edge, whichever ran first.
+  - name: unresolved-reference
+    entities:
+      - entity_uri: "acme-bank:counterparty:claimed-anchor-1"
+        entity_class: counterparty
+        classification: internal
+        policy_bundle_version: "acme-bank/policy-bundle@2026-03-01"
+        observed_at: 2026-03-01T08:00:00Z
+        valid_from: 2026-03-01T08:00:00Z
+      - entity_uri: "acme-bank:guarantee:claimed-beyond-1"
+        entity_class: guarantee
+        classification: internal
+        policy_bundle_version: "acme-bank/policy-bundle@2026-03-01"
+        observed_at: 2026-03-01T08:00:00Z
+        valid_from: 2026-03-01T08:00:00Z
+    relationships:
+      # Both edges name the same unresolved facility URI, from the two
+      # ontology-legal directions (obligor_of: counterparty→facility;
+      # guarantees: guarantee→facility), so the fixture stays a legal banking
+      # graph while the endpoint stays unclaimed.
+      - relationship_type: obligor_of
+        subject_uri: "acme-bank:counterparty:claimed-anchor-1"
+        object_uri: "acme-bank:facility:unresolved-1"
+        policy_bundle_version: "acme-bank/policy-bundle@2026-03-01"
+        observed_at: 2026-03-01T08:00:00Z
+        valid_from: 2026-03-01T08:00:00Z
+      - relationship_type: guarantees
+        subject_uri: "acme-bank:guarantee:claimed-beyond-1"
+        object_uri: "acme-bank:facility:unresolved-1"
+        policy_bundle_version: "acme-bank/policy-bundle@2026-03-01"
+        observed_at: 2026-03-01T08:00:00Z
+        valid_from: 2026-03-01T08:00:00Z
