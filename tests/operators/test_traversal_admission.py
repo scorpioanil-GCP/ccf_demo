@@ -12,10 +12,15 @@ and its control are read off the same state:
   path to it ran through the excluded node (`GQ-13`);
 * the all-admitted control on the same view reaches every neighbor, and the
   ``None`` sentinel reaches the same set (additive over breaking, D-10);
-* ``src/ccf/graph/fallback.py::_walk`` — the differential oracle every
-  pushed answer is held byte-identical to — agrees with
+* ``src/ccf/graph/fallback.py::answer`` — the query tier's ruled sequence,
+  closure included — agrees with
   ``src/ccf/operators/categories.py::TraversalNeighborhood.apply`` in every
-  configuration;
+  configuration, BY BYTES, on the fully-claimed view AND on a dangling shape.
+  The oracle used to be the bare ``src/ccf/graph/fallback.py::_walk``, which
+  is only step 5 of that sequence: it skipped the endpoint closure and so
+  agreed with the shipped operator on exactly the shape the two tiers used to
+  disagree on, leaving this check green in both states (`D-GATE-24.5` R1).
+  Superseded in 24.8 (`D-IMPL-267` D-05, mechanism `D-IMPL-268`);
 * a start of an unadmitted class stays in the answer and still expands.
 
 **The sabotage control.** ``src/ccf/operators/categories.py`` is copied to a
@@ -42,8 +47,14 @@ from types import ModuleType
 
 import pytest
 
-from ccf.graph.fallback import _walk
-from ccf.graph.protocols import EntityRecord, GraphView, RelationshipRecord
+from ccf.contracts.canonical import canonical_bytes
+from ccf.graph.fallback import answer
+from ccf.graph.protocols import (
+    EntityRecord,
+    GraphQuery,
+    GraphView,
+    RelationshipRecord,
+)
 from ccf.operators.categories import TraversalNeighborhood
 from ccf.operators.params import TraversalNeighborhoodParameters
 
@@ -77,6 +88,9 @@ S_URI = ENTITY_POOL[SEED_CLASS][0]
 A_URI = ENTITY_POOL[ADMITTED_CLASS][0]
 B_URI = ENTITY_POOL[EXCLUDED_CLASS][0]
 C_URI = ENTITY_POOL[ADMITTED_CLASS][1]
+#: The dangling endpoint of ``dangling_view()`` — drawn from the pool and never
+#: given an ``_entity`` record, so it is named by edges and by nothing else.
+DANGLING_URI = ENTITY_POOL[EXCLUDED_CLASS][2]
 
 EARLY = INSTANTS[0]
 BUNDLE: str = GENERATION["permitted_policy_bundle_version"]
@@ -164,14 +178,77 @@ def reached_by(operator: TraversalNeighborhood, view: GraphView = VIEW) -> set[s
     return {record.claim.entity_uri for record in output.view.entities}
 
 
-def reached_by_fallback(operator: TraversalNeighborhood, view: GraphView = VIEW) -> set[str]:
-    """The oracle's answer to the operator's own mirrored ``TraversalSpec``."""
+def oracle_view(operator: TraversalNeighborhood, view: GraphView = VIEW) -> GraphView:
+    """The reference semantics for the operator's own question, frozen as a view.
+
+    ``src/ccf/graph/fallback.py::answer``, NOT
+    ``src/ccf/graph/fallback.py::_walk``. The bare walk is only step 5 of the
+    ruled sequence; step 4 endpoint-closes the surviving edges against the
+    surviving entity universe first (`GQ-16` at
+    docs/GRAPH_QUERY_SEMANTICS.md:316, `GQ-13` at
+    docs/GRAPH_QUERY_SEMANTICS.md:261), and that closure is part of the
+    reference semantics every tier now shares (`D-IMPL-267` D-05/D-08,
+    mechanism `D-IMPL-268`). An oracle that skipped it agreed with the shipped
+    operator on exactly the dangling shape the two tiers used to disagree on,
+    so it could not discriminate — `D-GATE-24.5` R1, and the reason this
+    function was re-derived in 24.8.
+
+    The freeze reproduces the two sorts
+    ``tests/conformance/test_substrate_differential.py::_frozen_at`` applies,
+    so ordering is the interface's on both sides and the equality below is
+    about semantics, not collection order (`GQ-22` at
+    docs/GRAPH_QUERY_SEMANTICS.md:461).
+    """
     fragment = operator.read_intent()
     assert fragment.traverse is not None
-    entities, _edges = _walk(
-        view.entities, view.relationships, traverse=fragment.traverse, seeds=None
+    entities, relationships = answer(
+        view.entities,
+        view.relationships,
+        query=GraphQuery(
+            tenant_id=TENANT, as_of=view.as_of, traverse=fragment.traverse
+        ),
     )
-    return {record.claim.entity_uri for record in entities}
+    return GraphView(
+        tenant_id=TENANT,
+        as_of=view.as_of,
+        entities=tuple(sorted(entities, key=lambda record: record.claim.entity_uri)),
+        relationships=tuple(
+            sorted(relationships, key=lambda record: record.relationship_key)
+        ),
+    )
+
+
+def answered_view(
+    operator: TraversalNeighborhood, view: GraphView = VIEW
+) -> GraphView:
+    """What the in-process operator tier answers over ``view``."""
+    output = operator.apply(
+        view=view, tenant_id=TENANT, temporal_boundary=BOUNDARY, upstream=()
+    )
+    return output.view
+
+
+def dangling_view() -> GraphView:
+    """S seeds; one edge to a URI carrying NO entity claim, and one on from it.
+
+    The same G-28 shape as
+    ``tests/operators/test_traversal_unresolved_reference.py``, built in this
+    module's own vocabulary so the oracle above is exercised on the state that
+    discriminates. The claim-less URI is drawn from the excluded class's pool
+    and given no ``_entity`` record, so it carries no class either — which is
+    why the admitted-set parametrization agrees under BOTH the old and the new
+    walk (a claim-less node has no class, so admission excluded it already),
+    and only ``admitted=None`` separates them.
+    """
+    entities = (
+        _entity(S_URI, SEED_CLASS),
+        _entity(A_URI, ADMITTED_CLASS),
+    )
+    relationships = (
+        _edge(S_URI, DANGLING_URI),
+        _edge(DANGLING_URI, A_URI),
+    )
+    return _view(entities, relationships)
 
 
 # --- the exclusion and its controls ------------------------------------------
@@ -259,12 +336,53 @@ def test_starts_are_never_filtered_by_admission() -> None:
 def test_the_fallback_walk_agrees_with_the_operator(
     seed_classes: frozenset[str], admitted: frozenset[str] | None
 ) -> None:
-    """The oracle answers the mirrored spec with the operator's own entity set (D-04)."""
+    """The oracle answers the mirrored spec with the operator's own answer, BY BYTES.
+
+    Equality on ``canonical_bytes`` rather than on a URI set, because the
+    ruling is byte-identical canonical results, not "same set" (`D-IMPL-267`
+    D-05/P-2): ordering drift alone poisons replay and content addressing, so
+    a set comparison would let it through.
+    """
     operator = traversal(seed_classes=seed_classes, admitted=admitted)
     fragment = operator.read_intent()
     assert fragment.traverse is not None
     assert fragment.traverse.admitted_entity_classes == admitted
-    assert reached_by_fallback(operator) == reached_by(operator)
+    assert canonical_bytes(answered_view(operator)) == canonical_bytes(
+        oracle_view(operator)
+    )
+
+
+@pytest.mark.parametrize(
+    "admitted",
+    [None, frozenset({ADMITTED_CLASS})],
+    ids=["none-sentinel", "one-class"],
+)
+def test_the_oracle_is_answer_not_walk_on_the_dangling_shape(
+    admitted: frozenset[str] | None,
+) -> None:
+    """The shape that separates ``answer`` from ``_walk`` — and the two walks (D-05).
+
+    On ``dangling_view()`` at ``depth_limit=2`` the ruled answer is the seed
+    alone: the edge S -> (claim-less URI) is persisted state and not a hop, so
+    A is unreachable even though a persisted two-hop route names it
+    (`D-IMPL-267` D-01/D-02/D-07).
+
+    ``[none-sentinel]`` is the discriminating parametrization: against the base
+    ``categories.py`` — the shipped walk before `D-IMPL-268` — the operator
+    answers ``{S, A}`` where the reference answers ``{S}``, and this assertion
+    is RED. ``[one-class]`` passes under BOTH walks and is here as the control:
+    a claim-less node carries no class, so an admitted SET excluded it already,
+    which is precisely why an admission-only instrument never caught G-28.
+    """
+    operator = traversal(admitted=admitted, depth=2)
+    view = dangling_view()
+    assert canonical_bytes(answered_view(operator, view)) == canonical_bytes(
+        oracle_view(operator, view)
+    )
+    reached = {record.claim.entity_uri for record in answered_view(operator, view).entities}
+    assert reached == {S_URI}, (
+        f"the walk crossed the unresolved reference: reached {sorted(reached)}"
+    )
 
 
 def test_read_intent_mirrors_admission_field_for_field() -> None:

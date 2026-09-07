@@ -54,9 +54,13 @@ in this file (CLAUDE.md §6.4).
 from __future__ import annotations
 
 import ast
+import importlib.util
 import logging
 import pathlib
+import subprocess
+import sys
 import warnings
+from types import ModuleType
 
 import pytest
 
@@ -90,6 +94,10 @@ from tests.properties.strategies import (
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 SRC_PACKAGE = REPO_ROOT / "src" / "ccf"
+#: The one source file every sabotage control below copies and mutates. Never
+#: written to — the controls write under ``tmp_path`` and the last test in the
+#: module reads this file's cleanliness back out of ``git``.
+CATEGORIES_SOURCE = SRC_PACKAGE / "operators" / "categories.py"
 
 #: The three roles, in ontology vocabulary. The seed class starts the walk;
 #: the unresolved class is the one NO claimed entity in this module carries,
@@ -131,6 +139,34 @@ PLACEHOLDER_TOKENS: tuple[str, ...] = (
     "stand_in",
     "sentinel",
 )
+
+#: The exact closure clause mechanism (i) added to ``_bounded_walk``
+#: (`D-IMPL-268`). Asserted PRESENT exactly once in the real source before any
+#: copy is mutated, so no control below can pass vacuously against a file that
+#: never carried it — the ``ADMISSION_PREDICATE`` voice from
+#: ``tests/operators/test_traversal_admission.py``.
+CLOSURE_PREDICATE = (
+    "if edge.claim.subject_uri in universe and edge.claim.object_uri in universe"
+)
+#: The line that turns the reached URI set back into records. The
+#: planted-placeholder control replaces it to manufacture the record D-03
+#: forbids; present once.
+REACHED_ENTITIES = (
+    "record for record in view.entities if record.claim.entity_uri in reached"
+)
+#: Every operator in the module mints provenance through this one call, so the
+#: conditional-annotation control replaces all FOUR occurrences at once and the
+#: two traversal shapes cannot disagree about what they stamped.
+PROVENANCE_CALL = "provenance=mint_provenance(self, upstream=upstream),"
+#: The WHOLE frontier comprehension, because ``    frontier = {`` alone occurs
+#: twice (the seed selection and the per-hop rebuild). The seeding control
+#: replaces this block so starts come from persisted edge endpoints instead of
+#: entity claims; present once.
+FRONTIER_BLOCK = """    frontier = {
+        record.claim.entity_uri
+        for record in view.entities
+        if record.claim.entity_class in seed_classes
+    }"""
 
 #: Which declared-parameter contract each traversal operator reads. The two
 #: shapes share the ``traversal`` category and differ in the direction their
@@ -320,6 +356,23 @@ def assert_answers_the_reference(operator: object, view: GraphView) -> None:
         f" {sorted(record.claim.entity_uri for record in answered.entities)}"
         " where the reference answers"
         f" {sorted(record.claim.entity_uri for record in reference.entities)}"
+    )
+
+
+def assert_provenance_is_twin_equal(operator: object) -> None:
+    """The structural form of "nothing was annotated" (D-04), for ANY operator.
+
+    Factored out of ``test_exclusion_is_silent`` so the conditional-annotation
+    sabotage below can run the very same assertion body against a scratch
+    copy: the instrument is only discriminating if the sabotage makes THIS
+    comparison fail, and it can only be shown to do that if both sides call
+    one function.
+    """
+    on_g1 = output_of(operator, G1)
+    on_twin = output_of(operator, TWIN)
+    assert canonical_bytes(on_g1.provenance) == canonical_bytes(on_twin.provenance), (
+        "the walk annotated its provenance differently when an endpoint was"
+        " unresolved — exclusion is a semantic, not a finding (D-04)"
     )
 
 
@@ -599,13 +652,348 @@ def test_exclusion_is_silent(
     caplog.set_level(logging.DEBUG)
     with warnings.catch_warnings(record=True) as raised:
         warnings.simplefilter("always")
-        on_g1 = output_of(operator, G1)
+        output_of(operator, G1)
     assert [str(item.message) for item in raised] == []
     assert [
         record.name for record in caplog.records if record.name.startswith("ccf")
     ] == []
-    on_twin = output_of(operator, TWIN)
-    assert canonical_bytes(on_g1.provenance) == canonical_bytes(on_twin.provenance), (
-        "the walk annotated its provenance differently when an endpoint was"
-        " unresolved — exclusion is a semantic, not a finding (D-04)"
+    assert_provenance_is_twin_equal(operator)
+
+
+# --- 8. the sabotage controls: every instrument above can still fail ---------
+#
+# Copy-and-mutate, never edit-and-revert: the real
+# ``src/ccf/operators/categories.py`` is read, mutated in memory, written under
+# ``tmp_path`` and imported under a scratch name. The pattern and its
+# cleanliness assertion are
+# ``tests/operators/test_traversal_admission.py::_import_sabotaged_categories``
+# and ``::test_no_control_edits_the_real_source_tree``; the real-tree
+# assertion is repeated at the end of this section so a control that crashed
+# halfway cannot leave the tree modified and this module green.
+
+
+def _import_mutated_categories(
+    tmp_path: pathlib.Path,
+    *,
+    replace: str,
+    with_: str,
+    name: str,
+    count: int = 1,
+    extra: tuple[tuple[str, str, int], ...] = (),
+    append: str = "",
+) -> ModuleType:
+    """A copy of ``categories.py`` with named literals replaced, under a scratch name.
+
+    ``replace``/``with_``/``count`` is the primary edit; ``extra`` carries any
+    further ``(replace, with_, count)`` triples a control needs (the
+    conditional-annotation control mutates three sites at once), and ``append``
+    adds scratch-only module-level helpers after the copy. Every premise is
+    asserted against the REAL source before the mutation, so a control cannot
+    pass vacuously against a file that no longer carries the literal it pins.
+    """
+    source = CATEGORIES_SOURCE.read_text(encoding="utf-8")
+    edits = ((replace, with_, count), *extra)
+    for original, replacement, occurrences in edits:
+        assert source.count(original) == occurrences, (
+            f"{original!r} occurs {source.count(original)} times in"
+            f" {CATEGORIES_SOURCE}, not {occurrences}; re-anchor the control"
+        )
+        source = source.replace(original, replacement)
+        if original not in replacement:
+            # Only meaningful when the mutation REMOVES the literal; controls
+            # that wrap it (``… or _note_exclusion()``) legitimately keep it.
+            assert original not in source
+        else:
+            assert source.count(original) == occurrences
+    scratch = tmp_path / f"{name}.py"
+    scratch.write_text(source + append, encoding="utf-8")
+    spec = importlib.util.spec_from_file_location(name, scratch)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.modules.pop(name, None)
+    return module
+
+
+def test_control_closure_removed_reaches_through_the_phantom(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Criteria 5 and 6 (D-01, D-02, D-05, D-07): drop the closure, the walk crosses X.
+
+    The copy is the SHIPPED walk of `D-GATE-24.5` R1 — closure removed is
+    exactly the pre-`D-IMPL-268` behavior — so its answers are the divergence
+    research measured, not an invented one: ``{A, B}`` on the G1 chain and
+    ``{A, B, C, D}`` on the G3 bypass at ``depth_limit=2``.
+    """
+    copy_module = _import_mutated_categories(
+        tmp_path,
+        replace=CLOSURE_PREDICATE,
+        with_="if True",
+        name="_ccf_categories_closure_removed",
     )
+    copy = traversal(operator_class=copy_module.TraversalNeighborhood)
+    real = traversal()
+
+    with pytest.raises(AssertionError, match="operator tier"):
+        assert_answers_the_reference(copy, G1)
+    # The positive statement: the copy reached BEYOND the unresolved reference.
+    copy_on_g1 = _reached(output_of(copy, G1).view)
+    assert copy_on_g1 == {A_URI, B_URI}
+    assert copy_on_g1 - _reached(output_of(real, G1).view) == {B_URI}
+
+    # And criterion 6's observed red on the bypass: the phantom shortcut costs
+    # two hops, so the copy reaches B at a depth the claimed route cannot.
+    copy_at_two = traversal(depth=2, operator_class=copy_module.TraversalNeighborhood)
+    with pytest.raises(AssertionError, match="operator tier"):
+        assert_answers_the_reference(copy_at_two, G3)
+    assert _reached(output_of(copy_at_two, G3).view) == {A_URI, B_URI, C_URI, D_URI}
+    assert _reached(output_of(traversal(depth=2), G3).view) == {A_URI, C_URI, D_URI}
+
+
+def test_control_a_planted_placeholder_appears_in_the_answer(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Criterion 8 (D-03): manufacture a record for X and the exclusion tests red.
+
+    Two mutations, because a placeholder is only observable once the walk
+    reaches the URI: the closure is dropped, and the reached-to-records line
+    additionally yields, for every reached URI carrying no claim, a record
+    copied from the view's first entity with ``entity_uri`` rewritten to it
+    (frozen pydantic models copy through ``model_copy``). That is the synthetic
+    entity D-03 refuses — asserting context no source ever did.
+
+    It also reds ``test_the_cycle_answers_as_the_chain_does``'s G1/G2 control:
+    once X is a record it survives ``_substitute``, so the cycle-closing edge
+    X -> A appears in the G2 answer and not in the G1 answer.
+    """
+    # The plant lives in an appended helper rather than inline in the
+    # comprehension, so the replaced literal stays a single call. ``dict(...)``
+    # rather than a brace literal keeps the scratch source out of the
+    # prompt-shape lint's brace-density signal (CINV-01a) — the fragment is
+    # Python, not prose.
+    plant = (
+        "\n\ndef _manufacture(view, reached):\n"
+        "    claimed = set(r.claim.entity_uri for r in view.entities)\n"
+        "    kept = [r for r in view.entities if r.claim.entity_uri in reached]\n"
+        "    for uri in sorted(reached - claimed):\n"
+        "        first = view.entities[0]\n"
+        "        rewritten = first.claim.model_copy(update=dict(entity_uri=uri))\n"
+        "        kept.append(first.model_copy(update=dict(claim=rewritten)))\n"
+        "    return kept\n"
+    )
+    copy_module = _import_mutated_categories(
+        tmp_path,
+        replace=CLOSURE_PREDICATE,
+        with_="if True",
+        name="_ccf_categories_planted_placeholder",
+        extra=((REACHED_ENTITIES, "_manufacture(view, reached)", 1),),
+        append=plant,
+    )
+    copy = traversal(operator_class=copy_module.TraversalNeighborhood)
+
+    on_g2 = output_of(copy, G2).view
+    assert X_URI in _reached(on_g2), "the plant did not reach the answer"
+    with pytest.raises(AssertionError, match="operator tier"):
+        assert_answers_the_reference(copy, G2)
+    # Discriminating for the cycle instrument: the copy's G2 answer is no
+    # longer its G1 answer, because the manufactured record keeps X -> A.
+    assert canonical_bytes(on_g2) != canonical_bytes(output_of(copy, G1).view)
+    assert _edges(on_g2) - _edges(output_of(copy, G1).view) == {(X_URI, A_URI)}
+    # The real operator manufactures nothing on the same state.
+    assert X_URI not in _reached(output_of(traversal(), G2).view)
+
+
+def test_control_a_raise_on_exclusion_breaks_the_walk(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Criterion 9 (D-04): exclusion is a SEMANTIC, so a refusal must be visible.
+
+    The scratch copy's closure clause is ``or``-ed with ``_refuse_unresolved``,
+    a one-line helper appended to the copy that raises ``ValueError`` the first
+    time an endpoint falls outside the universe (``and`` binds tighter than
+    ``or``, so the raise fires exactly on the edges closure drops). The copy
+    refuses on G1 and answers normally on the fully-claimed twin, which is what
+    makes the control discriminating rather than merely red: it fires on
+    exclusion, not on traversal.
+    """
+    copy_module = _import_mutated_categories(
+        tmp_path,
+        replace=CLOSURE_PREDICATE,
+        with_=f"{CLOSURE_PREDICATE} or _refuse_unresolved()",
+        name="_ccf_categories_raises_on_exclusion",
+        append=(
+            "\n\ndef _refuse_unresolved() -> bool:\n"
+            "    raise ValueError('unresolved reference refused by the control')\n"
+        ),
+    )
+    copy = traversal(operator_class=copy_module.TraversalNeighborhood)
+
+    with pytest.raises(ValueError, match="unresolved reference refused"):
+        output_of(copy, G1)
+    # Discriminating: on the twin every endpoint is claimed, nothing is
+    # excluded, and the copy answers exactly what the real operator answers.
+    assert canonical_bytes(output_of(copy, TWIN).view) == canonical_bytes(
+        output_of(traversal(), TWIN).view
+    )
+    # ... and the real operator is silent on G1, which is the ruling.
+    assert _reached(output_of(traversal(), G1).view) == {A_URI}
+
+
+def test_control_a_provenance_annotation_is_not_silent(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Criterion 9 (D-04): the annotation must be CONDITIONAL to red the instrument.
+
+    ``test_exclusion_is_silent`` compares provenance(G1) with provenance(twin)
+    for the SAME operator, so an unconditional stamp would sit on both sides
+    and leave the instrument green. The copy therefore records whether closure
+    dropped anything — the clause is ``or``-ed with ``_note_exclusion``, which
+    sets a module flag and returns ``False`` so the edge is still dropped, and
+    the flag is reset at the top of every walk — and then stamps
+    ``index_version`` only when the flag is set, at all four ``mint_provenance``
+    call sites so the two traversal shapes cannot disagree.
+
+    Positive statements, both required: the copy's G1 provenance carries the
+    marker and its twin provenance does not; and its G1 *view* bytes equal the
+    real operator's, so only the silence broke, not the walk.
+    """
+    marker = "unresolved-references-excluded"
+    copy_module = _import_mutated_categories(
+        tmp_path,
+        replace=CLOSURE_PREDICATE,
+        with_=f"{CLOSURE_PREDICATE} or _note_exclusion()",
+        name="_ccf_categories_annotates_exclusion",
+        extra=(
+            (
+                "    universe = {record.claim.entity_uri for record in view.entities}",
+                "    _reset_exclusion()\n"
+                "    universe = {record.claim.entity_uri for record in view.entities}",
+                1,
+            ),
+            (
+                PROVENANCE_CALL,
+                "provenance=mint_provenance(\n"
+                "                self,\n"
+                "                upstream=upstream,\n"
+                f"                index_version=('{marker}' if _EXCLUDED else None),\n"
+                "            ),",
+                4,
+            ),
+        ),
+        append=(
+            "\n\n_EXCLUDED = False\n\n\n"
+            "def _reset_exclusion() -> None:\n"
+            "    global _EXCLUDED\n"
+            "    _EXCLUDED = False\n\n\n"
+            "def _note_exclusion() -> bool:\n"
+            "    global _EXCLUDED\n"
+            "    _EXCLUDED = True\n"
+            "    return False\n"
+        ),
+    )
+    copy = traversal(operator_class=copy_module.TraversalNeighborhood)
+
+    # The instrument's own shape, run against the scratch operator.
+    with pytest.raises(AssertionError, match="exclusion is a semantic"):
+        assert_provenance_is_twin_equal(copy)
+    assert output_of(copy, G1).provenance.index_version == marker
+    assert output_of(copy, TWIN).provenance.index_version is None
+    # The walk itself is untouched — the copy still answers the reference.
+    assert canonical_bytes(output_of(copy, G1).view) == canonical_bytes(
+        output_of(traversal(), G1).view
+    )
+    # And the real operator passes the very same assertion.
+    assert_provenance_is_twin_equal(traversal())
+
+
+def test_control_seeding_from_persisted_edges_creates_a_start(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Criterion 7 (D-06): one rule for anchors and neighbors alike.
+
+    The copy seeds from every ``subject_uri`` and ``object_uri`` over the
+    PERSISTED edges instead of from the view's entity claims, which is the
+    "an edge establishes an entity" reading Q2 refused. Asked to seed on the
+    unresolved class, the real operator and the oracle both answer the empty
+    view; the copy answers ``{A, B}`` (X itself is pruned by ``_substitute``,
+    which is exactly why an entity-set check alone would not have caught it).
+    """
+    copy_module = _import_mutated_categories(
+        tmp_path,
+        replace=FRONTIER_BLOCK,
+        with_=(
+            "    frontier = {\n"
+            "        uri\n"
+            "        for edge in view.relationships\n"
+            "        for uri in (edge.claim.subject_uri, edge.claim.object_uri)\n"
+            "    }"
+        ),
+        name="_ccf_categories_seeds_from_edges",
+    )
+    copy = traversal(
+        seed_classes=frozenset({UNRESOLVED_CLASS}),
+        operator_class=copy_module.TraversalNeighborhood,
+    )
+    real = traversal(seed_classes=frozenset({UNRESOLVED_CLASS}))
+
+    with pytest.raises(AssertionError, match="operator tier"):
+        assert_answers_the_reference(copy, G1)
+    answered = _reached(output_of(copy, G1).view)
+    assert answered == {A_URI, B_URI}, "the seeding control reached nothing new"
+    assert output_of(real, G1).view.entities == ()
+    assert expected(real, G1).entities == ()
+
+
+# --- 9. the pins the controls rest on, and the real tree ---------------------
+
+
+def test_the_closure_predicate_is_in_the_real_source_once() -> None:
+    """Every control's premise, asserted directly: the literals are where they claim.
+
+    A control that pins a literal the source no longer carries would raise
+    inside the importer rather than pass, but the counts are asserted here too
+    so the premise is a readable fact of this module and not only a side effect
+    of running a sabotage.
+    """
+    source = CATEGORIES_SOURCE.read_text(encoding="utf-8")
+    assert source.count(CLOSURE_PREDICATE) == 1
+    assert source.count(REACHED_ENTITIES) == 1
+    assert source.count(PROVENANCE_CALL) == 4
+    assert source.count(FRONTIER_BLOCK) == 1
+    # The negative control for the count instrument: a literal one character
+    # off is absent, so a count of 1 is about THIS text and not about any
+    # nearby line.
+    assert source.count(CLOSURE_PREDICATE.replace("universe", "universez")) == 0
+
+
+def test_no_control_in_this_module_edits_the_real_source_tree() -> None:
+    """The controls copy; they never edit and revert. Asserted through ``git``.
+
+    An edit-and-revert control that crashed halfway would leave the tree
+    modified and this suite green, so the real file's cleanliness is read from
+    ``git status --short`` and, second leg, from the unstaged diff — scoped to
+    the one file the controls copy, so an unrelated edit elsewhere under
+    ``src/`` cannot make this go red. The
+    ``tests/operators/test_traversal_admission.py::test_no_control_edits_the_real_source_tree``
+    voice.
+    """
+    relative = CATEGORIES_SOURCE.relative_to(REPO_ROOT).as_posix()
+    status = subprocess.run(
+        ["git", "status", "--short", "--", relative],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    assert status.strip() == "", f"a control touched the real tree: {status!r}"
+    diff = subprocess.run(
+        ["git", "diff", "--", relative],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    assert diff == ""
