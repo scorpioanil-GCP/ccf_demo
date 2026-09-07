@@ -24,7 +24,7 @@ proof machinery; none was in the mechanism.**
 | # | Pattern | Instances | Same abstraction? | Recommendation |
 |---|---|---|---|---|
 | P-1 | Scratch-module sabotage harness | 46 sites / 40 files | **Yes** — identical five-step shape; one site already wrote the general form | **SHARE** |
-| P-2 | `no_{sabotage,control}_edits_the_real_source_tree` guard | 14 modules | **Yes** — 10 byte-identical, 3 more identical to each other under a second name | **SHARE** (with P-1) |
+| P-2 | `no_{sabotage,control}_edits_the_real_source_tree` guard | **16 modules, 4 names** (corrected) | **Yes** — 10 byte-identical, 3 more identical under a second name, 2 one-offs | **SHARE** (with P-1) |
 | P-3 | Baseline / phase-base pinning | 1 broken; 2 sound | **No** — the sound ones answer a different question | **Targeted fix, not an instrument** |
 | P-4 | Citation & prose sweeps | 3 | **Already shared** where it matters | **LEAVE DUPLICATED** |
 | P-5 | Lint family (`tools/lints/`) | 8 checkers, 1 runner | Already centralized | **LEAVE — this is the model** |
@@ -101,7 +101,10 @@ incremental.
 
 ## 3. P-2 — the "no sabotage edits the real source tree" guard  → **SHARE (with P-1)**
 
-**Where it appears.** Fourteen modules, under **two different names**:
+**Where it appears.** **Sixteen modules, under FOUR different names.**
+*(Corrected 2026-09-06 at the 24.9 discussion sitting — this document first reported
+fourteen modules under two names. See "The correction" below; the error is itself
+evidence for this finding.)*
 
 - `test_no_sabotage_edits_the_real_source_tree` — **10 modules**, and after whitespace and
   comment normalization **all ten hash identically** (`b5bc7078`):
@@ -118,14 +121,43 @@ incremental.
   `tests/conformance/test_operator_tier_differential.py`,
   `tests/operators/test_traversal_admission.py`; the fourth,
   `tests/invariants/test_present_tense_sweep.py`, differs (`c6c8cf20`).
+- `test_no_control_here_edits_the_real_source_tree` — **1 module**:
+  `tests/invariants/test_determination_authority_disclosure_delivery.py`. Scoped to
+  `src` + `runtime` via `git status --porcelain`.
+- `test_no_control_in_this_module_edits_the_real_source_tree` — **1 module**:
+  `tests/operators/test_traversal_unresolved_reference.py`. Scoped to ONE relative file,
+  deliberately, "so an unrelated edit elsewhere under `src/` cannot make this go red" —
+  and its docstring CITES
+  `tests/operators/test_traversal_admission.py::test_no_control_edits_the_real_source_tree`
+  as "the voice" it is written in. The author knew it was the same guard and still gave
+  it a different name.
 
 **What it proves.** That the sabotage machinery never wrote to the working tree.
 
 **How it has failed in practice.** It has not failed as an assertion. **Its failure mode
-is the naming split.** A grep for either spelling finds only part of the population —
-10 of 14, or 4 of 14. This is the roster-derivation hazard the phase kept hitting, sitting
-inside the proof estate itself: any future audit that asks "does every sabotage module
-carry this guard?" will get a confident, wrong answer unless it happens to know both names.
+is the naming split.** A grep for any one spelling finds only part of the population —
+10 of 16, or 4 of 16, or 1 of 16. This is the roster-derivation hazard the phase kept
+hitting, sitting inside the proof estate itself: any audit that asks "does every sabotage
+module carry this guard?" gets a confident, wrong answer unless it happens to know all
+four names.
+
+**The correction, and why it is kept in the record.** This document's first draft asserted
+fourteen modules under two names. It was wrong: it grepped the two names it already knew
+and reported the union as the population. Re-measured at the 24.9 discussion sitting
+without a prefix assumption
+(`grep -rhno "def [a-zA-Z_]*edits_the_real_source_tree"`), the tree holds **16 defining
+modules under 4 names** — 10 / 4 / 1 / 1. **The document arguing that this naming split
+produces confidently wrong roster answers was itself handed a confidently wrong roster
+answer by it.** Two further modules (`tests/operators/test_traversal_direction.py`,
+`tools/product_gates_tests/test_check_product_gates.py`) CITE a guard by name in prose
+without defining one, so a naive `grep -rln` over the phrase returns **18** and
+over-counts by two. The defining roster is 16; the mentioning roster is 18.
+
+**The variants differ in SCOPE, not only in name.** `test_traversal_admission`,
+`test_operator_tier_differential` and `test_traversal_unresolved_reference` each assert
+cleanliness of ONE relative file; `test_determination_authority_disclosure_delivery`
+asserts `src` + `runtime`. So unification is **not a rename** — the assertions are of
+different strength, and one canonical guard has to choose which strength is right.
 
 **Gained by centralizing.** One name, one implementation, and a population that can be
 enumerated correctly by a single query. This is the cheapest item in the inventory and the
@@ -297,8 +329,8 @@ a "roster utility" would answer a question nobody failed at.
 ## 10. Does 24.9 deserve to exist?
 
 **The case for.** P-1 and P-2 are a real, measured population: one abstraction rebuilt
-across 40 modules, with a companion guard duplicated 14 times under two names and three
-implementations. Three distinct sabotage failures in 24.8 alone are of the kind a shared,
+across 40 modules, with a companion guard duplicated 16 times under FOUR names, several
+scopes and at least four implementations. Three distinct sabotage failures in 24.8 alone are of the kind a shared,
 tested harness would have prevented — most sharply plan 05's sabotage that masked 91 of its
 own failures. The naming split in P-2 is actively producing wrong answers to roster
 questions *inside the proof estate*. And `tools/lints/` proves consolidation succeeds here.
