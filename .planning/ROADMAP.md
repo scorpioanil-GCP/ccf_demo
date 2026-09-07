@@ -64,6 +64,7 @@ and the upgraded examples.
 - [x] **Phase 24.6: SDK Gap Phase — The Delivery Boundary Realized: Refusal as a Governed Response, the Policy-Constraint Layer, and Every Item Carried from 24.5.1** (INSERTED, `D-IMPL-252`) - Dave, 2026-09-04: *"Phase 24.6 will not introduce a new context product. It will address the gaps in what the SDK covers."* Opened by `D-IMPL-251` (the delivery boundary) and `D-GATE-24.5.1` (carry roster B-01..B-14). `src/` and `runtime/` OPEN for the first time since 24.5; `examples/` open only where an SDK change makes a rung stale (cp-04 rebuild and republish, B-01). cp-05 is the rung AFTER this phase closes; its number is not assigned (`D-IMPL-252` (5)). **DIRECTION BANKED, NOT DISCUSSED** — criteria at the discuss sitting (`D-GATE-19`).
 - [x] **Phase 24.7: Request/Replay Hardening — Enumerated Request-Contract Domains (G-26) and Fail-Closed Replay Completeness (G-33)** (INSERTED, `D-IMPL-263`) - Dave, 2026-09-05: *"G-26 and G-33 are tightly bounded extensions of machinery we just built in 24.6: request-contract validity and replay completeness."* Opened by the cp-04 SDK gap ledger (`D-IMPL-262`). `src/` and `runtime/` OPEN; `examples/` CLOSED — cp-04 frozen (`D-IMPL-261`, `D-IMPL-263`); `tests/examples/` open ONLY for quarantine/expected-failure marking under the `D-IMPL-263` rule. **DISCUSSED AND DESIGNED 2026-09-05 (`D-IMPL-264`, 13 rulings + 2 principles); criteria at the planning sitting (`D-GATE-19`); NOT researched, NOT planned.** **EXECUTED 12/12 AND CLOSED 2026-09-06 — `D-GATE-24.7` (build APPROVED `D-IMPL-266`; panel SKIPPED by ruling; review CR-01 fixed; criterion 18 am.4 re-pinned; `D-IMPL-265` archive ruling).**
 - [x] **Phase 24.8: Traversal Semantics — One Ruled Meaning for a Dangling Endpoint, In-Process and Pushed Paths Conforming (G-28)** (INSERTED, `D-IMPL-263`) - Dave, 2026-09-05: *"Then 24.8 can own traversal properly."* The SDK defect `D-IMPL-262` ruled traversal-owned and NOT bundled with 24.7; named from day one (`D-IMPL-255` (3)). Same fence and freeze as 24.7. cp-05 is the rung after this phase; its number is not assigned (`D-IMPL-252` (5)). **DISCUSSED AND DESIGNED 2026-09-06 (`D-IMPL-267`, 8 rulings + 2 principles); criteria at the planning sitting (`D-GATE-19`); NOT researched, NOT planned.** **CLOSED — `D-GATE-24.8` (Dave, 2026-09-06 20:34 MST): build APPROVED; panel SKIPPED BY RULING (`D-IMPL-269`); carries `24.8-C-01`/`C-02`/`C-03` OPEN.**
+- [ ] **Phase 24.9: Proof Infrastructure — One Tested Sabotage Harness, One Canonical Real-Tree Guard, and the Pin That Outlived Its Phase** (INSERTED, `D-IMPL-270`) - Dave, 2026-09-06: *"24.9 should exist as a small, real phase. The subject is proof infrastructure, and that is exactly where I want the criteria lock and gate discipline rather than a casual tooling chore."* Opened by `D-IMPL-269` (2) (the `24.8-C-03` carry) and (5) (*"verification machinery becomes the higher-risk surface"*), on the evidence of `.planning/PROOF-INVENTORY.md`. THREE core items only; `src/` and `runtime/` CLOSED — `24.8-C-02` NOT admitted; `examples/` frozen (`D-IMPL-261`). cp-05 follows as Phase 25. **DISCUSSED AND DESIGNED 2026-09-06 (`D-IMPL-270`, 6 rulings incl. the harness refinement); criteria at the planning sitting (`D-GATE-19`); NOT researched, NOT planned.**
 
 ## Phase Details
 
@@ -3469,6 +3470,73 @@ Plans:
 - [x] 24.8-05-PLAN.md — `docs/GRAPH_QUERY_SEMANTICS.md` 1.3.0: banner, line-neutral `GQ-10`/`GQ-13`/`GQ-16`, `GQ-35` entry newest-first, `make lint` 0 with the inserted-line sabotage on a copy; the document pin at 1.3.0 with an entry check; `fallback.py` prose (criteria 1–3, 16, 17, 19)
 - [x] 24.8-06-PLAN.md — main tree: batches/lint/typecheck/product-gates on the merged tree, the four legs with the differential green per leg and the roster set-equal to the baseline, the controls that nothing else moved → `24.8-LEGS.md` § After, `24.8-CONTROLS.md` (criteria 13, 18–22)
 - [x] 24.8-07-PLAN.md — main tree: close evidence — all 23 criteria re-measured with command/output/control, the digest reproduced, ledger row `CP04-G-28` → `FIXED-24.8`, carry `24.8-C-01` OPEN, the §3.1 panel packet STAGED not run, `RETIREMENT-COUPLINGS.md` regenerated last (criteria 22, 23)
+
+### Phase 24.9: Proof Infrastructure — One Tested Sabotage Harness, One Canonical Real-Tree Guard, and the Pin That Outlived Its Phase (INSERTED)
+
+**Goal (from `D-IMPL-270`, Dave's words):** *"24.9 should exist as a small, real phase. The subject is
+proof infrastructure, and that is exactly where I want the criteria lock and gate discipline rather than
+a casual tooling chore. Keep it to the three core items plus opportunistic migration only where needed to
+prove the harness."*
+
+**STATUS: DISCUSSED AND DESIGNED — `D-IMPL-270` (Dave, 2026-09-06 23:39 MST): six rulings, verbatim in
+`24.9-CONTEXT.md`. NO CRITERIA YET — authored at the planning sitting after research and locked before
+Wave 1 (`D-GATE-19`). NOT researched, NOT planned.**
+
+**Why this phase exists.** `D-IMPL-269` (5), Dave, verbatim: *"When semantics are ruled before coding,
+mechanism risk collapses; verification machinery becomes the higher-risk surface."* Across 24.8's five
+waves roughly ten defects surfaced and **every one was in proof machinery; none was in the mechanism.**
+The design consequence he drew, verbatim: *"We should spend less effort generating layers of novel
+verification and more effort making a smaller number of proof instruments simple, reusable, and themselves
+testable."* This phase is that instruction, executed once, at the smallest size that discharges it.
+
+**The three core items — the whole phase.**
+1. **Fix `24.8-C-03`** — `tests/invariants/test_determination_authority_disclosure_delivery.py` pins
+   `CLAUDE.md` byte-unchanged against `1022ad59`; the file last moved at `4683f245`, **24.6's own close
+   commit**, so the fence was invalidated by the phase it was fencing. **NARROW the claim** to the
+   invariant it was meant to protect (`D-IMPL-270` (2)) — not retire it, not generalize it.
+2. **Promote the `_scratch_egress` shape to ONE tested sabotage harness.** The pattern
+   (`importlib.util.spec_from_file_location`) is rebuilt at **46 sites across 40 test modules**;
+   `tests/mcp/test_egress_refusal_channels.py::_scratch_egress` already wrote the general form
+   — parameterizing the mutation as a callable — and it was never promoted.
+3. **Unify the real-tree guard under ONE canonical mechanism** across the measured population of
+   **16 defining modules under 4 names** (10 / 4 / 1 / 1), correcting the naming split that makes every
+   roster query over it silently partial.
+
+**The refinement that makes this more than a refactor (`D-IMPL-270` (5)).** Dave, verbatim: *"the shared
+harness should not merely centralize the five-step scratch-import pattern. It should **make the proof
+harder to misuse** than the local copies were. In particular, the harness must fail if the requested
+mutation did not actually alter the scratch source, and its real-tree guard should come from one canonical
+mechanism/roster rather than conventionally named local tests."*
+
+**Fence (`D-IMPL-270` (3)).** `tests/` and `tools/` OPEN. **`src/` CLOSED** — stated directly by Dave in
+excluding `24.8-C-02` (*"C-02 belongs to a phase that legitimately opens `src/`"*); `runtime/` CLOSED by
+the same logic. `examples/` CLOSED — the rungs stay frozen under `D-IMPL-261`; `tests/examples/` open ONLY
+for quarantine or expected-failure marking under the standing `D-IMPL-263` rule.
+
+**Explicitly OUT (`D-IMPL-270` (3)), Dave verbatim:** *"nothing else. P-6 stays unmeasured and out. C-02
+belongs to a phase that legitimately opens `src/`. Migrating all 40 sites would turn a proof-hardening
+phase into a broad mechanical rewrite."* So: **P-6** (the ~70 `ast` sites) stays UNMEASURED; **`24.8-C-02`**
+stays OPEN for the next phase that legitimately opens `src/`; **`24.8-C-01`** untouched, deferred as
+designed; **bulk migration of the 40 call sites** is not a goal — migration is opportunistic and only
+where a migrated site is needed to prove the harness; **no fence-expiry framework** (the pinned-base
+population is ONE).
+
+**The target shape, already in the tree.** `tools/lints/` — eight checkers behind one runner, one exit
+code, a shared allowlist, a committed base roster, and **its own test suite** at `tools/lints/tests/`.
+`PROOF-INVENTORY.md` §6 cites it as the existence proof that consolidation works in this repo and as the
+standard any shared proof instrument must meet. This phase has a template, not a design problem.
+
+**Canonical refs:** `.planning/PROOF-INVENTORY.md` (the evidence, P-2 corrected at `13c8bc39`),
+`docs/DECISIONS.md` (`D-IMPL-270`, `D-IMPL-269` (2) and (5), `D-IMPL-263`, `D-IMPL-261`, `D-GATE-19`),
+`tests/mcp/test_egress_refusal_channels.py` (`_scratch_egress`, the shape to promote),
+`tests/invariants/test_determination_authority_disclosure_delivery.py` (the pin to narrow),
+`tools/lints/` (the target shape).
+
+**Success Criteria** (what must be TRUE) — **NOT YET AUTHORED.** Per `D-GATE-19` they are authored at the
+planning sitting after research and the pattern map, and LOCKED with a pinned digest BEFORE Wave 1.
+
+**Plans:** not yet planned.
+
 
 ## Progress
 
