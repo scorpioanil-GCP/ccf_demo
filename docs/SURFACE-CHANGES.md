@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1023 entries**, of which **779** name a public Python surface.
+**1026 entries**, of which **782** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-498 entries — 458 public Python surface, 40 not public Python API.
+499 entries — 459 public Python surface, 40 not public Python API.
 
 ### Public Python surface
 
@@ -9145,6 +9145,18 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `24.10-02-the-declared-product-gate-runs-on-the-governed-path.md`.*
 
+#### ccf.products.resolver.ProductGateProtocol
+
+- Surface: ccf.products.resolver.ProductGateProtocol
+- Public surface: true
+- Change type: added
+- Before: absent — `D-IMPL-225` amendment 3 recorded that there was no `ProductGate` Protocol and no serve path for a declared gate, so a product's own invariant could only run in the deployment's own spine, outside the governed path and outside replay
+- After: a `runtime_checkable` Protocol on `AssemblyDebtScorerProtocol`'s shape — keyword-only, `candidate: ContextProductContract` and `evidence: ExecutionEvidence | None = None`, returning `str | None`. `None` admits; a non-empty string is the violation detail, which the resolver carries into `ProductInvariantRefusal.detail`. The callable never supplies an identity: the resolver stamps `gate` and `gate_version` from the class declaration
+- Why: `D-IMPL-282` `R-11` option 1a — *"Use a Protocol-typed callable supplied to `build_governed_resolver`, analogous to `debt_scorer`."* This supersedes the first two limbs of `D-IMPL-225` amendment 3 and no more
+- Migration: none. A deployment whose class declares no gate never implements it.
+
+*Recorded by `24.10-02-the-declared-product-gate-runs-on-the-governed-path.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -9798,7 +9810,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-379 entries — 195 public Python surface, 184 not public Python API.
+381 entries — 197 public Python surface, 184 not public Python API.
 
 ### Public Python surface
 
@@ -13907,6 +13919,30 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Migration: none. A config with no `replay:` section parses, derives and hashes exactly as it did; measured by `tests/contracts/test_hash_transparency.py::test_a_config_naming_no_replay_binding_hashes_as_it_did`.
 
 *Recorded by `24.10-01-the-control-plane-declares-the-replay-binding.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: reshaped
+- Before: sixteen constructor arguments, none with a default
+- After: seventeen, still none with a default. The new `product_gate: ProductGateProtocol | None` is the deployment's implementation of its class's declared invariant, and `None` is the positive statement that the class declares none. It is invoked in `__call__` between `run_gates` returning a `ServableProduct` and `refuse_over_tolerance` withholding one, exactly once per determination
+- Why: `D-IMPL-282` `D-12` — *"It executes after candidate construction and before fitness/fulfillment."* Whether an answer is RIGHT is a different question from whether it is FIT, and the order between them is what keeps them two
+- Migration: every construction site must pass `product_gate` (`None` where no gate is declared), because this class is the auditable, defaultless composition. Callers reaching the fabric through `build_governed_resolver` are unaffected.
+
+*Recorded by `24.10-02-the-declared-product-gate-runs-on-the-governed-path.md`.*
+
+#### ccf.products.resolver.build_governed_resolver
+
+- Surface: ccf.products.resolver.build_governed_resolver
+- Public surface: true
+- Change type: reshaped
+- Before: nineteen keyword arguments, seven optional
+- After: twenty, eight optional. The new `product_gate: ProductGateProtocol | None = None` is threaded into both `GovernedResolver` constructions, and **both** halves of the declared-versus-supplied mismatch raise `TypeError` at build time: a class declaring a gate with no callable, and a callable against a class declaring none. Each message names the class key, the declared identity (or its absence) and the argument
+- Why: a declared check that nothing executes is *"a default that nothing exercises*, which *is a check that stops checking without going red"* — an audit would read the declaration as an invariant in force. The mirror refusal exists because a deployment predicate running in the determination path with no declared identity gives `D-14` nothing to name
+- Migration: none. `D-IMPL-282`'s *"no builder API break in 24.10"*: a class declaring no gate and a call naming none builds exactly what it built before, measured by `tests/products/test_resolver_defaults.py::test_a_class_declaring_no_gate_and_a_call_naming_none_is_unaffected`.
+
+*Recorded by `24.10-02-the-declared-product-gate-runs-on-the-governed-path.md`.*
 
 ### Not public Python API
 

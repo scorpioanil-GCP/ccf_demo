@@ -81,6 +81,7 @@ from ccf.replay.record import (
     PolicyBinding,
     ResolutionNotApplicable,
 )
+from ccf.products import resolver as resolver_module
 from ccf.products.resolver import (
     GovernedResolver,
     ProductNotResolvable,
@@ -997,6 +998,104 @@ def test_two_parameter_values_produce_two_content_addresses(
     assert content_hash(low.product) != content_hash(high.product)
 
 
+# --- `R-11`: the product-gate seam, and where it runs ------------------------
+
+
+def test_the_product_gate_seam_is_a_runtime_checkable_protocol() -> None:
+    """`24.10-02` / `R-11`: the seam is a Protocol, on `debt_scorer`'s shape.
+
+    `D-IMPL-282` option 1a names `debt_scorer` as the model, so the properties
+    that make that seam what it is are asserted of this one: a
+    ``runtime_checkable`` Protocol, exported from the module (a Protocol a
+    deployment cannot import is a Protocol nothing can conform to on purpose),
+    keyword-only, and returning ``str | None`` — never an identity, which is
+    the Control Plane's half.
+    """
+    import typing
+
+    from ccf.products.resolver import ProductGateProtocol
+
+    assert "ProductGateProtocol" in resolver_module.__all__
+    assert getattr(ProductGateProtocol, "_is_runtime_protocol", False), (
+        "a Protocol that is not runtime_checkable cannot be asserted against"
+        " at a wiring boundary, which is what `AssemblyDebtScorerProtocol` is"
+    )
+
+    signature = inspect.signature(ProductGateProtocol.__call__)
+    parameters = tuple(signature.parameters)
+    assert parameters == ("self", "candidate", "evidence"), parameters
+    for name in ("candidate", "evidence"):
+        assert (
+            signature.parameters[name].kind is inspect.Parameter.KEYWORD_ONLY
+        ), name
+    assert signature.parameters["evidence"].default is None
+    assert signature.return_annotation == "str | None", (
+        "the callable returns a violation detail or nothing; a gate that"
+        " returned its own identity could mislabel which gate refused"
+    )
+    hints = typing.get_type_hints(ProductGateProtocol.__call__)
+    assert hints["candidate"] is ContextProductContract
+
+
+def test_the_gate_runs_after_the_universal_gates_and_before_fitness() -> None:
+    """`D-12`, observed in the source rather than asserted in a comment.
+
+    The ruling is an ORDER — *"after candidate construction and before
+    fitness/fulfillment"* — and an order is a property of where the call sits,
+    so it is read off the module's own text. A behavioral test that a
+    double-violating candidate yields the product-invariant refusal rather
+    than the tolerance one lives in
+    ``tests/products/test_runtime_product_gate.py``; this is the structural
+    half, and it fails the moment somebody moves the call even if no shipped
+    fixture happens to violate both at once.
+    """
+    source = pathlib.Path(resolver_module.__file__).read_text(encoding="utf-8")
+    lines = source.splitlines()
+
+    def line_of(fragment: str) -> int:
+        matches = [i for i, line in enumerate(lines) if fragment in line]
+        assert len(matches) == 1, (fragment, matches)
+        return matches[0]
+
+    admitted = line_of("gated = run_gates(")
+    invariant = line_of("gate_violation = self.product_gate(")
+    fitness = line_of("withheld = refuse_over_tolerance(")
+    assert admitted < invariant < fitness, (admitted, invariant, fitness)
+
+
+def test_a_wired_gate_that_admits_serves_and_the_candidate_is_the_product(
+    booted: _Booted,
+) -> None:
+    """The seam is live and it is handed the ANSWER, not the view.
+
+    The vacuity guard for every gate test: a resolver that never called its
+    gate would pass any assertion about a gate that admits. This one records
+    what it was handed and asserts the served product is that exact value —
+    which is also the argument for ``candidate`` over ``view``, made
+    observable rather than argued.
+    """
+    seen: list[ContextProductContract] = []
+
+    def gate(
+        *,
+        candidate: ContextProductContract,
+        evidence: ExecutionEvidence | None = None,
+    ) -> str | None:
+        seen.append(candidate)
+        assert evidence is not None, (
+            "the resolver always passes evidence; a resolver that decided"
+            " per-gate whether to tell the truth about the search would be two"
+            " seams wearing one name"
+        )
+        return None
+
+    outcome = _ask(_resolver(booted, product_gate=gate), _request())
+
+    assert isinstance(outcome, ServedProduct)
+    assert len(seen) == 1, "the gate runs exactly once per determination"
+    assert content_hash(seen[0]) == content_hash(outcome.product)
+
+
 # --- behavior 6: nothing the deployment owns has a default ------------------
 
 
@@ -1013,6 +1112,14 @@ DEPLOYMENT_OWNED_ARGUMENTS: tuple[str, ...] = (
     "policy_bundle_key",
     "plan_factory",
     "debt_scorer",
+    # `24.10-02` / `R-11`: the deployment's implementation of its class's own
+    # declared invariant (`D-IMPL-282` option 1a). No default for
+    # `debt_scorer`'s reason and for one of its own — `None` is a POSITIVE
+    # statement that this class declares no runtime invariant, and a resolver
+    # that defaulted it would let a class declare a gate that silently never
+    # ran. `build_governed_resolver` refuses both halves of that mismatch at
+    # build time; this class refuses the omission at construction.
+    "product_gate",
     "artifact_store",
     "replay_record_class",
     "query_pin_class",
@@ -1116,6 +1223,11 @@ def _arguments(booted: _Booted) -> dict[str, Any]:
         "policy_bundle_key": POLICY_BUNDLE_KEY,
         "plan_factory": _plan_factory,
         "debt_scorer": _debt_scorer,
+        # `24.10-02` / `R-11`: the deployment's implementation of its class's
+        # own declared invariant. `None` here because the fixture class
+        # declares no gate — a POSITIVE value, stated rather than defaulted,
+        # which is why the field carries no default on the dataclass.
+        "product_gate": None,
         # 24.6-03: the Authority layer's two inputs. The reference resolver
         # over this fixture's own registry — which holds no policy constraint
         # and no entitlement policy, so it resolves defaults and caller values

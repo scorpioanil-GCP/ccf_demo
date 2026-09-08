@@ -705,6 +705,11 @@ def _ask_the_empty_fabric(booted: Any, *, completeness: Any | None = None) -> An
             else DeclaredFactor(value=DECLARED),
             semantic_consistency=DeclaredFactor(value=DECLARED),
         ),
+        # `24.10-02` / `R-11`: this fixture's class declares no runtime
+        # invariant, and `None` says so positively. The field carries no
+        # default for every other field's reason — this class is the
+        # auditable, defaultless composition.
+        product_gate=None,
         constraint_resolver=ReferencePolicyConstraintResolver(
             control_plane=control_plane,
             entitlement_key=product_entitlement_key(tenant_id=TENANT),

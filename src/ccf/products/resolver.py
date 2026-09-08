@@ -202,6 +202,7 @@ from ccf.products.entitlement import (
 )
 from ccf.products.gates import (
     DEBT_TOLERANCE_PARAMETER,
+    ProductInvariantRefusal,
     ServableProduct,
     refuse_over_tolerance,
     run_gates,
@@ -240,6 +241,7 @@ __all__ = [
     "DEBT_SCORER_INPUTS",
     "AssemblyDebtScorerProtocol",
     "GovernedResolver",
+    "ProductGateProtocol",
     "ProductNotResolvable",
     "ProjectionPlanFactoryProtocol",
     "RefusalRecorderProtocol",
@@ -511,6 +513,97 @@ class AssemblyDebtScorerProtocol(Protocol):
         evidence: ExecutionEvidence | None = None,
     ) -> DebtAssessment:
         """Assess ``D_c`` over the graph state this question assembled."""
+        ...
+
+
+@runtime_checkable
+class ProductGateProtocol(Protocol):
+    """How a deployment holds a product to its class's OWN declared invariant.
+
+    **SDK-defined** (CLAUDE.md §11). The ruling of record is ``D-IMPL-282``
+    ``R-11`` option 1a (Dave, 2026-09-08): *"Use a Protocol-typed callable
+    supplied to* ``build_governed_resolver``, *analogous to* ``debt_scorer``.
+    *The gate identity/version remain declared in the Control Plane;
+    implementation is deployment-supplied."* And the boundary on it, from the
+    same sitting: *"the runtime gate is not a new universal policy vocabulary.
+    It is a declared product invariant with a governed identity, whose
+    implementation is supplied by the deployment."*
+
+    **What ``R-11`` supersedes, exactly.** ``D-IMPL-225`` amendment 3 said of
+    ``D-IMPL-224``'s declared gates: *"There is no ``ProductGate`` Protocol, no
+    serve path for them, and the SDK's universal gates stay the only serve-time
+    gates."* ``R-11`` supersedes **the first two limbs and no more** — this
+    Protocol exists and there is a path on which it runs. **The third limb
+    stands**: a conforming callable is not a member of
+    :func:`~ccf.products.gates.run_gates`' sequence, joins no token to the gate
+    roster, and :data:`~ccf.products.gates.GATE_DECLARED_OBLIGATIONS` with its
+    one-member ``Literal`` is untouched. The supersession is recorded here and
+    on :class:`~ccf.products.gates.ProductInvariantRefusal` rather than only in
+    a plan file, because a supersession that lives in a plan is one the next
+    reader of these modules will not find.
+
+    **Two halves, and they stay apart.** The Control Plane owns the gate's
+    IDENTITY —
+    :attr:`~ccf.controlplane.artifacts.ProductClassDeclaration.declared_product_gate`
+    — and the deployment owns the PREDICATE. That is why a conforming callable
+    returns a *detail string* and never an identity: the resolver stamps
+    ``gate`` and ``gate_version`` from the declaration, so a deployment's gate
+    cannot claim to be a different gate than the one its class declared, and
+    ``D-14``'s *"which gate produced the refusal"* is a fact an examiner can
+    trust rather than a claim the failing code made about itself.
+
+    **Where it runs**, and it is ruled rather than convenient
+    (``D-IMPL-282``, ``D-12``): *"after candidate construction and before
+    fitness/fulfillment"* — in
+    :meth:`GovernedResolver.__call__`, between :func:`run_gates` returning a
+    :class:`~ccf.products.gates.ServableProduct` and
+    :func:`~ccf.products.gates.refuse_over_tolerance` withholding one. So it
+    never runs on a candidate the universal gates refused (there is no product
+    to hold an invariant against) and it runs before an applicable tolerance
+    can withhold fulfillment, because whether the answer is RIGHT is a
+    different question from whether it is FIT.
+
+    **No expression language, no rule DSL, no gate registry** (``D-11``,
+    ``D-13``). The invariant is Python the deployment already writes, in the
+    deployment's own tree, exactly as ``plan_factory`` and ``debt_scorer`` are.
+    The SDK never parses it and never authors one.
+
+    **A deployment gate that raises or hangs is the deployment's own
+    latency and failure budget**, on the same footing as the other two
+    deployment-supplied seams. Wrapping this call in a timeout would be the
+    SDK choosing a deployment's budget for it, which is what CLAUDE.md §11
+    refuses.
+    """
+
+    def __call__(
+        self,
+        *,
+        candidate: ContextProductContract,
+        evidence: ExecutionEvidence | None = None,
+    ) -> str | None:
+        """Hold ``candidate`` to the class's declared invariant.
+
+        Args:
+            candidate: The product the deployment is about to serve. The
+                invariant is a property of the answer, so the answer is what
+                is handed over — not the view, which is what
+                :class:`AssemblyDebtScorerProtocol` takes, because debt is a
+                property of the assembly and this is not.
+            evidence: What the execution observed about its own search,
+                keyword-only with a ``None`` default for the reason the debt
+                scorer's carries one: a gate is free to ignore it, and the
+                resolver always passes it, because a resolver that decided
+                per-gate whether to tell the truth about the search would be
+                two seams wearing one name.
+
+        Returns:
+            ``None`` to admit, or a non-empty string describing the violation
+            in the deployment's own words. The SDK carries that string into
+            :attr:`~ccf.products.gates.GateRefusal.detail` and never parses it:
+            an invariant's failure mode is the product's to describe. An empty
+            string admits — it is not a violation nobody worded, and a gate
+            that means to refuse says why.
+        """
         ...
 
 
@@ -1119,6 +1212,24 @@ class GovernedResolver:
             the auditable, defaultless composition, and the helper is where the
             SDK's own reference is chosen. See the module docstring for the
             measurement that split them.
+        product_gate: The deployment's own implementation of the invariant its
+            product class DECLARES, or ``None`` when the class declares none
+            (``24.10-02`` / ``R-11``; ``D-IMPL-282`` option 1a). Written in
+            ``debt_scorer``'s voice and for its reason: the SDK ships the
+            machinery and never the values, and here the value is the invariant
+            itself. What it may say is bounded — a violation string or
+            ``None`` — because the gate's IDENTITY is the Control Plane's
+            (:attr:`~ccf.controlplane.artifacts.ProductClassDeclaration.declared_product_gate`)
+            and this class stamps it onto the refusal rather than accepting it
+            from the callable.
+
+            **The two halves must agree, and** :func:`build_governed_resolver`
+            **refuses at build time when they do not**: a callable against a
+            class declaring no gate is a check nothing governs, and a declared
+            gate with no callable is *"a default that nothing exercises*, which
+            *is a check that stops checking without going red."* No default
+            here, for ``debt_scorer``'s reason — ``None`` is a value the
+            deployment states, not one this class assumes.
         refusal_recorder: The ONE seam through which every governed refusal
             this composition produces reaches the replay writer
             (``24.6-07``; ``D-IMPL-253`` Q13, ``D-IMPL-256``). No default here
@@ -1154,6 +1265,7 @@ class GovernedResolver:
     policy_bundle_key: str
     plan_factory: ProjectionPlanFactoryProtocol
     debt_scorer: AssemblyDebtScorerProtocol
+    product_gate: ProductGateProtocol | None
     constraint_resolver: PolicyConstraintResolver
     capabilities: tuple[TechnicalCapability, ...]
     refusal_recorder: RefusalRecorderProtocol
@@ -1501,6 +1613,52 @@ class GovernedResolver:
                 policy_bindings=applied,
                 resolution=effective,
             )
+
+        # `24.10-02` / `R-11` (`D-IMPL-282` option 1a), and the placement is
+        # the ruling: *"It executes after candidate construction and before
+        # fitness/fulfillment."* The universal gates have ADMITTED this
+        # product, so there is something to hold an invariant against; the
+        # tolerance comparison below has not run, so a product that is WRONG
+        # is reported as wrong rather than as unfit. Two different questions,
+        # and the order between them is what keeps them two.
+        #
+        # The identity is read from the Control Plane and stamped here. The
+        # deployment's callable returns a detail string and nothing else, so a
+        # gate cannot claim to be a different gate than the one its class
+        # declared — which is what makes `D-14`'s "which gate produced the
+        # refusal" a fact rather than a claim the failing code made about
+        # itself.
+        if self.product_gate is not None:
+            gate_violation = self.product_gate(
+                candidate=gated.product, evidence=ExecutionEvidence.of(execution)
+            )
+            if gate_violation:
+                declared_gate = self._declaration().declared_product_gate
+                return self._record_refusal(
+                    # `evidence`, `applied` and `effective` are the values
+                    # derived ONCE above the gate branch and shared by every
+                    # post-assembly refusal. Deriving them again here would let
+                    # a refused determination and a fulfilled one disagree
+                    # about what governed them, which is the comment already
+                    # standing at that site.
+                    envelope=envelope_for(
+                        ProductInvariantRefusal(
+                            gate=declared_gate.gate_id,
+                            gate_version=declared_gate.gate_version,
+                            detail=gate_violation,
+                        ),
+                        request=identity,
+                        pre_assembly_lineage=candidate.lineage,
+                        policy_bindings=effective.applied,
+                        evidence=evidence,
+                        provenance=effective,
+                    ),
+                    execution=execution,
+                    request=request,
+                    perspective=perspective,
+                    policy_bindings=applied,
+                    resolution=effective,
+                )
 
         # 24.6-04, the delivery boundary: the gates ADMITTED this product, and
         # only now is it held to the one applicable tolerance — the class's
@@ -1892,6 +2050,7 @@ def build_governed_resolver(
     declared_completeness: Decimal | None = None,
     declared_semantic_consistency: Decimal | None = None,
     debt_scorer: AssemblyDebtScorerProtocol | None = None,
+    product_gate: ProductGateProtocol | None = None,
     constraint_resolver: PolicyConstraintResolver | None = None,
     capabilities: tuple[TechnicalCapability, ...] | None = None,
 ) -> GovernedResolver:
@@ -2024,6 +2183,16 @@ def build_governed_resolver(
         declared_completeness: The ``C`` this deployment asserts, in ``[0, 1]``.
         declared_semantic_consistency: The ``S`` it asserts, in ``[0, 1]``.
         debt_scorer: A conforming scorer that **overrides** the reference.
+        product_gate: The deployment's implementation of the invariant its
+            product class declares (``24.10-02`` / ``R-11``; ``D-IMPL-282``
+            option 1a). Unlike ``debt_scorer`` this has **no reference
+            implementation and cannot have one**: the SDK ships the machinery
+            for every seam it defines (CLAUDE.md §11), and the machinery here
+            is the identity, the execution point and the refusal — the
+            predicate is the product's own meaning, which no SDK could supply.
+            So the pairing is not default-versus-override but declared-versus-
+            supplied, and **both mismatches are refused** rather than
+            defaulted: see the ``Raises`` note below.
         constraint_resolver: A conforming resolver that **overrides** the
             reference. When omitted, the SDK selects
             :class:`~ccf.products.constraints.ReferencePolicyConstraintResolver`
@@ -2062,8 +2231,16 @@ def build_governed_resolver(
         The composed resolver, ready to be handed to a delivery surface.
 
     Raises:
-        TypeError: both a scorer and the material to build one were supplied,
-            or neither was. An argument-shape mistake, so the exception Python
+        TypeError: a ``product_gate`` was supplied against a class declaring
+            none, or a class declaring one was built with no callable. The
+            second is the one that matters: a declared gate nothing executes is
+            *"a default that nothing exercises*, which *is a check that stops
+            checking without going red"* — an audit would report an invariant
+            in force that had never run. The first is refused rather than
+            ignored because a deployment silently running an ungoverned
+            predicate inside the determination path would have no identity to
+            record it under. Also raised when both a scorer and the material to
+            build one were supplied, or neither was. An argument-shape mistake, so the exception Python
             already reserves for one — and never a governed refusal, because
             nobody asked a question yet. Also raised when a replay member is
             supplied by neither the call nor a declared binding, when the
@@ -2099,6 +2276,33 @@ def build_governed_resolver(
         serve_obligations=boot_declaration.serve_obligations,
         declared=_request_contract_on(fabric, key=request_contract_key),
     )
+
+    # `R-11` (`D-IMPL-282` option 1a), immediately after: the class's declared
+    # gate and the supplied callable must agree, and BOTH mismatches are
+    # refused. Read off the declaration already parsed above rather than a
+    # second read, so what the check sees is what the resolver will stamp.
+    declared_gate = boot_declaration.declared_product_gate
+    if declared_gate.gate_id and product_gate is None:
+        raise TypeError(
+            f"the product class {product_class_key!r} declares the runtime"
+            f" gate {declared_gate.gate_id!r} at version"
+            f" {declared_gate.gate_version!r}, and this call supplies no"
+            " `product_gate` to run it. A declared check that nothing executes"
+            " is a check that stops checking without going red, and an audit"
+            " would read the declaration as an invariant in force. Pass the"
+            " deployment's callable, or remove `declared_product_gate` from"
+            " the class document (`D-IMPL-282` `R-11`)"
+        )
+    if product_gate is not None and not declared_gate.gate_id:
+        raise TypeError(
+            "this call supplies a `product_gate` and the product class"
+            f" {product_class_key!r} declares none, so the SDK has no identity"
+            " to stamp on a refusal it produced and replay could not say which"
+            " gate refused. Declare `declared_product_gate` on the class"
+            " document with the gate's id and version, or drop the argument"
+            " (`D-IMPL-282` `R-11`; the identity is the Control Plane's half"
+            " and the implementation is the deployment's)"
+        )
 
     # `R-12` (`D-IMPL-282`), SECOND — before the constraint-resolver branch and
     # before any scorer material is read, so a wiring mistake is reported
@@ -2247,6 +2451,7 @@ def build_governed_resolver(
             policy_bundle_key=policy_bundle_key,
             plan_factory=plan_factory,
             debt_scorer=debt_scorer,
+            product_gate=product_gate,
             constraint_resolver=resolution_seam,
             capabilities=technical,
             refusal_recorder=recorder,
@@ -2295,6 +2500,7 @@ def build_governed_resolver(
                 value=declared_semantic_consistency
             ),
         ),
+        product_gate=product_gate,
         constraint_resolver=resolution_seam,
         capabilities=technical,
         refusal_recorder=recorder,

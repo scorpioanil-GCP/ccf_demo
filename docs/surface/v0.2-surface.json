@@ -5705,6 +5705,7 @@
       "AssemblyDebtScorerProtocol",
       "DEBT_SCORER_INPUTS",
       "GovernedResolver",
+      "ProductGateProtocol",
       "ProductNotResolvable",
       "ProjectionPlanFactoryProtocol",
       "RefusalRecorderProtocol",
@@ -5724,7 +5725,11 @@
       },
       "GovernedResolver": {
         "kind": "class",
-        "shape": "(*, fabric: 'BootedFabric', control_plane: 'ControlPlaneProtocol', product_class_key: 'str', request_contract_key: 'str', operator_parameter_keys: 'tuple[str, ...]', policy_bundle_key: 'str', plan_factory: 'ProjectionPlanFactoryProtocol', debt_scorer: 'AssemblyDebtScorerProtocol', constraint_resolver: 'PolicyConstraintResolver', capabilities: 'tuple[TechnicalCapability, ...]', refusal_recorder: 'RefusalRecorderProtocol', artifact_store: 'ArtifactStoreProtocol', replay_record_class: 'str', query_pin_class: 'str', max_ttl_seconds: 'int', product_ttl_seconds: 'int') -> None"
+        "shape": "(*, fabric: 'BootedFabric', control_plane: 'ControlPlaneProtocol', product_class_key: 'str', request_contract_key: 'str', operator_parameter_keys: 'tuple[str, ...]', policy_bundle_key: 'str', plan_factory: 'ProjectionPlanFactoryProtocol', debt_scorer: 'AssemblyDebtScorerProtocol', product_gate: 'ProductGateProtocol | None', constraint_resolver: 'PolicyConstraintResolver', capabilities: 'tuple[TechnicalCapability, ...]', refusal_recorder: 'RefusalRecorderProtocol', artifact_store: 'ArtifactStoreProtocol', replay_record_class: 'str', query_pin_class: 'str', max_ttl_seconds: 'int', product_ttl_seconds: 'int') -> None"
+      },
+      "ProductGateProtocol": {
+        "kind": "class",
+        "shape": "(*, candidate: 'ContextProductContract', evidence: 'ExecutionEvidence | None' = None) -> 'str | None'"
       },
       "ProductNotResolvable": {
         "kind": "class",
@@ -5752,7 +5757,7 @@
       },
       "build_governed_resolver": {
         "kind": "function",
-        "shape": "(*, fabric: 'BootedFabric', control_plane: 'ControlPlaneProtocol', product_class_key: 'str', request_contract_key: 'str', operator_parameter_keys: 'tuple[str, ...]', policy_bundle_key: 'str', plan_factory: 'ProjectionPlanFactoryProtocol', max_ttl_seconds: 'int', product_ttl_seconds: 'int', artifact_store: 'ArtifactStoreProtocol | None' = None, replay_record_class: 'str | None' = None, query_pin_class: 'str | None' = None, artifact_store_root: 'Path | None' = None, half_life_key: 'str | None' = None, debt_profile_key: 'str | None' = None, declared_completeness: 'Decimal | None' = None, declared_semantic_consistency: 'Decimal | None' = None, debt_scorer: 'AssemblyDebtScorerProtocol | None' = None, constraint_resolver: 'PolicyConstraintResolver | None' = None, capabilities: 'tuple[TechnicalCapability, ...] | None' = None) -> 'GovernedResolver'"
+        "shape": "(*, fabric: 'BootedFabric', control_plane: 'ControlPlaneProtocol', product_class_key: 'str', request_contract_key: 'str', operator_parameter_keys: 'tuple[str, ...]', policy_bundle_key: 'str', plan_factory: 'ProjectionPlanFactoryProtocol', max_ttl_seconds: 'int', product_ttl_seconds: 'int', artifact_store: 'ArtifactStoreProtocol | None' = None, replay_record_class: 'str | None' = None, query_pin_class: 'str | None' = None, artifact_store_root: 'Path | None' = None, half_life_key: 'str | None' = None, debt_profile_key: 'str | None' = None, declared_completeness: 'Decimal | None' = None, declared_semantic_consistency: 'Decimal | None' = None, debt_scorer: 'AssemblyDebtScorerProtocol | None' = None, product_gate: 'ProductGateProtocol | None' = None, constraint_resolver: 'PolicyConstraintResolver | None' = None, capabilities: 'tuple[TechnicalCapability, ...] | None' = None) -> 'GovernedResolver'"
       }
     }
   },
