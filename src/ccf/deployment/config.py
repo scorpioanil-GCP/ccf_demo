@@ -446,6 +446,76 @@ def _refuse_operator_set_divergence(
     )
 
 
+def _refuse_unproducible_seed_classes(
+    operators: Mapping[str, Any] | None, resolution: Mapping[str, Any] | None
+) -> None:
+    """R-10 — an operator seeds on a class the resolution spec cannot mint.
+
+    SDK-defined per CLAUDE.md §11. The ruling of record is ``D-IMPL-279``
+    (Dave, 2026-09-08): *"The Control Plane should reject provably incompatible
+    declarations at boot/config validation time. If the operator requires seed
+    classes that the declared resolution/admission path cannot produce, that is
+    a compositional configuration error, not a runtime 'empty graph' result.
+    Only validate what can be proven statically; do not infer dynamic
+    cardinality."*
+
+    **The sibling of** :func:`_refuse_operator_set_divergence`, deliberately
+    and at the same call site: two declarations in one document that cannot
+    both be what their author meant, compared before anything is materialized,
+    refused rather than reconciled. The difference is only which pair — that
+    one holds ``required_operator_keys`` against the ``operators:`` keys, this
+    one holds each operator's ``seed_entity_classes`` against the entity
+    classes ``resolution.entity_rules`` declares it can mint.
+
+    **STATIC ONLY, and the boundary is load-bearing.** This compares two
+    declared SETS. It says nothing about whether any entity of a producible
+    class will exist at run time, how many there will be, or whether a walk
+    seeded on one will reach anything — all of which are properties of data
+    this function never sees. A seed class that *no rule can produce* is
+    unsatisfiable by construction; a seed class that *no envelope happened to
+    produce* is an empty result, and the empty-operator guard is what speaks
+    about that.
+
+    **What it does NOT catch, stated so the check is not over-read.** cp-05's
+    own instance of this failure (``CP-SPEC-005`` §F.4 finding 7) was a
+    *runtime minting* error, not a declaration error: its config declared both
+    ``exposure_anchor`` and ``exposure_member`` correctly, and its interpreter
+    passed the wrong flag, so every node minted as a member and the walk seeded
+    on an anchor that existed nowhere. **This function would have passed that
+    config**, and says so here rather than letting a reader assume the finding
+    is closed by it.
+
+    Skips silently — the honest posture for *cannot be proven*, not a
+    permissive default — when there is no ``resolution`` section, no
+    ``entity_rules`` in it, or an operator declaring no ``seed_entity_classes``.
+    """
+    rules = ((resolution or {}).get("entity_rules")) or ()
+    producible = frozenset(
+        str(rule["entity_class"])
+        for rule in rules
+        if isinstance(rule, Mapping) and rule.get("entity_class")
+    )
+    if not producible:
+        return
+    for operator_id, body in sorted((operators or {}).items()):
+        if not isinstance(body, Mapping):
+            continue
+        seeds = body.get("seed_entity_classes")
+        if not seeds:
+            continue
+        unproducible = sorted({str(seed) for seed in seeds} - producible)
+        if not unproducible:
+            continue
+        raise ValueError(
+            f"unproducible seed class: operators.{operator_id} seeds on"
+            f" {unproducible} and resolution.entity_rules declares only"
+            f" {sorted(producible)}; a walk seeded on a class no resolution"
+            " rule can mint returns nothing for every request this deployment"
+            " will ever serve, which is a compositional configuration error"
+            " rather than an empty graph (`D-IMPL-279`)"
+        )
+
+
 def derive_deployment(
     config: DeploymentConfig, config_filename: str = "ccf_config.yaml"
 ) -> DerivedDeployment:
@@ -521,6 +591,10 @@ def derive_deployment(
     )
     configured_operator_keys = frozenset((config.operators or {}).keys())
     _refuse_operator_set_divergence(declared_operator_keys, configured_operator_keys)
+    # R-10 (`D-IMPL-279`), beside its sibling and on the same
+    # before-materialisation ordering: two declared sets that cannot both be
+    # what their author meant.
+    _refuse_unproducible_seed_classes(config.operators, config.resolution)
 
     if config.operators:
         for operator_id, operator_body in sorted(config.operators.items()):
