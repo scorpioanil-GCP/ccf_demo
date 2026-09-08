@@ -389,3 +389,42 @@ def reconciliation_guard(rollup: Rollup) -> None:
             f"{rollup.adjusted.committed} exceeds gross {rollup.gross.committed}. "
             "The dedup logic double-subtracted."
         )
+
+
+def acquire_edges(source, nodes: list[str], follow_guarantees: bool,
+                  follow_cross_default: bool) -> list[tuple[str, str, str]]:
+    """Every edge among the acquired nodes, as (subject, predicate, object).
+
+    **This is source ACQUISITION, not traversal.** It reads someone else's graph
+    to populate L3; the traversal that answers the product's question runs over
+    L3 afterwards, through the registered operator. The two are different steps
+    and only the second is the product's claim.
+
+    Hand-rolled because the SDK has no acquisition boundary for an external
+    graph store — every adapter in `ccf.graph.backends` is an L3 substrate the
+    fabric OWNS. Recorded as `D-IMPL-277`, open, awaiting a ruling; cp-04 hand-
+    rolls the same thing in 16 places.
+    """
+    import deployment as dep
+
+    predicates = [dep.OWNS, dep.ULTIMATELY_CONSOLIDATED_BY]
+    if follow_guarantees:
+        predicates.append(dep.IS_GUARANTOR_OF)
+    if follow_cross_default:
+        predicates.append(dep.CROSS_DEFAULTS_WITH)
+
+    within = set(nodes)
+    edges: set[tuple[str, str, str]] = set()
+    for predicate in predicates:
+        rows = dep.sparql(source, f"SELECT ?s ?o {dep._from_clause(source)} "
+                                  f"WHERE {{ ?s <{predicate}> ?o }}")
+        for row in rows:
+            subject, obj = row["s"]["value"], row["o"]["value"]
+            if subject in within and obj in within:
+                # The SHORT NAME is the relationship type L3 stores, because
+                # that is what `ccf_config.yaml` declares under the traversal
+                # operator's `relationship_types`. A full IRI here and a short
+                # name there would be a traversal the Control Plane permitted
+                # and the graph could not answer.
+                edges.add((subject, predicate.rsplit("/", 1)[-1], obj))
+    return sorted(edges)

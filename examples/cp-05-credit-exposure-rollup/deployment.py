@@ -376,3 +376,69 @@ def effective_request(*, config: dict[str, Any], registry, supplied: dict[str, A
             kind="artifact", identity=rc["class_id"], version=rc.get("semver", "1.0.0")
         ),
     )
+
+
+def envelope_for_node(node: str, lei: str | None, label: str | None, *,
+                      tenant: str, asked_at, is_anchor: bool = False) -> Any:
+    """One L1 envelope per family node — what L2 mints an entity from.
+
+    `raw_payload` carries `member_ref`, the `match_key` `ccf_config.yaml`'s
+    resolution spec declares, and under it `entity_uri` as the IDENTITY key.
+    **Identity is the source IRI, not the LEI.** 58 of this family's 77 members
+    carry no LEI (spec §C.1); a resolution spec keyed on LEI would mint nothing
+    for three quarters of the family and the graph would be smaller, tidier and
+    wrong.
+    """
+    from ccf.signal.envelope import SignalEnvelope, SourceIdentity
+
+    return SignalEnvelope(
+        tenant_id=tenant,
+        envelope_id=f"cp05:{node}",
+        source=SourceIdentity(system_id="exposure_graph"),
+        ingestion_timestamp=asked_at,
+        observed_time=asked_at,
+        # FLAT, NOT NESTED, and the shape caught the author. `match_key` is only
+        # a PRESENCE FLAG — `AssemblyWorker`'s resolver asks `rule.match_key in
+        # payload` and then reads every identity and attribute key from the TOP
+        # LEVEL of the same mapping, as siblings. Nesting them under the match
+        # key resolves the rule and then refuses: *"matched rule for
+        # 'exposure_member' but lacks identity keys ['entity_uri']; the fabric
+        # refuses to mint a URI from partial identity."* Refusing to mint from
+        # partial identity is right; the shape that provokes it is easy to get
+        # wrong from the declaration alone.
+        raw_payload={
+            ("anchor_ref" if is_anchor else "member_ref"): True,
+            "entity_uri": node,
+            "lei": lei or "",
+            "label": label or "",
+        },
+    )
+
+
+def relationship_claim(*, tenant: str, subject: str, object_: str,
+                       predicate: str, envelope_id: str, asked_at) -> Any:
+    """One edge, carrying ITS TRUE PREDICATE.
+
+    Admitted through `AssemblyWorker.admit_relationship_claim` rather than minted
+    by `ingest`'s declared rules, for the reason cp-04 measured and recorded
+    (`D-35`): `ingest` mints relationship claims by CLASS CO-OCCURRENCE — every
+    declared rule whose subject and object classes both resolve from one
+    envelope fires, and nothing selects the predicate from the payload. cp-04
+    measured one envelope minting two entities and TWELVE relationships, six of
+    them self-loops. So `ccf_config.yaml` declares `relationship_rules: []` and
+    each normalized edge is admitted here instead. Still one writer, still L2.
+    """
+    from ccf.contracts.claims import LineageEntry, RelationshipClaim
+    from ccf.signal.envelope import SourceIdentity
+
+    source = SourceIdentity(system_id="exposure_graph")
+    return RelationshipClaim(
+        tenant_id=tenant,
+        observed_at=asked_at,
+        valid_from=asked_at,
+        lineage=frozenset({LineageEntry(source=source, envelope_id=envelope_id,
+                                        observed_at=asked_at)}),
+        relationship_type=predicate,
+        subject_uri=subject,
+        object_uri=object_,
+    )

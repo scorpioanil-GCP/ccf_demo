@@ -212,7 +212,21 @@ policy_constraints:
       intent: internal-appetite
 
 resolution:
+  # `relationship_rules: []` IS DELIBERATE AND IS NOT AN OMISSION.
+  # `AssemblyWorker.ingest` mints relationship claims by CLASS CO-OCCURRENCE:
+  # every declared rule whose subject and object classes both resolve from one
+  # envelope fires, and nothing selects the predicate from the payload. cp-04
+  # measured one envelope minting two entities and TWELVE relationships, six of
+  # them self-loops (`D-35`). Each normalized edge is therefore admitted through
+  # `worker.admit_relationship_claim` carrying its TRUE predicate. Still one
+  # writer, still L2, and no file under `src/` changes.
+  relationship_rules: []
   entity_rules:
+    # THE ANCHOR IS ITS OWN CLASS, and the traversal operator's
+    # `seed_entity_classes` names it. Minting every node as `exposure_member`
+    # leaves the operator with nothing to seed from — a walk that starts nowhere
+    # returns nothing, and the empty-operator guard would report an empty family
+    # for a graph that is fully populated.
     - match_key: anchor_ref
       entity_class: exposure_anchor
       identity_keys:
