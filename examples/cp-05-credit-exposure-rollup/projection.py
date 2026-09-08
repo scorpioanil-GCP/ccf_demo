@@ -30,6 +30,7 @@ would be letting provenance change the answer.
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 from typing import Any, Mapping, Sequence
 
 from ccf.projection.plan import Perspective, ProjectionOutput
@@ -47,7 +48,7 @@ class ExposureRollupProjection:
     author has to discover it.
     """
 
-    def __init__(self, *, plan_id: str, threshold: float,
+    def __init__(self, *, plan_id: str, threshold: Decimal,
                  entities: Sequence[Any], gross_committed: int,
                  connected_without_exposure: Sequence[str]) -> None:
         self._plan_id = plan_id
@@ -74,7 +75,12 @@ class ExposureRollupProjection:
     def invoke(self, *, view: Any, operator_outputs: Mapping[str, Any],
                perspective: Perspective, temporal_boundary: datetime) -> ProjectionOutput:
         """Apply the effective threshold. Truth in, relevance out."""
-        floor = int(self._gross_committed * self._threshold) if self._gross_committed else 0
+        # DECIMAL ARITHMETIC ON A MONEY FIGURE. `int(10_125_000_000 * 0.05)`
+        # is right by luck; the same expression at other thresholds is not, and
+        # a floor computed in binary floating point would move a borrower
+        # across the materiality line differently on different machines.
+        floor = (int(self._gross_committed * self._threshold)
+                 if self._gross_committed else 0)
 
         material = [e for e in self._entities if e.gross.committed >= floor]
         residual = {"committed": 0, "outstanding": 0, "undrawn": 0}

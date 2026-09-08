@@ -85,7 +85,7 @@ declaration:
         A typed `ccf.products.contract.ContextProductContract` — nine required
         fields, a three-field ProductLineage, ttl_anchor `from_decision`
         expressed with NO SDK change. expires_at = asked_at + 14400s. Content
-        address 88a5475b63ca72130936146661811ca782c6697bc098ffd60c5fa7a464ac9924.
+        address 299d0e9e38ec680d932ebe607bf50371ffe8389c3ac3f8b13bec2df61f8e089b.
 
   # ==========================================================================
   # THE FOUR GATES — spec §D.7
@@ -170,3 +170,41 @@ declaration:
       tolerance breach is a refusal of FULFILLMENT, not of RESPONSE
       (`D-IMPL-251`). Disclosure decides what the caller sees, and it discloses
       both the number and the reason it is not attested.
+
+  # ==========================================================================
+  # DECISION REPLAY — spec §D.9. WRITTEN BEFORE THE RESPONSE IS RELEASED.
+  # ==========================================================================
+  replay:
+    mechanism: >-
+      ccf.replay.record::build_replay_record, then ccf.replay.serve::serve on
+      the served path and ccf.replay.serve::record_refusal on the withheld one.
+    record_class: ccf.cp-05.decision-replay-record
+    one_class_for_both_outcomes: >-
+      `D-IMPL-253` Q13: *"Refusal is itself a decision and deserves the same
+      five-dimensional replay model. Do not create second-class replay."* A
+      separate artifact class for withheld determinations would be that second
+      class. Measured, the WITHHELD record is LARGER than the served one —
+      20,639 bytes against 17,157 — because it additionally carries the refusal
+      envelope, its evidence and the debt breakdown. Whatever second-class means,
+      it is not this.
+    what_replay_re_asks: >-
+      THE EFFECTIVE REQUEST, never the caller's. `resolution=outcome.evidence`
+      carries one parameter per name with the authority that established it, so
+      replay re-asks `0.05 [default]` or `0.10 [policy]` rather than whatever
+      the caller typed. Under a narrowing policy constraint those are different
+      questions and only one of them was answered.
+    ordering_is_structural: >-
+      A served product is what a successful append RETURNS (INV-CH7-79). There
+      is no branch through `serve` that hands back a product whose record failed
+      to write, because the product comes out of the same call that wrote it.
+    witness: >-
+      OBSERVED ON BOTH BRANCHES on 2026-09-08 against the pinned instant. The
+      record is READ BACK OUT OF THE STORE before the per-run directory is
+      discarded and its content address compared against the record this run
+      built; `address_matches_built_record` is true on both. All five dimensions
+      are populated on both, differing only in dimension 5's disposition:
+      served carries a `product_content_address` and `refusal_recorded: false`,
+      withheld carries `no-product-address` and `refusal_recorded: true`. Debt
+      1.000 appears on BOTH — on the withheld branch it arrives through the
+      refusal envelope's own permitted evidence, which is why the assessment had
+      to travel on the envelope rather than beside it.

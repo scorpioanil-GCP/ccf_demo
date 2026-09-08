@@ -24,6 +24,16 @@ import psycopg
 
 from ccf.products.contract import ContextProductContract, ProductLineage
 from ccf.products.gates import ServableProduct, refuse_over_tolerance, run_gates
+from ccf.products.provenance import ProvenanceSource
+from ccf.products.refusal import RefusalEvidence, RequestIdentity, envelope_for
+from ccf.replay.record import (
+    NO_ASSEMBLY_REFUSAL,
+    NO_REQUEST_RESOLUTION,
+    PolicyBinding,
+    build_replay_record,
+    content_hash,
+)
+from ccf.replay.serve import record_refusal, serve
 
 import assembler as asm
 import deployment as dep
@@ -60,6 +70,190 @@ def content_address(payload: dict[str, Any]) -> str:
     """
     scoped = {k: v for k, v in payload.items() if k != "expires_at"}
     return hashlib.sha256(_canonical(scoped)).hexdigest()
+
+
+#: The key the limit definition binds under in the replay record. It names a
+#: versioned credit policy read from the amounts store — NOT a Control Plane
+#: artifact, which is why the version beside it is a `limit_definition` row id
+#: rather than a pin. `ccf_config.yaml` cannot hold it: the Control Plane
+#: document's section vocabulary is closed (see `artifacts/replay.yaml`).
+LIMIT_DEFINITION_BINDING = "limit_definition"
+
+
+def _record_and_release(*, config: dict[str, Any], gated, withheld,
+                        candidate, execution, outcome, request_identity,
+                        bindings, debt_assessment, policy_version: str,
+                        asked_at) -> dict[str, Any]:
+    """The five-dimension decision record, written BEFORE the response is released.
+
+    `D-IMPL-256`: *"Every governed determination that crosses a CCF delivery
+    boundary — fulfilled or refused, tool or resource, authorized or denied —
+    must reach the replay writer before the response is released."*
+
+    **ONE writer, ONE store, ONE record class for both outcomes.** `D-IMPL-253`
+    Q13 is explicit that a refusal is itself a decision and gets the same
+    five-dimensional model: *"Do not create second-class replay."* A separate
+    artifact class for withheld determinations would be that second class.
+
+    **The record is built from the EFFECTIVE request, not the caller's.** What
+    replay re-asks is the question the fabric actually answered — `0.05` because
+    the class defaulted it, or `0.10` because a policy bound it — with the
+    authority on every parameter. `resolution=outcome.evidence` is the whole of
+    that, and it is the same object on both branches.
+
+    **The store is per-run and that is deliberate** (`artifacts/replay.yaml`).
+    What this demonstrates is the ORDERING — a served product is what a
+    successful append RETURNS, so no branch reaches delivery without a written
+    record (INV-CH7-79) — and that is observable inside one run. The record is
+    read back out of the store before the directory is discarded, so the
+    reported address is a fact about a persisted artifact rather than about an
+    object that was never written.
+    """
+    with tempfile.TemporaryDirectory() as replay_root:
+        store, replay_writer, query_pin_writer = dep.replay_writers(
+            pathlib.Path(replay_root))
+
+        if withheld is None:
+            record = build_replay_record(
+                execution=execution,
+                product=gated.product,
+                perspective=_perspective(config),
+                policy_bindings=bindings,
+                assembly_mode=config["product_class"]["assembly_mode"],
+                recorded_at=asked_at,
+                resolution=outcome.evidence,
+            )
+            # DELIVERY IS WHAT THE SUCCESSFUL APPEND RETURNS. There is no path
+            # through `serve` that hands back a product whose record failed to
+            # write, because the product comes out of the same call that wrote
+            # it (INV-CH7-79).
+            released = serve(
+                product=gated, record=record, replay_writer=replay_writer,
+                query_pin_writer=query_pin_writer,
+                executed_queries=execution.executed_queries,
+            )
+            # THE REFERENCE TRAVELS WITH THE PRODUCT, deliberately: a consumer
+            # holding a Context Product can name the decision record that
+            # authorizes it, which makes the trail usable from the consuming
+            # side rather than only from the fabric's.
+            ref = released.replay_ref
+            outcome_name = "served"
+        else:
+            # THE REFUSAL VALUE TRAVELS, and the envelope is minted from it
+            # rather than described. `envelope_for` dispatches on the EXACT
+            # type — an `isinstance` chain would translate an unknown subclass
+            # as its nearest ancestor and report that ancestor's kind, which is
+            # a well-formed envelope carrying the wrong answer.
+            envelope = envelope_for(
+                withheld,
+                request=request_identity,
+                # A TOLERANCE REFUSAL HAS A REAL ASSEMBLY BEHIND IT, so the
+                # lineage at the point of refusal is the product's own — not
+                # `None`, which is reserved for a refusal the fabric reaches
+                # before touching the graph.
+                pre_assembly_lineage=candidate.lineage,
+                policy_bindings=(
+                    ProvenanceSource(kind="artifact",
+                                     identity=LIMIT_DEFINITION_BINDING,
+                                     version=policy_version),
+                ),
+                evidence=RefusalEvidence(
+                    operators_invoked=execution.operators_invoked,
+                    plan_id=execution.plan_id,
+                    store_snapshot_pin=execution.store_snapshot_pin,
+                    # THE DEBT TRAVELS ON THE REFUSAL. Without it the record
+                    # would say a bar was not met without saying by how much,
+                    # and the determination could not be re-judged against a
+                    # different bar.
+                    debt=debt_assessment,
+                ),
+                provenance=outcome.evidence,
+            )
+            record = build_replay_record(
+                execution=execution,
+                product=None,
+                refusal=envelope,
+                perspective=_perspective(config),
+                policy_bindings=bindings,
+                assembly_mode=config["product_class"]["assembly_mode"],
+                recorded_at=asked_at,
+                resolution=outcome.evidence,
+                tenant_id=_TENANT,
+            )
+            # NOT A `DeliveryCapability` — a refusal has no product for one to
+            # authorize. What the caller needs is the ADDRESS, because that is
+            # where `RefusalEnvelope.replay_reference` points.
+            ref = record_refusal(record=record, replay_writer=replay_writer)
+            outcome_name = "withheld"
+
+        # READ IT BACK. The address below is then a fact about an artifact that
+        # is in the store, not about an object this function happened to build.
+        persisted = store.get(content_address=ref.content_address)
+        return {
+            "record_class": ref.artifact_class,
+            "reference": ref.uri,
+            "record_content_address": ref.content_address,
+            "record_bytes_persisted": len(persisted),
+            # The address the store gave back must be the address of what this
+            # function built. If these ever disagree, the record on disk is not
+            # the record this determination made.
+            "address_matches_built_record": ref.content_address == content_hash(record),
+            # WHAT REPLAY RE-ASKS. Not the caller's values — the EFFECTIVE ones,
+            # each with the authority that established it.
+            "effective_question": dict(request_identity.parameters),
+            "policy_bindings": [f"{b.key}@{b.version}" for b in bindings],
+            "outcome": outcome_name,
+            # THE FIVE DIMENSIONS, READ OFF THE RECORD RATHER THAN RESTATED.
+            # Every value below is `getattr`-ed from the object that was
+            # persisted; nothing here is a second copy this function assembled
+            # to look right. A withheld determination fills the same five.
+            "dimensions": {
+                "1_context_fabric": {
+                    "temporal_boundary":
+                        record.context_fabric_snapshot.temporal_boundary.isoformat(),
+                    "store_snapshot_pin":
+                        f"{record.context_fabric_snapshot.store_snapshot_pin.substrate}"
+                        f"@{record.context_fabric_snapshot.store_snapshot_pin.pin}",
+                    "touched_entities":
+                        len(record.context_fabric_snapshot.touched_entities),
+                },
+                "2_policy_bindings": {
+                    "bindings": [
+                        f"{b.key}@{b.version}"
+                        for b in record.policy_bindings.bindings
+                    ],
+                    # THE AUTHORITY LAYER'S OWN RECORD RIDES HERE (`D-IMPL-260`
+                    # P-H). This is what makes replay re-ask the EFFECTIVE
+                    # question rather than the caller's.
+                    "request_resolution_present":
+                        record.policy_bindings.request_resolution
+                        != NO_REQUEST_RESOLUTION,
+                },
+                "3_model_version": {
+                    "assembly_mode": str(record.model_version.assembly_mode),
+                    "model_version": record.model_version.model_version,
+                },
+                "4_perspective": {
+                    "principal_id": record.perspective_conditioning.principal_id,
+                    "role": record.perspective_conditioning.role,
+                },
+                "5_content_path": {
+                    "plan_id": record.content_generation_path.plan_id,
+                    "operator_plan":
+                        sorted(record.content_generation_path.operator_plan),
+                    "product_content_address":
+                        record.content_generation_path.product_content_address,
+                    # PRESENT ON BOTH BRANCHES. On the withheld branch it comes
+                    # from the refusal's own permitted evidence, which is why
+                    # the debt had to travel on the envelope.
+                    "debt": (str(record.content_generation_path.debt.debt)
+                             if record.content_generation_path.debt else None),
+                    "refusal_recorded":
+                        record.content_generation_path.assembly_refusal
+                        != NO_ASSEMBLY_REFUSAL,
+                },
+            },
+        }
 
 
 class RequestRefused(ValueError):
@@ -152,7 +346,14 @@ def produce(*, anchor: str | None = None, intent: str | None = None,
 
     effective = {p.name: p for p in outcome.evidence.parameters}
     depth_value = int(effective["depth"].value)
-    materiality_value = float(effective["materiality"].value)
+    # A `Decimal`, NEVER A FLOAT, and the SDK enforces it rather than asking.
+    # An earlier draft carried `float(...)` here, and it reached the payload —
+    # where `ccf.contracts.canonical` refused it outright: *"float is not
+    # canonically encodable (not bit-stable across platforms); use int or
+    # decimal.Decimal."* The refusal only fired on the SERVED path, because
+    # that is the only path that content-hashes the product payload; the
+    # withheld path had been carrying the same defect silently (spec §F.4).
+    materiality_value = effective["materiality"].value
     flags = {
         "follow_guarantees": bool(effective["follow_guarantees"].value),
         "follow_cross_default": bool(effective["follow_cross_default"].value),
@@ -204,7 +405,12 @@ def produce(*, anchor: str | None = None, intent: str | None = None,
                 fabric, control_plane = dep.boot(pathlib.Path(fabric_root))
                 traversed = dep.populate_and_traverse(
                     fabric=fabric, graph=graph, anchor_node=anchor_node,
-                    nodes=acquired, edges=edges, leis=lei_by_node, asked_at=asked_at,
+                    nodes=acquired, edges=edges, leis=lei_by_node,
+                    asked_at=asked_at,
+                    # The family this request named. It is the policy admission
+                    # key AND the observed membership fact, and it is the same
+                    # token the caller asked in.
+                    family=anchor_lei,
                 )
 
             nodes = acquired
@@ -338,7 +544,11 @@ def produce(*, anchor: str | None = None, intent: str | None = None,
         "policy": {"counts_guarantees": limit.counts_guarantees,
                    "counts_undrawn": limit.counts_undrawn,
                    "connection_basis": limit.connection_basis},
-        "request": {"depth": depth_value, "materiality": materiality_value,
+        # TEXT ON THE WIRE, matching `effective_request` below. A `Decimal` is
+        # not JSON-serializable and a float is not canonically encodable, and
+        # the string preserves the lexical form the caller used — `0.10` stays
+        # `0.10` rather than normalizing to `0.1`.
+        "request": {"depth": depth_value, "materiality": str(materiality_value),
                     "basis": basis_value, **flags},
         # THE EFFECTIVE REQUEST, WITH AUTHORITY PER PARAMETER. This is what
         # makes the answer replayable as an answer to a QUESTION rather than as
@@ -456,13 +666,64 @@ def produce(*, anchor: str | None = None, intent: str | None = None,
     withheld = refuse_over_tolerance(gated, tolerance=effective.get("debt_tolerance"))
 
     tolerance = effective.get("debt_tolerance")
+
+    # ==================================================================
+    # REPLAY — BEFORE THE RESPONSE IS RELEASED, ON BOTH BRANCHES.
+    # ==================================================================
+    #
+    # `D-IMPL-256`: *"Every governed determination that crosses a CCF delivery
+    # boundary — fulfilled or refused, tool or resource, authorized or denied —
+    # must reach the replay writer before the response is released."*
+    #
+    # ONE writer, ONE store, ONE record class for both outcomes. `D-IMPL-253`
+    # Q13 is explicit that a refusal is itself a decision and gets the same
+    # five-dimensional model: *"Do not create second-class replay."* A separate
+    # class for withheld determinations would be that second class.
+    #
+    # THE RECORD IS BUILT FROM THE EFFECTIVE REQUEST, NOT THE CALLER'S. What is
+    # replayed is the question the fabric actually answered — 0.05 because the
+    # class defaulted it, or 0.10 because a policy bound it — with the authority
+    # on every parameter. `resolution=outcome.evidence` is the whole of that.
+    request_identity = RequestIdentity(
+        product_id=config["product_class"]["schema_name"],
+        product_version=config["product_class"]["schema_version"],
+        # THE EFFECTIVE VALUES, with their authority beside them. Recording the
+        # caller's supplied values here would make replay re-ask the question
+        # that was ASKED rather than the one that was ANSWERED, and under a
+        # narrowing policy constraint those are different questions.
+        parameters={
+            p.name: f"{p.value} [{p.authority}]" for p in outcome.evidence.parameters
+        },
+        temporal_boundary=asked_at,
+    )
+    # TWO BINDINGS, BECAUSE TWO VERSIONED POLICIES GOVERNED THIS ANSWER. The
+    # Control Plane bundle is the fabric's own, pinned at boot; the limit
+    # definition is the credit policy read from the amounts store, and it is
+    # what decided whether guarantees net and whether undrawn commitments count.
+    # Recording only the first would leave a reader unable to tell which
+    # definition produced which number — the fact spec §D.3 step 2 exists for.
+    fabric = traversed["fabric"]
+    bundle_key = fabric.handle.worker.policy_bundle_key
+    bindings = (
+        PolicyBinding(key=bundle_key, version=fabric.pins.version_for(bundle_key)),
+        PolicyBinding(key=LIMIT_DEFINITION_BINDING, version=rollup.policy_version),
+    )
+    replay = _record_and_release(
+        config=config, gated=gated, withheld=withheld, candidate=candidate,
+        execution=execution, outcome=outcome, request_identity=request_identity,
+        bindings=bindings, debt_assessment=debt_assessment,
+        policy_version=rollup.policy_version, asked_at=asked_at,
+    )
+
     payload["fulfillment"] = {
         "served": withheld is None,
+        "disposition": replay["outcome"],
         "tolerance": None if tolerance is None else str(tolerance.value),
         "tolerance_authority": None if tolerance is None else tolerance.authority,
         "observed_debt": str(debt_assessment.debt),
         "detail": None if withheld is None else withheld.detail,
     }
+    payload["replay"] = replay
     # DELIBERATELY AFTER THE CONTENT ADDRESS, and the reason is that the
     # outcome is REDUNDANT with what the address already covers. The address
     # spans the effective request — including the resolved `debt_tolerance` and

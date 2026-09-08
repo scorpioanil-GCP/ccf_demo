@@ -142,6 +142,34 @@ def render(payload: dict) -> str:
     out.append("")
     out.append(f"  content address  {payload['content_address']}")
 
+    rep = payload.get("replay")
+    if rep:
+        d = rep["dimensions"]
+        out.append("")
+        out.append("  DECISION REPLAY — written BEFORE the response was released")
+        out.append(f"    outcome     {rep['outcome']}   "
+                   f"({rep['record_bytes_persisted']} bytes persisted)")
+        out.append(f"    record      {rep['record_content_address']}")
+        out.append(f"    1 fabric    boundary {d['1_context_fabric']['temporal_boundary']}  "
+                   f"touched {d['1_context_fabric']['touched_entities']} entities")
+        for binding in d["2_policy_bindings"]["bindings"]:
+            out.append(f"    2 policy    {binding}")
+        out.append(f"    2 policy    effective request recorded: "
+                   f"{d['2_policy_bindings']['request_resolution_present']}")
+        out.append(f"    3 model     assembly_mode={d['3_model_version']['assembly_mode']}  "
+                   f"model={d['3_model_version']['model_version']}")
+        out.append(f"    4 role      {d['4_perspective']['principal_id']} / "
+                   f"{d['4_perspective']['role']}")
+        out.append(f"    5 content   plan {d['5_content_path']['plan_id']}")
+        out.append(f"    5 content   product address "
+                   f"{d['5_content_path']['product_content_address'][:32]}")
+        out.append(f"    5 content   debt {str(d['5_content_path']['debt'])[:5]}  "
+                   f"refusal recorded: {d['5_content_path']['refusal_recorded']}")
+        out.append("")
+        out.append("    WHAT REPLAY RE-ASKS — the EFFECTIVE question, not the caller's")
+        for name, value in sorted(rep["effective_question"].items()):
+            out.append(f"      {name:<22} {value}")
+
     f = payload.get("fulfillment")
     if f:
         out.append("")
@@ -207,6 +235,9 @@ def scenario_line(name: str, requested: dict, payload: dict) -> list[str]:
         f"    fulfillment  {verdict}  against tolerance "
         f"{f['tolerance']} ({f['tolerance_authority']})",
         f"    address      {payload['content_address']}",
+        f"    replay       {payload['replay']['outcome']} · "
+        f"{payload['replay']['record_content_address'][:16]} · "
+        f"{payload['replay']['record_bytes_persisted']} bytes",
     ]
 
 

@@ -54,7 +54,28 @@
     asked_at    2026-09-07T12:00:00+00:00
     expires_at  2026-09-07T16:00:00+00:00
 
-  content address  88a5475b63ca72130936146661811ca782c6697bc098ffd60c5fa7a464ac9924
+  content address  299d0e9e38ec680d932ebe607bf50371ffe8389c3ac3f8b13bec2df61f8e089b
+
+  DECISION REPLAY — written BEFORE the response was released
+    outcome     withheld   (20639 bytes persisted)
+    record      83f077b036a947875afb745eceb1be77b21c36ebd502ce709dd90a3b703c21f3
+    1 fabric    boundary 2026-09-07T12:00:00+00:00  touched 77 entities
+    2 policy    policy@31805dcb4235bba5d8a915a628db906f30e524331b1219ae9a3cee7b5e6e4b09
+    2 policy    limit_definition@limit_definition/group-limit-test
+    2 policy    effective request recorded: True
+    3 model     assembly_mode=algorithmic  model=none
+    4 role      PRIN-CRO-001 / credit-officer
+    5 content   plan cp-05.exposure-rollup/materiality=0.05
+    5 content   product address no-product-address
+    5 content   debt 1.000  refusal recorded: True
+
+    WHAT REPLAY RE-ASKS — the EFFECTIVE question, not the caller's
+      basis                  both [default]
+      debt_tolerance         0.25 [default]
+      depth                  3 [default]
+      follow_cross_default   True [default]
+      follow_guarantees      True [default]
+      materiality            0.05 [default]
 
 ------------------------------------------------------------------------------
   FULFILLMENT  WITHHELD  D_c 1.000 > tolerance 0.25 (default)

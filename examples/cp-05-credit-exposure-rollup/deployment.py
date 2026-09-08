@@ -54,6 +54,10 @@ TTL = ARTIFACTS / "ttl.yaml"
 #: a fitness bar and a threshold are things callers ask for, not things this
 #: deployment is permitted to do, so they are not in `ccf_config.yaml`.
 SCENARIOS = ARTIFACTS / "scenarios.yaml"
+#: Where decision records go and under what artifact classes. A separate
+#: document because the Control Plane's section vocabulary is closed and has no
+#: slot for a deployment's own replay binding — see the artifact's own banner.
+REPLAY = ARTIFACTS / "replay.yaml"
 EXPECTED = ARTIFACTS / "expected.yaml"
 SPEC = HERE / "spec" / "CP-SPEC-005_Credit_Exposure_Rollup.md"
 
@@ -416,8 +420,33 @@ def register_class(*, registry, config: dict[str, Any], ttl: dict[str, Any]):
     )
 
 
+def replay_writers(root: Path):
+    """The file-backed store and the two writers, from `artifacts/replay.yaml`.
+
+    **The SAME store and the SAME record class for a served and a withheld
+    determination** — `D-IMPL-253` Q13: *"Refusal is itself a decision and
+    deserves the same five-dimensional replay model. Do not create second-class
+    replay."* A second writer, or a second record shape, would be exactly that.
+
+    Returns `(store, replay_writer, query_pin_writer)`. The query-pin writer is
+    only spendable on the served path, because `ccf.replay.serve::serve` is what
+    spends it and a withheld determination never reaches that call.
+    """
+    from ccf.artifacts.file_store import FileArtifactStore
+    from ccf.replay.serve import QueryPinWriter, ReplayWriter
+
+    declared = load(REPLAY)[DECLARATION]
+    store = FileArtifactStore(root=root / declared["store_dirname"])
+    return (
+        store,
+        ReplayWriter(store=store, artifact_class=declared["record_class"]),
+        QueryPinWriter(store=store, artifact_class=declared["query_pin_class"]),
+    )
+
+
 def envelope_for_node(node: str, lei: str | None, label: str | None, *,
-                      tenant: str, asked_at, is_anchor: bool = False) -> Any:
+                      tenant: str, asked_at, family: str,
+                      is_anchor: bool = False) -> Any:
     """One L1 envelope per family node — what L2 mints an entity from.
 
     `raw_payload` carries `member_ref`, the `match_key` `ccf_config.yaml`'s
@@ -449,6 +478,18 @@ def envelope_for_node(node: str, lei: str | None, label: str | None, *,
             "entity_uri": node,
             "lei": lei or "",
             "label": label or "",
+            # THE POLICY ADMISSION KEY, and it is an OBSERVED fact rather than
+            # an inherited one: this node was reached from this anchor by the
+            # acquisition walk, which is the only thing anyone measured about
+            # it. `D-IMPL-229` (rung 4, Dave): *"If PolicyFilter can only key
+            # off a claim attribute, that attribute is membership, minted when
+            # the node is admitted to the walk."* `ccf_config.yaml` has
+            # declared `family_id` on both entity rules from the start; until
+            # this line existed it was declared and never carried, and
+            # `PolicyFilter` refuses a missing attribute exactly as firmly as
+            # a wrong one — *"the fabric does not admit state it cannot prove
+            # is admissible."*
+            "family_id": family,
         },
     )
 
@@ -482,9 +523,39 @@ def relationship_claim(*, tenant: str, subject: str, object_: str,
     )
 
 
+def refuse_unbound_family_scope(bound, *, expected: str) -> None:
+    """The BOUND policy set names exactly the one family this request asked.
+
+    Two failures, and each is silent without this refusal. An EMPTY bound set
+    admits NOTHING and serves an empty family, which reads as *this company has
+    no exposure* — a claim about the world. A bound set naming some OTHER family
+    admits nothing for the same reason while looking configured.
+
+    **This is what makes the substitution below mandatory rather than
+    conventional.** `ccf_config.yaml` declares `permitted_classifications`
+    empty on purpose — the family a request names is not knowable when the
+    document is written — so a path that skipped the binding would surface as an
+    empty answer rather than by name. Rung 4 ruled this shape (`D-IMPL-229`).
+    """
+    values = tuple(sorted(bound))
+    if not values:
+        raise SystemExit(
+            "the policy envelope was left as declared, which admits NOTHING."
+            " ccf_config.yaml declares an empty permitted set deliberately —"
+            " the family a request names is not knowable at declaration time —"
+            " and populate_and_traverse is what binds it (`D-IMPL-229`)"
+        )
+    if values != (expected,):
+        raise SystemExit(
+            f"the policy envelope admits {values} but this request asked about"
+            f" {expected!r}. A bound set naming another family admits nothing"
+            " for this one while looking fully configured."
+        )
+
+
 def populate_and_traverse(*, fabric, graph: GraphSource, anchor_node: str,
                           nodes: list[str], edges: list[tuple[str, str, str]],
-                          leis: dict[str, str], asked_at):
+                          leis: dict[str, str], asked_at, family: str):
     """Acquisition → L2 → L3 → the DECLARED L4 traversal. Returns its family.
 
     **The distinction this function exists to make explicit, and it is cp-05's
@@ -514,7 +585,8 @@ def populate_and_traverse(*, fabric, graph: GraphSource, anchor_node: str,
     for node in nodes:
         result = worker.ingest(
             envelope_for_node(node, leis.get(node), None, tenant=tenant,
-                              asked_at=asked_at, is_anchor=(node == anchor_node))
+                              asked_at=asked_at, family=family,
+                              is_anchor=(node == anchor_node))
         )
         for entity in getattr(result, "entities", ()):
             minted[node] = entity.node_key
@@ -533,15 +605,50 @@ def populate_and_traverse(*, fabric, graph: GraphSource, anchor_node: str,
     # The view at the boundary the REQUEST named, never a clock — so replay
     # feeds the same instant back through the same code path.
     view = fabric.handle.reader.as_of(tenant_id=tenant, at=asked_at)
+
+    # BIND THIS REQUEST'S FAMILY ONTO THE DECLARED POLICY ENVELOPE. The
+    # declaration is empty on purpose and admits nothing; the substitution is
+    # what makes it admit THIS family and no other. Two families are two
+    # parameter-set hashes and therefore two content addresses, so the replay
+    # record says WHICH family a decision admitted rather than leaving it to be
+    # inferred from the payload.
+    declared_policy = fabric.artifacts["policy.principal-subgraph"]
+    bound_policy = declared_policy.model_copy(
+        update={"permitted_classifications": frozenset({family})}
+    )
+    refuse_unbound_family_scope(bound_policy.permitted_classifications,
+                                expected=family)
+
     registry = build_operator_registry(
         parameters={
-            k: fabric.artifacts[k]
-            for k in ("policy.principal-subgraph", "traversal.typed-neighborhood")
+            "policy.principal-subgraph": bound_policy,
+            "traversal.typed-neighborhood":
+                fabric.artifacts["traversal.typed-neighborhood"],
         },
         view=view, pins=fabric.pins, policy_bundle_key=worker.policy_bundle_key,
     )
-    output = registry.resolve("traversal.typed-neighborhood").apply(
+
+    # POLICY RUNS FIRST AND THE TRAVERSAL CHAINS FROM ITS OUTPUT.
+    #
+    # **This is the correction of a real defect, recorded rather than quietly
+    # repaired.** An earlier revision passed `upstream=()` to the traversal —
+    # which invokes the policy operator's registration and then discards its
+    # result. The product answered 77 from a walk that never passed through the
+    # policy envelope, while its lineage declared `policy.principal-subgraph`
+    # among the operators invoked. The replay record was the thing that found
+    # it: dimension 1 reported `touched_entities: 0` for a determination over
+    # 77 members, because the ENGINE's chained pipeline (which does compose
+    # them) was correctly returning nothing while the answer came from
+    # somewhere else.
+    #
+    # On a graph the ordering is not decoration. A node the principal may not
+    # see is never materialized, so no edge to it is ever built.
+    admitted = registry.resolve("policy.principal-subgraph").apply(
         view=view, tenant_id=tenant, temporal_boundary=asked_at, upstream=()
+    )
+    output = registry.resolve("traversal.typed-neighborhood").apply(
+        view=admitted.view, tenant_id=tenant, temporal_boundary=asked_at,
+        upstream=(admitted.provenance,),
     )
 
     records = output.view.entities

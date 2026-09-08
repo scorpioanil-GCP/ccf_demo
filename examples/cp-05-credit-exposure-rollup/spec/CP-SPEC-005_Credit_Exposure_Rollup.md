@@ -676,6 +676,62 @@ calculated without being willing to attest that the calculation is fit to serve;
 disclosure decides what the caller sees, and it discloses both the number and
 the reason it is not attested.
 
+---
+
+### D.9 Decision replay — written before the response is released
+
+`D-IMPL-256`: *"Every governed determination that crosses a CCF delivery
+boundary — fulfilled or refused, tool or resource, authorized or denied — must
+reach the replay writer before the response is released."*
+
+**One writer, one store, one record class for both outcomes.** `D-IMPL-253` Q13
+(Dave): *"Refusal is itself a decision and deserves the same five-dimensional
+replay model. Do not create second-class replay."* A separate artifact class for
+withheld determinations would be that second class. Measured on this product,
+the **withheld record is larger than the served one** — 20,639 bytes against
+17,157 — because it additionally carries the refusal envelope, its evidence and
+the debt breakdown.
+
+| Dimension | Served | Withheld |
+|---|---|---|
+| 1 · Context fabric | boundary `2026-09-07T12:00:00+00:00`, 77 touched entities | **identical** — the same state was read |
+| 2 · Policy bindings | the Control Plane bundle pin **and** `limit_definition/group-limit-test` | identical |
+| 2 · Effective request | present | present |
+| 3 · Model version | `assembly_mode=algorithmic`, `model=none` | identical |
+| 4 · Perspective | `PRIN-CRO-001 / credit-officer` | identical |
+| 5 · Content path | product content address, `refusal_recorded: false` | `no-product-address`, `refusal_recorded: true` |
+| 5 · Debt | `1.000` | `1.000`, arriving through the refusal envelope's own permitted evidence |
+
+**What replay re-asks is the EFFECTIVE question, never the caller's.**
+`resolution` carries one parameter per name with the authority that established
+it, so a reader sees `debt_tolerance 0.10 [policy]` rather than the `1.0` the
+Regulated Consumer typed. Under a narrowing constraint those are different
+questions and only one of them was answered.
+
+**Two policy bindings, because two versioned policies governed the answer.** The
+Control Plane bundle is the fabric's own, pinned at boot. The limit definition is
+credit policy read from the amounts store, and it is what decided whether
+guarantees net and whether undrawn commitments count (§D.3 step 2). Recording
+only the first would leave a reader unable to tell which definition produced
+which number.
+
+**Ordering is structural rather than conventional.** A served product is what a
+successful append *returns* (INV-CH7-79): there is no branch through `serve`
+that hands back a product whose record failed to write, because the product
+comes out of the same call that wrote it. On the withheld branch `record_refusal`
+returns the artifact reference rather than a delivery capability — a refusal has
+no product for a capability to authorize, and what the caller needs is the
+address the refusal envelope's `replay_reference` points at.
+
+**The store is per-run, and that is a demonstration choice rather than a
+deployment one** (`artifacts/replay.yaml`). What is demonstrated is the ordering,
+which is observable inside one run. The record is read back out of the store and
+its content address compared against the record the run built before the
+directory is discarded, so the reported address is a fact about a persisted
+artifact rather than about an object that was never written.
+
+---
+
 ## Section E — Volatility, debt & materialization
 
 ### E.1 Half-life table
@@ -951,6 +1007,10 @@ product raises is answered at rung 16, not here.
    `perspective` and bounded by time, with everything else fixed at
    construction, is a defensible contract.
 
+10. **`assembly_mode`, `out_of_scope` and `sdk_spec` are `null` in the vault
+   article's front matter.** This specification supplies all three; the vault
+   article should be updated on the return path (`spec_generation.md` §11).
+
 11. **NOT A GAP — the `debt_tolerance` narrowing is deliberate, and the source
     says so.** A `maximum` policy constraint on `materiality` refuses; the same
     operator on `debt_tolerance` narrows. That looked like an inconsistency
@@ -963,6 +1023,18 @@ product raises is answered at rung 16, not here.
     `DEBT_TOLERANCE_PARAMETER` is the SDK's only parameter-name-keyed branch
     and it keys on the SDK's own mechanism token, never on this deployment's
     vocabulary.
+
+12. **The fulfillment path was present, complete and NOT the obvious path.**
+    `run_gates` -> `ServableProduct` -> `refuse_over_tolerance` required no SDK
+    change and no adaptation: the class registration, the gates, the debt field
+    on the contract and the tolerance check all composed as specified. What it
+    required was *knowing to look for it*. An earlier draft of this product
+    computed Context Debt, printed it, and served the answer anyway — the debt
+    figure was an ornament on a product nothing governed. Nothing in the SDK
+    stopped that, because a producer that never calls `refuse_over_tolerance`
+    is indistinguishable from one whose tolerance was met. **The same shape as
+    finding 8**: the machinery is present and correct, and the easiest path for
+    an author still walks past it.
 
 13. **Two self-inflicted documentation defects, recorded rather than amended.**
     (a) `summary_explanations.md` quoted a depth-refusal message no run ever
@@ -978,21 +1050,72 @@ product raises is answered at rung 16, not here.
     executed. **The rule that catches this class is to run the thing, not to
     read it**, and both were found by running it.
 
-12. **The fulfillment path was present, complete and NOT the obvious path.**
-    `run_gates` -> `ServableProduct` -> `refuse_over_tolerance` required no SDK
-    change and no adaptation: the class registration, the gates, the debt field
-    on the contract and the tolerance check all composed as specified. What it
-    required was *knowing to look for it*. An earlier draft of this product
-    computed Context Debt, printed it, and served the answer anyway — the debt
-    figure was an ornament on a product nothing governed. Nothing in the SDK
-    stopped that, because a producer that never calls `refuse_over_tolerance`
-    is indistinguishable from one whose tolerance was met. **The same shape as
-    finding 8**: the machinery is present and correct, and the easiest path for
-    an author still walks past it.
+14. **DEFECT, FOUND BY THE REPLAY RECORD — the declared policy operator was
+    invoked and its output discarded.** The product answered 77 family members
+    from a traversal that never passed through `policy.principal-subgraph`,
+    while its lineage declared that operator among the ones invoked. The cause
+    was one argument: `registry.resolve("traversal.typed-neighborhood").apply(
+    ..., upstream=())`, which registers the policy operator and then walks the
+    raw view.
 
-10. **`assembly_mode`, `out_of_scope` and `sdk_spec` are `null` in the vault
-   article's front matter.** This specification supplies all three; the vault
-   article should be updated on the return path (`spec_generation.md` §11).
+    **Nothing caught it for the whole build.** Lineage strict equality passed —
+    the engine *did* invoke both operators. The empty-operator guard passed —
+    the traversal returned 77. Every gate passed. What found it was building
+    dimension 1 of the replay record: `touched_entities: 0` for a determination
+    over 77 members, because the `ProjectionEngine`'s **chained** pipeline was
+    correctly returning nothing (an empty `permitted_classifications` admits
+    nothing — *"the fabric does not admit state it cannot prove is
+    admissible"*) while the served answer came from somewhere else entirely.
+
+    **The config was right from the start; two halves of it were never
+    implemented.** `ccf_config.yaml` already declared `family_id` as an
+    attribute key on both entity rules, and `permitted_classifications: []`
+    deliberately empty. What was missing was the envelope carrying a `family_id`
+    value, and the request-time binding of the permitted set — both of which
+    rung 4 had already ruled and built (`D-IMPL-229`, Dave: *"If PolicyFilter
+    can only key off a claim attribute, that attribute is membership, minted
+    when the node is admitted to the walk."*).
+
+    **Fixed, and sabotage-verified in both directions.** Policy now runs first
+    and the traversal chains from its provenance;
+    `deployment.py::refuse_unbound_family_scope` refuses an unbound set and a
+    set naming another family, by name, and both refusals were observed firing.
+    Minting the family under a value the request does not name now returns an
+    empty traversal, caught by the empty-operator guard — *"the declared
+    traversal operator returned no entities over an L3 holding 77 ingested nodes
+    and 100 relationship claims"* — against a positive control of 77. The answer
+    is unchanged at 77 members and $9.325B; what changed is that it now passes
+    through the envelope it always claimed to.
+
+    **The SDK observation this leaves.** Every SDK mechanism behaved correctly.
+    `PolicyFilter` excluded state it could not prove admissible; the engine
+    chained correctly; the gates checked what they are specified to check. What
+    no mechanism did was notice that a product's *served answer* and its own
+    *engine's execution* disagreed about how many entities existed. This is the
+    same shape as findings 8 and 12: **the machinery is present and correct, and
+    the easiest path for an author walks past it.**
+
+15. **A float in the payload, caught only on the served path.** The payload
+    carried `request.materiality` as a Python float.
+    `ccf.contracts.canonical` refuses one outright — *"float is not canonically
+    encodable (not bit-stable across platforms); use int or decimal.Decimal"* —
+    which is exactly right. But the refusal fires only when the product payload
+    is content-hashed, and **only the served path does that**: a withheld
+    determination's record never hashes the payload, so the same defect had been
+    riding silently through every refused run. Fixed by carrying the `Decimal`
+    into the projection (exact arithmetic on a money floor) and its string form
+    on the wire — which also preserves the caller's lexical form, so `0.10` stays
+    `0.10` rather than normalizing to `0.1`.
+
+16. **The Control Plane document has no slot for a deployment's own replay
+    binding.** Adding a `replay:` section to `ccf_config.yaml` is refused by
+    name, and the refusal is right — a Control Plane document that accepted
+    arbitrary sections would let a deployment smuggle unaudited state into the
+    audit plane — and its message names every recognized alternative. But the
+    artifact class names a deployment writes its decision records under have
+    nowhere declared to live. Rung 4 put them in `deployment.py` as module
+    constants; this rung puts them in `artifacts/replay.yaml`. Neither is the
+    Control Plane. Minor, and recorded because every example will meet it.
 
 ---
 

@@ -283,6 +283,93 @@ bound at request time; the comparison happens after the answer exists.
 
 ---
 
+## Run 6 — the decision is written down whether or not it is served
+
+Every run above wrote a **decision record** before it printed anything.
+
+```
+  DECISION REPLAY — written BEFORE the response was released
+    outcome     withheld   (20639 bytes persisted)
+    1 fabric    boundary 2026-09-07T12:00:00+00:00  touched 77 entities
+    2 policy    policy@31805dcb…
+    2 policy    limit_definition@limit_definition/group-limit-test
+    3 model     assembly_mode=algorithmic  model=none
+    4 role      PRIN-CRO-001 / credit-officer
+    5 content   debt 1.000  refusal recorded: True
+
+    WHAT REPLAY RE-ASKS — the EFFECTIVE question, not the caller's
+      debt_tolerance         0.25 [default]
+      materiality            0.05 [default]
+```
+
+### What you'd have missed
+
+**Most audit trails record what was delivered. This one records what was
+decided — including the decision not to deliver.**
+
+That difference matters more than it sounds. Six months from now, a reviewer
+asking *"why did the fabric refuse the credit committee on the 7th?"* has an
+answer: which state was read, which two credit policies were in force, which
+role was asking, what the measured confidence was, and what bar it failed. The
+withheld record is actually **larger** than the served one, because it carries
+the reason as well as the result.
+
+**And it records the question that was answered, not the question that was
+asked.** The Regulated Consumer asked to be allowed to act at any confidence.
+Its record says `debt_tolerance 0.10 [policy]`. A trail that stored what the
+caller typed would show a request that was never honored and hide the constraint
+that overruled it — which is the one fact a reviewer most needs.
+
+### How it works
+
+`produce.py::_record_and_release` builds one
+`ccf.replay.record::DecisionReplayRecord` and routes it two ways:
+`ccf.replay.serve::serve` when the product is delivered, and
+`ccf.replay.serve::record_refusal` when it is withheld. Same writer, same store,
+same artifact class — `D-IMPL-253` Q13 requires it: *"Refusal is itself a
+decision and deserves the same five-dimensional replay model. Do not create
+second-class replay."*
+
+The ordering is not a convention. A delivered product is **what the successful
+write returns** — there is no path through `serve` that hands back a product
+whose record failed to persist, because the product comes out of the same call
+that wrote it.
+
+---
+
+## What the replay record caught that nothing else did
+
+This is worth its own heading, because it is the most useful thing that happened
+while this rung was built.
+
+The product had been answering **77 family members** for the whole build. Every
+gate passed. The lineage was consistent. The numbers reconciled against public
+filings. And the answer was coming from a traversal that **never passed through
+the policy envelope** — the operator that decides which entities this principal
+is allowed to see was being invoked, and its result thrown away.
+
+Nothing noticed, because nothing was looking at the right thing:
+
+- **Lineage strict equality** passed — the operator genuinely *was* invoked.
+- **The empty-operator guard** passed — the traversal genuinely *did* return 77.
+- **Every validation gate** passed.
+
+What caught it was building dimension 1 of the record, which asks a question no
+gate asks: *how many entities did this determination actually touch?* The answer
+came back **0** for a product reporting 77. The engine's properly-composed
+pipeline was correctly returning nothing, while the served answer came from
+somewhere else entirely.
+
+**The fix is now sabotage-verified in both directions.** Leave the policy
+envelope unbound and the run refuses by name. Bind it to a different family and
+the run refuses by name. Bypass the refusal and mint the family under a value the
+request did not ask about, and the traversal returns nothing — caught by the
+empty-operator guard, against a positive control of 77. The answer is unchanged
+at 77 members and $9,325,000,000; what changed is that it now goes through the
+gate it always claimed to.
+
+---
+
 ## The assembler lesson this rung teaches
 
 > **Acquisition may use backend-specific logic; decision logic must execute
@@ -303,7 +390,7 @@ never saw. Nothing in the output would have told you.
 **The snapshot.** Every figure above comes from one pinned question asked at
 `2026-09-07T12:00:00+00:00` against Fluree ledger `fibo-v2` and PostgreSQL
 schema `ccf_v2`. The run reproduces byte for byte; the content address
-`88a5475b…` is a hash over the entire answer, so it only reproduces if every
+`299d0e9e…` is a hash over the entire answer, so it only reproduces if every
 input did.
 
 **Entity identities are real.** Regis Corporation, Avis Budget, Celanese and XPO
@@ -355,6 +442,8 @@ debt, which the estate flags as a plausible share.
 | **Context Debt (`D_c`)** | How much the fabric's confidence falls short | `1 − min(freshness, completeness, consistency)`; measured from evidence, identical for every consumer |
 | **Debt tolerance** | The most uncertainty *you* will act on | A resolved request parameter; folded once from class default, caller and policy |
 | **Withheld** | The number is shown; the fabric will not vouch for it | `refuse_over_tolerance` on a gate-admitted product; a refusal of fulfillment, not of response — exit `0` |
+| **Decision record** | The written account of what was decided and why | A five-dimension `DecisionReplayRecord`, appended before the response is released — for a refusal exactly as for a delivery |
+| **Policy envelope** | What this principal is allowed to see | `policy.principal-subgraph`, bound at request time to the one family asked about; an unbound envelope admits nothing and is refused by name |
 
 ---
 
@@ -374,6 +463,8 @@ This is the section that separates a demonstration from a guarantee.
 | Debt is measured, not asserted | `deployment.py::assess_context_debt` reads real `balance_as_of` dates, LEI coverage and reconciliation rows | A debt figure derived from result cardinality would be a number about the query, not about the knowledge |
 | A stale answer is not attested | `produce.py` -> `run_gates` -> `refuse_over_tolerance` | Without the last call a producer that never checks is indistinguishable from one whose tolerance was met — the debt figure becomes an ornament |
 | Fitness is the consumer's, within policy | `resolve_effective_request` folds `policy > caller > default` once | A second fold anywhere downstream is where a product re-acquires the power to overrule its own governance |
+| Every decision is written down | `serve` / `record_refusal`, before the response is released | A delivery whose record failed to write cannot happen — the product is what the successful write returns |
+| The walk sees only what the principal may | `policy.principal-subgraph`, bound per request, chained ahead of the traversal | An unbound envelope admits nothing and is refused by name; a bypassed one served 77 entities that had passed through no policy at all — the defect this rung found |
 | The answer reproduces | Content address over canonical bytes | The pinned transcript diff |
 
 **One gap, named rather than left implicit.** `gross ≥ adjusted` catches

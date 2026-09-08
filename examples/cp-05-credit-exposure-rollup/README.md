@@ -60,6 +60,26 @@ tolerance that was not met and the authority that set it.
 evidence, not the debt calculation. A four-hour window widened to fit old demo
 data would make every later run lie about how current its money figures are.
 
+### Every determination is replayed — served or withheld
+
+The decision record is written **before** the response is released
+(`D-IMPL-256`), through the same writer, the same store and the same artifact
+class on both branches. `D-IMPL-253` Q13 is explicit: *"Refusal is itself a
+decision and deserves the same five-dimensional replay model. Do not create
+second-class replay."*
+
+Measured, the **withheld record is bigger than the served one** — 20,639 bytes
+against 17,157 — because it additionally carries the refusal envelope, its
+evidence and the debt breakdown. All five dimensions are populated on both. They
+differ in exactly one place: dimension 5 carries a product content address and
+`refusal_recorded: false` when served, and `no-product-address` with
+`refusal_recorded: true` when withheld.
+
+**Replay re-asks the effective question, not the caller's.** Every parameter is
+recorded with the authority that set it, so the Regulated Consumer's record says
+`debt_tolerance 0.10 [policy]` rather than the `1.0` it asked for. Under a
+narrowing constraint those are different questions and only one was answered.
+
 ### Eight named consumers, one estate, one instant
 
 ```bash
@@ -175,6 +195,7 @@ undrawn availability is excluded. Different number, different content address,
 | `artifacts/expected.yaml` | What the product should contain — **derived from the estate, never from a run**. |
 | `artifacts/assembly-recipe.yaml` | §D.2 as data, one witness per step. |
 | `artifacts/scenarios.yaml` | The eight named consumers and what each one teaches. Read-side: a fitness bar is something callers ask for, not something this deployment is permitted to do. |
+| `artifacts/replay.yaml` | Where decision records go and under what artifact class. A separate document because the Control Plane's section vocabulary is closed and has no slot for it. |
 | `page/run-transcript.txt` | The demonstrated run, byte-reproducible against the pinned instant. |
 | `page/scenario-transcript.txt` | All eight consumers, same estate, same instant. |
 | `backends.yaml` | Variable **names** and remedies. No host, port or credential. |
@@ -200,8 +221,10 @@ undrawn availability is excluded. Different number, different content address,
   decides; the two are separate objects and separate steps.
 - **§7.8 Control Plane vs Data Plane** — the limit definition is versioned
   policy read from the store, recorded in lineage, never defaulted.
-- **§7.10 Decision Replay** — lineage carries operators, ledger, policy version
-  and the pinned instant; the content address reproduces.
+- **§7.10 Decision Replay** — the five-dimension record, written before the
+  response is released, on the served and the withheld branch alike. Lineage
+  carries operators, ledger, policy version and the pinned instant; the content
+  address reproduces.
 - **CLAUDE.md §6.4 No-Hardcoding** — no anchor, threshold, half-life, host or
   ledger name appears in any `.py` file here.
 
@@ -239,6 +262,11 @@ addresses.
   withheld afterwards if the observed Debt exceeds it. This is the SDK's only
   parameter-name-keyed branch and it is deliberate: fitness cannot be judged
   before it is measured.
+- **A policy envelope left unbound** — or bound to a family the request did not
+  name — is refused by `refuse_unbound_family_scope`, by name. Both directions
+  were observed firing. If the guard were bypassed, the traversal returns
+  nothing and the empty-operator guard catches it; that too was observed,
+  against a positive control of 77.
 - **A dedup whose obligor sits outside the measured family** would remove
   exposure the rollup never added. That one is *not* caught by the guard —
   `gross ≥ adjusted` does not watch for under-counting — and it is why

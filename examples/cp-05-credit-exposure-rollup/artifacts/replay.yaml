@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# WHERE THIS DEPLOYMENT'S DECISION RECORDS GO, AND UNDER WHAT ARTIFACT CLASSES.
+#
+# WHY THIS IS A SEPARATE DOCUMENT AND NOT A SECTION OF `ccf_config.yaml`.
+# Measured: the Control Plane document's section vocabulary is CLOSED, and adding
+# a `replay:` section is refused by name —
+#
+#   ccf_config.yaml names 'replay', which the SDK does not recognise as a
+#   section or a deployment-level key; the names it does recognise are:
+#   backend, backend_secrets, debt_profile, default_perspective, half_life,
+#   operators, policy, policy_bundle_key, policy_constraints, product_class,
+#   request_contract, resolution, resolution_spec_key, semver, survivor_cap,
+#   tenant_id
+#
+# The refusal is correct — a Control Plane document that accepted arbitrary
+# sections would let a deployment smuggle unaudited state into the audit plane —
+# and the error message is a model of its kind, naming every recognised
+# alternative. But it leaves a deployment's own replay binding with nowhere
+# declared to live. cp-04 put these three strings in `deployment.py` as module
+# constants; this rung puts them in an artifact instead. Neither is the Control
+# Plane. Recorded as a finding (spec §F.4), not worked around silently.
+#
+# `role: load`. These are facts about this deployment's wiring, parsed and handed
+# back. Nothing here is something the fabric is PERMITTED to do.
+
+semver: "1.0.0"
+class_id: cp-05.replay
+
+declaration:
+  # THE ARTIFACT CLASS EVERY DECISION RECORD IS APPENDED UNDER — served and
+  # refused alike. ONE class, not two, and that is `D-IMPL-253` Q13 in a string:
+  # *"Refusal is itself a decision and deserves the same five-dimensional replay
+  # model. Do not create second-class replay."* A separate class for withheld
+  # determinations would be exactly the second class that ruling forbids.
+  record_class: ccf.cp-05.decision-replay-record
+
+  # The pins of the graph queries the execution actually issued. Written only on
+  # the served path, because `ccf.replay.serve::serve` is what writes them and a
+  # withheld determination never reaches it.
+  query_pin_class: ccf.cp-05.query-pin
+
+  # WHERE THE FILE-BACKED STORE ROOTS, RELATIVE TO A PER-RUN DIRECTORY.
+  #
+  # PER-RUN IS DELIBERATE HERE AND WOULD BE WRONG IN A DEPLOYMENT. The point
+  # this example demonstrates is the ORDERING — a served product is what a
+  # successful append RETURNS, so no branch reaches delivery without a written
+  # record — and that is observable inside one run. Durable replay is a
+  # deployment concern: point `FileArtifactStore` at a persistent root, or swap
+  # it for the MCP-backed store (`CLAUDE.md` §7.4), and nothing else changes.
+  # A demonstration writing into a fixed path would also make two runs of the
+  # same question share a store and call the agreement reproducibility when it
+  # was only reuse.
+  store_dirname: artifacts-store
