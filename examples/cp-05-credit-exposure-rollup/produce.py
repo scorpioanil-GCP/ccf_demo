@@ -19,8 +19,14 @@ from typing import Any
 
 import psycopg
 
+from ccf.products.contract import ContextProductContract
+
 import assembler as asm
 import deployment as dep
+
+
+#: The tenant this deployment declares. Read, never written here.
+_TENANT = dep.load(dep.CONFIG)["tenant_id"]
 
 
 def _canonical(payload: dict[str, Any]) -> bytes:
@@ -181,6 +187,49 @@ def produce(*, anchor: str | None = None, intent: str | None = None,
     }
     payload["content_address"] = content_address(payload)
     return payload
+
+
+def as_contract(payload: dict[str, Any]) -> "ContextProductContract":
+    """The same answer as the SDK's TYPED contract — `extra=forbid`, nine fields.
+
+    Kept beside :func:`produce` rather than replacing it, because the two serve
+    different readers. `produce` returns a plain mapping a transcript can render
+    and a test can diff; this returns the object the L6 delivery surfaces
+    require, and it is what the MCP door serves.
+
+    **The contract surface turned out to be small.** Nine required fields and a
+    three-field lineage, and `ttl_anchor` is a `Literal` that already carries
+    `from_decision` — this product's anchor needed no SDK change to express.
+    Recorded because the door around it is not small (spec §F.4), and the
+    contrast is the useful measurement: the CONTRACT is cheap, the GOVERNED
+    DOOR is not.
+    """
+    from ccf.products.contract import ContextProductContract, ProductLineage
+
+    lin = payload["lineage"]
+    asked_at = _dt.datetime.fromisoformat(lin["asked_at"])
+    return ContextProductContract(
+        schema_name=payload["schema_name"],
+        schema_version=payload["schema_version"],
+        # The plan the answer came from, not a run id: two asks of the same
+        # question under the same policy share it, which is what makes the
+        # content address the thing that distinguishes runs.
+        plan_id=payload["content_address"][:16],
+        tenant_id=_TENANT,
+        # `from_decision` (spec §B.1 element 3): the boundary IS the ask.
+        temporal_boundary=asked_at,
+        expires_at=_dt.datetime.fromisoformat(payload["expires_at"]),
+        ttl_anchor="from_decision",
+        lineage=ProductLineage(
+            operators_invoked=frozenset(lin["operators_invoked"]),
+            policy_bundle_versions=frozenset({lin["policy_version"]}),
+            # The ledger read is the graph snapshot. Fluree's `t` is TRANSACTION
+            # time and `D-IMPL-88` rules it must not back `as_of`; it is recorded
+            # BESIDE this boundary, never inside it.
+            graph_snapshot_at=asked_at,
+        ),
+        payload=payload,
+    )
 
 
 if __name__ == "__main__":  # pragma: no cover - module entry point
