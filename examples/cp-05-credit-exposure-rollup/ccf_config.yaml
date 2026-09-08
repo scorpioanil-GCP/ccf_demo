@@ -1,0 +1,199 @@
+# yaml-language-server: $schema=../../docs/schemas/ccf.declared-artifact.json
+#
+# THE CONTROL PLANE DOCUMENT for cp-05 — what this deployment is PERMITTED to
+# do. `deployment.py` interprets it; it is data, and the program that reads it
+# holds none of these values (CLAUDE.md §6.4).
+#
+# READ-SIDE VOCABULARY IS NOT HERE. The anchor, the pinned instant and the
+# request parameters live in `artifacts/question.yaml`. A question is not a
+# permission.
+
+semver: "1.0.0"
+tenant_id: cp-05-demo
+backend: sqlite
+
+product_class:
+  schema_name: credit-risk.exposure-rollup
+  schema_version: "1.0.0"
+
+  # THE ANCHOR FLIPS AT THIS RUNG — spec §B.1 element 3, `artifacts/ttl.yaml`.
+  # `from_decision`, against rungs 02 and 04's `from_entity_freshness`. An
+  # exposure is scoped to the decision taken against it; no entity's validity
+  # period governs it.
+  ttl_anchor: from_decision
+
+  # Every stage is deterministic arithmetic or a typed graph walk. No semantic
+  # stage is invoked and no LLM client may be imported by any module
+  # implementing this product (spec §C.2).
+  assembly_mode: algorithmic
+
+  max_ttl_key: cp-05/product/credit-exposure-rollup/max-ttl
+
+  # THE SDK's OPERATOR REGISTRY IS A CLOSED VOCABULARY, and these are the two
+  # entries this product requires. `policy.principal-subgraph` scopes the walk
+  # to what the principal may see; `traversal.typed-neighborhood` walks
+  # BIDIRECTIONALLY over several predicate types in one pass —
+  # `typed-descendants` would be one-directional, and a guarantee RECEIVED
+  # matters as much as one given.
+  #
+  # THIS IS NOT THE SAME LIST AS `operators_invoked` IN LINEAGE, and the
+  # difference is worth stating because it invites a mistake. The vault's
+  # §B lineage names five — Resolve, Policy, Traversal, Enrich, Aggregate.
+  # `operators_invoked` is `frozenset[str]`, *"the operator set the producer
+  # DECLARES it ran"* (`src/ccf/products/contract.py::ContextProductLineage`),
+  # so all five are declarable. `required_operator_keys` is different: it is
+  # checked against the REGISTRY at boot, and Resolve, Enrich and Aggregate are
+  # not registered operators — they are assembly steps. An implementer who
+  # tries to register a `Resolve` operator to make the two lists match has
+  # misread which list is constrained.
+  required_operator_keys:
+    - policy.principal-subgraph
+    - traversal.typed-neighborhood
+
+operators:
+  policy.principal-subgraph:
+    classification_attribute_by_class:
+      exposure_anchor: family_id
+      exposure_member: family_id
+
+request_contract:
+  class_id: cp-05.request-contract
+  role: register
+  registration: typed
+  schema_name: credit-risk.exposure-rollup
+  schema_version: "1.0.0"
+
+  arguments:
+    properties:
+      lei:
+        type: string
+        description: >-
+          the anchor obligor. Unresolvable is a 404 and never an empty rollup —
+          a zero-exposure answer for a real obligor and a no-such-obligor answer
+          are different facts (spec §D.3 step 1).
+      intent:
+        type: string
+        description: >-
+          selects the limit definition and the policy envelope; an unknown
+          intent is a 400. THERE IS NO DEFAULT and one must not be invented: a
+          defaulted intent silently chooses a limit regime on the caller's
+          behalf, which is precisely the confidently-wrong number spec §A
+          describes.
+      depth:
+        type: integer
+        description: >-
+          ownership walk depth. Absent takes the declared default below, read
+          from this declaration and never invented at serve time. Depth is part
+          of PRODUCT IDENTITY, not a tuning knob — measured, the family is 21
+          nodes at depth 1, 46 at depth 2 and 77 at depth 3, so two depths are
+          two answers and two content addresses.
+      materiality:
+        type: number
+        description: >-
+          entities below this share of group exposure are aggregated into a
+          residual rather than enumerated. It does NOT apply to zero-exposure
+          entities reached by cross-default — absorbing those would delete the
+          finding the traversal exists to produce (spec §C.4 trap 2).
+      follow_guarantees:
+        type: boolean
+        description: >-
+          traversal scope, NOT measurement policy. Where this disagrees with the
+          intent's `counts_guarantees`, the DEFINITION governs the measure and
+          this flag governs the walk, and the conflict is reported as a finding
+          rather than resolved silently (spec §B.4).
+      follow_cross_default:
+        type: boolean
+        description: traversal scope, on the same reading as `follow_guarantees`.
+      basis:
+        type: string
+        description: >-
+          `committed`, `outstanding` or `both`. `both` is the default and is
+          what makes the undrawn column meaningful — `internal-appetite` sets
+          `counts_undrawn=false`, which is only observable when both bases ship.
+    required:
+      - lei
+      - intent
+
+  # READ FROM THE DECLARATION, NEVER INVENTED AT SERVE TIME. The vault declares
+  # each of these; this deployment does not recalibrate them.
+  argument_defaults:
+    depth: 3
+    materiality: 0.05
+    follow_guarantees: true
+    follow_cross_default: true
+    basis: both
+
+  # A DEPTH ABOVE THE CEILING IS REFUSED BY NAME, NEVER CLAMPED. Clamping would
+  # answer a question the caller did not ask and label it as the one they did.
+  argument_bounds:
+    depth:
+      minimum: 1
+      maximum: 5
+    materiality:
+      minimum: 0.0
+      maximum: 1.0
+
+  # DECLARED AND REFUSED, not silently ignored — spec §B.4, `artifacts/question.yaml`.
+  unsupported_arguments:
+    - as_of
+
+resolution:
+  class_id: cp-05.resolution-spec
+  role: register
+  registration: typed
+  entity_classes:
+    - exposure_anchor
+    - exposure_member
+
+# ============================================================================
+# THE HALF-LIFE TABLE — spec §E.1
+# ============================================================================
+#
+# THE SPREAD IS THE DESIGN CONSTRAINT. The fastest class moves ~2,190x faster
+# than the slowest. A single product-level half-life would either declare a
+# stable ownership graph stale every four hours, or serve a balance hours after
+# it stopped being true. Per-class λ_c is not a refinement here; it is the only
+# correct shape.
+half_life:
+  outstanding_balances:
+    half_life_seconds: 14400         # ~4h — drawdowns and repayments land intraday
+    decay_driver: drawdown-repayment
+    supersession_event: drawdown-or-repayment-posted-to-the-facility
+  guarantee_structure:
+    half_life_seconds: 31536000      # ~365d — amendment-driven
+    decay_driver: guarantee-amendment
+    supersession_event: ex-10-amendment-touching-the-guarantee
+  cross_default_structure:
+    half_life_seconds: 31536000      # ~365d — amendment-driven
+    decay_driver: cross-default-amendment
+    supersession_event: ex-10-amendment-touching-the-cross-default-clause
+  ownership_edges:
+    half_life_seconds: 15552000      # ~180d — inherited from rung 04
+    decay_driver: acquisition-disposal-restructuring
+    supersession_event: gleif-rr-cdf-delta-touching-either-endpoint
+  group_limit_definition:
+    half_life_seconds: 15552000      # ~180d — policy review cycle
+    decay_driver: credit-policy-review
+    supersession_event: limit-definition-row-replaced
+
+# ============================================================================
+# THE DEBT PROFILE — spec §E.2
+# ============================================================================
+#
+# ONLY THE BALANCE COMPONENT FAILS CLOSED, and the asymmetry is deliberate. A
+# stale ownership edge produces an answer slightly out of date; a stale balance
+# produces an answer that is WRONG ABOUT MONEY while looking current.
+debt_profile:
+  risk_sensitivity: "1.0"
+  forced_llm_threshold: "0.60"
+  fail_closed_threshold: "0.77"
+
+policy:
+  class_id: cp-05.policy-bundle
+  role: register
+  registration: typed
+  regime: credit-exposure-rollup-entitlement
+
+default_perspective:
+  principal_id: PRIN-CRO-001
+  role: credit-officer
