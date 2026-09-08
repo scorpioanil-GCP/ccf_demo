@@ -3546,7 +3546,7 @@ construct and deliver a governed Context Product by closing SDK gaps demonstrate
 **Stop rule (Dave, verbatim):** *"When cp-05 can use the canonical SDK path without rebuilding fabric
 behavior itself, the phase stops."*
 
-**STATUS: DECLARED — `D-IMPL-280` (Dave, 2026-09-08). Two rows already implemented under the standing
+**STATUS: SCOPED AND ORDERED — `D-IMPL-280` declared it, `D-IMPL-281` (Dave, 2026-09-08) scoped and ordered it (`R-12` IN; order `R-12` → `R-11` → `R-09` → `R-03`; the phase boundary below). Two rows already implemented under the standing
 authorization that preceded the phase (`R-01` at `eb455c74`, `R-10` at `80e38c6f`); the rest is NOT
 discussed, NOT researched, NOT planned. Branch `phase-24.10`, forked from
 `cp-05-credit-exposure-rollup` so the SDK work has a home contaminating neither cp-05 nor the suspended
@@ -3559,20 +3559,51 @@ SDK-level issues that affect how a real Context Product is authored and governed
 **The key difference from 24.9, in his words:** *"24.10 has to earn every change against a real cp-05
 failure or workaround."*
 
-**Scope (Dave's table, `D-IMPL-280`).**
+**Scope and order (`D-IMPL-280` declared the scope; `D-IMPL-281` closed `R-12` and ruled the order).**
 
-| Row | Status |
-| --- | --- |
-| `R-01` delivery correspondence | **already implemented** (`eb455c74`) |
-| `R-10` static seed/entity composition | **already implemented** (`80e38c6f`) |
-| `R-03` make the governed spine the canonical author path | **yes** |
-| `R-09` explicit acquisition boundary | **yes** |
-| `R-11` runtime product-specific gate seam | **yes** |
-| `R-12` replay binding in the Control Plane | **likely yes** |
-| `R-04` / `R-05` / `R-06` MCP and adoption cleanup | **only where needed to make the governed path usable** |
-| `R-02` uniform determinism enforcement | **HOLD** until its compatibility question is resolved |
-| proof infrastructure / Phase 24.9 work | **explicitly excluded** |
-| frozen-example modernization | **explicitly excluded** |
+| Order | Row | Status |
+| --- | --- | --- |
+| — | `R-01` delivery correspondence | **already-completed 24.10 work** (`eb455c74`). Dave: *"there is no reason to re-plan them"* |
+| — | `R-10` static seed/entity composition | **already-completed 24.10 work** (`80e38c6f`) |
+| **1** | `R-12` replay binding in the Control Plane | **IN** (`D-IMPL-281` (2)) — *"the smallest declarative addition necessary. No product-specific replay semantics in the Control Plane—only deployment binding/configuration."* |
+| **2** | `R-11` runtime product-specific gate seam | **yes** — *"cp-05 cannot honestly adopt the canonical governed spine until its reconciliation guard has a legitimate runtime home."* |
+| **3** | `R-09` explicit acquisition boundary | **yes**, option 3b (`D-IMPL-281` (3)) — proved through a test harness around cp-05's declarations and source logic, **not** by editing cp-05 |
+| **4** | `R-03` make the governed spine the canonical author path | **yes**, narrow: worked example + docstrings, **executed last** so it measures the phase rather than prejudging it |
+| — | `R-04` / `R-05` / `R-06` MCP and adoption cleanup | **NOT PLANNED WORK.** *"They only enter if the final `R-03` exercise produces direct evidence that one of them blocks canonical-path adoption."* |
+| — | `R-02` uniform determinism enforcement | **HOLD** — *"Compatibility evidence remains insufficient."* |
+| — | proof infrastructure / Phase 24.9 work | **explicitly excluded** |
+| — | frozen-example modernization | **explicitly excluded** |
+
+**THE PHASE BOUNDARY (Dave, verbatim, `D-IMPL-281` (1)) — one sentence, carried into every plan:**
+
+> *"No cp-05 source, transcript, expected artifact, or published page is modified during Phase 24.10;
+> cp-05 declarations and measured estate behavior may be used as test inputs to prove the SDK changes."*
+
+The stop rule is therefore proved **in-phase by test, not by rewiring**: cp-05's existing declarations are
+driven through `GovernedResolver` in a focused test that touches none of cp-05's shipped files,
+transcripts or published artifacts. **cp-05's own rewiring is the post-phase adoption step.** Dave's
+reason: *"That preserves the spirit of `D-IMPL-261`: the example remains the probe and evidence source
+rather than becoming the repair surface during SDK remediation."*
+
+**`R-03`'S CONCRETE SUCCESS CRITERION (Dave, verbatim) — the phase's critical experiment.**
+
+> *"Refactor cp-05 to use the shipped `GovernedResolver` without changing its business result, governance
+> outcome, replay semantics, or MCP behavior, and measure how much product-specific governed-spine code
+> disappears."*
+
+> *"If that works with only `R-11` plus ordinary extension points such as `plan_factory` and the debt
+> scorer, then the SDK architecture is substantially right and `R-03` may indeed be mostly
+> discoverability. If substantial parallel governance code still survives, then we have earned an API
+> redesign with real evidence."*
+
+Read with the phase boundary above, that refactor is **exercised as a test** against cp-05's declarations.
+No broader API redesign is authorized up front: *"If that worked example still requires substantial
+reconstruction of the governed spine, then `R-03` has earned escalation to an API-surface change. Until
+then, it has not."*
+
+**`R-09`'S REQUIRED EVIDENCE (Dave, verbatim):** *"same external source → acquisition boundary → 77 nodes
+/ 100 relationship claims"* — *"stronger than a synthetic unit test and still keeps cp-05 untouched during
+the phase."*
 
 **The per-row discipline, verbatim:** *"Each remediation gets: observed cp-05 evidence → smallest SDK
 change → one direct regression test → return to cp-05."*
@@ -3586,8 +3617,8 @@ deliberate departure with its reason, not as an oversight.
 `D-IMPL-276` gates on each), `.planning/CP-05-SDK-CHANGE-PROPOSALS.md` (the seven proposals: current
 surface → smallest change → ownership layer → regression evidence),
 `.planning/CP-05-R02-SURVEY-AND-RED-CLASSIFICATION.md` (why `R-02` is on hold),
-`docs/DECISIONS.md` (`D-IMPL-280`, `D-IMPL-279`, `D-IMPL-278`, `D-IMPL-277` resolved, `D-IMPL-276`,
-`D-IMPL-261`), `examples/cp-05-credit-exposure-rollup/spec/CP-SPEC-005…md` §F.4 (twenty findings).
+`docs/DECISIONS.md` (`D-IMPL-281` — the scope, order and boundary; `D-IMPL-280`, `D-IMPL-279`,
+`D-IMPL-278`, `D-IMPL-277` resolved, `D-IMPL-276`, `D-IMPL-261`), `examples/cp-05-credit-exposure-rollup/spec/CP-SPEC-005…md` §F.4 (twenty findings).
 
 **Success Criteria** (what must be TRUE) — **NOT AUTHORED, AND DELIBERATELY SO.** The stop rule above is
 the phase's own test, and Dave ruled out criteria-lock machinery for this phase by name.

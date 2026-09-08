@@ -1048,3 +1048,110 @@ Dave's classification, verbatim:
 **WHAT THIS DOES NOT DECIDE.** Any plan, wave, sequence or order for 24.10; whether `R-12` is in or out (*"likely yes"* is not a ruling); which of `R-04`/`R-05`/`R-06` prove necessary; `R-02`; the disposition of the five frozen specimens; `D-GATE-24.9`; the `phase-24.9` branch's fate; the cp-05 branch's merge.
 
 **Next free decision id: `D-IMPL-281`.** **Related:** `D-IMPL-279` (the four architectural rulings 24.10 executes), `D-IMPL-278` (the disposition table), `D-IMPL-277` (**resolved** by `D-IMPL-279`'s R-09 ruling), `D-IMPL-276` (the course correction that made cp-05 the driver), `D-IMPL-261` (examples are probes — (3) above is that ruling working as designed), `D-IMPL-264` D-01 am.1 F-2 and `D-IMPL-269` (1), `.planning/ROADMAP.md` § Phase 24.10, `.planning/CP-05-REMEDIATION-SET.md`, `.planning/CP-05-SDK-CHANGE-PROPOSALS.md`, `.planning/CP-05-R02-SURVEY-AND-RED-CLASSIFICATION.md`, `CP-SPEC-005` §F.4.
+
+---
+
+### D-IMPL-281 — PHASE 24.10 SCOPED AND ORDERED: four bounded rows, R-12 IN, and a phase boundary that keeps cp-05 a probe rather than a repair surface
+
+**D-IMPL-281 — Dave answers the four surface questions that gated 24.10's planning: the phase is SDK-only and does not rewire cp-05 in-phase; `R-12` is IN; `R-09` proves itself against cp-05's actual acquisition behavior through a test harness rather than by editing cp-05; and `R-03` stays narrow and executes last as the phase's own measurement. Order ruled `R-12` → `R-11` → `R-09` → `R-03`.** RESOLVED. Date: 2026-09-08. Ruled by: Dave, on the four-question batch put to him against `.planning/CP-05-SDK-CHANGE-PROPOSALS.md` and `D-IMPL-280`. Verbatim throughout.
+
+**His summary of the four answers, verbatim:** *"1b / R-12 IN / 3b / R-03 docs+worked example last."*
+
+---
+
+**(1) 24.10 DOES NOT REWIRE cp-05 IN-PHASE — option 1b.**
+
+> *"24.10 does not rewire cp-05 in-phase. Choose 1b. Keep the phase SDK-only. Prove the stop rule by driving cp-05's existing declarations through `GovernedResolver` in a focused test without changing cp-05's shipped files, transcripts, or published artifacts. After 24.10 closes, cp-05 can be rewired as the post-phase adoption step."*
+
+His reason, verbatim:
+
+> *"That preserves the spirit of `D-IMPL-261`: the example remains the probe and evidence source rather than becoming the repair surface during SDK remediation."*
+
+**THE PHASE BOUNDARY, in his words, to be carried into planning as one sentence:**
+
+> *"No cp-05 source, transcript, expected artifact, or published page is modified during Phase 24.10; cp-05 declarations and measured estate behavior may be used as test inputs to prove the SDK changes."*
+
+---
+
+**(2) `R-12` IS IN.**
+
+> *"`R-12` is IN. Your proposed scope is appropriate: make replay binding a first-class Control Plane concern with the smallest declarative addition necessary. No product-specific replay semantics in the Control Plane—only deployment binding/configuration."*
+
+This closes the *"likely yes"* that `D-IMPL-280` explicitly left unruled.
+
+---
+
+**(3) `R-09` USES OPTION 3b — the Protocol proves itself against cp-05's real behavior, not against cp-05's files.**
+
+> *"`R-09` uses option 3b. Add the acquisition Protocol/reference surface, but prove it using cp-05's actual acquisition behavior and actual estate outputs from a test harness around the declarations/source logic, not by editing cp-05 itself. The required evidence remains the meaningful one:"*
+
+> *"same external source → acquisition boundary → 77 nodes / 100 relationship claims"*
+
+> *"That is stronger than a synthetic unit test and still keeps cp-05 untouched during the phase."*
+
+---
+
+**(4) `R-03` STAYS NARROW AND EXECUTES LAST.**
+
+> *"`R-03` stays narrow: worked example + docstrings, executed last. No broader API redesign is authorized up front. After `R-11`, `R-09`, and `R-12` exist, use the worked `GovernedResolver` path as the measurement of whether the existing surface is now usable."*
+
+> *"If that worked example still requires substantial reconstruction of the governed spine, then `R-03` has earned escalation to an API-surface change. Until then, it has not."*
+
+**`R-03`'s success criterion, stated concretely by Dave:**
+
+> *"Refactor cp-05 to use the shipped `GovernedResolver` without changing its business result, governance outcome, replay semantics, or MCP behavior, and measure how much product-specific governed-spine code disappears."*
+
+> *"If that works with only `R-11` plus ordinary extension points such as `plan_factory` and the debt scorer, then the SDK architecture is substantially right and `R-03` may indeed be mostly discoverability. If substantial parallel governance code still survives, then we have earned an API redesign with real evidence."*
+
+**Read together with (1), this refactor is exercised as a test against cp-05's declarations, not as an edit to cp-05's tree.** The rewiring of cp-05 itself is the post-phase adoption step (1) names.
+
+---
+
+**(5) ORDER — `R-12` → `R-11` → `R-09` → `R-03`.**
+
+> *"I also agree with your proposed order: `R-12` → `R-11` → `R-09` → `R-03`. It has a good economic shape: smallest/least ambiguous changes first, the new acquisition surface after the execution seams are clear, and `R-03` last so it measures the phase rather than prejudging it."*
+
+**A DISCREPANCY IN THE RULING, SURFACED RATHER THAN SILENTLY RESOLVED.** The same message opens with a sequence table ranking `R-11` (1) → `R-03` (2) → `R-09` (3) → `R-12` (4), which disagrees with the endorsed order above. Answer (4) settles most of it — *"executed last… After `R-11`, `R-09`, and `R-12` exist"* — agreeing with the endorsement on `R-09` third and `R-03` last. The only residue is `R-12` vs `R-11` first, and the two rows are independent of each other. **The endorsed order is taken as operative**, the opening table read as the sketch his four answers supersede; the discrepancy was put to Dave in the same message that recorded it, with an invitation to reverse it.
+
+**His rationale for each row's position, verbatim from the opening table:**
+
+| Order | Work | Why (Dave) |
+| --- | --- | --- |
+| — | `R-11` executable product-specific gate seam | *"cp-05 cannot honestly adopt the canonical governed spine until its reconciliation guard has a legitimate runtime home."* |
+| — | `R-03` adopt `GovernedResolver` in cp-05 | *"This is the experiment that determines whether discoverability/documentation is enough or whether the API surface itself must change."* |
+| — | `R-09` acquisition boundary | *"Important and shared by cp-04/cp-05, but no longer blocks `GovernedResolver`; acquisition remains upstream of L2/L3."* |
+| — | `R-12` Control Plane replay binding | *"Once the canonical path is in use, we can see the smallest declarative binding actually required."* |
+
+---
+
+**(6) `R-01` AND `R-10` ARE ALREADY-COMPLETED 24.10 WORK.**
+
+> *"`R-01` and `R-10` should simply be treated as already-completed Phase 24.10 work; there is no reason to re-plan them."*
+
+`eb455c74` and `80e38c6f` respectively, both verified present on `phase-24.10`.
+
+---
+
+**(7) `R-02` STAYS HELD; `R-04`/`R-05`/`R-06` ARE NOT PLANNED WORK.**
+
+> *"Hold — `R-02` — Compatibility evidence remains insufficient."*
+
+> *"keep `R-04`/`R-05`/`R-06` exactly where you put them: not planned work. They only enter if the final `R-03` exercise produces direct evidence that one of them blocks canonical-path adoption."*
+
+> *"Only if exposed by 1–4 — `R-04`/`R-05`/`R-06` — Do not independently launch MCP/API cleanup unless the canonical-path work demonstrates the need."*
+
+---
+
+**(8) THE PHASE'S CHARACTER, and the stop rule kept in front of every change.**
+
+> *"The next move should be a very small implementation plan, not another planning apparatus."*
+
+> *"And I would keep `D-IMPL-280`'s stop rule in front of every change: When cp-05 can use the canonical SDK path without rebuilding fabric behavior itself, Phase 24.10 stops."*
+
+> *"That gives 24.10 a very different character from 24.9: four bounded product-driven questions, not an open-ended hardening campaign."*
+
+---
+
+**WHAT THIS DOES NOT DECIDE.** Wave structure or plan count; whether any row's implementation earns an escalation beyond its ruled scope; `R-02`; `D-GATE-24.9`; the `phase-24.9` branch's fate; the cp-05 branch's merge; the post-phase cp-05 adoption step's own phase or timing.
+
+**Next free decision id: `D-IMPL-282`.** **Related:** `D-IMPL-280` (the phase declaration this scopes and orders), `D-IMPL-279` (the four architectural rulings the rows execute), `D-IMPL-276` (the three gates every row is held to), `D-IMPL-261` (examples are probes — (1) is that ruling applied to cp-05), `D-IMPL-224` (product gates as CI-checked declarations — the half `R-11` completes), `D-IMPL-269` (1) (proportionality is ruled per phase), `.planning/ROADMAP.md` § Phase 24.10, `.planning/CP-05-SDK-CHANGE-PROPOSALS.md`, `.planning/CP-05-REMEDIATION-SET.md`.
