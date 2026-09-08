@@ -55,6 +55,27 @@ operators:
     classification_attribute_by_class:
       exposure_anchor: family_id
       exposure_member: family_id
+    permitted_classifications: []
+
+  # THE FOUR PREDICATE TYPES OF THE ONE WALK — spec §D.3 step 3. Declared here
+  # so the operator the fabric registers and the walk the assembler issues are
+  # the same walk; a relationship type present in one and absent from the other
+  # would be a traversal the Control Plane never permitted.
+  #
+  # `depth_limit` is the OPERATOR's technical ceiling and is deliberately not
+  # the request contract's bound of 5. The request bound is what this PRODUCT
+  # offers a caller; the operator ceiling is what the BACKEND can be asked for.
+  # One number serving as both would make a product decision look like a
+  # capability limit.
+  traversal.typed-neighborhood:
+    seed_entity_classes:
+      - exposure_anchor
+    relationship_types:
+      - owns
+      - isUltimatelyConsolidatedBy
+      - isGuarantorOf
+      - crossDefaultsWith
+    depth_limit: 6
 
 request_contract:
   class_id: cp-05.request-contract
@@ -116,9 +137,15 @@ request_contract:
 
   # READ FROM THE DECLARATION, NEVER INVENTED AT SERVE TIME. The vault declares
   # each of these; this deployment does not recalibrate them.
+  # QUOTED, AND NOT AS A STYLE CHOICE. The Control Plane REFUSES a bare float:
+  # *"float values are not admissible in a Control Plane artifact (not bit-stable
+  # across platforms); quote the value so it parses as text and is validated as a
+  # decimal."* It caught this on the first boot of this config. A float
+  # materiality would have made the content address platform-dependent — the
+  # product would have reproduced on the machine that built it and nowhere else.
   argument_defaults:
     depth: 3
-    materiality: 0.05
+    materiality: "0.05"
     follow_guarantees: true
     follow_cross_default: true
     basis: both
@@ -130,20 +157,38 @@ request_contract:
       minimum: 1
       maximum: 5
     materiality:
-      minimum: 0.0
-      maximum: 1.0
+      minimum: "0.0"
+      maximum: "1.0"
 
   # DECLARED AND REFUSED, not silently ignored — spec §B.4, `artifacts/question.yaml`.
   unsupported_arguments:
     - as_of
 
+# THE TWO ENTITY CLASSES THE WALK PRODUCES, and what identifies each.
+#
+# `entity_uri` is the identity key on BOTH — the Fluree subject URI, which every
+# family member has. `lei` is an ATTRIBUTE and not an identity, because 58 of
+# this family's 77 members carry no LEI at all (spec §C.1). A resolution spec
+# keyed on LEI would silently drop three quarters of the family and return a
+# smaller, tidier, wrong answer.
 resolution:
-  class_id: cp-05.resolution-spec
-  role: register
-  registration: typed
-  entity_classes:
-    - exposure_anchor
-    - exposure_member
+  entity_rules:
+    - match_key: anchor_ref
+      entity_class: exposure_anchor
+      identity_keys:
+        - entity_uri
+      attribute_keys:
+        - lei
+        - label
+        - family_id
+    - match_key: member_ref
+      entity_class: exposure_member
+      identity_keys:
+        - entity_uri
+      attribute_keys:
+        - lei
+        - label
+        - family_id
 
 # ============================================================================
 # THE HALF-LIFE TABLE — spec §E.1

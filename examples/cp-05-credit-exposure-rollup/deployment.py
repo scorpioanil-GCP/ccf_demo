@@ -57,6 +57,8 @@ SOURCES = "sources"
 SETTINGS = "settings"
 FROM_ENV = "from_env"
 REMEDY = "remedy"
+PREFIX = "prefix"
+SUFFIX = "suffix"
 
 #: Fluree 4.1.4's read endpoint. The dialect is SPARQL and the ledger is named
 #: by an explicit ``FROM`` clause inside the query text — see :func:`sparql`.
@@ -174,3 +176,37 @@ def sparql(source: GraphSource, body: str) -> list[dict[str, Any]]:
 def one_column(bindings: list[dict[str, Any]], name: str) -> list[str]:
     """The values of one SPARQL variable, in binding order."""
     return [row[name]["value"] for row in bindings if name in row]
+
+
+def connection(backends: dict[str, Any], root: Path) -> dict[str, object]:
+    """The per-run L3 path, minted from ``backends.yaml``'s RECIPE.
+
+    The declaration holds ``{per_run: path, prefix, suffix}`` — a recipe, not a
+    path — so two asks of the same question build two separate graphs from the
+    same two estates and must still agree byte for byte. A fixed path would let
+    the second ask inherit the first's L3 and call the agreement reproducibility
+    when it was only reuse.
+    """
+    import uuid
+
+    profile = backends[DECLARATION]["profiles"]["sqlite"][SETTINGS]["database_path"]
+    root.mkdir(parents=True, exist_ok=True)
+    name = f"{profile[PREFIX]}_{uuid.uuid4().hex[:12]}{profile[SUFFIX]}"
+    return {"database_path": str(root / name)}
+
+
+def boot(root: Path):
+    """The fabric, booted from this deployment's own Control Plane document.
+
+    Returns the ``BootedFabric`` and the registry it registered into. The
+    registry is the audit plane; the caller holds it so a gate run and a replay
+    write reach the same one.
+    """
+    from ccf.controlplane.registry import ControlPlaneRegistry
+    from ccf.deployment import load_config_and_boot
+
+    registry = ControlPlaneRegistry()
+    fabric = load_config_and_boot(
+        CONFIG, registry=registry, connection=connection(load(BACKENDS), root)
+    )
+    return fabric, registry
