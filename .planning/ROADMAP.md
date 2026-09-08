@@ -3546,7 +3546,7 @@ construct and deliver a governed Context Product by closing SDK gaps demonstrate
 **Stop rule (Dave, verbatim):** *"When cp-05 can use the canonical SDK path without rebuilding fabric
 behavior itself, the phase stops."*
 
-**STATUS: SCOPED AND ORDERED — `D-IMPL-280` declared it, `D-IMPL-281` (Dave, 2026-09-08) scoped and ordered it (`R-12` IN; order `R-12` → `R-11` → `R-09` → `R-03`; the phase boundary below). Two rows already implemented under the standing
+**STATUS: DISCUSSED — `D-IMPL-280` declared it, `D-IMPL-281` (Dave, 2026-09-08) scoped and ordered it, `D-IMPL-282` ruled the four implementation gray areas (`24.10-CONTEXT.md`, `24.10-RULINGS.md`) (`R-12` IN; order `R-12` → `R-11` → `R-09` → `R-03`; the phase boundary below). Two rows already implemented under the standing
 authorization that preceded the phase (`R-01` at `eb455c74`, `R-10` at `80e38c6f`); the rest is NOT
 discussed, NOT researched, NOT planned. Branch `phase-24.10`, forked from
 `cp-05-credit-exposure-rollup` so the SDK work has a home contaminating neither cp-05 nor the suspended

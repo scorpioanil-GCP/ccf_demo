@@ -1155,3 +1155,89 @@ This closes the *"likely yes"* that `D-IMPL-280` explicitly left unruled.
 **WHAT THIS DOES NOT DECIDE.** Wave structure or plan count; whether any row's implementation earns an escalation beyond its ruled scope; `R-02`; `D-GATE-24.9`; the `phase-24.9` branch's fate; the cp-05 branch's merge; the post-phase cp-05 adoption step's own phase or timing.
 
 **Next free decision id: `D-IMPL-282`.** **Related:** `D-IMPL-280` (the phase declaration this scopes and orders), `D-IMPL-279` (the four architectural rulings the rows execute), `D-IMPL-276` (the three gates every row is held to), `D-IMPL-261` (examples are probes — (1) is that ruling applied to cp-05), `D-IMPL-224` (product gates as CI-checked declarations — the half `R-11` completes), `D-IMPL-269` (1) (proportionality is ruled per phase), `.planning/ROADMAP.md` § Phase 24.10, `.planning/CP-05-SDK-CHANGE-PROPOSALS.md`, `.planning/CP-05-REMEDIATION-SET.md`.
+
+---
+
+### D-IMPL-282 — THE FOUR PHASE 24.10 GRAY AREAS RULED: the R-11 gate seam is a Protocol callable with a Control Plane identity, the R-12 replay section supplies defaults, R-09 emits SignalEnvelopes only, and s1-01 is ruled OPEN as R-03's target
+
+**D-IMPL-282 — Dave rules the four implementation gray areas the Phase 24.10 codebase scout surfaced, confirms the endorsed order over his own earlier sequence table, and opens `examples/s1-01-hello-context-product/` as the one example tree 24.10 may change.** RESOLVED. Date: 2026-09-08. Ruled by: Dave, at the `/gsd-discuss-phase 24.10` sitting. Verbatim throughout; the governing copy is `.planning/phases/24.10-cp-05-product-driven-sdk-remediation-reduce-the-plumbing-a-g/24.10-RULINGS.md`.
+
+---
+
+**(0) THE ORDER, CONFIRMED — and the discrepancy in `D-IMPL-281` closed.**
+
+> *"Yes — use the endorsed order: `R-12` → `R-11` → `R-09` → `R-03`"*
+
+> *"The earlier sequence table is superseded by the four explicit rulings that followed it. `R-03` is last by design; `R-12` and `R-11` are independent, and I prefer `R-12` first because it is smaller and establishes the deployment-binding pattern before we add another resolver extension seam."*
+
+**This closes the discrepancy `D-IMPL-281` (5) recorded rather than resolved.** The conflict between his opening sequence table and his endorsed order was named back to him with the reading being taken; he confirmed the endorsed order and gave its reason. The record of the discrepancy stands — it was surfaced in public before any work depended on it.
+
+---
+
+**(1) `R-11` — OPTION 1a. A Protocol callable with a Control Plane identity.**
+
+> *"1a. Use a Protocol-typed callable supplied to `build_governed_resolver`, analogous to `debt_scorer`. The gate identity/version remain declared in the Control Plane; implementation is deployment-supplied. Add a distinct product-gate refusal kind so runtime gate failure is distinguishable in replay/audit. Do not add an expression language and do not expand `GATE_DECLARED_OBLIGATIONS`."*
+
+**What the runtime gate IS, and what it is not:**
+
+> *"For `R-11`, the runtime gate is not a new universal policy vocabulary. It is a declared product invariant with a governed identity, whose implementation is supplied by the deployment. It executes after candidate construction and before fitness/fulfillment. Replay should be able to say which gate ran and, if it refused, which gate produced the refusal."*
+
+Measured seam, for the planner: the execution point is between `run_gates` returning a `ServableProduct` (`src/ccf/products/resolver.py::GovernedResolver.resolve`) and `refuse_over_tolerance`. `run_gates` already returns `ServableProduct | GateRefusal` and the resolver's refusal-recording path already handles a `GateRefusal`, so the distinct kind is a seventh sibling of the six existing `GateRefusal` subclasses rather than a new hierarchy. The closed vocabulary D-11 protects is `obligation: Literal["lineage-inputs"]` on `DeclaredObligationRefusal`.
+
+---
+
+**(2) `R-12` — OPTION 2a. The section supplies defaults; the builder wins.**
+
+> *"2a. The `replay:` Control Plane section supplies defaults. Explicit constructor arguments override the declaration. No builder API break in 24.10. The declared binding must actually be consumed and exercised; declaration-only is insufficient."*
+
+**The precedence, to be implemented as stated:**
+
+> *"explicit builder argument > Control Plane replay binding > no binding/refusal according to existing availability semantics"*
+
+> *"Do not silently invent a replay backend when neither source provides one."*
+
+Combined with `D-IMPL-281` (2): binding **only** — record class, query-pin class, store selection — and *"No product-specific replay semantics in the Control Plane."* `_RESERVED_SECTIONS` (`src/ccf/deployment/config.py`) widens by exactly one entry.
+
+---
+
+**(3) `R-09` — OPTION 3a. `SignalEnvelope`s only; no parallel normalization subsystem.**
+
+> *"3a. Acquisition emits `SignalEnvelope`s only. Reuse the existing L1→L2 resolution/admission path to produce entities and relationship claims. Do not create a second relationship-claim output unless real evidence shows the existing envelope/resolution mechanism cannot express cp-05's edges. Ship the small file/fixture-backed reference implementation required by the SDK convention; use cp-05's real SPARQL only from the test harness to preserve the 77/100 evidence without putting domain logic in `src/`."*
+
+**The measurement that shrank the row, and the principle he drew from it:**
+
+> *"For `R-09`, your measurement makes the design much cleaner. `SignalEnvelope.raw_payload` is already the right acquisition vessel. The acquisition abstraction should answer how external source records enter CCF, not create a parallel normalization subsystem."*
+
+The measurement: `SignalEnvelope.raw_payload` is documented as *"the source record, opaque to L1… its keys are the source's vocabulary, never the fabric's"* — so the existing resolution spec already produces entities **and** relationships from it. `.planning/CP-05-SDK-CHANGE-PROPOSALS.md`'s `R-09` row described *"normalized envelopes **and** relationship claims"* as two outputs; they are one.
+
+---
+
+**(4) `R-03` — OPTION 4a. s1-01 IS RULED OPEN.**
+
+> *"4a. Rewire s1-01 onto `GovernedResolver`. I am ruling s1-01 open for this purpose. It is already the SDK's teaching example for this seam, so leaving it hand-building a 617-line spine would directly undermine the remediation. Measure the before/after executable-line count using the same instrument as `R-04`."*
+
+**Why the discovery changed the row:**
+
+> *"And the s1-01 discovery is important. It gives `R-03` a much better test than documentation alone:"*
+
+> *"If the SDK's own canonical worked example can move from a hand-built 617-line governed spine to `GovernedResolver` with materially less plumbing, the surface has demonstrated usability. If it cannot, `R-03` has earned escalation beyond docstrings."*
+
+**THE CONSTRAINT ON THE REWRITE, which is the `D-IMPL-261` discipline applied to s1-01:**
+
+> *"One additional constraint for that rewrite: do not change s1-01's business behavior merely to make the resolver fit. If adopting `GovernedResolver` exposes a missing seam, preserve the evidence and classify it rather than working around the resolver."*
+
+**The measurement behind the ruling, taken during the phase's codebase scout and present in neither working document:** `examples/s1-01-hello-context-product/spine.py` is **617 lines and references `GovernedResolver` zero times** — the SDK's own named worked example for the resolver seam hand-builds the spine exactly as cp-05 did. That is a second, independent instance of `R-03`'s pattern. `build_governed_resolver` takes 12 required + 7 optional keyword arguments; cp-05's spine is 2,553 lines across five files and also references `GovernedResolver` zero times.
+
+**s1-01 is the ONLY example tree 24.10 may change.** cp-05 stays closed under `D-IMPL-281` (1); cp-00 through cp-04 stay frozen under `D-IMPL-261`.
+
+---
+
+**(5) THE PROCEDURAL NOTE.**
+
+> *"The procedural note is fine: do not run `state.record-session` if it is known to corrupt `STATE.md`; hand-edit the state record instead. Keep that as a workflow/tooling workaround, not SDK scope."*
+
+---
+
+**WHAT THIS DOES NOT DECIDE.** Plan or wave decomposition within the ruled order; the Protocol names, modules, callable signatures, refusal field sets, section key names, fixture formats or test module placement — all enumerated as Claude's discretion in `24.10-CONTEXT.md`; whether any row earns escalation beyond its ruled scope; `R-02`; `R-04`/`R-05`/`R-06`; the post-phase cp-05 adoption step; `D-GATE-24.9`; the `phase-24.9` branch's fate; the cp-05 branch's merge.
+
+**Next free decision id: `D-IMPL-283`.** **Related:** `D-IMPL-281` (the scope, order and boundary this completes — and whose recorded discrepancy (0) closes), `D-IMPL-280` (the phase declaration and stop rule), `D-IMPL-279` (the four architectural rulings the rows execute), `D-IMPL-276` (the three gates), `D-IMPL-261` (examples are probes — (4)'s constraint is that discipline applied to s1-01), `D-IMPL-224` (product gates as CI-checked declarations — the half `R-11` completes), `D-IMPL-33` (the `SignalEnvelope` schema (3) reuses), `.planning/phases/24.10-cp-05-product-driven-sdk-remediation-reduce-the-plumbing-a-g/24.10-RULINGS.md` (**governing verbatim copy**), `24.10-CONTEXT.md`, `24.10-DISCUSSION-LOG.md`.
