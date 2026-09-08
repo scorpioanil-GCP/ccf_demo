@@ -3546,9 +3546,11 @@ construct and deliver a governed Context Product by closing SDK gaps demonstrate
 **Stop rule (Dave, verbatim):** *"When cp-05 can use the canonical SDK path without rebuilding fabric
 behavior itself, the phase stops."*
 
-**STATUS: DISCUSSED — `D-IMPL-280` declared it, `D-IMPL-281` (Dave, 2026-09-08) scoped and ordered it, `D-IMPL-282` ruled the four implementation gray areas (`24.10-CONTEXT.md`, `24.10-RULINGS.md`) (`R-12` IN; order `R-12` → `R-11` → `R-09` → `R-03`; the phase boundary below). Two rows already implemented under the standing
-authorization that preceded the phase (`R-01` at `eb455c74`, `R-10` at `80e38c6f`); the rest is NOT
-discussed, NOT researched, NOT planned. Branch `phase-24.10`, forked from
+**STATUS: PLANNED — `D-IMPL-280` declared it, `D-IMPL-281` (Dave, 2026-09-08) scoped and ordered it, `D-IMPL-282` ruled the four implementation gray areas (`24.10-CONTEXT.md`, `24.10-RULINGS.md`) (`R-12` IN; order `R-12` → `R-11` → `R-09` → `R-03`; the phase boundary below). Two rows already implemented under the standing
+authorization that preceded the phase (`R-01` at `eb455c74`, `R-10` at `80e38c6f`); the remaining four
+rows are PLANNED as one plan each, four sequential waves, 2026-09-08. **No RESEARCH.md and no
+PATTERNS.md** — ruled out at planning on proportionality grounds; Dave: *"a very small implementation
+plan, not another planning apparatus."* Branch `phase-24.10`, forked from
 `cp-05-credit-exposure-rollup` so the SDK work has a home contaminating neither cp-05 nor the suspended
 `phase-24.9`.**
 
@@ -3623,7 +3625,16 @@ surface → smallest change → ownership layer → regression evidence),
 **Success Criteria** (what must be TRUE) — **NOT AUTHORED, AND DELIBERATELY SO.** The stop rule above is
 the phase's own test, and Dave ruled out criteria-lock machinery for this phase by name.
 
-**Plans:** not yet planned.
+**Plans:** 4 plans, 4 sequential waves, in the ruled order.
+
+Plans:
+- [ ] 24.10-01-PLAN.md — `R-12`: the Control Plane declares the deployment's replay binding, and `build_governed_resolver` consumes it (wave 1)
+- [ ] 24.10-02-PLAN.md — `R-11`: a deployment-supplied product gate on the governed path, with a governed identity and its own refusal kind (wave 2)
+- [ ] 24.10-03-PLAN.md — `R-09`: the acquisition boundary emits `SignalEnvelope`s, proved at 77 nodes / 100 relationship claims (wave 3)
+- [ ] 24.10-04-PLAN.md — `R-03`: s1-01 rewired onto `GovernedResolver`, with the before/after measurement that measures the phase (wave 4)
+
+`R-01` and `R-10` get no plan — already-completed 24.10 work, not re-planned, not re-tested, not
+re-reviewed (`D-IMPL-281`).
 
 
 ## Progress
