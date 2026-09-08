@@ -173,7 +173,7 @@ directly if a script needs to branch on the code itself.
 | `2` | a declared setting is unset — the message carries the remedy `backends.yaml` supplies |
 | `3` | the graph leg could not be read; **not** degraded to an empty family |
 | `4` | refused — unresolvable anchor, or an intent with no limit definition |
-| `5` | refused — a request argument outside its declared bound, refused **by name and never clamped** |
+| `5` | refused — a request argument outside its declared bound, refused **by name rather than silently narrowed** |
 
 No document in this example runs a bare `python`; use `.venv/bin/python` if you
 invoke a module directly.
@@ -268,8 +268,11 @@ addresses.
 
 ## What would fail
 
-- **A depth above 5** is refused by name, never clamped — clamping would answer
-  a question the caller did not ask and label it as theirs.
+- **A depth above 5** is refused by name rather than silently narrowed, and
+  the refusal says which bound it crossed. Measured: `6` is refused by this
+  class's own declared maximum of 5 (`D-IMPL-259`), `9` by the Fluree operator's
+  technical maximum of 6 (`D-IMPL-253` Q21). Narrowing either would answer a
+  question the caller did not ask and label it as theirs.
 - **An unknown intent** refuses and lists the intents that exist. There is no
   default, because a defaulted limit regime is the confidently-wrong number this
   product exists to prevent.

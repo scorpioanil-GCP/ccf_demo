@@ -324,8 +324,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"\n  Refused: {exc}\n", file=sys.stderr)
         return 4
     except ValueError as exc:
-        # A request argument outside its DECLARED bound — refused BY NAME and
-        # never clamped. Caught here so the refusal exits with a documented code
+        # A request argument outside its DECLARED bound — refused BY NAME
+        # rather than silently narrowed, in the SDK's own words. Caught here so
+        # the refusal exits with a documented code
         # rather than a traceback: `example_delivery.md` §9 requires every
         # refusal's exit code to match what the README claims, and a traceback
         # has no exit code a reader can rely on.
