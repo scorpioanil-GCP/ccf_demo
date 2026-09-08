@@ -51,6 +51,12 @@ Where a count appears, the query that produced it is stated with it.
 
 ### 0.1 Do you need a Context Product? — the four-question test
 
+> ⚠ **The vault article carries no four-question test result**, which
+> `spec_generation.md` §4.1 lists among the items to extract *"including
+> partials and nos."* Measured: `grep -c "four-question"` over the article reads
+> **0**. The test below is **SDK-authored against the estate**, not transcribed
+> from the vault, and is registered for vault confirmation in F.2.
+
 | Question | Answer | Consequence |
 |---|---|---|
 | **Does the answer require more than one system of record?** | **Yes.** Ownership, guarantee and cross-default edges live in Fluree; commitments, balances, limit definitions and the reconciliation live in Postgres. | Two stores, one contract. A flat query against either alone is structurally unable to answer. |
@@ -245,14 +251,33 @@ traversal pattern and the cycle-as-finding discipline. `facility-terms-snapshot`
 this tier. Downstream on the ladder, `large-exposure-rwa-concentration`
 (rung 21) composes this product.
 
-**Scope boundary — recorded verbatim from the vault, not paraphrased:**
+**Scope boundary — ⚠ THE VAULT ARTICLE CARRIES NONE. What follows is
+SDK-supplied and needs vault confirmation (F.2).**
 
-> Single-institution. No external fabric is reached.
+`spec_generation.md` §4.1 requires the scope boundary to be recorded *verbatim*
+from the vault. **It cannot be, because the vault article has no scope-boundary
+section** — measured: `grep -c "scope boundary"` over the article reads **0**,
+and the MCP copy is byte-identical to the copy on disk, so this is an absence in
+the article rather than a read failure.
+
+The boundary below is therefore **derived by the SDK** from the article's tier-2
+framing and from `corporate-family-tree`'s precedent, and is flagged for the
+vault to confirm or replace:
+
+> *(SDK-supplied, pending vault confirmation)* Single institution. No external
+> fabric is reached.
 
 **What that excludes, stated so no one has to infer it:** no A2A, no second
 CCF instance, no co-lender view, no netting against another bank's book. Those
 arrive at rung 20 (`syndicated-lending-co-lender`). This product's MCP door
 (G.1) is an egress surface for consumers **inside** the tenant boundary.
+
+**An earlier draft of this section presented that sentence as a verbatim vault
+quotation. It was not one** — the wording was carried from
+`examples/cp-04-corporate-family-tree/artifacts/assembly-recipe.yaml`, a
+different product's artifact, and mis-attributed. Corrected here, and recorded
+rather than quietly amended because a fabricated citation is the defect class
+this project treats most seriously.
 
 ---
 
@@ -642,8 +667,19 @@ construction.
 | Entitlement service binding — the concrete service this product calls for entitlement scope at D.3 step 2 | SDK | The example may bind the reference entitlement surface; a production deployment binds its own | **No** — the step is specified, only the endpoint is deployment-local |
 | `limit_pct_of_capital` denominator — whose capital, measured how | Vault / credit policy | Needed only when the product **tests** a limit rather than **reporting** exposure against one; this version reports | **No** — out of scope at v1.0.0, and named so it is not silently assumed |
 
-**No `[TBC]` gates the build.** Both are recorded so a later reader does not
+| **Vault: four-question test result** — absent from the article (§0.1) | Vault | Vault authors it, or ratifies the SDK-authored version | **No** |
+| **Vault: scope boundary** — absent from the article (B.5) | Vault | Vault authors it, or ratifies the SDK-supplied wording | **No** |
+| **Vault: primitive taught / build-order note** — absent from the article | Vault | Vault authors them | **No** |
+| **Vault front matter: `sdk_spec`, `assembly_mode`, `out_of_scope` are `null`; `sources` is `unknown`** | Vault | This specification supplies the first three; return path (`spec_generation.md` §11) | **No** |
+
+**No `[TBC]` gates the build.** All are recorded so a later reader does not
 mistake an absence for an oversight.
+
+**Four of the six are absences in the vault article, not in this
+specification.** They are listed here because §4.1 requires those items to be
+*extracted from the vault*, and they could not be — the article does not carry
+them. Every SDK-supplied substitute is labeled as such at the point of use
+(§0.1, B.5) rather than presented as the vault's.
 
 ### F.3 Access path, identifiers, history, text and volumetrics
 
@@ -682,7 +718,14 @@ product raises is answered at rung 16, not here.
    estate could not.
 3. **The slug↔LEI join hazard** (C.3). Recorded as a finding because it produced
    a false measurement during authoring, and any implementation will meet it.
-4. **`assembly_mode`, `out_of_scope` and `sdk_spec` are `null` in the vault
+4. **The vault article's own worked anchor does not exist in the estate.** Its
+   §D client call uses `5493001KJTIIGC8Y1R12`; measured, that LEI is **absent
+   from `ccf_v2.legal_entity` and holds zero facilities**, beside a positive
+   control confirming the query resolves `5493000Q1S5TJIDIQH89` to `REGIS CORP`.
+   This specification substitutes a real, exercising anchor (D.1) and records
+   the substitution here rather than making it silently. The vault's example
+   call should be repointed on the return path.
+5. **`assembly_mode`, `out_of_scope` and `sdk_spec` are `null` in the vault
    article's front matter.** This specification supplies all three; the vault
    article should be updated on the return path (`spec_generation.md` §11).
 
