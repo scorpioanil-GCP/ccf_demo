@@ -847,7 +847,7 @@ On MCP, answering the question the door was built to answer:
 |---|---|
 | Declared execution vs replay/delivered product not reconciled | **SDK architecture gap** |
 | `GovernedResolver` exists but is not the canonical author path | **SDK adoption/API design gap** |
-| `GovernedResolver` omits request/bound-payload refusal obligations | ~~SDK correctness defect~~ — **RETRACTED IN PART, see below** |
+| ~~`GovernedResolver` omits request/bound-payload refusal obligations~~ **→ RECLASSIFIED: `refuse_bound_payload` is not part of the shipped governed path** | **Delivery/adoption gap with LATENT CORRECTNESS RISK — not an observed correctness defect in the current product path.** The request-boundary half was measured false and is retracted; see below |
 | MCP requires resolver/refusal application code + auth internals | **SDK delivery ergonomics/API gap** |
 | Product-specific debt scorer | **Expected extension point** |
 | Product-specific reconciliation guard lacks a home | **Candidate SDK extension-point gap** |
@@ -865,7 +865,9 @@ And the fence on how it is done:
 
 ---
 
-**ROW 3 IS RETRACTED IN PART, BY MEASUREMENT TAKEN AFTER DAVE'S DISPOSITION AND BEFORE ANY REMEDIAL WORK.** Dave dispositioned it as a correctness defect and directed *"I would fix that narrowly and add one direct regression test."* **The premise was false and the fix must not be built.**
+**ROW 3 AS FIRST DISPOSITIONED IS WITHDRAWN AND RECLASSIFIED, ON A MEASUREMENT TAKEN AFTER DAVE'S DISPOSITION AND BEFORE ANY REMEDIAL WORK.** Dave, on the measurement, 2026-09-08: *"Your measurement disproves the premise. `GovernedResolver` does enforce the request boundary through `resolve_effective_request` / `constraint_resolver.resolve`; there is no SDK correctness defect there and I would not authorize a code change for it."* And on what survives: *"`refuse_bound_payload` is not part of the shipped governed path, so a product class that declares a payload schema could have that schema silently unenforced. Given that no shipped example currently declares such a schema, I would classify that as a delivery/adoption gap with latent correctness risk, not an observed correctness defect in the current product path."* And on how the record is kept: *"I want the correction preserved exactly the way you handled it: keep the false inference and the measured correction together. That is useful evidence about the danger of reasoning from symbol presence/absence instead of executed paths."*
+
+**THE ORIGINAL CLAIM, PRESERVED.** Dave dispositioned it as a correctness defect and directed *"I would fix that narrowly and add one direct regression test."* **The premise was false and the fix must not be built.**
 
 The claim was that `GovernedResolver` calls neither `refuse_request` nor `refuse_bound_payload`, and that an adopter therefore inherits an unchecked request boundary. It was derived from a `grep` for the symbol name plus the `ProductResolverProtocol` docstring — never from running the path. Measured limb by limb against `resolve_effective_request`, which `GovernedResolver` reaches through `constraint_resolver.resolve`, each with a passing positive control:
 
@@ -881,6 +883,8 @@ The claim was that `GovernedResolver` calls neither `refuse_request` nor `refuse
 **The request boundary under `GovernedResolver` is checked. There is no correctness defect and nothing to fix.**
 
 **What survives is smaller and latent.** `refuse_bound_payload` is called by **no shipped module** — the tree's only call site is `archive/examples/04-cross-process/producer_child.py`. It returns `None` for a class declaring no payload schema, and **no shipped example declares one**, so it bites nobody today. A deployment that declared a `payload_schema_key` would have that declaration silently ignored on every shipped path. That is a real latent gap and belongs with the delivery-ergonomics row, not as a correctness defect.
+
+**NO CODE CHANGE IS AUTHORIZED FOR ROW 3.** The narrow fix and its regression test, directed on the false premise, are cancelled. The surviving `refuse_bound_payload` gap carries no authorization of its own and is folded into the delivery-ergonomics row for whenever that work is scoped.
 
 **This is the fourth author-side false claim recorded in cp-05's own specification** (§F.4 findings 3, 5, 13(a), 19) and the first to reach Dave as an actionable defect. The class is constant: a claim about behavior derived from the presence or absence of a symbol rather than from running the path with a positive control. `CP-SPEC-005` §F.4 finding 19 preserves the false half beside its correction rather than deleting it.
 
