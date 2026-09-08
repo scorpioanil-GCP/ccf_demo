@@ -150,8 +150,10 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from decimal import Decimal
+from pathlib import Path
 from typing import Final, Protocol, TypeVar, runtime_checkable
 
+from ccf.artifacts.file_store import FileArtifactStore
 from ccf.artifacts.protocol import ArtifactStoreProtocol
 from ccf.contracts.base import CCFContract
 from ccf.controlplane.artifacts import (
@@ -160,6 +162,7 @@ from ccf.controlplane.artifacts import (
     HalfLifeTable,
     OperatorParametersArtifact,
     ProductClassDeclaration,
+    ReplayBinding,
 )
 from ccf.controlplane.registry import ControlPlaneProtocol
 from ccf.contracts.canonical import canonical_bytes, content_hash
@@ -1785,6 +1788,90 @@ class GovernedResolver:
         )
 
 
+def _replay_binding_on(fabric: BootedFabric) -> ReplayBinding | None:
+    """The one :class:`ReplayBinding` a booted fabric declares, or ``None``.
+
+    **SDK-defined** (CLAUDE.md §11); the ruling of record is ``D-IMPL-282``
+    ``R-12`` (Dave, 2026-09-08). The read half of the Control Plane's replay
+    binding: :func:`build_governed_resolver` asks the fabric what this
+    deployment declared, and uses it only for the members its caller did not
+    supply.
+
+    ``None`` is a **statement**, not a failure — a deployment that declares no
+    binding is the ordinary case for every `ccf_config.yaml` written before the
+    section existed, and the caller's refusal (which names both sources) is
+    what speaks about it.
+
+    **More than one is refused rather than resolved**, in
+    :func:`~ccf.deployment.config._refuse_operator_set_divergence`'s voice and
+    for its reason: two declarations that cannot both be what their author
+    meant, compared before anything is wired, refused rather than reconciled.
+    Picking the first would be a rule that silently changes behavior the day a
+    second binding is registered, and only the deployment's author knows which
+    was meant. Every key holding one is named, so the fix does not need a
+    search.
+
+    Raises:
+        TypeError: the fabric declares more than one binding. An
+            argument-shape mistake — the deployment was wired ambiguously —
+            so the exception Python reserves for one, and never a governed
+            refusal, because nobody asked a question yet.
+    """
+    declared = sorted(
+        key
+        for key, artifact in fabric.artifacts.items()
+        if isinstance(artifact, ReplayBinding)
+    )
+    if not declared:
+        return None
+    if len(declared) > 1:
+        raise TypeError(
+            "this deployment declares more than one replay binding —"
+            f" {', '.join(repr(key) for key in declared)} — and this call"
+            " omits at least one of `artifact_store`, `replay_record_class`"
+            " and `query_pin_class`, so which binding was meant is a question"
+            " only the deployment's author can answer. Refusing beats picking"
+            " (`D-IMPL-282` `R-12`): register one binding, or pass the three"
+            " arguments explicitly"
+        )
+    binding = fabric.artifacts[declared[0]]
+    assert isinstance(binding, ReplayBinding)  # narrowed by the filter above
+    return binding
+
+
+def _declared_member(
+    binding: ReplayBinding | None, *, member: str, argument: str
+) -> str:
+    """One member of the declared binding, or the neither-source refusal.
+
+    ``D-IMPL-282`` ``R-12``, Dave: *"Do not silently invent a replay backend
+    when neither source provides one."* So there is no default here and no
+    warning — a resolver that could not reach a replay writer would be a
+    resolver whose only remaining move is to serve an unrecorded decision, and
+    ``D-IMPL-256``'s invariant is that such a boundary is *unavailable*, not
+    partially governed.
+
+    Both places the value could have come from are named, because a caller
+    reading this should not have to work out whether the fix is an argument or
+    a section.
+
+    Raises:
+        TypeError: neither the call nor the Control Plane supplies ``member``.
+    """
+    if binding is None:
+        raise TypeError(
+            f"this call omits `{argument}` and this deployment's Control Plane"
+            f" declares no replay binding, so nothing supplies it. State"
+            f" `{argument}` on the call, or declare a `replay:` section naming"
+            f" `{member}` in the deployment's ccf_config.yaml — the SDK does"
+            " not invent a replay backend when neither source provides one"
+            " (`D-IMPL-282` `R-12`)"
+        )
+    value = getattr(binding, member)
+    assert isinstance(value, str)  # ReplayBinding declares all three as str
+    return value
+
+
 def build_governed_resolver(
     *,
     fabric: BootedFabric,
@@ -1794,11 +1881,12 @@ def build_governed_resolver(
     operator_parameter_keys: tuple[str, ...],
     policy_bundle_key: str,
     plan_factory: ProjectionPlanFactoryProtocol,
-    artifact_store: ArtifactStoreProtocol,
-    replay_record_class: str,
-    query_pin_class: str,
     max_ttl_seconds: int,
     product_ttl_seconds: int,
+    artifact_store: ArtifactStoreProtocol | None = None,
+    replay_record_class: str | None = None,
+    query_pin_class: str | None = None,
+    artifact_store_root: Path | None = None,
     half_life_key: str | None = None,
     debt_profile_key: str | None = None,
     declared_completeness: Decimal | None = None,
@@ -1854,6 +1942,29 @@ def build_governed_resolver(
     *pinning* — the parts that were mechanism the SDK declined to ship — and
     defaults nothing a deployment is entitled to decide.
 
+    **The replay binding defaults the WIRING and never a replay semantic**
+    (`R-12`; ``D-IMPL-282``, Dave, 2026-09-08). Three arguments —
+    ``artifact_store``, ``replay_record_class``, ``query_pin_class`` — may now
+    be omitted, and the deployment's own `ccf.replay-binding` supplies what the
+    call left out, **per member**: a call naming ``replay_record_class`` and
+    omitting the other two takes the explicit record class and the declared
+    query-pin class and store. The precedence, in Dave's own order, is
+    *explicit builder argument > Control Plane replay binding > no
+    binding/refusal according to existing availability semantics*, and the
+    third step is a refusal rather than a fallback because *"Do not silently
+    invent a replay backend when neither source provides one."*
+
+    What forced the argument, recorded here because a helper that grew one
+    without saying why is how this seam accumulates arguments nobody can
+    account for: cp-05 measured that a deployment's replay binding had nowhere
+    declared to live — `examples/cp-05-credit-exposure-rollup/artifacts
+    /replay.yaml` — so the three strings lived either as module constants in a
+    deployment's own Python or as an adopter-namespaced artifact beside the
+    config, and neither is the Control Plane. What the binding may carry is
+    bounded by the same ruling: *"No product-specific replay semantics in the
+    Control Plane—only deployment binding/configuration."* It says where
+    records go, never what a record means.
+
     The two argument shapes, and why supplying neither or both is refused
     ---------------------------------------------------------------------
     Exactly one of these is a valid call:
@@ -1888,10 +1999,23 @@ def build_governed_resolver(
         artifact_store: Where replay records and executed-query bytes land. A
             substrate reached *through* mechanism, never a second writer
             (CLAUDE.md §7.4). Taken as an object rather than a path so this
-            seam stays substrate-agnostic — selecting a file-backed store from
-            a declared path is the calling surface's act, not this one's.
+            seam stays substrate-agnostic. **Optional since `R-12`**: when it
+            is omitted the deployment's declared binding supplies a
+            file-backed store rooted at ``artifact_store_root /
+            <declared store_dirname>``; when both sources are silent the build
+            refuses.
         replay_record_class: Artifact class replay records are filed under.
+            **Optional since `R-12`** — the declared binding's
+            ``record_class`` when the call omits it.
         query_pin_class: Artifact class executed-query bytes are filed under.
+            **Optional since `R-12`** — the declared binding's
+            ``query_pin_class`` when the call omits it.
+        artifact_store_root: The directory the declared ``store_dirname`` is
+            joined onto. Required only when the *binding* is what supplies the
+            store, and refused-when-absent rather than defaulted: a root taken
+            from the process's working directory would put a deployment's
+            decision records wherever it happened to be started from. Ignored
+            when ``artifact_store`` is passed, because an object needs no root.
         max_ttl_seconds: The class's TTL ceiling.
         product_ttl_seconds: A served product's own lifetime. Two figures, and
             they stay two.
@@ -1941,7 +2065,11 @@ def build_governed_resolver(
         TypeError: both a scorer and the material to build one were supplied,
             or neither was. An argument-shape mistake, so the exception Python
             already reserves for one — and never a governed refusal, because
-            nobody asked a question yet.
+            nobody asked a question yet. Also raised when a replay member is
+            supplied by neither the call nor a declared binding, when the
+            binding is what supplies the store and no ``artifact_store_root``
+            was given, and when the fabric declares more than one binding —
+            see :func:`_replay_binding_on` and :func:`_declared_member`.
         ProductNotResolvable: ``half_life_key`` or ``debt_profile_key`` names no
             artifact on the booted fabric, or names one of another class; or
             ``product_class_key`` / ``request_contract_key`` does.
@@ -1971,6 +2099,59 @@ def build_governed_resolver(
         serve_obligations=boot_declaration.serve_obligations,
         declared=_request_contract_on(fabric, key=request_contract_key),
     )
+
+    # `R-12` (`D-IMPL-282`), SECOND — before the constraint-resolver branch and
+    # before any scorer material is read, so a wiring mistake is reported
+    # before anything else is chosen. Per member, in Dave's ruled order:
+    # explicit argument, then the deployment's declared binding, then a
+    # refusal that names both places the value could have come from.
+    # Asked only when something is actually missing, and that is what makes
+    # the ambiguity refusal below a statement about this CALL rather than about
+    # this deployment: a fabric declaring two bindings and a call naming all
+    # three arguments has asked nothing ambiguous, and refusing it would break
+    # a deployment that had already resolved its own ambiguity.
+    binding = (
+        _replay_binding_on(fabric)
+        if artifact_store is None
+        or replay_record_class is None
+        or query_pin_class is None
+        else None
+    )
+    record_class = (
+        replay_record_class
+        if replay_record_class is not None
+        else _declared_member(
+            binding, member="record_class", argument="replay_record_class"
+        )
+    )
+    pin_class = (
+        query_pin_class
+        if query_pin_class is not None
+        else _declared_member(
+            binding, member="query_pin_class", argument="query_pin_class"
+        )
+    )
+    if artifact_store is not None:
+        store: ArtifactStoreProtocol = artifact_store
+    else:
+        dirname = _declared_member(
+            binding, member="store_dirname", argument="artifact_store"
+        )
+        if artifact_store_root is None:
+            raise TypeError(
+                "this call omits `artifact_store` and this deployment declares"
+                f" store_dirname {dirname!r}, which is half a location: a"
+                " dirname is relative to a root, and the other half is the"
+                " caller's. Pass `artifact_store_root`, or pass"
+                " `artifact_store` — the SDK does not root a deployment's"
+                " decision records at whichever directory the process happened"
+                " to start in (`D-IMPL-282` `R-12`)"
+            )
+        # The file-backed reference store is what a dirname can select; a
+        # deployment on the MCP-backed store passes `artifact_store` and wins
+        # under the precedence above. See `ReplayBinding`'s own docstring,
+        # where the limitation is recorded rather than left to be discovered.
+        store = FileArtifactStore(root=Path(artifact_store_root) / dirname)
 
     # Keyed by name rather than zipped against :data:`DEBT_SCORER_INPUTS`
     # positionally: a positional pairing goes on running after somebody reorders
@@ -2018,8 +2199,8 @@ def build_governed_resolver(
     # re-read at each refusal could describe a deployment that had changed
     # since the determination it is recording.
     recorder = ReplayRefusalRecorder(
-        artifact_store=artifact_store,
-        replay_record_class=replay_record_class,
+        artifact_store=store,
+        replay_record_class=record_class,
         tenant_id=fabric.tenant_id,
         assembly_mode=_artifact_on(
             fabric, key=product_class_key, expected=ProductClassDeclaration
@@ -2069,9 +2250,9 @@ def build_governed_resolver(
             constraint_resolver=resolution_seam,
             capabilities=technical,
             refusal_recorder=recorder,
-            artifact_store=artifact_store,
-            replay_record_class=replay_record_class,
-            query_pin_class=query_pin_class,
+            artifact_store=store,
+            replay_record_class=record_class,
+            query_pin_class=pin_class,
             max_ttl_seconds=max_ttl_seconds,
             product_ttl_seconds=product_ttl_seconds,
         )
@@ -2117,9 +2298,9 @@ def build_governed_resolver(
         constraint_resolver=resolution_seam,
         capabilities=technical,
         refusal_recorder=recorder,
-        artifact_store=artifact_store,
-        replay_record_class=replay_record_class,
-        query_pin_class=query_pin_class,
+        artifact_store=store,
+        replay_record_class=record_class,
+        query_pin_class=pin_class,
         max_ttl_seconds=max_ttl_seconds,
         product_ttl_seconds=product_ttl_seconds,
     )

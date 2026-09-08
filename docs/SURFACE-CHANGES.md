@@ -23,7 +23,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1018 entries**, of which **774** name a public Python surface.
+**1020 entries**, of which **776** name a public Python surface.
 
 ## Added
 
@@ -9762,7 +9762,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-377 entries — 193 public Python surface, 184 not public Python API.
+379 entries — 195 public Python surface, 184 not public Python API.
 
 ### Public Python surface
 
@@ -13847,6 +13847,30 @@ Surfaces that still exist under the same name but whose shape moved. These are t
   12)
 
 *Recorded by `24.7-04-the-replay-builder-requires-an-explicit-resolution-state.md`.*
+
+#### ccf.products.resolver.build_governed_resolver
+
+- Surface: ccf.products.resolver.build_governed_resolver
+- Public surface: true
+- Change type: reshaped
+- Before: `artifact_store`, `replay_record_class` and `query_pin_class` were required keyword arguments, and a deployment's replay wiring had to be spelled at every construction site
+- After: those three are optional, a fourth optional `artifact_store_root: Path | None` joins them, and a member the call omits is supplied by the deployment's declared `ccf.replay-binding` — per member, so a call naming one and omitting two takes the explicit one and two declared ones. When neither the call nor a declaration supplies a member the build raises `TypeError` naming both sources; when the binding supplies the store and no root was given it raises naming both; when the fabric declares more than one binding it raises naming every key holding one
+- Why: `D-IMPL-282` `R-12` option 2a — *"The `replay:` Control Plane section supplies defaults. Explicit constructor arguments override the declaration. No builder API break in 24.10. The declared binding must actually be consumed and exercised; declaration-only is insufficient."* The declaration is consumed here or it is not consumed at all
+- Migration: none. Every existing call passes all three and behaves exactly as before — including `ccf.client.adapters.inprocess`, which is the one shipped caller. `GovernedResolver` itself is untouched: its fields stay required and defaultless, and `tests/products/test_resolver_seam.py::test_no_constructor_argument_carries_a_default` passes unmodified.
+
+*Recorded by `24.10-01-the-control-plane-declares-the-replay-binding.md`.*
+
+#### ccf.controlplane.artifacts.DeploymentConfig
+
+- Surface: ccf.controlplane.artifacts.DeploymentConfig
+- Public surface: true
+- Change type: reshaped
+- Before: nine documented reserved section names, eight of them in `_RESERVED_SECTIONS`
+- After: ten documented reserved section names, nine of them in `_RESERVED_SECTIONS`; the new `replay: Mapping[str, Any] | None` field is hash-transparent (CINV-06, `D-IMPL-243`)
+- Why: the `replay:` section needs a slot on the closed-world authoring contract, and the field must be hash-transparent so no committed `ccf_config.yaml`'s content address — and therefore no deployment's pin identity — moves
+- Migration: none. A config with no `replay:` section parses, derives and hashes exactly as it did; measured by `tests/contracts/test_hash_transparency.py::test_a_config_naming_no_replay_binding_hashes_as_it_did`.
+
+*Recorded by `24.10-01-the-control-plane-declares-the-replay-binding.md`.*
 
 ### Not public Python API
 
