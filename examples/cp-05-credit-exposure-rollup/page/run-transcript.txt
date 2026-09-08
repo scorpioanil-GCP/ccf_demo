@@ -30,6 +30,12 @@
     14 family members are bound by ownership, guarantee or
     cross-default and hold no facility of their own.
 
+  CONTEXT DEBT — confidence in the assembled truth, not in the projection
+    debt 1.0000   signal fail_closed
+    freshness   0E-18    from 15 real balance_as_of dates
+    completeness 0.2467  19/77 family members carry an LEI and can be checked
+    consistency  1       0 of 5 reconciliations used here disagree
+
   RECONCILIATION — the anchor's own book against XBRL-reported debt
     anchor committed 145,000,000  reported debt 293,800,000  share 0.494  plausible=True
 
@@ -48,5 +54,5 @@
     asked_at    2026-09-07T12:00:00+00:00
     expires_at  2026-09-07T16:00:00+00:00
 
-  content address  77fde2413eca01dc2e1c9e54bc74971ea537fabd301f34f8debd447f3dee2490
+  content address  1d1d20d7545e70509d54f935e153b91cedcb8bb5b0309b646f129e4a06fa422b
 ==============================================================================

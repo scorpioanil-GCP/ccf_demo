@@ -197,6 +197,28 @@ def produce(*, anchor: str | None = None, intent: str | None = None,
             rollup.reconciliation = asm.reconcile(cur, schema, anchor_lei,
                                                   rollup.gross.committed)
 
+            # EVIDENCE for the debt assessment, gathered from what the estate
+            # attests rather than from what the answer looks like.
+            family_leis = traversed["family_leis"]
+            cur.execute(
+                f"SELECT facility_id, balance_as_of FROM {schema}.facility "
+                f"WHERE borrower_lei = ANY(%s) AND balance_as_of IS NOT NULL",
+                (family_leis,))
+            balance_observations = [
+                (fid, _dt.datetime.combine(when, _dt.time(), tzinfo=_dt.timezone.utc)
+                 if not isinstance(when, _dt.datetime) else when)
+                for fid, when in cur.fetchall()
+            ]
+            cur.execute(
+                f"SELECT lei, plausible FROM {schema}.debt_reconciliation "
+                f"WHERE lei = ANY(%s)", (family_leis,))
+            reconciliation_rows = list(cur.fetchall())
+            # A genuine enrich FAILURE, not "found no facilities". The batch
+            # query answered for every LEI it was given; a member with an LEI
+            # and no facility is a DETERMINED answer of zero.
+            enrich_failures = len([lei for lei in family_leis if lei not in books
+                                   and lei is None])
+
     # GATE 4 · reconciliation guard — the one that catches a plausible wrong answer
     asm.reconciliation_guard(rollup)
 
@@ -208,6 +230,23 @@ def produce(*, anchor: str | None = None, intent: str | None = None,
     # NOT told which authority won: that is recorded on the contract's effective
     # request and travels into replay, an audit fact rather than an input. A
     # projection branching on provenance would let authority change the answer.
+    # ------------------------------------------------------------------
+    # CONTEXT DEBT — from evidence, before any projection is chosen.
+    # ------------------------------------------------------------------
+    #
+    # Assessed BEFORE L5 runs, deliberately: debt describes confidence in the
+    # assembled truth, and the caller's threshold cannot make that truth more or
+    # less trustworthy. The same evidence yields the same debt at 2%, 5% or 10%.
+    debt_assessment, debt_evidence = dep.assess_context_debt(
+        fabric=traversed["fabric"],
+        balance_observations=balance_observations,
+        reconciliation_rows=reconciliation_rows,
+        family_size=traversed["family_size"],
+        checkable_members=len(traversed["family_leis"]),
+        enrich_failures=enrich_failures,
+        asked_at=asked_at,
+    )
+
     plan = proj.ExposureRollupProjection(
         plan_id=f"cp-05.exposure-rollup/materiality={materiality_value}",
         threshold=materiality_value,
@@ -292,6 +331,14 @@ def produce(*, anchor: str | None = None, intent: str | None = None,
         "connected_without_exposure": rollup.connected_without_exposure,
         "findings": rollup.findings,
         "reconciliation": rollup.reconciliation,
+        # THE ASSESSMENT, NEVER A VERDICT. Whether this figure refuses a request
+        # is a fulfillment determination against a tolerance, made downstream.
+        "context_debt": {
+            "debt": str(debt_assessment.debt),
+            "signal": debt_assessment.signal.value
+            if hasattr(debt_assessment.signal, "value") else str(debt_assessment.signal),
+            "evidence": debt_evidence,
+        },
         "lineage": {"operators_invoked": operators_invoked,
                     "traversal_operator": "traversal.typed-neighborhood",
                     "projection_plan_id": execution.plan_id,

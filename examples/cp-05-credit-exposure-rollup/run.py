@@ -98,6 +98,16 @@ def render(payload: dict) -> str:
     out.append("    cross-default and hold no facility of their own.")
     out.append("")
 
+    d = payload.get("context_debt")
+    if d:
+        e = d["evidence"]
+        out.append("  CONTEXT DEBT — confidence in the assembled truth, not in the projection")
+        out.append(f"    debt {d['debt'][:6]}   signal {d['signal']}")
+        out.append(f"    freshness   {e['freshness'][:6]:<8} from {e['balance_observations']} real balance_as_of dates")
+        out.append(f"    completeness {e['completeness'][:6]:<7} {e['checkable_members']}/{e['family_size']} family members carry an LEI and can be checked")
+        out.append(f"    consistency  {e['semantic_consistency'][:6]:<7} {e['reconciliations_implausible']} of {e['reconciliations_used']} reconciliations used here disagree")
+        out.append("")
+
     rec = payload.get("reconciliation")
     if rec:
         out.append("  RECONCILIATION — the anchor's own book against XBRL-reported debt")

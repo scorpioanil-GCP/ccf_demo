@@ -521,3 +521,100 @@ def populate_and_traverse(*, fabric, graph: GraphSource, anchor_node: str,
         "registry": registry,
         "fabric": fabric,
     }
+
+
+def assess_context_debt(*, fabric, balance_observations: list[tuple[str, Any]],
+                        reconciliation_rows: list[tuple[str, bool]],
+                        family_size: int, checkable_members: int,
+                        enrich_failures: int, asked_at):
+    """Context Debt from EVIDENCE — never from result cardinality.
+
+    **The rule this function exists to hold:** debt describes confidence in the
+    assembled truth, not how aggressively the caller chooses to project it. The
+    same evidence must yield the same debt whether the caller asked at 2%, 5% or
+    10%, because caller preference cannot make the underlying knowledge more or
+    less trustworthy.
+
+    **Cardinality is not evidence.** 77 entities is not evidence of low debt and
+    0 would not be evidence of high debt. Each factor below is derived from
+    something the estate actually attests:
+
+    * **freshness** — the real `balance_as_of` dates on the family's facilities,
+      scored against the declared `λ_c` by the SDK's own `FreshnessScorer`.
+      Nothing is fabricated: an earlier draft stamped `observed_at` with the
+      REQUEST time, which would have scored perfect freshness out of nothing.
+    * **completeness** — what fraction of the family the product could CHECK for
+      exposure at all. Facilities are keyed by LEI, so a family member carrying
+      no LEI cannot be examined and its exposure is UNKNOWN rather than zero.
+      **This is not the enriched-over-asked ratio.** A first draft computed
+      books-found ÷ LEIs-asked and got 5/19 — which charges the product for
+      members that legitimately hold nothing, and is cardinality wearing an
+      evidence costume. A member with an LEI and no facility is a determined
+      answer; a member with no LEI is an undetermined one. A genuine enrich
+      FAILURE would also count here, and is tracked separately.
+    * **semantic_consistency** — reconciliation disagreement **among the
+      obligors this determination actually used**. The estate carries one
+      implausible reconciliation out of fourteen; measured, it is not in this
+      family, so it contributes nothing here. A ratio encoded mechanically
+      would have charged this product for a disagreement it never relied on.
+
+    `debt = 1 - min(F, C, S)`: the weakest link bounds confidence.
+
+    **This function returns an assessment, never a verdict.** Whether a debt
+    figure refuses a request is a FULFILLMENT determination against a tolerance,
+    made downstream. Debt is the measured uncertainty; the refusal is a governed
+    outcome of comparing it to what the caller or policy will accept.
+    """
+    from decimal import Decimal
+
+    from ccf.halflife.assessment import DebtFactors
+    from ccf.halflife.debt import FreshnessScorer, assess_debt
+    from ccf.halflife.decay import Observation
+
+    table = fabric.artifacts["half_life"]
+    profile = fabric.artifacts["debt_profile"]
+
+    observations = [
+        Observation(observation_type="outstanding_balances",
+                    observed_at=observed, subject=subject)
+        for subject, observed in balance_observations
+    ]
+    if not observations:
+        # The SDK refuses to score freshness over zero observations, and its
+        # reason is the right one: *"an empty assembly is a completeness
+        # shortfall, not a fresh one."* Manufacturing a freshness figure here
+        # would be inventing confidence, so the absence is charged to
+        # completeness where it belongs.
+        freshness = Decimal(0)
+    else:
+        freshness = FreshnessScorer(
+            table, Decimal(str(profile.risk_sensitivity))
+        ).score(observations, now=asked_at)
+
+    checkable = max(checkable_members - enrich_failures, 0)
+    completeness = (
+        Decimal(checkable) / Decimal(family_size) if family_size else Decimal(1)
+    )
+
+    used = [plausible for _lei, plausible in reconciliation_rows]
+    consistency = (
+        Decimal(sum(1 for p in used if p)) / Decimal(len(used)) if used else Decimal(1)
+    )
+
+    assessment = assess_debt(
+        DebtFactors(freshness=freshness, completeness=completeness,
+                    semantic_consistency=consistency),
+        profile=profile,
+    )
+    return assessment, {
+        "freshness": str(freshness),
+        "completeness": str(completeness),
+        "semantic_consistency": str(consistency),
+        "family_size": family_size,
+        "checkable_members": checkable,
+        "unresolvable_members": family_size - checkable,
+        "enrich_failures": enrich_failures,
+        "balance_observations": len(observations),
+        "reconciliations_used": len(used),
+        "reconciliations_implausible": sum(1 for p in used if not p),
+    }
