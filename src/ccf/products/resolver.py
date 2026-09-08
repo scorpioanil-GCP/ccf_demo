@@ -1157,6 +1157,51 @@ class GovernedResolver:
     absence is structural rather than described: nothing below reaches
     ``fabric.handle.worker``.
 
+    **What it cannot serve yet, measured against the SDK's own worked example**
+    (``24.10-04`` / ``R-03``; ``D-IMPL-282``). That ruling opened
+    ``examples/s1-01-hello-context-product/spine.py`` so that *"can an author
+    reach this composition?"* could be answered by trying rather than by
+    asserting. It was tried, against a live substrate, and **it could not**.
+    Four seams are absent; each carries an executable test in
+    ``tests/examples/test_s1_01_governed_resolver_adoption.py``, and none of
+    them is a defect in the example:
+
+    ``24.10-F-06``
+        A product class whose operator set includes the **Similarity**
+        category — one of whitepaper §7.4's four — cannot be served at all.
+        :func:`~ccf.deployment.build_operator_registry` is called below with no
+        ``similarity_index_version``, which that builder requires exactly when
+        a similarity artifact is present (``D-IMPL-38``, and rightly: an
+        unversioned index is one replay cannot be held against). There is no
+        field here, no argument on :func:`build_governed_resolver`, and the
+        registry is built inside :meth:`__call__` — so a deployment has nowhere
+        to supply it.
+    ``24.10-F-07``
+        :meth:`__call__` executes Π with **no seeds**, while
+        :mod:`ccf.replay.engine` replays with
+        ``seeds=``:func:`~ccf.products.request.request_seeds`. Two questions
+        about two different subjects therefore compile to the same graph query
+        and pin identically — ``DI-15.5-07``, which ``D-IMPL-111`` limb (a)
+        closed on the hand-built path — and a served product whose plan walks
+        is replay-divergent by construction.
+    ``24.10-F-08``
+        The candidate below sets none of ``obligation_in_force``,
+        ``source_refresh_recency`` or ``debt_evidence``, and offers no seam
+        for them. All three are inside the product's content address, so this
+        is not an omission a deployment can repair afterwards: measured, a
+        product served for a question landing in ``forced_llm`` says the
+        deployment is obliged to do nothing where that deployment's own
+        :class:`~ccf.controlplane.artifacts.DebtProfile` binds an obligation.
+    ``24.10-F-09``
+        ``expires_at``, the gate instant and ``recorded_at`` all derive from
+        ``request.asked_at``, so a class declaring a **decision instant**
+        distinct from the graph boundary finds nothing reads it.
+
+    Recorded here rather than fixed here. ``D-IMPL-282``: *"No broader API
+    redesign is authorized up front"* — the escalation these four earn is
+    Dave's ruling to make, and the tests are what go loudly red when a seam
+    lands without its finding being closed.
+
     Attributes:
         fabric: The booted deployment, exactly as
             :func:`~ccf.deployment.load_and_boot` returned it — so an adopter
@@ -2072,6 +2117,31 @@ def build_governed_resolver(
     deployment reaching the fabric through this seam imports no scorer, writes
     no ``GraphView`` → :class:`~ccf.halflife.assessment.DebtFactors` adapter,
     and makes no row-selection choice in its own tree.
+
+    How far that reaches, measured rather than claimed
+    ---------------------------------------------------
+    ``24.10-04`` / ``R-03`` (``D-IMPL-282``) tried this seam from the SDK's own
+    worked example, ``examples/s1-01-hello-context-product/spine.py``, against
+    a live substrate. **The example could not adopt it**, and four absent seams
+    are why — read
+    :class:`GovernedResolver`'s own docstring for ``24.10-F-06`` through
+    ``24.10-F-09`` and ``tests/examples/
+    test_s1_01_governed_resolver_adoption.py`` for the executable roster. Two
+    of them bear directly on the arguments below and are worth knowing before
+    wiring rather than after:
+
+    * A deployment declaring a **similarity** operator-parameters artifact
+      among ``operator_parameter_keys`` gets a ``ValueError`` from
+      :func:`~ccf.deployment.build_operator_registry` on the first call, not at
+      build time — this helper takes no ``similarity_index_version`` and the
+      resolver supplies none (``24.10-F-06``).
+    * A ``debt_scorer`` supplied here measures ``D_c`` at the *graph boundary*,
+      because that is the only instant the resolver has; a deployment whose
+      class declares a distinct decision instant will find it unread
+      (``24.10-F-09``).
+
+    Both are recorded, neither is fixed here: ``D-IMPL-282`` authorizes *"no
+    broader API redesign … up front"*, so what these earn is a ruling.
 
     What "the default" can and cannot mean here
     --------------------------------------------
