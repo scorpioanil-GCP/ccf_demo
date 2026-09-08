@@ -50,6 +50,10 @@ CONFIG = HERE / "ccf_config.yaml"
 BACKENDS = HERE / "backends.yaml"
 QUESTION = ARTIFACTS / "question.yaml"
 TTL = ARTIFACTS / "ttl.yaml"
+#: The named consumers `run.py --scenarios` demonstrates. READ-SIDE vocabulary:
+#: a fitness bar and a threshold are things callers ask for, not things this
+#: deployment is permitted to do, so they are not in `ccf_config.yaml`.
+SCENARIOS = ARTIFACTS / "scenarios.yaml"
 EXPECTED = ARTIFACTS / "expected.yaml"
 SPEC = HERE / "spec" / "CP-SPEC-005_Credit_Exposure_Rollup.md"
 
@@ -375,6 +379,40 @@ def effective_request(*, config: dict[str, Any], registry, supplied: dict[str, A
         class_source=ProvenanceSource(
             kind="artifact", identity=rc["class_id"], version=rc.get("semver", "1.0.0")
         ),
+    )
+
+
+def register_class(*, registry, config: dict[str, Any], ttl: dict[str, Any]):
+    """Register this product class with the Control Plane, and return it PINNED.
+
+    **A `RegisteredProductClass` is the object `run_gates` requires**, and it
+    exists so the gates read a class the Control Plane pinned rather than a
+    declaration the producer hands them at serve time. `max_ttl_key` names the
+    key; registering the VALUE is what mints its version, which is why the
+    ceiling lives in `artifacts/ttl.yaml` and not in the class declaration.
+
+    Both registrations happen here, in the interpreter, from documents. Nothing
+    in this function is a value: the ceiling, the anchor, the assembly mode and
+    the request contract are all read.
+    """
+    from ccf.products.contract import MaxTTL, register_product_class
+
+    declared = config["product_class"]
+    rc = config["request_contract"]
+    max_ttl_version = registry.register(
+        declared["max_ttl_key"], MaxTTL(seconds=int(ttl["max_ttl_seconds"]))
+    )
+    request_contract_version = registry.register(rc["class_id"], request_contract(config))
+    return register_product_class(
+        registry=registry,
+        schema_name=declared["schema_name"],
+        schema_version=declared["schema_version"],
+        ttl_anchor=declared["ttl_anchor"],
+        assembly_mode=declared["assembly_mode"],
+        max_ttl_key=declared["max_ttl_key"],
+        max_ttl_version=max_ttl_version,
+        request_contract_key=rc["class_id"],
+        request_contract_version=request_contract_version,
     )
 
 

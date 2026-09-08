@@ -22,7 +22,8 @@ from typing import Any
 
 import psycopg
 
-from ccf.products.contract import ContextProductContract
+from ccf.products.contract import ContextProductContract, ProductLineage
+from ccf.products.gates import ServableProduct, refuse_over_tolerance, run_gates
 
 import assembler as asm
 import deployment as dep
@@ -61,11 +62,28 @@ def content_address(payload: dict[str, Any]) -> str:
     return hashlib.sha256(_canonical(scoped)).hexdigest()
 
 
+class RequestRefused(ValueError):
+    """The request boundary refused before any assembly ran.
+
+    Carried as a type rather than a message so a caller demonstrating several
+    consumers can render the refusal instead of dying on it. **This is not the
+    tolerance refusal**: this one happens before the fabric reads anything,
+    because the caller asked for something the class or a policy will not
+    resolve. The tolerance refusal happens after a product EXISTS.
+    """
+
+    def __init__(self, detail: str, refusal: Any) -> None:
+        super().__init__(detail)
+        self.refusal = refusal
+
+
 def produce(*, anchor: str | None = None, intent: str | None = None,
             depth: int | None = None, materiality: float | None = None,
             follow_guarantees: bool | None = None,
             follow_cross_default: bool | None = None,
-            basis: str | None = None) -> dict[str, Any]:
+            basis: str | None = None,
+            debt_tolerance: str | None = None,
+            as_of: str | None = None) -> dict[str, Any]:
     """One rollup, assembled through the six steps spec §D.2 declares.
 
     Every parameter defaults to the DECLARATION, never to a literal in this
@@ -108,6 +126,17 @@ def produce(*, anchor: str | None = None, intent: str | None = None,
                 "follow_guarantees": follow_guarantees,
                 "follow_cross_default": follow_cross_default,
                 "basis": basis,
+                # THE CONSUMER'S FITNESS BAR, folded here and nowhere else.
+                # Text in, `Decimal` on the wire, for the same reason the
+                # declared defaults are quoted: a float tolerance would make
+                # the comparison against D_c platform-dependent.
+                "debt_tolerance": (
+                    None if debt_tolerance is None else Decimal(str(debt_tolerance))
+                ),
+                # DECLARED AND INERT (`artifacts/question.yaml`). Passed through
+                # deliberately so the refusal is the SDK's, by name, rather than
+                # this file quietly dropping an argument the caller supplied.
+                "as_of": as_of,
             },
             subject=anchor_lei, intent=intent_value,
             freshness=question["freshness"],
@@ -119,7 +148,7 @@ def produce(*, anchor: str | None = None, intent: str | None = None,
             outcome.refusal, "reason", str(outcome.refusal))
         bound = getattr(outcome.refusal, "bound", None)
         authority = f" [authority: {bound.authority}]" if bound is not None else ""
-        raise ValueError(f"{detail}{authority}")
+        raise RequestRefused(f"{detail}{authority}", outcome.refusal)
 
     effective = {p.name: p for p in outcome.evidence.parameters}
     depth_value = int(effective["depth"].value)
@@ -168,7 +197,11 @@ def produce(*, anchor: str | None = None, intent: str | None = None,
             # the operator the Control Plane REGISTERED decide the family, over
             # a GraphView of L3 bounded at the request's own instant.
             with tempfile.TemporaryDirectory() as fabric_root:
-                fabric, _registry = dep.boot(pathlib.Path(fabric_root))
+                # The CONTROL PLANE registry, held rather than discarded: the
+                # gate run below and the operator resolution above must reach
+                # the SAME one, or the gates would be reading a class some
+                # other registry pinned.
+                fabric, control_plane = dep.boot(pathlib.Path(fabric_root))
                 traversed = dep.populate_and_traverse(
                     fabric=fabric, graph=graph, anchor_node=anchor_node,
                     nodes=acquired, edges=edges, leis=lei_by_node, asked_at=asked_at,
@@ -349,6 +382,101 @@ def produce(*, anchor: str | None = None, intent: str | None = None,
         "expires_at": expires_at.isoformat(),
     }
     payload["content_address"] = content_address(payload)
+
+    # ==================================================================
+    # THE GOVERNED FULFILLMENT DETERMINATION — the last step, and a
+    # SEPARATE one from everything above it.
+    # ==================================================================
+    #
+    # The order is fixed and each arrow is a different kind of judgment:
+    #
+    #   assembly -> projection -> Debt assessment -> effective Debt
+    #   tolerance -> fulfillment determination -> replay -> disclosure
+    #
+    # **Context Debt does not refuse the request.** Debt is a MEASUREMENT of
+    # the fabric's confidence in what it assembled. Governance uses that
+    # measurement to decide whether fulfillment is permitted. The two live in
+    # different objects for that reason: `DebtAssessment` is above, in
+    # `payload["context_debt"]`, and it is the same number for every consumer;
+    # `refuse_over_tolerance` is below, and it is the only thing that can vary
+    # between two consumers holding the same determination.
+    #
+    # WHY THE GATES COME FIRST. `refuse_over_tolerance` takes a
+    # `ServableProduct`, which is not constructible outside `run_gates`
+    # (INV-CH7-52). The sequencing is therefore STRUCTURAL rather than
+    # documented: a caller who has not run the gates has nothing to pass, so
+    # "withheld" can only ever be said about a product that exists.
+    product_class = dep.register_class(registry=control_plane, config=config, ttl=ttl)
+    candidate = ContextProductContract(
+        schema_name=product_class.schema_name,
+        schema_version=product_class.schema_version,
+        plan_id=execution.plan_id,
+        tenant_id=_TENANT,
+        temporal_boundary=asked_at,
+        expires_at=expires_at,
+        ttl_anchor=product_class.ttl_anchor,
+        lineage=ProductLineage(
+            # THE ENGINE'S OWN OBSERVATION, not the list rendered in the
+            # payload. Gate 2 holds declared against observed in BOTH
+            # directions, so the assembly-stage names beside them in
+            # `payload["lineage"]` — Resolve, Enrich, Aggregate — cannot ride
+            # in here: they are stages, not registry operators, and declaring
+            # one that never ran is exactly what gate 2 refuses.
+            operators_invoked=frozenset(execution.operators_invoked),
+            policy_bundle_versions=frozenset({rollup.policy_version}),
+            graph_snapshot_at=asked_at,
+        ),
+        payload=payload,
+        # THE ASSESSMENT TRAVELS ON THE PRODUCT. Without it the tolerance check
+        # has nothing to compare against and withholds for that reason — which
+        # is the right answer to "the tolerance cannot be shown to be met",
+        # rather than a permissive default.
+        debt=debt_assessment,
+    )
+    # `now` IS THE PINNED INSTANT, NOT THE WALL CLOCK. This product's anchor is
+    # `from_decision`: the window opens when the question is asked. Evaluating a
+    # pinned demonstration against today's clock would refuse on `ttl-bounds`
+    # every time — correctly, and about the transcript rather than the product.
+    gated = run_gates(
+        candidate,
+        engine_resolved=execution.operators_invoked,
+        now=asked_at,
+        registry=control_plane,
+        product_class=product_class,
+    )
+    if not isinstance(gated, ServableProduct):
+        raise AssertionError(f"the validation gates refused this product: {gated}")
+
+    # ONE ARGUMENT, AND IT IS A RESOLVED PARAMETER RATHER THAN A NUMBER. The
+    # three debt authorities — the class default, this caller's declaration and
+    # any applicable policy constraint — were folded exactly ONCE, upstream, by
+    # `resolve_effective_request`. Handing a float here would be a second fold,
+    # and a second fold is where a product quietly re-acquires the power to
+    # overrule its own governance.
+    withheld = refuse_over_tolerance(gated, tolerance=effective.get("debt_tolerance"))
+
+    tolerance = effective.get("debt_tolerance")
+    payload["fulfillment"] = {
+        "served": withheld is None,
+        "tolerance": None if tolerance is None else str(tolerance.value),
+        "tolerance_authority": None if tolerance is None else tolerance.authority,
+        "observed_debt": str(debt_assessment.debt),
+        "detail": None if withheld is None else withheld.detail,
+    }
+    # DELIBERATELY AFTER THE CONTENT ADDRESS, and the reason is that the
+    # outcome is REDUNDANT with what the address already covers. The address
+    # spans the effective request — including the resolved `debt_tolerance` and
+    # the authority that set it — and the observed Debt. Served-or-withheld is a
+    # pure function of those two, so hashing it in would only restate them.
+    #
+    # WHAT DOES CHANGE THE ADDRESS, MEASURED: two consumers differing only in
+    # fitness get DIFFERENT addresses, because they asked different questions —
+    # "give me this if you are confident enough" is not "give me this whatever
+    # your confidence." What they get back is the SAME DETERMINATION: family 77,
+    # gross 10,125,000,000, adjusted 9,325,000,000 and D_c 1.000 are byte-equal
+    # across every consumer in `run.py`'s scenario set. The fabric does not
+    # revise what it knows to suit who is asking; it revises only whether it is
+    # willing to attest that what it knows is fit to act on.
     return payload
 
 
@@ -358,7 +486,16 @@ def as_contract(payload: dict[str, Any]) -> "ContextProductContract":
     Kept beside :func:`produce` rather than replacing it, because the two serve
     different readers. `produce` returns a plain mapping a transcript can render
     and a test can diff; this returns the object the L6 delivery surfaces
-    require, and it is what the MCP door serves.
+    require, and it is what the MCP door serves. It reconstructs the SAME
+    candidate `produce` gated, from the same payload.
+
+    **`fulfillment` IS STRIPPED, AND THAT IS THE POINT.** Whether this product
+    was served or withheld is a determination made ABOUT the contract, by
+    `refuse_over_tolerance`, after the gates admitted it. It is not a field of
+    the contract and must not become one: a product that carried its own
+    fulfillment outcome would be a product that had already decided whose
+    tolerance applied, and two consumers with different fitness bars would then
+    need two contracts for one determination.
 
     **The contract surface turned out to be small.** Nine required fields and a
     three-field lineage, and `ttl_anchor` is a `Literal` that already carries
@@ -371,27 +508,32 @@ def as_contract(payload: dict[str, Any]) -> "ContextProductContract":
 
     lin = payload["lineage"]
     asked_at = _dt.datetime.fromisoformat(lin["asked_at"])
+    determination = {k: v for k, v in payload.items() if k != "fulfillment"}
     return ContextProductContract(
         schema_name=payload["schema_name"],
         schema_version=payload["schema_version"],
         # The plan the answer came from, not a run id: two asks of the same
         # question under the same policy share it, which is what makes the
         # content address the thing that distinguishes runs.
-        plan_id=payload["content_address"][:16],
+        plan_id=lin["projection_plan_id"],
         tenant_id=_TENANT,
         # `from_decision` (spec §B.1 element 3): the boundary IS the ask.
         temporal_boundary=asked_at,
         expires_at=_dt.datetime.fromisoformat(payload["expires_at"]),
         ttl_anchor="from_decision",
         lineage=ProductLineage(
-            operators_invoked=frozenset(lin["operators_invoked"]),
+            # THE ENGINE-OBSERVED SET, matching what gate 2 held the candidate
+            # to. `lineage.operators_invoked` in the payload additionally names
+            # the assembly stages for a human reader; those are not registry
+            # operators and gate 2 would refuse them.
+            operators_invoked=frozenset(lin["engine_observed_operators"]),
             policy_bundle_versions=frozenset({lin["policy_version"]}),
             # The ledger read is the graph snapshot. Fluree's `t` is TRANSACTION
             # time and `D-IMPL-88` rules it must not back `as_of`; it is recorded
             # BESIDE this boundary, never inside it.
             graph_snapshot_at=asked_at,
         ),
-        payload=payload,
+        payload=determination,
     )
 
 

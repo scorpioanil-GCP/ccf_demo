@@ -39,6 +39,57 @@ Four more things this rung is the first to do:
   An exposure has no underlying entity whose validity period governs it.
 - **A product-specific validation gate** — the reconciliation guard, which
   catches a *plausible wrong answer* rather than a broken pipeline.
+- **A governed refusal of fulfillment.** The demonstrated run is **WITHHELD**,
+  and the number is printed anyway. See below.
+
+### The demonstrated run is a governed refusal
+
+Against this estate the outstanding balances are 324–396 hours old and this
+product's half-life is **four hours**. Context Debt comes out at `1.000`,
+signal `fail_closed`, and the class's own `0.25` tolerance is exceeded — so the
+fabric assembles the product, passes every validation gate, and then declines
+to attest that it is fit to act on.
+
+**The $9,325,000,000 figure is still printed.** The fabric may know what it
+calculated without being willing to say the calculation is fit to serve.
+Withholding is a refusal of *fulfillment*, not of *response* (`D-IMPL-251`), so
+the run exits `0` and discloses the determination, the measured Debt, the
+tolerance that was not met and the authority that set it.
+
+**Nothing was calibrated to make it serve.** Not the half-life, not the
+evidence, not the debt calculation. A four-hour window widened to fit old demo
+data would make every later run lie about how current its money figures are.
+
+### Eight named consumers, one estate, one instant
+
+```bash
+make example-cp-05 SCENARIOS=1
+```
+
+runs the consumers declared in `artifacts/scenarios.yaml`
+(`page/scenario-transcript.txt` is its output):
+
+| Consumer | Asks for | Effective (authority) | Outcome |
+|---|---|---|---|
+| Default | nothing | `materiality 0.05` (default) · `debt_tolerance 0.25` (default) | WITHHELD |
+| Detailed | `materiality 0.02` | `0.02` (caller) | WITHHELD |
+| Material-Only | `materiality 0.10` | `0.10` (caller) | WITHHELD |
+| Strict-Fitness | `debt_tolerance 0.05` | `0.05` (caller) | WITHHELD |
+| Exploratory | `debt_tolerance 1.0` | `1.0` (caller) | **SERVED** |
+| Regulated | `regulatory-large-exposure` + `debt_tolerance 1.0` | **`0.10` (policy)** — narrowed | WITHHELD |
+| Appetite | `internal-appetite` + `materiality 0.10` | — | REFUSED at the request boundary |
+| As-Of | `as_of 2026-06-30` | — | REFUSED at the request boundary |
+
+**Family 77, gross 10,125,000,000, adjusted 9,325,000,000 and `D_c` 1.000 are
+identical for every consumer that reached assembly.** The fabric does not
+revise what it knows to suit who is asking. What moves is which slice is
+projected, and whether the answer is attested.
+
+**Two `maximum` constraints, two behaviors, and the difference is the
+teaching.** A ceiling on `materiality` **refuses** the request by name; a
+ceiling on `debt_tolerance` **narrows** it and withholds afterwards. A fitness
+bar cannot be refused before fitness has been measured — materiality shapes the
+answer, debt tolerance judges it.
 
 ## Run it
 
@@ -56,7 +107,9 @@ Every request parameter is optional. Omitted, the run asks the question declared
 in `artifacts/question.yaml`.
 
 ```bash
+make example-cp-05 SCENARIOS=1
 make example-cp-05 INTENT=internal-appetite
+make example-cp-05 DEBT_TOLERANCE=1.0
 make example-cp-05 DEPTH=2
 make example-cp-05 MATERIALITY=0.10   # coarser: fewer entities enumerated
 make example-cp-05 MATERIALITY=0.01   # finer: the anchor itself comes into view
@@ -121,6 +174,9 @@ undrawn availability is excluded. Different number, different content address,
 | `artifacts/ttl.yaml` | 4 hours, `from_decision`, and its ceiling as a separately reviewable number. |
 | `artifacts/expected.yaml` | What the product should contain — **derived from the estate, never from a run**. |
 | `artifacts/assembly-recipe.yaml` | §D.2 as data, one witness per step. |
+| `artifacts/scenarios.yaml` | The eight named consumers and what each one teaches. Read-side: a fitness bar is something callers ask for, not something this deployment is permitted to do. |
+| `page/run-transcript.txt` | The demonstrated run, byte-reproducible against the pinned instant. |
+| `page/scenario-transcript.txt` | All eight consumers, same estate, same instant. |
 | `backends.yaml` | Variable **names** and remedies. No host, port or credential. |
 | `ccf_config.yaml` | The Control Plane document — half-life table, request contract, bounds, defaults. |
 | `deployment.py` | The interpreter. Holds no domain value. |
@@ -136,7 +192,12 @@ undrawn availability is excluded. Different number, different content address,
 - **§7.6 Context Product Contract** — a typed `ContextProductContract` with
   `extra=forbid`; the three standard validation gates plus this product's own.
 - **§7.7 Half-life and Context Debt** — a five-class `λ_c` table spanning
-  ~2,190× and a fail-closed posture on the fastest class only.
+  ~2,190× and a fail-closed posture on the fastest class only. `D_c` is
+  assessed from evidence — real `balance_as_of` dates, LEI coverage,
+  reconciliation agreement — never from result cardinality.
+- **§7.7.4–§7.7.8 fulfillment** — `refuse_over_tolerance` holds a gate-admitted
+  `ServableProduct` to the one resolved tolerance. Debt measures; governance
+  decides; the two are separate objects and separate steps.
 - **§7.8 Control Plane vs Data Plane** — the limit definition is versioned
   policy read from the store, recorded in lineage, never defaulted.
 - **§7.10 Decision Replay** — lineage carries operators, ledger, policy version
@@ -171,6 +232,13 @@ addresses.
   unreachable store and a store with no matching edges are different facts.
 - **A double-subtracting dedup** trips the reconciliation guard: adjusted
   exceeding gross is arithmetically impossible.
+- **A `debt_tolerance` above 1.0 or below 0.0** is refused by name at the
+  request boundary, like any other out-of-domain argument.
+- **A `debt_tolerance` above a registered policy ceiling** is *not* refused —
+  it is narrowed to the ceiling with authority `policy`, and the product is
+  withheld afterwards if the observed Debt exceeds it. This is the SDK's only
+  parameter-name-keyed branch and it is deliberate: fitness cannot be judged
+  before it is measured.
 - **A dedup whose obligor sits outside the measured family** would remove
   exposure the rollup never added. That one is *not* caught by the guard —
   `gross ≥ adjusted` does not watch for under-counting — and it is why

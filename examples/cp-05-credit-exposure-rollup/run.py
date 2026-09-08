@@ -14,6 +14,14 @@ Run it::
     make example-cp-05
     make example-cp-05 INTENT=internal-appetite
     make example-cp-05 LEI=<lei> DEPTH=2
+    make example-cp-05 SCENARIOS=1
+
+**THE DEMONSTRATED RUN IS A GOVERNED REFUSAL.** Against the estate as it stands,
+the outstanding balances are days old and this product's half-life is four
+hours, so Context Debt is 1.000 and fulfillment is withheld against the class's
+own 0.25 tolerance. The $9.325B determination is printed anyway: the fabric may
+know what it calculated without being willing to attest that the calculation is
+fit to act on. Nothing here is calibrated to make the demonstration serve.
 """
 
 from __future__ import annotations
@@ -133,6 +141,25 @@ def render(payload: dict) -> str:
     out.append(f"    expires_at  {payload['expires_at']}")
     out.append("")
     out.append(f"  content address  {payload['content_address']}")
+
+    f = payload.get("fulfillment")
+    if f:
+        out.append("")
+        out.append("-" * 78)
+        if f["served"]:
+            out.append(f"  FULFILLMENT  SERVED   "
+                       f"D_c {f['observed_debt'][:5]} <= tolerance {f['tolerance']} "
+                       f"({f['tolerance_authority']})")
+        else:
+            out.append(f"  FULFILLMENT  WITHHELD  "
+                       f"D_c {f['observed_debt'][:5]} > tolerance {f['tolerance']} "
+                       f"({f['tolerance_authority']})")
+            for line in _wrap(f["detail"], 74):
+                out.append(f"    {line}")
+            out.append("")
+            out.append("    The determination above is NOT withdrawn. The product passed every")
+            out.append("    validation gate and exists; what is withheld is the fabric's")
+            out.append("    attestation that it is fit for this consumer to act on.")
     out.append("=" * 78)
     return "\n".join(out)
 
@@ -150,6 +177,69 @@ def _wrap(text: str, width: int) -> list[str]:
     return lines
 
 
+def scenario_line(name: str, requested: dict, payload: dict) -> list[str]:
+    """One consumer's row in the sweep — the six columns Dave's ruling names.
+
+    requested -> effective + authority -> assembled truth -> projection -> Debt
+    -> fulfillment outcome. All six on one screen, because the teaching is the
+    CONTRAST between rows and a reader who has to scroll cannot see it.
+    """
+    eff = payload["effective_request"]
+    g = payload["measures"]["gross"]
+    j = payload["measures"]["adjusted"]
+    f = payload["fulfillment"]
+    shown = "  ".join(
+        f"{k}={eff[k]['value']}({eff[k]['authority']})"
+        for k in ("materiality", "debt_tolerance") if k in eff
+    )
+    verdict = "SERVED  " if f["served"] else "WITHHELD"
+    return [
+        f"  {name}",
+        f"    requested    {requested or 'nothing — every value falls to the class default'}",
+        f"    effective    {shown}",
+        f"    assembled    family {payload['family']['nodes']}   "
+        f"gross {_money(g['committed'])}   adjusted {_money(j['committed'])}",
+        f"    projected    {len(payload['entities'])} material  "
+        f"residual {_money(payload['projection']['residual']['committed'])}  "
+        f"({len(payload['connected_without_exposure'])} connected without exposure)",
+        f"    debt         {payload['context_debt']['debt'][:5]}  "
+        f"({payload['context_debt']['signal']})",
+        f"    fulfillment  {verdict}  against tolerance "
+        f"{f['tolerance']} ({f['tolerance_authority']})",
+        f"    address      {payload['content_address']}",
+    ]
+
+
+def sweep() -> str:
+    """Every declared consumer, in order, against one estate and one instant.
+
+    **The scenarios are READ from `artifacts/scenarios.yaml`.** A table of
+    thresholds and tolerances written into this client would be the same
+    No-Hardcoding violation as a threshold written into `produce.py`.
+    """
+    declared = dep.load(dep.SCENARIOS)[dep.DECLARATION]
+    out = ["=" * 78,
+           "  cp-05 · ONE QUESTION, ONE ESTATE, ONE INSTANT — EIGHT CONSUMERS",
+           "=" * 78, ""]
+    for entry in declared:
+        params = dict(entry["parameters"])
+        try:
+            payload = prod.produce(**params)
+        except prod.RequestRefused as exc:
+            out.append(f"  {entry['name']}")
+            out.append(f"    requested    {params or 'nothing'}")
+            out.append("    REFUSED AT THE REQUEST BOUNDARY — before any assembly ran")
+            for line in _wrap(str(exc), 70):
+                out.append(f"      {line}")
+        else:
+            out.extend(scenario_line(entry["name"], params, payload))
+        for line in _wrap(entry["teaches"], 72):
+            out.append(f"      {line}")
+        out.append("")
+    out.append("=" * 78)
+    return "\n".join(out)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, add_help=True)
     parser.add_argument("--lei", default=None, help="anchor obligor; omitted asks the declared question")
@@ -163,10 +253,23 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--materiality", default=None,
                         help="e.g. 0.02 or 0.10; the product default is 0.05")
     parser.add_argument("--basis", default=None, choices=["committed", "outstanding", "both"])
+    # TAKEN AS TEXT for the same reason `--materiality` is: the Control Plane
+    # refuses a bare float, and a float fitness bar would compare against D_c
+    # differently on different machines.
+    parser.add_argument("--debt-tolerance", default=None,
+                        help="the most Context Debt this consumer will act on; default 0.25")
+    parser.add_argument("--as-of", default=None,
+                        help="declared and REFUSED at this rung; see artifacts/question.yaml")
+    parser.add_argument("--scenarios", action="store_true",
+                        help="run every consumer declared in artifacts/scenarios.yaml")
     parser.add_argument("--no-guarantees", action="store_true")
     parser.add_argument("--no-cross-default", action="store_true")
     parser.add_argument("--json", action="store_true", help="emit the payload rather than the transcript")
     args = parser.parse_args(argv)
+
+    if args.scenarios:
+        print(sweep())
+        return 0
 
     try:
         payload = prod.produce(
@@ -174,6 +277,7 @@ def main(argv: list[str] | None = None) -> int:
             materiality=args.materiality, basis=args.basis,
             follow_guarantees=False if args.no_guarantees else None,
             follow_cross_default=False if args.no_cross_default else None,
+            debt_tolerance=args.debt_tolerance, as_of=args.as_of,
         )
     except dep.DeclarationMissing as exc:
         print(f"\n  This deployment is not configured.\n\n  {exc}\n", file=sys.stderr)
@@ -198,6 +302,15 @@ def main(argv: list[str] | None = None) -> int:
         return 5
 
     print(json.dumps(payload, indent=2) if args.json else render(payload))
+    # EXIT 0 EVEN WHEN FULFILLMENT IS WITHHELD, and it is a ruling rather than
+    # an oversight. `D-IMPL-251`: a tolerance breach is a refusal OF
+    # FULFILLMENT, not of response. The program was asked a question and
+    # answered it completely — here is the determination, here is the measured
+    # Debt, here is the tolerance that was not met, and here is who set it.
+    # A non-zero exit would say the request failed; it did not. The exit codes
+    # above are for requests that could not be ANSWERED (unconfigured
+    # deployment, unreachable graph, unresolvable anchor, out-of-bound
+    # argument), which is a different kind of event.
     return 0
 
 

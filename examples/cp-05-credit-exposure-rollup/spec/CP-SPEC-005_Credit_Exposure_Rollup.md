@@ -619,6 +619,63 @@ observed passing.
 
 ---
 
+### D.8 The fulfillment determination — the step after the gates
+
+The gates decide whether a product **exists**. This step decides whether the
+fabric is **willing to attest** that the product it built is fit for this
+consumer to act on. They are different questions and they are answered by
+different code, in this order:
+
+```
+assembly -> projection -> Debt assessment -> effective Debt tolerance
+         -> fulfillment determination -> replay -> disclosure
+```
+
+**Context Debt does not refuse the request.** `D_c` is a *measurement* of the
+fabric's confidence in what it assembled, taken from evidence (E.2) and
+identical for every consumer of the same determination. Governance uses that
+measurement to decide whether fulfillment is permitted. Two consumers may ask
+the same business question with different fitness requirements, and the same
+assembled determination may legitimately be fulfilled for one and refused for
+the other.
+
+**The mechanism.** `ccf.products.gates::refuse_over_tolerance` takes a
+`ServableProduct` — which is not constructible outside `run_gates` — and one
+resolved `EffectiveParameter`. The sequencing is therefore structural rather
+than documented: a caller who has not run the gates has nothing to pass, so
+*withheld* can only ever be said about a product that exists.
+
+**The tolerance is a resolved parameter, never a number.** The three debt
+authorities — the class's `debt_tolerance` default of `0.25`, the caller's
+declared bar, and any applicable policy constraint — are folded exactly once,
+upstream, by `resolve_effective_request`. The fulfillment check performs no
+fold of its own; a second fold is where a product would quietly re-acquire the
+power to overrule its own governance.
+
+**The one narrowing case, and why it is not an inconsistency.** This deployment
+registers two policy constraints with the same `maximum` operator, and they
+behave differently:
+
+| Constraint | Parameter | Caller asks | Outcome |
+|---|---|---|---|
+| `materiality-ceiling/internal-appetite` | `materiality` | `0.10` over a `0.05` ceiling | **REFUSED by name**, before assembly. A narrowed request answers a question nobody asked (`D-IMPL-251` C5) |
+| `debt-tolerance-ceiling/regulatory-large-exposure` | `debt_tolerance` | `1.0` over a `0.10` ceiling | **NARROWED to `0.10`** with authority `policy`; the product is assembled and then withheld against that bar |
+
+`DEBT_TOLERANCE_PARAMETER` is the SDK's **only** parameter-name-keyed branch,
+and it keys on the SDK's own mechanism token rather than on any deployment's
+vocabulary. The asymmetry is deliberate: **a fitness bar cannot be refused
+before fitness has been measured.** Materiality shapes the answer, so a
+disallowed value can be refused at the boundary; debt tolerance *judges* the
+answer, so the comparison must wait until the observation exists. Both
+behaviors are visible in the scenario set (E.6).
+
+**What withholding does not do.** It does not withdraw the determination. The
+$10,125,000,000 gross and $9,325,000,000 guarantee-adjusted figures are the
+assembled truth and are printed on a withheld run. The fabric may know what it
+calculated without being willing to attest that the calculation is fit to serve;
+disclosure decides what the caller sees, and it discloses both the number and
+the reason it is not attested.
+
 ## Section E — Volatility, debt & materialization
 
 ### E.1 Half-life table
@@ -695,6 +752,67 @@ names the component and its measured staleness.
 **Both refusals are refusals of fulfillment, not of response.** The caller
 receives a typed refusal carrying the reason, the component and the measurement
 — never a silent empty payload, and never a partial rollup presented as whole.
+
+### E.6 The demonstrated run, measured — and the eight consumers
+
+**The demonstrated run is a governed refusal, and nothing was calibrated to
+avoid that.** Measured against the estate at the pinned instant
+`2026-09-07T12:00:00+00:00`:
+
+| Factor | Value | Evidence |
+|---|---|---|
+| freshness | `0` | 15 real `balance_as_of` dates, 324–396 hours old, scored against the declared 4-hour `λ_c` |
+| completeness | `0.2467` | 19 of 77 family members carry an LEI and can be checked for exposure at all |
+| semantic_consistency | `1` | 5 reconciliations among the obligors this determination used; none disagrees |
+| **`D_c = 1 − min(F, C, S)`** | **`1.000`** | the weakest link bounds confidence; signal `fail_closed` |
+
+Against the class's own `0.25` default tolerance, fulfillment is **withheld**.
+This is E.2's asymmetry firing exactly as designed: the balance component is the
+one that fails closed, and it is stale. The correct response is to record it,
+not to widen `λ_c` until the demonstration serves — a four-hour half-life
+recalibrated to fit old demo data would make every later run of this product
+lie about how current its money figures are.
+
+**Eight named consumers, one estate, one instant.** `run.py --scenarios` runs
+the set declared in `artifacts/scenarios.yaml`; `page/scenario-transcript.txt`
+is its output.
+
+| Consumer | Requested | Effective (authority) | Projected | Fulfillment |
+|---|---|---|---|---|
+| Default | *nothing* | `materiality 0.05` (default) · `debt_tolerance 0.25` (default) | 4 material, residual 145,000,000 | **WITHHELD** (default) |
+| Detailed | `materiality 0.02` | `0.02` (caller) · `0.25` (default) | 4 material, residual 145,000,000 | **WITHHELD** (default) |
+| Material-Only | `materiality 0.10` | `0.10` (caller) · `0.25` (default) | 3 material, residual 945,000,000 | **WITHHELD** (default) |
+| Strict-Fitness | `debt_tolerance 0.05` | `0.05` (caller) | 4 material | **WITHHELD** (caller) |
+| Exploratory | `debt_tolerance 1.0` | `1.0` (caller) | 4 material | **SERVED** |
+| Regulated | `intent regulatory-large-exposure`, `debt_tolerance 1.0` | **`0.10` (policy)** — narrowed | 4 material | **WITHHELD** (policy) |
+| Appetite | `intent internal-appetite`, `materiality 0.10` | — | — | **REFUSED at the request boundary** |
+| As-Of | `as_of 2026-06-30` | — | — | **REFUSED at the request boundary** |
+
+**The invariant this table exists to prove.** Family **77**, gross
+**10,125,000,000**, adjusted **9,325,000,000** and `D_c` **1.000** are
+byte-identical across every consumer that reached assembly. The fabric does not
+revise what it knows to suit who is asking. What varies is (a) which slice of
+that truth is projected, and (b) whether the fabric will attest that it is fit
+to act on.
+
+**Two measurements worth stating because they were not the expected result.**
+
+1. **The Detailed Consumer's finer threshold changes nothing.** Dropping the
+   floor from 506,250,000 to 202,500,000 selects the same four entities,
+   because this family's book is concentrated: five entities hold facilities
+   and the smallest material one commits 800,000,000. The projection moves only
+   at 10%, where the 800,000,000 obligor falls into the residual. A threshold
+   that *can* move the answer is not a threshold that *does*, and a
+   demonstration that only showed the moving case would teach the wrong lesson
+   about what materiality is for.
+2. **A different tolerance produces a different content address.** The address
+   spans the effective request — including the resolved `debt_tolerance` and
+   the authority that set it — so the Exploratory and Default consumers address
+   differently while their determinations are byte-equal. That is correct:
+   *"give me this if you are confident enough"* is not the same question as
+   *"give me this whatever your confidence."* The served-or-withheld outcome is
+   deliberately **not** hashed in, because it is a pure function of the
+   tolerance and the Debt the address already covers.
 
 ---
 
@@ -832,6 +950,45 @@ product raises is answered at rung 16, not here.
    parameter lives. Arguably correct as designed — a projection conditioned on
    `perspective` and bounded by time, with everything else fixed at
    construction, is a defensible contract.
+
+11. **NOT A GAP — the `debt_tolerance` narrowing is deliberate, and the source
+    says so.** A `maximum` policy constraint on `materiality` refuses; the same
+    operator on `debt_tolerance` narrows. That looked like an inconsistency
+    until it was measured against `src/ccf/products/constraints.py`, which
+    documents it as *"the one exception to 'nothing is clamped'"* and gives the
+    reason: the comparison that can still refuse — observed Debt against that
+    tolerance — happens after assembly, where the observation exists. Recorded
+    as a **confirmed SDK behavior**, not a finding, because a reader meeting
+    the asymmetry for the first time will reach for the same wrong conclusion.
+    `DEBT_TOLERANCE_PARAMETER` is the SDK's only parameter-name-keyed branch
+    and it keys on the SDK's own mechanism token, never on this deployment's
+    vocabulary.
+
+13. **Two self-inflicted documentation defects, recorded rather than amended.**
+    (a) `summary_explanations.md` quoted a depth-refusal message no run ever
+    produced — invented from the shape of the argument rather than copied from
+    output. The two real messages differ from it and from each other, and are
+    better teaching: depth 6 is refused by the CLASS's declared domain, depth 9
+    by the SUBSTRATE's capability, and a caller told which is which knows
+    whether to ask for a different product or to stop asking. (b)
+    `artifacts/assembly-recipe.yaml` did not parse as YAML — an unquoted
+    `` `may_be_empty: false` `` inside a scalar — while claiming to be "§D.2 as
+    data." Nothing reads the file, which is why it went unnoticed for the whole
+    build. Both are the same class as finding 5: a plausible artifact nobody
+    executed. **The rule that catches this class is to run the thing, not to
+    read it**, and both were found by running it.
+
+12. **The fulfillment path was present, complete and NOT the obvious path.**
+    `run_gates` -> `ServableProduct` -> `refuse_over_tolerance` required no SDK
+    change and no adaptation: the class registration, the gates, the debt field
+    on the contract and the tolerance check all composed as specified. What it
+    required was *knowing to look for it*. An earlier draft of this product
+    computed Context Debt, printed it, and served the answer anyway — the debt
+    figure was an ornament on a product nothing governed. Nothing in the SDK
+    stopped that, because a producer that never calls `refuse_over_tolerance`
+    is indistinguishable from one whose tolerance was met. **The same shape as
+    finding 8**: the machinery is present and correct, and the easiest path for
+    an author still walks past it.
 
 10. **`assembly_mode`, `out_of_scope` and `sdk_spec` are `null` in the vault
    article's front matter.** This specification supplies all three; the vault

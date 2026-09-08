@@ -54,5 +54,16 @@
     asked_at    2026-09-07T12:00:00+00:00
     expires_at  2026-09-07T16:00:00+00:00
 
-  content address  1d1d20d7545e70509d54f935e153b91cedcb8bb5b0309b646f129e4a06fa422b
+  content address  88a5475b63ca72130936146661811ca782c6697bc098ffd60c5fa7a464ac9924
+
+------------------------------------------------------------------------------
+  FULFILLMENT  WITHHELD  D_c 1.000 > tolerance 0.25 (default)
+    the product was constructible; fulfillment was withheld because an
+    applicable declared tolerance (default) of 0.25 was exceeded by the
+    observed Context Debt 1.000000000000000000000000000 (whitepaper
+    §7.7.4–§7.7.8; 24.6-L-05)
+
+    The determination above is NOT withdrawn. The product passed every
+    validation gate and exists; what is withheld is the fabric's
+    attestation that it is fit for this consumer to act on.
 ==============================================================================

@@ -456,15 +456,24 @@ example-cp-04: ## Run examples/cp-04-corporate-family-tree (LEI, MAX_DEPTH, ROLE
 # cp-05 — the ladder's rung 5. NOT in the `examples:` aggregate: it reads a
 # networked estate through declared environment variables and has no in-tree
 # fixture to fall back onto, so a red check nobody can make green would be worse
-# than no check (`example_delivery.md` §3). Its code path is covered by
-# `tests/examples/test_cp_05_output.py`, which the `leg-fluree` and
-# `leg-postgres` targets select BY MARKER over the whole `tests` tree.
-example-cp-05: ## Run examples/cp-05-credit-exposure-rollup (LEI, INTENT, DEPTH, MATERIALITY, BASIS optional; needs CCF_CP_05_FLUREE_URL, CCF_CP_05_FLUREE_LEDGER, CCF_CP_05_POSTGRES_DSN, CCF_CP_05_POSTGRES_SCHEMA)
+# than no check (`example_delivery.md` §3).
+#
+# IT HAS NO TEST IN THIS TREE, AND THE ABSENCE IS STATED RATHER THAN IMPLIED.
+# An earlier revision of this comment claimed coverage by
+# `tests/examples/test_cp_05_output.py`; that file does not exist and never
+# did. cp-05's executable evidence is `page/run-transcript.txt` and
+# `page/scenario-transcript.txt`, both reproduced against the pinned instant in
+# `artifacts/question.yaml`. A regression test is owed when — and only when —
+# cp-05 drives an SDK repair, at which point it names the SDK behavior it
+# protects (`D-IMPL-276`).
+example-cp-05: ## Run examples/cp-05-credit-exposure-rollup (LEI, INTENT, DEPTH, MATERIALITY, DEBT_TOLERANCE, BASIS, SCENARIOS=1 optional; needs CCF_CP_05_FLUREE_URL, CCF_CP_05_FLUREE_LEDGER, CCF_CP_05_POSTGRES_DSN, CCF_CP_05_POSTGRES_SCHEMA)
 	$(ENV) $(PYTHON) examples/cp-05-credit-exposure-rollup/run.py \
+		$(if $(SCENARIOS),--scenarios) \
 		$(if $(LEI),--lei $(LEI)) \
 		$(if $(INTENT),--intent $(INTENT)) \
 		$(if $(DEPTH),--depth $(DEPTH)) \
 		$(if $(MATERIALITY),--materiality $(MATERIALITY)) \
+		$(if $(DEBT_TOLERANCE),--debt-tolerance $(DEBT_TOLERANCE)) \
 		$(if $(BASIS),--basis $(BASIS))
 
 # HW-1 — the first example a newcomer reads. NOT in the `examples:` aggregate

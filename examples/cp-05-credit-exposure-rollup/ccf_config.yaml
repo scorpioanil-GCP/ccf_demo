@@ -111,6 +111,18 @@ request_contract:
       follow_cross_default:
         type: boolean
         description: traversal scope, on the same reading as `follow_guarantees`.
+      debt_tolerance:
+        type: number
+        description: >-
+          the MOST Context Debt this consumer will accept and still act on the
+          answer. **The fabric owns truth and quantified uncertainty; the
+          consumer owns fitness, within policy boundaries.** Two clients may ask
+          the same business question with different fitness requirements, and
+          the same assembled determination may legitimately be fulfilled for one
+          and refused for the other. Folded exactly once with the class default
+          and any applicable policy constraint by
+          `ccf.products.constraints::resolve_effective_request`; the fulfillment
+          check downstream performs no fold of its own.
       basis:
         type: string
         description: >-
@@ -137,6 +149,9 @@ request_contract:
   # materiality would have made the content address platform-dependent — the
   # product would have reproduced on the machine that built it and nowhere else.
   argument_defaults:
+    # THE AUTHOR'S DEFAULT FITNESS BAR, not the product's truth. A consumer who
+    # says nothing is treated as requiring a reasonably trustworthy answer.
+    debt_tolerance: "0.25"
     depth: 3
     materiality: "0.05"
     follow_guarantees: true
@@ -150,6 +165,9 @@ request_contract:
       minimum: 1
       maximum: 5
     materiality:
+      minimum: "0.0"
+      maximum: "1.0"
+    debt_tolerance:
       minimum: "0.0"
       maximum: "1.0"
 
@@ -210,6 +228,23 @@ policy_constraints:
     applies_to:
       product_class: credit-risk.exposure-rollup
       intent: internal-appetite
+
+  cp-05/policy/debt-tolerance-ceiling/regulatory-large-exposure:
+    semver: "1.0.0"
+    policy_id: regulatory-debt-tolerance-ceiling
+    parameter: debt_tolerance
+    operator: maximum
+    value: "0.10"
+    overridable: false
+    source_authority: regulatory reporting policy
+    effective_from: "2026-01-01T00:00:00+00:00"
+    reason: >-
+      A regulatory large-exposure return may not be founded on context the
+      fabric holds in low confidence. A consumer may declare a stricter bar than
+      this; none may declare a looser one.
+    applies_to:
+      product_class: credit-risk.exposure-rollup
+      intent: regulatory-large-exposure
 
 resolution:
   # `relationship_rules: []` IS DELIBERATE AND IS NOT AN OMISSION.

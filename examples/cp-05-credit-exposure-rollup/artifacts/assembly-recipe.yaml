@@ -85,14 +85,14 @@ declaration:
         A typed `ccf.products.contract.ContextProductContract` — nine required
         fields, a three-field ProductLineage, ttl_anchor `from_decision`
         expressed with NO SDK change. expires_at = asked_at + 14400s. Content
-        address b4963e01e51ba0274dbeac00fd8cdb69fdf3664734f31a82ef0f5a3d982e5a93.
+        address 88a5475b63ca72130936146661811ca782c6697bc098ffd60c5fa7a464ac9924.
 
   # ==========================================================================
   # THE FOUR GATES — spec §D.7
   # ==========================================================================
   gates:
     - gate: empty-operator guard
-      asserts: no step marked `may_be_empty: false` returned empty
+      asserts: "no step marked `may_be_empty: false` returned empty"
       witness: the traversal returned 77 nodes; the guard did not fire
 
     - gate: lineage strict equality
@@ -133,3 +133,40 @@ declaration:
   # valid only when BOTH guarantor and obligor are inside the measured family —
   # was located by an expectation written independently of the program, not by
   # a gate.
+
+  # ==========================================================================
+  # THE FULFILLMENT DETERMINATION — spec §D.8. NOT A GATE.
+  # ==========================================================================
+  #
+  # It sits below `gates:` rather than inside it because it answers a different
+  # question. The gates decide whether the product EXISTS. This decides whether
+  # the fabric is willing to ATTEST that the product it built is fit for this
+  # consumer to act on. `refuse_over_tolerance` takes a `ServableProduct`, which
+  # is not constructible outside `run_gates`, so the ordering is structural: a
+  # caller who has not run the gates has nothing to pass.
+  fulfillment:
+    mechanism: ccf.products.gates::refuse_over_tolerance
+    input: >-
+      one resolved `EffectiveParameter` for `debt_tolerance`, never a number.
+      The class default (0.25), the caller's declaration and any applicable
+      policy constraint are folded exactly once, upstream, by
+      `resolve_effective_request`. This step performs no fold of its own.
+    observed_debt: "1.000000000000000000000000000"
+    effective_tolerance: "0.25"
+    tolerance_authority: default
+    outcome: WITHHELD
+    witness: >-
+      OBSERVED BOTH WAYS on 2026-09-08 against the pinned instant. WITHHELD on
+      the demonstrated run: D_c 1.000 exceeds the class's own 0.25 default, and
+      the refusal names the authority, the tolerance and the observation.
+      SERVED as the positive control: the Exploratory Consumer in
+      `artifacts/scenarios.yaml` declares `debt_tolerance: "1.0"` and receives
+      the IDENTICAL determination — family 77, gross 10,125,000,000, adjusted
+      9,325,000,000, D_c 1.000 — delivered. Neither observation required any
+      change to the evidence, the half-life table or the debt calculation.
+    what_it_does_not_do: >-
+      It does not withdraw the determination. The gross and guarantee-adjusted
+      figures are printed on a withheld run, and the client exits 0 — a
+      tolerance breach is a refusal of FULFILLMENT, not of RESPONSE
+      (`D-IMPL-251`). Disclosure decides what the caller sees, and it discloses
+      both the number and the reason it is not attested.

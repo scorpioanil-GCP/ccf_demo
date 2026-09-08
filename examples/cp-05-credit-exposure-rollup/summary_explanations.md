@@ -30,13 +30,23 @@ make example-cp-05
 
 ```
   FAMILY
-    77 nodes reached at depth 3; 19 carry an LEI; 4 hold a material facility book
+    77 nodes reached at depth 3; 19 carry an LEI; 5 hold a material facility book
 
   EXPOSURE                     committed        outstanding           undrawn
     gross              10,125,000,000      7,456,090,501     1,656,400,215
     adjusted            9,325,000,000      6,870,556,262     1,449,221,862
     guarantee dedup      -800,000,000   (1 case(s), 7.90% of gross)
+
+  CONTEXT DEBT — confidence in the assembled truth, not in the projection
+    debt 1.0000   signal fail_closed
+
+  FULFILLMENT  WITHHELD  D_c 1.000 > tolerance 0.25 (default)
 ```
+
+**Read that last line carefully. The product was built, it passed every
+validation gate, the number is printed — and the fabric declined to say it is
+fit to act on.** That is not an error and it is not a bug in the demonstration.
+It is the whole point of the rung, and Run 4 below is where it is explained.
 
 ### What you'd have missed
 
@@ -103,14 +113,26 @@ lineage as `policy_version`.
 ## Run 3 — asking for something the product will not do
 
 ```bash
+make example-cp-05 DEPTH=6
 make example-cp-05 DEPTH=9
 ```
 
 ```
-  Refused: depth 9 is outside the declared bound [1, 5]. Refused BY NAME, never
-  clamped — clamping would answer a question the caller did not ask and label it
-  as theirs.
+  Refused: depth: 6 lies above the declared maximum 5 of this class's request
+  contract — the parameter's valid domain, declared beside its type and refused
+  by name rather than substituted (D-IMPL-259)
+
+  Refused: depth: 9 exceeds the technical maximum 6 of capability
+  'traversal-depth' on 'fluree/credit-risk.exposure-rollup'; the limit is the
+  substrate's and is refused by name rather than silently narrowed
+  (D-IMPL-253 Q21) [authority: technical]
 ```
+
+*(Correction of record: an earlier draft of this document quoted a refusal
+message that no run ever produced — invented from the shape of the argument
+rather than copied from output. Both messages above are verbatim. The error is
+recorded here rather than quietly amended, because a plausible fabricated quote
+is exactly the failure this whole product exists to argue against.)*
 
 ### What you'd have missed
 
@@ -121,10 +143,143 @@ nobody asked, wearing the label of the question they did ask. A committee paper
 citing "exposure to five levels of ownership" that was actually computed to
 three is not a smaller answer — it is a false one.
 
+**And notice that the two refusals blame different parties.** Depth 6 is inside
+what the store can do and outside what *this product offers*; depth 9 is outside
+what the **store** can do at all. One is a product decision, the other a
+substrate limit, and a caller who is told which is which knows whether to ask
+for a different product or to stop asking.
+
 ### How it works
 
-`produce.py` reads the bound from `ccf_config.yaml::request_contract.argument_bounds`
-and refuses by name. The bound is declared data, not a constant in code.
+`produce.py` passes both the class's declared domain
+(`ccf_config.yaml::request_contract.argument_bounds`) and the backend's own
+ceiling (`operators.traversal.typed-neighborhood.depth_limit`) to
+`resolve_effective_request`, which refuses by name and names the authority.
+Neither bound is a constant in code.
+
+---
+
+## Run 4 — the answer the fabric refuses to stand behind
+
+This is the **demonstrated** run. Nothing extra is passed.
+
+```bash
+make example-cp-05
+```
+
+```
+  CONTEXT DEBT — confidence in the assembled truth, not in the projection
+    debt 1.0000   signal fail_closed
+    freshness   0E-18    from 15 real balance_as_of dates
+    completeness 0.2467  19/77 family members carry an LEI and can be checked
+    consistency  1       0 of 5 reconciliations used here disagree
+
+  FULFILLMENT  WITHHELD  D_c 1.000 > tolerance 0.25 (default)
+```
+
+### What you'd have missed
+
+**Every system in the building would have served this number.**
+
+The arithmetic is right. The traversal is right. The dedup is right. The
+`9,325,000,000` is the correct guarantee-adjusted exposure for this family. And
+the balances it was computed from are **two weeks old**, against a loan book
+whose drawdowns and repayments land intraday.
+
+A credit officer taking a limit decision on a two-week-old outstanding balance
+is taking it on a number that was true and is not. Nothing in an ordinary
+report says so, because an ordinary report has no way to know how fast its own
+inputs go stale.
+
+**The fabric knows, because someone declared it.** `ccf_config.yaml` says the
+outstanding-balance class has a **four-hour** half-life. The evidence says the
+balances are 324–396 hours old. Freshness scores `0`. Context Debt is `1.000`.
+The product's own default says a consumer should not act on anything above
+`0.25`. So the fabric hands over the number **and** the reason it will not vouch
+for it.
+
+**What it does not do is hide the number.** Withholding fulfillment is not the
+same as refusing to respond. The determination is disclosed in full — what was
+calculated, from what, how confident the fabric is, what bar was not met, and
+who set that bar. The caller decides what to do with a number the fabric will
+not attest to; the fabric's job is to make sure nobody mistakes it for one it
+would.
+
+### How it works
+
+Three separate things, deliberately kept apart:
+
+1. **The evidence** — real `balance_as_of` dates, LEI coverage, reconciliation
+   agreement. Read from the estate; nothing is manufactured. Zero results are
+   not zero knowledge, and cardinality never determines Debt.
+2. **The measurement** — `D_c = 1 − min(freshness, completeness, consistency)`,
+   the weakest link. This is a *number about the fabric's confidence*, and it is
+   the same for every consumer.
+3. **The judgment** — `refuse_over_tolerance` compares that number against the
+   one tolerance in force. This is where a consumer's requirements enter, and
+   nowhere else.
+
+Debt does not refuse the request. Governance uses Debt to decide whether
+fulfillment is permitted.
+
+---
+
+## Run 5 — the same answer, two consumers, two verdicts
+
+```bash
+make example-cp-05 SCENARIOS=1
+```
+
+```
+  Exploratory Consumer
+    effective    debt_tolerance=1.0(caller)
+    assembled    family 77   gross 10,125,000,000   adjusted 9,325,000,000
+    debt         1.000  (fail_closed)
+    fulfillment  SERVED    against tolerance 1.0 (caller)
+
+  Regulated Consumer
+    effective    debt_tolerance=0.10(policy)
+    assembled    family 77   gross 10,125,000,000   adjusted 9,325,000,000
+    debt         1.000  (fail_closed)
+    fulfillment  WITHHELD  against tolerance 0.10 (policy)
+```
+
+### What you'd have missed
+
+**Both consumers asked for the same thing and asked to be allowed to act on it
+regardless of confidence. One was permitted; one was not — and the one that was
+not never asked for a lower bar.**
+
+The Regulated Consumer requested a tolerance of `1.0`, exactly like the
+Exploratory one. It is preparing a **regulatory large-exposure return**, and the
+bank's policy says such a return may not be founded on context the fabric holds
+in low confidence. That registered constraint capped the request at `0.10`. The
+consumer's own stated willingness to act was overruled — visibly, with the
+authority named on the record.
+
+This is what "the consumer owns fitness, **within policy boundaries**" means in
+practice. An analyst sizing a deal may knowingly work from a shaky number. The
+same analyst may not file it.
+
+**And the underlying answer never moved.** Family 77, gross `10,125,000,000`,
+adjusted `9,325,000,000`, Debt `1.000` — byte-identical for both. The fabric
+does not revise what it knows to suit who is asking. It revises only whether it
+is willing to attest that what it knows is fit for that particular use.
+
+### How it works
+
+Both consumers' requests go through `resolve_effective_request`, which folds
+three authorities **exactly once** in the order `policy > caller > default`. The
+Exploratory Consumer's `1.0` survives because no constraint applies to its
+intent. The Regulated Consumer's `1.0` is narrowed to the policy's `0.10`, and
+the record says `authority=policy` so a reader can see it happened.
+
+**One subtlety worth knowing.** Elsewhere in this product, a policy ceiling
+**refuses** a request rather than narrowing it — ask for a `materiality` of 10%
+under an internal-appetite review and you are told no, by name. Debt tolerance
+is the one exception, and there is a reason: you cannot refuse someone's
+confidence requirement before you have measured your confidence. The bar is
+bound at request time; the comparison happens after the answer exists.
 
 ---
 
@@ -148,7 +303,7 @@ never saw. Nothing in the output would have told you.
 **The snapshot.** Every figure above comes from one pinned question asked at
 `2026-09-07T12:00:00+00:00` against Fluree ledger `fibo-v2` and PostgreSQL
 schema `ccf_v2`. The run reproduces byte for byte; the content address
-`b4963e01…` is a hash over the entire answer, so it only reproduces if every
+`88a5475b…` is a hash over the entire answer, so it only reproduces if every
 input did.
 
 **Entity identities are real.** Regis Corporation, Avis Budget, Celanese and XPO
@@ -168,12 +323,16 @@ debt, which the estate flags as a plausible share.
   and what happens at 10× or 100×, is not answered here.
 - **The reconciliation guard has been observed firing only on a constructed
   case**, not on a live double-subtraction.
-- **Only the default threshold is shown above.** The materiality threshold is
-  the caller's to choose — 5% is the product default, not the product truth.
-  At 10% RB Global drops out; at 1% the anchor itself comes into view. Each is
-  a different governed projection of the same product with its own content
-  address, and each records whether the value was the default, the caller's or
-  a policy ceiling.
+- **The threshold sweep is narrow, and the book is concentrated.** Measured:
+  1% enumerates 5 entities (the anchor's own 145,000,000 book comes into view),
+  2% and 5% both enumerate 4, and 10% enumerates 3 as RB Global's 800,000,000
+  falls into the residual. Five entities hold facilities at all, so the
+  threshold has few places it can bite. A family with a long tail would
+  exercise it harder.
+- **Only one thing makes this product refuse fulfillment here — staleness.**
+  Completeness is `0.2467` and consistency is `1`, but freshness is `0` and
+  `D_c` is the weakest link, so freshness alone decides the outcome. What a
+  *completeness*-driven withholding looks like is not demonstrated.
 - **No MCP delivery yet.** The typed contract crosses the boundary; the
   authenticated door around it is not built.
 - **One store pair.** Postgres and Fluree. No document store, no A2A, no second
@@ -193,6 +352,9 @@ debt, which the estate flags as a plausible share.
 | **TTL, `from_decision`** | The answer is good for the decision you are taking now | `expires_at = asked_at + 14400s`; no entity timestamp involved |
 | **Policy version** | Which credit policy produced this number | A `limit_definition` row id, carried in contract lineage |
 | **Refusal** | The product declining rather than guessing | A typed exit with a reason; codes 2–5 |
+| **Context Debt (`D_c`)** | How much the fabric's confidence falls short | `1 − min(freshness, completeness, consistency)`; measured from evidence, identical for every consumer |
+| **Debt tolerance** | The most uncertainty *you* will act on | A resolved request parameter; folded once from class default, caller and policy |
+| **Withheld** | The number is shown; the fabric will not vouch for it | `refuse_over_tolerance` on a gate-admitted product; a refusal of fulfillment, not of response — exit `0` |
 
 ---
 
@@ -209,6 +371,9 @@ This is the section that separates a demonstration from a guarantee.
 | Policy decides what counts | `limit_definition`, read by `intent` | A missing definition refuses; there is no default |
 | Bounds are declared, not coded | `ccf_config.yaml::argument_bounds` | Out-of-bound arguments refuse by name |
 | No domain value lives in code | `deployment.py` holds none | The No-Hardcoding lint |
+| Debt is measured, not asserted | `deployment.py::assess_context_debt` reads real `balance_as_of` dates, LEI coverage and reconciliation rows | A debt figure derived from result cardinality would be a number about the query, not about the knowledge |
+| A stale answer is not attested | `produce.py` -> `run_gates` -> `refuse_over_tolerance` | Without the last call a producer that never checks is indistinguishable from one whose tolerance was met — the debt figure becomes an ornament |
+| Fitness is the consumer's, within policy | `resolve_effective_request` folds `policy > caller > default` once | A second fold anywhere downstream is where a product re-acquires the power to overrule its own governance |
 | The answer reproduces | Content address over canonical bytes | The pinned transcript diff |
 
 **One gap, named rather than left implicit.** `gross ≥ adjusted` catches
