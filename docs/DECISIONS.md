@@ -815,4 +815,79 @@ Surfaced and ruled: 2026-07-27, design discussion following the Phase I.3 gate r
 
 **ALSO DEFERRED, DELIBERATELY.** Whether the governed MCP door is disproportionately expensive (cp-04: 801 lines of door against a 458-line assembler) is **not judged yet**. Dave: *"I would defer judgment until cp-05 is using the correct internal path. If the MCP door is still hundreds of lines after the product is properly assembled through CCF, then we have strong evidence the delivery abstraction is too expensive."* cp-05's door is not built and must not be built until the product crosses L2–L5, because a governed door around a hand-rolled query *"would give us a beautifully governed delivery path around a hand-rolled query ... the appearance of a complete Context Product without answering the real question."*
 
-**Next free decision id: `D-IMPL-278`.** **Related:** `D-IMPL-276` (the course correction that put examples back at the center), `D-IMPL-261` (examples are probes, not repair targets), `CLAUDE.md` §7.1 (MCP as bidirectional ingress), whitepaper §8.3 Patterns 1 and 3, `examples/cp-04-corporate-family-tree/produce.py::_ingest` (`D-35`, the class-co-occurrence behavior that forces `relationship_rules: []`).
+**Next free decision id: `D-IMPL-279`.** **Related:** `D-IMPL-278` (cp-05's findings dispositioned), `D-IMPL-276` (the course correction that put examples back at the center), `D-IMPL-261` (examples are probes, not repair targets), `CLAUDE.md` §7.1 (MCP as bidirectional ingress), whitepaper §8.3 Patterns 1 and 3, `examples/cp-04-corporate-family-tree/produce.py::_ingest` (`D-35`, the class-co-occurrence behavior that forces `relationship_rules: []`).
+
+---
+
+### D-IMPL-278 — cp-05's findings DISPOSITIONED: one architecture gap, one adoption-surface gap, one delivery-ergonomics gap, two extension points, one deferral — and ONE RETRACTED CORRECTNESS CLAIM
+
+**D-IMPL-278 — cp-05 (`credit-risk.exposure-rollup.v1`) HAS DONE ITS JOB. Its findings collapse into a small number of real SDK issues rather than example-specific annoyances, and Dave dispositions each one. The next SDK work is the SMALLEST changes that make the governed spine the obvious safe path — NOT another generalized hardening phase.** RESOLVED as a disposition; the remedial work is NOT yet scoped, planned or authorized. Date: 2026-09-08. Ruled by: Dave, on the six-step cp-05 rebuild (`1fc91903` … `f0cbccff`) executed under `D-IMPL-276`.
+
+**THE ONE ARCHITECTURAL STATEMENT, in Dave's words:**
+
+> *"CCF has a governed execution spine, but it does not make that spine the canonical path, nor does it verify that the product being delivered is the product that spine actually governed."*
+
+> *"Findings 8, 12, 14, and 17 are manifestations of the same architectural problem. Acquisition, policy, debt/fulfillment, and finally the entire governed resolver were all available, but an author could construct something beside them that looked conforming. The individual components behaved correctly; composition was optional."*
+
+On the delivery boundary, promoting the provisional issue to a genuine gap:
+
+> *"The delivery boundary already proves something useful — this product crossed gates and has a replay record. But … that is a shape proof. It does not prove: the bytes about to leave are the governed determination represented by that replay record. That is the reconciliation CCF is currently missing."*
+
+On `GovernedResolver`:
+
+> *"The GovernedResolver discovery is probably the most consequential finding in the entire example. You effectively rediscovered the intended CCF programming model by hand. That tells us the architecture is substantially there, but the product surface is wrong. … That is beyond documentation friction. I would classify it as an adoption-surface/design gap: the safest governed path is not the path of least resistance."*
+
+On MCP, answering the question the door was built to answer:
+
+> *"The MCP measurement also answers our question: 204 executable lines is still another application, not configuration and binding. The 22% reduction from cp-04 confirms that having the governed product already built helps, but nowhere near enough. The 72 lines of resolver/refusal application logic and the requirement to understand three MCP auth internals are the clearest evidence. The 60 lines of genuine binding are much closer to what should remain."*
+
+**THE DISPOSITION TABLE, verbatim:**
+
+| Finding | Disposition |
+|---|---|
+| Declared execution vs replay/delivered product not reconciled | **SDK architecture gap** |
+| `GovernedResolver` exists but is not the canonical author path | **SDK adoption/API design gap** |
+| `GovernedResolver` omits request/bound-payload refusal obligations | ~~SDK correctness defect~~ — **RETRACTED IN PART, see below** |
+| MCP requires resolver/refusal application code + auth internals | **SDK delivery ergonomics/API gap** |
+| Product-specific debt scorer | **Expected extension point** |
+| Product-specific reconciliation guard lacks a home | **Candidate SDK extension-point gap** |
+| Acquisition before `GovernedResolver` | **Hold for `D-IMPL-277` architectural ruling** |
+
+**THE ARCHITECTURAL TARGET, verbatim:**
+
+> *"A Context Product author supplies acquisition, product-specific assembly/projection logic, product-specific scoring where needed, and declarations. CCF owns the governed spine. MCP should bind that already-governed product to transport—not require the author to reconstruct governance again."*
+
+> *"CCF should refuse to emit a product when the replayed governed determination and the product presented for delivery cannot be shown to correspond."*
+
+And the fence on how it is done:
+
+> *"I would not launch another generalized hardening phase around this. cp-05 has given us concrete product evidence. The next SDK work should be the smallest changes that make the governed spine the obvious safe path and close the actual request-boundary defect."*
+
+---
+
+**ROW 3 IS RETRACTED IN PART, BY MEASUREMENT TAKEN AFTER DAVE'S DISPOSITION AND BEFORE ANY REMEDIAL WORK.** Dave dispositioned it as a correctness defect and directed *"I would fix that narrowly and add one direct regression test."* **The premise was false and the fix must not be built.**
+
+The claim was that `GovernedResolver` calls neither `refuse_request` nor `refuse_bound_payload`, and that an adopter therefore inherits an unchecked request boundary. It was derived from a `grep` for the symbol name plus the `ProductResolverProtocol` docstring — never from running the path. Measured limb by limb against `resolve_effective_request`, which `GovernedResolver` reaches through `constraint_resolver.resolve`, each with a passing positive control:
+
+| `refuse_request` limb | Covered on the `GovernedResolver` path? |
+|---|---|
+| address | YES — `GovernedResolver` itself raises `ProductNotResolvable` |
+| tier (declared-and-inert) | YES — `not_supported_at_tier` |
+| undeclared parameter | YES — `undeclared-parameter` |
+| missing required parameter | YES — `missing-required-parameter` |
+| mistyped parameter | YES — `type-mismatch` |
+| declared domain | YES — `D-IMPL-259`, refused by name, never clamped |
+
+**The request boundary under `GovernedResolver` is checked. There is no correctness defect and nothing to fix.**
+
+**What survives is smaller and latent.** `refuse_bound_payload` is called by **no shipped module** — the tree's only call site is `archive/examples/04-cross-process/producer_child.py`. It returns `None` for a class declaring no payload schema, and **no shipped example declares one**, so it bites nobody today. A deployment that declared a `payload_schema_key` would have that declaration silently ignored on every shipped path. That is a real latent gap and belongs with the delivery-ergonomics row, not as a correctness defect.
+
+**This is the fourth author-side false claim recorded in cp-05's own specification** (§F.4 findings 3, 5, 13(a), 19) and the first to reach Dave as an actionable defect. The class is constant: a claim about behavior derived from the presence or absence of a symbol rather than from running the path with a positive control. `CP-SPEC-005` §F.4 finding 19 preserves the false half beside its correction rather than deleting it.
+
+---
+
+**A SEPARATE HYGIENE PROBLEM, SURFACED NOT FIXED.** All six cp-05 commits (`1fc91903`, `28ffc847`, `0fbb88e4`, `2e203d30`, `2fb2e46f`, `f0cbccff`) plus `e8a59323` (`D-IMPL-277`) were committed onto **`phase-24.9`**, which carries 109 commits of Phase 24.9 work that `D-IMPL-276` left deliberately unmerged and ungated. cp-05 is not Phase 24.9 work and its base should not have been that branch. Merging cp-05 to `main` as it stands would carry Phase 24.9 with it. **No branch surgery has been performed** — the disposition of both the cp-05 commits and the Phase 24.9 branch is Dave's, and rewriting shared history to tidy an error is exactly the class of act that needs authorization rather than initiative.
+
+**WHAT THIS DOES NOT DECIDE.** The remedial work's scope, phase number, methodology or sequencing; whether the reconciliation is enforced at `serve`, at the door, or at both; what shape the canonical author path takes; `D-IMPL-277`; the `phase-24.9` and cp-05 branch disposition; `D-GATE-24.9`.
+
+**Next free decision id: `D-IMPL-279`.** **Related:** `D-IMPL-276` (the course correction this rung executed under), `D-IMPL-277` (acquisition, held), `D-IMPL-261` (examples are probes, not repair targets — cp-05 is that ruling working as intended), `D-IMPL-260` P-A (the shape proof this entry finds insufficient), `D-IMPL-253` Q13 (do not create second-class replay), `D-IMPL-113`/`D-IMPL-121` (the refusal obligations row 3 misread), `CP-SPEC-005` §D.8–§D.10 and §F.4 findings 8, 12, 14, 17, 18, 19.

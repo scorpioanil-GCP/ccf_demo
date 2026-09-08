@@ -1254,16 +1254,48 @@ product raises is answered at rung 16, not here.
     `ServedProduct.replay_ref`. This is the reconciliation findings 8, 12 and 14
     each imply and no layer performs.
 
-19. **`GovernedResolver` does not call `refuse_request` or
-    `refuse_bound_payload` either.** The door's own docstring puts the
-    obligation on the resolver (`D-IMPL-113`, extended by `D-IMPL-121`),
-    and the SDK's *reference* resolver calls `refuse_intent` and neither of
-    those two. So a deployment adopting `build_governed_resolver` in good faith
-    inherits an unchecked request surface unless it wraps the result. Recorded
-    as measured rather than as a criticism: the ruling's reason — the door does
-    not hold the `RegisteredProductClass` — applies to the door, and
-    `GovernedResolver` registers the class itself, so the second operand is in
-    its hand.
+19. **CORRECTED — the request-boundary half of this finding was FALSE, and it
+    reached Dave before it was measured.** As first written this finding said
+    that `GovernedResolver` calls neither `refuse_request` nor
+    `refuse_bound_payload`, and therefore that *"a deployment adopting
+    `build_governed_resolver` in good faith inherits an unchecked request
+    surface."* **That conclusion does not survive measurement.** It was derived
+    from `grep`ping for the symbol name and reading a docstring, without ever
+    asking what the composed path actually refuses.
+
+    Measured, limb by limb, against `resolve_effective_request` — which
+    `GovernedResolver` reaches through `constraint_resolver.resolve`:
+
+    | `refuse_request` limb | `resolve_effective_request` |
+    |---|---|
+    | address | checked by `GovernedResolver` itself — `ProductNotResolvable` |
+    | tier (declared-and-inert) | **refuses** — `as_of: not_supported_at_tier` |
+    | undeclared parameter | **refuses** — `undeclared-parameter` |
+    | missing required parameter | **refuses** — `missing-required-parameter` |
+    | mistyped parameter | **refuses** — `type-mismatch` |
+    | declared domain | **refuses** — `D-IMPL-259`, by name and never clamped |
+
+    Each row was exercised against a live contract with a positive control that
+    passed. **The request boundary under `GovernedResolver` is checked.** There
+    is no correctness defect here and nothing to fix.
+
+    **What survives, narrowly.** `refuse_bound_payload` is called by **no
+    shipped module** — the only call site in the tree is
+    `archive/examples/04-cross-process/producer_child.py`. It returns `None`
+    for a class that declares no schema, and no shipped example declares one,
+    so it bites nobody today. A deployment that declares a `payload_schema_key`
+    would have that declaration silently ignored on every shipped path. That is
+    a real but latent gap, and it is a much smaller claim than the one this
+    finding originally made.
+
+    **Recorded this way on purpose.** The false half is preserved rather than
+    deleted. It is the fourth instance in this specification of the same
+    author-side failure — finding 3 (a hand-computed ground truth), finding 5
+    (a fabricated vault quotation), finding 13(a) (a fabricated refusal
+    message), and now a defect inferred from a symbol's absence rather than
+    measured from a path's behavior. **The rule that catches this class is the
+    same every time: run the thing, with a positive control, before reporting
+    what it does.**
 
 ---
 
