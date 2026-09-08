@@ -19,6 +19,11 @@ callers would then disagree about what the borrower owes.
 10,125,000,000 and adjusted 9,325,000,000 are IDENTICAL; only the material set
 (4 / 4 / 3) and the content address move.
 
+**ONE AUTHORITY FOR THE OPERATOR REQUIREMENT.** The plan is handed the set
+`ccf_config.yaml::product_class.required_operator_keys` declares; it authors no
+second copy. cp-05 is a one-document deployment for operator requirements (Dave,
+2026-09-08) and is on `RULED_ONE_DOCUMENT_DEPLOYMENTS` for that reason.
+
 **L5 is not told who won, and that is deliberate.** The plan receives the
 EFFECTIVE threshold and applies it. Whether that value was the product default,
 this caller's choice or a policy ceiling is recorded on the contract's effective
@@ -48,10 +53,11 @@ class ExposureRollupProjection:
     author has to discover it.
     """
 
-    def __init__(self, *, plan_id: str, threshold: Decimal,
+    def __init__(self, *, plan_id: str, required: Sequence[str], threshold: Decimal,
                  entities: Sequence[Any], gross_committed: int,
                  connected_without_exposure: Sequence[str]) -> None:
         self._plan_id = plan_id
+        self._required = tuple(required)
         self._threshold = threshold
         self._entities = list(entities)
         self._gross_committed = gross_committed
@@ -63,14 +69,37 @@ class ExposureRollupProjection:
         return self._plan_id
 
     def required_operators(self) -> tuple[str, ...]:
-        """The operators this interpretation depends on.
+        """The declared set, HANDED IN — never a second copy authored here.
+
+        **ONE AUTHORITY FOR THIS DEPLOYMENT'S OPERATOR REQUIREMENT, and that is
+        a ruling** (Dave, 2026-09-08): *"cp-05 is a one-document deployment for
+        operator requirements. The Control Plane/product-class declaration is
+        authoritative; the projection plan derives its required operator set
+        from that declaration."* It is the shape `cp-00` through `cp-04` already
+        use and that `RULED_ONE_DOCUMENT_DEPLOYMENTS` names.
+
+        **What this replaces, recorded because the correction matters more than
+        the line.** An earlier revision returned a hard-coded tuple here. That
+        made cp-05 a TWO-document deployment — `ccf_config.yaml`'s
+        `required_operator_keys` and this tuple — with nothing comparing them.
+        Measured: dropping one operator from that tuple served a product having
+        run ONE operator while the Control Plane claimed two, with every gate
+        green and lineage honestly reporting one. The deeper defect was not a
+        missing `refuse_operator_set_divergence` call; it was creating a second
+        authority the established pattern already avoids
+        (`CP-SPEC-005` §F.4 finding 20).
+
+        `ProjectionPlanFactoryProtocol` states the same thing about its own
+        `required` argument: *"Passed in rather than read by the plan, so a
+        deployment authoring one operator set cannot accidentally author a
+        second one for Gate 2 to diverge from."*
 
         Order is not significant — the engine imposes Policy → Similarity →
         Temporal → Traversal, and declaring an order here would let a plan
         reorder Policy after Similarity, the one ordering the fabric may never
         permit (INV-CH7-26).
         """
-        return ("policy.principal-subgraph", "traversal.typed-neighborhood")
+        return self._required
 
     def invoke(self, *, view: Any, operator_outputs: Mapping[str, Any],
                perspective: Perspective, temporal_boundary: datetime) -> ProjectionOutput:

@@ -524,8 +524,13 @@ def produce_governed(*, anchor: str | None = None, intent: str | None = None,
         asked_at=asked_at,
     )
 
+    # THE DECLARED SET, HANDED IN. The plan authors no second copy — cp-05 is a
+    # one-document deployment for operator requirements (Dave, 2026-09-08), the
+    # shape `cp-00` through `cp-04` already use.
+    declared_operators = tuple(config["product_class"]["required_operator_keys"])
     plan = proj.ExposureRollupProjection(
         plan_id=f"cp-05.exposure-rollup/materiality={materiality_value}",
+        required=declared_operators,
         threshold=materiality_value,
         entities=rollup.entities,
         gross_committed=rollup.gross.committed,
@@ -621,6 +626,11 @@ def produce_governed(*, anchor: str | None = None, intent: str | None = None,
             "evidence": debt_evidence,
         },
         "lineage": {"operators_invoked": operators_invoked,
+                    # THE CONTROL PLANE'S CLAIM, carried so the contract's own
+                    # lineage can be rebuilt from the payload without reaching
+                    # for the engine's observation — the two are equal on a
+                    # correct run, and gate 2 exists to hold them so.
+                    "declared_operators": sorted(declared_operators),
                     "traversal_operator": "traversal.typed-neighborhood",
                     "projection_plan_id": execution.plan_id,
                     "engine_observed_operators": sorted(execution.operators_invoked),
@@ -664,13 +674,21 @@ def produce_governed(*, anchor: str | None = None, intent: str | None = None,
         expires_at=expires_at,
         ttl_anchor=product_class.ttl_anchor,
         lineage=ProductLineage(
-            # THE ENGINE'S OWN OBSERVATION, not the list rendered in the
-            # payload. Gate 2 holds declared against observed in BOTH
-            # directions, so the assembly-stage names beside them in
-            # `payload["lineage"]` — Resolve, Enrich, Aggregate — cannot ride
-            # in here: they are stages, not registry operators, and declaring
-            # one that never ran is exactly what gate 2 refuses.
-            operators_invoked=frozenset(execution.operators_invoked),
+            # THE DECLARATION, not the engine's observation — and the change is
+            # the whole point of this correction. Gate 2 holds
+            # `lineage.operators_invoked` against `engine_resolved` in BOTH
+            # directions. An earlier revision fed BOTH sides from
+            # `execution.operators_invoked`, so the gate compared one object
+            # against itself and could not fail. Grounding this side in the
+            # Control Plane's claim makes gate 2 compare what the deployment
+            # DECLARED against what the engine OBSERVED, which is what it is
+            # for (`CP-SPEC-005` §F.4 finding 20).
+            #
+            # The assembly-stage names beside them in `payload["lineage"]` —
+            # Resolve, Enrich, Aggregate — still cannot ride in here: they are
+            # stages, not registry operators, and declaring one that never ran
+            # is exactly what gate 2 refuses.
+            operators_invoked=frozenset(declared_operators),
             policy_bundle_versions=frozenset({rollup.policy_version}),
             graph_snapshot_at=asked_at,
         ),
@@ -823,11 +841,11 @@ def as_contract(payload: dict[str, Any]) -> "ContextProductContract":
         expires_at=_dt.datetime.fromisoformat(payload["expires_at"]),
         ttl_anchor="from_decision",
         lineage=ProductLineage(
-            # THE ENGINE-OBSERVED SET, matching what gate 2 held the candidate
-            # to. `lineage.operators_invoked` in the payload additionally names
-            # the assembly stages for a human reader; those are not registry
+            # THE DECLARED SET, matching what gate 2 held the candidate to.
+            # `lineage.operators_invoked` in the payload additionally names the
+            # assembly stages for a human reader; those are not registry
             # operators and gate 2 would refuse them.
-            operators_invoked=frozenset(lin["engine_observed_operators"]),
+            operators_invoked=frozenset(lin["declared_operators"]),
             policy_bundle_versions=frozenset({lin["policy_version"]}),
             # The ledger read is the graph snapshot. Fluree's `t` is TRANSACTION
             # time and `D-IMPL-88` rules it must not back `as_of`; it is recorded

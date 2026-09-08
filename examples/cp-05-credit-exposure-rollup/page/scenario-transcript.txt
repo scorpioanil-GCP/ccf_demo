@@ -9,7 +9,7 @@
     projected    4 material  residual 145,000,000  (14 connected without exposure)
     debt         1.000  (fail_closed)
     fulfillment  WITHHELD  against tolerance 0.25 (default)
-    address      299d0e9e38ec680d932ebe607bf50371ffe8389c3ac3f8b13bec2df61f8e089b
+    address      db7f2038a68ca1dba074703a576a9a6ea8a957ac28b79b34b0c42a83e6c50cbd
     replay       withheld · 107077e3afff3cd4 · 21119 bytes
       Every parameter falls to the class default and says so — materiality
       0.05(default), debt_tolerance 0.25(default). THE DEMONSTRATED RUN IS A
@@ -25,7 +25,7 @@
     projected    4 material  residual 145,000,000  (14 connected without exposure)
     debt         1.000  (fail_closed)
     fulfillment  WITHHELD  against tolerance 0.25 (default)
-    address      9916af9bdda573ea535b0baf7b118343f39f06745d01baf9351e7a63e29d6d31
+    address      432ef160f8e03351b5842cf8e9d9500dce021a21eb4a59f8f5240ebd8a6ecca5
     replay       withheld · 9fa9254817296a47 · 21208 bytes
       A caller who wants more of the book enumerated. materiality resolves to
       0.02 with authority `caller`, and the floor drops from 506,250,000 to
@@ -45,7 +45,7 @@
     projected    3 material  residual 945,000,000  (14 connected without exposure)
     debt         1.000  (fail_closed)
     fulfillment  WITHHELD  against tolerance 0.25 (default)
-    address      282c4df28f467d383ec8c0bfa3d8c5bf518f10458c3bd41b689bfbca46518f37
+    address      b67bda5b33d0199f11bdba6625c3061a3c2ea0b1b86f83b9a9584f5de4aadc09
     replay       withheld · b2a211754f8579d7 · 21208 bytes
       THE THRESHOLD THAT ACTUALLY MOVES THIS ANSWER. At a 1,012,500,000 floor
       the 800,000,000 obligor falls into the residual: 3 enumerated instead of
@@ -61,7 +61,7 @@
     projected    4 material  residual 145,000,000  (14 connected without exposure)
     debt         1.000  (fail_closed)
     fulfillment  WITHHELD  against tolerance 0.05 (caller)
-    address      bb91c731fe69e0bd0cfb7fdb293f4a52a5ef79a4f0eb56d3c3b3f7725cc43e43
+    address      3fab6d14f76a241828b06b1f4c521169e19ff78c3e1acc69a030c68a701e0a0b
     replay       withheld · 9745484b2a1b13ad · 21241 bytes
       A consumer declaring a tighter bar than the product's default. Withheld
       with authority `caller` rather than `default`, over the SAME observed
@@ -75,8 +75,8 @@
     projected    4 material  residual 145,000,000  (14 connected without exposure)
     debt         1.000  (fail_closed)
     fulfillment  SERVED    against tolerance 1.0 (caller)
-    address      4ec6422a9c9dcf99034d777e7d0d261ba29f0cbfe84cc8c644ee38474b2e327f
-    replay       served · efc662c1fbef13d0 · 17157 bytes
+    address      00cc11ba420117bd350a7e0576ec3abc16ff1101fcde8c548784239f512fba29
+    replay       served · 54223b2a694bcc40 · 17157 bytes
       THE ONE CONSUMER SERVED, and the contrast is the whole point. A consumer
       who will act on any Debt receives the identical determination,
       delivered, with D_c 1.000 disclosed on it. The fabric owns truth and
@@ -90,7 +90,7 @@
     projected    4 material  residual 145,000,000  (14 connected without exposure)
     debt         1.000  (fail_closed)
     fulfillment  WITHHELD  against tolerance 0.10 (policy)
-    address      78310ce13e9c23a593e2890e465be1f9594b44ce9b6d1749a81cc6f5310c2004
+    address      df50d74595c513630a2a68bbac0f2c1d676b4595cf77a5269c829f1b811c0213
     replay       withheld · f3ecc72a0fd6e506 · 23015 bytes
       The same request as the Exploratory Consumer, under a regime that will
       not permit it. The registered constraint

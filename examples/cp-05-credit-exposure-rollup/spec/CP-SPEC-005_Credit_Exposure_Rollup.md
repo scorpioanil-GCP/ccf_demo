@@ -1297,6 +1297,81 @@ product raises is answered at rung 16, not here.
     same every time: run the thing, with a positive control, before reporting
     what it does.**
 
+20. **THE DEFECT WAS A SECOND AUTHORITY, NOT A MISSING CALL — and cp-05 was
+    neither exempt nor compliant.** A shipped invariant sweeps every projecting
+    example body and requires `ccf.deployment.binder::refuse_operator_set_divergence`
+    between plan construction and `ProjectionEngine.execute`. cp-05 failed it in
+    four places. It was found by running the SDK suite on cp-05's branch for the
+    first time — cp-05 has no test in the tree, and `make lint` plus the example
+    itself had been the only checks.
+
+    **Measured, against the live estate.** Dropping `policy.principal-subgraph`
+    from the plan's `required_operators()` served a product having run ONE of
+    the two operators the Control Plane declares required — gates green, replay
+    written, delivery boundary released it, lineage honestly reporting one:
+
+    ```
+    Control Plane claims : ['policy.principal-subgraph', 'traversal.typed-neighborhood']
+    OUTCOME              : ServedProduct
+    lineage says         : ['traversal.typed-neighborhood']
+    family 77 | adjusted 9,325,000,000 | gates PASSED
+    ```
+
+    The binder, handed the same pair, refuses by name. So the invariant protects
+    a real semantic requirement and the sweep is not overfitted.
+
+    **Why cp-00–cp-04 pass.** They are on `RULED_ONE_DOCUMENT_DEPLOYMENTS`, each
+    ruled in by Dave by name (`D-IMPL-234`, `D-IMPL-239`). The exemption's
+    premise is that the deployment registers no `ccf.projection-requirements`
+    AND its plan's `required=` reads the product class's own claim — so the
+    binder would compare a value against itself. cp-04 does exactly that:
+    `required=tuple(scenario.product_class.required_operator_keys)`.
+
+    **cp-05 satisfied neither.** Its `required_operators()` returned a
+    hard-coded tuple, so two independent documents existed —
+    `ccf_config.yaml::required_operator_keys` and that tuple — with nothing
+    comparing them.
+
+    **A SECOND, SEPARATE DEFECT IN THE SAME PLACE: gate 2 was vacuous.** The
+    contract's `lineage.operators_invoked` was `frozenset(execution.operators_invoked)`
+    and `engine_resolved` was `execution.operators_invoked` — the same object on
+    both sides, so the gate could not fail. It was written that way deliberately,
+    believing a hand-kept list would drift; the effect was to remove the check
+    rather than ground it.
+
+    **CORRECTED under Dave's ruling of 2026-09-08**, and the ruling names the
+    deeper defect: *"The defect was not 'missing binder call' in isolation. The
+    deeper defect was that cp-05 created a second operator-requirement authority
+    where the established one-document deployment pattern already avoids that
+    duplication."* His disposition: *"cp-05 is a one-document deployment for
+    operator requirements. The Control Plane/product-class declaration is
+    authoritative; the projection plan derives its required operator set from
+    that declaration. Add cp-05 to `RULED_ONE_DOCUMENT_DEPLOYMENTS`."* And
+    explicitly: *"I would not call the binder in cp-05 after making that change.
+    Once the plan reads the declaration directly, the binder comparison becomes
+    self-comparison, exactly matching the exemption premise used by cp-01
+    through cp-04."*
+
+    So the plan is now handed `required=` from the declaration, the contract's
+    lineage is grounded in the declaration rather than in the engine's
+    observation, and cp-05 is on the roster by name. **The guarantee is now
+    structural rather than checked** — there is one authority, so there is
+    nothing to keep synchronized — and that is the point of the ruling rather
+    than a weakening of it.
+
+    Sabotage-verified in both directions: re-authoring the second operator set
+    reds four sweep assertions; restoring it passes 131. **Every figure in the
+    demonstrated run is unchanged** — family 77, gross 10,125,000,000, adjusted
+    9,325,000,000, D_c 1.000. Only the content address moves, because the
+    payload now carries the declaration beside the engine's observation.
+
+    **This is an example correction, not an SDK remediation** (Dave): the SDK
+    mechanism and the invariant were correct; cp-05 violated an established
+    deployment rule. It is the fifth instance of the pattern findings 8, 12, 14
+    and 17 record — and the sharpest, because the SDK had already ruled four
+    earlier products onto an explicit exemption roster and cp-05 walked past
+    both the mechanism and the roster.
+
 ---
 
 ## Section G — Operate & govern
