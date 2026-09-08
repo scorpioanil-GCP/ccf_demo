@@ -38,6 +38,7 @@ import os
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -77,6 +78,9 @@ HAS_BORROWER = f"{FIBO}/FBC/DebtAndEquities/Debt/hasBorrower"
 ULTIMATELY_CONSOLIDATED_BY = f"{FIBO}/BE/LegalEntities/LEIEntities/isUltimatelyConsolidatedBy"
 CROSS_DEFAULTS_WITH = "http://example.org/fibo/crossDefaultsWith"
 LEI_PREDICATE = "http://example.org/fibo/lei"
+
+#: The SDK's name for the traversal-depth technical bound.
+CAPABILITY_TRAVERSAL_DEPTH = "traversal-depth"
 
 
 class DeclarationMissing(RuntimeError):
@@ -210,3 +214,165 @@ def boot(root: Path):
         CONFIG, registry=registry, connection=connection(load(BACKENDS), root)
     )
     return fabric, registry
+
+
+def _as_declared_type(rc: dict[str, Any], name: str, value: Any) -> Any:
+    """Coerce a declared default to the Python type its argument declares.
+
+    `integer` -> `int`, `number` -> `Decimal`, everything else unchanged. The
+    two numeric cases are NOT interchangeable: an `integer` argument given a
+    `Decimal` is refused just as a `number` argument given a `str` is, and both
+    refusals name the offending parameter.
+    """
+    declared = rc["arguments"]["properties"].get(name, {}).get("type")
+    if declared == "integer":
+        return int(value)
+    if declared == "number":
+        return Decimal(str(value))
+    return value
+
+
+def request_contract(config: dict[str, Any]):
+    """`ccf_config.yaml::request_contract` as the SDK's typed declaration.
+
+    The product author's half of the parameter contract: which arguments exist,
+    which are required, what each one's domain is, and what the product
+    DEFAULTS to when a caller says nothing. It is the `default` authority in
+    `ccf.products.provenance::Authority`, and it is the weakest of the four.
+    """
+    from ccf.products.request import ArgumentDomain, ProductRequestContract
+    from ccf.skills.catalog import SkillArgumentProperty, SkillArgumentSchema
+
+    rc = config["request_contract"]
+    props = {
+        name: SkillArgumentProperty(type=spec["type"], description=spec["description"])
+        for name, spec in rc["arguments"]["properties"].items()
+    }
+    domains = {}
+    for name, bound in rc.get("argument_bounds", {}).items():
+        domains[name] = ArgumentDomain(
+            minimum=Decimal(str(bound["minimum"])) if "minimum" in bound else None,
+            maximum=Decimal(str(bound["maximum"])) if "maximum" in bound else None,
+        )
+    return ProductRequestContract(
+        semver=rc.get("semver", "1.0.0"),
+        schema_name=rc["schema_name"],
+        schema_version=rc["schema_version"],
+        arguments=SkillArgumentSchema(
+            properties=props, required=tuple(rc["arguments"]["required"])
+        ),
+        unsupported_arguments={
+            name: "not supported at this tier" for name in rc.get("unsupported_arguments", ())
+        },
+        # DECLARED AS TEXT, HANDED OVER AS A DECIMAL, and both halves are
+        # required by different SDK rules that only look like a conflict.
+        #
+        # The Control Plane REFUSES a bare float in an artifact — *"not
+        # bit-stable across platforms; quote the value so it parses as text and
+        # is validated as a decimal."* So the YAML holds `"0.05"`.
+        #
+        # The request contract then judges a default against its declared
+        # argument TYPE, and reads a number by VALUE rather than by Python type:
+        # *"`Decimal("2")` IS `2` ... `"1"` is not `1`"*. So a string default
+        # for a `number` argument is refused — correctly, because a caller
+        # comparing `"0.05"` against a numeric domain would be comparing text.
+        #
+        # The interpreter is where the two meet. Text in the document, Decimal
+        # on the wire. An earlier draft passed the strings through and was
+        # refused at construction with every offender named in one pass.
+        defaults={
+            name: _as_declared_type(rc, name, value)
+            for name, value in rc.get("argument_defaults", {}).items()
+        },
+        argument_domains=domains,
+        # `depth` is bounded by the BACKEND as well as by the product. The
+        # binding names which technical capability bounds which parameter, so a
+        # refusal can say `technical` rather than blaming the product.
+        capability_bindings={"depth": CAPABILITY_TRAVERSAL_DEPTH},
+    )
+
+
+def effective_request(*, config: dict[str, Any], registry, supplied: dict[str, Any],
+                      subject: str, intent: str, freshness: str, asked_at):
+    """Resolve every request parameter through the SDK, with its AUTHORITY.
+
+    **This is the whole of the parameter model, and none of it is implemented
+    here.** `ccf.products.constraints::resolve_effective_request` applies the
+    precedence `policy > caller > default`, bounded by `technical`; this
+    function only assembles its four inputs from documents that already exist.
+
+    Why it matters that the SDK owns it: an example that hand-rolls a
+    ``value if supplied else default`` helper produces the same NUMBER and
+    loses the AUTHORITY. A rollup that cannot say whether its 5% threshold was
+    the product's default, the caller's choice or a policy ceiling is a rollup
+    whose replay cannot reconstruct the question. An earlier draft of this
+    example did exactly that, and nothing in the SDK stopped it — the machinery
+    is present and is not the obvious path.
+
+    Returns:
+        The ``ResolutionOutcome`` — its ``evidence`` is an
+        :class:`~ccf.products.provenance.EffectiveRequest` carrying one
+        :class:`~ccf.products.provenance.EffectiveParameter` per parameter with
+        its authority and source; its ``refusal`` is set when a caller's value
+        crosses a bound it may not cross.
+    """
+    import datetime as _dt
+
+    from ccf.products.constraints import (
+        TechnicalCapability,
+        constraints_in_force,
+        resolve_effective_request,
+    )
+    from ccf.products.provenance import ProvenanceSource
+    from ccf.products.request import ProductRequest
+    from ccf.projection.plan import Perspective
+
+    rc = config["request_contract"]
+    declared = request_contract(config)
+    persp = config["default_perspective"]
+
+    request = ProductRequest(
+        schema_name=rc["schema_name"],
+        schema_version=rc["schema_version"],
+        subject=subject,
+        intent=intent,
+        freshness=freshness,
+        asked_at=asked_at,
+        parameters={k: v for k, v in supplied.items() if v is not None},
+    )
+
+    # The BACKEND's ceiling, not the product's. `depth`'s request bound is 5
+    # because that is what this product offers; the operator's `depth_limit` is
+    # what the store can be asked for. A refusal at this bound says `technical`.
+    operator_depth = config["operators"]["traversal.typed-neighborhood"]["depth_limit"]
+    capabilities = (
+        TechnicalCapability(
+            capability=CAPABILITY_TRAVERSAL_DEPTH,
+            maximum=Decimal(str(operator_depth)),
+            identity=f"fluree/{config['product_class']['schema_name']}",
+        ),
+    )
+
+    return resolve_effective_request(
+        request=request,
+        declared=declared,
+        declared_source=ProvenanceSource(
+            kind="artifact",
+            identity=f"{rc['class_id']}",
+            version=rc.get("semver", "1.0.0"),
+        ),
+        constraints=constraints_in_force(registry, asked_at=asked_at),
+        capabilities=capabilities,
+        capability_bindings=dict(declared.capability_bindings),
+        # No entitled override is presented. `overridable: false` on the
+        # materiality ceiling means one would not be honored anyway, and an
+        # example that manufactured a grant to demonstrate a waiver would be
+        # demonstrating its own fixture.
+        verified_overrides=(),
+        perspective=Perspective(principal_id=persp["principal_id"], role=persp["role"]),
+        tenant=config["tenant_id"],
+        class_defaults=dict(declared.defaults),
+        class_source=ProvenanceSource(
+            kind="artifact", identity=rc["class_id"], version=rc.get("semver", "1.0.0")
+        ),
+    )

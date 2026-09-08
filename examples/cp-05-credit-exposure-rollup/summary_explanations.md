@@ -153,12 +153,12 @@ debt, which the estate flags as a plausible share.
   and what happens at 10× or 100×, is not answered here.
 - **The reconciliation guard has been observed firing only on a constructed
   case**, not on a live double-subtraction.
-- **The anchor is filtered out of its own rollup.** At the declared materiality
-  of 5%, Regis's own 145,000,000 is 1.43% of the family and does not appear in
-  the enumerated entities. Arithmetically right; as a product behavior,
-  surprising. It is recorded rather than special-cased, because whether the
-  anchor should be exempt from its own materiality floor is a decision for the
-  product owner, not for the example.
+- **Only the default threshold is shown above.** The materiality threshold is
+  the caller's to choose — 5% is the product default, not the product truth.
+  At 10% RB Global drops out; at 1% the anchor itself comes into view. Each is
+  a different governed projection of the same product with its own content
+  address, and each records whether the value was the default, the caller's or
+  a policy ceiling.
 - **No MCP delivery yet.** The typed contract crosses the boundary; the
   authenticated door around it is not built.
 - **One store pair.** Postgres and Fluree. No document store, no A2A, no second

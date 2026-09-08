@@ -58,7 +58,9 @@ in `artifacts/question.yaml`.
 ```bash
 make example-cp-05 INTENT=internal-appetite
 make example-cp-05 DEPTH=2
-make example-cp-05 LEI=<lei> MATERIALITY=0.01
+make example-cp-05 MATERIALITY=0.10   # coarser: fewer entities enumerated
+make example-cp-05 MATERIALITY=0.01   # finer: the anchor itself comes into view
+make example-cp-05 LEI=<lei>
 ```
 
 The default run reproduces `page/run-transcript.txt` byte for byte.

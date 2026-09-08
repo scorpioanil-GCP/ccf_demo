@@ -221,10 +221,51 @@ annotation exists to prevent.
 | `lei` | string(20), **required** | anchor | — | Must resolve through `ccf_v2.legal_entity`; an unresolvable LEI refuses rather than returning an empty rollup. |
 | `intent` | enum, **required** | selects limit definition and policy envelope | — | One of the three measured values. **No default** — see B.3. |
 | `depth` | int 1–5 | `R` scope | **3** | Ownership walk depth. |
-| `materiality` | float 0–1 | `R` filter | **0.05** | Entities contributing less than this share of group exposure are aggregated into a residual rather than enumerated. |
+| `materiality` | decimal 0–1 | `R` filter | **0.05** | **The caller's decision tolerance, not a fact about the family.** Entities below this share of group exposure are aggregated into a residual rather than enumerated; it does NOT apply to zero-exposure entities reached by cross-default (§C.4 trap 2). **See B.4.1 — 5% is the product DEFAULT, not the product TRUTH.** |
 | `follow_guarantees` | bool | `R` scope | **true** | |
 | `follow_cross_default` | bool | `R` scope | **true** | |
 | `basis` | enum `committed` \| `outstanding` \| `both` | measure | **both** | |
+
+#### B.4.1 The effective threshold is resolved at request time
+
+**5% is the product default. It is not the product truth.** The truth is:
+*return family exposures above the **effective** materiality threshold* — and
+that threshold is resolved per request under the authority model the SDK already
+defines (`ccf.products.provenance::Authority`, the literal
+`['default', 'caller', 'policy', 'technical']`):
+
+> **policy boundary > caller value > product default**, with `technical`
+> bounding all three.
+
+Three clients wanting 2%, 5% and 10% are **three parameterizations of one
+product**, not three products. The author defines the parameter and its domain;
+the caller may override inside it; policy may constrain it further; and the
+**effective value together with its authority is recorded on the answer**, so
+replay reconstructs the question rather than only the numbers.
+
+Measured on the demonstrated anchor:
+
+| Caller | Effective | Authority | Material entities |
+|---|---|---|---|
+| supplies nothing | `0.05` | `default` | 4 |
+| asks `0.10` | `0.10` | `caller` | 3 — RB Global drops out at 7.9% of the family |
+| asks `0.02` | `0.02` | `caller` | 4 |
+| asks `0.01` | `0.01` | `caller` | **5 — the anchor itself comes into view** |
+| asks `0.10` under `internal-appetite` | — | **refused** | *"exceeds the applicable maximum 0.05 established by authority 'policy'; the request is refused rather than narrowed, because a narrowed request answers a question nobody asked"* |
+
+Each threshold produces a **different content address**: one product, one
+assembler, three governed projections.
+
+**This resolves what an earlier draft recorded as a defect.** F.4 noted the
+anchor falls below its own materiality floor and is filtered from the enumerated
+entities of its own rollup. That is not a defect to special-case — it is a
+parameterization, and at `0.01` the anchor appears. Exempting it would have
+hard-coded one consumer's tolerance into the product.
+
+**The implementation resolves nothing itself.** `deployment.py::effective_request`
+assembles four inputs and hands them to
+`ccf.products.constraints::resolve_effective_request`; the precedence, the bounds
+and the refusals are the SDK's.
 
 **`follow_guarantees` and `follow_cross_default` are separable on purpose**, and
 this is a contract commitment rather than a convenience. Different limit regimes
@@ -716,7 +757,13 @@ product raises is answered at rung 16, not here.
    commitments are not a plausible share of its XBRL-reported debt. Left as-is:
    it exercises the `reconciliation` field's negative path, which an all-true
    estate could not.
-3. **The slug↔LEI join hazard** (C.3). Recorded as a finding because it produced
+3. **RESOLVED, not carried — the anchor below its own materiality floor.** An
+   earlier draft recorded it as a finding that the anchor is filtered from the
+   enumerated entities of its own rollup at the 5% default. It is not a defect:
+   the threshold is the CALLER's decision tolerance (B.4.1), and a caller asking
+   `0.01` sees the anchor. Recorded because the first reading was wrong and the
+   correction is architectural rather than a patch.
+4. **The slug↔LEI join hazard** (C.3). Recorded as a finding because it produced
    a false measurement during authoring, and any implementation will meet it.
 4. **The vault article's own worked anchor does not exist in the estate.** Its
    §D client call uses `5493001KJTIIGC8Y1R12`; measured, that LEI is **absent

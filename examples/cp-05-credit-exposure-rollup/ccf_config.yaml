@@ -86,20 +86,6 @@ request_contract:
 
   arguments:
     properties:
-      lei:
-        type: string
-        description: >-
-          the anchor obligor. Unresolvable is a 404 and never an empty rollup —
-          a zero-exposure answer for a real obligor and a no-such-obligor answer
-          are different facts (spec §D.3 step 1).
-      intent:
-        type: string
-        description: >-
-          selects the limit definition and the policy envelope; an unknown
-          intent is a 400. THERE IS NO DEFAULT and one must not be invented: a
-          defaulted intent silently chooses a limit regime on the caller's
-          behalf, which is precisely the confidently-wrong number spec §A
-          describes.
       depth:
         type: integer
         description: >-
@@ -131,9 +117,16 @@ request_contract:
           `committed`, `outstanding` or `both`. `both` is the default and is
           what makes the undrawn column meaningful — `internal-appetite` sets
           `counts_undrawn=false`, which is only observable when both bases ship.
-    required:
-      - lei
-      - intent
+    # NO `required` ENTRIES. `lei` and `intent` are NOT arguments: they are
+    # TOP-LEVEL fields of `ccf.products.request::ProductRequest` (`subject` and
+    # `intent`), and the SDK REFUSES a contract that declares either under
+    # `arguments.properties` — *"which is a shadow of the top-level request
+    # field ... what a class serves is declared once, on
+    # ProductDiscovery.intents, and judged there"* (`D-IMPL-264` D-01,
+    # amendment 1 F-2). An earlier draft of this document declared both and was
+    # refused at construction. Every remaining argument carries a declared
+    # default, so none is required.
+    required: []
 
   # READ FROM THE DECLARATION, NEVER INVENTED AT SERVE TIME. The vault declares
   # each of these; this deployment does not recalibrate them.
@@ -171,6 +164,53 @@ request_contract:
 # this family's 77 members carry no LEI at all (spec §C.1). A resolution spec
 # keyed on LEI would silently drop three quarters of the family and return a
 # smaller, tidier, wrong answer.
+# ============================================================================
+# POLICY CONSTRAINTS — the boundary that outranks a caller
+# ============================================================================
+#
+# THE AUTHORITY MODEL, and it is the SDK's own: `policy > caller > default`,
+# with `technical` bounding all three. `ccf.products.provenance::Authority` is
+# the literal `['default', 'caller', 'policy', 'technical']`, and
+# `ccf.products.constraints::resolve_effective_request` applies the precedence.
+# This example does not implement that ordering; it DECLARES into it.
+#
+# WHY MATERIALITY IS A CALLER PARAMETER AT ALL. The threshold expresses the
+# CONSUMER'S DECISION TOLERANCE, not a fact about the family. 5% is the product
+# DEFAULT, not the product TRUTH. The product truth is *"return family exposures
+# above the effective materiality threshold"*, and the effective threshold is
+# resolved at request time. Three clients wanting 2%, 5% and 10% are three
+# parameterizations of ONE product, not three products.
+#
+# WHAT THIS PARTICULAR CONSTRAINT SAYS. Under `internal-appetite` — the tightest
+# regime, 15% of capital against the other two at 25% — a caller may NOT ask for
+# a COARSER threshold than the default. A higher materiality shows FEWER
+# entities, so raising it under an appetite review is asking to be shown less of
+# the book than the regime requires. Under the other two intents the caller is
+# unconstrained and may ask for 2% or 10% freely.
+#
+# `overridable: false` — this boundary is not waivable by an entitled caller.
+# A regime that can be asked to look away is not a boundary.
+# Keyed by the Control Plane KEY the constraint registers under — one key, one
+# artifact, one content hash. Two constraints of one `policy_id` are two
+# artifacts under two keys, never one document with two bounds.
+policy_constraints:
+  cp-05/policy/materiality-ceiling/internal-appetite:
+    semver: "1.0.0"
+    policy_id: internal-appetite-materiality-ceiling
+    parameter: materiality
+    operator: maximum
+    value: "0.05"
+    overridable: false
+    source_authority: internal credit policy
+    effective_from: "2026-01-01T00:00:00+00:00"
+    reason: >-
+      Internal appetite review must see positions the group-limit test may
+      summarize. A coarser threshold than the product default would hide
+      exposure the regime exists to examine.
+    applies_to:
+      product_class: credit-risk.exposure-rollup
+      intent: internal-appetite
+
 resolution:
   entity_rules:
     - match_key: anchor_ref

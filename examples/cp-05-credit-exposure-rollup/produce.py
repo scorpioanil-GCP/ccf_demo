@@ -14,6 +14,9 @@ from __future__ import annotations
 import datetime as _dt
 import hashlib
 import json
+import pathlib
+import tempfile
+from decimal import Decimal
 from dataclasses import asdict
 from typing import Any
 
@@ -66,33 +69,57 @@ def produce(*, anchor: str | None = None, intent: str | None = None,
     question = dep.load(dep.QUESTION)[dep.DECLARATION]
     ttl = dep.load(dep.TTL)[dep.DECLARATION]
 
-    declared = question["parameters"]
-    defaults = config["request_contract"]["argument_defaults"]
-
-    def pick(name: str, supplied: Any) -> Any:
-        if supplied is not None:
-            return supplied
-        if name in declared:
-            return declared[name]
-        return defaults[name]
-
     anchor_lei = anchor or question["subject"]
-    intent_value = pick("intent", intent)
-    depth_value = int(pick("depth", depth))
-    materiality_value = float(pick("materiality", materiality))
-    flags = {
-        "follow_guarantees": bool(pick("follow_guarantees", follow_guarantees)),
-        "follow_cross_default": bool(pick("follow_cross_default", follow_cross_default)),
-    }
-    basis_value = str(pick("basis", basis))
+    # `intent` is a TOP-LEVEL ProductRequest field, not an argument (the SDK
+    # refuses a contract that declares it under `arguments.properties`), so it
+    # is picked here and everything else is RESOLVED below.
+    intent_value = intent or question["parameters"]["intent"]
 
-    bounds = config["request_contract"]["argument_bounds"]["depth"]
-    if not (bounds["minimum"] <= depth_value <= bounds["maximum"]):
-        raise ValueError(
-            f"depth {depth_value} is outside the declared bound "
-            f"[{bounds['minimum']}, {bounds['maximum']}]. Refused BY NAME, never clamped — "
-            "clamping would answer a question the caller did not ask and label it as theirs."
+    # ------------------------------------------------------------------
+    # EVERY OTHER PARAMETER IS RESOLVED BY THE SDK, WITH ITS AUTHORITY.
+    # ------------------------------------------------------------------
+    #
+    # `policy > caller > default`, bounded by `technical`. Nothing in this file
+    # picks a value: `deployment.effective_request` hands the caller's supplied
+    # values, the class defaults, the registered policy constraints and the
+    # backend capabilities to `resolve_effective_request`, and the OUTCOME is
+    # what this product serves.
+    #
+    # 5% IS THE PRODUCT DEFAULT, NOT THE PRODUCT TRUTH. The truth is "return
+    # family exposures above the EFFECTIVE materiality threshold", and the
+    # effective threshold is resolved per request. Three callers wanting 2%, 5%
+    # and 10% are three parameterizations of one product, not three products.
+    with tempfile.TemporaryDirectory() as scratch:
+        _fabric, registry = dep.boot(pathlib.Path(scratch))
+        outcome = dep.effective_request(
+            config=config, registry=registry,
+            supplied={
+                "depth": depth,
+                "materiality": None if materiality is None else Decimal(str(materiality)),
+                "follow_guarantees": follow_guarantees,
+                "follow_cross_default": follow_cross_default,
+                "basis": basis,
+            },
+            subject=anchor_lei, intent=intent_value,
+            freshness=question["freshness"],
+            asked_at=_dt.datetime.fromisoformat(question["asked_at"]),
         )
+
+    if outcome.refusal is not None:
+        detail = getattr(outcome.refusal, "detail", None) or getattr(
+            outcome.refusal, "reason", str(outcome.refusal))
+        bound = getattr(outcome.refusal, "bound", None)
+        authority = f" [authority: {bound.authority}]" if bound is not None else ""
+        raise ValueError(f"{detail}{authority}")
+
+    effective = {p.name: p for p in outcome.evidence.parameters}
+    depth_value = int(effective["depth"].value)
+    materiality_value = float(effective["materiality"].value)
+    flags = {
+        "follow_guarantees": bool(effective["follow_guarantees"].value),
+        "follow_cross_default": bool(effective["follow_cross_default"].value),
+    }
+    basis_value = str(effective["basis"].value)
 
     graph, amounts = dep.resolve_sources(backends)
     schema = amounts.schema
@@ -167,6 +194,15 @@ def produce(*, anchor: str | None = None, intent: str | None = None,
                    "connection_basis": limit.connection_basis},
         "request": {"depth": depth_value, "materiality": materiality_value,
                     "basis": basis_value, **flags},
+        # THE EFFECTIVE REQUEST, WITH AUTHORITY PER PARAMETER. This is what
+        # makes the answer replayable as an answer to a QUESTION rather than as
+        # a set of numbers: a reader can tell whether 5% was the product's
+        # default, this caller's choice, or a policy ceiling that overrode them.
+        "effective_request": {
+            p.name: {"value": str(p.value), "authority": p.authority,
+                     "source": f"{p.source.kind}/{p.source.identity}"}
+            for p in outcome.evidence.parameters
+        },
         "family": {"nodes": len(rollup.family_nodes),
                    "members_with_lei": rollup.members_with_lei,
                    "members_holding_facilities": len(

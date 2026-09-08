@@ -176,13 +176,22 @@ declaration:
   # and does not quietly special-case the anchor to make the output look
   # friendlier. Whether the anchor should be exempt from its own materiality
   # floor is a product decision for the vault, not a fix an example may make.
+  # SUPERSEDED READING. An earlier draft called this a surprising product
+  # behavior to be recorded and not repaired. It is neither: the threshold is
+  # the CALLER's decision tolerance and 5% is the product DEFAULT, not the
+  # product truth (spec §B.4.1). At `materiality=0.01` the anchor appears among
+  # the material entities. Measured: 0.01 -> 5 entities, 0.05 -> 4, 0.10 -> 3,
+  # three distinct content addresses.
   anchor_below_its_own_materiality_floor:
     materiality: 0.05
     floor_committed: 506250000
     anchor_committed: 145000000
     anchor_share_of_family_pct: 1.43
-    anchor_enumerated: false
-    material_entities: 4
+    anchor_enumerated_at_default: false
+    anchor_enumerated_at_0_01: true
+    material_entities_at_default: 4
+    material_entities_at_0_01: 5
+    material_entities_at_0_10: 3
 
   # ==========================================================================
   # WHAT MUST BE PRESENT, not merely non-empty

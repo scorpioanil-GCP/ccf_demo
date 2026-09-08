@@ -6,6 +6,7 @@
   intent            group-limit-test   [policy limit_definition/group-limit-test]
   limit definition  counts_guarantees=True  counts_undrawn=True  basis=control
   request           depth=3  materiality=0.05  basis=both  guarantees=True  cross_default=True
+  effective         depth=3(default)  materiality=0.05(default)
 
   FAMILY
     77 nodes reached at depth 3; 19 carry an LEI; 4 hold a material facility book
@@ -47,5 +48,5 @@
     asked_at    2026-09-07T12:00:00+00:00
     expires_at  2026-09-07T16:00:00+00:00
 
-  content address  b4963e01e51ba0274dbeac00fd8cdb69fdf3664734f31a82ef0f5a3d982e5a93
+  content address  3e19526ba0adc79d2d33f3d9e19aed46a01d021ca42981a5540616d678ec5a40
 ==============================================================================

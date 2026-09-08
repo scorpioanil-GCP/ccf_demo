@@ -54,6 +54,11 @@ def render(payload: dict) -> str:
     out.append(f"  request           depth={r['depth']}  materiality={r['materiality']}  "
                f"basis={r['basis']}  guarantees={r['follow_guarantees']}  "
                f"cross_default={r['follow_cross_default']}")
+    eff = payload.get("effective_request", {})
+    if eff:
+        shown = "  ".join(f"{k}={v['value']}({v['authority']})"
+                          for k, v in sorted(eff.items()) if k in ("materiality", "depth"))
+        out.append(f"  effective         {shown}")
     out.append("")
     out.append("  FAMILY")
     out.append(f"    {fam['nodes']} nodes reached at depth {r['depth']}; "
@@ -140,7 +145,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--lei", default=None, help="anchor obligor; omitted asks the declared question")
     parser.add_argument("--intent", default=None, help="selects the limit definition")
     parser.add_argument("--depth", type=int, default=None)
-    parser.add_argument("--materiality", type=float, default=None)
+    # TAKEN AS TEXT, NEVER AS A FLOAT. `argparse`'s `type=float` would hand the
+    # fabric the one value shape the Control Plane refuses -- floats are not
+    # bit-stable across platforms, so a float threshold would make the content
+    # address reproduce on this machine and nowhere else. The string is
+    # converted to `Decimal` where the request is built.
+    parser.add_argument("--materiality", default=None,
+                        help="e.g. 0.02 or 0.10; the product default is 0.05")
     parser.add_argument("--basis", default=None, choices=["committed", "outstanding", "both"])
     parser.add_argument("--no-guarantees", action="store_true")
     parser.add_argument("--no-cross-default", action="store_true")
