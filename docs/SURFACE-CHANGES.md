@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1026 entries**, of which **782** name a public Python surface.
+**1029 entries**, of which **785** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-499 entries — 459 public Python surface, 40 not public Python API.
+501 entries — 461 public Python surface, 40 not public Python API.
 
 ### Public Python surface
 
@@ -9157,6 +9157,30 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `24.10-02-the-declared-product-gate-runs-on-the-governed-path.md`.*
 
+#### ccf.signal.acquisition.FileRecordAcquisitionSource
+
+- Surface: ccf.signal.acquisition.FileRecordAcquisitionSource
+- Public surface: true
+- Change type: added
+- Before: absent — the ingress seam shipped with an MCP adapter but no file-backed reference implementation, so a reader looking for "how do external records enter CCF" found a Protocol with one network-shaped implementer and concluded no acquisition boundary existed
+- After: a `SignalSourceProtocol` implementation reading a JSON array of source records and emitting one envelope per record, with the record verbatim in `raw_payload`, `observed_time` unset, a deterministic content-addressed `envelope_id`, and the acquisition parameters carried as constructor-side `selectors`
+- Why: CLAUDE.md §11 requires a reference implementation beside every Protocol, and `D-17` makes it this row's deliverable; it is also the offline half of the `R-09` evidence, replaying a captured live acquisition to the same 77/100 with no estate reachable
+- Migration: none — a new name, nothing removed or reshaped
+
+*Recorded by `24.10-03-the-acquisition-boundary-emits-envelopes.md`.*
+
+#### ccf.signal.acquisition.AcquisitionRecordError
+
+- Surface: ccf.signal.acquisition.AcquisitionRecordError
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: raised when a source document is unreadable, is not valid JSON, is not a JSON array, or carries a non-object member — naming the offending record's position
+- Why: a silently dropped record is a graph that is quietly incomplete, which is worse than a stream that stops; this is the same posture `McpMappingError` takes at the same seam (T-06-25). An empty *selection* is deliberately not an error — "no records matched" is an answer
+- Migration: none — a new name
+
+*Recorded by `24.10-03-the-acquisition-boundary-emits-envelopes.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -16361,7 +16385,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-139 entries — 119 public Python surface, 20 not public Python API.
+140 entries — 120 public Python surface, 20 not public Python API.
 
 ### Public Python surface
 
@@ -19234,6 +19258,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   the resolution that ran, which is the record the SDK would have written
 
 *Recorded by `24.7-09-replay-verifies-the-not-applicable-claim.md`.*
+
+#### ccf.signal (package docstring)
+
+- Surface: ccf.signal
+- Public surface: true
+- Change type: behavior
+- Before: the package docstring said concrete adapters "live in the runtime package", which was already inaccurate (`ccf.signal.mcp_source` is one), and named no acquisition boundary
+- After: it names `SignalSourceProtocol` as the SDK's acquisition boundary, cites `D-IMPL-282`, and points at the two reference implementations that ship beside the seam
+- Why: this *is* finding `24.10-F-04`. A Protocol nobody could find is a different defect from a Protocol that does not exist, and the fix for the first is a docstring an author will actually reach
+- Migration: none — documentation only; no name, signature or behavior moved
+
+*Recorded by `24.10-03-the-acquisition-boundary-emits-envelopes.md`.*
 
 ### Not public Python API
 

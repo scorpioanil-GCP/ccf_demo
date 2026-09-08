@@ -6354,6 +6354,22 @@
       }
     }
   },
+  "ccf.signal.acquisition": {
+    "__all__": [
+      "AcquisitionRecordError",
+      "FileRecordAcquisitionSource"
+    ],
+    "exports": {
+      "AcquisitionRecordError": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "FileRecordAcquisitionSource": {
+        "kind": "class",
+        "shape": "(*, path: 'Path', source: 'SourceIdentity', selectors: 'Mapping[str, Any] | None' = None, clock: 'Callable[[], datetime] | None' = None) -> 'None'"
+      }
+    }
+  },
   "ccf.signal.envelope": {
     "__all__": [
       "SignalEnvelope",
