@@ -1,0 +1,89 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THIS PRODUCT'S TTL AND ITS CEILING — spec §B.1 element 3, §E.5.
+#
+# `ccf.controlplane.artifacts::ProductClassDeclaration` carries `max_ttl_key` —
+# the Control Plane KEY the ceiling registers under — and has no field for the
+# ceiling's VALUE. Registering the value is what MINTS its pin, so the value
+# cannot be a field of the document whose pin it becomes.
+#
+# `role: load`. A TTL declaration is a fact about the class, parsed and handed
+# back, not something the fabric is PERMITTED to do.
+
+semver: "1.0.0"
+class_id: cp-05.ttl
+
+declaration:
+  # 4 HOURS, and the vault's value — not recalibrated here.
+  #
+  # WHY 4 HOURS AND NOT THE 24 RUNG 04 CARRIES. The window tracks the FASTEST
+  # input, and this product's fastest input is the outstanding balance, whose
+  # λ_c is ~4 hours because drawdowns and repayments land intraday
+  # (spec §E.1). Rung 04's fastest signal was a daily-published GLEIF
+  # relationship record; an intraday balance cannot borrow a daily window.
+  declared_ttl_seconds: 14400
+
+  # The ceiling `src/ccf/products/gates.py::_refuse_ttl` enforces as
+  # `now < expires_at <= now + MAX_TTL`.
+  #
+  # TWO FIELDS, NOT ONE, for the reason rung 04 recorded: the declared TTL is
+  # what this class CLAIMS and the ceiling is what the gate REFUSES above. One
+  # figure serving as both would have the gate compare a ceiling against itself
+  # and pass by construction. The values are EQUAL TODAY because the
+  # specification gives one number (§B.1 element 3), and inventing a second,
+  # wider ceiling here would be minting a domain value no one decided — which
+  # the No-Hardcoding Rule forbids as firmly in an artifact as in code.
+  max_ttl_seconds: 14400
+
+  # --------------------------------------------------------------------------
+  # THE ANCHOR — AND IT FLIPS HERE. THIS IS THE RUNG'S TTL TEACHING POINT.
+  # --------------------------------------------------------------------------
+  #
+  # `from_decision`, against `facility-terms-snapshot`'s `from_entity_freshness`
+  # and `corporate-family-tree`'s `from_entity_freshness`. Spec §B.1 element 3
+  # carries the vault's reasoning verbatim; restated here where an implementer
+  # will look for it:
+  #
+  #   AN EXPOSURE IS MEANINGFUL ONLY FOR THE DURATION OF THE DECISION TAKEN
+  #   AGAINST IT. There is no underlying entity whose validity period governs
+  #   it. A facility has an effective date and a maturity; a family edge has an
+  #   assertion time; a ROLLUP has neither, because it is not a fact about an
+  #   entity — it is a fact about a QUESTION asked at an instant.
+  #
+  # CONSEQUENCE FOR THE IMPLEMENTATION, and it is a simplification rather than a
+  # complication: `expires_at` is REQUEST TIME + 4 HOURS. No observation
+  # timestamp is read, no `latest`-versus-`earliest` basis has to be chosen, and
+  # no admitted-row scan feeds the expiry. The two earlier rungs both had to
+  # decide which observation anchored them; this one does not, and the absence
+  # of that decision is itself the teaching.
+  #
+  # WHAT IT COSTS. The product cannot be refreshed in place and cannot be
+  # served past expiry (spec §E.5 refusal 1). A rollup found in a queue after
+  # its window has closed is REFUSED on read, and that refusal is correct
+  # behavior rather than an incident.
+  ttl_anchor: from_decision
+
+# ============================================================================
+# WHAT IS NOT DECLARED HERE, STATED SO THE ABSENCE IS NOT READ AS AN OVERSIGHT
+# ============================================================================
+#
+# NO `ttl_anchor_basis`. Rung 04 declares one
+# (`latest_family_edge_assertion_time_in_payload`) because `from_entity_freshness`
+# has to say WHICH entity observation it measures against. `from_decision`
+# measures against the request, so there is no basis to choose and declaring one
+# would be declaring a field this anchor does not have.
+#
+# NO MEASURED REFUSAL POPULATION. Rung 03's TTL artifact carried one because the
+# refusal was its finding. No equivalent measurement has been taken here, and a
+# number authored from the shape of the argument rather than from a query is the
+# error this ladder has caught in itself more than once. The refusal population
+# under a `from_decision` anchor is in any case a different quantity: it counts
+# READS AFTER EXPIRY, not subjects whose freshness failed at assembly, and
+# nothing has yet read a cp-05 product late.
+#
+# THE BALANCE-DEBT REFUSAL IS NOT A TTL REFUSAL. Spec §E.5 carries two
+# refusals; only the first belongs to this document. The second — failing closed
+# when the outstanding-balance component breaches its freshness SLA — is a DEBT
+# assessment against the λ_c table in `ccf_config.yaml`, and it can fire on a
+# product whose TTL window is wide open. Conflating them would hide a stale
+# balance behind an unexpired envelope.

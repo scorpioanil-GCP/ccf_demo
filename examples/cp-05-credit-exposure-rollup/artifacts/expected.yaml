@@ -1,0 +1,162 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# WHAT THE SERVED PRODUCT SHOULD CONTAIN — and it DERIVES NOTHING FROM A RUN.
+#
+# Every figure below was measured DIRECTLY against the estate on 2026-09-07 with
+# SPARQL over `fibo-v2` and SQL over `ccf_v2`, BEFORE any line of this product's
+# code existed. That order is the point: an expectation computed by the program
+# it is meant to check cannot fail, and would turn this document into a
+# transcript of a bug.
+#
+# The measuring script is reproduced in `summary_explanations.md` so a reader can
+# re-take these numbers without running the product.
+
+semver: "1.0.0"
+class_id: cp-05.expected
+
+declaration:
+  anchor:
+    lei: "5493000Q1S5TJIDIQH89"
+    legal_name: "REGIS CORP"
+    node: "http://example.org/fibo/RegisCorporation"
+
+  # ==========================================================================
+  # THE TRAVERSAL — spec §D.3 step 3
+  # ==========================================================================
+  #
+  # ONE walk over three predicate types, not three walks merged:
+  #   owns              https://spec.edmcouncil.org/fibo/ontology/FND/OwnershipAndControl/Ownership/owns
+  #   isGuarantorOf     https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Guaranty/isGuarantorOf
+  #   crossDefaultsWith http://example.org/fibo/crossDefaultsWith
+  #
+  # Walked in BOTH directions. A guarantee received matters as much as one
+  # given, and a cross-default is symmetric by nature.
+  traversal:
+    # DEPTH CHANGES THE ANSWER, which is what makes `depth` part of product
+    # identity rather than a tuning knob. Three depths, three families, three
+    # content addresses.
+    nodes_at_depth_1: 21
+    nodes_at_depth_2: 46
+    nodes_at_depth_3: 77
+
+    # AT THE DECLARED DEFAULT of 3.
+    family_nodes: 77
+
+    # THE POPULATION THAT PROVES THE FAMILY IS NOT A FACILITY LIST.
+    # 19 of 77 carry an LEI in the ledger; 58 DO NOT. A member with no
+    # attribute row is still a member, and a build that served only the
+    # entities that resolve would return a smaller, tidier, WRONG family.
+    members_with_lei: 19
+    members_without_lei: 58
+
+    # AND ONLY FIVE OF SEVENTY-SEVEN HOLD A FACILITY. The other 72 are family
+    # by ownership, guarantee or cross-default and hold nothing. They are the
+    # reason this is a traversal product.
+    members_holding_facilities: 5
+
+    # THE FAMILY REACHES OUTSIDE THE REGIS GROUP ENTIRELY — Amphenol, Celanese,
+    # Avis Budget and XPO all appear at depth 3, bound in by cross-default
+    # rather than by ownership. No ownership-only walk finds them, and no
+    # borrower-keyed query finds them either.
+    reaches_outside_the_ownership_group: true
+
+  # ==========================================================================
+  # THE MEASURES — spec §D.6
+  # ==========================================================================
+  #
+  # GROSS is the sum over every family member's own borrowings.
+  # ADJUSTED removes exposure a guarantee has already captured at the parent.
+  # BOTH SHIP. The difference is the evidence the graph was traversed, and a
+  # consumer handed only the adjusted figure cannot tell it from the naive sum.
+  measures:
+    gross:
+      committed: 10125000000
+      outstanding: 7456090501
+      undrawn: 1656400215
+
+    # TWO `downstream-dedup` GUARANTEES SIT INSIDE THIS FAMILY, both at
+    # `covered_pct = 1`:
+    #   5493000Q1S5TJIDIQH89 -> RbGlobalInc          800,000,000
+    #   529900E95812SYWMCE44 -> ViskaseHoldingsInc   205,000,000
+    guarantee_dedup:
+      cases: 2
+      committed_removed: 1005000000
+
+    adjusted:
+      committed: 9120000000
+
+    # THE HEADLINE. 9.92% of gross committed exposure is double-counted by a
+    # naive family sum. The dedup step is DEMONSTRABLY load-bearing on this
+    # anchor — spec §G.2.2 requires gross != adjusted, and it is not close.
+    adjusted_differs_from_gross_by_pct: 9.92
+
+  # ==========================================================================
+  # THE COUNTERFACTUAL, IN DOLLARS — spec §A
+  # ==========================================================================
+  #
+  # This is the number a flat data product returns: sum the facility balances
+  # keyed by the anchor's borrower LEI, and stop.
+  naive_borrower_keyed_answer:
+    committed: 145000000
+    #
+    # THE FAMILY'S GROSS COMMITTED EXPOSURE IS 10,125,000,000.
+    # The naive answer UNDERSTATES BY A FACTOR OF 69.8.
+    #
+    # And it does not look wrong. It is a well-formed figure of a plausible
+    # size for a mid-cap borrower, returned without error, and nothing in it
+    # signals that a graph the product should have traversed was never
+    # traversed. That invisibility is §A's whole argument and this is its
+    # arithmetic.
+    understates_gross_family_by_factor: 69.8
+
+  # ==========================================================================
+  # THE SECOND DEMONSTRATION — spec §G.2.4
+  # ==========================================================================
+  #
+  # THE SAME ANCHOR, THE SAME GRAPH, A DIFFERENT INTENT, A DIFFERENT NUMBER —
+  # produced by versioned policy in `ccf_v2.limit_definition`, never by code.
+  #
+  #   group-limit-test    counts_guarantees=true   counts_undrawn=true
+  #   internal-appetite   counts_guarantees=FALSE  counts_undrawn=FALSE
+  #
+  # Under `internal-appetite` the guarantee adjustment does not apply and
+  # undrawn availability is excluded, so the served figure differs from the
+  # demonstrated run on BOTH axes. The exact figures are asserted by the test
+  # module rather than pinned here, because they are a function of the limit
+  # definition rows and a policy revision SHOULD move them — pinning them here
+  # would make a correct policy change look like a product regression.
+  intent_sensitivity:
+    demonstrated_intent: group-limit-test
+    contrast_intent: internal-appetite
+    must_differ: true
+
+  # ==========================================================================
+  # WHAT MUST BE PRESENT, not merely non-empty
+  # ==========================================================================
+  required_payload:
+    - gross and adjusted measures, both populated, for every basis requested
+    - connected_without_exposure — NON-EMPTY; the cross-default reach is the finding
+    - findings — carrying the two dedup cases by guarantor and obligor
+    - reconciliation — committed against XBRL-reported debt, with `plausible`
+    - lineage — operators invoked, graph_snapshot_at (ledger t), policy_version
+    - expires_at — request time + 14400s, per the `from_decision` anchor
+
+# ============================================================================
+# WHAT IS DELIBERATELY NOT PINNED HERE
+# ============================================================================
+#
+# NO CONTENT ADDRESS. The hash is a function of the served payload and pinning
+# one here before the product exists would be inventing it. It is pinned in
+# `page/run-transcript.txt` once the demonstrated run has been taken, which is
+# the only place a hash can honestly come from.
+#
+# NO OUTSTANDING/UNDRAWN FIGURE FOR `adjusted`. The dedup is measured on
+# COMMITTED because `guarantee_terms.covered_pct` covers the commitment. The
+# outstanding-basis adjustment is a product decision the implementation records
+# in `assembly-recipe.yaml` step 5, and asserting a number here before that
+# decision is taken would be pre-empting it.
+#
+# NO NODE COUNT FOR depth 4 OR 5. The ceiling is 5 and the walk is legal there;
+# it simply has not been measured, and a count authored from the shape of the
+# argument rather than from a query is the error this ladder has repeatedly
+# caught in itself.
