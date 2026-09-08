@@ -1,0 +1,1041 @@
+[
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/AmphenolBeneluxBV",
+    "lei": "549300E24EKS3CO4DQ67",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/AmphenolCorporation",
+    "lei": "549300D3L3G0R4U4VT04",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/AmphenolEastAsiaLimited",
+    "lei": "549300BJL4VZ28J8MJ68",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/AmphenolInterconnectIndiaPrivateLimited",
+    "lei": "335800PBDBA1W5BGM153",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/AmphenolOmniconnectIndiaPrivateLimited",
+    "lei": "98450009684D6AA5B532",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/AmphenolTechnologiesHoldingGmbh",
+    "lei": "549300110BRSS7DV8V39",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/AvisBudgetGroupInc",
+    "lei": "529900E95812SYWMCE44",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/BerndRichterGmbh",
+    "lei": "529900RY8P0DMIAMMD31",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/CelaneseCorporation",
+    "lei": "549300FHJQTDPPN41627",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/Entity",
+    "lei": "549300B57885SRM8AH08",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/RbGlobalHoldingsInc",
+    "lei": "254900LH3N0EGB1LQ203",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/RbGlobalInc",
+    "lei": "5493002H8U24DJXQ4886",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "anchor_ref": true,
+    "entity_uri": "http://example.org/fibo/RegisCorporation",
+    "lei": "5493000Q1S5TJIDIQH89",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/RitchieBrosAuctioneersCanadaLtd",
+    "lei": "549300DVU9VW3416N810",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/RitchieBrosAuctioneersPtyLtd",
+    "lei": "5493000GP0Y6NM6XGJ56",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/RitchieBrosFinancialServicesLtd",
+    "lei": "549300PTE27TUVKM7578",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/RitchieBrosHoldingsLtd",
+    "lei": "549300ZZMVC73C3T5608",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/RitchieBrosPropertiesLtd",
+    "lei": "549300CPPSWYFZGV4E38",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/Sub1035ERankinRoadLlc",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/Sub3395WaldenAvenueAcquisitionCorp",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubAbaMedicalTechnologyDongguanCoLtd",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubAccumetricsInc",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubAddOnComputerPeripheralsLlc",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubAdvantageMedicalElectronicsLlc",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubAirmarEmeaEurl",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubAirmarTechnologyCorp",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubAitherGroupe",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubAllSensorsCorporation",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubAlturnaConnectNV",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubAlturnaDirectNV",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubAlturnaFinancialServicesNV",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubAlturnaNetworksNV",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubAmericanBiosurgicalAsiaMedicalTechnologyLimited",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubAmericanBiosurgicalLlc",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubAmericanConecCorporation",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubAmphenolAdronicsInc",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubAmphenolAdvancedConnectorVietnamCompanyLimitedAa",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubAmphenolAdvancedSensorsGermanyGmbh",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubAmphenolAdvancedSensorsPuertoRicoLlc",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubAssetnationInc",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubAxleHoldingsAcquisitionCompanyLlc",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubAxleHoldingsInc",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubBoomBucketInc",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubCutcoAcquisitionCorp",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubFirstChoiceHaircuttersInternationalLlc",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubFirstChoiceHaircuttersLtd",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubFremontSoftwareLlc",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubIaaAcquisitionCorp",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubIaaHoldingsInc",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubIaaHoldingsLlc",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubIronplanetInc",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubIronplanetMotorsLlc",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubJMWLandHoldingsLlc",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubJMWoodAuctionCoLlc",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubMagicutsLtd",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubRbaHoldingsInc",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubRegisCorp",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubRegisHoldingsCanadaLtd",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubRegisInsuranceGroupInc",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubRegisLlc",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubRogerMergerSubcoLlc",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubRoostersMgcInternationalLlc",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubRouseAnalyticsLlc",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubRouseAppraisalsLlc",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubRouseSalesLlc",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubRouseServicesLlc",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubRpcAcquisitionCorp",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubRpcCorporateShopsInc",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubSalvagesaleMexicoHoldingLlc",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubSmartequipInc",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubSuperCGroupLlc",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubSupercutsCorporateShopsInc",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubSupercutsInc",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubSupercutsUkFranchiseLtd",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubTheBarbersHairstylingForMenWomenInc",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/SubXciraLlc",
+    "lei": "",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "member_ref": true,
+    "entity_uri": "http://example.org/fibo/XpoInc",
+    "lei": "54930096DB9LCLPN7H13",
+    "label": "",
+    "family_id": "cp05-acquisition-boundary"
+  },
+  {
+    "subject": "http://example.org/fibo/AmphenolBeneluxBV",
+    "predicate": "isUltimatelyConsolidatedBy",
+    "object": "http://example.org/fibo/AmphenolCorporation"
+  },
+  {
+    "subject": "http://example.org/fibo/AmphenolCorporation",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/AmphenolBeneluxBV"
+  },
+  {
+    "subject": "http://example.org/fibo/AmphenolCorporation",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/AmphenolEastAsiaLimited"
+  },
+  {
+    "subject": "http://example.org/fibo/AmphenolCorporation",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/AmphenolInterconnectIndiaPrivateLimited"
+  },
+  {
+    "subject": "http://example.org/fibo/AmphenolCorporation",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/AmphenolOmniconnectIndiaPrivateLimited"
+  },
+  {
+    "subject": "http://example.org/fibo/AmphenolCorporation",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/AmphenolTechnologiesHoldingGmbh"
+  },
+  {
+    "subject": "http://example.org/fibo/AmphenolCorporation",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/BerndRichterGmbh"
+  },
+  {
+    "subject": "http://example.org/fibo/AmphenolCorporation",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/Entity"
+  },
+  {
+    "subject": "http://example.org/fibo/AmphenolCorporation",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/Sub3395WaldenAvenueAcquisitionCorp"
+  },
+  {
+    "subject": "http://example.org/fibo/AmphenolCorporation",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubAbaMedicalTechnologyDongguanCoLtd"
+  },
+  {
+    "subject": "http://example.org/fibo/AmphenolCorporation",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubAccumetricsInc"
+  },
+  {
+    "subject": "http://example.org/fibo/AmphenolCorporation",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubAddOnComputerPeripheralsLlc"
+  },
+  {
+    "subject": "http://example.org/fibo/AmphenolCorporation",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubAdvantageMedicalElectronicsLlc"
+  },
+  {
+    "subject": "http://example.org/fibo/AmphenolCorporation",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubAirmarEmeaEurl"
+  },
+  {
+    "subject": "http://example.org/fibo/AmphenolCorporation",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubAirmarTechnologyCorp"
+  },
+  {
+    "subject": "http://example.org/fibo/AmphenolCorporation",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubAitherGroupe"
+  },
+  {
+    "subject": "http://example.org/fibo/AmphenolCorporation",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubAllSensorsCorporation"
+  },
+  {
+    "subject": "http://example.org/fibo/AmphenolCorporation",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubAlturnaConnectNV"
+  },
+  {
+    "subject": "http://example.org/fibo/AmphenolCorporation",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubAlturnaDirectNV"
+  },
+  {
+    "subject": "http://example.org/fibo/AmphenolCorporation",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubAlturnaFinancialServicesNV"
+  },
+  {
+    "subject": "http://example.org/fibo/AmphenolCorporation",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubAlturnaNetworksNV"
+  },
+  {
+    "subject": "http://example.org/fibo/AmphenolCorporation",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubAmericanBiosurgicalAsiaMedicalTechnologyLimited"
+  },
+  {
+    "subject": "http://example.org/fibo/AmphenolCorporation",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubAmericanBiosurgicalLlc"
+  },
+  {
+    "subject": "http://example.org/fibo/AmphenolCorporation",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubAmericanConecCorporation"
+  },
+  {
+    "subject": "http://example.org/fibo/AmphenolCorporation",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubAmphenolAdronicsInc"
+  },
+  {
+    "subject": "http://example.org/fibo/AmphenolCorporation",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubAmphenolAdvancedConnectorVietnamCompanyLimitedAa"
+  },
+  {
+    "subject": "http://example.org/fibo/AmphenolCorporation",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubAmphenolAdvancedSensorsGermanyGmbh"
+  },
+  {
+    "subject": "http://example.org/fibo/AmphenolCorporation",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubAmphenolAdvancedSensorsPuertoRicoLlc"
+  },
+  {
+    "subject": "http://example.org/fibo/AmphenolEastAsiaLimited",
+    "predicate": "isUltimatelyConsolidatedBy",
+    "object": "http://example.org/fibo/AmphenolCorporation"
+  },
+  {
+    "subject": "http://example.org/fibo/AmphenolInterconnectIndiaPrivateLimited",
+    "predicate": "isUltimatelyConsolidatedBy",
+    "object": "http://example.org/fibo/AmphenolCorporation"
+  },
+  {
+    "subject": "http://example.org/fibo/AmphenolOmniconnectIndiaPrivateLimited",
+    "predicate": "isUltimatelyConsolidatedBy",
+    "object": "http://example.org/fibo/AmphenolCorporation"
+  },
+  {
+    "subject": "http://example.org/fibo/AmphenolTechnologiesHoldingGmbh",
+    "predicate": "isUltimatelyConsolidatedBy",
+    "object": "http://example.org/fibo/AmphenolCorporation"
+  },
+  {
+    "subject": "http://example.org/fibo/AvisBudgetGroupInc",
+    "predicate": "crossDefaultsWith",
+    "object": "http://example.org/fibo/AmphenolCorporation"
+  },
+  {
+    "subject": "http://example.org/fibo/BerndRichterGmbh",
+    "predicate": "isUltimatelyConsolidatedBy",
+    "object": "http://example.org/fibo/AmphenolCorporation"
+  },
+  {
+    "subject": "http://example.org/fibo/Entity",
+    "predicate": "isUltimatelyConsolidatedBy",
+    "object": "http://example.org/fibo/AmphenolCorporation"
+  },
+  {
+    "subject": "http://example.org/fibo/RbGlobalHoldingsInc",
+    "predicate": "isUltimatelyConsolidatedBy",
+    "object": "http://example.org/fibo/RbGlobalInc"
+  },
+  {
+    "subject": "http://example.org/fibo/RbGlobalInc",
+    "predicate": "crossDefaultsWith",
+    "object": "http://example.org/fibo/XpoInc"
+  },
+  {
+    "subject": "http://example.org/fibo/RbGlobalInc",
+    "predicate": "isGuarantorOf",
+    "object": "http://example.org/fibo/RbGlobalHoldingsInc"
+  },
+  {
+    "subject": "http://example.org/fibo/RbGlobalInc",
+    "predicate": "isGuarantorOf",
+    "object": "http://example.org/fibo/RitchieBrosAuctioneersPtyLtd"
+  },
+  {
+    "subject": "http://example.org/fibo/RbGlobalInc",
+    "predicate": "isGuarantorOf",
+    "object": "http://example.org/fibo/RitchieBrosHoldingsLtd"
+  },
+  {
+    "subject": "http://example.org/fibo/RbGlobalInc",
+    "predicate": "isGuarantorOf",
+    "object": "http://example.org/fibo/Sub1035ERankinRoadLlc"
+  },
+  {
+    "subject": "http://example.org/fibo/RbGlobalInc",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/RbGlobalHoldingsInc"
+  },
+  {
+    "subject": "http://example.org/fibo/RbGlobalInc",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/RitchieBrosAuctioneersPtyLtd"
+  },
+  {
+    "subject": "http://example.org/fibo/RbGlobalInc",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/RitchieBrosHoldingsLtd"
+  },
+  {
+    "subject": "http://example.org/fibo/RbGlobalInc",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/Sub1035ERankinRoadLlc"
+  },
+  {
+    "subject": "http://example.org/fibo/RbGlobalInc",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubAssetnationInc"
+  },
+  {
+    "subject": "http://example.org/fibo/RbGlobalInc",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubAxleHoldingsAcquisitionCompanyLlc"
+  },
+  {
+    "subject": "http://example.org/fibo/RbGlobalInc",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubAxleHoldingsInc"
+  },
+  {
+    "subject": "http://example.org/fibo/RbGlobalInc",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubBoomBucketInc"
+  },
+  {
+    "subject": "http://example.org/fibo/RbGlobalInc",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubIaaAcquisitionCorp"
+  },
+  {
+    "subject": "http://example.org/fibo/RbGlobalInc",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubIaaHoldingsInc"
+  },
+  {
+    "subject": "http://example.org/fibo/RbGlobalInc",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubIaaHoldingsLlc"
+  },
+  {
+    "subject": "http://example.org/fibo/RbGlobalInc",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubIronplanetInc"
+  },
+  {
+    "subject": "http://example.org/fibo/RbGlobalInc",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubIronplanetMotorsLlc"
+  },
+  {
+    "subject": "http://example.org/fibo/RbGlobalInc",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubJMWLandHoldingsLlc"
+  },
+  {
+    "subject": "http://example.org/fibo/RbGlobalInc",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubJMWoodAuctionCoLlc"
+  },
+  {
+    "subject": "http://example.org/fibo/RbGlobalInc",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubRbaHoldingsInc"
+  },
+  {
+    "subject": "http://example.org/fibo/RbGlobalInc",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubRouseAnalyticsLlc"
+  },
+  {
+    "subject": "http://example.org/fibo/RbGlobalInc",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubRouseAppraisalsLlc"
+  },
+  {
+    "subject": "http://example.org/fibo/RbGlobalInc",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubRouseSalesLlc"
+  },
+  {
+    "subject": "http://example.org/fibo/RbGlobalInc",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubRouseServicesLlc"
+  },
+  {
+    "subject": "http://example.org/fibo/RbGlobalInc",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubSalvagesaleMexicoHoldingLlc"
+  },
+  {
+    "subject": "http://example.org/fibo/RbGlobalInc",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubSmartequipInc"
+  },
+  {
+    "subject": "http://example.org/fibo/RbGlobalInc",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubXciraLlc"
+  },
+  {
+    "subject": "http://example.org/fibo/RegisCorporation",
+    "predicate": "crossDefaultsWith",
+    "object": "http://example.org/fibo/AmphenolInterconnectIndiaPrivateLimited"
+  },
+  {
+    "subject": "http://example.org/fibo/RegisCorporation",
+    "predicate": "isGuarantorOf",
+    "object": "http://example.org/fibo/RbGlobalInc"
+  },
+  {
+    "subject": "http://example.org/fibo/RegisCorporation",
+    "predicate": "isGuarantorOf",
+    "object": "http://example.org/fibo/SubCutcoAcquisitionCorp"
+  },
+  {
+    "subject": "http://example.org/fibo/RegisCorporation",
+    "predicate": "isGuarantorOf",
+    "object": "http://example.org/fibo/SubFirstChoiceHaircuttersInternationalLlc"
+  },
+  {
+    "subject": "http://example.org/fibo/RegisCorporation",
+    "predicate": "isGuarantorOf",
+    "object": "http://example.org/fibo/SubFirstChoiceHaircuttersLtd"
+  },
+  {
+    "subject": "http://example.org/fibo/RegisCorporation",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/RbGlobalInc"
+  },
+  {
+    "subject": "http://example.org/fibo/RegisCorporation",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubCutcoAcquisitionCorp"
+  },
+  {
+    "subject": "http://example.org/fibo/RegisCorporation",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubFirstChoiceHaircuttersInternationalLlc"
+  },
+  {
+    "subject": "http://example.org/fibo/RegisCorporation",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubFirstChoiceHaircuttersLtd"
+  },
+  {
+    "subject": "http://example.org/fibo/RegisCorporation",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubFremontSoftwareLlc"
+  },
+  {
+    "subject": "http://example.org/fibo/RegisCorporation",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubMagicutsLtd"
+  },
+  {
+    "subject": "http://example.org/fibo/RegisCorporation",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubRegisCorp"
+  },
+  {
+    "subject": "http://example.org/fibo/RegisCorporation",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubRegisHoldingsCanadaLtd"
+  },
+  {
+    "subject": "http://example.org/fibo/RegisCorporation",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubRegisInsuranceGroupInc"
+  },
+  {
+    "subject": "http://example.org/fibo/RegisCorporation",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubRegisLlc"
+  },
+  {
+    "subject": "http://example.org/fibo/RegisCorporation",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubRogerMergerSubcoLlc"
+  },
+  {
+    "subject": "http://example.org/fibo/RegisCorporation",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubRoostersMgcInternationalLlc"
+  },
+  {
+    "subject": "http://example.org/fibo/RegisCorporation",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubRpcAcquisitionCorp"
+  },
+  {
+    "subject": "http://example.org/fibo/RegisCorporation",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubRpcCorporateShopsInc"
+  },
+  {
+    "subject": "http://example.org/fibo/RegisCorporation",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubSuperCGroupLlc"
+  },
+  {
+    "subject": "http://example.org/fibo/RegisCorporation",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubSupercutsCorporateShopsInc"
+  },
+  {
+    "subject": "http://example.org/fibo/RegisCorporation",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubSupercutsInc"
+  },
+  {
+    "subject": "http://example.org/fibo/RegisCorporation",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubSupercutsUkFranchiseLtd"
+  },
+  {
+    "subject": "http://example.org/fibo/RegisCorporation",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubTheBarbersHairstylingForMenWomenInc"
+  },
+  {
+    "subject": "http://example.org/fibo/RitchieBrosAuctioneersCanadaLtd",
+    "predicate": "isUltimatelyConsolidatedBy",
+    "object": "http://example.org/fibo/RbGlobalInc"
+  },
+  {
+    "subject": "http://example.org/fibo/RitchieBrosAuctioneersPtyLtd",
+    "predicate": "isUltimatelyConsolidatedBy",
+    "object": "http://example.org/fibo/RbGlobalInc"
+  },
+  {
+    "subject": "http://example.org/fibo/RitchieBrosFinancialServicesLtd",
+    "predicate": "isUltimatelyConsolidatedBy",
+    "object": "http://example.org/fibo/RbGlobalInc"
+  },
+  {
+    "subject": "http://example.org/fibo/RitchieBrosHoldingsLtd",
+    "predicate": "isUltimatelyConsolidatedBy",
+    "object": "http://example.org/fibo/RbGlobalInc"
+  },
+  {
+    "subject": "http://example.org/fibo/RitchieBrosHoldingsLtd",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/RitchieBrosAuctioneersCanadaLtd"
+  },
+  {
+    "subject": "http://example.org/fibo/RitchieBrosHoldingsLtd",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/RitchieBrosFinancialServicesLtd"
+  },
+  {
+    "subject": "http://example.org/fibo/RitchieBrosHoldingsLtd",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/RitchieBrosPropertiesLtd"
+  },
+  {
+    "subject": "http://example.org/fibo/RitchieBrosPropertiesLtd",
+    "predicate": "isUltimatelyConsolidatedBy",
+    "object": "http://example.org/fibo/RbGlobalInc"
+  },
+  {
+    "subject": "http://example.org/fibo/Sub3395WaldenAvenueAcquisitionCorp",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubAbaMedicalTechnologyDongguanCoLtd"
+  },
+  {
+    "subject": "http://example.org/fibo/SubAbaMedicalTechnologyDongguanCoLtd",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubAccumetricsInc"
+  },
+  {
+    "subject": "http://example.org/fibo/SubAccumetricsInc",
+    "predicate": "owns",
+    "object": "http://example.org/fibo/SubAddOnComputerPeripheralsLlc"
+  },
+  {
+    "subject": "http://example.org/fibo/XpoInc",
+    "predicate": "crossDefaultsWith",
+    "object": "http://example.org/fibo/CelaneseCorporation"
+  }
+]
