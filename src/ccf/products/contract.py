@@ -224,7 +224,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import HASH_TRANSPARENT_KEY
@@ -254,6 +254,7 @@ __all__ = [
     "NOT_ADDRESSABLE",
     "NOT_DISCOVERABLE",
     "NO_PAYLOAD_SCHEMA",
+    "NO_PRODUCT_GATE",
     "NO_REQUEST_CONTRACT",
     "NO_SERVE_OBLIGATIONS",
     "NO_VALIDITY_FLOORS",
@@ -262,6 +263,7 @@ __all__ = [
     "ComputedEmptyFinding",
     "ConstituentValidityFloors",
     "ContextProductContract",
+    "DeclaredProductGate",
     "FreshnessSLA",
     "MaxTTL",
     "ProductAddress",
@@ -636,6 +638,89 @@ class ServeObligations(CCFContract):
 #: under such a class is bounded by a caller's or a policy's value or by
 #: nothing at all).
 NO_SERVE_OBLIGATIONS = ServeObligations()
+
+
+class DeclaredProductGate(CCFContract):
+    """The governed IDENTITY of a product class's own runtime invariant.
+
+    SDK-defined per CLAUDE.md §11. The rulings of record are ``D-IMPL-224``
+    (a product gate is a **declared**, CI-checked property of a class) and
+    ``D-IMPL-282`` ``R-11`` option 1a (Dave, 2026-09-08), which gives that
+    declaration a runtime home: *"The gate identity/version remain declared in
+    the Control Plane; implementation is deployment-supplied."*
+
+    **Two halves, and they stay apart.** This member is the half the Control
+    Plane governs — *which* invariant a class declares, under what id, at what
+    lane. The other half, what the invariant actually computes, is a
+    :class:`~ccf.products.resolver.ProductGateProtocol` callable the deployment
+    supplies to :func:`~ccf.products.resolver.build_governed_resolver`. Nothing
+    here evaluates anything and the SDK reads neither string: both are the
+    deployment's own vocabulary (CLAUDE.md §6.4). What the split buys is
+    ``D-14`` — a refusal can name the gate that produced it
+    (:class:`~ccf.products.gates.ProductInvariantRefusal`), and an admitted
+    determination names the gate that ran through the declaration its served
+    record already pins, because a declared identity is pinned by pinning the
+    document that declares it.
+
+    **Not a widening of the gate vocabulary** (``D-11``, ``D-13``).
+    :data:`~ccf.products.gates.GATE_DECLARED_OBLIGATIONS` and its one-member
+    ``Literal`` are untouched by this class existing; a class declaring a gate
+    here joins no token to :func:`~ccf.products.gates.run_gates`' sequence, and
+    what a deployment gains is a product invariant rather than a policy
+    vocabulary.
+
+    Attributes:
+        gate_id: The deployment's own name for the invariant. The empty string
+            is one half of :data:`NO_PRODUCT_GATE` and is never a declared id.
+        gate_version: The lane that id is declared at, so replay resolves the
+            gate a determination ran under rather than the gate in force now
+            (whitepaper §7.10; CLAUDE.md §7.4 — replay resolves exact versions,
+            never *"latest"*).
+
+    **A half-declared identity is refused at parse.** An id with no lane, or a
+    lane with no id, cannot be recorded in a replay record that has to answer
+    *which gate, at which version* — and the author is the only one who knows
+    which half they meant, so this refuses rather than repairs, in
+    :func:`~ccf.deployment.binder.refuse_operator_set_divergence`'s voice.
+
+    Both members are hash-transparent at the empty string, on
+    :class:`ServeObligations`' precedent and for a harder reason than tidiness:
+    a class declaring no gate must canonicalize byte-identically to the same
+    class before this member existed, because pin identity IS content identity
+    (``src/ccf/deployment/pins.py::ArtifactPin``) and every committed
+    declaration in this tree — and every adopter's, cp-05's included — would
+    otherwise move.
+    """
+
+    gate_id: str = Field(
+        default="", json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    gate_version: str = Field(
+        default="", json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+
+    @model_validator(mode="after")
+    def _an_identity_is_whole_or_absent(self) -> DeclaredProductGate:
+        if bool(self.gate_id) != bool(self.gate_version):
+            raise ValueError(
+                "a declared product gate carries both `gate_id` and"
+                f" `gate_version` or neither; this one declares gate_id"
+                f" {self.gate_id!r} and gate_version {self.gate_version!r}."
+                " Half an identity cannot be recorded in a replay record that"
+                " has to answer WHICH gate at WHICH version (`D-IMPL-282`"
+                " `R-11`), and only the author knows which half was meant"
+            )
+        return self
+
+
+#: A product class that declares no runtime invariant of its own.
+#:
+#: The positive assertion *this class holds itself to the SDK's universal
+#: gates and to nothing further* — which is what every product class in this
+#: tree, and every one an adopter has already authored, is in fact saying.
+#: Written in :data:`NO_SERVE_OBLIGATIONS`' voice and never as a blank: an
+#: absent gate is a governance statement, not an unfilled field.
+NO_PRODUCT_GATE = DeclaredProductGate()
 
 
 class RegisteredProductClass(CCFContract):

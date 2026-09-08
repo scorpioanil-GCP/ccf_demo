@@ -88,6 +88,7 @@ from ccf.operators.params import (
 )
 from ccf.products.contract import (
     NO_PAYLOAD_SCHEMA,
+    NO_PRODUCT_GATE,
     NO_SERVE_OBLIGATIONS,
     NO_VALIDITY_FLOORS,
     NOT_ADDRESSABLE,
@@ -95,6 +96,7 @@ from ccf.products.contract import (
     UNMEASURED_FRESHNESS_SLA,
     AssemblyMode,
     ConstituentValidityFloors,
+    DeclaredProductGate,
     FreshnessSLA,
     ProductAddress,
     ProductDiscovery,
@@ -1212,7 +1214,28 @@ class ProductClassDeclaration(VersionedArtifact):
             so the field is omitted from the canonical form at that value
             and a declared obligation is rendered and versions the document.
 
-    **The seven governance fields above all default**, on the
+        declared_product_gate: The class's own runtime invariant, by governed
+            IDENTITY only (``24.10-02`` / ``R-11``; ``D-IMPL-282`` option 1a
+            with ``D-IMPL-224``). The SDK owns the **slot** and none of the
+            **value**: which invariant a product declares, under what id and
+            at what lane, is the deployment's vocabulary (CLAUDE.md §6.4), and
+            nothing in ``src/`` reads either string. What the class declares
+            here is *governed*; what it computes is a
+            :class:`~ccf.products.resolver.ProductGateProtocol` callable the
+            deployment supplies to
+            :func:`~ccf.products.resolver.build_governed_resolver`, and the
+            two halves stay apart on purpose — a declared gate with no
+            supplied callable is refused when the resolver is built, so a
+            declared check cannot silently stop checking. This is **not** a
+            widening of :data:`~ccf.products.gates.GATE_DECLARED_OBLIGATIONS`
+            or of :func:`~ccf.products.gates.run_gates`' sequence (``D-11``,
+            ``D-13``). Defaults to
+            :data:`~ccf.products.contract.NO_PRODUCT_GATE`, hash-transparent at
+            that sentinel for ``serve_obligations``' reason: a class declaring
+            no gate is every class already authored, so its content address —
+            and therefore its pin — does not move.
+
+    **The eight governance fields above all default**, on the
     ``accepted_policy_binding_modes`` precedent and for the same reason: an
     artifact authored before they existed declared exactly what it declares
     now, so no committed document is rewritten and no adopter's file becomes
@@ -1240,6 +1263,9 @@ class ProductClassDeclaration(VersionedArtifact):
     request_contract_key: str = NO_REQUEST_CONTRACT
     serve_obligations: ServeObligations = Field(
         default=NO_SERVE_OBLIGATIONS, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    declared_product_gate: DeclaredProductGate = Field(
+        default=NO_PRODUCT_GATE, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
 
 

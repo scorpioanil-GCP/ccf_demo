@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1020 entries**, of which **776** name a public Python surface.
+**1023 entries**, of which **779** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-495 entries — 455 public Python surface, 40 not public Python API.
+498 entries — 458 public Python surface, 40 not public Python API.
 
 ### Public Python surface
 
@@ -9108,6 +9108,42 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Migration: none.
 
 *Recorded by `24.10-01-the-control-plane-declares-the-replay-binding.md`.*
+
+#### ccf.products.contract.DeclaredProductGate
+
+- Surface: ccf.products.contract.DeclaredProductGate
+- Public surface: true
+- Change type: added
+- Before: absent — a product class could declare a gate only as prose, and `D-IMPL-224`'s CI-checked declaration had no typed home on the class artifact
+- After: a two-member `CCFContract` carrying `gate_id` and `gate_version`, both defaulted to the empty string and both hash-transparent there; a model validator refuses exactly one of the two being set, because half an identity cannot answer *which gate at which version* in a replay record
+- Why: `D-IMPL-282` `R-11` — *"The gate identity/version remain declared in the Control Plane"*. The SDK owns the slot and reads neither string; which invariant a class declares is the deployment's vocabulary (CLAUDE.md §6.4)
+- Migration: none. Nothing constructs one unless a class declares a gate.
+
+*Recorded by `24.10-02-the-declared-product-gate-runs-on-the-governed-path.md`.*
+
+#### ccf.products.contract.NO_PRODUCT_GATE
+
+- Surface: ccf.products.contract.NO_PRODUCT_GATE
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `DeclaredProductGate()` — the named positive assertion *this class holds itself to the SDK's universal gates and to nothing further*, in `NO_SERVE_OBLIGATIONS`' voice and never a blank
+- Why: every optional member of `ProductClassDeclaration` carries a named sentinel rather than a `None`, so an absent gate is a governance statement rather than an unfilled field
+- Migration: none.
+
+*Recorded by `24.10-02-the-declared-product-gate-runs-on-the-governed-path.md`.*
+
+#### ccf.products.gates.ProductInvariantRefusal
+
+- Surface: ccf.products.gates.ProductInvariantRefusal
+- Public surface: true
+- Change type: added
+- Before: absent — a deployment's own invariant could only raise out of the deployment's spine, which is not a governed refusal and reaches no replay record
+- After: the **seventh** `GateRefusal` subclass, adding one field, `gate_version`, beside the inherited `gate`. Its kind token is `product-invariant-refusal`, it maps to `409` at the HTTP door for `declared-obligation-refusal`'s reason, and it reaches replay through the resolver's existing `envelope_for` → `_record_refusal` path with no second recording path
+- Why: `D-IMPL-282` `R-11` — *"Add a distinct product-gate refusal kind so runtime gate failure is distinguishable in replay/audit."* Distinguishable is the whole point: the six universal kinds refuse on mechanism this SDK ships, and this one refuses on a predicate that lives in the deployment's tree
+- Migration: none. `run_gates` still returns `ServableProduct | GateRefusal` and its sequence is unchanged; a deployment that declares no gate never mints one.
+
+*Recorded by `24.10-02-the-declared-product-gate-runs-on-the-governed-path.md`.*
 
 ### Not public Python API
 

@@ -101,6 +101,7 @@ from ccf.products.gates import (
     GateRefusal,
     LineageAttributionRefusal,
     LineageMismatchRefusal,
+    ProductInvariantRefusal,
     ToleranceExceededRefusal,
     TTLRefusal,
 )
@@ -154,6 +155,17 @@ _STATUS_BY_TYPE: Final[Mapping[type[CCFContract], int]] = MappingProxyType(
         TTLRefusal: STATUS_FULFILLMENT_WITHHELD,
         AttestationRefusal: STATUS_FULFILLMENT_WITHHELD,
         DeclaredObligationRefusal: STATUS_FULFILLMENT_WITHHELD,
+        # `24.10-02` / `R-11`: a deployment's own declared product invariant
+        # refused. The reason it belongs in this class is the reason
+        # `declared-obligation-refusal` does, and it is stated rather than
+        # inherited by copying the number: the fabric CONSTRUCTED the product
+        # — the universal gates admitted it — and then withheld it because
+        # something the class declared about itself did not hold. That is a
+        # fulfillment fact about the answer, not a fault in the question (the
+        # request was well-formed and answerable) and not a statement that the
+        # subject does not exist. A `400` would blame a caller who asked
+        # correctly; a `404` would claim an absence that is not the case.
+        ProductInvariantRefusal: STATUS_FULFILLMENT_WITHHELD,
         ToleranceExceededRefusal: STATUS_FULFILLMENT_WITHHELD,
         MixingRefusal: STATUS_FULFILLMENT_WITHHELD,
         AssemblyRefusal: STATUS_FULFILLMENT_WITHHELD,

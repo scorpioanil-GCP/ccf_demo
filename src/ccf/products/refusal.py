@@ -133,6 +133,7 @@ from ccf.products.gates import (
     GateRefusal,
     LineageAttributionRefusal,
     LineageMismatchRefusal,
+    ProductInvariantRefusal,
     ToleranceExceededRefusal,
     TTLRefusal,
 )
@@ -572,6 +573,20 @@ REFUSAL_KINDS: Final[Mapping[type[CCFContract], str]] = {
     TTLRefusal: "ttl-refusal",
     AttestationRefusal: "attestation-refusal",
     DeclaredObligationRefusal: "declared-obligation-refusal",
+    # `24.10-02` / `R-11` (`D-IMPL-282` option 1a with `D-IMPL-224`): the
+    # seventh `GateRefusal` sibling, and the token names a **declared** product
+    # invariant whose IMPLEMENTATION the deployment supplied. That is exactly
+    # what distinguishes it in an audit from the SDK's own universal gates: the
+    # six tokens above are mechanism this SDK ships and can be reasoned about
+    # from `src/` alone, while this one refuses on a predicate that lives in
+    # the deployment's tree — so an examiner reading a decision record must
+    # resolve the class declaration to learn what was checked. The gate's
+    # identity and lane are stamped by the resolver from that declaration and
+    # never by the callable. It is NOT a member of `run_gates`' sequence and
+    # adds nothing to `GATE_DECLARED_OBLIGATIONS` (`D-11`); it is post-assembly
+    # (a candidate existed, so NOT in `_PRE_ASSEMBLY_REFUSALS`), and no shipped
+    # token is a substring of it or it of them.
+    ProductInvariantRefusal: "product-invariant-refusal",
     # Beside it and deliberately NOT of it (24.6-L-05, `D-IMPL-251` C2=B):
     # `tolerance-exceeded` is not a gate token and `ToleranceExceededRefusal`
     # is not a `GateRefusal`. The gates admitted the product; an applicable

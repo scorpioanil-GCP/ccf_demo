@@ -105,6 +105,7 @@ from ccf.products.gates import (
     GateRefusal,
     LineageAttributionRefusal,
     LineageMismatchRefusal,
+    ProductInvariantRefusal,
     ToleranceExceededRefusal,
     TTLRefusal,
 )
@@ -357,6 +358,42 @@ def test_envelope_for_declared_obligation_refusal(
             declared="0.5",
             observed="0.7",
         )
+
+
+def test_envelope_for_product_invariant_refusal(
+    request_identity: RequestIdentity,
+) -> None:
+    """The seventh sibling names WHICH gate refused, and at which version.
+
+    ``24.10-02`` / ``R-11``; ``D-IMPL-282`` option 1a with ``D-IMPL-224``.
+    The gate a DEPLOYMENT supplied refused, and the two facts an examiner
+    needs — which declared invariant, at which declared lane — cross the
+    envelope intact: the declared id is promoted as the ``reason`` (the
+    ``GateRefusal`` branch prefers ``gate`` over anything else), and the lane
+    rides in ``fields``.
+
+    The kind is distinct from every universal gate's, which is the whole point
+    of ``D-10``: a runtime product-gate failure is distinguishable in
+    replay and audit from the SDK's own three-plus-one-plus-one gates.
+    """
+    refusal = ProductInvariantRefusal(
+        gate="fixture.reconciliation-guard",
+        gate_version="1.0.0",
+        detail="adjusted committed 9 exceeds gross 8",
+    )
+    envelope = envelope_for(refusal, request=request_identity)
+
+    assert envelope.kind == REFUSAL_KINDS[ProductInvariantRefusal]
+    assert envelope.kind == "product-invariant-refusal"
+    assert envelope.reason == "fixture.reconciliation-guard"
+    assert envelope.key is None
+    assert set(envelope.fields) == {"gate_version"}
+    assert envelope.fields["gate_version"] == '"1.0.0"'
+    assert envelope.detail == "adjusted committed 9 exceeds gross 8"
+
+    # The kind is its OWN kind, not the family's: a reader dispatching on the
+    # token must not receive the base gate's answer for a deployment gate.
+    assert envelope.kind != REFUSAL_KINDS[GateRefusal]
 
 
 def test_envelope_for_tolerance_exceeded(

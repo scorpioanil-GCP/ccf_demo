@@ -302,6 +302,21 @@ _MARKED_IN_THE_TREE = frozenset(
         # default rather than ceiling.
         "ccf.products.contract.ServeObligations.default_debt_tolerance",
         "ccf.products.contract.ServeObligations.lineage_inputs_at",
+        # `24.10-02` / `R-11` (`D-IMPL-282` option 1a): the class's own
+        # declared runtime invariant, by governed identity. All three are
+        # `True` and the reason is measured rather than assumed by
+        # `test_each_marked_model_at_its_sentinel_hashes_as_the_base_tree_did`
+        # over `ProductClassDeclaration`: a class declaring no gate must
+        # canonicalize byte-identically to the same class before the member
+        # existed, because pin identity IS content identity and every
+        # committed declaration in this tree — and every adopter's — would
+        # otherwise move. The two inner members are `True` on the
+        # `ccf.products.provenance` precedent as well: a brand-new model has
+        # no earlier generation to be a boundary against, and the sentinel
+        # form has nothing to say under either key.
+        "ccf.controlplane.artifacts.ProductClassDeclaration.declared_product_gate",
+        "ccf.products.contract.DeclaredProductGate.gate_id",
+        "ccf.products.contract.DeclaredProductGate.gate_version",
         # 24.6-05: the search behind an empty answer (`24.6-L-06`,
         # `D-IMPL-242` amendment 1). `None` is "no operator returned empty",
         # which is what every product assembled before the field existed was
@@ -710,6 +725,51 @@ def test_a_product_with_no_finding_hashes_as_it_did() -> None:
     )
     assert content_hash(carrying) != content_hash(silent)
     assert b"computed_empty" in canonical_bytes(carrying)
+
+
+def test_a_class_declaring_no_product_gate_hashes_as_it_did() -> None:
+    """``24.10-02`` / ``R-11``: the declared product gate is additive, measured.
+
+    The base-tree digest above already carries the strong half — the
+    ``ProductClassDeclaration`` row of :data:`_BASE_TREE_DIGESTS` is the
+    ``13bd250`` figure and it must still reproduce with this member in the
+    model. This test carries the two halves that digest cannot state: that the
+    key is **absent** from a silent declaration's bytes rather than merely
+    hashing the same by coincidence, and the positive control — a declaration
+    that DOES declare a gate moves, and the key appears.
+
+    Why it matters more here than for a member nobody has authored yet: every
+    committed product-class document in this tree declares no gate, and pin
+    identity IS content identity (``src/ccf/deployment/pins.py::ArtifactPin``).
+    A rendered ``declared_product_gate: {}`` would move every one of those
+    pins, and cp-05's declarations — read under the Phase 24.10 boundary and
+    never edited — are among them.
+    """
+    from ccf.controlplane.artifacts import ProductClassDeclaration
+    from ccf.products.contract import DeclaredProductGate
+
+    silent = ProductClassDeclaration(
+        semver="1.0.0",
+        schema_name="s",
+        schema_version="1.0.0",
+        ttl_anchor="from_decision",
+        assembly_mode="algorithmic",
+        max_ttl_key="k",
+        required_operator_keys=("o",),
+    )
+    assert content_hash(silent) == _BASE_TREE_DIGESTS["ProductClassDeclaration"]
+    assert b"declared_product_gate" not in canonical_bytes(silent)
+
+    declaring = silent.model_copy(
+        update={
+            "declared_product_gate": DeclaredProductGate(
+                gate_id="fixture.reconciliation-guard", gate_version="1.0.0"
+            )
+        }
+    )
+    assert content_hash(declaring) != content_hash(silent)
+    assert b"declared_product_gate" in canonical_bytes(declaring)
+    assert b"fixture.reconciliation-guard" in canonical_bytes(declaring)
 
 
 def test_a_refusal_shell_at_its_sentinels_hashes_as_it_did() -> None:

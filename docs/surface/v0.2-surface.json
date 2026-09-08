@@ -1568,6 +1568,7 @@
           "addressability": "<class 'ccf.products.contract.ProductAddress'>",
           "assembly_mode": "typing.Literal['algorithmic', 'llm_packaged', 'swarm_assembled']",
           "constituent_validity_floors": "<class 'ccf.products.contract.ConstituentValidityFloors'>",
+          "declared_product_gate": "<class 'ccf.products.contract.DeclaredProductGate'>",
           "discovery": "<class 'ccf.products.contract.ProductDiscovery'>",
           "freshness_sla": "<class 'ccf.products.contract.FreshnessSLA'>",
           "max_ttl_key": "<class 'str'>",
@@ -4818,11 +4819,13 @@
       "ComputedEmptyFinding",
       "ConstituentValidityFloors",
       "ContextProductContract",
+      "DeclaredProductGate",
       "FreshnessSLA",
       "MaxTTL",
       "NOT_ADDRESSABLE",
       "NOT_DISCOVERABLE",
       "NO_PAYLOAD_SCHEMA",
+      "NO_PRODUCT_GATE",
       "NO_REQUEST_CONTRACT",
       "NO_SERVE_OBLIGATIONS",
       "NO_VALIDITY_FLOORS",
@@ -4876,6 +4879,13 @@
           "ttl_anchor": "typing.Literal['from_decision', 'from_entity_freshness']"
         }
       },
+      "DeclaredProductGate": {
+        "kind": "contract",
+        "shape": {
+          "gate_id": "<class 'str'>",
+          "gate_version": "<class 'str'>"
+        }
+      },
       "FreshnessSLA": {
         "kind": "contract",
         "shape": {
@@ -4899,6 +4909,10 @@
       "NO_PAYLOAD_SCHEMA": {
         "kind": "constant",
         "shape": "str"
+      },
+      "NO_PRODUCT_GATE": {
+        "kind": "constant",
+        "shape": "DeclaredProductGate"
       },
       "NO_REQUEST_CONTRACT": {
         "kind": "constant",
@@ -5216,6 +5230,7 @@
       "LineageAttributionRefusal",
       "LineageMismatchRefusal",
       "PYDANTIC_MODEL_FORMS",
+      "ProductInvariantRefusal",
       "ServableProduct",
       "ServableProductNotAModel",
       "TTLRefusal",
@@ -5314,6 +5329,14 @@
       "PYDANTIC_MODEL_FORMS": {
         "kind": "constant",
         "shape": "frozenset"
+      },
+      "ProductInvariantRefusal": {
+        "kind": "contract",
+        "shape": {
+          "detail": "<class 'str'>",
+          "gate": "<class 'str'>",
+          "gate_version": "<class 'str'>"
+        }
       },
       "ServableProduct": {
         "kind": "class",
