@@ -777,6 +777,7 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/24.1.1-the-two-protocol-shaped-seams-deployment-operators-and-re/24.1.1-VERIFICATION.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.10-cp-05-product-driven-sdk-remediation-reduce-the-plumbing-a-g/24.10-01-PLAN.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.10-cp-05-product-driven-sdk-remediation-reduce-the-plumbing-a-g/24.10-02-PLAN.md` | 1 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/24.10-cp-05-product-driven-sdk-remediation-reduce-the-plumbing-a-g/24.10-02-SUMMARY.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.10-cp-05-product-driven-sdk-remediation-reduce-the-plumbing-a-g/24.10-03-PLAN.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.10-cp-05-product-driven-sdk-remediation-reduce-the-plumbing-a-g/24.10-04-PLAN.md` | 35 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.10-cp-05-product-driven-sdk-remediation-reduce-the-plumbing-a-g/24.10-05-PLAN.md` | 1 | the phase's own planning tree — not shipped, not published |
