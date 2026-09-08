@@ -3538,6 +3538,63 @@ planning sitting after research and the pattern map, and LOCKED with a pinned di
 **Plans:** not yet planned.
 
 
+### Phase 24.10: cp-05 Product-Driven SDK Remediation — Reduce the Plumbing a Governed Context Product Requires (INSERTED)
+
+**Purpose (Dave, verbatim, `D-IMPL-280`):** *"Reduce the amount of product-specific plumbing required to
+construct and deliver a governed Context Product by closing SDK gaps demonstrated by cp-05."*
+
+**Stop rule (Dave, verbatim):** *"When cp-05 can use the canonical SDK path without rebuilding fabric
+behavior itself, the phase stops."*
+
+**STATUS: DECLARED — `D-IMPL-280` (Dave, 2026-09-08). Two rows already implemented under the standing
+authorization that preceded the phase (`R-01` at `eb455c74`, `R-10` at `80e38c6f`); the rest is NOT
+discussed, NOT researched, NOT planned. Branch `phase-24.10`, forked from
+`cp-05-credit-exposure-rollup` so the SDK work has a home contaminating neither cp-05 nor the suspended
+`phase-24.9`.**
+
+**Why this phase exists, and why it is NOT another 24.9.** Dave: *"cp-05 has now produced enough
+independent evidence that we are no longer talking about one-off example cleanup. It exposed several
+SDK-level issues that affect how a real Context Product is authored and governed."* And on its shape:
+*"keep it deliberately small and product-led. It should look much more like 24.7/24.8 than 24.9."*
+**The key difference from 24.9, in his words:** *"24.10 has to earn every change against a real cp-05
+failure or workaround."*
+
+**Scope (Dave's table, `D-IMPL-280`).**
+
+| Row | Status |
+| --- | --- |
+| `R-01` delivery correspondence | **already implemented** (`eb455c74`) |
+| `R-10` static seed/entity composition | **already implemented** (`80e38c6f`) |
+| `R-03` make the governed spine the canonical author path | **yes** |
+| `R-09` explicit acquisition boundary | **yes** |
+| `R-11` runtime product-specific gate seam | **yes** |
+| `R-12` replay binding in the Control Plane | **likely yes** |
+| `R-04` / `R-05` / `R-06` MCP and adoption cleanup | **only where needed to make the governed path usable** |
+| `R-02` uniform determinism enforcement | **HOLD** until its compatibility question is resolved |
+| proof infrastructure / Phase 24.9 work | **explicitly excluded** |
+| frozen-example modernization | **explicitly excluded** |
+
+**The per-row discipline, verbatim:** *"Each remediation gets: observed cp-05 evidence → smallest SDK
+change → one direct regression test → return to cp-05."*
+
+**What this phase does NOT get, verbatim:** *"No criteria-lock machinery, no review panel, no proof
+framework, no generalized invariant campaign."* `D-GATE-19`'s author-and-lock-criteria-before-Wave-1
+discipline is therefore **not** applied here by Dave's explicit ruling; `D-IMPL-280` records that as a
+deliberate departure with its reason, not as an oversight.
+
+**Inputs.** `.planning/CP-05-REMEDIATION-SET.md` (the twelve rows and the ten excluded, with the
+`D-IMPL-276` gates on each), `.planning/CP-05-SDK-CHANGE-PROPOSALS.md` (the seven proposals: current
+surface → smallest change → ownership layer → regression evidence),
+`.planning/CP-05-R02-SURVEY-AND-RED-CLASSIFICATION.md` (why `R-02` is on hold),
+`docs/DECISIONS.md` (`D-IMPL-280`, `D-IMPL-279`, `D-IMPL-278`, `D-IMPL-277` resolved, `D-IMPL-276`,
+`D-IMPL-261`), `examples/cp-05-credit-exposure-rollup/spec/CP-SPEC-005…md` §F.4 (twenty findings).
+
+**Success Criteria** (what must be TRUE) — **NOT AUTHORED, AND DELIBERATELY SO.** The stop rule above is
+the phase's own test, and Dave ruled out criteria-lock machinery for this phase by name.
+
+**Plans:** not yet planned.
+
+
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |

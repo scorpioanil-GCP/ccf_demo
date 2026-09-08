@@ -959,4 +959,92 @@ Ownership, verbatim:
 
 **WHAT THIS DOES NOT DECIDE.** Which changes earn code; any phase number, sequencing or methodology; the shape of the acquisition interface, the correspondence proof, the product-gate seam or the Control Plane replay section; `D-GATE-24.9`; the `phase-24.9` branch disposition.
 
-**Next free decision id: `D-IMPL-280`.** **Related:** `D-IMPL-278` (the disposition table these rulings act on), `D-IMPL-277` (**resolved by the R-09 ruling above**), `D-IMPL-276` (the three gates every row is held to), `D-IMPL-224` (product gates as CI-checked declarations — the half R-11 completes), `D-IMPL-260` P-A (the shape proof R-01 finds insufficient), `.planning/CP-05-REMEDIATION-SET.md`, `CP-SPEC-005` §D.8–§D.10 and §F.4.
+**Next free decision id: `D-IMPL-281`.** **Related:** `D-IMPL-280` (Phase 24.10, declared to execute these rulings), `D-IMPL-278` (the disposition table these rulings act on), `D-IMPL-277` (**resolved by the R-09 ruling above**), `D-IMPL-276` (the three gates every row is held to), `D-IMPL-224` (product gates as CI-checked declarations — the half R-11 completes), `D-IMPL-260` P-A (the shape proof R-01 finds insufficient), `.planning/CP-05-REMEDIATION-SET.md`, `CP-SPEC-005` §D.8–§D.10 and §F.4.
+
+---
+
+### D-IMPL-280 — PHASE 24.10 DECLARED: cp-05 Product-Driven SDK Remediation. Plus the "never clamped" reword ruling, R-02 held for code, and the five frozen specimens that no longer reach product construction recorded as API evolution rather than SDK defects
+
+**D-IMPL-280 — Dave declares a small, product-led SDK remediation phase driven by cp-05's evidence, with an explicit exclusion of proof infrastructure and of frozen-example modernization; rules the three cp-05 prose sites REWORDED rather than registered as cp-04 debt; holds R-02 for code and narrows its next measurement to committed evidence only; and rules the cp-00..cp-04 boot failures as frozen-example/API incompatibility, not SDK defects.** RESOLVED. Date: 2026-09-08. Ruled by: Dave, on `.planning/CP-05-R02-SURVEY-AND-RED-CLASSIFICATION.md` (`e43dfce7`). Verbatim throughout.
+
+---
+
+**(1) THE THREE cp-05 "never clamped" SITES — REWORD, DO NOT REGISTER.**
+
+> *"reword the three cp-05 lines. Do not add them to `CP04_KNOWN_DEBT`. The invariant is doing its job, the cp-05 statements are semantically correct, and the problem is only that they reuse a phrase whose tree-wide roster has historical cp-04 meaning. Carrying cp-05 into a cp-04-named debt roster would make the bookkeeping worse. This is an example/prose correction, not an SDK change."*
+
+**Applied.** The claims were true and stay true; only the phrase moved, to the SDK's own wording from the refusals cp-05 actually produces. `CP04_KNOWN_DEBT` untouched. The demonstrated run reproduces byte-for-byte.
+
+---
+
+**(2) R-02 REMAINS HOLD FOR CODE, and its next measurement is narrowed.**
+
+> *"I would not repair cp-00–cp-04 merely to get them far enough to measure R-02. That would reverse the examples-as-probes discipline and turn a compatibility measurement into a specimen modernization project."*
+
+The narrowed measurement, verbatim:
+
+> *"Inspect existing recorded product payloads/replay artifacts/transcripts for cp-00–cp-04, where available, and run the proposed canonicalization check against those payload shapes directly. No new harness, no example edits, no compatibility fixes. If the committed evidence contains enough actual payload material to answer the question, great. If it does not, then we stop and reconsider whether `ContextProductContract` construction is the right universal enforcement seam rather than manufacturing evidence."*
+
+---
+
+**(3) THE FIVE FROZEN SPECIMENS THAT NO LONGER REACH PRODUCT CONSTRUCTION — RECORDED, NOT REMEDIATED.**
+
+Measured on `main` and on the remediation branch alike, with zero contracts built:
+
+- **cp-01, cp-02, cp-03, cp-04** — refused at `ProductRequestContract` construction for declaring `intent` under `arguments.properties` (`D-IMPL-264` D-01 amendment 1 F-2).
+- **cp-00** — `TypeError: build_replay_record() missing 1 required keyword-only argument: 'resolution'` at `produce.py:423`.
+
+Dave's classification, verbatim:
+
+> *"Five frozen specimens no longer reach product construction on the current SDK."*
+
+> *"And the causes should remain classified as frozen-example/API incompatibility, not automatically as SDK defects: cp-01–04: intentional `ProductRequestContract` evolution under `D-IMPL-264`. cp-00: replay API evolution requiring `resolution`."*
+
+**And the consequence he draws, which is larger than either:**
+
+> *"This also gives us concrete evidence that the earlier blanket interpretation of all remaining XFAILs as 'live SDK gaps' was unsafe. Some frozen-example failures are exactly what we predicted: the supported API legitimately moved while the specimen stayed frozen."*
+
+> *"I would preserve the 0-contract result prominently. It is useful information about the state of the example ladder, not an inconvenience to work around."*
+
+**No remediation is authorized for any of the five.**
+
+---
+
+**(4) PHASE 24.10 IS DECLARED — cp-05 Product-Driven SDK Remediation.**
+
+**Purpose, verbatim:** *"Reduce the amount of product-specific plumbing required to construct and deliver a governed Context Product by closing SDK gaps demonstrated by cp-05."*
+
+**Stop rule, verbatim:** *"When cp-05 can use the canonical SDK path without rebuilding fabric behavior itself, the phase stops."*
+
+**Why it is a phase and not more example cleanup:** *"cp-05 has now produced enough independent evidence that we are no longer talking about one-off example cleanup. It exposed several SDK-level issues that affect how a real Context Product is authored and governed."*
+
+**Its shape:** *"it should be explicitly a product-driven SDK remediation phase, not another hardening/proof phase"* … *"keep it deliberately small and product-led. It should look much more like 24.7/24.8 than 24.9."*
+
+**The discipline that distinguishes it from 24.9, verbatim:** *"The key difference from 24.9 should be that 24.10 has to earn every change against a real cp-05 failure or workaround."* And per row: *"observed cp-05 evidence → smallest SDK change → one direct regression test → return to cp-05."*
+
+**Scope, Dave's table verbatim:**
+
+| Include | Status |
+| --- | --- |
+| R-01 delivery correspondence | already implemented |
+| R-10 static seed/entity composition | already implemented |
+| R-03 make governed spine the canonical author path | yes |
+| R-09 explicit acquisition boundary | yes |
+| R-11 runtime product-specific gate seam | yes |
+| R-12 replay binding in Control Plane | likely yes |
+| R-04/R-05/R-06 MCP/adoption cleanup | only where needed to make the governed path usable |
+| R-02 uniform determinism enforcement | hold until its compatibility question is resolved |
+| proof infrastructure / Phase 24.9 work | explicitly excluded |
+| frozen-example modernization | explicitly excluded |
+
+**WHAT THIS PHASE DOES NOT GET, verbatim:** *"No criteria-lock machinery, no review panel, no proof framework, no generalized invariant campaign."*
+
+**THIS IS A DELIBERATE DEPARTURE FROM `D-GATE-19`, RECORDED AS SUCH RATHER THAN AS AN OVERSIGHT.** `D-GATE-19` requires Success Criteria authored and locked with a pinned digest before Wave 1. Dave has ruled that machinery out for this phase by name; the stop rule above is the phase's test instead. A future phase does not inherit this departure — `D-IMPL-269` (1)'s reasoning applies, that a proportionality ruling is taken per phase and two do not make a default.
+
+**The branch, and why it exists:** *"There is also a practical repo reason to do it now. You already separated: `cp-05-credit-exposure-rollup` — product work; `sdk-r01-r10` — SDK remediation work; `phase-24.9` — suspended proof work. A 24.10 branch gives the SDK work a legitimate home without contaminating either cp-05 or 24.9."* `sdk-r01-r10` is renamed `phase-24.10`; no history is rewritten and no branch is merged, pushed or rebased.
+
+---
+
+**WHAT THIS DOES NOT DECIDE.** Any plan, wave, sequence or order for 24.10; whether `R-12` is in or out (*"likely yes"* is not a ruling); which of `R-04`/`R-05`/`R-06` prove necessary; `R-02`; the disposition of the five frozen specimens; `D-GATE-24.9`; the `phase-24.9` branch's fate; the cp-05 branch's merge.
+
+**Next free decision id: `D-IMPL-281`.** **Related:** `D-IMPL-279` (the four architectural rulings 24.10 executes), `D-IMPL-278` (the disposition table), `D-IMPL-277` (**resolved** by `D-IMPL-279`'s R-09 ruling), `D-IMPL-276` (the course correction that made cp-05 the driver), `D-IMPL-261` (examples are probes — (3) above is that ruling working as designed), `D-IMPL-264` D-01 am.1 F-2 and `D-IMPL-269` (1), `.planning/ROADMAP.md` § Phase 24.10, `.planning/CP-05-REMEDIATION-SET.md`, `.planning/CP-05-SDK-CHANGE-PROPOSALS.md`, `.planning/CP-05-R02-SURVEY-AND-RED-CLASSIFICATION.md`, `CP-SPEC-005` §F.4.
