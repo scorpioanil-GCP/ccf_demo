@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1016 entries**, of which **772** name a public Python surface.
+**1018 entries**, of which **774** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-493 entries — 453 public Python surface, 40 not public Python API.
+495 entries — 455 public Python surface, 40 not public Python API.
 
 ### Public Python surface
 
@@ -9084,6 +9084,30 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
   catches it
 
 *Recorded by `24.7-09-replay-verifies-the-not-applicable-claim.md`.*
+
+#### ccf.controlplane.artifacts.ReplayBinding
+
+- Surface: ccf.controlplane.artifacts.ReplayBinding
+- Public surface: true
+- Change type: added
+- Before: absent — a deployment's replay binding had no declared home, so it lived either as module constants in the deployment's own Python or as an adopter-namespaced artifact beside the config, and neither is the Control Plane
+- After: a `VersionedArtifact` carrying `record_class`, `query_pin_class` and `store_dirname`, and nothing else; a fourth key is refused by the inherited `extra=forbid`, and a `store_dirname` that is absolute, rooted, drive-qualified or carries a `..` segment is refused by name through the same `_leaves_its_own_directory` predicate `ManifestEntry.path` is held to
+- Why: `D-IMPL-282` `R-12` — replay binding becomes a first-class Control Plane concern with the smallest declarative addition that could carry it, and the three-member closure is how *"No product-specific replay semantics in the Control Plane—only deployment binding/configuration"* is enforced by the contract rather than by prose
+- Migration: none. The `replay:` section is optional and a deployment that declares none derives exactly what it derived before.
+
+*Recorded by `24.10-01-the-control-plane-declares-the-replay-binding.md`.*
+
+#### ccf.controlplane.artifacts.REPLAY_BINDING
+
+- Surface: ccf.controlplane.artifacts.REPLAY_BINDING
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `ArtifactClass(class_id="ccf.replay-binding", contract=ReplayBinding)`, registered in `ccf.deployment.classes.SDK_ARTIFACT_CLASSES` so a manifest — and the derived `replay:` section — can name it
+- Why: a class the SDK ships that a manifest cannot address is a class no adopter can register, and the reserved-section derivation resolves the class id through the same lookup every manifest entry does
+- Migration: none.
+
+*Recorded by `24.10-01-the-control-plane-declares-the-replay-binding.md`.*
 
 ### Not public Python API
 

@@ -147,7 +147,7 @@ _ADOPTER_OWNED_REQUIRED_FIELDS = ("class_id", "role", "registration")
 _OPERATOR_CLASS_PREFIX = "ccf.operator-parameters."
 
 
-#: What the loader knows about each of the eight reserved section names other
+#: What the loader knows about each of the nine reserved section names other
 #: than `operators` — the reserved-section table design spec §6 describes.
 #: `policy_constraints` is in the table like the rest but is derived per key,
 #: the way `operators` is, because its section body is a MAPPING of label to
@@ -189,6 +189,13 @@ _RESERVED_SECTIONS: Mapping[str, tuple[str | None, str | None]] = {
     "policy": (None, "declaration"),
     "request_contract": (None, "declaration"),
     "policy_constraints": ("ccf.policy-constraint", None),
+    # `R-12` (`D-IMPL-282`, Dave, 2026-09-08). The ninth entry, and exactly
+    # one: a deployment's replay binding is deployment CONFIGURATION, so it
+    # materialises as a top-level `ccf.replay-binding` document like every
+    # other SDK-owned single-document section. The ruling's own boundary is
+    # what keeps this to one entry — *"No product-specific replay semantics in
+    # the Control Plane—only deployment binding/configuration."*
+    "replay": ("ccf.replay-binding", None),
 }
 
 
@@ -654,6 +661,11 @@ def derive_deployment(
         ("debt_profile", config.debt_profile),
         ("policy", config.policy),
         ("default_perspective", config.default_perspective),
+        # `R-12` last, so every derived key order that existed before this
+        # section did is byte-for-byte what it was: a config with no `replay:`
+        # derives exactly what it derived before, and a config with one appends
+        # rather than inserts.
+        ("replay", config.replay),
     ):
         _refuse_empty_section(section_name, config_body, fields_set)
         if config_body is None:

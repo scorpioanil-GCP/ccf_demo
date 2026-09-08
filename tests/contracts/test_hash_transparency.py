@@ -376,6 +376,13 @@ _MARKED_IN_THE_TREE = frozenset(
         # below hashes a config at the sentinel against the same document
         # without the key.
         "ccf.controlplane.artifacts.DeploymentConfig.policy_constraints",
+        # `24.10-01` / `R-12`: the tenth reserved section name (the ninth
+        # `_RESERVED_SECTIONS` entry). ``True`` for exactly the reason above
+        # and measured the same way, by
+        # `test_a_config_naming_no_replay_binding_hashes_as_it_did`: every
+        # `ccf_config.yaml` already written declares no replay binding, and a
+        # rendered ``replay: null`` would move all of their pins.
+        "ccf.controlplane.artifacts.DeploymentConfig.replay",
         # 24.6-07: the refusal shell's six governance members (``24.6-L-08``,
         # ``D-IMPL-253`` Q13/Q14, ``D-IMPL-256`` (1)). Each sentinel is what
         # every shell minted before this row was already saying — nothing
@@ -784,6 +791,15 @@ def test_a_config_naming_no_constraints_hashes_as_it_did() -> None:
     canonical form renders fields and never a class name, so a dict of the
     same fields hashes as the model did. The positive control is the second
     assertion — a config that DOES name a constraint moves.
+
+    **Every hash-transparent section is removed from the "before" side, not
+    only this one** (`24.10-01`). The comparison's subject is *a config at its
+    sentinels renders as the pre-field form did*, and a later transparent
+    section — `replay`, under `R-12` — is absent from a `24.6`-era document
+    for the same reason `policy_constraints` is. Reading the exclusion set off
+    the declarations rather than naming one field is what stops the next
+    transparent section turning this measurement red without anything having
+    gone wrong.
     """
     from ccf.controlplane.artifacts import DeploymentConfig
 
@@ -792,10 +808,12 @@ def test_a_config_naming_no_constraints_hashes_as_it_did() -> None:
         backend="sqlite",
         product_class={"schema_name": "fixture.product"},
     )
+    transparent = hash_transparent_fields(DeploymentConfig)
+    assert "policy_constraints" in transparent, transparent
     before = {
         name: getattr(silent, name)
         for name in DeploymentConfig.model_fields
-        if name != "policy_constraints"
+        if name not in transparent
     }
     assert content_hash(silent) == content_hash(before)
 
@@ -805,3 +823,48 @@ def test_a_config_naming_no_constraints_hashes_as_it_did() -> None:
     assert content_hash(naming) != content_hash(silent)
     assert b"policy_constraints" in canonical_bytes(naming)
     assert b"policy_constraints" not in canonical_bytes(silent)
+
+
+def test_a_config_naming_no_replay_binding_hashes_as_it_did() -> None:
+    """`24.10-01` / `R-12`: the tenth reserved section name is additive.
+
+    The sibling of :func:`test_a_config_naming_no_constraints_hashes_as_it_did`
+    and measured the same way, because the claim that matters is the same one:
+    **a config declaring no replay binding hashes exactly as the same config
+    hashed before the field existed**, which is what keeps every committed
+    `ccf_config.yaml`'s pin identity intact — pin identity IS content identity
+    (`src/ccf/deployment/pins.py::ArtifactPin`).
+
+    The "before" side is rendered by hand with the new key removed, on that
+    test's reasoning: the canonical form renders fields and never a class name.
+    The positive control is the second half — a config that DOES declare a
+    binding moves, and the key appears in its bytes.
+    """
+    from ccf.controlplane.artifacts import DeploymentConfig
+
+    silent = DeploymentConfig(
+        semver="1.0.0",
+        backend="sqlite",
+        product_class={"schema_name": "fixture.product"},
+    )
+    transparent = hash_transparent_fields(DeploymentConfig)
+    assert "replay" in transparent, transparent
+    before = {
+        name: getattr(silent, name)
+        for name in DeploymentConfig.model_fields
+        if name not in transparent
+    }
+    assert content_hash(silent) == content_hash(before)
+
+    declaring = silent.model_copy(
+        update={
+            "replay": {
+                "record_class": "fixture.replay-record",
+                "query_pin_class": "fixture.graph-query",
+                "store_dirname": "artifacts-store",
+            }
+        }
+    )
+    assert content_hash(declaring) != content_hash(silent)
+    assert b"replay" in canonical_bytes(declaring)
+    assert b"replay" not in canonical_bytes(silent)

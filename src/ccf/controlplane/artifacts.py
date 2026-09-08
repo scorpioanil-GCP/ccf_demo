@@ -122,6 +122,7 @@ __all__ = [
     "POLICY_CONSTRAINT",
     "PRODUCT_CLASS",
     "PROJECTION_REQUIREMENTS",
+    "REPLAY_BINDING",
     "RESOLUTION_SPEC",
     "SIGNAL_BATCH",
     "ArtifactClass",
@@ -144,6 +145,7 @@ __all__ = [
     "ProductClassDeclaration",
     "ProjectionRequirements",
     "RegistrationMode",
+    "ReplayBinding",
     "SecretReference",
     "SignalBatch",
     "SimilaritySelectParametersArtifact",
@@ -423,6 +425,132 @@ class DebtProfile(VersionedArtifact):
                 " a class cannot fail closed before it escalates"
             )
         return self
+
+
+#: Both path flavours, so one document is admissible on every platform or on
+#: none.
+#:
+#: A manifest is a content-hashed Control Plane artifact, and "is this
+#: deployment admissible" must not be a property of the machine that parsed it.
+#: The two flavours disagree about what *absolute* means: ``/etc/passwd`` is
+#: absolute to :class:`~pathlib.PurePosixPath` and merely rooted to
+#: :class:`~pathlib.PureWindowsPath`, which wants a drive; ``C:\secrets`` is
+#: the reverse, and ``..\..\x.yaml`` is a single ordinary filename to POSIX
+#: and two parent segments to Windows. Asking both and refusing if *either*
+#: reads the value as leaving the directory is what makes the refusal
+#: platform-invariant.
+_PATH_FLAVOURS = (PurePosixPath, PureWindowsPath)
+
+
+def _leaves_its_own_directory(value: str) -> bool:
+    """True when ``value`` names something outside the directory it sits in.
+
+    Three shapes, each asked of both flavours in :data:`_PATH_FLAVOURS`:
+    absolute (``pathlib`` discards the directory a relative path was joined to
+    when the other side is absolute, so ``root / "/etc/passwd"`` *is*
+    ``/etc/passwd``), rooted-or-drive-qualified (``\\etc`` and ``C:etc`` are
+    neither absolute nor contained), and any ``..`` segment (``a/../../b``
+    normalizes out of the directory even though it starts inside it).
+
+    This is a **syntactic** question about the declaration, decidable from the
+    string alone and therefore answerable at the contract boundary where it
+    belongs (CLAUDE.md §11 — validation is at the boundary, never deferred). It
+    is deliberately not the whole answer: a path that is a plain name can still
+    resolve outside through a symlink, which no string inspection can see.
+    :func:`~ccf.deployment.manifest.load_and_boot` closes that at the read,
+    against the resolved root.
+    """
+    for flavour in _PATH_FLAVOURS:
+        candidate = flavour(value)
+        if candidate.is_absolute():
+            return True
+        if candidate.root or candidate.drive:
+            return True
+        if ".." in candidate.parts:
+            return True
+    return False
+
+
+class ReplayBinding(VersionedArtifact):
+    """Where one deployment's decision records go, and under which classes.
+
+    **SDK-defined, not whitepaper-derived** (CLAUDE.md §11). Whitepaper §7.8
+    makes the Control Plane the plane that declares what the fabric is
+    permitted to do and the plane its decisions are audited against; it fixes
+    nothing about where a deployment's replay artifacts are filed. CLAUDE.md
+    §7.4 does: replay records are an ArtifactStore artifact class, and the
+    store is a substrate reached through mechanism. This class is the third
+    place those two facts meet — the deployment's own binding, declared rather
+    than passed.
+
+    The ruling of record is ``D-IMPL-282`` ``R-12`` option 2a (Dave,
+    2026-09-08): the ``replay:`` Control Plane section supplies defaults,
+    explicit constructor arguments override the declaration, and *"the declared
+    binding must actually be consumed and exercised; declaration-only is
+    insufficient."*
+
+    Three declared values, none with a default:
+
+    * ``record_class`` — the artifact class every decision record for this
+      deployment is filed under, served and refused alike.
+    * ``query_pin_class`` — the class the executed-query bytes are filed under.
+    * ``store_dirname`` — a contained relative directory the file-backed
+      reference store roots at, under a root the caller supplies.
+
+    **Binding only. No product-specific replay semantics.** The same ruling:
+    *"No product-specific replay semantics in the Control Plane—only deployment
+    binding/configuration."* That is why there is no room here for a record
+    shape, a retention rule, a redaction policy or a per-product lane, and why
+    the closure is a property of the contract rather than of this paragraph:
+    ``extra="forbid"`` is inherited from :class:`~ccf.contracts.base.CCFContract`,
+    so a fourth key is refused at parse with the key named.
+
+    **What a declaration can bind, and what it cannot.** ``store_dirname`` is a
+    directory name joined onto a caller-supplied root, so the store a
+    declaration can select is the file-backed reference implementation,
+    :class:`~ccf.artifacts.file_store.FileArtifactStore`. A deployment on
+    :class:`~ccf.artifacts.mcp_store.McpArtifactStore` reaches its store by
+    passing ``artifact_store`` to
+    :func:`~ccf.products.resolver.build_governed_resolver` explicitly, which
+    wins under the ruled precedence and is therefore unaffected by anything
+    here. That is a limitation of the declaration, stated so the next reader
+    finds it rather than discovers it.
+
+    **The dirname is contained, and containment is checked here.** An absolute
+    path, a rooted or drive-qualified name, or any ``..`` segment would let a
+    Control Plane document address a location outside the root its caller
+    chose, which is a document deciding something the deployment's operator did
+    not. Refused by name, never normalized: only the author of the declaration
+    knows what they meant. The question is asked through
+    :func:`_leaves_its_own_directory` — the same predicate
+    :attr:`ManifestEntry.path` is held to — so the SDK has one answer to *"does
+    this declared name stay inside the directory it was given"* rather than two
+    that can drift.
+
+    Attributes:
+        record_class: The artifact class decision records are filed under.
+        query_pin_class: The artifact class executed-query bytes are filed
+            under.
+        store_dirname: A contained relative directory under a caller-supplied
+            root.
+    """
+
+    record_class: str
+    query_pin_class: str
+    store_dirname: str
+
+    @field_validator("store_dirname")
+    @classmethod
+    def _dirname_stays_under_its_root(cls, value: str) -> str:
+        if _leaves_its_own_directory(value):
+            raise ValueError(
+                f"store_dirname {value!r} names something outside the root it"
+                " is joined to (it is absolute, rooted, drive-qualified, or"
+                " carries a '..' segment); a Control Plane document declares a"
+                " contained relative directory, never a location on a"
+                " particular disk"
+            )
+        return value
 
 
 #: The v0 constraint vocabulary (``D-IMPL-253`` Q5, Dave: *"maximum, minimum,
@@ -1221,50 +1349,6 @@ RegistrationMode = Literal["typed", "versioned"]
 #: Characters that make a path a *pattern* rather than a name.
 _GLOB_CHARACTERS = ("*", "?", "[")
 
-#: Both path flavours, so one document is admissible on every platform or on
-#: none.
-#:
-#: A manifest is a content-hashed Control Plane artifact, and "is this
-#: deployment admissible" must not be a property of the machine that parsed it.
-#: The two flavours disagree about what *absolute* means: ``/etc/passwd`` is
-#: absolute to :class:`~pathlib.PurePosixPath` and merely rooted to
-#: :class:`~pathlib.PureWindowsPath`, which wants a drive; ``C:\secrets`` is
-#: the reverse, and ``..\..\x.yaml`` is a single ordinary filename to POSIX
-#: and two parent segments to Windows. Asking both and refusing if *either*
-#: reads the value as leaving the directory is what makes the refusal
-#: platform-invariant.
-_PATH_FLAVOURS = (PurePosixPath, PureWindowsPath)
-
-
-def _leaves_its_own_directory(value: str) -> bool:
-    """True when ``value`` names something outside the directory it sits in.
-
-    Three shapes, each asked of both flavours in :data:`_PATH_FLAVOURS`:
-    absolute (``pathlib`` discards the directory a relative path was joined to
-    when the other side is absolute, so ``root / "/etc/passwd"`` *is*
-    ``/etc/passwd``), rooted-or-drive-qualified (``\\etc`` and ``C:etc`` are
-    neither absolute nor contained), and any ``..`` segment (``a/../../b``
-    normalizes out of the directory even though it starts inside it).
-
-    This is a **syntactic** question about the declaration, decidable from the
-    string alone and therefore answerable at the contract boundary where it
-    belongs (CLAUDE.md §11 — validation is at the boundary, never deferred). It
-    is deliberately not the whole answer: a path that is a plain name can still
-    resolve outside through a symlink, which no string inspection can see.
-    :func:`~ccf.deployment.manifest.load_and_boot` closes that at the read,
-    against the resolved root.
-    """
-    for flavour in _PATH_FLAVOURS:
-        candidate = flavour(value)
-        if candidate.is_absolute():
-            return True
-        if candidate.root or candidate.drive:
-            return True
-        if ".." in candidate.parts:
-            return True
-    return False
-
-
 class ManifestEntry(CCFContract):
     """One artifact a deployment manifest names (SDK-defined; CLAUDE.md §6.4).
 
@@ -1652,30 +1736,39 @@ class DeploymentConfig(VersionedArtifact):
     each section into the SDK artifact it names is a separate concern with
     its own module.
 
-    **The nine reserved section names — `product_class`, `operators`,
+    **The ten reserved section names — `product_class`, `operators`,
     `request_contract`, `resolution`, `half_life`, `debt_profile`, `policy`,
-    `policy_constraints`, `default_perspective` — are the SDK's slots and
-    nothing more.** `policy_constraints` is the ninth (`24.6-L-07`,
+    `policy_constraints`, `default_perspective`, `replay` — are the SDK's slots
+    and nothing more.** `policy_constraints` is the ninth (`24.6-L-07`,
     `D-IMPL-253` Q3): a MAPPING of label to constraint body, deriving one
     manifest entry per key exactly as `operators` does, so that each
     constraint keeps its own key, its own content-hash version and its own
-    effectivity window instead of disappearing inside a bundle.
+    effectivity window instead of disappearing inside a bundle. `replay` is the
+    tenth (`R-12`, `D-IMPL-282`): where this deployment files its decision
+    records and under which artifact classes — deployment binding, and
+    deliberately no replay *semantics* (see :class:`ReplayBinding`).
+
+    **Two counts move together and they are not the same count.** This
+    docstring names ten section names; `_RESERVED_SECTIONS` in
+    :mod:`ccf.deployment.config` is a nine-entry mapping, because `operators`
+    is derived per key rather than from that table. A reader comparing the two
+    numbers is comparing two different things on purpose.
     Reserving a section *name* is not a claim on an adopter's class-id
     *namespace*: the SDK still claims exactly one prefix, `ccf.`
     (`D-IMPL-84`), and `src/ccf/deployment/classes.py::resolve_artifact_class`
     — which owns that reservation — is untouched by this class.
 
-    **Two of the nine sections are reserved and uninterpreted
+    **Two of the ten sections are reserved and uninterpreted
     (`D-IMPL-136` §14.3).** `policy` and `request_contract` bodies are
     adopter-owned: the SDK knows the slot exists and which artifact it
     becomes, and validates none of what is written under it. Typing either
     body against a real contract here would be the SDK validating what it
     has ruled it does not interpret.
 
-    **The other seven SDK-owned sections are typed as open mappings here
+    **The other eight SDK-owned sections are typed as open mappings here
     too, for a different reason — do not "tighten" this.** `product_class`,
-    `resolution`, `half_life`, `debt_profile`, `default_perspective`, and
-    each `operators` and `policy_constraints` entry's body are eventually
+    `resolution`, `half_life`, `debt_profile`, `default_perspective`, `replay`,
+    and each `operators` and `policy_constraints` entry's body are eventually
     validated against the SDK's
     own contracts (:class:`ProductClassDeclaration`, the resolution spec,
     :class:`HalfLifeTable`, :class:`DebtProfile`, :class:`PerspectiveArtifact`,
@@ -1781,6 +1874,11 @@ class DeploymentConfig(VersionedArtifact):
         default_perspective: The `ccf.perspective` section body, for an
             in-process deployment with no door to derive a grant from
             (design spec §8.1).
+        replay: The `ccf.replay-binding` section body — this deployment's
+            replay binding (`R-12`, `D-IMPL-282`). Absent by default, and an
+            absent section is a deployment that declares no binding rather
+            than one the SDK guesses at: a resolver reaching neither an
+            explicit argument nor a declaration refuses to be built.
     """
 
     tenant_id: str | None = None
@@ -1801,6 +1899,16 @@ class DeploymentConfig(VersionedArtifact):
         default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
     default_perspective: Mapping[str, Any] | None = None
+    # CINV-06 / `D-IMPL-243`: ``True``, and it is load-bearing rather than
+    # stylistic for `policy_constraints`' own reason — a rendered
+    # ``replay: null`` would move the content address of every
+    # `DeploymentConfig` already written, and pin identity IS content identity
+    # (`src/ccf/deployment/pins.py::ArtifactPin`). Measured by
+    # `tests/contracts/test_hash_transparency.py
+    # ::test_a_config_naming_no_replay_binding_hashes_as_it_did`, not assumed.
+    replay: Mapping[str, Any] | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
     @model_validator(mode="before")
     @classmethod
@@ -1843,6 +1951,14 @@ class DeploymentConfig(VersionedArtifact):
 HALF_LIFE_TABLE = ArtifactClass(class_id="ccf.half-life-table", contract=HalfLifeTable)
 #: The decision-class debt profile class (whitepaper §7.7 CAR).
 DEBT_PROFILE = ArtifactClass(class_id="ccf.debt-profile", contract=DebtProfile)
+#: A deployment's replay binding (SDK-defined per CLAUDE.md §11 and §7.4;
+#: ``D-IMPL-282`` ``R-12``). The third place cp-05 measured did not exist: not
+#: module constants in a deployment's own Python, not an adopter-namespaced
+#: artifact beside the config, but the Control Plane itself. Deployment
+#: binding only — see :class:`ReplayBinding` for what that forecloses.
+REPLAY_BINDING = ArtifactClass(
+    class_id="ccf.replay-binding", contract=ReplayBinding
+)
 #: The parameter-level policy constraint class (whitepaper §7.8; SDK-defined
 #: per CLAUDE.md §11, ``D-IMPL-253`` Q3, ledger row ``24.6-L-07``). Its own
 #: class rather than a member of :data:`PRODUCT_CLASS`, so that "is this a

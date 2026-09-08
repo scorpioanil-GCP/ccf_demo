@@ -1339,8 +1339,10 @@
       "PolicyFilterParametersArtifact",
       "ProductClassDeclaration",
       "ProjectionRequirements",
+      "REPLAY_BINDING",
       "RESOLUTION_SPEC",
       "RegistrationMode",
+      "ReplayBinding",
       "SIGNAL_BATCH",
       "SecretReference",
       "SignalBatch",
@@ -1431,6 +1433,7 @@
           "policy_bundle_key": "str | None",
           "policy_constraints": "collections.abc.Mapping[str, collections.abc.Mapping[str, typing.Any]] | None",
           "product_class": "collections.abc.Mapping[str, typing.Any]",
+          "replay": "collections.abc.Mapping[str, typing.Any] | None",
           "request_contract": "collections.abc.Mapping[str, typing.Any] | None",
           "resolution": "collections.abc.Mapping[str, typing.Any] | None",
           "resolution_spec_key": "str | None",
@@ -1586,6 +1589,10 @@
           "semver": "<class 'str'>"
         }
       },
+      "REPLAY_BINDING": {
+        "kind": "constant",
+        "shape": "ArtifactClass"
+      },
       "RESOLUTION_SPEC": {
         "kind": "constant",
         "shape": "ArtifactClass"
@@ -1593,6 +1600,15 @@
       "RegistrationMode": {
         "kind": "function",
         "shape": "typing.Literal['typed', 'versioned']"
+      },
+      "ReplayBinding": {
+        "kind": "contract",
+        "shape": {
+          "query_pin_class": "<class 'str'>",
+          "record_class": "<class 'str'>",
+          "semver": "<class 'str'>",
+          "store_dirname": "<class 'str'>"
+        }
       },
       "SIGNAL_BATCH": {
         "kind": "constant",
@@ -6218,6 +6234,7 @@
     "__all__": [
       "CapabilityForgeryError",
       "DeliveryCapability",
+      "ProductRecordMismatch",
       "QueryPinMismatch",
       "QueryPinWriter",
       "ReplayWriter",
@@ -6233,6 +6250,10 @@
       "DeliveryCapability": {
         "kind": "class",
         "shape": "(replay_ref: 'ArtifactRef', token: 'object') -> 'None'"
+      },
+      "ProductRecordMismatch": {
+        "kind": "class",
+        "shape": "type"
       },
       "QueryPinMismatch": {
         "kind": "class",
