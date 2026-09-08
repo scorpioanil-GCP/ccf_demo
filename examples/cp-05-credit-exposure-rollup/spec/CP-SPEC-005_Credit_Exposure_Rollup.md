@@ -765,14 +765,14 @@ product raises is answered at rung 16, not here.
    correction is architectural rather than a patch.
 4. **The slug↔LEI join hazard** (C.3). Recorded as a finding because it produced
    a false measurement during authoring, and any implementation will meet it.
-4. **The vault article's own worked anchor does not exist in the estate.** Its
+5. **The vault article's own worked anchor does not exist in the estate.** Its
    §D client call uses `5493001KJTIIGC8Y1R12`; measured, that LEI is **absent
    from `ccf_v2.legal_entity` and holds zero facilities**, beside a positive
    control confirming the query resolves `5493000Q1S5TJIDIQH89` to `REGIS CORP`.
    This specification substitutes a real, exercising anchor (D.1) and records
    the substitution here rather than making it silently. The vault's example
    call should be repointed on the return path.
-5. **`assembly_mode`, `out_of_scope` and `sdk_spec` are `null` in the vault
+6. **`assembly_mode`, `out_of_scope` and `sdk_spec` are `null` in the vault
    article's front matter.** This specification supplies all three; the vault
    article should be updated on the return path (`spec_generation.md` §11).
 
