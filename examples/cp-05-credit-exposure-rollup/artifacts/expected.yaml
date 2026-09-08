@@ -36,7 +36,7 @@ declaration:
     # identity rather than a tuning knob. Three depths, three families, three
     # content addresses.
     nodes_at_depth_1: 21
-    nodes_at_depth_2: 46
+    nodes_at_depth_2: 49
     nodes_at_depth_3: 77
 
     # AT THE DECLARED DEFAULT of 3.
@@ -74,21 +74,47 @@ declaration:
       outstanding: 7456090501
       undrawn: 1656400215
 
-    # TWO `downstream-dedup` GUARANTEES SIT INSIDE THIS FAMILY, both at
-    # `covered_pct = 1`:
-    #   5493000Q1S5TJIDIQH89 -> RbGlobalInc          800,000,000
-    #   529900E95812SYWMCE44 -> ViskaseHoldingsInc   205,000,000
+    # ONE `downstream-dedup` GUARANTEE IS DEDUCTIBLE AT THE DEMONSTRATED DEPTH:
+    #   5493000Q1S5TJIDIQH89 -> RbGlobalInc   covered_pct 1   800,000,000
+    #
+    # ---------------------------------------------------------------------
+    # CORRECTED 2026-09-07, AND THE CORRECTION IS THE INTERESTING PART.
+    # ---------------------------------------------------------------------
+    #
+    # The first draft of this document asserted TWO cases and 1,005,000,000
+    # removed, adding `529900E95812SYWMCE44 -> ViskaseHoldingsInc` at
+    # 205,000,000. THE PRODUCT DISAGREED ON ITS FIRST RUN, and the product was
+    # right.
+    #
+    # `ViskaseHoldingsInc` enters this family at DEPTH 4, not 3 — measured:
+    # 21 nodes at depth 1, 49 at 2, 77 at 3, 132 at 4, and Viskase first appears
+    # in the depth-4 set. At the demonstrated depth of 3 its 205,000,000 is
+    # NEVER ADDED TO GROSS, so deducting it would remove exposure the rollup
+    # never counted — and would have driven adjusted BELOW the correct figure
+    # while the reconciliation guard (gross >= adjusted) stayed green, because
+    # under-counting is not what that gate watches for.
+    #
+    # THE RULE THIS LOCATED, now enforced in `assembler.py::aggregate` step 5.2:
+    # A GUARANTEE DEDUP IS VALID ONLY WHEN BOTH THE GUARANTOR AND THE OBLIGOR
+    # ARE INSIDE THE MEASURED FAMILY. The defect in the first draft was that its
+    # script resolved obligor URIs against the WHOLE-LEDGER lei map rather than
+    # against the family — the same class of join error §C.3 records, caught
+    # here by an expectation written independently of the program.
+    #
+    # This is why `expected.yaml` derives nothing from a run. An expectation
+    # computed by the program it checks would have agreed with the program and
+    # taught nobody anything.
     guarantee_dedup:
-      cases: 2
-      committed_removed: 1005000000
+      cases: 1
+      committed_removed: 800000000
 
     adjusted:
-      committed: 9120000000
+      committed: 9325000000
 
     # THE HEADLINE. 9.92% of gross committed exposure is double-counted by a
     # naive family sum. The dedup step is DEMONSTRABLY load-bearing on this
     # anchor — spec §G.2.2 requires gross != adjusted, and it is not close.
-    adjusted_differs_from_gross_by_pct: 9.92
+    adjusted_differs_from_gross_by_pct: 7.90
 
   # ==========================================================================
   # THE COUNTERFACTUAL, IN DOLLARS — spec §A
@@ -129,6 +155,34 @@ declaration:
     demonstrated_intent: group-limit-test
     contrast_intent: internal-appetite
     must_differ: true
+
+  # ==========================================================================
+  # A BEHAVIOR THE FIRST RUN SURFACED — the anchor is immaterial in its own rollup
+  # ==========================================================================
+  #
+  # At the declared materiality of 0.05, the floor is 5% of gross committed —
+  # 506,250,000 on this family. THE ANCHOR'S OWN BOOK IS 145,000,000, which is
+  # 1.43% of the family, so REGIS CORP IS FILTERED OUT OF THE ENUMERATED
+  # ENTITIES OF ITS OWN EXPOSURE ROLLUP. The served payload reports 4 material
+  # entities, not 5.
+  #
+  # Arithmetically this is correct and it is what `materiality` asks for. As a
+  # PRODUCT BEHAVIOR it is surprising enough to be worth a consumer's attention:
+  # someone who asks "what do we have on Regis?" and receives a rollup that does
+  # not list Regis has been served a true answer in a shape that invites
+  # misreading.
+  #
+  # RECORDED, NOT REPAIRED. Spec §F.4 and `D-IMPL-261`: an example surfaces this
+  # and does not quietly special-case the anchor to make the output look
+  # friendlier. Whether the anchor should be exempt from its own materiality
+  # floor is a product decision for the vault, not a fix an example may make.
+  anchor_below_its_own_materiality_floor:
+    materiality: 0.05
+    floor_committed: 506250000
+    anchor_committed: 145000000
+    anchor_share_of_family_pct: 1.43
+    anchor_enumerated: false
+    material_entities: 4
 
   # ==========================================================================
   # WHAT MUST BE PRESENT, not merely non-empty
