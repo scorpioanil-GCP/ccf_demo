@@ -1,0 +1,51 @@
+==============================================================================
+  credit-risk.exposure-rollup v1.0.0
+  REGIS CORP  (5493000Q1S5TJIDIQH89)
+==============================================================================
+
+  intent            group-limit-test   [policy limit_definition/group-limit-test]
+  limit definition  counts_guarantees=True  counts_undrawn=True  basis=control
+  request           depth=3  materiality=0.05  basis=both  guarantees=True  cross_default=True
+
+  FAMILY
+    77 nodes reached at depth 3; 19 carry an LEI; 4 hold a material facility book
+
+  EXPOSURE                     committed        outstanding           undrawn
+    gross              10,125,000,000      7,456,090,501     1,656,400,215
+    adjusted            9,325,000,000      6,870,556,262     1,449,221,862
+    guarantee dedup      -800,000,000   (1 case(s), 7.90% of gross)
+
+  WHAT THE DEDUP REMOVED — the step that makes the answer correct
+    5493000Q1S5TJIDIQH89 guarantees 5493002H8U24DJXQ4886 at 1
+      -> 800,000,000 counted once, not twice
+
+  MATERIAL ENTITIES
+    AVIS BUDGET GROUP, INC.             4 fac     3,950,000,000
+    Celanese Corp                       2 fac     1,800,000,000
+    RB GLOBAL INC.                      2 fac       800,000,000
+    XPO, Inc.                           3 fac     3,430,000,000
+
+  CONNECTED WITHOUT EXPOSURE — what a borrower-keyed sum cannot reach
+    14 family members are bound by ownership, guarantee or
+    cross-default and hold no facility of their own.
+
+  RECONCILIATION — the anchor's own book against XBRL-reported debt
+    anchor committed 145,000,000  reported debt 293,800,000  share 0.494  plausible=True
+
+  FINDINGS
+    [guarantee-dedup-applied]
+      5493000Q1S5TJIDIQH89 guarantees 5493002H8U24DJXQ4886 at 1; 800000000
+      removed from committed
+    [connected-without-exposure]
+      14 family members are bound by ownership, guarantee or cross-default
+      and hold no facility. A borrower-keyed sum cannot reach them.
+
+  LINEAGE
+    operators   Resolve -> Policy -> Traversal -> Enrich -> Aggregate
+    ledger      fibo-v2
+    policy      limit_definition/group-limit-test
+    asked_at    2026-09-07T12:00:00+00:00
+    expires_at  2026-09-07T16:00:00+00:00
+
+  content address  b4963e01e51ba0274dbeac00fd8cdb69fdf3664734f31a82ef0f5a3d982e5a93
+==============================================================================

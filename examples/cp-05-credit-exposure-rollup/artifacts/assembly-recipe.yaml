@@ -1,0 +1,131 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# SPEC §D.2 AS DATA, WITH A WITNESS PER STEP.
+#
+# A witness is what was OBSERVED when the step ran on the demonstrated question,
+# not what the step is supposed to do. Every witness below was taken from the
+# run pinned in `page/run-transcript.txt`.
+#
+# `role: load`. This document is the recipe as a fact about the assembly; the
+# assembly itself lives in `assembler.py` and `produce.py`.
+
+semver: "1.0.0"
+class_id: cp-05.assembly-recipe
+
+declaration:
+  steps:
+    - step: 1
+      operator: Resolve
+      store: postgres
+      reads: [legal_entity, crosswalk]
+      emits: canonical obligor
+      may_be_empty: false
+      witness: >-
+        5493000Q1S5TJIDIQH89 resolved to REGIS CORP. An LEI that does not
+        resolve REFUSES with exit 4 — measured on 5493001KJTIIGC8Y1R12, the
+        vault article's own worked anchor, which is absent from this estate.
+
+    - step: 2
+      operator: Policy
+      store: postgres
+      reads: [limit_definition, entitlement service]
+      emits: policy envelope, policy_version
+      may_be_empty: false
+      witness: >-
+        intent `group-limit-test` loaded counts_guarantees=true,
+        counts_undrawn=true, connection_basis=control. An unknown intent
+        REFUSES with exit 4 and names the three that exist. There is no
+        default: a defaulted limit regime is the confidently-wrong number
+        spec §A describes.
+
+    - step: 3
+      operator: Traversal
+      store: fluree
+      reads: [owns, isUltimatelyConsolidatedBy, isGuarantorOf, crossDefaultsWith]
+      emits: node set, edge set, ledger t
+      may_be_empty: false
+      witness: >-
+        ONE walk, four predicate types, both directions — 77 nodes at depth 3,
+        21 at depth 1 and 49 at depth 2. The family reaches OUTSIDE the Regis
+        ownership group entirely (Avis Budget, Celanese, XPO) through
+        cross-default. Walked bidirectionally on purpose: a guarantee RECEIVED
+        matters as much as one given.
+
+    - step: 4
+      operator: Batch Enrich
+      store: postgres
+      reads: [facility, guarantee_terms, debt_reconciliation, legal_entity]
+      emits: facilities and balances per entity
+      may_be_empty: true
+      witness: >-
+        ONE query over 19 LEIs, not 19 queries. Fan-out is entity × facility, so
+        the N+1 penalty here is MULTIPLICATIVE rather than linear; an
+        implementation issuing one query per entity is not slow, it is wrong at
+        scale. 5 of the 19 hold a facility book; 14 hold none and are retained.
+
+    - step: 5
+      operator: Aggregate
+      store: in-memory
+      reads: [step 3, step 4]
+      emits: gross and adjusted measures, findings
+      may_be_empty: false
+      witness: >-
+        gross committed 10,125,000,000; ONE guarantee dedup removing
+        800,000,000 (Regis guarantees RB Global at covered_pct 1); adjusted
+        committed 9,325,000,000 — 7.90% of gross. 14 members reported as
+        connected-without-exposure rather than absorbed into the residual.
+
+    - step: 6
+      operator: Contract assembly
+      store: none
+      reads: [all above]
+      emits: ContextProductContract@v1.0.0
+      may_be_empty: false
+      witness: >-
+        A typed `ccf.products.contract.ContextProductContract` — nine required
+        fields, a three-field ProductLineage, ttl_anchor `from_decision`
+        expressed with NO SDK change. expires_at = asked_at + 14400s. Content
+        address b4963e01e51ba0274dbeac00fd8cdb69fdf3664734f31a82ef0f5a3d982e5a93.
+
+  # ==========================================================================
+  # THE FOUR GATES — spec §D.7
+  # ==========================================================================
+  gates:
+    - gate: empty-operator guard
+      asserts: no step marked `may_be_empty: false` returned empty
+      witness: the traversal returned 77 nodes; the guard did not fire
+
+    - gate: lineage strict equality
+      asserts: lineage names exactly the operators invoked
+      witness: >-
+        Resolve -> Policy -> Traversal -> Enrich -> Aggregate, five names, and
+        the same five in the contract's `operators_invoked` frozenset
+
+    - gate: TTL bounds
+      asserts: 0 < window <= max_ttl_seconds
+      witness: 14400s against a ceiling of 14400s
+
+    - gate: reconciliation guard
+      asserts: gross >= guarantee-adjusted, per group
+      witness: >-
+        10,125,000,000 >= 9,325,000,000. THIS GATE HAS NOT YET BEEN OBSERVED
+        FIRING. `example_delivery.md` §11 requires every product gate to be made
+        to fail deliberately at least once, and that observation is OWED —
+        recorded here as owed rather than claimed. A gate that has only ever
+        passed has not been shown to be able to fail.
+
+  # ==========================================================================
+  # WHAT THE GUARD DOES NOT WATCH FOR — recorded because it bit
+  # ==========================================================================
+  #
+  # `gross >= adjusted` catches DOUBLE-SUBTRACTION. It does not catch
+  # UNDER-COUNTING, and the first draft of `expected.yaml` made exactly that
+  # error: it deducted a dedup whose obligor (ViskaseHoldingsInc) enters this
+  # family only at depth 4, so its 205,000,000 was never added to gross. The
+  # resulting adjusted figure would have been too LOW, and the guard would have
+  # stayed green throughout.
+  #
+  # The rule now enforced in `assembler.py::aggregate` step 5.2 — a dedup is
+  # valid only when BOTH guarantor and obligor are inside the measured family —
+  # was located by an expectation written independently of the program, not by
+  # a gate.
