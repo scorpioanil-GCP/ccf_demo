@@ -370,6 +370,74 @@ gate it always claimed to.
 
 ---
 
+## Run 7 — the same product, reached over MCP
+
+```bash
+make example-cp-05-server
+```
+
+An MCP-capable agent runtime — Claude, a LangGraph node, any client that speaks
+the protocol — calls the tool, and gets back exactly what the in-process caller
+gets: the determination, the measured Context Debt, and the fabric's decision
+about whether it is fit to act on.
+
+### What you'd have missed
+
+**The door does not soften anything.** An agent asking through MCP is held to
+the same policy ceilings, the same debt tolerance, and the same governed refusal
+as a credit officer at a terminal. The Regulated Consumer's `1.0` tolerance is
+narrowed to `0.10` by policy whether the request arrives over stdio or in
+process. There is no "API mode" where the fabric is more permissive because the
+caller is a machine.
+
+**And every denial at the door is itself recorded.** A caller who is not
+entitled to this product does not get a silent empty response; the refusal is
+appended to the same store, under the same artifact class, as the assembler's
+own refusals. One audit plane, whichever layer said no.
+
+### How it works
+
+`server/serve.py` reads its governance values from `server/door.yaml` — scope,
+issuer, audience, principal, role, and the prose a consumer reads — and passes
+them to the SDK's `build_egress_server`. The resolver behind the door calls
+`produce.py::produce_governed` and returns what it returns. No assembly, no
+gates, no debt, no tolerance comparison and no replay logic lives in the door.
+
+---
+
+## What building the door measured
+
+Two questions were put to it, and both have numbers rather than opinions.
+
+**Does the door check that the product agrees with its own audit record?**
+No. It checks that a record *exists* — which is a real check, and is what stops
+an ungoverned answer from being served. But it never opens the record. Handed a
+product claiming 9,999 family members alongside a record that observed 77, the
+door serves it. Both facts are in its hand; the comparison is one lookup away
+and nobody makes it.
+
+That matters because it is the fourth time this rung has met the same shape.
+The acquisition step, the fulfillment check, the policy envelope, and now the
+door: in every case the SDK's own machinery was present, correct, and *not on
+the path an author naturally takes*.
+
+**Is putting a product behind MCP configuration, or is it another program?**
+About half and half. 204 lines of code, against rung 4's 260 — and rung 4 had to
+build its governed path inside the door, where cp-05 already had one. Sixty of
+cp-05's lines are the SDK call and its collaborators, which is binding. Seventy
+are a small application: translating the request, refusing a wrong address,
+refusing a resource read of a product that has no standing answer, and running
+the request-surface check the door explicitly delegates.
+
+**The largest thing the door work found had nothing to do with MCP.** The SDK
+already ships the entire governed path this product built by hand —
+`ccf.products.resolver::GovernedResolver` does the request resolution, the
+operators, the projection, the gates, the debt, the tolerance comparison and the
+replay record, in that order. cp-05 reimplemented all of it and only discovered
+the shipped version while wiring the door.
+
+---
+
 ## The assembler lesson this rung teaches
 
 > **Acquisition may use backend-specific logic; decision logic must execute
@@ -420,8 +488,10 @@ debt, which the estate flags as a plausible share.
   Completeness is `0.2467` and consistency is `1`, but freshness is `0` and
   `D_c` is the weakest link, so freshness alone decides the outcome. What a
   *completeness*-driven withholding looks like is not demonstrated.
-- **No MCP delivery yet.** The typed contract crosses the boundary; the
-  authenticated door around it is not built.
+- **The MCP door serves on stdio only.** It is built and it is authenticated
+  and entitled, but the credential is minted per boot into a temporary
+  directory. Hosting it over HTTP with a real identity provider is a
+  deployment's work, not this example's.
 - **One store pair.** Postgres and Fluree. No document store, no A2A, no second
   institution.
 

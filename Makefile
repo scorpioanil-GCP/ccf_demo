@@ -54,7 +54,7 @@ NO_SUBSTRATE := not postgres and not chroma and not neo4j and not mongo and not 
 	conformance \
 	ci-quick-suite ci-harness-conformance ci-coverage \
 	example-s1-01 example-s1-00 example-cp-00 example-cp-01 example-cp-02 \
-	example-cp-03 example-cp-04 example-cp-05 \
+	example-cp-03 example-cp-04 example-cp-05 example-cp-05-server \
 	example-hw1-harness-clients \
 	example-hw1-harness-clients-live-adk \
 	example-hw1-harness-clients-live-anthropic \
@@ -475,6 +475,12 @@ example-cp-05: ## Run examples/cp-05-credit-exposure-rollup (LEI, INTENT, DEPTH,
 		$(if $(MATERIALITY),--materiality $(MATERIALITY)) \
 		$(if $(DEBT_TOLERANCE),--debt-tolerance $(DEBT_TOLERANCE)) \
 		$(if $(BASIS),--basis $(BASIS))
+
+# cp-05's MCP door. Serves on stdio: the client spawns it, and the transport's
+# security boundary is process ownership (stdio carries no bearer channel).
+# Reads the same four environment variables `example-cp-05` does.
+example-cp-05-server: ## Serve examples/cp-05-credit-exposure-rollup over MCP on stdio
+	$(ENV) $(PYTHON) examples/cp-05-credit-exposure-rollup/server/serve.py
 
 # HW-1 — the first example a newcomer reads. NOT in the `examples:` aggregate
 # and NOT in any workflow as a target: what CI runs is

@@ -318,6 +318,11 @@ def effective_request(*, config: dict[str, Any], registry, supplied: dict[str, A
     is present and is not the obvious path.
 
     Returns:
+        ``(request, outcome)``. The typed `ProductRequest` is handed back
+        beside the resolution because the decision record wants it — dimension
+        5 carries *which question this decision answered* — and rebuilding it
+        at the call site would be a second place for one fact.
+
         The ``ResolutionOutcome`` — its ``evidence`` is an
         :class:`~ccf.products.provenance.EffectiveRequest` carrying one
         :class:`~ccf.products.provenance.EffectiveParameter` per parameter with
@@ -361,7 +366,7 @@ def effective_request(*, config: dict[str, Any], registry, supplied: dict[str, A
         ),
     )
 
-    return resolve_effective_request(
+    return request, resolve_effective_request(
         request=request,
         declared=declared,
         declared_source=ProvenanceSource(

@@ -10,7 +10,7 @@
     debt         1.000  (fail_closed)
     fulfillment  WITHHELD  against tolerance 0.25 (default)
     address      299d0e9e38ec680d932ebe607bf50371ffe8389c3ac3f8b13bec2df61f8e089b
-    replay       withheld · 83f077b036a94787 · 20639 bytes
+    replay       withheld · 107077e3afff3cd4 · 21119 bytes
       Every parameter falls to the class default and says so — materiality
       0.05(default), debt_tolerance 0.25(default). THE DEMONSTRATED RUN IS A
       GOVERNED REFUSAL: the product is assembled, gated and constructible, and
@@ -26,7 +26,7 @@
     debt         1.000  (fail_closed)
     fulfillment  WITHHELD  against tolerance 0.25 (default)
     address      9916af9bdda573ea535b0baf7b118343f39f06745d01baf9351e7a63e29d6d31
-    replay       withheld · f769cdadda5fff4e · 20708 bytes
+    replay       withheld · 9fa9254817296a47 · 21208 bytes
       A caller who wants more of the book enumerated. materiality resolves to
       0.02 with authority `caller`, and the floor drops from 506,250,000 to
       202,500,000. THE PROJECTION DOES NOT MOVE, and the measurement is worth
@@ -46,7 +46,7 @@
     debt         1.000  (fail_closed)
     fulfillment  WITHHELD  against tolerance 0.25 (default)
     address      282c4df28f467d383ec8c0bfa3d8c5bf518f10458c3bd41b689bfbca46518f37
-    replay       withheld · 23a86e48310673aa · 20708 bytes
+    replay       withheld · b2a211754f8579d7 · 21208 bytes
       THE THRESHOLD THAT ACTUALLY MOVES THIS ANSWER. At a 1,012,500,000 floor
       the 800,000,000 obligor falls into the residual: 3 enumerated instead of
       4, residual 945,000,000 instead of 145,000,000 — and the same family and
@@ -62,7 +62,7 @@
     debt         1.000  (fail_closed)
     fulfillment  WITHHELD  against tolerance 0.05 (caller)
     address      bb91c731fe69e0bd0cfb7fdb293f4a52a5ef79a4f0eb56d3c3b3f7725cc43e43
-    replay       withheld · d92f70f2cae8dc54 · 20738 bytes
+    replay       withheld · 9745484b2a1b13ad · 21241 bytes
       A consumer declaring a tighter bar than the product's default. Withheld
       with authority `caller` rather than `default`, over the SAME observed
       Context Debt — the fabric did not become less confident, this consumer
@@ -91,7 +91,7 @@
     debt         1.000  (fail_closed)
     fulfillment  WITHHELD  against tolerance 0.10 (policy)
     address      78310ce13e9c23a593e2890e465be1f9594b44ce9b6d1749a81cc6f5310c2004
-    replay       withheld · ed58929c08868498 · 22504 bytes
+    replay       withheld · f3ecc72a0fd6e506 · 23015 bytes
       The same request as the Exploratory Consumer, under a regime that will
       not permit it. The registered constraint
       `cp-05/policy/debt-tolerance-ceiling/regulatory-large-exposure` NARROWS

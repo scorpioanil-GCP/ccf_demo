@@ -111,6 +111,29 @@ ceiling on `debt_tolerance` **narrows** it and withholds afterwards. A fitness
 bar cannot be refused before fitness has been measured — materiality shapes the
 answer, debt tolerance judges it.
 
+### An MCP door in front of it
+
+```bash
+make example-cp-05-server        # stdio; the client spawns it
+```
+
+`server/serve.py` exposes the governed path as an authenticated, entitled MCP
+tool that records every denial as a decision. It re-implements no part of the
+assembly, the gates, the debt assessment, the tolerance comparison or the
+replay record — those are all behind `produce.py::produce_governed`.
+
+**Two things the door was built to measure** (spec §D.10):
+
+1. **It proves a record exists; it does not read it.** A served product whose
+   payload claims 9,999 family members, wrapping a replay record whose
+   dimension 1 observed 77, crosses the boundary unremarked. Both operands are
+   in the door's hand and the comparison is not made.
+2. **Exposure is roughly half binding, half a thin application.** 204
+   executable lines against rung 4's 260 — a 22% reduction, not the order of
+   magnitude one would expect if the door were configuration. 60 lines are the
+   `build_egress_server` call and its collaborators; 72 are the resolver
+   adapter and the refusals it mints by hand.
+
 ## Run it
 
 ```bash
@@ -198,6 +221,8 @@ undrawn availability is excluded. Different number, different content address,
 | `artifacts/replay.yaml` | Where decision records go and under what artifact class. A separate document because the Control Plane's section vocabulary is closed and has no slot for it. |
 | `page/run-transcript.txt` | The demonstrated run, byte-reproducible against the pinned instant. |
 | `page/scenario-transcript.txt` | All eight consumers, same estate, same instant. |
+| `server/door.yaml` | The door's governance values — scope, issuer, audience, principal, role, tool prose. No host, port or credential. |
+| `server/serve.py` | The MCP door. A resolver adapter and a `build_egress_server` call; no governed logic of its own. |
 | `backends.yaml` | Variable **names** and remedies. No host, port or credential. |
 | `ccf_config.yaml` | The Control Plane document — half-life table, request contract, bounds, defaults. |
 | `deployment.py` | The interpreter. Holds no domain value. |

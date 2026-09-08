@@ -732,6 +732,110 @@ artifact rather than about an object that was never written.
 
 ---
 
+---
+
+### D.10 The MCP door — and the two questions it was built to answer
+
+The door is `server/serve.py` over `server/door.yaml`. It exposes the governed
+path of §D.8–§D.9 as an MCP tool, authenticated, entitled, and recording every
+denial as a decision. It re-implements no part of the assembly, the gates, the
+debt assessment, the tolerance comparison or the replay record.
+
+#### Question 1 — does the governed door reconcile declared behavior against observed execution?
+
+**No. It proves a record EXISTS; it does not read what the record says.**
+Measured directly:
+
+```
+product payload claims family = 77
+replay record observed touched = 77
+
+--- door check on a product whose payload disagrees with its record ---
+door_refusal  -> None (no refusal)
+served_answer -> ACCEPTED. payload family = 9999 | record says 77
+```
+
+A `ServedProduct` whose payload claims 9,999 family members, wrapping a replay
+record whose dimension 1 observed 77, crosses the delivery boundary unremarked.
+
+What the boundary *does* enforce is real and is not nothing.
+`ccf.products.door::served_answer` refuses anything that is not a
+`ServedProduct` — a bare `ServableProduct` is named as *"admitted by the gates,
+recorded by nothing"* — and `D-IMPL-260` P-A requires *"a typed/provable
+governed result proving determination, replay and disclosure completed."* That
+is a **shape** proof: something was recorded. It is not a **content**
+reconciliation: nobody compares what was recorded against what is being served.
+
+**Both operands are in the door's hand.** `ServedProduct.product` carries the
+payload; `ServedProduct.replay_ref` addresses the record. Reading dimension 1
+and comparing it against the payload is one store fetch away. The ingredients
+are present and the comparison is not made — which is the same sentence
+findings 8, 12 and 14 each produced about a different mechanism.
+
+#### Question 2 — is MCP exposure binding, or another application?
+
+Measured in executable lines (blank lines, comments and docstrings excluded):
+
+| | total | executable |
+|---|---|---|
+| cp-04's door (`compose.py` + `serve.py`) | 733 | **260** |
+| cp-05's door (`serve.py`) | 334 | **204** |
+
+cp-05 came to this with its governed path already built, and still spent 204
+lines. The reduction is 22%, not the order of magnitude one would expect if the
+door were binding. Breaking cp-05's 204 down:
+
+| Part | exec | Kind |
+|---|---|---|
+| `door()` — entitlement registration, per-boot credential, `build_egress_server(...)` | 60 | **binding and configuration** |
+| imports | 30 | plumbing — 8 SDK modules plus three MCP auth internals |
+| `door_values`, `Door`, `serve`, module-level | 28 | plumbing |
+| `build_resolver` — the `ProductResolverProtocol` adapter | 41 | **application** |
+| `_wrong_address`, `_no_standing_answer`, `_refused`, `_text` | 31 | **application** |
+
+**Roughly half is binding and half is a small application.** The application
+half is not arbitrary — it is parameter translation, the wrong-address refusal,
+the no-standing-answer refusal for a parameterized class read as a resource, and
+the `refuse_request` call the door explicitly delegates. Each is a real decision
+a deployment must make. But each also has to be *written*, and three of the four
+mint a `ProductRequestViolation` by hand because the SDK ships no constructor
+for "this door was addressed for the wrong class."
+
+**The honest verdict: exposure is binding plus a thin application, and the thin
+application is where a deployment can still get governance wrong.**
+`ProductResolverProtocol` names the risk in its own docstring — *"a resolver
+that does not call `refuse_request` serves against an unchecked request"* — and
+that is a ruling (`D-IMPL-113`), not an oversight: the door never holds the
+`RegisteredProductClass` both comparisons need. cp-05 discharges
+`refuse_request`; it does **not** call `refuse_bound_payload`, because this class
+declares no `payload_schema_key` and there would be nothing to compare against.
+That absence is stated in `server/serve.py` rather than left to be inferred.
+
+#### The finding behind both answers
+
+**The SDK already ships the entire governed path cp-05 hand-built.**
+`ccf.products.resolver::GovernedResolver`, reached through
+`build_governed_resolver`, performs — in this order —
+`refuse_intent` → `resolve_effective_request` → `GraphView` at the boundary →
+`build_operator_registry` → `ProjectionEngine.execute(plan_factory(...))` →
+`register_product_class` → the candidate contract with lineage, payload, debt and
+`computed_empty` → `run_gates` → `refuse_over_tolerance` → `build_replay_record`
+→ `serve` or a recorded refusal. That is §D.8 and §D.9 of this document,
+composed, shipped and tested.
+
+cp-05 did not use it. It was built by hand across steps 4 and 5 of this rung's
+rebuild, and the reason is the one this specification has now recorded four
+times: **the machinery is present and correct, and the easiest path for an
+author walks past it.** What cp-05 would need to adopt it is a `plan_factory`
+carrying the Postgres enrichment and the aggregation, an
+`AssemblyDebtScorerProtocol` override (its debt comes from `balance_as_of` dates
+and reconciliation rows, not from the `GraphView`), a home for the
+product-specific reconciliation guard, and an answer to `D-IMPL-277` for the
+acquisition step `GovernedResolver` assumes has already happened. None of those
+is a blocker; all four are unstated.
+
+---
+
 ## Section E — Volatility, debt & materialization
 
 ### E.1 Half-life table
@@ -1116,6 +1220,50 @@ product raises is answered at rung 16, not here.
     nowhere declared to live. Rung 4 put them in `deployment.py` as module
     constants; this rung puts them in `artifacts/replay.yaml`. Neither is the
     Control Plane. Minor, and recorded because every example will meet it.
+
+17. **THE SDK SHIPS THE WHOLE GOVERNED SPINE AND cp-05 REBUILT IT BY HAND.**
+    `ccf.products.resolver::GovernedResolver`, reached through
+    `build_governed_resolver`, composes `refuse_intent` →
+    `resolve_effective_request` → `GraphView` → `build_operator_registry` →
+    `ProjectionEngine.execute` → `register_product_class` → candidate contract
+    → `run_gates` → `refuse_over_tolerance` → `build_replay_record` → `serve`
+    or a recorded refusal. That is §D.8 and §D.9 of this document, shipped.
+    cp-05 built all of it by hand across steps 4 and 5 of this rung's rebuild
+    and discovered the shipped version only while building the MCP door.
+
+    **This is the fourth instance of one pattern**, and at a larger scale than
+    the other three: findings 8 (acquisition), 12 (fulfillment) and 14 (policy
+    composition) each said *the machinery is present and correct, and the
+    easiest path for an author walks past it*. This one says it about the
+    entire governed path at once.
+
+    What cp-05 would need to adopt `GovernedResolver`: a `plan_factory` carrying
+    the Postgres enrichment and the aggregation; an
+    `AssemblyDebtScorerProtocol` override, because this product's debt comes
+    from `balance_as_of` dates and reconciliation rows rather than from the
+    `GraphView`; a home for the product-specific reconciliation guard, which
+    `run_gates` does not run; and a ruling on `D-IMPL-277` for the acquisition
+    step `GovernedResolver` assumes has already happened. Each is tractable and
+    none is documented as the path.
+
+18. **The delivery boundary proves a record EXISTS and does not read it**
+    (§D.10 question 1). A `ServedProduct` whose payload claims 9,999 family
+    members, wrapping a replay record whose dimension 1 observed 77, crosses
+    unremarked — measured, not argued. Both operands are in the door's hand:
+    the payload on `ServedProduct.product`, the record at
+    `ServedProduct.replay_ref`. This is the reconciliation findings 8, 12 and 14
+    each imply and no layer performs.
+
+19. **`GovernedResolver` does not call `refuse_request` or
+    `refuse_bound_payload` either.** The door's own docstring puts the
+    obligation on the resolver (`D-IMPL-113`, extended by `D-IMPL-121`),
+    and the SDK's *reference* resolver calls `refuse_intent` and neither of
+    those two. So a deployment adopting `build_governed_resolver` in good faith
+    inherits an unchecked request surface unless it wraps the result. Recorded
+    as measured rather than as a criticism: the ruling's reason — the door does
+    not hold the `RegisteredProductClass` — applies to the door, and
+    `GovernedResolver` registers the class itself, so the second operand is in
+    its hand.
 
 ---
 

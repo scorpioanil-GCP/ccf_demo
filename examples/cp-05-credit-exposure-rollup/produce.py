@@ -14,6 +14,7 @@ from __future__ import annotations
 import datetime as _dt
 import hashlib
 import json
+import contextlib
 import pathlib
 import tempfile
 from decimal import Decimal
@@ -26,14 +27,15 @@ from ccf.products.contract import ContextProductContract, ProductLineage
 from ccf.products.gates import ServableProduct, refuse_over_tolerance, run_gates
 from ccf.products.provenance import ProvenanceSource
 from ccf.products.refusal import RefusalEvidence, RequestIdentity, envelope_for
+from ccf.products.resolver import ReplayRefusalRecorder
 from ccf.replay.record import (
     NO_ASSEMBLY_REFUSAL,
     NO_REQUEST_RESOLUTION,
+    DecisionReplayRecord,
     PolicyBinding,
     build_replay_record,
-    content_hash,
 )
-from ccf.replay.serve import record_refusal, serve
+from ccf.replay.serve import serve
 
 import assembler as asm
 import deployment as dep
@@ -83,7 +85,9 @@ LIMIT_DEFINITION_BINDING = "limit_definition"
 def _record_and_release(*, config: dict[str, Any], gated, withheld,
                         candidate, execution, outcome, request_identity,
                         bindings, debt_assessment, policy_version: str,
-                        asked_at) -> dict[str, Any]:
+                        asked_at, perspective, request,
+                        replay_root: pathlib.Path | None = None
+                        ) -> tuple[dict[str, Any], Any]:
     """The five-dimension decision record, written BEFORE the response is released.
 
     `D-IMPL-256`: *"Every governed determination that crosses a CCF delivery
@@ -109,9 +113,15 @@ def _record_and_release(*, config: dict[str, Any], gated, withheld,
     reported address is a fact about a persisted artifact rather than about an
     object that was never written.
     """
-    with tempfile.TemporaryDirectory() as replay_root:
-        store, replay_writer, query_pin_writer = dep.replay_writers(
-            pathlib.Path(replay_root))
+    with contextlib.ExitStack() as stack:
+        # A CALLER-SUPPLIED ROOT WHEN THERE IS ONE, a per-run directory
+        # otherwise. The MCP door supplies one: a record that vanishes when the
+        # response is released is not an audit trail, and the ordering
+        # invariant is only half of what replay is for.
+        root = replay_root or pathlib.Path(
+            stack.enter_context(tempfile.TemporaryDirectory()))
+        store, replay_writer, query_pin_writer = dep.replay_writers(root)
+        declared_replay = dep.load(dep.REPLAY)[dep.DECLARATION]
 
         if withheld is None:
             record = build_replay_record(
@@ -136,7 +146,8 @@ def _record_and_release(*, config: dict[str, Any], gated, withheld,
             # holding a Context Product can name the decision record that
             # authorizes it, which makes the trail usable from the consuming
             # side rather than only from the fabric's.
-            ref = released.replay_ref
+            reference = released.replay_ref.uri
+            address = released.replay_ref.content_address
             outcome_name = "served"
         else:
             # THE REFUSAL VALUE TRAVELS, and the envelope is minted from it
@@ -169,44 +180,56 @@ def _record_and_release(*, config: dict[str, Any], gated, withheld,
                 ),
                 provenance=outcome.evidence,
             )
-            record = build_replay_record(
-                execution=execution,
-                product=None,
-                refusal=envelope,
-                perspective=_perspective(config),
-                policy_bindings=bindings,
-                assembly_mode=config["product_class"]["assembly_mode"],
-                recorded_at=asked_at,
-                resolution=outcome.evidence,
+            # THROUGH THE SDK'S OWN REFERENCE RECORDER, not through a
+            # hand-rolled `build_replay_record` + `record_refusal` pair. An
+            # earlier revision of this file did exactly that, and the result
+            # was a raw envelope: recorded, but carrying neither its
+            # `replay_reference` nor a disclosure decision — which
+            # `ccf.products.door` refuses as `UngovernedResolverResult` the
+            # moment it is handed to a delivery boundary. `ReplayRefusalRecorder`
+            # composes the same two shipped functions and additionally does the
+            # two things a door requires, so the refusal this returns is the
+            # governed "no" rather than a description of one.
+            recorder = ReplayRefusalRecorder(
+                artifact_store=store,
+                replay_record_class=declared_replay["record_class"],
                 tenant_id=_TENANT,
+                assembly_mode=config["product_class"]["assembly_mode"],
             )
-            # NOT A `DeliveryCapability` — a refusal has no product for one to
-            # authorize. What the caller needs is the ADDRESS, because that is
-            # where `RefusalEnvelope.replay_reference` points.
-            ref = record_refusal(record=record, replay_writer=replay_writer)
+            released = recorder.record(
+                envelope,
+                perspective=perspective,
+                recorded_at=asked_at,
+                request=request,
+                execution=execution,
+                policy_bindings=bindings,
+                resolution=outcome.evidence,
+            )
+            reference = released.replay_reference
+            address = store.resolve_uri(uri=reference)
             outcome_name = "withheld"
 
         # READ IT BACK. The address below is then a fact about an artifact that
         # is in the store, not about an object this function happened to build.
-        persisted = store.get(content_address=ref.content_address)
-        return {
-            "record_class": ref.artifact_class,
-            "reference": ref.uri,
-            "record_content_address": ref.content_address,
+        persisted = store.get(content_address=address)
+        # READ THE DIMENSIONS OFF THE PERSISTED ARTIFACT, not off an object
+        # this function happens to be holding. On the withheld branch there is
+        # no local record at all — `ReplayRefusalRecorder` builds and appends
+        # it — so parsing the stored bytes is the only honest source, and it
+        # makes both branches report a fact about what is in the store.
+        record = DecisionReplayRecord.model_validate_json(persisted)
+        summary = {
+            "record_class": declared_replay["record_class"],
+            "reference": reference,
+            "record_content_address": address,
             "record_bytes_persisted": len(persisted),
-            # The address the store gave back must be the address of what this
-            # function built. If these ever disagree, the record on disk is not
-            # the record this determination made.
-            "address_matches_built_record": ref.content_address == content_hash(record),
             # WHAT REPLAY RE-ASKS. Not the caller's values — the EFFECTIVE ones,
             # each with the authority that established it.
             "effective_question": dict(request_identity.parameters),
             "policy_bindings": [f"{b.key}@{b.version}" for b in bindings],
             "outcome": outcome_name,
-            # THE FIVE DIMENSIONS, READ OFF THE RECORD RATHER THAN RESTATED.
-            # Every value below is `getattr`-ed from the object that was
-            # persisted; nothing here is a second copy this function assembled
-            # to look right. A withheld determination fills the same five.
+            # THE FIVE DIMENSIONS, READ OFF THE RECORD THE STORE RETURNED.
+            # A withheld determination fills the same five.
             "dimensions": {
                 "1_context_fabric": {
                     "temporal_boundary":
@@ -254,6 +277,7 @@ def _record_and_release(*, config: dict[str, Any], gated, withheld,
                 },
             },
         }
+        return summary, released
 
 
 class RequestRefused(ValueError):
@@ -271,13 +295,27 @@ class RequestRefused(ValueError):
         self.refusal = refusal
 
 
-def produce(*, anchor: str | None = None, intent: str | None = None,
-            depth: int | None = None, materiality: float | None = None,
-            follow_guarantees: bool | None = None,
-            follow_cross_default: bool | None = None,
-            basis: str | None = None,
-            debt_tolerance: str | None = None,
-            as_of: str | None = None) -> dict[str, Any]:
+def produce(**kwargs: Any) -> dict[str, Any]:
+    """The payload alone — what a transcript renders and a test diffs.
+
+    A thin wrapper over :func:`produce_governed`, which additionally hands back
+    the GOVERNED RESULT: the `ServedProduct` or the recorded, disclosed
+    `RefusalEnvelope`. Two callers want two things and neither should carry the
+    other's — `run.py` renders figures, and the MCP door releases a typed
+    governed result and nothing else (`D-IMPL-260` P-A).
+    """
+    return produce_governed(**kwargs)[0]
+
+
+def produce_governed(*, anchor: str | None = None, intent: str | None = None,
+                     depth: int | None = None, materiality: str | None = None,
+                     follow_guarantees: bool | None = None,
+                     follow_cross_default: bool | None = None,
+                     basis: str | None = None,
+                     debt_tolerance: str | None = None,
+                     as_of: str | None = None,
+                     replay_root: pathlib.Path | None = None,
+                     ) -> tuple[dict[str, Any], Any]:
     """One rollup, assembled through the six steps spec §D.2 declares.
 
     Every parameter defaults to the DECLARATION, never to a literal in this
@@ -312,7 +350,7 @@ def produce(*, anchor: str | None = None, intent: str | None = None,
     # and 10% are three parameterizations of one product, not three products.
     with tempfile.TemporaryDirectory() as scratch:
         _fabric, registry = dep.boot(pathlib.Path(scratch))
-        outcome = dep.effective_request(
+        product_request, outcome = dep.effective_request(
             config=config, registry=registry,
             supplied={
                 "depth": depth,
@@ -708,11 +746,13 @@ def produce(*, anchor: str | None = None, intent: str | None = None,
         PolicyBinding(key=bundle_key, version=fabric.pins.version_for(bundle_key)),
         PolicyBinding(key=LIMIT_DEFINITION_BINDING, version=rollup.policy_version),
     )
-    replay = _record_and_release(
+    replay, governed = _record_and_release(
         config=config, gated=gated, withheld=withheld, candidate=candidate,
         execution=execution, outcome=outcome, request_identity=request_identity,
         bindings=bindings, debt_assessment=debt_assessment,
         policy_version=rollup.policy_version, asked_at=asked_at,
+        perspective=_perspective(config), request=product_request,
+        replay_root=replay_root,
     )
 
     payload["fulfillment"] = {
@@ -738,7 +778,7 @@ def produce(*, anchor: str | None = None, intent: str | None = None,
     # across every consumer in `run.py`'s scenario set. The fabric does not
     # revise what it knows to suit who is asking; it revises only whether it is
     # willing to attest that what it knows is fit to act on.
-    return payload
+    return payload, governed
 
 
 def as_contract(payload: dict[str, Any]) -> "ContextProductContract":

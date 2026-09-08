@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE DOOR'S OWN GOVERNANCE VALUES — the SDK holds a default for none of them
+# (CINV-01). `serve.py` is this document's interpreter; delete this file and
+# that program has nothing to open.
+#
+# NO HOST, PORT, PATH OR CREDENTIAL. The bearer token is minted per boot into a
+# temporary directory and deleted on exit; the two estates are whatever
+# `backends.yaml`'s environment variables name.
+
+semver: "1.0.0"
+class_id: cp-05.egress-door
+
+declaration:
+  tool_description: >-
+    Roll up total credit exposure across a corporate family from an anchor LEI,
+    following guarantee and cross-default edges rather than legal-entity
+    boundaries, and return it as a governed, content-addressed Context Product.
+    The caller may supply `materiality` (which of the family's exposure is
+    enumerated rather than summarized) and `debt_tolerance` (the most Context
+    Debt this consumer will act on). BOTH ARE BOUNDED BY POLICY: a materiality
+    above a registered ceiling is REFUSED by name, and a debt tolerance above
+    one is NARROWED to the ceiling. A determination whose measured Context Debt
+    exceeds the effective tolerance is WITHHELD — the product exists, its
+    figures are disclosed, and the fabric declines to attest that they are fit
+    to act on.
+
+  required_scope: ccf:egress
+  issuer_url: https://issuer.cp-05.invalid
+  resource_server_url: https://egress.cp-05.invalid/mcp
+
+  # THE PRINCIPAL THIS DOOR SERVES, and the role its entitlement authorizes.
+  # The same pair `ccf_config.yaml::default_perspective` declares for in-process
+  # assembly — one deployment, one identity, reached two ways.
+  principal_id: PRIN-CRO-001
+  role: credit-officer
