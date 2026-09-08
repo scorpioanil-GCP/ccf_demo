@@ -894,4 +894,69 @@ The claim was that `GovernedResolver` calls neither `refuse_request` nor `refuse
 
 **WHAT THIS DOES NOT DECIDE.** The remedial work's scope, phase number, methodology or sequencing; whether the reconciliation is enforced at `serve`, at the door, or at both; what shape the canonical author path takes; `D-IMPL-277`; the `phase-24.9` and cp-05 branch disposition; `D-GATE-24.9`.
 
-**Next free decision id: `D-IMPL-279`.** **Related:** `D-IMPL-276` (the course correction this rung executed under), `D-IMPL-277` (acquisition, held), `D-IMPL-261` (examples are probes, not repair targets — cp-05 is that ruling working as intended), `D-IMPL-260` P-A (the shape proof this entry finds insufficient), `D-IMPL-253` Q13 (do not create second-class replay), `D-IMPL-113`/`D-IMPL-121` (the refusal obligations row 3 misread), `CP-SPEC-005` §D.8–§D.10 and §F.4 findings 8, 12, 14, 17, 18, 19.
+**Next free decision id: `D-IMPL-280`.** **Related:** `D-IMPL-279` (the four architectural rulings on this table), `D-IMPL-276` (the course correction this rung executed under), `D-IMPL-277` (acquisition, held), `D-IMPL-261` (examples are probes, not repair targets — cp-05 is that ruling working as intended), `D-IMPL-260` P-A (the shape proof this entry finds insufficient), `D-IMPL-253` Q13 (do not create second-class replay), `D-IMPL-113`/`D-IMPL-121` (the refusal obligations row 3 misread), `CP-SPEC-005` §D.8–§D.10 and §F.4 findings 8, 12, 14, 17, 18, 19.
+
+---
+
+### D-IMPL-279 — FOUR ARCHITECTURAL RULINGS on the cp-05 remediation set (R-09 acquisition, R-10 compositional validation, R-11 product gates on the governed path, R-12 replay binding in the Control Plane), plus narrowed direction on R-01 and R-02 and the resolved R-03 dependency
+
+**D-IMPL-279 — Dave rules the four items that needed architectural direction before code, narrows R-01's enforcement point and R-02's correction site, and settles the R-03/R-09 dependency by separating acquisition from the governed spine. NO IMPLEMENTATION IS AUTHORIZED.** RESOLVED as direction; the code is not authorized and no phase is assigned. Date: 2026-09-08. Ruled by: Dave, on `.planning/CP-05-REMEDIATION-SET.md` (`bd3bf33c`). Verbatim throughout.
+
+**R-09 — ACQUISITION.**
+
+> *"CCF needs an explicit source-acquisition boundary for external graph/data sources. Acquisition is upstream of L2/L3 and may be backend-specific, but it must be represented as a first-class assembler concern rather than hidden hand-written query logic. Do not make `GovernedResolver` itself responsible for talking to arbitrary source systems. Instead, it should accept an acquisition result / prepared context input produced through a declared acquisition interface."*
+
+**This resolves `D-IMPL-277`, which has stood OPEN since 2026-09-08.**
+
+**R-10 — SEED-CLASS vs ENTITY-CLASS COMPOSITION.**
+
+> *"The Control Plane should reject provably incompatible declarations at boot/config validation time. If the operator requires seed classes that the declared resolution/admission path cannot produce, that is a compositional configuration error, not a runtime 'empty graph' result. Only validate what can be proven statically; do not infer dynamic cardinality."*
+
+**R-11 — PRODUCT GATES.**
+
+> *"Product gates should be executable on the governed path. `D-IMPL-224` already makes them declared/CI-checked; the missing piece is runtime execution at the point where the candidate product exists and before fulfillment. A product-specific reconciliation gate therefore belongs in the governed spine, not in the MCP door or ad hoc assembler code."*
+
+And, made explicit at his own instruction:
+
+> *"A declared product gate that can only be checked in CI is incomplete if the condition it protects depends on the runtime assembled product. The reconciliation guard you needed in cp-05 is exactly such a case. It should execute against the candidate product before serve / refusal determination."*
+
+**R-12 — REPLAY BINDING.**
+
+> *"Replay binding is deployment configuration and belongs in the Control Plane. The Control Plane should declare which replay store/writer binding a deployment uses. It should not encode product-specific replay contents, only the deployment binding and required policy for replay availability."*
+
+---
+
+**R-01 — THE ARCHITECTURAL TARGET, NARROWED BEFORE IMPLEMENTATION.**
+
+> *"The fabric must establish correspondence between the candidate product, the governed execution record, and the replay record before delivery."*
+
+> *"I would not put the primary enforcement in MCP. MCP is transport. The canonical enforcement point should be in the governed fulfillment spine, before transport encoding. The delivery door may defensively verify the resulting proof/reference, but it should not reconstruct semantic reconciliation itself."*
+
+Ownership, verbatim:
+
+| layer | owns |
+| --- | --- |
+| governed resolver / fulfillment boundary | creates and verifies correspondence |
+| replay writer | records the governed determination |
+| delivery door | verifies it received an already-governed, replay-backed deliverable |
+| MCP | encodes / transports it |
+
+**R-02 — DETERMINISM.**
+
+> *"Determinism enforcement must apply to every governed outcome that can be replayed or disclosed, not only to the served/content-addressed path. If a withheld/refused artifact can carry non-canonical floats while a served artifact cannot, then replay equivalence is asymmetric. That should be corrected at the canonicalization boundary shared by all governed outcomes, not by sprinkling checks into each branch."*
+
+**R-03's DEPENDENCY ON R-09 IS DISSOLVED BY THE R-09 RULING.** The orchestrator had flagged that `GovernedResolver` assumes L3 is populated and that acquisition therefore blocked canonical adoption. Dave's shape removes the coupling:
+
+> *"I would not make 'canonical `GovernedResolver` adoption' depend on the resolver acquiring data itself. The cleaner shape is: Acquire → admit/build L2/L3 → governed resolver owns the deterministic governed spine from there. That keeps source heterogeneity out of the resolver while still making the spine canonical."*
+
+---
+
+**WHAT IS AUTHORIZED NEXT, AND IT IS NOT CODE.** Dave, verbatim:
+
+> *"I would not authorize implementation yet. The next useful artifact should be very small: turn R-01, R-02, R-03, R-09, R-10, R-11, R-12 into proposed SDK changes with one row each: current surface → smallest change → exact ownership layer → direct regression evidence. No phase machinery, no new criteria framework, no generalized proof work. Once that exists, we can decide which changes actually earn code."*
+
+`R-04`, `R-05`, `R-06`, `R-07` and `R-08` are **not** in that set and are carried unruled.
+
+**WHAT THIS DOES NOT DECIDE.** Which changes earn code; any phase number, sequencing or methodology; the shape of the acquisition interface, the correspondence proof, the product-gate seam or the Control Plane replay section; `D-GATE-24.9`; the `phase-24.9` branch disposition.
+
+**Next free decision id: `D-IMPL-280`.** **Related:** `D-IMPL-278` (the disposition table these rulings act on), `D-IMPL-277` (**resolved by the R-09 ruling above**), `D-IMPL-276` (the three gates every row is held to), `D-IMPL-224` (product gates as CI-checked declarations — the half R-11 completes), `D-IMPL-260` P-A (the shape proof R-01 finds insufficient), `.planning/CP-05-REMEDIATION-SET.md`, `CP-SPEC-005` §D.8–§D.10 and §F.4.
