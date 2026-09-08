@@ -442,3 +442,81 @@ def relationship_claim(*, tenant: str, subject: str, object_: str,
         subject_uri=subject,
         object_uri=object_,
     )
+
+
+def populate_and_traverse(*, fabric, graph: GraphSource, anchor_node: str,
+                          nodes: list[str], edges: list[tuple[str, str, str]],
+                          leis: dict[str, str], asked_at):
+    """Acquisition → L2 → L3 → the DECLARED L4 traversal. Returns its family.
+
+    **The distinction this function exists to make explicit, and it is cp-05's
+    central assembler lesson:**
+
+    > *Acquisition may use backend-specific logic; decision logic must execute
+    > through the declared fabric mechanisms.*
+
+    Reading someone else's Fluree estate over SPARQL is ACQUISITION — it is
+    backend-specific by nature and has no SDK surface today (`D-IMPL-277`,
+    open). Deciding which entities constitute the family is DECISION LOGIC, and
+    it runs here through the operator the Control Plane registered, over a
+    time-bounded `GraphView` of L3, seeded from the entity class
+    `ccf_config.yaml` declares.
+
+    An earlier draft of this product answered the question from the acquisition
+    walk directly. It produced the same 77 entities and was not a Context
+    Product: the Control Plane permitted a traversal that never ran, and a
+    hand-rolled walk ran one it never saw.
+    """
+    from ccf.deployment import build_operator_registry
+
+    worker = fabric.handle.worker
+    tenant = fabric.tenant_id
+
+    minted: dict[str, str] = {}
+    for node in nodes:
+        result = worker.ingest(
+            envelope_for_node(node, leis.get(node), None, tenant=tenant,
+                              asked_at=asked_at, is_anchor=(node == anchor_node))
+        )
+        for entity in getattr(result, "entities", ()):
+            minted[node] = entity.node_key
+
+    for subject, predicate, obj in edges:
+        if subject in minted and obj in minted:
+            worker.admit_relationship_claim(
+                tenant_id=tenant,
+                claim=relationship_claim(
+                    tenant=tenant, subject=minted[subject], object_=minted[obj],
+                    predicate=predicate, envelope_id=f"cp05:{subject}",
+                    asked_at=asked_at,
+                ),
+            )
+
+    # The view at the boundary the REQUEST named, never a clock — so replay
+    # feeds the same instant back through the same code path.
+    view = fabric.handle.reader.as_of(tenant_id=tenant, at=asked_at)
+    registry = build_operator_registry(
+        parameters={
+            k: fabric.artifacts[k]
+            for k in ("policy.principal-subgraph", "traversal.typed-neighborhood")
+        },
+        view=view, pins=fabric.pins, policy_bundle_key=worker.policy_bundle_key,
+    )
+    output = registry.resolve("traversal.typed-neighborhood").apply(
+        view=view, tenant_id=tenant, temporal_boundary=asked_at, upstream=()
+    )
+
+    records = output.view.entities
+    records = list(records.values()) if isinstance(records, dict) else list(records)
+    family_leis = sorted({
+        lei for r in records
+        if (lei := (r.claim.attributes or {}).get("lei"))
+    })
+    return {
+        "records": records,
+        "family_size": len(records),
+        "family_leis": family_leis,
+        "minted": minted,
+        "view": view,
+        "registry": registry,
+    }

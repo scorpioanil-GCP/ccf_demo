@@ -488,7 +488,26 @@ caller's `follow_*` flags disagree with the definition, the definition governs
 the **measure** and the flags govern the **traversal scope**, with a finding
 recording the conflict (B.4).
 
-**Step 3 · Traversal — Fluree. One walk, several predicate types.** Walk
+**Step 3 · Traversal — and the distinction this rung exists to teach.**
+
+> **Acquisition may use backend-specific logic; decision logic must execute
+> through the declared fabric mechanisms.**
+
+Reading the source estate over SPARQL is **acquisition**. It is backend-specific
+by nature, has no SDK surface today (F.4, `D-IMPL-277`), and it **populates L3
+without answering anything**. Deciding which entities constitute the family is
+**decision logic**, and it runs through the operator the Control Plane
+registered — `traversal.typed-neighborhood` — over a `GraphView` of L3 bounded
+at the request's own instant, seeded from the entity class `ccf_config.yaml`
+declares.
+
+An earlier draft answered the question from the acquisition walk directly. It
+produced the same 77 entities and **was not a Context Product**: the Control
+Plane permitted a traversal that never ran, and a hand-rolled walk ran one it
+never saw. The two agreeing at 77 is what licensed the demotion, not what
+excused it.
+
+**Step 3a · Acquisition — Fluree. One walk, several predicate types.** Walk
 ownership to `depth`, and extend across `isGuarantorOf` and `crossDefaultsWith`
 where the corresponding flags are set.
 
@@ -772,7 +791,37 @@ product raises is answered at rung 16, not here.
    This specification substitutes a real, exercising anchor (D.1) and records
    the substitution here rather than making it silently. The vault's example
    call should be repointed on the return path.
-6. **`assembly_mode`, `out_of_scope` and `sdk_spec` are `null` in the vault
+6. **API/documentation friction — the envelope payload is FLAT, not nested.**
+   `AssemblyWorker`'s resolver treats `match_key` as a presence flag and reads
+   every identity and attribute key from the TOP LEVEL of `raw_payload`, as
+   siblings. Nesting them under the match key resolves the rule and then refuses
+   — *"matched rule for 'exposure_member' but lacks identity keys
+   ['entity_uri']; the fabric refuses to mint a URI from partial identity."*
+   **The SDK is behaving correctly**; refusing to mint from partial identity is
+   right. The declaration simply does not make the required payload shape
+   obvious. Adoption ergonomics, not a semantic defect.
+
+7. **CANDIDATE SDK VALIDATION GAP — operator seed classes and
+   resolution-produced entity classes can be compositionally incompatible with
+   no boot-time refusal.** The traversal operator's `seed_entity_classes` names
+   a class the resolution spec must mint. Each document is valid alone; the
+   COMBINATION can yield a silently empty traversal over a fully populated
+   graph. **Measured, both ways:** seeding on `exposure_nonesuch` — a class
+   nothing mints — the fabric **boots clean**, and the product then refuses at
+   the empty-operator guard: *"the declared traversal operator returned no
+   entities over an L3 holding 77 ingested nodes and 100 relationship claims."*
+   **NOT FIXED.** Recorded as a candidate; cp-05 continues, and whether this
+   deserves a general compatibility check is decided after seeing whether the
+   same class of mismatch appears elsewhere.
+
+8. **Guard placement is load-bearing, and this is where it was learned.** The
+   empty-operator guard originally watched the ACQUISITION walk. Under the
+   sabotage above that walk returns 77 and the guard **passes**, while the
+   served family is empty. The guard now watches the OPERATOR's output, which is
+   what the product serves. A guard over the wrong step is not a weaker guard —
+   it is a guard that reports on something nobody is served.
+
+9. **`assembly_mode`, `out_of_scope` and `sdk_spec` are `null` in the vault
    article's front matter.** This specification supplies all three; the vault
    article should be updated on the return path (`spec_generation.md` §11).
 

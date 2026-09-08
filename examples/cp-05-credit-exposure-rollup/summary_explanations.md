@@ -128,6 +128,21 @@ and refuses by name. The bound is declared data, not a constant in code.
 
 ---
 
+## The assembler lesson this rung teaches
+
+> **Acquisition may use backend-specific logic; decision logic must execute
+> through the declared fabric mechanisms.**
+
+Reading someone else's graph is acquisition — it is backend-specific by nature,
+and it only *populates* the fabric. Deciding what the family IS must run through
+the operator the Control Plane registered, over the fabric's own state, at the
+instant the request named.
+
+An earlier build of this example answered from the acquisition read directly. It
+returned the same 77 entities. It was still wrong: the Control Plane had
+permitted a traversal that never ran, and a hand-rolled walk had run one it
+never saw. Nothing in the output would have told you.
+
 ## Why you can trust these numbers
 
 **The snapshot.** Every figure above comes from one pinned question asked at

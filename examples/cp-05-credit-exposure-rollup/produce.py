@@ -123,6 +123,7 @@ def produce(*, anchor: str | None = None, intent: str | None = None,
 
     graph, amounts = dep.resolve_sources(backends)
     schema = amounts.schema
+    asked_at = _dt.datetime.fromisoformat(question["asked_at"])
 
     with psycopg.connect(amounts.dsn, connect_timeout=15) as conn:
         with conn.cursor() as cur:
@@ -143,20 +144,43 @@ def produce(*, anchor: str | None = None, intent: str | None = None,
                 )
             anchor_node = anchor_nodes[0]
 
-            # 3 · Traversal — ONE walk, several predicates, both directions
-            nodes = asm.walk(graph, anchor_node, depth_value,
-                             flags["follow_guarantees"], flags["follow_cross_default"])
-            # GATE 1 · empty-operator guard (spec §D.7)
-            if not nodes:
-                raise AssertionError(
-                    "empty-operator guard: the traversal returned no nodes, not even the "
-                    "anchor. A step silently produced nothing."
+            # 3 · Traversal — THROUGH THE FABRIC, not around it.
+            #
+            # ACQUISITION first: read the source estate over SPARQL. Backend-
+            # specific by nature, and with no SDK surface today (`D-IMPL-277`,
+            # open). It populates L3 and does NOT answer the question.
+            acquired = asm.walk(graph, anchor_node, depth_value,
+                                flags["follow_guarantees"], flags["follow_cross_default"])
+            edges = asm.acquire_edges(graph, acquired,
+                                      flags["follow_guarantees"], flags["follow_cross_default"])
+            lei_by_node = asm.node_leis(graph, acquired)
+
+            # DECISION LOGIC second: admit through L2's single writer, then let
+            # the operator the Control Plane REGISTERED decide the family, over
+            # a GraphView of L3 bounded at the request's own instant.
+            with tempfile.TemporaryDirectory() as fabric_root:
+                fabric, _registry = dep.boot(pathlib.Path(fabric_root))
+                traversed = dep.populate_and_traverse(
+                    fabric=fabric, graph=graph, anchor_node=anchor_node,
+                    nodes=acquired, edges=edges, leis=lei_by_node, asked_at=asked_at,
                 )
 
-            lei_by_node = asm.node_leis(graph, nodes)
+            nodes = acquired
+            family_size = traversed["family_size"]
 
-            # 4 · Batch Enrich — ONE query
-            books = asm.enrich(cur, schema, sorted(set(lei_by_node.values())))
+            # GATE 1 · empty-operator guard (spec §D.7) — now over the OPERATOR's
+            # output, which is what the product serves. Guarding the acquisition
+            # walk instead would have passed on a populated source while the
+            # declared traversal returned nothing.
+            if family_size == 0:
+                raise AssertionError(
+                    "empty-operator guard: the declared traversal operator returned no "
+                    f"entities over an L3 holding {len(acquired)} ingested nodes and "
+                    f"{len(edges)} relationship claims. A step silently produced nothing."
+                )
+
+            # 4 · Batch Enrich — ONE query, over the LEIs the OPERATOR reached
+            books = asm.enrich(cur, schema, traversed["family_leis"])
 
             # 5 · Aggregate
             rollup = asm.aggregate(cur, schema, anchor_lei, anchor_node, intent_value,
@@ -203,7 +227,9 @@ def produce(*, anchor: str | None = None, intent: str | None = None,
                      "source": f"{p.source.kind}/{p.source.identity}"}
             for p in outcome.evidence.parameters
         },
-        "family": {"nodes": len(rollup.family_nodes),
+        "family": {"nodes": family_size,
+                   "acquired_from_source": len(acquired),
+                   "relationship_claims_admitted": len(edges),
                    "members_with_lei": rollup.members_with_lei,
                    "members_holding_facilities": len(
                        [e for e in rollup.entities if e.facility_count])},
@@ -216,6 +242,7 @@ def produce(*, anchor: str | None = None, intent: str | None = None,
         "findings": rollup.findings,
         "reconciliation": rollup.reconciliation,
         "lineage": {"operators_invoked": operators_invoked,
+                    "traversal_operator": "traversal.typed-neighborhood",
                     "graph_snapshot_ledger": graph.ledger,
                     "policy_version": rollup.policy_version,
                     "asked_at": question["asked_at"]},
