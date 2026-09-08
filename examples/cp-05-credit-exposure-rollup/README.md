@@ -63,7 +63,11 @@ make example-cp-05 LEI=<lei> MATERIALITY=0.01
 
 The default run reproduces `page/run-transcript.txt` byte for byte.
 
-**Exit codes**, each measured on the interpreter rather than on a pipe:
+**Exit codes.** These are `run.py`'s own, each measured on the interpreter
+rather than on a pipe. Invoked through `make`, the shell sees **make's** exit
+status (`2`) with the program's code in its message — `make: *** [example-cp-05]
+Error 5`. Call `.venv/bin/python examples/cp-05-credit-exposure-rollup/run.py`
+directly if a script needs to branch on the code itself.
 
 | Code | Meaning |
 |---|---|
