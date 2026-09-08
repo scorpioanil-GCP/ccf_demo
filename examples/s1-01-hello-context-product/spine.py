@@ -112,7 +112,12 @@ from ccf.products.request import (
 )
 from ccf.projection.engine import ProjectionEngine
 from ccf.projection.plan import ProjectionPlan
-from ccf.replay.record import DecisionReplayRecord, PolicyBinding, build_replay_record
+from ccf.replay.record import (
+    DecisionReplayRecord,
+    PolicyBinding,
+    ResolutionNotApplicable,
+    build_replay_record,
+)
 from ccf.replay.serve import (
     QueryPinWriter,
     ReplayWriter,
@@ -573,6 +578,15 @@ def assemble_and_serve(
             # record is what makes the decision reproducible rather than
             # merely described.
             request=scenario.request,
+            # WHETHER THE QUESTION'S PARAMETERS WERE RESOLVED, stated
+            # POSITIVELY (D-IMPL-264 D-09/D-10). This spine runs no resolution
+            # step: it has no policy-constraint resolver, applies no class
+            # default and folds no caller override, so the honest value is the
+            # marker with its reason and not a resolution nobody performed.
+            # Omitting the argument is a `TypeError` by design — a record that
+            # cannot say whether resolution ran is an integrity failure rather
+            # than a terse record.
+            resolution=ResolutionNotApplicable(reason="no-resolution-step"),
         )
         # --8<-- [end:record]
 
