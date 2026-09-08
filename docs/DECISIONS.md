@@ -1241,3 +1241,83 @@ The measurement: `SignalEnvelope.raw_payload` is documented as *"the source reco
 **WHAT THIS DOES NOT DECIDE.** Plan or wave decomposition within the ruled order; the Protocol names, modules, callable signatures, refusal field sets, section key names, fixture formats or test module placement — all enumerated as Claude's discretion in `24.10-CONTEXT.md`; whether any row earns escalation beyond its ruled scope; `R-02`; `R-04`/`R-05`/`R-06`; the post-phase cp-05 adoption step; `D-GATE-24.9`; the `phase-24.9` branch's fate; the cp-05 branch's merge.
 
 **Next free decision id: `D-IMPL-283`.** **Related:** `D-IMPL-281` (the scope, order and boundary this completes — and whose recorded discrepancy (0) closes), `D-IMPL-280` (the phase declaration and stop rule), `D-IMPL-279` (the four architectural rulings the rows execute), `D-IMPL-276` (the three gates), `D-IMPL-261` (examples are probes — (4)'s constraint is that discipline applied to s1-01), `D-IMPL-224` (product gates as CI-checked declarations — the half `R-11` completes), `D-IMPL-33` (the `SignalEnvelope` schema (3) reuses), `.planning/phases/24.10-cp-05-product-driven-sdk-remediation-reduce-the-plumbing-a-g/24.10-RULINGS.md` (**governing verbatim copy**), `24.10-CONTEXT.md`, `24.10-DISCUSSION-LOG.md`.
+
+---
+
+### D-IMPL-283 — THE PHASE 24.10 PLANNING BOUNDS: the dropped stop-rule proof is restored as Wave 5, R-09 must prove reuse before proposing a new surface, the public page is mechanical-only, and "cannot adopt without an unruled SDK change" is a SUCCESSFUL outcome
+
+**D-IMPL-283 — Dave rules the planning proportionality calls, restores the focused cp-05 stop-rule test that the four-plan decomposition dropped, corrects `R-09` against the measured existence of `SignalSourceProtocol`, and fixes the completion-gate shape so no plan can be structurally forced into a workaround.** RESOLVED. Date: 2026-09-08. Ruled by: Dave, at the `/gsd-plan-phase 24.10` sitting, in two messages. Verbatim throughout.
+
+---
+
+**(0) THE PROPORTIONALITY CALLS — research, pattern-mapping and the validation matrix are skipped; one checker pass runs.**
+
+Presented as a numbered batch with recommendations; Dave answered *"Q1 a, Q2 a, Q3 a."*
+
+- **Research and pattern-mapping: SKIPPED.** The `24.10-CONTEXT.md` codebase scout already carries the measurements with file-and-line citations, and `D-IMPL-281` rules the phase's character: *"The next move should be a very small implementation plan, not another planning apparatus."* No `RESEARCH.md` and no `PATTERNS.md` exist for this phase, deliberately.
+- **The Nyquist validation matrix: SKIPPED for this phase**, as a per-phase proportionality call. `.planning/config.json` is untouched — `nyquist_validation` stays `true` for later phases. This is the same discipline as the panel skips: ruled on this phase's evidence, never a default (`D-IMPL-269` (1)).
+- **The plan-checker: ONE PASS**, with its blocking and advisory findings fixed in a single revision. Dave, closing: *"No additional checker loop beyond the one authorized pass and the fixes to its blockers/warnings."*
+
+This is a second recorded departure from `D-GATE-19`'s criteria-lock machinery for this phase, consistent with `D-IMPL-280` (4). It does not travel to a later phase.
+
+---
+
+**(1) THE DROPPED STOP-RULE PROOF, AND ITS RESTORATION AS WAVE 5.**
+
+The four plans as first written contained no task driving cp-05's declarations through `GovernedResolver`. **Measured, not asserted:** `cp-05` is named 18 / 21 / 38 / 15 times across plans 01–04 and `GovernedResolver` 13 / 12 / 0 / 26 times, so both terms are abundantly findable; the only line in any plan containing both is a quoted rationale sentence in `24.10-02-PLAN.md:63`. Plan 03 names cp-05 38 times and the resolver zero times.
+
+**The proof is ruled twice, in two governing documents.** `24.10-RULINGS.md` sitting 1: *"Prove the stop rule by driving cp-05's existing declarations through `GovernedResolver` in a focused test without changing cp-05's shipped files, transcripts, or published artifacts."* And `.planning/ROADMAP.md` § Phase 24.10: *"The stop rule is therefore proved **in-phase by test, not by rewiring**."*
+
+**Cause, recorded rather than elided:** the omission was introduced by the planning instruction, not by the planner. The planner's brief said *"exactly four plans, one per row"* and *"do not add a fifth plan,"* then enumerated the four rows without carrying the ruled sentence across. The planner built the shape it was given. The defect landed in the planning instrument, not in the plans.
+
+**Dave's ruling:**
+
+> *"The fifth plan is justified. The focused cp-05 test was already explicitly ruled and was accidentally dropped by the four-plan decomposition. Adding Wave 5 is not scope expansion; it restores the phase's actual stop-rule proof."*
+
+**The confirmed sequence:**
+
+> *"`R-12` → `R-11` → `R-09` → `R-03`/s1-01 measurement → cp-05 focused stop-rule test"*
+
+**And the bound on what Wave 5 is:**
+
+> *"That final plan should be the phase verdict, not another implementation bucket."*
+
+Plan 05 therefore carries the focused cp-05 test and the stop-rule answer, and acquires no implementation tasks, no leftovers from plans 01–04, and no SDK surface. Plan 04's verdict narrows to the s1-01 measurement and its findings roster, and hands the phase-level answer forward. **s1-01 does not substitute for the cp-05 test** — sitting 2 offered it as *"a much better test than documentation alone,"* better than docstrings, not a replacement for the sitting-1 proof.
+
+---
+
+**(2) `R-09` CORRECTED — no duplicate surface by assumption, and a new surface stops for a ruling.**
+
+The phase's codebase scout measured that `SignalSourceProtocol` already exists (`src/ccf/signal/source.py`) and already emits envelopes; the proposals document's *"current surface: Nothing"* was written about graph backends and is imprecise about L1. The measured difference is narrower than `R-09` assumed: the existing protocol is stream-shaped and tenant-scoped (`envelopes(*, tenant_id) -> AsyncIterator[SignalEnvelope]`), while cp-05's acquisition is synchronous and parameterized by the question.
+
+> *"given the measured existence of `SignalSourceProtocol`, Plan 03 must not presume a new acquisition Protocol is required. Its first task should be exactly what you described: determine whether the existing stream-shaped protocol can satisfy the ruled acquisition boundary with a deployment-side adapter. Only if it cannot should a new surface be proposed, and that proposal should stop for a ruling rather than ship automatically."*
+
+**This reverses the plan-checker's proposed fix.** The checker offered "make the criteria conditional, **or** delete the reuse outcome"; deleting it is now forbidden. Plan 03 inverts its default: reuse plus a deployment-side adapter is the presumed path, task 1 is a genuine measurement whose outcome is not predetermined, and a new Protocol is a **proposal that halts for Dave's ruling**, never something the plan ships on its own finding. `D-IMPL-282` (3)'s option 3a — envelopes only, no second relationship-claim output — stands unchanged; what changes is whether a *new* Protocol is presumed necessary to deliver it.
+
+---
+
+**(3) THE PUBLIC PAGE — mechanical synchronization only, with a precise test for the boundary.**
+
+`public/concepts/answers-no-document-contains.md` embeds snippet regions from `examples/s1-01-hello-context-product/spine.py`. Dave ruled s1-01 open (`D-IMPL-282` (4)); he did not rule that page open.
+
+> *"Mechanical snippet synchronization is allowed; substantive prose change is not."*
+
+> *"If the page embeds regions from s1-01/spine.py, update only what is mechanically necessary to keep those embedded regions truthful. Do not reinterpret, rewrite, or republish the page's narrative during 24.10. If the new resolver-based spine makes the existing prose semantically FALSE rather than merely stale at the snippet level, stop and record that as a documentation finding for post-phase handling."*
+
+**The operative distinction:** stale-at-the-snippet-level is repaired mechanically; semantically-false prose **stops** and becomes a documentation finding for post-phase handling. Plan 04 carries both branches and a region-by-region disposition in its SUMMARY. This extends `D-IMPL-261`'s no-republish discipline from example trees to the published pages that embed them.
+
+---
+
+**(4) THE COMPLETION-GATE SHAPE — the finding branch is a SUCCESSFUL outcome, not a degraded one.**
+
+Plans 03 and 04 as first written instructed the executor correctly in prose — *stop, record the finding, leave the evidence executable* — while their frontmatter `must_haves` admitted only the success branch. Plan 03 required 77 entities / 100 relationship claims unconditionally; plan 04 required both *"spine.py reaches its served product through `GovernedResolver`"* and *"s1-01's business result is unchanged"* as simultaneous truths, when the plan's own measurements predict they collide (`debt_evidence`, `source_refresh_recency` and `obligation_in_force` occur 2/1/1 times in `spine.py` and zero times in `src/ccf/products/resolver.py`, and sit inside the product's content address).
+
+> *"For Plans 03, 04, and 05, 'cannot adopt without an unruled SDK change' is an admissible successful phase outcome. The plans must not structurally force a workaround just to get a green completion check. That is exactly the `D-IMPL-261` lesson."*
+
+**Note the word *successful*.** The finding branch discharges the plan; it is not a partial or degraded result a downstream verifier may score as incompletion. Each of plans 03, 04 and 05 states both admissible terminal states in the `must_haves` a verifier actually reads. This is the same failure mode as a gate-coverage instrument that can only report the answer it was built to find: a completion check passable only by a forbidden act will produce the forbidden act.
+
+---
+
+**WHAT THIS DOES NOT DECIDE.** Whether `R-09` in fact needs a new Protocol — that is the measurement plan 03 performs and, if it proposes one, a ruling Dave has not yet given. Whether the s1-01 rewrite lands or produces a classified finding. Whether the cp-05 focused test answers the stop rule affirmatively. Any escalation beyond a row's ruled scope. `R-02`; `R-04`/`R-05`/`R-06`; `R-07`/`R-08`; the post-phase cp-05 adoption step; the post-phase handling of any documentation finding under (3); `D-GATE-24.9`; the `phase-24.9` branch's fate; the cp-05 branch's merge; the `phase-24.5-base` tag push.
+
+**Next free decision id: `D-IMPL-284`.** **Related:** `D-IMPL-282` (the four gray areas these bounds execute — (2) here corrects the premise of its R-09 ruling without changing the ruling), `D-IMPL-281` (the scope, order and boundary, whose 1b ruling (1) restores), `D-IMPL-280` (the phase declaration, the stop rule, and the departure from `D-GATE-19` that (0) extends), `D-IMPL-269` (1) (proportionality is ruled per phase, never a default), `D-IMPL-261` (examples are probes — (3) extends it to embedding pages and (4) names it as the lesson), `D-IMPL-224` (product gates as CI-checked declarations), `D-IMPL-33` (the `SignalEnvelope` schema R-09 reuses), `.planning/phases/24.10-cp-05-product-driven-sdk-remediation-reduce-the-plumbing-a-g/24.10-RULINGS.md`, `24.10-CONTEXT.md`, `24.10-01-PLAN.md` … `24.10-05-PLAN.md`.

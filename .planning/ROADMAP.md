@@ -3583,9 +3583,26 @@ failure or workaround."*
 
 The stop rule is therefore proved **in-phase by test, not by rewiring**: cp-05's existing declarations are
 driven through `GovernedResolver` in a focused test that touches none of cp-05's shipped files,
-transcripts or published artifacts. **cp-05's own rewiring is the post-phase adoption step.** Dave's
+transcripts or published artifacts. **That test is plan `24.10-05`, at wave 5**, and it is the plan
+that answers the stop rule — plan `24.10-04`'s `s1-01` measurement corroborates it rather than
+substituting for it. **cp-05's own rewiring is the post-phase adoption step.** Dave's
 reason: *"That preserves the spirit of `D-IMPL-261`: the example remains the probe and evidence source
 rather than becoming the repair surface during SDK remediation."*
+
+**DUAL-OUTCOME PLANS (Dave, verbatim).** *"For Plans 03, 04, and 05, 'cannot adopt without an
+unruled SDK change' is an admissible **successful** phase outcome. The plans must not structurally
+force a workaround just to get a green completion check. That is exactly the `D-IMPL-261` lesson."*
+Each of those three plans states both admissible terminal states in its `must_haves`, so a verifier
+reading only the frontmatter scores the finding branch as COMPLETE.
+
+**`R-09` PRESUMES REUSE (Dave, verbatim).** *"given the measured existence of `SignalSourceProtocol`,
+Plan 03 must not presume a new acquisition Protocol is required. … Only if it cannot should a new
+surface be proposed, and that proposal should stop for a ruling rather than ship automatically."*
+
+**THE PUBLISHED PAGE (Dave, verbatim).** *"Mechanical snippet synchronization is allowed;
+substantive prose change is not. … If the new resolver-based spine makes the existing prose
+semantically FALSE rather than merely stale at the snippet level, stop and record that as a
+documentation finding for post-phase handling."*
 
 **`R-03`'S CONCRETE SUCCESS CRITERION (Dave, verbatim) — the phase's critical experiment.**
 
@@ -3625,13 +3642,17 @@ surface → smallest change → ownership layer → regression evidence),
 **Success Criteria** (what must be TRUE) — **NOT AUTHORED, AND DELIBERATELY SO.** The stop rule above is
 the phase's own test, and Dave ruled out criteria-lock machinery for this phase by name.
 
-**Plans:** 4 plans, 4 sequential waves, in the ruled order.
+**Plans:** 5 plans, 5 sequential waves — the four ruled rows in the ruled order, plus the ruled
+stop-rule proof at wave 5. Plan 05 is **not a fifth row**: it is the focused cp-05 test
+`D-IMPL-281` commissions, and Dave's bound on it is *"That final plan should be the phase verdict,
+not another implementation bucket."*
 
 Plans:
 - [ ] 24.10-01-PLAN.md — `R-12`: the Control Plane declares the deployment's replay binding, and `build_governed_resolver` consumes it (wave 1)
 - [ ] 24.10-02-PLAN.md — `R-11`: a deployment-supplied product gate on the governed path, with a governed identity and its own refusal kind (wave 2)
-- [ ] 24.10-03-PLAN.md — `R-09`: the acquisition boundary emits `SignalEnvelope`s, proved at 77 nodes / 100 relationship claims (wave 3)
-- [ ] 24.10-04-PLAN.md — `R-03`: s1-01 rewired onto `GovernedResolver`, with the before/after measurement that measures the phase (wave 4)
+- [ ] 24.10-03-PLAN.md — `R-09`: the acquisition boundary measured against the `SignalSourceProtocol` that already exists — reuse with a deployment-side adapter, or propose and halt for a ruling; proved at 77 nodes / 100 relationship claims (wave 3)
+- [ ] 24.10-04-PLAN.md — `R-03`: s1-01 rewired onto `GovernedResolver`, with the before/after measurement — corroborating evidence, not the phase verdict (wave 4)
+- [ ] 24.10-05-PLAN.md — the stop rule proved: cp-05's own declarations driven through `GovernedResolver` in a focused test, and the phase's written verdict (wave 5)
 
 `R-01` and `R-10` get no plan — already-completed 24.10 work, not re-planned, not re-tested, not
 re-reviewed (`D-IMPL-281`).

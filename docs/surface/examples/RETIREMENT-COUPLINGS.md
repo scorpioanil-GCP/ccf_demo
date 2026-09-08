@@ -778,7 +778,8 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/24.10-cp-05-product-driven-sdk-remediation-reduce-the-plumbing-a-g/24.10-01-PLAN.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.10-cp-05-product-driven-sdk-remediation-reduce-the-plumbing-a-g/24.10-02-PLAN.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.10-cp-05-product-driven-sdk-remediation-reduce-the-plumbing-a-g/24.10-03-PLAN.md` | 1 | the phase's own planning tree — not shipped, not published |
-| `.planning/phases/24.10-cp-05-product-driven-sdk-remediation-reduce-the-plumbing-a-g/24.10-04-PLAN.md` | 32 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/24.10-cp-05-product-driven-sdk-remediation-reduce-the-plumbing-a-g/24.10-04-PLAN.md` | 35 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/24.10-cp-05-product-driven-sdk-remediation-reduce-the-plumbing-a-g/24.10-05-PLAN.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.10-cp-05-product-driven-sdk-remediation-reduce-the-plumbing-a-g/24.10-CONTEXT.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.10-cp-05-product-driven-sdk-remediation-reduce-the-plumbing-a-g/24.10-DISCUSSION-LOG.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.4-corporate-family-tree-cp-04-first-multi-store-product-fluree/24.4-13-PLAN.md` | 2 | the phase's own planning tree — not shipped, not published |
@@ -815,7 +816,7 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/24.8-traversal-semantics-one-ruled-meaning-for-a-dangling-endpoin/24.8-LEGS.md` | 91 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.8-traversal-semantics-one-ruled-meaning-for-a-dangling-endpoin/24.8-RESEARCH.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `CLAUDE.md` | 9 | the project charter; revised by Dave, by no plan (CLAUDE.md §2) |
-| `docs/DECISIONS.md` | 97 | append-only decision log |
+| `docs/DECISIONS.md` | 98 | append-only decision log |
 | `docs/PHASE_15_5_GATE.md` | 2 | append-only per-phase gate records |
 | `docs/PHASE_I1_GATE.md` | 1 | append-only per-phase gate records |
 | `docs/PHASE_I3_GATE.md` | 5 | append-only per-phase gate records |
