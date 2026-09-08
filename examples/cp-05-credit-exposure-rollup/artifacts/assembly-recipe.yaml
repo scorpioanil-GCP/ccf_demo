@@ -108,11 +108,15 @@ declaration:
     - gate: reconciliation guard
       asserts: gross >= guarantee-adjusted, per group
       witness: >-
-        10,125,000,000 >= 9,325,000,000. THIS GATE HAS NOT YET BEEN OBSERVED
-        FIRING. `example_delivery.md` §11 requires every product gate to be made
-        to fail deliberately at least once, and that observation is OWED —
-        recorded here as owed rather than claimed. A gate that has only ever
-        passed has not been shown to be able to fail.
+        OBSERVED BOTH WAYS on 2026-09-08, which is what `example_delivery.md`
+        §11 requires of every product gate. FIRING: a hand-built rollup with
+        gross 100 and adjusted 140 — arithmetically impossible, and exactly what
+        a double-subtracting dedup produces — raised
+        "reconciliation guard: adjusted committed 140 exceeds gross 100. The
+        dedup logic double-subtracted." NOT FIRING, as the positive control: the
+        shipped figures 10,125,000,000 >= 9,325,000,000 pass. The rollup was
+        constructed in the test rather than by mutating the shipped module, so
+        no source file was edited to take the observation.
 
   # ==========================================================================
   # WHAT THE GUARD DOES NOT WATCH FOR — recorded because it bit
