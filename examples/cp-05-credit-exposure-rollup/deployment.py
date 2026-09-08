@@ -519,4 +519,5 @@ def populate_and_traverse(*, fabric, graph: GraphSource, anchor_node: str,
         "minted": minted,
         "view": view,
         "registry": registry,
+        "fabric": fabric,
     }

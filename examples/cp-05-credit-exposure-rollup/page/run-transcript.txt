@@ -9,7 +9,7 @@
   effective         depth=3(default)  materiality=0.05(default)
 
   FAMILY
-    77 nodes reached at depth 3; 19 carry an LEI; 4 hold a material facility book
+    77 nodes reached at depth 3; 19 carry an LEI; 5 hold a material facility book
 
   EXPOSURE                     committed        outstanding           undrawn
     gross              10,125,000,000      7,456,090,501     1,656,400,215
@@ -42,11 +42,11 @@
       and hold no facility. A borrower-keyed sum cannot reach them.
 
   LINEAGE
-    operators   Resolve -> Policy -> Traversal -> Enrich -> Aggregate
+    operators   policy.principal-subgraph -> traversal.typed-neighborhood -> Resolve -> Enrich -> Aggregate
     ledger      fibo-v2
     policy      limit_definition/group-limit-test
     asked_at    2026-09-07T12:00:00+00:00
     expires_at  2026-09-07T16:00:00+00:00
 
-  content address  b4f3e0e2e9df022184bbaed24206a9e3de419deffed767ba4b27e54f44028cb3
+  content address  77fde2413eca01dc2e1c9e54bc74971ea537fabd301f34f8debd447f3dee2490
 ==============================================================================

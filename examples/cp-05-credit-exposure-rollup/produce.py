@@ -26,10 +26,19 @@ from ccf.products.contract import ContextProductContract
 
 import assembler as asm
 import deployment as dep
+import projection as proj
 
 
 #: The tenant this deployment declares. Read, never written here.
 _TENANT = dep.load(dep.CONFIG)["tenant_id"]
+
+
+def _perspective(config: dict[str, Any]):
+    """The deployment's declared perspective — Π's role conditioning."""
+    from ccf.projection.plan import Perspective
+
+    declared = config["default_perspective"]
+    return Perspective(principal_id=declared["principal_id"], role=declared["role"])
 
 
 def _canonical(payload: dict[str, Any]) -> bytes:
@@ -182,15 +191,46 @@ def produce(*, anchor: str | None = None, intent: str | None = None,
             # 4 · Batch Enrich — ONE query, over the LEIs the OPERATOR reached
             books = asm.enrich(cur, schema, traversed["family_leis"])
 
-            # 5 · Aggregate
+            # 5 · Aggregate — COMPLETE FAMILY TRUTH, no threshold applied.
             rollup = asm.aggregate(cur, schema, anchor_lei, anchor_node, intent_value,
-                                   limit, depth_value, nodes, lei_by_node, books,
-                                   materiality_value, flags)
+                                   limit, depth_value, nodes, lei_by_node, books, flags)
             rollup.reconciliation = asm.reconcile(cur, schema, anchor_lei,
                                                   rollup.gross.committed)
 
     # GATE 4 · reconciliation guard — the one that catches a plausible wrong answer
     asm.reconciliation_guard(rollup)
+
+    # ------------------------------------------------------------------
+    # L5 · Π — WHICH OF THAT TRUTH IS RELEVANT TO THIS CALLER
+    # ------------------------------------------------------------------
+    #
+    # The plan is constructed with the EFFECTIVE threshold and applies it. It is
+    # NOT told which authority won: that is recorded on the contract's effective
+    # request and travels into replay, an audit fact rather than an input. A
+    # projection branching on provenance would let authority change the answer.
+    plan = proj.ExposureRollupProjection(
+        plan_id=f"cp-05.exposure-rollup/materiality={materiality_value}",
+        threshold=materiality_value,
+        entities=rollup.entities,
+        gross_committed=rollup.gross.committed,
+        connected_without_exposure=rollup.connected_without_exposure,
+    )
+    # THROUGH THE ENGINE, not by calling the plan directly. `ProjectionEngine`
+    # runs the two-stage execution the whitepaper specifies — operator plan,
+    # then projection plan — and hands back what it OBSERVED ITSELF RUNNING
+    # rather than what this program declared. That observed set is what lineage
+    # carries and what a gate would check declared-against-observed.
+    from ccf.projection.engine import ProjectionEngine
+
+    execution = ProjectionEngine(
+        reader=traversed["fabric"].handle.reader, registry=traversed["registry"]
+    ).execute(
+        plan=plan,
+        perspective=_perspective(config),
+        tenant_id=config["tenant_id"],
+        temporal_boundary=asked_at,
+    )
+    projected = execution.projection
 
     # 6 · Contract assembly
     asked_at = _dt.datetime.fromisoformat(question["asked_at"])
@@ -203,8 +243,18 @@ def produce(*, anchor: str | None = None, intent: str | None = None,
             f"TTL bounds: window {window}s is outside (0, {ttl['max_ttl_seconds']}]."
         )
 
-    # GATE 2 · lineage strict equality — the record names exactly what ran
-    operators_invoked = ["Resolve", "Policy", "Traversal", "Enrich", "Aggregate"]
+    # GATE 2 · lineage strict equality — the record names exactly what ran.
+    #
+    # The FABRIC operators come from the engine's OWN observation
+    # (`ExecutionResult.operators_invoked`), never from a list this file
+    # maintains: a hand-kept list is a declaration that drifts, and lineage
+    # strict equality would then be comparing a claim against itself. The
+    # assembly steps that are not registry operators are named beside them —
+    # Resolve, Enrich and Aggregate are assembly stages, not operators
+    # (`ccf_config.yaml` records why).
+    operators_invoked = sorted(execution.operators_invoked) + [
+        "Resolve", "Enrich", "Aggregate"
+    ]
 
     payload: dict[str, Any] = {
         "schema_name": config["product_class"]["schema_name"],
@@ -235,14 +285,17 @@ def produce(*, anchor: str | None = None, intent: str | None = None,
                        [e for e in rollup.entities if e.facility_count])},
         "measures": {"gross": rollup.gross.as_dict(), "adjusted": rollup.adjusted.as_dict()},
         "guarantee_dedup": {"cases": len(rollup.dedup_cases), "detail": rollup.dedup_cases},
-        "entities": [
-            {"lei": e.lei, "legal_name": e.legal_name, "facilities": e.facility_count,
-             "gross": e.gross.as_dict()} for e in rollup.entities],
+        # WHAT L5 DECIDED, under this caller's effective threshold. The family
+        # above is the same for every caller; this block is not.
+        "projection": {"plan_id": projected.plan_id, **dict(projected.payload)},
+        "entities": list(projected.payload["material"]),
         "connected_without_exposure": rollup.connected_without_exposure,
         "findings": rollup.findings,
         "reconciliation": rollup.reconciliation,
         "lineage": {"operators_invoked": operators_invoked,
                     "traversal_operator": "traversal.typed-neighborhood",
+                    "projection_plan_id": execution.plan_id,
+                    "engine_observed_operators": sorted(execution.operators_invoked),
                     "graph_snapshot_ledger": graph.ledger,
                     "policy_version": rollup.policy_version,
                     "asked_at": question["asked_at"]},

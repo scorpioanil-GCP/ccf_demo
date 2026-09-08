@@ -821,7 +821,19 @@ product raises is answered at rung 16, not here.
    what the product serves. A guard over the wrong step is not a weaker guard —
    it is a guard that reports on something nobody is served.
 
-9. **`assembly_mode`, `out_of_scope` and `sdk_spec` are `null` in the vault
+9. **API friction, minor and recorded — `ProjectionPlan.invoke` receives no
+   request.** Its four arguments are `view`, `operator_outputs`, `perspective`
+   and `temporal_boundary`. A caller-selectable *projection* parameter — this
+   product's materiality threshold — therefore has no declared channel into
+   `invoke` and arrives through the plan's constructor, the plan being built per
+   request. **`ProjectionEngine.execute` itself required no adaptation**, so
+   this is a discoverability cost rather than a capability gap: an author has to
+   work out that the plan, not the call, is where a per-request projection
+   parameter lives. Arguably correct as designed — a projection conditioned on
+   `perspective` and bounded by time, with everything else fixed at
+   construction, is a defensible contract.
+
+10. **`assembly_mode`, `out_of_scope` and `sdk_spec` are `null` in the vault
    article's front matter.** This specification supplies all three; the vault
    article should be updated on the return path (`spec_generation.md` §11).
 

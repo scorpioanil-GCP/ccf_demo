@@ -211,7 +211,7 @@ def enrich(cur, schema: str, leis: list[str]) -> dict[str, tuple[int, Money]]:
 def aggregate(cur, schema: str, anchor_lei: str, anchor_node: str, intent: str,
               limit: LimitDefinition, depth: int, nodes: list[str],
               lei_by_node: dict[str, str], books: dict[str, tuple[int, Money]],
-              materiality: float, flags: dict[str, bool]) -> Rollup:
+              flags: dict[str, bool]) -> Rollup:
     """**Step 5 · Aggregate** — in-memory, algorithmic, and where the product is won.
 
     Five sub-steps in spec §D.3 step 5's order. Sub-step 2 is the one that makes
@@ -292,23 +292,24 @@ def aggregate(cur, schema: str, anchor_lei: str, anchor_node: str, intent: str,
     if not limit.counts_undrawn:
         adjusted.undrawn = 0
 
-    # ---- 5.3 materiality, with the cross-default exemption -------------------
+    # ---- 5.3 NO MATERIALITY HERE. THIS IS THE SEMANTIC BOUNDARY. --------------
     #
-    # Entities reached ONLY by cross-default hold no facility and contribute
-    # zero. They are reported rather than absorbed into a residual: absorbing
-    # them would delete the finding the traversal exists to produce
-    # (spec §C.4 trap 2). The materiality floor applies to entities that HAVE
-    # exposure, which is the population it was written for.
+    # The assembler determines the COMPLETE family exposure truth. Deciding
+    # which of that truth is relevant to a caller's decision is L5's job, and
+    # it happens in `projection.py::ExposureRollupProjection`.
+    #
+    # The materiality threshold is a PRESENTATION PREFERENCE, not a fact about
+    # the family. Filtering here would let a request parameter alter TRUTH
+    # rather than shape CONTEXT, and two callers asking at 2% and 10% would then
+    # disagree about what the borrower owes. They are owed the same 77-entity
+    # family and the same gross and adjusted totals, and different material sets.
+    #
+    # Measured across 2% / 5% / 10%: family 77, gross 10,125,000,000 and
+    # adjusted 9,325,000,000 IDENTICAL; only the material set moves.
     with_exposure = {e.lei for e in entities}
     connected_without_exposure = sorted(
         lei for node, lei in lei_by_node.items() if lei not in with_exposure
     )
-    floor = int(gross.committed * materiality) if gross.committed else 0
-    material = [e for e in entities if e.gross.committed >= floor]
-    residual = Money()
-    for entity in entities:
-        if entity.gross.committed < floor:
-            residual.add(entity.gross)
 
     # ---- findings -----------------------------------------------------------
     findings: list[dict[str, Any]] = []
@@ -342,7 +343,7 @@ def aggregate(cur, schema: str, anchor_lei: str, anchor_node: str, intent: str,
         depth=depth,
         family_nodes=nodes,
         members_with_lei=len(lei_by_node),
-        entities=material,
+        entities=entities,
         gross=gross,
         adjusted=adjusted,
         dedup_cases=dedup_cases,
