@@ -40,7 +40,7 @@ product_class:
   # difference is worth stating because it invites a mistake. The vault's
   # §B lineage names five — Resolve, Policy, Traversal, Enrich, Aggregate.
   # `operators_invoked` is `frozenset[str]`, *"the operator set the producer
-  # DECLARES it ran"* (`src/ccf/products/contract.py::ContextProductLineage`),
+  # DECLARES it ran"* (`src/ccf/products/contract.py::ProductLineage`),
   # so all five are declarable. `required_operator_keys` is different: it is
   # checked against the REGISTRY at boot, and Resolve, Enrich and Aggregate are
   # not registered operators — they are assembly steps. An implementer who
