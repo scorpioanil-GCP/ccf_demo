@@ -232,8 +232,8 @@ Rows by coupling shape:
 | `src/ccf/products/bind.py` | 76 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
 | `src/ccf/products/request.py` | 918 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
 | `src/ccf/products/request.py` | 1608 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
-| `src/ccf/products/resolver.py` | 1163 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
-| `src/ccf/products/resolver.py` | 2211 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
+| `src/ccf/products/resolver.py` | 1186 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
+| `src/ccf/products/resolver.py` | 2310 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
 | `tests/cli/test_schema_export.py` | 60 | `archive/examples/00-quickstart` | `path-construction` | live | - | - | 23-04 | constructed as `archive/examples/00-quickstart/artifacts` |
 | `tests/client/conformance/suite.py` | 380 | `tests/examples/test_s1_00_output.py` | `docstring` | documentary | - | - | 17-08 |  |
 | `tests/client/conformance/suite.py` | 413 | `tests/examples/test_s1_00_output.py` | `docstring` | documentary | - | - | 17-08 |  |
@@ -281,7 +281,7 @@ Rows by coupling shape:
 | `tests/examples/test_hw1_harness_clients_retirement.py` | 606 | `examples/external/00-hello-context` | `tmp_path-synthetic` | survives | - | - | 23-04 |  |
 | `tests/examples/test_hw1_harness_clients_retirement.py` | 627 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
 | `tests/examples/test_s1_01_governed_resolver_adoption.py` | 125 | `examples/s1-01-hello-context-product` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-01-hello-context-product` |
-| `tests/examples/test_s1_01_governed_resolver_adoption.py` | 365 | `tests/examples/test_s1_01_output.py` | `docstring` | documentary | - | - | 17-08 |  |
+| `tests/examples/test_s1_01_governed_resolver_adoption.py` | 376 | `tests/examples/test_s1_01_output.py` | `docstring` | documentary | - | - | 17-08 |  |
 | `tests/examples/test_source_estate.py` | 50 | `examples/s1-01-hello-context-product` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-01-hello-context-product` |
 | `tests/examples/test_spine_separation.py` | 36 | `archive/examples/00-quickstart` | `docstring` | documentary | - | - | 23-04 |  |
 | `tests/halflife/test_debt.py` | 707 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
