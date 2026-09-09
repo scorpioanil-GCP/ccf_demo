@@ -1595,3 +1595,49 @@ Item 2 is the `D-IMPL-286` success signal reaching its first instance: the harne
 **WHAT THIS DOES NOT DECIDE.** `24.11-C-01` itself — neither the content-vs-determination question nor any change to the addressing scheme; it waits for demonstrated harm. Where `similarity_index_version` should be read from for `F-06` (the class declaration, an artifact, or the deployment) — a row-2 measurement, and if it requires a new declaration surface rather than propagating one that exists, that is a finding to report at the stop point rather than a design to ship. `F-08`, `F-11`, `F-12` and the final rerun. `D-GATE-24.10`, the `phase-24.10` merge and push.
 
 **Next free decision id: `D-IMPL-292`.** **Related:** `D-IMPL-290` (whose (1) invariant this restates and whose (3) cadence continues), `D-IMPL-289`, `D-IMPL-288`, `D-IMPL-287` (5) (the no-new-tooling prohibition (4) applies), `D-IMPL-286` (the monkeypatch-deletion signal (5) item 2 instantiates), `D-IMPL-285` (3), `D-IMPL-38` (the `similarity_index_version` requirement `F-06` violates), `D-IMPL-111` limb (a), `DI-15.5-07`, `src/ccf/products/resolver.py::GovernedResolver`, `src/ccf/products/request.py::request_seeds`.
+
+---
+
+**D-IMPL-292 — `F-06` is NOT closed: the runtime seam is fixed, the DECLARATION AUTHORITY is not. `similarity_index_version` is decision-affecting operator configuration and gets a canonical home on `SimilaritySelectParametersArtifact`; a surviving deployment value may only MATCH the declaration — EQUALITY, never precedence.** RESOLVED. Date: 2026-09-08. Approver: Dave.
+
+**(1) TWO THINGS WERE PROVED, AND ONLY ONE IS FIXED.** Dave, verbatim: *"You proved two different things: 1. `GovernedResolver` was missing the runtime propagation seam — fixed. 2. There is no canonical SDK authority for `similarity_index_version` — still open."*
+
+**Why the second matters, verbatim:** *"That second point matters because the current fix risks turning the old test-harness bridge into permanent deployment plumbing. The monkeypatch disappeared, which is good, but the deployment still has to tell the resolver something that materially affects operator behavior and reproducibility."* **This is the `D-IMPL-286` success signal being read strictly**: deleting a monkeypatch is not the goal if the same obligation simply moves from the harness into every deployment. A workaround relocated from test code to caller code is still a workaround — the same error `D-IMPL-289`'s general rule names.
+
+**(2) THE RULING, verbatim:**
+
+> *"`similarity_index_version` is decision-affecting operator configuration and needs a canonical declarative home in the SDK. It must not remain an ungoverned deployment-supplied semantic value."*
+
+**The narrow schema change is AUTHORIZED.** *"Given what you measured, `SimilaritySelectParametersArtifact` is the strongest candidate because it already owns the similarity-selection/corpus semantics. I would authorize that narrow schema change."*
+
+**(3) THE AUTHORITY MODEL, verbatim:**
+
+> *"declaration owns the version → resolver consumes it → deployment supplies the implementation, not an alternate semantic version"*
+
+**(4) EQUALITY, NOT PRECEDENCE — and this is a DELIBERATE DEPARTURE from `R-12`'s model. Do not harmonize them.** Dave, verbatim: *"If an explicit deployment value remains temporarily possible, it may only match the declared value. A disagreement must refuse; deployment must never widen or replace the declaration."* And in the scope list: *"if two sites exist during migration, **enforce equality rather than precedence**."*
+
+`D-IMPL-282` `R-12` `D-04` ruled the opposite shape for the replay binding — *"explicit builder argument > Control Plane replay binding > no binding/refusal"* — because a **binding** is deployment configuration the Control Plane may supply a default for. A **semantic version identity** is not: two disagreeing values mean two different corpora, and choosing either silently makes a determination irreproducible. The two rulings are consistent in principle (the Control Plane owns meaning; the deployment owns wiring) and opposite in mechanism, on purpose.
+
+**(5) THE SCOPE — `F-06` extended narrowly, verbatim:**
+
+> *"add `index_version` to the canonical similarity parameter artifact; make the resolver obtain it from that declaration; remove the newly added caller/deployment plumbing if it becomes redundant; if two sites exist during migration, enforce equality rather than precedence; one direct SDK test for declared-version propagation plus mismatch refusal; no new infrastructure."*
+
+**(6) THE s1-01 MIGRATION IS AUTHORIZED — BUT ONLY AFTER THE SDK SURFACE EXISTS.** Dave, verbatim: *"Only after the SDK supports the canonical declaration may s1-01 receive the minimum declarative migration from its adopter-specific `product-governance.yaml` location. That would be an **objective migration to a newly canonical SDK surface**, not an example workaround."* Same ordering discipline as `D-IMPL-289`: the SDK capability lands first and is observed, then the example moves to it. The example edit is a *consequence* of the SDK gaining a surface, never a substitute for it.
+
+**(7) THE STRENGTHENED SUCCESS SIGNAL, verbatim:**
+
+> *"No monkeypatch and no deployment code restating `similarity_index_version`; the declared artifact is the authority."*
+
+Strictly stronger than the row-2 signal: the monkeypatch's deletion is now necessary but **not sufficient**.
+
+**(8) BUILD-TIME VALIDATION TIMING STAYS WITH `F-12`.** Dave: *"I agree with leaving the build-time validation-timing question alone. That belongs with `F-12` and should not expand this row."*
+
+**(9) DISPOSITION AND CADENCE.** *"So: `F-07` closed. `F-06` runtime seam fixed but not yet architecturally closed. Finish the declaration authority now, then stop again before `F-08`."*
+
+**MEASURED BLAST RADIUS, so the row is not re-derived.** **Only `s1-01` declares a similarity parameters artifact** — `examples/s1-01-hello-context-product/artifacts/operator-parameters-similarity.yaml`; no `cp-0N` example does. `manifest.yaml:128-130` lists that artifact by `path`/`key`/`class_id` with **no digest at that entry**. And the class already carries the exact precedent: `similarity_corpus_attribute_by_class` is documented as *"one artifact-only field beyond the operator's contract"*, construction-time, *"the registry builder reads it before the operator exists"*, deliberately absent from `SimilaritySelectParameters` because *"putting a construction-time value on the per-invocation parameter set would make the L4 invoke contract carry state no invocation reads"*, and with **no default** because *"guessing an attribute name is guessing what a deployment meant."* `index_version` is the same kind of value on every one of those axes, including the no-default rationale — `deployment/operators.py:353-356` already refuses an unversioned index.
+
+---
+
+**WHAT THIS DOES NOT DECIDE.** Whether the `build_governed_resolver` argument added at `0c5ea162` survives migration or is removed — (5) says *"remove … if it becomes redundant"*, and redundancy is measured in the row, not assumed. The `F-12` build-time validation timing (8). `F-08`, `F-11`, `F-12` and the final rerun. `24.11-C-01` (`D-IMPL-291` (3), a carry, still not a defect). The three-issue cap in `CLAUDE.md` §9 versus the current open-finding ledger — raised in `STATE.md`, unreconciled, Dave's. `D-GATE-24.10`, the `phase-24.10` merge and push.
+
+**Next free decision id: `D-IMPL-293`.** **Related:** `D-IMPL-291` (which accepted `F-07` and GO'd `F-06`; this reopens `F-06`'s architectural half), `D-IMPL-290` (3) (the row-by-row cadence (9) continues), `D-IMPL-289` (the compensating-code rule (1) invokes and the SDK-first ordering (6) follows), `D-IMPL-288` (4) (`F-11`'s envelope model — the same "Control Plane owns meaning" principle), `D-IMPL-287` (5) (no new infrastructure), `D-IMPL-286` (the success signal (7) strengthens), `D-IMPL-282` `R-12` `D-04` (the precedence model (4) deliberately departs from), `D-IMPL-38`, `src/ccf/controlplane/artifacts.py::SimilaritySelectParametersArtifact`, `src/ccf/deployment/operators.py::build_operator_registry`.
