@@ -3746,7 +3746,9 @@ everything looks finished.** The repair is real when those two lines are **delet
   does not carry. It is rerun unchanged, once, at the end. **ONE narrow exception, ruled at `D-IMPL-288` (2):**
   cp-05's `unsupported_arguments` list is an *objectively invalid declaration* and may receive the minimum
   canonical correction to a `mapping[name, reason]` — **only after** the SDK's boot refusal lands and names the
-  fault. Measured scope: `ccf_config.yaml:175` plus `deployment.py:272`, whose comprehension currently
+  fault — and refused **for the right reason**, observed on the unchanged example, before any cp-05 byte
+  changes (`D-IMPL-289`'s required four-step ordering, which preserves the finding's provenance).
+  Measured scope: `ccf_config.yaml:175` plus `deployment.py:272`, whose comprehension currently
   synthesizes the constant reason `"not supported at this tier"` and would otherwise discard the authored
   reason. No republication or transcript re-pinning in-phase (`D-IMPL-261`).
 - **NOT AUTHORIZED (`D-IMPL-287` (5)), verbatim:** *"No new generalized test infrastructure, measurement tooling,
