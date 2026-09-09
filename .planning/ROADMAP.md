@@ -3658,6 +3658,102 @@ Plans:
 re-reviewed (`D-IMPL-281`).
 
 
+### Phase 24.11: Canonical Governed Resolution — Repair `GovernedResolver` So the SDK's Canonical Path Is Semantically Correct and Compositionally Complete (INSERTED)
+
+**Purpose (Dave, verbatim, `D-IMPL-286`):** *"Repair `GovernedResolver` so the SDK's canonical governed path is
+semantically correct and compositionally complete."*
+
+**What this phase is NOT (Dave, verbatim, `D-IMPL-286`):** *"The examples should not be the work target. They are
+the evidence that the SDK is deficient."* And: *"We should not spend the phase 'rewiring cp-05' or 'making s1-01
+pass.'"* **"Rewiring s1-01/cp-05" is removed from the scope entirely — it is a verification consequence, not a
+deliverable.**
+
+**STATUS: DECLARED AND CONSTITUTED, NOT PLANNED — `D-IMPL-286` (the framing, superseding `D-IMPL-285` (2)'s exit
+criterion) and `D-IMPL-287` (the constitution: no discuss cycle, the classification test, the sequence, the
+prohibition, the stop point), both Dave, 2026-09-08.** Branch not yet cut. Awaiting Dave's review of the short
+implementation plan before any execution (`D-IMPL-287` (8)).
+
+**THE EXIT CRITERION (Dave, verbatim, `D-IMPL-286` — this REPLACES the cp-05-shaped one at `D-IMPL-285` (2)):**
+
+> *"The SDK's `GovernedResolver` must correctly compose the capabilities required by the existing Context Product
+> declarations. Once the SDK-level defects are fixed, unchanged cp-05 and s1-01 are rerun as probes. If they work,
+> stop. If they expose another SDK deficiency, classify it before doing anything else."*
+
+**THE LOOP (Dave, verbatim), and the two anti-patterns it excludes:**
+
+> *"example exposes defect → classify/rule → fix SDK → smallest direct SDK regression test → rerun unchanged example"*
+
+**Not:** *"example fails → modify example/harness until it uses the resolver successfully."*
+**And absolutely not:** *"add more test infrastructure to prove the examples are testing the resolver correctly."*
+
+**Why this phase exists.** Phase 24.10 measured, twice and independently, that the canonical path is not yet safe to
+call canonical: `s1-01` could not adopt `GovernedResolver` at all, and cp-05's shipped declarations driven through it
+return a served product describing a family of **0** over an L3 holding **77 entities and 100 relationship claims** —
+every universal gate green, content address minted, replay record filed. Dave: *"not a thinner answer than cp-05's, a
+confidently wrong one."* The `s1-01` migration ran **240 → 246** executable lines, so the abstraction saves nothing
+today. That is the evidence base; `D-IMPL-285` (2) granted the escalation as **one bounded phase, not six**.
+
+**SCOPE — `F-06` and `F-07` are IN by ruling; the other four are classified individually.**
+
+| Order | Finding | Standing | What the SDK lacks |
+| --- | --- | --- | --- |
+| **1** | `24.10-F-07` | **IN — P0 by ruling** (`D-IMPL-285` (3)) | The resolver executes Π **unseeded** while `ccf.replay.engine` replays with `seeds=request_seeds(path.request)`. Two subjects pin identically; any served product whose plan walks is replay-divergent by construction. `DI-15.5-07` reproduced on the canonical path after `D-IMPL-111` limb (a) fixed it on the hand-built one. **A correctness defect.** |
+| **2** | `24.10-F-06` | **IN by ruling** (`D-IMPL-287` (2)) | `GovernedResolver.__call__` calls `build_operator_registry` with no `similarity_index_version`, which that builder requires when a similarity artifact is present (`D-IMPL-38`). No class field, no helper argument, registry built inside `__call__`. Stops adoption at **step 4 of the composition's own nine**. **A composition defect.** |
+| 3 | `24.10-F-08` | **CLASSIFICATION PROPOSED — see the plan** | `obligation_in_force`, `source_refresh_recency`, `debt_evidence` have no seam in candidate construction, and all three sit **inside the content address**. |
+| 4 | `24.10-F-09` | **CLASSIFICATION PROPOSED** | `expires_at`, the gate instant and `recorded_at` all derive from `request.asked_at`; a **required** declared `decision_instant` goes unread. |
+| 5 | `24.10-F-11` | **CLASSIFICATION PROPOSED — mechanism needs a ruling** | `_operator_parameters` reads artifacts verbatim off `BootedFabric.artifacts` with no request in scope, so a declared operator envelope cannot be bound to the question asked. |
+| 6 | `24.10-F-12` | **CLASSIFICATION PROPOSED** | `load_config_and_boot` admits a `request_contract` section that `ProductRequestContract.from_declared` refuses three frames down at builder time. |
+
+**THE CLASSIFICATION TEST (Dave, verbatim, `D-IMPL-287` (3)) — the single question asked of findings 3–6:**
+
+> *"Is this capability required for the SDK's canonical governed resolver to correctly execute its declared contract,
+> independent of cp-05?"*
+>
+> *"If yes, fix the SDK. If no, leave the finding out of 24.11 even if a test could be made to pass by adding it."*
+
+**THE IMPLEMENTATION SEQUENCE (Dave, verbatim, `D-IMPL-287` (6)):**
+
+> *"`F-07` correctness first → `F-06` composition → evaluate `F-08`/`F-09`/`F-11`/`F-12` individually → implement only
+> confirmed SDK gaps → smallest direct SDK regression tests → remove now-unnecessary diagnostic bridges → rerun
+> unchanged `s1-01` and cp-05 once."*
+
+**THE SUCCESS SIGNAL — no new machinery, and it is not the XFAIL count.** Dave: *"That is much more meaningful than
+making six XFAILs turn green."* The two evidence modules each carry exactly **one** `monkeypatch.setattr`, and each is
+the harness supplying a capability the SDK lacks:
+
+- `tests/products/test_cp05_canonical_path.py:599` patches `GovernedResolver._operator_parameters` (`F-11`)
+- `tests/examples/test_s1_01_governed_resolver_adoption.py:255` patches `build_operator_registry` (`F-06`)
+
+Legitimate as measurement devices in a diagnostic phase — bridging one wall makes the walls behind it observable.
+**In 24.11 they are the failure mode: keep the bridges, turn the tests green, and the SDK gains nothing while
+everything looks finished.** The repair is real when those two lines are **deleted**, the capability having moved into
+`src/`. Observable by reading two files; nothing is built to check it (`D-IMPL-287` (5)).
+
+**THE FENCE.**
+
+- **`src/` and `runtime/` — OPEN.** This is where the phase's work lands, and the phase is measured by what lands there.
+- **`tests/` — OPEN, for the smallest direct SDK-level regression tests only.** Dave: *"For `F-07`, for example, test
+  the resolver itself: two different subjects must produce appropriately subject-conditioned execution and must not
+  alias merely because the resolver dropped the seed. **We do not need cp-05 to be the regression test.**"*
+- **`examples/` — CLOSED. All of it, `s1-01` included.** `s1-01` was ruled open for 24.10's `R-03` only; that ruling
+  does not carry. It is rerun unchanged, once, at the end.
+- **NOT AUTHORIZED (`D-IMPL-287` (5)), verbatim:** *"No new generalized test infrastructure, measurement tooling,
+  criteria lock, review panel, or example workaround is authorized."*
+- **No broad `/gsd-discuss-phase` cycle** (`D-IMPL-287` (1)) — *"Another exploratory planning pass creates exactly the
+  risk we just identified."* A proportionality ruling for this phase, not a default.
+
+**ON THE RERUN.** Dave: *"If that rerun reveals another SDK deficiency, classify it. Do not repair the example during
+24.11."* The rerun happens **once**, at the end, against unchanged examples.
+
+**NOT IN THIS PHASE.** `D-GATE-24.10`, the `phase-24.10` merge and push — deferred by intent (`D-IMPL-287` (7)):
+*"There is no product reason to spend time manufacturing a `D-GATE-24.10` before starting the next SDK repair."*
+`24.10-F-01`, `F-02`, `F-04`, `F-05`, `F-10` and the eight carried pre-existing reds. `R-02`; `R-04`/`R-05`/`R-06`;
+`R-07`/`R-08`. The post-phase cp-05 adoption step. Phase 24.9 work, `D-GATE-24.9` and the `phase-24.9` branch.
+
+**Plans:** not yet written. A short implementation plan centered on SDK code goes to Dave for review before any
+execution begins (`D-IMPL-287` (8)).
+
+
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
