@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1034 entries**, of which **790** name a public Python surface.
+**1035 entries**, of which **791** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-502 entries — 462 public Python surface, 40 not public Python API.
+503 entries — 463 public Python surface, 40 not public Python API.
 
 ### Public Python surface
 
@@ -9192,6 +9192,18 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Migration: none. Nothing constructs one unless a deployment declares it.
 
 *Recorded by `24.11-04-an-operator-parameter-may-be-request-bound.md`.*
+
+#### ccf.products.request.decode_declared_request
+
+- Surface: ccf.products.request.decode_declared_request
+- Public surface: true
+- Change type: added
+- Before: absent. A declared `number` sent as canonical decimal text was refused `type-mismatch` before anything could type it, and sent as a float was refused at the wire
+- After: `(request, declared) -> ProductRequest`. Returns a NEW request whose declared `number` arguments carrying canonical decimal text become exact `Decimal`s. Called at the head of `resolve_effective_request`, so the bounds comparison, the policy constraints, the conformity check and the effective value recorded in replay are all numeric
+- Why: `D-IMPL-302` — *"the transport encoding should not leak into the product's semantic contract"*. The wire keeps `"0.05"` and its echo cross-check; the governed request carries exact `Decimal("0.05")`. Wire stability does not require semantic type erasure
+- Migration: none. A request with no declared `number` argument returns the identical object, and a value that is already numeric passes through untouched.
+
+*Recorded by `24.11-06-a-declared-number-crosses-the-wire.md`.*
 
 ### Not public Python API
 

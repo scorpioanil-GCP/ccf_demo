@@ -1883,7 +1883,72 @@ Dave: *"Gate 2 is useful, but it is later. It verifies the engine-resolved opera
 
 **Governs:** `tests/products/test_gate_two_call_shape.py`'s SDK-supplied predicate and binder scope. **WHAT THIS DOES NOT DECIDE.** Any SDK change beyond `D-IMPL-300`'s binder call. Whether cp-05 should later adopt a `binding.yaml` for its own reasons.
 
-**Next free decision id: `D-IMPL-302`.** **Related:** `D-IMPL-300`, `D-IMPL-298`, `D-IMPL-141`, `D-IMPL-137`, `D-IMPL-86`.
+**Next free decision id: `D-IMPL-303`.** **Related:** `D-IMPL-300`, `D-IMPL-298`, `D-IMPL-141`, `D-IMPL-137`, `D-IMPL-86`.
+
+---
+
+**D-IMPL-302 — MCP transport representation must not force Context Product authors to misdeclare logical numeric parameters as strings. A fractional `number` argument crosses the wire as canonical decimal TEXT and is converted by the SDK ingress boundary to an exact numeric value before request-contract validation.** RESOLVED. Date: 2026-09-09. Approver: Dave. An **SDK interoperability defect** found by cp-05's MCP door verification (`D-IMPL-298` step 3).
+
+**The measurement, and it is unusually clean.** Both surfaces are individually right; their composition makes a legitimate request impossible.
+
+| Sent | Refused by | Why it is correct |
+| --- | --- | --- |
+| `"0.05"` (str) | the product contract | `key: materiality`, `reason: type-mismatch` — declared `number`, presented `str` |
+| `0.05` (float) | `WireRequest` | *"a `float` … does not survive the wire unchanged — canonical JSON renders it as text, so the decoded echo would differ from what was sent"*; wire-stable values are `str`, `int`, `bool` |
+
+Logical request type `number`; wire-stable representations `str | int | bool`; **no representation exists for a fractional number.**
+
+**Why it surfaced only now.** cp-04 declares one `number` argument, `debt_tolerance`, and its own config calls it *"DECLARED AND ADVISORY at this tier — no `D_c` vs `debt_tolerance` comparison runs anywhere in this product"*; its tests never send it over the wire. **cp-05 is the first product whose `number` arguments are consequential** — materiality shapes the answer, tolerance decides fulfillment — so it is the first that must transport them.
+
+**The ruling.** The wire representation and the logical request type stay **separate concepts**:
+
+    MCP bytes  "0.05"
+      -> wire decoder retains the canonical lexical value
+      -> contract-aware SDK ingress
+      -> Decimal("0.05")
+      -> ProductRequest / resolve_effective_request
+
+The product contract continues to declare `type: number`, *"because materiality and debt_tolerance are numbers. The transport encoding should not leak into the product's semantic contract."*
+
+**The wire invariant is PRESERVED, not relaxed.** Dave: *"Do not solve this by letting binary float through `WireRequest`. The existing refusal is correct: `0.05` as an IEEE float is not the deterministic representation CCF wants."* Two distinct values live at the boundary — the raw canonical wire representation `"0.05"`, and the typed governed value exact-decimal `0.05`. The echo check remains over the lexical form; contract validation operates on the typed value. **Wire stability does not require semantic type erasure.**
+
+**NARROW, and the boundaries are the ruling.** Authorized only for *declared `number` + canonical decimal text on the wire → exact SDK numeric value*. **Not** authorized: `"true"` → boolean, `"123"` → integer, date parsing, enums, templating, or any transport-conversion DSL. **No `float()` anywhere in the path** — an exact decimal representation only.
+
+**Where the conversion belongs, and where it must NOT.** Not in cp-05's MCP door: *"Otherwise every MCP-serving Context Product would have to repeat: look at schema → find numeric fields → decode decimal → build `ProductRequest`. That is transport/SDK plumbing."* The SDK boundary that converts a `WireRequest` into the governed `ProductRequest` owns it, **using the request contract it is already serving**. The architecture is `WireRequest -> contract-aware typed request decoding -> ProductRequest -> GovernedResolver`, never `WireRequest -> cp-05-specific conversion -> ProductRequest`.
+
+**The direct regression, ruled: one SDK-level test.** A product declares `materiality: number`; a caller sends `"0.05"`; prove (1) the wire round-trip remains exactly `"0.05"`; (2) the governed request receives exact numeric `0.05`; (3) the contract recognises it as a number; (4) replay preserves the effective numeric value; (5) malformed numeric lexical forms refuse; (6) no float is introduced.
+
+**Governs:** the `WireRequest` → `ProductRequest` ingress boundary. **WHAT THIS DOES NOT DECIDE.** Any other logical type's transport encoding. cp-05's declarations, which do **not** change — *"Do not change cp-05's numeric arguments to strings."*
+
+**Next free decision id: `D-IMPL-304`.** **Related:** `D-IMPL-298` (the migration that found it), `D-IMPL-300`, `D-IMPL-301`, `ccf.products.door::WireRequest`.
+
+---
+
+**D-IMPL-303 — MCP doors do not preempt canonical product-request conformity. Doors own transport, address and standing; `GovernedResolver` owns contract-aware decoding, request conformity, effective resolution and the governed outcome. Raw wire-stable lexical values pass through the door unchanged.** RESOLVED. Date: 2026-09-09. Approver: Dave.
+
+**What it fixes.** cp-05's door ran a full `refuse_request(request, contract)` pre-check on the RAW request before the resolver saw it. That made `D-IMPL-302`'s contract-aware numeric decode **unreachable from MCP**: a declared `number` crosses the wire as canonical decimal text, and the pre-check judged the lexical value against the declared type before anything could type it — so `"0.05"` was refused `type-mismatch` and the question never reached the resolver at all.
+
+**`D-IMPL-113` supports the removal; it does not defend the call.** The door's comment cited it — *"THE OBLIGATION THE DOOR NAMES AND DOES NOT PERFORM"* — but read closely that ruling says *"the SDK ships the mechanism; the deployment's own **resolver** calls it"*, and *"the door never holds the registered class ... wiring a call at the door would require the door to acquire the registered class."* The door was performing exactly the judgment `D-IMPL-113` said it was not positioned to make. The obligation is discharged inside `GovernedResolver`, which calls `refuse_request` itself over the **decoded, effective** values, where the declaration, decoding rules, defaults, policy constraints and effective-request machinery are all in one place.
+
+**Measured scope.** No other door does this — `grep` across `examples/*/server/`, `runtime/ccf_runtime/mcp/egress.py` and `src/ccf/products/door.py` found the pre-check only in cp-05. It was cp-05-authored legacy door plumbing and dies with the canonical adoption; had it come from a shared egress implementation the same ownership principle would have been applied there instead.
+
+**The ownership line, and it is the durable rule.**
+
+| Door owns | Resolver owns |
+| --- | --- |
+| transport, address, identity, entitlement, perspective, standing | contract-aware decoding, request conformity, effective resolution, governed determination, replay |
+
+*"Is this request addressed to the product I expose?"* needs no product contract, so the wrong-address refusal **stays** door-owned, as does the resource surface's absent standing answer. *"Does `materiality="0.05"` satisfy the declared logical type `number`?"* is a product-contract judgment and belongs where the declaration lives.
+
+**THE DOOR IS INTENTIONALLY DUMB ABOUT LOGICAL PARAMETER TYPES**, and this is recorded so nobody later "optimizes" it by putting `refuse_request` back. It transports wire-stable lexical values unchanged; the canonical resolver converts and judges them.
+
+**Verified end to end over MCP**, cp-05 against the live estate, after the removal: default tolerance → **WITHHELD** with `kind: tolerance-exceeded` and `authority: "default"`; caller tolerance `1.00` → **SERVED** with a content address, family **77**, gross **$10,125,000,000**, adjusted **$9,325,000,000**, **4** material at threshold `0.05`; replay reference present on both branches; `effective_request` absent from the payload; zero governance duplicated in the door. The `authority: "default"` reaching the wire is the whole chain visible from outside the process — product default → effective resolution → Debt comparison → governed withholding → replay → MCP response.
+
+**Replay accounting, ruled with it:** assert **one decision record per determination by artifact class**, never a raw artifact count. The served branch legitimately writes a query-pin beside its decision record; a count would make that look like a double-mint and would equally hide a real one.
+
+**Governs:** cp-05's `server/serve.py`; the door/resolver ownership line for every MCP-serving Context Product. **WHAT THIS DOES NOT DECIDE.** Any other logical type's transport encoding (`D-IMPL-302`). The remaining cp-05 product-completion steps.
+
+**Next free decision id: `D-IMPL-304`.** **Related:** `D-IMPL-302` (the decode this makes reachable), `D-IMPL-113` (whose reasoning it follows), `D-IMPL-298`, `D-IMPL-121`.
 
 ---
 

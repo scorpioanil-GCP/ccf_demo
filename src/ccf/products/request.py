@@ -96,8 +96,9 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import datetime
+import re
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Final, TYPE_CHECKING, Any, Literal
 
 from pydantic import Field, model_validator
 
@@ -164,6 +165,7 @@ __all__ = [
     "ProductRequestViolation",
     "ProductRequestViolationReason",
     "refuse_intent",
+    "decode_declared_request",
     "refuse_request",
     "refuse_request_contract_pin",
     "refuse_undeclared_class_default",
@@ -1572,6 +1574,87 @@ def _refuse_domain(
             detail=detail,
         )
     return None
+
+
+#: The canonical decimal lexical form a ``number`` argument crosses the wire as.
+#:
+#: `D-IMPL-302`. Deliberately NARROWER than :class:`decimal.Decimal`'s own
+#: parser: an optional sign, digits, and an optional fraction. No exponent, no
+#: ``NaN``, no ``Infinity``, no leading ``+`` on the fraction, no whitespace.
+#: Python would accept every one of those and they are not values a product
+#: contract means by *number*; letting `Decimal`'s breadth define the wire
+#: contract by accident is the failure this pattern exists to prevent.
+CANONICAL_DECIMAL = re.compile(r"^-?\d+(\.\d+)?$")
+
+#: The declared type this decoding applies to, and the only one.
+DECODED_DECLARED_TYPE: Final[str] = "number"
+
+
+def decode_declared_request(
+    request: ProductRequest, declared: ProductRequestContract
+) -> ProductRequest:
+    """A NEW request whose declared ``number`` arguments carry exact decimals.
+
+    **SDK-defined** (CLAUDE.md §11); the ruling of record is ``D-IMPL-302``
+    (Dave, 2026-09-09): *"MCP transport representation must not force Context
+    Product authors to misdeclare logical numeric parameters as strings."*
+
+    **The defect this closes.** A product declaring ``materiality: number``
+    could not be asked over MCP at all. The contract refused a ``str`` with
+    ``type-mismatch``; :class:`~ccf.products.door.WireRequest` refused a
+    ``float`` because *"canonical JSON renders it as text, so the decoded echo
+    would differ from what was sent"*. Both refusals are correct on their own
+    terms, and their composition left a fractional number with **no
+    representation**. cp-05 was the first product whose numeric arguments were
+    consequential enough to need one.
+
+    **Two representations, two authorities, and keeping them apart is the
+    point.** The wire keeps the lexical ``"0.05"`` and the echo cross-check
+    still runs against it; the governed request carries exact
+    ``Decimal("0.05")``, which is what the contract validates, what resolution
+    computes over, and what replay records. *Wire stability does not require
+    semantic type erasure.*
+
+    **A VALIDATOR IS NOT A TRANSFORMER.** This is deliberately separate from
+    :func:`refuse_request`, which judges and returns a violation or ``None``.
+    Dave: *"Turning it into both validator and transformer would blur a useful
+    boundary and ripple a new return shape through every caller."* The sequence
+    is decode, then judge.
+
+    **The incoming request is never mutated.** A new one is returned, so the
+    lexical request stays available to the transport boundary and the
+    conversion point is observable rather than implied.
+
+    **NARROW BY RULING, and the list of what it does not do is the contract.**
+    Only *declared ``number`` + canonical decimal text -> exact* ``Decimal``.
+    No ``"true"`` -> ``bool``, no ``"123"`` -> ``int``, no date parsing, no
+    enums, no scalar-to-collection promotion, no expression or transform
+    registry. **No** :func:`float` **anywhere**: the decimal is built from the
+    text, never through a binary float, so ``0.05`` is exact rather than the
+    nearest double.
+
+    A value that is already numeric passes through untouched, and text that is
+    not a canonical decimal passes through **unchanged** so that
+    :func:`refuse_request` refuses it by name — this function never mints a
+    refusal of its own, because the contract comparison is the one place that
+    verdict belongs.
+    """
+    properties = declared.arguments.properties
+    decoded: dict[str, Any] = {}
+    for name, value in request.parameters.items():
+        declaration = properties.get(name)
+        if (
+            declaration is not None
+            and declaration.type == DECODED_DECLARED_TYPE
+            and isinstance(value, str)
+            and CANONICAL_DECIMAL.match(value)
+        ):
+            decoded[name] = Decimal(value)
+        else:
+            decoded[name] = value
+    if decoded == dict(request.parameters):
+        return request
+    return request.model_copy(update={"parameters": decoded})
 
 
 def refuse_request(

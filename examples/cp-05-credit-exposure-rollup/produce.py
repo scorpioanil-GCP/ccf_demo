@@ -184,13 +184,27 @@ def produce_governed(
             config=config, registry=scratch_registry,
             supplied={
                 "depth": depth,
-                "materiality": None if materiality is None else Decimal(str(materiality)),
+                # THE LEXICAL VALUE, HANDED OVER UNCONVERTED (`D-IMPL-302`).
+                #
+                # These two read `Decimal(str(value))` until the SDK gained its
+                # contract-aware decode. The conversion was unguarded, and the
+                # malformed-value control found what that cost: `Decimal("NaN")`
+                # is a perfectly constructible non-finite decimal, and it
+                # reached canonicalization as an uncaught
+                # `CanonicalizationError` — a runtime failure with no governed
+                # refusal and no replay, where a caller deserved a
+                # `type-mismatch` naming the parameter.
+                #
+                # The SDK now converts, because it is the party holding the
+                # declaration that says which arguments are numbers. A
+                # canonical decimal becomes an exact `Decimal`; anything else
+                # passes through untouched and `refuse_request` refuses it BY
+                # NAME. Converting here would take that judgment back.
+                "materiality": materiality,
                 "follow_guarantees": follow_guarantees,
                 "follow_cross_default": follow_cross_default,
                 "basis": basis,
-                "debt_tolerance": (
-                    None if debt_tolerance is None else Decimal(str(debt_tolerance))
-                ),
+                "debt_tolerance": debt_tolerance,
                 "as_of": as_of,
                 "families": [family_token],
             },
