@@ -884,6 +884,46 @@ construction — are *demonstrated* rather than asserted.
 exercise. It is explicitly not part of the initial release.** The initial
 release ships practical, runnable, domain-neutral examples instead.
 
+### What the examples are, and what they are for (Dave, 2026-09-08)
+
+SDK Examples were deliberately engineered to represent real world financial
+services use cases. Public and engineered data were assembled in various
+databases emulating a financial services company's real data estate.
+
+Examples are provided that demonstrate two perspectives: **context product
+clients** (e.g. agents, tools, other context products) and **context product
+assemblers** (software that demonstrates how to use the SDK to create context
+products from data sources).
+
+For the client examples we demonstrate how to consume context products using
+in-process, MCP, A2A, Claude Agent SDK, and LangGraph implementations. For these
+examples **the client knows nothing about the CCF SDK except for the format of
+the context product they are consuming.**
+
+Alternatively, context product assemblers are well versed in the public
+interfaces, operators, and surface area of the CCF SDK. They understand the
+components they need to implement and how to craft them from the spec. Many of
+the context product assembler examples also implement an MCP, or A2A, or Claude
+Agent SDK, or LangGraph as the means to respond to a CCF client request.
+
+**The goal of the examples is not a "right answer."** While we have attempted to
+make the data as realistic as possible, the goal of the examples is to identify
+defects, gaps or high friction surfaces of the SDK. The idea is to use a
+comprehensive set of realistic use cases to surface these issues. This is
+important for Claude Code to understand since it affects the **testing strategy**
+used for the examples. The idea is not to spend Claude resources or Dave's money
+on perfecting an example. **The goal is to create a robust implementation of the
+CCF SDK.** Additionally, each example may contain several options where input
+parameters or SDK limits have been adjusted.
+
+**The three-issue cap.** Dave does not want to wait for several SDK issues to
+surface before they are addressed. If an example exposes an issue with the SDK it
+needs to be tracked, and **we should never accumulate more than 3 issues with the
+SDK before they get remedied.**
+
+**Lightweight remediation is the default.** Use a lightweight process to fix the
+SDK issue unless the issue is a major defect that requires its own cycle.
+
 ### Discipline for every example
 
 - **Runnable end-to-end** against the reference backends (SQLite-for-dev
