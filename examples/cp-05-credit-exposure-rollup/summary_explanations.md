@@ -25,8 +25,18 @@ Every difference between the runs below comes from one of these three.
 ## Run 1 — the demonstrated question
 
 ```bash
-make example-cp-05
+make example-cp-05 DEBT_TOLERANCE=1.0
 ```
+
+**The fitness bar is not decoration, and it is the first thing this product
+teaches.** Asked with no tolerance, this question is **withheld** — the estate's
+balances are days old against a four-hour half-life, and the product's own
+default says a consumer should not act on that. Run 4 is that run. To see the
+figures at all you have to say, as this caller does, that you will accept an
+answer the fabric cannot vouch for.
+
+The numbers below are identical either way. What the tolerance changes is
+whether you are shown them.
 
 ```
   FAMILY
@@ -37,15 +47,26 @@ make example-cp-05
     adjusted            9,325,000,000      6,870,556,262     1,449,221,862
     guarantee dedup      -800,000,000   (1 case(s), 7.90% of gross)
 
-  CONTEXT DEBT — confidence in the assembled truth, not in the projection
-    debt 1.0000   signal fail_closed
+  ── GOVERNED CONTEXT ─────────────────────────────────────────────────────
 
-  FULFILLMENT  WITHHELD  D_c 1.000 > tolerance 0.25 (default)
+  CONTEXT DEBT — confidence in the assembled truth
+    D_c         1.0000   signal fail_closed
+    factors     F=0  C=0.2468  S=1
+
+  FULFILLMENT  SERVED
+    D_c 1.0000 was within the tolerance in force for this caller.
 ```
 
-**Read that last line carefully. The product was built, it passed every
-validation gate, the number is printed — and the fabric declined to say it is
-fit to act on.** That is not an error and it is not a bug in the demonstration.
+**The transcript is in two halves, and that is the point.** Everything above the
+rule is the **business answer** — what this family owes, which of it is material
+to this caller, what the assembly found. Everything below is the **governed
+context**: how confident the fabric is, what it is bound by, and whether it was
+willing to release the answer at all.
+
+**Read that last line carefully. `D_c` is `1.000` — the worst it can be — and
+this caller was served anyway**, because they asked with a tolerance that admits
+it. Ask without one and the same determination is withheld (Run 4). That is not
+an error and it is not a bug in the demonstration.
 It is the whole point of the rung, and Run 4 below is where it is explained.
 
 ### What you'd have missed
@@ -168,14 +189,28 @@ make example-cp-05
 ```
 
 ```
-  CONTEXT DEBT — confidence in the assembled truth, not in the projection
-    debt 1.0000   signal fail_closed
-    freshness   0E-18    from 15 real balance_as_of dates
-    completeness 0.2467  19/77 family members carry an LEI and can be checked
-    consistency  1       0 of 5 reconciliations used here disagree
+  FULFILLMENT  WITHHELD  (tolerance-exceeded)
 
-  FULFILLMENT  WITHHELD  D_c 1.000 > tolerance 0.25 (default)
+    The determination was assembled and recorded. What is withheld is
+    fulfillment: the observed Context Debt exceeded the tolerance in
+    force for this caller. A different consumer, with a different
+    fitness requirement, may legitimately be served the same answer.
+
+    reason      tolerance-exceeded
+    authority   "default"
+    tolerance   "0.25"
+    observed    "undisclosed"
+
+    replay      ccf-artifact://cp-05-demo/ccf.cp-05.decision-replay-record/...
+
+    The record is the point. A refusal nobody can replay is an outage;
+    a refusal with a decision record is governance.
 ```
+
+**That is the whole response.** No family, no gross, no adjusted total — and
+`observed "undisclosed"` is the disclosure policy declining to state even the
+measured Debt to a caller this determination was not released to. What the
+fabric does say is which bar was missed, who set it, and where the record lives.
 
 ### What you'd have missed
 
@@ -198,12 +233,23 @@ The product's own default says a consumer should not act on anything above
 `0.25`. So the fabric hands over the number **and** the reason it will not vouch
 for it.
 
-**What it does not do is hide the number.** Withholding fulfillment is not the
-same as refusing to respond. The determination is disclosed in full — what was
-calculated, from what, how confident the fabric is, what bar was not met, and
-who set that bar. The caller decides what to do with a number the fabric will
-not attest to; the fabric's job is to make sure nobody mistakes it for one it
-would.
+**What it does not do is refuse to respond.** Withholding *fulfillment* is not
+refusing a *response*: the run exits `0` and answers. What comes back is the
+refusal's **disclosed shell** — what bar was not met, who set it, the measured
+Debt, and the replay reference that proves the determination was recorded.
+
+**It does not hand back the number.** Earlier versions of this product printed
+`9,325,000,000` beside the withholding, because the product computed the figure
+itself and decided fulfillment afterwards. It no longer does either: the fabric
+decides, and a refused caller sees exactly what this deployment's disclosure
+policy permits — here `minimal`, so the arithmetic is generalised and the lane
+undisclosed.
+
+That is the stricter reading and it is the right one. A number the fabric will
+not attest to is a number it should not be casually handing over; the caller who
+genuinely needs it can ask with a fitness bar that admits it, and Run 5 shows
+exactly that. The determination is not withdrawn — it was assembled, gated and
+recorded, and the record is addressable.
 
 ### How it works
 
@@ -232,17 +278,24 @@ make example-cp-05 SCENARIOS=1
 
 ```
   Exploratory Consumer
-    effective    debt_tolerance=1.0(caller)
+    requested    {'debt_tolerance': '1.0'}
+    effective    materiality=0.05  depth=3  basis=both
     assembled    family 77   gross 10,125,000,000   adjusted 9,325,000,000
-    debt         1.000  (fail_closed)
-    fulfillment  SERVED    against tolerance 1.0 (caller)
+    projected    4 material  residual 145,000,000  (14 connected without exposure)
+    debt         1  (fail_closed)
+    fulfillment  SERVED    within this caller's tolerance
 
   Regulated Consumer
-    effective    debt_tolerance=0.10(policy)
-    assembled    family 77   gross 10,125,000,000   adjusted 9,325,000,000
-    debt         1.000  (fail_closed)
-    fulfillment  WITHHELD  against tolerance 0.10 (policy)
+    requested    {'intent': 'regulatory-large-exposure', 'debt_tolerance': '1.0'}
+    effective    tolerance=0.10  authority=policy
+    assembled    (the determination exists and is recorded)
+    fulfillment  WITHHELD  tolerance-exceeded
 ```
+
+**The two rows are not the same shape, and that is the demonstration.** The
+served consumer gets the assembled truth and the projection; the withheld one
+gets the bar it failed and who set it, and is told the determination exists. A
+refused caller is not shown the answer they were refused.
 
 ### What you'd have missed
 
@@ -422,19 +475,35 @@ door: in every case the SDK's own machinery was present, correct, and *not on
 the path an author naturally takes*.
 
 **Is putting a product behind MCP configuration, or is it another program?**
-About half and half. 204 lines of code, against rung 4's 260 — and rung 4 had to
-build its governed path inside the door, where cp-05 already had one. Sixty of
-cp-05's lines are the SDK call and its collaborators, which is binding. Seventy
-are a small application: translating the request, refusing a wrong address,
-refusing a resource read of a product that has no standing answer, and running
-the request-surface check the door explicitly delegates.
+A small application, and — measured after this product adopted the canonical
+path — **transport only**. 204 executable lines with **zero** of them governance
+or replay logic: 60 wire the entitlement, the credential, the perspective and
+the `build_egress_server` call; 44 are imports and constants; 41 translate a
+request and delegate it; 31 shape refusals the door itself owns.
+
+Those refusals are the door's by right. *"Is this addressed to the product I
+expose?"* and *"does a parameterised class have a standing answer to a resource
+read?"* need no product contract to answer. The door used to run a full
+request-conformity check as well; it does not any more, because a door owns
+transport, address and standing while the resolver owns contract-aware decoding,
+conformity, effective resolution and the governed outcome. **The door is
+deliberately dumb about logical parameter types** — it transports wire-stable
+lexical values, and the resolver, which holds the declaration, converts and
+judges them.
 
 **The largest thing the door work found had nothing to do with MCP.** The SDK
-already ships the entire governed path this product built by hand —
+already ships the entire governed path this product had built by hand —
 `ccf.products.resolver::GovernedResolver` does the request resolution, the
 operators, the projection, the gates, the debt, the tolerance comparison and the
 replay record, in that order. cp-05 reimplemented all of it and only discovered
 the shipped version while wiring the door.
+
+**It has since been rewired onto it**, and that is the more useful measurement:
+the hand-composed spine's 490 lines became a 210-line adapter — boot, acquire,
+assemble the domain truth, hand the resolver its four extension points, call it
+— with **zero** lines of governance composition left. What remains is boot,
+domain assembly, adapter wiring and rendering, which is the whole of what a
+Context Product author should have to write.
 
 ---
 
