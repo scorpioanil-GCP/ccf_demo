@@ -1641,3 +1641,28 @@ Strictly stronger than the row-2 signal: the monkeypatch's deletion is now neces
 **WHAT THIS DOES NOT DECIDE.** Whether the `build_governed_resolver` argument added at `0c5ea162` survives migration or is removed — (5) says *"remove … if it becomes redundant"*, and redundancy is measured in the row, not assumed. The `F-12` build-time validation timing (8). `F-08`, `F-11`, `F-12` and the final rerun. `24.11-C-01` (`D-IMPL-291` (3), a carry, still not a defect). The three-issue cap in `CLAUDE.md` §9 versus the current open-finding ledger — raised in `STATE.md`, unreconciled, Dave's. `D-GATE-24.10`, the `phase-24.10` merge and push.
 
 **Next free decision id: `D-IMPL-293`.** **Related:** `D-IMPL-291` (which accepted `F-07` and GO'd `F-06`; this reopens `F-06`'s architectural half), `D-IMPL-290` (3) (the row-by-row cadence (9) continues), `D-IMPL-289` (the compensating-code rule (1) invokes and the SDK-first ordering (6) follows), `D-IMPL-288` (4) (`F-11`'s envelope model — the same "Control Plane owns meaning" principle), `D-IMPL-287` (5) (no new infrastructure), `D-IMPL-286` (the success signal (7) strengthens), `D-IMPL-282` `R-12` `D-04` (the precedence model (4) deliberately departs from), `D-IMPL-38`, `src/ccf/controlplane/artifacts.py::SimilaritySelectParametersArtifact`, `src/ccf/deployment/operators.py::build_operator_registry`.
+
+---
+
+**D-IMPL-293 — NOTHING HAS SHIPPED. Pre-v0, a flaw is fixed because it is a flaw; existing artifacts, schemas and content addresses are not a constraint on doing the right thing.** RESOLVED. Date: 2026-09-08. Approver: Dave.
+
+**The correction, verbatim:** *"We can't let our decisions be based on not fixing flaws because they have shipped. Nothing has shipped. Lets do the right thing."*
+
+**What prompted it.** Claude repeatedly framed `D-IMPL-292`'s authorized change as *"a content-address-affecting schema change to a **shipped** SDK artifact class"* — using "shipped" as a reason for caution, a reason a ruling was needed, and a reason to prefer the least invasive shape. That framing is **wrong on the facts**: `ccf_code` is a private pre-v0 repository (`v0.2` milestone), there are no external adopters, and the examples are probes whose whole purpose is to expose SDK defects (`CLAUDE.md` §9, `D-IMPL-261`). Nothing is depending on the current schema in a way that a correct change would break.
+
+**The standing principle.** Until v0 ships:
+
+- **Correctness beats compatibility.** The design question is *"what is the right surface?"*, never *"what is the smallest change to what already exists?"* A smaller change that leaves the wrong shape in place is the more expensive choice, because every later example is built against it.
+- **Existing artifacts, schemas, content addresses, pinned digests and expected outputs are not constraints.** They are consequences, and they get regenerated. A digest changing is an *effect* to be handled, never an argument against a change.
+- **"It would require editing an example" is not a reason to prefer a worse SDK design.** It may still be out of a given row's scope for causality reasons (`D-IMPL-290` (3)), and the SDK-first ordering still holds (`D-IMPL-289`, `D-IMPL-292` (6)) — but the ordering exists to keep provenance legible, **not** to protect examples from change.
+- **This does not weaken any fence.** `examples/` stays closed where a ruling closes it, cp-05 and the frozen specimens stay evidence (`D-IMPL-261`), and an example is still never edited to compensate for a missing SDK capability (`D-IMPL-288` (3)). What changes is the *reasoning*: a fence is a causality and evidence discipline, never a compatibility one.
+
+**Scope.** This governs design choices from here to v0. It does **not** license unscoped rewrites, does not suspend the row-by-row cadence, and does not authorize work no ruling has authorized — `D-IMPL-287` (5) and `D-IMPL-291` still stand. It removes one bad *reason*, not the phase's discipline.
+
+**Immediate effect on `F-06`'s remaining half (`D-IMPL-292`).** The `build_governed_resolver` argument added at `0c5ea162` should be **removed outright** if the declaration is the authority, rather than preserved as a compatibility path. `D-IMPL-292` (5)'s *"if two sites exist during migration, enforce equality rather than precedence"* is **conditional**, and with nothing shipped the right move is to ensure a second site does not exist. Equality is the fallback if a second site must genuinely persist — and if one must, the row states why rather than assuming it.
+
+---
+
+**WHAT THIS DOES NOT DECIDE.** Any specific change. It removes a reason, not a scope. `F-08`, `F-11`, `F-12`. `24.11-C-01` (still a carry, `D-IMPL-291` (3)). The `CLAUDE.md` §9 three-issue cap versus the current ledger. `D-GATE-24.10`, the `phase-24.10` merge and push.
+
+**Next free decision id: `D-IMPL-294`.** **Related:** `D-IMPL-292` (whose remaining half this immediately reshapes), `D-IMPL-289`, `D-IMPL-288` (3), `D-IMPL-287` (5), `D-IMPL-286`, `D-IMPL-261`, `CLAUDE.md` §9 (the examples charter — probes, not products).
