@@ -23,7 +23,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1029 entries**, of which **785** name a public Python surface.
+**1031 entries**, of which **787** name a public Python surface.
 
 ## Added
 
@@ -9834,7 +9834,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-381 entries — 197 public Python surface, 184 not public Python API.
+382 entries — 198 public Python surface, 184 not public Python API.
 
 ### Public Python surface
 
@@ -13968,6 +13968,18 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `24.10-02-the-declared-product-gate-runs-on-the-governed-path.md`.*
 
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: reshaped
+- Before: seventeen constructor arguments, none with a default. Four arrived as manifest keys; the deployment's debt profile was not among them, so the class held the routing state and never the binding
+- After: eighteen, still none with a default. The new `debt_profile_key: str | None` is the **fifth** manifest key, read off `BootedFabric.artifacts` like the other four rather than passed as an object — the class docstring's own rule, and the one that makes the profile served provably the one the manifest put in force. `None` is admissible and is the positive claim that this deployment declares no bands
+- Why: `D-IMPL-117` — the populate half of the binding the SDK owes. Read by key rather than object because the resolved value travels inside the content address, and `obligation_for` forbids a Control Plane *"latest"* for the same reason (`D-IMPL-26`)
+- Migration: every construction site must pass `debt_profile_key` (`None` where the deployment declares no profile), because this class is the auditable, defaultless composition. Callers reaching the fabric through `build_governed_resolver` are unaffected. Two sites in the tree moved: `tests/products/test_resolver_seam.py::_arguments` and `tests/products/test_evidence_derived_debt.py::_ask_the_empty_fabric`.
+
+*Recorded by `24.11-03-the-resolver-carries-the-declared-obligation.md`.*
+
 ### Not public Python API
 
 #### tools/lints/__main__.py
@@ -16385,7 +16397,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-140 entries — 120 public Python surface, 20 not public Python API.
+141 entries — 121 public Python surface, 20 not public Python API.
 
 ### Public Python surface
 
@@ -19270,6 +19282,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none — documentation only; no name, signature or behavior moved
 
 *Recorded by `24.10-03-the-acquisition-boundary-emits-envelopes.md`.*
+
+#### ccf.products.resolver.build_governed_resolver
+
+- Surface: ccf.products.resolver.build_governed_resolver
+- Public surface: true
+- Change type: behavior
+- Before: twenty-one keyword arguments, twelve optional — unchanged, and unchanged by this row. Supplying `debt_scorer` together with **any** of the four `DEBT_SCORER_INPUTS`, `debt_profile_key` included, raised `TypeError` as mutually exclusive
+- After: the same signature. The exclusion now reads `_SCORER_ONLY_INPUTS` — `half_life_key`, `declared_completeness`, `declared_semantic_consistency` — so a deployment may supply its own scorer **and** name its bands. `DEBT_SCORER_INPUTS` is unchanged in membership and meaning: the reference scorer still needs all four, and the no-scorer path still refuses a call omitting any of them
+- Why: the exclusion's own stated ground is *"the material for building the reference would be read by nothing"*, which stopped being true of the profile the moment the obligation seam read it. The two are alternatives about **scoring** and never about the **declaration**
+- Migration: none, and none is possible in the refusing direction — the change only admits calls that previously raised. A deployment that supplies a scorer and wants its declared obligation carried adds `debt_profile_key`; one that does not is unaffected.
+
+*Recorded by `24.11-03-the-resolver-carries-the-declared-obligation.md`.*
 
 ### Not public Python API
 

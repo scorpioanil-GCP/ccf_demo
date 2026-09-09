@@ -67,6 +67,7 @@ from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.controlplane.artifacts import SimilaritySelectParametersArtifact
 from ccf.deployment import BootedFabric, build_operator_registry, load_and_boot
 from ccf.graph.protocols import GraphQuery, GraphReader, GraphView
+from ccf.halflife.assessment import NO_OBLIGATION_IN_FORCE
 from ccf.halflife.debt import DebtAssessment, DebtFactors, DebtSignal
 from ccf.products.constraints import ReferencePolicyConstraintResolver
 from ccf.products.contract import ContextProductContract
@@ -122,6 +123,21 @@ REQUEST_CONTRACT_CLASS_ID = "fixture.request-contract"
 
 #: The one declared parameter, and the only thing two calls differ by.
 THRESHOLD_PARAMETER = "revenue_threshold"
+
+#: The manifest key the deployment's D_c bands are authored under.
+#:
+#: `24.11-03` / `24.10-F-08`. The fixture deployment declares a debt profile so
+#: that the obligation seam has a *declaration* to read, which is the whole
+#: subject: `DebtProfile.obligation_for` is the extract half `D-IMPL-117` says
+#: the SDK owes, and the resolver composing it is the populate half.
+DEBT_PROFILE_KEY = "fixture/debt-profile"
+
+#: What this deployment binds to the routing state its scorer lands in.
+#:
+#: A fixture obligation vocabulary and nothing else — the SDK ships none
+#: (`D-IMPL-117`). `_debt_scorer` returns `DebtSignal.OK`, so this is the
+#: binding a served product must carry.
+OBLIGATION_ON_OK = "fixture.file-the-routine-note"
 
 #: The ceiling the `booted_with_ceiling` class declares (`24.5-L-14`). A
 #: fixture figure, authored in this module's own document and nowhere in `src/`.
@@ -410,6 +426,24 @@ def _boot(
         "request-contract.yaml",
         REQUEST_CONTRACT_DOCUMENT if request_contract is None else request_contract,
     )
+    # `24.11-03` / `24.10-F-08`: the deployment declares its D_c bands, and
+    # binds an obligation to the state its scorer lands in. Written here rather
+    # than in `tests/deployment/conftest.py::ARTIFACT_SET` because the shared
+    # set feeds every deployment fixture in the suite and this binding is this
+    # file's subject, not theirs.
+    write_artifact(
+        root,
+        "debt-profile.yaml",
+        {
+            "semver": "1.0.0",
+            "risk_sensitivity": "1",
+            "forced_llm_threshold": "0.30",
+            "fail_closed_threshold": "0.70",
+            "signal_obligations": [
+                {"signal": "ok", "obligation_ref": OBLIGATION_ON_OK}
+            ],
+        },
+    )
     body = manifest_document()
     body["artifacts"] = [
         *body["artifacts"],
@@ -418,6 +452,13 @@ def _boot(
             "key": REQUEST_CONTRACT_KEY,
             "class_id": REQUEST_CONTRACT_CLASS_ID,
             "role": "load",
+            "registration": "typed",
+        },
+        {
+            "path": "debt-profile.yaml",
+            "key": DEBT_PROFILE_KEY,
+            "class_id": "ccf.debt-profile",
+            "role": "register",
             "registration": "typed",
         },
     ]
@@ -873,6 +914,64 @@ def test_the_success_leg_assembles_the_fixtures_own_entity(booted: _Booted) -> N
     assert outcome.product.payload["assembled"] == 1
 
 
+# --- `24.11-03` / `24.10-F-08`: the obligation the deployment declared ------
+
+
+def test_the_served_product_carries_the_obligation_the_profile_bound(
+    booted: _Booted,
+) -> None:
+    """The canonical path composes the two halves the SDK already ships.
+
+    ``D-IMPL-117``: the SDK owes *"the structure and the API to populate and
+    extract"* a signal-to-obligation binding, and **none of the content**.
+    :meth:`~ccf.controlplane.artifacts.DebtProfile.obligation_for` is the
+    extract half — its own docstring calls it *"the extract half of what
+    D-IMPL-117 says the SDK owes, and the whole of it"*. This is the populate
+    half on the governed path: the resolver holds the signal (it computed the
+    :class:`~ccf.halflife.assessment.DebtAssessment`) and the deployment's
+    profile is on the fabric it was booted from, and until ``24.11-03`` it
+    joined the two nowhere.
+
+    The member is **inside the product's content address** (``D-IMPL-118``), so
+    a product served without it cannot be repaired afterwards — the wrong
+    answer is the delivered one and it replays exactly, forever. A resolver
+    that drops the join therefore says *this deployment is obliged to do
+    nothing* wherever that deployment's own profile says otherwise, which is a
+    wrong governance answer rather than an absent nicety.
+
+    The obligation is read back off the fabric rather than restated, so the
+    assertion cannot pass against a value this test authored: it compares what
+    the product carries with what the manifest put in force.
+    """
+    profile = booted.fabric.artifacts[DEBT_PROFILE_KEY]
+    declared = profile.obligation_for(DebtSignal.OK)
+    assert declared == OBLIGATION_ON_OK, "the fixture's own premise has moved"
+    assert declared != NO_OBLIGATION_IN_FORCE, "a binding, not the sentinel"
+
+    outcome = _ask(_resolver(booted), _request())
+
+    assert isinstance(outcome, ServedProduct)
+    assert outcome.product.obligation_in_force == declared
+
+
+def test_a_deployment_that_declares_no_profile_carries_the_sentinel(
+    booted: _Booted,
+) -> None:
+    """The negative control, and it is the positive claim rather than a gap.
+
+    ``obligation_for``'s own rule: an unbound state resolves to *"the positive
+    claim that nothing was bound"*. A deployment naming no debt profile has
+    declared no binding, so :data:`~ccf.halflife.assessment.
+    NO_OBLIGATION_IN_FORCE` is the true answer and not a silent default — which
+    is what keeps the test above from passing for the trivial reason that every
+    product now carries some obligation.
+    """
+    outcome = _ask(_resolver(booted, debt_profile_key=None), _request())
+
+    assert isinstance(outcome, ServedProduct)
+    assert outcome.product.obligation_in_force == NO_OBLIGATION_IN_FORCE
+
+
 def test_the_served_products_replay_reference_resolves(booted: _Booted) -> None:
     """`DIV-2`: the reference is the whole reason the seam widened."""
     resolver = _resolver(booted)
@@ -1325,6 +1424,13 @@ DEPLOYMENT_OWNED_ARGUMENTS: tuple[str, ...] = (
     # would be a second site for one semantic value.
     "operator_parameter_keys",
     "policy_bundle_key",
+    # `24.11-03` / `24.10-F-08`: the deployment's D_c bands, named by key like
+    # every other declaration. `None` is admissible and is a POSITIVE claim —
+    # this deployment declares no bands, so nothing is bound and the product
+    # carries the SDK's sentinel — but it is never a default: a resolver that
+    # guessed would serve "obliged to do nothing" from inside the content
+    # address, where it cannot be corrected afterwards.
+    "debt_profile_key",
     "plan_factory",
     "debt_scorer",
     # `24.10-02` / `R-11`: the deployment's implementation of its class's own
@@ -1441,6 +1547,10 @@ def _arguments(booted: _Booted) -> dict[str, Any]:
         # below adds the key and nothing else.
         "operator_parameter_keys": (TRAVERSAL_KEY,),
         "policy_bundle_key": POLICY_BUNDLE_KEY,
+        # `24.11-03` / `24.10-F-08`: the deployment's D_c bands, named the
+        # way every other declaration is named — by key, so the profile the
+        # resolver reads is provably the manifest's.
+        "debt_profile_key": DEBT_PROFILE_KEY,
         "plan_factory": _plan_factory,
         "debt_scorer": _debt_scorer,
         # `24.10-02` / `R-11`: the deployment's implementation of its class's

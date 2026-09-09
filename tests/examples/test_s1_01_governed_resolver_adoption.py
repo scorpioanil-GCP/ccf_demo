@@ -137,6 +137,11 @@ SIBLING_MODULES = ("deployment", "report", "spine", "source_estate")
 PRODUCT_CLASS_KEY = "product-class"
 REQUEST_CONTRACT_KEY = "request-contract"
 POLICY_BUNDLE_KEY = "policy-bundle"
+#: `24.11-03` / `24.10-F-08`: the key `artifacts/manifest.yaml` already
+#: declares this deployment's D_c bands under. Naming it is the whole of
+#: wiring the obligation seam — the binding is authored in
+#: `artifacts/debt-profile.yaml`, and the resolver reads it from there.
+DEBT_PROFILE_KEY = "debt-profile"
 OPERATOR_PARAMETER_KEYS = ("traversal", "temporal", "policy", "similarity")
 
 #: The obligation ``artifacts/expected.yaml`` declares for the third question's
@@ -221,6 +226,12 @@ def _wire(
         request_contract_key=REQUEST_CONTRACT_KEY,
         operator_parameter_keys=OPERATOR_PARAMETER_KEYS,
         policy_bundle_key=POLICY_BUNDLE_KEY,
+        # `24.11-03` / `24.10-F-08`: this deployment declares its bands AND
+        # supplies its own scorer, which are two different seams — the scorer
+        # is behavior, the profile is a declaration. Naming the key is what
+        # lets the resolver carry the obligation the profile binds; nothing
+        # about the scorer changes, and no value is restated here.
+        debt_profile_key=DEBT_PROFILE_KEY,
         plan_factory=plan_factory,
         debt_scorer=debt_scorer,
         artifact_store=FileArtifactStore(root=root / scenario.artifact_store_dirname),
@@ -400,16 +411,6 @@ def _query_pins(answered: Answered) -> tuple[str, ...]:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "24.10-F-08: GovernedResolver's candidate construction has no seam for"
-        " obligation_in_force, so a product served through it says the"
-        " deployment is obliged to do nothing wherever its own debt profile"
-        " binds an obligation to the routing state the assessment landed in."
-        " The member is inside the product's content address"
-    ),
-)
 def test_the_served_product_carries_the_obligation_the_deployment_declared(
     example: Any,
     adopted_resolver: Callable[[Any], Answered],
@@ -424,6 +425,11 @@ def test_the_served_product_carries_the_obligation_the_deployment_declared(
     replay reproduces it; a resolver that never sets it delivers the SDK's
     "no obligation" sentinel instead, which is a **wrong governance answer**
     rather than an absent nicety.
+
+    **Un-quarantined at ``24.11-03``, unchanged.** No assertion was weakened
+    and no expected value moved: it carried ``xfail(strict=True)`` for
+    ``24.10-F-08`` and XPASSed the moment the seam landed, which is the whole
+    reason the finding was left executable rather than only written down.
     """
     answered = adopted_resolver(questions[2])
     declared = example.deployment.expectation(answered.scenario.artifacts)[

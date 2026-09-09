@@ -168,7 +168,8 @@ from ccf.controlplane.registry import ControlPlaneProtocol
 from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.deployment import BootedFabric, build_operator_registry
 from ccf.graph.protocols import GraphView, TraversalDepthCapability
-from ccf.halflife.debt import DebtAssessment
+from ccf.halflife.assessment import NO_OBLIGATION_IN_FORCE
+from ccf.halflife.debt import DebtAssessment, DebtSignal
 from ccf.products.contract import (
     AssemblyMode,
     ComputedEmptyFinding,
@@ -268,6 +269,28 @@ _Artifact = TypeVar("_Artifact", bound=CCFContract)
 DEBT_SCORER_INPUTS: Final[tuple[str, ...]] = (
     "half_life_key",
     "debt_profile_key",
+    "declared_completeness",
+    "declared_semantic_consistency",
+)
+
+
+#: Of those four, the ones that are material for the reference scorer and for
+#: **nothing else**.
+#:
+#: ``24.11-03`` / ``24.10-F-08``. ``debt_profile_key`` is deliberately absent,
+#: and its absence is the repair. The mutual exclusion below refuses an
+#: explicit ``debt_scorer`` alongside scorer material on the stated ground that
+#: *"the material for building the reference would be read by nothing"* — true
+#: of these three, and no longer true of the profile. A ``DebtProfile`` also
+#: binds the obligation the served product carries, which ``D-IMPL-118`` gave
+#: **its own identity on the vessel** rather than making it a rider on debt.
+#:
+#: So the two are alternatives about **scoring** and never about the
+#: **declaration**: a deployment may supply its own scorer *and* name its bands,
+#: and before ``24.11-03`` it could not — which made an obligation unreachable
+#: on the governed path for every deployment that scores for itself.
+_SCORER_ONLY_INPUTS: Final[tuple[str, ...]] = (
+    "half_life_key",
     "declared_completeness",
     "declared_semantic_consistency",
 )
@@ -1117,9 +1140,9 @@ class GovernedResolver:
     arguments are same-typed strings, and a transposition would resolve a
     different artifact without failing.
 
-    **What arrives as a manifest key rather than as an object.** Four of the
-    thirteen — the product class, the request contract, the operator parameter
-    sets and the policy bundle — are named by *key* and read off
+    **What arrives as a manifest key rather than as an object.** Five — the
+    product class, the request contract, the operator parameter sets, the
+    policy bundle and the debt profile — are named by *key* and read off
     :attr:`~ccf.deployment.BootedFabric.artifacts`. That is
     :func:`~ccf.deployment.load_and_boot`'s own recommended idiom, and it buys
     a governance property a passed object cannot: the declaration this resolver
@@ -1222,26 +1245,48 @@ class GovernedResolver:
         could drift. Regressed directly at ``tests/products/
         test_resolver_seam.py::
         test_two_subjects_cannot_collapse_to_one_question_to_the_graph``.
-    ``24.10-F-08``
-        The candidate below sets none of ``obligation_in_force``,
-        ``source_refresh_recency`` or ``debt_evidence``, and offers no seam
-        for them. All three are inside the product's content address, so this
-        is not an omission a deployment can repair afterwards: measured, a
-        product served for a question landing in ``forced_llm`` says the
-        deployment is obliged to do nothing where that deployment's own
-        :class:`~ccf.controlplane.artifacts.DebtProfile` binds an obligation.
+    ``24.10-F-08`` — **obligation limb CLOSED at** ``24.11-03``
+        The candidate below set none of ``obligation_in_force``,
+        ``source_refresh_recency`` or ``debt_evidence``. All three are inside
+        the product's content address, so none is an omission a deployment can
+        repair afterwards. ``24.11-03`` closed the first: the candidate now
+        composes :meth:`_obligation_in_force`, which reads the profile named by
+        :attr:`debt_profile_key` and asks it what it binds to the state the
+        assessment landed in. Two changes carried it, and the second was the
+        one the probe found — :func:`build_governed_resolver` had treated the
+        profile key as scorer material *only*, so a deployment supplying its
+        own scorer could not declare its bands at all and could never carry an
+        obligation. Regressed at ``tests/products/test_resolver_seam.py::
+        test_the_served_product_carries_the_obligation_the_profile_bound``
+        with its negative control beside it, and the ``s1-01`` adoption test
+        that carried this finding is un-quarantined and passing unchanged.
+
+        **The other two limbs stay open, and neither is a dropped join.**
+        Measured at ``24.11-03``: nothing in ``src/`` or ``runtime/``
+        constructs a :class:`~ccf.halflife.assessment.SourceRefreshWindow` or a
+        :class:`~ccf.halflife.assessment.DebtEvidencePointer`, and no SDK
+        artifact declares either — so composing them is not a join the resolver
+        drops but an authority the SDK does not have. For source-refresh
+        recency that absence is *ruled* (``D-IMPL-124``: the SDK ships no
+        reducer, because one would decide which of a deployment's sources count
+        toward the window). For evidence pointers it is a standing prohibition
+        (``D-IMPL-119`` limb 4) whose named precondition — a perspective-scoped
+        view in the assembly path — this path still does not meet. Giving
+        either a declaration home is an architecture question and is not this
+        row's.
     ``24.10-F-09``
         ``expires_at``, the gate instant and ``recorded_at`` all derive from
         ``request.asked_at``, so a class declaring a **decision instant**
         distinct from the graph boundary finds nothing reads it.
 
-    The remaining two are recorded here rather than fixed here.
-    ``D-IMPL-282``: *"No broader API redesign is authorized up front"* — the
-    escalation they earn is Dave's ruling to make, and the tests are what go
-    loudly red when a seam lands without its finding being closed. ``F-07``
-    and ``F-06`` are the two that have had that ruling (``D-IMPL-290``,
-    ``D-IMPL-291``, ``D-IMPL-292``), and each was taken **alone**: one repair
-    per row, so that what a row moved stays attributable to what a row changed.
+    What remains is recorded here rather than fixed here. ``D-IMPL-282``:
+    *"No broader API redesign is authorized up front"* — the escalation it
+    earns is Dave's ruling to make, and the tests are what go loudly red when a
+    seam lands without its finding being closed. ``F-07``, ``F-06`` and
+    ``F-08``'s obligation limb are the three that have had that ruling
+    (``D-IMPL-290``, ``D-IMPL-291``, ``D-IMPL-292``), and each was taken
+    **alone**: one repair per row, so that what a row moved stays attributable
+    to what a row changed.
 
     Attributes:
         fabric: The booted deployment, exactly as
@@ -1282,6 +1327,14 @@ class GovernedResolver:
             irreproducible.
         policy_bundle_key: The key whose pinned version becomes the admitted
             bundle version and the product's policy binding.
+        debt_profile_key: Manifest key of this deployment's ``D_c`` bands, whose
+            ``signal_obligations`` bind the obligation the served product
+            carries (``24.11-03``, ``24.10-F-08``). ``None`` is admissible and
+            is the positive claim that this deployment declares no bands — never
+            a default, for every other field's reason. **Independent of**
+            ``debt_scorer``: a deployment that scores for itself may still
+            declare its bands, because ``D-IMPL-118`` gave the obligation its
+            own identity on the vessel rather than making it a rider on debt.
         plan_factory: How this deployment builds Π for one question.
         constraint_resolver: How this deployment resolves a question's
             parameters against every authority that bounds them — the class's
@@ -1361,6 +1414,7 @@ class GovernedResolver:
     request_contract_key: str
     operator_parameter_keys: tuple[str, ...]
     policy_bundle_key: str
+    debt_profile_key: str | None
     plan_factory: ProjectionPlanFactoryProtocol
     debt_scorer: AssemblyDebtScorerProtocol
     product_gate: ProductGateProtocol | None
@@ -1666,6 +1720,13 @@ class GovernedResolver:
 
         registered = self._register(declaration)
         policy_version = self.fabric.pins.version_for(self.policy_bundle_key)
+        # `24.11-03` / `24.10-F-08`: hoisted out of the constructor because two
+        # members are now derived from it — the assessment itself and the
+        # obligation bound to the state it landed in — and scoring twice could
+        # put a product's debt and its obligation on different sides of a band.
+        assessed = self.debt_scorer(
+            view=execution.view, evidence=ExecutionEvidence.of(execution)
+        )
         candidate = ContextProductContract(
             schema_name=registered.schema_name,
             schema_version=registered.schema_version,
@@ -1687,9 +1748,13 @@ class GovernedResolver:
             # 24.6-05 (`24.6-L-06`, `D-IMPL-255` (2)): the scorer is told what
             # the execution observed about its own search, so that D_c is
             # derived from evidence rather than from how many rows came back.
-            debt=self.debt_scorer(
-                view=execution.view, evidence=ExecutionEvidence.of(execution)
-            ),
+            debt=assessed,
+            # `24.11-03` / `24.10-F-08`: the obligation this deployment's own
+            # profile binds to the state `assessed` landed in. Derived from
+            # THAT assessment rather than from a second scoring call — the
+            # product must not be able to carry an obligation bound to a
+            # routing state other than the one it reports.
+            obligation_in_force=self._obligation_in_force(assessed.signal),
             # 24.6-05 (`D-IMPL-242` amendment 1, `D-IMPL-253` Q11/Q12): an
             # operator that RAN and returned nothing computed something, so
             # its emptiness is served as a finding rather than refused on
@@ -2033,6 +2098,40 @@ class GovernedResolver:
             for key in self.operator_parameter_keys
         }
 
+    def _obligation_in_force(self, signal: DebtSignal) -> str:
+        """What this deployment's profile binds to the state debt landed in.
+
+        ``24.11-03`` closes ``24.10-F-08``'s obligation limb. ``D-IMPL-117``
+        says the SDK owes *"the structure and the API to populate and extract"*
+        a signal-to-obligation binding, and **owes no obligation vocabulary**:
+        :meth:`~ccf.controlplane.artifacts.DebtProfile.obligation_for` is the
+        extract half — *"and the whole of it"*, in its own words — and this is
+        the populate half on the governed path. Nothing here judges what a
+        reference means; the binding is read off the deployment's declaration
+        and carried verbatim.
+
+        **Read by manifest key, never from a passed object**, for the reason
+        this class's docstring gives for every other key: the profile served is
+        provably the one the manifest put in force rather than one a caller
+        assembled beside it. ``obligation_for`` states the same constraint from
+        its side — nothing reaches the Control Plane for a *"latest"*, because
+        the resolved value travels **inside the product's content address**
+        (``D-IMPL-26``, ``D-IMPL-118``) and a substituted one would replay as
+        though it had been in force.
+
+        Returns :data:`~ccf.halflife.assessment.NO_OBLIGATION_IN_FORCE` when
+        this deployment names no profile. That is the **positive claim that
+        nothing was bound**, not a silent default: a deployment supplying its
+        own scorer and declaring no bands has declared no obligation, which is
+        exactly how ``obligation_for`` resolves an unbound state within a
+        profile. A partly-bound estate is the ordinary case rather than a
+        defect.
+        """
+        if self.debt_profile_key is None:
+            return NO_OBLIGATION_IN_FORCE
+        profile = self._artifact(self.debt_profile_key, DebtProfile)
+        return profile.obligation_for(signal)
+
     def _register(
         self, declaration: ProductClassDeclaration
     ) -> RegisteredProductClass:
@@ -2347,7 +2446,12 @@ def build_governed_resolver(
         product_ttl_seconds: A served product's own lifetime. Two figures, and
             they stay two.
         half_life_key: Manifest key of this deployment's ``λ_c`` table.
-        debt_profile_key: Manifest key of its ``D_c`` bands.
+        debt_profile_key: Manifest key of its ``D_c`` bands. **The one input
+            here that is not only scorer material** (``24.11-03``,
+            ``24.10-F-08``): the same profile binds the obligation the served
+            product carries, so this may accompany an explicit ``debt_scorer``
+            where the other three may not — the exclusion below is about
+            *scoring*, never about the *declaration*.
         declared_completeness: The ``C`` this deployment asserts, in ``[0, 1]``.
         declared_semantic_consistency: The ``S`` it asserts, in ``[0, 1]``.
         debt_scorer: A conforming scorer that **overrides** the reference.
@@ -2595,7 +2699,7 @@ def build_governed_resolver(
         "declared_semantic_consistency": declared_semantic_consistency,
     }
     supplied = tuple(
-        name for name in DEBT_SCORER_INPUTS if declared[name] is not None
+        name for name in _SCORER_ONLY_INPUTS if declared[name] is not None
     )
 
     if debt_scorer is not None:
@@ -2617,6 +2721,10 @@ def build_governed_resolver(
             request_contract_key=request_contract_key,
             operator_parameter_keys=operator_parameter_keys,
             policy_bundle_key=policy_bundle_key,
+            # `24.11-03` / `24.10-F-08`: passed through on BOTH legs. A
+            # deployment supplying its own scorer may still declare bands,
+            # and the obligation it binds is not the scorer's to carry.
+            debt_profile_key=debt_profile_key,
             plan_factory=plan_factory,
             debt_scorer=debt_scorer,
             product_gate=product_gate,
@@ -2657,6 +2765,7 @@ def build_governed_resolver(
         request_contract_key=request_contract_key,
         operator_parameter_keys=operator_parameter_keys,
         policy_bundle_key=policy_bundle_key,
+        debt_profile_key=debt_profile_key,
         plan_factory=plan_factory,
         debt_scorer=AssemblyDebtScorer(
             table=_artifact_on(fabric, key=half_life_key, expected=HalfLifeTable),

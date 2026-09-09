@@ -616,6 +616,18 @@ _SHAPE_MOVED_BY_FRAGMENT = {
     "ccf.products.constraints.resolve_effective_request": (
         "24.7-02-resolution-returns-a-paired-outcome.md"
     ),
+    # Phase 24.11 row 3 (`24.10-F-08`, obligation limb; `D-IMPL-117`).
+    # `GovernedResolver` gained `debt_profile_key: str | None` as its FIFTH
+    # manifest key, so the candidate can ask the deployment's own profile what
+    # it binds to the state the assessment landed in. A required argument, not
+    # a defaulted widening — this class is the defaultless composition and the
+    # fragment records it under `reshaped`, naming both construction sites that
+    # moved. `build_governed_resolver` is not listed here because its signature
+    # did not move: only the mutual-exclusion rule narrowed, which the same
+    # fragment claims under `behavior`.
+    "ccf.products.resolver.GovernedResolver": (
+        "24.11-03-the-resolver-carries-the-declared-obligation.md"
+    ),
 }
 
 
