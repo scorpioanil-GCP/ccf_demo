@@ -30,20 +30,26 @@ Two are closed: ``24.10-F-07`` by ``24.11-01`` and ``24.10-F-06`` by
 The four findings
 -----------------
 
-``24.10-F-06`` — **CLOSED by ``24.11-02``; its test now runs unmarked.**
+``24.10-F-06`` — **CLOSED in two parts, ``24.11-02`` then ``24.11-02b``.**
     ``GovernedResolver`` could not serve a product class whose operator set
     includes the **Similarity** category — one of the whitepaper's four. It
     called :func:`~ccf.deployment.build_operator_registry` with no
-    ``similarity_index_version``, which that builder requires exactly when a
-    similarity artifact is present (``D-IMPL-38``). There was no field on the
-    class and no argument on the helper, and the registry is built inside
+    ``similarity_index_version``, which that builder then required exactly when
+    a similarity artifact was present (``D-IMPL-38``). There was no field on
+    the class and no argument on the helper, and the registry is built inside
     ``__call__`` — so there was no deployment-side bridge at all, and **this
     one stopped adoption at step 4 of the composition's own nine**, before the
-    graph was projected. The version is now a defaultless field on the
-    resolver, supplied through :func:`build_governed_resolver`, and
-    :func:`_wire` passes the deployment's own declared value like every other.
-    The test below is unchanged except for the removal of its ``xfail``
-    marker.
+    graph was projected.
+
+    ``24.11-02`` made the version a field on the resolver. Dave ruled that
+    insufficient (``D-IMPL-292``): it fixed the propagation and left a
+    decision-affecting semantic value in ungoverned deployment hands, which is
+    a workaround relocated rather than discharged (``D-IMPL-289``).
+    ``24.11-02b`` moved it to the declaration — ``index_version`` on
+    ``operator-parameters-similarity.yaml`` — and **this deployment migrated
+    onto that surface second, after the SDK refused its old document by
+    name.** ``product-governance.yaml`` no longer declares it, and the
+    ``deployment.py`` and ``spine.py`` code that ferried it is deleted.
 
 ``24.10-F-07`` — **CLOSED by ``24.11-01``; its test now runs unmarked.**
     ``GovernedResolver`` did not seed the traversal from the request, and
@@ -83,13 +89,14 @@ measurement device, never a proposal, and ``D-IMPL-282``'s *"No broader API
 redesign is authorized up front"* is why it was never allowed to become one.
 
 **The substitution is gone, and the SDK is why** (``D-IMPL-286``,
-``D-IMPL-291`` (5)): the composition now carries that value itself, so
-:func:`_wire` supplies it through the SDK's own argument, and the fixture —
-still named :func:`adopted_resolver` for the bridge it no longer carries, on
-the reasoning in its own docstring — wires nothing the SDK does not offer. A
-workaround the SDK made unnecessary is **deleted**, not relocated; the three
-tests behind it measure exactly what they measured, through a resolver no
-longer standing on a substitution.
+``D-IMPL-291`` (5), ``D-IMPL-292``): the deployment declares that value on its
+similarity artifact and the builder reads it there, so :func:`_wire` supplies
+**nothing at all** about the index — not a monkeypatch and not an argument.
+The fixture is still named :func:`adopted_resolver` for the bridge it no
+longer carries, on the reasoning in its own docstring. A workaround the SDK
+made unnecessary is **deleted**, not relocated; the three tests behind it
+measure exactly what they measured, through a resolver no longer standing on a
+substitution.
 
 The contrasting half — that the hand-built spine gets every one of these right
 — is already asserted in :mod:`tests.examples.test_s1_01_output`, unweakened
@@ -221,12 +228,12 @@ def _wire(
         query_pin_class=scenario.query_pin_class,
         max_ttl_seconds=scenario.max_ttl_seconds,
         product_ttl_seconds=_declared_product_ttl_seconds(scenario),
-        # `24.11-02` / `24.10-F-06`. The deployment's OWN declared version,
-        # read off the scenario — the same value `spine.py` hands
-        # `build_operator_registry` on the hand-built path, reaching the
-        # canonical composition through the SDK's own argument rather than
-        # through a substitution this harness performs on the SDK's behalf.
-        similarity_index_version=scenario.similarity_index_version,
+        # `24.11-02b` / `D-IMPL-292`. Nothing here says anything about a
+        # similarity index, and that is the point: the deployment declares
+        # `index_version` on `operator-parameters-similarity.yaml`, which
+        # `operator_parameter_keys` above already names. `24.11-02` passed it
+        # as an argument here; the argument is gone from the SDK because the
+        # declaration is the authority.
     )
     return booted, scenario, resolver
 
@@ -264,11 +271,14 @@ def adopted_resolver(
     :func:`~ccf.deployment.build_operator_registry` to supply the deployment's
     declared ``similarity_index_version``, because ``24.10-F-06`` stopped the
     resolver before the walls behind it were observable. **The substitution is
-    gone, and the SDK is why**: :func:`build_governed_resolver` now takes that
-    value and :class:`~ccf.products.resolver.GovernedResolver` carries it to
-    the builder, so :func:`_wire` supplies it the way every other
-    deployment-authored value here is supplied. ``D-IMPL-286``: the workaround
-    is deleted **because the SDK made it unnecessary**, never relocated.
+    gone, and the SDK is why** (``D-IMPL-286``). ``24.11-02`` replaced it with
+    an argument; ``24.11-02b`` removed the argument too (``D-IMPL-292``), so
+    :func:`_wire` now says nothing about the index at all — the deployment
+    declares ``index_version`` on its similarity artifact, and naming that
+    artifact in ``operator_parameter_keys`` is the whole of the wiring. The
+    workaround is deleted **because the SDK made it unnecessary**, never
+    relocated, and the second removal is what kept it from surviving as
+    caller-side plumbing.
 
     **The name is now historical, and it is kept on purpose.** Two governance
     records cite this fixture by name as the place the substitution lived —

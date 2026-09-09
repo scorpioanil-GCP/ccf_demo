@@ -181,10 +181,6 @@ class Scenario(Protocol):
         """The Control Plane key whose pin becomes the admitted bundle version."""
 
     @property
-    def similarity_index_version(self) -> str:
-        """The version identity this deployment assigns its corpus (INV-CH7-27)."""
-
-    @property
     def product_class(self) -> ProductClassDeclaration:
         """The Control Plane *claim*: what this product says produced it."""
 
@@ -356,12 +352,19 @@ def assemble_and_serve(
         #    parameter artifacts. The view is in the signature because the
         #    similarity corpus is read out of the graph at the boundary above,
         #    never lazily at first invocation.
+        #
+        #    Every value the chain needs is in `parameters` — including the
+        #    corpus's version identity, which `24.11-02b` (`D-IMPL-292`) moved
+        #    onto `operator-parameters-similarity.yaml`. This call used to pass
+        #    `similarity_index_version=` read out of `product-governance.yaml`;
+        #    that argument and the code that fetched it are DELETED rather than
+        #    relocated (`D-IMPL-289`), because the declaration made them
+        #    unnecessary.
         operators = build_operator_registry(
             parameters=scenario.operator_parameters,
             view=view,
             pins=booted.pins,
             policy_bundle_key=scenario.policy_bundle_key,
-            similarity_index_version=scenario.similarity_index_version,
         )
         # --8<-- [end:operators]
 
