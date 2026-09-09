@@ -3679,6 +3679,13 @@ implementation plan before any execution (`D-IMPL-287` (8)).
 > declarations. Once the SDK-level defects are fixed, unchanged cp-05 and s1-01 are rerun as probes. If they work,
 > stop. If they expose another SDK deficiency, classify it before doing anything else."*
 
+**AMENDED by `D-IMPL-288` (3), Dave, 2026-09-08 — this sentence replaces the "unchanged" phrasing above:**
+
+> *"Existing Context Product declarations remain unchanged except for explicitly ruled corrections of objectively
+> invalid declarations. **No example change may compensate for a missing SDK capability.**"*
+
+The second sentence is the operative test applied to any proposed example edit in this phase.
+
 **THE LOOP (Dave, verbatim), and the two anti-patterns it excludes:**
 
 > *"example exposes defect → classify/rule → fix SDK → smallest direct SDK regression test → rerun unchanged example"*
@@ -3699,10 +3706,10 @@ today. That is the evidence base; `D-IMPL-285` (2) granted the escalation as **o
 | --- | --- | --- | --- |
 | **1** | `24.10-F-07` | **IN — P0 by ruling** (`D-IMPL-285` (3)) | The resolver executes Π **unseeded** while `ccf.replay.engine` replays with `seeds=request_seeds(path.request)`. Two subjects pin identically; any served product whose plan walks is replay-divergent by construction. `DI-15.5-07` reproduced on the canonical path after `D-IMPL-111` limb (a) fixed it on the hand-built one. **A correctness defect.** |
 | **2** | `24.10-F-06` | **IN by ruling** (`D-IMPL-287` (2)) | `GovernedResolver.__call__` calls `build_operator_registry` with no `similarity_index_version`, which that builder requires when a similarity artifact is present (`D-IMPL-38`). No class field, no helper argument, registry built inside `__call__`. Stops adoption at **step 4 of the composition's own nine**. **A composition defect.** |
-| 3 | `24.10-F-08` | **CLASSIFICATION PROPOSED — see the plan** | `obligation_in_force`, `source_refresh_recency`, `debt_evidence` have no seam in candidate construction, and all three sit **inside the content address**. |
-| 4 | `24.10-F-09` | **CLASSIFICATION PROPOSED** | `expires_at`, the gate instant and `recorded_at` all derive from `request.asked_at`; a **required** declared `decision_instant` goes unread. |
-| 5 | `24.10-F-11` | **CLASSIFICATION PROPOSED — mechanism needs a ruling** | `_operator_parameters` reads artifacts verbatim off `BootedFabric.artifacts` with no request in scope, so a declared operator envelope cannot be bound to the question asked. |
-| 6 | `24.10-F-12` | **CLASSIFICATION PROPOSED** | `load_config_and_boot` admits a `request_contract` section that `ProductRequestContract.from_declared` refuses three frames down at builder time. |
+| 3 | `24.10-F-08` | **IN** — SDK contract members inside the content address | `obligation_in_force`, `source_refresh_recency`, `debt_evidence` have no seam in candidate construction, and all three sit **inside the content address**. |
+| 4 | `24.10-F-09` | **OUT** — `decision_instant` is absent from `src/`; an s1-01 concept | `expires_at`, the gate instant and `recorded_at` all derive from `request.asked_at`; a **required** declared `decision_instant` goes unread. |
+| 5 | `24.10-F-11` | **IN** — mechanism RULED, `D-IMPL-288` (4)-(7) | `_operator_parameters` reads artifacts verbatim off `BootedFabric.artifacts` with no request in scope, so a declared operator envelope cannot be bound to the question asked. |
+| 6 | `24.10-F-12` | **IN** as validation-timing only — shape STANDS, `D-IMPL-288` (1) | `load_config_and_boot` admits a `request_contract` section that `ProductRequestContract.from_declared` refuses three frames down at builder time. |
 
 **THE CLASSIFICATION TEST (Dave, verbatim, `D-IMPL-287` (3)) — the single question asked of findings 3–6:**
 
@@ -3736,7 +3743,12 @@ everything looks finished.** The repair is real when those two lines are **delet
   the resolver itself: two different subjects must produce appropriately subject-conditioned execution and must not
   alias merely because the resolver dropped the seed. **We do not need cp-05 to be the regression test.**"*
 - **`examples/` — CLOSED. All of it, `s1-01` included.** `s1-01` was ruled open for 24.10's `R-03` only; that ruling
-  does not carry. It is rerun unchanged, once, at the end.
+  does not carry. It is rerun unchanged, once, at the end. **ONE narrow exception, ruled at `D-IMPL-288` (2):**
+  cp-05's `unsupported_arguments` list is an *objectively invalid declaration* and may receive the minimum
+  canonical correction to a `mapping[name, reason]` — **only after** the SDK's boot refusal lands and names the
+  fault. Measured scope: `ccf_config.yaml:175` plus `deployment.py:272`, whose comprehension currently
+  synthesizes the constant reason `"not supported at this tier"` and would otherwise discard the authored
+  reason. No republication or transcript re-pinning in-phase (`D-IMPL-261`).
 - **NOT AUTHORIZED (`D-IMPL-287` (5)), verbatim:** *"No new generalized test infrastructure, measurement tooling,
   criteria lock, review panel, or example workaround is authorized."*
 - **No broad `/gsd-discuss-phase` cycle** (`D-IMPL-287` (1)) — *"Another exploratory planning pass creates exactly the
