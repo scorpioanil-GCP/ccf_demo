@@ -1166,33 +1166,46 @@ class GovernedResolver:
     Four seams were absent; each carries an executable test in
     ``tests/examples/test_s1_01_governed_resolver_adoption.py``, and none of
     them is a defect in the example. **Two — ``24.10-F-06`` and ``24.10-F-07``
-    — are closed as of ``24.11-02``; two remain.** The closed ones are kept in
+    — are closed as of ``24.11-02b``; two remain.** The closed ones are kept in
     this roster rather than deleted from it, because what a composition *used
     to* get wrong is what says why the line that fixes it is load-bearing:
 
-    ``24.10-F-06`` — **CLOSED, ``24.11-02``**
+    ``24.10-F-06`` — **CLOSED in two parts, ``24.11-02`` then ``24.11-02b``**
         A product class whose operator set included the **Similarity**
         category — one of whitepaper §7.4's four — could not be served at all.
         :func:`~ccf.deployment.build_operator_registry` was called below with
-        no ``similarity_index_version``, which that builder requires exactly
-        when a similarity artifact is present (``D-IMPL-38``, and rightly: an
-        unversioned index is one replay cannot be held against). There was no
-        field here and no argument on :func:`build_governed_resolver`, and the
-        registry is built inside :meth:`__call__` — so a deployment had
-        nowhere to supply it, and every such call died three frames below a
-        composition it had no way to configure. The version is now a
-        **deployment-owned field** on this class, defaultless like every other
-        (:attr:`similarity_index_version`), handed to that builder unchanged.
-        It is a field rather than a value read off some artifact because the
-        SDK has **no declaration home for it today**: the deployment that
-        measured this — ``examples/s1-01-hello-context-product`` — authors it
-        in an *adopter-namespaced* governance document the SDK cannot read,
-        and :class:`~ccf.controlplane.artifacts.SimilaritySelectParametersArtifact`
-        carries no ``index_version``. Which of those should become its
-        governed home is a live question and deliberately not answered here
-        (``D-IMPL-291``, *what this does not decide*). Regressed directly at
-        ``tests/products/test_resolver_seam.py::
-        test_a_similarity_class_is_servable_only_with_the_declared_index_version``.
+        no ``similarity_index_version``, which that builder then required
+        exactly when a similarity artifact was present (``D-IMPL-38``, and
+        rightly: an unversioned index is one replay cannot be held against).
+        There was no field here and no argument on
+        :func:`build_governed_resolver`, and the registry is built inside
+        :meth:`__call__` — so a deployment had nowhere to supply it, and every
+        such call died three frames below a composition it had no way to
+        configure.
+
+        ``24.11-02`` fixed the propagation by giving this class a
+        deployment-owned ``similarity_index_version`` field. **That closed the
+        runtime seam and left the architecture open**, and Dave ruled it
+        insufficient (``D-IMPL-292``): *"the deployment still has to tell the
+        resolver something that materially affects operator behavior and
+        reproducibility … it must not remain an ungoverned deployment-supplied
+        semantic value."* A workaround relocated from test code into caller
+        code is still a workaround (``D-IMPL-289``).
+
+        **``24.11-02b`` moved the authority to the declaration**, and there is
+        consequently *nothing here* to see: the field is gone, the argument on
+        :func:`build_governed_resolver` is gone, and this class passes no
+        version to the builder. The value is declared on
+        :class:`~ccf.controlplane.artifacts.SimilaritySelectParametersArtifact`
+        — an artifact this resolver already loads by manifest key, already
+        hands the builder, and whose content hash is already in the pin set —
+        so the corpus identity a determination ranked against is now visible in
+        replay dimension 2 where it previously appeared nowhere. Dave's
+        authority model, verbatim: *"declaration owns the version → resolver
+        consumes it → deployment supplies the implementation, not an alternate
+        semantic version."* One site, not a precedence order. Regressed
+        directly at ``tests/products/test_resolver_seam.py::
+        test_the_declared_index_version_is_the_only_authority``.
     ``24.10-F-07`` — **CLOSED, ``24.11-01``**
         :meth:`__call__` executed Π with **no seeds**, while
         :mod:`ccf.replay.engine` replays with
@@ -1227,8 +1240,8 @@ class GovernedResolver:
     escalation they earn is Dave's ruling to make, and the tests are what go
     loudly red when a seam lands without its finding being closed. ``F-07``
     and ``F-06`` are the two that have had that ruling (``D-IMPL-290``,
-    ``D-IMPL-291``), and each was taken **alone**: one repair per row, so that
-    what a row moved stays attributable to what a row changed.
+    ``D-IMPL-291``, ``D-IMPL-292``), and each was taken **alone**: one repair
+    per row, so that what a row moved stays attributable to what a row changed.
 
     Attributes:
         fabric: The booted deployment, exactly as
@@ -1255,26 +1268,18 @@ class GovernedResolver:
             artifacts this deployment declared — **however many**. One yields a
             one-operator registry; this resolver holds no fixed set of four
             keys and never counts them (``D-IMPL-132``).
-        similarity_index_version: The version identity this deployment assigns
-            to the corpus state its similarity artifact ranks against
-            (INV-CH7-27, ``D-IMPL-38``), or ``None`` when
-            ``operator_parameter_keys`` names no similarity artifact
-            (``24.11-02`` / ``24.10-F-06``). Handed straight to
-            :func:`~ccf.deployment.build_operator_registry`, which requires it
-            **exactly when** a similarity artifact is present and refuses it
-            when one is not — so this field carries the deployment's answer to
-            that builder's question rather than a second opinion about it, and
-            a mismatched pair is refused there, by the message that already
-            explains why an unversioned index is one replay cannot be held
-            against.
 
-            **Deployment-owned and therefore defaultless**, on
-            ``product_gate``'s reasoning: ``None`` is a deployment stating that
-            it ranks against no index, not a value this class assumed on its
-            behalf. The SDK cannot mint one — a version derived from the
-            parameters artifact's own pin would be identical across two
-            different corpus boundaries, which is precisely the identity the
-            determinism contract exists to distinguish.
+            **A similarity artifact named here carries its own corpus version
+            identity** and needs no companion field (``24.11-02b`` /
+            ``D-IMPL-292``; see ``24.10-F-06`` above). This class holds no
+            ``similarity_index_version``: the artifact these keys resolve to is
+            handed to :func:`~ccf.deployment.build_operator_registry`, and the
+            builder reads
+            :attr:`~ccf.controlplane.artifacts.SimilaritySelectParametersArtifact.index_version`
+            off it. A field here would be a second site for one semantic value,
+            and a deployment able to state a version other than the one it
+            declared is a deployment able to make its own determination
+            irreproducible.
         policy_bundle_key: The key whose pinned version becomes the admitted
             bundle version and the product's policy binding.
         plan_factory: How this deployment builds Π for one question.
@@ -1355,7 +1360,6 @@ class GovernedResolver:
     product_class_key: str
     request_contract_key: str
     operator_parameter_keys: tuple[str, ...]
-    similarity_index_version: str | None
     policy_bundle_key: str
     plan_factory: ProjectionPlanFactoryProtocol
     debt_scorer: AssemblyDebtScorerProtocol
@@ -1615,22 +1619,16 @@ class GovernedResolver:
             view=view,
             pins=self.fabric.pins,
             policy_bundle_key=self.policy_bundle_key,
-            # `24.11-02` / `24.10-F-06` (`D-IMPL-38`). Absent this argument a
-            # product class whose operator set includes the **Similarity**
-            # category — one of whitepaper §7.4's four — could not be served
-            # at all: this builder requires the version exactly when a
-            # similarity artifact is present, and refused every such call
-            # three frames below a composition that had nowhere to supply it.
-            #
-            # Passed unconditionally, `None` included, rather than folded in
-            # only when a similarity artifact is present. The builder already
-            # refuses BOTH mismatches by name — a version with no artifact,
-            # and an artifact with no version — and a conditional here would
-            # be this composition deciding which of the two halves the
-            # deployment meant, from the same material the builder reads.
-            # `None` is the deployment's positive statement that it ranks
-            # against no index, and it reaches the builder as one.
-            similarity_index_version=self.similarity_index_version,
+            # `24.11-02b` / `24.10-F-06` (`D-IMPL-292`). No index version
+            # travels here, and its ABSENCE is the repair rather than an
+            # omission. `24.11-02` passed one from a field on this class,
+            # which fixed the propagation and left a decision-affecting
+            # semantic value in ungoverned deployment hands. It is now
+            # declared on the similarity artifact — one of the very artifacts
+            # `_operator_parameters()` returns on the line above — so the
+            # builder reads the corpus identity off the same declaration it
+            # already reads the corpus map off, and this composition states
+            # no opinion about a value it does not own.
         )
         required = tuple(declaration.required_operator_keys)
         execution = ProjectionEngine(
@@ -2175,7 +2173,6 @@ def build_governed_resolver(
     plan_factory: ProjectionPlanFactoryProtocol,
     max_ttl_seconds: int,
     product_ttl_seconds: int,
-    similarity_index_version: str | None = None,
     artifact_store: ArtifactStoreProtocol | None = None,
     replay_record_class: str | None = None,
     query_pin_class: str | None = None,
@@ -2214,7 +2211,7 @@ def build_governed_resolver(
     worked example, ``examples/s1-01-hello-context-product/spine.py``, against
     a live substrate. **The example could not adopt it**, and four absent seams
     were why — of which ``24.10-F-06`` and ``24.10-F-07`` are closed as of
-    ``24.11-02``, leaving two. Read
+    ``24.11-02b``, leaving two. Read
     :class:`GovernedResolver`'s own docstring for ``24.10-F-06`` through
     ``24.10-F-09`` and ``tests/examples/
     test_s1_01_governed_resolver_adoption.py`` for the executable roster. One
@@ -2229,19 +2226,20 @@ def build_governed_resolver(
     It is recorded, and not fixed here: ``D-IMPL-282`` authorizes *"no
     broader API redesign … up front"*, so what it earns is a ruling.
 
-    The one that *was* an argument problem is now an argument
-    (``24.11-02`` / ``24.10-F-06``, ``D-IMPL-291`` (5)): a deployment
-    declaring a **similarity** operator-parameters artifact among
-    ``operator_parameter_keys`` passes ``similarity_index_version``, which
-    reaches :func:`~ccf.deployment.build_operator_registry` through the
-    resolver's own field. It is an *argument* rather than a value read off a
-    declaration because the SDK has nowhere for a deployment to declare it —
-    :class:`~ccf.controlplane.artifacts.SimilaritySelectParametersArtifact`
-    carries no ``index_version`` and no reserved Control Plane section names
-    one — and inventing that home is a ruling rather than a repair. Until one
-    exists this argument sits beside ``max_ttl_seconds`` and
-    ``product_ttl_seconds``: values only the deployment can author, which the
-    SDK will not mint on its behalf.
+    The one that *looked* like an argument problem turned out not to be one.
+    ``24.11-02`` added a ``similarity_index_version`` argument here, and Dave
+    ruled that insufficient (``D-IMPL-292``): a corpus's version identity is
+    *decision-affecting operator configuration*, and an argument makes it an
+    ungoverned value the deployment restates in code. **There is no such
+    argument below, and its absence is the repair.** A deployment declaring a
+    **similarity** operator-parameters artifact among
+    ``operator_parameter_keys`` declares
+    :attr:`~ccf.controlplane.artifacts.SimilaritySelectParametersArtifact.index_version`
+    *on that artifact*, and :func:`~ccf.deployment.build_operator_registry`
+    reads it there. That is the difference between a value in the pin set and a
+    value in a call — and it is why this argument is not offered even as an
+    optional convenience: an optional second site is still a site at which a
+    deployment can contradict its own declaration.
 
     What "the default" can and cannot mean here
     --------------------------------------------
@@ -2348,17 +2346,6 @@ def build_governed_resolver(
         max_ttl_seconds: The class's TTL ceiling.
         product_ttl_seconds: A served product's own lifetime. Two figures, and
             they stay two.
-        similarity_index_version: The version identity this deployment assigns
-            to the corpus its similarity artifact ranks against
-            (``D-IMPL-38``). **Required exactly when**
-            ``operator_parameter_keys`` names a similarity artifact, and
-            refused when it does not — both by
-            :func:`~ccf.deployment.build_operator_registry`, whose two
-            refusals this helper deliberately does not restate. Optional
-            *here* and defaultless on :class:`GovernedResolver` for
-            ``product_gate``'s reason: most deployments rank against no index,
-            and this is where the SDK's own choice for them is made rather
-            than assumed by the composition (``24.11-02`` / ``24.10-F-06``).
         half_life_key: Manifest key of this deployment's ``λ_c`` table.
         debt_profile_key: Manifest key of its ``D_c`` bands.
         declared_completeness: The ``C`` this deployment asserts, in ``[0, 1]``.
@@ -2629,7 +2616,6 @@ def build_governed_resolver(
             product_class_key=product_class_key,
             request_contract_key=request_contract_key,
             operator_parameter_keys=operator_parameter_keys,
-            similarity_index_version=similarity_index_version,
             policy_bundle_key=policy_bundle_key,
             plan_factory=plan_factory,
             debt_scorer=debt_scorer,
@@ -2670,7 +2656,6 @@ def build_governed_resolver(
         product_class_key=product_class_key,
         request_contract_key=request_contract_key,
         operator_parameter_keys=operator_parameter_keys,
-        similarity_index_version=similarity_index_version,
         policy_bundle_key=policy_bundle_key,
         plan_factory=plan_factory,
         debt_scorer=AssemblyDebtScorer(

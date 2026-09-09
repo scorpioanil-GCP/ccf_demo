@@ -953,15 +953,12 @@ def test_the_named_inputs_are_this_helper_s_own_optional_parameters() -> None:
         # (`D-IMPL-282` option 1a). Its `None` default is what lets a class
         # declaring no gate call this helper exactly as it always did.
         "product_gate",
-        # `24.11-02` / `24.10-F-06`. A ninth, excluded for a reason none of
-        # the others has: no Control Plane document declares it, so it is
-        # neither debt-scorer material nor a declared default — it is a
-        # deployment-authored value the SDK refuses to mint (`D-IMPL-38`).
-        # Its `None` default is what lets every deployment that ranks against
-        # no index call this helper exactly as it always did, and
-        # `build_operator_registry` refuses both halves of the mismatch by
-        # name rather than this helper restating either.
-        "similarity_index_version",
+        # `24.11-02b` / `D-IMPL-292`. There is deliberately no ninth. `24.11-02`
+        # added `similarity_index_version` here and Dave ruled it insufficient:
+        # a corpus's version identity is decision-affecting operator
+        # configuration, so it is declared on the similarity artifact and this
+        # helper takes no argument for it. The exclusion roster shrinking is
+        # the repair, not an omission from it.
     )
     parameters = inspect.signature(build_governed_resolver).parameters
     for name in not_debt_scorer_material:

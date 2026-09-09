@@ -84,8 +84,11 @@ from tests.deployment.conftest import (
 #: The four operator-parameters manifest keys, in the fixture's vocabulary.
 OPERATOR_KEYS = (TRAVERSAL_KEY, TEMPORAL_KEY, POLICY_PARAMS_KEY, SIMILARITY_KEY)
 
-#: A test-side index version. Never an SDK value — the deployment assigns it.
-INDEX_VERSION = "fixture-corpus-1"
+#: The corpus version identity the fixture's similarity artifact DECLARES
+#: (`tests/deployment/conftest.py`). Read from the parsed artifact rather than
+#: restated here: `24.11-02b` / `D-IMPL-292` made the declaration the single
+#: authority for this value, and a test-side constant asserting against it would
+#: be a second site of exactly the kind that row removed.
 
 
 def _boot(deployment: Deployment, tmp_path: pathlib.Path, *, name: str) -> Any:
@@ -203,14 +206,12 @@ def test_the_corpus_is_read_at_the_boundary_the_caller_named(
             view=early_view,
             pins=booted.pins,
             policy_bundle_key=POLICY_BUNDLE_KEY,
-            similarity_index_version=INDEX_VERSION,
         )
         late_registry = build_operator_registry(
             parameters=_parameters(booted, *OPERATOR_KEYS),
             view=late_view,
             pins=booted.pins,
             policy_bundle_key=POLICY_BUNDLE_KEY,
-            similarity_index_version=INDEX_VERSION,
         )
 
         # The candidate set is the *later* view both times, so the difference is
@@ -314,7 +315,6 @@ def test_the_corpus_map_is_read_from_the_similarity_artifact(
             view=view,
             pins=booted.pins,
             policy_bundle_key=POLICY_BUNDLE_KEY,
-            similarity_index_version=INDEX_VERSION,
         )
         assert _ranked(declared, view)
 
@@ -326,7 +326,6 @@ def test_the_corpus_map_is_read_from_the_similarity_artifact(
             view=view,
             pins=booted.pins,
             policy_bundle_key=POLICY_BUNDLE_KEY,
-            similarity_index_version=INDEX_VERSION,
         )
         assert _ranked(stripped, view) == set()
     finally:
@@ -376,7 +375,6 @@ def test_an_entity_class_the_map_does_not_name_contributes_no_corpus_entry(
             view=view,
             pins=booted.pins,
             policy_bundle_key=POLICY_BUNDLE_KEY,
-            similarity_index_version=INDEX_VERSION,
         )
 
         assert _ranked(registry, view) == set()
@@ -416,7 +414,6 @@ def test_an_entity_missing_its_declared_corpus_attribute_is_refused(
                 view=view,
                 pins=booted.pins,
                 policy_bundle_key=POLICY_BUNDLE_KEY,
-                similarity_index_version=INDEX_VERSION,
             )
 
         # The message names the attribute, so the two documents that disagree
@@ -445,7 +442,6 @@ def test_every_registered_operator_reports_its_own_category(
             view=view,
             pins=booted.pins,
             policy_bundle_key=POLICY_BUNDLE_KEY,
-            similarity_index_version=INDEX_VERSION,
         )
 
         assert len(registry) == len(OPERATOR_KEYS)

@@ -58,12 +58,14 @@ from decimal import Decimal
 from typing import Any
 
 import pytest
+from pydantic import ValidationError
 
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.artifacts.protocol import ArtifactRef
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.registry import ControlPlaneRegistry
-from ccf.deployment import BootedFabric, load_and_boot
+from ccf.controlplane.artifacts import SimilaritySelectParametersArtifact
+from ccf.deployment import BootedFabric, build_operator_registry, load_and_boot
 from ccf.graph.protocols import GraphQuery, GraphReader, GraphView
 from ccf.halflife.debt import DebtAssessment, DebtFactors, DebtSignal
 from ccf.products.constraints import ReferencePolicyConstraintResolver
@@ -1092,83 +1094,118 @@ def test_two_subjects_cannot_collapse_to_one_question_to_the_graph(
             )
 
 
-# --- `24.11-02` / `24.10-F-06`: the Similarity category is servable ----------
-
-#: The corpus version identity this fixture deployment assigns. A test-side
-#: name like every other domain value here (CINV-01): the SDK holds no default
-#: for it and mints none, which is the whole point of `D-IMPL-38`.
-SIMILARITY_INDEX_VERSION = "fixture-corpus@2026-03-02"
+# --- `24.11-02b` / `24.10-F-06`: the declaration owns the corpus identity ----
 
 
-def test_a_similarity_class_is_servable_only_with_the_declared_index_version(
+def test_the_declared_index_version_is_the_only_authority(
     booted: _Booted,
 ) -> None:
-    """The registry is built with the configuration the deployment declared.
+    """`D-IMPL-292`. The similarity artifact declares its corpus version, and
+    nothing else in the fabric may state one.
 
-    Dave's question for this repair, verbatim (`D-IMPL-291` (5)): *"Can
-    `GovernedResolver` construct the operator registry with the configuration
-    already required by the declared product class, including
-    `similarity_index_version`, without the harness supplying
-    `build_operator_registry` on its behalf?"*
+    Dave's ruling, verbatim: *"`similarity_index_version` is decision-affecting
+    operator configuration and needs a canonical declarative home in the SDK.
+    It must not remain an ungoverned deployment-supplied semantic value."* And
+    the authority model: *"declaration owns the version → resolver consumes it
+    → deployment supplies the implementation, not an alternate semantic
+    version."*
 
-    Until `24.11-02` it could not. :meth:`~ccf.products.resolver
-    .GovernedResolver.__call__` called
-    :func:`~ccf.deployment.build_operator_registry` with no
-    ``similarity_index_version``, which that builder requires exactly when a
-    similarity artifact is present (`D-IMPL-38`, and rightly: an unversioned
-    index is one replay cannot be held against). So a product class using one
-    of whitepaper §7.4's four operator categories was unservable by the SDK's
-    own reference composition, and stopped at step 4 of its own nine.
+    `24.11-02` closed `24.10-F-06`'s runtime half by giving
+    :class:`~ccf.products.resolver.GovernedResolver` a
+    ``similarity_index_version`` field. That fixed the propagation and left the
+    architecture open — a workaround relocated from test code into caller code
+    is still a workaround (`D-IMPL-289`). `24.11-02b` moved the value to
+    :class:`~ccf.controlplane.artifacts.SimilaritySelectParametersArtifact`.
 
-    **Three legs, and no two of them are the same property.**
+    **Four legs, and no two are the same property.**
 
-    *The wall is gone.* A resolver whose operator parameters include the
-    fixture's similarity artifact, wired with the version the deployment
-    assigns, serves.
+    *The declaration alone is sufficient.* The canonical composition serves a
+    class whose operator set includes Similarity while being told nothing about
+    any index — naming the similarity key is now the whole of wiring
+    similarity. Contrast `24.11-02`, where the same wiring needed a second
+    argument kept in step with the artifact by hand.
 
-    *The version is what removed it.* The same wiring with ``None`` refuses,
-    by the builder's own message — so the leg above is attributable to this
-    field and not to some other difference between the two wirings.
+    *The declared value is what propagates, by value and not by servability.*
+    The index the builder constructs ranks under the version the artifact
+    declares. Asserted against the artifact's own field rather than against a
+    constant restated here, because a constant would be the second site this
+    row exists to remove.
 
-    *The field is actually propagated, not merely accepted.* A version
-    supplied where **no** similarity artifact is registered must refuse too,
-    because the builder refuses that mismatch in the other direction. A
-    composition that dropped the field on the floor would pass the first leg's
-    negative twin by accident and would sail through this one — it is the leg
-    that a resolver storing the value and never passing it cannot survive.
+    *Re-authoring the declaration moves it.* A copy of the artifact carrying a
+    different ``index_version`` produces an index carrying that version — so
+    leg two is attributable to the declaration and not to some value the SDK
+    minted that happens to match.
+
+    *There is no second site to disagree with it.* An artifact declaring no
+    version is refused at parse, by field name — not three frames on inside a
+    build, which is where the old runtime refusal fired. And the builder offers
+    no channel to supply one instead: the keyword `24.11-02` reached for is
+    gone, and this leg goes red the moment anyone puts it back. Equality
+    between two sites was the fallback `D-IMPL-292` allowed *"if two sites
+    exist during migration"*; none does, so none is enforced.
     """
-    with_similarity = (TRAVERSAL_KEY, SIMILARITY_KEY)
+    similarity = booted.fabric.artifacts[SIMILARITY_KEY]
+    assert isinstance(similarity, SimilaritySelectParametersArtifact)
 
     served = _ask(
         _resolver(
-            booted,
-            operator_parameter_keys=with_similarity,
-            similarity_index_version=SIMILARITY_INDEX_VERSION,
+            booted, operator_parameter_keys=(TRAVERSAL_KEY, SIMILARITY_KEY)
         ),
         _request(),
     )
     assert isinstance(served, ServedProduct), (
         "a class whose operator set includes the Similarity category was not"
-        " served by the SDK's own reference composition"
+        " served by the SDK's own reference composition, given nothing but the"
+        " declaration"
     )
 
-    with pytest.raises(ValueError) as unversioned:
-        _ask(
-            _resolver(
-                booted,
-                operator_parameter_keys=with_similarity,
-                similarity_index_version=None,
-            ),
-            _request(),
-        )
-    assert "similarity_index_version" in str(unversioned.value)
+    view = booted.fabric.handle.reader.as_of(tenant_id=TENANT, at=ASKED_AT)
 
-    with pytest.raises(ValueError) as unranked:
-        _ask(
-            _resolver(booted, similarity_index_version=SIMILARITY_INDEX_VERSION),
-            _request(),
+    def _built(artifact: SimilaritySelectParametersArtifact) -> str | None:
+        registry = build_operator_registry(
+            parameters={SIMILARITY_KEY: artifact},
+            view=view,
+            pins=booted.fabric.pins,
+            policy_bundle_key=POLICY_BUNDLE_KEY,
         )
-    assert "no similarity artifact" in str(unranked.value)
+        index_version: str | None = registry.resolve(
+            "similarity.corpus-select"
+        )._index.index_version
+        return index_version
+
+    assert _built(similarity) == similarity.index_version, (
+        "the index was built under a version the declaration did not assign"
+    )
+
+    reauthored = "fixture-corpus@re-authored"
+    assert reauthored != similarity.index_version
+    assert (
+        _built(similarity.model_copy(update={"index_version": reauthored}))
+        == reauthored
+    ), (
+        "re-authoring the declaration did not move the corpus identity, so"
+        " the value leg above proves nothing about where it is read from"
+    )
+
+    with pytest.raises(ValidationError) as unversioned:
+        SimilaritySelectParametersArtifact.model_validate(
+            {
+                key: value
+                for key, value in similarity.model_dump().items()
+                if key != "index_version"
+            }
+        )
+    assert "index_version" in str(unversioned.value)
+
+    with pytest.raises(TypeError) as second_site:
+        build_operator_registry(
+            parameters={SIMILARITY_KEY: similarity},
+            view=view,
+            pins=booted.fabric.pins,
+            policy_bundle_key=POLICY_BUNDLE_KEY,
+            similarity_index_version="a-version-the-declaration-does-not-carry",  # type: ignore[call-arg]
+        )
+    assert "similarity_index_version" in str(second_site.value)
 
 
 # --- `R-11`: the product-gate seam, and where it runs ------------------------
@@ -1281,13 +1318,12 @@ DEPLOYMENT_OWNED_ARGUMENTS: tuple[str, ...] = (
     "control_plane",
     "product_class_key",
     "request_contract_key",
+    # `24.11-02b` / `D-IMPL-292`: these keys carry the similarity artifact, and
+    # the artifact carries its own `index_version`. `24.11-02`'s companion
+    # `similarity_index_version` field is GONE from this roster because it is
+    # gone from the class — the declaration is the authority, and a field here
+    # would be a second site for one semantic value.
     "operator_parameter_keys",
-    # `24.11-02` / `24.10-F-06`: the version identity a deployment assigns the
-    # corpus its similarity artifact ranks against (`D-IMPL-38`). No default,
-    # for `product_gate`'s reason — `None` is a POSITIVE statement that this
-    # deployment ranks against no index, and the SDK cannot mint one on a
-    # deployment's behalf.
-    "similarity_index_version",
     "policy_bundle_key",
     "plan_factory",
     "debt_scorer",
@@ -1398,13 +1434,12 @@ def _arguments(booted: _Booted) -> dict[str, Any]:
         "control_plane": booted.control_plane,
         "product_class_key": PRODUCT_CLASS_KEY,
         "request_contract_key": REQUEST_CONTRACT_KEY,
+        # `24.11-02b` / `D-IMPL-292`: naming the similarity key is now the WHOLE
+        # of wiring similarity — the artifact it resolves to carries its own
+        # `index_version`, and there is no companion argument to keep in step
+        # with it. The default wiring names no similarity artifact; the test
+        # below adds the key and nothing else.
         "operator_parameter_keys": (TRAVERSAL_KEY,),
-        # `24.11-02` / `24.10-F-06`: `None` because the keys above name no
-        # similarity artifact. Stated rather than defaulted, `product_gate`'s
-        # discipline, which is why the field carries no default either — and
-        # the test below overrides both together, because
-        # `build_operator_registry` refuses each without the other.
-        "similarity_index_version": None,
         "policy_bundle_key": POLICY_BUNDLE_KEY,
         "plan_factory": _plan_factory,
         "debt_scorer": _debt_scorer,

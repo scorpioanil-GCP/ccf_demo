@@ -693,10 +693,6 @@ def _ask_the_empty_fabric(booted: Any, *, completeness: Any | None = None) -> An
         product_class_key=PRODUCT_CLASS_KEY,
         request_contract_key=REQUEST_CONTRACT_KEY,
         operator_parameter_keys=(TRAVERSAL_KEY,),
-        # `24.11-02` / `24.10-F-06`: `None` because the key above names no
-        # similarity artifact. Stated rather than defaulted — the field
-        # carries no default, on `product_gate`'s discipline.
-        similarity_index_version=None,
         policy_bundle_key=POLICY_BUNDLE_KEY,
         plan_factory=lambda *, required, request: _EmptyProjection(
             required=required, request=request

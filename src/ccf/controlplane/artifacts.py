@@ -903,24 +903,64 @@ class SimilaritySelectParametersArtifact(
     artifact is accepted directly by
     :class:`~ccf.operators.categories.SimilaritySelect`.
 
-    It declares **one artifact-only field beyond the operator's contract**, and
-    the asymmetry is deliberate rather than an oversight.
+    It declares **two artifact-only fields beyond the operator's contract**, and
+    the asymmetry is deliberate rather than an oversight. Both govern
+    :class:`~ccf.similarity.protocol.SimilarityIndexProtocol` *construction* —
+    the registry builder reads them before the operator exists — and both are
+    deliberately **absent** from
+    :class:`~ccf.operators.params.SimilaritySelectParameters`, because putting a
+    construction-time value on the per-invocation parameter set would make the
+    L4 invoke contract carry state no invocation reads. Neither carries a
+    default.
 
     Attributes:
         similarity_corpus_attribute_by_class: ``entity_class -> attribute key``
-            naming the attribute whose text forms that class's corpus entry. It
-            governs :class:`~ccf.similarity.token_overlap.TokenOverlapIndex`
-            *construction* — the registry builder reads it before the operator
-            exists — and it is deliberately **absent** from
-            :class:`~ccf.operators.params.SimilaritySelectParameters`, because
-            putting a construction-time value on the per-invocation parameter set
-            would make the L4 invoke contract carry state no invocation reads.
+            naming the attribute whose text forms that class's corpus entry.
             No default: a class absent from this mapping contributes no corpus
             entry, and guessing an attribute name is guessing what a deployment
             meant by "similar".
+        index_version: The version identity this deployment assigns to the
+            corpus state its index ranks against (INV-CH7-27, ``D-IMPL-38``).
+            It reaches
+            :attr:`~ccf.similarity.protocol.SimilarityIndexProtocol.index_version`
+            and travels from there into ``L`` on every ranked result, so it is
+            the token a replay is held against when it asks *which corpus said
+            these two names were alike*.
+
+            **This is the value's canonical declarative home, and the
+            declaration is its authority** (``D-IMPL-292``, Dave: *"declaration
+            owns the version → resolver consumes it → deployment supplies the
+            implementation, not an alternate semantic version"*). Until
+            ``24.11-02b`` it was a keyword argument to
+            ``ccf.deployment.build_operator_registry`` and a field on
+            :class:`~ccf.products.resolver.GovernedResolver`, which made a
+            decision-affecting semantic value something a deployment restated in
+            code at every call site — ungoverned, unversioned, and invisible to
+            the pin set. Declared here it is content-hashed into a registered
+            artifact, so re-authoring the corpus identity **necessarily** shows
+            up as a changed pin in replay dimension 2, where re-authoring a call
+            argument showed up nowhere.
+
+            **What the deployment still owns is the implementation.** Which
+            :class:`~ccf.similarity.protocol.SimilarityIndexProtocol` backs the
+            ranking — token overlap, sqlite-vec, Chroma — is a substrate choice
+            and stays the deployment's. What it may no longer do is hand the
+            fabric a *different semantic version* than the one it declared: two
+            disagreeing values mean two different corpora, and silently
+            preferring either makes the determination irreproducible. There is
+            therefore exactly one site, not a precedence order.
+
+            No default, for the reason every other field here has none, sharpened
+            by what this one is: the SDK cannot mint a corpus identity. A version
+            derived from this artifact's own pin would be identical across two
+            different corpus boundaries, which is precisely the identity the
+            determinism contract exists to distinguish — so the deployment
+            assigns it, and an artifact that assigns none is refused at parse
+            rather than three frames into a build.
     """
 
     similarity_corpus_attribute_by_class: Mapping[str, str]
+    index_version: str
 
 
 class PolicyFilterParametersArtifact(OperatorParametersArtifact):

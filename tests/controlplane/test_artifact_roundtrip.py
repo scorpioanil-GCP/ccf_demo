@@ -265,6 +265,12 @@ CASES: tuple[_Case, ...] = (
             "similarity_corpus_attribute_by_class": {
                 "fixture-entity": "fixture_attribute"
             },
+            # `24.11-02b` / `D-IMPL-292`: the corpus's version identity is
+            # declared HERE, and required. Omitting it is no longer a runtime
+            # refusal from the registry builder three frames on — it is a parse
+            # failure at the Control Plane boundary, which is where a document
+            # that cannot say which corpus it ranked against belongs.
+            "index_version": "fixture-corpus@2026-01-01",
         },
         unknown_keys=("tenant_id",),
     ),

@@ -84,7 +84,9 @@ An absence measured is a result. ``24.10-04`` found four walls against
     **Not implicated.** cp-05 declares two operators —
     ``policy.principal-subgraph`` and ``traversal.typed-neighborhood`` — and no
     similarity artifact, so :func:`~ccf.deployment.build_operator_registry`
-    never asks for a ``similarity_index_version``. The wall that stopped
+    never reads a corpus version identity off one (`24.11-02b`: the version is
+    declared on the similarity artifact, and cp-05 declares none). The wall
+    that stopped
     ``s1-01`` at step 4 of nine is not on cp-05's path at all, which is why
     cp-05 gets far enough to be *wrong* rather than far enough to *raise*.
 
