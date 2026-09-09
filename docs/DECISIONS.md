@@ -1836,7 +1836,34 @@ For cp-05 concretely: Fluree acquisition establishes the corporate/family topolo
 
 **Governs:** the shape of the cp-05 canonical-path migration. **WHAT THIS DOES NOT DECIDE.** Any SDK change — none is authorized. The scalability question above. The carries under `D-IMPL-297`.
 
-**Next free decision id: `D-IMPL-300`.** **Related:** `D-IMPL-298` (the migration this shapes), `D-IMPL-297`, `D-IMPL-279` `R-09` (the L1 acquisition boundary, a different seam from decision-time content acquisition), `src/ccf/projection/acquisition.py`, `src/ccf/projection/plan.py::ProjectionPlan`.
+**Next free decision id: `D-IMPL-301`.** **Related:** `D-IMPL-298` (the migration this shapes), `D-IMPL-297`, `D-IMPL-279` `R-09` (the L1 acquisition boundary, a different seam from decision-time content acquisition), `src/ccf/projection/acquisition.py`, `src/ccf/projection/plan.py::ProjectionPlan`.
+
+---
+
+**D-IMPL-300 — The canonical `GovernedResolver` must enforce operator-set divergence at the ruled PRE-EXECUTION point. Gate 2 is a downstream equality check over engine-resolved operators and does not replace the binder.** RESOLVED. Date: 2026-09-09. Approver: Dave. **An SDK finding discovered by cp-05's canonical adoption** (`D-IMPL-298`); it does not reopen Phase 24.11.
+
+**How it was found, and the workflow is the point.** cp-05's migration deleted its hand-composed governed spine. `tests/products/test_gate_two_call_shape.py` then failed on the migrated program: *"`plan_factory()` constructs or runs a projection plan without naming `refuse_operator_set_divergence` … the binder is the only thing that holds them in agreement, and it must be called between plan construction and `ProjectionEngine.execute` (`D-IMPL-86` correction, 2026-08-05)."* Dave: *"migration removed adopter governance plumbing → test exposed a governance responsibility the SDK had not absorbed → stop → fix the SDK at the canonical seam → resume product migration."*
+
+**The measurement.** `refuse_operator_set_divergence` is called by **neither** `GovernedResolver` nor `ProjectionEngine`. The hand-composed spine called it; the canonical path does not.
+
+**Why Gate 2 does not cover it, and this is the ruling's core.** They are different invariants:
+
+| | Compares | When |
+| --- | --- | --- |
+| Binder (`D-IMPL-86`) | the product class declaration against the **plan's own declared** `required_operators()` | **before** execution |
+| Gate 2 | the declaration against the **engine-resolved** operator set | **after** assembly |
+
+Dave: *"Gate 2 is useful, but it is later. It verifies the engine-resolved operator set after assembly has already happened. That is not the same invariant."* The binder's own docstring makes the same argument for its timing: *"Call it between constructing the plan and calling execute — after that, a product has already been assembled from a set the deployment's own claim contradicts."* Nothing divergent is served either way; what is lost is the guarantee that assembly never **proceeds** from a contradicted set.
+
+**Why the responsibility is now the SDK's, and not an adopter's to restore.** On the canonical path `plan_factory` is invoked **inside** the resolver, so no adopter code sits between plan construction and execution. Dave: *"canonical adopters no longer have a legitimate hook between plan construction and engine execution."* Restoring the call inside a deployment's `plan_factory` would put a governance check back into adopter code — the precise thing the migration removed, and it would falsify cp-05's measured *"governance composition: 0"*.
+
+**The bounded repair, ruled:** hoist the plan to a local inside `GovernedResolver`, call the binder between construction and `ProjectionEngine.execute`, add **one** direct resolver-level regression test, and prove reversal by removing only that call. **Do not change cp-05. Do not weaken `test_gate_two_call_shape`. No new test infrastructure.**
+
+**The second red is NOT fixed under this entry.** cp-05 dropped off `D-IMPL-137`'s one-document roster when the legacy spine's exemption claim was deleted. Dave: fix the timing defect first, then re-measure. *"If it still fails, classify it as a stale structural premise of the old implementation, not as another product bug"* — and the correct outcome may simply be that cp-05 no longer belongs on that roster after canonical adoption.
+
+**Governs:** `ccf.products.resolver::GovernedResolver`'s plan-construction seam. **WHAT THIS DOES NOT DECIDE.** The `D-IMPL-137` roster question above. Anything else in Phase 24.11, which stays closed. The remaining cp-05 product-completion steps.
+
+**Next free decision id: `D-IMPL-301`.** **Related:** `D-IMPL-86` (the binder and its 2026-08-05 timing correction), `D-IMPL-298`, `D-IMPL-299`, `D-IMPL-137`, `D-GATE-24.11`.
 
 ---
 

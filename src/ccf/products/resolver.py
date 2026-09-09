@@ -167,7 +167,11 @@ from ccf.controlplane.artifacts import (
 )
 from ccf.controlplane.registry import ControlPlaneProtocol
 from ccf.contracts.canonical import canonical_bytes, content_hash
-from ccf.deployment import BootedFabric, build_operator_registry
+from ccf.deployment import (
+    BootedFabric,
+    build_operator_registry,
+    refuse_operator_set_divergence,
+)
 from ccf.graph.protocols import GraphView, TraversalDepthCapability
 from pydantic import ValidationError
 
@@ -1739,10 +1743,26 @@ class GovernedResolver:
             # no opinion about a value it does not own.
         )
         required = tuple(declaration.required_operator_keys)
+        # `D-IMPL-300`: the plan is a NAMED LOCAL so the binder has somewhere to
+        # stand. `D-IMPL-86`'s correction of 2026-08-05 puts the check between
+        # plan construction and `execute`, and on this path that moment exists
+        # ONLY here — `plan_factory` is invoked by the resolver, so no adopter
+        # code sits between the two. Found by cp-05's canonical adoption: its
+        # hand-composed spine called the binder, and the migrated program had
+        # nowhere legitimate to.
+        plan = self.plan_factory(required=required, request=effective_request)
+        # The product class's `required_operator_keys` and the plan's own
+        # `required_operators()` are two separately authored documents (design
+        # E2). Gate 2 below compares the declaration against what the engine
+        # RESOLVED, which is a different and later invariant: it catches the
+        # divergence after a product has already been assembled from a set the
+        # deployment's own claim contradicts. Refusing here is what keeps that
+        # assembly from happening at all.
+        refuse_operator_set_divergence(declared=declaration, plan=plan)
         execution = ProjectionEngine(
             reader=self.fabric.handle.reader, registry=operators
         ).execute(
-            plan=self.plan_factory(required=required, request=effective_request),
+            plan=plan,
             perspective=perspective,
             tenant_id=self.fabric.tenant_id,
             temporal_boundary=request.asked_at,
