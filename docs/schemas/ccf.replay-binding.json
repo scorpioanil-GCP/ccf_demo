@@ -1,0 +1,31 @@
+{
+  "additionalProperties": false,
+  "description": "Where one deployment's decision records go, and under which classes.\n\n**SDK-defined, not whitepaper-derived** (CLAUDE.md \u00a711). Whitepaper \u00a77.8\nmakes the Control Plane the plane that declares what the fabric is\npermitted to do and the plane its decisions are audited against; it fixes\nnothing about where a deployment's replay artifacts are filed. CLAUDE.md\n\u00a77.4 does: replay records are an ArtifactStore artifact class, and the\nstore is a substrate reached through mechanism. This class is the third\nplace those two facts meet \u2014 the deployment's own binding, declared rather\nthan passed.\n\nThe ruling of record is ``D-IMPL-282`` ``R-12`` option 2a (Dave,\n2026-09-08): the ``replay:`` Control Plane section supplies defaults,\nexplicit constructor arguments override the declaration, and *\"the declared\nbinding must actually be consumed and exercised; declaration-only is\ninsufficient.\"*\n\nThree declared values, none with a default:\n\n* ``record_class`` \u2014 the artifact class every decision record for this\n  deployment is filed under, served and refused alike.\n* ``query_pin_class`` \u2014 the class the executed-query bytes are filed under.\n* ``store_dirname`` \u2014 a contained relative directory the file-backed\n  reference store roots at, under a root the caller supplies.\n\n**Binding only. No product-specific replay semantics.** The same ruling:\n*\"No product-specific replay semantics in the Control Plane\u2014only deployment\nbinding/configuration.\"* That is why there is no room here for a record\nshape, a retention rule, a redaction policy or a per-product lane, and why\nthe closure is a property of the contract rather than of this paragraph:\n``extra=\"forbid\"`` is inherited from :class:`~ccf.contracts.base.CCFContract`,\nso a fourth key is refused at parse with the key named.\n\n**What a declaration can bind, and what it cannot.** ``store_dirname`` is a\ndirectory name joined onto a caller-supplied root, so the store a\ndeclaration can select is the file-backed reference implementation,\n:class:`~ccf.artifacts.file_store.FileArtifactStore`. A deployment on\n:class:`~ccf.artifacts.mcp_store.McpArtifactStore` reaches its store by\npassing ``artifact_store`` to\n:func:`~ccf.products.resolver.build_governed_resolver` explicitly, which\nwins under the ruled precedence and is therefore unaffected by anything\nhere. That is a limitation of the declaration, stated so the next reader\nfinds it rather than discovers it.\n\n**The dirname is contained, and containment is checked here.** An absolute\npath, a rooted or drive-qualified name, or any ``..`` segment would let a\nControl Plane document address a location outside the root its caller\nchose, which is a document deciding something the deployment's operator did\nnot. Refused by name, never normalized: only the author of the declaration\nknows what they meant. The question is asked through\n:func:`_leaves_its_own_directory` \u2014 the same predicate\n:attr:`ManifestEntry.path` is held to \u2014 so the SDK has one answer to *\"does\nthis declared name stay inside the directory it was given\"* rather than two\nthat can drift.\n\nAttributes:\n    record_class: The artifact class decision records are filed under.\n    query_pin_class: The artifact class executed-query bytes are filed\n        under.\n    store_dirname: A contained relative directory under a caller-supplied\n        root.",
+  "properties": {
+    "query_pin_class": {
+      "title": "Query Pin Class",
+      "type": "string"
+    },
+    "record_class": {
+      "title": "Record Class",
+      "type": "string"
+    },
+    "semver": {
+      "title": "Semver",
+      "type": "string"
+    },
+    "store_dirname": {
+      "title": "Store Dirname",
+      "type": "string"
+    }
+  },
+  "required": [
+    "semver",
+    "record_class",
+    "query_pin_class",
+    "store_dirname"
+  ],
+  "title": "ReplayBinding",
+  "type": "object",
+  "x-ccf-class-id": "ccf.replay-binding"
+}

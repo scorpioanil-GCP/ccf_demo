@@ -13,11 +13,6 @@
 #     A SEPARATELY authored number from the ceiling, on purpose. A UBO answer
 #     goes stale as ownership changes; ten minutes is this deployment's choice
 #     and not a recommendation.
-#   * `similarity_index_version` — the version identity this deployment assigns
-#     to the screening corpus at its named boundary (INV-CH7-27, D-IMPL-38). The
-#     builder does not mint one: a version derived from the parameters
-#     artifact's pin would be identical across two different boundaries, which
-#     is precisely the corpus identity the determinism contract distinguishes.
 #   * `request_contract_key` — the Control Plane key this deployment registers
 #     its class's request surface under (D-IMPL-98). The KEY is authored here;
 #     the VERSION pinning it is minted by registering the parsed contract, on
@@ -87,7 +82,6 @@ class_id: fibo-kyc.product-governance
 declaration:
   max_ttl_seconds: 1200
   product_ttl_seconds: 600
-  similarity_index_version: "fibo-kyc-screening-corpus@2026-08-01"
   request_contract_key: fibo-kyc/product/ultimate-beneficial-ownership/requests
   replay_record_class: decision-replay-record
   query_pin_class: graph-query

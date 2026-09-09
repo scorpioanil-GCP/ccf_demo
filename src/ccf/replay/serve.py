@@ -69,6 +69,7 @@ __ccf_mode__ = "algorithmic"
 __all__ = [
     "CapabilityForgeryError",
     "DeliveryCapability",
+    "ProductRecordMismatch",
     "QueryPinMismatch",
     "QueryPinWriter",
     "ReplayWriter",
@@ -80,6 +81,45 @@ __all__ = [
 
 class CapabilityForgeryError(TypeError):
     """A delivery capability was constructed outside a successful append."""
+
+
+class ProductRecordMismatch(ValueError):
+    """The replay record and the product about to be delivered describe different products.
+
+    SDK-defined per CLAUDE.md §11; the ruling of record is ``D-IMPL-279``
+    (Dave, 2026-09-08), narrowing ``D-IMPL-278`` row 1: *"The fabric must
+    establish correspondence between the candidate product, the governed
+    execution record, and the replay record before delivery."* And on where:
+    *"I would not put the primary enforcement in MCP. MCP is transport. The
+    canonical enforcement point should be in the governed fulfillment spine,
+    before transport encoding."*
+
+    **The sibling of** :class:`QueryPinMismatch`, deliberately. That refusal
+    holds the record's pinned query sequence to the bytes the seam was handed;
+    this one holds the record's
+    :attr:`~ccf.replay.record.ContentGenerationPath.product_content_address`
+    to the vessel the seam is about to deliver. Same seam, same moment —
+    before anything is persisted — and the same reason: a record that does not
+    describe what left is an audit trail an examiner cannot use, and refusing
+    at the seam is what keeps that unrepresentable on the governed path.
+
+    **What this closes, measured.** Until this refusal existed,
+    :func:`~ccf.products.door.served_answer` proved only that *a* record was
+    appended — the shape proof ``D-IMPL-260`` P-A requires — and no layer
+    compared its contents against the payload. A ``ServedProduct`` whose
+    payload claimed 9,999 members, wrapping a record whose dimension 1
+    observed 77, crossed the delivery boundary unremarked
+    (``CP-SPEC-005`` §D.10 question 1). Both operands were already in
+    :func:`serve`'s hand; only the comparison was missing.
+
+    **Not a governed refusal.** A resolver that hands the seam a record for
+    one product and a vessel for another has mis-wired its own spine; that is
+    a defect in the deployment's code and never a decision the fabric made
+    about a caller's question. It therefore raises, exactly as
+    :class:`QueryPinMismatch` does, rather than returning a
+    :class:`~ccf.products.refusal.RefusalEnvelope` a caller could mistake for
+    an answer.
+    """
 
 
 class QueryPinMismatch(ValueError):
@@ -270,11 +310,30 @@ def serve(
     beside its :class:`ReplayWriter`.
 
     Raises:
+        ProductRecordMismatch: the record's
+            ``product_content_address`` and the ``content_hash`` of the
+            product handed in disagree — the record does not describe what is
+            about to leave (``D-IMPL-279``). Checked FIRST and raised before
+            any store write.
         QueryPinMismatch: the record's pinned sequence and the handed-in
             queries disagree, or queries were handed in with no writer to
             persist them, or a configured writer was given a record that pins
             queries nobody handed in. Raised before any store write.
     """
+    # R-01 (`D-IMPL-279`): the record must be ABOUT the product being served.
+    # First, because a mis-wired resolver is a defect and there is no reason to
+    # check anything else about a record that does not describe what is
+    # leaving. Both operands are already here; only the comparison was missing.
+    recorded_address = record.content_generation_path.product_content_address
+    served_address = content_hash(product.product)
+    if recorded_address != served_address:
+        raise ProductRecordMismatch(
+            f"the replay record describes the product at {recorded_address!r}"
+            f" but the serve seam was handed the product at {served_address!r};"
+            " a record that does not describe what left is an audit trail an"
+            " examiner cannot use, so the two must agree before anything is"
+            " persisted (`D-IMPL-279`, narrowing `D-IMPL-278` row 1)"
+        )
     derived_pins = tuple(content_hash(query) for query in executed_queries)
     pinned = record.content_generation_path.graph_query_sequence
     if executed_queries and query_pin_writer is None:

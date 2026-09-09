@@ -151,7 +151,6 @@ IDENTIFIER_SHAPE = re.compile(r"^[a-z][a-z0-9_]*$")
 
 GOVERNANCE_MAX_TTL_SECONDS = "max_ttl_seconds"
 GOVERNANCE_PRODUCT_TTL_SECONDS = "product_ttl_seconds"
-GOVERNANCE_SIMILARITY_INDEX_VERSION = "similarity_index_version"
 GOVERNANCE_REPLAY_RECORD_CLASS = "replay_record_class"
 GOVERNANCE_QUERY_PIN_CLASS = "query_pin_class"
 GOVERNANCE_ARTIFACT_STORE_DIRNAME = "artifact_store_dirname"
@@ -233,7 +232,6 @@ class KycScenario:
     expires_at: datetime
     operator_parameters: Mapping[str, OperatorParametersArtifact]
     policy_bundle_key: str
-    similarity_index_version: str
     product_class: ProductClassDeclaration
     plan_id: str
     required_operator_keys: tuple[str, ...]
@@ -888,7 +886,6 @@ def read(booted: BootedFabric, request: ProductRequest) -> KycScenario:
             for key in OPERATOR_KEYS
         },
         policy_bundle_key=KEY_POLICY_BUNDLE,
-        similarity_index_version=governance[GOVERNANCE_SIMILARITY_INDEX_VERSION],
         product_class=cast(
             ProductClassDeclaration, booted.artifacts[KEY_PRODUCT_CLASS]
         ),

@@ -694,6 +694,13 @@ def _ask_the_empty_fabric(booted: Any, *, completeness: Any | None = None) -> An
         request_contract_key=REQUEST_CONTRACT_KEY,
         operator_parameter_keys=(TRAVERSAL_KEY,),
         policy_bundle_key=POLICY_BUNDLE_KEY,
+        # `24.11-03` / `24.10-F-08`: this fixture's manifest declares no debt
+        # profile — the profile below is passed to the SCORER, which is a
+        # different seam. `D-IMPL-118` gave the obligation its own identity on
+        # the vessel rather than making it a rider on debt, so the resolver
+        # reads a DECLARED profile and does not reach into the scorer's. `None`
+        # says this deployment declared none, which is the truth here.
+        debt_profile_key=None,
         plan_factory=lambda *, required, request: _EmptyProjection(
             required=required, request=request
         ),
@@ -705,6 +712,11 @@ def _ask_the_empty_fabric(booted: Any, *, completeness: Any | None = None) -> An
             else DeclaredFactor(value=DECLARED),
             semantic_consistency=DeclaredFactor(value=DECLARED),
         ),
+        # `24.10-02` / `R-11`: this fixture's class declares no runtime
+        # invariant, and `None` says so positively. The field carries no
+        # default for every other field's reason — this class is the
+        # auditable, defaultless composition.
+        product_gate=None,
         constraint_resolver=ReferencePolicyConstraintResolver(
             control_plane=control_plane,
             entitlement_key=product_entitlement_key(tenant_id=TENANT),

@@ -628,6 +628,14 @@ RULED_ONE_DOCUMENT_DEPLOYMENTS: frozenset[str] = frozenset(
         "examples/cp-02-facility-terms-snapshot",
         # D-IMPL-239 (Dave, 2026-09-02) — ruled in by name on ledger row 24.5-L-45.
         "examples/cp-03-obligor-financial-spread",
+        # Dave, 2026-09-08, on the measured gate-two discrepancy: *"cp-05 is a
+        # one-document deployment for operator requirements. The Control
+        # Plane/product-class declaration is authoritative; the projection plan
+        # derives its required operator set from that declaration."* Ruled in
+        # by name AFTER the example was corrected to satisfy the premise: until
+        # then its plan authored a second, hard-coded operator set and it was
+        # neither exempt nor compliant (`CP-SPEC-005` §F.4 finding 20).
+        "examples/cp-05-credit-exposure-rollup",
     }
 )
 
@@ -3133,6 +3141,12 @@ def test_the_premise_detector_reads_the_shipped_tree_correctly() -> None:
         "examples/cp-02-facility-terms-snapshot",
         "examples/cp-03-obligor-financial-spread",
         "examples/cp-04-corporate-family-tree",
+        # Joined row B on 2026-09-08 when the example was corrected: its plan
+        # now derives `required_operators()` from the product class's declared
+        # `required_operator_keys` instead of authoring a second, hard-coded
+        # set. This list DESCRIBES THE TREE, so it moves when the tree does —
+        # the ruled roster above moves only when Dave rules.
+        "examples/cp-05-credit-exposure-rollup",
         "examples/s1-00-companies-over-revenue",
     ], row_b
     assert _supplied_by_the_product_class(

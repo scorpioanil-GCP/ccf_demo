@@ -88,6 +88,7 @@ from ccf.operators.params import (
 )
 from ccf.products.contract import (
     NO_PAYLOAD_SCHEMA,
+    NO_PRODUCT_GATE,
     NO_SERVE_OBLIGATIONS,
     NO_VALIDITY_FLOORS,
     NOT_ADDRESSABLE,
@@ -95,6 +96,7 @@ from ccf.products.contract import (
     UNMEASURED_FRESHNESS_SLA,
     AssemblyMode,
     ConstituentValidityFloors,
+    DeclaredProductGate,
     FreshnessSLA,
     ProductAddress,
     ProductDiscovery,
@@ -122,6 +124,7 @@ __all__ = [
     "POLICY_CONSTRAINT",
     "PRODUCT_CLASS",
     "PROJECTION_REQUIREMENTS",
+    "REPLAY_BINDING",
     "RESOLUTION_SPEC",
     "SIGNAL_BATCH",
     "ArtifactClass",
@@ -140,10 +143,12 @@ __all__ = [
     "OperatorParametersArtifact",
     "PerspectiveArtifact",
     "PolicyConstraint",
+    "RequestBoundParameter",
     "PolicyFilterParametersArtifact",
     "ProductClassDeclaration",
     "ProjectionRequirements",
     "RegistrationMode",
+    "ReplayBinding",
     "SecretReference",
     "SignalBatch",
     "SimilaritySelectParametersArtifact",
@@ -423,6 +428,132 @@ class DebtProfile(VersionedArtifact):
                 " a class cannot fail closed before it escalates"
             )
         return self
+
+
+#: Both path flavours, so one document is admissible on every platform or on
+#: none.
+#:
+#: A manifest is a content-hashed Control Plane artifact, and "is this
+#: deployment admissible" must not be a property of the machine that parsed it.
+#: The two flavours disagree about what *absolute* means: ``/etc/passwd`` is
+#: absolute to :class:`~pathlib.PurePosixPath` and merely rooted to
+#: :class:`~pathlib.PureWindowsPath`, which wants a drive; ``C:\secrets`` is
+#: the reverse, and ``..\..\x.yaml`` is a single ordinary filename to POSIX
+#: and two parent segments to Windows. Asking both and refusing if *either*
+#: reads the value as leaving the directory is what makes the refusal
+#: platform-invariant.
+_PATH_FLAVOURS = (PurePosixPath, PureWindowsPath)
+
+
+def _leaves_its_own_directory(value: str) -> bool:
+    """True when ``value`` names something outside the directory it sits in.
+
+    Three shapes, each asked of both flavours in :data:`_PATH_FLAVOURS`:
+    absolute (``pathlib`` discards the directory a relative path was joined to
+    when the other side is absolute, so ``root / "/etc/passwd"`` *is*
+    ``/etc/passwd``), rooted-or-drive-qualified (``\\etc`` and ``C:etc`` are
+    neither absolute nor contained), and any ``..`` segment (``a/../../b``
+    normalizes out of the directory even though it starts inside it).
+
+    This is a **syntactic** question about the declaration, decidable from the
+    string alone and therefore answerable at the contract boundary where it
+    belongs (CLAUDE.md §11 — validation is at the boundary, never deferred). It
+    is deliberately not the whole answer: a path that is a plain name can still
+    resolve outside through a symlink, which no string inspection can see.
+    :func:`~ccf.deployment.manifest.load_and_boot` closes that at the read,
+    against the resolved root.
+    """
+    for flavour in _PATH_FLAVOURS:
+        candidate = flavour(value)
+        if candidate.is_absolute():
+            return True
+        if candidate.root or candidate.drive:
+            return True
+        if ".." in candidate.parts:
+            return True
+    return False
+
+
+class ReplayBinding(VersionedArtifact):
+    """Where one deployment's decision records go, and under which classes.
+
+    **SDK-defined, not whitepaper-derived** (CLAUDE.md §11). Whitepaper §7.8
+    makes the Control Plane the plane that declares what the fabric is
+    permitted to do and the plane its decisions are audited against; it fixes
+    nothing about where a deployment's replay artifacts are filed. CLAUDE.md
+    §7.4 does: replay records are an ArtifactStore artifact class, and the
+    store is a substrate reached through mechanism. This class is the third
+    place those two facts meet — the deployment's own binding, declared rather
+    than passed.
+
+    The ruling of record is ``D-IMPL-282`` ``R-12`` option 2a (Dave,
+    2026-09-08): the ``replay:`` Control Plane section supplies defaults,
+    explicit constructor arguments override the declaration, and *"the declared
+    binding must actually be consumed and exercised; declaration-only is
+    insufficient."*
+
+    Three declared values, none with a default:
+
+    * ``record_class`` — the artifact class every decision record for this
+      deployment is filed under, served and refused alike.
+    * ``query_pin_class`` — the class the executed-query bytes are filed under.
+    * ``store_dirname`` — a contained relative directory the file-backed
+      reference store roots at, under a root the caller supplies.
+
+    **Binding only. No product-specific replay semantics.** The same ruling:
+    *"No product-specific replay semantics in the Control Plane—only deployment
+    binding/configuration."* That is why there is no room here for a record
+    shape, a retention rule, a redaction policy or a per-product lane, and why
+    the closure is a property of the contract rather than of this paragraph:
+    ``extra="forbid"`` is inherited from :class:`~ccf.contracts.base.CCFContract`,
+    so a fourth key is refused at parse with the key named.
+
+    **What a declaration can bind, and what it cannot.** ``store_dirname`` is a
+    directory name joined onto a caller-supplied root, so the store a
+    declaration can select is the file-backed reference implementation,
+    :class:`~ccf.artifacts.file_store.FileArtifactStore`. A deployment on
+    :class:`~ccf.artifacts.mcp_store.McpArtifactStore` reaches its store by
+    passing ``artifact_store`` to
+    :func:`~ccf.products.resolver.build_governed_resolver` explicitly, which
+    wins under the ruled precedence and is therefore unaffected by anything
+    here. That is a limitation of the declaration, stated so the next reader
+    finds it rather than discovers it.
+
+    **The dirname is contained, and containment is checked here.** An absolute
+    path, a rooted or drive-qualified name, or any ``..`` segment would let a
+    Control Plane document address a location outside the root its caller
+    chose, which is a document deciding something the deployment's operator did
+    not. Refused by name, never normalized: only the author of the declaration
+    knows what they meant. The question is asked through
+    :func:`_leaves_its_own_directory` — the same predicate
+    :attr:`ManifestEntry.path` is held to — so the SDK has one answer to *"does
+    this declared name stay inside the directory it was given"* rather than two
+    that can drift.
+
+    Attributes:
+        record_class: The artifact class decision records are filed under.
+        query_pin_class: The artifact class executed-query bytes are filed
+            under.
+        store_dirname: A contained relative directory under a caller-supplied
+            root.
+    """
+
+    record_class: str
+    query_pin_class: str
+    store_dirname: str
+
+    @field_validator("store_dirname")
+    @classmethod
+    def _dirname_stays_under_its_root(cls, value: str) -> str:
+        if _leaves_its_own_directory(value):
+            raise ValueError(
+                f"store_dirname {value!r} names something outside the root it"
+                " is joined to (it is absolute, rooted, drive-qualified, or"
+                " carries a '..' segment); a Control Plane document declares a"
+                " contained relative directory, never a location on a"
+                " particular disk"
+            )
+        return value
 
 
 #: The v0 constraint vocabulary (``D-IMPL-253`` Q5, Dave: *"maximum, minimum,
@@ -773,24 +904,137 @@ class SimilaritySelectParametersArtifact(
     artifact is accepted directly by
     :class:`~ccf.operators.categories.SimilaritySelect`.
 
-    It declares **one artifact-only field beyond the operator's contract**, and
-    the asymmetry is deliberate rather than an oversight.
+    It declares **two artifact-only fields beyond the operator's contract**, and
+    the asymmetry is deliberate rather than an oversight. Both govern
+    :class:`~ccf.similarity.protocol.SimilarityIndexProtocol` *construction* —
+    the registry builder reads them before the operator exists — and both are
+    deliberately **absent** from
+    :class:`~ccf.operators.params.SimilaritySelectParameters`, because putting a
+    construction-time value on the per-invocation parameter set would make the
+    L4 invoke contract carry state no invocation reads. Neither carries a
+    default.
 
     Attributes:
         similarity_corpus_attribute_by_class: ``entity_class -> attribute key``
-            naming the attribute whose text forms that class's corpus entry. It
-            governs :class:`~ccf.similarity.token_overlap.TokenOverlapIndex`
-            *construction* — the registry builder reads it before the operator
-            exists — and it is deliberately **absent** from
-            :class:`~ccf.operators.params.SimilaritySelectParameters`, because
-            putting a construction-time value on the per-invocation parameter set
-            would make the L4 invoke contract carry state no invocation reads.
+            naming the attribute whose text forms that class's corpus entry.
             No default: a class absent from this mapping contributes no corpus
             entry, and guessing an attribute name is guessing what a deployment
             meant by "similar".
+        index_version: The version identity this deployment assigns to the
+            corpus state its index ranks against (INV-CH7-27, ``D-IMPL-38``).
+            It reaches
+            :attr:`~ccf.similarity.protocol.SimilarityIndexProtocol.index_version`
+            and travels from there into ``L`` on every ranked result, so it is
+            the token a replay is held against when it asks *which corpus said
+            these two names were alike*.
+
+            **This is the value's canonical declarative home, and the
+            declaration is its authority** (``D-IMPL-292``, Dave: *"declaration
+            owns the version → resolver consumes it → deployment supplies the
+            implementation, not an alternate semantic version"*). Until
+            ``24.11-02b`` it was a keyword argument to
+            ``ccf.deployment.build_operator_registry`` and a field on
+            :class:`~ccf.products.resolver.GovernedResolver`, which made a
+            decision-affecting semantic value something a deployment restated in
+            code at every call site — ungoverned, unversioned, and invisible to
+            the pin set. Declared here it is content-hashed into a registered
+            artifact, so re-authoring the corpus identity **necessarily** shows
+            up as a changed pin in replay dimension 2, where re-authoring a call
+            argument showed up nowhere.
+
+            **What the deployment still owns is the implementation.** Which
+            :class:`~ccf.similarity.protocol.SimilarityIndexProtocol` backs the
+            ranking — token overlap, sqlite-vec, Chroma — is a substrate choice
+            and stays the deployment's. What it may no longer do is hand the
+            fabric a *different semantic version* than the one it declared: two
+            disagreeing values mean two different corpora, and silently
+            preferring either makes the determination irreproducible. There is
+            therefore exactly one site, not a precedence order.
+
+            No default, for the reason every other field here has none, sharpened
+            by what this one is: the SDK cannot mint a corpus identity. A version
+            derived from this artifact's own pin would be identical across two
+            different corpus boundaries, which is precisely the identity the
+            determinism contract exists to distinguish — so the deployment
+            assigns it, and an artifact that assigns none is refused at parse
+            rather than three frames into a build.
     """
 
     similarity_corpus_attribute_by_class: Mapping[str, str]
+    index_version: str
+
+
+#: Where a request-bound operator parameter takes its value from.
+#:
+#: A module-level alias in :data:`DecayMode`'s and :data:`ConstraintOperator`'s
+#: shape, and for their reason: this is an SDK **mechanism** token set, not a
+#: deployment's vocabulary, so it is declared once where the module declares its
+#: other closed sets rather than inline on the field. One member today, named
+#: rather than assumed — a second source is then a visible change to this line
+#: with its own ruling, instead of a silent widening inside a class body.
+RequestBindingSource = Literal["effective_request"]
+
+
+class RequestBoundParameter(CCFContract):
+    """An operator parameter supplied by the governed effective request.
+
+    SDK-defined (CLAUDE.md §11); the ruling of record is ``D-IMPL-295``
+    (`24.10-F-11`). The whitepaper's §7.4 operator parameters are Control Plane
+    configuration; it does not say how a parameter whose value is only knowable
+    *per request* is declared. Before this contract there was no way to say it,
+    so a deployment that needed one substituted a value into its own resolved
+    artifact at runtime — an ungoverned write to a Control Plane declaration,
+    invisible to replay and to the pins.
+
+    **The authority chain this sits at the end of, and it is the whole design:**
+    Control Plane policy/default envelope → :func:`~ccf.products.constraints.
+    resolve_effective_request` → *this* declared binding → operator. The binding
+    is the LAST link and deliberately the dumbest one: it performs no domain
+    validation and invents no default, because both already happened upstream
+    and doing them again here would create a second authority for one value.
+    What it consumes is the effective value that **survived governance**.
+
+    **Not a transform, and the narrowness is the point.** There is no
+    expression language, no templating, no substitution syntax, no callback and
+    no mapping DSL. The only relationship expressible is *effective request
+    parameter → operator parameter*, and the effective value must already
+    satisfy the target field's declared type — a mismatch is a wiring defect
+    refused when the resolver is built, never coerced. A widening as small as
+    scalar-to-singleton is still a transform, and admitting one would make the
+    next one arguable.
+
+    **Mutually exclusive with a literal, structurally.** A field that accepts
+    this contract accepts it *instead of* its literal value, never beside it —
+    the two are variants of one union, so "a literal plus an independent
+    binding" cannot be written down. That is what keeps an empty literal
+    honest: ``permitted_classifications: []`` continues to mean *admit
+    nothing*, and acquires no magical second reading (``D-IMPL-288``,
+    Dave: *"Do not preserve the empty-list idiom by making it magical."*).
+
+    Attributes:
+        source: Where the value comes from. One member today, spelled out
+            rather than assumed, so a second source is a visible schema change
+            with its own ruling instead of a silent widening of this one.
+        parameter: The request parameter's name, in the deployment's own
+            vocabulary. The SDK validates that the request contract declares
+            it and that its type fits the target; it judges nothing about what
+            the name means (CLAUDE.md §6.4, CINV-01).
+    """
+
+    source: RequestBindingSource
+    parameter: str
+
+    @field_validator("parameter")
+    @classmethod
+    def _the_parameter_is_named(cls, value: str) -> str:
+        """A blank name is the third state neither variant has a meaning for."""
+        if not value.strip():
+            raise ValueError(
+                "a request-bound operator parameter must name the request"
+                " parameter that supplies it; a blank names nothing and would"
+                " bind the operator to a value no request can carry"
+            )
+        return value
 
 
 class PolicyFilterParametersArtifact(OperatorParametersArtifact):
@@ -835,7 +1079,14 @@ class PolicyFilterParametersArtifact(OperatorParametersArtifact):
     """
 
     classification_attribute_by_class: Mapping[str, str]
-    permitted_classifications: frozenset[str]
+    #: `24.10-F-11` / `D-IMPL-295`: literal **or** request-bound, never both.
+    #: A bare sequence is the literal envelope and reads exactly as it always
+    #: did — `[]` still means *admit nothing*. A mapping is a
+    #: :class:`RequestBoundParameter`, and the resolver replaces it with the
+    #: governed effective value before the operator is built. The union is what
+    #: makes "a literal plus a binding" unwritable rather than merely
+    #: discouraged.
+    permitted_classifications: frozenset[str] | RequestBoundParameter
 
 
 class SignalBatch(VersionedArtifact):
@@ -1084,7 +1335,28 @@ class ProductClassDeclaration(VersionedArtifact):
             so the field is omitted from the canonical form at that value
             and a declared obligation is rendered and versions the document.
 
-    **The seven governance fields above all default**, on the
+        declared_product_gate: The class's own runtime invariant, by governed
+            IDENTITY only (``24.10-02`` / ``R-11``; ``D-IMPL-282`` option 1a
+            with ``D-IMPL-224``). The SDK owns the **slot** and none of the
+            **value**: which invariant a product declares, under what id and
+            at what lane, is the deployment's vocabulary (CLAUDE.md §6.4), and
+            nothing in ``src/`` reads either string. What the class declares
+            here is *governed*; what it computes is a
+            :class:`~ccf.products.resolver.ProductGateProtocol` callable the
+            deployment supplies to
+            :func:`~ccf.products.resolver.build_governed_resolver`, and the
+            two halves stay apart on purpose — a declared gate with no
+            supplied callable is refused when the resolver is built, so a
+            declared check cannot silently stop checking. This is **not** a
+            widening of :data:`~ccf.products.gates.GATE_DECLARED_OBLIGATIONS`
+            or of :func:`~ccf.products.gates.run_gates`' sequence (``D-11``,
+            ``D-13``). Defaults to
+            :data:`~ccf.products.contract.NO_PRODUCT_GATE`, hash-transparent at
+            that sentinel for ``serve_obligations``' reason: a class declaring
+            no gate is every class already authored, so its content address —
+            and therefore its pin — does not move.
+
+    **The eight governance fields above all default**, on the
     ``accepted_policy_binding_modes`` precedent and for the same reason: an
     artifact authored before they existed declared exactly what it declares
     now, so no committed document is rewritten and no adopter's file becomes
@@ -1112,6 +1384,9 @@ class ProductClassDeclaration(VersionedArtifact):
     request_contract_key: str = NO_REQUEST_CONTRACT
     serve_obligations: ServeObligations = Field(
         default=NO_SERVE_OBLIGATIONS, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    declared_product_gate: DeclaredProductGate = Field(
+        default=NO_PRODUCT_GATE, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
 
 
@@ -1220,50 +1495,6 @@ RegistrationMode = Literal["typed", "versioned"]
 
 #: Characters that make a path a *pattern* rather than a name.
 _GLOB_CHARACTERS = ("*", "?", "[")
-
-#: Both path flavours, so one document is admissible on every platform or on
-#: none.
-#:
-#: A manifest is a content-hashed Control Plane artifact, and "is this
-#: deployment admissible" must not be a property of the machine that parsed it.
-#: The two flavours disagree about what *absolute* means: ``/etc/passwd`` is
-#: absolute to :class:`~pathlib.PurePosixPath` and merely rooted to
-#: :class:`~pathlib.PureWindowsPath`, which wants a drive; ``C:\secrets`` is
-#: the reverse, and ``..\..\x.yaml`` is a single ordinary filename to POSIX
-#: and two parent segments to Windows. Asking both and refusing if *either*
-#: reads the value as leaving the directory is what makes the refusal
-#: platform-invariant.
-_PATH_FLAVOURS = (PurePosixPath, PureWindowsPath)
-
-
-def _leaves_its_own_directory(value: str) -> bool:
-    """True when ``value`` names something outside the directory it sits in.
-
-    Three shapes, each asked of both flavours in :data:`_PATH_FLAVOURS`:
-    absolute (``pathlib`` discards the directory a relative path was joined to
-    when the other side is absolute, so ``root / "/etc/passwd"`` *is*
-    ``/etc/passwd``), rooted-or-drive-qualified (``\\etc`` and ``C:etc`` are
-    neither absolute nor contained), and any ``..`` segment (``a/../../b``
-    normalizes out of the directory even though it starts inside it).
-
-    This is a **syntactic** question about the declaration, decidable from the
-    string alone and therefore answerable at the contract boundary where it
-    belongs (CLAUDE.md §11 — validation is at the boundary, never deferred). It
-    is deliberately not the whole answer: a path that is a plain name can still
-    resolve outside through a symlink, which no string inspection can see.
-    :func:`~ccf.deployment.manifest.load_and_boot` closes that at the read,
-    against the resolved root.
-    """
-    for flavour in _PATH_FLAVOURS:
-        candidate = flavour(value)
-        if candidate.is_absolute():
-            return True
-        if candidate.root or candidate.drive:
-            return True
-        if ".." in candidate.parts:
-            return True
-    return False
-
 
 class ManifestEntry(CCFContract):
     """One artifact a deployment manifest names (SDK-defined; CLAUDE.md §6.4).
@@ -1652,30 +1883,39 @@ class DeploymentConfig(VersionedArtifact):
     each section into the SDK artifact it names is a separate concern with
     its own module.
 
-    **The nine reserved section names — `product_class`, `operators`,
+    **The ten reserved section names — `product_class`, `operators`,
     `request_contract`, `resolution`, `half_life`, `debt_profile`, `policy`,
-    `policy_constraints`, `default_perspective` — are the SDK's slots and
-    nothing more.** `policy_constraints` is the ninth (`24.6-L-07`,
+    `policy_constraints`, `default_perspective`, `replay` — are the SDK's slots
+    and nothing more.** `policy_constraints` is the ninth (`24.6-L-07`,
     `D-IMPL-253` Q3): a MAPPING of label to constraint body, deriving one
     manifest entry per key exactly as `operators` does, so that each
     constraint keeps its own key, its own content-hash version and its own
-    effectivity window instead of disappearing inside a bundle.
+    effectivity window instead of disappearing inside a bundle. `replay` is the
+    tenth (`R-12`, `D-IMPL-282`): where this deployment files its decision
+    records and under which artifact classes — deployment binding, and
+    deliberately no replay *semantics* (see :class:`ReplayBinding`).
+
+    **Two counts move together and they are not the same count.** This
+    docstring names ten section names; `_RESERVED_SECTIONS` in
+    :mod:`ccf.deployment.config` is a nine-entry mapping, because `operators`
+    is derived per key rather than from that table. A reader comparing the two
+    numbers is comparing two different things on purpose.
     Reserving a section *name* is not a claim on an adopter's class-id
     *namespace*: the SDK still claims exactly one prefix, `ccf.`
     (`D-IMPL-84`), and `src/ccf/deployment/classes.py::resolve_artifact_class`
     — which owns that reservation — is untouched by this class.
 
-    **Two of the nine sections are reserved and uninterpreted
+    **Two of the ten sections are reserved and uninterpreted
     (`D-IMPL-136` §14.3).** `policy` and `request_contract` bodies are
     adopter-owned: the SDK knows the slot exists and which artifact it
     becomes, and validates none of what is written under it. Typing either
     body against a real contract here would be the SDK validating what it
     has ruled it does not interpret.
 
-    **The other seven SDK-owned sections are typed as open mappings here
+    **The other eight SDK-owned sections are typed as open mappings here
     too, for a different reason — do not "tighten" this.** `product_class`,
-    `resolution`, `half_life`, `debt_profile`, `default_perspective`, and
-    each `operators` and `policy_constraints` entry's body are eventually
+    `resolution`, `half_life`, `debt_profile`, `default_perspective`, `replay`,
+    and each `operators` and `policy_constraints` entry's body are eventually
     validated against the SDK's
     own contracts (:class:`ProductClassDeclaration`, the resolution spec,
     :class:`HalfLifeTable`, :class:`DebtProfile`, :class:`PerspectiveArtifact`,
@@ -1781,6 +2021,11 @@ class DeploymentConfig(VersionedArtifact):
         default_perspective: The `ccf.perspective` section body, for an
             in-process deployment with no door to derive a grant from
             (design spec §8.1).
+        replay: The `ccf.replay-binding` section body — this deployment's
+            replay binding (`R-12`, `D-IMPL-282`). Absent by default, and an
+            absent section is a deployment that declares no binding rather
+            than one the SDK guesses at: a resolver reaching neither an
+            explicit argument nor a declaration refuses to be built.
     """
 
     tenant_id: str | None = None
@@ -1801,6 +2046,16 @@ class DeploymentConfig(VersionedArtifact):
         default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
     default_perspective: Mapping[str, Any] | None = None
+    # CINV-06 / `D-IMPL-243`: ``True``, and it is load-bearing rather than
+    # stylistic for `policy_constraints`' own reason — a rendered
+    # ``replay: null`` would move the content address of every
+    # `DeploymentConfig` already written, and pin identity IS content identity
+    # (`src/ccf/deployment/pins.py::ArtifactPin`). Measured by
+    # `tests/contracts/test_hash_transparency.py
+    # ::test_a_config_naming_no_replay_binding_hashes_as_it_did`, not assumed.
+    replay: Mapping[str, Any] | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
     @model_validator(mode="before")
     @classmethod
@@ -1843,6 +2098,14 @@ class DeploymentConfig(VersionedArtifact):
 HALF_LIFE_TABLE = ArtifactClass(class_id="ccf.half-life-table", contract=HalfLifeTable)
 #: The decision-class debt profile class (whitepaper §7.7 CAR).
 DEBT_PROFILE = ArtifactClass(class_id="ccf.debt-profile", contract=DebtProfile)
+#: A deployment's replay binding (SDK-defined per CLAUDE.md §11 and §7.4;
+#: ``D-IMPL-282`` ``R-12``). The third place cp-05 measured did not exist: not
+#: module constants in a deployment's own Python, not an adopter-namespaced
+#: artifact beside the config, but the Control Plane itself. Deployment
+#: binding only — see :class:`ReplayBinding` for what that forecloses.
+REPLAY_BINDING = ArtifactClass(
+    class_id="ccf.replay-binding", contract=ReplayBinding
+)
 #: The parameter-level policy constraint class (whitepaper §7.8; SDK-defined
 #: per CLAUDE.md §11, ``D-IMPL-253`` Q3, ledger row ``24.6-L-07``). Its own
 #: class rather than a member of :data:`PRODUCT_CLASS`, so that "is this a

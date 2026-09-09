@@ -112,7 +112,12 @@ from ccf.products.request import (
 )
 from ccf.projection.engine import ProjectionEngine
 from ccf.projection.plan import ProjectionPlan
-from ccf.replay.record import DecisionReplayRecord, PolicyBinding, build_replay_record
+from ccf.replay.record import (
+    DecisionReplayRecord,
+    PolicyBinding,
+    ResolutionNotApplicable,
+    build_replay_record,
+)
 from ccf.replay.serve import (
     QueryPinWriter,
     ReplayWriter,
@@ -174,10 +179,6 @@ class Scenario(Protocol):
     @property
     def policy_bundle_key(self) -> str:
         """The Control Plane key whose pin becomes the admitted bundle version."""
-
-    @property
-    def similarity_index_version(self) -> str:
-        """The version identity this deployment assigns its corpus (INV-CH7-27)."""
 
     @property
     def product_class(self) -> ProductClassDeclaration:
@@ -351,12 +352,19 @@ def assemble_and_serve(
         #    parameter artifacts. The view is in the signature because the
         #    similarity corpus is read out of the graph at the boundary above,
         #    never lazily at first invocation.
+        #
+        #    Every value the chain needs is in `parameters` — including the
+        #    corpus's version identity, which `24.11-02b` (`D-IMPL-292`) moved
+        #    onto `operator-parameters-similarity.yaml`. This call used to pass
+        #    `similarity_index_version=` read out of `product-governance.yaml`;
+        #    that argument and the code that fetched it are DELETED rather than
+        #    relocated (`D-IMPL-289`), because the declaration made them
+        #    unnecessary.
         operators = build_operator_registry(
             parameters=scenario.operator_parameters,
             view=view,
             pins=booted.pins,
             policy_bundle_key=scenario.policy_bundle_key,
-            similarity_index_version=scenario.similarity_index_version,
         )
         # --8<-- [end:operators]
 
@@ -573,6 +581,15 @@ def assemble_and_serve(
             # record is what makes the decision reproducible rather than
             # merely described.
             request=scenario.request,
+            # WHETHER THE QUESTION'S PARAMETERS WERE RESOLVED, stated
+            # POSITIVELY (D-IMPL-264 D-09/D-10). This spine runs no resolution
+            # step: it has no policy-constraint resolver, applies no class
+            # default and folds no caller override, so the honest value is the
+            # marker with its reason and not a resolution nobody performed.
+            # Omitting the argument is a `TypeError` by design — a record that
+            # cannot say whether resolution ran is an integrity failure rather
+            # than a terse record.
+            resolution=ResolutionNotApplicable(reason="no-resolution-step"),
         )
         # --8<-- [end:record]
 

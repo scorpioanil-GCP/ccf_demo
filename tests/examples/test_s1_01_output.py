@@ -69,6 +69,20 @@ denylist), ``test_spine_separation.py`` (the spine/deployment split) and
 ``test_artifact_schema_headers.py`` (the artifact-header bijection) — plus the
 two tests below that read modules and documents rather than graphs.
 
+**Un-quarantined at ``24.10-04``.** Every test below carried
+``xfail(strict=True)`` from ``24.7`` on one reason — *"frozen s1-01 spine.py
+calls build_replay_record with no resolution state … un-quarantine and rerun
+unchanged after D-GATE-24.7"*. ``D-GATE-24.7`` closed and the un-quarantine the
+marker scheduled never happened, so the SDK's canonical worked example sat dark
+for three phases while a strict xfail reported green. What the quarantine was
+about was one call site and one required keyword-only argument
+:func:`~ccf.replay.record.build_replay_record` grew at ``D-IMPL-264`` — the
+third clause of ``D-IMPL-261``'s own test for when an example may change,
+*"the SDK surface it legitimately consumes was deliberately changed"*. The
+call site now states :class:`~ccf.replay.record.ResolutionNotApplicable`
+positively, and **the 33 markers came off with no assertion touched**: the
+whole diff at ``24.10-04`` is 132 deleted decorator lines and this paragraph.
+
 The example is not a package, so it is loaded by file path with
 ``importlib.util`` — the pattern ``test_quickstart_output.py`` established.
 """
@@ -236,10 +250,6 @@ def payload(result: Any) -> Any:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen s1-01 spine.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_the_run_ingested_the_declared_signal(example: Any, result: Any) -> None:
     """Every assertion below is about what survived four operators. If nothing
     was ingested, they are all assertions about an empty graph."""
@@ -288,10 +298,6 @@ def test_the_driver_loads_beside_a_same_named_module_from_another_tree() -> None
             sys.modules["deployment"] = previous
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen s1-01 spine.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_the_expectation_document_declares_something(expected: Any) -> None:
     """An empty ``expected.yaml`` would make the comparisons below trivially
     true. It is the source of every domain expectation in this module, so its
@@ -306,10 +312,6 @@ def test_the_expectation_document_declares_something(expected: Any) -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen s1-01 spine.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_the_product_passed_all_three_gates(result: Any) -> None:
     """``ServableProduct`` is not constructible outside ``run_gates``, so a
     served product IS the evidence the gates ran (INV-CH7-52)."""
@@ -317,10 +319,6 @@ def test_the_product_passed_all_three_gates(result: Any) -> None:
     assert result.served.replay_ref is not None
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen s1-01 spine.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_lineage_strict_equality_holds(result: Any) -> None:
     """What the product claims ran is exactly what the engine resolved
     (INV-CH7-47).
@@ -335,10 +333,6 @@ def test_lineage_strict_equality_holds(result: Any) -> None:
     assert result.product.lineage.operators_invoked == result.operators_invoked
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen s1-01 spine.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_every_declared_operator_actually_ran(result: Any) -> None:
     """The set the product class DECLARED it requires is exactly the set the
     engine RESOLVED, and all four canonical categories are in it.
@@ -365,10 +359,6 @@ def test_every_declared_operator_actually_ran(result: Any) -> None:
 @pytest.mark.parametrize(
     "category", ["traversal", "temporal", "policy", "similarity"]
 )
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen s1-01 spine.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_all_four_operator_categories_ran(result: Any, category: str) -> None:
     """The whitepaper's four canonical categories (§7.4), each represented.
 
@@ -387,10 +377,6 @@ def test_all_four_operator_categories_ran(result: Any, category: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen s1-01 spine.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_the_run_serves_the_tenant_and_class_the_artifacts_name(
     result: Any,
 ) -> None:
@@ -401,10 +387,6 @@ def test_the_run_serves_the_tenant_and_class_the_artifacts_name(
     assert result.product.tenant_id == result.tenant_id
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen s1-01 spine.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_the_served_shape_matches_the_declared_expectation(
     expected: Any, payload: Any
 ) -> None:
@@ -427,10 +409,6 @@ def test_the_served_shape_matches_the_declared_expectation(
     ), payload
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen s1-01 spine.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_the_aggregate_ownership_answer_matches_the_declared_expectation(
     expected: Any, payload: Any
 ) -> None:
@@ -455,10 +433,6 @@ def test_the_aggregate_ownership_answer_matches_the_declared_expectation(
     assert served == declared, payload
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen s1-01 spine.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_the_answer_is_a_sum_over_paths_not_a_single_hop(
     expected: Any, payload: Any
 ) -> None:
@@ -492,10 +466,6 @@ def test_the_answer_is_a_sum_over_paths_not_a_single_hop(
     }
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen s1-01 spine.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_every_declared_absence_really_is_absent(
     expected: Any, payload: Any
 ) -> None:
@@ -526,10 +496,6 @@ def test_every_declared_absence_really_is_absent(
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen s1-01 spine.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_the_product_answers_the_question_the_caller_asked(
     result: Any, payload: Any
 ) -> None:
@@ -565,10 +531,6 @@ def test_the_product_answers_the_question_the_caller_asked(
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen s1-01 spine.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_the_replay_record_is_in_the_store_content_addressed(result: Any) -> None:
     """The address being the record's own content hash is an SDK mechanism
     claim, so it is computed here rather than read from an artifact."""
@@ -577,10 +539,6 @@ def test_the_replay_record_is_in_the_store_content_addressed(result: Any) -> Non
     assert address == content_hash(result.record)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen s1-01 spine.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_the_stored_record_round_trips_exactly(result: Any) -> None:
     """Not merely parseable — equal."""
     restored = DecisionReplayRecord.model_validate_json(
@@ -589,10 +547,6 @@ def test_the_stored_record_round_trips_exactly(result: Any) -> None:
     assert restored == result.record
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen s1-01 spine.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_the_record_carries_all_five_dimensions(result: Any) -> None:
     """Whitepaper §7.10.1, asserted against the stored bytes rather than the
     in-memory record, so this covers the round trip as well as the
@@ -640,10 +594,6 @@ def _the_one_policy_version(result: Any) -> str:
     return next(iter(versions))
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen s1-01 spine.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_the_record_is_written_before_the_product_is_delivered(
     result: Any,
 ) -> None:
@@ -727,10 +677,6 @@ def test_each_question_gets_its_own_graph(
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen s1-01 spine.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_the_products_address_survives_a_different_graph_identity(
     result: Any, answers: Any
 ) -> None:
@@ -745,10 +691,6 @@ def test_the_products_address_survives_a_different_graph_identity(
     assert content_hash(result.product) == content_hash(answers[0].product)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen s1-01 spine.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_a_different_company_gets_a_different_answer(
     expected: Any, answers: Any
 ) -> None:
@@ -776,10 +718,6 @@ def test_a_different_company_gets_a_different_answer(
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen s1-01 spine.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_the_same_company_at_a_later_instant_gets_a_different_answer(
     expected: Any, answers: Any
 ) -> None:
@@ -816,10 +754,6 @@ def test_the_same_company_at_a_later_instant_gets_a_different_answer(
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen s1-01 spine.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_every_pinned_query_resolves_to_the_bytes_it_names(answers: Any) -> None:
     """**SDK mechanism claim.** The record pins which questions were put to the
     graph, and every pin is resolvable.
@@ -844,10 +778,6 @@ def test_every_pinned_query_resolves_to_the_bytes_it_names(answers: Any) -> None
             )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen s1-01 spine.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_a_later_instant_pins_a_different_question_to_the_graph(
     answers: Any,
 ) -> None:
@@ -892,10 +822,6 @@ def test_a_later_instant_pins_a_different_question_to_the_graph(
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen s1-01 spine.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_the_delivered_product_carries_its_debt(expected: Any, answers: Any) -> None:
     """**Propagation check.** D_c rides the vessel and reaches the caller.
 
@@ -915,10 +841,6 @@ def test_the_delivered_product_carries_its_debt(expected: Any, answers: Any) -> 
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen s1-01 spine.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_the_debt_figure_is_measured_and_not_constant(
     expected: Any, answers: Any
 ) -> None:
@@ -958,10 +880,6 @@ def test_the_debt_figure_is_measured_and_not_constant(
         )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen s1-01 spine.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_the_routing_state_carries_what_this_deployment_says_it_obliges(
     expected: Any, answers: Any
 ) -> None:
@@ -1012,10 +930,6 @@ def test_the_routing_state_carries_what_this_deployment_says_it_obliges(
     assert expected[EXPECTED_DEBT_SIGNAL_FIRST] not in bound
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen s1-01 spine.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_the_obligation_in_force_is_pinned_into_the_replay_record(
     expected: Any, answers: Any
 ) -> None:
@@ -1071,20 +985,12 @@ def rendered_contrast(example: Any, answers: Any) -> str:
     return str(example.report.render_contrast(answers))
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen s1-01 spine.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_the_report_opens_the_sections_it_promises(rendered: str) -> None:
     """The heading tokens, and only the tokens."""
     for heading in REPORT_HEADINGS:
         assert heading in rendered, heading
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen s1-01 spine.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_the_report_carries_the_products_own_content_address(
     result: Any, rendered: str
 ) -> None:
@@ -1097,10 +1003,6 @@ def test_the_report_carries_the_products_own_content_address(
     assert content_hash(result.product) in rendered
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen s1-01 spine.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_the_report_names_every_party_in_the_answer_and_the_near_miss(
     expected: Any, payload: Any, rendered: str
 ) -> None:
@@ -1116,10 +1018,6 @@ def test_the_report_names_every_party_in_the_answer_and_the_near_miss(
     assert expected[EXPECTED_BOUNDARY_CASE] in rendered
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen s1-01 spine.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_the_report_shows_the_refresh_window_and_names_no_source(
     example: Any, result: Any, rendered: str
 ) -> None:
@@ -1147,10 +1045,6 @@ def test_the_report_shows_the_refresh_window_and_names_no_source(
     assert not leaked, f"the report names upstream sources: {leaked}"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen s1-01 spine.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_the_report_invents_no_debt_evidence_pointer(
     result: Any, rendered: str
 ) -> None:
@@ -1171,10 +1065,6 @@ def test_the_report_invents_no_debt_evidence_pointer(
     assert not leaked, f"the report carries entity URIs from the view: {leaked}"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen s1-01 spine.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_the_contrast_shows_three_distinct_addresses(
     answers: Any, rendered_contrast: str
 ) -> None:
@@ -1187,10 +1077,6 @@ def test_the_contrast_shows_three_distinct_addresses(
     assert "WHAT THE THREE QUESTIONS SHOW" in rendered_contrast
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen s1-01 spine.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_the_renderers_return_text_and_print_nothing(
     example: Any, result: Any, answers: Any, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -1219,10 +1105,6 @@ def _owners(payload: Any) -> list[tuple[str, str]]:
     ]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-IMPL-264 D-10/D-13: frozen s1-01 spine.py calls build_replay_record with no resolution state — quarantined evidence, D-IMPL-263/D-IMPL-261; un-quarantine and rerun unchanged after D-GATE-24.7",
-)
 def test_the_recorded_boundary_is_data_and_not_a_clock_read(result: Any) -> None:
     """The decision instant and the boundary are authored values.
 

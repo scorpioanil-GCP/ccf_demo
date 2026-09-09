@@ -134,6 +134,10 @@ ARTIFACT_SET: tuple[tuple[str, str, str, str, str, dict[str, Any]], ...] = (
             "minimum_score_percent": 10,
             "ranked_entity_classes": ["account"],
             "similarity_corpus_attribute_by_class": {"account": "label"},
+            # The corpus's version identity, declared where `24.11-02b` /
+            # `D-IMPL-292` made it canonical: on the artifact, never as a
+            # builder argument. A fixture value like every other here.
+            "index_version": "fixture-corpus-1",
         },
     ),
     (

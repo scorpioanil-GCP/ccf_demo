@@ -884,6 +884,46 @@ construction — are *demonstrated* rather than asserted.
 exercise. It is explicitly not part of the initial release.** The initial
 release ships practical, runnable, domain-neutral examples instead.
 
+### What the examples are, and what they are for (Dave, 2026-09-08)
+
+SDK Examples were deliberately engineered to represent real world financial
+services use cases. Public and engineered data were assembled in various
+databases emulating a financial services company's real data estate.
+
+Examples are provided that demonstrate two perspectives: **context product
+clients** (e.g. agents, tools, other context products) and **context product
+assemblers** (software that demonstrates how to use the SDK to create context
+products from data sources).
+
+For the client examples we demonstrate how to consume context products using
+in-process, MCP, A2A, Claude Agent SDK, and LangGraph implementations. For these
+examples **the client knows nothing about the CCF SDK except for the format of
+the context product they are consuming.**
+
+Alternatively, context product assemblers are well versed in the public
+interfaces, operators, and surface area of the CCF SDK. They understand the
+components they need to implement and how to craft them from the spec. Many of
+the context product assembler examples also implement an MCP, or A2A, or Claude
+Agent SDK, or LangGraph as the means to respond to a CCF client request.
+
+**The goal of the examples is not a "right answer."** While we have attempted to
+make the data as realistic as possible, the goal of the examples is to identify
+defects, gaps or high friction surfaces of the SDK. The idea is to use a
+comprehensive set of realistic use cases to surface these issues. This is
+important for Claude Code to understand since it affects the **testing strategy**
+used for the examples. The idea is not to spend Claude resources or Dave's money
+on perfecting an example. **The goal is to create a robust implementation of the
+CCF SDK.** Additionally, each example may contain several options where input
+parameters or SDK limits have been adjusted.
+
+**The three-issue cap.** Dave does not want to wait for several SDK issues to
+surface before they are addressed. If an example exposes an issue with the SDK it
+needs to be tracked, and **we should never accumulate more than 3 issues with the
+SDK before they get remedied.**
+
+**Lightweight remediation is the default.** Use a lightweight process to fix the
+SDK issue unless the issue is a major defect that requires its own cycle.
+
 ### Discipline for every example
 
 - **Runnable end-to-end** against the reference backends (SQLite-for-dev
@@ -941,42 +981,56 @@ The full ruling, the freeze, and the gap-ledger charter (OPEN /
 FIXED-<phase> / ESTATE-LIMITATION / NOT-A-GAP) are in `docs/DECISIONS.md`
 under `D-IMPL-261`.
 
-### The v0 suite
+### The v0 suite - ARCHIVED AND USED FOR REFERENCE ONLY - DO NOT WRITE TESTS AGAINST v0
 
-1. **`examples/00-quickstart`** — the smallest possible fabric. Register a
+1. **`archive/examples/00-quickstart`** — the smallest possible fabric. Register a
    minimal ontology, ingest a handful of events through L1, assemble, and
    serve one typed Context Product in-process. "Hello, Context Product."
-2. **`examples/01-agent-basics`** — declare an agent from the
+2. **`archive/examples/01-agent-basics`** — declare an agent from the
    `AnalyticsInsightsAgent` archetype via a definition artifact, construct
    it through the Agent Factory, run it against the quickstart fabric.
    Demonstrates the archetype/agent separation (§6.1) and all six
    specialization axes (§6.2, channel 1).
-3. **`examples/02-skilling`** — grant a new skill to the running agent
+3. **`archive/examples/02-skilling`** — grant a new skill to the running agent
    through the Control Plane, exercise it, revoke it. Demonstrates channel
    2: the agent definition never changes; the governance compatibility
    check fires on an impermissible grant; every grant and revocation
    appears in the replay record.
-4. **`examples/03-harness-portability`** — one agent definition executed
+4. **`archive/examples/03-harness-portability`** — one agent definition executed
    unmodified under two harnesses via their adapters (per D-IMPL-24), with
    an assertion that Context Product consumption and the replay records
    are equivalent. This is the harness-neutrality proof (§7.3).
-5. **`examples/04-cross-process`** — an assembler agent
+5. **`archive/examples/04-cross-process`** — an assembler agent
    (`ContextAssemblyAgent`) in one process, a consumer agent in another,
    exchanging a Context Product over MCP egress and over A2A, with
    Control Plane admission verification demonstrated on the consumer side.
-6. **`examples/05-workflow-hitl`** — a multi-step workflow with an
+6. **`archive/examples/05-workflow-hitl`** — a multi-step workflow with an
    ApprovalGate and an ExceptionEscalation path; suspend on the gate,
    resume on approval; the human action lands in the replay record.
-7. **`examples/06-decision-replay`** — replay a prior decision:
+7. **`archive/examples/06-decision-replay`** — replay a prior decision:
    resolve the graph snapshot, policy bundle version, agent version,
    skill-set, and prompt-artifact versions from the ArtifactStore and
    reproduce the Context Product exactly.
-8. **`examples/07-artifact-store-mcp`** — swap the file-backed
+8. **`archive/examples/07-artifact-store-mcp`** — swap the file-backed
    ArtifactStore for the MCP-backed reference store. Nothing else in the
    deployment changes. Demonstrates §7.4 pluggability.
 
 Examples 04 + 05 together supersede the former "one full end-to-end
 deployment" scope bullet; the composed pair *is* that deployment.
+
+### The v1 suite - Active examples to use for testing and reference documentation. This list continues to grow.
+
+1. **`examples/s1-00-companies-over-revenue`** — companies over a revenue threshold you choose. The smallest useful Context Product: **which companies have revenue over a number the caller supplies**, assembled from Postgres, with context debt driven by the source rows 
+2. **`examples/s1-01-hello-context-product`** — "Hello, Context Product", and where the fabric ends
+3. **`examples/hw1-harness-clients`** — this demonstrates.** The same governed Context Product, reached through the same MCP door, by three programs written against three different agent harnesses: Google ADK, the Anthropic Claude Agent SDK, and LangGraph. All three print the same content address, and so does a reference client that uses no harness at all. The product is the constant; the harness is the variable.
+4. **`examples/hw1-companies-over-revenue`** — A consumer asking a governed question and getting back an answer plus the things a `SELECT` cannot give you: the measured Context Debt in force when the answer was assembled, the content address the answer hashes to, and the replay record that authorized it.
+5. **`examples/cp-00-institutional-holders`** — takes a written specification — `spec/CP-SPEC-000-institutional-holders.md`, authored to the Context Product Specification Standard v0.3 **before any of this code existed**
+6. **`examples/cp-01-counterparty-reference-snapshot`** — An entity-anchored TTL bases expiration on the source's last observation rather than request time, while      separate identity authorities like GLEIF and internal masters prevent misleadingly averaged freshness claims across mixed populations. Unlabelled addresses risk serving incorrect default locations, making explicit address labelling a critical finding rather than a simple data field. Finally, policy rules at Tier 1 enforce selective access by generating distinct answers and refusals depending on the querying principal.
+7. **`examples/cp-02-facility-terms-snapshot`** — Contract expiration is derived from the agreement's filed date rather than request time, while a two-condition policy step restricts visibility so that most principals see nothing. Security is maintained through byte-identical refusals for missing and withheld facilities, and raw data traps like inverted maturity dates are served honestly rather than silently repaired.
+8. **`examples/cp-03-obligor-financial-spread`** — Attribute-level temporal validity replaces single product-wide expirations with individual timestamps for every figure, since stitched financial spreads combine filings of vastly different ages. Consequently, the payload's overall expiry is anchored dynamically on the latest filing date rather than the time of the request.
+9. **`examples/cp-04-corporate-family-tree`** — This product integrates two distinct systems of record per query, combining a graph leg for ownership structures with an attribute leg for reference data. Because neither individual store holds the complete information, the final answer is created entirely through their assembly.
+10. **`examples/cp-05-credit-exposure-rollup`** — Naive borrower-keyed sums fail to calculate total exposure accurately, understating the actual risk by nearly 70 times due to uncaptured cross-defaults and double-counted guarantees. Because the output shows no internal signs of error, true exposure requires complex family-level accounting and guarantee path deduplication rather than simple addition.
+
 
 ### What the examples are not
 

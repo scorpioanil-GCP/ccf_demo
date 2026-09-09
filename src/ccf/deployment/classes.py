@@ -97,6 +97,7 @@ from ccf.controlplane.artifacts import (
     POLICY_CONSTRAINT,
     PRODUCT_CLASS,
     PROJECTION_REQUIREMENTS,
+    REPLAY_BINDING,
     RESOLUTION_SPEC,
     SIGNAL_BATCH,
     ArtifactClass,
@@ -172,6 +173,12 @@ SDK_ARTIFACT_CLASSES: dict[str, ArtifactClass] = {
     # whole point of the class, and a class a manifest cannot name is a class
     # no adopter can register.
     POLICY_CONSTRAINT.class_id: POLICY_CONSTRAINT,
+    # A deployment's replay binding (`D-IMPL-282` `R-12`). Manifest-addressable
+    # for the reason every entry here is manifest-addressable, and for one more
+    # that is specific to it: the `replay:` reserved section derives an entry
+    # naming this class id, so a class the lookup could not resolve would make
+    # the section underivable rather than merely unregisterable.
+    REPLAY_BINDING.class_id: REPLAY_BINDING,
 }
 
 #: Every SDK-owned artifact class whose contract declares an ``artifact_version``

@@ -87,6 +87,7 @@ from collections.abc import Mapping, Sequence
 from ccf.controlplane.artifacts import (
     OperatorParametersArtifact,
     PolicyFilterParametersArtifact,
+    RequestBoundParameter,
     SimilaritySelectParametersArtifact,
     TemporalAsOfParametersArtifact,
     TraversalDescendantsParametersArtifact,
@@ -174,7 +175,6 @@ def build_operator_registry(
     view: GraphView,
     pins: ResolvedPins,
     policy_bundle_key: str,
-    similarity_index_version: str | None = None,
     deployment_operators: Sequence[Operator] = (),
 ) -> OperatorRegistry:
     """Build a populated :class:`~ccf.operators.registry.OperatorRegistry`.
@@ -226,13 +226,6 @@ def build_operator_registry(
         policy_bundle_key: The manifest key whose pinned version becomes the
             single admitted policy-bundle version. Read only when ``parameters``
             carries a policy artifact.
-        similarity_index_version: The version identity the deployment assigns to
-            this corpus state (INV-CH7-27; D-IMPL-38). Required exactly when
-            ``parameters`` carries a similarity artifact, and refused when it
-            does not. The builder does **not** mint one: a version derived from
-            the parameters artifact's own pin would be identical across two
-            different boundaries, which is precisely the corpus identity the
-            determinism contract needs to distinguish.
         deployment_operators: Already-constructed operators the *deployment*
             owns, registered into this same registry so the operator plan can
             resolve them (D-59). Defaulted and keyword-only, so every call site
@@ -272,10 +265,34 @@ def build_operator_registry(
         The populated registry. Nothing is sealed and nothing is frozen — the
         registry is already append-only with no ``unregister``.
 
+    **Where the similarity index version comes from, and why it is not an
+    argument** (``24.11-02b`` / ``D-IMPL-292``). It is read off the similarity
+    artifact's
+    :attr:`~ccf.controlplane.artifacts.SimilaritySelectParametersArtifact.index_version`,
+    which is its canonical declarative home. Until ``24.11-02b`` this builder
+    took it as a keyword argument, and that made a **decision-affecting semantic
+    value** something every caller restated in code — a corpus identity the pin
+    set could not see and replay could not be held against. Two refusals used to
+    guard the pairing here, one for each direction of mismatch; both are gone
+    because neither failure is expressible any more. An artifact with no version
+    cannot parse (the field is required), and a version with no artifact has
+    nowhere to be supplied from. **A runtime check became a structural
+    guarantee**, which is the direction that trade is worth making.
+
+    Deliberately **not** a precedence order between a declared value and a
+    passed one. Dave, ``D-IMPL-292``: *"deployment supplies the implementation,
+    not an alternate semantic version."* Two disagreeing versions mean two
+    different corpora, and silently choosing either makes the determination
+    irreproducible — so there is one site rather than a rule for reconciling
+    two. (This is a deliberate departure from ``D-IMPL-282`` ``R-12`` ``D-04``,
+    where an explicit argument *does* outrank the Control Plane. That is right
+    for a **binding** — deployment wiring the Control Plane may default — and
+    wrong for a semantic version identity. Same principle, opposite mechanism,
+    on purpose.)
+
     Raises:
         ValueError: ``parameters`` holds an artifact of no recognized operator
-            category, or ``similarity_index_version`` is absent when a similarity
-            artifact is present or supplied when it is not.
+            category.
         SimilarityCorpusAttributeError: the corpus could not be read; see
             :func:`_corpus`.
         ccf.operators.registry.DuplicateOperatorKey: two entries produce the same
@@ -313,6 +330,29 @@ def build_operator_registry(
         elif isinstance(parameter, TemporalAsOfParametersArtifact):
             registry.register(TemporalAsOf(parameters=parameter))
         elif isinstance(parameter, PolicyFilterParametersArtifact):
+            # `24.11-04` / `24.10-F-11` (`D-IMPL-295`). An UNRESOLVED binding
+            # must never reach an operator: `GovernedResolver` replaces every
+            # `RequestBoundParameter` with the governed effective value before
+            # building this registry, so one arriving here means the artifact
+            # took a path that skipped that step. Refused by name rather than
+            # narrowed with a cast — a cast would let the operator receive a
+            # declaration object where it expects the set it filters on, and
+            # admit nothing while looking fully configured, which is the exact
+            # silent failure `PolicyFilterParametersArtifact`'s own docstring
+            # exists to prevent.
+            if isinstance(
+                parameter.permitted_classifications, RequestBoundParameter
+            ):
+                raise ValueError(
+                    f"operator parameters {key!r} declare"
+                    " `permitted_classifications` as bound to request parameter"
+                    f" {parameter.permitted_classifications.parameter!r}, and it"
+                    " reached the registry builder unresolved. A request-bound"
+                    " operator parameter is resolved by"
+                    " `ccf.products.resolver.GovernedResolver` against the"
+                    " EFFECTIVE request; a caller building a registry directly"
+                    " has no request and therefore cannot honor the binding"
+                )
             # The one conversion in this module. Constructed explicitly rather
             # than by `model_copy(update=...)`: the artifact is not a
             # PolicyFilterParameters, so there is nothing to copy from, and the
@@ -342,25 +382,21 @@ def build_operator_registry(
             )
 
     if similarity is None:
-        if similarity_index_version is not None:
-            raise ValueError(
-                "similarity_index_version was supplied but `parameters` carries"
-                " no similarity artifact; supply it only alongside the artifact"
-                " whose corpus it versions"
-            )
         return registry
-
-    if similarity_index_version is None:
-        raise ValueError(
-            "`parameters` carries a similarity artifact but no"
-            " similarity_index_version was supplied; an unversioned index is one"
-            " that cannot be replayed against, and the builder does not mint a"
-            " version the deployment did not assign (D-IMPL-38)"
-        )
 
     # Phase two: the index-backed category. The single `isinstance` narrowing to
     # the artifact type lives here, in SDK code, precisely so that it does not
     # have to live in every adopter file that needs the corpus attribute map.
+    #
+    # `24.11-02b` / `D-IMPL-292`. BOTH construction-time values come off the one
+    # narrowed artifact — the corpus map and the corpus's version identity. The
+    # version used to arrive as a keyword argument, guarded by a pair of
+    # runtime refusals for the two directions of mismatch; it now arrives from
+    # the declaration that already had to be present for this branch to run at
+    # all, so neither mismatch is expressible and neither refusal is needed.
+    # The declaration is the authority: nothing here reconciles it against a
+    # deployment-supplied second opinion, because there is no second site to
+    # hold one.
     registry.register(
         SimilaritySelect(
             parameters=SimilaritySelectParameters(
@@ -375,7 +411,7 @@ def build_operator_registry(
                         similarity.similarity_corpus_attribute_by_class
                     ),
                 ),
-                index_version=similarity_index_version,
+                index_version=similarity.index_version,
             ),
         )
     )

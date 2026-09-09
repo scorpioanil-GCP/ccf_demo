@@ -48,6 +48,7 @@ from ccf.controlplane.artifacts import (
     POLICY_CONSTRAINT,
     PRODUCT_CLASS,
     PROJECTION_REQUIREMENTS,
+    REPLAY_BINDING,
     RESOLUTION_SPEC,
     SIGNAL_BATCH,
     ArtifactLoadError,
@@ -264,6 +265,12 @@ CASES: tuple[_Case, ...] = (
             "similarity_corpus_attribute_by_class": {
                 "fixture-entity": "fixture_attribute"
             },
+            # `24.11-02b` / `D-IMPL-292`: the corpus's version identity is
+            # declared HERE, and required. Omitting it is no longer a runtime
+            # refusal from the registry builder three frames on — it is a parse
+            # failure at the Control Plane boundary, which is where a document
+            # that cannot say which corpus it ranked against belongs.
+            "index_version": "fixture-corpus@2026-01-01",
         },
         unknown_keys=("tenant_id",),
     ),
@@ -391,6 +398,31 @@ CASES: tuple[_Case, ...] = (
         # field of either document ever names a connection value, echoed
         # here exactly as `DEPLOYMENT_MANIFEST`'s own case echoes it.
         unknown_keys=("connection", "dsn"),
+    ),
+    _Case(
+        artifact_class=REPLAY_BINDING,
+        # A deployment's replay binding (`D-IMPL-282` `R-12`), and *binding
+        # only*: where decision records are filed, where the executed-query
+        # bytes are filed, and which contained relative directory the
+        # file-backed reference store roots at. Three members, none with a
+        # default, so a document that satisfies this class states all three —
+        # there is no optional member for this fixture to omit the way
+        # `ccf.product-class`'s case above omits its minted pin.
+        document={
+            "semver": _SEMVER,
+            "record_class": "fixture.decision-replay-record",
+            "query_pin_class": "fixture.query-pin",
+            "store_dirname": "fixture-replay-store",
+        },
+        # Not `tenant_id`, which is what most cases here name. The ruling
+        # forecloses *"product-specific replay semantics in the Control
+        # Plane"*, and a retention rule and a redaction policy are exactly the
+        # shape that foreclosure exists to refuse — each would arrive as a
+        # fourth key. Naming them states the closure's purpose, the way
+        # `ccf.resolution-spec`'s case above names the three keys D-03 moves
+        # out rather than testing a synthetic key that would prove only that
+        # `extra=forbid` is set.
+        unknown_keys=("retention_days", "redaction_policy"),
     ),
 )
 

@@ -1,0 +1,131 @@
+==============================================================================
+  cp-05 · ONE QUESTION, ONE ESTATE, ONE INSTANT — EIGHT CONSUMERS
+==============================================================================
+
+  Default Consumer
+    requested    nothing — every value falls to the class default
+    effective    materiality=0.05(default)  debt_tolerance=0.25(default)
+    assembled    family 77   gross 10,125,000,000   adjusted 9,325,000,000
+    projected    4 material  residual 145,000,000  (14 connected without exposure)
+    debt         1.000  (fail_closed)
+    fulfillment  WITHHELD  against tolerance 0.25 (default)
+    address      db7f2038a68ca1dba074703a576a9a6ea8a957ac28b79b34b0c42a83e6c50cbd
+    replay       withheld · 107077e3afff3cd4 · 21119 bytes
+      Every parameter falls to the class default and says so — materiality
+      0.05(default), debt_tolerance 0.25(default). THE DEMONSTRATED RUN IS A
+      GOVERNED REFUSAL: the product is assembled, gated and constructible, and
+      fulfillment is withheld because the estate's balances are days old
+      against a 4-hour half-life. The $9.325B figure is not withdrawn — it is
+      the determination the fabric made and is unwilling to attest.
+
+  Detailed Consumer
+    requested    {'materiality': '0.02'}
+    effective    materiality=0.02(caller)  debt_tolerance=0.25(default)
+    assembled    family 77   gross 10,125,000,000   adjusted 9,325,000,000
+    projected    4 material  residual 145,000,000  (14 connected without exposure)
+    debt         1.000  (fail_closed)
+    fulfillment  WITHHELD  against tolerance 0.25 (default)
+    address      432ef160f8e03351b5842cf8e9d9500dce021a21eb4a59f8f5240ebd8a6ecca5
+    replay       withheld · 9fa9254817296a47 · 21208 bytes
+      A caller who wants more of the book enumerated. materiality resolves to
+      0.02 with authority `caller`, and the floor drops from 506,250,000 to
+      202,500,000. THE PROJECTION DOES NOT MOVE, and the measurement is worth
+      more than the movement would have been: this family's book is
+      concentrated in five entities and the smallest material one commits
+      800,000,000, so both floors select the same four. A finer threshold buys
+      nothing here. The family, the gross and the guarantee-adjusted totals
+      are BYTE-IDENTICAL to the Default Consumer's, which is the invariant — a
+      threshold that changed the totals would be a request parameter altering
+      truth. Only the CONTENT ADDRESS differs, because the question differed.
+
+  Material-Only Consumer
+    requested    {'materiality': '0.10'}
+    effective    materiality=0.10(caller)  debt_tolerance=0.25(default)
+    assembled    family 77   gross 10,125,000,000   adjusted 9,325,000,000
+    projected    3 material  residual 945,000,000  (14 connected without exposure)
+    debt         1.000  (fail_closed)
+    fulfillment  WITHHELD  against tolerance 0.25 (default)
+    address      b67bda5b33d0199f11bdba6625c3061a3c2ea0b1b86f83b9a9584f5de4aadc09
+    replay       withheld · b2a211754f8579d7 · 21208 bytes
+      THE THRESHOLD THAT ACTUALLY MOVES THIS ANSWER. At a 1,012,500,000 floor
+      the 800,000,000 obligor falls into the residual: 3 enumerated instead of
+      4, residual 945,000,000 instead of 145,000,000 — and the same family and
+      the same totals again. Zero-exposure members reached only by guarantee
+      or cross-default are NEVER absorbed into the residual at any threshold
+      (spec §C.4 trap 2).
+
+  Strict-Fitness Consumer
+    requested    {'debt_tolerance': '0.05'}
+    effective    materiality=0.05(default)  debt_tolerance=0.05(caller)
+    assembled    family 77   gross 10,125,000,000   adjusted 9,325,000,000
+    projected    4 material  residual 145,000,000  (14 connected without exposure)
+    debt         1.000  (fail_closed)
+    fulfillment  WITHHELD  against tolerance 0.05 (caller)
+    address      3fab6d14f76a241828b06b1f4c521169e19ff78c3e1acc69a030c68a701e0a0b
+    replay       withheld · 9745484b2a1b13ad · 21241 bytes
+      A consumer declaring a tighter bar than the product's default. Withheld
+      with authority `caller` rather than `default`, over the SAME observed
+      Context Debt — the fabric did not become less confident, this consumer
+      became harder to satisfy.
+
+  Exploratory Consumer
+    requested    {'debt_tolerance': '1.0'}
+    effective    materiality=0.05(default)  debt_tolerance=1.0(caller)
+    assembled    family 77   gross 10,125,000,000   adjusted 9,325,000,000
+    projected    4 material  residual 145,000,000  (14 connected without exposure)
+    debt         1.000  (fail_closed)
+    fulfillment  SERVED    against tolerance 1.0 (caller)
+    address      00cc11ba420117bd350a7e0576ec3abc16ff1101fcde8c548784239f512fba29
+    replay       served · 54223b2a694bcc40 · 17157 bytes
+      THE ONE CONSUMER SERVED, and the contrast is the whole point. A consumer
+      who will act on any Debt receives the identical determination,
+      delivered, with D_c 1.000 disclosed on it. The fabric owns truth and
+      quantified uncertainty; the consumer owns fitness. Nothing about the
+      answer changed — only the willingness to attest that it is fit.
+
+  Regulated Consumer
+    requested    {'intent': 'regulatory-large-exposure', 'debt_tolerance': '1.0'}
+    effective    materiality=0.05(default)  debt_tolerance=0.10(policy)
+    assembled    family 77   gross 10,125,000,000   adjusted 9,325,000,000
+    projected    4 material  residual 145,000,000  (14 connected without exposure)
+    debt         1.000  (fail_closed)
+    fulfillment  WITHHELD  against tolerance 0.10 (policy)
+    address      df50d74595c513630a2a68bbac0f2c1d676b4595cf77a5269c829f1b811c0213
+    replay       withheld · f3ecc72a0fd6e506 · 23015 bytes
+      The same request as the Exploratory Consumer, under a regime that will
+      not permit it. The registered constraint
+      `cp-05/policy/debt-tolerance-ceiling/regulatory-large-exposure` NARROWS
+      1.0 to 0.10 with authority `policy`, and the product is then withheld.
+      THIS IS THE SDK'S ONE NARROWING CASE and it is deliberate: a fitness bar
+      cannot be refused before fitness has been measured, so policy binds the
+      bar and the comparison happens after assembly, where the observation
+      exists.
+
+  Appetite Consumer
+    requested    {'intent': 'internal-appetite', 'materiality': '0.10'}
+    REFUSED AT THE REQUEST BOUNDARY — before any assembly ran
+      materiality: 0.10 exceeds the applicable maximum 0.05 established by
+      authority 'policy'; the request is refused rather than narrowed,
+      because a narrowed request answers a question nobody asked (D-IMPL-251
+      C5) [authority: policy]
+      The same `maximum` operator on a DIFFERENT parameter, and it refuses
+      instead of narrowing. A coarser threshold under an appetite review asks
+      to be shown less of the book than the regime requires, and the request
+      is refused BY NAME rather than clamped — a narrowed request answers a
+      question nobody asked (`D-IMPL-251` C5). Set this beside the Regulated
+      Consumer: one `maximum`, two behaviors, and the difference is that
+      materiality shapes the answer while debt tolerance judges it.
+
+  As-Of Consumer
+    requested    {'as_of': '2026-06-30T00:00:00+00:00'}
+    REFUSED AT THE REQUEST BOUNDARY — before any assembly ran
+      as_of: 400 not_supported_at_tier — not supported at this tier
+      A caller asking for the rollup as it stood at a past instant. DECLARED
+      AND REFUSED, never silently ignored. This product's TTL is anchored
+      `from_decision` — the answer is scoped to the decision being taken now,
+      and there is no entity validity period an `as_of` could address.
+      Fluree's ledger `t` is TRANSACTION time and `D-IMPL-88` rules it must
+      not back `as_of`. An `as_of` quietly dropped would return a
+      present-tense answer wearing a past-tense label.
+
+==============================================================================

@@ -1,0 +1,145 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE CALLER'S OWN VOCABULARY — read-side, so NOT in `ccf_config.yaml`.
+# A question is not a permission. It has no business in Control Plane state or
+# in Decision Replay dimension 2.
+
+semver: "1.0.0"
+class_id: cp-05.question
+
+declaration:
+  # THE ANCHOR. Spec §B.1 element 8 addresses this product at
+  # `/context-products/credit-risk/exposure-rollup/{lei}`.
+  #
+  # WHY THIS ANCHOR. `5493000Q1S5TJIDIQH89` is REGIS CORP — a real LEI, a real
+  # jurisdiction (`US-MN`) and a real SIC code (7200), with an ENGINEERED bank
+  # book (spec §B.1 banner). It is the demonstration anchor because ONE anchor
+  # exercises every step this rung exists to teach. Every figure below was
+  # measured against the live estate on 2026-09-07:
+  #
+  #   * ITS OWN BOOK IS REAL AND SMALL — 4 facilities, committed 145,000,000,
+  #     outstanding 111,497,463, undrawn 31,447,787. Small enough that the
+  #     guarantee adjustment cannot hide inside rounding.
+  #
+  #   * IT CARRIES THE `downstream-dedup` CASE, AND THE CASE IS 5.5x ITS OWN
+  #     BOOK. Regis guarantees `RbGlobalInc` (`5493002H8U24DJXQ4886`) at
+  #     `covered_pct = 1`, and RbGlobalInc holds 2 facilities committing
+  #     800,000,000. Gross and guarantee-adjusted therefore CANNOT come out
+  #     equal by accident on this anchor — which is what makes the dedup step
+  #     demonstrably load-bearing rather than assumed to be (spec §G.2.2).
+  #
+  #   * IT REACHES FOUR ENTITIES THAT HOLD NOTHING — the four `upstream`
+  #     guarantees run to `SubCompanyName`, `SubCutcoAcquisitionCorp`,
+  #     `SubFirstChoiceHaircuttersInternationalLlc` and
+  #     `SubFirstChoiceHaircuttersLtd`, none of which carries an LEI in the
+  #     ledger and none of which holds a facility. They contribute ZERO
+  #     exposure and are still members of the family. A build that served only
+  #     the entities that resolve to a facility row would return a smaller,
+  #     tidier, WRONG family — the same population `CFT-G09` protects at rung 4.
+  #
+  #   * IT IS CALIBRATED AGAINST PUBLIC REALITY — committed exposure is 49.4%
+  #     of the obligor's XBRL-reported total debt, and
+  #     `ccf_v2.debt_reconciliation` flags it `plausible = true`.
+  #
+  # THE ANCHOR IS SWAPPABLE. Nothing in the code names this LEI; it is read
+  # from here.
+  #
+  # THE VAULT ARTICLE'S OWN WORKED ANCHOR IS NOT USED, AND THE SUBSTITUTION IS
+  # RECORDED RATHER THAN MADE SILENTLY (spec §F.4.4). The vault's §D client call
+  # names `5493001KJTIIGC8Y1R12`; measured, that LEI is ABSENT from
+  # `ccf_v2.legal_entity` and holds zero facilities, beside a positive control
+  # resolving this anchor to `REGIS CORP`. A demonstration anchored on an entity
+  # the estate does not carry would refuse at Resolve and teach nothing.
+  subject: "5493000Q1S5TJIDIQH89"
+
+  # THE PINNED INSTANT — spec §D.4, `D-IMPL-218`.
+  #
+  # The demonstrated run assembles OVER THIS PIN so the printed transcript
+  # reproduces. The bar is SAME QUESTION -> SAME ANSWER against a quiescent
+  # estate for that run, and no stronger claim is made anywhere: a reader whose
+  # numbers differ has RE-DERIVED, not reproduced, and the most likely reason is
+  # that a balance moved — a property of the estate rather than of the product.
+  #
+  # THE PIN MATTERS MORE HERE THAN AT ANY EARLIER RUNG. This product's fastest
+  # input has a ~4 hour half-life (spec §E.1). Asking "now" against a live loan
+  # system is what a deployment does; it is not a reproduction recipe.
+  asked_at: "2026-09-07T12:00:00+00:00"
+
+  # THE FRESHNESS CURRENCY THE CALLER IS ASKING IN — `ProductRequest.freshness`.
+  #
+  # `drawdown-repayment` is the `decay_driver` the outstanding-balance class
+  # declares in `ccf_config.yaml`, reused rather than reworded: an exposure is
+  # as current as the balance movements behind it. Naming a different cadence
+  # here would assert this product decays on a clock its own λ_c table does not
+  # use — and at a 4-hour half-life that error would be visible within a day.
+  freshness: drawdown-repayment
+
+  parameters:
+    # SELECTS THE LIMIT DEFINITION AND THE POLICY ENVELOPE, and it has NO
+    # DEFAULT anywhere — spec §B.3, §B.4. A defaulted intent would silently
+    # choose a limit regime on the caller's behalf, which is the
+    # confidently-wrong number §A describes.
+    #
+    # `group-limit-test` is the demonstration intent. Measured, the three
+    # intents in `ccf_v2.limit_definition` genuinely differ:
+    #
+    #   group-limit-test          counts_guarantees=true   counts_undrawn=true   connection_basis=control  25%
+    #   regulatory-large-exposure counts_guarantees=true   counts_undrawn=true   connection_basis=both     25%
+    #   internal-appetite         counts_guarantees=FALSE  counts_undrawn=FALSE  connection_basis=control  15%
+    #
+    # `internal-appetite` over the SAME anchor is the product's second
+    # demonstration (spec §G.2.4): a different adjusted figure from the same
+    # graph, produced by versioned policy rather than by code.
+    intent: group-limit-test
+
+    # THE OWNERSHIP WALK DEPTH. 3 is the vault's declared default and is
+    # demonstrated AT that default rather than at an interesting-looking number.
+    depth: 3
+
+    # ENTITIES BELOW THIS SHARE OF GROUP EXPOSURE ARE AGGREGATED INTO A RESIDUAL
+    # RATHER THAN ENUMERATED — the vault's declared default.
+    #
+    # IT DOES NOT APPLY TO ZERO-EXPOSURE ENTITIES REACHED BY CROSS-DEFAULT
+    # (spec §D.3 step 5.3, §C.4 trap 2). Absorbing those into a residual would
+    # delete the finding the traversal exists to produce.
+    materiality: 0.05
+
+    # SEPARABLE ON PURPOSE — spec §B.4. Different limit regimes count guarantee
+    # and cross-default connection differently, and a product that hard-coded
+    # one interpretation could not serve two regimes.
+    #
+    # THESE ARE TRAVERSAL SCOPE, NOT MEASUREMENT POLICY. Where a flag disagrees
+    # with the intent's limit definition, the DEFINITION governs the measure and
+    # the FLAG governs the walk, and the conflict is reported as a finding
+    # rather than resolved silently (spec §B.4).
+    follow_guarantees: true
+    follow_cross_default: true
+
+    # `both` emits committed AND outstanding. The vault's default, and the one
+    # that makes the undrawn column meaningful — `internal-appetite` sets
+    # `counts_undrawn=false`, which is only observable when both bases ship.
+    basis: both
+
+    # THE FAMILIES THIS DETERMINATION MAY ADMIT — `D-IMPL-295`, `24.10-F-11`.
+    #
+    # REQUIRED, with no default anywhere, on `intent`'s reasoning. A defaulted
+    # families list would grant scope nobody declared, and an empty one would
+    # restore the family of 0 the fabric honestly served while
+    # `ccf_config.yaml` declared `permitted_classifications: []`.
+    #
+    # A LIST BECAUSE THE ENVELOPE IS A SET. It binds to the policy operator's
+    # `permitted_classifications` through the declaration in `ccf_config.yaml`;
+    # the SDK supplies the governed effective value and converts nothing, so a
+    # bare string would be refused rather than widened.
+    families:
+      - cp05-acquisition-boundary
+
+  # DECLARED AND INERT — spec §B.4.
+  #
+  # `as_of` is refused rather than silently ignored. This product's TTL is
+  # anchored `from_decision` (spec §B.1 element 3): the answer is scoped to the
+  # decision being taken now, and there is no entity validity period an `as_of`
+  # could address. Fluree's ledger `t` is TRANSACTION time and `D-IMPL-88` rules
+  # it must not back `as_of`.
+  unsupported_parameters:
+    - as_of

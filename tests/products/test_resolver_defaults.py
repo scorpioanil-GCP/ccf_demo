@@ -49,6 +49,7 @@ actually produces, a second table that decays ten times faster, and a
 
 from __future__ import annotations
 
+import copy
 import dataclasses
 import pathlib
 from collections.abc import Callable, Iterator, Mapping
@@ -74,6 +75,7 @@ from ccf.halflife.debt import (
     DebtSignal,
 )
 from ccf.products import resolver as resolver_module
+from ccf.products.contract import ContextProductContract
 from ccf.products.debt_scorer import (
     DECLARED_FACTOR_SCORER_ID,
     DECLARED_FACTOR_SCORER_VERSION,
@@ -444,13 +446,35 @@ class _Booted:
     store: FileArtifactStore
 
 
-def _boot(tmp_path: pathlib.Path, name: str) -> Iterator[_Booted]:
-    """Write the fixture deployment plus this module's artifacts, and boot it."""
+def _boot(
+    tmp_path: pathlib.Path,
+    name: str,
+    *,
+    extra: tuple[tuple[str, str, str, dict[str, Any]], ...] = (),
+    product_class: dict[str, Any] | None = None,
+) -> Iterator[_Booted]:
+    """Write the fixture deployment plus this module's artifacts, and boot it.
+
+    ``extra`` appends artifacts beyond :data:`EXTRA_ARTIFACTS`, in the same
+    ``key, filename, class_id, document`` shape. `24.10-01` needs a fabric
+    carrying a `ccf.replay-binding` and a second one carrying two of them, and
+    a parameter is cheaper than a second copy of this function that would then
+    have to be kept in step with it.
+
+    ``product_class`` replaces the fixture deployment's class document.
+    `24.10-02` / `R-11` needs a deployment whose class DECLARES a runtime gate,
+    so that the build-time refusal for a declared gate with no supplied
+    callable has something to fire on. Same argument as ``extra``: a parameter
+    rather than a second boot that would drift, and the shape is the one
+    ``tests/products/test_resolver_seam.py::_boot`` already carries.
+    """
     root = tmp_path / name
     root.mkdir()
-    for _key, filename, _class_id, _role, _registration, document in ARTIFACT_SET:
+    for key, filename, _class_id, _role, _registration, document in ARTIFACT_SET:
+        if key == PRODUCT_CLASS_KEY and product_class is not None:
+            document = product_class
         write_artifact(root, filename, document)
-    for _key, filename, _class_id, document in EXTRA_ARTIFACTS:
+    for _key, filename, _class_id, document in (*EXTRA_ARTIFACTS, *extra):
         write_artifact(root, filename, document)
     body = manifest_document()
     body["artifacts"] = [
@@ -463,7 +487,7 @@ def _boot(tmp_path: pathlib.Path, name: str) -> Iterator[_Booted]:
                 "role": "load" if key == REQUEST_CONTRACT_KEY else "register",
                 "registration": "typed",
             }
-            for key, filename, class_id, _document in EXTRA_ARTIFACTS
+            for key, filename, class_id, _document in (*EXTRA_ARTIFACTS, *extra)
         ),
     ]
     manifest = write_artifact(root, "manifest.yaml", body)
@@ -908,6 +932,33 @@ def test_the_named_inputs_are_this_helper_s_own_optional_parameters() -> None:
         "debt_scorer",
         "constraint_resolver",
         "capabilities",
+        # `24.10-01` / `R-12`. Four more optional parameters that are not
+        # debt-scorer material: the three replay members the Control Plane's
+        # `replay:` section can supply, and the root the declared
+        # `store_dirname` is joined onto. They became optional under
+        # `D-IMPL-282`'s *"no builder API break in 24.10"* — a call passing
+        # them behaves exactly as it did — and they default from the
+        # deployment's own declaration rather than from supplied material,
+        # which is the same reason `constraint_resolver` and `capabilities`
+        # are excluded.
+        "artifact_store",
+        "replay_record_class",
+        "query_pin_class",
+        "artifact_store_root",
+        # `24.10-02` / `R-11`. An eighth, and it is not debt-scorer material
+        # for a reason none of the others has: it has no reference
+        # implementation and cannot have one. `debt_scorer` defaults to
+        # machinery the SDK ships; `product_gate` is declared-versus-supplied,
+        # and BOTH mismatches are refused at build time rather than defaulted
+        # (`D-IMPL-282` option 1a). Its `None` default is what lets a class
+        # declaring no gate call this helper exactly as it always did.
+        "product_gate",
+        # `24.11-02b` / `D-IMPL-292`. There is deliberately no ninth. `24.11-02`
+        # added `similarity_index_version` here and Dave ruled it insufficient:
+        # a corpus's version identity is decision-affecting operator
+        # configuration, so it is declared on the similarity artifact and this
+        # helper takes no argument for it. The exclusion roster shrinking is
+        # the repair, not an omission from it.
     )
     parameters = inspect.signature(build_governed_resolver).parameters
     for name in not_debt_scorer_material:
@@ -1067,3 +1118,321 @@ def test_the_disclosure_reader_treats_only_a_missing_key_as_no_policy() -> None:
     with pytest.raises(RuntimeError, match="unreachable"):
         broken(tenant="t", principal_id="p")
 
+
+
+# ---------------------------------------------------------------------------
+# `24.10-01` / `R-12` — the Control Plane's replay binding, at the helper.
+#
+# `D-IMPL-282` `R-12` option 2a (Dave, 2026-09-08) rules the precedence:
+#
+#     explicit builder argument > Control Plane replay binding
+#     > no binding/refusal according to existing availability semantics
+#
+# and *"Do not silently invent a replay backend when neither source provides
+# one."* What is asserted below is the helper's own resolution and its refusal
+# surface; `tests/deployment/test_replay_binding.py` carries the end-to-end
+# evidence that a served product's record actually lands where the declaration
+# said it would, which is the `D-06` bar this seam exists to clear.
+# ---------------------------------------------------------------------------
+
+#: The manifest key the fixture deployment declares its binding under, and the
+#: three values it declares. Test-side vocabulary (CINV-01); the values are
+#: shaped like cp-05's so the two modules read as the same subject.
+REPLAY_BINDING_KEY = "fixture/replay-binding"
+SECOND_REPLAY_BINDING_KEY = "fixture/replay-binding-also"
+DECLARED_RECORD_CLASS = "fixture.declared-replay-record"
+DECLARED_QUERY_PIN_CLASS = "fixture.declared-graph-query"
+DECLARED_STORE_DIRNAME = "declared-artifacts-store"
+
+
+def _replay_binding_document() -> dict[str, Any]:
+    return {
+        "semver": "1.0.0",
+        "record_class": DECLARED_RECORD_CLASS,
+        "query_pin_class": DECLARED_QUERY_PIN_CLASS,
+        "store_dirname": DECLARED_STORE_DIRNAME,
+    }
+
+
+ONE_BINDING: tuple[tuple[str, str, str, dict[str, Any]], ...] = (
+    (
+        REPLAY_BINDING_KEY,
+        "replay-binding.yaml",
+        "ccf.replay-binding",
+        _replay_binding_document(),
+    ),
+)
+
+TWO_BINDINGS: tuple[tuple[str, str, str, dict[str, Any]], ...] = (
+    *ONE_BINDING,
+    (
+        SECOND_REPLAY_BINDING_KEY,
+        "replay-binding-also.yaml",
+        "ccf.replay-binding",
+        _replay_binding_document(),
+    ),
+)
+
+
+@pytest.fixture()
+def booted_with_binding(tmp_path: pathlib.Path) -> Iterator[_Booted]:
+    """The same deployment, carrying one declared replay binding."""
+    yield from _boot(tmp_path, "declared", extra=ONE_BINDING)
+
+
+@pytest.fixture()
+def booted_with_two_bindings(tmp_path: pathlib.Path) -> Iterator[_Booted]:
+    """The same deployment, carrying two — the ambiguity the helper refuses."""
+    yield from _boot(tmp_path, "ambiguous", extra=TWO_BINDINGS)
+
+
+def _without_the_three(booted: _Booted, **overrides: Any) -> dict[str, Any]:
+    """The data-only call with none of the three replay members supplied."""
+    return _without(
+        _arguments(booted, **overrides),
+        "artifact_store",
+        "replay_record_class",
+        "query_pin_class",
+    )
+
+
+def test_the_declared_binding_supplies_every_member_the_call_omits(
+    booted_with_binding: _Booted, tmp_path: pathlib.Path
+) -> None:
+    """The honest subject, first. Every refusal below expects a failure, and an
+    expectation of failure is satisfied by a wiring that never worked."""
+    root = tmp_path / "roots" / "declared"
+    resolver = build_governed_resolver(
+        **_without_the_three(booted_with_binding, artifact_store_root=root)
+    )
+
+    assert resolver.replay_record_class == DECLARED_RECORD_CLASS
+    assert resolver.query_pin_class == DECLARED_QUERY_PIN_CLASS
+    assert isinstance(resolver.artifact_store, FileArtifactStore)
+    assert resolver.artifact_store.root == root / DECLARED_STORE_DIRNAME
+
+
+def test_an_explicit_argument_beats_the_declaration_for_that_member_alone(
+    booted_with_binding: _Booted, tmp_path: pathlib.Path
+) -> None:
+    """Precedence is per MEMBER, which is why the call is mixed.
+
+    A call naming only `replay_record_class` takes the explicit record class
+    and the declared query-pin class and store. A per-*call* precedence would
+    satisfy the first assertion and fail the other two.
+    """
+    root = tmp_path / "roots" / "mixed"
+    resolver = build_governed_resolver(
+        **_without_the_three(booted_with_binding, artifact_store_root=root),
+        replay_record_class="fixture.explicit-replay-record",
+    )
+
+    assert resolver.replay_record_class == "fixture.explicit-replay-record"
+    assert resolver.query_pin_class == DECLARED_QUERY_PIN_CLASS
+    assert isinstance(resolver.artifact_store, FileArtifactStore)
+    assert resolver.artifact_store.root == root / DECLARED_STORE_DIRNAME
+
+
+def test_a_call_supplying_all_three_is_unaffected_by_a_declaration(
+    booted_with_binding: _Booted,
+) -> None:
+    """*"No builder API break in 24.10"* — the shipped call shape, measured.
+
+    `ccf.client.adapters.inprocess` passes all three explicitly; so does every
+    other test in this module. The declaration on the fabric must change none
+    of them, and the store must be the OBJECT that was passed rather than one
+    the helper built from a dirname.
+    """
+    resolver = build_governed_resolver(**_arguments(booted_with_binding))
+
+    assert resolver.replay_record_class == REPLAY_RECORD_CLASS
+    assert resolver.query_pin_class == QUERY_PIN_CLASS
+    assert resolver.artifact_store is booted_with_binding.store
+
+
+def test_neither_source_is_refused_naming_the_argument_and_the_section(
+    booted: _Booted, tmp_path: pathlib.Path
+) -> None:
+    """`D-05` — *"Do not silently invent a replay backend."*
+
+    The fabric carries no binding and the call names none of the three, so
+    there is no source for any of them. Refused, and the message names both
+    places the value could have come from: nobody reading it should have to
+    guess whether the fix is an argument or a section.
+    """
+    with pytest.raises(TypeError) as refused:
+        build_governed_resolver(
+            **_without_the_three(booted, artifact_store_root=tmp_path)
+        )
+
+    message = str(refused.value)
+    assert "replay_record_class" in message, message
+    assert "replay" in message, message
+
+
+def test_a_declared_store_with_no_root_is_refused_naming_both(
+    booted_with_binding: _Booted,
+) -> None:
+    """A dirname is half a location. The other half is the caller's, and the
+    SDK does not choose it — a root defaulted to the process's working
+    directory would put a deployment's decision records wherever it happened
+    to be started from."""
+    with pytest.raises(TypeError) as refused:
+        build_governed_resolver(**_without_the_three(booted_with_binding))
+
+    message = str(refused.value)
+    assert "artifact_store_root" in message, message
+    assert "artifact_store" in message, message
+    assert DECLARED_STORE_DIRNAME in message, message
+
+
+def test_two_declared_bindings_are_refused_naming_every_key(
+    booted_with_two_bindings: _Booted, tmp_path: pathlib.Path
+) -> None:
+    """Refusing beats picking — `_refuse_operator_set_divergence`'s posture.
+
+    Only the deployment's author knows which of two declared bindings was
+    meant, and picking the first would be a rule that silently changes behavior
+    the day a second is registered.
+    """
+    with pytest.raises(TypeError) as refused:
+        build_governed_resolver(
+            **_without_the_three(
+                booted_with_two_bindings, artifact_store_root=tmp_path
+            )
+        )
+
+    message = str(refused.value)
+    assert REPLAY_BINDING_KEY in message, message
+    assert SECOND_REPLAY_BINDING_KEY in message, message
+
+
+def test_two_declared_bindings_are_admitted_when_all_three_are_explicit(
+    booted_with_two_bindings: _Booted,
+) -> None:
+    """The control on the ambiguity refusal: it fires on the RESOLUTION, not on
+    the fabric. A deployment that declares two bindings and names all three
+    arguments has asked nothing ambiguous, and refusing it would break a
+    deployment that resolved its own ambiguity."""
+    resolver = build_governed_resolver(**_arguments(booted_with_two_bindings))
+
+    assert resolver.replay_record_class == REPLAY_RECORD_CLASS
+
+
+# --- `R-11`: declared versus supplied, refused at build time -----------------
+#
+# Test-side vocabulary for the gate a class declares. `24.10-02` / `R-11`: the
+# id and the lane are the DEPLOYMENT's, never the SDK's (CINV-01), so they are
+# spelled here and nowhere in `src/`.
+
+#: The fixture class's declared runtime invariant.
+DECLARED_GATE_ID = "fixture.reconciliation-guard"
+DECLARED_GATE_VERSION = "1.0.0"
+
+
+def _product_class_declaring_a_gate() -> dict[str, Any]:
+    """The fixture class document with a ``declared_product_gate`` block."""
+    document = copy.deepcopy(
+        next(doc for key, *_rest, doc in ARTIFACT_SET if key == PRODUCT_CLASS_KEY)
+    )
+    document["declared_product_gate"] = {
+        "gate_id": DECLARED_GATE_ID,
+        "gate_version": DECLARED_GATE_VERSION,
+    }
+    return document
+
+
+@pytest.fixture()
+def booted_declaring_a_gate(tmp_path: pathlib.Path) -> Iterator[_Booted]:
+    """The same deployment, with the class DECLARING a runtime invariant."""
+    yield from _boot(
+        tmp_path, "declares-a-gate", product_class=_product_class_declaring_a_gate()
+    )
+
+
+def _admitting_gate(
+    *,
+    candidate: ContextProductContract,
+    evidence: ExecutionEvidence | None = None,
+) -> str | None:
+    """A conforming gate that admits everything. Shape only; behavior is
+    ``tests/products/test_runtime_product_gate.py``'s subject."""
+    return None
+
+
+def test_a_declared_gate_with_no_supplied_callable_is_refused(
+    booted_declaring_a_gate: _Booted,
+) -> None:
+    """The half that matters (`D-IMPL-282` `R-11`; threat `T-24.10-02-02`).
+
+    *"A default that nothing exercises is a check that stops checking without
+    going red."* A class whose document declares a gate, built through the
+    shipped helper with no callable, must not yield a resolver: an audit
+    reading that declaration would report an invariant in force that had never
+    run once, which is repudiation dressed as governance.
+
+    The message names the class key, the declared id and the argument — the
+    adopter has three places to look and only one of them is wrong.
+    """
+    with pytest.raises(TypeError) as refused:
+        build_governed_resolver(**_arguments(booted_declaring_a_gate))
+
+    message = str(refused.value)
+    assert PRODUCT_CLASS_KEY in message, message
+    assert DECLARED_GATE_ID in message, message
+    assert DECLARED_GATE_VERSION in message, message
+    assert "product_gate" in message, message
+
+
+def test_a_supplied_callable_against_a_class_declaring_none_is_refused(
+    booted: _Booted,
+) -> None:
+    """The other half (threat `T-24.10-02-01`).
+
+    Refused rather than ignored: a deployment predicate running inside the
+    determination path with no declared identity is a check the SDK could not
+    name in a refusal record, so `D-14`'s *"which gate produced the refusal"*
+    would have no answer. The stock fixture class declares no gate, which is
+    what makes this the mirror of the test above rather than a second spelling
+    of it.
+    """
+    with pytest.raises(TypeError) as refused:
+        build_governed_resolver(
+            **_arguments(booted, product_gate=_admitting_gate)
+        )
+
+    message = str(refused.value)
+    assert PRODUCT_CLASS_KEY in message, message
+    assert "declared_product_gate" in message, message
+
+
+def test_a_declaring_class_with_its_callable_supplied_builds(
+    booted_declaring_a_gate: _Booted,
+) -> None:
+    """The control on both refusals: the agreeing pair is admitted.
+
+    Without it, a helper that refused every call carrying a gate — or every
+    class declaring one — would satisfy the two refusal tests above. It also
+    asserts what the resolver was given, so a helper that accepted the argument
+    and dropped it on the floor fails here rather than in a behavior test three
+    modules away.
+    """
+    resolver = build_governed_resolver(
+        **_arguments(booted_declaring_a_gate, product_gate=_admitting_gate)
+    )
+
+    assert resolver.product_gate is _admitting_gate
+
+
+def test_a_class_declaring_no_gate_and_a_call_naming_none_is_unaffected(
+    booted: _Booted,
+) -> None:
+    """The compatibility control: every call written before `R-11` is untouched.
+
+    `D-IMPL-282`'s *"no builder API break in 24.10"* applies here as it does to
+    `R-12`. The stock deployment declares no gate and the stock call names no
+    `product_gate`, and it builds a resolver whose gate is the positive `None`.
+    """
+    resolver = build_governed_resolver(**_arguments(booted))
+
+    assert resolver.product_gate is None

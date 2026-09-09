@@ -192,6 +192,7 @@ __all__ = [
     "GateRefusal",
     "LineageAttributionRefusal",
     "LineageMismatchRefusal",
+    "ProductInvariantRefusal",
     "ServableProduct",
     "ServableProductNotAModel",
     "TTLRefusal",
@@ -393,6 +394,67 @@ class DeclaredObligationRefusal(GateRefusal):
     obligation: Literal["lineage-inputs"]
     declared: str
     observed: str
+
+
+class ProductInvariantRefusal(GateRefusal):
+    """A product class's OWN declared invariant refused, at runtime.
+
+    SDK-defined per CLAUDE.md §11. The rulings of record are ``D-IMPL-282``
+    (``R-11``, option 1a; Dave, 2026-09-08) and ``D-IMPL-224``, which made a
+    product gate a declared, CI-checked property of a class. Dave's framing,
+    which is the whole boundary: *"the runtime gate is not a new universal
+    policy vocabulary. It is a declared product invariant with a governed
+    identity, whose implementation is supplied by the deployment."*
+
+    **What ``R-11`` supersedes, and what it leaves standing.**
+    ``D-IMPL-225`` amendment 3 said of ``D-IMPL-224``'s declared gates:
+    *"There is no ``ProductGate`` Protocol, no serve path for them, and the
+    SDK's universal gates stay the only serve-time gates."* ``R-11``
+    supersedes the **first two limbs and no more** — there is now a
+    :class:`~ccf.products.resolver.ProductGateProtocol` and a path on which it
+    runs. **The third limb stands.** This refusal is **not** produced by
+    :func:`run_gates`, is not a member of its sequence, joins no token to the
+    five-plus-one gate roster, and :data:`GATE_DECLARED_OBLIGATIONS` with its
+    one-member ``Literal`` is untouched (``D-11``). Recorded here rather than
+    only in a plan file, because a supersession that lives in a plan is one the
+    next reader of this module will not find.
+
+    **Where it DOES run**, so the call site is findable from here:
+    :meth:`~ccf.products.resolver.GovernedResolver.__call__`, after
+    :func:`run_gates` has ADMITTED a candidate and before
+    :func:`refuse_over_tolerance` withholds one — the execution point
+    ``D-IMPL-282`` names as *"after candidate construction and before
+    fitness/fulfillment"* (``D-12``). It therefore never runs on a candidate
+    the universal gates already refused: there is no product to hold an
+    invariant against.
+
+    It **derives** from :class:`GateRefusal` rather than paralleling it, on
+    :class:`AttestationRefusal`'s and :class:`DeclaredObligationRefusal`'s
+    stated reasoning: a product meets the fabric's one refusal discipline, not
+    a second one that happens to look similar. The
+    ``ServableProduct | GateRefusal`` return union of :func:`run_gates` is
+    unchanged by this type existing, and the resolver's existing
+    refusal-recording path carries it to replay with no second path.
+
+    Attributes:
+        gate: The declared ``gate_id``, inherited. Stamped by the resolver from
+            the class's
+            :attr:`~ccf.controlplane.artifacts.ProductClassDeclaration.declared_product_gate`
+            and **never** supplied by the deployment's callable — which is what
+            makes ``D-14``'s *"which gate produced the refusal"* a fact an
+            examiner can trust rather than a claim the failing code made about
+            itself.
+        gate_version: The lane that id was declared at, stamped from the same
+            declaration. Carried beside the id, in :class:`TTLRefusal`'s
+            diagnostic-pair voice, so a reader of a refusal record resolves the
+            exact gate a determination ran under rather than the one in force
+            now.
+        detail: What the deployment's callable returned — the violation, in the
+            deployment's own words. The SDK reads it as text and never parses
+            it: an invariant's failure mode is the product's to describe.
+    """
+
+    gate_version: str
 
 
 def _refuse_declared_obligations(

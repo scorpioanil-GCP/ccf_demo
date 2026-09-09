@@ -38,3 +38,12 @@ ranked_entity_classes:
 
 similarity_corpus_attribute_by_class:
   feeder: load_summary
+
+# `24.11-02b` (`D-IMPL-292`): the SDK moved the corpus's version identity onto
+# THIS document, where it is read at index construction, and made it required.
+# This archived example declared it in `product-governance.yaml` — the
+# adopter-namespaced pattern every deployment reproduced because the SDK had no
+# declarative home for it. The value below is that same declaration, moved so
+# the document still parses under the class its `$schema` header names. Nothing
+# else in this retired program is retrofitted (`D-07`, `D-IMPL-265`).
+index_version: "boreal-feeder-corpus@2026-06-01"

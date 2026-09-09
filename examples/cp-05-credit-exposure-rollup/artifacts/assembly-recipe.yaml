@@ -1,0 +1,210 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# SPEC §D.2 AS DATA, WITH A WITNESS PER STEP.
+#
+# A witness is what was OBSERVED when the step ran on the demonstrated question,
+# not what the step is supposed to do. Every witness below was taken from the
+# run pinned in `page/run-transcript.txt`.
+#
+# `role: load`. This document is the recipe as a fact about the assembly; the
+# assembly itself lives in `assembler.py` and `produce.py`.
+
+semver: "1.0.0"
+class_id: cp-05.assembly-recipe
+
+declaration:
+  steps:
+    - step: 1
+      operator: Resolve
+      store: postgres
+      reads: [legal_entity, crosswalk]
+      emits: canonical obligor
+      may_be_empty: false
+      witness: >-
+        5493000Q1S5TJIDIQH89 resolved to REGIS CORP. An LEI that does not
+        resolve REFUSES with exit 4 — measured on 5493001KJTIIGC8Y1R12, the
+        vault article's own worked anchor, which is absent from this estate.
+
+    - step: 2
+      operator: Policy
+      store: postgres
+      reads: [limit_definition, entitlement service]
+      emits: policy envelope, policy_version
+      may_be_empty: false
+      witness: >-
+        intent `group-limit-test` loaded counts_guarantees=true,
+        counts_undrawn=true, connection_basis=control. An unknown intent
+        REFUSES with exit 4 and names the three that exist. There is no
+        default: a defaulted limit regime is the confidently-wrong number
+        spec §A describes.
+
+    - step: 3
+      operator: Traversal
+      store: fluree
+      reads: [owns, isUltimatelyConsolidatedBy, isGuarantorOf, crossDefaultsWith]
+      emits: node set, edge set, ledger t
+      may_be_empty: false
+      witness: >-
+        ONE walk, four predicate types, both directions — 77 nodes at depth 3,
+        21 at depth 1 and 49 at depth 2. The family reaches OUTSIDE the Regis
+        ownership group entirely (Avis Budget, Celanese, XPO) through
+        cross-default. Walked bidirectionally on purpose: a guarantee RECEIVED
+        matters as much as one given.
+
+    - step: 4
+      operator: Batch Enrich
+      store: postgres
+      reads: [facility, guarantee_terms, debt_reconciliation, legal_entity]
+      emits: facilities and balances per entity
+      may_be_empty: true
+      witness: >-
+        ONE query over 19 LEIs, not 19 queries. Fan-out is entity × facility, so
+        the N+1 penalty here is MULTIPLICATIVE rather than linear; an
+        implementation issuing one query per entity is not slow, it is wrong at
+        scale. 5 of the 19 hold a facility book; 14 hold none and are retained.
+
+    - step: 5
+      operator: Aggregate
+      store: in-memory
+      reads: [step 3, step 4]
+      emits: gross and adjusted measures, findings
+      may_be_empty: false
+      witness: >-
+        gross committed 10,125,000,000; ONE guarantee dedup removing
+        800,000,000 (Regis guarantees RB Global at covered_pct 1); adjusted
+        committed 9,325,000,000 — 7.90% of gross. 14 members reported as
+        connected-without-exposure rather than absorbed into the residual.
+
+    - step: 6
+      operator: Contract assembly
+      store: none
+      reads: [all above]
+      emits: ContextProductContract@v1.0.0
+      may_be_empty: false
+      witness: >-
+        A typed `ccf.products.contract.ContextProductContract` — nine required
+        fields, a three-field ProductLineage, ttl_anchor `from_decision`
+        expressed with NO SDK change. expires_at = asked_at + 14400s. Content
+        address 299d0e9e38ec680d932ebe607bf50371ffe8389c3ac3f8b13bec2df61f8e089b.
+
+  # ==========================================================================
+  # THE FOUR GATES — spec §D.7
+  # ==========================================================================
+  gates:
+    - gate: empty-operator guard
+      asserts: "no step marked `may_be_empty: false` returned empty"
+      witness: the traversal returned 77 nodes; the guard did not fire
+
+    - gate: lineage strict equality
+      asserts: lineage names exactly the operators invoked
+      witness: >-
+        Resolve -> Policy -> Traversal -> Enrich -> Aggregate, five names, and
+        the same five in the contract's `operators_invoked` frozenset
+
+    - gate: TTL bounds
+      asserts: 0 < window <= max_ttl_seconds
+      witness: 14400s against a ceiling of 14400s
+
+    - gate: reconciliation guard
+      asserts: gross >= guarantee-adjusted, per group
+      witness: >-
+        OBSERVED BOTH WAYS on 2026-09-08, which is what `example_delivery.md`
+        §11 requires of every product gate. FIRING: a hand-built rollup with
+        gross 100 and adjusted 140 — arithmetically impossible, and exactly what
+        a double-subtracting dedup produces — raised
+        "reconciliation guard: adjusted committed 140 exceeds gross 100. The
+        dedup logic double-subtracted." NOT FIRING, as the positive control: the
+        shipped figures 10,125,000,000 >= 9,325,000,000 pass. The rollup was
+        constructed in the test rather than by mutating the shipped module, so
+        no source file was edited to take the observation.
+
+  # ==========================================================================
+  # WHAT THE GUARD DOES NOT WATCH FOR — recorded because it bit
+  # ==========================================================================
+  #
+  # `gross >= adjusted` catches DOUBLE-SUBTRACTION. It does not catch
+  # UNDER-COUNTING, and the first draft of `expected.yaml` made exactly that
+  # error: it deducted a dedup whose obligor (ViskaseHoldingsInc) enters this
+  # family only at depth 4, so its 205,000,000 was never added to gross. The
+  # resulting adjusted figure would have been too LOW, and the guard would have
+  # stayed green throughout.
+  #
+  # The rule now enforced in `assembler.py::aggregate` step 5.2 — a dedup is
+  # valid only when BOTH guarantor and obligor are inside the measured family —
+  # was located by an expectation written independently of the program, not by
+  # a gate.
+
+  # ==========================================================================
+  # THE FULFILLMENT DETERMINATION — spec §D.8. NOT A GATE.
+  # ==========================================================================
+  #
+  # It sits below `gates:` rather than inside it because it answers a different
+  # question. The gates decide whether the product EXISTS. This decides whether
+  # the fabric is willing to ATTEST that the product it built is fit for this
+  # consumer to act on. `refuse_over_tolerance` takes a `ServableProduct`, which
+  # is not constructible outside `run_gates`, so the ordering is structural: a
+  # caller who has not run the gates has nothing to pass.
+  fulfillment:
+    mechanism: ccf.products.gates::refuse_over_tolerance
+    input: >-
+      one resolved `EffectiveParameter` for `debt_tolerance`, never a number.
+      The class default (0.25), the caller's declaration and any applicable
+      policy constraint are folded exactly once, upstream, by
+      `resolve_effective_request`. This step performs no fold of its own.
+    observed_debt: "1.000000000000000000000000000"
+    effective_tolerance: "0.25"
+    tolerance_authority: default
+    outcome: WITHHELD
+    witness: >-
+      OBSERVED BOTH WAYS on 2026-09-08 against the pinned instant. WITHHELD on
+      the demonstrated run: D_c 1.000 exceeds the class's own 0.25 default, and
+      the refusal names the authority, the tolerance and the observation.
+      SERVED as the positive control: the Exploratory Consumer in
+      `artifacts/scenarios.yaml` declares `debt_tolerance: "1.0"` and receives
+      the IDENTICAL determination — family 77, gross 10,125,000,000, adjusted
+      9,325,000,000, D_c 1.000 — delivered. Neither observation required any
+      change to the evidence, the half-life table or the debt calculation.
+    what_it_does_not_do: >-
+      It does not withdraw the determination. The gross and guarantee-adjusted
+      figures are printed on a withheld run, and the client exits 0 — a
+      tolerance breach is a refusal of FULFILLMENT, not of RESPONSE
+      (`D-IMPL-251`). Disclosure decides what the caller sees, and it discloses
+      both the number and the reason it is not attested.
+
+  # ==========================================================================
+  # DECISION REPLAY — spec §D.9. WRITTEN BEFORE THE RESPONSE IS RELEASED.
+  # ==========================================================================
+  replay:
+    mechanism: >-
+      ccf.replay.record::build_replay_record, then ccf.replay.serve::serve on
+      the served path and ccf.replay.serve::record_refusal on the withheld one.
+    record_class: ccf.cp-05.decision-replay-record
+    one_class_for_both_outcomes: >-
+      `D-IMPL-253` Q13: *"Refusal is itself a decision and deserves the same
+      five-dimensional replay model. Do not create second-class replay."* A
+      separate artifact class for withheld determinations would be that second
+      class. Measured, the WITHHELD record is LARGER than the served one —
+      20,639 bytes against 17,157 — because it additionally carries the refusal
+      envelope, its evidence and the debt breakdown. Whatever second-class means,
+      it is not this.
+    what_replay_re_asks: >-
+      THE EFFECTIVE REQUEST, never the caller's. `resolution=outcome.evidence`
+      carries one parameter per name with the authority that established it, so
+      replay re-asks `0.05 [default]` or `0.10 [policy]` rather than whatever
+      the caller typed. Under a narrowing policy constraint those are different
+      questions and only one of them was answered.
+    ordering_is_structural: >-
+      A served product is what a successful append RETURNS (INV-CH7-79). There
+      is no branch through `serve` that hands back a product whose record failed
+      to write, because the product comes out of the same call that wrote it.
+    witness: >-
+      OBSERVED ON BOTH BRANCHES on 2026-09-08 against the pinned instant. The
+      record is READ BACK OUT OF THE STORE before the per-run directory is
+      discarded and its content address compared against the record this run
+      built; `address_matches_built_record` is true on both. All five dimensions
+      are populated on both, differing only in dimension 5's disposition:
+      served carries a `product_content_address` and `refusal_recorded: false`,
+      withheld carries `no-product-address` and `refusal_recorded: true`. Debt
+      1.000 appears on BOTH — on the withheld branch it arrives through the
+      refusal envelope's own permitted evidence, which is why the assessment had
+      to travel on the envelope rather than beside it.

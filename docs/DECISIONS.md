@@ -802,3 +802,1016 @@ Surfaced and ruled: 2026-07-27, design discussion following the Phase I.3 gate r
 **Confirmed, not assumed, at this sitting:** P-1's population re-measured at **46 sites / 40 test modules** in `tests/` (as the inventory states) plus one further site in `tools/`; P-3's population re-measured at **ONE**. A zero-hit positive control was run beside the P-1 count so the number is not an unmeasured grep.
 
 **Next free decision id: `D-IMPL-271`.** **Related:** `D-IMPL-269` (2) and (5) (the carry and the phase-level lesson this phase answers), `D-IMPL-261` (examples are probes, frozen), `D-IMPL-263` (the standing fence and the `tests/examples/` quarantine rule), `D-GATE-19` (criteria authored at planning, locked before Wave 1), `D-GATE-24.8`, `.planning/PROOF-INVENTORY.md`, carries `24.8-C-02` (NOT admitted) and `24.8-C-01` (untouched).
+
+**D-IMPL-277 — OPEN, AWAITING DAVE: the SDK has no acquisition boundary for an EXTERNAL graph store, and two Context Products have now hand-rolled SPARQL around its absence.** OPEN. Raised 2026-09-08 while building cp-05 (`credit-risk.exposure-rollup.v1`). Not resolved here; recorded so a third product does not work around it silently.
+
+**THE MEASUREMENT.** `src/ccf/graph/backends/` ships Fluree, Neo4j, Mongo, Postgres, SQLite and memory adapters, and every one of them is an **L3 substrate** — `FlureeGraphStore`'s own docstring says *"The CCF-owned ledger (D-03). Bootstrapped idempotently at construction."* They are stores the fabric OWNS and WRITES. **There is no SDK surface for reading a graph store the fabric does NOT own, as a SOURCE.** Consequence, measured: `examples/cp-04-corporate-family-tree/deployment.py` carries **16** hand-written SPARQL/SELECT sites against the source Fluree estate, and `examples/cp-05-credit-exposure-rollup/deployment.py` independently carries its own. Both products reached for the same missing thing and both built it themselves.
+
+**WHAT IS *NOT* THE GAP.** Everything downstream of acquisition is supported and cp-04 uses it: normalized edges are admitted through L2's single writer (`worker.admit_relationship_claim`), land in L3, and are traversed by the registered `traversal.typed-neighborhood` operator over a `GraphView`. The fabric is not missing a traversal, a projection or a gate. It is missing the step that gets someone else's graph *in*.
+
+**WHY IT NEEDS A RULING RATHER THAN A PATCH.** Dave, verbatim: *"If the only supported graph abstraction assumes CCF-owned graph state, while real products need to read an external graph as a source, then the SDK is missing an acquisition boundary. That one deserves a ruling before more hand-coded SPARQL proliferates."* The question is architectural: is external-graph acquisition an **L1 Signal Layer** concern (a graph-shaped ingress adapter beside CDC and MCP-ingress, per whitepaper §8.3 Pattern 1/3), an **L4 operator** concern (content acquisition at decision time, `CLAUDE.md` §7.1), or deliberately the deployment's own business? The three answers imply different homes, different Protocols and different replay obligations, and picking one silently would be exactly the kind of unruled surface decision this project stops for.
+
+**RELATED BUT DIFFERENT — NOT this entry.** `resolve_effective_request` was bypassed by cp-05's first draft in favor of a hand-rolled `pick()` helper. Dave classified that separately and correctly: *"The capability exists; the problem is that the happy path is not obvious enough to keep competent authors from bypassing it. I would classify that as an adoption/API ergonomics defect, not a missing semantic capability."* It needs no ruling — it needs the obvious path to be obvious.
+
+**ALSO DEFERRED, DELIBERATELY.** Whether the governed MCP door is disproportionately expensive (cp-04: 801 lines of door against a 458-line assembler) is **not judged yet**. Dave: *"I would defer judgment until cp-05 is using the correct internal path. If the MCP door is still hundreds of lines after the product is properly assembled through CCF, then we have strong evidence the delivery abstraction is too expensive."* cp-05's door is not built and must not be built until the product crosses L2–L5, because a governed door around a hand-rolled query *"would give us a beautifully governed delivery path around a hand-rolled query ... the appearance of a complete Context Product without answering the real question."*
+
+**Next free decision id: `D-IMPL-279`.** **Related:** `D-IMPL-278` (cp-05's findings dispositioned), `D-IMPL-276` (the course correction that put examples back at the center), `D-IMPL-261` (examples are probes, not repair targets), `CLAUDE.md` §7.1 (MCP as bidirectional ingress), whitepaper §8.3 Patterns 1 and 3, `examples/cp-04-corporate-family-tree/produce.py::_ingest` (`D-35`, the class-co-occurrence behavior that forces `relationship_rules: []`).
+
+---
+
+### D-IMPL-278 — cp-05's findings DISPOSITIONED: one architecture gap, one adoption-surface gap, one delivery-ergonomics gap, two extension points, one deferral — and ONE RETRACTED CORRECTNESS CLAIM
+
+**D-IMPL-278 — cp-05 (`credit-risk.exposure-rollup.v1`) HAS DONE ITS JOB. Its findings collapse into a small number of real SDK issues rather than example-specific annoyances, and Dave dispositions each one. The next SDK work is the SMALLEST changes that make the governed spine the obvious safe path — NOT another generalized hardening phase.** RESOLVED as a disposition; the remedial work is NOT yet scoped, planned or authorized. Date: 2026-09-08. Ruled by: Dave, on the six-step cp-05 rebuild (`1fc91903` … `f0cbccff`) executed under `D-IMPL-276`.
+
+**THE ONE ARCHITECTURAL STATEMENT, in Dave's words:**
+
+> *"CCF has a governed execution spine, but it does not make that spine the canonical path, nor does it verify that the product being delivered is the product that spine actually governed."*
+
+> *"Findings 8, 12, 14, and 17 are manifestations of the same architectural problem. Acquisition, policy, debt/fulfillment, and finally the entire governed resolver were all available, but an author could construct something beside them that looked conforming. The individual components behaved correctly; composition was optional."*
+
+On the delivery boundary, promoting the provisional issue to a genuine gap:
+
+> *"The delivery boundary already proves something useful — this product crossed gates and has a replay record. But … that is a shape proof. It does not prove: the bytes about to leave are the governed determination represented by that replay record. That is the reconciliation CCF is currently missing."*
+
+On `GovernedResolver`:
+
+> *"The GovernedResolver discovery is probably the most consequential finding in the entire example. You effectively rediscovered the intended CCF programming model by hand. That tells us the architecture is substantially there, but the product surface is wrong. … That is beyond documentation friction. I would classify it as an adoption-surface/design gap: the safest governed path is not the path of least resistance."*
+
+On MCP, answering the question the door was built to answer:
+
+> *"The MCP measurement also answers our question: 204 executable lines is still another application, not configuration and binding. The 22% reduction from cp-04 confirms that having the governed product already built helps, but nowhere near enough. The 72 lines of resolver/refusal application logic and the requirement to understand three MCP auth internals are the clearest evidence. The 60 lines of genuine binding are much closer to what should remain."*
+
+**THE DISPOSITION TABLE, verbatim:**
+
+| Finding | Disposition |
+|---|---|
+| Declared execution vs replay/delivered product not reconciled | **SDK architecture gap** |
+| `GovernedResolver` exists but is not the canonical author path | **SDK adoption/API design gap** |
+| ~~`GovernedResolver` omits request/bound-payload refusal obligations~~ **→ RECLASSIFIED: `refuse_bound_payload` is not part of the shipped governed path** | **Delivery/adoption gap with LATENT CORRECTNESS RISK — not an observed correctness defect in the current product path.** The request-boundary half was measured false and is retracted; see below |
+| MCP requires resolver/refusal application code + auth internals | **SDK delivery ergonomics/API gap** |
+| Product-specific debt scorer | **Expected extension point** |
+| Product-specific reconciliation guard lacks a home | **Candidate SDK extension-point gap** |
+| Acquisition before `GovernedResolver` | **Hold for `D-IMPL-277` architectural ruling** |
+
+**THE ARCHITECTURAL TARGET, verbatim:**
+
+> *"A Context Product author supplies acquisition, product-specific assembly/projection logic, product-specific scoring where needed, and declarations. CCF owns the governed spine. MCP should bind that already-governed product to transport—not require the author to reconstruct governance again."*
+
+> *"CCF should refuse to emit a product when the replayed governed determination and the product presented for delivery cannot be shown to correspond."*
+
+And the fence on how it is done:
+
+> *"I would not launch another generalized hardening phase around this. cp-05 has given us concrete product evidence. The next SDK work should be the smallest changes that make the governed spine the obvious safe path and close the actual request-boundary defect."*
+
+---
+
+**ROW 3 AS FIRST DISPOSITIONED IS WITHDRAWN AND RECLASSIFIED, ON A MEASUREMENT TAKEN AFTER DAVE'S DISPOSITION AND BEFORE ANY REMEDIAL WORK.** Dave, on the measurement, 2026-09-08: *"Your measurement disproves the premise. `GovernedResolver` does enforce the request boundary through `resolve_effective_request` / `constraint_resolver.resolve`; there is no SDK correctness defect there and I would not authorize a code change for it."* And on what survives: *"`refuse_bound_payload` is not part of the shipped governed path, so a product class that declares a payload schema could have that schema silently unenforced. Given that no shipped example currently declares such a schema, I would classify that as a delivery/adoption gap with latent correctness risk, not an observed correctness defect in the current product path."* And on how the record is kept: *"I want the correction preserved exactly the way you handled it: keep the false inference and the measured correction together. That is useful evidence about the danger of reasoning from symbol presence/absence instead of executed paths."*
+
+**THE ORIGINAL CLAIM, PRESERVED.** Dave dispositioned it as a correctness defect and directed *"I would fix that narrowly and add one direct regression test."* **The premise was false and the fix must not be built.**
+
+The claim was that `GovernedResolver` calls neither `refuse_request` nor `refuse_bound_payload`, and that an adopter therefore inherits an unchecked request boundary. It was derived from a `grep` for the symbol name plus the `ProductResolverProtocol` docstring — never from running the path. Measured limb by limb against `resolve_effective_request`, which `GovernedResolver` reaches through `constraint_resolver.resolve`, each with a passing positive control:
+
+| `refuse_request` limb | Covered on the `GovernedResolver` path? |
+|---|---|
+| address | YES — `GovernedResolver` itself raises `ProductNotResolvable` |
+| tier (declared-and-inert) | YES — `not_supported_at_tier` |
+| undeclared parameter | YES — `undeclared-parameter` |
+| missing required parameter | YES — `missing-required-parameter` |
+| mistyped parameter | YES — `type-mismatch` |
+| declared domain | YES — `D-IMPL-259`, refused by name, never clamped |
+
+**The request boundary under `GovernedResolver` is checked. There is no correctness defect and nothing to fix.**
+
+**What survives is smaller and latent.** `refuse_bound_payload` is called by **no shipped module** — the tree's only call site is `archive/examples/04-cross-process/producer_child.py`. It returns `None` for a class declaring no payload schema, and **no shipped example declares one**, so it bites nobody today. A deployment that declared a `payload_schema_key` would have that declaration silently ignored on every shipped path. That is a real latent gap and belongs with the delivery-ergonomics row, not as a correctness defect.
+
+**NO CODE CHANGE IS AUTHORIZED FOR ROW 3.** The narrow fix and its regression test, directed on the false premise, are cancelled. The surviving `refuse_bound_payload` gap carries no authorization of its own and is folded into the delivery-ergonomics row for whenever that work is scoped.
+
+**This is the fourth author-side false claim recorded in cp-05's own specification** (§F.4 findings 3, 5, 13(a), 19) and the first to reach Dave as an actionable defect. The class is constant: a claim about behavior derived from the presence or absence of a symbol rather than from running the path with a positive control. `CP-SPEC-005` §F.4 finding 19 preserves the false half beside its correction rather than deleting it.
+
+---
+
+**A SEPARATE HYGIENE PROBLEM, SURFACED NOT FIXED.** All six cp-05 commits (`1fc91903`, `28ffc847`, `0fbb88e4`, `2e203d30`, `2fb2e46f`, `f0cbccff`) plus `e8a59323` (`D-IMPL-277`) were committed onto **`phase-24.9`**, which carries 109 commits of Phase 24.9 work that `D-IMPL-276` left deliberately unmerged and ungated. cp-05 is not Phase 24.9 work and its base should not have been that branch. Merging cp-05 to `main` as it stands would carry Phase 24.9 with it. **No branch surgery has been performed** — the disposition of both the cp-05 commits and the Phase 24.9 branch is Dave's, and rewriting shared history to tidy an error is exactly the class of act that needs authorization rather than initiative.
+
+**WHAT THIS DOES NOT DECIDE.** The remedial work's scope, phase number, methodology or sequencing; whether the reconciliation is enforced at `serve`, at the door, or at both; what shape the canonical author path takes; `D-IMPL-277`; the `phase-24.9` and cp-05 branch disposition; `D-GATE-24.9`.
+
+**Next free decision id: `D-IMPL-280`.** **Related:** `D-IMPL-279` (the four architectural rulings on this table), `D-IMPL-276` (the course correction this rung executed under), `D-IMPL-277` (acquisition, held), `D-IMPL-261` (examples are probes, not repair targets — cp-05 is that ruling working as intended), `D-IMPL-260` P-A (the shape proof this entry finds insufficient), `D-IMPL-253` Q13 (do not create second-class replay), `D-IMPL-113`/`D-IMPL-121` (the refusal obligations row 3 misread), `CP-SPEC-005` §D.8–§D.10 and §F.4 findings 8, 12, 14, 17, 18, 19.
+
+---
+
+### D-IMPL-279 — FOUR ARCHITECTURAL RULINGS on the cp-05 remediation set (R-09 acquisition, R-10 compositional validation, R-11 product gates on the governed path, R-12 replay binding in the Control Plane), plus narrowed direction on R-01 and R-02 and the resolved R-03 dependency
+
+**D-IMPL-279 — Dave rules the four items that needed architectural direction before code, narrows R-01's enforcement point and R-02's correction site, and settles the R-03/R-09 dependency by separating acquisition from the governed spine. NO IMPLEMENTATION IS AUTHORIZED.** RESOLVED as direction; the code is not authorized and no phase is assigned. Date: 2026-09-08. Ruled by: Dave, on `.planning/CP-05-REMEDIATION-SET.md` (`bd3bf33c`). Verbatim throughout.
+
+**R-09 — ACQUISITION.**
+
+> *"CCF needs an explicit source-acquisition boundary for external graph/data sources. Acquisition is upstream of L2/L3 and may be backend-specific, but it must be represented as a first-class assembler concern rather than hidden hand-written query logic. Do not make `GovernedResolver` itself responsible for talking to arbitrary source systems. Instead, it should accept an acquisition result / prepared context input produced through a declared acquisition interface."*
+
+**This resolves `D-IMPL-277`, which has stood OPEN since 2026-09-08.**
+
+**R-10 — SEED-CLASS vs ENTITY-CLASS COMPOSITION.**
+
+> *"The Control Plane should reject provably incompatible declarations at boot/config validation time. If the operator requires seed classes that the declared resolution/admission path cannot produce, that is a compositional configuration error, not a runtime 'empty graph' result. Only validate what can be proven statically; do not infer dynamic cardinality."*
+
+**R-11 — PRODUCT GATES.**
+
+> *"Product gates should be executable on the governed path. `D-IMPL-224` already makes them declared/CI-checked; the missing piece is runtime execution at the point where the candidate product exists and before fulfillment. A product-specific reconciliation gate therefore belongs in the governed spine, not in the MCP door or ad hoc assembler code."*
+
+And, made explicit at his own instruction:
+
+> *"A declared product gate that can only be checked in CI is incomplete if the condition it protects depends on the runtime assembled product. The reconciliation guard you needed in cp-05 is exactly such a case. It should execute against the candidate product before serve / refusal determination."*
+
+**R-12 — REPLAY BINDING.**
+
+> *"Replay binding is deployment configuration and belongs in the Control Plane. The Control Plane should declare which replay store/writer binding a deployment uses. It should not encode product-specific replay contents, only the deployment binding and required policy for replay availability."*
+
+---
+
+**R-01 — THE ARCHITECTURAL TARGET, NARROWED BEFORE IMPLEMENTATION.**
+
+> *"The fabric must establish correspondence between the candidate product, the governed execution record, and the replay record before delivery."*
+
+> *"I would not put the primary enforcement in MCP. MCP is transport. The canonical enforcement point should be in the governed fulfillment spine, before transport encoding. The delivery door may defensively verify the resulting proof/reference, but it should not reconstruct semantic reconciliation itself."*
+
+Ownership, verbatim:
+
+| layer | owns |
+| --- | --- |
+| governed resolver / fulfillment boundary | creates and verifies correspondence |
+| replay writer | records the governed determination |
+| delivery door | verifies it received an already-governed, replay-backed deliverable |
+| MCP | encodes / transports it |
+
+**R-02 — DETERMINISM.**
+
+> *"Determinism enforcement must apply to every governed outcome that can be replayed or disclosed, not only to the served/content-addressed path. If a withheld/refused artifact can carry non-canonical floats while a served artifact cannot, then replay equivalence is asymmetric. That should be corrected at the canonicalization boundary shared by all governed outcomes, not by sprinkling checks into each branch."*
+
+**R-03's DEPENDENCY ON R-09 IS DISSOLVED BY THE R-09 RULING.** The orchestrator had flagged that `GovernedResolver` assumes L3 is populated and that acquisition therefore blocked canonical adoption. Dave's shape removes the coupling:
+
+> *"I would not make 'canonical `GovernedResolver` adoption' depend on the resolver acquiring data itself. The cleaner shape is: Acquire → admit/build L2/L3 → governed resolver owns the deterministic governed spine from there. That keeps source heterogeneity out of the resolver while still making the spine canonical."*
+
+---
+
+**WHAT IS AUTHORIZED NEXT, AND IT IS NOT CODE.** Dave, verbatim:
+
+> *"I would not authorize implementation yet. The next useful artifact should be very small: turn R-01, R-02, R-03, R-09, R-10, R-11, R-12 into proposed SDK changes with one row each: current surface → smallest change → exact ownership layer → direct regression evidence. No phase machinery, no new criteria framework, no generalized proof work. Once that exists, we can decide which changes actually earn code."*
+
+`R-04`, `R-05`, `R-06`, `R-07` and `R-08` are **not** in that set and are carried unruled.
+
+**WHAT THIS DOES NOT DECIDE.** Which changes earn code; any phase number, sequencing or methodology; the shape of the acquisition interface, the correspondence proof, the product-gate seam or the Control Plane replay section; `D-GATE-24.9`; the `phase-24.9` branch disposition.
+
+**Next free decision id: `D-IMPL-281`.** **Related:** `D-IMPL-280` (Phase 24.10, declared to execute these rulings), `D-IMPL-278` (the disposition table these rulings act on), `D-IMPL-277` (**resolved by the R-09 ruling above**), `D-IMPL-276` (the three gates every row is held to), `D-IMPL-224` (product gates as CI-checked declarations — the half R-11 completes), `D-IMPL-260` P-A (the shape proof R-01 finds insufficient), `.planning/CP-05-REMEDIATION-SET.md`, `CP-SPEC-005` §D.8–§D.10 and §F.4.
+
+---
+
+### D-IMPL-280 — PHASE 24.10 DECLARED: cp-05 Product-Driven SDK Remediation. Plus the "never clamped" reword ruling, R-02 held for code, and the five frozen specimens that no longer reach product construction recorded as API evolution rather than SDK defects
+
+**D-IMPL-280 — Dave declares a small, product-led SDK remediation phase driven by cp-05's evidence, with an explicit exclusion of proof infrastructure and of frozen-example modernization; rules the three cp-05 prose sites REWORDED rather than registered as cp-04 debt; holds R-02 for code and narrows its next measurement to committed evidence only; and rules the cp-00..cp-04 boot failures as frozen-example/API incompatibility, not SDK defects.** RESOLVED. Date: 2026-09-08. Ruled by: Dave, on `.planning/CP-05-R02-SURVEY-AND-RED-CLASSIFICATION.md` (`e43dfce7`). Verbatim throughout.
+
+---
+
+**(1) THE THREE cp-05 "never clamped" SITES — REWORD, DO NOT REGISTER.**
+
+> *"reword the three cp-05 lines. Do not add them to `CP04_KNOWN_DEBT`. The invariant is doing its job, the cp-05 statements are semantically correct, and the problem is only that they reuse a phrase whose tree-wide roster has historical cp-04 meaning. Carrying cp-05 into a cp-04-named debt roster would make the bookkeeping worse. This is an example/prose correction, not an SDK change."*
+
+**Applied.** The claims were true and stay true; only the phrase moved, to the SDK's own wording from the refusals cp-05 actually produces. `CP04_KNOWN_DEBT` untouched. The demonstrated run reproduces byte-for-byte.
+
+---
+
+**(2) R-02 REMAINS HOLD FOR CODE, and its next measurement is narrowed.**
+
+> *"I would not repair cp-00–cp-04 merely to get them far enough to measure R-02. That would reverse the examples-as-probes discipline and turn a compatibility measurement into a specimen modernization project."*
+
+The narrowed measurement, verbatim:
+
+> *"Inspect existing recorded product payloads/replay artifacts/transcripts for cp-00–cp-04, where available, and run the proposed canonicalization check against those payload shapes directly. No new harness, no example edits, no compatibility fixes. If the committed evidence contains enough actual payload material to answer the question, great. If it does not, then we stop and reconsider whether `ContextProductContract` construction is the right universal enforcement seam rather than manufacturing evidence."*
+
+---
+
+**(3) THE FIVE FROZEN SPECIMENS THAT NO LONGER REACH PRODUCT CONSTRUCTION — RECORDED, NOT REMEDIATED.**
+
+Measured on `main` and on the remediation branch alike, with zero contracts built:
+
+- **cp-01, cp-02, cp-03, cp-04** — refused at `ProductRequestContract` construction for declaring `intent` under `arguments.properties` (`D-IMPL-264` D-01 amendment 1 F-2).
+- **cp-00** — `TypeError: build_replay_record() missing 1 required keyword-only argument: 'resolution'` at `produce.py:423`.
+
+Dave's classification, verbatim:
+
+> *"Five frozen specimens no longer reach product construction on the current SDK."*
+
+> *"And the causes should remain classified as frozen-example/API incompatibility, not automatically as SDK defects: cp-01–04: intentional `ProductRequestContract` evolution under `D-IMPL-264`. cp-00: replay API evolution requiring `resolution`."*
+
+**And the consequence he draws, which is larger than either:**
+
+> *"This also gives us concrete evidence that the earlier blanket interpretation of all remaining XFAILs as 'live SDK gaps' was unsafe. Some frozen-example failures are exactly what we predicted: the supported API legitimately moved while the specimen stayed frozen."*
+
+> *"I would preserve the 0-contract result prominently. It is useful information about the state of the example ladder, not an inconvenience to work around."*
+
+**No remediation is authorized for any of the five.**
+
+---
+
+**(4) PHASE 24.10 IS DECLARED — cp-05 Product-Driven SDK Remediation.**
+
+**Purpose, verbatim:** *"Reduce the amount of product-specific plumbing required to construct and deliver a governed Context Product by closing SDK gaps demonstrated by cp-05."*
+
+**Stop rule, verbatim:** *"When cp-05 can use the canonical SDK path without rebuilding fabric behavior itself, the phase stops."*
+
+**Why it is a phase and not more example cleanup:** *"cp-05 has now produced enough independent evidence that we are no longer talking about one-off example cleanup. It exposed several SDK-level issues that affect how a real Context Product is authored and governed."*
+
+**Its shape:** *"it should be explicitly a product-driven SDK remediation phase, not another hardening/proof phase"* … *"keep it deliberately small and product-led. It should look much more like 24.7/24.8 than 24.9."*
+
+**The discipline that distinguishes it from 24.9, verbatim:** *"The key difference from 24.9 should be that 24.10 has to earn every change against a real cp-05 failure or workaround."* And per row: *"observed cp-05 evidence → smallest SDK change → one direct regression test → return to cp-05."*
+
+**Scope, Dave's table verbatim:**
+
+| Include | Status |
+| --- | --- |
+| R-01 delivery correspondence | already implemented |
+| R-10 static seed/entity composition | already implemented |
+| R-03 make governed spine the canonical author path | yes |
+| R-09 explicit acquisition boundary | yes |
+| R-11 runtime product-specific gate seam | yes |
+| R-12 replay binding in Control Plane | likely yes |
+| R-04/R-05/R-06 MCP/adoption cleanup | only where needed to make the governed path usable |
+| R-02 uniform determinism enforcement | hold until its compatibility question is resolved |
+| proof infrastructure / Phase 24.9 work | explicitly excluded |
+| frozen-example modernization | explicitly excluded |
+
+**WHAT THIS PHASE DOES NOT GET, verbatim:** *"No criteria-lock machinery, no review panel, no proof framework, no generalized invariant campaign."*
+
+**THIS IS A DELIBERATE DEPARTURE FROM `D-GATE-19`, RECORDED AS SUCH RATHER THAN AS AN OVERSIGHT.** `D-GATE-19` requires Success Criteria authored and locked with a pinned digest before Wave 1. Dave has ruled that machinery out for this phase by name; the stop rule above is the phase's test instead. A future phase does not inherit this departure — `D-IMPL-269` (1)'s reasoning applies, that a proportionality ruling is taken per phase and two do not make a default.
+
+**The branch, and why it exists:** *"There is also a practical repo reason to do it now. You already separated: `cp-05-credit-exposure-rollup` — product work; `sdk-r01-r10` — SDK remediation work; `phase-24.9` — suspended proof work. A 24.10 branch gives the SDK work a legitimate home without contaminating either cp-05 or 24.9."* `sdk-r01-r10` is renamed `phase-24.10`; no history is rewritten and no branch is merged, pushed or rebased.
+
+---
+
+**WHAT THIS DOES NOT DECIDE.** Any plan, wave, sequence or order for 24.10; whether `R-12` is in or out (*"likely yes"* is not a ruling); which of `R-04`/`R-05`/`R-06` prove necessary; `R-02`; the disposition of the five frozen specimens; `D-GATE-24.9`; the `phase-24.9` branch's fate; the cp-05 branch's merge.
+
+**Next free decision id: `D-IMPL-281`.** **Related:** `D-IMPL-279` (the four architectural rulings 24.10 executes), `D-IMPL-278` (the disposition table), `D-IMPL-277` (**resolved** by `D-IMPL-279`'s R-09 ruling), `D-IMPL-276` (the course correction that made cp-05 the driver), `D-IMPL-261` (examples are probes — (3) above is that ruling working as designed), `D-IMPL-264` D-01 am.1 F-2 and `D-IMPL-269` (1), `.planning/ROADMAP.md` § Phase 24.10, `.planning/CP-05-REMEDIATION-SET.md`, `.planning/CP-05-SDK-CHANGE-PROPOSALS.md`, `.planning/CP-05-R02-SURVEY-AND-RED-CLASSIFICATION.md`, `CP-SPEC-005` §F.4.
+
+---
+
+### D-IMPL-281 — PHASE 24.10 SCOPED AND ORDERED: four bounded rows, R-12 IN, and a phase boundary that keeps cp-05 a probe rather than a repair surface
+
+**D-IMPL-281 — Dave answers the four surface questions that gated 24.10's planning: the phase is SDK-only and does not rewire cp-05 in-phase; `R-12` is IN; `R-09` proves itself against cp-05's actual acquisition behavior through a test harness rather than by editing cp-05; and `R-03` stays narrow and executes last as the phase's own measurement. Order ruled `R-12` → `R-11` → `R-09` → `R-03`.** RESOLVED. Date: 2026-09-08. Ruled by: Dave, on the four-question batch put to him against `.planning/CP-05-SDK-CHANGE-PROPOSALS.md` and `D-IMPL-280`. Verbatim throughout.
+
+**His summary of the four answers, verbatim:** *"1b / R-12 IN / 3b / R-03 docs+worked example last."*
+
+---
+
+**(1) 24.10 DOES NOT REWIRE cp-05 IN-PHASE — option 1b.**
+
+> *"24.10 does not rewire cp-05 in-phase. Choose 1b. Keep the phase SDK-only. Prove the stop rule by driving cp-05's existing declarations through `GovernedResolver` in a focused test without changing cp-05's shipped files, transcripts, or published artifacts. After 24.10 closes, cp-05 can be rewired as the post-phase adoption step."*
+
+His reason, verbatim:
+
+> *"That preserves the spirit of `D-IMPL-261`: the example remains the probe and evidence source rather than becoming the repair surface during SDK remediation."*
+
+**THE PHASE BOUNDARY, in his words, to be carried into planning as one sentence:**
+
+> *"No cp-05 source, transcript, expected artifact, or published page is modified during Phase 24.10; cp-05 declarations and measured estate behavior may be used as test inputs to prove the SDK changes."*
+
+---
+
+**(2) `R-12` IS IN.**
+
+> *"`R-12` is IN. Your proposed scope is appropriate: make replay binding a first-class Control Plane concern with the smallest declarative addition necessary. No product-specific replay semantics in the Control Plane—only deployment binding/configuration."*
+
+This closes the *"likely yes"* that `D-IMPL-280` explicitly left unruled.
+
+---
+
+**(3) `R-09` USES OPTION 3b — the Protocol proves itself against cp-05's real behavior, not against cp-05's files.**
+
+> *"`R-09` uses option 3b. Add the acquisition Protocol/reference surface, but prove it using cp-05's actual acquisition behavior and actual estate outputs from a test harness around the declarations/source logic, not by editing cp-05 itself. The required evidence remains the meaningful one:"*
+
+> *"same external source → acquisition boundary → 77 nodes / 100 relationship claims"*
+
+> *"That is stronger than a synthetic unit test and still keeps cp-05 untouched during the phase."*
+
+---
+
+**(4) `R-03` STAYS NARROW AND EXECUTES LAST.**
+
+> *"`R-03` stays narrow: worked example + docstrings, executed last. No broader API redesign is authorized up front. After `R-11`, `R-09`, and `R-12` exist, use the worked `GovernedResolver` path as the measurement of whether the existing surface is now usable."*
+
+> *"If that worked example still requires substantial reconstruction of the governed spine, then `R-03` has earned escalation to an API-surface change. Until then, it has not."*
+
+**`R-03`'s success criterion, stated concretely by Dave:**
+
+> *"Refactor cp-05 to use the shipped `GovernedResolver` without changing its business result, governance outcome, replay semantics, or MCP behavior, and measure how much product-specific governed-spine code disappears."*
+
+> *"If that works with only `R-11` plus ordinary extension points such as `plan_factory` and the debt scorer, then the SDK architecture is substantially right and `R-03` may indeed be mostly discoverability. If substantial parallel governance code still survives, then we have earned an API redesign with real evidence."*
+
+**Read together with (1), this refactor is exercised as a test against cp-05's declarations, not as an edit to cp-05's tree.** The rewiring of cp-05 itself is the post-phase adoption step (1) names.
+
+---
+
+**(5) ORDER — `R-12` → `R-11` → `R-09` → `R-03`.**
+
+> *"I also agree with your proposed order: `R-12` → `R-11` → `R-09` → `R-03`. It has a good economic shape: smallest/least ambiguous changes first, the new acquisition surface after the execution seams are clear, and `R-03` last so it measures the phase rather than prejudging it."*
+
+**A DISCREPANCY IN THE RULING, SURFACED RATHER THAN SILENTLY RESOLVED.** The same message opens with a sequence table ranking `R-11` (1) → `R-03` (2) → `R-09` (3) → `R-12` (4), which disagrees with the endorsed order above. Answer (4) settles most of it — *"executed last… After `R-11`, `R-09`, and `R-12` exist"* — agreeing with the endorsement on `R-09` third and `R-03` last. The only residue is `R-12` vs `R-11` first, and the two rows are independent of each other. **The endorsed order is taken as operative**, the opening table read as the sketch his four answers supersede; the discrepancy was put to Dave in the same message that recorded it, with an invitation to reverse it.
+
+**His rationale for each row's position, verbatim from the opening table:**
+
+| Order | Work | Why (Dave) |
+| --- | --- | --- |
+| — | `R-11` executable product-specific gate seam | *"cp-05 cannot honestly adopt the canonical governed spine until its reconciliation guard has a legitimate runtime home."* |
+| — | `R-03` adopt `GovernedResolver` in cp-05 | *"This is the experiment that determines whether discoverability/documentation is enough or whether the API surface itself must change."* |
+| — | `R-09` acquisition boundary | *"Important and shared by cp-04/cp-05, but no longer blocks `GovernedResolver`; acquisition remains upstream of L2/L3."* |
+| — | `R-12` Control Plane replay binding | *"Once the canonical path is in use, we can see the smallest declarative binding actually required."* |
+
+---
+
+**(6) `R-01` AND `R-10` ARE ALREADY-COMPLETED 24.10 WORK.**
+
+> *"`R-01` and `R-10` should simply be treated as already-completed Phase 24.10 work; there is no reason to re-plan them."*
+
+`eb455c74` and `80e38c6f` respectively, both verified present on `phase-24.10`.
+
+---
+
+**(7) `R-02` STAYS HELD; `R-04`/`R-05`/`R-06` ARE NOT PLANNED WORK.**
+
+> *"Hold — `R-02` — Compatibility evidence remains insufficient."*
+
+> *"keep `R-04`/`R-05`/`R-06` exactly where you put them: not planned work. They only enter if the final `R-03` exercise produces direct evidence that one of them blocks canonical-path adoption."*
+
+> *"Only if exposed by 1–4 — `R-04`/`R-05`/`R-06` — Do not independently launch MCP/API cleanup unless the canonical-path work demonstrates the need."*
+
+---
+
+**(8) THE PHASE'S CHARACTER, and the stop rule kept in front of every change.**
+
+> *"The next move should be a very small implementation plan, not another planning apparatus."*
+
+> *"And I would keep `D-IMPL-280`'s stop rule in front of every change: When cp-05 can use the canonical SDK path without rebuilding fabric behavior itself, Phase 24.10 stops."*
+
+> *"That gives 24.10 a very different character from 24.9: four bounded product-driven questions, not an open-ended hardening campaign."*
+
+---
+
+**WHAT THIS DOES NOT DECIDE.** Wave structure or plan count; whether any row's implementation earns an escalation beyond its ruled scope; `R-02`; `D-GATE-24.9`; the `phase-24.9` branch's fate; the cp-05 branch's merge; the post-phase cp-05 adoption step's own phase or timing.
+
+**Next free decision id: `D-IMPL-282`.** **Related:** `D-IMPL-280` (the phase declaration this scopes and orders), `D-IMPL-279` (the four architectural rulings the rows execute), `D-IMPL-276` (the three gates every row is held to), `D-IMPL-261` (examples are probes — (1) is that ruling applied to cp-05), `D-IMPL-224` (product gates as CI-checked declarations — the half `R-11` completes), `D-IMPL-269` (1) (proportionality is ruled per phase), `.planning/ROADMAP.md` § Phase 24.10, `.planning/CP-05-SDK-CHANGE-PROPOSALS.md`, `.planning/CP-05-REMEDIATION-SET.md`.
+
+---
+
+### D-IMPL-282 — THE FOUR PHASE 24.10 GRAY AREAS RULED: the R-11 gate seam is a Protocol callable with a Control Plane identity, the R-12 replay section supplies defaults, R-09 emits SignalEnvelopes only, and s1-01 is ruled OPEN as R-03's target
+
+**D-IMPL-282 — Dave rules the four implementation gray areas the Phase 24.10 codebase scout surfaced, confirms the endorsed order over his own earlier sequence table, and opens `examples/s1-01-hello-context-product/` as the one example tree 24.10 may change.** RESOLVED. Date: 2026-09-08. Ruled by: Dave, at the `/gsd-discuss-phase 24.10` sitting. Verbatim throughout; the governing copy is `.planning/phases/24.10-cp-05-product-driven-sdk-remediation-reduce-the-plumbing-a-g/24.10-RULINGS.md`.
+
+---
+
+**(0) THE ORDER, CONFIRMED — and the discrepancy in `D-IMPL-281` closed.**
+
+> *"Yes — use the endorsed order: `R-12` → `R-11` → `R-09` → `R-03`"*
+
+> *"The earlier sequence table is superseded by the four explicit rulings that followed it. `R-03` is last by design; `R-12` and `R-11` are independent, and I prefer `R-12` first because it is smaller and establishes the deployment-binding pattern before we add another resolver extension seam."*
+
+**This closes the discrepancy `D-IMPL-281` (5) recorded rather than resolved.** The conflict between his opening sequence table and his endorsed order was named back to him with the reading being taken; he confirmed the endorsed order and gave its reason. The record of the discrepancy stands — it was surfaced in public before any work depended on it.
+
+---
+
+**(1) `R-11` — OPTION 1a. A Protocol callable with a Control Plane identity.**
+
+> *"1a. Use a Protocol-typed callable supplied to `build_governed_resolver`, analogous to `debt_scorer`. The gate identity/version remain declared in the Control Plane; implementation is deployment-supplied. Add a distinct product-gate refusal kind so runtime gate failure is distinguishable in replay/audit. Do not add an expression language and do not expand `GATE_DECLARED_OBLIGATIONS`."*
+
+**What the runtime gate IS, and what it is not:**
+
+> *"For `R-11`, the runtime gate is not a new universal policy vocabulary. It is a declared product invariant with a governed identity, whose implementation is supplied by the deployment. It executes after candidate construction and before fitness/fulfillment. Replay should be able to say which gate ran and, if it refused, which gate produced the refusal."*
+
+Measured seam, for the planner: the execution point is between `run_gates` returning a `ServableProduct` (`src/ccf/products/resolver.py::GovernedResolver.resolve`) and `refuse_over_tolerance`. `run_gates` already returns `ServableProduct | GateRefusal` and the resolver's refusal-recording path already handles a `GateRefusal`, so the distinct kind is a seventh sibling of the six existing `GateRefusal` subclasses rather than a new hierarchy. The closed vocabulary D-11 protects is `obligation: Literal["lineage-inputs"]` on `DeclaredObligationRefusal`.
+
+---
+
+**(2) `R-12` — OPTION 2a. The section supplies defaults; the builder wins.**
+
+> *"2a. The `replay:` Control Plane section supplies defaults. Explicit constructor arguments override the declaration. No builder API break in 24.10. The declared binding must actually be consumed and exercised; declaration-only is insufficient."*
+
+**The precedence, to be implemented as stated:**
+
+> *"explicit builder argument > Control Plane replay binding > no binding/refusal according to existing availability semantics"*
+
+> *"Do not silently invent a replay backend when neither source provides one."*
+
+Combined with `D-IMPL-281` (2): binding **only** — record class, query-pin class, store selection — and *"No product-specific replay semantics in the Control Plane."* `_RESERVED_SECTIONS` (`src/ccf/deployment/config.py`) widens by exactly one entry.
+
+---
+
+**(3) `R-09` — OPTION 3a. `SignalEnvelope`s only; no parallel normalization subsystem.**
+
+> *"3a. Acquisition emits `SignalEnvelope`s only. Reuse the existing L1→L2 resolution/admission path to produce entities and relationship claims. Do not create a second relationship-claim output unless real evidence shows the existing envelope/resolution mechanism cannot express cp-05's edges. Ship the small file/fixture-backed reference implementation required by the SDK convention; use cp-05's real SPARQL only from the test harness to preserve the 77/100 evidence without putting domain logic in `src/`."*
+
+**The measurement that shrank the row, and the principle he drew from it:**
+
+> *"For `R-09`, your measurement makes the design much cleaner. `SignalEnvelope.raw_payload` is already the right acquisition vessel. The acquisition abstraction should answer how external source records enter CCF, not create a parallel normalization subsystem."*
+
+The measurement: `SignalEnvelope.raw_payload` is documented as *"the source record, opaque to L1… its keys are the source's vocabulary, never the fabric's"* — so the existing resolution spec already produces entities **and** relationships from it. `.planning/CP-05-SDK-CHANGE-PROPOSALS.md`'s `R-09` row described *"normalized envelopes **and** relationship claims"* as two outputs; they are one.
+
+---
+
+**(4) `R-03` — OPTION 4a. s1-01 IS RULED OPEN.**
+
+> *"4a. Rewire s1-01 onto `GovernedResolver`. I am ruling s1-01 open for this purpose. It is already the SDK's teaching example for this seam, so leaving it hand-building a 617-line spine would directly undermine the remediation. Measure the before/after executable-line count using the same instrument as `R-04`."*
+
+**Why the discovery changed the row:**
+
+> *"And the s1-01 discovery is important. It gives `R-03` a much better test than documentation alone:"*
+
+> *"If the SDK's own canonical worked example can move from a hand-built 617-line governed spine to `GovernedResolver` with materially less plumbing, the surface has demonstrated usability. If it cannot, `R-03` has earned escalation beyond docstrings."*
+
+**THE CONSTRAINT ON THE REWRITE, which is the `D-IMPL-261` discipline applied to s1-01:**
+
+> *"One additional constraint for that rewrite: do not change s1-01's business behavior merely to make the resolver fit. If adopting `GovernedResolver` exposes a missing seam, preserve the evidence and classify it rather than working around the resolver."*
+
+**The measurement behind the ruling, taken during the phase's codebase scout and present in neither working document:** `examples/s1-01-hello-context-product/spine.py` is **617 lines and references `GovernedResolver` zero times** — the SDK's own named worked example for the resolver seam hand-builds the spine exactly as cp-05 did. That is a second, independent instance of `R-03`'s pattern. `build_governed_resolver` takes 12 required + 7 optional keyword arguments; cp-05's spine is 2,553 lines across five files and also references `GovernedResolver` zero times.
+
+**s1-01 is the ONLY example tree 24.10 may change.** cp-05 stays closed under `D-IMPL-281` (1); cp-00 through cp-04 stay frozen under `D-IMPL-261`.
+
+---
+
+**(5) THE PROCEDURAL NOTE.**
+
+> *"The procedural note is fine: do not run `state.record-session` if it is known to corrupt `STATE.md`; hand-edit the state record instead. Keep that as a workflow/tooling workaround, not SDK scope."*
+
+---
+
+**WHAT THIS DOES NOT DECIDE.** Plan or wave decomposition within the ruled order; the Protocol names, modules, callable signatures, refusal field sets, section key names, fixture formats or test module placement — all enumerated as Claude's discretion in `24.10-CONTEXT.md`; whether any row earns escalation beyond its ruled scope; `R-02`; `R-04`/`R-05`/`R-06`; the post-phase cp-05 adoption step; `D-GATE-24.9`; the `phase-24.9` branch's fate; the cp-05 branch's merge.
+
+**Next free decision id: `D-IMPL-283`.** **Related:** `D-IMPL-281` (the scope, order and boundary this completes — and whose recorded discrepancy (0) closes), `D-IMPL-280` (the phase declaration and stop rule), `D-IMPL-279` (the four architectural rulings the rows execute), `D-IMPL-276` (the three gates), `D-IMPL-261` (examples are probes — (4)'s constraint is that discipline applied to s1-01), `D-IMPL-224` (product gates as CI-checked declarations — the half `R-11` completes), `D-IMPL-33` (the `SignalEnvelope` schema (3) reuses), `.planning/phases/24.10-cp-05-product-driven-sdk-remediation-reduce-the-plumbing-a-g/24.10-RULINGS.md` (**governing verbatim copy**), `24.10-CONTEXT.md`, `24.10-DISCUSSION-LOG.md`.
+
+---
+
+### D-IMPL-283 — THE PHASE 24.10 PLANNING BOUNDS: the dropped stop-rule proof is restored as Wave 5, R-09 must prove reuse before proposing a new surface, the public page is mechanical-only, and "cannot adopt without an unruled SDK change" is a SUCCESSFUL outcome
+
+**D-IMPL-283 — Dave rules the planning proportionality calls, restores the focused cp-05 stop-rule test that the four-plan decomposition dropped, corrects `R-09` against the measured existence of `SignalSourceProtocol`, and fixes the completion-gate shape so no plan can be structurally forced into a workaround.** RESOLVED. Date: 2026-09-08. Ruled by: Dave, at the `/gsd-plan-phase 24.10` sitting, in two messages. Verbatim throughout.
+
+---
+
+**(0) THE PROPORTIONALITY CALLS — research, pattern-mapping and the validation matrix are skipped; one checker pass runs.**
+
+Presented as a numbered batch with recommendations; Dave answered *"Q1 a, Q2 a, Q3 a."*
+
+- **Research and pattern-mapping: SKIPPED.** The `24.10-CONTEXT.md` codebase scout already carries the measurements with file-and-line citations, and `D-IMPL-281` rules the phase's character: *"The next move should be a very small implementation plan, not another planning apparatus."* No `RESEARCH.md` and no `PATTERNS.md` exist for this phase, deliberately.
+- **The Nyquist validation matrix: SKIPPED for this phase**, as a per-phase proportionality call. `.planning/config.json` is untouched — `nyquist_validation` stays `true` for later phases. This is the same discipline as the panel skips: ruled on this phase's evidence, never a default (`D-IMPL-269` (1)).
+- **The plan-checker: ONE PASS**, with its blocking and advisory findings fixed in a single revision. Dave, closing: *"No additional checker loop beyond the one authorized pass and the fixes to its blockers/warnings."*
+
+This is a second recorded departure from `D-GATE-19`'s criteria-lock machinery for this phase, consistent with `D-IMPL-280` (4). It does not travel to a later phase.
+
+---
+
+**(1) THE DROPPED STOP-RULE PROOF, AND ITS RESTORATION AS WAVE 5.**
+
+The four plans as first written contained no task driving cp-05's declarations through `GovernedResolver`. **Measured, not asserted:** `cp-05` is named 18 / 21 / 38 / 15 times across plans 01–04 and `GovernedResolver` 13 / 12 / 0 / 26 times, so both terms are abundantly findable; the only line in any plan containing both is a quoted rationale sentence in `24.10-02-PLAN.md:63`. Plan 03 names cp-05 38 times and the resolver zero times.
+
+**The proof is ruled twice, in two governing documents.** `24.10-RULINGS.md` sitting 1: *"Prove the stop rule by driving cp-05's existing declarations through `GovernedResolver` in a focused test without changing cp-05's shipped files, transcripts, or published artifacts."* And `.planning/ROADMAP.md` § Phase 24.10: *"The stop rule is therefore proved **in-phase by test, not by rewiring**."*
+
+**Cause, recorded rather than elided:** the omission was introduced by the planning instruction, not by the planner. The planner's brief said *"exactly four plans, one per row"* and *"do not add a fifth plan,"* then enumerated the four rows without carrying the ruled sentence across. The planner built the shape it was given. The defect landed in the planning instrument, not in the plans.
+
+**Dave's ruling:**
+
+> *"The fifth plan is justified. The focused cp-05 test was already explicitly ruled and was accidentally dropped by the four-plan decomposition. Adding Wave 5 is not scope expansion; it restores the phase's actual stop-rule proof."*
+
+**The confirmed sequence:**
+
+> *"`R-12` → `R-11` → `R-09` → `R-03`/s1-01 measurement → cp-05 focused stop-rule test"*
+
+**And the bound on what Wave 5 is:**
+
+> *"That final plan should be the phase verdict, not another implementation bucket."*
+
+Plan 05 therefore carries the focused cp-05 test and the stop-rule answer, and acquires no implementation tasks, no leftovers from plans 01–04, and no SDK surface. Plan 04's verdict narrows to the s1-01 measurement and its findings roster, and hands the phase-level answer forward. **s1-01 does not substitute for the cp-05 test** — sitting 2 offered it as *"a much better test than documentation alone,"* better than docstrings, not a replacement for the sitting-1 proof.
+
+---
+
+**(2) `R-09` CORRECTED — no duplicate surface by assumption, and a new surface stops for a ruling.**
+
+The phase's codebase scout measured that `SignalSourceProtocol` already exists (`src/ccf/signal/source.py`) and already emits envelopes; the proposals document's *"current surface: Nothing"* was written about graph backends and is imprecise about L1. The measured difference is narrower than `R-09` assumed: the existing protocol is stream-shaped and tenant-scoped (`envelopes(*, tenant_id) -> AsyncIterator[SignalEnvelope]`), while cp-05's acquisition is synchronous and parameterized by the question.
+
+> *"given the measured existence of `SignalSourceProtocol`, Plan 03 must not presume a new acquisition Protocol is required. Its first task should be exactly what you described: determine whether the existing stream-shaped protocol can satisfy the ruled acquisition boundary with a deployment-side adapter. Only if it cannot should a new surface be proposed, and that proposal should stop for a ruling rather than ship automatically."*
+
+**This reverses the plan-checker's proposed fix.** The checker offered "make the criteria conditional, **or** delete the reuse outcome"; deleting it is now forbidden. Plan 03 inverts its default: reuse plus a deployment-side adapter is the presumed path, task 1 is a genuine measurement whose outcome is not predetermined, and a new Protocol is a **proposal that halts for Dave's ruling**, never something the plan ships on its own finding. `D-IMPL-282` (3)'s option 3a — envelopes only, no second relationship-claim output — stands unchanged; what changes is whether a *new* Protocol is presumed necessary to deliver it.
+
+---
+
+**(3) THE PUBLIC PAGE — mechanical synchronization only, with a precise test for the boundary.**
+
+`public/concepts/answers-no-document-contains.md` embeds snippet regions from `examples/s1-01-hello-context-product/spine.py`. Dave ruled s1-01 open (`D-IMPL-282` (4)); he did not rule that page open.
+
+> *"Mechanical snippet synchronization is allowed; substantive prose change is not."*
+
+> *"If the page embeds regions from s1-01/spine.py, update only what is mechanically necessary to keep those embedded regions truthful. Do not reinterpret, rewrite, or republish the page's narrative during 24.10. If the new resolver-based spine makes the existing prose semantically FALSE rather than merely stale at the snippet level, stop and record that as a documentation finding for post-phase handling."*
+
+**The operative distinction:** stale-at-the-snippet-level is repaired mechanically; semantically-false prose **stops** and becomes a documentation finding for post-phase handling. Plan 04 carries both branches and a region-by-region disposition in its SUMMARY. This extends `D-IMPL-261`'s no-republish discipline from example trees to the published pages that embed them.
+
+---
+
+**(4) THE COMPLETION-GATE SHAPE — the finding branch is a SUCCESSFUL outcome, not a degraded one.**
+
+Plans 03 and 04 as first written instructed the executor correctly in prose — *stop, record the finding, leave the evidence executable* — while their frontmatter `must_haves` admitted only the success branch. Plan 03 required 77 entities / 100 relationship claims unconditionally; plan 04 required both *"spine.py reaches its served product through `GovernedResolver`"* and *"s1-01's business result is unchanged"* as simultaneous truths, when the plan's own measurements predict they collide (`debt_evidence`, `source_refresh_recency` and `obligation_in_force` occur 2/1/1 times in `spine.py` and zero times in `src/ccf/products/resolver.py`, and sit inside the product's content address).
+
+> *"For Plans 03, 04, and 05, 'cannot adopt without an unruled SDK change' is an admissible successful phase outcome. The plans must not structurally force a workaround just to get a green completion check. That is exactly the `D-IMPL-261` lesson."*
+
+**Note the word *successful*.** The finding branch discharges the plan; it is not a partial or degraded result a downstream verifier may score as incompletion. Each of plans 03, 04 and 05 states both admissible terminal states in the `must_haves` a verifier actually reads. This is the same failure mode as a gate-coverage instrument that can only report the answer it was built to find: a completion check passable only by a forbidden act will produce the forbidden act.
+
+---
+
+**WHAT THIS DOES NOT DECIDE.** Whether `R-09` in fact needs a new Protocol — that is the measurement plan 03 performs and, if it proposes one, a ruling Dave has not yet given. Whether the s1-01 rewrite lands or produces a classified finding. Whether the cp-05 focused test answers the stop rule affirmatively. Any escalation beyond a row's ruled scope. `R-02`; `R-04`/`R-05`/`R-06`; `R-07`/`R-08`; the post-phase cp-05 adoption step; the post-phase handling of any documentation finding under (3); `D-GATE-24.9`; the `phase-24.9` branch's fate; the cp-05 branch's merge; the `phase-24.5-base` tag push.
+
+**Next free decision id: `D-IMPL-284`.** **Related:** `D-IMPL-282` (the four gray areas these bounds execute — (2) here corrects the premise of its R-09 ruling without changing the ruling), `D-IMPL-281` (the scope, order and boundary, whose 1b ruling (1) restores), `D-IMPL-280` (the phase declaration, the stop rule, and the departure from `D-GATE-19` that (0) extends), `D-IMPL-269` (1) (proportionality is ruled per phase, never a default), `D-IMPL-261` (examples are probes — (3) extends it to embedding pages and (4) names it as the lesson), `D-IMPL-224` (product gates as CI-checked declarations), `D-IMPL-33` (the `SignalEnvelope` schema R-09 reuses), `.planning/phases/24.10-cp-05-product-driven-sdk-remediation-reduce-the-plumbing-a-g/24.10-RULINGS.md`, `24.10-CONTEXT.md`, `24.10-01-PLAN.md` … `24.10-05-PLAN.md`.
+
+---
+
+**D-IMPL-285 — Phase 24.10's build is APPROVED and the stop-rule failure is ruled a SUCCESS; `R-03`'s escalation is granted as ONE bounded resolver phase; `24.10-F-07` is P0 and goes first; the single-agent review is DECLINED; and cp-05/s1-01 stay unrepaired until the SDK makes their strict XFAILs XPASS.** RESOLVED. Date: 2026-09-08. Approver: Dave.
+
+**The verdict on the phase.** Dave, verbatim: *"Phase 24.10 was successful as a product-driven remediation phase, even though its stop rule failed. It delivered useful SDK capability, avoided one unnecessary abstraction, and—most importantly—proved that the canonical `GovernedResolver` path is not yet safe to call canonical."* On the evidence that carries it: *"The strongest evidence is cp-05 going through the resolver and producing zero family members over an L3 containing 77 entities/100 relationships, while still minting a content address and replay record with every gate green. That is exactly the kind of defect the example ladder is supposed to expose."* **A failed stop rule is therefore not a failed phase** when the failure is the measurement the phase existed to take. This is the operative precedent for reading `D-IMPL-280`'s stop rule and `D-IMPL-283`'s dual-outcome ruling together: the finding branch discharges the phase exactly as it discharges a plan.
+
+**(1) The build — APPROVED.** Dave, verbatim: *"Good build. Keep the work. 24.10 earned its cost."* All five plans, 22 commits on `phase-24.10`. Per `D-IMPL-280` (4) there was no cross-AI panel and no criteria lock for this phase, and (4) below declines the single-agent review, so this evaluation is the whole of §3.1's review sequence for Phase 24.10.
+
+**(2) `R-03`'s escalation — GRANTED, as ONE phase and not six.** Dave, verbatim: *"YES — one bounded resolver-remediation phase, not six separate phases."* His reasoning on why the six findings are one problem: *"The six missing seams are evidence about one product-level deficiency: the governed resolver does not yet compose the capabilities a real Context Product requires."* And the claim the phase establishes: *"The current canonical composition surface is incomplete."* **What earned it, in his words:** *"Two independent examples now say the same thing"* — s1-01 cannot adopt `GovernedResolver`; cp-05 cannot adopt it correctly; the attempted s1-01 migration runs **240 → 246 executable lines**, so *"the supposed canonical abstraction saves nothing"*; and cp-05 *"can produce a confidently wrong result through it."* His conclusion: *"That's enough evidence. We are no longer hypothesizing that the API is awkward."*
+
+**THE NEXT PHASE'S EXIT CRITERION, verbatim, and it is the whole specification:**
+
+> *"Unchanged cp-05 declarations must run through `GovernedResolver` and produce the same legitimate family/result as cp-05's working hand-composed path, and s1-01 must be able to adopt the same path without rebuilding governance itself."*
+
+**Its shape, verbatim:** *"No new criteria framework. No panel. No generalized proof machinery."* Conceptually: *"Canonical Governed Resolution — make the SDK capable of serving the Context Products that already proved what it needs."* And the scope fence: *"I would resist expanding the scope beyond that."*
+
+**(3) `24.10-F-07` is P0 and is the FIRST item in that phase.** Dave, verbatim: *"YES — P0, first item in that phase."* Why it outranks `F-06`, in his words: `F-06` *"prevents legitimate execution,"* but `F-07` is *"execution and replay disagree about the subject being projected. If Pi executes without seeds while replay records request-derived seeds, then CCF can potentially say 'Here is what I executed' when replay actually describes something different."* The classification: *"the reported consequence—two different subjects content-addressing identically—is enough for me to classify it as a P0 correctness defect."* **The regression test he specified, verbatim:** *"The regression test should be tiny and semantic: subject A ≠ subject B → effective seeded perspective differs → resulting governed product identity/content address cannot alias merely because Pi lost the subject."* And its bound: *"One direct test. No new testing machinery."*
+
+**(4) The single-agent code review — DECLINED.** Dave, verbatim: *"NO — skip it. We already know what to build next."* His reasoning: *"There is no unresolved question that a review is likely to answer more usefully than the examples already have,"* naming what is already known — *"which canonical path fails, where the first blocker occurs, that additional seams lie behind it, that one of them is a correctness defect, and what success looks like."* The risk he is avoiding: *"A code review now risks turning into another 24.9-style detour."* **When a review does happen:** *"If we want a review, do it after the resolver redesign, narrowly against the corrective diff and the cp-05/s1-01 evidence."* This is a proportionality ruling in the `D-IMPL-269` (1) line and is NOT a default — cf. `D-IMPL-266`.
+
+**(5) The optimization target for the resolver work — NOT the XFAIL count.** Dave, verbatim: *"Don't optimize for making the six strict XFAILs disappear. Optimize for making cp-05 work unchanged through the canonical path. The XFAILs should disappear as a consequence."* Sequencing: `F-07` first, then *"address `F-06` and the other missing seams together as the minimum API work necessary to make this true: `GovernedResolver` can actually execute the capabilities declared by a real Context Product."* The loop this preserves, verbatim: *"cp-05 exposed deficiency → Dave ruled it → SDK changes → smallest regression tests → cp-05 reruns."*
+
+**(6) cp-05 and s1-01 stay UNREPAIRED — a decision Dave added unprompted.** Verbatim: *"Do not repair cp-05 or s1-01 around these defects. Their current inability to adopt `GovernedResolver` is valuable evidence. Keep the strict XFAILs until the SDK makes them XPASS. Then close the finding and remove the quarantine."* This extends `D-IMPL-261` from failing examples to **quarantined** ones: a strict XFAIL carrying a finding id is preserved evidence, and `strict=True` is what forces the finding closed rather than letting it rot — the XPASS is the signal, and removing the quarantine is the last step, never the first.
+
+**(7) The only product question that matters after the resolver phase lands, verbatim:**
+
+> *"Can cp-05 now replace its hand-built governed spine with the SDK and still produce the correct 77-member family, correct projection, Debt, refusal/fulfillment semantics, replay, and eventually MCP delivery?"*
+
+**And the stopping rule attached to it, verbatim:** *"If yes, stop and go back to building the next Context Product."*
+
+---
+
+**WHAT THIS DOES NOT DECIDE.** The next phase's **number** and its ROADMAP entry — unassigned, Dave's. Whether `D-GATE-24.10` is written now and whether `phase-24.10` merges `--no-ff` to `main` and pushes — not stated in this ruling and not inferred from it; `main` has been red since 2026-08-26 and four phase gates have already merged onto it. The disposition of the twelve findings `24.10-F-01` … `F-12` individually, beyond `F-06`/`F-07` above and (6)'s blanket instruction — in particular `24.10-F-01` (the `r01-*.md` / `r10-*.md` fragments the assembler's `[0-9]*-*.md` glob cannot see, which keeps `tests/test_surface_completeness.py` red and which four consecutive waves could not discharge because `R-01`/`R-10` are ruled untouched), `24.10-F-02`, `F-04`, `F-05`, `F-10`'s follow-through, and the eight pre-existing reds carried unrepaired. `R-02`; `R-04`/`R-05`/`R-06` (none implicated, measured); `R-07`/`R-08`. The post-phase cp-05 adoption step. `D-GATE-24.9`; the `phase-24.9` branch's fate; the cp-05 branch's merge; the `phase-24.5-base` tag push.
+
+**Next free decision id: `D-IMPL-286`.** **Related:** `D-IMPL-284` (the phase's execution bounds and the dual-outcome ruling this verdict validates), `D-IMPL-283`, `D-IMPL-282` (the four gray areas the rows executed; its `R-09` ruling resolved by reuse), `D-IMPL-281` (scope, order, boundary), `D-IMPL-280` (the phase declaration, the stop rule this entry rules on, and the no-panel/no-criteria-lock departure), `D-IMPL-277` (resolved by discoverability in plan 03), `D-IMPL-276`, `D-IMPL-269` (1) (proportionality per phase — (4) is an instance), `D-IMPL-266` (the prior panel skip; two skips are not a default), `D-IMPL-261` (examples are probes — (6) extends it to quarantined examples), `D-IMPL-224` (product gates as CI-checked declarations, the half `R-11` completed), `DI-15.5-07` (the defect `24.10-F-07` reproduces on the canonical path), `.planning/phases/24.10-cp-05-product-driven-sdk-remediation-reduce-the-plumbing-a-g/24.10-01-SUMMARY.md` … `24.10-05-SUMMARY.md`, `tests/examples/test_s1_01_governed_resolver_adoption.py`, `tests/products/test_cp05_canonical_path.py`.
+
+---
+
+**D-IMPL-286 — Phase 24.11 is `GovernedResolver` repair, NOT cp-05 adoption; the exit criterion of `D-IMPL-285` (2) is SUPERSEDED; and "rewiring s1-01/cp-05" is REMOVED from scope as a deliverable.** RESOLVED. Date: 2026-09-08. Approver: Dave. **Supersedes:** the exit criterion recorded at `D-IMPL-285` (2), which was phrased around getting cp-05 through the resolver. `D-IMPL-285`'s other six parts stand unchanged.
+
+**The correction, in Dave's words, and it is the entry's point.** *"There is a real risk of drifting that way again, and my last framing leaned too far toward the examples. The examples should not be the work target. They are the evidence that the SDK is deficient."* And the restatement of what the phase is: *"Repair `GovernedResolver` so the SDK's canonical governed path is semantically correct and compositionally complete."* On the examples' standing: *"cp-05 and s1-01 are only probes/acceptance evidence. We should not spend the phase 'rewiring cp-05' or 'making s1-01 pass.' We should fix the SDK defects they exposed, then run the examples unchanged to see whether the repair was sufficient."*
+
+**THE LOOP, verbatim — and the two anti-patterns it excludes, also verbatim.**
+
+> *"example exposes defect → classify/rule → fix SDK → smallest direct SDK regression test → rerun unchanged example"*
+
+**Not:** *"example fails → modify example/harness until it uses the resolver successfully."*
+**And absolutely not:** *"add more test infrastructure to prove the examples are testing the resolver correctly."*
+
+**THE TIGHTENED EXIT CRITERION, verbatim, replacing `D-IMPL-285` (2)'s:**
+
+> *"The SDK's `GovernedResolver` must correctly compose the capabilities required by the existing Context Product declarations. Once the SDK-level defects are fixed, unchanged cp-05 and s1-01 are rerun as probes. If they work, stop. If they expose another SDK deficiency, classify it before doing anything else."*
+
+**Scope removal, verbatim:** *"I would remove 'rewiring s1-01/cp-05' from the planned work scope entirely. That should be a verification consequence, not a deliverable."*
+
+**The defects restated as SDK deficiencies rather than example needs — Dave's framing.** *"`F-07`: `GovernedResolver` executes perspective with the wrong/missing subject seeds relative to replay. That is an SDK correctness defect. `F-06`: resolver does not propagate required operator configuration such as `similarity_index_version`. That is an SDK composition defect. The other missing resolver seams should be evaluated the same way: what capability does the canonical SDK path lack? Fix only those required capabilities."* Note **"fix only those required capabilities"** — the seam roster is a diagnosis, not a work breakdown, and `D-IMPL-285` (5) already forbade optimizing for the XFAIL count.
+
+**The regression tests are SDK-level, not example-level.** Dave: *"Each defect gets the smallest direct SDK-level regression test. For `F-07`, for example, test the resolver itself: two different subjects must produce appropriately subject-conditioned execution and must not alias merely because the resolver dropped the seed. **We do not need cp-05 to be the regression test.**"* Then: *"at the end, run cp-05 and s1-01 unchanged as the reality check."*
+
+**THE MEASURED DRIFT VECTOR THIS ENTRY EXISTS TO CLOSE.** Phase 24.10's own numbers, measured on `20499786..HEAD` at ruling time: `src/`+`runtime/` **+1,137** lines (only **+279** executable, since plan 04's entire +70 was docstrings) against `tests/` **+5,674** and `tools/` **+371**. Per row: `R-12` +383 SDK, `R-11` +427, `R-09` +257, `R-03` +70 (all docstrings), the stop-rule plan **0**. The back half of 24.10 shipped no executable SDK at all — correct for two plans commissioned as measurement, and precisely the shape that must not repeat in 24.11.
+
+**Concretely, the seam where the drift would happen.** The two evidence modules each carry **exactly one `monkeypatch.setattr`**, and each is the harness supplying a capability the SDK lacks: `tests/products/test_cp05_canonical_path.py:599` patches `GovernedResolver._operator_parameters` (`24.10-F-11`), and `tests/examples/test_s1_01_governed_resolver_adoption.py:255` patches `build_operator_registry` (`24.10-F-06`). They were legitimate in a diagnostic phase — bridging one wall makes the walls behind it observable. **In 24.11 they are the failure mode: keep the bridges, turn the tests green, and the SDK gains nothing while everything looks finished.** The signal that the repair is real is that **those two lines are deleted**, the capability having moved into `src/`. That is observable by reading the two files and requires building nothing — which is what Dave's third prohibition demands.
+
+---
+
+**WHAT THIS DOES NOT DECIDE.** The order of `F-06` and the remaining seams after `F-07` (which `D-IMPL-285` (3) fixed as first). Which of `F-08`, `F-09`, `F-11`, `F-12` are in fact "required capabilities" under this entry's test — that is a per-defect judgment the phase makes and, where it is not obvious, a ruling. `D-GATE-24.10`; whether `phase-24.10` merges `--no-ff` to `main` and pushes; `main`'s standing reds. The disposition of `24.10-F-01`, `F-02`, `F-04`, `F-05`, `F-10` and the eight carried pre-existing reds. `R-02`; `R-04`/`R-05`/`R-06`; `R-07`/`R-08`. `D-GATE-24.9` and the `phase-24.9` branch's fate; the cp-05 branch's merge; the `phase-24.5-base` tag push.
+
+**Next free decision id: `D-IMPL-287`.** **Related:** `D-IMPL-285` (whose (2) exit criterion this supersedes and whose (1), (3), (4), (5), (6), (7) stand), `D-IMPL-284`, `D-IMPL-283` (dual-outcome plans), `D-IMPL-280` (the 24.10 declaration and its no-panel/no-criteria-lock departure), `D-IMPL-269` (1), `D-IMPL-261` (examples are probes — this entry is its sharpest statement yet: the probe is never the work target), `DI-15.5-07`, `tests/products/test_cp05_canonical_path.py`, `tests/examples/test_s1_01_governed_resolver_adoption.py`.
+
+---
+
+**D-IMPL-287 — Phase 24.11 "Canonical Governed Resolution" is CONSTITUTED: SDK remediation only, no broad discuss cycle, `F-06`/`F-07` in by ruling, the other four classified one at a time against a single question, and a hard prohibition on new apparatus.** RESOLVED. Date: 2026-09-08. Approver: Dave. **Builds on:** `D-IMPL-286` (the framing correction), `D-IMPL-285` (1)(3)(5)(6).
+
+**The phase, in Dave's words.** *"Phase 24.11 — Canonical Governed Resolution. The phase is SDK remediation, not example remediation. Examples remain unchanged probes."*
+
+**(1) NO BROAD DISCUSS CYCLE — ruled, with the reason.** Dave, verbatim: *"Write the ROADMAP entry by hand, but do not take 24.11 through a broad `/gsd-discuss-phase` cycle. We already have enough evidence to define the work. Another exploratory planning pass creates exactly the risk we just identified: converting a small set of SDK defects into another planning/test-infrastructure exercise."* This is a proportionality ruling in the `D-IMPL-269` (1) line, scoped to this phase, and it is **not** a default for later phases.
+
+**(2) IN BY RULING.** *"`F-06` and `F-07` are confirmed SDK defects and are in scope."* `F-07` is P0 and first (`D-IMPL-285` (3)); `F-06` second.
+
+**(3) THE OTHER FOUR ARE NOT AUTOMATICALLY IN.** *"`F-08`, `F-09`, `F-11`, and `F-12` are not automatically in scope. For each, first determine whether `GovernedResolver` lacks a capability that belongs in the canonical SDK path. Only confirmed SDK capability/correctness defects enter the implementation plan."*
+
+**THE ONE QUESTION, verbatim — the whole classification test:**
+
+> *"Is this capability required for the SDK's canonical governed resolver to correctly execute its declared contract, independent of cp-05?"*
+
+> *"If yes, fix the SDK. If no, leave the finding out of 24.11 even if a test could be made to pass by adding it."*
+
+The last clause is the operative one: **a passing test is not evidence that a capability belongs in the SDK.**
+
+**(4) THE DIAGNOSTIC BRIDGES ARE TEMPORARY, AND THEIR DELETION IS THE SIGNAL.** Dave: *"Existing diagnostic monkeypatches may remain only long enough to expose downstream behavior. Successful remediation of `F-06`/`F-11` requires the SDK to provide those capabilities itself; the corresponding harness substitutions should become unnecessary and be deleted, not preserved as the implementation."* On the signal itself: *"The success signal Claude identified is excellent and requires no new machinery: `GovernedResolver._operator_parameters` monkeypatch disappears because the SDK now binds per-request operator parameters itself. `build_operator_registry` monkeypatch disappears because the SDK now propagates `similarity_index_version` itself. That is much more meaningful than making six XFAILs turn green."*
+
+**(5) HARD PROHIBITION.** *"No new generalized test infrastructure, measurement tooling, criteria lock, review panel, or example workaround is authorized."*
+
+**(6) THE IMPLEMENTATION SEQUENCE, verbatim and deliberately small:**
+
+> *"`F-07` correctness first → `F-06` composition → evaluate `F-08`/`F-09`/`F-11`/`F-12` individually → implement only confirmed SDK gaps → smallest direct SDK regression tests → remove now-unnecessary diagnostic bridges → rerun unchanged `s1-01` and cp-05 once."*
+
+**And the rule for the rerun:** *"If that rerun reveals another SDK deficiency, classify it. Do not repair the example during 24.11."*
+
+**(7) `D-GATE-24.10` IS NOT REQUIRED BEFORE 24.11 STARTS.** Dave: *"I agree with Claude's restraint. Do not infer merge/push/gate from the earlier approval. The branch is a clean, approved body of work and can remain that way while 24.11 is defined. There is no product reason to spend time manufacturing a `D-GATE-24.10` before starting the next SDK repair unless your repository process specifically requires it as a dependency."* So Phase 24.10 stands APPROVED (`D-IMPL-285` (1)) and UNGATED, unmerged and unpushed, by intent rather than by omission.
+
+**(8) THE STOP POINT.** *"Produce a short implementation plan centered on SDK code, with `F-07` first and `F-06` second. Before adding `F-08`/`F-09`/`F-11`/`F-12`, classify each as an actual canonical-SDK capability requirement or leave it out. Then stop for Dave's review of that plan before execution."* No execution begins until that review.
+
+**A TENSION IN THE RULING, RECORDED RATHER THAN RESOLVED.** `24.10-F-11` appears in **both** (3) — the four to be classified, not automatically in — and (4), which states that *"successful remediation of `F-06`/`F-11` requires the SDK to provide those capabilities itself."* The classification under (3) is therefore performed for `F-11` rather than assumed, and (4) is read as Dave's expectation of its likely outcome, not as a pre-emption of the test. Where the classification's answer bears on mechanism rather than on whether the capability is required, it is put to Dave (see the phase's plan) rather than settled by inference — `silence is not assent` applies to a name appearing in two lists.
+
+---
+
+**WHAT THIS DOES NOT DECIDE.** The classification outcomes for `F-08`/`F-09`/`F-11`/`F-12` — produced as a reviewable proposal under (8), ruled by Dave, not by this entry. **How** `F-11`'s capability should be expressed if it is confirmed required: binding operator parameters per request without opening a path for a deployment to substitute past its declared Control Plane envelope is a design question, and the naive implementation is a governance hole. The disposition of `24.10-F-01`, `F-02`, `F-04`, `F-05`, `F-10` and the eight carried pre-existing reds. `D-GATE-24.10`, the `phase-24.10` merge and push — deferred by (7), not cancelled. `R-02`; `R-04`/`R-05`/`R-06`; `R-07`/`R-08`. The post-phase cp-05 adoption step. `D-GATE-24.9`, the `phase-24.9` branch, the cp-05 branch's merge, the `phase-24.5-base` tag push.
+
+**Next free decision id: `D-IMPL-288`.** **Related:** `D-IMPL-286` (the framing this constitutes), `D-IMPL-285`, `D-IMPL-283`, `D-IMPL-280`, `D-IMPL-269` (1) (proportionality per phase — (1) and (5) are instances), `D-IMPL-261`, `D-IMPL-38` (the `similarity_index_version` requirement `F-06` violates), `D-IMPL-111` limb (a) (which fixed `DI-15.5-07` on the hand-built path; `F-07` is the same defect on the canonical one), `DI-15.5-07`.
+
+---
+
+**D-IMPL-288 — `F-12` is a validation-timing defect and the canonical `unsupported_arguments` mapping SHAPE STANDS; `F-11`'s per-request operator conditioning is legal only INSIDE a Control-Plane-declared envelope, and an empty declaration confers no authority; the 24.11 exit criterion is amended to permit ruled corrections of objectively invalid declarations.** RESOLVED. Date: 2026-09-08. Approver: Dave. **Amends:** the exit criterion at `D-IMPL-286` / ROADMAP § Phase 24.11.
+
+**(1) `F-12` — the SDK's shape is right; the timing is wrong. Ruled, verbatim:**
+
+> *"`F-12` is an SDK validation-timing defect, not an SDK schema defect. The Control Plane must reject an invalid `request_contract` at boot with a governed, field-specific refusal rather than allowing it to fail later with a bare `ValueError`. The canonical `unsupported_arguments: mapping[name, reason]` shape remains unchanged."*
+
+Dave's reason for keeping the mapping: *"If `unsupported_arguments` is canonically a mapping of `argument → reason`, that shape has architectural value: the refusal can explain **why** each argument is unsupported. Accepting a bare list just to preserve cp-05 unchanged would be exactly the example-driven SDK distortion we have been trying to eliminate."*
+
+**(2) cp-05's list form is an OBJECTIVELY INVALID DECLARATION and may be corrected. Ruled, verbatim:**
+
+> *"cp-05's list form is an objectively invalid example declaration and may be corrected to the canonical mapping after the SDK provides the proper refusal."*
+
+And on why this is not the forbidden thing: *"That correction is permitted under our existing discipline: examples may change when they are objectively wrong. We are not 'repairing the example around the SDK'; we are correcting an invalid declaration after the SDK proves it invalid."* This lands inside `D-IMPL-261`'s existing carve-out — *"An example changes only when the example is objectively wrong, its test is wrong, or the SDK surface it legitimately consumes was deliberately changed."* **Sequencing is part of the ruling: the SDK's boot refusal lands FIRST and names the fault; the correction follows it.**
+
+**MEASURED SCOPE OF THAT CORRECTION — two edits, and the second deletes a workaround.** `examples/cp-05-credit-exposure-rollup/ccf_config.yaml:175` declares `unsupported_arguments:` as a one-element list (`- as_of`). `deployment.py:272-274` then synthesizes the mapping in code — `{name: "not supported at this tier" for name in rc.get("unsupported_arguments", ())}` — so **cp-05's refusal reasons are a constant filler string**, which is precisely the architectural value (1) says the mapping exists to carry. Correcting the YAML to `as_of: "<real reason>"` without also making the comprehension a pass-through would silently discard the authored reason. No test pins cp-05 artifact digests or transcripts (measured), so the correction does not force a republication — and `D-IMPL-261`'s *"No example republishing or transcript re-pinning inside an SDK remediation phase"* stands regardless: republication, if any, is post-phase.
+
+**(3) THE AMENDED 24.11 EXIT CRITERION, verbatim, replacing the "unchanged cp-05 and s1-01" phrasing:**
+
+> *"Existing Context Product declarations remain unchanged except for explicitly ruled corrections of objectively invalid declarations. **No example change may compensate for a missing SDK capability.**"*
+
+Dave's reason: *"That avoids creating a weird permanent 'cp-05 exception' while preserving the principle."* The second sentence is the load-bearing one and it is the test applied to any proposed example edit in 24.11.
+
+**(4) `F-11` — request-time conditioning is SELECTION WITHIN a declared envelope, never OVERRIDE of it.** Dave, verbatim: *"Request-time replacement must be governed conditioning, never an override. The Control Plane remains authoritative over the **permitted parameter space**. A request may select a value *within that declared space*; neither the caller nor deployment may widen it."*
+
+**The model, verbatim:**
+
+> *"Control Plane declares the envelope → request selects within the envelope → resolver records the effective value and authority → operator receives that value."*
+
+**Not:** *"declaration says X → deployment substitutes Y."* **And definitely not:** *"empty declaration → caller may supply anything."*
+
+**THE EXPLICIT RULE, verbatim:**
+
+> *"A request-derived operator parameter is legal only when the product declaration explicitly permits request-time conditioning for that parameter and the effective request value satisfies the declared domain/policy constraints. Undeclared or out-of-domain substitution is refused."*
+
+This aligns with the established authority model: **policy boundary > caller value > product default.**
+
+**(5) EMPTY MEANS EMPTY.** Dave, verbatim: *"The important implication for cp-05 is that `permitted_classifications: []` cannot silently mean 'dynamically unrestricted.' Empty must mean empty unless the schema explicitly defines another meaning."* And: *"**Do not preserve the empty-list idiom by making it magical.**"* If cp-05 intended *"the caller chooses classifications from an allowed domain,"* then *"cp-05 should declare that allowed domain through the proper request/operator contract."*
+
+**(6) WHERE THE ACTUAL `F-11` SDK GAP LIES, verbatim:** *"If the SDK currently has **no declarative way to express that binding**, then **that is the actual `F-11` SDK gap** and 24.11 should add the minimum governed binding mechanism."*
+
+**(7) THE QUESTION TO ASK AT `F-11` — a sequencing instruction, verbatim.** The order `F-07 → F-06 → F-08 → F-11 → F-12` stands, *"but when you reach `F-11`, do not ask 'how do we make cp-05's empty list work?' Ask:*
+
+> ***"How does the canonical SDK declare and enforce a request-conditioned operator parameter?"***
+
+*That keeps 24.11 aimed squarely at the SDK."*
+
+---
+
+**WHAT THIS DOES NOT DECIDE.** The concrete surface of the governed binding mechanism under (6) — its declaration syntax, where the domain constraint lives, and how the resolver records "effective value and authority" per (4) — to be proposed against the tree and, if it grows beyond a minimum binding, brought back rather than shipped. Whether cp-05's `permitted_classifications: []` is itself an objectively invalid declaration under (5) or merely an idiom the SDK will not honor — a distinct question from `F-12`'s, not ruled here, and it decides whether cp-05 needs a second ruled correction. Whether cp-05 can reach the exit criterion at all once (5) forbids the magical reading. `F-09` remains OUT (`D-IMPL-287` (3) classification). `D-GATE-24.10`, the `phase-24.10` merge and push. `24.10-F-01`, `F-02`, `F-04`, `F-05`, `F-10` and the eight carried pre-existing reds. Post-phase cp-05 republication.
+
+**Next free decision id: `D-IMPL-289`.** **Related:** `D-IMPL-287` (the constitution and the classification this rules on), `D-IMPL-286` (the exit criterion (3) amends), `D-IMPL-285`, `D-IMPL-261` (the objectively-wrong carve-out (2) relies on, and the no-republication rule that still binds), `D-IMPL-138`(a) (adopter-owned sections opaque at boot — the gap (1) closes), `24.5-L-13` (the `unsupported_arguments` fourth-key ruling whose shape (1) preserves), `examples/cp-05-credit-exposure-rollup/ccf_config.yaml:175`, `examples/cp-05-credit-exposure-rollup/deployment.py:272`, `src/ccf/products/request.py:620`, `src/ccf/deployment/config.py:190`.
+
+---
+
+**D-IMPL-289 — `F-12`'s remediation has a REQUIRED FOUR-STEP ORDERING that preserves the finding's provenance; and a general authoring rule: compensating code must be DELETED by the declaration fix, never relocated.** RESOLVED. Date: 2026-09-08. Approver: Dave. **Extends** `D-IMPL-288` (1)-(2), which Dave confirmed as *"internally consistent"* in the same message.
+
+**TWO DEFECTS, TWO OWNERS — Dave, verbatim, and the separation is the point:**
+
+> *"SDK defect: invalid `request_contract` shape survives Control Plane boot and fails later. `F-12` fixes validation timing and refusal quality."*
+> *"cp-05 defect: the declaration uses a list where the canonical contract requires `name → reason`, then `deployment.py` manufactures generic reasons to compensate."*
+
+*"So the cp-05 change is legitimately an objective correction, not an example workaround."*
+
+**THE REQUIRED END STATE, verbatim:**
+
+> *"`ccf_config.yaml` authors the actual unsupported-argument reason → Control Plane validates that shape at boot → resolver consumes it → `deployment.py` passes it through unchanged."*
+
+**THE REQUIRED ORDERING — this is the ruling, and the plan must state it as a requirement, verbatim:**
+
+> *"SDK validation first → observe cp-05's existing list refused for the right reason → correct the declaration → delete the compensating code."*
+
+**Why the ordering is load-bearing, verbatim:** *"That preserves provenance of the finding. We can show that the SDK learned to reject the malformed declaration before we corrected the example."* Step 2 is not ceremonial: the refusal must be **observed, and observed to fire for the right reason**, before any cp-05 byte changes. An SDK refusal that lands and a correction that lands in the same breath cannot be told apart afterward from one that was written to make the correction look justified.
+
+**Why deleting the comprehension is mandatory rather than tidy, verbatim:** *"Deleting the comprehension is important. Otherwise cp-05 would technically adopt the correct schema while still discarding the author's governed explanation at runtime."* A cp-05 that authors real reasons in YAML and then overwrites them with `"not supported at this tier"` in code has adopted the schema and kept the defect.
+
+**THE GENERAL RULE — the reusable half of this entry, verbatim:**
+
+> *"If an example contains code whose only purpose is to reconstruct information that should have been authored declaratively, fixing the declaration should delete that code rather than move it elsewhere."*
+
+And what it is for, verbatim: *"That is exactly the direction we want the SDK to drive authors: more governed declaration, less compensating plumbing."*
+
+**Scope of the general rule.** It is not scoped to `F-12` or to cp-05. It is a standing test applicable wherever an example, a runtime adapter or a deployment carries code that re-derives, defaults, synthesizes or reshapes something a Control Plane artifact should have declared: **the correct fix moves the information into the declaration and removes the code, and a fix that relocates the compensating logic has not discharged it.** It is the authoring-side companion to the No-Hardcoding Rule (`CLAUDE.md` §6.4) — §6.4 forbids the *thing interpreted* from living in code; this forbids code that *reconstructs* what the artifact should have carried. Sibling to `D-IMPL-286`'s harness rule, where a `monkeypatch` supplying a capability the SDK lacks must be deleted by the SDK gaining it, never preserved as the implementation.
+
+---
+
+**WHAT THIS DOES NOT DECIDE.** The prose of cp-05's actual `as_of` reason — authored at step 3, and it must say something true about *why* `as_of` is unsupported at this tier rather than restate the filler. Whether any other example carries compensating code of the same shape — the general rule is stated, not swept for; a sweep is not authorized here (`D-IMPL-287` (5) forbids new tooling, and a sweep would be one). Whether cp-05's `permitted_classifications: []` is itself an objectively invalid declaration (`D-IMPL-288`, unresolved by design; raised at step 4). `D-GATE-24.10`, the `phase-24.10` merge and push.
+
+**Next free decision id: `D-IMPL-290`.** **Related:** `D-IMPL-288` (1)-(2) (the ruling this sequences), `D-IMPL-287` (5) (the no-new-tooling prohibition that keeps the general rule a rule rather than a sweep), `D-IMPL-286` (the monkeypatch-deletion sibling), `D-IMPL-261` (the objectively-wrong carve-out), `CLAUDE.md` §6.4 (No-Hardcoding — the rule this is the authoring-side companion to), `examples/cp-05-credit-exposure-rollup/ccf_config.yaml:175`, `examples/cp-05-credit-exposure-rollup/deployment.py:272`.
+
+---
+
+**D-IMPL-290 — Phase 24.11 EXECUTION BEGINS on `phase-24.11`; `F-07`'s target is narrowed to one invariant; and the phase is executed ROW BY ROW WITH INSPECTION, never as an unattended sweep.** RESOLVED. Date: 2026-09-08. Approver: Dave.
+
+**GO, verbatim:** *"Cut `phase-24.11` and start with F-07."* Dave's read of the plan's discipline, verbatim: *"SDK defect first; smallest direct SDK regression test; no example rewiring as a deliverable; no new test infrastructure; diagnostic monkeypatches disappear only when the SDK makes them unnecessary; cp-05 correction happens only after the SDK has first refused the unchanged malformed declaration correctly."* Branch `phase-24.11` cut from `phase-24.10`'s tip `581f73ac` — **not** from `main` — because the strict-XFAIL evidence modules `F-07` is measured against exist only on that branch.
+
+**(1) `F-07`'s TARGET, narrowed by Dave, verbatim — this is the invariant, and the scope:**
+
+> *"The subject/perspective state used during governed execution must be the same effective subject state represented in replay and product identity."*
+
+**The direct SDK test, verbatim:** *"The direct SDK test should prove two different subjects cannot collapse to the same governed result merely because Π lost its seeds."* Per `D-IMPL-287` (6) and `D-IMPL-286`, the regression is written **against the resolver**, not against cp-05 — *"We do not need cp-05 to be the regression test."*
+
+**MEASURED, so the row is not re-derived downstream.** `ProjectionEngine.execute` already accepts `seeds: frozenset[str] | None = None` (`src/ccf/projection/engine.py:485`). `request_seeds` already exists (`src/ccf/products/request.py:1735`) and its own docstring states the intent this row restores: *"One reading, used on both paths, and that is the whole reason this is a function rather than a set literal at two call sites. The serving path derives the seeds from the request it was handed; the replay path derives them from the request the record carries."* `ccf.replay.engine:790` passes `seeds=request_seeds(path.request)`. **`GovernedResolver.__call__` (`resolver.py:1571-1577`) calls `execute()` with no `seeds` at all.** So `F-07` is not a missing capability — it is the canonical serving path failing to use a seam the SDK built for it, and which `D-IMPL-111` limb (a) already installed on the hand-built path when it fixed `DI-15.5-07`. The fix is correspondingly small; **it is the invariant in (1) that must be proved, not merely the argument that must be passed.**
+
+**(2) THE STOP-AND-INSPECT POINT — four things, verbatim:**
+
+> *"After F-07 is fixed, stop and show me: 1. the SDK change, 2. the direct regression test, 3. the previously failing strict-XFAIL behavior now attributable to that fix, 4. no example changes."*
+
+Item 3 is the causality evidence: which of `24.10`'s strict XFAILs moved, and that the movement is attributable **to this fix** rather than coincident with it. Item 4 is proved by diff, not asserted.
+
+**(3) THE PHASE IS NOT EXECUTED UNATTENDED — a cadence ruling, verbatim, with its reason:**
+
+> *"I would not execute the entire phase unattended in one sweep. The risk now is no longer conceptual drift; it is accidentally bundling several resolver semantics into one repair and losing causality. F-07 is important enough to land and inspect independently before the composition work continues."*
+
+So the sequence `F-07 → F-06 → F-08 → F-11 → F-12 → one unchanged rerun` (`D-IMPL-287` (6)) is executed **one row at a time, with Dave's inspection between rows**. *"Then move to F-06"* follows the `F-07` inspection, not the `F-07` commit. This is a distinct concern from `D-IMPL-286`'s: drift was about *what* is built; this is about keeping *causality legible* in what is built.
+
+---
+
+**WHAT THIS DOES NOT DECIDE.** Which request object supplies the serving path's seeds — the resolver holds both `request` and `effective_request` at the call site, and the invariant in (1) is what settles it: the seeds used in execution must equal the seeds replay will derive from the recorded request. Determined by measurement in the row, and reported. Whether any behavior beyond seeding is needed to satisfy (1) — if the subject state diverges from replay for a second reason, that is a finding, reported at the stop point, not absorbed into this repair (which is exactly the bundling (3) forbids). `F-06` and all later rows. `D-GATE-24.10`, the `phase-24.10` merge and push.
+
+**Next free decision id: `D-IMPL-291`.** **Related:** `D-IMPL-289`, `D-IMPL-288`, `D-IMPL-287` (the constitution and sequence), `D-IMPL-286`, `D-IMPL-285` (3) (`F-07` as P0), `D-IMPL-111` limb (a) (which fixed `DI-15.5-07` on the hand-built path — this row is the same reading reaching the canonical one), `DI-15.5-07`, `src/ccf/products/resolver.py:1571`, `src/ccf/products/request.py:1735`, `src/ccf/projection/engine.py:485`, `src/ccf/replay/engine.py:790`.
+
+---
+
+**D-IMPL-291 — `F-07` is ACCEPTED and its invariant is RESTATED more narrowly; the content-address observation is a CARRY (`24.11-C-01`), NOT a defect; the end-to-end resolver→replay test is DECLINED; and `F-06` is GO.** RESOLVED. Date: 2026-09-08. Approver: Dave.
+
+**(1) `F-07` ACCEPTED.** Dave, verbatim: *"The fix is exactly the right size and exactly the right kind of SDK repair. The strongest part is not the test count; it is the causality: `request_seeds()` already defined the canonical interpretation, replay already used it, and serving simply failed to call it. Two executable lines repaired the divergence, reversal of only that argument reproduces both failures, exactly one strict-XFAIL disappeared, and `examples/` remained untouched. **That is the product loop working correctly.**"* Landed at `5b3a78d5` (`src/ccf/products/resolver.py`, 895 → 897 executable lines).
+
+**(2) THE INVARIANT, RESTATED — Dave correcting his own earlier wording, verbatim:**
+
+> *"Governed execution and replay must derive perspective seeds from the same recorded request semantics."*
+
+*"That has been discharged."* This **replaces** the `D-IMPL-290` (1) formulation, which said *"…the same effective subject state represented in replay **and product identity**."* Dave: *"I was too aggressive when I included 'product identity' in the F-07 invariant."*
+
+**(3) `24.11-C-01` — AN ARCHITECTURAL CARRY, EXPLICITLY NOT A DEFECT.** Row 1 measured that two different subjects produce **identical product content addresses**, the subject not being inside `ContextProductContract`'s address at all, before or after the fix. Dave declines to call this a defect, verbatim: *"A content address and a request identity are not necessarily the same thing. If two different subjects legitimately produce byte-identical Context Products, a true content-addressing scheme may correctly give them the same hash. The subject can remain part of the request/replay provenance **without being salted into the content hash merely to make the hashes different**."*
+
+**THE QUESTION THAT DECIDES IT, verbatim:**
+
+> *"Does the content address claim to identify the served content, or the governed request/determination that produced it?"*
+
+> *"If it identifies content, then: same bytes → same address is desirable, even across different subjects. If it identifies the governed determination, then subject probably must participate."*
+
+**DISPOSITION, verbatim:** *"We should not change that architecture inside `F-07`, and I would not mint a new defect yet. Record it as an architectural question/carry until a real Context Product demonstrates harm—for example, replay lookup, cache reuse, disclosure, or audit semantics incorrectly treating a shared content hash as proof that two governed determinations were the same."*
+
+So `24.11-C-01` is **open, unowned, and waits for evidence of harm**, and the four harm shapes Dave names are its trigger conditions. It is not a 24.10 `F-NN` finding: nothing is broken until the question above is answered one way and the implementation is found to have answered it the other. **Do not implement against it, do not test against it, and do not carry it forward as though it were a defect** — that mislabeling is exactly what this entry exists to prevent.
+
+**(4) THE END-TO-END RESOLVER→REPLAY TEST IS DECLINED.** Row 1 reported that no such test exists and that building the `ReplayEnvironment` wiring would arguably be the test infrastructure `D-IMPL-287` (5) forbids. Dave, verbatim: *"I also agree with not building an end-to-end resolver→replay test right now. The direct regression test already distinguishes correct from incorrect behavior. **Additional wiring would start testing the test system rather than protecting the defect we just fixed.**"*
+
+**(5) `F-06` IS GO, with the SDK question stated narrowly — verbatim:**
+
+> *"Can `GovernedResolver` construct the operator registry with the configuration already required by the declared product class, including `similarity_index_version`, without the harness supplying `build_operator_registry` on its behalf?"*
+
+**Success is NOT the XFAIL disappearing.** Dave, verbatim: *"Success is not 'the XFAIL goes away.' Success is: 1. the canonical SDK path propagates the required operator configuration; 2. the `build_operator_registry` monkeypatch becomes unnecessary and is deleted; 3. one direct SDK regression test protects that behavior; 4. no example changes."* Then: *"Then stop again for inspection"* — the `D-IMPL-290` (3) cadence continues unchanged.
+
+Item 2 is the `D-IMPL-286` success signal reaching its first instance: the harness substitution is deleted **because the SDK made it unnecessary**, never preserved as the implementation. Item 4 keeps `examples/` closed for this row; `D-IMPL-288`'s narrow cp-05 correction belongs to row 5.
+
+---
+
+**WHAT THIS DOES NOT DECIDE.** `24.11-C-01` itself — neither the content-vs-determination question nor any change to the addressing scheme; it waits for demonstrated harm. Where `similarity_index_version` should be read from for `F-06` (the class declaration, an artifact, or the deployment) — a row-2 measurement, and if it requires a new declaration surface rather than propagating one that exists, that is a finding to report at the stop point rather than a design to ship. `F-08`, `F-11`, `F-12` and the final rerun. `D-GATE-24.10`, the `phase-24.10` merge and push.
+
+**Next free decision id: `D-IMPL-292`.** **Related:** `D-IMPL-290` (whose (1) invariant this restates and whose (3) cadence continues), `D-IMPL-289`, `D-IMPL-288`, `D-IMPL-287` (5) (the no-new-tooling prohibition (4) applies), `D-IMPL-286` (the monkeypatch-deletion signal (5) item 2 instantiates), `D-IMPL-285` (3), `D-IMPL-38` (the `similarity_index_version` requirement `F-06` violates), `D-IMPL-111` limb (a), `DI-15.5-07`, `src/ccf/products/resolver.py::GovernedResolver`, `src/ccf/products/request.py::request_seeds`.
+
+---
+
+**D-IMPL-292 — `F-06` is NOT closed: the runtime seam is fixed, the DECLARATION AUTHORITY is not. `similarity_index_version` is decision-affecting operator configuration and gets a canonical home on `SimilaritySelectParametersArtifact`; a surviving deployment value may only MATCH the declaration — EQUALITY, never precedence.** RESOLVED. Date: 2026-09-08. Approver: Dave.
+
+**(1) TWO THINGS WERE PROVED, AND ONLY ONE IS FIXED.** Dave, verbatim: *"You proved two different things: 1. `GovernedResolver` was missing the runtime propagation seam — fixed. 2. There is no canonical SDK authority for `similarity_index_version` — still open."*
+
+**Why the second matters, verbatim:** *"That second point matters because the current fix risks turning the old test-harness bridge into permanent deployment plumbing. The monkeypatch disappeared, which is good, but the deployment still has to tell the resolver something that materially affects operator behavior and reproducibility."* **This is the `D-IMPL-286` success signal being read strictly**: deleting a monkeypatch is not the goal if the same obligation simply moves from the harness into every deployment. A workaround relocated from test code to caller code is still a workaround — the same error `D-IMPL-289`'s general rule names.
+
+**(2) THE RULING, verbatim:**
+
+> *"`similarity_index_version` is decision-affecting operator configuration and needs a canonical declarative home in the SDK. It must not remain an ungoverned deployment-supplied semantic value."*
+
+**The narrow schema change is AUTHORIZED.** *"Given what you measured, `SimilaritySelectParametersArtifact` is the strongest candidate because it already owns the similarity-selection/corpus semantics. I would authorize that narrow schema change."*
+
+**(3) THE AUTHORITY MODEL, verbatim:**
+
+> *"declaration owns the version → resolver consumes it → deployment supplies the implementation, not an alternate semantic version"*
+
+**(4) EQUALITY, NOT PRECEDENCE — and this is a DELIBERATE DEPARTURE from `R-12`'s model. Do not harmonize them.** Dave, verbatim: *"If an explicit deployment value remains temporarily possible, it may only match the declared value. A disagreement must refuse; deployment must never widen or replace the declaration."* And in the scope list: *"if two sites exist during migration, **enforce equality rather than precedence**."*
+
+`D-IMPL-282` `R-12` `D-04` ruled the opposite shape for the replay binding — *"explicit builder argument > Control Plane replay binding > no binding/refusal"* — because a **binding** is deployment configuration the Control Plane may supply a default for. A **semantic version identity** is not: two disagreeing values mean two different corpora, and choosing either silently makes a determination irreproducible. The two rulings are consistent in principle (the Control Plane owns meaning; the deployment owns wiring) and opposite in mechanism, on purpose.
+
+**(5) THE SCOPE — `F-06` extended narrowly, verbatim:**
+
+> *"add `index_version` to the canonical similarity parameter artifact; make the resolver obtain it from that declaration; remove the newly added caller/deployment plumbing if it becomes redundant; if two sites exist during migration, enforce equality rather than precedence; one direct SDK test for declared-version propagation plus mismatch refusal; no new infrastructure."*
+
+**(6) THE s1-01 MIGRATION IS AUTHORIZED — BUT ONLY AFTER THE SDK SURFACE EXISTS.** Dave, verbatim: *"Only after the SDK supports the canonical declaration may s1-01 receive the minimum declarative migration from its adopter-specific `product-governance.yaml` location. That would be an **objective migration to a newly canonical SDK surface**, not an example workaround."* Same ordering discipline as `D-IMPL-289`: the SDK capability lands first and is observed, then the example moves to it. The example edit is a *consequence* of the SDK gaining a surface, never a substitute for it.
+
+**(7) THE STRENGTHENED SUCCESS SIGNAL, verbatim:**
+
+> *"No monkeypatch and no deployment code restating `similarity_index_version`; the declared artifact is the authority."*
+
+Strictly stronger than the row-2 signal: the monkeypatch's deletion is now necessary but **not sufficient**.
+
+**(8) BUILD-TIME VALIDATION TIMING STAYS WITH `F-12`.** Dave: *"I agree with leaving the build-time validation-timing question alone. That belongs with `F-12` and should not expand this row."*
+
+**(9) DISPOSITION AND CADENCE.** *"So: `F-07` closed. `F-06` runtime seam fixed but not yet architecturally closed. Finish the declaration authority now, then stop again before `F-08`."*
+
+**MEASURED BLAST RADIUS, so the row is not re-derived.** **Only `s1-01` declares a similarity parameters artifact** — `examples/s1-01-hello-context-product/artifacts/operator-parameters-similarity.yaml`; no `cp-0N` example does. `manifest.yaml:128-130` lists that artifact by `path`/`key`/`class_id` with **no digest at that entry**. And the class already carries the exact precedent: `similarity_corpus_attribute_by_class` is documented as *"one artifact-only field beyond the operator's contract"*, construction-time, *"the registry builder reads it before the operator exists"*, deliberately absent from `SimilaritySelectParameters` because *"putting a construction-time value on the per-invocation parameter set would make the L4 invoke contract carry state no invocation reads"*, and with **no default** because *"guessing an attribute name is guessing what a deployment meant."* `index_version` is the same kind of value on every one of those axes, including the no-default rationale — `deployment/operators.py:353-356` already refuses an unversioned index.
+
+---
+
+**WHAT THIS DOES NOT DECIDE.** Whether the `build_governed_resolver` argument added at `0c5ea162` survives migration or is removed — (5) says *"remove … if it becomes redundant"*, and redundancy is measured in the row, not assumed. The `F-12` build-time validation timing (8). `F-08`, `F-11`, `F-12` and the final rerun. `24.11-C-01` (`D-IMPL-291` (3), a carry, still not a defect). The three-issue cap in `CLAUDE.md` §9 versus the current open-finding ledger — raised in `STATE.md`, unreconciled, Dave's. `D-GATE-24.10`, the `phase-24.10` merge and push.
+
+**Next free decision id: `D-IMPL-293`.** **Related:** `D-IMPL-291` (which accepted `F-07` and GO'd `F-06`; this reopens `F-06`'s architectural half), `D-IMPL-290` (3) (the row-by-row cadence (9) continues), `D-IMPL-289` (the compensating-code rule (1) invokes and the SDK-first ordering (6) follows), `D-IMPL-288` (4) (`F-11`'s envelope model — the same "Control Plane owns meaning" principle), `D-IMPL-287` (5) (no new infrastructure), `D-IMPL-286` (the success signal (7) strengthens), `D-IMPL-282` `R-12` `D-04` (the precedence model (4) deliberately departs from), `D-IMPL-38`, `src/ccf/controlplane/artifacts.py::SimilaritySelectParametersArtifact`, `src/ccf/deployment/operators.py::build_operator_registry`.
+
+---
+
+**D-IMPL-293 — NOTHING HAS SHIPPED. Pre-v0, a flaw is fixed because it is a flaw; existing artifacts, schemas and content addresses are not a constraint on doing the right thing.** RESOLVED. Date: 2026-09-08. Approver: Dave.
+
+**The correction, verbatim:** *"We can't let our decisions be based on not fixing flaws because they have shipped. Nothing has shipped. Lets do the right thing."*
+
+**What prompted it.** Claude repeatedly framed `D-IMPL-292`'s authorized change as *"a content-address-affecting schema change to a **shipped** SDK artifact class"* — using "shipped" as a reason for caution, a reason a ruling was needed, and a reason to prefer the least invasive shape. That framing is **wrong on the facts**: `ccf_code` is a private pre-v0 repository (`v0.2` milestone), there are no external adopters, and the examples are probes whose whole purpose is to expose SDK defects (`CLAUDE.md` §9, `D-IMPL-261`). Nothing is depending on the current schema in a way that a correct change would break.
+
+**The standing principle.** Until v0 ships:
+
+- **Correctness beats compatibility.** The design question is *"what is the right surface?"*, never *"what is the smallest change to what already exists?"* A smaller change that leaves the wrong shape in place is the more expensive choice, because every later example is built against it.
+- **Existing artifacts, schemas, content addresses, pinned digests and expected outputs are not constraints.** They are consequences, and they get regenerated. A digest changing is an *effect* to be handled, never an argument against a change.
+- **"It would require editing an example" is not a reason to prefer a worse SDK design.** It may still be out of a given row's scope for causality reasons (`D-IMPL-290` (3)), and the SDK-first ordering still holds (`D-IMPL-289`, `D-IMPL-292` (6)) — but the ordering exists to keep provenance legible, **not** to protect examples from change.
+- **This does not weaken any fence.** `examples/` stays closed where a ruling closes it, cp-05 and the frozen specimens stay evidence (`D-IMPL-261`), and an example is still never edited to compensate for a missing SDK capability (`D-IMPL-288` (3)). What changes is the *reasoning*: a fence is a causality and evidence discipline, never a compatibility one.
+
+**Scope.** This governs design choices from here to v0. It does **not** license unscoped rewrites, does not suspend the row-by-row cadence, and does not authorize work no ruling has authorized — `D-IMPL-287` (5) and `D-IMPL-291` still stand. It removes one bad *reason*, not the phase's discipline.
+
+**Immediate effect on `F-06`'s remaining half (`D-IMPL-292`).** The `build_governed_resolver` argument added at `0c5ea162` should be **removed outright** if the declaration is the authority, rather than preserved as a compatibility path. `D-IMPL-292` (5)'s *"if two sites exist during migration, enforce equality rather than precedence"* is **conditional**, and with nothing shipped the right move is to ensure a second site does not exist. Equality is the fallback if a second site must genuinely persist — and if one must, the row states why rather than assuming it.
+
+---
+
+**WHAT THIS DOES NOT DECIDE.** Any specific change. It removes a reason, not a scope. `F-08`, `F-11`, `F-12`. `24.11-C-01` (still a carry, `D-IMPL-291` (3)). The `CLAUDE.md` §9 three-issue cap versus the current ledger. `D-GATE-24.10`, the `phase-24.10` merge and push.
+
+**Next free decision id: `D-IMPL-294`.** **Related:** `D-IMPL-292` (whose remaining half this immediately reshapes), `D-IMPL-289`, `D-IMPL-288` (3), `D-IMPL-287` (5), `D-IMPL-286`, `D-IMPL-261`, `CLAUDE.md` §9 (the examples charter — probes, not products).
+
+---
+
+**D-IMPL-294 — `24.10-F-08` ACCEPTED and CLOSED on the capability that existed and was being dropped; the other two members leave F-08 entirely; and the three-issue cap is measured on the open, in-scope remediation set, not on the finding-id count.** RESOLVED. Date: 2026-09-08. Approver: Dave. Row 3 of Phase 24.11, shipped at `2afe51ba` / `e3339f4f`.
+
+**The acceptance, Dave verbatim.** *"F-08 is accepted. Record it and proceed to F-11. The row stayed on the SDK, found a genuine dropped join, and did not invent authorities for the two fields the SDK does not currently know how to produce."*
+
+**(1) What F-08 closed, and the boundary of the closure.** *"F-08 is closed for the SDK capability that actually existed and was being dropped: `obligation_in_force`."* `DebtProfile.obligation_for` had shipped since Phase 15.6 as the *extract* half `D-IMPL-117` says the SDK owes; the resolver computed the routing state, held the profile on the fabric it booted from, and joined them nowhere, so a served product asserted *no obligation in force* wherever the deployment's own profile bound one — inside the content address (`D-IMPL-118`) and therefore unrepairable afterwards.
+
+**(2) `SourceRefreshWindow` and `DebtEvidencePointer` leave F-08. They are NOT hidden obligations of it.** Dave: *"Your measurement showed that the canonical path has no authority for them, and existing rulings deliberately constrain their production. Carry them as architecture questions outside 24.11 rather than manufacturing values merely to populate every contract member."* The measurement of record, taken at the row: nothing in `src/` or `runtime/` constructs either type, and no SDK artifact declares either — so neither is a dropped join. `D-IMPL-124` rules the refresh-window reducer deliberately absent (one would decide which of a deployment's sources count toward the window); `D-IMPL-119` limb 4 is a standing prohibition on interpretable evidence pointers whose named precondition — a perspective-scoped view in the assembly path — this path still does not meet. **Populating a contract member is not, by itself, a reason to produce a value.**
+
+**(3) The `debt_scorer` / `debt_profile_key` narrowing is a legitimate SDK correction, not an accommodation.** Dave: *"Once the profile participates independently in obligation determination, the old mutual-exclusion rule had become internally false. Narrowing that rule is correcting the SDK's composition semantics, not accommodating s1-01."* `build_governed_resolver` had refused an explicit scorer alongside the profile key on the ground that *"the material for building the reference would be read by nothing"* — a claim that stopped being true of the profile the moment the obligation seam read it, and whose effect was that **every deployment scoring for itself was structurally unable to declare its bands**.
+
+**(4) No adopter code was deleted in this row, and that is accepted.** Dave: *"'Adopter plumbing reduced' is a useful signal when compensating plumbing is inside the remediation surface; it is not a quota. Editing the frozen example's hand-built spine merely to produce a deletion would itself be drift."* This qualifies `D-IMPL-289`'s compensating-code rule rather than weakening it: the rule fires on plumbing **inside the surface being remediated**, and manufacturing a deletion outside it is the drift the rule exists to prevent.
+
+**(5) LEDGER CORRECTION — the three-issue cap is measured on the open, in-scope SDK remediation set.** Dave: *"`F-01`, `F-02`, and `F-05` are not remaining 24.11 work simply because their finding IDs remain open. The cap applies to the open, in-scope SDK remediation set. At this point that set is: F-11 and F-12."* And: *"The other findings remain carries under their existing dispositions. **Do not let the global finding count pull them back into this phase.**"* Claude had twice reported the ledger as five or six open findings against `CLAUDE.md` §9's cap of three; that reading counts finding ids rather than in-scope remediation and is superseded here. **The cap is satisfied.**
+
+**Governs:** the disposition of `24.10-F-08` and of the two members that leave it; the ledger arithmetic for `CLAUDE.md` §9's three-issue cap for the remainder of Phase 24.11.
+
+**WHAT THIS DOES NOT DECIDE.** `F-11`'s mechanism (its own ruling, below in this session's record). `F-12`. `24.11-C-01` (still a carry, `D-IMPL-291` (3)). The architecture questions (2) sends out of the phase — neither is scheduled here. `D-GATE-24.10`, the `phase-24.10` merge and push. The uncommitted `CLAUDE.md` revision.
+
+**Next free decision id: `D-IMPL-295`.**
+
+---
+
+**D-IMPL-295 — Request-bound operator parameters are a canonical SDK capability: literal or bound, never both; bound from the effective request, never raw caller input; and the artifact's own validation stays the sole authority on value shape.** RESOLVED. Date: 2026-09-09. Approver: Dave. Row 4 of Phase 24.11, closing `24.10-F-11`. Shipped at `76de22ad` (SDK) and `22ea7bb7` (cp-05's correction), in that order and for that reason.
+
+**What was missing, measured before anything was built.** Zero vocabulary anywhere in `src/ccf` joined a request parameter to an operator parameter. Two thirds of the authority chain already existed and were enforced — `PolicyConstraint` as the Control Plane envelope, `ccf.products.constraints::resolve_effective_request` as the fold — so only the final link was absent. `GovernedResolver._operator_parameters` took no request at all, and a deployment whose envelope is knowable only per request therefore substituted a value into its own **resolved** artifact at runtime: an ungoverned write to a Control Plane declaration, invisible to the pins and to replay.
+
+**The durable points, which are the ruling.**
+
+1. **Request-bound operator parameters are a canonical SDK capability**, not an example's accommodation. `RequestBoundParameter(source, parameter)` is the vocabulary; `RequestBindingSource` is its one-member SDK token set, carrying a recorded CINV-01 exemption because it names an SDK *resolution stage* while the deployment names the *parameter* as an opaque `str`.
+2. **Literal and request-bound forms are mutually exclusive.** They are two variants of **one** field (`frozenset[str] | RequestBoundParameter`), so "a literal plus an independent binding" has no spelling. This is what keeps an empty literal honest: `permitted_classifications: []` continues to mean *admit nothing* and acquires no magical second reading (`D-IMPL-288`).
+3. **Bindings consume `effective_request`, never raw caller input.** Binding from the caller's request would bypass class defaults, policy bounds and technical capabilities at the exact final step they exist to govern.
+4. **Boot verifies the referenced request parameter exists** — `_refuse_unbindable_request_parameter`, in `refuse_undeclared_class_default`'s shape and place. A binding naming an argument the contract does not expose is two documents disagreeing, and boot is where both are in hand.
+5. **The operator artifact's own validation remains the sole authority for value shape and type.** The bound artifact is *revalidated* rather than `model_copy`'d, so the field itself settles the type on the value that actually arrives.
+6. **No parallel JSON-Schema/Python type system, and no coercion.** The boot check is **existence only**; comparing a declared JSON-Schema `type` against a Python annotation would be a second type system kept in step by hand. A binding *supplies* a value and never *converts* one — a widening as small as scalar-to-singleton is still a transform, and admitting one would make the next arguable. No expression language, templating, callback or mapping DSL.
+7. **cp-05's missing `families` declaration was an objectively incomplete declaration.** Its runtime already consumed a family per request — `deployment.py::populate_and_traverse` takes `family: str` and `model_copy`'d it onto the resolved policy artifact — while its declarations said *admit nothing* and named no such argument. Measured first, per Dave's instruction: `permitted_classifications: []` is **valid in isolation**, so the family of 0 over 77 entities was the SDK honoring it exactly. The idiom was **replaced by a binding**, never corrected into a magical value. `families` and not `family`, an **array**, because the target field is a set and no transform is permitted (point 6); **required with no default**, because the SDK must not invent a family scope.
+8. **The ordering is the provenance, and it was executed.** SDK capability landed first (`76de22ad`); unchanged cp-05 then failed **visibly and on its own terms** — `TypeError: lambda takes 1 positional argument but 2 were given`, the workaround unable to survive the seam replacing it; the declaration correction landed second (`22ea7bb7`); the `monkeypatch.setattr` and `bound_policy_envelope` were **deleted, not relocated** (`D-IMPL-289`). The `24.10-F-11` finding test XPASSed strict and is un-quarantined with its assertion untouched: 77 where it read 0.
+
+9. **`argument_defaults` remains a SEPARATE CARRY.** Measured at this row: it is read **nowhere** in `src/` or `runtime/` — only cp-05's own `deployment.py` interprets it — and `GovernedResolver._class_defaults` returns exactly one name, `debt_tolerance`. So the SDK has no general per-argument default. Dave: *"The fact that `argument_defaults` is currently interpreted only by cp-05 may well expose another SDK deficiency later, but F-11 did not require solving it. **Do not let it enlarge F-12 or extend 24.11.**"*
+
+**Also recorded:** `deployment.py`'s hand-built substitution is deliberately untouched — it sits on cp-05's own spine, outside the remediation surface, and editing a frozen example's spine to produce a deletion is the drift `D-IMPL-294` (4) names.
+
+**Governs:** `ccf.controlplane.artifacts::RequestBoundParameter` and `RequestBindingSource`; `PolicyFilterParametersArtifact.permitted_classifications`; `GovernedResolver._operator_parameters` / `_bind_declared_request_values`; `_refuse_unbindable_request_parameter`; `build_operator_registry`'s unresolved-binding refusal; cp-05's `ccf_config.yaml` and `artifacts/question.yaml`.
+
+**WHAT THIS DOES NOT DECIDE.** `F-12` (its scope stands as ruled at `D-IMPL-288` (2) and `D-IMPL-289`). `argument_defaults` (point 9). Whether a caller-suppliable policy envelope wants a `PolicyConstraint` bounding it — recorded as an observation, not scheduled. `24.11-C-01`. `D-GATE-24.10`, the `phase-24.10` merge and push.
+
+**Next free decision id: `D-IMPL-297`.** **Related:** `D-IMPL-288` (4)-(7) (the mechanism question this answers), `D-IMPL-289` (the ordering rule it executes), `D-IMPL-294` (4) (the compensating-code qualification), `D-IMPL-293`, `D-IMPL-287` (5), `D-IMPL-138` (a).
+
+---
+
+**D-IMPL-296 — `unsupported_arguments` is canonically `mapping[name, reason]`; the SDK owns the shape and the TIMING of its validation, the product author owns the reason text, and both the sequence form and a blank reason refuse at boot.** RESOLVED. Date: 2026-09-09. Approver: Dave. Row 5 of Phase 24.11, closing `24.10-F-12`. Shipped at `e4568a9d` (SDK) and `e57444e4` (cp-05's correction), in that order and for that reason.
+
+**The acceptance, Dave verbatim.** *"F-12 is accepted as closed. The result is exactly what we wanted from this phase: the SDK now rejects the malformed declaration at the Control Plane boundary, cp-05 was observed failing for the right reason before any example correction, the declaration then gained the authored reason, and the compensating comprehension disappeared rather than moving elsewhere."*
+
+**The durable semantics.**
+
+1. **The canonical form is `mapping[name, reason]`, and it did not change.** `D-IMPL-288` (2) ruled this a **validation-timing** defect and not a schema defect. What moved is *where* a document not carrying the canonical form is stopped.
+2. **The malformed sequence form and blank reasons both refuse at boot.** A bare sequence names WHICH arguments are refused and never WHY — the half of the declaration the mapping exists to carry. A blank reason satisfies the letter of the mapping while asserting nothing an adopter could act on, and is the bare sequence wearing a mapping's clothes; every offender is named at once.
+3. **The SDK owns the shape and the timing; the product author owns the reason text.** `request_contract` is adopter-owned and opaque at boot (`D-IMPL-138` (a)) and stays so in every other respect: the check validates **one key's shape** and is not general request-contract validation. The SDK owns that key only because it is the SDK's own contract field, and judges no reason's content — any non-blank prose is admitted verbatim (CLAUDE.md §6.4, CINV-01).
+4. **`_refuse_malformed_unsupported_arguments` is the third sibling** of `_refuse_operator_set_divergence` and `_refuse_unproducible_seed_classes` — same call site, same before-materialisation ordering. Previously the Control Plane admitted the document and `ProductRequestContract.from_declared` refused it three frames down with a bare `ValueError`, or the deployment hand-converted the list and manufactured the reasons.
+5. **cp-05's list form was an objectively incomplete declaration, and the ordering was executed rather than asserted.** The SDK refusal landed FIRST; unchanged cp-05 was then observed refused **at boot, by field, for the correct reason** through the real door (`load_artifact` → `derive_deployment`), recorded verbatim in `e4568a9d`'s message because the next step makes it unreproducible; the declaration correction and the deletion of the reason-minting code landed SECOND. The reason was **transcribed** from cp-05's own `artifacts/question.yaml`, where it already existed in prose with nowhere governed to live — not invented.
+6. **The comprehension was deleted, not relocated** (`D-IMPL-289`). Dave: *"If the YAML gains a reason but Python continues recreating one, F-12 is not really finished."* A guard was written for exactly this, because nothing else would have caught the comprehension returning: it asserts both that the SDK carries the authored sentence verbatim and that cp-05's interpreter contains no minting expression.
+7. **The delta ratchet fired as designed.** `third_change_is_forced()` asks the SDK rather than a constant, now answers `False`, and adoption dropped to the two declarative additions waves 1 and 2 created. Its test is un-quarantined with the premise **inverted rather than deleted**, because a premise that can no longer go stale is what would let the test pass for the wrong reason.
+8. **The published page and transcript remain intentionally STALE for the duration of the SDK phase** (`D-IMPL-261`). `examples/cp-05-credit-exposure-rollup/page/scenario-transcript.txt` still shows the old `"not supported at this tier"` filler. Dave: *"Do not republish or re-pin it now."* Affected examples are rerun against the resulting SDK as a separate validation step after the phase closes, and only then republished if necessary.
+
+**Governs:** `ccf.deployment.config::_refuse_malformed_unsupported_arguments` and its call site in `derive_deployment`; the TIMING of `ProductRequestContract.unsupported_arguments`' validation (never its shape); cp-05's `ccf_config.yaml` and `deployment.py::request_contract`.
+
+**WHAT THIS DOES NOT DECIDE.** `argument_defaults`, which stays a carry under `D-IMPL-295` (9) and did **not** enlarge this row. The probe rerun's outcome or the phase-level stop condition. `24.11-C-01`. `D-GATE-24.10`, the `phase-24.10` merge and push.
+
+**Next free decision id: `D-IMPL-297`.** **Related:** `D-IMPL-288` (2) (the ruling this implements), `D-IMPL-289` (the ordering and compensating-code rules), `D-IMPL-295`, `D-IMPL-261` (8), `D-IMPL-138` (a).
+
+---
+
+**D-IMPL-297 — Phase 24.11 SATISFIES its product-level stop condition. SDK remediation stops here; the next move is cp-05 product completion on the canonical path, and it is not another SDK phase.** RESOLVED. Date: 2026-09-09. Approver: Dave. The phase-level ruling for Phase 24.11.
+
+**The stop condition, and the answer.** *"Do the existing probes demonstrate that the canonical SDK path can compose the capabilities they require without rebuilding governance behavior in adopter code?"* Dave: **"Yes. `GovernedResolver` can now compose the capabilities these Context Products require without adopter code rebuilding the governed path."**
+
+**The evidence it was answered on**, from the probe rerun and measured rather than described:
+
+- **cp-05, canonical path:** the correct **77**-member family, the same **$10.125B gross / $9.325B adjusted** determination, the governed product gate exercised in **both** directions, and **0** remaining in-scope XFAILs. Adoption cost is back to the two declarative additions waves 1 and 2 created.
+- **s1-01, canonical path:** reaches a served governed product; the five repaired findings all disappeared from the strict-XFAIL roster; its two survivors correspond **exactly** to capabilities explicitly ruled out of 24.11.
+- **No harness bridges and no monkeypatch substitutions remain** in either probe.
+- **The five pre-existing example reds are unchanged, member for member**, so Dave: *"this phase did not buy its success by weakening the existing examples."*
+
+**What is closed.** `F-07`, `F-06`, **`F-08`'s obligation carriage**, `F-11` and `F-12`. Five in-scope findings, five collapses in the strict-XFAIL roster, each with a direct regression and a sabotage that reds it alone.
+
+**What stays a carry, and must not be pulled forward merely because it is still an XFAIL.** Dave: *"They are valuable boundaries."*
+
+- **Source-refresh / evidence semantics** — unresolved by prior architecture rulings (`D-IMPL-124`, `D-IMPL-119` limb 4). Left out of `F-08` by `D-IMPL-294` (2).
+- **A decision instant distinct from the graph boundary** — outside the current SDK contract (`F-09`, never in 24.11).
+- **`argument_defaults`** — remains a carry under `D-IMPL-295` (9) **because it did not block either probe**.
+
+**No further SDK hardening is authorized by this phase.**
+
+**THE BOUNDARY THIS ENTRY EXISTS TO FIX, and it is the load-bearing half.** Dave: *"Do not confuse proving the canonical path with migrating every example implementation onto it. cp-05's existing hand-built spine is now **legacy implementation inside the example**, not evidence that `GovernedResolver` remains deficient."* The five `test_spine_separation` reds are about that spine's structure and are pre-existing; they are not an SDK signal.
+
+**The next move is NOT another SDK phase.** The appropriate work is **cp-05 product completion**: replace its hand-composed governed spine with the canonical path — *"not to discover or repair more SDK behavior while doing so. If that migration exposes a new genuine SDK gap, **stop and classify it**. Otherwise, it is simply the example adopting the SDK capability we just proved."*
+
+**Explicitly not authorized before that work:** *"Do not add another review panel, proof phase, or generalized hardening pass."* This is a proportionality ruling in `D-IMPL-266`'s line and does not make panel-skipping a default.
+
+**Governs:** the disposition of Phase 24.11 and what may follow it.
+
+**WHAT THIS DOES NOT DECIDE.** The mechanics of closing 24.11 — `D-GATE-24.11`, whether `phase-24.11` merges, and any push. `D-GATE-24.10`, the `phase-24.10` merge, and the `phase-24.5-base` tag push (`D-IMPL-275` (3)). `24.11-C-01`. The number or shape of the cp-05 product-completion work.
+
+**Next free decision id: `D-IMPL-298`.** **Related:** `D-IMPL-296`, `D-IMPL-295`, `D-IMPL-294`, `D-IMPL-289`, `D-IMPL-288`, `D-IMPL-287`, `D-IMPL-286`, `D-IMPL-266` (the proportionality line), `D-IMPL-261` (examples are probes, not repair targets).
+
+---
+
+**D-GATE-24.10 — Phase 24.10 (cp-05 product-driven SDK remediation: reduce the plumbing a governed Context Product requires) is APPROVED and CLOSED.** Date: 2026-09-09. Approved by: Dave — the build and the product-driven outcome, approved in the sitting that also ruled `D-IMPL-297`: *"Close/gate 24.10 first. It is the architectural base of 24.11 and we have already approved its build and product-driven outcome."*
+
+**The stop rule was NOT met, and that is the phase's finding rather than its failure — TERMINAL STATE B.** Dave's rule was *"When cp-05 can use the canonical SDK path without rebuilding fabric behavior itself, the phase stops."* It could not: cp-05's shipped declarations, driven unmodified through `GovernedResolver`, returned a product describing a family of **0** over an L3 holding 77 entities and 100 relationship claims, every universal gate green — not a thinner answer than cp-05's, a confidently wrong one. Plan `24.10-04` reached the same terminal state on `s1-01`. `R-03`'s escalation branch therefore fired **on measured evidence**, which is what the phase existed to produce.
+
+**Landed:** `R-12` (the replay binding declared AND consumed), `R-11` (a deployment-supplied product gate at the ruled execution point, the seventh `GateRefusal` sibling, exercised live in both directions), and `R-09` — discharged as **REUSE**, no new Protocol declared or proposed, with the 77/100 evidence reproducing against the live remote estate. `R-01` (`eb455c74`) and `R-10` (`80e38c6f`) were already-completed 24.10 work and were not re-planned. One in-phase regression, `F-03`, was found and closed inside the phase at `c870fa16`.
+
+**The twelve findings `24.10-F-01` … `F-12` are this phase's real deliverable**, each executable as an `xfail(strict=True)` carrying its finding id so a landed seam XPASSes loudly rather than rotting. `F-13` was deliberately NOT minted rather than re-mint `F-07` and make one defect look like two. Five of the twelve — `F-07`, `F-06`, `F-08`'s obligation carriage, `F-11`, `F-12` — were repaired in Phase 24.11 and are closed by `D-GATE-24.11`.
+
+**Final gate as measured at the close, whole tree in five chunks: 7,329 passed, 8 failed.** `make lint` rc 0; mypy clean over 218 files.
+
+**THE EIGHT REDS ARE CARRIED, NOT FIXED, and each was verified red at the phase base `20499786` in a detached worktree** — the attribution work was done at the time and is not re-litigated here. The phase introduced none of them. Dave, at this gate: *"I would not let the fact that `main` already has known reds block this. The gate records should state exactly which reds are pre-existing and that the phase introduced none. We have already done the attribution work; there is no reason to manufacture a green-main requirement now."* Their roster, re-measured at `phase-24.10`'s tip `581f73ac` for this entry rather than quoted: `tests/test_surface_completeness.py::test_every_diff_line_has_a_matching_public_log_entry` (which is `24.10-F-01` itself), `tools/docs_tests/test_requirement_ledger.py::test_the_uat_roster_matches_the_records_on_disk`, `tests/invariants/test_citation_coverage.py::test_the_unanchored_python_citation_population_cannot_regrow` (**2** unanchored members at this tip, both `.planning/ROADMAP.md` citing monkeypatch line numbers), the `CLAUDE.md` phase-base pin, and five in `tests/examples` — one artifact-header check and four `test_spine_separation` cases, all about cp-05's hand-composed spine's structure and none about its behavior.
+
+**Panel: NONE, and criteria lock: NONE — both ruled out for this phase by name** (`D-IMPL-280` (4)), a recorded departure from `D-GATE-19`. The stop rule was the phase's test.
+
+**Merge:** this phase is NOT merged separately. `phase-24.11` was cut from this lineage, and Dave ruled the ancestry enters `main` once, through the 24.11 tip: *"Gate both phases; merge the lineage once."* Merging 24.10 separately would be ceremony.
+
+**Governs:** the disposition of Phase 24.10. **Originates:** `D-IMPL-280` (the declaration), `D-IMPL-281` (scope and order), `D-IMPL-282` (the four gray areas), `D-IMPL-285` (the phase's own close-out).
+
+---
+
+**D-GATE-24.11 — Phase 24.11 (Canonical Governed Resolution: repair `GovernedResolver` so the SDK's canonical path is semantically correct and compositionally complete) is APPROVED and CLOSED.** Date: 2026-09-09. Approved by: Dave — *"Phase 24.11 has met its stop condition. I would close the SDK remediation work here."*
+
+**The substantive closure statement, in Dave's own terms.** Phase 24.11 satisfied its product-level stop condition. The canonical `GovernedResolver` now composes all capabilities ruled in scope by the existing probes. `F-07`, `F-06`, **`F-08`'s obligation carriage**, `F-11` and `F-12` are closed. cp-05 produces the correct **77**-member family and unchanged governed determination through the canonical path; `s1-01` also reaches a served governed product. Remaining source-refresh and decision-instant XFAILs are **explicit carries outside the phase**. **No additional SDK hardening is authorized by this gate.**
+
+**Five rows, executed one at a time with an inspection between each** (`D-IMPL-290` (3)): `F-07` at `5b3a78d5`; `F-06` in two parts, the runtime seam at `0c5ea162` and the declaration authority at `c824d5bf`/`d9c82788` (`D-IMPL-292`); `F-08`'s obligation carriage at `2afe51ba` (`D-IMPL-294`); `F-11` at `76de22ad`/`22ea7bb7` (`D-IMPL-295`); `F-12` at `e4568a9d`/`e57444e4` (`D-IMPL-296`). Rows 4 and 5 each landed the **SDK capability first and the example's declaration correction second**, with the unchanged example observed failing in between — provenance executed rather than asserted (`D-IMPL-289`).
+
+**The probe rerun, which is the evidence this gate rests on.** cp-05 canonical: **5 passed, 0 in-scope XFAILs**, the correct 77-member family, **$10.125B gross / $9.325B adjusted** unchanged, the product gate exercised in **both** directions, adoption back to the two declarative additions waves 1 and 2 created. `s1-01` canonical: **3 passed, 2 xfailed**. `s1-01` hand-composed control: **39 passed**, unchanged. **Zero monkeypatch substitutions and zero harness bridges remain** in either probe. The strict-XFAIL roster collapsed to **0** for each of the five repaired findings, and the only survivors are the two explicitly ruled out.
+
+**THE REDS ARE CARRIED, NOT FIXED, and the phase introduced no regression — with one honest nuance, stated rather than smoothed.** Four gates and five example cases are red at the close, all pre-existing: surface completeness (`24.10-F-01`), the UAT roster, the `CLAUDE.md` phase-base pin, the citation ratchet, and the same five `tests/examples` cases that were red at `phase-24.10`'s tip, **member for member** — so the phase did not buy its success by weakening the examples. **The nuance:** the citation ratchet's population went from **2 to 1**. Both 24.10-era members cited monkeypatch line numbers and disappeared with the monkeypatches; row 2b's STATE write added one (`.planning/STATE.md` citing `spine.py:359`). So the phase **removed two and added one** rather than leaving the gate untouched, and the net is an improvement of one — but a member was added, and this entry says so.
+
+**Verification at the close:** `make lint` rc 0; mypy clean over 218 files; 1,798 passed across the changed surfaces (`tests/products`, `tests/deployment`, `tests/controlplane`, `tests/replay`, `tests/contracts`, the surface gates).
+
+**Panel: NONE, single-agent review: NONE — forbidden by ruling for this close** (`D-IMPL-297`): *"Do not add another review panel, proof phase, or generalized hardening pass before doing that."* A proportionality ruling in `D-IMPL-266`'s line; **two skips do not make a default**.
+
+**Carries, and they must not be pulled into the next task merely because they are still XFAILs:** source-refresh / evidence semantics (`D-IMPL-294` (2), `D-IMPL-124`, `D-IMPL-119` limb 4); a decision instant distinct from the graph boundary (`F-09`); `argument_defaults` (`D-IMPL-295` (9) — it blocked neither probe); `24.11-C-01`.
+
+**What follows, and what does not.** The next task is **not** another phase about `GovernedResolver`. It is cp-05 adopting the canonical path and finishing the product deliverables. cp-05's existing hand-built spine is **legacy implementation inside the example**, not evidence that `GovernedResolver` remains deficient. A new SDK deficiency exposed by that migration is **preserved and classified**, never repaired in flight (`D-IMPL-297`).
+
+**Governs:** the disposition of Phase 24.11. **Originates:** `D-IMPL-286` (the framing), `D-IMPL-287` (the constitution), `D-IMPL-288`–`D-IMPL-297` (the rows and the phase ruling).

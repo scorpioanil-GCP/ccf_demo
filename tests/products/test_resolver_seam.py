@@ -58,13 +58,19 @@ from decimal import Decimal
 from typing import Any
 
 import pytest
+from pydantic import ValidationError
 
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.artifacts.protocol import ArtifactRef
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.registry import ControlPlaneRegistry
-from ccf.deployment import BootedFabric, load_and_boot
+from ccf.controlplane.artifacts import (
+    RequestBoundParameter,
+    SimilaritySelectParametersArtifact,
+)
+from ccf.deployment import BootedFabric, build_operator_registry, load_and_boot
 from ccf.graph.protocols import GraphQuery, GraphReader, GraphView
+from ccf.halflife.assessment import NO_OBLIGATION_IN_FORCE
 from ccf.halflife.debt import DebtAssessment, DebtFactors, DebtSignal
 from ccf.products.constraints import ReferencePolicyConstraintResolver
 from ccf.products.contract import ContextProductContract
@@ -73,7 +79,7 @@ from ccf.products.entitlement import product_entitlement_key
 from ccf.products.gates import DEBT_TOLERANCE_PARAMETER
 from ccf.products.disclosure import DisclosureDecision
 from ccf.products.refusal import NO_REPLAY_REFERENCE, RefusalEnvelope
-from ccf.products.request import ProductRequest
+from ccf.products.request import ProductRequest, request_seeds
 from ccf.replay.record import (
     NO_FABRIC_READ,
     NO_PRODUCT_ADDRESS,
@@ -81,8 +87,10 @@ from ccf.replay.record import (
     PolicyBinding,
     ResolutionNotApplicable,
 )
+from ccf.products import resolver as resolver_module
 from ccf.products.resolver import (
     GovernedResolver,
+    build_governed_resolver,
     ProductNotResolvable,
     RefusalRecorderProtocol,
     ReplayRefusalRecorder,
@@ -94,8 +102,10 @@ from ccf.replay.serve import ServedProduct
 from tests.deployment.conftest import (
     ARTIFACT_SET,
     POLICY_BUNDLE_KEY,
+    POLICY_PARAMS_KEY,
     PRODUCT_CLASS_KEY,
     SIGNAL_BATCH_KEY,
+    SIMILARITY_KEY,
     TENANT,
     TRAVERSAL_KEY,
     manifest_document,
@@ -118,6 +128,28 @@ REQUEST_CONTRACT_CLASS_ID = "fixture.request-contract"
 
 #: The one declared parameter, and the only thing two calls differ by.
 THRESHOLD_PARAMETER = "revenue_threshold"
+
+#: The manifest key the deployment's D_c bands are authored under.
+#:
+#: `24.11-03` / `24.10-F-08`. The fixture deployment declares a debt profile so
+#: that the obligation seam has a *declaration* to read, which is the whole
+#: subject: `DebtProfile.obligation_for` is the extract half `D-IMPL-117` says
+#: the SDK owes, and the resolver composing it is the populate half.
+DEBT_PROFILE_KEY = "fixture/debt-profile"
+
+#: What this deployment binds to the routing state its scorer lands in.
+#:
+#: A fixture obligation vocabulary and nothing else — the SDK ships none
+#: (`D-IMPL-117`). `_debt_scorer` returns `DebtSignal.OK`, so this is the
+#: binding a served product must carry.
+OBLIGATION_ON_OK = "fixture.file-the-routine-note"
+
+#: The request parameter a request-bound operator parameter is bound to in the
+#: tests below. Fixture vocabulary; the SDK ships no parameter names.
+BOUND_CLASSES_PARAMETER = "admissible_classes"
+
+#: What the fixture class defaults that parameter to when a caller omits it.
+DEFAULTED_CLASSES = ("fixture-admitted",)
 
 #: The ceiling the `booted_with_ceiling` class declares (`24.5-L-14`). A
 #: fixture figure, authored in this module's own document and nowhere in `src/`.
@@ -393,6 +425,7 @@ def _boot(
     *,
     product_class: dict[str, Any] | None = None,
     request_contract: dict[str, Any] | None = None,
+    artifacts: Mapping[str, dict[str, Any]] | None = None,
 ) -> Iterator[_Booted]:
     """The one boot, so the two fixtures cannot drift into two deployments."""
     root = tmp_path / "deployment"
@@ -400,11 +433,34 @@ def _boot(
     for key, filename, _class_id, _role, _registration, document in ARTIFACT_SET:
         if key == PRODUCT_CLASS_KEY and product_class is not None:
             document = product_class
+        # `24.11-04`: any artifact in the set may be varied by key, in
+        # `product_class`'s shape and for its reason — the variation belongs in
+        # the test-side document, never in `src/` (CINV-01).
+        if artifacts and key in artifacts:
+            document = artifacts[key]
         write_artifact(root, filename, document)
     write_artifact(
         root,
         "request-contract.yaml",
         REQUEST_CONTRACT_DOCUMENT if request_contract is None else request_contract,
+    )
+    # `24.11-03` / `24.10-F-08`: the deployment declares its D_c bands, and
+    # binds an obligation to the state its scorer lands in. Written here rather
+    # than in `tests/deployment/conftest.py::ARTIFACT_SET` because the shared
+    # set feeds every deployment fixture in the suite and this binding is this
+    # file's subject, not theirs.
+    write_artifact(
+        root,
+        "debt-profile.yaml",
+        {
+            "semver": "1.0.0",
+            "risk_sensitivity": "1",
+            "forced_llm_threshold": "0.30",
+            "fail_closed_threshold": "0.70",
+            "signal_obligations": [
+                {"signal": "ok", "obligation_ref": OBLIGATION_ON_OK}
+            ],
+        },
     )
     body = manifest_document()
     body["artifacts"] = [
@@ -414,6 +470,13 @@ def _boot(
             "key": REQUEST_CONTRACT_KEY,
             "class_id": REQUEST_CONTRACT_CLASS_ID,
             "role": "load",
+            "registration": "typed",
+        },
+        {
+            "path": "debt-profile.yaml",
+            "key": DEBT_PROFILE_KEY,
+            "class_id": "ccf.debt-profile",
+            "role": "register",
             "registration": "typed",
         },
     ]
@@ -869,6 +932,385 @@ def test_the_success_leg_assembles_the_fixtures_own_entity(booted: _Booted) -> N
     assert outcome.product.payload["assembled"] == 1
 
 
+# --- `24.11-03` / `24.10-F-08`: the obligation the deployment declared ------
+
+
+def test_the_served_product_carries_the_obligation_the_profile_bound(
+    booted: _Booted,
+) -> None:
+    """The canonical path composes the two halves the SDK already ships.
+
+    ``D-IMPL-117``: the SDK owes *"the structure and the API to populate and
+    extract"* a signal-to-obligation binding, and **none of the content**.
+    :meth:`~ccf.controlplane.artifacts.DebtProfile.obligation_for` is the
+    extract half — its own docstring calls it *"the extract half of what
+    D-IMPL-117 says the SDK owes, and the whole of it"*. This is the populate
+    half on the governed path: the resolver holds the signal (it computed the
+    :class:`~ccf.halflife.assessment.DebtAssessment`) and the deployment's
+    profile is on the fabric it was booted from, and until ``24.11-03`` it
+    joined the two nowhere.
+
+    The member is **inside the product's content address** (``D-IMPL-118``), so
+    a product served without it cannot be repaired afterwards — the wrong
+    answer is the delivered one and it replays exactly, forever. A resolver
+    that drops the join therefore says *this deployment is obliged to do
+    nothing* wherever that deployment's own profile says otherwise, which is a
+    wrong governance answer rather than an absent nicety.
+
+    The obligation is read back off the fabric rather than restated, so the
+    assertion cannot pass against a value this test authored: it compares what
+    the product carries with what the manifest put in force.
+    """
+    profile = booted.fabric.artifacts[DEBT_PROFILE_KEY]
+    declared = profile.obligation_for(DebtSignal.OK)
+    assert declared == OBLIGATION_ON_OK, "the fixture's own premise has moved"
+    assert declared != NO_OBLIGATION_IN_FORCE, "a binding, not the sentinel"
+
+    outcome = _ask(_resolver(booted), _request())
+
+    assert isinstance(outcome, ServedProduct)
+    assert outcome.product.obligation_in_force == declared
+
+
+def test_a_deployment_that_declares_no_profile_carries_the_sentinel(
+    booted: _Booted,
+) -> None:
+    """The negative control, and it is the positive claim rather than a gap.
+
+    ``obligation_for``'s own rule: an unbound state resolves to *"the positive
+    claim that nothing was bound"*. A deployment naming no debt profile has
+    declared no binding, so :data:`~ccf.halflife.assessment.
+    NO_OBLIGATION_IN_FORCE` is the true answer and not a silent default — which
+    is what keeps the test above from passing for the trivial reason that every
+    product now carries some obligation.
+    """
+    outcome = _ask(_resolver(booted, debt_profile_key=None), _request())
+
+    assert isinstance(outcome, ServedProduct)
+    assert outcome.product.obligation_in_force == NO_OBLIGATION_IN_FORCE
+
+
+# --- `24.11-04` / `24.10-F-11`: a request-bound operator parameter ----------
+#
+# The six semantics `D-IMPL-295` names, one test each. The subject is the LAST
+# link of the authority chain — Control Plane envelope -> effective request
+# resolution -> declared binding -> operator — so each test says which link it
+# is about, and semantics 3 and 4 are about the links UPSTREAM of the binding
+# still governing after it exists.
+
+
+def _policy_artifact(booted: _Booted) -> Any:
+    """The fixture deployment's policy operator parameters, as declared."""
+    return booted.fabric.artifacts[POLICY_PARAMS_KEY]
+
+
+def test_a_literal_operator_parameter_reads_exactly_as_it_did(
+    booted: _Booted,
+) -> None:
+    """Semantic 1 — the literal variant is unchanged, and `[]` still means empty.
+
+    The regression that matters most, because the union was added to a field
+    every existing deployment declares literally. A bare sequence parses to the
+    frozenset it always did; nothing about an unbound artifact moved.
+    """
+    declared = _policy_artifact(booted)
+
+    assert isinstance(declared.permitted_classifications, frozenset)
+    assert _ask(_resolver(booted), _request()) is not None
+
+
+def test_a_request_bound_parameter_receives_the_governed_effective_value(
+    booted: _Booted,
+) -> None:
+    """Semantic 2 — the bound value is the EFFECTIVE one, and it reaches the operator.
+
+    Bound from ``effective_request`` rather than the caller's request, so class
+    defaults, policy bounds and technical capabilities have already folded. The
+    assertion reads the artifact the resolver actually handed the registry, so
+    it cannot pass on a value that stopped at the declaration.
+    """
+    resolver = _resolver(booted)
+    effective = _request(parameters={THRESHOLD_PARAMETER: 1000})
+    declared = _policy_artifact(booted)
+    bound = declared.model_copy(
+        update={
+            "permitted_classifications": RequestBoundParameter(
+                source="effective_request", parameter=BOUND_CLASSES_PARAMETER
+            )
+        }
+    )
+
+    resolved = resolver._bind_declared_request_values(
+        bound,
+        key=POLICY_PARAMS_KEY,
+        effective_request=effective.model_copy(
+            update={"parameters": {BOUND_CLASSES_PARAMETER: ["alpha", "beta"]}}
+        ),
+    )
+
+    assert resolved.permitted_classifications == frozenset({"alpha", "beta"})
+    assert not isinstance(
+        resolved.permitted_classifications, RequestBoundParameter
+    ), "the binding survived into the operator's own parameter set"
+
+
+def test_a_binding_naming_a_parameter_the_request_lacks_is_refused(
+    booted: _Booted,
+) -> None:
+    """Semantics 3 and 4 — omission and out-of-envelope are UPSTREAM concerns.
+
+    The binding neither invents a default nor validates a domain, and this is
+    what that costs and buys. A caller who omits an argument does not arrive
+    here at all: ``resolve_effective_request`` folds the class default first, so
+    the effective request carries a value and the binding consumes it. A caller
+    whose value is out of policy never arrives either — resolution refuses
+    before an operator is built. What reaches this method is therefore always a
+    *governed* value, and the only failure left is a deployment binding to a
+    parameter its own request contract does not declare, which no caller can
+    fix and which is refused as the wiring defect it is.
+    """
+    resolver = _resolver(booted)
+    declared = _policy_artifact(booted)
+    bound = declared.model_copy(
+        update={
+            "permitted_classifications": RequestBoundParameter(
+                source="effective_request", parameter="never-declared"
+            )
+        }
+    )
+
+    with pytest.raises(ProductNotResolvable) as refusal:
+        resolver._bind_declared_request_values(
+            bound,
+            key=POLICY_PARAMS_KEY,
+            effective_request=_request(parameters={THRESHOLD_PARAMETER: 1}),
+        )
+
+    assert "never-declared" in str(refusal.value)
+    assert POLICY_PARAMS_KEY in str(refusal.value)
+
+
+def test_a_bound_value_of_the_wrong_type_is_refused_and_never_converted(
+    booted: _Booted,
+) -> None:
+    """Semantic 4's type half — supplied, never converted.
+
+    A scalar where the field declares a set is the smallest imaginable
+    transform, and admitting it would make the next one arguable. The value is
+    put through the field's own declared type and refused there, so the binding
+    has no type system of its own to disagree with the literal variant's.
+    """
+    resolver = _resolver(booted)
+    declared = _policy_artifact(booted)
+    bound = declared.model_copy(
+        update={
+            "permitted_classifications": RequestBoundParameter(
+                source="effective_request", parameter=BOUND_CLASSES_PARAMETER
+            )
+        }
+    )
+
+    with pytest.raises(ProductNotResolvable) as refusal:
+        resolver._bind_declared_request_values(
+            bound,
+            key=POLICY_PARAMS_KEY,
+            effective_request=_request().model_copy(
+                update={"parameters": {BOUND_CLASSES_PARAMETER: "alpha"}}
+            ),
+        )
+
+    assert "never converts" in str(refusal.value)
+
+
+def test_a_literal_and_a_binding_cannot_both_be_declared(booted: _Booted) -> None:
+    """Semantic 5 — structurally invalid, not merely discouraged.
+
+    The two are variants of ONE field, so "a literal plus an independent
+    binding" has no spelling. This is what keeps an empty literal honest: a
+    deployment cannot write `[]` beside a binding and leave a reader to guess
+    which governs, which is the magical-empty reading `D-IMPL-288` forbids.
+    """
+    declared = _policy_artifact(booted)
+
+    assert "permitted_classifications" in type(declared).model_fields
+    with pytest.raises(ValidationError):
+        type(declared).model_validate(
+            {
+                **declared.model_dump(),
+                "permitted_classifications": {
+                    "values": ["alpha"],
+                    "source": "effective_request",
+                    "parameter": BOUND_CLASSES_PARAMETER,
+                },
+            }
+        )
+
+
+@pytest.fixture()
+def booted_bound_to_the_class_default(
+    tmp_path: pathlib.Path,
+) -> Iterator[_Booted]:
+    """A deployment whose policy envelope binds to the ONE defaulted argument.
+
+    ``debt_tolerance`` is the only name :meth:`~ccf.products.resolver.
+    GovernedResolver._class_defaults` supplies, so it is the only parameter in
+    the SDK today whose EFFECTIVE value can differ from a caller who never
+    mentioned it. That difference is the whole instrument below.
+    """
+    product_class = copy.deepcopy(
+        next(doc for key, *_rest, doc in ARTIFACT_SET if key == PRODUCT_CLASS_KEY)
+    )
+    product_class["serve_obligations"] = {
+        "default_debt_tolerance": CEILING_DECLARED
+    }
+    policy = copy.deepcopy(
+        next(doc for key, *_rest, doc in ARTIFACT_SET if key == POLICY_PARAMS_KEY)
+    )
+    policy["permitted_classifications"] = {
+        "source": "effective_request",
+        "parameter": DEBT_TOLERANCE_PARAMETER,
+    }
+    request_contract = copy.deepcopy(REQUEST_CONTRACT_DOCUMENT)
+    request_contract["declaration"]["arguments"]["properties"][
+        DEBT_TOLERANCE_PARAMETER
+    ] = {"type": "number", "description": "Fixture tolerance; a proportion."}
+    yield from _boot(
+        tmp_path,
+        product_class=product_class,
+        request_contract=request_contract,
+        artifacts={POLICY_PARAMS_KEY: policy},
+    )
+
+
+def test_the_call_site_binds_from_the_effective_request_not_the_callers(
+    booted_bound_to_the_class_default: _Booted,
+) -> None:
+    """The wiring the six semantics above cannot see, and it needed catching.
+
+    Every other test here calls the binding directly with an effective request
+    it constructs, so none can tell whether ``__call__`` hands it the EFFECTIVE
+    request or the caller's. **Measured: swapping the call site to the caller's
+    request left all 1,058 tests in this tree green.** That is what this exists
+    to stop.
+
+    The instrument is the difference between two refusals, and the caller
+    omitting ``debt_tolerance`` is what creates it:
+
+    * bound from the **caller's** request, the parameter is simply *absent*, so
+      the refusal says the effective request does not carry it;
+    * bound from the **effective** request, ``_class_defaults`` has already
+      folded the class's declared tolerance, so the parameter is *present* and
+      the refusal is about its TYPE — a ``Decimal`` where the field declares a
+      set of strings.
+
+    Asserting the second message therefore proves resolution ran before the
+    binding. The refusal is expected either way; **which** refusal is the
+    evidence, and a test asserting merely that something was refused would pass
+    under the sabotage.
+    """
+    resolver = _resolver(
+        booted_bound_to_the_class_default,
+        operator_parameter_keys=(TRAVERSAL_KEY, POLICY_PARAMS_KEY),
+    )
+
+    with pytest.raises(ProductNotResolvable) as refusal:
+        _ask(resolver, _request(parameters={THRESHOLD_PARAMETER: 1000}))
+
+    assert "never converts" in str(refusal.value), (
+        "the binding refused because the parameter was ABSENT, which is what"
+        " the caller's request looks like: the class default that resolution"
+        " folds was never seen, so the call site read the wrong request"
+    )
+
+
+def test_a_binding_to_an_undeclared_argument_is_refused_at_boot(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The boot check — two documents disagreeing, caught where both are in hand.
+
+    ``D-IMPL-295``. A binding naming an argument the request contract does not
+    expose is a malformed declaration, and it fails when the resolver is BUILT
+    rather than on the first call that happens to exercise it — the shape
+    :func:`~ccf.products.request.refuse_undeclared_class_default` already
+    established for the same class of disagreement.
+
+    **Existence only.** The refusal says the contract does not declare the
+    name; it says nothing about the value's type, because judging that here
+    would mean comparing a JSON-Schema ``type`` against a Python annotation —
+    a second type system to keep in step by hand. The artifact's own validation
+    owns the type, and does so on the value that actually arrives.
+    """
+    policy = copy.deepcopy(
+        next(doc for key, *_rest, doc in ARTIFACT_SET if key == POLICY_PARAMS_KEY)
+    )
+    policy["permitted_classifications"] = {
+        "source": "effective_request",
+        "parameter": "no-such-argument",
+    }
+    booted_iter = _boot(tmp_path, artifacts={POLICY_PARAMS_KEY: policy})
+    booted = next(booted_iter)
+    try:
+        # Through the BUILDER, which is where this class of check lives: the
+        # class itself resolves keys lazily and refuses a wiring defect on the
+        # first call, by its own docstring's design. `refuse_undeclared_class_
+        # default` and the declared-gate mismatch are checked in exactly this
+        # place and for exactly this reason.
+        with pytest.raises(ProductNotResolvable) as refusal:
+            build_governed_resolver(
+                fabric=booted.fabric,
+                control_plane=booted.control_plane,
+                product_class_key=PRODUCT_CLASS_KEY,
+                request_contract_key=REQUEST_CONTRACT_KEY,
+                operator_parameter_keys=(TRAVERSAL_KEY, POLICY_PARAMS_KEY),
+                policy_bundle_key=POLICY_BUNDLE_KEY,
+                plan_factory=_plan_factory,
+                debt_scorer=_debt_scorer,
+                artifact_store=booted.store,
+                replay_record_class=REPLAY_RECORD_CLASS,
+                query_pin_class=QUERY_PIN_CLASS,
+                max_ttl_seconds=MAX_TTL_SECONDS,
+                product_ttl_seconds=PRODUCT_TTL_SECONDS,
+            )
+    finally:
+        for _ in booted_iter:
+            pass
+
+    assert "no-such-argument" in str(refusal.value)
+    assert THRESHOLD_PARAMETER in str(refusal.value), (
+        "the refusal must name what the contract DOES expose, or an adopter"
+        " cannot tell a typo from an undeclared argument"
+    )
+
+
+def test_an_unresolved_binding_never_reaches_an_operator(booted: _Booted) -> None:
+    """The invariant beneath all six — mypy found it, and it is refused by name.
+
+    A registry built directly has no request and therefore cannot honor a
+    binding. Narrowing that with a cast would hand `PolicyFilter` a declaration
+    object where it expects the set it filters on: an operator admitting
+    nothing while looking fully configured, which is the silent failure
+    `PolicyFilterParametersArtifact`'s own docstring exists to prevent.
+    """
+    declared = _policy_artifact(booted)
+    bound = declared.model_copy(
+        update={
+            "permitted_classifications": RequestBoundParameter(
+                source="effective_request", parameter=BOUND_CLASSES_PARAMETER
+            )
+        }
+    )
+
+    with pytest.raises(ValueError, match="unresolved"):
+        build_operator_registry(
+            parameters={POLICY_PARAMS_KEY: bound},
+            view=booted.fabric.handle.reader.as_of(
+                tenant_id=booted.fabric.tenant_id, at=ASKED_AT
+            ),
+            pins=booted.fabric.pins,
+            policy_bundle_key=POLICY_BUNDLE_KEY,
+        )
+
+
 def test_the_served_products_replay_reference_resolves(booted: _Booted) -> None:
     """`DIV-2`: the reference is the whole reason the seam widened."""
     resolver = _resolver(booted)
@@ -997,6 +1439,311 @@ def test_two_parameter_values_produce_two_content_addresses(
     assert content_hash(low.product) != content_hash(high.product)
 
 
+# --- `24.11-01` / `24.10-F-07`: two subjects are two questions ---------------
+
+
+def test_two_subjects_cannot_collapse_to_one_question_to_the_graph(
+    booted: _Booted,
+) -> None:
+    """The request seeds the walk on the CANONICAL path — `D-IMPL-111` limb (a).
+
+    Dave's invariant, verbatim: *"The subject/perspective state used during
+    governed execution must be the same effective subject state represented in
+    replay and product identity."* Until `24.11-01` this composition called
+    :meth:`~ccf.projection.engine.ProjectionEngine.execute` with no ``seeds``
+    argument at all, while :mod:`ccf.replay.engine` replayed with
+    ``seeds=request_seeds(path.request)``. So two questions about two different
+    subjects compiled to the **same** graph query and pinned identically in
+    dimension 5, and every resolver-served product whose plan walks was
+    replay-divergent by construction — ``DI-15.5-07`` exactly, reproduced on the
+    canonical path after limb (a) had already closed it on the hand-built one.
+
+    **Two halves, and neither alone is the property.**
+
+    *They cannot alias.* Two subjects pin two different query sequences, so the
+    record can say which subject a decision was about.
+
+    *They agree with replay.* The seeds the execution actually compiled into
+    its query are what :func:`~ccf.products.request.request_seeds` returns for
+    the request the **record carries** — the same function applied to the same
+    object :mod:`ccf.replay.engine` applies it to. The first half alone would
+    pass on a resolver that seeded by some other subject-sensitive rule and
+    then diverged loudly at replay; the second is what makes the two paths one
+    reading rather than two derivations that happen to agree.
+
+    The control matters as much as the assertion: the same subject asked twice
+    must pin **identically**, or the inequality above would be measuring
+    nondeterminism rather than the subject.
+
+    Read back off the PERSISTED record and the PERSISTED query bytes, because
+    that is what an auditor holding the record and nothing else would see.
+    """
+    resolver = _resolver(booted)
+    first = _ask(resolver, _request(subject="acct-1"))
+    second = _ask(resolver, _request(subject="acct-2"))
+    again = _ask(resolver, _request(subject="acct-1"))
+
+    assert isinstance(first, ServedProduct)
+    assert isinstance(second, ServedProduct)
+    assert isinstance(again, ServedProduct)
+
+    records = [
+        DecisionReplayRecord.model_validate_json(
+            booted.store.get(content_address=served.replay_ref.content_address)
+        )
+        for served in (first, second, again)
+    ]
+    paths = [record.content_generation_path for record in records]
+
+    # The premise, asserted rather than assumed: three decisions, two subjects.
+    assert [path.request.subject for path in paths] == [
+        "acct-1",
+        "acct-2",
+        "acct-1",
+    ], "the fixture's own premise has moved"
+
+    pins = [path.graph_query_sequence for path in paths]
+    # A resolver that pinned NO query would satisfy the inequality below
+    # vacuously, and the inequality would be measuring nothing.
+    assert all(pins), "the record pins no graph query at all"
+    # The control for the inequality: same subject, same pinned question.
+    assert pins[0] == pins[2], (
+        "the same subject asked twice pinned two different query sequences;"
+        " the inequality below would be measuring nondeterminism"
+    )
+    assert pins[0] != pins[1], (
+        "two questions about two different subjects pinned the same graph"
+        " query sequence; the record cannot say which subject this decision"
+        " was about (`DI-15.5-07`, `D-IMPL-111` limb (a), `24.10-F-07`)"
+    )
+
+    # The correspondence: what execution compiled IS what replay will derive.
+    for path in paths:
+        for pin in path.graph_query_sequence:
+            query = GraphQuery.model_validate_json(
+                booted.store.get(content_address=pin)
+            )
+            assert query.seeds == request_seeds(path.request), (
+                "the seeds compiled into the executed query are not the seeds"
+                " ccf.replay.engine derives from the request this record"
+                " carries; governed execution and replay disagree about the"
+                " subject, which is a re-computation wearing the decision's"
+                " identifier"
+            )
+
+
+# --- `24.11-02b` / `24.10-F-06`: the declaration owns the corpus identity ----
+
+
+def test_the_declared_index_version_is_the_only_authority(
+    booted: _Booted,
+) -> None:
+    """`D-IMPL-292`. The similarity artifact declares its corpus version, and
+    nothing else in the fabric may state one.
+
+    Dave's ruling, verbatim: *"`similarity_index_version` is decision-affecting
+    operator configuration and needs a canonical declarative home in the SDK.
+    It must not remain an ungoverned deployment-supplied semantic value."* And
+    the authority model: *"declaration owns the version → resolver consumes it
+    → deployment supplies the implementation, not an alternate semantic
+    version."*
+
+    `24.11-02` closed `24.10-F-06`'s runtime half by giving
+    :class:`~ccf.products.resolver.GovernedResolver` a
+    ``similarity_index_version`` field. That fixed the propagation and left the
+    architecture open — a workaround relocated from test code into caller code
+    is still a workaround (`D-IMPL-289`). `24.11-02b` moved the value to
+    :class:`~ccf.controlplane.artifacts.SimilaritySelectParametersArtifact`.
+
+    **Four legs, and no two are the same property.**
+
+    *The declaration alone is sufficient.* The canonical composition serves a
+    class whose operator set includes Similarity while being told nothing about
+    any index — naming the similarity key is now the whole of wiring
+    similarity. Contrast `24.11-02`, where the same wiring needed a second
+    argument kept in step with the artifact by hand.
+
+    *The declared value is what propagates, by value and not by servability.*
+    The index the builder constructs ranks under the version the artifact
+    declares. Asserted against the artifact's own field rather than against a
+    constant restated here, because a constant would be the second site this
+    row exists to remove.
+
+    *Re-authoring the declaration moves it.* A copy of the artifact carrying a
+    different ``index_version`` produces an index carrying that version — so
+    leg two is attributable to the declaration and not to some value the SDK
+    minted that happens to match.
+
+    *There is no second site to disagree with it.* An artifact declaring no
+    version is refused at parse, by field name — not three frames on inside a
+    build, which is where the old runtime refusal fired. And the builder offers
+    no channel to supply one instead: the keyword `24.11-02` reached for is
+    gone, and this leg goes red the moment anyone puts it back. Equality
+    between two sites was the fallback `D-IMPL-292` allowed *"if two sites
+    exist during migration"*; none does, so none is enforced.
+    """
+    similarity = booted.fabric.artifacts[SIMILARITY_KEY]
+    assert isinstance(similarity, SimilaritySelectParametersArtifact)
+
+    served = _ask(
+        _resolver(
+            booted, operator_parameter_keys=(TRAVERSAL_KEY, SIMILARITY_KEY)
+        ),
+        _request(),
+    )
+    assert isinstance(served, ServedProduct), (
+        "a class whose operator set includes the Similarity category was not"
+        " served by the SDK's own reference composition, given nothing but the"
+        " declaration"
+    )
+
+    view = booted.fabric.handle.reader.as_of(tenant_id=TENANT, at=ASKED_AT)
+
+    def _built(artifact: SimilaritySelectParametersArtifact) -> str | None:
+        registry = build_operator_registry(
+            parameters={SIMILARITY_KEY: artifact},
+            view=view,
+            pins=booted.fabric.pins,
+            policy_bundle_key=POLICY_BUNDLE_KEY,
+        )
+        index_version: str | None = registry.resolve(
+            "similarity.corpus-select"
+        )._index.index_version
+        return index_version
+
+    assert _built(similarity) == similarity.index_version, (
+        "the index was built under a version the declaration did not assign"
+    )
+
+    reauthored = "fixture-corpus@re-authored"
+    assert reauthored != similarity.index_version
+    assert (
+        _built(similarity.model_copy(update={"index_version": reauthored}))
+        == reauthored
+    ), (
+        "re-authoring the declaration did not move the corpus identity, so"
+        " the value leg above proves nothing about where it is read from"
+    )
+
+    with pytest.raises(ValidationError) as unversioned:
+        SimilaritySelectParametersArtifact.model_validate(
+            {
+                key: value
+                for key, value in similarity.model_dump().items()
+                if key != "index_version"
+            }
+        )
+    assert "index_version" in str(unversioned.value)
+
+    with pytest.raises(TypeError) as second_site:
+        build_operator_registry(
+            parameters={SIMILARITY_KEY: similarity},
+            view=view,
+            pins=booted.fabric.pins,
+            policy_bundle_key=POLICY_BUNDLE_KEY,
+            similarity_index_version="a-version-the-declaration-does-not-carry",  # type: ignore[call-arg]
+        )
+    assert "similarity_index_version" in str(second_site.value)
+
+
+# --- `R-11`: the product-gate seam, and where it runs ------------------------
+
+
+def test_the_product_gate_seam_is_a_runtime_checkable_protocol() -> None:
+    """`24.10-02` / `R-11`: the seam is a Protocol, on `debt_scorer`'s shape.
+
+    `D-IMPL-282` option 1a names `debt_scorer` as the model, so the properties
+    that make that seam what it is are asserted of this one: a
+    ``runtime_checkable`` Protocol, exported from the module (a Protocol a
+    deployment cannot import is a Protocol nothing can conform to on purpose),
+    keyword-only, and returning ``str | None`` — never an identity, which is
+    the Control Plane's half.
+    """
+    import typing
+
+    from ccf.products.resolver import ProductGateProtocol
+
+    assert "ProductGateProtocol" in resolver_module.__all__
+    assert getattr(ProductGateProtocol, "_is_runtime_protocol", False), (
+        "a Protocol that is not runtime_checkable cannot be asserted against"
+        " at a wiring boundary, which is what `AssemblyDebtScorerProtocol` is"
+    )
+
+    signature = inspect.signature(ProductGateProtocol.__call__)
+    parameters = tuple(signature.parameters)
+    assert parameters == ("self", "candidate", "evidence"), parameters
+    for name in ("candidate", "evidence"):
+        assert (
+            signature.parameters[name].kind is inspect.Parameter.KEYWORD_ONLY
+        ), name
+    assert signature.parameters["evidence"].default is None
+    assert signature.return_annotation == "str | None", (
+        "the callable returns a violation detail or nothing; a gate that"
+        " returned its own identity could mislabel which gate refused"
+    )
+    hints = typing.get_type_hints(ProductGateProtocol.__call__)
+    assert hints["candidate"] is ContextProductContract
+
+
+def test_the_gate_runs_after_the_universal_gates_and_before_fitness() -> None:
+    """`D-12`, observed in the source rather than asserted in a comment.
+
+    The ruling is an ORDER — *"after candidate construction and before
+    fitness/fulfillment"* — and an order is a property of where the call sits,
+    so it is read off the module's own text. A behavioral test that a
+    double-violating candidate yields the product-invariant refusal rather
+    than the tolerance one lives in
+    ``tests/products/test_runtime_product_gate.py``; this is the structural
+    half, and it fails the moment somebody moves the call even if no shipped
+    fixture happens to violate both at once.
+    """
+    source = pathlib.Path(resolver_module.__file__).read_text(encoding="utf-8")
+    lines = source.splitlines()
+
+    def line_of(fragment: str) -> int:
+        matches = [i for i, line in enumerate(lines) if fragment in line]
+        assert len(matches) == 1, (fragment, matches)
+        return matches[0]
+
+    admitted = line_of("gated = run_gates(")
+    invariant = line_of("gate_violation = self.product_gate(")
+    fitness = line_of("withheld = refuse_over_tolerance(")
+    assert admitted < invariant < fitness, (admitted, invariant, fitness)
+
+
+def test_a_wired_gate_that_admits_serves_and_the_candidate_is_the_product(
+    booted: _Booted,
+) -> None:
+    """The seam is live and it is handed the ANSWER, not the view.
+
+    The vacuity guard for every gate test: a resolver that never called its
+    gate would pass any assertion about a gate that admits. This one records
+    what it was handed and asserts the served product is that exact value —
+    which is also the argument for ``candidate`` over ``view``, made
+    observable rather than argued.
+    """
+    seen: list[ContextProductContract] = []
+
+    def gate(
+        *,
+        candidate: ContextProductContract,
+        evidence: ExecutionEvidence | None = None,
+    ) -> str | None:
+        seen.append(candidate)
+        assert evidence is not None, (
+            "the resolver always passes evidence; a resolver that decided"
+            " per-gate whether to tell the truth about the search would be two"
+            " seams wearing one name"
+        )
+        return None
+
+    outcome = _ask(_resolver(booted, product_gate=gate), _request())
+
+    assert isinstance(outcome, ServedProduct)
+    assert len(seen) == 1, "the gate runs exactly once per determination"
+    assert content_hash(seen[0]) == content_hash(outcome.product)
+
+
 # --- behavior 6: nothing the deployment owns has a default ------------------
 
 
@@ -1009,10 +1756,30 @@ DEPLOYMENT_OWNED_ARGUMENTS: tuple[str, ...] = (
     "control_plane",
     "product_class_key",
     "request_contract_key",
+    # `24.11-02b` / `D-IMPL-292`: these keys carry the similarity artifact, and
+    # the artifact carries its own `index_version`. `24.11-02`'s companion
+    # `similarity_index_version` field is GONE from this roster because it is
+    # gone from the class — the declaration is the authority, and a field here
+    # would be a second site for one semantic value.
     "operator_parameter_keys",
     "policy_bundle_key",
+    # `24.11-03` / `24.10-F-08`: the deployment's D_c bands, named by key like
+    # every other declaration. `None` is admissible and is a POSITIVE claim —
+    # this deployment declares no bands, so nothing is bound and the product
+    # carries the SDK's sentinel — but it is never a default: a resolver that
+    # guessed would serve "obliged to do nothing" from inside the content
+    # address, where it cannot be corrected afterwards.
+    "debt_profile_key",
     "plan_factory",
     "debt_scorer",
+    # `24.10-02` / `R-11`: the deployment's implementation of its class's own
+    # declared invariant (`D-IMPL-282` option 1a). No default for
+    # `debt_scorer`'s reason and for one of its own — `None` is a POSITIVE
+    # statement that this class declares no runtime invariant, and a resolver
+    # that defaulted it would let a class declare a gate that silently never
+    # ran. `build_governed_resolver` refuses both halves of that mismatch at
+    # build time; this class refuses the omission at construction.
+    "product_gate",
     "artifact_store",
     "replay_record_class",
     "query_pin_class",
@@ -1112,10 +1879,24 @@ def _arguments(booted: _Booted) -> dict[str, Any]:
         "control_plane": booted.control_plane,
         "product_class_key": PRODUCT_CLASS_KEY,
         "request_contract_key": REQUEST_CONTRACT_KEY,
+        # `24.11-02b` / `D-IMPL-292`: naming the similarity key is now the WHOLE
+        # of wiring similarity — the artifact it resolves to carries its own
+        # `index_version`, and there is no companion argument to keep in step
+        # with it. The default wiring names no similarity artifact; the test
+        # below adds the key and nothing else.
         "operator_parameter_keys": (TRAVERSAL_KEY,),
         "policy_bundle_key": POLICY_BUNDLE_KEY,
+        # `24.11-03` / `24.10-F-08`: the deployment's D_c bands, named the
+        # way every other declaration is named — by key, so the profile the
+        # resolver reads is provably the manifest's.
+        "debt_profile_key": DEBT_PROFILE_KEY,
         "plan_factory": _plan_factory,
         "debt_scorer": _debt_scorer,
+        # `24.10-02` / `R-11`: the deployment's implementation of its class's
+        # own declared invariant. `None` here because the fixture class
+        # declares no gate — a POSITIVE value, stated rather than defaulted,
+        # which is why the field carries no default on the dataclass.
+        "product_gate": None,
         # 24.6-03: the Authority layer's two inputs. The reference resolver
         # over this fixture's own registry — which holds no policy constraint
         # and no entitlement policy, so it resolves defaults and caller values

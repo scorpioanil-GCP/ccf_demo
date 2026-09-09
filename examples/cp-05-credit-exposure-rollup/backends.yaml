@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=../../docs/schemas/ccf.declared-artifact.json
+#
+# WHERE THIS DEPLOYMENT'S STORES ARE — BY THE NAME OF A VARIABLE, NEVER BY VALUE.
+#
+# NO CONNECTION VALUE APPEARS HERE — no host, no port, no path, no credential.
+# This document holds a variable's NAME and a remedy telling an operator what to
+# export and why. `deployment.py` is its interpreter; delete this file and that
+# program has nothing to connect to.
+#
+# TWO STORES, AND THE SPLIT IS THE PRODUCT (spec §C.1). Fluree owns the EDGES —
+# ownership, guarantee, cross-default, borrower-of. Postgres owns the AMOUNTS
+# and the POLICY — commitments, balances, guarantee coverage, limit definitions
+# and the XBRL reconciliation. Neither store can answer this product's question
+# alone, which is what makes it a Context Product rather than a query.
+
+semver: "1.0.0"
+class_id: cp-05.backend-profiles
+
+declaration:
+  profiles:
+    sqlite:
+      settings:
+        database_path:
+          per_run: path
+          prefix: cp_05
+          suffix: .sqlite3
+
+  sources:
+    exposure_graph:
+      settings:
+        url:
+          from_env: CCF_CP_05_FLUREE_URL
+          remedy: >-
+            export CCF_CP_05_FLUREE_URL with the base URL of a READ-ONLY Fluree
+            server carrying the exposure ledger. The example issues only
+            `/v1/fluree/query` in the SPARQL dialect; it never creates, updates
+            or deletes a ledger, and the estate it reads is read-only to this
+            repository.
+        ledger:
+          from_env: CCF_CP_05_FLUREE_LEDGER
+          remedy: >-
+            export CCF_CP_05_FLUREE_LEDGER with the ledger name to read. Every
+            query carries an explicit `FROM <ledger>` and there is no default:
+            the server answers HTTP 500 without one, and a defaulted ledger
+            name would be a value nobody chose pointing at a store nobody
+            named. The demonstrated run reads the ledger the printed transcript
+            names, beside the `ledger_t` it was read at.
+
+    exposure_amounts:
+      settings:
+        dsn:
+          from_env: CCF_CP_05_POSTGRES_DSN
+          remedy: >-
+            export CCF_CP_05_POSTGRES_DSN with a READ-ONLY connection string for
+            the amounts-and-policy estate — `facility`, `guarantee_terms`,
+            `limit_definition`, `debt_reconciliation` and `legal_entity`. The
+            role needs SELECT and nothing else: this deployment never writes to
+            the store it reads, and a role that could write would make that a
+            promise rather than a guarantee. This product is read-only by
+            construction (spec §C.3) — L2 remains the only writer to the graph
+            and nothing here acquires a write handle to either store.
+        schema:
+          from_env: CCF_CP_05_POSTGRES_SCHEMA
+          remedy: >-
+            export CCF_CP_05_POSTGRES_SCHEMA with the namespace holding
+            `facility` and `limit_definition`. Declared as a variable rather
+            than defaulted, on the same reasoning as the ledger name: a schema
+            name selects WHICH of a store's namespaces the product reads, and a
+            defaulted one is a namespace nobody chose. The estate carries a v1
+            namespace beside the v2 one, so a silent default here would read a
+            different generation of the data and report it as this one.

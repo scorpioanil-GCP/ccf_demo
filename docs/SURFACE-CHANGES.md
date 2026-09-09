@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1016 entries**, of which **772** name a public Python surface.
+**1034 entries**, of which **790** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-493 entries — 453 public Python surface, 40 not public Python API.
+502 entries — 462 public Python surface, 40 not public Python API.
 
 ### Public Python surface
 
@@ -9085,6 +9085,114 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `24.7-09-replay-verifies-the-not-applicable-claim.md`.*
 
+#### ccf.controlplane.artifacts.ReplayBinding
+
+- Surface: ccf.controlplane.artifacts.ReplayBinding
+- Public surface: true
+- Change type: added
+- Before: absent — a deployment's replay binding had no declared home, so it lived either as module constants in the deployment's own Python or as an adopter-namespaced artifact beside the config, and neither is the Control Plane
+- After: a `VersionedArtifact` carrying `record_class`, `query_pin_class` and `store_dirname`, and nothing else; a fourth key is refused by the inherited `extra=forbid`, and a `store_dirname` that is absolute, rooted, drive-qualified or carries a `..` segment is refused by name through the same `_leaves_its_own_directory` predicate `ManifestEntry.path` is held to
+- Why: `D-IMPL-282` `R-12` — replay binding becomes a first-class Control Plane concern with the smallest declarative addition that could carry it, and the three-member closure is how *"No product-specific replay semantics in the Control Plane—only deployment binding/configuration"* is enforced by the contract rather than by prose
+- Migration: none. The `replay:` section is optional and a deployment that declares none derives exactly what it derived before.
+
+*Recorded by `24.10-01-the-control-plane-declares-the-replay-binding.md`.*
+
+#### ccf.controlplane.artifacts.REPLAY_BINDING
+
+- Surface: ccf.controlplane.artifacts.REPLAY_BINDING
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `ArtifactClass(class_id="ccf.replay-binding", contract=ReplayBinding)`, registered in `ccf.deployment.classes.SDK_ARTIFACT_CLASSES` so a manifest — and the derived `replay:` section — can name it
+- Why: a class the SDK ships that a manifest cannot address is a class no adopter can register, and the reserved-section derivation resolves the class id through the same lookup every manifest entry does
+- Migration: none.
+
+*Recorded by `24.10-01-the-control-plane-declares-the-replay-binding.md`.*
+
+#### ccf.products.contract.DeclaredProductGate
+
+- Surface: ccf.products.contract.DeclaredProductGate
+- Public surface: true
+- Change type: added
+- Before: absent — a product class could declare a gate only as prose, and `D-IMPL-224`'s CI-checked declaration had no typed home on the class artifact
+- After: a two-member `CCFContract` carrying `gate_id` and `gate_version`, both defaulted to the empty string and both hash-transparent there; a model validator refuses exactly one of the two being set, because half an identity cannot answer *which gate at which version* in a replay record
+- Why: `D-IMPL-282` `R-11` — *"The gate identity/version remain declared in the Control Plane"*. The SDK owns the slot and reads neither string; which invariant a class declares is the deployment's vocabulary (CLAUDE.md §6.4)
+- Migration: none. Nothing constructs one unless a class declares a gate.
+
+*Recorded by `24.10-02-the-declared-product-gate-runs-on-the-governed-path.md`.*
+
+#### ccf.products.contract.NO_PRODUCT_GATE
+
+- Surface: ccf.products.contract.NO_PRODUCT_GATE
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `DeclaredProductGate()` — the named positive assertion *this class holds itself to the SDK's universal gates and to nothing further*, in `NO_SERVE_OBLIGATIONS`' voice and never a blank
+- Why: every optional member of `ProductClassDeclaration` carries a named sentinel rather than a `None`, so an absent gate is a governance statement rather than an unfilled field
+- Migration: none.
+
+*Recorded by `24.10-02-the-declared-product-gate-runs-on-the-governed-path.md`.*
+
+#### ccf.products.gates.ProductInvariantRefusal
+
+- Surface: ccf.products.gates.ProductInvariantRefusal
+- Public surface: true
+- Change type: added
+- Before: absent — a deployment's own invariant could only raise out of the deployment's spine, which is not a governed refusal and reaches no replay record
+- After: the **seventh** `GateRefusal` subclass, adding one field, `gate_version`, beside the inherited `gate`. Its kind token is `product-invariant-refusal`, it maps to `409` at the HTTP door for `declared-obligation-refusal`'s reason, and it reaches replay through the resolver's existing `envelope_for` → `_record_refusal` path with no second recording path
+- Why: `D-IMPL-282` `R-11` — *"Add a distinct product-gate refusal kind so runtime gate failure is distinguishable in replay/audit."* Distinguishable is the whole point: the six universal kinds refuse on mechanism this SDK ships, and this one refuses on a predicate that lives in the deployment's tree
+- Migration: none. `run_gates` still returns `ServableProduct | GateRefusal` and its sequence is unchanged; a deployment that declares no gate never mints one.
+
+*Recorded by `24.10-02-the-declared-product-gate-runs-on-the-governed-path.md`.*
+
+#### ccf.products.resolver.ProductGateProtocol
+
+- Surface: ccf.products.resolver.ProductGateProtocol
+- Public surface: true
+- Change type: added
+- Before: absent — `D-IMPL-225` amendment 3 recorded that there was no `ProductGate` Protocol and no serve path for a declared gate, so a product's own invariant could only run in the deployment's own spine, outside the governed path and outside replay
+- After: a `runtime_checkable` Protocol on `AssemblyDebtScorerProtocol`'s shape — keyword-only, `candidate: ContextProductContract` and `evidence: ExecutionEvidence | None = None`, returning `str | None`. `None` admits; a non-empty string is the violation detail, which the resolver carries into `ProductInvariantRefusal.detail`. The callable never supplies an identity: the resolver stamps `gate` and `gate_version` from the class declaration
+- Why: `D-IMPL-282` `R-11` option 1a — *"Use a Protocol-typed callable supplied to `build_governed_resolver`, analogous to `debt_scorer`."* This supersedes the first two limbs of `D-IMPL-225` amendment 3 and no more
+- Migration: none. A deployment whose class declares no gate never implements it.
+
+*Recorded by `24.10-02-the-declared-product-gate-runs-on-the-governed-path.md`.*
+
+#### ccf.signal.acquisition.FileRecordAcquisitionSource
+
+- Surface: ccf.signal.acquisition.FileRecordAcquisitionSource
+- Public surface: true
+- Change type: added
+- Before: absent — the ingress seam shipped with an MCP adapter but no file-backed reference implementation, so a reader looking for "how do external records enter CCF" found a Protocol with one network-shaped implementer and concluded no acquisition boundary existed
+- After: a `SignalSourceProtocol` implementation reading a JSON array of source records and emitting one envelope per record, with the record verbatim in `raw_payload`, `observed_time` unset, a deterministic content-addressed `envelope_id`, and the acquisition parameters carried as constructor-side `selectors`
+- Why: CLAUDE.md §11 requires a reference implementation beside every Protocol, and `D-17` makes it this row's deliverable; it is also the offline half of the `R-09` evidence, replaying a captured live acquisition to the same 77/100 with no estate reachable
+- Migration: none — a new name, nothing removed or reshaped
+
+*Recorded by `24.10-03-the-acquisition-boundary-emits-envelopes.md`.*
+
+#### ccf.signal.acquisition.AcquisitionRecordError
+
+- Surface: ccf.signal.acquisition.AcquisitionRecordError
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: raised when a source document is unreadable, is not valid JSON, is not a JSON array, or carries a non-object member — naming the offending record's position
+- Why: a silently dropped record is a graph that is quietly incomplete, which is worse than a stream that stops; this is the same posture `McpMappingError` takes at the same seam (T-06-25). An empty *selection* is deliberately not an error — "no records matched" is an answer
+- Migration: none — a new name
+
+*Recorded by `24.10-03-the-acquisition-boundary-emits-envelopes.md`.*
+
+#### ccf.controlplane.artifacts.RequestBoundParameter
+
+- Surface: ccf.controlplane.artifacts.RequestBoundParameter
+- Public surface: true
+- Change type: added
+- Before: absent — there was no vocabulary anywhere in `src/ccf` joining a request parameter to an operator parameter, measured at this row
+- After: a two-member `CCFContract` carrying `source: Literal["effective_request"]` and `parameter: str`. One source member, spelled out rather than assumed, so a second source is a visible schema change with its own ruling. A blank parameter name is refused at construction
+- Why: `D-IMPL-295` — the SDK must provide a governed way for an effective request parameter to condition an operator parameter within a Control-Plane-declared envelope
+- Migration: none. Nothing constructs one unless a deployment declares it.
+
+*Recorded by `24.11-04-an-operator-parameter-may-be-request-bound.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -9738,7 +9846,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-377 entries — 193 public Python surface, 184 not public Python API.
+383 entries — 199 public Python surface, 184 not public Python API.
 
 ### Public Python surface
 
@@ -13824,6 +13932,78 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `24.7-04-the-replay-builder-requires-an-explicit-resolution-state.md`.*
 
+#### ccf.products.resolver.build_governed_resolver
+
+- Surface: ccf.products.resolver.build_governed_resolver
+- Public surface: true
+- Change type: reshaped
+- Before: `artifact_store`, `replay_record_class` and `query_pin_class` were required keyword arguments, and a deployment's replay wiring had to be spelled at every construction site
+- After: those three are optional, a fourth optional `artifact_store_root: Path | None` joins them, and a member the call omits is supplied by the deployment's declared `ccf.replay-binding` — per member, so a call naming one and omitting two takes the explicit one and two declared ones. When neither the call nor a declaration supplies a member the build raises `TypeError` naming both sources; when the binding supplies the store and no root was given it raises naming both; when the fabric declares more than one binding it raises naming every key holding one
+- Why: `D-IMPL-282` `R-12` option 2a — *"The `replay:` Control Plane section supplies defaults. Explicit constructor arguments override the declaration. No builder API break in 24.10. The declared binding must actually be consumed and exercised; declaration-only is insufficient."* The declaration is consumed here or it is not consumed at all
+- Migration: none. Every existing call passes all three and behaves exactly as before — including `ccf.client.adapters.inprocess`, which is the one shipped caller. `GovernedResolver` itself is untouched: its fields stay required and defaultless, and `tests/products/test_resolver_seam.py::test_no_constructor_argument_carries_a_default` passes unmodified.
+
+*Recorded by `24.10-01-the-control-plane-declares-the-replay-binding.md`.*
+
+#### ccf.controlplane.artifacts.DeploymentConfig
+
+- Surface: ccf.controlplane.artifacts.DeploymentConfig
+- Public surface: true
+- Change type: reshaped
+- Before: nine documented reserved section names, eight of them in `_RESERVED_SECTIONS`
+- After: ten documented reserved section names, nine of them in `_RESERVED_SECTIONS`; the new `replay: Mapping[str, Any] | None` field is hash-transparent (CINV-06, `D-IMPL-243`)
+- Why: the `replay:` section needs a slot on the closed-world authoring contract, and the field must be hash-transparent so no committed `ccf_config.yaml`'s content address — and therefore no deployment's pin identity — moves
+- Migration: none. A config with no `replay:` section parses, derives and hashes exactly as it did; measured by `tests/contracts/test_hash_transparency.py::test_a_config_naming_no_replay_binding_hashes_as_it_did`.
+
+*Recorded by `24.10-01-the-control-plane-declares-the-replay-binding.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: reshaped
+- Before: sixteen constructor arguments, none with a default
+- After: seventeen, still none with a default. The new `product_gate: ProductGateProtocol | None` is the deployment's implementation of its class's declared invariant, and `None` is the positive statement that the class declares none. It is invoked in `__call__` between `run_gates` returning a `ServableProduct` and `refuse_over_tolerance` withholding one, exactly once per determination
+- Why: `D-IMPL-282` `D-12` — *"It executes after candidate construction and before fitness/fulfillment."* Whether an answer is RIGHT is a different question from whether it is FIT, and the order between them is what keeps them two
+- Migration: every construction site must pass `product_gate` (`None` where no gate is declared), because this class is the auditable, defaultless composition. Callers reaching the fabric through `build_governed_resolver` are unaffected.
+
+*Recorded by `24.10-02-the-declared-product-gate-runs-on-the-governed-path.md`.*
+
+#### ccf.products.resolver.build_governed_resolver
+
+- Surface: ccf.products.resolver.build_governed_resolver
+- Public surface: true
+- Change type: reshaped
+- Before: nineteen keyword arguments, seven optional
+- After: twenty, eight optional. The new `product_gate: ProductGateProtocol | None = None` is threaded into both `GovernedResolver` constructions, and **both** halves of the declared-versus-supplied mismatch raise `TypeError` at build time: a class declaring a gate with no callable, and a callable against a class declaring none. Each message names the class key, the declared identity (or its absence) and the argument
+- Why: a declared check that nothing executes is *"a default that nothing exercises*, which *is a check that stops checking without going red"* — an audit would read the declaration as an invariant in force. The mirror refusal exists because a deployment predicate running in the determination path with no declared identity gives `D-14` nothing to name
+- Migration: none. `D-IMPL-282`'s *"no builder API break in 24.10"*: a class declaring no gate and a call naming none builds exactly what it built before, measured by `tests/products/test_resolver_defaults.py::test_a_class_declaring_no_gate_and_a_call_naming_none_is_unaffected`.
+
+*Recorded by `24.10-02-the-declared-product-gate-runs-on-the-governed-path.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: reshaped
+- Before: seventeen constructor arguments, none with a default. Four arrived as manifest keys; the deployment's debt profile was not among them, so the class held the routing state and never the binding
+- After: eighteen, still none with a default. The new `debt_profile_key: str | None` is the **fifth** manifest key, read off `BootedFabric.artifacts` like the other four rather than passed as an object — the class docstring's own rule, and the one that makes the profile served provably the one the manifest put in force. `None` is admissible and is the positive claim that this deployment declares no bands
+- Why: `D-IMPL-117` — the populate half of the binding the SDK owes. Read by key rather than object because the resolved value travels inside the content address, and `obligation_for` forbids a Control Plane *"latest"* for the same reason (`D-IMPL-26`)
+- Migration: every construction site must pass `debt_profile_key` (`None` where the deployment declares no profile), because this class is the auditable, defaultless composition. Callers reaching the fabric through `build_governed_resolver` are unaffected. Two sites in the tree moved: `tests/products/test_resolver_seam.py::_arguments` and `tests/products/test_evidence_derived_debt.py::_ask_the_empty_fabric`.
+
+*Recorded by `24.11-03-the-resolver-carries-the-declared-obligation.md`.*
+
+#### ccf.controlplane.artifacts.PolicyFilterParametersArtifact
+
+- Surface: ccf.controlplane.artifacts.PolicyFilterParametersArtifact
+- Public surface: true
+- Change type: reshaped
+- Before: `permitted_classifications: frozenset[str]` — a literal envelope and nothing else
+- After: `permitted_classifications: frozenset[str] | RequestBoundParameter`. A bare sequence is the literal variant and reads exactly as it always did; a mapping is the binding. **The two are variants of one field, so "a literal plus an independent binding" has no spelling** — which is what keeps an empty literal honest: `permitted_classifications: []` still means *admit nothing* and acquires no magical second reading (`D-IMPL-288`, Dave: *"Do not preserve the empty-list idiom by making it magical."*)
+- Why: the artifact that owns the value declares how the value is obtained. Splitting one semantic value across two authority sites is the defect `24.11-02b` had just finished removing (`D-IMPL-292`)
+- Migration: none for a literal declaration, and every shipped declaration is literal. Verified: a bare list still parses to the frozenset it always did.
+
+*Recorded by `24.11-04-an-operator-parameter-may-be-request-bound.md`.*
+
 ### Not public Python API
 
 #### tools/lints/__main__.py
@@ -16241,7 +16421,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-139 entries — 119 public Python surface, 20 not public Python API.
+142 entries — 122 public Python surface, 20 not public Python API.
 
 ### Public Python surface
 
@@ -19114,6 +19294,42 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   the resolution that ran, which is the record the SDK would have written
 
 *Recorded by `24.7-09-replay-verifies-the-not-applicable-claim.md`.*
+
+#### ccf.signal (package docstring)
+
+- Surface: ccf.signal
+- Public surface: true
+- Change type: behavior
+- Before: the package docstring said concrete adapters "live in the runtime package", which was already inaccurate (`ccf.signal.mcp_source` is one), and named no acquisition boundary
+- After: it names `SignalSourceProtocol` as the SDK's acquisition boundary, cites `D-IMPL-282`, and points at the two reference implementations that ship beside the seam
+- Why: this *is* finding `24.10-F-04`. A Protocol nobody could find is a different defect from a Protocol that does not exist, and the fix for the first is a docstring an author will actually reach
+- Migration: none — documentation only; no name, signature or behavior moved
+
+*Recorded by `24.10-03-the-acquisition-boundary-emits-envelopes.md`.*
+
+#### ccf.products.resolver.build_governed_resolver
+
+- Surface: ccf.products.resolver.build_governed_resolver
+- Public surface: true
+- Change type: behavior
+- Before: twenty-one keyword arguments, twelve optional — unchanged, and unchanged by this row. Supplying `debt_scorer` together with **any** of the four `DEBT_SCORER_INPUTS`, `debt_profile_key` included, raised `TypeError` as mutually exclusive
+- After: the same signature. The exclusion now reads `_SCORER_ONLY_INPUTS` — `half_life_key`, `declared_completeness`, `declared_semantic_consistency` — so a deployment may supply its own scorer **and** name its bands. `DEBT_SCORER_INPUTS` is unchanged in membership and meaning: the reference scorer still needs all four, and the no-scorer path still refuses a call omitting any of them
+- Why: the exclusion's own stated ground is *"the material for building the reference would be read by nothing"*, which stopped being true of the profile the moment the obligation seam read it. The two are alternatives about **scoring** and never about the **declaration**
+- Migration: none, and none is possible in the refusing direction — the change only admits calls that previously raised. A deployment that supplies a scorer and wants its declared obligation carried adds `debt_profile_key`; one that does not is unaffected.
+
+*Recorded by `24.11-03-the-resolver-carries-the-declared-obligation.md`.*
+
+#### ccf.deployment.build_operator_registry
+
+- Surface: ccf.deployment.build_operator_registry
+- Public surface: true
+- Change type: behavior
+- Before: signature unchanged, and unchanged by this row. A `PolicyFilterParametersArtifact` was converted to `PolicyFilterParameters` field by field
+- After: same signature. An **unresolved** `RequestBoundParameter` reaching the builder is refused by name, naming the key and the bound parameter. A registry built directly has no request and therefore cannot honor a binding
+- Why: mypy found this, and it is the invariant beneath the whole row. Narrowing it with a cast would hand `PolicyFilter` a declaration object where it expects the set it filters on — an operator admitting **nothing** while looking fully configured, which is precisely the silent failure `PolicyFilterParametersArtifact`'s own docstring exists to prevent
+- Migration: none. Only a caller that both declares a binding and bypasses `GovernedResolver` can reach it, and that caller was previously producing the silent failure above.
+
+*Recorded by `24.11-04-an-operator-parameter-may-be-request-bound.md`.*
 
 ### Not public Python API
 

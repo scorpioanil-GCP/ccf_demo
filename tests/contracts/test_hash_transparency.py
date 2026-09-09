@@ -302,6 +302,21 @@ _MARKED_IN_THE_TREE = frozenset(
         # default rather than ceiling.
         "ccf.products.contract.ServeObligations.default_debt_tolerance",
         "ccf.products.contract.ServeObligations.lineage_inputs_at",
+        # `24.10-02` / `R-11` (`D-IMPL-282` option 1a): the class's own
+        # declared runtime invariant, by governed identity. All three are
+        # `True` and the reason is measured rather than assumed by
+        # `test_each_marked_model_at_its_sentinel_hashes_as_the_base_tree_did`
+        # over `ProductClassDeclaration`: a class declaring no gate must
+        # canonicalize byte-identically to the same class before the member
+        # existed, because pin identity IS content identity and every
+        # committed declaration in this tree — and every adopter's — would
+        # otherwise move. The two inner members are `True` on the
+        # `ccf.products.provenance` precedent as well: a brand-new model has
+        # no earlier generation to be a boundary against, and the sentinel
+        # form has nothing to say under either key.
+        "ccf.controlplane.artifacts.ProductClassDeclaration.declared_product_gate",
+        "ccf.products.contract.DeclaredProductGate.gate_id",
+        "ccf.products.contract.DeclaredProductGate.gate_version",
         # 24.6-05: the search behind an empty answer (`24.6-L-06`,
         # `D-IMPL-242` amendment 1). `None` is "no operator returned empty",
         # which is what every product assembled before the field existed was
@@ -376,6 +391,13 @@ _MARKED_IN_THE_TREE = frozenset(
         # below hashes a config at the sentinel against the same document
         # without the key.
         "ccf.controlplane.artifacts.DeploymentConfig.policy_constraints",
+        # `24.10-01` / `R-12`: the tenth reserved section name (the ninth
+        # `_RESERVED_SECTIONS` entry). ``True`` for exactly the reason above
+        # and measured the same way, by
+        # `test_a_config_naming_no_replay_binding_hashes_as_it_did`: every
+        # `ccf_config.yaml` already written declares no replay binding, and a
+        # rendered ``replay: null`` would move all of their pins.
+        "ccf.controlplane.artifacts.DeploymentConfig.replay",
         # 24.6-07: the refusal shell's six governance members (``24.6-L-08``,
         # ``D-IMPL-253`` Q13/Q14, ``D-IMPL-256`` (1)). Each sentinel is what
         # every shell minted before this row was already saying — nothing
@@ -705,6 +727,51 @@ def test_a_product_with_no_finding_hashes_as_it_did() -> None:
     assert b"computed_empty" in canonical_bytes(carrying)
 
 
+def test_a_class_declaring_no_product_gate_hashes_as_it_did() -> None:
+    """``24.10-02`` / ``R-11``: the declared product gate is additive, measured.
+
+    The base-tree digest above already carries the strong half — the
+    ``ProductClassDeclaration`` row of :data:`_BASE_TREE_DIGESTS` is the
+    ``13bd250`` figure and it must still reproduce with this member in the
+    model. This test carries the two halves that digest cannot state: that the
+    key is **absent** from a silent declaration's bytes rather than merely
+    hashing the same by coincidence, and the positive control — a declaration
+    that DOES declare a gate moves, and the key appears.
+
+    Why it matters more here than for a member nobody has authored yet: every
+    committed product-class document in this tree declares no gate, and pin
+    identity IS content identity (``src/ccf/deployment/pins.py::ArtifactPin``).
+    A rendered ``declared_product_gate: {}`` would move every one of those
+    pins, and cp-05's declarations — read under the Phase 24.10 boundary and
+    never edited — are among them.
+    """
+    from ccf.controlplane.artifacts import ProductClassDeclaration
+    from ccf.products.contract import DeclaredProductGate
+
+    silent = ProductClassDeclaration(
+        semver="1.0.0",
+        schema_name="s",
+        schema_version="1.0.0",
+        ttl_anchor="from_decision",
+        assembly_mode="algorithmic",
+        max_ttl_key="k",
+        required_operator_keys=("o",),
+    )
+    assert content_hash(silent) == _BASE_TREE_DIGESTS["ProductClassDeclaration"]
+    assert b"declared_product_gate" not in canonical_bytes(silent)
+
+    declaring = silent.model_copy(
+        update={
+            "declared_product_gate": DeclaredProductGate(
+                gate_id="fixture.reconciliation-guard", gate_version="1.0.0"
+            )
+        }
+    )
+    assert content_hash(declaring) != content_hash(silent)
+    assert b"declared_product_gate" in canonical_bytes(declaring)
+    assert b"fixture.reconciliation-guard" in canonical_bytes(declaring)
+
+
 def test_a_refusal_shell_at_its_sentinels_hashes_as_it_did() -> None:
     """``24.6-07``: the six shell members are additive by measurement.
 
@@ -784,6 +851,15 @@ def test_a_config_naming_no_constraints_hashes_as_it_did() -> None:
     canonical form renders fields and never a class name, so a dict of the
     same fields hashes as the model did. The positive control is the second
     assertion — a config that DOES name a constraint moves.
+
+    **Every hash-transparent section is removed from the "before" side, not
+    only this one** (`24.10-01`). The comparison's subject is *a config at its
+    sentinels renders as the pre-field form did*, and a later transparent
+    section — `replay`, under `R-12` — is absent from a `24.6`-era document
+    for the same reason `policy_constraints` is. Reading the exclusion set off
+    the declarations rather than naming one field is what stops the next
+    transparent section turning this measurement red without anything having
+    gone wrong.
     """
     from ccf.controlplane.artifacts import DeploymentConfig
 
@@ -792,10 +868,12 @@ def test_a_config_naming_no_constraints_hashes_as_it_did() -> None:
         backend="sqlite",
         product_class={"schema_name": "fixture.product"},
     )
+    transparent = hash_transparent_fields(DeploymentConfig)
+    assert "policy_constraints" in transparent, transparent
     before = {
         name: getattr(silent, name)
         for name in DeploymentConfig.model_fields
-        if name != "policy_constraints"
+        if name not in transparent
     }
     assert content_hash(silent) == content_hash(before)
 
@@ -805,3 +883,48 @@ def test_a_config_naming_no_constraints_hashes_as_it_did() -> None:
     assert content_hash(naming) != content_hash(silent)
     assert b"policy_constraints" in canonical_bytes(naming)
     assert b"policy_constraints" not in canonical_bytes(silent)
+
+
+def test_a_config_naming_no_replay_binding_hashes_as_it_did() -> None:
+    """`24.10-01` / `R-12`: the tenth reserved section name is additive.
+
+    The sibling of :func:`test_a_config_naming_no_constraints_hashes_as_it_did`
+    and measured the same way, because the claim that matters is the same one:
+    **a config declaring no replay binding hashes exactly as the same config
+    hashed before the field existed**, which is what keeps every committed
+    `ccf_config.yaml`'s pin identity intact — pin identity IS content identity
+    (`src/ccf/deployment/pins.py::ArtifactPin`).
+
+    The "before" side is rendered by hand with the new key removed, on that
+    test's reasoning: the canonical form renders fields and never a class name.
+    The positive control is the second half — a config that DOES declare a
+    binding moves, and the key appears in its bytes.
+    """
+    from ccf.controlplane.artifacts import DeploymentConfig
+
+    silent = DeploymentConfig(
+        semver="1.0.0",
+        backend="sqlite",
+        product_class={"schema_name": "fixture.product"},
+    )
+    transparent = hash_transparent_fields(DeploymentConfig)
+    assert "replay" in transparent, transparent
+    before = {
+        name: getattr(silent, name)
+        for name in DeploymentConfig.model_fields
+        if name not in transparent
+    }
+    assert content_hash(silent) == content_hash(before)
+
+    declaring = silent.model_copy(
+        update={
+            "replay": {
+                "record_class": "fixture.replay-record",
+                "query_pin_class": "fixture.graph-query",
+                "store_dirname": "artifacts-store",
+            }
+        }
+    )
+    assert content_hash(declaring) != content_hash(silent)
+    assert b"replay" in canonical_bytes(declaring)
+    assert b"replay" not in canonical_bytes(silent)

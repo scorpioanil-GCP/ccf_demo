@@ -1,0 +1,90 @@
+==============================================================================
+  credit-risk.exposure-rollup v1.0.0
+  REGIS CORP  (5493000Q1S5TJIDIQH89)
+==============================================================================
+
+  intent            group-limit-test   [policy limit_definition/group-limit-test]
+  limit definition  counts_guarantees=True  counts_undrawn=True  basis=control
+  request           depth=3  materiality=0.05  basis=both  guarantees=True  cross_default=True
+  effective         depth=3(default)  materiality=0.05(default)
+
+  FAMILY
+    77 nodes reached at depth 3; 19 carry an LEI; 5 hold a material facility book
+
+  EXPOSURE                     committed        outstanding           undrawn
+    gross              10,125,000,000      7,456,090,501     1,656,400,215
+    adjusted            9,325,000,000      6,870,556,262     1,449,221,862
+    guarantee dedup      -800,000,000   (1 case(s), 7.90% of gross)
+
+  WHAT THE DEDUP REMOVED — the step that makes the answer correct
+    5493000Q1S5TJIDIQH89 guarantees 5493002H8U24DJXQ4886 at 1
+      -> 800,000,000 counted once, not twice
+
+  MATERIAL ENTITIES
+    AVIS BUDGET GROUP, INC.             4 fac     3,950,000,000
+    Celanese Corp                       2 fac     1,800,000,000
+    RB GLOBAL INC.                      2 fac       800,000,000
+    XPO, Inc.                           3 fac     3,430,000,000
+
+  CONNECTED WITHOUT EXPOSURE — what a borrower-keyed sum cannot reach
+    14 family members are bound by ownership, guarantee or
+    cross-default and hold no facility of their own.
+
+  CONTEXT DEBT — confidence in the assembled truth, not in the projection
+    debt 1.0000   signal fail_closed
+    freshness   0E-18    from 15 real balance_as_of dates
+    completeness 0.2467  19/77 family members carry an LEI and can be checked
+    consistency  1       0 of 5 reconciliations used here disagree
+
+  RECONCILIATION — the anchor's own book against XBRL-reported debt
+    anchor committed 145,000,000  reported debt 293,800,000  share 0.494  plausible=True
+
+  FINDINGS
+    [guarantee-dedup-applied]
+      5493000Q1S5TJIDIQH89 guarantees 5493002H8U24DJXQ4886 at 1; 800000000
+      removed from committed
+    [connected-without-exposure]
+      14 family members are bound by ownership, guarantee or cross-default
+      and hold no facility. A borrower-keyed sum cannot reach them.
+
+  LINEAGE
+    operators   policy.principal-subgraph -> traversal.typed-neighborhood -> Resolve -> Enrich -> Aggregate
+    ledger      fibo-v2
+    policy      limit_definition/group-limit-test
+    asked_at    2026-09-07T12:00:00+00:00
+    expires_at  2026-09-07T16:00:00+00:00
+
+  content address  db7f2038a68ca1dba074703a576a9a6ea8a957ac28b79b34b0c42a83e6c50cbd
+
+  DECISION REPLAY — written BEFORE the response was released
+    outcome     withheld   (21119 bytes persisted)
+    record      107077e3afff3cd4afd1e436d6d768c0df6caf76a4b7cbe257427cd68b55944c
+    1 fabric    boundary 2026-09-07T12:00:00+00:00  touched 77 entities
+    2 policy    policy@31805dcb4235bba5d8a915a628db906f30e524331b1219ae9a3cee7b5e6e4b09
+    2 policy    limit_definition@limit_definition/group-limit-test
+    2 policy    effective request recorded: True
+    3 model     assembly_mode=algorithmic  model=none
+    4 role      PRIN-CRO-001 / credit-officer
+    5 content   plan cp-05.exposure-rollup/materiality=0.05
+    5 content   product address no-product-address
+    5 content   debt 1.000  refusal recorded: True
+
+    WHAT REPLAY RE-ASKS — the EFFECTIVE question, not the caller's
+      basis                  both [default]
+      debt_tolerance         0.25 [default]
+      depth                  3 [default]
+      follow_cross_default   True [default]
+      follow_guarantees      True [default]
+      materiality            0.05 [default]
+
+------------------------------------------------------------------------------
+  FULFILLMENT  WITHHELD  D_c 1.000 > tolerance 0.25 (default)
+    the product was constructible; fulfillment was withheld because an
+    applicable declared tolerance (default) of 0.25 was exceeded by the
+    observed Context Debt 1.000000000000000000000000000 (whitepaper
+    §7.7.4–§7.7.8; 24.6-L-05)
+
+    The determination above is NOT withdrawn. The product passed every
+    validation gate and exists; what is withheld is the fabric's
+    attestation that it is fit for this consumer to act on.
+==============================================================================

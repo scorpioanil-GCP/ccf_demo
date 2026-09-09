@@ -206,6 +206,15 @@ EXTERNAL_STATEMENTS: Final[Mapping[str, str]] = {
     "declared-obligation-refusal": (
         "an obligation the product class declares was not satisfied"
     ),
+    # `24.10-02` / `R-11`. The sentence names the FACT and not the invariant:
+    # what the deployment's gate checks is the deployment's vocabulary, and a
+    # sentence that paraphrased it would put a product's own logic on a
+    # consumer boundary. Which gate is the promoted `reason`, which crosses at
+    # every level, so a consumer can name what refused without this string
+    # having to describe it.
+    "product-invariant-refusal": (
+        "an invariant the product class declares does not hold for this product"
+    ),
     # Q10's own sentence, Dave verbatim: "I would not make the shell itself
     # imply that Debt is invalid; the product was constructible, but
     # fulfillment was withheld because an applicable declared tolerance was
@@ -308,6 +317,14 @@ PERMITTED_AT_MINIMAL: Final[Mapping[str, frozenset[str]]] = {
     # The obligation and what the class declares are actionable; what was
     # observed is fabric state.
     "declared-obligation-refusal": frozenset({"obligation", "declared"}),
+    # `24.10-02` / `R-11`: nothing. The kind declares one field, the gate's
+    # declared LANE, and it fails this table's rule on both halves — a caller
+    # can do nothing with a version, and it states nothing the caller must
+    # satisfy. It is not withheld because it is dangerous; it is withheld
+    # because the rule admits a field only when it is actionable, and an
+    # examiner who needs the lane reads the decision record, where `D-14` is
+    # actually discharged, rather than the shell that crossed a boundary.
+    "product-invariant-refusal": frozenset(),
     # Q10 by name: "Preserve which authority established the tolerance." The
     # tolerance itself is the bound the caller must satisfy. The observed D_c
     # and its breakdown are the fabric's own measurement.

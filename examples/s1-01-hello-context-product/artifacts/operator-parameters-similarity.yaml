@@ -28,17 +28,27 @@
 #     REFUSED at registry-build time. Refuse, never repair: skipping it would be
 #     a governed omission produced by no rule anyone wrote down.
 #
-# The corpus's version identity is not here. It is a property of the graph state
-# at a named boundary, not of these parameters, so the deployment assigns it
-# alongside the boundary (see `product-governance.yaml`) — INV-CH7-27.
+# `index_version` — the corpus's version identity — IS here, as of `24.11-02b`
+# (`D-IMPL-292`). It used to be declared in `product-governance.yaml`, an
+# adopter-namespaced document the SDK cannot interpret, and carried to
+# `build_operator_registry` by hand in `deployment.py` and `spine.py`. Dave
+# ruled that wrong: *"it must not remain an ungoverned deployment-supplied
+# semantic value"*, and *"declaration owns the version -> resolver consumes it
+# -> deployment supplies the implementation, not an alternate semantic
+# version."* It sits beside the corpus map for the same reason the corpus map
+# sits here: both are read at index CONSTRUCTION, before the operator exists.
+#
+# Declared here, it is content-hashed into a registered artifact — so
+# re-authoring the corpus identity necessarily shows up as a changed pin in
+# replay dimension 2 (INV-CH7-27). Declared in code, it showed up nowhere.
 #
 # [ADAPT] domain vocabulary — safe to change for your domain
 # [MECHANISM] structural keys interpreted by the factory — do not rename
 #
 # In this file: the query text, the threshold, every entity class name and the
 # attribute name are [ADAPT]; the keys `query`, `minimum_score_percent`,
-# `ranked_entity_classes` and `similarity_corpus_attribute_by_class` are
-# [MECHANISM].
+# `ranked_entity_classes`, `similarity_corpus_attribute_by_class` and
+# `index_version` are [MECHANISM].
 
 semver: "1.0.0"
 
@@ -51,3 +61,9 @@ ranked_entity_classes:
 # The attribute the screening corpus is built from, per ranked class.
 similarity_corpus_attribute_by_class:
   screening_candidate: screening_legal_name
+
+# What THIS deployment calls the corpus state above. Re-author it when the
+# screening corpus changes; the SDK will not mint one, because a version it
+# derived from this document's own pin would be identical across two different
+# corpus boundaries — precisely the identity replay needs to tell apart.
+index_version: "fibo-kyc-screening-corpus@2026-08-01"
