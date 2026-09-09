@@ -133,12 +133,15 @@ the finding set.
   seam exists, is documented, and Dave names it by name.
 * ``product_gate`` — **extension point as of wave 2**, and it works: test 4
   below is ``R-11``'s seam carrying cp-05's own declared invariant.
-* :func:`bound_policy_envelope` — **a measurement device and not a proposal.**
-  It performs the same substitution cp-05's own ``populate_and_traverse``
-  performs, so the walls behind ``24.10-F-11`` are observable. It changes no
-  shipped module, it is not the fix, and
-  :func:`test_the_canonical_path_serves_cp05s_declared_family` runs
-  **unbridged** and is what says the wall is real.
+* ``bound_policy_envelope`` — **GONE at** ``24.11-04``, and its deletion is the
+  finding's closure rather than tidying. It was a measurement device that
+  performed the same runtime substitution cp-05's own ``populate_and_traverse``
+  performs, so the wall behind ``24.10-F-11`` was observable. cp-05 now
+  DECLARES the binding (``ccf_config.yaml``'s ``permitted_classifications:
+  {source: effective_request, parameter: families}``), the SDK resolves it
+  against the governed effective request, and there is nothing left for a
+  bridge to bridge. The workaround is deleted **because the SDK made it
+  unnecessary** — never relocated (``D-IMPL-289``).
 
 Offline by construction
 -----------------------
@@ -554,39 +557,10 @@ def reconciliation_gate(
     return None
 
 
-def bound_policy_envelope(booted: BootedFabric) -> PolicyFilterParametersArtifact:
-    """This request's family, bound onto cp-05's declared policy envelope.
-
-    **A measurement device and not a proposal.** It performs exactly the
-    substitution ``examples/cp-05-credit-exposure-rollup/deployment.py::
-    populate_and_traverse`` already performs — *"BIND THIS REQUEST'S FAMILY
-    ONTO THE DECLARED POLICY ENVELOPE. The declaration is empty on purpose and
-    admits nothing; the substitution is what makes it admit THIS family and no
-    other."* — so that whatever lies behind ``24.10-F-11`` is observable.
-
-    It changes no shipped module and it is **not the fix**: `D-IMPL-282`'s *"No
-    broader API redesign is authorized up front"* means the seam these figures
-    earn is Dave's ruling to make, and
-    :func:`test_the_canonical_path_serves_cp05s_declared_family` runs
-    **unbridged** and is what says the wall is real.
-    """
-    declared = booted.artifacts[POLICY_OPERATOR_KEY]
-    assert isinstance(declared, PolicyFilterParametersArtifact)
-    assert not declared.permitted_classifications, (
-        "cp-05's own premise has moved: its declared policy envelope is no"
-        " longer empty, so there is nothing for a per-request binding to bind"
-    )
-    return declared.model_copy(
-        update={"permitted_classifications": frozenset({FAMILY})}
-    )
-
-
 def _resolver(
     fabric: Fabric,
     *,
     measures: Mapping[str, int],
-    bind_family: bool,
-    monkeypatch: pytest.MonkeyPatch | None = None,
 ) -> GovernedResolver:
     """cp-05's declarations through ``build_governed_resolver``.
 
@@ -594,19 +568,6 @@ def _resolver(
     ``replay_record_class``, no ``query_pin_class`` and no ``artifact_store``,
     so wave 1's declared binding is what supplies all three.
     """
-    if bind_family:
-        assert monkeypatch is not None
-        bound = bound_policy_envelope(fabric.booted)
-        traversal = fabric.booted.artifacts[TRAVERSAL_OPERATOR_KEY]
-        monkeypatch.setattr(
-            GovernedResolver,
-            "_operator_parameters",
-            lambda self: {
-                POLICY_OPERATOR_KEY: bound,
-                TRAVERSAL_OPERATOR_KEY: traversal,
-            },
-        )
-
     def plan_factory(*, required: tuple[str, ...], request: ProductRequest) -> Any:
         return RollupPlan(
             plan_id=f"cp-05.exposure-rollup/{request.subject}",
@@ -776,20 +737,6 @@ def test_cp05s_declarations_boot_and_populate_offline(fabric: Fabric) -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "24.10-F-11: GovernedResolver reads its operator-parameters artifacts"
-        " verbatim off BootedFabric.artifacts by key, with no request in"
-        " scope, so a deployment whose declared operator envelope is bound PER"
-        " REQUEST has no seam. cp-05 declares permitted_classifications: [] on"
-        " purpose and binds the family per question; on the canonical path the"
-        " empty declaration stands, the policy operator admits nothing, the"
-        " traversal chains from its empty output, and a product describing a"
-        " family of 0 is SERVED over an L3 holding 77 entities and 100"
-        " relationship claims with every universal gate green"
-    ),
-)
 def test_the_canonical_path_serves_cp05s_declared_family(fabric: Fabric) -> None:
     """Adoption requires the canonical path to answer cp-05's own question.
 
@@ -810,7 +757,6 @@ def test_the_canonical_path_serves_cp05s_declared_family(fabric: Fabric) -> None
             "gross_committed": CP05_GROSS_COMMITTED,
             "adjusted_committed": CP05_ADJUSTED_COMMITTED,
         },
-        bind_family=False,
     )
     served = _ask(fabric, resolver)
 
@@ -834,15 +780,20 @@ def test_the_canonical_path_serves_cp05s_declared_family(fabric: Fabric) -> None
         " nowhere for that binding to go"
     )
 
+    # `24.11-04` — UN-QUARANTINED, and the assertion above is the one it
+    # carried. It held `xfail(strict=True)` for `24.10-F-11` and XPASSed the
+    # moment cp-05 could DECLARE its per-request envelope and the resolver
+    # could honor it. Nothing here was weakened to make it pass: the same
+    # comparison against the same measured family size now reads 77 where it
+    # read 0, because the declaration changed and the SDK learned to read it.
+
 
 # ---------------------------------------------------------------------------
 # 4 — `R-11`'s seam, live on cp-05's path, with its positive control.
 # ---------------------------------------------------------------------------
 
 
-def test_the_gate_seam_is_live_on_cp05s_path(
-    fabric: Fabric, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_the_gate_seam_is_live_on_cp05s_path(fabric: Fabric) -> None:
     """cp-05's fourth validation gate, running as a governed refusal.
 
     Both directions, because a gate observed only in its firing state is a gate
@@ -853,10 +804,11 @@ def test_the_gate_seam_is_live_on_cp05s_path(
       class declared — not an exception out of a deployment's spine;
     * over cp-05's shipped figures it does not fire, and a product is served.
 
-    Run with :func:`bound_policy_envelope` in force, so the gate is held
-    against a candidate assembled over a real family rather than over the empty
-    one ``24.10-F-11`` produces. The bridge is a measurement device; test 3 is
-    the unbridged measurement.
+    Ran with a bridge in force until ``24.11-04``, so the gate was held against
+    a candidate assembled over a real family rather than over the empty one
+    ``24.10-F-11`` produced. The bridge is gone and nothing replaced it: cp-05
+    declares the binding and the resolver honors it, so this now runs on the
+    ordinary governed path like every other test here.
     """
     refusing = _resolver(
         fabric,
@@ -864,8 +816,6 @@ def test_the_gate_seam_is_live_on_cp05s_path(
             "gross_committed": DOUBLE_SUBTRACTED_GROSS,
             "adjusted_committed": CP05_ADJUSTED_COMMITTED,
         },
-        bind_family=True,
-        monkeypatch=monkeypatch,
     )
     refused = _ask(fabric, refusing)
 
@@ -899,8 +849,6 @@ def test_the_gate_seam_is_live_on_cp05s_path(
             "gross_committed": CP05_GROSS_COMMITTED,
             "adjusted_committed": CP05_ADJUSTED_COMMITTED,
         },
-        bind_family=True,
-        monkeypatch=monkeypatch,
     )
     served = _ask(fabric, admitting)
 

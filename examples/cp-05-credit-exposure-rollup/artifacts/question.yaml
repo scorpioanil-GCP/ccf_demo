@@ -120,6 +120,20 @@ declaration:
     # `counts_undrawn=false`, which is only observable when both bases ship.
     basis: both
 
+    # THE FAMILIES THIS DETERMINATION MAY ADMIT — `D-IMPL-295`, `24.10-F-11`.
+    #
+    # REQUIRED, with no default anywhere, on `intent`'s reasoning. A defaulted
+    # families list would grant scope nobody declared, and an empty one would
+    # restore the family of 0 the fabric honestly served while
+    # `ccf_config.yaml` declared `permitted_classifications: []`.
+    #
+    # A LIST BECAUSE THE ENVELOPE IS A SET. It binds to the policy operator's
+    # `permitted_classifications` through the declaration in `ccf_config.yaml`;
+    # the SDK supplies the governed effective value and converts nothing, so a
+    # bare string would be refused rather than widened.
+    families:
+      - cp05-acquisition-boundary
+
   # DECLARED AND INERT — spec §B.4.
   #
   # `as_of` is refused rather than silently ignored. This product's TTL is

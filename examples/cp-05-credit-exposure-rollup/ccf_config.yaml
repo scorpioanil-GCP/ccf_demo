@@ -55,7 +55,27 @@ operators:
     classification_attribute_by_class:
       exposure_anchor: family_id
       exposure_member: family_id
-    permitted_classifications: []
+    # DECLARED AS REQUEST-BOUND, which is what this deployment always meant and
+    # previously could not say (`24.10-F-11`, `D-IMPL-295`). The envelope is not
+    # a constant: which family a determination may admit is knowable only per
+    # request, so the value is supplied by the GOVERNED EFFECTIVE request — the
+    # caller's `families` after class defaults, policy bounds and technical
+    # capabilities have been folded, never the raw caller value.
+    #
+    # This REPLACES `permitted_classifications: []`, and the replacement is the
+    # point rather than a spelling change. The empty list was valid and it meant
+    # what it said — ADMIT NOTHING — so the fabric honestly served a family of 0
+    # over an L3 holding 77 entities, and `deployment.py` substituted a family
+    # into the resolved artifact at runtime to get an answer. That substitution
+    # was an ungoverned write to a Control Plane declaration: invisible to the
+    # pins and to replay. The binding makes the same intent a declaration.
+    #
+    # A literal and a binding cannot both be written here — they are two
+    # variants of one field — so `[]` keeps its honest meaning for every
+    # deployment that means it.
+    permitted_classifications:
+      source: effective_request
+      parameter: families
 
   # THE FOUR PREDICATE TYPES OF THE ONE WALK — spec §D.3 step 3. Declared here
   # so the operator the fabric registers and the walk the assembler issues are
@@ -129,6 +149,19 @@ request_contract:
           `committed`, `outstanding` or `both`. `both` is the default and is
           what makes the undrawn column meaningful — `internal-appetite` sets
           `counts_undrawn=false`, which is only observable when both bases ship.
+      families:
+        type: array
+        description: >-
+          the corporate families this determination may admit, supplied by the
+          caller and folded through `resolve_effective_request` before it
+          reaches the policy operator (`D-IMPL-295`). AN ARRAY AND NOT A
+          STRING, and the plural is not cosmetic: it binds to
+          `permitted_classifications`, which is a SET, and the SDK supplies a
+          bound value without converting it — a scalar widened to a
+          one-element set would be a transform, and the binding performs none.
+          Two families are two parameter-set hashes and therefore two content
+          addresses, so the replay record says WHICH families a decision
+          admitted rather than leaving it to be inferred from the payload.
     # NO `required` ENTRIES. `lei` and `intent` are NOT arguments: they are
     # TOP-LEVEL fields of `ccf.products.request::ProductRequest` (`subject` and
     # `intent`), and the SDK REFUSES a contract that declares either under
@@ -138,7 +171,16 @@ request_contract:
     # amendment 1 F-2). An earlier draft of this document declared both and was
     # refused at construction. Every remaining argument carries a declared
     # default, so none is required.
-    required: []
+    #
+    # `families` IS REQUIRED, and it is the one exception (`D-IMPL-295`). Every
+    # other argument has an author's default because a caller who says nothing
+    # still asks a well-formed question. There is no honest default here: the
+    # SDK cannot invent which family a caller may see, and a default that
+    # admitted some family would grant scope nobody declared, while one that
+    # admitted none would restore the family-of-0 this binding exists to end.
+    # So the question is malformed without it, and it is refused by name.
+    required:
+      - families
 
   # READ FROM THE DECLARATION, NEVER INVENTED AT SERVE TIME. The vault declares
   # each of these; this deployment does not recalibrate them.
