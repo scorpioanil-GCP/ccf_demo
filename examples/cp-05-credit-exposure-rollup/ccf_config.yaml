@@ -26,6 +26,22 @@ product_class:
     gate_id: cp-05.reconciliation-guard
     gate_version: "1.0.0"
 
+  # THE PRODUCT'S DEFAULT FITNESS BAR — one authority, and it is this one.
+  #
+  # `D-IMPL-251` C1=A: a class's `default_debt_tolerance` is a declared
+  # CHARACTERISTIC that reaches the Authority layer as a DEFAULT under the
+  # SDK's own parameter name — never as a ceiling. So the governed chain is
+  # policy boundary > caller value > product default, and a consumer may
+  # specialize their own fitness bar without changing this product.
+  #
+  # It lives HERE and not in `request_contract.argument_defaults` because the
+  # value is consumed INSIDE the governed determination: `refuse_over_tolerance`
+  # compares assessed Context Debt against it. A default the SDK cannot read is
+  # a default that does not govern — measured, it served a D_c of 1.000 that
+  # should have been withheld.
+  serve_obligations:
+    default_debt_tolerance: "0.25"
+
   # THE ANCHOR FLIPS AT THIS RUNG — spec §B.1 element 3, `artifacts/ttl.yaml`.
   # `from_decision`, against rungs 02 and 04's `from_entity_freshness`. An
   # exposure is scoped to the decision taken against it; no entity's validity
@@ -203,7 +219,10 @@ request_contract:
   argument_defaults:
     # THE AUTHOR'S DEFAULT FITNESS BAR, not the product's truth. A consumer who
     # says nothing is treated as requiring a reasonably trustworthy answer.
-    debt_tolerance: "0.25"
+    # `debt_tolerance` IS DELIBERATELY ABSENT HERE — one product-default
+    # authority, declared on `product_class.serve_obligations` above where the
+    # SDK reads it. Two independent defaults for one parameter is the
+    # duplication this migration exists to remove.
     depth: 3
     materiality: "0.05"
     follow_guarantees: true
