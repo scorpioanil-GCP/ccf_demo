@@ -3729,7 +3729,10 @@ making six XFAILs turn green."* The two evidence modules each carry exactly **on
 the harness supplying a capability the SDK lacks:
 
 - `tests/products/test_cp05_canonical_path.py::_resolver` patches `GovernedResolver._operator_parameters` (`F-11`)
-- `tests/examples/test_s1_01_governed_resolver_adoption.py::bridged_resolver` patches `build_operator_registry` (`F-06`)
+- ~~`tests/examples/test_s1_01_governed_resolver_adoption.py` patched `build_operator_registry` (`F-06`)~~ —
+  **DELETED at `0c5ea162` (row 2), because the SDK now propagates `similarity_index_version` itself.** The
+  fixture survives as `…::adopted_resolver`, wiring the resolver the way a deployment actually would. **Half
+  the success signal is discharged.**
 
 Legitimate as measurement devices in a diagnostic phase — bridging one wall makes the walls behind it observable.
 **In 24.11 they are the failure mode: keep the bridges, turn the tests green, and the SDK gains nothing while

@@ -85,7 +85,7 @@ redesign is authorized up front"* is why it was never allowed to become one.
 **The substitution is gone, and the SDK is why** (``D-IMPL-286``,
 ``D-IMPL-291`` (5)): the composition now carries that value itself, so
 :func:`_wire` supplies it through the SDK's own argument, and the fixture —
-still named :func:`bridged_resolver` for the bridge it no longer carries, on
+still named :func:`adopted_resolver` for the bridge it no longer carries, on
 the reasoning in its own docstring — wires nothing the SDK does not offer. A
 workaround the SDK made unnecessary is **deleted**, not relocated; the three
 tests behind it measure exactly what they measured, through a resolver no
@@ -255,7 +255,7 @@ class Answered(NamedTuple):
 
 
 @pytest.fixture
-def bridged_resolver(
+def adopted_resolver(
     example: Any, tmp_path: pathlib.Path
 ) -> Iterator[Callable[[Any], Answered]]:
     """The resolver as a deployment would actually wire it — nothing bridged.
@@ -346,7 +346,7 @@ def test_the_resolver_serves_a_class_whose_operators_include_similarity(
 
 
 def test_two_subjects_pin_two_different_questions_to_the_graph(
-    bridged_resolver: Callable[[Any], Answered], questions: Any
+    adopted_resolver: Callable[[Any], Answered], questions: Any
 ) -> None:
     """Adoption requires the record to say which subject a decision was about.
 
@@ -358,8 +358,8 @@ def test_two_subjects_pin_two_different_questions_to_the_graph(
     cannot distinguish two companies — which is the repudiation gap
     ``D-IMPL-111`` limb (a) closed once already.
     """
-    first = bridged_resolver(questions[0])
-    second = bridged_resolver(questions[1])
+    first = adopted_resolver(questions[0])
+    second = adopted_resolver(questions[1])
     assert questions[0].subject != questions[1].subject
     first_pins = _query_pins(first)
     second_pins = _query_pins(second)
@@ -402,7 +402,7 @@ def _query_pins(answered: Answered) -> tuple[str, ...]:
 )
 def test_the_served_product_carries_the_obligation_the_deployment_declared(
     example: Any,
-    bridged_resolver: Callable[[Any], Answered],
+    adopted_resolver: Callable[[Any], Answered],
     questions: Any,
 ) -> None:
     """Adoption requires the delivered product to state what it obliges.
@@ -415,7 +415,7 @@ def test_the_served_product_carries_the_obligation_the_deployment_declared(
     "no obligation" sentinel instead, which is a **wrong governance answer**
     rather than an absent nicety.
     """
-    answered = bridged_resolver(questions[2])
+    answered = adopted_resolver(questions[2])
     declared = example.deployment.expectation(answered.scenario.artifacts)[
         EXPECTED_OBLIGATION_THIRD
     ]
@@ -433,10 +433,10 @@ def test_the_served_product_carries_the_obligation_the_deployment_declared(
     ),
 )
 def test_the_served_product_carries_the_declared_refresh_window(
-    bridged_resolver: Callable[[Any], Answered], questions: Any
+    adopted_resolver: Callable[[Any], Answered], questions: Any
 ) -> None:
     """Adoption requires when the sources last published to reach the caller."""
-    answered = bridged_resolver(questions[0])
+    answered = adopted_resolver(questions[0])
     assert (
         answered.outcome.product.source_refresh_recency
         == answered.scenario.source_refresh_recency
@@ -458,7 +458,7 @@ def test_the_served_product_carries_the_declared_refresh_window(
     ),
 )
 def test_the_ttl_runs_from_the_declared_decision_instant(
-    bridged_resolver: Callable[[Any], Answered], questions: Any
+    adopted_resolver: Callable[[Any], Answered], questions: Any
 ) -> None:
     """Adoption requires the two instants to stay two.
 
@@ -466,7 +466,7 @@ def test_the_ttl_runs_from_the_declared_decision_instant(
     ``decision_instant``, five minutes later, and its ``expires_at`` runs from
     the second. The resolver has one instant and uses it for both.
     """
-    answered = bridged_resolver(questions[0])
+    answered = adopted_resolver(questions[0])
     scenario = answered.scenario
     assert scenario.now != scenario.request.asked_at, (
         "the fixture's own premise has moved: the deployment no longer"
