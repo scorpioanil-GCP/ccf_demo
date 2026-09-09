@@ -181,6 +181,20 @@ EXEMPT_DECLARATIONS: tuple[tuple[str, str], ...] = (
         "RegistrationMode",
         "D-IMPL-85 — names two SDK registration paths, not deployment values",
     ),
+    # Where a request-bound operator parameter reads its value from
+    # (`D-IMPL-295`, `24.10-F-11`). Its one member names an SDK RESOLUTION
+    # STAGE — the effective request `ccf.products.constraints
+    # ::resolve_effective_request` produces — and not a value any deployment
+    # authors. The distinction this module enforces holds in the sharpest
+    # available form: a deployment names the PARAMETER (`RequestBoundParameter
+    # .parameter`, an opaque `str` this guard leaves alone, exactly the remedy
+    # its own message prescribes), and the SDK names the SOURCE. Removing this
+    # exemption would ban the SDK from saying which of its own stages a binding
+    # reads, which is structure by definition.
+    (
+        "RequestBindingSource",
+        "D-IMPL-295 — names one SDK resolution stage, not a deployment value",
+    ),
     # Which of the two decay paths a λ_c row takes in
     # `ccf.halflife.decay.freshness` (ledger row 24.5-L-22, whitepaper
     # §7.7.1–§7.7.2): read the curve, or hold retained relevance whole until

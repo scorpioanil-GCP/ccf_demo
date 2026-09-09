@@ -64,7 +64,10 @@ from ccf.artifacts.file_store import FileArtifactStore
 from ccf.artifacts.protocol import ArtifactRef
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.registry import ControlPlaneRegistry
-from ccf.controlplane.artifacts import SimilaritySelectParametersArtifact
+from ccf.controlplane.artifacts import (
+    RequestBoundParameter,
+    SimilaritySelectParametersArtifact,
+)
 from ccf.deployment import BootedFabric, build_operator_registry, load_and_boot
 from ccf.graph.protocols import GraphQuery, GraphReader, GraphView
 from ccf.halflife.assessment import NO_OBLIGATION_IN_FORCE
@@ -87,6 +90,7 @@ from ccf.replay.record import (
 from ccf.products import resolver as resolver_module
 from ccf.products.resolver import (
     GovernedResolver,
+    build_governed_resolver,
     ProductNotResolvable,
     RefusalRecorderProtocol,
     ReplayRefusalRecorder,
@@ -98,6 +102,7 @@ from ccf.replay.serve import ServedProduct
 from tests.deployment.conftest import (
     ARTIFACT_SET,
     POLICY_BUNDLE_KEY,
+    POLICY_PARAMS_KEY,
     PRODUCT_CLASS_KEY,
     SIGNAL_BATCH_KEY,
     SIMILARITY_KEY,
@@ -138,6 +143,13 @@ DEBT_PROFILE_KEY = "fixture/debt-profile"
 #: (`D-IMPL-117`). `_debt_scorer` returns `DebtSignal.OK`, so this is the
 #: binding a served product must carry.
 OBLIGATION_ON_OK = "fixture.file-the-routine-note"
+
+#: The request parameter a request-bound operator parameter is bound to in the
+#: tests below. Fixture vocabulary; the SDK ships no parameter names.
+BOUND_CLASSES_PARAMETER = "admissible_classes"
+
+#: What the fixture class defaults that parameter to when a caller omits it.
+DEFAULTED_CLASSES = ("fixture-admitted",)
 
 #: The ceiling the `booted_with_ceiling` class declares (`24.5-L-14`). A
 #: fixture figure, authored in this module's own document and nowhere in `src/`.
@@ -413,6 +425,7 @@ def _boot(
     *,
     product_class: dict[str, Any] | None = None,
     request_contract: dict[str, Any] | None = None,
+    artifacts: Mapping[str, dict[str, Any]] | None = None,
 ) -> Iterator[_Booted]:
     """The one boot, so the two fixtures cannot drift into two deployments."""
     root = tmp_path / "deployment"
@@ -420,6 +433,11 @@ def _boot(
     for key, filename, _class_id, _role, _registration, document in ARTIFACT_SET:
         if key == PRODUCT_CLASS_KEY and product_class is not None:
             document = product_class
+        # `24.11-04`: any artifact in the set may be varied by key, in
+        # `product_class`'s shape and for its reason — the variation belongs in
+        # the test-side document, never in `src/` (CINV-01).
+        if artifacts and key in artifacts:
+            document = artifacts[key]
         write_artifact(root, filename, document)
     write_artifact(
         root,
@@ -970,6 +988,327 @@ def test_a_deployment_that_declares_no_profile_carries_the_sentinel(
 
     assert isinstance(outcome, ServedProduct)
     assert outcome.product.obligation_in_force == NO_OBLIGATION_IN_FORCE
+
+
+# --- `24.11-04` / `24.10-F-11`: a request-bound operator parameter ----------
+#
+# The six semantics `D-IMPL-295` names, one test each. The subject is the LAST
+# link of the authority chain — Control Plane envelope -> effective request
+# resolution -> declared binding -> operator — so each test says which link it
+# is about, and semantics 3 and 4 are about the links UPSTREAM of the binding
+# still governing after it exists.
+
+
+def _policy_artifact(booted: _Booted) -> Any:
+    """The fixture deployment's policy operator parameters, as declared."""
+    return booted.fabric.artifacts[POLICY_PARAMS_KEY]
+
+
+def test_a_literal_operator_parameter_reads_exactly_as_it_did(
+    booted: _Booted,
+) -> None:
+    """Semantic 1 — the literal variant is unchanged, and `[]` still means empty.
+
+    The regression that matters most, because the union was added to a field
+    every existing deployment declares literally. A bare sequence parses to the
+    frozenset it always did; nothing about an unbound artifact moved.
+    """
+    declared = _policy_artifact(booted)
+
+    assert isinstance(declared.permitted_classifications, frozenset)
+    assert _ask(_resolver(booted), _request()) is not None
+
+
+def test_a_request_bound_parameter_receives_the_governed_effective_value(
+    booted: _Booted,
+) -> None:
+    """Semantic 2 — the bound value is the EFFECTIVE one, and it reaches the operator.
+
+    Bound from ``effective_request`` rather than the caller's request, so class
+    defaults, policy bounds and technical capabilities have already folded. The
+    assertion reads the artifact the resolver actually handed the registry, so
+    it cannot pass on a value that stopped at the declaration.
+    """
+    resolver = _resolver(booted)
+    effective = _request(parameters={THRESHOLD_PARAMETER: 1000})
+    declared = _policy_artifact(booted)
+    bound = declared.model_copy(
+        update={
+            "permitted_classifications": RequestBoundParameter(
+                source="effective_request", parameter=BOUND_CLASSES_PARAMETER
+            )
+        }
+    )
+
+    resolved = resolver._bind_declared_request_values(
+        bound,
+        key=POLICY_PARAMS_KEY,
+        effective_request=effective.model_copy(
+            update={"parameters": {BOUND_CLASSES_PARAMETER: ["alpha", "beta"]}}
+        ),
+    )
+
+    assert resolved.permitted_classifications == frozenset({"alpha", "beta"})
+    assert not isinstance(
+        resolved.permitted_classifications, RequestBoundParameter
+    ), "the binding survived into the operator's own parameter set"
+
+
+def test_a_binding_naming_a_parameter_the_request_lacks_is_refused(
+    booted: _Booted,
+) -> None:
+    """Semantics 3 and 4 — omission and out-of-envelope are UPSTREAM concerns.
+
+    The binding neither invents a default nor validates a domain, and this is
+    what that costs and buys. A caller who omits an argument does not arrive
+    here at all: ``resolve_effective_request`` folds the class default first, so
+    the effective request carries a value and the binding consumes it. A caller
+    whose value is out of policy never arrives either — resolution refuses
+    before an operator is built. What reaches this method is therefore always a
+    *governed* value, and the only failure left is a deployment binding to a
+    parameter its own request contract does not declare, which no caller can
+    fix and which is refused as the wiring defect it is.
+    """
+    resolver = _resolver(booted)
+    declared = _policy_artifact(booted)
+    bound = declared.model_copy(
+        update={
+            "permitted_classifications": RequestBoundParameter(
+                source="effective_request", parameter="never-declared"
+            )
+        }
+    )
+
+    with pytest.raises(ProductNotResolvable) as refusal:
+        resolver._bind_declared_request_values(
+            bound,
+            key=POLICY_PARAMS_KEY,
+            effective_request=_request(parameters={THRESHOLD_PARAMETER: 1}),
+        )
+
+    assert "never-declared" in str(refusal.value)
+    assert POLICY_PARAMS_KEY in str(refusal.value)
+
+
+def test_a_bound_value_of_the_wrong_type_is_refused_and_never_converted(
+    booted: _Booted,
+) -> None:
+    """Semantic 4's type half — supplied, never converted.
+
+    A scalar where the field declares a set is the smallest imaginable
+    transform, and admitting it would make the next one arguable. The value is
+    put through the field's own declared type and refused there, so the binding
+    has no type system of its own to disagree with the literal variant's.
+    """
+    resolver = _resolver(booted)
+    declared = _policy_artifact(booted)
+    bound = declared.model_copy(
+        update={
+            "permitted_classifications": RequestBoundParameter(
+                source="effective_request", parameter=BOUND_CLASSES_PARAMETER
+            )
+        }
+    )
+
+    with pytest.raises(ProductNotResolvable) as refusal:
+        resolver._bind_declared_request_values(
+            bound,
+            key=POLICY_PARAMS_KEY,
+            effective_request=_request().model_copy(
+                update={"parameters": {BOUND_CLASSES_PARAMETER: "alpha"}}
+            ),
+        )
+
+    assert "never converts" in str(refusal.value)
+
+
+def test_a_literal_and_a_binding_cannot_both_be_declared(booted: _Booted) -> None:
+    """Semantic 5 — structurally invalid, not merely discouraged.
+
+    The two are variants of ONE field, so "a literal plus an independent
+    binding" has no spelling. This is what keeps an empty literal honest: a
+    deployment cannot write `[]` beside a binding and leave a reader to guess
+    which governs, which is the magical-empty reading `D-IMPL-288` forbids.
+    """
+    declared = _policy_artifact(booted)
+
+    assert "permitted_classifications" in type(declared).model_fields
+    with pytest.raises(ValidationError):
+        type(declared).model_validate(
+            {
+                **declared.model_dump(),
+                "permitted_classifications": {
+                    "values": ["alpha"],
+                    "source": "effective_request",
+                    "parameter": BOUND_CLASSES_PARAMETER,
+                },
+            }
+        )
+
+
+@pytest.fixture()
+def booted_bound_to_the_class_default(
+    tmp_path: pathlib.Path,
+) -> Iterator[_Booted]:
+    """A deployment whose policy envelope binds to the ONE defaulted argument.
+
+    ``debt_tolerance`` is the only name :meth:`~ccf.products.resolver.
+    GovernedResolver._class_defaults` supplies, so it is the only parameter in
+    the SDK today whose EFFECTIVE value can differ from a caller who never
+    mentioned it. That difference is the whole instrument below.
+    """
+    product_class = copy.deepcopy(
+        next(doc for key, *_rest, doc in ARTIFACT_SET if key == PRODUCT_CLASS_KEY)
+    )
+    product_class["serve_obligations"] = {
+        "default_debt_tolerance": CEILING_DECLARED
+    }
+    policy = copy.deepcopy(
+        next(doc for key, *_rest, doc in ARTIFACT_SET if key == POLICY_PARAMS_KEY)
+    )
+    policy["permitted_classifications"] = {
+        "source": "effective_request",
+        "parameter": DEBT_TOLERANCE_PARAMETER,
+    }
+    request_contract = copy.deepcopy(REQUEST_CONTRACT_DOCUMENT)
+    request_contract["declaration"]["arguments"]["properties"][
+        DEBT_TOLERANCE_PARAMETER
+    ] = {"type": "number", "description": "Fixture tolerance; a proportion."}
+    yield from _boot(
+        tmp_path,
+        product_class=product_class,
+        request_contract=request_contract,
+        artifacts={POLICY_PARAMS_KEY: policy},
+    )
+
+
+def test_the_call_site_binds_from_the_effective_request_not_the_callers(
+    booted_bound_to_the_class_default: _Booted,
+) -> None:
+    """The wiring the six semantics above cannot see, and it needed catching.
+
+    Every other test here calls the binding directly with an effective request
+    it constructs, so none can tell whether ``__call__`` hands it the EFFECTIVE
+    request or the caller's. **Measured: swapping the call site to the caller's
+    request left all 1,058 tests in this tree green.** That is what this exists
+    to stop.
+
+    The instrument is the difference between two refusals, and the caller
+    omitting ``debt_tolerance`` is what creates it:
+
+    * bound from the **caller's** request, the parameter is simply *absent*, so
+      the refusal says the effective request does not carry it;
+    * bound from the **effective** request, ``_class_defaults`` has already
+      folded the class's declared tolerance, so the parameter is *present* and
+      the refusal is about its TYPE — a ``Decimal`` where the field declares a
+      set of strings.
+
+    Asserting the second message therefore proves resolution ran before the
+    binding. The refusal is expected either way; **which** refusal is the
+    evidence, and a test asserting merely that something was refused would pass
+    under the sabotage.
+    """
+    resolver = _resolver(
+        booted_bound_to_the_class_default,
+        operator_parameter_keys=(TRAVERSAL_KEY, POLICY_PARAMS_KEY),
+    )
+
+    with pytest.raises(ProductNotResolvable) as refusal:
+        _ask(resolver, _request(parameters={THRESHOLD_PARAMETER: 1000}))
+
+    assert "never converts" in str(refusal.value), (
+        "the binding refused because the parameter was ABSENT, which is what"
+        " the caller's request looks like: the class default that resolution"
+        " folds was never seen, so the call site read the wrong request"
+    )
+
+
+def test_a_binding_to_an_undeclared_argument_is_refused_at_boot(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The boot check — two documents disagreeing, caught where both are in hand.
+
+    ``D-IMPL-295``. A binding naming an argument the request contract does not
+    expose is a malformed declaration, and it fails when the resolver is BUILT
+    rather than on the first call that happens to exercise it — the shape
+    :func:`~ccf.products.request.refuse_undeclared_class_default` already
+    established for the same class of disagreement.
+
+    **Existence only.** The refusal says the contract does not declare the
+    name; it says nothing about the value's type, because judging that here
+    would mean comparing a JSON-Schema ``type`` against a Python annotation —
+    a second type system to keep in step by hand. The artifact's own validation
+    owns the type, and does so on the value that actually arrives.
+    """
+    policy = copy.deepcopy(
+        next(doc for key, *_rest, doc in ARTIFACT_SET if key == POLICY_PARAMS_KEY)
+    )
+    policy["permitted_classifications"] = {
+        "source": "effective_request",
+        "parameter": "no-such-argument",
+    }
+    booted_iter = _boot(tmp_path, artifacts={POLICY_PARAMS_KEY: policy})
+    booted = next(booted_iter)
+    try:
+        # Through the BUILDER, which is where this class of check lives: the
+        # class itself resolves keys lazily and refuses a wiring defect on the
+        # first call, by its own docstring's design. `refuse_undeclared_class_
+        # default` and the declared-gate mismatch are checked in exactly this
+        # place and for exactly this reason.
+        with pytest.raises(ProductNotResolvable) as refusal:
+            build_governed_resolver(
+                fabric=booted.fabric,
+                control_plane=booted.control_plane,
+                product_class_key=PRODUCT_CLASS_KEY,
+                request_contract_key=REQUEST_CONTRACT_KEY,
+                operator_parameter_keys=(TRAVERSAL_KEY, POLICY_PARAMS_KEY),
+                policy_bundle_key=POLICY_BUNDLE_KEY,
+                plan_factory=_plan_factory,
+                debt_scorer=_debt_scorer,
+                artifact_store=booted.store,
+                replay_record_class=REPLAY_RECORD_CLASS,
+                query_pin_class=QUERY_PIN_CLASS,
+                max_ttl_seconds=MAX_TTL_SECONDS,
+                product_ttl_seconds=PRODUCT_TTL_SECONDS,
+            )
+    finally:
+        for _ in booted_iter:
+            pass
+
+    assert "no-such-argument" in str(refusal.value)
+    assert THRESHOLD_PARAMETER in str(refusal.value), (
+        "the refusal must name what the contract DOES expose, or an adopter"
+        " cannot tell a typo from an undeclared argument"
+    )
+
+
+def test_an_unresolved_binding_never_reaches_an_operator(booted: _Booted) -> None:
+    """The invariant beneath all six — mypy found it, and it is refused by name.
+
+    A registry built directly has no request and therefore cannot honor a
+    binding. Narrowing that with a cast would hand `PolicyFilter` a declaration
+    object where it expects the set it filters on: an operator admitting
+    nothing while looking fully configured, which is the silent failure
+    `PolicyFilterParametersArtifact`'s own docstring exists to prevent.
+    """
+    declared = _policy_artifact(booted)
+    bound = declared.model_copy(
+        update={
+            "permitted_classifications": RequestBoundParameter(
+                source="effective_request", parameter=BOUND_CLASSES_PARAMETER
+            )
+        }
+    )
+
+    with pytest.raises(ValueError, match="unresolved"):
+        build_operator_registry(
+            parameters={POLICY_PARAMS_KEY: bound},
+            view=booted.fabric.handle.reader.as_of(
+                tenant_id=booted.fabric.tenant_id, at=ASKED_AT
+            ),
+            pins=booted.fabric.pins,
+            policy_bundle_key=POLICY_BUNDLE_KEY,
+        )
 
 
 def test_the_served_products_replay_reference_resolves(booted: _Booted) -> None:

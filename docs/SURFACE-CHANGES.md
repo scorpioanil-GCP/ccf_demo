@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1031 entries**, of which **787** name a public Python surface.
+**1034 entries**, of which **790** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-501 entries — 461 public Python surface, 40 not public Python API.
+502 entries — 462 public Python surface, 40 not public Python API.
 
 ### Public Python surface
 
@@ -9181,6 +9181,18 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `24.10-03-the-acquisition-boundary-emits-envelopes.md`.*
 
+#### ccf.controlplane.artifacts.RequestBoundParameter
+
+- Surface: ccf.controlplane.artifacts.RequestBoundParameter
+- Public surface: true
+- Change type: added
+- Before: absent — there was no vocabulary anywhere in `src/ccf` joining a request parameter to an operator parameter, measured at this row
+- After: a two-member `CCFContract` carrying `source: Literal["effective_request"]` and `parameter: str`. One source member, spelled out rather than assumed, so a second source is a visible schema change with its own ruling. A blank parameter name is refused at construction
+- Why: `D-IMPL-295` — the SDK must provide a governed way for an effective request parameter to condition an operator parameter within a Control-Plane-declared envelope
+- Migration: none. Nothing constructs one unless a deployment declares it.
+
+*Recorded by `24.11-04-an-operator-parameter-may-be-request-bound.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -9834,7 +9846,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-382 entries — 198 public Python surface, 184 not public Python API.
+383 entries — 199 public Python surface, 184 not public Python API.
 
 ### Public Python surface
 
@@ -13980,6 +13992,18 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `24.11-03-the-resolver-carries-the-declared-obligation.md`.*
 
+#### ccf.controlplane.artifacts.PolicyFilterParametersArtifact
+
+- Surface: ccf.controlplane.artifacts.PolicyFilterParametersArtifact
+- Public surface: true
+- Change type: reshaped
+- Before: `permitted_classifications: frozenset[str]` — a literal envelope and nothing else
+- After: `permitted_classifications: frozenset[str] | RequestBoundParameter`. A bare sequence is the literal variant and reads exactly as it always did; a mapping is the binding. **The two are variants of one field, so "a literal plus an independent binding" has no spelling** — which is what keeps an empty literal honest: `permitted_classifications: []` still means *admit nothing* and acquires no magical second reading (`D-IMPL-288`, Dave: *"Do not preserve the empty-list idiom by making it magical."*)
+- Why: the artifact that owns the value declares how the value is obtained. Splitting one semantic value across two authority sites is the defect `24.11-02b` had just finished removing (`D-IMPL-292`)
+- Migration: none for a literal declaration, and every shipped declaration is literal. Verified: a bare list still parses to the frozenset it always did.
+
+*Recorded by `24.11-04-an-operator-parameter-may-be-request-bound.md`.*
+
 ### Not public Python API
 
 #### tools/lints/__main__.py
@@ -16397,7 +16421,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-141 entries — 121 public Python surface, 20 not public Python API.
+142 entries — 122 public Python surface, 20 not public Python API.
 
 ### Public Python surface
 
@@ -19294,6 +19318,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none, and none is possible in the refusing direction — the change only admits calls that previously raised. A deployment that supplies a scorer and wants its declared obligation carried adds `debt_profile_key`; one that does not is unaffected.
 
 *Recorded by `24.11-03-the-resolver-carries-the-declared-obligation.md`.*
+
+#### ccf.deployment.build_operator_registry
+
+- Surface: ccf.deployment.build_operator_registry
+- Public surface: true
+- Change type: behavior
+- Before: signature unchanged, and unchanged by this row. A `PolicyFilterParametersArtifact` was converted to `PolicyFilterParameters` field by field
+- After: same signature. An **unresolved** `RequestBoundParameter` reaching the builder is refused by name, naming the key and the bound parameter. A registry built directly has no request and therefore cannot honor a binding
+- Why: mypy found this, and it is the invariant beneath the whole row. Narrowing it with a cast would hand `PolicyFilter` a declaration object where it expects the set it filters on — an operator admitting **nothing** while looking fully configured, which is precisely the silent failure `PolicyFilterParametersArtifact`'s own docstring exists to prevent
+- Migration: none. Only a caller that both declares a binding and bypasses `GovernedResolver` can reach it, and that caller was previously producing the silent failure above.
+
+*Recorded by `24.11-04-an-operator-parameter-may-be-request-bound.md`.*
 
 ### Not public Python API
 

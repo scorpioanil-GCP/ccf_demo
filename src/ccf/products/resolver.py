@@ -158,6 +158,7 @@ from ccf.artifacts.protocol import ArtifactStoreProtocol
 from ccf.contracts.base import CCFContract
 from ccf.controlplane.artifacts import (
     DebtProfile,
+    RequestBoundParameter,
     DeclaredArtifact,
     HalfLifeTable,
     OperatorParametersArtifact,
@@ -168,6 +169,8 @@ from ccf.controlplane.registry import ControlPlaneProtocol
 from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.deployment import BootedFabric, build_operator_registry
 from ccf.graph.protocols import GraphView, TraversalDepthCapability
+from pydantic import ValidationError
+
 from ccf.halflife.assessment import NO_OBLIGATION_IN_FORCE
 from ccf.halflife.debt import DebtAssessment, DebtSignal
 from ccf.products.contract import (
@@ -1053,6 +1056,57 @@ def _artifact_on(
     return artifact
 
 
+def _refuse_unbindable_request_parameter(
+    *,
+    parameters: Mapping[str, OperatorParametersArtifact],
+    declared: ProductRequestContract | None,
+    request_contract_key: str,
+) -> None:
+    """Raise unless every request-bound operator parameter names a declared argument.
+
+    ``24.11-04`` / ``D-IMPL-295``, in
+    :func:`~ccf.products.request.refuse_undeclared_class_default`'s shape and
+    for its reason: a binding naming a parameter the request contract does not
+    expose is a **malformed declaration**, and it should fail where the two
+    documents disagree rather than three frames down on the first call that
+    happens to exercise it.
+
+    **Existence only, and the narrowness is deliberate.** This asks whether the
+    contract declares the name; it says nothing about the value's type. Judging
+    the type here would mean comparing a JSON-Schema ``type`` against a Python
+    field annotation — a second type system, kept in step with the first by
+    hand, disagreeing with it the first time either moves. The artifact's own
+    validation already settles the type when the value arrives
+    (:meth:`GovernedResolver._bind_declared_request_values` revalidates), so
+    there is exactly one authority on the question and it is the field itself.
+
+    A deployment naming no request contract is not checked: it has no
+    declaration for a binding to disagree with, and the resolution path refuses
+    the binding when the value fails to arrive.
+
+    Raises:
+        ProductNotResolvable: a binding names an argument the contract does not
+            declare, naming the operator key, the field, the parameter and the
+            arguments the contract does expose.
+    """
+    if declared is None:
+        return
+    exposed = set(declared.arguments.properties)
+    for key, artifact in sorted(parameters.items()):
+        for name, value in artifact:
+            if not isinstance(value, RequestBoundParameter):
+                continue
+            if value.parameter not in exposed:
+                raise ProductNotResolvable(
+                    f"operator parameters {key!r} bind {name!r} to request"
+                    f" parameter {value.parameter!r}, which the request"
+                    f" contract {request_contract_key!r} does not declare;"
+                    f" it exposes {sorted(exposed)}. A binding and the contract"
+                    " it binds to are one declaration in two documents, and"
+                    " they disagree (D-IMPL-295)"
+                )
+
+
 def _request_contract_on(
     fabric: BootedFabric, *, key: str
 ) -> ProductRequestContract:
@@ -1669,7 +1723,7 @@ class GovernedResolver:
             tenant_id=self.fabric.tenant_id, at=request.asked_at
         )
         operators = build_operator_registry(
-            parameters=self._operator_parameters(),
+            parameters=self._operator_parameters(effective_request),
             view=view,
             pins=self.fabric.pins,
             policy_bundle_key=self.policy_bundle_key,
@@ -2091,12 +2145,94 @@ class GovernedResolver:
         """
         return _request_contract_on(self.fabric, key=self.request_contract_key)
 
-    def _operator_parameters(self) -> dict[str, OperatorParametersArtifact]:
-        """The adopter-side idiom: name your own keys, no type filtering."""
+    def _operator_parameters(
+        self, effective_request: ProductRequest
+    ) -> dict[str, OperatorParametersArtifact]:
+        """The adopter-side idiom: name your own keys, no type filtering.
+
+        ``24.11-04`` / ``24.10-F-11`` (``D-IMPL-295``): the EFFECTIVE request is
+        a parameter here, and it is the last link of the authority chain —
+        Control Plane envelope -> :func:`~ccf.products.constraints.
+        resolve_effective_request` -> declared binding -> operator. Before it,
+        this method took no request at all, so an operator parameter whose value
+        is knowable only per request could not be declared, and the one
+        deployment that needed one substituted a value into its own resolved
+        artifact at runtime.
+
+        **The effective request and never the caller's.** Binding from
+        ``request`` would take the raw value and bypass class defaults, policy
+        bounds and technical capabilities at the exact final step those exist to
+        govern — the substitution this closes, wearing a different hat.
+        Regressed by ``test_the_call_site_binds_from_the_effective_request_not_
+        the_callers``, which exists because swapping this one argument left the
+        whole tree green.
+        """
         return {
-            key: self._artifact(key, OperatorParametersArtifact)
+            key: self._bind_declared_request_values(
+                self._artifact(key, OperatorParametersArtifact),
+                key=key,
+                effective_request=effective_request,
+            )
             for key in self.operator_parameter_keys
         }
+
+    def _bind_declared_request_values(
+        self,
+        artifact: OperatorParametersArtifact,
+        *,
+        key: str,
+        effective_request: ProductRequest,
+    ) -> OperatorParametersArtifact:
+        """One artifact with every request-bound field replaced by its value.
+
+        ``24.11-04`` / ``D-IMPL-295``. Returns the artifact unchanged when it
+        declares no binding, which is every artifact shipped before this row.
+
+        **Revalidated rather than copied.** :meth:`pydantic.BaseModel.
+        model_copy` does not validate, so a bound value of the wrong type would
+        reach the operator wearing the declared field's name. Reconstruction
+        puts the effective value through the field's own declared type, so the
+        compatibility this binding promises is enforced by the same machinery
+        that enforces it for a literal — one type system rather than a second
+        one written here to compare against it.
+
+        Raises:
+            ProductNotResolvable: the binding names a parameter the effective
+                request does not carry, or carries a value the target field
+                refuses. Both are wiring defects rather than governed "no"s —
+                the deployment declared a binding its own request contract does
+                not support, which no caller can fix.
+        """
+        bound = {
+            name: value
+            for name, value in artifact
+            if isinstance(value, RequestBoundParameter)
+        }
+        if not bound:
+            return artifact
+        supplied = dict(effective_request.parameters)
+        replacements: dict[str, object] = {}
+        for name, binding in bound.items():
+            if binding.parameter not in supplied:
+                raise ProductNotResolvable(
+                    f"operator parameters {key!r} bind {name!r} to request"
+                    f" parameter {binding.parameter!r}, which the effective"
+                    f" request does not carry; it offers {sorted(supplied)}."
+                    " The binding is declared against a request contract that"
+                    " does not declare the parameter"
+                )
+            replacements[name] = supplied[binding.parameter]
+        document = artifact.model_dump()
+        document.update(replacements)
+        try:
+            return type(artifact).model_validate(document)
+        except ValidationError as mismatch:
+            raise ProductNotResolvable(
+                f"operator parameters {key!r} bind {sorted(replacements)} from"
+                f" the effective request, and the value(s) do not satisfy the"
+                f" declared field type(s): {mismatch}. A binding supplies a"
+                " value; it never converts one (D-IMPL-295)"
+            ) from mismatch
 
     def _obligation_in_force(self, signal: DebtSignal) -> str:
         """What this deployment's profile binds to the state debt landed in.
@@ -2547,6 +2683,19 @@ def build_governed_resolver(
         schema_version=boot_declaration.schema_version,
         serve_obligations=boot_declaration.serve_obligations,
         declared=_request_contract_on(fabric, key=request_contract_key),
+    )
+
+    # `24.11-04` / `D-IMPL-295`, immediately after and for the same reason: a
+    # request-bound operator parameter naming an argument the contract does not
+    # declare is two documents disagreeing, and boot is where they are both in
+    # hand. Existence only — the artifact's own validation owns the type.
+    _refuse_unbindable_request_parameter(
+        parameters={
+            key: _artifact_on(fabric, key=key, expected=OperatorParametersArtifact)
+            for key in operator_parameter_keys
+        },
+        declared=_request_contract_on(fabric, key=request_contract_key),
+        request_contract_key=request_contract_key,
     )
 
     # `R-11` (`D-IMPL-282` option 1a), immediately after: the class's declared

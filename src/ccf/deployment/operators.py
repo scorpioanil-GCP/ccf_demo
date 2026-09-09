@@ -87,6 +87,7 @@ from collections.abc import Mapping, Sequence
 from ccf.controlplane.artifacts import (
     OperatorParametersArtifact,
     PolicyFilterParametersArtifact,
+    RequestBoundParameter,
     SimilaritySelectParametersArtifact,
     TemporalAsOfParametersArtifact,
     TraversalDescendantsParametersArtifact,
@@ -329,6 +330,29 @@ def build_operator_registry(
         elif isinstance(parameter, TemporalAsOfParametersArtifact):
             registry.register(TemporalAsOf(parameters=parameter))
         elif isinstance(parameter, PolicyFilterParametersArtifact):
+            # `24.11-04` / `24.10-F-11` (`D-IMPL-295`). An UNRESOLVED binding
+            # must never reach an operator: `GovernedResolver` replaces every
+            # `RequestBoundParameter` with the governed effective value before
+            # building this registry, so one arriving here means the artifact
+            # took a path that skipped that step. Refused by name rather than
+            # narrowed with a cast — a cast would let the operator receive a
+            # declaration object where it expects the set it filters on, and
+            # admit nothing while looking fully configured, which is the exact
+            # silent failure `PolicyFilterParametersArtifact`'s own docstring
+            # exists to prevent.
+            if isinstance(
+                parameter.permitted_classifications, RequestBoundParameter
+            ):
+                raise ValueError(
+                    f"operator parameters {key!r} declare"
+                    " `permitted_classifications` as bound to request parameter"
+                    f" {parameter.permitted_classifications.parameter!r}, and it"
+                    " reached the registry builder unresolved. A request-bound"
+                    " operator parameter is resolved by"
+                    " `ccf.products.resolver.GovernedResolver` against the"
+                    " EFFECTIVE request; a caller building a registry directly"
+                    " has no request and therefore cannot honor the binding"
+                )
             # The one conversion in this module. Constructed explicitly rather
             # than by `model_copy(update=...)`: the artifact is not a
             # PolicyFilterParameters, so there is nothing to copy from, and the

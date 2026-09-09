@@ -143,6 +143,7 @@ __all__ = [
     "OperatorParametersArtifact",
     "PerspectiveArtifact",
     "PolicyConstraint",
+    "RequestBoundParameter",
     "PolicyFilterParametersArtifact",
     "ProductClassDeclaration",
     "ProjectionRequirements",
@@ -963,6 +964,79 @@ class SimilaritySelectParametersArtifact(
     index_version: str
 
 
+#: Where a request-bound operator parameter takes its value from.
+#:
+#: A module-level alias in :data:`DecayMode`'s and :data:`ConstraintOperator`'s
+#: shape, and for their reason: this is an SDK **mechanism** token set, not a
+#: deployment's vocabulary, so it is declared once where the module declares its
+#: other closed sets rather than inline on the field. One member today, named
+#: rather than assumed — a second source is then a visible change to this line
+#: with its own ruling, instead of a silent widening inside a class body.
+RequestBindingSource = Literal["effective_request"]
+
+
+class RequestBoundParameter(CCFContract):
+    """An operator parameter supplied by the governed effective request.
+
+    SDK-defined (CLAUDE.md §11); the ruling of record is ``D-IMPL-295``
+    (`24.10-F-11`). The whitepaper's §7.4 operator parameters are Control Plane
+    configuration; it does not say how a parameter whose value is only knowable
+    *per request* is declared. Before this contract there was no way to say it,
+    so a deployment that needed one substituted a value into its own resolved
+    artifact at runtime — an ungoverned write to a Control Plane declaration,
+    invisible to replay and to the pins.
+
+    **The authority chain this sits at the end of, and it is the whole design:**
+    Control Plane policy/default envelope → :func:`~ccf.products.constraints.
+    resolve_effective_request` → *this* declared binding → operator. The binding
+    is the LAST link and deliberately the dumbest one: it performs no domain
+    validation and invents no default, because both already happened upstream
+    and doing them again here would create a second authority for one value.
+    What it consumes is the effective value that **survived governance**.
+
+    **Not a transform, and the narrowness is the point.** There is no
+    expression language, no templating, no substitution syntax, no callback and
+    no mapping DSL. The only relationship expressible is *effective request
+    parameter → operator parameter*, and the effective value must already
+    satisfy the target field's declared type — a mismatch is a wiring defect
+    refused when the resolver is built, never coerced. A widening as small as
+    scalar-to-singleton is still a transform, and admitting one would make the
+    next one arguable.
+
+    **Mutually exclusive with a literal, structurally.** A field that accepts
+    this contract accepts it *instead of* its literal value, never beside it —
+    the two are variants of one union, so "a literal plus an independent
+    binding" cannot be written down. That is what keeps an empty literal
+    honest: ``permitted_classifications: []`` continues to mean *admit
+    nothing*, and acquires no magical second reading (``D-IMPL-288``,
+    Dave: *"Do not preserve the empty-list idiom by making it magical."*).
+
+    Attributes:
+        source: Where the value comes from. One member today, spelled out
+            rather than assumed, so a second source is a visible schema change
+            with its own ruling instead of a silent widening of this one.
+        parameter: The request parameter's name, in the deployment's own
+            vocabulary. The SDK validates that the request contract declares
+            it and that its type fits the target; it judges nothing about what
+            the name means (CLAUDE.md §6.4, CINV-01).
+    """
+
+    source: RequestBindingSource
+    parameter: str
+
+    @field_validator("parameter")
+    @classmethod
+    def _the_parameter_is_named(cls, value: str) -> str:
+        """A blank name is the third state neither variant has a meaning for."""
+        if not value.strip():
+            raise ValueError(
+                "a request-bound operator parameter must name the request"
+                " parameter that supplies it; a blank names nothing and would"
+                " bind the operator to a value no request can carry"
+            )
+        return value
+
+
 class PolicyFilterParametersArtifact(OperatorParametersArtifact):
     """The Policy category's *declarable* parameters (§7.4; D-IMPL-76).
 
@@ -1005,7 +1079,14 @@ class PolicyFilterParametersArtifact(OperatorParametersArtifact):
     """
 
     classification_attribute_by_class: Mapping[str, str]
-    permitted_classifications: frozenset[str]
+    #: `24.10-F-11` / `D-IMPL-295`: literal **or** request-bound, never both.
+    #: A bare sequence is the literal envelope and reads exactly as it always
+    #: did — `[]` still means *admit nothing*. A mapping is a
+    #: :class:`RequestBoundParameter`, and the resolver replaces it with the
+    #: governed effective value before the operator is built. The union is what
+    #: makes "a literal plus a binding" unwritable rather than merely
+    #: discouraged.
+    permitted_classifications: frozenset[str] | RequestBoundParameter
 
 
 class SignalBatch(VersionedArtifact):
