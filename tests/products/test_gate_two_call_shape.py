@@ -520,6 +520,14 @@ LINEAGE_DECLARED_KEYWORD = "operators_invoked"
 
 #: The binder every projecting body must name (D-IMPL-86 element (3), as
 #: corrected 2026-08-05).
+#: How a body says "the SDK owns my plan-construction -> execution seam".
+#:
+#: `D-IMPL-300`. Named structurally rather than by example, so the scope rule
+#: below stays durable for every canonical adopter after cp-05.
+CANONICAL_RESOLVER_ENTRYPOINTS: frozenset[str] = frozenset(
+    {"build_governed_resolver", "GovernedResolver"}
+)
+
 BINDER_CALL = "refuse_operator_set_divergence"
 
 #: The binder's two keyword arguments. ``declared=`` carries the Control Plane
@@ -628,14 +636,14 @@ RULED_ONE_DOCUMENT_DEPLOYMENTS: frozenset[str] = frozenset(
         "examples/cp-02-facility-terms-snapshot",
         # D-IMPL-239 (Dave, 2026-09-02) — ruled in by name on ledger row 24.5-L-45.
         "examples/cp-03-obligor-financial-spread",
-        # Dave, 2026-09-08, on the measured gate-two discrepancy: *"cp-05 is a
-        # one-document deployment for operator requirements. The Control
-        # Plane/product-class declaration is authoritative; the projection plan
-        # derives its required operator set from that declaration."* Ruled in
-        # by name AFTER the example was corrected to satisfy the premise: until
-        # then its plan authored a second, hard-coded operator set and it was
-        # neither exempt nor compliant (`CP-SPEC-005` §F.4 finding 20).
-        "examples/cp-05-credit-exposure-rollup",
+        # `examples/cp-05-credit-exposure-rollup` was HERE and was REMOVED at
+        # cp-05's canonical adoption (`D-IMPL-298`, `D-IMPL-300`). It was ruled
+        # in on 2026-09-08 as a one-document deployment; the migration deleted
+        # the hand-composed spine whose `plan_factory` authored the second
+        # operator-set site the exemption existed to permit. Dave: *"cp-05 no
+        # longer authors the second operator-set site that required the
+        # exemption ... do not replace it with a different exemption."* The
+        # roster count goes DOWN, which is the whole point of the migration.
     }
 )
 
@@ -2773,6 +2781,45 @@ def _binder_collapses(
     return problems
 
 
+def _delegates_the_seam_to_the_resolver(
+    path: pathlib.Path, scope: ast.AST
+) -> bool:
+    """Does this body hand the plan-construction -> execution seam to the SDK?
+
+    `D-IMPL-300`. The binder must be called between plan construction and
+    :meth:`~ccf.projection.engine.ProjectionEngine.execute`. A body that builds
+    a plan and executes it OWNS that seam and must name the binder. A body that
+    builds a plan and hands it to
+    :func:`~ccf.products.resolver.build_governed_resolver` does **not** own it:
+    ``plan_factory`` is invoked inside :class:`~ccf.products.resolver.
+    GovernedResolver`, which calls the binder itself, and requiring the example
+    to name it too would put the governance call back into adopter code — the
+    plumbing cp-05's migration removed.
+
+    **ARCHITECTURAL, NOT NOMINAL.** The question asked is *"who owns the
+    seam?"*, answered from the tree: the module reaches the canonical resolver,
+    and this body never executes a projection itself. No example name appears
+    here, so cp-06 and everything after it are covered by the same rule without
+    an edit.
+
+    The two conditions are conjunctive on purpose. A module that both delegates
+    *and* runs its own engine somewhere still owns a seam in the body that
+    executes, and that body keeps the requirement.
+    """
+    module = _parse(path)
+    if module is None:
+        return False
+    reaches_resolver = any(
+        isinstance(node, ast.Name) and node.id in CANONICAL_RESOLVER_ENTRYPOINTS
+        or isinstance(node, ast.Attribute)
+        and node.attr in CANONICAL_RESOLVER_ENTRYPOINTS
+        for node in ast.walk(module)
+    )
+    if not reaches_resolver:
+        return False
+    return not any(_is_plan_execution(node) for node in _scope_nodes(scope))
+
+
 def _projecting_scopes() -> list[tuple[pathlib.Path, ast.AST]]:
     """Every lexical body under ``examples/`` that plans or runs a projection."""
     found: list[tuple[pathlib.Path, ast.AST]] = []
@@ -2996,6 +3043,18 @@ def test_every_projecting_example_body_names_the_binder(
     Its roster is :data:`RULED_SDK_SUPPLIED_DEPLOYMENTS`, asserted by
     :func:`test_the_sdk_supplied_exemption_has_not_spread`.
     """
+    if _delegates_the_seam_to_the_resolver(path, scope):
+        # `D-IMPL-300`. This body builds a plan and hands it to the canonical
+        # resolver; it never executes one. `GovernedResolver` calls the binder
+        # between `plan_factory(...)` and `ProjectionEngine.execute`, which is
+        # the ruled point and — since the factory is invoked inside the SDK —
+        # the only point that still exists. Requiring the example to name the
+        # binder as well would be requiring it to duplicate a check the SDK
+        # performs, which is the adopter plumbing canonical adoption removes.
+        #
+        # The invariant is unchanged in force, only in scope: a body that owns
+        # the seam still names the binder, and this predicate says who owns it.
+        return
     if _premise_is_false(scope, path, _bindings(scope)):
         # Either route. Row B: the deployment registers no
         # `ccf.projection-requirements` AND its plan's `required=` reads the
