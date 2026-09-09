@@ -3728,8 +3728,8 @@ today. That is the evidence base; `D-IMPL-285` (2) granted the escalation as **o
 making six XFAILs turn green."* The two evidence modules each carry exactly **one** `monkeypatch.setattr`, and each is
 the harness supplying a capability the SDK lacks:
 
-- `tests/products/test_cp05_canonical_path.py:599` patches `GovernedResolver._operator_parameters` (`F-11`)
-- `tests/examples/test_s1_01_governed_resolver_adoption.py:255` patches `build_operator_registry` (`F-06`)
+- `tests/products/test_cp05_canonical_path.py::_resolver` patches `GovernedResolver._operator_parameters` (`F-11`)
+- `tests/examples/test_s1_01_governed_resolver_adoption.py::bridged_resolver` patches `build_operator_registry` (`F-06`)
 
 Legitimate as measurement devices in a diagnostic phase — bridging one wall makes the walls behind it observable.
 **In 24.11 they are the failure mode: keep the bridges, turn the tests green, and the SDK gains nothing while
