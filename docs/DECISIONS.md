@@ -1555,3 +1555,43 @@ So the sequence `F-07 → F-06 → F-08 → F-11 → F-12 → one unchanged reru
 **WHAT THIS DOES NOT DECIDE.** Which request object supplies the serving path's seeds — the resolver holds both `request` and `effective_request` at the call site, and the invariant in (1) is what settles it: the seeds used in execution must equal the seeds replay will derive from the recorded request. Determined by measurement in the row, and reported. Whether any behavior beyond seeding is needed to satisfy (1) — if the subject state diverges from replay for a second reason, that is a finding, reported at the stop point, not absorbed into this repair (which is exactly the bundling (3) forbids). `F-06` and all later rows. `D-GATE-24.10`, the `phase-24.10` merge and push.
 
 **Next free decision id: `D-IMPL-291`.** **Related:** `D-IMPL-289`, `D-IMPL-288`, `D-IMPL-287` (the constitution and sequence), `D-IMPL-286`, `D-IMPL-285` (3) (`F-07` as P0), `D-IMPL-111` limb (a) (which fixed `DI-15.5-07` on the hand-built path — this row is the same reading reaching the canonical one), `DI-15.5-07`, `src/ccf/products/resolver.py:1571`, `src/ccf/products/request.py:1735`, `src/ccf/projection/engine.py:485`, `src/ccf/replay/engine.py:790`.
+
+---
+
+**D-IMPL-291 — `F-07` is ACCEPTED and its invariant is RESTATED more narrowly; the content-address observation is a CARRY (`24.11-C-01`), NOT a defect; the end-to-end resolver→replay test is DECLINED; and `F-06` is GO.** RESOLVED. Date: 2026-09-08. Approver: Dave.
+
+**(1) `F-07` ACCEPTED.** Dave, verbatim: *"The fix is exactly the right size and exactly the right kind of SDK repair. The strongest part is not the test count; it is the causality: `request_seeds()` already defined the canonical interpretation, replay already used it, and serving simply failed to call it. Two executable lines repaired the divergence, reversal of only that argument reproduces both failures, exactly one strict-XFAIL disappeared, and `examples/` remained untouched. **That is the product loop working correctly.**"* Landed at `5b3a78d5` (`src/ccf/products/resolver.py`, 895 → 897 executable lines).
+
+**(2) THE INVARIANT, RESTATED — Dave correcting his own earlier wording, verbatim:**
+
+> *"Governed execution and replay must derive perspective seeds from the same recorded request semantics."*
+
+*"That has been discharged."* This **replaces** the `D-IMPL-290` (1) formulation, which said *"…the same effective subject state represented in replay **and product identity**."* Dave: *"I was too aggressive when I included 'product identity' in the F-07 invariant."*
+
+**(3) `24.11-C-01` — AN ARCHITECTURAL CARRY, EXPLICITLY NOT A DEFECT.** Row 1 measured that two different subjects produce **identical product content addresses**, the subject not being inside `ContextProductContract`'s address at all, before or after the fix. Dave declines to call this a defect, verbatim: *"A content address and a request identity are not necessarily the same thing. If two different subjects legitimately produce byte-identical Context Products, a true content-addressing scheme may correctly give them the same hash. The subject can remain part of the request/replay provenance **without being salted into the content hash merely to make the hashes different**."*
+
+**THE QUESTION THAT DECIDES IT, verbatim:**
+
+> *"Does the content address claim to identify the served content, or the governed request/determination that produced it?"*
+
+> *"If it identifies content, then: same bytes → same address is desirable, even across different subjects. If it identifies the governed determination, then subject probably must participate."*
+
+**DISPOSITION, verbatim:** *"We should not change that architecture inside `F-07`, and I would not mint a new defect yet. Record it as an architectural question/carry until a real Context Product demonstrates harm—for example, replay lookup, cache reuse, disclosure, or audit semantics incorrectly treating a shared content hash as proof that two governed determinations were the same."*
+
+So `24.11-C-01` is **open, unowned, and waits for evidence of harm**, and the four harm shapes Dave names are its trigger conditions. It is not a 24.10 `F-NN` finding: nothing is broken until the question above is answered one way and the implementation is found to have answered it the other. **Do not implement against it, do not test against it, and do not carry it forward as though it were a defect** — that mislabeling is exactly what this entry exists to prevent.
+
+**(4) THE END-TO-END RESOLVER→REPLAY TEST IS DECLINED.** Row 1 reported that no such test exists and that building the `ReplayEnvironment` wiring would arguably be the test infrastructure `D-IMPL-287` (5) forbids. Dave, verbatim: *"I also agree with not building an end-to-end resolver→replay test right now. The direct regression test already distinguishes correct from incorrect behavior. **Additional wiring would start testing the test system rather than protecting the defect we just fixed.**"*
+
+**(5) `F-06` IS GO, with the SDK question stated narrowly — verbatim:**
+
+> *"Can `GovernedResolver` construct the operator registry with the configuration already required by the declared product class, including `similarity_index_version`, without the harness supplying `build_operator_registry` on its behalf?"*
+
+**Success is NOT the XFAIL disappearing.** Dave, verbatim: *"Success is not 'the XFAIL goes away.' Success is: 1. the canonical SDK path propagates the required operator configuration; 2. the `build_operator_registry` monkeypatch becomes unnecessary and is deleted; 3. one direct SDK regression test protects that behavior; 4. no example changes."* Then: *"Then stop again for inspection"* — the `D-IMPL-290` (3) cadence continues unchanged.
+
+Item 2 is the `D-IMPL-286` success signal reaching its first instance: the harness substitution is deleted **because the SDK made it unnecessary**, never preserved as the implementation. Item 4 keeps `examples/` closed for this row; `D-IMPL-288`'s narrow cp-05 correction belongs to row 5.
+
+---
+
+**WHAT THIS DOES NOT DECIDE.** `24.11-C-01` itself — neither the content-vs-determination question nor any change to the addressing scheme; it waits for demonstrated harm. Where `similarity_index_version` should be read from for `F-06` (the class declaration, an artifact, or the deployment) — a row-2 measurement, and if it requires a new declaration surface rather than propagating one that exists, that is a finding to report at the stop point rather than a design to ship. `F-08`, `F-11`, `F-12` and the final rerun. `D-GATE-24.10`, the `phase-24.10` merge and push.
+
+**Next free decision id: `D-IMPL-292`.** **Related:** `D-IMPL-290` (whose (1) invariant this restates and whose (3) cadence continues), `D-IMPL-289`, `D-IMPL-288`, `D-IMPL-287` (5) (the no-new-tooling prohibition (4) applies), `D-IMPL-286` (the monkeypatch-deletion signal (5) item 2 instantiates), `D-IMPL-285` (3), `D-IMPL-38` (the `similarity_index_version` requirement `F-06` violates), `D-IMPL-111` limb (a), `DI-15.5-07`, `src/ccf/products/resolver.py::GovernedResolver`, `src/ccf/products/request.py::request_seeds`.
