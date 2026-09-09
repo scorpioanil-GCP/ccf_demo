@@ -1,0 +1,485 @@
+<title>Credit Exposure Rollup · cp-05</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400;6..96,500&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --paper:#EFF2F3; --surface:#FFFFFF; --sunk:#E4E9EB;
+  --ink:#16202A; --ink-2:#3A4A55; --muted:#64757F; --rule:#CBD5D9;
+  --verd:#1F7A68; --verd-soft:#DCEBE7;
+  --amber:#A65E17; --amber-soft:#F6E9DA;
+  --crit:#9B2C2C; --crit-soft:#F3E0E0;
+  --tok-c:#6C7C86; --tok-k:#1F7A68; --tok-s:#8A5A2B; --tok-n:#2B4C63;
+  --shadow:0 1px 2px rgba(22,32,42,.06),0 8px 24px -12px rgba(22,32,42,.18);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#12171A; --surface:#181F23; --sunk:#0D1214;
+    --ink:#E4EAED; --ink-2:#B4C1C8; --muted:#8497A0; --rule:#2C373D;
+    --verd:#46B39D; --verd-soft:#16302B;
+    --amber:#D9903F; --amber-soft:#2F2417;
+    --crit:#E07A7A; --crit-soft:#2E1B1B;
+    --tok-c:#7B8C96; --tok-k:#46B39D; --tok-s:#C99A63; --tok-n:#7FB0CE;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -12px rgba(0,0,0,.6);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#12171A; --surface:#181F23; --sunk:#0D1214;
+  --ink:#E4EAED; --ink-2:#B4C1C8; --muted:#8497A0; --rule:#2C373D;
+  --verd:#46B39D; --verd-soft:#16302B;
+  --amber:#D9903F; --amber-soft:#2F2417;
+  --crit:#E07A7A; --crit-soft:#2E1B1B;
+  --tok-c:#7B8C96; --tok-k:#46B39D; --tok-s:#C99A63; --tok-n:#7FB0CE;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -12px rgba(0,0,0,.6);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:"IBM Plex Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:16px; line-height:1.65; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1180px;margin:0 auto;padding:0 clamp(20px,5vw,56px)}
+.col{max-width:74ch}
+
+/* ---------- masthead ---------- */
+.mast{border-bottom:1px solid var(--rule);padding:clamp(48px,8vw,88px) 0 40px}
+.eyebrow{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12px;font-weight:600;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--verd);margin:0 0 18px
+}
+h1{
+  font-family:"Bodoni Moda",Georgia,"Times New Roman",serif;font-weight:400;
+  font-size:clamp(38px,6.2vw,68px);line-height:1.04;letter-spacing:-.015em;
+  margin:0 0 22px;text-wrap:balance
+}
+.standfirst{font-size:clamp(17px,2vw,20px);line-height:1.6;color:var(--ink-2);margin:0;max-width:66ch}
+
+/* the shape strip — what the product IS, in its own terms */
+.shape{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:1px;
+  background:var(--rule);border:1px solid var(--rule);margin-top:40px
+}
+.shape div{background:var(--surface);padding:14px 16px}
+.shape dt{
+  font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:600;
+  letter-spacing:.11em;text-transform:uppercase;color:var(--muted);margin:0 0 5px
+}
+.shape dd{margin:0;font-size:14px;font-weight:600;line-height:1.35}
+.shape dd .sub{display:block;font-weight:400;font-size:12.5px;color:var(--muted);margin-top:3px}
+
+/* ---------- sections ---------- */
+section{padding:clamp(44px,6vw,68px) 0;border-bottom:1px solid var(--rule)}
+section:last-of-type{border-bottom:0}
+h2{
+  font-family:"Bodoni Moda",Georgia,serif;font-weight:400;
+  font-size:clamp(26px,3.6vw,38px);line-height:1.14;letter-spacing:-.01em;
+  margin:0 0 8px;text-wrap:balance
+}
+h3{font-size:17px;font-weight:700;margin:34px 0 10px;letter-spacing:-.005em}
+.kicker{
+  font-family:"IBM Plex Mono",monospace;font-size:11.5px;font-weight:600;
+  letter-spacing:.13em;text-transform:uppercase;color:var(--muted);margin:0 0 14px
+}
+p{margin:0 0 16px}
+strong{font-weight:600}
+em{font-style:italic}
+code{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.875em;
+  background:var(--sunk);padding:.1em .34em;border-radius:3px;
+}
+a{color:var(--verd);text-decoration:none;border-bottom:1px solid color-mix(in srgb,var(--verd) 40%,transparent)}
+a:hover{border-bottom-color:var(--verd)}
+a:focus-visible{outline:2px solid var(--verd);outline-offset:3px;border-radius:2px}
+
+/* ---------- the two-authority device ---------- */
+.auth{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;margin:26px 0 8px}
+.auth article{background:var(--surface);border:1px solid var(--rule);border-top:3px solid var(--verd);padding:20px 22px}
+.auth article.internal{border-top-color:var(--amber)}
+.auth h4{margin:0 0 4px;font-size:15px;font-weight:700}
+.auth .who{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--verd);margin:0 0 12px}
+.auth article.internal .who{color:var(--amber)}
+.auth dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:5px 14px;font-size:13.5px}
+.auth dt{color:var(--muted)}
+.auth dd{margin:0;font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
+
+/* ---------- tables ---------- */
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:14px;margin:22px 0}
+th,td{text-align:left;padding:9px 14px 9px 0;border-bottom:1px solid var(--rule);vertical-align:top}
+th{
+  font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:600;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--muted);
+  border-bottom-color:var(--ink-2)
+}
+td code{background:none;padding:0}
+.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+
+/* pills carry state, not decoration */
+.pill{
+  display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:10.5px;
+  font-weight:600;letter-spacing:.06em;padding:2px 8px;border-radius:99px;white-space:nowrap
+}
+.pill.yes{background:var(--verd-soft);color:var(--verd)}
+.pill.no{background:var(--crit-soft);color:var(--crit)}
+.pill.warn{background:var(--amber-soft);color:var(--amber)}
+
+/* ---------- build order ---------- */
+ol.build{list-style:none;counter-reset:step;margin:26px 0 0;padding:0}
+ol.build > li{
+  counter-increment:step;position:relative;padding:0 0 26px 54px;
+  border-left:1px solid var(--rule);margin-left:15px
+}
+ol.build > li:last-child{border-left-color:transparent;padding-bottom:0}
+ol.build > li::before{
+  content:counter(step,decimal-leading-zero);position:absolute;left:-15px;top:0;
+  width:30px;height:30px;border-radius:50%;background:var(--surface);
+  border:1px solid var(--rule);color:var(--muted);
+  font-family:"IBM Plex Mono",monospace;font-size:11px;font-weight:600;
+  display:flex;align-items:center;justify-content:center
+}
+ol.build h3{margin:2px 0 6px;font-size:16px}
+ol.build p{font-size:14.5px;color:var(--ink-2);margin:0 0 12px}
+
+/* ---------- collapsibles: guidance first, source on demand ---------- */
+details{
+  background:var(--surface);border:1px solid var(--rule);border-radius:4px;
+  margin:12px 0;box-shadow:var(--shadow)
+}
+summary{
+  cursor:pointer;padding:12px 16px;font-family:"IBM Plex Mono",monospace;
+  font-size:12.5px;font-weight:600;color:var(--ink-2);list-style:none;
+  display:flex;align-items:center;gap:10px
+}
+summary::-webkit-details-marker{display:none}
+summary::before{
+  content:"";width:0;height:0;flex:none;
+  border-left:5px solid var(--muted);border-top:4px solid transparent;border-bottom:4px solid transparent;
+  transition:transform .16s ease
+}
+details[open] > summary::before{transform:rotate(90deg)}
+summary:hover{color:var(--verd)}
+summary:focus-visible{outline:2px solid var(--verd);outline-offset:-2px;border-radius:3px}
+details .note{margin:0;padding:0 16px 12px;font-size:13px;color:var(--muted)}
+details pre{margin:0;padding:16px;background:var(--sunk);font-size:12.5px;line-height:1.55}
+details .scroll{border-top:1px solid var(--rule)}
+pre{overflow-x:auto;margin:0}
+pre code{background:none;padding:0;font-size:12.5px}
+
+/* ---------- callouts ---------- */
+.call{border-left:3px solid var(--verd);background:var(--surface);padding:18px 22px;margin:24px 0}
+.call.warn{border-left-color:var(--amber)}
+.call.crit{border-left-color:var(--crit)}
+.call p:last-child{margin-bottom:0}
+.call .lbl{
+  font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:600;
+  letter-spacing:.11em;text-transform:uppercase;color:var(--verd);display:block;margin-bottom:7px
+}
+.call.warn .lbl{color:var(--amber)}
+.call.crit .lbl{color:var(--crit)}
+
+ul.plain{margin:0 0 16px;padding-left:20px}
+ul.plain li{margin-bottom:7px}
+
+footer{padding:44px 0 72px;color:var(--muted);font-size:13.5px}
+footer p{margin:0 0 8px}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* the transcript is long; bound its box rather than the page */
+.tall{max-height:72vh;overflow-y:auto}
+
+/* ---------- cp-05: the disclosure boundary, side by side ---------- */
+/* Two consumers, one determination, two different things disclosed. The panels
+   share every edge and baseline so the DIFFERENCE between them is the only
+   thing the eye has left to read. */
+.disc{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px;margin:26px 0 10px}
+.disc article{
+  background:var(--surface);border:1px solid var(--rule);
+  border-top:3px solid var(--amber);display:flex;flex-direction:column
+}
+.disc article.served{border-top-color:var(--verd)}
+.disc header{padding:16px 20px 0}
+.disc h4{margin:0 0 3px;font-size:15px;font-weight:700}
+.disc .who{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--amber);margin:0 0 12px}
+.disc article.served .who{color:var(--verd)}
+.disc pre{
+  flex:1;margin:0;padding:16px 20px;background:var(--sunk);
+  border-top:1px solid var(--rule);font-size:12px;line-height:1.55
+}
+.disc figcaption{padding:12px 20px;font-size:13px;color:var(--muted);margin:0}
+
+/* the determination, when we are entitled to show it */
+.figs{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1px;
+  background:var(--rule);border:1px solid var(--rule);margin:24px 0
+}
+.figs div{background:var(--surface);padding:16px 18px}
+.figs dt{
+  font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:600;
+  letter-spacing:.11em;text-transform:uppercase;color:var(--muted);margin:0 0 6px
+}
+.figs dd{
+  margin:0;font-size:22px;font-weight:600;line-height:1.15;
+  font-variant-numeric:tabular-nums;letter-spacing:-.015em
+}
+.figs dd .sub{display:block;font-weight:400;font-size:12.5px;color:var(--muted);margin-top:5px;letter-spacing:0}
+
+/* authority is a property of every effective value, so it travels with it */
+.auth-tag{
+  font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:600;
+  letter-spacing:.05em;color:var(--muted)
+}
+.auth-tag.policy{color:var(--amber)}
+</style>
+<div class="wrap">
+
+<header class="mast">
+  <p class="eyebrow">Context Product · cp-05</p>
+  <h1>Credit Exposure Rollup</h1>
+  <p class="standfirst">Total exposure to a corporate family, walked from one anchor across ownership, guarantee and cross-default edges — and then <em>withheld</em>, because the balances behind it are days old against a four-hour half-life. The rung where the fabric answers the question and declines to attest that the answer is fit to act on.</p>
+
+  <dl class="shape">
+    <div><dt>Registry name</dt><dd>credit-risk.exposure-rollup<span class="sub">v1.0.0</span></dd></div>
+    <div><dt>Tier</dt><dd>2<span class="sub">PostgreSQL · Fluree ledger</span></dd></div>
+    <div><dt>Assembly mode</dt><dd>1 — pure algorithmic<span class="sub">no model in the path</span></dd></div>
+    <div><dt>TTL</dt><dd>4 hours<span class="sub">anchored <code>from_decision</code></span></dd></div>
+    <div><dt>Anchor</dt><dd>a company<span class="sub">by legal-entity identifier</span></dd></div>
+    <div><dt>Demonstrated outcome</dt><dd><span class="pill warn">withheld</span><span class="sub">assembled · gated · recorded</span></dd></div>
+  </dl>
+</header>
+
+<section>
+  <div class="col">
+    <p class="kicker">Orientation</p>
+    <h2>Total exposure is not a sum</h2>
+    <p>A credit officer testing a facility against a group limit asks one question: <strong>what do we actually have on this name?</strong> The flat data product answers it by adding facility balances keyed to the borrower's legal-entity identifier. On the demonstration anchor that returns <strong>145,000,000</strong>.</p>
+    <p>The family owes <strong>{{gross}}</strong>. The naive answer understates by <strong>69.8&times;</strong> — and <em>it does not look wrong</em>. It is a well-formed figure of a plausible size for a mid-cap borrower, returned without error, and nothing in it signals that a graph the product should have traversed was never traversed.</p>
+    <p>The error runs in both directions at once. A borrower-keyed sum <strong>double-counts</strong> where a guarantee has already captured the risk at the parent, and it <strong>under-counts</strong> where a cross-default binds in an entity holding no facility at all. Neither shows up as a failure; both show up as a number.</p>
+
+    <h3>One walk, four predicate types, both directions</h3>
+    <p>Ownership, ultimate consolidation, guarantee and cross-default in a <strong>single</strong> traversal — not one walk per edge type merged afterwards. At the declared depth of 3 the family is <strong>{{family}} members</strong>: 21 at depth 1, 49 at depth 2. Of the {{family}}, <strong>19 carry an identifier</strong> in the ledger and 58 do not, and <strong>only 5 hold a facility at all</strong>. The other 72 are family by ownership, guarantee or cross-default and hold nothing — which is exactly why this is a traversal product and not a query.</p>
+    <p>The family reaches <strong>outside the anchor's ownership group entirely</strong>. Amphenol, Celanese, Avis Budget and XPO all arrive at depth 3, bound in by cross-default rather than by ownership. No ownership-only walk finds them. No borrower-keyed query finds them either.</p>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">The business answer</p>
+    <h2>What the determination says</h2>
+    <div class="call">
+      <span class="lbl">Where these figures come from, and why that matters here</span>
+      <p>Every figure in this section is taken from <strong>the one consumer that was served</strong> — the Exploratory Consumer of <code>page/scenario-transcript.txt</code>, which declared a fitness bar of <code>1.0</code> and will act on any Context Debt. It is <strong>not</strong> taken from the default run below, which was refused and told none of it. The two are kept apart deliberately, and the page's generator refuses to build if the refused transcript ever starts carrying them.</p>
+    </div>
+
+    <dl class="figs">
+      <div><dt>Family</dt><dd>{{family}}<span class="sub">members at depth 3</span></dd></div>
+      <div><dt>Gross committed</dt><dd>{{gross}}<span class="sub">every member's own borrowings</span></dd></div>
+      <div><dt>Guarantee-adjusted</dt><dd>{{adjusted}}<span class="sub">one dedup case · 800,000,000 removed</span></dd></div>
+      <div><dt>Context Debt</dt><dd>1.000<span class="sub">signal <code>fail_closed</code></span></dd></div>
+    </dl>
+
+    <p><strong>Gross ships beside adjusted, and that is a contract decision rather than a courtesy.</strong> The difference is the evidence that the graph was traversed. A consumer handed only the adjusted figure cannot tell it from the naive sum — the two are both single numbers of similar magnitude, and only the pair discloses that an adjustment happened at all. Here <strong>9.92% of gross committed exposure</strong> is double-counted by a naive family sum, on one deductible guarantee: the anchor guarantees RB Global at 100% coverage, and RB Global holds 800,000,000 of its own book.</p>
+
+    <h3>What is enumerated, and what is rolled into the residual</h3>
+    <table>
+      <thead><tr><th>Served slice</th><th>At the declared <code>materiality</code> 0.05</th></tr></thead>
+      <tbody>
+        <tr><td>Material entities enumerated</td><td class="num">4</td></tr>
+        <tr><td>Residual, aggregated</td><td class="num">145,000,000</td></tr>
+        <tr><td>Connected members holding no exposure</td><td class="num">14</td></tr>
+        <tr><td>Content address of this determination</td><td><code>{{served_address}}</code></td></tr>
+      </tbody>
+    </table>
+    <p class="note">The floor at 0.05 is 506,250,000 — <strong>5% of gross</strong> — and the anchor's own book is 145,000,000, or 1.43% of the family. So <strong>the anchor is filtered out of the enumerated entities of its own exposure rollup</strong>, and appears in the residual instead. That is arithmetically what <code>materiality</code> asks for; it is also surprising enough that the artifact records it rather than special-casing the anchor to make the output read more comfortably. At <code>materiality=0.01</code> the anchor comes into view and 5 entities are enumerated.</p>
+
+    <h3>The request scope this answers under</h3>
+    <p>The question is pinned, and each effective value carries the authority that set it. Replay re-asks the <em>effective</em> question, never the caller's.</p>
+    <table>
+      <thead><tr><th>Parameter</th><th>Effective</th><th>Authority</th></tr></thead>
+      <tbody>
+        <tr><td><code>subject</code></td><td><code>{{anchor}}</code></td><td><span class="auth-tag">declared</span></td></tr>
+        <tr><td><code>asked_at</code></td><td><code>{{asked_at}}</code></td><td><span class="auth-tag">declared</span></td></tr>
+        <tr><td><code>intent</code></td><td><code>group-limit-test</code></td><td><span class="auth-tag">declared</span> — no default anywhere</td></tr>
+        <tr><td><code>depth</code></td><td class="num">3</td><td><span class="auth-tag">declared default</span></td></tr>
+        <tr><td><code>materiality</code></td><td class="num">0.05</td><td><span class="auth-tag">default</span></td></tr>
+        <tr><td><code>basis</code></td><td><code>both</code></td><td><span class="auth-tag">declared</span></td></tr>
+        <tr><td><code>families</code></td><td><code>cp05-acquisition-boundary</code></td><td><span class="auth-tag">declared</span> — required, no default</td></tr>
+        <tr><td><code>debt_tolerance</code></td><td class="num">{{tolerance}}</td><td><span class="auth-tag">product default</span></td></tr>
+      </tbody>
+    </table>
+    <p class="note"><code>intent</code> and <code>families</code> are required with <strong>no default anywhere</strong>, and for the same reason. A defaulted intent would silently choose a limit regime on the caller's behalf; a defaulted family list would grant admission scope nobody declared. Both are the confidently-wrong-number failure in its governance form.</p>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">The governed context</p>
+    <h2>And why the fabric will not attest to it</h2>
+    <p>Against this estate the outstanding balances are <strong>324–396 hours old</strong>. This product's fastest input is the outstanding balance, whose half-life is <strong>four hours</strong>, because drawdowns and repayments land intraday. Context Debt comes out at <strong>1.000</strong> with signal <code>fail_closed</code>, and the class's own tolerance of <code>{{tolerance}}</code> is exceeded.</p>
+    <p>So the fabric assembles the product, passes every validation gate, writes the decision record — and <strong>declines to attest that the result is fit to act on</strong>.</p>
+
+    <div class="call warn">
+      <span class="lbl">Withholding is a refusal of fulfillment, not of response</span>
+      <p>The run still exits <code>0</code> and still answers. What the refused caller receives is the refusal's <strong>disclosed shell</strong>: the kind, the tolerance that was not met, the authority that set it, and the replay reference. What it does not carry is the determination.</p>
+      <p><strong>Nothing was calibrated to make it serve.</strong> Not the half-life, not the evidence, not the debt calculation. A four-hour window widened to fit older demonstration data would make every later run lie about how current its money figures are.</p>
+    </div>
+
+    <table>
+      <thead><tr><th>Envelope member</th><th>Value</th></tr></thead>
+      <tbody>
+        <tr><td>Fulfillment</td><td><span class="pill warn">withheld</span> <code>tolerance-exceeded</code></td></tr>
+        <tr><td>Tolerance in force</td><td class="num">{{tolerance}}, authority <code>default</code></td></tr>
+        <tr><td>Observed Debt, as disclosed to this caller</td><td><code>undisclosed</code> — the deployment's policy is <code>minimal</code></td></tr>
+        <tr><td>TTL</td><td class="num">{{ttl_seconds}}s</td></tr>
+        <tr><td>TTL anchor</td><td><code>from_decision</code> — <code>expires_at</code> is request time + 4h</td></tr>
+        <tr><td>Replay record</td><td><code>ccf.cp-05.decision-replay-record</code>, written <em>before</em> the response was released</td></tr>
+        <tr><td>Replay reference, as disclosed</td><td><code>{{replay_ref}}</code></td></tr>
+      </tbody>
+    </table>
+
+    <h3>The TTL anchor flips at this rung, and the flip is the teaching</h3>
+    <p>Rungs 02 and 04 anchor on entity freshness. An exposure has no underlying entity whose validity period governs it: a facility has an effective date and a maturity, a family edge has an assertion time, but <strong>a rollup is not a fact about an entity — it is a fact about a question asked at an instant</strong>. So <code>expires_at</code> is request time plus four hours, no observation timestamp is read, and no <em>latest</em>-versus-<em>earliest</em> basis has to be chosen. The two earlier rungs both had to make that decision; this one does not, and the absence of the decision is the point.</p>
+    <p class="note">The cost is real and is stated rather than hidden: the product cannot be refreshed in place and cannot be served past expiry. A rollup found in a queue after its window has closed is <strong>refused on read</strong>, and that refusal is correct behavior rather than an incident.</p>
+
+    <h3>Every determination is replayed — served or withheld</h3>
+    <p>The decision record is written <strong>before</strong> the response is released, through the same writer, the same store and the same artifact class on both branches. A separate class for withheld determinations would be exactly the second-class replay <code>D-IMPL-253</code> Q13 forbids: <em>“Refusal is itself a decision and deserves the same five-dimensional replay model.”</em></p>
+    <p>Measured, the <strong>withheld record is larger than the served one</strong> — 20,075 bytes against 16,873 — because it additionally carries the refusal envelope, its evidence and the debt breakdown. All five dimensions are populated on both. They differ in exactly one place: dimension 5 carries a product content address when served, and <code>no-product-address</code> with <code>refusal_recorded: true</code> when withheld.</p>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">The boundary, printed</p>
+    <h2>Two consumers, one determination, two disclosures</h2>
+    <p>These panels are the product's thesis in its most literal form. The same estate, the same instant, the same assembled determination. On the left, everything the default consumer was told. On the right, the one line the served consumer received.</p>
+
+    <div class="disc">
+      <article>
+        <header>
+          <h4>The default consumer</h4>
+          <p class="who">tolerance {{tolerance}} · authority default · WITHHELD</p>
+        </header>
+        <pre><code>{{run}}</code></pre>
+        <figcaption>The whole of it. The observed Debt reads <code>undisclosed</code>, and the figures do not appear — this deployment's disclosure policy is <code>minimal</code>.</figcaption>
+      </article>
+      <article class="served">
+        <header>
+          <h4>The exploratory consumer</h4>
+          <p class="who">tolerance 1.0 · authority caller · SERVED</p>
+        </header>
+        <pre><code>{{served}}</code></pre>
+        <figcaption>Lifted verbatim from the scenario transcript, so both panels are the same kind of evidence. The identical determination, delivered, with <code>D_c</code> 1.000 disclosed on it &mdash; the fabric did not become more confident.</figcaption>
+      </article>
+    </div>
+
+    <p><strong>The fabric owns truth and quantified uncertainty; the consumer owns fitness.</strong> Nothing about the answer changed between these two panels — only the willingness to attest that it is fit. That is the sentence the rest of this rung exists to make demonstrable rather than assertable.</p>
+
+    <div class="call">
+      <span class="lbl">A disclosure rule this page is built to obey</span>
+      <p>The left panel is fed from <code>page/run-transcript.txt</code> and from nothing else. This repository <em>knows</em> the withheld figures — the right panel proves it — and filling them into the left panel would undo, in documentation, precisely the boundary the product draws. <code>page/build_page.py::_refuse_cross_disclosure</code> makes that structural choice checkable: a build whose refused transcript contains the served figures <strong>refuses</strong>, and the remedy is to re-read the disclosure policy rather than to edit this page.</p>
+    </div>
+
+    <h3>The snapshot</h3>
+    <p>Both transcripts are committed artifacts of runs at a <strong>pinned instant</strong>, built from the tree at commit <code>{{commit}}</code>, anchored on <code>{{anchor}}</code>, asked as of <code>{{asked_at}}</code>. <strong>The page is generated from those transcripts and never from a live run.</strong> At a four-hour half-life this is not a convenience: a page that re-ran the product on every build would print whatever the estate said today, and today's answer is <em>guaranteed</em> to differ from the pinned one, because this rung's freshest input decays faster than the gap between two sittings.</p>
+    <p>Every value in the snapshot sentence is verified against the tree at build time and from a source that did not come from the generator: the anchor and the instant against <code>artifacts/question.yaml</code>, the TTL against <code>artifacts/ttl.yaml</code>, the tolerance against <code>ccf_config.yaml</code> <em>and</em> the refused transcript, the three headline figures against the served transcript <em>and</em> against <code>artifacts/expected.yaml</code> — which was measured directly against the estate before a line of this product's code existed, and so is the only source here that cannot have been produced by the program the page is about.</p>
+    <p>Reproduce with <code>make -s example-cp-05</code> after exporting the four connection variables the README describes. The claim is <strong>same question &rarr; same answer against a quiescent estate for that run</strong>, and no stronger claim is made anywhere: a reader whose figures differ has <em>re-derived</em>, not reproduced, and the most likely reason is that a balance moved — a property of the estate rather than of the product.</p>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">Eight consumers</p>
+    <h2>One estate, one instant, eight fitness bars</h2>
+    <p>Each consumer asks the <strong>same business question of the same anchor at the same pinned instant</strong>, differing only in what it asks for and what it will accept. The contrast is the point: the assembled determination is identical for every consumer that reached assembly, and what varies is which slice is projected and whether the fabric will attest.</p>
+
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Consumer</th><th>Asks for</th><th>Effective, with authority</th><th>Outcome</th></tr></thead>
+        <tbody>
+          <tr><td>Default</td><td>nothing</td><td><code>materiality 0.05</code> <span class="auth-tag">default</span> · <code>debt_tolerance {{tolerance}}</code> <span class="auth-tag">default</span></td><td><span class="pill warn">withheld</span></td></tr>
+          <tr><td>Detailed</td><td><code>materiality 0.02</code></td><td><code>0.02</code> <span class="auth-tag">caller</span></td><td><span class="pill warn">withheld</span></td></tr>
+          <tr><td>Material-Only</td><td><code>materiality 0.10</code></td><td><code>0.10</code> <span class="auth-tag">caller</span></td><td><span class="pill warn">withheld</span></td></tr>
+          <tr><td>Strict-Fitness</td><td><code>debt_tolerance 0.05</code></td><td><code>0.05</code> <span class="auth-tag">caller</span></td><td><span class="pill warn">withheld</span></td></tr>
+          <tr><td>Exploratory</td><td><code>debt_tolerance 1.0</code></td><td><code>1.0</code> <span class="auth-tag">caller</span></td><td><span class="pill yes">served</span></td></tr>
+          <tr><td>Regulated</td><td><code>regulatory-large-exposure</code> + <code>debt_tolerance 1.0</code></td><td><code>0.10</code> <span class="auth-tag policy">policy</span> — narrowed</td><td><span class="pill warn">withheld</span></td></tr>
+          <tr><td>Appetite</td><td><code>internal-appetite</code> + <code>materiality 0.10</code></td><td>—</td><td><span class="pill no">refused</span> at the request boundary</td></tr>
+          <tr><td>As-Of</td><td><code>as_of 2026-06-30</code></td><td>—</td><td><span class="pill no">refused</span> at the request boundary</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>A threshold moves the projection; it never moves the truth</h3>
+    <p>The Detailed Consumer drops the materiality floor from 506,250,000 to 202,500,000 — and <strong>the projection does not move</strong>. This family's book is concentrated in five entities and the smallest material one commits 800,000,000, so both floors select the same four. The measurement is worth more than the movement would have been: the family, the gross and the adjusted totals are <strong>byte-identical</strong> to the default consumer's, which is the invariant. A threshold that changed the totals would be a request parameter altering truth. Only the content address differs, because the question differed.</p>
+    <p>The Material-Only Consumer is the threshold that <em>does</em> move this answer: at a 1,012,500,000 floor the 800,000,000 obligor falls into the residual — <strong>3 enumerated instead of 4, residual 945,000,000 instead of 145,000,000</strong> — and the same family and the same totals again. Zero-exposure members reached only by guarantee or cross-default are <strong>never</strong> absorbed into a residual at any threshold; absorbing them would delete the finding the traversal exists to produce.</p>
+
+    <h3>Two <code>maximum</code> constraints, two behaviors</h3>
+    <p>The Regulated Consumer asks for <code>1.0</code> under a regime that will not permit it, and policy <strong>narrows</strong> the bar to <code>0.10</code>; the product is then withheld. The Appetite Consumer asks for a coarser materiality than its regime allows, and the request is <strong>refused by name</strong> rather than clamped.</p>
+    <p>The same operator, two behaviors, and the difference is the whole of it: <strong>materiality shapes the answer, debt tolerance judges it</strong>. A narrowed request answers a question nobody asked, so a shaping parameter outside its bound is refused. A fitness bar, by contrast, cannot be refused before fitness has been <em>measured</em> — so policy binds the bar and the comparison happens after assembly, where the observation exists. This is the SDK's one narrowing case and it is deliberate.</p>
+    <p class="note">The As-Of Consumer is refused for a third reason again: this product's TTL is anchored <code>from_decision</code>, so there is no entity validity period an <code>as_of</code> could address, and the ledger's transaction counter is <em>transaction</em> time which <code>D-IMPL-88</code> rules must not back it. <strong>Declared and refused, never silently ignored</strong> — an <code>as_of</code> quietly dropped returns a present-tense answer wearing a past-tense label.</p>
+
+    <details><summary>page/scenario-transcript.txt — all eight consumers, as run</summary><p class="note">The committed output of <code>make example-cp-05 SCENARIOS=1</code> at the pinned instant. This is the source the served figures on this page are taken from.</p><div class="scroll tall"><pre><code>{{scenarios}}</code></pre></div></details>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">The order to work in</p>
+    <h2>Specification first, and everything after it derived</h2>
+    <p>The specification was authored and approved <strong>before a line of code existed</strong>, and every artifact below follows from it. Reading in this order shows the dependency; reading the code first does not.</p>
+    {{spec}}
+    {{config}}
+    {{backends}}
+    {{question}}
+    {{scenarios_yaml}}
+    {{ttl}}
+    {{replay_yaml}}
+    {{recipe}}
+    {{expected}}
+  </div>
+
+  <div class="col">
+    <h3>The code, and what stopped being in it</h3>
+    <p>The seam is unchanged from the earlier rungs: <code>deployment.py</code> names every query, table, column, predicate and domain word and makes <strong>no fabric call</strong>; <code>produce.py</code> makes every fabric call and names <strong>no table, no column and no domain word</strong>. Adapting this example to another estate touches the first and not the second.</p>
+    <p>What changed at this rung is the <em>other</em> axis. <code>produce_governed</code> used to compose the governed spine by hand — gates, contract construction, debt placement, the tolerance comparison, refusal shaping, the replay write and the serve. Adopting the canonical <code>GovernedResolver</code> path removed all of it. The function is now an <strong>adapter into the SDK</strong> rather than a smaller second implementation of it: it loads declarations, acquires content, shapes the business payload, and hands the resolver its extension points.</p>
+    {{deployment}}
+    {{produce}}
+    {{assembler}}
+    {{projection}}
+    {{run_py}}
+  </div>
+
+  <div class="col">
+    <h3>The MCP door, measured</h3>
+    <p><code>server/serve.py</code> exposes the governed path as an authenticated, entitled MCP tool that records every denial as a decision. It re-implements <strong>no part</strong> of the assembly, the gates, the debt assessment, the tolerance comparison or the replay record. Measured after the migration: <strong>204 executable lines, zero of them governance or replay logic</strong>. Before the migration that measurement would have been meaningless, because the door wrapped a hand-composed spine and “MCP cost” and “governance cost” were the same number.</p>
+    <p><strong>The door got thinner, not fatter.</strong> It used to run a full conformity check of its own; that was removed, because a door owns transport, address and standing, while the resolver owns contract-aware decoding, conformity, effective resolution and the governed outcome. The door is intentionally dumb about logical parameter types: it transports wire-stable lexical values, and the resolver — which holds the declaration — converts and judges them.</p>
+    <p class="note">One thing the door was built to <em>measure</em> rather than to fix: it proves a record exists, and it does not read it. A served product whose payload claimed 9,999 family members, wrapping a replay record whose first dimension observed {{family}}, would cross the boundary unremarked. Both operands are in the door's hand and the comparison is not made. Recorded, not closed.</p>
+    {{door_yaml}}
+    {{serve}}
+  </div>
+
+  <div class="col">
+    <h3>The gates, and the documents for two readers</h3>
+    {{tests_output}}
+    {{tests_door}}
+    {{readme}}
+    {{summary}}
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">Scope</p>
+    <h2>What this example is not</h2>
+    <p><strong>It is not a credit opinion.</strong> The anchor is real — a real identifier, a real US-MN jurisdiction, a real SIC code — and <strong>the bank's book against it is engineered</strong>. No bank lends to this obligor on these terms, because the lender does not exist. The topology was built so both halves of the failure are demonstrable, and calibrated so committed exposure is 49.4% of the obligor's reported total debt, a plausible share the estate itself flags.</p>
+    <p><strong>It is not a materialized product, and that is a design refusal rather than an omission.</strong> The fastest input has a four-hour half-life, so a materialized rollup would be stale inside its own window. Rung 4 uses the same traversal machinery and materializes; this one must not.</p>
+    <p><strong>It is not a complete group.</strong> One anchor was chosen because one anchor exercises everything this rung teaches: a real, small own-book that the guarantee adjustment cannot hide inside rounding; a deductible guarantee 5.5&times; the size of that book; four entities reached that hold nothing at all; and a cross-default reach outside the ownership group entirely.</p>
+
+    <h3>Findings raised, and how they were handled</h3>
+    <p>The migration onto the canonical path was run under a standing rule: <strong>if the canonical path exposes a new SDK deficiency, stop at the evidence, classify it, and obtain a ruling before any SDK repair</strong>. Five were raised that way and each was ruled rather than worked around — among them a binder that had to move to the canonical seam, decimal values arriving over a wire whose stable types are string, integer and boolean, and a door that was preempting a conformity check the resolver owns.</p>
+    <p>One is preserved deliberately as a record rather than a defect. <code>artifacts/replay.yaml</code> exists because the Control Plane document's section vocabulary was closed and refused a <code>replay:</code> section by name. <strong>The refusal was correct</strong> — a Control Plane that accepted arbitrary sections would let a deployment smuggle unaudited state into the audit plane — and the SDK has since added the section, so the binding is now declared in <code>ccf_config.yaml</code> directly. The document remains as the record of the finding.</p>
+    <p class="note">And one behavior was recorded rather than repaired: the anchor falling below its own materiality floor. An example surfaces this; it does not quietly special-case the anchor to make the output look friendlier.</p>
+  </div>
+</section>
+
+</div>
