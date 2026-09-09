@@ -276,6 +276,8 @@ undrawn availability is excluded. Different number, different content address,
 | `artifacts/replay.yaml` | Where decision records go and under what artifact class. **Its header records a finding the SDK has since closed:** the Control Plane's section vocabulary had no `replay:` slot, so this lived outside it. Phase 24.10's `R-12` added the section, and `ccf_config.yaml` now declares the binding directly — the resolver consumes it, with no argument and no module constant. The document remains as the record of that finding. |
 | `page/run-transcript.txt` | The demonstrated run, byte-reproducible against the pinned instant. |
 | `page/scenario-transcript.txt` | All eight consumers, same estate, same instant. |
+| `page/template.html` | The documentation page's authored spine, with every file behind a placeholder. |
+| `page/build_page.py` | The generator. Reads the two committed transcripts and the declared artifacts, verifies its own snapshot against the tree, and **refuses** a build whose refused transcript carries the served figures. |
 | `server/door.yaml` | The door's governance values — scope, issuer, audience, principal, role, tool prose. No host, port or credential. |
 | `server/serve.py` | The MCP door. A resolver adapter and a `build_egress_server` call; no governed logic of its own. |
 | `backends.yaml` | Variable **names** and remedies. No host, port or credential. |
@@ -284,6 +286,40 @@ undrawn availability is excluded. Different number, different content address,
 | `assembler.py` | The five steps and the arithmetic. |
 | `produce.py` | **The adapter into the SDK, not a spine.** Boot, acquire, assemble the domain truth, hand `GovernedResolver` its four extension points, call it. The gates, the contract, Debt placement, fulfillment, refusal shaping, replay and serve are the SDK's and appear nowhere here (`D-IMPL-298`). |
 | `run.py` | The client. Renders from **two sources** — the business payload and the governed envelope — and recomputes nothing. |
+
+## The documentation page
+
+**Published artifact `5734f184-24f5-4f55-ac5d-57c1467b9669`** —
+[Credit Exposure Rollup · cp-05](https://claude.ai/code/artifact/5734f184-24f5-4f55-ac5d-57c1467b9669).
+Built from the tree at `dbcdd43a`, 425,392 bytes,
+sha256 `e96ae35ae25546bc79a2c579c1f2adc337bc5ff9176f4c4c937085d70aa993f3`.
+
+```bash
+.venv/bin/python examples/cp-05-credit-exposure-rollup/page/build_page.py
+```
+
+The rendered `page/cp-05.html` is **not committed** — `page/build_page.py` and
+`page/template.html` are, and `.gitignore` enforces the split. Committing the
+rendered page would put every embedded file in the tree twice, and the copies
+would drift the first time an artifact changed and nobody remembered to
+republish.
+
+**The page is generated from the two committed transcripts, never from a live
+run.** At a four-hour half-life that is not a convenience: a page that re-ran
+the product on every build would print whatever the estate said today, and
+today's answer is *guaranteed* to differ from the pinned one, because this
+rung's freshest input decays faster than the gap between two sittings.
+
+**The page shows each consumer exactly what the fabric showed it.** The
+withheld panel is fed from `page/run-transcript.txt` alone — the observed Debt
+reads `undisclosed`, and the figures do not appear. This repository *knows*
+those figures, because the served consumer in `page/scenario-transcript.txt`
+receives them, and filling them into the withheld panel would undo, in
+documentation, precisely the boundary the product draws.
+`build_page.py::_refuse_cross_disclosure` makes that checkable rather than
+merely intended: a build whose refused transcript contains the served figures
+refuses. The served panel is **lifted verbatim** from the scenario transcript
+rather than retyped, so both panels are the same kind of evidence.
 
 ## Whitepaper / CLAUDE.md sections exercised
 
