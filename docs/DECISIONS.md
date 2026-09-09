@@ -1948,7 +1948,25 @@ The product contract continues to declare `type: number`, *"because materiality 
 
 **Governs:** cp-05's `server/serve.py`; the door/resolver ownership line for every MCP-serving Context Product. **WHAT THIS DOES NOT DECIDE.** Any other logical type's transport encoding (`D-IMPL-302`). The remaining cp-05 product-completion steps.
 
-**Next free decision id: `D-IMPL-304`.** **Related:** `D-IMPL-302` (the decode this makes reachable), `D-IMPL-113` (whose reasoning it follows), `D-IMPL-298`, `D-IMPL-121`.
+**Next free decision id: `D-IMPL-305`.** **Related:** `D-IMPL-302` (the decode this makes reachable), `D-IMPL-113` (whose reasoning it follows), `D-IMPL-298`, `D-IMPL-121`.
+
+---
+
+**D-IMPL-304 — CARRY: pre-assembly request resolution can refuse BEFORE the canonical replay/refusal boundary, producing a runtime failure instead of a replay-recorded governed refusal.** CARRIED, not scheduled. Date: 2026-09-09. Approver: Dave. Surfaced by Step 3's malformed-value control; **predates the migration and is not an MCP defect**.
+
+**What was observed.** Over MCP, a malformed numeric lexical value (`"NaN"`) is judged **correctly** — `type-mismatch` naming `debt_tolerance`, declared `number`, presented `str`. But it arrives as a `RequestRefused` **exception**, which the door reports as `ccf-runtime-failure`: no governed refusal envelope and **no replay record**.
+
+**Why, precisely.** cp-05 calls `deployment.effective_request` **before** acquisition, because the walk cannot know its depth or edge flags until it knows what the caller effectively asked. That pre-resolution refuses and `produce_governed` raises, so `GovernedResolver`'s own refusal path — which *does* record resolution refusals to replay, `resolution=effective` on both refusal legs — never runs.
+
+**Why it is not the same fix as `D-IMPL-303`.** The door pre-check was removable because the resolver could do that job better. This one is **circular**: cp-05 genuinely cannot acquire without effective parameters, and cannot obtain a replay-recorded governed refusal without a populated fabric. Dave: *"That is a separate architectural issue ... Do not redesign acquisition ordering inside Step 3."*
+
+**Status.** Visible, executable and explicitly asserted rather than hidden: the committed env-gated MCP test carries an assertion **naming this carry**, so the behavior is demonstrated rather than described, and a future fix turns that assertion red instead of letting the carry rot. Marked as the known carry rather than making Step 3 green by redesign.
+
+**Scheduled nowhere.** Not an MCP defect, not introduced by `D-IMPL-298`'s migration — the legacy spine raised in the same place.
+
+**Governs:** nothing yet; it is a recorded observation. **Related:** `D-IMPL-303`, `D-IMPL-302`, `D-IMPL-298`, `D-IMPL-295` (9) (`argument_defaults`, the other carry from this migration).
+
+**Next free decision id: `D-IMPL-305`.**
 
 ---
 
