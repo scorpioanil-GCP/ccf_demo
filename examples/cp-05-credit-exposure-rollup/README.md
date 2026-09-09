@@ -237,8 +237,8 @@ invoke a module directly.
 
 **Published artifact `5734f184-24f5-4f55-ac5d-57c1467b9669`** —
 [Credit Exposure Rollup · cp-05](https://claude.ai/code/artifact/5734f184-24f5-4f55-ac5d-57c1467b9669).
-Built from the tree at `dbcdd43a`, 425,392 bytes,
-sha256 `e96ae35ae25546bc79a2c579c1f2adc337bc5ff9176f4c4c937085d70aa993f3`.
+Built from the tree at `dbefdbcd`, 427,462 bytes,
+sha256 `ed88fe603592a92a8d6f1e1345e30cb2939f37f637a103de697ca9a730bdda41`.
 
 ```bash
 .venv/bin/python examples/cp-05-credit-exposure-rollup/page/build_page.py
