@@ -1807,7 +1807,36 @@ Strictly stronger than the row-2 signal: the monkeypatch's deletion is now neces
 
 **Governs:** the cp-05 canonical-path migration and its product completion. **WHAT THIS DOES NOT DECIDE.** Any SDK change (none is authorized). The carries — source-refresh/evidence semantics, the decision instant, `argument_defaults`, `24.11-C-01`. Republication timing for cp-05's page beyond what step 4 names.
 
-**Next free decision id: `D-IMPL-299`.** **Related:** `D-IMPL-297` (which routed the work here), `D-GATE-24.11`, `D-IMPL-295`, `D-IMPL-296`, `D-IMPL-261` (examples are probes), `D-IMPL-289` (compensating code dies with the declaration fix).
+**Next free decision id: `D-IMPL-300`.** **Related:** `D-IMPL-297` (which routed the work here), `D-GATE-24.11`, `D-IMPL-295`, `D-IMPL-296`, `D-IMPL-261` (examples are probes), `D-IMPL-289` (compensating code dies with the declaration fix).
+
+---
+
+**D-IMPL-299 — cp-05's exposure data is DETERMINATION TRUTH and is assembled before Π. L5 may select, shape and present truth; it must never reach back to a system of record to create it.** RESOLVED. Date: 2026-09-09. Approver: Dave. Governs the cp-05 canonical-path migration (`D-IMPL-298`).
+
+**The ruling as Dave stated it.** *"cp-05 exposure data is determination truth and is assembled before Π. Postgres enrichment occurs through the assembly/L2 path and enters governed L3 state; L4 determines family and aggregate exposure; L5 applies materiality only. `ContentAcquirer` remains unused by cp-05 because its exposure facts are not late-bound decision-time content. **No SDK change is authorized by this ruling.**"*
+
+**THE SEMANTIC RULE, and it is the general one rather than cp-05's.** *"L5 may select, shape, and present truth. It must not reach back to a system of record to create truth."*
+
+**The architecture, ruled.**
+
+    Source acquisition -> L2 admission/enrichment -> L3 governed state
+      -> L4 family traversal/aggregation -> L5 materiality projection
+
+For cp-05 concretely: Fluree acquisition establishes the corporate/family topology; **Postgres exposure facts are acquired during assembly/population and admitted through L2 with their real temporal/provenance evidence**; L3 therefore holds the exposure facts available to the determination; L4 uses the declared traversal to establish the **77**-member family and performs whatever deterministic aggregation produces gross/adjusted exposure; L5 applies the effective materiality threshold and decides what is relevant to this caller.
+
+**THE REFINEMENT THAT KEEPS (a) HONEST.** Dave: *"Do not move gross/adjusted aggregation into `ProjectionPlan` while adopting (a). If aggregation is part of determining `$10.125B / $9.325B`, it must remain **before** Π as assembly/operator logic. Otherwise we solve the Postgres problem but still let L5 construct truth."* Moving the connection out of Π while leaving the arithmetic in it would have satisfied the letter of the rule and broken its point.
+
+**What was verified from the SDK contract before this was ruled, rather than inferred.** :meth:`~ccf.projection.plan.ProjectionPlan.invoke` is **projection-only** — its contract is *"Interpret the operator-produced state for `perspective`"*, and ``operator_outputs`` exists so a projection reads operator-produced metadata *"without re-running anything"*. Nothing in the Protocol sanctions acquiring or constructing truth. Claude's first proposed shape — a plan closing over Postgres to enrich and aggregate inside ``invoke`` — was **wrong on this contract**, and Dave held the edit until it was checked.
+
+**Why `ContentAcquirer` is NOT used here, recorded because it is architecturally legitimate and a later reader will ask.** The SDK does define a governed decision-time acquisition stage between L4 and Π — `ContentAcquiringPlan.required_content()` plus `ContentAcquirer.acquire()`, with declaration, `UndeclaredAcquisition` refusing anything undeclared, policy-ordered execution (*"nothing is acquired on behalf of a principal Policy excluded"*), and replay that re-feeds `recorded_acquisitions` rather than re-fetching. Dave: its *"ordering/replay semantics are actually quite good"*, but it *"solves a different class of problem: content whose need becomes known only after governed operator execution and which is legitimately acquired at decision time"* — eventually a document, research artifact, disclosure or market quote. **cp-05's facility/exposure records are not that**; they are source-of-record facts needed to calculate the product's core exposure determination. Two further reasons recorded: cp-05 would be the **first adopter of an entirely unexercised seam** (measured: zero implementations of `ContentAcquirer` across `src/`, `runtime/` and `examples/`), and structured exposure facts would have to be forced through `AcquiredContent.content`, a `str`. Dave: *"exactly the sort of friction that could distract the migration into another SDK investigation. We don't need it to answer cp-05's question."*
+
+**The accepted tradeoff, and the future question it defers rather than hides.** (a) means Postgres may enrich a broader acquired population than the ultimate family subset. Dave: *"slightly more acquisition -> much cleaner architectural boundary. For cp-05's current scale, that is clearly preferable."* The real question it defers — *"How do we avoid assembling enormous source populations when the relevant subset is only discoverable after graph traversal?"* — is **precisely where the governed `ContentAcquirer` seam, or another bounded late-acquisition pattern, may earn its keep**. It is recorded here and scheduled nowhere. *"Do not optimize the example around a future 100x workload before we've measured it."*
+
+**Config adoption, ruled in the same sitting.** `replay` and `declared_product_gate` move into cp-05's **shipped** `ccf_config.yaml`. The transitional "two declarative additions" test *"has fulfilled its purpose"*: once the declarations are canonical the test is updated to verify **the shipped configuration itself contains them**. *"Don't preserve an overlay merely so the old delta remains two."*
+
+**Governs:** the shape of the cp-05 canonical-path migration. **WHAT THIS DOES NOT DECIDE.** Any SDK change — none is authorized. The scalability question above. The carries under `D-IMPL-297`.
+
+**Next free decision id: `D-IMPL-300`.** **Related:** `D-IMPL-298` (the migration this shapes), `D-IMPL-297`, `D-IMPL-279` `R-09` (the L1 acquisition boundary, a different seam from decision-time content acquisition), `src/ccf/projection/acquisition.py`, `src/ccf/projection/plan.py::ProjectionPlan`.
 
 ---
 
