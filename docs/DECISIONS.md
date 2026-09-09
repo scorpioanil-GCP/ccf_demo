@@ -1687,7 +1687,7 @@ Strictly stronger than the row-2 signal: the monkeypatch's deletion is now neces
 
 **WHAT THIS DOES NOT DECIDE.** `F-11`'s mechanism (its own ruling, below in this session's record). `F-12`. `24.11-C-01` (still a carry, `D-IMPL-291` (3)). The architecture questions (2) sends out of the phase — neither is scheduled here. `D-GATE-24.10`, the `phase-24.10` merge and push. The uncommitted `CLAUDE.md` revision.
 
-**Next free decision id: `D-IMPL-296`.**
+**Next free decision id: `D-IMPL-295`.**
 
 ---
 
@@ -1714,4 +1714,27 @@ Strictly stronger than the row-2 signal: the monkeypatch's deletion is now neces
 
 **WHAT THIS DOES NOT DECIDE.** `F-12` (its scope stands as ruled at `D-IMPL-288` (2) and `D-IMPL-289`). `argument_defaults` (point 9). Whether a caller-suppliable policy envelope wants a `PolicyConstraint` bounding it — recorded as an observation, not scheduled. `24.11-C-01`. `D-GATE-24.10`, the `phase-24.10` merge and push.
 
-**Next free decision id: `D-IMPL-296`.** **Related:** `D-IMPL-288` (4)-(7) (the mechanism question this answers), `D-IMPL-289` (the ordering rule it executes), `D-IMPL-294` (4) (the compensating-code qualification), `D-IMPL-293`, `D-IMPL-287` (5), `D-IMPL-138` (a). **Related:** `D-IMPL-117` (the structure-and-API obligation this discharges), `D-IMPL-118` (the member's own identity on the vessel), `D-IMPL-124` and `D-IMPL-119` (the two constraints that keep the other members out), `D-IMPL-289` (qualified by (4)), `D-IMPL-293`, `D-IMPL-287` (5), `CLAUDE.md` §9.
+**Next free decision id: `D-IMPL-297`.** **Related:** `D-IMPL-288` (4)-(7) (the mechanism question this answers), `D-IMPL-289` (the ordering rule it executes), `D-IMPL-294` (4) (the compensating-code qualification), `D-IMPL-293`, `D-IMPL-287` (5), `D-IMPL-138` (a).
+
+---
+
+**D-IMPL-296 — `unsupported_arguments` is canonically `mapping[name, reason]`; the SDK owns the shape and the TIMING of its validation, the product author owns the reason text, and both the sequence form and a blank reason refuse at boot.** RESOLVED. Date: 2026-09-09. Approver: Dave. Row 5 of Phase 24.11, closing `24.10-F-12`. Shipped at `e4568a9d` (SDK) and `e57444e4` (cp-05's correction), in that order and for that reason.
+
+**The acceptance, Dave verbatim.** *"F-12 is accepted as closed. The result is exactly what we wanted from this phase: the SDK now rejects the malformed declaration at the Control Plane boundary, cp-05 was observed failing for the right reason before any example correction, the declaration then gained the authored reason, and the compensating comprehension disappeared rather than moving elsewhere."*
+
+**The durable semantics.**
+
+1. **The canonical form is `mapping[name, reason]`, and it did not change.** `D-IMPL-288` (2) ruled this a **validation-timing** defect and not a schema defect. What moved is *where* a document not carrying the canonical form is stopped.
+2. **The malformed sequence form and blank reasons both refuse at boot.** A bare sequence names WHICH arguments are refused and never WHY — the half of the declaration the mapping exists to carry. A blank reason satisfies the letter of the mapping while asserting nothing an adopter could act on, and is the bare sequence wearing a mapping's clothes; every offender is named at once.
+3. **The SDK owns the shape and the timing; the product author owns the reason text.** `request_contract` is adopter-owned and opaque at boot (`D-IMPL-138` (a)) and stays so in every other respect: the check validates **one key's shape** and is not general request-contract validation. The SDK owns that key only because it is the SDK's own contract field, and judges no reason's content — any non-blank prose is admitted verbatim (CLAUDE.md §6.4, CINV-01).
+4. **`_refuse_malformed_unsupported_arguments` is the third sibling** of `_refuse_operator_set_divergence` and `_refuse_unproducible_seed_classes` — same call site, same before-materialisation ordering. Previously the Control Plane admitted the document and `ProductRequestContract.from_declared` refused it three frames down with a bare `ValueError`, or the deployment hand-converted the list and manufactured the reasons.
+5. **cp-05's list form was an objectively incomplete declaration, and the ordering was executed rather than asserted.** The SDK refusal landed FIRST; unchanged cp-05 was then observed refused **at boot, by field, for the correct reason** through the real door (`load_artifact` → `derive_deployment`), recorded verbatim in `e4568a9d`'s message because the next step makes it unreproducible; the declaration correction and the deletion of the reason-minting code landed SECOND. The reason was **transcribed** from cp-05's own `artifacts/question.yaml`, where it already existed in prose with nowhere governed to live — not invented.
+6. **The comprehension was deleted, not relocated** (`D-IMPL-289`). Dave: *"If the YAML gains a reason but Python continues recreating one, F-12 is not really finished."* A guard was written for exactly this, because nothing else would have caught the comprehension returning: it asserts both that the SDK carries the authored sentence verbatim and that cp-05's interpreter contains no minting expression.
+7. **The delta ratchet fired as designed.** `third_change_is_forced()` asks the SDK rather than a constant, now answers `False`, and adoption dropped to the two declarative additions waves 1 and 2 created. Its test is un-quarantined with the premise **inverted rather than deleted**, because a premise that can no longer go stale is what would let the test pass for the wrong reason.
+8. **The published page and transcript remain intentionally STALE for the duration of the SDK phase** (`D-IMPL-261`). `examples/cp-05-credit-exposure-rollup/page/scenario-transcript.txt` still shows the old `"not supported at this tier"` filler. Dave: *"Do not republish or re-pin it now."* Affected examples are rerun against the resulting SDK as a separate validation step after the phase closes, and only then republished if necessary.
+
+**Governs:** `ccf.deployment.config::_refuse_malformed_unsupported_arguments` and its call site in `derive_deployment`; the TIMING of `ProductRequestContract.unsupported_arguments`' validation (never its shape); cp-05's `ccf_config.yaml` and `deployment.py::request_contract`.
+
+**WHAT THIS DOES NOT DECIDE.** `argument_defaults`, which stays a carry under `D-IMPL-295` (9) and did **not** enlarge this row. The probe rerun's outcome or the phase-level stop condition. `24.11-C-01`. `D-GATE-24.10`, the `phase-24.10` merge and push.
+
+**Next free decision id: `D-IMPL-297`.** **Related:** `D-IMPL-288` (2) (the ruling this implements), `D-IMPL-289` (the ordering and compensating-code rules), `D-IMPL-295`, `D-IMPL-261` (8), `D-IMPL-138` (a).
