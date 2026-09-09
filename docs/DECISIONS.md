@@ -1432,3 +1432,57 @@ The last clause is the operative one: **a passing test is not evidence that a ca
 **WHAT THIS DOES NOT DECIDE.** The classification outcomes for `F-08`/`F-09`/`F-11`/`F-12` — produced as a reviewable proposal under (8), ruled by Dave, not by this entry. **How** `F-11`'s capability should be expressed if it is confirmed required: binding operator parameters per request without opening a path for a deployment to substitute past its declared Control Plane envelope is a design question, and the naive implementation is a governance hole. The disposition of `24.10-F-01`, `F-02`, `F-04`, `F-05`, `F-10` and the eight carried pre-existing reds. `D-GATE-24.10`, the `phase-24.10` merge and push — deferred by (7), not cancelled. `R-02`; `R-04`/`R-05`/`R-06`; `R-07`/`R-08`. The post-phase cp-05 adoption step. `D-GATE-24.9`, the `phase-24.9` branch, the cp-05 branch's merge, the `phase-24.5-base` tag push.
 
 **Next free decision id: `D-IMPL-288`.** **Related:** `D-IMPL-286` (the framing this constitutes), `D-IMPL-285`, `D-IMPL-283`, `D-IMPL-280`, `D-IMPL-269` (1) (proportionality per phase — (1) and (5) are instances), `D-IMPL-261`, `D-IMPL-38` (the `similarity_index_version` requirement `F-06` violates), `D-IMPL-111` limb (a) (which fixed `DI-15.5-07` on the hand-built path; `F-07` is the same defect on the canonical one), `DI-15.5-07`.
+
+---
+
+**D-IMPL-288 — `F-12` is a validation-timing defect and the canonical `unsupported_arguments` mapping SHAPE STANDS; `F-11`'s per-request operator conditioning is legal only INSIDE a Control-Plane-declared envelope, and an empty declaration confers no authority; the 24.11 exit criterion is amended to permit ruled corrections of objectively invalid declarations.** RESOLVED. Date: 2026-09-08. Approver: Dave. **Amends:** the exit criterion at `D-IMPL-286` / ROADMAP § Phase 24.11.
+
+**(1) `F-12` — the SDK's shape is right; the timing is wrong. Ruled, verbatim:**
+
+> *"`F-12` is an SDK validation-timing defect, not an SDK schema defect. The Control Plane must reject an invalid `request_contract` at boot with a governed, field-specific refusal rather than allowing it to fail later with a bare `ValueError`. The canonical `unsupported_arguments: mapping[name, reason]` shape remains unchanged."*
+
+Dave's reason for keeping the mapping: *"If `unsupported_arguments` is canonically a mapping of `argument → reason`, that shape has architectural value: the refusal can explain **why** each argument is unsupported. Accepting a bare list just to preserve cp-05 unchanged would be exactly the example-driven SDK distortion we have been trying to eliminate."*
+
+**(2) cp-05's list form is an OBJECTIVELY INVALID DECLARATION and may be corrected. Ruled, verbatim:**
+
+> *"cp-05's list form is an objectively invalid example declaration and may be corrected to the canonical mapping after the SDK provides the proper refusal."*
+
+And on why this is not the forbidden thing: *"That correction is permitted under our existing discipline: examples may change when they are objectively wrong. We are not 'repairing the example around the SDK'; we are correcting an invalid declaration after the SDK proves it invalid."* This lands inside `D-IMPL-261`'s existing carve-out — *"An example changes only when the example is objectively wrong, its test is wrong, or the SDK surface it legitimately consumes was deliberately changed."* **Sequencing is part of the ruling: the SDK's boot refusal lands FIRST and names the fault; the correction follows it.**
+
+**MEASURED SCOPE OF THAT CORRECTION — two edits, and the second deletes a workaround.** `examples/cp-05-credit-exposure-rollup/ccf_config.yaml:175` declares `unsupported_arguments:` as a one-element list (`- as_of`). `deployment.py:272-274` then synthesizes the mapping in code — `{name: "not supported at this tier" for name in rc.get("unsupported_arguments", ())}` — so **cp-05's refusal reasons are a constant filler string**, which is precisely the architectural value (1) says the mapping exists to carry. Correcting the YAML to `as_of: "<real reason>"` without also making the comprehension a pass-through would silently discard the authored reason. No test pins cp-05 artifact digests or transcripts (measured), so the correction does not force a republication — and `D-IMPL-261`'s *"No example republishing or transcript re-pinning inside an SDK remediation phase"* stands regardless: republication, if any, is post-phase.
+
+**(3) THE AMENDED 24.11 EXIT CRITERION, verbatim, replacing the "unchanged cp-05 and s1-01" phrasing:**
+
+> *"Existing Context Product declarations remain unchanged except for explicitly ruled corrections of objectively invalid declarations. **No example change may compensate for a missing SDK capability.**"*
+
+Dave's reason: *"That avoids creating a weird permanent 'cp-05 exception' while preserving the principle."* The second sentence is the load-bearing one and it is the test applied to any proposed example edit in 24.11.
+
+**(4) `F-11` — request-time conditioning is SELECTION WITHIN a declared envelope, never OVERRIDE of it.** Dave, verbatim: *"Request-time replacement must be governed conditioning, never an override. The Control Plane remains authoritative over the **permitted parameter space**. A request may select a value *within that declared space*; neither the caller nor deployment may widen it."*
+
+**The model, verbatim:**
+
+> *"Control Plane declares the envelope → request selects within the envelope → resolver records the effective value and authority → operator receives that value."*
+
+**Not:** *"declaration says X → deployment substitutes Y."* **And definitely not:** *"empty declaration → caller may supply anything."*
+
+**THE EXPLICIT RULE, verbatim:**
+
+> *"A request-derived operator parameter is legal only when the product declaration explicitly permits request-time conditioning for that parameter and the effective request value satisfies the declared domain/policy constraints. Undeclared or out-of-domain substitution is refused."*
+
+This aligns with the established authority model: **policy boundary > caller value > product default.**
+
+**(5) EMPTY MEANS EMPTY.** Dave, verbatim: *"The important implication for cp-05 is that `permitted_classifications: []` cannot silently mean 'dynamically unrestricted.' Empty must mean empty unless the schema explicitly defines another meaning."* And: *"**Do not preserve the empty-list idiom by making it magical.**"* If cp-05 intended *"the caller chooses classifications from an allowed domain,"* then *"cp-05 should declare that allowed domain through the proper request/operator contract."*
+
+**(6) WHERE THE ACTUAL `F-11` SDK GAP LIES, verbatim:** *"If the SDK currently has **no declarative way to express that binding**, then **that is the actual `F-11` SDK gap** and 24.11 should add the minimum governed binding mechanism."*
+
+**(7) THE QUESTION TO ASK AT `F-11` — a sequencing instruction, verbatim.** The order `F-07 → F-06 → F-08 → F-11 → F-12` stands, *"but when you reach `F-11`, do not ask 'how do we make cp-05's empty list work?' Ask:*
+
+> ***"How does the canonical SDK declare and enforce a request-conditioned operator parameter?"***
+
+*That keeps 24.11 aimed squarely at the SDK."*
+
+---
+
+**WHAT THIS DOES NOT DECIDE.** The concrete surface of the governed binding mechanism under (6) — its declaration syntax, where the domain constraint lives, and how the resolver records "effective value and authority" per (4) — to be proposed against the tree and, if it grows beyond a minimum binding, brought back rather than shipped. Whether cp-05's `permitted_classifications: []` is itself an objectively invalid declaration under (5) or merely an idiom the SDK will not honor — a distinct question from `F-12`'s, not ruled here, and it decides whether cp-05 needs a second ruled correction. Whether cp-05 can reach the exit criterion at all once (5) forbids the magical reading. `F-09` remains OUT (`D-IMPL-287` (3) classification). `D-GATE-24.10`, the `phase-24.10` merge and push. `24.10-F-01`, `F-02`, `F-04`, `F-05`, `F-10` and the eight carried pre-existing reds. Post-phase cp-05 republication.
+
+**Next free decision id: `D-IMPL-289`.** **Related:** `D-IMPL-287` (the constitution and the classification this rules on), `D-IMPL-286` (the exit criterion (3) amends), `D-IMPL-285`, `D-IMPL-261` (the objectively-wrong carve-out (2) relies on, and the no-republication rule that still binds), `D-IMPL-138`(a) (adopter-owned sections opaque at boot — the gap (1) closes), `24.5-L-13` (the `unsupported_arguments` fourth-key ruling whose shape (1) preserves), `examples/cp-05-credit-exposure-rollup/ccf_config.yaml:175`, `examples/cp-05-credit-exposure-rollup/deployment.py:272`, `src/ccf/products/request.py:620`, `src/ccf/deployment/config.py:190`.
