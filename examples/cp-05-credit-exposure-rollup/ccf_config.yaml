@@ -16,6 +16,16 @@ product_class:
   schema_name: credit-risk.exposure-rollup
   schema_version: "1.0.0"
 
+  # THE RUNTIME INVARIANT THIS CLASS HOLDS ITSELF TO, declared so the fabric can
+  # execute it and replay can name it (`R-11`, `D-IMPL-282`). The predicate is
+  # this deployment's — `assembler.py::reconciliation_guard`, which catches the
+  # PLAUSIBLE WRONG ANSWER the other three gates cannot: an adjusted total
+  # exceeding gross means step 5.2 removed the same exposure twice. The Control
+  # Plane owns the identity; the deployment supplies the implementation.
+  declared_product_gate:
+    gate_id: cp-05.reconciliation-guard
+    gate_version: "1.0.0"
+
   # THE ANCHOR FLIPS AT THIS RUNG — spec §B.1 element 3, `artifacts/ttl.yaml`.
   # `from_decision`, against rungs 02 and 04's `from_entity_freshness`. An
   # exposure is scoped to the decision taken against it; no entity's validity
@@ -384,3 +394,17 @@ policy:
 default_perspective:
   principal_id: PRIN-CRO-001
   role: credit-officer
+
+# WHERE THIS DEPLOYMENT'S DECISION RECORDS GO — `R-12` (`D-IMPL-282`).
+#
+# THIS SECTION WAS ONCE REFUSED, and `artifacts/replay.yaml` records the
+# refusal verbatim: the Control Plane's section vocabulary was closed and did
+# not include `replay`, so a deployment's replay binding had nowhere declared
+# to live. cp-05 logged that as a finding (spec §F.4) rather than working
+# around it silently. Phase 24.10's `R-12` added the ninth section and closed
+# it, so the binding is declared HERE now and the resolver consumes it — no
+# argument, no module constant, no artifact read by hand.
+replay:
+  record_class: ccf.cp-05.decision-replay-record
+  query_pin_class: ccf.cp-05.query-pin
+  store_dirname: artifacts-store
