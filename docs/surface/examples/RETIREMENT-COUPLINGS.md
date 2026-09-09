@@ -283,7 +283,7 @@ Rows by coupling shape:
 | `tests/examples/test_s1_01_governed_resolver_adoption.py` | 125 | `examples/s1-01-hello-context-product` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-01-hello-context-product` |
 | `tests/examples/test_s1_01_governed_resolver_adoption.py` | 376 | `tests/examples/test_s1_01_output.py` | `docstring` | documentary | - | - | 17-08 |  |
 | `tests/examples/test_source_estate.py` | 50 | `examples/s1-01-hello-context-product` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-01-hello-context-product` |
-| `tests/examples/test_spine_separation.py` | 36 | `archive/examples/00-quickstart` | `docstring` | documentary | - | - | 23-04 |  |
+| `tests/examples/test_spine_separation.py` | 60 | `archive/examples/00-quickstart` | `docstring` | documentary | - | - | 23-04 |  |
 | `tests/halflife/test_debt.py` | 707 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
 | `tests/integration/test_proto_quickstart.py` | 3 | `archive/examples/00-quickstart` | `docstring` | documentary | - | - | 23-04 |  |
 | `tests/invariants/test_citation_coverage.py` | 45 | `examples/03-harness-portability` | `docstring` | documentary | - | - | 23-04 |  |
@@ -362,6 +362,7 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | --- | ---: | --- |
 | `.planning/CP-05-REMEDIATION-SET.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/CP-05-SDK-CHANGE-PROPOSALS.md` | 1 | the phase's own planning tree — not shipped, not published |
+| `.planning/EXAMPLE-MODERNIZATION-LEDGER.md` | 4 | the phase's own planning tree — not shipped, not published |
 | `.planning/HANDOFF-2026-08-14.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `.planning/HANDOFF-2026-08-15.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/HANDOFF-2026-08-17.md` | 2 | the phase's own planning tree — not shipped, not published |
