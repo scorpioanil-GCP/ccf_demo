@@ -1486,3 +1486,40 @@ This aligns with the established authority model: **policy boundary > caller val
 **WHAT THIS DOES NOT DECIDE.** The concrete surface of the governed binding mechanism under (6) — its declaration syntax, where the domain constraint lives, and how the resolver records "effective value and authority" per (4) — to be proposed against the tree and, if it grows beyond a minimum binding, brought back rather than shipped. Whether cp-05's `permitted_classifications: []` is itself an objectively invalid declaration under (5) or merely an idiom the SDK will not honor — a distinct question from `F-12`'s, not ruled here, and it decides whether cp-05 needs a second ruled correction. Whether cp-05 can reach the exit criterion at all once (5) forbids the magical reading. `F-09` remains OUT (`D-IMPL-287` (3) classification). `D-GATE-24.10`, the `phase-24.10` merge and push. `24.10-F-01`, `F-02`, `F-04`, `F-05`, `F-10` and the eight carried pre-existing reds. Post-phase cp-05 republication.
 
 **Next free decision id: `D-IMPL-289`.** **Related:** `D-IMPL-287` (the constitution and the classification this rules on), `D-IMPL-286` (the exit criterion (3) amends), `D-IMPL-285`, `D-IMPL-261` (the objectively-wrong carve-out (2) relies on, and the no-republication rule that still binds), `D-IMPL-138`(a) (adopter-owned sections opaque at boot — the gap (1) closes), `24.5-L-13` (the `unsupported_arguments` fourth-key ruling whose shape (1) preserves), `examples/cp-05-credit-exposure-rollup/ccf_config.yaml:175`, `examples/cp-05-credit-exposure-rollup/deployment.py:272`, `src/ccf/products/request.py:620`, `src/ccf/deployment/config.py:190`.
+
+---
+
+**D-IMPL-289 — `F-12`'s remediation has a REQUIRED FOUR-STEP ORDERING that preserves the finding's provenance; and a general authoring rule: compensating code must be DELETED by the declaration fix, never relocated.** RESOLVED. Date: 2026-09-08. Approver: Dave. **Extends** `D-IMPL-288` (1)-(2), which Dave confirmed as *"internally consistent"* in the same message.
+
+**TWO DEFECTS, TWO OWNERS — Dave, verbatim, and the separation is the point:**
+
+> *"SDK defect: invalid `request_contract` shape survives Control Plane boot and fails later. `F-12` fixes validation timing and refusal quality."*
+> *"cp-05 defect: the declaration uses a list where the canonical contract requires `name → reason`, then `deployment.py` manufactures generic reasons to compensate."*
+
+*"So the cp-05 change is legitimately an objective correction, not an example workaround."*
+
+**THE REQUIRED END STATE, verbatim:**
+
+> *"`ccf_config.yaml` authors the actual unsupported-argument reason → Control Plane validates that shape at boot → resolver consumes it → `deployment.py` passes it through unchanged."*
+
+**THE REQUIRED ORDERING — this is the ruling, and the plan must state it as a requirement, verbatim:**
+
+> *"SDK validation first → observe cp-05's existing list refused for the right reason → correct the declaration → delete the compensating code."*
+
+**Why the ordering is load-bearing, verbatim:** *"That preserves provenance of the finding. We can show that the SDK learned to reject the malformed declaration before we corrected the example."* Step 2 is not ceremonial: the refusal must be **observed, and observed to fire for the right reason**, before any cp-05 byte changes. An SDK refusal that lands and a correction that lands in the same breath cannot be told apart afterward from one that was written to make the correction look justified.
+
+**Why deleting the comprehension is mandatory rather than tidy, verbatim:** *"Deleting the comprehension is important. Otherwise cp-05 would technically adopt the correct schema while still discarding the author's governed explanation at runtime."* A cp-05 that authors real reasons in YAML and then overwrites them with `"not supported at this tier"` in code has adopted the schema and kept the defect.
+
+**THE GENERAL RULE — the reusable half of this entry, verbatim:**
+
+> *"If an example contains code whose only purpose is to reconstruct information that should have been authored declaratively, fixing the declaration should delete that code rather than move it elsewhere."*
+
+And what it is for, verbatim: *"That is exactly the direction we want the SDK to drive authors: more governed declaration, less compensating plumbing."*
+
+**Scope of the general rule.** It is not scoped to `F-12` or to cp-05. It is a standing test applicable wherever an example, a runtime adapter or a deployment carries code that re-derives, defaults, synthesizes or reshapes something a Control Plane artifact should have declared: **the correct fix moves the information into the declaration and removes the code, and a fix that relocates the compensating logic has not discharged it.** It is the authoring-side companion to the No-Hardcoding Rule (`CLAUDE.md` §6.4) — §6.4 forbids the *thing interpreted* from living in code; this forbids code that *reconstructs* what the artifact should have carried. Sibling to `D-IMPL-286`'s harness rule, where a `monkeypatch` supplying a capability the SDK lacks must be deleted by the SDK gaining it, never preserved as the implementation.
+
+---
+
+**WHAT THIS DOES NOT DECIDE.** The prose of cp-05's actual `as_of` reason — authored at step 3, and it must say something true about *why* `as_of` is unsupported at this tier rather than restate the filler. Whether any other example carries compensating code of the same shape — the general rule is stated, not swept for; a sweep is not authorized here (`D-IMPL-287` (5) forbids new tooling, and a sweep would be one). Whether cp-05's `permitted_classifications: []` is itself an objectively invalid declaration (`D-IMPL-288`, unresolved by design; raised at step 4). `D-GATE-24.10`, the `phase-24.10` merge and push.
+
+**Next free decision id: `D-IMPL-290`.** **Related:** `D-IMPL-288` (1)-(2) (the ruling this sequences), `D-IMPL-287` (5) (the no-new-tooling prohibition that keeps the general rule a rule rather than a sweep), `D-IMPL-286` (the monkeypatch-deletion sibling), `D-IMPL-261` (the objectively-wrong carve-out), `CLAUDE.md` §6.4 (No-Hardcoding — the rule this is the authoring-side companion to), `examples/cp-05-credit-exposure-rollup/ccf_config.yaml:175`, `examples/cp-05-credit-exposure-rollup/deployment.py:272`.
