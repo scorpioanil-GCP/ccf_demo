@@ -312,7 +312,9 @@ def produce_governed(
                 business = _business_payload(
                     config=config, rollup=rollup, limit=limit,
                     anchor_name=anchor_name, family_size=family_size,
-                    basis_value=basis_value,
+                    basis_value=basis_value, depth_value=depth_value,
+                    materiality=materiality_value, flags=flags,
+                    acquired_count=len(acquired), edge_count=len(edges),
                 )
 
                 # The declared replay binding names a `store_dirname`, which
@@ -336,7 +338,8 @@ def produce_governed(
 
 
 def _business_payload(*, config, rollup, limit, anchor_name, family_size,
-                      basis_value) -> dict[str, Any]:
+                      basis_value, depth_value, materiality, flags,
+                      acquired_count, edge_count) -> dict[str, Any]:
     """cp-05's assembled answer. No governance metadata, by ruling.
 
     ``effective_request`` is deliberately absent (`D-IMPL-299`): the governed
@@ -352,8 +355,33 @@ def _business_payload(*, config, rollup, limit, anchor_name, family_size,
         "policy": {"counts_guarantees": limit.counts_guarantees,
                    "counts_undrawn": limit.counts_undrawn,
                    "connection_basis": limit.connection_basis},
+        # THE ANSWER'S OWN SCOPE — business content, not governance metadata.
+        #
+        # These are the parameters that decide WHICH answer this is. cp-05's own
+        # config says depth is *"part of PRODUCT IDENTITY, not a tuning knob —
+        # the family is 21 nodes at depth 1, 46 at depth 2 and 77 at depth 3, so
+        # two depths are two answers"*. A reader holding the payload has to be
+        # able to say what it is an answer TO.
+        #
+        # Deliberately NOT `effective_request`: no authorities appear here.
+        # Which authority supplied each value — caller, product default or
+        # policy — is the governed envelope's, recorded once in replay
+        # dimension 2 (`D-IMPL-299`). The distinction is the whole boundary:
+        # the scope is a fact about the answer; the authority is a fact about
+        # how the question was governed.
+        "request": {
+            "depth": depth_value,
+            "materiality": str(materiality),
+            "basis": basis_value,
+            **flags,
+        },
         "basis": basis_value,
-        "family": {"nodes": family_size},
+        "family": {"nodes": family_size,
+                   "acquired_from_source": acquired_count,
+                   "relationship_claims_admitted": edge_count,
+                   "members_with_lei": rollup.members_with_lei,
+                   "members_holding_facilities": len(
+                       [e for e in rollup.entities if e.facility_count])},
         "measures": {"gross": rollup.gross.as_dict(),
                      "adjusted": rollup.adjusted.as_dict()},
         "guarantee_dedup": {"cases": len(rollup.dedup_cases),

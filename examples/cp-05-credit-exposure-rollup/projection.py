@@ -152,6 +152,14 @@ class ExposureRollupProjection:
                 ],
                 "residual": residual,
                 "residual_entities": residual_count,
+                # `entities` is `material` under the name the renderer and
+                # `expected.yaml` both use. One list, two readers, no second
+                # derivation.
+                "entities": [
+                    {"lei": e.lei, "legal_name": e.legal_name,
+                     "facilities": e.facility_count, "gross": e.gross.as_dict()}
+                    for e in material
+                ],
                 # NEVER absorbed into the residual, whatever the threshold.
                 # These entities hold no facility and are reached only by
                 # guarantee or cross-default; summarizing them away would delete
