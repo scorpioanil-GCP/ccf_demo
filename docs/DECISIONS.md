@@ -1523,3 +1523,35 @@ And what it is for, verbatim: *"That is exactly the direction we want the SDK to
 **WHAT THIS DOES NOT DECIDE.** The prose of cp-05's actual `as_of` reason — authored at step 3, and it must say something true about *why* `as_of` is unsupported at this tier rather than restate the filler. Whether any other example carries compensating code of the same shape — the general rule is stated, not swept for; a sweep is not authorized here (`D-IMPL-287` (5) forbids new tooling, and a sweep would be one). Whether cp-05's `permitted_classifications: []` is itself an objectively invalid declaration (`D-IMPL-288`, unresolved by design; raised at step 4). `D-GATE-24.10`, the `phase-24.10` merge and push.
 
 **Next free decision id: `D-IMPL-290`.** **Related:** `D-IMPL-288` (1)-(2) (the ruling this sequences), `D-IMPL-287` (5) (the no-new-tooling prohibition that keeps the general rule a rule rather than a sweep), `D-IMPL-286` (the monkeypatch-deletion sibling), `D-IMPL-261` (the objectively-wrong carve-out), `CLAUDE.md` §6.4 (No-Hardcoding — the rule this is the authoring-side companion to), `examples/cp-05-credit-exposure-rollup/ccf_config.yaml:175`, `examples/cp-05-credit-exposure-rollup/deployment.py:272`.
+
+---
+
+**D-IMPL-290 — Phase 24.11 EXECUTION BEGINS on `phase-24.11`; `F-07`'s target is narrowed to one invariant; and the phase is executed ROW BY ROW WITH INSPECTION, never as an unattended sweep.** RESOLVED. Date: 2026-09-08. Approver: Dave.
+
+**GO, verbatim:** *"Cut `phase-24.11` and start with F-07."* Dave's read of the plan's discipline, verbatim: *"SDK defect first; smallest direct SDK regression test; no example rewiring as a deliverable; no new test infrastructure; diagnostic monkeypatches disappear only when the SDK makes them unnecessary; cp-05 correction happens only after the SDK has first refused the unchanged malformed declaration correctly."* Branch `phase-24.11` cut from `phase-24.10`'s tip `581f73ac` — **not** from `main` — because the strict-XFAIL evidence modules `F-07` is measured against exist only on that branch.
+
+**(1) `F-07`'s TARGET, narrowed by Dave, verbatim — this is the invariant, and the scope:**
+
+> *"The subject/perspective state used during governed execution must be the same effective subject state represented in replay and product identity."*
+
+**The direct SDK test, verbatim:** *"The direct SDK test should prove two different subjects cannot collapse to the same governed result merely because Π lost its seeds."* Per `D-IMPL-287` (6) and `D-IMPL-286`, the regression is written **against the resolver**, not against cp-05 — *"We do not need cp-05 to be the regression test."*
+
+**MEASURED, so the row is not re-derived downstream.** `ProjectionEngine.execute` already accepts `seeds: frozenset[str] | None = None` (`src/ccf/projection/engine.py:485`). `request_seeds` already exists (`src/ccf/products/request.py:1735`) and its own docstring states the intent this row restores: *"One reading, used on both paths, and that is the whole reason this is a function rather than a set literal at two call sites. The serving path derives the seeds from the request it was handed; the replay path derives them from the request the record carries."* `ccf.replay.engine:790` passes `seeds=request_seeds(path.request)`. **`GovernedResolver.__call__` (`resolver.py:1571-1577`) calls `execute()` with no `seeds` at all.** So `F-07` is not a missing capability — it is the canonical serving path failing to use a seam the SDK built for it, and which `D-IMPL-111` limb (a) already installed on the hand-built path when it fixed `DI-15.5-07`. The fix is correspondingly small; **it is the invariant in (1) that must be proved, not merely the argument that must be passed.**
+
+**(2) THE STOP-AND-INSPECT POINT — four things, verbatim:**
+
+> *"After F-07 is fixed, stop and show me: 1. the SDK change, 2. the direct regression test, 3. the previously failing strict-XFAIL behavior now attributable to that fix, 4. no example changes."*
+
+Item 3 is the causality evidence: which of `24.10`'s strict XFAILs moved, and that the movement is attributable **to this fix** rather than coincident with it. Item 4 is proved by diff, not asserted.
+
+**(3) THE PHASE IS NOT EXECUTED UNATTENDED — a cadence ruling, verbatim, with its reason:**
+
+> *"I would not execute the entire phase unattended in one sweep. The risk now is no longer conceptual drift; it is accidentally bundling several resolver semantics into one repair and losing causality. F-07 is important enough to land and inspect independently before the composition work continues."*
+
+So the sequence `F-07 → F-06 → F-08 → F-11 → F-12 → one unchanged rerun` (`D-IMPL-287` (6)) is executed **one row at a time, with Dave's inspection between rows**. *"Then move to F-06"* follows the `F-07` inspection, not the `F-07` commit. This is a distinct concern from `D-IMPL-286`'s: drift was about *what* is built; this is about keeping *causality legible* in what is built.
+
+---
+
+**WHAT THIS DOES NOT DECIDE.** Which request object supplies the serving path's seeds — the resolver holds both `request` and `effective_request` at the call site, and the invariant in (1) is what settles it: the seeds used in execution must equal the seeds replay will derive from the recorded request. Determined by measurement in the row, and reported. Whether any behavior beyond seeding is needed to satisfy (1) — if the subject state diverges from replay for a second reason, that is a finding, reported at the stop point, not absorbed into this repair (which is exactly the bundling (3) forbids). `F-06` and all later rows. `D-GATE-24.10`, the `phase-24.10` merge and push.
+
+**Next free decision id: `D-IMPL-291`.** **Related:** `D-IMPL-289`, `D-IMPL-288`, `D-IMPL-287` (the constitution and sequence), `D-IMPL-286`, `D-IMPL-285` (3) (`F-07` as P0), `D-IMPL-111` limb (a) (which fixed `DI-15.5-07` on the hand-built path — this row is the same reading reaching the canonical one), `DI-15.5-07`, `src/ccf/products/resolver.py:1571`, `src/ccf/products/request.py:1735`, `src/ccf/projection/engine.py:485`, `src/ccf/replay/engine.py:790`.
