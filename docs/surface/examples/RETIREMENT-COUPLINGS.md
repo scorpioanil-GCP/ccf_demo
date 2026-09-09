@@ -786,6 +786,7 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/24.10-cp-05-product-driven-sdk-remediation-reduce-the-plumbing-a-g/24.10-04-PLAN.md` | 35 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.10-cp-05-product-driven-sdk-remediation-reduce-the-plumbing-a-g/24.10-04-SUMMARY.md` | 11 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.10-cp-05-product-driven-sdk-remediation-reduce-the-plumbing-a-g/24.10-05-PLAN.md` | 1 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/24.10-cp-05-product-driven-sdk-remediation-reduce-the-plumbing-a-g/24.10-05-SUMMARY.md` | 3 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.10-cp-05-product-driven-sdk-remediation-reduce-the-plumbing-a-g/24.10-CONTEXT.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.10-cp-05-product-driven-sdk-remediation-reduce-the-plumbing-a-g/24.10-DISCUSSION-LOG.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.4-corporate-family-tree-cp-04-first-multi-store-product-fluree/24.4-13-PLAN.md` | 2 | the phase's own planning tree — not shipped, not published |
