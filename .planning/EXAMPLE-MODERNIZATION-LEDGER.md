@@ -16,7 +16,7 @@ A finding here is **classified and preserved, never repaired in flight**
 
 ## `MOD-01` — BLOCKING. s1-01 holds the only binder call site in the live `examples/` tree, against a floor with deliberately zero headroom.
 
-**Status:** OPEN. Blocks the s1-01 migration. Needs a ruling.
+**Status:** **RULED — `D-IMPL-307`, 2026-09-09.** Option 2 (split the floor). The evidence now splits by architectural ownership: `_resolved_binder_sites` counts deployments that bind for themselves, `_delegated_binder_sites` counts those whose binder call is the SDK's, and a migration decrements one while incrementing the other in the same commit. The delegated credit is contingent on `_canonical_binder_ownership` reading the SDK's own call, and that limb asserts ORDER against execution rather than presence. s1-01 is unblocked and **must not** keep its binder call to hold a number.
 
 **Measured, not inferred.** `tests/products/test_gate_two_call_shape.py::_resolved_binder_sites`
 returns **12** readable binder call sites against
@@ -76,7 +76,7 @@ them. Hence: stop.
 
 ## `MOD-02` — NON-BLOCKING, but two SDK docstrings would be falsified. One is already stale today.
 
-**Status:** OPEN. Recorded as evidence; no edit made.
+**Status:** OPEN, and its handling is ruled by `D-IMPL-307`: *"A consumer example should not remain fat because an SDK test needs a producer witness."* If a still-valid producer-evidence test needs a shipped witness, measure whether an existing producer example already supplies it; if not, relocate deliberately. Never preserve it in s1-01, never weaken the gate silently.
 
 s1-01's other legacy witness is
 `examples/s1-01-hello-context-product/spine.py:324`,
