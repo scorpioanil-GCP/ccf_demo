@@ -186,6 +186,21 @@ paper ruling (D-01 below) that writes no code.
   complaint came from: *"I can't tell from looking at the code which code is
   example code and which code is required by the CCF."* No new marker vocabulary
   beyond Phase 14's D-07 named markers.
+  - **AMENDED BY `D-IMPL-306` (2026-09-09), appended rather than rewritten
+    because this document is a dated record of what Phase 16 decided.** D-11's
+    principle is untouched and is why the amendment was needed: the boundary
+    must be visible to a repository reader, and after `D-IMPL-298` migrated
+    cp-05 onto `ccf.products.resolver::GovernedResolver` the seven-region
+    vocabulary made that boundary *less* visible, not more — it asked an
+    example to publish `gate`, `record` and `serve` snippets of code the SDK
+    now runs. The contract therefore carries **two valid shapes** — the
+    original seven, and a canonical `boot`/`acquire`/`govern` set for an
+    example that delegates the governed seam — and **refuses a third**, the
+    half-migrated tree that delegates and rebuilds at once. D-11's closing
+    sentence still holds as written: **no new marker vocabulary is added to a
+    shape**; a second shape with its own three names is not an eighth marker in
+    the first. The shape is read off the AST, never from a list of approved
+    directories.
 - **D-12: G-01's framing defect is fixed by construction, not by editing.**
   Section 1 is deterministic and agent-free, so the agent-first mental model the
   UAT condemned cannot survive the new structure. Specifically retired: the

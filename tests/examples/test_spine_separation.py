@@ -10,6 +10,30 @@ whichever module opens the seven canonical regions, a property a rename
 cannot break. `D-11`'s complaint and the seven `D-07` names are unchanged by
 that — this module changed how the spine is *found*, not what it *is*.
 
+**TWO VALID SHAPES SINCE `D-IMPL-306`.** The seven regions describe an example
+that composes the governed spine BY HAND. `D-IMPL-298` migrated cp-05 onto
+`ccf.products.resolver::GovernedResolver`, and three of the seven — `gate`,
+`record`, `serve` — are exactly what the resolver then owns. So this module
+recognizes two architectures and refuses a third:
+
+* **spine** — the seven `D-07` regions, in order. Unchanged, and still what
+  most of the ladder is.
+* **canonical** — `CANONICAL_PATH_MARKERS` (`boot`, `acquire`, `govern`), the
+  governed seam handed to `ccf.products.resolver`, and NONE of `gate`,
+  `record` or `serve` performed or published by the example itself.
+* **half-migrated** — resolver ownership and hand-rolled governance side by
+  side. **Refused, and named as half-migration rather than as a shape
+  mismatch**, because the fault is not a missing marker: such a tree gives a
+  reader two contradictory accounts of who decides and publishes snippets of a
+  spine the SDK already owns.
+
+**The shape is READ OFF THE TREE, never declared.** There is no list of
+canonical examples in this module and none may be added. An example is
+canonical because `shape_of` can prove from its AST that it delegates — which
+means a newly migrated example arms these assertions by existing, exactly as
+`SPINE_GLOBS` intends. `CANONICAL_SHAPE_FLOOR` is a regression floor and
+authorizes nothing; see its own note.
+
 **What this module proves, and what it cannot.** It proves the markers are
 present, canonical, ordered, closed, and confined to one module. It does not
 prove a reader can *see* which code is CCF's and which is theirs — that is a
@@ -60,6 +84,7 @@ itself controlled so it cannot silently swallow the whole check.
 
 from __future__ import annotations
 
+import ast
 import pathlib
 import re
 import shutil
@@ -125,6 +150,100 @@ CANONICAL_MARKERS: tuple[str, ...] = (
 
 #: The pymdownx.snippets marker form, as the published site reads it.
 MARKER_RE = re.compile(r"--8<--\s*\[(?P<kind>start|end):(?P<name>[^\]]+)\]")
+
+
+# ---------------------------------------------------------------------------
+# Two valid shapes, and one refusal — `D-IMPL-306`.
+# ---------------------------------------------------------------------------
+#
+# The seven regions above describe an example that COMPOSES the governed spine
+# by hand. `D-IMPL-298` migrated cp-05 onto `ccf.products.resolver`, and three
+# of those seven — `gate`, `record`, `serve` — are precisely what
+# `GovernedResolver` then owns. cp-05 failed this gate for the reason it had
+# succeeded at its own migration, which is a defect in the CONTRACT rather than
+# in the tree: a check that encodes the legacy architecture as the only legal
+# one refuses the architecture the SDK now ships.
+#
+# So the contract has two valid shapes and one named refusal:
+#
+#   spine          seven regions in order                            valid
+#   canonical      canonical regions, resolver owns the seam,        valid
+#                  and NO hand-rolled gate / record / serve
+#   half-migrated  resolver ownership and legacy governance          REFUSED
+#                  coexist
+#
+# **Canonical is a STRUCTURAL STATE, not membership in an allowlist.** There is
+# no roster of canonical examples anywhere in this module and none may be added.
+# An example is canonical because the tree PROVES it delegates the governed
+# seam — it imports the resolver from `ccf.products.resolver`, calls it, and
+# performs none of the three seams itself. A new canonical example arms these
+# assertions by existing, exactly as `SPINE_GLOBS` intends. A permission list
+# would make the gate answer "is this tree approved?" when the question is "does
+# this tree delegate?", and those two come apart the first time somebody adds an
+# example without editing a test.
+#
+# **Half-migrated is refused for its OWN reason, not as a failure to match.**
+# An example that both delegates to the resolver and rebuilds governance beside
+# it is the most dangerous of the three states: it reads as migrated, publishes
+# snippets of a spine the SDK already owns, and gives a reader two contradictory
+# accounts of who decides. Reporting that as "does not satisfy the canonical
+# shape" would hide the actual fault behind a shape mismatch.
+
+#: The canonical-path region names, in the order a resolver-adopting example
+#: performs them. cp-05's own docstring states the same decomposition in prose:
+#: *"boot, assemble the domain truth, hand the SDK its extension points, and
+#: call it."*
+#:
+#: `boot` is shared with the seven, deliberately — booting a fabric from
+#: declared artifacts is the same act in both shapes, and renaming it here would
+#: assert a difference that does not exist.
+CANONICAL_PATH_MARKERS: tuple[str, ...] = ("boot", "acquire", "govern")
+
+#: The three of the seven that `GovernedResolver` owns. A canonical example
+#: opening one of these is publishing a snippet of a spine it does not have.
+LEGACY_GOVERNANCE_MARKERS: frozenset[str] = frozenset({"gate", "record", "serve"})
+
+#: Performing a governed seam, by the FULLY QUALIFIED name the module imported
+#: it under — never by bare name.
+#:
+#: Import-qualification is what makes this a measurement rather than a word
+#: search, and the tree already contains the case that proves the difference:
+#: `examples/cp-05-credit-exposure-rollup/server/serve.py` defines its own
+#: `def serve()` (the MCP stdio entry point) and imports nothing from
+#: `ccf.replay.serve`. A bare-name check would read that door as a hand-rolled
+#: serve seam and classify the ladder's one canonical example as half-migrated.
+GOVERNED_SEAM_CALLS: dict[str, str] = {
+    "ccf.products.gates.run_gates": "gate",
+    "ccf.replay.record.build_replay_record": "record",
+    "ccf.replay.serve.serve": "serve",
+}
+
+#: Handing the governed seam to the SDK. Either name counts: `D-IMPL-301` ruled
+#: that SDK-supplied ownership is an ARCHITECTURAL condition with more than one
+#: wiring, so a deployment that constructs `GovernedResolver` directly is as
+#: owned as one that calls the builder.
+RESOLVER_OWNERSHIP_CALLS: frozenset[str] = frozenset(
+    {
+        "ccf.products.resolver.build_governed_resolver",
+        "ccf.products.resolver.GovernedResolver",
+    }
+)
+
+#: The number of canonical examples in the tree when the shape was measured
+#: (`D-IMPL-306`, 2026-09-09: cp-05 alone).
+#:
+#: **A FLOOR, AND ONLY A FLOOR.** It exists to catch a silent regression — an
+#: example quietly losing its resolver adoption while every other assertion
+#: stays green, because a tree with no canonical examples satisfies every
+#: canonical rule vacuously. It authorizes nothing: adding a canonical example
+#: requires no edit here, and the gate never consults this number to decide
+#: whether a particular tree may be canonical.
+#:
+#: **Never raise it to paper over an incomplete predicate.** If a tree that
+#: plainly delegates is not being counted, the fault is in
+#: `shape_of`, and moving this number would convert a detector bug into a
+#: permanently green assertion.
+CANONICAL_SHAPE_FLOOR: int = 1
 
 
 # ---------------------------------------------------------------------------
@@ -198,6 +317,108 @@ def region_modules(directory: pathlib.Path) -> list[pathlib.Path]:
         for module in modules_in(directory)
         if set(opened(module)) & set(CANONICAL_MARKERS)
     ]
+
+
+def ccf_import_map(module: pathlib.Path) -> dict[str, str]:
+    """Local name -> fully qualified `ccf` name, for every `from ccf... import`.
+
+    The map is what turns a bare call into a measurement. `serve(...)` is either
+    `ccf.replay.serve::serve` or a function the example defined itself, and only
+    the import says which — see `GOVERNED_SEAM_CALLS` for the shipped case that
+    proves the difference matters.
+
+    A module that fails to parse contributes nothing rather than raising: this
+    gate reads every `.py` under an example, and a deliberately broken fixture
+    is not this module's failure to report.
+    """
+    try:
+        tree = ast.parse(module.read_text(encoding="utf-8"))
+    except SyntaxError:  # pragma: no cover - defensive; no shipped module hits it
+        return {}
+    names: dict[str, str] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and (node.module or "").startswith("ccf"):
+            for alias in node.names:
+                names[alias.asname or alias.name] = f"{node.module}.{alias.name}"
+    return names
+
+
+def _qualified_calls(module: pathlib.Path) -> list[tuple[str, int]]:
+    """Every call in the module whose callee resolves to an imported `ccf` name.
+
+    Calls only — never mentions. `refuse_over_tolerance` and `RefusalEnvelope`
+    appear in cp-05's `produce.py` inside comments explaining what the SDK now
+    does instead, and a check that read those would report the example as
+    rebuilding the governance it had just finished deleting. Reading the AST
+    makes prose structurally invisible.
+    """
+    try:
+        tree = ast.parse(module.read_text(encoding="utf-8"))
+    except SyntaxError:  # pragma: no cover - defensive
+        return []
+    imports = ccf_import_map(module)
+    found: list[tuple[str, int]] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        local = func.id if isinstance(func, ast.Name) else None
+        if local is not None and local in imports:
+            found.append((imports[local], node.lineno))
+    return found
+
+
+def governed_seam_calls(directory: pathlib.Path) -> dict[str, list[str]]:
+    """Which of `gate` / `record` / `serve` the example performs ITSELF."""
+    performed: dict[str, list[str]] = {}
+    for module in modules_in(directory):
+        for qualified, lineno in _qualified_calls(module):
+            seam = GOVERNED_SEAM_CALLS.get(qualified)
+            if seam is not None:
+                performed.setdefault(seam, []).append(f"{module.name}:{lineno}")
+    return {seam: sorted(sites) for seam, sites in sorted(performed.items())}
+
+
+def resolver_ownership(directory: pathlib.Path) -> list[str]:
+    """Where the example hands the governed seam to `ccf.products.resolver`."""
+    sites = [
+        f"{module.name}:{lineno}"
+        for module in modules_in(directory)
+        for qualified, lineno in _qualified_calls(module)
+        if qualified in RESOLVER_OWNERSHIP_CALLS
+    ]
+    return sorted(sites)
+
+
+def legacy_governance_regions(directory: pathlib.Path) -> list[str]:
+    """Where the example still publishes a `gate`, `record` or `serve` region."""
+    return sorted(
+        f"{module.name}:{name}"
+        for module in modules_in(directory)
+        for name in opened(module)
+        if name in LEGACY_GOVERNANCE_MARKERS
+    )
+
+
+def shape_of(directory: pathlib.Path) -> str:
+    """`"canonical"`, `"half-migrated"` or `"spine"` — read off the tree.
+
+    **Structural, never a roster.** The classifier asks two questions of the
+    code: does anything here hand the seam to `GovernedResolver`, and does
+    anything here perform `gate`, `record` or `serve` itself? Nothing consults a
+    list of approved directories, because the property being checked is
+    delegation and a list would check approval instead.
+
+    `"spine"` is the default rather than a third detected state: an example
+    with no resolver ownership is judged against the seven regions, which is
+    what every example was judged against before `D-IMPL-306`.
+    """
+    owned = resolver_ownership(directory)
+    if not owned:
+        return "spine"
+    if governed_seam_calls(directory) or legacy_governance_regions(directory):
+        return "half-migrated"
+    return "canonical"
 
 
 def printing_modules(directory: pathlib.Path) -> list[pathlib.Path]:
@@ -296,21 +517,65 @@ def unbalanced(path: pathlib.Path) -> list[str]:
     return problems
 
 
-def region_report(spine: pathlib.Path) -> tuple[tuple[str, ...], list[str], list[str]]:
-    """What the spine opens, and how it differs from the seven canonical names.
+def expected_markers(directory: pathlib.Path) -> tuple[str, ...]:
+    """The region vocabulary this example's shape is judged against."""
+    return (
+        CANONICAL_PATH_MARKERS
+        if shape_of(directory) == "canonical"
+        else CANONICAL_MARKERS
+    )
+
+
+def region_report(
+    spine: pathlib.Path, expected: tuple[str, ...] = CANONICAL_MARKERS
+) -> tuple[tuple[str, ...], list[str], list[str]]:
+    """What the spine opens, and how it differs from the names its shape owes.
 
     One derivation, two readers: `spine_problems` reports it as part of the
     aggregate, and the P2 test reports each direction separately. Written twice
     it drifted in wording before it shipped, which is the argument for a
     predicate rather than a repetition — the same argument `opened`,
     `unbalanced` and `spine_problems` already make in this module.
+
+    `expected` defaults to the seven so every existing caller keeps its
+    meaning; a canonical example passes `CANONICAL_PATH_MARKERS`.
     """
     found = opened(spine)
     return (
         found,
-        [name for name in CANONICAL_MARKERS if name not in found],
-        [name for name in found if name not in CANONICAL_MARKERS],
+        [name for name in expected if name not in found],
+        [name for name in found if name not in expected],
     )
+
+
+def half_migrated_refusal(directory: pathlib.Path) -> list[str]:
+    """The named refusal, reported for ITS OWN reason.
+
+    A half-migrated example is not "a tree that failed to match the canonical
+    shape" — it is a tree making two contradictory claims about who governs.
+    Both halves are named, with line numbers, because the repair is to delete
+    one of them and the reader has to be told which two are in conflict.
+    """
+    owned = resolver_ownership(directory)
+    performed = governed_seam_calls(directory)
+    regions = legacy_governance_regions(directory)
+    detail = []
+    if performed:
+        detail.append(
+            "performs "
+            + ", ".join(f"{seam} at {sites}" for seam, sites in performed.items())
+        )
+    if regions:
+        detail.append(f"publishes legacy governance regions {regions}")
+    return [
+        f"{directory.name}: HALF-MIGRATED. It hands the governed seam to"
+        f" `ccf.products.resolver` at {owned} and simultaneously "
+        + "; and ".join(detail)
+        + ". An example that both delegates and rebuilds governance gives a"
+        " reader two accounts of who decides, and publishes snippets of a"
+        " spine the SDK already owns. Delete the hand-rolled half, or the"
+        " resolver adoption — not both, and not neither (`D-IMPL-306`)."
+    ]
 
 
 def spine_problems(directory: pathlib.Path) -> list[str]:
@@ -318,23 +583,34 @@ def spine_problems(directory: pathlib.Path) -> list[str]:
 
     A single predicate over a directory, so the shipped tree and the injected
     copies below are judged by the same code rather than by two descriptions of
-    the same intent. The properties, and which modules each scans:
+    the same intent.
 
+    **Three outcomes, one predicate** (`D-IMPL-306`). The shape is read off the
+    tree by `shape_of` before any region is compared, because the region
+    vocabulary an example owes depends on which architecture it implements.
+    The properties, and which modules each scans:
+
+    * P0 — the tree is not half-migrated (ALL modules, by AST)
     * P1/P4 — exactly one module opens canonical regions (ALL modules)
-    * P2 — that module opens the seven `D-07` names, in order (that module)
+    * P2 — that module opens its shape's names, in order (that module)
     * P3 — every region it opens, it closes; none interleave (ALL modules)
 
     P5 and P6 are the printing properties and live in `print_problems`.
     """
+    shape = shape_of(directory)
+    if shape == "half-migrated":
+        return half_migrated_refusal(directory)
+
+    expected = CANONICAL_PATH_MARKERS if shape == "canonical" else CANONICAL_MARKERS
     problems: list[str] = []
     carriers = region_modules(directory)
     if not carriers:
         return [
-            f"{directory.name}: no module opens any of the seven canonical"
-            f" regions {CANONICAL_MARKERS}. Section 1's shape is the CCF call"
-            " spine in one module and the adopter's own code in another"
-            " (phase 16 CONTEXT D-11, criterion 6) — the spine is whichever"
-            " module carries the regions, and this example has none."
+            f"{directory.name}: no module opens any of the {shape} regions"
+            f" {expected}. The split is the CCF call spine in one module and"
+            " the adopter's own code in another (phase 16 CONTEXT D-11,"
+            " criterion 6) — the spine is whichever module carries the"
+            " regions, and this example has none."
         ]
     if len(carriers) > 1:
         problems.append(
@@ -345,18 +621,18 @@ def spine_problems(directory: pathlib.Path) -> list[str]:
         )
 
     spine = carriers[0]
-    found, missing, extra = region_report(spine)
+    found, missing, extra = region_report(spine, expected)
     if missing:
         problems.append(f"{spine.name} opens no region for {missing}")
     if extra:
         problems.append(
             f"{spine.name} opens {extra}, which is marker vocabulary outside"
-            " the seven D-07 names — D-11 adds none"
+            f" the {shape} names {expected} — D-11 adds none"
         )
-    if not missing and not extra and found != CANONICAL_MARKERS:
+    if not missing and not extra and found != expected:
         problems.append(
-            f"{spine.name} opens the seven regions in order {found},"
-            f" expected {CANONICAL_MARKERS}"
+            f"{spine.name} opens the regions in order {found},"
+            f" expected {expected}"
         )
 
     for module in modules_in(directory):
@@ -432,25 +708,36 @@ def test_exactly_one_module_carries_the_canonical_regions(
     split_examples(EXAMPLES_ROOT),
     ids=lambda path: path.name,
 )
-def test_the_spine_opens_the_seven_canonical_regions_in_order(
+def test_the_spine_opens_the_regions_its_shape_owes_in_order(
     directory: pathlib.Path,
 ) -> None:
     """P2 — both directions reported by name: what is missing and what is extra.
 
-    Ordering is asserted as well as membership. The seven names are a
-    decomposition a beginner is meant to be able to follow top to bottom, and a
-    spine that records before it gates reads as a different story.
+    Ordering is asserted as well as membership. The names are a decomposition a
+    beginner is meant to be able to follow top to bottom, and a spine that
+    records before it gates reads as a different story.
+
+    **Which names are owed depends on the shape** (`D-IMPL-306`), and the shape
+    is read off the tree rather than declared: a hand-composed example owes the
+    seven, a resolver-adopting one owes `CANONICAL_PATH_MARKERS`. Judging a
+    canonical example against the seven asks it to publish snippets of three
+    steps it does not perform.
     """
+    shape = shape_of(directory)
+    expected = expected_markers(directory)
     spine = region_modules(directory)[0]
-    found, missing, extra = region_report(spine)
-    assert not missing, f"{directory.name}/{spine.name} opens no region for {missing}"
-    assert not extra, (
-        f"{directory.name}/{spine.name} opens {extra}, which is marker"
-        " vocabulary outside the seven D-07 names — D-11 adds none"
+    found, missing, extra = region_report(spine, expected)
+    assert not missing, (
+        f"{directory.name}/{spine.name} ({shape}) opens no region for {missing}"
     )
-    assert found == CANONICAL_MARKERS, (
-        f"{directory.name}/{spine.name} opens the seven regions in order"
-        f" {found}, expected {CANONICAL_MARKERS}"
+    assert not extra, (
+        f"{directory.name}/{spine.name} ({shape}) opens {extra}, which is"
+        f" marker vocabulary outside the {shape} names {expected} — D-11 adds"
+        " none"
+    )
+    assert found == expected, (
+        f"{directory.name}/{spine.name} ({shape}) opens the regions in order"
+        f" {found}, expected {expected}"
     )
 
 
@@ -547,6 +834,177 @@ def _copied_example(tmp_path: pathlib.Path) -> pathlib.Path:
     PARTICULAR tree call `_copied_named` instead.
     """
     return _copied_named(tmp_path, split_examples(EXAMPLES_ROOT)[0].name)
+
+
+def _canonical_subject(tmp_path: pathlib.Path) -> pathlib.Path:
+    """A copy of a tree the PREDICATE calls canonical — never one named here.
+
+    Selected by `shape_of` rather than by a constant, and that is the whole
+    point: a control that named its canonical subject would be the roster
+    `D-IMPL-306` forbids, wearing a different hat. Selecting by predicate also
+    means these controls follow the tree — when a second example adopts the
+    resolver, they keep working with no edit, and if the last one regresses
+    they fail loudly instead of testing a shape nothing has.
+    """
+    canonical = [
+        directory
+        for directory in split_examples(EXAMPLES_ROOT)
+        if shape_of(directory) == "canonical"
+    ]
+    assert canonical, (
+        "no example in the tree is canonical, so every canonical assertion"
+        " below would pass over an empty set. Either the predicate stopped"
+        " recognizing resolver adoption or the last canonical example"
+        " regressed — both are failures, and neither is fixed here."
+    )
+    return _copied_named(tmp_path, canonical[0].name)
+
+
+def _spine_subject(tmp_path: pathlib.Path) -> pathlib.Path:
+    """A copy of a tree the predicate calls hand-composed. Same discipline."""
+    spines = [
+        directory
+        for directory in split_examples(EXAMPLES_ROOT)
+        if shape_of(directory) == "spine"
+    ]
+    assert spines, "no hand-composed example remains to exercise the seven"
+    return _copied_named(tmp_path, spines[0].name)
+
+
+def test_the_canonical_population_has_not_silently_dropped() -> None:
+    """A measured FLOOR, and never authorization (`D-IMPL-306`).
+
+    A tree with no canonical examples satisfies every canonical rule vacuously,
+    so the regression this catches is an example quietly losing its resolver
+    adoption while the rest of the suite stays green.
+
+    Read what it does NOT do. It does not decide which trees may be canonical —
+    `shape_of` does that, from the code. It does not need editing when an
+    example is migrated; the count rises on its own. And it must never be
+    raised to make a green suite out of a predicate that stopped recognizing a
+    tree, because that converts a detector bug into a permanent pass.
+    """
+    canonical = [
+        directory.name
+        for directory in split_examples(EXAMPLES_ROOT)
+        if shape_of(directory) == "canonical"
+    ]
+    assert len(canonical) >= CANONICAL_SHAPE_FLOOR, (
+        f"{len(canonical)} canonical examples ({canonical}) against a measured"
+        f" floor of {CANONICAL_SHAPE_FLOOR}. An example that delegated the"
+        " governed seam has stopped doing so, or `shape_of` has stopped"
+        " seeing it. Do not raise the floor."
+    )
+
+
+def test_the_gate_refuses_a_spine_missing_one_required_region(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Sabotage 1 — delete one of the seven and the shape must go red BY NAME.
+
+    The region deleted is `record`, chosen because it is one of the three a
+    canonical example legitimately lacks: if the shape classifier ever leaked,
+    and judged a hand-composed tree by the canonical vocabulary, this control
+    would be the one that stopped refusing.
+    """
+    copied = _spine_subject(tmp_path)
+    spine = region_modules(copied)[0]
+    text = spine.read_text(encoding="utf-8")
+    stripped = "\n".join(
+        line for line in text.splitlines() if "[start:record]" not in line
+        and "[end:record]" not in line
+    )
+    assert stripped != text, "the subject never opened a `record` region"
+    spine.write_text(stripped + "\n", encoding="utf-8")
+
+    problems = spine_problems(copied)
+    assert problems, "a spine missing a required region must be refused"
+    assert any("record" in problem for problem in problems), problems
+
+
+def test_the_gate_refuses_a_canonical_example_that_rebuilds_a_governed_seam(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Sabotage 2a — a hand-rolled `gate` CALL beside resolver adoption.
+
+    The refusal must name half-migration for its own reason. A tree that both
+    delegates and rebuilds is not "a canonical example with a problem"; it is
+    an example making two contradictory claims about who governs, and a reader
+    told only that it "does not match the canonical shape" would go looking for
+    a missing marker.
+    """
+    copied = _canonical_subject(tmp_path)
+    assert shape_of(copied) == "canonical", "the unmodified copy must be canonical"
+
+    spine = region_modules(copied)[0]
+    spine.write_text(
+        spine.read_text(encoding="utf-8")
+        + "\n\nfrom ccf.products.gates import run_gates\n\n\n"
+        "def _hand_rolled_gate(product, declared):\n"
+        "    return run_gates(product=product, declared=declared)\n",
+        encoding="utf-8",
+    )
+
+    assert shape_of(copied) == "half-migrated", governed_seam_calls(copied)
+    problems = spine_problems(copied)
+    assert problems, "a half-migrated example must be refused"
+    assert "HALF-MIGRATED" in problems[0], problems
+    assert "gate" in problems[0], problems
+
+
+def test_the_gate_refuses_a_canonical_example_publishing_a_legacy_region(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Sabotage 2b — the REGION half of the same refusal.
+
+    Calls and regions are independently sufficient, because they fail
+    independently: a tree can publish a `serve` snippet of code the resolver
+    now runs without calling anything, and the published page is then teaching
+    a spine the example does not have.
+    """
+    copied = _canonical_subject(tmp_path)
+    spine = region_modules(copied)[0]
+    spine.write_text(
+        spine.read_text(encoding="utf-8")
+        + "\n\n# --8<-- [start:serve]\n_SERVED = None\n# --8<-- [end:serve]\n",
+        encoding="utf-8",
+    )
+
+    assert shape_of(copied) == "half-migrated", legacy_governance_regions(copied)
+    problems = spine_problems(copied)
+    assert "HALF-MIGRATED" in problems[0], problems
+    assert "serve" in problems[0], problems
+
+
+def test_the_gate_refuses_a_canonical_example_that_loses_resolver_ownership(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Sabotage 3 — take the delegation away and the tree must not stay valid.
+
+    This is the direction the floor cannot cover on its own. Removing the
+    resolver call leaves an example that still opens `boot`/`acquire`/`govern`
+    and performs no governance at all — neither shape — and the contract has to
+    refuse it rather than fall back to whichever vocabulary it happens to match.
+    """
+    copied = _canonical_subject(tmp_path)
+    ownership = resolver_ownership(copied)
+    assert ownership, "the unmodified copy must own the seam"
+
+    for module in modules_in(copied):
+        text = module.read_text(encoding="utf-8")
+        if "build_governed_resolver" in text:
+            module.write_text(
+                text.replace("build_governed_resolver", "_no_resolver_here"),
+                encoding="utf-8",
+            )
+
+    assert not resolver_ownership(copied), "the sabotage did not remove ownership"
+    assert shape_of(copied) != "canonical"
+    problems = spine_problems(copied)
+    assert problems, (
+        "an example that publishes canonical regions while delegating nothing"
+        " must be refused, not silently re-judged"
+    )
 
 
 def test_the_gate_refuses_an_example_with_no_region_carrying_module(
