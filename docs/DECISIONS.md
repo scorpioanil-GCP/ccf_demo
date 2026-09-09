@@ -1390,3 +1390,45 @@ Plans 03 and 04 as first written instructed the executor correctly in prose — 
 **WHAT THIS DOES NOT DECIDE.** The order of `F-06` and the remaining seams after `F-07` (which `D-IMPL-285` (3) fixed as first). Which of `F-08`, `F-09`, `F-11`, `F-12` are in fact "required capabilities" under this entry's test — that is a per-defect judgment the phase makes and, where it is not obvious, a ruling. `D-GATE-24.10`; whether `phase-24.10` merges `--no-ff` to `main` and pushes; `main`'s standing reds. The disposition of `24.10-F-01`, `F-02`, `F-04`, `F-05`, `F-10` and the eight carried pre-existing reds. `R-02`; `R-04`/`R-05`/`R-06`; `R-07`/`R-08`. `D-GATE-24.9` and the `phase-24.9` branch's fate; the cp-05 branch's merge; the `phase-24.5-base` tag push.
 
 **Next free decision id: `D-IMPL-287`.** **Related:** `D-IMPL-285` (whose (2) exit criterion this supersedes and whose (1), (3), (4), (5), (6), (7) stand), `D-IMPL-284`, `D-IMPL-283` (dual-outcome plans), `D-IMPL-280` (the 24.10 declaration and its no-panel/no-criteria-lock departure), `D-IMPL-269` (1), `D-IMPL-261` (examples are probes — this entry is its sharpest statement yet: the probe is never the work target), `DI-15.5-07`, `tests/products/test_cp05_canonical_path.py`, `tests/examples/test_s1_01_governed_resolver_adoption.py`.
+
+---
+
+**D-IMPL-287 — Phase 24.11 "Canonical Governed Resolution" is CONSTITUTED: SDK remediation only, no broad discuss cycle, `F-06`/`F-07` in by ruling, the other four classified one at a time against a single question, and a hard prohibition on new apparatus.** RESOLVED. Date: 2026-09-08. Approver: Dave. **Builds on:** `D-IMPL-286` (the framing correction), `D-IMPL-285` (1)(3)(5)(6).
+
+**The phase, in Dave's words.** *"Phase 24.11 — Canonical Governed Resolution. The phase is SDK remediation, not example remediation. Examples remain unchanged probes."*
+
+**(1) NO BROAD DISCUSS CYCLE — ruled, with the reason.** Dave, verbatim: *"Write the ROADMAP entry by hand, but do not take 24.11 through a broad `/gsd-discuss-phase` cycle. We already have enough evidence to define the work. Another exploratory planning pass creates exactly the risk we just identified: converting a small set of SDK defects into another planning/test-infrastructure exercise."* This is a proportionality ruling in the `D-IMPL-269` (1) line, scoped to this phase, and it is **not** a default for later phases.
+
+**(2) IN BY RULING.** *"`F-06` and `F-07` are confirmed SDK defects and are in scope."* `F-07` is P0 and first (`D-IMPL-285` (3)); `F-06` second.
+
+**(3) THE OTHER FOUR ARE NOT AUTOMATICALLY IN.** *"`F-08`, `F-09`, `F-11`, and `F-12` are not automatically in scope. For each, first determine whether `GovernedResolver` lacks a capability that belongs in the canonical SDK path. Only confirmed SDK capability/correctness defects enter the implementation plan."*
+
+**THE ONE QUESTION, verbatim — the whole classification test:**
+
+> *"Is this capability required for the SDK's canonical governed resolver to correctly execute its declared contract, independent of cp-05?"*
+
+> *"If yes, fix the SDK. If no, leave the finding out of 24.11 even if a test could be made to pass by adding it."*
+
+The last clause is the operative one: **a passing test is not evidence that a capability belongs in the SDK.**
+
+**(4) THE DIAGNOSTIC BRIDGES ARE TEMPORARY, AND THEIR DELETION IS THE SIGNAL.** Dave: *"Existing diagnostic monkeypatches may remain only long enough to expose downstream behavior. Successful remediation of `F-06`/`F-11` requires the SDK to provide those capabilities itself; the corresponding harness substitutions should become unnecessary and be deleted, not preserved as the implementation."* On the signal itself: *"The success signal Claude identified is excellent and requires no new machinery: `GovernedResolver._operator_parameters` monkeypatch disappears because the SDK now binds per-request operator parameters itself. `build_operator_registry` monkeypatch disappears because the SDK now propagates `similarity_index_version` itself. That is much more meaningful than making six XFAILs turn green."*
+
+**(5) HARD PROHIBITION.** *"No new generalized test infrastructure, measurement tooling, criteria lock, review panel, or example workaround is authorized."*
+
+**(6) THE IMPLEMENTATION SEQUENCE, verbatim and deliberately small:**
+
+> *"`F-07` correctness first → `F-06` composition → evaluate `F-08`/`F-09`/`F-11`/`F-12` individually → implement only confirmed SDK gaps → smallest direct SDK regression tests → remove now-unnecessary diagnostic bridges → rerun unchanged `s1-01` and cp-05 once."*
+
+**And the rule for the rerun:** *"If that rerun reveals another SDK deficiency, classify it. Do not repair the example during 24.11."*
+
+**(7) `D-GATE-24.10` IS NOT REQUIRED BEFORE 24.11 STARTS.** Dave: *"I agree with Claude's restraint. Do not infer merge/push/gate from the earlier approval. The branch is a clean, approved body of work and can remain that way while 24.11 is defined. There is no product reason to spend time manufacturing a `D-GATE-24.10` before starting the next SDK repair unless your repository process specifically requires it as a dependency."* So Phase 24.10 stands APPROVED (`D-IMPL-285` (1)) and UNGATED, unmerged and unpushed, by intent rather than by omission.
+
+**(8) THE STOP POINT.** *"Produce a short implementation plan centered on SDK code, with `F-07` first and `F-06` second. Before adding `F-08`/`F-09`/`F-11`/`F-12`, classify each as an actual canonical-SDK capability requirement or leave it out. Then stop for Dave's review of that plan before execution."* No execution begins until that review.
+
+**A TENSION IN THE RULING, RECORDED RATHER THAN RESOLVED.** `24.10-F-11` appears in **both** (3) — the four to be classified, not automatically in — and (4), which states that *"successful remediation of `F-06`/`F-11` requires the SDK to provide those capabilities itself."* The classification under (3) is therefore performed for `F-11` rather than assumed, and (4) is read as Dave's expectation of its likely outcome, not as a pre-emption of the test. Where the classification's answer bears on mechanism rather than on whether the capability is required, it is put to Dave (see the phase's plan) rather than settled by inference — `silence is not assent` applies to a name appearing in two lists.
+
+---
+
+**WHAT THIS DOES NOT DECIDE.** The classification outcomes for `F-08`/`F-09`/`F-11`/`F-12` — produced as a reviewable proposal under (8), ruled by Dave, not by this entry. **How** `F-11`'s capability should be expressed if it is confirmed required: binding operator parameters per request without opening a path for a deployment to substitute past its declared Control Plane envelope is a design question, and the naive implementation is a governance hole. The disposition of `24.10-F-01`, `F-02`, `F-04`, `F-05`, `F-10` and the eight carried pre-existing reds. `D-GATE-24.10`, the `phase-24.10` merge and push — deferred by (7), not cancelled. `R-02`; `R-04`/`R-05`/`R-06`; `R-07`/`R-08`. The post-phase cp-05 adoption step. `D-GATE-24.9`, the `phase-24.9` branch, the cp-05 branch's merge, the `phase-24.5-base` tag push.
+
+**Next free decision id: `D-IMPL-288`.** **Related:** `D-IMPL-286` (the framing this constitutes), `D-IMPL-285`, `D-IMPL-283`, `D-IMPL-280`, `D-IMPL-269` (1) (proportionality per phase — (1) and (5) are instances), `D-IMPL-261`, `D-IMPL-38` (the `similarity_index_version` requirement `F-06` violates), `D-IMPL-111` limb (a) (which fixed `DI-15.5-07` on the hand-built path; `F-07` is the same defect on the canonical one), `DI-15.5-07`.
