@@ -18,24 +18,32 @@ that governs this module is Dave's next sentence:
     evidence and classify it rather than working around the resolver."*
 
 So nothing here works around anything. Each test states what **adoption would
-require** and is marked ``xfail(strict=True)`` carrying its finding id, which
-makes the roster executable in both directions: it fails today because the seam
-is absent, and it fails *loudly* — ``XPASS`` under ``strict`` — on the day a
-seam is added and the finding is not closed with it.
+require**, and a test whose seam is still absent carries ``xfail(strict=True)``
+with its finding id — which makes the roster executable in both directions: it
+fails today because the seam is absent, and it fails *loudly* — ``XPASS`` under
+``strict`` — on the day a seam is added and the finding is not closed with it.
+**A closed finding keeps its test, unmarked and otherwise unchanged**, so what
+the SDK learned to do is asserted by the same words that recorded its absence.
+Two are closed: ``24.10-F-07`` by ``24.11-01`` and ``24.10-F-06`` by
+``24.11-02``.
 
 The four findings
 -----------------
 
-``24.10-F-06``
-    ``GovernedResolver`` cannot serve a product class whose operator set
+``24.10-F-06`` — **CLOSED by ``24.11-02``; its test now runs unmarked.**
+    ``GovernedResolver`` could not serve a product class whose operator set
     includes the **Similarity** category — one of the whitepaper's four. It
-    calls :func:`~ccf.deployment.build_operator_registry` with no
+    called :func:`~ccf.deployment.build_operator_registry` with no
     ``similarity_index_version``, which that builder requires exactly when a
-    similarity artifact is present (``D-IMPL-38``). There is no field on the
-    class, no argument on the helper, and the registry is built inside
-    ``__call__`` — so there is no deployment-side bridge at all. **This one
-    stops adoption at step 4 of the composition's own nine**, before the graph
-    is projected.
+    similarity artifact is present (``D-IMPL-38``). There was no field on the
+    class and no argument on the helper, and the registry is built inside
+    ``__call__`` — so there was no deployment-side bridge at all, and **this
+    one stopped adoption at step 4 of the composition's own nine**, before the
+    graph was projected. The version is now a defaultless field on the
+    resolver, supplied through :func:`build_governed_resolver`, and
+    :func:`_wire` passes the deployment's own declared value like every other.
+    The test below is unchanged except for the removal of its ``xfail``
+    marker.
 
 ``24.10-F-07`` — **CLOSED by ``24.11-01``; its test now runs unmarked.**
     ``GovernedResolver`` did not seed the traversal from the request, and
@@ -64,18 +72,24 @@ The four findings
     so a class that declares a distinct ``decision_instant`` — as ``s1-01``'s
     request contract does, as a **required** argument — finds nothing reads it.
 
-Why one wall is bridged in this harness, and what that is not
---------------------------------------------------------------
+The wall this harness used to bridge, and what deleted the bridge
+-----------------------------------------------------------------
 
-``24.10-F-06`` stops the resolver before the other three are observable, so
-:func:`bridged_resolver` supplies the deployment's own declared
-``similarity_index_version`` to the registry builder for the duration of a
-test. **That is a measurement device and not a proposal.** It changes no
-shipped module, it is not a fix, and ``D-IMPL-282``'s *"No broader API redesign
-is authorized up front"* means the bridge must not become one:
-:func:`test_the_resolver_serves_a_class_whose_operators_include_similarity`
-runs **unbridged**
-and is what says the wall is real.
+``24.10-F-06`` stopped the resolver before the other three were observable, so
+until ``24.11-02`` this module's fixture monkeypatched
+:func:`~ccf.deployment.build_operator_registry` to supply the deployment's own
+declared ``similarity_index_version`` for the duration of a test — a
+measurement device, never a proposal, and ``D-IMPL-282``'s *"No broader API
+redesign is authorized up front"* is why it was never allowed to become one.
+
+**The substitution is gone, and the SDK is why** (``D-IMPL-286``,
+``D-IMPL-291`` (5)): the composition now carries that value itself, so
+:func:`_wire` supplies it through the SDK's own argument, and the fixture —
+still named :func:`bridged_resolver` for the bridge it no longer carries, on
+the reasoning in its own docstring — wires nothing the SDK does not offer. A
+workaround the SDK made unnecessary is **deleted**, not relocated; the three
+tests behind it measure exactly what they measured, through a resolver no
+longer standing on a substitution.
 
 The contrasting half — that the hand-built spine gets every one of these right
 — is already asserted in :mod:`tests.examples.test_s1_01_output`, unweakened
@@ -96,7 +110,6 @@ import pytest
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.deployment import load_and_boot
-from ccf.products import resolver as resolver_module
 from ccf.products.resolver import build_governed_resolver
 
 pytestmark = pytest.mark.fluree
@@ -208,6 +221,12 @@ def _wire(
         query_pin_class=scenario.query_pin_class,
         max_ttl_seconds=scenario.max_ttl_seconds,
         product_ttl_seconds=_declared_product_ttl_seconds(scenario),
+        # `24.11-02` / `24.10-F-06`. The deployment's OWN declared version,
+        # read off the scenario — the same value `spine.py` hands
+        # `build_operator_registry` on the hand-built path, reaching the
+        # canonical composition through the SDK's own argument rather than
+        # through a substitution this harness performs on the SDK's behalf.
+        similarity_index_version=scenario.similarity_index_version,
     )
     return booted, scenario, resolver
 
@@ -223,7 +242,7 @@ def _declared_product_ttl_seconds(scenario: Any) -> int:
 
 
 class Answered(NamedTuple):
-    """One question put to the bridged resolver, with what it takes to read it.
+    """One question put to the resolver, with what it takes to read it.
 
     ``store`` is the same file-backed store the resolver filed the record in,
     so dimension 5's pins are read back off what was persisted rather than off
@@ -237,26 +256,28 @@ class Answered(NamedTuple):
 
 @pytest.fixture
 def bridged_resolver(
-    example: Any, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    example: Any, tmp_path: pathlib.Path
 ) -> Iterator[Callable[[Any], Answered]]:
-    """A resolver with ``24.10-F-06`` bridged, so the walls behind it are visible.
+    """The resolver as a deployment would actually wire it — nothing bridged.
 
-    The bridge supplies the deployment's **own** declared
-    ``similarity_index_version`` — read off the scenario, invented by nothing —
-    to :func:`~ccf.deployment.build_operator_registry` as the resolver calls
-    it. It is a measurement device: it changes no shipped module and it is not
-    the fix. ``D-IMPL-282``: *"No broader API redesign is authorized up
-    front."*
+    Until ``24.11-02`` this fixture monkeypatched
+    :func:`~ccf.deployment.build_operator_registry` to supply the deployment's
+    declared ``similarity_index_version``, because ``24.10-F-06`` stopped the
+    resolver before the walls behind it were observable. **The substitution is
+    gone, and the SDK is why**: :func:`build_governed_resolver` now takes that
+    value and :class:`~ccf.products.resolver.GovernedResolver` carries it to
+    the builder, so :func:`_wire` supplies it the way every other
+    deployment-authored value here is supplied. ``D-IMPL-286``: the workaround
+    is deleted **because the SDK made it unnecessary**, never relocated.
+
+    **The name is now historical, and it is kept on purpose.** Two governance
+    records cite this fixture by name as the place the substitution lived —
+    ``D-IMPL-291`` (5) and the phase's own ROADMAP entry — and a rename would
+    strand both while the row that renamed it is fenced out of the file that
+    would have to be re-pointed. What the bridge *was* is why the three tests
+    below could be written at all, so the name is left saying so until the
+    citations move with it.
     """
-    original = resolver_module.build_operator_registry
-    version_holder: dict[str, str] = {}
-
-    def bridged(**keywords: Any) -> Any:
-        keywords.setdefault("similarity_index_version", version_holder["version"])
-        return original(**keywords)
-
-    monkeypatch.setattr(resolver_module, "build_operator_registry", bridged)
-
     booted: list[Any] = []
 
     def answer(question: Any) -> Answered:
@@ -264,7 +285,6 @@ def bridged_resolver(
         root.mkdir(parents=True, exist_ok=True)
         fabric, scenario, resolver = _wire(example, root=root, question=question)
         booted.append(fabric)
-        version_holder["version"] = scenario.similarity_index_version
         outcome = resolver(
             tenant=fabric.tenant_id,
             product_class=scenario.product_class.schema_name,
@@ -286,21 +306,10 @@ def bridged_resolver(
 
 
 # ---------------------------------------------------------------------------
-# 24.10-F-06 — the wall that stops adoption outright. Measured UNBRIDGED.
+# 24.10-F-06 — CLOSED by `24.11-02`. The wall that stopped adoption outright.
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "24.10-F-06: GovernedResolver calls build_operator_registry with no"
-        " similarity_index_version, which that builder requires exactly when a"
-        " similarity artifact is present (D-IMPL-38). No field, no helper"
-        " argument, no deployment-side bridge — a product class using one of"
-        " the whitepaper's four operator categories cannot be served by the"
-        " SDK's own reference composition"
-    ),
-)
 def test_the_resolver_serves_a_class_whose_operators_include_similarity(
     example: Any, questions: Any, tmp_path: pathlib.Path
 ) -> None:
@@ -312,7 +321,7 @@ def test_the_resolver_serves_a_class_whose_operators_include_similarity(
     ordinary thing for a deployment to do — the Similarity category is one of
     the four the whitepaper §7.4 commits to.
     """
-    root = tmp_path / "unbridged"
+    root = tmp_path / "adopted"
     root.mkdir()
     booted, scenario, resolver = _wire(example, root=root, question=questions[0])
     try:

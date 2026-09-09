@@ -97,6 +97,7 @@ from tests.deployment.conftest import (
     POLICY_BUNDLE_KEY,
     PRODUCT_CLASS_KEY,
     SIGNAL_BATCH_KEY,
+    SIMILARITY_KEY,
     TENANT,
     TRAVERSAL_KEY,
     manifest_document,
@@ -1091,6 +1092,85 @@ def test_two_subjects_cannot_collapse_to_one_question_to_the_graph(
             )
 
 
+# --- `24.11-02` / `24.10-F-06`: the Similarity category is servable ----------
+
+#: The corpus version identity this fixture deployment assigns. A test-side
+#: name like every other domain value here (CINV-01): the SDK holds no default
+#: for it and mints none, which is the whole point of `D-IMPL-38`.
+SIMILARITY_INDEX_VERSION = "fixture-corpus@2026-03-02"
+
+
+def test_a_similarity_class_is_servable_only_with_the_declared_index_version(
+    booted: _Booted,
+) -> None:
+    """The registry is built with the configuration the deployment declared.
+
+    Dave's question for this repair, verbatim (`D-IMPL-291` (5)): *"Can
+    `GovernedResolver` construct the operator registry with the configuration
+    already required by the declared product class, including
+    `similarity_index_version`, without the harness supplying
+    `build_operator_registry` on its behalf?"*
+
+    Until `24.11-02` it could not. :meth:`~ccf.products.resolver
+    .GovernedResolver.__call__` called
+    :func:`~ccf.deployment.build_operator_registry` with no
+    ``similarity_index_version``, which that builder requires exactly when a
+    similarity artifact is present (`D-IMPL-38`, and rightly: an unversioned
+    index is one replay cannot be held against). So a product class using one
+    of whitepaper §7.4's four operator categories was unservable by the SDK's
+    own reference composition, and stopped at step 4 of its own nine.
+
+    **Three legs, and no two of them are the same property.**
+
+    *The wall is gone.* A resolver whose operator parameters include the
+    fixture's similarity artifact, wired with the version the deployment
+    assigns, serves.
+
+    *The version is what removed it.* The same wiring with ``None`` refuses,
+    by the builder's own message — so the leg above is attributable to this
+    field and not to some other difference between the two wirings.
+
+    *The field is actually propagated, not merely accepted.* A version
+    supplied where **no** similarity artifact is registered must refuse too,
+    because the builder refuses that mismatch in the other direction. A
+    composition that dropped the field on the floor would pass the first leg's
+    negative twin by accident and would sail through this one — it is the leg
+    that a resolver storing the value and never passing it cannot survive.
+    """
+    with_similarity = (TRAVERSAL_KEY, SIMILARITY_KEY)
+
+    served = _ask(
+        _resolver(
+            booted,
+            operator_parameter_keys=with_similarity,
+            similarity_index_version=SIMILARITY_INDEX_VERSION,
+        ),
+        _request(),
+    )
+    assert isinstance(served, ServedProduct), (
+        "a class whose operator set includes the Similarity category was not"
+        " served by the SDK's own reference composition"
+    )
+
+    with pytest.raises(ValueError) as unversioned:
+        _ask(
+            _resolver(
+                booted,
+                operator_parameter_keys=with_similarity,
+                similarity_index_version=None,
+            ),
+            _request(),
+        )
+    assert "similarity_index_version" in str(unversioned.value)
+
+    with pytest.raises(ValueError) as unranked:
+        _ask(
+            _resolver(booted, similarity_index_version=SIMILARITY_INDEX_VERSION),
+            _request(),
+        )
+    assert "no similarity artifact" in str(unranked.value)
+
+
 # --- `R-11`: the product-gate seam, and where it runs ------------------------
 
 
@@ -1202,6 +1282,12 @@ DEPLOYMENT_OWNED_ARGUMENTS: tuple[str, ...] = (
     "product_class_key",
     "request_contract_key",
     "operator_parameter_keys",
+    # `24.11-02` / `24.10-F-06`: the version identity a deployment assigns the
+    # corpus its similarity artifact ranks against (`D-IMPL-38`). No default,
+    # for `product_gate`'s reason — `None` is a POSITIVE statement that this
+    # deployment ranks against no index, and the SDK cannot mint one on a
+    # deployment's behalf.
+    "similarity_index_version",
     "policy_bundle_key",
     "plan_factory",
     "debt_scorer",
@@ -1313,6 +1399,12 @@ def _arguments(booted: _Booted) -> dict[str, Any]:
         "product_class_key": PRODUCT_CLASS_KEY,
         "request_contract_key": REQUEST_CONTRACT_KEY,
         "operator_parameter_keys": (TRAVERSAL_KEY,),
+        # `24.11-02` / `24.10-F-06`: `None` because the keys above name no
+        # similarity artifact. Stated rather than defaulted, `product_gate`'s
+        # discipline, which is why the field carries no default either — and
+        # the test below overrides both together, because
+        # `build_operator_registry` refuses each without the other.
+        "similarity_index_version": None,
         "policy_bundle_key": POLICY_BUNDLE_KEY,
         "plan_factory": _plan_factory,
         "debt_scorer": _debt_scorer,
