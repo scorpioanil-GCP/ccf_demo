@@ -50,11 +50,22 @@ signal `fail_closed`, and the class's own `0.25` tolerance is exceeded — so th
 fabric assembles the product, passes every validation gate, and then declines
 to attest that it is fit to act on.
 
-**The $9,325,000,000 figure is still printed.** The fabric may know what it
-calculated without being willing to say the calculation is fit to serve.
-Withholding is a refusal of *fulfillment*, not of *response* (`D-IMPL-251`), so
-the run exits `0` and discloses the determination, the measured Debt, the
-tolerance that was not met and the authority that set it.
+**The figure is NOT printed, and that changed.** Withholding is a refusal of
+*fulfillment*, not of *response* (`D-IMPL-251`), so the run still exits `0` and
+still answers — with the refusal's **disclosed shell**: the kind, the tolerance
+that was not met, the authority that set it, and the replay reference. What it
+does not carry is the determination itself.
+
+The hand-composed spine printed `$9,325,000,000` beside a `withheld` flag,
+because it computed the figure locally and decided fulfillment afterwards. On
+the canonical path the **fabric** decides, and a refused caller sees exactly
+what this deployment's disclosure policy permits — here `minimal`, so the
+arithmetic is generalised and the lane undisclosed. That is the more correct
+behaviour and it was preserved rather than "restored" for continuity
+(`D-IMPL-298`).
+
+The determination is not withdrawn. It was assembled, gated and recorded; a
+consumer with a different fitness bar is served the same answer.
 
 **Nothing was calibrated to make it serve.** Not the half-life, not the
 evidence, not the debt calculation. A four-hour window widened to fit old demo
@@ -68,9 +79,11 @@ class on both branches. `D-IMPL-253` Q13 is explicit: *"Refusal is itself a
 decision and deserves the same five-dimensional replay model. Do not create
 second-class replay."*
 
-Measured, the **withheld record is bigger than the served one** — 20,639 bytes
-against 17,157 — because it additionally carries the refusal envelope, its
-evidence and the debt breakdown. All five dimensions are populated on both. They
+Measured, the **withheld record is bigger than the served one** — 20,075 bytes
+against 16,873 — because it additionally carries the refusal envelope, its
+evidence and the debt breakdown. (Both shrank slightly at the canonical
+adoption: the payload no longer duplicates envelope state, so the record no
+longer carries it twice.) All five dimensions are populated on both. They
 differ in exactly one place: dimension 5 carries a product content address and
 `refusal_recorded: false` when served, and `no-product-address` with
 `refusal_recorded: true` when withheld.
@@ -79,6 +92,37 @@ differ in exactly one place: dimension 5 carries a product content address and
 recorded with the authority that set it, so the Regulated Consumer's record says
 `debt_tolerance 0.10 [policy]` rather than the `1.0` it asked for. Under a
 narrowing constraint those are different questions and only one was answered.
+
+### A Context Product is not just a payload
+
+This is the lesson cp-05 proved most concretely, and it is visible in the
+transcript under two headings:
+
+> **The business payload answers the question. The governed envelope explains
+> the conditions under which that answer was assembled, authorized, withheld,
+> served, and replayed.**
+
+The rule for deciding which is which: *if a value explains **what the answer
+is**, it belongs to the payload; if it explains **whether, why or how** the
+answer was governed, it belongs to the envelope.*
+
+| Business answer | Governed context |
+|---|---|
+| anchor, family, entities | fulfillment outcome |
+| exposure facts, gross / adjusted | Context Debt and its factors |
+| material entities, residuals | effective-parameter authority |
+| findings, guarantee-dedup detail | lineage, content address |
+| scope-only request values — depth, materiality, basis, flags | `expires_at` and its TTL anchor |
+| | obligation in force, replay record |
+
+**cp-05 used to carry both in one payload.** Adopting the canonical path
+(`D-IMPL-298`) surfaced at least seven envelope members the old payload
+duplicated into business content: the effective request, `expires_at`, lineage,
+the content address, Context Debt, the replay block and fulfillment. Keeping
+them apart is not tidiness — it is what makes the content address a function of
+**the answer** rather than of how the answer was authorised, so two callers
+whose parameters resolved by different authorities to the same business content
+share an address, and the *record* is what tells their determinations apart.
 
 ### Eight named consumers, one estate, one instant
 
@@ -128,11 +172,22 @@ replay record — those are all behind `produce.py::produce_governed`.
    payload claims 9,999 family members, wrapping a replay record whose
    dimension 1 observed 77, crosses the boundary unremarked. Both operands are
    in the door's hand and the comparison is not made.
-2. **Exposure is roughly half binding, half a thin application.** 204
-   executable lines against rung 4's 260 — a 22% reduction, not the order of
-   magnitude one would expect if the door were configuration. 60 lines are the
-   `build_egress_server` call and its collaborators; 72 are the resolver
-   adapter and the refusals it mints by hand.
+2. **Measured after the migration, the door is transport and nothing else.**
+   204 executable lines, and **zero** of them governance or replay logic — the
+   split is 60 in `door` (entitlement, credential, perspective, `build_egress_server`),
+   44 module-level, 41 translating and delegating, 31 shaping refusals the door
+   itself owns, and the remainder the stdio entry point and a five-field record.
+   Before Step 1 this measurement would have been meaningless: the door wrapped
+   a hand-composed spine, so "MCP cost" and "governance cost" were the same
+   number.
+
+   **The door got thinner, not fatter.** It used to run a full
+   `refuse_request` conformity check of its own; `D-IMPL-303` removed it,
+   because a door owns transport, address and standing, while the resolver owns
+   contract-aware decoding, conformity, effective resolution and the governed
+   outcome. **The door is intentionally dumb about logical parameter types** —
+   it transports wire-stable lexical values and the resolver, which holds the
+   declaration, converts and judges them.
 
 ## Run it
 
@@ -218,7 +273,7 @@ undrawn availability is excluded. Different number, different content address,
 | `artifacts/expected.yaml` | What the product should contain — **derived from the estate, never from a run**. |
 | `artifacts/assembly-recipe.yaml` | §D.2 as data, one witness per step. |
 | `artifacts/scenarios.yaml` | The eight named consumers and what each one teaches. Read-side: a fitness bar is something callers ask for, not something this deployment is permitted to do. |
-| `artifacts/replay.yaml` | Where decision records go and under what artifact class. A separate document because the Control Plane's section vocabulary is closed and has no slot for it. |
+| `artifacts/replay.yaml` | Where decision records go and under what artifact class. **Its header records a finding the SDK has since closed:** the Control Plane's section vocabulary had no `replay:` slot, so this lived outside it. Phase 24.10's `R-12` added the section, and `ccf_config.yaml` now declares the binding directly — the resolver consumes it, with no argument and no module constant. The document remains as the record of that finding. |
 | `page/run-transcript.txt` | The demonstrated run, byte-reproducible against the pinned instant. |
 | `page/scenario-transcript.txt` | All eight consumers, same estate, same instant. |
 | `server/door.yaml` | The door's governance values — scope, issuer, audience, principal, role, tool prose. No host, port or credential. |
@@ -227,8 +282,8 @@ undrawn availability is excluded. Different number, different content address,
 | `ccf_config.yaml` | The Control Plane document — half-life table, request contract, bounds, defaults. |
 | `deployment.py` | The interpreter. Holds no domain value. |
 | `assembler.py` | The five steps and the arithmetic. |
-| `produce.py` | The spine, the four gates, and the typed `ContextProductContract`. |
-| `run.py` | The client. Renders; recomputes nothing. |
+| `produce.py` | **The adapter into the SDK, not a spine.** Boot, acquire, assemble the domain truth, hand `GovernedResolver` its four extension points, call it. The gates, the contract, Debt placement, fulfillment, refusal shaping, replay and serve are the SDK's and appear nowhere here (`D-IMPL-298`). |
+| `run.py` | The client. Renders from **two sources** — the business payload and the governed envelope — and recomputes nothing. |
 
 ## Whitepaper / CLAUDE.md sections exercised
 
