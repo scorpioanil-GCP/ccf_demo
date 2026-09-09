@@ -453,6 +453,78 @@ def _refuse_operator_set_divergence(
     )
 
 
+def _refuse_malformed_unsupported_arguments(
+    request_contract: Mapping[str, Any] | None,
+) -> None:
+    """`24.10-F-12` — the canonical shape is *name → authored reason*, at boot.
+
+    SDK-defined per CLAUDE.md §11; the ruling of record is ``D-IMPL-288`` (2)
+    (Dave): *"`F-12` is an SDK validation-timing defect, not an SDK schema
+    defect. The Control Plane must reject an invalid `request_contract` at boot
+    with a governed, field-specific refusal rather than allowing it to fail
+    later with a bare `ValueError`. The canonical `unsupported_arguments:
+    mapping[name, reason]` shape remains unchanged."*
+
+    **The third sibling of** :func:`_refuse_operator_set_divergence` **and**
+    :func:`_refuse_unproducible_seed_classes`, at the same call site and on the
+    same before-materialisation ordering. The difference is what it holds: not
+    two declarations against each other, but one declaration against the shape
+    the SDK's own :class:`~ccf.products.request.ProductRequestContract` requires.
+
+    **Why the timing is the defect.** ``request_contract`` is adopter-owned and
+    **opaque at boot** (``D-IMPL-138`` (a)), so the Control Plane admitted a
+    document whose ``unsupported_arguments`` was a bare list, and
+    :meth:`~ccf.products.request.ProductRequestContract.from_declared` refused
+    it three frames down with a bare ``ValueError`` — or, worse, an adopter
+    hand-converted the list and manufactured the reasons, which is exactly the
+    information the mapping exists to carry.
+
+    **Deliberately narrow.** This validates ONE key's shape and nothing else.
+    It is not general request-contract validation, and ``request_contract``
+    stays adopter-owned in every other respect: the SDK owns this key because
+    it is the SDK's own contract field, and judges no reason's content — any
+    non-blank prose is admitted verbatim, because what makes an argument
+    unsupported is the deployment's to say (CLAUDE.md §6.4).
+
+    Raises:
+        ValueError: ``unsupported_arguments`` is present and is not a mapping
+            of parameter name to reason prose, naming the shape found; or is a
+            mapping with blank reasons, naming every offender at once. A blank
+            is refused for the reason the mapping exists: an argument declared
+            unsupported with no stated reason is the bare list wearing a
+            mapping's clothes.
+    """
+    if not request_contract:
+        return
+    declared = request_contract.get("unsupported_arguments")
+    if declared is None:
+        return
+    if not isinstance(declared, Mapping):
+        raise ValueError(
+            "request_contract.unsupported_arguments is"
+            f" {type(declared).__name__} and the canonical shape is a mapping"
+            " of argument name to the reason it is unsupported"
+            f" (found {declared!r}). A bare sequence names WHICH arguments are"
+            " refused and never WHY, which is the half of the declaration the"
+            " mapping exists to carry; a deployment that fills the reasons in"
+            " code has authored filler, not an explanation (D-IMPL-288)"
+        )
+    blank = sorted(
+        name
+        for name, reason in declared.items()
+        if not isinstance(reason, str) or not reason.strip()
+    )
+    if blank:
+        raise ValueError(
+            "request_contract.unsupported_arguments declares"
+            f" {blank} with no reason prose; an argument declared unsupported"
+            " with a blank reason asserts nothing an adopter could act on, and"
+            " is the bare-sequence shape this key was given a mapping to"
+            " replace. The SDK judges no reason's content — any non-blank"
+            " prose is admitted verbatim (CLAUDE.md §6.4)"
+        )
+
+
 def _refuse_unproducible_seed_classes(
     operators: Mapping[str, Any] | None, resolution: Mapping[str, Any] | None
 ) -> None:
@@ -602,6 +674,10 @@ def derive_deployment(
     # before-materialisation ordering: two declared sets that cannot both be
     # what their author meant.
     _refuse_unproducible_seed_classes(config.operators, config.resolution)
+    # `24.10-F-12` (`D-IMPL-288` (2)), the third sibling: one declaration held
+    # against the shape the SDK's own request contract requires, refused here
+    # rather than three frames down with a bare `ValueError`.
+    _refuse_malformed_unsupported_arguments(config.request_contract)
 
     if config.operators:
         for operator_id, operator_body in sorted(config.operators.items()):
