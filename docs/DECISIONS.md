@@ -1772,7 +1772,42 @@ Strictly stronger than the row-2 signal: the monkeypatch's deletion is now neces
 
 **WHAT THIS DOES NOT DECIDE.** The mechanics of closing 24.11 — `D-GATE-24.11`, whether `phase-24.11` merges, and any push. `D-GATE-24.10`, the `phase-24.10` merge, and the `phase-24.5-base` tag push (`D-IMPL-275` (3)). `24.11-C-01`. The number or shape of the cp-05 product-completion work.
 
-**Next free decision id: `D-IMPL-298`.** **Related:** `D-IMPL-296`, `D-IMPL-295`, `D-IMPL-294`, `D-IMPL-289`, `D-IMPL-288`, `D-IMPL-287`, `D-IMPL-286`, `D-IMPL-266` (the proportionality line), `D-IMPL-261` (examples are probes, not repair targets).
+**Next free decision id: `D-IMPL-299`.** **Related:** `D-IMPL-296`, `D-IMPL-295`, `D-IMPL-294`, `D-IMPL-289`, `D-IMPL-288`, `D-IMPL-287`, `D-IMPL-286`, `D-IMPL-266` (the proportionality line), `D-IMPL-261` (examples are probes, not repair targets).
+
+---
+
+**D-IMPL-298 — cp-05 ADOPTS the SDK: replace its legacy hand-composed governed spine with the canonical `GovernedResolver` path, preserving product semantics. This is PRODUCT work, not another SDK-remediation phase.** RESOLVED. Date: 2026-09-09. Approver: Dave. Begins from merged `main` (`bfb097a3`), after `D-GATE-24.10` and `D-GATE-24.11`.
+
+**THE BOUNDARY, and it is the reason this entry exists.** Dave: *"24.10 and 24.11 proved and repaired the SDK. cp-05 now adopts that SDK. This is product work, not another SDK-remediation phase."*
+
+**THE OPERATING RULE, verbatim.** *"Replace cp-05's legacy hand-composed governed spine with the canonical `GovernedResolver` path while preserving cp-05's product semantics and existing documentation obligations. **Do not change SDK behavior during the migration.** If the canonical path exposes a new SDK deficiency, **stop at the evidence, classify it, and obtain a ruling before any SDK repair.**"*
+
+**The product-level target.** cp-05 request → governed effective request → L2/L3/L4 → L5 projection → Debt → product gate → governed determination → replay → delivery/MCP.
+
+**What must be PRESERVED, and these are the controls rather than a wish list** — every one already measured:
+
+- family = **77**
+- gross = **$10.125B**
+- adjusted = **$9.325B**
+- caller-selectable materiality behavior
+- Debt invariant across projection thresholds
+- governed fulfillment / refusal semantics
+- request-bound `families` (`D-IMPL-295`)
+- the authored `unsupported_arguments` reason (`D-IMPL-296`)
+- declared replay and gate bindings (`D-IMPL-282` `R-12`, `R-11`)
+- **no runtime artifact mutation and no reconstruction of Control Plane declarations**
+
+**The order, ruled.** (1) Replace the legacy governed spine with `GovernedResolver` — *"Do not redesign cp-05 around it. Remove code only where the canonical SDK genuinely replaces it."* (2) Run cp-05's existing behavioral assertions **unchanged**; the 77-member family and the financial determination are the strongest controls. (3) Complete the MCP door on the canonical result — only now can the governed-door cost be measured fairly, *"because it will be wrapping an actual CCF path rather than the earlier hand-composed implementation."* (4) Finish the owed product artifacts: remaining `expected.yaml` assertions/tests, the page generator, the current transcript/page, README/summary updates, the published documentation artifact. (5) Run the scenario set so cp-05 demonstrates **different consumer requirements** — materiality/default/caller inputs, Debt tolerance and the resulting fulfillment outcomes — *"without changing underlying assembled truth."*
+
+**AN EXPLICIT NON-OBJECTIVE.** Dave: *"One thing I would explicitly not use as the objective: reducing the 2,553-line spine to some arbitrary line count. **Delete legacy code because the SDK has replaced its responsibility, not because a line metric needs to look impressive.**"* The useful measurement afterward is the one to report: *"How much adopter-owned governance plumbing remains after canonical adoption, and what business/domain code legitimately remains?"* — a **partition**, not a total.
+
+**What success means.** *"If the migration succeeds without another SDK gap, cp-05 becomes the first example after the remediation cycle that shows the intended developer experience: declare the product, write the domain assembly/projection logic, and let CCF own governance, replay, and fulfillment."*
+
+**The stop rule.** *"Stop immediately if the migration exposes a new SDK deficiency; otherwise carry it through product completion."* A deficiency found is **preserved as evidence and classified** — never repaired in flight, and never worked around in the example (`D-IMPL-261`, `D-IMPL-289`).
+
+**Governs:** the cp-05 canonical-path migration and its product completion. **WHAT THIS DOES NOT DECIDE.** Any SDK change (none is authorized). The carries — source-refresh/evidence semantics, the decision instant, `argument_defaults`, `24.11-C-01`. Republication timing for cp-05's page beyond what step 4 names.
+
+**Next free decision id: `D-IMPL-299`.** **Related:** `D-IMPL-297` (which routed the work here), `D-GATE-24.11`, `D-IMPL-295`, `D-IMPL-296`, `D-IMPL-261` (examples are probes), `D-IMPL-289` (compensating code dies with the declaration fix).
 
 ---
 
