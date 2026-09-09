@@ -121,3 +121,95 @@ defect class `D-IMPL-249` was raised for.
 
 Migrating s1-01 takes the first to 16 and the second to 19 — both still above
 their floors. Only the third refuses, and it refuses for `MOD-01`'s reason.
+
+---
+
+## `MOD-04` — BLOCKING. The s1-01 migration is mechanically complete and was REVERTED: two already-known, still-open SDK findings stop it preserving domain behavior.
+
+**Status:** OPEN. Blocks s1-01 (and, on the same seam, any example declaring a
+decision instant distinct from its graph boundary). Needs a ruling.
+
+**The migration was built and run before it was classified**, so what follows is
+measured against a working canonical s1-01 rather than predicted. `spine.py`
+went **634 → 390 lines**, `assemble_and_serve` from 379 lines carrying seven
+hand-composed regions to a ~60-line adapter opening `boot` / `acquire` /
+`govern`; `refuse_operator_set_divergence`, `run_gates`, `build_replay_record`,
+`serve`, `ProjectionEngine` and `refuse_request` all left the example.
+`tests/examples/test_s1_01_governed_resolver_adoption.py` stayed **3 passed, 2
+xfailed**, and `tests/examples/test_s1_01_output.py` went to **34 passed, 5
+failed**. The five are one cause.
+
+**The measurement, from a real run of the migrated example:**
+
+| what | the deployment declares | the canonical path produced |
+| --- | --- | --- |
+| graph boundary (`asked_at`) | `00:00` | `00:00` |
+| decision instant (`scenario.now`) | `00:05` | — no seam |
+| `record.recorded_at` | `00:05` | **`00:00`** |
+| `product.expires_at` | `00:15` (`now` + 600s) | **`00:10`** (`asked_at` + 600s) |
+| `product.source_refresh_recency` | the declared window | **`None`** |
+
+**`GovernedResolver` collapses the decision instant onto the graph boundary.**
+s1-01 declares them five minutes apart on purpose —
+`tests/examples/test_s1_01_output.py::test_the_recorded_boundary_is_data_and_not_a_clock_read`
+asserts `temporal_boundary < now < expires_at`, which is how the example proves
+no clock is read anywhere in the path. On the canonical path both the record's
+`recorded_at` and the product's TTL run from `asked_at`, so **the content
+address and every graph pin move**, which is what the other three failures are.
+
+**Neither finding is new, and that is the difficulty.** Both were already
+recorded and carried:
+
+* **`F-09`** — *"a decision instant distinct from the graph boundary"*, carried
+  by name in `D-GATE-24.11`.
+* **`24.10-F-08`** — `source_refresh_recency` has no seam in the resolver's
+  candidate construction; it is a live `xfail(strict=True)` in
+  `tests/examples/test_s1_01_governed_resolver_adoption.py`, so the day the seam
+  lands it XPASSes loudly.
+
+**Why the migration was reverted rather than landed with five reds.**
+`D-IMPL-305`'s method requires the migration to *preserve domain behavior* and
+*keep existing business assertions unchanged*. Landing it would move the
+example's published content address and drop a field the deployment declares —
+a regressed example, not a modernized one. `D-IMPL-261` keeps evidence
+executable, and the evidence here is this row plus the two findings that were
+already executable; it is not served by shipping an s1-01 that answers with the
+wrong TTL.
+
+**What is NOT the repair.** Adjusting s1-01's artifacts so its decision instant
+equals its graph boundary would delete the property the example exists to prove
+and make `test_the_recorded_boundary_is_data_and_not_a_clock_read` vacuous.
+Weakening or deleting the five assertions is the same move. Repairing
+`GovernedResolver` is SDK work, and the fence forbids it
+(`D-IMPL-305`, `D-IMPL-307`).
+
+**Options, none taken:**
+
+1. **Rule `F-09` and `24.10-F-08` in scope for a small SDK repair**, then land
+   the migration. This is the only option that ends with s1-01 canonical AND
+   behavior-preserving. It reopens SDK work the fence closed, so it needs an
+   explicit ruling rather than an executor's judgment.
+2. **Migrate `s1-00` first and leave s1-01 pending the seam. MEASURED, and
+   `s1-00` is CLEAR of both findings.** Its
+   `examples/s1-00-companies-over-revenue/deployment.py` returns
+   `self.request.asked_at` from both `now` and `temporal_boundary`, so its
+   decision instant and its graph boundary are the same instant and `F-09`
+   cannot bite; and its own `produce.py` records in its docstring that this
+   product carries **no** `source_refresh_recency` and **no**
+   `obligation_in_force`, so `24.10-F-08` has nothing to take away. This
+   inverts Dave's stated order (`s1-01` then `s1-00`) and is therefore a
+   ruling rather than an executor's call — recorded, not taken.
+3. **Land s1-01 canonical and accept the moved address**, re-pinning the
+   example's expectations. Rejected on its face here because it changes an
+   example's answer to make the SDK look adopted, which is what `D-IMPL-261`
+   forbids — recorded so the option is on the record as considered.
+
+**The migration is not lost.** It is reproducible from this row: the adapter
+shape is `tests/examples/test_s1_01_governed_resolver_adoption.py::_wire`, and
+the two wiring details that cost time are worth carrying — `Scenario` needs the
+manifest artifact key for the request contract (`request-contract`), which is
+**not** the Control Plane pin `product-governance.yaml` declares under
+`request_contract_key`; and the record is read back from the store through
+`ServedProduct.replay_ref` rather than kept from a step the deployment no longer
+performs.
+
