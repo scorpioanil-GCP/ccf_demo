@@ -507,6 +507,3 @@ def as_contract(payload: dict[str, Any]) -> "ContextProductContract":
         payload=determination,
     )
 
-
-if __name__ == "__main__":  # pragma: no cover - module entry point
-    print(json.dumps(produce(), indent=2))
