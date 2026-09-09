@@ -1863,7 +1863,27 @@ Dave: *"Gate 2 is useful, but it is later. It verifies the engine-resolved opera
 
 **Governs:** `ccf.products.resolver::GovernedResolver`'s plan-construction seam. **WHAT THIS DOES NOT DECIDE.** The `D-IMPL-137` roster question above. Anything else in Phase 24.11, which stays closed. The remaining cp-05 product-completion steps.
 
-**Next free decision id: `D-IMPL-301`.** **Related:** `D-IMPL-86` (the binder and its 2026-08-05 timing correction), `D-IMPL-298`, `D-IMPL-299`, `D-IMPL-137`, `D-GATE-24.11`.
+**Next free decision id: `D-IMPL-302`.** **Related:** `D-IMPL-86` (the binder and its 2026-08-05 timing correction), `D-IMPL-298`, `D-IMPL-299`, `D-IMPL-137`, `D-GATE-24.11`.
+
+---
+
+**D-IMPL-301 — `D-IMPL-141`'s SDK-supplied exemption is an ARCHITECTURAL OWNERSHIP condition, not one wiring mechanism. A deployment qualifies when the tree proves `GovernedResolver` owns the plan-construction → execution seam, whether that ownership comes from a `binding.yaml` or from direct `build_governed_resolver` adoption.** RESOLVED. Date: 2026-09-09. Approver: Dave. A **test-model correction caused by SDK evolution**, not a product change.
+
+**The ruling, Dave verbatim.** *"`D-IMPL-141` describes an architectural ownership condition, not one specific wiring mechanism. A deployment qualifies as SDK-supplied when the tree proves that `GovernedResolver` owns the plan-construction→execution seam and supplies the operator set, whether that ownership is established through a Control Plane `binding.yaml` or through direct canonical `build_governed_resolver` adoption."*
+
+**What was measured.** `_sdk_supplied_operator_set`'s condition 3 required the deployment's `binding.yaml` to name the plan function through its single permitted `plan:` reference — *"the load-bearing condition"*. `hw1-companies-over-revenue` carries one; **cp-05 has no `binding.yaml` at all** and adopts the resolver by calling `build_governed_resolver` from its own program. Both are canonical adoption; only one was declared where the detector could read it. The other four conditions were satisfied and verified: no `ccf.projection-requirements`, a `required` parameter on the factory, at least one constructed plan, and every constructed plan sourcing its operator set from that parameter.
+
+**What was REJECTED, and why it matters more than what was done.** Making cp-05 adopt a `binding.yaml` so the detector would recognise it. Dave: *"Do not make cp-05 adopt `binding.yaml` just to satisfy a detector whose vocabulary predates this canonical adoption shape. That would be exactly the drift we have been trying to avoid: changing the product architecture to make the test harness happy."* And: *"Unless cp-05 independently needs that artifact for product functionality or author experience, that is insufficient justification."* Also rejected: leaving the red, *"because the remaining red would knowingly encode a false architectural claim."*
+
+**The invariant is unchanged.** *"There must be one authoritative operator set."* What changed is the detector learning that the SDK now supports two ways of establishing that authority. `_resolver_owns_the_seam` recognises **shape A** (the declared binding, untouched) and **shape B** (the module reaches `build_governed_resolver`/`GovernedResolver` and this body executes no projection engine of its own), and remains conjunctive with the four other conditions — a body that authored a competing set still fails condition 5 whichever shape it takes. **No example is named in the predicate**, so later adopters qualify without an edit.
+
+**cp-05's category change, which is the migration's own evidence.** It moved from *one document where two were possible* (`D-IMPL-137`, ruled in 2026-09-08 when its plan derived `required_operators()` from the class declaration) to *no second document, because the SDK supplies the canonical set*. Dave: *"a classification update, not an exemption swap."* The `RULED_ONE_DOCUMENT_DEPLOYMENTS` count went DOWN by one with the removed site named, and the descriptive tree-lists in `test_the_premise_detector_reads_the_shipped_tree_correctly` moved with it — that test's own comment authorises exactly this: *"This list DESCRIBES THE TREE, so it moves when the tree does — the ruled roster above moves only when Dave rules."*
+
+**Related and ruled in the same sitting:** `test_every_projecting_example_body_names_the_binder` now scopes on seam OWNERSHIP (`_delegates_the_seam_to_the_resolver`) rather than on every projecting body. Hand-composed examples remain subject; canonical adopters are excluded because `GovernedResolver` calls the binder itself (`D-IMPL-300`). Dave: *"That is not weakening the test. It is correcting the test's scope to match D-IMPL-300."*
+
+**Governs:** `tests/products/test_gate_two_call_shape.py`'s SDK-supplied predicate and binder scope. **WHAT THIS DOES NOT DECIDE.** Any SDK change beyond `D-IMPL-300`'s binder call. Whether cp-05 should later adopt a `binding.yaml` for its own reasons.
+
+**Next free decision id: `D-IMPL-302`.** **Related:** `D-IMPL-300`, `D-IMPL-298`, `D-IMPL-141`, `D-IMPL-137`, `D-IMPL-86`.
 
 ---
 
