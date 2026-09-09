@@ -73,7 +73,7 @@ from ccf.products.entitlement import product_entitlement_key
 from ccf.products.gates import DEBT_TOLERANCE_PARAMETER
 from ccf.products.disclosure import DisclosureDecision
 from ccf.products.refusal import NO_REPLAY_REFERENCE, RefusalEnvelope
-from ccf.products.request import ProductRequest
+from ccf.products.request import ProductRequest, request_seeds
 from ccf.replay.record import (
     NO_FABRIC_READ,
     NO_PRODUCT_ADDRESS,
@@ -996,6 +996,99 @@ def test_two_parameter_values_produce_two_content_addresses(
     assert isinstance(low, ServedProduct)
     assert isinstance(high, ServedProduct)
     assert content_hash(low.product) != content_hash(high.product)
+
+
+# --- `24.11-01` / `24.10-F-07`: two subjects are two questions ---------------
+
+
+def test_two_subjects_cannot_collapse_to_one_question_to_the_graph(
+    booted: _Booted,
+) -> None:
+    """The request seeds the walk on the CANONICAL path — `D-IMPL-111` limb (a).
+
+    Dave's invariant, verbatim: *"The subject/perspective state used during
+    governed execution must be the same effective subject state represented in
+    replay and product identity."* Until `24.11-01` this composition called
+    :meth:`~ccf.projection.engine.ProjectionEngine.execute` with no ``seeds``
+    argument at all, while :mod:`ccf.replay.engine` replayed with
+    ``seeds=request_seeds(path.request)``. So two questions about two different
+    subjects compiled to the **same** graph query and pinned identically in
+    dimension 5, and every resolver-served product whose plan walks was
+    replay-divergent by construction — ``DI-15.5-07`` exactly, reproduced on the
+    canonical path after limb (a) had already closed it on the hand-built one.
+
+    **Two halves, and neither alone is the property.**
+
+    *They cannot alias.* Two subjects pin two different query sequences, so the
+    record can say which subject a decision was about.
+
+    *They agree with replay.* The seeds the execution actually compiled into
+    its query are what :func:`~ccf.products.request.request_seeds` returns for
+    the request the **record carries** — the same function applied to the same
+    object :mod:`ccf.replay.engine` applies it to. The first half alone would
+    pass on a resolver that seeded by some other subject-sensitive rule and
+    then diverged loudly at replay; the second is what makes the two paths one
+    reading rather than two derivations that happen to agree.
+
+    The control matters as much as the assertion: the same subject asked twice
+    must pin **identically**, or the inequality above would be measuring
+    nondeterminism rather than the subject.
+
+    Read back off the PERSISTED record and the PERSISTED query bytes, because
+    that is what an auditor holding the record and nothing else would see.
+    """
+    resolver = _resolver(booted)
+    first = _ask(resolver, _request(subject="acct-1"))
+    second = _ask(resolver, _request(subject="acct-2"))
+    again = _ask(resolver, _request(subject="acct-1"))
+
+    assert isinstance(first, ServedProduct)
+    assert isinstance(second, ServedProduct)
+    assert isinstance(again, ServedProduct)
+
+    records = [
+        DecisionReplayRecord.model_validate_json(
+            booted.store.get(content_address=served.replay_ref.content_address)
+        )
+        for served in (first, second, again)
+    ]
+    paths = [record.content_generation_path for record in records]
+
+    # The premise, asserted rather than assumed: three decisions, two subjects.
+    assert [path.request.subject for path in paths] == [
+        "acct-1",
+        "acct-2",
+        "acct-1",
+    ], "the fixture's own premise has moved"
+
+    pins = [path.graph_query_sequence for path in paths]
+    # A resolver that pinned NO query would satisfy the inequality below
+    # vacuously, and the inequality would be measuring nothing.
+    assert all(pins), "the record pins no graph query at all"
+    # The control for the inequality: same subject, same pinned question.
+    assert pins[0] == pins[2], (
+        "the same subject asked twice pinned two different query sequences;"
+        " the inequality below would be measuring nondeterminism"
+    )
+    assert pins[0] != pins[1], (
+        "two questions about two different subjects pinned the same graph"
+        " query sequence; the record cannot say which subject this decision"
+        " was about (`DI-15.5-07`, `D-IMPL-111` limb (a), `24.10-F-07`)"
+    )
+
+    # The correspondence: what execution compiled IS what replay will derive.
+    for path in paths:
+        for pin in path.graph_query_sequence:
+            query = GraphQuery.model_validate_json(
+                booted.store.get(content_address=pin)
+            )
+            assert query.seeds == request_seeds(path.request), (
+                "the seeds compiled into the executed query are not the seeds"
+                " ccf.replay.engine derives from the request this record"
+                " carries; governed execution and replay disagree about the"
+                " subject, which is a re-computation wearing the decision's"
+                " identifier"
+            )
 
 
 # --- `R-11`: the product-gate seam, and where it runs ------------------------

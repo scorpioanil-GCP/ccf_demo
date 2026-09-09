@@ -37,13 +37,16 @@ The four findings
     stops adoption at step 4 of the composition's own nine**, before the graph
     is projected.
 
-``24.10-F-07``
-    ``GovernedResolver`` does not seed the traversal from the request, and
+``24.10-F-07`` — **CLOSED by ``24.11-01``; its test now runs unmarked.**
+    ``GovernedResolver`` did not seed the traversal from the request, and
     :mod:`ccf.replay.engine` does (``seeds=request_seeds(path.request)``). Two
-    questions about two different companies therefore pin **identically** to
+    questions about two different companies therefore pinned **identically** to
     the graph — ``DI-15.5-07`` exactly, reproduced on the canonical path after
     ``D-IMPL-111`` limb (a) fixed it on the hand-built one — and any served
-    product whose plan walks is replay-divergent by construction.
+    product whose plan walks was replay-divergent by construction. The resolver
+    now passes ``seeds=request_seeds(request)``. The test below is unchanged
+    except for the removal of its ``xfail`` marker: what it asserted as absent
+    it now asserts as present, in the same words.
 
 ``24.10-F-08``
     Three Track-B product members — ``obligation_in_force``,
@@ -333,16 +336,6 @@ def test_the_resolver_serves_a_class_whose_operators_include_similarity(
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "24.10-F-07: GovernedResolver executes Pi with no seeds, while"
-        " ccf.replay.engine replays with seeds=request_seeds(path.request)."
-        " Two subjects pin identically — DI-15.5-07 reproduced on the canonical"
-        " path — and every resolver-served product whose plan walks is"
-        " replay-divergent by construction"
-    ),
-)
 def test_two_subjects_pin_two_different_questions_to_the_graph(
     bridged_resolver: Callable[[Any], Answered], questions: Any
 ) -> None:

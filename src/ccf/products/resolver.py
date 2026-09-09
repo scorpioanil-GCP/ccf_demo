@@ -219,6 +219,7 @@ from ccf.products.request import (
     ProductRequestContract,
     refuse_intent,
     refuse_undeclared_class_default,
+    request_seeds,
 )
 from ccf.projection.engine import ExecutionResult, ProjectionEngine
 from ccf.projection.plan import Perspective, ProjectionPlan
@@ -1162,9 +1163,12 @@ class GovernedResolver:
     ``examples/s1-01-hello-context-product/spine.py`` so that *"can an author
     reach this composition?"* could be answered by trying rather than by
     asserting. It was tried, against a live substrate, and **it could not**.
-    Four seams are absent; each carries an executable test in
+    Four seams were absent; each carries an executable test in
     ``tests/examples/test_s1_01_governed_resolver_adoption.py``, and none of
-    them is a defect in the example:
+    them is a defect in the example. **One — ``24.10-F-07`` — is closed as of
+    ``24.11-01``; three remain.** The closed one is kept in this roster rather
+    than deleted from it, because what a composition *used to* get wrong is
+    what says why the line that fixes it is load-bearing:
 
     ``24.10-F-06``
         A product class whose operator set includes the **Similarity**
@@ -1176,14 +1180,22 @@ class GovernedResolver:
         field here, no argument on :func:`build_governed_resolver`, and the
         registry is built inside :meth:`__call__` — so a deployment has nowhere
         to supply it.
-    ``24.10-F-07``
-        :meth:`__call__` executes Π with **no seeds**, while
+    ``24.10-F-07`` — **CLOSED, ``24.11-01``**
+        :meth:`__call__` executed Π with **no seeds**, while
         :mod:`ccf.replay.engine` replays with
         ``seeds=``:func:`~ccf.products.request.request_seeds`. Two questions
-        about two different subjects therefore compile to the same graph query
-        and pin identically — ``DI-15.5-07``, which ``D-IMPL-111`` limb (a)
+        about two different subjects therefore compiled to the same graph query
+        and pinned identically — ``DI-15.5-07``, which ``D-IMPL-111`` limb (a)
         closed on the hand-built path — and a served product whose plan walks
-        is replay-divergent by construction.
+        was replay-divergent by construction. :meth:`__call__` now passes
+        ``seeds=request_seeds(request)``, derived from the **caller's**
+        request: the same object it hands
+        :func:`~ccf.replay.record.build_replay_record`, which dimension 5
+        carries verbatim and :mod:`ccf.replay.engine` reads back — so the two
+        paths are one reading of one object rather than two derivations that
+        could drift. Regressed directly at ``tests/products/
+        test_resolver_seam.py::
+        test_two_subjects_cannot_collapse_to_one_question_to_the_graph``.
     ``24.10-F-08``
         The candidate below sets none of ``obligation_in_force``,
         ``source_refresh_recency`` or ``debt_evidence``, and offers no seam
@@ -1197,10 +1209,12 @@ class GovernedResolver:
         ``request.asked_at``, so a class declaring a **decision instant**
         distinct from the graph boundary finds nothing reads it.
 
-    Recorded here rather than fixed here. ``D-IMPL-282``: *"No broader API
-    redesign is authorized up front"* — the escalation these four earn is
-    Dave's ruling to make, and the tests are what go loudly red when a seam
-    lands without its finding being closed.
+    The remaining three are recorded here rather than fixed here.
+    ``D-IMPL-282``: *"No broader API redesign is authorized up front"* — the
+    escalation they earn is Dave's ruling to make, and the tests are what go
+    loudly red when a seam lands without its finding being closed. ``F-07`` is
+    the one that has had that ruling (``D-IMPL-290``): a correctness defect,
+    taken first and alone.
 
     Attributes:
         fabric: The booted deployment, exactly as
@@ -1575,6 +1589,30 @@ class GovernedResolver:
             perspective=perspective,
             tenant_id=self.fabric.tenant_id,
             temporal_boundary=request.asked_at,
+            # `24.11-01` / `24.10-F-07` (`D-IMPL-111` limb (a), Dave,
+            # 2026-08-11): *the request seeds the traversal*. Absent this
+            # argument the canonical path executed with `seeds=None` while
+            # `ccf.replay.engine` replayed with
+            # `seeds=request_seeds(path.request)`, so two questions about two
+            # different subjects compiled to the SAME graph query and pinned
+            # identically in dimension 5 — `DI-15.5-07` exactly, reproduced on
+            # the canonical path after limb (a) had already closed it on the
+            # hand-built one.
+            #
+            # **`request`, not `effective_request`, and the reason is the
+            # invariant rather than a preference.** `build_replay_record` below
+            # is handed `request=request`, which `ccf.replay.record` writes
+            # verbatim to `ContentGenerationPath.request`, which
+            # `ccf.replay.engine` reads back as `request_seeds(path.request)`.
+            # Seeding from the CALLER's request is therefore the SAME function
+            # applied to the SAME object on both paths — the "one reading, used
+            # on both paths" `request_seeds` exists to be. `effective_request`
+            # is a sibling that today carries an identical `subject` (it differs
+            # only in `parameters`), so it would agree by coincidence and not by
+            # construction: it is a SECOND derivation, and a second derivation
+            # is precisely the drift that would replay a different question
+            # under this decision's identifier.
+            seeds=request_seeds(request),
         )
 
         registered = self._register(declaration)
@@ -2123,12 +2161,13 @@ def build_governed_resolver(
     ``24.10-04`` / ``R-03`` (``D-IMPL-282``) tried this seam from the SDK's own
     worked example, ``examples/s1-01-hello-context-product/spine.py``, against
     a live substrate. **The example could not adopt it**, and four absent seams
-    are why — read
+    were why — of which ``24.10-F-07`` is closed as of ``24.11-01``, leaving
+    three. Read
     :class:`GovernedResolver`'s own docstring for ``24.10-F-06`` through
     ``24.10-F-09`` and ``tests/examples/
     test_s1_01_governed_resolver_adoption.py`` for the executable roster. Two
-    of them bear directly on the arguments below and are worth knowing before
-    wiring rather than after:
+    of the three bear directly on the arguments below and are worth knowing
+    before wiring rather than after:
 
     * A deployment declaring a **similarity** operator-parameters artifact
       among ``operator_parameter_keys`` gets a ``ValueError`` from
