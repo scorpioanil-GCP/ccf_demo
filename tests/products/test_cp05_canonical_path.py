@@ -234,22 +234,6 @@ OPERATOR_PARAMETER_KEYS = (POLICY_OPERATOR_KEY, TRAVERSAL_OPERATOR_KEY)
 #: transcription.
 DELTA_REPLAY = "replay"
 
-#: Wave 2's `R-11` addition: the class's declared product gate. cp-05 calls the
-#: predicate *"the fourth validation gate"* and runs it as a bare function
-#: call in its own spine; on the canonical path it needs a governed identity.
-DELTA_DECLARED_GATE = "product_class.declared_product_gate"
-
-#: **The third change, and no wave created it** — `24.10-F-12`. cp-05 authors
-#: `unsupported_arguments` as a list and `ProductRequestContract.from_declared`
-#: requires a mapping.
-DELTA_UNSUPPORTED_ARGUMENTS = "request_contract.unsupported_arguments"
-
-#: What the two declarative additions of waves 1 and 2 would have cost, if
-#: they were the whole cost. They are not.
-TWO_DECLARATIVE_ADDITIONS = frozenset({DELTA_REPLAY, DELTA_DECLARED_GATE})
-
-#: What adoption actually costs, measured.
-MEASURED_DELTA = TWO_DECLARATIVE_ADDITIONS | {DELTA_UNSUPPORTED_ARGUMENTS}
 
 #: The gate identity cp-05 would declare for the invariant it already runs.
 #: Test-side vocabulary, never an SDK value (CLAUDE.md §6.4): the gate's
@@ -301,54 +285,24 @@ def shipped_config() -> dict[str, Any]:
     return _load(CONFIG)
 
 
-def third_change_is_forced() -> bool:
-    """Does the SDK's typed reader refuse cp-05's shipped ``request_contract``?
-
-    Asked rather than assumed, and asked **of the SDK** rather than of a
-    constant, so this harness's derived config carries the third change only
-    for as long as the SDK forces it. The day
-    :meth:`~ccf.products.request.ProductRequestContract.from_declared` reads
-    cp-05's shape, the delta below drops to two on its own and
-    :func:`test_the_config_delta_is_two_declarative_additions` goes ``XPASS``
-    under ``strict`` — which is the ratchet that keeps ``24.10-F-12`` from
-    rotting into a constant nobody rechecks.
-    """
-    try:
-        ProductRequestContract.from_declared(
-            _declared_request_contract(shipped_config())
-        )
-    except ValueError as refusal:
-        # Narrowed to THIS refusal, so an unrelated ValueError from a future
-        # validator cannot be read as this finding still standing.
-        return "unsupported_arguments" in str(refusal)
-    return False
-
-
 def derived_config() -> dict[str, Any]:
-    """cp-05's document plus the changes the canonical path requires.
+    """cp-05's shipped document, used as it ships. **Nothing is added.**
 
-    Two declarative additions, plus a third change **only while the SDK forces
-    it** (:func:`third_change_is_forced`). Nothing here invents a value: the
-    replay members come from ``artifacts/replay.yaml`` verbatim, the gate
-    identity is this harness's declared vocabulary, and the reason prose the
-    third change needs is transcribed from cp-05's own ``deployment.py``.
+    This function once returned cp-05's config plus the two declarative
+    additions the canonical path required — a ``replay:`` binding and a
+    ``declared_product_gate`` — and, while the SDK forced it, a third reshaping
+    of ``unsupported_arguments``. All three are **gone from the overlay because
+    they are gone from the problem**: `24.11-05` moved the third into cp-05's
+    own declaration (`D-IMPL-296`), and `D-IMPL-299` moved the other two into
+    the shipped ``ccf_config.yaml`` as part of cp-05 adopting the canonical
+    path.
+
+    Kept as a named function rather than inlined at its callers, and kept
+    returning a **copy**, because the name is what the tests below read as
+    *"the document the canonical path is driven with"* — and the whole claim
+    now is that this is cp-05's own document, unmodified.
     """
-    derived = copy.deepcopy(shipped_config())
-    derived[DELTA_REPLAY] = dict(_load(REPLAY_ARTIFACT)[DECLARATION])
-    derived["product_class"]["declared_product_gate"] = {
-        "gate_id": GATE_ID,
-        "gate_version": GATE_VERSION,
-    }
-    # `24.10-F-12`. cp-05's own `deployment.py::request_contract` performs this
-    # same reshaping in Python, with this same reason string, because the SDK's
-    # typed reader will not take the list. Quoted rather than authored so this
-    # harness names no prose cp-05 does not.
-    if third_change_is_forced():
-        derived["request_contract"]["unsupported_arguments"] = {
-            name: "not supported at this tier"
-            for name in shipped_config()["request_contract"]["unsupported_arguments"]
-        }
-    return derived
+    return copy.deepcopy(shipped_config())
 
 
 def delta_paths(
@@ -632,61 +586,51 @@ def _ask(fabric: Fabric, resolver: GovernedResolver, *, subject: str | None = No
 # ---------------------------------------------------------------------------
 
 
-def test_the_config_delta_is_two_declarative_additions() -> None:
-    """Adoption should cost only what waves 1 and 2 added. It costs one more.
+def test_the_shipped_config_declares_what_the_canonical_path_requires() -> None:
+    """The transitional delta test, replaced because its premise EXPIRED.
 
-    **Un-quarantined at ``24.11-05``, and the ratchet worked exactly as
-    written.** It carried ``xfail(strict=True)`` for ``24.10-F-12`` because
-    adoption cost a THIRD change nobody's wave created: cp-05 authored
-    ``unsupported_arguments`` as a bare list, ``load_config_and_boot`` admitted
-    it, and ``ProductRequestContract.from_declared`` refused it three frames
-    down. `D-IMPL-288` (2) ruled that a validation-timing defect and left the
-    canonical mapping shape untouched, so the Control Plane now refuses the
-    list AT BOOT and cp-05 authors the reason it always had in prose.
-    :func:`third_change_is_forced` consults the SDK rather than a constant and
-    now answers ``False``, so the delta dropped to two on its own.
+    It began as ``test_the_config_delta_is_two_declarative_additions`` and
+    measured what adopting the canonical path COST cp-05: a ``replay:``
+    binding, a ``declared_product_gate``, and — while `24.10-F-12` stood — a
+    reshaped ``unsupported_arguments``. Dave, ruling `D-IMPL-299`: *"The
+    transitional 'two declarative additions' test has fulfilled its purpose.
+    Once those declarations are canonical, update the test so it verifies the
+    shipped configuration itself contains the required declarations. Don't
+    preserve an overlay merely so the old delta remains two."*
 
-    Premise 2 below inverted with the finding and is stated in its closed form:
-    the document authors the canonical mapping. It is not deleted, because a
-    premise that can no longer go stale is the thing that would let this test
-    pass for the wrong reason.
+    So this asserts the END STATE rather than a cost, and the delta assertion
+    survives inverted: it is now **empty**, which is the strongest form of the
+    original claim. A harness that still had to add anything would fail here.
+
+    The two additions are read from cp-05's own document rather than compared
+    against constants this module authors, so the test cannot pass by agreeing
+    with itself.
     """
     shipped = shipped_config()
-    derived = derived_config()
 
-    # Premise 1 — the two additions are genuinely absent from the shipped
-    # document, so they are additions rather than edits.
-    assert DELTA_REPLAY not in shipped, "cp-05 already declares a replay binding"
-    assert "declared_product_gate" not in shipped["product_class"], (
-        "cp-05 already declares a product gate"
+    replay = shipped.get(DELTA_REPLAY)
+    assert isinstance(replay, Mapping), (
+        "cp-05 does not declare a `replay:` section; the canonical path has no"
+        " binding to consume and `D-IMPL-299`'s adoption has been undone"
+    )
+    assert replay["record_class"], "the replay binding names no record class"
+    assert replay["query_pin_class"], "the replay binding names no query pin class"
+    assert replay["store_dirname"], "the replay binding names no store"
+
+    gate = shipped["product_class"].get("declared_product_gate")
+    assert isinstance(gate, Mapping), (
+        "cp-05's class declares no product gate, so `R-11`'s seam has nothing"
+        " to execute and a refusal could not name the gate that produced it"
+    )
+    assert gate["gate_id"] and gate["gate_version"], (
+        "half an identity cannot answer WHICH gate at WHICH version in a"
+        " replay record"
     )
 
-    # Premise 2, in its CLOSED form — cp-05 authors the canonical mapping, and
-    # the reason is prose rather than a manufactured constant.
-    unsupported = shipped["request_contract"]["unsupported_arguments"]
-    assert isinstance(unsupported, Mapping), (
-        "cp-05 no longer authors the canonical mapping; 24.10-F-12's"
-        " correction has been undone"
-    )
-    assert unsupported["as_of"].strip(), "the authored reason is blank"
-    assert "not supported at this tier" not in unsupported["as_of"], (
-        "the declaration restates the filler `deployment.py` used to mint;"
-        " the point of the mapping is the reason, not a longer way to say"
-        " nothing (D-IMPL-288)"
-    )
-
-    # Premise 3 — the SDK does not force a third change any more, asked of the
-    # SDK rather than of a constant.
-    assert not third_change_is_forced(), (
-        "ProductRequestContract.from_declared still refuses cp-05's shipped"
-        " request_contract, so the delta below cannot be two"
-    )
-
-    # And the delta itself, enumerated. TWO.
-    delta = delta_paths(shipped, derived)
-    assert delta == TWO_DECLARATIVE_ADDITIONS, (
-        "adopting the canonical path costs a change nobody's wave created:"
-        f" {sorted(delta - TWO_DECLARATIVE_ADDITIONS)}"
+    # And the delta, inverted: the harness adds NOTHING.
+    assert delta_paths(shipped, derived_config()) == frozenset(), (
+        "the harness still modifies cp-05's document before driving the"
+        " canonical path, so something the example needs is still an overlay"
     )
 
 

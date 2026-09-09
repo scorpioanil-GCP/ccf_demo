@@ -1772,7 +1772,201 @@ Strictly stronger than the row-2 signal: the monkeypatch's deletion is now neces
 
 **WHAT THIS DOES NOT DECIDE.** The mechanics of closing 24.11 — `D-GATE-24.11`, whether `phase-24.11` merges, and any push. `D-GATE-24.10`, the `phase-24.10` merge, and the `phase-24.5-base` tag push (`D-IMPL-275` (3)). `24.11-C-01`. The number or shape of the cp-05 product-completion work.
 
-**Next free decision id: `D-IMPL-298`.** **Related:** `D-IMPL-296`, `D-IMPL-295`, `D-IMPL-294`, `D-IMPL-289`, `D-IMPL-288`, `D-IMPL-287`, `D-IMPL-286`, `D-IMPL-266` (the proportionality line), `D-IMPL-261` (examples are probes, not repair targets).
+**Next free decision id: `D-IMPL-299`.** **Related:** `D-IMPL-296`, `D-IMPL-295`, `D-IMPL-294`, `D-IMPL-289`, `D-IMPL-288`, `D-IMPL-287`, `D-IMPL-286`, `D-IMPL-266` (the proportionality line), `D-IMPL-261` (examples are probes, not repair targets).
+
+---
+
+**D-IMPL-298 — cp-05 ADOPTS the SDK: replace its legacy hand-composed governed spine with the canonical `GovernedResolver` path, preserving product semantics. This is PRODUCT work, not another SDK-remediation phase.** RESOLVED. Date: 2026-09-09. Approver: Dave. Begins from merged `main` (`bfb097a3`), after `D-GATE-24.10` and `D-GATE-24.11`.
+
+**THE BOUNDARY, and it is the reason this entry exists.** Dave: *"24.10 and 24.11 proved and repaired the SDK. cp-05 now adopts that SDK. This is product work, not another SDK-remediation phase."*
+
+**THE OPERATING RULE, verbatim.** *"Replace cp-05's legacy hand-composed governed spine with the canonical `GovernedResolver` path while preserving cp-05's product semantics and existing documentation obligations. **Do not change SDK behavior during the migration.** If the canonical path exposes a new SDK deficiency, **stop at the evidence, classify it, and obtain a ruling before any SDK repair.**"*
+
+**The product-level target.** cp-05 request → governed effective request → L2/L3/L4 → L5 projection → Debt → product gate → governed determination → replay → delivery/MCP.
+
+**What must be PRESERVED, and these are the controls rather than a wish list** — every one already measured:
+
+- family = **77**
+- gross = **$10.125B**
+- adjusted = **$9.325B**
+- caller-selectable materiality behavior
+- Debt invariant across projection thresholds
+- governed fulfillment / refusal semantics
+- request-bound `families` (`D-IMPL-295`)
+- the authored `unsupported_arguments` reason (`D-IMPL-296`)
+- declared replay and gate bindings (`D-IMPL-282` `R-12`, `R-11`)
+- **no runtime artifact mutation and no reconstruction of Control Plane declarations**
+
+**The order, ruled.** (1) Replace the legacy governed spine with `GovernedResolver` — *"Do not redesign cp-05 around it. Remove code only where the canonical SDK genuinely replaces it."* (2) Run cp-05's existing behavioral assertions **unchanged**; the 77-member family and the financial determination are the strongest controls. (3) Complete the MCP door on the canonical result — only now can the governed-door cost be measured fairly, *"because it will be wrapping an actual CCF path rather than the earlier hand-composed implementation."* (4) Finish the owed product artifacts: remaining `expected.yaml` assertions/tests, the page generator, the current transcript/page, README/summary updates, the published documentation artifact. (5) Run the scenario set so cp-05 demonstrates **different consumer requirements** — materiality/default/caller inputs, Debt tolerance and the resulting fulfillment outcomes — *"without changing underlying assembled truth."*
+
+**AN EXPLICIT NON-OBJECTIVE.** Dave: *"One thing I would explicitly not use as the objective: reducing the 2,553-line spine to some arbitrary line count. **Delete legacy code because the SDK has replaced its responsibility, not because a line metric needs to look impressive.**"* The useful measurement afterward is the one to report: *"How much adopter-owned governance plumbing remains after canonical adoption, and what business/domain code legitimately remains?"* — a **partition**, not a total.
+
+**What success means.** *"If the migration succeeds without another SDK gap, cp-05 becomes the first example after the remediation cycle that shows the intended developer experience: declare the product, write the domain assembly/projection logic, and let CCF own governance, replay, and fulfillment."*
+
+**The stop rule.** *"Stop immediately if the migration exposes a new SDK deficiency; otherwise carry it through product completion."* A deficiency found is **preserved as evidence and classified** — never repaired in flight, and never worked around in the example (`D-IMPL-261`, `D-IMPL-289`).
+
+**Governs:** the cp-05 canonical-path migration and its product completion. **WHAT THIS DOES NOT DECIDE.** Any SDK change (none is authorized). The carries — source-refresh/evidence semantics, the decision instant, `argument_defaults`, `24.11-C-01`. Republication timing for cp-05's page beyond what step 4 names.
+
+**Next free decision id: `D-IMPL-300`.** **Related:** `D-IMPL-297` (which routed the work here), `D-GATE-24.11`, `D-IMPL-295`, `D-IMPL-296`, `D-IMPL-261` (examples are probes), `D-IMPL-289` (compensating code dies with the declaration fix).
+
+---
+
+**D-IMPL-299 — cp-05's exposure data is DETERMINATION TRUTH and is assembled before Π. L5 may select, shape and present truth; it must never reach back to a system of record to create it.** RESOLVED. Date: 2026-09-09. Approver: Dave. Governs the cp-05 canonical-path migration (`D-IMPL-298`).
+
+**The ruling as Dave stated it.** *"cp-05 exposure data is determination truth and is assembled before Π. Postgres enrichment occurs through the assembly/L2 path and enters governed L3 state; L4 determines family and aggregate exposure; L5 applies materiality only. `ContentAcquirer` remains unused by cp-05 because its exposure facts are not late-bound decision-time content. **No SDK change is authorized by this ruling.**"*
+
+**THE SEMANTIC RULE, and it is the general one rather than cp-05's.** *"L5 may select, shape, and present truth. It must not reach back to a system of record to create truth."*
+
+**The architecture, ruled.**
+
+    Source acquisition -> L2 admission/enrichment -> L3 governed state
+      -> L4 family traversal/aggregation -> L5 materiality projection
+
+For cp-05 concretely: Fluree acquisition establishes the corporate/family topology; **Postgres exposure facts are acquired during assembly/population and admitted through L2 with their real temporal/provenance evidence**; L3 therefore holds the exposure facts available to the determination; L4 uses the declared traversal to establish the **77**-member family and performs whatever deterministic aggregation produces gross/adjusted exposure; L5 applies the effective materiality threshold and decides what is relevant to this caller.
+
+**THE REFINEMENT THAT KEEPS (a) HONEST.** Dave: *"Do not move gross/adjusted aggregation into `ProjectionPlan` while adopting (a). If aggregation is part of determining `$10.125B / $9.325B`, it must remain **before** Π as assembly/operator logic. Otherwise we solve the Postgres problem but still let L5 construct truth."* Moving the connection out of Π while leaving the arithmetic in it would have satisfied the letter of the rule and broken its point.
+
+**What was verified from the SDK contract before this was ruled, rather than inferred.** :meth:`~ccf.projection.plan.ProjectionPlan.invoke` is **projection-only** — its contract is *"Interpret the operator-produced state for `perspective`"*, and ``operator_outputs`` exists so a projection reads operator-produced metadata *"without re-running anything"*. Nothing in the Protocol sanctions acquiring or constructing truth. Claude's first proposed shape — a plan closing over Postgres to enrich and aggregate inside ``invoke`` — was **wrong on this contract**, and Dave held the edit until it was checked.
+
+**Why `ContentAcquirer` is NOT used here, recorded because it is architecturally legitimate and a later reader will ask.** The SDK does define a governed decision-time acquisition stage between L4 and Π — `ContentAcquiringPlan.required_content()` plus `ContentAcquirer.acquire()`, with declaration, `UndeclaredAcquisition` refusing anything undeclared, policy-ordered execution (*"nothing is acquired on behalf of a principal Policy excluded"*), and replay that re-feeds `recorded_acquisitions` rather than re-fetching. Dave: its *"ordering/replay semantics are actually quite good"*, but it *"solves a different class of problem: content whose need becomes known only after governed operator execution and which is legitimately acquired at decision time"* — eventually a document, research artifact, disclosure or market quote. **cp-05's facility/exposure records are not that**; they are source-of-record facts needed to calculate the product's core exposure determination. Two further reasons recorded: cp-05 would be the **first adopter of an entirely unexercised seam** (measured: zero implementations of `ContentAcquirer` across `src/`, `runtime/` and `examples/`), and structured exposure facts would have to be forced through `AcquiredContent.content`, a `str`. Dave: *"exactly the sort of friction that could distract the migration into another SDK investigation. We don't need it to answer cp-05's question."*
+
+**The accepted tradeoff, and the future question it defers rather than hides.** (a) means Postgres may enrich a broader acquired population than the ultimate family subset. Dave: *"slightly more acquisition -> much cleaner architectural boundary. For cp-05's current scale, that is clearly preferable."* The real question it defers — *"How do we avoid assembling enormous source populations when the relevant subset is only discoverable after graph traversal?"* — is **precisely where the governed `ContentAcquirer` seam, or another bounded late-acquisition pattern, may earn its keep**. It is recorded here and scheduled nowhere. *"Do not optimize the example around a future 100x workload before we've measured it."*
+
+**Config adoption, ruled in the same sitting.** `replay` and `declared_product_gate` move into cp-05's **shipped** `ccf_config.yaml`. The transitional "two declarative additions" test *"has fulfilled its purpose"*: once the declarations are canonical the test is updated to verify **the shipped configuration itself contains them**. *"Don't preserve an overlay merely so the old delta remains two."*
+
+**Governs:** the shape of the cp-05 canonical-path migration. **WHAT THIS DOES NOT DECIDE.** Any SDK change — none is authorized. The scalability question above. The carries under `D-IMPL-297`.
+
+**Next free decision id: `D-IMPL-301`.** **Related:** `D-IMPL-298` (the migration this shapes), `D-IMPL-297`, `D-IMPL-279` `R-09` (the L1 acquisition boundary, a different seam from decision-time content acquisition), `src/ccf/projection/acquisition.py`, `src/ccf/projection/plan.py::ProjectionPlan`.
+
+---
+
+**D-IMPL-300 — The canonical `GovernedResolver` must enforce operator-set divergence at the ruled PRE-EXECUTION point. Gate 2 is a downstream equality check over engine-resolved operators and does not replace the binder.** RESOLVED. Date: 2026-09-09. Approver: Dave. **An SDK finding discovered by cp-05's canonical adoption** (`D-IMPL-298`); it does not reopen Phase 24.11.
+
+**How it was found, and the workflow is the point.** cp-05's migration deleted its hand-composed governed spine. `tests/products/test_gate_two_call_shape.py` then failed on the migrated program: *"`plan_factory()` constructs or runs a projection plan without naming `refuse_operator_set_divergence` … the binder is the only thing that holds them in agreement, and it must be called between plan construction and `ProjectionEngine.execute` (`D-IMPL-86` correction, 2026-08-05)."* Dave: *"migration removed adopter governance plumbing → test exposed a governance responsibility the SDK had not absorbed → stop → fix the SDK at the canonical seam → resume product migration."*
+
+**The measurement.** `refuse_operator_set_divergence` is called by **neither** `GovernedResolver` nor `ProjectionEngine`. The hand-composed spine called it; the canonical path does not.
+
+**Why Gate 2 does not cover it, and this is the ruling's core.** They are different invariants:
+
+| | Compares | When |
+| --- | --- | --- |
+| Binder (`D-IMPL-86`) | the product class declaration against the **plan's own declared** `required_operators()` | **before** execution |
+| Gate 2 | the declaration against the **engine-resolved** operator set | **after** assembly |
+
+Dave: *"Gate 2 is useful, but it is later. It verifies the engine-resolved operator set after assembly has already happened. That is not the same invariant."* The binder's own docstring makes the same argument for its timing: *"Call it between constructing the plan and calling execute — after that, a product has already been assembled from a set the deployment's own claim contradicts."* Nothing divergent is served either way; what is lost is the guarantee that assembly never **proceeds** from a contradicted set.
+
+**Why the responsibility is now the SDK's, and not an adopter's to restore.** On the canonical path `plan_factory` is invoked **inside** the resolver, so no adopter code sits between plan construction and execution. Dave: *"canonical adopters no longer have a legitimate hook between plan construction and engine execution."* Restoring the call inside a deployment's `plan_factory` would put a governance check back into adopter code — the precise thing the migration removed, and it would falsify cp-05's measured *"governance composition: 0"*.
+
+**The bounded repair, ruled:** hoist the plan to a local inside `GovernedResolver`, call the binder between construction and `ProjectionEngine.execute`, add **one** direct resolver-level regression test, and prove reversal by removing only that call. **Do not change cp-05. Do not weaken `test_gate_two_call_shape`. No new test infrastructure.**
+
+**The second red is NOT fixed under this entry.** cp-05 dropped off `D-IMPL-137`'s one-document roster when the legacy spine's exemption claim was deleted. Dave: fix the timing defect first, then re-measure. *"If it still fails, classify it as a stale structural premise of the old implementation, not as another product bug"* — and the correct outcome may simply be that cp-05 no longer belongs on that roster after canonical adoption.
+
+**Governs:** `ccf.products.resolver::GovernedResolver`'s plan-construction seam. **WHAT THIS DOES NOT DECIDE.** The `D-IMPL-137` roster question above. Anything else in Phase 24.11, which stays closed. The remaining cp-05 product-completion steps.
+
+**Next free decision id: `D-IMPL-302`.** **Related:** `D-IMPL-86` (the binder and its 2026-08-05 timing correction), `D-IMPL-298`, `D-IMPL-299`, `D-IMPL-137`, `D-GATE-24.11`.
+
+---
+
+**D-IMPL-301 — `D-IMPL-141`'s SDK-supplied exemption is an ARCHITECTURAL OWNERSHIP condition, not one wiring mechanism. A deployment qualifies when the tree proves `GovernedResolver` owns the plan-construction → execution seam, whether that ownership comes from a `binding.yaml` or from direct `build_governed_resolver` adoption.** RESOLVED. Date: 2026-09-09. Approver: Dave. A **test-model correction caused by SDK evolution**, not a product change.
+
+**The ruling, Dave verbatim.** *"`D-IMPL-141` describes an architectural ownership condition, not one specific wiring mechanism. A deployment qualifies as SDK-supplied when the tree proves that `GovernedResolver` owns the plan-construction→execution seam and supplies the operator set, whether that ownership is established through a Control Plane `binding.yaml` or through direct canonical `build_governed_resolver` adoption."*
+
+**What was measured.** `_sdk_supplied_operator_set`'s condition 3 required the deployment's `binding.yaml` to name the plan function through its single permitted `plan:` reference — *"the load-bearing condition"*. `hw1-companies-over-revenue` carries one; **cp-05 has no `binding.yaml` at all** and adopts the resolver by calling `build_governed_resolver` from its own program. Both are canonical adoption; only one was declared where the detector could read it. The other four conditions were satisfied and verified: no `ccf.projection-requirements`, a `required` parameter on the factory, at least one constructed plan, and every constructed plan sourcing its operator set from that parameter.
+
+**What was REJECTED, and why it matters more than what was done.** Making cp-05 adopt a `binding.yaml` so the detector would recognise it. Dave: *"Do not make cp-05 adopt `binding.yaml` just to satisfy a detector whose vocabulary predates this canonical adoption shape. That would be exactly the drift we have been trying to avoid: changing the product architecture to make the test harness happy."* And: *"Unless cp-05 independently needs that artifact for product functionality or author experience, that is insufficient justification."* Also rejected: leaving the red, *"because the remaining red would knowingly encode a false architectural claim."*
+
+**The invariant is unchanged.** *"There must be one authoritative operator set."* What changed is the detector learning that the SDK now supports two ways of establishing that authority. `_resolver_owns_the_seam` recognises **shape A** (the declared binding, untouched) and **shape B** (the module reaches `build_governed_resolver`/`GovernedResolver` and this body executes no projection engine of its own), and remains conjunctive with the four other conditions — a body that authored a competing set still fails condition 5 whichever shape it takes. **No example is named in the predicate**, so later adopters qualify without an edit.
+
+**cp-05's category change, which is the migration's own evidence.** It moved from *one document where two were possible* (`D-IMPL-137`, ruled in 2026-09-08 when its plan derived `required_operators()` from the class declaration) to *no second document, because the SDK supplies the canonical set*. Dave: *"a classification update, not an exemption swap."* The `RULED_ONE_DOCUMENT_DEPLOYMENTS` count went DOWN by one with the removed site named, and the descriptive tree-lists in `test_the_premise_detector_reads_the_shipped_tree_correctly` moved with it — that test's own comment authorises exactly this: *"This list DESCRIBES THE TREE, so it moves when the tree does — the ruled roster above moves only when Dave rules."*
+
+**Related and ruled in the same sitting:** `test_every_projecting_example_body_names_the_binder` now scopes on seam OWNERSHIP (`_delegates_the_seam_to_the_resolver`) rather than on every projecting body. Hand-composed examples remain subject; canonical adopters are excluded because `GovernedResolver` calls the binder itself (`D-IMPL-300`). Dave: *"That is not weakening the test. It is correcting the test's scope to match D-IMPL-300."*
+
+**Governs:** `tests/products/test_gate_two_call_shape.py`'s SDK-supplied predicate and binder scope. **WHAT THIS DOES NOT DECIDE.** Any SDK change beyond `D-IMPL-300`'s binder call. Whether cp-05 should later adopt a `binding.yaml` for its own reasons.
+
+**Next free decision id: `D-IMPL-303`.** **Related:** `D-IMPL-300`, `D-IMPL-298`, `D-IMPL-141`, `D-IMPL-137`, `D-IMPL-86`.
+
+---
+
+**D-IMPL-302 — MCP transport representation must not force Context Product authors to misdeclare logical numeric parameters as strings. A fractional `number` argument crosses the wire as canonical decimal TEXT and is converted by the SDK ingress boundary to an exact numeric value before request-contract validation.** RESOLVED. Date: 2026-09-09. Approver: Dave. An **SDK interoperability defect** found by cp-05's MCP door verification (`D-IMPL-298` step 3).
+
+**The measurement, and it is unusually clean.** Both surfaces are individually right; their composition makes a legitimate request impossible.
+
+| Sent | Refused by | Why it is correct |
+| --- | --- | --- |
+| `"0.05"` (str) | the product contract | `key: materiality`, `reason: type-mismatch` — declared `number`, presented `str` |
+| `0.05` (float) | `WireRequest` | *"a `float` … does not survive the wire unchanged — canonical JSON renders it as text, so the decoded echo would differ from what was sent"*; wire-stable values are `str`, `int`, `bool` |
+
+Logical request type `number`; wire-stable representations `str | int | bool`; **no representation exists for a fractional number.**
+
+**Why it surfaced only now.** cp-04 declares one `number` argument, `debt_tolerance`, and its own config calls it *"DECLARED AND ADVISORY at this tier — no `D_c` vs `debt_tolerance` comparison runs anywhere in this product"*; its tests never send it over the wire. **cp-05 is the first product whose `number` arguments are consequential** — materiality shapes the answer, tolerance decides fulfillment — so it is the first that must transport them.
+
+**The ruling.** The wire representation and the logical request type stay **separate concepts**:
+
+    MCP bytes  "0.05"
+      -> wire decoder retains the canonical lexical value
+      -> contract-aware SDK ingress
+      -> Decimal("0.05")
+      -> ProductRequest / resolve_effective_request
+
+The product contract continues to declare `type: number`, *"because materiality and debt_tolerance are numbers. The transport encoding should not leak into the product's semantic contract."*
+
+**The wire invariant is PRESERVED, not relaxed.** Dave: *"Do not solve this by letting binary float through `WireRequest`. The existing refusal is correct: `0.05` as an IEEE float is not the deterministic representation CCF wants."* Two distinct values live at the boundary — the raw canonical wire representation `"0.05"`, and the typed governed value exact-decimal `0.05`. The echo check remains over the lexical form; contract validation operates on the typed value. **Wire stability does not require semantic type erasure.**
+
+**NARROW, and the boundaries are the ruling.** Authorized only for *declared `number` + canonical decimal text on the wire → exact SDK numeric value*. **Not** authorized: `"true"` → boolean, `"123"` → integer, date parsing, enums, templating, or any transport-conversion DSL. **No `float()` anywhere in the path** — an exact decimal representation only.
+
+**Where the conversion belongs, and where it must NOT.** Not in cp-05's MCP door: *"Otherwise every MCP-serving Context Product would have to repeat: look at schema → find numeric fields → decode decimal → build `ProductRequest`. That is transport/SDK plumbing."* The SDK boundary that converts a `WireRequest` into the governed `ProductRequest` owns it, **using the request contract it is already serving**. The architecture is `WireRequest -> contract-aware typed request decoding -> ProductRequest -> GovernedResolver`, never `WireRequest -> cp-05-specific conversion -> ProductRequest`.
+
+**The direct regression, ruled: one SDK-level test.** A product declares `materiality: number`; a caller sends `"0.05"`; prove (1) the wire round-trip remains exactly `"0.05"`; (2) the governed request receives exact numeric `0.05`; (3) the contract recognises it as a number; (4) replay preserves the effective numeric value; (5) malformed numeric lexical forms refuse; (6) no float is introduced.
+
+**Governs:** the `WireRequest` → `ProductRequest` ingress boundary. **WHAT THIS DOES NOT DECIDE.** Any other logical type's transport encoding. cp-05's declarations, which do **not** change — *"Do not change cp-05's numeric arguments to strings."*
+
+**Next free decision id: `D-IMPL-304`.** **Related:** `D-IMPL-298` (the migration that found it), `D-IMPL-300`, `D-IMPL-301`, `ccf.products.door::WireRequest`.
+
+---
+
+**D-IMPL-303 — MCP doors do not preempt canonical product-request conformity. Doors own transport, address and standing; `GovernedResolver` owns contract-aware decoding, request conformity, effective resolution and the governed outcome. Raw wire-stable lexical values pass through the door unchanged.** RESOLVED. Date: 2026-09-09. Approver: Dave.
+
+**What it fixes.** cp-05's door ran a full `refuse_request(request, contract)` pre-check on the RAW request before the resolver saw it. That made `D-IMPL-302`'s contract-aware numeric decode **unreachable from MCP**: a declared `number` crosses the wire as canonical decimal text, and the pre-check judged the lexical value against the declared type before anything could type it — so `"0.05"` was refused `type-mismatch` and the question never reached the resolver at all.
+
+**`D-IMPL-113` supports the removal; it does not defend the call.** The door's comment cited it — *"THE OBLIGATION THE DOOR NAMES AND DOES NOT PERFORM"* — but read closely that ruling says *"the SDK ships the mechanism; the deployment's own **resolver** calls it"*, and *"the door never holds the registered class ... wiring a call at the door would require the door to acquire the registered class."* The door was performing exactly the judgment `D-IMPL-113` said it was not positioned to make. The obligation is discharged inside `GovernedResolver`, which calls `refuse_request` itself over the **decoded, effective** values, where the declaration, decoding rules, defaults, policy constraints and effective-request machinery are all in one place.
+
+**Measured scope.** No other door does this — `grep` across `examples/*/server/`, `runtime/ccf_runtime/mcp/egress.py` and `src/ccf/products/door.py` found the pre-check only in cp-05. It was cp-05-authored legacy door plumbing and dies with the canonical adoption; had it come from a shared egress implementation the same ownership principle would have been applied there instead.
+
+**The ownership line, and it is the durable rule.**
+
+| Door owns | Resolver owns |
+| --- | --- |
+| transport, address, identity, entitlement, perspective, standing | contract-aware decoding, request conformity, effective resolution, governed determination, replay |
+
+*"Is this request addressed to the product I expose?"* needs no product contract, so the wrong-address refusal **stays** door-owned, as does the resource surface's absent standing answer. *"Does `materiality="0.05"` satisfy the declared logical type `number`?"* is a product-contract judgment and belongs where the declaration lives.
+
+**THE DOOR IS INTENTIONALLY DUMB ABOUT LOGICAL PARAMETER TYPES**, and this is recorded so nobody later "optimizes" it by putting `refuse_request` back. It transports wire-stable lexical values unchanged; the canonical resolver converts and judges them.
+
+**Verified end to end over MCP**, cp-05 against the live estate, after the removal: default tolerance → **WITHHELD** with `kind: tolerance-exceeded` and `authority: "default"`; caller tolerance `1.00` → **SERVED** with a content address, family **77**, gross **$10,125,000,000**, adjusted **$9,325,000,000**, **4** material at threshold `0.05`; replay reference present on both branches; `effective_request` absent from the payload; zero governance duplicated in the door. The `authority: "default"` reaching the wire is the whole chain visible from outside the process — product default → effective resolution → Debt comparison → governed withholding → replay → MCP response.
+
+**Replay accounting, ruled with it:** assert **one decision record per determination by artifact class**, never a raw artifact count. The served branch legitimately writes a query-pin beside its decision record; a count would make that look like a double-mint and would equally hide a real one.
+
+**Governs:** cp-05's `server/serve.py`; the door/resolver ownership line for every MCP-serving Context Product. **WHAT THIS DOES NOT DECIDE.** Any other logical type's transport encoding (`D-IMPL-302`). The remaining cp-05 product-completion steps.
+
+**Next free decision id: `D-IMPL-305`.** **Related:** `D-IMPL-302` (the decode this makes reachable), `D-IMPL-113` (whose reasoning it follows), `D-IMPL-298`, `D-IMPL-121`.
+
+---
+
+**D-IMPL-304 — CARRY: pre-assembly request resolution can refuse BEFORE the canonical replay/refusal boundary, producing a runtime failure instead of a replay-recorded governed refusal.** CARRIED, not scheduled. Date: 2026-09-09. Approver: Dave. Surfaced by Step 3's malformed-value control; **predates the migration and is not an MCP defect**.
+
+**What was observed.** Over MCP, a malformed numeric lexical value (`"NaN"`) is judged **correctly** — `type-mismatch` naming `debt_tolerance`, declared `number`, presented `str`. But it arrives as a `RequestRefused` **exception**, which the door reports as `ccf-runtime-failure`: no governed refusal envelope and **no replay record**.
+
+**Why, precisely.** cp-05 calls `deployment.effective_request` **before** acquisition, because the walk cannot know its depth or edge flags until it knows what the caller effectively asked. That pre-resolution refuses and `produce_governed` raises, so `GovernedResolver`'s own refusal path — which *does* record resolution refusals to replay, `resolution=effective` on both refusal legs — never runs.
+
+**Why it is not the same fix as `D-IMPL-303`.** The door pre-check was removable because the resolver could do that job better. This one is **circular**: cp-05 genuinely cannot acquire without effective parameters, and cannot obtain a replay-recorded governed refusal without a populated fabric. Dave: *"That is a separate architectural issue ... Do not redesign acquisition ordering inside Step 3."*
+
+**Status.** Visible, executable and explicitly asserted rather than hidden: the committed env-gated MCP test carries an assertion **naming this carry**, so the behavior is demonstrated rather than described, and a future fix turns that assertion red instead of letting the carry rot. Marked as the known carry rather than making Step 3 green by redesign.
+
+**Scheduled nowhere.** Not an MCP defect, not introduced by `D-IMPL-298`'s migration — the legacy spine raised in the same place.
+
+**Governs:** nothing yet; it is a recorded observation. **Related:** `D-IMPL-303`, `D-IMPL-302`, `D-IMPL-298`, `D-IMPL-295` (9) (`argument_defaults`, the other carry from this migration).
+
+**Next free decision id: `D-IMPL-305`.**
 
 ---
 
@@ -1815,3 +2009,35 @@ Strictly stronger than the row-2 signal: the monkeypatch's deletion is now neces
 **What follows, and what does not.** The next task is **not** another phase about `GovernedResolver`. It is cp-05 adopting the canonical path and finishing the product deliverables. cp-05's existing hand-built spine is **legacy implementation inside the example**, not evidence that `GovernedResolver` remains deficient. A new SDK deficiency exposed by that migration is **preserved and classified**, never repaired in flight (`D-IMPL-297`).
 
 **Governs:** the disposition of Phase 24.11. **Originates:** `D-IMPL-286` (the framing), `D-IMPL-287` (the constitution), `D-IMPL-288`–`D-IMPL-297` (the rows and the phase ruling).
+
+---
+
+**D-IMPL-305 — cp-05 Canonical Adoption is COMPLETE. cp-05 is the ladder's reference authoring example, and its documentation artifact now describes the canonical architecture rather than the legacy hand-composed one. No further SDK remediation is opened from the remaining carries.** RESOLVED. Date: 2026-09-09. Ruled by: Dave, at the `/gsd-resume-work` sitting, on the built and published state.
+
+**DAVE'S OWN FRAMING, VERBATIM:** *"cp-05 is complete enough to close as a finished rung of the example ladder. The most important outcome is not the page itself; it is that the final artifact now reflects the actual canonical architecture rather than the legacy hand-composed one."* And: *"cp-05 has now earned its role as the canonical authoring example."*
+
+**THE SEVEN THINGS THE CLOSE RESTS ON, in his enumeration:** business answer and governed context are visibly separated; withheld disclosure stays withheld; served figures come from committed evidence rather than being retyped; the page build is estate-free and reproducible; the MCP door is shown as transport, not governance; the canonical `GovernedResolver` path is now the program path; and the scenario matrix demonstrates the intended distinction — **truth stays fixed, relevance and fitness vary by consumer**. On the guard: *"The strongest part is that it enforces the disclosure boundary at build time rather than relying on prose discipline."*
+
+**THE PUBLISHED ARTIFACT.** `5734f184-24f5-4f55-ac5d-57c1467b9669`, *Credit Exposure Rollup · cp-05*, built from `dbefdbcd`, **427,462 bytes**, sha256 `ed88fe603592a92a8d6f1e1345e30cb2939f37f637a103de697ca9a730bdda41`. **A FIRST publication, not a replace-in-place** — no cp-05 page existed, so `D-IMPL-250`'s re-resolve rule had no prior id to re-resolve, and the id was minted by the publish. Every earlier rung is untouched and stands at its own last publication. Recorded in `.planning/phases/24.11-canonical-governed-resolution/24.11-PUBLICATION.md` and, as a `###` subsection of `## Run it`, in the example README.
+
+**THE PRODUCT MEASUREMENTS, unchanged across the migration and re-verified at the probe rerun:** family **77** at the declared depth 3; gross committed **10,125,000,000**; guarantee-adjusted **9,325,000,000** on one deductible case removing 800,000,000; material entities **4 / 4 / 3** at materiality 0.05 / 0.02 / 0.10; Context Debt **1.000** with signal `fail_closed`, invariant across every consumer that reached assembly. Tolerance semantics: `0.25` by authority `default` → **WITHHELD**; `1.00` by authority `caller` → **SERVED** at content address `e50c27c1…`; `1.0` narrowed to `0.10` by authority `policy` under `regulatory-large-exposure` → **WITHHELD**. Two `maximum` constraints, two behaviors: a ceiling on `materiality` **refuses by name**, a ceiling on `debt_tolerance` **narrows** and withholds after assembly, because a fitness bar cannot be refused before fitness has been measured.
+
+**THE STRUCTURAL MEASUREMENT, and the instrument is stated because a line count without one is not a measurement.** Code lines = physical lines that are neither blank, nor comment-only, nor a whole-statement string literal. `produce.py` **512 → 509 total, 270 code**, of which `produce_governed` spans 112–337 and `_governed` — the entire adapter into the SDK — is **57 lines, 52 non-blank**, holding exactly three extension-point closures (`plan_factory`, `debt_scorer`, `product_gate`), one `build_governed_resolver` call and one invocation. **Zero lines of governance composition remain**: the gates, contract construction, debt placement, the tolerance comparison, refusal shaping, the replay write and the serve are all the SDK's. `server/serve.py` measures **203 code lines** against the README's shipped claim of 204 — the instrument reproduces the claim rather than replacing it.
+
+**GATES AT CLOSE, run from a clean tree, with every red measured against the branch base `bfb097a3` rather than assumed pre-existing.** `make lint` rc 0. `make typecheck` clean over **218** source files. `make docs-strict` rc 0. SDK surfaces (`tests/products`, `tests/deployment`, `tests/controlplane`, `tests/replay`, `tests/contracts`): **1,791 passed, 1 skipped**. Examples plus the top-level surface gates: **9 failed, 625 passed, 141 skipped, 82 xfailed** — and the 9 are **member for member** the base's 9 (the cp-05 artifact-header check, three `s1-01` governed-resolver adoption cases, four `test_spine_separation` cases, and `test_surface_completeness`).
+
+**`make product-gates` IS RED, AND IT IS RED ON `main` TOO — PROVEN, NOT INFERRED.** `examples/cp-05-credit-exposure-rollup/artifacts/gates.yaml` is missing, and a shipped `cp-*` rung must declare its gates as data (`D-IMPL-224` (1)). The file has **never existed in any commit** (`git log --all` over that path returns nothing), cp-05 is on `main`, and `tools/check_product_gates.py` is **byte-identical** between `main` and this branch. The checker was run against a `main` worktree and emitted the identical message at rc 1. **cp-05's gate declaration is therefore a genuine owed deliverable, not a merge blocker introduced here**, and it is carried rather than manufactured at merge time.
+
+**TWO REDS WERE INTRODUCED BY THIS BRANCH AND BOTH WERE FIXED BEFORE THE MERGE, at `dbefdbcd`.** The pre-merge run found **11** where the base has 9. (1) `test_spine_separation::test_the_spine_is_silent_and_exactly_one_module_prints` — `produce.py` carried an `if __name__ == "__main__"` block printing the product as JSON, which **no other rung has** (cp-00 through cp-04 and s1-00 all measure 0). It was present at the base and passed there only because `run.py` referenced `ccf` **zero** times and so was not fabric-facing; the migration correctly made `run.py` import `RefusalEnvelope`, and cp-05 then had two fabric-facing printers. The spine is silent and the client drives, so the second entry point was deleted. (2) `test_cp_readme_template` — an executor defect from the page commit: `## The documentation page` made an **eighth** `## ` heading against a closed seven-name template (`EXAM-01`, `D-08`/`D-17`). Demoted to `###` inside `## Run it`, content unchanged. cp-04 had avoided this by recording its page only in the phase publication record.
+
+**FOURTEEN CASES SKIP AND ARE NOT CLAIMED AS PASSING.** `tests/examples/test_cp_05_output.py` (8) and `tests/examples/test_cp_05_mcp_door.py` (6) are env-gated on the four `CCF_CP_05_*` estate variables, which are not exported in the close environment. The skip count moves **127 → 141**, which is exactly those 14. They ran green earlier against the live estate; that is a prior observation, not a close-time measurement, and this entry does not convert it into one.
+
+**THE PAGE'S DISCLOSURE GUARD, and the defect it caught in itself.** `page/build_page.py::_refuse_cross_disclosure` refuses a build whose *refused* transcript carries the served figures, so the withheld panel cannot be enriched from evidence the withheld caller was never given. Its first draft probed for the bare string `77` and **fired on every build**, because the transcript's replay reference is 128 hex characters and contains `77` twice — a guard that cannot be satisfied is a guard that gets deleted, and the figure it watched then travels unwatched. The probes are anchored to the form the served transcript prints. Eight guards in total, each observed **RED** under its own mutation with the unmutated build **GREEN** as the positive control; the roster is in `24.11-PUBLICATION.md`.
+
+**WHAT THIS ENTRY EXPRESSLY DOES NOT DO.** It opens **no SDK remediation pass** from the remaining carries. Dave: *"Do not start another SDK remediation pass from the remaining carries."* The carries stand as recorded — source-refresh / evidence semantics (`D-IMPL-294` (2), `D-IMPL-124`, `D-IMPL-119` limb 4), a decision instant distinct from the graph boundary (`F-09`), `argument_defaults` (`D-IMPL-295` (9)), `24.11-C-01`, `D-IMPL-304`, and cp-05's owed `gates.yaml`. It mints **no `D-GATE`**, adds **no proof phase**, and commissions **no panel** — `D-IMPL-297`'s prohibition is still in force and two skips do not make a default (`D-IMPL-266`).
+
+**WHAT FOLLOWS: THE EXAMPLE MODERNIZATION PASS, with cp-05 as the reference implementation.** Its purpose in Dave's words: *"Active examples should teach the current SDK surface. Historical examples should not remain the apparent recommended implementation."* **Order, and the reason for it:** `s1-01`, then `s1-00`, then `cp-04` — *"because those are the examples developers are most likely to copy."* **Per example, the standing method:** measure hand-composed governance code; migrate **only** responsibilities the SDK now owns; preserve domain behavior; keep existing business assertions unchanged; update docs; **stop if a new SDK deficiency appears**. And the fence: *"No new proof phase, no panel, no generalized harness work."*
+
+**A NOTE ON WHAT THE MODERNIZATION PASS IS NOT.** It is not a rewrite of frozen specimens into a house style. `D-IMPL-261` freezes cp-00 through cp-04 as evidence about the SDK's evolution, and `cp-04` appears in the order above because it is **copy-bait**, not because a difference between two rungs has become a defect. Where a migration would destroy specimen evidence rather than remove legacy governance composition, the evidence wins and the case is recorded.
+
+**Next free decision id: `D-IMPL-306`.** **Governs:** the completion of cp-05's canonical adoption; the publication of its documentation artifact; the disposition of the remaining carries as carried-not-scheduled; and the charter, order and method of the example modernization pass. **Related:** `D-IMPL-298` (the migration this completes), `D-IMPL-300`–`D-IMPL-304` (the five findings it raised and their rulings), `D-GATE-24.11`, `D-IMPL-297` (no further review apparatus), `D-IMPL-261` (examples are probes, and the freeze), `D-IMPL-250` (re-resolve before publishing), `D-IMPL-217`/`D-IMPL-218` (the page obligation and its snapshot rule), `EXAM-01`, `EXAM-06`, `D-IMPL-224` (the gates-as-data rule cp-05 still owes), CLAUDE.md §9.

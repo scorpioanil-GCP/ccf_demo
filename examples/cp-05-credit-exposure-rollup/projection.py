@@ -55,13 +55,30 @@ class ExposureRollupProjection:
 
     def __init__(self, *, plan_id: str, required: Sequence[str], threshold: Decimal,
                  entities: Sequence[Any], gross_committed: int,
-                 connected_without_exposure: Sequence[str]) -> None:
+                 connected_without_exposure: Sequence[str],
+                 business: Mapping[str, Any] | None = None) -> None:
         self._plan_id = plan_id
         self._required = tuple(required)
         self._threshold = threshold
         self._entities = list(entities)
         self._gross_committed = gross_committed
         self._connected = list(connected_without_exposure)
+        # ASSEMBLED TRUTH, CARRIED THROUGH — never computed here (`D-IMPL-299`).
+        #
+        # On the canonical path the served product's payload IS this plan's
+        # `ProjectionOutput.payload`, so cp-05's business answer — the family,
+        # the gross and adjusted measures, the findings, the reconciliation —
+        # has to reach the caller through it. It arrives ALREADY DETERMINED,
+        # from `assembler.aggregate` before Π ran, and this class does not add,
+        # re-derive or adjust a single figure in it.
+        #
+        # Dave's refinement, and the reason this is a pass-through rather than
+        # a computation: *"If aggregation is part of determining $10.125B /
+        # $9.325B, it must remain before Π as assembly/operator logic.
+        # Otherwise we solve the Postgres problem but still let L5 construct
+        # truth."* The threshold work below reads `entities` and
+        # `gross_committed`; it never reads this mapping.
+        self._business = dict(business or {})
 
     @property
     def plan_id(self) -> str:
@@ -124,6 +141,8 @@ class ExposureRollupProjection:
         return ProjectionOutput(
             plan_id=self._plan_id,
             payload={
+                # Assembled truth first, untouched; relevance after it.
+                **self._business,
                 "threshold": str(self._threshold),
                 "floor_committed": floor,
                 "material": [
@@ -133,6 +152,14 @@ class ExposureRollupProjection:
                 ],
                 "residual": residual,
                 "residual_entities": residual_count,
+                # `entities` is `material` under the name the renderer and
+                # `expected.yaml` both use. One list, two readers, no second
+                # derivation.
+                "entities": [
+                    {"lei": e.lei, "legal_name": e.legal_name,
+                     "facilities": e.facility_count, "gross": e.gross.as_dict()}
+                    for e in material
+                ],
                 # NEVER absorbed into the residual, whatever the threshold.
                 # These entities hold no facility and are reached only by
                 # guarantee or cross-default; summarizing them away would delete

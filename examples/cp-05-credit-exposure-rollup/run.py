@@ -39,7 +39,62 @@ def _money(value: int) -> str:
     return f"{value:,}"
 
 
-def render(payload: dict) -> str:
+def _share(value: object) -> str:
+    """A factor as a reader sees it — `0E-18` is a true zero, not a number."""
+    from decimal import Decimal
+
+    return f"{round(Decimal(str(value)), 4).normalize():f}"
+
+
+def render_withheld(governed: object) -> str:
+    """What a caller sees when the fabric withholds fulfillment.
+
+    **The determination EXISTS.** It passed every validation gate and its
+    record is on the store; what is withheld is the fabric's willingness to
+    let this caller act on it at the fitness bar in force. So this renders the
+    refusal's own disclosed shell rather than an apology, and names the
+    authority that supplied the tolerance — a caller who never sent one is owed
+    the reason their answer was withheld.
+
+    The shell is whatever `disclosure` permits and nothing more. Under
+    `minimal` that is deliberately thin: the fabric does not narrate a
+    determination it has declined to release (`D-IMPL-254`).
+    """
+    kind = getattr(governed, "kind", "refused")
+    reason = getattr(governed, "reason", "") or ""
+    fields = dict(getattr(governed, "fields", {}) or {})
+    replay = getattr(governed, "replay_reference", None) or getattr(
+        governed, "replay_ref", ""
+    )
+    lines = [
+        "",
+        "  CP-05 · CREDIT EXPOSURE ROLLUP",
+        "",
+        f"  FULFILLMENT  WITHHELD  ({kind})",
+        "",
+        "    The determination was assembled and recorded. What is withheld is",
+        "    fulfillment: the observed Context Debt exceeded the tolerance in",
+        "    force for this caller. A different consumer, with a different",
+        "    fitness requirement, may legitimately be served the same answer.",
+        "",
+    ]
+    if reason:
+        lines.append(f"    reason      {reason}")
+    for name in ("authority", "tolerance", "observed"):
+        if name in fields:
+            lines.append(f"    {name:<12}{fields[name]}")
+    lines += [
+        "",
+        f"    replay      {replay}",
+        "",
+        "    The record is the point. A refusal nobody can replay is an outage;",
+        "    a refusal with a decision record is governance.",
+        "",
+    ]
+    return "\n".join(lines)
+
+
+def render(payload: dict, governed: object) -> str:
     """The transcript. Every figure comes from the payload; none is recomputed here."""
     out: list[str] = []
     a = payload["anchor"]
@@ -58,6 +113,8 @@ def render(payload: dict) -> str:
     p = payload["policy"]
     out.append(f"  limit definition  counts_guarantees={p['counts_guarantees']}  "
                f"counts_undrawn={p['counts_undrawn']}  basis={p['connection_basis']}")
+    out.append("  ── BUSINESS ANSWER " + "─" * 58)
+    out.append("")
     r = payload["request"]
     out.append(f"  request           depth={r['depth']}  materiality={r['materiality']}  "
                f"basis={r['basis']}  guarantees={r['follow_guarantees']}  "
@@ -132,62 +189,67 @@ def render(payload: dict) -> str:
                 out.append(f"      {line}")
         out.append("")
 
-    lin = payload["lineage"]
-    out.append("  LINEAGE")
-    out.append(f"    operators   {' -> '.join(lin['operators_invoked'])}")
-    out.append(f"    ledger      {lin['graph_snapshot_ledger']}")
-    out.append(f"    policy      {lin['policy_version']}")
-    out.append(f"    asked_at    {lin['asked_at']}")
-    out.append(f"    expires_at  {payload['expires_at']}")
+    # ------------------------------------------------------------------
+    # GOVERNED CONTEXT — read from the ENVELOPE, never from the payload.
+    # ------------------------------------------------------------------
+    #
+    # Everything above is the business answer: what this family owes, which of
+    # it is material to this caller, and what the assembly found. Everything
+    # below is the fabric's account of whether, why and under whose authority
+    # that answer was fit to serve.
+    #
+    # `D-IMPL-299`: the payload used to carry lineage, the TTL, the content
+    # address and a replay block. Those are envelope facts, and duplicating
+    # them into business content made the content address a function of how the
+    # answer was governed rather than of the answer. The renderer now reads two
+    # sources — and showing the split is the point, because
+    #
+    #     A Context Product is not just a payload. The payload is the business
+    #     answer; the governed envelope explains whether, why, and under whose
+    #     authority that answer was fit to serve.
+    contract = governed.product
+    lineage = contract.lineage
+    out.append("  ── GOVERNED CONTEXT " + "─" * 56)
     out.append("")
-    out.append(f"  content address  {payload['content_address']}")
-
-    rep = payload.get("replay")
-    if rep:
-        d = rep["dimensions"]
-        out.append("")
-        out.append("  DECISION REPLAY — written BEFORE the response was released")
-        out.append(f"    outcome     {rep['outcome']}   "
-                   f"({rep['record_bytes_persisted']} bytes persisted)")
-        out.append(f"    record      {rep['record_content_address']}")
-        out.append(f"    1 fabric    boundary {d['1_context_fabric']['temporal_boundary']}  "
-                   f"touched {d['1_context_fabric']['touched_entities']} entities")
-        for binding in d["2_policy_bindings"]["bindings"]:
-            out.append(f"    2 policy    {binding}")
-        out.append(f"    2 policy    effective request recorded: "
-                   f"{d['2_policy_bindings']['request_resolution_present']}")
-        out.append(f"    3 model     assembly_mode={d['3_model_version']['assembly_mode']}  "
-                   f"model={d['3_model_version']['model_version']}")
-        out.append(f"    4 role      {d['4_perspective']['principal_id']} / "
-                   f"{d['4_perspective']['role']}")
-        out.append(f"    5 content   plan {d['5_content_path']['plan_id']}")
-        out.append(f"    5 content   product address "
-                   f"{d['5_content_path']['product_content_address'][:32]}")
-        out.append(f"    5 content   debt {str(d['5_content_path']['debt'])[:5]}  "
-                   f"refusal recorded: {d['5_content_path']['refusal_recorded']}")
-        out.append("")
-        out.append("    WHAT REPLAY RE-ASKS — the EFFECTIVE question, not the caller's")
-        for name, value in sorted(rep["effective_question"].items()):
-            out.append(f"      {name:<22} {value}")
-
-    f = payload.get("fulfillment")
-    if f:
-        out.append("")
-        out.append("-" * 78)
-        if f["served"]:
-            out.append(f"  FULFILLMENT  SERVED   "
-                       f"D_c {f['observed_debt'][:5]} <= tolerance {f['tolerance']} "
-                       f"({f['tolerance_authority']})")
-        else:
-            out.append(f"  FULFILLMENT  WITHHELD  "
-                       f"D_c {f['observed_debt'][:5]} > tolerance {f['tolerance']} "
-                       f"({f['tolerance_authority']})")
-            for line in _wrap(f["detail"], 74):
-                out.append(f"    {line}")
-            out.append("")
-            out.append("    The determination above is NOT withdrawn. The product passed every")
-            out.append("    validation gate and exists; what is withheld is the fabric's")
-            out.append("    attestation that it is fit for this consumer to act on.")
+    out.append("  LINEAGE")
+    out.append(f"    operators   {' -> '.join(sorted(lineage.operators_invoked))}")
+    out.append(f"    policy      {', '.join(sorted(lineage.policy_bundle_versions))}")
+    out.append(f"    graph as of {lineage.graph_snapshot_at.isoformat()}")
+    pin = lineage.store_snapshot_pin
+    if pin is not None and getattr(pin, "substrate", "none") != "none":
+        out.append(f"    store pin   {pin.substrate}:{pin.pin}")
+    out.append("")
+    out.append("  CONTEXT DEBT — confidence in the assembled truth")
+    debt = contract.debt
+    out.append(f"    D_c         {str(debt.debt)[:6]}   signal {debt.signal}")
+    out.append(f"    factors     F={_share(debt.factors.freshness)}  "
+               f"C={_share(debt.factors.completeness)}  "
+               f"S={_share(debt.factors.semantic_consistency)}")
+    out.append("")
+    out.append("  OBLIGATION IN FORCE")
+    out.append(f"    {contract.obligation_in_force}")
+    out.append("")
+    out.append("  IDENTITY AND WINDOW")
+    out.append(f"    address     {prod.content_address(payload)}")
+    out.append(f"    asked_at    {contract.temporal_boundary.isoformat()}")
+    out.append(f"    expires_at  {contract.expires_at.isoformat()}  "
+               f"(anchor: {contract.ttl_anchor})")
+    out.append("")
+    out.append("  DECISION REPLAY — written BEFORE the response was released")
+    reference = getattr(governed, "replay_ref", None)
+    out.append(f"    record      {getattr(reference, 'uri', reference)}")
+    out.append("")
+    out.append("    Which authority supplied each effective parameter — caller,")
+    out.append("    product default, or policy — is recorded in dimension 2 of that")
+    out.append("    record. It is deliberately NOT in the payload above: two callers")
+    out.append("    whose parameters resolved differently to the same business answer")
+    out.append("    share its content address, and the record is what tells their")
+    out.append("    determinations apart.")
+    out.append("")
+    out.append("  FULFILLMENT  SERVED")
+    out.append(f"    D_c {str(debt.debt)[:6]} was within the tolerance in force for this caller.")
+    out.append("    A consumer with a stricter fitness bar may be refused the SAME")
+    out.append("    determination — fitness is the consumer's; truth is not.")
     out.append("=" * 78)
     return "\n".join(out)
 
@@ -205,22 +267,41 @@ def _wrap(text: str, width: int) -> list[str]:
     return lines
 
 
-def scenario_line(name: str, requested: dict, payload: dict) -> list[str]:
+def scenario_line(name: str, requested: dict, payload: dict,
+                  governed: object) -> list[str]:
     """One consumer's row in the sweep — the six columns Dave's ruling names.
 
     requested -> effective + authority -> assembled truth -> projection -> Debt
     -> fulfillment outcome. All six on one screen, because the teaching is the
     CONTRAST between rows and a reader who has to scroll cannot see it.
     """
-    eff = payload["effective_request"]
+    # TWO SOURCES, and the row is more honest for it (`D-IMPL-299`). The scope
+    # a caller asked in comes off the payload; whether the fabric was willing to
+    # serve it, and under whose authority, comes off the governed envelope. The
+    # payload no longer restates the effective request, so a withheld row has no
+    # payload at all — which is itself the lesson.
+    from ccf.products.refusal import RefusalEnvelope
+
+    withheld = isinstance(governed, RefusalEnvelope)
+    if withheld:
+        fields = dict(getattr(governed, "fields", {}) or {})
+        shown = "  ".join(
+            f"{k}={fields[k].strip(chr(34))}"
+            for k in ("tolerance", "authority") if k in fields
+        )
+        return [
+            f"  {name}",
+            f"    requested    {requested or 'nothing — every value falls to the class default'}",
+            f"    effective    {shown}",
+            "    assembled    (the determination exists and is recorded)",
+            f"    fulfillment  WITHHELD  {getattr(governed, 'reason', '')}",
+            "",
+        ]
     g = payload["measures"]["gross"]
     j = payload["measures"]["adjusted"]
-    f = payload["fulfillment"]
-    shown = "  ".join(
-        f"{k}={eff[k]['value']}({eff[k]['authority']})"
-        for k in ("materiality", "debt_tolerance") if k in eff
-    )
-    verdict = "SERVED  " if f["served"] else "WITHHELD"
+    scope = payload["request"]
+    shown = f"materiality={scope['materiality']}  depth={scope['depth']}  basis={scope['basis']}"
+    verdict = "SERVED  "
     return [
         f"  {name}",
         f"    requested    {requested or 'nothing — every value falls to the class default'}",
@@ -228,16 +309,19 @@ def scenario_line(name: str, requested: dict, payload: dict) -> list[str]:
         f"    assembled    family {payload['family']['nodes']}   "
         f"gross {_money(g['committed'])}   adjusted {_money(j['committed'])}",
         f"    projected    {len(payload['entities'])} material  "
-        f"residual {_money(payload['projection']['residual']['committed'])}  "
+        f"residual {_money(payload['residual']['committed'])}  "
         f"({len(payload['connected_without_exposure'])} connected without exposure)",
-        f"    debt         {payload['context_debt']['debt'][:5]}  "
-        f"({payload['context_debt']['signal']})",
-        f"    fulfillment  {verdict}  against tolerance "
-        f"{f['tolerance']} ({f['tolerance_authority']})",
-        f"    address      {payload['content_address']}",
-        f"    replay       {payload['replay']['outcome']} · "
-        f"{payload['replay']['record_content_address'][:16]} · "
-        f"{payload['replay']['record_bytes_persisted']} bytes",
+        # Debt, the outcome and the address are ENVELOPE facts (`D-IMPL-299`).
+        f"    debt         {_share(governed.product.debt.debt)}  "
+        f"({governed.product.debt.signal})",
+        f"    fulfillment  {verdict}  within this caller's tolerance",
+        f"    address      {prod.content_address(payload)}",
+        # The LAST governed member this row read out of the payload. The record's
+        # identity is the envelope's — `D-IMPL-299`, and the sweep is the place
+        # a reader is most likely to mistake one for the other, because the six
+        # columns sit side by side.
+        f"    replay       served · "
+        f"{getattr(getattr(governed, 'replay_ref', None), 'content_address', '')[:16]}",
     ]
 
 
@@ -255,7 +339,7 @@ def sweep() -> str:
     for entry in declared:
         params = dict(entry["parameters"])
         try:
-            payload = prod.produce(**params)
+            payload, governed = prod.produce_governed(**params)
         except prod.RequestRefused as exc:
             out.append(f"  {entry['name']}")
             out.append(f"    requested    {params or 'nothing'}")
@@ -263,7 +347,7 @@ def sweep() -> str:
             for line in _wrap(str(exc), 70):
                 out.append(f"      {line}")
         else:
-            out.extend(scenario_line(entry["name"], params, payload))
+            out.extend(scenario_line(entry["name"], params, payload, governed))
         for line in _wrap(entry["teaches"], 72):
             out.append(f"      {line}")
         out.append("")
@@ -303,13 +387,26 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     try:
-        payload = prod.produce(
+        # THE GOVERNED RESULT, NOT THE PAYLOAD ALONE.
+        #
+        # A withheld determination HAS no payload — it has a refusal envelope
+        # carrying what disclosure permits. This asked `produce()` until the
+        # canonical adoption (`D-IMPL-298`), and the hand-composed spine could
+        # hand back figures beside a `withheld` flag because it computed them
+        # locally and decided fulfillment afterwards. On the canonical path the
+        # FABRIC decides, and a refused caller sees what the deployment's
+        # disclosure policy allows and no more. Rendering the two outcomes
+        # differently is the honest consequence, not a regression.
+        payload, governed = prod.produce_governed(
             anchor=args.lei, intent=args.intent, depth=args.depth,
             materiality=args.materiality, basis=args.basis,
             follow_guarantees=False if args.no_guarantees else None,
             follow_cross_default=False if args.no_cross_default else None,
             debt_tolerance=args.debt_tolerance, as_of=args.as_of,
         )
+        if not payload:
+            print(render_withheld(governed))
+            return 0
     except dep.DeclarationMissing as exc:
         print(f"\n  This deployment is not configured.\n\n  {exc}\n", file=sys.stderr)
         return 2
@@ -333,7 +430,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"\n  Refused: {exc}\n", file=sys.stderr)
         return 5
 
-    print(json.dumps(payload, indent=2) if args.json else render(payload))
+    print(json.dumps(payload, indent=2) if args.json else render(payload, governed))
     # EXIT 0 EVEN WHEN FULFILLMENT IS WITHHELD, and it is a ruling rather than
     # an oversight. `D-IMPL-251`: a tolerance breach is a refusal OF
     # FULFILLMENT, not of response. The program was asked a question and

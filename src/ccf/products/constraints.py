@@ -88,6 +88,7 @@ from ccf.products.request import (
     ProductRequest,
     ProductRequestContract,
     ProductRequestViolation,
+    decode_declared_request,
     refuse_request,
 )
 from ccf.projection.plan import Perspective
@@ -895,6 +896,20 @@ def resolve_effective_request(
             against.
     """
     _require_aware(request.asked_at)
+    # `D-IMPL-302`: the contract-aware typed decode, and it is FIRST so that
+    # everything below computes over a number rather than over its lexical
+    # form. A declared `number` that crossed the wire as canonical decimal text
+    # becomes an exact `Decimal` here; every other value passes through
+    # untouched. The caller's own request object is not mutated — the lexical
+    # form stays available to the transport boundary, whose echo cross-check
+    # runs against it.
+    #
+    # Decoding BEFORE resolution rather than beside the validation below is
+    # what makes the bounds comparison, the policy constraints and the
+    # effective value recorded in replay all numeric. Validating a decoded
+    # value while comparing an undecoded one would be two readings of one
+    # question.
+    request = decode_declared_request(request, declared)
     class_declared: Mapping[str, Any] = (
         {} if class_defaults is None else class_defaults
     )

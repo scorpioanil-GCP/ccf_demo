@@ -14,28 +14,27 @@ from __future__ import annotations
 import datetime as _dt
 import hashlib
 import json
-import contextlib
 import pathlib
 import tempfile
 from decimal import Decimal
-from dataclasses import asdict
 from typing import Any
 
 import psycopg
 
+# WHAT THIS MODULE STILL IMPORTS FROM THE SDK, AND WHY IT IS THIS SHORT.
+#
+# `24.11`'s migration (`D-IMPL-298`) moved the governed spine into
+# `ccf.products.resolver::GovernedResolver`, and these imports went with the
+# responsibility rather than with the symbol. Gone: `run_gates`,
+# `ServableProduct`, `refuse_over_tolerance`, `envelope_for`,
+# `RefusalEvidence`, `RequestIdentity`, `ReplayRefusalRecorder`,
+# `build_replay_record`, `DecisionReplayRecord`, `PolicyBinding`,
+# `ProvenanceSource`, `serve` and `ProjectionEngine` — thirteen SDK surfaces
+# this file used to compose by hand and now composes not at all.
+#
+# What remains is TYPES, for `as_contract` below: a renderer and a test need to
+# read a served product's shape, and reading a shape is not composing a path.
 from ccf.products.contract import ContextProductContract, ProductLineage
-from ccf.products.gates import ServableProduct, refuse_over_tolerance, run_gates
-from ccf.products.provenance import ProvenanceSource
-from ccf.products.refusal import RefusalEvidence, RequestIdentity, envelope_for
-from ccf.products.resolver import ReplayRefusalRecorder
-from ccf.replay.record import (
-    NO_ASSEMBLY_REFUSAL,
-    NO_REQUEST_RESOLUTION,
-    DecisionReplayRecord,
-    PolicyBinding,
-    build_replay_record,
-)
-from ccf.replay.serve import serve
 
 import assembler as asm
 import deployment as dep
@@ -82,204 +81,6 @@ def content_address(payload: dict[str, Any]) -> str:
 LIMIT_DEFINITION_BINDING = "limit_definition"
 
 
-def _record_and_release(*, config: dict[str, Any], gated, withheld,
-                        candidate, execution, outcome, request_identity,
-                        bindings, debt_assessment, policy_version: str,
-                        asked_at, perspective, request,
-                        replay_root: pathlib.Path | None = None
-                        ) -> tuple[dict[str, Any], Any]:
-    """The five-dimension decision record, written BEFORE the response is released.
-
-    `D-IMPL-256`: *"Every governed determination that crosses a CCF delivery
-    boundary — fulfilled or refused, tool or resource, authorized or denied —
-    must reach the replay writer before the response is released."*
-
-    **ONE writer, ONE store, ONE record class for both outcomes.** `D-IMPL-253`
-    Q13 is explicit that a refusal is itself a decision and gets the same
-    five-dimensional model: *"Do not create second-class replay."* A separate
-    artifact class for withheld determinations would be that second class.
-
-    **The record is built from the EFFECTIVE request, not the caller's.** What
-    replay re-asks is the question the fabric actually answered — `0.05` because
-    the class defaulted it, or `0.10` because a policy bound it — with the
-    authority on every parameter. `resolution=outcome.evidence` is the whole of
-    that, and it is the same object on both branches.
-
-    **The store is per-run and that is deliberate** (`artifacts/replay.yaml`).
-    What this demonstrates is the ORDERING — a served product is what a
-    successful append RETURNS, so no branch reaches delivery without a written
-    record (INV-CH7-79) — and that is observable inside one run. The record is
-    read back out of the store before the directory is discarded, so the
-    reported address is a fact about a persisted artifact rather than about an
-    object that was never written.
-    """
-    with contextlib.ExitStack() as stack:
-        # A CALLER-SUPPLIED ROOT WHEN THERE IS ONE, a per-run directory
-        # otherwise. The MCP door supplies one: a record that vanishes when the
-        # response is released is not an audit trail, and the ordering
-        # invariant is only half of what replay is for.
-        root = replay_root or pathlib.Path(
-            stack.enter_context(tempfile.TemporaryDirectory()))
-        store, replay_writer, query_pin_writer = dep.replay_writers(root)
-        declared_replay = dep.load(dep.REPLAY)[dep.DECLARATION]
-
-        if withheld is None:
-            record = build_replay_record(
-                execution=execution,
-                product=gated.product,
-                perspective=_perspective(config),
-                policy_bindings=bindings,
-                assembly_mode=config["product_class"]["assembly_mode"],
-                recorded_at=asked_at,
-                resolution=outcome.evidence,
-            )
-            # DELIVERY IS WHAT THE SUCCESSFUL APPEND RETURNS. There is no path
-            # through `serve` that hands back a product whose record failed to
-            # write, because the product comes out of the same call that wrote
-            # it (INV-CH7-79).
-            released = serve(
-                product=gated, record=record, replay_writer=replay_writer,
-                query_pin_writer=query_pin_writer,
-                executed_queries=execution.executed_queries,
-            )
-            # THE REFERENCE TRAVELS WITH THE PRODUCT, deliberately: a consumer
-            # holding a Context Product can name the decision record that
-            # authorizes it, which makes the trail usable from the consuming
-            # side rather than only from the fabric's.
-            reference = released.replay_ref.uri
-            address = released.replay_ref.content_address
-            outcome_name = "served"
-        else:
-            # THE REFUSAL VALUE TRAVELS, and the envelope is minted from it
-            # rather than described. `envelope_for` dispatches on the EXACT
-            # type — an `isinstance` chain would translate an unknown subclass
-            # as its nearest ancestor and report that ancestor's kind, which is
-            # a well-formed envelope carrying the wrong answer.
-            envelope = envelope_for(
-                withheld,
-                request=request_identity,
-                # A TOLERANCE REFUSAL HAS A REAL ASSEMBLY BEHIND IT, so the
-                # lineage at the point of refusal is the product's own — not
-                # `None`, which is reserved for a refusal the fabric reaches
-                # before touching the graph.
-                pre_assembly_lineage=candidate.lineage,
-                policy_bindings=(
-                    ProvenanceSource(kind="artifact",
-                                     identity=LIMIT_DEFINITION_BINDING,
-                                     version=policy_version),
-                ),
-                evidence=RefusalEvidence(
-                    operators_invoked=execution.operators_invoked,
-                    plan_id=execution.plan_id,
-                    store_snapshot_pin=execution.store_snapshot_pin,
-                    # THE DEBT TRAVELS ON THE REFUSAL. Without it the record
-                    # would say a bar was not met without saying by how much,
-                    # and the determination could not be re-judged against a
-                    # different bar.
-                    debt=debt_assessment,
-                ),
-                provenance=outcome.evidence,
-            )
-            # THROUGH THE SDK'S OWN REFERENCE RECORDER, not through a
-            # hand-rolled `build_replay_record` + `record_refusal` pair. An
-            # earlier revision of this file did exactly that, and the result
-            # was a raw envelope: recorded, but carrying neither its
-            # `replay_reference` nor a disclosure decision — which
-            # `ccf.products.door` refuses as `UngovernedResolverResult` the
-            # moment it is handed to a delivery boundary. `ReplayRefusalRecorder`
-            # composes the same two shipped functions and additionally does the
-            # two things a door requires, so the refusal this returns is the
-            # governed "no" rather than a description of one.
-            recorder = ReplayRefusalRecorder(
-                artifact_store=store,
-                replay_record_class=declared_replay["record_class"],
-                tenant_id=_TENANT,
-                assembly_mode=config["product_class"]["assembly_mode"],
-            )
-            released = recorder.record(
-                envelope,
-                perspective=perspective,
-                recorded_at=asked_at,
-                request=request,
-                execution=execution,
-                policy_bindings=bindings,
-                resolution=outcome.evidence,
-            )
-            reference = released.replay_reference
-            address = store.resolve_uri(uri=reference)
-            outcome_name = "withheld"
-
-        # READ IT BACK. The address below is then a fact about an artifact that
-        # is in the store, not about an object this function happened to build.
-        persisted = store.get(content_address=address)
-        # READ THE DIMENSIONS OFF THE PERSISTED ARTIFACT, not off an object
-        # this function happens to be holding. On the withheld branch there is
-        # no local record at all — `ReplayRefusalRecorder` builds and appends
-        # it — so parsing the stored bytes is the only honest source, and it
-        # makes both branches report a fact about what is in the store.
-        record = DecisionReplayRecord.model_validate_json(persisted)
-        summary = {
-            "record_class": declared_replay["record_class"],
-            "reference": reference,
-            "record_content_address": address,
-            "record_bytes_persisted": len(persisted),
-            # WHAT REPLAY RE-ASKS. Not the caller's values — the EFFECTIVE ones,
-            # each with the authority that established it.
-            "effective_question": dict(request_identity.parameters),
-            "policy_bindings": [f"{b.key}@{b.version}" for b in bindings],
-            "outcome": outcome_name,
-            # THE FIVE DIMENSIONS, READ OFF THE RECORD THE STORE RETURNED.
-            # A withheld determination fills the same five.
-            "dimensions": {
-                "1_context_fabric": {
-                    "temporal_boundary":
-                        record.context_fabric_snapshot.temporal_boundary.isoformat(),
-                    "store_snapshot_pin":
-                        f"{record.context_fabric_snapshot.store_snapshot_pin.substrate}"
-                        f"@{record.context_fabric_snapshot.store_snapshot_pin.pin}",
-                    "touched_entities":
-                        len(record.context_fabric_snapshot.touched_entities),
-                },
-                "2_policy_bindings": {
-                    "bindings": [
-                        f"{b.key}@{b.version}"
-                        for b in record.policy_bindings.bindings
-                    ],
-                    # THE AUTHORITY LAYER'S OWN RECORD RIDES HERE (`D-IMPL-260`
-                    # P-H). This is what makes replay re-ask the EFFECTIVE
-                    # question rather than the caller's.
-                    "request_resolution_present":
-                        record.policy_bindings.request_resolution
-                        != NO_REQUEST_RESOLUTION,
-                },
-                "3_model_version": {
-                    "assembly_mode": str(record.model_version.assembly_mode),
-                    "model_version": record.model_version.model_version,
-                },
-                "4_perspective": {
-                    "principal_id": record.perspective_conditioning.principal_id,
-                    "role": record.perspective_conditioning.role,
-                },
-                "5_content_path": {
-                    "plan_id": record.content_generation_path.plan_id,
-                    "operator_plan":
-                        sorted(record.content_generation_path.operator_plan),
-                    "product_content_address":
-                        record.content_generation_path.product_content_address,
-                    # PRESENT ON BOTH BRANCHES. On the withheld branch it comes
-                    # from the refusal's own permitted evidence, which is why
-                    # the debt had to travel on the envelope.
-                    "debt": (str(record.content_generation_path.debt.debt)
-                             if record.content_generation_path.debt else None),
-                    "refusal_recorded":
-                        record.content_generation_path.assembly_refusal
-                        != NO_ASSEMBLY_REFUSAL,
-                },
-            },
-        }
-        return summary, released
-
-
 class RequestRefused(ValueError):
     """The request boundary refused before any assembly ran.
 
@@ -307,21 +108,56 @@ def produce(**kwargs: Any) -> dict[str, Any]:
     return produce_governed(**kwargs)[0]
 
 
-def produce_governed(*, anchor: str | None = None, intent: str | None = None,
-                     depth: int | None = None, materiality: str | None = None,
-                     follow_guarantees: bool | None = None,
-                     follow_cross_default: bool | None = None,
-                     basis: str | None = None,
-                     debt_tolerance: str | None = None,
-                     as_of: str | None = None,
-                     replay_root: pathlib.Path | None = None,
-                     ) -> tuple[dict[str, Any], Any]:
-    """One rollup, assembled through the six steps spec §D.2 declares.
 
-    Every parameter defaults to the DECLARATION, never to a literal in this
-    file: the anchor and the demonstration parameters come from
-    ``artifacts/question.yaml``, and any omitted request argument falls to
-    ``ccf_config.yaml::request_contract.argument_defaults``.
+def produce_governed(
+    *, anchor: str | None = None, intent: str | None = None,
+    depth: int | None = None, materiality: str | None = None,
+    follow_guarantees: bool | None = None,
+    follow_cross_default: bool | None = None,
+    basis: str | None = None,
+    debt_tolerance: str | None = None,
+    as_of: str | None = None,
+    replay_root: pathlib.Path | None = None,
+) -> tuple[dict[str, Any], Any]:
+    """One rollup, through ``GovernedResolver``. cp-05 assembles; CCF governs.
+
+    **The whole of what this function does** is boot, assemble the domain truth,
+    hand the SDK its extension points, and call it. Everything between the
+    assembled rollup and the delivered result — the validation gates, contract
+    construction, Context Debt placement, the fulfillment determination, refusal
+    shaping, the replay record and the serve — belongs to
+    :class:`~ccf.products.resolver.GovernedResolver` and appears nowhere here.
+    :func:`produce_governed` above is the hand-composed spine this replaces.
+
+    **The architecture, ruled at** ``D-IMPL-299``::
+
+        source acquisition -> L2 admission/enrichment -> L3 governed state
+          -> L4 family traversal/aggregation -> L5 materiality projection
+
+    and its semantic rule: *"L5 may select, shape, and present truth. It must
+    not reach back to a system of record to create truth."* So Postgres is read
+    HERE, before Π, and the gross/adjusted determination is complete before the
+    resolver is called. The projection receives assembled truth and applies the
+    effective threshold to it.
+
+    **Why the request is resolved twice, stated rather than hidden.** The
+    resolution below parameterises ACQUISITION — the walk cannot know its depth
+    or its edge flags until it knows what the caller effectively asked. The
+    resolver then resolves again, and that second resolution is the one that
+    GOVERNS: it is what reaches replay dimension 2 with each parameter's
+    authority. Same pure function over the same inputs, so the two agree by
+    construction; they differ in purpose, not in value. This is calling the
+    SDK's resolution, never reimplementing it.
+
+    **No ``effective_request`` in the payload.** Which authority supplied each
+    value is recorded on the governed envelope — ``PolicyBindingsSnapshot.
+    request_resolution`` carries the full :class:`~ccf.products.provenance.
+    EffectiveRequest`, every parameter with its ``authority`` — and a business
+    payload that restated it would be reconstructing governance state the
+    fabric already owns. It also keeps the content address a function of the
+    business answer alone: two callers whose parameters resolved by different
+    authorities to the same effective values get the same payload address, and
+    the replay record is what tells their determinations apart.
     """
     config = dep.load(dep.CONFIG)
     backends = dep.load(dep.BACKENDS)
@@ -329,52 +165,53 @@ def produce_governed(*, anchor: str | None = None, intent: str | None = None,
     ttl = dep.load(dep.TTL)[dep.DECLARATION]
 
     anchor_lei = anchor or question["subject"]
-    # `intent` is a TOP-LEVEL ProductRequest field, not an argument (the SDK
-    # refuses a contract that declares it under `arguments.properties`), so it
-    # is picked here and everything else is RESOLVED below.
     intent_value = intent or question["parameters"]["intent"]
 
-    # ------------------------------------------------------------------
-    # EVERY OTHER PARAMETER IS RESOLVED BY THE SDK, WITH ITS AUTHORITY.
-    # ------------------------------------------------------------------
+    # THE FAMILY TOKEN, READ ONCE AND USED TWICE — and that is the point.
     #
-    # `policy > caller > default`, bounded by `technical`. Nothing in this file
-    # picks a value: `deployment.effective_request` hands the caller's supplied
-    # values, the class defaults, the registered policy constraints and the
-    # backend capabilities to `resolve_effective_request`, and the OUTCOME is
-    # what this product serves.
-    #
-    # 5% IS THE PRODUCT DEFAULT, NOT THE PRODUCT TRUTH. The truth is "return
-    # family exposures above the EFFECTIVE materiality threshold", and the
-    # effective threshold is resolved per request. Three callers wanting 2%, 5%
-    # and 10% are three parameterizations of one product, not three products.
+    # `D-IMPL-295` made `families` a required request argument bound to the
+    # policy operator's `permitted_classifications`. The SAME token is what
+    # `populate_and_traverse` stamps on every admitted entity as `family_id`.
+    # Reading it from one place is what keeps the two in step: a request asking
+    # for a family nobody was admitted under would serve an honest family of
+    # zero, which is exactly the confidently-wrong answer `24.10-F-11` was.
+    family_token = str(question["parameters"]["families"][0])
+
+    # 1 · WHAT THE CALLER EFFECTIVELY ASKED — to parameterise acquisition.
     with tempfile.TemporaryDirectory() as scratch:
-        _fabric, registry = dep.boot(pathlib.Path(scratch))
+        _scratch_fabric, scratch_registry = dep.boot(pathlib.Path(scratch))
         product_request, outcome = dep.effective_request(
-            config=config, registry=registry,
+            config=config, registry=scratch_registry,
             supplied={
                 "depth": depth,
-                "materiality": None if materiality is None else Decimal(str(materiality)),
+                # THE LEXICAL VALUE, HANDED OVER UNCONVERTED (`D-IMPL-302`).
+                #
+                # These two read `Decimal(str(value))` until the SDK gained its
+                # contract-aware decode. The conversion was unguarded, and the
+                # malformed-value control found what that cost: `Decimal("NaN")`
+                # is a perfectly constructible non-finite decimal, and it
+                # reached canonicalization as an uncaught
+                # `CanonicalizationError` — a runtime failure with no governed
+                # refusal and no replay, where a caller deserved a
+                # `type-mismatch` naming the parameter.
+                #
+                # The SDK now converts, because it is the party holding the
+                # declaration that says which arguments are numbers. A
+                # canonical decimal becomes an exact `Decimal`; anything else
+                # passes through untouched and `refuse_request` refuses it BY
+                # NAME. Converting here would take that judgment back.
+                "materiality": materiality,
                 "follow_guarantees": follow_guarantees,
                 "follow_cross_default": follow_cross_default,
                 "basis": basis,
-                # THE CONSUMER'S FITNESS BAR, folded here and nowhere else.
-                # Text in, `Decimal` on the wire, for the same reason the
-                # declared defaults are quoted: a float tolerance would make
-                # the comparison against D_c platform-dependent.
-                "debt_tolerance": (
-                    None if debt_tolerance is None else Decimal(str(debt_tolerance))
-                ),
-                # DECLARED AND INERT (`artifacts/question.yaml`). Passed through
-                # deliberately so the refusal is the SDK's, by name, rather than
-                # this file quietly dropping an argument the caller supplied.
+                "debt_tolerance": debt_tolerance,
                 "as_of": as_of,
+                "families": [family_token],
             },
             subject=anchor_lei, intent=intent_value,
             freshness=question["freshness"],
             asked_at=_dt.datetime.fromisoformat(question["asked_at"]),
         )
-
     if outcome.refusal is not None:
         detail = getattr(outcome.refusal, "detail", None) or getattr(
             outcome.refusal, "reason", str(outcome.refusal))
@@ -384,13 +221,6 @@ def produce_governed(*, anchor: str | None = None, intent: str | None = None,
 
     effective = {p.name: p for p in outcome.evidence.parameters}
     depth_value = int(effective["depth"].value)
-    # A `Decimal`, NEVER A FLOAT, and the SDK enforces it rather than asking.
-    # An earlier draft carried `float(...)` here, and it reached the payload —
-    # where `ccf.contracts.canonical` refused it outright: *"float is not
-    # canonically encodable (not bit-stable across platforms); use int or
-    # decimal.Decimal."* The refusal only fired on the SERVED path, because
-    # that is the only path that content-hashes the product payload; the
-    # withheld path had been carrying the same defect silently (spec §F.4).
     materiality_value = effective["materiality"].value
     flags = {
         "follow_guarantees": bool(effective["follow_guarantees"].value),
@@ -404,180 +234,118 @@ def produce_governed(*, anchor: str | None = None, intent: str | None = None,
 
     with psycopg.connect(amounts.dsn, connect_timeout=15) as conn:
         with conn.cursor() as cur:
-            # 1 · Resolve
             anchor_lei, anchor_name = asm.resolve_anchor(cur, schema, anchor_lei)
-            # 2 · Policy
             limit = asm.load_limit_definition(cur, schema, intent_value)
 
-            # the anchor's node URI, via the ledger's own lei predicate
+            # 2 · ACQUISITION — the source estate, bounded by the caller's walk.
             rows = dep.sparql(graph, f'SELECT ?s {dep._from_clause(graph)} '
                                      f'WHERE {{ ?s <{dep.LEI_PREDICATE}> "{anchor_lei}" }}')
             anchor_nodes = dep.one_column(rows, "s")
             if not anchor_nodes:
                 raise LookupError(
-                    f"{anchor_lei} resolves in {schema}.legal_entity but carries no node in "
-                    f"ledger {graph.ledger}. The stores disagree about the anchor's existence, "
-                    "which is a finding about the estate rather than an empty family."
+                    f"{anchor_lei} resolves in {schema}.legal_entity but carries no node "
+                    f"in ledger {graph.ledger}. The stores disagree about the anchor's "
+                    "existence, which is a finding about the estate rather than an "
+                    "empty family."
                 )
             anchor_node = anchor_nodes[0]
-
-            # 3 · Traversal — THROUGH THE FABRIC, not around it.
-            #
-            # ACQUISITION first: read the source estate over SPARQL. Backend-
-            # specific by nature, and with no SDK surface today (`D-IMPL-277`,
-            # open). It populates L3 and does NOT answer the question.
             acquired = asm.walk(graph, anchor_node, depth_value,
                                 flags["follow_guarantees"], flags["follow_cross_default"])
             edges = asm.acquire_edges(graph, acquired,
-                                      flags["follow_guarantees"], flags["follow_cross_default"])
+                                      flags["follow_guarantees"],
+                                      flags["follow_cross_default"])
             lei_by_node = asm.node_leis(graph, acquired)
 
-            # DECISION LOGIC second: admit through L2's single writer, then let
-            # the operator the Control Plane REGISTERED decide the family, over
-            # a GraphView of L3 bounded at the request's own instant.
-            with tempfile.TemporaryDirectory() as fabric_root:
-                # The CONTROL PLANE registry, held rather than discarded: the
-                # gate run below and the operator resolution above must reach
-                # the SAME one, or the gates would be reading a class some
-                # other registry pinned.
-                fabric, control_plane = dep.boot(pathlib.Path(fabric_root))
+            # 3 · ASSEMBLY — L2 admission, then the declared L4 walk, then the
+            #     complete family truth. THE FABRIC STAYS OPEN past this block:
+            #     the resolver reads L3 through it.
+            fabric_root = tempfile.TemporaryDirectory()
+            try:
+                fabric, control_plane = dep.boot(pathlib.Path(fabric_root.name))
                 traversed = dep.populate_and_traverse(
                     fabric=fabric, graph=graph, anchor_node=anchor_node,
                     nodes=acquired, edges=edges, leis=lei_by_node,
-                    asked_at=asked_at,
-                    # The family this request named. It is the policy admission
-                    # key AND the observed membership fact, and it is the same
-                    # token the caller asked in.
-                    family=anchor_lei,
+                    asked_at=asked_at, family=family_token,
+                )
+                family_size = traversed["family_size"]
+                family_leis = traversed["family_leis"]
+                books = asm.enrich(cur, schema, family_leis)
+
+                # GROSS AND ADJUSTED ARE DETERMINED HERE, BEFORE Π.
+                rollup = asm.aggregate(cur, schema, anchor_lei, anchor_node,
+                                       intent_value, limit, depth_value, acquired,
+                                       lei_by_node, books, flags)
+                rollup.reconciliation = asm.reconcile(cur, schema, anchor_lei,
+                                                      rollup.gross.committed)
+
+                # EVIDENCE for the debt assessment, gathered from what the
+                # estate attests rather than from what the answer looks like.
+                # Transcribed from the legacy spine unchanged — this is domain
+                # measurement, not governance, and `D-IMPL-298` preserves it.
+                cur.execute(
+                    f"SELECT facility_id, balance_as_of FROM {schema}.facility "
+                    f"WHERE borrower_lei = ANY(%s) AND balance_as_of IS NOT NULL",
+                    (family_leis,))
+                balance_observations = [
+                    (fid, _dt.datetime.combine(when, _dt.time(),
+                                               tzinfo=_dt.timezone.utc)
+                     if not isinstance(when, _dt.datetime) else when)
+                    for fid, when in cur.fetchall()
+                ]
+                cur.execute(
+                    f"SELECT lei, plausible FROM {schema}.debt_reconciliation "
+                    f"WHERE lei = ANY(%s)", (family_leis,))
+                reconciliation_rows = list(cur.fetchall())
+                # A genuine enrich FAILURE, not "found no facilities". The batch
+                # query answered for every LEI it was given; a member with an
+                # LEI and no facility is a DETERMINED answer of zero.
+                enrich_failures = len([lei for lei in family_leis
+                                       if lei not in books and lei is None])
+
+                assessment, _evidence = dep.assess_context_debt(
+                    fabric=fabric, balance_observations=balance_observations,
+                    reconciliation_rows=reconciliation_rows,
+                    family_size=family_size, checkable_members=len(family_leis),
+                    enrich_failures=enrich_failures, asked_at=asked_at,
                 )
 
-            nodes = acquired
-            family_size = traversed["family_size"]
-
-            # GATE 1 · empty-operator guard (spec §D.7) — now over the OPERATOR's
-            # output, which is what the product serves. Guarding the acquisition
-            # walk instead would have passed on a populated source while the
-            # declared traversal returned nothing.
-            if family_size == 0:
-                raise AssertionError(
-                    "empty-operator guard: the declared traversal operator returned no "
-                    f"entities over an L3 holding {len(acquired)} ingested nodes and "
-                    f"{len(edges)} relationship claims. A step silently produced nothing."
+                business = _business_payload(
+                    config=config, rollup=rollup, limit=limit,
+                    anchor_name=anchor_name, family_size=family_size,
+                    basis_value=basis_value, depth_value=depth_value,
+                    materiality=materiality_value, flags=flags,
+                    acquired_count=len(acquired), edge_count=len(edges),
                 )
 
-            # 4 · Batch Enrich — ONE query, over the LEIs the OPERATOR reached
-            books = asm.enrich(cur, schema, traversed["family_leis"])
+                # The declared replay binding names a `store_dirname`, which
+                # is half a location; the SDK refuses to root a deployment's
+                # decision records at whichever directory the process started
+                # in (`R-12`). The caller's root, or an ephemeral one beside
+                # the fabric — the same default the legacy spine used.
+                store_root = replay_root or pathlib.Path(fabric_root.name)
+                governed = _governed(
+                    fabric=fabric, control_plane=control_plane, config=config,
+                    ttl=ttl, rollup=rollup, business=business,
+                    materiality=materiality_value, assessment=assessment,
+                    product_request=product_request, store_root=store_root,
+                )
+            finally:
+                fabric_root.cleanup()
 
-            # 5 · Aggregate — COMPLETE FAMILY TRUTH, no threshold applied.
-            rollup = asm.aggregate(cur, schema, anchor_lei, anchor_node, intent_value,
-                                   limit, depth_value, nodes, lei_by_node, books, flags)
-            rollup.reconciliation = asm.reconcile(cur, schema, anchor_lei,
-                                                  rollup.gross.committed)
+    payload = dict(getattr(governed, "product", None).payload) if getattr(
+        governed, "product", None) is not None else {}
+    return payload, governed
 
-            # EVIDENCE for the debt assessment, gathered from what the estate
-            # attests rather than from what the answer looks like.
-            family_leis = traversed["family_leis"]
-            cur.execute(
-                f"SELECT facility_id, balance_as_of FROM {schema}.facility "
-                f"WHERE borrower_lei = ANY(%s) AND balance_as_of IS NOT NULL",
-                (family_leis,))
-            balance_observations = [
-                (fid, _dt.datetime.combine(when, _dt.time(), tzinfo=_dt.timezone.utc)
-                 if not isinstance(when, _dt.datetime) else when)
-                for fid, when in cur.fetchall()
-            ]
-            cur.execute(
-                f"SELECT lei, plausible FROM {schema}.debt_reconciliation "
-                f"WHERE lei = ANY(%s)", (family_leis,))
-            reconciliation_rows = list(cur.fetchall())
-            # A genuine enrich FAILURE, not "found no facilities". The batch
-            # query answered for every LEI it was given; a member with an LEI
-            # and no facility is a DETERMINED answer of zero.
-            enrich_failures = len([lei for lei in family_leis if lei not in books
-                                   and lei is None])
 
-    # GATE 4 · reconciliation guard — the one that catches a plausible wrong answer
-    asm.reconciliation_guard(rollup)
+def _business_payload(*, config, rollup, limit, anchor_name, family_size,
+                      basis_value, depth_value, materiality, flags,
+                      acquired_count, edge_count) -> dict[str, Any]:
+    """cp-05's assembled answer. No governance metadata, by ruling.
 
-    # ------------------------------------------------------------------
-    # L5 · Π — WHICH OF THAT TRUTH IS RELEVANT TO THIS CALLER
-    # ------------------------------------------------------------------
-    #
-    # The plan is constructed with the EFFECTIVE threshold and applies it. It is
-    # NOT told which authority won: that is recorded on the contract's effective
-    # request and travels into replay, an audit fact rather than an input. A
-    # projection branching on provenance would let authority change the answer.
-    # ------------------------------------------------------------------
-    # CONTEXT DEBT — from evidence, before any projection is chosen.
-    # ------------------------------------------------------------------
-    #
-    # Assessed BEFORE L5 runs, deliberately: debt describes confidence in the
-    # assembled truth, and the caller's threshold cannot make that truth more or
-    # less trustworthy. The same evidence yields the same debt at 2%, 5% or 10%.
-    debt_assessment, debt_evidence = dep.assess_context_debt(
-        fabric=traversed["fabric"],
-        balance_observations=balance_observations,
-        reconciliation_rows=reconciliation_rows,
-        family_size=traversed["family_size"],
-        checkable_members=len(traversed["family_leis"]),
-        enrich_failures=enrich_failures,
-        asked_at=asked_at,
-    )
-
-    # THE DECLARED SET, HANDED IN. The plan authors no second copy — cp-05 is a
-    # one-document deployment for operator requirements (Dave, 2026-09-08), the
-    # shape `cp-00` through `cp-04` already use.
-    declared_operators = tuple(config["product_class"]["required_operator_keys"])
-    plan = proj.ExposureRollupProjection(
-        plan_id=f"cp-05.exposure-rollup/materiality={materiality_value}",
-        required=declared_operators,
-        threshold=materiality_value,
-        entities=rollup.entities,
-        gross_committed=rollup.gross.committed,
-        connected_without_exposure=rollup.connected_without_exposure,
-    )
-    # THROUGH THE ENGINE, not by calling the plan directly. `ProjectionEngine`
-    # runs the two-stage execution the whitepaper specifies — operator plan,
-    # then projection plan — and hands back what it OBSERVED ITSELF RUNNING
-    # rather than what this program declared. That observed set is what lineage
-    # carries and what a gate would check declared-against-observed.
-    from ccf.projection.engine import ProjectionEngine
-
-    execution = ProjectionEngine(
-        reader=traversed["fabric"].handle.reader, registry=traversed["registry"]
-    ).execute(
-        plan=plan,
-        perspective=_perspective(config),
-        tenant_id=config["tenant_id"],
-        temporal_boundary=asked_at,
-    )
-    projected = execution.projection
-
-    # 6 · Contract assembly
-    asked_at = _dt.datetime.fromisoformat(question["asked_at"])
-    expires_at = asked_at + _dt.timedelta(seconds=int(ttl["declared_ttl_seconds"]))
-
-    # GATE 3 · TTL bounds (spec §D.7)
-    window = (expires_at - asked_at).total_seconds()
-    if not 0 < window <= int(ttl["max_ttl_seconds"]):
-        raise AssertionError(
-            f"TTL bounds: window {window}s is outside (0, {ttl['max_ttl_seconds']}]."
-        )
-
-    # GATE 2 · lineage strict equality — the record names exactly what ran.
-    #
-    # The FABRIC operators come from the engine's OWN observation
-    # (`ExecutionResult.operators_invoked`), never from a list this file
-    # maintains: a hand-kept list is a declaration that drifts, and lineage
-    # strict equality would then be comparing a claim against itself. The
-    # assembly steps that are not registry operators are named beside them —
-    # Resolve, Enrich and Aggregate are assembly stages, not operators
-    # (`ccf_config.yaml` records why).
-    operators_invoked = sorted(execution.operators_invoked) + [
-        "Resolve", "Enrich", "Aggregate"
-    ]
-
-    payload: dict[str, Any] = {
+    ``effective_request`` is deliberately absent (`D-IMPL-299`): the governed
+    envelope owns which authority supplied each value.
+    """
+    return {
         "schema_name": config["product_class"]["schema_name"],
         "schema_version": config["product_class"]["schema_version"],
         "anchor": {"lei": rollup.anchor_lei, "legal_name": anchor_name,
@@ -587,216 +355,100 @@ def produce_governed(*, anchor: str | None = None, intent: str | None = None,
         "policy": {"counts_guarantees": limit.counts_guarantees,
                    "counts_undrawn": limit.counts_undrawn,
                    "connection_basis": limit.connection_basis},
-        # TEXT ON THE WIRE, matching `effective_request` below. A `Decimal` is
-        # not JSON-serializable and a float is not canonically encodable, and
-        # the string preserves the lexical form the caller used — `0.10` stays
-        # `0.10` rather than normalizing to `0.1`.
-        "request": {"depth": depth_value, "materiality": str(materiality_value),
-                    "basis": basis_value, **flags},
-        # THE EFFECTIVE REQUEST, WITH AUTHORITY PER PARAMETER. This is what
-        # makes the answer replayable as an answer to a QUESTION rather than as
-        # a set of numbers: a reader can tell whether 5% was the product's
-        # default, this caller's choice, or a policy ceiling that overrode them.
-        "effective_request": {
-            p.name: {"value": str(p.value), "authority": p.authority,
-                     "source": f"{p.source.kind}/{p.source.identity}"}
-            for p in outcome.evidence.parameters
+        # THE ANSWER'S OWN SCOPE — business content, not governance metadata.
+        #
+        # These are the parameters that decide WHICH answer this is. cp-05's own
+        # config says depth is *"part of PRODUCT IDENTITY, not a tuning knob —
+        # the family is 21 nodes at depth 1, 46 at depth 2 and 77 at depth 3, so
+        # two depths are two answers"*. A reader holding the payload has to be
+        # able to say what it is an answer TO.
+        #
+        # Deliberately NOT `effective_request`: no authorities appear here.
+        # Which authority supplied each value — caller, product default or
+        # policy — is the governed envelope's, recorded once in replay
+        # dimension 2 (`D-IMPL-299`). The distinction is the whole boundary:
+        # the scope is a fact about the answer; the authority is a fact about
+        # how the question was governed.
+        "request": {
+            "depth": depth_value,
+            "materiality": str(materiality),
+            "basis": basis_value,
+            **flags,
         },
+        "basis": basis_value,
         "family": {"nodes": family_size,
-                   "acquired_from_source": len(acquired),
-                   "relationship_claims_admitted": len(edges),
+                   "acquired_from_source": acquired_count,
+                   "relationship_claims_admitted": edge_count,
                    "members_with_lei": rollup.members_with_lei,
                    "members_holding_facilities": len(
                        [e for e in rollup.entities if e.facility_count])},
-        "measures": {"gross": rollup.gross.as_dict(), "adjusted": rollup.adjusted.as_dict()},
-        "guarantee_dedup": {"cases": len(rollup.dedup_cases), "detail": rollup.dedup_cases},
-        # WHAT L5 DECIDED, under this caller's effective threshold. The family
-        # above is the same for every caller; this block is not.
-        "projection": {"plan_id": projected.plan_id, **dict(projected.payload)},
-        "entities": list(projected.payload["material"]),
+        "measures": {"gross": rollup.gross.as_dict(),
+                     "adjusted": rollup.adjusted.as_dict()},
+        "guarantee_dedup": {"cases": len(rollup.dedup_cases),
+                            "detail": rollup.dedup_cases},
         "connected_without_exposure": rollup.connected_without_exposure,
         "findings": rollup.findings,
         "reconciliation": rollup.reconciliation,
-        # THE ASSESSMENT, NEVER A VERDICT. Whether this figure refuses a request
-        # is a fulfillment determination against a tolerance, made downstream.
-        "context_debt": {
-            "debt": str(debt_assessment.debt),
-            "signal": debt_assessment.signal.value
-            if hasattr(debt_assessment.signal, "value") else str(debt_assessment.signal),
-            "evidence": debt_evidence,
-        },
-        "lineage": {"operators_invoked": operators_invoked,
-                    # THE CONTROL PLANE'S CLAIM, carried so the contract's own
-                    # lineage can be rebuilt from the payload without reaching
-                    # for the engine's observation — the two are equal on a
-                    # correct run, and gate 2 exists to hold them so.
-                    "declared_operators": sorted(declared_operators),
-                    "traversal_operator": "traversal.typed-neighborhood",
-                    "projection_plan_id": execution.plan_id,
-                    "engine_observed_operators": sorted(execution.operators_invoked),
-                    "graph_snapshot_ledger": graph.ledger,
-                    "policy_version": rollup.policy_version,
-                    "asked_at": question["asked_at"]},
-        "expires_at": expires_at.isoformat(),
     }
-    payload["content_address"] = content_address(payload)
 
-    # ==================================================================
-    # THE GOVERNED FULFILLMENT DETERMINATION — the last step, and a
-    # SEPARATE one from everything above it.
-    # ==================================================================
-    #
-    # The order is fixed and each arrow is a different kind of judgment:
-    #
-    #   assembly -> projection -> Debt assessment -> effective Debt
-    #   tolerance -> fulfillment determination -> replay -> disclosure
-    #
-    # **Context Debt does not refuse the request.** Debt is a MEASUREMENT of
-    # the fabric's confidence in what it assembled. Governance uses that
-    # measurement to decide whether fulfillment is permitted. The two live in
-    # different objects for that reason: `DebtAssessment` is above, in
-    # `payload["context_debt"]`, and it is the same number for every consumer;
-    # `refuse_over_tolerance` is below, and it is the only thing that can vary
-    # between two consumers holding the same determination.
-    #
-    # WHY THE GATES COME FIRST. `refuse_over_tolerance` takes a
-    # `ServableProduct`, which is not constructible outside `run_gates`
-    # (INV-CH7-52). The sequencing is therefore STRUCTURAL rather than
-    # documented: a caller who has not run the gates has nothing to pass, so
-    # "withheld" can only ever be said about a product that exists.
-    product_class = dep.register_class(registry=control_plane, config=config, ttl=ttl)
-    candidate = ContextProductContract(
-        schema_name=product_class.schema_name,
-        schema_version=product_class.schema_version,
-        plan_id=execution.plan_id,
-        tenant_id=_TENANT,
-        temporal_boundary=asked_at,
-        expires_at=expires_at,
-        ttl_anchor=product_class.ttl_anchor,
-        lineage=ProductLineage(
-            # THE DECLARATION, not the engine's observation — and the change is
-            # the whole point of this correction. Gate 2 holds
-            # `lineage.operators_invoked` against `engine_resolved` in BOTH
-            # directions. An earlier revision fed BOTH sides from
-            # `execution.operators_invoked`, so the gate compared one object
-            # against itself and could not fail. Grounding this side in the
-            # Control Plane's claim makes gate 2 compare what the deployment
-            # DECLARED against what the engine OBSERVED, which is what it is
-            # for (`CP-SPEC-005` §F.4 finding 20).
-            #
-            # The assembly-stage names beside them in `payload["lineage"]` —
-            # Resolve, Enrich, Aggregate — still cannot ride in here: they are
-            # stages, not registry operators, and declaring one that never ran
-            # is exactly what gate 2 refuses.
-            operators_invoked=frozenset(declared_operators),
-            policy_bundle_versions=frozenset({rollup.policy_version}),
-            graph_snapshot_at=asked_at,
+
+def _governed(*, fabric, control_plane, config, ttl, rollup, business,
+              materiality, assessment, product_request, store_root):
+    """The extension points a deployment supplies, and one call.
+
+    Four seams and nothing else: the projection factory, the debt scorer, the
+    product gate, and the TTL figures the class declares. Everything the SDK
+    owns is behind :func:`~ccf.products.resolver.build_governed_resolver`.
+    """
+    from ccf.products.resolver import build_governed_resolver
+
+    def plan_factory(*, required: tuple[str, ...], request: Any) -> Any:
+        return proj.ExposureRollupProjection(
+            plan_id=f"cp-05.exposure-rollup/{request.subject}",
+            required=required,
+            threshold=materiality,
+            entities=rollup.entities,
+            gross_committed=rollup.gross.committed,
+            connected_without_exposure=rollup.connected_without_exposure,
+            business=business,
+        )
+
+    def debt_scorer(*, view: Any, evidence: Any = None) -> Any:
+        """cp-05 measures its own debt; the SDK places it on the product."""
+        return assessment
+
+    def product_gate(*, candidate: Any, evidence: Any = None) -> str | None:
+        """`R-11` — cp-05's own invariant, executed by the fabric."""
+        try:
+            asm.reconciliation_guard(rollup)
+        except AssertionError as violation:
+            return str(violation)
+        return None
+
+    resolver = build_governed_resolver(
+        fabric=fabric,
+        control_plane=control_plane,
+        product_class_key="product_class",
+        request_contract_key="request_contract",
+        operator_parameter_keys=(
+            "policy.principal-subgraph", "traversal.typed-neighborhood",
         ),
-        payload=payload,
-        # THE ASSESSMENT TRAVELS ON THE PRODUCT. Without it the tolerance check
-        # has nothing to compare against and withholds for that reason — which
-        # is the right answer to "the tolerance cannot be shown to be met",
-        # rather than a permissive default.
-        debt=debt_assessment,
+        policy_bundle_key="policy",
+        plan_factory=plan_factory,
+        debt_scorer=debt_scorer,
+        product_gate=product_gate,
+        debt_profile_key="debt_profile",
+        artifact_store_root=store_root,
+        max_ttl_seconds=int(ttl["max_ttl_seconds"]),
+        product_ttl_seconds=int(ttl["declared_ttl_seconds"]),
     )
-    # `now` IS THE PINNED INSTANT, NOT THE WALL CLOCK. This product's anchor is
-    # `from_decision`: the window opens when the question is asked. Evaluating a
-    # pinned demonstration against today's clock would refuse on `ttl-bounds`
-    # every time — correctly, and about the transcript rather than the product.
-    gated = run_gates(
-        candidate,
-        engine_resolved=execution.operators_invoked,
-        now=asked_at,
-        registry=control_plane,
-        product_class=product_class,
+    return resolver(
+        tenant=fabric.tenant_id,
+        product_class=config["product_class"]["schema_name"],
+        version=config["product_class"]["schema_version"],
+        perspective=_perspective(config),
+        request=product_request,
     )
-    if not isinstance(gated, ServableProduct):
-        raise AssertionError(f"the validation gates refused this product: {gated}")
-
-    # ONE ARGUMENT, AND IT IS A RESOLVED PARAMETER RATHER THAN A NUMBER. The
-    # three debt authorities — the class default, this caller's declaration and
-    # any applicable policy constraint — were folded exactly ONCE, upstream, by
-    # `resolve_effective_request`. Handing a float here would be a second fold,
-    # and a second fold is where a product quietly re-acquires the power to
-    # overrule its own governance.
-    withheld = refuse_over_tolerance(gated, tolerance=effective.get("debt_tolerance"))
-
-    tolerance = effective.get("debt_tolerance")
-
-    # ==================================================================
-    # REPLAY — BEFORE THE RESPONSE IS RELEASED, ON BOTH BRANCHES.
-    # ==================================================================
-    #
-    # `D-IMPL-256`: *"Every governed determination that crosses a CCF delivery
-    # boundary — fulfilled or refused, tool or resource, authorized or denied —
-    # must reach the replay writer before the response is released."*
-    #
-    # ONE writer, ONE store, ONE record class for both outcomes. `D-IMPL-253`
-    # Q13 is explicit that a refusal is itself a decision and gets the same
-    # five-dimensional model: *"Do not create second-class replay."* A separate
-    # class for withheld determinations would be that second class.
-    #
-    # THE RECORD IS BUILT FROM THE EFFECTIVE REQUEST, NOT THE CALLER'S. What is
-    # replayed is the question the fabric actually answered — 0.05 because the
-    # class defaulted it, or 0.10 because a policy bound it — with the authority
-    # on every parameter. `resolution=outcome.evidence` is the whole of that.
-    request_identity = RequestIdentity(
-        product_id=config["product_class"]["schema_name"],
-        product_version=config["product_class"]["schema_version"],
-        # THE EFFECTIVE VALUES, with their authority beside them. Recording the
-        # caller's supplied values here would make replay re-ask the question
-        # that was ASKED rather than the one that was ANSWERED, and under a
-        # narrowing policy constraint those are different questions.
-        parameters={
-            p.name: f"{p.value} [{p.authority}]" for p in outcome.evidence.parameters
-        },
-        temporal_boundary=asked_at,
-    )
-    # TWO BINDINGS, BECAUSE TWO VERSIONED POLICIES GOVERNED THIS ANSWER. The
-    # Control Plane bundle is the fabric's own, pinned at boot; the limit
-    # definition is the credit policy read from the amounts store, and it is
-    # what decided whether guarantees net and whether undrawn commitments count.
-    # Recording only the first would leave a reader unable to tell which
-    # definition produced which number — the fact spec §D.3 step 2 exists for.
-    fabric = traversed["fabric"]
-    bundle_key = fabric.handle.worker.policy_bundle_key
-    bindings = (
-        PolicyBinding(key=bundle_key, version=fabric.pins.version_for(bundle_key)),
-        PolicyBinding(key=LIMIT_DEFINITION_BINDING, version=rollup.policy_version),
-    )
-    replay, governed = _record_and_release(
-        config=config, gated=gated, withheld=withheld, candidate=candidate,
-        execution=execution, outcome=outcome, request_identity=request_identity,
-        bindings=bindings, debt_assessment=debt_assessment,
-        policy_version=rollup.policy_version, asked_at=asked_at,
-        perspective=_perspective(config), request=product_request,
-        replay_root=replay_root,
-    )
-
-    payload["fulfillment"] = {
-        "served": withheld is None,
-        "disposition": replay["outcome"],
-        "tolerance": None if tolerance is None else str(tolerance.value),
-        "tolerance_authority": None if tolerance is None else tolerance.authority,
-        "observed_debt": str(debt_assessment.debt),
-        "detail": None if withheld is None else withheld.detail,
-    }
-    payload["replay"] = replay
-    # DELIBERATELY AFTER THE CONTENT ADDRESS, and the reason is that the
-    # outcome is REDUNDANT with what the address already covers. The address
-    # spans the effective request — including the resolved `debt_tolerance` and
-    # the authority that set it — and the observed Debt. Served-or-withheld is a
-    # pure function of those two, so hashing it in would only restate them.
-    #
-    # WHAT DOES CHANGE THE ADDRESS, MEASURED: two consumers differing only in
-    # fitness get DIFFERENT addresses, because they asked different questions —
-    # "give me this if you are confident enough" is not "give me this whatever
-    # your confidence." What they get back is the SAME DETERMINATION: family 77,
-    # gross 10,125,000,000, adjusted 9,325,000,000 and D_c 1.000 are byte-equal
-    # across every consumer in `run.py`'s scenario set. The fabric does not
-    # revise what it knows to suit who is asking; it revises only whether it is
-    # willing to attest that what it knows is fit to act on.
-    return payload, governed
 
 
 def as_contract(payload: dict[str, Any]) -> "ContextProductContract":
@@ -855,6 +507,3 @@ def as_contract(payload: dict[str, Any]) -> "ContextProductContract":
         payload=determination,
     )
 
-
-if __name__ == "__main__":  # pragma: no cover - module entry point
-    print(json.dumps(produce(), indent=2))

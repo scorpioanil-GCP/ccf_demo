@@ -154,14 +154,30 @@ def build_resolver(*, config: dict[str, Any], replay_root: Path):
             return _refused(
                 envelope_for(_no_standing_answer(declared), request=identity),
                 perspective=perspective, replay_root=replay_root, config=config)
-        # THE OBLIGATION THE DOOR NAMES AND DOES NOT PERFORM (`D-IMPL-113`).
-        # Without this the question is answered without ever being compared to
-        # the surface the class declared it accepts.
-        violation = refuse_request(request=request, declared=contract)
-        if violation is not None:
-            return _refused(envelope_for(violation, request=identity),
-                            perspective=perspective, replay_root=replay_root,
-                            config=config)
+        # THE CONFORMITY DECISION IS THE RESOLVER'S, AND THE DOOR NO LONGER
+        # PREEMPTS IT (`D-IMPL-303`).
+        #
+        # A `refuse_request(request, contract)` pre-check stood here. It made
+        # the SDK's contract-aware numeric decode UNREACHABLE from MCP: a
+        # declared `number` crosses the wire as canonical decimal TEXT
+        # (`D-IMPL-302`), and this call judged the raw lexical value against
+        # the declared type before anything could type it — so `"0.05"` was
+        # refused `type-mismatch` and the resolver never saw the question.
+        #
+        # `D-IMPL-113` is the ruling the old comment cited, and read closely it
+        # says the opposite of what the call did: *"the SDK ships the
+        # mechanism; the deployment's own RESOLVER calls it"*, and *"the door
+        # never holds the registered class ... wiring a call at the door would
+        # require the door to acquire the registered class."* The obligation is
+        # discharged where the declaration, the decoding rules, the defaults,
+        # the policy constraints and the effective-request machinery are all in
+        # one place — inside `GovernedResolver`, which calls `refuse_request`
+        # itself over the DECODED, EFFECTIVE values.
+        #
+        # What stays door-owned is above: the wrong product address, and the
+        # resource surface's absent standing answer. Answering *"is this
+        # addressed to the product I expose?"* needs no product contract.
+        # Answering *"does materiality='0.05' satisfy `number`?"* does.
         supplied = dict(request.parameters)
         _, governed = prod.produce_governed(
             anchor=request.subject, intent=request.intent,

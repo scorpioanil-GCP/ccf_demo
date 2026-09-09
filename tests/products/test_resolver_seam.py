@@ -1282,6 +1282,69 @@ def test_a_binding_to_an_undeclared_argument_is_refused_at_boot(
     )
 
 
+# --- `D-IMPL-300`: the binder, at the ruled pre-execution point --------------
+
+
+def test_a_plan_contradicting_the_class_is_refused_before_it_is_executed(
+    booted: _Booted,
+) -> None:
+    """`D-IMPL-86`'s binder, on the canonical path — and BEFORE assembly.
+
+    The product class's ``required_operator_keys`` and the plan's own
+    ``required_operators()`` are two separately authored documents (design E2).
+    Gate 2 also compares the declaration against the engine-RESOLVED set, so a
+    divergence is caught either way — but later, *"after a product has already
+    been assembled from a set the deployment's own claim contradicts"*, in the
+    binder's own words. This asserts the earlier guarantee.
+
+    **The instrument is that ``invoke`` never runs.** A test asserting merely
+    that something was refused would pass with the binder deleted, because gate
+    2 would refuse the same request one stage further on. The plan records
+    whether it was invoked, and the refusal is only the binder's if that record
+    is still empty.
+
+    Found by cp-05's canonical adoption (`D-IMPL-300`): its hand-composed spine
+    called the binder, and after migrating there was nowhere legitimate for a
+    deployment to call it — ``plan_factory`` is invoked *inside* the resolver.
+    """
+
+    class _ContradictingPlan:
+        """Declares an operator the fixture class does not require."""
+
+        def __init__(self) -> None:
+            self.invoked = False
+
+        @property
+        def plan_id(self) -> str:
+            return "fixture.contradicting"
+
+        def required_operators(self) -> tuple[str, ...]:
+            return (TRAVERSAL_KEY, "similarity.top-k")
+
+        def invoke(self, **_: Any) -> ProjectionOutput:  # pragma: no cover
+            self.invoked = True
+            raise AssertionError(
+                "the plan was executed; the binder did not refuse before"
+                " assembly, which is the whole of what D-IMPL-300 restored"
+            )
+
+    plan = _ContradictingPlan()
+
+    with pytest.raises(ValueError) as refusal:
+        _ask(
+            _resolver(booted, plan_factory=lambda *, required, request: plan),
+            _request(),
+        )
+
+    assert "operator set divergence" in str(refusal.value), (
+        "something refused, but not the binder — a divergence caught at gate 2"
+        " instead would mean assembly had already run"
+    )
+    assert not plan.invoked, (
+        "the projection was invoked before the divergence was refused"
+    )
+
+
 def test_an_unresolved_binding_never_reaches_an_operator(booted: _Booted) -> None:
     """The invariant beneath all six — mypy found it, and it is refused by name.
 

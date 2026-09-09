@@ -520,6 +520,14 @@ LINEAGE_DECLARED_KEYWORD = "operators_invoked"
 
 #: The binder every projecting body must name (D-IMPL-86 element (3), as
 #: corrected 2026-08-05).
+#: How a body says "the SDK owns my plan-construction -> execution seam".
+#:
+#: `D-IMPL-300`. Named structurally rather than by example, so the scope rule
+#: below stays durable for every canonical adopter after cp-05.
+CANONICAL_RESOLVER_ENTRYPOINTS: frozenset[str] = frozenset(
+    {"build_governed_resolver", "GovernedResolver"}
+)
+
 BINDER_CALL = "refuse_operator_set_divergence"
 
 #: The binder's two keyword arguments. ``declared=`` carries the Control Plane
@@ -628,14 +636,14 @@ RULED_ONE_DOCUMENT_DEPLOYMENTS: frozenset[str] = frozenset(
         "examples/cp-02-facility-terms-snapshot",
         # D-IMPL-239 (Dave, 2026-09-02) — ruled in by name on ledger row 24.5-L-45.
         "examples/cp-03-obligor-financial-spread",
-        # Dave, 2026-09-08, on the measured gate-two discrepancy: *"cp-05 is a
-        # one-document deployment for operator requirements. The Control
-        # Plane/product-class declaration is authoritative; the projection plan
-        # derives its required operator set from that declaration."* Ruled in
-        # by name AFTER the example was corrected to satisfy the premise: until
-        # then its plan authored a second, hard-coded operator set and it was
-        # neither exempt nor compliant (`CP-SPEC-005` §F.4 finding 20).
-        "examples/cp-05-credit-exposure-rollup",
+        # `examples/cp-05-credit-exposure-rollup` was HERE and was REMOVED at
+        # cp-05's canonical adoption (`D-IMPL-298`, `D-IMPL-300`). It was ruled
+        # in on 2026-09-08 as a one-document deployment; the migration deleted
+        # the hand-composed spine whose `plan_factory` authored the second
+        # operator-set site the exemption existed to permit. Dave: *"cp-05 no
+        # longer authors the second operator-set site that required the
+        # exemption ... do not replace it with a different exemption."* The
+        # roster count goes DOWN, which is the whole point of the migration.
     }
 )
 
@@ -651,7 +659,22 @@ RULED_ONE_DOCUMENT_DEPLOYMENTS: frozenset[str] = frozenset(
 #: room while both read green. Named here for the same reason and judged by the
 #: same predicate: an unruled claimant is red, and a human rules on it.
 RULED_SDK_SUPPLIED_DEPLOYMENTS: frozenset[str] = frozenset(
-    {"examples/hw1-companies-over-revenue/deployment"}
+    {
+        "examples/hw1-companies-over-revenue/deployment",
+        # `D-IMPL-301` — and it is EVIDENCE THE MIGRATION SUCCEEDED, not
+        # bookkeeping. cp-05 changed architectural category: it authored its own
+        # operator set and needed `D-IMPL-137`'s exemption — *one document where
+        # two were possible* — and now authors none, because the SDK supplies
+        # the canonical set. Dave: *"a classification update, not an exemption
+        # swap."*
+        #
+        # It qualifies under shape B of `_resolver_owns_the_seam` because the
+        # tree proves it, not because it is listed: no
+        # `ccf.projection-requirements`; `plan_factory` consumes the resolver's
+        # `required` and authors nothing; no competing operator set; no
+        # projection engine of its own.
+        "examples/cp-05-credit-exposure-rollup",
+    }
 )
 
 #: What :class:`ccf.projection.plan.ProjectionPlan` is structural **about**,
@@ -1837,6 +1860,57 @@ def _constructed_plan_sources(
     return tuple(sources)
 
 
+def _resolver_owns_the_seam(
+    scope: ast.FunctionDef | ast.AsyncFunctionDef,
+    path: pathlib.Path,
+    root: pathlib.Path,
+) -> bool:
+    """Condition 3 of :func:`_sdk_supplied_operator_set`, in EITHER of its shapes.
+
+    `D-IMPL-301` (Dave, 2026-09-09): *"`D-IMPL-141` describes an architectural
+    ownership condition, not one specific wiring mechanism. A deployment
+    qualifies as SDK-supplied when the tree proves that `GovernedResolver` owns
+    the plan-construction -> execution seam and supplies the operator set,
+    whether that ownership is established through a Control Plane
+    `binding.yaml` or through direct canonical `build_governed_resolver`
+    adoption."*
+
+    **The invariant is unchanged: there must be ONE authoritative operator
+    set.** What is widened is only the detector's vocabulary, which knew a
+    single way of establishing that authority because a single way existed when
+    it was written.
+
+    **Shape A — the declared binding, unchanged.** The deployment's
+    ``binding.yaml`` names this module and this function through its single
+    permitted ``plan:`` reference: the Control Plane saying, on disk, *the SDK
+    reaches this function and constructs the resolver around it*.
+
+    **Shape B — direct canonical adoption.** The module reaches
+    :func:`~ccf.products.resolver.build_governed_resolver` or
+    :class:`~ccf.products.resolver.GovernedResolver`, and this body executes no
+    projection engine of its own. The resolver then invokes ``plan_factory``
+    itself and hands it the registered class's operator set, so the SDK is the
+    sole authority exactly as in shape A — established by the program rather
+    than by a document.
+
+    Both shapes are conjunctive with conditions 1, 2, 4 and 5, which are
+    unchanged and do the rest of the work: no ``ccf.projection-requirements``
+    registration, a ``required`` parameter on the factory, at least one
+    constructed plan, and every constructed plan sourcing its operator set from
+    that parameter. A body that authored a competing set still fails at 5
+    whichever shape it takes.
+
+    **No example is named here.** cp-05 qualifies under shape B because the
+    tree says so, and any later adopter qualifies the same way without an edit.
+    """
+    reference = _binding_plan_reference(root)
+    if reference is not None:
+        module_path, attribute = reference
+        if attribute == scope.name and (root / module_path).resolve() == path.resolve():
+            return True
+    return _delegates_the_seam_to_the_resolver(path, scope)
+
+
 def _sdk_supplied_operator_set(
     scope: ast.AST,
     path: pathlib.Path,
@@ -1882,14 +1956,7 @@ def _sdk_supplied_operator_set(
     if not isinstance(scope, ast.FunctionDef | ast.AsyncFunctionDef):
         return False
 
-    reference = _binding_plan_reference(root)
-    if reference is None:
-        return False
-    module_path, attribute = reference
-    if attribute != scope.name:
-        return False
-    named = (root / module_path).resolve()
-    if named != path.resolve():
+    if not _resolver_owns_the_seam(scope, path, root):
         return False
 
     if FACTORY_REQUIRED_PARAMETER not in _scope_parameters(scope):
@@ -2773,6 +2840,45 @@ def _binder_collapses(
     return problems
 
 
+def _delegates_the_seam_to_the_resolver(
+    path: pathlib.Path, scope: ast.AST
+) -> bool:
+    """Does this body hand the plan-construction -> execution seam to the SDK?
+
+    `D-IMPL-300`. The binder must be called between plan construction and
+    :meth:`~ccf.projection.engine.ProjectionEngine.execute`. A body that builds
+    a plan and executes it OWNS that seam and must name the binder. A body that
+    builds a plan and hands it to
+    :func:`~ccf.products.resolver.build_governed_resolver` does **not** own it:
+    ``plan_factory`` is invoked inside :class:`~ccf.products.resolver.
+    GovernedResolver`, which calls the binder itself, and requiring the example
+    to name it too would put the governance call back into adopter code — the
+    plumbing cp-05's migration removed.
+
+    **ARCHITECTURAL, NOT NOMINAL.** The question asked is *"who owns the
+    seam?"*, answered from the tree: the module reaches the canonical resolver,
+    and this body never executes a projection itself. No example name appears
+    here, so cp-06 and everything after it are covered by the same rule without
+    an edit.
+
+    The two conditions are conjunctive on purpose. A module that both delegates
+    *and* runs its own engine somewhere still owns a seam in the body that
+    executes, and that body keeps the requirement.
+    """
+    module = _parse(path)
+    if module is None:
+        return False
+    reaches_resolver = any(
+        isinstance(node, ast.Name) and node.id in CANONICAL_RESOLVER_ENTRYPOINTS
+        or isinstance(node, ast.Attribute)
+        and node.attr in CANONICAL_RESOLVER_ENTRYPOINTS
+        for node in ast.walk(module)
+    )
+    if not reaches_resolver:
+        return False
+    return not any(_is_plan_execution(node) for node in _scope_nodes(scope))
+
+
 def _projecting_scopes() -> list[tuple[pathlib.Path, ast.AST]]:
     """Every lexical body under ``examples/`` that plans or runs a projection."""
     found: list[tuple[pathlib.Path, ast.AST]] = []
@@ -2996,6 +3102,18 @@ def test_every_projecting_example_body_names_the_binder(
     Its roster is :data:`RULED_SDK_SUPPLIED_DEPLOYMENTS`, asserted by
     :func:`test_the_sdk_supplied_exemption_has_not_spread`.
     """
+    if _delegates_the_seam_to_the_resolver(path, scope):
+        # `D-IMPL-300`. This body builds a plan and hands it to the canonical
+        # resolver; it never executes one. `GovernedResolver` calls the binder
+        # between `plan_factory(...)` and `ProjectionEngine.execute`, which is
+        # the ruled point and — since the factory is invoked inside the SDK —
+        # the only point that still exists. Requiring the example to name the
+        # binder as well would be requiring it to duplicate a check the SDK
+        # performs, which is the adopter plumbing canonical adoption removes.
+        #
+        # The invariant is unchanged in force, only in scope: a body that owns
+        # the seam still names the binder, and this predicate says who owns it.
+        return
     if _premise_is_false(scope, path, _bindings(scope)):
         # Either route. Row B: the deployment registers no
         # `ccf.projection-requirements` AND its plan's `required=` reads the
@@ -3141,12 +3259,12 @@ def test_the_premise_detector_reads_the_shipped_tree_correctly() -> None:
         "examples/cp-02-facility-terms-snapshot",
         "examples/cp-03-obligor-financial-spread",
         "examples/cp-04-corporate-family-tree",
-        # Joined row B on 2026-09-08 when the example was corrected: its plan
-        # now derives `required_operators()` from the product class's declared
-        # `required_operator_keys` instead of authoring a second, hard-coded
-        # set. This list DESCRIBES THE TREE, so it moves when the tree does —
-        # the ruled roster above moves only when Dave rules.
-        "examples/cp-05-credit-exposure-rollup",
+        # `examples/cp-05-credit-exposure-rollup` JOINED row B on 2026-09-08
+        # and LEFT it at its canonical adoption (`D-IMPL-298`, `D-IMPL-301`).
+        # It is not a one-document deployment any more because it authors no
+        # document at all: `GovernedResolver` supplies the operator set, so it
+        # reads on the SDK-supplied list below instead. This list DESCRIBES THE
+        # TREE, so it moves when the tree does — which is what just happened.
         "examples/s1-00-companies-over-revenue",
     ], row_b
     assert _supplied_by_the_product_class(
@@ -3158,7 +3276,16 @@ def test_the_premise_detector_reads_the_shipped_tree_correctly() -> None:
             )
         )
     ), "cp-04 must reach row B by the D-IMPL-234 route, not by the older reading"
-    assert sdk_supplied == ["examples/hw1-companies-over-revenue/deployment"], (
+    # cp-05 arrives here from row B above, by `D-IMPL-301`'s second shape: it
+    # reaches `build_governed_resolver` directly rather than through a
+    # `binding.yaml`, and the ownership condition is architectural rather than
+    # tied to one wiring mechanism. The transition across these two lists is
+    # the migration's own evidence — *one document where two were possible* ->
+    # *no second document, because the SDK supplies the canonical set*.
+    assert sdk_supplied == [
+        "examples/cp-05-credit-exposure-rollup",
+        "examples/hw1-companies-over-revenue/deployment",
+    ], (
         sdk_supplied
     )
 

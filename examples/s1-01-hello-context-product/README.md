@@ -415,11 +415,11 @@ recovery-by-inference is not the same property as a pin.
 | `operator-parameters-traversal.yaml` | register | Permitted edge types and depth bound for the ownership walk. |
 | `operator-parameters-temporal.yaml` | register | How the as-of boundary treats recorded-versus-effective time. |
 | `operator-parameters-policy.yaml` | register | The classification the perspective is entitled to, and the substitution behaviour. |
-| `operator-parameters-similarity.yaml` | register | The screening query, the score floor and the corpus attribute per class. |
+| `operator-parameters-similarity.yaml` | register | The screening query, the score floor, the corpus attribute per class, and **the corpus's `index_version`** — its version identity, which lives here as of `D-IMPL-292` because the artifact that declares the corpus map is the one that owns which corpus it is. |
 | `perspective.yaml` | register | The Π role-conditioning the product is served under. |
 | `product-class.yaml` | register | Schema name and lane, TTL anchor, `assembly_mode`, the MAX_TTL key, and the operator set the product *claims*. |
 | `projection-requirements.yaml` | register | The plan id and the projection's *own* required operator set — the second authored side of the binder. |
-| `product-governance.yaml` | register | TTL ceiling and product TTL in seconds, the similarity index version, the replay and query-pin artifact classes and store directory, the request-contract key, what a complete assembly holds, and the declared S factor. |
+| `product-governance.yaml` | register | TTL ceiling and product TTL in seconds, the replay and query-pin artifact classes and store directory, the request-contract key, what a complete assembly holds, and the declared S factor. **The similarity index version is no longer here** — `D-IMPL-292` gave it a canonical home on `operator-parameters-similarity.yaml`, beside the corpus map the same artifact already declared, so the registry builder reads the corpus identity off the declaration that owns it rather than from a value this document restated. |
 | `ubo-question.yaml` | register | The **vocabulary** the question is asked in: which class is a natural person, which attribute carries a stake's percentage. The subject is *not* here — that is the caller's. |
 | `half-life-table.yaml` | register | λ_c per observation type. This deployment types observations by resolved entity class; a share transfer decays over months, a screening hit over a week. |
 | `debt-profile.yaml` | register | The CAR bands — risk sensitivity, and the D_c thresholds at which the answer routes to Forced-LLM or Fail-Closed — plus what each of those states obliges this deployment to do. The obligations are this bank's words; the SDK ships none. |
