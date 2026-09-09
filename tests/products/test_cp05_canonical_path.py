@@ -632,28 +632,24 @@ def _ask(fabric: Fabric, resolver: GovernedResolver, *, subject: str | None = No
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "24.10-F-12: cp-05's request_contract authors 'unsupported_arguments'"
-        " as a list, which load_config_and_boot ADMITS at boot (the section is"
-        " an adopter-owned DeclaredArtifact whose body is opaque there) and"
-        " ProductRequestContract.from_declared REFUSES at"
-        " build_governed_resolver. So adopting the canonical path costs three"
-        " config changes, not the two declarative additions waves 1 and 2"
-        " created — and the third is discovered three frames down from a"
-        " builder rather than at boot"
-    ),
-)
 def test_the_config_delta_is_two_declarative_additions() -> None:
     """Adoption should cost only what waves 1 and 2 added. It costs one more.
 
-    The premises about cp-05's own frozen document are asserted first, so this
-    test's ``xfail`` lands on the delta's *size* and not on something
-    incidental. The forced-ness of the third change is **not** asserted as a
-    premise, deliberately: it is what :func:`derived_config` consults, so if
-    the SDK ever reads cp-05's shape the delta drops to two here and this test
-    goes ``XPASS`` under ``strict`` rather than failing at a stale premise.
+    **Un-quarantined at ``24.11-05``, and the ratchet worked exactly as
+    written.** It carried ``xfail(strict=True)`` for ``24.10-F-12`` because
+    adoption cost a THIRD change nobody's wave created: cp-05 authored
+    ``unsupported_arguments`` as a bare list, ``load_config_and_boot`` admitted
+    it, and ``ProductRequestContract.from_declared`` refused it three frames
+    down. `D-IMPL-288` (2) ruled that a validation-timing defect and left the
+    canonical mapping shape untouched, so the Control Plane now refuses the
+    list AT BOOT and cp-05 authors the reason it always had in prose.
+    :func:`third_change_is_forced` consults the SDK rather than a constant and
+    now answers ``False``, so the delta dropped to two on its own.
+
+    Premise 2 below inverted with the finding and is stated in its closed form:
+    the document authors the canonical mapping. It is not deleted, because a
+    premise that can no longer go stale is the thing that would let this test
+    pass for the wrong reason.
     """
     shipped = shipped_config()
     derived = derived_config()
@@ -665,22 +661,74 @@ def test_the_config_delta_is_two_declarative_additions() -> None:
         "cp-05 already declares a product gate"
     )
 
-    # Premise 2 — cp-05 really does author the list shape. About the frozen
-    # document, so it cannot go stale under an SDK change.
-    assert isinstance(shipped["request_contract"]["unsupported_arguments"], list), (
-        "cp-05 no longer authors 'unsupported_arguments' as a list; this"
-        " finding's premise has moved"
+    # Premise 2, in its CLOSED form — cp-05 authors the canonical mapping, and
+    # the reason is prose rather than a manufactured constant.
+    unsupported = shipped["request_contract"]["unsupported_arguments"]
+    assert isinstance(unsupported, Mapping), (
+        "cp-05 no longer authors the canonical mapping; 24.10-F-12's"
+        " correction has been undone"
+    )
+    assert unsupported["as_of"].strip(), "the authored reason is blank"
+    assert "not supported at this tier" not in unsupported["as_of"], (
+        "the declaration restates the filler `deployment.py` used to mint;"
+        " the point of the mapping is the reason, not a longer way to say"
+        " nothing (D-IMPL-288)"
     )
 
-    # And the delta itself, enumerated. THREE, not two.
+    # Premise 3 — the SDK does not force a third change any more, asked of the
+    # SDK rather than of a constant.
+    assert not third_change_is_forced(), (
+        "ProductRequestContract.from_declared still refuses cp-05's shipped"
+        " request_contract, so the delta below cannot be two"
+    )
+
+    # And the delta itself, enumerated. TWO.
     delta = delta_paths(shipped, derived)
     assert delta == TWO_DECLARATIVE_ADDITIONS, (
         "adopting the canonical path costs a change nobody's wave created:"
-        f" {sorted(delta - TWO_DECLARATIVE_ADDITIONS)}. It is forced rather"
-        " than chosen — ProductRequestContract.from_declared refuses cp-05's"
-        f" shipped shape by name (third_change_is_forced() ->"
-        f" {third_change_is_forced()}), while load_config_and_boot admits the"
-        " same document without complaint"
+        f" {sorted(delta - TWO_DECLARATIVE_ADDITIONS)}"
+    )
+
+
+def test_the_deployment_passes_the_authored_reason_through_unchanged() -> None:
+    """`24.10-F-12` step 4 — the success signal, and it needs its own guard.
+
+    Dave: *"That last deletion is the success signal. If the YAML gains a
+    reason but Python continues recreating one, F-12 is not really finished."*
+    Correcting the declaration while `deployment.py` kept minting
+    ``"not supported at this tier"`` would leave cp-05 technically adopting the
+    canonical schema **while still discarding the author's governed
+    explanation at runtime** — which is why the deletion is mandatory rather
+    than tidy (`D-IMPL-288` (2), `D-IMPL-289`).
+
+    Two halves, because neither alone says it:
+
+    * the SDK's own reader carries the authored sentence verbatim, so the
+      declaration reaches a typed contract intact;
+    * cp-05's interpreter contains no expression that manufactures a reason.
+      Read as source and never imported, which is this harness's standing rule
+      for cp-05.
+    """
+    authored = shipped_config()["request_contract"]["unsupported_arguments"]
+    contract = ProductRequestContract.from_declared(
+        _declared_request_contract(shipped_config())
+    )
+
+    assert contract.unsupported_arguments == authored, (
+        "the SDK's typed reader did not carry cp-05's authored reasons"
+        " verbatim"
+    )
+
+    interpreter = (CP_05 / "deployment.py").read_text(encoding="utf-8")
+    minting = [
+        line
+        for line in interpreter.splitlines()
+        if "unsupported_arguments" in line and "for name in" in line
+    ]
+    assert not minting, (
+        "cp-05's interpreter manufactures its own unsupported-argument"
+        f" reasons again: {minting}. The declaration authors them; this code"
+        " passes them through (D-IMPL-288 (2) step 4)"
     )
 
 

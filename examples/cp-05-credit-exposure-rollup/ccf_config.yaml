@@ -214,8 +214,19 @@ request_contract:
       maximum: "1.0"
 
   # DECLARED AND REFUSED, not silently ignored — spec §B.4, `artifacts/question.yaml`.
+  # ARGUMENT NAME -> THE AUTHORED REASON IT IS UNSUPPORTED, and the reason is
+  # the point (`24.10-F-12`, `D-IMPL-288` (2)). This was a bare list until the
+  # Control Plane learned to refuse one at boot: a sequence names WHICH
+  # arguments are refused and never WHY, and `deployment.py` filled the gap in
+  # Python with the constant "not supported at this tier" — filler standing
+  # where an explanation belongs. The sentence below is transcribed from this
+  # product's own `artifacts/question.yaml`, where it was already written.
   unsupported_arguments:
-    - as_of
+    as_of: >-
+      this product's TTL is anchored `from_decision` (spec §B.1 element 3), so
+      the answer is scoped to the decision being taken now and there is no
+      entity validity period an `as_of` could address; Fluree's ledger `t` is
+      TRANSACTION time and `D-IMPL-88` rules it must not back `as_of`
 
 # THE TWO ENTITY CLASSES THE WALK PRODUCES, and what identifies each.
 #

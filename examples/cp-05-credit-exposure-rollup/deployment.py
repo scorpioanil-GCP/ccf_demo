@@ -269,9 +269,13 @@ def request_contract(config: dict[str, Any]):
         arguments=SkillArgumentSchema(
             properties=props, required=tuple(rc["arguments"]["required"])
         ),
-        unsupported_arguments={
-            name: "not supported at this tier" for name in rc.get("unsupported_arguments", ())
-        },
+        # PASSED THROUGH UNCHANGED (`24.10-F-12`, `D-IMPL-288` (2)). This was a
+        # comprehension minting `"not supported at this tier"` for every name
+        # in a bare list — the deployment manufacturing the very information
+        # the mapping shape exists to carry, and discarding whatever its author
+        # might have said. `ccf_config.yaml` now authors the reason and this
+        # line hands it over verbatim: the SDK reads what the document says.
+        unsupported_arguments=dict(rc.get("unsupported_arguments", {})),
         # DECLARED AS TEXT, HANDED OVER AS A DECIMAL, and both halves are
         # required by different SDK rules that only look like a conflict.
         #
