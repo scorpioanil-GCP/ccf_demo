@@ -1738,3 +1738,38 @@ Strictly stronger than the row-2 signal: the monkeypatch's deletion is now neces
 **WHAT THIS DOES NOT DECIDE.** `argument_defaults`, which stays a carry under `D-IMPL-295` (9) and did **not** enlarge this row. The probe rerun's outcome or the phase-level stop condition. `24.11-C-01`. `D-GATE-24.10`, the `phase-24.10` merge and push.
 
 **Next free decision id: `D-IMPL-297`.** **Related:** `D-IMPL-288` (2) (the ruling this implements), `D-IMPL-289` (the ordering and compensating-code rules), `D-IMPL-295`, `D-IMPL-261` (8), `D-IMPL-138` (a).
+
+---
+
+**D-IMPL-297 — Phase 24.11 SATISFIES its product-level stop condition. SDK remediation stops here; the next move is cp-05 product completion on the canonical path, and it is not another SDK phase.** RESOLVED. Date: 2026-09-09. Approver: Dave. The phase-level ruling for Phase 24.11.
+
+**The stop condition, and the answer.** *"Do the existing probes demonstrate that the canonical SDK path can compose the capabilities they require without rebuilding governance behavior in adopter code?"* Dave: **"Yes. `GovernedResolver` can now compose the capabilities these Context Products require without adopter code rebuilding the governed path."**
+
+**The evidence it was answered on**, from the probe rerun and measured rather than described:
+
+- **cp-05, canonical path:** the correct **77**-member family, the same **$10.125B gross / $9.325B adjusted** determination, the governed product gate exercised in **both** directions, and **0** remaining in-scope XFAILs. Adoption cost is back to the two declarative additions waves 1 and 2 created.
+- **s1-01, canonical path:** reaches a served governed product; the five repaired findings all disappeared from the strict-XFAIL roster; its two survivors correspond **exactly** to capabilities explicitly ruled out of 24.11.
+- **No harness bridges and no monkeypatch substitutions remain** in either probe.
+- **The five pre-existing example reds are unchanged, member for member**, so Dave: *"this phase did not buy its success by weakening the existing examples."*
+
+**What is closed.** `F-07`, `F-06`, **`F-08`'s obligation carriage**, `F-11` and `F-12`. Five in-scope findings, five collapses in the strict-XFAIL roster, each with a direct regression and a sabotage that reds it alone.
+
+**What stays a carry, and must not be pulled forward merely because it is still an XFAIL.** Dave: *"They are valuable boundaries."*
+
+- **Source-refresh / evidence semantics** — unresolved by prior architecture rulings (`D-IMPL-124`, `D-IMPL-119` limb 4). Left out of `F-08` by `D-IMPL-294` (2).
+- **A decision instant distinct from the graph boundary** — outside the current SDK contract (`F-09`, never in 24.11).
+- **`argument_defaults`** — remains a carry under `D-IMPL-295` (9) **because it did not block either probe**.
+
+**No further SDK hardening is authorized by this phase.**
+
+**THE BOUNDARY THIS ENTRY EXISTS TO FIX, and it is the load-bearing half.** Dave: *"Do not confuse proving the canonical path with migrating every example implementation onto it. cp-05's existing hand-built spine is now **legacy implementation inside the example**, not evidence that `GovernedResolver` remains deficient."* The five `test_spine_separation` reds are about that spine's structure and are pre-existing; they are not an SDK signal.
+
+**The next move is NOT another SDK phase.** The appropriate work is **cp-05 product completion**: replace its hand-composed governed spine with the canonical path — *"not to discover or repair more SDK behavior while doing so. If that migration exposes a new genuine SDK gap, **stop and classify it**. Otherwise, it is simply the example adopting the SDK capability we just proved."*
+
+**Explicitly not authorized before that work:** *"Do not add another review panel, proof phase, or generalized hardening pass."* This is a proportionality ruling in `D-IMPL-266`'s line and does not make panel-skipping a default.
+
+**Governs:** the disposition of Phase 24.11 and what may follow it.
+
+**WHAT THIS DOES NOT DECIDE.** The mechanics of closing 24.11 — `D-GATE-24.11`, whether `phase-24.11` merges, and any push. `D-GATE-24.10`, the `phase-24.10` merge, and the `phase-24.5-base` tag push (`D-IMPL-275` (3)). `24.11-C-01`. The number or shape of the cp-05 product-completion work.
+
+**Next free decision id: `D-IMPL-298`.** **Related:** `D-IMPL-296`, `D-IMPL-295`, `D-IMPL-294`, `D-IMPL-289`, `D-IMPL-288`, `D-IMPL-287`, `D-IMPL-286`, `D-IMPL-266` (the proportionality line), `D-IMPL-261` (examples are probes, not repair targets).

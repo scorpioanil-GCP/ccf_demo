@@ -3668,10 +3668,23 @@ the evidence that the SDK is deficient."* And: *"We should not spend the phase '
 pass.'"* **"Rewiring s1-01/cp-05" is removed from the scope entirely — it is a verification consequence, not a
 deliverable.**
 
-**STATUS: DECLARED AND CONSTITUTED, NOT PLANNED — `D-IMPL-286` (the framing, superseding `D-IMPL-285` (2)'s exit
-criterion) and `D-IMPL-287` (the constitution: no discuss cycle, the classification test, the sequence, the
-prohibition, the stop point), both Dave, 2026-09-08.** Branch not yet cut. Awaiting Dave's review of the short
-implementation plan before any execution (`D-IMPL-287` (8)).
+**STATUS: COMPLETE — the product-level stop condition is SATISFIED (`D-IMPL-297`, Dave, 2026-09-09).** Five rows
+executed one at a time, each presented for inspection before the next began (`D-IMPL-290` (3)). **CLOSED:** `F-07`
+(Pi seeded from the request, `5b3a78d5`), `F-06` (runtime seam `0c5ea162` + declaration authority `c824d5bf`/
+`d9c82788`, `D-IMPL-292`), **`F-08`'s obligation carriage** (`2afe51ba`, `D-IMPL-294`), `F-11` (request-bound
+operator parameters, `76de22ad`/`22ea7bb7`, `D-IMPL-295`) and `F-12` (boot-time `unsupported_arguments` validation,
+`e4568a9d`/`e57444e4`, `D-IMPL-296`). **The probe rerun answered the stop condition YES:** cp-05 on the canonical
+path serves its correct **77**-member family with the same **$10.125B / $9.325B** determination and the product gate
+exercised both ways, 0 in-scope XFAILs; s1-01 reaches a served governed product; **no harness bridge or monkeypatch
+substitution remains**; and the five pre-existing example reds are unchanged member-for-member, so the phase did not
+buy its success by weakening the examples. **CARRIES, not reopened by this phase:** source-refresh/evidence
+semantics and the decision instant (their surviving XFAILs are explicit boundaries, `D-IMPL-294` (2) / `F-09`), and
+`argument_defaults` (`D-IMPL-295` (9) — it blocked neither probe). **No further SDK hardening is authorized by this
+phase, and no review panel, proof phase or generalized hardening pass precedes the next work** (`D-IMPL-297`).
+**NEXT IS NOT ANOTHER SDK PHASE:** cp-05 product completion — replacing its hand-composed spine with the canonical
+path. cp-05's existing spine is **legacy implementation inside the example**, not evidence that `GovernedResolver`
+remains deficient. A genuine new SDK gap found during that migration is **stopped and classified**, never repaired
+in flight. **Not yet done: `D-GATE-24.11`, and the branch is neither merged nor pushed.**
 
 **THE EXIT CRITERION (Dave, verbatim, `D-IMPL-286` — this REPLACES the cp-05-shaped one at `D-IMPL-285` (2)):**
 
