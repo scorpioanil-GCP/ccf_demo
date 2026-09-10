@@ -2410,3 +2410,31 @@ Three sites changed and one gained an assertion: `produce.py`'s declared return 
 **THE MEASURED REASON THE WORK IS WORTH DOING.** 27 `cp04-examples-*` ledgers sit on `.76` as branches of the `ccf` ledger, left by prior seeded runs. They do **not** contaminate `fibo-v2` — measured 2026-09-10, `fibo-v2` reads exactly one clean copy of its data, 636 `owns` edges rather than 27× that — but Fluree is append-only and none of them can ever be removed. Every seeded run adds one more. And the fixtures they seed go stale silently: the committed cp-04 fixture carried 142 attribute rows while the live estate held 156.
 
 **Next free decision id: `D-IMPL-318`.** **Governs:** when and where the remaining example test modules convert; the separation from the successor's branch; the `D-IMPL-261` question that conversion raises. **Related:** `D-IMPL-261` (examples are probes, and the specimen freeze), CLAUDE.md §9 (the estate rule and the read-only test posture), `D-IMPL-315` (the successor sitting's constraints), `D-IMPL-313` (the specimen/successor separation this mirrors).
+
+
+---
+
+**D-IMPL-319 — The canonical rung-4 successor is COMPLETE. `examples/cp-04-canonical-corporate-family-tree` answers the rung-4 problem against the curated `.76` estate, read-only, with both structural predicates proved from the tree. The sitting closes and merges.** RESOLVED. Date: 2026-09-10. Ruled by: Dave, on the run he specified and the outputs he named in advance.
+
+**THE COMPLETION CONDITION, SET BEFORE THE RUN AND MET BY IT.** Dave named the two commands and the business outputs to compare against, and ruled replay-address variation out of scope because it carries the decision instant. Observed against Fluree ledger `fibo-v2` and PostgreSQL schema `ccf_v2` on `.76`:
+
+| request | expected | observed |
+| --- | --- | --- |
+| default (`max_depth` absent) | 49 / 119 / 29 / 29, `D_c` 0.408163… | **49 entities, 119 edges, 29 resolved, 29 circuits, `D_c` 0.4081632653061224489795918367** |
+| `MAX_DEPTH=1` | 36 / 35 / 16 / 0, `D_c` 0.5555… | **36 entities, 35 edges, 16 resolved, 0 circuits, `D_c` 0.5555555555555555555555555556** |
+
+**READ-ONLY, MEASURED RATHER THAN ASSERTED.** `.76` carried **30 Fluree ledger entries before the runs and 30 after**. The example's entire write surface is a temporary directory: the fabric's own SQLite L3 and the file-backed ArtifactStore holding the decision replay record, both discarded when the run exits. The two source stores receive SPARQL `SELECT`s and one parameterised SQL `SELECT`; no write verb exists anywhere in the tree.
+
+**WHAT THE SUCCESSOR PROVED.** That a canonical rung-4 example can be **authored** against the current SDK surface rather than derived from the frozen specimen — `shape_of` reads `"canonical"`, `_sdk_supplied_operator_set` answers True on all five conditions with plan sources `(('required',),)`, and the roster entry was written only after both predicates already answered. It is the first member of `RULED_SDK_SUPPLIED_DEPLOYMENTS` that arrived from neither other roster: cp-05 and s1-00 migrated in, this tree was authored on this side.
+
+**WHAT AUTHORING FORWARD BOUGHT, and it is the charter's whole argument.** Two SDK-surface facts were reachable only because the tree was written against today's surface instead of edited from cp-04's. `24.4-D-35` — *"the declared resolution spec cannot express a typed edge"* — is genuinely **closed**, and copying cp-04's `admit_relationship_claim` shape would have reproduced a workaround for a gap that no longer exists. Underneath it sat `CP04C-F-01`, a live defect nobody had met: entity identity was position-dependent, so a mutual pair became four entities silently, and this family carries 22 mutual pairs. It is fixed at `D-IMPL-316`.
+
+**TWO PRE-EMPTIVE ERGONOMIC FIXES, ruled worthwhile by Dave because they remove FALSE NEGATIVES rather than inconvenience:** an explicit `make example-cp-04-canonical` target, and named `--lei` / `--max-depth` arguments. Positional arguments put a bare depth in the anchor's slot, where it read as an LEI and produced an unresolvable-anchor refusal *that looks like a data problem rather than an invocation problem*. cp-01 lost a session to exactly this class of friction.
+
+**DELIBERATELY OUT OF THE `examples:` AGGREGATE**, on cp-05's reasoning and confirmed by Dave: *"An example that requires the curated estate should have an explicit runnable target rather than silently falling back to fake data."* A red check nobody can make green is worse than no check.
+
+**THE BOUNDARIES HELD.** `examples/cp-04-corporate-family-tree` is **zero files changed**, measured by `git diff` against the branch point and asserted by a test. No specimen content address, no `D_c` of 0.0909, no published artifact id and no snippet include appears anywhere in the successor.
+
+**WHAT THIS ENTRY DOES NOT CLOSE.** The earlier examples' test estate. `D-IMPL-317` schedules that as its own branch and `D-IMPL-318` is **reserved, untouched**, for the ruling on editing frozen cp-04's test surface. Nothing here rules on either.
+
+**Next free decision id: `D-IMPL-320`** — `D-IMPL-318` remains RESERVED and unspent. **Governs:** the successor's completion, its measured outputs, its read-only posture, and the close of this sitting. **Related:** `D-IMPL-313`/`D-IMPL-314` (the charter and its execution), `D-IMPL-315` (adjudicate rather than edit), `D-IMPL-316` (the SDK repair this surfaced), `D-IMPL-317` (the estate conversion, deliberately separated), `D-IMPL-261` (the specimen freeze this preserved), CLAUDE.md §9 (the estate rule and the read-only test posture).
