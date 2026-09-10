@@ -73,6 +73,7 @@ comparing once afterwards, is a check that can.
 from __future__ import annotations
 
 import json
+import os
 import pathlib
 import re
 import time
@@ -81,6 +82,7 @@ from typing import Any
 
 import httpx
 import psycopg
+import pytest
 
 FIXTURES = pathlib.Path(__file__).parent / "fixtures"
 FLUREE_FIXTURE = FIXTURES / "cp_04_family_fluree.json"
@@ -252,3 +254,55 @@ def seed(fluree_url: str, ledger: str, dsn: str, schema: str) -> None:
             f"schema {schema!r} holds {rows} {ATTRIBUTE_TABLE} rows, expected "
             f"{expected['legal_entity_rows']}"
         )
+
+
+# ---------------------------------------------------------------------------
+# The curated estate, read-only — `D-IMPL-318`.
+# ---------------------------------------------------------------------------
+
+#: The four variables cp-04's deployment reads. A converted module supplies
+#: none of them: it runs against whatever estate the operator exported.
+ESTATE_VARIABLES: tuple[str, ...] = (
+    "CCF_CP_04_FLUREE_URL",
+    "CCF_CP_04_FLUREE_LEDGER",
+    "CCF_CP_04_POSTGRES_DSN",
+    "CCF_CP_04_POSTGRES_SCHEMA",
+)
+
+#: Where a missing estate must FAIL rather than skip. A leg that quietly skips
+#: is a green build that proved nothing.
+ESTATE_REQUIRED = "CCF_REQUIRE_ESTATE"
+
+
+def live_estate() -> tuple[str, str]:
+    """The curated `.76` estate, seeding nothing (`D-IMPL-318`, CLAUDE.md §9).
+
+    Returns the ledger and schema the operator pointed cp-04 at, so a converted
+    module's fixture keeps the same ``(ledger, schema)`` shape :func:`seed`
+    returned and nothing downstream of it has to change.
+
+    **This function writes nothing.** That is the whole reason it exists: every
+    call to :func:`seed` mints a Fluree ledger, Fluree is append-only, and the
+    27 ``ccf:cp04-*`` ledgers already on the curated server can never be
+    removed. A converted module stops adding to that pile.
+
+    **It supplies no values of its own.** A default here would be a server
+    nobody chose, and pointing at the v1 names in ``ccf_dataprep/.env`` —
+    ``fibo:main``, ``public`` — resolves an anchor in Postgres that has no node
+    in the graph, which is the trap CLAUDE.md §9 records.
+    """
+    missing = [name for name in ESTATE_VARIABLES if not os.environ.get(name)]
+    if missing:
+        message = (
+            f"the curated estate is not configured: {', '.join(missing)} unset."
+            " Point them at the v2 namespaces — Fluree ledger `fibo-v2`,"
+            " PostgreSQL schema `ccf_v2` — never the v1 names in"
+            " `ccf_dataprep/.env` (CLAUDE.md §9)"
+        )
+        if os.environ.get(ESTATE_REQUIRED):
+            pytest.fail(message)
+        pytest.skip(message)
+    return (
+        os.environ["CCF_CP_04_FLUREE_LEDGER"],
+        os.environ["CCF_CP_04_POSTGRES_SCHEMA"],
+    )
