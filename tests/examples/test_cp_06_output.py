@@ -22,7 +22,7 @@ import pathlib
 import sys
 import tempfile
 from collections.abc import Iterator
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -91,13 +91,20 @@ def example() -> Iterator[tuple[Any, Any]]:
                 sys.modules[name] = saved[name]
 
 
-def _serve(example: tuple[Any, Any], **kwargs: Any) -> Any:
-    """One run of the demonstration facility, in its own scratch fabric."""
+def _serve(example: tuple[Any, Any], *, asked_at: datetime | None = None,
+           **kwargs: Any) -> Any:
+    """One run of the demonstration facility, in its own scratch fabric.
+
+    ``asked_at`` defaults to now. A determinism comparison must PIN it: the
+    decision instant is part of the determination — it sets the product's
+    expiry — so two serves a millisecond apart are two different questions and
+    correctly reach two different content addresses.
+    """
     deployment, produce = example
     asked = deployment.request(
         facility_id=_anchor("DEMONSTRATION_FACILITY"),
         borrower_scope=[_anchor("DEMONSTRATION_SCOPE")],
-        asked_at=datetime.now(UTC), **kwargs)
+        asked_at=asked_at or datetime.now(UTC), **kwargs)
     with tempfile.TemporaryDirectory() as scratch:
         return produce.assemble_and_serve(asked=asked, root=pathlib.Path(scratch))
 
@@ -327,3 +334,81 @@ def test_the_door_declares_its_entrypoint_rather_than_a_script_path() -> None:
     assert f"def {callable_name}(" in source, (
         f"door.yaml names {entrypoint!r} and that callable does not exist"
     )
+
+
+# --- CP-SPEC-006 conformance: the clauses the six behaviors do not cover ------
+
+
+def test_spec_d5_replay_same_parameters_reach_the_same_address(
+    estate: tuple[str, str], example: tuple[Any, Any]
+) -> None:
+    """`CP-SPEC-006` §D.5 steps 1-3, and the reason Assembly Mode 1 is declared.
+
+    Two serves of one question against one estate state must agree byte for
+    byte. Anything else means something non-deterministic reached the payload,
+    which is the claim `assembly_mode: algorithmic` makes at registration time.
+    """
+    from ccf.contracts.canonical import content_hash  # noqa: PLC0415
+
+    # PINNED, and the pin is the point: the decision instant sets the expiry
+    # and therefore enters the address, so determinism is a claim about one
+    # question rather than about two moments.
+    instant = datetime.now(UTC)
+    first = _serve(example, asked_at=instant)
+    second = _serve(example, asked_at=instant)
+    assert content_hash(first.product) == content_hash(second.product)
+
+    # And the control: the SAME question at a DIFFERENT instant is a different
+    # determination. Without this the assertion above would also pass against a
+    # product that ignored time entirely.
+    later = _serve(example, asked_at=instant + timedelta(hours=1))
+    assert content_hash(later.product) != content_hash(first.product)
+
+
+def test_spec_d5_one_changed_parameter_moves_the_payload_not_the_read(
+    estate: tuple[str, str], example: tuple[Any, Any]
+) -> None:
+    """`CP-SPEC-006` §D.5 step 4 — the clause that proves where the work happens.
+
+    `shared_collateral` is applied at Π, so changing it must change the content
+    address while leaving the operator plan identical. If the plan moved, the
+    parameter would be conditioning the graph read, and every allocation basis
+    would compile to a different query — which is the naive-projection defect
+    the SDK records elsewhere.
+    """
+    from ccf.contracts.canonical import content_hash  # noqa: PLC0415
+
+    instant = datetime.now(UTC)
+    baseline = _serve(example, asked_at=instant)
+    pro_rata = _serve(example, asked_at=instant, shared_collateral="pro-rata")
+    assert content_hash(pro_rata.product) != content_hash(baseline.product)
+    assert sorted(pro_rata.record.content_generation_path.operator_plan) == sorted(
+        baseline.record.content_generation_path.operator_plan
+    ), "the allocation basis changed the READ; it must change only the payload"
+
+
+def test_spec_b1_lineage_carries_exactly_the_two_declared_operators(
+    default: Any, example: tuple[Any, Any]
+) -> None:
+    """`CP-SPEC-006` §B.1(5) and §D.2.1.
+
+    The vault article lists five verbs; only two are registered L4 operators on
+    this SDK. A step carrying a Standard verb that is not a registered operator
+    must NOT enter `operators_invoked`, or lineage strict equality would be
+    sealing a document that claims work no operator did.
+    """
+    deployment, _ = example
+    declared = tuple(deployment.config()["product_class"]["required_operator_keys"])
+    assert sorted(default.record.content_generation_path.operator_plan) == sorted(declared)
+    assert len(declared) == 2
+
+
+def test_spec_c3_unresolved_debtor_names_are_served_not_hidden(default: Any) -> None:
+    """`CP-SPEC-006` §C.3 — the register keys on name, the fabric keys on LEI.
+
+    The crosswalk's match is a claim with a score, never filed fact. Names it
+    could not resolve are REPORTED: measured, 15 of 16 filed names resolve to
+    no LEI, several visibly subsidiaries of the one that does. Hiding them
+    would make an entity-resolution gap look like an absence of liens.
+    """
+    assert len(default.coverage.unresolved_debtors) > 0
