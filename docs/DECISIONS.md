@@ -2353,3 +2353,26 @@ Three sites changed and one gained an assertion: `produce.py`'s declared return 
 **PROVENANCE.** The successor's whole purpose is to prove current-`main` behavior, so the sitting's base is recorded explicitly: branch `cp-04-canonical`, cut from `7e2e7aa3` — the `example-modernization` merge commit, the first commit carrying `D-IMPL-309`/`310`/`311` together with everything `main` held independently. `STATE.md` was brought forward to that base in the same sitting for the same reason: a stale state pointer muddies the provenance the successor exists to establish.
 
 **Next free decision id: `D-IMPL-315`.** **Governs:** the successor's tree name, its required shape, its authoring order, the non-reuse of cp-04 identifiers, and the recorded base. **Related:** `D-IMPL-313` (the charter this executes), `D-IMPL-312` (specimen versus successor), `D-IMPL-309`/`D-IMPL-310`/`D-IMPL-311` (the three current-surface behaviors it is authored against), `D-IMPL-261` (cp-04's freeze), `D-IMPL-137` (the exemption rosters and their row C), `D-IMPL-306` (the two valid spine shapes and the half-migration refusal).
+
+
+---
+
+**D-IMPL-315 — "The canonical path is richer" is a FINDING TO ADJUDICATE, never a licence to edit the example. Determine first whether the richer behavior is legitimate SDK semantics or an actual mismatch — and the operating constraints for the rung-4 successor.** RESOLVED. Date: 2026-09-10. Ruled by: Dave, on the successor sitting's first checkpoint.
+
+**THE REFINEMENT, AND IT SHARPENS `D-IMPL-313`'s THIRD CARRY IN BOTH DIRECTIONS.** Dave: *"Do not let 'canonical path is richer' automatically mean 'change the example.' First determine whether the richer behavior is legitimate SDK semantics or an actual mismatch."* The third carry stopped the SDK being made smaller to match a historical assertion; this stops the example being rewritten to match whatever the SDK happens to do. **Neither side is presumed correct by being the one that is richer.** The obligation is an adjudication with a stated basis, and only then an edit — to whichever side the adjudication puts the defect on. Worked instance from the same checkpoint: the SDK admits `RequestBoundParameter` on exactly one Control Plane field, which reads as a gap until `examples/cp-05-credit-exposure-rollup/ccf_config.yaml` is read, where the separation of product bound from backend ceiling is stated outright — legitimate semantics, no gap, and the example was the side that had to move.
+
+**THE OPERATING CONSTRAINTS, as ruled:**
+
+- `depth_limit` stays a **technical operator ceiling**.
+- `max_depth` stays **caller-governed request state**, recorded in **replay dimension 2**.
+- `deployment.py` and acquisition handle **vocabulary, source access and admission only**.
+- **No binder, no local gates, no replay and no serve** in those layers.
+- A **named** `plan_factory`, with operator requirements sourced **only** from the resolver's `required` tuple.
+- **Do not copy** cp-04's spine, snippet regions or addresses.
+- **`shape_of` must prove canonical before completion.**
+- **Roster addition only after the structural predicate proves `sdk_supplied`** — the ruling authorizes, the tree proves (`D-IMPL-313` tightening 1).
+- **`docs/surface/examples/RETIREMENT-COUPLINGS.md` stays untouched on this branch.** It is stale on `main` from before this sitting — measured at base `7e2e7aa3` in a detached worktree, where regenerating produces the identical 43-line diff, so the staleness is attributable and is not this branch's to repair.
+
+**THE ORDERED PATH.** deployment/vocabulary → two-leg acquisition → canonical producer → structural classification → roster update **only if proved** → docs/tests. **Stop on the first unclassified miss.** Dave's statement of purpose: *"That keeps the sibling a fresh current example rather than a cleaned-up cp-04."*
+
+**Next free decision id: `D-IMPL-316`.** **Governs:** the adjudication obligation when the canonical path and a historical example disagree; the successor's layer boundaries; the order of the remaining work; and the disposition of the stale generated report on this branch. **Related:** `D-IMPL-314` (the successor's charter as executed), `D-IMPL-313` (the charter and its third carry, which this refines), `D-IMPL-295` (the request-binding construct and its deliberate narrowness), `D-IMPL-310` (replay dimension 2 as a superset), `D-IMPL-137` (the exemption rosters and the structural predicate), `D-IMPL-261` (examples are probes).
