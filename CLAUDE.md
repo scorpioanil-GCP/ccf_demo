@@ -960,6 +960,41 @@ must seed a throwaway namespace, that is a test-fixture decision to be raised
 rather than assumed — Fluree is append-only, so a seeded ledger cannot be
 removed afterwards.
 
+#### Tests read the estate too — read-only, seeding nothing (Dave, 2026-09-10)
+
+**The default for an example's tests is: point them at `.76` and seed nothing.**
+Dave's reason is the one that matters: *"without data we might miss defects."* A
+committed fixture is a frozen snapshot, and it goes stale silently — measured
+2026-09-10, live `ccf_v2.legal_entity` held **156** rows against the committed
+cp-04 fixture's **142**, and `fibo-v2` was at `t=5296` while the fixture is
+frozen forever. It happened not to change that example's answer, which is luck
+rather than design. **A defect that only appears against larger, dirtier or
+newer estate data is invisible to a fixture-based test.**
+
+**What makes this possible is how the assertions are written.** Tests against
+the live estate must assert **relationships and identities, never fixed
+counts** — a smaller depth serves strictly fewer entities than a larger one;
+`D_c` equals `1 − resolved/served`; a request above the ceiling refuses with
+authority `technical`; replay dimension 2 is a superset of product lineage.
+Every one of those is true at any roster size, so estate drift exercises the
+example instead of breaking the build. **A test that pins an absolute count
+from the estate has made the estate a fixture again**, and has to be rewritten
+rather than re-pinned when it goes red.
+
+**The one case that still needs a private namespace is estate PERTURBATION** —
+a test that must mutate data to prove a guard fires. Those seed a throwaway
+namespace, and that is a decision to raise with Dave, not to take. In-process
+sabotage — reverting a repair in `src/`, feeding a factory the wrong source —
+needs no estate at all and is preferred where it can carry the proof.
+
+**Seeded ledgers do not contaminate the estate, but they do accumulate.**
+Measured 2026-09-10: 27 `cp04-examples-*` ledgers left by prior test runs are
+branches of the **`ccf`** ledger, a different ledger name from `fibo-v2`, and
+`fibo-v2` reads exactly one clean copy of its data (636 `owns` edges, not 27×
+that). So the risk of seeding is **clutter that can never be deleted**, not
+wrong answers. That is a reason to prefer read-only tests, not a reason to
+relax about writing.
+
 ### Discipline for every example
 
 - **Runnable end-to-end** against the reference backends (SQLite-for-dev
