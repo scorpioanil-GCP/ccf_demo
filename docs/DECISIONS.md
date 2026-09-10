@@ -2325,3 +2325,31 @@ Three sites changed and one gained an assertion: `produce.py`'s declared return 
 **THE THREE CARRIES, UNMOVED.** (1) cp-05's estate rerun and artifact republication remain **Dave-owned**, blocked on the four `CCF_CP_05_*` values, and are explicitly **not** folded into the successor work. (2) `examples/cp-00-institutional-holders` remains the stable **row-B control specimen** (`D-IMPL-311`). (3) The recurring lesson, stated as a standing instruction for the sibling: *"assume the canonical SDK may be more complete than the historical example assertion, and measure before 'fixing' the SDK downward."* This sitting produced that finding three times — the store pin, the request-contract binding, and the refusal envelope — and in all three the correct repair was a more precise assertion rather than a smaller SDK.
 
 **Next free decision id: `D-IMPL-314`.** **Governs:** the successor's charter, its authoring discipline, the conditions on its roster classification, and the three carries. **Related:** `D-IMPL-312` (the specimen/successor separation this charters), `D-IMPL-309`/`D-IMPL-310`/`D-IMPL-311` (the three surfaces the successor must be authored against), `D-IMPL-261` (the freeze the successor is NOT under), `D-IMPL-137` (the exemption rosters and their row C), `D-IMPL-306` (the two valid spine shapes).
+
+
+---
+
+**D-IMPL-314 — The canonical rung-4 successor is `examples/cp-04-canonical-corporate-family-tree`. It is authored FROM the current canonical producer shape and brings across only the domain semantics it needs — never by copying cp-04's producer files and deleting the old code.** RESOLVED. Date: 2026-09-10. Ruled by: Dave, opening the successor sitting.
+
+**THE TREE.** Create `examples/cp-04-canonical-corporate-family-tree` as a new canonical successor to the frozen `examples/cp-04-corporate-family-tree`. It reuses the business problem and the semantic declarations; it does not reuse the historical implementation. `cp-04` **remains frozen under `D-IMPL-261` and is not modified** — zero files changed in its tree.
+
+**THE SUCCESSOR'S SHAPE — every clause is a requirement, not a preference.** The successor:
+
+- uses `boot` / `acquire` / `govern`;
+- uses a **named** `plan_factory`;
+- delegates governance to `GovernedResolver`;
+- has **no local binder**;
+- returns governed refusals as `RefusalEnvelope`;
+- keeps the ambient store snapshot pin **in replay, not in product identity** (`D-IMPL-309`);
+- treats replay dimension 2 as a **superset** of product policy lineage, including the request-contract binding (`D-IMPL-310`);
+- **must satisfy the structural canonical predicate before any SDK-supplied roster claim is added** (`D-IMPL-313` tightening 1 — the ruling authorizes the classification move; the tree still has to demonstrate it).
+
+**THE AUTHORING ORDER, AND IT IS THE PRACTICAL ENFORCEMENT OF THE CHARTER.** Dave, stated as the constraint at the top of the sitting: *"Do not begin by copying cp-04's producer files and deleting old code. Begin from the current canonical producer shape and bring across only the domain semantics/data behavior that the successor actually needs."* Copy-then-delete reaches a passing tree while preserving the historical shape's assumptions in everything the deletion did not touch; authoring forward reaches it only by naming each semantic the successor genuinely requires. **A successor arrived at by subtraction has failed this entry even if its output matches.**
+
+**NOT REUSED.** No `cp-04` content address, snippet include, publication identifier, or historical expectation. The successor earns its own.
+
+**STOP ON THE FIRST UNCLASSIFIED MISS. No re-pin.** And the standing instruction from `D-IMPL-313`'s third carry: **measure before reducing any richer canonical SDK behavior to match the historical specimen.** Three times in the previous sitting the canonical path carried more than the example asserted, and in all three the correct repair was a more precise assertion rather than a smaller SDK.
+
+**PROVENANCE.** The successor's whole purpose is to prove current-`main` behavior, so the sitting's base is recorded explicitly: branch `cp-04-canonical`, cut from `7e2e7aa3` — the `example-modernization` merge commit, the first commit carrying `D-IMPL-309`/`310`/`311` together with everything `main` held independently. `STATE.md` was brought forward to that base in the same sitting for the same reason: a stale state pointer muddies the provenance the successor exists to establish.
+
+**Next free decision id: `D-IMPL-315`.** **Governs:** the successor's tree name, its required shape, its authoring order, the non-reuse of cp-04 identifiers, and the recorded base. **Related:** `D-IMPL-313` (the charter this executes), `D-IMPL-312` (specimen versus successor), `D-IMPL-309`/`D-IMPL-310`/`D-IMPL-311` (the three current-surface behaviors it is authored against), `D-IMPL-261` (cp-04's freeze), `D-IMPL-137` (the exemption rosters and their row C), `D-IMPL-306` (the two valid spine shapes and the half-migration refusal).
