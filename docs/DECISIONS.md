@@ -2198,4 +2198,50 @@ roundtripped : substrate='none'   pin='no-store-snapshot-pin'
 
 **STEP 6 — THE PROOF ON THE LIVE LEDGER, AND ITS SABOTAGE.** `tests/examples/test_s1_01_governed_resolver_adoption.py::test_two_ambient_ledger_heads_serve_one_content_address` runs the identical governed question twice over two separately booted and populated fabrics, reads both replay records, and asserts **two heads, one address**. The `heads[0] != heads[1]` assertion is there so the equality cannot pass on two runs that happened to share a head. **Sabotaged by restoring `store_snapshot_pin` to `ProductLineage` and the resolver's copy onto the lineage: RED, reproducing `MOD-05` verbatim** — heads `fluree:'78625'` and `fluree:'78692'`, addresses `e256c2b0…` and `082c99f9…`. Restored: **6 passed** against the Fluree leg. This is the end-to-end measurement `MOD-05` opened with, now answered on the canonical path.
 
-**Next free decision id: `D-IMPL-310`.** **Governs:** where the ambient store head lives and where it does not; the ambient/declared distinction; the refusal of a split hasher and the preservation of `content_address = sha256(canonical_bytes(product))`; the non-shipping of the fourth posture; and the withdrawal of the vessel half of the pin-divergence claim. **Related:** `MOD-05` (the finding this rules), `D-IMPL-308` (the ruling s1-01 must stay green beside), `D-IMPL-243` (the three postures, and why a fourth could not carry this), `D-IMPL-240`/`24.5-L-02` (the row that put the head on the vessel), `D-IMPL-88` (a transaction counter is not an as-of instant), `D-IMPL-293` (nothing has shipped; digests are consequences to regenerate), `24.11-C-01` (what does the identifier claim to identify), `D-IMPL-261` (examples are probes, and the cp-05 freeze), `D-IMPL-305`/`D-IMPL-306`/`D-IMPL-307` (the modernization pass).
+**Next free decision id: `D-IMPL-311`.** **Governs:** where the ambient store head lives and where it does not; the ambient/declared distinction; the refusal of a split hasher and the preservation of `content_address = sha256(canonical_bytes(product))`; the non-shipping of the fourth posture; and the withdrawal of the vessel half of the pin-divergence claim. **Related:** `MOD-05` (the finding this rules), `D-IMPL-308` (the ruling s1-01 must stay green beside), `D-IMPL-243` (the three postures, and why a fourth could not carry this), `D-IMPL-240`/`24.5-L-02` (the row that put the head on the vessel), `D-IMPL-88` (a transaction counter is not an as-of instant), `D-IMPL-293` (nothing has shipped; digests are consequences to regenerate), `24.11-C-01` (what does the identifier claim to identify), `D-IMPL-261` (examples are probes, and the cp-05 freeze), `D-IMPL-305`/`D-IMPL-306`/`D-IMPL-307` (the modernization pass).
+
+
+---
+
+**D-IMPL-310 — Product lineage policy versions are a SUBSET of replay policy-binding evidence, not an equality contract. Replay may carry additional governed artifacts — such as the request-contract version — that affected the determination but are not policy bundles. Canonical adoption must preserve those additional bindings rather than discard them to reproduce a hand-composed example's narrower record.** RESOLVED. Date: 2026-09-09. Ruled by: Dave, at the `/gsd-resume-work` sitting, on `MOD-06`.
+
+**THE RULING, IN DAVE'S OWN TERMS.** *"`MOD-06` is a stale example assertion, not an SDK defect. The canonical path is more complete here."* The two accounts are related and are not the same set:
+
+| account | answers |
+| --- | --- |
+| `ProductLineage.policy_bundle_versions` | which **policy bundle** versions shaped this product? |
+| replay dimension 2 (`policy_bindings.bindings`) | which **governed Control Plane bindings** shaped the request and the determination? |
+
+So the extra binding — `request-contract bdc2343d…` — *"belongs in replay. It governed what question could be asked and how its parameters were interpreted. It should not be stuffed into `policy_bundle_versions` merely to restore set equality."* The relation is `product lineage policy bundles ⊆ replay dimension-2 bindings`, never `==`. **The extra replay binding is better governance evidence, not migration drift.**
+
+**WHAT WAS MEASURED, NOT ASSUMED.** `GovernedResolver` reads the policy version **once** (`src/ccf/products/resolver.py:1855`) and uses it for both the product's lineage and the record's binding, so those two cannot disagree about a shared value — the difference was never a value conflict. A real canonical run:
+
+```
+LINEAGE  policy_bundle_versions:  5520f88f…e23dbec3eff8
+RECORD   dimension-2 bindings:    policy-bundle     5520f88f…e23dbec3eff8   <- same
+                                  request-contract  bdc2343d…ccd8b1956f86   <- the extra one
+```
+
+The hand-composed spine built dimension 2 from that one value, so `[versions] == [the one lineage version]` held **trivially**. It was an artifact of one spine populating both sides from one source, never a property anything had established.
+
+**WHAT WAS EXPLICITLY FORBIDDEN, AND NOT DONE.** Dave: *"Do not: remove `request-contract` from replay; add it to `ProductLineage.policy_bundle_versions`; re-pin an expected set to whatever happens to be emitted; preserve the legacy hand-composed record merely because the old equality test assumed it."* None of the four was done. **No SDK code changed under this entry at all** — the ruling is that the SDK was already right.
+
+**THE CORRECTED TEST IS MORE PRECISE, NOT WEAKER.** Dave: *"Do not weaken it to 'record has something.'"* `tests/examples/test_s1_01_output.py::test_the_record_carries_all_five_dimensions` now asserts two limbs, and **both sides of both limbs come from sources independent of the record** — the discipline the `operators_invoked` wiring established one step earlier in this same migration:
+
+1. **`bound[scenario.policy_bundle_key] == _the_one_policy_version(result)`** — every policy-bundle version the *product* carries appears in dimension 2, under the deployment's own key, at the same version. The product side is read off the served vessel; the record side off the stored bytes.
+2. **`bound[scenario.request_contract_artifact_key] == content_hash(scenario.request_contract)`** — the request contract that governed the question is bound too, at the version of the **contract itself**, re-derived the way the Control Plane mints a version rather than copied from the record.
+
+**ONE MEASUREMENT CORRECTED AN ASSUMPTION.** Limb 2 was first written as `content_hash(scenario.artifacts[key])` — the manifest entry — and was **RED**: `scenario.artifacts` holds a `DeclaredArtifact` **wrapper** whose hash is a different value (`7b1ba4dd…`), while the version is the contract's own (`bdc2343d…`). Measured rather than reasoned about, and the comment in the test records the distinction so the next reader does not repeat it.
+
+**FOUR SABOTAGES, ALL RED**, covering Dave's requirements 4–6 with the version limb split across the two code paths that build it:
+
+| sabotage | result |
+| --- | --- |
+| remove the policy-bundle binding from the record | **RED** |
+| remove the request-contract binding (`*applied`) | **RED** |
+| change the policy-bundle version | **RED** |
+| change the request-contract version (built at `resolver.py:2151`, a different path) | **RED** |
+
+**Gates:** `tests/examples/test_s1_01_output.py` **39 passed** against the Fluree leg — s1-01 fully modernized, with no SDK change and no expectation re-pinned.
+
+**Next free decision id: `D-IMPL-311`.** **Governs:** the subset relation between product lineage policy versions and replay dimension-2 bindings; the admissibility of non-policy-bundle governed artifacts in dimension 2; and the corrected s1-01 five-dimension assertion. **Related:** `MOD-06` (the finding this rules), `D-IMPL-309` (the ruling whose migration surfaced it), `D-IMPL-306` (the precedent for a test-model correction caused by SDK evolution), `D-IMPL-261` (an example assertion is not rewritten to accommodate an SDK surface it just met — this is the ruled exception, not a workaround), whitepaper §7.10.1 (the five dimensions).

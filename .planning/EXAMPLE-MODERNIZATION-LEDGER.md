@@ -307,8 +307,13 @@ identify?**
 
 ## `MOD-06` — BLOCKING for s1-01's last test. The canonical path pins the request contract into replay dimension 2; the hand-composed spine pinned only the policy bundle, and s1-01's test asserts dimension 2 equals the product's single lineage version.
 
-**Status:** OPEN. Needs a ruling. **Not** a value disagreement and **not** the
-store pin: the two sides agree about every version they share.
+**Status:** **RULED — `D-IMPL-310`, 2026-09-09.** A stale example assertion, not
+an SDK defect: the canonical path is more complete, and
+`product lineage policy bundles ⊆ replay dimension-2 bindings` was never an
+equality. **No SDK code changed.** The test was made *more* precise — both
+limbs checked against sources independent of the record — and sabotage-proven
+four ways. Not a value disagreement and **not** the store pin: the two sides
+agree about every version they share.
 
 **Measured on a real canonical run** (`tests/examples/test_s1_01_output.py::
 test_the_record_carries_all_five_dimensions`):
@@ -389,5 +394,5 @@ Preserved, measured, with no re-pin and no expectation weakened:
 | no local binder | the site is **gone**; `MOD-01` discharged as `D-IMPL-307` ruled — resolved floor `12 → 11` and delegated `1 → 2` in one commit |
 | canonical shape, not half-migrated | green |
 
-`tests/examples/test_s1_01_output.py`: **38 passed, 1 failed** — the one is
-`MOD-06` above.
+`tests/examples/test_s1_01_output.py`: **39 passed** — `MOD-06` ruled and its
+test corrected under `D-IMPL-310`. **s1-01 is fully modernized.**
