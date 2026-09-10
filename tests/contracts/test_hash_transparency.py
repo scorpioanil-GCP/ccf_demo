@@ -468,6 +468,12 @@ _MARKED_IN_THE_TREE = frozenset(
         # canonicalizes as it did, and the `ProductRequestContract`
         # digest below still reproduces.
         "ccf.products.request.ArgumentDomain.members",
+        # `CP04C-F-01` / `D-IMPL-316`: which PAYLOAD FIELD supplies a declared
+        # identity key, for rules whose source names the value positionally.
+        # Silent when empty, which is every rule written before it existed, so
+        # no committed resolution spec's pin moves and no entity URI shifts —
+        # the repair changes where a value is read from, never what is hashed.
+        "ccf.assembly.worker.EntityResolutionRule.identity_sources",
     }
 )
 

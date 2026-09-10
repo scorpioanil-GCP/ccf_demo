@@ -85,16 +85,60 @@ class EntityResolutionRule(CCFContract):
             value: a rule that switched on a *value* would be the SDK holding
             a domain vocabulary.
         entity_class: Class within the user's ontology; also the URI scheme.
-        identity_keys: Payload keys whose values identify the entity. Their
-            canonical hash becomes the URI's identity component, so the URI is
-            stable across source-system change (INV-CH7-18).
+        identity_keys: The entity's DECLARED identity keys. Their canonical
+            hash becomes the URI's identity component, so the URI is stable
+            across source-system change (INV-CH7-18). Each is read from the
+            payload field of the same name unless ``identity_sources`` names a
+            different field to read it from.
         attribute_keys: Payload keys carried onto the claim as attributes.
+        identity_sources: Declared identity key -> the PAYLOAD FIELD that
+            supplies its value, for rules whose source names the value
+            positionally (``CP04C-F-01``, `D-IMPL-316`). A position is not an
+            identity: ``parent_uri`` and ``child_uri`` both carry *an entity's
+            uri*, and a rule that reads either into the declared key
+            ``entity_uri`` mints the same URI for the same value.
+
+            **This field changes WHERE an identity value is READ FROM; it does
+            not change WHAT CONSTITUTES IDENTITY** (`D-IMPL-316`, Dave). That
+            sentence is the whole boundary of the repair, and it is why
+            existing URI and hash behavior is stable: identity is still the
+            declared key beside its value, hashed by the one global model, so
+            a rule that names no source reads the field it always read and
+            mints the URI it always minted. Only keys
+            listed in ``identity_keys`` may be remapped, and **what is hashed
+            is still the declared key beside its value** — the global identity
+            model is untouched, and only where the value is read from moves.
+            Hash-transparent when empty (``D-IMPL-243``): every rule written
+            before this field keeps the canonical form and the URIs it
+            already had.
     """
 
     match_key: str
     entity_class: str
     identity_keys: tuple[str, ...]
     attribute_keys: tuple[str, ...] = ()
+    identity_sources: Mapping[str, str] = Field(
+        default_factory=dict, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+
+    @model_validator(mode="after")
+    def _sources_remap_declared_identity_keys(self) -> "EntityResolutionRule":
+        """A remapped key nobody declared as identity would name nothing.
+
+        Refused rather than ignored: a typo in this mapping would otherwise
+        leave the rule reading the payload field of the same name as the
+        declared key, mint a different URI, and report nothing at all — the
+        silent wrong-identity failure this field exists to remove.
+        """
+        undeclared = sorted(set(self.identity_sources) - set(self.identity_keys))
+        if undeclared:
+            raise ValueError(
+                f"identity_sources remaps {undeclared}, which"
+                f" {self.entity_class!r} does not declare as identity keys"
+                f" ({sorted(self.identity_keys)}). A source field can only"
+                " supply a key the rule identifies the entity by"
+            )
+        return self
 
 
 class RelationshipResolutionRule(CCFContract):
@@ -295,14 +339,28 @@ class SpecDrivenEntityResolution:
         for rule in self._spec.entity_rules:
             if rule.match_key not in payload:
                 continue
-            missing = [key for key in rule.identity_keys if key not in payload]
+            # Where each declared identity key is READ FROM. The default is
+            # the field of the same name, which is every rule written before
+            # `identity_sources` existed.
+            source_of = {key: rule.identity_sources.get(key, key) for key in rule.identity_keys}
+            missing = [
+                key for key, field in source_of.items() if field not in payload
+            ]
             if missing:
                 raise ValueError(
                     f"envelope {envelope.envelope_id!r} matched rule for "
-                    f"{rule.entity_class!r} but lacks identity keys {missing}; "
+                    f"{rule.entity_class!r} but lacks identity keys {missing}"
+                    f" (read from payload fields "
+                    f"{sorted(source_of[key] for key in missing)}); "
                     "the fabric refuses to mint a URI from partial identity"
                 )
-            identity = {key: str(payload[key]) for key in rule.identity_keys}
+            # THE DECLARED KEY IS WHAT IS HASHED, beside the value the source
+            # field supplied. The payload field's name never enters the
+            # identity, so one entity named `parent_uri` here and `child_uri`
+            # there is ONE entity (`CP04C-F-01`).
+            identity = {
+                key: str(payload[field]) for key, field in source_of.items()
+            }
             resolved.append(
                 ResolvedEntity(
                     entity_uri=f"{rule.entity_class}://{content_hash(identity)}",

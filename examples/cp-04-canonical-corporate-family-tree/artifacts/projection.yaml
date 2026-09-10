@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# Π's OWN DECLARED VALUES. The projection is deployment code (whitepaper §7.5)
+# and is never a rewrite target, but the numbers it works to are values rather
+# than logic, so they are declared here instead of written into the program
+# (CLAUDE.md §6.4). A bound expressed as a Python constant is a threshold
+# expressed as code.
+
+semver: "1.0.0"
+class_id: cp-04-canonical.projection
+
+declaration:
+  cycles:
+    # THE LONGEST CIRCUIT ENUMERATED, and the number was chosen by measurement
+    # rather than by taste.
+    #
+    # Measured over this fixture's depth-3 family from the demonstration
+    # anchor: 22 circuits of length 2 and 7 of length 3, and the count is
+    # UNCHANGED at bounds of 4 and 5. The enumeration therefore SATURATES at 3,
+    # and a declared bound of 4 sits one above saturation — which means this
+    # value cannot be silently truncating the roster, and that claim is
+    # checkable rather than asserted: raising it must not change the count.
+    #
+    # A bound is still required. Cycle enumeration is exponential in the
+    # general case, and a family graph with mutual ownership has a great many
+    # long circuits that say nothing a short one has not already said.
+    max_length: 4
+
+    # WHAT THE PAYLOAD CARRIES WHEN THE ROSTER IS LONGER THAN THIS. The findings
+    # block reports the full COUNT and serves the first `roster_cap` circuits in
+    # deterministic order. A truncated roster that did not say it was truncated
+    # would be a payload quietly disagreeing with its own count.
+    roster_cap: 50

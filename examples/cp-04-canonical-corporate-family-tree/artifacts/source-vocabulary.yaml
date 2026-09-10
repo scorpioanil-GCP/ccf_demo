@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE SOURCES' OWN VOCABULARY — every IRI, table and column name this
+# deployment reads, in one document.
+#
+# WHY IT IS NOT IN `ccf_config.yaml`. That document is Control Plane state: what
+# the fabric is permitted to do. This is the shape of somebody else's store,
+# which the fabric does not govern and cannot change. Keeping them apart is what
+# lets a reader answer "what would I edit to point this at my own estate?"
+# without reading any Python.
+#
+# WHY IT IS NOT IN `acquisition.py`. The No-Hardcoding Rule (CLAUDE.md §6.4):
+# code is interpreters, never the things interpreted. An IRI written as a Python
+# constant is a routing value expressed as code.
+#
+# THE SHORT NAMES ARE THE FABRIC'S, THE IRIs ARE THE SOURCE'S, and the mapping
+# between them is the whole point of this file. `ccf_config.yaml` declares the
+# six short names as the traversal operator's `relationship_types` because that
+# is the fabric's own relationship vocabulary; the normalization step mints them
+# from the left-hand column here.
+
+semver: "1.0.0"
+class_id: cp-04-canonical.source-vocabulary
+
+declaration:
+  graph_leg:
+    # The node identifier's own predicates.
+    lei_predicate: http://example.org/fibo/lei
+    label_predicate: http://www.w3.org/2000/01/rdf-schema#label
+
+    # THE SIX DECLARED FAMILY PREDICATES: source IRI -> the fabric's short name.
+    #
+    # Seven other relationship predicates exist in this ledger —
+    # `hasSubsidiary`, `hasBeneficialOwner`, `isBeneficialOwnerOf`,
+    # `ownershipIn`, `hasOwnershipPercentage`, `isDirectorOf`, `isOfficerOf` —
+    # and are deliberately excluded. Admitting a seventh is the sabotage that
+    # proves the exclusion is enforced rather than described.
+    family_predicates:
+      https://spec.edmcouncil.org/fibo/ontology/FND/OwnershipAndControl/Ownership/owns: owns
+      https://spec.edmcouncil.org/fibo/ontology/FND/Relations/Relations/controls: controls
+      https://spec.edmcouncil.org/fibo/ontology/BE/LegalEntities/LEIEntities/isDirectlyConsolidatedBy: isDirectlyConsolidatedBy
+      https://spec.edmcouncil.org/fibo/ontology/BE/LegalEntities/LEIEntities/isUltimatelyConsolidatedBy: isUltimatelyConsolidatedBy
+      https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/CorporateControl/hasGlobalUltimateParent: hasGlobalUltimateParent
+      https://spec.edmcouncil.org/fibo/ontology/BE/OwnershipAndControl/CorporateControl/hasDomesticUltimateParent: hasDomesticUltimateParent
+
+  attribute_leg:
+    # THE TABLE IS `legal_entity` AND THE DECOY IS `crosswalk`, and the
+    # distinction is not pedantic: over this fixture's LEI-bearing nodes the two
+    # tables resolve materially different populations. Both are real numbers;
+    # only one answers the question asked, and they are far enough apart that a
+    # check reading the wrong table cannot report the right answer by accident.
+    table: legal_entity
+    key_column: lei
+    columns:
+      - lei
+      - legal_name
+      - legal_jurisdiction
+      - entity_status
+      - legal_form
+      - legal_address_country

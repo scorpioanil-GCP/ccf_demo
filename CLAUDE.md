@@ -924,6 +924,77 @@ SDK before they get remedied.**
 **Lightweight remediation is the default.** Use a lightweight process to fix the
 SDK issue unless the issue is a major defect that requires its own cycle.
 
+### The estate: every example reads the real data on `.76` (Dave, 2026-09-10)
+
+**All examples are to use the data sources on `192.168.4.76`** — the live
+Fluree, PostgreSQL and MongoDB instances of the `ccf_dataprep` estate. That is
+where the engineered financial-services data actually lives, and it is what the
+examples exist to be run against. An example demonstrated only against a
+committed test fixture has not been demonstrated: the fixture is a snapshot of
+the estate for CI's benefit, never a substitute for it.
+
+**One set of examples — the syndicated-lending set — will read TWO sets of data
+sources on `.76`.** Recorded here so the multi-source case is expected by
+design rather than discovered as an anomaly when that set is built.
+
+**The namespace trap, and it has already cost a build.** Connection material —
+host, port, credentials — comes from `ccf_dataprep/.env`. **The namespaces do
+not.** `.env` names the **v1** estate; the examples read the **v2** namespaces,
+which are declared only in `ccf_dataprep/ccf/config.py`:
+
+| store | `.env` says (v1) | what examples read (v2) |
+| --- | --- | --- |
+| Fluree | `fibo:main` | **`fibo-v2`** |
+| PostgreSQL | `public` | **`ccf_v2`** |
+| MongoDB | `fibo` | **`fibo_v2`** |
+
+Deriving an example's estate variables from `.env` alone silently points it at
+v1, where the anchor resolves in Postgres and has no node in the graph. That is
+exactly how a prior set of `CCF_CP_05_*` values came out wrong. Note also that
+`fibo:main` is a *name:branch* alias, which is why the v2 ledger is named
+`fibo-v2` rather than `fibo:v2` — the latter would have been a branch of v1.
+
+**`ccf_dataprep` is Dave's: read from it, never write to it.** Reading the
+estate for an example run is expected; writing into it is not. Where a test
+must seed a throwaway namespace, that is a test-fixture decision to be raised
+rather than assumed — Fluree is append-only, so a seeded ledger cannot be
+removed afterwards.
+
+#### Tests read the estate too — read-only, seeding nothing (Dave, 2026-09-10)
+
+**The default for an example's tests is: point them at `.76` and seed nothing.**
+Dave's reason is the one that matters: *"without data we might miss defects."* A
+committed fixture is a frozen snapshot, and it goes stale silently — measured
+2026-09-10, live `ccf_v2.legal_entity` held **156** rows against the committed
+cp-04 fixture's **142**, and `fibo-v2` was at `t=5296` while the fixture is
+frozen forever. It happened not to change that example's answer, which is luck
+rather than design. **A defect that only appears against larger, dirtier or
+newer estate data is invisible to a fixture-based test.**
+
+**What makes this possible is how the assertions are written.** Tests against
+the live estate must assert **relationships and identities, never fixed
+counts** — a smaller depth serves strictly fewer entities than a larger one;
+`D_c` equals `1 − resolved/served`; a request above the ceiling refuses with
+authority `technical`; replay dimension 2 is a superset of product lineage.
+Every one of those is true at any roster size, so estate drift exercises the
+example instead of breaking the build. **A test that pins an absolute count
+from the estate has made the estate a fixture again**, and has to be rewritten
+rather than re-pinned when it goes red.
+
+**The one case that still needs a private namespace is estate PERTURBATION** —
+a test that must mutate data to prove a guard fires. Those seed a throwaway
+namespace, and that is a decision to raise with Dave, not to take. In-process
+sabotage — reverting a repair in `src/`, feeding a factory the wrong source —
+needs no estate at all and is preferred where it can carry the proof.
+
+**Seeded ledgers do not contaminate the estate, but they do accumulate.**
+Measured 2026-09-10: 27 `cp04-examples-*` ledgers left by prior test runs are
+branches of the **`ccf`** ledger, a different ledger name from `fibo-v2`, and
+`fibo-v2` reads exactly one clean copy of its data (636 `owns` edges, not 27×
+that). So the risk of seeding is **clutter that can never be deleted**, not
+wrong answers. That is a reason to prefer read-only tests, not a reason to
+relax about writing.
+
 ### Discipline for every example
 
 - **Runnable end-to-end** against the reference backends (SQLite-for-dev

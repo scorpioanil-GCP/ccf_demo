@@ -2325,3 +2325,116 @@ Three sites changed and one gained an assertion: `produce.py`'s declared return 
 **THE THREE CARRIES, UNMOVED.** (1) cp-05's estate rerun and artifact republication remain **Dave-owned**, blocked on the four `CCF_CP_05_*` values, and are explicitly **not** folded into the successor work. (2) `examples/cp-00-institutional-holders` remains the stable **row-B control specimen** (`D-IMPL-311`). (3) The recurring lesson, stated as a standing instruction for the sibling: *"assume the canonical SDK may be more complete than the historical example assertion, and measure before 'fixing' the SDK downward."* This sitting produced that finding three times — the store pin, the request-contract binding, and the refusal envelope — and in all three the correct repair was a more precise assertion rather than a smaller SDK.
 
 **Next free decision id: `D-IMPL-314`.** **Governs:** the successor's charter, its authoring discipline, the conditions on its roster classification, and the three carries. **Related:** `D-IMPL-312` (the specimen/successor separation this charters), `D-IMPL-309`/`D-IMPL-310`/`D-IMPL-311` (the three surfaces the successor must be authored against), `D-IMPL-261` (the freeze the successor is NOT under), `D-IMPL-137` (the exemption rosters and their row C), `D-IMPL-306` (the two valid spine shapes).
+
+
+---
+
+**D-IMPL-314 — The canonical rung-4 successor is `examples/cp-04-canonical-corporate-family-tree`. It is authored FROM the current canonical producer shape and brings across only the domain semantics it needs — never by copying cp-04's producer files and deleting the old code.** RESOLVED. Date: 2026-09-10. Ruled by: Dave, opening the successor sitting.
+
+**THE TREE.** Create `examples/cp-04-canonical-corporate-family-tree` as a new canonical successor to the frozen `examples/cp-04-corporate-family-tree`. It reuses the business problem and the semantic declarations; it does not reuse the historical implementation. `cp-04` **remains frozen under `D-IMPL-261` and is not modified** — zero files changed in its tree.
+
+**THE SUCCESSOR'S SHAPE — every clause is a requirement, not a preference.** The successor:
+
+- uses `boot` / `acquire` / `govern`;
+- uses a **named** `plan_factory`;
+- delegates governance to `GovernedResolver`;
+- has **no local binder**;
+- returns governed refusals as `RefusalEnvelope`;
+- keeps the ambient store snapshot pin **in replay, not in product identity** (`D-IMPL-309`);
+- treats replay dimension 2 as a **superset** of product policy lineage, including the request-contract binding (`D-IMPL-310`);
+- **must satisfy the structural canonical predicate before any SDK-supplied roster claim is added** (`D-IMPL-313` tightening 1 — the ruling authorizes the classification move; the tree still has to demonstrate it).
+
+**THE AUTHORING ORDER, AND IT IS THE PRACTICAL ENFORCEMENT OF THE CHARTER.** Dave, stated as the constraint at the top of the sitting: *"Do not begin by copying cp-04's producer files and deleting old code. Begin from the current canonical producer shape and bring across only the domain semantics/data behavior that the successor actually needs."* Copy-then-delete reaches a passing tree while preserving the historical shape's assumptions in everything the deletion did not touch; authoring forward reaches it only by naming each semantic the successor genuinely requires. **A successor arrived at by subtraction has failed this entry even if its output matches.**
+
+**NOT REUSED.** No `cp-04` content address, snippet include, publication identifier, or historical expectation. The successor earns its own.
+
+**STOP ON THE FIRST UNCLASSIFIED MISS. No re-pin.** And the standing instruction from `D-IMPL-313`'s third carry: **measure before reducing any richer canonical SDK behavior to match the historical specimen.** Three times in the previous sitting the canonical path carried more than the example asserted, and in all three the correct repair was a more precise assertion rather than a smaller SDK.
+
+**PROVENANCE.** The successor's whole purpose is to prove current-`main` behavior, so the sitting's base is recorded explicitly: branch `cp-04-canonical`, cut from `7e2e7aa3` — the `example-modernization` merge commit, the first commit carrying `D-IMPL-309`/`310`/`311` together with everything `main` held independently. `STATE.md` was brought forward to that base in the same sitting for the same reason: a stale state pointer muddies the provenance the successor exists to establish.
+
+**Next free decision id: `D-IMPL-315`.** **Governs:** the successor's tree name, its required shape, its authoring order, the non-reuse of cp-04 identifiers, and the recorded base. **Related:** `D-IMPL-313` (the charter this executes), `D-IMPL-312` (specimen versus successor), `D-IMPL-309`/`D-IMPL-310`/`D-IMPL-311` (the three current-surface behaviors it is authored against), `D-IMPL-261` (cp-04's freeze), `D-IMPL-137` (the exemption rosters and their row C), `D-IMPL-306` (the two valid spine shapes and the half-migration refusal).
+
+
+---
+
+**D-IMPL-315 — "The canonical path is richer" is a FINDING TO ADJUDICATE, never a licence to edit the example. Determine first whether the richer behavior is legitimate SDK semantics or an actual mismatch — and the operating constraints for the rung-4 successor.** RESOLVED. Date: 2026-09-10. Ruled by: Dave, on the successor sitting's first checkpoint.
+
+**THE REFINEMENT, AND IT SHARPENS `D-IMPL-313`'s THIRD CARRY IN BOTH DIRECTIONS.** Dave: *"Do not let 'canonical path is richer' automatically mean 'change the example.' First determine whether the richer behavior is legitimate SDK semantics or an actual mismatch."* The third carry stopped the SDK being made smaller to match a historical assertion; this stops the example being rewritten to match whatever the SDK happens to do. **Neither side is presumed correct by being the one that is richer.** The obligation is an adjudication with a stated basis, and only then an edit — to whichever side the adjudication puts the defect on. Worked instance from the same checkpoint: the SDK admits `RequestBoundParameter` on exactly one Control Plane field, which reads as a gap until `examples/cp-05-credit-exposure-rollup/ccf_config.yaml` is read, where the separation of product bound from backend ceiling is stated outright — legitimate semantics, no gap, and the example was the side that had to move.
+
+**THE OPERATING CONSTRAINTS, as ruled:**
+
+- `depth_limit` stays a **technical operator ceiling**.
+- `max_depth` stays **caller-governed request state**, recorded in **replay dimension 2**.
+- `deployment.py` and acquisition handle **vocabulary, source access and admission only**.
+- **No binder, no local gates, no replay and no serve** in those layers.
+- A **named** `plan_factory`, with operator requirements sourced **only** from the resolver's `required` tuple.
+- **Do not copy** cp-04's spine, snippet regions or addresses.
+- **`shape_of` must prove canonical before completion.**
+- **Roster addition only after the structural predicate proves `sdk_supplied`** — the ruling authorizes, the tree proves (`D-IMPL-313` tightening 1).
+- **`docs/surface/examples/RETIREMENT-COUPLINGS.md` stays untouched on this branch.** It is stale on `main` from before this sitting — measured at base `7e2e7aa3` in a detached worktree, where regenerating produces the identical 43-line diff, so the staleness is attributable and is not this branch's to repair.
+
+**THE ORDERED PATH.** deployment/vocabulary → two-leg acquisition → canonical producer → structural classification → roster update **only if proved** → docs/tests. **Stop on the first unclassified miss.** Dave's statement of purpose: *"That keeps the sibling a fresh current example rather than a cleaned-up cp-04."*
+
+**Next free decision id: `D-IMPL-316`.** **Governs:** the adjudication obligation when the canonical path and a historical example disagree; the successor's layer boundaries; the order of the remaining work; and the disposition of the stale generated report on this branch. **Related:** `D-IMPL-314` (the successor's charter as executed), `D-IMPL-313` (the charter and its third carry, which this refines), `D-IMPL-295` (the request-binding construct and its deliberate narrowness), `D-IMPL-310` (replay dimension 2 as a superset), `D-IMPL-137` (the exemption rosters and the structural predicate), `D-IMPL-261` (examples are probes).
+
+
+---
+
+**D-IMPL-316 — `CP04C-F-01` REPAIRED as a bounded SDK fix. A POSITION IS NOT AN IDENTITY: an entity rule may declare which payload field supplies a declared identity key, and the DECLARED key is still what is hashed. The global content-hash and identity model is untouched.** RESOLVED. Date: 2026-09-10. Ruled by: Dave, on the successor sitting's first unclassified miss.
+
+**THE RULING, AND ITS BOUNDARY.** Dave: *"Fix `CP04C-F-01` now as a bounded SDK repair. Position/source field names are not entity identity. Endpoint selection should bind a payload field to the entity class's declared identity key, and the canonical identity key/value pair is what gets hashed. Do not change global hashing semantics."* Four constraints held exactly: the global entity hash model is unchanged; canonical identity key names remain in the hash; only endpoint resolution's *source* of a value moved; and `admit_relationship_claim` was **not** used as a fallback. The stop condition Dave attached — *"Only stop if it turns out the repair requires changing the global content-hash/identity model across all entities"* — was not reached: nothing outside `SpecDrivenEntityResolution.resolve` and the rule contract changed.
+
+**THE DEFECT.** A URI is `entity_class://content_hash(identity)` where `identity` was `{payload_key: value}`, so the payload key's NAME was inside the identity. Endpoint selection (`24.5-L-21`) requires the two endpoints to come from two entity rules reading two different payload fields, so **the same company hashed differently in each position**: measured live, three real nodes became five entities, and two companies in a mutual pair became four. The condition is not exotic — the cp-04 family fixture carries **22 mutual pairs**, so the ordinary case was the broken one, and it failed silently because both URIs were well-formed.
+
+**THE REPAIR.** `EntityResolutionRule.identity_sources` — declared identity key → the payload field that supplies its value. Defaulted empty, **hash-transparent** (`D-IMPL-243`), so every rule written before it keeps its canonical form and its URIs; verified by canonical bytes, and by the marked-field roster in `tests/contracts/test_hash_transparency.py` being updated deliberately rather than drifting. A remap naming a key the rule does not identify by is **refused at construction**, because ignoring it would silently fall back to the same-named payload field, mint a different URI, and report nothing.
+
+**PROVED, AND THE CONTROLS ARE THE POINT.** Dave's five cases, each a committed test in `tests/assembly/test_worker.py` except case 5: (1) one LEI in both endpoint positions is ONE entity; (2) an A→B same-class edge still mints, so the repair did not cost the feature it repairs; (3) a mutual pair is 2 entities and 2 edges; (4) **the negative control** — reintroducing payload-key-name identity reproduces the duplicate-entity defect at 4; (5) cp-00's different-class co-occurrence is **byte-for-byte unchanged**, measured by running identical inputs against a detached worktree at the pre-fix commit `fbfcce2d` and diffing the resolved URIs, attributes and classes.
+
+**TWO THINGS THE PROOF MACHINERY GOT WRONG FIRST, RECORDED BECAUSE THEY ARE THE RECURRING CLASS.** The negative control initially ingested ONE envelope carrying two distinct values and asserted four entities; it fails at two, because one envelope with two different companies duplicates nothing. The defect needs the SAME company in both positions, which is TWO envelopes — the shape a mutual pair actually arrives in. The control caught its own error. Then the repair was **sabotaged in `src/`** and the three positive tests observed RED while the negative control and the validator test stayed green, which is what distinguishes tests that depend on the repair from tests that merely coexist with it.
+
+**WHAT THIS SAYS ABOUT `24.4-D-35`.** It is genuinely closed — `24.5-L-21`'s endpoint selection does mint typed same-class edges, measured live. What was underneath it is this entry. The successor found it only because it was authored forward against the current surface; copying cp-04's `admit_relationship_claim` shape would have sidestepped the defect and left it live for the next adopter.
+
+**Next free decision id: `D-IMPL-317`.** **Governs:** the identity/position separation, the `identity_sources` construct and its refusal, the hash-transparency obligation, and the five proof cases. **Related:** `D-IMPL-315` (the adjudication obligation this finding was decided under), `D-IMPL-314`/`D-IMPL-313` (the successor's charter and its stop-on-first-miss rule), `D-IMPL-243` (hash transparency), `24.5-L-21` and `24.4-D-35` (endpoint selection and the gap it closed), `D-IMPL-293` (pre-v0, correctness beats compatibility).
+
+
+---
+
+**D-IMPL-317 — The remaining example test modules move to the read-only live estate on their OWN branch, AFTER cp-04-canonical closes. Not now, and not inside the successor's branch.** RESOLVED. Date: 2026-09-10. Ruled by: Dave, on the tension surfaced when the read-only posture was written into CLAUDE.md §9.
+
+**THE COMMITMENT.** Dave: *"We will need to update them once we are done with cp-04 we can open a new branch and address them."* The `.76` read-only, seed-nothing posture (CLAUDE.md §9) is the standing rule for every example's tests. `tests/examples/test_cp_04_canonical_output.py` already meets it. The rest — the cp-00 through cp-05 modules and their `cp_0N_seed.py` helpers — do not, and converting them is **a separate branch off `main` after `cp-04-canonical` closes**, never work folded into the successor.
+
+**WHY THE SEPARATION IS THE RULING RATHER THAN THE SCHEDULING.** The successor's branch exists to prove one thing: that a canonical rung-4 example can be authored against the current surface. Converting six other modules' estate posture in the same branch would put two unrelated claims behind one review and one gate, and a reviewer could no longer tell which change produced which result. It is the same discipline that kept cp-04 frozen while its successor was built.
+
+**THE TENSION THE NEXT BRANCH HAS TO RESOLVE, NAMED NOW SO IT IS NOT REDISCOVERED.** `D-IMPL-261` freezes cp-00 through cp-04 as specimens and forbids changing an example's *test* to make it pass around an SDK deficiency. Converting a frozen specimen's test from a seeded fixture to the live estate is **not** that — it changes where the data comes from, not what is asserted — but it is still an edit to a frozen specimen's test surface, and it needs an explicit ruling rather than an inference from this entry. Two things that branch must establish per module before converting it: that no assertion pins an estate count (a pinned count has made the estate a fixture again, and is rewritten rather than re-pinned), and that nothing in it requires estate **perturbation**, which is the one case that still needs a private seeded namespace.
+
+**THE MEASURED REASON THE WORK IS WORTH DOING.** 27 `cp04-examples-*` ledgers sit on `.76` as branches of the `ccf` ledger, left by prior seeded runs. They do **not** contaminate `fibo-v2` — measured 2026-09-10, `fibo-v2` reads exactly one clean copy of its data, 636 `owns` edges rather than 27× that — but Fluree is append-only and none of them can ever be removed. Every seeded run adds one more. And the fixtures they seed go stale silently: the committed cp-04 fixture carried 142 attribute rows while the live estate held 156.
+
+**Next free decision id: `D-IMPL-318`.** **Governs:** when and where the remaining example test modules convert; the separation from the successor's branch; the `D-IMPL-261` question that conversion raises. **Related:** `D-IMPL-261` (examples are probes, and the specimen freeze), CLAUDE.md §9 (the estate rule and the read-only test posture), `D-IMPL-315` (the successor sitting's constraints), `D-IMPL-313` (the specimen/successor separation this mirrors).
+
+
+---
+
+**D-IMPL-319 — The canonical rung-4 successor is COMPLETE. `examples/cp-04-canonical-corporate-family-tree` answers the rung-4 problem against the curated `.76` estate, read-only, with both structural predicates proved from the tree. The sitting closes and merges.** RESOLVED. Date: 2026-09-10. Ruled by: Dave, on the run he specified and the outputs he named in advance.
+
+**THE COMPLETION CONDITION, SET BEFORE THE RUN AND MET BY IT.** Dave named the two commands and the business outputs to compare against, and ruled replay-address variation out of scope because it carries the decision instant. Observed against Fluree ledger `fibo-v2` and PostgreSQL schema `ccf_v2` on `.76`:
+
+| request | expected | observed |
+| --- | --- | --- |
+| default (`max_depth` absent) | 49 / 119 / 29 / 29, `D_c` 0.408163… | **49 entities, 119 edges, 29 resolved, 29 circuits, `D_c` 0.4081632653061224489795918367** |
+| `MAX_DEPTH=1` | 36 / 35 / 16 / 0, `D_c` 0.5555… | **36 entities, 35 edges, 16 resolved, 0 circuits, `D_c` 0.5555555555555555555555555556** |
+
+**READ-ONLY, MEASURED RATHER THAN ASSERTED.** `.76` carried **30 Fluree ledger entries before the runs and 30 after**. The example's entire write surface is a temporary directory: the fabric's own SQLite L3 and the file-backed ArtifactStore holding the decision replay record, both discarded when the run exits. The two source stores receive SPARQL `SELECT`s and one parameterised SQL `SELECT`; no write verb exists anywhere in the tree.
+
+**WHAT THE SUCCESSOR PROVED.** That a canonical rung-4 example can be **authored** against the current SDK surface rather than derived from the frozen specimen — `shape_of` reads `"canonical"`, `_sdk_supplied_operator_set` answers True on all five conditions with plan sources `(('required',),)`, and the roster entry was written only after both predicates already answered. It is the first member of `RULED_SDK_SUPPLIED_DEPLOYMENTS` that arrived from neither other roster: cp-05 and s1-00 migrated in, this tree was authored on this side.
+
+**WHAT AUTHORING FORWARD BOUGHT, and it is the charter's whole argument.** Two SDK-surface facts were reachable only because the tree was written against today's surface instead of edited from cp-04's. `24.4-D-35` — *"the declared resolution spec cannot express a typed edge"* — is genuinely **closed**, and copying cp-04's `admit_relationship_claim` shape would have reproduced a workaround for a gap that no longer exists. Underneath it sat `CP04C-F-01`, a live defect nobody had met: entity identity was position-dependent, so a mutual pair became four entities silently, and this family carries 22 mutual pairs. It is fixed at `D-IMPL-316`.
+
+**TWO PRE-EMPTIVE ERGONOMIC FIXES, ruled worthwhile by Dave because they remove FALSE NEGATIVES rather than inconvenience:** an explicit `make example-cp-04-canonical` target, and named `--lei` / `--max-depth` arguments. Positional arguments put a bare depth in the anchor's slot, where it read as an LEI and produced an unresolvable-anchor refusal *that looks like a data problem rather than an invocation problem*. cp-01 lost a session to exactly this class of friction.
+
+**DELIBERATELY OUT OF THE `examples:` AGGREGATE**, on cp-05's reasoning and confirmed by Dave: *"An example that requires the curated estate should have an explicit runnable target rather than silently falling back to fake data."* A red check nobody can make green is worse than no check.
+
+**THE BOUNDARIES HELD.** `examples/cp-04-corporate-family-tree` is **zero files changed**, measured by `git diff` against the branch point and asserted by a test. No specimen content address, no `D_c` of 0.0909, no published artifact id and no snippet include appears anywhere in the successor.
+
+**WHAT THIS ENTRY DOES NOT CLOSE.** The earlier examples' test estate. `D-IMPL-317` schedules that as its own branch and `D-IMPL-318` is **reserved, untouched**, for the ruling on editing frozen cp-04's test surface. Nothing here rules on either.
+
+**Next free decision id: `D-IMPL-320`** — `D-IMPL-318` remains RESERVED and unspent. **Governs:** the successor's completion, its measured outputs, its read-only posture, and the close of this sitting. **Related:** `D-IMPL-313`/`D-IMPL-314` (the charter and its execution), `D-IMPL-315` (adjudicate rather than edit), `D-IMPL-316` (the SDK repair this surfaced), `D-IMPL-317` (the estate conversion, deliberately separated), `D-IMPL-261` (the specimen freeze this preserved), CLAUDE.md §9 (the estate rule and the read-only test posture).
