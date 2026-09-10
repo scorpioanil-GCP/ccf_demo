@@ -113,13 +113,33 @@ class CorporateFamilyProjection:
     """
 
     def __init__(
-        self, *, plan_id: str, required: tuple[str, ...], declared: Mapping[str, Any]
+        self,
+        *,
+        plan_id: str,
+        required: tuple[str, ...],
+        declared: Mapping[str, Any],
+        max_depth: int,
     ) -> None:
         self._plan_id = plan_id
         # The SDK-supplied operator set, held exactly as handed in. This
         # projection authors no operator set of its own and has none to author.
         self._required = required
         self._declared = declared
+        # THE CALLER'S DEPTH, AS GOVERNANCE RESOLVED IT — the class default
+        # when the caller omitted it, the caller's value when it was in bounds,
+        # and never a raw caller value: `GovernedResolver` hands the plan
+        # factory the EFFECTIVE request, after defaults, policy bounds and the
+        # backend's technical capability have folded.
+        #
+        # THE DEPTH IS APPLIED HERE, AT Π, AND NOT IN THE SOURCE READ. That is
+        # the shipped canonical shape — `s1-00` applies its threshold at Π for
+        # the same reason — and the consequence is worth stating plainly: the
+        # source read is the SAME for every depth, so what the caller's number
+        # changes is the PAYLOAD, and therefore the product's content address,
+        # rather than what was fetched. It also means the deployment never has
+        # to resolve the effective request itself in order to know how much to
+        # read, which would be a second authority for one value.
+        self._max_depth = max_depth
 
     @property
     def plan_id(self) -> str:
@@ -140,6 +160,16 @@ class CorporateFamilyProjection:
         """Shape the admitted subgraph into what this role is served."""
         cycles = self._declared["cycles"]
 
+        # The served roster is bounded by the GOVERNED depth. A node beyond it
+        # was fetched — the source read is depth-independent — and is not
+        # served, so it is absent from the payload, absent from the cycle
+        # enumeration and absent from the debt denominator alike.
+        within = {
+            record.claim.entity_uri
+            for record in view.entities
+            if int(record.claim.attributes.get(DEPTH, "0")) <= self._max_depth
+        }
+
         nodes = [
             {
                 "uri": record.claim.entity_uri,
@@ -159,6 +189,7 @@ class CorporateFamilyProjection:
                 "attributes_resolved": record.claim.attributes.get(RESOLVED) == "true",
             }
             for record in view.entities
+            if record.claim.entity_uri in within
         ]
         nodes.sort(key=lambda entry: str(entry["uri"]))
 
@@ -170,6 +201,8 @@ class CorporateFamilyProjection:
                     "object": record.claim.object_uri,
                 }
                 for record in view.relationships
+                if record.claim.subject_uri in within
+                and record.claim.object_uri in within
             ),
             key=lambda entry: (
                 str(entry["subject"]),
@@ -182,6 +215,8 @@ class CorporateFamilyProjection:
             [
                 (record.claim.subject_uri, record.claim.object_uri)
                 for record in view.relationships
+                if record.claim.subject_uri in within
+                and record.claim.object_uri in within
             ],
             max_length=int(cycles["max_length"]),
         )
@@ -191,6 +226,7 @@ class CorporateFamilyProjection:
             plan_id=self._plan_id,
             payload={
                 "role": perspective.role,
+                "depth_served": self._max_depth,
                 "family_id": next(
                     (
                         record.claim.attributes[FAMILY_ID]

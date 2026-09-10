@@ -50,6 +50,21 @@ declaration:
             `/v1/fluree/query`; it never creates, updates or deletes a ledger.
             See the README's "Run it" section for the local container the test
             leg uses.
+        # THE DEEPEST WALK THIS LEG WILL ISSUE — the graph leg's technical
+        # capability, supplied to the resolver as a `TechnicalCapability` so a
+        # request above it is refused BY NAME with authority `technical`,
+        # carrying the bound that refused it, rather than quietly answered at a
+        # narrower depth.
+        #
+        # DECLARED RATHER THAN READ OFF THE SERVER, and that is the honest
+        # form: this leg walks by iterating one batched hop at a time, so the
+        # store imposes no maximum of its own. The ceiling is this deployment's,
+        # and a deployment fact belongs here rather than in Control Plane state.
+        # `ccf_config.yaml`'s traversal `depth_limit` states the SAME ceiling on
+        # the Control Plane side, and a test asserts the two agree so they
+        # cannot drift into disagreeing about one number.
+        max_traversal_depth: 6
+
         ledger:
           from_env: CCF_CP_04C_FLUREE_LEDGER
           remedy: >-

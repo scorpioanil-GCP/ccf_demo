@@ -92,8 +92,7 @@ operators:
     # value is OBSERVED by the walk rather than inherited from the anchor or
     # joined in from the attribute leg.
     classification_attribute_by_class:
-      family_anchor: family_id
-      family_member: family_id
+      family_node: family_id
 
     # THE FIRST OF THIS DEPLOYMENT'S TWO REQUEST BINDINGS, and the one that
     # replaces cp-04's runtime substitution into a resolved artifact.
@@ -134,8 +133,12 @@ operators:
     # which reads as a bounded walk that returned nothing. The FIBO chain is
     # SERVED on every node as `type_chain` — it is payload, not an admission
     # filter.
+    # Every admitted node, because L3 holds ONLY what acquisition admitted —
+    # the depth bound was already applied at the source, and this operator's
+    # `depth_limit` below is the BACKEND ceiling rather than the product bound.
+    # Seeding from the anchor alone would reach the same set by a longer route.
     seed_entity_classes:
-      - family_anchor
+      - family_node
 
     # THE SIX DECLARED FAMILY PREDICATES, in the short-name vocabulary the
     # normalization step mints. Other relationship predicates exist in this
@@ -196,6 +199,13 @@ request_contract:
   registration: typed
   schema_name: reference.corporate-family
   schema_version: "2.0.0"
+  # `intent` IS NOT DECLARED HERE, and its absence is current-surface
+  # correctness rather than an omission. cp-04 declared `intent` among its
+  # arguments; the SDK now refuses that, because `intent` is a top-level
+  # `ProductRequest` field and an argument of the same name shadows it — what a
+  # class serves is declared once, on `ProductDiscovery.intents`, and judged
+  # there (`D-IMPL-264` D-01). The request still carries an intent; it is simply
+  # not an argument.
   arguments:
     properties:
       lei:
@@ -203,13 +213,11 @@ request_contract:
         description: >-
           the anchor. Unresolvable is a refusal and never an empty payload — an
           empty family is a claim about the world, not about the request.
-      intent:
-        type: string
-        description: selects the policy envelope; an unknown intent is refused.
       families:
         type: array
         items:
           type: string
+          description: one family identifier the request is entitled to walk.
         description: >-
           the family identifiers this request is entitled to walk, and the
           value that reaches the policy operator's admitted set. Ordinarily the
@@ -237,7 +245,6 @@ request_contract:
         description: DECLARED AND INERT — refused, never honored. See unsupported_arguments.
     required:
       - lei
-      - intent
       - families
 
   # ABSENT `max_depth` TAKES THIS, and the default lives here rather than in
@@ -269,23 +276,66 @@ request_contract:
       transaction watermark BESIDE the snapshot instant and never inside it.
 
 # ---------------------------------------------------------------------------
-# How a source row becomes an entity.
+# How a source fact becomes fabric state.
 # ---------------------------------------------------------------------------
 #
-# TWO CLASSES, because the seed set has to be the anchor alone. `family_id` is
-# an attribute on both: it is what the policy envelope admits on, and it is
-# minted by the walk rather than read from either store.
+# ONE ENTITY CLASS, AND THREE RULES THAT ALL MINT IT. A family node is a family
+# node whether this deployment met it as an anchor, as somebody's parent or as
+# somebody's child. cp-04 declared two classes so that the walk could be seeded
+# from the anchor alone; that is unnecessary here, because L3 holds ONLY what
+# acquisition admitted, so seeding from every admitted node reaches the same set.
+#
+# `identity_sources` IS WHAT MAKES THE THREE RULES AGREE (`D-IMPL-316`). It
+# changes WHERE an identity value is READ FROM; it does not change WHAT
+# CONSTITUTES IDENTITY. All three rules identify a node by the declared key
+# `entity_uri`, and each names the payload field carrying it — `entity_uri`,
+# `parent_uri` or `child_uri`. The same node therefore mints ONE URI however it
+# was met. Without this, a company observed once as a parent and once as a child
+# became two entities and this family's 22 mutual pairs each became four nodes
+# (`CP04C-F-01`).
 resolution:
   entity_rules:
-    - match_key: anchor_ref
-      entity_class: family_anchor
+    # The node's own envelope — the only one carrying attributes.
+    - match_key: node_ref
+      entity_class: family_node
       identity_keys: [entity_uri]
-      attribute_keys: [lei, label, type_chain, family_id]
-    - match_key: member_ref
-      entity_class: family_member
+      attribute_keys: [lei, label, type_chain, family_id, depth, attributes_resolved]
+
+    # The two endpoint rules. Deliberately NO attribute keys: an edge asserts
+    # that two nodes are related, and nothing about what either node is.
+    - match_key: parent_ref
+      entity_class: family_node
       identity_keys: [entity_uri]
-      attribute_keys: [lei, label, type_chain, family_id]
-  relationship_rules: []
+      identity_sources: {entity_uri: parent_uri}
+    - match_key: child_ref
+      entity_class: family_node
+      identity_keys: [entity_uri]
+      identity_sources: {entity_uri: child_uri}
+
+  # SIX TYPED EDGE RULES, one per declared family predicate. The envelope's
+  # `predicate` field SELECTS among them; it cannot name a type no rule
+  # declares, because the comparison is against the rule. Endpoints are chosen
+  # by the RULE that resolved them, not by class — which is what lets one
+  # envelope mint a single edge between two nodes of the same class.
+  relationship_rules:
+    - {relationship_type: owns, predicate_key: predicate,
+       subject_entity_class: family_node, object_entity_class: family_node,
+       subject_rule: parent_ref, object_rule: child_ref}
+    - {relationship_type: controls, predicate_key: predicate,
+       subject_entity_class: family_node, object_entity_class: family_node,
+       subject_rule: parent_ref, object_rule: child_ref}
+    - {relationship_type: isDirectlyConsolidatedBy, predicate_key: predicate,
+       subject_entity_class: family_node, object_entity_class: family_node,
+       subject_rule: parent_ref, object_rule: child_ref}
+    - {relationship_type: isUltimatelyConsolidatedBy, predicate_key: predicate,
+       subject_entity_class: family_node, object_entity_class: family_node,
+       subject_rule: parent_ref, object_rule: child_ref}
+    - {relationship_type: hasGlobalUltimateParent, predicate_key: predicate,
+       subject_entity_class: family_node, object_entity_class: family_node,
+       subject_rule: parent_ref, object_rule: child_ref}
+    - {relationship_type: hasDomesticUltimateParent, predicate_key: predicate,
+       subject_entity_class: family_node, object_entity_class: family_node,
+       subject_rule: parent_ref, object_rule: child_ref}
 
 # ---------------------------------------------------------------------------
 # λ_c — how fast each observation type goes stale.

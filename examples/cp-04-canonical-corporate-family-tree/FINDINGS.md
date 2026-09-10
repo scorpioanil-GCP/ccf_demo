@@ -108,3 +108,70 @@ Three grounds, and the adjudication does not rest on preference:
 
 Reading 1 is the one that makes the documented invariant true; reading 2 is the
 one that costs nothing already shipped. **The choice is Dave's.**
+
+---
+
+## `CP04C-F-02` — the debt denominator is the operator view, not the served roster
+
+**Status: OPEN — a DESIGN FORK for Dave, not an SDK defect. The successor runs;
+its `D_c` is constant at 0.4 across every depth and should not be.**
+
+### What is measured
+
+`GovernedResolver` calls the debt scorer as
+`self.debt_scorer(view=execution.view, evidence=ExecutionEvidence.of(execution))`.
+`execution.view` is the view the **operators** produced. `ExecutionResult` also
+carries `projection`, and the scorer is not given it. `ExecutionEvidence` is
+explicitly cardinality-free — *"no count of rows appears here, because a row
+count is the cardinality the ruling removes from this computation"*
+(`D-IMPL-255`).
+
+This deployment applies the caller's depth at **Π**, so the served roster is a
+subset of the operator view:
+
+| request | scorer saw | payload served | `D_c` served |
+|---|---|---|---|
+| `max_depth=1` | 50 nodes / 30 resolved | 36 nodes / 16 resolved | **0.4** (should be 0.556) |
+| `max_depth=3` | 50 nodes / 30 resolved | 49 nodes / 29 resolved | **0.4** (should be 0.408) |
+
+A debt that is identical whatever the product served is the *"scalar that
+cannot fail through the door"* cp-04's specification was corrected for — the
+same defect, reached from the opposite direction.
+
+### Adjudication under `D-IMPL-315`
+
+**Legitimate SDK semantics.** Debt is measured over what was *assembled*; a
+projection that then serves less is choosing to serve less. Asking the SDK to
+score the projection's output would make Π an input to its own governance. The
+example is the side that must move.
+
+### Why it is not fixed here
+
+Every available fix interacts with a **ruled** constraint, so choosing one is
+not this sitting's call:
+
+1. **Acquire at the effective depth** so L3 == served roster == operator view,
+   and Π filters nothing. This is cp-04's shape and it is the only option that
+   makes all three sets equal. Cost: the deployment must learn the governed
+   `max_depth` *before* the resolver runs, by calling the SDK's public
+   `resolve_effective_request` / `ReferencePolicyConstraintResolver` itself. Not
+   a local binder — it binds nothing onto a Control Plane declaration — but it
+   is a **second derivation** of one value, which the resolver's own comments
+   warn is how replay drifts.
+2. **Bind `depth_limit` to the effective `max_depth`** so the *operator* does
+   the bounding and the view the scorer sees is already the served set. This is
+   the cleanest mechanically and is **refused by a standing ruling**:
+   `depth_limit` is the technical operator ceiling (Dave, this sitting), and the
+   artifact does not admit a `RequestBoundParameter` on that field anyway.
+3. **Serve everything acquired** and let `max_depth` condition nothing. Rejected
+   on its face: the caller's depth would stop affecting the answer.
+
+**Reading 1 is the only one consistent with the ruled constraints**, and its
+cost is a second, deterministic resolution of the same value. Recommended, not
+taken.
+
+### What holds regardless
+
+The structural properties are already proved and do not depend on this fork:
+`shape_of == "canonical"`, and `_sdk_supplied_operator_set == True` on all five
+conditions with the factory's plan sources reading `(('required',),)`.

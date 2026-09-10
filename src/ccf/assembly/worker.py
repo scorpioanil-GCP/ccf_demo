@@ -96,7 +96,15 @@ class EntityResolutionRule(CCFContract):
             positionally (``CP04C-F-01``, `D-IMPL-316`). A position is not an
             identity: ``parent_uri`` and ``child_uri`` both carry *an entity's
             uri*, and a rule that reads either into the declared key
-            ``entity_uri`` mints the same URI for the same value. Only keys
+            ``entity_uri`` mints the same URI for the same value.
+
+            **This field changes WHERE an identity value is READ FROM; it does
+            not change WHAT CONSTITUTES IDENTITY** (`D-IMPL-316`, Dave). That
+            sentence is the whole boundary of the repair, and it is why
+            existing URI and hash behavior is stable: identity is still the
+            declared key beside its value, hashed by the one global model, so
+            a rule that names no source reads the field it always read and
+            mints the URI it always minted. Only keys
             listed in ``identity_keys`` may be remapped, and **what is hashed
             is still the declared key beside its value** — the global identity
             model is untouched, and only where the value is read from moves.
