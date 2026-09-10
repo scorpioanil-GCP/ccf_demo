@@ -1,0 +1,68 @@
+# yaml-language-server: $schema=../../docs/schemas/ccf.declared-artifact.json
+#
+# HOW the two systems of record are reached. Variable NAMES and remedy text
+# only — no host, port, schema or credential (CLAUDE.md §9).
+#
+# READS ONLY, ON BOTH LEGS. The curated estate is evidence, not a fixture: this
+# deployment issues SPARQL SELECTs and parameterised SQL SELECTs and holds no
+# write path to either store. The fabric's own L3 is per-run SQLite, discarded
+# with the run.
+
+semver: "1.0.0"
+class_id: cp-06.backend-profiles
+
+declaration:
+  profiles:
+    sqlite:
+      settings:
+        database_path:
+          per_run: path
+          prefix: cp_06
+          suffix: .sqlite3
+
+  sources:
+    # -----------------------------------------------------------------------
+    # THE GRAPH LEG — what secures the facility, at what priority, and what the
+    # public register says about the lien's life.
+    # -----------------------------------------------------------------------
+    collateral_graph:
+      settings:
+        url:
+          from_env: CCF_CP_06_FLUREE_URL
+          remedy: >-
+            export CCF_CP_06_FLUREE_URL with the base URL of a READ-ONLY Fluree
+            server carrying the collateral ledger. This example issues only
+            `/v1/fluree/query`.
+        ledger:
+          from_env: CCF_CP_06_FLUREE_LEDGER
+          remedy: >-
+            export CCF_CP_06_FLUREE_LEDGER with the ledger name to read — the
+            v2 namespace `fibo-v2`, never the v1 `fibo:main` that
+            `ccf_dataprep/.env` carries (CLAUDE.md §9).
+
+        # THE DEEPEST WALK THIS LEG WILL ISSUE, declared rather than read off
+        # the server: this leg walks by iterating batched hops, so the store
+        # imposes no maximum of its own.
+        max_traversal_depth: 4
+
+    # -----------------------------------------------------------------------
+    # THE ATTRIBUTE LEG — valuations, balances, and the two policy registers.
+    # -----------------------------------------------------------------------
+    #
+    # ONE BATCHED QUERY PER SET, never one per node. §D step 4 says so in as
+    # many words, and a per-asset fan-out returns the same answer while
+    # collapsing at the fan-out this product exists to surface.
+    collateral_attributes:
+      settings:
+        dsn:
+          from_env: CCF_CP_06_POSTGRES_DSN
+          remedy: >-
+            export CCF_CP_06_POSTGRES_DSN with a READ-ONLY connection string.
+            The role needs SELECT and nothing else: this deployment never
+            writes to the store it reads, and a role that could write would
+            make that a promise rather than a guarantee.
+        schema:
+          from_env: CCF_CP_06_POSTGRES_SCHEMA
+          remedy: >-
+            export CCF_CP_06_POSTGRES_SCHEMA with the namespace holding the
+            collateral tables — the v2 namespace `ccf_v2`, never `public`.
