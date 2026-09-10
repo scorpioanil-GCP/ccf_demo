@@ -127,9 +127,11 @@ from typing import Any, NamedTuple
 import pytest
 
 from ccf.artifacts.file_store import FileArtifactStore
+from ccf.contracts.canonical import content_hash
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.deployment import load_and_boot
 from ccf.products.resolver import build_governed_resolver
+from ccf.replay.record import DecisionReplayRecord
 
 pytestmark = pytest.mark.fluree
 
@@ -490,3 +492,68 @@ def test_the_ttl_runs_from_the_declared_decision_instant(
         " declares a decision instant distinct from the graph boundary"
     )
     assert answered.outcome.product.expires_at == scenario.expires_at
+
+
+# ---------------------------------------------------------------------------
+# MOD-05 / D-IMPL-309 — the ambient ledger head is not part of the answer.
+# ---------------------------------------------------------------------------
+
+
+def test_two_ambient_ledger_heads_serve_one_content_address(
+    adopted_resolver: Callable[[Any], Answered], questions: Any
+) -> None:
+    """`MOD-05`'s measurement, asked of the canonical path and answered.
+
+    Two whole runs of the identical question. The fixture boots and populates
+    a fresh fabric per call, so the two runs read the store at two different
+    heads — which is precisely the ambient movement `MOD-05` measured, and it
+    happens here for a reason that has nothing to do with the question asked.
+
+    Before ``D-IMPL-309`` this returned two addresses, and the diff was one
+    field::
+
+        DIFFER store_snapshot_pin
+           run1: {'substrate': 'fluree', 'pin': '74342'}
+           run2: {'substrate': 'fluree', 'pin': '74409'}
+
+    ``GovernedResolver`` set ``store_snapshot_pin=execution.store_snapshot_pin``
+    inside ``ProductLineage``, inside the sealed product, inside the content
+    address — so a head advancing for unrelated reasons made the same question
+    a different answer. The head is now execution provenance: recorded on
+    replay dimension 1, absent from the vessel.
+
+    This is the canonical-path twin of the hand-composed spine's own
+    ``tests/examples/test_s1_01_output.py::
+    test_the_products_address_survives_a_different_graph_identity``, whose
+    words this ruling makes true of both spines: *"the content address is
+    byte-identical, which is what makes replay a property of the question and
+    the Control Plane rather than of where the bytes happened to be stored."*
+    """
+    runs = [adopted_resolver(questions[0]), adopted_resolver(questions[0])]
+    addresses: list[str] = []
+    heads: list[Any] = []
+    for answered in runs:
+        product = getattr(answered.outcome, "product", None)
+        assert product is not None, "the governed resolver served no product"
+        addresses.append(content_hash(product))
+        record = DecisionReplayRecord.model_validate_json(
+            answered.store.get(
+                content_address=answered.outcome.replay_ref.content_address
+            )
+        )
+        heads.append(record.context_fabric_snapshot.store_snapshot_pin)
+
+    # The head is still recorded, per execution, and the two runs genuinely
+    # read different ones. Without this the equality below would be the
+    # equality of two runs that happened to share a head, which would prove
+    # nothing about ambient movement at all.
+    assert heads[0] != heads[1], (
+        "the two runs read the same store head, so this test did not measure"
+        f" ambient movement ({heads[0]!r} both times)"
+    )
+    # And the answer is one answer.
+    assert addresses[0] == addresses[1], (
+        "the same governed question served two content addresses across two"
+        f" ambient ledger heads ({heads[0]!r} then {heads[1]!r}) — `MOD-05`"
+        " has regressed and `D-IMPL-309` is not in force"
+    )
