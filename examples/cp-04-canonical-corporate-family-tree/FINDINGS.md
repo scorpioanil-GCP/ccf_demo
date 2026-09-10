@@ -113,8 +113,31 @@ one that costs nothing already shipped. **The choice is Dave's.**
 
 ## `CP04C-F-02` — the debt denominator is the operator view, not the served roster
 
-**Status: OPEN — a DESIGN FORK for Dave, not an SDK defect. The successor runs;
-its `D_c` is constant at 0.4 across every depth and should not be.**
+**Status: CLOSED — reading 1 taken (Dave, 2026-09-10). Acquisition reads at the
+governed effective depth, so L3, the operator view and the payload are one set
+and `D_c` moves with the served roster. The scorer was NOT changed: whether
+debt-over-payload is the right product rule for every deployment is a later
+`D-IMPL`, and this tree does not paper over a global semantic by special-casing
+one example.**
+
+### After the repair, measured
+
+| request | scorer saw | payload served | `D_c` |
+|---|---|---|---|
+| `max_depth=1` | 36 / 16 | 36 / 16 | **0.555556** |
+| `max_depth=3` | 49 / 29 | 49 / 29 | **0.408163** |
+| `max_depth=99` | — | refused `bound-exceeded`, authority `technical` | — |
+
+Dave's stop condition — *"stop if acquire-at-effective-depth still leaves the
+scorer on a 50/30 view while the payload is 36/16"* — was **not** triggered: the
+two sets match exactly at both depths, so the walk is genuinely bounded.
+
+`depth_limit` remains the technical ceiling and still refuses `max_depth=99`.
+Π still clips to the same number, deliberately: depth must exist in more than
+one place or a change in either would go unnoticed. The clip is now a no-op on a
+correctly bounded read rather than the thing doing the bounding.
+
+**The original finding, preserved:**
 
 ### What is measured
 

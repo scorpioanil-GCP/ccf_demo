@@ -118,7 +118,7 @@ def assemble_and_serve(
         #
         #    The ORDER of those writes is a contract this deployment owns and
         #    asserts — see `deployment._edge_envelope`'s warning.
-        family = deployment.acquire_for(booted, asked)
+        family = deployment.acquire_for(booted, registry, asked)
         deployment.ingest(booted, family, at=asked.asked_at)
         # --8<-- [end:acquire]
 

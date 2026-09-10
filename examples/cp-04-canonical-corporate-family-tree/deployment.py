@@ -54,10 +54,17 @@ from ccf.controlplane.artifacts import (
 )
 from ccf.deployment import BootedFabric
 from ccf.graph.protocols import GraphView
+from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifacts import DebtProfile
+from ccf.controlplane.registry import ControlPlaneProtocol
 from ccf.halflife.assessment import DebtFactors
 from ccf.halflife.debt import DebtAssessment, assess_debt
-from ccf.products.constraints import CAPABILITY_TRAVERSAL_DEPTH, TechnicalCapability
+from ccf.products.constraints import (
+    CAPABILITY_TRAVERSAL_DEPTH,
+    ReferencePolicyConstraintResolver,
+    TechnicalCapability,
+)
+from ccf.products.provenance import ProvenanceSource
 from ccf.products.request import ProductRequest, ProductRequestContract
 from ccf.signal.envelope import SignalEnvelope, SourceIdentity
 from projection import CHAIN_SEPARATOR
@@ -143,24 +150,85 @@ def traversal_capability() -> TechnicalCapability:
     )
 
 
-def acquire_for(booted: BootedFabric, asked: ProductRequest) -> acquisition.Family:
-    """Read both source stores for the question asked.
+def effective_depth(
+    booted: BootedFabric, registry: ControlPlaneProtocol, asked: ProductRequest
+) -> int:
+    """How deep THIS ask is allowed to walk, as governance derives it.
 
-    **At the BACKEND's declared ceiling, not at the caller's depth**, and the
-    distinction is the successor's sharpest structural point. The caller's
-    ``max_depth`` is governed request state and is applied at Π, where
-    `GovernedResolver` hands the plan factory the EFFECTIVE request. Reading at
-    the caller's depth would require this deployment to resolve the effective
-    request BEFORE the resolver does, which is a second authority for one value
-    and the very substitution cp-04 was repaired of.
+    **The SDK's own public derivation, not a second policy.**
+    :class:`~ccf.products.constraints.ReferencePolicyConstraintResolver` is the
+    same resolver ``GovernedResolver`` uses, reading the same Control Plane at
+    the same ``asked_at``, so the number returned here is the number the
+    governed path will independently resolve moments later — the class default
+    when the caller omitted ``max_depth``, the caller's value when it is in
+    bounds, and a refusal when it is not.
 
-    The consequence, stated plainly: the source read is the SAME for every
-    depth, so what a caller's number changes is the payload — and therefore the
-    product's content address — rather than what was fetched.
+    **Why acquisition needs it** (`CP04C-F-02`, Dave's reading 1). Debt is
+    scored over the view the OPERATORS produced. If acquisition read the whole
+    estate and Π clipped afterwards, ``D_c`` would be computed over rows the
+    payload never served and could not move when the served roster moved — a
+    decorative number. Reading at the bound makes L3, the operator view and the
+    payload the same set, so the debt is about the answer.
+
+    **This is acquire doing its job, not a binder.** Nothing here is written
+    onto a Control Plane declaration; this asks what the ask is permitted to
+    walk and then walks that far. ``depth_limit`` remains the technical
+    ceiling, and a request above it is still refused by the governed path with
+    authority ``technical``.
+
+    A refused request walks the anchor alone: the governed refusal is moments
+    away and is the resolver's to issue, so acquisition neither pre-empts it
+    nor pays for a read whose answer will not be served.
     """
-    ceiling = int(traversal_capability().maximum)
+    declared = ProductRequestContract.from_declared(
+        booted.artifacts.get("request_contract")
+    )
+    outcome = ReferencePolicyConstraintResolver(
+        control_plane=registry, entitlement_key=None
+    ).resolve(
+        product_class=asked.schema_name,
+        request=asked,
+        declared=declared,
+        declared_source=ProvenanceSource(
+            kind="artifact", identity="request_contract", version=content_hash(declared)
+        ),
+        perspective=perspective().as_perspective()
+        if hasattr(perspective(), "as_perspective")
+        else perspective(),
+        intent=asked.intent,
+        tenant=booted.tenant_id,
+        capabilities=(traversal_capability(),),
+        class_defaults=declared.defaults,
+        # A default the fabric applies must name the artifact that declared
+        # it, or the resolution records a value nobody can resolve later. The
+        # contract's own content address, minted the way the registry mints
+        # one, so the pin recorded beside a defaulted depth resolves to the
+        # exact bytes that declared it.
+        class_source=ProvenanceSource(
+            kind="artifact",
+            identity="request_contract",
+            version=content_hash(declared),
+        ),
+    )
+    if outcome.refusal is not None:
+        return 0
+    return int(outcome.evidence.values()[MAX_DEPTH])
+
+
+def acquire_for(
+    booted: BootedFabric, registry: ControlPlaneProtocol, asked: ProductRequest
+) -> acquisition.Family:
+    """Read both source stores at the depth this ask is allowed to walk.
+
+    See :func:`effective_depth` for why the bound is derived here rather than
+    left to Π. Π still clips to the same number — depth must exist in more than
+    one place or a change in either would go unnoticed — but it is no longer
+    the only place it exists, and the clip is now a no-op on a correctly
+    bounded read rather than the thing doing the bounding.
+    """
     return acquisition.acquire(
-        anchor_lei=str(asked.parameters[ANCHOR]), depth=ceiling
+        anchor_lei=str(asked.parameters[ANCHOR]),
+        depth=effective_depth(booted, registry, asked),
     )
 
 

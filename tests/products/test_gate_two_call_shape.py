@@ -693,6 +693,23 @@ RULED_SDK_SUPPLIED_DEPLOYMENTS: frozenset[str] = frozenset(
         # no competing operator set, no projection engine of its own — not
         # because it is named here.
         "examples/s1-00-companies-over-revenue",
+        # `D-IMPL-315` / `D-IMPL-313` tightening 1 (Dave, 2026-09-10) — the
+        # canonical rung-4 successor, and the FIRST member here that was never
+        # in the other roster. It did not migrate into this category; it was
+        # authored into it, against the current SDK surface rather than derived
+        # from the frozen cp-04 specimen it succeeds.
+        #
+        # THE RULING AUTHORIZED THE MOVE; THE TREE PROVED IT, and the two were
+        # kept in that order deliberately. Measured before this line was
+        # written: `shape_of` reads `"canonical"`, and
+        # `_sdk_supplied_operator_set` answers True on all five conditions with
+        # the factory's plan sources reading `(('required',),)` — no
+        # `ccf.projection-requirements`, a named `plan_factory` whose only
+        # operator source is the resolver's own tuple, no competing operator
+        # set, and no `run_gates` / `build_replay_record` / `serve` anywhere in
+        # the tree. This entry records what the predicate already answers; it is
+        # not what makes the answer true.
+        "examples/cp-04-canonical-corporate-family-tree",
     }
 )
 
@@ -3348,6 +3365,14 @@ def test_the_premise_detector_reads_the_shipped_tree_correctly() -> None:
     # the migration's own evidence — *one document where two were possible* ->
     # *no second document, because the SDK supplies the canonical set*.
     assert sdk_supplied == [
+        # `D-IMPL-315`, 2026-09-10 — the canonical rung-4 successor, and the
+        # first entry here that arrived from NEITHER list. cp-05 and s1-00
+        # crossed the boundary by migration; this tree was AUTHORED on this
+        # side of it, against the current surface rather than derived from the
+        # frozen cp-04 specimen it succeeds. The detector reaches it from the
+        # tree alone — this assertion and the roster both record that, and
+        # neither causes it.
+        "examples/cp-04-canonical-corporate-family-tree",
         "examples/cp-05-credit-exposure-rollup",
         "examples/hw1-companies-over-revenue/deployment",
         # `D-IMPL-311`, 2026-09-09 — s1-00 arrives from row B above, by the
