@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import ast
 import importlib.util
+import os
 import pathlib
 import subprocess
 import sys
@@ -30,8 +31,6 @@ from decimal import Decimal
 from typing import Any
 
 import pytest
-
-from .cp_04_seed import ledger_for, schema_for, seed
 
 pytestmark = [pytest.mark.fluree, pytest.mark.postgres]
 
@@ -95,25 +94,56 @@ def example_modules() -> Iterator[tuple[Any, Any]]:
                 sys.modules[name] = saved[name]
 
 
-@pytest.fixture(scope="module")
-def estate(fluree_url: str, postgres_dsn: str) -> Iterator[tuple[str, str]]:
-    """The committed fixture, under names nobody else can be using."""
-    ledger = ledger_for(__name__)
-    schema = schema_for(__name__)
-    seed(fluree_url, ledger, postgres_dsn, schema)
+#: The four variables the example itself reads. The test supplies NOTHING: it
+#: runs against whatever estate the operator pointed the example at.
+ESTATE_VARIABLES = (
+    "CCF_CP_04C_FLUREE_URL",
+    "CCF_CP_04C_FLUREE_LEDGER",
+    "CCF_CP_04C_POSTGRES_DSN",
+    "CCF_CP_04C_POSTGRES_SCHEMA",
+)
 
-    patch = pytest.MonkeyPatch()
-    for variable, value in (
-        ("CCF_CP_04C_FLUREE_URL", fluree_url.rstrip("/")),
-        ("CCF_CP_04C_FLUREE_LEDGER", ledger),
-        ("CCF_CP_04C_POSTGRES_DSN", postgres_dsn),
-        ("CCF_CP_04C_POSTGRES_SCHEMA", schema),
-    ):
-        patch.setenv(variable, value)
-    try:
-        yield ledger, schema
-    finally:
-        patch.undo()
+#: Set where a missing estate must FAIL rather than skip. A leg that quietly
+#: skips is a green build that proved nothing.
+ESTATE_REQUIRED = "CCF_REQUIRE_ESTATE"
+
+
+@pytest.fixture(scope="module")
+def estate() -> tuple[str, str]:
+    """The LIVE estate, read-only, seeded with nothing.
+
+    **This module writes to no data store** (CLAUDE.md §9). It seeds no ledger
+    and no schema, so it adds nothing to an append-only store that could never
+    be removed, and it reads the same data an operator running the example by
+    hand would read.
+
+    **That is the point rather than a convenience.** Dave, 2026-09-10: *"without
+    data we might miss defects."* A committed fixture is a frozen snapshot that
+    goes stale silently — the cp-04 fixture carried 142 attribute rows while the
+    live estate held 156 — and a defect that only appears against larger,
+    dirtier or newer data cannot be seen through one.
+
+    **What makes it safe is that nothing below pins an estate count.** Every
+    assertion in this module is a relationship or an identity that holds at any
+    roster size, so estate drift exercises the example instead of reddening the
+    build. A test here that pinned an absolute number would have turned the
+    estate back into a fixture and must be rewritten rather than re-pinned.
+    """
+    missing = [name for name in ESTATE_VARIABLES if not os.environ.get(name)]
+    if missing:
+        message = (
+            f"the live estate is not configured: {', '.join(missing)} unset."
+            " Point them at the v2 namespaces — Fluree ledger `fibo-v2`,"
+            " PostgreSQL schema `ccf_v2` — never the v1 names in"
+            " `ccf_dataprep/.env` (CLAUDE.md §9)"
+        )
+        if os.environ.get(ESTATE_REQUIRED):
+            pytest.fail(message)
+        pytest.skip(message)
+    return (
+        os.environ["CCF_CP_04C_FLUREE_LEDGER"],
+        os.environ["CCF_CP_04C_POSTGRES_SCHEMA"],
+    )
 
 
 def _ask(modules: tuple[Any, Any], *, max_depth: int | None) -> Any:
