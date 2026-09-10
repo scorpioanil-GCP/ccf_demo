@@ -40,6 +40,8 @@ from typing import Any
 import psycopg
 import pytest
 
+from .estate_guard import refuse_to_write_the_curated_estate
+
 from ccf.contracts.canonical import content_hash
 from ccf.products.refusal import NO_REPLAY_REFERENCE, RefusalEnvelope
 from ccf.replay.record import DecisionReplayRecord
@@ -76,7 +78,21 @@ def _load(relative: str) -> Any:
 
 @pytest.fixture(scope="module")
 def seeded(postgres_dsn: str) -> Any:
-    """A seeded database, with the DSN exported where `backends.yaml` reads it."""
+    """A seeded database, with the DSN exported where `backends.yaml` reads it.
+
+    **This example SEEDS on purpose and keeps doing so** (`D-IMPL-318`). Its
+    fixture is synthetic by design — ``scenario/companies.sql`` opens *"THIS IS
+    NOT CCF. These rows fabricate the demonstration; you delete them"* — and its
+    ten companies carry a deliberately built ``last_updated`` spread, which is
+    what makes this example's ``D_c`` a measured number against the declared
+    half-life rather than a constant. Pointing it at the curated estate would
+    delete the demonstration.
+
+    What changes is only WHERE it seeds. The curated estate is read-only, so
+    the write goes to a local disposable store and is refused by name if the
+    DSN names a curated host.
+    """
+    refuse_to_write_the_curated_estate(postgres_dsn)
     provision = _load("scenario/provision.py")
     provision.seed(postgres_dsn)
     previous = os.environ.get(provision.FABRIC_DSN_ENV)
