@@ -55,6 +55,7 @@ NO_SUBSTRATE := not postgres and not chroma and not neo4j and not mongo and not 
 	ci-quick-suite ci-harness-conformance ci-coverage \
 	example-s1-01 example-s1-00 example-cp-00 example-cp-01 example-cp-02 \
 	example-cp-03 example-cp-04 example-cp-04-canonical example-cp-05 example-cp-05-server \
+	example-cp-06 \
 	example-hw1-harness-clients \
 	example-hw1-harness-clients-live-adk \
 	example-hw1-harness-clients-live-anthropic \
@@ -473,6 +474,19 @@ example-cp-04-canonical: ## Run examples/cp-04-canonical-corporate-family-tree (
 		$(PYTHON) examples/cp-04-canonical-corporate-family-tree/run.py \
 		$(if $(LEI),--lei $(LEI)) \
 		$(if $(MAX_DEPTH),--max-depth $(MAX_DEPTH))
+
+# cp-06 — the ladder's rung 6, collateral & set-off coverage. NOT in the
+# `examples:` aggregate, for cp-05's reason: it reads the curated estate through
+# declared environment variables and has no in-tree fixture to fall back onto,
+# so a red check nobody can make green would be worse than no check.
+#
+# FOUR CONNECTION VARIABLES, AND THE TARGET NAMES ONLY THEIR NAMES. Point them
+# at the v2 namespaces — Fluree `fibo-v2`, PostgreSQL `ccf_v2` — never the v1
+# names in `ccf_dataprep/.env` (CLAUDE.md §9).
+example-cp-06: ## Run examples/cp-06-collateral-and-setoff-coverage (FACILITY, SCOPE, HAIRCUTS, SETOFF, BASIS, SHARED optional; needs CCF_CP_06_FLUREE_URL, CCF_CP_06_FLUREE_LEDGER, CCF_CP_06_POSTGRES_DSN, CCF_CP_06_POSTGRES_SCHEMA)
+	PYTHONPATH=src:runtime:examples/cp-06-collateral-and-setoff-coverage \
+		$(PYTHON) examples/cp-06-collateral-and-setoff-coverage/run.py \
+		$(FACILITY) $(SCOPE) $(HAIRCUTS) $(SETOFF) $(BASIS) $(SHARED)
 
 # cp-05 — the ladder's rung 5. NOT in the `examples:` aggregate: it reads a
 # networked estate through declared environment variables and has no in-tree
