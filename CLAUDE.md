@@ -924,6 +924,42 @@ SDK before they get remedied.**
 **Lightweight remediation is the default.** Use a lightweight process to fix the
 SDK issue unless the issue is a major defect that requires its own cycle.
 
+### The estate: every example reads the real data on `.76` (Dave, 2026-09-10)
+
+**All examples are to use the data sources on `192.168.4.76`** — the live
+Fluree, PostgreSQL and MongoDB instances of the `ccf_dataprep` estate. That is
+where the engineered financial-services data actually lives, and it is what the
+examples exist to be run against. An example demonstrated only against a
+committed test fixture has not been demonstrated: the fixture is a snapshot of
+the estate for CI's benefit, never a substitute for it.
+
+**One set of examples — the syndicated-lending set — will read TWO sets of data
+sources on `.76`.** Recorded here so the multi-source case is expected by
+design rather than discovered as an anomaly when that set is built.
+
+**The namespace trap, and it has already cost a build.** Connection material —
+host, port, credentials — comes from `ccf_dataprep/.env`. **The namespaces do
+not.** `.env` names the **v1** estate; the examples read the **v2** namespaces,
+which are declared only in `ccf_dataprep/ccf/config.py`:
+
+| store | `.env` says (v1) | what examples read (v2) |
+| --- | --- | --- |
+| Fluree | `fibo:main` | **`fibo-v2`** |
+| PostgreSQL | `public` | **`ccf_v2`** |
+| MongoDB | `fibo` | **`fibo_v2`** |
+
+Deriving an example's estate variables from `.env` alone silently points it at
+v1, where the anchor resolves in Postgres and has no node in the graph. That is
+exactly how a prior set of `CCF_CP_05_*` values came out wrong. Note also that
+`fibo:main` is a *name:branch* alias, which is why the v2 ledger is named
+`fibo-v2` rather than `fibo:v2` — the latter would have been a branch of v1.
+
+**`ccf_dataprep` is Dave's: read from it, never write to it.** Reading the
+estate for an example run is expected; writing into it is not. Where a test
+must seed a throwaway namespace, that is a test-fixture decision to be raised
+rather than assumed — Fluree is append-only, so a seeded ledger cannot be
+removed afterwards.
+
 ### Discipline for every example
 
 - **Runnable end-to-end** against the reference backends (SQLite-for-dev
