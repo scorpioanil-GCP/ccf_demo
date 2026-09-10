@@ -926,6 +926,17 @@ SDK issue unless the issue is a major defect that requires its own cycle.
 
 ### The estate: every example reads the real data on `.76` (Dave, 2026-09-10)
 
+> **The curated estate is evidence, not a fixture.** (Dave, 2026-09-10 — the
+> durable principle behind everything in this section.) Evidence is read and
+> cited; a fixture is written and reset. Every rule below follows from which of
+> those the `.76` stores are: examples read them because a snapshot goes stale
+> silently, tests read them for the same reason, and anything that must WRITE —
+> a seeded fixture, a perturbed ledger — writes to a local disposable store.
+> `tests/examples/estate_guard.py::refuse_to_write_the_curated_estate` makes
+> that structural rather than conventional: no pytest path can seed a curated
+> host on either leg, whatever is exported.
+
+
 **All examples are to use the data sources on `192.168.4.76`** — the live
 Fluree, PostgreSQL and MongoDB instances of the `ccf_dataprep` estate. That is
 where the engineered financial-services data actually lives, and it is what the

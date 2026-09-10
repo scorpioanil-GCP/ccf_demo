@@ -175,7 +175,7 @@ from ccf_runtime.mcp.egress import PRODUCT_URI_TEMPLATE, product_uri
 from tools.lints import matches_module
 from tools.lints.algorithmic import LLM_MODULES
 
-from .cp_04_seed import FLUREE_FIXTURE, ledger_for, schema_for, seed
+from .cp_04_seed import live_estate
 from .test_cp_04_two_callers import (
     RECORDS,
     SUBJECT_UNAVAILABLE_KIND,
@@ -507,24 +507,17 @@ def declared_legs() -> DeclaredLegs:
 
 
 @pytest.fixture(scope="module")
-def estate(fluree_url: str, postgres_dsn: str) -> Iterator[tuple[str, str]]:
-    """The committed fixture pair, under names nobody else holds."""
-    ledger = ledger_for(__name__)
-    schema = schema_for(__name__)
-    seed(fluree_url, ledger, postgres_dsn, schema)
+def estate() -> tuple[str, str]:
+    """The CURATED estate, read-only, seeding nothing (`D-IMPL-318`).
 
-    patch = pytest.MonkeyPatch()
-    for variable, value in (
-        ("CCF_CP_04_FLUREE_URL", fluree_url.rstrip("/")),
-        ("CCF_CP_04_FLUREE_LEDGER", ledger),
-        ("CCF_CP_04_POSTGRES_DSN", postgres_dsn),
-        ("CCF_CP_04_POSTGRES_SCHEMA", schema),
-    ):
-        patch.setenv(variable, value)
-    try:
-        yield ledger, schema
-    finally:
-        patch.undo()
+    Was: mint a Fluree ledger and a PostgreSQL schema, seed the committed
+    fixture into both, and point cp-04 at them. Every run left a ledger behind
+    that Fluree, being append-only, can never remove.
+
+    Now: read whatever estate the operator exported. The module asserts the
+    same things about the same product; only where the data comes from moved.
+    """
+    return live_estate()
 
 
 @dataclass(frozen=True)

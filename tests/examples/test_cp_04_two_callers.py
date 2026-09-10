@@ -117,7 +117,7 @@ from ccf_runtime.mcp.egress import (
     product_uri,
 )
 
-from .cp_04_seed import ledger_for, schema_for, seed
+from .cp_04_seed import live_estate
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
 EXAMPLE = REPO / "examples" / "cp-04-corporate-family-tree"
@@ -280,30 +280,17 @@ def answer_violations(answers: Mapping[str, Answer]) -> list[str]:
 
 
 @pytest.fixture(scope="module")
-def estate(fluree_url: str, postgres_dsn: str) -> Iterator[tuple[str, str]]:
-    """The committed fixture pair, under names nobody else holds.
+def estate() -> tuple[str, str]:
+    """The CURATED estate, read-only, seeding nothing (`D-IMPL-318`).
 
-    The environment variables are set for the whole module rather than per test:
-    every ask in this module runs against ONE estate, because the claim is *the
-    same deployment reached two ways* and two estates would soften it into *two
-    deployments that agree*.
+    Was: mint a Fluree ledger and a PostgreSQL schema, seed the committed
+    fixture into both, and point cp-04 at them. Every run left a ledger behind
+    that Fluree, being append-only, can never remove.
+
+    Now: read whatever estate the operator exported. The module asserts the
+    same things about the same product; only where the data comes from moved.
     """
-    ledger = ledger_for(__name__)
-    schema = schema_for(__name__)
-    seed(fluree_url, ledger, postgres_dsn, schema)
-
-    patch = pytest.MonkeyPatch()
-    for variable, value in (
-        ("CCF_CP_04_FLUREE_URL", fluree_url.rstrip("/")),
-        ("CCF_CP_04_FLUREE_LEDGER", ledger),
-        ("CCF_CP_04_POSTGRES_DSN", postgres_dsn),
-        ("CCF_CP_04_POSTGRES_SCHEMA", schema),
-    ):
-        patch.setenv(variable, value)
-    try:
-        yield ledger, schema
-    finally:
-        patch.undo()
+    return live_estate()
 
 
 # ---------------------------------------------------------------------------
