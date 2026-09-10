@@ -24,8 +24,11 @@ fails today because the seam is absent, and it fails *loudly* — ``XPASS`` unde
 ``strict`` — on the day a seam is added and the finding is not closed with it.
 **A closed finding keeps its test, unmarked and otherwise unchanged**, so what
 the SDK learned to do is asserted by the same words that recorded its absence.
-Two are closed: ``24.10-F-07`` by ``24.11-01`` and ``24.10-F-06`` by
-``24.11-02``.
+**All four are now closed**: ``24.10-F-07`` by ``24.11-01``, ``24.10-F-06`` by
+``24.11-02``/``24.11-02b``, ``24.10-F-08``'s obligation limb by ``24.11-03``,
+and ``24.10-F-08``'s refresh limb together with ``24.10-F-09`` by
+``D-IMPL-308``. Every test below runs unmarked, asserting as present what it
+was written to assert as absent.
 
 The four findings
 -----------------
@@ -62,21 +65,30 @@ The four findings
     except for the removal of its ``xfail`` marker: what it asserted as absent
     it now asserts as present, in the same words.
 
-``24.10-F-08``
+``24.10-F-08`` — **obligation limb CLOSED at ``24.11-03``, refresh limb at
+``D-IMPL-308``; ``debt_evidence`` remains out of scope.**
     Three Track-B product members — ``obligation_in_force``,
-    ``source_refresh_recency`` and ``debt_evidence`` — have no seam in the
-    resolver's candidate construction. The measured consequence is not
-    cosmetic: on ``s1-01``'s third declared question the served product says
-    the deployment is obliged to do **nothing**, where the deployment's own
+    ``source_refresh_recency`` and ``debt_evidence`` — had no seam in the
+    resolver's candidate construction. The measured consequence was not
+    cosmetic: on ``s1-01``'s third declared question the served product said
+    the deployment was obliged to do **nothing**, where the deployment's own
     ``artifacts/debt-profile.yaml`` binds that routing state to
     ``kyc/re-pull-registry-then-restate-with-debt-disclosed``. All three are
-    inside the product's content address.
+    inside the product's content address, so none was an omission a deployment
+    could repair afterwards. ``source_refresh_recency`` is now a required,
+    deployment-owned argument. ``debt_evidence`` is untouched and stays open:
+    ``D-IMPL-119`` limb 4's named precondition — a perspective-scoped view in
+    the assembly path — is still unmet, and ``D-IMPL-308`` scoped it out.
 
-``24.10-F-09``
-    The decision instant is collapsed into the graph boundary. ``expires_at``,
-    the gate instant and ``recorded_at`` all derive from ``request.asked_at``,
+``24.10-F-09`` — **CLOSED by ``D-IMPL-308``.**
+    The decision instant was collapsed into the graph boundary. ``expires_at``,
+    the gate instant and ``recorded_at`` all derived from ``request.asked_at``,
     so a class that declares a distinct ``decision_instant`` — as ``s1-01``'s
-    request contract does, as a **required** argument — finds nothing reads it.
+    request contract does, as a **required** argument — found nothing read it.
+    The resolver now reads the argument the class names and binds the instant
+    ONCE for all three. **Coincidence is allowed and collapse is not**: a class
+    naming no such parameter passes ``None``, and every instant continues to
+    derive from ``asked_at``.
 
 The wall this harness used to bridge, and what deleted the bridge
 -----------------------------------------------------------------
@@ -239,6 +251,13 @@ def _wire(
         query_pin_class=scenario.query_pin_class,
         max_ttl_seconds=scenario.max_ttl_seconds,
         product_ttl_seconds=_declared_product_ttl_seconds(scenario),
+        # `D-IMPL-308` / `24.10-F-09`: this class declares a decision instant
+        # distinct from its graph boundary, and naming the argument is the
+        # whole of the wiring — the value travels on the request.
+        decision_instant_parameter=scenario.decision_instant_parameter,
+        # `D-IMPL-308` / `24.10-F-08`: when this estate's sources last
+        # published. Declared, because no operator can observe it.
+        source_refresh_recency=scenario.source_refresh_recency,
         # `24.11-02b` / `D-IMPL-292`. Nothing here says anything about a
         # similarity index, and that is the point: the deployment declares
         # `index_version` on `operator-parameters-similarity.yaml`, which
@@ -439,15 +458,6 @@ def test_the_served_product_carries_the_obligation_the_deployment_declared(
     assert answered.outcome.product.obligation_in_force == declared
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "24.10-F-08: GovernedResolver's candidate construction has no seam for"
-        " source_refresh_recency, so the declared window every consumer reads"
-        " freshness from is None on the canonical path. Inside the content"
-        " address (D-IMPL-112 gap 2, D-IMPL-118)"
-    ),
-)
 def test_the_served_product_carries_the_declared_refresh_window(
     adopted_resolver: Callable[[Any], Answered], questions: Any
 ) -> None:
@@ -464,15 +474,6 @@ def test_the_served_product_carries_the_declared_refresh_window(
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "24.10-F-09: GovernedResolver derives expires_at, the gate instant and"
-        " recorded_at from request.asked_at, so a class declaring a distinct"
-        " decision_instant — s1-01's request contract declares it REQUIRED —"
-        " finds nothing reads it. The TTL runs from the wrong instant"
-    ),
-)
 def test_the_ttl_runs_from_the_declared_decision_instant(
     adopted_resolver: Callable[[Any], Answered], questions: Any
 ) -> None:

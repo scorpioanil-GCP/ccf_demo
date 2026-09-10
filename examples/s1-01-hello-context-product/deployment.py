@@ -227,6 +227,26 @@ class KycScenario:
     request: ProductRequest
     request_contract: ProductRequestContract
     request_contract_key: str
+    #: The Control Plane keys the governed resolver resolves this deployment's
+    #: class and its debt bands under. Fields for the same reason
+    #: ``request_contract_key`` and ``policy_bundle_key`` beside them are: the
+    #: KEY is this deployment's, the artifact behind it is the fabric's.
+    product_class_key: str
+    debt_profile_key: str
+    #: THE MANIFEST KEY, WHICH IS NOT ``request_contract_key`` ABOVE.
+    #: ``request_contract_key`` is the Control Plane pin this deployment
+    #: DECLARES in ``artifacts/product-governance.yaml``
+    #: (``fibo-kyc/product/ultimate-beneficial-ownership/requests``); this is
+    #: the key the contract is registered under ON THE BOOTED FABRIC
+    #: (``request-contract``). The governed resolver resolves artifacts off the
+    #: fabric, so it needs the second — handed the first it refuses by name
+    #: with the manifest's whole key list, which is how the confusion surfaced.
+    request_contract_artifact_key: str
+    #: The request-contract argument carrying this class's decision instant —
+    #: ``decision_instant``, declared required in
+    #: ``artifacts/request-contract.yaml`` (`D-IMPL-308`). Naming it is the
+    #: whole of wiring the seam; the value travels on the request.
+    decision_instant_parameter: str
     temporal_boundary: datetime
     now: datetime
     expires_at: datetime
@@ -878,6 +898,10 @@ def read(booted: BootedFabric, request: ProductRequest) -> KycScenario:
             ),
         ),
         request_contract_key=governance[GOVERNANCE_REQUEST_CONTRACT_KEY],
+        product_class_key=KEY_PRODUCT_CLASS,
+        debt_profile_key=KEY_DEBT_PROFILE,
+        request_contract_artifact_key=KEY_REQUEST_CONTRACT,
+        decision_instant_parameter=PARAM_DECISION_INSTANT,
         temporal_boundary=request.asked_at,
         now=now,
         expires_at=now + timedelta(seconds=governance[GOVERNANCE_PRODUCT_TTL_SECONDS]),

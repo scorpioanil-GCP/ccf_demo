@@ -94,6 +94,7 @@ from ccf.products.debt_scorer import (
 )
 from ccf.products.entitlement import product_entitlement_key
 from ccf.products.request import ProductRequest
+from ccf.halflife.assessment import NO_SOURCE_REFRESH_RECENCY
 from ccf.products.resolver import GovernedResolver, ReplayRefusalRecorder
 from ccf.projection.plan import ProjectionOutput
 from ccf.replay.serve import ServedProduct
@@ -688,6 +689,10 @@ def _ask_the_empty_fabric(booted: Any, *, completeness: Any | None = None) -> An
     """
     fabric, control_plane, store = booted
     resolver = GovernedResolver(
+        # `D-IMPL-308`: this fixture's class declares neither a distinct
+        # decision instant nor a refresh window, and says so.
+        decision_instant_parameter=None,
+        source_refresh_recency=NO_SOURCE_REFRESH_RECENCY,
         fabric=fabric,
         control_plane=control_plane,
         product_class_key=PRODUCT_CLASS_KEY,

@@ -126,8 +126,11 @@ their floors. Only the third refuses, and it refuses for `MOD-01`'s reason.
 
 ## `MOD-04` — BLOCKING. The s1-01 migration is mechanically complete and was REVERTED: two already-known, still-open SDK findings stop it preserving domain behavior.
 
-**Status:** OPEN. Blocks s1-01 (and, on the same seam, any example declaring a
-decision instant distinct from its graph boundary). Needs a ruling.
+**Status:** **RULED and REPAIRED — `D-IMPL-308`, 2026-09-09.** Both findings were
+reopened narrowly and closed: the resolver now reads a class-declared decision
+instant and carries a declared refresh window. Rerunning the unchanged adapter
+took the five failures to two. The two that remain are a different cause and
+are `MOD-05` below.
 
 **The migration was built and run before it was classified**, so what follows is
 measured against a working canonical s1-01 rather than predicted. `spine.py`
@@ -213,3 +216,61 @@ manifest artifact key for the request contract (`request-contract`), which is
 `ServedProduct.replay_ref` rather than kept from a step the deployment no longer
 performs.
 
+
+
+---
+
+## `MOD-05` — BLOCKING. The canonical path seals the graph store's moving head inside the content address, so the same question no longer seals to the same address.
+
+**Status:** OPEN. Blocks s1-01. Outside `D-IMPL-308`'s fence. Needs a ruling.
+
+**Measured by diffing two runs of the identical question**, same subject, same
+instants, two whole runs against two graphs. Every product field byte-identical
+except one:
+
+```
+DIFFER store_snapshot_pin
+   run1: {'substrate': 'fluree', 'pin': '74342'}
+   run2: {'substrate': 'fluree', 'pin': '74409'}
+```
+
+`GovernedResolver` sets `store_snapshot_pin=execution.store_snapshot_pin` inside
+`ProductLineage`, which is inside the sealed product and therefore inside the
+content address. **s1-01's hand-composed spine set none**, which is why
+`tests/examples/test_s1_01_output.py::test_the_products_address_survives_a_different_graph_identity`
+passed before the migration and fails after it. Its own words: *"The content
+address is byte-identical, which is what makes replay a property of the question
+and the Control Plane rather than of where the bytes happened to be stored."*
+`test_the_record_carries_all_five_dimensions` fails for the same reason.
+
+**Why this is not `D-IMPL-308`'s to fix.** That ruling authorized four things —
+graph boundary, distinct decision instant, TTL from the proper anchor, declared
+source-refresh recency — and said in terms: *"Do not redesign temporal semantics
+generally."* A store head is none of the four.
+
+**Why it is a real question and not obviously a defect.** `24.5-L-02` put the
+pin there as *"the head the engine read once before its first query, beside the
+temporal anchor and never inside it"*, and replay plausibly wants to know which
+store state was read. Against that: a ledger head advances on its own, so two
+callers asking the same question of the same logical state get different
+addresses, and the ladder's central claim is *same question → same answer*.
+cp-05's reproducibility claim is already bounded to *"a quiescent ledger for that
+run"* — which is this issue, priced in rather than resolved. The question to
+answer first is the one `24.11-C-01` framed: **what does the identifier claim to
+identify?**
+
+**Options, none taken:**
+
+1. **Move the pin out of the sealed lineage** and carry it as evidence beside
+   the address, where the replay reference already lives. The two s1-01 failures
+   resolve and the migration lands unchanged. Changes what every existing
+   product's address is a function of, so digests move — `D-IMPL-293` says
+   nothing has shipped and digests are consequences to regenerate.
+2. **Keep it sealed and rule the address a function of the store state.** Then
+   `test_the_products_address_survives_a_different_graph_identity` is asserting
+   something the SDK no longer claims, and it is the test that must be
+   re-authored — with a ruling, never quietly.
+3. **Leave s1-01 reverted and migrate `s1-00` first.** `s1-00` is clear of
+   `MOD-04`'s two findings (measured); whether it is clear of this one is
+   **unmeasured**, and it will not be until an adapter is built for it, because
+   the pin is only populated on the canonical path.

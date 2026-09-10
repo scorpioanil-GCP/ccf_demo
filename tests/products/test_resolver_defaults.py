@@ -959,6 +959,23 @@ def test_the_named_inputs_are_this_helper_s_own_optional_parameters() -> None:
         # configuration, so it is declared on the similarity artifact and this
         # helper takes no argument for it. The exclusion roster shrinking is
         # the repair, not an omission from it.
+        #
+        # `D-IMPL-308`. A ninth, and it is not debt-scorer material for the
+        # same reason `product_gate` is not: it is a DECLARATION about the
+        # class rather than material a scorer consumes. `None` here means *this
+        # class declares no decision instant distinct from its graph boundary*
+        # — a positive statement the dataclass requires, which is why the field
+        # behind it carries no default even though this parameter does.
+        # `source_refresh_recency` is its sibling and is absent from this
+        # roster because it defaults to `NO_SOURCE_REFRESH_RECENCY` rather than
+        # to `None`, so the comparison below never sees it.
+        "decision_instant_parameter",
+        # Its sibling, and it lands here after all: `NO_SOURCE_REFRESH_RECENCY`
+        # IS `None`, so the comparison below sees this parameter exactly as it
+        # sees the other eight. Measured rather than assumed — the first draft
+        # of this roster left it out on the belief that the sentinel was a
+        # distinct object, and the guard said otherwise.
+        "source_refresh_recency",
     )
     parameters = inspect.signature(build_governed_resolver).parameters
     for name in not_debt_scorer_material:

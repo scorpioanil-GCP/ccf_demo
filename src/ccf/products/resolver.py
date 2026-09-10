@@ -186,6 +186,10 @@ from ccf.products.contract import (
     RegisteredProductClass,
     register_product_class,
 )
+from ccf.halflife.assessment import (
+    NO_SOURCE_REFRESH_RECENCY,
+    SourceRefreshRecency,
+)
 from ccf.products.debt_scorer import (
     AssemblyDebtScorer,
     DeclaredFactor,
@@ -1485,6 +1489,61 @@ class GovernedResolver:
     max_ttl_seconds: int
     product_ttl_seconds: int
 
+    #: The request-contract argument that carries this class's DECISION
+    #: INSTANT, or ``None`` when the class declares none — `24.10-F-09`,
+    #: `D-IMPL-308`.
+    #:
+    #: **The graph boundary and the decision instant are two different facts**
+    #: and this resolver used to have only one. ``request.asked_at`` is *when
+    #: the graph is observed*; the decision instant is *when the answer is
+    #: produced*, and a class may legitimately declare them apart — `s1-01`
+    #: declares a boundary of ``00:00``, a decision instant of ``00:05`` and an
+    #: expiry of ``00:15``, and proves by that spread that nothing in the path
+    #: reads a clock.
+    #:
+    #: **Coincidence is allowed; collapse is not** (`D-IMPL-308`). A class
+    #: declaring no such parameter leaves this ``None`` and every instant
+    #: continues to derive from ``asked_at``, which is what
+    #: `s1-00-companies-over-revenue` legitimately does. What this forbids is
+    #: substituting one for the other when the class says they differ.
+    decision_instant_parameter: str | None
+
+    #: When this deployment's sources last published — `24.10-F-08`,
+    #: `D-IMPL-308`.
+    #:
+    #: **Declaration-owned evidence, and it is inside the content address.** A
+    #: refresh window is a fact about the world upstream of the fabric: the
+    #: deployment knows it and no operator can observe it, which is why it
+    #: arrives here as a declared value rather than being derived from the
+    #: view. The candidate below used to set nothing, so a deployment that
+    #: declared a window watched the canonical path drop it silently — and
+    #: because the field is sealed, that is not an omission a deployment can
+    #: repair afterwards.
+    source_refresh_recency: SourceRefreshRecency
+
+    def _decision_instant(
+        self, request: ProductRequest, effective_request: ProductRequest
+    ) -> datetime:
+        """When the answer is produced, as the class declares it.
+
+        Read off the EFFECTIVE request, so a decision instant supplied by a
+        default or narrowed by policy is the one that governs — the same
+        authority chain every other argument travels.
+
+        Falls back to ``request.asked_at`` when the class declares no such
+        parameter, which keeps every existing deployment on the behavior it
+        already had. The parse is the SDK's for `D-IMPL-302`'s reason: the
+        party holding the declaration is the party that converts it.
+        """
+        if self.decision_instant_parameter is None:
+            return request.asked_at
+        declared = effective_request.parameters.get(self.decision_instant_parameter)
+        if declared is None:
+            return request.asked_at
+        if isinstance(declared, datetime):
+            return declared
+        return datetime.fromisoformat(str(declared).replace("Z", "+00:00"))
+
     def __call__(
         self,
         *,
@@ -1801,14 +1860,22 @@ class GovernedResolver:
         assessed = self.debt_scorer(
             view=execution.view, evidence=ExecutionEvidence.of(execution)
         )
+        # `24.10-F-09` / `D-IMPL-308`. Bound ONCE and read three times below —
+        # the product's expiry, the gate instant and the record's `recorded_at`
+        # are three statements about the same moment, and deriving them
+        # separately is how they drift apart.
+        decided_at = self._decision_instant(request, effective_request)
         candidate = ContextProductContract(
             schema_name=registered.schema_name,
             schema_version=registered.schema_version,
             plan_id=execution.plan_id,
             tenant_id=self.fabric.tenant_id,
+            # THE BOUNDARY STAYS `asked_at` AND THE EXPIRY DOES NOT.
+            # `temporal_boundary` is when the graph was observed; the TTL runs
+            # from when the answer was PRODUCED (`24.10-F-09`, `D-IMPL-308`).
+            # They are equal whenever a class declares no decision instant.
             temporal_boundary=request.asked_at,
-            expires_at=request.asked_at
-            + timedelta(seconds=self.product_ttl_seconds),
+            expires_at=decided_at + timedelta(seconds=self.product_ttl_seconds),
             ttl_anchor=registered.ttl_anchor,
             lineage=ProductLineage(
                 operators_invoked=frozenset(required),
@@ -1819,6 +1886,10 @@ class GovernedResolver:
                 store_snapshot_pin=execution.store_snapshot_pin,
             ),
             payload=execution.projection.payload,
+            # `24.10-F-08` / `D-IMPL-308`: the window this deployment DECLARED,
+            # carried rather than dropped. Inside the content address, so a
+            # deployment cannot add it afterwards.
+            source_refresh_recency=self.source_refresh_recency,
             # 24.6-05 (`24.6-L-06`, `D-IMPL-255` (2)): the scorer is told what
             # the execution observed about its own search, so that D_c is
             # derived from evidence rather than from how many rows came back.
@@ -1843,7 +1914,10 @@ class GovernedResolver:
         gated = run_gates(
             candidate,
             engine_resolved=execution.operators_invoked,
-            now=request.asked_at,
+            # The TTL gate asks whether this product expires within bounds OF
+            # THE MOMENT IT WAS DECIDED, which is the instant its expiry runs
+            # from (`D-IMPL-308`).
+            now=decided_at,
             registry=self.control_plane,
             product_class=registered,
             source_attestation=execution.source_attestation,
@@ -1970,7 +2044,10 @@ class GovernedResolver:
                 *applied,
             ),
             assembly_mode=registered.assembly_mode,
-            recorded_at=request.asked_at,
+            # WHEN THE DECISION WAS TAKEN, not when the graph was read
+            # (`D-IMPL-308`). Dimension 5 already carries `asked_at` on the
+            # request it holds, so the record says both rather than one twice.
+            recorded_at=decided_at,
             request=request,
             # 24.6-07: the assembler in force, on the served path and on every
             # refusal path alike (`D-IMPL-253` Q16). This resolver holds no
@@ -2428,6 +2505,8 @@ def build_governed_resolver(
     plan_factory: ProjectionPlanFactoryProtocol,
     max_ttl_seconds: int,
     product_ttl_seconds: int,
+    decision_instant_parameter: str | None = None,
+    source_refresh_recency: SourceRefreshRecency = NO_SOURCE_REFRESH_RECENCY,
     artifact_store: ArtifactStoreProtocol | None = None,
     replay_record_class: str | None = None,
     query_pin_class: str | None = None,
@@ -2905,6 +2984,8 @@ def build_governed_resolver(
             query_pin_class=pin_class,
             max_ttl_seconds=max_ttl_seconds,
             product_ttl_seconds=product_ttl_seconds,
+            decision_instant_parameter=decision_instant_parameter,
+            source_refresh_recency=source_refresh_recency,
         )
 
     if (
@@ -2955,4 +3036,6 @@ def build_governed_resolver(
         query_pin_class=pin_class,
         max_ttl_seconds=max_ttl_seconds,
         product_ttl_seconds=product_ttl_seconds,
+        decision_instant_parameter=decision_instant_parameter,
+        source_refresh_recency=source_refresh_recency,
     )
