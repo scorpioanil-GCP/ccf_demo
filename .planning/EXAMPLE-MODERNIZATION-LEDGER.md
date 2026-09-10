@@ -302,3 +302,92 @@ identify?**
    `MOD-04`'s two findings (measured); whether it is clear of this one is
    **unmeasured**, and it will not be until an adapter is built for it, because
    the pin is only populated on the canonical path.
+
+---
+
+## `MOD-06` — BLOCKING for s1-01's last test. The canonical path pins the request contract into replay dimension 2; the hand-composed spine pinned only the policy bundle, and s1-01's test asserts dimension 2 equals the product's single lineage version.
+
+**Status:** OPEN. Needs a ruling. **Not** a value disagreement and **not** the
+store pin: the two sides agree about every version they share.
+
+**Measured on a real canonical run** (`tests/examples/test_s1_01_output.py::
+test_the_record_carries_all_five_dimensions`):
+
+```
+LINEAGE (product.lineage.policy_bundle_versions):
+   5520f88f7b9ee813008800e52e097cea128479d58162b785aa48e23dbec3eff8
+
+RECORD (record.policy_bindings.bindings):
+   key='policy-bundle'     version='5520f88f…e23dbec3eff8'   <- same value
+   key='request-contract'  version='bdc2343d…0938ccd8b1956f86'  <- the extra one
+```
+
+The canonical path records **one binding more**. `GovernedResolver` reads the
+policy version once (`src/ccf/products/resolver.py:1855`) and uses it for both
+the lineage and the record, so those cannot diverge; what it *additionally*
+pins is the version of the **request contract** artifact that governed the
+question. The hand-composed spine built dimension 2 with exactly one
+`PolicyBinding`, so the test's equality held trivially.
+
+**The test, unchanged:**
+
+```python
+assert [binding.version for binding in restored.policy_bindings.bindings] == [
+    _the_one_policy_version(result)
+]
+```
+
+`_the_one_policy_version` reads `result.product.lineage.policy_bundle_versions`
+and asserts it has exactly one member.
+
+**Why this is a question and not obviously either answer.** Dimension 2 is the
+*Policy Bindings Snapshot* — whitepaper §7.10.1 — and a request contract is a
+Control Plane artifact whose version genuinely governed the decision, so
+pinning it is arguably what the dimension is for and the canonical path is
+**more** complete. Against that: the product's lineage carries
+`policy_bundle_versions`, and if dimension 2 is to be a superset of it then the
+example's assertion is comparing two sets that were never the same set, and it
+happened to pass only because one spine populated both from one value.
+
+**What was NOT done.** The test is untouched (`D-IMPL-261`: an example's
+assertion is not rewritten to accommodate an SDK surface it just met). The
+failure is left executable and visible.
+
+**Options, none taken:**
+
+1. **Rule dimension 2 a superset and re-author the assertion** to hold the
+   product's lineage version to *membership* in the record's bindings rather
+   than to equality with the whole list. The example then asserts what it
+   actually cares about — the version that produced the answer is the version
+   the record names — and stops asserting how many other bindings exist.
+2. **Rule the request-contract pin misplaced** and move it out of dimension 2.
+   It would need somewhere to go; dimension 5 already pins the request itself.
+3. **Rule both correct and the assertion simply stale**, re-authored with a
+   ruling recorded, on the `D-IMPL-306` precedent for a test-model correction
+   caused by SDK evolution.
+
+**Everything else s1-01 was asked to preserve is green** — see the migration
+note below.
+
+---
+
+## s1-01 migration — LANDED, one red
+
+`spine.py` is canonical: **634 → 426 lines**, the seven `D-07` regions replaced
+by `boot` / `acquire` / `govern`, and
+`tests/examples/test_spine_separation.py::shape_of` classifies the directory
+**`canonical`** (not half-migrated) from the AST — 60 passed.
+
+Preserved, measured, with no re-pin and no expectation weakened:
+
+| required | result |
+| --- | --- |
+| graph boundary `00:00`, decision instant `00:05`, expiry `00:15` | green |
+| source refresh recency | green |
+| stable address across unrelated ledger movement | green — `test_the_products_address_survives_a_different_graph_identity`, the `MOD-05` casualty |
+| store snapshot pin in replay, not on the product | green (`D-IMPL-309`) |
+| no local binder | the site is **gone**; `MOD-01` discharged as `D-IMPL-307` ruled — resolved floor `12 → 11` and delegated `1 → 2` in one commit |
+| canonical shape, not half-migrated | green |
+
+`tests/examples/test_s1_01_output.py`: **38 passed, 1 failed** — the one is
+`MOD-06` above.

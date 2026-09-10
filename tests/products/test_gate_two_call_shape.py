@@ -797,7 +797,7 @@ MINIMUM_PROJECTING_BODIES = 14
 #: on an unruled one. This floor is therefore redundant defence there
 #: rather than the primary control — but the adjacency is new, and is stated
 #: rather than left to be rediscovered by whoever next lowers this number.
-MINIMUM_RESOLVED_BINDER_SITES = 12
+MINIMUM_RESOLVED_BINDER_SITES = 11
 
 #: The SDK module whose own binder call is the canonical path's evidence.
 #: `D-IMPL-300` put `refuse_operator_set_divergence` at the ruled pre-execution
@@ -806,8 +806,9 @@ MINIMUM_RESOLVED_BINDER_SITES = 12
 CANONICAL_BINDER_MODULE = "src/ccf/products/resolver.py"
 
 #: Projecting bodies whose binder call is the SDK's rather than their own —
-#: **one** today (`examples/cp-05-credit-exposure-rollup/produce.py`), counted
-#: from the tree by :func:`_delegated_binder_sites`.
+#: **two** today (`examples/cp-05-credit-exposure-rollup/produce.py` and
+#: `examples/s1-01-hello-context-product/spine.py`), counted from the tree by
+#: :func:`_delegated_binder_sites`.
 #:
 #: **THE EVIDENCE SPLITS BY ARCHITECTURAL OWNERSHIP** (`D-IMPL-307`). Before
 #: `D-IMPL-300` there was one population and one floor, because there was one
@@ -829,7 +830,13 @@ CANONICAL_BINDER_MODULE = "src/ccf/products/resolver.py"
 #: the SDK's own binder call. Delete that call and every delegated site stops
 #: counting at once — which is the property a bare "this example delegates"
 #: check would not have.
-MINIMUM_DELEGATED_BINDER_SITES = 1
+# `D-IMPL-309`'s modernization pass moved `s1-01` across on 2026-09-09: its
+# own binder call at `examples/s1-01-hello-context-product/spine.py` — the last
+# one in the live `examples/` tree, and the whole of `MOD-01` — is gone because
+# `GovernedResolver` now performs it on the deployment's behalf. Resolved
+# 12 -> 11 and delegated 1 -> 2, in this one commit, which is the paired edit
+# the split above exists to require.
+MINIMUM_DELEGATED_BINDER_SITES = 2
 
 #: Every floor here is the count observed in the tree, with **no headroom, on
 #: purpose** — see :func:`test_the_binder_scan_is_not_vacuous` for why headroom
