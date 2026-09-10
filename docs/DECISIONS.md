@@ -2301,4 +2301,27 @@ Three sites changed and one gained an assertion: `produce.py`'s declared return 
 
 **ONE ITEM IS OWED AND IS NOT PART OF THE SUCCESSOR WORK:** cp-05's live rerun and any artifact republication. The four `CCF_CP_05_*` estate values reconstructed from `ccf_dataprep/.env` are wrong — the anchor resolves in `ccf_v2.legal_entity` but carries no node in ledger `fibo:main` — and the failure set under that environment was **measured identical** at the branch base and at HEAD, so none of it is this sitting's change.
 
-**Next free decision id: `D-IMPL-313`.** **Governs:** the separation of historical specimens from canonical successors; cp-04's continued freeze; the successor's scope, shape, naming and documentation obligation; and the close of this branch. **Related:** `D-IMPL-261` (examples are probes, and the cp-00–cp-04 freeze), `D-IMPL-309`/`D-IMPL-310`/`D-IMPL-311` (this sitting's rulings), `D-IMPL-305` (the modernization charter), `D-IMPL-306` (the two valid spine shapes), `D-IMPL-301` (cp-05's category move, the precedent s1-00 followed).
+**Next free decision id: `D-IMPL-314`.** **Governs:** the separation of historical specimens from canonical successors; cp-04's continued freeze; the successor's scope, shape, naming and documentation obligation; and the close of this branch. **Related:** `D-IMPL-261` (examples are probes, and the cp-00–cp-04 freeze), `D-IMPL-309`/`D-IMPL-310`/`D-IMPL-311` (this sitting's rulings), `D-IMPL-305` (the modernization charter), `D-IMPL-306` (the two valid spine shapes), `D-IMPL-301` (cp-05's category move, the precedent s1-00 followed).
+
+
+---
+
+**D-IMPL-313 — The charter for the canonical rung-4 successor: REUSE THE BUSINESS PROBLEM, NOT THE HISTORICAL IMPLEMENTATION. Authored directly against the current SDK surface, not derived from cp-04's tree.** RESOLVED. Date: 2026-09-09. Ruled by: Dave, chartering the next sitting.
+
+**THE LINE THE CHARTER TURNS ON.** Dave: *"Reuse the business problem, not the historical implementation."* Its purpose is stated plainly: *"That keeps the successor from turning into a 'cleaned-up cp-04.' It should be a fresh canonical example that happens to answer the same rung-4 problem."* A successor derived by editing cp-04 would inherit its shape and teach it; a successor authored against the current surface teaches the current surface.
+
+**THE BRIEF, VERBATIM IN SUBSTANCE.** Create a new canonical rung-4 successor. **cp-04 remains frozen and untouched** (`D-IMPL-312`, `D-IMPL-261`). The successor reuses cp-04's business semantics and data problem and is authored directly against the current SDK surface. Producer shape `boot` / `acquire` / `govern`; the canonical resolver owns governance; **no local binder**; refusals are `RefusalEnvelope` (`D-IMPL-311`); the snapshot pin lives in replay (`D-IMPL-309`); replay dimension 2 is a **superset** of product policy lineage and includes the request-contract binding (`D-IMPL-310`).
+
+**Documentation must explicitly distinguish:** cp-04 = historical specimen; the successor = the copy-this-today pattern.
+
+**Do not** reuse cp-04's hashes, published addresses, snippet includes, or `D-IMPL-261` membership.
+
+**Stop on the first unclassified miss. No re-pin.**
+
+**TIGHTENING 1 — THE ROSTER MOVE IS AUTHORIZED, NOT ASSUMED.** The successor should land in `RULED_SDK_SUPPLIED_DEPLOYMENTS`, *"but only after the structural predicate proves it."* Dave: *"The human ruling authorizes the classification move; the tree still has to demonstrate"* — canonical seam ownership, a **named** `plan_factory`, no local binder, no competing operator set, and no manual projection execution / gate / replay / serve. This is `D-IMPL-311`'s lesson made a standing rule: the roster is never the evidence, and a roster entry for a tree the predicate cannot read is the defect the two rosters exist to prevent.
+
+**TIGHTENING 2 — "DECLARATIONS FROM cp-04" MEANS SEMANTIC DECLARATIONS, NOT FILE COPYING.** Preserve product-class **semantics**, Π **intent**, Debt **semantics**, and the data/domain layout. Dave: *"Do not carry forward cp-04's legacy declaration shape merely because it exists there. Where the SDK now has a canonical artifact/location, author the successor directly in that current form."*
+
+**THE THREE CARRIES, UNMOVED.** (1) cp-05's estate rerun and artifact republication remain **Dave-owned**, blocked on the four `CCF_CP_05_*` values, and are explicitly **not** folded into the successor work. (2) `examples/cp-00-institutional-holders` remains the stable **row-B control specimen** (`D-IMPL-311`). (3) The recurring lesson, stated as a standing instruction for the sibling: *"assume the canonical SDK may be more complete than the historical example assertion, and measure before 'fixing' the SDK downward."* This sitting produced that finding three times — the store pin, the request-contract binding, and the refusal envelope — and in all three the correct repair was a more precise assertion rather than a smaller SDK.
+
+**Next free decision id: `D-IMPL-314`.** **Governs:** the successor's charter, its authoring discipline, the conditions on its roster classification, and the three carries. **Related:** `D-IMPL-312` (the specimen/successor separation this charters), `D-IMPL-309`/`D-IMPL-310`/`D-IMPL-311` (the three surfaces the successor must be authored against), `D-IMPL-261` (the freeze the successor is NOT under), `D-IMPL-137` (the exemption rosters and their row C), `D-IMPL-306` (the two valid spine shapes).
