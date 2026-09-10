@@ -1760,7 +1760,6 @@ def test_envelope_for_carries_the_four_governance_members_it_is_given() -> None:
     evidence = RefusalEvidence(
         operators_invoked=frozenset({"traversal.neighbors"}),
         plan_id="plan-1",
-        store_snapshot_pin=NO_STORE_SNAPSHOT_PIN,
     )
     resource = ResourceRequestIdentity(
         surface="fixture-surface",
@@ -1809,11 +1808,28 @@ def test_an_aware_determination_instant_is_admitted() -> None:
     assert identity.determined_at.utcoffset() is not None
 
 
-def test_the_evidence_bundle_requires_the_head_its_search_ran_against() -> None:
-    """No default on ``store_snapshot_pin``: a search that ran read something,
-    and a defaulted pin would let a caller build evidence that silently claims
-    the substrate exposed no head when the caller merely forgot to say."""
-    with pytest.raises(ValidationError):
+def test_the_evidence_bundle_does_not_carry_the_head_its_search_ran_against() -> None:
+    """The head moved to replay dimension 1; it did not become optional here.
+
+    This test asserted the converse until ``D-IMPL-309``: ``store_snapshot_pin``
+    was required on the bundle so that *"a defaulted pin would let a caller
+    build evidence that silently claims the substrate exposed no head when the
+    caller merely forgot to say."* That reasoning was right and it is why the
+    field could not simply be given a default — but it was answered by moving
+    the field rather than by defaulting it. A refusal's canonical bytes are at
+    once its address, its stored form and its wire form, so a head sealed here
+    made two identical searches two refusals; and the guarantee itself now
+    lives where the head is recorded per execution
+    (:class:`~ccf.replay.record.ContextFabricSnapshot`), reachable from the
+    shell's replay reference.
+
+    So: refused by name, not accepted and dropped.
+    """
+    bundle = RefusalEvidence(operators_invoked=frozenset({"o"}), plan_id="plan-1")
+    assert "store_snapshot_pin" not in type(bundle).model_fields
+    with pytest.raises(ValidationError, match="store_snapshot_pin"):
         RefusalEvidence(  # type: ignore[call-arg]
-            operators_invoked=frozenset({"o"}), plan_id="plan-1"
+            operators_invoked=frozenset({"o"}),
+            plan_id="plan-1",
+            store_snapshot_pin=NO_STORE_SNAPSHOT_PIN,
         )

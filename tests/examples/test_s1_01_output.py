@@ -560,18 +560,39 @@ def test_the_record_carries_all_five_dimensions(result: Any) -> None:
     assert restored.context_fabric_snapshot.temporal_boundary == (
         scenario.temporal_boundary
     )
-    # 2 — policy bindings. The record's binding and the product's lineage are
-    #     built by two separate calls taking two different argument shapes, so
-    #     this fails if either is wired to the wrong pin. It does NOT
-    #     independently re-derive the version — the pin has one source, by
-    #     design — and claiming otherwise would be the tautology this module
-    #     exists to avoid.
-    assert [binding.version for binding in restored.policy_bindings.bindings] == [
-        _the_one_policy_version(result)
-    ]
-    assert [binding.key for binding in restored.policy_bindings.bindings] == [
-        scenario.policy_bundle_key
-    ]
+    # 2 — policy bindings. **A SUBSET RELATION, NOT AN EQUALITY** (`D-IMPL-310`).
+    #     The two accounts answer different questions: the product's lineage
+    #     says which POLICY BUNDLE versions shaped this product, and dimension 2
+    #     says which governed Control Plane bindings shaped the request and the
+    #     determination. The second is the broader set, and the canonical path
+    #     carries a binding the hand-composed spine never built — the version of
+    #     the REQUEST CONTRACT, which governed what question could be asked and
+    #     how its parameters were interpreted. That is better governance
+    #     evidence, not migration drift, and it is not stuffed into
+    #     `policy_bundle_versions` to restore a set equality that was only ever
+    #     true because one spine populated both sides from one value.
+    #
+    #     Both limbs are checked against sources INDEPENDENT of the record, for
+    #     the reason `operators_invoked` is: a test whose two sides come off the
+    #     same object compares a value with itself.
+    bound = {binding.key: binding.version for binding in restored.policy_bindings.bindings}
+
+    #     (a) every policy-bundle version the PRODUCT carries is in the record,
+    #         under the deployment's own key, at the same version.
+    assert bound.get(scenario.policy_bundle_key) == _the_one_policy_version(result)
+
+    #     (b) and the request contract that governed the question is bound too,
+    #         at the version of the CONTRACT ITSELF — re-derived here the way
+    #         the Control Plane mints a version (`content_hash`,
+    #         `ccf.controlplane.registry`), off the contract `deployment.py`
+    #         parsed for this run, so neither side of this comparison came from
+    #         the record. `scenario.artifacts` holds a `DeclaredArtifact`
+    #         WRAPPER whose hash is a different value; the version is the
+    #         contract's own, which is why this reads `scenario.request_contract`
+    #         rather than the manifest entry.
+    assert bound.get(scenario.request_contract_artifact_key) == content_hash(
+        scenario.request_contract
+    )
     # 3 — model version. SDK mechanism: this deployment is keyless, and the
     #     assembly mode is the governance claim the product class authored
     #     (D-IMPL-94, Q-2 — the field describes how the SUBSTRATE was
@@ -588,7 +609,12 @@ def test_the_record_carries_all_five_dimensions(result: Any) -> None:
 
 
 def _the_one_policy_version(result: Any) -> str:
-    """The single policy-bundle version the served product's lineage carries."""
+    """The single policy-bundle version the served product's lineage carries.
+
+    Still exactly one, and that is a claim about the PRODUCT (`D-IMPL-310`):
+    this deployment's state is assembled under one bundle. The record may bind
+    more governed artifacts than that, and does.
+    """
     versions = result.product.lineage.policy_bundle_versions
     assert len(versions) == 1, versions
     return next(iter(versions))

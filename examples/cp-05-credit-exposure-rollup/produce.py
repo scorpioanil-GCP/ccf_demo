@@ -96,6 +96,30 @@ class RequestRefused(ValueError):
         self.refusal = refusal
 
 
+def _replay_record(governed: Any, *, store_root: pathlib.Path) -> Any:
+    """The Decision Replay record ``governed`` names, or ``None``.
+
+    ``None`` when the outcome carries no reference — a refusal minted by a seam
+    that recorded none says so with
+    :data:`~ccf.products.refusal.NO_REPLAY_REFERENCE` — or when the store
+    cannot resolve it. Read while the store is still alive; see the call site.
+    """
+    from ccf.artifacts.file_store import FileArtifactStore
+    from ccf.replay.record import DecisionReplayRecord
+
+    reference = getattr(governed, "replay_ref", None)
+    address = getattr(reference, "content_address", None)
+    if address is None:
+        return None
+    store = FileArtifactStore(root=store_root)
+    try:
+        return DecisionReplayRecord.model_validate_json(
+            store.get(content_address=address)
+        )
+    except (KeyError, LookupError, OSError, ValueError):
+        return None
+
+
 def produce(**kwargs: Any) -> dict[str, Any]:
     """The payload alone — what a transcript renders and a test diffs.
 
@@ -118,7 +142,7 @@ def produce_governed(
     debt_tolerance: str | None = None,
     as_of: str | None = None,
     replay_root: pathlib.Path | None = None,
-) -> tuple[dict[str, Any], Any]:
+) -> tuple[dict[str, Any], Any, Any]:
     """One rollup, through ``GovernedResolver``. cp-05 assembles; CCF governs.
 
     **The whole of what this function does** is boot, assemble the domain truth,
@@ -177,9 +201,11 @@ def produce_governed(
     # zero, which is exactly the confidently-wrong answer `24.10-F-11` was.
     family_token = str(question["parameters"]["families"][0])
 
+    # --8<-- [start:boot]
     # 1 · WHAT THE CALLER EFFECTIVELY ASKED — to parameterise acquisition.
     with tempfile.TemporaryDirectory() as scratch:
         _scratch_fabric, scratch_registry = dep.boot(pathlib.Path(scratch))
+        # --8<-- [end:boot]
         product_request, outcome = dep.effective_request(
             config=config, registry=scratch_registry,
             supplied={
@@ -237,6 +263,7 @@ def produce_governed(
             anchor_lei, anchor_name = asm.resolve_anchor(cur, schema, anchor_lei)
             limit = asm.load_limit_definition(cur, schema, intent_value)
 
+            # --8<-- [start:acquire]
             # 2 · ACQUISITION — the source estate, bounded by the caller's walk.
             rows = dep.sparql(graph, f'SELECT ?s {dep._from_clause(graph)} '
                                      f'WHERE {{ ?s <{dep.LEI_PREDICATE}> "{anchor_lei}" }}')
@@ -316,6 +343,7 @@ def produce_governed(
                     materiality=materiality_value, flags=flags,
                     acquired_count=len(acquired), edge_count=len(edges),
                 )
+                # --8<-- [end:acquire]
 
                 # The declared replay binding names a `store_dirname`, which
                 # is half a location; the SDK refuses to root a deployment's
@@ -329,12 +357,22 @@ def produce_governed(
                     materiality=materiality_value, assessment=assessment,
                     product_request=product_request, store_root=store_root,
                 )
+                # `D-IMPL-309`: the store head the reads ran against is
+                # EXECUTION PROVENANCE, recorded in replay dimension 1 and no
+                # longer on the product. Read HERE, while the store is still
+                # alive — when no `--replay-root` was given it lives under
+                # `fabric_root` and is deleted by the cleanup below, so a
+                # renderer that tried to resolve it afterwards would find
+                # nothing. The transcript therefore gets the record itself
+                # rather than reaching for a field that has correctly stopped
+                # existing on the vessel.
+                record = _replay_record(governed, store_root=store_root)
             finally:
                 fabric_root.cleanup()
 
     payload = dict(getattr(governed, "product", None).payload) if getattr(
         governed, "product", None) is not None else {}
-    return payload, governed
+    return payload, governed, record
 
 
 def _business_payload(*, config, rollup, limit, anchor_name, family_size,
@@ -392,6 +430,7 @@ def _business_payload(*, config, rollup, limit, anchor_name, family_size,
     }
 
 
+# --8<-- [start:govern]
 def _governed(*, fabric, control_plane, config, ttl, rollup, business,
               materiality, assessment, product_request, store_root):
     """The extension points a deployment supplies, and one call.
@@ -449,6 +488,7 @@ def _governed(*, fabric, control_plane, config, ttl, rollup, business,
         perspective=_perspective(config),
         request=product_request,
     )
+# --8<-- [end:govern]
 
 
 def as_contract(payload: dict[str, Any]) -> "ContextProductContract":

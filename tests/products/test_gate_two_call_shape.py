@@ -627,7 +627,17 @@ PRODUCT_CLASS_OPERATOR_SET_ATTRIBUTE = "required_operator_keys"
 RULED_ONE_DOCUMENT_DEPLOYMENTS: frozenset[str] = frozenset(
     {
         "examples/cp-00-institutional-holders",
-        "examples/s1-00-companies-over-revenue",
+        # `examples/s1-00-companies-over-revenue` was HERE and was REMOVED on
+        # 2026-09-09 at its canonical adoption (`D-IMPL-311`), on the cp-05
+        # precedent below. The reason is architectural, not administrative:
+        # s1-00's hand-composed producer built its plan with
+        # `required=tuple(scenario.product_class.required_operator_keys)` — one
+        # document where two were possible, which is exactly what the exemption
+        # permitted — and its `plan_factory` now consumes the resolver's
+        # `required` and authors no operator set at all. Dave: *"s1-00 no longer
+        # authors an operator set; the SDK supplies it."* It moved to
+        # `RULED_SDK_SUPPLIED_DEPLOYMENTS` in the same commit, and no new
+        # exemption class was created and no ceiling raised.
         # D-IMPL-234 (Dave, 2026-09-01) — the gate-two closure for cp-04.
         "examples/cp-04-corporate-family-tree",
         # D-IMPL-239 (Dave, 2026-09-02) — ruled in by name on ledger row 24.5-L-45.
@@ -674,6 +684,15 @@ RULED_SDK_SUPPLIED_DEPLOYMENTS: frozenset[str] = frozenset(
         # `required` and authors nothing; no competing operator set; no
         # projection engine of its own.
         "examples/cp-05-credit-exposure-rollup",
+        # `D-IMPL-311` (Dave, 2026-09-09) — s1-00's canonical adoption, and the
+        # same move for the same reason. Removed from
+        # `RULED_ONE_DOCUMENT_DEPLOYMENTS` in this commit rather than held in
+        # both: *"a classification update, not an exemption swap."* It
+        # qualifies because the tree proves it — no
+        # `ccf.projection-requirements`, a `plan_factory` that authors nothing,
+        # no competing operator set, no projection engine of its own — not
+        # because it is named here.
+        "examples/s1-00-companies-over-revenue",
     }
 )
 
@@ -797,7 +816,46 @@ MINIMUM_PROJECTING_BODIES = 14
 #: on an unruled one. This floor is therefore redundant defence there
 #: rather than the primary control — but the adjacency is new, and is stated
 #: rather than left to be rediscovered by whoever next lowers this number.
-MINIMUM_RESOLVED_BINDER_SITES = 12
+MINIMUM_RESOLVED_BINDER_SITES = 11
+
+#: The SDK module whose own binder call is the canonical path's evidence.
+#: `D-IMPL-300` put `refuse_operator_set_divergence` at the ruled pre-execution
+#: point inside `GovernedResolver`; this names the file so the assertion below
+#: reads it rather than trusting that it is still there.
+CANONICAL_BINDER_MODULE = "src/ccf/products/resolver.py"
+
+#: Projecting bodies whose binder call is the SDK's rather than their own —
+#: **two** today (`examples/cp-05-credit-exposure-rollup/produce.py` and
+#: `examples/s1-01-hello-context-product/spine.py`), counted from the tree by
+#: :func:`_delegated_binder_sites`.
+#:
+#: **THE EVIDENCE SPLITS BY ARCHITECTURAL OWNERSHIP** (`D-IMPL-307`). Before
+#: `D-IMPL-300` there was one population and one floor, because there was one
+#: way for a deployment to bind its authored operator set to the class's claim:
+#: call the binder. A deployment that adopts
+#: :func:`~ccf.products.resolver.build_governed_resolver` no longer calls it —
+#: the resolver does, on the deployment's behalf, at the ruled point. A single
+#: total cannot tell *"an example stopped binding"* from *"an example handed
+#: binding to the SDK"*, and those two need opposite responses.
+#:
+#: So the two are counted separately and each floor sits at its own observed
+#: count with no headroom. An example migrating moves ONE site from
+#: :data:`MINIMUM_RESOLVED_BINDER_SITES` to this constant; both edits land in
+#: the same commit, and a lone decrement with no matching increment is the
+#: regression the split exists to expose.
+#:
+#: **The credit is CONTINGENT, never free.** :func:`_delegated_binder_sites`
+#: returns nothing at all unless :func:`_canonical_binder_ownership` can read
+#: the SDK's own binder call. Delete that call and every delegated site stops
+#: counting at once — which is the property a bare "this example delegates"
+#: check would not have.
+# `D-IMPL-309`'s modernization pass moved `s1-01` across on 2026-09-09: its
+# own binder call at `examples/s1-01-hello-context-product/spine.py` — the last
+# one in the live `examples/` tree, and the whole of `MOD-01` — is gone because
+# `GovernedResolver` now performs it on the deployment's behalf. Resolved
+# 12 -> 11 and delegated 1 -> 2, in this one commit, which is the paired edit
+# the split above exists to require.
+MINIMUM_DELEGATED_BINDER_SITES = 2
 
 #: Every floor here is the count observed in the tree, with **no headroom, on
 #: purpose** — see :func:`test_the_binder_scan_is_not_vacuous` for why headroom
@@ -3265,7 +3323,14 @@ def test_the_premise_detector_reads_the_shipped_tree_correctly() -> None:
         # document at all: `GovernedResolver` supplies the operator set, so it
         # reads on the SDK-supplied list below instead. This list DESCRIBES THE
         # TREE, so it moves when the tree does — which is what just happened.
-        "examples/s1-00-companies-over-revenue",
+        #
+        # And `examples/s1-00-companies-over-revenue` LEFT row B on 2026-09-09
+        # by the same route (`D-IMPL-311`). Its hand-composed producer built its
+        # plan from `scenario.product_class.required_operator_keys` — one
+        # document where two were possible — and its named `plan_factory` now
+        # authors nothing, taking the operator set from the `required` the SDK
+        # hands it. Two examples have now crossed this boundary in the same
+        # direction, which is what the modernization pass is for.
     ], row_b
     assert _supplied_by_the_product_class(
         *next(
@@ -3285,6 +3350,10 @@ def test_the_premise_detector_reads_the_shipped_tree_correctly() -> None:
     assert sdk_supplied == [
         "examples/cp-05-credit-exposure-rollup",
         "examples/hw1-companies-over-revenue/deployment",
+        # `D-IMPL-311`, 2026-09-09 — s1-00 arrives from row B above, by the
+        # same second shape cp-05 took: it reaches `build_governed_resolver`
+        # directly rather than through a `binding.yaml`.
+        "examples/s1-00-companies-over-revenue",
     ], (
         sdk_supplied
     )
@@ -3623,16 +3692,23 @@ def test_a_body_with_no_artifact_tree_is_subject_to_the_demand() -> None:
     assert not _one_document(scope, no_tree, bindings)
 
 
-def test_hw1_claims_the_exemption_for_the_stated_reason() -> None:
-    """Row B, pinned to its cause rather than to HW-1 happening to pass.
+def test_a_row_b_deployment_claims_the_exemption_for_the_stated_reason() -> None:
+    """Row B, pinned to its cause rather than to the specimen happening to pass.
 
     Both halves asserted separately, because either alone would keep passing if
     the other silently changed: the deployment registers no requirements
     artifact, and the body's plan reads the product class's own claim.
+
+    **The specimen is `cp-00`, and it moved here on 2026-09-09** (`D-IMPL-311`).
+    It was `examples/s1-00-companies-over-revenue`, which left row B at its
+    canonical adoption — its `plan_factory` authors no operator set now, so a
+    control asserting it *does* read one document was asserting something the
+    ruling had just made false. `cp-00` is a row-B deployment on the same
+    reading and constructs its plan from the identical expression, so this
+    control keeps exactly the property it had. The name no longer says `hw1`,
+    which it had not been pointed at for some time.
     """
-    produce = (
-        REPO_ROOT / "examples" / "s1-00-companies-over-revenue" / "produce.py"
-    )
+    produce = REPO_ROOT / "examples" / "cp-00-institutional-holders" / "produce.py"
     root = _deployment_root(produce)
     assert root is not None and not _registers_requirements(root)
 
@@ -3643,7 +3719,7 @@ def test_hw1_claims_the_exemption_for_the_stated_reason() -> None:
         for scope in _scopes(tree)
         if _one_document(scope, produce, _bindings(scope))
     ]
-    assert exempt, "HW-1's projecting body no longer reads one document"
+    assert exempt, "the row-B specimen's projecting body no longer reads one document"
 
 
 def test_an_exempt_body_that_calls_the_binder_is_still_refused() -> None:
@@ -3723,14 +3799,20 @@ def test_a_second_operator_set_outside_the_control_plane_is_refused() -> None:
     reading the copy resolves :func:`_deployment_root` to ``None``, so the
     fail-closed default refuses the body whatever its AST says — the control
     would pass without ever exercising row C, and would go on passing if row C
-    broke. Parsing mutated source while passing HW-1's real path is what puts a
-    real artifact tree, one that registers nothing, behind an AST that reads
-    two sources.
+    broke. Parsing mutated source while passing the specimen's real path is what
+    puts a real artifact tree, one that registers nothing, behind an AST that
+    reads two sources.
+
+    **The specimen is `cp-00`, and it moved here on 2026-09-09** (`D-IMPL-311`),
+    for the reason the row-B control above records: s1-00's plan construction
+    left with its migration, and the mutation had nothing left to rewrite.
+    `cp-00` constructs its plan from the identical expression, so the mutation
+    string below is unchanged.
     """
-    produce = REPO_ROOT / "examples" / "s1-00-companies-over-revenue" / "produce.py"
+    produce = REPO_ROOT / "examples" / "cp-00-institutional-holders" / "produce.py"
     root = _deployment_root(produce)
     assert root is not None, "row C needs a REAL artifact tree, not a copy"
-    assert not _registers_requirements(root), "HW-1 registers no requirements"
+    assert not _registers_requirements(root), "the specimen registers no requirements"
 
     text = produce.read_text(encoding="utf-8")
     baseline = ast.parse(text)
@@ -3738,7 +3820,7 @@ def test_a_second_operator_set_outside_the_control_plane_is_refused() -> None:
         problem
         for scope in _scopes(baseline)
         for problem in _binder_collapses(scope, produce)
-    ], "unmutated HW-1 must be exempt, or this control proves nothing"
+    ], "the unmutated specimen must be exempt, or this control proves nothing"
 
     mutated = text.replace(
         "required=tuple(scenario.product_class.required_operator_keys),",
@@ -4022,22 +4104,143 @@ def test_the_exemption_roster_refuses_a_third_claimant() -> None:
 # --- tripwire (2), the argument half: the binder is doing something -----------
 
 
+def _delegates_to_resolver(path: pathlib.Path) -> bool:
+    """Does this module hand plan construction to the SDK's governed resolver?
+
+    Resolved through the module's own ``from ccf... import``, never by bare
+    name — the same discipline
+    ``tests/examples/test_spine_separation.py::GOVERNED_SEAM_CALLS`` records,
+    and for the same reason: a locally defined helper sharing a name is not an
+    adoption.
+    """
+    tree = _parse(path)
+    if tree is None:
+        return False
+    imported: dict[str, str] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and (node.module or "").startswith("ccf"):
+            for alias in node.names:
+                imported[alias.asname or alias.name] = f"{node.module}.{alias.name}"
+    owning = {
+        "ccf.products.resolver.build_governed_resolver",
+        "ccf.products.resolver.GovernedResolver",
+    }
+    return any(
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and imported.get(node.func.id) in owning
+        for node in ast.walk(tree)
+    )
+
+
+def _readable_binder_sites_in(
+    path: pathlib.Path, scope: ast.AST
+) -> list[str]:
+    """Binder calls in one scope whose handed plan's ``required=`` is readable."""
+    bindings = _bindings(scope)
+    sources = _plan_sources(scope, bindings)
+    return [
+        f"{path.relative_to(REPO_ROOT)}:{call.lineno}"
+        for call in _binder_calls(scope, bindings)
+        if _handed_plan_source(call, sources, bindings) is not None
+    ]
+
+
+def _canonical_binder_ownership() -> list[str]:
+    """The SDK's own binder calls, asserted AT the pre-execution point.
+
+    `D-IMPL-300` ruled that `GovernedResolver` enforces operator-set divergence
+    *before* the projection runs, so this reads the ordering out of the shipped
+    module rather than accepting that a call is present somewhere in the file:
+    a scope qualifies when it binds the very plan object it then hands to
+    ``execute(plan=...)``, and binds it FIRST.
+
+    **Why this and not the adopter scan's readability predicate.** The adopter
+    scan calls a site readable when it can statically resolve the handed plan's
+    ``required=``, which is what :func:`_binder_collapses` needs to compare. The
+    resolver's plan comes from a caller-supplied ``plan_factory``, so its
+    ``required=`` is genuinely unreadable here — correctly, and not as a defect.
+    The property that matters for the canonical path is *order against
+    execution*, and that is what is measured.
+
+    It is deliberately NOT added to :data:`BINDER_SCANNED_TREES`. That tuple's
+    membership is asserted by
+    :func:`test_the_scan_root_membership_is_exactly_the_expected_sets` against
+    the S-16 root-swap defect, and adding ``src`` there would move all three
+    floors' universes at once.
+    """
+    path = REPO_ROOT / CANONICAL_BINDER_MODULE
+    tree = _parse(path)
+    if tree is None:  # pragma: no cover - a broken SDK module fails elsewhere
+        return []
+    found: list[str] = []
+    for scope in _scopes(tree):
+        calls = [node for node in _scope_nodes(scope) if isinstance(node, ast.Call)]
+        # TWO PASSES, because `_scope_nodes` walks the tree rather than the
+        # file: the execution can be reached before the bind that precedes it
+        # on the page, and a single pass would then read a correct ordering as
+        # a missing one.
+        bound: dict[str, int] = {}
+        for node in calls:
+            if _callee(node) != BINDER_CALL:
+                continue
+            handed = _keyword(node, BINDER_PLAN_KEYWORD)
+            if isinstance(handed, ast.Name):
+                bound[handed.id] = node.lineno
+        for node in calls:
+            func = node.func
+            if not (isinstance(func, ast.Attribute) and func.attr == "execute"):
+                continue
+            executed = _keyword(node, BINDER_PLAN_KEYWORD)
+            if not isinstance(executed, ast.Name):
+                continue
+            at = bound.get(executed.id)
+            if at is not None and at < node.lineno:
+                found.append(f"{path.relative_to(REPO_ROOT)}:{at}")
+    return sorted(set(found))
+
+
 def _resolved_binder_sites() -> list[str]:
-    """Binder calls whose handed plan's ``required=`` this module can read.
+    """ADOPTER-owned binder calls whose handed plan's ``required=`` is readable.
 
     The input :func:`_binder_collapses`'s first check consumes. A binder call
     whose plan is out of reach is scanned and says nothing, so counting the
     *readable* ones is what distinguishes a live check from a quiet one.
+
+    **Scoped to deployments that have NOT adopted the resolver** (`D-IMPL-307`).
+    A module that calls
+    :func:`~ccf.products.resolver.build_governed_resolver` is not failing to
+    bind — the SDK binds for it — and counting it here would put two
+    architectures in one total where a decrement cannot be read. Its evidence
+    is :func:`_delegated_binder_sites` instead. **Today the exclusion removes
+    nothing:** no delegating module holds a direct binder call, so this count
+    is the twelve it was before the split, and the separation is structural
+    rather than a re-measurement.
     """
     readable: list[str] = []
     for path, scope in _projecting_scopes():
-        bindings = _bindings(scope)
-        sources = _plan_sources(scope, bindings)
-        for call in _binder_calls(scope, bindings):
-            if _handed_plan_source(call, sources, bindings) is None:
-                continue
-            readable.append(f"{path.relative_to(REPO_ROOT)}:{call.lineno}")
+        if _delegates_to_resolver(path):
+            continue
+        readable.extend(_readable_binder_sites_in(path, scope))
     return readable
+
+
+def _delegated_binder_sites() -> list[str]:
+    """Projecting bodies whose binder call is the SDK's, not their own.
+
+    **Returns nothing unless the SDK's own call can be read.** The credit is
+    for delegating to a resolver that binds; if
+    :func:`_canonical_binder_ownership` comes back empty the delegation is to
+    a resolver that does not, and crediting it would convert the deletion of
+    `D-IMPL-300`'s repair into a silently green floor.
+    """
+    if not _canonical_binder_ownership():
+        return []
+    return [
+        f"{path.relative_to(REPO_ROOT)}:{_scope_line(scope)}"
+        for path, scope in _projecting_scopes()
+        if _delegates_to_resolver(path)
+    ]
 
 
 def test_the_binder_argument_scan_is_not_vacuous() -> None:
@@ -4061,6 +4264,58 @@ def test_the_binder_argument_scan_is_not_vacuous() -> None:
         f"{len(found)} binder call sites with a readable plan source,"
         f" {MINIMUM_RESOLVED_BINDER_SITES} expected."
         f" {FLOOR_REMOVAL_INSTRUCTION} Found: {found}"
+    )
+
+
+def test_the_canonical_path_binds_before_it_executes() -> None:
+    """`D-IMPL-300`, read off the shipped resolver rather than trusted.
+
+    The whole of :func:`_delegated_binder_sites` rests on this: an example that
+    hands plan construction to
+    :func:`~ccf.products.resolver.build_governed_resolver` is credited with a
+    binder call it does not make, and that credit is only honest while the
+    resolver actually makes one — **before** the projection runs, on the very
+    plan object it then executes.
+
+    Asserting presence alone would not be enough. The binder's job is to refuse
+    an assembly that should never happen, so a call moved to *after* execution
+    would still be present, still be found by a grep, and still be useless:
+    gate 2 already catches divergence once the product exists. The ordering is
+    the property, and the ordering is what is measured.
+    """
+    owned = _canonical_binder_ownership()
+    assert owned, (
+        f"{CANONICAL_BINDER_MODULE} no longer binds the plan it executes before"
+        f" executing it. `{BINDER_CALL}` must be called with the same plan"
+        " object subsequently handed to `execute(plan=...)`, at a lower line"
+        " (`D-IMPL-300`). Every delegated binder site stops counting while this"
+        " is false, so do not repair one by lowering the other."
+    )
+
+
+def test_the_delegated_binder_scan_is_not_vacuous() -> None:
+    """The other half of the split (`D-IMPL-307`).
+
+    Its companion above counts deployments that bind for themselves. This one
+    counts deployments whose binder call is the SDK's, and the two together are
+    what let a migration be read correctly: an example moving from one
+    architecture to the other **decrements one floor and increments this one**,
+    in the same commit. A lone decrement is a deployment that stopped binding
+    and told nobody, which is exactly what a single total could not distinguish
+    from a deployment that had adopted the resolver.
+
+    Floors, not equalities, in both directions — but each sits at its observed
+    count with no headroom, for the reason
+    :func:`test_the_binder_scan_is_not_vacuous` gives.
+    """
+    found = _delegated_binder_sites()
+    assert len(found) >= MINIMUM_DELEGATED_BINDER_SITES, (
+        f"{len(found)} projecting bodies delegate binding to the governed"
+        f" resolver, {MINIMUM_DELEGATED_BINDER_SITES} expected."
+        f" {FLOOR_REMOVAL_INSTRUCTION} Found: {found}."
+        " If this dropped to zero while"
+        " `test_the_canonical_path_binds_before_it_executes` is also red, fix"
+        " that one first — this floor is downstream of it by construction."
     )
 
 

@@ -121,8 +121,15 @@ the operator named beside it has stopped working, and
 `tests/examples/test_s1_01_output.py::test_every_declared_absence_really_is_absent`
 goes red against the serialized payload rather than against one field.
 
+The operator chain is not built by hand here. Every parameter it runs under —
+the jurisdictions, the similarity floor, the edge types, the effectiveness rule
+— is authored in `artifacts/operator-parameters-*.yaml`, and the deployment
+names those four documents. Naming them is the whole of the wiring; the SDK
+resolves the chain from the declarations, which is why no threshold and no edge
+type appears anywhere in the example's code.
+
 ```py
---8<-- "examples/s1-01-hello-context-product/spine.py:operators"
+--8<-- "examples/s1-01-hello-context-product/spine.py:govern"
 ```
 
 ### Which company, and when, is the caller's question — not the fabric's configuration
@@ -148,9 +155,13 @@ to in between, and fails if the party the declaration says should appear does
 not: a share transfer recorded before the first boundary and legally effective
 after it is invisible in one answer and decisive in the other.
 
-```py
---8<-- "examples/s1-01-hello-context-product/spine.py:project"
-```
+Both properties are structural rather than diligent. The subject seeds the
+traversal because the request carries it into the compiled query, and Π arrives
+as a *class* the fabric constructs rather than an object handed over
+ready-made — `plan_factory` in the `govern` region above — so the binder that
+holds the projection's authored operator set against the product class's claim
+can be shown the object it binds. A plan handed over ready-made is a plan no
+binder can be shown to have been given.
 
 ### The decision is recorded before it is delivered, and every pin resolves
 
@@ -168,9 +179,12 @@ profile tomorrow cannot rewrite what yesterday's answer was obliged to do.
 checks the obligation on every answered question against the one the product
 carries, and the third question's against the deployment's own declaration.
 
-```py
---8<-- "examples/s1-01-hello-context-product/spine.py:serve"
-```
+None of that is code in this example any more. The three L6 gates, the
+five-dimension record, the query pins, the persisted append and the delivery are
+one object the SDK owns, reached by the single `build_governed_resolver` call in
+the `govern` region above — which is what makes "there is no branch that reaches
+a served product without a recorded decision" a property of the fabric rather
+than a property of this deployment having remembered to write one.
 
 ## The three approaches this is usually compared against
 

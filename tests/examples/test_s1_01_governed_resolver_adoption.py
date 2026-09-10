@@ -24,8 +24,11 @@ fails today because the seam is absent, and it fails *loudly* — ``XPASS`` unde
 ``strict`` — on the day a seam is added and the finding is not closed with it.
 **A closed finding keeps its test, unmarked and otherwise unchanged**, so what
 the SDK learned to do is asserted by the same words that recorded its absence.
-Two are closed: ``24.10-F-07`` by ``24.11-01`` and ``24.10-F-06`` by
-``24.11-02``.
+**All four are now closed**: ``24.10-F-07`` by ``24.11-01``, ``24.10-F-06`` by
+``24.11-02``/``24.11-02b``, ``24.10-F-08``'s obligation limb by ``24.11-03``,
+and ``24.10-F-08``'s refresh limb together with ``24.10-F-09`` by
+``D-IMPL-308``. Every test below runs unmarked, asserting as present what it
+was written to assert as absent.
 
 The four findings
 -----------------
@@ -62,21 +65,30 @@ The four findings
     except for the removal of its ``xfail`` marker: what it asserted as absent
     it now asserts as present, in the same words.
 
-``24.10-F-08``
+``24.10-F-08`` — **obligation limb CLOSED at ``24.11-03``, refresh limb at
+``D-IMPL-308``; ``debt_evidence`` remains out of scope.**
     Three Track-B product members — ``obligation_in_force``,
-    ``source_refresh_recency`` and ``debt_evidence`` — have no seam in the
-    resolver's candidate construction. The measured consequence is not
-    cosmetic: on ``s1-01``'s third declared question the served product says
-    the deployment is obliged to do **nothing**, where the deployment's own
+    ``source_refresh_recency`` and ``debt_evidence`` — had no seam in the
+    resolver's candidate construction. The measured consequence was not
+    cosmetic: on ``s1-01``'s third declared question the served product said
+    the deployment was obliged to do **nothing**, where the deployment's own
     ``artifacts/debt-profile.yaml`` binds that routing state to
     ``kyc/re-pull-registry-then-restate-with-debt-disclosed``. All three are
-    inside the product's content address.
+    inside the product's content address, so none was an omission a deployment
+    could repair afterwards. ``source_refresh_recency`` is now a required,
+    deployment-owned argument. ``debt_evidence`` is untouched and stays open:
+    ``D-IMPL-119`` limb 4's named precondition — a perspective-scoped view in
+    the assembly path — is still unmet, and ``D-IMPL-308`` scoped it out.
 
-``24.10-F-09``
-    The decision instant is collapsed into the graph boundary. ``expires_at``,
-    the gate instant and ``recorded_at`` all derive from ``request.asked_at``,
+``24.10-F-09`` — **CLOSED by ``D-IMPL-308``.**
+    The decision instant was collapsed into the graph boundary. ``expires_at``,
+    the gate instant and ``recorded_at`` all derived from ``request.asked_at``,
     so a class that declares a distinct ``decision_instant`` — as ``s1-01``'s
-    request contract does, as a **required** argument — finds nothing reads it.
+    request contract does, as a **required** argument — found nothing read it.
+    The resolver now reads the argument the class names and binds the instant
+    ONCE for all three. **Coincidence is allowed and collapse is not**: a class
+    naming no such parameter passes ``None``, and every instant continues to
+    derive from ``asked_at``.
 
 The wall this harness used to bridge, and what deleted the bridge
 -----------------------------------------------------------------
@@ -115,9 +127,11 @@ from typing import Any, NamedTuple
 import pytest
 
 from ccf.artifacts.file_store import FileArtifactStore
+from ccf.contracts.canonical import content_hash
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.deployment import load_and_boot
 from ccf.products.resolver import build_governed_resolver
+from ccf.replay.record import DecisionReplayRecord
 
 pytestmark = pytest.mark.fluree
 
@@ -239,6 +253,13 @@ def _wire(
         query_pin_class=scenario.query_pin_class,
         max_ttl_seconds=scenario.max_ttl_seconds,
         product_ttl_seconds=_declared_product_ttl_seconds(scenario),
+        # `D-IMPL-308` / `24.10-F-09`: this class declares a decision instant
+        # distinct from its graph boundary, and naming the argument is the
+        # whole of the wiring — the value travels on the request.
+        decision_instant_parameter=scenario.decision_instant_parameter,
+        # `D-IMPL-308` / `24.10-F-08`: when this estate's sources last
+        # published. Declared, because no operator can observe it.
+        source_refresh_recency=scenario.source_refresh_recency,
         # `24.11-02b` / `D-IMPL-292`. Nothing here says anything about a
         # similarity index, and that is the point: the deployment declares
         # `index_version` on `operator-parameters-similarity.yaml`, which
@@ -439,15 +460,6 @@ def test_the_served_product_carries_the_obligation_the_deployment_declared(
     assert answered.outcome.product.obligation_in_force == declared
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "24.10-F-08: GovernedResolver's candidate construction has no seam for"
-        " source_refresh_recency, so the declared window every consumer reads"
-        " freshness from is None on the canonical path. Inside the content"
-        " address (D-IMPL-112 gap 2, D-IMPL-118)"
-    ),
-)
 def test_the_served_product_carries_the_declared_refresh_window(
     adopted_resolver: Callable[[Any], Answered], questions: Any
 ) -> None:
@@ -464,15 +476,6 @@ def test_the_served_product_carries_the_declared_refresh_window(
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "24.10-F-09: GovernedResolver derives expires_at, the gate instant and"
-        " recorded_at from request.asked_at, so a class declaring a distinct"
-        " decision_instant — s1-01's request contract declares it REQUIRED —"
-        " finds nothing reads it. The TTL runs from the wrong instant"
-    ),
-)
 def test_the_ttl_runs_from_the_declared_decision_instant(
     adopted_resolver: Callable[[Any], Answered], questions: Any
 ) -> None:
@@ -489,3 +492,68 @@ def test_the_ttl_runs_from_the_declared_decision_instant(
         " declares a decision instant distinct from the graph boundary"
     )
     assert answered.outcome.product.expires_at == scenario.expires_at
+
+
+# ---------------------------------------------------------------------------
+# MOD-05 / D-IMPL-309 — the ambient ledger head is not part of the answer.
+# ---------------------------------------------------------------------------
+
+
+def test_two_ambient_ledger_heads_serve_one_content_address(
+    adopted_resolver: Callable[[Any], Answered], questions: Any
+) -> None:
+    """`MOD-05`'s measurement, asked of the canonical path and answered.
+
+    Two whole runs of the identical question. The fixture boots and populates
+    a fresh fabric per call, so the two runs read the store at two different
+    heads — which is precisely the ambient movement `MOD-05` measured, and it
+    happens here for a reason that has nothing to do with the question asked.
+
+    Before ``D-IMPL-309`` this returned two addresses, and the diff was one
+    field::
+
+        DIFFER store_snapshot_pin
+           run1: {'substrate': 'fluree', 'pin': '74342'}
+           run2: {'substrate': 'fluree', 'pin': '74409'}
+
+    ``GovernedResolver`` set ``store_snapshot_pin=execution.store_snapshot_pin``
+    inside ``ProductLineage``, inside the sealed product, inside the content
+    address — so a head advancing for unrelated reasons made the same question
+    a different answer. The head is now execution provenance: recorded on
+    replay dimension 1, absent from the vessel.
+
+    This is the canonical-path twin of the hand-composed spine's own
+    ``tests/examples/test_s1_01_output.py::
+    test_the_products_address_survives_a_different_graph_identity``, whose
+    words this ruling makes true of both spines: *"the content address is
+    byte-identical, which is what makes replay a property of the question and
+    the Control Plane rather than of where the bytes happened to be stored."*
+    """
+    runs = [adopted_resolver(questions[0]), adopted_resolver(questions[0])]
+    addresses: list[str] = []
+    heads: list[Any] = []
+    for answered in runs:
+        product = getattr(answered.outcome, "product", None)
+        assert product is not None, "the governed resolver served no product"
+        addresses.append(content_hash(product))
+        record = DecisionReplayRecord.model_validate_json(
+            answered.store.get(
+                content_address=answered.outcome.replay_ref.content_address
+            )
+        )
+        heads.append(record.context_fabric_snapshot.store_snapshot_pin)
+
+    # The head is still recorded, per execution, and the two runs genuinely
+    # read different ones. Without this the equality below would be the
+    # equality of two runs that happened to share a head, which would prove
+    # nothing about ambient movement at all.
+    assert heads[0] != heads[1], (
+        "the two runs read the same store head, so this test did not measure"
+        f" ambient movement ({heads[0]!r} both times)"
+    )
+    # And the answer is one answer.
+    assert addresses[0] == addresses[1], (
+        "the same governed question served two content addresses across two"
+        f" ambient ledger heads ({heads[0]!r} then {heads[1]!r}) — `MOD-05`"
+        " has regressed and `D-IMPL-309` is not in force"
+    )

@@ -88,6 +88,10 @@ from ccf.replay.record import (
     ResolutionNotApplicable,
 )
 from ccf.products import resolver as resolver_module
+from ccf.halflife.assessment import (
+    NO_SOURCE_REFRESH_RECENCY,
+    SourceRefreshWindow,
+)
 from ccf.products.resolver import (
     GovernedResolver,
     build_governed_resolver,
@@ -913,6 +917,10 @@ def test_an_answerable_question_yields_a_served_product(booted: _Booted) -> None
     assert outcome.product.expires_at == ASKED_AT + timedelta(
         seconds=PRODUCT_TTL_SECONDS
     )
+    record = DecisionReplayRecord.model_validate_json(
+        booted.store.get(content_address=outcome.replay_ref.content_address)
+    )
+    assert record.recorded_at == ASKED_AT
 
 
 def test_the_success_leg_assembles_the_fixtures_own_entity(booted: _Booted) -> None:
@@ -988,6 +996,140 @@ def test_a_deployment_that_declares_no_profile_carries_the_sentinel(
 
     assert isinstance(outcome, ServedProduct)
     assert outcome.product.obligation_in_force == NO_OBLIGATION_IN_FORCE
+
+
+# --- `D-IMPL-308`: the decision instant, and the declared refresh window ----
+#
+# Two seams, four tests, and each pair is a claim with its own control. The
+# claim is not *"the resolver has these arguments"* — the exhaustiveness guard
+# above already says that. It is that the values REACH the sealed product, and
+# that a class declaring neither is unchanged.
+
+#: The fixture argument standing in for a class-declared decision instant.
+DECISION_INSTANT_PARAMETER = "decision_instant"
+
+#: Five minutes after `ASKED_AT`. A fixture figure, authored test-side
+#: (CINV-01), and DISTINCT on purpose: the whole property under test is that
+#: the two instants do not collapse, and a control where they coincide could
+#: not fail.
+DECIDED_AT_LITERAL = "2026-03-02T12:05:00+00:00"
+
+#: A declared window, likewise fixture-side.
+DECLARED_REFRESH_WINDOW = SourceRefreshWindow(
+    oldest_source_refresh_at=datetime(2026, 2, 28, tzinfo=UTC),
+    newest_source_refresh_at=datetime(2026, 3, 1, tzinfo=UTC),
+)
+
+
+@pytest.fixture
+def booted_declaring_a_decision_instant(
+    tmp_path: pathlib.Path,
+) -> Iterator[_Booted]:
+    """The fixture deployment, with a decision instant on its request contract."""
+    request_contract = copy.deepcopy(REQUEST_CONTRACT_DOCUMENT)
+    request_contract["declaration"]["arguments"]["properties"][
+        DECISION_INSTANT_PARAMETER
+    ] = {"type": "string", "description": "Fixture decision instant."}
+    yield from _boot(tmp_path, request_contract=request_contract)
+
+
+def test_the_ttl_and_the_record_run_from_the_declared_decision_instant(
+    booted_declaring_a_decision_instant: _Booted,
+) -> None:
+    """`24.10-F-09`, closed at `D-IMPL-308`.
+
+    ``request.asked_at`` is *when the graph is observed*; the decision instant
+    is *when the answer is produced*. This resolver derived the expiry, the
+    gate instant and ``recorded_at`` from the first, so a class declaring the
+    second found nothing read it — and the product's TTL ran from the wrong
+    moment while every gate stayed green.
+
+    **The boundary must NOT move with it**, which is the half a one-sided test
+    would miss: a repair that simply swapped one instant for the other would
+    satisfy the expiry assertion and quietly relabel when the graph was read.
+    """
+    booted = booted_declaring_a_decision_instant
+    decided_at = datetime.fromisoformat(DECIDED_AT_LITERAL)
+    assert decided_at != ASKED_AT, "the fixture's own premise has moved"
+
+    outcome = _ask(
+        _resolver(booted, decision_instant_parameter=DECISION_INSTANT_PARAMETER),
+        _request(
+            parameters={
+                THRESHOLD_PARAMETER: 1000,
+                DECISION_INSTANT_PARAMETER: DECIDED_AT_LITERAL,
+            }
+        ),
+    )
+
+    assert isinstance(outcome, ServedProduct)
+    assert outcome.product.temporal_boundary == ASKED_AT
+    assert outcome.product.expires_at == decided_at + timedelta(
+        seconds=PRODUCT_TTL_SECONDS
+    )
+    # AND THE RECORD, read back through the reference the product carries.
+    # The third of the three statements about the same moment, and the one a
+    # sabotage found unasserted: reverting `recorded_at` alone left this module
+    # green while the expiry and the boundary were still right.
+    record = DecisionReplayRecord.model_validate_json(
+        booted.store.get(content_address=outcome.replay_ref.content_address)
+    )
+    assert record.recorded_at == decided_at
+
+
+def test_a_class_declaring_no_decision_instant_still_runs_from_asked_at(
+    booted: _Booted,
+) -> None:
+    """The control, and it is the positive claim `D-IMPL-308` makes.
+
+    *Coincidence is allowed; collapse is not.* A deployment whose decision
+    instant genuinely is its graph boundary — `s1-00-companies-over-revenue`
+    returns ``request.asked_at`` from both — passes ``None`` and is unchanged.
+    Without this, the repair above could have made a distinct instant
+    MANDATORY, which would have broken every deployment that correctly has one.
+    """
+    outcome = _ask(_resolver(booted, decision_instant_parameter=None), _request())
+
+    assert isinstance(outcome, ServedProduct)
+    assert outcome.product.temporal_boundary == ASKED_AT
+    assert outcome.product.expires_at == ASKED_AT + timedelta(
+        seconds=PRODUCT_TTL_SECONDS
+    )
+
+
+def test_the_served_product_carries_the_declared_refresh_window(
+    booted: _Booted,
+) -> None:
+    """`24.10-F-08`'s refresh limb, closed at `D-IMPL-308`.
+
+    A refresh window is a fact about the world upstream of the fabric: the
+    deployment knows it and no operator can observe it. The candidate set
+    nothing, so a deployment that declared one watched the canonical path drop
+    it — and the member is **inside the content address**, so that is not an
+    omission a deployment can repair afterwards.
+    """
+    outcome = _ask(
+        _resolver(booted, source_refresh_recency=DECLARED_REFRESH_WINDOW), _request()
+    )
+
+    assert isinstance(outcome, ServedProduct)
+    assert outcome.product.source_refresh_recency == DECLARED_REFRESH_WINDOW
+
+
+def test_a_deployment_declaring_no_window_carries_the_sentinel(
+    booted: _Booted,
+) -> None:
+    """The control: nothing is invented where nothing was declared.
+
+    Without it the assertion above passes for the trivial reason that every
+    product now carries some window.
+    """
+    outcome = _ask(
+        _resolver(booted, source_refresh_recency=NO_SOURCE_REFRESH_RECENCY), _request()
+    )
+
+    assert isinstance(outcome, ServedProduct)
+    assert outcome.product.source_refresh_recency is NO_SOURCE_REFRESH_RECENCY
 
 
 # --- `24.11-04` / `24.10-F-11`: a request-bound operator parameter ----------
@@ -1855,6 +1997,13 @@ DEPLOYMENT_OWNED_ARGUMENTS: tuple[str, ...] = (
     "refusal_recorder",
     "max_ttl_seconds",
     "product_ttl_seconds",
+    # `D-IMPL-308`. Both are DEPLOYMENT-OWNED and therefore carry no default,
+    # for this roster's own reason: *a default is a value nobody chose*. A
+    # class with no distinct decision instant states that by passing `None`,
+    # which is a choice; a class that simply never mentioned it is a class
+    # whose expiry silently ran from the wrong instant.
+    "decision_instant_parameter",
+    "source_refresh_recency",
 )
 
 
@@ -1955,6 +2104,12 @@ def _arguments(booted: _Booted) -> dict[str, Any]:
         "debt_profile_key": DEBT_PROFILE_KEY,
         "plan_factory": _plan_factory,
         "debt_scorer": _debt_scorer,
+        # `D-IMPL-308`. `None` and the empty window are POSITIVE values here,
+        # exactly like `product_gate` below: this fixture's class declares no
+        # decision instant distinct from its graph boundary and declares no
+        # refresh window, and saying so is different from never being asked.
+        "decision_instant_parameter": None,
+        "source_refresh_recency": NO_SOURCE_REFRESH_RECENCY,
         # `24.10-02` / `R-11`: the deployment's implementation of its class's
         # own declared invariant. `None` here because the fixture class
         # declares no gate — a POSITIVE value, stated rather than defaulted,

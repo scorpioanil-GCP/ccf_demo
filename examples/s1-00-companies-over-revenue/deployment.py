@@ -234,6 +234,7 @@ class RevenueScenario:
     request: ProductRequest
     request_contract: ProductRequestContract
     product_class: ProductClassDeclaration
+    product_class_key: str
     perspective: PerspectiveArtifact
     operator_parameters: Mapping[str, OperatorParametersArtifact]
     half_life_table: HalfLifeTable
@@ -335,6 +336,7 @@ def read(booted: BootedFabric, asked: ProductRequest) -> RevenueScenario:
             cast(Any, artifacts[KEY_REQUEST_CONTRACT])
         ),
         product_class=cast(ProductClassDeclaration, artifacts[KEY_PRODUCT_CLASS]),
+        product_class_key=KEY_PRODUCT_CLASS,
         perspective=cast(PerspectiveArtifact, artifacts[KEY_PERSPECTIVE]),
         # ONE entry, so ONE operator (D-IMPL-132). The spine never counts them.
         operator_parameters={

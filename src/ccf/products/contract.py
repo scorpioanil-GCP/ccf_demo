@@ -229,12 +229,7 @@ from pydantic import Field, field_validator, model_validator
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import HASH_TRANSPARENT_KEY
 from ccf.controlplane.registry import ControlPlaneMissing, ControlPlaneProtocol
-from ccf.graph.protocols import (
-    NO_STORE_SNAPSHOT_PIN,
-    LineageMode,
-    PolicyBindingMode,
-    StoreSnapshotPin,
-)
+from ccf.graph.protocols import LineageMode, PolicyBindingMode
 from ccf.halflife.assessment import (
     NO_DEBT_EVIDENCE,
     NO_OBLIGATION_IN_FORCE,
@@ -832,36 +827,30 @@ class ProductLineage(CCFContract):
             state assembled under two bundle versions has two bindings and
             collapsing them would lose the one that mattered.
         graph_snapshot_at: The temporal anchor of the graph state read.
-        store_snapshot_pin: The substrate's transaction-time head at the read
-            that assembled this product — the
-            :class:`~ccf.graph.protocols.StoreSnapshotPin` the reader minted
-            once, before its first query — recorded **beside**
-            ``graph_snapshot_at`` and never inside it (D-IMPL-88: a store
-            transaction counter is not an as-of instant and never implements
-            one; ledger row 24.5-L-02; D-IMPL-240). The default,
-            :data:`~ccf.graph.protocols.NO_STORE_SNAPSHOT_PIN`, is the positive
-            assertion *this product's substrate exposes no native pin* — what
-            a SQLite or Postgres deployment is in fact asserting today — and
-            it is asserted, never inferred from silence: a product assembled
-            before this field existed, and one assembled over a reader that
-            cannot pin, both say exactly that. This field is inside
-            :func:`~ccf.contracts.canonical.canonical_bytes` by construction
-            (every ``model_fields`` member is), so two products differing only
-            in pin have different content addresses — which is what makes
-            "served at pin N is not reproducible from pin N+1" a property of
-            the contract rather than a hope about the replay path.
-            Hash-transparent at the sentinel (``D-IMPL-243``): "no pin
-            recorded" is what a product assembled before this field
-            existed says, so the field is omitted from the canonical form
-            at that value; a real pin is rendered and is a new identity.
+
+    **The substrate's transaction-time head is NOT here** (``D-IMPL-309``).
+    It was, from ledger row ``24.5-L-02`` until `MOD-05`, and it made the same
+    governed question seal to two addresses when a ledger advanced between two
+    runs for reasons unrelated to the question. Dave's ruling: *"Logical
+    determination identity is addressed. Physical store furniture is
+    recorded."* The head is execution provenance — recorded authoritatively in
+    :class:`~ccf.replay.record.ContextFabricSnapshot`, derived there from the
+    execution rather than from this lineage, compared at replay, and reached
+    through the product's replay reference. It is **absent** here rather than
+    merely excluded from the hash because
+    :func:`~ccf.contracts.canonical.canonical_bytes` is at once this model's
+    address, its stored form and its wire form: a field omitted from it is not
+    excluded from identity but erased, and read back as the sentinel — a
+    positive claim that the substrate exposes no head, which would be a false
+    fact the fabric manufactured about its own evidence. This changes where
+    the evidence lives, not whether it exists. A snapshot the caller
+    *declared* is a different thing: a semantic input to the determination,
+    addressed like any other declared context.
     """
 
     operators_invoked: frozenset[str]
     policy_bundle_versions: frozenset[str]
     graph_snapshot_at: datetime
-    store_snapshot_pin: StoreSnapshotPin = Field(
-        default=NO_STORE_SNAPSHOT_PIN, json_schema_extra={HASH_TRANSPARENT_KEY: True}
-    )
 
 
 class ComputedEmptyFinding(CCFContract):
@@ -907,11 +896,7 @@ class ComputedEmptyFinding(CCFContract):
             four out of four.
         plan_id: The projection plan that ran. The question's own identity
             travels on the vessel; this is the interpretation's.
-        store_snapshot_pin: The substrate head the execution read against
-            (``24.5-L-02``), so an examiner can re-issue the same search
-            against the same state.
-            :data:`~ccf.graph.protocols.NO_STORE_SNAPSHOT_PIN` is the positive
-            *this reader exposes no native pin*.
+
         emptiness: ``"attested"`` when a query actually executed against a
             source attesting coverage, ``"unattested"`` otherwise. The
             classification is :func:`~ccf.products.debt_scorer.emptiness_of`'s
@@ -926,7 +911,6 @@ class ComputedEmptyFinding(CCFContract):
     operators_returned_empty: frozenset[str]
     operators_invoked: frozenset[str]
     plan_id: str
-    store_snapshot_pin: StoreSnapshotPin
     emptiness: Literal["attested", "unattested"]
 
     @field_validator("operators_returned_empty")
@@ -962,10 +946,13 @@ class ComputedEmptyFinding(CCFContract):
         ``execution`` is read structurally and this module imports the
         projection engine only under :data:`typing.TYPE_CHECKING`:
         :mod:`ccf.projection.engine` imports *this* module, so a runtime
-        import would be a cycle — and the five attributes read here are the
+        import would be a cycle — and the attributes read here are the
         engine's own record, which is the only source this finding is allowed
         to have (``D-IMPL-238`` limb 3: operator keys and the execution
-        record, never the payload).
+        record, never the payload). The execution's store head is **not**
+        among them (``D-IMPL-309``): it is execution provenance, it is
+        recorded in replay dimension 1, and a finding that sealed it would
+        make two identical searches two findings.
         """
         if not execution.empty_results:
             return None
@@ -973,7 +960,6 @@ class ComputedEmptyFinding(CCFContract):
             operators_returned_empty=frozenset(execution.empty_results),
             operators_invoked=frozenset(execution.operators_invoked),
             plan_id=execution.plan_id,
-            store_snapshot_pin=execution.store_snapshot_pin,
             emptiness=emptiness,
         )
 

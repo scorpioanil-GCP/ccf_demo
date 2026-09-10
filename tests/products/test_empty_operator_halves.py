@@ -140,7 +140,6 @@ def _finding(
         operators_returned_empty=returned_empty,
         operators_invoked=invoked,
         plan_id=PLAN_ID,
-        store_snapshot_pin=FIXTURE_PIN,
         emptiness=emptiness,  # type: ignore[arg-type]
     )
 
@@ -280,7 +279,11 @@ def test_an_operator_that_returned_empty_is_served_with_its_search_attached(
     # The whole search, not only the empty part of it.
     assert product.computed_empty.operators_invoked == OPERATORS
     assert product.computed_empty.plan_id == PLAN_ID
-    assert product.computed_empty.store_snapshot_pin == FIXTURE_PIN
+    # The head the search ran against is NOT here (`D-IMPL-309`): it is
+    # execution provenance, recorded once per execution in replay
+    # dimension 1, so two identical searches under two ambient heads are
+    # one finding rather than two.
+    assert "store_snapshot_pin" not in type(product.computed_empty).model_fields
     assert product.computed_empty.emptiness == "attested"
 
 
@@ -398,7 +401,6 @@ def test_the_findings_absence_is_the_only_way_to_say_nothing_returned_empty() ->
             operators_returned_empty=frozenset(),
             operators_invoked=OPERATORS,
             plan_id=PLAN_ID,
-            store_snapshot_pin=NO_STORE_SNAPSHOT_PIN,
             emptiness="attested",
         )
 
