@@ -11,15 +11,20 @@ Usage::
 
     export CCF_CP_04C_FLUREE_URL=...      CCF_CP_04C_FLUREE_LEDGER=...
     export CCF_CP_04C_POSTGRES_DSN=...    CCF_CP_04C_POSTGRES_SCHEMA=...
-    python examples/cp-04-canonical-corporate-family-tree/run.py [LEI] [MAX_DEPTH]
+    make example-cp-04-canonical
+    make example-cp-04-canonical LEI=--lei=<lei> MAX_DEPTH=--max-depth=2
 
-``MAX_DEPTH`` omitted asks the question WITHOUT the parameter, so the class
+``--max-depth`` omitted asks the question WITHOUT the parameter, so the class
 default resolves — which is a different thing from passing the default's value,
 and the run prints which happened.
+
+**Named flags rather than positional arguments**, so a depth supplied without an
+anchor cannot silently land in the anchor's slot and be read as an LEI.
 """
 
 from __future__ import annotations
 
+import argparse
 import sys
 import tempfile
 from datetime import UTC, datetime
@@ -35,8 +40,17 @@ DEMONSTRATION_ANCHOR = "549300FHJQTDPPN41627"
 
 
 def main(argv: list[str]) -> int:
-    anchor = argv[1] if len(argv) > 1 else DEMONSTRATION_ANCHOR
-    asked_depth = int(argv[2]) if len(argv) > 2 else None
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--lei", default=DEMONSTRATION_ANCHOR)
+    parser.add_argument(
+        "--max-depth",
+        type=int,
+        default=None,
+        help="omit entirely to let the class default resolve",
+    )
+    parsed = parser.parse_args(argv[1:])
+    anchor = parsed.lei
+    asked_depth = parsed.max_depth
 
     asked = deployment.request(
         anchor_lei=anchor,

@@ -72,10 +72,24 @@ told one exists.
 
 ```bash
 make venv
-export CCF_CP_04C_FLUREE_URL=...      CCF_CP_04C_FLUREE_LEDGER=...
-export CCF_CP_04C_POSTGRES_DSN=...    CCF_CP_04C_POSTGRES_SCHEMA=...
-.venv/bin/python examples/cp-04-canonical-corporate-family-tree/run.py [LEI] [MAX_DEPTH]
+
+# Credentials and host come from the estate's own environment;
+# THE NAMESPACES DO NOT — .env names the v1 estate (CLAUDE.md §9).
+set -a; source /home/parkave/ccf_dataprep/.env; set +a
+export CCF_CP_04C_FLUREE_URL="http://192.168.4.76:8090"
+export CCF_CP_04C_FLUREE_LEDGER="fibo-v2"          # v2, NOT fibo:main
+export CCF_CP_04C_POSTGRES_DSN="postgresql://$PGUSER:$PGPASSWORD@$PGHOST:$PGPORT/$PGDATABASE"
+export CCF_CP_04C_POSTGRES_SCHEMA="ccf_v2"         # v2, NOT public
+
+make example-cp-04-canonical
+make example-cp-04-canonical MAX_DEPTH=1
+make example-cp-04-canonical LEI=<some-other-lei> MAX_DEPTH=2
 ```
+
+Everything is **read-only**: the two source stores receive SPARQL `SELECT`s and
+one parameterised SQL `SELECT` and nothing else. The fabric's own graph and the
+decision replay record are written to a temporary directory and discarded when
+the run exits.
 
 `MAX_DEPTH` omitted asks the question **without** the parameter, so the class
 default resolves — a different act from passing the default's value, and the run
