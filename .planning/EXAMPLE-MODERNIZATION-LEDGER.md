@@ -563,3 +563,21 @@ run refuses on a store disagreement. **Measured that this is not the change:**
 the failure set under that environment is **identical** at the branch base and
 at HEAD once correlation ids are normalized — 15 failures, all estate, none
 from this edit. Without the estate the tests skip (14 skipped, unchanged).
+
+---
+
+## The pass CLOSES here (`D-IMPL-312`)
+
+`s1-01` and `s1-00` are modernized and canonical; cp-05's renderer is corrected.
+**cp-04 is NOT modernized in place and will not be.** It stays the `D-IMPL-261`
+frozen rung-4 specimen — seven-region spine, row-B architecture, historical
+published address and docs, no `GovernedResolver`.
+
+Its modern replacement is a **new tree** (`examples/cp-04-canonical-*`, or
+`cp-06`), a **new sitting** with fresh scope. The principle, which is the part
+that will matter again: *historical specimens preserve evidence; canonical
+successors teach current SDK usage, and one tree cannot serve both once those
+roles diverge.*
+
+**Owed, and explicitly not part of the successor work:** cp-05's live rerun and
+artifact republication, blocked on the four `CCF_CP_05_*` estate values.
