@@ -1,0 +1,83 @@
+# yaml-language-server: $schema=../../docs/schemas/ccf.declared-artifact.json
+#
+# HOW the fabric's own backend is composed, and how the two SYSTEMS OF RECORD
+# are reached. Deliberately not in `ccf_config.yaml`: connection material is
+# deployment ENVIRONMENT rather than Control Plane state, and a DSN inside a
+# content-hashed artifact is a DSN persisted into the audit plane forever.
+#
+# NO CONNECTION VALUE APPEARS HERE — no host, no port, no path, no credential.
+# This document holds a variable's NAME, a per-run path recipe, and the remedy
+# text an unset variable raises with. Only the environment says where anything
+# is.
+#
+# THE VARIABLE NAMES ARE THIS DEPLOYMENT'S OWN. They are deliberately not
+# cp-04's `CCF_CP_04_*`: the frozen specimen and this successor read the same
+# fixture but are two deployments, and sharing an environment variable would
+# make one run's estate silently become the other's.
+
+semver: "1.0.0"
+class_id: cp-04-canonical.backend-profiles
+
+declaration:
+  profiles:
+    # The FABRIC's own L3 — per run, thrown away with the run. Neither source
+    # store is ever written to.
+    sqlite:
+      settings:
+        database_path:
+          per_run: path
+          prefix: cp_04_canonical
+          suffix: .sqlite3
+
+  sources:
+    # -----------------------------------------------------------------------
+    # THE GRAPH LEG — family edges, ontology classes, labels and LEIs.
+    # -----------------------------------------------------------------------
+    #
+    # TWO VARIABLES, AND THE LEDGER NAME IS THE SECOND. Every query this leg
+    # issues carries an explicit `FROM <ledger>`: the server answers an
+    # unhelpful HTTP 400 without one, so the ledger name is not an optional
+    # nicety that could default. It is also the isolation boundary — the test
+    # leg seeds a ledger nobody else can be using, because the store is
+    # append-only and a second module's write cannot be undone.
+    corporate_family_graph:
+      settings:
+        url:
+          from_env: CCF_CP_04C_FLUREE_URL
+          remedy: >-
+            export CCF_CP_04C_FLUREE_URL with the base URL of a READ-ONLY Fluree
+            server carrying the family ledger. This example issues only
+            `/v1/fluree/query`; it never creates, updates or deletes a ledger.
+            See the README's "Run it" section for the local container the test
+            leg uses.
+        ledger:
+          from_env: CCF_CP_04C_FLUREE_LEDGER
+          remedy: >-
+            export CCF_CP_04C_FLUREE_LEDGER with the ledger name to read. Every
+            query carries an explicit `FROM <ledger>` and there is no default: a
+            defaulted ledger name would be a value nobody chose pointing at a
+            store nobody named.
+
+    # -----------------------------------------------------------------------
+    # THE ATTRIBUTE LEG — GLEIF Level 1 rows for the LEIs the walk collected.
+    # -----------------------------------------------------------------------
+    #
+    # ONE BATCHED QUERY FOR THE WHOLE COLLECTED SET, never one per node. A
+    # per-node fan-out works at depth 2 and collapses at depth 4, and the
+    # difference does not show up in the answer — only in the load.
+    corporate_family_attributes:
+      settings:
+        dsn:
+          from_env: CCF_CP_04C_POSTGRES_DSN
+          remedy: >-
+            export CCF_CP_04C_POSTGRES_DSN with a READ-ONLY connection string
+            for the entity-attribute estate. The role needs SELECT and nothing
+            else: this deployment never writes to the store it reads, and a role
+            that could write would make that a promise rather than a guarantee.
+        schema:
+          from_env: CCF_CP_04C_POSTGRES_SCHEMA
+          remedy: >-
+            export CCF_CP_04C_POSTGRES_SCHEMA with the namespace holding the
+            entity table. Declared as a variable rather than defaulted, on the
+            same reasoning as the ledger name: a schema name selects WHICH of a
+            store's namespaces the product reads.
