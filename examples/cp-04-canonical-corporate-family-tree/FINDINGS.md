@@ -10,8 +10,12 @@ of every one is whether the behavior is **legitimate SDK semantics** or an
 
 ## `CP04C-F-01` — Entity identity is POSITION-DEPENDENT, so endpoint selection cannot build a graph in which a node appears as both subject and object
 
-**Status: OPEN. Adjudicated as a MISMATCH. The successor is STOPPED on it
-(`D-IMPL-313`: stop on the first unclassified miss). No workaround applied.**
+**Status: FIXED-`D-IMPL-316` (2026-09-10). Adjudicated as a MISMATCH and
+repaired as a bounded SDK fix on Dave's ruling. Reading 2 was taken: an entity
+rule declares which payload field supplies a declared identity key, and the
+DECLARED key is still what is hashed. The global content-hash and identity
+model is untouched, the repair is hash-transparent, and no workaround was
+applied — `admit_relationship_claim` was explicitly not used.**
 
 ### What the successor was doing
 

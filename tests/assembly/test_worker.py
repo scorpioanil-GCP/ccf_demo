@@ -732,3 +732,159 @@ def test_a_rule_with_no_selector_fields_is_the_pre_phase_rule() -> None:
             object_entity_class="b",
             object_rule="b_key",
         )
+
+
+# --- CP04C-F-01: a position is not an identity (`D-IMPL-316`) ----------------
+
+
+def _positional_spec(
+    *, remap: bool, rules: tuple[RelationshipResolutionRule, ...]
+) -> EntityResolutionSpec:
+    """Two endpoint rules reading two payload fields, one declared identity.
+
+    With ``remap`` the two rules read ``parent_lei`` and ``lei`` into the SAME
+    declared identity key, which is the repair. Without it each rule identifies
+    the entity by the payload field's own name, which is the shipped defect and
+    is kept here as this module's negative control.
+    """
+    def rule(match: str) -> EntityResolutionRule:
+        if remap:
+            return EntityResolutionRule(
+                match_key=match,
+                entity_class="family_member",
+                identity_keys=("entity_lei",),
+                identity_sources={"entity_lei": match},
+            )
+        return EntityResolutionRule(
+            match_key=match, entity_class="family_member", identity_keys=(match,)
+        )
+
+    return EntityResolutionSpec(
+        semver="1.0.0",
+        entity_rules=(rule("parent_lei"), rule("lei")),
+        relationship_rules=rules,
+    )
+
+
+_OWNS = RelationshipResolutionRule(
+    relationship_type="owns",
+    subject_entity_class="family_member",
+    object_entity_class="family_member",
+    subject_rule="parent_lei",
+    object_rule="lei",
+)
+_CONTROLS = RelationshipResolutionRule(
+    relationship_type="controls",
+    subject_entity_class="family_member",
+    object_entity_class="family_member",
+    subject_rule="lei",
+    object_rule="parent_lei",
+)
+
+
+def test_one_lei_in_both_endpoint_positions_is_one_entity(
+    spec_fabric: Callable[[EntityResolutionSpec], "FabricHandle"],
+) -> None:
+    """`CP04C-F-01` case 1. The same value, read from two payload fields.
+
+    Before the repair the two fields' NAMES were inside the identity hash, so
+    one company observed once as a parent and once as a child became two
+    entities — and nothing reported it, because both URIs were well-formed.
+    """
+    handle = spec_fabric(_positional_spec(remap=True, rules=(_OWNS,)))
+
+    handle.worker.ingest(envelope(payload={"parent_lei": LEI, "lei": PARENT_LEI}))
+    handle.worker.ingest(
+        # The SAME company, now in the other position.
+        envelope(envelope_id="e2", payload={"parent_lei": PARENT_LEI, "lei": LEI})
+    )
+
+    view = handle.reader.as_of(tenant_id=TENANT, at=INGESTED_AT)
+    assert len(view.entities) == 2, "one company reached two URIs by position"
+
+
+def test_a_same_class_edge_still_mints_under_a_remapped_identity(
+    spec_fabric: Callable[[EntityResolutionSpec], "FabricHandle"],
+) -> None:
+    """`CP04C-F-01` case 2. The repair must not cost the feature it repairs.
+
+    Sharing one declared identity key must not collapse the endpoints onto one
+    URI — which would make every edge a self-loop and mint nothing at all.
+    """
+    handle = spec_fabric(_positional_spec(remap=True, rules=(_OWNS,)))
+
+    result = handle.worker.ingest(
+        envelope(payload={"parent_lei": PARENT_LEI, "lei": LEI})
+    )
+
+    assert len(result.entities) == 2
+    assert len(result.relationships) == 1
+    edge = handle.reader.as_of(tenant_id=TENANT, at=INGESTED_AT).relationships[0].claim
+    assert edge.subject_uri != edge.object_uri
+    assert _self_loops(handle) == []
+
+
+def test_a_mutual_pair_is_two_entities_and_two_edges(
+    spec_fabric: Callable[[EntityResolutionSpec], "FabricHandle"],
+) -> None:
+    """`CP04C-F-01` case 3 — the case that makes this a real defect.
+
+    Mutual ownership is ordinary: the cp-04 family fixture carries 22 such
+    pairs. Under positional identity this produced FOUR entities for two
+    companies, so a family of 49 nodes could not be assembled at all.
+    """
+    handle = spec_fabric(_positional_spec(remap=True, rules=(_OWNS,)))
+
+    # TWO envelopes, because that is how a mutual pair actually arrives: one
+    # edge per source assertion, each naming its own parent and child. A single
+    # envelope minting both directions would never put one company into both
+    # positions, which is the whole condition under test.
+    handle.worker.ingest(envelope(payload={"parent_lei": PARENT_LEI, "lei": LEI}))
+    handle.worker.ingest(
+        envelope(envelope_id="e2", payload={"parent_lei": LEI, "lei": PARENT_LEI})
+    )
+
+    view = handle.reader.as_of(tenant_id=TENANT, at=INGESTED_AT)
+    assert len(view.entities) == 2, "two companies became more than two entities"
+    assert len(view.relationships) == 2, "the mutual pair lost one of its edges"
+
+
+def test_positional_identity_reproduces_the_duplicate_entity_defect(
+    spec_fabric: Callable[[EntityResolutionSpec], "FabricHandle"],
+) -> None:
+    """`CP04C-F-01` case 4 — the negative control, and it must stay red-able.
+
+    Identical envelopes, identical rules, with the ONE difference that each
+    rule identifies the entity by the payload field's own name. Two companies
+    become four entities. Without this control the three assertions above would
+    pass just as happily against a fabric that never had the defect, and would
+    prove nothing about the repair.
+    """
+    handle = spec_fabric(_positional_spec(remap=False, rules=(_OWNS,)))
+
+    handle.worker.ingest(envelope(payload={"parent_lei": PARENT_LEI, "lei": LEI}))
+    handle.worker.ingest(
+        envelope(envelope_id="e2", payload={"parent_lei": LEI, "lei": PARENT_LEI})
+    )
+
+    view = handle.reader.as_of(tenant_id=TENANT, at=INGESTED_AT)
+    assert len(view.entities) == 4, (
+        "the defect did not reproduce, so the repair's proof is measuring"
+        " something other than what it claims"
+    )
+
+
+def test_a_source_field_cannot_supply_an_undeclared_identity_key() -> None:
+    """A remap naming a key the rule does not identify by is refused.
+
+    Ignored, it would silently fall back to the payload field of the same name
+    as the declared key, mint a different URI, and report nothing — the exact
+    silent wrong-identity failure this field exists to remove.
+    """
+    with pytest.raises(ValidationError, match="does not declare as identity keys"):
+        EntityResolutionRule(
+            match_key="parent_lei",
+            entity_class="family_member",
+            identity_keys=("entity_lei",),
+            identity_sources={"typo_lei": "parent_lei"},
+        )
