@@ -96,6 +96,30 @@ class RequestRefused(ValueError):
         self.refusal = refusal
 
 
+def _replay_record(governed: Any, *, store_root: pathlib.Path) -> Any:
+    """The Decision Replay record ``governed`` names, or ``None``.
+
+    ``None`` when the outcome carries no reference — a refusal minted by a seam
+    that recorded none says so with
+    :data:`~ccf.products.refusal.NO_REPLAY_REFERENCE` — or when the store
+    cannot resolve it. Read while the store is still alive; see the call site.
+    """
+    from ccf.artifacts.file_store import FileArtifactStore
+    from ccf.replay.record import DecisionReplayRecord
+
+    reference = getattr(governed, "replay_ref", None)
+    address = getattr(reference, "content_address", None)
+    if address is None:
+        return None
+    store = FileArtifactStore(root=store_root)
+    try:
+        return DecisionReplayRecord.model_validate_json(
+            store.get(content_address=address)
+        )
+    except (KeyError, LookupError, OSError, ValueError):
+        return None
+
+
 def produce(**kwargs: Any) -> dict[str, Any]:
     """The payload alone — what a transcript renders and a test diffs.
 
@@ -118,7 +142,7 @@ def produce_governed(
     debt_tolerance: str | None = None,
     as_of: str | None = None,
     replay_root: pathlib.Path | None = None,
-) -> tuple[dict[str, Any], Any]:
+) -> tuple[dict[str, Any], Any, Any]:
     """One rollup, through ``GovernedResolver``. cp-05 assembles; CCF governs.
 
     **The whole of what this function does** is boot, assemble the domain truth,
@@ -333,12 +357,22 @@ def produce_governed(
                     materiality=materiality_value, assessment=assessment,
                     product_request=product_request, store_root=store_root,
                 )
+                # `D-IMPL-309`: the store head the reads ran against is
+                # EXECUTION PROVENANCE, recorded in replay dimension 1 and no
+                # longer on the product. Read HERE, while the store is still
+                # alive — when no `--replay-root` was given it lives under
+                # `fabric_root` and is deleted by the cleanup below, so a
+                # renderer that tried to resolve it afterwards would find
+                # nothing. The transcript therefore gets the record itself
+                # rather than reaching for a field that has correctly stopped
+                # existing on the vessel.
+                record = _replay_record(governed, store_root=store_root)
             finally:
                 fabric_root.cleanup()
 
     payload = dict(getattr(governed, "product", None).payload) if getattr(
         governed, "product", None) is not None else {}
-    return payload, governed
+    return payload, governed, record
 
 
 def _business_payload(*, config, rollup, limit, anchor_name, family_size,

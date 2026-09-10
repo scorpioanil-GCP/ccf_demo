@@ -94,7 +94,7 @@ def render_withheld(governed: object) -> str:
     return "\n".join(lines)
 
 
-def render(payload: dict, governed: object) -> str:
+def render(payload: dict, governed: object, record: object = None) -> str:
     """The transcript. Every figure comes from the payload; none is recomputed here."""
     out: list[str] = []
     a = payload["anchor"]
@@ -215,9 +215,11 @@ def render(payload: dict, governed: object) -> str:
     out.append(f"    operators   {' -> '.join(sorted(lineage.operators_invoked))}")
     out.append(f"    policy      {', '.join(sorted(lineage.policy_bundle_versions))}")
     out.append(f"    graph as of {lineage.graph_snapshot_at.isoformat()}")
-    pin = lineage.store_snapshot_pin
-    if pin is not None and getattr(pin, "substrate", "none") != "none":
-        out.append(f"    store pin   {pin.substrate}:{pin.pin}")
+    # The store head the reads ran against is NOT here (`D-IMPL-309`). It is
+    # execution provenance rather than determination identity, so it moved to
+    # replay dimension 1 and is printed under DECISION REPLAY below. Reading it
+    # off the lineage is what this renderer used to do, and the field it read
+    # has correctly stopped existing.
     out.append("")
     out.append("  CONTEXT DEBT — confidence in the assembled truth")
     debt = contract.debt
@@ -238,6 +240,15 @@ def render(payload: dict, governed: object) -> str:
     out.append("  DECISION REPLAY — written BEFORE the response was released")
     reference = getattr(governed, "replay_ref", None)
     out.append(f"    record      {getattr(reference, 'uri', reference)}")
+    snapshot = getattr(record, "context_fabric_snapshot", None)
+    pin = getattr(snapshot, "store_snapshot_pin", None)
+    if pin is not None and getattr(pin, "substrate", "none") != "none":
+        out.append(f"    store pin   {pin.substrate}:{pin.pin}")
+    out.append("")
+    out.append("    The store head those reads ran against is dimension 1 of that")
+    out.append("    record and is deliberately NOT on the product: a ledger advancing")
+    out.append("    for reasons unrelated to the question would otherwise give the same")
+    out.append("    question two content addresses (`D-IMPL-309`).")
     out.append("")
     out.append("    Which authority supplied each effective parameter — caller,")
     out.append("    product default, or policy — is recorded in dimension 2 of that")
@@ -339,7 +350,7 @@ def sweep() -> str:
     for entry in declared:
         params = dict(entry["parameters"])
         try:
-            payload, governed = prod.produce_governed(**params)
+            payload, governed, _record = prod.produce_governed(**params)
         except prod.RequestRefused as exc:
             out.append(f"  {entry['name']}")
             out.append(f"    requested    {params or 'nothing'}")
@@ -397,7 +408,7 @@ def main(argv: list[str] | None = None) -> int:
         # FABRIC decides, and a refused caller sees what the deployment's
         # disclosure policy allows and no more. Rendering the two outcomes
         # differently is the honest consequence, not a regression.
-        payload, governed = prod.produce_governed(
+        payload, governed, record = prod.produce_governed(
             anchor=args.lei, intent=args.intent, depth=args.depth,
             materiality=args.materiality, basis=args.basis,
             follow_guarantees=False if args.no_guarantees else None,
@@ -430,7 +441,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"\n  Refused: {exc}\n", file=sys.stderr)
         return 5
 
-    print(json.dumps(payload, indent=2) if args.json else render(payload, governed))
+    print(json.dumps(payload, indent=2) if args.json
+          else render(payload, governed, record))
     # EXIT 0 EVEN WHEN FULFILLMENT IS WITHHELD, and it is a ruling rather than
     # an oversight. `D-IMPL-251`: a tolerance breach is a refusal OF
     # FULFILLMENT, not of response. The program was asked a question and

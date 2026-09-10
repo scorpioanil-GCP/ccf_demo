@@ -530,3 +530,36 @@ Preserved, and deliberately NOT added to:
 `tests/examples/test_s1_00_output.py` + `test_s1_00_config_equivalence.py`:
 **11 passed**. `tests/products/test_gate_two_call_shape.py`: **130 passed**.
 **s1-00 is fully modernized.**
+
+---
+
+## cp-05 post-`D-IMPL-309` — the renderer corrected, the live rerun NOT run
+
+`run.py:218` read `lineage.store_snapshot_pin`, a field `D-IMPL-309` removed.
+Corrected as ruled: the head now comes from **replay**, never restored to
+`ProductLineage`, and no old product semantics were republished to keep the
+prior renderer shape.
+
+**One thing the fix had to work around, and it is worth recording.** The
+renderer could not resolve the record itself: `produce_governed` roots the
+artifact store under a `TemporaryDirectory` that its own `finally` cleans up
+before returning, so by the time `render` runs the record is gone unless the
+caller passed `--replay-root`. The record is therefore read **while the store is
+still alive** (`produce.py::_replay_record`, called before `fabric_root.cleanup()`)
+and returned as a third element. Four call sites unpack it; `produce()` is
+unaffected because it already took `[0]`.
+
+The transcript now says the true thing in the true place: the LINEAGE block no
+longer claims a store pin, and DECISION REPLAY prints it beside the record's
+address with a sentence naming why it is not on the product.
+
+**NOT DONE, and it is owed:** the live cp-05 rerun and any artifact
+republication. The example needs `CCF_CP_05_FLUREE_URL`,
+`CCF_CP_05_FLUREE_LEDGER`, `CCF_CP_05_POSTGRES_DSN` and
+`CCF_CP_05_POSTGRES_SCHEMA`, and the values reconstructed from
+`ccf_dataprep/.env` are **wrong** — the anchor `5493000Q1S5TJIDIQH89` resolves
+in `ccf_v2.legal_entity` but carries no node in ledger `fibo:main`, so every
+run refuses on a store disagreement. **Measured that this is not the change:**
+the failure set under that environment is **identical** at the branch base and
+at HEAD once correlation ids are normalized — 15 failures, all estate, none
+from this edit. Without the estate the tests skip (14 skipped, unchanged).

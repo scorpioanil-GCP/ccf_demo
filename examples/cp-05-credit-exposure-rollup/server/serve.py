@@ -179,7 +179,7 @@ def build_resolver(*, config: dict[str, Any], replay_root: Path):
         # addressed to the product I expose?"* needs no product contract.
         # Answering *"does materiality='0.05' satisfy `number`?"* does.
         supplied = dict(request.parameters)
-        _, governed = prod.produce_governed(
+        _, governed, _record = prod.produce_governed(
             anchor=request.subject, intent=request.intent,
             depth=supplied.get("depth"),
             materiality=_text(supplied.get("materiality")),
