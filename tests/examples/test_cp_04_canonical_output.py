@@ -53,17 +53,46 @@ def _demonstration_anchor() -> str:
     raise AssertionError("run.py declares no DEMONSTRATION_ANCHOR")
 
 
+#: Module names EVERY example in this repository ships. `produce.py` does a bare
+#: `import deployment`, so whichever example was imported first wins the name for
+#: the rest of the session.
+COLLIDING_NAMES = ("acquisition", "deployment", "produce", "projection")
+
+
 @pytest.fixture(scope="module")
 def example_modules() -> Iterator[tuple[Any, Any]]:
-    """`deployment` and `produce`, imported as the example's own siblings."""
+    """This example's `deployment` and `produce`, whatever ran before.
+
+    **Order-independent in BOTH directions, and it has to be.** Every example
+    ships modules called `deployment`, `produce` and `projection`, and
+    `produce.py` reaches its sibling by a bare `import deployment` — so the
+    first example imported in a session owns those names in `sys.modules` and
+    every later one silently gets the wrong tree. Found the way this repository
+    has found it before: green alone, and red the moment the module ran beside
+    `test_cp_04_payload.py`, where the fixture called the FROZEN SPECIMEN's
+    `request()` and failed on a keyword that function does not take.
+
+    The names are evicted on the way in so this module gets its own, and again
+    on the way out so the next module gets its own rather than inheriting
+    these. A fixture that only cleaned up on entry would move the collision
+    rather than remove it.
+    """
+    saved = {name: sys.modules.pop(name, None) for name in COLLIDING_NAMES}
     sys.path.insert(0, str(EXAMPLE))
     try:
         import deployment  # noqa: PLC0415
         import produce  # noqa: PLC0415
 
+        assert pathlib.Path(deployment.__file__).parent == EXAMPLE, (
+            "imported another example's `deployment`; the eviction did not hold"
+        )
         yield deployment, produce
     finally:
         sys.path.remove(str(EXAMPLE))
+        for name in COLLIDING_NAMES:
+            sys.modules.pop(name, None)
+            if saved[name] is not None:
+                sys.modules[name] = saved[name]
 
 
 @pytest.fixture(scope="module")

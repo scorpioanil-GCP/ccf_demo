@@ -6,18 +6,7 @@ cycles it contains **as findings rather than as errors** — with the measured
 Context Debt in force when the answer was assembled, the content address the
 answer hashes to, and the replay record that authorized it.
 
-Run it:
-
-```bash
-make venv
-export CCF_CP_04C_FLUREE_URL=...      CCF_CP_04C_FLUREE_LEDGER=...
-export CCF_CP_04C_POSTGRES_DSN=...    CCF_CP_04C_POSTGRES_SCHEMA=...
-.venv/bin/python examples/cp-04-canonical-corporate-family-tree/run.py
-```
-
----
-
-## Read this first: which tree is which
+## What this demonstrates
 
 There are **two** rung-4 examples in this repository and they are not versions
 of each other.
@@ -46,8 +35,6 @@ Debt and its own content addresses. Nothing here reuses cp-04's addresses, its
 published identifiers, its snippet includes or its `D_c` of 0.0909.
 
 ---
-
-## What it demonstrates
 
 ### Two stores, neither complete on its own
 
@@ -80,9 +67,23 @@ the estates it exists to describe. Each circuit is returned with an ordered
 roster and its **closing edge**, so a reader sees the loop rather than being
 told one exists.
 
----
 
-## Two things that will bite you if you change them
+## Run it
+
+```bash
+make venv
+export CCF_CP_04C_FLUREE_URL=...      CCF_CP_04C_FLUREE_LEDGER=...
+export CCF_CP_04C_POSTGRES_DSN=...    CCF_CP_04C_POSTGRES_SCHEMA=...
+.venv/bin/python examples/cp-04-canonical-corporate-family-tree/run.py [LEI] [MAX_DEPTH]
+```
+
+`MAX_DEPTH` omitted asks the question **without** the parameter, so the class
+default resolves — a different act from passing the default's value, and the run
+prints which happened.
+
+## The story
+
+Two things will bite you if you change them.
 
 ### 1. Thin edges first, attributed nodes last
 
@@ -111,27 +112,8 @@ One number serving as both would make a product decision look like a capability
 limit. `max_depth=99` is refused because of the ceiling; `max_depth=1` is served
 at 1 because of the caller.
 
----
 
-## The three things to change first
-
-1. **The anchor.** `run.py`'s `DEMONSTRATION_ANCHOR`, or pass an LEI as the
-   first argument. Everything else follows from which family you name.
-2. **`families`.** The identifiers the request is entitled to walk, which become
-   the policy operator's admitted set. Ordinarily the anchor's own LEI as a
-   one-element list; a caller entitled to two families names both, with no
-   second code path.
-3. **The depth.** Pass a second argument to `run.py`, or omit it to let the
-   class default in `ccf_config.yaml` resolve — which is a different thing from
-   passing the default's value, and the run prints which happened.
-
-To point this at **your own estate**, edit `artifacts/source-vocabulary.yaml`
-(the IRIs, the table and its columns) and `backends.yaml` (the environment
-variables and the backend's declared traversal ceiling). No Python changes.
-
----
-
-## What is in the tree
+## Artifact-by-artifact
 
 | file | what it is |
 |---|---|
@@ -162,9 +144,8 @@ owns**, reached by a single `build_governed_resolver` call. cp-04 hand-composed
 every one of them; the difference between the two trees is the clearest
 statement of what the canonical path now carries.
 
----
 
-## What it exercises
+## Whitepaper / CLAUDE.md sections exercised
 
 Whitepaper §7.3 (typed graph state), §7.4 (operator algebra), §7.5 (Π), §7.6
 (the product contract and its three validation gates), §7.7 (half-life and
@@ -179,3 +160,47 @@ request-contract binding), `D-IMPL-311` (`RefusalEnvelope` is the canonical
 consumer-facing refusal), `D-IMPL-313`/`D-IMPL-314` (this successor's charter),
 `D-IMPL-315` (a richer canonical path is a finding to adjudicate, not a licence
 to edit the example), `D-IMPL-316` (a position is not an identity).
+
+## What to change first
+
+1. **The anchor.** `run.py`'s `DEMONSTRATION_ANCHOR`, or pass an LEI as the
+   first argument. Everything else follows from which family you name.
+2. **`families`.** The identifiers the request is entitled to walk, which become
+   the policy operator's admitted set. Ordinarily the anchor's own LEI as a
+   one-element list; a caller entitled to two families names both, with no
+   second code path.
+3. **The depth.** Pass a second argument to `run.py`, or omit it to let the
+   class default in `ccf_config.yaml` resolve — which is a different thing from
+   passing the default's value, and the run prints which happened.
+
+To point this at **your own estate**, edit `artifacts/source-vocabulary.yaml`
+(the IRIs, the table and its columns) and `backends.yaml` (the environment
+variables and the backend's declared traversal ceiling). No Python changes.
+
+
+## What would fail
+
+Each of these is asserted in `tests/examples/test_cp_04_canonical_output.py`, so
+breaking one is loud rather than silent.
+
+- **Reverse the ingestion order** — attributed node claims before thin edge
+  envelopes — and every node is served with no name, no LEI and no class chain.
+  Nothing raises; `deployment.ingest` asserts the outcome so the reorder fails
+  where it happened.
+- **Read to the backend ceiling and let Π discard the excess**, and `D_c` stops
+  moving with the served roster. It sat at a constant 0.4 across every depth
+  before that was repaired — a debt about the estate rather than about the
+  answer.
+- **Collapse `max_depth` and `depth_limit` into one number** and a product
+  decision starts reporting as a capability limit, or a request above the
+  ceiling is quietly answered at a narrower depth and seals to a content
+  address that greens.
+- **Build the plan from anything but the resolver's `required` tuple** — or
+  write the factory as a lambda — and the deployment has authored a second
+  operator set the Control Plane cannot see.
+- **Borrow the specimen's identity** — its content addresses, its `D_c` of
+  0.0909, its published artifact ids, or a snippet include from its tree — and
+  this stops being its own determination.
+- **Modify `examples/cp-04-corporate-family-tree`** at all. It is frozen under
+  `D-IMPL-261`; a test measures it at zero files changed against the branch
+  point.
