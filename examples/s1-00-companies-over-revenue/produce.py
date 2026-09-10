@@ -76,11 +76,8 @@ from ccf.deployment import BootedFabric, load_config_and_boot
 from ccf.graph.protocols import GraphView
 from ccf.halflife.debt import DebtAssessment
 from ccf.products.contract import ContextProductContract
-from ccf.products.request import (
-    ProductRequest,
-    ProductRequestContract,
-    ProductRequestViolation,
-)
+from ccf.products.refusal import RefusalEnvelope
+from ccf.products.request import ProductRequest, ProductRequestContract
 from ccf.products.resolver import build_governed_resolver
 from ccf.projection.plan import ProjectionPlan
 from ccf.replay.record import DecisionReplayRecord
@@ -204,17 +201,28 @@ def assemble_and_serve(
     plan_class: Callable[..., ProjectionPlan],
     request: ProductRequest,
     root: Path,
-) -> Assembled | ProductRequestViolation:
+) -> Assembled | RefusalEnvelope:
     """Answer one question, end to end, against ``root`` as scratch space.
 
     Five things the fabric asks a deployment to supply arrive as ordinary
     arguments — the same call shape the rest of the suite uses, so a reader
     moving from here to ``s1-01`` sees one shape rather than two.
 
-    Returns the :class:`~ccf.products.request.ProductRequestViolation` **as
-    data** when the question is not one this class answers. A refusal is not an
-    exception: a bad question is a bad question, not a broken deployment, and a
-    verdict returned as a value cannot be swallowed by a bare ``except``.
+    Returns a :class:`~ccf.products.refusal.RefusalEnvelope` **as data** when
+    the question is not one this class answers. A refusal is not an exception:
+    a bad question is a bad question, not a broken deployment, and a verdict
+    returned as a value cannot be swallowed by a bare ``except``.
+
+    **The carrier is the envelope, not the violation** (``D-IMPL-311``).
+    :class:`~ccf.products.request.ProductRequestViolation` is the internal
+    producer/contract representation — what the door's comparison *found*;
+    :class:`~ccf.products.refusal.RefusalEnvelope` is the canonical
+    consumer-facing governed refusal — what a caller is *told*. Before
+    canonical adoption this deployment returned the first because it performed
+    the comparison itself and had nothing else to hand back. It now returns the
+    second, which carries the same ``reason`` and ``key`` and additionally a
+    ``replay_reference``: the refusal is recorded, so a consumer holding it can
+    name the decision record that authorized saying no.
     """
     registry = ControlPlaneRegistry()
 
@@ -259,6 +267,20 @@ def assemble_and_serve(
         #    `source_refresh_recency`, because it never had one to declare; the
         #    SDK's empty window is the positive statement that this estate makes
         #    no such claim, not an omission.
+        # Named functions rather than lambdas, on `cp-05`'s shape. A lambda is
+        # unreadable to a static check, and `D-IMPL-137`'s demand — that the
+        # Control Plane can see no second operator set was authored — is a
+        # property something has to be able to READ off this tree. A named
+        # factory whose only operator source is the `required` parameter makes
+        # that provable rather than merely true.
+        def plan_factory(*, required: tuple[str, ...], request: ProductRequest) -> ProjectionPlan:
+            return plan_class(
+                plan_id=scenario.plan_id, required=required, scenario=scenario
+            )
+
+        def debt_scorer(*, view: GraphView, evidence: object = None) -> DebtAssessment:
+            return scenario.debt(view)
+
         store = FileArtifactStore(root=root / scenario.artifact_store_dirname)
         resolve = build_governed_resolver(
             fabric=booted,
@@ -268,13 +290,11 @@ def assemble_and_serve(
             operator_parameter_keys=tuple(scenario.operator_parameters),
             policy_bundle_key=scenario.policy_bundle_key,
             # Π is deployment code and is never a rewrite target (whitepaper
-            # §7.5). The plan's required set comes from the product class's own
-            # document, so there is no second authored set to diverge from and
-            # no divergence guard for this deployment to call.
-            plan_factory=lambda *, required, request: plan_class(
-                plan_id=scenario.plan_id, required=required, scenario=scenario
-            ),
-            debt_scorer=lambda *, view, evidence=None: scenario.debt(view),
+            # §7.5). The factory's only operator source is the `required` the
+            # SDK hands it: this deployment authors no operator set at all, so
+            # there is nothing to diverge from and no divergence guard to call.
+            plan_factory=plan_factory,
+            debt_scorer=debt_scorer,
             artifact_store=store,
             replay_record_class=scenario.replay_record_class,
             query_pin_class=scenario.query_pin_class,

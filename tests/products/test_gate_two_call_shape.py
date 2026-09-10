@@ -627,7 +627,17 @@ PRODUCT_CLASS_OPERATOR_SET_ATTRIBUTE = "required_operator_keys"
 RULED_ONE_DOCUMENT_DEPLOYMENTS: frozenset[str] = frozenset(
     {
         "examples/cp-00-institutional-holders",
-        "examples/s1-00-companies-over-revenue",
+        # `examples/s1-00-companies-over-revenue` was HERE and was REMOVED on
+        # 2026-09-09 at its canonical adoption (`D-IMPL-311`), on the cp-05
+        # precedent below. The reason is architectural, not administrative:
+        # s1-00's hand-composed producer built its plan with
+        # `required=tuple(scenario.product_class.required_operator_keys)` — one
+        # document where two were possible, which is exactly what the exemption
+        # permitted — and its `plan_factory` now consumes the resolver's
+        # `required` and authors no operator set at all. Dave: *"s1-00 no longer
+        # authors an operator set; the SDK supplies it."* It moved to
+        # `RULED_SDK_SUPPLIED_DEPLOYMENTS` in the same commit, and no new
+        # exemption class was created and no ceiling raised.
         # D-IMPL-234 (Dave, 2026-09-01) — the gate-two closure for cp-04.
         "examples/cp-04-corporate-family-tree",
         # D-IMPL-239 (Dave, 2026-09-02) — ruled in by name on ledger row 24.5-L-45.
@@ -674,6 +684,15 @@ RULED_SDK_SUPPLIED_DEPLOYMENTS: frozenset[str] = frozenset(
         # `required` and authors nothing; no competing operator set; no
         # projection engine of its own.
         "examples/cp-05-credit-exposure-rollup",
+        # `D-IMPL-311` (Dave, 2026-09-09) — s1-00's canonical adoption, and the
+        # same move for the same reason. Removed from
+        # `RULED_ONE_DOCUMENT_DEPLOYMENTS` in this commit rather than held in
+        # both: *"a classification update, not an exemption swap."* It
+        # qualifies because the tree proves it — no
+        # `ccf.projection-requirements`, a `plan_factory` that authors nothing,
+        # no competing operator set, no projection engine of its own — not
+        # because it is named here.
+        "examples/s1-00-companies-over-revenue",
     }
 )
 
@@ -3304,7 +3323,14 @@ def test_the_premise_detector_reads_the_shipped_tree_correctly() -> None:
         # document at all: `GovernedResolver` supplies the operator set, so it
         # reads on the SDK-supplied list below instead. This list DESCRIBES THE
         # TREE, so it moves when the tree does — which is what just happened.
-        "examples/s1-00-companies-over-revenue",
+        #
+        # And `examples/s1-00-companies-over-revenue` LEFT row B on 2026-09-09
+        # by the same route (`D-IMPL-311`). Its hand-composed producer built its
+        # plan from `scenario.product_class.required_operator_keys` — one
+        # document where two were possible — and its named `plan_factory` now
+        # authors nothing, taking the operator set from the `required` the SDK
+        # hands it. Two examples have now crossed this boundary in the same
+        # direction, which is what the modernization pass is for.
     ], row_b
     assert _supplied_by_the_product_class(
         *next(
@@ -3324,6 +3350,10 @@ def test_the_premise_detector_reads_the_shipped_tree_correctly() -> None:
     assert sdk_supplied == [
         "examples/cp-05-credit-exposure-rollup",
         "examples/hw1-companies-over-revenue/deployment",
+        # `D-IMPL-311`, 2026-09-09 — s1-00 arrives from row B above, by the
+        # same second shape cp-05 took: it reaches `build_governed_resolver`
+        # directly rather than through a `binding.yaml`.
+        "examples/s1-00-companies-over-revenue",
     ], (
         sdk_supplied
     )
@@ -3662,16 +3692,23 @@ def test_a_body_with_no_artifact_tree_is_subject_to_the_demand() -> None:
     assert not _one_document(scope, no_tree, bindings)
 
 
-def test_hw1_claims_the_exemption_for_the_stated_reason() -> None:
-    """Row B, pinned to its cause rather than to HW-1 happening to pass.
+def test_a_row_b_deployment_claims_the_exemption_for_the_stated_reason() -> None:
+    """Row B, pinned to its cause rather than to the specimen happening to pass.
 
     Both halves asserted separately, because either alone would keep passing if
     the other silently changed: the deployment registers no requirements
     artifact, and the body's plan reads the product class's own claim.
+
+    **The specimen is `cp-00`, and it moved here on 2026-09-09** (`D-IMPL-311`).
+    It was `examples/s1-00-companies-over-revenue`, which left row B at its
+    canonical adoption — its `plan_factory` authors no operator set now, so a
+    control asserting it *does* read one document was asserting something the
+    ruling had just made false. `cp-00` is a row-B deployment on the same
+    reading and constructs its plan from the identical expression, so this
+    control keeps exactly the property it had. The name no longer says `hw1`,
+    which it had not been pointed at for some time.
     """
-    produce = (
-        REPO_ROOT / "examples" / "s1-00-companies-over-revenue" / "produce.py"
-    )
+    produce = REPO_ROOT / "examples" / "cp-00-institutional-holders" / "produce.py"
     root = _deployment_root(produce)
     assert root is not None and not _registers_requirements(root)
 
@@ -3682,7 +3719,7 @@ def test_hw1_claims_the_exemption_for_the_stated_reason() -> None:
         for scope in _scopes(tree)
         if _one_document(scope, produce, _bindings(scope))
     ]
-    assert exempt, "HW-1's projecting body no longer reads one document"
+    assert exempt, "the row-B specimen's projecting body no longer reads one document"
 
 
 def test_an_exempt_body_that_calls_the_binder_is_still_refused() -> None:
@@ -3762,14 +3799,20 @@ def test_a_second_operator_set_outside_the_control_plane_is_refused() -> None:
     reading the copy resolves :func:`_deployment_root` to ``None``, so the
     fail-closed default refuses the body whatever its AST says — the control
     would pass without ever exercising row C, and would go on passing if row C
-    broke. Parsing mutated source while passing HW-1's real path is what puts a
-    real artifact tree, one that registers nothing, behind an AST that reads
-    two sources.
+    broke. Parsing mutated source while passing the specimen's real path is what
+    puts a real artifact tree, one that registers nothing, behind an AST that
+    reads two sources.
+
+    **The specimen is `cp-00`, and it moved here on 2026-09-09** (`D-IMPL-311`),
+    for the reason the row-B control above records: s1-00's plan construction
+    left with its migration, and the mutation had nothing left to rewrite.
+    `cp-00` constructs its plan from the identical expression, so the mutation
+    string below is unchanged.
     """
-    produce = REPO_ROOT / "examples" / "s1-00-companies-over-revenue" / "produce.py"
+    produce = REPO_ROOT / "examples" / "cp-00-institutional-holders" / "produce.py"
     root = _deployment_root(produce)
     assert root is not None, "row C needs a REAL artifact tree, not a copy"
-    assert not _registers_requirements(root), "HW-1 registers no requirements"
+    assert not _registers_requirements(root), "the specimen registers no requirements"
 
     text = produce.read_text(encoding="utf-8")
     baseline = ast.parse(text)
@@ -3777,7 +3820,7 @@ def test_a_second_operator_set_outside_the_control_plane_is_refused() -> None:
         problem
         for scope in _scopes(baseline)
         for problem in _binder_collapses(scope, produce)
-    ], "unmutated HW-1 must be exempt, or this control proves nothing"
+    ], "the unmutated specimen must be exempt, or this control proves nothing"
 
     mutated = text.replace(
         "required=tuple(scenario.product_class.required_operator_keys),",

@@ -41,7 +41,7 @@ import psycopg
 import pytest
 
 from ccf.contracts.canonical import content_hash
-from ccf.products.request import ProductRequestViolation
+from ccf.products.refusal import NO_REPLAY_REFERENCE, RefusalEnvelope
 from ccf.replay.record import DecisionReplayRecord
 
 pytestmark = pytest.mark.postgres
@@ -179,13 +179,35 @@ def test_the_same_question_is_stable(
 def test_a_missing_threshold_is_refused_not_defaulted(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:
-    """Refused at the door, returned as data, and nothing is assembled."""
+    """Refused at the door, returned as data, recorded, and nothing assembled.
+
+    **The carrier is the envelope** (`D-IMPL-311`).
+    :class:`~ccf.products.request.ProductRequestViolation` is the internal
+    producer/contract representation — what the door's comparison found — and
+    this test asserted it while the deployment performed that comparison
+    itself. :class:`~ccf.products.refusal.RefusalEnvelope` is the canonical
+    consumer-facing governed refusal. Every semantic assertion below is the one
+    this test always made; what is new is the last, and it is the reason the
+    change is an improvement rather than a rename.
+    """
     outcome = _assemble(tmp_path / "none", parameters={})
-    assert isinstance(outcome, ProductRequestViolation)
+    assert isinstance(outcome, RefusalEnvelope)
+
+    # What was wrong with the question — unchanged, and named rather than
+    # approximated.
     assert outcome.reason == "missing-required-parameter"
     deployment = _load("deployment.py")
     assert outcome.key == deployment.THRESHOLD_PARAMETER
+
+    # Nothing was assembled. A refusal that could still hand back a product
+    # would be a refusal in name only.
     assert not hasattr(outcome, "product")
+
+    # And the refusal is RECORDED: a consumer holding it can name the decision
+    # record that authorized saying no. The sentinel is the positive claim that
+    # the seam minted none, so this fails on a dropped reference as loudly as
+    # on a missing field.
+    assert outcome.replay_reference != NO_REPLAY_REFERENCE
 
 
 def test_debt_is_driven_by_last_updated(

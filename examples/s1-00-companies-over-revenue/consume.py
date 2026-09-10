@@ -55,7 +55,7 @@ import produce  # noqa: E402
 import provision  # noqa: E402
 
 from ccf.contracts.canonical import content_hash  # noqa: E402
-from ccf.products.request import ProductRequestViolation  # noqa: E402
+from ccf.products.refusal import RefusalEnvelope  # noqa: E402
 
 
 def main() -> int:
@@ -106,8 +106,14 @@ def main() -> int:
                 ),
                 root=root,
             )
-            if isinstance(outcome, ProductRequestViolation):
+            if isinstance(outcome, RefusalEnvelope):
+                # A refusal is a VALUE, not an exception — and the canonical
+                # one is recorded. `reason` and `key` say what was wrong with
+                # the question; `replay_reference` is the address of the
+                # decision record that authorized saying no, which is the half
+                # a bare verdict could not give a consumer (`D-IMPL-311`).
                 print(f"refused: {outcome.reason} — {outcome.key}")
+                print(f"    recorded at {outcome.replay_reference}")
                 return 1
             report(outcome, explain=args.explain)
     return 0

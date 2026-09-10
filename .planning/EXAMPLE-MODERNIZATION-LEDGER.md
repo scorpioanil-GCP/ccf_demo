@@ -399,9 +399,12 @@ test corrected under `D-IMPL-310`. **s1-01 is fully modernized.**
 
 ---
 
-## `MOD-07` — BLOCKING for one s1-00 test. The canonical path returns a governed `RefusalEnvelope` where the hand-composed producer returned a bare `ProductRequestViolation`. Same reason, same key, plus a replay reference — but a different type on the CONSUMER surface.
+## `MOD-07` — RULED (`D-IMPL-311`). BLOCKING for one s1-00 test. The canonical path returns a governed `RefusalEnvelope` where the hand-composed producer returned a bare `ProductRequestViolation`. Same reason, same key, plus a replay reference — but a different type on the CONSUMER surface.
 
-**Status:** OPEN. Needs a ruling. Nothing changed; the test is untouched.
+**Status:** **RULED — `D-IMPL-311`, 2026-09-09.** Option 1: the envelope is the
+canonical consumer-facing refusal; the violation is the internal representation.
+Three sites re-authored, the three semantic assertions kept verbatim, and
+`replay_reference` newly asserted. No SDK change. Two sabotages, both RED.
 
 **Measured**, on `test_a_missing_threshold_is_refused_not_defaulted`:
 
@@ -459,10 +462,14 @@ type in it does not.
 
 ---
 
-## `MOD-08` — BLOCKING for four gate tests. s1-00 changed ARCHITECTURAL CATEGORY, and both rosters that record such a category require a human ruling by construction.
+## `MOD-08` — RULED (`D-IMPL-311`). BLOCKING for four gate tests. s1-00 changed ARCHITECTURAL CATEGORY, and both rosters that record such a category require a human ruling by construction.
 
-**Status:** OPEN. Needs a ruling. **This is the `cp-05` situation exactly**, and
-the roster says so in its own words.
+**Status:** **RULED — `D-IMPL-311`, 2026-09-09.** The paired roster edit, in one
+commit. **And the roster edit alone was not enough:** `sdk_supplied` is measured
+from the tree and the predicate could not read a *lambda* `plan_factory`. Fixed
+by matching cp-05's named-`def` shape — not by widening the predicate, and not
+by editing the roster around an instrument that could not see the tree. Two
+row-B controls that used s1-00 as their specimen were re-pointed at cp-00.
 
 Before the migration s1-00 authored its own operator set from one document and
 claimed `D-IMPL-137`'s **one-document exemption**
@@ -496,7 +503,7 @@ removal site does.
 
 ## s1-00 migration — BUILT, two classified misses
 
-`produce.py` is canonical: **411 → 323 lines**, the seven `D-07` regions
+`produce.py` is canonical: **411 → 336 lines**, the seven `D-07` regions
 replaced by `boot` / `acquire` / `govern`, and `shape_of` classifies the
 directory **`canonical`**.
 
@@ -521,5 +528,5 @@ Preserved, and deliberately NOT added to:
 | `shape_of` reports canonical | green |
 
 `tests/examples/test_s1_00_output.py` + `test_s1_00_config_equivalence.py`:
-**10 passed, 1 failed** — the one is `MOD-07`. Four further reds in
-`tests/products/test_gate_two_call_shape.py` are `MOD-08`.
+**11 passed**. `tests/products/test_gate_two_call_shape.py`: **130 passed**.
+**s1-00 is fully modernized.**
