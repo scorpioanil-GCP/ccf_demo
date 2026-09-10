@@ -41,6 +41,19 @@ product_class:
 
   max_ttl_key: cp-06/product/collateral-coverage/max-ttl
 
+  # THE PRODUCT'S OWN FOURTH VALIDATION GATE — §D names it beyond the SDK's
+  # three: the sum of allocations against any single asset must not exceed its
+  # haircut value.
+  #
+  # THE IDENTITY IS THE CONTROL PLANE'S HALF; THE IMPLEMENTATION IS THE
+  # DEPLOYMENT'S (`D-IMPL-282` `R-11`). Without a declared id the SDK has no
+  # identity to stamp on a refusal it produced, and replay could not say which
+  # gate refused — so `build_governed_resolver` refuses the pairing outright
+  # rather than producing an anonymous verdict.
+  declared_product_gate:
+    gate_id: cp-06.over-allocation-guard
+    gate_version: "1.0.0"
+
   # TWO REGISTERED OPERATORS, and the spec's five-verb recipe does not
   # contradict that. §D names Resolve, Policy, Traversal, Enrich and Aggregate;
   # only two of those are *registered L4 operators* in this SDK's four canonical
@@ -82,6 +95,8 @@ operators:
     # makes a lien's state time-dependent.
     relationship_types:
       - securedBy
+      - pledgedFacility
+      - pledgedAsset
       - pledgedBy
       - setOffAgainst
       - nettedUnder
@@ -196,6 +211,11 @@ resolution:
       entity_class: collateral_node
       identity_keys: [entity_ref]
       attribute_keys:
+        # THE SOURCE'S OWN ID, carried explicitly. An entity URI is a content
+        # hash; a payload that spoke in hashes could not be joined against the
+        # register, and Pi comparing a readable id against a hash silently
+        # matches nothing.
+        - ref
         - node_kind
         - label
         - borrower_scope

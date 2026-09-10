@@ -162,6 +162,9 @@ class Coverage:
     #: the reverse walk. The thing a column cannot tell you.
     sharing: Mapping[str, tuple[Pledge, ...]]
     deposits: tuple[Deposit, ...]
+    #: account id -> the predicate that reached it (`setOffAgainst` or
+    #: `nettedUnder`). Two different rights, never flattened into one.
+    reached_by: Mapping[str, str]
     filings: tuple[UccFiling, ...]
     haircuts: Mapping[str, Decimal]
     enforceable_jurisdictions: frozenset[str]
@@ -321,25 +324,31 @@ def _walk_collateral(leg: _GraphLeg, vocab: Mapping[str, Any],
 
 
 def _walk_setoff(leg: _GraphLeg, vocab: Mapping[str, Any],
-                 borrower_name: str | None) -> list[str]:
+                 borrower_name: str | None) -> dict[str, str]:
     """Step 3b — deposits the bank may apply, reached from the BORROWER.
 
     Set-off attaches to the party rather than to the facility, which is why it
     lives in a different system and never enters a facility-shaped frame.
+
+    Returns account id -> the predicate that reached it, because
+    `setOffAgainst` and `nettedUnder` are different rights and collapsing them
+    into "reachable" would mint one edge type for two facts. A netting
+    arrangement and a set-off right are not the same claim, and the payload
+    says which one it found.
     """
     if not borrower_name:
-        return []
+        return {}
     g = vocab["graph_leg"]
     holder = "".join(ch for ch in borrower_name.title() if ch.isalnum())
     uri = f"http://example.org/fibo/{holder}"
-    accounts = {
-        _local(b["s"]["value"])
-        for predicate in (g["set_off_against"], g["netted_under"])
+    reached: dict[str, str] = {}
+    for name, predicate in (("setOffAgainst", g["set_off_against"]),
+                            ("nettedUnder", g["netted_under"])):
         for b in leg.query(
             f'SELECT ?s FROM <{leg.ledger}> WHERE {{ ?s <{predicate}> <{uri}> }}'
-        )
-    }
-    return sorted(accounts)
+        ):
+            reached.setdefault(_local(b["s"]["value"]), name)
+    return reached
 
 
 def _walk_ucc(leg: _GraphLeg, vocab: Mapping[str, Any],
@@ -484,7 +493,7 @@ def acquire(*, facility_id: str, include_setoff: bool) -> Coverage:
         leg = _GraphLeg(url=_setting("collateral_graph", "url"),
                         ledger=_setting("collateral_graph", "ledger"), client=client)
         pledges, sharing = _walk_collateral(leg, vocab, facility_id)
-        accounts = _walk_setoff(leg, vocab, borrower_name) if include_setoff else []
+        reached = _walk_setoff(leg, vocab, borrower_name) if include_setoff else {}
         filings = _walk_ucc(leg, vocab, filed_names)
         watermark = leg.watermark()
 
@@ -493,14 +502,16 @@ def acquire(*, facility_id: str, include_setoff: bool) -> Coverage:
     with psycopg.connect(_setting("collateral_attributes", "dsn")) as db:
         with db.cursor() as cur:
             assets, deposits = _enrich(cur, schema, vocab,
-                                       asset_ids=asset_ids, account_ids=accounts)
+                                       asset_ids=asset_ids,
+                                       account_ids=sorted(reached))
 
     return Coverage(
         facility_id=facility_id, borrower_lei=borrower_lei,
         borrower_name=borrower_name, commitment=commitment,
         pledges=tuple(pledges), assets=assets,
         sharing={k: tuple(v) for k, v in sorted(sharing.items())},
-        deposits=tuple(deposits), filings=tuple(filings),
+        deposits=tuple(deposits), reached_by=dict(reached),
+        filings=tuple(filings),
         haircuts=haircuts, enforceable_jurisdictions=enforceable,
         ledger_watermark=watermark, unresolved_debtors=tuple(sorted(unresolved)),
     )
