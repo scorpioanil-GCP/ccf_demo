@@ -396,3 +396,130 @@ Preserved, measured, with no re-pin and no expectation weakened:
 
 `tests/examples/test_s1_01_output.py`: **39 passed** — `MOD-06` ruled and its
 test corrected under `D-IMPL-310`. **s1-01 is fully modernized.**
+
+---
+
+## `MOD-07` — BLOCKING for one s1-00 test. The canonical path returns a governed `RefusalEnvelope` where the hand-composed producer returned a bare `ProductRequestViolation`. Same reason, same key, plus a replay reference — but a different type on the CONSUMER surface.
+
+**Status:** OPEN. Needs a ruling. Nothing changed; the test is untouched.
+
+**Measured**, on `test_a_missing_threshold_is_refused_not_defaulted`:
+
+```
+RefusalEnvelope(kind='product-request-violation',
+                reason='missing-required-parameter',
+                key='revenue_threshold',
+                detail=…, replay_reference='…a8eb6e31', …)
+```
+
+The three things the test actually asserts about the refusal all still hold —
+`reason`, `key`, and that nothing was assembled (`not hasattr(outcome,
+"product")`; neither type has a `product` member). What fails is the fourth:
+
+```python
+assert isinstance(outcome, ProductRequestViolation)
+```
+
+**What each carrier holds:**
+
+| | fields |
+| --- | --- |
+| `ProductRequestViolation` | `reason` `key` `detail` + `declared_keys` `declared_type` `presented_keys` `presented_type` `overrides` |
+| `RefusalEnvelope` | `reason` `key` `detail` + `kind` **`replay_reference`** `policy_bindings` `disclosure` `request` `pre_assembly_lineage` `evidence` `provenance` `resource` `fields` |
+
+**Why this is a question and not obviously either answer.** The envelope is
+strictly better governance evidence — the refusal is *recorded*, and a consumer
+holding it can name the decision record that authorized the refusal, which a
+bare violation value cannot. That is the `D-IMPL-251` shape (*refusal of
+fulfillment, not of response*) and the `D-IMPL-310` shape (the canonical path
+carries more). Against that: **this is the consumer surface**, which is s1-00's
+whole teaching point. `examples/s1-00-companies-over-revenue/consume.py:109`
+branches on `isinstance(outcome, ProductRequestViolation)`, and
+`produce.py::assemble_and_serve` declares `-> Assembled | ProductRequestViolation`
+in its signature and argues for it in its docstring: *"A refusal is not an
+exception: a bad question is a bad question, not a broken deployment, and a
+verdict returned as a value cannot be swallowed by a bare `except`."* That
+argument survives the change intact — an envelope is still a value — but the
+type in it does not.
+
+**Options, none taken:**
+
+1. **Rule the envelope the canonical refusal carrier** and re-author the three
+   sites (`produce.py`'s signature and docstring, `consume.py`'s branch, the
+   test's `isinstance`) to say `RefusalEnvelope`, with the ruling recorded. The
+   example then teaches the governed refusal, including that a refusal has a
+   replay reference — which is arguably a better lesson than the one it teaches
+   now.
+2. **Rule that a canonical producer may narrow the envelope back to the
+   violation** at its own boundary, keeping the consumer contract fixed. Costs
+   the replay reference at the consumer surface unless it is passed separately.
+3. **Rule the SDK should return the violation** for a request-contract failure
+   and reserve the envelope for post-assembly refusals. This is an SDK change
+   and would touch every canonical consumer, so it is the widest of the three.
+
+---
+
+## `MOD-08` — BLOCKING for four gate tests. s1-00 changed ARCHITECTURAL CATEGORY, and both rosters that record such a category require a human ruling by construction.
+
+**Status:** OPEN. Needs a ruling. **This is the `cp-05` situation exactly**, and
+the roster says so in its own words.
+
+Before the migration s1-00 authored its own operator set from one document and
+claimed `D-IMPL-137`'s **one-document exemption**
+(`RULED_ONE_DOCUMENT_DEPLOYMENTS`, `tests/products/test_gate_two_call_shape.py:630`).
+After it, `plan_factory` consumes the resolver's `required` and s1-00 authors
+none — which is the **SDK-supplied** category
+(`RULED_SDK_SUPPLIED_DEPLOYMENTS`). It is currently in the first roster and
+absent from the second, so the detector reports it as `D-IMPL-137` **row C** —
+*a second operator set authored where the Control Plane cannot see it* — which
+is the one thing it is now provably not.
+
+Four tests are red on this: `test_the_premise_detector_reads_the_shipped_tree_correctly`,
+`test_the_one_document_exemption_has_not_spread`,
+`test_hw1_claims_the_exemption_for_the_stated_reason`,
+`test_a_second_operator_set_outside_the_control_plane_is_refused`.
+
+**Why this is not an executor's edit.** The roster's own comment: *"an unruled
+claimant is red, and a human rules on it."* The two rosters are deliberately
+separate so that *"one shared population would let either grow into the other's
+room while both read green"*. cp-05 made this exact move under `D-IMPL-301`, and
+Dave's words are recorded beside its entry: *"a classification update, not an
+exemption swap."*
+
+**The edit a ruling would authorize** is the same paired one cp-05 got: remove
+`examples/s1-00-companies-over-revenue` from `RULED_ONE_DOCUMENT_DEPLOYMENTS`
+and add it to `RULED_SDK_SUPPLIED_DEPLOYMENTS`, in one commit, with the removal
+site carrying a dated comment naming the migration — exactly as the cp-05
+removal site does.
+
+---
+
+## s1-00 migration — BUILT, two classified misses
+
+`produce.py` is canonical: **411 → 323 lines**, the seven `D-07` regions
+replaced by `boot` / `acquire` / `govern`, and `shape_of` classifies the
+directory **`canonical`**.
+
+**Eight quarantined tests were un-quarantined and pass unchanged.** All eight
+carried one reason — *"frozen s1-00 produce.py calls `build_replay_record` with
+no resolution state — quarantined evidence … un-quarantine and rerun unchanged
+after `D-GATE-24.7`"*. `D-GATE-24.7` has passed and the migration removes the
+call that caused the quarantine, so all eight `XPASS(strict)`-ed. The markers
+were removed and **no test body was touched**; that is the ruled un-quarantine,
+not a re-pin.
+
+Preserved, and deliberately NOT added to:
+
+| required | result |
+| --- | --- |
+| producer shape `boot` / `acquire` / `govern` | green |
+| `build_governed_resolver`, no local binder, no manual gate/record/serve | green — s1-00 never had a binder call (`MOD-03` measured zero) |
+| temporal semantics unchanged | **no `decision_instant_parameter` passed** — s1-00 reads the graph and stamps the decision at the same instant, and says so by naming none. The `00:00`/`00:05` distinction s1-01 needed was NOT manufactured |
+| no `source_refresh_recency` added | **not passed** — s1-00 never declared one; the SDK's empty window is the positive statement |
+| no F-09 declaration fields added | none passed |
+| store pin is replay evidence, not identity | holds by `D-IMPL-309` |
+| `shape_of` reports canonical | green |
+
+`tests/examples/test_s1_00_output.py` + `test_s1_00_config_equivalence.py`:
+**10 passed, 1 failed** — the one is `MOD-07`. Four further reds in
+`tests/products/test_gate_two_call_shape.py` are `MOD-08`.
