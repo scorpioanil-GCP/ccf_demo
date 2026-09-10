@@ -948,6 +948,36 @@ the estate for CI's benefit, never a substitute for it.
 sources on `.76`.** Recorded here so the multi-source case is expected by
 design rather than discovered as an anomaly when that set is built.
 
+#### Reads go to `.76`. Writes go to a local disposable store. Never the reverse.
+
+**The two halves, stated separately so neither can be missed:**
+
+- **READ the curated estate.** Every example, and every example test that only
+  reads, points at `.76` — Fluree `fibo-v2`, PostgreSQL `ccf_v2`, MongoDB
+  `fibo_v2`. That is the data the examples exist to be run against.
+- **WRITE to a local disposable store.** Every seeded fixture and every
+  perturbed ledger goes to a local container — `CCF_TEST_FLUREE_URL` (default
+  `http://localhost:8090`) and `CCF_TEST_POSTGRES_DSN` (default: a throwaway
+  `postgres:16`). **Nothing seeds `.76`, ever.**
+
+**The asymmetry that makes this non-negotiable rather than tidy.** A seeded
+PostgreSQL schema is removable; **a seeded Fluree ledger is PERMANENT**, because
+the store is append-only. 27 `ccf:cp04-*` ledgers accumulated on the curated
+server before this rule existed and **none of them can ever be removed**. They
+are the standing reminder.
+
+**It is enforced, not merely written down.**
+`tests/examples/estate_guard.py::refuse_to_write_the_curated_estate` refuses a
+seed whose target names a curated host — on either leg independently, whatever
+the operator exported — and refuses rather than silently redirecting, because
+redirecting would run the suite against a store nobody chose and report it as
+though they had. Curated hosts are declared in `CCF_CURATED_ESTATE_HOSTS`.
+
+**A test that genuinely cannot run without writing keeps seeding — locally.**
+`census` and `cycles` assert what a seed wrote; `anchor` and `debt` perturb data
+to prove a guard fires. They are correct as they are. What they may not do is
+perform that write against the curated estate.
+
 **The namespace trap, and it has already cost a build.** Connection material —
 host, port, credentials — comes from `ccf_dataprep/.env`. **The namespaces do
 not.** `.env` names the **v1** estate; the examples read the **v2** namespaces,
