@@ -1,0 +1,345 @@
+# yaml-language-server: $schema=../../docs/schemas/ccf.deployment-config.json
+#
+# THE SINGLE DEPLOYMENT DOCUMENT — every Control Plane section this example puts
+# in force, in one file (`D-IMPL-136`'s AMENDMENT: the section name IS the
+# class, so no file name, manifest key or class id is stated three times over
+# for a section the SDK owns).
+#
+# THIS IS THE CANONICAL SUCCESSOR TO `examples/cp-04-corporate-family-tree`.
+# It answers the same rung-4 business question — walk a corporate family from an
+# anchor LEI across two stores and return the tree, the ontology class of every
+# node, and any ownership cycles as findings — and it is authored directly
+# against the SDK as it ships today rather than derived from cp-04's tree
+# (`D-IMPL-313`, `D-IMPL-314`). **cp-04 remains frozen** as the historical
+# specimen (`D-IMPL-261`, `D-IMPL-312`); nothing here reuses its content
+# addresses, published identifiers, snippet includes or expectations.
+#
+# WHAT A READER SHOULD COMPARE. cp-04 declared the same six family predicates
+# and the same two operators, and then SUBSTITUTED the caller's depth and the
+# caller's family into its own resolved artifacts at runtime, from
+# `deployment.py`. That substitution was an ungoverned write to a Control Plane
+# declaration — invisible to the pins and to replay. Both are DECLARATIONS here,
+# and the two `source: effective_request` bindings below are where the
+# difference lives. Everything else in this document is the same product.
+#
+# NO CONNECTION VALUE APPEARS HERE. The fabric's own L3 is named as a KIND; how
+# the two SOURCE stores are reached is `backends.yaml`, and where they are lives
+# only in the environment. A DSN in a content-hashed artifact is a DSN persisted
+# into the audit plane forever.
+
+semver: "1.0.0"
+tenant_id: cp-04-canonical-demo
+
+# The FABRIC's own graph state, not a source. This deployment opens two source
+# stores and writes to neither; L3 is per-run SQLite exactly as at every rung
+# below it.
+backend: sqlite
+
+# ---------------------------------------------------------------------------
+# The product class.
+# ---------------------------------------------------------------------------
+product_class:
+  schema_name: reference.corporate-family
+
+  # A MAJOR LANE OF ITS OWN, and the version is doing real work. cp-04 serves
+  # `1.1.0` of this same class name. Two examples answering one business
+  # question must not share a lane: a shared version would make cp-04's pinned
+  # expectations and this deployment's determinations addressable as though
+  # they came from one declaration, which is exactly the provenance the
+  # specimen/successor separation exists to keep apart.
+  schema_version: "2.0.0"
+
+  # The expiry is a function of the LATEST ASSERTION TIME AMONG THE FAMILY
+  # EDGES the payload admitted, never of the request. GLEIF RR-CDF publishes
+  # daily, so a new relationship record advances it and re-derivation clears
+  # the expiry — which is the test an entity-freshness anchor has to pass.
+  ttl_anchor: from_entity_freshness
+
+  # No LLM is reachable from any step: the whole product is a walk, a
+  # normalization, a batched join and a circuit enumeration.
+  assembly_mode: algorithmic
+
+  max_ttl_key: cp-04-canonical/product/corporate-family-tree/max-ttl
+
+  # TWO OPERATORS. The subject of this product IS the relationships, so the
+  # walk is a registered L4 operator and `operators_invoked` carries exactly
+  # two entries. Cycle enumeration is NOT among them and declares no operator:
+  # the graph store has no in-store graph-algorithm library, so the circuit
+  # walk runs application-side in L2. A step that declares a Standard name but
+  # is not a registered operator does not enter `operators_invoked`, and
+  # lineage strict equality is why that distinction is load-bearing rather than
+  # tidy.
+  required_operator_keys:
+    - policy.principal-subgraph
+    - traversal.typed-neighborhood
+
+# ---------------------------------------------------------------------------
+# The L4 operator parameters.
+# ---------------------------------------------------------------------------
+operators:
+  # --- Policy runs BEFORE anything reads graph state. -----------------------
+  #
+  # On a graph that ordering stops being decoration: the envelope shapes WHAT
+  # IS WALKED rather than what is returned, so a node the principal may not see
+  # is never materialized and no edge to it is ever built. Suppression silence
+  # holds structurally instead of by filtering afterwards.
+  policy.principal-subgraph:
+    # THE AXIS IS OBSERVED FAMILY MEMBERSHIP, NOT JURISDICTION, and the reason
+    # is measured rather than stylistic. `PolicyFilter._admits` reads one claim
+    # attribute and refuses a null as firmly as an out-of-grant value, so an
+    # axis whose attribute most family members do not carry serves almost
+    # nobody. `family_id` is minted when a node is ADMITTED TO THE WALK, so the
+    # value is OBSERVED by the walk rather than inherited from the anchor or
+    # joined in from the attribute leg.
+    classification_attribute_by_class:
+      family_anchor: family_id
+      family_member: family_id
+
+    # THE FIRST OF THIS DEPLOYMENT'S TWO REQUEST BINDINGS, and the one that
+    # replaces cp-04's runtime substitution into a resolved artifact.
+    #
+    # The family a request names is not knowable when this document is written.
+    # cp-04 wrote `permitted_classifications: []` — which is valid and means
+    # ADMIT NOTHING — and then wrote the caller's family into the resolved
+    # artifact from its own code. A binding says the same intent as a
+    # DECLARATION: the value arrives from the EFFECTIVE request, after class
+    # defaults, policy bounds and technical capabilities have folded, and it
+    # travels into the operator parameter set's content hash and therefore into
+    # the replay record. An audit can read WHICH family this decision admitted.
+    #
+    # A literal and a binding cannot both be written here — they are two
+    # variants of one field — so `[]` keeps its honest meaning for every
+    # deployment that means it (`D-IMPL-288`, `D-IMPL-295`).
+    #
+    # WHY THE CALLER STATES A LIST RATHER THAN THE SDK WRAPPING THE ANCHOR. A
+    # binding supplies a value; it never converts one, and a widening as small
+    # as scalar-to-singleton is still a transform. So `families` is declared on
+    # the request surface as a list and the caller says it, which also makes a
+    # two-family question expressible without a second code path.
+    permitted_classifications:
+      source: effective_request
+      parameter: families
+
+  # --- The walk. ------------------------------------------------------------
+  traversal.typed-neighborhood:
+    # SEED CLASSES ARE WALK STARTING POINTS, not a per-hop admitted-class
+    # filter. The frontier is seeded with every entity of these classes and
+    # then hops over the adjacency for `depth_limit` rounds. The seed is the
+    # ANCHOR ALONE, which is why the resolution section below mints two classes
+    # rather than one: if every family node shared a class the frontier would
+    # be the whole estate and the depth bound would bound nothing.
+    #
+    # The value is the anchor's RESOLUTION class, never a FIBO class name. A
+    # FIBO name here would match no entity record and seed an EMPTY frontier,
+    # which reads as a bounded walk that returned nothing. The FIBO chain is
+    # SERVED on every node as `type_chain` — it is payload, not an admission
+    # filter.
+    seed_entity_classes:
+      - family_anchor
+
+    # THE SIX DECLARED FAMILY PREDICATES, in the short-name vocabulary the
+    # normalization step mints. Other relationship predicates exist in this
+    # ledger — `hasSubsidiary`, `hasBeneficialOwner`, `isBeneficialOwnerOf`,
+    # `ownershipIn`, `hasOwnershipPercentage`, `isDirectorOf`, `isOfficerOf` —
+    # and are deliberately excluded. The full IRI for each of the six is in
+    # `artifacts/source-vocabulary.yaml`, beside the read that uses them:
+    # these short names are the fabric's own relationship vocabulary, which the
+    # normalization step mints, and the IRIs are the source's.
+    relationship_types:
+      - owns
+      - controls
+      - isDirectlyConsolidatedBy
+      - isUltimatelyConsolidatedBy
+      - hasGlobalUltimateParent
+      - hasDomesticUltimateParent
+
+    # A LITERAL, AND DELIBERATELY NOT A REQUEST BINDING — this is the successor's
+    # sharpest departure from cp-04, and it was reached by measurement rather
+    # than by preference.
+    #
+    # cp-04 declared a literal here and then substituted the CALLER's depth over
+    # it at runtime, which made one number serve two authorities at once. The
+    # obvious canonical repair looks like binding this key to `max_depth` the way
+    # `permitted_classifications` binds to `families` above. It is the wrong
+    # repair, and `examples/cp-05-credit-exposure-rollup/ccf_config.yaml` says so
+    # in as many words: the request bound is what this PRODUCT offers a caller;
+    # the operator ceiling is what the BACKEND can be asked for, and one number
+    # serving as both would make a product decision look like a capability limit.
+    #
+    # SO THE TWO NUMBERS ARE SEPARATED HERE. This is the ceiling the walk over
+    # the fabric's own L3 will never exceed. The caller's depth is governed
+    # somewhere else entirely and by a different authority: `max_depth` folds
+    # through `resolve_effective_request` — class default when the caller omits
+    # it, `argument_domains` minimum, and the graph leg's own `traversal-depth`
+    # technical capability — and the EFFECTIVE value that survives is what the
+    # acquisition walks at. A depth above the backend's capability is refused by
+    # name with authority `technical`, carrying the bound that refused it, and is
+    # never quietly answered at a narrower depth: a request for 101 answered by a
+    # walk at 100 would look fine and would seal to a content address that greens.
+    #
+    # WHERE THE CALLER'S DEPTH IS THEREFORE RECORDED: in the effective request,
+    # which replay dimension 2 carries as the request-contract binding
+    # (`D-IMPL-310`) — not smuggled into an operator parameter hash by a
+    # substitution nobody declared.
+    depth_limit: 6
+
+# ---------------------------------------------------------------------------
+# WHICH QUESTIONS this class answers.
+# ---------------------------------------------------------------------------
+#
+# Adopter-owned bookkeeping (`D-IMPL-138`(a)): `class_id`, `role` and
+# `registration` have no default the SDK could derive for a class it does not
+# own.
+request_contract:
+  class_id: cp-04-canonical.request-contract
+  role: register
+  registration: typed
+  schema_name: reference.corporate-family
+  schema_version: "2.0.0"
+  arguments:
+    properties:
+      lei:
+        type: string
+        description: >-
+          the anchor. Unresolvable is a refusal and never an empty payload — an
+          empty family is a claim about the world, not about the request.
+      intent:
+        type: string
+        description: selects the policy envelope; an unknown intent is refused.
+      families:
+        type: array
+        items:
+          type: string
+        description: >-
+          the family identifiers this request is entitled to walk, and the
+          value that reaches the policy operator's admitted set. Ordinarily the
+          anchor's own LEI, stated as a one-element list; a caller entitled to
+          two families can ask about both without a second code path. Stated by
+          the caller rather than derived from `lei` because a binding supplies
+          a value and never converts one.
+      max_depth:
+        type: integer
+        description: >-
+          how many hops from the anchor. ABSENT TAKES THE DECLARED DEFAULT
+          below, read from the declaration and never invented at serve time. A
+          depth this estate cannot exhibit is SERVED — the walk returns what it
+          reaches, and the payload's findings carry the depth actually reached
+          beside the depth requested. A depth above the BACKEND's technical
+          capability is refused by name with authority `technical`, carrying
+          the bound that refused it.
+      debt_tolerance:
+        type: number
+        description: >-
+          the caller's ceiling on assessed Context Debt, folded through the
+          same resolution as every other parameter.
+      as_of:
+        type: string
+        description: DECLARED AND INERT — refused, never honored. See unsupported_arguments.
+    required:
+      - lei
+      - intent
+      - families
+
+  # ABSENT `max_depth` TAKES THIS, and the default lives here rather than in
+  # code so replay resolves the same number the serve did.
+  defaults:
+    max_depth: 3
+
+  argument_domains:
+    max_depth:
+      minimum: 1
+
+  # The ceiling is the BACKEND's, read off the graph store at assembly time and
+  # supplied to the resolver as a technical capability. It is deliberately not
+  # written here as a number: a product decision and a substrate limit are
+  # different authorities, and one literal serving as both would report a
+  # capability refusal as a policy one.
+  capability_bindings:
+    max_depth: traversal-depth
+
+  # ARGUMENT NAME -> AUTHORED REASON. The canonical shape is a mapping, and the
+  # reason is authored by the deployment that refuses the argument; a bare list
+  # names WHICH arguments are refused and never WHY, and is refused at boot
+  # (`D-IMPL-289`, `24.10-F-12`).
+  unsupported_arguments:
+    as_of: >-
+      not_supported_at_tier. Reconstructing the corporate family as it stood on
+      a past date requires ledger time-travel on the CCF temporal axis. This
+      tier serves the family as it stands, recording the graph leg's own
+      transaction watermark BESIDE the snapshot instant and never inside it.
+
+# ---------------------------------------------------------------------------
+# How a source row becomes an entity.
+# ---------------------------------------------------------------------------
+#
+# TWO CLASSES, because the seed set has to be the anchor alone. `family_id` is
+# an attribute on both: it is what the policy envelope admits on, and it is
+# minted by the walk rather than read from either store.
+resolution:
+  entity_rules:
+    - match_key: anchor_ref
+      entity_class: family_anchor
+      identity_keys: [entity_uri]
+      attribute_keys: [lei, label, type_chain, family_id]
+    - match_key: member_ref
+      entity_class: family_member
+      identity_keys: [entity_uri]
+      attribute_keys: [lei, label, type_chain, family_id]
+  relationship_rules: []
+
+# ---------------------------------------------------------------------------
+# λ_c — how fast each observation type goes stale.
+# ---------------------------------------------------------------------------
+#
+# Six types, because this product admits six genuinely different observations
+# and one curve over all of them would price a daily-refreshed attribute row
+# like an annually-published ontology.
+half_life:
+  ownership_edges:
+    half_life_seconds: 15552000      # ~180d — `owns`, `controls`
+    decay_driver: acquisition-disposal-restructuring
+    supersession_event: gleif-rr-cdf-delta-touching-either-endpoint
+  ultimate_parent_designation:
+    half_life_seconds: 31536000      # ~365d — the two ultimate-parent predicates
+    decay_driver: group-reorganization
+    supersession_event: rr-cdf-delta-on-the-designation
+  consolidation_relationships:
+    half_life_seconds: 31536000      # ~365d — the two consolidation predicates
+    decay_driver: change-of-consolidating-parent
+    supersession_event: rr-cdf-delta
+  exhibit_21_subsidiary_list:
+    half_life_seconds: 31536000      # ~365d — annual filing cadence
+    decay_driver: annual-filing-cadence
+    supersession_event: new-10-K-exhibit-21-for-the-filer
+  entity_attributes:
+    half_life_seconds: 2592000       # ~30d — GLEIF Level 1, the attribute leg
+    decay_driver: gleif-level-1-refresh
+    supersession_event: level-1-record-update
+  fibo_t_box:
+    half_life_seconds: 31536000      # ~365d — the ontology itself
+    decay_driver: edm-council-release
+    supersession_event: new-fibo-version-loaded
+
+# ---------------------------------------------------------------------------
+# Where the D_c bands sit.
+# ---------------------------------------------------------------------------
+#
+# D_c is measured over the SERVED ROSTER — what the payload actually carries —
+# and not over the deployment's source read. A denominator taken from the read
+# describes a scalar that cannot fail through the door.
+debt_profile:
+  risk_sensitivity: "1.0"
+  forced_llm_threshold: "0.60"
+  fail_closed_threshold: "0.77"
+
+# The regime in force. Its VERSION rides the served product's lineage.
+policy:
+  class_id: cp-04-canonical.policy-bundle
+  role: register
+  registration: typed
+  regime: corporate-family-tree-entitlement
+
+# Π role-conditioning: whose view of the graph this product is served under.
+default_perspective:
+  principal_id: PRIN-COV-001
+  role: credit-officer
