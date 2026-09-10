@@ -1881,9 +1881,11 @@ class GovernedResolver:
                 operators_invoked=frozenset(required),
                 policy_bundle_versions=frozenset({policy_version}),
                 graph_snapshot_at=request.asked_at,
-                # 24.5-L-02: the head the engine read once before its first
-                # query, beside the temporal anchor and never inside it.
-                store_snapshot_pin=execution.store_snapshot_pin,
+                # `D-IMPL-309`: the engine's store head is NOT sealed here. It
+                # is execution provenance and it is recorded in replay
+                # dimension 1 from `execution.store_snapshot_pin`, so an
+                # ambient ledger advancing between two runs of one governed
+                # question cannot mint a second product identity (`MOD-05`).
             ),
             payload=execution.projection.payload,
             # `24.10-F-08` / `D-IMPL-308`: the window this deployment DECLARED,
@@ -1935,7 +1937,6 @@ class GovernedResolver:
         evidence = RefusalEvidence(
             operators_invoked=execution.operators_invoked,
             plan_id=execution.plan_id,
-            store_snapshot_pin=execution.store_snapshot_pin,
             debt=candidate.debt,
             computed_empty=candidate.computed_empty,
         )

@@ -899,12 +899,13 @@ def test_the_evidence_bundle_is_the_executions_own_facts(booted: _Booted) -> Non
     internal = _recorded_shell(record)
     assert isinstance(internal.evidence, RefusalEvidence)
     assert internal.evidence.plan_id == record.content_generation_path.plan_id
-    assert internal.evidence.store_snapshot_pin == (
-        record.context_fabric_snapshot.store_snapshot_pin
-    )
-    # The equality above IS the claim: the evidence carries the pin dimension 1
-    # recorded, whatever it is. (Phase 24.6 close panel: a `!= … or True` limb
-    # that could not fail stood here and is deleted rather than kept.)
+    # The head the search ran against is NOT duplicated onto the evidence
+    # (`D-IMPL-309`). It is recorded once, on dimension 1, and it is reached
+    # from the shell's replay reference — which is the path this test has
+    # already walked to get `record`. One authoritative place, not two that
+    # can disagree.
+    assert "store_snapshot_pin" not in type(internal.evidence).model_fields
+    assert record.context_fabric_snapshot.store_snapshot_pin is not None
     # A search DID run here, so the disclosure decision names the evidence it
     # withheld — the positive half of the test above.
     decision = DisclosureDecision.model_validate_json(

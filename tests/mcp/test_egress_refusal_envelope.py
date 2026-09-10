@@ -1318,7 +1318,6 @@ def test_the_identity_assertion_fires_on_each_member_24_6_07_added(
         "evidence": RefusalEvidence(
             operators_invoked=frozenset({"traversal.neighbors"}),
             plan_id="plan-1",
-            store_snapshot_pin=NO_STORE_SNAPSHOT_PIN,
         ),
         "provenance": EffectiveRequest(
             parameters=(),

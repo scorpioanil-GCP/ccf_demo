@@ -337,7 +337,11 @@ def test_a_pushed_segments_empty_answer_is_recorded_against_every_operator_in_it
     assert finding.operators_returned_empty == execution.empty_results
     assert finding.operators_invoked == execution.operators_invoked
     assert finding.plan_id == execution.plan_id
-    assert finding.store_snapshot_pin == execution.store_snapshot_pin
+    # And NOT the execution's store head (`D-IMPL-309`): the finding says what
+    # was searched, the record says which physical state it was searched
+    # against, and only the first decides what the finding is.
+    assert "store_snapshot_pin" not in type(finding).model_fields
+    assert execution.store_snapshot_pin is not None
 
 
 # --- 5: the compatibility default --------------------------------------------

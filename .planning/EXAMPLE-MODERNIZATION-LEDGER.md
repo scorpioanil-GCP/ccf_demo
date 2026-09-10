@@ -222,7 +222,35 @@ performs.
 
 ## `MOD-05` — BLOCKING. The canonical path seals the graph store's moving head inside the content address, so the same question no longer seals to the same address.
 
-**Status:** OPEN. Blocks s1-01. Outside `D-IMPL-308`'s fence. Needs a ruling.
+**Status:** **RULED — `D-IMPL-309`, 2026-09-09.** Neither option 1 nor 2 as
+written: the head is **removed from the sealed models**, not moved beside the
+address and not left sealed. Dave: *"Logical determination identity is
+addressed. Physical store furniture is recorded."*
+
+**A third option the three below did not contain, and the measurement that
+produced it.** Option 1 was first implemented as a fourth
+`ccf_hash_transparent` posture — *ambient*: never rendered at any value — and
+**backed out**, because `canonical_bytes` is at once the address input, the
+stored form and the wire form:
+
+```
+original pin : substrate='fluree' pin='74342'
+roundtripped : substrate='none'   pin='no-store-snapshot-pin'
+```
+
+A field omitted from that form is not excluded from identity, it is **erased**
+and read back as its sentinel — a positive claim that the substrate exposes no
+head. So the field is removed outright: `ProductLineage`,
+`ComputedEmptyFinding` and `RefusalEvidence` no longer declare it, and because
+they are `extra=forbid` a deployment that still passes it is refused by name
+rather than silently losing the value. `ContextFabricSnapshot`,
+`ExecutionResult` and `replay()`'s pin comparison are untouched — the stop
+condition (*does replay retain and compare the head independently of the
+product?*) was measured **before** any edit and satisfied.
+
+Two sabotages, both RED: reintroducing the field into sealed identity, and
+stopping the recording of the head. The full ruling, the withdrawn claim and
+the carried reds are in `docs/DECISIONS.md` under `D-IMPL-309`.
 
 **Measured by diffing two runs of the identical question**, same subject, same
 instants, two whole runs against two graphs. Every product field byte-identical

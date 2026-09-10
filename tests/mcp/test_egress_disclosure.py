@@ -866,7 +866,6 @@ def test_the_evidence_presence_control_fires(
                 "evidence": RefusalEvidence(
                     operators_invoked=frozenset(),
                     plan_id="a-plan-only-one-of-them-ran",
-                    store_snapshot_pin=NO_STORE_SNAPSHOT_PIN,
                 )
             }
         ),

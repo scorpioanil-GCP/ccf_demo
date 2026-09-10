@@ -31,6 +31,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, get_args
 
 import pytest
+from pydantic import ValidationError
 
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.contracts.base import CCFContract
@@ -409,14 +410,12 @@ class _Environment:
                     binding.version for binding in record.policy_bindings.bindings
                 ),
                 graph_snapshot_at=record.context_fabric_snapshot.temporal_boundary,
-                # And the store pin the decision read under (24.5-L-02,
-                # D-IMPL-240): it is inside the lineage's content address, so
-                # it does not ride the projection back and dimension 1 is
-                # the only place a `(record, projection)` rehydrator can read
-                # it from. On the memory backend both sides are the sentinel,
-                # so this line costs nothing here — the populated-value proof
-                # is the fluree-marked module beside this one.
-                store_snapshot_pin=record.context_fabric_snapshot.store_snapshot_pin,
+                # The store pin the decision read under is NOT rebuilt here
+                # (`D-IMPL-309`): it is execution provenance, it lives on
+                # dimension 1, and it is no longer part of what the product
+                # is. A `(record, projection)` rehydrator therefore no longer
+                # has to reach into the record to reconstruct a vessel field
+                # — one fewer coupling between the evidence and the answer.
             ),
             payload=projection.payload,
             debt=record.content_generation_path.debt,
@@ -1963,23 +1962,19 @@ def test_a_record_written_before_the_pin_seam_still_replays(
 ) -> None:
     """The sentinel's compatibility promise, for the pin (D-IMPL-89 lineage).
 
-    A product whose lineage asserts "no store-native pin", and a record whose
-    dimension 1 therefore pins the same sentinel, still reproduce exactly:
-    ``NO_STORE_SNAPSHOT_PIN`` on both sides is the positive claim "this
-    substrate exposes no native pin", the memory reader is one such
-    substrate, and the two agree. A change that made a real pin required
-    would break every pre-seam record — and every SQLite deployment.
+    A record whose dimension 1 pins the sentinel still reproduces exactly:
+    ``NO_STORE_SNAPSHOT_PIN`` is the positive claim "this substrate exposes no
+    native pin", the memory reader is one such substrate, and the recorded and
+    re-executed sides agree. A change that made a real pin required would
+    break every pre-seam record — and every SQLite deployment.
+
+    The product is no longer part of this promise (``D-IMPL-309``): the head
+    is execution provenance and the vessel carries none, so the sentinel has
+    exactly one place to be compatible at instead of two.
     """
     execution = deployment.execute()
     assert execution.store_snapshot_pin == NO_STORE_SNAPSHOT_PIN
     candidate = deployment.candidate(execution)
-    candidate = candidate.model_copy(
-        update={
-            "lineage": candidate.lineage.model_copy(
-                update={"store_snapshot_pin": NO_STORE_SNAPSHOT_PIN}
-            )
-        }
-    )
     product_class = deployment.product_class()
     gated = run_gates(
         candidate,
@@ -2009,27 +2004,33 @@ def test_a_record_written_before_the_pin_seam_still_replays(
     )
 
     assert record.context_fabric_snapshot.store_snapshot_pin == NO_STORE_SNAPSHOT_PIN
-    assert gated.product.lineage.store_snapshot_pin == NO_STORE_SNAPSHOT_PIN
 
     outcome = _replay(deployment, served.replay_ref.content_address)
 
-    assert outcome.product.lineage.store_snapshot_pin == NO_STORE_SNAPSHOT_PIN
     assert content_hash(outcome.product) == (
         record.content_generation_path.product_content_address
     )
 
 
 def test_the_pin_lands_on_dimension_one_and_is_not_an_id_constituent() -> None:
-    """The pin is beside the id, inside the address (the D-IMPL-06 shape).
+    """The pin is beside the id, inside the RECORD's address (the D-IMPL-06 shape).
 
     Two snapshots of identical graph state under different store pins share
     one ``graph_snapshot_id`` — the id identifies graph STATE, and keeping the
     pin out of it is what keeps re-derived ids comparable across records
     written before and after the field existed — and hash to different
-    content addresses, so a moved pin is tamper-evident without being
-    identity-bearing. And on the vessel, two lineages differing only in pin
-    have different content addresses: "served at pin N is not reproducible
-    from pin N+1" holds at the contract level before any reader is involved.
+    content addresses, so a moved pin is tamper-evident on the record without
+    being part of the state's identity.
+
+    **And on the vessel it is not there at all** (``D-IMPL-309``). Until
+    `MOD-05` this test also asserted that two lineages differing only in pin
+    had different content addresses — *"served at pin N is not reproducible
+    from pin N+1"*. That claim is withdrawn by ruling, not by drift: a ledger
+    head advancing between two runs of one governed question is ambient
+    movement, and making it a new product identity broke *same question →
+    same answer*. Two executions differing only in head are two records and
+    one answer. The record half above is unchanged and is where the
+    tamper-evidence now lives alone.
     """
     at_n = ContextFabricSnapshot.build(
         tenant_id=TENANT,
@@ -2059,32 +2060,17 @@ def test_the_pin_lands_on_dimension_one_and_is_not_an_id_constituent() -> None:
     assert content_hash(at_n) != content_hash(unpinned)
     assert unpinned.store_snapshot_pin == NO_STORE_SNAPSHOT_PIN
 
-    lineage_n = ProductLineage(
-        operators_invoked=frozenset({"op"}),
-        policy_bundle_versions=frozenset({"v1"}),
-        graph_snapshot_at=BOUNDARY,
-        store_snapshot_pin=StoreSnapshotPin(substrate="s", pin="1"),
-    )
-    lineage_n_plus_1 = lineage_n.model_copy(
-        update={"store_snapshot_pin": StoreSnapshotPin(substrate="s", pin="2")}
-    )
-    assert content_hash(lineage_n) != content_hash(lineage_n_plus_1)
-    # The default IS the sentinel — omitting the keyword and passing the
-    # sentinel are the same lineage, byte for byte (D-10).
-    assert canonical_bytes(
+    # The vessel half, in its ruled form: a lineage cannot be told a head at
+    # all, so no execution difference can reach a product address through one.
+    # `extra=forbid` makes that a refusal by name rather than a dropped value.
+    assert "store_snapshot_pin" not in ProductLineage.model_fields
+    with pytest.raises(ValidationError, match="store_snapshot_pin"):
         ProductLineage(
             operators_invoked=frozenset({"op"}),
             policy_bundle_versions=frozenset({"v1"}),
             graph_snapshot_at=BOUNDARY,
+            store_snapshot_pin=StoreSnapshotPin(substrate="s", pin="1"),  # type: ignore[call-arg]
         )
-    ) == canonical_bytes(
-        ProductLineage(
-            operators_invoked=frozenset({"op"}),
-            policy_bundle_versions=frozenset({"v1"}),
-            graph_snapshot_at=BOUNDARY,
-            store_snapshot_pin=NO_STORE_SNAPSHOT_PIN,
-        )
-    )
 
 
 def test_a_rehydration_whose_reader_cannot_resolve_the_recorded_pin_refuses(
@@ -2145,32 +2131,25 @@ def test_a_rehydration_that_moves_the_pin_is_divergence(
 ) -> None:
     """The adversarial half: a moved pin is *detected*, not tolerated.
 
-    Two seams, both asserted. On the vessel: the pin is inside the lineage's
-    content address, so a rehydrator that returned the product under another
-    pin returns a different decision — ``ReplayDivergence`` on the product
-    address. On dimension 1: a re-execution that read under another pin than
-    the record names — here, a ``SnapshotReader`` whose ``snapshot_pin`` is
-    made to report a foreign pin while the record carries the sentinel —
-    diverges on the pin comparison itself, naming both pins, before any
-    product is rehydrated.
+    **One seam now, and it is the independent one** (``D-IMPL-309``). This
+    test asserted two: a rehydrator that returned the product under another
+    pin diverged on the *product address*, and a re-execution that read under
+    another pin than the record names diverges on the *pin comparison*. The
+    first is withdrawn with the ruling — a product no longer carries a head,
+    so there is no vessel pin for a rehydrator to move, and a head that moved
+    for reasons unrelated to the question is not a different decision.
+
+    The second is the one that was always load-bearing, and the ruling leaves
+    it exactly as it was: ``reproduced_snapshot`` is built by
+    :func:`~ccf.replay.snapshots.snapshot_of_execution` from the RE-EXECUTION,
+    never from the rehydrated product, so removing the field from the vessel
+    cannot reach it. A ``SnapshotReader`` whose ``snapshot_pin`` is made to
+    report a foreign pin while the record carries the sentinel diverges on
+    the comparison itself, naming both pins, before any product is
+    rehydrated. That this still fires is the proof that ``D-IMPL-309``
+    changed where the evidence lives and not whether it is enforced.
     """
-
-    class _PinMover(_Environment):
-        def rehydrate_product(
-            self, *, record: DecisionReplayRecord, projection: ProjectionOutput
-        ) -> ContextProductContract:
-            product = super().rehydrate_product(record=record, projection=projection)
-            return product.model_copy(
-                update={
-                    "lineage": product.lineage.model_copy(
-                        update={"store_snapshot_pin": FOREIGN_PIN}
-                    )
-                }
-            )
-
     address, _record = _serve(deployment)
-    with pytest.raises(ReplayDivergence, match="product"):
-        _replay(deployment, address, environment=_PinMover(deployment))
 
     original = SnapshotReader.snapshot_pin
     try:

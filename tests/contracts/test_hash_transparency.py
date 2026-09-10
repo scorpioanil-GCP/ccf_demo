@@ -282,7 +282,12 @@ _MARKED_IN_THE_TREE = frozenset(
         "ccf.controlplane.artifacts.TraversalDescendantsParametersArtifact.admitted_entity_classes",
         "ccf.graph.protocols.TraversalSpec.admitted_entity_classes",
         "ccf.graph.protocols.TraversalSpec.direction",
-        "ccf.products.contract.ProductLineage.store_snapshot_pin",
+        # `ccf.products.contract.ProductLineage.store_snapshot_pin` stood here
+        # until `D-IMPL-309` REMOVED the field: a substrate's transaction-time
+        # head is execution provenance, and because these canonical bytes are
+        # at once the address, the stored form and the wire form, a head
+        # excluded from them would be erased rather than merely unaddressed.
+        # It is recorded on the snapshot below, which keeps its mark.
         "ccf.replay.record.ContextFabricSnapshot.store_snapshot_pin",
         # 24.6-03: the Authority layer's value in dimension 2
         # (``D-IMPL-253`` Q1/Q6, ``D-IMPL-254``). The sentinel is the
@@ -718,7 +723,6 @@ def test_a_product_with_no_finding_hashes_as_it_did() -> None:
                 operators_returned_empty=frozenset({"o"}),
                 operators_invoked=frozenset({"o"}),
                 plan_id="fixture.plan",
-                store_snapshot_pin=NO_STORE_SNAPSHOT_PIN,
                 emptiness="attested",
             )
         }

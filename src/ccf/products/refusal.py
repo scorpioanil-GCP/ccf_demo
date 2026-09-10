@@ -113,7 +113,6 @@ from ccf.agents.errors import AssemblyRefusal
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import HASH_TRANSPARENT_KEY, canonical_bytes
 from ccf.graph.product_source import ProductMountRefusal
-from ccf.graph.protocols import StoreSnapshotPin
 from ccf.halflife.assessment import DebtAssessment
 from ccf.peering.admission import (
     AdmissionRefusal,
@@ -290,12 +289,6 @@ class RefusalEvidence(CCFContract):
             any plan ran, and such a refusal carries no evidence at all — the
             envelope's ``None`` says that, not an empty set here.
         plan_id: The plan the execution ran.
-        store_snapshot_pin: The substrate head the reads ran against —
-            :data:`~ccf.graph.protocols.NO_STORE_SNAPSHOT_PIN` when the
-            substrate exposes none. **Required**, with no default: a search
-            that ran read *something*, and a pin defaulted here would let a
-            caller build evidence that quietly claims a substrate exposed no
-            head when in fact the caller forgot to say.
         debt: The Context Debt measured over what the question assembled
             (whitepaper §7.7), when one was measured. ``None`` is the positive
             *no assessment was made* — a gate refusal reached before scoring,
@@ -308,7 +301,6 @@ class RefusalEvidence(CCFContract):
 
     operators_invoked: frozenset[str]
     plan_id: str
-    store_snapshot_pin: StoreSnapshotPin
     # Two optional members on a brand-new model, so there is no earlier
     # generation for either to be a boundary against and ``True`` is the only
     # coherent declaration (``D-IMPL-243`` amendment 1; the

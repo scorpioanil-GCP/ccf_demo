@@ -99,7 +99,6 @@ def _evidence() -> RefusalEvidence:
     return RefusalEvidence(
         operators_invoked=frozenset({"op.a"}),
         plan_id="plan-1",
-        store_snapshot_pin=NO_STORE_SNAPSHOT_PIN,
     )
 
 
