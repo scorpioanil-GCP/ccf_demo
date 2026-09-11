@@ -1,0 +1,130 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE TWELVE DECLARED PRODUCT GATES OF cp-06 — `CSC-G01` through `CSC-G12`.
+#
+# `D-IMPL-224`: a product's gates are a DECLARED ARTIFACT plus CI coverage.
+# There is no `ProductGate` Protocol and no serve path for these; the SDK's
+# universal gates stay the only serve-time gates.
+#
+# THE ACCEPTANCE AUTHORITY IS THIS PRODUCT'S OWN SPECIFICATION, not a ROADMAP
+# criterion (`D-IMPL-326`, Dave, 2026-09-10). cp-06 was not built under a
+# numbered phase and has no locked criterion to point at; fabricating one would
+# put an integer in this file that binds to nothing. Every gate below cites
+# `CP-SPEC-006` §G.2, the clause that declares this roster, and
+# `tools/check_product_gates.py` resolves the whole chain — the document
+# exists, the clause exists, and the gate's own id appears inside it.
+#
+# `observed_red` is `null` on every gate and that is REQUIRED as a key rather
+# than omitted: a gate nobody has watched fail is visibly outstanding here
+# instead of looking finished. §G.2 records that `CSC-G01`, `CSC-G04` and
+# `CSC-G09` were observed failing under deliberate sabotage on 2026-09-10; that
+# evidence predates this roster and is not transcribed as a record it did not
+# produce. The `sabotage:` column below is the recipe, not a claim it was run.
+#
+# THE SPECIFICATION'S §G.2 TABLE IS THE MACHINE SOURCE FOR NOTHING (`D-22`).
+# CI must not parse prose out of Markdown; the statements below are the same
+# statements, and this document is where a checker reads them.
+
+semver: 1.0.0
+class_id: cp-06.product-gates
+declaration:
+  product: collateral.setoff-coverage
+  test_naming_convention: the gate id appears in the executing test's docstring, as a `Declared
+    product gate` line naming the CP-SPEC clause that approves it.
+  gates:
+  - id: CSC-G01
+    statement: "haircuts reduce coverage \u2014 a discount applied as a premium is the defect"
+    spec_clause:
+      document: spec/CP-SPEC-006_Collateral_And_Setoff_Coverage.md
+      clause: G.2
+    test: tests/examples/test_cp_06_output.py::test_haircuts_reduce_coverage
+    sabotage: apply the haircut as a premium
+    observed_red: null
+  - id: CSC-G02
+    statement: valid set-off increases coverage
+    spec_clause:
+      document: spec/CP-SPEC-006_Collateral_And_Setoff_Coverage.md
+      clause: G.2
+    test: tests/examples/test_cp_06_output.py::test_valid_setoff_increases_coverage
+    sabotage: count excluded set-off
+    observed_red: null
+  - id: CSC-G03
+    statement: '`contractual` basis counts at least as much set-off as `enforceable`'
+    spec_clause:
+      document: spec/CP-SPEC-006_Collateral_And_Setoff_Coverage.md
+      clause: G.2
+    test: tests/examples/test_cp_06_output.py::test_contractual_basis_counts_more_setoff_than_enforceable
+    sabotage: invert the basis filter
+    observed_red: null
+  - id: CSC-G04
+    statement: '`priority` and `pro-rata` disagree on a shared asset'
+    spec_clause:
+      document: spec/CP-SPEC-006_Collateral_And_Setoff_Coverage.md
+      clause: G.2
+    test: tests/examples/test_cp_06_output.py::test_priority_and_pro_rata_disagree_on_a_shared_asset
+    sabotage: collapse one allocation basis onto the other
+    observed_red: null
+  - id: CSC-G05
+    statement: the register reports a released lien
+    spec_clause:
+      document: spec/CP-SPEC-006_Collateral_And_Setoff_Coverage.md
+      clause: G.2
+    test: tests/examples/test_cp_06_output.py::test_the_register_reports_a_released_lien
+    sabotage: drop the amendment walk
+    observed_red: null
+  - id: CSC-G06
+    statement: "MasTec is under-covered \u2014 the measured subject of this rung"
+    spec_clause:
+      document: spec/CP-SPEC-006_Collateral_And_Setoff_Coverage.md
+      clause: G.2
+    test: tests/examples/test_cp_06_output.py::test_mastec_is_under_covered
+    sabotage: serve a coverage ratio that does not distinguish the anchor
+    observed_red: null
+  - id: CSC-G07
+    statement: valuation dates are per asset rather than flattened to one freshness
+    spec_clause:
+      document: spec/CP-SPEC-006_Collateral_And_Setoff_Coverage.md
+      clause: G.2
+    test: tests/examples/test_cp_06_output.py::test_valuation_dates_are_per_asset_and_not_flattened
+    sabotage: flatten every valuation to one date
+    observed_red: null
+  - id: CSC-G08
+    statement: priority is carried per (facility, asset) pair
+    spec_clause:
+      document: spec/CP-SPEC-006_Collateral_And_Setoff_Coverage.md
+      clause: G.2
+    test: tests/examples/test_cp_06_output.py::test_priority_is_carried_on_the_facility_asset_pair
+    sabotage: hang priority on the asset alone
+    observed_red: null
+  - id: CSC-G09
+    statement: source ids are served, never fabric URIs
+    spec_clause:
+      document: spec/CP-SPEC-006_Collateral_And_Setoff_Coverage.md
+      clause: G.2
+    test: tests/examples/test_cp_06_output.py::test_source_ids_are_served_for_business_matching
+    sabotage: "serve `collateral_node://\u2026` to the consumer"
+    observed_red: null
+  - id: CSC-G10
+    statement: the over-allocation gate is declared and identified
+    spec_clause:
+      document: spec/CP-SPEC-006_Collateral_And_Setoff_Coverage.md
+      clause: G.2
+    test: tests/examples/test_cp_06_output.py::test_the_over_allocation_gate_is_declared_and_identified
+    sabotage: drop `declared_product_gate`
+    observed_red: null
+  - id: CSC-G11
+    statement: replay dimension 2 is a superset of product policy lineage
+    spec_clause:
+      document: spec/CP-SPEC-006_Collateral_And_Setoff_Coverage.md
+      clause: G.2
+    test: tests/examples/test_cp_06_output.py::test_replay_dimension_two_carries_the_request_contract
+    sabotage: omit the request contract from dimension 2
+    observed_red: null
+  - id: CSC-G12
+    statement: the door names a `module:callable`, never a script path
+    spec_clause:
+      document: spec/CP-SPEC-006_Collateral_And_Setoff_Coverage.md
+      clause: G.2
+    test: tests/examples/test_cp_06_output.py::test_the_door_declares_its_entrypoint_rather_than_a_script_path
+    sabotage: name a `.py` path as the entry point
+    observed_red: null

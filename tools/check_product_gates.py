@@ -92,11 +92,22 @@ SCHEMA_RELATIVE = "docs/schemas/product-gates/cp.product-gates.json"
 ROSTER_RELATIVE = "artifacts/gates.yaml"
 
 #: The schema's own id pattern, generalized from cp-04's ``\bCFT-G[0-9]{2}\b``.
-GATE_ID_TOKEN = re.compile(r"\b[A-Z]{2,4}-G[0-9]{2}\b")
+#: A DIGIT is allowed after the first letter (``D-IMPL-326``): cp-07 declares
+#: ``C36-G01``..``C36-G08`` in its own specification, and a letters-only prefix
+#: would have required renaming a shipped spec to suit this checker. Kept in
+#: step with the schema's ``id`` pattern by
+#: ``test_the_token_and_the_schema_pattern_agree_on_what_an_id_is``.
+GATE_ID_TOKEN = re.compile(r"\b[A-Z][A-Z0-9]{1,3}-G[0-9]{2}\b")
 
 #: The name form: ``test_cft_g01_...`` claims ``CFT-G01``. Anchored at the
 #: start of the function name; the id must be followed by ``_`` or end the name.
-NAME_FORM_TOKEN = re.compile(r"^test_([a-z]{2,4})_g([0-9]{2})(?:_|$)")
+NAME_FORM_TOKEN = re.compile(r"^test_([a-z][a-z0-9]{1,3})_g([0-9]{2})(?:_|$)")
+
+#: An ATX Markdown heading: its level, then its text. A specification clause is
+#: found by this and never by a bare substring — ``G.2`` appears in prose all
+#: over a document, and a citation that resolved against prose would report a
+#: clause the specification does not have (``D-IMPL-326``).
+HEADING = re.compile(r"^(#{1,6})\s+(.*?)\s*$")
 
 #: The canonical phrase a roster carries to declare the docstring form.
 CONVENTION_DOCSTRING_FORM = "the gate id appears in the executing test's docstring"
@@ -187,6 +198,105 @@ def _gates(document: dict) -> list[dict]:
     if not isinstance(gates, list):
         return []
     return [gate for gate in gates if isinstance(gate, dict)]
+
+
+def clause_body(text: str, clause: str) -> str | None:
+    """The body of ``clause`` in ``text``, or ``None`` if it has no such heading.
+
+    ``D-IMPL-326``. A clause is matched against the document's ATX HEADINGS —
+    never a bare substring — because a clause label like ``G.2`` appears in
+    prose and in cross-references throughout a specification, and a citation
+    that resolved against one of those would report authority from a sentence
+    rather than from a section.
+
+    **The body ends at the next heading of the same level or higher**, so a
+    clause carries its own text and not the remainder of the file. That bound
+    is what gives the id check below its bite: without it every clause would
+    appear to carry every id the document mentions, and the check would pass
+    for any heading a roster happened to name
+    (``test_the_clause_body_ends_at_the_next_heading``).
+
+    The heading matches when its text STARTS WITH the cited label — ``### G.2
+    Product gates`` answers a citation of ``G.2`` — because a specification
+    titles its clauses and a roster cites them by number. The label must be
+    followed by a boundary, so ``G.2`` does not answer for ``G.21``.
+    """
+    lines = text.splitlines()
+    for index, line in enumerate(lines):
+        match = HEADING.match(line)
+        if match is None:
+            continue
+        level, title = len(match.group(1)), match.group(2)
+        rest = title[len(clause):]
+        if not title.startswith(clause) or (rest and rest[0].isalnum()):
+            continue
+        body: list[str] = []
+        for following in lines[index + 1:]:
+            nested = HEADING.match(following)
+            if nested is not None and len(nested.group(1)) <= level:
+                break
+            body.append(following)
+        return "\n".join(body)
+    return None
+
+
+def spec_clause_problems(
+    root: pathlib.Path, tree: pathlib.Path, gate: dict, roster: str
+) -> list[str]:
+    """Whether one gate's cited acceptance authority actually resolves.
+
+    ``D-IMPL-326`` (Dave, 2026-09-10): a product may be gated by a numbered
+    ROADMAP criterion **or** by a cited clause of its own ``CP-SPEC``, because
+    *"no rung built since cp-04 has one"* and fabricating an integer to satisfy
+    the tool would answer the gate's real question falsely. The question the
+    gate asks is *"what approved acceptance authority says this product is
+    done?"*, and a citation answers it only if it can be followed.
+
+    So all three links are walked, each with its own message naming the tree,
+    the gate and what failed:
+
+    1. the specification exists, at the path the roster gives (tree-relative —
+       a product's authority is its OWN specification);
+    2. the clause exists in it, as a heading;
+    3. the gate's own ``id`` appears inside that clause's body.
+
+    Link 3 is the one a coarser check would skip, and it is what stops a roster
+    citing any real heading and reading as governed.
+
+    Returns an empty list for a gate carrying no ``spec_clause`` — the legacy
+    ``criterion`` form, which this function has nothing to say about. Which of
+    the two a gate carries, and that it carries exactly one, is the schema's
+    ``oneOf`` and is judged before this runs.
+    """
+    citation = gate.get("spec_clause")
+    if not isinstance(citation, dict):
+        return []
+    gate_id = str(gate.get("id", "<unnamed>"))
+    relative = str(citation.get("document", ""))
+    clause = str(citation.get("clause", ""))
+
+    document = tree / relative
+    if not document.is_file():
+        return [
+            f"{roster}: {gate_id} cites {relative} which does not exist under"
+            f" {_display(tree, root)} — a gate's acceptance authority is a"
+            " clause of its own product's specification (D-IMPL-326)"
+        ]
+    body = clause_body(document.read_text(encoding="utf-8"), clause)
+    if body is None:
+        return [
+            f"{roster}: {gate_id} cites clause {clause} of {relative}, which"
+            " has no such heading — the citation resolves to nothing"
+            " (D-IMPL-326)"
+        ]
+    if gate_id not in body:
+        return [
+            f"{roster}: {gate_id} cites clause {clause} of {relative}, and that"
+            f" clause does not name {gate_id} — a citation pointing at a real"
+            " heading that says nothing about this gate is not authority for it"
+            " (D-IMPL-326)"
+        ]
+    return []
 
 
 def declared_convention(document: dict) -> Convention | None:
@@ -395,7 +505,8 @@ def check_tree(
     2. schema violations, and a roster declaring ZERO gates (`D-IMPL-224` (3));
     3. an unrecognized ``test_naming_convention`` → one problem, and judgment
        STOPS for this tree — no form is defaulted;
-    4. a duplicated id;
+    4. a duplicated id, and a ``spec_clause`` whose cited authority does not
+       resolve — the document, the clause, or the id inside it (`D-IMPL-326`);
     5. a declared id whose ``test:`` pytest did not collect (no executing test);
     6. a test naming an id the roster does not declare, in the declared form;
     7. a declared ``test:`` whose function does not itself claim the id in the
@@ -435,6 +546,11 @@ def check_tree(
         if gate_id in seen:
             problems.append(f"{roster}: {gate_id} is declared more than once")
         seen.add(gate_id)
+        # The second acceptance-authority form (`D-IMPL-326`). Walked here,
+        # beside the duplicate check, because both are facts about the ROSTER
+        # rather than about the test tree — and because a gate whose authority
+        # resolves to nothing should be reported whether or not its test runs.
+        problems.extend(spec_clause_problems(root, tree, gate, roster))
 
     declared = declared_ids(document)
     resolvable = _resolvable(collected)

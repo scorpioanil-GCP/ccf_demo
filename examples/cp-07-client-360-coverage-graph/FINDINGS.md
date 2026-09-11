@@ -463,3 +463,52 @@ Nothing is done here. The gates cp-07 declares are executed and sabotaged —
 validation gate refuse, and `deployment.ingest`'s two guards were each watched
 red against the live estate — but they are not declared as a roster, because the
 roster as specified cannot be written truthfully for this rung.
+
+
+---
+
+## `CP07-F-11` — two of §G.1's eight gates are not in the roster, and each for its own reason
+
+**Status: OPEN. Recorded rather than papered over, at the sitting that built the
+roster (`D-IMPL-326`).**
+
+`CP-SPEC-007` §G.1 declares eight product gates. `artifacts/gates.yaml` declares
+**six**. The two absences are deliberate, and neither is a gate that quietly
+went missing.
+
+### `C36-G06` — *"the enrich leg issues a fixed number of queries regardless of graph size"*
+
+**No test asserts it.** Measured: a grep of both cp-07 test modules for any
+query-count, round-trip or batching assertion returns nothing. The claim is
+real and it is this rung's own — `acquisition.py`'s docstrings say *"ONE
+batched query"* in two places — but proving it needs a counting seam around the
+query client, which is **new instrumentation rather than an id added to an
+existing test**.
+
+Declaring it against a test that does not assert it would be precisely the
+defect the checker exists to catch: `check_tree`'s step 7, *"a declared `test:`
+whose function does not itself claim the id"* — the `L-18` witness class. So it
+is absent and named here instead.
+
+### `C36-G08` — *"`shape_of` is `canonical` and the factory takes operators only from `required`"*
+
+**Two claims, asserted by two different tests, and a gate carries one `test:`.**
+`test_the_structural_classifier_reads_this_tree_as_canonical` proves the first;
+`test_the_plan_factory_takes_its_operators_only_from_required` proves the
+second. Mapping the gate to either would claim evidence for half its statement.
+
+The fix is to split the gate in two — which is a change to the
+**specification's** own §G.1 table, not to the roster, and `D-IMPL-326` was
+scoped to the tool and the wiring rather than to editing shipped specs.
+
+### What was added rather than deferred
+
+`C36-G02` — *"a lower `limit` returns no more than a higher one"* — had no test
+either, and that one **was written** (`test_a_lower_limit_admits_no_more_evidence_than_a_higher_one`)
+because it is four lines against the existing fixtures and needed no new
+instrumentation. The asymmetry is the point: a gate whose test is cheap gets
+written, a gate whose test needs a new seam gets recorded.
+
+**This finding is the honest reading of a roster that is smaller than its
+specification's table.** A reader comparing the two should find the difference
+explained here rather than have to work out which four were dropped and why.

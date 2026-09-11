@@ -37,6 +37,7 @@ import pytest
 import yaml
 
 from tools.check_product_gates import (
+    GATE_ID_TOKEN,
     CONVENTION_DOCSTRING_FORM,
     CONVENTION_NAME_FORM,
     SCHEMA_RELATIVE,
@@ -64,6 +65,11 @@ CP04_SEAMS = REPO_ROOT / "tests" / "examples" / "test_cp_04_seams.py"
 SCRATCH_TREE = "examples/cp-04-scratch"
 SCRATCH_ROSTER = f"{SCRATCH_TREE}/artifacts/gates.yaml"
 SCRATCH_MODULE = "tests/examples/test_cp_04_scratch.py"
+
+#: Where the scratch rung keeps its own specification, relative to the tree.
+#: A `spec_clause` citation is tree-relative for the same reason `test:` is
+#: root-relative: each is resolved from the thing that authored it.
+SCRATCH_SPEC = "spec/CP-SPEC-SCRATCH.md"
 
 #: Prose CONTAINING the canonical phrase, as a real roster would carry it —
 #: the phrase is a substring, never the whole field.
@@ -139,10 +145,21 @@ def _scratch_tree(
     *,
     roster: dict | None,
     tests: dict[str, str],
+    spec: str | None = None,
 ) -> pathlib.Path:
-    """A root carrying one ``cp-04-scratch`` rung, its test modules, and the schema."""
+    """A root carrying one ``cp-04-scratch`` rung, its test modules, and the schema.
+
+    ``spec`` writes the tree's own specification at :data:`SCRATCH_SPEC`, so a
+    ``spec_clause`` citation has something to resolve against (`D-IMPL-326`).
+    Omitted — the default — is the tree that has no specification at all, which
+    is itself a case the checker must report rather than skip.
+    """
     artifacts = tmp_path / SCRATCH_TREE / "artifacts"
     artifacts.mkdir(parents=True)
+    if spec is not None:
+        spec_path = tmp_path / SCRATCH_TREE / SCRATCH_SPEC
+        spec_path.parent.mkdir(parents=True, exist_ok=True)
+        spec_path.write_text(textwrap.dedent(spec).lstrip(), encoding="utf-8")
     if roster is not None:
         (artifacts / "gates.yaml").write_text(
             yaml.safe_dump(roster, sort_keys=False), encoding="utf-8"
@@ -695,3 +712,289 @@ def test_no_test_edits_the_real_tree() -> None:
         check=True,
     ).stdout
     assert status == "", status
+
+
+# ---------------------------------------------------------------------------
+# The acceptance-authority model (`D-IMPL-326`)
+# ---------------------------------------------------------------------------
+#
+# Dave, 2026-09-10: *"`product-gates` must accept the authority that actually
+# governed the Context Product. A product may be gated by either a numbered
+# ROADMAP/phase criterion, or a cited clause / definition-of-done in its
+# `CP-SPEC`. Do not fabricate ROADMAP criterion numbers for cp-04 through cp-07
+# merely to satisfy the tool."*
+#
+# And the question the gate is meant to ask, in his words: *"What approved
+# acceptance authority says this product is done?"* — which a fabricated
+# integer answers falsely and a citation answers checkably.
+#
+# **The goal is not to make the gate easier.** A citation that cannot be
+# resolved is worth less than no citation at all, because it reads as authority
+# while pointing at nothing. So the checker walks the whole chain — the
+# specification exists, the clause exists in it, and the gate's own id appears
+# in that clause — and every link has its own red below.
+
+SPEC_WITH_CLAUSE = """
+    # CP-SPEC-SCRATCH — the scratch rung
+
+    ## G. Gates
+
+    ### G.1 Scope
+
+    This clause names no gate. It sits BEFORE `G.2` deliberately: a clause
+    reader that ran to end-of-file rather than to the next heading would sweep
+    `G.2`'s table into this clause's body, and
+    `test_the_clause_body_ends_at_the_next_heading` is red exactly then.
+
+    ### G.2 Product gates
+
+    | Gate | Asserts |
+    |---|---|
+    | `ZZ-G01` | the first thing holds |
+    | `ZZ-G02` | the second thing holds |
+
+    ### G.3 Something else entirely
+
+    No gate id lives in this clause.
+    """
+
+
+def _spec_gate(gate_id: str, test: str, *, clause: str = "G.2",
+               document: str = SCRATCH_SPEC) -> dict:
+    """A gate whose authority is a cited spec clause rather than a criterion."""
+    return {
+        "id": gate_id,
+        "statement": f"{gate_id} holds",
+        "spec_clause": {"document": document, "clause": clause},
+        "test": test,
+        "sabotage": "break it",
+        "observed_red": None,
+    }
+
+
+def _both(first: dict) -> list[dict]:
+    """``first`` plus a well-formed ``ZZ-G02``.
+
+    The scratch module claims BOTH ids, so a roster declaring one is correctly
+    reported for the other — which would make every negative below pass for a
+    reason that has nothing to do with its subject. Declaring both isolates the
+    one fault under test.
+    """
+    return [first, _spec_gate("ZZ-G02", _node("test_second"))]
+
+
+def test_a_gate_may_cite_a_spec_clause_instead_of_a_roadmap_criterion(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The positive case, and the reason the whole change exists.
+
+    No rung built since cp-04 has a locked ROADMAP criterion to point at, and
+    inventing one would put a number in the roster that binds to nothing.
+    """
+    root = _scratch_tree(
+        tmp_path,
+        roster=_roster(CONVENTION_DOCSTRING_FORM,
+                       _both(_spec_gate("ZZ-G01", _node("test_first")))),
+        tests={"test_cp_04_scratch.py": DOCSTRING_MODULE},
+        spec=SPEC_WITH_CLAUSE,
+    )
+    assert _judge(root, {_node("test_first"), _node("test_second")}) == []
+
+
+def test_the_legacy_criterion_form_is_still_accepted(
+    tmp_path: pathlib.Path,
+) -> None:
+    """*"Existing ROADMAP behavior stays valid"* (Dave).
+
+    The control for the test above: adding a second authority form must not
+    retire the first, and frozen cp-04's roster is written in it.
+    """
+    root = _scratch_tree(
+        tmp_path,
+        roster=_roster(CONVENTION_DOCSTRING_FORM,
+                       [_gate("ZZ-G01", _node("test_first")),
+                        _gate("ZZ-G02", _node("test_second"), criterion=2)]),
+        tests={"test_cp_04_scratch.py": DOCSTRING_MODULE},
+    )
+    assert _judge(root, {_node("test_first"), _node("test_second")}) == []
+
+
+def test_the_two_authority_forms_may_be_mixed_across_one_roster(
+    tmp_path: pathlib.Path,
+) -> None:
+    """One gate per authority, not one roster per authority.
+
+    Nothing requires a product to migrate wholesale, and a rule that did would
+    be a migration cost the ruling never asked for.
+    """
+    root = _scratch_tree(
+        tmp_path,
+        roster=_roster(CONVENTION_DOCSTRING_FORM,
+                       [_gate("ZZ-G01", _node("test_first")),
+                        _spec_gate("ZZ-G02", _node("test_second"))]),
+        tests={"test_cp_04_scratch.py": DOCSTRING_MODULE},
+        spec=SPEC_WITH_CLAUSE,
+    )
+    assert _judge(root, {_node("test_first"), _node("test_second")}) == []
+
+
+def test_a_gate_declaring_BOTH_authorities_is_refused(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Exactly one, because two authorities for one gate is two answers.
+
+    If a gate could carry both, a reader asking *"what says this is done?"*
+    gets two answers with no rule ordering them — the shape `D-IMPL-315` keeps
+    out one layer down.
+    """
+    both = _spec_gate("ZZ-G01", _node("test_first"))
+    both["criterion"] = 1
+    root = _scratch_tree(
+        tmp_path,
+        roster=_roster(CONVENTION_DOCSTRING_FORM, _both(both)),
+        tests={"test_cp_04_scratch.py": DOCSTRING_MODULE},
+        spec=SPEC_WITH_CLAUSE,
+    )
+    assert _judge(root, {_node("test_first"), _node("test_second")}) != []
+
+
+def test_a_gate_declaring_NEITHER_authority_is_refused(
+    tmp_path: pathlib.Path,
+) -> None:
+    """A gate nobody approved is the thing this field exists to prevent."""
+    naked = _spec_gate("ZZ-G01", _node("test_first"))
+    del naked["spec_clause"]
+    root = _scratch_tree(
+        tmp_path,
+        roster=_roster(CONVENTION_DOCSTRING_FORM, _both(naked)),
+        tests={"test_cp_04_scratch.py": DOCSTRING_MODULE},
+        spec=SPEC_WITH_CLAUSE,
+    )
+    assert _judge(root, {_node("test_first"), _node("test_second")}) != []
+
+
+def test_a_citation_naming_a_specification_that_does_not_exist_is_red(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Link 1 of the chain. A dangling document reads as authority and is none."""
+    root = _scratch_tree(
+        tmp_path,
+        roster=_roster(
+            CONVENTION_DOCSTRING_FORM,
+            _both(_spec_gate("ZZ-G01", _node("test_first"),
+                             document="spec/CP-SPEC-NOT-THERE.md"))),
+        tests={"test_cp_04_scratch.py": DOCSTRING_MODULE},
+        spec=SPEC_WITH_CLAUSE,
+    )
+    problems = _judge(root, {_node("test_first"), _node("test_second")})
+    assert any("CP-SPEC-NOT-THERE.md" in problem for problem in problems), problems
+
+
+def test_a_tree_with_no_specification_at_all_is_red(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The `cp-04-canonical` shape, measured rather than assumed.
+
+    A rung with no `spec/` directory cannot cite a clause, and the checker must
+    SAY so rather than pass the citation through unresolved.
+    """
+    root = _scratch_tree(
+        tmp_path,
+        roster=_roster(CONVENTION_DOCSTRING_FORM,
+                       _both(_spec_gate("ZZ-G01", _node("test_first")))),
+        tests={"test_cp_04_scratch.py": DOCSTRING_MODULE},
+    )
+    assert _judge(root, {_node("test_first"), _node("test_second")}) != []
+
+
+def test_a_citation_naming_a_clause_the_specification_lacks_is_red(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Link 2. The document resolving is not the clause resolving."""
+    root = _scratch_tree(
+        tmp_path,
+        roster=_roster(CONVENTION_DOCSTRING_FORM,
+                       _both(_spec_gate("ZZ-G01", _node("test_first"), clause="Q.9"))),
+        tests={"test_cp_04_scratch.py": DOCSTRING_MODULE},
+        spec=SPEC_WITH_CLAUSE,
+    )
+    problems = _judge(root, {_node("test_first"), _node("test_second")})
+    assert any("Q.9" in problem for problem in problems), problems
+
+
+def test_a_clause_that_does_not_carry_the_gates_own_id_is_red(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Link 3, and the one a coarser check would miss.
+
+    `G.3` is a real clause of a real specification, so links 1 and 2 both pass;
+    it simply says nothing about `ZZ-G01`. Without this link a roster could
+    cite any heading in the document and read as governed.
+    """
+    root = _scratch_tree(
+        tmp_path,
+        roster=_roster(CONVENTION_DOCSTRING_FORM,
+                       _both(_spec_gate("ZZ-G01", _node("test_first"), clause="G.3"))),
+        tests={"test_cp_04_scratch.py": DOCSTRING_MODULE},
+        spec=SPEC_WITH_CLAUSE,
+    )
+    problems = _judge(root, {_node("test_first"), _node("test_second")})
+    assert any("ZZ-G01" in problem and "G.3" in problem for problem in problems), problems
+
+
+def test_the_clause_body_ends_at_the_next_heading(
+    tmp_path: pathlib.Path,
+) -> None:
+    """A clause is its own body, not the rest of the file.
+
+    Cited against `G.1`, which sits BEFORE the gate table and names no id. A
+    reader that ran to end-of-file would sweep `G.2`'s table into `G.1`'s body
+    and report this citation as good.
+
+    **This test was vacuous when first written** and is recorded as such: it
+    cited `G.3`, the LAST clause of the fixture, where running to end-of-file
+    adds nothing — so removing the body bound left it green. The bound is
+    load-bearing only against a clause with something after it, which is why
+    the fixture now has one.
+    """
+    root = _scratch_tree(
+        tmp_path,
+        roster=_roster(CONVENTION_DOCSTRING_FORM,
+                       [_spec_gate("ZZ-G01", _node("test_first"), clause="G.1"),
+                        _spec_gate("ZZ-G02", _node("test_second"))]),
+        tests={"test_cp_04_scratch.py": DOCSTRING_MODULE},
+        spec=SPEC_WITH_CLAUSE,
+    )
+    problems = _judge(root, {_node("test_first"), _node("test_second")})
+    assert any("ZZ-G01" in problem and "G.1" in problem for problem in problems), problems
+
+
+def test_the_token_and_the_schema_pattern_agree_on_what_an_id_is() -> None:
+    """Two readers of one vocabulary, held together (`D-IMPL-326`).
+
+    The schema decides which ids a roster may DECLARE; :data:`GATE_ID_TOKEN`
+    decides which ids the checker can SEE in a docstring. They were widened
+    together to admit cp-07's `C36-G01`, and a later widening of one alone
+    would produce ids a roster can declare and the checker cannot find — which
+    reads as a missing test rather than as a mismatched pattern.
+
+    Compared over cases rather than by string equality: the two patterns are
+    anchored differently on purpose (one whole-string, one word-bounded), so
+    equal text would be the wrong assertion.
+    """
+    import json
+    import re
+
+    schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+    declared = re.compile(
+        schema["properties"]["declaration"]["properties"]["gates"]["items"]
+        ["properties"]["id"]["pattern"]
+    )
+    accepted = ["CFT-G01", "CSC-G12", "C36-G08", "ZZ-G01", "ABCD-G99"]
+    rejected = ["cft-G01", "C-G01", "ABCDE-G01", "CFT-G1", "CFT-X01", "36C-G01"]
+    for candidate in accepted:
+        assert declared.fullmatch(candidate), f"schema rejects {candidate}"
+        assert GATE_ID_TOKEN.search(candidate), f"the token cannot see {candidate}"
+    for candidate in rejected:
+        assert not declared.fullmatch(candidate), f"schema accepts {candidate}"
+        assert not GATE_ID_TOKEN.fullmatch(candidate), f"the token accepts {candidate}"

@@ -155,6 +155,8 @@ def test_the_demonstration_anchor_is_truncated_and_says_so(default: Any) -> None
     admissible, and that `truncated` agrees with that arithmetic. A payload
     where the two disagree is the failure this rung exists to surface, and the
     product's own declared gate refuses it before a consumer sees it.
+
+    Declared product gate `C36-G03` (`CP-SPEC-007` §G.1).
     """
     boundary = _boundary(default)
     admissible = (boundary["interactions_available"]
@@ -194,6 +196,8 @@ def test_a_tighter_bound_manufactures_coverage_gaps(
     Directional: the tight bound reports AT LEAST as many gaps as the loose one,
     on the same estate at the same instant, and strictly more for this to have
     measured anything at all.
+
+    Declared product gate `C36-G05` (`CP-SPEC-007` §G.1).
     """
     instant = datetime.now(UTC)
     loose = _serve(example, asked_at=instant, limit=500)
@@ -205,6 +209,34 @@ def test_a_tighter_bound_manufactures_coverage_gaps(
         "narrowing the acquisition to a tenth of the evidence produced no new"
         " coverage gap, so the bound is not reaching the gap analysis and the"
         " disclosure would be measuring nothing"
+    )
+
+
+def test_a_lower_limit_admits_no_more_evidence_than_a_higher_one(
+    estate: tuple[str, str], example: tuple[Any, Any]
+) -> None:
+    """`limit` is monotone in the direction its name implies.
+
+    The sibling `since` gate asserts this for the temporal bound; this is the
+    same claim for the cardinality bound, and the two are separate because they
+    reach the read by different paths — `since` narrows the `WHERE`, `limit`
+    the `LIMIT`. Directional and strict: a tenth of the bound must admit
+    strictly less on an anchor that exceeds both, or the bound is not reaching
+    the read at all.
+
+    Written for `D-IMPL-326`: `CP-SPEC-007` §G.1 declares this gate and no test
+    asserted it, which the acceptance-authority wiring surfaced rather than
+    papered over.
+
+    Declared product gate `C36-G02` (`CP-SPEC-007` §G.1).
+    """
+    instant = datetime.now(UTC)
+    loose = _boundary(_serve(example, asked_at=instant, limit=500))
+    tight = _boundary(_serve(example, asked_at=instant, limit=20))
+    assert tight["interactions_admitted"] <= loose["interactions_admitted"]
+    assert tight["interactions_admitted"] < loose["interactions_admitted"], (
+        "a tenth of the bound admitted as much evidence as the full one, so"
+        " `limit` is not reaching the read"
     )
 
 
@@ -426,6 +458,8 @@ def test_need_to_know_returns_a_different_graph_not_a_redacted_one(
     Admitting need-to-know content must ADD admissible evidence rather than
     unmask a placeholder. If the withheld count did not move, the policy
     operator is not reaching the read and the exclusion is cosmetic.
+
+    Declared product gate `C36-G04` (`CP-SPEC-007` §G.1).
     """
     instant = datetime.now(UTC)
     without = _serve(example, asked_at=instant)
@@ -445,7 +479,10 @@ def test_need_to_know_returns_a_different_graph_not_a_redacted_one(
 def test_a_wider_window_cannot_admit_less_evidence(
     estate: tuple[str, str], example: tuple[Any, Any]
 ) -> None:
-    """`since` bounds T, and widening a bound is monotone."""
+    """`since` bounds T, and widening a bound is monotone.
+
+    Declared product gate `C36-G01` (`CP-SPEC-007` §G.1).
+    """
     instant = datetime.now(UTC)
     narrow = _serve(example, asked_at=instant, since="2026-01-01", limit=500)
     wide = _serve(example, asked_at=instant, since="2024-01-01", limit=500)
@@ -499,7 +536,10 @@ def test_the_truncation_gate_is_declared_and_identified(
 
 
 def test_replay_dimension_two_carries_the_request_contract(default: Any) -> None:
-    """`D-IMPL-310` — replay is a SUPERSET of product policy lineage."""
+    """`D-IMPL-310` — replay is a SUPERSET of product policy lineage.
+
+    Declared product gate `C36-G07` (`CP-SPEC-007` §G.1).
+    """
     bindings = {b.key for b in default.record.policy_bindings.bindings}
     lineage = set(default.product.lineage.policy_bundle_versions)
     versions = {b.version for b in default.record.policy_bindings.bindings}
