@@ -482,7 +482,7 @@ connection material alone points the run at the wrong generation of the estate.
 | `CIF-G10` | `include_superseded` and `evaluate_headroom` are refused by name with their declared reasons |
 | `CIF-G11` | an unresolvable `facility_id` refuses; it does not return an empty set |
 | `CIF-G12` | the served covenants are **labelled unversioned**, so no consumer reads them as reconstructed for `as_of` |
-| `CIF-G13` | the decision record's policy dimension is a superset of product policy lineage |
+| `CIF-G16` | every policy bundle the product cites is carried by the decision record, and it cites at least one |
 | `CIF-G15` | a closed as-of answer carries the long TTL and a live one the short TTL — **specified, not yet implemented** (§G.3) |
 
 **All directional or structural. No population figure is pinned in a gate** —
@@ -490,11 +490,16 @@ connection material alone points the run at the wrong generation of the estate.
 a fourth engineered lag does not break it, and the counts in §C.2 are
 measurements a reader reproduces rather than assertions a test holds.
 
-**`CIF-G07` and `CIF-G14` are gaps in this numbering and are not reused.** Both
-were specified against a population this estate does not contain — an amendment
-missing a booking date, and a debt ratio derived from it — and a gate that
-cannot fail reports coverage it does not provide. The ids are left empty so a
-later obligation does not inherit a name that meant something else.
+**`CIF-G07`, `CIF-G13` and `CIF-G14` are gaps in this numbering and are not
+reused.** `CIF-G07` and `CIF-G14` were specified against a population this
+estate does not contain — an amendment missing a booking date, and a debt ratio
+derived from it. `CIF-G13` asserted the same replay property `CIF-G16` now
+carries, but read the citation from an attribute the lineage contract does not
+have, so its left-hand set was always empty and its subset test could not fail;
+the obligation is restated under a new id rather than repaired in place, because
+a gate that once reported coverage it did not provide should not keep its name.
+In all three cases the id is left empty so a later obligation does not inherit a
+name that meant something else.
 
 ### G.2 Acceptance criteria
 

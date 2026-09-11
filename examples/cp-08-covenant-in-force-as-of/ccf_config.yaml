@@ -205,25 +205,36 @@ half_life:
   # to make the governed behavior observable in that snapshot. They demonstrate
   # how the SDK applies these controls and should not be interpreted as
   # recommended production coverage-policy thresholds.
-  amendment_structure:
+  #
+  # KEYED ON THE OBSERVATION TYPE, which is the entity class the resolution
+  # rules mint — `amendment`, `covenant`, `facility`. These were once named
+  # `amendment_structure` / `covenant_terms` / `facility_reference`, which read
+  # better and were consulted by nothing: while this deployment scored `D_c`
+  # for itself the table was never looked up, so three descriptive labels sat
+  # in the Control Plane looking like configuration. The SDK's reference
+  # scorer looks each observation up BY TYPE and refuses when the type is
+  # absent, which is what surfaced it.
+  amendment:
     half_life_seconds: 15552000      # ~180d — amendment-driven
     decay_driver: amendment-cadence
     supersession_event: new-8-K-item-1-01-for-the-facility
-  covenant_terms:
+  covenant:
     half_life_seconds: 31536000      # ~365d — rarely amended independently
     decay_driver: agreement-amendment
     supersession_event: amended-and-restated-EX-10
-  facility_reference:
+  facility:
     half_life_seconds: 7776000       # ~90d — internal loan-system refresh
     decay_driver: loan-system-refresh
     supersession_event: facility-record-update
 
 debt_profile:
   # ILLUSTRATIVE CALIBRATION (`D-IMPL-323`) — see the note above `half_life`.
-  # `D_c` here is the share of served amendments that cannot be placed on the
-  # assertion axis at all. On the three engineered facilities it is low and the
-  # answer carries the second clock; on a facility outside the 25 that carry
-  # assertion time it is high, and says so.
+  # These are the thresholds the SDK's REFERENCE assessment is read against.
+  # This product declares no `D_c` metric of its own (`CP-SPEC-008` §E.2): it
+  # had one — the share of served amendments placeable on the assertion axis —
+  # and it was withdrawn with the population claim it rested on, because every
+  # facility amendment in this estate carries a booking date and the figure
+  # therefore read 0 on every answer.
   risk_sensitivity: "1.0"
   forced_llm_threshold: "0.60"
   fail_closed_threshold: "0.90"

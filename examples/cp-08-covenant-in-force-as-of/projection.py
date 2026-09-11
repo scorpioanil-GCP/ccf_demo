@@ -102,13 +102,14 @@ class CovenantInForceProjection:
 
             # AXIS 1 — VALID TIME. Was it in force at `as_of`?
             #
-            # A MISSING `validFrom` IS NOT "not in force". Measured: 25 of the
-            # estate's 137 amendments carry both clocks and 112 carry neither,
-            # so this branch is reached in earnest. Saying "not yet in force"
-            # about an amendment whose effective date the source never recorded
-            # would be the same defect as calling a missing `assertedAt`
-            # un-booked — a claim about the world standing in for an absence in
-            # the record.
+            # A MISSING `validFrom` IS NOT "not in force". Saying "not yet in
+            # force" about an amendment whose effective date the source never
+            # recorded would be the same defect as calling a missing
+            # `assertedAt` un-booked — a claim about the world standing in for
+            # an absence in the record. The predicate is part of the product;
+            # measured, all 25 facility amendments in this estate carry an
+            # effective date, so this estate does not currently exercise the
+            # missing-clock case.
             if not valid_from:
                 excluded.append({
                     **entry, "excluded_by": AXIS_VALID_TIME,
@@ -132,8 +133,10 @@ class CovenantInForceProjection:
 
             # AXIS 2 — ASSERTION TIME. Had the institution booked it by
             # `known_as_of`? An amendment with NO assertion time is not assumed
-            # booked: 112 of 137 carry none, and defaulting would make every
-            # booking lag vanish (`CP08-F-03`).
+            # booked, because defaulting would make every booking lag vanish.
+            # The predicate is part of the product; measured, all 25 facility
+            # amendments in this estate carry a booking date, so this estate
+            # does not currently exercise the missing-clock case.
             if not asserted_at:
                 excluded.append({
                     **entry, "excluded_by": AXIS_UNPLACEABLE,

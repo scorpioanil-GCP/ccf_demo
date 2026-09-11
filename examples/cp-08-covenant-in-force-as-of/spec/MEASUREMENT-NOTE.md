@@ -107,6 +107,40 @@ amendments whose target is a credit facility    25   (across 18 facilities)
   one watching the debt ratio. Both guard a population of zero. Their ids are
   left as gaps rather than reused.
 
+### What replaced it, and what that measurement showed
+
+Removing the scorer exposed two things the earlier shape had hidden.
+
+**The reference path is defaultless, and the λ_c table had never been read.**
+`build_governed_resolver` refuses a call supplying neither a scorer nor the
+material to build one. Supplying that material meant looking half-lives up **by
+observation type** — and the table was keyed `amendment_structure`,
+`covenant_terms`, `facility_reference`, three descriptive labels no consumer
+had ever resolved. While the deployment scored for itself the table sat in the
+Control Plane looking like configuration and functioning as documentation. It
+is now keyed `amendment` / `covenant` / `facility`, which is what the entity
+rules mint and what the scorer asks for.
+
+**`D_c` is 0 on every answer under the reference scorer too, and that is the
+honest state rather than a defect to engineer around.** Measured across three
+`as_of` instants on the demonstration facility:
+
+```
+as_of               D_c   signal    admitted amendments
+2024-06-01            0   ok                          0
+2025-01-15            0   ok                          0
+2025-09-09            0   ok                          1
+
+factors: freshness=1  completeness=1  semantic_consistency=1
+```
+
+Freshness is the term that would move, and it does not: every observation is
+minted from a live read inside the run, so it is 1 by construction. So the
+withdrawal did not cost this product a working signal — **it removed a per-run
+ratio dressed as one**, and what stands in its place is the platform assessment
+saying, correctly, that there is no shortfall of any of the three kinds to
+report. §E.2 states that rather than manufacturing a metric to have one.
+
 ### Why it survived three checks
 
 The number *was* measured; a query ran and its output was quoted. What was never

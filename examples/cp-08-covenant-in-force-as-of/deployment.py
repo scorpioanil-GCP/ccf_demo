@@ -1,9 +1,11 @@
-"""This deployment's own seams: its vocabulary, its envelopes, its debt.
+"""This deployment's own seams: its vocabulary, its envelopes, its gate.
 
 **No governance lives here.** The door, both operators, `Π`, the L6 gates, the
 five-dimension record and the delivery are one object the SDK owns
 (`build_governed_resolver`). What this module contributes is what only a
-deployment can know: which config keys, which envelopes, which `D_c`.
+deployment can know: which config keys, which envelopes, what counts as a
+temporally coherent answer. **Not `D_c`** — this product declares no debt
+metric of its own and the SDK's reference assessment applies (§E.2).
 
 **THE TWO CLOCKS ARE NOT APPLIED HERE.** `as_of` bounds the READ (acquisition
 issues it as a source-side filter); `known_as_of` is deliberately carried no
@@ -26,12 +28,9 @@ import yaml
 
 import acquisition
 
-from ccf.controlplane.artifacts import DebtProfile, PerspectiveArtifact
+from ccf.controlplane.artifacts import PerspectiveArtifact
 from ccf.controlplane.registry import ControlPlaneProtocol
 from ccf.deployment import BootedFabric
-from ccf.graph.protocols import GraphView
-from ccf.halflife.assessment import DebtFactors
-from ccf.halflife.debt import DebtAssessment, assess_debt
 from ccf.products.constraints import (
     ReferencePolicyConstraintResolver,
     TechnicalCapability,
@@ -301,10 +300,11 @@ def ingest(
                 "amendment_number": "" if amendment.number is None else str(amendment.number),
                 "valid_from": amendment.valid_from or "",
                 "valid_to": amendment.valid_to or "",
-                # EMPTY rather than absent when the source has none, and empty
-                # rather than `valid_from`: 112 of 137 amendments carry no
-                # assertion time, and defaulting one would make every booking
-                # lag vanish (`CP08-F-03`).
+                # EMPTY rather than absent when the source has none, and
+                # empty rather than `valid_from`: defaulting a missing
+                # assertion time would make every booking lag vanish. All 25
+                # facility amendments in this estate carry one, so this is the
+                # product's rule rather than a case the estate forces.
                 "asserted_at": amendment.asserted_at or "",
                 "booking_lag_days": (
                     "" if amendment.booking_lag_days is None
@@ -339,52 +339,19 @@ def ingest(
         )
 
 
-def debt(view: GraphView) -> DebtAssessment:
-    """`D_c` = 1 − (amendments placeable on the assertion axis ÷ amendments seen).
+def declared_debt_factor(name: str) -> str:
+    """One of the two `D_c` factors this deployment DECLARES rather than computes.
 
-    **The denominator is the valid-time-bounded set, and that is coherent
-    rather than convenient.** `CP04C-F-02` recorded the trap one rung over: a
-    scorer counting what the operators assembled while the payload serves less
-    produces a scalar that cannot move with the answer.
-
-    It does not bite here, because **the axis `Π` cuts on is not the axis this
-    measures.** `Π` removes amendments the institution had not yet BOOKED —
-    a governed answer, not a shortfall. This measures amendments that cannot be
-    placed on the assertion axis AT ALL, because the source carries no
-    `assertedAt` for them. Those are a real shortfall in the answer: the product
-    served them without being able to say whether the bank knew.
-
-    So `D_c` is high on a facility whose amendments are outside the 25 that
-    carry assertion time — saying, truthfully, *this answer cannot tell you what
-    the bank knew* — and low on the three engineered facilities, where it can.
+    The SDK's reference scorer derives freshness from the λ_c table and the
+    observations' own ages; completeness and semantic consistency are
+    statements only the deployment can make. They live in
+    ``artifacts/debt-declaration.yaml``, which carries the measurement behind
+    each — values belong in artifacts, not in code (CLAUDE.md §6.4).
     """
-    entities = list(view.entities)
-    amendments = [
-        record for record in entities
-        if record.claim.attributes.get(_KIND) == KIND_AMENDMENT
-    ]
-    placeable = sum(
-        1 for record in amendments if record.claim.attributes.get("asserted_at")
-    )
-    ratio = (
-        Decimal(placeable) / Decimal(len(amendments))
-        if amendments
-        else Decimal(0)
-    )
-    return assess_debt(
-        DebtFactors(
-            # SAID to be 1 rather than quietly assumed: every amendment was
-            # observed in this run's own read, and every amendment the
-            # valid-time bound admitted reached L3.
-            freshness=Decimal(1),
-            completeness=Decimal(1),
-            # The one factor this estate can move — whether the source carries
-            # an assertion time for the amendment at all.
-            semantic_consistency=ratio,
-        ),
-        profile=DebtProfile.model_validate(
-            {"semver": "1.0.0", **config()["debt_profile"]}
-        ),
+    return str(
+        yaml.safe_load(
+            (HERE / "artifacts" / "debt-declaration.yaml").read_text(encoding="utf-8")
+        )["declaration"][name]
     )
 
 
@@ -418,7 +385,7 @@ class CovenantScenario:
 
     @property
     def max_ttl_seconds(self) -> int:
-        return int(config()["half_life"]["covenant_terms"]["half_life_seconds"])
+        return int(config()["half_life"]["covenant"]["half_life_seconds"])
 
     @property
     def product_ttl_seconds(self) -> int:
@@ -432,7 +399,7 @@ class CovenantScenario:
         with no implementation behind it yet, and it is named in the roster as
         outstanding rather than quietly dropped.
         """
-        return int(config()["half_life"]["amendment_structure"]["half_life_seconds"])
+        return int(config()["half_life"]["amendment"]["half_life_seconds"])
 
 
 def temporal_coherence_violation(candidate: Any) -> str | None:

@@ -15,17 +15,21 @@
 #   take, so the behavior was not invented in order to have something to gate.
 #   It is carried open; a roster entry would claim coverage that does not exist.
 #
-#   `CIF-G07` and `CIF-G14` are gaps in §G.1's own numbering — both were
-#   specified against a population this estate does not contain — and the ids
-#   are not reused.
+#   `CIF-G07`, `CIF-G13` and `CIF-G14` are gaps in §G.1's own numbering and
+#   the ids are not reused. G07 and G14 were specified against a population
+#   this estate does not contain. G13 asserted the replay property `CIF-G16`
+#   now carries, but read it from an attribute the lineage contract does not
+#   have, so its subset test could not fail; the obligation is restated under
+#   a new id rather than repaired under the old one.
 #
 # `observed_red` is `null` on every gate and is REQUIRED as a key: a gate nobody
 # has watched fail is visibly outstanding here rather than absent. Four of the
 # mechanisms below HAVE been watched failing under deliberate sabotage during
 # the build (the assertion-time filter, the shared axis token, the unversioned
-# label, and acquisition ignoring the resolved `as_of`), and `CIF-G05` carries
-# its own two-limb sabotage in the test itself — but a sabotage run by hand is
-# not the recorded observation this field asks for, so it stays null.
+# label, and acquisition ignoring the resolved `as_of`), and `CIF-G05` and
+# `CIF-G16` each carry their own two-limb sabotage in the test itself — but a
+# sabotage run by hand is not the recorded observation this field asks for, so
+# it stays null.
 
 semver: 1.0.0
 class_id: cp-08.product-gates
@@ -126,11 +130,11 @@ declaration:
     test: tests/examples/test_cp_08_output.py::test_the_covenants_are_served_and_labelled_unversioned
     sabotage: flip the unversioned label
     observed_red: null
-  - id: CIF-G13
-    statement: the decision record's policy dimension is a superset of product policy lineage
+  - id: CIF-G16
+    statement: every policy bundle the product cites is carried by the decision record, and it cites at least one
     spec_clause:
       document: spec/CP-SPEC-008_Covenant_In_Force_As_Of.md
       clause: G.1
-    test: tests/examples/test_cp_08_output.py::test_the_decision_record_carries_the_policy_dimension
-    sabotage: omit a cited binding from the decision record
+    test: tests/examples/test_cp_08_output.py::test_the_product_policy_lineage_is_carried_by_the_decision_record
+    sabotage: strike the cited bundle versions from the record, and separately empty the product's lineage set — both applied in-test to the shipped predicate
     observed_red: null

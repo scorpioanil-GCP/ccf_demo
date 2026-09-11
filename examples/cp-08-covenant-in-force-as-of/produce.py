@@ -12,6 +12,8 @@ which `D_c`. Every argument below is a NAME or a callable, never a value.
 
 from __future__ import annotations
 
+from decimal import Decimal
+
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -23,8 +25,6 @@ import projection
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.deployment import load_config_and_boot
-from ccf.graph.protocols import GraphView
-from ccf.halflife.debt import DebtAssessment
 from ccf.products.refusal import RefusalEnvelope
 from ccf.products.request import ProductRequest
 from ccf.products.resolver import build_governed_resolver
@@ -115,9 +115,6 @@ def assemble_and_serve(
             known_as_of=str(request.parameters[deployment.KNOWN_AS_OF]),
         )
 
-    def debt_scorer(*, view: GraphView, evidence: object = None) -> DebtAssessment:
-        return deployment.debt(view)
-
     # THE DECLARED INVARIANT, implemented where only this deployment can know
     # it. The SDK ships the machinery and stamps the gate's governed identity
     # onto any refusal; what counts as coherent is this product's to say.
@@ -136,11 +133,32 @@ def assemble_and_serve(
         operator_parameter_keys=scenario.operator_parameter_keys,
         policy_bundle_key=scenario.policy_bundle_key,
         plan_factory=plan_factory,
-        # An explicit scorer REPLACES the SDK's reference entirely. This
-        # deployment measures its own `D_c` because the factor that moves is
-        # whether the source carries an assertion time for each amendment,
-        # which no reference scorer derives from a half-life table.
-        debt_scorer=debt_scorer,
+        # NO `debt_scorer`, deliberately: the SDK's REFERENCE assessment
+        # applies (`CP-SPEC-008` §E.2). This product had a scorer of its own —
+        # placeable ÷ served on the assertion axis — and it was withdrawn with
+        # the population claim it rested on: every facility amendment in this
+        # estate carries a booking date, so the ratio was 1 and `D_c` 0 on
+        # every answer. See `spec/MEASUREMENT-NOTE.md` §2.
+        #
+        # The reference path is DEFAULTLESS by design — omitting all four of
+        # these is refused rather than silently scored — so the deployment
+        # names its two Control Plane tables and DECLARES the two factors the
+        # SDK cannot measure.
+        #
+        # MEASURED, AND SAID PLAINLY: `D_c` reads 0 on every answer this
+        # product can serve, and the reference scorer does not change that.
+        # Freshness is the term that would move, but every observation is
+        # minted from a live read inside the run, so it is 1 by construction;
+        # the other two are declared 1 against a measured estate. §E.2 is the
+        # claim this implements — the platform's assessment applies and there
+        # is no shortfall of any of the three kinds to report. What was removed
+        # was not a working signal but a per-run ratio DRESSED as one.
+        half_life_key="half_life",
+        debt_profile_key="debt_profile",
+        declared_completeness=Decimal(deployment.declared_debt_factor("completeness")),
+        declared_semantic_consistency=Decimal(
+            deployment.declared_debt_factor("semantic_consistency")
+        ),
         product_gate=product_gate,
         capabilities=(deployment.traversal_capability(),),
         artifact_store=store,

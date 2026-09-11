@@ -531,28 +531,61 @@ def test_a_transaction_point_the_ledger_has_not_reached_is_refused(
             )
 
 
-def test_the_decision_record_carries_the_policy_dimension(
+def test_the_product_policy_lineage_is_carried_by_the_decision_record(
     example: tuple[Any, Any, Any]
 ) -> None:
-    """What authorised the answer is recorded, and it is a SUPERSET of lineage.
+    """Every policy bundle the PRODUCT cites is one the RECORD carries.
 
     The record may carry governed artifacts the product's own lineage does not
     — the request contract among them — because replay reconstructs the
-    environment the decision was made in, not only the evidence it cited.
+    environment the decision was made in, not only the evidence it cited. What
+    it may never do is carry LESS than the product cited: a bundle named in
+    lineage and missing from replay is a decision that cannot be reconstructed.
 
-    Declared product gate `CIF-G13` (`CP-SPEC-008` §G.1).
+    **The non-emptiness assertion is load-bearing, and it is why this gate
+    carries a new id.** Its predecessor compared a set read from an attribute
+    `ProductLineage` does not have (`policy_bindings`); the left side was
+    therefore always empty, `cited <= recorded` was trivially true, and the
+    gate degenerated to *"a decision record exists"*. A one-sided subset check
+    that cannot fail on omission is the vacuity variant this project has found
+    five ways. The field that actually carries the citation is
+    `policy_bundle_versions`, and the comparison below is against VERSIONS
+    rather than keys because a bundle's identity is its version.
+
+    Both limbs are sabotaged in-test rather than by hand, so neither can go
+    silently inert the way the predecessor did.
+
+    Declared product gate `CIF-G16` (`CP-SPEC-008` §G.1).
     """
     _, _, run = example
     outcome = _serve(example, as_of=run.DEMONSTRATION_DRAWDOWN,
                      known_as_of=run.DEMONSTRATION_DRAWDOWN)
 
+    def carried(cited: set[str], recorded: set[str]) -> bool:
+        """The gate's whole predicate, so the sabotages exercise what ships."""
+        return bool(cited) and cited <= recorded
+
     bindings = outcome.record.policy_bindings.bindings
     assert bindings, "the decision record carries no policy binding at all"
 
-    recorded = {binding.key for binding in bindings}
-    cited = {entry.key for entry in outcome.product.lineage.policy_bindings} \
-        if hasattr(outcome.product.lineage, "policy_bindings") else set()
-    assert cited <= recorded, (
-        "the product cites a policy binding the decision record does not carry:"
-        f" {sorted(cited - recorded)}"
+    recorded = {binding.version for binding in bindings}
+    cited = set(outcome.product.lineage.policy_bundle_versions or ())
+
+    assert carried(cited, recorded), (
+        "the product cites a policy bundle the decision record does not carry,"
+        f" or cites none at all: cited={sorted(cited)}"
+        f" missing={sorted(cited - recorded)}"
+    )
+
+    # SABOTAGE 1 — strike the cited versions out of the record. The product
+    # still cites them, so replay no longer accounts for what the answer used.
+    assert not carried(cited, recorded - cited), (
+        "removing every cited bundle version from the decision record left the"
+        " predicate satisfied — it cannot fail on omission"
+    )
+    # SABOTAGE 2 — empty the product's lineage. A product citing nothing is
+    # trivially a subset of everything, which is precisely how the predecessor
+    # gate passed while proving nothing.
+    assert not carried(set(), recorded), (
+        "a product citing no policy bundle at all satisfied the predicate"
     )

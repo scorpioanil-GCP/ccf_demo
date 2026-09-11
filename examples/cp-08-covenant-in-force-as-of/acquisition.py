@@ -37,10 +37,12 @@ import psycopg
 class Amendment:
     """One amendment, carrying both clocks as the source states them.
 
-    ``asserted_at`` is ``None`` for 112 of the estate's 137 amendments. It is
-    **not** defaulted to ``valid_from``: doing so would make every booking lag
-    vanish and manufacture the coincidence this product exists to disprove
-    (`CP08-F-03`).
+    ``asserted_at`` is carried as the source states it and is **not** defaulted
+    to ``valid_from``: doing so would make every booking lag vanish and
+    manufacture the coincidence this product exists to disprove. Measured, all
+    25 facility amendments in this estate carry both clocks, so the ``None``
+    case is not exercised against it — the field is optional because the
+    PREDICATE is the product's, not because today's estate needs it.
     """
 
     uri: str
