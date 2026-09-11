@@ -1,186 +1,164 @@
-# Gate 1 measurement note — the two claims, measured separately
+# Measurement note — what was checked against the estate, and two corrections
 
-**Date: 2026-09-11. Subject: `.76`, read-only throughout. Nothing was written.**
+**Every figure in `CP-SPEC-008` was measured before the specification claimed
+it. This note records those measurements, the queries behind them, and two
+places where an early reading was wrong and the specification changed.**
 
-Dave ordered the two claims measured apart, on a distinction this note exists to
-keep: **a booking lag is not proof of supersession.** They were measured apart,
-and they do not both hold.
-
-| Claim | What would prove it | Verdict |
-|---|---|---|
-| **Two clocks** | Same covenant; `as_of` inside its validity interval; moving `known_as_of` from before to after `assertedAt` **changes the answer** | **FAILS on covenants · HOLDS on amendments** |
-| **Supersession preserved** | A later amendment replaces a covenant assertion, and querying the ledger at the original `t` still returns the prior one | **FAILS — no such row exists** |
+It sits beside the specification because an engineer planning a build should be
+able to see which claims were checked and how, rather than taking a table on
+trust. All reads were `SELECT`; nothing was written to either store.
 
 ---
 
-## Claim 1 — two clocks
+## 1 · The two clocks, checked separately
 
-The caveat was load-bearing: the three booking-lag rows prove two-clock behavior
-**only if both temporal axes are populated on the rows the product would read.**
+A booking lag and a covenant history are different properties, and an estate can
+carry one without the other. They were checked apart.
 
-| facility | covenants | with `validTo` | **with `assertedAt`** |
-|---|---|---|---|
-| `FAC-01BB3F` | 5 | 1 (a `BreachOfCovenant`, not a covenant term) | **0** |
-| `FAC-2A2C38` | 4 | 0 | **0** |
-| `FAC-405B7A` | 4 | 0 | **0** |
+### Does the assertion-time axis change the answer?
 
-**The assertion-time axis is on zero covenants.** It lives on the *amendment*
-nodes. So there is nothing on a covenant for `known_as_of` to filter, and moving
-it across a booking gap cannot change the covenant set. Measured across the whole
-ledger and not only these three: **covenants carrying `assertedAt` = 0 at
-`t:1500`, `t:3000` and head.**
+*What would prove it:* the same facility, `as_of` held, where moving
+`known_as_of` from before to after an amendment's booking date **changes the
+admitted set**.
 
-**It holds one level up, and genuinely.** `AMD-01BB3F-2` carries
-`validFrom 2025-08-14` and `assertedAt 2025-10-05`. At `known_as_of=2025-09-09`
-it is not yet booked and is excluded; at any later `known_as_of` it is admitted.
-That is a real two-clock demonstration **over the amendment slice**.
-
----
-
-## Claim 2 — supersession preserved
-
-Three independent measurements, all negative.
-
-**(a) No covenant assertion ever changes.** Thresholds, by ledger point:
+**Yes, on amendments.** `AMD-01BB3F-2` carries an effective date of 2025-08-14
+and a booking date of 2025-10-05. Held at `as_of=2025-09-09`:
 
 ```
-t:1500   180 thresholds   (baseline)
-t:2000   180 | changed 0 | added 0
-t:3000   180 | changed 0 | added 0
-t:4000   180 | changed 0 | added 0
-t:5000   180 | changed 0 | added 0
-t:5591   180 | changed 0 | added 0      ← head
+known_as_of = 2025-09-09   admitted [AMD-01BB3F-1]
+                           excluded [(AMD-01BB3F-2, assertion-time)]
+known_as_of = 2026-09-11   admitted [AMD-01BB3F-2, AMD-01BB3F-1]
+                           excluded []
 ```
 
-**(b) No covenant interval is ever closed, and no marker ever appears:**
+Drawdown `DRW-01BB3F-0000`, USD 4,500,000, falls on 2025-09-09 — inside the
+52-day gap. Measured through the assembled product, not against the source
+query.
 
-| probe | `t:1500` | `t:3000` | head |
-|---|---|---|---|
-| covenants with `validTo` | 2 | 2 | 2 |
-| covenants carrying `supersededBy` | **0** | **0** | **0** |
-| covenants carrying `assertedAt` | **0** | **0** | **0** |
+**Not on covenants**, and this is why the specification serves covenant terms
+labelled unversioned. The booking-date predicate appears on **0 of 180**
+covenants, at every transaction point sampled, so there is nothing on a covenant
+for `known_as_of` to filter.
 
-**(c) The 1,107 supersession markers are not in this product's slice.** They sit
-on `WarningSignal` (486), `OpportunitySignal` (354), `CreditRating` (215),
-`IssuanceEvent` (111), `PriorObservation` (49), `BreachOfCovenant` (4) and
-`PolicyVersion` (2) — every class except the covenants cp-08 reads. Per the
-instruction, they **do not count**.
+### Is there a covenant history to reconstruct?
 
-**Conclusion.** The ledger's covenant history is a single staged load, not an
-amendment lifecycle. There is no facility where a later amendment supersedes an
-earlier covenant assertion, so there is nothing for time-travel to reconstruct.
-**cp-08 must not claim "supersession preserved."**
+*What would prove it:* a later amendment replacing a covenant assertion, where
+reading the ledger at the earlier transaction point still returns the prior one.
+
+**No — and it is an absence in the demonstration data, not a limit on the
+approach.** Three checks, all negative:
+
+```
+covenant thresholds, by transaction point
+  t:1500   180   (baseline)
+  t:2000   180 | changed 0 | added 0
+  t:3000   180 | changed 0 | added 0
+  t:4000   180 | changed 0 | added 0
+  t:5000   180 | changed 0 | added 0
+  t:5591   180 | changed 0 | added 0      <- head
+```
+
+No covenant's validity interval is ever closed (the closing predicate is present
+on 2 covenants and constant), and no covenant carries a supersession marker at
+any point. The ledger does carry 1,107 supersession markers — on warning
+signals, credit ratings, issuance events, prior observations and register
+versions. **None of them are covenants**, so none is in this product's slice.
+
+The covenant data is loaded once and not versioned thereafter. An estate that
+versioned covenant terms would extend this product's answer without changing its
+shape.
 
 ---
 
-## A near-miss, recorded because the control is the only reason it is not in the spec
+## 2 · Correction — a real number about the wrong population
 
-`ex:covenantOf` returned **182 at `t:1`** while *all typed subjects* returned
-**0** at the same point. Both cannot be true of one ledger state, and the
-tempting conclusion was a substrate defect: *the pinned read silently ignores
-its pin*, which would have been a serious finding against a shipped adapter.
+**The specification briefly claimed that most amendments lack a booking date,
+and built a debt metric on it. That was a count over the wrong population.**
 
-It is not true. The control:
+The claim was *"112 of 137 amendments carry no booking date"*. 137 counts every
+`amends` edge in the ledger. Measured by what the edge points at:
+
+| target | edges |
+|---|---|
+| Trade | **89** |
+| **Credit facility** | **25** |
+| Trade lifecycle event | 16 |
+| Syndicated loan | 7 |
+
+This product reads **facility** amendments. In that slice:
+
+```
+amendments whose target is a credit facility    25   (across 18 facilities)
+  carrying an effective date                    25
+  carrying a booking date                       25
+  missing either                                 0
+```
+
+### What changed in the specification
+
+- The finding was withdrawn — there is no population of clockless amendments in
+  this product's slice.
+- **The product-specific debt metric was removed.** Defined as *placeable ÷
+  served*, the ratio is 1 on every facility and the debt 0 on every answer: a
+  figure that reads the same whatever the answer is. No replacement was
+  invented, because a debt figure exists to report a shortfall and this product,
+  on this estate, has none of that kind.
+- **Two gates were withdrawn** — one guarding an amendment with no booking date,
+  one watching the debt ratio. Both guard a population of zero. Their ids are
+  left as gaps rather than reused.
+
+### Why it survived three checks
+
+The number *was* measured; a query ran and its output was quoted. What was never
+checked is **which population the query ranged over**.
+
+The tell was available from the first pass and missed twice: *"facilities with
+amendments: 135"* alongside *"facilities carrying at least one covenant: 45"* is
+an arithmetic impossibility for one population, and both figures sat in this
+note.
+
+**The rule, and it is not the same as "measure it": a count is only as good as
+the population it ranged over, so state the population in the same breath as the
+number.** *"137 amendments"* describes the ledger. *"25 facility amendments"*
+describes this product. Only the second belongs in a specification.
+
+---
+
+## 3 · Correction — a suspected store defect that was not one
+
+While checking whether the ledger preserves earlier state, a bounded read
+returned **182 covenants at the earliest transaction point** while *all typed
+subjects* returned **0** at the same point. Both cannot be true of one ledger
+state, and the tempting conclusion was that the bound was being ignored.
+
+**It is not.** The control:
 
 | probe | `t:1` | `t:2000` | head |
 |---|---|---|---|
 | all typed subjects | **0** | 17,230 | 17,871 |
-| `ex:amends` | **0** | 130 | 143 |
-| `ex:supersededBy` | **0** | 1,107 | 1,107 |
-| `ex:covenantOf` | **182** | 182 | 182 |
+| amendment edges | **0** | 130 | 143 |
+| supersession markers | **0** | 1,107 | 1,107 |
+| covenant edges | **182** | 182 | 182 |
 
-The pin is honest — three of four probes move monotonically, and a pin past head
-returns `408 err:db/ReadAfterWriteTimeout`. The explanation is the ingestion
-discipline this repository already documents: **thin edges first, attributed
-nodes last.** The `covenantOf` edges were written in the first transaction; the
-type, threshold and `validFrom` attributes came later.
+Three of four move monotonically, and a bound past the head is refused. The
+explanation is the loader's own ordering: thin relationship claims were written
+first and attributed nodes afterwards, so the covenant *edges* existed from the
+first transaction while their attributes arrived later.
 
-**This also verifies the reproducibility property `CIF-G10` rests on**: a pinned
-read at a recorded `t` genuinely reconstructs that ledger point.
-
----
-
-## Outcome — Option B
-
-No Option A row exists. The spec is narrowed:
-
-- **keep** the two clocks and the booking lag, over the **amendment** slice
-  where both axes are populated;
-- **remove** "supersession preserved" from the title, the claims, the gates and
-  the teaching text;
-- **keep** the pinned-read reproducibility claim, which is measured and holds.
+**The bounded read is sound**, which is what `CIF-G08` — re-serving at a
+recorded transaction point — rests on.
 
 ---
 
-# Correction, 2026-09-11 (Gate 2) — a real number about the wrong population
+## 4 · Population summary, as the specification carries it
 
-**This note's own Gate-1 figures were scoped wrongly, and the correction struck
-a finding, a debt metric and two gates.** It is recorded here rather than
-overwritten, because the error is more instructive than the number.
-
-## What was claimed
-
-> *"112 of 137 amendments carry no `assertedAt` and cannot be placed on the
-> assertion axis. This is the debt signal's subject."* — `CP08-F-03`
-
-That figure counted **every `ex:amends` edge in the ledger**. Measured by what
-the edge actually points at:
-
-| target class | `ex:amends` edges |
+| population | measured |
 |---|---|
-| `Trade` | **89** |
-| **`CreditFacility`** | **25** |
-| `TradeLifecycleEvent` | 16 |
-| `SyndicatedLoan` | 7 |
-
-**cp-08 reads facility amendments.** Scoped to that slice:
-
-```
-amendments whose target is a CreditFacility     25   (across 18 facilities)
-  carrying validFrom                            25
-  carrying assertedAt                           25
-  missing EITHER clock                           0
-```
-
-## What it cost, and what was struck
-
-- **`CP08-F-03`** — struck. There is no unplaceable population.
-- **The cp-08-specific `D_c`** — removed. Defined as *placeable ÷ served*, the
-  ratio is **1 on every facility** and the debt **0 on every answer**: a scalar
-  that cannot move with the answer, which is the `CP04C-F-02` defect one rung
-  over, rebuilt from scratch here.
-- **`CIF-G07`** (unplaceable amendment recorded) and **`CIF-G14`** (`D_c` moves
-  with the ratio) — struck. Both guard a population of zero.
-- **No replacement metric was invented.** A debt figure exists to report a
-  shortfall; this product on this estate has none of that kind.
-
-## Why it survived three checks
-
-The number was measured, not assumed — a query was run and its output quoted.
-What was never checked is **which population the query ranged over**, and the
-product's slice is a subset the predicate `?a ex:amends ?f` does not express.
-The tell was available and missed twice: `facilities with amendments: 135`
-against `facilities carrying ≥1 covenant: 45` is an arithmetic impossibility for
-one population, and it sat in this note from the first measurement.
-
-**The rule this yields, and it is not the same as "measure it":** a count is
-only as good as the population it ranged over, so state the population in the
-same breath as the number. *"137 amendments"* is a fact about the ledger;
-*"25 facility amendments"* is a fact about the product. Only the second belongs
-in a specification.
-
-## What was NOT affected
-
-The exhibit is untouched, and it remains everything cp-08 claims:
-
-```
-FAC-01BB3F · as_of 2025-09-09 held · drawdown DRW-01BB3F-0000 inside the 52-day gap
-  known_as_of=2025-09-09 → admitted [AMD-01BB3F-1]
-                           excluded [(AMD-01BB3F-2, 'assertion-time')]
-  known_as_of=2026-09-11 → admitted both, excluded []
-  covenants 4, labelled unversioned
-```
-
-Two clocks, the booking lag, the assertion-time exclusion named by axis, replay
-at a recorded ledger `t`, and covenants served unversioned. All measured through
-the governed path, all intact.
+| Covenant nodes | 180, across 45 facilities |
+| Amendments to credit facilities | **25, across 18 facilities** |
+| Of those, carrying both clocks | **25** |
+| Engineered booking lags, each with a drawdown inside | 3 |
+| Drawdowns | 151 |
+| Register versions | 2 |
+| Covenants carrying a booking date | **0** |
+| Covenants carrying a supersession marker | **0** |
