@@ -2640,4 +2640,17 @@ Which names the causal order correctly and inverts the intuitive one. The two de
 
 **SCOPE, ruled narrow.** *"Implementation should be small: `D-IMPL-325` → new typed sub-contract → field on `ProductRequestContract` → one resolution branch → direct tests."* **No cp-07 files in the SDK commit.**
 
+**AMENDMENT 1 (Dave, 2026-09-10, on a measurement taken before the value was chosen): cp-07 adopts a TWO-YEAR offset, not the `−365 days` the ruling's worked example used.** The adoption brief said both *"use `offset_seconds: -31536000`"* and *"existing cp-07 truncation, freshness, Debt, and coverage behavior remain valid"*. Measured against the curated estate at `asked_at` 2026-09-11 on `JJAX4X60DE65EYFOTY73` with the class `limit` of 200, those two cannot both hold:
+
+| offset | resolved `since` | available | NTK withheld | admitted | truncated |
+|---|---|---|---|---|---|
+| −31536000 (1 yr) | 2025-09-11 | **179** | **0** | 179 | **False** |
+| −47304000 (1.5 yr) | 2025-03-12 | 218 | 1 | 200 | True |
+| **−63072000 (2 yr)** | 2024-09-11 | **240** | **1** | 200 | **True** |
+| −78840000 (3 yr) | 2023-09-12 | 240 | 1 | 200 | True |
+
+At one year **two of the rung's demonstrations stop firing**: truncation (179 is under the `limit`) and need-to-know withholding (the single classified interaction is older than a year). **This is `CP07-F-04` arriving from the other direction** — that finding had already established that §B.2's `−365 days` cell and its truncation claim cannot coexist, and resolved it in favor of truncation. Presented as three options with the measurement; Dave chose option 1, **−63072000**, which reproduces the retired absolute default's behavior exactly while no longer aging. Labeled an **illustrative calibration** under `D-IMPL-323` in `ccf_config.yaml`, the README and `CP-SPEC-007` §B.2, whose `−365 days` cell is superseded. `test_the_declared_window_still_exceeds_the_class_limit` asserts both demonstrations still fire, so a later narrowing is caught at the point of the change rather than left to prose.
+
+**One cp-07 test changed, under the allowed clause.** `D-IMPL-261` permits an example change when *"the SDK surface it legitimately consumes was deliberately changed"*. `test_the_class_default_resolves_for_a_caller_who_sent_no_bound` read `config()["request_contract"]["defaults"]["since"]` — an authority location that no longer holds the window. Its stated intent (read the declaration, never a literal) is preserved: it reads the declared offset and derives the date from the instant the door was driven at. Nothing was weakened to make it pass, and six new tests were added for the semantics.
+
 **Next free decision id: `D-IMPL-326`.** **Governs:** how a relative request default is declared, validated, resolved and hashed; what replay records for one; the ordering of the SDK repair against cp-07's adoption. **Related:** `CP07-F-03` (`examples/cp-07-client-360-coverage-graph/FINDINGS.md`), `D-IMPL-253` Q2 (product defaults belong on the request contract — *"they define what omission means for that product"*), `D-IMPL-259` (argument domains), `D-IMPL-261` (examples are probes — this is the SDK repair the probe earned), `D-IMPL-264` D-08 (the resolution outcome), `D-IMPL-315` (one authority per bound), `D-IMPL-243` (hash transparency), `CINV-01` (no governance value in the spine).

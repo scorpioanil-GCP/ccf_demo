@@ -703,3 +703,176 @@ def test_the_door_declares_its_entrypoint_rather_than_a_script_path() -> None:
     assert f"def {callable_name}(" in source, (
         f"door.yaml names {entrypoint!r} and that callable does not exist"
     )
+
+
+# --- the relative window: a default that does not age ------------------------
+#
+# `D-IMPL-325`, adopted here to close `CP07-F-03`. The class's `since` default
+# was the absolute `"2024-09-01"`, which meant two years of history on the day
+# it was written and would have meant three a year later — the fan-out growing
+# with nothing anywhere saying the default had drifted. It is now declared as
+# an offset from the request's own `asked_at`.
+#
+# **Every expectation below is DERIVED from the declaration and the instant**,
+# never pinned. A pinned date would reintroduce exactly the defect this closes:
+# a literal that is right today and silently wrong later.
+
+
+def _declared_offset() -> int:
+    """The offset the ARTIFACT declares, read from it rather than restated."""
+    import yaml  # noqa: PLC0415
+
+    config = yaml.safe_load((EXAMPLE / "ccf_config.yaml").read_text(encoding="utf-8"))
+    relative = config["request_contract"]["relative_defaults"]["since"]
+    assert relative["render"] == "date", "the window is declared as a calendar day"
+    assert relative["offset_seconds"] < 0, "a lookback reaches into the past"
+    return int(relative["offset_seconds"])
+
+
+def _window_for(instant: datetime) -> str:
+    """What the DECLARATION means for a question asked at ``instant``.
+
+    Derived from the artifact and the instant, never pinned: a literal date
+    here would reintroduce the very defect this closes — a value that is right
+    today and silently wrong later.
+    """
+    return (instant + timedelta(seconds=_declared_offset())).date().isoformat()
+
+
+def _resolved(outcome: Any, name: str) -> Any:
+    """One resolved parameter, read out of REPLAY dimension 2.
+
+    Read from the record rather than from a second resolution of our own: what
+    a later examiner can reconstruct is exactly this, so an assertion made
+    anywhere else would be about a value nobody could check afterwards.
+    """
+    from ccf.products.provenance import EffectiveRequest  # noqa: PLC0415
+
+    resolution = EffectiveRequest.model_validate_json(
+        outcome.record.policy_bindings.request_resolution)
+    matches = [p for p in resolution.parameters if p.name == name]
+    assert len(matches) == 1, f"{name} resolved {len(matches)} times in replay"
+    return matches[0]
+
+
+def test_the_window_resolves_from_asked_at_and_not_from_the_wall_clock(
+    estate: tuple[str, str], example: tuple[Any, Any]
+) -> None:
+    """The instant is the QUESTION's, which is what makes the answer replayable.
+
+    Asked at an instant several days from now, so a product resolving the
+    window from the wall clock would answer with today-minus-the-offset and be
+    caught. Any test pinned to `now` could not tell the two apart.
+
+    **Forward rather than back, and the reason is the estate.** An `asked_at`
+    before the newest observation is refused by `FreshnessScorer` — correctly,
+    since an observation dated after the instant it is evaluated at is not
+    evidence about that instant. Measured: `now - 200 days` raises
+    `TemporalOrderError` because this estate's newest interaction is more
+    recent than that. Forward is always safe: every observation stays in the
+    past, and the sibling determinism tests already ask at `instant + 1 day`.
+    """
+    instant = datetime.now(UTC) + timedelta(days=3)
+    served = _serve(example, asked_at=instant, limit=500)
+    assert served.product.payload["window"]["since"] == _window_for(instant)
+    # And the control: `now` would have produced a different date, so this is a
+    # claim about WHICH instant was read rather than about the arithmetic.
+    assert _window_for(instant) != _window_for(datetime.now(UTC))
+
+
+def test_an_omitted_bound_takes_the_declared_window_with_authority_default(
+    estate: tuple[str, str], example: tuple[Any, Any]
+) -> None:
+    """Omission MEANS the declared window, and replay says who decided.
+
+    The authority is what separates a default from a caller's value in the
+    record; without it a replay could not tell a window the client asked for
+    from one the Control Plane supplied.
+    """
+    instant = datetime.now(UTC)
+    served = _serve(example, asked_at=instant, limit=500)
+    resolved = _resolved(served, "since")
+    assert resolved.authority == "default"
+    assert resolved.value == _window_for(instant)
+
+
+def test_a_caller_who_states_a_window_keeps_it(
+    estate: tuple[str, str], example: tuple[Any, Any]
+) -> None:
+    """A default is what omission means, never a competitor to a stated value."""
+    instant = datetime.now(UTC)
+    stated = "2025-06-15"
+    served = _serve(example, asked_at=instant, since=stated, limit=500)
+    resolved = _resolved(served, "since")
+    assert resolved.authority == "caller"
+    assert resolved.value == stated
+    assert served.product.payload["window"]["since"] == stated
+    # The control: the declared window is a DIFFERENT date, so "caller wins" is
+    # a claim about precedence rather than a coincidence of two equal values.
+    assert stated != _window_for(instant)
+
+
+def test_the_record_carries_the_resolved_date_and_never_the_offset(
+    estate: tuple[str, str], example: tuple[Any, Any]
+) -> None:
+    """What replays is the value, not the rule (`D-IMPL-325`, Dave).
+
+    A rule carried into the record would be re-evaluated at replay time and
+    would answer one decision differently on two days. The offset must appear
+    nowhere in the served product OR in the replay record.
+    """
+    from ccf.contracts.canonical import canonical_bytes  # noqa: PLC0415
+
+    instant = datetime.now(UTC)
+    served = _serve(example, asked_at=instant, limit=500)
+    offset = _declared_offset()
+
+    assert _resolved(served, "since").value == _window_for(instant)
+    for label, subject in (("product", served.product), ("record", served.record)):
+        rendered = canonical_bytes(subject).decode("utf-8")
+        assert str(offset) not in rendered, (
+            f"the declared offset reached the {label}; what is recorded must be"
+            " the date it resolved to, so replay reproduces the same window")
+
+
+def test_one_instant_resolves_one_window_and_a_later_one_resolves_a_later_window(
+    estate: tuple[str, str], example: tuple[Any, Any]
+) -> None:
+    """Both halves, because either alone is satisfiable by a broken product.
+
+    Same instant twice -> the same date, or the window is not deterministic and
+    the determination cannot replay. A day later -> a strictly later date, or
+    the window is not relative at all and the absolute default is back.
+    """
+    instant = datetime.now(UTC)
+    first = _serve(example, asked_at=instant, limit=500)
+    again = _serve(example, asked_at=instant, limit=500)
+    assert (first.product.payload["window"]["since"]
+            == again.product.payload["window"]["since"])
+
+    later = _serve(example, asked_at=instant + timedelta(days=1), limit=500)
+    assert (later.product.payload["window"]["since"]
+            > first.product.payload["window"]["since"])
+
+
+def test_the_declared_window_still_exceeds_the_class_limit(
+    estate: tuple[str, str], example: tuple[Any, Any], default: Any
+) -> None:
+    """The adoption did not quietly retire this rung's own subject.
+
+    `CP07-F-04` established that a `-365 day` window and the truncation
+    demonstration cannot both hold: measured at `asked_at` 2026-09-11, a year
+    admits 179 of this anchor's interactions — under the `limit` of 200, so
+    nothing truncates — and the one need-to-know interaction falls outside it
+    too. The declared offset must therefore stay wide enough that BOTH subjects
+    still fire, and this says so where a later author changing the number will
+    see it rather than leaving it to `CP07-F-04` in prose.
+    """
+    boundary = _boundary(default)
+    assert boundary["truncated"] is True, (
+        "the declared window no longer admits more than the class `limit`, so"
+        " the truncation demonstration has been retired by a calibration change"
+        " (CP07-F-04, D-IMPL-323)")
+    assert boundary["withheld_need_to_know"] > 0, (
+        "the declared window no longer reaches the classified interaction, so"
+        " the need-to-know withholding demonstrates nothing")

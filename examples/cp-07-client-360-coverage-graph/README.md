@@ -54,6 +54,16 @@ role-specific values, and that calibration is domain and policy work. Nothing
 else is adjusted: no timestamp is faked, `asked_at` is the real decision instant,
 and the decay is the SDK's own `FreshnessScorer` reading the declared table.
 
+**The two-year `since` lookback is illustrative on the same terms.** It is a
+*relative* default — it does not age — but the width is chosen so this rung's
+subjects stay observable in this snapshot. Measured at `asked_at` 2026-09-11: a
+365-day window admits **179** of the demonstration anchor's interactions, under
+the class `limit` of 200, so **nothing truncates** — and the one need-to-know
+interaction falls outside it, so the withholding reads zero too. Both of this
+example's subjects would stop firing. At two years the window admits all 240,
+truncates at 200, and withholds the classified one. The offset is a
+demonstration value, not a recommended production coverage window.
+
 What the calibration buys is a `D_c` that *moves*, which is the only way the
 control is demonstrated rather than asserted:
 
@@ -134,7 +144,27 @@ a silent empty graph before it was:
 
 Then the bounds. `since` and `limit` are **correctness features**, not
 conveniences, and they are applied **in the read** — `ORDER BY interaction_date
-DESC, interaction_id LIMIT n` — never by fetching everything and slicing. So is
+DESC, interaction_id LIMIT n` — never by fetching everything and slicing.
+
+**`since` is declared RELATIVE to the question, not as a date.** The class
+default is an offset — two years back — that the fabric resolves against the
+request's own `asked_at` at constraint-resolution time (`D-IMPL-325`):
+
+```yaml
+relative_defaults:
+  since:
+    offset_seconds: -63072000   # two years
+    render: date
+```
+
+A literal date would have been a value that ages silently: written as
+`2024-09-01` it meant two years of history on the day it was written and would
+have meant three a year later, with the fan-out growing and nothing anywhere
+saying the default had drifted. Declared as an offset it means the same two
+years on every day the product is asked. What lands in the replay record is
+still the **resolved date** under authority `default` — never the offset — so a
+decision replays against the window it was actually served at rather than
+against a rule re-evaluated later. So is
 the policy envelope: an interaction the principal may not see is never
 materialized, so no participation edge to it is ever walked. Asking with
 `include_need_to_know` returns a *different graph*, not a redacted one.
@@ -243,4 +273,6 @@ edge, weight or number at all.
   empty graph is a claim about the world, and they mean opposite things.
 
 Open findings — including the `D_c` reading this estate produces at the declared
-λ_c, and the `since` default this build had to reconcile — are in `FINDINGS.md`.
+λ_c — are in `FINDINGS.md`. The `since` default this build had to reconcile is
+recorded there too, now **closed**: the SDK gap underneath it is fixed
+(`D-IMPL-325`) and this example declares a relative window rather than a date.
