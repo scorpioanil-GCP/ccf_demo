@@ -275,12 +275,25 @@ Same client, same `since`/`limit`, same estate, **same pinned decision instant**
 
 ## E · Volatility, debt, materialization
 
-| Signal class | `λ_c` |
-|---|---|
-| Interaction records | ~7 days |
-| Relationship-strength score | ~7 days |
-| Coverage assignment | ~180 days |
-| Client officer roster | ~365 days |
+| Signal class | `λ_c` | basis |
+|---|---|---|
+| Interaction records | **90 days** | ILLUSTRATIVE — see below |
+| Relationship-strength score | **90 days** | ILLUSTRATIVE — see below |
+| Coverage assignment | ~180 days | reorganization cadence |
+| Client officer roster | ~365 days | proxy-statement cadence |
+
+**ILLUSTRATIVE CALIBRATION (Dave, 2026-09-10).** The first two rows read
+`~7 days` when this section was first written, before the product was built
+against the estate. Measured, that calibration made `D_c` read `fail_closed` on
+every anchor and **inverted the ordering between a stale relationship and a
+current one** — the term had stopped measuring recency. This example runs
+against a point-in-time demonstration estate rather than continuously refreshed
+production data; these half-lives are calibrated so the governed behavior is
+observable in that snapshot. They demonstrate how the SDK applies the control and
+**are not recommended production coverage-policy thresholds**. Nothing else is
+adjusted to reach an answer: no timestamp is faked and `asked_at` is the real
+decision instant. `examples/cp-07-client-360-coverage-graph/FINDINGS.md`
+`CP07-F-01` carries the measurement and the ruling.
 
 **Debt.** `F` from interaction recency against λ_c; `C` = people the enrich leg
 resolved ÷ people the walk admitted; `S` = `[TBC — §F.2 row 3]`.

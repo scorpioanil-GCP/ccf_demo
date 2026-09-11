@@ -137,6 +137,12 @@ def control(estate: tuple[str, str], example: tuple[Any, Any]) -> Any:
     return _serve(example, lei=_anchor("CONTROL_LEI"))
 
 
+@pytest.fixture(scope="module")
+def stale(estate: tuple[str, str], example: tuple[Any, Any]) -> Any:
+    """The FRESHNESS control — the stalest relationship that still has a graph."""
+    return _serve(example, lei=_anchor("FRESHNESS_CONTROL_LEI"))
+
+
 # --- truncation as a first-class product fact --------------------------------
 
 
@@ -259,6 +265,65 @@ def test_a_silent_truncation_is_refused_by_the_declared_gate(
         "a payload cut by its bound and claiming completeness was SERVED"
     )
     assert "truncation-disclosure" in str(outcome.reason) + str(outcome.detail or "")
+
+
+# --- freshness is a measurement, not a constant -------------------------------
+
+
+def test_a_stale_relationship_scores_worse_freshness_than_a_current_one(
+    default: Any, stale: Any
+) -> None:
+    """`D_c` moves with how recently anybody was actually in contact.
+
+    **This is the assertion that makes the freshness term evidence rather than
+    decoration.** Two anchors, the same instant, the same estate, the same
+    declared λ_c: the one nobody has spoken to since 2026-07-22 scores strictly
+    worse than the one contacted three weeks later, and the difference survives
+    into `D_c`.
+
+    Directional, and deliberately NOT a claim about the single latest contact.
+    Freshness is scored over EVERY party's most recent contact, so a client with
+    one recent meeting and a long tail of dormant relationships can legitimately
+    score below one whose whole coverage set was refreshed at once — which is
+    the behavior a coverage product should have. What must hold is that a
+    uniformly staler relationship set scores lower.
+    """
+    assert Decimal(stale.product.debt.factors.freshness) < Decimal(
+        default.product.debt.factors.freshness), (
+        "the stale anchor did not score worse on freshness; either the estate's"
+        " last-contact spread has closed or the λ_c table is no longer reaching"
+        " the scorer"
+    )
+    assert Decimal(stale.product.debt.debt) > Decimal(default.product.debt.debt)
+
+    # And the cause, asserted rather than assumed: the stale anchor really is
+    # the one nobody has contacted recently.
+    def _latest(outcome: Any) -> str:
+        return max(i.interaction_date for i in outcome.coverage.interactions
+                   if i.interaction_date)
+
+    assert _latest(stale) < _latest(default)
+
+
+def test_the_stale_anchor_crosses_a_governance_threshold_the_others_do_not(
+    default: Any, control: Any, stale: Any
+) -> None:
+    """A threshold that nothing ever crosses is a threshold nobody has tested.
+
+    The declared `forced_llm_threshold` exists to say *this answer is too stale
+    to act on algorithmically*. Measured on this estate at the declared λ_c, the
+    stale anchor reaches it and the two current anchors do not — so the signal
+    is discriminating between real clients rather than reporting a constant.
+
+    The SIGNAL is asserted, not the number: the half-life is an illustrative
+    calibration for a point-in-time estate (`README.md`), so pinning `0.6563`
+    would make a documented demonstration value into a fixture.
+    """
+    assert stale.product.debt.signal != default.product.debt.signal, (
+        "every anchor reports the same debt signal, so the signal is not"
+        " discriminating and the thresholds are untested by this example"
+    )
+    assert default.product.debt.signal == control.product.debt.signal
 
 
 # --- the coverage graph itself ------------------------------------------------

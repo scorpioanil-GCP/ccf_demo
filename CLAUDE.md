@@ -1028,6 +1028,55 @@ namespace, and that is a decision to raise with Dave, not to take. In-process
 sabotage — reverting a repair in `src/`, feeding a factory the wrong source —
 needs no estate at all and is preferred where it can carry the proof.
 
+#### An illustrative threshold is allowed; an undisclosed one is not (Dave, 2026-09-10)
+
+**The estate is a historical snapshot, not a continuously refreshed production
+environment.** Stale fixture dates must not make otherwise useful Context
+Products permanently `fail_closed`. Dave's ruling, verbatim: *"Choose
+illustrative parameter values that make the scenario work against the available
+snapshot, and disclose where those values are demonstration-specific rather than
+production recommendations."*
+
+**This applies to every example, whenever static estate data forces an
+illustrative threshold** — half-lives, debt thresholds, materiality cut-offs,
+recency horizons.
+
+The four conditions, together:
+
+- **Choose a value that makes the mechanism observable.** A control that never
+  fires and a signal that reads the same for every subject demonstrate nothing.
+  The measured cp-07 case: at the spec's declared 7-day λ_c, every anchor read
+  `fail_closed` **and the ordering between a stale relationship and a current one
+  inverted** — the freshness term had stopped measuring its own subject.
+- **Keep the calculation real.** Do not fake timestamps and do not move
+  `asked_at` to get a desired answer. Only the *declared* threshold is a
+  demonstration value; the observations, the decay curve and the decision instant
+  stay the SDK's and the estate's.
+- **Make the term move.** If a calibration cannot be shown discriminating between
+  two real subjects, it has not been demonstrated. Prove it with a directional
+  test that asserts the ORDERING and the SIGNAL, never the number — pinning the
+  number turns a documented demonstration value back into a fixture.
+- **Disclose it where a reader will hit it** — in the artifact that declares it,
+  in the README, and in the spec. The standing wording:
+
+  > **Illustrative calibration:** This example runs against a point-in-time
+  > demonstration estate rather than continuously refreshed production data.
+  > Freshness half-lives and related thresholds are calibrated to make the
+  > governed behavior observable in that snapshot. They demonstrate how the SDK
+  > applies these controls and should not be interpreted as recommended
+  > production coverage-policy thresholds.
+
+**The purpose of the examples is to demonstrate how CCF behaves when parameters
+change, not to establish a bank's production policy values** (Dave). Production
+calibration is domain and policy work and is out of scope for the SDK (§13,
+*"Not the SDK's problem at all"*).
+
+**What this does NOT license.** It is not permission to tune a number until an
+example looks good. The value is chosen so the *mechanism* is visible, is
+labeled as illustrative at every site that carries it, and the reason it was
+changed is recorded as a finding with the measurement that forced it. A
+calibration changed silently is the thing this rule exists to prevent.
+
 **Seeded ledgers do not contaminate the estate, but they do accumulate.**
 Measured 2026-09-10: 27 `cp04-examples-*` ledgers left by prior test runs are
 branches of the **`ccf`** ledger, a different ledger name from `fibo-v2`, and

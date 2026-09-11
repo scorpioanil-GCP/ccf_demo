@@ -212,14 +212,33 @@ resolution:
        subject_entity_class: coverage_node, object_entity_class: coverage_node,
        subject_rule: subject_ref, object_rule: object_ref}
 
-# λ_c — §E. Interaction recency is the dominant signal and it moves daily.
+# λ_c — §E. Interaction recency is the dominant signal.
+#
+# ILLUSTRATIVE CALIBRATION, AND THE LABEL IS LOAD-BEARING (Dave, 2026-09-10).
+# This example runs against a POINT-IN-TIME demonstration estate rather than
+# continuously refreshed production data: the newest interaction anywhere in it
+# is 2026-08-18, and the spread of last-contact dates across clients is 27 days.
+# These half-lives are calibrated so the governed behavior is OBSERVABLE in that
+# snapshot — so freshness moves between a recently-contacted client and a stale
+# one instead of pinning every anchor at zero. They demonstrate how the SDK
+# applies the control. **They are not recommended production coverage-policy
+# thresholds**; a real bank might choose 30, 60, 120 or role-specific values,
+# and that calibration is domain and policy work, not an SDK question.
+#
+# WHAT IS NOT ADJUSTED TO GET AN ANSWER: no timestamp is faked, `asked_at` is
+# the real decision instant, and the decay is the SDK's own `FreshnessScorer`
+# reading this table. Only the declared half-life is a demonstration value.
+#
+# §E of `CP-SPEC-007` declared ~7 days for the first two rows. Measured, that
+# read `fail_closed` on every anchor in the estate — a product permanently
+# refusing is a product demonstrating nothing. See `FINDINGS.md`, `CP07-F-01`.
 half_life:
   interaction_record:
-    half_life_seconds: 604800        # ~7 days
+    half_life_seconds: 7776000       # 90 days — ILLUSTRATIVE, see the note above
     decay_driver: meeting-cadence
     supersession_event: a newer interaction with the same counterparty
   relationship_strength:
-    half_life_seconds: 604800        # ~7 days — decays with the interactions beneath it
+    half_life_seconds: 7776000       # 90 days — decays with the interactions beneath it
     decay_driver: interaction-decay
     supersession_event: any new interaction in the scored set
   coverage_assignment:

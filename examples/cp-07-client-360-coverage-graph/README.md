@@ -44,6 +44,30 @@ disclosure here is a **declared validation gate**, the product's fourth, and not
 a line of prose: a payload that was cut by its bound and does not say so is
 refused before a consumer sees it.
 
+**Illustrative calibration.** This example runs against a point-in-time
+demonstration estate rather than continuously refreshed production data.
+Freshness half-lives and related thresholds are calibrated to make the governed
+behavior observable in that snapshot. They demonstrate how the SDK applies these
+controls and **should not be interpreted as recommended production
+coverage-policy thresholds** — a real bank might choose 30, 60, 120 or
+role-specific values, and that calibration is domain and policy work. Nothing
+else is adjusted: no timestamp is faked, `asked_at` is the real decision instant,
+and the decay is the SDK's own `FreshnessScorer` reading the declared table.
+
+What the calibration buys is a `D_c` that *moves*, which is the only way the
+control is demonstrated rather than asserted:
+
+| anchor | last contact | `F` | `D_c` | signal |
+|---|---|---|---|---|
+| Caesars Entertainment | 2026-07-22 | 0.3437 | 0.6563 | **`forced_llm`** |
+| Suburban Propane (demo) | 2026-08-16 | 0.5279 | 0.4721 | `ok` |
+| Container Store (control) | 2026-08-17 | 0.4774 | 0.5226 | `ok` |
+
+The stale client crosses a governance threshold the current ones do not. At the
+7-day half-life the spec first declared, every anchor read `fail_closed` and the
+ordering between them actually **inverted** — the term had stopped measuring its
+own subject. `FINDINGS.md` `CP07-F-01` carries the measurement.
+
 **And truncation is deliberately NOT folded into Context Debt.** Forty omitted
 of 240 is not incompleteness; it is a deliberate act with a known edge, and the
 edge is disclosed rather than scored. `D_c` measures something else — how
@@ -60,6 +84,7 @@ export CCF_CP_07_POSTGRES_SCHEMA=ccf_v2         # never public
 
 make example-cp-07                                       # the truncated anchor
 make example-cp-07 LEI=--lei=529900L7KB2N9KXCDI76        # the untruncated control
+make example-cp-07 LEI=--lei=549300FA4CTCW903Y781        # the STALE client — D_c crosses forced_llm
 make example-cp-07 LIMIT=--limit=20                      # watch gaps appear
 make example-cp-07 NTK=--need-to-know                    # a different graph, not a redaction
 ```
@@ -183,9 +208,12 @@ edge, weight or number at all.
 3. **`ccf_config.yaml::request_contract.defaults`** — especially `limit` and
    `since`. They are the acquisition boundary, and this example exists to show
    that moving them moves the *answer*, not just the runtime.
-4. **`ccf_config.yaml::half_life`** — four signal classes. On this rung they are
-   all slower than the TTL ceiling; on your estate they may not be, and the
-   product will expire on whichever binds.
+4. **`ccf_config.yaml::half_life`** — four signal classes, and the **first thing
+   to replace**. The two interaction rows are illustrative values chosen for a
+   frozen estate, not policy. Against live data, pick what your coverage policy
+   actually means by stale; the mechanism is identical and only the number is
+   yours. On this rung all four are slower than the TTL ceiling; on your estate
+   they may not be, and the product expires on whichever binds.
 
 ## What would fail
 
@@ -198,6 +226,11 @@ edge, weight or number at all.
   declared gate turns the product into a **governed refusal**. `tests/examples/
   test_cp_07_output.py::test_a_silent_truncation_is_refused_by_the_declared_gate`
   does exactly that, and disarming the gate turns the test red.
+- **Revert the half-lives to §E's original ~7 days** and
+  `test_a_stale_relationship_scores_worse_freshness_than_a_current_one` fails —
+  not because the numbers get worse but because they get *wrong*: the stale
+  anchor scores `0.0633` against the current one's `0.0409`, ranking the older
+  relationship as fresher.
 - **Fold truncation into `D_c`** and
   `test_truncation_is_not_folded_into_context_debt` fails: it measures `D_c`
   across two bounds that omit an order of magnitude apart and requires the score

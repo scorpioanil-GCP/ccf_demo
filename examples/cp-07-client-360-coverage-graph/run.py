@@ -8,6 +8,7 @@ Usage::
 
     make example-cp-07
     make example-cp-07 LEI=--lei=529900L7KB2N9KXCDI76      # the untruncated control
+    make example-cp-07 LEI=--lei=549300FA4CTCW903Y781      # the STALE client — D_c crosses forced_llm
     make example-cp-07 LIMIT=--limit=50                    # force the boundary lower
     make example-cp-07 NTK=--need-to-know                  # a different graph, not a redacted one
 
@@ -35,6 +36,13 @@ DEMONSTRATION_LEI = "JJAX4X60DE65EYFOTY73"
 #: The negative control: fewer interactions than the bound, so nothing is cut.
 #: Named here so a reader can run both without reading the tests.
 CONTROL_LEI = "529900L7KB2N9KXCDI76"
+
+#: The FRESHNESS control — the stalest relationship in the estate that still
+#: has a graph. Nobody at the bank has spoken to anyone here since 2026-07-22,
+#: and at the declared λ_c that is enough to push `D_c` past the `forced_llm`
+#: threshold while the other two anchors stay `ok`. It is what makes the
+#: freshness term visibly a measurement rather than a constant.
+FRESHNESS_CONTROL_LEI = "549300FA4CTCW903Y781"
 
 
 def main(argv: list[str]) -> int:
@@ -109,10 +117,17 @@ def main(argv: list[str]) -> int:
                   f" strength {gap['best_relationship_strength']}{flag}")
 
         print()
-        print(f"context debt: D_c = {outcome.product.debt.debt}")
-        print(f"       signal: {outcome.product.debt.signal}")
-        print("       (completeness measures the ADMITTED evidence — the bound"
-              " is disclosed above, never scored as debt)")
+        debt = outcome.product.debt
+        print(f"context debt: D_c = {debt.debt}")
+        print(f"       signal: {debt.signal}")
+        print(f"     freshness: {debt.factors.freshness}"
+              "   (how recently each party was last in contact)")
+        print(f"  completeness: {debt.factors.completeness}"
+              "   (every walked party was admitted and named)")
+        print("       (the acquisition bound is disclosed above and is NEVER"
+              " scored as debt)")
+        print("       (half-lives are ILLUSTRATIVE for this point-in-time"
+              " estate — see README.md)")
         print(f"expires at  : {outcome.product.expires_at.isoformat()}")
         print(f"replay      : {outcome.served.replay_ref.content_address}")
     return 0

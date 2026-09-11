@@ -7,99 +7,122 @@ below was **measured before it was written**.
 
 ---
 
-## `CP07-F-01` — `D_c` reads `fail_closed` on every anchor, and freshness is the whole of it
+## `CP07-F-01` — the declared λ_c made `D_c` read `fail_closed` on every anchor, and the calibration is now ILLUSTRATIVE
 
-**Status: OPEN. Needs a ruling. NOT tuned around.**
+**Status: RESOLVED by ruling (Dave, 2026-09-10). The half-life is a declared
+demonstration value, labeled as one everywhere it appears.**
 
-### The measurement
+### What was measured at §E's declared ~7 days
 
-Demonstration anchor, class defaults, 2026-09-10:
+Every anchor in the estate, whatever else was true of it:
 
 ```
 freshness            = 0.0409
 completeness         = 1
-semantic_consistency = 1
 D_c                  = 0.9591      signal: fail_closed
 ```
 
-The control client reads `0.9492`, also `fail_closed`. The `D_c` is entirely the
-freshness term.
+And the unfavorable reading — one observation per admitted interaction, 200 of
+them — scored `F = 0.0038`, `D_c = 0.9962`. Both readings `fail_closed`, so the
+choice of reading did not rescue the signal.
 
-### Why
+**The estate is a point-in-time snapshot, not a live feed.** Its newest
+interaction anywhere is **2026-08-18**, and the spread of last-contact dates
+across every client is **27 days**. Against a 7-day half-life the entire
+population sits three to seven half-lives out, so the term carried no
+information about any particular client.
 
-§E declares `λ_c` for `interaction_record` at **~7 days**. The newest interaction
-anywhere in the curated estate is **2026-08-16** — about 25 days before the
-decision instant, or three and a half half-lives. Every anchor therefore scores
-near zero on freshness, whatever else is true of it.
+### The sharper defect underneath, found by sabotage
 
-The freshness observation supplied per party is that party's **most recent**
-contact, not one observation per historical interaction; that reading was chosen
-deliberately (a relationship refreshed last week is current whether two meetings
-sit behind it or two hundred) and it is the *favorable* one. The unfavorable
-reading — one observation per admitted interaction, 200 of them — scores
-`F = 0.0038`, `D_c = 0.9962`. **Both readings are `fail_closed`**; the choice of
-reading does not rescue the signal, which is why the ruling below is about the
-declaration and not about the code.
+Reverting to 7 days and re-running the freshness comparison does not merely make
+both anchors bad — **it inverts their order**:
 
-### What this is NOT
+```
+stale anchor   (last contact 2026-07-22)  F = 0.0633
+current anchor (last contact 2026-08-16)  F = 0.0409
+```
 
-It is not an SDK defect. `FreshnessScorer` reads the declared table and returns
-what the declaration implies. It is also not something to fix by moving a
-number: **the estate is what it is, the spec ruled ~7 days at Gate 1, and
-optimizing a λ_c until the signal reads green would make the product's own debt
-measurement decorative.**
+At that decay every party's contribution is within rounding of zero, so what the
+mean actually reports is party-count structure rather than recency. **A
+calibration that ranks the staler relationship as fresher is not a strict
+calibration — it is a term that has stopped measuring its own subject.** That is
+why this could not be left as *"the estate is stale and `fail_closed` is
+correct"*.
 
-### The question for Dave
+### The ruling, and the principle it sets
 
-Three readings, and one of them is his to pick:
+Dave, 2026-09-10, verbatim: *"Choose illustrative parameter values that make the
+scenario work against the available snapshot, and disclose where those values
+are demonstration-specific rather than production recommendations."* And:
+*"The purpose of the examples is to demonstrate how CCF behaves when parameters
+change, not to establish Wells Fargo's production policy values."*
 
-1. **λ_c is miscalibrated for this signal class.** An *interaction record* does
-   not decay — the meeting happened. What decays is **coverage currency**, and a
-   coverage banker would not call a three-week-old contact stale. On this
-   reading `interaction_record` wants something closer to 30–60 days and the
-   spec's §E row is corrected.
-2. **The estate is stale and `fail_closed` is the correct answer.** A coverage
-   product whose freshest evidence is 25 days old genuinely should not be
-   trusted for meeting prep without a human, which is exactly what
-   `fail_closed` means. Nothing changes; the product is telling the truth.
-3. **The reading of "interaction recency" is wrong.** Freshness should follow
-   the single most recent interaction *anywhere in the graph* rather than a
-   per-party average, so one current contact keeps the whole picture current.
+`interaction_record` and `relationship_strength` are now **90 days**, declared
+in `ccf_config.yaml` beside a note saying what the number is and is not. The
+ruling applies beyond this rung: **whenever static estate data forces an
+illustrative threshold, any example may choose one, and must label it.**
 
-This example implements (2) as shipped, because it is the one that changes
-nothing and asserts nothing Dave has not ruled.
+### What was NOT done to reach it
+
+No timestamp is faked. `asked_at` is the real decision instant. The decay is the
+SDK's own `FreshnessScorer` reading the declared table, and the observations are
+real last-contact dates from the estate. **Only the declared half-life is a
+demonstration value.**
+
+### What the calibration buys — the mechanism, observable
+
+| anchor | last contact | `F` | `D_c` | signal |
+|---|---|---|---|---|
+| Caesars Entertainment | 2026-07-22 | 0.3437 | 0.6563 | **`forced_llm`** |
+| Suburban Propane (demo) | 2026-08-16 | 0.5279 | 0.4721 | `ok` |
+| Container Store (control) | 2026-08-17 | 0.4774 | 0.5226 | `ok` |
+
+The stale anchor scores strictly worse and **crosses a governance threshold the
+current anchors do not**. A threshold nothing ever crosses is a threshold nobody
+has tested; this one is now exercised by real clients rather than asserted.
+
+Two directional tests hold it:
+`test_a_stale_relationship_scores_worse_freshness_than_a_current_one` and
+`test_the_stale_anchor_crosses_a_governance_threshold_the_others_do_not`. Neither
+pins a number, because pinning `0.6563` would turn a documented demonstration
+value back into a fixture.
+
+**`CP-SPEC-007` §E's ~7-day rows are superseded by this entry** and should be
+corrected to 90 days with the illustrative label when the spec is next revised.
 
 ---
 
-## `CP07-F-02` — the completeness term cannot move in this deployment, for two independent reasons
+## `CP07-F-02` — completeness is an ADMISSION property here, not a manufactured ratio
 
-**Status: OPEN. Needs a ruling. Recorded rather than repaired, because
-`D_c` that does not move when the evidence moves is decorative.**
+**Status: RESOLVED by ruling (Dave, 2026-09-10): *"Keep completeness as an
+admission/checkability property rather than manufacturing a ratio."***
 
-§E defines `C` as *"people the enrich leg resolved ÷ people the walk
-admitted"*. Measured, it is exactly `1` on both anchors, and it is `1` for two
-reasons that would each be sufficient alone:
+§E defines `C` as *"people the enrich leg resolved ÷ people the walk admitted"*.
+Measured, it is exactly `1` on every anchor, for two reasons that would each be
+sufficient alone:
 
 1. **The estate carries no unresolved participant.** Every subject of a
-   `participatedIn` edge on both anchors resolves to a row in the roster leg —
-   25 of 25 on the demonstration client, 16 of 16 on the control.
+   `participatedIn` edge resolves to a row in the roster leg — 25 of 25 on the
+   demonstration client, 18 of 18 on the stale anchor, 16 of 16 on the control.
 2. **The ingestion guard refuses the state the metric would score.**
    `deployment.ingest` asserts that no admitted node lacks a kind. An edge
    endpoint with no node claim of its own IS that state, so a run carrying an
    unresolved participant fails at ingestion and never reaches `debt()`.
 
-Reason 2 is the load-bearing one and it is structural: the guard and the metric
-measure the same condition, one fail-closed and one as a score, so the score can
-only ever read `1`. The guard is right — a graph with unnamed nodes should not be
-served — but it means `C` contributes nothing on this rung.
+**This is kept as it is, deliberately.** The honest reading of `C = 1` here is
+not *"the metric is broken"* — it is *"every party this graph walked was
+admitted and named, and the fabric is structurally unable to serve one that was
+not."* That is a real property of the answer and it is worth stating. The
+alternative — inventing a denominator so the number moves — would manufacture a
+ratio to make a term look alive, which is worse than a term that honestly reads
+one.
 
-**What `C` could measure instead**, if Dave wants it to move: the participants
+The reading that WOULD move, if a future estate carries the gap: the participants
 PostgreSQL names in `interaction_participant` that the roster leg could not
-resolve (`Coverage.unresolved_participants`, currently `0` on both anchors).
-That is genuinely a completeness gap, it is not pinned by the guard, and serving
-those parties as unnamed nodes — cp-06's own *"unresolved debtor names are
-served, not hidden"* discipline — would make it visible. It also changes what the
-ingestion guard means, so it is not a change to make without a ruling.
+resolve (`Coverage.unresolved_participants`, currently `0` everywhere). Serving
+those as unnamed nodes — cp-06's *"unresolved debtor names are served, not
+hidden"* discipline — would make it visible, and would also change what the
+ingestion guard means. Recorded as the path, not taken.
 
 ---
 
