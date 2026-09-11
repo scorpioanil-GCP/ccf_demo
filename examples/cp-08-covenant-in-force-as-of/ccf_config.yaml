@@ -1,0 +1,229 @@
+# yaml-language-server: $schema=../../docs/schemas/ccf.deployment-config.json
+#
+# THE SINGLE CONTROL PLANE DOCUMENT for cp-08 — covenant-in-force as-of.
+#
+# ONE QUESTION: which amendments bound this facility on the drawdown date, and
+# which of them had the bank actually booked by then? `CP-SPEC-008`, approved
+# as Option B (`D-IMPL-329`).
+#
+# THE TWO CLOCKS ARE THIS PRODUCT'S SUBJECT and they are read from DATA:
+# `as_of` cuts on the amendment's `validFrom`, `known_as_of` on its
+# `assertedAt`. The ledger's transaction `t` is NEITHER — it bounds the store
+# and lands in lineage as execution provenance (`D-IMPL-240` (2), `D-IMPL-309`).
+#
+# WHAT THIS PRODUCT DOES NOT DO, by ruling rather than by omission:
+#   * it does not filter COVENANTS by `assertedAt` — the estate puts none on
+#     them, so the covenants are served as context and LABELLED UNVERSIONED;
+#   * it implements NO supersession semantics — the estate has no superseded
+#     covenant (`CP08-F-04`, `D-IMPL-329`);
+#   * it scores no breach (`CP-SPEC-008` §A.3).
+#
+# READS ONLY. Two source stores, neither written; L3 is per-run SQLite.
+
+semver: "1.0.0"
+tenant_id: cp-08-demo
+backend: sqlite
+
+product_class:
+  schema_name: credit-risk.covenant-in-force
+  schema_version: "1.0.0"
+
+  # The expiry is a function of the latest ASSERTION among the served set, not
+  # of request time: a closed as-of answer does not decay because neither what
+  # was true nor what was known can now change (`CP-SPEC-008` §E.3).
+  ttl_anchor: from_entity_freshness
+  assembly_mode: algorithmic
+  max_ttl_key: cp-08/product/covenant-in-force/max-ttl
+
+  required_operator_keys:
+    - policy.principal-subgraph
+    - traversal.typed-neighborhood
+
+operators:
+  # Amendments and covenants hang off the facility. The walk is ONE hop from
+  # the anchor: this product's difficulty is temporal, not topological, and a
+  # deeper walk would reach other facilities' amendments.
+  classification_attribute_by_class:
+    facility: kind
+    amendment: kind
+    covenant: kind
+  permitted_classifications:
+    - facility
+    - amendment
+    - covenant
+  seed_entity_classes:
+    - facility
+  relationship_types:
+    - amends
+    - covenantOf
+
+  # The BACKEND's ceiling, never the product's bound. The caller's reach is the
+  # two instants, applied in Π over admitted state.
+  depth_limit: 2
+
+request_contract:
+  class_id: cp-08.request-contract
+  role: register
+  registration: typed
+  schema_name: credit-risk.covenant-in-force
+  schema_version: "1.0.0"
+
+  arguments:
+    properties:
+      facility_id:
+        type: string
+        description: >-
+          the facility anchor. Unresolvable is a REFUSAL and never an empty
+          answer — an unknown facility is a claim about the request, an empty
+          covenant set a claim about the world.
+      principal_scope:
+        type: array
+        items:
+          type: string
+          description: one scope identifier this principal is admitted on.
+        description: >-
+          the policy operator's admitted set. Stated by the caller because a
+          binding supplies a value and never converts one.
+      as_of:
+        type: string
+        description: >-
+          VALID TIME, ISO-8601 — when was the amendment in force? Compared as a
+          STRING; ISO-8601 sorts lexicographically, and this Fluree build
+          corrupts typed dates.
+      known_as_of:
+        type: string
+        description: >-
+          ASSERTION TIME, ISO-8601 — what had the institution BOOKED by then?
+          Dropping this filter answers a different question than the one asked,
+          and the temporal-coherence gate refuses a set where it was dropped.
+      include_superseded:
+        type: boolean
+        description: DECLARED AND INERT — refused, never honored. See unsupported_arguments.
+      evaluate_headroom:
+        type: boolean
+        description: DECLARED AND INERT — refused, never honored. See unsupported_arguments.
+    required:
+      - facility_id
+      - principal_scope
+
+  # BOTH DEFAULTS ARE RELATIVE AND BOTH ARE THE IDENTITY OFFSET (`D-IMPL-328`).
+  #
+  # The vault gives `as_of` a default of *today* and `known_as_of` of *now* —
+  # the request's own instant, unchanged. A literal date here would be a date
+  # that AGES, which is the defect `CP07-F-03` measured; and computing it in
+  # deployment code would put a governance value back in the spine for the one
+  # parameter whose whole subject is which instant governed the decision
+  # (`D-IMPL-315`). `offset_seconds: 0` was refused until this rung asked for
+  # it and `D-IMPL-328` admitted it.
+  relative_defaults:
+    as_of:
+      offset_seconds: 0
+      render: date
+    known_as_of:
+      offset_seconds: 0
+      render: date
+
+  unsupported_arguments:
+    include_superseded: >-
+      not_supported_at_tier. Returning the superseded assertions alongside the
+      in-force ones requires covenant supersession markers, and this estate
+      carries NONE — 0 of 180 covenants, at every ledger point, with thresholds
+      unchanged from t:1500 to head. The parameter is refused rather than
+      answered with an empty set that would read as "nothing was superseded"
+      (`CP08-F-02`, `D-IMPL-329`).
+    evaluate_headroom: >-
+      not_supported_at_tier. Computing headroom needs period-appropriate
+      financials against period-appropriate thresholds, which is a distinct
+      product. Breach scoring is out of scope for this rung.
+
+resolution:
+  entity_rules:
+    - class_id: cp-08.facility
+      role: register
+      registration: typed
+      entity_class: facility
+      identity_keys: [facility_id]
+      attribute_keys: [facility_id, kind]
+      match_key: facility_id
+    - class_id: cp-08.amendment
+      role: register
+      registration: typed
+      entity_class: amendment
+      identity_keys: [amendment_id]
+      attribute_keys:
+        - amendment_id
+        - kind
+        - amendment_number
+        - valid_from
+        - asserted_at
+        - booking_lag_days
+      match_key: amendment_id
+    - class_id: cp-08.covenant
+      role: register
+      registration: typed
+      entity_class: covenant
+      identity_keys: [covenant_id]
+      attribute_keys:
+        - covenant_id
+        - kind
+        - covenant_type
+        - threshold
+        - threshold_unit
+      match_key: covenant_id
+
+  relationship_rules:
+    - class_id: cp-08.amends
+      role: register
+      registration: typed
+      relationship_type: amends
+      source_entity_class: amendment
+      target_entity_class: facility
+      source_identity_keys: [amendment_id]
+      target_identity_keys: [facility_id]
+      identity_sources:
+        amendment_id: source_id
+        facility_id: target_id
+    - class_id: cp-08.covenant-of
+      role: register
+      registration: typed
+      relationship_type: covenantOf
+      source_entity_class: covenant
+      target_entity_class: facility
+      source_identity_keys: [covenant_id]
+      target_identity_keys: [facility_id]
+      identity_sources:
+        covenant_id: source_id
+        facility_id: target_id
+
+half_life:
+  # ILLUSTRATIVE CALIBRATION (`D-IMPL-323`). This example runs against a
+  # point-in-time demonstration estate rather than continuously refreshed
+  # production data. Freshness half-lives and related thresholds are calibrated
+  # to make the governed behavior observable in that snapshot. They demonstrate
+  # how the SDK applies these controls and should not be interpreted as
+  # recommended production coverage-policy thresholds.
+  amendment_structure:
+    half_life_seconds: 15552000      # ~180d — amendment-driven
+    decay_driver: amendment-cadence
+    supersession_event: new-8-K-item-1-01-for-the-facility
+  covenant_terms:
+    half_life_seconds: 31536000      # ~365d — rarely amended independently
+    decay_driver: agreement-amendment
+    supersession_event: amended-and-restated-EX-10
+  facility_reference:
+    half_life_seconds: 7776000       # ~90d — internal loan-system refresh
+    decay_driver: loan-system-refresh
+    supersession_event: facility-record-update
+
+debt_profile:
+  risk_sensitivity: "1.0"
+  forced_llm_threshold: "0.60"
+
+policy:
+  class_id: cp-08.policy-bundle
+  role: register
+  registration: typed
+
+default_perspective:
+  principal_id: cp-08-demo-principal
+  role: credit-officer

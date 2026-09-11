@@ -1,0 +1,77 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE SOURCES' OWN VOCABULARY — every IRI, table and column this deployment
+# reads, in one document.
+#
+# WHY IT IS NOT IN `ccf_config.yaml`. That document is Control Plane state:
+# what the fabric is permitted to do. This is the shape of somebody else's
+# store, which the fabric does not govern and cannot change.
+#
+# WHY IT IS NOT IN `acquisition.py`. The No-Hardcoding Rule (CLAUDE.md §6.4),
+# and `CP-SPEC-008` §0.6 states the consequence in this product's own terms:
+# **the SDK ships adapters that reach a backend and no opinion about what the
+# backend holds.** `ex:validFrom` being a valid-time axis and `ex:assertedAt`
+# an assertion-time axis are facts about THIS ESTATE, declared here. A
+# covenant-shaped or bitemporal-shaped concept appearing in `/src` is the
+# defect this file exists to prevent.
+
+semver: "1.0.0"
+class_id: cp-08.source-vocabulary
+
+declaration:
+  graph_leg:
+    # The amendment's own predicates. THE TWO CLOCKS ARE HERE, and they are the
+    # product's whole subject — declared as source names, never as SDK concepts.
+    amends_predicate: http://example.org/fibo/amends
+
+    # VALID TIME — when the amendment became legally effective.
+    valid_from_predicate: http://example.org/fibo/validFrom
+
+    # ASSERTION TIME — when the institution booked it. Measured on 25 of 137
+    # amendments; the other 112 are UNPLACEABLE on this axis and are served as
+    # such rather than assumed booked (`CP08-F-03`).
+    asserted_at_predicate: http://example.org/fibo/assertedAt
+
+    amendment_number_predicate: http://example.org/fibo/amendmentNumber
+    booking_lag_predicate: http://example.org/fibo/bookingLagDays
+
+    # The covenants a facility carries. THEY ARE SERVED AS CONTEXT AND LABELLED
+    # UNVERSIONED (`CIF-G12`): this estate carries no assertion time on a
+    # covenant and no supersession marker, so their terms cannot be
+    # reconstructed for a past date (`CP08-F-04`, `D-IMPL-329`).
+    covenant_of_predicate: http://example.org/fibo/covenantOf
+    covenant_type_predicate: http://example.org/fibo/covenantType
+    threshold_predicate: http://example.org/fibo/threshold
+    threshold_unit_predicate: http://example.org/fibo/thresholdUnit
+    label_predicate: http://www.w3.org/2000/01/rdf-schema#label
+
+    # Node ids carry a KIND PREFIX in this ledger: facility `FAC-01BB3F` is the
+    # node `http://example.org/fibo/FAC-01BB3F`. The prefix is declared beside
+    # the predicates rather than assembled in code.
+    node_namespace: http://example.org/fibo/
+
+  attribute_leg:
+    # The facility itself, and the drawdowns whose dates give the forensic
+    # question its subject.
+    facility_table: facility
+    facility_key_column: facility_id
+
+    drawdown_table: drawdown
+    drawdown_key_column: facility_id
+    drawdown_date_column: drawdown_date
+    drawdown_columns:
+      - drawdown_id
+      - facility_id
+      - drawdown_date
+      - amount
+      - currency
+      - falls_in_booking_gap
+      - amendment_number
+
+    # The breach-threshold register. READ TO PIN WHICH VERSION WAS IN FORCE at
+    # `as_of`, never to evaluate a breach — breach scoring is out of scope
+    # (`CP-SPEC-008` §A.3).
+    policy_table: covenant_policy
+    policy_effective_from_column: effective_from
+    policy_effective_to_column: effective_to
+    policy_version_column: policy_version
