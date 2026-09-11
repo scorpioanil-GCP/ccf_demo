@@ -239,7 +239,10 @@ def _local(uri: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# The four reads. §D steps 1-4; step 5 is Π and step 6 is the SDK's.
+# The four reads. §D steps 1-4 — ALL of them source access, including the
+# three Fluree reads: the registered traversal operator is step 7 and reads
+# L3 after admission, never this ledger. Step 5 is L2 admission, 6 and 7 are
+# the two operators, 8 is Π and 9 is the SDK's.
 # ---------------------------------------------------------------------------
 
 

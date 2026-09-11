@@ -280,18 +280,46 @@ Product and does not learn how the producer starts.
 | # | Step | Operator | Store | Emits | Budget |
 |---|---|---|---|---|---|
 | 1 | Resolve the facility | `null` (L1 source access) | Postgres | borrower LEI, name, commitment | 1 query |
-| 2 | Load the policy registers | `null` (L1) | Postgres | haircut schedule, enforceable jurisdictions | 2 queries |
-| 3a | Walk `securedBy`, then **reverse-walk** each asset | `traversal.typed-neighborhood` | Fluree | anchor pledges, sharing facilities, ledger `t` | 3 queries |
-| 3b | Walk set-off / netting from the **borrower** | `traversal.typed-neighborhood` | Fluree | deposit accounts, per-predicate | 2 queries |
-| 3c | Walk the register for this debtor's filed names | `traversal.typed-neighborhood` | Fluree | filings, secured parties, amendments | 3 queries |
+| 2 | Load the policy registers | `null` (L1 source access) | Postgres | haircut schedule, enforceable jurisdictions | 2 queries |
+| 3a | Read `securedBy`, then **reverse-read** each asset | `null` (L1 source access) | Fluree | anchor pledges, sharing facilities, ledger `t` | 3 queries |
+| 3b | Read set-off / netting from the **borrower** | `null` (L1 source access) | Fluree | deposit accounts, per-predicate | 2 queries |
+| 3c | Read the register for this debtor's filed names | `null` (L1 source access) | Fluree | filings, secured parties, amendments | 3 queries |
 | 4 | Batch enrich | `null` (L2) | Postgres | valuations, categories, balances | **2 queries, never one per node** |
-| 5 | Allocate, filter, measure | `null` (Π, in-memory) | — | coverage, allocations, findings | — |
-| 6 | Govern, gate, record, serve | the SDK's | — | `ServedProduct` or `RefusalEnvelope` | — |
+| 5 | Admit to the fabric — **thin edges first, attributed nodes last** | `null` (L2, the single writer) | **L3** | the admitted collateral graph | — |
+| 6 | Borrower scope over the **admitted** graph | **`policy.principal-subgraph`** | **L3** | the principal's subgraph — a scope the caller does not hold yields an EMPTY graph, never a redacted one | — |
+| 7 | Typed neighborhood over the **admitted** graph | **`traversal.typed-neighborhood`** | **L3** | the declared edge types, within the backend depth ceiling | — |
+| 8 | Allocate, filter, measure | `null` (Π, in-memory) | — | coverage, allocations, findings | — |
+| 9 | Govern, gate, record, serve | the SDK's | — | `ServedProduct` or `RefusalEnvelope` | — |
+
+**Steps 6 and 7 are the only rows with a non-null Operator, and that is the
+whole content of the column.** `operators_invoked` equals exactly
+`{policy.principal-subgraph, traversal.typed-neighborhood}` and the plan orders
+them 6 then 7 — policy **before** traversal, so a node the principal may not see
+is never a seed and no edge to it is ever walked.
+
+**The layer split in this table is load-bearing and an earlier revision of it was
+wrong.** Steps 1–4 are *source access* against the two estates; step 5 is L2
+admission through the single writer; steps 6–7 are *registered L4 operators
+reading L3*. The three Fluree reads in step 3 are **not** the traversal operator
+— they touch a different store, at a different layer, at a different time, and
+conflating them makes the graph leg look like an operator invocation it is not.
+The previous table named `traversal.typed-neighborhood` on all three Fluree rows
+and omitted `policy.principal-subgraph` entirely, which contradicted §D.2.1 one
+paragraph below and contradicted the product's own lineage. Corrected 2026-09-10
+after `D-GATE-cp-06`, together with the identical defect in `CP-SPEC-007` §D.2;
+the defect was in these documents only and never in either shipped product.
+`tests/examples/test_cp_06_output.py::test_the_spec_step_table_names_exactly_the_registered_operators`
+now holds the table and the declaration to each other.
 
 **Step 3a's reverse leg is the product.** Having found the anchor's assets, the
-walk goes *back* along each asset's `securedBy` edges to every other facility
+read goes *back* along each asset's `securedBy` edges to every other facility
 sharing it. Skipping it is how shared collateral goes unnoticed, and the answer
 looks fine without it.
+
+**The policy operator is not decorative.** Measured against the curated estate
+at one instant, the same facility under an entitled `borrower_scope` and one the
+caller does not hold: **2 assets and a coverage ratio of 1.0890**, against
+**0 assets and 0**. An empty graph, not a redacted one.
 
 ### D.2.1 Why lineage carries TWO operators and not five
 
