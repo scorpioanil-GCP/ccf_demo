@@ -128,6 +128,8 @@ def test_haircuts_reduce_coverage(estate: tuple[str, str], example: tuple[Any, A
     Directional rather than pinned: the estate's haircut schedule is policy and
     will change. What must never change is the sign — if applying haircuts ever
     raised coverage, the schedule would be being read as a premium.
+
+    Declared product gate `CSC-G01` (`CP-SPEC-006` §G.2).
     """
     gross = _serve(example, apply_haircuts=False)
     assert _ratio(gross) > _ratio(default), (
@@ -139,7 +141,10 @@ def test_haircuts_reduce_coverage(estate: tuple[str, str], example: tuple[Any, A
 def test_valid_setoff_increases_coverage(estate: tuple[str, str],
                                          example: tuple[Any, Any],
                                          default: Any) -> None:
-    """Deposits the bank may apply are additional recovery, never a deduction."""
+    """Deposits the bank may apply are additional recovery, never a deduction.
+
+    Declared product gate `CSC-G02` (`CP-SPEC-006` §G.2).
+    """
     without = _serve(example, include_setoff=False)
     assert _ratio(default) > _ratio(without)
     assert Decimal(
@@ -156,6 +161,8 @@ def test_contractual_basis_counts_more_setoff_than_enforceable(
     Returning contractual rights as though they were enforceable OVERSTATES
     coverage — which is the point of the parameter, and the reason the default
     is the conservative one.
+
+    Declared product gate `CSC-G03` (`CP-SPEC-006` §G.2).
     """
     contractual = _serve(example, jurisdiction_basis="contractual")
     assert Decimal(contractual.product.payload["coverage"]["setoff_value"]) >= (
@@ -178,6 +185,8 @@ def test_priority_and_pro_rata_disagree_on_a_shared_asset(
     senior position, which is a fact about the estate rather than about the
     code. What must hold is that they differ, and that the difference is
     attributable to an asset with another claimant.
+
+    Declared product gate `CSC-G04` (`CP-SPEC-006` §G.2).
     """
     assert default.product.payload["findings"]["shared_assets"] > 0, (
         "no asset is shared with another facility, so allocation basis cannot"
@@ -198,6 +207,8 @@ def test_the_register_reports_a_released_lien(estate: tuple[str, str],
     parseable ISO-8601 string. Dates in this layer are untyped strings by
     necessity (the Fluree build corrupts `^^xsd:date` on write), so a test that
     cast them would be testing the wrong thing.
+
+    Declared product gate `CSC-G05` (`CP-SPEC-006` §G.2).
     """
     deployment, produce = example
     asked = deployment.request(
@@ -219,7 +230,10 @@ def test_the_register_reports_a_released_lien(estate: tuple[str, str],
 
 def test_mastec_is_under_covered(estate: tuple[str, str],
                                  example: tuple[Any, Any]) -> None:
-    """One engineered receivable against a $600m commitment cannot cover it."""
+    """One engineered receivable against a $600m commitment cannot cover it.
+
+    Declared product gate `CSC-G06` (`CP-SPEC-006` §G.2).
+    """
     deployment, produce = example
     asked = deployment.request(
         facility_id="FAC-102496", borrower_scope=["549300TMDIT8WREDOF45"],
@@ -234,7 +248,10 @@ def test_mastec_is_under_covered(estate: tuple[str, str],
 
 
 def test_valuation_dates_are_per_asset_and_not_flattened(default: Any) -> None:
-    """§6.4 refuses to let a one-day mark and a one-year appraisal collapse."""
+    """§6.4 refuses to let a one-day mark and a one-year appraisal collapse.
+
+    Declared product gate `CSC-G07` (`CP-SPEC-006` §G.2).
+    """
     assets = default.product.payload["assets"]
     assert assets
     for asset in assets:
@@ -248,6 +265,8 @@ def test_priority_is_carried_on_the_facility_asset_pair(default: Any) -> None:
     An asset shared at differing priority is the case a collateral column
     cannot express; if the payload reported one position per ASSET it would
     have reintroduced exactly that flattening.
+
+    Declared product gate `CSC-G08` (`CP-SPEC-006` §G.2).
     """
     shared = [a for a in default.product.payload["assets"] if a["shared_with"]]
     assert shared, "no shared asset in the served payload"
@@ -256,7 +275,10 @@ def test_priority_is_carried_on_the_facility_asset_pair(default: Any) -> None:
 
 
 def test_source_ids_are_served_for_business_matching(default: Any) -> None:
-    """A payload speaking only in content hashes cannot be joined to anything."""
+    """A payload speaking only in content hashes cannot be joined to anything.
+
+    Declared product gate `CSC-G09` (`CP-SPEC-006` §G.2).
+    """
     for asset in default.product.payload["assets"]:
         assert not asset["uri"].startswith("collateral_node://"), (
             "the payload serves a fabric URI where the source's own id belongs"
@@ -270,6 +292,8 @@ def test_the_over_allocation_gate_is_declared_and_identified(
 
     The SDK refuses that pairing outright, so this asserts the declaration
     rather than the behavior: the id and version are the Control Plane's half.
+
+    Declared product gate `CSC-G10` (`CP-SPEC-006` §G.2).
     """
     deployment, _ = example
     declared = deployment.config()["product_class"]["declared_product_gate"]
@@ -277,7 +301,10 @@ def test_the_over_allocation_gate_is_declared_and_identified(
 
 
 def test_replay_dimension_two_carries_the_request_contract(default: Any) -> None:
-    """`D-IMPL-310` — replay is a SUPERSET of product policy lineage."""
+    """`D-IMPL-310` — replay is a SUPERSET of product policy lineage.
+
+    Declared product gate `CSC-G11` (`CP-SPEC-006` §G.2).
+    """
     bindings = {b.key for b in default.record.policy_bindings.bindings}
     lineage = set(default.product.lineage.policy_bundle_versions)
     versions = {b.version for b in default.record.policy_bindings.bindings}
@@ -395,6 +422,8 @@ def test_the_door_declares_its_entrypoint_rather_than_a_script_path() -> None:
     A client carrying `python examples/…/serve.py` is bound to this
     deployment's directory layout, interpreter and language — none of which is
     part of the product contract.
+
+    Declared product gate `CSC-G12` (`CP-SPEC-006` §G.2).
     """
     import yaml  # noqa: PLC0415
 

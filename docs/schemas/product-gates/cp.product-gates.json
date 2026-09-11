@@ -27,8 +27,8 @@
                 "type": "string"
               },
               "id": {
-                "description": "The gate id. The pattern is the one measured across this ladder's four products -- two to four uppercase letters, a hyphen, `G`, and two digits.",
-                "pattern": "^[A-Z]{2,4}-G[0-9]{2}$",
+                "description": "The gate id. The pattern is the one measured across this ladder's four products -- two to four uppercase letters, a hyphen, `G`, and two digits. WIDENED at `D-IMPL-326` to allow a DIGIT after the first letter: cp-07's specification declares `C36-G01` through `C36-G08`, and the previous letters-only prefix could not express them. The alternative was renaming a shipped specification's gate ids to suit the checker, which is the inversion the ruling exists to prevent -- the tool accepts the authority that governed the product, not the other way round. Every id written before the widening still matches.",
+                "pattern": "^[A-Z][A-Z0-9]{1,3}-G[0-9]{2}$",
                 "type": "string"
               },
               "observed_red": {
@@ -73,20 +73,60 @@
                 "type": "string"
               },
               "test": {
-                "description": "A `path.py::Symbol` reference to the test that executes this gate, in the citation form `D-IMPL-114` rules for this tree — never `path.py:LINE`, because a line anchor is wrong the moment code moves. The earlier pattern `^[^ ]+::[^ ]+$` checked only that a separator was present, so `tests/x.py:123::test_name` satisfied it: a line-anchored citation wearing a node id's shape. Found by the 2026-09-01 close panel. The declaring product's own test resolves the reference against a real `pytest --collect-only`; this pattern is what stops a malformed one reaching that check at all.",
+                "description": "A `path.py::Symbol` reference to the test that executes this gate, in the citation form `D-IMPL-114` rules for this tree \u2014 never `path.py:LINE`, because a line anchor is wrong the moment code moves. The earlier pattern `^[^ ]+::[^ ]+$` checked only that a separator was present, so `tests/x.py:123::test_name` satisfied it: a line-anchored citation wearing a node id's shape. Found by the 2026-09-01 close panel. The declaring product's own test resolves the reference against a real `pytest --collect-only`; this pattern is what stops a malformed one reaching that check at all.",
                 "pattern": "^[^ :]+\\.py::[A-Za-z_][A-Za-z0-9_]*$",
                 "type": "string"
+              },
+              "spec_clause": {
+                "description": "The clause of this product's OWN specification that approves this gate -- the second acceptance-authority form (`D-IMPL-326`, Dave, 2026-09-10: *\"A product may be gated by either a numbered ROADMAP/phase criterion, or a cited clause / definition-of-done in its `CP-SPEC`.\"*). It exists because no rung built since cp-04 has a locked ROADMAP criterion to point at, and *\"do not fabricate ROADMAP criterion numbers ... merely to satisfy the tool\"*: an invented integer answers the gate's real question -- WHAT APPROVED ACCEPTANCE AUTHORITY SAYS THIS PRODUCT IS DONE? -- falsely, where a citation answers it checkably.\n\nThe checker walks the whole chain: the document exists, the clause exists in it, and this gate's own `id` appears inside that clause's body. A citation that resolves to nothing is worth less than no citation, because it reads as authority while pointing nowhere.",
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "document",
+                  "clause"
+                ],
+                "properties": {
+                  "document": {
+                    "description": "The specification, relative to the product tree -- never to the repository root. A product's acceptance authority is its OWN specification, so the path is resolved from the tree that authored the roster.",
+                    "type": "string"
+                  },
+                  "clause": {
+                    "description": "The clause heading as the specification writes it -- `G.2`, `D.4`. Matched against the document's headings; the clause body runs to the next heading, so a clause carries its own text and not the rest of the file.",
+                    "type": "string"
+                  }
+                }
               }
             },
             "required": [
               "id",
               "statement",
-              "criterion",
               "test",
               "sabotage",
               "observed_red"
             ],
-            "type": "object"
+            "type": "object",
+            "oneOf": [
+              {
+                "required": [
+                  "criterion"
+                ],
+                "not": {
+                  "required": [
+                    "spec_clause"
+                  ]
+                }
+              },
+              {
+                "required": [
+                  "spec_clause"
+                ],
+                "not": {
+                  "required": [
+                    "criterion"
+                  ]
+                }
+              }
+            ]
           },
           "minItems": 1,
           "type": "array"

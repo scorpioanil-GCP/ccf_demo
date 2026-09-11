@@ -1,0 +1,89 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE DECLARED PRODUCT GATES OF cp-07 — SIX OF THE EIGHT `CP-SPEC-007` §G.1
+# DECLARES, AND THE TWO THAT ARE MISSING ARE NAMED IN `FINDINGS.md` RATHER THAN
+# QUIETLY DROPPED.
+#
+# `D-IMPL-224`: a product's gates are a DECLARED ARTIFACT plus CI coverage.
+# There is no `ProductGate` Protocol and no serve path for these.
+#
+# THE ACCEPTANCE AUTHORITY IS THIS PRODUCT'S OWN SPECIFICATION, not a ROADMAP
+# criterion (`D-IMPL-326`, Dave, 2026-09-10). cp-07 was not built under a
+# numbered phase and has no locked criterion; fabricating one would put an
+# integer here that binds to nothing. Every gate cites `CP-SPEC-007` §G.1, and
+# `tools/check_product_gates.py` resolves the chain — the document exists, the
+# clause exists, and the gate's own id appears inside it.
+#
+# WHAT IS NOT HERE, AND WHY (`CP07-F-11`):
+#
+#   `C36-G06` — "the enrich leg issues a fixed number of queries regardless of
+#   graph size". No test asserts it. Proving it needs a counting seam around
+#   `acquisition`'s query client, which is new instrumentation rather than an
+#   id added to an existing test; declaring it against a test that does not
+#   assert it would be the pointing-at-an-unrelated-test defect the checker
+#   exists to catch.
+#
+#   `C36-G08` — "`shape_of` is `canonical` AND the factory takes operators only
+#   from `required`". Two claims, asserted by two different tests, and a gate
+#   carries ONE `test:`. Mapping it to either would claim evidence for half the
+#   statement. Splitting the gate is a change to the SPECIFICATION's own table
+#   and is not this sitting's to make.
+#
+# `observed_red` is `null` on every gate and is REQUIRED as a key: a gate
+# nobody has watched fail is visibly outstanding here rather than absent.
+
+semver: 1.0.0
+class_id: cp-07.product-gates
+declaration:
+  product: coverage.client-360
+  test_naming_convention: the gate id appears in the executing test's docstring, as a `Declared
+    product gate` line naming the CP-SPEC clause that approves it.
+  gates:
+  - id: C36-G01
+    statement: a narrower `since` returns no more interactions than a wider one
+    spec_clause:
+      document: spec/CP-SPEC-007_Client_360_Coverage_Graph.md
+      clause: G.1
+    test: tests/examples/test_cp_07_output.py::test_a_wider_window_cannot_admit_less_evidence
+    sabotage: widen the window and admit less
+    observed_red: null
+  - id: C36-G02
+    statement: a lower `limit` returns no more than a higher one
+    spec_clause:
+      document: spec/CP-SPEC-007_Client_360_Coverage_Graph.md
+      clause: G.1
+    test: tests/examples/test_cp_07_output.py::test_a_lower_limit_admits_no_more_evidence_than_a_higher_one
+    sabotage: apply the bound after the read instead of in it
+    observed_red: null
+  - id: C36-G03
+    statement: truncation is disclosed when `limit` is reached
+    spec_clause:
+      document: spec/CP-SPEC-007_Client_360_Coverage_Graph.md
+      clause: G.1
+    test: tests/examples/test_cp_07_output.py::test_the_demonstration_anchor_is_truncated_and_says_so
+    sabotage: suppress the `truncated` flag on a cut payload
+    observed_red: null
+  - id: C36-G04
+    statement: '`include_need_to_know=false` excludes the flagged interactions'
+    spec_clause:
+      document: spec/CP-SPEC-007_Client_360_Coverage_Graph.md
+      clause: G.1
+    test: tests/examples/test_cp_07_output.py::test_need_to_know_returns_a_different_graph_not_a_redacted_one
+    sabotage: materialize a need-to-know interaction and redact it afterwards
+    observed_red: null
+  - id: C36-G05
+    statement: coverage gaps are reported and non-empty on the measured client
+    spec_clause:
+      document: spec/CP-SPEC-007_Client_360_Coverage_Graph.md
+      clause: G.1
+    test: tests/examples/test_cp_07_output.py::test_a_tighter_bound_manufactures_coverage_gaps
+    sabotage: let the bound bypass the gap analysis
+    observed_red: null
+  - id: C36-G07
+    statement: replay dimension 2 is a superset of product policy lineage
+    spec_clause:
+      document: spec/CP-SPEC-007_Client_360_Coverage_Graph.md
+      clause: G.1
+    test: tests/examples/test_cp_07_output.py::test_replay_dimension_two_carries_the_request_contract
+    sabotage: omit the request contract from dimension 2
+    observed_red: null
