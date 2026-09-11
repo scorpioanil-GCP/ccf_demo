@@ -102,3 +102,53 @@ gained a third return value while its test was not updated. It is an
 objectively stale test, not a change made to get a product to pass.
 
 All eight now execute and pass against the curated estate.
+
+
+---
+
+## `CP05-F-03` — three artifacts fail the schema-header gate, and none of them fails as a HEADER
+
+**Status: OPEN. Diagnosed and STOPPED at the 2026-09-11 hygiene sitting, on
+Dave's own boundary for it: *"schema-headers on cp-05 artifacts is the same
+sitting if it is actually a header, not a product change. If it needs new
+criteria, stop and record."* It needs a ruling on all three.**
+
+`make schema-headers` is red on exactly three documents, and it has been red on
+`main` for as long as the measurement goes back. The gate names them precisely,
+and each is a different problem wearing one error message.
+
+| document | what the gate says | what it actually is |
+|---|---|---|
+| `artifacts/expected.yaml` | `declaration.measures.adjusted_differs_from_gross_by_pct` is a float | a **value-type change to a comparison fixture** |
+| `artifacts/question.yaml` | `declaration.parameters.materiality` is a float | the same class, on the request side |
+| `artifacts/scenarios.yaml` | `declaration` is a list where `DeclaredArtifact` requires a mapping | **structural** — the document is not a declared artifact at all |
+
+### Why the first two are not header work
+
+The rule the gate enforces is real and is the SDK's: *"float values are not
+admissible in a Control Plane artifact (not bit-stable across platforms); quote
+the value so it parses as text and is validated as a decimal."* The repair is to
+quote `7.90` and the materiality value.
+
+But `expected.yaml` is **the declaration cp-05's tests compare the served payload
+against** — `test_the_measures_are_what_the_declaration_says` and
+`test_the_naive_answer_understates_by_the_declared_factor` read it, and
+`CER-G01` and `CER-G02` are declared against those tests. Changing a value's
+TYPE there changes what four assertions compare, and one of them already does
+`Decimal(served) / Decimal(naive[...])`. That is a product change with gate
+consequences, not a header edit, and it is exactly what the boundary excludes.
+
+### Why the third is a different question entirely
+
+`scenarios.yaml` carries a **list** under `declaration`. `DeclaredArtifact`
+requires a mapping, so this document cannot be that class no matter what header
+it names. The available moves are a different artifact class, a wrapping key, or
+the `# ccf-schema: deferred(<plan>) <reason>` marker the gate itself offers —
+and choosing among them is a decision about what the document IS.
+
+### What was NOT done
+
+No value was quoted, no document reshaped, no `deferred` marker added. A
+`deferred` marker in particular would turn a red into a green while changing
+nothing about the document, which is the shape this project refuses everywhere
+else.

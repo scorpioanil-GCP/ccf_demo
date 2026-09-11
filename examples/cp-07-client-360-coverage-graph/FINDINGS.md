@@ -326,11 +326,22 @@ obligation.
 
 ## `CP07-F-08` — cp-06's shipped MCP door cannot answer its first call
 
-**Status: OPEN. Defect in ANOTHER example
-(`examples/cp-06-collateral-and-setoff-coverage`), already merged to `main`.
-Found by driving cp-07's door, which inherited the same code shape. NOT fixed on
-this branch — that would mix two claims behind one review (the `CP06-F-01`
-precedent).**
+**Status: FIXED at `54c4227d`, merged at `b85cf524`, accepted by Dave at
+`D-IMPL-324`. The deferral this entry records was honored: the repair landed on
+its own branch, not this one.**
+
+Dave's ruling named the cause correctly and inverted the intuitive order:
+*"declaration ≠ door"* — cp-06 shipped a door that had **never been booted**, and
+`test_cp_06_mcp_door.py` (the driven-door test) is the actual fix. The two
+defects this entry found were consequences. Deleting the hand-rolled
+`RefusalEnvelope` was classified as *"the refusal path becoming honest"* rather
+than a bug fix.
+
+**Original status, kept because the deferral was the right call:** defect in
+ANOTHER example (`examples/cp-06-collateral-and-setoff-coverage`), already merged
+to `main`, found by driving cp-07's door, and deliberately not fixed on this
+branch — that would have mixed two claims behind one review (the `CP06-F-01`
+precedent).
 
 `server/serve.py` hands the resolver a scratch root:
 
@@ -418,7 +429,26 @@ neither source store is touched.
 
 ## `CP07-F-10` — `make product-gates` cannot be made green for any rung built since cp-04, and this rung is the fourth
 
-**Status: OPEN. Needs a ruling. NOT resolved by inventing numbers.**
+**Status: CLOSED by `D-IMPL-326` and `D-IMPL-327`, and closed the way this entry
+asked — the ruling changed the tool's model, and no number was invented.**
+
+Dave ruled it a tooling-model fix: a gate's acceptance authority may be a
+numbered ROADMAP criterion **or** a cited clause of the product's own `CP-SPEC`,
+exactly one per gate, with the checker resolving document → clause → the gate's
+own id inside that clause. `D-IMPL-327` then gave cp-04-canonical its own
+`CP-SPEC-004C` and cp-05's §G.2 stable ids. Measured at that close:
+**`checked 9 product trees, 93 declared gates, 93 executing`**. The correction
+this entry's own text needs is recorded below.
+
+**One correction to what is written here.** This entry says
+`tools/check_product_gates.py` *"requires a locked ROADMAP criterion"*. It never
+did — the word ROADMAP appears nowhere in that file. The requirement lived in
+`docs/schemas/product-gates/cp.product-gates.json`, where `criterion` sat in the
+gate item's `required` list. The distinction mattered: it made the fix a schema
+edit rather than a checker rewrite.
+
+**What remains, and it is a different thing:** `CP07-F-11` carries the two §G.1
+gates cp-07's roster does not declare.
 
 `tools/check_product_gates.py` requires every `examples/cp-*` tree to carry
 `artifacts/gates.yaml`. Measured on `main` at this branch's base, with no cp-07
