@@ -1391,9 +1391,18 @@ The specification is discharged when a run demonstrates, on the live estate:
 criteria already written here; **no criterion was added, removed or reworded**,
 because renumbering an acceptance criterion to suit a checker would make the
 tool the author of the product's obligations. `artifacts/gates.yaml` declares
-the five that an executing test asserts today, and `FINDINGS.md` carries the
-other three — `CER-G04`, `CER-G06` and `CER-G07` — as work that needs new
-instrumentation rather than a missing id.
+the **four** that an executing test asserts today — `CER-G01`, `CER-G02`,
+`CER-G03` and `CER-G08` — and `FINDINGS.md` carries the other **four** under
+`CP05-F-01` as work that needs new instrumentation rather than a missing id.
+
+**`CER-G05` is the one to read carefully, because it is the one that looks
+covered.** A test does assert that `reconciliation` is PRESENT in the payload —
+but this criterion asks for something else: that all four validation gates pass
+**and that the reconciliation guard is observed FIRING** on a deliberately
+double-subtracting variant. Nothing watches it fire. *Token presence is not
+token force*, and declaring the gate on the strength of the presence check
+would report coverage this product does not have. It stays carried until an
+instrument exists that can make the guard fail.
 
 1. **`CER-G01`** — the worked call at **D.1** returns a `CreditExposureRollupContract@v1.0.0`
    with gross **and** adjusted measures populated.
