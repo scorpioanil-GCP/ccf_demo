@@ -184,6 +184,8 @@ def test_depth_changes_the_served_roster_and_the_debt_together(
     computed over rows the payload never served, which cannot move when the
     served set moves. A `D_c` that changes while the roster does not would mean
     the number is not a function of what was served at all.
+
+    Declared product gate `CFC-G01` (`CP-SPEC-004C` §G.1).
     """
     shallow, deep = at_depth_one.product, at_depth_three.product
 
@@ -212,6 +214,8 @@ def test_the_scorer_and_the_payload_see_one_set(
     depth governance resolved. This is the property that repair bought, stated
     without reaching into the scorer: the debt implies a denominator, and it is
     the served one.
+
+    Declared product gate `CFC-G02` (`CP-SPEC-004C` §G.1).
     """
     for outcome in (at_depth_one, at_depth_three):
         payload = outcome.product.payload
@@ -230,6 +234,8 @@ def test_a_depth_above_the_backend_ceiling_is_refused_by_authority(
     request for 99 quietly walked at 6 would look fine and would seal to a
     content address that greens. `depth_limit` is the technical ceiling, so the
     refusal carries authority `technical` rather than a policy reason.
+
+    Declared product gate `CFC-G03` (`CP-SPEC-004C` §G.1).
     """
     from ccf.products.refusal import RefusalEnvelope  # noqa: PLC0415
 
@@ -253,6 +259,8 @@ def test_the_class_default_resolves_when_the_caller_omits_the_depth(
     agree — and they must agree by resolution rather than by this module
     restating the number, which is why the comparison is against the depth-3
     run instead of against a literal 3.
+
+    Declared product gate `CFC-G04` (`CP-SPEC-004C` §G.1).
     """
     omitted = _ask(example_modules, max_depth=None)
 
@@ -275,6 +283,8 @@ def test_replay_dimension_two_is_a_superset_of_the_product_lineage(
     it belongs in dimension 2 and not in the product's policy lineage. A
     canonical adoption that made the two equal would be discarding evidence to
     reproduce a narrower record.
+
+    Declared product gate `CFC-G05` (`CP-SPEC-004C` §G.1).
     """
     bindings = {
         binding.key for binding in at_depth_three.record.policy_bindings.bindings
@@ -299,6 +309,8 @@ def test_the_store_pin_is_execution_provenance_and_not_product_identity(
     sealed product, whose `canonical_bytes` simultaneously define storage,
     transport and content address — a substrate detail there would make one
     determination addressable two ways.
+
+    Declared product gate `CFC-G06` (`CP-SPEC-004C` §G.1).
     """
     snapshot = at_depth_three.record.context_fabric_snapshot
 
@@ -327,6 +339,8 @@ def test_the_structural_classifier_reads_this_tree_as_canonical() -> None:
     itself. Asserting the verdict alone would pass for a tree that delegated
     and *also* hand-composed, which is the half-migrated shape `D-IMPL-306`
     refuses by name.
+
+    Declared product gate `CFC-G07` (`CP-SPEC-004C` §G.1).
     """
     classifier = _classifier()
 
@@ -343,6 +357,8 @@ def test_the_plan_factory_takes_its_operators_only_from_required() -> None:
     demand is that the Control Plane can see no second operator set was
     authored, and that is a property something has to be able to READ. A lambda
     is unreadable to a static check.
+
+    Declared product gate `CFC-G08` (`CP-SPEC-004C` §G.1).
     """
     spec = importlib.util.spec_from_file_location(
         "_gate_two", REPO_ROOT / "tests" / "products" / "test_gate_two_call_shape.py"
@@ -371,6 +387,8 @@ def test_the_specimen_is_untouched() -> None:
     Measured against the branch point rather than asserted. A successor that
     "just tidied" one line of the specimen would have destroyed the evidence
     the specimen exists to be.
+
+    Declared product gate `CFC-G09` (`CP-SPEC-004C` §G.1).
     """
     base = subprocess.run(
         ["git", "merge-base", "HEAD", "main"],
@@ -390,6 +408,8 @@ def test_no_specimen_identity_is_reused(at_depth_three: Any) -> None:
     `D_c = 0.0909…` is the specimen's published figure for its own anchor and
     roster. This tree chose its anchor from the fixture, so a matching debt
     would mean an inherited number rather than a measured one.
+
+    Declared product gate `CFC-G10` (`CP-SPEC-004C` §G.1).
     """
     assert at_depth_three.product.debt.debt != Decimal("0.0909090909090909090909090909")
 
@@ -443,6 +463,8 @@ def test_a_bare_ledger_name_resolves_a_real_watermark(
 
     The value is not pinned: the ledger is live and `t` advances. What is
     asserted is that a real index was resolved at all.
+
+    Declared product gate `CFC-G11` (`CP-SPEC-004C` §G.1).
     """
     ledger, _ = estate
     watermark = _graph_leg(example_modules, ledger).watermark()
@@ -465,6 +487,8 @@ def test_an_unknown_ledger_reports_unreported_rather_than_a_number(
     specific, checkable, FALSE claim about the source's state into the served
     payload and into replay. `unreported` is the honest answer and must survive
     a change that makes the honest answer rarer.
+
+    Declared product gate `CFC-G12` (`CP-SPEC-004C` §G.1).
     """
     unknown = _graph_leg(example_modules, "ccf:no-such-ledger-exists-here")
     assert unknown.watermark() == "unreported"
@@ -483,6 +507,8 @@ def test_the_watermark_is_never_invented_from_the_listing(
     Asserted by comparing against the server's own listing rather than against
     a constant — a test carrying its own expected `t` would be restating the
     estate, and would go red the next time anything is written to the ledger.
+
+    Declared product gate `CFC-G13` (`CP-SPEC-004C` §G.1).
     """
     import httpx  # noqa: PLC0415
 

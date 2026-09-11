@@ -148,17 +148,72 @@ def product_trees(root: pathlib.Path) -> list[pathlib.Path]:
     return sorted(path for path in root.glob("examples/cp-*") if path.is_dir())
 
 
-def test_modules_for(root: pathlib.Path, tree: pathlib.Path) -> list[pathlib.Path]:
-    """The test modules that belong to one rung: ``tests/examples/test_cp_NN_*.py``.
+def _discriminator(name: str) -> str | None:
+    """The token after ``cp-NN-`` that tells two trees of ONE rung apart.
 
-    ``NN`` is the two-digit rung number in the tree name ``cp-NN-…``. A tree
+    ``cp-04-canonical-corporate-family-tree`` → ``canonical``. ``None`` when the
+    tree name carries no rung number at all.
+    """
+    match = re.match(r"^cp-([0-9]{2})-([a-z0-9]+)", name)
+    return match.group(2) if match else None
+
+
+def test_modules_for(root: pathlib.Path, tree: pathlib.Path) -> list[pathlib.Path]:
+    """The test modules that belong to one TREE — not merely to one rung.
+
+    ``NN`` is the two-digit rung number in the tree name ``cp-NN-…``, and a tree
     whose name carries no rung number has no modules of its own.
+
+    **Two trees can share a rung, and rung 4 does** (``D-IMPL-327``).
+    ``examples/cp-04-corporate-family-tree`` is the frozen specimen and
+    ``examples/cp-04-canonical-corporate-family-tree`` is the current pattern
+    (``D-IMPL-319``); a bare ``test_cp_04_*.py`` glob hands each of them the
+    OTHER's modules, so the canonical roster was held against the specimen's
+    ``CFT-G19``/``CFT-G99`` and reported them undeclared. Measured when the
+    canonical tree was first rostered — the two had never both carried one
+    before, so nothing had exercised the collision.
+
+    The rule: a tree whose discriminator token has modules of its own
+    (``test_cp_04_canonical_*.py``) takes exactly those; a tree with none takes
+    the rung's modules **minus** every module another same-rung tree claims. So
+    the specimen keeps every module it always had, and neither tree can see the
+    other's ids.
+
+    This is a partition, not an allowlist: nothing here names a tree or a
+    module, and a third rung-4 tree would be separated by the same rule.
     """
     match = re.match(r"^cp-([0-9]{2})(?:-|$)", tree.name)
     if match is None:
         return []
     rung = match.group(1)
-    return sorted(root.glob(f"tests/examples/test_cp_{rung}_*.py"))
+    candidates = sorted(root.glob(f"tests/examples/test_cp_{rung}_*.py"))
+
+    siblings = [
+        other
+        for other in product_trees(root)
+        if other != tree and re.match(rf"^cp-{rung}(?:-|$)", other.name)
+    ]
+
+    def claimed_by(name: str) -> str | None:
+        token = _discriminator(name)
+        return f"test_cp_{rung}_{token}_" if token else None
+
+    own = claimed_by(tree.name)
+    if own is not None:
+        mine = [path for path in candidates if path.name.startswith(own)]
+        if mine:
+            return mine
+
+    theirs = {
+        prefix
+        for prefix in (claimed_by(other.name) for other in siblings)
+        if prefix is not None
+    }
+    return [
+        path
+        for path in candidates
+        if not any(path.name.startswith(prefix) for prefix in theirs)
+    ]
 
 
 # ---------------------------------------------------------------------------
