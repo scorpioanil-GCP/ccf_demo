@@ -111,8 +111,9 @@ def _serve(example: tuple[Any, Any], *, lei: str | None = None,
     """
     deployment, produce = example
     anchor = lei or _anchor("DEMONSTRATION_LEI")
+    scope = kwargs.pop("principal_scope_override", None) or [anchor]
     asked = deployment.request(
-        lei=anchor, principal_scope=[anchor],
+        lei=anchor, principal_scope=scope,
         asked_at=asked_at or datetime.now(UTC), **kwargs)
     with tempfile.TemporaryDirectory() as scratch:
         return produce.assemble_and_serve(asked=asked, root=pathlib.Path(scratch))
@@ -520,6 +521,86 @@ def test_lineage_carries_exactly_the_two_declared_operators(
     declared = tuple(deployment.config()["product_class"]["required_operator_keys"])
     assert sorted(default.record.content_generation_path.operator_plan) == sorted(declared)
     assert len(declared) == 2
+
+
+def test_the_spec_step_table_names_exactly_the_registered_operators(
+    example: tuple[Any, Any], default: Any
+) -> None:
+    """The step table is the document a reader counts operators in, so it has to
+    agree with the declaration and with the lineage.
+
+    **This test exists because the table did not.** As shipped at
+    `D-GATE-cp-07` it named `traversal.typed-neighborhood` on the FLUREE row —
+    the acquisition read, which is source access at L1 — and omitted
+    `policy.principal-subgraph` entirely, so the column showed one registered
+    operator where the product invokes two. It contradicted §D.2.1 one paragraph
+    below it and contradicted `operators_invoked`, and nothing was checking.
+
+    Read structurally off the markdown rather than by substring: the Operator
+    column only, split on the table's own pipes, matching the shape of an
+    operator key. A token elsewhere in the row — a store name, a prose mention —
+    is not a claim about which operator ran.
+    """
+    import re  # noqa: PLC0415
+
+    deployment, _ = example
+    declared = set(deployment.config()["product_class"]["required_operator_keys"])
+    assert declared, "the deployment declares no operators; this proves nothing"
+
+    spec = next((EXAMPLE / "spec").glob("CP-SPEC-007_*.md")).read_text(encoding="utf-8")
+    table = spec.split("### D.2 Step table", 1)[1].split("###", 1)[0]
+
+    named: set[str] = set()
+    for line in table.splitlines():
+        cells = [c.strip() for c in line.split("|")]
+        # `| # | Step | Operator | Store | Emits |` -> leading empty cell, so the
+        # Operator column is index 3. A separator or prose line has no such cell.
+        if len(cells) < 6 or not cells[1].isdigit():
+            continue
+        named.update(re.findall(r"`([a-z]+\.[a-z-]+)`", cells[3]))
+
+    assert named == declared, (
+        f"the §D.2 step table names {sorted(named)} in its Operator column and"
+        f" the product class declares {sorted(declared)}; the table a reader"
+        " counts operators in disagrees with the one the fabric invokes"
+    )
+
+    # THE SERVED LINEAGE IS THE THIRD WITNESS, so agreement cannot be two
+    # documents copied from each other. The table, the class declaration and
+    # what the fabric actually invoked all have to name one set.
+    assert named == set(default.product.lineage.operators_invoked), (
+        f"the step table names {sorted(named)} and the served product's"
+        f" `operators_invoked` carries"
+        f" {sorted(default.product.lineage.operators_invoked)}"
+    )
+
+
+def test_the_policy_operator_discriminates_rather_than_passing_through(
+    estate: tuple[str, str], example: tuple[Any, Any], default: Any
+) -> None:
+    """A scope the caller does not hold yields an EMPTY graph, not a redacted one.
+
+    Without this, `policy.principal-subgraph` could be declared, invoked,
+    recorded in lineage, and admit everything — an operator present in the audit
+    trail and absent from the answer. §D.2 now carries the measured contrast and
+    this is what holds the document to it.
+
+    **What sabotage established, stated as observed rather than as intended.**
+    The pair is asserted — entitled non-empty AND denied empty — and both
+    mutations tried reddened the FIRST half, not the second: emptying
+    `permitted_classifications`, and classifying on an attribute no node carries.
+    Neither produced a pass-through, because the operator **fails closed** on a
+    node it cannot classify, so there is no admit-everything mode reachable from
+    the declaration at all. That is the SDK behaving well; it also means the
+    negative half of this assertion is held by the operator's own semantics
+    rather than by a mutation this module can demonstrate. Recorded so a later
+    reader does not mistake an unsabotaged half for a sabotaged one.
+    """
+    denied = _serve(example, principal_scope_override=["A-SCOPE-NOBODY-HOLDS"])
+    assert default.product.payload["bankers"], "the entitled read returned nothing"
+    assert denied.product.payload["bankers"] == []
+    assert denied.product.payload["people"] == []
+    assert denied.product.payload["findings"]["edge_types_present"] == []
 
 
 def test_the_ttl_ceiling_binds_rather_than_the_half_life(
