@@ -591,7 +591,28 @@ def test_main_collects_exactly_once_and_reports_the_count(
     assert rc == 0, capsys.readouterr().err
     assert len(calls) == 1, calls
     assert "--collect-only" in calls[0]
-    assert capsys.readouterr().out.strip() == "checked 1 product trees, 2 declared gates, 2 executing"
+    assert capsys.readouterr().out.strip() == (
+        "checked 1 shipped product trees, 2 declared gates, 2 executing"
+    )
+
+
+def test_the_summary_names_a_gate_one_tree_on_the_success_path(
+    tmp_path: pathlib.Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A skipped tree that is not NAMED is a tree nobody revisits.
+
+    The exemption is only acceptable because it is announced, so the
+    announcement is asserted on the success path where a reader would see it —
+    not merely in :func:`gate_one_trees`, which nothing prints.
+    """
+    import tools.check_product_gates as checker
+
+    root = _spec_only_tree(tmp_path, tests={"test_cp_04_scratch.py": DOCSTRING_MODULE})
+    assert checker.main(["--root", str(root)]) == 0
+    out = capsys.readouterr().out
+    assert "at Gate 1" in out
+    assert "specified, not yet shipped" in out
+    assert pathlib.Path(SCRATCH_TREE).name in out
 
 
 def test_a_root_with_no_product_tree_is_not_clean(tmp_path: pathlib.Path) -> None:
@@ -1064,3 +1085,118 @@ def test_the_rung_four_trees_are_partitioned_in_the_real_repository() -> None:
     assert canonical.isdisjoint(specimen)
     assert "test_cp_04_traversal.py" in specimen, "the specimen lost its own modules"
     assert len(specimen) > 5, f"the specimen was starved: {sorted(specimen)}"
+
+
+# ---------------------------------------------------------------------------
+# Gate-1 trees: a specification without a roster (`D-IMPL-329` follow-on)
+# ---------------------------------------------------------------------------
+#
+# Dave, 2026-09-11: *"if an example tree has `spec/` but no `gates.yaml`, treat
+# it as Gate 1 / not yet shipped ... do not add a fake `gates.yaml` ... once
+# `gates.yaml` appears, normal product-gate enforcement resumes. That keeps main
+# green without teaching people to ignore the target."*
+#
+# The last clause is the constraint that shapes this. A tree that is skipped
+# SILENTLY is a tree nobody looks at again, so a Gate-1 tree is **named in the
+# summary** rather than merely absent from the problem list.
+#
+# The loophole this must not open: a SHIPPED rung whose roster was deleted. That
+# tree has a `spec/` too, so "has a spec" alone cannot be the test — which is
+# why `test_a_shipped_rung_that_loses_its_roster_is_still_reported` exists and
+# why the rule keys on the roster's absence being the tree's ONLY evidence.
+
+
+def _spec_only_tree(tmp_path: pathlib.Path, *, tests: dict[str, str]) -> pathlib.Path:
+    """A rung carrying a specification and no roster — the cp-08 shape."""
+    spec = tmp_path / SCRATCH_TREE / "spec"
+    spec.mkdir(parents=True)
+    (spec / "CP-SPEC-SCRATCH.md").write_text("# a specification\n", encoding="utf-8")
+    (tmp_path / SCRATCH_TREE / "artifacts").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "tests" / "examples").mkdir(parents=True)
+    for name, source in tests.items():
+        (tmp_path / "tests" / "examples" / name).write_text(
+            textwrap.dedent(source).lstrip(), encoding="utf-8"
+        )
+    schema_copy = tmp_path / SCHEMA_RELATIVE
+    schema_copy.parent.mkdir(parents=True)
+    shutil.copy(SCHEMA_PATH, schema_copy)
+    return tmp_path
+
+
+def test_a_tree_with_a_spec_and_no_roster_is_gate_one_not_a_problem(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The cp-08 case: a Gate-1 specification is not a shipped rung."""
+    root = _spec_only_tree(tmp_path, tests={"test_cp_04_scratch.py": DOCSTRING_MODULE})
+    assert check_tree(
+        root, root / SCRATCH_TREE, collected=frozenset(), schema=load_schema(root)
+    ) == []
+
+
+def test_a_gate_one_tree_is_NAMED_rather_than_silently_skipped(
+    tmp_path: pathlib.Path,
+) -> None:
+    """*"without teaching people to ignore the target"* — the load-bearing half.
+
+    A tree that vanishes from the output is a tree nobody revisits. The summary
+    must say a Gate-1 tree exists and name it, so the skip is visible evidence
+    rather than an absence.
+    """
+    from tools.check_product_gates import gate_one_trees
+
+    root = _spec_only_tree(tmp_path, tests={"test_cp_04_scratch.py": DOCSTRING_MODULE})
+    named = [p.name for p in gate_one_trees(root)]
+    assert named == [pathlib.Path(SCRATCH_TREE).name]
+
+
+def test_a_tree_with_NEITHER_a_spec_NOR_a_roster_is_still_a_problem(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The rule is `spec/` present, not `gates.yaml` absent.
+
+    Without this, every rung could shed its roster and pass.
+    """
+    root = _scratch_tree(tmp_path, roster=None,
+                         tests={"test_cp_04_scratch.py": DOCSTRING_MODULE})
+    problems = check_tree(
+        root, root / SCRATCH_TREE, collected=frozenset(), schema=load_schema(root)
+    )
+    assert problems and "gates.yaml is missing" in problems[0]
+
+
+def test_a_gate_one_tree_gains_full_enforcement_the_moment_a_roster_appears(
+    tmp_path: pathlib.Path,
+) -> None:
+    """*"once `gates.yaml` appears, normal product-gate enforcement resumes."*
+
+    Asserted as a TRANSITION on one tree rather than as two unrelated trees:
+    the same directory, a roster added, and a real problem then reported. A
+    tree that kept its Gate-1 exemption after shipping is the failure this
+    catches.
+    """
+    root = _spec_only_tree(tmp_path, tests={"test_cp_04_scratch.py": DOCSTRING_MODULE})
+    tree = root / SCRATCH_TREE
+    assert check_tree(root, tree, collected=frozenset(), schema=load_schema(root)) == []
+
+    (tree / "artifacts" / "gates.yaml").write_text(
+        yaml.safe_dump(
+            _roster(CONVENTION_DOCSTRING_FORM, [_gate("ZZ-G01", _node("test_first"))]),
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+    problems = check_tree(
+        root, tree, collected=frozenset(), schema=load_schema(root)
+    )
+    assert any("no executing test" in p for p in problems), problems
+
+
+def test_the_real_repository_reports_cp_08_as_gate_one() -> None:
+    """Where the rule actually has to hold, and why it was written."""
+    from tools.check_product_gates import gate_one_trees
+
+    named = {p.name for p in gate_one_trees(REPO_ROOT)}
+    assert "cp-08-covenant-in-force-as-of" in named
+    assert "cp-04-canonical-corporate-family-tree" not in named, (
+        "a tree carrying BOTH a spec and a roster is shipped, not Gate 1"
+    )

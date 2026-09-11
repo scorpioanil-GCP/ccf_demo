@@ -91,6 +91,10 @@ SCHEMA_RELATIVE = "docs/schemas/product-gates/cp.product-gates.json"
 #: Where a product tree keeps its roster, relative to the tree.
 ROSTER_RELATIVE = "artifacts/gates.yaml"
 
+#: Where a product tree keeps its own specification, relative to the tree. A
+#: tree carrying one but no roster is at **Gate 1** — specified, not yet shipped.
+SPEC_RELATIVE = "spec"
+
 #: The schema's own id pattern, generalized from cp-04's ``\bCFT-G[0-9]{2}\b``.
 #: A DIGIT is allowed after the first letter (``D-IMPL-326``): cp-07 declares
 #: ``C36-G01``..``C36-G08`` in its own specification, and a letters-only prefix
@@ -219,6 +223,46 @@ def test_modules_for(root: pathlib.Path, tree: pathlib.Path) -> list[pathlib.Pat
 # ---------------------------------------------------------------------------
 # The artifact
 # ---------------------------------------------------------------------------
+
+
+def is_gate_one(tree: pathlib.Path) -> bool:
+    """Is ``tree`` SPECIFIED but not yet shipped (`D-IMPL-329` follow-on)?
+
+    Dave, 2026-09-11: *"if an example tree has `spec/` but no `gates.yaml`,
+    treat it as Gate 1 / not yet shipped ... do not add a fake `gates.yaml` ...
+    once `gates.yaml` appears, normal product-gate enforcement resumes."*
+
+    cp-08 made the case: `CP-SPEC-008` was authored and approved with no
+    implementation, no tests and — correctly — no roster, and its mere
+    existence under ``examples/cp-*`` turned this checker red. A rung at Gate 1
+    has nothing to declare gates about yet.
+
+    **The test is the SPECIFICATION's presence, never the roster's absence.**
+    Keying on "no roster" alone would let every shipped rung shed its gates and
+    pass; a tree with neither is still reported
+    (``test_a_tree_with_NEITHER_a_spec_NOR_a_roster_is_still_a_problem``). And
+    the exemption ends the moment a roster appears, on the same directory, with
+    no flag to clear
+    (``test_a_gate_one_tree_gains_full_enforcement_the_moment_a_roster_appears``).
+
+    There is no allowlist and none may be added: a tree arms full enforcement by
+    shipping a roster, and reaches Gate 1 by carrying a specification. Both are
+    facts about the tree rather than entries in this file (CINV-01).
+    """
+    if (tree / ROSTER_RELATIVE).is_file():
+        return False
+    spec = tree / SPEC_RELATIVE
+    return spec.is_dir() and any(spec.glob("*.md"))
+
+
+def gate_one_trees(root: pathlib.Path) -> list[pathlib.Path]:
+    """Every product tree currently at Gate 1, in :func:`product_trees` order.
+
+    Read by :func:`main` so a Gate-1 tree is **named in the summary** rather
+    than silently skipped — Dave's *"without teaching people to ignore the
+    target."* A tree that vanishes from the output is a tree nobody revisits.
+    """
+    return [tree for tree in product_trees(root) if is_gate_one(tree)]
 
 
 def load_roster(path: pathlib.Path) -> dict:
@@ -556,7 +600,9 @@ def check_tree(
 
     In order, stopping where nothing further can be read:
 
-    1. no ``artifacts/gates.yaml`` → one problem (`D-IMPL-224` (1));
+    0. a tree carrying a ``spec/`` and no roster is at **Gate 1** and yields
+       nothing — specified, not yet shipped (:func:`is_gate_one`);
+    1. otherwise, no ``artifacts/gates.yaml`` → one problem (`D-IMPL-224` (1));
     2. schema violations, and a roster declaring ZERO gates (`D-IMPL-224` (3));
     3. an unrecognized ``test_naming_convention`` → one problem, and judgment
        STOPS for this tree — no form is defaulted;
@@ -571,6 +617,10 @@ def check_tree(
     tree_name = _display(tree, root)
     roster_path = tree / ROSTER_RELATIVE
     roster = _display(roster_path, root)
+    if is_gate_one(tree):
+        # Specified, not yet shipped. Named in the summary by `main`, never
+        # silently dropped (`D-IMPL-329` follow-on).
+        return []
     if not roster_path.is_file():
         return [
             f"{tree_name}: {ROSTER_RELATIVE} is missing — a shipped cp-* rung"
@@ -753,7 +803,20 @@ def main(argv: list[str] | None = None) -> int:
 
     assert collected is not None
     trees, declared, executing = _summary(root, collected=collected)
-    print(f"checked {trees} product trees, {declared} declared gates, {executing} executing")
+    # A Gate-1 tree is NAMED, never silently skipped: a tree that vanishes from
+    # this output is a tree nobody revisits (`D-IMPL-329` follow-on).
+    pending = [_display(tree, root) for tree in gate_one_trees(root)]
+    shipped = trees - len(pending)
+    line = (
+        f"checked {shipped} shipped product trees,"
+        f" {declared} declared gates, {executing} executing"
+    )
+    if pending:
+        line += (
+            f"; {len(pending)} at Gate 1 — specified, not yet shipped,"
+            f" enforcement resumes when a roster appears: {', '.join(pending)}"
+        )
+    print(line)
     return 0
 
 
