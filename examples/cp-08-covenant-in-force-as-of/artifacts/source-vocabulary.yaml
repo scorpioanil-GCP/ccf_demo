@@ -32,10 +32,13 @@ declaration:
     # predicate belongs to the product, not to today's estate.
     valid_to_predicate: http://example.org/fibo/validTo
 
-    # ASSERTION TIME — when the institution booked it. Measured: all 25
-    # facility amendments in this estate carry one. An amendment without one is
-    # served UNPLACEABLE on this axis rather than assumed booked — the
-    # predicate is the product's, and this estate does not exercise it.
+    # ASSERTION TIME — when the institution booked it. IT IS AN AMENDMENT
+    # PREDICATE; covenants carry none (`CP08-F-03`), which is why it is
+    # declared under the amendment vocabulary and not under the covenant's.
+    # Measured: all 25 facility amendments in this estate carry one. An
+    # amendment without one is served UNPLACEABLE on this axis rather than
+    # assumed booked — the predicate is the product's, and this estate does
+    # not exercise it.
     asserted_at_predicate: http://example.org/fibo/assertedAt
 
     amendment_number_predicate: http://example.org/fibo/amendmentNumber

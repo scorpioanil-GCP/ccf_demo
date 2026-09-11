@@ -132,9 +132,14 @@ class CovenantInForceProjection:
                 continue
 
             # AXIS 2 — ASSERTION TIME. Had the institution booked it by
-            # `known_as_of`? An amendment with NO assertion time is not assumed
-            # booked, because defaulting would make every booking lag vanish.
-            # The predicate is part of the product; measured, all 25 facility
+            # `known_as_of`? THIS CUT APPLIES TO AMENDMENTS AND TO NOTHING
+            # ELSE: `assertedAt` is an amendment field and covenants carry none
+            # (`CP08-F-03`), so the covenant set is identical either side of a
+            # booking gap and must not be filtered here.
+            #
+            # An amendment with NO assertion time is not assumed booked,
+            # because defaulting would make every booking lag vanish. The
+            # predicate is part of the product; measured, all 25 facility
             # amendments in this estate carry a booking date, so this estate
             # does not currently exercise the missing-clock case.
             if not asserted_at:

@@ -37,6 +37,10 @@ import psycopg
 class Amendment:
     """One amendment, carrying both clocks as the source states them.
 
+    **``assertedAt`` is an AMENDMENT field. Covenants do not carry one**
+    (`CP08-F-03`), which is why this product's bitemporal subject is the
+    amendment slice and not the covenant set.
+
     ``asserted_at`` is carried as the source states it and is **not** defaulted
     to ``valid_from``: doing so would make every booking lag vanish and
     manufacture the coincidence this product exists to disprove. Measured, all
