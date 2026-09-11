@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE TWO `D_c` FACTORS THIS PRODUCT DECLARES RATHER THAN COMPUTES.
+#
+# `CP-SPEC-008` §E.2: this product declares no Context Debt metric of its own,
+# and the SDK's REFERENCE assessment applies. That path is deliberately
+# defaultless — `build_governed_resolver` refuses a call that supplies neither
+# a scorer nor the material to build one — because a resolver that could only
+# serve an unscored product is worse than one that will not build.
+#
+# The reference scorer derives FRESHNESS itself, from `ccf_config.yaml`'s
+# `half_life` table and the observations' own ages. The other two are
+# statements only the deployment can make, so they are declared here and passed
+# as resolver arguments.
+#
+# MEASURED 2026-09-11, AND IT IS THE POINT OF THIS FILE'S EXISTENCE RATHER THAN
+# A CAVEAT ON IT: with these declarations in force `D_c` reads 0 on every
+# answer this product serves, freshness included — every observation is minted
+# from a live read inside the run, so it is 1 by construction. This product has
+# no Context Debt signal that moves on this estate, under the reference scorer
+# or any other, and `CP-SPEC-008` §E.2 says so rather than manufacturing one.
+#
+# WHY NOT `ccf_config.yaml`. `DeploymentConfig` is a closed schema and
+# `DebtProfile` forbids extras; neither has a slot for a declared factor, by
+# design — these are arguments to one product's resolver rather than Control
+# Plane state the fabric reads for itself.
+#
+# WHY THIS FILE EXISTS AT ALL, rather than two literals in `produce.py`: the
+# No-Hardcoding Rule (CLAUDE.md §6.4). A threshold expressed as a code constant
+# is the defect this project lints for; a value a reader must be able to audit
+# belongs where they will look for it.
+
+semver: "1.0.0"
+class_id: cp-08.debt-declaration
+
+declaration:
+  # Every amendment the valid-time bound admitted reached L3. `Π` then excludes
+  # some on the ASSERTION axis, and that is a GOVERNED ANSWER rather than a
+  # shortfall — the exclusion record names the axis and the reason (`CIF-G06`).
+  completeness: "1"
+
+  # Measured 2026-09-11: all 25 facility amendments in this estate carry both
+  # an effective date and a booking date, so there is no population this
+  # product serves without being able to place it on the assertion axis.
+  #
+  # THIS IS A DECLARATION ABOUT A MEASURED ESTATE, NOT A FORMULA. An earlier
+  # draft computed it per run as `placeable ÷ served` and reported it as a
+  # finding; the ratio was 1 on every facility and the debt 0 on every answer,
+  # because the 112 clockless `amends` edges that motivated it point at trades
+  # and lifecycle events this product never reads. `spec/MEASUREMENT-NOTE.md`
+  # §2 records the correction and the rule it produced: a count is only as good
+  # as the population it ranged over.
+  #
+  # An estate whose FACILITY amendments lacked booking dates would lower this,
+  # and a product-specific metric would then be specified against that measured
+  # population rather than inferred from the ledger at large.
+  semantic_consistency: "1"

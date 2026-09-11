@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# HOW THE TWO SOURCE STORES ARE REACHED, AND WHERE THE FABRIC'S OWN L3 LIVES.
+#
+# VARIABLE NAMES ONLY. No host, no port, no path, no credential appears here —
+# a connection value in a content-hashed document is a secret in the tree and a
+# deployment nobody can move. Every setting names the environment variable that
+# supplies it and the remedy when it is unset.
+
+semver: "1.0.0"
+class_id: cp-08.backend-profiles
+
+declaration:
+  profiles:
+    sqlite:
+      settings:
+        database_path:
+          per_run: path
+          prefix: cp_08_covenant_in_force
+          suffix: .sqlite3
+
+  sources:
+    covenant_graph:
+      settings:
+        url:
+          from_env: CCF_CP_08_FLUREE_URL
+          remedy: >-
+            export CCF_CP_08_FLUREE_URL with the base URL of a READ-ONLY Fluree
+            server carrying the covenant ledger. This example issues only
+            `/v1/fluree/query` and `GET /v1/fluree/ledgers`; it never creates,
+            updates, amends or deletes a ledger. The estate is append-only, so
+            a seeded assertion is PERMANENT — see CLAUDE.md §9.
+        ledger:
+          from_env: CCF_CP_08_FLUREE_LEDGER
+          remedy: >-
+            export CCF_CP_08_FLUREE_LEDGER with the ledger name to read —
+            `fibo-v2`, the v2 namespace, NEVER the v1 `fibo:main` that
+            `ccf_dataprep/.env` names. Every query carries an explicit
+            `FROM <ledger>` and there is no default.
+
+    covenant_attributes:
+      settings:
+        dsn:
+          from_env: CCF_CP_08_POSTGRES_DSN
+          remedy: >-
+            export CCF_CP_08_POSTGRES_DSN with a READ-ONLY PostgreSQL DSN for
+            the estate. This example issues parameterised SELECTs only.
+        schema:
+          from_env: CCF_CP_08_POSTGRES_SCHEMA
+          remedy: >-
+            export CCF_CP_08_POSTGRES_SCHEMA with the schema to read —
+            `ccf_v2`, NEVER `public`. The namespaces are declared in
+            `ccf_dataprep/ccf/config.py` and are NOT in `.env`; deriving them
+            from `.env` alone silently points the run at the v1 estate.

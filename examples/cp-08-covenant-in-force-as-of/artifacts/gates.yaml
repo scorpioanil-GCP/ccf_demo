@@ -1,0 +1,140 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE DECLARED PRODUCT GATES OF cp-08 — TWELVE OF THE THIRTEEN `CP-SPEC-008`
+# §G.1 NAMES, and the thirteenth is named below rather than quietly absent.
+#
+# A product's gates are a declared artifact plus CI coverage: each id below has
+# an EXECUTING test, and the checker resolves the chain — the specification
+# exists, §G.1 exists in it, and the gate's own id appears in that clause.
+#
+# WHAT IS NOT HERE, AND WHY:
+#
+#   `CIF-G15` — a closed as-of answer carries the long TTL and a live one the
+#   short TTL. Specified in §E.3 and NOT BUILT. Where *closed* ends and *live*
+#   begins is an operator's policy decision rather than one this deployment may
+#   take, so the behavior was not invented in order to have something to gate.
+#   It is carried open; a roster entry would claim coverage that does not exist.
+#
+#   `CIF-G07`, `CIF-G13` and `CIF-G14` are gaps in §G.1's own numbering and
+#   the ids are not reused. G07 and G14 were specified against a population
+#   this estate does not contain. G13 asserted the replay property `CIF-G16`
+#   now carries, but read it from an attribute the lineage contract does not
+#   have, so its subset test could not fail; the obligation is restated under
+#   a new id rather than repaired under the old one.
+#
+# `observed_red` is `null` on every gate and is REQUIRED as a key: a gate nobody
+# has watched fail is visibly outstanding here rather than absent. Four of the
+# mechanisms below HAVE been watched failing under deliberate sabotage during
+# the build (the assertion-time filter, the shared axis token, the unversioned
+# label, and acquisition ignoring the resolved `as_of`), and `CIF-G05` and
+# `CIF-G16` each carry their own two-limb sabotage in the test itself — but a
+# sabotage run by hand is not the recorded observation this field asks for, so
+# it stays null.
+
+semver: 1.0.0
+class_id: cp-08.product-gates
+declaration:
+  product: credit-risk.covenant-in-force
+  test_naming_convention: the gate id appears in the executing test's docstring, as a `Declared
+    product gate` line naming the CP-SPEC clause that approves it.
+  gates:
+  - id: CIF-G01
+    statement: a later `as_of` admits no fewer amendments than an earlier one, `known_as_of`
+      held
+    spec_clause:
+      document: spec/CP-SPEC-008_Covenant_In_Force_As_Of.md
+      clause: G.1
+    test: tests/examples/test_cp_08_output.py::test_a_later_as_of_admits_no_fewer_amendments
+    sabotage: widen the window and admit fewer
+    observed_red: null
+  - id: CIF-G02
+    statement: a later `known_as_of` admits no fewer amendments than an earlier one, `as_of`
+      held
+    spec_clause:
+      document: spec/CP-SPEC-008_Covenant_In_Force_As_Of.md
+      clause: G.1
+    test: tests/examples/test_cp_08_output.py::test_a_later_known_as_of_admits_no_fewer_amendments
+    sabotage: apply the assertion-time bound in the wrong direction
+    observed_red: null
+  - id: CIF-G03
+    statement: across a booking gap, `as_of` held and `known_as_of` varied admits DIFFERENT
+      amendment sets
+    spec_clause:
+      document: spec/CP-SPEC-008_Covenant_In_Force_As_Of.md
+      clause: G.1
+    test: tests/examples/test_cp_08_output.py::test_moving_known_as_of_alone_changes_the_admitted_set
+    sabotage: drop the assertion-time filter so both instants answer alike
+    observed_red: null
+  - id: CIF-G04
+    statement: every admitted amendment satisfies both temporal filters
+    spec_clause:
+      document: spec/CP-SPEC-008_Covenant_In_Force_As_Of.md
+      clause: G.1
+    test: tests/examples/test_cp_08_output.py::test_every_admitted_amendment_satisfies_BOTH_filters
+    sabotage: admit an amendment that fails one bound
+    observed_red: null
+  - id: CIF-G05
+    statement: a set whose coherence is violated is refused by the declared gate
+    spec_clause:
+      document: spec/CP-SPEC-008_Covenant_In_Force_As_Of.md
+      clause: G.1
+    test: tests/examples/test_cp_08_output.py::test_an_incoherent_answer_is_refused_by_the_declared_gate
+    sabotage: serve an amendment whose effective date is after `as_of`
+    observed_red: null
+  - id: CIF-G06
+    statement: the exclusion record names which axis excluded each omitted amendment
+    spec_clause:
+      document: spec/CP-SPEC-008_Covenant_In_Force_As_Of.md
+      clause: G.1
+    test: tests/examples/test_cp_08_output.py::test_every_excluded_amendment_carries_an_axis_and_a_reason
+    sabotage: give both axes one exclusion token
+    observed_red: null
+  - id: CIF-G08
+    statement: re-serving at a recorded transaction point reproduces the content address
+    spec_clause:
+      document: spec/CP-SPEC-008_Covenant_In_Force_As_Of.md
+      clause: G.1
+    test: tests/examples/test_cp_08_output.py::test_re_serving_at_a_recorded_transaction_point_reproduces_the_answer
+    sabotage: ignore the supplied pin and read the head
+    observed_red: null
+  - id: CIF-G09
+    statement: the transaction point is lineage, not product identity
+    spec_clause:
+      document: spec/CP-SPEC-008_Covenant_In_Force_As_Of.md
+      clause: G.1
+    test: tests/examples/test_cp_08_output.py::test_the_transaction_point_is_lineage_and_not_product_identity
+    sabotage: fold the transaction point into the payload
+    observed_red: null
+  - id: CIF-G10
+    statement: '`include_superseded` and `evaluate_headroom` are refused by name with their
+      declared reasons'
+    spec_clause:
+      document: spec/CP-SPEC-008_Covenant_In_Force_As_Of.md
+      clause: G.1
+    test: tests/examples/test_cp_08_output.py::test_a_declared_and_inert_parameter_is_refused_by_name
+    sabotage: honor a declared-and-inert parameter
+    observed_red: null
+  - id: CIF-G11
+    statement: an unresolvable `facility_id` refuses; it does not return an empty set
+    spec_clause:
+      document: spec/CP-SPEC-008_Covenant_In_Force_As_Of.md
+      clause: G.1
+    test: tests/examples/test_cp_08_output.py::test_an_unresolvable_facility_refuses_rather_than_returning_nothing
+    sabotage: return an empty covenant set for an unknown facility
+    observed_red: null
+  - id: CIF-G12
+    statement: the served covenants are labelled unversioned
+    spec_clause:
+      document: spec/CP-SPEC-008_Covenant_In_Force_As_Of.md
+      clause: G.1
+    test: tests/examples/test_cp_08_output.py::test_the_covenants_are_served_and_labelled_unversioned
+    sabotage: flip the unversioned label
+    observed_red: null
+  - id: CIF-G16
+    statement: every policy bundle the product cites is carried by the decision record, and it cites at least one
+    spec_clause:
+      document: spec/CP-SPEC-008_Covenant_In_Force_As_Of.md
+      clause: G.1
+    test: tests/examples/test_cp_08_output.py::test_the_product_policy_lineage_is_carried_by_the_decision_record
+    sabotage: strike the cited bundle versions from the record, and separately empty the product's lineage set — both applied in-test to the shipped predicate
+    observed_red: null

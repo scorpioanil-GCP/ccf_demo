@@ -1191,12 +1191,41 @@ def test_a_gate_one_tree_gains_full_enforcement_the_moment_a_roster_appears(
     assert any("no executing test" in p for p in problems), problems
 
 
-def test_the_real_repository_reports_cp_08_as_gate_one() -> None:
-    """Where the rule actually has to hold, and why it was written."""
-    from tools.check_product_gates import gate_one_trees
+def test_the_real_repository_agrees_with_the_rule() -> None:
+    """The rule, measured where it has to hold — and NOT anchored to one tree.
 
-    named = {p.name for p in gate_one_trees(REPO_ROOT)}
-    assert "cp-08-covenant-in-force-as-of" in named
-    assert "cp-04-canonical-corporate-family-tree" not in named, (
-        "a tree carrying BOTH a spec and a roster is shipped, not Gate 1"
+    An earlier version of this test named `cp-08-covenant-in-force-as-of` as
+    the Gate-1 tree. That pinned a state the feature exists to let a tree LEAVE:
+    cp-08 shipped a roster and the assertion went red for the one reason that
+    should never make a gate red — the thing it guards working correctly.
+
+    What holds at every moment, whatever the ladder contains, is the partition
+    itself: a tree is at Gate 1 exactly when it carries a specification and no
+    roster, and a tree carrying a roster is shipped and fully enforced. That is
+    asserted over whatever trees exist rather than over a roster of names.
+    """
+    from tools.check_product_gates import (  # noqa: PLC0415
+        ROSTER_RELATIVE,
+        SPEC_RELATIVE,
+        gate_one_trees,
+        product_trees,
     )
+
+    trees = product_trees(REPO_ROOT)
+    assert trees, "no product tree found at all, so this proves nothing"
+    pending = set(gate_one_trees(REPO_ROOT))
+
+    for tree in trees:
+        has_roster = (tree / ROSTER_RELATIVE).is_file()
+        spec = tree / SPEC_RELATIVE
+        has_spec = spec.is_dir() and any(spec.glob("*.md"))
+        if tree in pending:
+            assert has_spec and not has_roster, (
+                f"{tree.name} is treated as Gate 1 without being"
+                f" specified-and-unrostered (spec={has_spec}, roster={has_roster})"
+            )
+        else:
+            assert has_roster or not has_spec, (
+                f"{tree.name} carries a specification and no roster but is not"
+                " treated as Gate 1"
+            )
