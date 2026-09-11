@@ -189,21 +189,122 @@ def test_a_render_the_contract_does_not_declare_refuses() -> None:
         RelativeDefault(offset_seconds=ONE_FIXTURE_YEAR, render="epoch")
 
 
-@pytest.mark.parametrize("offset", [0, 1, 31_536_000])
-def test_a_non_negative_offset_refuses_and_names_the_alternative(
-    offset: int,
-) -> None:
-    """``0`` refuses BY NAME, directing the author to an ordinary default.
+@pytest.mark.parametrize("offset", [1, 86_400, 31_536_000])
+def test_a_POSITIVE_offset_refuses(offset: int) -> None:
+    """A default in the future describes no window a caller could have observed.
 
-    Dave, ``D-IMPL-325``: *"``offset_seconds`` must be negative. ``0`` refuses
-    by name; use an ordinary literal default instead."* A zero offset is not a
-    relative window — it is ``asked_at`` itself, which ``defaults`` already
-    expresses without a rule; and a positive offset is a default in the
-    future, which is not a window over anything that has happened.
+    This is the half of the original rule that survives ``D-IMPL-328``. The
+    other half — that ``0`` refuses — was measured wrong from the other side
+    and is now the identity offset; see the zero-offset section below.
     """
     with pytest.raises(ValueError) as refusal:
         RelativeDefault(offset_seconds=offset, render="date")
-    assert "defaults" in str(refusal.value)
+    assert "positive" in str(refusal.value)
+
+
+# --- the identity offset (`D-IMPL-328`) --------------------------------------
+#
+# `0` was refused until `CP-SPEC-008` measured the original reading wrong from
+# the other side. A bitemporal product's `as_of` and `known_as_of` default to
+# *today* and *now* — the request's own instant, unchanged — and the literal
+# `defaults` surface cannot express that, because any date written there ages
+# (`CP07-F-03`). The two available moves were to admit `0` or to let the
+# deployment inject `asked_at` in code; the second puts a governance value back
+# in the spine (`D-IMPL-315`).
+#
+# **What must hold is that zero is ordinary.** Not a special case with its own
+# path, its own authority, or its own replay treatment — the same branch, the
+# same pin, the same recorded literal, with the arithmetic an identity.
+
+
+def test_a_zero_offset_is_accepted_and_means_the_instant_unchanged() -> None:
+    """The identity offset, and it is the whole point of ``D-IMPL-328``."""
+    spec = RelativeDefault(offset_seconds=0, render="date")
+    assert spec.resolve(INSTANT) == INSTANT.date().isoformat()
+    assert RelativeDefault(offset_seconds=0, render="timestamp").resolve(
+        INSTANT
+    ) == INSTANT.isoformat()
+
+
+def test_a_zero_offset_resolves_with_authority_default_like_any_other() -> None:
+    """It is a DEFAULT, not a caller value and not a deployment-injected one.
+
+    The authority is what a later examiner reads to know who decided the
+    instant. A zero offset that resolved with any other authority — or with no
+    provenance — would be `asked_at` smuggled in wearing a default's name.
+    """
+    contract = _contract(
+        relative_defaults={SINCE: RelativeDefault(offset_seconds=0, render="date")}
+    )
+    outcome = _resolve(contract, _request())
+    assert outcome.refusal is None
+    resolved = _effective(outcome, SINCE)
+    assert resolved.authority == "default"
+    assert resolved.source == DECLARED_SOURCE
+    assert resolved.value == INSTANT.date().isoformat()
+
+
+def test_a_zero_offset_still_MOVES_with_the_question() -> None:
+    """The property that makes it relative rather than a literal.
+
+    A literal `defaults` entry holding today's date would answer the same
+    string tomorrow. This must not: two instants, two values, from one
+    declaration that never changed.
+    """
+    contract = _contract(
+        relative_defaults={SINCE: RelativeDefault(offset_seconds=0, render="date")}
+    )
+    later = _request().model_copy(update={"asked_at": INSTANT + timedelta(days=9)})
+    first = _effective(_resolve(contract, _request()), SINCE).value
+    second = _effective(_resolve(contract, later), SINCE).value
+    assert second > first
+
+
+def test_a_zero_offset_records_the_resolved_literal_and_no_offset() -> None:
+    """Replay carries the instant it served, never the rule — zero included."""
+    from ccf.contracts.canonical import canonical_bytes  # noqa: PLC0415
+
+    contract = _contract(
+        relative_defaults={SINCE: RelativeDefault(offset_seconds=0, render="date")}
+    )
+    served = _resolve(contract, _request())
+    assert _effective(served, SINCE).value == INSTANT.date().isoformat()
+    rendered = canonical_bytes(served.evidence).decode("utf-8")
+    assert "offset_seconds" not in rendered
+
+    # And the control that separates "the rule is absent" from "nothing is
+    # there": the resolved instant IS present, so the absence above is a claim
+    # about the offset rather than about an empty record.
+    assert INSTANT.date().isoformat() in rendered
+
+
+def test_a_caller_value_still_beats_a_zero_offset() -> None:
+    """Zero is a default, and a default never competes with a stated value."""
+    contract = _contract(
+        relative_defaults={SINCE: RelativeDefault(offset_seconds=0, render="date")}
+    )
+    stated = "2019-01-01"
+    resolved = _effective(_resolve(contract, _request(**{SINCE: stated})), SINCE)
+    assert resolved.authority == "caller"
+    assert resolved.value == stated
+
+
+def test_zero_and_a_negative_offset_are_two_contract_identities() -> None:
+    """Admitting zero did not make it hash-invisible.
+
+    A contract defaulting to the request instant and one defaulting to a year
+    back are different governed questions and must not share an address.
+    """
+    identity = _contract(
+        relative_defaults={SINCE: RelativeDefault(offset_seconds=0, render="date")}
+    )
+    year = _contract(
+        relative_defaults={
+            SINCE: RelativeDefault(offset_seconds=ONE_FIXTURE_YEAR, render="date")
+        }
+    )
+    assert content_hash(identity) != content_hash(year)
+    assert content_hash(identity) != content_hash(_contract())
 
 
 # --- (b) what the declaration refuses ----------------------------------------

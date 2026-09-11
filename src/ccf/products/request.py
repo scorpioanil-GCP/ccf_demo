@@ -556,11 +556,17 @@ class RelativeDefault(CCFContract):
 
     Attributes:
         offset_seconds: How far from ``asked_at`` the default lies, in
-            seconds. **Must be negative.** A window reaches into what has
-            happened; ``0`` is not a relative default at all but ``asked_at``
-            itself, which :attr:`ProductRequestContract.defaults` already
-            expresses without a rule, and a positive offset is a default in
-            the future. Both refuse at construction, naming the alternative.
+            seconds. **Zero or negative**; a positive offset refuses at
+            construction, because a default in the future describes no window
+            a caller could have observed.
+
+            **``0`` is the identity offset and means the request's own instant,
+            unchanged** (``D-IMPL-328``). It is what *today* and *now* mean as
+            defaults, and `ProductRequestContract.defaults` cannot express them
+            — a literal date written there is a date that ages, which is the
+            defect ``CP07-F-03`` measured. Zero resolves through this same
+            branch against the same ``asked_at``, records the same authority
+            and the same pin, and lands in replay as the same resolved literal.
         render: The form the resolved value takes — ``"date"`` for the
             calendar day, ``"timestamp"`` for the full instant. **Declared,
             never inferred** (``D-IMPL-325`` ruling 3, Dave: *"Do not infer
@@ -573,24 +579,41 @@ class RelativeDefault(CCFContract):
     render: Literal["date", "timestamp"]
 
     @model_validator(mode="after")
-    def _the_offset_reaches_into_what_has_happened(self) -> "RelativeDefault":
-        """Refuse a non-negative offset, naming what to use instead.
+    def _the_offset_does_not_reach_into_the_future(self) -> "RelativeDefault":
+        """Refuse a POSITIVE offset. Zero is admitted, and means the instant itself.
 
-        The message names ``defaults`` because the author of a ``0`` offset
-        has not made a mistake about the arithmetic — they have written a
-        relative default that is not relative, and the surface that already
-        expresses it is one field over.
+        **``0`` was refused until ``D-IMPL-328`` and is now the identity
+        offset.** The original reading was that a zero offset *"is not a
+        relative window"* and belonged in :attr:`ProductRequestContract.defaults`
+        as a literal. ``CP-SPEC-008`` measured that reading wrong from the other
+        side: a bitemporal product's ``as_of`` and ``known_as_of`` default to
+        *today* and *now*, which is precisely ``asked_at`` **unchanged** — and
+        the literal surface cannot express it, because any date written there is
+        a date that ages. The two available moves were to admit ``0`` or to let
+        the deployment inject ``asked_at`` in code, and the second puts a
+        governance value back in the spine (``D-IMPL-315``).
+
+        **Zero is a relative default in every respect that matters.** It
+        resolves through the same branch, against the same ``request.asked_at``,
+        at the same point in the resolution; it records the same authority
+        ``default`` with the same contract pin; and it lands in replay as the
+        same resolved literal. What is recorded is the rendered instant, never
+        the offset — so a decision replays against the day it was served, not
+        against the day it is replayed. Nothing about it is a special case
+        except the arithmetic being an identity.
+
+        A **positive** offset is still refused, and for the reason that always
+        applied: a default in the future is not a window over anything that has
+        happened.
         """
-        if self.offset_seconds < 0:
+        if self.offset_seconds <= 0:
             return self
         raise ValueError(
             f"a relative default declares offset_seconds={self.offset_seconds},"
-            " and an offset must be negative: a default window reaches into"
-            " what has already happened. An offset of 0 is the request's own"
-            " asked_at, and a positive offset is a default in the future —"
-            " neither is a relative window, and a value that does not move"
-            " with the question belongs in the contract's `defaults` as a"
-            " literal (D-IMPL-325)"
+            " and an offset may not be positive: a default reaches into what"
+            " has already happened, or — at 0 — names the request's own instant"
+            " unchanged. A future default describes no window a caller could"
+            " have observed (D-IMPL-325, D-IMPL-328)"
         )
 
     def resolve(self, asked_at: datetime) -> str:
