@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1035 entries**, of which **791** name a public Python surface.
+**1039 entries**, of which **795** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-503 entries — 463 public Python surface, 40 not public Python API.
+504 entries — 464 public Python surface, 40 not public Python API.
 
 ### Public Python surface
 
@@ -9205,6 +9205,18 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `24.11-06-a-declared-number-crosses-the-wire.md`.*
 
+#### ccf.products.request.RelativeDefault
+
+- Surface: ccf.products.request.RelativeDefault
+- Public surface: true
+- Change type: added
+- Before: absent — a request contract could declare only literal defaults, so a relative window had to be authored as an absolute date that ages, or computed in deployment code (a governance value back in the spine, and a second authority for one bound — `D-IMPL-315`)
+- After: a typed sub-contract carrying `offset_seconds: int` (negative; the SDK's existing duration vocabulary, per `HalfLifeEntry.half_life_seconds`) and `render: Literal["date", "timestamp"]` (declared, never inferred from JSON Schema `type: string`), plus `resolve(asked_at)` returning the literal that instant means
+- Why: a default that ages silently is a governance value nobody can see drift; declaring the offset keeps the value a Control Plane artifact and keeps it honest on every day the product is asked
+- Migration: none required — `ProductRequestContract.relative_defaults` defaults to the empty mapping, which is what every existing contract declares and hashes as. To adopt, move a literal date default into `relative_defaults` as an offset and a render; a parameter may appear in `defaults` or `relative_defaults`, never both
+
+*Recorded by `325-01-relative-request-defaults.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -9858,9 +9870,70 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-383 entries — 199 public Python surface, 184 not public Python API.
+386 entries — 202 public Python surface, 184 not public Python API.
 
 ### Public Python surface
+
+#### ccf.products.contract.ProductLineage
+
+- Surface: ccf.products.contract.ProductLineage
+- Public surface: true
+- Change type: reshaped
+- Before: four fields — `operators_invoked`, `policy_bundle_versions`,
+  `graph_snapshot_at`, and `store_snapshot_pin: StoreSnapshotPin =
+  NO_STORE_SNAPSHOT_PIN` added by `24.5-03` under `24.5-L-02`
+- After: the three fields the Phase-15 baseline froze. The head is not here;
+  it is on replay dimension 1
+- Why: `D-IMPL-309`, on `MOD-05` — an ambient ledger head inside the address
+  made the same governed question seal to two addresses
+- Migration: a deployment that passed `store_snapshot_pin=` to `ProductLineage`
+  is refused by name (`extra=forbid`) rather than having the value dropped,
+  and reads the head from the replay record instead. Deployments that seal
+  whole-vessel content addresses re-seal them once — and get address stability
+  across unrelated ledger movement in exchange. This returns the signature to
+  the frozen baseline's, so the name leaves the diff entirely; the round trip
+  is `24.5-03` out and this entry back
+
+*Recorded by `24.11-D-IMPL-309-the-store-head-leaves-the-sealed-answer.md`.*
+
+#### ccf.products.contract.ComputedEmptyFinding
+
+- Surface: ccf.products.contract.ComputedEmptyFinding
+- Public surface: true
+- Change type: reshaped
+- Before: five fields, including a required `store_snapshot_pin:
+  StoreSnapshotPin` so an examiner could re-issue the same search against the
+  same state
+- After: four — `operators_returned_empty`, `operators_invoked`, `plan_id`,
+  `emptiness`. `ComputedEmptyFinding.of()` no longer reads
+  `execution.store_snapshot_pin`
+- Why: `D-IMPL-309` — two identical searches under two ambient heads are one
+  finding, not two; the state searched is recorded on dimension 1, which the
+  product's replay reference resolves
+- Migration: the keyword is refused by name; read the head from the record
+
+*Recorded by `24.11-D-IMPL-309-the-store-head-leaves-the-sealed-answer.md`.*
+
+#### ccf.products.refusal.RefusalEvidence
+
+- Surface: ccf.products.refusal.RefusalEvidence
+- Public surface: true
+- Change type: reshaped
+- Before: `operators_invoked`, `plan_id`, a required `store_snapshot_pin`, and
+  the two optional members. The pin was deliberately defaultless so that "a
+  pin defaulted here would let a caller build evidence that quietly claims a
+  substrate exposed no head when in fact the caller forgot to say"
+- After: the pin is gone. That reasoning was right and is why the field could
+  not simply be given a default — it was answered by moving the field rather
+  than by defaulting it, and the guarantee now lives where the head is
+  recorded per execution
+- Why: `D-IMPL-309` — a refusal's canonical bytes are its address, its stored
+  form and its wire form, and a head sealed there made two identical searches
+  two refusals
+- Migration: the keyword is refused by name; the shell's `replay_reference`
+  resolves the record that carries the head
+
+*Recorded by `24.11-D-IMPL-309-the-store-head-leaves-the-sealed-answer.md`.*
 
 #### ccf.products.request.ProductRequestViolationReason
 

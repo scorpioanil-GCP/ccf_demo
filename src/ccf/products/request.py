@@ -95,7 +95,7 @@ Algorithmic module (CINV-03).
 from __future__ import annotations
 
 from collections.abc import Mapping
-from datetime import datetime
+from datetime import datetime, timedelta
 import re
 from decimal import Decimal
 from typing import Final, TYPE_CHECKING, Any, Literal
@@ -164,6 +164,7 @@ __all__ = [
     "ProductRequestContract",
     "ProductRequestViolation",
     "ProductRequestViolationReason",
+    "RelativeDefault",
     "refuse_intent",
     "decode_declared_request",
     "refuse_request",
@@ -514,6 +515,106 @@ class ArgumentDomain(CCFContract):
         return None
 
 
+class RelativeDefault(CCFContract):
+    """A default declared as an offset from the request's own ``asked_at``.
+
+    **SDK-defined** (CLAUDE.md §11); the ruling of record is ``D-IMPL-325``
+    (Dave, 2026-09-10), on the gap ``examples/cp-07-client-360-coverage-graph``
+    measured as ``CP07-F-03``. The whitepaper hook is §6.3 **Addressability**
+    (``docs/CCF_Whitepaper_1-2.md:1465``), the same one
+    :class:`ArgumentDomain` attaches to: what a class takes when a caller
+    omits a parameter is part of the interface the caller queries by name.
+
+    **The defect it closes is a value that ages silently.**
+    ``CP-SPEC-007`` §B.2 declares a ``since`` default of *minus 365 days*.
+    :attr:`ProductRequestContract.defaults` holds literal values, so the
+    artifact could only carry an absolute date — which on the day it is
+    written means one window and a year later means another, with the fan-out
+    growing and nothing anywhere saying the default drifted. The alternative
+    an adopter reaches for next is worse: computing the date in deployment
+    code puts a governance value back in the spine and gives the deployment a
+    second authority for one bound, which is the shape ``D-IMPL-315`` exists
+    to keep out.
+
+    **What it is NOT.** It is not a rule the fabric carries forward. The
+    resolution computes the value once, against the instant of the question,
+    and what lands in the Decision Replay record is that **literal** under
+    authority ``default`` with this contract's own pin — never the offset.
+    Dave, verbatim: *"Replay records the resolved absolute value and
+    ``authority=default``, not a rule that gets recomputed later."* A rule
+    re-evaluated at replay time would make one decision answer differently on
+    two days, which is exactly the determinism the five-dimension record
+    exists to hold.
+
+    **Why the offset is seconds and nothing friendlier** (``D-IMPL-325``
+    ruling 2, Dave: *"Reuse the SDK's existing duration vocabulary. No
+    ``days`` convenience field and no ISO-duration parser."*). A duration in
+    an artifact is already spelled one way in this SDK —
+    :attr:`~ccf.halflife.decay.HalfLifeEntry.half_life_seconds` — and a second
+    spelling would be a second thing to keep in agreement, plus (for the ISO
+    form) a parser and the failure mode that comes with one.
+
+    Attributes:
+        offset_seconds: How far from ``asked_at`` the default lies, in
+            seconds. **Must be negative.** A window reaches into what has
+            happened; ``0`` is not a relative default at all but ``asked_at``
+            itself, which :attr:`ProductRequestContract.defaults` already
+            expresses without a rule, and a positive offset is a default in
+            the future. Both refuse at construction, naming the alternative.
+        render: The form the resolved value takes — ``"date"`` for the
+            calendar day, ``"timestamp"`` for the full instant. **Declared,
+            never inferred** (``D-IMPL-325`` ruling 3, Dave: *"Do not infer
+            semantics from JSON Schema ``type: string``."*). JSON Schema has
+            no date type, so both forms arrive as ``string`` and an inferring
+            reader would have one declared type meaning two things.
+    """
+
+    offset_seconds: int
+    render: Literal["date", "timestamp"]
+
+    @model_validator(mode="after")
+    def _the_offset_reaches_into_what_has_happened(self) -> "RelativeDefault":
+        """Refuse a non-negative offset, naming what to use instead.
+
+        The message names ``defaults`` because the author of a ``0`` offset
+        has not made a mistake about the arithmetic — they have written a
+        relative default that is not relative, and the surface that already
+        expresses it is one field over.
+        """
+        if self.offset_seconds < 0:
+            return self
+        raise ValueError(
+            f"a relative default declares offset_seconds={self.offset_seconds},"
+            " and an offset must be negative: a default window reaches into"
+            " what has already happened. An offset of 0 is the request's own"
+            " asked_at, and a positive offset is a default in the future —"
+            " neither is a relative window, and a value that does not move"
+            " with the question belongs in the contract's `defaults` as a"
+            " literal (D-IMPL-325)"
+        )
+
+    def resolve(self, asked_at: datetime) -> str:
+        """The literal this default means for a question asked at ``asked_at``.
+
+        Pure and total over its argument, and it **reads no clock** — the
+        instant is supplied, which is what lets replay feed the recorded
+        boundary through this same code path and get the same string back.
+
+        Args:
+            asked_at: The decision instant, zone-aware. Supplied by the
+                resolution from :attr:`ProductRequest.asked_at`; this method
+                never observes one.
+
+        Returns:
+            The ISO-8601 rendering declared by :attr:`render` — the calendar
+            day, or the full instant including its offset from UTC.
+        """
+        moment = asked_at + timedelta(seconds=self.offset_seconds)
+        if self.render == "date":
+            return moment.date().isoformat()
+        return moment.isoformat()
+
+
 class ProductRequestContract(VersionedArtifact):
     """The questions one product class answers, as a Control Plane artifact.
 
@@ -596,6 +697,53 @@ class ProductRequestContract(VersionedArtifact):
             parameter the class does not honor would widen the closed request
             world by omission, which is the one thing this artifact exists to
             keep shut.
+        relative_defaults: The value each parameter takes when the caller
+            omits it, declared **as an offset from the request's own**
+            ``asked_at`` rather than as a literal (``D-IMPL-325``, on the gap
+            cp-07 measured as ``CP07-F-03``). A window declared here does not
+            age: a product whose default is *the last year* says so, and means
+            the last year on every day it is asked, instead of meaning an
+            absolute date that quietly widens.
+
+            **A separate field rather than a marker object inside**
+            ``defaults`` (``D-IMPL-325`` ruling 1, Dave: *"Keep ``defaults``
+            literal-only and add ``relative_defaults``. Do not overload
+            ``defaults`` with marker objects."*). The two say the same kind of
+            thing — what omission means — in two registers, and a literal
+            surface that sometimes carries a rule is a surface no reader can
+            judge by its declared type.
+
+            **A parameter appears in exactly one of the two.** Both would be
+            two documents saying what omission means for one parameter with no
+            rule ordering them, which is the shape ``D-IMPL-315`` keeps out;
+            it is refused here, where the author can still fix it.
+
+            Refused at declaration for the sibling reasons ``defaults`` is
+            refused — a name the class never declared, a name the class
+            declares and always refuses, a name already carrying a literal
+            default — and for one of its own: a ``render`` the declared
+            argument's type cannot hold. Both renders produce a string, so a
+            parameter declared ``integer`` cannot take one. Every offender is
+            named in one message, on this class's own precedent.
+
+            **The declared domain is deliberately NOT checked here**
+            (``D-IMPL-325``, Dave ruling against the option offered: *"Do not
+            forbid ``relative_defaults`` when an ``argument_domain``
+            exists."*). A relative default's value does not exist until
+            ``asked_at`` does, so there is nothing for
+            :meth:`ArgumentDomain.refuses` to judge at declaration time. The
+            resolved value is judged instead — by the same
+            :func:`refuse_request` comparison that judges every effective
+            value, at the resolution's conformity step — so a computed date
+            outside its governed domain is a request-time refusal and not an
+            escape. Dave: *"That is not weaker governance; the value simply
+            does not exist until ``asked_at`` exists."*
+
+            Hash-transparent at the empty mapping (``D-IMPL-243``), so every
+            contract written before this field keeps its content address; any
+            populated mapping renders and therefore **changes the contract
+            hash**, because two products with different relative-window rules
+            must not share one contract identity.
         capability_bindings: Which declared parameter each **technical**
             capability bounds — parameter name to the SDK's own capability
             token (``D-IMPL-253`` Q21, Dave: *"100 is the genuine technical
@@ -623,6 +771,9 @@ class ProductRequestContract(VersionedArtifact):
         default_factory=dict, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
     defaults: Mapping[str, Any] = Field(
+        default_factory=dict, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    relative_defaults: Mapping[str, RelativeDefault] = Field(
         default_factory=dict, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
     capability_bindings: Mapping[str, str] = Field(
@@ -851,6 +1002,65 @@ class ProductRequestContract(VersionedArtifact):
             "request world by omission (24.6-L-07, D-IMPL-98, D-IMPL-253 Q2)"
         )
 
+    @model_validator(mode="after")
+    def _every_relative_default_names_one_parameter_it_can_fill(
+        self,
+    ) -> "ProductRequestContract":
+        """Refuse a relative default the class cannot honor, naming every offender.
+
+        Four ways a declared relative default is not one (``D-IMPL-325``),
+        checked together on the ``defaults`` validator's precedent: a name the
+        class never declared; a name the class declares and **always refuses**
+        (a default for a parameter the tier step never lets through fills
+        nothing); a name that **also** carries a literal default (two
+        authorities over one bound, ``D-IMPL-315``); and a ``render`` the
+        declared argument's type cannot hold — both renders produce a string,
+        so a parameter declared with any other type could never take one.
+
+        **The declared domain is not among them, by ruling.** A relative
+        default's value does not exist until ``asked_at`` does, so the
+        contradiction check the sibling validator runs over ``defaults`` has
+        nothing to read here. The resolved value faces
+        :func:`refuse_request` at the resolution's conformity step exactly as
+        a caller's value does.
+        """
+        if not self.relative_defaults:
+            return self
+
+        undeclared = sorted(
+            name
+            for name in self.relative_defaults
+            if name not in self.arguments.properties
+        )
+        inert = sorted(
+            name
+            for name in self.relative_defaults
+            if name in self.unsupported_arguments
+        )
+        doubly_declared = sorted(
+            name for name in self.relative_defaults if name in self.defaults
+        )
+        unrenderable = sorted(
+            f"{name} declares {self.arguments.properties[name].type} but a "
+            f"{spec.render} render produces a string"
+            for name, spec in self.relative_defaults.items()
+            if name in self.arguments.properties
+            and self.arguments.properties[name].type != "string"
+        )
+        if not (undeclared or inert or doubly_declared or unrenderable):
+            return self
+        raise ValueError(
+            f"the request contract for {self.schema_name!r} at class lane "
+            f"{self.schema_version!r} declares relative defaults it cannot "
+            f"honor: {undeclared} are not declared arguments, {inert} are "
+            f"declared and always refused, {doubly_declared} already carry a "
+            "literal value under `defaults` and a parameter takes its meaning "
+            "for omission from exactly one of the two, and {} cannot hold "
+            "what the declared render produces; every offender is named here "
+            "rather than one per exception, so the document is fixed in one "
+            "pass (D-IMPL-325, D-IMPL-315, 24.6-L-07)".format(unrenderable)
+        )
+
     @classmethod
     def from_declared(cls, artifact: DeclaredArtifact) -> ProductRequestContract:
         """Read a request contract out of the envelope a manifest returns.
@@ -990,6 +1200,20 @@ class ProductRequestContract(VersionedArtifact):
                 "parameter name to the value the class takes when the caller "
                 "omits that parameter (24.6-L-07, D-IMPL-253 Q2)"
             )
+        relative = declaration.get(_KEY_RELATIVE_DEFAULTS, {})
+        if not isinstance(relative, Mapping) or not all(
+            isinstance(name, str) and isinstance(spec, Mapping)
+            for name, spec in relative.items()
+        ):
+            raise ValueError(
+                f"the declared artifact {artifact.class_id!r} at lane "
+                f"{artifact.semver!r} carries {_KEY_RELATIVE_DEFAULTS!r} as "
+                f"{type(relative).__name__}, and it must be a mapping of "
+                "parameter name to a mapping carrying `offset_seconds` and "
+                "`render` — what the class takes when the caller omits that "
+                "parameter, expressed as an offset from the request's own "
+                "asked_at rather than as a literal that ages (D-IMPL-325)"
+            )
         bindings = declaration.get(_KEY_CAPABILITY_BINDINGS, {})
         if not isinstance(bindings, Mapping) or not all(
             isinstance(name, str) and isinstance(token, str)
@@ -1026,6 +1250,10 @@ class ProductRequestContract(VersionedArtifact):
             ),
             unsupported_arguments=dict(unsupported),
             defaults=dict(defaults),
+            relative_defaults={
+                name: RelativeDefault.model_validate(dict(spec))
+                for name, spec in relative.items()
+            },
             capability_bindings=dict(bindings),
             argument_domains={
                 name: ArgumentDomain.model_validate(dict(domain))
@@ -1049,6 +1277,15 @@ _KEY_UNSUPPORTED_ARGUMENTS = "unsupported_arguments"
 #: takes when a caller omits something is read from the artifact at
 #: :meth:`ProductRequestContract.from_declared` and nowhere else (CINV-01).
 _KEY_DEFAULTS = "defaults"
+
+#: The optional EIGHTH declaration key (``D-IMPL-325``). A key NAME again, and
+#: the value under it is an *offset and a render* — never a date. The window a
+#: class defaults to is read from the artifact at
+#: :meth:`ProductRequestContract.from_declared` and nowhere else; a date in
+#: this module would be a governance value in the spine, and a date in an
+#: adopter's deployment code would be a second authority over one bound
+#: (CINV-01, ``D-IMPL-315``).
+_KEY_RELATIVE_DEFAULTS = "relative_defaults"
 
 #: The optional sixth declaration key (``24.6-L-07``, ``D-IMPL-253`` Q21). A
 #: key NAME again, and the value under it is a *capability token* — which

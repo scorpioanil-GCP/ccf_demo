@@ -365,6 +365,12 @@ NAMED_SINCE_THE_SWEEP: tuple[str, ...] = (
     # member set beside the two numeric ends. Silent at `None`, so no
     # committed request contract's address moves.
     "ccf.products.request.ArgumentDomain.members",
+    # `D-IMPL-325`, the EIGHTH declaration key: a default expressed as an
+    # offset from the request's own `asked_at` rather than as a literal that
+    # ages. Silent at the empty mapping, so no committed request contract's
+    # address moves — and LOUD when populated, deliberately: two products with
+    # different relative-window rules must not share one contract identity.
+    "ccf.products.request.ProductRequestContract.relative_defaults",
 )
 
 
