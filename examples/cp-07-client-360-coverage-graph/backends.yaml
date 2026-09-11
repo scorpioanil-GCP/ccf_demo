@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../../docs/schemas/ccf.declared-artifact.json
+#
+# Variable NAMES and remedy text only. READS ONLY on both legs; L3 is per-run
+# SQLite, discarded with the run (CLAUDE.md §9).
+semver: "1.0.0"
+class_id: cp-07.backend-profiles
+declaration:
+  profiles:
+    sqlite:
+      settings:
+        database_path: {per_run: path, prefix: cp_07, suffix: .sqlite3}
+  sources:
+    coverage_graph:
+      settings:
+        url:
+          from_env: CCF_CP_07_FLUREE_URL
+          remedy: >-
+            export CCF_CP_07_FLUREE_URL with the base URL of a READ-ONLY Fluree
+            server carrying the coverage graph. Only `/v1/fluree/query` is issued.
+        ledger:
+          from_env: CCF_CP_07_FLUREE_LEDGER
+          remedy: >-
+            export CCF_CP_07_FLUREE_LEDGER with the ledger to read — the v2
+            namespace `fibo-v2`, never the v1 `fibo:main` (CLAUDE.md §9).
+        max_traversal_depth: 4
+    coverage_attributes:
+      settings:
+        dsn:
+          from_env: CCF_CP_07_POSTGRES_DSN
+          remedy: >-
+            export CCF_CP_07_POSTGRES_DSN with a READ-ONLY connection string.
+            SELECT and nothing else.
+        schema:
+          from_env: CCF_CP_07_POSTGRES_SCHEMA
+          remedy: >-
+            export CCF_CP_07_POSTGRES_SCHEMA with the namespace holding the
+            coverage tables — `ccf_v2`, never `public`.
