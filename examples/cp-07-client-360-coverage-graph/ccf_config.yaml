@@ -1,0 +1,266 @@
+# yaml-language-server: $schema=../../docs/schemas/ccf.deployment-config.json
+#
+# THE SINGLE DEPLOYMENT DOCUMENT for rung 7 — client 360 / coverage graph.
+# Built to `spec/CP-SPEC-007_Client_360_Coverage_Graph.md`, Gate 1.
+#
+# THE QUESTION: who at the bank knows whom at the client, and through what.
+# §A's counterfactual is `context-starved` BY GRAPH SHAPE — a CRM answers
+# "who is the covering banker?", one field. It cannot answer "who has met this
+# person, how recently, alongside whom?" because that is a PATH, not a field.
+#
+# THE SECOND FAILURE THIS RUNG SURFACES IS FAN-OUT. Measured: one client carries
+# 240 interactions against a declared `limit` of 200. `limit` and `since` are
+# CORRECTNESS FEATURES, not conveniences.
+#
+# READS ONLY. Two source stores, neither written; L3 is per-run SQLite.
+
+semver: "1.0.0"
+tenant_id: cp-07-demo
+backend: sqlite
+
+product_class:
+  schema_name: coverage.client-360
+  schema_version: "1.0.0"
+
+  # FROM_DECISION, and the contrast with rungs 02/04/06 is the point: those
+  # anchor on a filed document's age. This answer is about the BANK'S OWN
+  # current posture, which has no document date to follow.
+  ttl_anchor: from_decision
+
+  # Relationship strength is deterministic arithmetic over policy-versioned
+  # weights. No LLM is reachable from any step.
+  assembly_mode: algorithmic
+
+  max_ttl_key: cp-07/product/client-360/max-ttl
+
+  # THE PRODUCT'S FOURTH VALIDATION GATE — §D.3. Silent truncation reads as
+  # completeness and is the quiet failure mode of every bounded traversal. The
+  # identity is the Control Plane's half; the implementation is the
+  # deployment's (`D-IMPL-282`).
+  declared_product_gate:
+    gate_id: cp-07.truncation-disclosure
+    gate_version: "1.0.0"
+
+  # TWO REGISTERED OPERATORS. §D.2.1: the vault lists five verbs, of which
+  # Resolve and Enrich are source access and Score is Π. A Standard verb that
+  # is not a registered operator does NOT enter `operators_invoked`.
+  required_operator_keys:
+    - policy.principal-subgraph
+    - traversal.typed-neighborhood
+
+operators:
+  # Policy runs BEFORE anything reads graph state. §D step 2: interactions the
+  # principal may not see are excluded BEFORE traversal, not filtered from the
+  # result. The difference is invisible in the output and fundamental to the
+  # architecture — a suppressed node is never materialized, so no edge to it is
+  # ever built.
+  policy.principal-subgraph:
+    classification_attribute_by_class:
+      coverage_node: principal_scope
+
+    permitted_classifications:
+      source: effective_request
+      parameter: principal_scope
+
+  traversal.typed-neighborhood:
+    seed_entity_classes:
+      - coverage_node
+
+    # THE FOUR EDGES §C NAMES, under the fabric's own short names. The source
+    # asserts three in `ex:` and one as FIBO `isEmployedBy`; the normalization
+    # step mints these, and `artifacts/source-vocabulary.yaml` carries the
+    # mapping. A search assuming one namespace misses `employedBy` entirely —
+    # a trap that cost this spec a false claim before it was corrected.
+    relationship_types:
+      - coversClient
+      - participatedIn
+      - relatedToDeal
+      - employedBy
+
+    # The BACKEND's ceiling, never the product's bound. The caller's reach is
+    # `since` and `limit`, applied where the data is read.
+    depth_limit: 4
+
+request_contract:
+  class_id: cp-07.request-contract
+  role: register
+  registration: typed
+  schema_name: coverage.client-360
+  schema_version: "1.0.0"
+
+  # `intent` is NOT declared — it is a top-level `ProductRequest` field and an
+  # argument of that name shadows it (`D-IMPL-264`).
+  arguments:
+    properties:
+      lei:
+        type: string
+        description: >-
+          the client anchor. Unresolvable is a refusal and never an empty
+          graph — an unknown client is a claim about the request.
+      principal_scope:
+        type: array
+        items:
+          type: string
+          description: one scope identifier this principal is admitted on.
+        description: >-
+          the policy operator's admitted set. Stated by the caller because a
+          binding supplies a value and never converts one.
+      since:
+        type: string
+        description: >-
+          the earliest interaction date considered, ISO-8601. A REQUIRED BOUND
+          in spirit: a traversal without a window can return a graph large
+          enough to breach the SLO envelope. Compared as a STRING — this Fluree
+          build corrupts typed dates, and ISO-8601 sorts lexicographically.
+      limit:
+        type: integer
+        description: >-
+          the maximum interactions admitted, applied IN the read and ordered by
+          recency. Fetching everything and slicing in memory satisfies the
+          contract and defeats its purpose. When the bound is reached the
+          payload SAYS SO — silent truncation reads as completeness.
+      include_family:
+        type: boolean
+        description: >-
+          extend the anchor set to the client's corporate family before
+          walking. Multiplies fan-out, which is why it is declared rather than
+          assumed.
+      include_need_to_know:
+        type: boolean
+        description: >-
+          admit interactions classified need-to-know. A principal without
+          clearance receives a DIFFERENT GRAPH, not a redacted one.
+    required:
+      - lei
+      - principal_scope
+
+  defaults:
+    # THE FULL TWO-YEAR INTERACTION HISTORY, and the value is where §B.2's two
+    # claims had to be reconciled. The spec declares `-365 days` AND that
+    # truncation fires at 240 on the demonstration anchor; measured, a
+    # 365-day window holds 180 of that client's 240 interactions, so both
+    # cannot be true and the rung exists to teach the second. FINDINGS.md
+    # carries the reconciliation and the SDK gap underneath it: a class
+    # default cannot express a RELATIVE window, so an absolute date is what
+    # the artifact can hold, and it ages silently.
+    since: "2024-09-01"
+    limit: 200
+    include_family: true
+    include_need_to_know: false
+
+  argument_domains:
+    limit:
+      minimum: 1
+      maximum: 500
+
+  unsupported_arguments:
+    as_of: >-
+      not_supported_at_tier. Reconstructing the coverage graph as it stood on a
+      past date requires ledger time-travel, which arrives at Tier 3. This tier
+      serves the graph as it stands, with `since` bounding the interaction
+      window rather than the graph's own state.
+
+# ---------------------------------------------------------------------------
+# How a source fact becomes fabric state. One class, `identity_sources` so the
+# edge rules agree with the node rule (`D-IMPL-316`).
+# ---------------------------------------------------------------------------
+resolution:
+  entity_rules:
+    - match_key: node_ref
+      entity_class: coverage_node
+      identity_keys: [entity_ref]
+      attribute_keys:
+        - ref
+        - node_kind
+        - principal_scope
+        - label
+        - role
+        - officer_title
+        - appointment_date
+        - seniority
+        - desk
+        - interaction_type
+        - interaction_date
+        - deal_type
+        - stage
+        - opened_date
+        - channel
+        - need_to_know
+        - mnpi_bearing
+        - is_primary
+        - provenance
+    - match_key: subject_ref
+      entity_class: coverage_node
+      identity_keys: [entity_ref]
+      identity_sources: {entity_ref: subject_uri}
+    - match_key: object_ref
+      entity_class: coverage_node
+      identity_keys: [entity_ref]
+      identity_sources: {entity_ref: object_uri}
+
+  relationship_rules:
+    - {relationship_type: coversClient, predicate_key: predicate,
+       subject_entity_class: coverage_node, object_entity_class: coverage_node,
+       subject_rule: subject_ref, object_rule: object_ref}
+    - {relationship_type: participatedIn, predicate_key: predicate,
+       subject_entity_class: coverage_node, object_entity_class: coverage_node,
+       subject_rule: subject_ref, object_rule: object_ref}
+    - {relationship_type: relatedToDeal, predicate_key: predicate,
+       subject_entity_class: coverage_node, object_entity_class: coverage_node,
+       subject_rule: subject_ref, object_rule: object_ref}
+    - {relationship_type: employedBy, predicate_key: predicate,
+       subject_entity_class: coverage_node, object_entity_class: coverage_node,
+       subject_rule: subject_ref, object_rule: object_ref}
+
+# λ_c — §E. Interaction recency is the dominant signal.
+#
+# ILLUSTRATIVE CALIBRATION, AND THE LABEL IS LOAD-BEARING (Dave, 2026-09-10).
+# This example runs against a POINT-IN-TIME demonstration estate rather than
+# continuously refreshed production data: the newest interaction anywhere in it
+# is 2026-08-18, and the spread of last-contact dates across clients is 27 days.
+# These half-lives are calibrated so the governed behavior is OBSERVABLE in that
+# snapshot — so freshness moves between a recently-contacted client and a stale
+# one instead of pinning every anchor at zero. They demonstrate how the SDK
+# applies the control. **They are not recommended production coverage-policy
+# thresholds**; a real bank might choose 30, 60, 120 or role-specific values,
+# and that calibration is domain and policy work, not an SDK question.
+#
+# WHAT IS NOT ADJUSTED TO GET AN ANSWER: no timestamp is faked, `asked_at` is
+# the real decision instant, and the decay is the SDK's own `FreshnessScorer`
+# reading this table. Only the declared half-life is a demonstration value.
+#
+# §E of `CP-SPEC-007` declared ~7 days for the first two rows. Measured, that
+# read `fail_closed` on every anchor in the estate — a product permanently
+# refusing is a product demonstrating nothing. See `FINDINGS.md`, `CP07-F-01`.
+half_life:
+  interaction_record:
+    half_life_seconds: 7776000       # 90 days — ILLUSTRATIVE, see the note above
+    decay_driver: meeting-cadence
+    supersession_event: a newer interaction with the same counterparty
+  relationship_strength:
+    half_life_seconds: 7776000       # 90 days — decays with the interactions beneath it
+    decay_driver: interaction-decay
+    supersession_event: any new interaction in the scored set
+  coverage_assignment:
+    half_life_seconds: 15552000      # ~180 days
+    decay_driver: reorganization
+    supersession_event: a coverage reassignment
+  officer_roster:
+    half_life_seconds: 31536000      # ~365 days
+    decay_driver: proxy-statement-cadence
+    supersession_event: an 8-K Item 5.02 officer change
+
+debt_profile:
+  risk_sensitivity: "1.0"
+  forced_llm_threshold: "0.60"
+  fail_closed_threshold: "0.77"
+
+policy:
+  class_id: cp-07.policy-bundle
+  role: register
+  registration: typed
+  regime: coverage-need-to-know
+
+default_perspective:
+  principal_id: PRIN-COV-002
+  role: coverage-banker

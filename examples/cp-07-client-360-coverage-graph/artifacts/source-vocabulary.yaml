@@ -1,0 +1,63 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE SOURCES' OWN NAMES. Code is interpreters, never the things interpreted.
+#
+# §C's FOUR SHORT NAMES SPAN TWO NAMESPACES, AND ONE IS ALSO RENAMED. This cost
+# CP-SPEC-007 a false claim before `ccf-dataprep` corrected it: a search that
+# looked only at `ex:` local names reported `participatedIn` absent when it
+# holds 8,032 assertions. Every IRI below was measured client-side before it
+# was written here.
+#
+# THE DECOY, NAMED SO NOBODY REPEATS THE SEARCH: `ex:participationIn` and
+# `ex:participationOf` (97 each) are the Wave 18 SYNDICATE reification — same
+# word, unrelated domain.
+semver: "1.0.0"
+class_id: cp-07.source-vocabulary
+declaration:
+  graph_leg:
+    # short name -> the IRI actually asserted, with the measured count
+    edges:
+      coversClient:
+        iri: http://example.org/fibo/coversClient      # 150
+        subject_kind: banker
+        object_kind: client
+      participatedIn:
+        iri: http://example.org/fibo/participatedIn    # 8,032 over 731 subjects
+        subject_kind: party          # `ex:person-*` or `ex:banker-*` — the
+        object_kind: interaction     # party kind is the URI PREFIX, not an
+                                     # attribute on the edge. Fluree owns the
+                                     # edge; Postgres owns the attributes.
+      relatedToDeal:
+        iri: http://example.org/fibo/relatedToDeal     # 129
+        subject_kind: interaction
+        object_kind: deal
+      employedBy:
+        # FIBO, and RENAMED. `employedBy` in §C is `isEmployedBy` in the
+        # ontology. This is the one a single-namespace search misses.
+        iri: https://spec.edmcouncil.org/fibo/ontology/FND/Organizations/FormalOrganizations/isEmployedBy   # 701
+        subject_kind: person
+        object_kind: client
+    label: http://www.w3.org/2000/01/rdf-schema#label
+
+    # HOW A CLIENT IS ADDRESSED. Not by LEI: the node is name-derived, so
+    # `JJAX4X60DE65EYFOTY73` is the node `SuburbanPropanePartnersLP`. The LEI
+    # is an attribute to resolve THROUGH, never a URI to walk FROM — walking
+    # from the LEI returns nothing, silently.
+    lei: http://example.org/fibo/lei
+
+    # Node ids carry a kind prefix. `INT-00000` is `interaction-INT-00000`.
+    node_prefixes:
+      interaction: interaction-
+      person: person-
+      banker: banker-
+      deal: deal-
+
+  attribute_leg:
+    person_table: person
+    person_role_table: person_role
+    banker_table: banker
+    coverage_table: coverage_assignment
+    interaction_table: interaction
+    participant_table: interaction_participant
+    deal_table: deal
+    weight_table: scoring_weight
