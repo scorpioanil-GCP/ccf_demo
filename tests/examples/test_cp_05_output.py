@@ -77,6 +77,15 @@ def matrix() -> dict[str, Any]:
     Five runs: the product's own default materiality, a caller at 1%, 2% and
     10%, and the default debt tolerance. Every run is served at a permissive
     tolerance except the last, whose whole subject is that it is NOT.
+
+    **`produce_governed` returns THREE values** — the payload, the governed
+    result and the replay record — and this fixture keeps the first two. It
+    unpacked two for long enough that every test in this module ERRORED at
+    collection-time setup rather than running (`CP05-F-02`): the module was
+    collected, so a coverage instrument that asks "did pytest collect this node
+    id?" reported it present, and nothing asked whether it executed. Named
+    `_record` rather than `*rest` so a fourth return value would fail here
+    loudly instead of being swallowed by the same silence.
     """
     produce = _load("produce")
     runs: dict[str, Any] = {}
@@ -84,11 +93,12 @@ def matrix() -> dict[str, Any]:
         ("default", None), ("at_0_01", "0.01"), ("at_0_02", "0.02"),
         ("at_0_10", "0.10"),
     ):
-        payload, governed = produce.produce_governed(
+        payload, governed, _record = produce.produce_governed(
             materiality=materiality, debt_tolerance="1.00"
         )
         runs[name] = (payload, governed)
-    runs["default_tolerance"] = produce.produce_governed()
+    payload, governed, _record = produce.produce_governed()
+    runs["default_tolerance"] = (payload, governed)
     return runs
 
 
@@ -117,6 +127,8 @@ def test_the_measures_are_what_the_declaration_says(
     understates this family's exposure by the factor the declaration records,
     and the adjusted total is what remains after one guarantee was counted
     once rather than twice.
+
+    Declared product gate `CER-G01` (`CP-SPEC-005` §G.2).
     """
     payload = _payload(matrix, "default")
     measures = declared["measures"]
@@ -136,6 +148,8 @@ def test_the_naive_answer_understates_by_the_declared_factor(
     The anchor's own book is the number a borrower-keyed query returns. The
     declaration records how far short of the family's exposure that falls, and
     the ratio is recomputed here from what the product actually served.
+
+    Declared product gate `CER-G02` (`CP-SPEC-005` §G.2).
     """
     payload = _payload(matrix, "default")
     naive = declared["naive_borrower_keyed_answer"]
@@ -156,6 +170,8 @@ def test_the_required_payload_members_are_all_present(
     `connected_without_exposure` is asserted NON-EMPTY specifically: the
     cross-default reach is the finding, and an empty list would mean the walk
     stopped at the ownership group.
+
+    Declared product gate `CER-G03` (`CP-SPEC-005` §G.2).
     """
     payload = _payload(matrix, "default")
 

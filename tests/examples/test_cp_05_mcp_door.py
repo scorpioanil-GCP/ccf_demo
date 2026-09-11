@@ -203,6 +203,8 @@ def test_a_caller_tolerance_serves_the_same_determination(outcomes: Any) -> None
     The figures are cp-05's measured determination and they are asserted here
     over the WIRE, so this says the governed product crossed MCP intact rather
     than that the door produced something plausible.
+
+    Declared product gate `CER-G08` (`CP-SPEC-005` §G.2).
     """
     is_error, text = outcomes["tolerant"]
     body = json.loads(text)

@@ -1387,22 +1387,30 @@ not a stale payload — and the refusal is the correct behavior, not an incident
 
 The specification is discharged when a run demonstrates, on the live estate:
 
-1. The worked call at **D.1** returns a `CreditExposureRollupContract@v1.0.0`
+**Each criterion carries a STABLE ID** (`D-IMPL-327`). The ids were added to the
+criteria already written here; **no criterion was added, removed or reworded**,
+because renumbering an acceptance criterion to suit a checker would make the
+tool the author of the product's obligations. `artifacts/gates.yaml` declares
+the five that an executing test asserts today, and `FINDINGS.md` carries the
+other three — `CER-G04`, `CER-G06` and `CER-G07` — as work that needs new
+instrumentation rather than a missing id.
+
+1. **`CER-G01`** — the worked call at **D.1** returns a `CreditExposureRollupContract@v1.0.0`
    with gross **and** adjusted measures populated.
-2. **Gross ≠ adjusted** for the anchor — proving the dedup step is load-bearing
+2. **`CER-G02`** — **gross ≠ adjusted** for the anchor — proving the dedup step is load-bearing
    rather than a no-op on this data.
-3. `connected_without_exposure` is **non-empty** across the estate — proving the
+3. **`CER-G03`** — `connected_without_exposure` is **non-empty** across the estate — proving the
    cross-default traversal reached what a borrower-keyed sum cannot.
-4. The **same anchor under `internal-appetite`** returns a different adjusted
+4. **`CER-G04`** — the **same anchor under `internal-appetite`** returns a different adjusted
    figure than under `group-limit-test` — proving the limit definition is
    consumed rather than hard-coded.
-5. All **four validation gates** pass, and the **reconciliation guard is
+5. **`CER-G05`** — all **four validation gates** pass, and the **reconciliation guard is
    observed firing** on a deliberately double-subtracting variant.
-6. **Replay** from recorded lineage reproduces the payload hash, and a replay at
+6. **`CER-G06`** — **replay** from recorded lineage reproduces the payload hash, and a replay at
    a different `policy_version` produces a different one (D.5).
-7. The traversal issues **one** walk, not one per predicate — evidenced by a
+7. **`CER-G07`** — the traversal issues **one** walk, not one per predicate — evidenced by a
    single ledger `t` in lineage.
-8. The product is reachable **over MCP** as well as in-process, serving the same
+8. **`CER-G08`** — the product is reachable **over MCP** as well as in-process, serving the same
    payload from the same assembler with no business logic reimplemented.
 
 ### G.3 Catalog contribution

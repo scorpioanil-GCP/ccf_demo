@@ -998,3 +998,69 @@ def test_the_token_and_the_schema_pattern_agree_on_what_an_id_is() -> None:
     for candidate in rejected:
         assert not declared.fullmatch(candidate), f"schema accepts {candidate}"
         assert not GATE_ID_TOKEN.fullmatch(candidate), f"the token accepts {candidate}"
+
+
+def test_two_trees_of_one_rung_do_not_see_each_others_modules(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Rung 4 carries two trees, and a bare rung glob conflates them.
+
+    `D-IMPL-327`. `examples/cp-04-corporate-family-tree` is the frozen specimen
+    and `examples/cp-04-canonical-…` is the current pattern (`D-IMPL-319`).
+    Before the partition, `test_cp_04_*.py` handed each tree the OTHER's
+    modules, and the canonical roster was reported as failing to declare the
+    specimen's `CFT-G19` and `CFT-G99`.
+
+    Asserted over a scratch pair rather than the real trees, so the rule is
+    tested and not one deployment's file names — and asserted in BOTH
+    directions, because a partition that gave the discriminated tree its module
+    while starving the base tree would also make this pass.
+    """
+    from tools.check_product_gates import test_modules_for
+
+    for name in ("examples/cp-09-base-thing/artifacts",
+                 "examples/cp-09-special-base-thing/artifacts"):
+        (tmp_path / name).mkdir(parents=True)
+    examples = tmp_path / "tests" / "examples"
+    examples.mkdir(parents=True)
+    for module in ("test_cp_09_output.py", "test_cp_09_seams.py",
+                   "test_cp_09_special_output.py"):
+        (examples / module).write_text("", encoding="utf-8")
+
+    special = [
+        p.name
+        for p in test_modules_for(tmp_path, tmp_path / "examples/cp-09-special-base-thing")
+    ]
+    base = [
+        p.name for p in test_modules_for(tmp_path, tmp_path / "examples/cp-09-base-thing")
+    ]
+    assert special == ["test_cp_09_special_output.py"]
+    assert base == ["test_cp_09_output.py", "test_cp_09_seams.py"]
+    assert set(special).isdisjoint(base), "one module answers to two trees"
+
+
+def test_the_rung_four_trees_are_partitioned_in_the_real_repository() -> None:
+    """The rule above, measured where it actually has to hold.
+
+    The scratch pair proves the rule; this proves the repository satisfies it —
+    and that the specimen KEEPS its modules rather than being starved, which is
+    the failure mode a one-sided assertion would miss.
+    """
+    from tools.check_product_gates import test_modules_for
+
+    canonical = {
+        p.name
+        for p in test_modules_for(
+            REPO_ROOT, REPO_ROOT / "examples/cp-04-canonical-corporate-family-tree"
+        )
+    }
+    specimen = {
+        p.name
+        for p in test_modules_for(
+            REPO_ROOT, REPO_ROOT / "examples/cp-04-corporate-family-tree"
+        )
+    }
+    assert canonical == {"test_cp_04_canonical_output.py"}
+    assert canonical.isdisjoint(specimen)
+    assert "test_cp_04_traversal.py" in specimen, "the specimen lost its own modules"
+    assert len(specimen) > 5, f"the specimen was starved: {sorted(specimen)}"

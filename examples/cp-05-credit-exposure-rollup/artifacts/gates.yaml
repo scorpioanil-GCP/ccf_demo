@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# FOUR OF `CP-SPEC-005` §G.2's EIGHT ACCEPTANCE CRITERIA, DECLARED AS GATES.
+# The other four are `CP05-F-01` in `FINDINGS.md`, not omissions.
+#
+# `D-IMPL-224`: a product's gates are a DECLARED ARTIFACT plus CI coverage.
+#
+# THE ACCEPTANCE AUTHORITY IS THIS PRODUCT'S OWN SPECIFICATION (`D-IMPL-326`).
+# §G.2's criteria were already written; `D-IMPL-327` added STABLE IDS to them
+# and changed nothing else — no criterion was added, removed or reworded,
+# because renumbering an obligation to suit a checker would make the tool the
+# author of the product's obligations.
+#
+# WHAT IS NOT HERE, AND WHY (`CP05-F-01`): `CER-G04` (the two policy regimes
+# returning different adjusted figures), `CER-G06` (replay under a changed
+# `policy_version`) and `CER-G07` (one walk, evidenced by a single ledger `t`)
+# have no test that asserts them. `CER-G05` has a test that asserts
+# `reconciliation` is PRESENT and never watches the guard FIRE, which is a
+# different claim — token presence is not token force. All four need new
+# instrumentation, which `D-IMPL-327` explicitly did not fund.
+#
+# `observed_red` is `null` on every gate and is REQUIRED as a key: a gate
+# nobody has watched fail is visibly outstanding here rather than absent.
+
+semver: 1.0.0
+class_id: cp-05.product-gates
+declaration:
+  product: credit.exposure-rollup
+  test_naming_convention: the gate id appears in the executing test's docstring, as a `Declared
+    product gate` line naming the CP-SPEC clause that approves it.
+  gates:
+  - id: CER-G01
+    statement: the worked call at D.1 returns a `CreditExposureRollupContract@v1.0.0` with
+      gross and adjusted measures populated
+    spec_clause:
+      document: spec/CP-SPEC-005_Credit_Exposure_Rollup.md
+      clause: G.2
+    test: tests/examples/test_cp_05_output.py::test_the_measures_are_what_the_declaration_says
+    sabotage: serve a payload whose adjusted measures are absent
+    observed_red: null
+  - id: CER-G02
+    statement: "gross differs from adjusted for the anchor \u2014 the dedup step is load-bearing\
+      \ rather than a no-op on this data"
+    spec_clause:
+      document: spec/CP-SPEC-005_Credit_Exposure_Rollup.md
+      clause: G.2
+    test: tests/examples/test_cp_05_output.py::test_the_naive_answer_understates_by_the_declared_factor
+    sabotage: make the dedup a no-op so the family sum equals the naive one
+    observed_red: null
+  - id: CER-G03
+    statement: "`connected_without_exposure` is non-empty across the estate \u2014 the cross-default\
+      \ traversal reached what a borrower-keyed sum cannot"
+    spec_clause:
+      document: spec/CP-SPEC-005_Credit_Exposure_Rollup.md
+      clause: G.2
+    test: tests/examples/test_cp_05_output.py::test_the_required_payload_members_are_all_present
+    sabotage: stop the walk at the ownership group
+    observed_red: null
+  - id: CER-G08
+    statement: the product is reachable over MCP as well as in-process, serving the same payload
+      from the same assembler with no business logic reimplemented
+    spec_clause:
+      document: spec/CP-SPEC-005_Credit_Exposure_Rollup.md
+      clause: G.2
+    test: tests/examples/test_cp_05_mcp_door.py::test_a_caller_tolerance_serves_the_same_determination
+    sabotage: reimplement the determination behind the door
+    observed_red: null

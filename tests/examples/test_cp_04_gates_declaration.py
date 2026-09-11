@@ -376,16 +376,38 @@ def test_the_schema_closes_every_object_level() -> None:
         )
 
 
-def test_the_schema_requires_the_six_gate_fields() -> None:
+def test_the_schema_requires_five_gate_fields_and_exactly_one_authority() -> None:
+    """`criterion` left `required` at `D-IMPL-326`; it did not become optional.
+
+    The field was one of six unconditionally required until a gate could also
+    be approved by a cited `CP-SPEC` clause. Moving it out of `required` alone
+    would have made a gate with NO acceptance authority valid — so the schema
+    carries a `oneOf` demanding exactly one of `criterion` and `spec_clause`,
+    and this asserts BOTH halves. Relaxing the first without the second is the
+    regression this test now exists to catch.
+
+    **This assertion was stale on `main` between `4820531d` and its repair**:
+    `D-IMPL-326` changed the schema and did not update it, and no suite that
+    ran during that sitting covered this module.
+    """
     gate = load_schema()["properties"]["declaration"]["properties"]["gates"]["items"]
     assert set(gate["required"]) == {
         "id",
         "statement",
-        "criterion",
         "test",
         "sabotage",
         "observed_red",
     }
+
+    branches = gate["oneOf"]
+    assert [set(branch["required"]) for branch in branches] == [
+        {"criterion"},
+        {"spec_clause"},
+    ], "the two authority forms are no longer the two branches"
+    assert [set(branch["not"]["required"]) for branch in branches] == [
+        {"spec_clause"},
+        {"criterion"},
+    ], "a gate could declare both authorities, or neither"
 
 
 def test_observed_red_is_required_as_a_key_and_may_be_null() -> None:

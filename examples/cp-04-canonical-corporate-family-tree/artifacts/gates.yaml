@@ -1,0 +1,140 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE THIRTEEN DECLARED PRODUCT GATES OF THE CANONICAL RUNG-4 TREE —
+# `CFC-G01` through `CFC-G13`, one per executing test, with no hole.
+#
+# `D-IMPL-224`: a product's gates are a DECLARED ARTIFACT plus CI coverage.
+# There is no `ProductGate` Protocol and no serve path for these.
+#
+# THE ACCEPTANCE AUTHORITY IS THIS TREE'S OWN SPECIFICATION (`D-IMPL-326`,
+# `D-IMPL-327`). `CP-SPEC-004C` §G.1 approves every gate below, and
+# `tools/check_product_gates.py` resolves the chain — the document exists, the
+# clause exists, and the gate's own id appears inside it.
+#
+# IT DOES NOT CITE FROZEN cp-04's SPECIFICATION, and that is a ruling rather
+# than a preference (`D-IMPL-327`, Dave: "do not cite frozen cp-04"). A
+# successor whose acceptance authority lived in its predecessor's document
+# would be governed by a document nobody may edit — and the two trees answer
+# the same question differently on purpose.
+#
+# THE `CFC-` PREFIX, not `CFT-`: `CFT-` is the frozen specimen's and its ids
+# are claimed. Two trees answering one question need two vocabularies, or a
+# checker reading either roster would find the other's tests.
+#
+# `observed_red` is `null` on every gate and is REQUIRED as a key: a gate
+# nobody has watched fail is visibly outstanding here rather than absent.
+
+semver: 1.0.0
+class_id: cp-04-canonical.product-gates
+declaration:
+  product: reference.corporate-family
+  test_naming_convention: the gate id appears in the executing test's docstring, as a `Declared
+    product gate` line naming the CP-SPEC clause that approves it.
+  gates:
+  - id: CFC-G01
+    statement: "depth changes the served roster and the debt together \u2014 `D_c` is about\
+      \ the answer, not the estate"
+    spec_clause:
+      document: spec/CP-SPEC-004C_Corporate_Family_Tree_Canonical.md
+      clause: G.1
+    test: tests/examples/test_cp_04_canonical_output.py::test_depth_changes_the_served_roster_and_the_debt_together
+    sabotage: serve a debt computed from the estate rather than from what was served
+    observed_red: null
+  - id: CFC-G02
+    statement: "the scorer and the payload see one set \u2014 the walk is bounded, not clipped\
+      \ after the fact"
+    spec_clause:
+      document: spec/CP-SPEC-004C_Corporate_Family_Tree_Canonical.md
+      clause: G.1
+    test: tests/examples/test_cp_04_canonical_output.py::test_the_scorer_and_the_payload_see_one_set
+    sabotage: read wide and clip the payload after scoring
+    observed_red: null
+  - id: CFC-G03
+    statement: a depth above the backend ceiling is refused, with authority `technical`
+    spec_clause:
+      document: spec/CP-SPEC-004C_Corporate_Family_Tree_Canonical.md
+      clause: G.1
+    test: tests/examples/test_cp_04_canonical_output.py::test_a_depth_above_the_backend_ceiling_is_refused_by_authority
+    sabotage: refuse it as a product decision instead of a capability limit
+    observed_red: null
+  - id: CFC-G04
+    statement: the class default resolves when the caller omits the depth
+    spec_clause:
+      document: spec/CP-SPEC-004C_Corporate_Family_Tree_Canonical.md
+      clause: G.1
+    test: tests/examples/test_cp_04_canonical_output.py::test_the_class_default_resolves_when_the_caller_omits_the_depth
+    sabotage: apply the default from code so the resolution cannot be pinned
+    observed_red: null
+  - id: CFC-G05
+    statement: replay dimension 2 is a superset of product lineage
+    spec_clause:
+      document: spec/CP-SPEC-004C_Corporate_Family_Tree_Canonical.md
+      clause: G.1
+    test: tests/examples/test_cp_04_canonical_output.py::test_replay_dimension_two_is_a_superset_of_the_product_lineage
+    sabotage: drop a governed artifact from dimension 2
+    observed_red: null
+  - id: CFC-G06
+    statement: the store pin is execution provenance and not product identity
+    spec_clause:
+      document: spec/CP-SPEC-004C_Corporate_Family_Tree_Canonical.md
+      clause: G.1
+    test: tests/examples/test_cp_04_canonical_output.py::test_the_store_pin_is_execution_provenance_and_not_product_identity
+    sabotage: fold the transaction-time head into the content address
+    observed_red: null
+  - id: CFC-G07
+    statement: '`shape_of` reads this tree as canonical, structurally rather than from a roster'
+    spec_clause:
+      document: spec/CP-SPEC-004C_Corporate_Family_Tree_Canonical.md
+      clause: G.1
+    test: tests/examples/test_cp_04_canonical_output.py::test_the_structural_classifier_reads_this_tree_as_canonical
+    sabotage: hand-compose a governed seam the SDK owns
+    observed_red: null
+  - id: CFC-G08
+    statement: the plan factory takes its operators only from `required`
+    spec_clause:
+      document: spec/CP-SPEC-004C_Corporate_Family_Tree_Canonical.md
+      clause: G.1
+    test: tests/examples/test_cp_04_canonical_output.py::test_the_plan_factory_takes_its_operators_only_from_required
+    sabotage: construct the plan from a source other than `required`
+    observed_red: null
+  - id: CFC-G09
+    statement: "the frozen specimen is untouched \u2014 zero files changed by this tree's\
+      \ work"
+    spec_clause:
+      document: spec/CP-SPEC-004C_Corporate_Family_Tree_Canonical.md
+      clause: G.1
+    test: tests/examples/test_cp_04_canonical_output.py::test_the_specimen_is_untouched
+    sabotage: modernize a file under the frozen specimen
+    observed_red: null
+  - id: CFC-G10
+    statement: "no specimen identity is reused \u2014 this determination is provably its own"
+    spec_clause:
+      document: spec/CP-SPEC-004C_Corporate_Family_Tree_Canonical.md
+      clause: G.1
+    test: tests/examples/test_cp_04_canonical_output.py::test_no_specimen_identity_is_reused
+    sabotage: reuse one of cp-04's published content addresses
+    observed_red: null
+  - id: CFC-G11
+    statement: a bare ledger name resolves a real watermark
+    spec_clause:
+      document: spec/CP-SPEC-004C_Corporate_Family_Tree_Canonical.md
+      clause: G.1
+    test: tests/examples/test_cp_04_canonical_output.py::test_a_bare_ledger_name_resolves_a_real_watermark
+    sabotage: require a branch segment before a head will resolve
+    observed_red: null
+  - id: CFC-G12
+    statement: an unknown ledger reports `unreported` rather than a number
+    spec_clause:
+      document: spec/CP-SPEC-004C_Corporate_Family_Tree_Canonical.md
+      clause: G.1
+    test: tests/examples/test_cp_04_canonical_output.py::test_an_unknown_ledger_reports_unreported_rather_than_a_number
+    sabotage: return a default number for a ledger nobody could read
+    observed_red: null
+  - id: CFC-G13
+    statement: the watermark is never invented from the listing
+    spec_clause:
+      document: spec/CP-SPEC-004C_Corporate_Family_Tree_Canonical.md
+      clause: G.1
+    test: tests/examples/test_cp_04_canonical_output.py::test_the_watermark_is_never_invented_from_the_listing
+    sabotage: derive a head from the ledger listing instead of the store
+    observed_red: null
