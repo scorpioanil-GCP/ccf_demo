@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# Π's OWN DECLARED VALUES. The disclosure prose below is Control Plane text the
+# deployment authors — it lands verbatim in the payload, so it is an artifact
+# rather than a string literal in `projection.py` (CLAUDE.md §6.4).
+
+semver: "1.0.0"
+class_id: cp-08.projection
+
+declaration:
+  unversioned_note: >-
+    These are the covenant terms as they stand TODAY, not as they stood at
+    as_of. This estate carries no assertion time and no supersession marker on
+    a covenant, so the terms a facility bore on a past date cannot be
+    reconstructed from it. The amendment answer above IS historical; these
+    terms are not, and the two must not be read as one.

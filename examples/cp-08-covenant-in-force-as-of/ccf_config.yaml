@@ -40,26 +40,32 @@ product_class:
     - traversal.typed-neighborhood
 
 operators:
-  # Amendments and covenants hang off the facility. The walk is ONE hop from
-  # the anchor: this product's difficulty is temporal, not topological, and a
-  # deeper walk would reach other facilities' amendments.
-  classification_attribute_by_class:
-    facility: kind
-    amendment: kind
-    covenant: kind
-  permitted_classifications:
-    - facility
-    - amendment
-    - covenant
-  seed_entity_classes:
-    - facility
-  relationship_types:
-    - amends
-    - covenantOf
+  # THE POLICY OPERATOR. The admitted set is stated by the CALLER and reaches
+  # the operator from the effective request — a binding supplies a value and
+  # never converts one.
+  policy.principal-subgraph:
+    classification_attribute_by_class:
+      facility: facility_id
+      amendment: facility_id
+      covenant: facility_id
+    permitted_classifications:
+      source: effective_request
+      parameter: principal_scope
 
-  # The BACKEND's ceiling, never the product's bound. The caller's reach is the
-  # two instants, applied in Π over admitted state.
-  depth_limit: 2
+  # THE TRAVERSAL OPERATOR. Amendments and covenants hang off the facility, so
+  # the walk is ONE hop from the anchor: this product's difficulty is temporal,
+  # not topological, and a deeper walk would reach other facilities' amendments.
+  #
+  # `depth_limit` is the BACKEND's ceiling, never the product's bound. The
+  # caller's reach is the two instants, and they are applied at Π over admitted
+  # state rather than here.
+  traversal.typed-neighborhood:
+    seed_entity_classes:
+      - facility
+    relationship_types:
+      - amends
+      - covenantOf
+    depth_limit: 2
 
 request_contract:
   class_id: cp-08.request-contract
@@ -137,63 +143,52 @@ request_contract:
       product. Breach scoring is out of scope for this rung.
 
 resolution:
+  # HOW A SOURCE FACT BECOMES FABRIC STATE. Three node rules — one per kind —
+  # and two endpoint rules the edge envelopes resolve through.
+  #
+  # `identity_sources` names WHICH PAYLOAD FIELD supplies an identity key, so a
+  # rule whose source names the value positionally cannot drift (`D-IMPL-316`).
   entity_rules:
-    - class_id: cp-08.facility
-      role: register
-      registration: typed
+    - match_key: facility_anchor
       entity_class: facility
       identity_keys: [facility_id]
-      attribute_keys: [facility_id, kind]
-      match_key: facility_id
-    - class_id: cp-08.amendment
-      role: register
-      registration: typed
+      identity_sources: {facility_id: facility_anchor}
+      attribute_keys: [facility_anchor, facility_id, kind]
+    - match_key: amendment_id
       entity_class: amendment
       identity_keys: [amendment_id]
       attribute_keys:
-        - amendment_id
-        - kind
-        - amendment_number
-        - valid_from
-        - asserted_at
-        - booking_lag_days
-      match_key: amendment_id
-    - class_id: cp-08.covenant
-      role: register
-      registration: typed
+        [amendment_id, facility_id, kind, amendment_number, valid_from,
+         asserted_at, booking_lag_days]
+    - match_key: covenant_id
       entity_class: covenant
       identity_keys: [covenant_id]
       attribute_keys:
-        - covenant_id
-        - kind
-        - covenant_type
-        - threshold
-        - threshold_unit
-      match_key: covenant_id
+        [covenant_id, facility_id, kind, covenant_type, threshold, threshold_unit]
+
+    # The edge envelopes' two endpoints. An edge carries NO attributes, which
+    # is why these rules declare none: a thin claim that carried attributes
+    # would supersede the node's own (see `deployment._edge`).
+    - match_key: amendment_ref
+      entity_class: amendment
+      identity_keys: [amendment_id]
+      identity_sources: {amendment_id: amendment_ref}
+    - match_key: covenant_ref
+      entity_class: covenant
+      identity_keys: [covenant_id]
+      identity_sources: {covenant_id: covenant_ref}
+    - match_key: facility_ref
+      entity_class: facility
+      identity_keys: [facility_id]
+      identity_sources: {facility_id: facility_ref}
 
   relationship_rules:
-    - class_id: cp-08.amends
-      role: register
-      registration: typed
-      relationship_type: amends
-      source_entity_class: amendment
-      target_entity_class: facility
-      source_identity_keys: [amendment_id]
-      target_identity_keys: [facility_id]
-      identity_sources:
-        amendment_id: source_id
-        facility_id: target_id
-    - class_id: cp-08.covenant-of
-      role: register
-      registration: typed
-      relationship_type: covenantOf
-      source_entity_class: covenant
-      target_entity_class: facility
-      source_identity_keys: [covenant_id]
-      target_identity_keys: [facility_id]
-      identity_sources:
-        covenant_id: source_id
-        facility_id: target_id
+    - {relationship_type: amends, predicate_key: relationship,
+       subject_entity_class: amendment, object_entity_class: facility,
+       subject_rule: amendment_ref, object_rule: facility_ref}
+    - {relationship_type: covenantOf, predicate_key: relationship,
+       subject_entity_class: covenant, object_entity_class: facility,
+       subject_rule: covenant_ref, object_rule: facility_ref}
 
 half_life:
   # ILLUSTRATIVE CALIBRATION (`D-IMPL-323`). This example runs against a
@@ -216,8 +211,14 @@ half_life:
     supersession_event: facility-record-update
 
 debt_profile:
+  # ILLUSTRATIVE CALIBRATION (`D-IMPL-323`) — see the note above `half_life`.
+  # `D_c` here is the share of served amendments that cannot be placed on the
+  # assertion axis at all. On the three engineered facilities it is low and the
+  # answer carries the second clock; on a facility outside the 25 that carry
+  # assertion time it is high, and says so.
   risk_sensitivity: "1.0"
   forced_llm_threshold: "0.60"
+  fail_closed_threshold: "0.90"
 
 policy:
   class_id: cp-08.policy-bundle
