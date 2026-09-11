@@ -8,10 +8,19 @@ defect is the SDK's, this example's, another example's, or the estate's.
 
 ## `CP06-F-01` — cp-04-canonical reports `unreported` for the store watermark against the curated estate
 
-**Status: OPEN. Defect in ANOTHER example (`examples/cp-04-canonical-corporate-family-tree`),
-already merged to `main`. Found while writing cp-06's own graph leg, which
-inherited the same code shape. NOT fixed on this branch — that would mix two
-claims behind one review.**
+**Status: FIXED, and now held by three declared gates of the tree it was a defect
+in.** `examples/cp-04-canonical-corporate-family-tree` carries `CFC-G11` (a bare
+ledger name resolves a real watermark), `CFC-G12` (an unknown ledger reports
+`unreported` rather than a number — the negative control, and the property the
+fix must not cost) and `CFC-G13` (the watermark is never invented from the
+listing). All three execute and pass against the curated estate, and all three
+cite `CP-SPEC-004C` §G.1 as their acceptance authority (`D-IMPL-326`,
+`D-IMPL-327`).
+
+**Original status, kept because the deferral was the right call:** defect in
+ANOTHER example, already merged to `main`, found while writing cp-06's own graph
+leg which inherited the same code shape, and deliberately not fixed on this
+branch — that would have mixed two claims behind one review.
 
 ### The defect
 
