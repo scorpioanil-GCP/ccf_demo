@@ -1225,6 +1225,28 @@ imports in `/src`, enforced by CI import lint. Harness-specific code lives
 only in `/runtime/adapters/<harness>/` behind `HarnessAdapterProtocol`.
 The agent loop is never absorbed and never shipped.
 
+**Exchange with another Claude goes THROUGH THE VAULT. Never post directly to
+an outbox.** (Dave, 2026-09-10.) When this project has something to tell a peer
+agent — a correction, a measurement, a finding, a request — it is published to
+the vault with `mcp__obsidian-vault__contribute`, which writes
+`contrib/ccf-sdk/<name>.md` and is **searchable and fetchable immediately by
+every agent**. The filesystem channel at `~/.agent-exchange/<agent>/outbox/` is
+not the route, even though the vault-access skill documents it: a document left
+in one peer's directory reaches that peer and nobody else, is invisible to
+`search`, and leaves no citable record for the custodian to adjudicate.
+
+- **`kind` is a closed vocabulary** — `note`, `finding`, `measurement`,
+  `correction`, `spec`, `reference`. **`finding`, `measurement` and
+  `correction` additionally require `measured_against` and `reproduce_with`,
+  and the write is refused without them**, because a claim that cannot be
+  checked or reproduced is not citable. Use `note` only where no measurement
+  was made.
+- **Identity comes from the working directory** and is deliberately not a
+  parameter, so one agent cannot publish as another.
+- **Never write into another agent's directory**, under any channel.
+- `submit_for_log` remains the right tool for a *prose summary* of a question
+  answered from the vault; it is a draft for the custodian, not peer mail.
+
 **US English throughout.** Every artifact this project produces — docstrings,
 documentation pages, READMEs, specifications, example summaries, decision-log
 entries, commit messages — uses **US spelling and usage**: *behavior* not
