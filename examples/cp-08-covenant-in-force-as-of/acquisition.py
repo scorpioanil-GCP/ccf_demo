@@ -127,8 +127,22 @@ class UnknownFacility(LookupError):
 class _GraphLeg:
     """The ledger, reached over SPARQL with an optional transaction-time pin."""
 
-    def __init__(self, *, url: str, ledger: str, client: httpx.Client) -> None:
+    def __init__(self, *, url: str, ledger: str, client: httpx.Client,
+                 at_transaction: str | None = None) -> None:
         self._url, self._ledger, self._client = url.rstrip("/"), ledger, client
+        # THE READ'S UPPER BOUND ON THE STORE, and nothing more. It is not a
+        # temporal cut: the product's two clocks are read from data, and this
+        # says only WHICH STORE STATE answered. Measured on this build: the
+        # SPARQL route honours `FROM <ledger@t:N>`, and a pin past the head is
+        # refused rather than silently answered from the head.
+        self._at_transaction = at_transaction
+
+    @property
+    def dataset(self) -> str:
+        """The `FROM` clause — the ledger, bounded when a pin was supplied."""
+        if self._at_transaction is None:
+            return self._ledger
+        return f"{self._ledger}@t:{self._at_transaction}"
 
     def select(self, body: str) -> list[Mapping[str, Any]]:
         response = self._client.post(
@@ -189,7 +203,7 @@ def _amendments(leg: _GraphLeg, vocab: Mapping[str, Any], *,
     g = vocab["graph_leg"]
     body = f"""
 SELECT ?a ?vf ?vt ?aa ?num ?lag
-FROM <{leg._ledger}>
+FROM <{leg.dataset}>
 WHERE {{
   ?a <{g['amends_predicate']}> <{facility_uri}> .
   OPTIONAL {{ ?a <{g['valid_from_predicate']}> ?vf }}
@@ -235,7 +249,7 @@ def _covenants(leg: _GraphLeg, vocab: Mapping[str, Any], *,
     g = vocab["graph_leg"]
     body = f"""
 SELECT ?c ?type ?thr ?unit ?label
-FROM <{leg._ledger}>
+FROM <{leg.dataset}>
 WHERE {{
   ?c <{g['covenant_of_predicate']}> <{facility_uri}> .
   ?c <{g['covenant_type_predicate']}> ?type .
@@ -262,8 +276,15 @@ WHERE {{
 
 def acquire(*, facility_id: str, as_of: str, graph_url: str, graph_ledger: str,
             postgres_dsn: str, postgres_schema: str,
-            vocabulary: Mapping[str, Any]) -> FacilityWindow:
-    """Read both legs for one question, at the bound governance resolved."""
+            vocabulary: Mapping[str, Any],
+            at_transaction: str | None = None) -> FacilityWindow:
+    """Read both legs for one question, at the bound governance resolved.
+
+    ``at_transaction`` bounds the GRAPH read at a transaction point a previous
+    run recorded, which is what lets the same question answered against an
+    advanced ledger return the same answer. It bounds the store; it is not one
+    of the product's two clocks.
+    """
     g, a = vocabulary["graph_leg"], vocabulary["attribute_leg"]
     facility_uri = f"{g['node_namespace']}{facility_id}"
 
@@ -308,7 +329,8 @@ def acquire(*, facility_id: str, as_of: str, graph_url: str, graph_ledger: str,
         policy = None if row is None else PolicyVersion(str(row[0]), row[1], row[2])
 
     with httpx.Client(timeout=120.0) as client:
-        leg = _GraphLeg(url=graph_url, ledger=graph_ledger, client=client)
+        leg = _GraphLeg(url=graph_url, ledger=graph_ledger, client=client,
+                        at_transaction=at_transaction)
         return FacilityWindow(
             facility_id=facility_id,
             facility_known=True,
@@ -317,5 +339,8 @@ def acquire(*, facility_id: str, as_of: str, graph_url: str, graph_ledger: str,
             covenants=_covenants(leg, vocabulary, facility_uri=facility_uri),
             drawdowns=drawdowns,
             policy=policy,
-            graph_pin=leg.head(),
+            # The point the read was bounded at when one was supplied, and the
+            # head otherwise — so a served product always records the state that
+            # answered it, and a replay has something to pin against.
+            graph_pin=at_transaction or leg.head(),
         )

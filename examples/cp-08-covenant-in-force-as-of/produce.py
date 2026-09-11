@@ -52,7 +52,7 @@ class Assembled:
 
 
 def assemble_and_serve(
-    *, asked: ProductRequest, root: Path
+    *, asked: ProductRequest, root: Path, at_transaction: str | None = None
 ) -> Assembled | RefusalEnvelope:
     """Answer one question, end to end, against ``root`` as scratch space.
 
@@ -83,7 +83,11 @@ def assemble_and_serve(
     #
     #    THE ORDER of those writes is a contract this deployment owns and
     #    asserts — see `deployment._edge`'s warning.
-    window = deployment.acquire_for(booted, registry, asked)
+    # `at_transaction` REPLAYS: the source read is bounded at a transaction
+    # point a previous run recorded, so the same question against an advanced
+    # ledger returns the same answer. `None` — the default — reads the head.
+    window = deployment.acquire_for(booted, registry, asked,
+                                    at_transaction=at_transaction)
     deployment.ingest(booted, window, at=asked.asked_at)
     # --8<-- [end:acquire]
 
@@ -114,6 +118,12 @@ def assemble_and_serve(
     def debt_scorer(*, view: GraphView, evidence: object = None) -> DebtAssessment:
         return deployment.debt(view)
 
+    # THE DECLARED INVARIANT, implemented where only this deployment can know
+    # it. The SDK ships the machinery and stamps the gate's governed identity
+    # onto any refusal; what counts as coherent is this product's to say.
+    def product_gate(*, candidate: Any, evidence: object = None) -> str | None:
+        return deployment.temporal_coherence_violation(candidate)
+
     scenario = deployment.CovenantScenario(
         window=window, asked=asked, booted_at=asked.asked_at
     )
@@ -131,6 +141,7 @@ def assemble_and_serve(
         # whether the source carries an assertion time for each amendment,
         # which no reference scorer derives from a half-life table.
         debt_scorer=debt_scorer,
+        product_gate=product_gate,
         capabilities=(deployment.traversal_capability(),),
         artifact_store=store,
         replay_record_class="ccf.replay-record",

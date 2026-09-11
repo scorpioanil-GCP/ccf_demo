@@ -170,7 +170,8 @@ def effective(
 
 
 def acquire_for(
-    booted: BootedFabric, registry: ControlPlaneProtocol, asked: ProductRequest
+    booted: BootedFabric, registry: ControlPlaneProtocol, asked: ProductRequest,
+    *, at_transaction: str | None = None,
 ) -> acquisition.FacilityWindow:
     """Read both stores for the question, at the bound governance resolved.
 
@@ -198,6 +199,7 @@ def acquire_for(
         postgres_dsn=os.environ["CCF_CP_08_POSTGRES_DSN"],
         postgres_schema=os.environ["CCF_CP_08_POSTGRES_SCHEMA"],
         vocabulary=vocabulary(),
+        at_transaction=at_transaction,
     )
 
 
@@ -431,3 +433,44 @@ class CovenantScenario:
         outstanding rather than quietly dropped.
         """
         return int(config()["half_life"]["amendment_structure"]["half_life_seconds"])
+
+
+def temporal_coherence_violation(candidate: Any) -> str | None:
+    """The class's declared invariant, held against the answer about to be served.
+
+    **Every admitted amendment satisfies BOTH bounds.** An admitted amendment
+    violating either means one of the two filters was dropped somewhere between
+    the read and the projection — and a product that dropped one is answering a
+    different question from the one asked, with no outward sign that it did.
+
+    Returns a violation string or ``None``. The gate's governed IDENTITY is the
+    Control Plane's (`cp-08.temporal-coherence`); this callable supplies only
+    what counts as a violation, because no universal vocabulary has a token for
+    an invariant that belongs to one product.
+    """
+    payload = getattr(candidate, "payload", None)
+    if not isinstance(payload, Mapping):
+        return None
+    window = payload.get("window") or {}
+    as_of, known_as_of = window.get("as_of"), window.get("known_as_of")
+    if not as_of or not known_as_of:
+        return (
+            "the payload carries no window, so neither temporal bound can be"
+            " checked against what was served"
+        )
+    for entry in payload.get("amendments_in_force_and_known", ()):
+        valid_from, asserted_at = entry.get("valid_from"), entry.get("asserted_at")
+        identifier = entry.get("amendment_id")
+        if not valid_from or valid_from > as_of:
+            return (
+                f"{identifier} was served as in force at as_of={as_of} with"
+                f" effective date {valid_from!r}: the valid-time filter was"
+                " dropped"
+            )
+        if not asserted_at or asserted_at > known_as_of:
+            return (
+                f"{identifier} was served as known at known_as_of={known_as_of}"
+                f" with booking date {asserted_at!r}: the assertion-time filter"
+                " was dropped"
+            )
+    return None

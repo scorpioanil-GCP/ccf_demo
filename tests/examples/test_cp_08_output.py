@@ -114,6 +114,8 @@ def test_moving_known_as_of_alone_changes_the_admitted_set(
     The difference is asserted to be EXACTLY the amendment whose booking lag was
     engineered, not merely non-empty: a product that dropped an arbitrary
     amendment on the later run would also make the two sets differ.
+
+    Declared product gate `CIF-G03` (`CP-SPEC-008` §G.1).
     """
     _, _, run = example
     drawdown = run.DEMONSTRATION_DRAWDOWN
@@ -159,7 +161,10 @@ def test_every_excluded_amendment_carries_an_axis_and_a_reason(
     example: tuple[Any, Any, Any]
 ) -> None:
     """No omission is unexplained. One reason string for all axes would be the
-    single-timeline problem back one layer up."""
+    single-timeline problem back one layer up.
+
+    Declared product gate `CIF-G06` (`CP-SPEC-008` §G.1).
+    """
     import projection  # noqa: PLC0415
 
     known_axes = {
@@ -183,7 +188,10 @@ def test_every_excluded_amendment_carries_an_axis_and_a_reason(
 def test_a_later_as_of_admits_no_fewer_amendments(
     example: tuple[Any, Any, Any]
 ) -> None:
-    """Valid time is monotone in the direction its name implies, `known_as_of` held."""
+    """Valid time is monotone in the direction its name implies, `known_as_of` held.
+
+    Declared product gate `CIF-G01` (`CP-SPEC-008` §G.1).
+    """
     early = _serve(example, as_of="2025-06-01", known_as_of="2026-09-11")
     late = _serve(example, as_of="2026-09-11", known_as_of="2026-09-11")
     assert set(_ids(early, "amendments_in_force_and_known")) <= set(
@@ -194,7 +202,10 @@ def test_a_later_as_of_admits_no_fewer_amendments(
 def test_a_later_known_as_of_admits_no_fewer_amendments(
     example: tuple[Any, Any, Any]
 ) -> None:
-    """Assertion time is monotone too, `as_of` held — the sibling of the above."""
+    """Assertion time is monotone too, `as_of` held — the sibling of the above.
+
+    Declared product gate `CIF-G02` (`CP-SPEC-008` §G.1).
+    """
     _, _, run = example
     drawdown = run.DEMONSTRATION_DRAWDOWN
     early = _serve(example, as_of=drawdown, known_as_of=drawdown)
@@ -211,6 +222,8 @@ def test_every_admitted_amendment_satisfies_BOTH_filters(
 
     An admitted amendment violating either bound means one of the two filters
     was dropped — which is the product answering a question nobody asked.
+
+    Declared product gate `CIF-G04` (`CP-SPEC-008` §G.1).
     """
     _, _, run = example
     as_of, known_as_of = run.DEMONSTRATION_DRAWDOWN, "2026-01-15"
@@ -233,6 +246,8 @@ def test_the_covenants_are_served_and_labelled_unversioned(
 
     The label is a payload FIELD rather than a note in a README, because a
     consumer parsing the payload never sees the README.
+
+    Declared product gate `CIF-G12` (`CP-SPEC-008` §G.1).
     """
     _, _, run = example
     outcome = _serve(example, as_of=run.DEMONSTRATION_DRAWDOWN,
@@ -277,7 +292,10 @@ def test_an_unresolvable_facility_refuses_rather_than_returning_nothing(
     example: tuple[Any, Any, Any]
 ) -> None:
     """An unknown facility is a claim about the REQUEST; an empty answer is a
-    claim about the world. They mean opposite things."""
+    claim about the world. They mean opposite things.
+
+    Declared product gate `CIF-G11` (`CP-SPEC-008` §G.1).
+    """
     import acquisition  # noqa: PLC0415
 
     with pytest.raises(acquisition.UnknownFacility):
@@ -285,27 +303,31 @@ def test_an_unresolvable_facility_refuses_rather_than_returning_nothing(
                known_as_of="2025-09-09")
 
 
-@pytest.mark.parametrize("parameter", ["include_superseded", "evaluate_headroom"])
 def test_a_declared_and_inert_parameter_is_refused_by_name(
-    example: tuple[Any, Any, Any], parameter: str
+    example: tuple[Any, Any, Any]
 ) -> None:
     """Declared-and-refused, never silently dropped.
 
     A parameter that vanished would read as *unsupported by oversight*; refused
-    by name with its declared reason reads as *unsupported by decision*.
+    by name with its declared reason reads as *unsupported by decision*. Both
+    declared parameters are checked here rather than parametrized, so the gate
+    roster can name one executing node id.
+
+    Declared product gate `CIF-G10` (`CP-SPEC-008` §G.1).
     """
     from ccf.products.refusal import RefusalEnvelope  # noqa: PLC0415
 
-    outcome = _serve(example, as_of="2025-09-09", known_as_of="2025-09-09",
-                     **{parameter: True})
-    assert isinstance(outcome, RefusalEnvelope), (
-        f"{parameter} was honored or ignored rather than refused"
-    )
-    # The refusal names the parameter in its own field rather than only in
-    # prose, so a consumer can route on it without parsing a sentence.
-    assert outcome.key == parameter, outcome
-    assert outcome.reason == "not-supported-at-tier", outcome
-    assert outcome.detail, "refused with no declared reason"
+    for parameter in ("include_superseded", "evaluate_headroom"):
+        outcome = _serve(example, as_of="2025-09-09", known_as_of="2025-09-09",
+                         **{parameter: True})
+        assert isinstance(outcome, RefusalEnvelope), (
+            f"{parameter} was honored or ignored rather than refused"
+        )
+        # The refusal names the parameter in its own field rather than only in
+        # prose, so a consumer can route on it without parsing a sentence.
+        assert outcome.key == parameter, outcome
+        assert outcome.reason == "not-supported-at-tier", outcome
+        assert outcome.detail, f"{parameter} refused with no declared reason"
 
 
 def test_the_transaction_point_is_lineage_and_not_product_identity(
@@ -315,6 +337,8 @@ def test_the_transaction_point_is_lineage_and_not_product_identity(
 
     The store's transaction point is recorded so the read is reproducible; it is
     not part of what the product asserts, so it must not enter the payload.
+
+    Declared product gate `CIF-G09` (`CP-SPEC-008` §G.1).
     """
     _, _, run = example
     outcome = _serve(example, as_of=run.DEMONSTRATION_DRAWDOWN,
@@ -373,4 +397,162 @@ def test_the_declared_defaults_resolve_to_the_requests_own_instant(
     assert later.product.payload["window"]["as_of"] > window["as_of"], (
         "the declared default did not move with the question, so it is behaving"
         " as a literal rather than as a relative default"
+    )
+
+
+# --- (6) the declared invariant, the replay pin, and the decision record ---
+
+
+def test_the_temporal_coherence_gate_passes_a_correct_answer(
+    example: tuple[Any, Any, Any]
+) -> None:
+    """The positive control for the two sabotages below.
+
+    A gate that only ever refuses proves nothing about the answers it admits.
+    """
+    _, _, run = example
+    outcome = _serve(example, as_of=run.DEMONSTRATION_DRAWDOWN,
+                     known_as_of=run.DEMONSTRATION_DRAWDOWN)
+    from ccf.products.refusal import RefusalEnvelope  # noqa: PLC0415
+
+    assert not isinstance(outcome, RefusalEnvelope), outcome
+
+
+def test_an_incoherent_answer_is_refused_by_the_declared_gate(
+    example: tuple[Any, Any, Any]
+) -> None:
+    """Each bound sabotaged SEPARATELY, because a gate holding one limb of a
+    two-limb invariant is half a gate.
+
+    Not parametrized, deliberately: the gate roster names one executing node id
+    per gate, and a parametrized id would either need the roster's schema
+    widened or would pin the gate to one of its two limbs. The loop below keeps
+    both limbs independent and names which one failed.
+
+    The subject is the deployment's own callable over a tampered payload rather
+    than a mutated module: the invariant is a property of the ANSWER, so the
+    answer is what is corrupted.
+
+    Declared product gate `CIF-G05` (`CP-SPEC-008` §G.1).
+    """
+    import copy  # noqa: PLC0415
+
+    deployment, _, run = example
+    outcome = _serve(example, as_of=run.DEMONSTRATION_DRAWDOWN,
+                     known_as_of=run.DEMONSTRATION_DRAWDOWN)
+
+    assert deployment.temporal_coherence_violation(outcome.product) is None, (
+        "a correct answer was refused, so every refusal below proves nothing"
+    )
+
+    for field, bound in (("valid_from", "valid-time"),
+                         ("asserted_at", "assertion-time")):
+        tampered = copy.deepcopy(outcome.product.payload)
+        admitted = tampered["amendments_in_force_and_known"]
+        assert admitted, "nothing admitted, so this sabotage has no subject"
+        # A date beyond BOTH declared instants, so the served amendment now
+        # violates exactly the bound under test.
+        admitted[0][field] = "2099-01-01"
+
+        class _Tampered:
+            payload = tampered
+
+        violation = deployment.temporal_coherence_violation(_Tampered())
+        assert violation is not None, (
+            f"a served amendment violating the {bound} bound was not caught —"
+            " the gate holds at most one of its two limbs"
+        )
+        assert admitted[0]["amendment_id"] in violation, (field, violation)
+        assert "dropped" in violation, (field, violation)
+
+
+def test_re_serving_at_a_recorded_transaction_point_reproduces_the_answer(
+    example: tuple[Any, Any, Any]
+) -> None:
+    """The reproducibility claim, and it is measured rather than asserted.
+
+    Serve, take the transaction point the product recorded, and re-serve bounded
+    at it. The same question against the same store state must reach the same
+    content address — which is what makes a decision re-examinable later.
+
+    The instant is pinned across both serves because the decision instant is
+    part of the determination; varying it would be a different question.
+
+    Declared product gate `CIF-G08` (`CP-SPEC-008` §G.1).
+    """
+    from ccf.contracts.canonical import content_hash  # noqa: PLC0415
+
+    deployment, produce, run = example
+    drawdown = run.DEMONSTRATION_DRAWDOWN
+    instant = datetime.now(UTC)
+
+    first = _serve(example, as_of=drawdown, known_as_of=drawdown, asked_at=instant)
+    recorded = first.window.graph_pin
+    assert recorded, "the product recorded no transaction point to replay against"
+
+    asked = deployment.request(
+        facility_id=run.DEMONSTRATION_FACILITY,
+        principal_scope=[run.DEMONSTRATION_FACILITY],
+        asked_at=instant, as_of=drawdown, known_as_of=drawdown,
+    )
+    with tempfile.TemporaryDirectory(prefix="cp-08-replay-") as scratch:
+        replayed = produce.assemble_and_serve(
+            asked=asked, root=pathlib.Path(scratch), at_transaction=recorded
+        )
+
+    assert content_hash(replayed.product) == content_hash(first.product), (
+        "re-serving at the recorded transaction point produced a different"
+        " answer, so the record does not pin what it claims to"
+    )
+
+
+def test_a_transaction_point_the_ledger_has_not_reached_is_refused(
+    example: tuple[Any, Any, Any]
+) -> None:
+    """The control for the test above.
+
+    Without it, a pin that were silently ignored would reproduce the answer too
+    — and the reproduction would be proving nothing.
+    """
+    import httpx  # noqa: PLC0415
+
+    deployment, produce, run = example
+    asked = deployment.request(
+        facility_id=run.DEMONSTRATION_FACILITY,
+        principal_scope=[run.DEMONSTRATION_FACILITY],
+        asked_at=datetime.now(UTC), as_of=run.DEMONSTRATION_DRAWDOWN,
+        known_as_of=run.DEMONSTRATION_DRAWDOWN,
+    )
+    with tempfile.TemporaryDirectory(prefix="cp-08-ahead-") as scratch:
+        with pytest.raises(httpx.HTTPStatusError):
+            produce.assemble_and_serve(
+                asked=asked, root=pathlib.Path(scratch),
+                at_transaction="99999999",
+            )
+
+
+def test_the_decision_record_carries_the_policy_dimension(
+    example: tuple[Any, Any, Any]
+) -> None:
+    """What authorised the answer is recorded, and it is a SUPERSET of lineage.
+
+    The record may carry governed artifacts the product's own lineage does not
+    — the request contract among them — because replay reconstructs the
+    environment the decision was made in, not only the evidence it cited.
+
+    Declared product gate `CIF-G13` (`CP-SPEC-008` §G.1).
+    """
+    _, _, run = example
+    outcome = _serve(example, as_of=run.DEMONSTRATION_DRAWDOWN,
+                     known_as_of=run.DEMONSTRATION_DRAWDOWN)
+
+    bindings = outcome.record.policy_bindings.bindings
+    assert bindings, "the decision record carries no policy binding at all"
+
+    recorded = {binding.key for binding in bindings}
+    cited = {entry.key for entry in outcome.product.lineage.policy_bindings} \
+        if hasattr(outcome.product.lineage, "policy_bindings") else set()
+    assert cited <= recorded, (
+        "the product cites a policy binding the decision record does not carry:"
+        f" {sorted(cited - recorded)}"
     )

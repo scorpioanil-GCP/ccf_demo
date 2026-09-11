@@ -31,6 +31,14 @@ product_class:
   # The expiry is a function of the latest ASSERTION among the served set, not
   # of request time: a closed as-of answer does not decay because neither what
   # was true nor what was known can now change (`CP-SPEC-008` §E.3).
+  # THE FOURTH VALIDATION GATE, declared here and implemented by this
+  # deployment (§D.7). Its IDENTITY is Control Plane state; the invariant it
+  # holds is a property of THIS product and no universal vocabulary has a token
+  # for it.
+  declared_product_gate:
+    gate_id: cp-08.temporal-coherence
+    gate_version: "1.0.0"
+
   ttl_anchor: from_entity_freshness
   assembly_mode: algorithmic
   max_ttl_key: cp-08/product/covenant-in-force/max-ttl
