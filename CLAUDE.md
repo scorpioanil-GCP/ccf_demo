@@ -299,6 +299,35 @@ from `/home/parkave/homecams_v2/.env` (never committed to this repo):
   `cursor agent -p --mode ask` (the `--trust` flag does not exist in
   the installed version; omit it).
 
+**A GREEN TARGET IS NOT EVIDENCE UNTIL YOU KNOW WHAT IT RAN** (Dave,
+2026-09-11, on three measurement failures in one session). These are not
+cautions; they are the reading rules for every count that reaches Dave, a
+commit message or a decision entry.
+
+- **`make gate-tools` is not evidence of full coverage when an earlier leg is
+  red.** It runs three pytest invocations in sequence and `make` stops at the
+  first failure, so a standing red in `tools/lints/tests` means
+  `tools/product_gates_tests` **never runs** — while the output still ends in a
+  confident `NNN passed`. Measured: the same `469 passed` was reported before
+  and after ten tests were added to a suite the target never reached.
+- **A collection error does not mean clean.** A test whose fixture raises is
+  still a *collected* test: `pytest --collect-only` lists its node id, and any
+  instrument asking *"did pytest collect this?"* reports the module healthy.
+  `tools/check_product_gates.py` asks exactly that, by design. Measured twice —
+  a checker printing no line for a tree whose test module had stopped parsing
+  (which reads exactly like a pass), and `CP05-F-02`, where **all eight cp-05
+  output tests errored at setup and the product had no output-level coverage at
+  all**. Read `passed`, never `collected`; `collected`, `passed` and `errors`
+  are three different numbers.
+- **While either condition stands, run `tools/product_gates_tests` and
+  `make product-gates` DIRECTLY** rather than through `make gate-tools`. The
+  indirection is what hid the gap; naming the subject is what closes it.
+
+The general shape, and the one to check for: **absence of a failure signal is
+not presence of a success signal.** The correct model always has three states —
+pass, fail, and *don't know* — and the defect is collapsing *don't know* into
+*pass*.
+
 **What each phase's review verifies, minimally:**
 
 - **Phase R** — the inventory satisfies every element of §16, entry by
@@ -1192,6 +1221,29 @@ deployment" scope bullet; the composed pair *is* that deployment.
 9. **`examples/cp-04-corporate-family-tree`** — This product integrates two distinct systems of record per query, combining a graph leg for ownership structures with an attribute leg for reference data. Because neither individual store holds the complete information, the final answer is created entirely through their assembly.
 10. **`examples/cp-05-credit-exposure-rollup`** — Naive borrower-keyed sums fail to calculate total exposure accurately, understating the actual risk by nearly 70 times due to uncaptured cross-defaults and double-counted guarantees. Because the output shows no internal signs of error, true exposure requires complex family-level accounting and guarantee path deduplication rather than simple addition.
 
+
+### Three standing facts about the example ledger (Dave, 2026-09-11)
+
+Recorded here so a later sitting does not re-derive them, or worse, resolve them
+the easy way.
+
+- **Phase 21's UAT roster pin stays FROZEN.**
+  `tools/docs_tests/test_requirement_ledger.py` derives each roster member's
+  base from Phase 21's pinned commit. That pin does not move.
+- **`24.5-VERIFICATION.md` is a NAMED EXCEPTION, not a roster gap.** It carries
+  an undischarged `human_verification:` block of eight items and is absent from
+  the frozen roster **because it did not exist at that pin** — measured: adding
+  it turns one red into four, because three controls then try to derive a base
+  for a file with no history there. **Do not absorb it by moving the base.**
+  Whether `D-GATE-24.5` decided those eight questions is a separate reading
+  nobody has taken.
+- **`CP05-F-03` is a real content and structure finding, NOT a header
+  exception.** Two of cp-05's three `schema-headers` reds are value-type changes
+  to `expected.yaml` — a comparison fixture four assertions read, two of them
+  carrying declared gates — and the third is structural, a list where the
+  artifact class requires a mapping. The `# ccf-schema: deferred(...)` marker
+  the gate itself offers would turn red to green **while changing nothing about
+  the document**, which is the move this project refuses everywhere else.
 
 ### What the examples are not
 
