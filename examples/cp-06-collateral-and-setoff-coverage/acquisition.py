@@ -173,6 +173,21 @@ class Coverage:
     unresolved_debtors: tuple[str, ...] = field(default_factory=tuple)
 
 
+def nothing_acquired(facility_id: str) -> Coverage:
+    """What a read that was never taken returns.
+
+    Not an empty answer — **no answer**. Governance refused the question before
+    acquisition ran, so there is nothing to report and nothing was paid for. The
+    governed resolver issues the refusal moments later; this value only has to
+    carry the anchor far enough to get there.
+    """
+    return Coverage(
+        facility_id=facility_id, borrower_lei=None, borrower_name=None,
+        commitment=None, pledges=(), assets={}, sharing={}, deposits=(),
+        reached_by={}, filings=(), haircuts={},
+        enforceable_jurisdictions=frozenset(), ledger_watermark="unread")
+
+
 class _GraphLeg:
     """A read-only SPARQL client. `FROM <ledger>` precedes `WHERE`, always."""
 

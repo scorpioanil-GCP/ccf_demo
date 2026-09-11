@@ -98,23 +98,31 @@ def build_resolver(*, root: Path) -> Any:
     gates, this product's declared over-allocation gate, the five-dimension
     replay record and the refusal path are all `assemble_and_serve`'s, reached
     unchanged.
+
+    **The door refuses nothing of its own.** An earlier revision checked here
+    for a missing anchor and returned a hand-built `RefusalEnvelope` carrying
+    `reason`/`key`/`detail` — fields that contract does not declare. It requires
+    `kind` (from the SDK's own `REFUSAL_KINDS` vocabulary), `fields`, `request`
+    and `pre_assembly_lineage`, so the constructor raised, the egress layer
+    caught it as a runtime failure, and a governed "no" reached the caller as
+    `ccf-runtime-failure:<id>` — which the SDK reserves for *"CCF or its runtime
+    failed"* and promises a governed determination never arrives as (`CP07-F-09`).
+
+    It was also unnecessary. `facility_id` and `borrower_scope` are `required`
+    in the request contract, so the CONTROL PLANE already refuses a question
+    missing either, and does it properly: `product-request-violation`, the
+    declared and presented key sets, and a replay reference. The check is
+    DELETED rather than repaired — code that reconstructs what was already
+    declared dies with the declaration (`D-IMPL-289`).
     """
     def resolve(*, tenant: str, product_class: str, version: str,
                 perspective: Any, request: Any) -> Any:
         parameters = {} if request is None else dict(request.parameters)
         facility = parameters.get(deployment.FACILITY)
         scope = parameters.get(deployment.BORROWER_SCOPE)
-        if not facility or not scope:
-            # The door's ONE refusal: a question with no anchor is not a
-            # question this class answers, and there is nothing to govern.
-            return RefusalEnvelope(
-                reason="missing-required-argument",
-                key=deployment.FACILITY if not facility else deployment.BORROWER_SCOPE,
-                detail="both `facility_id` and `borrower_scope` are required",
-            )
         asked = deployment.request(
-            facility_id=str(facility),
-            borrower_scope=[str(s) for s in scope],
+            facility_id=None if facility is None else str(facility),
+            borrower_scope=None if scope is None else [str(s) for s in scope],
             asked_at=(request.asked_at if request is not None
                       else datetime.now(UTC)),
             apply_haircuts=parameters.get(deployment.APPLY_HAIRCUTS),
@@ -172,6 +180,17 @@ def door(*, root: Path) -> Iterator[Door]:
     replay_root = root / "replay"
     replay_root.mkdir(parents=True, exist_ok=True)
 
+    # THE ASSEMBLY ROOT HAS TO EXIST BEFORE THE FIRST CALL, not after it.
+    # `deployment.connection` hands SQLite a path INSIDE this directory and
+    # SQLite will not create a missing parent, so a door that only named the
+    # directory answered its first request with `unable to open database file` —
+    # an MCP transport error, which is how a producer that never booted looks
+    # from the outside. This door shipped that way at `D-GATE-cp-06`; nothing
+    # ever booted it, because the only test written about it read `door.yaml`
+    # and asserted that an entry point was DECLARED (`CP07-F-08`).
+    assembly_root = root / "assembly"
+    assembly_root.mkdir(parents=True, exist_ok=True)
+
     tokens = root / TOKEN_FILE
     credential = secrets.token_urlsafe(32)
     tokens.write_text(
@@ -190,7 +209,7 @@ def door(*, root: Path) -> Iterator[Door]:
 
     server = build_egress_server(
         server_name=tenant,
-        resolver=build_resolver(root=root / "assembly"),
+        resolver=build_resolver(root=assembly_root),
         token_verifier=SourceBackedTokenVerifier(source=FileTokenSource(path=tokens)),
         auth_settings=AuthSettings(
             issuer_url=AnyHttpUrl(str(values["issuer_url"])),
