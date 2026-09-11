@@ -159,7 +159,7 @@ resolution:
       identity_keys: [amendment_id]
       attribute_keys:
         [amendment_id, facility_id, kind, amendment_number, valid_from,
-         asserted_at, booking_lag_days]
+         valid_to, asserted_at, booking_lag_days]
     - match_key: covenant_id
       entity_class: covenant
       identity_keys: [covenant_id]

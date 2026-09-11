@@ -90,18 +90,44 @@ class CovenantInForceProjection:
             amendment_id = attrs.get("amendment_id", "")
             valid_from = attrs.get("valid_from") or ""
             asserted_at = attrs.get("asserted_at") or ""
+            valid_to = attrs.get("valid_to") or ""
             entry = {
                 "amendment_id": amendment_id,
                 "amendment_number": attrs.get("amendment_number") or None,
                 "valid_from": valid_from or None,
+                "valid_to": valid_to or None,
                 "asserted_at": asserted_at or None,
                 "booking_lag_days": attrs.get("booking_lag_days") or None,
             }
 
             # AXIS 1 — VALID TIME. Was it in force at `as_of`?
-            if not valid_from or valid_from > self._as_of:
+            #
+            # A MISSING `validFrom` IS NOT "not in force". Measured: 25 of the
+            # estate's 137 amendments carry both clocks and 112 carry neither,
+            # so this branch is reached in earnest. Saying "not yet in force"
+            # about an amendment whose effective date the source never recorded
+            # would be the same defect as calling a missing `assertedAt`
+            # un-booked — a claim about the world standing in for an absence in
+            # the record.
+            if not valid_from:
+                excluded.append({
+                    **entry, "excluded_by": AXIS_VALID_TIME,
+                    "because": "the source carries no effective date for this"
+                               " amendment",
+                })
+                continue
+            if valid_from > self._as_of:
                 excluded.append({**entry, "excluded_by": AXIS_VALID_TIME,
                                  "because": "not yet in force at as_of"})
+                continue
+            # The interval's far end, when the source states one. Measured: NO
+            # amendment in this estate carries `validTo`, so this cannot fire
+            # here — it is implemented because the predicate is the product's,
+            # not the estate's, and an estate that later closes an interval
+            # must not silently keep serving the amendment.
+            if valid_to and not (self._as_of < valid_to):
+                excluded.append({**entry, "excluded_by": AXIS_VALID_TIME,
+                                 "because": "no longer in force at as_of"})
                 continue
 
             # AXIS 2 — ASSERTION TIME. Had the institution booked it by

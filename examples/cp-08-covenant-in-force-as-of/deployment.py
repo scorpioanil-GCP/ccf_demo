@@ -181,8 +181,12 @@ def acquire_for(
 
     values = effective(booted, registry, asked)
     if not values:
-        raise acquisition.UnknownFacility(
-            "the Control Plane refused this question; no source store was read"
+        # The Control Plane refused. Nothing is read, and NOTHING IS RAISED:
+        # the governed path issues that refusal moments from now as data, and
+        # an exception here would replace a governed determination with this
+        # deployment's own error.
+        return acquisition.nothing_acquired(
+            str(asked.parameters.get(FACILITY, ""))
         )
     return acquisition.acquire(
         facility_id=str(values[FACILITY]),
@@ -294,6 +298,7 @@ def ingest(
                 "facility_id": window.facility_id,
                 "amendment_number": "" if amendment.number is None else str(amendment.number),
                 "valid_from": amendment.valid_from or "",
+                "valid_to": amendment.valid_to or "",
                 # EMPTY rather than absent when the source has none, and empty
                 # rather than `valid_from`: 112 of 137 amendments carry no
                 # assertion time, and defaulting one would make every booking

@@ -47,6 +47,7 @@ class Amendment:
     amendment_id: str
     number: int | None
     valid_from: str | None
+    valid_to: str | None
     asserted_at: str | None
     booking_lag_days: int | None
 
@@ -96,6 +97,21 @@ class FacilityWindow:
     drawdowns: tuple[Drawdown, ...]
     policy: PolicyVersion | None
     graph_pin: str | None
+
+
+def nothing_acquired(facility_id: str) -> FacilityWindow:
+    """An empty window — the shape a REFUSED question acquires.
+
+    Returned rather than raised when the Control Plane declines the question.
+    A governed refusal is a determination the fabric reached and belongs in the
+    replay record as one; converting it into an exception here would replace it
+    with this module's own error, and a caller would learn that a facility was
+    unknown when in fact a parameter was refused.
+    """
+    return FacilityWindow(
+        facility_id=facility_id, facility_known=False, amendments=(),
+        covenants=(), drawdowns=(), policy=None, graph_pin=None,
+    )
 
 
 class UnknownFacility(LookupError):
@@ -172,11 +188,12 @@ def _amendments(leg: _GraphLeg, vocab: Mapping[str, Any], *,
     """
     g = vocab["graph_leg"]
     body = f"""
-SELECT ?a ?vf ?aa ?num ?lag
+SELECT ?a ?vf ?vt ?aa ?num ?lag
 FROM <{leg._ledger}>
 WHERE {{
   ?a <{g['amends_predicate']}> <{facility_uri}> .
   OPTIONAL {{ ?a <{g['valid_from_predicate']}> ?vf }}
+  OPTIONAL {{ ?a <{g['valid_to_predicate']}> ?vt }}
   OPTIONAL {{ ?a <{g['asserted_at_predicate']}> ?aa }}
   OPTIONAL {{ ?a <{g['amendment_number_predicate']}> ?num }}
   OPTIONAL {{ ?a <{g['booking_lag_predicate']}> ?lag }}
@@ -193,6 +210,7 @@ WHERE {{
                 amendment_id=_local(uri),
                 number=None if number is None else int(number),
                 valid_from=(_value(row, "vf") or "")[:10] or None,
+                valid_to=(_value(row, "vt") or "")[:10] or None,
                 asserted_at=(_value(row, "aa") or "")[:10] or None,
                 booking_lag_days=None if lag is None else int(lag),
             )
