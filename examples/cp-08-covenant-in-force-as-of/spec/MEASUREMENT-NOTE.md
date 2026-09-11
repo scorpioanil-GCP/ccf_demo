@@ -109,3 +109,78 @@ No Option A row exists. The spec is narrowed:
 - **remove** "supersession preserved" from the title, the claims, the gates and
   the teaching text;
 - **keep** the pinned-read reproducibility claim, which is measured and holds.
+
+---
+
+# Correction, 2026-09-11 (Gate 2) — a real number about the wrong population
+
+**This note's own Gate-1 figures were scoped wrongly, and the correction struck
+a finding, a debt metric and two gates.** It is recorded here rather than
+overwritten, because the error is more instructive than the number.
+
+## What was claimed
+
+> *"112 of 137 amendments carry no `assertedAt` and cannot be placed on the
+> assertion axis. This is the debt signal's subject."* — `CP08-F-03`
+
+That figure counted **every `ex:amends` edge in the ledger**. Measured by what
+the edge actually points at:
+
+| target class | `ex:amends` edges |
+|---|---|
+| `Trade` | **89** |
+| **`CreditFacility`** | **25** |
+| `TradeLifecycleEvent` | 16 |
+| `SyndicatedLoan` | 7 |
+
+**cp-08 reads facility amendments.** Scoped to that slice:
+
+```
+amendments whose target is a CreditFacility     25   (across 18 facilities)
+  carrying validFrom                            25
+  carrying assertedAt                           25
+  missing EITHER clock                           0
+```
+
+## What it cost, and what was struck
+
+- **`CP08-F-03`** — struck. There is no unplaceable population.
+- **The cp-08-specific `D_c`** — removed. Defined as *placeable ÷ served*, the
+  ratio is **1 on every facility** and the debt **0 on every answer**: a scalar
+  that cannot move with the answer, which is the `CP04C-F-02` defect one rung
+  over, rebuilt from scratch here.
+- **`CIF-G07`** (unplaceable amendment recorded) and **`CIF-G14`** (`D_c` moves
+  with the ratio) — struck. Both guard a population of zero.
+- **No replacement metric was invented.** A debt figure exists to report a
+  shortfall; this product on this estate has none of that kind.
+
+## Why it survived three checks
+
+The number was measured, not assumed — a query was run and its output quoted.
+What was never checked is **which population the query ranged over**, and the
+product's slice is a subset the predicate `?a ex:amends ?f` does not express.
+The tell was available and missed twice: `facilities with amendments: 135`
+against `facilities carrying ≥1 covenant: 45` is an arithmetic impossibility for
+one population, and it sat in this note from the first measurement.
+
+**The rule this yields, and it is not the same as "measure it":** a count is
+only as good as the population it ranged over, so state the population in the
+same breath as the number. *"137 amendments"* is a fact about the ledger;
+*"25 facility amendments"* is a fact about the product. Only the second belongs
+in a specification.
+
+## What was NOT affected
+
+The exhibit is untouched, and it remains everything cp-08 claims:
+
+```
+FAC-01BB3F · as_of 2025-09-09 held · drawdown DRW-01BB3F-0000 inside the 52-day gap
+  known_as_of=2025-09-09 → admitted [AMD-01BB3F-1]
+                           excluded [(AMD-01BB3F-2, 'assertion-time')]
+  known_as_of=2026-09-11 → admitted both, excluded []
+  covenants 4, labelled unversioned
+```
+
+Two clocks, the booking lag, the assertion-time exclusion named by axis, replay
+at a recorded ledger `t`, and covenants served unversioned. All measured through
+the governed path, all intact.

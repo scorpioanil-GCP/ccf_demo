@@ -70,7 +70,7 @@ would also need a superseded covenant, which the estate does not hold.
 | Capability | Needed for | Present? |
 |---|---|---|
 | Valid-time interval on amendments | `as_of` filtering | **yes** — `ex:validFrom` |
-| Assertion-time stamp on amendments | `known_as_of` filtering | **yes** — `ex:assertedAt`, on 25 |
+| Assertion-time stamp on amendments | `known_as_of` filtering | **yes** — on **all 25** in this product's slice |
 | An engineered gap between the two | the bitemporal demonstration | **yes** — three, with a drawdown inside each |
 | Ledger transaction-time pin | reproducible re-read | **yes**, and measured — §0.5 |
 | Assertion time **on covenants** | covenant-level `known_as_of` | **NO** — 0 of 180; §0.5 (1) |
@@ -297,7 +297,7 @@ Out of scope at this rung, stated here so the boundary is visible before §B:
 | 4 | **Payload** | the **amendment set** admitted at the two declared instants; every amendment excluded, with **which axis excluded it**; the covenants the facility carries, served as context with their terms stated as unversioned; the drawdowns in the window |
 | 5 | **Lineage** | both legs, plus `as_of`, `known_as_of` and the ledger `t` as execution provenance |
 | 6 | **Policy** | the breach-threshold register version effective at `as_of` |
-| 7 | **Debt** | `D_c` from amendments placeable on the assertion axis ÷ amendments served |
+| 7 | **Debt** | the SDK's reference assessment. **This product declares no `D_c` of its own** — see §E.2 |
 | 8 | **TTL** | dual — see §E.3 |
 | 9 | **Determinism** | class 1, pure algorithmic. No model call anywhere in §D |
 
@@ -383,16 +383,23 @@ numbers**; they are here so a reader can reproduce the shape of the estate.
 | `ex:Covenant` nodes | 180 |
 | Facilities carrying ≥1 covenant | 45 |
 | Covenant types | `leverage` 85 · `interest_coverage` 63 · `fixed_charge_coverage` 58 · `minimum_liquidity` 42 · `secured_leverage` 20 · `net_capital` 2 |
-| Amendments (`ex:amends`) | 137 across 135 facilities |
-| **Amendments carrying `assertedAt` AND `bookingLagDays`** | **25** |
+| `ex:amends` edges, ALL targets | 137 — but see the row below: **89 amend `Trade`, 16 `TradeLifecycleEvent`, 7 `SyndicatedLoan`** |
+| **Amendments IN THIS PRODUCT'S SLICE** (target is a `CreditFacility`) | **25, across 18 facilities** |
+| **Of those, carrying BOTH clocks** | **25 — every one** |
 | **Engineered booking lags** | **3** |
 | Drawdowns | 151, of which **3** carry `falls_in_booking_gap` |
 | Policy versions with supersession | 2 |
 
-**The bitemporal subset is 25 of 137 amendments, and that is the honest
-denominator for this product's Context Debt** (§E.2). An amendment with no
-`assertedAt` cannot be placed on the assertion axis at all; the product serves it
-with that stated rather than assuming it was booked on its effective date.
+**EVERY AMENDMENT IN THIS PRODUCT'S SLICE CARRIES BOTH CLOCKS, and that
+correction is the reason `CP08-F-03` was struck.** The 137 figure counts every
+`ex:amends` edge in the ledger, and 112 of those amend a `Trade`, a
+`TradeLifecycleEvent` or a `SyndicatedLoan` — none of which this product reads.
+Scoped to amendments whose target is a `CreditFacility`: **25 amendments across
+18 facilities, and 0 of them missing either clock.**
+
+The earlier reading — *"112 of 137 amendments carry no `assertedAt`"* — was a
+real number about the wrong population, and it is corrected in
+`MEASUREMENT-NOTE.md` rather than quietly overwritten.
 
 ### C.3 Correlation key and single-writer discipline
 
@@ -461,11 +468,16 @@ The covenants the facility carries are served alongside, **with their terms
 stated as unversioned** — the payload says so rather than implying the terms
 were reconstructed for `as_of`, because in this estate they were not (§0.5 (1)).
 
-**An amendment with no `assertedAt` is not assumed booked.** 112 of 137 carry
-none. Such an amendment is **recorded as unplaceable on the assertion axis**
-rather than admitted or dropped, and that is what drives Context Debt (§E.2).
-Assuming `assertedAt = validFrom` would manufacture the very coincidence the
-product exists to disprove — it would make every booking lag vanish.
+**An amendment with no `assertedAt` is not assumed booked.** The predicate says
+so, and it stays in the product even though **no amendment in this slice
+exercises it**: all 25 carry both clocks. Assuming `assertedAt = validFrom`
+would manufacture the very coincidence the product exists to disprove — it would
+make every booking lag vanish — and the `ex:amends` edges pointing at trades
+show the clockless shape is one this estate can produce.
+
+**What does NOT follow from keeping the predicate is a gate.** `CIF-G07` guarded
+this branch and is struck: a guard over a population of zero reports coverage it
+does not provide (§G.1).
 
 **The exclusion record is part of the payload, not a log line.** For every
 assertion excluded, the payload says **which axis excluded it**. A covenant
@@ -540,22 +552,24 @@ observed red under it before it is recorded as passing.
 > applies these controls and should not be interpreted as recommended
 > production coverage-policy thresholds.
 
-### E.2 Debt model
+### E.2 Debt — this product declares no metric of its own
 
-`D_c` on this product is **not** a freshness score, and that is the point. It is
-the fraction of the served amendment set that could be **placed on the assertion
-axis at all**:
+**There is no cp-08-specific `D_c`, deliberately.** A draft of this spec defined
+one as *amendments placeable on the assertion axis ÷ amendments served*. Scoped
+correctly, every amendment in this product's slice carries both clocks, so that
+ratio is **1 on every facility** and the debt it produced was **0 on every
+answer** — a scalar that cannot move with the answer, which is exactly the
+defect `CP04C-F-02` records one rung over.
 
-```
-D_c = 1 − (amendments with a resolvable assertedAt ÷ amendments served)
-```
+It is removed rather than re-anchored. **No replacement metric is invented
+here**: a debt figure exists to say something true about a shortfall in the
+answer, and this product, on this estate, has no shortfall of that kind to
+report. The SDK's reference scorer applies; `CIF-G14` is struck.
 
-Measured shape: **25 of 137 amendments carry `assertedAt`**, so `D_c` on most
-facilities is high and says something true — *this answer cannot tell you what
-the bank knew*. On the three engineered facilities it is low and the answer
-carries the second clock. **A debt signal that read the same on both would be
-decorative**; this one distinguishes exactly the facilities the product can
-answer the dispute question for.
+If a later estate wave loads facility amendments that lack a clock — the shape
+the `Trade` amendments already have — a product-specific `D_c` becomes
+meaningful and can be specified then, against a measured population rather than
+an assumed one.
 
 ### E.3 Materialization and the dual TTL
 
@@ -626,10 +640,15 @@ not** — `.env` names the v1 estate and this product reads **v2**
   **withdraws the claim** rather than serving an empty superseded set;
   `include_superseded` stays declared-and-inert. The ledger's 1,107 supersession
   markers belong to other classes and do not count.
-- **`CP08-F-03` — OPEN, and it is the debt signal's subject.** 112 of 137
-  amendments carry no `assertedAt` and cannot be placed on the assertion axis.
-  Not a defect to repair: the product serves those facilities and says, in
-  `D_c`, that it cannot tell you what the bank knew.
+- **`CP08-F-03` — STRUCK. The finding was a real number about the wrong
+  population.** It read *"112 of 137 amendments carry no `assertedAt`"* and was
+  written into this spec as the debt signal's subject. Measured properly: 137
+  counts every `ex:amends` edge in the ledger, of which **89 amend a `Trade`,
+  16 a `TradeLifecycleEvent` and 7 a `SyndicatedLoan`** — none of which this
+  product reads. In cp-08's own slice there are **25 amendments across 18
+  facilities and every one carries both clocks.** There is no unplaceable
+  population, so there is no finding. `CIF-G07` and `CIF-G14` are struck with
+  it and §E.2 declares no debt metric.
 - **`CP08-F-04` — OPEN, and it is not this product's to fix.** Covenants carry no
   assertion time at all, so the *covenant terms* a facility bore on a past date
   cannot be reconstructed. The product serves the current terms and labels them
@@ -652,21 +671,43 @@ The acceptance authority for every gate is **this clause** (`D-IMPL-326`).
 | `CIF-G04` | every admitted amendment satisfies **both** filters — the temporal-coherence gate |
 | `CIF-G05` | a set whose coherence is violated is refused, observed red under a one-line filter removal |
 | `CIF-G06` | the exclusion record names **which axis** excluded each omitted amendment |
-| `CIF-G07` | an amendment with no `assertedAt` is recorded unplaceable, never assumed booked |
 | `CIF-G08` | re-serving at a recorded ledger `t` reproduces the content address |
 | `CIF-G09` | the ledger `t` is in lineage as execution provenance and **not** in product identity |
 | `CIF-G10` | `include_superseded` and `evaluate_headroom` are refused by name with their declared reasons |
 | `CIF-G11` | an unresolvable `facility_id` refuses; it does not return an empty set |
 | `CIF-G12` | the served covenants are **labelled unversioned**, so no consumer reads them as reconstructed for `as_of` |
 | `CIF-G13` | replay dimension 2 is a superset of product policy lineage |
-| `CIF-G14` | `D_c` moves with the placeable-amendment ratio, not with the estate |
-| `CIF-G15` | a closed as-of answer carries the long TTL and a live one the short TTL |
+| `CIF-G15` | a closed as-of answer carries the long TTL and a live one the short TTL — **DECLARED, NOT YET IMPLEMENTED**; see below |
 
-**Two gates were REMOVED at Gate 1 rather than weakened**, and this is recorded
-so a reader comparing drafts sees a withdrawal rather than a gap: a superseded-set
-return gate, and a gate asserting that covenant *terms* differ across a booking
-gap. The estate supports neither (§0.5), and a gate that cannot fail is worse
-than no gate.
+**FOUR GATES HAVE BEEN REMOVED, IN TWO ROUNDS, AND THE IDS ARE NOT REUSED.**
+`CIF-G07` and `CIF-G14` are holes in this table and stay holes — a re-minted id
+would make two different obligations share one name, which is why cp-04 never
+re-minted `CFT-G17`.
+
+*At Gate 1*: a superseded-set return gate, and a gate asserting that covenant
+*terms* differ across a booking gap. The estate supports neither (§0.5).
+
+*At the Gate 2 measurement correction*: **`CIF-G07`** (an amendment with no
+`assertedAt` is recorded unplaceable) and **`CIF-G14`** (`D_c` moves with the
+placeable ratio). Scoped to this product's slice, **every amendment carries both
+clocks**, so neither gate can fail on `.76` — `CIF-G07` guards a population of
+zero and `CIF-G14` watches a ratio pinned at 1.
+
+**A gate that cannot fail is worse than no gate**, because it reports coverage
+it does not provide. That is the rule these four were removed under, and it is
+the same rule in both rounds.
+
+> **A note on the numbering, because acting on it literally would have been
+> wrong.** The instruction to strike the debt gate named `CIF-G13`. In this
+> table `CIF-G13` is *replay dimension 2 is a superset of product policy
+> lineage* — a gate that can fail and is kept. The debt gate is `CIF-G14`.
+> Resolved against the tree rather than the reference.
+
+**`CIF-G15` IS A DIFFERENT CATEGORY and is not struck.** It is not blocked by
+the estate; it is simply **not built**. The dual TTL §E.3 describes needs a
+ruling on where *closed* ends and *live* begins, which is a governance decision
+this specification may not take alone. It stays declared and visibly
+unimplemented rather than being dropped quietly or rostered as though it ran.
 
 **`CIF-G12` is the gate this narrowing earns.** Serving current covenant terms
 beside a historical amendment answer is the one place a consumer could mistake
@@ -688,16 +729,15 @@ engineered lag does not break it.
    terms were reconstructed for `as_of`.
 5. The product writes to neither source store.
 6. A recorded ledger `t` reproduces its answer after later ledger activity.
-7. `D_c` reports the assertion-axis placeability of the served amendment set.
+7. No product-specific debt figure is served that the estate cannot move.
 
 ### G.3 What Gate 2 inherits
 
 `CP08-F-01` is resolved and the request contract can now be authored.
 `CP08-F-02` is closed as a scope decision. What Gate 2 carries forward:
 
-- **`CP08-F-03`** — most amendments are unplaceable on the assertion axis. It is
-  the debt signal's subject, and Gate 2 must show `D_c` distinguishing the
-  facilities the dispute question can be answered for from those it cannot.
+- **`CIF-G15`** — the dual TTL is declared and unbuilt. It needs a ruling on
+  the closed/live boundary before it can be implemented or rostered.
 - **`CP08-F-04`** — covenants carry no assertion time, so their terms are served
   unversioned and labelled. A later estate wave that versions covenant terms
   would restore the vault's original scope, and **this specification is the
