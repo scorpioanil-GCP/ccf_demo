@@ -150,13 +150,14 @@ envelope. `intent` is **not** declared as an argument — it is a top-level
 |---|---|---|---|---|---|
 | Client entities and family | inherited from rung 04 | public | Fluree / Postgres | `E`,`R` | 50 anchors |
 | Named officers, roles, appointment dates | DEF 14A; Form 3/4/5; 8-K 5.02 | public | Postgres | `E`,`T` | **817 roles over 954 people** |
-| `employedBy` edges | derived from DEF 14A / Form 4 | public | **Fluree** | `R` | `[TBC — measure at build]` |
+| `employedBy` edges — asserted as FIBO **`isEmployedBy`** | derived from DEF 14A / Form 4 | public | **Fluree** | `R` | **701** |
 | Banker roster | internal HR | synthetic — internal | Postgres | `E` | **40** |
 | `coversClient` edges | internal CRM | synthetic — internal | **Fluree** | `R` | **150** |
 | Coverage assignments | internal CRM | synthetic — internal | Postgres | `E` | **1,000** |
+| Interaction participants (attributes) | internal CRM | synthetic — internal | Postgres | `E` | 8,032 rows — **attributes only; the EDGE is Fluree's** |
 | Interaction records | internal CRM | synthetic — internal | Postgres | `E` | **2,050**, 2024-08-24 → 2026-08-18 |
-| `participatedIn` edges | internal CRM | synthetic — internal | Postgres (`interaction_participant`) | `R` | **8,032** |
-| Deals and `relatedToDeal` | internal deal system | synthetic — internal | Postgres | `R` | 32 |
+| **`ex:participatedIn` edges** | internal CRM | synthetic — internal | **Fluree** | `R` | **8,032 assertions over 731 subjects** (694 `ex:person-*`, 37 `ex:banker-*`) |
+| Deals and **`ex:relatedToDeal`** | internal deal system | synthetic — internal | Postgres / **Fluree** | `E`,`R` | 32 deals; **129** edges |
 | Scoring weights | internal coverage policy | synthetic — internal | Postgres | `P` | `scoring_weight` 6 |
 | Need-to-know classification | internal | synthetic — internal | Postgres | `P` | **10 flagged; 18 MNPI-bearing** |
 | Person name variants | derived | synthetic — internal | Postgres | `E` | **997 over 781 people** |
@@ -187,10 +188,39 @@ fabric has to assemble it.**
    CIK, CRM keys on an internal id. The crosswalk is imperfect **on purpose** —
    997 variants over 781 people — because a demo where everyone resolves
    cleanly teaches the wrong lesson.
-2. **`participatedIn` is a Postgres table, not a Fluree edge**, unlike the
-   vault's §C. Measured: `interaction_participant` holds 8,032 rows and no
-   corresponding predicate was found in `fibo-v2`. `[TBC — §F.2 row 2]`
-3. **Silent truncation reads as completeness** and is the quiet failure mode of
+2. **§C's four short names span TWO NAMESPACES, and one is also renamed.**
+   This trap cost this document a false claim before `ccf-dataprep` corrected
+   it: an earlier draft asserted *"no corresponding predicate was found in
+   `fibo-v2`"* on the strength of a search that only looked at `ex:` local
+   names. **The predicate was there all along.**
+
+   | §C says | actually asserted as | count |
+   |---|---|---|
+   | `participatedIn` | `ex:participatedIn` | **8,032** |
+   | `coversClient` | `ex:coversClient` | **150** |
+   | `relatedToDeal` | `ex:relatedToDeal` | **129** |
+   | `employedBy` | **FIBO `isEmployedBy`** | **701** |
+
+   Three are `ex:`, one is FIBO — and the FIBO one is renamed. A search
+   assuming one namespace, or assuming §C's name is the local name, misses it.
+
+   **And a decoy.** `ex:participationIn` and `ex:participationOf` (97 each) are
+   the Wave 18 **syndicate** reification — same word, unrelated domain. Easy to
+   find those, conclude *"that is not it"*, and move on.
+
+   **A third reason an enumeration misleads:** `COUNT(*)` under-reports on
+   multi-pattern clauses and `GROUP BY ?p` invents predicates that do not
+   exist, so neither can be used to enumerate what a ledger holds. **Every
+   count in this document is client-side over enumerated rows.**
+
+3. **The R/E split is deliberate and enforced.** `validators/partition.py`
+   allowlists `ex:participatedIn` among six Wave 10 edges a
+   Person/Banker/Interaction/Deal node may carry: **Fluree owns the edge (the
+   traversal), Postgres owns the attributes.** Nothing is duplicated —
+   `party_kind` is not on the Fluree edge at all, it is encoded in the subject
+   URI prefix (`ex:person-*` / `ex:banker-*`), which this build verified:
+   731 subjects, 694 person and 37 banker. Single-writer holds.
+4. **Silent truncation reads as completeness** and is the quiet failure mode of
    every bounded traversal.
 
 ---
@@ -271,11 +301,11 @@ Every §C row is loaded and measured except `employedBy`, which is `[TBC]`.
 
 | # | Item | Owner | Cleared by |
 |---|---|---|---|
-| 1 | `employedBy` edge count in `fibo-v2` | this build | measurement at step 3 |
-| 2 | Whether `participatedIn` should be a Fluree edge or stays a Postgres table | **Dave** | a ruling; the estate has the table, not the predicate |
+| 1 | ~~`employedBy` edge count~~ | — | **CLOSED** — asserted as FIBO `isEmployedBy`, **701** |
+| 2 | ~~Fluree edge or Postgres table~~ | — | **CLOSED — it STAYS A FLUREE EDGE.** `ccf-dataprep`, 2026-09-10: going relational *"would break the traversal the product exists to demonstrate. This product's whole thesis is that coverage is a graph question; answering it with a join is the counterfactual, not the product."* |
 | 3 | What `S` measures for a coverage graph | product owner | a definition |
 | 4 | Semantic-version migration window | product owner | §G |
-| 5 | Whether `include_family` is in v1 scope, given it multiplies fan-out | **Dave** | a ruling before build |
+| 5 | ~~`include_family` in v1 scope~~ | — | **CLOSED — IN SCOPE** (Dave, 2026-09-10) |
 
 ### F.3 Access path
 
