@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# Π's OWN DECLARED VALUES. Π is deployment code (whitepaper §7.5), but the
+# numbers it works to are values rather than logic (CLAUDE.md §6.4).
+semver: "1.0.0"
+class_id: cp-07.projection
+
+declaration:
+  # RELATIONSHIP STRENGTH — deterministic arithmetic, no model in the path.
+  #
+  # Three components, each measurable from the ADMITTED graph alone. Π performs
+  # no backend lookup: if a fact is not in the graph the resolver handed it, it
+  # does not enter the score. That is what makes the score replayable from the
+  # snapshot rather than from whatever the source held at read time.
+  strength:
+    # Weight on how MANY interactions reached the pair.
+    frequency_weight: "0.4"
+    # Weight on how RECENT the most recent one was.
+    recency_weight: "0.4"
+    # Weight on the banker's seniority — a managing director's relationship is
+    # not a junior analyst's, and the roster says which.
+    seniority_weight: "0.2"
+
+    # Seniority, ranked. Declared rather than inferred: alphabetical ordering
+    # of these words is meaningless, and a roster that gained a rank would be
+    # silently mis-ranked by any implicit scheme.
+    seniority_rank:
+      managing_director: "1.0"
+      director: "0.75"
+      vice_president: "0.5"
+      associate: "0.3"
+      analyst: "0.2"
+
+    # An interaction older than this contributes nothing to recency. Declared
+    # as the window the score is meaningful over, NOT as a filter on the data —
+    # `since` already bounded what was read.
+    recency_horizon_days: 365
+
+  # COVERAGE GAP — the insight the product delivers, and the thing a CRM field
+  # cannot contain.
+  gap:
+    # A client-side officer whose strongest bank-side relationship scores at or
+    # below this is reported as a gap. Zero interactions is the obvious case;
+    # this also catches the officer somebody met once, eleven months ago.
+    weak_at_or_below: "0.15"
+
+    # Roles whose absence of coverage is worth surfacing. A gap against a
+    # director matters in a way a gap against an assistant secretary does not.
+    material_roles:
+      - CEO
+      - CFO
+      - COO
+      - Chairman
+      - Director
+      - President
+
+  # TRUNCATION — a first-class product fact, not a footnote.
+  #
+  # The payload states what was admitted, what was available, and that the
+  # acquisition boundary cut the evidence. It is NOT a debt input: a bounded
+  # read is a deliberate act with a known edge, and completeness measures
+  # something different (see `deployment.debt`).
+  truncation:
+    disclosure_note: >-
+      The interaction evidence was bounded by the caller's `limit` and ordered
+      by recency. This product reports what it admitted and how much existed;
+      it does NOT claim the admitted set is the complete interaction history.

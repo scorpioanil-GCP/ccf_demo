@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE DOOR'S OWN GOVERNANCE VALUES — the SDK holds a default for none of them
+# (CINV-01). `serve.py` is this document's interpreter; delete this file and
+# that program has nothing to open.
+#
+# NO HOST, PORT, PATH OR CREDENTIAL. The bearer token is minted per boot into a
+# temporary directory and deleted on exit; the two source estates are whatever
+# `backends.yaml`'s environment variables name, read-only.
+#
+# THE DOOR DUPLICATES NO GOVERNANCE. `produce.assemble_and_serve` already
+# returns the one shape a door may release — a `ServedProduct` whose replay
+# reference proves the record was appended, or a `RefusalEnvelope` recorded,
+# disclosed and addressed. What `serve.py` adds is translation and nothing else.
+
+semver: "1.0.0"
+class_id: cp-07.egress-door
+
+declaration:
+  tool_description: >-
+    Answer who at the bank actually knows whom at a client, as a governed,
+    content-addressed Context Product. Returns each banker's measured
+    relationship strength (interaction frequency, recency and seniority over
+    policy-versioned weights), which of them the CRM formally assigns, every
+    client-side officer the roster holds, and the COVERAGE GAPS — the officers
+    whose strongest bank-side relationship is weak or absent. A CRM field can
+    answer "who covers this client?"; only the interaction graph can answer
+    "whom has nobody met?". The caller may supply `since` (the interaction
+    window), `limit` (at most 500 interactions, applied IN the read and ordered
+    by recency), `include_family` and `include_need_to_know` — the last of which
+    returns a DIFFERENT GRAPH rather than a redacted one. WHEN THE BOUND CUTS
+    THE EVIDENCE THE PAYLOAD SAYS SO: `evidence_boundary` reports what was
+    admitted against what existed, and the product's own declared gate REFUSES
+    a payload that was truncated and does not disclose it. A tighter `limit`
+    can manufacture a coverage gap that does not exist, which is why the
+    disclosure is a gate and not a footnote.
+
+  required_scope: ccf:egress
+  issuer_url: https://issuer.cp-07.invalid
+  resource_server_url: https://egress.cp-07.invalid/mcp
+
+  # THE PRINCIPAL THIS DOOR SERVES, and the role its entitlement authorizes.
+  # The same pair `ccf_config.yaml::default_perspective` declares for in-process
+  # assembly — one deployment, one identity, reached two ways.
+  principal_id: PRIN-COV-002
+  role: coverage-banker
+
+  # WHAT IMPLEMENTS THIS DOOR, named as a module and callable rather than as a
+  # filesystem path.
+  #
+  # A CONSUMER ASKS FOR A CONTEXT PRODUCT; IT DOES NOT KNOW HOW THE PRODUCER
+  # HAPPENS TO START. A client carrying `python examples/…/server/serve.py`
+  # has bound itself to this deployment's directory layout, its interpreter and
+  # its language — none of which is part of the product contract, and all of
+  # which change without the product changing. The binding is the seam: resolve
+  # the entry point from this declaration and the same client reaches a producer
+  # that moves, gets rewritten, or stops being Python.
+  serve_entrypoint: serve:serve

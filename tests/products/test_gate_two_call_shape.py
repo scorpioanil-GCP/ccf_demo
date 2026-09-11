@@ -684,10 +684,6 @@ RULED_SDK_SUPPLIED_DEPLOYMENTS: frozenset[str] = frozenset(
         # `required` and authors nothing; no competing operator set; no
         # projection engine of its own.
         "examples/cp-05-credit-exposure-rollup",
-        # `D-IMPL-315`, 2026-09-10 — rung 6. The detector reaches it from the
-        # tree alone; this assertion and the roster both record that answer and
-        # neither causes it.
-        "examples/cp-06-collateral-and-setoff-coverage",
         # `D-IMPL-311` (Dave, 2026-09-09) — s1-00's canonical adoption, and the
         # same move for the same reason. Removed from
         # `RULED_ONE_DOCUMENT_DEPLOYMENTS` in this commit rather than held in
@@ -726,6 +722,22 @@ RULED_SDK_SUPPLIED_DEPLOYMENTS: frozenset[str] = frozenset(
         # `build_replay_record` / `serve` anywhere in the tree. This entry
         # records what the predicate already answers.
         "examples/cp-06-collateral-and-setoff-coverage",
+        # `D-IMPL-315` (Dave, 2026-09-10) — rung 7, authored on this side of the
+        # boundary like its rung-4 and rung-6 siblings rather than migrated onto
+        # it.
+        #
+        # THE RULING AUTHORIZED THE MOVE; THE TREE PROVED IT, in that order, and
+        # the measurement came first. Before this line was written: `shape_of`
+        # reads `"canonical"`, `resolver_ownership` finds the one
+        # `build_governed_resolver` call, `governed_seam_calls` is empty,
+        # `legacy_governance_regions` is empty, and
+        # `_sdk_supplied_operator_set` answers True with plan sources
+        # `(('required',),)` — no `ccf.projection-requirements`, a named
+        # `plan_factory` whose only operator source is the resolver's own tuple,
+        # and no `run_gates` / `build_replay_record` / `serve` anywhere in the
+        # tree. This entry records what the predicate already answers; it is not
+        # what makes the answer true.
+        "examples/cp-07-client-360-coverage-graph",
     }
 )
 
@@ -3394,6 +3406,9 @@ def test_the_premise_detector_reads_the_shipped_tree_correctly() -> None:
         # tree alone; this assertion and the roster both record that answer and
         # neither causes it.
         "examples/cp-06-collateral-and-setoff-coverage",
+        # `D-IMPL-315`, 2026-09-10 — rung 7, reached from the tree alone like
+        # its rung-4 and rung-6 siblings.
+        "examples/cp-07-client-360-coverage-graph",
         "examples/hw1-companies-over-revenue/deployment",
         # `D-IMPL-311`, 2026-09-09 — s1-00 arrives from row B above, by the
         # same second shape cp-05 took: it reaches `build_governed_resolver`

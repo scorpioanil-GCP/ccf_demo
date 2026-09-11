@@ -97,6 +97,15 @@ class Interaction:
 
 
 @dataclass(frozen=True)
+class Deal:
+    deal_id: str
+    deal_type: str | None
+    stage: str | None
+    opened_date: str | None
+    mnpi_bearing: bool
+
+
+@dataclass(frozen=True)
 class Coverage:
     """What the two legs found, before any fabric call."""
 
@@ -106,10 +115,18 @@ class Coverage:
     people: tuple[Person, ...]
     bankers: tuple[Banker, ...]
     interactions: tuple[Interaction, ...]
+    deals: tuple[Deal, ...]
     #: The graph edges the walk admitted: (subject_ref, predicate, object_ref).
     edges: tuple[tuple[str, str, str], ...]
     weights: Mapping[str, Any]
     ledger_watermark: str
+
+    #: LEI -> the graph's own local node id for that client. **The edge
+    #: endpoints use THESE, never the LEI** — `JJAX4X60DE65EYFOTY73` is the
+    #: node `SuburbanPropanePartnersLP`. Carried out of acquisition because
+    #: this is where it was resolved; deriving it again downstream would make
+    #: a second authority for one identity.
+    client_nodes: Mapping[str, str]
     #: Whether `limit` was reached. The payload MUST disclose this — a truncated
     #: roster that did not say so reads as a complete one.
     truncated: bool
@@ -118,6 +135,21 @@ class Coverage:
     withheld_need_to_know: int = 0
     withheld_mnpi: int = 0
     unresolved_participants: tuple[str, ...] = field(default_factory=tuple)
+
+
+def nothing_acquired(lei: str) -> Coverage:
+    """What a read that was never taken returns.
+
+    Not an empty answer — **no answer**. Governance refused the question before
+    acquisition ran, so there is nothing to report and nothing was paid for. The
+    governed resolver issues the refusal moments later; this value only has to
+    carry the anchor far enough to get there.
+    """
+    return Coverage(
+        lei=lei, client_name=None, family=(), people=(), bankers=(),
+        interactions=(), deals=(), edges=(), weights={},
+        ledger_watermark="unread", client_nodes={}, truncated=False,
+        interactions_available=0)
 
 
 class _GraphLeg:
@@ -230,6 +262,28 @@ def _walk_participation(leg: _GraphLeg, vocab: Mapping[str, Any],
             f'SELECT ?s ?o FROM <{leg.ledger}> WHERE {{'
             f' VALUES ?o {{ {_values(uris)} }}'
             f' ?s <{edges["participatedIn"]["iri"]}> ?o }}')
+    ]
+
+
+def _walk_deals(leg: _GraphLeg, vocab: Mapping[str, Any],
+                interaction_ids: Sequence[str]) -> list[tuple[str, str, str]]:
+    """Which deals the admitted interactions concern — ONE batched query.
+
+    §C's fourth edge. Walked from the BOUNDED interaction set for the same
+    reason participation is: starting from deals would fan out over the estate
+    and then discard most of it.
+    """
+    if not interaction_ids:
+        return []
+    edges = vocab["graph_leg"]["edges"]
+    prefix = vocab["graph_leg"]["node_prefixes"]["interaction"]
+    uris = [f"http://example.org/fibo/{prefix}{i}" for i in interaction_ids]
+    return [
+        (_local(b["s"]["value"]), "relatedToDeal", _local(b["o"]["value"]))
+        for b in leg.query(
+            f'SELECT ?s ?o FROM <{leg.ledger}> WHERE {{'
+            f' VALUES ?s {{ {_values(uris)} }}'
+            f' ?s <{edges["relatedToDeal"]["iri"]}> ?o }}')
     ]
 
 
@@ -359,13 +413,33 @@ def acquire(*, lei: str, since: str, limit: int, include_family: bool,
             f'SELECT weight_name, weight_value FROM "{schema}".{leg_attr["weight_table"]}')
         weights = {n: v for n, v in cur.fetchall()}
 
+    deal_edges: list[tuple[str, str, str]] = []
     with httpx.Client(timeout=READ_TIMEOUT_SECONDS) as client:
         graph = _GraphLeg(url=_setting("coverage_graph", "url"),
                           ledger=_setting("coverage_graph", "ledger"), client=client)
         nodes = _client_nodes(graph, vocab, family)
         edges = _walk_graph(graph, vocab, list(nodes.values()))
         edges += _walk_participation(graph, vocab, ids)
+        deal_edges = _walk_deals(graph, vocab, ids)
+        edges += deal_edges
         watermark = graph.watermark()
+
+    # THE ATTRIBUTES FOR THE DEALS THE WALK REACHED, and only those. A second
+    # connection rather than one more query inside the first block, because the
+    # deal ids are not known until the graph leg has been walked — and the graph
+    # leg cannot be walked until the interaction set is bounded.
+    prefix = vocab["graph_leg"]["node_prefixes"]["deal"]
+    reached = sorted({o[len(prefix):] for _, _, o in deal_edges if o.startswith(prefix)})
+    deals: list[Deal] = []
+    if reached:
+        with psycopg.connect(_setting("coverage_attributes", "dsn")) as db, db.cursor() as cur:
+            cur.execute(
+                f'SELECT deal_id, deal_type, stage, opened_date, mnpi_bearing'
+                f' FROM "{schema}".{leg_attr["deal_table"]} WHERE deal_id = ANY(%s)',
+                (reached,))
+            deals = [Deal(deal_id=r[0], deal_type=r[1], stage=r[2],
+                          opened_date=r[3].isoformat() if r[3] else None,
+                          mnpi_bearing=bool(r[4])) for r in cur.fetchall()]
 
     known = {p.person_key for p in people} | {b.banker_id for b in bankers}
     unresolved = sorted({
@@ -376,11 +450,13 @@ def acquire(*, lei: str, since: str, limit: int, include_family: bool,
         lei=lei, client_name=client_name, family=tuple(family),
         people=tuple(sorted(people, key=lambda p: p.person_key)),
         bankers=tuple(sorted(bankers, key=lambda b: b.banker_id)),
+        deals=tuple(sorted(deals, key=lambda d: d.deal_id)),
         interactions=tuple(
             Interaction(**{**i.__dict__,
                            "participants": tuple(sorted(participants.get(i.interaction_id, ())))})
             for i in interactions),
         edges=tuple(sorted(set(edges))), weights=weights,
-        ledger_watermark=watermark, truncated=truncated,
+        ledger_watermark=watermark,
+        client_nodes={lei: _local(uri) for lei, uri in nodes.items()}, truncated=truncated,
         interactions_available=available, withheld_need_to_know=withheld_ntk,
         withheld_mnpi=mnpi, unresolved_participants=tuple(unresolved))

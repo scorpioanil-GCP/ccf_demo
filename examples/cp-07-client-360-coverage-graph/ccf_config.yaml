@@ -135,7 +135,15 @@ request_contract:
       - principal_scope
 
   defaults:
-    since: "2025-09-10"
+    # THE FULL TWO-YEAR INTERACTION HISTORY, and the value is where §B.2's two
+    # claims had to be reconciled. The spec declares `-365 days` AND that
+    # truncation fires at 240 on the demonstration anchor; measured, a
+    # 365-day window holds 180 of that client's 240 interactions, so both
+    # cannot be true and the rung exists to teach the second. FINDINGS.md
+    # carries the reconciliation and the SDK gap underneath it: a class
+    # default cannot express a RELATIVE window, so an absolute date is what
+    # the artifact can hold, and it ages silently.
+    since: "2024-09-01"
     limit: 200
     include_family: true
     include_need_to_know: false
@@ -168,10 +176,14 @@ resolution:
         - label
         - role
         - officer_title
+        - appointment_date
         - seniority
         - desk
         - interaction_type
         - interaction_date
+        - deal_type
+        - stage
+        - opened_date
         - channel
         - need_to_know
         - mnpi_bearing
