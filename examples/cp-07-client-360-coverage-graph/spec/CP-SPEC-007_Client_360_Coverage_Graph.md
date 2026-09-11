@@ -132,7 +132,7 @@ where an unbounded traversal is a genuine operational hazard**, and where
 |---|---|---|---|---|
 | `lei` | string, **required** | anchor | — | unresolvable ⇒ refusal |
 | `principal_scope` | array, **required** | `P` envelope | — | the admitted set |
-| `since` | string (ISO date) | `T` window | −365 days | narrows the interaction window |
+| `since` | string (ISO date) | `T` window | **`asked_at` − 2 years** (relative; see below) | narrows the interaction window |
 | `limit` | int ≤ 500 | `R` bound | 200 | **truncation disclosure fires at 240 on `JJAX4X60DE65EYFOTY73`** |
 | `include_family` | bool | `R` scope | `true` | extends the anchor set to the corporate family |
 | `include_need_to_know` | bool | `P` envelope | `false` | 10 interactions appear or do not |
@@ -141,6 +141,28 @@ where an unbounded traversal is a genuine operational hazard**, and where
 traversal without them can return a graph large enough to breach the SLO
 envelope. `intent` is **not** declared as an argument — it is a top-level
 `ProductRequest` field on this SDK (`D-IMPL-264`).
+
+**`since`'s default is RELATIVE, and this supersedes the `−365 days` this
+table carried.** The class declares an offset the fabric resolves against the
+request's own `asked_at` at constraint-resolution time (`D-IMPL-325`), so the
+default does not age — a literal date meant two years of history when written
+and would have meant three a year later. What lands in replay is the resolved
+date under authority `default`, never the offset.
+
+Two years rather than one, and the width is measured rather than preferred.
+`CP07-F-04` established that a `−365 day` default and this table's own
+truncation claim cannot both hold; measured at `asked_at` 2026-09-11, a
+365-day window admits **179** of `JJAX4X60DE65EYFOTY73`'s interactions — under
+`limit` 200, so nothing truncates — and the one need-to-know interaction falls
+outside it, so the `include_need_to_know` row would demonstrate nothing either.
+At two years the window admits all 240 and both rows fire as written.
+
+> **Illustrative calibration:** This example runs against a point-in-time
+> demonstration estate rather than continuously refreshed production data.
+> Freshness half-lives and related thresholds are calibrated to make the
+> governed behavior observable in that snapshot. They demonstrate how the SDK
+> applies these controls and should not be interpreted as recommended
+> production coverage-policy thresholds.
 
 ---
 

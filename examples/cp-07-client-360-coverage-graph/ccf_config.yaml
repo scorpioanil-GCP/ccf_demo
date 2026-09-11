@@ -145,18 +145,36 @@ request_contract:
       - principal_scope
 
   defaults:
-    # THE FULL TWO-YEAR INTERACTION HISTORY, and the value is where §B.2's two
-    # claims had to be reconciled. The spec declares `-365 days` AND that
-    # truncation fires at 240 on the demonstration anchor; measured, a
-    # 365-day window holds 180 of that client's 240 interactions, so both
-    # cannot be true and the rung exists to teach the second. FINDINGS.md
-    # carries the reconciliation and the SDK gap underneath it: a class
-    # default cannot express a RELATIVE window, so an absolute date is what
-    # the artifact can hold, and it ages silently.
-    since: "2024-09-01"
     limit: 200
     include_family: true
     include_need_to_know: false
+
+  # THE INTERACTION WINDOW, declared RELATIVE to the request's own `asked_at`
+  # rather than as a literal date (`D-IMPL-325`, closing `CP07-F-03`). The
+  # absolute `2024-09-01` this replaces meant two years of history on the day
+  # it was written and would have meant three a year later, with the fan-out
+  # growing and nothing anywhere saying the default had drifted. Declared as
+  # an offset, it means the same two years on every day the product is asked.
+  #
+  # ILLUSTRATIVE CALIBRATION (`D-IMPL-323`). Two years, not the `-365 days`
+  # `CP-SPEC-007` §B.2 first declared, and the reason is measured rather than
+  # preferred. Served at `asked_at` 2026-09-11 against the curated estate, a
+  # 365-day window admits 179 of the demonstration anchor's interactions —
+  # under the `limit` of 200, so NOTHING TRUNCATES — and the one need-to-know
+  # interaction falls outside it, so the withholding demonstration reads zero
+  # as well. Both of this rung's subjects would stop firing. At two years the
+  # window admits all 240, truncates at 200, and withholds the one classified
+  # interaction, which is the behavior the absolute default carried. §B.2's
+  # `-365 days` cell is superseded here and in FINDINGS.md (`CP07-F-04`).
+  #
+  # The value is a DEMONSTRATION value against a point-in-time estate, not a
+  # recommended production coverage window. Only the declared offset is
+  # illustrative: `asked_at` is the real decision instant, and the resolved
+  # date is the SDK's own arithmetic over it.
+  relative_defaults:
+    since:
+      offset_seconds: -63072000   # two years, in the SDK's duration vocabulary
+      render: date
 
   argument_domains:
     limit:

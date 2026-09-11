@@ -128,7 +128,10 @@ ingestion guard means. Recorded as the path, not taken.
 
 ## `CP07-F-03` — a class default cannot express a RELATIVE time window
 
-**Status: OPEN. SDK gap, small and real.**
+**Status: CLOSED. The SDK gap is FIXED (`D-IMPL-325`) and this example has
+adopted the fix.** The class now declares an offset the fabric resolves against
+the request's own `asked_at`; the absolute date is gone. Details at the end of
+this entry.
 
 `CP-SPEC-007` §B.2 declares the default for `since` as **`−365 days`**. A
 `ProductRequestContract`'s `defaults` block holds literal values, so what the
@@ -150,6 +153,75 @@ gives the deployment a second authority for one bound, which is the shape
 request's own `asked_at` at constraint-resolution time, so that the value stays a
 Control Plane artifact and stays honest. Nothing in the current
 `ProductRequestContract` surface expresses it.
+
+### How it was closed
+
+`D-IMPL-325` (Dave, 2026-09-10) added `ProductRequestContract.relative_defaults`
+as a **separate** field — `defaults` stays literal-only — carrying
+`offset_seconds: int` (negative; the SDK's existing duration vocabulary, per
+`HalfLifeEntry.half_life_seconds`) and `render: Literal["date", "timestamp"]`
+(declared, never inferred from JSON Schema `type: string`). It resolves in
+`resolve_effective_request` beside the literal defaults and before the caller
+overlay, reading `request.asked_at` — the instant that function already
+evaluates constraint effectivity at, so it reads no clock and stays pure.
+
+**What replay records is the resolved LITERAL**, under authority `default` with
+the contract's own pin — never the offset. Dave's stated invariant: *"Replay
+records the resolved absolute value and `authority=default`, not a rule that
+gets recomputed later."* A rule re-evaluated at replay time would answer one
+decision differently on two days.
+
+The declaration is validated at declaration time (the parameter exists, is not
+inert, carries exactly one default authority, and its declared type can hold the
+render) and the **computed** value at request time (the normal domain and
+conformity checks, which the resolution's existing conformity step already runs
+over effective values). Dave ruled against forbidding a relative default where
+an `argument_domains` entry exists: *"That is not weaker governance; the value
+simply does not exist until `asked_at` exists."*
+
+### What this example adopted, and the one thing that changed with it
+
+`ccf_config.yaml` now declares:
+
+```yaml
+relative_defaults:
+  since:
+    offset_seconds: -63072000   # two years
+    render: date
+```
+
+**Two years, not the `−365 days` `CP-SPEC-007` §B.2 declared — and the reason is
+`CP07-F-04` arriving from the other direction.** Measured before the value was
+chosen, served against the curated estate at `asked_at` 2026-09-11 on
+`JJAX4X60DE65EYFOTY73` with the class `limit` of 200:
+
+| offset | resolved `since` | available | NTK withheld | admitted | truncated |
+|---|---|---|---|---|---|
+| −31536000 (1 yr) | 2025-09-11 | **179** | **0** | 179 | **False** |
+| −47304000 (1.5 yr) | 2025-03-12 | 218 | 1 | 200 | True |
+| **−63072000 (2 yr)** | 2024-09-11 | **240** | **1** | 200 | **True** |
+| −78840000 (3 yr) | 2023-09-12 | 240 | 1 | 200 | True |
+
+At −365 days **two of this rung's demonstrations stop firing**: truncation
+(179 < 200) and need-to-know withholding (the one classified interaction is
+older than a year). That is exactly the contradiction `CP07-F-04` adjudicated,
+and it is resolved the same way — in favor of the demonstrations. Two years
+reproduces the retired absolute default's behavior exactly while no longer
+aging. The offset is an **illustrative calibration** under `D-IMPL-323`,
+labeled in `ccf_config.yaml`, the README and §B.2.
+
+`test_the_declared_window_still_exceeds_the_class_limit` asserts both
+demonstrations still fire, so a later author narrowing the offset is told at the
+point of the change rather than discovering it in prose.
+
+**One test changed, and it is the allowed case.** `D-IMPL-261` permits an
+example change when *"the SDK surface it legitimately consumes was deliberately
+changed"*. `test_the_class_default_resolves_for_a_caller_who_sent_no_bound` read
+`config()["request_contract"]["defaults"]["since"]`, an authority location that
+no longer holds the window. Its stated intent — read the declaration, never a
+literal — is preserved: it now reads the declared offset and derives the
+expected date from the instant the door was driven at. Nothing was weakened to
+make it pass.
 
 ---
 

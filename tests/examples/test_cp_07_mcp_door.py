@@ -32,7 +32,7 @@ import os
 import pathlib
 import sys
 import tempfile
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
@@ -45,6 +45,14 @@ from tests.examples.test_cp_04_two_callers import drive, tool_call
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 EXAMPLE = REPO_ROOT / "examples" / "cp-07-client-360-coverage-graph"
 SERVER = EXAMPLE / "server"
+
+#: The one decision instant every branch of the door run is asked at. A module
+#: constant rather than a local, because the class's `since` default is now
+#: declared RELATIVE to `asked_at` (`D-IMPL-325`) and the assertion has to
+#: derive the expected date from the SAME instant the door was driven at. Two
+#: `datetime.now` reads either side of a midnight boundary would otherwise
+#: disagree by a day, about once every 1440 runs.
+INSTANT = datetime.now(UTC)
 
 REQUIRED_ENV = (
     "CCF_CP_07_FLUREE_URL",
@@ -126,7 +134,7 @@ def _arguments(*, lei: str, asked_at: datetime, **overrides: Any) -> dict[str, A
 def outcomes() -> dict[str, Any]:
     """Every branch, over ONE door, in ONE lifespan."""
     serve = _load("serve")
-    instant = datetime.now(UTC)
+    instant = INSTANT
     anchor, control = _anchor("DEMONSTRATION_LEI"), _anchor("CONTROL_LEI")
     with tempfile.TemporaryDirectory(prefix="cp07-door-") as scratch:
         with serve.door(root=pathlib.Path(scratch)) as opened:
@@ -178,15 +186,26 @@ def test_the_class_default_resolves_for_a_caller_who_sent_no_bound(
 ) -> None:
     """The door restates no default, so the Control Plane's is what applies.
 
-    Asserted against the declaration rather than a literal: the number lives in
-    `ccf_config.yaml` and this reads it from there, so moving the default moves
+    Asserted against the declaration rather than a literal: both values live in
+    `ccf_config.yaml` and this reads them from there, so moving a default moves
     both sides at once and a door that had quietly hard-coded one would go red.
+
+    **`since` is now declared RELATIVE** (`D-IMPL-325`, closing `CP07-F-03`):
+    the artifact carries an offset, not a date, so the expected value is the
+    SDK's own arithmetic over the instant the door was actually driven at. That
+    is the whole property the relative default buys — the same declaration
+    means a different date on a different day — and reading a literal date out
+    of the config would no longer be reading the declaration at all.
     """
     dep = _load("deployment")
-    declared = dep.config()["request_contract"]["defaults"]
+    contract = dep.config()["request_contract"]
+    declared = contract["defaults"]
+    relative = contract["relative_defaults"]["since"]
     payload = _payload(outcomes, "default")
     assert payload["window"]["limit"] == declared["limit"]
-    assert payload["window"]["since"] == declared["since"]
+    assert payload["window"]["since"] == (
+        INSTANT + timedelta(seconds=relative["offset_seconds"])
+    ).date().isoformat()
     assert payload["evidence_boundary"]["interactions_admitted"] == declared["limit"]
 
 

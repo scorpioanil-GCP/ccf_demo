@@ -19,7 +19,11 @@ The sequence, and it is fixed
    function as ``class_defaults`` — today only the default debt tolerance,
    ``24.6-L-04``) and the request CONTRACT's own ``defaults``, which win for
    the same name because they speak about that one parameter of that one
-   surface.
+   surface. The contract may also declare a default RELATIVELY — as an offset
+   from ``request.asked_at`` rather than as a literal (``relative_defaults``,
+   ``D-IMPL-325``) — which resolves in this same step, against the instant of
+   the question and never against a clock. What is recorded is the resolved
+   literal; the offset never reaches the replay record.
 2. **Overlay caller values.** A parameter the caller stated takes the caller's
    value with authority ``caller`` and the request's identity as its source.
    The caller's own values are never rewritten in place — they survive on
@@ -830,8 +834,10 @@ def resolve_effective_request(
 
     Args:
         request: The question, as asked.
-        declared: The class's request contract, whose ``defaults`` say what
-            omission means.
+        declared: The class's request contract, whose ``defaults`` and
+            ``relative_defaults`` say what omission means — a literal value
+            for the first, and an offset from ``request.asked_at`` for the
+            second (``D-IMPL-325``).
         declared_source: The contract's own artifact pin — the provenance a
             defaulted value is recorded under.
         constraints: The policy constraints applicable at ``request.asked_at``,
@@ -979,6 +985,27 @@ def resolve_effective_request(
             continue
         effective[name] = EffectiveParameter(
             name=name, value=value, authority="default", source=declared_source
+        )
+    # The same declaration in the other register: a default expressed as an
+    # offset from the request's own instant rather than as a literal
+    # (`D-IMPL-325`). It resolves HERE, beside the literal defaults, for two
+    # reasons. It is still a default — what omission means — so the caller's
+    # overlay below must still win over it. And `request.asked_at` is the
+    # instant this whole function already evaluates effectivity at, so the
+    # value is a function of the QUESTION and never of a clock; the function
+    # stays pure.
+    #
+    # **What is recorded is the resolved literal, never the offset.** A rule
+    # carried into the replay record would be re-evaluated at replay time and
+    # would answer one decision differently on two days.
+    for name, relative in declared.relative_defaults.items():
+        if name in request.parameters:
+            continue
+        effective[name] = EffectiveParameter(
+            name=name,
+            value=relative.resolve(request.asked_at),
+            authority="default",
+            source=declared_source,
         )
     for name, value in request.parameters.items():
         effective[name] = EffectiveParameter(
@@ -1381,9 +1408,10 @@ class PolicyConstraintResolver(Protocol):
         Args:
             product_class: The class the request addresses.
             request: The question, as asked.
-            declared: The class's request contract — the ``defaults`` that say
-                what omission means, and the ``capability_bindings`` that say
-                which declared parameter a technical limit bounds.
+            declared: The class's request contract — the ``defaults`` and
+                ``relative_defaults`` that say what omission means, and the
+                ``capability_bindings`` that say which declared parameter a
+                technical limit bounds.
             declared_source: That contract's own artifact pin.
             perspective: Who is asking and in what capacity.
             intent: The decision the product is being assembled for.
