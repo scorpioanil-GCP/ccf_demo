@@ -72,6 +72,13 @@ happened.
 
 Three things will bite you if you change them.
 
+### 0. Priority is asserted, not derived — and that is a ruling
+
+**Lien priority is an AUTHORITATIVE INPUT on the reified pledge. This product does NOT determine legal UCC priority from filing records. Coverage under `allocation=priority` is coverage under those assertions** (`D-IMPL-321`, Dave, 2026-09-10). The register holds Florida only — 8 of 50 anchors — and does not carry the facility link, so a Π computing priority from filing dates would be a legal claim the estate cannot support. Deriving it is a **different product** for when the register can name the facility, not a completion criterion for this one.
+
+The payload says so itself, in its `basis` block, so a consumer reading the
+product rather than this file still cannot miss it.
+
 ### 1. Priority belongs to the pair, not to the asset
 
 The fabric reifies the pledge exactly as the source does. An earlier draft of

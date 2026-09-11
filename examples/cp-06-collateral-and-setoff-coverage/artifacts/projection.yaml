@@ -23,6 +23,20 @@ declaration:
     # error §A's counterfactual describes.
     unknown_rank: 99
 
+  # WHAT THE PRODUCT SAYS ABOUT ITS OWN FOOTING, served in every payload's
+  # `basis` block (`D-IMPL-321`, Dave, 2026-09-10).
+  #
+  # Declared here rather than written into `projection.py` for the reason the
+  # No-Hardcoding lint gave when it refused the literal: prose a consumer reads
+  # is a value, and values live in artifacts (CLAUDE.md §6.4). Editing this
+  # sentence must not require editing a program.
+  lien_priority:
+    basis: asserted
+    note: >-
+      Lien priority is an authoritative input on the reified pledge. This
+      product does NOT determine legal UCC priority from filing records.
+      Coverage under allocation=priority is coverage under those assertions.
+
   # The payload serves at most this many sharing facilities per asset, and says
   # so when it truncates. A roster shorter than its own count would be a payload
   # disagreeing with itself.

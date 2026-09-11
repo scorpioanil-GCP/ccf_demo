@@ -17,6 +17,14 @@ None of that is a graph read, so none of it is an operator — and a step that
 carries a Standard verb but is not a registered operator does not enter
 `operators_invoked`.
 
+**Lien priority is an AUTHORITATIVE INPUT, never a derivation** (`D-IMPL-321`).
+The position allocated on is the one the reified pledge asserts. This projection
+does **not** compute legal UCC priority from filing records, and must not be
+extended to: the register holds Florida only and does not carry the facility
+link, so a filing-date ordering would be a legal claim the estate cannot
+support. Coverage under `priority` is coverage **under those assertions**, and
+the payload's `basis.lien_priority` field says so to every consumer.
+
 **Priority allocation is the whole product.** Under `priority` a junior position
 receives only the residual after senior claims against the same asset; under
 `pro-rata` value splits by exposure share. The two disagree exactly where the
@@ -243,6 +251,12 @@ class CollateralCoverageProjection:
                     "apply_haircuts": self._apply_haircuts,
                     "shared_collateral": self._shared_collateral,
                     "jurisdiction_basis": self._jurisdiction_basis,
+                    # `D-IMPL-321`. The product states its own footing rather
+                    # than leaving it in documentation a consumer may not read.
+                    # The words are DECLARED in `artifacts/projection.yaml`, not
+                    # written here: prose a consumer reads is a value.
+                    "lien_priority": self._declared["lien_priority"]["basis"],
+                    "lien_priority_note": self._declared["lien_priority"]["note"],
                 },
                 "coverage": {
                     "collateral_value": str(collateral_value),

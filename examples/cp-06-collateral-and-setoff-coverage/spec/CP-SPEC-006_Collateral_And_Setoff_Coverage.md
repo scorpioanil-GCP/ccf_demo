@@ -407,7 +407,7 @@ supports every one of the six behaviors §B.2 tabulates.
 | 3 | Semantic-version migration window | product owner | §G lifecycle |
 | 4 | UCC-1 coverage beyond Florida (8 of 50 anchors) | **`ccf-dataprep`** | the other free states, or a ruling that Florida suffices |
 | 5 | Collateral description from the filing rather than EX-10 | `ccf-dataprep` | OCR of the registry `.tif`, or a ruling that EX-10 suffices |
-| 6 | Whether a filing should be joined to a facility | **vault / Dave** | §C.4 trap 1 — the register does not assert the link |
+| 6 | ~~Whether a filing should be joined to a facility~~ **RULED `D-IMPL-321`** | — | **CLOSED 2026-09-10.** **Lien priority is an AUTHORITATIVE INPUT on the reified pledge. This product does NOT determine legal UCC priority from filing records. Coverage under `allocation=priority` is coverage under those assertions** (`D-IMPL-321`, Dave, 2026-09-10). The register holds Florida only — 8 of 50 anchors — and does not carry the facility link, so a Π computing priority from filing dates would be a legal claim the estate cannot support. Deriving it is a **different product** for when the register can name the facility, not a completion criterion for this one. |
 
 ### F.3 Access path
 
@@ -459,7 +459,7 @@ individually sabotaged — `[TBC — this build]`.
 |---|---|---|---|
 | 1 | `intent` is a request parameter | it is the request's own top-level field | **build is correct on this SDK** (`D-IMPL-264`); §B.3 |
 | 2 | `operators_invoked: [Resolve, Policy, Traversal, Enrich, Aggregate]` | two registered operators | **build is correct**; §D.2.1, and the vocabulary question is §F.2 row 1 |
-| 3 | lien priority from UCC filing date | priority asserted by the reified pledge; filings attached to the debtor | **open** — §C.4 trap 1, §F.2 row 6 |
+| 3 | lien priority from UCC filing date | priority asserted by the reified pledge; filings attached to the debtor | **RULED CLOSED** `D-IMPL-321` — the product does not derive legal priority; §C.4 trap 1 |
 | 4 | `~60` assets, `~40` facilities | 91 and 60 | estate exceeds the envelope; no action |
 
 ### G.4 Reproducibility — the claim, in exactly these words
