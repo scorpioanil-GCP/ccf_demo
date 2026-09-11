@@ -2709,4 +2709,12 @@ Dave ruled the repair and the boundary together: *"Fix the 2-line unpack. It is 
 
 **MEASURED AT CLOSE:** `checked 9 product trees, 93 declared gates, 93 executing`.
 
+**ACCEPTED (Dave, 2026-09-10, on the report of the merge at `91274ec9`).** *"`D-IMPL-327` achieved its target."* Recorded as an amendment rather than a new entry, on the `D-IMPL-326` precedent and by explicit instruction: *"leave `D-IMPL-328` for the next real decision."*
+
+**THE TARGET, confirmed as met:** nine product trees green; 93 declared gates, 93 executing; cp-04-canonical normalized; cp-05 normalized with four real gates and four explicit carries; cp-06 and cp-07 untouched.
+
+**THE CARRY DAVE NAMES AS THE IMPORTANT ONE, verbatim:** *"The important carry is `CP05-F-02`: collected does not mean executable. Keep that limitation explicit."* It stays explicit in three places — `CP05-F-02` itself, the `matrix` fixture's own docstring where the next reader of that unpack will be, and this entry. The gate checker is **not** redesigned to close it; that remains unfunded and known rather than fixed and unrecorded.
+
+**THE THREE CORRECTIONS, each agreed as the right call:** the `D-IMPL-326` schema-test regression repaired (red on `main` from `4820531d`, uncovered by any suite that sitting ran, now asserting the new contract rather than a relaxed one); cp-05 corrected from five-and-three to **four-and-four** on re-measurement, because `CER-G05`'s test asserts presence where the criterion requires the guard to be observed firing; and rung-4 test-module partitioning fixed, the two trees having been handed each other's modules.
+
 **Next free decision id: `D-IMPL-328`.** **Governs:** `CP-SPEC-004C`'s existence, scope and retrospective status; cp-05's §G.2 ids and its four declared gates; the rung-4 module partition; the `CP05-F-02` repair and the collection-versus-execution limitation left standing. **Related:** `D-IMPL-326` (the acceptance-authority model), `D-IMPL-224` (gates as a declared artifact), `D-IMPL-261` (examples are probes; the allowed-change clause), `D-IMPL-313`/`D-IMPL-319` (cp-04-canonical is the pattern to copy), `CP05-F-01`/`CP05-F-02`, `CP07-F-11` (carried unchanged).
