@@ -15,13 +15,25 @@ generated: '2026-09-11'
 
 # Covenant-in-Force As-Of — Context Product Specification
 
-**`CP-SPEC-008` · rung 08 · Tier 3 · FLAGSHIP · `credit-risk.covenant-in-force.v1`**
-**Fluree `fibo-v2` for covenants, amendments and both time axes · PostgreSQL `ccf_v2` for facilities, drawdowns and the breach-threshold policy register**
+**`CP-SPEC-008` · rung 08 · Tier 3 · `credit-risk.covenant-in-force.v1`**
+**Fluree `fibo-v2` for covenants and amendments · PostgreSQL `ccf_v2` for facilities, drawdowns and the breach-threshold register**
 
-> **Which covenants were in force on the drawdown date?**
+> **Which amendments bound this facility on the drawdown date, and which of them
+> had the bank actually booked by then?**
 >
-> One question. Not *were they breached*, not *what does policy say now* — **what
-> bound this facility on that day, and what did the bank know then.**
+> One question, on two clocks. Not *were the covenants breached*, not *what does
+> policy say now*, and — after Gate 1's measurement — **not** *what did a
+> superseded covenant say*: the estate has no superseded covenant, and §0.5
+> records why this specification does not claim one.
+
+> **SCOPE NARROWED AT GATE 1 (Option B, Dave, 2026-09-11).** The vault frames
+> rung 08 as a flagship demonstrating *"ledger time-travel with supersession
+> preserved rather than overwritten."* **The supersession half is withdrawn**,
+> on measurement rather than on preference: no covenant in this estate is ever
+> superseded, and a product may not teach a property its data does not have.
+> What remains — two clocks, a real booking lag, and a reproducible pinned read
+> — is measured, demonstrable, and smaller. `spec/MEASUREMENT-NOTE.md` carries
+> the evidence.
 
 ## 0 · What this document is
 
@@ -48,20 +60,22 @@ examples, or its tests may write or amend the live Fluree ledger.** The ledger
 is append-only, so a seeded assertion is permanent; and a product that had to
 mutate the estate to demonstrate itself would be demonstrating the mutation.
 
-This has a sharp consequence for the flagship claim, and §D.6 states it: the
-"amend a covenant and re-read at the old `t`" demonstration the vault describes
-**cannot be run against `.76`**. What replaces it is stronger, not weaker.
+This has a sharp consequence, and §D.6 states it: the *"amend a covenant and
+re-read at the old `t`"* demonstration the vault describes **cannot be run
+against `.76`**. It would need a write — and, as Gate 1 went on to measure, it
+would also need a superseded covenant, which the estate does not hold.
 
 ### 0.3 Capability gate — above §A because it schedules the build
 
 | Capability | Needed for | Present? |
 |---|---|---|
-| Valid-time interval on covenant assertions | `as_of` filtering | **yes** — `ex:validFrom` on every covenant |
-| Assertion-time stamp on amendments | `known_as_of` filtering | **yes** — `ex:assertedAt` |
-| An engineered gap between the two | the whole bitemporal demonstration | **yes** — three, with a drawdown inside each |
-| Ledger transaction-time pin | reproducible re-read | **yes** — `FlureeGraphStore.post_query_pinned` |
-| Covenant-level supersession markers | superseded-set return | **NO** — see §0.5 |
-| Ledger `t` ↔ calendar date mapping | the vault's literal step 3 | **NO** — see §0.5 |
+| Valid-time interval on amendments | `as_of` filtering | **yes** — `ex:validFrom` |
+| Assertion-time stamp on amendments | `known_as_of` filtering | **yes** — `ex:assertedAt`, on 25 |
+| An engineered gap between the two | the bitemporal demonstration | **yes** — three, with a drawdown inside each |
+| Ledger transaction-time pin | reproducible re-read | **yes**, and measured — §0.5 |
+| Assertion time **on covenants** | covenant-level `known_as_of` | **NO** — 0 of 180; §0.5 (1) |
+| Covenant supersession | superseded-set return | **NO** — 0 of 180, at every ledger point; §0.5 (2) |
+| Ledger `t` ↔ calendar date | the vault's literal step 3 | **NO** — §0.5 (3) |
 
 ### 0.4 The four-question test
 
@@ -78,44 +92,77 @@ This has a sharp consequence for the flagship claim, and §D.6 states it: the
   covenants with full confidence and no signal that it answered a different
   question than the one asked.
 
-### 0.5 Two measured absences, and what the spec does about them
+### 0.5 What Gate 1 measured, and what it withdrew
 
 The vault article is on the older Q019 form and predates the loaded estate.
-Read by **heading name** rather than section letter, per the recipe. Two of its
-assumptions do not hold, and both were measured rather than inferred.
+Read by **heading name** rather than section letter, per the recipe. Three of
+its assumptions were measured against `.76`, read-only. One holds, two do not.
 
-**(1) Covenants carry no supersession marker.** The vault's *Decision frame*
-says an amended covenant *"writes the new terms while preserving the
-pre-amendment terms in force, with a supersession marker."* Measured on
-`fibo-v2`: **180 `ex:Covenant` nodes, of which 0 carry `ex:supersededBy` and 2
-carry `ex:validTo`.** The 1,107 `supersededBy` assertions in the ledger sit on
-`WarningSignal` (486), `OpportunitySignal` (354), `CreditRating` (215),
-`IssuanceEvent` (111), `PriorObservation` (49), `BreachOfCovenant` (4) and
-`PolicyVersion` (2) — every class except the one this product reads.
+**The instruction that shaped the measurement, and it is the right one:
+a booking lag is not proof of supersession.** The two claims were measured
+apart.
 
-*What the spec does:* `include_superseded` is **declared and inert** at this
-tier (§B.2). The product does not fabricate a superseded set it cannot source,
-and does not silently return an empty one — it refuses the parameter by name
-with the declared reason, which is the `CP-SPEC-007` §B.2 discipline applied to
-a capability rather than a tier.
+#### (1) Two clocks — HOLDS, on amendments rather than on covenants
 
-**(2) The ledger's `t` axis is load order, not booking chronology.** The vault's
-*Assembly Recipe* step 3 says to *"query the ledger at the block corresponding
-to `known_as_of`."* There is no such block. `src/ccf/graph/backends/fluree.py`
-records the ruling this rests on (`D-IMPL-240` (2), ledger row `24.5-L-01`):
-Fluree's `t` *"is a commit counter that advances on a data no-op and orders
-writes, not observations,"* and **substituting `t` for `as_of` is the
-transaction-time-for-observation-time error the ruling forbids.** The estate
-was loaded in waves, so its `t` ordering encodes when `ccf_dataprep` wrote rows
-— not when a bank booked an amendment.
+*What would prove it:* the same subject, with `as_of` inside its validity
+interval, where moving `known_as_of` from before to after `assertedAt` **changes
+the answer**.
 
-*What the spec does:* **both clocks are read from DATA, and the ledger pin keeps
-the role the SDK already gives it.** `as_of` cuts on `ex:validFrom`/`ex:validTo`;
-`known_as_of` cuts on `ex:assertedAt`. The pinned read (`t`) bounds the STORE so
-the answer is reproducible, and enters lineage as **execution provenance**
-(`D-IMPL-309`), never as a temporal cut. This is not a weakening of the vault's
-design — it is the vault's design with the two axes put on the axis the estate
-actually models them on.
+Measured: **`assertedAt` appears on ZERO covenants** — on the three booking-lag
+facilities and across the whole ledger at every point sampled. It lives on the
+**amendment** nodes. So nothing on a covenant can be filtered by `known_as_of`,
+and the covenant set is identical on both sides of a booking gap.
+
+It holds one level up and genuinely: `AMD-01BB3F-2` carries
+`validFrom 2025-08-14` and `assertedAt 2025-10-05`, so it is excluded at
+`known_as_of=2025-09-09` and admitted after. **The product's bitemporal subject
+is therefore the amendment slice**, and §B.2 says so rather than implying the
+covenants move.
+
+#### (2) Supersession preserved — WITHDRAWN
+
+*What would prove it:* a later amendment replacing a covenant assertion, where
+querying the ledger at the original `t` still returns the prior one.
+
+Measured three ways, all negative. Covenant thresholds are **unchanged across
+the entire ledger** — 180 at `t:1500` through head `t:5591`, zero changed and
+zero added at every point. **No covenant interval is ever closed** (`validTo`
+constant at 2) and **no covenant ever gains a marker** (`supersededBy` 0 at
+every point). And the ledger's 1,107 supersession markers belong to
+`WarningSignal`, `CreditRating`, `IssuanceEvent`, `PolicyVersion` and others —
+**not to the covenant slice this product reads**, so per the instruction they do
+not count.
+
+The ledger's covenant history is a single staged load, not an amendment
+lifecycle. **There is nothing for time-travel to reconstruct**, so the claim is
+removed from the title, the gates and the teaching text rather than softened.
+
+#### (3) The ledger cannot carry `known_as_of` — and was never going to
+
+The vault's step 3 says to *"query the ledger at the block corresponding to
+`known_as_of`."* There is no such block. `src/ccf/graph/backends/fluree.py`
+records the ruling (`D-IMPL-240` (2), ledger row `24.5-L-01`): Fluree's `t`
+*"orders writes, not observations,"* and **substituting `t` for `as_of` is the
+transaction-time-for-observation-time error the ruling forbids.** The estate was
+loaded in waves, so its `t` encodes when `ccf_dataprep` wrote rows.
+
+*What the spec does:* **both clocks are read from DATA** — `as_of` cuts on
+`validFrom`/`validTo`, `known_as_of` on `assertedAt` — and the pinned read keeps
+the role the SDK already gives it: it bounds the STORE and enters lineage as
+execution provenance (`D-IMPL-309`), never as a temporal cut.
+
+#### What the pinned read DOES give, measured
+
+The one property of the substrate this product still leans on was verified
+rather than assumed. A pinned read genuinely reconstructs a ledger point: all
+typed subjects read **0 → 17,230 → 17,871** at `t:1`, `t:2000` and head, and a
+pin past head returns `408 err:db/ReadAfterWriteTimeout`.
+
+That measurement began as a suspected substrate defect — `covenantOf` read 182
+at `t:1` while all typed subjects read 0, which cannot both be true of one
+ledger state. The control settled it: the load wrote thin `covenantOf` edges
+first and attributed nodes later, which is this repository's own documented
+ingestion order. **The pin is honest**, and `CIF-G08` rests on it.
 
 ### 0.6 The store's data model is NOT the SDK's, and nothing below changes that
 
@@ -158,8 +205,14 @@ read identically if this product were about shipping manifests.
 
 ## A · Decision frame
 
-**The decision.** *Which covenants bound this facility on this date, and which
-of them had the bank actually learned by then?*
+**The decision.** *Which amendments bound this facility on this date, and which
+of them had the bank actually booked by then?*
+
+**Amendments, not covenants, and the difference is the whole of §0.5 (1).** The
+covenants a facility carries are served as context — they are what the
+amendments govern — but the estate versions neither their terms nor their
+assertion time, so they do not move with either clock. **What moves, and what
+this product is about, is the amendment set.**
 
 **The trigger, in three forms that are not the same question.**
 
@@ -201,12 +254,16 @@ The estate carries a facility where the three forms genuinely diverge.
 On **2025-09-09** the amendment **was legally in force** and the bank **had not
 yet booked it**. A drawdown was taken that day. Asked about that date:
 
-- **form 2** (`as_of=2025-09-09`, `known_as_of=today`) returns the amended terms
-  — what was true;
-- **form 3** (`as_of=known_as_of=2025-09-09`) returns the pre-amendment terms —
-  what the bank could see, and what it acted on in good faith.
+- **form 2** (`as_of=2025-09-09`, `known_as_of=today`) **admits** the amendment
+  — it was in force on that date, and we know it now;
+- **form 3** (`as_of=known_as_of=2025-09-09`) **excludes** it — the bank had not
+  booked it, and acted in good faith on the facility as it then stood.
 
-A single-timeline store returns one answer to both and signals nothing.
+**Two answers, from one facility, at one `as_of`, differing only in what was
+known.** A single-timeline store returns one answer to both and signals nothing.
+
+What the product does **not** say is that the covenant *terms* differed between
+those two answers. They do not, in this estate, and §0.5 (1) is why.
 
 **Two further engineered cases** exist and are the directional controls, so the
 demonstration is not one lucky row: `AMD-2A2C38-3` (44-day gap, **2** drawdowns
@@ -221,6 +278,9 @@ Out of scope at this rung, stated here so the boundary is visible before §B:
   `evaluate_headroom` is declared and inert (§B.2).
 - **Policy analysis.** Policy versions are read to pin which register was in
   force; the policy register is not a second product here.
+- **Supersession.** Withdrawn at Gate 1 on measurement (§0.5 (2)). A superseded
+  covenant set is not served, not gated and not taught, because the estate holds
+  none.
 - **Any write path.** §0.2.
 
 ---
@@ -234,10 +294,10 @@ Out of scope at this rung, stated here so the boundary is visible before §B:
 | 1 | **Name** | `credit-risk.covenant-in-force` |
 | 2 | **Version** | `1.0.0` |
 | 3 | **Subject** | one `facility_id` |
-| 4 | **Payload** | the covenant set in force at the two declared instants, each with its type, threshold, validity interval and the amendment that produced it; the amendments admitted and those excluded **by which axis**; the drawdowns in the window |
+| 4 | **Payload** | the **amendment set** admitted at the two declared instants; every amendment excluded, with **which axis excluded it**; the covenants the facility carries, served as context with their terms stated as unversioned; the drawdowns in the window |
 | 5 | **Lineage** | both legs, plus `as_of`, `known_as_of` and the ledger `t` as execution provenance |
 | 6 | **Policy** | the breach-threshold register version effective at `as_of` |
-| 7 | **Debt** | `D_c` from covenants whose amendment chain resolved ÷ covenants served |
+| 7 | **Debt** | `D_c` from amendments placeable on the assertion axis ÷ amendments served |
 | 8 | **TTL** | dual — see §E.3 |
 | 9 | **Determinism** | class 1, pure algorithmic. No model call anywhere in §D |
 
@@ -269,16 +329,21 @@ relative_defaults:
     render: date
 ```
 
-> **An offset of `0` is refused by the SDK** — `RelativeDefault` requires a
-> negative offset, because a window reaches into what has happened, and `0` is
-> `asked_at` itself, which `defaults` already expresses. **This is a genuine
-> conflict between the mechanism and this product's need, and it is recorded as
-> `CP08-F-01` rather than worked around.** Both readings are live at Gate 1:
-> either the mechanism widens to admit `0` as *"the request's own instant,
-> rendered"* — which is what *today* and *now* mean — or the class declares no
-> default and the door supplies `asked_at`, which puts a governance value back
-> in deployment code and is the shape `D-IMPL-315` keeps out. **This needs a
-> ruling before Gate 2**, and the spec does not choose one.
+> **`CP08-F-01` is RESOLVED — `D-IMPL-328` (Dave, 2026-09-11).** An offset of
+> `0` was refused until this rung asked for it: `RelativeDefault` required a
+> negative offset on the reading that `0` *"is not a relative default at all but
+> `asked_at` itself, which `defaults` already expresses."* The first clause is
+> right and the second is not — a literal date written into `defaults` is a date
+> that **ages**, which is the defect `CP07-F-03` measured. The mechanism now
+> admits `0` as the **identity offset**, meaning the request's own instant
+> unchanged, and it is ordinary in every other respect: same resolution branch,
+> same authority `default`, same contract pin, and the resolved **literal** in
+> replay rather than the rule. A positive offset is still refused.
+>
+> **No `asked_at` is injected in deployment code.** That was the alternative and
+> it was declined: it would put a governance value back in the spine for the one
+> parameter whose entire subject is *which instant governed this decision*
+> (`D-IMPL-315`).
 
 **`as_of` and `known_as_of` are two filters and dropping either answers a
 different question.** The validation gate in §D.7 holds both, and it is the gate
@@ -350,7 +415,9 @@ GET /context-products/credit-risk/covenant-in-force/FAC-01BB3F
 ```
 
 The drawdown date on both axes. Change `known_as_of` to today and the same
-facility returns a different covenant set; that pair is the product's proof.
+facility, at the same `as_of`, returns a **different admitted amendment set** —
+`AMD-01BB3F-2` appears. That pair is the product's proof, and it is the
+amendment set that moves, never the covenant terms (§0.5 (1)).
 
 ### D.2 Step table
 
@@ -383,18 +450,22 @@ an unknown facility is a claim about the request.
 
 ### D.4 Step detail — the two-axis cut (step 4)
 
-For each covenant assertion reachable from the facility:
+For each **amendment** reachable from the facility:
 
 ```
-admitted  ⟺  validFrom ≤ as_of
-             AND (validTo is absent OR as_of < validTo)      ← valid time
+admitted  ⟺  validFrom ≤ as_of                               ← valid time
              AND assertedAt ≤ known_as_of                    ← assertion time
 ```
 
-**An amendment with no `assertedAt` is not assumed booked.** It is excluded from
-the assertion-time filter and **recorded as unplaceable**, which is what drives
-Context Debt (§E.2). Assuming `assertedAt = validFrom` would manufacture the very
-coincidence the product exists to disprove.
+The covenants the facility carries are served alongside, **with their terms
+stated as unversioned** — the payload says so rather than implying the terms
+were reconstructed for `as_of`, because in this estate they were not (§0.5 (1)).
+
+**An amendment with no `assertedAt` is not assumed booked.** 112 of 137 carry
+none. Such an amendment is **recorded as unplaceable on the assertion axis**
+rather than admitted or dropped, and that is what drives Context Debt (§E.2).
+Assuming `assertedAt = validFrom` would manufacture the very coincidence the
+product exists to disprove — it would make every booking lag vanish.
 
 **The exclusion record is part of the payload, not a log line.** For every
 assertion excluded, the payload says **which axis excluded it**. A covenant
@@ -410,24 +481,29 @@ fields and the ledger `t` as execution provenance (`D-IMPL-309`) — **`t` is no
 part of product identity**, because where the evidence lives is not what the
 answer says.
 
-### D.6 Replay, and the demonstration that replaces the vault's
+### D.6 Replay, and the two demonstrations that survive measurement
 
 The vault proposes: *"run the query, note the `t`, amend a covenant, re-run at
-the original `t`, and get the original answer back."* **That cannot be run
-here** — it amends the curated ledger (§0.2).
+the original `t`, and get the original answer back."* **Neither half is
+available.** The amendment writes the curated ledger (§0.2), and there is no
+superseded covenant for the re-read to recover (§0.5 (2)).
 
-What replaces it is available, repeatable, and tests the same property:
+What replaces it needs no write and was measured at Gate 1:
 
-1. Serve at `(as_of, known_as_of)` and record the ledger `t` from lineage.
-2. **Re-serve at the recorded `t` after any later ledger activity** — the
-   estate advances on its own as `ccf_dataprep` loads — and get the identical
-   content address back.
-3. **Vary `known_as_of` alone across a booking gap** and watch the covenant set
-   change while `as_of` is held. The historical state is reconstructed from data
-   the product did not have to mutate to observe.
+1. **The pinned read reconstructs a ledger point.** Serve, record the `t` from
+   lineage, and re-serve at that `t` after the ledger has advanced — the estate
+   advances on its own as `ccf_dataprep` loads. The identical content address
+   returns. Verified: all typed subjects read 0 → 17,230 → 17,871 across
+   `t:1`, `t:2000` and head, and a pin past head returns
+   `408 err:db/ReadAfterWriteTimeout`.
+2. **Varying `known_as_of` alone across a booking gap changes the admitted
+   amendment set**, with `as_of` held. This is the two-clock claim, and it is
+   the one the estate supports.
 
-Step 2 is the *substrate remembers* claim. Step 3 is the *two clocks are two
-questions* claim. Neither requires a write.
+**What is NOT claimed.** That the substrate preserves a superseded covenant. It
+would, in a ledger that had one; this one does not, and a specification that
+taught the property anyway would be teaching it from the documentation rather
+than from the data.
 
 ### D.7 Validation gates
 
@@ -467,17 +543,19 @@ observed red under it before it is recorded as passing.
 ### E.2 Debt model
 
 `D_c` on this product is **not** a freshness score, and that is the point. It is
-the fraction of the covenant set whose **amendment chain could be placed on the
-assertion axis**:
+the fraction of the served amendment set that could be **placed on the assertion
+axis at all**:
 
 ```
-D_c = 1 − (assertions with a resolvable assertedAt ÷ assertions served)
+D_c = 1 − (amendments with a resolvable assertedAt ÷ amendments served)
 ```
 
-Measured shape: **25 of 137 amendments carry `assertedAt`**, so on a facility
-whose amendments are outside that subset the product serves the covenants and
-says, in the debt signal, that it could not tell you what the bank knew. That is
-a real property of the answer and the consumer needs it.
+Measured shape: **25 of 137 amendments carry `assertedAt`**, so `D_c` on most
+facilities is high and says something true — *this answer cannot tell you what
+the bank knew*. On the three engineered facilities it is low and the answer
+carries the second clock. **A debt signal that read the same on both would be
+decorative**; this one distinguishes exactly the facilities the product can
+answer the dispute question for.
 
 ### E.3 Materialization and the dual TTL
 
@@ -495,11 +573,16 @@ The same endpoint carrying two TTLs from one parameter pair is a consequence of
 ledger-backed temporality worth showing, and it is the reason `ttl_anchor` is
 `from_entity_freshness` rather than `from_decision`.
 
-### E.4 Supersession triggers
+### E.4 What would invalidate a served answer
 
-8-K Item 1.01 amendment · 8-K Item 2.04 acceleration · internal amendment
-booking · policy-version change. Each **appends**; none overwrites. No trigger
-destroys the prior answer, which is what makes a closed as-of answer permanent.
+A new amendment being **booked** — that is, an `assertedAt` later than a served
+`known_as_of` appearing — changes the answer to a live query and leaves a closed
+one untouched. That asymmetry is the dual TTL's whole justification.
+
+**This section deliberately does not list supersession triggers.** The vault's
+version does, and in a ledger carrying superseded covenants it would be right.
+Measured, this estate has none (§0.5 (2)), so a trigger list here would describe
+events the product cannot observe.
 
 ---
 
@@ -519,9 +602,10 @@ the recipe.)*
 | **≥1 amendment with an engineered booking lag, drawdown inside the gap** | **3**, each with ≥1 in-gap drawdown | **met** |
 | ≥4 covenant types per facility | 6 types estate-wide; `FAC-01BB3F` carries 4 | **met** |
 | ≥2 policy versions with distinct effective dates | 2, with `effective_from`/`effective_to` | **met** |
-| ≥1 covenant in breach at a past date but compliant today | 2 `BreachOfCovenant` nodes, both superseded | **met, and out of scope** (§A.3) |
-| Covenant supersession markers | **0 of 180** | **NOT met** — §0.5 (1) |
-| Ledger `t` ↔ booking date | **absent by construction** | **NOT met** — §0.5 (2) |
+| ≥1 covenant in breach at a past date but compliant today | 2 `BreachOfCovenant` nodes | **met, and out of scope** (§A.3) |
+| **Assertion time on covenants** | **0 of 180**, at every ledger point | **NOT met** — scope narrowed to amendments, §0.5 (1) |
+| **Covenant supersession** | **0 of 180**; thresholds unchanged `t:1500`→head | **NOT met** — claim withdrawn, §0.5 (2) |
+| Ledger `t` ↔ booking date | absent by construction | **NOT met** — both clocks read from data, §0.5 (3) |
 
 ### F.2 Access path
 
@@ -531,14 +615,26 @@ not** — `.env` names the v1 estate and this product reads **v2**
 
 ### F.3 Known limits, carried as findings
 
-- **`CP08-F-01`** — the relative-default mechanism refuses an offset of `0`,
-  and `as_of`/`known_as_of` need exactly that. **Gates the request contract**
-  (§B.2).
-- **`CP08-F-02`** — covenant supersession is unmarked in the estate, so
-  `include_superseded` is inert. Recorded, not designed around silently.
-- **`CP08-F-03`** — 112 of 137 amendments carry no `assertedAt` and cannot be
-  placed on the assertion axis. This is the debt signal's subject (§E.2), not a
-  defect to repair.
+- **`CP08-F-01` — RESOLVED** by `D-IMPL-328` (2026-09-11). The relative-default
+  mechanism refused an offset of `0`; it now admits it as the identity offset,
+  meaning the request's own instant unchanged, with authority, provenance and
+  replay identical to any other offset. No `asked_at` is injected in deployment
+  code.
+- **`CP08-F-02` — CLOSED AS A SCOPE DECISION.** Covenant supersession is absent
+  from the estate: 0 of 180 covenants carry `supersededBy`, thresholds are
+  unchanged from `t:1500` to head, and no interval is ever closed. The product
+  **withdraws the claim** rather than serving an empty superseded set;
+  `include_superseded` stays declared-and-inert. The ledger's 1,107 supersession
+  markers belong to other classes and do not count.
+- **`CP08-F-03` — OPEN, and it is the debt signal's subject.** 112 of 137
+  amendments carry no `assertedAt` and cannot be placed on the assertion axis.
+  Not a defect to repair: the product serves those facilities and says, in
+  `D_c`, that it cannot tell you what the bank knew.
+- **`CP08-F-04` — OPEN, and it is not this product's to fix.** Covenants carry no
+  assertion time at all, so the *covenant terms* a facility bore on a past date
+  cannot be reconstructed. The product serves the current terms and labels them
+  unversioned. A future estate wave that versions covenant terms would restore
+  the vault's original scope.
 
 ---
 
@@ -550,39 +646,59 @@ The acceptance authority for every gate is **this clause** (`D-IMPL-326`).
 
 | Gate | Asserts |
 |---|---|
-| `CIF-G01` | a later `as_of` admits no fewer covenants than an earlier one, `known_as_of` held |
-| `CIF-G02` | a later `known_as_of` admits no fewer covenants than an earlier one, `as_of` held |
-| `CIF-G03` | **across a booking gap, `as_of` held and `known_as_of` varied returns DIFFERENT covenant sets** |
-| `CIF-G04` | every served assertion satisfies both filters — the temporal-coherence gate |
-| `CIF-G05` | a served set whose coherence is violated is refused, observed under sabotage |
-| `CIF-G06` | the exclusion record names **which axis** excluded each omitted assertion |
-| `CIF-G07` | an amendment with no `assertedAt` is excluded and counted, never assumed booked |
-| `CIF-G08` | `include_superseded` and `evaluate_headroom` are refused by name with their declared reasons |
-| `CIF-G09` | an unresolvable `facility_id` refuses; it does not return an empty covenant set |
-| `CIF-G10` | re-serving at a recorded ledger `t` reproduces the content address |
-| `CIF-G11` | the ledger `t` is in lineage as execution provenance and **not** in product identity |
-| `CIF-G12` | replay dimension 2 is a superset of product policy lineage |
-| `CIF-G13` | `D_c` moves with the resolvable-assertion ratio, not with the estate |
-| `CIF-G14` | a closed as-of answer carries the long TTL and a live one the short TTL |
+| `CIF-G01` | a later `as_of` admits no fewer **amendments** than an earlier one, `known_as_of` held |
+| `CIF-G02` | a later `known_as_of` admits no fewer amendments than an earlier one, `as_of` held |
+| `CIF-G03` | **across a booking gap, `as_of` held and `known_as_of` varied admits DIFFERENT amendment sets** — the two-clock claim |
+| `CIF-G04` | every admitted amendment satisfies **both** filters — the temporal-coherence gate |
+| `CIF-G05` | a set whose coherence is violated is refused, observed red under a one-line filter removal |
+| `CIF-G06` | the exclusion record names **which axis** excluded each omitted amendment |
+| `CIF-G07` | an amendment with no `assertedAt` is recorded unplaceable, never assumed booked |
+| `CIF-G08` | re-serving at a recorded ledger `t` reproduces the content address |
+| `CIF-G09` | the ledger `t` is in lineage as execution provenance and **not** in product identity |
+| `CIF-G10` | `include_superseded` and `evaluate_headroom` are refused by name with their declared reasons |
+| `CIF-G11` | an unresolvable `facility_id` refuses; it does not return an empty set |
+| `CIF-G12` | the served covenants are **labelled unversioned**, so no consumer reads them as reconstructed for `as_of` |
+| `CIF-G13` | replay dimension 2 is a superset of product policy lineage |
+| `CIF-G14` | `D_c` moves with the placeable-amendment ratio, not with the estate |
+| `CIF-G15` | a closed as-of answer carries the long TTL and a live one the short TTL |
+
+**Two gates were REMOVED at Gate 1 rather than weakened**, and this is recorded
+so a reader comparing drafts sees a withdrawal rather than a gap: a superseded-set
+return gate, and a gate asserting that covenant *terms* differ across a booking
+gap. The estate supports neither (§0.5), and a gate that cannot fail is worse
+than no gate.
+
+**`CIF-G12` is the gate this narrowing earns.** Serving current covenant terms
+beside a historical amendment answer is the one place a consumer could mistake
+this product for the one the vault described. The label is not prose in a README
+— it is a payload field, held by a gate.
 
 **All directional or structural. No estate population is pinned** — `CIF-G03`
-names the booking-gap *relationship*, not the three amendment ids, so the gate
-survives a fourth engineered lag being added.
+names the booking-gap *relationship*, not the three amendment ids, so a fourth
+engineered lag does not break it.
 
 ### G.2 Acceptance criteria
 
 1. The two axes are separately parameterised and separately filterable, and
-   varying either alone changes the answer.
+   varying either alone changes the admitted amendment set.
 2. The booking-gap divergence is demonstrated on real estate data, with a
    drawdown inside the gap.
-3. Every omitted assertion is accounted for by axis.
-4. The product writes to neither source store.
-5. A recorded ledger `t` reproduces its answer after later ledger activity.
-6. `D_c` reports the assertion-axis resolvability of the served set.
+3. Every omitted amendment is accounted for **by axis**.
+4. The served covenants are labelled unversioned and no claim is made that their
+   terms were reconstructed for `as_of`.
+5. The product writes to neither source store.
+6. A recorded ledger `t` reproduces its answer after later ledger activity.
+7. `D_c` reports the assertion-axis placeability of the served amendment set.
 
-### G.3 What Gate 2 must resolve before any code
+### G.3 What Gate 2 inherits
 
-- **`CP08-F-01`** — the `offset_seconds: 0` question. The request contract
-  cannot be authored until it is ruled.
-- Whether `include_superseded` stays inert at this tier or the rung is deferred
-  until the estate marks covenant supersession.
+`CP08-F-01` is resolved and the request contract can now be authored.
+`CP08-F-02` is closed as a scope decision. What Gate 2 carries forward:
+
+- **`CP08-F-03`** — most amendments are unplaceable on the assertion axis. It is
+  the debt signal's subject, and Gate 2 must show `D_c` distinguishing the
+  facilities the dispute question can be answered for from those it cannot.
+- **`CP08-F-04`** — covenants carry no assertion time, so their terms are served
+  unversioned and labelled. A later estate wave that versions covenant terms
+  would restore the vault's original scope, and **this specification is the
+  record of why it was not available in 2026-09**.
