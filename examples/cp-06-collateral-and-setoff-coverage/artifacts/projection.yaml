@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# Π's OWN DECLARED VALUES. The projection is deployment code (whitepaper §7.5)
+# and is never a rewrite target, but the numbers it works to are values rather
+# than logic, so they are declared here (CLAUDE.md §6.4).
+
+semver: "1.0.0"
+class_id: cp-06.projection
+
+declaration:
+  allocation:
+    # WHICH LIEN POSITION IS SENIOR, in the register's own vocabulary. Declared
+    # rather than inferred: "Primary" sorting before "Subordinate" alphabetically
+    # is an accident of English, and a vocabulary that added
+    # `TertiaryLienPosition` would silently rank it above Subordinate.
+    seniority:
+      PrimaryLienPosition: 1
+      SubordinateLienPosition: 2
+
+    # WHAT AN UNPOSITIONED PLEDGE IS TREATED AS. Ranked BEHIND every declared
+    # position, and reported in the payload as `lien_position: null` rather
+    # than quietly filled in. Assuming seniority for an unknown is exactly the
+    # error §A's counterfactual describes.
+    unknown_rank: 99
+
+  # WHAT THE PRODUCT SAYS ABOUT ITS OWN FOOTING, served in every payload's
+  # `basis` block (`D-IMPL-321`, Dave, 2026-09-10).
+  #
+  # Declared here rather than written into `projection.py` for the reason the
+  # No-Hardcoding lint gave when it refused the literal: prose a consumer reads
+  # is a value, and values live in artifacts (CLAUDE.md §6.4). Editing this
+  # sentence must not require editing a program.
+  lien_priority:
+    basis: asserted
+    note: >-
+      Lien priority is an authoritative input on the reified pledge. This
+      product does NOT determine legal UCC priority from filing records.
+      Coverage under allocation=priority is coverage under those assertions.
+
+  # The payload serves at most this many sharing facilities per asset, and says
+  # so when it truncates. A roster shorter than its own count would be a payload
+  # disagreeing with itself.
+  sharing_roster_cap: 25

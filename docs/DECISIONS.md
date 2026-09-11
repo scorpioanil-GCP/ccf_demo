@@ -2480,3 +2480,54 @@ Three sites changed and one gained an assertion: `produce.py`'s declared return 
 **TWO DEFECTS THIS SITTING PRODUCED IN ITS OWN GUARD, both in the message rather than the mechanism, both found by reading the guard's own output rather than by review.** The first refusal printed the estate's PostgreSQL password once per erroring test into output CI keeps; DSNs are now redacted to `user:***@host`. The second asserted *"Fluree is append-only, so every seeded ledger there is permanent"* on a PostgreSQL-only refusal where no Fluree was involved; the message now distinguishes a permanent ledger from a removable-but-accumulating schema. A guard that refuses correctly while teaching a wrong fact is still teaching a wrong fact.
 
 **Next free decision id: `D-IMPL-321`.** **Governs:** the schema cleanup's procedure and result; the scope of `D-IMPL-318`'s discharge; the standing read-only/disposable-write division. **Related:** `D-IMPL-318` (the fence this discharges, narrowly), `D-IMPL-317` (which scheduled this sitting), `D-IMPL-261` (the freeze, undisturbed), CLAUDE.md §9.
+
+
+---
+
+**D-IMPL-321 — For cp-06, lien priority is an AUTHORITATIVE INPUT on the reified pledge. The product does NOT determine legal UCC priority from filing records. Coverage under `allocation=priority` is coverage under those assertions.** RESOLVED. Date: 2026-09-10. Ruled by: Dave, on `CP-SPEC-006` §F.2 row 6 before the gate.
+
+**THE RULING, VERBATIM.** Dave: *"For cp-06, lien priority is an **authoritative input** on the reified pledge. The product **does not** determine legal UCC priority from filing records. Coverage under `allocation=priority` is coverage under **those assertions**."*
+
+**WHY DERIVING IT WAS REFUSED, and the reasoning is about evidence rather than effort.** `CP-SPEC-006` §C.4 trap 1 surfaced that priority is *asserted* by the reified `ex:CollateralPledge` and not *derived* from a filing date, while UCC Article 9 makes the filing date what establishes priority between competing secured parties. The obvious next move is to join them. Dave refused it on two measured grounds: **the register holds Florida only — 8 of 50 anchors** — and **the register does not carry the facility link**, because it names a debtor rather than a facility. Dave: *"A Π that 'computes UCC priority from filing date' would be a legal claim the estate cannot support."* A coverage figure presented as legally-ordered priority, computed from a 16%-of-cast register that cannot say which facility a lien secures, would be exactly the confident-and-wrong answer this ladder exists to refute.
+
+**THE EXAMPLE'S JOB IS ALREADY DONE.** Dave: *"same graph, different questions, coverage moves."* The product demonstrates that coverage is a graph question rather than a column, and that six caller parameters change the conclusion rather than the decimals. It does not need to adjudicate lien law to make that point, and adding an adjudication it cannot evidence would weaken the claim it can.
+
+**WHERE THE SENTENCE GOES, so a reader cannot miss it:** `CP-SPEC-006` §F.2 row 6, the example README, and **the served payload's own basis block** — the product states its own footing rather than leaving it in documentation a consumer may not read.
+
+**THE BOUNDED SCOPE OF THE CHANGE, as ruled.** *"Do not add operators, filing joins, or new tests beyond a docstring/spec assertion that the field is `asserted`, not `derived`."* No new operator is registered, no filing is joined to a facility, and the existing eighteen tests stand. The disclosure is a field and three sentences.
+
+**WHAT IS NOT BEING HELD FOR THIS.** Dave: *"Do not hold the gate for Florida-complete UCC derivation. That is a different product when the register can name the facility."* Deriving priority from filed records is a future product with its own decision frame, not a completion criterion for this one.
+
+**AND cp-07 RETURNS TO GATE 1 FIRST.** The spec-after-build inversion recorded at `CP-SPEC-006` §0.1 is **disclosed, not a template**. The next rung is specified, ruled, and only then built.
+
+**Next free decision id: `D-IMPL-322`.** **Governs:** cp-06's treatment of lien priority, the refusal to derive it, where the disclosure appears, the bounded scope of the change, and cp-07's return to Gate 1. **Related:** `CP-SPEC-006` §C.4/§F.2/§G.3, `D-IMPL-315` (adjudicate rather than edit), `D-IMPL-316` (a position is not an identity — the pledge reification this rests on), CLAUDE.md §9.
+
+
+---
+
+**D-GATE-cp-06 — `examples/cp-06-collateral-and-setoff-coverage` is APPROVED. Rung 6 of the ladder ships.** RESOLVED. Date: 2026-09-10. Ruled by: Dave.
+
+**THE GATE, as given:** *"Then: existing 18 tests + lint → D-GATE → `--no-ff` merge."* No further work was required of the build, and none was done beyond the `D-IMPL-321` disclosure.
+
+**WHAT IS APPROVED.** `credit-risk.collateral-coverage.v1`, Tier 2, reading Fluree `fibo-v2` and PostgreSQL `ccf_v2` on the curated estate, **read-only**. Six behaviors, each changing the conclusion rather than the decimals, measured against the live estate:
+
+| ask | coverage |
+| --- | --- |
+| default | 1.089 |
+| `apply_haircuts=false` | 1.446 |
+| `jurisdiction_basis=contractual` | 1.353 |
+| `include_setoff=false` | **0.839 — covered becomes under-covered** |
+| `shared_collateral=pro-rata` | 0.800 |
+| MasTec `FAC-102496` | 0.194, with one lien the register says was released |
+
+**THE STRUCTURAL STATE, proved from the tree before the roster was written:** `shape_of` = `"canonical"`; `print_problems` empty; `_sdk_supplied_operator_set` True on all five conditions with plan sources `(('required',),)`. Roster entries paired across `RULED_SDK_SUPPLIED_DEPLOYMENTS` and the shipped-tree detector list.
+
+**GATES:** 18 tests, all directional rather than pinned — no estate figure is restated anywhere, because a test pinning `1.089` would go red on the next legitimate valuation change and would have turned the curated estate back into a fixture. Three sabotage-verified. `make lint` rc 0; mypy clean, 218 files. `.76` unchanged at **30 Fluree ledgers** across every run.
+
+**THREE SDK REFUSALS MET DURING THE BUILD, all correct and all recorded:** a `product_gate` with no declared identity (`D-IMPL-282`); a governed door with no refusal recorder (`D-IMPL-256`); and the No-Hardcoding lint refusing the `D-IMPL-321` disclosure as a string literal in code, which moved it to `artifacts/projection.yaml` where a value belongs.
+
+**WHAT SHIPS DISCLOSED RATHER THAN FIXED.** `CP-SPEC-006` §0.1 records that this spec was written **after** the build, inverting *"No implementation code before Gate 1."* Approved as a disclosed deviation. **`cp-07` returns to Gate 1 first** — the inversion is not a template (`D-IMPL-321`).
+
+**CARRIED, NOT PART OF THIS GATE:** `CP06-F-01`, the `unreported` store watermark in `examples/cp-04-canonical-corporate-family-tree` against a bare ledger name. Found while building cp-06, fixed in cp-06, and deliberately left unfixed on cp-06's branch — it goes on its own one-commit branch off `main` after this merge.
+
+**Next free decision id: `D-IMPL-322`.** **Governs:** the approval of rung 6 and what it ships with. **Related:** `D-IMPL-321` (priority is asserted, not derived), `CP-SPEC-006`, `D-IMPL-315`, `D-IMPL-316`.

@@ -684,6 +684,10 @@ RULED_SDK_SUPPLIED_DEPLOYMENTS: frozenset[str] = frozenset(
         # `required` and authors nothing; no competing operator set; no
         # projection engine of its own.
         "examples/cp-05-credit-exposure-rollup",
+        # `D-IMPL-315`, 2026-09-10 — rung 6. The detector reaches it from the
+        # tree alone; this assertion and the roster both record that answer and
+        # neither causes it.
+        "examples/cp-06-collateral-and-setoff-coverage",
         # `D-IMPL-311` (Dave, 2026-09-09) — s1-00's canonical adoption, and the
         # same move for the same reason. Removed from
         # `RULED_ONE_DOCUMENT_DEPLOYMENTS` in this commit rather than held in
@@ -710,6 +714,18 @@ RULED_SDK_SUPPLIED_DEPLOYMENTS: frozenset[str] = frozenset(
         # the tree. This entry records what the predicate already answers; it is
         # not what makes the answer true.
         "examples/cp-04-canonical-corporate-family-tree",
+        # `D-IMPL-315` (Dave, 2026-09-10) — rung 6, authored on this side of the
+        # boundary like its rung-4 sibling rather than migrated onto it.
+        #
+        # THE RULING AUTHORIZED THE MOVE; THE TREE PROVED IT, in that order.
+        # Measured before this line was written: `shape_of` reads `"canonical"`,
+        # `print_problems` is empty, and `_sdk_supplied_operator_set` answers
+        # True on all five conditions with plan sources `(('required',),)` — no
+        # `ccf.projection-requirements`, a named `plan_factory` whose only
+        # operator source is the resolver's own tuple, and no `run_gates` /
+        # `build_replay_record` / `serve` anywhere in the tree. This entry
+        # records what the predicate already answers.
+        "examples/cp-06-collateral-and-setoff-coverage",
     }
 )
 
@@ -3374,6 +3390,10 @@ def test_the_premise_detector_reads_the_shipped_tree_correctly() -> None:
         # neither causes it.
         "examples/cp-04-canonical-corporate-family-tree",
         "examples/cp-05-credit-exposure-rollup",
+        # `D-IMPL-315`, 2026-09-10 — rung 6. The detector reaches it from the
+        # tree alone; this assertion and the roster both record that answer and
+        # neither causes it.
+        "examples/cp-06-collateral-and-setoff-coverage",
         "examples/hw1-companies-over-revenue/deployment",
         # `D-IMPL-311`, 2026-09-09 — s1-00 arrives from row B above, by the
         # same second shape cp-05 took: it reaches `build_governed_resolver`

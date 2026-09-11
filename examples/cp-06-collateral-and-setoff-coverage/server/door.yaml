@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE DOOR'S OWN GOVERNANCE VALUES — the SDK holds a default for none of them
+# (CINV-01). `serve.py` is this document's interpreter; delete this file and
+# that program has nothing to open.
+#
+# NO HOST, PORT, PATH OR CREDENTIAL. The bearer token is minted per boot into a
+# temporary directory and deleted on exit; the two source estates are whatever
+# `backends.yaml`'s environment variables name, read-only.
+#
+# THE DOOR DUPLICATES NO GOVERNANCE. `produce.assemble_and_serve` already
+# returns the one shape a door may release — a `ServedProduct` whose replay
+# reference proves the record was appended, or a `RefusalEnvelope` recorded,
+# disclosed and addressed. What `serve.py` adds is translation and nothing else.
+
+semver: "1.0.0"
+class_id: cp-06.egress-door
+
+declaration:
+  tool_description: >-
+    Answer what actually secures a credit facility and what can be applied
+    against it, as a governed, content-addressed Context Product. Returns the
+    collateral the facility can reach, the deposits the bank may set off, the
+    priority-adjusted coverage ratio, and the public UCC filings behind each
+    lien — including any the register says have been RELEASED. The caller may
+    supply `apply_haircuts`, `include_setoff`, `jurisdiction_basis`
+    (`contractual` counts every set-off right the documents grant;
+    `enforceable` counts only those the jurisdiction will honor) and
+    `shared_collateral` (`priority` gives a junior position only the residual
+    after senior claims; `pro-rata` splits by exposure share). EACH CHANGES THE
+    CONCLUSION RATHER THAN THE DECIMALS. An allocation exceeding an asset's
+    haircut value is REFUSED by the product's own declared gate.
+
+  required_scope: ccf:egress
+  issuer_url: https://issuer.cp-06.invalid
+  resource_server_url: https://egress.cp-06.invalid/mcp
+
+  # THE PRINCIPAL THIS DOOR SERVES, and the role its entitlement authorizes.
+  # The same pair `ccf_config.yaml::default_perspective` declares for in-process
+  # assembly — one deployment, one identity, reached two ways.
+  principal_id: PRIN-CRO-001
+  role: credit-officer
+
+  # WHAT IMPLEMENTS THIS DOOR, named as a module and callable rather than as a
+  # filesystem path.
+  #
+  # A CONSUMER ASKS FOR A CONTEXT PRODUCT; IT DOES NOT KNOW HOW THE PRODUCER
+  # HAPPENS TO START. A client carrying `python examples/…/server/serve.py`
+  # has bound itself to this deployment's directory layout, its interpreter and
+  # its language — none of which is part of the product contract, and all of
+  # which change without the product changing. The binding is the seam: resolve
+  # the entry point from this declaration and the same client reaches a producer
+  # that moves, gets rewritten, or stops being Python.
+  serve_entrypoint: serve:serve
