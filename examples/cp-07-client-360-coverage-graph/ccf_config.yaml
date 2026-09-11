@@ -49,11 +49,21 @@ product_class:
     - traversal.typed-neighborhood
 
 operators:
-  # Policy runs BEFORE anything reads graph state. §D step 2: interactions the
-  # principal may not see are excluded BEFORE traversal, not filtered from the
-  # result. The difference is invisible in the output and fundamental to the
-  # architecture — a suppressed node is never materialized, so no edge to it is
-  # ever built.
+  # THE TWO REGISTERED L4 OPERATORS, AND THEY ARE §D.2 STEPS 6 AND 7 — both
+  # reading L3, after admission, never the source estates. Everything earlier in
+  # the step table is source access or L2 admission and enters
+  # `operators_invoked` not at all.
+  #
+  # POLICY IS STEP 6 AND RUNS BEFORE TRAVERSAL, so a node the principal may not
+  # see is never a seed and no edge to it is ever walked. A scope the caller does
+  # not hold yields an EMPTY graph rather than a redacted one — measured, 0
+  # bankers and 0 people against 23 and 22.
+  #
+  # THIS IS NOT THE SAME MECHANISM AS THE NEED-TO-KNOW EXCLUSION, which is §D.2
+  # STEP 2 and lives in the interaction query's own `WHERE` clause. Two policy
+  # applications at two layers: one keeps a row out of the read, one keeps a node
+  # out of the subgraph. An earlier revision of the spec's step table conflated
+  # them and then omitted this operator entirely.
   policy.principal-subgraph:
     classification_attribute_by_class:
       coverage_node: principal_scope

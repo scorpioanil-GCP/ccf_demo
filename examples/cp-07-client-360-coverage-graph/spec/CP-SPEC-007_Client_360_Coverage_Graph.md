@@ -238,16 +238,39 @@ GET /context-products/coverage/client-360/JJAX4X60DE65EYFOTY73
 
 | # | Step | Operator | Store | Emits |
 |---|---|---|---|---|
-| 1 | Resolve the client | `null` (L1) | Postgres | entity, name |
-| 2 | Policy: entitlement, need-to-know, weights | `null` (L1) | Postgres | admitted set, `policy_version` |
-| 3 | Walk `coversClient` / `employedBy`, bounded | `traversal.typed-neighborhood` | Fluree | bankers, people, ledger `t` |
-| 4 | Interactions within `since`, **ordered by recency, `limit` applied IN the read** | `null` (L1) | Postgres | interactions, participants |
-| 5 | Batch enrich — **one query per node type, four total regardless of graph size** | `null` (L2) | Postgres | people, bankers, deals |
-| 6 | Score and find gaps | `null` (Π) | — | strength, recency, **gaps**, truncation flag |
-| 7 | Govern, gate, record, serve | the SDK's | — | `ServedProduct` / `RefusalEnvelope` |
+| 1 | Resolve the client, then its corporate family | `null` (L1 source access) | Postgres | canonical entity, name, family LEIs |
+| 2 | Interactions within `since`, **ordered by recency, `limit` applied IN the read**; need-to-know excluded **in the `WHERE` clause** | `null` (L1 source access) | Postgres | admitted interactions, availability counts |
+| 3 | Read the four declared edges for the **bounded** interaction set | `null` (L1 source access) | Fluree | typed edges, ledger `t` |
+| 4 | Batch enrich — **one query per node type, regardless of graph size** | `null` (L2) | Postgres | people, bankers, deals |
+| 5 | Admit to the fabric — **thin edges first, attributed nodes last** | `null` (L2, the single writer) | **L3** | the admitted coverage graph |
+| 6 | Entitlement scope over the **admitted** graph | **`policy.principal-subgraph`** | **L3** | the principal's subgraph — a scope the caller does not hold yields an EMPTY graph, never a redacted one |
+| 7 | Typed neighborhood over the **admitted** graph | **`traversal.typed-neighborhood`** | **L3** | the four declared edge types, within the backend depth ceiling |
+| 8 | Score and find gaps | `null` (Π) | — | strength, recency, **gaps**, the evidence boundary |
+| 9 | Govern, gate, record, serve | the SDK's | — | `ServedProduct` / `RefusalEnvelope` |
 
-**Step 4's bound is a correctness feature.** Fetching 5,000 rows and slicing to
-200 in memory satisfies the contract and defeats its purpose.
+**Steps 6 and 7 are the only rows with a non-null Operator, and that is the
+whole content of the column.** `operators_invoked` equals exactly
+`{policy.principal-subgraph, traversal.typed-neighborhood}` and the plan orders
+them 6 then 7 — policy **before** traversal, so a node the principal may not see
+is never a seed and no edge to it is ever walked.
+
+**The layer split in this table is load-bearing and an earlier revision of it was
+wrong.** Steps 1–4 are *source access* against the two estates; step 5 is L2
+admission through the single writer; steps 6–7 are *registered L4 operators
+reading L3*. The Fluree read in step 3 is **not** the traversal operator — they
+touch different stores, at different layers, at different times, and conflating
+them makes the graph leg look like an operator invocation it is not. The
+previous table named `traversal.typed-neighborhood` on the Fluree row and omitted
+`policy.principal-subgraph` entirely, which contradicted §D.2.1 one paragraph
+below and contradicted the product's own lineage. Corrected 2026-09-10 after
+`D-GATE-cp-07`; the defect was in this document only and never in the shipped
+product. `tests/examples/test_cp_07_output.py::test_the_spec_step_table_names_exactly_the_registered_operators`
+now holds the table and the declaration to each other.
+
+**Step 2's bound is a correctness feature.** Fetching 5,000 rows and slicing to
+200 in memory satisfies the contract and defeats its purpose. So is its policy
+clause: an interaction the principal may not see is never materialized, so no
+participation edge to it is ever walked.
 
 ### D.2.1 Two registered operators, not five verbs
 
@@ -255,6 +278,26 @@ The vault lists `[Resolve, Policy, Traversal, Enrich, Score]`. On this SDK only
 `policy.principal-subgraph` and `traversal.typed-neighborhood` are registered L4
 operators; Resolve/Enrich are source access and Score is Π. A Standard verb that
 is not a registered operator **does not enter `operators_invoked`**.
+
+**`Resolve` is therefore `null` in the table above on purpose, not by omission.**
+The SDK registers five operator keys in total — `policy.principal-subgraph`,
+`similarity.corpus-select`, `temporal.as-of-boundary`,
+`traversal.typed-descendants`, `traversal.typed-neighborhood` — across the four
+canonical categories the whitepaper §7.4 commits to (Traversal, Temporal, Policy,
+Similarity). There is no Resolve operator and no Enrich operator to name. Writing
+one into the Operator column would put it into `operators_invoked`, and lineage
+strict equality would then seal a document claiming work no operator did.
+
+**The policy operator is not decorative.** Measured against the curated estate at
+one instant, the same client under an entitled scope and a scope the caller does
+not hold:
+
+| `principal_scope` | bankers | people | edge types present |
+|---|---|---|---|
+| the client's own | 23 | 22 | `coversClient`, `employedBy`, `participatedIn` |
+| a scope not held | **0** | **0** | — |
+
+An empty graph, not a redacted one.
 
 ### D.3 Validation gates
 
