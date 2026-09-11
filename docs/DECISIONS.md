@@ -2531,3 +2531,24 @@ Three sites changed and one gained an assertion: `produce.py`'s declared return 
 **CARRIED, NOT PART OF THIS GATE:** `CP06-F-01`, the `unreported` store watermark in `examples/cp-04-canonical-corporate-family-tree` against a bare ledger name. Found while building cp-06, fixed in cp-06, and deliberately left unfixed on cp-06's branch — it goes on its own one-commit branch off `main` after this merge.
 
 **Next free decision id: `D-IMPL-322`.** **Governs:** the approval of rung 6 and what it ships with. **Related:** `D-IMPL-321` (priority is asserted, not derived), `CP-SPEC-006`, `D-IMPL-315`, `D-IMPL-316`.
+
+
+---
+
+**D-IMPL-322 — `CP06-F-01` corrected: a BARE ledger name resolves its store watermark. The fix is the branch default and nothing else.** RESOLVED. Date: 2026-09-10. Ruled by: Dave, immediately after `D-GATE-cp-06`.
+
+**THE DEFECT.** `examples/cp-04-canonical-corporate-family-tree` read the ledger's transaction index by matching the server's listing on **name and branch**, which Fluree keys separately, via `self._ledger.partition(":")`. A ledger named `ccf:cp04-<uuid>` partitions correctly. A ledger named **`fibo-v2`** — the curated estate, and the value that example's own README tells a reader to export — partitions to `name="fibo-v2"`, `branch=""`, matches no listing entry, and returns the honest fallback `"unreported"`.
+
+**WHY IT SHIPPED.** The example's tests and its development runs used *seeded* ledgers, whose names carry an explicit `name:branch`. The bug appears only against a bare name, which is exactly the curated estate and exactly what merged. The fallback is well-behaved and reports rather than raising, so nothing failed — a provenance field was simply empty where it should have carried `5545`.
+
+**SEVERITY: MISSING, NOT WRONG.** The watermark is execution provenance recorded in replay (`D-IMPL-309`) and does not enter the product's content address. No determination was wrong and no address moved. What was lost is the ability to say which store state a decision read, for every run against the estate the example documents.
+
+**FOUND BY BUILDING SOMETHING ELSE.** It surfaced while writing cp-06's graph leg, which inherited the same code shape. Recorded as `CP06-F-01` in cp-06's `FINDINGS.md`, fixed in cp-06, and **deliberately not fixed on cp-06's branch** — mixing an unrelated repair into a rung's branch puts two claims behind one review, which is the separation `D-IMPL-317` was written to preserve.
+
+**THE SCOPE, AS RULED.** Dave: *"Touch only the watermark behavior for the bare ledger-name case. No cp-06 files, no docs expansion, no new feature work."* Two files: the two-line branch default, and three regressions. `git diff --name-only` against `ecc9ecff` returns exactly those two.
+
+**THE THREE PROOFS, as specified.** (1) A bare ledger name resolves a **real** index — asserted as *a number was resolved*, never as a pinned value, because `t` advances. (2) An unknown ledger — in both the `name:branch` and bare shapes — still reports `unreported`. (3) The watermark is **never invented**: the returned value is compared against the server's own listing rather than against a constant, because a test carrying its own expected `t` would restate the estate and go red on the next write.
+
+**SABOTAGE-VERIFIED.** Reverting the two-line fix reds exactly proofs (1) and (3) and leaves the negative control green — which is what distinguishes a regression that depends on the repair from one that merely coexists with it.
+
+**Next free decision id: `D-IMPL-323`.** **Governs:** the watermark's branch default and the scope of the correction. **Related:** `CP06-F-01` (`examples/cp-06-collateral-and-setoff-coverage/FINDINGS.md`), `D-IMPL-309` (the store pin is execution provenance recorded in replay), `D-IMPL-317` (one claim per branch), `D-GATE-cp-06`.

@@ -408,3 +408,95 @@ def test_no_specimen_identity_is_reused(at_depth_three: Any) -> None:
         assert "cp-04-corporate-family-tree/" not in text.replace(
             "examples/cp-04-corporate-family-tree", "«named-in-prose»"
         ), f"{path.name} includes a snippet from the frozen specimen"
+
+
+# --- CP06-F-01 / `D-IMPL-322`: the store watermark on a bare ledger name ------
+
+
+def _graph_leg(example_modules: tuple[Any, Any], ledger: str) -> Any:
+    """One read-only graph leg against the configured estate, for `ledger`."""
+    import httpx  # noqa: PLC0415
+
+    sys.path.insert(0, str(EXAMPLE))
+    try:
+        import acquisition  # noqa: PLC0415
+
+        return acquisition._GraphLeg(
+            url=os.environ["CCF_CP_04C_FLUREE_URL"],
+            ledger=ledger,
+            client=httpx.Client(timeout=30),
+        )
+    finally:
+        sys.path.remove(str(EXAMPLE))
+
+
+def test_a_bare_ledger_name_resolves_a_real_watermark(
+    estate: tuple[str, str], example_modules: tuple[Any, Any]
+) -> None:
+    """`CP06-F-01`. The curated estate is named WITHOUT a branch segment.
+
+    Fluree keys name and branch separately, so `fibo-v2` must be matched as
+    name `fibo-v2` on branch `main`. Before the fix it partitioned to an empty
+    branch, matched no listing entry, and reported `unreported` against a
+    ledger that was right there — silently, because the fallback is
+    well-behaved.
+
+    The value is not pinned: the ledger is live and `t` advances. What is
+    asserted is that a real index was resolved at all.
+    """
+    ledger, _ = estate
+    watermark = _graph_leg(example_modules, ledger).watermark()
+
+    assert watermark != "unreported", (
+        f"the store reports no watermark for {ledger!r}; if the ledger name"
+        " carries no branch segment this is CP06-F-01 returning"
+    )
+    assert watermark.isdigit(), (
+        f"watermark {watermark!r} is not a transaction index"
+    )
+
+
+def test_an_unknown_ledger_reports_unreported_rather_than_a_number(
+    estate: tuple[str, str], example_modules: tuple[Any, Any]
+) -> None:
+    """The negative control, and the property the fix must not cost.
+
+    A fabricated watermark would be worse than an absent one: it would put a
+    specific, checkable, FALSE claim about the source's state into the served
+    payload and into replay. `unreported` is the honest answer and must survive
+    a change that makes the honest answer rarer.
+    """
+    unknown = _graph_leg(example_modules, "ccf:no-such-ledger-exists-here")
+    assert unknown.watermark() == "unreported"
+
+    # And a bare name that is equally absent — the shape the fix touched — must
+    # report absence too rather than defaulting its way into a match.
+    assert _graph_leg(
+        example_modules, "no-such-bare-ledger").watermark() == "unreported"
+
+
+def test_the_watermark_is_never_invented_from_the_listing(
+    estate: tuple[str, str], example_modules: tuple[Any, Any]
+) -> None:
+    """No source-state claim is fabricated: the number comes from the store.
+
+    Asserted by comparing against the server's own listing rather than against
+    a constant — a test carrying its own expected `t` would be restating the
+    estate, and would go red the next time anything is written to the ledger.
+    """
+    import httpx  # noqa: PLC0415
+
+    ledger, _ = estate
+    listing = httpx.get(
+        f"{os.environ['CCF_CP_04C_FLUREE_URL'].rstrip('/')}/v1/fluree/ledgers",
+        timeout=30,
+    ).json()
+    name, separator, branch = ledger.partition(":")
+    if not separator:
+        branch = "main"
+    reported = {
+        str(entry["t"]) for entry in listing
+        if entry.get("name") == name and entry.get("branch") == branch
+    }
+
+    assert _graph_leg(example_modules, ledger).watermark() in reported
