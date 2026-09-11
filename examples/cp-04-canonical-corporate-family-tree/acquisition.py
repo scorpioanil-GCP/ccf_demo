@@ -183,7 +183,16 @@ class _GraphLeg:
         response = self._client.get(f"{self._url}/v1/fluree/ledgers")
         if response.status_code != 200:
             return "unreported"
-        name, _, branch = self._ledger.partition(":")
+        # `name:branch`, or a BARE NAME whose branch is `main`. Fluree keys the
+        # two separately, and a bare `fibo-v2` partitions to an EMPTY branch —
+        # which matches no listing entry and silently reports `unreported`
+        # against a ledger that is right there. Seeded test ledgers carry an
+        # explicit `ccf:cp04-…`, so the defect only appeared against the
+        # curated estate, which is the value this example's README tells a
+        # reader to export (`CP06-F-01`, `D-IMPL-322`).
+        name, separator, branch = self._ledger.partition(":")
+        if not separator:
+            branch = "main"
         for entry in response.json():
             if entry.get("name") == name and entry.get("branch") == branch:
                 return str(entry["t"])
