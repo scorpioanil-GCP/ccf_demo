@@ -285,6 +285,80 @@ def test_replay_dimension_two_carries_the_request_contract(default: Any) -> None
     assert lineage <= versions
 
 
+def test_the_spec_step_table_names_exactly_the_registered_operators(
+    example: tuple[Any, Any], default: Any
+) -> None:
+    """The step table is the document a reader counts operators in, so it has to
+    agree with the declaration and with the lineage.
+
+    **This test exists because the table did not.** As shipped at
+    `D-GATE-cp-06` it named `traversal.typed-neighborhood` on all three FLUREE
+    rows — those are acquisition reads, source access at L1 — and omitted
+    `policy.principal-subgraph` entirely, so the column showed one registered
+    operator where the product invokes two. It contradicted §D.2.1 one paragraph
+    below it and contradicted `operators_invoked`, and nothing was checking. The
+    identical defect was in `CP-SPEC-007` §D.2 and both were corrected together.
+
+    Read structurally off the markdown rather than by substring: the Operator
+    column only, split on the table's own pipes. A token elsewhere in the row —
+    a store name, a prose mention — is not a claim about which operator ran.
+    """
+    import re  # noqa: PLC0415
+
+    deployment, _ = example
+    declared = set(deployment.config()["product_class"]["required_operator_keys"])
+    assert declared, "the deployment declares no operators; this proves nothing"
+
+    spec = next((EXAMPLE / "spec").glob("CP-SPEC-006*.md")).read_text(encoding="utf-8")
+    table = spec.split("### D.2 Step table", 1)[1].split("###", 1)[0]
+
+    named: set[str] = set()
+    for line in table.splitlines():
+        cells = [c.strip() for c in line.split("|")]
+        # `| # | Step | Operator | Store | Emits | Budget |` -> leading empty
+        # cell, so the Operator column is index 3. cp-06 numbers some rows `3a`,
+        # so the step cell is tested for a leading digit rather than `isdigit`.
+        if len(cells) < 7 or not cells[1][:1].isdigit():
+            continue
+        named.update(re.findall(r"`([a-z]+\.[a-z-]+)`", cells[3]))
+
+    assert named == declared, (
+        f"the §D.2 step table names {sorted(named)} in its Operator column and"
+        f" the product class declares {sorted(declared)}; the table a reader"
+        " counts operators in disagrees with the one the fabric invokes"
+    )
+
+    # THE SERVED LINEAGE IS THE THIRD WITNESS, so agreement cannot be two
+    # documents copied from each other.
+    assert named == set(default.product.lineage.operators_invoked), (
+        f"the step table names {sorted(named)} and the served product's"
+        f" `operators_invoked` carries"
+        f" {sorted(default.product.lineage.operators_invoked)}"
+    )
+
+
+def test_the_policy_operator_discriminates_rather_than_passing_through(
+    estate: tuple[str, str], example: tuple[Any, Any], default: Any
+) -> None:
+    """A scope the caller does not hold yields an EMPTY graph, not a redacted one.
+
+    Without this, `policy.principal-subgraph` could be declared, invoked,
+    recorded in lineage, and admit everything — an operator present in the audit
+    trail and absent from the answer. §D.2 now carries the measured contrast and
+    this holds the document to it.
+    """
+    deployment, produce = example
+    asked = deployment.request(
+        facility_id=_anchor("DEMONSTRATION_FACILITY"),
+        borrower_scope=["A-SCOPE-NOBODY-HOLDS"], asked_at=datetime.now(UTC))
+    with tempfile.TemporaryDirectory() as scratch:
+        denied = produce.assemble_and_serve(asked=asked, root=pathlib.Path(scratch))
+
+    assert default.product.payload["assets"], "the entitled read returned nothing"
+    assert denied.product.payload["assets"] == []
+    assert Decimal(denied.product.payload["coverage"]["coverage_ratio"]) == 0
+
+
 def test_the_structural_classifier_reads_this_tree_as_canonical() -> None:
     """`shape_of` is structural — it asks the code, never a roster."""
     spec = importlib.util.spec_from_file_location(

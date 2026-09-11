@@ -91,8 +91,9 @@ def perspective() -> PerspectiveArtifact:
     return PerspectiveArtifact(semver="1.0.0", **dict(config()["default_perspective"]))
 
 
-def request(*, facility_id: str, borrower_scope: Sequence[str], asked_at: datetime,
-            apply_haircuts: bool | None = None, include_setoff: bool | None = None,
+def request(*, facility_id: str | None, borrower_scope: Sequence[str] | None,
+            asked_at: datetime, apply_haircuts: bool | None = None,
+            include_setoff: bool | None = None,
             jurisdiction_basis: str | None = None,
             shared_collateral: str | None = None) -> ProductRequest:
     """The question asked. An argument, never an artifact.
@@ -100,10 +101,21 @@ def request(*, facility_id: str, borrower_scope: Sequence[str], asked_at: dateti
     A parameter the caller did not supply is OMITTED rather than defaulted
     here, so the class default in `ccf_config.yaml` is what resolves. Restating
     a default in this function would make it a second authority for one value.
+
+    **Including the anchor.** `facility_id` and `borrower_scope` are `required`
+    in the request contract, so a question missing either is one the CONTROL
+    PLANE refuses — with a kind from the SDK's own vocabulary, the keys that
+    were missing, and a replay record. This function therefore constructs the
+    question as it was ASKED rather than validating it: a check here would be a
+    second authority for a rule the Control Plane already owns, and the two
+    would answer differently at exactly the moment it mattered (`D-IMPL-289`).
     """
     declared = config()["product_class"]
-    parameters: dict[str, Any] = {
-        FACILITY: facility_id, BORROWER_SCOPE: list(borrower_scope)}
+    parameters: dict[str, Any] = {}
+    if facility_id is not None:
+        parameters[FACILITY] = facility_id
+    if borrower_scope is not None:
+        parameters[BORROWER_SCOPE] = list(borrower_scope)
     for name, value in ((APPLY_HAIRCUTS, apply_haircuts),
                         (INCLUDE_SETOFF, include_setoff),
                         (JURISDICTION_BASIS, jurisdiction_basis),
@@ -112,7 +124,7 @@ def request(*, facility_id: str, borrower_scope: Sequence[str], asked_at: dateti
             parameters[name] = value
     return ProductRequest(
         schema_name=declared["schema_name"], schema_version=declared["schema_version"],
-        subject=facility_id, intent="lgd-assessment", freshness="standard",
+        subject=facility_id or "", intent="lgd-assessment", freshness="standard",
         asked_at=asked_at, parameters=parameters)
 
 
@@ -150,8 +162,17 @@ def effective(booted: BootedFabric, registry: ControlPlaneProtocol,
 
 def acquire_for(booted: BootedFabric, registry: ControlPlaneProtocol,
                 asked: ProductRequest) -> acquisition.Coverage:
-    """Read both stores for the question, at the scope governance allowed."""
+    """Read both stores for the question, at the scope governance allowed.
+
+    **A refused question is not read.** `effective` returns nothing when the
+    Control Plane refuses, and this returns without touching either source
+    store: the governed path issues that refusal moments from now, and
+    acquisition neither pre-empts it nor pays for a read whose answer is never
+    served.
+    """
     values = effective(booted, registry, asked)
+    if not values:
+        return acquisition.nothing_acquired(str(asked.parameters.get(FACILITY, "")))
     return acquisition.acquire(
         facility_id=str(asked.parameters[FACILITY]),
         include_setoff=bool(values.get(INCLUDE_SETOFF, False)))

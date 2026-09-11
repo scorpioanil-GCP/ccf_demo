@@ -11,7 +11,7 @@ consumer is told. Reading around the view would serve rows policy excluded.
 
 ## The allocation, and why it is Π's rather than an operator's
 
-§D step 5 is *in-memory, algorithmic*: apply haircuts, allocate shared assets by
+§D step 8 is *in-memory, algorithmic*: apply haircuts, allocate shared assets by
 the caller's mode, filter set-off by enforceability, emit the three measures.
 None of that is a graph read, so none of it is an operator — and a step that
 carries a Standard verb but is not a registered operator does not enter

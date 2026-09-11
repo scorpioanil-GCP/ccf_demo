@@ -173,6 +173,21 @@ class Coverage:
     unresolved_debtors: tuple[str, ...] = field(default_factory=tuple)
 
 
+def nothing_acquired(facility_id: str) -> Coverage:
+    """What a read that was never taken returns.
+
+    Not an empty answer — **no answer**. Governance refused the question before
+    acquisition ran, so there is nothing to report and nothing was paid for. The
+    governed resolver issues the refusal moments later; this value only has to
+    carry the anchor far enough to get there.
+    """
+    return Coverage(
+        facility_id=facility_id, borrower_lei=None, borrower_name=None,
+        commitment=None, pledges=(), assets={}, sharing={}, deposits=(),
+        reached_by={}, filings=(), haircuts={},
+        enforceable_jurisdictions=frozenset(), ledger_watermark="unread")
+
+
 class _GraphLeg:
     """A read-only SPARQL client. `FROM <ledger>` precedes `WHERE`, always."""
 
@@ -224,7 +239,10 @@ def _local(uri: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# The four reads. §D steps 1-4; step 5 is Π and step 6 is the SDK's.
+# The four reads. §D steps 1-4 — ALL of them source access, including the
+# three Fluree reads: the registered traversal operator is step 7 and reads
+# L3 after admission, never this ledger. Step 5 is L2 admission, 6 and 7 are
+# the two operators, 8 is Π and 9 is the SDK's.
 # ---------------------------------------------------------------------------
 
 
