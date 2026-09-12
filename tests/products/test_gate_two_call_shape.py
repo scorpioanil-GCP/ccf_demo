@@ -767,6 +767,31 @@ RULED_SDK_SUPPLIED_DEPLOYMENTS: frozenset[str] = frozenset(
         # the same assertion, which is the roster working as designed: a claim
         # the Control Plane cannot see is red until a human rules on it.
         "examples/cp-08-covenant-in-force-as-of",
+        # `D-IMPL-141` admission ruled by Dave, 2026-09-12 — rung 9, and
+        # **admitted on its own evidence rather than on rung 8's**. Dave's
+        # instruction is why this entry repeats a measurement instead of citing
+        # the line above it: *"I would not phrase cp-09 as inheriting cp-08's
+        # admission; each product should remain independently evidenced even
+        # when both exercise the same SDK seam."* Two roots exercising one seam
+        # is not one fact about two roots.
+        #
+        # THE RULING AUTHORIZED THE MOVE; THE TREE PROVED IT, in that order,
+        # and the measurement was taken with cp-08 ALREADY ROSTERED — so this
+        # root was the only remaining claimant at the moment it was read, which
+        # is what makes the reading about cp-09 and nothing else. Before this
+        # line was written: `shape_of` reads `"canonical"`,
+        # `resolver_ownership` finds the one `build_governed_resolver` call at
+        # `produce.py:118`, `governed_seam_calls` is empty,
+        # `legacy_governance_regions` is empty, `print_problems` is empty, and
+        # `_sdk_supplied_deployments()` names this root.
+        #
+        # The deployment authors no operator set at all: `produce.py`'s named
+        # `plan_factory` passes the resolver's own `required` tuple straight
+        # through to `TreasuryLiquidityProjection`, which returns it unchanged
+        # from `required_operators()`. There is nothing to diverge from and no
+        # divergence guard to call — the condition `D-IMPL-141` describes,
+        # rather than a property this entry asserts.
+        "examples/cp-09-treasury-liquidity-position",
     }
 )
 
@@ -3446,6 +3471,10 @@ def test_the_premise_detector_reads_the_shipped_tree_correctly() -> None:
         # its own assertion, because the two say different things — the roster
         # records what was RULED, this records what the detector ANSWERS.
         "examples/cp-08-covenant-in-force-as-of",
+        # `D-IMPL-141`, 2026-09-12 — rung 9. Reached from the tree alone, like
+        # its siblings above: this assertion and the roster both record that
+        # answer and neither causes it.
+        "examples/cp-09-treasury-liquidity-position",
         "examples/hw1-companies-over-revenue/deployment",
         # `D-IMPL-311`, 2026-09-09 — s1-00 arrives from row B above, by the
         # same second shape cp-05 took: it reaches `build_governed_resolver`
