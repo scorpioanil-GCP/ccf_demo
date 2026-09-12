@@ -82,6 +82,7 @@ from ccf.products.contract import (
 from ccf.products.gates import (
     DEBT_TOLERANCE_PARAMETER,
     GATE_DECLARED_OBLIGATIONS,
+    GATE_DEPENDENCY_INVALIDATION,
     GATE_EMPTY_OPERATOR,
     GATE_LINEAGE_ATTRIBUTABILITY,
     GATE_LINEAGE_EQUALITY,
@@ -148,12 +149,21 @@ PAYLOAD_EMPTY_MEMBER: Mapping[str, Any] = {"value": 1, OBLIGED_MEMBER: []}
 #: census reports departures separately and would have caught this one. The
 #: numerals below are the sizes of these sets and nothing else: five on
 #: `run_gates`, four on `run_federated_gates`, six distinct across the two.
+#:
+#: `D-IMPL-334`, 2026-09-12, admits a SIXTH to `run_gates`:
+#: `dependency-invalidation`. It arrives ruled — this roster refused it while it
+#: was not, which is the guard working rather than an obstacle to it. It is on
+#: `run_gates` and deliberately NOT on `run_federated_gates`: A2A propagation is
+#: out of scope for v1 (Dave, 2026-09-12), so a local invalidation boundary does
+#: not rule on an inbound peer product, and adding it there would silently make
+#: a claim this SDK has not earned. **Seven distinct across the two.**
 RUN_GATES_TOKENS: frozenset[str] = frozenset(
     {
         "empty-operator-guard",
         "lineage-strict-equality",
         "ttl-bounds",
         "source-attestation",
+        "dependency-invalidation",
         "declared-obligations",
     }
 )
@@ -1131,6 +1141,8 @@ def test_both_runners_register_exactly_the_recorded_tokens() -> None:
         GATE_LINEAGE_EQUALITY,
         GATE_TTL_BOUNDS,
         GATE_SOURCE_ATTESTATION,
+        # `D-IMPL-334`. Local only — see the roster's own note.
+        GATE_DEPENDENCY_INVALIDATION,
         GATE_DECLARED_OBLIGATIONS,
     }
     assert RUN_FEDERATED_GATES_TOKENS == {
@@ -1139,7 +1151,10 @@ def test_both_runners_register_exactly_the_recorded_tokens() -> None:
         GATE_TTL_BOUNDS,
         GATE_DECLARED_OBLIGATIONS,
     }
-    assert len(RUN_GATES_TOKENS | RUN_FEDERATED_GATES_TOKENS) == 6
+    # SEVEN distinct across the two since `D-IMPL-334`, which joined the
+    # local runner only. The numeral is the size of the union and nothing
+    # else; it moves when a gate is ruled in or out, never on its own.
+    assert len(RUN_GATES_TOKENS | RUN_FEDERATED_GATES_TOKENS) == 7
 
 
 def test_the_tolerance_step_joined_neither_runner(

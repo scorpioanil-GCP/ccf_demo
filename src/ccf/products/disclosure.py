@@ -203,6 +203,15 @@ EXTERNAL_STATEMENTS: Final[Mapping[str, str]] = {
     "attestation-refusal": (
         "the source attestation required for this product is not in force"
     ),
+    # `D-IMPL-334`. States that the answer is no longer eligible and NOT why,
+    # because which entity moved is fabric state: naming it would tell an
+    # unentitled caller that a particular obligor's context changed, which is
+    # the disclosure `EWS-G05`-shaped gates exist to prevent. The actionable
+    # part is that re-asking will produce a current answer.
+    "dependency-invalidation-refusal": (
+        "context this answer depended on has changed; re-request for a "
+        "current answer"
+    ),
     "declared-obligation-refusal": (
         "an obligation the product class declares was not satisfied"
     ),
@@ -314,6 +323,11 @@ PERMITTED_AT_MINIMAL: Final[Mapping[str, frozenset[str]]] = {
     # What the deployment declares acceptable is actionable; which dimension
     # failed and what mode the source is in are fabric state.
     "attestation-refusal": frozenset({"accepted_modes"}),
+    # `D-IMPL-334`: NOTHING is actionable at minimal. The entity, the boundary
+    # instant and the superseding claim are all fabric state — each names a
+    # fact about the graph the caller was not served. What the caller can do
+    # needs no field: ask again.
+    "dependency-invalidation-refusal": frozenset(),
     # The obligation and what the class declares are actionable; what was
     # observed is fabric state.
     "declared-obligation-refusal": frozenset({"obligation", "declared"}),

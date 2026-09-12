@@ -97,6 +97,14 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    # Under TYPE_CHECKING so L2's write path takes no import-time
+    # dependency on the Control Plane: the writer holds a Protocol it
+    # was handed, never a registry it resolved.
+    from ccf.controlplane.invalidation import InvalidationSink
+
 import json
 from collections.abc import Sequence
 from contextlib import AbstractContextManager
@@ -610,7 +618,32 @@ class BaseGraphWriter:
     #: Append one lineage entry, ignoring one already recorded.
     INSERT_LINEAGE: ClassVar[str]
 
-    def __init__(self, *, store: _Store, token: BootToken) -> None:
+    def __init__(
+        self,
+        *,
+        store: _Store,
+        token: BootToken,
+        invalidation_sink: "InvalidationSink | None" = None,
+    ) -> None:
+        """Construct the one writer.
+
+        Args:
+            store: The write substrate.
+            token: The single-writer authorization minted by the composition
+                root.
+            invalidation_sink: Where a supersession reports its boundary
+                (``D-IMPL-334``). Keyword-only with a ``None`` default, on the
+                attestation gate's precedent, so every pre-``D-IMPL-334``
+                construction is unchanged and a fabric booted without one
+                behaves exactly as it did. **The writer appends synchronously
+                inside its own call** (Dave, 2026-09-12: *"the guarantee must
+                not depend on a deployment remembering to publish an event"*),
+                which is also what keeps single-writer intact — nothing else
+                acquires a handle and no second process observes the write.
+
+                The writer reports a boundary and does nothing else with the
+                Control Plane: it never resolves, versions or reads one.
+        """
         if not isinstance(token, BootToken):
             raise SingleWriterViolation(
                 "a GraphWriter requires a BootToken minted by the composition "
@@ -623,6 +656,32 @@ class BaseGraphWriter:
             )
         self._graph_identity = token.consume()
         self._closed = False
+        self._invalidation_sink = invalidation_sink
+
+    def attach_invalidation_sink(self, sink: "InvalidationSink") -> None:
+        """Bind the ``D-IMPL-334`` sink after construction.
+
+        Exists because a writer is built by an adapter-supplied
+        ``make_writer(store, token)`` (``D-IMPL-93``), so the composition root
+        cannot pass the sink as a constructor argument without changing every
+        installed backend's factory signature. **The composition root calls
+        this**, not a deployment: the guarantee must not depend on anyone
+        remembering (Dave, 2026-09-12).
+
+        Raises:
+            SingleWriterViolation: a sink is already bound, or this writer is
+                closed. Rebinding would let a later caller silently redirect
+                where supersession is reported, which is the same class of
+                defect the single-writer invariant exists to prevent.
+        """
+        self._check_open()
+        if self._invalidation_sink is not None:
+            raise SingleWriterViolation(
+                "this GraphWriter already reports supersession to a sink; "
+                "rebinding would silently redirect where invalidation "
+                "boundaries land (D-IMPL-334)"
+            )
+        self._invalidation_sink = sink
 
     def _check_open(self) -> None:
         if self._closed:
@@ -783,6 +842,24 @@ class BaseGraphWriter:
                 )
                 if created
                 else None
+            )
+        # `D-IMPL-334`. A supersession changed this entity's effective context,
+        # so a previously derived product that read it at an older snapshot is
+        # no longer eligible to be served. Reported AFTER the transaction
+        # commits: a boundary announced for a write that then rolled back would
+        # refuse products on evidence that never landed.
+        #
+        # The boundary is THE SUPERSEDING OBSERVATION'S OWN INSTANT, never the
+        # instant of this write. A boundary taken from ingestion would refuse
+        # products that were correct as of the evidence they actually read —
+        # `D-IMPL-332`'s reasoning arriving at delivery.
+        if superseded is not None and self._invalidation_sink is not None:
+            self._invalidation_sink.record(
+                tenant_id=tenant_id,
+                entity_uri=claim.entity_uri,
+                invalidated_from=claim.observed_at,
+                reason="entity-claim-superseded",
+                source=claim_id,
             )
         return UpsertResult(
             node_key=claim.entity_uri,

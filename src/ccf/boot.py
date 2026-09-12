@@ -50,6 +50,7 @@ from ccf.assembly.worker import (
 from ccf.controlplane.registry import ControlPlaneProtocol
 from ccf.graph._writer import adopt_writer, mint_boot_token, release_boot_token
 from ccf.graph.protocols import GraphReader
+from ccf.controlplane.invalidation import ControlPlaneInvalidationSink
 from ccf.graph.registry import (
     AdapterPin,
     ResolvedSecret,
@@ -351,6 +352,14 @@ def boot(
         writer = adopt_writer(
             registration.make_writer(store, token), adapter=registration.name
         )
+        # `D-IMPL-334`. The composition root binds the invalidation sink, not
+        # the deployment: a supersession must report its boundary whether or
+        # not anyone remembered to ask for it. Bound here rather than passed
+        # to `make_writer` because that factory is adapter-supplied
+        # (`D-IMPL-93`) and its signature is not this function's to change.
+        attach = getattr(writer, "attach_invalidation_sink", None)
+        if attach is not None:
+            attach(ControlPlaneInvalidationSink(registry=registry))
     except BaseException:
         # The same guard the mint above gets, for the same reason, over a call
         # that needs it more: since D-IMPL-93 this constructor is a callable an
