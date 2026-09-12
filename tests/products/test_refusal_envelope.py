@@ -98,6 +98,7 @@ from ccf.products.gates import (
     GATE_LINEAGE_ATTRIBUTABILITY,
     GATE_LINEAGE_EQUALITY,
     GATE_SOURCE_ATTESTATION,
+    GATE_DEPENDENCY_INVALIDATION,
     GATE_TTL_BOUNDS,
     AttestationRefusal,
     DeclaredObligationRefusal,
@@ -107,6 +108,7 @@ from ccf.products.gates import (
     LineageMismatchRefusal,
     ProductInvariantRefusal,
     ToleranceExceededRefusal,
+    DependencyInvalidationRefusal,
     TTLRefusal,
 )
 from ccf.products.payload import PayloadSchemaViolation
@@ -293,6 +295,40 @@ def test_envelope_for_lineage_attribution_refusal(
     }
     assert envelope.fields["attested_address"] == '"addr-attested"'
     assert envelope.fields["candidate_address"] == '"addr-candidate"'
+
+
+def test_envelope_for_dependency_invalidation_refusal(
+    request_identity: RequestIdentity
+) -> None:
+    """`D-IMPL-334`: the entity, both instants and the cause cross intact.
+
+    All four are FABRIC state — the external statement discloses none of them
+    (`PERMITTED_AT_MINIMAL` is empty for this kind) — and this test is about
+    the internal form, where a refusal must carry enough for an auditor to
+    answer *which* evidence moved.
+    """
+    refusal = DependencyInvalidationRefusal(
+        gate=GATE_DEPENDENCY_INVALIDATION,
+        detail="an entity this product touched was superseded after its snapshot",
+        entity_uri="entity://fixture-obligor",
+        invalidated_from=_LATER,
+        graph_snapshot_at=_INSTANT,
+        cause="claim-fixture-0001",
+    )
+    envelope = envelope_for(refusal, request=request_identity)
+
+    assert envelope.kind == REFUSAL_KINDS[DependencyInvalidationRefusal]
+    assert envelope.reason == GATE_DEPENDENCY_INVALIDATION
+    assert set(envelope.fields) == {
+        "entity_uri", "invalidated_from", "graph_snapshot_at", "cause",
+    }
+    # The two instants render RFC3339 UTC at fixed precision, never a repr,
+    # and the boundary is the LATER of the two — which is the whole reason
+    # this refusal exists.
+    assert envelope.fields["invalidated_from"] == '"2026-08-16T12:00:00.000000Z"'
+    assert envelope.fields["graph_snapshot_at"] == '"2026-08-15T12:00:00.000000Z"'
+    assert envelope.fields["entity_uri"] == '"entity://fixture-obligor"'
+    assert envelope.fields["cause"] == '"claim-fixture-0001"'
 
 
 def test_envelope_for_ttl_refusal(request_identity: RequestIdentity) -> None:

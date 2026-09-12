@@ -134,6 +134,7 @@ from ccf.products.gates import (
     LineageMismatchRefusal,
     ProductInvariantRefusal,
     ToleranceExceededRefusal,
+    DependencyInvalidationRefusal,
     TTLRefusal,
 )
 from ccf.products.payload import PayloadSchemaViolation
@@ -564,6 +565,13 @@ REFUSAL_KINDS: Final[Mapping[type[CCFContract], str]] = {
     LineageAttributionRefusal: "lineage-attribution-refusal",
     TTLRefusal: "ttl-refusal",
     AttestationRefusal: "attestation-refusal",
+    # `D-IMPL-334`. Serve-time dependency invalidation: an entity this product
+    # touched moved after the snapshot it was built at, so it is no longer
+    # eligible to serve. Its own kind rather than a reuse of `ttl-refusal`,
+    # because the two say different things — a TTL refusal is about elapsed
+    # time, and this one is about the world having changed. A consumer that
+    # could not tell them apart would retry the wrong one.
+    DependencyInvalidationRefusal: "dependency-invalidation-refusal",
     DeclaredObligationRefusal: "declared-obligation-refusal",
     # `24.10-02` / `R-11` (`D-IMPL-282` option 1a with `D-IMPL-224`): the
     # seventh `GateRefusal` sibling, and the token names a **declared** product

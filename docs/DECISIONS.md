@@ -3033,6 +3033,32 @@ This inverts the obvious reading. The obvious reading says invalidation requires
 
 **THE DESIGN IS AT `docs/D-IMPL-334-INVALIDATION-DESIGN.md`**, authored 2026-09-12 and awaiting Dave's ruling. Its finding, in one line: **the expensive-sounding capability is already in the data.** `ContextFabricSnapshot` records `touched_entities` beside `product_content_address` and the snapshot on every serve, so the reverse index nobody has is a query over artifacts the SDK already writes — and the correctness path does not need even that, because the serve-time predicate asks about the product in hand. Five surface changes, no cache, no eviction, no delete, no bus, no background process. Five questions are left for Dave rather than decided, each with a recommendation.
 
+**AMENDMENT 1 — 2026-09-12: APPROVED FOR IMPLEMENTATION ON THE SMALLER MODEL, AND BUILT.** Dave ruled the five open questions and renamed the mechanism. **It is not an event bus and not a cascade; it is SERVE-TIME DEPENDENCY INVALIDATION**, and the precision is the ruling:
+
+> *"A graph supersession records an invalidation boundary. Any previously derived product whose snapshot predates that boundary and touched that entity becomes ineligible for future serving."*
+
+| Question | Ruling |
+|---|---|
+| Where the register lives | **Control Plane registry.** Not the ArtifactStore. |
+| Granularity | **Entities only for v1.** Relationships when a real product needs them. |
+| Who appends | **The graph writer, synchronously.** *"The guarantee must not depend on a deployment remembering to publish an event."* Single-writer preserved. |
+| Behavior | **Refuse**, through the normal `GateRefusal` / replay path. |
+| A2A | **Out of scope for v1**, recorded explicitly. No implication of push invalidation of products already held. |
+
+**WHAT SHIPPED.** `src/ccf/controlplane/invalidation.py` — `EntityInvalidation`, the append-only `EntityInvalidationRegister`, the `InvalidationSink` Protocol and its registry-backed reference implementation. `GraphWriter` reports a boundary when a claim is superseded, bound by `ccf.boot` rather than by a deployment. `run_gates` gains `GATE_DEPENDENCY_INVALIDATION` and `DependencyInvalidationRefusal`, with `touched_entities` threaded in keyword-only at a `None` default on the attestation gate's precedent — so every prior call site is byte-for-byte unchanged. **No cache, no eviction, no delete, no bus, no subscriptions, no background worker, no A2A work**, exactly as ruled. `is_eligible` was NOT built: it is not required to prove rung 11 and nothing yet asks for it.
+
+**THREE DESIGN POINTS THE BUILD SETTLED, each of which a plausible implementation gets wrong.** The boundary is **the superseding observation's own instant**, never the instant of the write — a boundary taken from ingestion would refuse products that were correct as of the evidence they actually read, which is `D-IMPL-332`'s reasoning arriving at delivery. The comparison is **strictly later**, so a change *at* the snapshot does not refuse: the product already saw it. And **a boundary never moves backward**, mirroring `_restitch_chain`'s own posture — a late-arriving earlier observation slots into history rather than displacing state, because moving the boundary back would make eligible again a product a later change had ruled out.
+
+**THE SDK's OWN GOVERNANCE REFUSED THE GATE UNTIL IT WAS RULED, WHICH IS THE GUARD WORKING.** `test_both_runners_register_exactly_the_recorded_tokens` rejected `dependency-invalidation` as *"a gate that arrives unruled"*; the refusal vocabulary, the disclosure statements and the per-kind envelope test each demanded their entry. The gate joins `run_gates` and deliberately **not** `run_federated_gates` — adding it there would rule on an inbound peer product, which is the A2A claim v1 does not make.
+
+**EVIDENCE.** `tests/products/test_dependency_invalidation.py`, 14 tests, including Dave's matrix verbatim — A refused, **B still eligible**, a new A after the boundary eligible, and tenant isolation. **B is the test that makes the other three mean something**: a mechanism keyed on time rather than on dependence would refuse it too, pass A's case, and be a global clock wearing an invalidation's name. Eight sabotages, each red on the test written for it, each restored byte-identical: the gate never refuses (3 red) · the gate ignores which entities were touched (B's test alone) · `>=` instead of `>` · the register key drops the tenant · a boundary may move backward · the writer reports nothing · the writer reports the write's instant instead of the observation's · the composition root does not bind the sink.
+
+lint clean; typecheck clean, 219 source files; gate tooling 519; `tools/docs_tests` 292; core suites **2,207 passed**.
+
+**THE HONEST LIMIT, RECORDED AT THE MECHANISM AND NOT ONLY AT THE EXAMPLE.** This refuses to **re-serve**. It cannot reach a product a consumer already holds, and no SDK can. `CP-SPEC-011` §0.4 and `EWS-G22` stand unchanged.
+
+**SEQUENCING.** `CP-SPEC-011` remains on HOLD at Gate 1 until this SDK change is green on `main` and rung 11 is re-ruled.
+
 **SEQUENCING.** The design comes back to Dave before any code. `CP-SPEC-011` is on HOLD at Gate 1 and does not ship on the substitute; rung 11 resumes when this entry does.
 
 **Next free decision id: `D-IMPL-335`.** **Governs:** whether supersession can reach a served Context Product, and by what mechanism. **Related:** `D-IMPL-36` (the invalidation story `IntermediateCache` defers to — this entry is where it comes due), `D-IMPL-289` (compensating code is deleted, not relocated — why cp-11 may not build this locally), `D-IMPL-333` / `D-IMPL-331` / `D-IMPL-332` (the temporal rulings that made supersession expressible in freshness but not in delivery), `INV-CH7-14` (logical supersession at the as-of read), whitepaper §7.6 (the commitment this entry measures the SDK against), `CP-SPEC-011` §0.4 and `CP11-F-01`, `D-GATE-cp-10`.

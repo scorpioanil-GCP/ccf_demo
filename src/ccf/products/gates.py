@@ -160,6 +160,7 @@ from typing import Final, Literal, Never
 
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
+from ccf.controlplane.invalidation import resolve_register
 from ccf.controlplane.registry import ControlPlaneProtocol
 from ccf.graph.protocols import SourceAttestation
 from ccf.halflife.assessment import DebtAssessment
@@ -215,6 +216,12 @@ GATE_LINEAGE_EQUALITY = "lineage-strict-equality"
 GATE_LINEAGE_ATTRIBUTABILITY = "lineage-attributability"
 GATE_TTL_BOUNDS = "ttl-bounds"
 GATE_SOURCE_ATTESTATION = "source-attestation"
+#: ``D-IMPL-334``. Named for the question it asks — may this be served —
+#: rather than for the write that moved the boundary. NOT a cascade and
+#: NOT an event: a graph supersession records an invalidation boundary, and
+#: a product whose snapshot predates it on an entity it touched is no longer
+#: eligible. Nothing is notified and nothing is evicted.
+GATE_DEPENDENCY_INVALIDATION = "dependency-invalidation"
 # The ONE structural mechanism D-IMPL-237 licenses beyond the five tokens
 # above, which D-IMPL-238 records by name as the membership it joins
 # (24.5-L-14, 24.5-L-26). Not a payload gate (limb 3), not a second mechanism.
@@ -323,6 +330,28 @@ class TTLRefusal(GateRefusal):
     expires_at: datetime
     now: datetime
     max_ttl_seconds: int
+
+
+class DependencyInvalidationRefusal(GateRefusal):
+    """``D-IMPL-334``: an entity this product touched moved after its snapshot.
+
+    The product is not wrong about the past — it is **no longer eligible to be
+    served as an answer about now**, which is a different claim and the reason
+    this is a refusal rather than a debt signal. It names the entity, the
+    boundary and the snapshot separately, because a refusal that said only
+    "stale" would not let a reader tell which evidence moved.
+
+    Args:
+        entity_uri: The touched entity whose effective context changed.
+        invalidated_from: The boundary — the superseding observation's instant.
+        graph_snapshot_at: The snapshot this product was built at.
+        cause: The claim identity that superseded.
+    """
+
+    entity_uri: str
+    invalidated_from: datetime
+    graph_snapshot_at: datetime
+    cause: str
 
 
 class AttestationRefusal(GateRefusal):
@@ -900,6 +929,7 @@ def run_gates(
     registry: ControlPlaneProtocol,
     product_class: RegisteredProductClass,
     source_attestation: SourceAttestation | None = None,
+    touched_entities: tuple[str, ...] | None = None,
 ) -> ServableProduct | GateRefusal:
     """Run the canonical gate sequence over ``candidate``.
 
@@ -926,6 +956,15 @@ def run_gates(
             :data:`GATE_SOURCE_ATTESTATION` gate returns an
             :class:`AttestationRefusal` naming the failing dimension, and
             no :class:`ServableProduct` exists (D-09).
+        touched_entities: The entity URIs this execution actually read —
+            ``execution.touched_entities()``, the same value replay dimension 1
+            records (``D-IMPL-334``). Keyword-only with a ``None`` default on
+            the attestation gate's own precedent, so every prior call site is
+            byte-for-byte unchanged in behavior: ``None`` means *the caller did
+            not say*, and the dependency-invalidation gate passes. An empty
+            tuple means *the caller said nothing was touched* — a different
+            statement, which also passes. Supplied, the gate refuses a product
+            any of whose entities moved after the snapshot it was built at.
 
     Returns:
         A :class:`ServableProduct` when every gate passes, otherwise the
@@ -986,6 +1025,17 @@ def run_gates(
     )
     if attestation is not None:
         return attestation
+
+    # `D-IMPL-334`. AFTER the TTL gate deliberately: expiry is a property
+    # of the product alone and answerable without touching the Control
+    # Plane's register, so the cheaper and more universal refusal stays
+    # first. A product that is both expired and invalidated refuses as
+    # expired, which is the older and better-understood answer.
+    invalidated = _refuse_dependency_invalidation(
+        candidate, touched_entities=touched_entities, registry=registry
+    )
+    if invalidated is not None:
+        return invalidated
 
     obligation = _refuse_declared_obligations(
         candidate, product_class=product_class
@@ -1165,6 +1215,56 @@ def _refuse_empty_operators(
             "product computed by nothing is not servable (INV-CH7-46)"
         ),
     )
+
+
+def _refuse_dependency_invalidation(
+    candidate: ContextProductContract,
+    *,
+    touched_entities: tuple[str, ...] | None,
+    registry: ControlPlaneProtocol,
+) -> DependencyInvalidationRefusal | None:
+    """``D-IMPL-334`` — serve-time dependency invalidation.
+
+    Refuses when any entity the product touched carries an invalidation
+    boundary **later than the snapshot the product was built at**. Nothing is
+    evicted and nothing is notified: the register is read, the product in hand
+    is evaluated against it, and the answer is may-serve or may-not.
+
+    ``touched_entities is None`` **passes**, and that is the compatibility
+    posture :func:`refuse_attestation` established — a caller that does not
+    supply the list gets the behavior it had before this gate existed, so every
+    pre-``D-IMPL-334`` call site is unchanged. A caller that supplies an empty
+    tuple has said the product touched nothing, which also passes, and means
+    something different.
+
+    The comparison is **strictly later**. A boundary at exactly the snapshot
+    instant does not refuse: the product read the state as of that instant, and
+    a change *at* it is already inside what the product saw.
+    """
+    if touched_entities is None:
+        return None
+    register = resolve_register(registry, tenant_id=candidate.tenant_id)
+    if register is None:
+        return None
+    snapshot = candidate.lineage.graph_snapshot_at
+    for entity_uri in touched_entities:
+        entry = register.entry_for(entity_uri)
+        if entry is None or entry.invalidated_from <= snapshot:
+            continue
+        return DependencyInvalidationRefusal(
+            gate=GATE_DEPENDENCY_INVALIDATION,
+            detail=(
+                f"entity {entity_uri!r} was superseded at "
+                f"{entry.invalidated_from.isoformat()}, after this product's "
+                f"graph snapshot {snapshot.isoformat()}; the product is no "
+                f"longer eligible to serve (D-IMPL-334)"
+            ),
+            entity_uri=entity_uri,
+            invalidated_from=entry.invalidated_from,
+            graph_snapshot_at=snapshot,
+            cause=entry.source,
+        )
+    return None
 
 
 def _refuse_ttl(
