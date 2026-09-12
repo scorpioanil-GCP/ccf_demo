@@ -409,7 +409,14 @@ def _confirmation(
     changes and exactly ONE that is both a downgrade and off-cycle.
     """
     if in_force is None:
-        return None
+        # NOT RATED AT THE PEAK. A distinct state from "rated and never moved",
+        # and the two are reported separately rather than both as an absence
+        # (found at Gate 2 — `CP10-F-08`).
+        return {
+            "outcome": "not-evaluable",
+            "confirms": False,
+            "why": "the obligor carried no grade in force on the peak date",
+        }
     was = str(in_force.get("grade"))
     was_notch = in_force.get("notch")
     for grade in grades:
@@ -420,18 +427,40 @@ def _confirmation(
         downgrade = (
             None if notch is None or was_notch is None else int(notch) > int(was_notch)
         )
+        off_cycle = str(grade.get("trigger")) not in ON_CYCLE
         return {
+            "outcome": "changed",
             "from_grade": was,
             "to_grade": grade.get("grade"),
             "effective": str(when),
             "lag_days": (when - peak_date).days,
+            # THREE TESTS, EACH REPORTED ON ITS OWN (`RSM-G11`). A reader can
+            # see which one failed; `confirms` alone would not say.
             "is_later": True,
             "is_downgrade": downgrade,
-            "is_off_cycle": str(grade.get("trigger")) not in ON_CYCLE,
+            "is_off_cycle": off_cycle,
             "trigger": grade.get("trigger"),
-            "confirms": bool(downgrade) and str(grade.get("trigger")) not in ON_CYCLE,
+            "confirms": bool(downgrade) and off_cycle,
         }
-    return None
+    # THE STANDING DISAGREEMENT. The obligor was rated throughout and the
+    # grade NEVER MOVED after the peak — which is `CP-SPEC-010` §D.4
+    # scenario 2, a finding in its own right rather than missing data. An
+    # earlier revision returned `None` here, identical to "not rated", and the
+    # product could not express the scenario it declares (`CP10-F-08`).
+    return {
+        "outcome": "unchanged",
+        "confirms": False,
+        "grade_in_force_throughout": was,
+        "reviews_after_peak": sum(
+            1 for g in grades
+            if date.fromisoformat(str(g.get("valid_from"))) > peak_date
+        ),
+        "why": (
+            "the obligor was rated at the peak and the grade did not change"
+            " afterward — two assessments that never reconciled, not an"
+            " absence of evidence"
+        ),
+    }
 
 
 def plan_class() -> type[RatingSpreadMigrationProjection]:
