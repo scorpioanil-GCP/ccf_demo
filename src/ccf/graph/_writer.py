@@ -97,6 +97,7 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -129,6 +130,42 @@ __all__ = [
     "mint_boot_token",
     "release_boot_token",
 ]
+
+
+def _boundary_instant(claim: "EntityClaim") -> datetime:
+    """The instant a supersession's invalidation boundary is recorded at.
+
+    ``D-IMPL-335``, correcting ``D-IMPL-334``. **``valid_from`` when the claim
+    carries one; ``observed_at`` otherwise.**
+
+    The two are different clocks and the distinction is the one
+    ``D-IMPL-331``/``D-IMPL-332`` drew. ``valid_from`` is when the claim became
+    true **in the world**; ``observed_at`` is when **the fabric learned it** —
+    and through L2 assembly ``observed_at`` is always the ingestion instant, by
+    construction (``worker._stitch``).
+
+    **What using ``observed_at`` got wrong, stated exactly** (Dave,
+    2026-09-12): it was not merely conservative. A product whose
+    ``graph_snapshot_at`` falls **after the world change but before the
+    fabric ingested it** was refused — on the basis of when the fabric happened
+    to learn something rather than on when anything changed. Two clocks were
+    being compared as though they were one: ``graph_snapshot_at`` is world
+    time, and the boundary was fabric-learning time.
+
+    Found by ``CP-SPEC-011`` at Gate 2, and only through L2: a claim built
+    directly carries whatever ``observed_at`` its author gave it, so the direct
+    path never separated the two. ``tests/products/test_dependency_invalidation
+    .py`` keeps both cases — the L2 regression pins ``valid_from``, and the
+    direct-claim test keeps the ``observed_at`` fallback honest.
+
+    The fallback is not a default nobody chose. A claim with no ``valid_from``
+    is one whose source supplied no world-time, and ``D-IMPL-332`` requires
+    that absence be preserved rather than invented. ``observed_at`` is then the
+    only instant the fabric has, and using it says *"this is when we learned
+    it, because nobody told us when it became true."*
+    """
+    valid_from = claim.valid_from
+    return valid_from if valid_from is not None else claim.observed_at
 
 
 class SingleWriterViolation(RuntimeError):
@@ -848,16 +885,11 @@ class BaseGraphWriter:
         # no longer eligible to be served. Reported AFTER the transaction
         # commits: a boundary announced for a write that then rolled back would
         # refuse products on evidence that never landed.
-        #
-        # The boundary is THE SUPERSEDING OBSERVATION'S OWN INSTANT, never the
-        # instant of this write. A boundary taken from ingestion would refuse
-        # products that were correct as of the evidence they actually read —
-        # `D-IMPL-332`'s reasoning arriving at delivery.
         if superseded is not None and self._invalidation_sink is not None:
             self._invalidation_sink.record(
                 tenant_id=tenant_id,
                 entity_uri=claim.entity_uri,
-                invalidated_from=claim.observed_at,
+                invalidated_from=_boundary_instant(claim),
                 reason="entity-claim-superseded",
                 source=claim_id,
             )
