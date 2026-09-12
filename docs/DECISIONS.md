@@ -2864,3 +2864,23 @@ Enforced in-process at `TemporalAsOf._survives` and `ccf.graph.fallback::_valid_
 **PRE-EXISTING REDS, measured at the pre-332 commit and unchanged by it:** 44 in `tests/invariants` and 2 in `tests/products/test_gate_two_call_shape.py` (cp-08's unrostered `D-IMPL-141` exemption claim, red on `origin/main`).
 
 **Next free decision id: `D-IMPL-333`.** **Governs:** what an absent valid-time means at assembly and at every validity-window read. **Related:** `D-IMPL-331` (the decay basis this completes from below), `GQ-09` / `GQ-07` (`docs/GRAPH_QUERY_SEMANTICS.md` 1.4.0), `D-IMPL-243` (hash transparency), `INV-CH7-03` / `INV-CH7-14` (the stitching invariants `_stitch` names), `CP09-F-06`.
+
+**D-IMPL-332 — AMENDMENT 1 (2026-09-12, Dave, closing the entry): the architectural statement, which is deeper than the code change.**
+
+> **Unknown temporal validity is not equivalent to invalid temporal validity.**
+
+The fabric now preserves **three** states where it previously collapsed two into one:
+
+| state | meaning | what a validity-window read does |
+|---|---|---|
+| known valid-time, inside the window | the source said when it became true, and it had | admits |
+| known valid-time, outside the window | the source said when it became true, and it had not | **excludes** |
+| **valid-time unknown** | the source never said | **admits, and says nothing about whether it was true** |
+
+Before `D-IMPL-332` the third state did not exist: `_stitch` converted it into the first by writing the ingestion instant, which made *"we learned it at 2 PM"* indistinguishable from *"it became true at 2 PM"*. The tempting repair — excluding an unstamped claim — would have converted it into the second instead, which is the same error pointing the other way. **Both collapse an absent answer into a claim about the world.**
+
+Dave's framing of the pair, and the reason the two rulings are one piece of work: *"`D-IMPL-331` made the temporal basis explicit; `D-IMPL-332` ensured the assembly layer no longer destroys the uncertainty required to enforce it."* A declared `decay_basis: valid-from` can only mean something if the layer beneath it is capable of not knowing.
+
+**This is what a governed context substrate is for.** A store that cannot represent *"I do not know when this became true"* cannot be asked *"what was true then?"* without inventing an answer — and the invention is invisible, because the manufactured instant is a well-formed timestamp that every downstream comparison accepts. `D-IMPL-332` is closed with this statement rather than with the diff, because the next reader needs the principle more than the patch.
+
+**Related:** `D-IMPL-331`, `GQ-09` (`docs/GRAPH_QUERY_SEMANTICS.md` 1.4.0), whitepaper §7.3 (the T axis's two clocks).
