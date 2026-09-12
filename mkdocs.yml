@@ -182,7 +182,7 @@ nav:
       # Individual CP-SPECs do NOT live here (Dave, 2026-08-29). A specification
       # lives in its own example's `spec/` directory, beside the artifacts and
       # code it governs. `CP-SPEC-001` sat here only to bootstrap the authoring
-      # process and was deleted at `2709a39` once it had served that purpose —
+      # process and was deleted at `59831ea5` once it had served that purpose —
       # by then it had drifted to 640 lines against a 1,355-line canonical
       # source, silently dropping every section that recorded an open question.
       - Specifications:

@@ -14,13 +14,29 @@ the vault Claude at Dave's direction.
 document's own §1 — most of what follows states **what the vault and
 `ccf_dataprep` owe `ccf_code`**, and an agent that owns the document stating its
 own entitlements is writing another agent's term, which is the failure §0
-records. So: **`ccf_code` proposes changes here through the return path rather
-than editing freely** — with one exception. **§7 describes `ccf_code`'s own
-tree** (where the spec file lives, and the layout around it), so a change there
-that merely records what the tree now is may be made directly and reported back,
-rather than waiting on a ruling. That is what happened to §7.2 on 2026-08-29:
-the diagram predated `page/` and `summary_explanations.md`, and a session
-following it would have built an example missing both.
+records. So: **`ccf_code` proposes changes here through the return path rather than
+editing freely** — with one narrow exception, and a test for it.
+
+**§7 describes `ccf_code`'s own tree**, so `ccf_code` may edit §7 directly and
+report back when the edit **records what the tree already is**: a path, a
+filename, a directory that exists, a layout the examples already follow. That
+is what happened to §7.2 on 2026-08-29 — the diagram predated `page/` and
+`summary_explanations.md`, and a session following it would have built an
+example missing both.
+
+**The test: could this edit be wrong tomorrow without any file moving?** If it
+could, it is a rule and not an observation, and it goes through the §11 return
+path — even when it sits inside §7, even when the tree already disagrees with
+it, and even when every example already does what the edit says. A requirement
+that something be published, a gate ordering, an approval, any *shall* or
+*must* or *never*: rules. Observing that no CP-SPEC is published is an
+observation. **Deleting the requirement to publish one is a rule change.**
+
+Recorded rather than implied: §7.1's publication requirement was deleted
+directly at `a9c4e28b` on 2026-09-12 and reported through `contrib/ccf-sdk/`.
+**The vault ruled the outcome correct and the route wrong.** The edit stands and
+is not precedent for the next one. The report was complete and honest, which is
+why this is a wording change here rather than a reversal there.
 
 **The companion document is `ccf_code`'s.**
 [How an example is delivered](example_delivery.md) covers everything after the
@@ -693,7 +709,7 @@ author dated 2026-08-29:
 > *"Individual CP-SPECs do NOT live here. A specification lives in its own
 > example's `spec/` directory, beside the artifacts and code it governs.
 > `CP-SPEC-001` sat here only to bootstrap the authoring process and was deleted
-> at `2709a39` once it had served that purpose — by then it had drifted to 640
+> at `59831ea5` once it had served that purpose — by then it had drifted to 640
 > lines against a 1,355-line canonical source, silently dropping every section
 > that recorded an open question."*
 
