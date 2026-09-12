@@ -2997,3 +2997,42 @@ supersede-only           F per observation: [1, 1, 1, 1, 1, 1, 1, 1, 1]         
 **CHECKS AT APPROVAL.** `tests/examples` **791 passed, 0 failed**. `tests/examples/test_cp_10_output.py` 24 passed; `test_cp_09_output.py` 22 passed; `test_page_identity.py` 25 passed. `tools/product_gates_tests` + `tools/lints/tests` 519 passed. `make product-gates`: **12 shipped product trees, 158 declared gates, 158 executing.** Lint clean; typecheck clean, 218 source files. Both gate legs run **directly**, never through `make gate-tools`, per CLAUDE.md §3.1.
 
 **Next free decision id: `D-IMPL-334`** — unchanged; a gate entry spends none. **Governs:** the approval of rung 10 and what it ships with; the two cp-09 post-gate corrections and the discipline that a page must name the example it ships with. **Related:** `D-IMPL-333` (leading-edge freshness, which this rung earned), `D-IMPL-331` / `D-IMPL-332` (the other two thirds of the temporal question), `D-IMPL-261` (examples are probes, and the freeze this fix does not violate), `D-IMPL-282` (the declared product gate seam `RSM-G24` rests on), `D-IMPL-86` (the bind-time divergence guard two gates rest on), `D-IMPL-289` (compensating code is deleted, not relocated — why cp-10 raised `CP10-F-07` instead of supplying a local scorer), `D-IMPL-266` (a panel skip is a proportionality ruling), `CP-SPEC-010`, `D-GATE-cp-09`.
+
+---
+
+**D-IMPL-334 — SDK ARCHITECTURE GAP: supersession reaches graph reads and cannot reach dependent Context Products. A superseding claim changes what the graph answers; it cannot mark an already-served product ineligible, and no consumer is told.** OPEN — recorded as a gap, not resolved. Date: 2026-09-12. Raised by: `CP-SPEC-011` Gate 1, where the gap is load-bearing rather than incidental. Ruled OPEN by Dave, 2026-09-12: *"the vault says the invalidation cascade is why this rung exists. Steps 1–6 can work perfectly, but without step 7 we would be proving a different product."*
+
+**WHAT WAS MEASURED, AND IT IS FOUR SEPARATE ABSENCES.** Verified across `src/` and `runtime/` on 2026-09-12, each searched for by name rather than inferred from the others:
+
+| The capability | What the SDK has today |
+|---|---|
+| supersession as a **Control Plane event** | It is a graph **write-path column**. `src/ccf/graph/_writer.py::_restitch_chain` recomputes a claim chain by observed time and sets `superseded_by` / `superseded_at`; the backends filter on them at as-of read time (`AND (superseded_at IS NULL OR superseded_at > ?)`). It never reaches the Control Plane, and the Control Plane never learns of it. |
+| **propagation** to consumers | No event bus, subscriber registry, watcher or notify path exists for it. The single `notify()` in the tree is `ccf/hitl/webhook.py`, for pending human-approval events. |
+| a **product cache** to invalidate | None. The only cache is `ccf/operators/planner.py::IntermediateCache`, a per-execution memo of operator intermediates, whose own docstring rules the longer-lived case out: *"A longer-lived cache needs the invalidation story `D-IMPL-36` defers, and a cache without one is a replay defect waiting for a write."* |
+| knowing **which products touched an entity** | Nothing reads `operators_invoked` or `lineage` to answer it. Every reference in the tree is construction, set-union on composition, or gate validation. No reverse index from entity to dependent products exists in either tree. |
+
+Two adjacent facts complete the picture and are recorded because each looks like the mechanism and is not. **`decay: supersede-only` is purely a half-life mode** — its entire behavior is `ccf/halflife/decay.py::freshness` returning `Decimal(1)`; it triggers nothing, emits nothing and invalidates nothing, and `decay.py`'s module docstring says why: it *assumes* supersession was already applied at the as-of read. And **`ArtifactStoreProtocol` offers no delete by design** (`put` / `get` / `exists` / `resolve_uri`), because immutability is what makes the tampering threat structural rather than procedural.
+
+**THE SDK'S ACTUAL POSTURE, STATED PLAINLY.** Staleness is **pull-based and per-request**: a product carries `expires_at`, the TTL-bounds gate checks it at serve time, and the graph excludes superseded claims at as-of read time. **A consumer learns a product is stale by asking again, never by being told.** That is coherent and it is not nothing — but it is a different guarantee from the one the catalog's rung-11 entry describes, and `CP-SPEC-011` §0.4 refuses to present one as the other.
+
+**WHAT IS NOT THE ANSWER, ruled at the same sitting.** *"Do not build a large event bus/cache system inside cp-11"* (Dave). An example may not carry SDK mechanism, and this mechanism is not an example's to invent — `D-IMPL-289`'s shape. `CP-SPEC-011` therefore builds steps 1–6, substitutes **re-derivation on next request** for step 7, and **names it as a substitute**: `EWS-G22` asserts the served payload never claims a downstream product was invalidated, evicted or notified. Dave: *"Re-derivation on the next request is valid behavior, but it is not downstream invalidation. Keep `EWS-G22`; it correctly prevents us from claiming otherwise."*
+
+**THE FIVE CAPABILITIES A DESIGN MUST COVER**, as Dave enumerated them:
+
+1. a supersession / change event;
+2. knowing which products depended on the changed entity or context;
+3. marking those products stale or invalid;
+4. proving the next consumer cannot receive the old product;
+5. replay and audit of *why* invalidation happened.
+
+**AND THE CONSTRAINT THAT SHAPES THE DESIGN — Dave's, and it is the most important sentence in this entry:**
+
+> *"We do not necessarily need a traditional product cache. 'Invalidation' could mean marking an existing content-addressed artifact no longer eligible to serve. I want Claude to examine that smaller design before introducing a general cache/event framework."*
+
+This inverts the obvious reading. The obvious reading says invalidation requires something to invalidate, therefore a cache, therefore eviction, therefore an event system to trigger it. The smaller reading asks instead what the fabric must **refuse**, and a refusal needs no cache — the SDK already refuses at serve time on TTL, on debt, and on a declared product gate. **Eligibility is a predicate, not a storage problem.**
+
+**THE DESIGN IS AT `docs/D-IMPL-334-INVALIDATION-DESIGN.md`**, authored 2026-09-12 and awaiting Dave's ruling. Its finding, in one line: **the expensive-sounding capability is already in the data.** `ContextFabricSnapshot` records `touched_entities` beside `product_content_address` and the snapshot on every serve, so the reverse index nobody has is a query over artifacts the SDK already writes — and the correctness path does not need even that, because the serve-time predicate asks about the product in hand. Five surface changes, no cache, no eviction, no delete, no bus, no background process. Five questions are left for Dave rather than decided, each with a recommendation.
+
+**SEQUENCING.** The design comes back to Dave before any code. `CP-SPEC-011` is on HOLD at Gate 1 and does not ship on the substitute; rung 11 resumes when this entry does.
+
+**Next free decision id: `D-IMPL-335`.** **Governs:** whether supersession can reach a served Context Product, and by what mechanism. **Related:** `D-IMPL-36` (the invalidation story `IntermediateCache` defers to — this entry is where it comes due), `D-IMPL-289` (compensating code is deleted, not relocated — why cp-11 may not build this locally), `D-IMPL-333` / `D-IMPL-331` / `D-IMPL-332` (the temporal rulings that made supersession expressible in freshness but not in delivery), `INV-CH7-14` (logical supersession at the as-of read), whitepaper §7.6 (the commitment this entry measures the SDK against), `CP-SPEC-011` §0.4 and `CP11-F-01`, `D-GATE-cp-10`.
