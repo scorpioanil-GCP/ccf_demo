@@ -1,0 +1,364 @@
+<title>Rating &amp; Spread Migration · cp-10</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400;6..96,500&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --paper:#EFF2F3; --surface:#FFFFFF; --sunk:#E4E9EB;
+  --ink:#16202A; --ink-2:#3A4A55; --muted:#64757F; --rule:#CBD5D9;
+  --verd:#1F7A68; --verd-soft:#DCEBE7;
+  --amber:#A65E17; --amber-soft:#F6E9DA;
+  --crit:#9B2C2C; --crit-soft:#F3E0E0;
+  --tok-c:#6C7C86; --tok-k:#1F7A68; --tok-s:#8A5A2B; --tok-n:#2B4C63;
+  --shadow:0 1px 2px rgba(22,32,42,.06),0 8px 24px -12px rgba(22,32,42,.18);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#12171A; --surface:#181F23; --sunk:#0D1214;
+    --ink:#E4EAED; --ink-2:#B4C1C8; --muted:#8497A0; --rule:#2C373D;
+    --verd:#46B39D; --verd-soft:#16302B;
+    --amber:#D9903F; --amber-soft:#2F2417;
+    --crit:#E07A7A; --crit-soft:#2E1B1B;
+    --tok-c:#7B8C96; --tok-k:#46B39D; --tok-s:#C99A63; --tok-n:#7FB0CE;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -12px rgba(0,0,0,.6);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#12171A; --surface:#181F23; --sunk:#0D1214;
+  --ink:#E4EAED; --ink-2:#B4C1C8; --muted:#8497A0; --rule:#2C373D;
+  --verd:#46B39D; --verd-soft:#16302B;
+  --amber:#D9903F; --amber-soft:#2F2417;
+  --crit:#E07A7A; --crit-soft:#2E1B1B;
+  --tok-c:#7B8C96; --tok-k:#46B39D; --tok-s:#C99A63; --tok-n:#7FB0CE;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -12px rgba(0,0,0,.6);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:"IBM Plex Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:16px; line-height:1.65; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1180px;margin:0 auto;padding:0 clamp(20px,5vw,56px)}
+.col{max-width:74ch}
+
+/* ---------- masthead ---------- */
+.mast{border-bottom:1px solid var(--rule);padding:clamp(48px,8vw,88px) 0 40px}
+.eyebrow{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12px;font-weight:600;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--verd);margin:0 0 18px
+}
+h1{
+  font-family:"Bodoni Moda",Georgia,"Times New Roman",serif;font-weight:400;
+  font-size:clamp(38px,6.2vw,68px);line-height:1.04;letter-spacing:-.015em;
+  margin:0 0 22px;text-wrap:balance
+}
+.standfirst{font-size:clamp(17px,2vw,20px);line-height:1.6;color:var(--ink-2);margin:0;max-width:66ch}
+
+/* the shape strip — what the product IS, in its own terms */
+.shape{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:1px;
+  background:var(--rule);border:1px solid var(--rule);margin-top:40px
+}
+.shape div{background:var(--surface);padding:14px 16px}
+.shape dt{
+  font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:600;
+  letter-spacing:.11em;text-transform:uppercase;color:var(--muted);margin:0 0 5px
+}
+.shape dd{margin:0;font-size:14px;font-weight:600;line-height:1.35}
+.shape dd .sub{display:block;font-weight:400;font-size:12.5px;color:var(--muted);margin-top:3px}
+
+/* ---------- sections ---------- */
+section{padding:clamp(44px,6vw,68px) 0;border-bottom:1px solid var(--rule)}
+section:last-of-type{border-bottom:0}
+h2{
+  font-family:"Bodoni Moda",Georgia,serif;font-weight:400;
+  font-size:clamp(26px,3.6vw,38px);line-height:1.14;letter-spacing:-.01em;
+  margin:0 0 8px;text-wrap:balance
+}
+h3{font-size:17px;font-weight:700;margin:34px 0 10px;letter-spacing:-.005em}
+.kicker{
+  font-family:"IBM Plex Mono",monospace;font-size:11.5px;font-weight:600;
+  letter-spacing:.13em;text-transform:uppercase;color:var(--muted);margin:0 0 14px
+}
+p{margin:0 0 16px}
+strong{font-weight:600}
+em{font-style:italic}
+code{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.875em;
+  background:var(--sunk);padding:.1em .34em;border-radius:3px;
+}
+a{color:var(--verd);text-decoration:none;border-bottom:1px solid color-mix(in srgb,var(--verd) 40%,transparent)}
+a:hover{border-bottom-color:var(--verd)}
+a:focus-visible{outline:2px solid var(--verd);outline-offset:3px;border-radius:2px}
+
+/* ---------- the two-authority device ---------- */
+.auth{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;margin:26px 0 8px}
+.auth article{background:var(--surface);border:1px solid var(--rule);border-top:3px solid var(--verd);padding:20px 22px}
+.auth article.internal{border-top-color:var(--amber)}
+.auth h4{margin:0 0 4px;font-size:15px;font-weight:700}
+.auth .who{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--verd);margin:0 0 12px}
+.auth article.internal .who{color:var(--amber)}
+.auth dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:5px 14px;font-size:13.5px}
+.auth dt{color:var(--muted)}
+.auth dd{margin:0;font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
+
+/* ---------- tables ---------- */
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:14px;margin:22px 0}
+th,td{text-align:left;padding:9px 14px 9px 0;border-bottom:1px solid var(--rule);vertical-align:top}
+th{
+  font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:600;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--muted);
+  border-bottom-color:var(--ink-2)
+}
+td code{background:none;padding:0}
+.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+
+/* pills carry state, not decoration */
+.pill{
+  display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:10.5px;
+  font-weight:600;letter-spacing:.06em;padding:2px 8px;border-radius:99px;white-space:nowrap
+}
+.pill.yes{background:var(--verd-soft);color:var(--verd)}
+.pill.no{background:var(--crit-soft);color:var(--crit)}
+.pill.warn{background:var(--amber-soft);color:var(--amber)}
+
+/* ---------- build order ---------- */
+ol.build{list-style:none;counter-reset:step;margin:26px 0 0;padding:0}
+ol.build > li{
+  counter-increment:step;position:relative;padding:0 0 26px 54px;
+  border-left:1px solid var(--rule);margin-left:15px
+}
+ol.build > li:last-child{border-left-color:transparent;padding-bottom:0}
+ol.build > li::before{
+  content:counter(step,decimal-leading-zero);position:absolute;left:-15px;top:0;
+  width:30px;height:30px;border-radius:50%;background:var(--surface);
+  border:1px solid var(--rule);color:var(--muted);
+  font-family:"IBM Plex Mono",monospace;font-size:11px;font-weight:600;
+  display:flex;align-items:center;justify-content:center
+}
+ol.build h3{margin:2px 0 6px;font-size:16px}
+ol.build p{font-size:14.5px;color:var(--ink-2);margin:0 0 12px}
+
+/* ---------- collapsibles: guidance first, source on demand ---------- */
+details{
+  background:var(--surface);border:1px solid var(--rule);border-radius:4px;
+  margin:12px 0;box-shadow:var(--shadow)
+}
+summary{
+  cursor:pointer;padding:12px 16px;font-family:"IBM Plex Mono",monospace;
+  font-size:12.5px;font-weight:600;color:var(--ink-2);list-style:none;
+  display:flex;align-items:center;gap:10px
+}
+summary::-webkit-details-marker{display:none}
+summary::before{
+  content:"";width:0;height:0;flex:none;
+  border-left:5px solid var(--muted);border-top:4px solid transparent;border-bottom:4px solid transparent;
+  transition:transform .16s ease
+}
+details[open] > summary::before{transform:rotate(90deg)}
+summary:hover{color:var(--verd)}
+summary:focus-visible{outline:2px solid var(--verd);outline-offset:-2px;border-radius:3px}
+details .note{margin:0;padding:0 16px 12px;font-size:13px;color:var(--muted)}
+details pre{margin:0;padding:16px;background:var(--sunk);font-size:12.5px;line-height:1.55}
+details .scroll{border-top:1px solid var(--rule)}
+pre{overflow-x:auto;margin:0}
+pre code{background:none;padding:0;font-size:12.5px}
+
+/* ---------- callouts ---------- */
+.call{border-left:3px solid var(--verd);background:var(--surface);padding:18px 22px;margin:24px 0}
+.call.warn{border-left-color:var(--amber)}
+.call.crit{border-left-color:var(--crit)}
+.call p:last-child{margin-bottom:0}
+.call .lbl{
+  font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:600;
+  letter-spacing:.11em;text-transform:uppercase;color:var(--verd);display:block;margin-bottom:7px
+}
+.call.warn .lbl{color:var(--amber)}
+.call.crit .lbl{color:var(--crit)}
+
+ul.plain{margin:0 0 16px;padding-left:20px}
+ul.plain li{margin-bottom:7px}
+
+footer{padding:44px 0 72px;color:var(--muted);font-size:13.5px}
+footer p{margin:0 0 8px}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap">
+
+<header class="mast">
+  <p class="eyebrow">Context Product · cp-10</p>
+  <h1>Rating &amp; Spread Migration</h1>
+  <p class="standfirst">Three numbers that all mean &ldquo;credit quality&rdquo;, moving at three different speeds — and the answer lives in the gap between them. The market prices a bond daily; the credit file reviews the obligor quarterly. This product keeps them apart and reports where they disagree.</p>
+
+  <dl class="shape">
+    <div><dt>Registry name</dt><dd>credit-risk.rating-migration.v1</dd></div>
+    <div><dt>Tier</dt><dd>3<span class="sub">relational + bitemporal ledger</span></dd></div>
+    <div><dt>Assembly mode</dt><dd>1 — pure algorithmic<span class="sub">no model in the path</span></dd></div>
+    <div><dt>Stores</dt><dd>PostgreSQL + Fluree<span class="sub"><code>ccf_v2</code> · <code>fibo-v2</code></span></dd></div>
+    <div><dt>Entity classes</dt><dd>4<span class="sub">a ninety-fold half-life spread</span></dd></div>
+    <div><dt>Declared operators</dt><dd>Policy → Traversal<span class="sub">+ projection</span></dd></div>
+  </dl>
+</header>
+
+<section>
+  <div class="col">
+    <p class="kicker">Rung 10 · Tier 3</p>
+    <h2>The signal is the disagreement, and every average destroys it</h2>
+    <p>A corporate bond's spread is three things added together: the Treasury benchmark, the option-adjusted spread of the rating band the bond was <em>issued</em> into, and whatever is left — the issuer-specific residual. When the whole high-yield market widens, the first two move and the third does not. A product that serves only the total reports that as a deterioration. <strong>Measured on this estate, over one seven-week window, 22 of the 30 rated obligors would have been flagged that way.</strong></p>
+    <p>Meanwhile the internal grade is reviewed quarterly, so it sits on a clock <strong>ninety times slower</strong> than the spread. A single product-level freshness figure over both would be actively misleading, which is why each series carries its own — and why the spread and the grade are separate entity classes, since the reference debt scorer types an observation by its class.</p>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">The unit</p>
+    <h2>A bond is what trades; an obligor is what gets graded</h2>
+    <p>This was found at Gate 2, against the approved specification's own headline figure, and <strong>Gate 1 was reopened for it</strong>. The first implementation averaged an obligor's instruments before detecting anything. Celanese has two bonds whose median residuals are <code>29.015</code> and <code>29.538</code> bp — normally indistinguishable. On 2024-12-11 the five-year reaches <strong>8.039×</strong> its own median and the twenty-five-year reaches <strong>1.27×</strong>. Averaging first halves the peak and erases the term structure entirely.</p>
+    <p>So the instrument is the primary observation unit. The obligor-level figure survives as a <em>derived summary</em> that never travels without its dispersion — because a mean over instruments that may be pricing different things reads, on the page, exactly like an observation. Measured: <strong>5,267 (obligor, date) pairs in this estate carry one bond at more than twice the other.</strong></p>
+    <p>The grade comparison stays at obligor level, and the asymmetry is deliberate: the product compares bond-market signals against obligor-level credit assessment and does not invent a per-bond grade to make the units match.</p>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">What the run prints</p>
+    <h2>Three scenarios, and the third is the one that matters most</h2>
+    <p>A committed transcript of three pinned runs, not a live re-execution: a printed run that can drift is a documentation defect that presents as a fabric defect.</p>
+  </div>
+
+  <details><summary>All three runs, as the commands print them</summary>
+    <div class="scroll"><pre><code>{{run}}</code></pre></div>
+  </details>
+
+  <div class="col">
+    <p><strong>Run 1 — the confirmation.</strong> The five-year peaks at <code>233.245</code> bp on 2024-12-11, <strong>8.039×</strong> its own median, with the grade <code>BB</code> in force. The credit file moves <strong>96 days later</strong>: <code>BB → BB-</code>, off-cycle, and the trigger says so in its own words — <em>&ldquo;ad hoc credit review following sustained spread widening in the obligor's traded debt.&rdquo;</em> The assertion was booked four days after it took effect, and the product reports that lag as a figure.</p>
+    <p><strong>Run 2 — a standing disagreement.</strong> Sabre's bond peaks at <code>282.633</code> bp, <strong>7.004×</strong> its own median. The grade is <code>B</code> at the peak and <code>B</code> at the window's end, through two later reviews. The product does not say &ldquo;no confirmation&rdquo;; it says <code>outcome: unchanged</code>, names the grade that stood throughout and counts the reviews that left it alone. An earlier revision returned the same empty answer here as for an obligor carrying no grade at all — so <em>somebody looked twice and disagreed with the market</em> was indistinguishable from <em>nobody has looked</em>.</p>
+    <p><strong>Run 3 — the market move that is not a deterioration.</strong> Over <code>2025-02-18 → 2025-04-07</code> every band widened together: <code>B</code> +165.0 bp, <code>BB</code> +150.5, <code>BBB</code> +51.2, <code>A</code> +36.0, <code>AA</code> +28.9. This obligor's headline moved <strong>+166.6 bp</strong> and its residual moved <strong>+1.5 bp</strong>. All three signals agree nothing happened, and the product reports no episode.</p>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">The freshness defect</p>
+    <h2>History is evidence, not staleness</h2>
+    <p>This product keeps years of daily quotes on purpose — that history is how a migration is detected at all. The SDK's reference scorer took the <em>mean</em> freshness over every observation in the view, so the archive's length became the freshness figure.</p>
+  </div>
+  <div class="scroll"><pre><code>observations in the view   rsm_spread 996 · rsm_grade 9 · rsm_instrument 2 · rsm_obligor 1
+observations entering F    rsm_spread   2 · rsm_grade 1 · rsm_instrument 2 · rsm_obligor 1
+
+F over the leading edge   0.664139      F over every observation   0.004750
+D_c 0.3651, signal ok                   D_c 0.9955, fail_closed</code></pre></div>
+  <div class="col">
+    <div class="call crit">
+      <span class="lbl">This was an SDK gap, not an example problem</span>
+      <p>The example stopped rather than supplying a local scorer. <code>D-IMPL-333</code> lets a λ<sub>c</sub> row declare <code>freshness_over: leading-edge</code> plus a <code>series_key_attribute</code>, and <code>F</code> now ranges over the newest quote <strong>per bond</strong> at or before <code>as_of</code>, plus the grade in force. Everything older stands behind it as the record of how the answer got there.</p>
+      <p><strong>And <code>supersede-only</code> was tested first, because it looked like the existing answer.</strong> It is not: over nine observations one day apart it gives <code>F</code> per observation <code>[1, 1, 1, 1, 1, 1, 1, 1, 1]</code>, mean <code>1.000000</code>. It means <em>this class does not decay</em> — every historical point still enters <code>F</code>, now each reading as perfectly fresh. Curve-mean understates freshness by counting history as stale; <code>supersede-only</code> overstates it by declaring history evergreen. Neither says <em>&ldquo;the newest quote for this bond is two days old.&rdquo;</em></p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">Every file, verbatim</p>
+    <h2>The example, opened up</h2>
+    <p>Each block below is the real file, read at build time. Nothing here is a copy that can drift.</p>
+  </div>
+
+  <ol class="build">
+    <li>
+      <h3>The specification</h3>
+      {{spec}}
+    </li>
+    <li>
+      <h3>The Control Plane</h3>
+      {{config}}
+      {{backends}}
+    </li>
+    <li>
+      <h3>The declared artifacts</h3>
+      {{question}}
+      {{sources}}
+      {{gates}}
+    </li>
+    <li>
+      <h3>Reading the estate</h3>
+      {{acquisition}}
+      {{deployment}}
+    </li>
+    <li>
+      <h3>Assembling the answer</h3>
+      {{projection}}
+      {{produce}}
+      {{run_py}}
+    </li>
+    <li>
+      <h3>The evidence and the prose</h3>
+      {{tests}}
+      {{readme}}
+      {{summary}}
+    </li>
+  </ol>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">The half you write</p>
+    <h2>What is yours, and what the fabric already does</h2>
+    <p>The four Python files above are not equal. Two are yours to write for every product; two are nearly the same in every deployment and exist to be read once.</p>
+  </div>
+  <div class="scroll">
+  {{split_table}}
+  </div>
+  <div class="col">
+    {{split_ratio}}
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">The evidence</p>
+    <h2>Twenty-four gates, and the two that were green when they should not have been</h2>
+    <p>Every gate was sabotaged and watched go red. Twenty-one went red on their own assertion. Three could not be falsified from this deployment at all, because an SDK guard refuses the bad state before the deployment can produce an artifact — those are recorded as <code>unavailable</code>, never folded into <code>passed</code>, because they mean different things.</p>
+    <p><strong>Two gates passed under their own sabotage on the first attempt, and both are recorded as such.</strong> <code>RSM-G13</code> asserted a booking lag computed from the <em>source</em> record rather than from the two instants actually served — so a payload collapsing <code>validFrom</code> and <code>assertedAt</code> left the lag correct and the gate green. <code>RSM-G23</code> asserted only against an obligor still in its issue band, where the grade-derived band and the instrument band are the <em>same value</em> — so the contamination it exists to refuse was invisible. Neither was a weak sabotage; both were weak tests.</p>
+    <div class="call">
+      <span class="lbl">A gate asserted only where two answers coincide proves nothing about which one produced them</span>
+      <p><code>RSM-G23</code> now also asserts against <code>5493004HBTOTE9DI9P12</code> — measured as one of the two obligors in thirty that have <em>left</em> their issue band. Its bonds were issued into <code>BBB</code>; it is now graded <code>BB+</code>, whose band is <code>BB</code>. A band derived from the grade is visibly the wrong one there, and the gate goes red.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">What to change first</p>
+    <h2>Three edits, in the order you will want them</h2>
+    <ul class="plain">
+      <li><strong><code>divergence_multiple</code></strong> — a multiple of <em>each bond's own</em> median, never an absolute basis-point figure. 100 bp means one thing at <code>AA</code> and another at <code>B</code>, and one thing on a two-year and another on a twenty-five-year. Lower it and more bonds produce episodes; raise it and the anchor's 8× survives while the sibling's 1.3× still does not. That is the fastest way to see why the baseline has to be per-subject.</li>
+      <li><strong>The two <code>half_life_seconds</code> rows</strong> — watch <code>D_c</code> move, and watch the ninety-fold spread stop being expressible the moment you give both classes the same rate.</li>
+      <li><strong><code>granularity</code></strong> — resampling takes the last <em>real</em> observation in each bucket. It never interpolates, because across a grade change interpolation invents intermediate grades that never existed.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">What this does not claim</p>
+    <h2>An honest basis, reported rather than corrected</h2>
+    <p>The market leg is netted on the band the bond was <strong>issued</strong> into, and that band does not follow the obligor's grade. Two of the thirty rated obligors have left theirs, so for them the residual is less precise — in a <em>knowable</em> direction, since a wider current band means the market component is understated and the residual overstated. The product flags them and does not correct them.</p>
+    <div class="call crit">
+      <span class="lbl">The correction that would destroy the product</span>
+      <p>Inferring a replacement band from the internal grade would make the market component a function of the grade the divergence is measured against. <strong>A residual computed that way could never disagree with the grade</strong> — and the disagreement is the entire product. So the residual is served as the residual on a stated basis, qualified where the obligor has migrated, and never as unqualified &ldquo;pure issuer deterioration&rdquo;.</p>
+    </div>
+    <p><strong>No agency ratings and no TRACE data anywhere</strong>, and both were verified rather than assumed: no agency column exists in any of the estate's 118 tables, the scale is <code>synthetic — internal</code>, instrument identifiers are <code>syn-i-*</code>, and the issuer-specific figure is a residual rather than an observed trade. An SDK example ships with the SDK and is copied by adopters, so licensed values in one would be redistribution exactly as in a product.</p>
+    <p class="note"><strong>Illustrative calibration.</strong> This example runs against a point-in-time demonstration estate rather than continuously refreshed production data. Freshness half-lives and related thresholds are calibrated to make the governed behavior observable in that snapshot. They demonstrate how the SDK applies these controls and should not be interpreted as recommended production coverage-policy thresholds.</p>
+  </div>
+</section>
+
+<footer>
+  <p><code>examples/cp-10-rating-and-spread-migration</code> · CCF SDK</p>
+</footer>
+
+</div>
