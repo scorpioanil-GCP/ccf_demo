@@ -707,7 +707,7 @@ stale one. `EWS-G22` keeps the product from claiming otherwise.
 | `EWS-G05` | a non-admitted obligor leaves no name, count or marker in the payload | disclosure by marker |
 | `EWS-G06` | payload classification is the highest contributing | classification leak |
 | `EWS-G07` | a **superseded** `8k_event` contributes **zero** to the composite, and appears in the exclusion list with reason `superseded` | TRAP 1 — no decay read as accumulation |
-| `EWS-G08` | a superseded signal is **not** reported as stale or aged; its exclusion reason is supersession and its age is reported unchanged | conflating supersession with decay |
+| `EWS-G08` | a superseded signal is **not** reported as stale or aged; its exclusion reason is supersession and its age is reported unchanged. **And a signal absent from the chain is `not-participating`, never `superseded`** | conflating supersession with decay, and conflating absence with supersession |
 | `EWS-G09` | every decaying class decays against the **source observation date**, never ingestion | the `D-IMPL-331` defect, reintroduced |
 | `EWS-G10` | the delta's bounds are `(since, asked_at]` on **valid time**, and no signal dated after `asked_at` enters the payload | look-ahead |
 | `EWS-G11` | an obligor with no signal in the delta returns `200` with an explicit `no-change` finding, never an empty payload or an error | absence read as failure |
@@ -725,6 +725,9 @@ stale one. `EWS-G22` keeps the product from claiming otherwise.
 | `EWS-G23` | re-serving at an `as_of` before a superseding filing reports the superseded signal as **current** at that instant | `as_of` not reaching the supersession filter |
 | `EWS-G24` | a `spread_widening` signal naming instruments carries them into the payload rather than collapsing to the obligor | rung 10's `CP10-F-06`, inherited |
 | `EWS-G25` | **the cross-product case, all three legs in one test**: a product that touched an obligor before a superseding filing is REFUSED on its next serve; an unrelated product at the same snapshot STILL SERVES; a product derived after the filing SERVES. The refusal names the entity and the boundary | `D-IMPL-334`. The middle leg is the load-bearing one — without it a global clock would pass |
+| `EWS-G26` | **a valid SIC code never falls to `Unclassified`.** Every anchor whose `legal_entity.sic` is a well-formed code in a published division resolves to that division's sector, and the product asserts the resolution rate over the whole anchor set rather than over one obligor | `CP11-F-09` — the sector dimension going inert again, silently |
+| `EWS-G27` | **supersession participation is DECLARED, not inferred.** The classes checked for supersession come from the artifact's `supersession_participants`; a class absent from that list is never checked, whatever the chain happens to contain | a product that silently starts dropping signals the day another class gains a chain |
+| `EWS-G28` | **each signal carries exactly one chain state** — `current`, `superseded` or `not-participating` — and the three partition the signal set: their counts sum to the number of signals, with no signal in two of them | a current signal counted twice, once as chained and once as current |
 
 ### G.2 Acceptance
 
@@ -742,5 +745,8 @@ refused on its next serve; a copy a consumer already holds is not recalled, and
 `EWS-G22` keeps the product from claiming otherwise.
 
 Everything else stands as authored and measured: the estate facts, the obligor
-unit, the valid-time delta, the five traps and the recalibrated thresholds. 25
-gates, `EWS-G01`–`G25`.
+unit, the valid-time delta and the five traps. The thresholds are re-affirmed
+at 0.15 / 0.25 / 0.35 on the CORRECTED populations of 28 / 11 / 3 (Dave,
+2026-09-12, after `CP11-F-09`). **28 gates, `EWS-G01`–`G28`** — three added at
+Gate 2 to hold the sector resolution, the declared participation and the
+three-state partition.

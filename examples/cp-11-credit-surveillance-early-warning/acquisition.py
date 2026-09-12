@@ -135,13 +135,14 @@ class Estate:
     obligor: Obligor
     #: Every signal in `(since, asked_at]`, oldest first.
     signals: tuple[Signal, ...]
-    #: The signal ids Fluree reports as CURRENT — not superseded by a later
-    #: one. Only `8k_event` participates; measured at Gate 1.
-    current_signal_ids: frozenset[str]
-    #: Every signal id Fluree mirrors at all, so *"not current"* can be told
-    #: from *"never in the chain"*. A class with no chain is not superseded by
-    #: silence.
+    #: Raw from Fluree: every signal id mirrored into the chain at all.
+    #: **A SUPERSET of `current_signal_ids`** — never add the two.
     chained_signal_ids: frozenset[str]
+    #: Raw from Fluree: the subset carrying no `supersededBy`.
+    current_signal_ids: frozenset[str]
+    #: The classes this deployment DECLARES participate, from the artifact.
+    #: Never inferred from which classes happen to appear in the chain.
+    supersession_participants: frozenset[str]
     #: The obligor's prior-observation anchor — the delta's default left edge.
     prior_observation: date | None
     #: The weights and decay, by `(signal_type, sector)`.
@@ -153,6 +154,36 @@ class Estate:
     #: The window actually read.
     window_from: date
     window_to: date
+
+    def chain_state(self, signal: "Signal") -> str:
+        """``current`` | ``superseded`` | ``not-participating``. Exactly one.
+
+        **THREE STATES, MUTUALLY EXCLUSIVE, ONE PER SIGNAL** — the vocabulary
+        discipline rung 9 established, arriving on a new axis. The two raw sets
+        from Fluree OVERLAP (`current` is a subset of `chained`), so anything
+        counting both would count a current signal twice. This is the only
+        classifier the rest of the product uses, and it cannot be double-counted
+        because it returns one value.
+
+        ``not-participating`` is its own answer and never collapses into
+        ``superseded``: a class this deployment does not declare as a chain
+        participant, or a signal the chain does not mirror, **has not been
+        superseded — it was never in a chain to be superseded from.** Absence
+        is not supersession.
+        """
+        if signal.signal_type not in self.supersession_participants:
+            return "not-participating"
+        if signal.signal_id not in self.chained_signal_ids:
+            return "not-participating"
+        return "current" if signal.signal_id in self.current_signal_ids else "superseded"
+
+    def contributes(self, signal: "Signal") -> bool:
+        """Whether ``signal`` reaches the composite at all.
+
+        Everything contributes except a signal that IS in a chain and has been
+        superseded: its relevance ended, and it did not merely age.
+        """
+        return self.chain_state(signal) != "superseded"
 
 
 class _Relational:
@@ -260,11 +291,15 @@ def acquire(
     )
 
     current, chained = _supersession(graph, terms, lei=anchor_lei)
+    participants = frozenset(
+        str(name) for name in terms["supersession_participants"]
+    )
     return Estate(
         obligor=obligor,
         signals=signals,
-        current_signal_ids=current,
         chained_signal_ids=chained,
+        current_signal_ids=current,
+        supersession_participants=participants,
         prior_observation=prior,
         weights=_weights(relational),
         thresholds=_thresholds(relational),
