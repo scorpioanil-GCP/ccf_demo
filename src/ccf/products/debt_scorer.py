@@ -94,7 +94,12 @@ from ccf.halflife.assessment import (
     ScorerPin,
 )
 from ccf.halflife.debt import DebtFactorScorerProtocol, FreshnessScorer, assess_debt
-from ccf.halflife.decay import Observation
+from ccf.halflife.decay import (
+    MissingHalfLife,
+    Observation,
+    leading_edge,
+    series_key_attribute_of,
+)
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from ccf.projection.engine import ExecutionResult
@@ -322,6 +327,29 @@ class DeclaredFactor:
         return self.value
 
 
+def _series_key(record: object, table: "HalfLifeTable | None") -> str | None:
+    """The claim attribute the row named as its series key, or ``None``.
+
+    Returns ``None`` for every row that declared no key, which is every row
+    written before ``D-IMPL-333`` — so the resolution is additive and a table
+    that never heard of series behaves exactly as it did.
+    """
+    if table is None:
+        return None
+    claim = record.claim  # type: ignore[attr-defined]
+    try:
+        attribute = series_key_attribute_of(table, claim.entity_class)
+    except MissingHalfLife:
+        # An undeclared class is `freshness`'s refusal to make, not this
+        # helper's to pre-empt: surfacing it here would replace a named
+        # refusal with a silent `None`.
+        return None
+    if attribute is None:
+        return None
+    value = claim.attributes.get(attribute)
+    return None if value is None else str(value)
+
+
 @dataclass(frozen=True, kw_only=True)
 class AssemblyDebtScorer:
     """The SDK's reference ``GraphView`` → ``DebtAssessment`` adapter (§7.7).
@@ -483,7 +511,14 @@ class AssemblyDebtScorer:
                 hand-built view can. Surfaced rather than clamped, on
                 :func:`~ccf.halflife.decay.freshness`'s own reasoning.
         """
-        observations = self._observations(view)
+        # `D-IMPL-333`: the λ_c row says WHICH observations constitute the
+        # thing being scored, and the reduction happens before the mean. A
+        # table declaring `series-mean` everywhere — every table written
+        # before that field existed — passes through `leading_edge` unchanged.
+        observations = leading_edge(
+            self._observations(view, table=self.table),
+            table=self.table, now=view.as_of,
+        )
         # D-30: no cardinality branch
         freshness_scorer = FreshnessScorer(
             table=self.table, risk_sensitivity=self.profile.risk_sensitivity
@@ -543,7 +578,9 @@ class AssemblyDebtScorer:
         return scorer.score(observations, now=now)
 
     @staticmethod
-    def _observations(view: GraphView) -> tuple[Observation, ...]:
+    def _observations(
+        view: GraphView, *, table: HalfLifeTable | None = None
+    ) -> tuple[Observation, ...]:
         """One dated, typed observation per entity record the view carries.
 
         A separate method so a test can hand it a view and read back exactly
@@ -563,6 +600,13 @@ class AssemblyDebtScorer:
                 # unchanged. Copying only the first is what made a declared
                 # λ_c table unable to move `F` at all.
                 valid_from=record.claim.valid_from,
+                # `D-IMPL-333`: which LOGICAL SERIES this observation belongs
+                # to, read from the attribute the λ_c row named. `None` when
+                # the row named none, or when no table was supplied — under
+                # which `leading_edge` treats the whole type as one series.
+                # The SDK never parses this value; it only compares it to
+                # another value of itself.
+                series=_series_key(record, table),
             )
             for record in view.entities
         )

@@ -61,6 +61,7 @@ clock, no LLM dependency ever.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import datetime, timedelta
 from decimal import Decimal, localcontext
 from typing import Final
@@ -70,6 +71,7 @@ from pydantic import Field, field_validator
 from ccf.controlplane.artifacts import (
     DecayBasis,
     DecayMode,
+    FreshnessAggregation,
     HalfLifeEntry,
     HalfLifeTable,
 )
@@ -95,6 +97,9 @@ __all__ = [
     "TemporalOrderError",
     "decay_basis_of",
     "decay_mode_of",
+    "freshness_over_of",
+    "leading_edge",
+    "series_key_attribute_of",
     "effective_half_life",
     "freshness",
     "half_life_of",
@@ -236,6 +241,15 @@ class Observation(CCFContract):
             :class:`MissingDecayInstant` rather than a fallback. Optional and
             **hash-transparent at** ``None``, so an observation constructed
             before this field existed hashes as it did.
+        series: WHICH LOGICAL SERIES this observation belongs to, or ``None``
+            when the deployment declared none (``D-IMPL-333``). Read only by
+            :func:`leading_edge`, and only for a λ_c row declaring
+            ``freshness_over: leading-edge``: two observations sharing a series
+            are two readings of ONE thing, so only the newest is current and
+            the rest are history. Resolved by the scorer from the row's
+            ``series_key_attribute``; the SDK never parses it and never
+            compares it to anything but another value of itself. Hash-transparent
+            at ``None``.
         subject: What this observation is an observation *of*. An opaque
             identifier the deployment chooses — an entity URI, a claim id, a
             document id, or something else again. Its scheme is user
@@ -257,6 +271,9 @@ class Observation(CCFContract):
     observed_at: datetime
     subject: str = NO_SUBJECT_IDENTITY
     valid_from: datetime | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    series: str | None = Field(
         default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
 
@@ -425,6 +442,77 @@ def decay_mode_of(table: HalfLifeTable, observation_type: str) -> DecayMode:
             D-IMPL-38).
     """
     return _entry_of(table, observation_type).decay
+
+
+def freshness_over_of(
+    table: HalfLifeTable, observation_type: str
+) -> FreshnessAggregation:
+    """Return the declared freshness aggregation for a type (``D-IMPL-333``)."""
+    return _entry_of(table, observation_type).freshness_over
+
+
+def series_key_attribute_of(
+    table: HalfLifeTable, observation_type: str
+) -> str | None:
+    """Return the claim attribute that names a logical series, if declared."""
+    return _entry_of(table, observation_type).series_key_attribute
+
+
+def leading_edge(
+    observations: Sequence[Observation], *, table: HalfLifeTable, now: datetime
+) -> tuple[Observation, ...]:
+    """Reduce each ``leading-edge`` series to its newest member at or before ``now``.
+
+    **The set, not the value** (``D-IMPL-333``). ``decay`` and ``decay_basis``
+    answer *how fast* and *against which instant*; this answers *which
+    observations constitute the thing being scored*. A type declaring
+    ``series-mean`` — every table written before the field existed — passes
+    through untouched, which is what keeps this additive.
+
+    **Newest AS OF ``now``, never wall-clock newest.** A replay at an earlier
+    instant must see the edge that was leading *then*; selecting the globally
+    newest would let a later observation leak into an earlier answer and make
+    the figure unreproducible.
+
+    Observations are grouped by ``(observation_type, series)``. Where the row
+    declared no ``series_key_attribute`` the whole type is one series, so one
+    observation survives it; where it did, one survives per distinct key.
+
+    Ordering is by the instant the row decays against, so the edge is the
+    newest by the same clock the curve reads — a series decaying on
+    ``valid-from`` is led by the newest source observation, not by whichever
+    row the fabric happened to learn last.
+    """
+    kept: dict[tuple[str, str | None], Observation] = {}
+    passthrough: list[Observation] = []
+    for observation in observations:
+        if freshness_over_of(table, observation.observation_type) != "leading-edge":
+            passthrough.append(observation)
+            continue
+        instant = _instant_for(observation, table)
+        if instant is not None and instant > now:
+            # Not yet knowable at the decision instant, so it cannot lead.
+            continue
+        key = (observation.observation_type, observation.series)
+        standing = kept.get(key)
+        if standing is None:
+            kept[key] = observation
+            continue
+        standing_instant = _instant_for(standing, table)
+        if instant is not None and (
+            standing_instant is None or instant > standing_instant
+        ):
+            kept[key] = observation
+    return (*passthrough, *(kept[k] for k in sorted(kept, key=lambda k: (k[0], k[1] or ""))))
+
+
+def _instant_for(
+    observation: Observation, table: HalfLifeTable
+) -> datetime | None:
+    """The instant this observation's own row decays against."""
+    if decay_basis_of(table, observation.observation_type) == "valid-from":
+        return observation.valid_from
+    return observation.observed_at
 
 
 def decay_basis_of(table: HalfLifeTable, observation_type: str) -> DecayBasis:
