@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE SOURCE TERMS THIS DEPLOYMENT READS, named once.
+#
+# `acquisition.py` spells no IRI and no column of its own: every term this
+# product reaches for is here, so a reader can see the whole source surface
+# without reading Python, and an adopter re-points the product by editing this
+# file (CLAUDE.md §6.4).
+
+semver: "1.0.0"
+class_id: cp-11.source-vocabulary
+
+declaration:
+  # --- Fluree: the CHAIN. It carries identity, attribution and supersession,
+  # and NO timestamp — `CP11-F-07`. Every instant comes from PostgreSQL.
+  warning_signal_class: http://example.org/fibo/WarningSignal
+  prior_observation_class: http://example.org/fibo/PriorObservation
+  signal_source_class: http://example.org/fibo/SignalSource
+  signal_about: http://example.org/fibo/signalAbout
+  triggered_by: http://example.org/fibo/triggeredBy
+  superseded_by: http://example.org/fibo/supersededBy
+  valid_from: http://example.org/fibo/validFrom
+  lei: http://example.org/fibo/lei
+
+  # --- PostgreSQL: the CLOCK, the weights and the bands.
+  tables:
+    legal_entity: the obligor's identity and its SIC sector, which keys the weights
+    signal_event: every dated signal — the only place an instant lives
+    signal_weight: weight and decay_days per (signal_type, sector) — the λ_c table
+    escalation_threshold: the bands, by intent
+    warn_match: name-match verdicts; only `resolved` may be consumed
+
+  # --- SIC DIVISIONS, which is how an obligor reaches its weight row.
+  #
+  # FOUND AT GATE 2, and it is `CP11-F-09`. `signal_weight` keys on
+  # (signal_type, sector) and its sector values are exactly the nine standard
+  # SIC division names. `legal_entity` carries a four-digit `sic` and a
+  # specific `sic_description` ("Plastics Products, NEC"). Measured: ZERO of
+  # the 50 anchors' descriptions match a sector name, so without this map every
+  # obligor falls to `Unclassified` and 36 of the table's 45 rows are
+  # unreachable — a configuration nobody reads (`D-GATE-cp-08`).
+  #
+  # The ranges are the PUBLISHED SIC division boundaries, not an invention of
+  # this product, and they live here rather than in code because they are
+  # domain values (CLAUDE.md §6.4). With them the mapping resolves 50 of 50.
+  sic_divisions:
+    - {from: 100,  to: 999,  sector: "Agriculture, Forestry & Fishing"}
+    - {from: 1000, to: 1499, sector: "Mining"}
+    - {from: 1500, to: 1799, sector: "Construction"}
+    - {from: 2000, to: 3999, sector: "Manufacturing"}
+    - {from: 4000, to: 4999, sector: "Transportation, Communications & Utilities"}
+    - {from: 5000, to: 5199, sector: "Wholesale Trade"}
+    - {from: 5200, to: 5999, sector: "Retail Trade"}
+    - {from: 6000, to: 6799, sector: "Finance, Insurance & Real Estate"}
+    - {from: 7000, to: 8999, sector: "Services"}
+  # The sector an unmappable or absent SIC falls to. A REAL ROW in the weight
+  # table, never a silent skip.
+  unclassified_sector: Unclassified
+
+  # --- The five signal classes, and what ends each one's relevance.
+  signal_classes:
+    8k_event:
+      ends_by: supersession
+      note: >-
+        decay_days IS NULL — it does not decay. A filed acceleration is as true
+        a year later. What ends its relevance is a LATER filing, which is why
+        this class alone carries a supersession chain.
+    adverse_media: {ends_by: decay}
+    spread_widening: {ends_by: decay}
+    trend_delta: {ends_by: decay}
+    warn_notice: {ends_by: decay}

@@ -612,17 +612,32 @@ unreachable. The product declares, as demonstration values:
 
 | Band | Declared in estate | **This product** | Obligors reached (measured, full window) |
 |---|---|---|---|
-| `daily-sweep` | 0.30 | **0.15** | **25** of 50 |
-| `credit-committee-referral` | 0.55 | **0.25** | **8** of 50 |
-| `board-risk-report` | 0.85 | **0.35** | **2** of 50 |
+| `daily-sweep` | 0.30 | **0.15** | **28** of 50 |
+| `credit-committee-referral` | 0.55 | **0.25** | **11** of 50 |
+| `board-risk-report` | 0.85 | **0.35** | **3** of 50 |
+
+> **CORRECTED AT GATE 2 (`CP11-F-09`), and the correction is recorded rather
+> than quietly applied.** Gate 1 measured these populations as 25 / 8 / 2 with a
+> maximum composite of 0.3694. Those figures were computed with **every obligor
+> falling to the `Unclassified` weight row**, because nothing resolved a SIC
+> code to the sector the λ_c table keys on. With the sector dimension live the
+> maximum is **0.4619** and the populations are 28 / 11 / 3. **The three chosen
+> thresholds did not move** — they still order and still discriminate — but the
+> numbers beside them did, and a specification carrying a measurement taken
+> against the wrong weights would be wrong in the way that is hardest to catch
+> later.
 
 The full measured curve, so a later reader can see why these three and not
 others — and can re-derive them rather than trusting the table:
 
 ```
+CORRECTED, sector dimension live (CP11-F-09):
 threshold   0.05  0.10  0.15  0.20  0.25  0.30  0.35  0.40
-obligors      48    45    25    14     8     3     2     0
+obligors      48    46    28    17    11     7     3     3
                           ^sweep     ^committee  ^board
+
+as measured at Gate 1, every obligor Unclassified:
+obligors      48    45    25    14     8     3     2     0
 ```
 
 `0.10` was the first value tried for the sweep band and it was **wrong** — it
@@ -675,6 +690,7 @@ stale one. `EWS-G22` keeps the product from claiming otherwise.
 | `CP11-F-06` | **The ledger `t` axis carries no delta.** Measured by pinned read: 0 `WarningSignal` before `t=421`, all 538 by `t=491`, 538 at every point to the head at `t=5729`. The article's "delta between two ledger points" would return everything or nothing. The delta is defined on **valid time** instead, and §B.3 declares the substitution rather than making it silently. | ESTATE-LIMITATION |
 | `CP11-F-07` | **The Fluree `WarningSignal` node carries no timestamp**; the date appears only inside its `rdfs:label` string. The dated leg is PostgreSQL and the graph carries identity, attribution and the supersession chain. Parsing a date out of a label is forbidden — a label is prose, not a clock. | ESTATE-LIMITATION |
 | `CP11-F-08` | **32 of 36 WARN name matches are wrong and visibly so** (TransDigm→Transdev, B&G Foods→US Foods, SP Plus→Lamps Plus, at score ≈0.71). Only the 4 `resolved` matches became signals — the estate already holds the line. The product consumes `resolved` only and publishes the ambiguous count. | NOT-A-GAP |
+| `CP11-F-09` | **The λ_c table's SECTOR DIMENSION was inert, and Gate 1 did not notice.** `signal_weight` keys on `(signal_type, sector)` and its nine sector values are exactly the standard SIC division names. `legal_entity` carries a four-digit `sic` and a specific `sic_description` — *"Plastics Products, NEC"*. **Measured at Gate 2: zero of the 50 anchors' descriptions match a sector name**, so every obligor fell to `Unclassified` and **36 of the table's 45 rows were unreachable** — configuration that nobody reads (`D-GATE-cp-08`'s principle, found again). Fixed by resolving the SIC code to its published division, declared in `artifacts/source-vocabulary.yaml` rather than in code: the mapping then resolves **50 of 50**. **This changed §E.2's measured band populations** — see the correction recorded there. | FIXED-gate-2 |
 
 ---
 
