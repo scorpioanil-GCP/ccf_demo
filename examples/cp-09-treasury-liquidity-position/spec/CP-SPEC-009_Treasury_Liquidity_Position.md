@@ -7,6 +7,12 @@ cost_band: "×2–4 (derived on demand)"
 assembly_mode: 1
 capability_classes: [relational, bitemporal-ledger, graph-traversal, in-memory]
 prerequisites: [counterparty-reference-snapshot, collateral-and-setoff-coverage]
+build_order: 9
+lifecycle: draft
+accountable_owner: treasury-product-engineering
+review_cadence: at each Control Plane change to the staleness profile, the
+  concentration-limit register or the regulatory-posture overlay; and no less
+  than annually
 topic: context-products
 title: Treasury Liquidity Position — Context Product Specification
 generated: '2026-09-11'
@@ -214,23 +220,8 @@ business logic is invented in example code.
 
 ### A.4 Scope boundary
 
-**From the vault, verbatim:** a corporate client's cash, rate, and concentration
-posture right now.
-
-Checked against this specification's §C and payload, three boundaries are drawn
-explicitly:
-
-- **No allocation proposals.** The vault's parameter surface carries
-  `include_proposals`. It is declared and **refuses with
-  `not_supported_at_tier`** (§B.2) rather than silently returning nothing.
-  Generating candidate allocations requires an optimization policy that is
-  domain configuration, not SDK mechanism.
-- **No FX exposure product.** Currency conversion happens so liquidity can be
-  expressed in one currency; the FX *position* question is rung 12's.
-- **No collateral or set-off computation.** `deposit_account` carries
-  `setoff_contractual` and `setoff_enforceable`, and 73 of 120 deposits carry a
-  `nettedUnder` edge. That is rung 6's subject. This product reads the flags
-  through and does not net.
+**Held at §B.8**, where the Standard places it, together with the check against
+§C and the payload that the scope-boundary field exists to receive.
 
 ---
 
@@ -240,11 +231,11 @@ explicitly:
 
 | Element | Value |
 |---|---|
-| **Schema** | `treasury_liquidity_position` — entities `cmns-org:LegalEntity`, `fibo-fbc-pas-caa:DepositAccount`, `fibo-fbc-pas-caa:InvestmentAccount`, `fibo-sec-dbt-bnd:TreasuryBill`, `fibo-sec-fun-fun:MutualFund`, `fibo-sec-dbt-tsd:CommercialPaper`; relationships `ex:heldAt`, `ex:concentratedIn`, `ex:setOffAgainst`; policy `ex:RegulatoryPosture`. Machine-readable at `schemas/treasury_liquidity_position.v1.json` |
-| **Freshness SLA** | **Per signal class, four classes, never one figure** — §D.3. Intraday rate 15 min · FX 1 day · policy effectivity a step function · holdings **unobserved** |
+| **Schema** | `treasury_liquidity_position` — entities `cmns-org:LegalEntity`, `fibo-fbc-pas-caa:DepositAccount`, `fibo-fbc-pas-caa:InvestmentAccount`, `fibo-sec-dbt-bnd:TreasuryBill`, `fibo-sec-fun-fun:MutualFund`, `fibo-sec-dbt-tsd:CommercialPaper`; measures `fibo-ind-ir-ir:ReferenceInterestRate`, `fibo-ind-fx-fx:QuotedExchangeRate`, `fibo-fnd-acc-cur:MonetaryAmount`; relationships `ex:heldAt`, `ex:concentratedIn`, `ex:setOffAgainst`; policy `ex:RegulatoryPosture`. Machine-readable at `schemas/treasury_liquidity_position.v1.json` |
+| **Freshness SLA** | **Per signal class, and the classes do not share a clock** — §B.6. Intraday rate 15 min · FX reference 1 day · filing-period cash 90 days · regulatory posture governed by effectivity, not by age · holdings **unobserved and therefore unclaimable** |
 | **TTL** | 15 minutes · `ttl_anchor: from_decision`. `expires_at = decision_instant + 15m`. A request pinned to a past `as_of` is a forensic reconstruction and **does not decay**; the payload says so rather than publishing a window that misdescribes it (§E.3) |
-| **Policy Binding** | Entitlement scope · counterparty concentration limits · permitted-instrument list by mandate · **regulatory posture resolved at the decision instant from the ledger**, emitting `policy_version` |
-| **Lineage** | `operators_invoked[]` as typed references · `graph_snapshot_at` (ledger `t`) · `policy_version` · `projection_plan_id` · **per-signal `observed_at` with its `temporal_class`** · `context_debt` · `payload_hash` · `model_record` |
+| **Policy Binding** | Entitlement scope · counterparty concentration limits · permitted-instrument list by mandate · **regulatory posture resolved at the decision instant from the ledger**. Every bundle version in force lands in `ProductLineage.policy_bundle_versions` |
+| **Lineage** | **`ProductLineage` exactly, and nothing more** — `operators_invoked` (typed operator references), `policy_bundle_versions`, `graph_snapshot_at`. See §B.7 for where the rest of the governance evidence lives, and why it is not duplicated here |
 | **Semantic Version** | `v1.0.0` |
 | **Discovery** | `treasury.liquidity-position.v1` |
 | **Addressability** | `/context-products/treasury/liquidity-position/{lei}` |
@@ -252,31 +243,163 @@ explicitly:
 
 `extra=forbid` on every payload model, validated at the boundary.
 
-### B.2 Request parameter surface
+### B.2 Classification, residency and cross-border serving
+
+**Data classification: `internal`** — the highest of any §C element. Deposit
+balances, investment positions, concentration limits, permitted-instrument
+lists and the regulatory-posture overlay are all internal; the rate, FX and
+filing elements are public, and the highest governs the payload.
+
+**Information barrier.** None crosses this product. It reads no MNPI-bearing
+source and constructs no research or advisory content; a client's own treasury
+position is visible to the coverage relationship that owns it.
+
+**Residency.** Deposit accounts carry a jurisdiction (measured: `US-DE`, `GB`,
+`US-NY`, `US-MD`, `DE`, `FR`, `IN`, `CN`) and the regulatory posture is keyed on
+it. The product is served **from the tenant's own region**; no element is
+replicated across a border by this product.
+
+**Cross-border serving.** A principal whose `principal_jurisdiction` prefixes do
+not cover a deposit's jurisdiction does not receive that deposit. The exclusion
+is formative, not a filter applied afterward.
+
+**The suppression rule.** Where policy excludes content the payload carries
+**no count, no marker and no placeholder** — an excluded deposit is absent, and
+the liquidity totals are computed over what remains. A *"2 accounts hidden"*
+marker is itself a disclosure and is a gate failure (`TLP-G05`).
+
+### B.3 Model-risk annotation
+
+**Not applicable — no model in the trust path.** Assembly Mode 1. No LLM is
+invoked at any stage; there is no prompt artifact, no temperature to pin and no
+smoothing control to specify, because nothing in the path could reconcile a
+conflict the substrate surfaced.
+
+### B.4 Request parameter surface
 
 | Parameter | Type | Moves | Default |
 |---|---|---|---|
 | `lei` | string(20), required | `E` anchor | — |
 | `intent` | enum `operating-liquidity` \| `reserve-buffer` \| `short-term-investment`, required | `P` — selects the limit regime and the posture row | — |
-| `as_of` | datetime | **`T` — the decision instant** | request time |
-| `max_staleness` | duration | **`T` — the fail-closed bound** | `15m` |
-| `currencies` | list | `R` scope | all held |
-| `debt_tolerance` | float | `P` — debt gate | `0.25` |
+| `as_of` | datetime, required | **`T` — the decision instant** | — |
+| `freshness` | string, required | `T` — the currency the caller requires | — |
+| `max_staleness` | mapping `signal class → duration`, or a single duration naming one class | **`T` — tightens a NAMED class's bound; never all of them** (§B.6) | the class profile |
+| `currencies` | list | `R` scope — **and therefore which FX observations participate at all** | all held |
+| `debt_tolerance` | float | `P` — debt gate | class default |
 | `horizon` | enum `intraday` \| `t+1` \| `t+30` | `T` window | `intraday` |
 | `include_proposals` | bool | — | **inert — refuses `not_supported_at_tier`** |
 
-**`as_of` is the product's defining parameter and it governs four things at
-once**: which tick is read, which posture version is in force, which FX
-observation applies, and what the mandate tenor bound is measured from. It does
-**not** move the holdings, which carry no observation time — and it does not
-relabel `cash_fact_asof`, which is a period end (§D.3).
+### B.5 How the request maps onto the SDK — the four axes are identity, not parameters
 
-**`max_staleness` is the second.** If any *freshness-bearing* signal is older
-than the bound, the product **fails closed** — an error naming the stale signal
-and its age. It does not serve a partial product and it does not substitute the
-last good value. A treasury product that quietly substitutes yesterday's curve
-is more dangerous than one that refuses, because the substitution is invisible
-and the refusal is not.
+**`ProductRequest` carries whitepaper §6.3's four axes as FIRST-CLASS fields.**
+They establish *which question was asked*, they are what the content address
+and the replay record resolve against, and putting any of them in `parameters`
+would demote request identity to class-declared remainder. The mapping is
+therefore fixed, and `TLP-G19` holds the product to it:
+
+| The caller supplies | Lands on | Why it is not a parameter |
+|---|---|---|
+| the `{lei}` path segment | **`ProductRequest.subject`** | the entity anchor — *which entity* |
+| `intent` | **`ProductRequest.intent`** | the decision being served — *for what decision* |
+| `as_of` | **`ProductRequest.asked_at`** | the instant asked **as of** — *against what clock*. Supplied by the caller; the SDK never reads one (`D-IMPL-98`, `C-15`) |
+| the freshness requirement | **`ProductRequest.freshness`** | *under what temporal claim* |
+| `max_staleness`, `currencies`, `horizon`, `debt_tolerance`, `include_proposals` | **`ProductRequest.parameters`** | the class-declared remainder of the question |
+| the product class and lane | `schema_name` = `treasury.liquidity-position.v1`, `schema_version` = `1.0.0` | — |
+
+**`as_of` is `asked_at`, and the spelling matters.** This product has one
+decision instant and it is the caller's, not the host's. A design that carried
+`as_of` in `parameters` while `asked_at` defaulted to a clock would produce two
+instants that agree until they do not, and replay would resolve against the
+wrong one.
+
+### B.6 The staleness profile — the refusal rule is per class, not one clock
+
+**The `max_staleness` bound is declared per signal class in the Control Plane,
+and a request tightens a NAMED class.** Flattening the classes into one
+15-minute clock would refuse the product on its filing evidence — which is a
+quarterly figure and is *supposed* to be months old — and would make the 15
+minutes meaningless by applying it to something that never moves that fast.
+
+| Signal class | Bound | Mandatory? | Breach behavior |
+|---|---|---|---|
+| Intraday rate observation | **15 min** | **yes** | **fail closed** — refuse, naming the signal and its age |
+| FX reference observation | **1 day** | yes *when a conversion is required* | **fail closed** for the currencies that need it |
+| Filing-period cash | **90 days** | no | serves, with a debt contribution and the period end shown |
+| Concentration limit | 90 days | no | serves; the verdict stands with its age published |
+| Permitted-instrument list | 90 days | no | serves; mandate check reported `NOT_EVALUABLE` if absent |
+| Regulatory posture | **n/a — effectivity, not age** | **yes** | a posture is never stale; it is in force or it is not (§D.3) |
+| Deposit balance, investment position | **none — unobserved** | — | **no staleness claim is possible and none is made** |
+
+Three consequences, each gated:
+
+- **A class participates only if the request needs it.** `currencies=["USD"]`
+  for a USD-home client requires no conversion, so **no FX observation
+  participates** and no FX bound can fire. Scope decides participation before
+  freshness decides admission (`TLP-G20`).
+- **The refusal names the class, the signal, its observed age and the bound it
+  broke** — never a bare "stale".
+- **A non-mandatory class never refuses.** It contributes debt (§E.2). The
+  15-minute figure governs one row of this table and the product never lets it
+  govern another.
+
+### B.7 Where the governance evidence lives — and why lineage does not carry it
+
+**`ProductLineage` is three fields.** `operators_invoked`,
+`policy_bundle_versions`, `graph_snapshot_at`. It is the L axis as it appears on
+a delivered product, and this specification does **not** extend it.
+
+Everything else this product must evidence has a surface of its own, and
+duplicating it into the payload or the lineage would create two copies that can
+disagree:
+
+| Evidence | Where it lives | Not in lineage because |
+|---|---|---|
+| Per-signal `observed_at` and `temporal_class` | the **payload's signal register** — it is the product's answer, not its provenance | a consumer reads it to act, not to audit |
+| `D_c` and its components | the **DebtAssessment** surface | debt is a measured property of the serve, resolved with the effective tolerance and its authority |
+| The content address | the **governed product**'s address | it is a hash over the whole answer including the lineage |
+| Model record, prompt artifact | **nothing — Assembly Mode 1** | there is no model in the path |
+| Projection plan, perspective | the **replay record's** dimension 4 | replay resolves it; the payload does not restate it |
+| The instant asked as-of | `ProductRequest.asked_at`, carried into replay | it is request identity (§B.5) |
+
+`TLP-G02` asserts lineage strict equality over exactly the three fields, and
+`TLP-G21` asserts the payload does **not** carry a second copy of the debt
+figure, the content address or the policy versions.
+
+### B.8 Prerequisites, consumers and scope boundary
+
+**Prerequisites** (vault): `counterparty-reference-snapshot` (rung 1) for
+counterparty identity; `collateral-and-setoff-coverage` (rung 6) for the deposit
+population and its set-off flags.
+
+**Consumers, named individually** — a reverse dependency list is what
+supersession cascades and MAJOR-version notification need, and *"any treasury
+consumer"* cannot serve as one:
+
+| Consumer | What it takes | Notified on |
+|---|---|---|
+| `credit-surveillance-early-warning` (rung 11) | the concentration verdicts and their coverage ratio | MAJOR; and on any posture supersession (§E.4) |
+| `fx-post-trade-reconciliation` (rung 12) | the FX observation set and its instants | MAJOR |
+| `large-exposure-rwa-concentration` (rung 21) | counterparty concentration as one input to the group denominator | MAJOR |
+
+No rung below 9 consumes this product.
+
+**Scope boundary — the vault's sentence, verbatim:** *a corporate client's cash,
+rate, and concentration posture right now.*
+
+Checked against §C and the payload, three boundaries are drawn explicitly:
+
+- **No allocation proposals.** `include_proposals` is declared and **refuses
+  with `not_supported_at_tier`** rather than silently returning nothing.
+  Generating candidate allocations requires an optimization policy that is
+  domain configuration, not SDK mechanism.
+- **No FX exposure product.** Currency conversion happens so liquidity can be
+  expressed in one currency; the FX *position* question is rung 12's.
+- **No collateral or set-off computation.** `deposit_account` carries
+  `setoff_contractual` and `setoff_enforceable`, and 73 of 120 deposits carry a
+  `nettedUnder` edge. That is rung 6's subject. This product reads the flags
+  through and does not net.
+
+**No conflict found.** The payload declares no field the vault's scope excludes.
 
 ---
 
@@ -287,12 +410,12 @@ and the refusal is not.
 | Element | System of record | Provenance | Classification | Capability | `G` | Ontology IRI |
 |---|---|---|---|---|---|---|
 | Client treasury registration, intent, mandate | PostgreSQL `ccf_v2.treasury_client` | internal-SOR (synthetic) | internal | relational | `E`, `P` | `cmns-org:LegalEntity` |
-| Reported cash and its period end | PostgreSQL `ccf_v2.treasury_client` | public-filing | public | relational | `E`, `T` | `fibo-fnd-acc-cur:CashInstrument` |
+| Reported cash and its period end | PostgreSQL `ccf_v2.treasury_client` | public-filing | public | relational | `E`, `T` | `fibo-fnd-acc-cur:MonetaryAmount` |
 | Deposit balances, currency, jurisdiction | PostgreSQL `ccf_v2.deposit_account` | internal-SOR (synthetic) | internal | relational | `E` | `fibo-fbc-pas-caa:DepositAccount` |
 | Investment positions, notional, maturity | PostgreSQL `ccf_v2.investment_position` | internal-SOR (synthetic) | internal | relational | `E` | `fibo-fbc-pas-caa:InvestmentAccount` |
 | Intraday rate tick series | PostgreSQL `ccf_v2.intraday_tick` | derived (engineered) | public | relational | `E`, `T` | `fibo-ind-ir-ir:ReferenceInterestRate` |
 | Daily reference rate series | PostgreSQL `ccf_v2.reference_rate` | public-filing | public | relational | `E`, `T` | `fibo-ind-ir-ir:InterestRateBenchmark` |
-| FX daily reference rates | PostgreSQL `ccf_v2.fx_reference_rate` | public-filing | public | relational | `E`, `T` | `fibo-fbc-fi-fi:ExchangeRate` |
+| FX daily reference rates | PostgreSQL `ccf_v2.fx_reference_rate` | public-filing | public | relational | `E`, `T` | `fibo-ind-fx-fx:QuotedExchangeRate` |
 | Deliberately stale signal fixture | PostgreSQL `ccf_v2.stale_signal` | derived (engineered) | public | relational | `T` | `fibo-ind-ir-ir:ReferenceInterestRate` |
 | Counterparty concentration limits | PostgreSQL `ccf_v2.concentration_limit` | internal-SOR (synthetic) | internal | relational | `P` | `ex:ConcentrationLimit` |
 | Permitted-instrument list by mandate | PostgreSQL `ccf_v2.permitted_instrument` | internal-SOR (synthetic) | internal | relational | `P` | `ex:PermittedInstrument` |
@@ -300,6 +423,19 @@ and the refusal is not.
 | Deposit graph — `setOffAgainst`, `nettedUnder` | Fluree `fibo-v2` | internal-SOR (synthetic) | internal | graph-traversal | `R` | `ex:setOffAgainst` |
 | **Regulatory posture, time-versioned** | Fluree `fibo-v2` | internal-SOR (synthetic) | internal | **bitemporal-ledger** | `P`, `T` | `ex:RegulatoryPosture` |
 | Counterparty identity | Fluree `fibo-v2` + PostgreSQL `ccf_v2.legal_entity` | vendor (GLEIF) | public | graph-traversal, relational | `E` | `cmns-org:LegalEntity` |
+
+**The IRI column is the vault's Wave-8 binding mirror, not this document's
+proposal.** `fibo-iri-binding` names the deposit/investment classes under
+*DEPOSIT ACCOUNTS (collateral-and-setoff, treasury-liquidity)* and the rate and
+FX classes under *RATES / FX REFERENCE (treasury-liquidity, fx-post-trade)*. Two
+bindings in this table's first draft were wrong against it and were corrected
+rather than argued: reported cash is `fibo-fnd-acc-cur:MonetaryAmount` (there is
+no bound `CashInstrument`), and the FX rate is `fibo-ind-fx-fx:QuotedExchangeRate`
+(not `fibo-fbc-fi-fi:ExchangeRate`). The `ex:` terms — `ConcentrationLimit`,
+`PermittedInstrument`, `RegulatoryPosture`, `heldAt`, `concentratedIn`,
+`setOffAgainst` — are deliberately unbound: no FIBO or Commons term covers them,
+and inventing a `spec.edmcouncil.org` IRI for an internal concept would make the
+binding mirror disagree with FIBO.
 
 Deployment detail — host, port, credential — appears nowhere in this
 specification, in the example tree, or in any artifact. `backends.yaml` carries
@@ -397,21 +533,44 @@ The forensic case, because it exercises the most surface:
 GET /context-products/treasury/liquidity-position/2549004GGE2APGNT6O92
       ?intent=reserve-buffer
       &as_of=2026-06-17T18:05:00Z
-      &max_staleness=15m
+      &max_staleness=intraday-rate:15m
       &debt_tolerance=0.25
 ```
+
+The same question as a `ProductRequest`, so the §B.5 mapping is concrete rather
+than described. **Four axes are fields; the remainder is `parameters`:**
+
+```
+ProductRequest(
+    schema_name="treasury.liquidity-position.v1",
+    schema_version="1.0.0",
+    subject="2549004GGE2APGNT6O92",            # the {lei} path segment
+    intent="reserve-buffer",
+    asked_at=datetime(2026, 6, 17, 18, 5, tzinfo=timezone.utc),   # `as_of`
+    freshness="intraday",
+    parameters={
+        "max_staleness": {"intraday-rate": "PT15M"},
+        "horizon": "intraday",
+        "debt_tolerance": 0.25,
+    },
+)
+```
+
+Note what is **absent** from `parameters`: no `lei`, no `intent`, no `as_of`.
+Each is already an axis, and a second copy in `parameters` would be a value the
+content address hashes twice and replay could resolve two ways.
 
 ### D.2 Step table
 
 | # | Operator | Capability | Inputs | Emits | Failure behavior | p95 budget |
 |---|---|---|---|---|---|---|
-| 1 | `Resolve` | relational | `lei`, `intent` | client registration, mandate, home currency, filing-period cash | `404` on unknown anchor | `[TBC — this build]` |
-| 2 | `Policy` | bitemporal-ledger | client jurisdictions, `intent`, `as_of` | posture in force per (jurisdiction, intent) + `policy_version` | `503` if the ledger is unreachable | `[TBC — this build]` |
-| 3 | `Traversal` | graph-traversal | client URI, `as_of` | position graph — `concentratedIn` to counterparties | `503` if the ledger is unreachable | `[TBC — this build]` |
-| 4 | `Enrich` | relational | position graph, `as_of`, currency set | balances, notionals, the rate tick at `as_of`, the FX observation, **each with its own `observed_at` and `temporal_class`** | `503` naming the absent source class | `[TBC — this build]` |
-| 5 | `Evaluate` | in-memory | everything above, `max_staleness` | **staleness gate**, then liquidity by currency and in home currency, weighted duration, concentration verdicts, mandate checks | **fail closed** naming the stale signal and its age | `[TBC — this build]` |
-| 6 | `Projection` | in-memory | evaluated measures, posture | the principal's view | — | `[TBC — this build]` |
-| 7 | — | in-memory | all of the above | contract assembly, `payload_hash`, `D_c`, TTL | `409` on debt gate | `[TBC — this build]` |
+| 1 | `Resolve` | relational | `lei`, `intent` | client registration, mandate, home currency, filing-period cash | `404` on unknown anchor | `[TBC — ccf_code, phase P6]` |
+| 2 | `Policy` | bitemporal-ledger | client jurisdictions, `intent`, `as_of` | posture in force per (jurisdiction, intent) + `policy_version` | `503` if the ledger is unreachable | `[TBC — ccf_code, phase P6]` |
+| 3 | `Traversal` | graph-traversal | client URI, `as_of` | position graph — `concentratedIn` to counterparties | `503` if the ledger is unreachable | `[TBC — ccf_code, phase P6]` |
+| 4 | `Enrich` | relational | position graph, `as_of`, currency set | balances, notionals, the rate tick at `as_of`, the FX observation, **each with its own `observed_at` and `temporal_class`** | `503` naming the absent source class | `[TBC — ccf_code, phase P6]` |
+| 5 | `Evaluate` | in-memory | everything above, `max_staleness` | **staleness gate**, then liquidity by currency and in home currency, weighted duration, concentration verdicts, mandate checks | **fail closed** naming the class, the signal, its age and the bound (§B.6) | `[TBC — ccf_code, phase P6]` |
+| 6 | `Projection` | in-memory | evaluated measures, posture | the principal's view | — | `[TBC — ccf_code, phase P6]` |
+| 7 | — | in-memory | all of the above | contract assembly, `payload_hash`, `D_c`, TTL | `409` on debt gate | `[TBC — ccf_code, phase P6]` |
 
 Operators come from the closed vocabulary. The staleness gate is **inside step
 5**, not a step of its own — it is an `Evaluate` precondition, and making it a
@@ -430,7 +589,7 @@ not interchangeable and the product's arithmetic treats them differently.
 
 | class | example | what the timestamp means | how `as_of` acts on it | decays? |
 |---|---|---|---|---|
-| `market-observation` | `intraday_tick.obs_ts`, `fx_reference_rate.obs_date` | an instant at which a value was observed | **selects** the observation at or before `as_of` | **yes** — λ_c, and subject to `max_staleness` |
+| `market-observation` | `intraday_tick.obs_ts`, `fx_reference_rate.obs_date` | an instant at which a value was observed | **selects** the observation at or before `as_of` | **yes** — against ITS OWN λ_c, and subject to ITS OWN §B.6 bound |
 | `policy-effectivity` | `RegulatoryPosture.validFrom` | the instant from which a rule is in force | **selects** the version in force at `as_of` | **no** — a step function. A policy is not stale; it is either in force or it is not |
 | `reporting-period-end` | `treasury_client.cash_fact_asof` | the closing label of a reporting window | **bounds** it — a period ending after `as_of` is not yet knowable | slowly, on filing cadence — never on market cadence |
 | `unobserved-holding` | `deposit_account.balance`, `investment_position.notional` | **nothing — no observation time was recorded** | **does not act on it at all** | **undefined**, and the payload says so |
@@ -464,12 +623,46 @@ differs. Chosen as the last trading day before the flip. The assertion is that
 the two runs **disagree** — if they agree, the effectivity filter was dropped
 and `as_of` is not reaching the policy leg (`TLP-G09`).
 
-**Scenario 3 — fail closed. `as_of = 2026-08-21T16:00:00Z`, `max_staleness=15m`.**
-The `stale_signal` fixture's own instant. Four signals: `SIG-000` at **45.0
-minutes**, and three at 2.5, 1.28 and 1.55 minutes. The product refuses, names
-`SIG-000` and its age, and **carries no liquidity figure at all** (`TLP-G07`,
-`TLP-G08`). A product that returned three-quarters of an answer with a warning
-would pass a "did it warn?" test and fail this one.
+**Scenario 3 — fail closed. `as_of = 2026-08-21T16:00:00Z`,
+`max_staleness = {intraday-rate: 15m}`, `currencies = ["USD"]`.**
+
+The `stale_signal` fixture's own instant, and **the scenario has to declare its
+participating signal set or `SIG-000` is preempted by something older.** This is
+a real property of the estate, measured, and it is stated here rather than
+discovered during the build:
+
+| feed | newest observation at 2026-08-21T16:00Z | age |
+|---|---|---|
+| `stale_signal` (`LIQ-*-INTRADAY`) | 2026-08-21 15:58:43Z | **1.28 – 45.0 min** |
+| `intraday_tick` (the curve) | 2026-06-23 19:55Z | **59 days** |
+| `fx_reference_rate` | 2026-08-14 | **7 days** |
+| `reference_rate` (daily) | 2026-08-20 | 1 day |
+| `cash_fact_asof` | 2026-06-30 | 52 days (period end, not an observation) |
+
+Two scoping decisions make `SIG-000` the legitimately-named refusal:
+
+- **The intraday-rate class is served from `stale_signal` at this instant, not
+  from `intraday_tick`.** They are two engineered feeds for the same signal
+  class covering **disjoint windows** — the curve feed for 2026-05-11 → 06-23,
+  the `LIQ-*` feed for 2026-08-21. The product reads whichever source holds an
+  observation at or before the decision instant; at 2026-08-21 `intraday_tick`
+  holds none, so it is **absent from the answer rather than 59 days stale**, and
+  a source with no observation in scope contributes no age. (A mandatory class
+  with *no* source at all would be `503`, not a staleness refusal — §D.7. Here
+  the class has a source.)
+- **`currencies = ["USD"]` against a USD-home client means no conversion is
+  required, so no FX observation participates** and the 7-day FX figure cannot
+  fire (§B.6, `TLP-G20`). Scope decides participation before freshness decides
+  admission. The anchor holds four USD deposit accounts totaling
+  165,388,122.30, so this is a real question and not a narrowing invented to
+  dodge the FX bound.
+
+What remains participating is exactly the four `LIQ-*-INTRADAY` signals, of
+which `SIG-000` at **45.0 minutes** is the only one over its 15-minute bound and
+the oldest of the four. The product refuses, names `SIG-000`, its age and the
+bound it broke, and **carries no liquidity figure at all** (`TLP-G07`,
+`TLP-G08`, `TLP-G22`). A product that returned three-quarters of an answer with
+a warning would pass a "did it warn?" test and fail this one.
 
 ### D.5 Determinism and the emitted contract
 
@@ -478,14 +671,29 @@ same `as_of`, the same ledger `t` and the same Control Plane state, the product
 returns byte-identical bytes. `payload_hash` is `sha256` over the canonical
 bytes excluding `assembled_at`.
 
-The envelope is the §8 response envelope, populated with types, with a payload
-carrying: client identity and mandate; liquidity by currency and in home
+The envelope is the §8 response envelope, populated with types. **The payload
+carries the answer; the governed surfaces carry the evidence** (§B.7), and the
+split is deliberate — a figure duplicated across both is a figure that can
+disagree with itself.
+
+**Payload** — client identity and mandate; liquidity by currency and in home
 currency with the FX observation used for each conversion; weighted duration
-against the tick curve; per-counterparty concentration with its three-valued
+against the rate curve; per-counterparty concentration with its three-valued
 verdict and the coverage ratio; the mandate kind and tenor checks reported
-separately; the posture in force with its `validFrom` and version; filing-period
-cash with its period end; and **a signal register listing every element with its
-`observed_at`, its `temporal_class` and its age at the decision instant**.
+separately; the posture in force with its `validFrom` and version id;
+filing-period cash with its period end; and **a signal register listing every
+participating element with its `observed_at`, its `temporal_class` and its age
+at the decision instant**.
+
+**`ProductLineage`** — `operators_invoked`, `policy_bundle_versions`,
+`graph_snapshot_at`. Three fields, and this product adds none. `TLP-G02` holds
+the served set to strict equality against the plan's typed operator references.
+
+**The other surfaces** — `D_c` and its components on the debt assessment,
+resolved against the effective tolerance and the authority that established it;
+the content address on the governed product; the operator plan, perspective and
+request axes in the five-dimension replay record. `TLP-G21` asserts the payload
+carries no second copy of any of them.
 
 ### D.6 Replay
 
@@ -509,7 +717,7 @@ was dropped.**
 Six universal, without re-argument: empty-operator guard · lineage strict
 equality · TTL bounds · debt gate · suppression silence · classification
 containment. These are `TLP-G01` … `TLP-G06`. The product-specific gates are
-`TLP-G07` … `TLP-G18` and are tabulated in §G.1.
+`TLP-G07` … `TLP-G22` and are tabulated in §G.1.
 
 **Error mapping.**
 
@@ -518,7 +726,7 @@ containment. These are `TLP-G01` … `TLP-G06`. The product-specific gates are
 | `lei` has no `treasury_client` row | 1 | `404` — distinct from a client with no positions, which is `200` with an empty holdings block |
 | principal not entitled to the client | 2 | `403`, no detail on what exists |
 | `include_proposals=true` | 0 (validation) | `400 not_supported_at_tier` |
-| a freshness-bearing signal exceeds `max_staleness` | 5 | **refusal** naming the signal and its age, **no partial payload** |
+| a **participating, mandatory** signal class exceeds ITS bound (§B.6) | 5 | **refusal** naming the class, the signal, its age and the bound, **no partial payload**. A non-mandatory class never reaches here — it contributes debt |
 | `D_c` exceeds `debt_tolerance` | 7 | `409` with the debt block |
 | ledger or relational leg unreachable | 2, 3, 4 | `503` naming the source class |
 | concentration limits absent for some counterparties | 5 | `200` with `limit-unknown` verdicts and the coverage ratio — **not** a silent pass |
@@ -549,6 +757,12 @@ counterparty within its limit, and the payload never lets the two read the same.
 | Regulatory posture | **no decay — step function** | **measured** (`validFrom`) | — | posture amendment |
 | Deposit balance, investment position | **none — unobserved** | **measured (absence)** | — | — |
 
+**This table is the decay model; §B.6 is the refusal rule.** They are keyed on
+the same signal classes and they are not the same thing — a class can decay
+(contributing debt) without being able to refuse, and `regulatory posture` does
+neither. Where a reader needs to know *what happens when a signal is old*, §B.6
+is the authority.
+
 **λ_c is a half-life, not a refresh cadence.** The 15 minutes on the tick row is
 a decay rate chosen so the control is observable; it is not a claim that the
 estate refreshes every 15 minutes, and §D.4's instants are pinned precisely so
@@ -564,11 +778,16 @@ recorded no observation time, and inventing one would be the defect.
 `D_c = 1 − (F · C · S)`, multiplicative, so a collapsed dimension forces
 escalation rather than averaging away.
 
-- **F — freshness.** Normalized over the **required freshness-bearing classes**
-  — intraday rate, FX, and the filing figure — **not** over classes present.
-  `unobserved-holding` and `policy-effectivity` are **excluded from both
-  numerator and denominator**, because including a class with no observation
-  time would let the absence of a timestamp improve the score.
+- **F — freshness.** Normalized over the **participating freshness-bearing
+  classes** — **not** over classes present, and not over the whole §B.6 table.
+  Two exclusions, each for its own reason: `unobserved-holding` and
+  `policy-effectivity` are excluded from numerator *and* denominator, because a
+  class with no observation time would let the absence of a timestamp improve
+  the score, and a posture is in force or it is not; and a class the request's
+  **scope** never required — FX under `currencies=["USD"]` for a USD-home client
+  — is not a missing input and does not enter the denominator either. Each
+  participating class decays against **its own** λ_c (§E.1), never against the
+  intraday 15 minutes.
 - **C — completeness.** `resolved / served`. Two live terms in this product:
   concentration-limit coverage (4 of 7 for the anchor, 60 of 103 estate-wide)
   and counterparty identity resolution (45 of 45, so it contributes nothing
@@ -651,9 +870,24 @@ eagerly.
 
 ### F.2 Open `[TBC]` register
 
-**Empty.** Every element above was measured against the live estate on
-2026-09-11. The `[TBC — this build]` markers in §D.2 are p95 budgets, which
-cannot exist before code does and close at Gate 2.
+Every element in §C was measured against the live estate on 2026-09-11, so no
+`[TBC]` is owed by the vault or by `ccf_dataprep`. **Seven remain, all of one
+kind, all owned by this repository**, and each names what closes it:
+
+| Term | Owner | What was asked | Closes at |
+|---|---|---|---|
+| §D.2 step 1 p95 — `Resolve` | `ccf_code` | measured latency of the anchor resolution | phase P6 |
+| §D.2 step 2 p95 — `Policy` | `ccf_code` | measured latency of the posture read at `as_of` | phase P6 |
+| §D.2 step 3 p95 — `Traversal` | `ccf_code` | measured latency of the `concentratedIn` walk | phase P6 |
+| §D.2 step 4 p95 — `Enrich` | `ccf_code` | measured latency of the batched balance/position/rate/FX read | phase P6 |
+| §D.2 step 5 p95 — `Evaluate` | `ccf_code` | measured latency of the staleness gate and the measures | phase P6 |
+| §D.2 step 6 p95 — `Projection` | `ccf_code` | measured latency of the principal's view | phase P6 |
+| §D.2 step 7 p95 — contract assembly | `ccf_code` | measured latency of assembly, hashing and the debt computation | phase P6 |
+
+**A budget is not guessed at Gate 1.** A plausible number that survives review
+becomes a figure someone plans against, and §G.1's service objectives would then
+be authored against a fiction. The envelope total and the dominating step are
+stated at Gate 2 with the measurement that produced them.
 
 ### F.3 Recorded findings — no decision needed to build
 
@@ -676,11 +910,54 @@ write would make that a promise rather than a guarantee.
 
 ## G · Operate and govern
 
-**Accountable owner.** Treasury product engineering owns assembly; the treasury
-policy function owns limits, mandates and the posture overlay; market data
-operations owns the rate and FX feeds. Roles, not individuals.
+**Accountable owner — roles, never individuals.**
 
-**Lifecycle.** `draft` at Gate 1 → `in-build` → `certified` at Gate 2.
+| Role | Owns |
+|---|---|
+| Treasury product engineering | assembly, the operator plan, the emitted contract, this specification |
+| Treasury policy function | the concentration-limit register, permitted-instrument lists, the regulatory-posture overlay and its versions |
+| Market data operations | the rate and FX feeds and their observation timestamps |
+| Control Plane governance | the staleness profile (§B.6), the λ_c table (§E.1), the debt tolerance defaults |
+
+**Lifecycle: `draft` at Gate 1 → `in-build` → `certified` at Gate 2 →
+`deprecated` on MAJOR supersession.** The front matter carries the current
+value; this document is `draft` until Dave approves it.
+
+**Review cadence.** At every Control Plane change to the staleness profile, the
+concentration-limit register or the posture overlay — because each of those
+changes what the product refuses — and no less than annually.
+
+**Service objectives.** p50/p95 per operator, request volume, concurrency, the
+payload bound and the **absolute** per-call cost beside the ×2–4 relative band
+are all `[TBC — ccf_code, phase P6]` per §F.2, for the reason stated there.
+
+**Degradation contract, per input class. The mandatory classes are named:**
+
+| Input class | Mandatory? | Degraded behavior |
+|---|---|---|
+| Anchor resolution | **yes** | `404` — the request named an entity this product does not serve |
+| Regulatory posture for a (jurisdiction, intent) | **yes** | `503` — the product will not serve a view it cannot authorize |
+| Intraday rate at `as_of` | **yes, when the class participates** | refusal naming the signal, its age and its bound |
+| FX for a participating currency | **yes, when a conversion is required** | refusal for that currency; scope may remove the requirement entirely (§B.6) |
+| Concentration limits | no | verdict `limit-unknown`, coverage ratio published |
+| Permitted-instrument list | no | mandate check `NOT_EVALUABLE` |
+| Filing-period cash | no | block omitted, debt contribution recorded |
+| Deposit balances, positions | **yes** | `503` — there is no liquidity answer without them |
+
+**Observability.** Per-operator latency; the `D_c` distribution and its
+components; gate failures **by gate id**; refusals by signal class and by bound;
+cache hit rate; entitlement denials; degradation-branch frequency; posture
+supersession invalidations. This is the evidence base that moves §E.1's
+`illustrative` rows to `measured`, and until it exists those rows stay labeled.
+
+**Retention and record of record.** The served product, its `ProductLineage` and
+its five-dimension replay record are the record of record, held in the
+ArtifactStore and addressed by content. Source rows are the systems of record's
+to retain; this product retains no copy of them.
+
+**Test fixtures.** `tests/examples/test_cp_09_output.py`, marked for the
+Postgres and Fluree legs, seeding neither — the curated estate is read, per
+CLAUDE.md §9.
 
 ### G.1 Product gates
 
@@ -704,6 +981,10 @@ operations owns the rate and FX feeds. Roles, not individuals.
 | `TLP-G16` | at `2026-06-17T18:05Z` the anchor reports 2 positions exceeding the 365-day mandate tenor (`POS-00025` at 378 d, `POS-00028` at 368 d) | inert mandate check |
 | `TLP-G17` | an LEI with no `treasury_client` row returns `404`, distinct from a client with no positions | request-error vs world-fact confusion |
 | `TLP-G18` | the product reads one of `heldAt` / `concentratedIn` and records which | claiming information the estate does not carry |
+| `TLP-G19` | `subject`, `intent`, `asked_at` and `freshness` are `ProductRequest` FIELDS, and none of them also appears in `parameters` | request identity demoted to a parameter, and hashed twice |
+| `TLP-G20` | with `currencies=["USD"]` on a USD-home client, no FX observation participates and no FX bound can fire | freshness deciding admission before scope decides participation |
+| `TLP-G21` | the payload carries no second copy of `D_c`, the content address or the policy-bundle versions | two copies of one figure, free to disagree |
+| `TLP-G22` | at `2026-08-21T16:00Z` the participating signal set is exactly the four `LIQ-*-INTRADAY` rows, and `SIG-000` is the named refusal | a stale-fixture demonstration preempted by an older signal nobody scoped out |
 
 Every gate is made to fail deliberately at least once before Gate 2, and each
 sabotage is recorded.
@@ -723,8 +1004,12 @@ sabotage is recorded.
 6. Replay at a pinned `as_of` reproduces `payload_hash` exactly.
 7. `D_c` is computed over freshness-bearing classes only, and removing a
    concentration limit **raises** it.
-8. All 18 gates execute, each with a docstring naming its id, and each has been
-   observed failing.
+8. The four §6.3 axes reach the SDK as `ProductRequest` fields and `parameters`
+   holds only the class-declared remainder.
+9. `ProductLineage` carries exactly three fields and the payload duplicates none
+   of the governance evidence §B.7 places elsewhere.
+10. All 22 gates execute, each with a docstring naming its id, and each has been
+    observed failing.
 
 **Open decisions blocking build: none.** §F.2 is empty.
 
