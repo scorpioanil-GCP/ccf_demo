@@ -136,17 +136,28 @@ And there is a second aggregation that destroys it just as thoroughly:
 collapsing a *time series* into its endpoints. §C.4 records both, because both
 were run here.
 
-### A.2 The worked case — Celanese Corp, `549300FHJQTDPPN41627`
+### A.2 The worked case — Celanese Corp `549300FHJQTDPPN41627`, bond `syn-i-b23153`
 
-Measured. The market moved first; the credit file followed 95 days later, and
+**The unit is the BOND** (§D.3, amended at Gate 1 on 2026-09-12). A bond is what
+trades; the obligor-level figure is a convenience, and §C.4 TRAP 6 records what
+that convenience costs here.
+
+Measured. The market moved first; the credit file followed 96 days later, and
 said so in its own words.
 
 | when | what | source |
 |---|---|---|
-| **2024-12-12** | issuer-specific spread peaks at **131.1 bp** — **4.5×** this issuer's own 29.4 bp median, with the market component already netted out | `spread_observation` |
+| **2024-12-11** | on the **5-year** bond `syn-i-b23153`, the issuer-specific spread peaks at **233.2 bp** — **8.0×** that bond's own 29.0 bp median, with the market component already netted out | `spread_observation` |
+| same day | the **25-year** bond `syn-i-f87e69` reaches **28.9 bp** — **1.3×** its own median. **No episode.** The concern is entirely at the short end | `spread_observation` |
 | 2025-02-17 | quarterly review. Grade **unchanged at BB** | ledger |
 | **2025-03-17** | grade moves **BB → BB-**, trigger: *"ad hoc credit review following sustained spread widening in the obligor's traded debt"* | ledger |
 | 2025-03-21 | that assertion is **booked** — four days after it took effect | ledger `assertedAt` |
+
+**This is the only episode in the estate whose grade change is both a downgrade
+and off-cycle.** Measured across all 96 bonds: 15 episodes, 5 followed by some
+grade change, and **exactly one** where that change is a downgrade *and*
+off-cycle. The other four are on-cycle reviews, three of them upgrades — near
+in time and opposite in meaning, which is TRAP 2 restated at bond level.
 
 **The acceptance test, as a procedure that can fail:**
 
@@ -161,23 +172,34 @@ said so in its own words.
 A product that averaged the series, or that compared the peak to the *current*
 grade instead of the grade **in force at the time**, fails step 2 or 3.
 
-### A.3 The five cases where the market moved and the grade never did
+### A.3 The cases where the market moved and the grade never did
 
-The other half of the demonstration, and the larger half. Measured over the
-same window, market component netted out, each against **that issuer's own**
-median:
+The other half of the demonstration, and the larger half. **Measured per bond**,
+market component netted out, each against **that bond's own** median. Ten of the
+fifteen episodes are followed by no grade change at all; the six largest:
 
-| obligor | peak idiosyncratic | multiple of own median | grade |
-|---|---|---|---|
-| `529900VKCYZW8GZ4WW58` | 162.9 bp | **4.2×** | never moved |
-| `254900HM1ABRDJ7T5718` | 113.5 bp | **5.4×** | never moved |
-| `5493004Q1NNH6JXCSI52` | 98.3 bp | **6.5×** | never moved |
-| `5493004HBTOTE9DI9P12` | 82.7 bp | **4.5×** | never moved |
-| `5493003QENHHS261UR94` | 68.0 bp | **2.9×** | never moved |
+| obligor | bond | tenor | peak idiosyncratic | multiple of **that bond's** median | grade |
+|---|---|---|---|---|---|
+| `5493004Q1NNH6JXCSI52` | `syn-i-991bbc` | 10y | 178.8 bp | **14.2×** | never moved |
+| `254900HM1ABRDJ7T5718` | `syn-i-6e26db` | 7y | 201.7 bp | **9.4×** | never moved |
+| `529900VKCYZW8GZ4WW58` | `syn-i-4d322a` | 25y | 282.6 bp | **7.0×** | never moved |
+| `5493004HBTOTE9DI9P12` | `syn-i-5c7d89` | 2y | 83.8 bp | **5.0×** | never moved |
+| `5493004HBTOTE9DI9P12` | `syn-i-b2c3fe` | 18y | 81.6 bp | **4.1×** | never moved |
+| `5493003QENHHS261UR94` | `syn-i-b20157` | 10y | 72.5 bp | **2.6×** | no *downgrade* |
+
+**Bond-level detection finds more, and finds it sharper.** The obligor-level
+pass this table replaced reported six episodes at 2.9×–6.5×; the bond-level pass
+reports fifteen at up to 14.2×. The obligor-level multiples were not wrong
+arithmetic — they were the right arithmetic on the wrong unit.
+
+**`5493004HBTOTE9DI9P12` appears twice, and that is information.** Both its
+bonds — a 2-year and an 18-year — episode on the same day. A concern visible
+across the whole curve is a different credit story from one confined to the
+short end, and an obligor-level average cannot tell them apart.
 
 **These are not errors in the credit file and the product does not call them
-errors.** It reports that two independent assessments of one obligor disagree,
-by how much, and for how long. What to do about that is the credit officer's.
+errors.** It reports that two independent assessments disagree, by how much, on
+which bond, and for how long. What to do about that is the credit officer's.
 
 ### A.4 Scope boundary
 
@@ -377,16 +399,27 @@ measurement of this very specification.** Both are recorded because they are
 the product's own counterfactual, committed by its own author.
 
 - **TRAP 1 — endpoint aggregation reports ZERO divergence.** The first
-  measurement compared each obligor's mean idiosyncratic spread over the first
-  20 days against the last 20 days, and looked for cases where the spread
-  widened while the grade held. It found **none**. The episodes are *transient*:
-  `529900VKCYZW8GZ4WW58` peaks at 162.9 bp against a 38.7 bp median and returns
-  to 38.0 bp by the window's end, so its endpoint delta is **−4.3 bp**. A
-  start-versus-end comparison does not merely understate the signal, it
-  **inverts** it. **Binding:** episodes are detected against the obligor's own
-  median over the window, never against its endpoints. **Cost:** a threshold
-  that is per-obligor rather than absolute, which is the right shape anyway —
-  a 100 bp move means different things at AA and at B.
+  measurement compared each series' mean idiosyncratic spread over the first 20
+  days against the last 20 days, and looked for cases where the spread widened
+  while the grade held. It found **none**.
+
+  The episodes are *transient*, and restated at the corrected unit (TRAP 6) the
+  inversion is starker still:
+
+  | bond | start | end | **endpoint Δ** | median | peak | multiple |
+  |---|---|---|---|---|---|---|
+  | `syn-i-4d322a` | 42.1 | 40.8 | **−1.2 bp** | 40.3 | 282.6 | **7.0×** |
+  | `syn-i-b23153` | 28.5 | 23.7 | **−4.9 bp** | 29.0 | 233.2 | **8.0×** |
+
+  **The anchor's own bond — the product's headline case — looks like a 4.9 bp
+  IMPROVEMENT under endpoint differencing**, while it in fact reached eight
+  times its normal level and drew an off-cycle downgrade. A start-versus-end
+  comparison does not merely understate the signal, it **inverts the sign**.
+
+  **Binding:** episodes are detected against the series' own **median** over the
+  window, never against its endpoints. **Cost:** a threshold that is per-series
+  rather than absolute, which is the right shape anyway — a 100 bp move means
+  different things at `AA` and at `B`.
 - **TRAP 2 — temporal proximity is not confirmation.** The second measurement
   asked whether a grade changed within 45 days of the spread peak and found
   **6 of 6** — apparently every episode confirmed. But quarterly reviews land
@@ -398,6 +431,46 @@ the product's own counterfactual, committed by its own author.
   **downgrade**, and is **off-cycle**; all three are asserted separately.
   **Cost:** the confirmation count drops from six to one, which is the true
   figure.
+- **TRAP 6 — cross-instrument averaging hides and inverts credit signals, exactly
+  as time averaging does.** Found at Gate 2 build, against the Gate-1 spec's own
+  headline number, and the amendment is `D-GATE-cp-10` Gate 1 reopened on
+  2026-09-12.
+
+  **The measurement.** Celanese has two bonds whose idiosyncratic spreads are
+  normally indistinguishable — medians **29.0** and **29.5 bp**. On 2024-12-11
+  they read **233.2** and **28.9 bp**:
+
+  | bond | tenor | matures | median | peak | multiple |
+  |---|---|---|---|---|---|
+  | `syn-i-b23153` | 5y | 2031-08-04 | 29.0 bp | **233.2 bp** | **8.0×** — an episode |
+  | `syn-i-f87e69` | 25y | 2050-12-17 | 29.5 bp | 37.4 bp | 1.3× — **no episode** |
+
+  Averaging them gives 131.1 bp against a blended 29.4 bp median — **4.5×**. So
+  the average **halves the peak, halves the multiple, and erases the fact that
+  the concern is entirely at the short end.** A term-structure signal becomes a
+  smaller undifferentiated one.
+
+  **Not a Celanese quirk.** Measured across the estate: **5,267 (obligor, date)
+  pairs** where one bond's idiosyncratic spread is more than twice the other's;
+  the worst obligor reaches **231.6×** at its widest and averages **5.3×** every
+  day; one obligor carries a negative residual on one leg while the other is
+  positive, so their average describes a bond that does not exist.
+
+  **Binding:** the **instrument is the primary observation unit** for spread and
+  for episode detection. **Instruments are never averaged before detection**
+  (`RSM-G09`, `RSM-G24`). An obligor-level spread figure is a **derived summary**
+  and is served only with its dispersion beside it.
+
+  **Cost:** more episodes to report — fifteen rather than six — and a payload
+  that is a series per bond rather than one per obligor. That is the shape of
+  the evidence.
+
+  **Why it is recorded as a trap and not a correction.** The Gate-1 spec was
+  internally consistent and implementable exactly as written; building it would
+  have reproduced 131.1 bp faithfully. The number was not wrong, it was **the
+  right arithmetic on the wrong unit** — and it is the product's own thesis,
+  committed by its own author, for the third time in this document.
+
 - **TRAP 3 — the spread is not observed, it is decomposed.** There is no TRACE
   in this estate. `spread_bp = market_oas_bp + idiosyncratic_bp`, and
   `yield_bp = benchmark_bp + spread_bp`. **Binding:** the payload serves the
@@ -523,9 +596,28 @@ yield_bp  =  benchmark_bp  +  market_oas_bp  +  idiosyncratic_bp
 function, and smoothing it invents intermediate states that never existed
 (`RSM-G12`).
 
-**An episode is measured against the obligor's own median**, not an absolute
-threshold — TRAP 1's binding, and the right shape independently: 100 bp means
-different things at `AA` and at `B`.
+**THE INSTRUMENT IS THE PRIMARY OBSERVATION UNIT.** A bond is what trades and
+what carries a spread; an obligor-level spread is an average over instruments
+that may be pricing different things. **Episodes are detected per bond, against
+that bond's own median**, and **instruments are never averaged before
+detection** (§C.4 TRAP 6, `RSM-G09`, `RSM-G24`).
+
+**An obligor-level spread figure is a DERIVED SUMMARY, and never travels
+alone.** Where an obligor has more than one instrument the payload carries the
+summary **with its dispersion** — at minimum the per-bond values it was computed
+from — so a reader can see whether it describes a bond or no bond. Measured:
+5,267 (obligor, date) pairs in this estate have one bond more than twice the
+other.
+
+**The grade comparison stays at obligor level, and that asymmetry is
+deliberate.** The internal grade is an assessment of the *obligor*; the spread
+is a price on a *bond*. The product compares bond-market signals against
+obligor-level internal credit assessment, and does not invent a per-bond grade
+to make the two units match.
+
+**The median is per bond**, not absolute — TRAP 1's binding at the corrected
+unit, and the right shape independently: 100 bp means different things at `AA`
+and at `B`, and different things on a 2-year and a 25-year.
 
 **The market leg is netted on `static_issue_band`, and the product says so
 rather than correcting for it.** The band is the instrument's at issue and does
@@ -540,14 +632,21 @@ its issue band, and never as unqualified "pure issuer deterioration"
 
 ### D.4 The scenarios
 
-**Scenario 1 — the confirmation.** `549300FHJQTDPPN41627`, full window. The
-peak at 131.1 bp on 2024-12-12 with **BB** in force; the downgrade to **BB-** on
-2025-03-17, off-cycle, 95 days later; the four-day booking lag. The product
-reports the lag as a figure.
+**Scenario 1 — the confirmation.** `549300FHJQTDPPN41627`, bond
+**`syn-i-b23153`** (5y), full window. Peak **233.2 bp** on 2024-12-11 —
+**8.0×** that bond's own median — with the obligor's grade **BB** in force; the
+downgrade to **BB-** on 2025-03-17, **off-cycle**, **96 days** later; the
+four-day booking lag. The product reports the lag as a figure.
 
-**Scenario 2 — a standing disagreement.** `529900VKCYZW8GZ4WW58`. Peak 162.9 bp,
-**4.2× its own median**, grade **B** throughout and still **B** at the window's
-end. Two assessments of one obligor that never reconciled.
+**The sibling bond is part of the scenario, not a footnote.** `syn-i-f87e69`
+(25y) reaches 1.3× its own median on the same day and produces **no episode**.
+The two bonds' medians are 29.0 and 29.5 bp — normally indistinguishable — so
+the divergence is the signal and the average is what hides it (§C.4 TRAP 6).
+
+**Scenario 2 — a standing disagreement.** `529900VKCYZW8GZ4WW58` (Sabre Corp),
+bond **`syn-i-4d322a`** (25y). Peak **282.6 bp**, **7.0× that bond's own
+median**, on 2026-01-23; grade **B** throughout and still **B** at the window's
+end. Two assessments that never reconciled.
 
 **Scenario 3 — the market move that is not a deterioration. `549300TRW1LZMDJZAQ78`
 (B&G Foods, Inc.), `2025-02-18 → 2025-04-07`.** Measured, not asserted:
@@ -718,6 +817,7 @@ No `[TBC]` is owed by the vault or by `ccf_dataprep`.
 | `CP10-F-02` | **No thinly-traded instruments with observation gaps.** Coverage is 468–499 of 499 dates per instrument. The vault's §F requirement is removed from this rung by ruling rather than simulated. | ESTATE-LIMITATION |
 | `CP10-F-03` | **No agency ratings anywhere in the estate**, verified across 118 tables. The licensing boundary is satisfied by construction, not by a filter. The internal scale's agency-style letters are labeled as internal at every site. | NOT-A-GAP |
 | `CP10-F-04` | **The benchmark basis is `static_issue_band`.** The market component is the OAS of the band the instrument was issued into, and it does not migrate with the obligor. Measured: all 30 rated obligors were in their issue band at the window's start; **2 of 30 had left it by the end**, one of them a §A.3 divergence case netted against `BBB` while graded `BB+`. Because `BB` trades far wider than `BBB` (156→306 vs 98→149 bp over the §D.4 window), the error is **directional**: the market component is understated and the residual overstated, precisely for the obligors the product cares most about. Four bindings at §C.4 TRAP 4; enforced by `RSM-G23`. **No band is inferred from the internal grade** — that would make the market leg a function of the grade the divergence is measured against. | ESTATE-LIMITATION |
+| `CP10-F-06` | **Cross-instrument averaging halved the anchor's peak and its multiple, and erased a term-structure signal.** Found at Gate 2 build against the Gate-1 spec's own headline figure; **Gate 1 was reopened for this amendment alone** (Dave, 2026-09-12). The instrument is now the primary observation unit; obligor-level spread is a derived summary that never travels without its dispersion. Measured: 5,267 (obligor, date) pairs carry one bond at more than twice the other. | FIXED-gate-1-amendment |
 | `CP10-F-05` | **Two naive aggregations produced confidently wrong answers during Gate 1 measurement** — endpoint differencing reported zero divergence and inverted the sign; temporal proximity reported six confirmations where there is one. Both are recorded at §C.4 as the product's own counterfactual, committed by its own author. | NOT-A-GAP |
 
 ### F.4 Access path
@@ -760,8 +860,8 @@ last one is the evidence base that would move the 90-day grade λ_c from
 | `RSM-G06` | payload classification is the highest contributing | classification leak |
 | `RSM-G07` | the three spread components are served separately and never pre-summed | the aggregation at §A.1 |
 | `RSM-G08` | every divergence figure is computed on `idiosyncratic_bp`, not on `spread_bp` | a market move reported as a deterioration |
-| `RSM-G09` | an episode is detected against the obligor's own median, not an absolute threshold | TRAP 1 |
-| `RSM-G10` | the anchor's peak reports the grade **in force on that date**, not the current grade | comparing a past move to a present grade |
+| `RSM-G09` | an episode is detected **per bond**, against **that bond's own** median, never against an absolute threshold and never on an inter-instrument average | TRAP 1 and TRAP 6 |
+| `RSM-G10` | a bond's peak reports the **obligor's** grade in force on that date, not the current grade — the units are deliberately different (§D.3) | comparing a past move to a present grade |
 | `RSM-G11` | a confirmation requires a change that is later, a downgrade, and off-cycle — all three asserted separately | TRAP 2 |
 | `RSM-G12` | the grade series is resampled, never interpolated across a change | invented intermediate grades |
 | `RSM-G13` | `validFrom` and `assertedAt` are both served and are distinguishable | collapsing the two clocks |
@@ -774,6 +874,7 @@ last one is the evidence base that would move the 90-day grade λ_c from
 | `RSM-G20` | every grade carries its scale id and provenance; no agency name appears anywhere in the payload | the licensing boundary failing by presentation |
 | `RSM-G21` | the payload carries no second copy of `D_c`, the content address or the policy versions | two copies of one figure |
 | `RSM-G22` | a market-wide widening with flat idiosyncratic spread produces **no** episode — asserted on `549300TRW1LZMDJZAQ78` over `2025-02-18 → 2025-04-07`, where the headline moved +166.6 bp and the residual +1.5 bp | scenario 3 |
+| `RSM-G24` | an obligor-level spread figure never travels without its dispersion; the per-bond values it summarizes are carried beside it | TRAP 6 — a summary read as an observation |
 | `RSM-G23` | every spread figure names its basis as `static_issue_band`; an obligor whose grade has migrated out of its issue band is FLAGGED; the payload never calls the residual unqualified "pure issuer deterioration"; and no band is ever derived from the internal grade | `CP10-F-04` presented as precision it does not have |
 
 Every gate is made to fail deliberately at least once before Gate 2, and each
@@ -782,12 +883,14 @@ sabotage is recorded with its state — `passed`, `unavailable` or
 
 ### G.2 Acceptance criteria
 
-1. The anchor's peak is reported with the grade in force on that date, and that
-   grade is `BB`.
+1. The anchor bond `syn-i-b23153` reports a peak of 233.2 bp at **8.0×** its own
+   median, with the obligor's grade in force on that date reported as `BB` —
+   and the sibling bond `syn-i-f87e69` reports **no episode** on the same day.
 2. The confirming change is later, a downgrade, and off-cycle — each asserted
    separately, and the lag reported as a figure.
-3. The five standing-disagreement obligors each report an episode with no
-   confirming change.
+3. Ten bond-level episodes are followed by no grade change, and the six largest
+   are reported with their tenor. No episode is detected on an average of two
+   instruments.
 4. A market-wide widening with flat idiosyncratic spread produces no episode.
 5. Every series in the payload declares its native cadence and its window.
 6. `validFrom` and `assertedAt` are both present and differ for at least one
@@ -797,7 +900,9 @@ sabotage is recorded with its state — `passed`, `unavailable` or
    `as_of` omits the confirming change entirely.
 9. Every spread figure names `static_issue_band`, the two migrated obligors are
    flagged, and no band is derived from a grade.
-10. All 23 gates execute, each with a docstring naming its id, and each has been
+10. An obligor-level spread figure, wherever one is served, carries the per-bond
+    values it was computed from.
+11. All 24 gates execute, each with a docstring naming its id, and each has been
    observed failing or recorded as `unavailable` with the upstream guard named.
 
 **Open decisions blocking build: none.**
