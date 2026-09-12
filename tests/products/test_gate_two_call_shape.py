@@ -738,6 +738,35 @@ RULED_SDK_SUPPLIED_DEPLOYMENTS: frozenset[str] = frozenset(
         # tree. This entry records what the predicate already answers; it is not
         # what makes the answer true.
         "examples/cp-07-client-360-coverage-graph",
+        # `D-IMPL-141` admission ruled by Dave, 2026-09-12 — rung 8, and the
+        # entry is a ROSTER change only: no line of `examples/cp-08-…` moves
+        # with it and `D-IMPL-141` is not reinterpreted. Dave's basis, in his
+        # own order:
+        #
+        #   - the red exists on `origin/main`, so it is not introduced by
+        #     `D-IMPL-331` or `D-IMPL-332` — verified by checkout, not inferred;
+        #   - cp-08 already claims the approved `D-IMPL-141` SDK-supplied
+        #     exemption;
+        #   - `shape_of == "canonical"` proves the required canonical form;
+        #   - governed-resolver ownership is proven;
+        #   - no local governance region or substitute implementation is being
+        #     concealed by the exemption.
+        #
+        # THE RULING AUTHORIZED THE MOVE; THE TREE PROVED IT, in that order and
+        # with the measurement taken first. Before this line was written:
+        # `shape_of` reads `"canonical"`, `resolver_ownership` finds the one
+        # `build_governed_resolver` call at `produce.py:128`,
+        # `governed_seam_calls` is empty, `legacy_governance_regions` is empty,
+        # `print_problems` is empty, and `_sdk_supplied_deployments()` already
+        # names this root. This entry records what the predicate answers; it is
+        # not what makes the answer true.
+        #
+        # WHY IT SAT UNROSTERED. cp-08 shipped canonical at `D-GATE-cp-08` and
+        # nobody added the line, so `test_the_sdk_supplied_exemption_has_not_spread`
+        # has been red on `main` since. The gap was found by rung 9 tripping
+        # the same assertion, which is the roster working as designed: a claim
+        # the Control Plane cannot see is red until a human rules on it.
+        "examples/cp-08-covenant-in-force-as-of",
     }
 )
 
