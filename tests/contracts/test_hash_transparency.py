@@ -305,9 +305,11 @@ _MARKED_IN_THE_TREE = frozenset(
         # real instant and renders it. What the sentinel buys is that a claim
         # whose source could not say renders WITHOUT it, which is the honest
         # shape of "we do not know" and moves no existing address.
-        # Named on both CONCRETE claim classes rather than on the
-        # `_TemporalClaim` base they inherit it from, because the walk reads
-        # the classes that actually get hashed.
+        # Named on the BASE and on both concrete claim classes: the walk
+        # reports the field once per class that declares or inherits it, and a
+        # roster naming only the leaves would go red the moment somebody read
+        # the base directly.
+        "ccf.contracts.claims._TemporalClaim.valid_from",
         "ccf.contracts.claims.EntityClaim.valid_from",
         "ccf.contracts.claims.RelationshipClaim.valid_from",
         # `D-IMPL-331`. `None` is the honest value where a source could not say

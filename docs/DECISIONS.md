@@ -2829,3 +2829,38 @@ Dave ruled the repair and the boundary together: *"Fix the 2-line unpack. It is 
 **A NOTE ON SCOPE.** This entry does not rule on cp-09's own λ_c declarations, which classes declare `valid-from`, or the `D-IMPL-141` exemption roster — the last of which is red on `origin/main` for `cp-08` and predates this work.
 
 **Next free decision id: `D-IMPL-332`.** **Governs:** which instant a λ_c row decays against, and the refusal when the declared one is absent. **Related:** `D-IMPL-243` (hash transparency; silence equals yesterday), `24.5-L-22` (`decay`, the two decay modes this field's shape follows), `D-IMPL-38` (an instant names its zone), `D-IMPL-289` (compensating code is deleted, not relocated — why cp-09 raised this instead of supplying a local scorer), `CP09-F-06`, `D-GATE-cp-08`.
+
+---
+
+**D-IMPL-332 — Preserve absence of valid-time. `observed_at` means when the fabric learned the claim; `valid_from` means when the claim was true in the world. If the source does not supply a valid-time, `valid_from` stays ABSENT and the SDK does not substitute ingestion time.** RESOLVED. Date: 2026-09-11. Ruled by: Dave, locked, immediately after `D-IMPL-331` — because `_stitch` defeated 331's contract from below. **The principle, in Dave's words:** *"Unknown must remain unknown. The CCF must never turn 'we learned it at 2 PM' into 'it became true at 2 PM.'"*
+
+**WHAT 331 COULD NOT REACH.** `D-IMPL-331` let a λ_c row declare `decay_basis: valid-from` and refuse with `MissingDecayInstant` when the instant is absent. `src/ccf/assembly/worker.py::_stitch` wrote `valid_from = envelope.observed_time or envelope.ingestion_timestamp`, so a claim produced by the fabric **never** had a null `valid_from` — the refusal guarded only the direct-construction path, and a `valid-from` row read a manufactured instant and reported perfect freshness for an observation whose real age nobody knew. The fabric was answering a question about the world with a fact about itself.
+
+**THE CHANGE.**
+
+- `_stitch` returns `envelope.observed_time` unchanged, `None` included. `observed_at = ingestion_timestamp` is **untouched**, and so is `source_refresh_recency`.
+- `ccf.contracts.claims._TemporalClaim.valid_from` widens to `datetime | None = None`, hash-transparent — ticked `True` rather than `False` because **no stored claim lacks the field**: it was required before this ruling, so every stored claim carries a real instant and renders it. What the sentinel buys is that a claim whose source could not say renders *without* it, and moves no existing address.
+- **Every consumer was surveyed**, and exactly one class of operation needed absence semantics defined: the validity-window cut.
+
+**`GQ-09` GAINS AN ABSENCE LIMB — semantics 1.4.0, an amendment rather than a rewrite.** A record whose `valid_from` is absent is **admitted**, not excluded:
+
+```
+(valid_from IS ABSENT OR valid_from <= as_of)
+AND (valid_to IS NULL OR valid_to > as_of)
+```
+
+**Admit, and it is neither a fallback nor a preference.** Excluding would assert *"it was not true then"* — as much an invention as asserting that it was — and would silently delete every unstamped claim from every `require_valid_at_boundary` read, of which there are **49** in this tree including four shipped examples. Substituting `observed_at` is the defect being removed. And admit is **exactly behavior-preserving**: under the old rule an unsupplied valid-time became ingestion, and ingestion is at or before the boundary for any record that survived the `GQ-07` as-of cut, so precisely the records admitted before are admitted now. That is what made it the smallest change rather than merely the kindest.
+
+Enforced in-process at `TemporalAsOf._survives` and `ccf.graph.fallback::_valid_at_boundary`, and pushed down by **all five** backends — Postgres and SQLite as `IS NULL OR`, Neo4j and Fluree as `IS NULL OR`, MongoDB as `$exists: false` beside the `$lte`, which required `$exists` to be ruled into that adapter's frozen roster of sanctioned operator tokens. A substrate omitting the limb deletes data silently, which is why the amendment names the site in each.
+
+**THE REGRESSION IS ON THE ASSEMBLY PATH, not on any one link.** `tests/assembly/test_valid_time_absence.py` runs envelope → worker → L3 → the reference scorer's observations → `freshness`, because the defect lived in the JOIN between two links that were each individually correct. Five properties: absence survives the whole path; `observed-at` decay still works without a valid-time; `valid-from` decay now **reaches** `MissingDecayInstant` through the fabric; a supplied valid-time is preserved and decays from it; and an absent valid-time is not excluded by a validity-window read. The two instants in the fixture are deliberately 65,100 seconds apart — the cp-09 measurement — so a fixture where they coincide cannot make it pass.
+
+**THE INVERTED TEST.** `tests/assembly/test_worker.py::test_valid_time_opens_at_ingestion_when_the_source_cannot_say` asserted the defect by name and called it *"the stated reconciliation rule, not a silent default"*. The rule was stated and was still a substitution. It is now `test_valid_time_stays_absent_when_the_source_cannot_say`, carrying its own history so the inversion is legible.
+
+**SABOTAGE.** `_stitch` restored to the old fallback → **4 red** (three of the five new properties, plus the inverted worker test), restored byte-identical.
+
+**MEASURED CLEAN.** 2151 passed across assembly/graph/operators/halflife/products/contracts/controlplane/replay/projection; 1250 passed across conformance/client/agents/gates/hitl/mcp; `make lint` rc=0; mypy 218 files clean. **cp-09's three scenarios reproduce byte-identical content addresses across this change** (`6d29b32b…`, `ae1072ea…`), which is the behavior-preservation claim discharged rather than asserted — cp-09's signals supply real observation times, so nothing of its own moved.
+
+**PRE-EXISTING REDS, measured at the pre-332 commit and unchanged by it:** 44 in `tests/invariants` and 2 in `tests/products/test_gate_two_call_shape.py` (cp-08's unrostered `D-IMPL-141` exemption claim, red on `origin/main`).
+
+**Next free decision id: `D-IMPL-333`.** **Governs:** what an absent valid-time means at assembly and at every validity-window read. **Related:** `D-IMPL-331` (the decay basis this completes from below), `GQ-09` / `GQ-07` (`docs/GRAPH_QUERY_SEMANTICS.md` 1.4.0), `D-IMPL-243` (hash transparency), `INV-CH7-03` / `INV-CH7-14` (the stitching invariants `_stitch` names), `CP09-F-06`.
