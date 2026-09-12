@@ -3438,6 +3438,14 @@ def test_the_premise_detector_reads_the_shipped_tree_correctly() -> None:
         # `D-IMPL-315`, 2026-09-10 — rung 7, reached from the tree alone like
         # its rung-4 and rung-6 siblings.
         "examples/cp-07-client-360-coverage-graph",
+        # `D-GATE-cp-08`, 2026-09-11 — rung 8. **This list DESCRIBES THE TREE**,
+        # and it described it wrongly from the moment cp-08 shipped canonical:
+        # the detector has reached this root since that commit and the literal
+        # never said so. Stale independently of the roster, and completed here
+        # in the same sitting as the roster admission (Dave, 2026-09-12) but as
+        # its own assertion, because the two say different things — the roster
+        # records what was RULED, this records what the detector ANSWERS.
+        "examples/cp-08-covenant-in-force-as-of",
         "examples/hw1-companies-over-revenue/deployment",
         # `D-IMPL-311`, 2026-09-09 — s1-00 arrives from row B above, by the
         # same second shape cp-05 took: it reaches `build_governed_resolver`
