@@ -58,51 +58,51 @@ Both source stores are read. The ledger is append-only, so a write is permanent;
 nothing in this product's assembly, its examples or its tests writes to either
 (CLAUDE.md §9 — the curated estate is evidence).
 
-### 0.4 THE VAULT ARTICLE'S CENTRAL MECHANISM IS NOT BUILDABLE ON TODAY'S SDK
+### 0.4 STEP 7 IS BUILDABLE — SERVE-TIME DEPENDENCY INVALIDATION (`D-IMPL-334`)
 
-**This section is first because it is the Gate-1 decision.**
+**AMENDED 2026-09-12, and this section is the amendment.** It previously
+recorded that the article's central mechanism did not exist in the SDK and that
+this product would substitute **re-derivation on next request**. Gate 1 was HELD
+on exactly that (Dave: *"the vault says the invalidation cascade is why this
+rung exists… without step 7 we would be proving a different product"*), the gap
+was raised as `D-IMPL-334`, and **the SDK now has the mechanism.** The substitute
+is withdrawn.
 
-The canonical article names step 7 — emitting a supersession event that makes
-the Control Plane **cascade cache invalidation to every downstream Context
-Product whose `operators_invoked` touched the affected entity** — and says of
-it: *"Step 7 is why this product is in the catalog."*
+**What was built, and the name matters.** Not an event bus and not a cascade:
 
-**Measured against `src/` and `runtime/` on 2026-09-12, none of its four parts
-exists.** This was verified directly, not inferred:
+> A graph supersession records an **invalidation boundary**. Any previously
+> derived product whose snapshot predates that boundary and touched that entity
+> becomes **ineligible for future serving**.
 
-| The article's claim | What the SDK has |
+The four parts this document previously recorded as absent:
+
+| Capability | How it is met |
 |---|---|
-| "supersession is a **Policy event**" | It is a graph write-path column. `src/ccf/graph/_writer.py::_restitch_chain` sets `superseded_by` / `superseded_at`; backend SQL filters on them at as-of read time. It never reaches the Control Plane. |
-| "**the Control Plane propagates**" | There is no event bus, subscriber registry, watcher or notify path for supersession anywhere in `src/` or `runtime/`. The one `notify()` is `ccf/hitl/webhook.py`, for human-approval events. |
-| "invalidation **cascades to downstream products**" | **There is no product cache to invalidate.** The only cache in the SDK is `ccf/operators/planner.py::IntermediateCache`, a per-execution memo of operator intermediates whose own docstring rules the longer-lived case out: *"A longer-lived cache needs the invalidation story `D-IMPL-36` defers, and a cache without one is a replay defect waiting for a write."* |
-| "whose **`operators_invoked`** touched the affected entity" | Nothing reads `operators_invoked` for invalidation. Every reference in the tree is construction, set-union on composition, or gate validation. No reverse index from entity to the products that touched it exists. |
+| the change event | `ccf/graph/_writer.py` reports a boundary when a claim is superseded — inside L2, the single writer, so the single-writer invariant holds. `ccf.boot` binds the sink; **a deployment never has to remember**. |
+| which products depended on the entity | Already recorded. `ContextFabricSnapshot.touched_entities` rides in every replay record beside `product_content_address`, and the serve-time predicate reads the touched set of the product **in hand**. |
+| marking them ineligible | An **append-only** `EntityInvalidationRegister` in the Control Plane, one row per entity, per tenant. Nothing is deleted; eligibility is **computed**, never stored. |
+| the next consumer cannot receive it | `GATE_DEPENDENCY_INVALIDATION` in `run_gates`. `ServableProduct` is metaclass-guarded and `deliver()` is the only path to a served product, so the refusal is **structural**, not advisory. |
 
-Two further facts complete the picture. `decay: supersede-only` — the name that
-sounds like the mechanism — is **purely a half-life mode**: its entire behavior
-is `ccf/halflife/decay.py::freshness` returning `Decimal(1)`. It triggers
-nothing. And `ArtifactStoreProtocol` offers `put` / `get` / `exists` /
-`resolve_uri` and **no delete, by design** (`artifacts/protocol.py`: *"must never
-offer an update or delete operation… what makes the tampering threat structural
-rather than procedural"*) — so there is nothing to evict even in principle.
+**There is still no product cache and nothing is evicted**, because the SDK
+stores no Context Product to evict. That is what made the small design possible
+rather than a limitation of it.
 
-**The SDK's actual staleness posture is pull-based and per-request.** A product
-carries `expires_at`, the TTL-bounds gate checks it at serve time, and the graph
-excludes superseded claims at as-of read time. **A consumer learns a product is
-stale by asking again, never by being told.**
+**THE LIMITATION, WHICH IS UNCHANGED AND STAYS EXPLICIT.** This prevents
+**re-serving** an obsolete product. **It does not recall a copy a consumer
+already holds** — no SDK can reach into a consumer's memory. There is no push
+notification, no subscription and no recall. A holder learns by asking again;
+what changed is that asking now gets the right answer instead of a stale one.
 
-**What this specification therefore builds, and what it does not.** It builds
-steps 1–6 in full, and it replaces step 7 with the honest demonstration the same
-machinery supports:
+`EWS-G22` continues to enforce exactly that boundary, with its purpose adjusted
+at §G.1: it prevents this product **claiming push notification or recall**, and
+no longer denies that downstream serve-time invalidation exists — because it now
+does.
 
-> **Re-derivation on next request, not a cascade.** Ingest a superseding claim,
-> re-ask the same question, and observe that the answer changes because the
-> as-of read now excludes the superseded claim — with the two content addresses
-> differing to prove it. This is a real property and it is worth demonstrating.
-> **It is not the cascade, and this document does not call it one.**
+**A2A is out of scope for v1** (`D-IMPL-334`, ruled): a local invalidation
+boundary does not rule on an inbound peer product, and the gate is deliberately
+absent from `run_federated_gates`.
 
-`CP11-F-01` records the gap. **Whether rung 11 ships on that basis, or waits for
-an SDK cycle that builds the cascade, is Dave's ruling at Gate 1** — it is not a
-decision this document takes.
+`CP11-F-01` is **FIXED** by `D-IMPL-334`.
 
 ### 0.5 What is real, what is engineered, and three things this product does NOT consume
 
@@ -508,11 +508,26 @@ signal classes inside one 30-day window**, 24 at 60 days, 25 at 90. The
 product's core argument — that individually unremarkable signals compose — has
 18 real instances and needs no engineering.
 
-**Scenario 5 — re-derivation, which is what replaces the cascade.** Ask, ingest
-a superseding claim, ask again at the same `as_of`, and observe the composite
-change and the content address differ. **This demonstrates that the answer is
-re-derived from a graph that honors supersession. It does not demonstrate a
-cascade, and §0.4 says why.**
+**Scenario 5 — the cross-product case, and it is why this rung exists.**
+`D-IMPL-334`, and the demonstration the vault article asks for. An Item 2.04
+acceleration lands on an obligor. Then:
+
+| | |
+|---|---|
+| a product that **touched that obligor** at a snapshot before the filing | **refused** — no longer eligible to serve |
+| a product that **did not touch it**, built at the same snapshot | **still serves** |
+| a product **derived after** the filing | **serves** |
+
+**The middle row is the one that makes the other two mean anything.** It is
+exactly as old as the refused product. A mechanism keyed on elapsed time rather
+than on dependence would refuse it too, satisfy the first row, and be a global
+clock wearing an invalidation's name. `EWS-G25` asserts all three together.
+
+**And the refused product need never have mentioned early warning.** The
+covenant product does not know this product exists; it is refused because it
+read an entity whose context moved. *That* is the cascade in the only sense the
+SDK can honestly claim — an event about one entity making a different product
+ineligible — and §0.4 is precise about the sense it cannot claim.
 
 ### D.5 Determinism and replay
 
@@ -634,10 +649,17 @@ past `as_of` is a forensic reconstruction and does not decay.
 
 ### E.4 What invalidates a served answer
 
-**Nothing, actively — and that is the honest statement.** A served answer stops
-being current when a superseding filing lands, and **the fabric has no way to
-tell a holder of that answer.** The holder learns by asking again. §0.4 is the
-mechanism; this row is its consequence stated where a consumer will hit it.
+**A superseding filing, at the next serve** (`D-IMPL-334`). When a claim on an
+obligor this product read is superseded, the graph writer records an
+invalidation boundary, and any product whose snapshot predates it **and touched
+that obligor** is refused on its next serve — including products that never
+mentioned early warning.
+
+**What still does not happen, stated where a consumer will hit it.** Nobody is
+told. There is no push notification, no subscription and **no recall of a copy
+already held**. A holder of a stale answer keeps holding it until it asks again;
+what changed is that asking now returns a current answer or a refusal, never the
+stale one. `EWS-G22` keeps the product from claiming otherwise.
 
 ---
 
@@ -645,7 +667,7 @@ mechanism; this row is its consequence stated where a consumer will hit it.
 
 | id | finding | status |
 |---|---|---|
-| `CP11-F-01` | **The article's central mechanism — supersession-driven cache-invalidation cascade — does not exist in the SDK.** Verified across `src/` and `runtime/`: no product cache (only a per-execution operator memo whose docstring defers the invalidation story to `D-IMPL-36`), no Control Plane event propagation, no reverse index from entity to the products that touched it, and an ArtifactStore with no delete by design. `decay: supersede-only` is purely a half-life mode returning `Decimal(1)`. The product is specified without step 7, and §D.4 scenario 5 substitutes **re-derivation on next request**, named as such. | **OPEN — SDK GAP** |
+| `CP11-F-01` | **The article's central mechanism did not exist in the SDK, and now does.** Raised at Gate 1: no product cache (only a per-execution operator memo whose docstring defers the invalidation story to `D-IMPL-36`), no Control Plane event propagation, no reverse index from entity to the products that touched it, an ArtifactStore with no delete by design, and `decay: supersede-only` as purely a half-life mode returning `Decimal(1)`. Gate 1 was HELD rather than shipping the substitute. **`D-IMPL-334` built it as serve-time dependency invalidation** — an append-only Control Plane register the writer appends to and a serve-time gate reads — with no cache, no eviction and no notification, because the SDK stores no product to evict. §0.4 carries the amendment; the residual limitation (no recall of a copy already held) is stated there and gated by `EWS-G22`. | **FIXED-`D-IMPL-334`** |
 | `CP11-F-02` | **Both readings of the composite are unusable as the estate declares them.** Naive accumulation: 30/50 over board-risk. Supersession applied: 0/50 over credit-committee. The mechanism is right; the thresholds were calibrated against the wrong reading. §E.2 recalibrates under `D-IMPL-323`. | FIXED-gate-1 |
 | `CP11-F-03` | **All 50 prior-observation anchors carry the same `validFrom` (2024-08-19).** The estate seeds one cold-start point per obligor, not a sweep history, so the default delta is the full window for every obligor. A shorter delta must be requested. | ESTATE-LIMITATION |
 | `CP11-F-04` | **`gdelt_mention.tone` is a query filter, not a measurement.** All 951 rows carry the identical string `<-5`. Per-mention tone weighting is not computable and the product does not claim it. | ESTATE-LIMITATION |
@@ -683,13 +705,26 @@ mechanism; this row is its consequence stated where a consumer will hit it.
 | `EWS-G19` | the four §6.3 axes are `ProductRequest` fields, absent from `parameters` | request identity demoted |
 | `EWS-G20` | no date is ever parsed out of an `rdfs:label`; every instant comes from a typed field | `CP11-F-07` |
 | `EWS-G21` | the payload carries no second copy of `D_c`, the content address or the policy versions | two copies of one figure |
-| `EWS-G22` | the payload never claims that any downstream product was invalidated, evicted or notified | `CP11-F-01` — the gap asserted as a gate |
+| `EWS-G22` | the payload never claims a consumer was **notified**, that a held copy was **recalled**, or that anything was **evicted** — serve-time ineligibility may be stated, push and recall may not | overclaiming the guarantee. **Purpose amended 2026-09-12**: it no longer denies that downstream invalidation exists, because `D-IMPL-334` built it. It now holds the one line that is still false — the fabric cannot reach a copy a consumer already holds |
 | `EWS-G23` | re-serving at an `as_of` before a superseding filing reports the superseded signal as **current** at that instant | `as_of` not reaching the supersession filter |
 | `EWS-G24` | a `spread_widening` signal naming instruments carries them into the payload rather than collapsing to the obligor | rung 10's `CP10-F-06`, inherited |
+| `EWS-G25` | **the cross-product case, all three legs in one test**: a product that touched an obligor before a superseding filing is REFUSED on its next serve; an unrelated product at the same snapshot STILL SERVES; a product derived after the filing SERVES. The refusal names the entity and the boundary | `D-IMPL-334`. The middle leg is the load-bearing one — without it a global clock would pass |
 
 ### G.2 Acceptance
 
-Gate 1 is Dave's ruling on §0.4 first and the rest second. **If the cascade is
-required for rung 11 to count, this specification does not deliver it and says
-so.** If re-derivation is an acceptable substitute, the remainder is buildable
-against measured estate facts throughout.
+**Gate 1 was HELD on §0.4 and is now GO.** The hold was the right outcome: the
+vault article names the invalidation cascade as the reason this rung exists, and
+shipping steps 1–6 with re-derivation in place of step 7 would have proved a
+different product. Rather than weaken the specification, the gap became
+`D-IMPL-334` and the SDK gained **serve-time dependency invalidation** — an
+append-only Control Plane register the graph writer appends to and a serve-time
+gate reads, with no cache, no eviction and no notification.
+
+**This specification now delivers step 7 in the sense the SDK can honestly
+support**, and §0.4 is exact about the sense it cannot: a stale product is
+refused on its next serve; a copy a consumer already holds is not recalled, and
+`EWS-G22` keeps the product from claiming otherwise.
+
+Everything else stands as authored and measured: the estate facts, the obligor
+unit, the valid-time delta, the five traps and the recalibrated thresholds. 25
+gates, `EWS-G01`–`G25`.
