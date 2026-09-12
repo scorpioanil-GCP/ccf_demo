@@ -221,6 +221,26 @@ def envelopes(
             subject=subject, obj=obj, predicate=predicate,
         ))
 
+    # THE OBLIGOR'S SURVEILLANCE STATE, not only its identity — and this is
+    # what makes `D-IMPL-334` mean anything here.
+    #
+    # An obligor node carrying only `lei`, `legal_name`, `sic` and `sector`
+    # never changes, so a new filing would supersede nothing and no
+    # invalidation boundary would ever be recorded against the obligor. The
+    # claim would deduplicate and the fabric would be right to say nothing
+    # happened — to the IDENTITY, nothing did.
+    #
+    # What a surveillance product means by "this obligor's context changed" is
+    # that its evidence moved. So the claim carries the leading edge of that
+    # evidence, and `observed_time` IS that edge: when a new signal lands the
+    # claim differs, the single writer supersedes the old one, and the boundary
+    # it records is the NEW SIGNAL'S OWN INSTANT rather than the instant of
+    # this write (`D-IMPL-334`'s contract, and `D-IMPL-332`'s reasoning).
+    latest_signal_at = (
+        max(signal.observed_at for signal in estate.signals)
+        if estate.signals
+        else None
+    )
     nodes.append(_node(
         tenant_id=tenant_id, at=at, uri=anchor, obligor_id=estate.obligor.lei,
         kind="obligor", label=estate.obligor.legal_name,
@@ -229,10 +249,12 @@ def envelopes(
             "legal_name": estate.obligor.legal_name,
             "sic": estate.obligor.sic,
             "sector": estate.obligor.sector,
+            "latest_signal_at": (
+                latest_signal_at.isoformat() if latest_signal_at else None
+            ),
+            "signals_observed": len(estate.signals),
         },
-        # Identity carries no observation instant of its own here; the λ_c row
-        # declares `supersede-only`, so none is needed and none is invented.
-        observed_time=None,
+        observed_time=_instant(latest_signal_at) if latest_signal_at else None,
     ))
 
     for signal in estate.signals:
