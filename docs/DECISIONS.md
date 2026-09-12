@@ -3059,6 +3059,6 @@ lint clean; typecheck clean, 219 source files; gate tooling 519; `tools/docs_tes
 
 **SEQUENCING.** `CP-SPEC-011` remains on HOLD at Gate 1 until this SDK change is green on `main` and rung 11 is re-ruled.
 
-**SEQUENCING.** The design comes back to Dave before any code. `CP-SPEC-011` is on HOLD at Gate 1 and does not ship on the substitute; rung 11 resumes when this entry does.
+**SEQUENCING (as first recorded, SUPERSEDED by Amendment 1's).** *The design comes back to Dave before any code. `CP-SPEC-011` is on HOLD at Gate 1 and does not ship on the substitute; rung 11 resumes when this entry does.* The design came back, was ruled, and was built; the HOLD on rung 11 stands.
 
 **Next free decision id: `D-IMPL-335`.** **Governs:** whether supersession can reach a served Context Product, and by what mechanism. **Related:** `D-IMPL-36` (the invalidation story `IntermediateCache` defers to — this entry is where it comes due), `D-IMPL-289` (compensating code is deleted, not relocated — why cp-11 may not build this locally), `D-IMPL-333` / `D-IMPL-331` / `D-IMPL-332` (the temporal rulings that made supersession expressible in freshness but not in delivery), `INV-CH7-14` (logical supersession at the as-of read), whitepaper §7.6 (the commitment this entry measures the SDK against), `CP-SPEC-011` §0.4 and `CP11-F-01`, `D-GATE-cp-10`.
