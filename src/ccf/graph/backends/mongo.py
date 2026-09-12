@@ -456,7 +456,13 @@ def _validity_clauses(boundary: str) -> list[dict[str, Any]]:
     never over-disclosing (threats T-15.2-03/T-15.2-26).
     """
     return [
-        {"valid_from_cmp": {"$lte": boundary}},
+        # `GQ-09`'s ABSENCE LIMB (`D-IMPL-332`): the write path omits the
+        # field when no valid-time was supplied, and a missing field must
+        # admit. `$lte` alone does not match a missing field.
+        {"$or": [
+            {"valid_from_cmp": {"$exists": False}},
+            {"valid_from_cmp": {"$lte": boundary}},
+        ]},
         {
             "$or": [
                 {"valid_to_cmp": None},

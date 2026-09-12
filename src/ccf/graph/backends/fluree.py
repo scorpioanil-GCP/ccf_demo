@@ -1341,7 +1341,8 @@ _SURVIVORS_MATCH = (
 #: T-15.2-26), measured directly against the live server before this fragment
 #: was written.
 _ENTITY_VALIDITY = (
-    "  AND c.ccf_valid_from_cmp <= $boundary\n"
+    # `GQ-09`'s ABSENCE LIMB (`D-IMPL-332`) — see the neo4j twin.
+    "  AND (c.ccf_valid_from_cmp IS NULL OR c.ccf_valid_from_cmp <= $boundary)\n"
     "  AND (c.ccf_valid_to_cmp IS NULL OR c.ccf_valid_to_cmp > $boundary)\n"
 )
 
@@ -1414,7 +1415,7 @@ _EDGES_MATCH = (
 )
 
 _EDGE_VALIDITY = (
-    "  AND rc.ccf_valid_from_cmp <= $boundary\n"
+    "  AND (rc.ccf_valid_from_cmp IS NULL OR rc.ccf_valid_from_cmp <= $boundary)\n"
     "  AND (rc.ccf_valid_to_cmp IS NULL OR rc.ccf_valid_to_cmp > $boundary)\n"
 )
 

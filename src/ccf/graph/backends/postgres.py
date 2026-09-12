@@ -361,7 +361,14 @@ def _validity_clauses(
     valid_from = "(" + json_column + "::jsonb ->> 'valid_from')"
     valid_to = "(" + json_column + "::jsonb ->> 'valid_to')"
     text = (
-        prefix + "AND " + _utc_fixed_width(valid_from) + " <= %s\n"
+        # `GQ-09`'s ABSENCE LIMB (`D-IMPL-332`). `valid_from` is now genuinely
+        # nullable — the fabric stopped substituting ingestion time for a
+        # valid-time no source supplied — and a NULL must ADMIT rather than
+        # exclude. In SQL it would otherwise exclude silently: `NULL <= x` is
+        # NULL, not true, so every claim with an unknown valid-time would
+        # vanish from every validity-window read.
+        prefix + "AND (" + valid_from + " IS NULL OR "
+        + _utc_fixed_width(valid_from) + " <= %s)\n"
         + prefix + "AND (" + valid_to + " IS NULL OR "
         + _utc_fixed_width(valid_to) + " > %s)\n"
     )

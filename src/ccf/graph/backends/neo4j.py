@@ -344,7 +344,10 @@ _SURVIVORS_MATCH = (
 #: NULL, and NULL fails every comparison — fail-closed, never
 #: over-disclosing (threats T-15.2-03/T-15.2-26).
 _ENTITY_VALIDITY = (
-    "  AND c.valid_from_cmp <= $boundary\n"
+    # `GQ-09`'s ABSENCE LIMB (`D-IMPL-332`): the write path omits the
+    # property entirely when the source supplied no valid-time, and a missing
+    # property must admit rather than exclude.
+    "  AND (c.valid_from_cmp IS NULL OR c.valid_from_cmp <= $boundary)\n"
     "  AND (c.valid_to_cmp IS NULL OR c.valid_to_cmp > $boundary)\n"
 )
 
@@ -390,7 +393,7 @@ _EDGES_MATCH = (
 )
 
 _EDGE_VALIDITY = (
-    "  AND rc.valid_from_cmp <= $boundary\n"
+    "  AND (rc.valid_from_cmp IS NULL OR rc.valid_from_cmp <= $boundary)\n"
     "  AND (rc.valid_to_cmp IS NULL OR rc.valid_to_cmp > $boundary)\n"
 )
 

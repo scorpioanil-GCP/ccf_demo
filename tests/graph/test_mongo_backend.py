@@ -230,6 +230,11 @@ def test_no_query_text_is_assembled_anywhere_in_the_module() -> None:
         "$and",
         "$or",
         "$in",
+        # `D-IMPL-332`. `GQ-09`'s absence limb asks whether a claim carries a
+        # valid-time at all, and `$lte` alone cannot: it does not match a
+        # missing field. Code-authored like every other member here — the
+        # token is a literal in the filter, never built from a value.
+        "$exists",
         "$lte",
         "$gt",
         "$graphLookup",

@@ -339,7 +339,9 @@ def _validity_clauses(
     valid_from = "json_extract(" + json_column + ", '$.valid_from')"
     valid_to = "json_extract(" + json_column + ", '$.valid_to')"
     text = (
-        prefix + "AND " + _utc_fixed_width(valid_from) + " <= ?\n"
+        # `GQ-09`'s ABSENCE LIMB (`D-IMPL-332`) — see the postgres twin.
+        prefix + "AND (" + valid_from + " IS NULL OR "
+        + _utc_fixed_width(valid_from) + " <= ?)\n"
         + prefix + "AND (" + valid_to + " IS NULL OR "
         + _utc_fixed_width(valid_to) + " > ?)\n"
     )

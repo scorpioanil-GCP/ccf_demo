@@ -132,21 +132,41 @@ def test_valid_time_opens_at_the_source_time_when_the_source_can_say(
     assert claim.valid_from == OCCURRED_AT
 
 
-def test_valid_time_opens_at_ingestion_when_the_source_cannot_say(
+def test_valid_time_stays_absent_when_the_source_cannot_say(
     fabric: "FabricHandle",
 ) -> None:
-    """The stated reconciliation rule, not a silent default (D-IMPL-38).
+    """`D-IMPL-332` — unknown stays unknown, on the assembly path.
 
-    The fabric never invents an earlier valid-time than it can justify: an
-    assumed origin would let a historical read assert knowledge the fabric did
-    not have, which is precisely the leakage as-of reads exist to prevent.
+    **This test is the inversion of the one it replaces.** Until
+    ``D-IMPL-332`` it read
+    ``test_valid_time_opens_at_ingestion_when_the_source_cannot_say`` and
+    asserted ``claim.valid_from == INGESTED_AT``, describing that as *"the
+    stated reconciliation rule, not a silent default"*. The rule was stated
+    and it was still a substitution: ``observed_at`` answers *when the fabric
+    learned this* and ``valid_from`` answers *when this was true in the
+    world*, and filling the second from the first turns *"we learned it at 2
+    PM"* into *"it became true at 2 PM"* — a claim about the world that no
+    source made.
+
+    It also defeated ``D-IMPL-331`` from below. A λ_c row declaring
+    ``decay_basis: valid-from`` reads this field; with ingestion time
+    substituted into it, such a row reports a perfectly fresh figure for an
+    observation whose real age nobody knows, and ``MissingDecayInstant`` — the
+    refusal built for exactly that case — becomes unreachable through the
+    fabric.
     """
     fabric.worker.ingest(envelope(observed_time=None))
 
     view = fabric.reader.as_of(tenant_id=TENANT, at=INGESTED_AT)
     claim = view.entities[0].claim
 
-    assert claim.valid_from == INGESTED_AT
+    assert claim.valid_from is None, (
+        "the fabric manufactured a valid-time the source never supplied"
+    )
+    assert claim.observed_at == INGESTED_AT, (
+        "the OTHER axis is unchanged and must stay so: the fabric always knows"
+        " when it learned a claim, and `D-IMPL-332` does not touch that"
+    )
 
 
 def test_partial_identity_is_refused_rather_than_hashed() -> None:
