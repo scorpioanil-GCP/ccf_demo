@@ -264,43 +264,53 @@ resolution:
 # production coverage-policy thresholds.
 half_life:
   # KEYED ON ENTITY CLASS, because that is what the reference scorer reads.
+  #
+  # **AND EACH ROW DECLARES WHICH INSTANT IT DECAYS AGAINST** (`D-IMPL-331`).
+  # Before that field existed this table was inert on the `F` term: a claim's
+  # `observed_at` is set to INGESTION always, by design, so every row here
+  # scored perfectly fresh however old the underlying observation was.
+  # Measured on this example: `F = 1.000000` with three FX observations
+  # 65,100s old against their declared 86,400s half-life (`CP09-F-06`).
+
+  # --- The two classes that decay IN THE WORLD. ---------------------------
   treasury_rate_signal:
     half_life_seconds: 900           # 15m — the fastest signal in the catalog
+    decay_basis: valid-from          # the SOURCE's instant, not ingestion
     decay_driver: market-movement
     supersession_event: next-tick
   treasury_fx_signal:
     half_life_seconds: 86400         # 1d — daily publication
+    decay_basis: valid-from
     decay_driver: daily-publication
     supersession_event: next-publication
-  treasury_client:
-    half_life_seconds: 7776000       # 90d — the filing figure it carries
-    decay_driver: quarterly-filing-cadence
-    supersession_event: next-filing
+
+  # --- The classes that do NOT decay, each for its own reason. ------------
+  #
+  # `supersede-only` rather than a long curve. A long half-life would still be
+  # a decay claim, and these are not slow-decaying — they are not decaying.
+  # None of them declares `valid-from`, because none of them has a source
+  # instant to declare: their envelopes carry `observed_time=None` and nothing
+  # here reads an instant for them.
   treasury_deposit:
-    half_life_seconds: 7776000       # 90d — see the note below
+    decay: supersede-only            # NO observation time exists (`CP09-F-01`)
     decay_driver: unobserved
-    supersession_event: none-recorded
+    supersession_event: balance-movement
   treasury_position:
-    half_life_seconds: 7776000       # 90d — see the note below
+    decay: supersede-only            # NO observation time exists (`CP09-F-01`)
     decay_driver: unobserved
-    supersession_event: none-recorded
-  treasury_counterparty:
-    half_life_seconds: 31536000      # ~365d — GLEIF identity
-    decay_driver: gleif-level-1-refresh
-    supersession_event: level-1-record-update
+    supersession_event: position-change
   treasury_posture:
-    half_life_seconds: 31536000      # ~365d — see the note below
+    decay: supersede-only            # EFFECTIVITY, not age (§D.3)
     decay_driver: effectivity-not-age
     supersession_event: posture-amendment
-
-# **TWO ROWS ABOVE ARE DECLARED BECAUSE THE TABLE REQUIRES A ROW, NOT BECAUSE
-# THE CLASS DECAYS**, and saying so here is the alternative to writing a number
-# that quietly means something else. `treasury_deposit` and `treasury_position`
-# hold NO observation time in this estate (`CP09-F-01`), and `treasury_posture`
-# is governed by effectivity rather than by age (§D.3). The SDK's λ_c table has
-# no "does not decay" spelling, so each carries a long half-life and a
-# `decay_driver` that names the truth. `artifacts/staleness-profile.yaml` — the
-# REFUSAL rule — omits all three, which is where the distinction is load-bearing.
+  treasury_client:
+    decay: supersede-only            # carries a period END, not an observation
+    decay_driver: quarterly-filing-cadence
+    supersession_event: next-filing
+  treasury_counterparty:
+    decay: supersede-only            # identity, superseded by a GLEIF update
+    decay_driver: gleif-level-1-refresh
+    supersession_event: level-1-record-update
 
 debt_profile:
   risk_sensitivity: "1.0"

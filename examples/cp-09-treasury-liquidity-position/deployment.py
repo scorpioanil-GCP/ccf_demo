@@ -555,8 +555,21 @@ class TreasuryScenario:
 
     @property
     def max_ttl_seconds(self) -> int:
-        """The CEILING, from the slowest class the product admits."""
-        return int(config()["half_life"]["treasury_client"]["half_life_seconds"])
+        """The CEILING — 15 minutes, and the spec argues why it is not longer.
+
+        §B.1: *"TTL 15 minutes, `ttl_anchor: from_decision` … ceiling 15
+        minutes; a request for a longer window refuses with authority
+        `technical`."* The fastest class the product admits sets both, because
+        a product whose rate leg is good for fifteen minutes cannot honestly
+        offer a longer window over the same answer.
+
+        Read from the λ_c table's fastest row rather than restated here, so one
+        number has one authority. The slower classes carry no rate at all now —
+        they are `supersede-only` — so there is no "slowest half-life" to read
+        and there should not be: a ceiling derived from a class that does not
+        decay would be a number with nothing behind it.
+        """
+        return int(config()["half_life"]["treasury_rate_signal"]["half_life_seconds"])
 
     @property
     def product_ttl_seconds(self) -> int:
