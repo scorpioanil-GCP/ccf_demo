@@ -298,6 +298,18 @@ _MARKED_IN_THE_TREE = frozenset(
         "ccf.projection.engine.ExecutionResult.store_snapshot_pin",
         "ccf.projection.engine.ExecutionResult.empty_results",
         "ccf.assembly.worker.ResolvedEntity.resolved_by",
+        # `D-IMPL-332`. `valid_from` became nullable when the fabric stopped
+        # substituting ingestion time for a valid-time no source supplied.
+        # Ticked `True` rather than `False`: no stored claim LACKS the field —
+        # it was required before this ruling, so every one of them carries a
+        # real instant and renders it. What the sentinel buys is that a claim
+        # whose source could not say renders WITHOUT it, which is the honest
+        # shape of "we do not know" and moves no existing address.
+        # Named on both CONCRETE claim classes rather than on the
+        # `_TemporalClaim` base they inherit it from, because the walk reads
+        # the classes that actually get hashed.
+        "ccf.contracts.claims.EntityClaim.valid_from",
+        "ccf.contracts.claims.RelationshipClaim.valid_from",
         # `D-IMPL-331`. `None` is the honest value where a source could not say
         # when it observed the thing, and it is also the shape every
         # observation had before the field existed — so the sentinel means the
