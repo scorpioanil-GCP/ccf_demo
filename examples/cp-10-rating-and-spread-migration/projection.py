@@ -55,6 +55,20 @@ STATIC_ISSUE_BAND = "static_issue_band"
 #: is not an off-cycle review (`TRAP 2`).
 ON_CYCLE = frozenset({"quarterly review", "initial rating (window start)"})
 
+#: WHAT EACH COMPONENT ACTUALLY IS, carried on every spread series (`RSM-G18`).
+#: The vault's §C assumed FINRA TRACE for this leg; measured, the estate holds
+#: none — instrument identifiers are `syn-i-*` and the issuer-specific figure is
+#: a RESIDUAL, not an observed trade. A product that let a reader believe
+#: otherwise would be misrepresenting its own evidence (`CP10-F-01`).
+COMPONENT_PROVENANCE: Mapping[str, str] = {
+    "benchmark_bp": "public — Treasury.gov / FRED",
+    "market_oas_bp": "public — ICE BofA option-adjusted spread series on FRED",
+    "idiosyncratic_bp": (
+        "synthetic — engineered; the residual after the two public components"
+        " on a static_issue_band basis. NOT an observed trade price."
+    ),
+}
+
 
 def _d(value: Any) -> Decimal:
     return Decimal(str(value))
@@ -182,6 +196,8 @@ class RatingSpreadMigrationProjection:
             "resampled_cadence": granularity,
             "observations": len(bond["series"]),
             "median_idiosyncratic_bp": _money(bond["median"]),
+            # WHAT EACH NUMBER IS, beside the numbers (`RSM-G18`).
+            "component_provenance": dict(COMPONENT_PROVENANCE),
             "points": [
                 {
                     "obs_date": str(p["obs_date"]),

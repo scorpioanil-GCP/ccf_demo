@@ -1,0 +1,421 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE DECLARED PRODUCT GATES OF cp-10 — ALL TWENTY-FOUR CP-SPEC-010 §G.1 NAMES.
+#
+# A product's gates are a declared artifact plus CI coverage: each id below has
+# an EXECUTING test, and the checker resolves the chain — the specification
+# exists, §G.1 exists in it, and the gate's own id appears in that clause.
+#
+# `sabotage_state` HAS THREE VALUES AND THEY ARE NOT INTERCHANGEABLE (Dave,
+# 2026-09-12). Twenty-one gates here are `passed`; THREE are `unavailable`, and
+# each names the upstream guard that makes its bad state unreachable —
+# `D-IMPL-86`'s bind-time operator-divergence refusal (RSM-G01, RSM-G02) and the
+# closed `ttl_anchor` vocabulary the SDK validates at artifact load (RSM-G03).
+#
+# TWO GATES WERE GREEN UNDER THEIR OWN SABOTAGE ON THE FIRST ATTEMPT, AND BOTH
+# ARE RECORDED AS SUCH (RSM-G13, RSM-G23). Neither was a weak sabotage; both
+# were weak TESTS. `RSM-G13` asserted a figure derived from the source instead
+# of the two instants actually served. `RSM-G23` asserted only against a subject
+# where the right answer and the wrong answer are the same value. Deleting those
+# records would hide the strongest thing this roster knows about itself.
+#
+# ONE GATE GOES RED BY REFUSAL RATHER THAN BY ITS OWN ASSERTION (RSM-G24), and
+# that is recorded too: the invariant is enforced at the declared product gate
+# seam, and the output test is the second line of defense rather than the first.
+#
+# The principle the whole file is written to: the evidence should describe where
+# the guarantee really comes from, not where we wish it came from.
+
+semver: 1.0.0
+class_id: cp-10.product-gates
+declaration:
+  product: credit-risk.rating-migration
+  test_naming_convention: the gate id appears in the executing test's docstring, as an RSM-GNN line naming
+    the CP-SPEC-010 G.1 clause that approves it.
+  sabotage_states:
+    passed: the specific invariant under test was broken and the gate went red
+    unavailable: an UPSTREAM SDK invariant makes the bad state unreachable from this deployment; the gate
+      is evidenced by the successful path plus that guard, never by a local negative control
+    not-required: a genuinely non-load-bearing or documentary gate
+  gates:
+  - id: RSM-G01
+    statement: a plan with zero operator steps never serves
+    spec_clause:
+      document: spec/CP-SPEC-010_Rating_And_Spread_Migration.md
+      clause: G.1
+    test: tests/examples/test_cp_10_output.py::test_rsm_g01_the_operator_plan_is_never_empty
+    sabotage: make the projection require no operators at all
+    sabotage_state: unavailable
+    observed_red:
+      result: '**DEPLOYMENT SABOTAGE UNAVAILABLE.** The invariant cannot be falsified from cp-10: the
+        SDK refuses a divergent operator set during governed binding under `D-IMPL-86`, before the deployment
+        can produce an artifact. Observed: `ValueError: operator set divergence for plan ''cp-10.rating-migration/549300FHJQTDPPN41627'':
+        the product class claims [''policy.principal-subgraph'', ''traversal.typed-neighborhood''] and
+        the plan requires []` — an ERROR at bind time, not a red assertion during product execution. Evidenced
+        by the successful cp-10 path plus the SDK-level guard, not by a local negative control.'
+      date: '2026-09-12'
+      commit: 1ae07857
+  - id: RSM-G02
+    statement: served lineage equals the plan's typed operator references; `ProductLineage` is exactly
+      three fields
+    spec_clause:
+      document: spec/CP-SPEC-010_Rating_And_Spread_Migration.md
+      clause: G.1
+    test: tests/examples/test_cp_10_output.py::test_rsm_g02_lineage_is_exactly_the_declared_operator_set
+    sabotage: make the plan author an operator set of its own
+    sabotage_state: unavailable
+    observed_red:
+      result: '**DEPLOYMENT SABOTAGE UNAVAILABLE.** Same guard, same bind-time refusal: `... the plan
+        requires [''traversal.invented''], differing on [''policy.principal-subgraph'', ''traversal.invented'',
+        ''traversal.typed-neighborhood''] (D-IMPL-86)`. That it fails at BIND rather than at serve is
+        itself the evidence — cp-10 is not responsible for policing this divergence, because the SDK refuses
+        to let such a governed product exist. The three-field lineage shape is likewise an SDK contract
+        a deployment cannot widen.'
+      date: '2026-09-12'
+      commit: 1ae07857
+  - id: RSM-G03
+    statement: '`expires_at` derives from the decision instant and respects the ceiling'
+    spec_clause:
+      document: spec/CP-SPEC-010_Rating_And_Spread_Migration.md
+      clause: G.1
+    test: tests/examples/test_cp_10_output.py::test_rsm_g03_expiry_derives_from_the_decision_instant
+    sabotage: anchor the TTL on ingestion rather than on the decision instant
+    sabotage_state: unavailable
+    observed_red:
+      result: '**DEPLOYMENT SABOTAGE UNAVAILABLE.** The SDK refuses the declaration at artifact load:
+        `ValidationError ... ttl_anchor: Input should be ''from_decision'' or ''from_entity_freshness''`.
+        A deployment cannot declare a third anchor, so the bad state is unreachable from here. Evidenced
+        by the successful path plus that closed vocabulary.'
+      date: '2026-09-12'
+      commit: 1ae07857
+  - id: RSM-G04
+    statement: '`D_c` above tolerance returns `409` with the debt block'
+    spec_clause:
+      document: spec/CP-SPEC-010_Rating_And_Spread_Migration.md
+      clause: G.1
+    test: tests/examples/test_cp_10_output.py::test_rsm_g04_debt_above_tolerance_refuses_with_the_debt_block
+    sabotage: drop the caller's `debt_tolerance` from the request parameters
+    sabotage_state: passed
+    observed_red:
+      result: 'RED. Observed: `D_c is 0.3651499166693501911990666667 and a tolerance of 0.1826 still served;
+        the debt gate is not reading the caller''s ceiling`. The gate asks with a tolerance measured BELOW
+        the debt the product actually carries, so the refusal is forced by the gate rather than by a broken
+        estate read.'
+      date: '2026-09-12'
+      commit: 1ae07857
+  - id: RSM-G05
+    statement: a withheld obligor leaves no count or marker
+    spec_clause:
+      document: spec/CP-SPEC-010_Rating_And_Spread_Migration.md
+      clause: G.1
+    test: tests/examples/test_cp_10_output.py::test_rsm_g05_a_withheld_obligor_leaves_no_count_or_marker
+    sabotage: 'add an `obligors_excluded: 29` count to the payload'
+    sabotage_state: passed
+    observed_red:
+      result: 'RED. Observed: `the payload says ''excluded''; a count or marker of what was withheld discloses
+        the existence it is withholding`. The gate asserts against a REAL second obligor — scenario 2''s
+        Sabre, which is in the estate and not in scenario 1''s admitted set — rather than against a made-up
+        identifier.'
+      date: '2026-09-12'
+      commit: 1ae07857
+  - id: RSM-G06
+    statement: payload classification is the highest contributing
+    spec_clause:
+      document: spec/CP-SPEC-010_Rating_And_Spread_Migration.md
+      clause: G.1
+    test: tests/examples/test_cp_10_output.py::test_rsm_g06_the_payload_classification_is_the_highest_contributing
+    sabotage: serve no internal grade at all
+    sabotage_state: passed
+    observed_red:
+      result: 'RED. Observed: `no internal grade reached the payload, so the mixed-classification premise
+        this gate rests on is not exercised` — which is the vacuity the gate guards against.'
+      date: '2026-09-12'
+      commit: 1ae07857
+  - id: RSM-G07
+    statement: the three spread components are served separately and never pre-summed
+    spec_clause:
+      document: spec/CP-SPEC-010_Rating_And_Spread_Migration.md
+      clause: G.1
+    test: tests/examples/test_cp_10_output.py::test_rsm_g07_the_three_components_are_served_separately
+    sabotage: serve `spread_bp` — the sum — beside the three components
+    sabotage_state: passed
+    observed_red:
+      result: 'RED. Observed: `a pre-summed total rides beside the components; the product''s whole subject
+        is which of the three moved`. The gate asserts the sum ABSENT, not merely the parts present: a
+        payload carrying both still hands a reader the number that destroys the signal.'
+      date: '2026-09-12'
+      commit: 1ae07857
+  - id: RSM-G08
+    statement: every divergence figure is computed on `idiosyncratic_bp`, not on `spread_bp`
+    spec_clause:
+      document: spec/CP-SPEC-010_Rating_And_Spread_Migration.md
+      clause: G.1
+    test: tests/examples/test_cp_10_output.py::test_rsm_g08_divergence_is_computed_on_the_issuer_specific_component
+    sabotage: take each bond's peak from the headline rather than the residual
+    sabotage_state: passed
+    observed_red:
+      result: 'RED. Observed: `the reported peak equals the headline; the market component has not been
+        netted out`. Asserted against the ESTATE rather than against a field name — scenario 3''s headline
+        moves +166.6 bp while its residual moves +1.5 bp, so a detector reading the headline fires there
+        and this gate sees it.'
+      date: '2026-09-12'
+      commit: 1ae07857
+  - id: RSM-G09
+    statement: an episode is detected per bond, against that bond's own median, never on an inter-instrument
+      average
+    spec_clause:
+      document: spec/CP-SPEC-010_Rating_And_Spread_Migration.md
+      clause: G.1
+    test: tests/examples/test_cp_10_output.py::test_rsm_g09_an_episode_is_detected_per_bond_against_its_own_median
+    sabotage: give every bond the blended obligor median — `CP10-F-06` reintroduced
+    sabotage_state: passed
+    observed_red:
+      result: 'RED. Observed: `the episode''s baseline equals the obligor blend; detection is running
+        on the derived summary rather than on the bond`. This is the Gate-1 amendment defended as a gate:
+        the two bonds'' medians are 29.015 and 29.538 bp — normally indistinguishable — and on the same
+        day one reaches 8.039x its own and the other 1.27x.'
+      date: '2026-09-12'
+      commit: 1ae07857
+  - id: RSM-G10
+    statement: a bond's peak reports the obligor's grade in force on that date, not the current grade
+    spec_clause:
+      document: spec/CP-SPEC-010_Rating_And_Spread_Migration.md
+      clause: G.1
+    test: tests/examples/test_cp_10_output.py::test_rsm_g10_the_peak_reports_the_grade_in_force_on_that_date
+    sabotage: report the latest grade instead of the one in force at the peak
+    sabotage_state: passed
+    observed_red:
+      result: 'RED. Observed: `the grade at the peak (BB-) equals the current grade (BB-); the product
+        is reading the present rather than the moment it claims to report`. Under the sabotage the downgrade
+        this product exists to detect disappears — the peak shows BB- and there is nothing left to confirm.'
+      date: '2026-09-12'
+      commit: 1ae07857
+  - id: RSM-G11
+    statement: a confirmation requires a change that is later, a downgrade, and off-cycle — all three
+      asserted separately
+    spec_clause:
+      document: spec/CP-SPEC-010_Rating_And_Spread_Migration.md
+      clause: G.1
+    test: tests/examples/test_cp_10_output.py::test_rsm_g11_a_confirmation_asserts_all_three_tests_separately
+    sabotage: return `not-evaluable` for the standing-disagreement case — `CP10-F-08` reintroduced
+    sabotage_state: passed
+    observed_red:
+      result: 'RED. Observed: `a rated obligor whose grade never moved is being reported the same as an
+        unrated one; the two are different answers (CP10-F-08)`. The positive half asserts the three tests
+        SEPARATELY, because `confirms` alone would not say which of them held — and temporal proximity
+        alone is not confirmation (TRAP 2).'
+      date: '2026-09-12'
+      commit: 1ae07857
+  - id: RSM-G12
+    statement: the grade series is resampled, never interpolated across a change
+    spec_clause:
+      document: spec/CP-SPEC-010_Rating_And_Spread_Migration.md
+      clause: G.1
+    test: tests/examples/test_cp_10_output.py::test_rsm_g12_the_grade_series_is_resampled_never_interpolated
+    sabotage: insert an invented midpoint observation into each resampled series
+    sabotage_state: passed
+    observed_red:
+      result: 'RED. Observed: `1999-01-01 is in the payload and not in the source; a resampler that invents
+        a bucket midpoint has interpolated`. Asserted by set membership against the SOURCE read, so the
+        gate cannot be satisfied by a well-formed date the estate never carried.'
+      date: '2026-09-12'
+      commit: 1ae07857
+  - id: RSM-G13
+    statement: '`validFrom` and `assertedAt` are both served and are distinguishable'
+    spec_clause:
+      document: spec/CP-SPEC-010_Rating_And_Spread_Migration.md
+      clause: G.1
+    test: tests/examples/test_cp_10_output.py::test_rsm_g13_both_clocks_are_served_and_are_distinguishable
+    sabotage: serve `asserted_at` equal to `valid_from` — the two clocks collapsed
+    sabotage_state: passed
+    observed_red:
+      result: 'RED — **and the FIRST DRAFT OF THIS GATE WAS GREEN UNDER EXACTLY THIS SABOTAGE.** It asserted
+        only that `booking_lag_days` was positive, and that figure is derived from the SOURCE record,
+        so a payload collapsing the two served instants left the lag correct and the gate passed. The
+        gate now reads the two SERVED values and asserts they differ, and that the reported lag equals
+        the gap between them. Observed after the repair: `every assertion serves `asserted_at` equal to
+        `valid_from`; the two clocks have been collapsed into one at the payload boundary`. A check passing
+        for a reason unrelated to what it claims to test is this project''s own defect class, and it arrived
+        here inside the machinery built to catch it.'
+      date: '2026-09-12'
+      commit: 1ae07857
+  - id: RSM-G14
+    statement: every series declares its native cadence, its resampled cadence and its window
+    spec_clause:
+      document: spec/CP-SPEC-010_Rating_And_Spread_Migration.md
+      clause: G.1
+    test: tests/examples/test_cp_10_output.py::test_rsm_g14_every_series_declares_its_own_cadence_and_window
+    sabotage: declare the grade series' native cadence as `daily`, like the spreads
+    sabotage_state: passed
+    observed_red:
+      result: 'RED. Observed: `every series declares the same native cadence; the ninety-fold spread this
+        product exists to preserve has been flattened`.'
+      date: '2026-09-12'
+      commit: 1ae07857
+  - id: RSM-G15
+    statement: each series decays against its own λ_c and `valid-from` basis, at the LEADING EDGE of the
+      series
+    spec_clause:
+      document: spec/CP-SPEC-010_Rating_And_Spread_Migration.md
+      clause: G.1
+    test: tests/examples/test_cp_10_output.py::test_rsm_g15_each_class_decays_against_its_own_lambda_and_valid_from
+    sabotage: 'two, separately: (a) declare `freshness_over: series-mean` in the λ_c table; (b) neuter
+      `ccf.halflife.decay.leading_edge` in the SDK so the declaration reaches nothing'
+    sabotage_state: passed
+    observed_red:
+      result: 'RED twice, for two different reasons, and a THIRD attempt was refused before it could run.
+        (a) The declaration half: `assert ''series-mean'' == ''leading-edge''`. (b) The measured half,
+        and it is the stronger result — with `leading_edge` neutered the product does not merely report
+        a lower `F`, it REFUSES: `F` falls to 0.004750 over 1,008 observations, `D_c` rises to 0.9955,
+        and the debt gate rejects the serve. (c) The third attempt — leaving `series_key_attribute` in
+        place while switching to `series-mean` — was refused by `D-IMPL-333`''s own orphan-key validator
+        at artifact load: `series_key_attribute names how to group a series for freshness_over: leading-edge,
+        and this row aggregates as ''series-mean'' — the key would be read by nothing`. A declaration
+        nobody reads cannot be written here at all.'
+      date: '2026-09-12'
+      commit: 1ae07857
+  - id: RSM-G16
+    statement: the supersession chain is served and every superseded grade points forward
+    spec_clause:
+      document: spec/CP-SPEC-010_Rating_And_Spread_Migration.md
+      clause: G.1
+    test: tests/examples/test_cp_10_output.py::test_rsm_g16_the_supersession_chain_is_served_and_points_forward
+    sabotage: clear `superseded_by` on every grade
+    sabotage_state: passed
+    observed_red:
+      result: 'RED. Observed: `9 assertions have no successor; exactly one grade is in force, and the
+        rest must each name what replaced it`. A bitemporal history served as an unordered SET loses the
+        thing that makes it a history.'
+      date: '2026-09-12'
+      commit: 1ae07857
+  - id: RSM-G17
+    statement: an unknown obligor refuses distinctly from one with no spreads
+    spec_clause:
+      document: spec/CP-SPEC-010_Rating_And_Spread_Migration.md
+      clause: G.1
+    test: tests/examples/test_cp_10_output.py::test_rsm_g17_an_unknown_obligor_refuses_distinctly_from_one_with_no_spreads
+    sabotage: make the unknown-obligor refusal talk about a missing spread series
+    sabotage_state: passed
+    observed_red:
+      result: 'RED. Observed: the refusal reads `obligor ''...'' has no spread series` and the gate asserts
+        `not available` is present and `spread` is absent. A request error and a fact about the world
+        are different answers: collapsing them tells a caller to fix their input when the input was right.'
+      date: '2026-09-12'
+      commit: 1ae07857
+  - id: RSM-G18
+    statement: the payload labels the issuer-specific component `synthetic — engineered` and names no
+      TRACE
+    spec_clause:
+      document: spec/CP-SPEC-010_Rating_And_Spread_Migration.md
+      clause: G.1
+    test: tests/examples/test_cp_10_output.py::test_rsm_g18_the_issuer_specific_component_names_its_own_provenance
+    sabotage: relabel the residual as `observed — FINRA TRACE reported trade spreads`
+    sabotage_state: passed
+    observed_red:
+      result: 'RED. Observed: `assert ''synthetic — engineered'' in ''observed — FINRA TRACE reported
+        trade spreads''`. Measured: this estate holds no TRACE data at all, identifiers are `syn-i-*`,
+        and the issuer-specific figure is a RESIDUAL rather than an observed trade (`CP10-F-01`).'
+      date: '2026-09-12'
+      commit: 1ae07857
+  - id: RSM-G19
+    statement: the four axes are `ProductRequest` fields, absent from `parameters`
+    spec_clause:
+      document: spec/CP-SPEC-010_Rating_And_Spread_Migration.md
+      clause: G.1
+    test: tests/examples/test_cp_10_output.py::test_rsm_g19_the_four_axes_are_fields_not_parameters
+    sabotage: carry `subject` in `parameters` as well as in its field
+    sabotage_state: passed
+    observed_red:
+      result: 'RED. Observed: `''subject'' rides in parameters as well as in its field; a second copy
+        can disagree with the first`. The four §6.3 axes are what the content address and the replay record
+        resolve against, so demoting one would let two different questions share an identity.'
+      date: '2026-09-12'
+      commit: 1ae07857
+  - id: RSM-G20
+    statement: every grade carries its scale id and provenance; no agency name appears anywhere in the
+      payload
+    spec_clause:
+      document: spec/CP-SPEC-010_Rating_And_Spread_Migration.md
+      clause: G.1
+    test: tests/examples/test_cp_10_output.py::test_rsm_g20_every_grade_carries_its_scale_and_names_no_agency
+    sabotage: append `, mapped to the S&P scale` to each grade's provenance
+    sabotage_state: passed
+    observed_red:
+      result: 'RED. Observed: `assert ''synthetic — ...the S&P scale'' == ''synthetic — internal''`. The
+        licensing boundary can fail by PRESENTATION as easily as by content: an SDK example ships with
+        the SDK and is copied by adopters, so a payload naming an agency would misrepresent its evidence
+        even if every number in it were internal.'
+      date: '2026-09-12'
+      commit: 1ae07857
+  - id: RSM-G21
+    statement: the payload carries no second copy of `D_c`, the content address or the policy versions
+    spec_clause:
+      document: spec/CP-SPEC-010_Rating_And_Spread_Migration.md
+      clause: G.1
+    test: tests/examples/test_cp_10_output.py::test_rsm_g21_the_payload_carries_no_second_copy_of_the_governed_figures
+    sabotage: add a `debt` key to the payload
+    sabotage_state: passed
+    observed_red:
+      result: 'RED. Observed: `the payload carries its own ''debt''; the contract already does, and two
+        copies of one figure can disagree` — with nothing to say which is authoritative.'
+      date: '2026-09-12'
+      commit: 1ae07857
+  - id: RSM-G22
+    statement: a market-wide widening with flat idiosyncratic spread produces no episode
+    spec_clause:
+      document: spec/CP-SPEC-010_Rating_And_Spread_Migration.md
+      clause: G.1
+    test: tests/examples/test_cp_10_output.py::test_rsm_g22_a_market_wide_widening_produces_no_episode
+    sabotage: detect on an ABSOLUTE 40 bp threshold rather than a multiple of each bond's own median (TRAP
+      1)
+    sabotage_state: passed
+    observed_red:
+      result: 'RED. Observed: `a market-wide widening produced an episode; the market component is not
+        being netted out`. Scenario 3 measured: every band widened together (`B` +165.0 bp, `BB` +150.5,
+        `BBB` +51.2, `A` +36.0, `AA` +28.9); this obligor''s headline moved +166.6 bp and its residual
+        +1.5 bp. **The more common error** — 22 of the 30 rated obligors show the same pattern over this
+        window. The gate also asserts its own PREMISE: that the residual really is flat and the market
+        component really did move, so it cannot pass on a window where the scenario is absent.'
+      date: '2026-09-12'
+      commit: 1ae07857
+  - id: RSM-G23
+    statement: every spread figure names its basis as `static_issue_band`; a migrated obligor is FLAGGED;
+      the payload never claims unqualified "pure issuer deterioration"; and no band is derived from the
+      internal grade
+    spec_clause:
+      document: spec/CP-SPEC-010_Rating_And_Spread_Migration.md
+      clause: G.1
+    test: tests/examples/test_cp_10_output.py::test_rsm_g23_every_spread_figure_names_its_basis
+    sabotage: derive the issue band from the obligor's current internal grade (`CP10-F-04`'s contamination)
+    sabotage_state: passed
+    observed_red:
+      result: 'RED — **and the FIRST DRAFT OF THIS GATE WAS GREEN UNDER EXACTLY THIS SABOTAGE.** It asserted
+        only against the anchor, which is still in its issue band — so the grade-derived band and the
+        instrument band are the SAME VALUE there, and the contamination is invisible. The gate now also
+        asserts against `5493004HBTOTE9DI9P12`, measured as one of the 2 of 30 obligors that have LEFT
+        their issue band: bonds issued into `BBB`, now graded `BB+`, whose band is `BB`. Observed after
+        the repair: `the reported issue bands do not match the instruments'' own; the band is being derived
+        from the internal grade, which would make the market component a function of the grade the divergence
+        is measured against (CP10-F-04)`. A gate asserted only where two answers coincide proves nothing
+        about which one produced them.'
+      date: '2026-09-12'
+      commit: 1ae07857
+  - id: RSM-G24
+    statement: an obligor-level spread figure never travels without its dispersion
+    spec_clause:
+      document: spec/CP-SPEC-010_Rating_And_Spread_Migration.md
+      clause: G.1
+    test: tests/examples/test_cp_10_output.py::test_rsm_g24_an_obligor_level_figure_never_travels_without_its_dispersion
+    sabotage: serve the obligor-level summary with its `dispersion` key removed
+    sabotage_state: passed
+    observed_red:
+      result: 'RED, **and by REFUSAL rather than by the gate''s own assertion** — which is recorded because
+        it says where the guarantee really comes from. The product never served: this deployment''s DECLARED
+        product gate `RSM-G23.static-issue-band` rejects a dispersion-less summary first (`an obligor-level
+        spread summary is served without its dispersion; a mean over instruments that may be pricing different
+        things reads as an observation`), so the test failed with `''_Frozen'' object has no attribute
+        ''payload''`. The invariant is enforced at the governed gate seam, and the output test is the
+        second line rather than the first. TRAP 6''s measurement: 5,267 (obligor, date) pairs in this
+        estate carry one bond at more than twice the other.'
+      date: '2026-09-12'
+      commit: 1ae07857
