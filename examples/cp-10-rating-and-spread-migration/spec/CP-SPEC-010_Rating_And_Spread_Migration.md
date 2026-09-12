@@ -522,7 +522,7 @@ canonical bytes excluding `assembled_at`.
 
 The payload carries: obligor identity; the grade series with `validFrom`,
 `assertedAt`, trigger, scale id and supersession pointer per assertion; the
-spread series as **three labelled components** with the band the market leg was
+spread series as **three labeled components** with the band the market leg was
 taken from; the divergence episodes with peak, date, multiple of own median,
 grade in force at the peak, and — where one exists — the confirming change with
 its lag in days; and **a per-series register carrying each series' native
