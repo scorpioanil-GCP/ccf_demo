@@ -190,17 +190,17 @@ footer p{margin:0 0 8px}
 <div class="wrap">
 
 <header class="mast">
-  <p class="eyebrow">Context Product · cp-01</p>
-  <h1>Counterparty Reference Snapshot</h1>
-  <p class="standfirst">One anchor, resolved through two identity authorities with two different freshness ceilings, filtered by the calling principal's jurisdiction — and an expiry taken from when the source last spoke about the company rather than from when you asked.</p>
+  <p class="eyebrow">Context Product · cp-09</p>
+  <h1>Treasury Liquidity Position</h1>
+  <p class="standfirst">Cash and rate posture at one instant — where one <code>as_of</code> governs four different kinds of time without flattening them into a single freshness claim. An observation decays, a policy effective date does not, a filed period is bounded, and a holding nobody timestamped carries no time at all.</p>
 
   <dl class="shape">
-    <div><dt>Registry name</dt><dd>reference.counterparty.v1</dd></div>
-    <div><dt>Tier</dt><dd>1<span class="sub">relational only</span></dd></div>
+    <div><dt>Registry name</dt><dd>treasury.liquidity-position.v1</dd></div>
+    <div><dt>Tier</dt><dd>3<span class="sub">relational + bitemporal ledger</span></dd></div>
     <div><dt>Assembly mode</dt><dd>1 — pure algorithmic<span class="sub">no model in the path</span></dd></div>
-    <div><dt>Store</dt><dd>PostgreSQL<span class="sub">schema <code>ccf_v2</code></span></dd></div>
-    <div><dt>Systems of record</dt><dd>3<span class="sub">GLEIF · client master · entitlement</span></dd></div>
-    <div><dt>Declared operators</dt><dd>Resolve → Policy<span class="sub">+ contract assembly</span></dd></div>
+    <div><dt>Stores</dt><dd>PostgreSQL + Fluree<span class="sub"><code>ccf_v2</code> · <code>fibo-v2</code></span></dd></div>
+    <div><dt>Temporal classes</dt><dd>4<span class="sub">decayed · in-force · bounded · unobserved</span></dd></div>
+    <div><dt>Declared operators</dt><dd>Policy → Traversal<span class="sub">+ projection</span></dd></div>
   </dl>
 </header>
 
@@ -297,66 +297,36 @@ footer p{margin:0 0 8px}
   <div class="col">
     <p class="kicker">The half you write</p>
     <h2>What is yours, and what the fabric already does</h2>
-    <p>The four Python files above are not equal. Two of them are yours to write for every product; two are nearly the same in every deployment and exist to be read once.</p>
+    <p>The five Python files above are not equal. Three are yours to write for every product; two are nearly the same in every deployment and exist to be read once.</p>
   </div>
   <div class="scroll">
-  <table>
-    <thead><tr><th>File</th><th class="num">Lines</th><th>Whose</th><th>What changes per product</th></tr></thead>
-    <tbody>
-      <tr><td><code>deployment.py</code></td><td class="num">970</td><td><span class="pill warn">yours</span></td><td>Everything. The source read, the two authorities, the debt measurement, the payload shape.</td></tr>
-      <tr><td><code>run.py</code></td><td class="num">187</td><td><span class="pill warn">yours</span></td><td>The flags a caller needs and what the run prints beside the JSON.</td></tr>
-      <tr><td><code>assembler.py</code></td><td class="num">268</td><td><span class="pill yes">nearly fixed</span></td><td>The identity checks and the assembler's own id. The shape is the protocol's.</td></tr>
-      <tr><td><code>produce.py</code></td><td class="num">389</td><td><span class="pill yes">nearly fixed</span></td><td>Almost nothing. It names no counterparty, no jurisdiction and no table.</td></tr>
-    </tbody>
-  </table>
+  {{split_table}}
   </div>
   <div class="col">
-    <p>The ratio is the honest measure of what adopting this costs: roughly <strong>1,150 lines you write</strong> against <strong>660 you read once</strong> — and against <strong>870 lines of declared artifacts</strong> that carry everything specific. If your code would still run meaningfully with the artifacts deleted, something has been hardcoded that should not have been.</p>
+    {{split_ratio}}
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">The evidence</p>
+    <h2>Twenty-two gates, and four of them could not be falsified here</h2>
+    <p>Every gate was sabotaged and watched go red. <strong>Eighteen went red on their own assertion. Four could not be broken from this deployment at all</strong> — an SDK guard refuses the bad state before the example can produce an artifact — and those are recorded as <code>unavailable</code> rather than as <code>passed</code>, because they mean different things. Collapsing them would tell a reviewer this example holds a line the SDK is actually holding.</p>
+    <div class="call">
+      <span class="lbl">Two sabotages proved to be testing nothing, and that is recorded too</span>
+      <p><code>TLP-G07</code>'s first draft grepped the whole replay record for <code>&quot;900&quot;</code> and passed under the very sabotage that deleted the bound from its message — because the record also carries the λ<sub>c</sub> table, whose <code>half_life_seconds</code> is 900. It now reads the gate's own sentence out of <code>content_generation_path.assembly_refusal</code>. A check passing for a reason unrelated to what it claims to test is this project's own defect class, and it arrived inside the machinery built to catch it.</p>
+    </div>
   </div>
 </section>
 
 <section>
   <div class="col">
     <p class="kicker">What to change first</p>
-    <h2>Four edits, in the order you will want them</h2>
+    <h2>Three edits, in the order you will want them</h2>
     <ul class="plain">
-      <li><strong>To point at your own estate</strong> — the variable name in <code>backends.yaml</code>, and the five table constants in <code>deployment.py</code>. Nothing else in the code knows a table name.</li>
-      <li><strong>To serve a different attribute</strong> — add it to <code>attribute_keys</code> in the Control Plane document. It flows to the payload, to the completeness measure and to the debt figure in one edit, because all three read that same list.</li>
-      <li><strong>To change who sees what</strong> — the entitlement grants in the estate. No code changes at all. That is the test of whether entitlement is really Control Plane state or just a filter someone wrote.</li>
-      <li><strong>To change the expiry</strong> — the TTL artifact. Read the note inside it first.</li>
-    </ul>
-  </div>
-</section>
-
-<section>
-  <div class="col">
-    <p class="kicker">What would fail</p>
-    <h2>Ask for a private borrower and it refuses</h2>
-  </div>
-  <div class="scroll"><pre><code>run.py --anchor CLI-000101
-
-ttl-bounds: expires_at 2026-02-24T00:00:00+00:00 is outside
-            (2026-08-16T12:00:00+00:00, 2026-08-17T12:00:00+00:00]</code></pre></div>
-  <div class="col">
-    <div class="call crit">
-      <span class="lbl">This is neither a fabric bug nor a data defect</span>
-      <p>The expiry is that borrower's <code>kyc_last_refresh</code> — months old by design — plus the declared 24-hour TTL. So it lands in the past and the TTL gate refuses on the first call. <strong>All 30 no-LEI borrowers are affected, and 27 of the 30 are live under their own declared ceiling.</strong></p>
-      <p>The contract declares <em>one</em> TTL; the identity hierarchy declares <em>two</em> freshness ceilings. The two do not compose. The specification records it, a test asserts the refusal, and <strong>that test is written to go red when the declaration is corrected</strong> — so it is the evidence the change gets made on, not a test that ratifies a bug.</p>
-    </div>
-
-    <h3>Ask as of &ldquo;now&rdquo; and everything refuses</h3>
-    <p>The vendor table's <code>retrieved_at</code> is a snapshot load date, so against today's clock all 186 entities are past their expiry. That is the fabric working correctly against a snapshot that is no longer fresh — a fact about the load, not about the assembly.</p>
-
-    <div class="call">
-      <span class="lbl">The snapshot this page reproduces against</span>
-      <p>Every figure above comes from commit <code>39e72bd</code> with the question pinned to <code>asked_at 2026-08-16T12:00:00+00:00</code>, producing content address <code>ab2e1a62bf0e5b26c86b3dc122bc77ca4c7e8162ef86510f4a0901224723e9e4</code> — so the same question returns the same answer, and if your numbers differ you have re-derived rather than replayed.</p>
-    </div>
-
-    <h3>Three more refusals, each returned rather than thrown</h3>
-    <ul class="plain">
-      <li>An anchor matching neither authority is a <strong>404</strong>, never an empty payload. <em>No such company</em> and <em>a company with nothing in it</em> are different answers.</li>
-      <li>A lapsed registration is <strong>excluded entirely</strong> unless you ask for it — and when you do, the status comes back as a first-class field. The two answers have different content addresses, which is what proves the parameter changed the payload rather than the query.</li>
-      <li><code>as_of</code> is <strong>declared and always refused</strong>. It is in the contract so you can discover it, and it fails loudly so nobody relies on it in a dispute.</li>
+      <li><strong>The staleness profile</strong> — <code>artifacts/staleness-profile.yaml</code> is the <em>refusal</em> rule, and <code>ccf_config.yaml</code>'s <code>half_life:</code> is the <em>decay</em> model. They are separate on purpose: a class can decay without being able to refuse. Widen the intraday bound and the run that fails closed starts serving.</li>
+      <li><strong>The decision instant</strong> — <code>artifacts/question.yaml</code>'s <code>as_of</code>. Move it two days earlier and the regulatory posture in force changes, which changes the answer <em>and</em> the content address. That is the fastest way to see that policy effectivity is a step function rather than a decay curve.</li>
+      <li><strong>The currency scope</strong> — a USD-only request on a USD-home client needs no conversion, so no FX rate participates and no FX bound can fire. Scope decides what takes part before freshness decides what is admitted.</li>
     </ul>
   </div>
 </section>
@@ -366,18 +336,30 @@ ttl-bounds: expires_at 2026-02-24T00:00:00+00:00 is outside
     <p class="kicker">Honest limits</p>
     <h2>What this example is not</h2>
     <ul class="plain">
-      <li><strong>No projection.</strong> Everyone authorized gets the same shape. What differs by principal is which companies <em>exist</em> to be shaped, and that is settled by the Policy step, not by conditioning the view.</li>
-      <li><strong>No relationships, no traversal, no second time axis.</strong> Identity only — no exposure, no risk grade, no ownership. Five of the eight standard operators are deliberately unused, and the recipe artifact says which and why.</li>
-      <li><strong>One gate has nothing to act on.</strong> The gate that refuses an empty served set cannot currently fire, because every principal in the estate sees at least 21 companies. A primitive with no instance in the data reads as machinery without a purpose, so it is recorded as owed rather than quietly passing.</li>
-      <li><strong>The semantic-consistency term is structurally 1.</strong> It is meant to catch a vendor record disagreeing with the internal one for the same company — but in this estate no company has both, so nothing could disagree. A clean score that no data could have moved is not evidence of agreement.</li>
-      <li><strong>Two of three half-lives are illustrative.</strong> They are publication cadences, not measured decision-relevance curves, and they are labelled that way. A catalog whose half-lives are all illustrative is not calibrated, and saying so plainly is more useful than implying otherwise.</li>
+      <li><strong>Holdings carry no observation time, and the product says so.</strong> <code>deposit_account</code> and <code>investment_position</code> have no timestamp column at all, so the declared <em>&ldquo;deposit balances ~1 hour λ<sub>c</sub>&rdquo;</em> cannot be computed against this estate. The product adds a fourth temporal class, <code>unobserved-holding</code>, publishes the absence, and never synthesizes an <code>observed_at</code> from the request instant.</li>
+      <li><strong>One permitted-instrument check is vacuous.</strong> The KIND test cannot discriminate on this estate, and it is recorded as an estate limitation rather than presented as a control that fired.</li>
+      <li><strong>Five time universes, no common live instant.</strong> The sources do not overlap at any single moment, so some scenario combinations are unreachable. Recorded rather than engineered around.</li>
+      <li><strong>Two of the half-lives are illustrative.</strong> This example runs against a point-in-time demonstration estate rather than continuously refreshed production data. The thresholds are calibrated to make the governed behavior observable in that snapshot, and should not be read as recommended production values.</li>
     </ul>
   </div>
 </section>
 
+<section>
+  <div class="col">
+    <p class="kicker">Two SDK rulings came out of this rung</p>
+    <h2>The example refused to work around the defect it found</h2>
+    <p><code>CP09-F-06</code> measured <code>F = 1.000000</code> on a serve carrying three observations <strong>65,100 seconds old</strong> against their own declared 86,400-second half-life. It was raised as a deviation from an approved <code>CP-SPEC-009</code> term rather than patched with a local scorer.</p>
+    <div class="call crit">
+      <span class="lbl">A store that cannot represent &ldquo;I do not know when this became true&rdquo; cannot be asked &ldquo;what was true then?&rdquo;</span>
+      <p><strong><code>D-IMPL-331</code></strong> lets a λ<sub>c</sub> row declare <em>which</em> of an observation's two instants it decays against, and refuse by name when the declared one is absent. <strong><code>D-IMPL-332</code></strong> stops the assembly layer destroying the uncertainty that makes the declaration mean anything: an unsupplied valid-time stays <em>absent</em> rather than being filled in with the ingestion instant. Neither half works alone — a declaration the layer beneath cannot honor is decoration, and an honest substrate nobody interrogates is unused.</p>
+      <p>After them, cp-09's <code>F</code> reads <strong>0.970232</strong>. The λ<sub>c</sub> table is live on the freshness term for the first time.</p>
+    </div>
+  </div>
+</section>
+
 <footer class="col">
-  <p><code>examples/cp-01-counterparty-reference-snapshot</code> · CCF SDK</p>
-  <p>Reproduced against commit <code>39e72bd</code>. Thirteen tests, eight product gates, each observed failing once.</p>
+  <p><code>examples/cp-09-treasury-liquidity-position</code> · CCF SDK</p>
+  <p>Twenty-two declared product gates, each observed failing once — eighteen by sabotage, four recorded <code>unavailable</code>. Six findings, none open.</p>
 </footer>
 
 </div>

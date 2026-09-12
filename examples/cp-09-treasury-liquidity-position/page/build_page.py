@@ -22,6 +22,16 @@ re-ran the product on every build would print whatever the estate said today —
 and a printed run that can drift is a documentation defect that presents as a
 fabric defect. Regenerate it deliberately, with the anchor pinned, and say so.
 
+**THE MASTHEAD, THE FILE TABLE AND THE FOOTER WERE cp-01's UNTIL 2026-09-12.**
+This template began as a copy of cp-01's and the copy was never finished: it
+carried `Context Product · cp-01`, `<h1>Counterparty Reference Snapshot</h1>`,
+cp-01's "half you write" table — including `assembler.py`, a file this example
+does not contain — and cp-01's footer path. The render is gitignored, so
+rebuilding this page produced cp-01's identity from cp-09's tree. Found while
+building cp-10 and repaired narrowly under `D-GATE-cp-10`; no cp-09 evidence or
+behavior changed, so cp-09's Gate 2 was not reopened.
+`tests/examples/test_page_identity.py` is the regression.
+
 **EVERY CAPTION COUNT IS COMPUTED, NOT TYPED** (`24.6-L-11`). The labels below
 carried twelve line counts and one test count as literals; measured on
 2026-09-04, EIGHT of the thirteen were wrong — the specification was captioned
@@ -99,6 +109,36 @@ BLOCKS: dict[str, tuple[str, str, str]] = {
 }
 
 
+#: The Python files, and whose they are. **No line count here** — the counts
+#: come from the same read that fills the page. cp-01's four typed counts, and
+#: the file it named that does not exist here, are the measured reason.
+SPLIT: tuple[tuple[str, str, str, str], ...] = (
+    ("deployment.py", "yours", "warn",
+     "Everything. The source reads, the envelopes and their order, the measured"
+     " C and S, and the deployment half of the declared gate."),
+    ("projection.py", "yours", "warn",
+     "Everything. The four temporal classes, the concentration verdicts and the"
+     " signal register."),
+    ("acquisition.py", "yours", "warn",
+     "The queries and the window bound. Nothing else in the tree knows a table"
+     " name or a ledger name."),
+    ("produce.py", "nearly fixed", "yes",
+     "Almost nothing. It names no client, no currency and no table — boot,"
+     " acquire, govern, and one named plan_factory."),
+    ("run.py", "nearly fixed", "yes",
+     "The flags a caller needs and what the run prints. The demonstration"
+     " question itself is an artifact, not code."),
+)
+
+#: Which files count as declared artifacts for the ratio sentence.
+ARTIFACTS: tuple[str, ...] = (
+    "ccf_config.yaml", "backends.yaml",
+    "artifacts/question.yaml", "artifacts/signal-sources.yaml",
+    "artifacts/staleness-profile.yaml", "artifacts/source-vocabulary.yaml",
+    "artifacts/gates.yaml",
+)
+
+
 def _resolve(path: str) -> pathlib.Path:
     return REPO / path if path.startswith("tests/") else EXAMPLE / path
 
@@ -151,11 +191,55 @@ def _details(path: str, label: str, note: str) -> str:
     )
 
 
+def _split() -> tuple[str, str]:
+    """The ownership table and its ratio sentence, both COUNTED from the tree.
+
+    The inherited version carried four typed counts and named `assembler.py`,
+    which this example does not contain. Reading the files here means the table
+    cannot describe an example that no longer exists, and cannot name one that
+    never did — a missing file raises rather than rendering.
+    """
+    rows, yours, fixed = [], 0, 0
+    for name, whose, pill, changes in SPLIT:
+        count = _lines(_resolve(name).read_text(encoding="utf-8"))
+        if whose == "yours":
+            yours += count
+        else:
+            fixed += count
+        rows.append(
+            f"<tr><td><code>{html.escape(name)}</code></td>"
+            f'<td class="num">{count:,}</td>'
+            f'<td><span class="pill {pill}">{html.escape(whose)}</span></td>'
+            f"<td>{html.escape(changes)}</td></tr>"
+        )
+    table = (
+        "<table><thead><tr><th>File</th><th class=\"num\">Lines</th>"
+        "<th>Whose</th><th>What changes per product</th></tr></thead>"
+        "<tbody>" + "".join(rows) + "</tbody></table>"
+    )
+    declared = sum(
+        _lines(_resolve(name).read_text(encoding="utf-8")) for name in ARTIFACTS
+    )
+    ratio = (
+        f"<p>The ratio is the honest measure of what adopting this costs:"
+        f" roughly <strong>{yours:,} lines you write</strong> against"
+        f" <strong>{fixed:,} you read once</strong> — and against"
+        f" <strong>{declared:,} lines of declared artifacts</strong> that carry"
+        f" everything specific. If your code would still run meaningfully with"
+        f" the artifacts deleted, something has been hardcoded that should not"
+        f" have been.</p>"
+    )
+    return table, ratio
+
+
 def build() -> str:
     page = TEMPLATE.read_text(encoding="utf-8")
     page = page.replace(
         "{{run}}", html.escape(RUN_TRANSCRIPT.read_text(encoding="utf-8"))
     )
+    table, ratio = _split()
+    page = page.replace("{{split_table}}", table)
+    page = page.replace("{{split_ratio}}", ratio)
     for key, (path, label, note) in BLOCKS.items():
         page = page.replace("{{" + key + "}}", _details(path, label, note))
     # THE PLACEHOLDER FORM, not any brace pair. cp-01's version tested
