@@ -90,7 +90,7 @@ itself would be demonstrating the mutation.
 
 ---
 
-## What the run prints
+## The story
 
 ```
 facility FAC-01BB3F
@@ -120,7 +120,7 @@ read the same on every answer; it was withdrawn rather than kept as decoration.
 
 ---
 
-## Artifact by artifact
+## Artifact-by-artifact
 
 | file | what it carries |
 |---|---|
@@ -139,7 +139,7 @@ read the same on every answer; it was withdrawn rather than kept as decoration.
 
 ---
 
-## Sections exercised
+## Whitepaper / CLAUDE.md sections exercised
 
 **Whitepaper** — §5.2 and §7.3 (the graph's T axis, here as two independent
 temporal dimensions); §7.4 (Temporal and Policy operators); §7.5 (Π as typed
@@ -187,7 +187,7 @@ them.
 
 ---
 
-## What would fail, and is meant to
+## What would fail
 
 - **Serving an amendment that violates either bound.** The declared product
   gate `cp-08.temporal-coherence` refuses the answer before a consumer sees it.
@@ -198,9 +198,7 @@ them.
 - **A policy bundle cited by the product but missing from the decision record.**
   `CIF-G16`, both limbs sabotaged in-test.
 
-## What is declared and not built
-
-`CIF-G15` — a closed as-of answer should carry a longer TTL than a live one.
+**Declared and deliberately NOT built.** `CIF-G15` — a closed as-of answer should carry a longer TTL than a live one.
 Where *closed* ends and *live* begins is an operator's policy decision rather
 than one this deployment may take, so the gate is **declared and visibly
 unimplemented** rather than dropped or counted as running. `CIF-G07`,
