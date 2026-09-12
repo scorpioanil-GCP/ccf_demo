@@ -1923,6 +1923,10 @@ class GovernedResolver:
             registry=self.control_plane,
             product_class=registered,
             source_attestation=execution.source_attestation,
+            # `D-IMPL-334`: the entities this execution actually read — the same
+            # value replay dimension 1 records. The gate asks whether any of
+            # them moved after the snapshot this product was built at.
+            touched_entities=execution.touched_entities(),
         )
         # 24.6-03/24.6-07: every source the resolution consulted, by exact
         # `(key, version)`. Derived ONCE and shared by the served record and
