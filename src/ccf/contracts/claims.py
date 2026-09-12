@@ -37,6 +37,7 @@ from datetime import datetime
 from pydantic import Field
 
 from ccf.contracts.base import CCFContract
+from ccf.contracts.canonical import HASH_TRANSPARENT_KEY
 from ccf.signal.envelope import SourceIdentity
 
 __ccf_mode__ = "algorithmic"
@@ -92,11 +93,28 @@ class _TemporalClaim(CCFContract):
     through the fabric (INV-CH7-16, D-IMPL-05). ``valid_to`` of ``None`` means
     "still valid as far as this observation knows" — not a default value, an
     open interval.
+
+    **``valid_from`` of ``None`` means the source did not say when the claim
+    became true** (``D-IMPL-332``) — also not a default value, and not an open
+    interval either: it is an ABSENT ANSWER. The fabric no longer substitutes
+    ingestion time for it, because the two fields answer different questions
+    and one is never the other:
+
+        ``observed_at`` — when the fabric learned the claim.
+        ``valid_from`` — when the claim was true in the world.
+
+    What absence means to a validity-window read is defined at ``GQ-09``
+    (``docs/GRAPH_QUERY_SEMANTICS.md``), and it is defined rather than
+    defaulted: a record that makes no valid-time claim cannot be EXCLUDED by a
+    valid-time bound, because excluding it would assert *"it was not true
+    then"* — as much an invention as asserting that it was.
     """
 
     tenant_id: str
     observed_at: datetime
-    valid_from: datetime
+    valid_from: datetime | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
     valid_to: datetime | None = None
     lineage: frozenset[LineageEntry]
 

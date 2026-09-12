@@ -436,7 +436,7 @@ class TemporalAsOf:
         self,
         *,
         observed_at: datetime,
-        valid_from: datetime,
+        valid_from: datetime | None,
         valid_to: datetime | None,
         superseded_at: datetime | None,
         boundary: datetime,
@@ -447,7 +447,13 @@ class TemporalAsOf:
             return False
         if not self._parameters.require_valid_at_boundary:
             return True
-        if valid_from > boundary:
+        # `GQ-09`'s ABSENCE LIMB (`D-IMPL-332`). A record whose source never
+        # said when the claim became true makes no valid-time claim, and a
+        # valid-time bound cannot exclude what makes no such claim: excluding
+        # it would assert "it was not true then", which is as much an
+        # invention as asserting that it was. The `GQ-07` as-of cut above
+        # still bounds it by when the fabric learned it.
+        if valid_from is not None and valid_from > boundary:
             return False
         return valid_to is None or valid_to > boundary
 

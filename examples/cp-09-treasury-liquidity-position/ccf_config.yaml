@@ -1,0 +1,328 @@
+# yaml-language-server: $schema=../../docs/schemas/ccf.deployment-config.json
+#
+# THE CONTROL PLANE DOCUMENT — what this fabric is permitted to do.
+#
+# Everything domain-specific about `treasury.liquidity-position` is here, and
+# `produce.py` beside it names none of it. Delete this file and the spine has
+# nothing left to interpret, which is the No-Hardcoding Rule (CLAUDE.md §6.4)
+# being structural rather than aspirational.
+#
+# The staleness PROFILE (`CP-SPEC-009` §B.6) is not here: it is a product
+# declaration this SDK's config schema does not own, so it lives beside the
+# other declared artifacts at `artifacts/staleness-profile.yaml` and reaches
+# the serve path through the declared product gate below.
+
+semver: "1.0.0"
+tenant_id: cp-09-treasury-demo
+
+# The FABRIC's own L3, not a source. Two source stores are opened and neither
+# is written.
+backend: sqlite
+
+product_class:
+  schema_name: treasury.liquidity-position
+  schema_version: "1.0.0"
+
+  # FROM THE DECISION, and the spec argues it: the caller's `asked_at` is the
+  # instant this determination is about, so the window runs from there. A
+  # forensic reconstruction at a pinned past `as_of` does not decay at all —
+  # §E.3 — and the payload says so rather than publishing a window that
+  # misdescribes a settled instant.
+  ttl_anchor: from_decision
+
+  # No LLM is reachable from any step. A product whose whole claim is *how old
+  # is each number* cannot have a generative stage that could smooth two ages
+  # into one sentence (§B.3).
+  assembly_mode: algorithmic
+
+  max_ttl_key: cp-09/product/treasury-liquidity-position/max-ttl
+
+  # TWO REGISTERED OPERATORS, and `operators_invoked` carries exactly these.
+  # The staleness gate is not among them: it is an `Evaluate` precondition that
+  # emits nothing, and a step that emits nothing must not enter lineage, which
+  # is what lineage strict equality (`TLP-G02`) is for.
+  required_operator_keys:
+    - policy.principal-subgraph
+    - traversal.typed-neighborhood
+
+  serve_obligations:
+    # THE PRODUCT MUST NAME WHAT IT COMPUTED FROM. `signal_register` is the
+    # payload's account of every participating observation with its
+    # `observed_at` and `temporal_class`; a served liquidity figure with an
+    # empty register would be a number with no provenance, which is the one
+    # thing this rung exists to make impossible (`TLP-G14`).
+    lineage_inputs_at:
+      - signal_register
+      - client
+
+  # THE GATE'S IDENTITY IS DECLARED HERE; the PREDICATE is the deployment's
+  # (`D-IMPL-282` R-11). The resolver stamps these two values onto the refusal,
+  # so this deployment's gate cannot claim to be a different gate than the one
+  # its class declared.
+  declared_product_gate:
+    gate_id: TLP-G07.staleness
+    gate_version: "1.0.0"
+
+operators:
+  # --- Policy runs first, and on a graph that stops being decoration. -------
+  #
+  # The envelope shapes WHAT IS WALKED rather than what is returned, so another
+  # client's deposit is never materialized and no edge to it is ever built.
+  # Suppression silence (`TLP-G05`) holds structurally instead of by filtering
+  # afterwards.
+  policy.principal-subgraph:
+    classification_attribute_by_class:
+      treasury_client: client_id
+      treasury_deposit: client_id
+      treasury_position: client_id
+      treasury_counterparty: client_id
+      treasury_rate_signal: client_id
+      treasury_fx_signal: client_id
+      treasury_posture: client_id
+    permitted_classifications:
+      source: effective_request
+      parameter: clients
+
+  # --- The walk. -----------------------------------------------------------
+  traversal.typed-neighborhood:
+    # THE ANCHOR ALONE. Seeding every class would make the frontier the whole
+    # estate and the depth bound would bound nothing.
+    seed_entity_classes:
+      - treasury_client
+
+    # The fabric's own relationship vocabulary, minted by the normalization
+    # step. `concentratedIn` is read and `heldAt` is NOT: measured 2026-09-11
+    # they are identical on all 200 positions, so walking both would claim
+    # information the estate does not carry (`CP09-F-03`, `TLP-G18`).
+    relationship_types:
+      - holdsDeposit
+      - holdsPosition
+      - concentratedIn
+      - governedBy
+      - observesRate
+      - observesFx
+
+    # The BACKEND's ceiling, not the product's bound. The caller's depth folds
+    # through `resolve_effective_request`; one number serving as both would
+    # make a product decision look like a capability limit.
+    depth_limit: 6
+
+request_contract:
+  class_id: cp-09.request-contract
+  role: register
+  registration: typed
+  schema_name: treasury.liquidity-position
+  schema_version: "1.0.0"
+  arguments:
+    properties:
+      clients:
+        type: array
+        items:
+          type: string
+          description: one client identifier this request is entitled to read.
+        description: >-
+          the client identifiers this request may walk, and the value that
+          reaches the policy operator's admitted set. Ordinarily the anchor's
+          own LEI as a one-element list. Stated by the caller rather than
+          derived from the subject because a binding supplies a value and never
+          converts one.
+      currencies:
+        type: array
+        items:
+          type: string
+          description: an ISO currency code the caller wants the position in.
+        description: >-
+          SCOPE. Which currencies' holdings the answer covers — and therefore
+          which FX observations participate at all. A single-currency request
+          on a client whose home currency it is requires NO conversion, so no
+          FX observation participates and no FX bound can fire (`TLP-G20`).
+          Absent means every currency held.
+      max_staleness:
+        type: object
+        description: >-
+          PER SIGNAL CLASS, never one clock. A mapping of signal-class name to
+          an ISO-8601 duration, tightening the bound the staleness profile
+          declares for that class and leaving every other class alone. Flattening
+          the classes into one bound would refuse this product on its quarterly
+          filing evidence, which is supposed to be months old (§B.6).
+      horizon:
+        type: string
+        description: the forward window the position is expressed over.
+      debt_tolerance:
+        type: number
+        description: >-
+          the caller's ceiling on assessed Context Debt, folded through the same
+          resolution as every other parameter.
+      include_proposals:
+        type: boolean
+        description: DECLARED AND INERT — refused, never honored. See unsupported_arguments.
+    required:
+      - clients
+  defaults:
+    horizon: intraday
+  unsupported_arguments:
+    include_proposals: >-
+      not_supported_at_tier. Generating candidate allocations requires an
+      optimization policy, which is domain configuration rather than SDK
+      mechanism. The product reports the concentration the client ACTUALLY
+      holds — including the exposures it has no limit to check against — and
+      proposes nothing.
+
+resolution:
+  # SEVEN ENTITY CLASSES, AND THE COUNT IS NOT COSMETIC. The reference debt
+  # scorer derives an observation's TYPE from its entity class
+  # (`src/ccf/products/debt_scorer.py::_observations`), so one class over
+  # everything would make one λ_c curve price a 15-minute rate tick and a
+  # 90-day filing figure identically — the flattening this whole rung exists
+  # to prevent. A class per genuinely-different observation type is what makes
+  # the per-class table below reachable at all.
+  entity_rules:
+    - match_key: client_node
+      entity_class: treasury_client
+      identity_keys: [entity_uri]
+      attribute_keys: [client_id, node_kind, label, lei, payload_json, observed_at_recorded]
+    - match_key: deposit_node
+      entity_class: treasury_deposit
+      identity_keys: [entity_uri]
+      attribute_keys: [client_id, node_kind, label, lei, payload_json, observed_at_recorded]
+    - match_key: position_node
+      entity_class: treasury_position
+      identity_keys: [entity_uri]
+      attribute_keys: [client_id, node_kind, label, lei, payload_json, observed_at_recorded]
+    - match_key: counterparty_node
+      entity_class: treasury_counterparty
+      identity_keys: [entity_uri]
+      attribute_keys: [client_id, node_kind, label, lei, payload_json, observed_at_recorded]
+    - match_key: rate_node
+      entity_class: treasury_rate_signal
+      identity_keys: [entity_uri]
+      attribute_keys: [client_id, node_kind, label, lei, payload_json, observed_at_recorded]
+    - match_key: fx_node
+      entity_class: treasury_fx_signal
+      identity_keys: [entity_uri]
+      attribute_keys: [client_id, node_kind, label, lei, payload_json, observed_at_recorded]
+    - match_key: posture_node
+      entity_class: treasury_posture
+      identity_keys: [entity_uri]
+      attribute_keys: [client_id, node_kind, label, lei, payload_json, observed_at_recorded]
+
+    # THE ENDPOINT RULES. Deliberately NO attribute keys: an edge asserts that
+    # two nodes are related and nothing about what either node IS. An edge
+    # envelope carrying attributes would supersede the richer node claim at the
+    # same URI and erase it.
+    - {match_key: client_subject, entity_class: treasury_client,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: subject_uri}}
+    - {match_key: position_subject, entity_class: treasury_position,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: subject_uri}}
+    - {match_key: deposit_object, entity_class: treasury_deposit,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+    - {match_key: position_object, entity_class: treasury_position,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+    - {match_key: counterparty_object, entity_class: treasury_counterparty,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+    - {match_key: rate_object, entity_class: treasury_rate_signal,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+    - {match_key: fx_object, entity_class: treasury_fx_signal,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+    - {match_key: posture_object, entity_class: treasury_posture,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+
+  relationship_rules:
+    - {relationship_type: holdsDeposit, predicate_key: predicate,
+       subject_entity_class: treasury_client, object_entity_class: treasury_deposit,
+       subject_rule: client_subject, object_rule: deposit_object}
+    - {relationship_type: holdsPosition, predicate_key: predicate,
+       subject_entity_class: treasury_client, object_entity_class: treasury_position,
+       subject_rule: client_subject, object_rule: position_object}
+    - {relationship_type: concentratedIn, predicate_key: predicate,
+       subject_entity_class: treasury_position, object_entity_class: treasury_counterparty,
+       subject_rule: position_subject, object_rule: counterparty_object}
+    - {relationship_type: governedBy, predicate_key: predicate,
+       subject_entity_class: treasury_client, object_entity_class: treasury_posture,
+       subject_rule: client_subject, object_rule: posture_object}
+    # TWO PREDICATES FOR THE TWO SIGNAL CLASSES, not one `observes` over both.
+    # The classes carry different λ_c and therefore must be different entity
+    # classes, and an edge rule names its object's class.
+    - {relationship_type: observesRate, predicate_key: predicate,
+       subject_entity_class: treasury_client, object_entity_class: treasury_rate_signal,
+       subject_rule: client_subject, object_rule: rate_object}
+    - {relationship_type: observesFx, predicate_key: predicate,
+       subject_entity_class: treasury_client, object_entity_class: treasury_fx_signal,
+       subject_rule: client_subject, object_rule: fx_object}
+
+# ---------------------------------------------------------------------------
+# λ_c — the DECAY model. `artifacts/staleness-profile.yaml` is the REFUSAL
+# rule, and the two are not the same thing: a class can decay (contributing
+# debt) without being able to refuse (`CP-SPEC-009` §E.1).
+# ---------------------------------------------------------------------------
+#
+# ILLUSTRATIVE CALIBRATION. This example runs against a point-in-time
+# demonstration estate rather than continuously refreshed production data.
+# Freshness half-lives and related thresholds are calibrated to make the
+# governed behavior observable in that snapshot. They demonstrate how the SDK
+# applies these controls and should not be interpreted as recommended
+# production coverage-policy thresholds.
+half_life:
+  # KEYED ON ENTITY CLASS, because that is what the reference scorer reads.
+  #
+  # **AND EACH ROW DECLARES WHICH INSTANT IT DECAYS AGAINST** (`D-IMPL-331`).
+  # Before that field existed this table was inert on the `F` term: a claim's
+  # `observed_at` is set to INGESTION always, by design, so every row here
+  # scored perfectly fresh however old the underlying observation was.
+  # Measured on this example: `F = 1.000000` with three FX observations
+  # 65,100s old against their declared 86,400s half-life (`CP09-F-06`).
+
+  # --- The two classes that decay IN THE WORLD. ---------------------------
+  treasury_rate_signal:
+    half_life_seconds: 900           # 15m — the fastest signal in the catalog
+    decay_basis: valid-from          # the SOURCE's instant, not ingestion
+    decay_driver: market-movement
+    supersession_event: next-tick
+  treasury_fx_signal:
+    half_life_seconds: 86400         # 1d — daily publication
+    decay_basis: valid-from
+    decay_driver: daily-publication
+    supersession_event: next-publication
+
+  # --- The classes that do NOT decay, each for its own reason. ------------
+  #
+  # `supersede-only` rather than a long curve. A long half-life would still be
+  # a decay claim, and these are not slow-decaying — they are not decaying.
+  # None of them declares `valid-from`, because none of them has a source
+  # instant to declare: their envelopes carry `observed_time=None` and nothing
+  # here reads an instant for them.
+  treasury_deposit:
+    decay: supersede-only            # NO observation time exists (`CP09-F-01`)
+    decay_driver: unobserved
+    supersession_event: balance-movement
+  treasury_position:
+    decay: supersede-only            # NO observation time exists (`CP09-F-01`)
+    decay_driver: unobserved
+    supersession_event: position-change
+  treasury_posture:
+    decay: supersede-only            # EFFECTIVITY, not age (§D.3)
+    decay_driver: effectivity-not-age
+    supersession_event: posture-amendment
+  treasury_client:
+    decay: supersede-only            # carries a period END, not an observation
+    decay_driver: quarterly-filing-cadence
+    supersession_event: next-filing
+  treasury_counterparty:
+    decay: supersede-only            # identity, superseded by a GLEIF update
+    decay_driver: gleif-level-1-refresh
+    supersession_event: level-1-record-update
+
+debt_profile:
+  risk_sensitivity: "1.0"
+  forced_llm_threshold: "0.60"
+  fail_closed_threshold: "0.77"
+
+policy:
+  class_id: cp-09.policy-bundle
+  role: register
+  registration: typed
+  regime: treasury-liquidity-entitlement
+
+default_perspective:
+  principal_id: PRIN-COV-001
+  role: credit-officer

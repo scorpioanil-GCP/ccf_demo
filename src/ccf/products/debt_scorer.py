@@ -555,6 +555,14 @@ class AssemblyDebtScorer:
                 observation_type=record.claim.entity_class,
                 observed_at=record.claim.observed_at,
                 subject=record.claim.entity_uri,
+                # BOTH CLAIM TIMES ARE CARRIED (``D-IMPL-331``); which one
+                # decays is the λ_c row's declaration, not this function's
+                # choice. `observed_at` is when the fabric learned the claim
+                # and `valid_from` is when the source says it observed the
+                # thing — `AssemblyWorker._stitch` writes both and is
+                # unchanged. Copying only the first is what made a declared
+                # λ_c table unable to move `F` at all.
+                valid_from=record.claim.valid_from,
             )
             for record in view.entities
         )

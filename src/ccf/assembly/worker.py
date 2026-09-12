@@ -467,18 +467,33 @@ class AssemblyWorker:
         )
 
     @staticmethod
-    def _stitch(envelope: SignalEnvelope) -> tuple[datetime, datetime]:
+    def _stitch(envelope: SignalEnvelope) -> tuple[datetime, datetime | None]:
         """Reconcile observed-time against valid-time (INV-CH7-03, INV-CH7-14).
 
         Returns ``(observed_at, valid_from)``. ``observed_at`` is always
         ingestion: it records when *the fabric* learned the claim, which is a
-        fact the fabric always knows. ``valid_from`` is the source's
-        ``observed_time`` when the source can say, and ingestion when it
-        cannot — see the module docstring for why that is a rule rather than a
-        default.
+        fact the fabric always knows.
+
+        **``valid_from`` is the source's ``observed_time``, and stays ABSENT
+        when the source cannot say** (``D-IMPL-332``). It used to fall back to
+        ingestion, and that fallback is the defect this ruling removes:
+
+            ``observed_at`` means *when the fabric learned the claim*.
+            ``valid_from`` means *when the claim was true in the world*.
+
+        Substituting the first for the second turns *"we learned it at 2 PM"*
+        into *"it became true at 2 PM"* — a claim about the world that no
+        source made, minted by an ingestion run. It also defeated
+        ``D-IMPL-331`` from below: a λ_c row declaring
+        ``decay_basis: valid-from`` would read that manufactured instant and
+        report a perfectly fresh figure for an observation whose real age is
+        unknown, which is exactly what declaring the basis was meant to stop.
+
+        **Unknown stays unknown.** What an absent ``valid_from`` means to a
+        validity-window read is defined at ``GQ-09``, not defaulted here.
         """
         observed_at = envelope.ingestion_timestamp
-        valid_from = envelope.observed_time or envelope.ingestion_timestamp
+        valid_from = envelope.observed_time
         return observed_at, valid_from
 
     def ingest(self, envelope: SignalEnvelope) -> IngestResult:

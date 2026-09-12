@@ -1,0 +1,307 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE DECLARED PRODUCT GATES OF cp-09 — ALL TWENTY-TWO CP-SPEC-009 §G.1 NAMES.
+#
+# A product's gates are a declared artifact plus CI coverage: each id below has
+# an EXECUTING test, and the checker resolves the chain — the specification
+# exists, §G.1 exists in it, and the gate's own id appears in that clause.
+#
+# `sabotage_state` HAS THREE VALUES AND THEY ARE NOT INTERCHANGEABLE (Dave,
+# 2026-09-12). `passed` and `unavailable` mean different things, and collapsing
+# them would tell a reviewer this example is holding a line the SDK is actually
+# holding. Eighteen gates here are `passed`; FOUR are `unavailable`, and each
+# names the upstream guard that makes its bad state unreachable — D-IMPL-86's
+# bind-time divergence refusal (TLP-G01, TLP-G02), the SDK's disclosure layer
+# (TLP-G05), and the type boundary between a refusal and a served product
+# (TLP-G08).
+#
+# WHERE A SABOTAGE PROVED TO BE TESTING NOTHING, THAT IS RECORDED TOO (TLP-G07,
+# TLP-G14). A sabotage that changes the wrong thing is evidence about the TEST,
+# and deleting it would hide the strongest thing this roster knows about
+# itself: TLP-G07's first draft was green under the very sabotage it was
+# written to catch.
+#
+# The principle the whole file is written to: the evidence should describe
+# where the guarantee really comes from, not where we wish it came from.
+
+semver: 1.0.0
+class_id: cp-09.product-gates
+declaration:
+  product: treasury.liquidity-position
+  test_naming_convention: the gate id appears in the executing test's docstring, as a TLP-GNN
+    line naming the CP-SPEC-009 G.1 clause that approves it.
+  sabotage_states:
+    passed: the specific invariant under test was broken and the gate went red
+    unavailable: an UPSTREAM SDK invariant makes the bad state unreachable from this deployment;
+      the gate is evidenced by the successful path plus that guard, never by a local negative
+      control
+    not-required: a genuinely non-load-bearing or documentary gate
+  gates:
+  - id: TLP-G01
+    statement: a plan with zero operator steps never serves
+    spec_clause: &id001
+      document: spec/CP-SPEC-009_Treasury_Liquidity_Position.md
+      clause: G.1
+    test: tests/examples/test_cp_09_output.py::test_tlp_g01_the_operator_plan_is_never_empty
+    sabotage: remove an operator from the served set
+    sabotage_state: unavailable
+    observed_red:
+      result: '**DEPLOYMENT SABOTAGE UNAVAILABLE.** The invariant cannot be falsified from
+        cp-09: the SDK rejects a divergent or empty operator set during governed binding under
+        `D-IMPL-86`, before the deployment can produce an artifact. Evidenced by the successful
+        cp-09 path plus the SDK-level divergence guard, not by a local sabotage.'
+      date: '2026-09-12'
+      commit: 0ca78a58
+  - id: TLP-G02
+    statement: served lineage equals the plan's typed operator references, and `ProductLineage`
+      is exactly three fields
+    spec_clause: *id001
+    test: tests/examples/test_cp_09_output.py::test_tlp_g02_lineage_is_exactly_the_declared_operator_set
+    sabotage: make the plan return an operator set of its own
+    sabotage_state: unavailable
+    observed_red:
+      result: '**DEPLOYMENT SABOTAGE UNAVAILABLE.** The invariant cannot be falsified from
+        cp-09 because the SDK rejects the divergent state during governed binding under `D-IMPL-86`,
+        before the deployment can produce an artifact. Observed: `ValueError: operator set
+        divergence for plan ''cp-09.treasury-liquidity/...'' ... differing on [''traversal.invented'']`
+        — an ERROR at bind time, not a red assertion later in product execution. That it fails
+        at BIND rather than at serve is itself the evidence: cp-09 is not responsible for
+        policing this divergence, because the SDK refuses to let such a governed product exist.
+        The three-field lineage shape is likewise an SDK contract a deployment cannot widen.'
+      date: '2026-09-12'
+      commit: 0ca78a58
+  - id: TLP-G03
+    statement: expires_at is the decision instant plus the fastest class's bound, never a
+      clock read
+    spec_clause: *id001
+    test: tests/examples/test_cp_09_output.py::test_tlp_g03_the_ttl_derives_from_the_decision_instant
+    sabotage: double the product TTL so the window stops being the declared bound
+    sabotage_state: passed
+    observed_red:
+      result: 'RED. Observed: the window is no longer the fastest class''s bound measured
+        from the decision instant.'
+      date: '2026-09-12'
+      commit: 0ca78a58
+  - id: TLP-G04
+    statement: D_c above the caller's tolerance refuses rather than serving
+    spec_clause: *id001
+    test: tests/examples/test_cp_09_output.py::test_tlp_g04_the_debt_gate_refuses_over_the_caller_s_tolerance
+    sabotage: discard the caller's tolerance and substitute 1
+    sabotage_state: passed
+    observed_red:
+      result: 'RED. Observed: a figure that must refuse is served.'
+      date: '2026-09-12'
+      commit: 0ca78a58
+  - id: TLP-G05
+    statement: a withheld element leaves no count, marker or placeholder in the disclosed
+      envelope
+    spec_clause: *id001
+    test: tests/examples/test_cp_09_output.py::test_tlp_g05_a_withheld_element_leaves_no_marker
+    sabotage: inject the stale signal's id into the gate's own message
+    sabotage_state: unavailable
+    observed_red:
+      result: '**DEPLOYMENT SABOTAGE UNAVAILABLE.** Naming SIG-000 inside the gate''s detail
+        does NOT reach the consumer: the SDK''s disclosure layer replaces a product-invariant-refusal''s
+        detail with its own sentence before the envelope crosses the boundary, so no deployment-side
+        text can leak. Evidenced by the SDK''s disclosure layer, not by a local sabotage —
+        and this is why TLP-G07 reads the REPLAY record instead, which is the surface that
+        does carry the determination.'
+      date: '2026-09-12'
+      commit: 0ca78a58
+  - id: TLP-G06
+    statement: the payload's classification is the highest of any contributing element
+    spec_clause: *id001
+    test: tests/examples/test_cp_09_output.py::test_tlp_g06_the_payload_classification_is_the_highest_contributing
+    sabotage: serve no internal element at all
+    sabotage_state: passed
+    observed_red:
+      result: 'RED. Observed: the mixed-classification premise disappears, which is the vacuity
+        this gate guards against.'
+      date: '2026-09-12'
+      commit: 0ca78a58
+  - id: TLP-G07
+    statement: the refusal names the class, the signal, its age and the bound it broke
+    spec_clause: *id001
+    test: tests/examples/test_cp_09_output.py::test_tlp_g07_the_staleness_gate_names_the_signal_in_replay
+    sabotage: omit the BOUND from the gate's message
+    sabotage_state: passed
+    observed_red:
+      result: 'RED. Observed: the assertion on ''bound of 900s'' fails. **The FIRST DRAFT
+        of this gate PASSED under this same sabotage** — it grepped the whole replay record
+        for the literal 900, which the half-life table also carries, so it was green for a
+        reason unrelated to its claim. The gate now reads the gate''s own sentence out of
+        content_generation_path.assembly_refusal.'
+      date: '2026-09-12'
+      commit: 0ca78a58
+  - id: TLP-G08
+    statement: a fail-closed refusal carries no liquidity figure at all
+    spec_clause: *id001
+    test: tests/examples/test_cp_09_output.py::test_tlp_g08_a_fail_closed_refusal_carries_no_liquidity_figure
+    sabotage: serve a partial composition beside a warning
+    sabotage_state: unavailable
+    observed_red:
+      result: '**DEPLOYMENT SABOTAGE UNAVAILABLE.** A refusal and a served product are different
+        SDK types; there is no shape in which one carries the other''s payload, so the forbidden
+        state is unreachable from cp-09. Evidenced by the SDK''s own type boundary. Recorded
+        as a standing statement of what this class means by fail-closed.'
+      date: '2026-09-12'
+      commit: 0ca78a58
+  - id: TLP-G09
+    statement: the posture in force changes with the decision instant, in level and in version
+    spec_clause: *id001
+    test: tests/examples/test_cp_09_output.py::test_tlp_g09_the_posture_in_force_changes_with_the_decision_instant
+    sabotage: read the ledger head instead of comparing validFrom to as_of
+    sabotage_state: passed
+    observed_red:
+      result: RED, with TLP-G10, under one sabotage of the effectivity comparison in acquisition.posture_overlay.
+      date: '2026-09-12'
+      commit: 0ca78a58
+  - id: TLP-G10
+    statement: a pre-flip request never sees a version effective after its own instant
+    spec_clause: *id001
+    test: tests/examples/test_cp_09_output.py::test_tlp_g10_the_posture_is_selected_by_effectivity_not_by_the_head
+    sabotage: read the ledger head instead of comparing validFrom to as_of
+    sabotage_state: passed
+    observed_red:
+      result: RED, with TLP-G09, under the same sabotage.
+      date: '2026-09-12'
+      commit: 0ca78a58
+  - id: TLP-G11
+    statement: the served rate is the observation AT the decision instant, not the most recent
+      published close
+    spec_clause: *id001
+    test: tests/examples/test_cp_09_output.py::test_tlp_g11_the_served_rate_is_the_tick_not_the_published_close
+    sabotage: narrow the tick feed's coverage window so the daily series answers
+    sabotage_state: passed
+    observed_red:
+      result: 'RED. Observed: the served observation is no longer at the decision instant.'
+      date: '2026-09-12'
+      commit: 0ca78a58
+  - id: TLP-G12
+    statement: breach, within-limit and limit-unknown are three distinguishable verdicts
+    spec_clause: *id001
+    test: tests/examples/test_cp_09_output.py::test_tlp_g12_three_verdicts_are_distinguishable
+    sabotage: collapse limit-unknown into within-limit
+    sabotage_state: passed
+    observed_red:
+      result: 'RED. Observed: the verdict set loses limit-unknown — the collapse that reports
+        a client compliant when it cannot know.'
+      date: '2026-09-12'
+      commit: 0ca78a58
+  - id: TLP-G13
+    statement: limit coverage is published as a ratio and agrees with the verdicts beside
+      it
+    spec_clause: *id001
+    test: tests/examples/test_cp_09_output.py::test_tlp_g13_limit_coverage_is_published_as_a_ratio
+    sabotage: report every counterparty as covered
+    sabotage_state: passed
+    observed_red:
+      result: 'RED. Observed: coverage no longer disagrees with the verdict roster.'
+      date: '2026-09-12'
+      commit: 0ca78a58
+  - id: TLP-G14
+    statement: every payload element declares a temporal_class from the closed four, and the
+      signal register admits only observations
+    spec_clause: *id001
+    test: tests/examples/test_cp_09_output.py::test_tlp_g14_every_element_declares_its_temporal_class
+    sabotage: admit the filing figure into the signal register
+    sabotage_state: passed
+    observed_red:
+      result: 'RED. Observed: a reporting-period-end element in the register fails the class
+        assertion. An EARLIER attempt widened a branch no reporting-period element reaches
+        and changed nothing — the sabotage was wrong, not the gate, and it is recorded because
+        a sabotage that tests nothing is evidence about the test.'
+      date: '2026-09-12'
+      commit: 0ca78a58
+  - id: TLP-G15
+    statement: an unobserved holding carries no observed_at, and a valid-from half-life over
+      one REFUSES rather than inferring
+    spec_clause: *id001
+    test: tests/examples/test_cp_09_output.py::test_tlp_g15_an_unobserved_holding_is_never_given_a_time
+    sabotage: stamp the run's clock onto a holding's envelope
+    sabotage_state: passed
+    observed_red:
+      result: 'RED. Observed: the assembled claim''s valid_from is no longer None, so MissingDecayInstant
+        never fires. **This gate carries the whole D-IMPL-331 + D-IMPL-332 chain at the Context
+        Product level**: unobserved source -> no invented valid-time -> assembly preserves
+        absence -> valid-from basis selected -> scorer refuses.'
+      date: '2026-09-12'
+      commit: 0ca78a58
+  - id: TLP-G16
+    statement: the mandate kind and tenor checks are evaluated and reported separately
+    spec_clause: *id001
+    test: tests/examples/test_cp_09_output.py::test_tlp_g16_the_mandate_tenor_rule_is_evaluated_and_reported_apart
+    sabotage: report the kind check as unevaluated
+    sabotage_state: passed
+    observed_red:
+      result: 'RED. Observed: the separation this gate exists for is gone.'
+      date: '2026-09-12'
+      commit: 0ca78a58
+  - id: TLP-G17
+    statement: an unresolvable anchor refuses distinctly from a client that holds nothing
+    spec_clause: *id001
+    test: tests/examples/test_cp_09_output.py::test_tlp_g17_an_unknown_anchor_refuses_distinctly
+    sabotage: return an empty estate instead of refusing
+    sabotage_state: passed
+    observed_red:
+      result: 'RED. Observed: the expected UnknownClient refusal is not raised.'
+      date: '2026-09-12'
+      commit: 0ca78a58
+  - id: TLP-G18
+    statement: the walk reads one concentration edge and the deployment records which
+    spec_clause: *id001
+    test: tests/examples/test_cp_09_output.py::test_tlp_g18_one_concentration_edge_is_read_and_recorded
+    sabotage: declare both edges in the traversal vocabulary
+    sabotage_state: passed
+    observed_red:
+      result: 'RED. Observed: the walk declares heldAt beside concentratedIn, claiming a distinction
+        this estate does not carry (CP09-F-03).'
+      date: '2026-09-12'
+      commit: 0ca78a58
+  - id: TLP-G19
+    statement: subject, intent, freshness and asked_at are request FIELDS and none also appears
+      in parameters
+    spec_clause: *id001
+    test: tests/examples/test_cp_09_output.py::test_tlp_g19_the_four_axes_are_request_fields_not_parameters
+    sabotage: copy intent into parameters as well
+    sabotage_state: passed
+    observed_red:
+      result: 'RED. Observed: one axis carries two spellings, which the content address would
+        hash twice.'
+      date: '2026-09-12'
+      commit: 0ca78a58
+  - id: TLP-G20
+    statement: 'scope decides participation before freshness decides admission: an out-of-scope
+      class contributes no age'
+    spec_clause: *id001
+    test: tests/examples/test_cp_09_output.py::test_tlp_g20_scope_decides_participation_before_freshness_decides_admission
+    sabotage: scope deposits only, leaving positions unfiltered
+    sabotage_state: passed
+    observed_red:
+      result: 'RED. Observed: FX observations participate in a request needing no conversion
+        — the exact defect found while building, re-applied.'
+      date: '2026-09-12'
+      commit: 0ca78a58
+  - id: TLP-G21
+    statement: the payload carries no second copy of D_c, the content address or the policy
+      versions
+    spec_clause: *id001
+    test: tests/examples/test_cp_09_output.py::test_tlp_g21_the_payload_carries_no_second_copy_of_the_evidence
+    sabotage: copy the debt figure into the payload
+    sabotage_state: passed
+    observed_red:
+      result: 'RED. Observed: a second value free to disagree with the first.'
+      date: '2026-09-12'
+      commit: 0ca78a58
+  - id: TLP-G22
+    statement: an out-of-window source is ABSENT, and the oldest participating signal is the
+      one the refusal names
+    spec_clause: *id001
+    test: tests/examples/test_cp_09_output.py::test_tlp_g22_the_stale_scenario_participates_only_in_its_own_feed
+    sabotage: admit a feed whose window excludes the decision instant
+    sabotage_state: passed
+    observed_red:
+      result: 'RED. Observed: the curve feed''s June close participates at an August instant,
+        59 days old, and preempts SIG-000.'
+      date: '2026-09-12'
+      commit: 0ca78a58

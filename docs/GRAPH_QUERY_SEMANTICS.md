@@ -1,10 +1,10 @@
 # Graph Query Semantics
 
-**Semantics version: 1.3.0** — the query vocabulary is versioned through this
+**Semantics version: 1.4.0** — the query vocabulary is versioned through this
 document only (D-12): the `GraphQuery` contract carries **no version field**
 and evolves by additive sentinel-defaulted fields under the existing
 frozen/`extra=forbid` discipline; the differential conformance suite is the
-compatibility check. 1.0 added `allowed_entities`; 1.1.0 `admitted_entity_classes`; 1.2.0 `direction`; 1.3.0 the traversal universe (`GQ-10`, `GQ-13`, `GQ-16`, `GQ-35`).
+compatibility check. 1.0 added `allowed_entities`; 1.1.0 `admitted_entity_classes`; 1.2.0 `direction`; 1.3.0 the traversal universe (`GQ-10`, `GQ-13`, `GQ-16`, `GQ-35`); 1.4.0 `GQ-09`'s absence limb.
 
 This is the normative definition of what a `GraphQuery` means and what any
 conformant answerer must return — D-05 artifact 1, written before the
@@ -636,6 +636,48 @@ clause they amend out of existence, and an amendment is written so it does
 not move the clause headings above it — the anchored citations across
 `/src` and `/tests` carry line numbers, and a renumbering edit would make
 the citation guard report a hundred false moves and hide a real one.
+
+- **1.4.0** — *`D-IMPL-332`.* `GQ-09` gains an **absence limb**: a record
+  whose `claim.valid_from` is **absent** is not excluded by the
+  validity-window cut.
+
+  *Why it was needed.* `valid_from` became genuinely nullable.
+  `ccf.assembly.worker.AssemblyWorker._stitch` used to fill it from the
+  envelope's `ingestion_timestamp` whenever a source supplied no
+  `observed_time`, which turned *"we learned it at 2 PM"* into *"it became
+  true at 2 PM"* — a claim about the world that no source made — and
+  defeated `D-IMPL-331`'s `decay_basis` from below by handing a
+  `valid-from` curve a manufactured instant. `D-IMPL-332` stops the
+  substitution, so this document has to say what absence MEANS to a
+  validity-window read rather than leaving it to whichever comparison each
+  substrate happens to perform.
+
+  *The rule.* When `require_valid_at_boundary` is true, a record survives
+  the validity cut if
+
+      (valid_from IS ABSENT OR valid_from <= as_of)
+      AND (valid_to IS NULL OR valid_to > as_of)
+
+  **Admit, not exclude, and not a fallback to `observed_at`.** Excluding
+  would assert *"it was not true then"*, which is as much an invention as
+  asserting that it was; substituting `observed_at` is the defect being
+  removed. The `GQ-07` as-of cut still bounds such a record by when the
+  fabric learned it, so nothing escapes the first axis.
+
+  *Behavior-preserving, which is why this is a MINOR.* Under the old rule
+  an unsupplied valid-time became ingestion, and ingestion is at or before
+  the boundary for any record that survived `GQ-07` — so exactly the
+  records admitted before are admitted now. No answer changes shape; what
+  changes is that the fabric no longer states a world-fact it does not
+  know.
+
+  *Where it is enforced.* In-process at
+  `ccf.operators.categories::TemporalAsOf._survives` and
+  `ccf.graph.fallback::_valid_at_boundary`, and pushed down by all five
+  backends — Postgres and SQLite as `IS NULL OR`, Neo4j and Fluree as
+  `IS NULL OR`, MongoDB as `$exists: false` beside the `$lte`. A substrate
+  that omitted the limb would silently delete every unstamped claim from
+  every validity-window read, which is the failure this clause names.
 
 - **1.3.0** — *plan 24.8-05 (the mechanism: plan 24.8-04), ledger row
   `CP04-G-28`, `D-IMPL-267`, `D-IMPL-268`.* No contract field changes.

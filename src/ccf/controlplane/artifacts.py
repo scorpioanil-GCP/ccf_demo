@@ -226,6 +226,30 @@ def declared_artifact_class(class_id: str) -> ArtifactClass:
 #: table, beside every rate.
 DecayMode = Literal["curve", "supersede-only"]
 
+#: WHICH OF AN OBSERVATION'S TWO INSTANTS a λ_c row decays against
+#: (``D-IMPL-331``).
+#:
+#: ``observed-at`` reads :attr:`ccf.halflife.decay.Observation.observed_at` —
+#: when **the fabric learned** the claim. ``valid-from`` reads
+#: :attr:`~ccf.halflife.decay.Observation.valid_from` — when **the source**
+#: says it observed the thing.
+#:
+#: **They are different questions and the table has to say which one it means.**
+#: :meth:`ccf.assembly.worker.AssemblyWorker._stitch` sets a claim's
+#: ``observed_at`` to ingestion *always*, by design, and routes the source's
+#: own instant to ``valid_from``. So a table decaying against ``observed-at``
+#: measures fabric-learning latency, which for a fabric populated inside the
+#: run is zero for every claim however old the underlying observation is.
+#: Measured at `cp-09` before this field existed: ``F = 1.000000`` on a serve
+#: carrying three observations 65,100 seconds old against their own declared
+#: 86,400-second half-life (`CP09-F-06`).
+#:
+#: **The default is** ``observed-at`` **and it is hash-transparent**, so every
+#: table written before this field existed keeps its identity and its `F`
+#: unchanged. A deployment whose sources carry real observation times declares
+#: ``valid-from`` per row, beside the rate.
+DecayBasis = Literal["observed-at", "valid-from"]
+
 
 class HalfLifeEntry(CCFContract):
     """One row of a λ_c table (whitepaper §7.7.1–§7.7.2; INV-CH7-59).
@@ -285,9 +309,23 @@ class HalfLifeEntry(CCFContract):
         supersession_event: The event that ends this observation's validity for
             current-value queries. Required in both modes — under
             ``supersede-only`` it is the *only* thing that ends it.
+        decay_basis: WHICH INSTANT this row decays against (``D-IMPL-331``) —
+            :data:`DecayBasis`. ``observed-at`` (the default, and
+            hash-transparent, so every table written before this field existed
+            is byte-identical and scores identically) measures how long ago the
+            FABRIC learned the claim. ``valid-from`` measures how long ago the
+            SOURCE observed it, and is what a row whose class decays *in the
+            world* declares. A row declaring ``valid-from`` for an observation
+            carrying no ``valid_from`` is **refused by name** rather than
+            falling back: a silent fallback to ``observed_at`` would report a
+            perfectly fresh figure for a claim whose age nobody knows, which is
+            the defect this field exists to end.
     """
 
     decay: DecayMode = Field(default="curve", json_schema_extra={HASH_TRANSPARENT_KEY: True})
+    decay_basis: DecayBasis = Field(
+        default="observed-at", json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
     half_life_seconds: int | None = Field(
         default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )

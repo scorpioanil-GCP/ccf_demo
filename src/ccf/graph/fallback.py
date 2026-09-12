@@ -71,7 +71,7 @@ def _survives_as_of(
 
 def _valid_at_boundary(
     *,
-    valid_from: datetime,
+    valid_from: datetime | None,
     valid_to: datetime | None,
     boundary: datetime,
 ) -> bool:
@@ -83,7 +83,10 @@ def _valid_at_boundary(
     did we know?" and "what was true?" are the two axes of the bitemporal
     model; this predicate is the second one, applied only when declared.
     """
-    if valid_from > boundary:
+    # `GQ-09`'s ABSENCE LIMB (`D-IMPL-332`) — the same rule the in-process
+    # operator applies, and it has to be the same rule or the fallback stops
+    # being an idempotent re-application of it.
+    if valid_from is not None and valid_from > boundary:
         return False
     return valid_to is None or valid_to > boundary
 

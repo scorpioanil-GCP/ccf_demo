@@ -55,7 +55,7 @@ NO_SUBSTRATE := not postgres and not chroma and not neo4j and not mongo and not 
 	ci-quick-suite ci-harness-conformance ci-coverage \
 	example-s1-01 example-s1-00 example-cp-00 example-cp-01 example-cp-02 \
 	example-cp-03 example-cp-04 example-cp-04-canonical example-cp-05 example-cp-05-server \
-	example-cp-06 example-cp-07 \
+	example-cp-06 example-cp-07 example-cp-09 \
 	example-hw1-harness-clients \
 	example-hw1-harness-clients-live-adk \
 	example-hw1-harness-clients-live-anthropic \
@@ -499,6 +499,25 @@ example-cp-07: ## Run examples/cp-07-client-360-coverage-graph (LEI, SCOPE, SINC
 	PYTHONPATH=src:runtime:examples/cp-07-client-360-coverage-graph \
 		$(PYTHON) examples/cp-07-client-360-coverage-graph/run.py \
 		$(LEI) $(SCOPE) $(SINCE) $(LIMIT) $(FAMILY) $(NTK)
+
+# cp-09 — the ladder's rung 9. NOT in the `examples:` aggregate, for the reason
+# every networked rung is excluded: it reads a live estate through declared
+# environment variables and has no in-tree fixture to fall back onto, so a red
+# check nobody can make green would be worse than no check
+# (`example_delivery.md` §3). Its code path IS covered — by
+# `tests/examples/test_cp_09_output.py`, which the `leg-postgres` and
+# `leg-fluree` targets select by marker.
+#
+# EVERY PARAMETER IS OPTIONAL. Omitted, `run.py` asks the demonstration
+# question in `artifacts/question.yaml`: a threshold, an anchor and an as-of
+# date are REQUEST parameters, and a build tool is not a request channel.
+example-cp-09: ## Run examples/cp-09-treasury-liquidity-position (LEI, AS_OF, INTENT, CURRENCIES, MAX_STALENESS optional; needs CCF_CP_09_FLUREE_URL, CCF_CP_09_FLUREE_LEDGER, CCF_CP_09_POSTGRES_DSN, CCF_CP_09_POSTGRES_SCHEMA)
+	PYTHONPATH=src:runtime:examples/cp-09-treasury-liquidity-position \
+		$(PYTHON) examples/cp-09-treasury-liquidity-position/run.py \
+		$(if $(LEI),--lei $(LEI)) $(if $(AS_OF),--as-of $(AS_OF)) \
+		$(if $(INTENT),--intent $(INTENT)) \
+		$(if $(CURRENCIES),--currencies $(CURRENCIES)) \
+		$(if $(MAX_STALENESS),--max-staleness $(MAX_STALENESS))
 
 # cp-05 — the ladder's rung 5. NOT in the `examples:` aggregate: it reads a
 # networked estate through declared environment variables and has no in-tree

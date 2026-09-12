@@ -1,161 +1,177 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "additionalProperties": false,
-  "description": "A Context Product example's DECLARED PRODUCT GATES, with CLOSED keys.\n\nRuled at Gate 1 of Phase 24.4 (`D-IMPL-225` amendment 3, Dave, 2026-08-31),\nunder `D-IMPL-224`: a product's gates are a DECLARED ARTIFACT plus CI\ncoverage. There is no `ProductGate` Protocol, no serve path for them, and the\nSDK's universal gates stay the only serve-time gates. This schema describes\nthe declaration; it adds nothing to the fabric.\n\nWHY THIS FILE IS NOT AN SDK ARTIFACT CLASS\n\nCLAUDE.md section 11: the SDK never invents a schema for a namespace that is\nnot its own, and a product-level gate roster is the PRODUCT's namespace. So\nthis is not a member of `SDK_ARTIFACT_CLASSES`, it carries no\n`x-ccf-class-id`, and it is not emitted by `tools/dump_schemas.py`. A gate\nroster is a fact about one example's obligations, authored by that example\nand reviewed with it.\n\nWHY THIS FILE SITS IN A SUBDIRECTORY\n\n`tools/dump_schemas.py` walks the TOP-LEVEL `docs/schemas/*.json` glob\n(`:335`) against the SDK's artifact-class population and calls\n`orphan.unlink()` (`:399`) on any committed file that population does not\nemit; `tests/cli/test_schema_export.py:145` asserts exactly that behavior.\nA hand-authored file at the top level would therefore be DELETED as an\norphan the next time anyone ran `make schemas` -- and deleted quietly,\nbecause removing an orphan is the tool working rather than failing.\n\nThe glob is not recursive, so a subdirectory is outside it. That is the whole\nreason for the path, and it is what stops the two locked criteria of this\nphase contradicting each other: the roster is committed under `docs/schemas/`\nas criterion 43 requires, and nothing under `src/` changes as criterion 49\nrequires.\n\nWHAT IS NOT HERE, DELIBERATELY\n\nNO COVERAGE CHECKER. Enforcement -- the assertion that each declared id has\nan EXECUTING test rather than merely a matching string somewhere -- is Phase\n24.5's, not this phase's. `D-IMPL-224` is explicit that the checker must\nrequire an executing test and never an `id in file` substring match, because\nmeasured across this ladder 40 product-level gate ids exist across four\nproducts while a grep for those ids across `src/` and `runtime/` returns 0.\nA schema cannot make that distinction; a checker can, and it is scheduled.\n\nNO GATE COUNT FIELD. A roster is the truth and a cardinality is not: a right\ncount with a wrong member audits clean forever. `gates` is the roster, and a\nconsumer wanting a count derives it.\n\nWHY `observed_red` IS REQUIRED BUT NULLABLE\n\nA gate that has never been seen red is not evidence that it runs. Measured\nacross this ladder, fourteen declared gates once sat idle behind exactly that\nassumption. Making the key REQUIRED and the value NULLABLE is what makes an\nunsabotaged gate VISIBLY unsabotaged rather than absent: a reader scanning a\nroster sees `observed_red: null` and knows the obligation is outstanding,\nwhere an omitted key would look like a gate with nothing left to do.",
-  "properties": {
-    "class_id": {
-      "description": "The declaring product's own class id, in its own namespace.",
-      "type": "string"
-    },
-    "declaration": {
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "additionalProperties": false,
+ "description": "A Context Product example's DECLARED PRODUCT GATES, with CLOSED keys.\n\nRuled at Gate 1 of Phase 24.4 (`D-IMPL-225` amendment 3, Dave, 2026-08-31),\nunder `D-IMPL-224`: a product's gates are a DECLARED ARTIFACT plus CI\ncoverage. There is no `ProductGate` Protocol, no serve path for them, and the\nSDK's universal gates stay the only serve-time gates. This schema describes\nthe declaration; it adds nothing to the fabric.\n\nWHY THIS FILE IS NOT AN SDK ARTIFACT CLASS\n\nCLAUDE.md section 11: the SDK never invents a schema for a namespace that is\nnot its own, and a product-level gate roster is the PRODUCT's namespace. So\nthis is not a member of `SDK_ARTIFACT_CLASSES`, it carries no\n`x-ccf-class-id`, and it is not emitted by `tools/dump_schemas.py`. A gate\nroster is a fact about one example's obligations, authored by that example\nand reviewed with it.\n\nWHY THIS FILE SITS IN A SUBDIRECTORY\n\n`tools/dump_schemas.py` walks the TOP-LEVEL `docs/schemas/*.json` glob\n(`:335`) against the SDK's artifact-class population and calls\n`orphan.unlink()` (`:399`) on any committed file that population does not\nemit; `tests/cli/test_schema_export.py:145` asserts exactly that behavior.\nA hand-authored file at the top level would therefore be DELETED as an\norphan the next time anyone ran `make schemas` -- and deleted quietly,\nbecause removing an orphan is the tool working rather than failing.\n\nThe glob is not recursive, so a subdirectory is outside it. That is the whole\nreason for the path, and it is what stops the two locked criteria of this\nphase contradicting each other: the roster is committed under `docs/schemas/`\nas criterion 43 requires, and nothing under `src/` changes as criterion 49\nrequires.\n\nWHAT IS NOT HERE, DELIBERATELY\n\nNO COVERAGE CHECKER. Enforcement -- the assertion that each declared id has\nan EXECUTING test rather than merely a matching string somewhere -- is Phase\n24.5's, not this phase's. `D-IMPL-224` is explicit that the checker must\nrequire an executing test and never an `id in file` substring match, because\nmeasured across this ladder 40 product-level gate ids exist across four\nproducts while a grep for those ids across `src/` and `runtime/` returns 0.\nA schema cannot make that distinction; a checker can, and it is scheduled.\n\nNO GATE COUNT FIELD. A roster is the truth and a cardinality is not: a right\ncount with a wrong member audits clean forever. `gates` is the roster, and a\nconsumer wanting a count derives it.\n\nWHY `observed_red` IS REQUIRED BUT NULLABLE\n\nA gate that has never been seen red is not evidence that it runs. Measured\nacross this ladder, fourteen declared gates once sat idle behind exactly that\nassumption. Making the key REQUIRED and the value NULLABLE is what makes an\nunsabotaged gate VISIBLY unsabotaged rather than absent: a reader scanning a\nroster sees `observed_red: null` and knows the obligation is outstanding,\nwhere an omitted key would look like a gate with nothing left to do.",
+ "properties": {
+  "class_id": {
+   "description": "The declaring product's own class id, in its own namespace.",
+   "type": "string"
+  },
+  "declaration": {
+   "additionalProperties": false,
+   "description": "The roster itself.",
+   "properties": {
+    "gates": {
+     "description": "Every gate this product declares, as DATA. The specification's prose gate table is the machine source for nothing: CI must not depend on parsing prose out of Markdown, which is the fragility this artifact exists to escape.",
+     "items": {
       "additionalProperties": false,
-      "description": "The roster itself.",
       "properties": {
-        "gates": {
-          "description": "Every gate this product declares, as DATA. The specification's prose gate table is the machine source for nothing: CI must not depend on parsing prose out of Markdown, which is the fragility this artifact exists to escape.",
-          "items": {
-            "additionalProperties": false,
-            "properties": {
-              "criterion": {
-                "description": "The locked ROADMAP success-criterion number this gate discharges. One gate per criterion and one criterion per gate; the bijection is asserted by the declaring product's own test, not here, because a schema cannot see the roster as a whole.",
-                "minimum": 1,
-                "type": "integer"
-              },
-              "criterion_phase": {
-                "description": "The phase whose locked ROADMAP numbering `criterion` reads in, as that phase is named in the ROADMAP (`24.6`, `24.5.1`). Optional: absent means the phase that declared this roster, which is where every gate minted with the roster reads. Present on a gate minted by a LATER phase against ITS criteria -- added at the Phase 24.6 close (`D-IMPL-260`, `CFT-G19`), because two phases' criteria share one integer range and a bare integer cannot say which phase it counts in; the declaring product's own test keys its one-to-one check on the pair.",
-                "pattern": "^[0-9]+(\\.[0-9]+)*$",
-                "type": "string"
-              },
-              "id": {
-                "description": "The gate id. The pattern is the one measured across this ladder's four products -- two to four uppercase letters, a hyphen, `G`, and two digits. WIDENED at `D-IMPL-326` to allow a DIGIT after the first letter: cp-07's specification declares `C36-G01` through `C36-G08`, and the previous letters-only prefix could not express them. The alternative was renaming a shipped specification's gate ids to suit the checker, which is the inversion the ruling exists to prevent -- the tool accepts the authority that governed the product, not the other way round. Every id written before the widening still matches.",
-                "pattern": "^[A-Z][A-Z0-9]{1,3}-G[0-9]{2}$",
-                "type": "string"
-              },
-              "observed_red": {
-                "description": "The record of the gate having been WATCHED TO FAIL, or `null` if it has not been. Required as a key so an unsabotaged gate is visibly unsabotaged rather than absent.",
-                "oneOf": [
-                  {
-                    "type": "null"
-                  },
-                  {
-                    "additionalProperties": false,
-                    "properties": {
-                      "commit": {
-                        "description": "The commit at which the observation was recorded.",
-                        "type": "string"
-                      },
-                      "date": {
-                        "description": "The date the sabotage was applied and the failure watched.",
-                        "type": "string"
-                      },
-                      "result": {
-                        "description": "What was observed when the sabotage was applied. A gate recorded as passing without this is a gate nobody has watched fail.",
-                        "type": "string"
-                      }
-                    },
-                    "required": [
-                      "result",
-                      "date",
-                      "commit"
-                    ],
-                    "type": "object"
-                  }
-                ]
-              },
-              "sabotage": {
-                "description": "What is MUTATED to make this gate fail. Named per gate rather than described generically, because a check that reads a token present in both the compliant and the violating case is measuring vocabulary rather than content -- and the only way to tell the two apart is to apply a specific mutation and watch.",
-                "minLength": 1,
-                "type": "string"
-              },
-              "statement": {
-                "description": "The assertion, in the words the approved specification gives it.",
-                "minLength": 1,
-                "type": "string"
-              },
-              "test": {
-                "description": "A `path.py::Symbol` reference to the test that executes this gate, in the citation form `D-IMPL-114` rules for this tree \u2014 never `path.py:LINE`, because a line anchor is wrong the moment code moves. The earlier pattern `^[^ ]+::[^ ]+$` checked only that a separator was present, so `tests/x.py:123::test_name` satisfied it: a line-anchored citation wearing a node id's shape. Found by the 2026-09-01 close panel. The declaring product's own test resolves the reference against a real `pytest --collect-only`; this pattern is what stops a malformed one reaching that check at all.",
-                "pattern": "^[^ :]+\\.py::[A-Za-z_][A-Za-z0-9_]*$",
-                "type": "string"
-              },
-              "spec_clause": {
-                "description": "The clause of this product's OWN specification that approves this gate -- the second acceptance-authority form (`D-IMPL-326`, Dave, 2026-09-10: *\"A product may be gated by either a numbered ROADMAP/phase criterion, or a cited clause / definition-of-done in its `CP-SPEC`.\"*). It exists because no rung built since cp-04 has a locked ROADMAP criterion to point at, and *\"do not fabricate ROADMAP criterion numbers ... merely to satisfy the tool\"*: an invented integer answers the gate's real question -- WHAT APPROVED ACCEPTANCE AUTHORITY SAYS THIS PRODUCT IS DONE? -- falsely, where a citation answers it checkably.\n\nThe checker walks the whole chain: the document exists, the clause exists in it, and this gate's own `id` appears inside that clause's body. A citation that resolves to nothing is worth less than no citation, because it reads as authority while pointing nowhere.",
-                "type": "object",
-                "additionalProperties": false,
-                "required": [
-                  "document",
-                  "clause"
-                ],
-                "properties": {
-                  "document": {
-                    "description": "The specification, relative to the product tree -- never to the repository root. A product's acceptance authority is its OWN specification, so the path is resolved from the tree that authored the roster.",
-                    "type": "string"
-                  },
-                  "clause": {
-                    "description": "The clause heading as the specification writes it -- `G.2`, `D.4`. Matched against the document's headings; the clause body runs to the next heading, so a clause carries its own text and not the rest of the file.",
-                    "type": "string"
-                  }
-                }
-              }
-            },
-            "required": [
-              "id",
-              "statement",
-              "test",
-              "sabotage",
-              "observed_red"
-            ],
-            "type": "object",
-            "oneOf": [
-              {
-                "required": [
-                  "criterion"
-                ],
-                "not": {
-                  "required": [
-                    "spec_clause"
-                  ]
-                }
-              },
-              {
-                "required": [
-                  "spec_clause"
-                ],
-                "not": {
-                  "required": [
-                    "criterion"
-                  ]
-                }
-              }
-            ]
+       "criterion": {
+        "description": "The locked ROADMAP success-criterion number this gate discharges. One gate per criterion and one criterion per gate; the bijection is asserted by the declaring product's own test, not here, because a schema cannot see the roster as a whole.",
+        "minimum": 1,
+        "type": "integer"
+       },
+       "criterion_phase": {
+        "description": "The phase whose locked ROADMAP numbering `criterion` reads in, as that phase is named in the ROADMAP (`24.6`, `24.5.1`). Optional: absent means the phase that declared this roster, which is where every gate minted with the roster reads. Present on a gate minted by a LATER phase against ITS criteria -- added at the Phase 24.6 close (`D-IMPL-260`, `CFT-G19`), because two phases' criteria share one integer range and a bare integer cannot say which phase it counts in; the declaring product's own test keys its one-to-one check on the pair.",
+        "pattern": "^[0-9]+(\\.[0-9]+)*$",
+        "type": "string"
+       },
+       "id": {
+        "description": "The gate id. The pattern is the one measured across this ladder's four products -- two to four uppercase letters, a hyphen, `G`, and two digits. WIDENED at `D-IMPL-326` to allow a DIGIT after the first letter: cp-07's specification declares `C36-G01` through `C36-G08`, and the previous letters-only prefix could not express them. The alternative was renaming a shipped specification's gate ids to suit the checker, which is the inversion the ruling exists to prevent -- the tool accepts the authority that governed the product, not the other way round. Every id written before the widening still matches.",
+        "pattern": "^[A-Z][A-Z0-9]{1,3}-G[0-9]{2}$",
+        "type": "string"
+       },
+       "observed_red": {
+        "description": "The record of the gate having been WATCHED TO FAIL, or `null` if it has not been. Required as a key so an unsabotaged gate is visibly unsabotaged rather than absent.",
+        "oneOf": [
+         {
+          "type": "null"
+         },
+         {
+          "additionalProperties": false,
+          "properties": {
+           "commit": {
+            "description": "The commit at which the observation was recorded.",
+            "type": "string"
+           },
+           "date": {
+            "description": "The date the sabotage was applied and the failure watched.",
+            "type": "string"
+           },
+           "result": {
+            "description": "What was observed when the sabotage was applied. A gate recorded as passing without this is a gate nobody has watched fail.",
+            "type": "string"
+           }
           },
-          "minItems": 1,
-          "type": "array"
-        },
-        "product": {
-          "description": "The product class these gates are declared for.",
+          "required": [
+           "result",
+           "date",
+           "commit"
+          ],
+          "type": "object"
+         }
+        ]
+       },
+       "sabotage": {
+        "description": "What is MUTATED to make this gate fail. Named per gate rather than described generically, because a check that reads a token present in both the compliant and the violating case is measuring vocabulary rather than content -- and the only way to tell the two apart is to apply a specific mutation and watch.",
+        "minLength": 1,
+        "type": "string"
+       },
+       "statement": {
+        "description": "The assertion, in the words the approved specification gives it.",
+        "minLength": 1,
+        "type": "string"
+       },
+       "test": {
+        "description": "A `path.py::Symbol` reference to the test that executes this gate, in the citation form `D-IMPL-114` rules for this tree \u2014 never `path.py:LINE`, because a line anchor is wrong the moment code moves. The earlier pattern `^[^ ]+::[^ ]+$` checked only that a separator was present, so `tests/x.py:123::test_name` satisfied it: a line-anchored citation wearing a node id's shape. Found by the 2026-09-01 close panel. The declaring product's own test resolves the reference against a real `pytest --collect-only`; this pattern is what stops a malformed one reaching that check at all.",
+        "pattern": "^[^ :]+\\.py::[A-Za-z_][A-Za-z0-9_]*$",
+        "type": "string"
+       },
+       "spec_clause": {
+        "description": "The clause of this product's OWN specification that approves this gate -- the second acceptance-authority form (`D-IMPL-326`, Dave, 2026-09-10: *\"A product may be gated by either a numbered ROADMAP/phase criterion, or a cited clause / definition-of-done in its `CP-SPEC`.\"*). It exists because no rung built since cp-04 has a locked ROADMAP criterion to point at, and *\"do not fabricate ROADMAP criterion numbers ... merely to satisfy the tool\"*: an invented integer answers the gate's real question -- WHAT APPROVED ACCEPTANCE AUTHORITY SAYS THIS PRODUCT IS DONE? -- falsely, where a citation answers it checkably.\n\nThe checker walks the whole chain: the document exists, the clause exists in it, and this gate's own `id` appears inside that clause's body. A citation that resolves to nothing is worth less than no citation, because it reads as authority while pointing nowhere.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+         "document",
+         "clause"
+        ],
+        "properties": {
+         "document": {
+          "description": "The specification, relative to the product tree -- never to the repository root. A product's acceptance authority is its OWN specification, so the path is resolved from the tree that authored the roster.",
           "type": "string"
-        },
-        "test_naming_convention": {
-          "description": "How a gate id maps onto the test function name that executes it, stated as data. Measured across this ladder, three products used three conventions and a coverage instrument keyed on function names reported 0 of 8, 0 of 9 and 0 of 9 falsely -- so the convention is DECLARED here rather than inferred by a checker.",
+         },
+         "clause": {
+          "description": "The clause heading as the specification writes it -- `G.2`, `D.4`. Matched against the document's headings; the clause body runs to the next heading, so a clause carries its own text and not the rest of the file.",
           "type": "string"
+         }
         }
+       },
+       "sabotage_state": {
+        "type": "string",
+        "enum": [
+         "passed",
+         "unavailable",
+         "not-required"
+        ],
+        "description": "WHAT THE SABOTAGE ESTABLISHED, and the three values are not interchangeable (Dave, 2026-09-12). `passed` \u2014 the specific invariant under test was broken and the gate went red. `unavailable` \u2014 an UPSTREAM SDK invariant makes the bad state unreachable from this deployment, so the gate is evidenced by the successful path plus that guard and never by a local negative control; the `observed_red.result` must then NAME the guard. `not-required` \u2014 a genuinely non-load-bearing or documentary gate. Collapsing `unavailable` into `passed` would tell a reviewer the example is holding a line the SDK is actually holding, which is why they are separate values rather than a note. OPTIONAL: a roster written before this field existed is unchanged and still valid."
+       }
       },
       "required": [
-        "product",
-        "gates"
+       "id",
+       "statement",
+       "test",
+       "sabotage",
+       "observed_red"
       ],
-      "type": "object"
+      "type": "object",
+      "oneOf": [
+       {
+        "required": [
+         "criterion"
+        ],
+        "not": {
+         "required": [
+          "spec_clause"
+         ]
+        }
+       },
+       {
+        "required": [
+         "spec_clause"
+        ],
+        "not": {
+         "required": [
+          "criterion"
+         ]
+        }
+       }
+      ]
+     },
+     "minItems": 1,
+     "type": "array"
     },
-    "semver": {
-      "description": "The roster's own version lane. A gate roster is a Control Plane artifact and changing what a product must prove changes what the product claims, so it versions like any other.",
+    "product": {
+     "description": "The product class these gates are declared for.",
+     "type": "string"
+    },
+    "test_naming_convention": {
+     "description": "How a gate id maps onto the test function name that executes it, stated as data. Measured across this ladder, three products used three conventions and a coverage instrument keyed on function names reported 0 of 8, 0 of 9 and 0 of 9 falsely -- so the convention is DECLARED here rather than inferred by a checker.",
+     "type": "string"
+    },
+    "sabotage_states": {
+     "type": "object",
+     "description": "The roster's own legend for `sabotage_state`, carried beside the gates so a reader does not have to find this schema to know what the values mean. OPTIONAL.",
+     "additionalProperties": {
       "type": "string"
+     }
     }
+   },
+   "required": [
+    "product",
+    "gates"
+   ],
+   "type": "object"
   },
-  "required": [
-    "semver",
-    "class_id",
-    "declaration"
-  ],
-  "title": "ProductGateRoster",
-  "type": "object"
+  "semver": {
+   "description": "The roster's own version lane. A gate roster is a Control Plane artifact and changing what a product must prove changes what the product claims, so it versions like any other.",
+   "type": "string"
+  }
+ },
+ "required": [
+  "semver",
+  "class_id",
+  "declaration"
+ ],
+ "title": "ProductGateRoster",
+ "type": "object"
 }

@@ -1,0 +1,383 @@
+<title>Treasury Liquidity Position · cp-09</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400;6..96,500&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --paper:#EFF2F3; --surface:#FFFFFF; --sunk:#E4E9EB;
+  --ink:#16202A; --ink-2:#3A4A55; --muted:#64757F; --rule:#CBD5D9;
+  --verd:#1F7A68; --verd-soft:#DCEBE7;
+  --amber:#A65E17; --amber-soft:#F6E9DA;
+  --crit:#9B2C2C; --crit-soft:#F3E0E0;
+  --tok-c:#6C7C86; --tok-k:#1F7A68; --tok-s:#8A5A2B; --tok-n:#2B4C63;
+  --shadow:0 1px 2px rgba(22,32,42,.06),0 8px 24px -12px rgba(22,32,42,.18);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#12171A; --surface:#181F23; --sunk:#0D1214;
+    --ink:#E4EAED; --ink-2:#B4C1C8; --muted:#8497A0; --rule:#2C373D;
+    --verd:#46B39D; --verd-soft:#16302B;
+    --amber:#D9903F; --amber-soft:#2F2417;
+    --crit:#E07A7A; --crit-soft:#2E1B1B;
+    --tok-c:#7B8C96; --tok-k:#46B39D; --tok-s:#C99A63; --tok-n:#7FB0CE;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -12px rgba(0,0,0,.6);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#12171A; --surface:#181F23; --sunk:#0D1214;
+  --ink:#E4EAED; --ink-2:#B4C1C8; --muted:#8497A0; --rule:#2C373D;
+  --verd:#46B39D; --verd-soft:#16302B;
+  --amber:#D9903F; --amber-soft:#2F2417;
+  --crit:#E07A7A; --crit-soft:#2E1B1B;
+  --tok-c:#7B8C96; --tok-k:#46B39D; --tok-s:#C99A63; --tok-n:#7FB0CE;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -12px rgba(0,0,0,.6);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:"IBM Plex Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:16px; line-height:1.65; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1180px;margin:0 auto;padding:0 clamp(20px,5vw,56px)}
+.col{max-width:74ch}
+
+/* ---------- masthead ---------- */
+.mast{border-bottom:1px solid var(--rule);padding:clamp(48px,8vw,88px) 0 40px}
+.eyebrow{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12px;font-weight:600;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--verd);margin:0 0 18px
+}
+h1{
+  font-family:"Bodoni Moda",Georgia,"Times New Roman",serif;font-weight:400;
+  font-size:clamp(38px,6.2vw,68px);line-height:1.04;letter-spacing:-.015em;
+  margin:0 0 22px;text-wrap:balance
+}
+.standfirst{font-size:clamp(17px,2vw,20px);line-height:1.6;color:var(--ink-2);margin:0;max-width:66ch}
+
+/* the shape strip — what the product IS, in its own terms */
+.shape{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:1px;
+  background:var(--rule);border:1px solid var(--rule);margin-top:40px
+}
+.shape div{background:var(--surface);padding:14px 16px}
+.shape dt{
+  font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:600;
+  letter-spacing:.11em;text-transform:uppercase;color:var(--muted);margin:0 0 5px
+}
+.shape dd{margin:0;font-size:14px;font-weight:600;line-height:1.35}
+.shape dd .sub{display:block;font-weight:400;font-size:12.5px;color:var(--muted);margin-top:3px}
+
+/* ---------- sections ---------- */
+section{padding:clamp(44px,6vw,68px) 0;border-bottom:1px solid var(--rule)}
+section:last-of-type{border-bottom:0}
+h2{
+  font-family:"Bodoni Moda",Georgia,serif;font-weight:400;
+  font-size:clamp(26px,3.6vw,38px);line-height:1.14;letter-spacing:-.01em;
+  margin:0 0 8px;text-wrap:balance
+}
+h3{font-size:17px;font-weight:700;margin:34px 0 10px;letter-spacing:-.005em}
+.kicker{
+  font-family:"IBM Plex Mono",monospace;font-size:11.5px;font-weight:600;
+  letter-spacing:.13em;text-transform:uppercase;color:var(--muted);margin:0 0 14px
+}
+p{margin:0 0 16px}
+strong{font-weight:600}
+em{font-style:italic}
+code{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.875em;
+  background:var(--sunk);padding:.1em .34em;border-radius:3px;
+}
+a{color:var(--verd);text-decoration:none;border-bottom:1px solid color-mix(in srgb,var(--verd) 40%,transparent)}
+a:hover{border-bottom-color:var(--verd)}
+a:focus-visible{outline:2px solid var(--verd);outline-offset:3px;border-radius:2px}
+
+/* ---------- the two-authority device ---------- */
+.auth{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;margin:26px 0 8px}
+.auth article{background:var(--surface);border:1px solid var(--rule);border-top:3px solid var(--verd);padding:20px 22px}
+.auth article.internal{border-top-color:var(--amber)}
+.auth h4{margin:0 0 4px;font-size:15px;font-weight:700}
+.auth .who{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--verd);margin:0 0 12px}
+.auth article.internal .who{color:var(--amber)}
+.auth dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:5px 14px;font-size:13.5px}
+.auth dt{color:var(--muted)}
+.auth dd{margin:0;font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
+
+/* ---------- tables ---------- */
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:14px;margin:22px 0}
+th,td{text-align:left;padding:9px 14px 9px 0;border-bottom:1px solid var(--rule);vertical-align:top}
+th{
+  font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:600;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--muted);
+  border-bottom-color:var(--ink-2)
+}
+td code{background:none;padding:0}
+.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+
+/* pills carry state, not decoration */
+.pill{
+  display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:10.5px;
+  font-weight:600;letter-spacing:.06em;padding:2px 8px;border-radius:99px;white-space:nowrap
+}
+.pill.yes{background:var(--verd-soft);color:var(--verd)}
+.pill.no{background:var(--crit-soft);color:var(--crit)}
+.pill.warn{background:var(--amber-soft);color:var(--amber)}
+
+/* ---------- build order ---------- */
+ol.build{list-style:none;counter-reset:step;margin:26px 0 0;padding:0}
+ol.build > li{
+  counter-increment:step;position:relative;padding:0 0 26px 54px;
+  border-left:1px solid var(--rule);margin-left:15px
+}
+ol.build > li:last-child{border-left-color:transparent;padding-bottom:0}
+ol.build > li::before{
+  content:counter(step,decimal-leading-zero);position:absolute;left:-15px;top:0;
+  width:30px;height:30px;border-radius:50%;background:var(--surface);
+  border:1px solid var(--rule);color:var(--muted);
+  font-family:"IBM Plex Mono",monospace;font-size:11px;font-weight:600;
+  display:flex;align-items:center;justify-content:center
+}
+ol.build h3{margin:2px 0 6px;font-size:16px}
+ol.build p{font-size:14.5px;color:var(--ink-2);margin:0 0 12px}
+
+/* ---------- collapsibles: guidance first, source on demand ---------- */
+details{
+  background:var(--surface);border:1px solid var(--rule);border-radius:4px;
+  margin:12px 0;box-shadow:var(--shadow)
+}
+summary{
+  cursor:pointer;padding:12px 16px;font-family:"IBM Plex Mono",monospace;
+  font-size:12.5px;font-weight:600;color:var(--ink-2);list-style:none;
+  display:flex;align-items:center;gap:10px
+}
+summary::-webkit-details-marker{display:none}
+summary::before{
+  content:"";width:0;height:0;flex:none;
+  border-left:5px solid var(--muted);border-top:4px solid transparent;border-bottom:4px solid transparent;
+  transition:transform .16s ease
+}
+details[open] > summary::before{transform:rotate(90deg)}
+summary:hover{color:var(--verd)}
+summary:focus-visible{outline:2px solid var(--verd);outline-offset:-2px;border-radius:3px}
+details .note{margin:0;padding:0 16px 12px;font-size:13px;color:var(--muted)}
+details pre{margin:0;padding:16px;background:var(--sunk);font-size:12.5px;line-height:1.55}
+details .scroll{border-top:1px solid var(--rule)}
+pre{overflow-x:auto;margin:0}
+pre code{background:none;padding:0;font-size:12.5px}
+
+/* ---------- callouts ---------- */
+.call{border-left:3px solid var(--verd);background:var(--surface);padding:18px 22px;margin:24px 0}
+.call.warn{border-left-color:var(--amber)}
+.call.crit{border-left-color:var(--crit)}
+.call p:last-child{margin-bottom:0}
+.call .lbl{
+  font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:600;
+  letter-spacing:.11em;text-transform:uppercase;color:var(--verd);display:block;margin-bottom:7px
+}
+.call.warn .lbl{color:var(--amber)}
+.call.crit .lbl{color:var(--crit)}
+
+ul.plain{margin:0 0 16px;padding-left:20px}
+ul.plain li{margin-bottom:7px}
+
+footer{padding:44px 0 72px;color:var(--muted);font-size:13.5px}
+footer p{margin:0 0 8px}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap">
+
+<header class="mast">
+  <p class="eyebrow">Context Product · cp-01</p>
+  <h1>Counterparty Reference Snapshot</h1>
+  <p class="standfirst">One anchor, resolved through two identity authorities with two different freshness ceilings, filtered by the calling principal's jurisdiction — and an expiry taken from when the source last spoke about the company rather than from when you asked.</p>
+
+  <dl class="shape">
+    <div><dt>Registry name</dt><dd>reference.counterparty.v1</dd></div>
+    <div><dt>Tier</dt><dd>1<span class="sub">relational only</span></dd></div>
+    <div><dt>Assembly mode</dt><dd>1 — pure algorithmic<span class="sub">no model in the path</span></dd></div>
+    <div><dt>Store</dt><dd>PostgreSQL<span class="sub">schema <code>ccf_v2</code></span></dd></div>
+    <div><dt>Systems of record</dt><dd>3<span class="sub">GLEIF · client master · entitlement</span></dd></div>
+    <div><dt>Declared operators</dt><dd>Resolve → Policy<span class="sub">+ contract assembly</span></dd></div>
+  </dl>
+</header>
+
+<section>
+  <div class="col">
+    <p class="kicker">Rung 9 · Tier 3</p>
+    <h2>Cash and rate posture at one instant, over four kinds of time</h2>
+    <p>One <code>as_of</code> governs the whole determination — and does not flatten four different kinds of timestamp into one freshness claim. A market observation is <em>selected</em> and decays. A policy effective date is <em>selected</em> and does not decay: a rule is in force or it is not. A filed reporting period is <em>bounded</em> — a quarter closing after the decision instant is not yet knowable. And a holding whose observation time nobody ever recorded carries <strong>no time at all</strong>, which the payload states rather than filling in.</p>
+    <p>The client is the one treasury client in the estate holding US-NY deposits under a <code>reserve-buffer</code> mandate, which puts it under the single regulatory posture that has two versions — so moving the decision instant two days moves the policy in force, the answer, and the content address.</p>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">What the run prints</p>
+    <h2>One question, and what comes back with the answer</h2>
+    <p>Produced at commit <code>db559c65</code>, asking <code>as_of=2026-06-17T18:05:00+00:00</code>, serving content address <code>6d29b32bbeef78e6…</code>. It is a committed transcript of a pinned run, not a live re-execution: a printed run that can drift is a documentation defect that presents as a fabric defect.</p>
+  </div>
+
+  <details><summary>The full run, as the command prints it</summary>
+    <div class="scroll"><pre><code>{{run}}</code></pre></div>
+  </details>
+
+  <div class="col">
+    <p>Three things in that output a <code>SELECT</code> cannot give you. <strong>One</strong>: three concentration verdicts rather than two — four of this client's seven counterparties carry a limit, so the other three are reported <em>not evaluable</em> instead of compliant, with the coverage published. <strong>Two</strong>: a named absence — the August rate feed holds no observation at this instant, and the payload says so rather than leaving a reader to infer it from a silence. <strong>Three</strong>: the filed cash figure is withheld, because its quarter closes after the decision instant and serving it would be look-ahead.</p>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">The refusal</p>
+    <h2>A stale signal fails closed, and the determination survives the boundary</h2>
+    <p>Asked at <code>2026-08-21T16:00Z</code>, one rate signal is 45 minutes old against a 15-minute requirement. The product refuses. The consumer envelope discloses only that a declared invariant does not hold; the replay record names <code>SIG-000</code>, its age in seconds and the bound it broke. <strong>Those are two surfaces on purpose</strong> — the audit keeps what the boundary does not disclose.</p>
+    <p>Two scoping facts make that refusal honest rather than lucky. The June rate feed does not cover August, so it is <em>absent</em> rather than a 59-day-old observation — that age would be an artifact of the query, and it would have masked the real breach. And a USD-only request on a USD-home client needs no currency conversion, so no FX rate participates and no FX bound can fire. Scope decides what takes part before freshness decides what is admitted.</p>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">Every file, verbatim</p>
+    <h2>The example, opened up</h2>
+    <p>Each block below is the real file, read at build time. Nothing here is a copy that can drift.</p>
+  </div>
+
+  <ol class="build">
+    <li>
+      <h3>The specification</h3>
+      <p>Seven sections in order, authored at Gate 1 and approved before a line of code existed. It names the nine contract elements, the staleness profile per signal class, the operator recipe, the debt model, the readiness findings with an owner each, and twenty-two acceptance gates — each phrased so it can fail.</p>
+      {{spec}}
+    </li>
+    <li>
+      <h3>The Control Plane document</h3>
+      <p>The product class, the operator parameters, the request contract, the resolution rules, the half-lives and the debt bands. The half-life table keys on <em>entity class</em>, because that is what the reference debt scorer reads, and each row declares which instant it decays against.</p>
+      {{config}}
+    </li>
+    <li>
+      <h3>The backend binding</h3>
+      <p>How the fabric's own storage is composed, and how the two source stores are reached — through a variable's <em>name</em>. No host, no port, no credential enters the tree.</p>
+      {{backends}}
+    </li>
+    <li>
+      <h3>The declared artifacts</h3>
+      <p>The caller's question and its pinned instant; the two rate feeds and the window each <em>claims</em> to cover; the refusal rule per signal class; and the twenty-two gates with the sabotage outcome of each.</p>
+      {{question}}
+      {{sources}}
+      {{staleness}}
+      {{gates}}
+    </li>
+    <li>
+      <h3>The source reads and the interpreter</h3>
+      <p>Acquisition opens both stores and holds no fabric call and no clock. The deployment names all of this product's vocabulary, owns the ingestion order, and supplies the predicate half of one declared gate — the SDK owns the refusal.</p>
+      {{acquisition}}
+      {{deployment}}
+    </li>
+    <li>
+      <h3>The projection, the spine and the client</h3>
+      <p>The projection is where the four kinds of time would otherwise be flattened. The spine is three regions — boot, acquire, govern — and hands the governed seam to one <code>build_governed_resolver</code>. The client asks the question and prints what came back.</p>
+      {{projection}}
+      {{produce}}
+      {{run_py}}
+    </li>
+    <li>
+      <h3>The tests, the README and the summary</h3>
+      <p>Twenty-two tests, one per declared gate, asserted against a live run. Eighteen have been deliberately broken and watched fail. <strong>Four have not, and the roster says so:</strong> their bad state is unreachable from this example because an SDK guard upstream prevents it, so they are evidenced by the working path plus that guard — not by a local negative control.</p>
+      {{tests}}
+      {{readme}}
+      {{summary}}
+    </li>
+    </li>
+  </ol>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">The half you write</p>
+    <h2>What is yours, and what the fabric already does</h2>
+    <p>The four Python files above are not equal. Two of them are yours to write for every product; two are nearly the same in every deployment and exist to be read once.</p>
+  </div>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>File</th><th class="num">Lines</th><th>Whose</th><th>What changes per product</th></tr></thead>
+    <tbody>
+      <tr><td><code>deployment.py</code></td><td class="num">970</td><td><span class="pill warn">yours</span></td><td>Everything. The source read, the two authorities, the debt measurement, the payload shape.</td></tr>
+      <tr><td><code>run.py</code></td><td class="num">187</td><td><span class="pill warn">yours</span></td><td>The flags a caller needs and what the run prints beside the JSON.</td></tr>
+      <tr><td><code>assembler.py</code></td><td class="num">268</td><td><span class="pill yes">nearly fixed</span></td><td>The identity checks and the assembler's own id. The shape is the protocol's.</td></tr>
+      <tr><td><code>produce.py</code></td><td class="num">389</td><td><span class="pill yes">nearly fixed</span></td><td>Almost nothing. It names no counterparty, no jurisdiction and no table.</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="col">
+    <p>The ratio is the honest measure of what adopting this costs: roughly <strong>1,150 lines you write</strong> against <strong>660 you read once</strong> — and against <strong>870 lines of declared artifacts</strong> that carry everything specific. If your code would still run meaningfully with the artifacts deleted, something has been hardcoded that should not have been.</p>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">What to change first</p>
+    <h2>Four edits, in the order you will want them</h2>
+    <ul class="plain">
+      <li><strong>To point at your own estate</strong> — the variable name in <code>backends.yaml</code>, and the five table constants in <code>deployment.py</code>. Nothing else in the code knows a table name.</li>
+      <li><strong>To serve a different attribute</strong> — add it to <code>attribute_keys</code> in the Control Plane document. It flows to the payload, to the completeness measure and to the debt figure in one edit, because all three read that same list.</li>
+      <li><strong>To change who sees what</strong> — the entitlement grants in the estate. No code changes at all. That is the test of whether entitlement is really Control Plane state or just a filter someone wrote.</li>
+      <li><strong>To change the expiry</strong> — the TTL artifact. Read the note inside it first.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">What would fail</p>
+    <h2>Ask for a private borrower and it refuses</h2>
+  </div>
+  <div class="scroll"><pre><code>run.py --anchor CLI-000101
+
+ttl-bounds: expires_at 2026-02-24T00:00:00+00:00 is outside
+            (2026-08-16T12:00:00+00:00, 2026-08-17T12:00:00+00:00]</code></pre></div>
+  <div class="col">
+    <div class="call crit">
+      <span class="lbl">This is neither a fabric bug nor a data defect</span>
+      <p>The expiry is that borrower's <code>kyc_last_refresh</code> — months old by design — plus the declared 24-hour TTL. So it lands in the past and the TTL gate refuses on the first call. <strong>All 30 no-LEI borrowers are affected, and 27 of the 30 are live under their own declared ceiling.</strong></p>
+      <p>The contract declares <em>one</em> TTL; the identity hierarchy declares <em>two</em> freshness ceilings. The two do not compose. The specification records it, a test asserts the refusal, and <strong>that test is written to go red when the declaration is corrected</strong> — so it is the evidence the change gets made on, not a test that ratifies a bug.</p>
+    </div>
+
+    <h3>Ask as of &ldquo;now&rdquo; and everything refuses</h3>
+    <p>The vendor table's <code>retrieved_at</code> is a snapshot load date, so against today's clock all 186 entities are past their expiry. That is the fabric working correctly against a snapshot that is no longer fresh — a fact about the load, not about the assembly.</p>
+
+    <div class="call">
+      <span class="lbl">The snapshot this page reproduces against</span>
+      <p>Every figure above comes from commit <code>39e72bd</code> with the question pinned to <code>asked_at 2026-08-16T12:00:00+00:00</code>, producing content address <code>ab2e1a62bf0e5b26c86b3dc122bc77ca4c7e8162ef86510f4a0901224723e9e4</code> — so the same question returns the same answer, and if your numbers differ you have re-derived rather than replayed.</p>
+    </div>
+
+    <h3>Three more refusals, each returned rather than thrown</h3>
+    <ul class="plain">
+      <li>An anchor matching neither authority is a <strong>404</strong>, never an empty payload. <em>No such company</em> and <em>a company with nothing in it</em> are different answers.</li>
+      <li>A lapsed registration is <strong>excluded entirely</strong> unless you ask for it — and when you do, the status comes back as a first-class field. The two answers have different content addresses, which is what proves the parameter changed the payload rather than the query.</li>
+      <li><code>as_of</code> is <strong>declared and always refused</strong>. It is in the contract so you can discover it, and it fails loudly so nobody relies on it in a dispute.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">Honest limits</p>
+    <h2>What this example is not</h2>
+    <ul class="plain">
+      <li><strong>No projection.</strong> Everyone authorized gets the same shape. What differs by principal is which companies <em>exist</em> to be shaped, and that is settled by the Policy step, not by conditioning the view.</li>
+      <li><strong>No relationships, no traversal, no second time axis.</strong> Identity only — no exposure, no risk grade, no ownership. Five of the eight standard operators are deliberately unused, and the recipe artifact says which and why.</li>
+      <li><strong>One gate has nothing to act on.</strong> The gate that refuses an empty served set cannot currently fire, because every principal in the estate sees at least 21 companies. A primitive with no instance in the data reads as machinery without a purpose, so it is recorded as owed rather than quietly passing.</li>
+      <li><strong>The semantic-consistency term is structurally 1.</strong> It is meant to catch a vendor record disagreeing with the internal one for the same company — but in this estate no company has both, so nothing could disagree. A clean score that no data could have moved is not evidence of agreement.</li>
+      <li><strong>Two of three half-lives are illustrative.</strong> They are publication cadences, not measured decision-relevance curves, and they are labelled that way. A catalog whose half-lives are all illustrative is not calibrated, and saying so plainly is more useful than implying otherwise.</li>
+    </ul>
+  </div>
+</section>
+
+<footer class="col">
+  <p><code>examples/cp-01-counterparty-reference-snapshot</code> · CCF SDK</p>
+  <p>Reproduced against commit <code>39e72bd</code>. Thirteen tests, eight product gates, each observed failing once.</p>
+</footer>
+
+</div>

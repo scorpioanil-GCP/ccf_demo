@@ -699,14 +699,14 @@ def _semantics_document() -> str:
 def test_the_semantics_document_records_the_direction_at_1_2_0() -> None:
     """`GQ-10` names both directions and `GQ-35` still carries the 1.2.0 entry.
 
-    The banner follows the document forward — it reads 1.3.0 since the
-    traversal-universe amendment — but the 1.2.0 ENTRY is untouched: `GQ-35`
-    appends, it never rewrites the clause or the entry it amends out of
-    existence, so the direction's own record is asserted here as it was
+    The banner follows the document forward — it reads 1.4.0 since
+    `D-IMPL-332`'s absence-limb amendment — but the 1.2.0 ENTRY is untouched:
+    `GQ-35` appends, it never rewrites the clause or the entry it amends out
+    of existence, so the direction's own record is asserted here as it was
     written.
     """
     document = _semantics_document()
-    assert "**Semantics version: 1.3.0**" in document
+    assert "**Semantics version: 1.4.0**" in document
     clause = document.split("### `GQ-10`")[1].split("### `GQ-11`")[0]
     assert 'direction="undirected"' in clause and 'direction="forward"' in clause
     amendments = document.split("### `GQ-35`")[1]
@@ -722,7 +722,9 @@ def _assert_records_the_traversal_universe_at_1_3_0(document: str) -> None:
     real text without touching the file (ledger row `CP04-G-28`,
     `D-IMPL-267`).
     """
-    assert "**Semantics version: 1.3.0**" in document
+    # The BANNER moves forward with every amendment (this module's own rule,
+    # stated above); the 1.3.0 ENTRY below is what is frozen.
+    assert "**Semantics version: 1.4.0**" in document
     banner = "\n".join(document.split("\n")[:10])
     assert "1.3.0 the traversal universe" in banner
     clause = document.split("### `GQ-10`")[1].split("### `GQ-11`")[0]
@@ -752,6 +754,35 @@ def test_the_semantics_document_records_the_traversal_universe_at_1_3_0() -> Non
     _assert_records_the_traversal_universe_at_1_3_0(_semantics_document())
 
 
+def test_the_semantics_document_records_the_absence_limb_at_1_4_0() -> None:
+    """`D-IMPL-332` — `GQ-09`'s absence limb, recorded where the rule lives.
+
+    Every amendment in this document gets a pin, on the precedent 1.2.0 and
+    1.3.0 set above. This one matters more than most: the limb decides what a
+    validity-window read does with a claim whose valid-time is unknown, and
+    the alternative reading — exclude — would silently delete every unstamped
+    claim from every such read across five substrates.
+    """
+    document = _semantics_document()
+    assert "**Semantics version: 1.4.0**" in document
+    amendments = document.split("### `GQ-35`")[1]
+    assert amendments.index("- **1.4.0**") < amendments.index("- **1.3.0**"), (
+        "the amendment history is newest-first; the 1.4.0 entry must sit"
+        " above the 1.3.0 entry"
+    )
+    entry = amendments.split("- **1.4.0**")[1].split("- **1.3.0**")[0]
+    for token in (
+        "D-IMPL-332",
+        "absence limb",
+        "valid_from IS ABSENT",
+        "Admit, not exclude",
+        "Behavior-preserving",
+        "$exists",
+        "_stitch",
+    ):
+        assert token in entry, f"the 1.4.0 entry does not carry {token!r}"
+
+
 def _with_the_1_3_0_entry_moved_below_1_2_0(document: str) -> str:
     """The amendment history re-ordered oldest-first at its top — on a STRING."""
     head, rest = document.split("- **1.3.0**", 1)
@@ -774,7 +805,7 @@ def test_control_the_1_3_0_pin_fails_on_a_reverted_banner() -> None:
     _assert_records_the_traversal_universe_at_1_3_0(document)
 
     reverted = document.replace(
-        "**Semantics version: 1.3.0**", "**Semantics version: 1.2.0**", 1
+        "**Semantics version: 1.4.0**", "**Semantics version: 1.3.0**", 1
     )
     assert reverted != document, "the banner literal moved; re-anchor the control"
     with pytest.raises(AssertionError):

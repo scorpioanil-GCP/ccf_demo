@@ -1,0 +1,64 @@
+# yaml-language-server: $schema=../../docs/schemas/ccf.declared-artifact.json
+#
+# WHERE THINGS LIVE — as environment-variable NAMES and nothing else.
+#
+# No host, no port, no credential, in this file or anywhere in the tree. A
+# sweep of `examples/`, `public/`, `src/` and `runtime/` for the estate's
+# address returns nothing, and that is a property worth keeping.
+
+semver: "1.0.0"
+class_id: cp-09.backend-profiles
+
+declaration:
+  profiles:
+    # The FABRIC's own L3 — per-run SQLite, created and discarded by the run.
+    # Never a source.
+    sqlite:
+      settings:
+        database_path:
+          prefix: cp-09-treasury
+          suffix: .sqlite
+
+  sources:
+    - name: relational
+      capability_class: relational
+      holds: >-
+        the client register, deposit balances, investment positions,
+        concentration limits, permitted-instrument lists, the daily and
+        intraday rate series, FX reference rates and the stale-signal fixture.
+      connection:
+        from_env: CCF_CP_09_POSTGRES_DSN
+        note: >-
+          export CCF_CP_09_POSTGRES_DSN with a READ-ONLY libpq connection
+          string. Both spellings work and neither is preferred: a
+          `host=… user=… password=…` keyword string and a `postgresql://…`
+          URI. libpq also reads PGHOST/PGPORT/PGUSER/PGPASSWORD from the
+          environment on its own, so the value can be as short as
+          `dbname=<database>`. Nothing this example runs writes to the store
+          it reads, and a role that could write would make that a promise
+          rather than a guarantee.
+      namespace:
+        from_env: CCF_CP_09_POSTGRES_SCHEMA
+        note: >-
+          the schema holding the v2 estate. NOT the value in `ccf_dataprep`'s
+          `.env`, which names the v1 estate — the v2 namespaces are declared
+          only in that repository's `ccf/config.py`, and deriving this from
+          `.env` alone points the example at v1.
+
+    - name: graph
+      capability_class: bitemporal-ledger
+      holds: >-
+        the time-versioned regulatory-posture overlay, and the position graph's
+        `concentratedIn` edges.
+      connection:
+        from_env: CCF_CP_09_FLUREE_URL
+        note: >-
+          export CCF_CP_09_FLUREE_URL with the base URL of a READ-ONLY Fluree
+          instance. The example issues `POST /v1/fluree/query` only; it never
+          creates, transacts or deletes. A seeded ledger is PERMANENT, which is
+          why read-only is a guarantee here and not a preference.
+      namespace:
+        from_env: CCF_CP_09_FLUREE_LEDGER
+        note: >-
+          the ledger name to read. `fibo-v2` is a separate LEDGER from v1's
+          `fibo:main`, not a branch of it — the two cannot interact.

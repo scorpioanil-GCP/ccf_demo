@@ -226,6 +226,9 @@ UNRESOLVABLE_BASE = "0000000000000000000000000000000000000000"
 LIMBS: frozenset[str] = frozenset(
     {
         "tracked_under.nonzero_exit",
+        "derived_uat_records.empty_revision",
+        "derived_uat_records.listing_nonzero_exit",
+        "derived_uat_records.glob_matched_nothing",
         "fabric_diff.empty_base",
         "fabric_diff.empty_ceiling",
         "fabric_diff.empty_paths",
@@ -884,17 +887,107 @@ def derived_base(
     return parent.stdout.strip()
 
 
-def derived_uat_records(base: pathlib.Path) -> frozenset[str]:
-    """Every `*-VERIFICATION.md` under `base` opening a `human_verification:` block.
+def _matches_uat_glob(path: str) -> bool:
+    """Exactly :data:`UAT_GLOB`, applied to a repo-relative `git` path.
+
+    Spelled out rather than handed to :func:`fnmatch.fnmatchcase`, whose ``*``
+    crosses ``/`` and would admit a record nested one directory deeper than the
+    glob describes. The part-count equality is what makes
+    :meth:`pathlib.PurePath.match` — which matches from the RIGHT for a
+    relative pattern — a full match rather than a suffix match.
+    """
+    candidate = pathlib.PurePosixPath(path)
+    pattern = pathlib.PurePosixPath(UAT_GLOB)
+    return len(candidate.parts) == len(pattern.parts) and candidate.match(UAT_GLOB)
+
+
+def derived_uat_records(base: pathlib.Path, at: str) -> frozenset[str]:
+    """Every `*-VERIFICATION.md` **at commit `at`** opening a `human_verification:` block.
 
     Takes its root as an argument for the same reason every other checker here
     does: so it can be pointed at something other than the tree it is about.
+    It takes its REVISION for a sharper reason, and `D-IMPL-330` is the ruling.
+
+    **It used to read the working tree, and that was the defect** — not a
+    roster gap, which is how it presented. :data:`UAT_RECORDS` is frozen to a
+    window that ENDS at :func:`phase_close_commit`; globbing the working tree
+    compared a present-tense population against a past-tense roster, so the
+    assertion went red the moment any later phase wrote a
+    ``human_verification:`` block. `24.5-VERIFICATION.md` (2026-09-02) was the
+    first, and the thirteenth record would have been the next. **The repair is
+    the revision, not a roster entry and not a filename exception.** Widening
+    the roster was measured: it turns one red into THREE, because `CONTROL A`
+    and two of its meta-controls cannot derive a base for a file with no
+    history in the window, and they refuse rather than skipping it in silence.
+    A named exception was refused as the ``# ccf-schema: deferred(...)`` shape
+    this project declines everywhere else — red to green with the document
+    unchanged.
+
+    **Four refusals, on this module's standing reasoning**: an empty revision,
+    a non-zero exit from either `git` call, and a glob that matches NOTHING at
+    the revision. The last is the one worth naming — ``git ls-tree`` exits ZERO
+    on a pattern nothing matches, so a misspelled :data:`UAT_GLOB` would return
+    the empty set, and while the shipped assertion would fail on it loudly, a
+    control pointing this function at another revision would read the empty set
+    as an answer. A scoped denominator goes vacuously green exactly as readily
+    as an unscoped one goes permanently red.
+
+    Args:
+        base: The repository root the two `git` calls run in.
+        at: The commit whose tree is the population. Required, because a
+            default would be a working-tree read by another name.
     """
-    found = {
-        path.relative_to(base).as_posix()
-        for path in base.glob(UAT_GLOB)
-        if path.is_file() and UAT_MARKER.search(path.read_text(encoding="utf-8"))
-    }
+    if not at.strip():
+        _refuse(
+            "derived_uat_records.empty_revision",
+            "no revision was given, so there is no tree to derive the"
+            " population from — and a default would restore the working-tree"
+            " read this function exists to end (`D-IMPL-330`)"
+        )
+    listing = subprocess.run(
+        ["git", "ls-tree", "-r", "--name-only", at],
+        cwd=base,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if listing.returncode != 0:
+        _refuse(
+            "derived_uat_records.listing_nonzero_exit",
+            f"`git ls-tree -r --name-only {at}` exited {listing.returncode}, so"
+            " its empty output says nothing about which records existed at that"
+            f" commit.\nstderr: {listing.stderr.strip()}"
+        )
+    candidates = sorted(
+        line for line in listing.stdout.splitlines() if _matches_uat_glob(line)
+    )
+    if not candidates:
+        _refuse(
+            "derived_uat_records.glob_matched_nothing",
+            f"no path at {at} matches {UAT_GLOB!r}. `git ls-tree` exits ZERO on"
+            " a pattern nothing matches, so a misspelled glob and a commit that"
+            " genuinely holds no verification record are indistinguishable —"
+            " and the empty set would then be read as a population"
+        )
+    found = set()
+    for path in candidates:
+        # `check=True`, and deliberately NOT a named limb. Every other
+        # subprocess here is named because its failure produces an empty
+        # stdout that reads exactly like a real answer; this one cannot,
+        # because `git ls-tree -r` named the blob at this same commit one
+        # call ago. A failure here is a broken repository, and it RAISES
+        # rather than being registered as a limb no control could ever
+        # reach — an unclaimed limb is a refusal nothing is proven to
+        # reach, which this module refuses at `CONTROL 34`.
+        blob = subprocess.run(
+            ["git", "show", f"{at}:{path}"],
+            cwd=base,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        if UAT_MARKER.search(blob.stdout):
+            found.add(path)
     return frozenset(found)
 
 
@@ -1087,7 +1180,7 @@ def test_the_uat_roster_matches_the_records_on_disk() -> None:
     here by name; a twelfth record appearing later fails by name too, rather
     than quietly satisfying a comparison against a number.
     """
-    derived = derived_uat_records(REPO_ROOT)
+    derived = derived_uat_records(REPO_ROOT, phase_close_commit())
     declared = frozenset(UAT_RECORDS)
     missing_from_roster = sorted(derived - declared)
     absent_from_disk = sorted(declared - derived)
@@ -1103,6 +1196,221 @@ def test_the_uat_roster_matches_the_records_on_disk() -> None:
             " assertion over it would then be a diff limited to a path that"
             " does not exist, which prints nothing forever"
         )
+
+
+#: The positive control's two commits, and the ONE record between them.
+#:
+#: Both are ancestors of :func:`phase_close_commit`, so the control lives
+#: inside the history the roster is about rather than in a mutated working
+#: tree — `D-IMPL-330`, Dave: *"prove its positive control inside that
+#: historical window."*
+#:
+#: **Why a pair of commits and not the phase's own base and close.** Measured
+#: 2026-09-11: the marker-carrying population is ELEVEN at
+#: :func:`phase_base_commit` and ELEVEN at :func:`phase_close_commit`, and the
+#: same eleven — which is precisely what
+#: :func:`test_the_human_needed_verification_records_are_untouched` asserts, and
+#: which makes that pair useless as a control. A control that cannot tell a
+#: function reading its revision from one ignoring it is not a control. This
+#: pair differs by one, and the one is NAMED.
+UAT_POPULATION_BEFORE = "cf47bf8e6aacd905e734d126532bb0b5fb083433"
+UAT_POPULATION_AFTER = "e734b7afcbf05dcb594510087a23ac3c8a7cc7e0"
+UAT_POPULATION_DELTA = (
+    ".planning/phases/19-the-client-seam-integrity-checks-must-be-able-to-fail-insert"
+    "/19-VERIFICATION.md"
+)
+
+#: A record carrying the marker in the WORKING TREE that did not exist at the
+#: close pin — the file whose appearance turned the roster assertion red for
+#: nine days, and the subject of the repair `D-IMPL-330` ruled.
+#:
+#: Named here as the control's SUBJECT, never as an exemption: nothing in this
+#: module skips it, and if it ever stops carrying the marker the control below
+#: fails rather than passing on a premise that has quietly died.
+UAT_RECORD_WRITTEN_AFTER_THE_CLOSE = (
+    ".planning/phases/24.5-sdk-gap-catch-up-cp-00-through-cp-04"
+    "/24.5-VERIFICATION.md"
+)
+
+
+def _uat_glob_candidates(at: str) -> list[str]:
+    """Every path at `at` matching :data:`UAT_GLOB`, marker untested.
+
+    The denominator :func:`derived_uat_records` filters. Separated so a control
+    can compare the two and see that the marker is doing work.
+    """
+    listing = subprocess.run(
+        ["git", "ls-tree", "-r", "--name-only", at],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return sorted(
+        line for line in listing.stdout.splitlines() if _matches_uat_glob(line)
+    )
+
+
+def test_control_the_uat_derivation_reads_its_revision_not_the_working_tree() -> None:
+    """THE POSITIVE CONTROL for `D-IMPL-330`, and it is entirely historical.
+
+    :func:`derived_uat_records` now scopes its population to a commit, and a
+    scoped denominator can go vacuously green exactly as readily as an unscoped
+    one goes permanently red. So the question this asks is the only one that
+    matters about the repair: **does the revision argument change the answer?**
+
+    Two commits, both ancestors of the close pin, differing by exactly one
+    record — `19-VERIFICATION.md`, at the commit that added it and at its
+    parent. A function ignoring `at`, returning a constant, or falling back to
+    a working-tree glob returns the same set for both and fails here by name.
+
+    The ancestry is asserted rather than assumed: a pin that stopped resolving
+    would otherwise raise from `git` in a way nobody reads as "the control's
+    own pins have rotted".
+    """
+    for pin in (UAT_POPULATION_BEFORE, UAT_POPULATION_AFTER):
+        ancestry = subprocess.run(
+            ["git", "merge-base", "--is-ancestor", pin, phase_close_commit()],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert ancestry.returncode == 0, (
+            f"the control's pin {pin} is not an ancestor of the close commit"
+            f" {phase_close_commit()}, so this control is no longer inside the"
+            " window the roster is about"
+        )
+
+    before = derived_uat_records(REPO_ROOT, UAT_POPULATION_BEFORE)
+    after = derived_uat_records(REPO_ROOT, UAT_POPULATION_AFTER)
+
+    assert before != after, (
+        "the derivation returned the SAME population at two commits that"
+        f" differ by {UAT_POPULATION_DELTA} — so it is not reading its"
+        " revision, and every assertion built on it is measuring something"
+        " other than the commit it names"
+    )
+    assert after - before == {UAT_POPULATION_DELTA}, (
+        "the two commits differ by exactly one verification record and the"
+        f" derivation should see exactly that one; it saw {sorted(after - before)}"
+    )
+    assert before - after == set(), (
+        "the earlier commit held a record the later one does not, which the"
+        " pinned pair was chosen not to have"
+    )
+    # NO COUNT HERE, and the module's own `D-21` sweep is what stopped one
+    # being written: the first draft of this control asserted the two
+    # populations' cardinalities against literals, and
+    # `test_no_standing_check_in_this_module_carries_a_carried_count` refused
+    # it — then refused the comment that quoted the refused line, which is the
+    # sweep reading comments as well as code and is correct to. The set
+    # difference above already carries the whole claim BY NAME, and a name
+    # survives a population that legitimately grows.
+    assert UAT_POPULATION_DELTA in after and UAT_POPULATION_DELTA not in before, (
+        "the pinned pair no longer brackets the arrival of"
+        f" {UAT_POPULATION_DELTA}, so this control is bracketing nothing"
+    )
+
+
+#: The repository's root commit — a real revision at which :data:`UAT_GLOB`
+#: matches NOTHING, so the glob limb is reached by history rather than by a
+#: constructed fake.
+EMPTY_POPULATION_COMMIT = "87e29d4c844450040452a9bc6cf5983cd6866e4d"
+
+
+def test_control_the_uat_derivation_refuses_rather_than_answering_emptily() -> None:
+    """The three ways :func:`derived_uat_records` could return an empty set wrongly.
+
+    Its answer is a SET, and the empty set is what a blank revision, an
+    unresolvable revision and a misspelled glob all produce — the module's
+    standing defect class, arriving in a function that had just been rewritten
+    to take a revision at all (`D-IMPL-330`).
+
+    All three are reached against REAL revisions. The glob limb uses the
+    repository's own root commit, where nothing matches because
+    `.planning/phases/` did not yet exist — a constructed empty tree would
+    prove the refusal fires on a fake and leave open whether it fires on the
+    thing it is about.
+    """
+    for revision, limb in (
+        ("   ", "derived_uat_records.empty_revision"),
+        ("no-such-revision-anywhere", "derived_uat_records.listing_nonzero_exit"),
+        (EMPTY_POPULATION_COMMIT, "derived_uat_records.glob_matched_nothing"),
+    ):
+        # `try`/`raise AssertionError` rather than `pytest.raises`, and the
+        # reason is `CONTROL 35`. A `pytest.raises` block that sees no
+        # exception raises `Failed`, which is NOT an `AssertionError` — so
+        # `CONTROL 35`, neutering one limb and watching for this control to
+        # fail, would take the `Failed` as the loop exploding rather than as
+        # the control noticing. The neuter must produce the same exception
+        # class a real failure does, or the proof reads its own wreckage.
+        try:
+            answered = derived_uat_records(REPO_ROOT, revision)
+        except AssertionError as refusal:
+            assert limb in str(refusal), (
+                f"{revision!r} was refused, but by {str(refusal)!r} rather than"
+                f" by {limb} — so that limb is carried by a sibling and is not"
+                " proven reached"
+            )
+            continue
+        raise AssertionError(
+            f"{limb} did not fire on {revision!r}: the derivation ANSWERED"
+            f" {sorted(answered)} instead of refusing, so an empty set from a"
+            " broken revision is indistinguishable from a real population"
+        )
+
+
+def test_the_uat_derivation_excludes_a_record_written_after_the_close() -> None:
+    """The repair itself, asserted: a later phase's record is not this roster's.
+
+    `24.5-VERIFICATION.md` carries a `human_verification:` block **today** and
+    did not exist at the close pin. Before `D-IMPL-330` the derivation globbed
+    the working tree and therefore reported it as a roster divergence, which is
+    a category error rather than a finding: the roster is frozen to a window
+    that ended months before the file was written.
+
+    **Both halves are asserted on purpose.** If this only checked the absence
+    at the close pin it would pass on a day when the file had lost its marker,
+    been renamed, or been deleted — three ways for the premise to die quietly
+    while the control reported the repair working.
+    """
+    working_tree_carries_it = UAT_MARKER.search(
+        (REPO_ROOT / UAT_RECORD_WRITTEN_AFTER_THE_CLOSE).read_text(encoding="utf-8")
+    )
+    assert working_tree_carries_it, (
+        f"{UAT_RECORD_WRITTEN_AFTER_THE_CLOSE} no longer opens a"
+        " `human_verification:` block, so this control's premise is gone and"
+        " its other half would pass for the wrong reason. Re-point it at"
+        " whichever record now demonstrates the same thing"
+    )
+    assert UAT_RECORD_WRITTEN_AFTER_THE_CLOSE not in derived_uat_records(
+        REPO_ROOT, phase_close_commit()
+    ), (
+        "a record written after the close pin reached the derived population,"
+        " so the derivation is reading something other than the pinned commit"
+    )
+
+
+def test_the_uat_marker_filters_rather_than_admitting_every_verification_file() -> None:
+    """Non-vacuity for :data:`UAT_MARKER`: the glob's denominator is larger.
+
+    :func:`derived_uat_records` is a glob AND a marker test, and a marker that
+    admitted everything the glob matched would make the roster a list of
+    `*-VERIFICATION.md` files rather than a list of records carrying
+    undischarged human items. The two counts are asserted to differ at the
+    pinned commit, so a marker broken into a tautology fails here.
+    """
+    candidates = _uat_glob_candidates(phase_close_commit())
+    admitted = derived_uat_records(REPO_ROOT, phase_close_commit())
+    assert len(candidates) > len(admitted), (
+        f"the glob matched {len(candidates)} paths at {phase_close_commit()} and"
+        f" the marker admitted {len(admitted)} — the marker is not filtering,"
+        " so the roster is a file listing rather than a population"
+    )
+    assert admitted <= set(candidates), (
+        "the derivation admitted a path its own glob did not match"
+    )
 
 
 def test_the_citation_lint_is_not_modified() -> None:
@@ -6341,6 +6649,35 @@ def _with_monkeypatch(control: Callable[[pytest.MonkeyPatch], None]) -> Callable
 #: so. A derived key would satisfy the "every entry names a control that
 #: exists" direction unconditionally, which is a check that cannot fail.
 CONTROL_AIM: dict[str, Aim] = {
+    # --- the UAT population's revision scope (`D-IMPL-330`) -----------------
+    "test_control_the_uat_derivation_reads_its_revision_not_the_working_tree": Aim(
+        kind="discriminator",
+        targets=frozenset({"derived_uat_records"}),
+        invoke=(
+            lambda: (
+                test_control_the_uat_derivation_reads_its_revision_not_the_working_tree()
+            )
+        ),
+        # The sabotage IS the defect the repair removed: a derivation that
+        # ignores its revision. A stand-in returning the same value whatever
+        # it is asked about is that defect in its purest form, and the
+        # control's first assertion — the two commits disagree — is what
+        # catches it.
+        saboteur=_substituting(derived_uat_records=_returning(frozenset)),
+    ),
+    "test_control_the_uat_derivation_refuses_rather_than_answering_emptily": Aim(
+        kind="limb",
+        targets=frozenset(
+            {
+                "derived_uat_records.empty_revision",
+                "derived_uat_records.listing_nonzero_exit",
+                "derived_uat_records.glob_matched_nothing",
+            }
+        ),
+        invoke=(
+            lambda: test_control_the_uat_derivation_refuses_rather_than_answering_emptily()
+        ),
+    ),
     # --- the diff machinery -------------------------------------------------
     "test_control_a_a_base_and_path_that_differ_produce_output": Aim(
         kind="pathspec",
@@ -6844,6 +7181,8 @@ CONTROL_AIM: dict[str, Aim] = {
 #: Named ids, set equality, no count (`D-21`).
 CONTROLS: frozenset[str] = frozenset(
     {
+        "test_control_the_uat_derivation_reads_its_revision_not_the_working_tree",
+        "test_control_the_uat_derivation_refuses_rather_than_answering_emptily",
         "test_control_a_a_base_and_path_that_differ_produce_output",
         "test_control_b_an_unresolvable_base_fails_loudly",
         "test_control_c_an_empty_path_list_fails_loudly",
