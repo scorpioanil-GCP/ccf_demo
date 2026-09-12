@@ -18,107 +18,110 @@ semver: "1.0.0"
 class_id: cp-05.scenarios
 
 declaration:
-  # ==========================================================================
-  # A · WHAT THE PRODUCT DOES WHEN NOBODY ASKS FOR ANYTHING
-  # ==========================================================================
-  - name: Default Consumer
-    parameters: {}
-    teaches: >-
-      Every parameter falls to the class default and says so — materiality
-      0.05(default), debt_tolerance 0.25(default). THE DEMONSTRATED RUN IS A
-      GOVERNED REFUSAL: the product is assembled, gated and constructible, and
-      fulfillment is withheld because the estate's balances are days old
-      against a 4-hour half-life. The $9.325B figure is not withdrawn — it is
-      the determination the fabric made and is unwilling to attest.
+  # The list lives under a NAMED KEY because `DeclaredArtifact` requires
+  # `declaration` to be a mapping. Nothing about the entries changed.
+  consumers:
+    # ==========================================================================
+    # A · WHAT THE PRODUCT DOES WHEN NOBODY ASKS FOR ANYTHING
+    # ==========================================================================
+    - name: Default Consumer
+      parameters: {}
+      teaches: >-
+        Every parameter falls to the class default and says so — materiality
+        0.05(default), debt_tolerance 0.25(default). THE DEMONSTRATED RUN IS A
+        GOVERNED REFUSAL: the product is assembled, gated and constructible, and
+        fulfillment is withheld because the estate's balances are days old
+        against a 4-hour half-life. The $9.325B figure is not withdrawn — it is
+        the determination the fabric made and is unwilling to attest.
 
-  # ==========================================================================
-  # B–C · THE THRESHOLD IS THE CONSUMER'S, AND IT MOVES ONLY THE PROJECTION
-  # ==========================================================================
-  - name: Detailed Consumer
-    parameters:
-      materiality: "0.02"
-    teaches: >-
-      A caller who wants more of the book enumerated. materiality resolves to
-      0.02 with authority `caller`, and the floor drops from 506,250,000 to
-      202,500,000. THE PROJECTION DOES NOT MOVE, and the measurement is worth
-      more than the movement would have been: this family's book is
-      concentrated in five entities and the smallest material one commits
-      800,000,000, so both floors select the same four. A finer threshold buys
-      nothing here. The family, the gross and the guarantee-adjusted totals are
-      BYTE-IDENTICAL to the Default Consumer's, which is the invariant — a
-      threshold that changed the totals would be a request parameter altering
-      truth. Only the CONTENT ADDRESS differs, because the question differed.
+    # ==========================================================================
+    # B–C · THE THRESHOLD IS THE CONSUMER'S, AND IT MOVES ONLY THE PROJECTION
+    # ==========================================================================
+    - name: Detailed Consumer
+      parameters:
+        materiality: "0.02"
+      teaches: >-
+        A caller who wants more of the book enumerated. materiality resolves to
+        0.02 with authority `caller`, and the floor drops from 506,250,000 to
+        202,500,000. THE PROJECTION DOES NOT MOVE, and the measurement is worth
+        more than the movement would have been: this family's book is
+        concentrated in five entities and the smallest material one commits
+        800,000,000, so both floors select the same four. A finer threshold buys
+        nothing here. The family, the gross and the guarantee-adjusted totals are
+        BYTE-IDENTICAL to the Default Consumer's, which is the invariant — a
+        threshold that changed the totals would be a request parameter altering
+        truth. Only the CONTENT ADDRESS differs, because the question differed.
 
-  - name: Material-Only Consumer
-    parameters:
-      materiality: "0.10"
-    teaches: >-
-      THE THRESHOLD THAT ACTUALLY MOVES THIS ANSWER. At a 1,012,500,000 floor
-      the 800,000,000 obligor falls into the residual: 3 enumerated instead of
-      4, residual 945,000,000 instead of 145,000,000 — and the same family and
-      the same totals again. Zero-exposure members reached only by guarantee or cross-default
-      are NEVER absorbed into the residual at any threshold (spec §C.4 trap 2).
+    - name: Material-Only Consumer
+      parameters:
+        materiality: "0.10"
+      teaches: >-
+        THE THRESHOLD THAT ACTUALLY MOVES THIS ANSWER. At a 1,012,500,000 floor
+        the 800,000,000 obligor falls into the residual: 3 enumerated instead of
+        4, residual 945,000,000 instead of 145,000,000 — and the same family and
+        the same totals again. Zero-exposure members reached only by guarantee or cross-default
+        are NEVER absorbed into the residual at any threshold (spec §C.4 trap 2).
 
-  # ==========================================================================
-  # D · FITNESS IS THE CONSUMER'S, AND IT MOVES ONLY THE FULFILLMENT
-  # ==========================================================================
-  - name: Strict-Fitness Consumer
-    parameters:
-      debt_tolerance: "0.05"
-    teaches: >-
-      A consumer declaring a tighter bar than the product's default. Withheld
-      with authority `caller` rather than `default`, over the SAME observed
-      Context Debt — the fabric did not become less confident, this consumer
-      became harder to satisfy.
+    # ==========================================================================
+    # D · FITNESS IS THE CONSUMER'S, AND IT MOVES ONLY THE FULFILLMENT
+    # ==========================================================================
+    - name: Strict-Fitness Consumer
+      parameters:
+        debt_tolerance: "0.05"
+      teaches: >-
+        A consumer declaring a tighter bar than the product's default. Withheld
+        with authority `caller` rather than `default`, over the SAME observed
+        Context Debt — the fabric did not become less confident, this consumer
+        became harder to satisfy.
 
-  - name: Exploratory Consumer
-    parameters:
-      debt_tolerance: "1.0"
-    teaches: >-
-      THE ONE CONSUMER SERVED, and the contrast is the whole point. A consumer
-      who will act on any Debt receives the identical determination, delivered,
-      with D_c 1.000 disclosed on it. The fabric owns truth and quantified
-      uncertainty; the consumer owns fitness. Nothing about the answer changed
-      — only the willingness to attest that it is fit.
+    - name: Exploratory Consumer
+      parameters:
+        debt_tolerance: "1.0"
+      teaches: >-
+        THE ONE CONSUMER SERVED, and the contrast is the whole point. A consumer
+        who will act on any Debt receives the identical determination, delivered,
+        with D_c 1.000 disclosed on it. The fabric owns truth and quantified
+        uncertainty; the consumer owns fitness. Nothing about the answer changed
+        — only the willingness to attest that it is fit.
 
-  - name: Regulated Consumer
-    parameters:
-      intent: regulatory-large-exposure
-      debt_tolerance: "1.0"
-    teaches: >-
-      The same request as the Exploratory Consumer, under a regime that will
-      not permit it. The registered constraint
-      `cp-05/policy/debt-tolerance-ceiling/regulatory-large-exposure` NARROWS
-      1.0 to 0.10 with authority `policy`, and the product is then withheld.
-      THIS IS THE SDK'S ONE NARROWING CASE and it is deliberate: a fitness bar
-      cannot be refused before fitness has been measured, so policy binds the
-      bar and the comparison happens after assembly, where the observation
-      exists.
+    - name: Regulated Consumer
+      parameters:
+        intent: regulatory-large-exposure
+        debt_tolerance: "1.0"
+      teaches: >-
+        The same request as the Exploratory Consumer, under a regime that will
+        not permit it. The registered constraint
+        `cp-05/policy/debt-tolerance-ceiling/regulatory-large-exposure` NARROWS
+        1.0 to 0.10 with authority `policy`, and the product is then withheld.
+        THIS IS THE SDK'S ONE NARROWING CASE and it is deliberate: a fitness bar
+        cannot be refused before fitness has been measured, so policy binds the
+        bar and the comparison happens after assembly, where the observation
+        exists.
 
-  # ==========================================================================
-  # THE TWO REFUSALS THAT HAPPEN BEFORE ANYTHING IS ASSEMBLED
-  # ==========================================================================
-  - name: Appetite Consumer
-    parameters:
-      intent: internal-appetite
-      materiality: "0.10"
-    teaches: >-
-      The same `maximum` operator on a DIFFERENT parameter, and it refuses
-      instead of narrowing. A coarser threshold under an appetite review asks
-      to be shown less of the book than the regime requires, and the request is
-      refused BY NAME rather than clamped — a narrowed request answers a
-      question nobody asked (`D-IMPL-251` C5). Set this beside the Regulated
-      Consumer: one `maximum`, two behaviors, and the difference is that
-      materiality shapes the answer while debt tolerance judges it.
+    # ==========================================================================
+    # THE TWO REFUSALS THAT HAPPEN BEFORE ANYTHING IS ASSEMBLED
+    # ==========================================================================
+    - name: Appetite Consumer
+      parameters:
+        intent: internal-appetite
+        materiality: "0.10"
+      teaches: >-
+        The same `maximum` operator on a DIFFERENT parameter, and it refuses
+        instead of narrowing. A coarser threshold under an appetite review asks
+        to be shown less of the book than the regime requires, and the request is
+        refused BY NAME rather than clamped — a narrowed request answers a
+        question nobody asked (`D-IMPL-251` C5). Set this beside the Regulated
+        Consumer: one `maximum`, two behaviors, and the difference is that
+        materiality shapes the answer while debt tolerance judges it.
 
-  - name: As-Of Consumer
-    parameters:
-      as_of: "2026-06-30T00:00:00+00:00"
-    teaches: >-
-      A caller asking for the rollup as it stood at a past instant. DECLARED
-      AND REFUSED, never silently ignored. This product's TTL is anchored
-      `from_decision` — the answer is scoped to the decision being taken now,
-      and there is no entity validity period an `as_of` could address. Fluree's
-      ledger `t` is TRANSACTION time and `D-IMPL-88` rules it must not back
-      `as_of`. An `as_of` quietly dropped would return a present-tense answer
-      wearing a past-tense label.
+    - name: As-Of Consumer
+      parameters:
+        as_of: "2026-06-30T00:00:00+00:00"
+      teaches: >-
+        A caller asking for the rollup as it stood at a past instant. DECLARED
+        AND REFUSED, never silently ignored. This product's TTL is anchored
+        `from_decision` — the answer is scoped to the decision being taken now,
+        and there is no entity validity period an `as_of` could address. Fluree's
+        ledger `t` is TRANSACTION time and `D-IMPL-88` rules it must not back
+        `as_of`. An `as_of` quietly dropped would return a present-tense answer
+        wearing a past-tense label.

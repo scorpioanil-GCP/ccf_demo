@@ -102,7 +102,7 @@ declaration:
     # IT DOES NOT APPLY TO ZERO-EXPOSURE ENTITIES REACHED BY CROSS-DEFAULT
     # (spec §D.3 step 5.3, §C.4 trap 2). Absorbing those into a residual would
     # delete the finding the traversal exists to produce.
-    materiality: 0.05
+    materiality: "0.05"
 
     # SEPARABLE ON PURPOSE — spec §B.4. Different limit regimes count guarantee
     # and cross-default connection differently, and a product that hard-coded

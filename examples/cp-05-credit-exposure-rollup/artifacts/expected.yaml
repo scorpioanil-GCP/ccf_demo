@@ -114,7 +114,7 @@ declaration:
     # THE HEADLINE. 9.92% of gross committed exposure is double-counted by a
     # naive family sum. The dedup step is DEMONSTRABLY load-bearing on this
     # anchor — spec §G.2.2 requires gross != adjusted, and it is not close.
-    adjusted_differs_from_gross_by_pct: 7.90
+    adjusted_differs_from_gross_by_pct: "7.90"
 
   # ==========================================================================
   # THE COUNTERFACTUAL, IN DOLLARS — spec §A
@@ -133,7 +133,7 @@ declaration:
     # signals that a graph the product should have traversed was never
     # traversed. That invisibility is §A's whole argument and this is its
     # arithmetic.
-    understates_gross_family_by_factor: 69.8
+    understates_gross_family_by_factor: "69.8"
 
   # ==========================================================================
   # THE SECOND DEMONSTRATION — spec §G.2.4
@@ -183,10 +183,10 @@ declaration:
   # the material entities. Measured: 0.01 -> 5 entities, 0.05 -> 4, 0.10 -> 3,
   # three distinct content addresses.
   anchor_below_its_own_materiality_floor:
-    materiality: 0.05
+    materiality: "0.05"
     floor_committed: 506250000
     anchor_committed: 145000000
-    anchor_share_of_family_pct: 1.43
+    anchor_share_of_family_pct: "1.43"
     anchor_enumerated_at_default: false
     anchor_enumerated_at_0_01: true
     material_entities_at_default: 4

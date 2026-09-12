@@ -343,7 +343,7 @@ def sweep() -> str:
     thresholds and tolerances written into this client would be the same
     No-Hardcoding violation as a threshold written into `produce.py`.
     """
-    declared = dep.load(dep.SCENARIOS)[dep.DECLARATION]
+    declared = dep.load(dep.SCENARIOS)[dep.DECLARATION]["consumers"]
     out = ["=" * 78,
            "  cp-05 · ONE QUESTION, ONE ESTATE, ONE INSTANT — EIGHT CONSUMERS",
            "=" * 78, ""]
