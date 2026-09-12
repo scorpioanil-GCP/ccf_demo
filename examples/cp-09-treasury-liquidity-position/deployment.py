@@ -96,7 +96,7 @@ def request(
     currencies: Sequence[str] | None = None,
     max_staleness: Mapping[str, str] | None = None,
     intent: str = "reserve-buffer", freshness: str = "intraday",
-    debt_tolerance: float | None = None,
+    debt_tolerance: Decimal | str | None = None,
 ) -> ProductRequest:
     """The question asked. An argument, never an artifact.
 
@@ -117,7 +117,13 @@ def request(
     if max_staleness is not None:
         parameters[MAX_STALENESS] = dict(max_staleness)
     if debt_tolerance is not None:
-        parameters["debt_tolerance"] = debt_tolerance
+        # A `Decimal`, NEVER a float. `ccf.contracts.canonical` refuses a float
+        # outright — *"not bit-stable across platforms"* — and it is right to:
+        # this value rides the request's content address, so a figure that
+        # rounded differently on two hosts would give one question two
+        # identities. The request contract declares it as JSON `number`, and
+        # `Decimal` is that type's honest Python binding.
+        parameters["debt_tolerance"] = Decimal(str(debt_tolerance))
     return ProductRequest(
         schema_name=declared["schema_name"],
         schema_version=declared["schema_version"],
