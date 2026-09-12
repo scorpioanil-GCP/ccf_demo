@@ -100,6 +100,14 @@ make -s example-cp-10 LEI=549300TRW1LZMDJZAQ78 \
     AS_OF=2025-04-07T00:00:00+00:00 WINDOW_DAYS=48 GRANULARITY=daily
 ```
 
+And the governed refusal, which is an answer rather than an error. `D_c` is
+0.3651 on the anchor, so a caller declaring a lower ceiling gets a refusal that
+arrives as **data** — not an exception, so a client cannot swallow it:
+
+```bash
+make -s example-cp-10 DEBT_TOLERANCE=0.10
+```
+
 ## The story
 
 Celanese Corp, `549300FHJQTDPPN41627`, over the two years to 2026-08-20.

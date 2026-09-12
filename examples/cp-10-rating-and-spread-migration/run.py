@@ -26,6 +26,7 @@ sys.path.insert(0, str(HERE))
 
 import deployment  # noqa: E402
 import produce  # noqa: E402
+from ccf.products.refusal import RefusalEnvelope  # noqa: E402
 
 QUESTION = HERE / "artifacts" / "question.yaml"
 
@@ -67,7 +68,10 @@ def main(argv: list[str]) -> int:
     with tempfile.TemporaryDirectory() as scratch:
         outcome = produce.assemble_and_serve(asked=asked, root=Path(scratch))
 
-        if not isinstance(outcome, produce.Assembled):
+        # BRANCH ON THE SDK's OWN TYPE. A governed *no* is an answer, and it
+        # arrives as data rather than as an exception precisely so a client
+        # cannot swallow it — so the client tests for it positively.
+        if isinstance(outcome, RefusalEnvelope):
             print(f"\nREFUSED      {outcome.kind}")
             print(f"  reason     {outcome.reason}")
             print(f"  detail     {outcome.detail}")

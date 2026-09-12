@@ -135,3 +135,19 @@ SERIES REGISTER — each series carries its OWN cadence
 context debt D_c 0.05239076915893893600000000   signal ok
   F 0.947609230841061064  C 1.0000  S 1.0000
 expires_at       2025-04-07T04:00:00+00:00
+
+================================================================
+$ make -s example-cp-10 DEBT_TOLERANCE=0.10
+#  The governed refusal. D_c is 0.3651; the caller's ceiling is 0.10.
+#  A governed 'no' is an answer, and it arrives as DATA rather than as an
+#  exception — so a client cannot swallow it in a bare except.
+asked        549300FHJQTDPPN41627 · portfolio-review · as of 2026-08-20T00:00:00+00:00 · 730d window
+
+REFUSED      tolerance-exceeded
+  reason     tolerance-exceeded
+  detail     fulfillment was withheld because an applicable declared tolerance was exceeded
+
+  The determination is preserved in the replay record; the
+  consumer envelope discloses less than the fabric recorded.
+  replay     ccf-artifact://cp-10-migration-demo/ccf.replay-record/17e200c6a69d8ee3fb7511a7e6af5e7eaf0854ce1920d4c4de43a67af6508508@14f75b74b222f579337ffba26140ec71dec0fdd6828ae688500c438d101d5344
+make: *** [Makefile:532: example-cp-10] Error 1
