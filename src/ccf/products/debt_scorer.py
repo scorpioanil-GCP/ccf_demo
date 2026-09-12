@@ -346,6 +346,16 @@ def _series_key(record: object, table: "HalfLifeTable | None") -> str | None:
         return None
     if attribute is None:
         return None
+    # RESOLVED AGAINST THE CLAIM'S OWN ATTRIBUTES. A `series_key_attribute`
+    # naming something the claim does not carry — a key left inside a
+    # serialized `payload_json` blob, say — returns `None` here, and every
+    # observation of the type then lands in one series. That is deliberate
+    # rather than a refusal: this helper cannot tell an attribute a deployment
+    # forgot to promote from one whose value is genuinely absent on this claim,
+    # and refusing on the second would break the first product with a partially
+    # populated series key. The consequence is documented where a deployment
+    # decides what to name — `HalfLifeEntry.series_key_attribute` — because
+    # that is the site at which the mistake is preventable.
     value = claim.attributes.get(attribute)
     return None if value is None else str(value)
 

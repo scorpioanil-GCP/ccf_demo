@@ -361,6 +361,32 @@ class HalfLifeEntry(CCFContract):
             operator's ``classification_attribute_by_class`` names the
             attribute it admits on: the SDK cannot know what a deployment
             considers one series, so the deployment says.
+
+            **THE NAMED ATTRIBUTE MUST BE A FIRST-CLASS CLAIM ATTRIBUTE.**
+            :class:`~ccf.products.debt_scorer.AssemblyDebtScorer` resolves this
+            name against ``claim.attributes``, so a partition key that lives
+            only inside a serialized blob — a ``payload_json`` column, a nested
+            document — is invisible to the scorer. It does not raise. The key
+            resolves to ``None``, every observation of the type lands in one
+            series, and ``leading-edge`` keeps a single observation where it
+            should have kept one per series. **The failure is silent and reads
+            as a working configuration**: the table validates, the product
+            serves, and ``F`` is simply computed over the wrong set.
+
+            The concrete case, from ``examples/cp-10-rating-and-spread-migration``
+            (rung 10): ``rsm_spread`` declares
+            ``series_key_attribute: instrument_id`` because each bond is its own
+            spread series. ``instrument_id`` is carried in that node's
+            ``raw_payload`` *and* listed in its resolution rule's
+            ``attribute_keys``, so it reaches the claim. Left only inside that
+            example's ``payload_json``, all 996 of one obligor's spread
+            observations would collapse into a single series and the two bonds
+            would share one leading edge.
+
+            The general rule, and it is the same one
+            ``classification_attribute_by_class`` obeys: **an attribute a
+            control plane document names must be an attribute the claim
+            carries.**
     """
 
     decay: DecayMode = Field(default="curve", json_schema_extra={HASH_TRANSPARENT_KEY: True})
