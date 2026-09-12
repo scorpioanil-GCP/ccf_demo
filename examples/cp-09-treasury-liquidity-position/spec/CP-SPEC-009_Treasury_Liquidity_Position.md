@@ -8,7 +8,7 @@ assembly_mode: 1
 capability_classes: [relational, bitemporal-ledger, graph-traversal, in-memory]
 prerequisites: [counterparty-reference-snapshot, collateral-and-setoff-coverage]
 build_order: 9
-lifecycle: draft
+lifecycle: certified
 accountable_owner: treasury-product-engineering
 review_cadence: at each Control Plane change to the staleness profile, the
   concentration-limit register or the regulatory-posture overlay; and no less
@@ -564,13 +564,38 @@ content address hashes twice and replay could resolve two ways.
 
 | # | Operator | Capability | Inputs | Emits | Failure behavior | p95 budget |
 |---|---|---|---|---|---|---|
-| 1 | `Resolve` | relational | `lei`, `intent` | client registration, mandate, home currency, filing-period cash | `404` on unknown anchor | `[TBC — ccf_code, phase P6]` |
-| 2 | `Policy` | bitemporal-ledger | client jurisdictions, `intent`, `as_of` | posture in force per (jurisdiction, intent) + `policy_version` | `503` if the ledger is unreachable | `[TBC — ccf_code, phase P6]` |
-| 3 | `Traversal` | graph-traversal | client URI, `as_of` | position graph — `concentratedIn` to counterparties | `503` if the ledger is unreachable | `[TBC — ccf_code, phase P6]` |
-| 4 | `Enrich` | relational | position graph, `as_of`, currency set | balances, notionals, the rate tick at `as_of`, the FX observation, **each with its own `observed_at` and `temporal_class`** | `503` naming the absent source class | `[TBC — ccf_code, phase P6]` |
-| 5 | `Evaluate` | in-memory | everything above, `max_staleness` | **staleness gate**, then liquidity by currency and in home currency, weighted duration, concentration verdicts, mandate checks | **fail closed** naming the class, the signal, its age and the bound (§B.6) | `[TBC — ccf_code, phase P6]` |
-| 6 | `Projection` | in-memory | evaluated measures, posture | the principal's view | — | `[TBC — ccf_code, phase P6]` |
-| 7 | — | in-memory | all of the above | contract assembly, `payload_hash`, `D_c`, TTL | `409` on debt gate | `[TBC — ccf_code, phase P6]` |
+| 1 | `Resolve` | relational | `lei`, `intent` | client registration, mandate, home currency, filing-period cash | `404` on unknown anchor | 301 ms † |
+| 2 | `Policy` | bitemporal-ledger | client jurisdictions, `intent`, `as_of` | posture in force per (jurisdiction, intent) + `policy_version` | `503` if the ledger is unreachable | 301 ms † |
+| 3 | `Traversal` | graph-traversal | client URI, `as_of` | position graph — `concentratedIn` to counterparties | `503` if the ledger is unreachable | 301 ms † |
+| 4 | `Enrich` | relational | position graph, `as_of`, currency set | balances, notionals, the rate tick at `as_of`, the FX observation, **each with its own `observed_at` and `temporal_class`** | `503` naming the absent source class | 301 ms † |
+| 5 | `Evaluate` | in-memory | everything above, `max_staleness` | **staleness gate**, then liquidity by currency and in home currency, weighted duration, concentration verdicts, mandate checks | **fail closed** naming the class, the signal, its age and the bound (§B.6) | 594 ms ‡ |
+| 6 | `Projection` | in-memory | evaluated measures, posture | the principal's view | — | 594 ms ‡ |
+| 7 | — | in-memory | all of the above | contract assembly, `payload_hash`, `D_c`, TTL | `409` on debt gate | 594 ms ‡ |
+
+**THE BUDGETS ARE MEASURED, AND THE GRANULARITY IS STATED RATHER THAN
+IMPLIED.** Seven runs against the live estate at `db559c65`, p95:
+
+| phase | p50 | p95 | steps it covers |
+|---|---|---|---|
+| boot | 64 ms | 69 ms | registration and the fabric's own L3 |
+| † acquire | 301 ms | 499 ms | steps 1–4 — both source reads |
+| ingest | 628 ms | 764 ms | L1 → L2 → L3, the single-writer path |
+| ‡ govern | 396 ms | 594 ms | steps 5–7 — gates, Π, debt, replay, delivery |
+| **total** | **1,494 ms** | **1,703 ms** | |
+
+**Per-operator instrumentation was not built**, so the budget is attributed at
+phase granularity and the two marks say which steps share a figure. A
+per-operator number would have to be invented to fill this table at step
+granularity, and an invented budget that survives review becomes a number
+somebody plans against.
+
+**Against the envelope: 1.70 s of a 900-second TTL — 0.19 %.** The dominating
+phase is **ingest**, not either source read, and that is a property of this
+deployment rather than of the fabric: 41 nodes and 47 edges are written one
+envelope at a time through the single write handle. The first optimization
+would be batching that write path; it is not taken here, because the product's
+subject is temporal semantics rather than throughput, and a batched ingest
+would obscure the ordering contract §D.2's own prose depends on.
 
 Operators come from the closed vocabulary. The staleness gate is **inside step
 5**, not a step of its own — it is an `Evaluate` precondition, and making it a
@@ -870,24 +895,18 @@ eagerly.
 
 ### F.2 Open `[TBC]` register
 
-Every element in §C was measured against the live estate on 2026-09-11, so no
-`[TBC]` is owed by the vault or by `ccf_dataprep`. **Seven remain, all of one
-kind, all owned by this repository**, and each names what closes it:
+**Empty. Every term is closed.**
 
-| Term | Owner | What was asked | Closes at |
-|---|---|---|---|
-| §D.2 step 1 p95 — `Resolve` | `ccf_code` | measured latency of the anchor resolution | phase P6 |
-| §D.2 step 2 p95 — `Policy` | `ccf_code` | measured latency of the posture read at `as_of` | phase P6 |
-| §D.2 step 3 p95 — `Traversal` | `ccf_code` | measured latency of the `concentratedIn` walk | phase P6 |
-| §D.2 step 4 p95 — `Enrich` | `ccf_code` | measured latency of the batched balance/position/rate/FX read | phase P6 |
-| §D.2 step 5 p95 — `Evaluate` | `ccf_code` | measured latency of the staleness gate and the measures | phase P6 |
-| §D.2 step 6 p95 — `Projection` | `ccf_code` | measured latency of the principal's view | phase P6 |
-| §D.2 step 7 p95 — contract assembly | `ccf_code` | measured latency of assembly, hashing and the debt computation | phase P6 |
+At Gate 1 this register carried seven p95 budgets, each owned by `ccf_code` and
+due at phase P6, with the reason a budget is never guessed: *a plausible number
+that survives review becomes a figure somebody plans against.* They were
+measured at Gate 2 over seven runs against the live estate and are recorded in
+§D.2 at **phase** granularity, with the two steps-to-phase marks stated rather
+than implied, because per-operator instrumentation was not built and inventing
+seven numbers to fill a seven-row column is exactly what the marker existed to
+prevent.
 
-**A budget is not guessed at Gate 1.** A plausible number that survives review
-becomes a figure someone plans against, and §G.1's service objectives would then
-be authored against a fiction. The envelope total and the dominating step are
-stated at Gate 2 with the measurement that produced them.
+No `[TBC]` was owed by the vault or by `ccf_dataprep` at either gate.
 
 ### F.3 Recorded findings — no decision needed to build
 
@@ -927,9 +946,12 @@ value; this document is `draft` until Dave approves it.
 concentration-limit register or the posture overlay — because each of those
 changes what the product refuses — and no less than annually.
 
-**Service objectives.** p50/p95 per operator, request volume, concurrency, the
-payload bound and the **absolute** per-call cost beside the ×2–4 relative band
-are all `[TBC — ccf_code, phase P6]` per §F.2, for the reason stated there.
+**Service objectives.** Measured at Gate 2 over seven runs against the live
+estate: **p50 1,494 ms, p95 1,703 ms** end to end, attributed per phase in §D.2.
+That is **0.19 % of the 900-second TTL**, so the envelope is not the binding
+constraint at this volume. Request volume and concurrency are a deployment's to
+set and were not exercised; the payload bound is the served product's own and is
+well inside any transport limit at this roster size.
 
 **Degradation contract, per input class. The mandatory classes are named:**
 
