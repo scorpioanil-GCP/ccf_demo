@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE REFUSAL RULE, PER SIGNAL CLASS — `CP-SPEC-009` §B.6.
+#
+# `ccf_config.yaml`'s `half_life:` is the DECAY model; this is the REFUSAL
+# rule, and they are not the same thing. A class can decay — contributing
+# Context Debt — without being able to refuse, and the regulatory posture does
+# neither.
+#
+# **Why this is not one 15-minute clock.** Flattening the classes would refuse
+# the product on its quarterly filing evidence, which is SUPPOSED to be months
+# old, and would make the 15 minutes meaningless by applying it to something
+# that never moves that fast. The 15-minute figure governs ONE row here and the
+# product never lets it govern another.
+#
+# A request's `max_staleness` tightens a NAMED class and leaves the rest alone.
+
+semver: "1.0.0"
+class_id: cp-09.staleness-profile
+
+declaration:
+  classes:
+    - signal_class: intraday-rate
+      bound_seconds: 900
+      mandatory: true
+      note: >-
+        fail closed. The refusal names the class, the signal, its observed age
+        and the bound it broke — never a bare "stale".
+
+    - signal_class: fx-reference
+      bound_seconds: 86400
+      mandatory: true
+      note: >-
+        mandatory only WHEN A CONVERSION IS REQUIRED. Scope decides
+        participation before freshness decides admission: a single-currency
+        request on a home-currency client needs no conversion, so no FX
+        observation participates and this bound cannot fire (`TLP-G20`).
+
+    - signal_class: filing-period-cash
+      bound_seconds: 7776000
+      mandatory: false
+      note: >-
+        NON-MANDATORY. A quarterly figure is months old by construction and
+        that is not a defect; it contributes Context Debt and the payload shows
+        the period end beside it. A reporting-period end is not an observation
+        instant and is never decayed as one.

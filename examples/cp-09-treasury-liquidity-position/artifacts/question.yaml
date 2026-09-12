@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE DEMONSTRATION QUESTION — the caller's vocabulary, read-side.
+#
+# `run.py` asks this when no flag overrides it. The `as_of` pin is here rather
+# than in code because it is a REQUEST parameter: the instant a question is
+# asked as-of is the caller's to state, and a program that read a clock would
+# make its own answer unreproducible (`D-IMPL-98`).
+
+semver: "1.0.0"
+class_id: cp-09.question
+
+declaration:
+  question:
+    lei: "2549004GGE2APGNT6O92"
+    intent: reserve-buffer
+    # THE POST-FLIP INSTANT. Chosen by measurement, not preference: it is the
+    # largest gap anywhere in the post-flip window between the intraday tick
+    # and the most recent PUBLISHED daily close — 23.60 bp at the 2-year
+    # tenor — and the `US-NY / reserve-buffer` posture flipped to
+    # `enhanced-scrutiny` the day before (`CP-SPEC-009` §D.4 scenario 1).
+    as_of: "2026-06-17T18:05:00+00:00"
+    max_staleness: PT15M

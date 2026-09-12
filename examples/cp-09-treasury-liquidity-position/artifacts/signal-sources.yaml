@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE RATE FEEDS, AND THE WINDOW EACH ONE CLAIMS TO COVER.
+#
+# **A coverage window is a property of the SOURCE, not an age of the answer**,
+# and this file exists because conflating the two would have shipped a defensible
+# -looking wrong number (`CP-SPEC-009` §D.4 scenario 3).
+#
+# The estate holds TWO engineered intraday-rate feeds over DISJOINT windows: the
+# curve feed for 2026-05-11 .. 06-23, and the `LIQ-*` feed at 2026-08-21. Ask
+# the curve feed for a rate in August with `obs_ts <= asked_at ORDER BY obs_ts
+# DESC LIMIT 1` and it returns the 06-23 close, 59 days old — a number produced
+# by the query rather than claimed by the feed. Serving it would preempt the
+# refusal the August scenario exists to demonstrate.
+#
+# So a feed whose window does not contain the decision instant contributes
+# NOTHING, and the payload says `absent` rather than reporting an age
+# (`TLP-G22`). The windows are the estate's, measured 2026-09-11.
+
+semver: "1.0.0"
+class_id: cp-09.signal-sources
+
+declaration:
+  rate_sources:
+    - name: intraday_tick
+      signal_class: intraday-rate
+      covers_from: "2026-05-11T13:30:00+00:00"
+      covers_to: "2026-06-23T19:55:00+00:00"
+      query: >-
+        SELECT DISTINCT ON (tenor_years)
+               'tick:' || tenor_years::text AS signal_id,
+               obs_ts, value_pct,
+               'constant-maturity ' || tenor_years::text || 'y' AS label
+          FROM intraday_tick
+         WHERE obs_ts <= %s
+         ORDER BY tenor_years, obs_ts DESC
+
+    - name: stale_signal
+      signal_class: intraday-rate
+      covers_from: "2026-08-21T00:00:00+00:00"
+      covers_to: "2026-08-21T23:59:59+00:00"
+      query: >-
+        SELECT signal_id, observed_at, value, series_id AS label
+          FROM stale_signal
+         WHERE observed_at <= %s
+         ORDER BY signal_id

@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE SOURCES' OWN VOCABULARY — every IRI this deployment reads, in one place.
+#
+# Not in `ccf_config.yaml`, which is Control Plane state — what the fabric is
+# permitted to do. This is the shape of somebody else's store, which the fabric
+# neither governs nor can change. Not in `acquisition.py` either: code is
+# interpreters, never the things interpreted (CLAUDE.md §6.4).
+#
+# The `ex:` terms are deliberately unbound in FIBO. `fibo-iri-binding` (the
+# vault's Wave-8 mirror) covers the deposit, investment, rate and FX CLASSES
+# this product serves — `CP-SPEC-009` §C.1 carries them — but no FIBO or
+# Commons term covers a regulatory-posture overlay, so inventing a
+# `spec.edmcouncil.org` IRI for one would make the mirror disagree with FIBO.
+
+semver: "1.0.0"
+class_id: cp-09.source-vocabulary
+
+declaration:
+  # The time-versioned regulatory posture. `validFrom` is EFFECTIVITY: the
+  # overlay is selected by comparing it to the decision instant, never by
+  # reading the ledger head (`CP-SPEC-009` §D.3).
+  posture_class: http://example.org/fibo/RegulatoryPosture
+  posture_jurisdiction: http://example.org/fibo/postureJurisdiction
+  posture_intent: http://example.org/fibo/postureIntent
+  posture_level: http://example.org/fibo/postureLevel
+  posture_valid_from: http://example.org/fibo/validFrom
+
+  # Read for `CP09-F-03` only — the product does NOT walk both. Measured
+  # 2026-09-11: `heldAt` and `concentratedIn` are identical on all 200
+  # positions, so composing them would claim information the estate does not
+  # carry. The product reads the concentration edge and records which.
+  concentration_edge: http://example.org/fibo/concentratedIn
+  custody_edge: http://example.org/fibo/heldAt
