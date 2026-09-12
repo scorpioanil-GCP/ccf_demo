@@ -37,6 +37,7 @@ from datetime import datetime
 from pydantic import Field
 
 from ccf.contracts.base import CCFContract
+from ccf.contracts.canonical import HASH_TRANSPARENT_KEY
 from ccf.signal.envelope import SourceIdentity
 
 __ccf_mode__ = "algorithmic"
@@ -111,7 +112,9 @@ class _TemporalClaim(CCFContract):
 
     tenant_id: str
     observed_at: datetime
-    valid_from: datetime | None = None
+    valid_from: datetime | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
     valid_to: datetime | None = None
     lineage: frozenset[LineageEntry]
 

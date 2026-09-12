@@ -467,7 +467,7 @@ class AssemblyWorker:
         )
 
     @staticmethod
-    def _stitch(envelope: SignalEnvelope) -> tuple[datetime, datetime]:
+    def _stitch(envelope: SignalEnvelope) -> tuple[datetime, datetime | None]:
         """Reconcile observed-time against valid-time (INV-CH7-03, INV-CH7-14).
 
         Returns ``(observed_at, valid_from)``. ``observed_at`` is always
