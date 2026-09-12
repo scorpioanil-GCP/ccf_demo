@@ -3062,3 +3062,31 @@ lint clean; typecheck clean, 219 source files; gate tooling 519; `tools/docs_tes
 **SEQUENCING (as first recorded, SUPERSEDED by Amendment 1's).** *The design comes back to Dave before any code. `CP-SPEC-011` is on HOLD at Gate 1 and does not ship on the substitute; rung 11 resumes when this entry does.* The design came back, was ruled, and was built; the HOLD on rung 11 stands.
 
 **Next free decision id: `D-IMPL-335`.** **Governs:** whether supersession can reach a served Context Product, and by what mechanism. **Related:** `D-IMPL-36` (the invalidation story `IntermediateCache` defers to — this entry is where it comes due), `D-IMPL-289` (compensating code is deleted, not relocated — why cp-11 may not build this locally), `D-IMPL-333` / `D-IMPL-331` / `D-IMPL-332` (the temporal rulings that made supersession expressible in freshness but not in delivery), `INV-CH7-14` (logical supersession at the as-of read), whitepaper §7.6 (the commitment this entry measures the SDK against), `CP-SPEC-011` §0.4 and `CP11-F-01`, `D-GATE-cp-10`.
+
+---
+
+**D-IMPL-335 — An invalidation boundary is recorded at `claim.valid_from` when the claim carries one, and at `claim.observed_at` only when it does not. `D-IMPL-334` took `observed_at` unconditionally, which through L2 is always the ingestion instant — so a world-time snapshot was being compared against a fabric-learning-time boundary.** RESOLVED. Date: 2026-09-12. Ruled by: Dave, after `CP-SPEC-011` found it at Gate 2. **Written after the tests exist**, on `D-IMPL-331`'s precedent.
+
+**WHAT WAS WRONG, AND IT WAS NOT MERELY CONSERVATIVE.** The first report of this defect called the old behavior *"safe — the boundary is later, so it refuses more, never fewer."* **Dave corrected that, and the correction is the substance:**
+
+> *"The old behavior was not simply 'safer.' It incorrectly refuses products in the interval after the world change but before ingestion."*
+
+A product whose `graph_snapshot_at` falls in `[T_world, T_ingest)` was refused **on the basis of when the fabric happened to learn something, rather than on when anything changed**. Refusing more is not the same as refusing safely: a refusal keyed to ingestion latency is a refusal keyed to an accident of operations, and the interval it wrongly covers is exactly as wide as the lag between the world and the fabric.
+
+**THE TWO CLOCKS, AND WHY ONLY L2 EXPOSED IT.** `D-IMPL-332` fixed `observed_at` as *when the fabric learned the claim* and `valid_from` as *when it became true in the world*, and `ccf/assembly/worker.py::_stitch` writes exactly that — so **through assembly, `observed_at` IS the ingestion instant, by construction.** A claim built DIRECTLY carries whatever `observed_at` its author supplied, and in `D-IMPL-334`'s own test that value *was* the observation instant. **The two clocks never separated on the path the test drove, so the test could not see which one the boundary took.** A Context Product going through L2 could, and did.
+
+**This is the ladder doing the job it exists for.** The SDK change was designed, ruled, built with 14 tests and 8 sabotages, and merged — and it still shipped with a defect that no test in `tests/` could reach, because every one of them constructed its claims directly. `CP-SPEC-011` is the first product to drive the mechanism through real assembly.
+
+**THE FIX.** `_writer.py::_boundary_instant(claim)` — `valid_from` when present, `observed_at` otherwise. **The fallback is not a default nobody chose**: a claim with no `valid_from` is one whose source supplied no world-time, `D-IMPL-332` requires that absence be preserved rather than invented, and `observed_at` is then the only instant the fabric has. Using it says *"this is when we learned it, because nobody told us when it became true"* — which is the honest statement, and the same shape `decay_basis` takes at `D-IMPL-331`.
+
+**PRESERVED, AND EACH RE-PROVEN BY ITS OWN SABOTAGE**: the strictly-later comparison (a change *at* the snapshot does not refuse — the product already saw it), a boundary never moving backward, and tenant isolation.
+
+**EVIDENCE.** `tests/products/test_dependency_invalidation.py`, now 15 tests. The new one is `test_the_boundary_through_L2_is_world_time_not_ingestion_time`: two envelopes with **the same `ingestion_timestamp` and different `observed_time`**, so ingestion cannot be what distinguishes them, driven through the real worker over a real boot. It asserts the boundary equals `T_world`, that it is not `T_ingest`, and — separately — that a snapshot in the interval between them is **not** refused, which is the defect stated as a consequence rather than left to inference.
+
+**The direct-claim test is KEPT**, and now carries a note saying what it holds: the `observed_at` fallback. Deleting it would have left the fallback unproven, and the two tests together are what make the conditional meaningful.
+
+**FIVE SABOTAGES, each red on exactly one test, each restored byte-identical.** Reverting `_boundary_instant` to `claim.observed_at` turns **only the L2 regression** red while the direct-claim test stays green — which is itself the proof that the two exercise different paths, and the reason `D-IMPL-334` could ship green with this defect in it.
+
+lint clean; typecheck clean; `tests/products` and the core suites green.
+
+**Next free decision id: `D-IMPL-336`.** **Governs:** which instant an invalidation boundary is recorded at. **Related:** `D-IMPL-334` (the mechanism this corrects), `D-IMPL-332` (the two clocks, and why `observed_at` is ingestion through L2), `D-IMPL-331` (the same present-or-refuse shape at the decay basis), `CP-SPEC-011` §0.4 and `EWS-G25` (the product that found it), `D-IMPL-261` (examples are probes — this is the clearest instance yet).

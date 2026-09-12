@@ -487,7 +487,13 @@ def test_the_writer_reports_the_boundary_when_a_claim_is_superseded() -> None:
     Three things are asserted separately because each fails differently: that a
     boundary was recorded at all, that it names the entity that moved, and that
     ``invalidated_from`` is **the superseding observation's own instant** rather
-    than the instant of the write. The third is the one a plausible
+    than the instant of the write.
+
+    **This is the `observed_at` FALLBACK case, and it is kept deliberately**
+    (`D-IMPL-335`). The claim is built directly and carries no ``valid_from``,
+    so the fabric has no world-time for it — and `D-IMPL-332` requires that
+    absence be preserved rather than invented. ``observed_at`` is then the only
+    instant there is. The split-clock case is the test above. The third is the one a plausible
     implementation gets wrong — a boundary taken from ingestion would refuse
     products that were correct as of the evidence they actually read.
     """
@@ -544,6 +550,94 @@ def test_the_writer_reports_the_boundary_when_a_claim_is_superseded() -> None:
         assert entry.invalidated_from == T2
         assert entry.reason == "entity-claim-superseded"
         assert entry.source
+    finally:
+        fabric.close()
+
+
+def test_the_boundary_through_L2_is_world_time_not_ingestion_time() -> None:
+    """`D-IMPL-335` — THE TWO CLOCKS, SPLIT, THROUGH THE REAL ASSEMBLY PATH.
+
+    **This is the regression `D-IMPL-334` shipped without**, and the reason it
+    shipped without one is worth keeping: the direct-claim test below builds an
+    `EntityClaim` with `observed_at` set by hand, so `observed_at` IS the
+    observation instant there and the two clocks never separate. Only L2
+    separates them — `worker._stitch` writes `observed_at = ingestion_timestamp`
+    and `valid_from = observed_time` — so only a test that goes through L2 can
+    see which one the boundary took. `CP-SPEC-011` found it at Gate 2.
+
+    What the old behavior got wrong, and it was not merely conservative (Dave,
+    2026-09-12): a product whose snapshot falls **after the world change but
+    before the fabric ingested it** was refused — on the basis of when the
+    fabric happened to learn something rather than on when anything changed.
+
+    The two instants here are deliberately far apart and deliberately ordered
+    `T_world < T_ingest`, so a boundary at either one is unmistakable.
+    """
+    from ccf.signal.envelope import SignalEnvelope, SourceIdentity
+
+    T_WORLD = datetime(2026, 3, 1, tzinfo=UTC)
+    T_INGEST = datetime(2026, 6, 15, tzinfo=UTC)
+    COUNTERPARTY = "LEI-SPLIT-CLOCKS"
+
+    registry = ControlPlaneRegistry()
+    fabric = _boot(registry)
+    try:
+        def _envelope(*, seq: int, world: datetime, rating: str) -> SignalEnvelope:
+            return SignalEnvelope(
+                tenant_id=TENANT_A,
+                envelope_id=f"envelope-{seq}",
+                source=SourceIdentity(system_id="fixture-source"),
+                # WHEN THE FABRIC WRITES. Identical for both envelopes, so it
+                # cannot be what distinguishes them.
+                ingestion_timestamp=T_INGEST,
+                # WHEN IT BECAME TRUE. This is what the boundary must take.
+                observed_time=world,
+                # The harness's own resolution spec (`tests/conftest.py`) keys
+                # `counterparty` on `counterparty_lei` and keeps
+                # `counterparty_name` and `jurisdiction`. The NAME is what
+                # differs between the two writes, so the second claim is
+                # genuinely a different claim and supersedes rather than
+                # deduplicating — the trap the D-IMPL-334 tests already hit
+                # once.
+                raw_payload={
+                    "counterparty_lei": COUNTERPARTY,
+                    "counterparty_name": rating,
+                    "jurisdiction": "US",
+                },
+            )
+
+        worker = fabric.worker
+        worker.ingest(_envelope(seq=0, world=T_WORLD - timedelta(days=30), rating="BB"))
+        assert resolve_register(registry, tenant_id=TENANT_A) is None, (
+            "the first write supersedes nothing, so no boundary exists yet"
+        )
+        worker.ingest(_envelope(seq=1, world=T_WORLD, rating="BB-"))
+
+        register = resolve_register(registry, tenant_id=TENANT_A)
+        assert register is not None, "the superseding write recorded no boundary"
+        entry = next(iter(register.entries), None)
+        assert entry is not None
+
+        assert entry.invalidated_from == T_WORLD, (
+            f"the boundary is {entry.invalidated_from.isoformat()}; it must be"
+            f" the WORLD instant {T_WORLD.isoformat()}, not the ingestion"
+            f" instant {T_INGEST.isoformat()}. Through L2, `claim.observed_at`"
+            " IS the ingestion instant, so a boundary taken from it compares"
+            " fabric-learning time against a world-time snapshot (D-IMPL-335)"
+        )
+        assert entry.invalidated_from != T_INGEST
+
+        # AND THE CONSEQUENCE, asserted rather than left to inference: a
+        # product whose snapshot sits BETWEEN the world change and the
+        # ingestion is not refused. Under the old behavior it was, and that is
+        # the defect this test exists for.
+        between = T_WORLD + timedelta(days=30)
+        assert T_WORLD < between < T_INGEST
+        assert entry.invalidated_from <= between, (
+            "a product built after the world change and before ingestion is"
+            " being refused on the basis of when the fabric learned, not on"
+            " when anything changed"
+        )
     finally:
         fabric.close()
 
