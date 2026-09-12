@@ -1,0 +1,40 @@
+asked        2549004GGE2APGNT6O92 · reserve-buffer · as of 2026-06-17T18:05:00+00:00
+
+American Healthcare REIT, Inc.  ·  mandate MND-001  ·  home USD
+
+LIQUIDITY
+  EUR   2 accounts         73966641.14  ->         85749527.07
+  GBP   1 accounts         75057537.96  ->        100577100.87
+  JPY   2 accounts        136550970.61  ->           852271.69
+  USD   4 accounts        165388122.30  ->        165388122.30
+                                       total        352567021.93
+
+CONCENTRATION
+  breach          30.21%  of limit   30.2   SUBURBAN PROPANE PARTNERS LP
+  limit-unknown   17.08%  of limit      —   Peakstone Realty Trust
+  within-limit    16.73%  of limit   18.7   SP Plus Corp
+  limit-unknown   12.55%  of limit      —   AVIS BUDGET GROUP, INC.
+  within-limit    11.87%  of limit   15.7   LAS VEGAS SANDS CORP
+  within-limit    11.52%  of limit     24   SmartStop Self Storage REIT, Inc.
+  limit-unknown    0.03%  of limit      —   SMITH & WESSON BRANDS, INC.
+  coverage: 4 of 7 counterparties carry a limit   (1 breach, 3 within, 3 not evaluable)
+
+REGULATORY POSTURE IN FORCE
+  FR     standard           effective 2024-01-02   posture-FR-reserve-buffer-v1
+  US-NY  enhanced-scrutiny  effective 2026-06-16   posture-US-NY-reserve-buffer-v2
+
+SIGNAL REGISTER
+  fx-reference   fx:EUR/USD       observed 2026-06-17T00:00:00+00:00  age   65100s  [fx_reference_rate]
+  fx-reference   fx:GBP/USD       observed 2026-06-17T00:00:00+00:00  age   65100s  [fx_reference_rate]
+  fx-reference   fx:JPY/USD       observed 2026-06-17T00:00:00+00:00  age   65100s  [fx_reference_rate]
+  intraday-rate  tick:0.25        observed 2026-06-17T18:05:00+00:00  age       0s  [intraday_tick]
+  intraday-rate  tick:1           observed 2026-06-17T18:05:00+00:00  age       0s  [intraday_tick]
+  intraday-rate  tick:10          observed 2026-06-17T18:05:00+00:00  age       0s  [intraday_tick]
+  intraday-rate  tick:2           observed 2026-06-17T18:05:00+00:00  age       0s  [intraday_tick]
+  intraday-rate  tick:5           observed 2026-06-17T18:05:00+00:00  age       0s  [intraday_tick]
+  absent         stale_signal     holds no observation at this instant
+
+FILING EVIDENCE  period end 2026-06-30 closes AFTER this decision instant — not yet knowable, and withheld rather than served as look-ahead
+
+context debt D_c 0.4456092870724018469838390244   signal ok
+expires_at       2026-06-17T18:20:00+00:00
