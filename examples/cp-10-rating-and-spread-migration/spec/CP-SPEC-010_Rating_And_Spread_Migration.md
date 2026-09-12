@@ -192,6 +192,7 @@ Held at §B.8.
 | Element | Value |
 |---|---|
 | **Schema** | `rating_spread_migration` — entities `cmns-org:LegalEntity`, `fibo-fbc-fi-fi:DebtInstrument`, `fibo-sec-dbt-bnd:CorporateBond`, `fibo-fbc-dae-cr:OrganizationCreditRating`; relationships `fibo-fbc-dae-cr:concernsParty`, `ex:supersededBy`; measures — grade migration series, three-component spread series, divergence episodes. Machine-readable at `schemas/rating_spread_migration.v1.json` |
+| **Benchmark basis** | **`static_issue_band`** — the market component is the OAS of the band the instrument was ISSUED into, and that band does not migrate with the obligor's grade (§C.4 TRAP 4, `CP10-F-04`). Named in the payload on every spread figure |
 | **Freshness SLA** | **Per series, and the series do not share a clock** (§B.6). Market OAS and both spread components daily; internal grade quarterly with off-cycle reviews; scale mapping and thresholds versioned, not decaying |
 | **TTL** | 4 hours · `ttl_anchor: from_decision`. Ceiling 1 day — the fastest series' own cadence. A request pinned to a past `as_of` is a forensic reconstruction and does not decay |
 | **Policy Binding** | Entitlement scope · the rating scale and its notch mapping, versioned — a recalibration changes every notch-equivalent figure the product has ever produced, so `policy_bundle_versions` must record which mapping applied · divergence thresholds |
@@ -403,13 +404,41 @@ the product's own counterfactual, committed by its own author.
   three components separately and labels the issuer-specific one as
   `synthetic — engineered`. **Cost:** the product cannot claim an observed
   market price, and does not.
-- **TRAP 4 — the rating band is an instrument attribute, not a time series.**
-  `debt_instrument.rating_band` selects which market OAS series applies and is
-  **static**. An obligor whose grade migrates does not migrate bands in the
-  market leg. **Binding:** stated in the payload, so a reader knows the market
-  component is the band the instrument was issued into. **Cost:** the market
-  netting is approximate for an obligor that has moved several notches, and the
-  product says so rather than implying precision it does not have.
+- **TRAP 4 — the benchmark basis is `static_issue_band`, and it does not
+  migrate with the obligor.** `debt_instrument.rating_band` selects which market
+  OAS series is netted out, and it is **fixed at issue**. An obligor whose grade
+  migrates keeps being netted against the band it was issued into.
+
+  **Measured, so the imprecision is bounded rather than hand-waved:** at the
+  window's start all 30 rated obligors sat in their issue band; by its end
+  **2 of 30 had migrated out of it** — `5493004HBTOTE9DI9P12` (`BBB` at issue,
+  `BB+` now) and `549300EQD0ZXRSMG3549` (`B` at issue, `BB-` now, an upgrade).
+
+  **And the direction of the error is knowable, which matters more than its
+  size.** The first of those two is also one of §A.3's divergence cases. It is
+  netted against the `BBB` series while its grade says `BB+`, and the `BB` band
+  trades far wider than `BBB` — measured over the §D.4 event window, `BB` ran
+  156 → 306 bp against `BBB` at 98 → 149 bp. Netting a `BB+` obligor against
+  `BBB` therefore **understates the market component and overstates the
+  residual**: the very obligors this product is most interested in are the ones
+  whose `idiosyncratic_bp` is least trustworthy, and it is biased *toward*
+  reporting deterioration.
+
+  **Binding, in four parts** (Dave, 2026-09-12):
+  1. the basis is **named** in the contract and on every spread figure as
+     `static_issue_band`;
+  2. the payload **states** that `idiosyncratic_bp` loses precision as issuer
+     quality migrates away from the issue band, and flags the obligors for which
+     it has;
+  3. the product **does not infer a new band from the internal grade** — that
+     would substitute one assessment for another and quietly make the market leg
+     a function of the very grade the divergence is measured against;
+  4. the residual is **never presented as unqualified "pure issuer
+     deterioration"** (`RSM-G23`).
+
+  **Cost:** the product's headline signal carries a qualifier it cannot remove
+  with this estate. That is the honest position, and naming it is cheaper than a
+  precision it does not have.
 - **TRAP 5 — the internal scale uses agency-style letters.** `AA+` through
   `B-`, 15 notches. These are **the internal scale**, `synthetic — internal`,
   and are not an agency's opinion. **Binding:** every grade in the payload
@@ -498,6 +527,17 @@ function, and smoothing it invents intermediate states that never existed
 threshold — TRAP 1's binding, and the right shape independently: 100 bp means
 different things at `AA` and at `B`.
 
+**The market leg is netted on `static_issue_band`, and the product says so
+rather than correcting for it.** The band is the instrument's at issue and does
+not follow the obligor's grade (`CP10-F-04`). **The product must not infer a
+band from the internal grade to improve the netting**: that would make the
+market component a function of the grade, and the whole subject of this rung is
+whether the market and the grade agree. A residual computed from a grade-derived
+band could not disagree with the grade. So `idiosyncratic_bp` is served as **the
+residual on a stated basis**, qualified where the obligor has migrated out of
+its issue band, and never as unqualified "pure issuer deterioration"
+(`RSM-G23`).
+
 ### D.4 The scenarios
 
 **Scenario 1 — the confirmation.** `549300FHJQTDPPN41627`, full window. The
@@ -509,11 +549,23 @@ reports the lag as a figure.
 **4.2× its own median**, grade **B** throughout and still **B** at the window's
 end. Two assessments of one obligor that never reconciled.
 
-**Scenario 3 — the market move that is not a deterioration.** Any obligor over
-a period where `market_oas_bp` rises and `idiosyncratic_bp` does not. The
-headline spread widens; the product reports **no episode**, because the
-widening was not about this obligor. This is the scenario a naive product gets
-wrong in the *opposite* direction from scenarios 1 and 2.
+**Scenario 3 — the market move that is not a deterioration. `549300TRW1LZMDJZAQ78`
+(B&G Foods, Inc.), `2025-02-18 → 2025-04-07`.** Measured, not asserted:
+
+| | measured |
+|---|---|
+| the event | **every band widens together** — `B` +165.0 bp, `BB` +150.5, `BBB` +51.2, `A` +36.0, `AA` +28.9. A market-wide risk-off move |
+| this obligor's **headline** spread | **+166.6 bp** |
+| this obligor's **issuer-specific** spread | **+1.5 bp** — range 33.3–46.1 bp across the whole window |
+| this obligor's grade | **`B` throughout**, including a quarterly review on 2025-02-17, inside the run-up |
+
+**All three signals agree that nothing happened to this obligor**, and a product
+reading the headline reports a 167 bp deterioration. The product reports **no
+episode** and says why: the widening belonged to the band.
+
+This is the scenario a naive product gets wrong in the *opposite* direction from
+scenarios 1 and 2 — and it is the more common error, because 22 of the 30 rated
+obligors show the same pattern over this window.
 
 ### D.5 Determinism and the emitted contract
 
@@ -665,7 +717,7 @@ No `[TBC]` is owed by the vault or by `ccf_dataprep`.
 | `CP10-F-01` | **The estate holds no FINRA TRACE data.** The spread leg is a decomposition — public Treasury benchmark, public ICE BofA OAS by band, and an engineered issuer-specific residual. The vault's §C assumes TRACE; dataprep's own digest flagged coverage as unconfirmed. Confirmed absent. The product does not claim TRACE. | ESTATE-LIMITATION |
 | `CP10-F-02` | **No thinly-traded instruments with observation gaps.** Coverage is 468–499 of 499 dates per instrument. The vault's §F requirement is removed from this rung by ruling rather than simulated. | ESTATE-LIMITATION |
 | `CP10-F-03` | **No agency ratings anywhere in the estate**, verified across 118 tables. The licensing boundary is satisfied by construction, not by a filter. The internal scale's agency-style letters are labeled as internal at every site. | NOT-A-GAP |
-| `CP10-F-04` | **The market leg's rating band is static per instrument.** An obligor that migrates several notches is still netted against its issue band, so the market netting is approximate for exactly the obligors the product is most interested in. Stated in the payload. | ESTATE-LIMITATION |
+| `CP10-F-04` | **The benchmark basis is `static_issue_band`.** The market component is the OAS of the band the instrument was issued into, and it does not migrate with the obligor. Measured: all 30 rated obligors were in their issue band at the window's start; **2 of 30 had left it by the end**, one of them a §A.3 divergence case netted against `BBB` while graded `BB+`. Because `BB` trades far wider than `BBB` (156→306 vs 98→149 bp over the §D.4 window), the error is **directional**: the market component is understated and the residual overstated, precisely for the obligors the product cares most about. Four bindings at §C.4 TRAP 4; enforced by `RSM-G23`. **No band is inferred from the internal grade** — that would make the market leg a function of the grade the divergence is measured against. | ESTATE-LIMITATION |
 | `CP10-F-05` | **Two naive aggregations produced confidently wrong answers during Gate 1 measurement** — endpoint differencing reported zero divergence and inverted the sign; temporal proximity reported six confirmations where there is one. Both are recorded at §C.4 as the product's own counterfactual, committed by its own author. | NOT-A-GAP |
 
 ### F.4 Access path
@@ -721,7 +773,8 @@ last one is the evidence base that would move the 90-day grade λ_c from
 | `RSM-G19` | the four axes are `ProductRequest` fields, absent from `parameters` | request identity demoted |
 | `RSM-G20` | every grade carries its scale id and provenance; no agency name appears anywhere in the payload | the licensing boundary failing by presentation |
 | `RSM-G21` | the payload carries no second copy of `D_c`, the content address or the policy versions | two copies of one figure |
-| `RSM-G22` | a market-wide widening with flat idiosyncratic spread produces **no** episode | scenario 3 |
+| `RSM-G22` | a market-wide widening with flat idiosyncratic spread produces **no** episode — asserted on `549300TRW1LZMDJZAQ78` over `2025-02-18 → 2025-04-07`, where the headline moved +166.6 bp and the residual +1.5 bp | scenario 3 |
+| `RSM-G23` | every spread figure names its basis as `static_issue_band`; an obligor whose grade has migrated out of its issue band is FLAGGED; the payload never calls the residual unqualified "pure issuer deterioration"; and no band is ever derived from the internal grade | `CP10-F-04` presented as precision it does not have |
 
 Every gate is made to fail deliberately at least once before Gate 2, and each
 sabotage is recorded with its state — `passed`, `unavailable` or
@@ -742,7 +795,9 @@ sabotage is recorded with its state — `passed`, `unavailable` or
 7. No agency name and no reference to TRACE appears anywhere in the payload.
 8. Replay at a pinned `as_of` reproduces `payload_hash` exactly, and an earlier
    `as_of` omits the confirming change entirely.
-9. All 22 gates execute, each with a docstring naming its id, and each has been
+9. Every spread figure names `static_issue_band`, the two migrated obligors are
+   flagged, and no band is derived from a grade.
+10. All 23 gates execute, each with a docstring naming its id, and each has been
    observed failing or recorded as `unavailable` with the upstream guard named.
 
 **Open decisions blocking build: none.**
