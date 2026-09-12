@@ -1,0 +1,226 @@
+# yaml-language-server: $schema=../../docs/schemas/ccf.deployment-config.json
+#
+# THE CONTROL PLANE DOCUMENT — what this fabric is permitted to do.
+#
+# Everything domain-specific about `credit-risk.rating-migration` is here, and
+# `produce.py` names none of it. Delete this file and the spine has nothing
+# left to interpret (CLAUDE.md §6.4).
+
+semver: "1.0.0"
+tenant_id: cp-10-migration-demo
+
+backend: sqlite
+
+product_class:
+  schema_name: credit-risk.rating-migration
+  schema_version: "1.0.0"
+  ttl_anchor: from_decision
+  assembly_mode: algorithmic
+  max_ttl_key: cp-10/product/rating-migration/max-ttl
+
+  required_operator_keys:
+    - policy.principal-subgraph
+    - traversal.typed-neighborhood
+
+  serve_obligations:
+    # The product must name what it computed from. A migration served with an
+    # empty series register is a trajectory with no provenance.
+    lineage_inputs_at:
+      - series_register
+      - obligor
+
+  declared_product_gate:
+    gate_id: RSM-G23.static-issue-band
+    gate_version: "1.0.0"
+
+operators:
+  policy.principal-subgraph:
+    classification_attribute_by_class:
+      rsm_obligor: obligor_id
+      rsm_instrument: obligor_id
+      rsm_spread: obligor_id
+      rsm_grade: obligor_id
+    permitted_classifications:
+      source: effective_request
+      parameter: obligors
+
+  traversal.typed-neighborhood:
+    # THE ANCHOR ALONE seeds the walk; everything else is reached by hopping.
+    seed_entity_classes:
+      - rsm_obligor
+    relationship_types:
+      - hasInstrument
+      - pricedAt
+      - gradedAs
+    # The BACKEND's ceiling, not the product's bound.
+    depth_limit: 6
+
+request_contract:
+  class_id: cp-10.request-contract
+  role: register
+  registration: typed
+  schema_name: credit-risk.rating-migration
+  schema_version: "1.0.0"
+  arguments:
+    properties:
+      obligors:
+        type: array
+        items:
+          type: string
+          description: one obligor identifier this request may read.
+        description: >-
+          the obligor identifiers this request may walk, and the value that
+          reaches the policy operator's admitted set.
+      window_days:
+        type: integer
+        description: >-
+          how far back the series runs from the decision instant. The source
+          read is bounded by it; a longer window is a different question.
+      granularity:
+        type: string
+        description: >-
+          the resampled cadence. RESAMPLE, never interpolate — a grade is a
+          step function and smoothing it invents states that never existed.
+      divergence_multiple:
+        type: number
+        description: >-
+          the episode threshold, as a multiple of THAT BOND's own median.
+          Per-bond and per-series, never absolute: 100bp means different things
+          at AA and at B, and different things on a 2-year and a 25-year.
+      debt_tolerance:
+        type: number
+        description: the caller's ceiling on assessed Context Debt.
+      include_superseded_grades:
+        type: boolean
+        description: whether superseded grade assertions ride in the payload.
+    required:
+      - obligors
+  defaults:
+    window_days: 730
+    granularity: weekly
+    include_superseded_grades: true
+
+resolution:
+  # FOUR ENTITY CLASSES, and the count is not cosmetic: the reference debt
+  # scorer types an observation by its ENTITY CLASS, so a single class would
+  # make one λ_c curve price a daily spread observation and a quarterly grade
+  # identically — the ninety-fold flattening this rung exists to prevent.
+  entity_rules:
+    - match_key: obligor_node
+      entity_class: rsm_obligor
+      identity_keys: [entity_uri]
+      attribute_keys: [obligor_id, node_kind, label, payload_json]
+    - match_key: instrument_node
+      entity_class: rsm_instrument
+      identity_keys: [entity_uri]
+      attribute_keys: [obligor_id, node_kind, label, payload_json]
+    - match_key: spread_node
+      entity_class: rsm_spread
+      identity_keys: [entity_uri]
+      # `instrument_id` IS PROMOTED OUT OF THE PAYLOAD because the λ_c row
+      # names it as this class's series key, and the scorer reads a series key
+      # off the CLAIM, not out of a JSON blob (`D-IMPL-333`).
+      attribute_keys: [obligor_id, instrument_id, node_kind, label, payload_json]
+    - match_key: grade_node
+      entity_class: rsm_grade
+      identity_keys: [entity_uri]
+      attribute_keys: [obligor_id, node_kind, label, payload_json]
+
+    # Endpoint rules. NO attribute keys: an edge asserts that two nodes are
+    # related and nothing about what either node IS. An edge envelope carrying
+    # attributes would supersede the richer node claim at the same URI.
+    - {match_key: obligor_subject, entity_class: rsm_obligor,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: subject_uri}}
+    - {match_key: instrument_subject, entity_class: rsm_instrument,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: subject_uri}}
+    - {match_key: instrument_object, entity_class: rsm_instrument,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+    - {match_key: spread_object, entity_class: rsm_spread,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+    - {match_key: grade_object, entity_class: rsm_grade,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+
+  relationship_rules:
+    - {relationship_type: hasInstrument, predicate_key: predicate,
+       subject_entity_class: rsm_obligor, object_entity_class: rsm_instrument,
+       subject_rule: obligor_subject, object_rule: instrument_object}
+    # THE SPREAD HANGS OFF THE BOND, NOT OFF THE OBLIGOR, and that is the
+    # Gate-1 amendment made structural: the instrument is the primary
+    # observation unit, so a spread point cannot be reached except through the
+    # bond it priced (§D.3, `CP10-F-06`).
+    - {relationship_type: pricedAt, predicate_key: predicate,
+       subject_entity_class: rsm_instrument, object_entity_class: rsm_spread,
+       subject_rule: instrument_subject, object_rule: spread_object}
+    # THE GRADE HANGS OFF THE OBLIGOR, and the asymmetry with `pricedAt` above
+    # is deliberate: a grade assesses an obligor, a spread prices a bond, and
+    # this product does not invent a per-bond grade to make the units match.
+    - {relationship_type: gradedAs, predicate_key: predicate,
+       subject_entity_class: rsm_obligor, object_entity_class: rsm_grade,
+       subject_rule: obligor_subject, object_rule: grade_object}
+
+# ---------------------------------------------------------------------------
+# λ_c — keyed on ENTITY CLASS, because that is what the reference scorer reads,
+# and each row declares WHICH INSTANT it decays against (`D-IMPL-331`).
+# ---------------------------------------------------------------------------
+#
+# ILLUSTRATIVE CALIBRATION. This example runs against a point-in-time
+# demonstration estate rather than continuously refreshed production data.
+# Freshness half-lives and related thresholds are calibrated to make the
+# governed behavior observable in that snapshot. They demonstrate how the SDK
+# applies these controls and should not be interpreted as recommended
+# production coverage-policy thresholds.
+half_life:
+  # A NINETY-FOLD SPREAD BETWEEN THESE TWO ROWS. That is the point of the rung,
+  # not an awkwardness — and it is only expressible because they are separate
+  # entity classes.
+  #
+  # `freshness_over: leading-edge` on both moving classes (`D-IMPL-333`). This
+  # product keeps YEARS of daily quotes on purpose — that history is how a
+  # migration is detected at all. Averaging freshness over every member of it
+  # would report a product whose newest quote is one day old as almost
+  # entirely stale, which is a fact about the evidence kept, not about the
+  # answer given. `series_key_attribute` says which observations form one
+  # series; without it every bond's history collapses into one.
+  rsm_spread:
+    half_life_seconds: 86400          # 1 day — the observation cadence
+    decay_basis: valid-from           # the SOURCE's observation date
+    freshness_over: leading-edge      # the newest quote at or before `as_of`
+    series_key_attribute: instrument_id   # ONE SERIES PER BOND
+    decay_driver: market-movement
+    supersession_event: next-observation
+  rsm_grade:
+    half_life_seconds: 7776000        # 90 days — the review cycle
+    decay_basis: valid-from           # when the grade took EFFECT
+    freshness_over: leading-edge      # the grade IN FORCE at `as_of`
+    # One series per obligor. A grade assesses the obligor, so the series key
+    # is the obligor — the same asymmetry `gradedAs` carries above.
+    series_key_attribute: obligor_id
+    decay_driver: credit-review-cycle
+    supersession_event: next-assertion-on-cycle-or-off
+
+  # Neither of these decays. `supersede-only` rather than a long curve: a long
+  # half-life is still a decay claim, and identity and instrument reference are
+  # superseded rather than aged.
+  rsm_obligor:
+    decay: supersede-only
+    decay_driver: gleif-level-1-refresh
+    supersession_event: level-1-record-update
+  rsm_instrument:
+    decay: supersede-only
+    decay_driver: issuance-or-redemption
+    supersession_event: instrument-event
+
+debt_profile:
+  risk_sensitivity: "1.0"
+  forced_llm_threshold: "0.60"
+  fail_closed_threshold: "0.77"
+
+policy:
+  class_id: cp-10.policy-bundle
+  role: register
+  registration: typed
+  regime: rating-migration-entitlement
+
+default_perspective:
+  principal_id: PRIN-COV-001
+  role: credit-officer

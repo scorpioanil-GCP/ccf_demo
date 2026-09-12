@@ -715,14 +715,14 @@ series `NOT_EVALUABLE` — not an error, and not a silent omission.
 > applies these controls and should not be interpreted as recommended
 > production coverage-policy thresholds.
 
-| Signal class | `λ_c` | `decay_basis` | Basis | Supersession event |
-|---|---|---|---|---|
-| Market OAS | **1 day** | `valid-from` | illustrative | next publication |
-| Issuer-specific spread | **1 day** | `valid-from` | illustrative | next observation |
-| Benchmark | **1 day** | `valid-from` | illustrative | next publication |
-| Internal grade | **90 days** | `valid-from` | expert — the review cycle, measured at ~91 days between quarterly assertions | next assertion, on-cycle or off |
-| Rating scale mapping | **no decay** | — | measured | recalibration |
-| Divergence thresholds | **no decay** | — | measured | policy revision |
+| Signal class | `λ_c` | `decay_basis` | `freshness_over` | Series | Basis | Supersession event |
+|---|---|---|---|---|---|---|
+| Market OAS | **1 day** | `valid-from` | `leading-edge` | the **bond** | illustrative | next publication |
+| Issuer-specific spread | **1 day** | `valid-from` | `leading-edge` | the **bond** | illustrative | next observation |
+| Benchmark | **1 day** | `valid-from` | `leading-edge` | the **bond** | illustrative | next publication |
+| Internal grade | **90 days** | `valid-from` | `leading-edge` | the **obligor** | expert — the review cycle, measured at ~91 days between quarterly assertions | next assertion, on-cycle or off |
+| Rating scale mapping | **no decay** | — | `series-mean` | — | measured | recalibration |
+| Divergence thresholds | **no decay** | — | `series-mean` | — | measured | policy revision |
 
 **`decay_basis: valid-from` on all four moving classes, and it is load-bearing
 here** (`D-IMPL-331`, `D-IMPL-332`). Every one of these sources carries a real
@@ -734,15 +734,92 @@ the basis from the start.
 **A ninety-fold spread between the fastest and slowest class inside one
 product.** That is the point, not an awkwardness.
 
+#### E.1.1 `freshness_over: leading-edge` — CORRECTION, 2026-09-12 (`D-IMPL-333`)
+
+**§E.1 and §E.2 were reopened for this and nothing else** (Dave, 2026-09-12).
+The rest of the specification stands as amended at Gate 1.
+
+**What the approved spec got wrong.** It declared the two half-lives and their
+bases and said nothing about *which observations* constitute the thing being
+aged. The SDK's reference scorer answered that question by default: it took the
+**mean** freshness over every observation in the view. This product's view is
+years of daily quotes by construction — that history is how a migration is
+detected at all — so the default drove `F` to approximately zero and `D_c` to
+`fail_closed` on a serve whose newest quote was two days old.
+
+**Measured on the anchor, `549300FHJQTDPPN41627` at `as_of` 2026-08-20:**
+
+```
+observations in the view   rsm_spread 996 · rsm_grade 9 · rsm_instrument 2 · rsm_obligor 1
+observations entering F    rsm_spread   2 · rsm_grade 1 · rsm_instrument 2 · rsm_obligor 1
+
+  rsm_spread   syn-i-b23153   valid_from 2026-08-18   F = 0.250000
+  rsm_spread   syn-i-f87e69   valid_from 2026-08-18   F = 0.250000
+  rsm_grade    549300FHJQTDPPN41627  valid_from 2026-05-18   F = 0.484832
+  rsm_instrument / rsm_obligor  (supersede-only)      F = 1.000000
+
+F over the leading edge   0.664139      F over every observation   0.004750
+D_c 0.3651, signal OK                   D_c 0.9955, fail_closed
+
+C = 0.9559 measured, S = 1.0000 measured, in both columns. The right-hand
+D_c is the same product of the same three terms with the same C and S — only
+F differs — and it is derived here rather than served, because the left-hand
+column is what the SDK now produces.
+```
+
+**The rule, in Dave's words:** *"Freshness applies to the leading edge of each
+logical series as of the decision instant, not to its historical members."*
+
+Concretely: `F` reads the **latest spread observation per bond at or before
+`as_of`**, and the **grade in force at `as_of`**. Everything older is historical
+evidence — it is what the episode detection at §D.3 runs on, and it is *better*
+to have than not to have. A freshness term that counts it as staleness has
+stopped measuring what the caller asked about.
+
+**Four things this does NOT do.**
+
+- **It is not wall-clock latest.** The edge is relative to the requested
+  `as_of`. A request pinned to 2025-03-01 sees the series as it stood then, and
+  a later quote is not yet knowable. §E.3's forensic-reconstruction reading is
+  unchanged and now has a freshness term that agrees with it.
+- **It does not shorten the series.** Every one of the 996 spread observations
+  still reaches the projection. §D.3 detects episodes across the full history;
+  only the debt term reduces.
+- **It does not split the classes.** The obvious alternative — declare
+  `rsm_spread_current` and `rsm_spread_history` so the scorer sees only the
+  first — was refused (Dave: *"Do not split into artificial current/history
+  classes unless the SDK forces us to"*). An entity class names the kind of
+  thing observed; it must not encode this product's reading of its own data.
+  The series key does the partitioning in the λ_c row, where it belongs.
+- **It is not `supersede-only` under another name.** That was checked before
+  the SDK was changed, because Dave required it: over nine observations one day
+  apart, read at the newest, `supersede-only` gives `F` per observation
+  `[1, 1, 1, 1, 1, 1, 1, 1, 1]`, mean `1.000000`. It means *this class does not
+  decay* — every historical point still enters `F`, now each reading as
+  perfectly fresh. Curve-mean understates freshness by counting history as
+  stale; `supersede-only` overstates it by declaring history evergreen. Neither
+  says *"the newest quote for this bond is two days old."*
+
+**What the series key reaches.** `series_key_attribute` is read off the
+**claim**, so `instrument_id` is promoted out of `payload_json` and onto the
+spread node's attributes in `ccf_config.yaml`. Without that promotion the key
+resolves to `None` and every bond's history collapses into a single series —
+which reads as a working configuration and is not one.
+
 ### E.2 Debt
 
 `D_c = 1 − (F · C · S)`, multiplicative.
 
-- **F — freshness.** Over the **participating** classes, each against its own
-  λ_c and its own basis. A grade 80 days old is near its half-life; a spread
+- **F — freshness.** Over the **leading edge of each series** in each
+  participating class, each against its own λ_c and its own basis
+  (§E.1.1, `D-IMPL-333`). A grade 80 days old is near its half-life; a spread
   observation from the same date is long dead. Averaging them into one
   freshness figure is the counterfactual at §A.1 arriving through the debt
-  model, so it is normalized per class and folded, never pooled.
+  model, so it is normalized per class and folded, never pooled. **And the
+  members of one class are not pooled across time either** — a bond's series
+  contributes the quote the answer rests on, not the average age of everything
+  kept about it. Measured on the anchor: 996 spread observations in the view,
+  **two** entering `F`, one per bond.
 - **C — completeness.** Two live terms: spread coverage over the requested
   window (measured 468–499 of 499 dates), and whether the obligor is rated at
   all (30 of 30 here, so it contributes nothing and the payload says so).
