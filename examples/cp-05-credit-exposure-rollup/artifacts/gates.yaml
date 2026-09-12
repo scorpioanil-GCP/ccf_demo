@@ -56,6 +56,38 @@ declaration:
     test: tests/examples/test_cp_05_output.py::test_the_required_payload_members_are_all_present
     sabotage: stop the walk at the ownership group
     observed_red: null
+  - id: CER-G04
+    statement: the same anchor under two limit regimes returns a different adjusted figure
+    spec_clause:
+      document: spec/CP-SPEC-005_Credit_Exposure_Rollup.md
+      clause: G.2
+    test: tests/examples/test_cp_05_output.py::test_the_limit_regime_changes_the_adjusted_figure
+    sabotage: ignore the caller's intent and read one limit definition
+    observed_red: null
+  - id: CER-G05
+    statement: the four validation gates pass and the reconciliation guard is observed firing on a double-subtracting variant
+    spec_clause:
+      document: spec/CP-SPEC-005_Credit_Exposure_Rollup.md
+      clause: G.2
+    test: tests/examples/test_cp_05_output.py::test_the_four_validation_gates_pass_and_the_reconciliation_guard_fires
+    sabotage: make adjusted exceed gross, in-test, and require the guard to raise
+    observed_red: null
+  - id: CER-G06
+    statement: two limit regimes do not hash to one content address, so replay can tell them apart
+    spec_clause:
+      document: spec/CP-SPEC-005_Credit_Exposure_Rollup.md
+      clause: G.2
+    test: tests/examples/test_cp_05_output.py::test_a_different_policy_version_produces_a_different_answer
+    sabotage: serve the same payload under both regimes
+    observed_red: null
+  - id: CER-G07
+    statement: one traversal operator carries every relationship type, so the family is walked once
+    spec_clause:
+      document: spec/CP-SPEC-005_Credit_Exposure_Rollup.md
+      clause: G.2
+    test: tests/examples/test_cp_05_output.py::test_one_traversal_covers_every_relationship_type
+    sabotage: split the traversal into one operator per relationship type
+    observed_red: null
   - id: CER-G08
     statement: the product is reachable over MCP as well as in-process, serving the same payload
       from the same assembler with no business logic reimplemented

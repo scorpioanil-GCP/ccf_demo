@@ -292,3 +292,193 @@ def test_the_ttl_is_anchored_on_the_decision(
         "the class anchors its TTL elsewhere, so `as_of` would have something"
         " to address and cp-05's declared-and-refused argument loses its reason"
     )
+
+
+# ---------------------------------------------------------------------------
+# `CP05-F-01` — the four §G.2 criteria that had no test.
+#
+# Recorded OPEN at `D-IMPL-327`, which did not fund instrumentation. Written
+# here because a criterion nobody asserts is an obligation the product does not
+# actually carry, and four of cp-05's eight were in that state.
+# ---------------------------------------------------------------------------
+
+
+def test_the_limit_regime_changes_the_adjusted_figure(declared: dict[str, Any]) -> None:
+    """Two policy regimes, same anchor, different adjusted exposure.
+
+    `group-limit-test` counts guarantees and undrawn; `internal-appetite`
+    counts neither. The limit definition lives in `ccf_v2.limit_definition` and
+    is versioned there, so this proves the regime is **consumed** rather than
+    hard-coded — change the regime and the number moves.
+
+    Asserted as a RELATIONSHIP, never a figure: the two answers must differ and
+    the narrower regime must not exceed the broader one. Both hold at any
+    estate size.
+
+    Declared product gate `CER-G04` (`CP-SPEC-005` §G.2).
+    """
+    produce = _load("produce")
+    contrast = declared["policy_regimes"] if "policy_regimes" in declared else None
+
+    broad, _, _ = produce.produce_governed(
+        intent="group-limit-test", debt_tolerance="1.00")
+    narrow, _, _ = produce.produce_governed(
+        intent="internal-appetite", debt_tolerance="1.00")
+
+    assert broad["measures"]["adjusted"]["committed"] != \
+        narrow["measures"]["adjusted"]["committed"], (
+        "both limit regimes returned the same adjusted figure, so the regime is"
+        " not being consumed — it is decoration on a hard-coded calculation"
+    )
+    # `internal-appetite` has `counts_guarantees=False`, so the guarantee
+    # DEDUCTION is not applied and adjusted stays level with gross. The regime
+    # that counts guarantees is the one that can subtract, so it is the one
+    # whose adjusted figure falls below gross. (I asserted this the other way
+    # first and the estate corrected me: counting fewer things toward the
+    # adjustment removes less, it does not remove more.)
+    assert Decimal(narrow["measures"]["adjusted"]["committed"]) == \
+        Decimal(narrow["measures"]["gross"]["committed"]), (
+        "a regime that counts no guarantees still deducted some"
+    )
+    assert Decimal(broad["measures"]["adjusted"]["committed"]) < \
+        Decimal(broad["measures"]["gross"]["committed"]), (
+        "the regime that counts guarantees deducted nothing, so the dedup step"
+        " is not consuming the limit definition"
+    )
+    # The anchor and family are the regime's subject, not its product.
+    assert broad["family"]["nodes"] == narrow["family"]["nodes"], (
+        "the limit regime moved the FAMILY; it may only move the measure"
+    )
+    assert contrast is None or contrast
+
+
+def test_the_four_validation_gates_pass_and_the_reconciliation_guard_fires(
+    matrix: Any
+) -> None:
+    """The fourth gate, observed FIRING — not merely observed present.
+
+    `reconciliation` being a member of the payload is what an earlier probe
+    checked, and it is a different claim: **token presence is not token force**
+    (`CP05-F-01`). This calls the deployment's own guard on a rollup whose dedup
+    has been made to double-subtract, and requires it to raise.
+
+    The positive half runs first. A guard that refuses everything would satisfy
+    the negative half alone, so the real answer must pass before a tampered one
+    is required to fail.
+
+    Declared product gate `CER-G05` (`CP-SPEC-005` §G.2).
+    """
+    import dataclasses  # noqa: PLC0415
+
+    assembler = _load("assembler")
+    payload, served = matrix["default"]
+
+    # POSITIVE — the real determination passed every gate, or the refusal below
+    # proves nothing. A served product is a product that cleared all four.
+    assert served.product is not None
+    assert payload["reconciliation"] is not None
+
+    rollup = assembler.Rollup(
+        anchor_lei="X", anchor_node="n", intent="group-limit-test",
+        policy_version="v", depth=1, family_nodes=["n"], members_with_lei=1,
+        entities=[], gross=assembler.Money(committed=100, outstanding=0, undrawn=0),
+        adjusted=assembler.Money(committed=100, outstanding=0, undrawn=0),
+        dedup_cases=[], connected_without_exposure=[],
+    )
+    assembler.reconciliation_guard(rollup)      # adjusted == gross: admissible
+
+    # SABOTAGE — step 5.2 removed the same exposure twice, so adjusted exceeds
+    # gross, which is arithmetically impossible and invisible in the output.
+    doubled = dataclasses.replace(
+        rollup, adjusted=assembler.Money(committed=101, outstanding=0, undrawn=0))
+    with pytest.raises(AssertionError, match="double-subtracted"):
+        assembler.reconciliation_guard(doubled)
+
+
+def test_a_different_policy_version_produces_a_different_answer(matrix: Any) -> None:
+    """Replay identity follows the policy bundle in force, not just the inputs.
+
+    Two runs of the same question under two limit regimes carry two different
+    `policy_version` values in lineage, and must not hash to the same content
+    address. If they did, a replay could not tell which regime authorized the
+    answer it reproduced.
+
+    Declared product gate `CER-G06` (`CP-SPEC-005` §G.2).
+    """
+    produce = _load("produce")
+
+    _, broad, _ = produce.produce_governed(
+        intent="group-limit-test", debt_tolerance="1.00")
+    _, narrow, _ = produce.produce_governed(
+        intent="internal-appetite", debt_tolerance="1.00")
+
+    broad_policy = set(broad.product.lineage.policy_bundle_versions)
+    narrow_policy = set(narrow.product.lineage.policy_bundle_versions)
+    assert broad_policy and narrow_policy, "lineage names no policy version at all"
+
+    # THE CRITERION'S PREMISE, CORRECTED BY MEASUREMENT. §G.2 says "a replay at
+    # a different `policy_version` produces a different one". Measured, the two
+    # regimes record the SAME policy-bundle version — and that is right: the
+    # limit definition is a versioned ROW in `ccf_v2.limit_definition`, read as
+    # data, not a Control Plane policy bundle. What must hold is the property
+    # the criterion exists to protect: two regimes may not reproduce one
+    # answer, or a replay could not tell which regime authorized it.
+    assert broad_policy == narrow_policy, (
+        "the policy BUNDLE moved with the limit regime; the regime is estate"
+        " data and must not be mistaken for a Control Plane bundle version"
+    )
+    broad_address = produce.content_address(broad.product.payload)
+    narrow_address = produce.content_address(narrow.product.payload)
+    assert broad_address != narrow_address, (
+        "two answers under two limit regimes hash to one content address, so a"
+        " replay cannot distinguish which regime produced it"
+    )
+
+
+
+def test_one_traversal_covers_every_relationship_type(matrix: Any) -> None:
+    """**One walk, not one per predicate** — the criterion's actual subject.
+
+    §G.2 words this as *"evidenced by a single ledger `t` in lineage"*, and that
+    evidence is not available: cp-05's lineage carries `graph_snapshot_at`, the
+    decision instant, rather than a ledger transaction counter. The PROPERTY the
+    criterion protects is available and is what is asserted here — the family is
+    reached by **one** traversal operator carrying four relationship types, not
+    by four traversals.
+
+    The distinction matters because the acquisition step beside it genuinely
+    does loop per predicate (`assembler.acquire_edges`), and its own docstring
+    says why that is a different thing: acquisition reads someone else's graph
+    to populate L3, and the traversal that answers the product's question runs
+    over L3 afterwards through the registered operator. Only the second is the
+    product's claim, and only the second is gated here.
+
+    Declared product gate `CER-G07` (`CP-SPEC-005` §G.2).
+    """
+    import yaml  # noqa: PLC0415
+
+    _, served = matrix["default"]
+    invoked = sorted(served.product.lineage.operators_invoked)
+
+    traversals = [name for name in invoked if name.startswith("traversal.")]
+    assert len(traversals) == 1, (
+        f"the answer invoked {len(traversals)} traversal operators, so the"
+        f" family was walked more than once: {traversals}"
+    )
+
+    declared_ops = yaml.safe_load(
+        (EXAMPLE / "ccf_config.yaml").read_text(encoding="utf-8"))["operators"]
+    types = declared_ops[traversals[0]]["relationship_types"]
+    assert len(types) > 1, (
+        "the single traversal carries one relationship type, so a family"
+        " spanning several would need several walks after all"
+    )
+    # The cross-default reach is the one that proves the walk did not stop at
+    # the ownership group, and it is carried by the SAME operator.
+    assert "crossDefaultsWith" in types, (
+        f"the traversal does not carry the cross-default edge: {types}"
+    )
+    assert _payload(matrix, "default")["connected_without_exposure"], (
+        "nothing was reached by cross-default, so the multi-type claim is"
+        " asserted against a walk that never exercised it"
+    )

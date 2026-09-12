@@ -87,3 +87,27 @@ declaration:
     test: tests/examples/test_cp_07_output.py::test_replay_dimension_two_carries_the_request_contract
     sabotage: omit the request contract from dimension 2
     observed_red: null
+  - id: C36-G06
+    statement: the enrich leg issues a fixed number of queries regardless of graph size
+    spec_clause:
+      document: spec/CP-SPEC-007_Client_360_Coverage_Graph.md
+      clause: G.1
+    test: tests/examples/test_cp_07_output.py::test_the_enrich_leg_issues_a_fixed_number_of_queries
+    sabotage: make the participation walk issue one query per interaction row
+    observed_red: null
+  - id: C36-G08
+    statement: shape_of reads this tree as canonical
+    spec_clause:
+      document: spec/CP-SPEC-007_Client_360_Coverage_Graph.md
+      clause: G.1
+    test: tests/examples/test_cp_07_output.py::test_the_structural_classifier_reads_this_tree_as_canonical
+    sabotage: reintroduce a local binder so the classifier reads the tree as legacy
+    observed_red: null
+  - id: C36-G09
+    statement: the plan factory takes its operators only from the resolver's required
+    spec_clause:
+      document: spec/CP-SPEC-007_Client_360_Coverage_Graph.md
+      clause: G.1
+    test: tests/examples/test_cp_07_output.py::test_the_plan_factory_takes_its_operators_only_from_required
+    sabotage: source an operator in the factory from anywhere but `required`
+    observed_red: null

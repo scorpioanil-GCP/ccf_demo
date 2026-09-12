@@ -695,7 +695,13 @@ def test_determinism_two_serves_of_one_question_reach_one_address(
 
 
 def test_the_structural_classifier_reads_this_tree_as_canonical() -> None:
-    """`shape_of` is structural — it asks the code, never a roster."""
+    """`shape_of` is structural — it asks the code, never a roster.
+
+    Declared product gate `C36-G08` (`CP-SPEC-007` §G.1) — `shape_of` reads this tree as `canonical`.
+    `CP07-F-11` recorded that §G.1's old `C36-G08` made TWO claims under one
+    id while a gate carries one `test:`; the clause is now split so each
+    half is evidenced by the test that actually proves it.
+    """
     spec = importlib.util.spec_from_file_location(
         "_sep", REPO_ROOT / "tests" / "examples" / "test_spine_separation.py")
     module = importlib.util.module_from_spec(spec)
@@ -709,7 +715,13 @@ def test_the_structural_classifier_reads_this_tree_as_canonical() -> None:
 
 
 def test_the_plan_factory_takes_its_operators_only_from_required() -> None:
-    """`D-IMPL-137` row C, read off the tree by the SDK's own predicate."""
+    """`D-IMPL-137` row C, read off the tree by the SDK's own predicate.
+
+    Declared product gate `C36-G09` (`CP-SPEC-007` §G.1) — the plan factory takes its operators only from the resolver's `required`.
+    `CP07-F-11` recorded that §G.1's old `C36-G08` made TWO claims under one
+    id while a gate carries one `test:`; the clause is now split so each
+    half is evidenced by the test that actually proves it.
+    """
     spec = importlib.util.spec_from_file_location(
         "_gate2", REPO_ROOT / "tests" / "products" / "test_gate_two_call_shape.py")
     module = importlib.util.module_from_spec(spec)
@@ -916,3 +928,59 @@ def test_the_declared_window_still_exceeds_the_class_limit(
     assert boundary["withheld_need_to_know"] > 0, (
         "the declared window no longer reaches the classified interaction, so"
         " the need-to-know withholding demonstrates nothing")
+
+
+def test_the_enrich_leg_issues_a_fixed_number_of_queries(
+    estate: tuple[str, str], example: tuple[Any, Any]
+) -> None:
+    """**One batched query per step, not one per row.** `CP07-F-11`'s first half.
+
+    The claim `acquisition.py` makes in three docstrings — *"ONE batched
+    query"* — had no test, because proving it needs a counting seam rather than
+    an id added to an existing assertion. This is that seam: `_GraphLeg.query`
+    is wrapped for the duration of two acquisitions, and the call counts are
+    compared.
+
+    **Two clients of very different size must cost the same number of round
+    trips.** If the enrich leg fanned out per interaction or per participant,
+    the larger client would cost more queries than the smaller one, and a graph
+    twice the size would double the cost. The counts must be equal AND small —
+    an equal count that rose with the estate would satisfy neither half.
+
+    Asserted as a relationship between two real subjects, never as a pinned
+    number, so estate drift exercises this instead of breaking it.
+
+    Declared product gate `C36-G06` (`CP-SPEC-007` §G.1).
+    """
+    deployment, produce = example
+    acquisition = sys.modules["acquisition"]
+
+    original = acquisition._GraphLeg.query
+    counts: dict[str, int] = {}
+
+    def counted(self: Any, body: str) -> Any:
+        counts[label] = counts.get(label, 0) + 1
+        return original(self, body)
+
+    acquisition._GraphLeg.query = counted
+    try:
+        for label, lei in (("demonstration", _anchor("DEMONSTRATION_LEI")),
+                           ("control", _anchor("CONTROL_LEI"))):
+            counts.setdefault(label, 0)
+            _serve(example, lei=lei)
+    finally:
+        acquisition._GraphLeg.query = original
+
+    assert counts["demonstration"] > 0 and counts["control"] > 0, (
+        f"the graph leg was never queried, so this counts nothing: {counts}"
+    )
+    assert counts["demonstration"] == counts["control"], (
+        "two clients of different size cost different numbers of graph"
+        f" queries, so the enrich leg fans out per row: {counts}"
+    )
+    # A fixed count is only meaningful if it is SMALL. Per-row fan-out on this
+    # estate would be in the hundreds; a batched leg is a handful of steps.
+    assert counts["demonstration"] < 25, (
+        f"the leg issues {counts['demonstration']} queries for one client —"
+        " equal between subjects, but not batched"
+    )

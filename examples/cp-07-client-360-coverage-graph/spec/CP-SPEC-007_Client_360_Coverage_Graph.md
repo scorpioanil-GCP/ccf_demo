@@ -404,7 +404,8 @@ Fluree `fibo-v2`, PostgreSQL `ccf_v2`, **both read-only**, v2 namespaces.
 | `C36-G05` | coverage gaps are reported and non-empty on the measured client |
 | `C36-G06` | the enrich leg issues a fixed number of queries regardless of graph size |
 | `C36-G07` | replay dimension 2 ⊇ product policy lineage |
-| `C36-G08` | `shape_of` is `canonical` and the factory takes operators only from `required` |
+| `C36-G08` | `shape_of` reads this tree as `canonical` |
+| `C36-G09` | the plan factory takes its operators only from the resolver's `required` |
 
 **All directional. No estate figure is pinned** — a test asserting 240 would go
 red the next time an interaction is logged.

@@ -497,48 +497,27 @@ roster as specified cannot be written truthfully for this rung.
 
 ---
 
-## `CP07-F-11` — two of §G.1's eight gates are not in the roster, and each for its own reason
+## `CP07-F-11` — two of §G.1's eight gates were not in the roster
 
-**Status: OPEN. Recorded rather than papered over, at the sitting that built the
-roster (`D-IMPL-326`).**
+**Status: FIXED, 2026-09-11.** `artifacts/gates.yaml` now carries **9**, and
+§G.1 declares nine, because closing this split one gate in two.
 
-`CP-SPEC-007` §G.1 declares eight product gates. `artifacts/gates.yaml` declares
-**six**. The two absences are deliberate, and neither is a gate that quietly
-went missing.
+**`C36-G06`** — *"the enrich leg issues a fixed number of queries regardless of
+graph size"* — needed a counting seam, which is why it had no test.
+`_GraphLeg.query` is now wrapped for the duration of two acquisitions and the
+call counts compared across two clients of very different size. Measured: **5
+and 5**. Sabotaged by making the participation walk issue one query per
+interaction row, which takes the counts to **205 and 44** and reddens the
+equality limb. The test also requires the fixed count to be SMALL, because an
+equal count that rose with the estate would satisfy neither half.
 
-### `C36-G06` — *"the enrich leg issues a fixed number of queries regardless of graph size"*
+**`C36-G08`** — was two claims under one id, and a gate carries one `test:`.
+Mapping it to either test would have claimed evidence for half its statement.
+**§G.1 is now split**: `C36-G08` is *"`shape_of` reads this tree as
+`canonical`"* and `C36-G09` is *"the plan factory takes its operators only from
+the resolver's `required`"*, each mapped to the test that already proved it.
+Both test docstrings were updated to claim their id, because the checker
+requires the executing test to be the evidence — a roster entry pointing at a
+function that does not name the gate is exactly the `L-18` witness class.
 
-**No test asserts it.** Measured: a grep of both cp-07 test modules for any
-query-count, round-trip or batching assertion returns nothing. The claim is
-real and it is this rung's own — `acquisition.py`'s docstrings say *"ONE
-batched query"* in two places — but proving it needs a counting seam around the
-query client, which is **new instrumentation rather than an id added to an
-existing test**.
-
-Declaring it against a test that does not assert it would be precisely the
-defect the checker exists to catch: `check_tree`'s step 7, *"a declared `test:`
-whose function does not itself claim the id"* — the `L-18` witness class. So it
-is absent and named here instead.
-
-### `C36-G08` — *"`shape_of` is `canonical` and the factory takes operators only from `required`"*
-
-**Two claims, asserted by two different tests, and a gate carries one `test:`.**
-`test_the_structural_classifier_reads_this_tree_as_canonical` proves the first;
-`test_the_plan_factory_takes_its_operators_only_from_required` proves the
-second. Mapping the gate to either would claim evidence for half its statement.
-
-The fix is to split the gate in two — which is a change to the
-**specification's** own §G.1 table, not to the roster, and `D-IMPL-326` was
-scoped to the tool and the wiring rather than to editing shipped specs.
-
-### What was added rather than deferred
-
-`C36-G02` — *"a lower `limit` returns no more than a higher one"* — had no test
-either, and that one **was written** (`test_a_lower_limit_admits_no_more_evidence_than_a_higher_one`)
-because it is four lines against the existing fixtures and needed no new
-instrumentation. The asymmetry is the point: a gate whose test is cheap gets
-written, a gate whose test needs a new seam gets recorded.
-
-**This finding is the honest reading of a roster that is smaller than its
-specification's table.** A reader comparing the two should find the difference
-explained here rather than have to work out which four were dropped and why.
+**No gate was declared against a test that does not assert it.**

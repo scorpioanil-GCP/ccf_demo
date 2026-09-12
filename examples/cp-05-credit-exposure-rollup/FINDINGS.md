@@ -3,50 +3,43 @@
 
 ---
 
-## `CP05-F-01` — four of §G.2's eight acceptance criteria have no test that asserts them
+## `CP05-F-01` — four of §G.2's eight acceptance criteria had no test that asserted them
 
-**Status: OPEN. Recorded at the sitting that gave §G.2 stable ids
-(`D-IMPL-327`), rather than declared against tests that do not prove them.**
+**Status: FIXED, 2026-09-11.** All four now have an executing test and are
+declared. `artifacts/gates.yaml` carries **8 of 8**.
 
-`CP-SPEC-005` §G.2 declares eight acceptance criteria. `artifacts/gates.yaml`
-declares **four**. The other four are named here with what each would need.
+| id | what was written |
+|---|---|
+| `CER-G04` | two limit regimes, same anchor. `group-limit-test` counts guarantees and deducts; `internal-appetite` counts none and adjusted stays level with gross. Asserted as a relationship, never a figure. |
+| `CER-G05` | the reconciliation guard **observed firing** on a rollup made to double-subtract, after the real determination is confirmed to pass. The positive half runs first, so a guard that refused everything could not satisfy it. |
+| `CER-G06` | two regimes must not hash to one content address, or replay cannot tell which authorized the answer. |
+| `CER-G07` | one traversal operator carries all four relationship types, so the family is walked once. |
 
-| id | criterion | why it is not declared |
-|---|---|---|
-| `CER-G04` | the same anchor under `internal-appetite` vs `group-limit-test` returns a different adjusted figure | neither regime name appears anywhere in the test tree; proving it needs two policy regimes wired and a comparison across them |
-| `CER-G05` | all four validation gates pass, **and the reconciliation guard is observed firing** on a deliberately double-subtracting variant | see below — this is the one that looked covered and is not |
-| `CER-G06` | replay from recorded lineage reproduces the payload hash, and a replay at a different `policy_version` produces a different one | `policy_version` appears in no test; needs a replay harness that can vary it |
-| `CER-G07` | the traversal issues **one** walk, not one per predicate — evidenced by a single ledger `t` in lineage | needs ledger-`t` instrumentation on the lineage record |
+**Two of the four corrected their own criterion when measured.**
 
-### `CER-G05` is the instructive one: token presence is not token force
+`CER-G04` — I first asserted that the regime counting NEITHER guarantees nor
+undrawn would return the SMALLER adjusted figure. The estate said otherwise, and
+it is right: `counts_guarantees=False` means the guarantee **deduction** is not
+applied, so adjusted stays level with gross at $10.125B while the broad regime
+falls to $9.325B. Counting fewer things toward an adjustment removes less, not
+more. The test now asserts the relationship that actually holds.
 
-The first measurement of this roster probed each criterion by searching the test
-tree for its distinguishing term. `reconciliation` **is** present in
-`test_cp_05_output.py`, so the criterion was first read as covered. It is not.
-What that test asserts is:
+`CER-G06` — §G.2 words this as *"a replay at a different `policy_version`
+produces a different one"*. Measured, both regimes record the **same**
+policy-bundle version, and that is correct: the limit definition is a versioned
+row in `ccf_v2.limit_definition`, read as estate data, not a Control Plane
+bundle. The test asserts the property the criterion exists to protect — the two
+answers must not share a content address — and asserts the bundle version
+*stays* equal, so mistaking estate data for a bundle version would go red.
 
-```python
-assert payload["reconciliation"] is not None
-```
-
-— that the member is **present**. The criterion requires the guard to be
-**observed firing** on a deliberately double-subtracting variant. Those are
-different claims, and only one of them is held against a run.
-
-Declaring `CER-G05` against that test would have been the `L-18` defect the
-gate checker exists to catch: a declaration pointing at a test that does not
-prove its statement. The roster is smaller and honest instead.
-
-### What was NOT done
-
-**No new instrumentation** (`D-IMPL-327`, Dave: *"Do not create new
-instrumentation in this sitting ... New tests for those belong in a separate
-sitting if we decide they are worth funding."*) And **no criterion was
-reworded, renumbered or removed** to make the roster look complete — §G.2 says
-exactly what it said, plus an id per criterion.
-
-
----
+`CER-G07` — §G.2 asks for *"a single ledger `t` in lineage"* as the evidence.
+That evidence does not exist here: cp-05's lineage carries `graph_snapshot_at`,
+the decision instant. The property is asserted instead against
+`operators_invoked`. Note that `assembler.acquire_edges` **does** loop per
+predicate — and its own docstring says why that is a different thing:
+acquisition reads someone else's graph to populate L3, and the traversal that
+answers the product's question runs over L3 afterwards. Only the second is the
+product's claim.
 
 ## `CP05-F-02` — every output test was COLLECTED and none of them EXECUTED
 

@@ -103,8 +103,9 @@ reason, by an executing test.
 
 ## `CP08-F-03` — `assertedAt` is on amendments, never on covenants
 
-**Status: OPEN as a standing constraint on any successor.** Honored by the
-shipped implementation.
+**Status: NOT-A-GAP** (`D-IMPL-261` charter vocabulary). It is a standing
+constraint on any successor, not an outstanding work item, and the shipped
+implementation honors it. `D-GATE-cp-08` records it as remaining explicit.
 
 **What was measured.** `ex:assertedAt` appears on **0 of 180 covenants** — on
 all three booking-lag facilities and across the whole ledger at every point
@@ -135,8 +136,10 @@ amendment sets; and every omitted amendment is accounted for by axis.
 
 ## `CP08-F-04` — covenant terms cannot be reconstructed for a past date
 
-**Status: OPEN, and not this product's to fix.** It is a property of the
-estate, not of the assembly.
+**Status: ESTATE-LIMITATION** (`D-IMPL-261` charter vocabulary). Not this
+product's to fix and not an outstanding work item: it is a property of the
+estate, not of the assembly. `D-GATE-cp-08` records it as remaining open in
+that sense — what would close it is an estate wave, not a change here.
 
 **What was measured.** Covenants carry no assertion time (`CP08-F-03`) and no
 supersession marker (`CP08-F-02`), and their thresholds never change. The
