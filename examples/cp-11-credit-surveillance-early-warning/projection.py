@@ -48,6 +48,23 @@ SIGNAL_CLASSES: tuple[str, ...] = (
 CHAIN_STATES: tuple[str, ...] = ("current", "superseded", "not-participating")
 
 
+def _renderable(value: Any) -> Any:
+    """``value`` with every float rendered as a string, recursively.
+
+    A payload rides the content address, and a float is not bit-stable across
+    platforms — the canonicalizer refuses one by name. Rendering rather than
+    dropping keeps the source reference readable; dropping it would lose the
+    accession or the URL a reader follows.
+    """
+    if isinstance(value, float):
+        return repr(value)
+    if isinstance(value, Mapping):
+        return {str(k): _renderable(v) for k, v in sorted(value.items())}
+    if isinstance(value, (list, tuple)):
+        return [_renderable(item) for item in value]
+    return value
+
+
 def _money(value: Decimal) -> str:
     return str(value.quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP))
 
@@ -78,11 +95,31 @@ class CreditSurveillanceProjection:
         self,
         *,
         view: GraphView,
-        operators: Mapping[str, OperatorOutput],
+        operator_outputs: Mapping[str, OperatorOutput],
         perspective: Perspective,
         temporal_boundary: datetime,
     ) -> ProjectionOutput:
-        del view, operators
+        del operator_outputs
+        # THE VIEW IS READ, not ignored. The obligor and every signal reached
+        # the graph through L2, so `view.entities` is what makes
+        # `execution.touched_entities()` name this obligor — which is what the
+        # `D-IMPL-334` gate reads on a later serve (`EWS-G25`). A projection
+        # that took everything from the estate and nothing from the view would
+        # leave the product depending on an entity the fabric never saw it
+        # touch.
+        # LOCATED BY ATTRIBUTE, never by a URI this module builds. L2 mints an
+        # entity URI from the resolution rule's identity keys — measured, it is
+        # `ews_obligor://<hash>` and not the `obligor://<lei>` a deployment
+        # might assume. `D-IMPL-316`'s lesson: a constructed identity is not
+        # the identity. It matters beyond tidiness here, because the
+        # `D-IMPL-334` invalidation boundary is recorded against the URI THE
+        # WRITER USED, and a product comparing against a different string would
+        # never match one.
+        anchor_uris = [
+            record.claim.entity_uri
+            for record in view.entities
+            if record.claim.attributes.get("node_kind") == "obligor"
+        ]
         estate: acquisition.Estate = self._declared["estate"]
         intent = str(self._declared["intent"])
         as_of = temporal_boundary.date()
@@ -97,6 +134,10 @@ class CreditSurveillanceProjection:
                 "role": perspective.role,
                 "asked_at": temporal_boundary.isoformat(),
                 "obligor": {
+                    # Asserted against the VIEW, so the payload cannot name an
+                    # obligor the graph never resolved.
+                    "in_graph": bool(anchor_uris),
+                    "entity_uri": anchor_uris[0] if anchor_uris else None,
                     "lei": estate.obligor.lei,
                     "label": estate.obligor.legal_name,
                     "sic": estate.obligor.sic,
@@ -195,7 +236,14 @@ class CreditSurveillanceProjection:
                 "contribution": _money(weight * signal.severity * retained),
                 "chain_state": estate.chain_state(signal),
                 "provenance": signal.provenance,
-                "source_ref": dict(signal.source_ref),
+                # THE SOURCE REFERENCE, RENDERED — never the raw JSONB.
+                # Postgres hands back Python floats inside `source_ref`
+                # (`trend_delta` carries `value` and `pct_change`), and a float
+                # inside a payload raises `CanonicalizationError: float is not
+                # canonically encodable`. It is the same defect cp-09 hit with
+                # a float `debt_tolerance`: anything entering a content address
+                # must be bit-stable, so numbers cross as strings.
+                "source_ref": _renderable(signal.source_ref),
             })
         return rows
 
@@ -216,6 +264,19 @@ class CreditSurveillanceProjection:
                 {"intent": name, "floor": _money(floor), "reached": score >= floor}
                 for name, floor in bands
             ],
+            # WHAT THE ESTATE DECLARES, beside what this product uses. The
+            # difference is a calibration decision (§C.4 TRAP 2) and a payload
+            # showing only the value in force would hide that a decision was
+            # taken at all.
+            "estate_declared": {
+                name: _money(floor)
+                for name, floor in sorted(estate.estate_thresholds.items())
+            },
+            "calibration": (
+                "illustrative: the estate's bands were calibrated against an"
+                " accumulating reading of the non-decaying class that this"
+                " product refuses; see CP-SPEC-011 §C.4 TRAP 2"
+            ),
         }
 
     # -- what did NOT contribute, and why --------------------------------

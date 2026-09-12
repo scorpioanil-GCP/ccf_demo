@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=../../docs/schemas/ccf.declared-artifact.json
+#
+# WHERE THINGS LIVE — as environment-variable NAMES and nothing else.
+# No host, no port, no credential, in this file or anywhere in the tree.
+
+semver: "1.0.0"
+class_id: cp-11.backend-profiles
+
+declaration:
+  profiles:
+    sqlite:
+      settings:
+        database_path:
+          prefix: cp-11-surveillance
+          suffix: .sqlite
+
+  sources:
+    - name: relational
+      capability_class: relational
+      holds: >-
+        obligor identity and SIC code, the dated signal stream across five
+        classes, the weight-and-decay table keyed on (signal_type, sector),
+        the escalation bands by intent, and the WARN name-match verdicts.
+        THE CLOCK LIVES HERE — every instant this product reads comes from
+        `signal_event.observed_at`.
+      connection:
+        from_env: CCF_CP_11_POSTGRES_DSN
+        note: >-
+          export CCF_CP_11_POSTGRES_DSN with a READ-ONLY libpq connection
+          string. Nothing this example runs writes to the store it reads, and
+          a role that could write would make that a promise rather than a
+          guarantee.
+      namespace:
+        from_env: CCF_CP_11_POSTGRES_SCHEMA
+        note: >-
+          the schema holding the v2 estate. NOT the value in `ccf_dataprep`'s
+          `.env`, which names v1.
+
+    - name: graph
+      capability_class: bitemporal-ledger
+      holds: >-
+        the supersession chain over warning signals, the filing that triggered
+        each, and the prior-observation anchor that bounds the delta. IT
+        CARRIES NO TIMESTAMP AT ALL — `CP11-F-07`. A `WarningSignal` node has
+        type, label, provenance, `signalAbout`, `triggeredBy` and
+        `supersededBy`, and the date appears only inside the label string,
+        which this product never parses.
+      connection:
+        from_env: CCF_CP_11_FLUREE_URL
+        note: >-
+          export CCF_CP_11_FLUREE_URL with the base URL of a READ-ONLY Fluree
+          instance. The example issues `POST /v1/fluree/query` only. A seeded
+          ledger is PERMANENT, which is why read-only is a guarantee here.
+      namespace:
+        from_env: CCF_CP_11_FLUREE_LEDGER
+        note: the ledger name to read — `fibo-v2`, a separate ledger from v1.

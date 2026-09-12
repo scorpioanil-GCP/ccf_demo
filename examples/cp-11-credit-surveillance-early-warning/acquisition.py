@@ -33,6 +33,7 @@ import yaml
 
 HERE = Path(__file__).parent
 VOCABULARY = HERE / "artifacts" / "source-vocabulary.yaml"
+ESCALATION = HERE / "artifacts" / "escalation-policy.yaml"
 
 #: The Fluree term namespace this estate uses. Read from the artifact, never
 #: spelled in code (CLAUDE.md §6.4).
@@ -147,8 +148,11 @@ class Estate:
     prior_observation: date | None
     #: The weights and decay, by `(signal_type, sector)`.
     weights: Mapping[tuple[str, str], tuple[Decimal, int | None]]
-    #: The escalation bands by intent, lowest first.
+    #: The escalation bands THIS PRODUCT declares, lowest first.
     thresholds: Mapping[str, Decimal]
+    #: What the ESTATE declares, carried so the payload shows both rather than
+    #: silently overriding one with the other.
+    estate_thresholds: Mapping[str, Decimal]
     #: How many WARN matches for this obligor were too ambiguous to consume.
     ambiguous_warn_matches: int
     #: The window actually read.
@@ -302,7 +306,8 @@ def acquire(
         supersession_participants=participants,
         prior_observation=prior,
         weights=_weights(relational),
-        thresholds=_thresholds(relational),
+        thresholds=_thresholds(),
+        estate_thresholds=estate_thresholds(relational),
         ambiguous_warn_matches=_ambiguous_warn_matches(relational, lei=anchor_lei),
         window_from=window_from,
         window_to=window_to,
@@ -365,8 +370,26 @@ def _weights(
     }
 
 
-def _thresholds(relational: _Relational) -> Mapping[str, Decimal]:
-    """The escalation bands, by intent."""
+def _thresholds() -> Mapping[str, Decimal]:
+    """The escalation bands THIS PRODUCT declares, from its own artifact.
+
+    **Not the estate's.** `escalation_threshold` carries 0.30 / 0.55 / 0.85,
+    calibrated against the accumulating reading of the 8-K class this product
+    refuses. Under the correct reading the estate's upper two bands are
+    unreachable and the control never fires (§C.4 TRAP 2). The declared
+    demonstration values, and the estate's beside them, are in
+    `artifacts/escalation-policy.yaml` so the difference is visible rather than
+    silently overridden.
+    """
+    document = yaml.safe_load(ESCALATION.read_text(encoding="utf-8"))
+    return {
+        str(band["intent"]): Decimal(str(band["floor"]))
+        for band in document["declaration"]["bands"]
+    }
+
+
+def estate_thresholds(relational: "_Relational") -> Mapping[str, Decimal]:
+    """What the ESTATE declares — read so the payload can show both."""
     return {
         row[0]: Decimal(str(row[1]))
         for row in relational.rows(

@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE ESCALATION BANDS THIS PRODUCT DECLARES.
+#
+# NOT the estate's. `ccf_v2.escalation_threshold` carries 0.30 / 0.55 / 0.85,
+# and those were calibrated against a reading of the 8-K class that this
+# product refuses: one where a non-decaying signal ACCUMULATES FOREVER. Under
+# that reading 30 of 50 obligors breach the board band and the control is
+# worthless (`CP-SPEC-011` §C.4 TRAP 1).
+#
+# Under the correct reading — supersession ends an 8-K's relevance, and the
+# sector dimension of the weight table is live (`CP11-F-09`) — the maximum
+# composite across the 50 anchors is 0.4619, so the estate's upper two bands
+# are unreachable and the control never fires. TRAP 2.
+#
+# ILLUSTRATIVE CALIBRATION (`D-IMPL-323`). This example runs against a
+# point-in-time demonstration estate rather than continuously refreshed
+# production data. These thresholds are calibrated to make the governed
+# behavior observable in that snapshot. They demonstrate how the SDK applies
+# these controls and should not be interpreted as recommended production
+# coverage-policy thresholds.
+#
+# MEASURED 2026-09-12 over all 50 anchors at `as_of` 2026-08-19, sector
+# dimension live. Re-affirmed by Dave on these corrected populations.
+
+semver: "1.0.0"
+class_id: cp-11.escalation-policy
+
+declaration:
+  basis: >-
+    a multiple-free absolute score on the composite, which is itself a weighted
+    sum of decayed contributions — so the bands move with the weights and the
+    decay rather than with any number written here twice.
+  measured_at: "2026-09-12"
+  measured_as_of: "2026-08-19"
+  measured_population: 50
+  bands:
+    - intent: daily-sweep
+      floor: "0.15"
+      obligors_reached: 28
+    - intent: credit-committee-referral
+      floor: "0.25"
+      obligors_reached: 11
+    - intent: board-risk-report
+      floor: "0.35"
+      obligors_reached: 3
+  estate_declared:
+    note: >-
+      what `escalation_threshold` says, carried so the difference is visible
+      rather than silently overridden.
+    daily-sweep: "0.30"
+    credit-committee-referral: "0.55"
+    board-risk-report: "0.85"

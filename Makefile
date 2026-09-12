@@ -55,7 +55,7 @@ NO_SUBSTRATE := not postgres and not chroma and not neo4j and not mongo and not 
 	ci-quick-suite ci-harness-conformance ci-coverage \
 	example-s1-01 example-s1-00 example-cp-00 example-cp-01 example-cp-02 \
 	example-cp-03 example-cp-04 example-cp-04-canonical example-cp-05 example-cp-05-server \
-	example-cp-06 example-cp-07 example-cp-09 example-cp-10 \
+	example-cp-06 example-cp-07 example-cp-09 example-cp-10 example-cp-11 \
 	example-hw1-harness-clients \
 	example-hw1-harness-clients-live-adk \
 	example-hw1-harness-clients-live-anthropic \
@@ -536,6 +536,19 @@ example-cp-10: ## Run examples/cp-10-rating-and-spread-migration (LEI, AS_OF, IN
 		$(if $(WINDOW_DAYS),--window-days $(WINDOW_DAYS)) \
 		$(if $(GRANULARITY),--granularity $(GRANULARITY)) \
 		$(if $(DIVERGENCE_MULTIPLE),--divergence-multiple $(DIVERGENCE_MULTIPLE)) \
+		$(if $(DEBT_TOLERANCE),--debt-tolerance $(DEBT_TOLERANCE))
+
+# cp-11 — the ladder's rung 11. NOT in the `examples:` aggregate, for the same
+# reason as cp-09 and cp-10: it reads a networked estate through declared
+# environment variables and has no in-tree fixture to fall back onto
+# (`example_delivery.md` §3). Its code path IS covered — by
+# `tests/examples/test_cp_11_output.py`.
+example-cp-11: ## Run examples/cp-11-credit-surveillance-early-warning (LEI, AS_OF, INTENT, SINCE, WINDOW_DAYS, DEBT_TOLERANCE optional; needs CCF_CP_11_FLUREE_URL, CCF_CP_11_FLUREE_LEDGER, CCF_CP_11_POSTGRES_DSN, CCF_CP_11_POSTGRES_SCHEMA)
+	PYTHONPATH=src:runtime:examples/cp-11-credit-surveillance-early-warning \
+		$(PYTHON) examples/cp-11-credit-surveillance-early-warning/run.py \
+		$(if $(LEI),--lei $(LEI)) $(if $(AS_OF),--as-of $(AS_OF)) \
+		$(if $(INTENT),--intent $(INTENT)) $(if $(SINCE),--since $(SINCE)) \
+		$(if $(WINDOW_DAYS),--window-days $(WINDOW_DAYS)) \
 		$(if $(DEBT_TOLERANCE),--debt-tolerance $(DEBT_TOLERANCE))
 
 # cp-05 — the ladder's rung 5. NOT in the `examples:` aggregate: it reads a
