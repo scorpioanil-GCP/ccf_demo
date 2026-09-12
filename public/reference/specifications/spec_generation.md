@@ -670,26 +670,47 @@ The two trees have different jobs:
 | `examples/cp-NN-<slug>/spec/` | **product specifications** — one per example, co-versioned with the code that discharges them | `CP-SPEC-000-institutional-holders.md` |
 | `public/reference/specifications/` | **reference documents** — things that govern specs but describe no product | `Context_Product_Specification_Standard_v0-3.md`, this recipe |
 
-**Authoring home and published surface are different things, and both are
-required.** `mkdocs.yml` records the rule (Dave, 2026-08-29): *"Context Product
-specifications ship WITH the SDK... `public/` is the whole published surface and
-publication is default-deny by existence (D-01), so a spec that ships is a spec
-that lives here and carries a nav entry."*
+**ONE CANONICAL SPEC, AND NO SECOND COPY THAT CAN DRIFT.** A product
+specification lives in its example's `spec/` directory and **is not duplicated
+into `public/`**. There is no second location and no per-spec nav entry.
 
-| | Where | When |
-|---|---|---|
-| **Authoring home** | `examples/cp-NN-<slug>/spec/` | Gate 1 onward — versioned with the artifacts and code that discharge it |
-| **Published surface** | `public/reference/specifications/` + a `mkdocs.yml` nav entry | **After Gate 2**, once every `[TBC — this build]` is closed |
+| | Where |
+|---|---|
+| **Canonical, and the only copy** | `examples/cp-NN-<slug>/spec/`, from Gate 1 onward — versioned with the artifacts and code that discharge it |
+| **`public/reference/specifications/`** | reference documents that **govern** specs and describe no product: the authoring standard, this recipe, the delivery companion |
 
-There is no tension between the two rules: one governs where a claim is
-**proven**, the other where it is **read**. Publication is not optional — it is
-gated. **A nav entry is an assertion that the document is reference material**,
-so a spec still carrying open `[TBC — this build]` markers must not be published,
-and `mkdocs build --strict` must stay green in the same commit that adds one.
+Public documentation **may reference or summarize** a CP-SPEC — link to it,
+quote a clause, explain what a rung proves. It must not create a second copy of
+the document.
+
+**This corrects what this section used to say, and the correction is a
+documentation-rule fix rather than any product's deviation** (Dave,
+2026-09-12). The previous text directed a copy into
+`public/reference/specifications/` with a nav entry after Gate 2, and cited
+`mkdocs.yml` for it. `mkdocs.yml` says the opposite, in a ruling of the same
+author dated 2026-08-29:
+
+> *"Individual CP-SPECs do NOT live here. A specification lives in its own
+> example's `spec/` directory, beside the artifacts and code it governs.
+> `CP-SPEC-001` sat here only to bootstrap the authoring process and was deleted
+> at `2709a39` once it had served that purpose — by then it had drifted to 640
+> lines against a 1,355-line canonical source, silently dropping every section
+> that recorded an open question."*
+
+**The precedent is unanimous and was measured before this edit: no CP-SPEC for
+`cp-00` through `cp-08` is published under `public/` at all.** Eight gates
+closed without it. The surviving instruction here was stale, and it was caught
+at rung 9's Gate 2 by an executor who stopped rather than following it.
+
+**Why the deleted copy is the argument.** A specification is proven by the
+artifacts and tests beside it; a copy somewhere else is proven by nothing, and
+the first thing it loses is the sections recording open questions — which is
+exactly what happened, and it happened silently, because a stale copy renders
+perfectly well.
 
 > ⚠️ `public/` has a strict docs build. **Any file you add under `public/`
-> without a nav entry fails `mkdocs build --strict`.** Check the build before
-> you consider a spec shipped.
+> without a nav entry fails `mkdocs build --strict`.** That still holds for the
+> reference documents this directory does carry.
 
 > **`CP-SPEC-001_Counterparty_Reference_Snapshot.md` is a deliberately placed
 > exemplar — *"what a spec would look like for counterparty reference"* (Dave,
