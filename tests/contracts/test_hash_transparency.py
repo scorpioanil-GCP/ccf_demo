@@ -298,7 +298,19 @@ _MARKED_IN_THE_TREE = frozenset(
         "ccf.projection.engine.ExecutionResult.store_snapshot_pin",
         "ccf.projection.engine.ExecutionResult.empty_results",
         "ccf.assembly.worker.ResolvedEntity.resolved_by",
+        # `D-IMPL-331`. `None` is the honest value where a source could not say
+        # when it observed the thing, and it is also the shape every
+        # observation had before the field existed — so the sentinel means the
+        # old contract twice over.
+        "ccf.halflife.decay.Observation.valid_from",
         "ccf.controlplane.artifacts.HalfLifeEntry.decay",
+        # `D-IMPL-331`. Ticked for the same reason `decay` above is: a λ_c row
+        # written before the field existed means "decay against the instant the
+        # fabric learned this", which is exactly what it did, so silence equals
+        # yesterday and every stored table version holds its identity. A
+        # deployment declaring `valid-from` has said something new and it is
+        # inside the hash.
+        "ccf.controlplane.artifacts.HalfLifeEntry.decay_basis",
         "ccf.controlplane.artifacts.HalfLifeEntry.half_life_seconds",
         "ccf.controlplane.artifacts.ProductClassDeclaration.serve_obligations",
         "ccf.products.contract.RegisteredProductClass.serve_obligations",

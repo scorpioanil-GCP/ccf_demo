@@ -65,10 +65,16 @@ from datetime import datetime, timedelta
 from decimal import Decimal, localcontext
 from typing import Final
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 
-from ccf.controlplane.artifacts import DecayMode, HalfLifeEntry, HalfLifeTable
+from ccf.controlplane.artifacts import (
+    DecayBasis,
+    DecayMode,
+    HalfLifeEntry,
+    HalfLifeTable,
+)
 from ccf.contracts.base import CCFContract
+from ccf.contracts.canonical import HASH_TRANSPARENT_KEY
 from ccf.halflife.assessment import (
     _SDK_NAMESPACE,
     _as_a_reader_sees_it,
@@ -82,10 +88,12 @@ __all__ = [
     "NO_SUBJECT_IDENTITY",
     "HalfLifeEntry",
     "HalfLifeTable",
+    "MissingDecayInstant",
     "MissingHalfLife",
     "NoDecayCurve",
     "Observation",
     "TemporalOrderError",
+    "decay_basis_of",
     "decay_mode_of",
     "effective_half_life",
     "freshness",
@@ -129,6 +137,18 @@ class NoDecayCurve(LookupError):
     of it: an undeclared type and a declared-supersede-only type are different
     authoring states, and a handler that catches the first to prompt for a
     calibration must not swallow the second, whose fix is to stop asking.
+    """
+
+
+class MissingDecayInstant(LookupError):
+    """A row declares ``valid-from`` and the observation carries none (``D-IMPL-331``).
+
+    **Refused rather than fallen back.** A silent fallback to ``observed_at``
+    would report a perfectly fresh figure for a claim whose real age nobody
+    knows — and it would do it for exactly the observations a deployment
+    declared ``valid-from`` *because* it cared about their real age. The two
+    instants answer different questions (:data:`~ccf.controlplane.artifacts.DecayBasis`),
+    and an absent answer is not the other answer.
     """
 
 
@@ -204,6 +224,18 @@ class Observation(CCFContract):
             naive instant is rejected **at construction**, because an implicit
             timezone is a silent default (D-IMPL-38) — see
             :meth:`_the_instant_names_its_zone`.
+        valid_from: When the SOURCE says it observed the thing, or ``None``
+            when the source could not say (``D-IMPL-331``). Distinct from
+            :attr:`observed_at`, which is when the FABRIC learned the claim —
+            :meth:`ccf.assembly.worker.AssemblyWorker._stitch` sets the second
+            to ingestion always and routes the source's own instant here. A
+            λ_c row declares which of the two it decays against
+            (:data:`~ccf.controlplane.artifacts.DecayBasis`); this field is
+            read by :func:`freshness` only when the row declares
+            ``valid-from``, and its absence under that declaration is
+            :class:`MissingDecayInstant` rather than a fallback. Optional and
+            **hash-transparent at** ``None``, so an observation constructed
+            before this field existed hashes as it did.
         subject: What this observation is an observation *of*. An opaque
             identifier the deployment chooses — an entity URI, a claim id, a
             document id, or something else again. Its scheme is user
@@ -224,6 +256,9 @@ class Observation(CCFContract):
     observation_type: str
     observed_at: datetime
     subject: str = NO_SUBJECT_IDENTITY
+    valid_from: datetime | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
     @field_validator("observed_at", mode="before")
     @classmethod
@@ -258,6 +293,32 @@ class Observation(CCFContract):
         is the only thing standing between a ``model_construct``-built
         observation and a freshness figure computed against an implicit zone.
         """
+        if value.tzinfo is None or value.tzinfo.utcoffset(value) is None:
+            raise ValueError(
+                "an observation must name its instant's zone; a naive datetime "
+                "carries an implicit timezone, which is a silent default "
+                "(D-IMPL-38), and decay is computed from this value"
+            )
+        return value
+
+    @field_validator("valid_from", mode="before")
+    @classmethod
+    def _the_supplied_valid_from_names_its_own_zone(cls, value: object) -> object:
+        return value if value is None else _refuse_an_instant_that_named_no_zone(value)
+
+    @field_validator("valid_from")
+    @classmethod
+    def _the_valid_from_names_its_zone(cls, value: datetime | None) -> datetime | None:
+        """The same refusal :attr:`observed_at` gets, for the same reason.
+
+        A naive instant here would be read against an implicit timezone
+        (``D-IMPL-38``) and decay is computed from this value whenever the row
+        declares ``valid-from``. Refusing at construction rather than at the
+        first computation is CLAUDE.md §11's *"validation is at the boundary,
+        never deferred"*.
+        """
+        if value is None:
+            return None
         if value.tzinfo is None or value.tzinfo.utcoffset(value) is None:
             raise ValueError(
                 "an observation must name its instant's zone; a naive datetime "
@@ -364,6 +425,20 @@ def decay_mode_of(table: HalfLifeTable, observation_type: str) -> DecayMode:
             D-IMPL-38).
     """
     return _entry_of(table, observation_type).decay
+
+
+def decay_basis_of(table: HalfLifeTable, observation_type: str) -> DecayBasis:
+    """Return the declared decay basis for ``observation_type`` (``D-IMPL-331``).
+
+    The twin of :func:`decay_mode_of`, and read at the same point in
+    :func:`freshness`: which of the observation's two instants this row decays
+    against. Every table written before the field existed answers
+    ``observed-at``, which is the behavior it already had.
+
+    Raises:
+        MissingHalfLife: the table declares no entry for that type.
+    """
+    return _entry_of(table, observation_type).decay_basis
 
 
 def half_life_of(table: HalfLifeTable, observation_type: str) -> timedelta:
@@ -483,6 +558,8 @@ def freshness(
 
     Raises:
         MissingHalfLife: the type has no declared entry.
+        MissingDecayInstant: the row declares ``valid-from`` and the
+            observation carries none (``D-IMPL-331``).
         TemporalOrderError: the observation post-dates ``now``.
         ValueError: ``now`` or ``observed_at`` is naive, or the sensitivity is
             not positive.
@@ -502,6 +579,36 @@ def freshness(
         raise ValueError("risk sensitivity must be positive")
     if decay_mode_of(table, observation.observation_type) == "supersede-only":
         return Decimal(1)
+
+    # THE DECLARED BASIS DECIDES WHICH INSTANT DECAYS (``D-IMPL-331``), and it
+    # is read here — after the three refusals above, which hold in every mode
+    # and on every basis. A table written before this field existed answers
+    # ``observed-at`` and reaches `elapsed` unchanged, which is what keeps
+    # every existing table's F identical.
+    if decay_basis_of(table, observation.observation_type) == "valid-from":
+        if observation.valid_from is None:
+            raise MissingDecayInstant(
+                f"observation type {observation.observation_type!r} declares"
+                " `decay_basis: valid-from` and this observation carries no"
+                " `valid_from`. Refused rather than read from `observed_at`:"
+                " that instant is when the FABRIC learned the claim, so"
+                " falling back would report a perfectly fresh figure for an"
+                " observation whose real age is unknown — which is the defect"
+                " the basis exists to end"
+            )
+        if observation.valid_from.tzinfo is None:
+            raise ValueError(
+                "decay requires timezone-aware instants; a naive datetime"
+                " carries an implicit timezone, which is a silent default"
+                " (D-IMPL-38)"
+            )
+        elapsed = now - observation.valid_from
+        if elapsed < timedelta(0):
+            raise TemporalOrderError(
+                "elapsed time is negative: the source's observation instant is"
+                " dated after the instant it is evaluated at"
+            )
+
     budget = effective_half_life(
         half_life_of(table, observation.observation_type), risk_sensitivity
     )

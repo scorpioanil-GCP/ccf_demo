@@ -482,6 +482,14 @@ def test_observations_are_one_per_entity_typed_by_its_own_class() -> None:
     Asserted rather than inferred from the number that came out: the entity
     class *is* the λ_c vocabulary, and a scorer that typed observations any
     other way would need the deployment to declare a second one.
+
+    **Now pins BOTH claim instants** (``D-IMPL-331``). The fixture's records
+    carry ``valid_from == observed_at``, so this states the mapping for the
+    ordinary case; the pair that DIFFER is
+    :func:`test_the_scorer_copies_both_claim_times_onto_each_observation`,
+    which is the one a dropped copy fails. Widening the expectation rather
+    than relaxing the comparison: an equality that ignored a field would stop
+    being the direct read this docstring claims it is.
     """
     observed = AssemblyDebtScorer._observations(WHOLE)
     assert observed == (
@@ -489,11 +497,13 @@ def test_observations_are_one_per_entity_typed_by_its_own_class() -> None:
             observation_type=CALIBRATED,
             observed_at=AT,
             subject="urn:fixture:a",
+            valid_from=AT,
         ),
         Observation(
             observation_type=CALIBRATED,
             observed_at=AT - timedelta(seconds=HALF_LIFE_SECONDS * 8),
             subject="urn:fixture:b",
+            valid_from=AT - timedelta(seconds=HALF_LIFE_SECONDS * 8),
         ),
     )
 
@@ -767,3 +777,51 @@ def test_control_rows_handed_fires() -> None:
         assert_measures_the_rows_it_is_handed(
             constant_scorer, whole=WHOLE, subset=SUBSET
         )
+
+
+# --- `D-IMPL-331` — the scorer carries BOTH claim times -----------------------
+
+
+def test_the_scorer_copies_both_claim_times_onto_each_observation() -> None:
+    """`D-IMPL-331`: which instant decays is the TABLE's call, not this function's.
+
+    **The wiring, tested directly, because sabotage showed nothing else covers
+    it.** Setting ``valid_from=None`` in
+    :meth:`~ccf.products.debt_scorer.AssemblyDebtScorer._observations` left 233 tests
+    green — every basis test in ``tests/halflife`` builds its own
+    :class:`~ccf.halflife.decay.Observation` and so never crosses this seam.
+    A `valid-from` table would then have refused every observation the fabric
+    produced, with `MissingDecayInstant`, and no test would have said why.
+
+    The two instants are asserted to be DIFFERENT values here on purpose: a
+    fixture whose ingestion and source instants coincide passes whether the
+    copy happens or not.
+    """
+    ingested = AT
+    at_source = AT - timedelta(seconds=3600)
+    entity = EntityRecord(
+        claim_id="claim-basis",
+        claim=EntityClaim(
+            tenant_id="fixture-tenant",
+            observed_at=ingested,
+            valid_from=at_source,
+            lineage=lineage(),
+            entity_uri="entity://basis",
+            entity_class=CALIBRATED,
+        ),
+        policy_bundle_version="fixture-policy-1",
+    )
+
+    observations = AssemblyDebtScorer._observations(view(entity))
+
+    assert len(observations) == 1
+    assert observations[0].observed_at == ingested, (
+        "the fabric-learning instant must survive: a table declaring"
+        " `observed-at` reads it, and every table written before"
+        " `D-IMPL-331` declares exactly that"
+    )
+    assert observations[0].valid_from == at_source, (
+        "the SOURCE's instant was dropped, so a row declaring"
+        " `decay_basis: valid-from` refuses every observation the fabric"
+        " produces and the declaration can never take effect"
+    )
