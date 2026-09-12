@@ -792,6 +792,24 @@ RULED_SDK_SUPPLIED_DEPLOYMENTS: frozenset[str] = frozenset(
         # divergence guard to call — the condition `D-IMPL-141` describes,
         # rather than a property this entry asserts.
         "examples/cp-09-treasury-liquidity-position",
+        # `D-GATE-cp-10`, 2026-09-12 — rung 10, admitted on its OWN evidence
+        # rather than by resemblance to rung 9, which is how cp-08 and cp-09
+        # were each admitted in turn. Measured before this line was written:
+        # the detector's tree-derived set differed from this roster by exactly
+        # this one root and by nothing else — `roster today is missing:
+        # ['examples/cp-10-rating-and-spread-migration']`, `has extra: []`.
+        #
+        # The deployment authors no operator set at all: `produce.py`'s named
+        # `plan_factory` passes the resolver's own `required` tuple straight
+        # through to `RatingSpreadMigrationProjection`, which returns it
+        # unchanged from `required_operators()`. There is nothing to diverge
+        # from and no divergence guard to call — the condition `D-IMPL-141`
+        # describes, rather than a property this entry asserts. That the
+        # SDK-side guard nonetheless refuses a divergent set is separately
+        # evidenced: `RSM-G01` and `RSM-G02` are recorded `unavailable`
+        # precisely because `D-IMPL-86` fires at BIND before this deployment
+        # can produce an artifact.
+        "examples/cp-10-rating-and-spread-migration",
     }
 )
 
@@ -3475,6 +3493,13 @@ def test_the_premise_detector_reads_the_shipped_tree_correctly() -> None:
         # its siblings above: this assertion and the roster both record that
         # answer and neither causes it.
         "examples/cp-09-treasury-liquidity-position",
+        # `D-GATE-cp-10`, 2026-09-12 — rung 10, added in the same sitting as
+        # the roster admission above but as its OWN assertion, because the two
+        # say different things: the roster records what was RULED, this records
+        # what the detector ANSWERS. cp-08 is the recorded case of those two
+        # diverging — the detector had reached that root since the commit it
+        # shipped canonical, and this literal did not say so for a day.
+        "examples/cp-10-rating-and-spread-migration",
         "examples/hw1-companies-over-revenue/deployment",
         # `D-IMPL-311`, 2026-09-09 — s1-00 arrives from row B above, by the
         # same second shape cp-05 took: it reaches `build_governed_resolver`
