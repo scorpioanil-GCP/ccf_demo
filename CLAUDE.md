@@ -1230,13 +1230,20 @@ the easy way.
 - **Phase 21's UAT roster pin stays FROZEN.**
   `tools/docs_tests/test_requirement_ledger.py` derives each roster member's
   base from Phase 21's pinned commit. That pin does not move.
-- **`24.5-VERIFICATION.md` is a NAMED EXCEPTION, not a roster gap.** It carries
-  an undischarged `human_verification:` block of eight items and is absent from
-  the frozen roster **because it did not exist at that pin** — measured: adding
-  it turns one red into four, because three controls then try to derive a base
-  for a file with no history there. **Do not absorb it by moving the base.**
-  Whether `D-GATE-24.5` decided those eight questions is a separate reading
-  nobody has taken.
+- **`24.5-VERIFICATION.md` was never a roster gap — the DERIVATION was wrong**
+  (`D-IMPL-330`). It carries a `human_verification:` block of eight items and is
+  absent from the frozen roster **because it did not exist at that pin**, while
+  `derived_uat_records` globbed today's working tree — a present-tense
+  population compared against a past-tense roster. **Do not absorb it by moving
+  the base, and do not name it as an exception:** widening the roster was
+  measured to turn one red into **three** (`CONTROL A` and two of its
+  meta-controls, none of which can derive a base for a file with no history in
+  the window), and a filename exception is the `# ccf-schema: deferred(...)`
+  shape the next bullet refuses. The repair Dave ruled is to derive the
+  population from the **historical close SHA**. The eight items were ruled one
+  by one at `D-IMPL-330`; the sequencing was deliberate — the six open decisions
+  were resolved *before* the instrument was corrected, because a correct
+  Phase-21 check can never point at Phase 24.5 again.
 - **`CP05-F-03` is a real content and structure finding, NOT a header
   exception.** Two of cp-05's three `schema-headers` reds are value-type changes
   to `expected.yaml` — a comparison fixture four assertions read, two of them
