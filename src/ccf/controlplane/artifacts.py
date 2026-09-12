@@ -250,6 +250,32 @@ DecayMode = Literal["curve", "supersede-only"]
 #: ``valid-from`` per row, beside the rate.
 DecayBasis = Literal["observed-at", "valid-from"]
 
+#: HOW FRESHNESS AGGREGATES OVER A SET OF OBSERVATIONS OF THE SAME THING
+#: (``D-IMPL-333``).
+#:
+#: ``series-mean`` scores every observation and averages them. That is the
+#: right question for a point-in-time product, where each row is a separate
+#: thing the fabric knows, and it is the behavior every table had before this
+#: field existed.
+#:
+#: ``leading-edge`` scores ONLY the newest observation in each logical series,
+#: as of the decision instant. **A set of observations of one thing has a
+#: leading edge, and freshness is a property of that edge rather than of the
+#: set's mean.** Dave's framing, and the reason this field exists: *"Age makes
+#: a current observation stale. Age does not make historical evidence stale."*
+#:
+#: **Neither existing mode could express it, measured.** A product carrying two
+#: years of daily observations under a one-day ``curve`` scores ``F ≈ 0.007``
+#: — the archive's length, not the answer's currency. The same rows under
+#: ``supersede-only`` score ``F = 1.000000`` even when the leading edge went
+#: cold months ago, because ``supersede-only`` changes each observation's VALUE
+#: and never the SET that is averaged. Both are wrong, in opposite directions,
+#: for every product that deliberately reads history.
+#:
+#: The default is ``series-mean`` and it is hash-transparent, so every table
+#: written before this field existed keeps its identity and its ``F``.
+FreshnessAggregation = Literal["series-mean", "leading-edge"]
+
 
 class HalfLifeEntry(CCFContract):
     """One row of a λ_c table (whitepaper §7.7.1–§7.7.2; INV-CH7-59).
@@ -320,11 +346,32 @@ class HalfLifeEntry(CCFContract):
             falling back: a silent fallback to ``observed_at`` would report a
             perfectly fresh figure for a claim whose age nobody knows, which is
             the defect this field exists to end.
+        freshness_over: HOW freshness aggregates over observations of the same
+            thing (``D-IMPL-333``) — :data:`FreshnessAggregation`.
+            ``series-mean`` (the default, hash-transparent) scores every
+            observation and averages. ``leading-edge`` scores only the newest
+            observation in each logical series as of the decision instant, and
+            is what a product carrying history declares: *age makes a current
+            observation stale; age does not make historical evidence stale*.
+        series_key_attribute: WHICH CLAIM ATTRIBUTE names the logical series,
+            for ``leading-edge`` only. ``None`` — the default — means the whole
+            observation type is one series. A deployment whose type carries
+            several independent series (one per bond, one per account) names
+            the attribute that distinguishes them, exactly as the policy
+            operator's ``classification_attribute_by_class`` names the
+            attribute it admits on: the SDK cannot know what a deployment
+            considers one series, so the deployment says.
     """
 
     decay: DecayMode = Field(default="curve", json_schema_extra={HASH_TRANSPARENT_KEY: True})
     decay_basis: DecayBasis = Field(
         default="observed-at", json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    freshness_over: FreshnessAggregation = Field(
+        default="series-mean", json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    series_key_attribute: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
     half_life_seconds: int | None = Field(
         default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
@@ -352,6 +399,13 @@ class HalfLifeEntry(CCFContract):
             raise ValueError(
                 "a supersede-only class carries no curve; a number beside it"
                 " is a second, unused field (24.5-L-22)"
+            )
+        if self.series_key_attribute is not None and self.freshness_over != "leading-edge":
+            raise ValueError(
+                "`series_key_attribute` names how to group a series for"
+                " `freshness_over: leading-edge`, and this row aggregates as"
+                f" {self.freshness_over!r} — the key would be read by nothing"
+                " (D-IMPL-333)"
             )
         return self
 

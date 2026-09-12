@@ -1,0 +1,153 @@
+$ make -s example-cp-10
+#  Scenario 1 — the confirmation. Celanese Corp.
+asked        549300FHJQTDPPN41627 · portfolio-review · as of 2026-08-20T00:00:00+00:00 · 730d window
+
+Celanese Corp  ·  549300FHJQTDPPN41627
+benchmark basis  static_issue_band
+
+SPREAD SERIES — per BOND, because a bond is what trades
+  syn-i-b23153   BB      5y  median   29.015 bp  ·   498 obs daily→weekly
+                 latest 2026-08-18   benchmark  436.785 + market  163.000 + issuer   20.667  (never summed)
+  syn-i-f87e69   BB     25y  median   29.538 bp  ·   498 obs daily→weekly
+                 latest 2026-08-18   benchmark  528.000 + market  163.000 + issuer   26.838  (never summed)
+
+OBLIGOR-LEVEL SUMMARY — derived, and never travels alone
+  blended median 29.276 bp  over 2 instruments
+  per-bond medians {'syn-i-b23153': '29.015', 'syn-i-f87e69': '29.538'}
+  per-bond peaks   {'syn-i-b23153': '233.245', 'syn-i-f87e69': '37.378'}
+  a mean over instruments that may be pricing different things; episodes are detected per bond and never on this figure
+
+DIVERGENCE EPISODES — per bond, against THAT bond's own median
+  syn-i-b23153   peak  233.245 bp on 2024-12-11  = 8.039x its own 29.015 bp median
+                 grade in force at the peak: BB
+                 next change BB → BB- on 2025-03-17, 96 days later
+                   later: True · downgrade: True · off-cycle: True  ->  CONFIRMS: True
+                   trigger: ad hoc credit review following sustained spread widening in the obligor's traded debt
+
+GRADE SERIES — two clocks, both served
+  BB    from 2024-08-19  booked 2024-08-23 (+4d)  on-cycle   wave11a-v1
+  BB    from 2024-11-18  booked 2024-11-21 (+3d)  on-cycle   wave11a-v1
+  BB    from 2025-02-17  booked 2025-02-19 (+2d)  on-cycle   wave11a-v1
+  BB-   from 2025-03-17  booked 2025-03-21 (+4d)  off-cycle  wave11a-v1
+  BB-   from 2025-05-19  booked 2025-05-22 (+3d)  on-cycle   wave11a-v1
+  BB-   from 2025-08-18  booked 2025-08-19 (+1d)  on-cycle   wave11a-v1
+  BB-   from 2025-11-17  booked 2025-11-19 (+2d)  on-cycle   wave11a-v1
+  BB-   from 2026-02-16  booked 2026-02-21 (+5d)  on-cycle   wave11a-v1
+  BB-   from 2026-05-18  booked 2026-05-23 (+5d)  on-cycle   wave11a-v1
+
+BAND MIGRATION — reported, never corrected
+  issue bands ['BB']  ·  grade band now BB  ·  migrated: False
+  none — the obligor is still in its issue band
+
+SERIES REGISTER — each series carries its OWN cadence
+  idiosyncratic_spread:syn-i-b23153      instrument 2024-08-20 → 2026-08-18   498 obs
+  idiosyncratic_spread:syn-i-f87e69      instrument 2024-08-20 → 2026-08-18   498 obs
+  internal_grade                         obligor    2024-08-19 → 2026-05-18     9 obs
+
+context debt D_c 0.3651499166693501911990666667   signal ok
+  F 0.6641385953872264973333333333  C 0.9559  S 1.0000
+expires_at       2026-08-20T04:00:00+00:00
+
+================================================================
+$ make -s example-cp-10 LEI=529900VKCYZW8GZ4WW58
+#  Scenario 2 — a standing disagreement. Sabre Corp.
+asked        529900VKCYZW8GZ4WW58 · portfolio-review · as of 2026-08-20T00:00:00+00:00 · 730d window
+
+Sabre Corp  ·  529900VKCYZW8GZ4WW58
+benchmark basis  static_issue_band
+
+SPREAD SERIES — per BOND, because a bond is what trades
+  syn-i-4d322a   B      25y  median   40.350 bp  ·   498 obs daily→weekly
+                 latest 2026-08-18   benchmark  528.000 + market  294.000 + issuer   37.113  (never summed)
+  syn-i-6ffe2c   B      25y  median   37.575 bp  ·   498 obs daily→weekly
+                 latest 2026-08-18   benchmark  528.000 + market  294.000 + issuer   41.600  (never summed)
+
+OBLIGOR-LEVEL SUMMARY — derived, and never travels alone
+  blended median 38.963 bp  over 2 instruments
+  per-bond medians {'syn-i-4d322a': '40.350', 'syn-i-6ffe2c': '37.575'}
+  per-bond peaks   {'syn-i-4d322a': '282.633', 'syn-i-6ffe2c': '47.018'}
+  a mean over instruments that may be pricing different things; episodes are detected per bond and never on this figure
+
+DIVERGENCE EPISODES — per bond, against THAT bond's own median
+  syn-i-4d322a   peak  282.633 bp on 2026-01-23  = 7.004x its own 40.350 bp median
+                 grade in force at the peak: B
+                 NOT CONFIRMED (unchanged) — the obligor was rated at the peak and the grade did not change afterward — two assessments that never reconciled, not an absence of evidence
+                   grade B through 2 later reviews
+
+GRADE SERIES — two clocks, both served
+  B     from 2024-08-19  booked 2024-08-21 (+2d)  on-cycle   wave11a-v1
+  B     from 2024-11-18  booked 2024-11-21 (+3d)  on-cycle   wave11a-v1
+  B     from 2025-02-17  booked 2025-02-20 (+3d)  on-cycle   wave11a-v1
+  B     from 2025-05-19  booked 2025-05-23 (+4d)  on-cycle   wave11a-v1
+  B     from 2025-08-18  booked 2025-08-19 (+1d)  on-cycle   wave11a-v1
+  B     from 2025-11-17  booked 2025-11-20 (+3d)  on-cycle   wave11a-v1
+  B     from 2026-02-16  booked 2026-02-21 (+5d)  on-cycle   wave11a-v1
+  B     from 2026-05-18  booked 2026-05-19 (+1d)  on-cycle   wave11a-v1
+
+BAND MIGRATION — reported, never corrected
+  issue bands ['B']  ·  grade band now B  ·  migrated: False
+  none — the obligor is still in its issue band
+
+SERIES REGISTER — each series carries its OWN cadence
+  idiosyncratic_spread:syn-i-4d322a      instrument 2024-08-20 → 2026-08-18   498 obs
+  idiosyncratic_spread:syn-i-6ffe2c      instrument 2024-08-20 → 2026-08-18   498 obs
+  internal_grade                         obligor    2024-08-19 → 2026-05-18     8 obs
+
+context debt D_c 0.3651499166693501911990666667   signal ok
+  F 0.6641385953872264973333333333  C 0.9559  S 1.0000
+expires_at       2026-08-20T04:00:00+00:00
+
+================================================================
+$ make -s example-cp-10 LEI=549300TRW1LZMDJZAQ78 AS_OF=2025-04-07T00:00:00+00:00 WINDOW_DAYS=48 GRANULARITY=daily
+#  Scenario 3 — the market move that is not a deterioration. B&G Foods.
+asked        549300TRW1LZMDJZAQ78 · portfolio-review · as of 2025-04-07T00:00:00+00:00 · 48d window
+
+B&G Foods, Inc.  ·  549300TRW1LZMDJZAQ78
+benchmark basis  static_issue_band
+
+SPREAD SERIES — per BOND, because a bond is what trades
+  syn-i-443d83   B       3y  median   43.140 bp  ·    35 obs daily→daily
+                 latest 2025-04-07   benchmark  377.876 + market  486.000 + issuer   35.819  (never summed)
+  syn-i-cca248   B       7y  median   37.673 bp  ·    35 obs daily→daily
+                 latest 2025-04-07   benchmark  391.543 + market  486.000 + issuer   37.393  (never summed)
+
+OBLIGOR-LEVEL SUMMARY — derived, and never travels alone
+  blended median 40.406 bp  over 2 instruments
+  per-bond medians {'syn-i-443d83': '43.140', 'syn-i-cca248': '37.673'}
+  per-bond peaks   {'syn-i-443d83': '46.077', 'syn-i-cca248': '42.160'}
+  a mean over instruments that may be pricing different things; episodes are detected per bond and never on this figure
+
+DIVERGENCE EPISODES — per bond, against THAT bond's own median
+  none — no bond exceeded its own median by the requested multiple
+
+GRADE SERIES — two clocks, both served
+  B     from 2025-02-17  booked 2025-02-22 (+5d)  on-cycle   wave11a-v1
+
+BAND MIGRATION — reported, never corrected
+  issue bands ['B']  ·  grade band now B  ·  migrated: False
+  none — the obligor is still in its issue band
+
+SERIES REGISTER — each series carries its OWN cadence
+  idiosyncratic_spread:syn-i-443d83      instrument 2025-02-18 → 2025-04-07    35 obs
+  idiosyncratic_spread:syn-i-cca248      instrument 2025-02-18 → 2025-04-07    35 obs
+  internal_grade                         obligor    2025-02-17 → 2025-02-17     1 obs
+
+context debt D_c 0.05239076915893893600000000   signal ok
+  F 0.947609230841061064  C 1.0000  S 1.0000
+expires_at       2025-04-07T04:00:00+00:00
+
+================================================================
+$ make -s example-cp-10 DEBT_TOLERANCE=0.10
+#  The governed refusal. D_c is 0.3651; the caller's ceiling is 0.10.
+#  A governed 'no' is an answer, and it arrives as DATA rather than as an
+#  exception — so a client cannot swallow it in a bare except.
+asked        549300FHJQTDPPN41627 · portfolio-review · as of 2026-08-20T00:00:00+00:00 · 730d window
+
+REFUSED      tolerance-exceeded
+  reason     tolerance-exceeded
+  detail     fulfillment was withheld because an applicable declared tolerance was exceeded
+
+  The determination is preserved in the replay record; the
+  consumer envelope discloses less than the fabric recorded.
+  replay     ccf-artifact://cp-10-migration-demo/ccf.replay-record/17e200c6a69d8ee3fb7511a7e6af5e7eaf0854ce1920d4c4de43a67af6508508@14f75b74b222f579337ffba26140ec71dec0fdd6828ae688500c438d101d5344
+make: *** [Makefile:532: example-cp-10] Error 1

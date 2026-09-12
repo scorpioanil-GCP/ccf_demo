@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE DEMONSTRATION QUESTION — the caller's vocabulary, read-side.
+#
+# `run.py` asks this when no flag overrides it. The `as_of` pin is here rather
+# than in code because it is a REQUEST parameter: the instant a question is
+# asked as-of is the caller's to state, and a program that read a clock would
+# make its own answer unreproducible (`D-IMPL-98`).
+
+semver: "1.0.0"
+class_id: cp-10.question
+
+declaration:
+  question:
+    # SCENARIO 1 — the confirmation. Celanese Corp. The 5-year bond
+    # `syn-i-b23153` peaks at 233.2 bp on 2024-12-11, 8.0x its OWN median,
+    # and the grade follows 96 days later, off-cycle. The 25-year sibling
+    # reaches 1.3x its own median on the same day and produces no episode —
+    # which is the whole point of detecting per bond (`CP-SPEC-010` §D.4).
+    lei: "549300FHJQTDPPN41627"
+    intent: portfolio-review
+    # THE WINDOW'S END. Late enough to contain both the spread peak and the
+    # downgrade that confirms it.
+    as_of: "2026-08-20T00:00:00+00:00"
+    window_days: 730
+    granularity: weekly
+    # A MULTIPLE OF EACH BOND'S OWN MEDIAN, never an absolute basis-point
+    # threshold: 100 bp means one thing at AA and another at B, and one thing
+    # on a 2-year and another on a 25-year.
+    divergence_multiple: "2.0"
+    debt_tolerance: "0.60"

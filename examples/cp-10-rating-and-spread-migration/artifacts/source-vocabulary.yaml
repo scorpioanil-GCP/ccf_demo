@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE SOURCES' OWN VOCABULARY — every IRI this deployment reads.
+#
+# Not in `ccf_config.yaml`, which is Control Plane state. Not in
+# `acquisition.py` either: code is interpreters, never the things interpreted
+# (CLAUDE.md §6.4).
+#
+# The rating classes are the vault's Wave-8 FIBO binding mirror. `ex:grade`,
+# `ex:trigger`, `ex:assertedAt` and `ex:supersededBy` are deliberately unbound —
+# no FIBO or Commons term covers an internal credit system's own grade
+# assertion, its narrative trigger, or its booking date, and inventing a
+# `spec.edmcouncil.org` IRI for one would make the mirror disagree with FIBO.
+
+semver: "1.0.0"
+class_id: cp-10.source-vocabulary
+
+declaration:
+  rating_class: https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/CreditRatings/OrganizationCreditRating
+  concerns_party: https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/CreditRatings/concernsParty
+  lei: http://example.org/fibo/lei
+
+  # The grade itself, and the two clocks it carries.
+  grade: http://example.org/fibo/grade
+  valid_from: http://example.org/fibo/validFrom       # when it took EFFECT
+  valid_to: http://example.org/fibo/validTo
+  asserted_at: http://example.org/fibo/assertedAt     # when it was BOOKED
+  trigger: http://example.org/fibo/trigger            # why the review happened
+  superseded_by: http://example.org/fibo/supersededBy

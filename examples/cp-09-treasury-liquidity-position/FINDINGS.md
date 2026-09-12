@@ -50,10 +50,25 @@ invented "now" that would fail closed on everything.
 
 ---
 
-## `CP09-F-06` — the SDK's reference freshness term cannot see a source's observation time · OPEN
+## `CP09-F-06` — the SDK's reference freshness term cannot see a source's observation time · FIXED
 
-**This is an SDK finding, and it disproves an approved term of `CP-SPEC-009`.**
-Raised, not resolved (CLAUDE.md §11): it needs a ruling.
+**RESOLVED 2026-09-11 by `D-IMPL-331` and `D-IMPL-332`, recorded at
+`D-GATE-cp-09`.** Dave took **option 2** below, and then a second ruling the
+option list had not anticipated. Everything from here to *The decision for
+Dave* is preserved as it was written when the finding was raised — the
+measurement is the evidence, and rewriting it in the past tense would leave
+nothing to check the ruling against.
+
+**Why this entry read `OPEN` until 2026-09-12.** It was not re-stated when
+the rulings landed, so cp-09's findings record and `docs/DECISIONS.md`
+disagreed about whether an SDK issue was outstanding. That is not cosmetic:
+the three-issue cap (CLAUDE.md §9) counts open SDK issues, and a stale `OPEN`
+spends one of the three. Closed under `D-GATE-cp-10` (Dave, 2026-09-12).
+
+---
+
+**The finding as raised.** This is an SDK finding, and it disproves an
+approved term of `CP-SPEC-009`. Raised, not resolved (CLAUDE.md §11).
 
 **What the spec approved.** §E.1 declares a per-class λ_c table as *the decay
 model*, and §E.2 says `F` is *"normalized over the participating
@@ -119,3 +134,40 @@ forbids: compensating code that reconstructs what should have been declared.
 **Reproduce with:** the block above, from
 `examples/cp-09-treasury-liquidity-position/run.py` against the curated estate
 at `as_of=2026-06-17T18:05:00+00:00`.
+
+---
+
+### The resolution
+
+**Option 2, and then the half nobody had listed.**
+
+**`D-IMPL-331`** — a λ_c row declares WHICH of an observation's two instants it
+decays against. `Observation` carries both; `HalfLifeEntry.decay_basis` selects;
+a row declaring `valid-from` where no instant exists refuses by name with
+`MissingDecayInstant` rather than falling back. The default is `observed-at` and
+the field is hash-transparent, so every table written before it existed keeps its
+identity and its `F`.
+
+**`D-IMPL-332`** — and this is the part the three options above did not reach.
+`_stitch` wrote `valid_from = envelope.observed_time or envelope.ingestion_timestamp`,
+so a claim produced by the fabric **never** had a null `valid_from`. 331's
+refusal guarded only the direct-construction path; through assembly, a
+`valid-from` row read a manufactured instant and reported perfect freshness for
+an observation whose real age nobody knew. Dave's ruling, verbatim: *"Unknown
+must remain unknown. The CCF must never turn 'we learned it at 2 PM' into 'it
+became true at 2 PM.'"* An unsupplied valid-time now stays **absent**, and every
+validity-window read was taught to treat absence as *"in force"* rather than
+*"out of range"* (`docs/GRAPH_QUERY_SEMANTICS.md` 1.4.0, `GQ-09`).
+
+**Measured after the fix.** cp-09's `F` reads **0.970232**, against the
+`1.000000` recorded above. The λ_c table is live on the freshness term.
+
+**Why both halves were needed.** A declaration the layer beneath cannot honor is
+decoration; an honest substrate nobody interrogates is unused. Dave's framing:
+*"`D-IMPL-331` made the temporal basis explicit; `D-IMPL-332` ensured the
+assembly layer no longer destroys the uncertainty required to enforce it."*
+
+**Where it went next.** `CP10-F-07` found the remaining half of the same
+question at rung 10 — 331 and 332 settle *which instant* and *whether there is
+one*; `D-IMPL-333` settles *which observations constitute the thing being
+scored*.

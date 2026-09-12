@@ -317,6 +317,9 @@ _MARKED_IN_THE_TREE = frozenset(
         # observation had before the field existed — so the sentinel means the
         # old contract twice over.
         "ccf.halflife.decay.Observation.valid_from",
+        # `D-IMPL-333`. `None` is both the honest value where a deployment
+        # declared no series and the shape every observation had before.
+        "ccf.halflife.decay.Observation.series",
         "ccf.controlplane.artifacts.HalfLifeEntry.decay",
         # `D-IMPL-331`. Ticked for the same reason `decay` above is: a λ_c row
         # written before the field existed means "decay against the instant the
@@ -325,6 +328,12 @@ _MARKED_IN_THE_TREE = frozenset(
         # deployment declaring `valid-from` has said something new and it is
         # inside the hash.
         "ccf.controlplane.artifacts.HalfLifeEntry.decay_basis",
+        # `D-IMPL-333`. A table written before these existed aggregated by
+        # series-mean and named no series key, which is exactly what the
+        # sentinels say — so silence equals yesterday and every stored λ_c
+        # version holds its identity.
+        "ccf.controlplane.artifacts.HalfLifeEntry.freshness_over",
+        "ccf.controlplane.artifacts.HalfLifeEntry.series_key_attribute",
         "ccf.controlplane.artifacts.HalfLifeEntry.half_life_seconds",
         "ccf.controlplane.artifacts.ProductClassDeclaration.serve_obligations",
         "ccf.products.contract.RegisteredProductClass.serve_obligations",
