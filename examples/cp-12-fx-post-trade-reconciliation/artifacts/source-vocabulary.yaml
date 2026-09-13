@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE SOURCE TERMS THIS DEPLOYMENT READS, named once.
+#
+# `acquisition.py` spells no IRI and no column of its own: every term this
+# product reaches for is here, so a reader sees the whole source surface without
+# reading Python (CLAUDE.md §6.4).
+
+semver: "1.0.0"
+class_id: cp-12.source-vocabulary
+
+declaration:
+  # --- Fluree: the OBSERVATION INSTANTS and the amendment chain.
+  system_observation_class: http://example.org/fibo/SystemObservation
+  reconciliation_break_class: http://example.org/fibo/ReconciliationBreak
+  observed_in: http://example.org/fibo/observedIn
+  recorded_by_system: http://example.org/fibo/recordedBySystem
+  system_observed_at: http://example.org/fibo/systemObservedAt
+  amendment_seq: http://example.org/fibo/amendmentSeq
+  amends: http://example.org/fibo/amends
+  clock_offset_seconds: http://example.org/fibo/clockOffsetSeconds
+
+  # --- PostgreSQL: the trades, the system values, the rates and the policy.
+  tables:
+    fx_trade: the trade, its pair, execution instant, value date and NOTIONAL BAND
+    system_trade_record: each system's value per amendment — no instant lives here
+    break_record: the designated break sample, with its designed class
+    fx_intraday_tick: the 5-minute rate series used for revaluation
+    fx_pip_size: the estate's own pip table, used to CORROBORATE the declaration
+    materiality_threshold: the break threshold in pips, by intent
+
+  # --- The three systems, and the correction this product applies to each.
+  #
+  # THE CLOCK OFFSET IS PRODUCT CONTEXT, NOT AN SDK TEMPORAL AXIS. The corrected
+  # instant is used to compare two systems and NOTHING ELSE — it reaches no
+  # `valid_from`, no `observed_at`, no invalidation boundary and no Context Debt
+  # term. The λ_c table ages an observation against the instant the SOURCE
+  # RECORDED (`D-IMPL-331`), and a corrected instant on that path would make the
+  # fabric's freshness figure a function of this product's alignment model.
+  systems: [trading, settlement, risk]
+  clock_offset_source: >-
+    read from the ledger's `clockOffsetSeconds`, never declared here — the
+    offsets are estate facts about three named systems, and this product reads
+    them rather than asserting them.
+
+  # --- What this estate does NOT carry, named so its absence is a statement.
+  absent_legs:
+    settlesVia: >-
+      ABSENT from this estate's vocabulary — not present with a count of zero. A
+      predicate nothing asserts is not a predicate asserting nothing.
+    netsWith: ABSENT, on the same reading.
+    iso20022: no table, no schema, no records.
+    settlement_cycle_conventions: no CLS cutoff or currency-convention table.

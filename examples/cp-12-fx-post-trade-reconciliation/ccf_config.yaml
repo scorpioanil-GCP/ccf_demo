@@ -1,0 +1,203 @@
+# yaml-language-server: $schema=../../docs/schemas/ccf.deployment-config.json
+#
+# THE CONTROL PLANE DOCUMENT — what this fabric is permitted to do.
+#
+# Everything domain-specific about `markets.fx-reconciliation` is here, and
+# `produce.py` names none of it. Delete this file and the spine has nothing
+# left to interpret (CLAUDE.md §6.4).
+
+semver: "1.0.0"
+tenant_id: cp-12-reconciliation-demo
+
+backend: sqlite
+
+product_class:
+  schema_name: markets.fx-reconciliation
+  schema_version: "1.0.0"
+  ttl_anchor: from_decision
+  assembly_mode: algorithmic
+  max_ttl_key: cp-12/product/fx-reconciliation/max-ttl
+
+  required_operator_keys:
+    - policy.principal-subgraph
+    - traversal.typed-neighborhood
+
+  serve_obligations:
+    # The product must name what it computed from. A verdict served with no
+    # per-system values behind it is an assertion, not a reconciliation.
+    lineage_inputs_at:
+      - reconciliations
+      - comparison
+
+  declared_product_gate:
+    gate_id: FXR-G07.one-verdict-per-trade
+    gate_version: "1.0.0"
+
+operators:
+  policy.principal-subgraph:
+    classification_attribute_by_class:
+      fxr_trade: trade_id
+      fxr_observation: trade_id
+    permitted_classifications:
+      source: effective_request
+      parameter: trades
+
+  traversal.typed-neighborhood:
+    # THE TRADE ALONE seeds the walk; every system observation is reached by
+    # hopping `observedIn`.
+    seed_entity_classes:
+      - fxr_trade
+    relationship_types:
+      - observedIn
+    depth_limit: 2
+
+request_contract:
+  class_id: cp-12.request-contract
+  role: register
+  registration: typed
+  schema_name: markets.fx-reconciliation
+  schema_version: "1.0.0"
+  arguments:
+    properties:
+      trades:
+        type: array
+        items:
+          type: string
+          description: one trade identifier this request may read.
+        description: >-
+          the trades this request may reconcile, and the value that reaches
+          the policy operator's admitted set.
+      align_clocks:
+        type: boolean
+        description: >-
+          whether each system's recorded instant is corrected by that system's
+          recorded clock offset before anything is compared. `false` is what
+          conventional reconciliation does, and it is in the surface so both
+          can be run and the difference measured.
+      compare_at:
+        type: string
+        description: >-
+          THE COMPARISON INSTANT, and an explicit axis. `amendment-0` is the
+          state in which a break actually occurred; `latest` is what a
+          conventional reconciliation sees. The product never silently
+          replaces the requested state with latest (§B.2a).
+      materiality_pips:
+        type: number
+        description: overrides the threshold the intent selects.
+      debt_tolerance:
+        type: number
+        description: the caller's ceiling on assessed Context Debt.
+    required:
+      - trades
+  defaults:
+    align_clocks: true
+    compare_at: amendment-0
+
+resolution:
+  # TWO ENTITY CLASSES. A trade is what the verdict is ABOUT; an observation is
+  # one system's reading of it at one amendment. Keeping them apart is what lets
+  # the debt scorer age an observation without ageing the trade's identity —
+  # and what lets `series_key_attribute: system_name` mean anything.
+  entity_rules:
+    - match_key: trade_node
+      entity_class: fxr_trade
+      identity_keys: [entity_uri]
+      attribute_keys: [trade_id, node_kind, label, payload_json]
+    - match_key: observation_node
+      entity_class: fxr_observation
+      identity_keys: [entity_uri]
+      # `system_name` is promoted out of the payload because the λ_c row names
+      # it as this class's series key, and the scorer reads a series key off
+      # the CLAIM rather than out of a serialized blob. Buried in
+      # `payload_json` it resolves to `None` and all three systems collapse
+      # into one series (`HalfLifeEntry.series_key_attribute`; `FXR-G14`).
+      attribute_keys: [trade_id, system_name, node_kind, label, payload_json]
+
+    # Endpoint rules. NO attribute keys: an edge asserts that two nodes are
+    # related and nothing about what either node IS.
+    - {match_key: trade_subject, entity_class: fxr_trade,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: subject_uri}}
+    - {match_key: observation_object, entity_class: fxr_observation,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+
+  relationship_rules:
+    - {relationship_type: observedIn, predicate_key: predicate,
+       subject_entity_class: fxr_trade, object_entity_class: fxr_observation,
+       subject_rule: trade_subject, object_rule: observation_object}
+
+# ---------------------------------------------------------------------------
+# λ_c — aged against the RECORDED instant, never the corrected one.
+# ---------------------------------------------------------------------------
+#
+# This is `FXR-G24` expressed as configuration. The corrected instant is this
+# product's own alignment model (§B.4); letting it drive `decay_basis` would
+# make the SDK's freshness figure a function of how wrong this product believes
+# three named clocks to be. What the fabric sees is what the source RECORDED
+# (`D-IMPL-331`), and `deployment._node` passes exactly that.
+#
+# TWO HALF-LIFE FIGURES EXIST FOR THIS PRODUCT AND THEY ARE NOT THE SAME
+# CONTRACT (`CP12-F-15`, CP-SPEC-012 §B.5.0).
+#
+#   PRODUCTION FRESHNESS REFERENCE — 1 hour.
+#     The freshness SLA this product would run at against continuously
+#     refreshed market data. It is a REFERENCE, it lives in the specification's
+#     prose, and IT IS BOUND NOWHERE. Nothing in this file carries it and no
+#     served `F` is computed from it.
+#
+#   CP-12'S ILLUSTRATIVE HALF-LIFE — 48 hours, and it is the value below.
+#     THIS is what the example runs at and what every served `F` is computed
+#     from. `FXR-G28` serves under both bindings and asserts the served figure
+#     follows THIS value rather than the reference above.
+#
+# Why the reference cannot be used here: the trade window is 2026-08-06 ..
+# 2026-08-13, eight days wide. At one hour every observation has aged to
+# nothing, `F` is carried almost entirely by the non-decaying `fxr_trade`
+# class, and two real trades read 0.2500 and 0.2508 — a spread of 0.0008, the
+# term no longer measuring its own subject. At 48 hours they read 0.5151 and
+# 0.8999, a spread of 0.3848.
+#
+# 48 HOURS IS NOT A PRODUCTION RECOMMENDATION. It is a demonstration value
+# under CLAUDE.md §9 and `D-IMPL-323`:
+#
+#   Illustrative calibration: This example runs against a point-in-time
+#   demonstration estate rather than continuously refreshed production data.
+#   Freshness half-lives and related thresholds are calibrated to make the
+#   governed behavior observable in that snapshot. They demonstrate how the SDK
+#   applies these controls and should not be interpreted as recommended
+#   production coverage-policy thresholds.
+half_life:
+  fxr_observation:
+    # 48 HOURS — CP-12's illustrative half-life, and THE BOUND VALUE. Not the
+    # 1-hour production freshness reference, which is bound nowhere.
+    half_life_seconds: 172800
+    # The instant the SOURCE RECORDED. Not the corrected one (`FXR-G24`).
+    decay_basis: valid-from
+    # THE LEADING EDGE of each system's series (`D-IMPL-333`). A trade can
+    # carry four amendments; averaging freshness over all of them would make
+    # `F` a measure of how often the trade was amended.
+    freshness_over: leading-edge
+    series_key_attribute: system_name
+    decay_driver: system-observation
+    supersession_event: next-amendment-of-system
+  fxr_trade:
+    # A trade's identity is superseded by amendment, not aged. `supersede-only`
+    # returns retained relevance 1, which is the honest statement for a class
+    # time does not touch.
+    decay: supersede-only
+    decay_driver: trade-amendment
+    supersession_event: amendment
+
+debt_profile:
+  risk_sensitivity: "1.0"
+  forced_llm_threshold: "0.60"
+  fail_closed_threshold: "0.85"
+
+policy:
+  class_id: cp-12.policy-bundle
+  role: register
+  registration: typed
+  regime: markets-operations-entitlement
+
+default_perspective:
+  principal_id: PRIN-MOP-001
+  role: middle-office-reconciliation

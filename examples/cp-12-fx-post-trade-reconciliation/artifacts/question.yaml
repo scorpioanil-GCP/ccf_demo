@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE DEMONSTRATION QUESTION — the caller's vocabulary, read-side.
+#
+# `run.py` asks this when no flag overrides it. The `as_of` pin is here rather
+# than in code because it is a REQUEST parameter: the instant a question is
+# asked as-of is the caller's to state, and a program that read a clock would
+# make its own answer unreproducible (`D-IMPL-98`).
+
+semver: "1.0.0"
+class_id: cp-12.question
+
+declaration:
+  question:
+    # THE FOUR TRADES THAT CARRY THE ARGUMENT, in one run.
+    #
+    #   TRD-W12-0002  USD/CAD  the worked case (§A.3). Risk and trading observe
+    #                          at the SAME true instant and agree exactly;
+    #                          settlement observes 33 minutes later. It is also
+    #                          scenario 3 — at `compare_at=latest` the break is
+    #                          GONE, because amendment 1 reconciled it.
+    #   TRD-W12-0004  GBP/USD  scenario 2. All three corrected to 07:34:39;
+    #                          trading alone differs. Zero timing interval, so
+    #                          the residual IS the variance and nothing about
+    #                          timing explains it.
+    #   TRD-W12-0124  AUD/USD  TRAP 4. The nearest preceding tick is 20.0 hours
+    #                          old across the weekend. `not-evaluable`, and the
+    #                          staleness is carried rather than hidden.
+    #   TRD-W12-0424  USD/JPY  TRAP 5. The pip is 0.01, not 0.0001. Normalised
+    #                          it reports 5.34 pips; unnormalised it reads 100x
+    #                          smaller and passes every threshold.
+    trades:
+      - TRD-W12-0002
+      - TRD-W12-0004
+      - TRD-W12-0124
+      - TRD-W12-0424
+    # THE SUBJECT for a multi-trade request. A set is not nameless, and the
+    # product refuses to promote one of four trades to stand for all of them.
+    scope: w12-worked-cases
+    intent: break-investigation
+    # Just past the right edge of the trade window (executions run
+    # 2026-08-06 .. 2026-08-13). Every observation is knowable; nothing later
+    # exists to be wrongly admitted.
+    as_of: "2026-08-14T00:00:00+00:00"
+    # BOTH AXES, STATED. Neither is silently defaulted into the answer: the
+    # comparison instant changes what a break IS (§B.2a) and the alignment
+    # changes what explains it, so a reader sees which question was asked.
+    compare_at: amendment-0
+    align_clocks: true
+    # NO materiality override. The intent selects the threshold from the
+    # estate's own `materiality_threshold` table — 2 pips for
+    # `break-investigation` — and a default here would put a policy value this
+    # product invented in front of the one the estate declares.
+    materiality_pips: null
+    # NO debt_tolerance by default. `run.py --debt-tolerance` asks for the
+    # refusal, so the gate is demonstrated on request rather than hidden behind
+    # a ceiling nobody chose.
+    debt_tolerance: null
