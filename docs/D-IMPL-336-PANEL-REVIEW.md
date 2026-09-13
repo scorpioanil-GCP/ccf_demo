@@ -6,7 +6,7 @@
 
 > **For the independent agents reading this.** Every finding carries the command
 > that produced it. Nothing is asserted on a reviewer's say-so: five reviewers
-> raised 32 claims, and **four that multiple reviewers agreed on were killed by
+> raised 37 claims, and **four that multiple reviewers agreed on were killed by
 > one measurement each** — those are listed as rejected, with the measurement.
 > Severities below are the *verified* ones, which are mostly lower than the
 > reviewers proposed. Re-run anything.
@@ -353,7 +353,97 @@ slot.
 
 ---
 
-## 4 · Two defects in my own proof machinery
+## 3a · Found by the completeness critic — five more, all measured
+
+### F14 · Three of the four ruled composition laws are unwired · **HIGH**
+
+`composite.py` declares itself the aggregate-product surface `D-IMPL-104`
+deferred — and **never imports `ccf.products.composition`**. `compose_lineage`,
+`compose_expiry` and `refuse_mixing` already exist and ship; only
+`compose_debt_factors` got called.
+
+```
+a child expiring at 11:00, composed into a composition whose instant is 12:00
+  -> served=True
+ChildResolution fields containing "expir": none
+```
+
+`CompositionOutcome` carries `factors`, `resolutions`, `refusal` — **no
+validity, no lineage**. So `D-IMPL-31`'s TTL floor and mixing-refusal are not
+merely uncalled: a caller using the API as designed **cannot compute the floor**,
+and replay cannot tell whether it was applied.
+
+### F15 · The one-`as_of` invariant dissolves at the composition · **HIGH**
+
+`admit()` compares each child against the `asked_at` handed to *that call*.
+`compose_children` never receives `asked_at`, and `AdmittedChild` carries no
+instant — so the invariant is **structurally uncheckable at the place it is
+asserted**.
+
+```
+two children admitted at 12:00 and 13:00 -> composed, served=True
+replay rows carry two different child_asked_at values
+two different composition_invocation values -> also compose together
+```
+
+This directly contradicts `ChildResolution`'s own docstring: *"Equal to the
+composite's `asked_at` on every admitted child — a composite has exactly one."*
+And the anti-replay binding survives per child and **dissolves at the
+composition**.
+
+### F16 · Nothing on the peered path verifies a signature · **HIGH**
+
+`ProducedElsewhere.protected_header` is a caller-supplied `Mapping[str, object]`.
+The sibling `PeeringAdmissionGate` reaches its header only through
+`inbound.signed.declared_header()` **after** verification, under the comment
+*"the protected header is now authenticated."*
+
+```
+caller mints its own assertion naming producer="fabric://any-string-at-all",
+checked_at 400 days stale, in a hand-built dict
+  -> AdmittedChild  eligibility_basis='producer-attested'
+```
+
+**Four of the five bindings compare caller-supplied data to caller-supplied
+data** — `assertion.producer` against `candidate.fabric.fabric_id` most plainly.
+Only `consumer_scope` and the recomputed content hash are anchored to anything
+the caller does not also control. Compounding it: `fabric_id` is a new identity
+axis with **no registry behind it** — the gate consults `_registry` for exactly
+one thing, the invalidation register, never a trust policy or permitted-producer
+set. So *"producer-attested"* attests that two strings the caller wrote agree.
+
+*(This is adjacent to briefed-known K3 but is not K3: K3 assumed the peering
+gate verifies the signature before this code sees the header. On this path
+nothing does, and the type system cannot carry the evidence that anything did —
+`AdmittedProduct` does not expose the verified header, so a caller could not
+forward it even if it wanted to.)*
+
+### F17 · Extra `outcomes` entries are dropped silently · **MED**
+
+The mirror of F2. A child under a key naming no declared slot vanishes from both
+the arithmetic and the record:
+
+```
+{FAMILY: healthy, COVENANT: weak(F=C=S=0.1)} against requirements=[FAMILY]
+  -> one row, composed factors (1,1,1)
+```
+
+F2 says the key can name the *wrong* slot; this says a key naming *no* slot is
+discarded without a word. Both are the same missing reconciliation between the
+declared requirement set and the outcome map.
+
+### F18 · The container reinstates the ambiguity its fields were marked to prevent · **LOW**
+
+Every field *inside* `ChildResolution` is marked hash-transparent `False`, on my
+own argument that an absent value and a dropped one must not be the same
+artifact. `ContentGenerationPath.child_resolutions` is then marked **`True`** at
+`()` — so a composite record whose caller dropped all rows hashes
+byte-identically to a record with no children. Low only because nothing writes
+the field at all (F0).
+
+---
+
+## 4 · Three defects in my own proof machinery
 
 Both found by fable and its verifier. This is the third and fourth instance this
 session of my defects landing in verification rather than mechanism.
@@ -374,6 +464,17 @@ never discharged** — and per F4 it could not have been.
 The same test then asserts `statuses <= CHILD_OUTCOME_STATUSES`. A subset check
 **can never notice a reserved token that nothing emits**, which is precisely the
 F11 defect it sits next to.
+
+### V3 · A vacuous test whose docstring claims the opposite
+`test_a_composites_expiry_floor_survives_composition` imports `compose_expiry`
+inside its own body and calls it with **two literal datetimes**. It never builds
+a child, a candidate, an `AdmittedChild`, or calls `compose_children`. Its
+docstring nonetheless says *"the earliest constituent expiry still bounds the
+composite, so a composite can never be labelled fresher than its stalest
+child."*
+
+**The test would stay green if `compose_children` were deleted** — and per F14
+the property it claims is not true of the shipped path at all.
 
 ---
 
@@ -398,33 +499,84 @@ validator. **Low, and not a composite defect.**
 
 ---
 
-## 6 · The underlying mistake — one design error, seven symptoms
+## 6 · The underlying mistakes — two, and they explain almost everything
 
-F2, F3, F4, F5, F6, F8 and F9 are not seven independent bugs:
+### (a) The trust boundary is drawn at the gate's OUTPUT instead of its INPUTS
 
-> **`AdmittedChild` proves that admission *ran*. It does not carry *what it ran
-> against*, and nothing downstream re-binds it.**
+The module spends fifty lines arguing that `AdmittedChild` must be a capability
+token because *"compose the unauthorized child and filter it afterwards has no
+supported spelling"* — and then **accepts every input as an unattested caller
+assertion.**
 
-The design document argued the opposite — that holding an `AdmittedChild` **is**
-the evidence the checks ran, and that this makes composing an unauthorized child
-unspellable. The capability object is real, but **unparameterized**: it binds
-neither the requirement, nor the tenant, nor the fabric identity, nor the grant,
-nor the entities whose eligibility was (or was not) evaluated. Every gap above
-is a place where the caller supplies the missing parameter and the gate believes
-it.
+Everything the gate checks lives *inside* `contract`: class, version, instant,
+hash, debt. Everything a caller asserts *about* that contract is taken on faith:
 
-The recurring signature is sharper than "a missing check": **the record asserts
-an authority that never ran.** F3 and F5 both persist
-`eligibility_basis='local-register'` for a register that was never consulted;
-F4 persists a `grant_hash` nobody verified; F6 persists a fabric claim naming no
-fabric. This is an audit-by-construction defect, not only a gate-skip.
+| The caller asserts… | and the gate believes it |
+| --- | --- |
+| which tenant it belongs to | F5 |
+| which fabric produced it | F6 |
+| which entities it touched | F3 |
+| which requirement it satisfies | F2 |
+| which grant produced it | F4 |
+| which composition and instant it belongs to | F15 |
+| whether its "signed" header was ever signed | F16 |
 
-**The remedy is structural.** `AdmittedChild` should carry the requirement,
-tenant, fabric identity and eligibility scope it was admitted under;
-`compose_children` should re-bind against them rather than trusting a mapping
-key; and the gate should receive the agent's bound skills so `grant_hash` is
-verified rather than transcribed. F1 additionally needs a **ruling**, because
-D-IMPL-336 forecloses the obvious fix.
+**The gate verifies the child and trusts the context.** Patching these one at a
+time yields seven conditionals. The structural repair is that `ChildCandidate`'s
+context fields must arrive as *verified values* — a header derived from a
+verified envelope, a tenant taken from the gate rather than the contract,
+`touched_entities` non-optional — and that admission must **stamp the
+composition identity it ran under** so `compose_children` can re-bind it.
+
+### (b) A declaration surface and an execution surface, built as disconnected halves
+
+`RegisteredProductClass.requires` is read nowhere and `register_product_class`
+will not accept it. `requirements_declaration_is_coherent` is never called on the
+composition path. `child_resolutions` is written nowhere. Two of the eight
+`outcome_status` tokens have no originator and `_status_for`'s catch-all demotes
+anything it does not recognize, against a `reason` field that is a bare `str`.
+And the ruled `compose_expiry` / `compose_lineage` / `refuse_mixing` laws sit
+unwired beside the one law that got called.
+
+**The declared vocabulary, the declared requirements and the declared
+composition algebra all exist. The shipped path reads none of them.** That is
+why nothing outside tests calls `compose_children` at all.
+
+## 6a · Fix interactions — checked, not assumed
+
+- **F5 (tenant) is the safest fix and has an exact precedent.**
+  `PeeringAdmissionGate._check_policy_bindings` opens with
+  `if product.tenant_id != self._tenant_id: refuse` — *"trust is per tenant"* —
+  and that fires for cross-fabric products too, so a peered child legitimately
+  claims the *consumer's* tenant. Adding the same line **does not break the
+  `ProducedElsewhere` path**, and every contract in the test module already uses
+  one tenant.
+- **F3 must be fixed in `composite.py`, not the shared gate.**
+  `refuse_dependency_invalidation` documents `None → pass` as a deliberate
+  compatibility posture for pre-`D-IMPL-334` call sites; tightening it there
+  changes `run_gates` for callers that predate the register. Refusing `None` at
+  *composite* admission breaks nothing, and `()` already means "touched nothing"
+  so the distinct meaning survives.
+- **F7's obvious fix breaks the shipped fixture and needs a ruling.** A
+  `checked_at <= requested_as_of` ordering check would refuse **every** peered
+  test in the tree: the fixture's `checked_at` is `SERVED_AT` (12:30), later than
+  `ASKED_AT` (12:00) — *correctly*, since `asked_at` is a reconstruction instant
+  that may be historical while `checked_at` is wall-clock. The alternative, a
+  maximum age, is a threshold the SDK may not hold under `D-IMPL-38`. Either the
+  docstring is corrected to five, or `checked_at` gets a Control-Plane-declared
+  bound. **A decision, not a patch.**
+- **F6's fix has nothing to compare against.** No fabric-identity concept exists
+  anywhere in `src/` or `runtime/`. Fixing it means introducing a new Control
+  Plane axis or folding it into the unused `_tenant_id`. Not a one-liner.
+- **F2 and F17 are cheap.** `ChildRequirement` is a frozen `CCFContract`,
+  value-equal and hashable (verified), so `outcome.candidate.requirement ==
+  requirement` works against the fresh-instance pattern the tests use. Rejecting
+  unmatched keys is equally cheap — no call site passes a key it does not
+  declare.
+- **F15's fix is a signature change**, not a patch: `AdmittedChild` must carry
+  the `asked_at` and `composition_invocation` it was admitted under, and
+  `compose_children` must take them.
+- **F1 needs a ruling**, because `D-IMPL-336` forecloses the obvious fix.
 
 ---
 
