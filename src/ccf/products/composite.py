@@ -1465,6 +1465,23 @@ def compose_children(
     # `refuse_mixing` first, because D-IMPL-31 rules that a constituent whose
     # remaining validity breaches its declared floor refuses assembly outright
     # — a composite must not be built at all rather than built and labelled.
+    # The three laws below take CONSTITUENTS, and a composition whose only
+    # requirement was optional and honestly absent has none — `refuse_mixing`
+    # and `compose_lineage` both RAISE on an empty set, deliberately, because
+    # composing nothing is a wiring defect everywhere else. Here it is a legal
+    # outcome: the class asked for something optional, nothing produced it, and
+    # the declared absence treatment already priced that. So the laws run over
+    # the admitted set when there is one, and the parent's own terms stand when
+    # there is not.
+    if not admitted_children:
+        return CompositionOutcome(
+            factors=compose_debt_factors(own_factors, admitted_factors),
+            resolutions=tuple(rows),
+            refusal=None,
+            lineage=own_lineage,
+            expires_at=None,
+        )
+
     mixing = refuse_mixing(
         constituents=[
             ConstituentValidity(

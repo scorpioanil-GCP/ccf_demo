@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1073 entries**, of which **829** name a public Python surface.
+**1119 entries**, of which **875** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-536 entries — 496 public Python surface, 40 not public Python API.
+578 entries — 538 public Python surface, 40 not public Python API.
 
 ### Public Python surface
 
@@ -9601,6 +9601,510 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `336-01-composite-context-products.md`.*
 
+#### ccf.halflife.debt.EmptyFactorCompositionError
+
+- Surface: ccf.halflife.debt.EmptyFactorCompositionError
+- Public surface: true
+- Change type: added
+- Before: absent — the composite surface as first written, before the panel found it had no callers
+- After: part of the wired composite path (D-IMPL-336 Amendment 3)
+- Why: the declaration, admission and composition halves of a governed composite product, now reachable from GovernedResolver rather than from tests alone
+- Migration: none required — inert for any class declaring no `requires`; see the one deliberate break above
+
+*Recorded by `336-02-composite-remediation.md`.*
+
+#### ccf.halflife.debt.compose_debt_factors
+
+- Surface: ccf.halflife.debt.compose_debt_factors
+- Public surface: true
+- Change type: added
+- Before: absent — the composite surface as first written, before the panel found it had no callers
+- After: part of the wired composite path (D-IMPL-336 Amendment 3)
+- Why: the declaration, admission and composition halves of a governed composite product, now reachable from GovernedResolver rather than from tests alone
+- Migration: none required — inert for any class declaring no `requires`; see the one deliberate break above
+
+*Recorded by `336-02-composite-remediation.md`.*
+
+#### ccf.peering.eligibility.ELIGIBILITY_ASSERTION_HEADER
+
+- Surface: ccf.peering.eligibility.ELIGIBILITY_ASSERTION_HEADER
+- Public surface: true
+- Change type: added
+- Before: absent — the composite surface as first written, before the panel found it had no callers
+- After: part of the wired composite path (D-IMPL-336 Amendment 3)
+- Why: the declaration, admission and composition halves of a governed composite product, now reachable from GovernedResolver rather than from tests alone
+- Migration: none required — inert for any class declaring no `requires`; see the one deliberate break above
+
+*Recorded by `336-02-composite-remediation.md`.*
+
+#### ccf.peering.eligibility.ELIGIBILITY_ASSERTION_SCHEMA_VERSION
+
+- Surface: ccf.peering.eligibility.ELIGIBILITY_ASSERTION_SCHEMA_VERSION
+- Public surface: true
+- Change type: added
+- Before: absent — the composite surface as first written, before the panel found it had no callers
+- After: part of the wired composite path (D-IMPL-336 Amendment 3)
+- Why: the declaration, admission and composition halves of a governed composite product, now reachable from GovernedResolver rather than from tests alone
+- Migration: none required — inert for any class declaring no `requires`; see the one deliberate break above
+
+*Recorded by `336-02-composite-remediation.md`.*
+
+#### ccf.peering.eligibility.EligibilityAssertion
+
+- Surface: ccf.peering.eligibility.EligibilityAssertion
+- Public surface: true
+- Change type: added
+- Before: absent — the composite surface as first written, before the panel found it had no callers
+- After: part of the wired composite path (D-IMPL-336 Amendment 3)
+- Why: the declaration, admission and composition halves of a governed composite product, now reachable from GovernedResolver rather than from tests alone
+- Migration: none required — inert for any class declaring no `requires`; see the one deliberate break above
+
+*Recorded by `336-02-composite-remediation.md`.*
+
+#### ccf.peering.eligibility.EligibilityAssertionMalformed
+
+- Surface: ccf.peering.eligibility.EligibilityAssertionMalformed
+- Public surface: true
+- Change type: added
+- Before: absent — the composite surface as first written, before the panel found it had no callers
+- After: part of the wired composite path (D-IMPL-336 Amendment 3)
+- Why: the declaration, admission and composition halves of a governed composite product, now reachable from GovernedResolver rather than from tests alone
+- Migration: none required — inert for any class declaring no `requires`; see the one deliberate break above
+
+*Recorded by `336-02-composite-remediation.md`.*
+
+#### ccf.peering.eligibility.decode_eligibility_assertion
+
+- Surface: ccf.peering.eligibility.decode_eligibility_assertion
+- Public surface: true
+- Change type: added
+- Before: absent — the composite surface as first written, before the panel found it had no callers
+- After: part of the wired composite path (D-IMPL-336 Amendment 3)
+- Why: the declaration, admission and composition halves of a governed composite product, now reachable from GovernedResolver rather than from tests alone
+- Migration: none required — inert for any class declaring no `requires`; see the one deliberate break above
+
+*Recorded by `336-02-composite-remediation.md`.*
+
+#### ccf.peering.eligibility.encode_eligibility_assertion
+
+- Surface: ccf.peering.eligibility.encode_eligibility_assertion
+- Public surface: true
+- Change type: added
+- Before: absent — the composite surface as first written, before the panel found it had no callers
+- After: part of the wired composite path (D-IMPL-336 Amendment 3)
+- Why: the declaration, admission and composition halves of a governed composite product, now reachable from GovernedResolver rather than from tests alone
+- Migration: none required — inert for any class declaring no `requires`; see the one deliberate break above
+
+*Recorded by `336-02-composite-remediation.md`.*
+
+#### ccf.peering.eligibility.mint_eligibility_assertion
+
+- Surface: ccf.peering.eligibility.mint_eligibility_assertion
+- Public surface: true
+- Change type: added
+- Before: absent — the composite surface as first written, before the panel found it had no callers
+- After: part of the wired composite path (D-IMPL-336 Amendment 3)
+- Why: the declaration, admission and composition halves of a governed composite product, now reachable from GovernedResolver rather than from tests alone
+- Migration: none required — inert for any class declaring no `requires`; see the one deliberate break above
+
+*Recorded by `336-02-composite-remediation.md`.*
+
+#### ccf.products.composite.AdmittedChild
+
+- Surface: ccf.products.composite.AdmittedChild
+- Public surface: true
+- Change type: added
+- Before: absent — the composite surface as first written, before the panel found it had no callers
+- After: part of the wired composite path (D-IMPL-336 Amendment 3)
+- Why: the declaration, admission and composition halves of a governed composite product, now reachable from GovernedResolver rather than from tests alone
+- Migration: none required — inert for any class declaring no `requires`; see the one deliberate break above
+
+*Recorded by `336-02-composite-remediation.md`.*
+
+#### ccf.products.composite.AmbiguousProducerError
+
+- Surface: ccf.products.composite.AmbiguousProducerError
+- Public surface: true
+- Change type: added
+- Before: absent — the composite surface as first written, before the panel found it had no callers
+- After: part of the wired composite path (D-IMPL-336 Amendment 3)
+- Why: the declaration, admission and composition halves of a governed composite product, now reachable from GovernedResolver rather than from tests alone
+- Migration: none required — inert for any class declaring no `requires`; see the one deliberate break above
+
+*Recorded by `336-02-composite-remediation.md`.*
+
+#### ccf.products.composite.CHILD_REFUSAL_REASONS
+
+- Surface: ccf.products.composite.CHILD_REFUSAL_REASONS
+- Public surface: true
+- Change type: added
+- Before: absent — the composite surface as first written, before the panel found it had no callers
+- After: part of the wired composite path (D-IMPL-336 Amendment 3)
+- Why: the declaration, admission and composition halves of a governed composite product, now reachable from GovernedResolver rather than from tests alone
+- Migration: none required — inert for any class declaring no `requires`; see the one deliberate break above
+
+*Recorded by `336-02-composite-remediation.md`.*
+
+#### ccf.products.composite.ChildAdmissionBypassError
+
+- Surface: ccf.products.composite.ChildAdmissionBypassError
+- Public surface: true
+- Change type: added
+- Before: absent — the composite surface as first written, before the panel found it had no callers
+- After: part of the wired composite path (D-IMPL-336 Amendment 3)
+- Why: the declaration, admission and composition halves of a governed composite product, now reachable from GovernedResolver rather than from tests alone
+- Migration: none required — inert for any class declaring no `requires`; see the one deliberate break above
+
+*Recorded by `336-02-composite-remediation.md`.*
+
+#### ccf.products.composite.ChildAdmissionRefusal
+
+- Surface: ccf.products.composite.ChildAdmissionRefusal
+- Public surface: true
+- Change type: added
+- Before: absent — the composite surface as first written, before the panel found it had no callers
+- After: part of the wired composite path (D-IMPL-336 Amendment 3)
+- Why: the declaration, admission and composition halves of a governed composite product, now reachable from GovernedResolver rather than from tests alone
+- Migration: none required — inert for any class declaring no `requires`; see the one deliberate break above
+
+*Recorded by `336-02-composite-remediation.md`.*
+
+#### ccf.products.composite.ChildCandidate
+
+- Surface: ccf.products.composite.ChildCandidate
+- Public surface: true
+- Change type: added
+- Before: absent — the composite surface as first written, before the panel found it had no callers
+- After: part of the wired composite path (D-IMPL-336 Amendment 3)
+- Why: the declaration, admission and composition halves of a governed composite product, now reachable from GovernedResolver rather than from tests alone
+- Migration: none required — inert for any class declaring no `requires`; see the one deliberate break above
+
+*Recorded by `336-02-composite-remediation.md`.*
+
+#### ccf.products.composite.ChildInvocation
+
+- Surface: ccf.products.composite.ChildInvocation
+- Public surface: true
+- Change type: added
+- Before: absent — the composite surface as first written, before the panel found it had no callers
+- After: part of the wired composite path (D-IMPL-336 Amendment 3)
+- Why: the declaration, admission and composition halves of a governed composite product, now reachable from GovernedResolver rather than from tests alone
+- Migration: none required — inert for any class declaring no `requires`; see the one deliberate break above
+
+*Recorded by `336-02-composite-remediation.md`.*
+
+#### ccf.products.composite.ChildRefusalReason
+
+- Surface: ccf.products.composite.ChildRefusalReason
+- Public surface: true
+- Change type: added
+- Before: absent — the composite surface as first written, before the panel found it had no callers
+- After: part of the wired composite path (D-IMPL-336 Amendment 3)
+- Why: the declaration, admission and composition halves of a governed composite product, now reachable from GovernedResolver rather than from tests alone
+- Migration: none required — inert for any class declaring no `requires`; see the one deliberate break above
+
+*Recorded by `336-02-composite-remediation.md`.*
+
+#### ccf.products.composite.CompositeAdmissionGate
+
+- Surface: ccf.products.composite.CompositeAdmissionGate
+- Public surface: true
+- Change type: added
+- Before: absent — the composite surface as first written, before the panel found it had no callers
+- After: part of the wired composite path (D-IMPL-336 Amendment 3)
+- Why: the declaration, admission and composition halves of a governed composite product, now reachable from GovernedResolver rather than from tests alone
+- Migration: none required — inert for any class declaring no `requires`; see the one deliberate break above
+
+*Recorded by `336-02-composite-remediation.md`.*
+
+#### ccf.products.composite.CompositeChildResolverProtocol
+
+- Surface: ccf.products.composite.CompositeChildResolverProtocol
+- Public surface: true
+- Change type: added
+- Before: absent — the composite surface as first written, before the panel found it had no callers
+- After: part of the wired composite path (D-IMPL-336 Amendment 3)
+- Why: the declaration, admission and composition halves of a governed composite product, now reachable from GovernedResolver rather than from tests alone
+- Migration: none required — inert for any class declaring no `requires`; see the one deliberate break above
+
+*Recorded by `336-02-composite-remediation.md`.*
+
+#### ccf.products.composite.CompositionOutcome
+
+- Surface: ccf.products.composite.CompositionOutcome
+- Public surface: true
+- Change type: added
+- Before: absent — the composite surface as first written, before the panel found it had no callers
+- After: part of the wired composite path (D-IMPL-336 Amendment 3)
+- Why: the declaration, admission and composition halves of a governed composite product, now reachable from GovernedResolver rather than from tests alone
+- Migration: none required — inert for any class declaring no `requires`; see the one deliberate break above
+
+*Recorded by `336-02-composite-remediation.md`.*
+
+#### ccf.products.composite.ELIGIBILITY_EVIDENCE_POLICY
+
+- Surface: ccf.products.composite.ELIGIBILITY_EVIDENCE_POLICY
+- Public surface: true
+- Change type: added
+- Before: absent — the composite surface as first written, before the panel found it had no callers
+- After: part of the wired composite path (D-IMPL-336 Amendment 3)
+- Why: the declaration, admission and composition halves of a governed composite product, now reachable from GovernedResolver rather than from tests alone
+- Migration: none required — inert for any class declaring no `requires`; see the one deliberate break above
+
+*Recorded by `336-02-composite-remediation.md`.*
+
+#### ccf.products.composite.ELIGIBILITY_LOCAL_REGISTER
+
+- Surface: ccf.products.composite.ELIGIBILITY_LOCAL_REGISTER
+- Public surface: true
+- Change type: added
+- Before: absent — the composite surface as first written, before the panel found it had no callers
+- After: part of the wired composite path (D-IMPL-336 Amendment 3)
+- Why: the declaration, admission and composition halves of a governed composite product, now reachable from GovernedResolver rather than from tests alone
+- Migration: none required — inert for any class declaring no `requires`; see the one deliberate break above
+
+*Recorded by `336-02-composite-remediation.md`.*
+
+#### ccf.products.composite.ELIGIBILITY_PRODUCER_ATTESTED
+
+- Surface: ccf.products.composite.ELIGIBILITY_PRODUCER_ATTESTED
+- Public surface: true
+- Change type: added
+- Before: absent — the composite surface as first written, before the panel found it had no callers
+- After: part of the wired composite path (D-IMPL-336 Amendment 3)
+- Why: the declaration, admission and composition halves of a governed composite product, now reachable from GovernedResolver rather than from tests alone
+- Migration: none required — inert for any class declaring no `requires`; see the one deliberate break above
+
+*Recorded by `336-02-composite-remediation.md`.*
+
+#### ccf.products.composite.EligibilityEvidence
+
+- Surface: ccf.products.composite.EligibilityEvidence
+- Public surface: true
+- Change type: added
+- Before: absent — the composite surface as first written, before the panel found it had no callers
+- After: part of the wired composite path (D-IMPL-336 Amendment 3)
+- Why: the declaration, admission and composition halves of a governed composite product, now reachable from GovernedResolver rather than from tests alone
+- Migration: none required — inert for any class declaring no `requires`; see the one deliberate break above
+
+*Recorded by `336-02-composite-remediation.md`.*
+
+#### ccf.products.composite.EligibilityEvidencePolicy
+
+- Surface: ccf.products.composite.EligibilityEvidencePolicy
+- Public surface: true
+- Change type: added
+- Before: absent — the composite surface as first written, before the panel found it had no callers
+- After: part of the wired composite path (D-IMPL-336 Amendment 3)
+- Why: the declaration, admission and composition halves of a governed composite product, now reachable from GovernedResolver rather than from tests alone
+- Migration: none required — inert for any class declaring no `requires`; see the one deliberate break above
+
+*Recorded by `336-02-composite-remediation.md`.*
+
+#### ccf.products.composite.GATE_CHILD_ADMISSION
+
+- Surface: ccf.products.composite.GATE_CHILD_ADMISSION
+- Public surface: true
+- Change type: added
+- Before: absent — the composite surface as first written, before the panel found it had no callers
+- After: part of the wired composite path (D-IMPL-336 Amendment 3)
+- Why: the declaration, admission and composition halves of a governed composite product, now reachable from GovernedResolver rather than from tests alone
+- Migration: none required — inert for any class declaring no `requires`; see the one deliberate break above
+
+*Recorded by `336-02-composite-remediation.md`.*
+
+#### ccf.products.composite.LocalFabricAttestor
+
+- Surface: ccf.products.composite.LocalFabricAttestor
+- Public surface: true
+- Change type: added
+- Before: absent — the composite surface as first written, before the panel found it had no callers
+- After: part of the wired composite path (D-IMPL-336 Amendment 3)
+- Why: the declaration, admission and composition halves of a governed composite product, now reachable from GovernedResolver rather than from tests alone
+- Migration: none required — inert for any class declaring no `requires`; see the one deliberate break above
+
+*Recorded by `336-02-composite-remediation.md`.*
+
+#### ccf.products.composite.LocalProvenance
+
+- Surface: ccf.products.composite.LocalProvenance
+- Public surface: true
+- Change type: added
+- Before: absent — the composite surface as first written, before the panel found it had no callers
+- After: part of the wired composite path (D-IMPL-336 Amendment 3)
+- Why: the declaration, admission and composition halves of a governed composite product, now reachable from GovernedResolver rather than from tests alone
+- Migration: none required — inert for any class declaring no `requires`; see the one deliberate break above
+
+*Recorded by `336-02-composite-remediation.md`.*
+
+#### ccf.products.composite.ProvenanceForgeryError
+
+- Surface: ccf.products.composite.ProvenanceForgeryError
+- Public surface: true
+- Change type: added
+- Before: absent — the composite surface as first written, before the panel found it had no callers
+- After: part of the wired composite path (D-IMPL-336 Amendment 3)
+- Why: the declaration, admission and composition halves of a governed composite product, now reachable from GovernedResolver rather than from tests alone
+- Migration: none required — inert for any class declaring no `requires`; see the one deliberate break above
+
+*Recorded by `336-02-composite-remediation.md`.*
+
+#### ccf.products.composite.VerifiedPeerProvenance
+
+- Surface: ccf.products.composite.VerifiedPeerProvenance
+- Public surface: true
+- Change type: added
+- Before: absent — the composite surface as first written, before the panel found it had no callers
+- After: part of the wired composite path (D-IMPL-336 Amendment 3)
+- Why: the declaration, admission and composition halves of a governed composite product, now reachable from GovernedResolver rather than from tests alone
+- Migration: none required — inert for any class declaring no `requires`; see the one deliberate break above
+
+*Recorded by `336-02-composite-remediation.md`.*
+
+#### ccf.products.composite.compose_children
+
+- Surface: ccf.products.composite.compose_children
+- Public surface: true
+- Change type: added
+- Before: absent — the composite surface as first written, before the panel found it had no callers
+- After: part of the wired composite path (D-IMPL-336 Amendment 3)
+- Why: the declaration, admission and composition halves of a governed composite product, now reachable from GovernedResolver rather than from tests alone
+- Migration: none required — inert for any class declaring no `requires`; see the one deliberate break above
+
+*Recorded by `336-02-composite-remediation.md`.*
+
+#### ccf.products.composite.eligibility_evidence_policy_key
+
+- Surface: ccf.products.composite.eligibility_evidence_policy_key
+- Public surface: true
+- Change type: added
+- Before: absent — the composite surface as first written, before the panel found it had no callers
+- After: part of the wired composite path (D-IMPL-336 Amendment 3)
+- Why: the declaration, admission and composition halves of a governed composite product, now reachable from GovernedResolver rather than from tests alone
+- Migration: none required — inert for any class declaring no `requires`; see the one deliberate break above
+
+*Recorded by `336-02-composite-remediation.md`.*
+
+#### ccf.products.composite.invocation_from_dispatch
+
+- Surface: ccf.products.composite.invocation_from_dispatch
+- Public surface: true
+- Change type: added
+- Before: absent — the composite surface as first written, before the panel found it had no callers
+- After: part of the wired composite path (D-IMPL-336 Amendment 3)
+- Why: the declaration, admission and composition halves of a governed composite product, now reachable from GovernedResolver rather than from tests alone
+- Migration: none required — inert for any class declaring no `requires`; see the one deliberate break above
+
+*Recorded by `336-02-composite-remediation.md`.*
+
+#### ccf.products.composite.peer_provenance_from_admitted
+
+- Surface: ccf.products.composite.peer_provenance_from_admitted
+- Public surface: true
+- Change type: added
+- Before: absent — the composite surface as first written, before the panel found it had no callers
+- After: part of the wired composite path (D-IMPL-336 Amendment 3)
+- Why: the declaration, admission and composition halves of a governed composite product, now reachable from GovernedResolver rather than from tests alone
+- Migration: none required — inert for any class declaring no `requires`; see the one deliberate break above
+
+*Recorded by `336-02-composite-remediation.md`.*
+
+#### ccf.products.composite.resolve_producing_grant
+
+- Surface: ccf.products.composite.resolve_producing_grant
+- Public surface: true
+- Change type: added
+- Before: absent — the composite surface as first written, before the panel found it had no callers
+- After: part of the wired composite path (D-IMPL-336 Amendment 3)
+- Why: the declaration, admission and composition halves of a governed composite product, now reachable from GovernedResolver rather than from tests alone
+- Migration: none required — inert for any class declaring no `requires`; see the one deliberate break above
+
+*Recorded by `336-02-composite-remediation.md`.*
+
+#### ccf.products.contract.ChildRequirement
+
+- Surface: ccf.products.contract.ChildRequirement
+- Public surface: true
+- Change type: added
+- Before: absent — the composite surface as first written, before the panel found it had no callers
+- After: part of the wired composite path (D-IMPL-336 Amendment 3)
+- Why: the declaration, admission and composition halves of a governed composite product, now reachable from GovernedResolver rather than from tests alone
+- Migration: none required — inert for any class declaring no `requires`; see the one deliberate break above
+
+*Recorded by `336-02-composite-remediation.md`.*
+
+#### ccf.products.contract.OptionalAbsenceTreatment
+
+- Surface: ccf.products.contract.OptionalAbsenceTreatment
+- Public surface: true
+- Change type: added
+- Before: absent — the composite surface as first written, before the panel found it had no callers
+- After: part of the wired composite path (D-IMPL-336 Amendment 3)
+- Why: the declaration, admission and composition halves of a governed composite product, now reachable from GovernedResolver rather than from tests alone
+- Migration: none required — inert for any class declaring no `requires`; see the one deliberate break above
+
+*Recorded by `336-02-composite-remediation.md`.*
+
+#### ccf.products.contract.requirements_declaration_is_coherent
+
+- Surface: ccf.products.contract.requirements_declaration_is_coherent
+- Public surface: true
+- Change type: added
+- Before: absent — the composite surface as first written, before the panel found it had no callers
+- After: part of the wired composite path (D-IMPL-336 Amendment 3)
+- Why: the declaration, admission and composition halves of a governed composite product, now reachable from GovernedResolver rather than from tests alone
+- Migration: none required — inert for any class declaring no `requires`; see the one deliberate break above
+
+*Recorded by `336-02-composite-remediation.md`.*
+
+#### ccf.products.gates.refuse_dependency_invalidation
+
+- Surface: ccf.products.gates.refuse_dependency_invalidation
+- Public surface: true
+- Change type: added
+- Before: absent — the composite surface as first written, before the panel found it had no callers
+- After: part of the wired composite path (D-IMPL-336 Amendment 3)
+- Why: the declaration, admission and composition halves of a governed composite product, now reachable from GovernedResolver rather than from tests alone
+- Migration: none required — inert for any class declaring no `requires`; see the one deliberate break above
+
+*Recorded by `336-02-composite-remediation.md`.*
+
+#### ccf.replay.record.CHILD_ADMITTED
+
+- Surface: ccf.replay.record.CHILD_ADMITTED
+- Public surface: true
+- Change type: added
+- Before: absent — the composite surface as first written, before the panel found it had no callers
+- After: part of the wired composite path (D-IMPL-336 Amendment 3)
+- Why: the declaration, admission and composition halves of a governed composite product, now reachable from GovernedResolver rather than from tests alone
+- Migration: none required — inert for any class declaring no `requires`; see the one deliberate break above
+
+*Recorded by `336-02-composite-remediation.md`.*
+
+#### ccf.replay.record.CHILD_OUTCOME_STATUSES
+
+- Surface: ccf.replay.record.CHILD_OUTCOME_STATUSES
+- Public surface: true
+- Change type: added
+- Before: absent — the composite surface as first written, before the panel found it had no callers
+- After: part of the wired composite path (D-IMPL-336 Amendment 3)
+- Why: the declaration, admission and composition halves of a governed composite product, now reachable from GovernedResolver rather than from tests alone
+- Migration: none required — inert for any class declaring no `requires`; see the one deliberate break above
+
+*Recorded by `336-02-composite-remediation.md`.*
+
+#### ccf.replay.record.ChildResolution
+
+- Surface: ccf.replay.record.ChildResolution
+- Public surface: true
+- Change type: added
+- Before: absent — the composite surface as first written, before the panel found it had no callers
+- After: part of the wired composite path (D-IMPL-336 Amendment 3)
+- Why: the declaration, admission and composition halves of a governed composite product, now reachable from GovernedResolver rather than from tests alone
+- Migration: none required — inert for any class declaring no `requires`; see the one deliberate break above
+
+*Recorded by `336-02-composite-remediation.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -10254,7 +10758,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-388 entries — 204 public Python surface, 184 not public Python API.
+389 entries — 205 public Python surface, 184 not public Python API.
 
 ### Public Python surface
 
@@ -14497,6 +15001,18 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `336-01-composite-context-products.md`.*
 
+#### ccf.peering.admission.AdmittedProduct
+
+- Surface: ccf.peering.admission.AdmittedProduct
+- Public surface: true
+- Change type: reshaped
+- Before: carried the validated contract, the merged lineage and the peer
+- After: additionally carries the AUTHENTICATED protected header and the content address computed over the verified bytes, as two new optional properties
+- Why: a consumer needing a claim from the header must be able to reach one this gate verified. Both are PASSED from the locals `admit` ran its policy checks against, never re-derived by a second `declared_header()` call — carrying, not recomputing, is what makes the value provably the checked one (F16)
+- Migration: none — both members default to `None` and every existing construction site is unchanged; the shipped gate fills them
+
+*Recorded by `336-02-composite-remediation.md`.*
+
 ### Not public Python API
 
 #### tools/lints/__main__.py
@@ -16780,7 +17296,7 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 Surfaces that no longer exist. Each entry names what replaces it.
 
-7 entries — 7 public Python surface, 0 not public Python API.
+10 entries — 10 public Python surface, 0 not public Python API.
 
 ### Public Python surface
 
@@ -16909,6 +17425,42 @@ Surfaces that no longer exist. Each entry names what replaces it.
   `ComputedEmptyFinding`'s, on a product that now exists
 
 *Recorded by `24.6-05-computed-empty-is-served-and-evidence-determines-debt.md`.*
+
+#### ccf.products.composite.ProducedHere
+
+- Surface: ccf.products.composite.ProducedHere
+- Public surface: true
+- Change type: removed
+- Before: a caller-chosen label that ESTABLISHED local authority by being written. Replaced by `LocalProvenance`, which only a boot-bound attestor can mint (F6)
+- After: absent — replaced by the evidence type named above
+- Why: the panel's root cause (a) — the gate verified the child and trusted the context. A label a caller writes cannot establish the thing it claims
+- Migration: construct provenance through `LocalFabricAttestor.attest(...)` or `peer_provenance_from_admitted(...)`. There is deliberately no way to write the claim directly
+
+*Recorded by `336-02-composite-remediation.md`.*
+
+#### ccf.products.composite.ProducedElsewhere
+
+- Surface: ccf.products.composite.ProducedElsewhere
+- Public surface: true
+- Change type: removed
+- Before: a caller-supplied `protected_header` dict the gate read a 'signed' assertion out of, with nothing having verified it. Replaced by `VerifiedPeerProvenance`, mintable only from an `AdmittedProduct` (F16)
+- After: absent — replaced by the evidence type named above
+- Why: the panel's root cause (a) — the gate verified the child and trusted the context. A label a caller writes cannot establish the thing it claims
+- Migration: construct provenance through `LocalFabricAttestor.attest(...)` or `peer_provenance_from_admitted(...)`. There is deliberately no way to write the claim directly
+
+*Recorded by `336-02-composite-remediation.md`.*
+
+#### ccf.products.composite.ProducingFabric
+
+- Surface: ccf.products.composite.ProducingFabric
+- Public surface: true
+- Change type: removed
+- Before: the base of the two labels above; replaced by `ChildProvenance`, which additionally carries `touched_entities` as execution evidence rather than as an optional keyword (F3)
+- After: absent — replaced by the evidence type named above
+- Why: the panel's root cause (a) — the gate verified the child and trusted the context. A label a caller writes cannot establish the thing it claims
+- Migration: construct provenance through `LocalFabricAttestor.attest(...)` or `peer_provenance_from_admitted(...)`. There is deliberately no way to write the claim directly
+
+*Recorded by `336-02-composite-remediation.md`.*
 
 ## Behavior changes
 

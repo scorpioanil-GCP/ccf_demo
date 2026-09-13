@@ -2179,3 +2179,113 @@ class _HandleWithReader:
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._inner, name)
+
+
+# --- D-IMPL-336 Amendment 3, F0: the composite path, END TO END --------------
+#
+# Call-site searches establish wiring; these establish BEHAVIOR. Both were
+# required by the remediation instruction, and only the first was ever true of
+# this surface before it.
+
+
+def _served_record(booted: _Booted, served: ServedProduct) -> Any:
+    """The persisted replay record behind a served product.
+
+    Resolved from the store through the served outcome's own `replay_ref`, so
+    the rows asserted below are the ones actually WRITTEN — not a record the
+    test built alongside.
+    """
+    return DecisionReplayRecord.model_validate_json(
+        booted.store.get(
+            content_address=booted.store.resolve_uri(uri=served.replay_ref.uri)
+        )
+    )
+
+
+#: One optional child requirement, declared the way a governance AUTHOR would.
+#: Until Amendment 3 this document could not be written at all:
+#: `ProductClassDeclaration` is `extra=forbid` and had no `requires` field.
+_COMPOSITE_REQUIRES = [
+    {
+        "product_class": "fixture.child",
+        "required": False,
+        "compatible_from": "1.0.0",
+        "absence_treatment": {
+            "completeness_when_absent": "0.5",
+            "omissible_outcomes": ["optional-absent"],
+        },
+    }
+]
+
+
+@pytest.fixture()
+def booted_composite(tmp_path: pathlib.Path) -> Iterator[_Booted]:
+    """A fabric whose product class DECLARES a child requirement."""
+    product_class = copy.deepcopy(
+        next(doc for key, *_rest, doc in ARTIFACT_SET if key == PRODUCT_CLASS_KEY)
+    )
+    product_class["requires"] = _COMPOSITE_REQUIRES
+    yield from _boot(tmp_path, product_class=product_class)
+
+
+def test_a_class_declaring_children_with_no_resolver_REFUSES(
+    booted_composite: _Booted,
+) -> None:
+    """A declared requirement execution ignores is the defect F0 named.
+
+    Before this block existed the answer was to serve the product anyway, with
+    no composition, no admission and no replay rows. It refuses now.
+    """
+    outcome = _ask(
+        _resolver(booted_composite, composite_children=None), _request()
+    )
+    assert not isinstance(outcome, ServedProduct)
+    # The KIND is the governed fact that crosses. The detail naming the missing
+    # resolver is withheld at `minimal` disclosure, correctly — F11's table
+    # admits only `product_class` there, because an internal wiring message is
+    # fabric state and not something a caller can act on.
+    assert outcome.kind == "composite-child-refusal"
+
+
+def test_a_composite_records_a_child_resolution_row_from_EXECUTION(
+    booted_composite: _Booted,
+) -> None:
+    """F0's behavioral half: the row is written by the served path.
+
+    `child_resolutions` was a declared field nothing wrote. This asserts a real
+    serve through `GovernedResolver` produces one — so a composite can no
+    longer be delivered with no evidence that any child was considered — and
+    that the declared absence is PRICED into the served product's debt.
+    """
+
+    def no_children(**_: Any) -> dict[str, Any]:
+        """A deployment whose grants produce none of the declared classes.
+
+        The honest absence: the one outcome that takes the declared treatment.
+        """
+        return {}
+
+    outcome = _ask(
+        _resolver(booted_composite, composite_children=no_children), _request()
+    )
+    assert isinstance(outcome, ServedProduct), outcome
+
+    rows = _served_record(
+        booted_composite, outcome
+    ).content_generation_path.child_resolutions
+    assert len(rows) == 1
+    assert rows[0].required_product_class == "fixture.child"
+    assert rows[0].outcome_status == "optional-absent"
+    assert outcome.product.debt is not None
+    assert outcome.product.debt.factors.completeness <= Decimal("0.5")
+
+
+def test_a_non_composite_product_is_completely_unaffected(
+    booted: _Booted,
+) -> None:
+    """The control. Every product shipped before this surface takes the same
+    path it always did, and its record carries no child rows."""
+    outcome = _ask(_resolver(booted, composite_children=None), _request())
+    assert isinstance(outcome, ServedProduct), outcome
+    record = _served_record(booted, outcome)
+    assert record.content_generation_path.child_resolutions == ()
