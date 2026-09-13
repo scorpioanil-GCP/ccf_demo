@@ -1,0 +1,386 @@
+<title>Credit Surveillance &amp; Early Warning · cp-11</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400;6..96,500&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --paper:#EFF2F3; --surface:#FFFFFF; --sunk:#E4E9EB;
+  --ink:#16202A; --ink-2:#3A4A55; --muted:#64757F; --rule:#CBD5D9;
+  --verd:#1F7A68; --verd-soft:#DCEBE7;
+  --amber:#A65E17; --amber-soft:#F6E9DA;
+  --crit:#9B2C2C; --crit-soft:#F3E0E0;
+  --tok-c:#6C7C86; --tok-k:#1F7A68; --tok-s:#8A5A2B; --tok-n:#2B4C63;
+  --shadow:0 1px 2px rgba(22,32,42,.06),0 8px 24px -12px rgba(22,32,42,.18);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#12171A; --surface:#181F23; --sunk:#0D1214;
+    --ink:#E4EAED; --ink-2:#B4C1C8; --muted:#8497A0; --rule:#2C373D;
+    --verd:#46B39D; --verd-soft:#16302B;
+    --amber:#D9903F; --amber-soft:#2F2417;
+    --crit:#E07A7A; --crit-soft:#2E1B1B;
+    --tok-c:#7B8C96; --tok-k:#46B39D; --tok-s:#C99A63; --tok-n:#7FB0CE;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -12px rgba(0,0,0,.6);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#12171A; --surface:#181F23; --sunk:#0D1214;
+  --ink:#E4EAED; --ink-2:#B4C1C8; --muted:#8497A0; --rule:#2C373D;
+  --verd:#46B39D; --verd-soft:#16302B;
+  --amber:#D9903F; --amber-soft:#2F2417;
+  --crit:#E07A7A; --crit-soft:#2E1B1B;
+  --tok-c:#7B8C96; --tok-k:#46B39D; --tok-s:#C99A63; --tok-n:#7FB0CE;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -12px rgba(0,0,0,.6);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:"IBM Plex Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:16px; line-height:1.65; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1180px;margin:0 auto;padding:0 clamp(20px,5vw,56px)}
+.col{max-width:74ch}
+
+/* ---------- masthead ---------- */
+.mast{border-bottom:1px solid var(--rule);padding:clamp(48px,8vw,88px) 0 40px}
+.eyebrow{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12px;font-weight:600;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--verd);margin:0 0 18px
+}
+h1{
+  font-family:"Bodoni Moda",Georgia,"Times New Roman",serif;font-weight:400;
+  font-size:clamp(38px,6.2vw,68px);line-height:1.04;letter-spacing:-.015em;
+  margin:0 0 22px;text-wrap:balance
+}
+.standfirst{font-size:clamp(17px,2vw,20px);line-height:1.6;color:var(--ink-2);margin:0;max-width:66ch}
+
+/* the shape strip — what the product IS, in its own terms */
+.shape{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:1px;
+  background:var(--rule);border:1px solid var(--rule);margin-top:40px
+}
+.shape div{background:var(--surface);padding:14px 16px}
+.shape dt{
+  font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:600;
+  letter-spacing:.11em;text-transform:uppercase;color:var(--muted);margin:0 0 5px
+}
+.shape dd{margin:0;font-size:14px;font-weight:600;line-height:1.35}
+.shape dd .sub{display:block;font-weight:400;font-size:12.5px;color:var(--muted);margin-top:3px}
+
+/* ---------- sections ---------- */
+section{padding:clamp(44px,6vw,68px) 0;border-bottom:1px solid var(--rule)}
+section:last-of-type{border-bottom:0}
+h2{
+  font-family:"Bodoni Moda",Georgia,serif;font-weight:400;
+  font-size:clamp(26px,3.6vw,38px);line-height:1.14;letter-spacing:-.01em;
+  margin:0 0 8px;text-wrap:balance
+}
+h3{font-size:17px;font-weight:700;margin:34px 0 10px;letter-spacing:-.005em}
+.kicker{
+  font-family:"IBM Plex Mono",monospace;font-size:11.5px;font-weight:600;
+  letter-spacing:.13em;text-transform:uppercase;color:var(--muted);margin:0 0 14px
+}
+p{margin:0 0 16px}
+strong{font-weight:600}
+em{font-style:italic}
+code{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.875em;
+  background:var(--sunk);padding:.1em .34em;border-radius:3px;
+}
+a{color:var(--verd);text-decoration:none;border-bottom:1px solid color-mix(in srgb,var(--verd) 40%,transparent)}
+a:hover{border-bottom-color:var(--verd)}
+a:focus-visible{outline:2px solid var(--verd);outline-offset:3px;border-radius:2px}
+
+/* ---------- the two-authority device ---------- */
+.auth{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;margin:26px 0 8px}
+.auth article{background:var(--surface);border:1px solid var(--rule);border-top:3px solid var(--verd);padding:20px 22px}
+.auth article.internal{border-top-color:var(--amber)}
+.auth h4{margin:0 0 4px;font-size:15px;font-weight:700}
+.auth .who{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--verd);margin:0 0 12px}
+.auth article.internal .who{color:var(--amber)}
+.auth dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:5px 14px;font-size:13.5px}
+.auth dt{color:var(--muted)}
+.auth dd{margin:0;font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
+
+/* ---------- tables ---------- */
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:14px;margin:22px 0}
+th,td{text-align:left;padding:9px 14px 9px 0;border-bottom:1px solid var(--rule);vertical-align:top}
+th{
+  font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:600;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--muted);
+  border-bottom-color:var(--ink-2)
+}
+td code{background:none;padding:0}
+.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+
+/* pills carry state, not decoration */
+.pill{
+  display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:10.5px;
+  font-weight:600;letter-spacing:.06em;padding:2px 8px;border-radius:99px;white-space:nowrap
+}
+.pill.yes{background:var(--verd-soft);color:var(--verd)}
+.pill.no{background:var(--crit-soft);color:var(--crit)}
+.pill.warn{background:var(--amber-soft);color:var(--amber)}
+
+/* ---------- build order ---------- */
+ol.build{list-style:none;counter-reset:step;margin:26px 0 0;padding:0}
+ol.build > li{
+  counter-increment:step;position:relative;padding:0 0 26px 54px;
+  border-left:1px solid var(--rule);margin-left:15px
+}
+ol.build > li:last-child{border-left-color:transparent;padding-bottom:0}
+ol.build > li::before{
+  content:counter(step,decimal-leading-zero);position:absolute;left:-15px;top:0;
+  width:30px;height:30px;border-radius:50%;background:var(--surface);
+  border:1px solid var(--rule);color:var(--muted);
+  font-family:"IBM Plex Mono",monospace;font-size:11px;font-weight:600;
+  display:flex;align-items:center;justify-content:center
+}
+ol.build h3{margin:2px 0 6px;font-size:16px}
+ol.build p{font-size:14.5px;color:var(--ink-2);margin:0 0 12px}
+
+/* ---------- collapsibles: guidance first, source on demand ---------- */
+details{
+  background:var(--surface);border:1px solid var(--rule);border-radius:4px;
+  margin:12px 0;box-shadow:var(--shadow)
+}
+summary{
+  cursor:pointer;padding:12px 16px;font-family:"IBM Plex Mono",monospace;
+  font-size:12.5px;font-weight:600;color:var(--ink-2);list-style:none;
+  display:flex;align-items:center;gap:10px
+}
+summary::-webkit-details-marker{display:none}
+summary::before{
+  content:"";width:0;height:0;flex:none;
+  border-left:5px solid var(--muted);border-top:4px solid transparent;border-bottom:4px solid transparent;
+  transition:transform .16s ease
+}
+details[open] > summary::before{transform:rotate(90deg)}
+summary:hover{color:var(--verd)}
+summary:focus-visible{outline:2px solid var(--verd);outline-offset:-2px;border-radius:3px}
+details .note{margin:0;padding:0 16px 12px;font-size:13px;color:var(--muted)}
+details pre{margin:0;padding:16px;background:var(--sunk);font-size:12.5px;line-height:1.55}
+details .scroll{border-top:1px solid var(--rule)}
+pre{overflow-x:auto;margin:0}
+pre code{background:none;padding:0;font-size:12.5px}
+
+/* ---------- callouts ---------- */
+.call{border-left:3px solid var(--verd);background:var(--surface);padding:18px 22px;margin:24px 0}
+.call.warn{border-left-color:var(--amber)}
+.call.crit{border-left-color:var(--crit)}
+.call p:last-child{margin-bottom:0}
+.call .lbl{
+  font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:600;
+  letter-spacing:.11em;text-transform:uppercase;color:var(--verd);display:block;margin-bottom:7px
+}
+.call.warn .lbl{color:var(--amber)}
+.call.crit .lbl{color:var(--crit)}
+
+ul.plain{margin:0 0 16px;padding-left:20px}
+ul.plain li{margin-bottom:7px}
+
+footer{padding:44px 0 72px;color:var(--muted);font-size:13.5px}
+footer p{margin:0 0 8px}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap">
+
+<header class="mast">
+  <p class="eyebrow">Context Product · cp-11</p>
+  <h1>Credit Surveillance &amp; Early Warning</h1>
+  <p class="standfirst">What changed on this name since we last looked — and does it matter? Five signal classes on five decay regimes, where one of them <strong>does not decay at all</strong> and is bounded by supersession instead.</p>
+
+  <dl class="shape">
+    <div><dt>Registry name</dt><dd>credit-risk.early-warning.v1</dd></div>
+    <div><dt>Tier</dt><dd>3<span class="sub">relational + bitemporal ledger</span></dd></div>
+    <div><dt>Assembly mode</dt><dd>1 — pure algorithmic<span class="sub">no model in the path</span></dd></div>
+    <div><dt>Stores</dt><dd>PostgreSQL + Fluree<span class="sub"><code>ccf_v2</code> · <code>fibo-v2</code></span></dd></div>
+    <div><dt>Signal classes</dt><dd>5<span class="sub">four decay, one is superseded</span></dd></div>
+    <div><dt>SDK rulings earned</dt><dd>2<span class="sub"><code>D-IMPL-334</code> · <code>D-IMPL-335</code></span></dd></div>
+  </dl>
+</header>
+
+<section>
+  <div class="col">
+    <p class="kicker">Rung 11 · Tier 3</p>
+    <h2>A fact that never becomes false, but can stop being relevant</h2>
+    <p>An 8-K acceleration filing is as true a year later as the day it landed. <code>signal_weight.decay_days</code> is <code>NULL</code> for that whole class, and it is right to be. What ends such a filing's relevance is not time passing — it is <strong>a later filing</strong>.</p>
+    <p>Read in the obvious direction, <em>&ldquo;does not decay&rdquo;</em> becomes <em>&ldquo;counts forever&rdquo;</em>, and the 220 routine material-agreement notices and 184 officer changes drown the four accelerations that matter. Measured: <strong>30 of 50 obligors breach the highest escalation band</strong> and 48 of 50 breach the lowest. A screen that fires on the whole book is not a screen.</p>
+    <p>Read correctly — supersession ends it — the same machinery, the same weights and the same curves put <strong>three</strong> names at the top band. Nothing changed but the <em>set</em>.</p>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">Three states, and they partition</p>
+    <h2>Absence is not supersession</h2>
+    <p>Every signal carries exactly one state: <code>current</code>, <code>superseded</code>, or <code>not-participating</code>. The third is its own answer and never collapses into the second — a signal the chain does not mirror <strong>has not been superseded, because it was never in a chain to be superseded from.</strong></p>
+    <div class="call">
+      <span class="lbl">Two raw sets that overlap, and one classifier that cannot</span>
+      <p>Fluree gives back <em>chained</em> and <em>current</em>, and <code>current</code> is a <strong>subset</strong> of <code>chained</code> — so anything adding them counts every current signal twice. The product exposes one three-valued classifier and the raw sets never reach the payload. On the headline serve the counts are 1 current, 25 superseded, 113 not-participating, and they sum to 139: the number of signals in the delta, exactly.</p>
+    </div>
+    <p><strong>And which classes participate is DECLARED, never inferred.</strong> Today only <code>8k_event</code> has a chain. That is what this snapshot contains, not a law — and a product that read participation off the data would change behavior the day another class gained one, in the most dangerous direction: by silently beginning to drop signals nobody asked it to drop.</p>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">What the run prints</p>
+    <h2>Three questions, and a refusal that is an answer</h2>
+    <p>A committed transcript of three pinned runs, not a live re-execution: a printed run that can drift is a documentation defect that presents as a fabric defect.</p>
+  </div>
+
+  <details><summary>All three runs, as the commands print them</summary>
+    <div class="scroll"><pre><code>{{run}}</code></pre></div>
+  </details>
+
+  <div class="col">
+    <p><strong>Run 1 — the heavily-signalled name.</strong> Super Micro, 139 signals, 25 of 26 filings superseded and contributing nothing. Composite <code>0.3134</code>, reaching credit-committee. The exclusion list is the useful half: it says, per filing, <em>&ldquo;a later filing replaced this one; its relevance ended rather than decayed.&rdquo;</em> That sentence is what a credit officer needs when asked why a name with 26 filings scored 0.31 — the difference between a score and an argument.</p>
+    <p><strong>Run 2 — the thinly-evidenced name.</strong> Tupperware: one Item 2.04 at severity 1.0, 23 media mentions, and <strong>zero</strong> trend deltas. The payload reports that class <code>absent</code>, not <code>0</code>. Those are different statements — one says <em>we looked and found nothing concerning</em>, the other says <em>we have nothing to look at</em>. Composite <code>0.0900</code>, no band, <code>D_c</code> <strong>0.8628 · fail_closed</strong>. A name with almost no evidence producing high debt and no escalation is the fabric working.</p>
+    <p><strong>Run 3 — the governed refusal.</strong> A caller declaring they will not act above 0.20 of Context Debt gets a refusal returned as <em>data</em>, with a replay reference — not an exception, so a client cannot swallow it in a bare <code>except</code>.</p>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">The cross-product case</p>
+    <h2>An event about one entity makes a different product ineligible</h2>
+    <p>This is what the rung exists for, and what <code>D-IMPL-334</code> was built to make possible. An acceleration lands; the obligor's context moves; the fabric records an <strong>invalidation boundary</strong> at the instant the evidence became true <em>in the world</em>.</p>
+  </div>
+  <div class="scroll"><pre><code>boundary  2026-07-28    (NOT 2026-08-19, when the fabric wrote it)
+
+A1  read that obligor at an older snapshot   REFUSED
+B1  did NOT, built at the SAME instant       SERVES
+A2  derived after the boundary               SERVES</code></pre></div>
+  <div class="col">
+    <p><strong>The middle row is the one that matters.</strong> B is exactly as old as A. A mechanism keyed on elapsed time rather than on what a product actually read would refuse it too — it would satisfy the first row and be a global clock wearing an invalidation's name.</p>
+    <p><strong>And the refused product need never have mentioned early warning.</strong> The covenant product does not know this product exists. It is refused because it read an entity whose context moved. That is the cascade in the only sense the SDK can honestly claim.</p>
+    <div class="call crit">
+      <span class="lbl">What does NOT happen, and the gate that keeps it that way</span>
+      <p>Nobody is notified. Nothing is recalled. Nothing is evicted — there is no product cache to evict from. The fabric refuses to <strong>re-serve</strong> an obsolete answer; it cannot reach a copy a consumer already holds, and no system can. <code>EWS-G22</code> asserts the payload never claims otherwise, over the payload <em>and</em> over every shipped source file.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">Two SDK rulings, and the second was a defect in the first</p>
+    <h2>The example is a probe, and this is the clearest instance yet</h2>
+    <p><code>D-IMPL-334</code> built serve-time dependency invalidation after Gate 1 was <strong>held</strong> rather than shipping a substitute. It shipped with 14 tests and 8 sabotages, all green.</p>
+    <p><strong>And it recorded the wrong instant.</strong> The writer took <code>claim.observed_at</code> — which, through L2 assembly, is <em>always</em> the ingestion instant, because <code>D-IMPL-332</code> fixed <code>observed_at</code> as <em>when the fabric learned</em> and <code>valid_from</code> as <em>when it became true</em>. A world-time snapshot was being compared against a fabric-learning-time boundary.</p>
+    <div class="call crit">
+      <span class="lbl">Not merely conservative</span>
+      <p>It refuses products whose snapshot falls <strong>after the world change but before ingestion</strong> — on the basis of when the fabric happened to learn something, rather than on when anything changed. A refusal keyed to ingestion latency is keyed to an accident of operations, and the interval it wrongly covers is exactly as wide as the lag between the world and the fabric.</p>
+      <p><strong>No test in <code>tests/</code> could see it.</strong> Every one built its claims <em>directly</em>, where <code>observed_at</code> is whatever the author supplied and the two clocks never separate. Only a Context Product going through real assembly could. <code>D-IMPL-335</code> corrected it, and its regression gives two envelopes the <em>same</em> <code>ingestion_timestamp</code> and different <code>observed_time</code> — so ingestion cannot be what distinguishes them.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">Every file, verbatim</p>
+    <h2>The example, opened up</h2>
+    <p>Each block below is the real file, read at build time. Nothing here is a copy that can drift.</p>
+  </div>
+
+  <ol class="build">
+    <li>
+      <h3>The specification</h3>
+      {{spec}}
+    </li>
+    <li>
+      <h3>The Control Plane</h3>
+      {{config}}
+      {{backends}}
+    </li>
+    <li>
+      <h3>The declared artifacts</h3>
+      {{vocabulary}}
+      {{escalation}}
+      {{question}}
+      {{gates}}
+    </li>
+    <li>
+      <h3>Reading the estate</h3>
+      {{acquisition}}
+      {{deployment}}
+    </li>
+    <li>
+      <h3>Assembling the answer</h3>
+      {{projection}}
+      {{produce}}
+      {{run_py}}
+    </li>
+    <li>
+      <h3>The evidence and the prose</h3>
+      {{tests}}
+      {{findings}}
+      {{readme}}
+      {{summary}}
+    </li>
+  </ol>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">The half you write</p>
+    <h2>What is yours, and what the fabric already does</h2>
+    <p>The five Python files above are not equal. Three are yours to write for every product; two are nearly the same in every deployment and exist to be read once.</p>
+  </div>
+  <div class="scroll">
+  {{split_table}}
+  </div>
+  <div class="col">
+    {{split_ratio}}
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">The evidence</p>
+    <h2>Twenty-nine gates, and three of them were wrong first</h2>
+    <p>Every gate was sabotaged. <strong>Twenty-five</strong> went red on their own assertion. <strong>Three</strong> could not be falsified from this deployment at all — an SDK guard refuses the bad state before an artifact can exist — and are recorded <code>unavailable</code>, never folded into <code>passed</code>. <strong>One</strong> has nothing to range over on this estate and <em>skips</em>, because a green assertion over an empty set is not evidence.</p>
+    <div class="call">
+      <span class="lbl">A gate asserted only where two answers coincide proves nothing about which one produced them</span>
+      <p><code>EWS-G27</code> stayed green under a sabotage that inferred supersession participation from the data — because on this estate the inferred set and the declared set are <em>the same value</em>. <code>EWS-G29</code> stayed green under a sabotage crossing the two decay models, because structure and correlation both survived it; only recomputing the arithmetic caught it. And <code>EWS-G20</code> went red against <strong>correct</strong> code, by searching source text and tripping on the comment that explains its own rule.</p>
+      <p>All three are recorded in <code>artifacts/gates.yaml</code> with what was wrong and what fixed it. Deleting that history would hide the strongest thing this roster knows about itself.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">What to change first</p>
+    <h2>One line, and it is the most instructive edit in the tree</h2>
+    <ul class="plain">
+      <li><strong><code>supersession_participants</code></strong> in <code>artifacts/source-vocabulary.yaml</code>. Today it names <code>8k_event</code> alone. Empty it and every signal becomes <code>not-participating</code> — nothing is dropped, and the composite climbs to the accumulating reading that puts 30 of 50 obligors at the board band. The rung's central trap, reachable in one edit.</li>
+      <li><strong>The three floors</strong> in <code>artifacts/escalation-policy.yaml</code>, to watch the band populations move. The estate's own values are carried beside them in the payload, so the difference stays visible.</li>
+      <li><strong><code>--since</code></strong>, to move the delta's left edge and see what changes scope without changing how anything is scored.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">Honest limits</p>
+    <h2>What this example is not</h2>
+    <ul class="plain">
+      <li><strong>No delta between two ledger points.</strong> The catalog asks for one. Measured, this estate's entire signal population arrives in a single bulk load between <code>t=421</code> and <code>t=491</code> and nothing is ever added, so a ledger delta returns everything or nothing. The product uses valid time and <em>declares</em> the substitution rather than making it quietly.</li>
+      <li><strong>No per-mention media sentiment.</strong> <code>tone</code> looks like a score and is a query filter — all 951 rows carry the identical string <code>&lt;-5</code>. Weighting by it would weight every mention by a constant while appearing to discriminate.</li>
+      <li><strong>No Item 4.02 non-reliance events.</strong> Two obligors carry a lifetime count; none falls in the window. The auditor leg is Item 4.01 only.</li>
+      <li><strong>One cold-start anchor per obligor, all on the same date.</strong> The estate seeds a starting point, not a sweep history, so the default delta is the full window for every name.</li>
+      <li><strong>32 of 36 WARN name matches are wrong</strong> — TransDigm to Transdev, B&amp;G Foods to US Foods, SP Plus to Lamps Plus, at score ≈0.71. Only the four <code>resolved</code> matches contribute, and the withheld count is published with its reason rather than dropped in silence.</li>
+    </ul>
+    <p class="note"><strong>Illustrative calibration.</strong> This example runs against a point-in-time demonstration estate rather than continuously refreshed production data. Freshness half-lives and related thresholds are calibrated to make the governed behavior observable in that snapshot. They demonstrate how the SDK applies these controls and should not be interpreted as recommended production coverage-policy thresholds.</p>
+  </div>
+</section>
+
+<footer>
+  <p><code>examples/cp-11-credit-surveillance-early-warning</code> · CCF SDK</p>
+</footer>
+
+</div>

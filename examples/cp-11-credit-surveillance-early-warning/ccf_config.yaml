@@ -1,0 +1,173 @@
+# yaml-language-server: $schema=../../docs/schemas/ccf.deployment-config.json
+#
+# THE CONTROL PLANE DOCUMENT — what this fabric is permitted to do.
+#
+# Everything domain-specific about `credit-risk.early-warning` is here, and
+# `produce.py` names none of it. Delete this file and the spine has nothing
+# left to interpret (CLAUDE.md §6.4).
+
+semver: "1.0.0"
+tenant_id: cp-11-surveillance-demo
+
+backend: sqlite
+
+product_class:
+  schema_name: credit-risk.early-warning
+  schema_version: "1.0.0"
+  ttl_anchor: from_decision
+  assembly_mode: algorithmic
+  max_ttl_key: cp-11/product/early-warning/max-ttl
+
+  required_operator_keys:
+    - policy.principal-subgraph
+    - traversal.typed-neighborhood
+
+  serve_obligations:
+    # The product must name what it computed from. A composite served with an
+    # empty contributing set is a score with no derivation.
+    lineage_inputs_at:
+      - obligor
+      - class_coverage
+
+  declared_product_gate:
+    gate_id: EWS-G18.exclusions-are-served
+    gate_version: "1.0.0"
+
+operators:
+  policy.principal-subgraph:
+    classification_attribute_by_class:
+      ews_obligor: obligor_id
+      ews_signal: obligor_id
+    permitted_classifications:
+      source: effective_request
+      parameter: obligors
+
+  traversal.typed-neighborhood:
+    # THE OBLIGOR ALONE seeds the walk; every signal is reached by hopping.
+    seed_entity_classes:
+      - ews_obligor
+    relationship_types:
+      - signalAbout
+    depth_limit: 4
+
+request_contract:
+  class_id: cp-11.request-contract
+  role: register
+  registration: typed
+  schema_name: credit-risk.early-warning
+  schema_version: "1.0.0"
+  arguments:
+    properties:
+      obligors:
+        type: array
+        items:
+          type: string
+          description: one obligor identifier this request may read.
+        description: >-
+          the obligor identifiers this request may walk, and the value that
+          reaches the policy operator's admitted set.
+      since:
+        type: string
+        description: >-
+          the delta's left edge, as a date. Omitted, the obligor's
+          prior-observation anchor is used — the product is a DELTA and a
+          delta needs a prior. A fixed lookback is the last resort.
+      window_days:
+        type: integer
+        description: >-
+          the fallback lookback, used only when neither `since` nor a
+          prior-observation anchor resolves.
+      debt_tolerance:
+        type: number
+        description: the caller's ceiling on assessed Context Debt.
+    required:
+      - obligors
+  defaults:
+    window_days: 730
+
+resolution:
+  # TWO ENTITY CLASSES. The obligor is what a signal is ABOUT and what an
+  # invalidation boundary names (`D-IMPL-334`); the signal is the observation.
+  # Keeping them separate is what lets the debt scorer age a signal without
+  # ageing the obligor's identity.
+  entity_rules:
+    - match_key: obligor_node
+      entity_class: ews_obligor
+      identity_keys: [entity_uri]
+      attribute_keys: [obligor_id, node_kind, label, payload_json]
+    - match_key: signal_node
+      entity_class: ews_signal
+      identity_keys: [entity_uri]
+      # `signal_type` is promoted out of the payload because the λ_c row names
+      # it as this class's series key, and the scorer reads a series key off
+      # the CLAIM rather than out of a JSON blob (`D-IMPL-334`'s sibling
+      # lesson, recorded at `HalfLifeEntry.series_key_attribute`).
+      attribute_keys: [obligor_id, signal_type, node_kind, label, payload_json]
+
+    # Endpoint rules. NO attribute keys: an edge asserts that two nodes are
+    # related and nothing about what either node IS.
+    - {match_key: obligor_subject, entity_class: ews_obligor,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: subject_uri}}
+    - {match_key: signal_object, entity_class: ews_signal,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+
+  relationship_rules:
+    # THE SIGNAL HANGS OFF THE OBLIGOR, which is the source's own unit: an 8-K
+    # is filed by a company, a WARN notice names an employer, a mention names
+    # a company. Unlike rung 10, no re-unitisation is needed.
+    - {relationship_type: signalAbout, predicate_key: predicate,
+       subject_entity_class: ews_obligor, object_entity_class: ews_signal,
+       subject_rule: obligor_subject, object_rule: signal_object}
+
+# ---------------------------------------------------------------------------
+# λ_c — the SDK's freshness model, and DELIBERATELY NOT the composite's decay.
+# ---------------------------------------------------------------------------
+#
+# `signal_weight.decay_days` in the estate drives the composite WARNING SCORE:
+# how much a signal still contributes to a judgement about this obligor. The
+# table below drives `F`, the Context Debt FRESHNESS term: how old the evidence
+# behind the answer is. They share arithmetic and answer different questions,
+# and a product that let them move together would report a debt figure that
+# rose and fell with its own finding (`EWS-G29`).
+#
+# ILLUSTRATIVE CALIBRATION. This example runs against a point-in-time
+# demonstration estate rather than continuously refreshed production data.
+# Freshness half-lives and related thresholds are calibrated to make the
+# governed behavior observable in that snapshot. They demonstrate how the SDK
+# applies these controls and should not be interpreted as recommended
+# production coverage-policy thresholds.
+half_life:
+  ews_signal:
+    # 90 days. The product's own subject is a two-year delta, so a rate that
+    # aged a six-month-old filing to nothing would make `F` a measure of how
+    # long the window is rather than of how current the evidence is.
+    half_life_seconds: 7776000
+    # The SOURCE's observation date, never ingestion (`D-IMPL-331`).
+    decay_basis: valid-from
+    # The LEADING EDGE of each class's series (`D-IMPL-333`). This product
+    # keeps a two-year history on purpose; averaging freshness over all of it
+    # would make `F` a measure of how much history was kept.
+    freshness_over: leading-edge
+    series_key_attribute: signal_type
+    decay_driver: signal-observation
+    supersession_event: next-observation-of-class
+  ews_obligor:
+    # Identity does not decay; it is superseded.
+    decay: supersede-only
+    decay_driver: gleif-level-1-refresh
+    supersession_event: level-1-record-update
+
+debt_profile:
+  risk_sensitivity: "1.0"
+  forced_llm_threshold: "0.60"
+  fail_closed_threshold: "0.85"
+
+policy:
+  class_id: cp-11.policy-bundle
+  role: register
+  registration: typed
+  regime: surveillance-entitlement
+
+default_perspective:
+  principal_id: PRIN-SUR-001
+  role: portfolio-surveillance

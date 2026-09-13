@@ -1,0 +1,452 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE DECLARED PRODUCT GATES OF cp-11 — ALL TWENTY-NINE CP-SPEC-011 §G.1 NAMES.
+#
+# `sabotage_state` HAS THREE VALUES AND THEY ARE NOT INTERCHANGEABLE.
+# Twenty-five are `passed`. THREE are `unavailable` — `D-IMPL-86`'s bind-time
+# operator-divergence refusal (EWS-G01, EWS-G02) and the closed `ttl_anchor`
+# vocabulary (EWS-G03). ONE is `not-required` (EWS-G24): no anchor this module
+# serves carries a spread signal naming instruments, so it SKIPS with that
+# reason rather than passing over an empty set.
+#
+# TWO GATES WERE GREEN UNDER THEIR OWN SABOTAGE ON THE FIRST ATTEMPT, AND BOTH
+# ARE RECORDED AS SUCH (EWS-G27, EWS-G29). Neither was a weak sabotage; both
+# were weak TESTS. `EWS-G27` asserted only where the declared answer and the
+# inferred answer are the same value. `EWS-G29` asserted structure and
+# correlation, and a crossing changed neither. A THIRD (EWS-G20) went red
+# against CORRECT code, because it grepped source text and tripped on the
+# docstring that explains its own rule.
+#
+# `EWS-G25` runs the REAL `D-IMPL-334` path — assembly, the boot-bound writer,
+# the Control Plane register, the serve-time gate — with no stub and no seeded
+# boundary, and pins the instant BOTH WAYS.
+#
+# The principle the whole file is written to: the evidence should describe
+# where the guarantee really comes from, not where we wish it came from.
+
+semver: 1.0.0
+class_id: cp-11.product-gates
+declaration:
+  product: credit-risk.early-warning
+  test_naming_convention: the gate id appears in the executing test's docstring, as an EWS-GNN line naming
+    the CP-SPEC-011 G.1 clause that approves it.
+  sabotage_states:
+    passed: the specific invariant under test was broken and the gate went red
+    unavailable: an UPSTREAM SDK invariant makes the bad state unreachable from this deployment; the gate
+      is evidenced by the successful path plus that guard, never by a local negative control
+    not-required: the gate has nothing to range over on this estate; it SKIPS with that reason rather
+      than passing over an empty set
+  gates:
+  - id: EWS-G01
+    statement: a plan with zero operator steps never serves
+    spec_clause:
+      document: spec/CP-SPEC-011_Credit_Surveillance_Early_Warning.md
+      clause: G.1
+    test: tests/examples/test_cp_11_output.py::test_ews_g01_the_operator_plan_is_never_empty
+    sabotage: make the projection require no operators
+    sabotage_state: unavailable
+    observed_red:
+      result: '**DEPLOYMENT SABOTAGE UNAVAILABLE.** The SDK refuses a divergent operator set during governed
+        binding under `D-IMPL-86`, before the deployment can produce an artifact — an ERROR at bind time,
+        not a red assertion during execution. Evidenced by the successful path plus that guard, as at
+        rungs 9 and 10.'
+      date: '2026-09-12'
+      commit: e98ca052
+  - id: EWS-G02
+    statement: served lineage equals the plan's typed operator references; `ProductLineage` is exactly
+      three fields
+    spec_clause:
+      document: spec/CP-SPEC-011_Credit_Surveillance_Early_Warning.md
+      clause: G.1
+    test: tests/examples/test_cp_11_output.py::test_ews_g02_lineage_is_exactly_the_declared_operator_set
+    sabotage: make the plan author an operator set of its own
+    sabotage_state: unavailable
+    observed_red:
+      result: '**DEPLOYMENT SABOTAGE UNAVAILABLE.** Same `D-IMPL-86` bind-time refusal. That it fails
+        at BIND rather than at serve is itself the evidence: this deployment is not responsible for policing
+        the divergence, because the SDK refuses to let such a product exist. The three-field lineage shape
+        is likewise an SDK contract a deployment cannot widen.'
+      date: '2026-09-12'
+      commit: e98ca052
+  - id: EWS-G03
+    statement: '`expires_at` derives from the decision instant and respects the ceiling'
+    spec_clause:
+      document: spec/CP-SPEC-011_Credit_Surveillance_Early_Warning.md
+      clause: G.1
+    test: tests/examples/test_cp_11_output.py::test_ews_g03_expiry_derives_from_the_decision_instant
+    sabotage: anchor the TTL on ingestion
+    sabotage_state: unavailable
+    observed_red:
+      result: '**DEPLOYMENT SABOTAGE UNAVAILABLE.** The SDK refuses the declaration at artifact load:
+        `ttl_anchor` accepts only `from_decision` or `from_entity_freshness`. A deployment cannot declare
+        a third anchor.'
+      date: '2026-09-12'
+      commit: e98ca052
+  - id: EWS-G04
+    statement: '`D_c` above tolerance refuses with the debt block'
+    spec_clause:
+      document: spec/CP-SPEC-011_Credit_Surveillance_Early_Warning.md
+      clause: G.1
+    test: tests/examples/test_cp_11_output.py::test_ews_g04_debt_above_tolerance_refuses_with_the_debt_block
+    sabotage: the gate asks with a tolerance measured BELOW the serve's own debt
+    sabotage_state: passed
+    observed_red:
+      result: RED. The tolerance is derived from the measured `D_c` of the same serve, so the refusal
+        is forced by the gate rather than by a broken estate read.
+      date: '2026-09-12'
+      commit: e98ca052
+  - id: EWS-G05
+    statement: a non-admitted obligor leaves no name, count or marker
+    spec_clause:
+      document: spec/CP-SPEC-011_Credit_Surveillance_Early_Warning.md
+      clause: G.1
+    test: tests/examples/test_cp_11_output.py::test_ews_g05_a_non_admitted_obligor_leaves_no_trace
+    sabotage: publish a count of excluded obligors
+    sabotage_state: passed
+    observed_red:
+      result: RED. Asserted against REAL second and third obligors that exist in the estate and are not
+        in the admitted set, never against an invented identifier.
+      date: '2026-09-12'
+      commit: e98ca052
+  - id: EWS-G06
+    statement: payload classification is the highest contributing
+    spec_clause:
+      document: spec/CP-SPEC-011_Credit_Surveillance_Early_Warning.md
+      clause: G.1
+    test: tests/examples/test_cp_11_output.py::test_ews_g06_the_payload_classification_is_the_highest_contributing
+    sabotage: serve no internal element at all
+    sabotage_state: passed
+    observed_red:
+      result: RED. The mixed-classification premise disappears, which is the vacuity the gate guards against.
+      date: '2026-09-12'
+      commit: e98ca052
+  - id: EWS-G07
+    statement: a superseded `8k_event` contributes ZERO and appears in the exclusion list
+    spec_clause:
+      document: spec/CP-SPEC-011_Credit_Surveillance_Early_Warning.md
+      clause: G.1
+    test: tests/examples/test_cp_11_output.py::test_ews_g07_a_superseded_signal_contributes_zero
+    sabotage: '`contributes()` returns True for everything — supersession ends nothing'
+    sabotage_state: passed
+    observed_red:
+      result: 'RED, 3 tests. TRAP 1 reintroduced: every 8-K ever filed contributes at full weight forever,
+        because `decay_days` is NULL for that class. `EWS-G12` and `EWS-G18` went red alongside, which
+        is the blast radius of the defect rather than a weakness in them.'
+      date: '2026-09-12'
+      commit: e98ca052
+  - id: EWS-G08
+    statement: supersession is not staleness, and absence from a chain is not supersession
+    spec_clause:
+      document: spec/CP-SPEC-011_Credit_Surveillance_Early_Warning.md
+      clause: G.1
+    test: tests/examples/test_cp_11_output.py::test_ews_g08_supersession_is_not_staleness_and_absence_is_not_supersession
+    sabotage: classify any signal the chain does not mirror as `superseded`
+    sabotage_state: passed
+    observed_red:
+      result: RED, 3 tests. The 113 signals in classes with no chain at all would be dropped as superseded
+        — a product silently discarding most of its evidence while reporting a clean composite.
+      date: '2026-09-12'
+      commit: e98ca052
+  - id: EWS-G09
+    statement: every decaying class decays against the SOURCE observation date
+    spec_clause:
+      document: spec/CP-SPEC-011_Credit_Surveillance_Early_Warning.md
+      clause: G.1
+    test: tests/examples/test_cp_11_output.py::test_ews_g09_every_class_decays_against_the_source_observation_date
+    sabotage: 'declare `decay_basis: observed-at` in the λ_c table'
+    sabotage_state: passed
+    observed_red:
+      result: RED, 2 tests. The `D-IMPL-331` defect reintroduced at the declaration.
+      date: '2026-09-12'
+      commit: e98ca052
+  - id: EWS-G10
+    statement: the delta is `(since, asked_at]` on VALID TIME and admits no look-ahead
+    spec_clause:
+      document: spec/CP-SPEC-011_Credit_Surveillance_Early_Warning.md
+      clause: G.1
+    test: tests/examples/test_cp_11_output.py::test_ews_g10_the_delta_is_valid_time_and_admits_no_look_ahead
+    sabotage: widen the source read past `asked_at`
+    sabotage_state: passed
+    observed_red:
+      result: 'RED, 2 tests — `EWS-G23` and `EWS-G25`. Look-ahead is caught by the replay gate and by
+        the cross-product gate before the delta gate itself, which is the stronger result: three independent
+        assertions see the same violation.'
+      date: '2026-09-12'
+      commit: e98ca052
+  - id: EWS-G11
+    statement: an obligor with no signal in the delta returns `200` with a `no-change` finding
+    spec_clause:
+      document: spec/CP-SPEC-011_Credit_Surveillance_Early_Warning.md
+      clause: G.1
+    test: tests/examples/test_cp_11_output.py::test_ews_g11_an_obligor_with_no_signal_returns_a_no_change_finding
+    sabotage: report every class as present
+    sabotage_state: passed
+    observed_red:
+      result: RED. Asked over a one-day delta ending before the anchor's earliest signal, so the empty
+        delta is genuine rather than artificially narrowed.
+      date: '2026-09-12'
+      commit: e98ca052
+  - id: EWS-G12
+    statement: the escalation bands are reachable, ordered, and discriminate
+    spec_clause:
+      document: spec/CP-SPEC-011_Credit_Surveillance_Early_Warning.md
+      clause: G.1
+    test: tests/examples/test_cp_11_output.py::test_ews_g12_the_three_bands_are_reachable_and_ordered
+    sabotage: let supersession end nothing (the TRAP 1 sabotage)
+    sabotage_state: passed
+    observed_red:
+      result: 'RED. TRAP 2''s inverse: reachability is asserted by measuring THREE REAL OBLIGORS landing
+        in DIFFERENT bands, never by pinning a population. The estate''s own bands are carried in the
+        payload beside the product''s, so the calibration decision is visible rather than silently applied.'
+      date: '2026-09-12'
+      commit: e98ca052
+  - id: EWS-G13
+    statement: a class with no evidence is reported ABSENT, never scored zero
+    spec_clause:
+      document: spec/CP-SPEC-011_Credit_Surveillance_Early_Warning.md
+      clause: G.1
+    test: tests/examples/test_cp_11_output.py::test_ews_g13_a_class_with_no_evidence_is_absent_not_zero
+    sabotage: report every class as `present`
+    sabotage_state: passed
+    observed_red:
+      result: RED, 2 tests. Tupperware has no trend deltas at all; scoring that zero would say *"we looked
+        and found nothing concerning"* when the truth is *"we have nothing to look at"*.
+      date: '2026-09-12'
+      commit: e98ca052
+  - id: EWS-G14
+    statement: only `resolved` WARN matches contribute; the ambiguous count is published
+    spec_clause:
+      document: spec/CP-SPEC-011_Credit_Surveillance_Early_Warning.md
+      clause: G.1
+    test: tests/examples/test_cp_11_output.py::test_ews_g14_only_resolved_warn_matches_contribute
+    sabotage: drop the withheld count
+    sabotage_state: passed
+    observed_red:
+      result: 'RED. TRAP 4: 32 of the estate''s 36 matches are wrong at score ≈0.71 — TransDigm to Transdev,
+        B&G Foods to US Foods, SP Plus to Lamps Plus.'
+      date: '2026-09-12'
+      commit: e98ca052
+  - id: EWS-G15
+    statement: no `gdelt_mention.tone` value reaches any weight, score or payload field
+    spec_clause:
+      document: spec/CP-SPEC-011_Credit_Surveillance_Early_Warning.md
+      clause: G.1
+    test: tests/examples/test_cp_11_output.py::test_ews_g15_no_gdelt_tone_reaches_any_weight_or_payload
+    sabotage: carry `tone` onto a contribution
+    sabotage_state: passed
+    observed_red:
+      result: 'RED. TRAP 5: all 951 rows carry the identical literal `<-5`, the query filter that selected
+        them. Weighting by it would weight every mention by a constant while appearing to discriminate.'
+      date: '2026-09-12'
+      commit: e98ca052
+  - id: EWS-G16
+    statement: no `filing_profile` lifetime count is served as a population of actionable events
+    spec_clause:
+      document: spec/CP-SPEC-011_Credit_Surveillance_Early_Warning.md
+      clause: G.1
+    test: tests/examples/test_cp_11_output.py::test_ews_g16_no_lifetime_census_is_presented_as_a_population
+    sabotage: carry a profile count into the payload
+    sabotage_state: passed
+    observed_red:
+      result: 'RED. TRAP 3: the profile says 16 obligors carry an acceleration; 3 have one in any decidable
+        window. Ratios 13.5 / 15.2 / 9.1% prove it is a window effect.'
+      date: '2026-09-12'
+      commit: e98ca052
+  - id: EWS-G17
+    statement: every contribution names its class, weight, age, decayed contribution and source
+    spec_clause:
+      document: spec/CP-SPEC-011_Credit_Surveillance_Early_Warning.md
+      clause: G.1
+    test: tests/examples/test_cp_11_output.py::test_ews_g17_every_contribution_carries_its_whole_derivation
+    sabotage: zero out the weight on every contribution
+    sabotage_state: passed
+    observed_red:
+      result: RED. The gate recomputes weight x severity x retained and compares, so a contribution that
+        does not equal the three factors beside it is caught — not merely a missing key.
+      date: '2026-09-12'
+      commit: e98ca052
+  - id: EWS-G18
+    statement: the exclusion list is served and names a reason per excluded signal
+    spec_clause:
+      document: spec/CP-SPEC-011_Credit_Surveillance_Early_Warning.md
+      clause: G.1
+    test: tests/examples/test_cp_11_output.py::test_ews_g18_the_exclusion_list_names_a_reason_per_signal
+    sabotage: return an empty exclusion list
+    sabotage_state: passed
+    observed_red:
+      result: RED, 2 tests. The gate also asserts contributing + excluded == the delta's own count, so
+        a signal in NEITHER list is caught as well as one in both.
+      date: '2026-09-12'
+      commit: e98ca052
+  - id: EWS-G19
+    statement: the four §6.3 axes are `ProductRequest` fields, absent from `parameters`
+    spec_clause:
+      document: spec/CP-SPEC-011_Credit_Surveillance_Early_Warning.md
+      clause: G.1
+    test: tests/examples/test_cp_11_output.py::test_ews_g19_the_four_axes_are_fields_not_parameters
+    sabotage: carry `subject` in `parameters` as well as in its field
+    sabotage_state: passed
+    observed_red:
+      result: 'RED — **27 of 29 tests red**, and the blast radius is the finding. A duplicated axis changes
+        the request identity, so every serve in the module fails. Recorded rather than narrowed: it says
+        the axes are load-bearing for identity and not merely a shape rule.'
+      date: '2026-09-12'
+      commit: e98ca052
+  - id: EWS-G20
+    statement: no date is parsed out of an `rdfs:label`; every instant comes from a typed field
+    spec_clause:
+      document: spec/CP-SPEC-011_Credit_Surveillance_Early_Warning.md
+      clause: G.1
+    test: tests/examples/test_cp_11_output.py::test_ews_g20_no_date_is_parsed_out_of_a_label
+    sabotage: n/a — see the result
+    sabotage_state: passed
+    observed_red:
+      result: RED via `EWS-G10`'s sabotage, which moves instants the payload carries. **The FIRST DRAFT
+        of this gate grepped `acquisition.py` for `rdfs:label` and went red against correct code**, because
+        the DOCSTRING THAT EXPLAINS THE RULE contains the string. A gate a comment can break is a gate
+        about comments. It now asserts structurally — the source-vocabulary artifact declares no label
+        term at all, so there is nothing for the code to take a date from — and every payload instant
+        is matched against the relational leg's own values.
+      date: '2026-09-12'
+      commit: e98ca052
+  - id: EWS-G21
+    statement: the payload carries no second copy of `D_c`, the content address or the versions
+    spec_clause:
+      document: spec/CP-SPEC-011_Credit_Surveillance_Early_Warning.md
+      clause: G.1
+    test: tests/examples/test_cp_11_output.py::test_ews_g21_the_payload_carries_no_second_copy_of_the_governed_figures
+    sabotage: add a `debt` key to the payload
+    sabotage_state: passed
+    observed_red:
+      result: RED. Two copies of one figure can disagree, with nothing to say which is authoritative.
+      date: '2026-09-12'
+      commit: e98ca052
+  - id: EWS-G22
+    statement: the payload claims no notification, recall or eviction
+    spec_clause:
+      document: spec/CP-SPEC-011_Credit_Surveillance_Early_Warning.md
+      clause: G.1
+    test: tests/examples/test_cp_11_output.py::test_ews_g22_the_payload_claims_no_notification_recall_or_eviction
+    sabotage: add a payload field saying dependent products were notified and recalled
+    sabotage_state: passed
+    observed_red:
+      result: 'RED. **Purpose amended 2026-09-12**: it no longer denies that downstream invalidation exists,
+        because `D-IMPL-334` built it. It holds the one line still false — the fabric cannot reach a copy
+        a consumer already holds. Asserted over the payload AND over every shipped `.py` and `.yaml`,
+        because a README can overclaim as easily as a payload.'
+      date: '2026-09-12'
+      commit: e98ca052
+  - id: EWS-G23
+    statement: re-serving at an earlier `as_of` sees the earlier state
+    spec_clause:
+      document: spec/CP-SPEC-011_Credit_Surveillance_Early_Warning.md
+      clause: G.1
+    test: tests/examples/test_cp_11_output.py::test_ews_g23_replay_at_an_earlier_as_of_sees_the_earlier_state
+    sabotage: admit signals dated after `asked_at`
+    sabotage_state: passed
+    observed_red:
+      result: RED. If the two serves agreed, `as_of` would not be reaching the read.
+      date: '2026-09-12'
+      commit: e98ca052
+  - id: EWS-G24
+    statement: a `spread_widening` signal naming instruments carries them rather than collapsing to the
+      obligor
+    spec_clause:
+      document: spec/CP-SPEC-011_Credit_Surveillance_Early_Warning.md
+      clause: G.1
+    test: tests/examples/test_cp_11_output.py::test_ews_g24_a_spread_signal_names_its_instruments
+    sabotage: n/a on this roster — see the result
+    sabotage_state: not-required
+    observed_red:
+      result: '**NOT EXERCISED ON THIS ROSTER, and it SKIPS rather than passing.** No anchor in the four
+        this module serves carries a `spread_widening` signal naming instruments, so the gate has nothing
+        to range over. A `pytest.skip` with that reason, never a green assertion over an empty set — which
+        would be the vacuity `D-IMPL-261` and this project''s own reading rules refuse. Rung 10''s `CP10-F-06`
+        is inherited as a discipline; this estate does not exercise it here.'
+      date: '2026-09-12'
+      commit: e98ca052
+  - id: EWS-G25
+    statement: 'the cross-product case: an old dependent product refuses, an EQUALLY OLD unrelated product
+      serves, a newly derived one serves'
+    spec_clause:
+      document: spec/CP-SPEC-011_Credit_Surveillance_Early_Warning.md
+      clause: G.1
+    test: tests/examples/test_cp_11_output.py::test_ews_g25_the_cross_product_case_through_the_real_mechanism
+    sabotage: revert `_boundary_instant` to `claim.observed_at` — `D-IMPL-334`'s behavior
+    sabotage_state: passed
+    observed_red:
+      result: 'RED. **The real `D-IMPL-334` path end to end: real assembly -> the boot-bound writer ->
+        the real Control Plane invalidation register -> the real serve-time gate. No stub and no seeded
+        boundary.** One `ControlPlaneRegistry` spans the serves, so the register the writer appends to
+        is the register the gate reads. The boundary is pinned BOTH WAYS — it must equal 2026-07-28, the
+        instant the superseding evidence became true in the world, and must NOT equal 2026-08-19, the
+        instant the fabric writes it. The sabotage produces exactly the second, and this gate is the one
+        that would have caught `D-IMPL-334`''s defect had it existed then. **The middle leg is why the
+        other two mean anything**: B is exactly as old as A, and a mechanism keyed on elapsed time rather
+        than dependence would refuse it too, satisfy the first leg, and be a global clock wearing an invalidation''s
+        name.'
+      date: '2026-09-12'
+      commit: e98ca052
+  - id: EWS-G26
+    statement: a valid SIC code never falls silently to `Unclassified`
+    spec_clause:
+      document: spec/CP-SPEC-011_Credit_Surveillance_Early_Warning.md
+      clause: G.1
+    test: tests/examples/test_cp_11_output.py::test_ews_g26_a_valid_sic_never_falls_silently_to_unclassified
+    sabotage: make every SIC fall through to the fallback
+    sabotage_state: passed
+    observed_red:
+      result: RED. `CP11-F-09`. Asserted over the WHOLE anchor set rather than one obligor, because one
+        obligor resolving proves nothing about the other 49 — and the gate additionally requires the resolution
+        to DISCRIMINATE, since one sector for every anchor would be inertness wearing a different name.
+      date: '2026-09-12'
+      commit: e98ca052
+  - id: EWS-G27
+    statement: supersession participation is DECLARED, not inferred
+    spec_clause:
+      document: spec/CP-SPEC-011_Credit_Surveillance_Early_Warning.md
+      clause: G.1
+    test: tests/examples/test_cp_11_output.py::test_ews_g27_supersession_participation_is_declared_not_inferred
+    sabotage: infer the participant set from which classes appear in the chain
+    sabotage_state: passed
+    observed_red:
+      result: 'RED — **and the FIRST DRAFT OF THIS GATE WAS GREEN UNDER EXACTLY THIS SABOTAGE.** It passed
+        because on today''s estate the inferred set and the declared set are THE SAME VALUE: only `8k_event`
+        has a chain, and only `8k_event` is declared. A gate asserted only where two answers coincide
+        proves nothing about which one produced them — cp-10''s `RSM-G23`, the same defect found again.
+        The gate now makes the artifact declare a class the chain does not contain, which an inferring
+        implementation cannot produce.'
+      date: '2026-09-12'
+      commit: e98ca052
+  - id: EWS-G28
+    statement: each signal carries exactly one chain state, and the three partition
+    spec_clause:
+      document: spec/CP-SPEC-011_Credit_Surveillance_Early_Warning.md
+      clause: G.1
+    test: tests/examples/test_cp_11_output.py::test_ews_g28_each_signal_carries_exactly_one_chain_state
+    sabotage: publish the overlapping raw `chained` and `current` sets and add them
+    sabotage_state: passed
+    observed_red:
+      result: RED. `current` is a SUBSET of `chained`, so adding them counts every current signal twice.
+        The product exposes one three-valued classifier and the raw sets never reach the payload.
+      date: '2026-09-12'
+      commit: e98ca052
+  - id: EWS-G29
+    statement: the composite's decay and the Context Debt freshness term are independent
+    spec_clause:
+      document: spec/CP-SPEC-011_Credit_Surveillance_Early_Warning.md
+      clause: G.1
+    test: tests/examples/test_cp_11_output.py::test_ews_g29_the_composite_and_the_context_debt_are_independent
+    sabotage: wire the SDK λ_c half-life into the composite's decay
+    sabotage_state: passed
+    observed_red:
+      result: 'RED — **and the FIRST DRAFT OF THIS GATE WAS ALSO GREEN UNDER ITS OWN SABOTAGE.** It asserted
+        the config''s shape and the orderings, and both survived: structure did not change, and the two
+        measures still differed for other reasons. **Only recomputing the arithmetic catches the crossing.**
+        The gate now recomputes `2^(-age/decay_days)` from the ESTATE''s own rate per signal and compares.
+        The independence is also measured over a POPULATION — 12 anchors, requiring at least one inversion
+        between the composite ordering and the `F` ordering. Measured over 14: **36 inversions**. The
+        first draft used three obligors, and on those three the orderings happened to agree, so it went
+        red against correct code; a coincidence over three subjects is not evidence of coupling.'
+      date: '2026-09-12'
+      commit: e98ca052
