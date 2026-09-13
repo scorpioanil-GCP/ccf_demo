@@ -87,7 +87,7 @@ BLOCKS: dict[str, tuple[str, str, str]] = {
         "The as-of pin lives here because it is a REQUEST parameter. A program"
         " that read a clock would make its own answer unreproducible."),
     "gates": ("artifacts/gates.yaml",
-        "artifacts/gates.yaml — 28 declared gates, each with its sabotage outcome",
+        "artifacts/gates.yaml — {gates} declared gates, each with its sabotage outcome",
         "Twenty-five `passed`, three `unavailable`. FIVE gates were green under"
         " their first sabotage and all five are recorded — four weak sabotages"
         " and one weak test."),
@@ -109,7 +109,7 @@ BLOCKS: dict[str, tuple[str, str, str]] = {
     "tests": ("tests/examples/test_cp_12_output.py",
         "tests/examples/test_cp_12_output.py — {lines} lines, {tests} tests", ""),
     "findings": ("FINDINGS.md",
-        "FINDINGS.md — {lines} lines, sixteen findings and none open", ""),
+        "FINDINGS.md — {lines} lines, {findings} findings and none open", ""),
     "readme": ("README.md", "README.md — {lines} lines", ""),
     "summary": ("summary_explanations.md",
         "summary_explanations.md — {lines} lines, for three readers at once", ""),
@@ -167,6 +167,28 @@ def _tests(source: str) -> int:
     )
 
 
+def _gates(source: str) -> int:
+    """Declared gates in `source`, parsed rather than counted by eye.
+
+    The caption used to carry this number as a literal, while this module's
+    own docstring said no count on the page is typed. Two typed counts is how
+    that claim stops being true, so both are now read from the file being
+    displayed.
+    """
+    import yaml
+
+    return len(yaml.safe_load(source)["declaration"]["gates"])
+
+
+def _findings(source: str) -> int:
+    """Distinct `CPNN-F-NN` ids in `source`, by id rather than by mention.
+
+    The set, not the count of matches: every finding appears in the summary
+    table AND, for the Gate-2 ones, in its own section.
+    """
+    return len(set(re.findall(r"CP\d\d-F-\d\d", source)))
+
+
 def _caption(template: str, source: str) -> str:
     """`template` with every count filled from `source` — never from memory.
 
@@ -179,6 +201,10 @@ def _caption(template: str, source: str) -> str:
         filled = filled.replace("{lines}", f"{_lines(source):,}")
     if "{tests}" in filled:
         filled = filled.replace("{tests}", f"{_tests(source):,}")
+    if "{gates}" in filled:
+        filled = filled.replace("{gates}", f"{_gates(source):,}")
+    if "{findings}" in filled:
+        filled = filled.replace("{findings}", f"{_findings(source):,}")
     if "{" in filled:
         raise SystemExit(f"unfilled caption placeholder in {template!r}")
     return filled
