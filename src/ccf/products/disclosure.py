@@ -200,6 +200,10 @@ EXTERNAL_STATEMENTS: Final[Mapping[str, str]] = {
     "ttl-refusal": (
         "the product's declared time-to-live is outside the bound in force"
     ),
+    "composite-child-refusal": (
+        "a required child Context Product did not pass admission into this"
+        " composition"
+    ),
     "attestation-refusal": (
         "the source attestation required for this product is not in force"
     ),
@@ -320,6 +324,20 @@ PERMITTED_AT_MINIMAL: Final[Mapping[str, frozenset[str]]] = {
     # The declared ceiling is actionable — a caller can ask for a shorter TTL.
     # The product's own expiry and the deciding instant are fabric state.
     "ttl-refusal": frozenset({"max_ttl_seconds"}),
+    # `D-IMPL-336`: the CLASS is actionable and nothing else is. A caller told
+    # which child class failed can grant a producing skill, widen a version
+    # lane, or ask again once the upstream product re-derives — that is a
+    # response the caller can actually make.
+    #
+    # `reason` and `child_content_address` are withheld at minimal, and the
+    # second is the deliberate one. Amendment 2 requires the rejected child's
+    # identity to be RETAINED in protected replay, and retention is not
+    # disclosure: an address handed to an external caller is a pointer to a
+    # product that fabric decided it may not have, and on an
+    # information-barrier composition the existence of a specific rejected
+    # child is itself a disclosure. The examiner reads it from the decision
+    # record, where `ChildResolution` carries it in full.
+    "composite-child-refusal": frozenset({"product_class"}),
     # What the deployment declares acceptable is actionable; which dimension
     # failed and what mode the source is in are fabric state.
     "attestation-refusal": frozenset({"accepted_modes"}),

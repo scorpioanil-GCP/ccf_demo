@@ -66,7 +66,9 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import TYPE_CHECKING, Final, Literal
 
-from pydantic import Field, field_validator
+from decimal import Decimal
+
+from pydantic import Field, field_validator, model_validator
 
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import (
@@ -81,6 +83,7 @@ from ccf.graph.protocols import (
 )
 from ccf.graph.registry import AdapterPin
 from ccf.halflife.assessment import (
+    DebtFactors,
     NO_DEBT_EVIDENCE,
     NO_OBLIGATION_IN_FORCE,
     NO_SOURCE_REFRESH_RECENCY,
@@ -195,6 +198,27 @@ NO_AGENT_DEFINITION = "no-agent"
 #: for a reader to interpret. An absent action and a dropped action would
 #: otherwise be the same artifact — the audit-by-construction failure mode.
 NO_HITL_ACTIONS = "no-hitl-actions"
+
+#: ``outcome_status`` when a child was admitted and composed (D-IMPL-336).
+CHILD_ADMITTED: Final = "admitted"
+
+#: The closed ``outcome_status`` vocabulary (D-IMPL-336). Closed so that the
+#: four ways a child can be absent stay distinct: a **declared** optional
+#: absence, a governed **refusal**, an **eligibility** failure and an
+#: **authorization** failure are different events, and collapsing any pair
+#: would let a governance failure read as a data gap.
+CHILD_OUTCOME_STATUSES: Final[frozenset[str]] = frozenset(
+    {
+        CHILD_ADMITTED,
+        "refused",
+        "rejected-at-admission",
+        "no-producing-skill",
+        "ambiguous-producer",
+        "optional-absent",
+        "ineligible",
+        "unauthorized",
+    }
+)
 
 #: Dimension 5's workflow value when no workflow orchestrated the decision
 #: (I.4; CLAUDE.md §8.1). A positive claim mirroring :data:`NO_HITL_ACTIONS`:
@@ -774,6 +798,161 @@ class FalseAssemblyRefusalClaimError(ValueError):
     """
 
 
+
+class ChildResolution(CCFContract):
+    """One composite requirement, what satisfied it, and what came back.
+
+    **SDK-defined** (CLAUDE.md §11; ``docs/DECISIONS.md`` **D-IMPL-336**). The
+    mapping ``required product class → skill/grant → child address``, which no
+    hash of a set can carry: ``grant_set_hash`` on dimension 4 answers *which
+    skills was this agent holding*, and cannot answer *which one satisfied
+    which requirement*. Both are kept, in different dimensions.
+
+    **Dimension 5 and not dimension 4.** Dimension 4 answers *"for whom, with
+    what authority?"* — principal, role, agent identity, grants, delegation.
+    This answers what was invoked, in what order, and what came back, which is
+    the generation path. It is the same reasoning ``request`` was placed here
+    under, and the same reasoning ``debt`` was: *"debt is a property of the
+    delivered product"*, and so is a child's.
+
+    **Every child-side member is optional and ABSENT when no child was
+    produced.** A refused or missing requirement is recorded without inventing
+    a timestamp, an address or a debt figure — ``None`` here is dimension 5's
+    established voice for *this decision recorded none*, and a placeholder
+    would be a fact the record does not have.
+
+    **A product produced but rejected at admission is not a product that never
+    existed** (`D-IMPL-336` Amendment 2). Its ``child_content_address`` is
+    retained alongside ``outcome_status`` and ``refusal_ref``, because
+    discarding what was rejected would make an admission failure
+    indistinguishable from an absence. Whether that identity is *disclosed* in
+    a served payload is the deployment's policy call; its retention here is
+    not optional.
+
+    Attributes:
+        required_product_class: The class the composite required.
+        required: Whether the composite could be served without it.
+        outcome_status: One of :data:`CHILD_OUTCOME_STATUSES`.
+        producing_skill_name: The catalog entry that satisfied it, when one
+            was resolved.
+        producing_skill_version: That entry's pinned ``artifact_version``.
+        grant_hash: The governed binding identity — which grant made the entry
+            effective.
+        child_content_address: The served (or rejected) product's address.
+        child_schema_name: What the child actually declared itself to be.
+        child_schema_version: Observed, never predicted, and checked against
+            the requirement's declared lane.
+        child_asked_at: The child's reconstruction instant. Equal to the
+            composite's ``asked_at`` on every admitted child — a composite has
+            exactly one.
+        child_graph_snapshot_at: The child's own temporal anchor.
+        child_debt: The child's ``D_c``.
+        child_debt_factors: Its F, C and S. **Recorded as the triple and not
+            only the scalar**, because the composite's debt is the per-factor
+            minimum and a record of scalars could not re-derive it.
+        child_policy_bundle_versions: The child's policy versions.
+        child_lineage_ref: The child's lineage identity.
+        eligibility_basis: Which authority established eligibility —
+            :data:`~ccf.products.composite.ELIGIBILITY_LOCAL_REGISTER` or
+            :data:`~ccf.products.composite.ELIGIBILITY_PRODUCER_ATTESTED`.
+            Recorded rather than assumed: a local child's eligibility and a
+            peered child's are different evidence with different trust, and
+            *"eligible"* alone would make them indistinguishable.
+        refusal_ref: The child's refusal, when it refused or was rejected.
+    """
+
+    # Every optional member below is marked ``False`` — a generation boundary,
+    # and NOT hash-transparent. `ChildResolution` is a new contract, so there
+    # is no earlier record whose silence has to be preserved; what there is, is
+    # a record that must say *"we do not know"* out loud. Rendering ``null``
+    # makes an unknown a PRESENT statement in the canonical bytes, where
+    # omitting the key would make "no address was known" and "this build forgot
+    # to record one" the same artifact — which is the repudiation failure mode
+    # every sentinel in this module closes, arriving from the other direction.
+    required_product_class: str
+    required: bool
+    outcome_status: str
+    producing_skill_name: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: False}
+    )
+    producing_skill_version: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: False}
+    )
+    grant_hash: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: False}
+    )
+    child_content_address: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: False}
+    )
+    child_schema_name: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: False}
+    )
+    child_schema_version: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: False}
+    )
+    child_asked_at: datetime | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: False}
+    )
+    child_graph_snapshot_at: datetime | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: False}
+    )
+    child_debt: Decimal | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: False}
+    )
+    child_debt_factors: DebtFactors | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: False}
+    )
+    child_policy_bundle_versions: frozenset[str] | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: False}
+    )
+    child_lineage_ref: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: False}
+    )
+    eligibility_basis: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: False}
+    )
+    refusal_ref: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: False}
+    )
+
+    @model_validator(mode="after")
+    def _status_is_known(self) -> "ChildResolution":
+        if self.outcome_status not in CHILD_OUTCOME_STATUSES:
+            raise ValueError(
+                f"outcome_status {self.outcome_status!r} is not one of"
+                f" {sorted(CHILD_OUTCOME_STATUSES)}; the vocabulary is closed"
+                " so a governance failure cannot be recorded as a data gap"
+                " (D-IMPL-336)"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _served_rows_carry_what_they_claim(self) -> "ChildResolution":
+        """An admitted row without its child's state is not a record of one."""
+        if self.outcome_status != CHILD_ADMITTED:
+            return self
+        missing = [
+            name
+            for name in (
+                "child_content_address",
+                "child_schema_name",
+                "child_schema_version",
+                "child_asked_at",
+                "child_debt",
+                "child_debt_factors",
+                "eligibility_basis",
+            )
+            if getattr(self, name) is None
+        ]
+        if missing:
+            raise ValueError(
+                f"an admitted child's row omits {', '.join(missing)}; a row"
+                " claiming admission must carry the state admission checked,"
+                " or replay pins a decision it cannot reproduce (D-IMPL-336)"
+            )
+        return self
+
+
 class ContentGenerationPath(CCFContract):
     """Dimension 5 — how the delivered content came to be (INV-CH7-85).
 
@@ -974,6 +1153,9 @@ class ContentGenerationPath(CCFContract):
     source_refresh_recency: SourceRefreshRecency = NO_SOURCE_REFRESH_RECENCY
     obligation_in_force: ObligationInForce = NO_OBLIGATION_IN_FORCE
     request: ProductRequest | None = None
+    child_resolutions: tuple[ChildResolution, ...] = Field(
+        default=(), json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
 
 class DecisionReplayRecord(CCFContract):

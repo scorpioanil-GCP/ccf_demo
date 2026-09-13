@@ -122,6 +122,7 @@ from ccf.peering.admission import (
     PolicyBindingRefusal,
     SignatureRefusal,
 )
+from ccf.products.composite import ChildAdmissionRefusal
 from ccf.products.composition import MixingRefusal
 from ccf.products.constraints import ConstraintRefusal, PolicyResolutionConflict
 from ccf.products.contract import ComputedEmptyFinding, ProductLineage
@@ -573,6 +574,26 @@ REFUSAL_KINDS: Final[Mapping[type[CCFContract], str]] = {
     # could not tell them apart would retry the wrong one.
     DependencyInvalidationRefusal: "dependency-invalidation-refusal",
     DeclaredObligationRefusal: "declared-obligation-refusal",
+    # `D-IMPL-336`. Child admission for a composite Context Product. Its own
+    # kind rather than a reuse of `dependency-invalidation-refusal`, because
+    # the two answer different questions and a consumer that could not tell
+    # them apart would retry the wrong thing: a dependency-invalidation refusal
+    # says *the world moved under a product this fabric holds*, and this one
+    # says *a CHILD offered to a composition did not pass admission* — which
+    # may be a class mismatch, an incompatible version, another `as_of`, an
+    # address that did not recompute, unassessable debt, or eligibility this
+    # fabric could not establish. The machine-readable cause is the refusal's
+    # own `reason`, so the kind stays one token while the vocabulary of causes
+    # stays closed at `ccf.replay.record.CHILD_OUTCOME_STATUSES`.
+    #
+    # The token is `composite-child-` and NOT `child-admission-` because
+    # `admission-refusal` (the peering kind) is a substring of the latter, and
+    # this vocabulary forbids one token containing another — a consumer
+    # prefix-matching `admission-refusal` would silently swallow every
+    # composite refusal. Caught by
+    # `test_every_kind_has_its_own_test_function`, which is exactly the guard
+    # that should catch it.
+    ChildAdmissionRefusal: "composite-child-refusal",
     # `24.10-02` / `R-11` (`D-IMPL-282` option 1a with `D-IMPL-224`): the
     # seventh `GateRefusal` sibling, and the token names a **declared** product
     # invariant whose IMPLEMENTATION the deployment supplied. That is exactly

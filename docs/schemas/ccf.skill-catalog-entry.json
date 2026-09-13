@@ -299,7 +299,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "One versioned skill catalog entry (D-IMPL-12; CLAUDE.md \u00a76.2 channel 2).\n\nSDK-defined. The artifact the grant machinery (05-06) binds against by\nversion \u2014 a grant references an entry, never copies it, so upgrading a\nskill is a new entry version and a new grant, both audited.\n\nTwo-field versioning per D-IMPL-28: ``schema_version`` is this class's\nlane; ``artifact_version`` is the author's content claim, hash-verified\nat registration (D-05).\n\n``description`` and ``argument_schema`` are required with no default and\nno sentinel (D-IMPL-56; D-16): the tool surface every harness renders is\na declared artifact property, produced by the one shared derivation in\n:mod:`ccf.skills.toolsurface` \u2014 never adapter-authored prose.",
+  "description": "One versioned skill catalog entry (D-IMPL-12; CLAUDE.md \u00a76.2 channel 2).\n\nSDK-defined. The artifact the grant machinery (05-06) binds against by\nversion \u2014 a grant references an entry, never copies it, so upgrading a\nskill is a new entry version and a new grant, both audited.\n\nTwo-field versioning per D-IMPL-28: ``schema_version`` is this class's\nlane; ``artifact_version`` is the author's content claim, hash-verified\nat registration (D-05).\n\n``description`` and ``argument_schema`` are required with no default and\nno sentinel (D-IMPL-56; D-16): the tool surface every harness renders is\na declared artifact property, produced by the one shared derivation in\n:mod:`ccf.skills.toolsurface` \u2014 never adapter-authored prose.\n\n``produces`` (D-IMPL-336) declares the Context Product **class** this skill\nemits, by ``schema_name``. It is the mirror of\n:attr:`SkillRequirements.required_context_products`, which declares what a\nskill *reads*: placing both on one artifact makes a skill's context\nfootprint readable in one place \u2014 what it consumes, what it emits, what\npolicy it needs.\n\nFour properties of ``produces``, each a decision:\n\n* **One class per skill.** A skill needing to emit two classes is two\n  skills, which is what keeps requirement resolution a lookup rather than\n  a search.\n* **A class name, never a version, a payload shape, or an instance.** The\n  child's ``schema_version`` is *observed* at composition and checked\n  against the requirement's declared range\n  (:class:`~ccf.products.contract.ChildRequirement`); it is not predicted\n  here, and version compatibility stays the product's own semver lane\n  (INV-CH7-49).\n* **:data:`NO_PRODUCT_CLASS` is a positive statement** \u2014 *this skill emits\n  no governed product* \u2014 and not silence (D-IMPL-38). A skill at the\n  sentinel **cannot satisfy a composite requirement**.\n* **Hash-transparent at the sentinel** (D-IMPL-243), so every catalog entry\n  registered before this field existed keeps its artifact identity and\n  every grant against one stays valid.\n\n``produces`` lives on the entry rather than on the grant because a grant\nbinds an entry *by reference and by version* and copies nothing: two grants\nof one entry must not be able to disagree about what that skill emits.",
   "properties": {
     "argument_schema": {
       "$ref": "#/$defs/SkillArgumentSchema"
@@ -334,6 +334,12 @@
     },
     "name": {
       "title": "Name",
+      "type": "string"
+    },
+    "produces": {
+      "ccf_hash_transparent": true,
+      "default": "ccf:no-product-class",
+      "title": "Produces",
       "type": "string"
     },
     "requirements": {

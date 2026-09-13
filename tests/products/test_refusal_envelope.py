@@ -88,6 +88,7 @@ from ccf.peering.admission import (
     PolicyBindingRefusal,
     SignatureRefusal,
 )
+from ccf.products.composite import GATE_CHILD_ADMISSION, ChildAdmissionRefusal
 from ccf.products.composition import MixingRefusal
 from ccf.products.constraints import ConstraintRefusal, PolicyResolutionConflict
 from ccf.products.contract import ProductLineage
@@ -329,6 +330,59 @@ def test_envelope_for_dependency_invalidation_refusal(
     assert envelope.fields["graph_snapshot_at"] == '"2026-08-15T12:00:00.000000Z"'
     assert envelope.fields["entity_uri"] == '"entity://fixture-obligor"'
     assert envelope.fields["cause"] == '"claim-fixture-0001"'
+
+
+def test_envelope_for_composite_child_refusal(
+    request_identity: RequestIdentity,
+) -> None:
+    """`D-IMPL-336`: a child refusal crosses with its cause AND its identity.
+
+    The second half is the ruling Amendment 2 added: **a product produced but
+    rejected at admission is not a product that never existed.** Its known
+    content address is retained on the refusal, so an audit can tell a
+    rejection apart from an absence — which is why `child_content_address` is
+    asserted present here rather than merely permitted.
+    """
+    refusal = ChildAdmissionRefusal(
+        gate=GATE_CHILD_ADMISSION,
+        detail="child answered as of a different reconstruction instant",
+        product_class="CorporateFamilyTree",
+        reason="as-of-mismatch",
+        child_content_address="a" * 64,
+    )
+    envelope = envelope_for(refusal, request=request_identity)
+
+    assert envelope.kind == REFUSAL_KINDS[ChildAdmissionRefusal]
+    assert envelope.kind == "composite-child-refusal"
+    assert envelope.reason == GATE_CHILD_ADMISSION
+    assert set(envelope.fields) == {
+        "product_class",
+        "reason",
+        "child_content_address",
+    }
+    assert envelope.fields["reason"] == '"as-of-mismatch"'
+    assert envelope.fields["child_content_address"] == f'"{"a" * 64}"'
+
+
+def test_a_child_that_never_existed_carries_no_invented_address(
+    request_identity: RequestIdentity,
+) -> None:
+    """The other half of the same ruling: absence invents nothing.
+
+    A requirement no granted skill produces has no product and therefore no
+    address. The field is **absent**, not a placeholder — a sentinel address
+    would be a fact the record does not have, and would make "nothing was
+    produced" indistinguishable from "something was produced and rejected".
+    """
+    refusal = ChildAdmissionRefusal(
+        gate=GATE_CHILD_ADMISSION,
+        detail="no in-force grant produces this class",
+        product_class="PeerBenchmark",
+        reason="no-producing-skill",
+    )
+    envelope = envelope_for(refusal, request=request_identity)
+
+    assert envelope.fields["child_content_address"] == "null"
 
 
 def test_envelope_for_ttl_refusal(request_identity: RequestIdentity) -> None:

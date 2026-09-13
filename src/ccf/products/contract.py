@@ -228,6 +228,7 @@ from pydantic import Field, field_validator, model_validator
 
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import HASH_TRANSPARENT_KEY
+from ccf.controlplane.artifact_base import validate_semver
 from ccf.controlplane.registry import ControlPlaneMissing, ControlPlaneProtocol
 from ccf.graph.protocols import LineageMode, PolicyBindingMode
 from ccf.halflife.assessment import (
@@ -266,7 +267,10 @@ __all__ = [
     "ProductDiscovery",
     "ProductLineage",
     "RegisteredProductClass",
+    "ChildRequirement",
+    "OptionalAbsenceTreatment",
     "ServeObligations",
+    "requirements_declaration_is_coherent",
     "TTLAnchor",
     "register_product_class",
 ]
@@ -718,6 +722,151 @@ class DeclaredProductGate(CCFContract):
 NO_PRODUCT_GATE = DeclaredProductGate()
 
 
+#: The strength-factor bounds D-IMPL-336's declared-absence treatment sits in.
+_ZERO = Decimal(0)
+_ONE = Decimal(1)
+
+
+class OptionalAbsenceTreatment(CCFContract):
+    """How a composite treats a DECLARED-ABSENT optional child (D-IMPL-336).
+
+    SDK-defined (CLAUDE.md §11). Declared per requirement in versioned
+    product-class configuration, **with no SDK numeric default**: what a
+    missing optional input costs is a domain judgement, and a default here
+    would be the SDK holding a value (CLAUDE.md §11 *"mechanism, not
+    values"*; D-IMPL-38).
+
+    **Absence is not refusal, invalidation, or unauthorized access**, and this
+    contract governs only the first. The other three are governed outcomes with
+    their own evidence and their own replay rows; letting a policy failure be
+    treated as a data gap would make a governance event read as a shortfall.
+
+    Attributes:
+        completeness_when_absent: The ``C`` factor this requirement contributes
+            when the child is declared absent — a strength factor in ``[0, 1]``
+            where lower is worse, entering the composite's per-factor minimum
+            exactly as an admitted child's would. **No default.** The composite
+            may still refuse on tolerance; this value decides how much the
+            absence costs, never whether the product serves.
+        omissible_outcomes: Which optional outcomes policy permits omitting
+            from the **served payload** — never from replay, where every
+            requirement keeps a row. Declared by the deployment and
+            interpreted nowhere in the SDK.
+    """
+
+    completeness_when_absent: Decimal
+    omissible_outcomes: frozenset[str]
+
+    @field_validator("completeness_when_absent")
+    @classmethod
+    def _is_a_strength_factor(cls, value: Decimal) -> Decimal:
+        if not (_ZERO <= value <= _ONE):
+            raise ValueError(
+                "completeness_when_absent is a strength factor in [0, 1],"
+                f" got {value}; a value outside that range cannot enter the"
+                " per-factor minimum D-IMPL-104 composes over"
+            )
+        return value
+
+
+class ChildRequirement(CCFContract):
+    """One child Context Product class a composite requires (D-IMPL-336).
+
+    SDK-defined (CLAUDE.md §11). Names a **class**, never a skill: which
+    granted skill satisfies it is resolved at assembly from the agent's
+    in-force grants, and a requirement naming an implementation would make the
+    composite depend on the thing this pattern exists to decouple from.
+
+    Attributes:
+        product_class: The child's ``schema_name``. Matched against a skill
+            catalog entry's ``produces``.
+        required: Whether the composite can be served without this child.
+            **No default** — an author who does not say has not said ``True``,
+            and silence is not a declaration (D-IMPL-38).
+        compatible_from: The lowest child ``schema_version`` this composite
+            composes over. The compatibility rule is **caret-shaped and stated
+            rather than parsed**: an admitted child must share this version's
+            **major** lane and be **at or above** it. No range grammar is
+            introduced — the SDK has none, and inventing one to express a
+            single rule would be a new surface for no gain.
+        absence_treatment: Required when ``required`` is ``False``, and
+            refused when it is ``True`` — a required child has no
+            declared-absent case, so carrying a treatment for one would be a
+            declaration that can never fire.
+    """
+
+    product_class: str
+    required: bool
+    compatible_from: str
+    # ``True`` — transparent at ``None``. A REQUIRED requirement can never
+    # carry a treatment (the validator below refuses one), so rendering the key
+    # for every required slot would put a permanent ``null`` into the canonical
+    # form of every composite class declaration to say something its own
+    # ``required`` flag already says.
+    absence_treatment: OptionalAbsenceTreatment | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+
+    @field_validator("compatible_from")
+    @classmethod
+    def _floor_is_semver(cls, value: str) -> str:
+        return validate_semver(value)
+
+    @model_validator(mode="after")
+    def _treatment_matches_optionality(self) -> "ChildRequirement":
+        if self.required and self.absence_treatment is not None:
+            raise ValueError(
+                f"requirement {self.product_class!r} is required and carries an"
+                " absence treatment; a required child has no declared-absent"
+                " case, so the treatment could never fire (D-IMPL-336)"
+            )
+        if not self.required and self.absence_treatment is None:
+            raise ValueError(
+                f"requirement {self.product_class!r} is optional and declares"
+                " no absence treatment; what a missing optional input costs is"
+                " the class's to state and the SDK holds no default"
+                " (D-IMPL-336, D-IMPL-38)"
+            )
+        return self
+
+    def accepts(self, *, child_version: str) -> bool:
+        """Whether ``child_version`` is inside this requirement's lane.
+
+        Same major as :attr:`compatible_from`, and at or above it. Parses with
+        the one semver grammar this tree has (:func:`validate_semver`) rather
+        than introducing a range parser for a single rule.
+        """
+        floor = tuple(int(part) for part in validate_semver(self.compatible_from).split("."))
+        try:
+            actual = tuple(int(part) for part in validate_semver(child_version).split("."))
+        except ValueError:
+            return False
+        return actual[0] == floor[0] and actual >= floor
+
+
+def requirements_declaration_is_coherent(
+    requires: tuple[ChildRequirement, ...],
+) -> None:
+    """Refuse a requirement list that cannot resolve (D-IMPL-336).
+
+    One rule: **no duplicate ``product_class``**. Two requirements naming one
+    class have no distinct resolution — the same granted skill would satisfy
+    both under two names, invoked twice, recorded twice, and composed twice.
+
+    Raises:
+        ValueError: a class appears more than once.
+    """
+    seen: set[str] = set()
+    for requirement in requires:
+        if requirement.product_class in seen:
+            raise ValueError(
+                f"product class {requirement.product_class!r} appears twice in"
+                " `requires`; two requirements naming one class have no"
+                " distinct resolution (D-IMPL-336)"
+            )
+        seen.add(requirement.product_class)
+
+
 class RegisteredProductClass(CCFContract):
     """Class-level governance of one product class, resolved at registration.
 
@@ -812,6 +961,14 @@ class RegisteredProductClass(CCFContract):
     serve_obligations: ServeObligations = Field(
         default=NO_SERVE_OBLIGATIONS, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
+    requires: tuple[ChildRequirement, ...] = Field(
+        default=(), json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+
+    @model_validator(mode="after")
+    def _requirements_resolve(self) -> "RegisteredProductClass":
+        requirements_declaration_is_coherent(self.requires)
+        return self
 
 
 class ProductLineage(CCFContract):
