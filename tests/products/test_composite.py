@@ -605,7 +605,10 @@ def test_f7_an_undeclared_bound_refuses_rather_than_defaulting(
         candidate(child, require(FAMILY), provenance=_peer_provenance(child, checked_at=SERVED_AT)),
     )
     assert isinstance(out, ChildAdmissionRefusal)
-    assert out.reason == "eligibility-evidence-stale"
+    # Its OWN reason, not "stale" (found by the repair's own review panel):
+    # a tenant that declared no bound has a CONFIGURATION error, and telling
+    # the operator their peer's evidence is stale would name the wrong party.
+    assert out.reason == "eligibility-bound-undeclared"
     assert "declared no eligibility-evidence bound" in out.detail
 
 
@@ -929,3 +932,88 @@ def test_ambiguous_producers_still_refuse_with_no_tie_breaker() -> None:
 
 def test_a_skill_without_produces_still_cannot_satisfy_a_requirement() -> None:
     assert resolve_producing_grant(require(FAMILY), {"s": skill("s")}) is None
+
+
+# --- findings the panel raised against the REPAIR itself ---------------------
+
+
+def test_the_authenticated_header_cannot_be_mutated_after_admission() -> None:
+    """Raised against the repair, CRITICAL, and confirmed by execution.
+
+    `AdmittedProduct` stored the verified header by reference, so a holder
+    could swap `ccf-child-eligibility` for an assertion the peering gate never
+    checked — after verification. "Authenticated header" would then have meant
+    *"a header that was authenticated at some point, and is whatever it is
+    now"*.
+    """
+    from ccf.peering.admission import _ADMISSION_TOKEN, AdmittedProduct
+
+    header = {"ccf-child-eligibility": "the-verified-one"}
+    admitted = AdmittedProduct(
+        None,  # type: ignore[arg-type]
+        None,  # type: ignore[arg-type]
+        None,  # type: ignore[arg-type]
+        _ADMISSION_TOKEN,
+        protected_header=header,
+        content_address="addr",
+    )
+    # the source mapping moving does not move the admitted one
+    header["ccf-child-eligibility"] = "swapped-after-verification"
+    assert admitted.protected_header is not None
+    assert admitted.protected_header["ccf-child-eligibility"] == "the-verified-one"
+    with pytest.raises(TypeError):
+        admitted.protected_header["ccf-child-eligibility"] = "swapped"  # type: ignore[index]
+
+
+def test_an_undeclared_evidence_bound_is_not_reported_as_stale_evidence(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """Raised against the repair. Two different facts, two different remedies.
+
+    Conflating them told an operator their peer's attestation was stale when
+    the truth was that this tenant never said how stale is too stale — and the
+    two are fixed by different people.
+    """
+    from ccf.products.composite import _status_for
+
+    assert _status_for("eligibility-bound-undeclared") == "unauthorized"
+    assert _status_for("eligibility-evidence-stale") == "ineligible"
+
+
+def test_an_undeclared_outcome_key_does_not_wipe_the_audit_trace(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """Raised against the repair. Refusing is right; erasing is not.
+
+    The first version returned immediately with `resolutions=()`, losing the
+    disposition of every validly produced child for that decision — more
+    evidence destroyed than the defect being refused.
+    """
+    adm = _admitted(registry, FAMILY, require(FAMILY))
+    out = compose([require(FAMILY)], {FAMILY: adm, EXPOSURE: adm})
+
+    assert not out.served
+    assert out.refusal is not None
+    assert out.refusal.reason == "undeclared-outcome"
+    # ...and the declared requirement still has its row.
+    assert [r.required_product_class for r in out.resolutions] == [FAMILY]
+    assert out.resolutions[0].outcome_status == "admitted"
+
+
+def test_a_rebinding_failure_keeps_the_VERIFIED_identity(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """Raised against the repair. Admission established the identity.
+
+    Only an address the gate DISPROVED is withheld from the verified field; a
+    child rejected for being offered to the wrong slot has a perfectly good
+    one, and dropping it loses the rejected product's identity that
+    Amendment 2 requires be retained.
+    """
+    adm = _admitted(registry, FAMILY, require(FAMILY))
+    out = compose([require(EXPOSURE)], {EXPOSURE: adm})
+
+    assert not out.served
+    row = out.resolutions[0]
+    assert row.child_content_address == adm.verified_content_address
+    assert row.producing_fabric == "fabric://test-boot"

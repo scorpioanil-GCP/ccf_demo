@@ -95,7 +95,7 @@ from pydantic import Field, field_validator
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import HASH_TRANSPARENT_KEY, content_hash
 from ccf.controlplane.artifact_base import ArtifactClass
-from ccf.controlplane.registry import ControlPlaneProtocol
+from ccf.controlplane.registry import ControlPlaneMissing, ControlPlaneProtocol
 from decimal import Decimal
 
 from ccf.halflife.assessment import DebtFactors
@@ -205,6 +205,8 @@ ChildRefusalReason = Literal[
     "eligibility-evidence-missing",
     "eligibility-evidence-mismatch",
     "eligibility-evidence-stale",
+    "eligibility-bound-undeclared",
+    "composition-unwired",
     "tenant-mismatch",
     "provenance-unverified",
     "no-producing-skill",
@@ -1072,11 +1074,17 @@ class CompositeAdmissionGate:
             # second member, and reading the tuple as the artifact was a live
             # bug caught by mypy before any test ran.
             _version, policy = self._registry.resolve_latest(key)
-        except Exception:
+        except ControlPlaneMissing:
+            # NARROW, deliberately. A bare `except` here would swallow a
+            # registry outage and report it as an undeclared bound, which is a
+            # different fact with a different remedy.
             policy = None
         if not isinstance(policy, EligibilityEvidencePolicy):
             return _EligibilityRefused(
-                "eligibility-evidence-stale",
+                # Its OWN reason: a tenant that declared no bound has a
+                # configuration error, and saying "your peer's evidence is
+                # stale" would name the wrong party.
+                "eligibility-bound-undeclared",
                 "this tenant has declared no eligibility-evidence bound at"
                 f" {key!r}, so how old a producer's check may be is unknown."
                 " Refused rather than defaulted: the SDK holds no duration"
@@ -1315,6 +1323,9 @@ def compose_children(
         if requirement.product_class in declared:
             return CompositionOutcome(
                 factors=None,
+                # No rows: the declaration itself is incoherent, so there is no
+                # per-requirement disposition to record. Distinct from the
+                # undeclared-key case below, which HAS dispositions.
                 resolutions=(),
                 refusal=bare(
                     "requirement-mismatch",
@@ -1329,18 +1340,24 @@ def compose_children(
 
     # --- F17: an outcome naming no declared slot is refused, not dropped ----
     undeclared = sorted(set(outcomes) - set(declared))
-    if undeclared:
-        return CompositionOutcome(
-            factors=None,
-            resolutions=(),
-            refusal=bare(
-                "undeclared-outcome",
-                undeclared[0],
-                f"outcomes name {undeclared!r}, which this class does not"
-                " require. Silently discarding them would drop a produced"
-                " child and its debt from both the arithmetic and the record",
-            ),
+    undeclared_refusal = (
+        bare(
+            "undeclared-outcome",
+            undeclared[0],
+            f"outcomes name {undeclared!r}, which this class does not require."
+            " Silently discarding them would drop a produced child and its debt"
+            " from both the arithmetic and the record",
         )
+        if undeclared
+        else None
+    )
+    # NOT returned here. The declared requirements still have dispositions, and
+    # returning early would wipe the whole audit trace of every validly
+    # produced child for this decision — losing more evidence than the defect
+    # being refused. The rows are built below and the refusal is applied after.
+
+    if undeclared_refusal is not None:
+        first(undeclared_refusal)
 
     for requirement in requirements:
         outcome = outcomes.get(requirement.product_class)
@@ -1360,6 +1377,11 @@ def compose_children(
                         required=requirement.required,
                         outcome_status=_status_for(reason),
                         child_reported_address=outcome.candidate.content_address,
+                        # The identity IS verified — admission established it —
+                        # so it is retained. Only an address the gate DISPROVED
+                        # is withheld from this field (F9).
+                        child_content_address=outcome.verified_content_address,
+                        producing_fabric=_fabric_of(outcome.candidate.provenance),
                         refusal_ref=reason,
                     )
                 )
@@ -1593,6 +1615,12 @@ _REASON_TO_STATUS: Final[Mapping[str, str]] = {
     "eligibility-evidence-missing": "ineligible",
     "eligibility-evidence-mismatch": "ineligible",
     "eligibility-evidence-stale": "ineligible",
+    # A tenant that declared no bound is a CONFIGURATION error, not a verdict
+    # about this child's evidence. Conflating them told an operator their
+    # peer's attestation was stale when the truth was that nothing said how
+    # stale is too stale.
+    "eligibility-bound-undeclared": "unauthorized",
+    "composition-unwired": "unauthorized",
     # Provenance and tenancy are authorization-shaped, not data-shaped.
     "tenant-mismatch": "unauthorized",
     "provenance-unverified": "unauthorized",
@@ -1627,6 +1655,20 @@ def _status_for(reason: str) -> str:
             " replay status rather than demote an unrecognized governance"
             " failure to a generic rejection (D-IMPL-336 Amendment 3, F11)"
         ) from None
+
+
+def _fabric_of(provenance: ChildProvenance) -> str | None:
+    """Name the fabric an eligibility claim was made ABOUT.
+
+    Shared by the admitted and the rejected row alike: the panel's F6 point was
+    that a mislabelled production left no trace, and a rejected child whose
+    fabric went unrecorded would leave the same gap on the other branch.
+    """
+    if isinstance(provenance, LocalProvenance):
+        return provenance.attestor_id
+    if isinstance(provenance, VerifiedPeerProvenance):
+        return provenance.peer_id
+    return None
 
 
 def _row_for_admitted(

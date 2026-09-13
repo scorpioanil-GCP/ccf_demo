@@ -143,6 +143,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import datetime
+from types import MappingProxyType
 
 from pydantic import Field, ValidationError, field_validator
 
@@ -537,7 +538,16 @@ class AdmittedProduct:
         self._product = product
         self._lineage = lineage
         self._peer = peer
-        self._protected_header = protected_header
+        # FROZEN, not stored by reference. A caller holding the admitted
+        # product could otherwise mutate the mapping after verification and
+        # substitute a claim the gate never checked — which would make
+        # "authenticated header" mean "a header that was authenticated at some
+        # point, and is whatever it is now".
+        self._protected_header = (
+            MappingProxyType(dict(protected_header))
+            if protected_header is not None
+            else None
+        )
         self._content_address = content_address
 
     @property

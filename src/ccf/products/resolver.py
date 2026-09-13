@@ -2053,6 +2053,16 @@ class GovernedResolver:
         # and evidence exactly as a TTL refusal does.
         if composed is not None and composed.refusal is not None:
             return self._record_refusal(
+                # KNOWN GAP, recorded rather than half-wired (`CMP-R-01`).
+                # `compose_children` builds a row for every requirement and
+                # this refusal path drops them: it records through
+                # `RefusalRecorderProtocol.record`, a public seam with no
+                # `child_resolutions` parameter, so carrying them is a protocol
+                # change rather than an argument. Accepting a parameter here
+                # and ignoring it would be the very defect class this phase is
+                # repairing, so nothing is accepted. A refused composite's
+                # rows therefore exist in `CompositionOutcome.resolutions` and
+                # do NOT reach its persisted record.
                 envelope=envelope_for(
                     composed.refusal,
                     request=identity,
