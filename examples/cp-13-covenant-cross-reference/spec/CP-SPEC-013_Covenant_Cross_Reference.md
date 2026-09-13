@@ -43,7 +43,7 @@ This is the first rung where the evidence is **text**, and the first where a
 claim can be wrong in a way that looks completely right: a citation with a real
 document id, a real offset pair and a real sha256 that points at the wrong
 paragraph. Measured on this estate, the obvious assembly produces **79 candidate
-citations of which 36 are wrong**, and one of the 36 cites the empty string.
+citations of which 36 are wrong**, and **12 of the 36 cite the empty string**.
 
 ### 0.2 Placeholder discipline
 
@@ -298,9 +298,14 @@ set of triples and gives **no pairing** between them. A SPARQL join over
 naive join  ->  31 x 1  +  6 x (2 starts x 2 ends x 2 sha)  =  31 + 48  =  79 rows
                 43 sha256 MATCH        36 sha256 MISMATCH
 on the 6 double-anchored nodes alone:  48 combinations, 12 match, 36 wrong
-one mismatch hashes to e3b0c44298fc... — the sha256 of the EMPTY STRING,
-because a crossed pairing gives start 474431 > end 400894
+12 of the 36 hash to e3b0c44298fc... — the sha256 of the EMPTY STRING,
+because a crossed pairing gives start > end (e.g. 474431 > 400894)
 ```
+
+> **Corrected at Gate 2** (`CP13-F-13`). This block first said *one* mismatch
+> hashed to the empty string, from the three-row sample the Gate-1 measurement
+> printed. Running the full sabotage gives **12**. The 79, the 43 and the 36
+> are unchanged.
 
 **The correct mechanism is to follow `ex:evidencedBy` to a named passage** and
 read that passage's own offsets and sha256 from MongoDB. Measured: **43 of 43
@@ -459,6 +464,8 @@ and not a silent omission.
 | `CP13-F-10` | **49 of 249 documents carry no `classification` and no `residency`.** The entitlement rules key on classification, so an unclassified document has no admitting row. The product treats absence as **not admitted** rather than as unrestricted. | ESTATE-LIMITATION |
 | `CP13-F-11` | **One `COVDEF-*` node is typed `ex:Covenant`**, mixing the two namespaces — 181 `COV-*` plus 1 `COVDEF-*` make the 182. Recorded so a count keyed on the type is read as what it is. | NOT-A-GAP |
 | `CP13-F-12` | **The two decaying λ_c classes are calibration values** and will be recorded with the measurement that chose them at Gate 2, under CLAUDE.md §9 and `D-IMPL-323`. The dominant class does not decay at all, so the rung-12 problem does not arise in the same form. | OPEN — closes at Gate 2 |
+| `CP13-F-13` | **A Gate-1 figure was understated and the sabotage that defends it caught the correction.** §0.1 and §C.3 said *one* of the 36 false citations hashes to the empty string; running the full sabotage gives **12**. The Gate-1 claim came from a three-row printed sample rather than from the whole population. The 79 candidates, 43 valid and 36 false are all confirmed. Found because `CXR-G19` **computes** both mechanisms over the full set rather than quoting a figure. | FIXED-gate-2 |
+| `CP13-F-14` | **All 49 `CovenantDefinition` nodes carry a real span and nothing to check it against.** 48 of 49 have `startOffset`, `endOffset` and `documentId`; **0 of 49 have `passageSha256` or `evidencedBy`**, and no indexed passage matches or even contains the span. The spans land on exactly the right text — *"Consolidated Fixed Charge Coverage Ratio" means, for any Measurement…* — which is what makes this the hardest case in the product: emitting it would feel safe and would still be an **asserted** citation rather than a checked one. Classified `span-unverifiable` and reported as Context Debt, distinct from `point-anchor`. | ESTATE-LIMITATION |
 
 ---
 
@@ -497,7 +504,7 @@ the rule `CP-SPEC-012` §F.1a established and this rung inherits:
 
 | id | trap | the gate, and where the two mechanisms DIVERGE |
 |---|---|---|
-| `CXR-G19` | **TRAP 1 — the unpaired anchor** | **the naive independent join of `startOffset`, `endOffset`, `passageSha256` and `evidencedBy` is PROHIBITED and is this gate's sabotage.** The product emits **43** checked citations, all matching; the predicate-join implementation emits **79** candidates of which **43** are valid and **36** are false — and the gate asserts all four numbers plus the **empty-string case**: a crossed pairing gives `start 474431 > end 400894`, an empty span, and the hash `e3b0c44298fc…`, which is `sha256("")`. Asserted on the 6 double-anchored nodes, where the two mechanisms differ by construction — never on a single-anchored node, where both agree |
+| `CXR-G19` | **TRAP 1 — the unpaired anchor** | **the naive independent join of `startOffset`, `endOffset`, `passageSha256` and `evidencedBy` is PROHIBITED and is this gate's sabotage.** The product emits **43** checked citations, all matching; the predicate-join implementation emits **79** candidates of which **43** are valid and **36** are false — and the gate asserts all four numbers plus the **empty-string case**: **12 of the 36** cite the empty string, because a crossed pairing gives `start > end` (e.g. `474431 > 400894`) and hashes to `e3b0c44298fc…`, which is `sha256("")`. Asserted on the 6 double-anchored nodes, where the two mechanisms differ by construction — never on a single-anchored node, where both agree |
 | `CXR-G20` | **TRAP 2 — the point anchor** | asserted on a `DefinedTerm`, where `endOffset` is absent on **all 158**. The correct product emits Context Debt; an implementation that treated `startOffset` as a span start emits a citation whose span is undefined. Not asserted on a `CovenantDefinition`, where 48 of 49 carry both offsets and the two coincide |
 | `CXR-G21` | **TRAP 3 — the plausible seed** | the product reaches depth 3 on **26** sources; seeding on `ex:Covenant` reaches it on **1**. The gate runs both traversals and asserts the counts differ, so a deployment that quietly changed the seed is caught by the number rather than by the prose |
 | `CXR-G22` | **TRAP 5 — post-filter similarity** | asserted across two principals whose permitted sets genuinely differ — `relationship-manager` (no memoranda at all) against `control-room` (all 40). The gate asserts the retrieval never touched an impermissible document, and that the two content addresses differ |

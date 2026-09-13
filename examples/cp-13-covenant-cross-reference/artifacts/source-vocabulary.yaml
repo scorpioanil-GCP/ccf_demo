@@ -1,0 +1,87 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE SOURCE TERMS THIS DEPLOYMENT READS, named once.
+#
+# Every IRI, collection and table this product touches is here. Nothing else in
+# the tree spells one out — `acquisition.py` reads this file and holds no
+# vocabulary of its own.
+
+semver: "1.0.0"
+class_id: cp-13.source-vocabulary
+
+declaration:
+  # --- Fluree, the typed relationships and the anchors --------------------
+  covenant_class: http://example.org/fibo/Covenant
+  covenant_definition_class: http://example.org/fibo/CovenantDefinition
+  defined_term_class: http://example.org/fibo/DefinedTerm
+  measurement_period_class: http://example.org/fibo/MeasurementPeriod
+
+  #: THE CITATION ROUTE, and the only one (`CXR-G07`). It names a passage IRI;
+  #: that passage's own offsets and sha256 are the citation. The anchor
+  #: predicates below are NEVER joined to build one.
+  evidenced_by: http://example.org/fibo/evidencedBy
+
+  defined_by: http://example.org/fibo/definedBy
+  measured_by: http://example.org/fibo/measuredBy
+  cross_references: http://example.org/fibo/crossReferences
+  unresolved_term: http://example.org/fibo/unresolvedTerm
+
+  #: Read for REPORTING what the evidence node claims about itself — never to
+  #: assemble a citation. On 6 of 37 nodes each of these is multi-valued and
+  #: RDF gives no pairing between them, so joining them yields the
+  #: cross-product: 79 candidates, 36 of them false (TRAP 1, `CXR-G19`).
+  anchor_predicates:
+    start_offset: http://example.org/fibo/startOffset
+    end_offset: http://example.org/fibo/endOffset
+    passage_sha256: http://example.org/fibo/passageSha256
+    document_id: http://example.org/fibo/documentId
+    anchor_verified: http://example.org/fibo/anchorVerified
+
+  covenant_type: http://example.org/fibo/covenantType
+  threshold: http://example.org/fibo/threshold
+
+  #: The passage IRI prefix `evidencedBy` points at. Split on this to recover
+  #: the MongoDB `passage_id`.
+  passage_iri_prefix: http://example.org/fibo/passage/
+
+  # --- PREDICATES THAT DO NOT EXIST IN THIS ESTATE ------------------------
+  #
+  # Named here so their absence is DECLARED rather than discovered, and so a
+  # reader of this file cannot conclude the product simply forgot them. Both
+  # are measured at 0 assertions on 2026-09-13. Nothing reads them, nothing
+  # writes them, and no value is synthesized to stand in for either
+  # (`CXR-G16`, `CXR-G17`).
+  absent_predicates:
+    declaredAt:
+      iri: http://example.org/fibo/declaredAt
+      state: absent
+      note: >-
+        the proposed repair for the 170 point anchors. Accepted upstream on
+        2026-09-12 and NOT implemented. A point anchor stays a point anchor,
+        and its claim is Context Debt rather than a citation.
+    governedBy:
+      iri: http://example.org/fibo/governedBy
+      state: absent
+      note: >-
+        named as a relationship by the vault's own schema for this product.
+        It does not exist here. The payload asserts no governing edge and
+        substitutes no proxy for one.
+
+  # --- MongoDB, the text and the spans ------------------------------------
+  collections:
+    document: document
+    passage: passage
+    memorandum: memorandum
+
+  #: The document fields that carry the two clocks this product keeps apart.
+  #: `governs_from` is the as-of axis; `filed_date` is NOT (`CXR-G11`).
+  governing_field: governs_from
+  filed_field: filed_date
+
+  #: A passage is citable only with all three. 548 of 37,865 carry no
+  #: `sha256` and are not citable (`CXR-G08`).
+  passage_span_fields: [start_offset, end_offset, sha256]
+
+  # --- PostgreSQL, the entitlement rules ----------------------------------
+  tables:
+    corpus_entitlement: corpus_entitlement
