@@ -1,0 +1,351 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE DECLARED PRODUCT GATES OF cp-13 — ALL TWENTY-TWO CP-SPEC-013 §F NAMES.
+#
+# `sabotage_state` HAS THREE VALUES AND THEY ARE NOT INTERCHANGEABLE.
+# Nineteen are `passed`. THREE are `unavailable` — the SDK refuses the bad state
+# before this deployment can reach it: `D-IMPL-86`'s operator-set divergence
+# (CXR-G01, CXR-G02) and the closed `ttl_anchor` vocabulary (CXR-G03). None is
+# `not-required` AT THE GATE LEVEL, though `CXR-G15` carries a not-required LIMB
+# and asserts its own emptiness rather than passing over it.
+#
+# FOUR GATES WERE GREEN UNDER THEIR FIRST SABOTAGE AND ALL FOUR WERE TEST
+# DEFECTS, not weak sabotages. Each is recorded with what was wrong:
+#   CXR-G07  compared served output on an estate containing no bad hash
+#   CXR-G13  asserted `<=` where only `<` distinguishes the two mechanisms
+#   CXR-G15  tested a limb with an empty population
+#   CXR-G21  checked a constant and two side queries, not the real seed
+#
+# The principle they share: a gate must assert the thing the product DOES, on a
+# population where doing it wrong would look different.
+
+semver: 1.0.0
+class_id: cp-13.product-gates
+declaration:
+  product: credit-risk.covenant-cross-reference
+  test_naming_convention: the gate id appears in the executing test's docstring, as a CXR-GNN line naming the CP-SPEC-013
+    §F clause that approves it.
+  sabotage_states:
+    passed: the specific invariant under test was broken and the gate went red
+    unavailable: an UPSTREAM SDK invariant makes the bad state unreachable from this deployment; the gate is evidenced
+      by the successful path plus that guard, never by a local negative control
+    not-required: the gate has nothing to range over on this estate; it SKIPS with that reason rather than passing
+      over an empty set
+  gates:
+  - id: CXR-G01
+    statement: a plan with zero operator steps never serves
+    spec_clause:
+      document: spec/CP-SPEC-013_Covenant_Cross_Reference.md
+      clause: F.1
+    test: tests/examples/test_cp_13_output.py::test_cxr_g01_the_operator_plan_is_never_empty
+    sabotage: emptied `product_class.required_operator_keys`
+    sabotage_state: unavailable
+    observed_red:
+      result: '**DEPLOYMENT SABOTAGE UNAVAILABLE.** `ValueError: operator set divergence` at load — the SDK refuses
+        a product class whose declared operator set disagrees with its `operators:` section before a plan is ever
+        built.'
+      date: '2026-09-13'
+      commit: 354bc583
+  - id: CXR-G02
+    statement: served lineage is exactly three fields; the per-claim citation lives in the payload and never in
+      `ProductLineage`
+    spec_clause:
+      document: spec/CP-SPEC-013_Covenant_Cross_Reference.md
+      clause: F.1
+    test: tests/examples/test_cp_13_output.py::test_cxr_g02_lineage_is_three_fields_and_the_citation_is_not_in_it
+    sabotage: had the plan require an operator the product class does not name
+    sabotage_state: unavailable
+    observed_red:
+      result: '**DEPLOYMENT SABOTAGE UNAVAILABLE.** `ValueError: operator set divergence for plan ... (D-IMPL-86)`
+        at bind time. The gate also asserts the positive half — anchors ARE served, on the claims — so it is not
+        evidenced by a refusal alone.'
+      date: '2026-09-13'
+      commit: 354bc583
+  - id: CXR-G03
+    statement: '`expires_at` derives from the decision instant and respects the ceiling'
+    spec_clause:
+      document: spec/CP-SPEC-013_Covenant_Cross_Reference.md
+      clause: F.1
+    test: tests/examples/test_cp_13_output.py::test_cxr_g03_expiry_derives_from_the_decision_instant
+    sabotage: 'set `ttl_anchor: from_request`'
+    sabotage_state: unavailable
+    observed_red:
+      result: '**DEPLOYMENT SABOTAGE UNAVAILABLE.** `ArtifactLoadError: document is not a valid ccf.product-class`.
+        The anchor vocabulary is closed at the artifact boundary.'
+      date: '2026-09-13'
+      commit: 354bc583
+  - id: CXR-G04
+    statement: '`D_c` above tolerance refuses with the debt block'
+    spec_clause:
+      document: spec/CP-SPEC-013_Covenant_Cross_Reference.md
+      clause: F.1
+    test: tests/examples/test_cp_13_output.py::test_cxr_g04_debt_above_tolerance_refuses_with_the_debt_block
+    sabotage: dropped `debt_tolerance` from the request parameters
+    sabotage_state: passed
+    observed_red:
+      result: '**RED under sabotage.** The refusal is the SDK''s; the reachable defect is the deployment failing
+        to pass the caller''s ceiling through, which makes every serve succeed. The gate asserts the ceiling reaches
+        `parameters` as a `Decimal` before asserting the refusal.'
+      date: '2026-09-13'
+      commit: 354bc583
+  - id: CXR-G05
+    statement: the four §6.3 axes are `ProductRequest` fields, absent from `parameters`
+    spec_clause:
+      document: spec/CP-SPEC-013_Covenant_Cross_Reference.md
+      clause: F.1
+    test: tests/examples/test_cp_13_output.py::test_cxr_g05_the_four_axes_are_request_fields
+    sabotage: copied `intent` into `parameters`
+    sabotage_state: passed
+    observed_red:
+      result: '**RED under sabotage.**'
+      date: '2026-09-13'
+      commit: 354bc583
+  - id: CXR-G06
+    statement: the payload carries no second copy of `D_c`, the content address or the policy versions
+    spec_clause:
+      document: spec/CP-SPEC-013_Covenant_Cross_Reference.md
+      clause: F.1
+    test: tests/examples/test_cp_13_output.py::test_cxr_g06_no_figure_is_served_twice
+    sabotage: added a `d_c` key to the payload
+    sabotage_state: passed
+    observed_red:
+      result: '**RED under sabotage.** Structural over payload KEYS at any depth, deliberately not a substring grep
+        — cp-12''s equivalent flagged a correct payload because `d_c` is a substring of `estate_designated_class`.'
+      date: '2026-09-13'
+      commit: 354bc583
+  - id: CXR-G07
+    statement: the citation unit is the named passage reached through `ex:evidencedBy`; every emitted citation re-hashes
+      to its recorded `sha256` or it is not emitted
+    spec_clause:
+      document: spec/CP-SPEC-013_Covenant_Cross_Reference.md
+      clause: F.1
+    test: tests/examples/test_cp_13_output.py::test_cxr_g07_the_citation_unit_is_the_named_passage
+    sabotage: removed the re-hash comparison in `acquisition._cite`
+    sabotage_state: passed
+    observed_red:
+      result: '**GREEN UNDER ITS FIRST SABOTAGE, and it was a TEST defect.** This estate contains no bad hash —
+        all 44 anchors re-hash correctly — so removing the product''s check changes nothing about what it serves,
+        and a gate that only compared served output was asserting a coincidence. Repaired by CONSTRUCTING the divergence:
+        `_cite` is exercised against a passage whose recorded sha256 does not match its span, through a wrapper
+        over the real store. The real function on a controlled input, not a source-text check. It now returns `Uncitable(sha256-mismatch)`
+        and goes red when the comparison is removed.'
+      date: '2026-09-13'
+      commit: 354bc583
+  - id: CXR-G08
+    statement: a chain node located but not quotable emits no citation and is reported as Context Debt WITH its
+      reason
+    spec_clause:
+      document: spec/CP-SPEC-013_Covenant_Cross_Reference.md
+      clause: F.1
+    test: tests/examples/test_cp_13_output.py::test_cxr_g08_every_absence_carries_a_reason_from_the_closed_set
+    sabotage: replaced every absence reason with `other` and emptied the note
+    sabotage_state: passed
+    observed_red:
+      result: '**RED under sabotage**, and it surfaced through the DECLARED product gate rather than through the
+        assertion — `build_citation_gate` refused the serve outright, so the fixture could not build. A gate caught
+        by the product''s own gate is stronger evidence than one caught by a test.'
+      date: '2026-09-13'
+      commit: 354bc583
+  - id: CXR-G09
+    statement: 'Policy-before-Similarity on BOTH limbs: policy precedes similarity in the resolved plan order, AND
+      the permitted set bounds the MongoDB retrieval before ranking'
+    spec_clause:
+      document: spec/CP-SPEC-013_Covenant_Cross_Reference.md
+      clause: F.1
+    test: tests/examples/test_cp_13_output.py::test_cxr_g09_the_envelope_bounds_the_retrieval_before_ranking
+    sabotage: applied the classification bound AFTER the query instead of as an argument to it
+    sabotage_state: passed
+    observed_red:
+      result: '**RED under sabotage.** Limb (a) is asserted on `operators_invoked` ordering; limb (b) on the served
+        `query_filter` and on two principals producing different content addresses. Post-filtering is prohibited
+        rather than discouraged.'
+      date: '2026-09-13'
+      commit: 354bc583
+  - id: CXR-G10
+    statement: a principal with no entitlement row for the requested `corpus_scope` is REFUSED, never silently narrowed
+    spec_clause:
+      document: spec/CP-SPEC-013_Covenant_Cross_Reference.md
+      clause: F.1
+    test: tests/examples/test_cp_13_output.py::test_cxr_g10_an_unentitled_scope_is_refused_never_narrowed
+    sabotage: narrowed to `public-filed` instead of refusing
+    sabotage_state: passed
+    observed_red:
+      result: '**RED under sabotage.** Measured reachable: `relationship-manager` has no `filed-and-internal` row.
+        The gate also serves that principal at a scope they DO hold, so the refusal is shown to be about the scope
+        rather than the principal.'
+      date: '2026-09-13'
+      commit: 354bc583
+  - id: CXR-G11
+    statement: the governing text is selected by `governs_from` at `as_of`, never by `filed_date`
+    spec_clause:
+      document: spec/CP-SPEC-013_Covenant_Cross_Reference.md
+      clause: F.1
+    test: tests/examples/test_cp_13_output.py::test_cxr_g11_the_governing_axis_is_governs_from
+    sabotage: swapped the axis to `filed_date`
+    sabotage_state: passed
+    observed_red:
+      result: '**RED under sabotage.** The gate first asserts the two fields genuinely differ on real documents,
+        so it cannot pass against either axis.'
+      date: '2026-09-13'
+      commit: 354bc583
+  - id: CXR-G12
+    statement: the payload declares which node set the traversal seeded on
+    spec_clause:
+      document: spec/CP-SPEC-013_Covenant_Cross_Reference.md
+      clause: F.1
+    test: tests/examples/test_cp_13_output.py::test_cxr_g12_the_payload_declares_its_seed
+    sabotage: changed the declared seed to `covenants`
+    sabotage_state: passed
+    observed_red:
+      result: '**RED under sabotage.**'
+      date: '2026-09-13'
+      commit: 354bc583
+  - id: CXR-G13
+    statement: an `as_of` before an amendment's `governs_from` serves the base text, asserted on one of the 4 borrowers
+      whose dates separate
+    spec_clause:
+      document: spec/CP-SPEC-013_Covenant_Cross_Reference.md
+      clause: F.1
+    test: tests/examples/test_cp_13_output.py::test_cxr_g13_an_as_of_before_an_amendment_serves_the_base_text
+    sabotage: ignored `as_of` when selecting the governing set
+    sabotage_state: passed
+    observed_red:
+      result: '**GREEN UNDER ITS FIRST SABOTAGE, and it was a TEST defect.** The assertion read `before <= after`,
+        which holds when both are the full 36. Repaired to a STRICT inequality and to picking the EARLIEST separating
+        amendment, where 13 of 36 govern against 36. The gate also asserts the separating population is exactly
+        4 of the 7 borrowers holding both a base and an amendment, so a later estate change that collapsed the dates
+        is caught rather than silently making the gate vacuous.'
+      date: '2026-09-13'
+      commit: 354bc583
+  - id: CXR-G14
+    statement: an unknown covenant source refuses distinctly from a source with no definition chain
+    spec_clause:
+      document: spec/CP-SPEC-013_Covenant_Cross_Reference.md
+      clause: F.1
+    test: tests/examples/test_cp_13_output.py::test_cxr_g14_an_unknown_source_refuses_distinctly
+    sabotage: suppressed the unknown-source refusal
+    sabotage_state: passed
+    observed_red:
+      result: '**RED under sabotage.**'
+      date: '2026-09-13'
+      commit: 354bc583
+  - id: CXR-G15
+    statement: no passage text is served for a document outside the permitted set, at any depth
+    spec_clause:
+      document: spec/CP-SPEC-013_Covenant_Cross_Reference.md
+      clause: F.1
+    test: tests/examples/test_cp_13_output.py::test_cxr_g15_no_passage_outside_the_permitted_set_is_served
+    sabotage: removed the classification bound so the retrieval could reach outside the permitted set
+    sabotage_state: passed
+    observed_red:
+      result: '**GREEN UNDER ITS FIRST SABOTAGE, and the diagnosis is the interesting part.** The CITATION limb
+        has NOTHING TO RANGE OVER: measured, all 23 documents the 44 anchors cite are `public-filed`, and `public-filed`
+        is in every principal''s permitted set — so no citation can ever be outside the envelope and removing the
+        filter changed nothing. That limb is recorded **not-required** and the absence is ASSERTED, so it goes red
+        if cited documents ever gain another classification. The RETRIEVAL limb is real — `filed` admits none of
+        the 40 memoranda, `filed-and-internal` admits all — and is where the sabotage now lands.'
+      date: '2026-09-13'
+      commit: 354bc583
+  - id: CXR-G16
+    statement: '`ex:declaredAt` marks a point anchor and does not repair one'
+    spec_clause:
+      document: spec/CP-SPEC-013_Covenant_Cross_Reference.md
+      clause: F.1
+    test: tests/examples/test_cp_13_output.py::test_cxr_g16_declared_at_marks_a_point_anchor_and_does_not_repair_it
+    sabotage: treated `declaredAt` as if it supplied the missing span
+    sabotage_state: passed
+    observed_red:
+      result: '**RED under sabotage.** Both limbs asserted: (a) the product reads `declaredAt` and reports the node
+        as intentionally a point — not merely as a missing end; (b) all 170 `declaredAt` subjects still carry no
+        `endOffset`, none is cited, and none exposes an `end_offset` claim. A predicate that names a limitation
+        has not lifted it.'
+      date: '2026-09-13'
+      commit: 354bc583
+  - id: CXR-G17
+    statement: '`ex:governedBy` is absent and is not invented'
+    spec_clause:
+      document: spec/CP-SPEC-013_Covenant_Cross_Reference.md
+      clause: F.1
+    test: tests/examples/test_cp_13_output.py::test_cxr_g17_governed_by_is_absent_and_is_not_invented
+    sabotage: declared the leg `derived-from-covenantOf` instead of absent
+    sabotage_state: passed
+    observed_red:
+      result: '**RED under sabotage.** The gate re-measures the predicate at 0 assertions, so it also fires if the
+        estate ever gains one and the absence declaration stops being true.'
+      date: '2026-09-13'
+      commit: 354bc583
+  - id: CXR-G18
+    statement: an absent embedding is `not-evaluable`, never "no relevant result"
+    spec_clause:
+      document: spec/CP-SPEC-013_Covenant_Cross_Reference.md
+      clause: F.1
+    test: tests/examples/test_cp_13_output.py::test_cxr_g18_a_missing_embedding_is_not_evaluable_never_no_result
+    sabotage: converted the missing-embedding set into an empty result
+    sabotage_state: passed
+    observed_red:
+      result: '**RED under sabotage.** 18 of the 40 memoranda carry no embedding. The gate asserts BOTH populations
+        are stated — eligible and rankable — because it is their separation that distinguishes *we searched and
+        found nothing* from *we could not search these at all*.'
+      date: '2026-09-13'
+      commit: 354bc583
+  - id: CXR-G19
+    statement: TRAP 1 — a definition span exists, its extracted text is genuinely correct, it carries no `passageSha256`
+      and no `ex:evidencedBy`, therefore it is not auditable and must not be emitted
+    spec_clause:
+      document: spec/CP-SPEC-013_Covenant_Cross_Reference.md
+      clause: F.1a
+    test: tests/examples/test_cp_13_output.py::test_cxr_g19_a_correct_span_with_no_hash_is_not_a_citation
+    sabotage: emitted the extracted span as a citation because the text is right
+    sabotage_state: passed
+    observed_red:
+      result: '**RED under sabotage.** DIVERGENCE: the defective mechanism is built in the test and emits **48**
+        citations of which **0** are covered by any indexed passage; the correct product emits **0** and reports
+        all 49 definition nodes as `span-unverifiable` with a reason. The gate ALSO asserts the extracted text IS
+        a real definition on at least 46 of the 48 — because a gate that could only show the text was wrong would
+        be proving the easy case, and the whole trap is that the text is right and still cannot be audited.'
+      date: '2026-09-13'
+      commit: 354bc583
+  - id: CXR-G20
+    statement: TRAP 2 — a point anchor is Context Debt, not a guessed span
+    spec_clause:
+      document: spec/CP-SPEC-013_Covenant_Cross_Reference.md
+      clause: F.1a
+    test: tests/examples/test_cp_13_output.py::test_cxr_g20_a_point_anchor_is_debt_not_a_guessed_span
+    sabotage: published a fabricated `end_offset` on every node's anchor claims
+    sabotage_state: passed
+    observed_red:
+      result: '**RED under sabotage.** DIVERGENCE: asserted on `DefinedTerm`, where `endOffset` is absent on all
+        158 — never on `CovenantDefinition`, where 48 of 49 carry both offsets and an implementation that guessed
+        would look correct.'
+      date: '2026-09-13'
+      commit: 354bc583
+  - id: CXR-G21
+    statement: TRAP 3 — the traversal seeds on the evidence type, not the type whose name matches the question
+    spec_clause:
+      document: spec/CP-SPEC-013_Covenant_Cross_Reference.md
+      clause: F.1a
+    test: tests/examples/test_cp_13_output.py::test_cxr_g21_the_seed_is_the_evidence_type_not_the_named_type
+    sabotage: reseeded `evidence_sources()` on `ex:Covenant`
+    sabotage_state: passed
+    observed_red:
+      result: '**GREEN UNDER ITS FIRST SABOTAGE, and it was a TEST defect.** The gate checked the `SEED` constant
+        and two independent SPARQL counts — and none of the three is what `evidence_sources()` actually returns,
+        so reseeding the real query left it green. Repaired to assert the ACTUAL seeded set: 26 sources, every one
+        typed `ex:PassageAnchor`. DIVERGENCE: `ex:PassageAnchor` reaches depth 3 on 26, `ex:Covenant` on 1.'
+      date: '2026-09-13'
+      commit: 354bc583
+  - id: CXR-G22
+    statement: TRAP 5 — post-filtering similarity is detectable from the payload even when the hits are identical
+    spec_clause:
+      document: spec/CP-SPEC-013_Covenant_Cross_Reference.md
+      clause: F.1a
+    test: tests/examples/test_cp_13_output.py::test_cxr_g22_post_filtering_similarity_is_detectable_from_the_payload
+    sabotage: inflated `candidates_examined` beyond the permitted population
+    sabotage_state: passed
+    observed_red:
+      result: '**RED under sabotage.** DIVERGENCE, and it is the subtle one: the gate ASSERTS the two mechanisms
+        produce identical hits on this estate, because that is what makes counting the scored population the only
+        available detector. A post-filter has already computed similarity against impermissible documents, and in
+        an MNPI setting that computation is itself the leak.'
+      date: '2026-09-13'
+      commit: 354bc583

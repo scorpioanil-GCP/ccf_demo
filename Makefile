@@ -56,7 +56,7 @@ NO_SUBSTRATE := not postgres and not chroma and not neo4j and not mongo and not 
 	example-s1-01 example-s1-00 example-cp-00 example-cp-01 example-cp-02 \
 	example-cp-03 example-cp-04 example-cp-04-canonical example-cp-05 example-cp-05-server \
 	example-cp-06 example-cp-07 example-cp-09 example-cp-10 example-cp-11 \
-	example-cp-12 \
+	example-cp-12 example-cp-13 \
 	example-hw1-harness-clients \
 	example-hw1-harness-clients-live-adk \
 	example-hw1-harness-clients-live-anthropic \
@@ -565,6 +565,22 @@ example-cp-12: ## Run examples/cp-12-fx-post-trade-reconciliation (TRADES, SCOPE
 		$(if $(COMPARE_AT),--compare-at $(COMPARE_AT)) \
 		$(if $(NO_ALIGN_CLOCKS),--no-align-clocks) \
 		$(if $(MATERIALITY_PIPS),--materiality-pips $(MATERIALITY_PIPS)) \
+		$(if $(DEBT_TOLERANCE),--debt-tolerance $(DEBT_TOLERANCE))
+
+# cp-13 — the ladder's rung 13, and the first Tier-4 product: MongoDB enters and
+# the evidence becomes text. NOT in the `examples:` aggregate, for the same
+# reason as cp-09 through cp-12: it reads a networked estate through declared
+# environment variables and has no in-tree fixture to fall back onto
+# (`example_delivery.md` §3). Its code path IS covered — by
+# `tests/examples/test_cp_13_output.py`.
+example-cp-13: ## Run examples/cp-13-covenant-cross-reference (PRINCIPAL, CORPUS_SCOPE, SOURCES, SCOPE, AS_OF, INTENT, RESOLVE_DEPTH, DEBT_TOLERANCE optional; needs CCF_CP_13_FLUREE_URL, CCF_CP_13_FLUREE_LEDGER, CCF_CP_13_POSTGRES_DSN, CCF_CP_13_POSTGRES_SCHEMA, CCF_CP_13_MONGO_URI, CCF_CP_13_MONGO_DB)
+	PYTHONPATH=src:runtime:examples/cp-13-covenant-cross-reference \
+		$(PYTHON) examples/cp-13-covenant-cross-reference/run.py \
+		$(if $(PRINCIPAL),--principal $(PRINCIPAL)) \
+		$(if $(CORPUS_SCOPE),--corpus-scope $(CORPUS_SCOPE)) \
+		$(if $(SOURCES),--sources $(SOURCES)) $(if $(SCOPE),--scope $(SCOPE)) \
+		$(if $(AS_OF),--as-of $(AS_OF)) $(if $(INTENT),--intent $(INTENT)) \
+		$(if $(RESOLVE_DEPTH),--resolve-depth $(RESOLVE_DEPTH)) \
 		$(if $(DEBT_TOLERANCE),--debt-tolerance $(DEBT_TOLERANCE))
 
 # cp-05 — the ladder's rung 5. NOT in the `examples:` aggregate: it reads a

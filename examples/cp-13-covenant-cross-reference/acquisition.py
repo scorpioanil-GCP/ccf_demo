@@ -228,9 +228,8 @@ class Estate:
     as_of: datetime
     #: `{document_id: governs_from}` for the agreement documents in view.
     governs_from: Mapping[str, date]
-    #: Memoranda the scope admits, split by whether similarity can reach them.
-    memoranda_eligible: int
-    memoranda_rankable: int
+    #: What the similarity step retrieved, and what it was allowed to see.
+    retrieval: "Retrieval"
     seeded_on: str
     _mongo: Any = field(repr=False, default=None)
     _text: dict[str, str] = field(repr=False, default_factory=dict)
@@ -628,21 +627,27 @@ def acquire(
             row[terms["governing_field"]]
         )
 
-    # 3. THE SIMILARITY SURFACE, counted honestly. An absent embedding is
-    #    unreachable-by-similarity, never "nothing relevant" (`CXR-G18`).
-    memoranda = mongo[terms["collections"]["memorandum"]]
-    eligible = memoranda.count_documents(
-        {"classification": {"$in": sorted(entitlement.permitted_classes)}}
+    # 3. THE SIMILARITY STEP, and it runs LAST — after the envelope exists, so
+    #    the envelope can bound it (`CXR-G09`). The probe is a passage this
+    #    product already checked, so the ranking is anchored on evidence.
+    probe = None
+    for source in sources:
+        for node in source.chain:
+            if node.citations:
+                probe = probe_embedding(
+                    mongo, terms, passage_id=node.citations[0].passage_id
+                )
+                break
+        if probe is not None:
+            break
+    retrieval = retrieve_supporting(
+        mongo, terms, entitlement=entitlement, probe=probe
     )
-    rankable = memoranda.count_documents({
-        "classification": {"$in": sorted(entitlement.permitted_classes)},
-        "embedding": {"$exists": True},
-    })
 
     return Estate(
         sources=sources, entitlement=entitlement, as_of=asked_at,
-        governs_from=governs, memoranda_eligible=eligible,
-        memoranda_rankable=rankable, seeded_on=SEED, _mongo=mongo,
+        governs_from=governs, retrieval=retrieval, seeded_on=SEED,
+        _mongo=mongo,
     )
 
 
@@ -667,3 +672,102 @@ def evidence_sources(*, limit: int | None = None) -> list[str]:
     )
     out = sorted(r["s"] for r in rows)
     return out[:limit] if limit else out
+
+
+# =========================================================================
+# THE SIMILARITY LEG — bounded BEFORE it runs, and instrumented so that the
+# bound is checkable from outside (`CXR-G09`).
+# =========================================================================
+
+
+@dataclass(frozen=True)
+class Retrieval:
+    """What the similarity step retrieved, and **what it was allowed to see**.
+
+    ``query_filter`` is the ACTUAL MongoDB filter the retrieval issued, carried
+    out of the function so a caller can assert the bound was an argument to the
+    query rather than a predicate over its results.
+
+    **This is what makes `CXR-G09` provable.** A post-filter implementation can
+    produce a byte-identical ``hits`` list — it retrieves broadly, ranks, then
+    drops the impermissible rows. The payload looks the same. What differs is
+    ``candidates_examined``: the post-filter has already computed similarity
+    against documents the principal may not see, and in an MNPI setting that
+    computation *is* the leak. A gate that only compared ``hits`` would pass
+    against the leak.
+    """
+
+    query_filter: Mapping[str, Any]
+    #: How many documents the ranking actually scored. Equals the permitted
+    #: population when the bound is applied first, and the whole corpus when it
+    #: is applied afterwards.
+    candidates_examined: int
+    #: Eligible by entitlement but carrying no embedding — **not searchable**,
+    #: and never the same statement as "nothing relevant" (`CXR-G18`).
+    not_evaluable: tuple[str, ...]
+    hits: tuple[Mapping[str, Any], ...]
+
+
+def _cosine(a: Sequence[float], b: Sequence[float]) -> float:
+    num = sum(x * y for x, y in zip(a, b))
+    na = sum(x * x for x in a) ** 0.5
+    nb = sum(y * y for y in b) ** 0.5
+    return num / (na * nb) if na and nb else 0.0
+
+
+def retrieve_supporting(
+    mongo: Any, terms: Mapping[str, Any], *, entitlement: Entitlement,
+    probe: Sequence[float] | None, limit: int = 5,
+) -> Retrieval:
+    """Rank the internal corpus **within the permitted set only**.
+
+    The permitted classifications are an argument to the query. Nothing outside
+    them is read, scored, or counted — which is the difference between a policy
+    envelope and a filter.
+    """
+    collection = mongo[terms["collections"]["memorandum"]]
+    # THE BOUND, as an argument to the query. Not applied afterwards.
+    query_filter: dict[str, Any] = {
+        "classification": {"$in": sorted(entitlement.permitted_classes)}
+    }
+    eligible = list(collection.find(query_filter))
+    not_evaluable = tuple(
+        sorted(
+            row["memorandum_id"] for row in eligible if not row.get("embedding")
+        )
+    )
+    rankable = [row for row in eligible if row.get("embedding")]
+    scored: list[tuple[float, Mapping[str, Any]]] = []
+    if probe is not None:
+        scored = sorted(
+            ((_cosine(probe, row["embedding"]), row) for row in rankable),
+            key=lambda pair: pair[0],
+            reverse=True,
+        )
+    return Retrieval(
+        query_filter=query_filter,
+        candidates_examined=len(rankable),
+        not_evaluable=not_evaluable,
+        hits=tuple(
+            {
+                "memorandum_id": row["memorandum_id"],
+                "title": row.get("title"),
+                "classification": row["classification"],
+                "authored_date": row.get("authored_date"),
+                "score_percent": int(round(score * 100)),
+            }
+            for score, row in scored[:limit]
+        ),
+    )
+
+
+def probe_embedding(mongo: Any, terms: Mapping[str, Any], *, passage_id: str):
+    """The embedding of a checked citation, used as the similarity probe.
+
+    The probe is a passage this product has already verified, so the ranking is
+    anchored on evidence rather than on a string someone typed.
+    """
+    row = mongo[terms["collections"]["passage"]].find_one(
+        {"passage_id": passage_id}, {"embedding": 1}
+    )
+    return row.get("embedding") if row else None
