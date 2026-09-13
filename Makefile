@@ -56,6 +56,7 @@ NO_SUBSTRATE := not postgres and not chroma and not neo4j and not mongo and not 
 	example-s1-01 example-s1-00 example-cp-00 example-cp-01 example-cp-02 \
 	example-cp-03 example-cp-04 example-cp-04-canonical example-cp-05 example-cp-05-server \
 	example-cp-06 example-cp-07 example-cp-09 example-cp-10 example-cp-11 \
+	example-cp-12 \
 	example-hw1-harness-clients \
 	example-hw1-harness-clients-live-adk \
 	example-hw1-harness-clients-live-anthropic \
@@ -549,6 +550,21 @@ example-cp-11: ## Run examples/cp-11-credit-surveillance-early-warning (LEI, AS_
 		$(if $(LEI),--lei $(LEI)) $(if $(AS_OF),--as-of $(AS_OF)) \
 		$(if $(INTENT),--intent $(INTENT)) $(if $(SINCE),--since $(SINCE)) \
 		$(if $(WINDOW_DAYS),--window-days $(WINDOW_DAYS)) \
+		$(if $(DEBT_TOLERANCE),--debt-tolerance $(DEBT_TOLERANCE))
+
+# cp-12 — the ladder's rung 12. NOT in the `examples:` aggregate, for the same
+# reason as cp-09, cp-10 and cp-11: it reads a networked estate through declared
+# environment variables and has no in-tree fixture to fall back onto
+# (`example_delivery.md` §3). Its code path IS covered — by
+# `tests/examples/test_cp_12_output.py`.
+example-cp-12: ## Run examples/cp-12-fx-post-trade-reconciliation (TRADES, SCOPE, AS_OF, INTENT, COMPARE_AT, MATERIALITY_PIPS, DEBT_TOLERANCE optional; NO_ALIGN_CLOCKS=1 disables clock correction; needs CCF_CP_12_FLUREE_URL, CCF_CP_12_FLUREE_LEDGER, CCF_CP_12_POSTGRES_DSN, CCF_CP_12_POSTGRES_SCHEMA)
+	PYTHONPATH=src:runtime:examples/cp-12-fx-post-trade-reconciliation \
+		$(PYTHON) examples/cp-12-fx-post-trade-reconciliation/run.py \
+		$(if $(TRADES),--trades $(TRADES)) $(if $(SCOPE),--scope $(SCOPE)) \
+		$(if $(AS_OF),--as-of $(AS_OF)) $(if $(INTENT),--intent $(INTENT)) \
+		$(if $(COMPARE_AT),--compare-at $(COMPARE_AT)) \
+		$(if $(NO_ALIGN_CLOCKS),--no-align-clocks) \
+		$(if $(MATERIALITY_PIPS),--materiality-pips $(MATERIALITY_PIPS)) \
 		$(if $(DEBT_TOLERANCE),--debt-tolerance $(DEBT_TOLERANCE))
 
 # cp-05 — the ladder's rung 5. NOT in the `examples:` aggregate: it reads a

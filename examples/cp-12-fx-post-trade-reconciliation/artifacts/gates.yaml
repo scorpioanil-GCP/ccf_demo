@@ -1,0 +1,426 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE DECLARED PRODUCT GATES OF cp-12 — ALL TWENTY-SEVEN CP-SPEC-012 §F NAMES.
+#
+# `sabotage_state` HAS THREE VALUES AND THEY ARE NOT INTERCHANGEABLE.
+# Twenty-four are `passed`. THREE are `unavailable` — the SDK refuses the bad
+# state before this deployment can reach it: `D-IMPL-86`'s operator-set
+# divergence (FXR-G01, FXR-G02) and the closed `ttl_anchor` vocabulary
+# (FXR-G04). NONE is `not-required` at the gate level.
+#
+# FIVE GATES WERE GREEN UNDER THEIR FIRST SABOTAGE, AND ALL FIVE ARE RECORDED
+# AS SUCH. Four were weak SABOTAGES — they broke code the gate never reached.
+# ONE (FXR-G12) was a weak TEST: it asserted the declared pip table and the
+# pair label, and stayed green while `Estate.pip` was sabotaged to return
+# `0.0001` for everything, because it never exercised the lookup. That is
+# cp-08's lesson arriving again — a declaration nothing reads is documentation,
+# not control — and the repair was to recompute every served variance from the
+# raw rates and require it to match.
+#
+# THE SIX TRAP GATES CARRY AN EXTRA OBLIGATION (§F.1a): each builds the
+# DEFECTIVE mechanism in the test, runs it on the same data, and asserts the
+# two answers DIFFER. A trap gate that asserted only the correct answer is what
+# made cp-10's trap gate 23 and cp-11's trap gate 27 green under their own sabotage.
+
+semver: 1.0.0
+class_id: cp-12.product-gates
+declaration:
+  product: markets.fx-reconciliation
+  test_naming_convention: the gate id appears in the executing test's docstring, as an FXR-GNN line naming the CP-SPEC-012
+    §F clause that approves it.
+  sabotage_states:
+    passed: the specific invariant under test was broken and the gate went red
+    unavailable: an UPSTREAM SDK invariant makes the bad state unreachable from this deployment; the gate is evidenced
+      by the successful path plus that guard, never by a local negative control
+    not-required: the gate has nothing to range over on this estate; it SKIPS with that reason rather than passing
+      over an empty set
+  gates:
+  - id: FXR-G01
+    statement: a plan with zero operator steps never serves
+    test: tests/examples/test_cp_12_output.py::test_fxr_g01_the_operator_plan_is_never_empty
+    sabotage: emptied `product_class.required_operator_keys`
+    sabotage_state: unavailable
+    spec_clause:
+      document: spec/CP-SPEC-012_FX_Post_Trade_Reconciliation.md
+      clause: F.1
+    observed_red:
+      result: '**DEPLOYMENT SABOTAGE UNAVAILABLE.** `ValueError: operator set divergence` at load. The SDK refuses
+        a product class whose declared operator set disagrees with its `operators:` section before a plan is ever
+        built, so an empty plan is unreachable from here.'
+      date: '2026-09-12'
+      commit: f23e3d4d
+  - id: FXR-G02
+    statement: served lineage equals the plan's typed operator references; `ProductLineage` is exactly three fields
+    test: tests/examples/test_cp_12_output.py::test_fxr_g02_lineage_is_exactly_the_declared_operator_set
+    sabotage: had the plan require an operator the product class does not name
+    sabotage_state: unavailable
+    spec_clause:
+      document: spec/CP-SPEC-012_FX_Post_Trade_Reconciliation.md
+      clause: F.1
+    observed_red:
+      result: '**DEPLOYMENT SABOTAGE UNAVAILABLE.** `ValueError: operator set divergence for plan ... (D-IMPL-86)`
+        at bind time. Lineage drift cannot be authored into this deployment.'
+      date: '2026-09-12'
+      commit: f23e3d4d
+  - id: FXR-G03
+    statement: the reconciliation is performed at the requested `as_of` over the observation history, and an `as_of`
+      before an amendment sees the pre-amendment values
+    test: tests/examples/test_cp_12_output.py::test_fxr_g03_the_reconciliation_is_performed_at_the_requested_as_of
+    sabotage: removed the `recorded > asked_at` bound in `acquisition.acquire`
+    sabotage_state: passed
+    spec_clause:
+      document: spec/CP-SPEC-012_FX_Post_Trade_Reconciliation.md
+      clause: F.1
+    observed_red:
+      result: '**RED under sabotage**, observed by breaking the mechanism named above and running the gate alone.
+        The FIRST sabotage attempt was weak and the gate was GREEN under it. It broke `Estate.at`, where the `as_of`
+        bound is not enforced — the bound lives in `acquire`, which never admits an observation recorded after the
+        decision instant. A sabotage has to break the mechanism the gate is about, not the one nearest to it.'
+      date: '2026-09-12'
+      commit: f23e3d4d
+  - id: FXR-G04
+    statement: '`expires_at` derives from the decision instant and respects the ceiling'
+    test: tests/examples/test_cp_12_output.py::test_fxr_g04_expiry_derives_from_the_decision_instant
+    sabotage: 'set `ttl_anchor: from_request`'
+    sabotage_state: unavailable
+    spec_clause:
+      document: spec/CP-SPEC-012_FX_Post_Trade_Reconciliation.md
+      clause: F.1
+    observed_red:
+      result: '**DEPLOYMENT SABOTAGE UNAVAILABLE.** `ArtifactLoadError: document is not a valid ccf.product-class`.
+        The anchor vocabulary is closed at the artifact boundary.'
+      date: '2026-09-12'
+      commit: f23e3d4d
+  - id: FXR-G05
+    statement: every system value carries its recorded instant, its clock offset and its corrected instant, separately
+    test: tests/examples/test_cp_12_output.py::test_fxr_g05_the_three_instants_are_carried_separately
+    sabotage: served the recorded instant in the `corrected_at` field
+    sabotage_state: passed
+    spec_clause:
+      document: spec/CP-SPEC-012_FX_Post_Trade_Reconciliation.md
+      clause: F.1
+    observed_red:
+      result: '**RED under sabotage**, observed by breaking the mechanism named above and running the gate alone.
+        Asserted on `settlement` (+47 s) and `risk` (-112 s), where the two instants genuinely differ. On `trading`
+        the offset is 0 and a conflated payload would look correct — the coincidence §F.1a forbids relying on.'
+      date: '2026-09-12'
+      commit: f23e3d4d
+  - id: FXR-G06
+    statement: '`D_c` above tolerance refuses with the debt block'
+    test: tests/examples/test_cp_12_output.py::test_fxr_g06_debt_above_tolerance_refuses_with_the_debt_block
+    sabotage: dropped `debt_tolerance` from the request parameters
+    sabotage_state: passed
+    spec_clause:
+      document: spec/CP-SPEC-012_FX_Post_Trade_Reconciliation.md
+      clause: F.1
+    observed_red:
+      result: '**RED under sabotage**, observed by breaking the mechanism named above and running the gate alone.
+        The first attempt was a no-op: the refusal is the SDK''s and the deployment holds no half of it. The reachable
+        defect is the deployment failing to pass the caller''s ceiling through, which makes every serve succeed
+        — so that is what the gate now asserts, and breaking it goes red.'
+      date: '2026-09-12'
+      commit: f23e3d4d
+  - id: FXR-G07
+    statement: exactly one verdict per trade, and the payload exposes no countable pairwise break list
+    test: tests/examples/test_cp_12_output.py::test_fxr_g07_exactly_one_verdict_per_trade
+    sabotage: served each reconciliation twice
+    sabotage_state: passed
+    spec_clause:
+      document: spec/CP-SPEC-012_FX_Post_Trade_Reconciliation.md
+      clause: F.1
+    observed_red:
+      result: '**RED under sabotage**, observed by breaking the mechanism named above and running the gate alone.
+        The declared product gate (`FXR-G07.one-verdict-per-trade`) is also handed a doubled payload directly and
+        observed refusing, so the gate is proved armed rather than merely declared.'
+      date: '2026-09-12'
+      commit: f23e3d4d
+  - id: FXR-G08
+    statement: where the partition is `(1, 2)` the divergent system is named; where it is `(1, 1, 1)` the payload
+      says no system is isolated rather than picking one
+    test: tests/examples/test_cp_12_output.py::test_fxr_g08_the_divergent_system_is_named_only_where_one_is_isolated
+    sabotage: named a member of the AGREEING pair instead of the isolated system
+    sabotage_state: passed
+    spec_clause:
+      document: spec/CP-SPEC-012_FX_Post_Trade_Reconciliation.md
+      clause: F.1
+    observed_red:
+      result: '**RED under sabotage**, observed by breaking the mechanism named above and running the gate alone.
+        The `(1, 2)` half is asserted on all 60 real partitions. THE `(1, 1, 1)` HALF HAS NOTHING TO RANGE OVER
+        ON THIS ESTATE and the absence is asserted rather than assumed: measured across all 500 trades at a threshold
+        of 0.01 pip — two hundred times finer than `break-investigation` uses — every trade is either all-three-agree
+        (440) or exactly-two-agree (60). The first sabotage was weak because it changed only that unreachable branch,
+        and the gate was GREEN under it.'
+      date: '2026-09-12'
+      commit: f23e3d4d
+  - id: FXR-G09
+    statement: timing-attributable + residual = total variance, or the decomposition is `not-evaluable` with a reason
+    test: tests/examples/test_cp_12_output.py::test_fxr_g09_the_decomposition_closes_or_refuses
+    sabotage: quantized the residual independently of the two figures it must close against
+    sabotage_state: passed
+    spec_clause:
+      document: spec/CP-SPEC-012_FX_Post_Trade_Reconciliation.md
+      clause: F.1
+    observed_red:
+      result: '**RED under sabotage**, observed by breaking the mechanism named above and running the gate alone.
+        THIS GATE FOUND A REAL DEFECT IN THE PRODUCT. Rounding all three figures independently does not close: `TRD-W12-0100`
+        served `12.53 + -5.86` against a total of `6.68`, while the `closes` flag read true because it compared
+        unrounded intermediates. The residual is now taken as the remainder of the figures actually SERVED.'
+      date: '2026-09-12'
+      commit: f23e3d4d
+  - id: FXR-G10
+    statement: a decomposition across an interval shorter than the tick spacing is `not-evaluable`, never zero
+    test: tests/examples/test_cp_12_output.py::test_fxr_g10_a_sub_tick_interval_is_not_evaluable_never_zero
+    sabotage: removed the sub-tick-spacing refusal
+    sabotage_state: passed
+    spec_clause:
+      document: spec/CP-SPEC-012_FX_Post_Trade_Reconciliation.md
+      clause: F.1
+    observed_red:
+      result: '**RED under sabotage**, observed by breaking the mechanism named above and running the gate alone.'
+      date: '2026-09-12'
+      commit: f23e3d4d
+  - id: FXR-G11
+    statement: the staleness of the tick used is carried, and a stale tick yields `not-evaluable`
+    test: tests/examples/test_cp_12_output.py::test_fxr_g11_tick_staleness_is_carried_and_a_stale_tick_refuses
+    sabotage: removed the stale-tick refusal
+    sabotage_state: passed
+    spec_clause:
+      document: spec/CP-SPEC-012_FX_Post_Trade_Reconciliation.md
+      clause: F.1
+    observed_red:
+      result: '**RED under sabotage**, observed by breaking the mechanism named above and running the gate alone.'
+      date: '2026-09-12'
+      commit: f23e3d4d
+  - id: FXR-G12
+    statement: every variance is expressed in pips, and USD/JPY resolves at 0.01 while the others resolve at 0.0001
+    test: tests/examples/test_cp_12_output.py::test_fxr_g12_every_variance_is_in_pips_at_the_declared_scale
+    sabotage: made `Estate.pip` return `0.0001` for every pair
+    sabotage_state: passed
+    spec_clause:
+      document: spec/CP-SPEC-012_FX_Post_Trade_Reconciliation.md
+      clause: F.1
+    observed_red:
+      result: '**RED under sabotage**, observed by breaking the mechanism named above and running the gate alone.
+        A WEAK TEST, not a weak sabotage, and the only one of the five. The original gate asserted the declared
+        pip table and the pair label and never exercised the lookup, so it stayed GREEN while every pair resolved
+        at `0.0001`. It now recomputes each served variance from the raw rates and the declared scale, and requires
+        the worked cases to exercise BOTH scales — a gate that saw only one could not tell a lookup from a constant.'
+      date: '2026-09-12'
+      commit: f23e3d4d
+  - id: FXR-G13
+    statement: '`align_clocks=false` produces a different answer AND a different content address from `align_clocks=true`
+      on the same trade and instant'
+    test: tests/examples/test_cp_12_output.py::test_fxr_g13_disabling_the_alignment_changes_the_answer_and_the_address
+    sabotage: corrected the instants regardless of the flag
+    sabotage_state: passed
+    spec_clause:
+      document: spec/CP-SPEC-012_FX_Post_Trade_Reconciliation.md
+      clause: F.1
+    observed_red:
+      result: '**RED under sabotage**, observed by breaking the mechanism named above and running the gate alone.
+        Both halves are asserted. A parameter that changed the address without changing the answer would ride the
+        request identity without reaching the computation; one that changed the answer without the address would
+        make two different answers indistinguishable to a cache.'
+      date: '2026-09-12'
+      commit: f23e3d4d
+  - id: FXR-G14
+    statement: 'the λ_c row declares `freshness_over: leading-edge` with `series_key_attribute: system_name`, and
+      that attribute is a first-class claim attribute'
+    test: tests/examples/test_cp_12_output.py::test_fxr_g14_the_series_key_is_a_first_class_claim_attribute
+    sabotage: removed `system_name` from the observation rule's `attribute_keys`
+    sabotage_state: passed
+    spec_clause:
+      document: spec/CP-SPEC-012_FX_Post_Trade_Reconciliation.md
+      clause: F.1
+    observed_red:
+      result: '**RED under sabotage**, observed by breaking the mechanism named above and running the gate alone.'
+      date: '2026-09-12'
+      commit: f23e3d4d
+  - id: FXR-G15
+    statement: a trade whose systems all agree serves with an explicit `no-break` verdict
+    test: tests/examples/test_cp_12_output.py::test_fxr_g15_a_trade_whose_systems_agree_serves_an_explicit_no_break
+    sabotage: omitted clean trades from the reconciliation list
+    sabotage_state: passed
+    spec_clause:
+      document: spec/CP-SPEC-012_FX_Post_Trade_Reconciliation.md
+      clause: F.1
+    observed_red:
+      result: '**RED under sabotage**, observed by breaking the mechanism named above and running the gate alone.'
+      date: '2026-09-12'
+      commit: f23e3d4d
+  - id: FXR-G16
+    statement: the four §6.3 axes are `ProductRequest` fields, absent from `parameters`
+    test: tests/examples/test_cp_12_output.py::test_fxr_g16_the_four_axes_are_request_fields
+    sabotage: copied `intent` into `parameters`
+    sabotage_state: passed
+    spec_clause:
+      document: spec/CP-SPEC-012_FX_Post_Trade_Reconciliation.md
+      clause: F.1
+    observed_red:
+      result: '**RED under sabotage**, observed by breaking the mechanism named above and running the gate alone.'
+      date: '2026-09-12'
+      commit: f23e3d4d
+  - id: FXR-G17
+    statement: no notional figure appears anywhere in the payload; the band is carried as a band
+    test: tests/examples/test_cp_12_output.py::test_fxr_g17_no_notional_figure_appears_anywhere
+    sabotage: derived a `notional_usd` figure from the band
+    sabotage_state: passed
+    spec_clause:
+      document: spec/CP-SPEC-012_FX_Post_Trade_Reconciliation.md
+      clause: F.1
+    observed_red:
+      result: '**RED under sabotage**, observed by breaking the mechanism named above and running the gate alone.'
+      date: '2026-09-12'
+      commit: f23e3d4d
+  - id: FXR-G18
+    statement: the payload claims no settlement, netting or ISO 20022 content, and where it names the leg at all
+      it names it absent rather than empty or zero
+    test: tests/examples/test_cp_12_output.py::test_fxr_g18_the_absent_legs_are_named_absent_not_empty
+    sabotage: reported each absent leg as `0`
+    sabotage_state: passed
+    spec_clause:
+      document: spec/CP-SPEC-012_FX_Post_Trade_Reconciliation.md
+      clause: F.1
+    observed_red:
+      result: '**RED under sabotage**, observed by breaking the mechanism named above and running the gate alone.'
+      date: '2026-09-12'
+      commit: f23e3d4d
+  - id: FXR-G19
+    statement: the payload carries no second copy of `D_c`, the content address or the policy versions
+    test: tests/examples/test_cp_12_output.py::test_fxr_g19_no_figure_is_served_twice
+    sabotage: added a `d_c` key to the payload
+    sabotage_state: passed
+    spec_clause:
+      document: spec/CP-SPEC-012_FX_Post_Trade_Reconciliation.md
+      clause: F.1
+    observed_red:
+      result: '**RED under sabotage**, observed by breaking the mechanism named above and running the gate alone.
+        The gate reads payload KEYS at any depth, deliberately not a substring grep over the serialized blob: `d_c`
+        is a substring of `estate_designated_class`, and the grep version flagged the CORRECT payload.
+        cp-11''s gate 20 failed the same way.'
+      date: '2026-09-12'
+      commit: f23e3d4d
+  - id: FXR-G20
+    statement: an unknown trade refuses distinctly from a trade with no break
+    test: tests/examples/test_cp_12_output.py::test_fxr_g20_an_unknown_trade_refuses_distinctly_from_no_break
+    sabotage: suppressed the unknown-trade refusal so a missing trade returned an empty reconciliation
+    sabotage_state: passed
+    spec_clause:
+      document: spec/CP-SPEC-012_FX_Post_Trade_Reconciliation.md
+      clause: F.1
+    observed_red:
+      result: '**RED under sabotage**, observed by breaking the mechanism named above and running the gate alone.'
+      date: '2026-09-12'
+      commit: f23e3d4d
+  - id: FXR-G21
+    statement: the classification vocabulary is exactly `timing`, `genuine`, `not-evaluable`
+    test: tests/examples/test_cp_12_output.py::test_fxr_g21_the_classification_vocabulary_is_exactly_three
+    sabotage: added `amendment-lag` to the vocabulary
+    sabotage_state: passed
+    spec_clause:
+      document: spec/CP-SPEC-012_FX_Post_Trade_Reconciliation.md
+      clause: F.1
+    observed_red:
+      result: '**RED under sabotage**, observed by breaking the mechanism named above and running the gate alone.
+        Structural, and read off the SERVED payload rather than grepped out of source text — cp-11''s gate 20
+        went red against correct code because it grepped and tripped on the docstring explaining its own rule. `no-break`
+        is kept out of the classification tuple: it says there is nothing to classify, not that a fourth class exists.'
+      date: '2026-09-12'
+      commit: f23e3d4d
+  - id: FXR-G22
+    statement: TRAP 1 — pairwise expansion — the product reports 60 observations over the 60 break trades; a pairwise
+      implementation reports 120
+    test: tests/examples/test_cp_12_output.py::test_fxr_g22_the_unit_is_the_trade_and_the_pairwise_count_doubles_it
+    sabotage: served a countable pairwise list beside the verdicts
+    sabotage_state: passed
+    spec_clause:
+      document: spec/CP-SPEC-012_FX_Post_Trade_Reconciliation.md
+      clause: F.1a
+    observed_red:
+      result: '**RED under sabotage**, observed by breaking the mechanism named above and running the gate alone.
+        DIVERGENCE: The defective mechanism is BUILT IN THE TEST and measured: 120 pairwise comparisons over 60
+        underlying divergences, exactly 2.00x. The gate asserts both counts and that they differ.'
+      date: '2026-09-12'
+      commit: f23e3d4d
+  - id: FXR-G23
+    statement: TRAP 3 / TRAP 6 — latest-state comparison — asserted on the trades material at amendment 0 and immaterial
+      at latest; both answers are required so the two mechanisms cannot be confused for one
+    test: tests/examples/test_cp_12_output.py::test_fxr_g23_latest_state_hides_breaks_that_amendment_zero_reports
+    sabotage: made `compare_at=amendment-0` resolve to the latest observation
+    sabotage_state: passed
+    spec_clause:
+      document: spec/CP-SPEC-012_FX_Post_Trade_Reconciliation.md
+      clause: F.1a
+    observed_red:
+      result: '**RED under sabotage**, observed by breaking the mechanism named above and running the gate alone.
+        DIVERGENCE: Measured 13 hidden breaks, `TRD-W12-0002` among them. EVERY trade in the divergence set is checked
+        to carry an amendment above 0 — at a trade with none the two readings coincide and the gate would be vacuous.'
+      date: '2026-09-12'
+      commit: f23e3d4d
+  - id: FXR-G24
+    statement: TRAP 6's second half — the corrected instant leaking into the fabric — the corrected instant reaches
+      no `valid_from`, no `observed_at` and no Context Debt term
+    test: tests/examples/test_cp_12_output.py::test_fxr_g24_the_corrected_instant_reaches_no_fabric_temporal_field
+    sabotage: wrote the corrected instant as the envelope's `observed_time`
+    sabotage_state: passed
+    spec_clause:
+      document: spec/CP-SPEC-012_FX_Post_Trade_Reconciliation.md
+      clause: F.1a
+    observed_red:
+      result: '**RED under sabotage**, observed by breaking the mechanism named above and running the gate alone.
+        DIVERGENCE: Asserted on `settlement` (+47 s) and `risk` (-112 s) and never on `trading`, whose offset is
+        0. Proved through the REAL L2 path — boot, ingest, read the claims back out of L3 — and the claims are located
+        by `(system_name, amendment_seq)` rather than by a constructed URI, because L2 mints its own `fxr_observation://<sha256>`
+        and a URI lookup finds nothing and passes over an empty set (`D-IMPL-316`).'
+      date: '2026-09-12'
+      commit: f23e3d4d
+  - id: FXR-G25
+    statement: TRAP 2 — residual classification on 5-minute ticks — a break whose corrected observation gap is shorter
+      than the tick spacing is `not-evaluable`; a residual-magnitude implementation returns a confident verdict
+    test: tests/examples/test_cp_12_output.py::test_fxr_g25_a_residual_implementation_answers_where_the_product_refuses
+    sabotage: removed the sub-tick-spacing refusal
+    sabotage_state: passed
+    spec_clause:
+      document: spec/CP-SPEC-012_FX_Post_Trade_Reconciliation.md
+      clause: F.1a
+    observed_red:
+      result: '**RED under sabotage**, observed by breaking the mechanism named above and running the gate alone.
+        DIVERGENCE: Ranges over EVERY sub-tick break in the designated population, computing both mechanisms on
+        each and asserting they differ. It also asserts WHY the revaluation is an artifact: either one tick serves
+        both instants, so the attributed move is exactly zero, or the ticks are a full bucket apart and that move
+        is credited to a shorter interval. The first draft asserted bucket collision on one named trade and was
+        wrong — a 296 s gap can straddle a boundary.'
+      date: '2026-09-12'
+      commit: f23e3d4d
+  - id: FXR-G26
+    statement: TRAP 5 — missing pip normalisation — asserted on a USD/JPY break, where the pip is 0.01; unnormalised
+      the variance reads 100x smaller and passes every threshold
+    test: tests/examples/test_cp_12_output.py::test_fxr_g26_an_unnormalised_jpy_variance_reads_a_hundred_times_small
+    sabotage: made `Estate.pip` return `0.0001` for every pair
+    sabotage_state: passed
+    spec_clause:
+      document: spec/CP-SPEC-012_FX_Post_Trade_Reconciliation.md
+      clause: F.1a
+    observed_red:
+      result: '**RED under sabotage**, observed by breaking the mechanism named above and running the gate alone.
+        DIVERGENCE: Both figures are computed and the gate asserts the correct one clears the materiality threshold
+        while the unnormalised one falls below it, and that the ratio is exactly 100. Not asserted on a `0.0001`
+        pair, where the two differ by a factor the thresholds may not separate.'
+      date: '2026-09-12'
+      commit: f23e3d4d
+  - id: FXR-G27
+    statement: TRAP 4 — the stale weekend tick — the break whose nearest preceding tick is 20.0 hours old is `not-evaluable`
+      and carries the staleness
+    test: tests/examples/test_cp_12_output.py::test_fxr_g27_a_stale_weekend_tick_produces_a_number_with_no_meaning
+    sabotage: removed the stale-tick refusal
+    sabotage_state: passed
+    spec_clause:
+      document: spec/CP-SPEC-012_FX_Post_Trade_Reconciliation.md
+      clause: F.1a
+    observed_red:
+      result: '**RED under sabotage**, observed by breaking the mechanism named above and running the gate alone.
+        DIVERGENCE: Both mechanisms computed on `TRD-W12-0124`. The naive residual exceeds ten times the raw variance
+        it is meant to decompose, so the two answers cannot be confused — which is what makes this gate cheap and
+        decisive.'
+      date: '2026-09-12'
+      commit: f23e3d4d

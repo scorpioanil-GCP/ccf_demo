@@ -251,6 +251,29 @@ and so the correction is visibly the product's rather than the fabric's
 | `fxr_observation` | **1 hour** | `valid-from` | **`leading-edge`** | **`system_name`** |
 | `fxr_trade` | **no decay** (`supersede-only`) | — | — | — |
 
+**ILLUSTRATIVE CALIBRATION — the demonstration runs at 48 hours, not 1 hour**
+(`CP12-F-15`, CLAUDE.md §9, `D-IMPL-323`). One hour is the production figure and
+stays declared here. It cannot be demonstrated against this estate: the trade
+window is eight days wide, so at a 1-hour half-life every observation has aged to
+nothing and `F` is carried almost entirely by the non-decaying `fxr_trade` class.
+Measured at `as_of = 2026-08-14`:
+
+| λ_c | `TRD-W12-0002` | `TRD-W12-0424` | spread |
+|---|---|---|---|
+| 1 hour | F `0.2500` | F `0.2508` | **0.0008** |
+| 48 hours | F `0.5151` | F `0.8999` | **0.3848** |
+
+At one hour the term reads the same for a trade booked four days ago and one
+booked hours ago — it has stopped measuring its own subject. `ccf_config.yaml`
+carries 48 hours with the disclosure beside the value.
+
+> **Illustrative calibration:** This example runs against a point-in-time
+> demonstration estate rather than continuously refreshed production data.
+> Freshness half-lives and related thresholds are calibrated to make the
+> governed behavior observable in that snapshot. They demonstrate how the SDK
+> applies these controls and should not be interpreted as recommended
+> production coverage-policy thresholds.
+
 ### B.5a The pip-scale table is a versioned, asserted artifact
 
 **Not a constant inside projection logic** (Dave, 2026-09-12). The scale at which
@@ -423,11 +446,19 @@ number produces a wrong one 22 times in 60.
 
 ### D.3 The scenarios
 
-**Scenario 1 — the break that inverts.** Measured: **13 of 60 breaks have a raw
-variance above the 2-pip threshold and an aligned residual below it.** The
-strongest is `BRK-TRD-W12-0235-settlement-risk` (USD/CAD): raw **6.95 pips**,
-aligned residual **−0.09**, corrected observation gap **296 s**. Looks like a
-genuine error; is the market moving for five minutes.
+**Scenario 1 — the break that inverts.** `TRD-W12-0472` (EUR/USD): raw **6.01
+pips**, timing-attributable **5.79**, residual **0.22**, corrected observation
+gap **388 s**, tick staleness **279 s**. Raw variance three times the materiality
+threshold; residual an eighth of it. Looks like a genuine error; is the market
+moving for six and a half minutes.
+
+> **AMENDED AT GATE 2** (`CP12-F-11`). This scenario originally named
+> `BRK-TRD-W12-0235-settlement-risk` — raw 6.95 pips, aligned residual −0.09,
+> gap **296 s**. That gap is **below the 300 s tick spacing**, so §D.2 step 6,
+> `FXR-G10` and `FXR-G25` all require it to be `not-evaluable`: the −0.09 was
+> produced by the residual-magnitude mechanism TRAP 2 refuses. The binding wins
+> over the illustration. `TRD-W12-0235` is retained as `FXR-G10`'s subject,
+> which is what it actually demonstrates.
 
 **Scenario 2 — the genuine break that survives alignment.**
 `BRK-TRD-W12-0004-risk-trading` (GBP/USD): raw **7.82 pips**, corrected
@@ -481,6 +512,13 @@ explicit `no-break` verdict** — not an empty payload and not an omission.
 | `CP12-F-06` | **Intraday ticks are `synthetic — engineered`; the daily reference rates are public.** The split is disclosed rather than blurred: the daily series carries a real FRED derivation, the intraday series does not exist publicly at this granularity and is engineered, exactly as rung 9's rate leg was. | NOT-A-GAP |
 | `CP12-F-07` | **47 pairwise disagreements above 0.5 pip carry no `break_record` row**, against 47 that do. Measured, they are the *same* underlying divergences seen through the second system pair — which is TRAP 1 stated from the data side. `break_record` is a designated sample, never the population, and the product does not treat it as one. | NOT-A-GAP |
 | `CP12-F-08` | **Notionals are banded, never exact.** Part 43 caps large notionals for anonymity. The product reports variance in **pips** throughout and computes nothing requiring a notional. | ESTATE-LIMITATION |
+| `CP12-F-09` | **The tick series does not reproduce a designed timing move beyond a short interval.** The intraday series and the system values were engineered independently. Measured over the 60 designated breaks: 14 computed `timing`, **all 14 designated timing**; 37 computed `genuine`, of which 20 designated genuine and 17 designated timing — and the disagreement grows monotonically with the observation gap, from ~2 pips at 400 s to 13.73 pips at 10,849 s. Not repaired: `break_record` is a sample and not the truth (`CP12-F-07`), so tuning a cutoff until the two agreed would be the move CLAUDE.md §9 forbids. The payload carries the designation beside the computed verdict, with the gap, the staleness and the full decomposition. | ESTATE-LIMITATION |
+| `CP12-F-10` | **A zero observation gap is not TRAP 2.** Applying the sub-tick rule to a zero-length interval returned `not-evaluable` for 29 of 60 breaks and buried the estate's strongest signal: the corrected gap is exactly 0 on **20 of 60**, and those 20 are **exactly** the 20 designated `genuine`, 20 of 20. Two identical instants leave no interval, so the timing component is zero by arithmetic rather than by revaluation — §D.3 scenario 2. `not-evaluable` fell from 29 to 9. | FIXED-gate-2 |
+| `CP12-F-11` | **§D.3 scenario 1 named a trade the product's own binding refuses.** See the amendment at §D.3. | FIXED-gate-2 |
+| `CP12-F-12` | **The comparison peer was chosen non-deterministically.** `next(iter(set_of_str))` is not stable across interpreters; measured, the same trade compared against `risk` on one run and `trading` on the next, with a different content address. §D.4 declares `deterministic`, which is a property of the code and not a declaration about it. Fixed by ordering on the canonical system tuple. | FIXED-gate-2 |
+| `CP12-F-13` | **The three served decomposition figures did not close.** Quantizing independently gave `12.53 + −5.86` against a total of `6.68` on `TRD-W12-0100`, while `closes` read true because it compared unrounded intermediates. The residual is now the remainder of the figures actually served. Found by `FXR-G09` under sabotage. | FIXED-gate-2 |
+| `CP12-F-14` | **No three-way disagreement exists anywhere in the estate.** Measured across all 500 trades at 0.01 pip: 440 all-agree, 60 exactly-two-agree, **0 three-way**. In every break the two agreeing systems match to the last digit. `FXR-G08`'s `(1, 1, 1)` limb is `not-required`, and the absence is asserted by the executing test rather than assumed. | ESTATE-LIMITATION |
+| `CP12-F-15` | **The declared 1-hour λ_c cannot discriminate across an 8-day snapshot.** See §B.5. Illustrative calibration at 48 hours, disclosed at every site that carries it. | ESTATE-LIMITATION |
 
 ---
 

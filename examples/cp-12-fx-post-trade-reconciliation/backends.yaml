@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=../../docs/schemas/ccf.declared-artifact.json
+#
+# WHERE THINGS LIVE — as environment-variable NAMES and nothing else.
+# No host, no port, no credential, in this file or anywhere in the tree.
+
+semver: "1.0.0"
+class_id: cp-12.backend-profiles
+
+declaration:
+  profiles:
+    sqlite:
+      settings:
+        database_path:
+          prefix: cp-12-reconciliation
+          suffix: .sqlite
+
+  sources:
+    - name: relational
+      capability_class: relational
+      holds: >-
+        the trades with their pair, execution instant, value date and notional
+        BAND; the three systems' values per amendment; the 5-minute intraday
+        tick series and the daily reference rates; the pip-size table; the
+        materiality thresholds by intent; and the designated break sample.
+        THE VALUES LIVE HERE AND THE INSTANTS DO NOT — `system_trade_record`
+        has no timestamp column at all.
+      connection:
+        from_env: CCF_CP_12_POSTGRES_DSN
+        note: >-
+          export CCF_CP_12_POSTGRES_DSN with a READ-ONLY libpq connection
+          string. Nothing this example runs writes to the store it reads, and
+          a role that could write would make that a promise rather than a
+          guarantee.
+      namespace:
+        from_env: CCF_CP_12_POSTGRES_SCHEMA
+        note: >-
+          the schema holding the v2 estate. NOT the value in `ccf_dataprep`'s
+          `.env`, which names v1.
+
+    - name: graph
+      capability_class: bitemporal-ledger
+      holds: >-
+        THE CLOCK. Every observation instant this product reads comes from
+        `SystemObservation.systemObservedAt`, and every clock offset from
+        `clockOffsetSeconds` on the three system nodes. Also the amendment
+        chain (`amends`) and the designated break nodes. The two legs join on
+        the IRI `obs-<trade_id>-<system>-<amendment_seq>`.
+      connection:
+        from_env: CCF_CP_12_FLUREE_URL
+        note: >-
+          export CCF_CP_12_FLUREE_URL with the base URL of a READ-ONLY Fluree
+          instance. The example issues `POST /v1/fluree/query` only. A seeded
+          ledger is PERMANENT, which is why read-only is a guarantee here.
+      namespace:
+        from_env: CCF_CP_12_FLUREE_LEDGER
+        note: the ledger name to read — `fibo-v2`, a separate ledger from v1.

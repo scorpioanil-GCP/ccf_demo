@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE PIP SCALE, AS A VERSIONED ASSERTION — never a constant in projection logic.
+#
+# The scale at which a currency pair quotes is a MARKET CONVENTION this product
+# asserts, not a fact it derives. It gets its own semver and its own provenance
+# so a reader can tell an assertion from a measurement, and so a change to the
+# convention is a versioned Control Plane event rather than an edit to code
+# (CLAUDE.md §6.4; the shape `CP11-F-09`'s SIC mapping arrived at).
+#
+# WHY IT MATTERS, MEASURED: USD/JPY quotes to 0.01 and every other pair in this
+# estate to 0.0001. A raw rate difference of 0.06 is SIX pips in USD/JPY and SIX
+# HUNDRED in EUR/USD. Without normalisation a JPY break reports a variance a
+# hundred times too small and passes every materiality threshold there is.
+
+semver: "1.0.0"
+class_id: cp-12.pip-scale
+
+declaration:
+  provenance: "public — FX market quoting convention"
+  asserted_by: cp-12
+  note: >-
+    Not derived from the estate. `ccf_v2.fx_pip_size` carries the same six rows
+    and this artifact is checked against it at acquisition (`FXR-G12`): the
+    estate is the corroboration, the declaration is the authority, and a
+    disagreement between them is a refusal rather than a silent preference.
+  # A pair ABSENT from this table is NOT EVALUABLE. There is deliberately no
+  # default: defaulting to 0.0001 is precisely how a JPY-quoted pair comes to
+  # report a variance a hundred times too small.
+  no_default: true
+  pips:
+    "USD/JPY": "0.01"
+    "AUD/USD": "0.0001"
+    "EUR/GBP": "0.0001"
+    "EUR/USD": "0.0001"
+    "GBP/USD": "0.0001"
+    "USD/CAD": "0.0001"
