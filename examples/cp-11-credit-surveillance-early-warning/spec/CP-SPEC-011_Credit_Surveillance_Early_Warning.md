@@ -728,6 +728,7 @@ stale one. `EWS-G22` keeps the product from claiming otherwise.
 | `EWS-G26` | **a valid SIC code never falls to `Unclassified`.** Every anchor whose `legal_entity.sic` is a well-formed code in a published division resolves to that division's sector, and the product asserts the resolution rate over the whole anchor set rather than over one obligor | `CP11-F-09` — the sector dimension going inert again, silently |
 | `EWS-G27` | **supersession participation is DECLARED, not inferred.** The classes checked for supersession come from the artifact's `supersession_participants`; a class absent from that list is never checked, whatever the chain happens to contain | a product that silently starts dropping signals the day another class gains a chain |
 | `EWS-G28` | **each signal carries exactly one chain state** — `current`, `superseded` or `not-participating` — and the three partition the signal set: their counts sum to the number of signals, with no signal in two of them | a current signal counted twice, once as chained and once as current |
+| `EWS-G29` | **the composite's decay and the Context Debt freshness term are INDEPENDENT.** `signal_weight.decay_days` drives the score — what the evidence says; the registered λ_c drives `F` — how old the evidence is. The gate recomputes `2^(-age/decay_days)` from the estate's own rate per signal, and measures the two orderings over a population, requiring at least one inversion | a product whose debt figure rises and falls with its own finding |
 
 ### G.2 Acceptance
 
@@ -747,6 +748,6 @@ refused on its next serve; a copy a consumer already holds is not recalled, and
 Everything else stands as authored and measured: the estate facts, the obligor
 unit, the valid-time delta and the five traps. The thresholds are re-affirmed
 at 0.15 / 0.25 / 0.35 on the CORRECTED populations of 28 / 11 / 3 (Dave,
-2026-09-12, after `CP11-F-09`). **28 gates, `EWS-G01`–`G28`** — three added at
-Gate 2 to hold the sector resolution, the declared participation and the
-three-state partition.
+2026-09-12, after `CP11-F-09`). **29 gates, `EWS-G01`–`G29`** — four added at
+Gate 2 to hold the sector resolution, the declared participation, the
+three-state partition, and the independence of the two decay models.
