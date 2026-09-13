@@ -176,7 +176,14 @@ from ccf.graph.protocols import GraphView, TraversalDepthCapability
 from pydantic import ValidationError
 
 from ccf.halflife.assessment import NO_OBLIGATION_IN_FORCE
-from ccf.halflife.debt import DebtAssessment, DebtSignal
+from ccf.products.composite import (
+    GATE_CHILD_ADMISSION,
+    ChildAdmissionRefusal,
+    CompositeChildResolverProtocol,
+    CompositionOutcome,
+    compose_children,
+)
+from ccf.halflife.debt import DebtAssessment, DebtSignal, context_debt
 from ccf.products.contract import (
     AssemblyMode,
     ComputedEmptyFinding,
@@ -1488,6 +1495,16 @@ class GovernedResolver:
     query_pin_class: str
     max_ttl_seconds: int
     product_ttl_seconds: int
+    #: `D-IMPL-336` Amendment 3, F0 — how this deployment resolves, invokes,
+    #: delivers and admits the children a composite class declares. ``None``
+    #: for every non-composite deployment, which is every one shipped before
+    #: this surface; a class that declares ``requires`` against a resolver
+    #: with no child resolver is REFUSED rather than served without them.
+    #:
+    #: The SDK ships the Protocol and never an implementation: resolving a
+    #: grant, dispatching a skill and delivering a child is orchestration, and
+    #: orchestration is the harness's (CLAUDE.md §7.3, §8.1).
+    composite_children: CompositeChildResolverProtocol | None
 
     #: The request-contract argument that carries this class's DECISION
     #: INSTANT, or ``None`` when the class declares none — `24.10-F-09`,
@@ -1865,6 +1882,78 @@ class GovernedResolver:
         # are three statements about the same moment, and deriving them
         # separately is how they drift apart.
         decided_at = self._decision_instant(request, effective_request)
+
+        # --- composite assembly (`D-IMPL-336` Amendment 3, F0) -------------
+        #
+        # THE DECLARATION IS READ FROM THE REGISTERED CLASS. Until this block
+        # existed the whole composite surface had no caller: a class could
+        # declare `requires` and be served with no composition, no admission
+        # and no replay rows — `D-IMPL-324`'s "declaration is not a door",
+        # applied to an entire feature.
+        #
+        # `composed` stays None for every non-composite product, which is
+        # every product shipped before this, and everything below is inert.
+        # A refusal is NOT returned here: it is carried to the same
+        # post-gate refusal path a gate refusal takes, so a composition
+        # refusal and a TTL refusal are recorded by one mechanism.
+        own_lineage = ProductLineage(
+            operators_invoked=frozenset(required),
+            policy_bundle_versions=frozenset({policy_version}),
+            graph_snapshot_at=request.asked_at,
+        )
+        composed: CompositionOutcome | None = None
+        if registered.requires:
+            # One governed question, one invocation identity — derived from the
+            # request so it is stable under replay and cannot be chosen per
+            # child (F8: invocation-bound, and the binding is to THIS one).
+            invocation = f"composition://{content_hash(request)}"
+            if self.composite_children is None:
+                composed = CompositionOutcome(
+                    factors=None,
+                    resolutions=(),
+                    refusal=ChildAdmissionRefusal(
+                        gate=GATE_CHILD_ADMISSION,
+                        detail=(
+                            f"class {registered.schema_name!r} declares"
+                            f" {len(registered.requires)} child requirement(s)"
+                            " and this deployment wired no composite child"
+                            " resolver, so they could not be satisfied."
+                            " Refused rather than served without them: a"
+                            " declared requirement execution ignores is the"
+                            " defect this block exists to close"
+                        ),
+                        product_class=registered.schema_name,
+                        reason="no-producing-skill",
+                    ),
+                )
+            else:
+                composed = compose_children(
+                    own_factors=assessed.factors,
+                    requirements=registered.requires,
+                    outcomes=self.composite_children(
+                        requirements=registered.requires,
+                        asked_at=request.asked_at,
+                        admitted_at=decided_at,
+                        composition_invocation=invocation,
+                    ),
+                    asked_at=request.asked_at,
+                    composition_invocation=invocation,
+                    own_lineage=own_lineage,
+                    max_ttl=MaxTTL(seconds=self.product_ttl_seconds),
+                    validity_floors=registered.constituent_validity_floors,
+                )
+            if composed.factors is not None:
+                # `24.11-03`'s hazard, respected: the composed factors replace
+                # the parent's own BEFORE `obligation_in_force` is derived
+                # below, so a composite's reported debt and its obligation
+                # cannot land on different sides of a routing band.
+                assessed = DebtAssessment(
+                    debt=context_debt(composed.factors),
+                    signal=assessed.signal,
+                    factors=composed.factors,
+                    scorers=assessed.scorers,
+                )
+
         candidate = ContextProductContract(
             schema_name=registered.schema_name,
             schema_version=registered.schema_version,
@@ -1875,17 +1964,29 @@ class GovernedResolver:
             # from when the answer was PRODUCED (`24.10-F-09`, `D-IMPL-308`).
             # They are equal whenever a class declares no decision instant.
             temporal_boundary=request.asked_at,
-            expires_at=decided_at + timedelta(seconds=self.product_ttl_seconds),
+            # `D-IMPL-336` F14: a composite's expiry is FLOORED by its
+            # stalest admitted constituent, so it can never be labelled
+            # fresher than the child it depends on. Non-composites keep the
+            # declared window exactly as before.
+            expires_at=(
+                composed.expires_at
+                if composed is not None and composed.expires_at is not None
+                else decided_at + timedelta(seconds=self.product_ttl_seconds)
+            ),
             ttl_anchor=registered.ttl_anchor,
-            lineage=ProductLineage(
-                operators_invoked=frozenset(required),
-                policy_bundle_versions=frozenset({policy_version}),
-                graph_snapshot_at=request.asked_at,
-                # `D-IMPL-309`: the engine's store head is NOT sealed here. It
-                # is execution provenance and it is recorded in replay
-                # dimension 1 from `execution.store_snapshot_pin`, so an
-                # ambient ledger advancing between two runs of one governed
-                # question cannot mint a second product identity (`MOD-05`).
+            # `D-IMPL-336` F14: and its lineage is the N-way set-union over
+            # every admitted child's, so each constituent's provenance stays
+            # resolvable from the composite.
+            #
+            # `D-IMPL-309`: the engine's store head is NOT sealed here. It is
+            # execution provenance and it is recorded in replay dimension 1
+            # from `execution.store_snapshot_pin`, so an ambient ledger
+            # advancing between two runs of one governed question cannot mint
+            # a second product identity (`MOD-05`).
+            lineage=(
+                composed.lineage
+                if composed is not None and composed.lineage is not None
+                else own_lineage
             ),
             payload=execution.projection.payload,
             # `24.10-F-08` / `D-IMPL-308`: the window this deployment DECLARED,
@@ -1944,6 +2045,29 @@ class GovernedResolver:
             debt=candidate.debt,
             computed_empty=candidate.computed_empty,
         )
+        # `D-IMPL-336` Amendment 3, F0: a composition refusal is recorded by
+        # the SAME mechanism a gate refusal is, and BEFORE the universal gates
+        # report on a candidate whose children never arrived. Placed here
+        # rather than at the composition itself so one refusal path serves
+        # both, and so the refusal travels with the candidate's own lineage
+        # and evidence exactly as a TTL refusal does.
+        if composed is not None and composed.refusal is not None:
+            return self._record_refusal(
+                envelope=envelope_for(
+                    composed.refusal,
+                    request=identity,
+                    pre_assembly_lineage=candidate.lineage,
+                    policy_bindings=effective.applied,
+                    evidence=evidence,
+                    provenance=effective,
+                ),
+                execution=execution,
+                request=request,
+                perspective=perspective,
+                policy_bindings=applied,
+                resolution=effective,
+            )
+
         if not isinstance(gated, ServableProduct):
             # A refusal is a value, and it travels with the lineage the
             # candidate claimed — a gate refusal has a candidate behind it, so
@@ -2063,6 +2187,13 @@ class GovernedResolver:
             # that DOES hold one wires its own id and version here.
             assembler_id=self._assembler_id(),
             assembler_version=self._assembler_version(),
+            # `D-IMPL-336` Amendment 3, F0 — the per-child rows, GENERATED
+            # FROM EXECUTION. Empty for every non-composite decision, which is
+            # what keeps those records byte-identical to the ones written
+            # before this surface existed.
+            child_resolutions=(
+                composed.resolutions if composed is not None else ()
+            ),
             # 24.6-03: what was resolved, and on whose authority — dimension 2,
             # beside the versions it was resolved from (`D-IMPL-254`).
             resolution=effective,
@@ -2513,6 +2644,12 @@ def build_governed_resolver(
     product_ttl_seconds: int,
     decision_instant_parameter: str | None = None,
     source_refresh_recency: SourceRefreshRecency = NO_SOURCE_REFRESH_RECENCY,
+    #: `D-IMPL-336` Amendment 3, F0. Defaulted HERE and required on the
+    #: resolver itself: the dataclass forbids defaults so every deployment
+    #: states its posture explicitly, while this factory — which most
+    #: deployments call — keeps the non-composite default that every product
+    #: shipped before this surface had.
+    composite_children: CompositeChildResolverProtocol | None = None,
     artifact_store: ArtifactStoreProtocol | None = None,
     replay_record_class: str | None = None,
     query_pin_class: str | None = None,
@@ -2992,6 +3129,7 @@ def build_governed_resolver(
             product_ttl_seconds=product_ttl_seconds,
             decision_instant_parameter=decision_instant_parameter,
             source_refresh_recency=source_refresh_recency,
+            composite_children=composite_children,
         )
 
     if (
@@ -3044,4 +3182,5 @@ def build_governed_resolver(
         product_ttl_seconds=product_ttl_seconds,
         decision_instant_parameter=decision_instant_parameter,
         source_refresh_recency=source_refresh_recency,
+        composite_children=composite_children,
     )

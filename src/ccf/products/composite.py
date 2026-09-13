@@ -88,7 +88,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Final, Literal, cast, get_args
+from typing import Final, Literal, Protocol, cast, get_args, runtime_checkable
 
 from pydantic import Field, field_validator
 
@@ -107,7 +107,19 @@ from ccf.peering.eligibility import (
     EligibilityAssertionMalformed,
     decode_eligibility_assertion,
 )
-from ccf.products.contract import ChildRequirement, ContextProductContract
+from ccf.products.composition import (
+    ConstituentValidity,
+    compose_expiry,
+    compose_lineage,
+    refuse_mixing,
+)
+from ccf.products.contract import (
+    ChildRequirement,
+    ConstituentValidityFloors,
+    ContextProductContract,
+    MaxTTL,
+    ProductLineage,
+)
 from ccf.products.gates import GateRefusal, refuse_dependency_invalidation
 from ccf.replay.record import CHILD_ADMITTED, ChildResolution
 from ccf.skills.catalog import NO_PRODUCT_CLASS, SkillCatalogEntry
@@ -131,6 +143,7 @@ __all__ = [
     "ChildInvocation",
     "ChildRefusalReason",
     "CompositeAdmissionGate",
+    "CompositeChildResolverProtocol",
     "CompositionOutcome",
     "compose_children",
     "invocation_from_dispatch",
@@ -200,6 +213,7 @@ ChildRefusalReason = Literal[
     "requirement-mismatch",
     "undeclared-outcome",
     "unsupported-outcome",
+    "mixing-refused",
 ]
 
 CHILD_REFUSAL_REASONS: Final[frozenset[str]] = frozenset(get_args(ChildRefusalReason))
@@ -1147,19 +1161,85 @@ class CompositeAdmissionGate:
 
 
 
+@runtime_checkable
+class CompositeChildResolverProtocol(Protocol):
+    """Produce the admitted-or-refused child set for a composite (`D-IMPL-336`).
+
+    **The SDK ships this Protocol and never an implementation**, because
+    resolving a requirement to a granted skill, dispatching it and delivering
+    the child is agent orchestration — the harness's, exactly as the agent loop
+    is (CLAUDE.md §7.3, §8.1). What the SDK owns is the declaration, the
+    admission and the composition on either side of this call.
+
+    A conforming implementation:
+
+    * reads ``requires`` **from the registered class**, never from a list a
+      caller supplied;
+    * resolves each requirement to an in-force grant with
+      :func:`resolve_producing_grant`, and lets
+      :class:`AmbiguousProducerError` propagate rather than picking one;
+    * dispatches that grant's skill and delivers the child through its own
+      governed door;
+    * mints :class:`ChildInvocation` from the resolved entry and
+      :class:`ChildProvenance` from boot or from a verified peering
+      admission — never from strings it wrote itself;
+    * offers each result to :meth:`CompositeAdmissionGate.admit` and returns
+      what came back.
+
+    Returning ``None`` for a class means **no in-force grant produces it**,
+    which is the one honest absence: it is the only outcome that takes an
+    optional requirement's declared absence treatment.
+    """
+
+    def __call__(
+        self,
+        *,
+        requirements: Sequence[ChildRequirement],
+        asked_at: datetime,
+        admitted_at: datetime,
+        composition_invocation: str,
+    ) -> Mapping[str, object]:
+        """Resolve, invoke, deliver and admit; return one outcome per class."""
+        ...
+
+
 @dataclass(frozen=True)
 class CompositionOutcome:
-    """What a composition produced: composed factors, or a refusal, plus rows.
+    """What a composition produced: all four ruled laws, or a refusal.
 
     **The rows are present either way.** A composite that refused still records
     every requirement and its disposition, because a requirement that produced
     nothing and left no row would be indistinguishable from one that was never
     declared — the silent omission this surface exists to prevent.
+
+    **`D-IMPL-336` Amendment 3, F14 — this carries all four composition laws,
+    not one.** `D-IMPL-31` and `D-IMPL-104` between them rule four:
+    per-factor debt, lineage set-union, the expiry floor, and the
+    mixing refusal. The earlier outcome carried only ``factors``, so a caller
+    using the API as designed could not compute the floor at all and replay
+    could not tell whether it had been applied — the laws shipped in
+    :mod:`ccf.products.composition` and this module never imported them.
+
+    Attributes:
+        factors: The per-factor minimum over the parent and its admitted
+            children (`D-IMPL-104`). ``None`` exactly when ``refusal`` is set.
+        lineage: The N-way set-union over the admitted children's lineages
+            (`D-IMPL-31`), so every constituent's provenance stays resolvable
+            from the composite. ``None`` when refused.
+        expires_at: The composite's validity, floored by the stalest admitted
+            constituent (`D-IMPL-31`), so a composite is never labelled fresher
+            than its stalest child. ``None`` when refused.
+        refusal: The governed "no", including a
+            :class:`~ccf.products.composition.MixingRefusal` rendered as a
+            child-admission refusal when a constituent breached its declared
+            validity floor.
     """
 
     factors: DebtFactors | None
     resolutions: tuple[ChildResolution, ...]
     refusal: ChildAdmissionRefusal | None
+    lineage: ProductLineage | None = None
+    expires_at: datetime | None = None
 
     @property
     def served(self) -> bool:
@@ -1179,6 +1259,9 @@ def compose_children(
     outcomes: Mapping[str, object],
     asked_at: datetime,
     composition_invocation: str,
+    own_lineage: ProductLineage,
+    max_ttl: MaxTTL,
+    validity_floors: ConstituentValidityFloors,
 ) -> CompositionOutcome:
     """Compose an admitted child set, or refuse, and record every requirement.
 
@@ -1205,6 +1288,7 @@ def compose_children(
     """
     rows: list[ChildResolution] = []
     admitted_factors: list[DebtFactors] = []
+    admitted_children: list[AdmittedChild] = []
     refusal: ChildAdmissionRefusal | None = None
 
     def first(candidate_refusal: ChildAdmissionRefusal) -> None:
@@ -1283,6 +1367,7 @@ def compose_children(
                 continue
             rows.append(_row_for_admitted(requirement, outcome))
             admitted_factors.append(outcome.factors)
+            admitted_children.append(outcome)
             continue
 
         if isinstance(outcome, ChildAdmissionRefusal):
@@ -1374,10 +1459,57 @@ def compose_children(
         return CompositionOutcome(
             factors=None, resolutions=tuple(rows), refusal=refusal
         )
+
+    # --- F14: the OTHER THREE ruled laws, which were shipped and uncalled ---
+    #
+    # `refuse_mixing` first, because D-IMPL-31 rules that a constituent whose
+    # remaining validity breaches its declared floor refuses assembly outright
+    # — a composite must not be built at all rather than built and labelled.
+    mixing = refuse_mixing(
+        constituents=[
+            ConstituentValidity(
+                constituent_id=child.verified_content_address,
+                signal_type=child.contract.schema_name,
+                expires_at=child.contract.expires_at,
+            )
+            for child in admitted_children
+        ],
+        floors=validity_floors,
+        evaluated_at=asked_at,
+    )
+    if mixing is not None:
+        return CompositionOutcome(
+            factors=None,
+            resolutions=tuple(rows),
+            refusal=ChildAdmissionRefusal(
+                gate=GATE_CHILD_ADMISSION,
+                detail=(
+                    "a constituent breached its declared validity floor, so"
+                    f" this composite is not assembled at all: {mixing.detail}"
+                ),
+                product_class=mixing.constituent_id,
+                reason="mixing-refused",
+            ),
+        )
+
     return CompositionOutcome(
         factors=compose_debt_factors(own_factors, admitted_factors),
         resolutions=tuple(rows),
         refusal=None,
+        # The N-way set-union, so every child's provenance stays resolvable.
+        lineage=compose_lineage(
+            [own_lineage, *(c.contract.lineage for c in admitted_children)]
+        ),
+        # The floor. A composite is never labelled fresher than its stalest
+        # constituent — and this is now a property of the shipped path, not of
+        # a helper a test called with two literal datetimes.
+        expires_at=compose_expiry(
+            constituent_validities=[
+                c.contract.expires_at for c in admitted_children
+            ],
+            max_ttl=max_ttl,
+            ttl_anchor_at=asked_at,
+        ),
     )
 
 
@@ -1457,6 +1589,7 @@ _REASON_TO_STATUS: Final[Mapping[str, str]] = {
     "requirement-mismatch": "rejected-at-admission",
     "undeclared-outcome": "rejected-at-admission",
     "unsupported-outcome": "rejected-at-admission",
+    "mixing-refused": "rejected-at-admission",
 }
 
 

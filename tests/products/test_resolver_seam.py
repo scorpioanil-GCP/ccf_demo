@@ -1975,6 +1975,12 @@ DEPLOYMENT_OWNED_ARGUMENTS: tuple[str, ...] = (
     # guessed would serve "obliged to do nothing" from inside the content
     # address, where it cannot be corrected afterwards.
     "debt_profile_key",
+    # `D-IMPL-336` Amendment 3, F0: how this deployment resolves, invokes and
+    # admits the children a composite class declares. `None` is admissible and
+    # POSITIVE — this deployment composes nothing — but never a default: a
+    # resolver that guessed would serve a class whose declared requirements
+    # execution ignored, which is the exact defect the composite block closes.
+    "composite_children",
     "plan_factory",
     "debt_scorer",
     # `24.10-02` / `R-11`: the deployment's implementation of its class's own
@@ -2102,6 +2108,10 @@ def _arguments(booted: _Booted) -> dict[str, Any]:
         # way every other declaration is named — by key, so the profile the
         # resolver reads is provably the manifest's.
         "debt_profile_key": DEBT_PROFILE_KEY,
+        # This fixture's class declares no child requirements, so it wires no
+        # child resolver — the state every product shipped before D-IMPL-336
+        # was in, stated rather than defaulted.
+        "composite_children": None,
         "plan_factory": _plan_factory,
         "debt_scorer": _debt_scorer,
         # `D-IMPL-308`. `None` and the empty window are POSITIVE values here,

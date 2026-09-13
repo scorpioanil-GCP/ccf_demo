@@ -689,6 +689,8 @@ def _ask_the_empty_fabric(booted: Any, *, completeness: Any | None = None) -> An
     """
     fabric, control_plane, store = booted
     resolver = GovernedResolver(
+        # This test's class declares no children; stated, never defaulted.
+        composite_children=None,
         # `D-IMPL-308`: this fixture's class declares neither a distinct
         # decision instant nor a refresh window, and says so.
         decision_instant_parameter=None,

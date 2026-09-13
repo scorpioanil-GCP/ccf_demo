@@ -1419,6 +1419,7 @@ def build_replay_record(
     assembly_refusal: str | None = None,
     adapter: AdapterPin | None = None,
     request: ProductRequest | None = None,
+    child_resolutions: tuple[ChildResolution, ...] = (),
 ) -> DecisionReplayRecord:
     """Assemble the record from what the execution and the product already know.
 
@@ -1813,6 +1814,11 @@ def build_replay_record(
             disclosure_decision=(
                 disclosure if disclosure is not None else NO_DISCLOSURE_DECISION
             ),
+            # `D-IMPL-336` Amendment 3, F0 — the per-child rows, GENERATED FROM
+            # EXECUTION. Until this parameter existed the field could be
+            # declared and never written, which is why a composite could be
+            # recorded with no evidence that any child was ever admitted.
+            child_resolutions=child_resolutions,
             workflow_step_sequence=workflow_step_sequence
             if workflow_step_sequence is not None
             else NO_WORKFLOW_TRACE,
