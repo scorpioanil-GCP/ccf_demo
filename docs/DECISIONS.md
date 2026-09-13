@@ -3271,4 +3271,101 @@ D_c      = 1 − F_parent × C_parent × S_parent
 
 **Governs:** the implementation on branch `d-impl-336-composite`. **Related:** `D-IMPL-104` (worst-factor-wins, the deferred limb this discharges), `D-IMPL-31` (TTL floor, mixing refusal), `D-IMPL-334`/`D-IMPL-335` (eligibility, reused), `D-IMPL-12`/`D-IMPL-29` (skill catalog and grant governance), `D-IMPL-16` (Control Plane verification at the A2A boundary), `D-IMPL-243` (hash-transparency at a sentinel — how every field lands without moving an existing artifact's identity).
 
+**D-IMPL-336 — AMENDMENT 3 (2026-09-13, Dave, REMEDIATION GO after the cross-AI panel). The panel's F0–F18 and V1–V3 become the repair register, and six open questions are ruled.**
+
+**Status: remediation GO on `d-impl-336-composite`. NO merge. CP-14 acquisition remains HOLD. Written before the code, per `D-IMPL-222`.**
+
+**The framing, and it is the ruling that shapes every other one.** Dave: *"Fix the disconnected execution path and its trust boundary together — not as unrelated symptoms."* The panel found two root causes — a declaration surface disconnected from an execution surface, and a trust boundary drawn at the gate's **output** instead of its **inputs** — and they are repaired as one thing. **Preserve the original findings and reproductions**; a repair that erased the evidence would leave the register unauditable.
+
+### The governed path, end to end (F0, F14, F18)
+
+The wiring to exist, in Dave's own sequence:
+
+    authored `requires` → registration → actual grant resolution → skill
+    invocation → child delivery/refusal → verified admission → composition →
+    parent delivery → persisted replay
+
+- `ProductClassDeclaration` and `register_product_class()` **accept and preserve `requires`**. Execution **reads the registered declaration**, never a replacement list the caller supplies.
+- The actual parent path enforces **debt composition, lineage composition, expiry limits and mixing refusal** — all four ruled laws, not the one that was called.
+- `child_resolutions` is **generated from execution**. A composite with declared requirements **cannot be delivered or recorded with missing resolution rows**.
+- **Empty-default hash transparency is preserved for existing non-composite records.** Missing composite evidence is solved **through validation, not by changing legacy identities.**
+
+### Authority comes from verified inputs (F3–F6, F16)
+
+**A candidate must originate from actual skill invocation and governed delivery. Caller-written provenance is insufficient.**
+
+| Axis | Ruling |
+| --- | --- |
+| Grant and skill | Identity derives from the **actual in-force grant resolution and invocation**. Arbitrary `skill_name` / `skill_version` / `grant_hash` strings are not evidence. |
+| Remote child | Use the **existing** signature, peer-trust and policy verification path, and pass its **verified result** into composite admission. **A hand-built protected-header dictionary must not qualify.** |
+| Local child | Provenance derives from the **trusted boot/delivery context**. A caller selecting `ProducedHere` **must not establish local authority**. Unknown or unsupported identity claims are rejected. |
+| Tenant | **Child tenant must equal the admitting gate's tenant**, following the existing peering convention. |
+| Dependencies | `touched_entities` comes from **verified execution evidence**. At composite admission, **`None` means unavailable evidence and refuses**; **`()` is acceptable only as a verified empty dependency set.** |
+
+**Two explicit prohibitions:** **do NOT add a fabric registry**, and **do NOT equate fabric identity with tenant identity.** **Do not change the shared invalidation gate's legacy `None` behavior** — that posture is deliberate for pre-`D-IMPL-334` callers and the repair belongs in the composite gate.
+
+The eligibility assertion must be **issued after the producer's real checks**, not minted from a caller-supplied `eligible=True`.
+
+### Every child is reconciled with THIS composition (F2, F12, F13, F15, F17)
+
+Each admission **binds** to: its requirement, the accepted version, the effective child request, the tenant/consumer context, the reconstruction `asked_at`, and the composition invocation. **That binding is re-checked at composition.** Individually valid admissions **from different requests or instants must not combine.**
+
+Rejected: wrong-slot children, duplicate requirements, undeclared outcome keys, and unsupported outcome objects. **An unexpected object is not `NoProducingSkill`.**
+
+**The wrong-obligor test must carry its own CORRECT hash** and otherwise valid evidence. *"A deliberately mismatched hash does not prove request isolation."*
+
+### F1 RULED — optional means optional ABSENCE, not optional governance
+
+For v1:
+
+- **Optional + honest `NoProducingSkill` → apply the declared absence treatment.**
+- **Child invoked and refused, or produced and rejected at admission/eligibility → the composite REFUSES, even for an optional slot.**
+
+**There is no "or inherit refusal factors" alternative in this version.** Do not reuse `completeness_when_absent`, do not invent a rejection penalty, and **do not wrap a refused child as an empty served product.** Preserve the actual outcome and the original refusal evidence.
+
+*This resolves the deadlock the panel identified: `OptionalAbsenceTreatment` forbids covering refusal, and `D-IMPL-38` forbids the SDK inventing a cost — so the answer is that a refusal is not an absence at all and does not get a price.*
+
+### F7 RULED — evidence age is Control-Plane-declared, and is NOT the invocation binding
+
+**Dave retains the earlier Control-Plane-declared bound rather than the audit-only proposal.** The panel named a declared bound as an available resolution; **the prohibited choice is an SDK-held threshold.**
+
+- Validate `checked_at` against **actual admission time**, using a **declared maximum evidence age and permitted clock skew**.
+- **No hardcoded duration, no numeric default, no automatic calibration. Missing required configuration fails explicitly.**
+- **Never compare `checked_at` with historical `asked_at`** — a producer may check eligibility today for a historical reconstruction request. (This is what would have broken every peered fixture.)
+- **Record `checked_at` and the verified assertion reference in replay.**
+- Correct the documentation: **the five equality bindings and the separate evidence-age validation are different checks.**
+
+### F8 RULED — the guarantee is invocation-bound, not single-use
+
+**Remove the "single-use" claims.** Exact retries within one invocation **may be idempotent**; they **cannot extend validity or bypass final serve checks.** A new composition receives a **fresh invocation binding through the supported entry point**.
+
+**Do not add a spent-token registry. Do not claim continuous knowledge of remote invalidation.**
+
+### F9–F11
+
+- **F9.** Retain the **reported** address and the **locally recomputed** address **separately**, each accurately labeled. **Never record a disproven reported address as verified identity.**
+- **F10.** Support every version form accepted at registration, **or reject unsupported forms there**. A valid declaration must not crash during admission. **Specify the compatibility rule precisely rather than relying on the word "caret."**
+- **F11.** Use **closed, typed refusal reasons** and a **supported translation** from real child-door outcomes. Preserve the **original refusal reference**, not only a reason string. **Ambiguous producer remains a distinct refused outcome — not an exception that becomes "no producer."**
+
+### The proof is replaced, not supplemented (V1–V3)
+
+Keep useful unit tests, and complete the agreed integration proof with **cp-04-canonical, cp-05, cp-13 and one optional-missing case**, through **actual grants, dispatch, L2, delivery and persisted replay**.
+
+Demonstrate a real **leaf → composite → higher composite** chain. **Supersede the leaf source through the boot-bound writer**, without manually copying its dependencies onto the parents. Confirm dependent re-serving refuses, an **equally old unrelated product remains eligible**, and permitted **re-derivation restores eligibility**.
+
+Test the **delivered parent's** identity, replay reconstruction, expiry and lineage — **not manually constructed replay fragments or isolated helper calls.**
+
+Repair V1's wrong outcome, V2's insufficient coverage assertion and V3's disconnected expiry test. **Keep producer substitution as a positive control, using actual grants and delivery.** **Distinguish invalid-input tests from mechanism sabotages.** For each finding show the **original reproduction, the corrected result, and the targeted mutation** where applicable.
+
+### Verification and the final review
+
+- Recheck that requirements are **authorable and registered**, that production execution **writes `child_resolutions`**, and that composition **calls the existing laws**. **"Call-site searches establish wiring; end-to-end tests establish behavior. Both are required."**
+- Run **sequential** regressions against a **clean, immutable candidate**. Quote exact commands, environment, **collected/executed** outcomes, and failure-set comparisons against the **pinned base**. **Do not absorb unrelated baseline failures** and **do not reopen the four rejected claims without new evidence.**
+- Give independent reviewers the **same repaired commit** — source, tests, declarations and finding dispositions — **inlined and fed through stdin** under this host's rules, and **verify each review actually examined its input; exit code zero alone is insufficient.**
+- **Signature verification and integration may NOT be excluded as "known limitations."**
+
+**Return:** candidate hash, F0–F18 / V1–V3 dispositions, exact test and sabotage results, baseline comparison, independent review verdicts, and remaining limitations. **Then stop for Dave's merge ruling.**
+
+**Governs:** the remediation on `d-impl-336-composite`. **Related:** the panel record at `docs/D-IMPL-336-PANEL-REVIEW.md` (`f3719856`, `a77af002`); `D-IMPL-104`, `D-IMPL-31` (the four composition laws); `D-IMPL-334`/`D-IMPL-335` (whose legacy `None` posture is explicitly preserved); `D-IMPL-16` (Control Plane verification at the A2A boundary); `D-IMPL-38` (no SDK-held values — the reason F1 and F7 are rulings rather than patches); `D-IMPL-243` (hash transparency, preserved for legacy records); `D-IMPL-324` (declaration is not a door — the defect class F0 instantiates).
+
 **Next free decision id: `D-IMPL-337`.**
