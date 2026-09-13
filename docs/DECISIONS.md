@@ -3090,3 +3090,41 @@ A product whose `graph_snapshot_at` falls in `[T_world, T_ingest)` was refused *
 lint clean; typecheck clean; `tests/products` and the core suites green.
 
 **Next free decision id: `D-IMPL-336`.** **Governs:** which instant an invalidation boundary is recorded at. **Related:** `D-IMPL-334` (the mechanism this corrects), `D-IMPL-332` (the two clocks, and why `observed_at` is ingestion through L2), `D-IMPL-331` (the same present-or-refuse shape at the decay basis), `CP-SPEC-011` §0.4 and `EWS-G25` (the product that found it), `D-IMPL-261` (examples are probes — this is the clearest instance yet).
+
+---
+
+**D-GATE-cp-11 — Rung 11, `credit-surveillance-early-warning`, is APPROVED.** GO given by Dave, 2026-09-12, at `bd17d660`, after a Gate-1 HOLD and two SDK rulings.
+
+**WHAT THE RUNG IS FOR.** *What changed on this name since we last looked, and does it matter?* Five signal classes on five decay regimes — **and one of them does not decay at all.** An 8-K acceleration filing is as true a year later as the day it landed; `signal_weight.decay_days` is `NULL` for that whole class, and rightly. What ends its relevance is not time passing but **a later filing**. Rung 10 established that freshness reads the leading edge of a series; this rung asks the harder version — what governs a class the curve does not reach.
+
+**THE GATES.** **29 declared, 29 executing, all green.** **25 `passed`** — the specific invariant broken, the gate red. **3 `unavailable`**, each naming the upstream guard that makes its bad state unreachable: `D-IMPL-86`'s bind-time operator-divergence refusal (`EWS-G01`, `EWS-G02`) and the closed `ttl_anchor` vocabulary the SDK validates at artifact load (`EWS-G03`). **1 `not-required`** — `EWS-G24` **skips** with its reason rather than passing over an empty set, because no anchor this module serves carries a spread signal naming instruments. The three-state vocabulary ruled at `D-GATE-cp-09` holds: `unavailable` is not folded into `passed`, and a vacuous green is not a pass.
+
+**`EWS-G25` PROVES REAL SERVE-TIME DEPENDENCY INVALIDATION, END TO END.** No stub and no seeded boundary: real assembly → the boot-bound writer → the real Control Plane invalidation register → the real serve-time gate in `run_gates`, with one `ControlPlaneRegistry` spanning the serves so the register the writer appends to is the register the gate reads.
+
+```
+boundary  2026-07-28   (and NOT 2026-08-19, when the fabric wrote it)
+
+A1  read that obligor at an older snapshot     REFUSED
+B1  did NOT, built at the SAME instant         SERVES
+A2  derived after the boundary                 SERVES
+```
+
+**The middle leg is why the other two mean anything.** B is exactly as old as A; a mechanism keyed on elapsed time rather than on what a product actually read would refuse it too, satisfy the first leg, and be a global clock wearing an invalidation's name. **And the refused product need never have mentioned early warning** — the covenant product does not know this one exists; it is refused because it read an entity whose context moved. That is the cascade in the only sense the SDK can honestly claim.
+
+**TWO SDK RULINGS CAME OUT OF THIS RUNG, AND THE SECOND WAS A DEFECT IN THE FIRST.** `D-IMPL-334` built the mechanism after Gate 1 was **HELD** rather than shipping re-derivation as a substitute (Dave: *"without step 7 we would be proving a different product"*). **`D-IMPL-335` corrected its temporal boundary**: the writer took `claim.observed_at`, which through L2 is always the ingestion instant, so a world-time `graph_snapshot_at` was compared against a fabric-learning-time boundary. Dave's correction of the first report is the substance and is preserved at `D-IMPL-335`: *"The old behavior was not simply 'safer.' It incorrectly refuses products in the interval after the world change but before ingestion."*
+
+**`D-IMPL-334` MERGED WITH 14 TESTS AND 8 SABOTAGES, ALL GREEN, AND STILL CARRIED THAT DEFECT** — because every one of those tests built its claims **directly**, where `observed_at` is whatever the author supplied and the two clocks never separate. Only a Context Product driving the mechanism through real assembly could see it. **This is `D-IMPL-261` — examples are probes — in its clearest instance to date.**
+
+**FINDINGS.** Ten recorded, **none OPEN**. `CP11-F-01` FIXED by `D-IMPL-334`; `CP11-F-10` FIXED by `D-IMPL-335`; `CP11-F-02` and `CP11-F-09` FIXED at their gates; `CP11-F-03` through `CP11-F-07` ESTATE-LIMITATION; `CP11-F-08` NOT-A-GAP.
+
+**`CP11-F-09` IS FIXED AND BOTH CURVES REMAIN AUDITABLE.** The λ_c table's sector dimension was inert: `signal_weight` keys on the nine standard SIC division names, `legal_entity` carries a specific description, and **zero of the 50 anchors matched** — so every obligor fell to `Unclassified` and **36 of the table's 45 rows were unreachable**, configuration nobody reads (`D-GATE-cp-08`'s principle, found a third time). Fixed by resolving the SIC code to its published division, declared in an artifact with its own semver and provenance rather than in code. **§E.2 carries both measured curves** — the Gate-1 one taken against `Unclassified` and the corrected one — so the defect stays checkable rather than being replaced by its own fix. The thresholds did not move; Dave re-affirmed **0.15 / 0.25 / 0.35** on the corrected populations **28 / 11 / 3**.
+
+**THREE GATES WERE WRONG ON THE FIRST ATTEMPT, AND ALL THREE ARE RECORDED.** `EWS-G27` was **green under its own sabotage**, because on this estate the inferred participant set and the declared one are *the same value* — a gate asserted only where two answers coincide proves nothing about which produced them (cp-10's `RSM-G23`, found again). `EWS-G29` was **green under its own sabotage**, because structure and correlation both survived a crossing of the two decay models; only recomputing the arithmetic caught it. And `EWS-G20` went **red against correct code**, by searching source text and tripping on the docstring that explains its own rule — the third instance in one sitting of a text-matching gate catching the document that describes it.
+
+**THE SDK PREVENTS RE-SERVING AN OBSOLETE PRODUCT. IT DOES NOT NOTIFY, RECALL OR EVICT A COPY ALREADY HELD.** There is no product cache to evict from, no subscriber registry and no push. A consumer learns by asking again; what changed is that asking now returns a current answer or a refusal, never the stale one. `EWS-G22`'s purpose was amended at Gate 1 to hold exactly that line — it no longer denies that downstream invalidation exists, because `D-IMPL-334` built it — and it is asserted over the payload **and** over every shipped source file.
+
+**CHECKS AT APPROVAL**, every leg run **directly** per CLAUDE.md §3.1: lint clean · typecheck clean, 219 source files · `make product-gates` **13 trees, 187 declared, 187 executing** · gate tooling 519 passed · `tools/docs_tests` 292 passed · core **2,212 passed** on the nine-suite comparable invocation · `tests/examples` **883 passed**, 0 failed. Docs, summaries, page and roster complete.
+
+**ROSTER ADMISSION, MEASURED BEFORE IT WAS WRITTEN.** cp-11 joins `D-IMPL-141`'s SDK-supplied roster and the tree-describing literal as **two separate statements** — the roster records what was RULED, the literal what the detector ANSWERS. The measurement: `roster is missing: ['examples/cp-11-credit-surveillance-early-warning']`, `has extra: []`. Both standing call-shape reds close and nothing else changes.
+
+**Next free decision id: `D-IMPL-336`** — unchanged; a gate entry spends none. **Governs:** the approval of rung 11 and what it ships with. **Related:** `D-IMPL-334` (the mechanism this rung earned), `D-IMPL-335` (the boundary instant it then corrected), `D-IMPL-333` / `D-IMPL-332` / `D-IMPL-331` (the temporal rulings beneath it), `D-IMPL-323` (illustrative calibration), `D-IMPL-141` (the roster cp-11 was admitted to on its own evidence), `D-IMPL-261` (examples are probes), `D-GATE-cp-08` (configuration nobody reads is documentation, not control), `CP-SPEC-011`, `D-GATE-cp-10`.
