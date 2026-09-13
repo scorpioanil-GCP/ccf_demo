@@ -40,10 +40,20 @@ the query that produced it is reproducible.
 > cite one it cannot?**
 
 This is the first rung where the evidence is **text**, and the first where a
-claim can be wrong in a way that looks completely right: a citation with a real
-document id, a real offset pair and a real sha256 that points at the wrong
-paragraph. Measured on this estate, the obvious assembly produces **79 candidate
-citations of which 36 are wrong**, and **12 of the 36 cite the empty string**.
+claim can be wrong in a way that looks completely right. Measured on this
+estate, **49 of the definition nodes carry a span that is correct, quotable, and
+impossible to audit**: the offsets land on exactly the right words, and there is
+no recorded hash and no named passage to check them against. Emitting that text
+would feel safe. It would be an *asserted* citation rather than a *checked* one,
+and the difference is the whole tier.
+
+> **AMENDED 2026-09-13 (`CP13-F-01`).** This section previously led with a
+> different number — 79 candidate citations of which 36 were wrong. That defect
+> was real when measured, was **repaired at source by the estate owner** the
+> same day, and **cannot be replayed**: the source ledger's `t` parameter is
+> accepted and ignored on this instance, returning current state at every value.
+> The old state is preserved as history at `CP13-F-01`, not as an executable
+> trap. §C.3 TRAP 1 is now the span-unverifiable case.
 
 ### 0.2 Placeholder discipline
 
@@ -106,13 +116,29 @@ them apart.
 
 ### A.2 And a second failure this estate makes visible, which the article does not name
 
-**A citation can be checkable and still be wrong.** The article's validation gate
-is *passage resolvability* — every anchor must resolve to a span whose `sha256`
-matches. That gate assumes an anchor **is a span**. Measured here, on 6 of 37
-evidence nodes it is not: the node carries **two** starts, **two** ends, **two**
-sha256 values and **two** passages, and RDF gives no pairing between them.
+**A citation can be correct and still be unauditable.** The article's validation
+gate is *passage resolvability* — every anchor must resolve to a span whose
+`sha256` matches. That gate assumes there **is** a recorded hash. Measured here,
+on all **49** `CovenantDefinition` nodes there is not:
 
-The consequence is exact and is §0.1's number. See TRAP 1.
+```
+48 of 49 carry startOffset, endOffset and documentId
+ 0 of 49 carry passageSha256
+ 0 of 49 carry evidencedBy
+ 0 passages in MongoDB match — or even contain — the span
+```
+
+The spans land on exactly the right text:
+
+```
+"Consolidated Fixed Charge Coverage Ratio" means, for any Measurement …
+"Consolidated Leverage Ratio": as at the last day of any period, the r…
+```
+
+**That is what makes it the hard case.** A wrong citation is caught by a hash.
+An unauditable one is caught only by a product that refuses to emit what it
+cannot check — and refuses while the text on screen is visibly correct. See
+TRAP 1.
 
 ---
 
@@ -257,14 +283,16 @@ MongoDB  fibo_v2
 Fluree  fibo-v2
   ex:Covenant           182      181 `COV-*` + 1 `COVDEF-*`
   ex:DefinedTerm        158      ex:CovenantDefinition 49      ex:MeasurementPeriod 11
-  COVSRC-* (UNTYPED)     37      the passage-evidence nodes — see TRAP 3
+  ex:PassageAnchor       44      the passage-evidence nodes, TYPED — the seed (TRAP 3)
   ex:startOffset        261 assertions / 255 subjects
   ex:endOffset           91 assertions /  85 subjects
-  ex:declaredAt           0      the proposed repair is NOT implemented
+  ex:declaredAt         170 / 170    158 of them on DefinedTerm — see TRAP 2
   ex:definedBy           28 / 28     ex:measuredBy 13 / 11
   ex:crossReferences    216 / 49     ex:unresolvedTerm 2 / 2     ex:covenantOf 182 / 182
-  ex:evidencedBy         43 / 37
+  ex:evidencedBy         44 / 44     44 of 44 re-hash correctly
   ex:governedBy           0      <- the article's schema names it; it does not exist here
+
+  the four-literal anchor join returns 44 rows over 44 subjects — no fan-out
 
 PostgreSQL  ccf_v2
   corpus_entitlement      6 rows, 3 principals (§B.3)
@@ -286,31 +314,49 @@ PostgreSQL  ccf_v2
 
 **Six, and all six were run during Gate-1 measurement.**
 
-**TRAP 1 — THE ANCHOR IS NOT A SPAN, AND JOINING THE PREDICATES INVENTS
-CITATIONS.** 6 of the 37 evidence nodes carry **two complete anchors**: two
-`startOffset`, two `endOffset`, two `passageSha256`, two `evidencedBy`. RDF is a
-set of triples and gives **no pairing** between them. A SPARQL join over
-`(documentId, startOffset, endOffset, passageSha256)` therefore returns the
-**cross-product**:
+**TRAP 1 — A SPAN CAN BE CORRECT AND STILL BE UNAUDITABLE.** All **49**
+`CovenantDefinition` nodes carry a real span and nothing to check it against:
 
 ```
-37 nodes = 31 single-anchored + 6 double-anchored
-naive join  ->  31 x 1  +  6 x (2 starts x 2 ends x 2 sha)  =  31 + 48  =  79 rows
-                43 sha256 MATCH        36 sha256 MISMATCH
-on the 6 double-anchored nodes alone:  48 combinations, 12 match, 36 wrong
-12 of the 36 hash to e3b0c44298fc... — the sha256 of the EMPTY STRING,
-because a crossed pairing gives start > end (e.g. 474431 > 400894)
+48 of 49  startOffset, endOffset, documentId
+ 0 of 49  passageSha256
+ 0 of 49  evidencedBy
+ 0        passages matching or containing the span
 ```
 
-> **Corrected at Gate 2** (`CP13-F-13`). This block first said *one* mismatch
-> hashed to the empty string, from the three-row sample the Gate-1 measurement
-> printed. Running the full sabotage gives **12**. The 79, the 43 and the 36
-> are unchanged.
+The extracted text is exactly right — `"Consolidated Fixed Charge Coverage
+Ratio" means, for any Measurement …` — which is precisely the danger. A product
+that emitted it would be **asserting** the citation, and an asserted citation is
+indistinguishable from a checked one in the payload.
 
-**The correct mechanism is to follow `ex:evidencedBy` to a named passage** and
-read that passage's own offsets and sha256 from MongoDB. Measured: **43 of 43
-match, zero mismatches.** **Binding:** the citation unit is the **passage**, never
-the anchor triple-set; `CXR-G07`, `CXR-G19`.
+**Binding:** the citation unit is the named passage reached through
+`ex:evidencedBy`, and a node with a span but no recorded hash is classified
+`span-unverifiable` and reported as Context Debt (`CXR-G07`, `CXR-G08`,
+`CXR-G19`). The wrong mechanism is not a join — it is **emitting the extracted
+text because it looks right**.
+
+> **TRAP 1 WAS A DIFFERENT DEFECT UNTIL 2026-09-13, AND THE REPLACEMENT IS
+> RECORDED RATHER THAN THE HISTORY BEING DELETED.** It was an anchor-identity
+> collision: the node URI was `COVSRC-{accession}-{covenant_type[:8]}` and
+> **omitted the document**, so six URIs each absorbed two covenants from two
+> different credit agreements filed in the same submission — XPO's `ex10-1` and
+> `ex10-2` both carry a leverage covenant, at different thresholds and different
+> spans. A four-literal join fanned out to 79 rows of which 36 failed their own
+> hash and 12 sliced to the empty string.
+>
+> **The causal story this specification first gave was wrong.** It said RDF
+> could not pair the literals. The numbers were right and the explanation was
+> not: the pairing was never the problem, the *identity* was, and reifying the
+> anchor would have produced a node correctly carrying two anchors and still no
+> way to know it was two covenants. The estate owner re-keyed on
+> `(accession, document, covenant_type)` — **44 URIs for 44 covenants, and the
+> collision had been silently overwriting one.**
+>
+> **It cannot be replayed.** The source ledger's `t` parameter is accepted and
+> ignored on this instance, returning current state at every value tried,
+> including values well before the remediation. `FlureeGraphReader.query_pinned`
+> pins CCF's own L3 and not a source ledger. So the old state is history, and
+> this specification does not claim otherwise. `CP13-F-01`, `FIXED-upstream`.
 
 **TRAP 2 — EVERY `DefinedTerm` IS A POINT ANCHOR, SO THE CHAIN'S LAST HOP CAN
 NEVER BE EVIDENCED.** Measured: `ex:endOffset` is present on **0 of 158**
@@ -322,24 +368,41 @@ rules out truncation.
 `ex:startOffset` is doing two jobs under one name: a true span start on
 `CovenantDefinition`, and a **point anchor** everywhere else. A point anchor
 cannot check a citation — you cannot extract the quoted text from it.
-**Binding:** a depth-3 chain terminates in a node that is *located* but not
-*quotable*, and the product reports that as **Context Debt** rather than
-emitting a citation it cannot check (`CXR-G08`, `CXR-G20`). `ex:declaredAt`,
-the proposed repair, is measured at **0 assertions** and is not available.
+
+**`ex:declaredAt` NOW EXISTS, AND IT DISTINGUISHES THE POINT ANCHOR WITHOUT
+REPAIRING IT.** Measured 2026-09-13: **170 assertions over 170 subjects, 158 of
+them on `DefinedTerm`** — appended alongside `startOffset` rather than narrowing
+it, so a consumer reads *"this is intentionally a point"* off the graph instead
+of inferring it from a missing end. **It does not make the anchor quotable and
+it does not make it evidenced.** `endOffset` is still absent on all 158.
+
+**Binding:** a depth-3 chain terminates in a node that is *located*, now
+*explicitly declared a point*, and still not *quotable* — reported as **Context
+Debt** rather than as a citation (`CXR-G08`, `CXR-G16`, `CXR-G20`).
 
 **TRAP 3 — THE DEFINITION CHAIN DOES NOT HANG OFF `ex:Covenant`.** The obvious,
 typed, correct-looking seed finds almost nothing:
 
 ```
-seed on ex:Covenant (182 nodes):   depth 1 -> 2      depth 3 -> 1
-seed on COVSRC-* (37 UNTYPED):     depth 1 -> 26     depth 3 -> 26
+seed on ex:Covenant (182 nodes):       depth 1 -> 2      depth 3 -> 1
+seed on ex:PassageAnchor (44 nodes):   depth 1 -> 26     depth 3 -> 26
 ```
 
-`definedBy` is carried by **26 untyped nodes**, 1 `COVDEF-*` and 1 `COV-*`.
-Fluree runs without reasoning, so an entity is reachable only by the type it was
-given — and these were given none. **Binding:** the product seeds on the evidence
-nodes and **declares** that it does, rather than seeding on the type whose name
-matches the question (`CXR-G12`, `CXR-G21`).
+`definedBy` is carried by **26 `ex:PassageAnchor` nodes**, 1 `COVDEF-*` and 1
+`COV-*`. The type whose *name* matches the question reaches almost nothing; the
+type that carries the *evidence* reaches everything.
+
+> **Amended 2026-09-13.** These nodes were **untyped** when this rung was
+> specified, and the original binding read *"seed on the untyped evidence
+> nodes"*. The estate owner typed them `ex:PassageAnchor` — deliberately not
+> `ex:Covenant`, because an evidence node answering a covenant query would make
+> every *"covenants in force"* traversal collect 44 anchors. **The divergence is
+> unchanged at 26 against 1**; only the seed's spelling moved, and it is now
+> selectable by class rather than by a `FILTER NOT EXISTS`.
+
+**Binding:** the product seeds on `ex:PassageAnchor` and **declares** that it
+does, rather than on the type whose name matches the question (`CXR-G12`,
+`CXR-G21`).
 
 **TRAP 4 — `governs_from` IS THE AXIS AND THE FILING DATE IS NOT.** 7 borrowers
 carry both a base and an amendment, but **only 4 of the 7 have a `governs_from`
@@ -450,13 +513,25 @@ and not a silent omission.
 
 ## E · Findings
 
+**Status vocabulary.** `D-IMPL-261`'s four — OPEN / FIXED-`<phase>` /
+ESTATE-LIMITATION / NOT-A-GAP — plus one added at this rung on Dave's ruling of
+2026-09-13:
+
+> **`FIXED-upstream`** — the **estate or source owner repaired the underlying
+> data** after the finding was raised. Materially different from
+> `FIXED-gate-1/2`, which is a repair this repository made, and from
+> `NOT-A-GAP`, which says there was nothing to repair. A `FIXED-upstream`
+> finding **keeps its original measurement and its causal correction**: the
+> defect was real, the product was specified against it, and the history is
+> what explains why the specification reads as it does.
+
 | id | finding | status |
 |---|---|---|
-| `CP13-F-01` | **6 of 37 evidence nodes carry two complete, unpaired anchors.** Two starts, two ends, two sha256, two passages, and RDF gives no pairing. A naive join yields 79 candidate citations of which 36 are wrong, one hashing to the empty string. Handled by following `ex:evidencedBy` to a named passage (43 of 43 match). TRAP 1. | ESTATE-LIMITATION |
+| `CP13-F-01` | **An anchor-identity collision merged two covenants onto one URI, and it was repaired at source.** **As measured 2026-09-13 (original):** 6 of 37 evidence nodes carried two complete anchors; a four-literal join fanned out to **79** candidates of which **43** were valid and **36** false, **12** of those slicing to the empty string. **Causal correction:** this specification first attributed it to RDF being unable to pair the literals. That was wrong. The node URI was `COVSRC-{accession}-{covenant_type[:8]}` and **omitted the document**, so six URIs each absorbed two covenants from two different credit agreements in one filing. Reification — the repair this specification would have proposed — would have produced a node correctly carrying two anchors and still no way to know it was two covenants. **Repaired by the estate owner 2026-09-13** by re-keying on `(accession, document, covenant_type)`: **44 URIs for 44 covenants, join returns 44 rows, 44 of 44 hash, 0 inverted spans** — and the collision had been **silently overwriting one covenant**, so the repair recovered a record. **Not replayable:** the source ledger's `t` is accepted and ignored on this instance, and `query_pinned` pins CCF's own L3, not a source ledger. Preserved as history, not as an executable trap. | FIXED-upstream |
 | `CP13-F-02` | **`ex:endOffset` is absent on all 158 `DefinedTerm` nodes.** 170 subjects carry a start with no end; 0 carry an end with no start. `ex:startOffset` is a span start on `CovenantDefinition` and a point anchor everywhere else. A point anchor cannot check a citation. TRAP 2. | ESTATE-LIMITATION |
-| `CP13-F-03` | **`ex:declaredAt` is measured at 0 assertions.** The repair for `CP13-F-02` — appending a distinct predicate for point anchors — was accepted upstream on 2026-09-12 and is **not implemented**. The product is specified against the estate as it is. | ESTATE-LIMITATION |
+| `CP13-F-03` | **`ex:declaredAt` was absent and is now present.** **As measured 2026-09-13 (original):** 0 assertions — the repair for `CP13-F-02` had been accepted upstream on 2026-09-12 and was not implemented, so the product was specified against the estate as it was. **Repaired by the estate owner the same day:** **170 assertions over 170 subjects, 158 on `DefinedTerm`**, appended alongside `startOffset` rather than narrowing it. **It distinguishes a point anchor; it does not repair one.** `endOffset` is still absent on all 158, so `CP13-F-02` stands unchanged and the terminal hop is still Context Debt (`CXR-G16`). | FIXED-upstream |
 | `CP13-F-04` | **The definition chain does not hang off `ex:Covenant`.** Seeding on the 182 typed covenant nodes reaches depth 3 exactly **once**; seeding on the 37 untyped `COVSRC-*` evidence nodes reaches it **26** times. Fluree runs without reasoning. TRAP 3. | ESTATE-LIMITATION |
-| `CP13-F-05` | **The upstream report of "43 `COVSRC-*` nodes" is an assertion count read as a subject count.** Measured: **37 subjects**, 31 carrying one anchor and 6 carrying two, for **43 anchor assertions**. Corrected to the peer through the vault. | NOT-A-GAP |
+| `CP13-F-05` | **The upstream report of "43 `COVSRC-*` nodes" was an assertion count read as a subject count.** Measured then: **37 subjects**, 31 carrying one anchor and 6 carrying two, for **43 anchor assertions**. Corrected to the peer through the vault, accepted, and it led them to the real cause — the URI collision of `CP13-F-01`. The population is now **44 subjects / 44 assertions**, and the correct figure was never 43 *or* 37: it was 44 covenants all along, with 7 of them colliding onto 6 URIs. | FIXED-upstream |
 | `CP13-F-06` | **`ex:governedBy` does not exist in this estate** — 0 assertions — though the article's §B schema names it as a relationship. No proxy is substituted; the product does not claim a governing edge it cannot read. | ESTATE-LIMITATION |
 | `CP13-F-07` | **548 of 37,865 passages carry no `sha256`**, and those same 548 carry no `alignment`, `heading` or `structure_aligned`. They cannot satisfy passage resolvability and are not citable. | ESTATE-LIMITATION |
 | `CP13-F-08` | **18 of 40 memoranda carry no embedding** and cannot be reached by similarity at all. An absent embedding presents as "nothing relevant found", which is the failure mode this product exists to refuse. | ESTATE-LIMITATION |
@@ -464,7 +539,7 @@ and not a silent omission.
 | `CP13-F-10` | **49 of 249 documents carry no `classification` and no `residency`.** The entitlement rules key on classification, so an unclassified document has no admitting row. The product treats absence as **not admitted** rather than as unrestricted. | ESTATE-LIMITATION |
 | `CP13-F-11` | **One `COVDEF-*` node is typed `ex:Covenant`**, mixing the two namespaces — 181 `COV-*` plus 1 `COVDEF-*` make the 182. Recorded so a count keyed on the type is read as what it is. | NOT-A-GAP |
 | `CP13-F-12` | **The two decaying λ_c classes are calibration values** and will be recorded with the measurement that chose them at Gate 2, under CLAUDE.md §9 and `D-IMPL-323`. The dominant class does not decay at all, so the rung-12 problem does not arise in the same form. | OPEN — closes at Gate 2 |
-| `CP13-F-13` | **A Gate-1 figure was understated and the sabotage that defends it caught the correction.** §0.1 and §C.3 said *one* of the 36 false citations hashes to the empty string; running the full sabotage gives **12**. The Gate-1 claim came from a three-row printed sample rather than from the whole population. The 79 candidates, 43 valid and 36 false are all confirmed. Found because `CXR-G19` **computes** both mechanisms over the full set rather than quoting a figure. | FIXED-gate-2 |
+| `CP13-F-13` | **A Gate-1 figure was understated, and the sabotage that defended it caught the correction before the estate was repaired.** §0.1 said *one* of the 36 false citations hashed to the empty string; the full run gave **12**. The Gate-1 claim came from a three-row printed sample rather than from the whole population. Recorded because the lesson outlives the defect: a figure taken from a printed sample is not a measurement of a population, and the gate caught it only because it **computed** both mechanisms instead of quoting either. The state it measured is now `FIXED-upstream` at `CP13-F-01`. | FIXED-gate-2 |
 | `CP13-F-14` | **All 49 `CovenantDefinition` nodes carry a real span and nothing to check it against.** 48 of 49 have `startOffset`, `endOffset` and `documentId`; **0 of 49 have `passageSha256` or `evidencedBy`**, and no indexed passage matches or even contains the span. The spans land on exactly the right text — *"Consolidated Fixed Charge Coverage Ratio" means, for any Measurement…* — which is what makes this the hardest case in the product: emitting it would feel safe and would still be an **asserted** citation rather than a checked one. Classified `span-unverifiable` and reported as Context Debt, distinct from `point-anchor`. | ESTATE-LIMITATION |
 
 ---
@@ -490,7 +565,7 @@ and not a silent omission.
 | `CXR-G13` | an `as_of` before an amendment's `governs_from` serves the base text, asserted on one of the 4 borrowers whose dates separate | TRAP 4 |
 | `CXR-G14` | an unknown covenant source refuses distinctly from a source with no definition chain | request error vs world fact |
 | `CXR-G15` | no passage text is served for a document outside the permitted set, at any depth | allowlist containment |
-| `CXR-G16` | **`ex:declaredAt` is absent and is not invented.** The predicate is measured at **0 assertions**; no code path reads it, writes it, or synthesizes an end offset to stand in for it. A point anchor stays a point anchor | a repair adopted from a proposal rather than from the estate |
+| `CXR-G16` | **`ex:declaredAt` marks a point anchor and does not repair one.** Measured **170 assertions / 170 subjects, 158 on `DefinedTerm`**. The gate asserts BOTH halves: (a) the product reads `declaredAt` and reports such a node as *intentionally a point* rather than as a missing end; **and** (b) that node still carries no `endOffset`, still emits **no citation**, and is still Context Debt. **A predicate that names a limitation has not lifted it** | a declaration mistaken for a repair |
 | `CXR-G17` | **`ex:governedBy` is absent and is not invented.** The predicate is measured at **0 assertions** though the article's §B schema names it; the payload asserts no governing edge and substitutes no proxy for one | a schema term honored by fabrication |
 | `CXR-G18` | **an absent embedding is `not-evaluable`, never "no relevant result".** 18 of the 40 memoranda carry no embedding and cannot be ranked at all; the payload reports them as unreachable-by-similarity with that reason, and the count of ranked candidates is stated beside the count of eligible documents | silent unreachability read as an empty result |
 
@@ -504,9 +579,9 @@ the rule `CP-SPEC-012` §F.1a established and this rung inherits:
 
 | id | trap | the gate, and where the two mechanisms DIVERGE |
 |---|---|---|
-| `CXR-G19` | **TRAP 1 — the unpaired anchor** | **the naive independent join of `startOffset`, `endOffset`, `passageSha256` and `evidencedBy` is PROHIBITED and is this gate's sabotage.** The product emits **43** checked citations, all matching; the predicate-join implementation emits **79** candidates of which **43** are valid and **36** are false — and the gate asserts all four numbers plus the **empty-string case**: **12 of the 36** cite the empty string, because a crossed pairing gives `start > end` (e.g. `474431 > 400894`) and hashes to `e3b0c44298fc…`, which is `sha256("")`. Asserted on the 6 double-anchored nodes, where the two mechanisms differ by construction — never on a single-anchored node, where both agree |
+| `CXR-G19` | **TRAP 1 — the correct span that cannot be audited** | asserted on the **49** `CovenantDefinition` nodes: **48 carry `startOffset`, `endOffset` and `documentId`; 0 carry `passageSha256` or `evidencedBy`; 0 passages match or contain the span.** The correct product emits **no citation** and reports `span-unverifiable` as Context Debt. The defective implementation — **extract the span and emit it, because the text is right** — emits **26** citations on the seeded population that no hash and no passage can check. The gate computes both and asserts they differ, and asserts the extracted text IS correct, because a gate that only showed the text was wrong would be proving the easy case. **Not asserted on a `PassageAnchor` node**, where `evidencedBy` resolves and both mechanisms agree |
 | `CXR-G20` | **TRAP 2 — the point anchor** | asserted on a `DefinedTerm`, where `endOffset` is absent on **all 158**. The correct product emits Context Debt; an implementation that treated `startOffset` as a span start emits a citation whose span is undefined. Not asserted on a `CovenantDefinition`, where 48 of 49 carry both offsets and the two coincide |
-| `CXR-G21` | **TRAP 3 — the plausible seed** | the product reaches depth 3 on **26** sources; seeding on `ex:Covenant` reaches it on **1**. The gate runs both traversals and asserts the counts differ, so a deployment that quietly changed the seed is caught by the number rather than by the prose |
+| `CXR-G21` | **TRAP 3 — the plausible seed** | the product seeds on `ex:PassageAnchor` and reaches depth 3 on **26** sources; seeding on `ex:Covenant` reaches it on **1**. The gate runs both traversals and asserts the counts differ, so a deployment that quietly changed the seed is caught by the number rather than by the prose |
 | `CXR-G22` | **TRAP 5 — post-filter similarity** | asserted across two principals whose permitted sets genuinely differ — `relationship-manager` (no memoranda at all) against `control-room` (all 40). The gate asserts the retrieval never touched an impermissible document, and that the two content addresses differ |
 
 **Every one of these is a Gate-2 sabotage target**, and the sabotage for each is
@@ -515,7 +590,8 @@ wrong answer on the divergence case the gate selects.
 
 ### F.2 Acceptance
 
-**22 gates, `CXR-G01`–`CXR-G22`.** `CXR-G16`, `CXR-G17` and `CXR-G18` were added at Dave's Gate-1 GO, which required ten points to be explicit in the table rather than only in the prose; `CXR-G07`, `CXR-G09` and `CXR-G19` were tightened in the same pass. Every figure in this document is measured
+**22 gates, `CXR-G01`–`CXR-G22`** — the count is unchanged across the 2026-09-13
+estate correction, which replaced `CXR-G19`'s subject rather than removing it. `CXR-G16`, `CXR-G17` and `CXR-G18` were added at Dave's Gate-1 GO, which required ten points to be explicit in the table rather than only in the prose; `CXR-G07`, `CXR-G09` and `CXR-G19` were tightened in the same pass. Every figure in this document is measured
 against the live estate on 2026-09-13; no SDK gap was found, and none is
 authorized. No proxy was substituted for an absent leg: `ex:governedBy` is
 reported absent, `ex:declaredAt` is reported unimplemented, and the definition

@@ -12,28 +12,38 @@ edge names a passage IRI; the passage's *own* ``start_offset``, ``end_offset``
 and ``sha256`` — read from MongoDB — are the citation, and the span is re-hashed
 before anything is emitted.
 
-**The anchor predicates on an evidence node are never joined to build one.**
-Measured 2026-09-13, 6 of the 37 evidence nodes carry TWO complete anchors —
-two starts, two ends, two sha256, two ``evidencedBy`` — and RDF gives no pairing
-between them. Joining them returns the cross-product:
+**The anchor predicates on an evidence node are never joined to build one**,
+and the reason is not that the join currently misbehaves — measured 2026-09-13
+it returns 44 rows over 44 subjects and all 44 re-hash. The reason is that the
+citation unit IS the passage. A rule that held only while the data was broken
+would be a workaround; this one is the contract (`CXR-G07`).
+
+## The trap this product actually teaches
+
+**A span can be correct and still be unauditable.** All 49
+``ex:CovenantDefinition`` nodes carry ``startOffset``, ``endOffset`` and
+``documentId`` — and **none carries ``passageSha256`` or ``evidencedBy``**, and
+no indexed passage matches or even contains the span. The text they point at is
+exactly right:
 
 ```
-37 nodes = 31 single-anchored + 6 double-anchored
-naive join -> 31 + 6 x (2 starts x 2 ends x 2 sha) = 79 candidates
-              43 re-hash correctly        36 DO NOT
-12 of the 36 hash to e3b0c44298fc… = sha256("") — a crossed pairing
-gives start > end (e.g. 474431 > 400894) — 12 of the 36 are empty spans
+"Consolidated Fixed Charge Coverage Ratio" means, for any Measurement …
 ```
 
-Through ``evidencedBy``: **43 of 43 match.** `CXR-G07`, `CXR-G19`.
+Emitting it would feel safe and would be an **asserted** citation rather than a
+checked one. :class:`Uncitable` with ``span-unverifiable`` is the answer
+(`CXR-G08`, `CXR-G19`).
 
-## Two predicates that do not exist, and are not invented
+## One predicate that marks a limitation, and one that does not exist
 
-``ex:declaredAt`` and ``ex:governedBy`` are both measured at **0 assertions**.
-They are named in ``artifacts/source-vocabulary.yaml`` under ``absent_predicates``
-so their absence is declared rather than discovered. Nothing here reads them,
-writes them, or synthesizes a value to stand in for either (`CXR-G16`,
-`CXR-G17`).
+``ex:declaredAt`` — 170 assertions, 158 of them on ``DefinedTerm`` — says *this
+is intentionally a point anchor*. **It does not supply an end offset and does
+not make the anchor quotable**; the claim is still Context Debt (`CXR-G16`).
+
+``ex:governedBy`` is measured at **0 assertions** though the vault's schema for
+this product names it. It is declared under ``absent_predicates`` so the absence
+is stated rather than discovered, and nothing here reads it, writes it, or
+substitutes a proxy for it (`CXR-G17`).
 
 Reads only. Nothing here writes to any of the three stores.
 """
@@ -351,6 +361,7 @@ def _cite(
 def _evidence_for(
     graph: _Graph, mongo: Any, terms: Mapping[str, Any], *, node_uri: str,
     permitted: frozenset[str], has_end_offset: bool, has_recorded_hash: bool,
+    declared_point: bool = False,
 ) -> tuple[tuple[Citation, ...], tuple[Uncitable, ...]]:
     """Every checked citation for one node, and every reason there is not one.
 
@@ -364,12 +375,21 @@ def _evidence_for(
     if not edges:
         if not has_end_offset:
             # TRAP 2. Located, not quotable. Every `DefinedTerm` is here.
+            # `ex:declaredAt` says the point is INTENTIONAL — read it, and
+            # say which of the two states this is. The predicate marks the
+            # limitation; it does not lift it, and either way no citation is
+            # emitted (`CXR-G16`).
             return (), (Uncitable(
                 node_uri=node_uri, reason="point-anchor",
                 note=(
-                    "the node carries a start offset and no end offset, so it"
-                    " names a point rather than a span; a point cannot be"
-                    " quoted and `ex:declaredAt` is absent from this estate"
+                    "the node is declared a point anchor by `ex:declaredAt`"
+                    if declared_point else
+                    "the node carries a start offset and no end offset"
+                ) + (
+                    "; it names a position rather than a span, so the text"
+                    " cannot be quoted and no citation is emitted. The"
+                    " declaration marks this limitation rather than repairing"
+                    " it — there is still no end offset"
                 ),
             ),)
         if not has_recorded_hash:
@@ -463,10 +483,16 @@ def _entitlement(
 
 #: What the traversal seeds on, and it is DECLARED in the payload (`CXR-G12`).
 #:
-#: The `COVSRC-*` evidence nodes are untyped in the ledger, so they cannot be
-#: selected by class. Seeding on `ex:Covenant` — the typed, plausible choice —
-#: reaches depth 3 on 1 source; seeding here reaches it on 26 (TRAP 3).
-SEED = "untyped-evidence-nodes-carrying-ex:definedBy"
+#: `ex:PassageAnchor` is the evidence node's type. Seeding on `ex:Covenant` —
+#: the typed, plausible choice whose NAME matches the question — reaches depth 3
+#: on 1 source; seeding here reaches it on 26 (TRAP 3, `CXR-G21`).
+#:
+#: These nodes were UNTYPED until 2026-09-13 and this constant read
+#: `untyped-evidence-nodes-carrying-ex:definedBy`. The estate owner typed them,
+#: deliberately not as `ex:Covenant` — an evidence node answering a covenant
+#: query would make every "covenants in force" traversal collect 44 anchors.
+#: The divergence is unchanged at 26 against 1; only the seed's spelling moved.
+SEED = "ex:PassageAnchor"
 
 
 def _chain_for(
@@ -484,6 +510,7 @@ def _chain_for(
             graph, mongo, terms, node_uri=uri, permitted=permitted,
             has_end_offset=bool(claims.get("end_offset")),
             has_recorded_hash=bool(claims.get("passage_sha256")),
+            declared_point=bool(claims.get("declared_at")),
         )
         nodes.append(ChainNode(
             uri=uri, kind=_kind(graph, terms, uri=uri), depth=depth,
@@ -513,7 +540,8 @@ def _anchor_claims(
     visible instead of collapsing it to one or silently pairing them.
     """
     out: dict[str, tuple[str, ...]] = {}
-    for name, iri in terms["anchor_predicates"].items():
+    predicates = {**terms["anchor_predicates"], "declared_at": terms["declared_at"]}
+    for name, iri in predicates.items():
         rows = graph.select(
             f"SELECT ?o FROM <{graph.dataset}> WHERE {{ <{uri}> <{iri}> ?o }}"
         )
@@ -634,7 +662,8 @@ def evidence_sources(*, limit: int | None = None) -> list[str]:
     )
     rows = graph.select(
         f"SELECT DISTINCT ?s FROM <{graph.dataset}> WHERE {{"
-        f" ?s <{terms['defined_by']}> ?o . FILTER NOT EXISTS {{ ?s a ?t }} }}"
+        f" ?s a <{terms['passage_anchor_class']}> ."
+        f" ?s <{terms['defined_by']}> ?o }}"
     )
     out = sorted(r["s"] for r in rows)
     return out[:limit] if limit else out

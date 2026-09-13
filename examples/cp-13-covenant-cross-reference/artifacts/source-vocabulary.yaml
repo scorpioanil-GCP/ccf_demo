@@ -11,6 +11,13 @@ class_id: cp-13.source-vocabulary
 
 declaration:
   # --- Fluree, the typed relationships and the anchors --------------------
+  #: THE SEED. The evidence nodes, typed by the estate owner on 2026-09-13.
+  #: Deliberately not `Covenant` — an evidence node answering a covenant query
+  #: would make every "covenants in force" traversal collect 44 anchors.
+  #: Seeding here reaches depth 3 on 26 sources; seeding on `Covenant` reaches
+  #: it on 1 (TRAP 3, `CXR-G21`).
+  passage_anchor_class: http://example.org/fibo/PassageAnchor
+
   covenant_class: http://example.org/fibo/Covenant
   covenant_definition_class: http://example.org/fibo/CovenantDefinition
   defined_term_class: http://example.org/fibo/DefinedTerm
@@ -27,9 +34,12 @@ declaration:
   unresolved_term: http://example.org/fibo/unresolvedTerm
 
   #: Read for REPORTING what the evidence node claims about itself — never to
-  #: assemble a citation. On 6 of 37 nodes each of these is multi-valued and
-  #: RDF gives no pairing between them, so joining them yields the
-  #: cross-product: 79 candidates, 36 of them false (TRAP 1, `CXR-G19`).
+  #: assemble a citation. Measured 2026-09-13 the four-literal join returns 44
+  #: rows over 44 subjects with no fan-out, and 44 of 44 re-hash correctly; the
+  #: rule stands anyway, because the citation unit is the passage and not this
+  #: triple set (`CXR-G07`). Until 2026-09-13 a URI-identity collision made the
+  #: same join fan out to 79 rows, 36 of them false — `CP13-F-01`, repaired at
+  #: source and NOT replayable.
   anchor_predicates:
     start_offset: http://example.org/fibo/startOffset
     end_offset: http://example.org/fibo/endOffset
@@ -51,14 +61,13 @@ declaration:
   # are measured at 0 assertions on 2026-09-13. Nothing reads them, nothing
   # writes them, and no value is synthesized to stand in for either
   # (`CXR-G16`, `CXR-G17`).
+  #: The predicate that MARKS a point anchor. 170 assertions / 170 subjects,
+  #: 158 of them on `DefinedTerm`, written by the estate owner on 2026-09-13.
+  #: It says "this is intentionally a point". It does NOT supply an end offset
+  #: and does NOT make the anchor quotable (`CXR-G16`).
+  declared_at: http://example.org/fibo/declaredAt
+
   absent_predicates:
-    declaredAt:
-      iri: http://example.org/fibo/declaredAt
-      state: absent
-      note: >-
-        the proposed repair for the 170 point anchors. Accepted upstream on
-        2026-09-12 and NOT implemented. A point anchor stays a point anchor,
-        and its claim is Context Debt rather than a citation.
     governedBy:
       iri: http://example.org/fibo/governedBy
       state: absent
