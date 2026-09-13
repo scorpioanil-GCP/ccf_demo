@@ -114,7 +114,7 @@ smaller** and passes every threshold there is.
 | `artifacts/pip-scale.yaml` | the pip per currency pair, with `no_default: true` | the scale at which a pair quotes is a market convention this product **asserts**, not a fact it derives — so it carries a semver and a provenance, and an undeclared pair is refused rather than defaulted |
 | `artifacts/source-vocabulary.yaml` | the Fluree IRIs, the table names, and `absent_legs` | naming `settlesVia` and `netsWith` as **absent** is the difference between *we looked and found nothing* and *there is nothing to look at* |
 | `artifacts/question.yaml` | the demonstration question, including the `as_of` pin | the instant a question is asked as-of is the caller's to state; a program that read a clock would make its own answer unreproducible |
-| `artifacts/gates.yaml` | all 27 declared gates, each with its executing test and the sabotage that proved it | a gate nobody can make fire is a declaration, not a control |
+| `artifacts/gates.yaml` | all 28 declared gates, each with its executing test and the sabotage that proved it | a gate nobody can make fire is a declaration, not a control |
 | `backends.yaml` | environment-variable **names** only | no host, no port, no credential, anywhere in this tree |
 | `acquisition.py` | the two source legs, bounded at the decision instant | PostgreSQL carries the values; Fluree carries the instants. `system_trade_record` has no timestamp column at all |
 | `projection.py` | the alignment, the partition, the verdict, the decomposition | `[ADAPT]` — all of it. It refuses six things, each because one was measured |
@@ -155,8 +155,28 @@ After that, in order of how much they teach:
 3. **`MATERIALITY_PIPS`** — the threshold comes from the estate's own
    `materiality_threshold` table by intent; override it and watch the partition
    change.
-4. **The λ_c row in `ccf_config.yaml`** — set it back to the declared one hour
-   and watch `F` stop discriminating between two real trades (`CP12-F-15`).
+4. **The λ_c row in `ccf_config.yaml`** — set it to the 1-hour production
+   reference and watch `F` stop discriminating between two real trades
+   (`CP12-F-15`, and see the note below).
+
+### Two half-life figures, and they are not the same contract
+
+`CP12-F-15`, and the specification states it at §B.5.0.
+
+| | value | what it is | where it lives | does the served product use it? |
+|---|---|---|---|---|
+| **Production freshness reference** | **1 hour** | the freshness **SLA** this product would run at against continuously refreshed market data. A reference figure only | prose in `spec/CP-SPEC-012`, **and nowhere else** | **No.** Bound in no artifact in this tree |
+| **CP-12's illustrative half-life** | **48 hours** | the value **this example actually runs at** | `ccf_config.yaml` → `half_life.fxr_observation.half_life_seconds: 172800` | **Yes.** Every `F` served here is computed from it |
+
+The reference cannot be demonstrated on this estate: the trade window is eight
+days wide, so at one hour every observation has aged to nothing and two real
+trades read F `0.2500` and `0.2508` — a spread of `0.0008`, the term no longer
+measuring its own subject. At 48 hours they read `0.5151` and `0.8999`.
+`FXR-G28` serves under both bindings, pins all four figures, and requires the
+served `F` to follow the binding rather than the printed reference.
+
+**48 hours is not a production recommendation.** It is a demonstration value
+under CLAUDE.md §9 and `D-IMPL-323`.
 
 ## What would fail
 
@@ -177,7 +197,7 @@ After that, in order of how much they teach:
   hashes per interpreter, so the content address moves between runs
   (`CP12-F-12`).
 
-All 27 gates are in `artifacts/gates.yaml`, all 27 are executed by
-`tests/examples/test_cp_12_output.py`, and **all 27 were observed going red under
-a sabotage of the mechanism they name** — 24 by breaking this deployment, 3
+All 28 gates are in `artifacts/gates.yaml`, all 28 are executed by
+`tests/examples/test_cp_12_output.py`, and **all 28 were observed going red under
+a sabotage of the mechanism they name** — 25 by breaking this deployment, 3
 because the SDK refuses the bad state before this deployment can reach it.

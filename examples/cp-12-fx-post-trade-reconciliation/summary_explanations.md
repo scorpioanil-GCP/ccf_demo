@@ -208,6 +208,63 @@ acted on as a fresh one, and the caller sets its own ceiling.
 
 ---
 
+---
+
+## Run 6 — the calibration, and the two figures that are not the same contract
+
+```
+make -s example-cp-12 TRADES=TRD-W12-0002 SCOPE=TRD-W12-0002
+make -s example-cp-12 TRADES=TRD-W12-0424 SCOPE=TRD-W12-0424
+```
+
+### The output
+
+```
+TRD-W12-0002   context debt D_c 0.4848601193785765932500000000   signal ok
+                 F 0.51513988062142340675  C 1.0000  S 1.0000
+TRD-W12-0424   context debt D_c 0.10009328027560142700000000   signal ok
+                 F 0.899906719724398573  C 1.0000  S 1.0000
+```
+
+`F` is served as an exact rational, not a rounded figure — the tail is real and
+the product does not truncate it. Everything below quotes it to four places,
+which is also what `FXR-G28` pins.
+
+### What you would have missed
+
+Two half-life figures exist for this product and **they are not the same
+contract**:
+
+| | value | what it is | where it lives | does the served product use it? |
+|---|---|---|---|---|
+| **Production freshness reference** | **1 hour** | the freshness **SLA** this product would run at against continuously refreshed market data | prose in the specification, **and nowhere else** | **No.** Bound in no artifact |
+| **CP-12's illustrative half-life** | **48 hours** | the value **this example actually runs at** | `ccf_config.yaml` | **Yes.** Every `F` above is computed from it |
+
+**For the SME.** One hour is the right figure for a live intraday
+reconciliation, and it is what the product would run at in production. It cannot
+be *demonstrated* here: this estate is a point-in-time snapshot eight days wide,
+so at one hour every observation has aged to nothing and the freshness term reads
+the same for everything. The two trades above would read `0.2500` and `0.2508` —
+a difference of eight ten-thousandths. At 48 hours they read `0.5151` and
+`0.8999`, and the term is visibly doing its job.
+
+**48 hours is not a production recommendation.** It is a demonstration value, and
+the production recommendation stays the 1-hour reference.
+
+**For the PM.** This is the one place in the example where a number was chosen
+rather than measured, and it is labelled as such at every site that carries it —
+the config beside the value, the spec at §B.5.0, the findings, the README and
+here.
+
+**For the engineer.** `FXR-G28` is the gate. It does not read the config and
+stop — that would assert the declaration and not the use, which is the mistake
+`FXR-G12` was caught making. It serves the **same product** against a 1-hour
+Control Plane document and against the shipped 48-hour one, pins all four
+figures, and asserts the two differ. Rebinding `ccf_config.yaml` to 3600 turns it
+red.
+
+---
+
 ## The three things this rung exists to teach
 
 1. **The unit of analysis is chosen before the phenomenon is understood, and that

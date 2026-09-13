@@ -135,24 +135,40 @@ resolution:
 # three named clocks to be. What the fabric sees is what the source RECORDED
 # (`D-IMPL-331`), and `deployment._node` passes exactly that.
 #
-# ILLUSTRATIVE CALIBRATION. This example runs against a point-in-time
-# demonstration estate rather than continuously refreshed production data.
-# Freshness half-lives and related thresholds are calibrated to make the
-# governed behavior observable in that snapshot. They demonstrate how the SDK
-# applies these controls and should not be interpreted as recommended
-# production coverage-policy thresholds.
+# TWO HALF-LIFE FIGURES EXIST FOR THIS PRODUCT AND THEY ARE NOT THE SAME
+# CONTRACT (`CP12-F-15`, CP-SPEC-012 §B.5.0).
 #
-# SPECIFICALLY: §B.5 declares **1 hour**, which is the right figure for a live
-# intraday reconciliation and the wrong one for this estate. The trade window
-# is 2026-08-06 .. 2026-08-13 — eight days wide — so at a 1-hour half-life
-# every observation in it retains ~0 relevance, `F` reads the same 0 for a
-# trade booked yesterday and one booked last week, and the term stops measuring
-# its own subject. **48 hours** is used here because it discriminates across
-# the snapshot: measured, the leading edge ages from ~0.7 retained at the
-# window's right edge to ~0.06 at its left. The production figure is 1 hour and
-# is recorded as such in the spec.
+#   PRODUCTION FRESHNESS REFERENCE — 1 hour.
+#     The freshness SLA this product would run at against continuously
+#     refreshed market data. It is a REFERENCE, it lives in the specification's
+#     prose, and IT IS BOUND NOWHERE. Nothing in this file carries it and no
+#     served `F` is computed from it.
+#
+#   CP-12'S ILLUSTRATIVE HALF-LIFE — 48 hours, and it is the value below.
+#     THIS is what the example runs at and what every served `F` is computed
+#     from. `FXR-G28` serves under both bindings and asserts the served figure
+#     follows THIS value rather than the reference above.
+#
+# Why the reference cannot be used here: the trade window is 2026-08-06 ..
+# 2026-08-13, eight days wide. At one hour every observation has aged to
+# nothing, `F` is carried almost entirely by the non-decaying `fxr_trade`
+# class, and two real trades read 0.2500 and 0.2508 — a spread of 0.0008, the
+# term no longer measuring its own subject. At 48 hours they read 0.5151 and
+# 0.8999, a spread of 0.3848.
+#
+# 48 HOURS IS NOT A PRODUCTION RECOMMENDATION. It is a demonstration value
+# under CLAUDE.md §9 and `D-IMPL-323`:
+#
+#   Illustrative calibration: This example runs against a point-in-time
+#   demonstration estate rather than continuously refreshed production data.
+#   Freshness half-lives and related thresholds are calibrated to make the
+#   governed behavior observable in that snapshot. They demonstrate how the SDK
+#   applies these controls and should not be interpreted as recommended
+#   production coverage-policy thresholds.
 half_life:
   fxr_observation:
+    # 48 HOURS — CP-12's illustrative half-life, and THE BOUND VALUE. Not the
+    # 1-hour production freshness reference, which is bound nowhere.
     half_life_seconds: 172800
     # The instant the SOURCE RECORDED. Not the corrected one (`FXR-G24`).
     decay_basis: valid-from

@@ -185,30 +185,83 @@ the estate ever grows a three-way case the gate goes red and the limb becomes
 testable. The `(1, 2)` limb is asserted on all 60 real partitions and is
 sabotage-proven.
 
-### `CP12-F-15` — the declared 1-hour λ_c cannot discriminate across an 8-day snapshot
+### `CP12-F-15` — the 1-hour production freshness reference cannot be demonstrated on an 8-day snapshot, so this example binds 48 hours
 
 **ESTATE-LIMITATION.** Illustrative calibration under CLAUDE.md §9 and
-`D-IMPL-323`.
+`D-IMPL-323`. Ruled by Dave at Gate 2, 2026-09-12.
 
-§B.5 declares a **1-hour** half-life for `fxr_observation`, which is right for a
-live intraday reconciliation and wrong for a point-in-time estate whose trade
-window is 2026-08-06 .. 2026-08-13.
+#### Two figures, and they are not the same contract
 
-Measured at `as_of = 2026-08-14`, two real trades:
-
-| λ_c | `TRD-W12-0002` | `TRD-W12-0424` | spread | signal |
+| | value | what it is | where it lives | does the served product use it? |
 |---|---|---|---|---|
-| **1 hour** (declared) | F `0.2500` | F `0.2508` | **0.0008** | both `forced_llm` |
-| **48 hours** (illustrative) | F `0.5151` | F `0.8999` | **0.3848** | both `ok` |
+| **Production freshness reference** | **1 hour** | the freshness **SLA** this product would run at against continuously refreshed market data. A *reference figure*, stated so the production intent is on the record | prose in `spec/CP-SPEC-012` §B.5, **and nowhere else** | **NO.** Bound in no artifact in this tree |
+| **CP-12's illustrative half-life** | **48 hours** | the value **this example actually runs at**, chosen so the mechanism is observable against a static estate | `ccf_config.yaml` → `half_life.fxr_observation.half_life_seconds: 172800` | **YES.** Every `F` this example serves is computed from it |
 
-At one hour every observation has aged to nothing and `F` is carried almost
-entirely by the non-decaying `fxr_trade` class, so the term reads the same for a
-trade booked four days ago and one booked a few hours ago — it has stopped
-measuring its own subject, which is precisely the cp-07 failure `D-IMPL-323`
-records. At 48 hours it discriminates.
+**The served product uses the bound value and never the printed reference.**
+`FXR-G28` asserts it, by serving the same two trades under each binding.
 
-**48 hours is used, and disclosed at every site that carries it** — in
-`ccf_config.yaml` beside the value, in this file, in the README, and in the
-spec. The production figure remains 1 hour. Only the *declared threshold* is a
-demonstration value: the observations, the decay curve and the decision instant
-stay the estate's and the SDK's.
+**48 hours is NOT a production recommendation.** The production recommendation
+in this product's specification is the 1-hour reference, and it is deliberately
+not what this example runs.
+
+#### Why the reference cannot be demonstrated here
+
+The trade window is 2026-08-06 .. 2026-08-13 — **eight days wide**. At a 1-hour
+half-life every observation in it has aged to nothing, so `F` is carried almost
+entirely by the non-decaying `fxr_trade` class and reads the same for a trade
+booked four days ago and one booked hours ago. The term has stopped measuring
+its own subject, which is precisely the cp-07 failure `D-IMPL-323` records.
+
+#### The measured sensitivity
+
+At `as_of = 2026-08-14`, two real trades, served end to end through the governed
+path under each binding:
+
+| λ_c | `TRD-W12-0002` | `TRD-W12-0424` | spread |
+|---|---|---|---|
+| **1 hour** — production reference, *bound nowhere* | F `0.2500` | F `0.2508` | **0.0008** |
+| **48 hours** — illustrative, *bound in `ccf_config.yaml`* | F `0.5151` | F `0.8999` | **0.3848** |
+
+All four figures are pinned by `FXR-G28`, which also asserts that the two
+bindings produce *different* served figures — if they matched, `F` would not be
+reading the Control Plane document at all and the pinned numbers would be
+constants. Sabotage: rebinding `ccf_config.yaml` to 3600 turns the gate red.
+
+Only the *declared threshold* is a demonstration value. The observations, the
+decay curve and the decision instant stay the estate's and the SDK's.
+
+#### Where the disclosure lives
+
+`ccf_config.yaml` (beside the value), `spec/CP-SPEC-012` §B.5.0 and §E, this
+file, `README.md`, and `summary_explanations.md`. A reader arriving at any one
+of them is told which figure is bound and which is a reference.
+
+### `CP12-F-16` — a Gate-1 figure in TRAP 4 was wrong, and the gate that defends it does not quote either number
+
+**FIXED-gate-2.**
+
+`CP-SPEC-012` §C.3 recorded `TRD-W12-0124`'s raw variance as **7.99 pips**.
+Measured through the served product it is **5.15**:
+
+```
+TRD-W12-0124  AUD/USD   pip 0.0001
+  trading      0.698121   corrected 2026-08-08 19:55:41
+  settlement   0.698636   corrected 2026-08-07 12:42:01
+  risk         0.698636   corrected 2026-08-07 12:42:01
+
+  trading vs risk          5.15 pips          <- the raw variance
+  nearest tick             2026-08-07 23:55   <- 20.0 hours before 19:55:41
+  naive residual         -72.49 pips
+```
+
+Everything else in TRAP 4 is confirmed — the `−72.49`-pip naive residual, the
+`20.0`-hour staleness, the 173,100-second weekend gap. Only the raw variance was
+wrong.
+
+**Why it was found at all.** `FXR-G27` **computes** both mechanisms on the trade
+rather than asserting a figure copied out of the specification. A gate that had
+pinned `7.99` would have gone **red against correct code** — the third time in
+three rungs that a text-quoting instrument would have done so, after cp-11's
+gate 20 and this rung's own `FXR-G19` (where `d_c` is a substring of
+`estate_designated_class`). The spec paragraph now carries the corrected figure
+with the correction marked, rather than being quietly overwritten.

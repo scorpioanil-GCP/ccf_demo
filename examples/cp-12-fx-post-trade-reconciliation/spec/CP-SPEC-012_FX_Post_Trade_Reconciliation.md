@@ -128,7 +128,7 @@ At amendment 1 all three read 1.3927. The break is gone from current state, and
 |---|---|
 | **Schema** | `markets.fx-reconciliation` — entities: `Trade`, `SystemObservation`, `ReconciliationBreak`; relationships: `observedIn`, `recordedBySystem`, `amends`; measures: the reconciliation verdict per trade, the divergent system named, timing-attributable and residual variance in **pips** |
 | **Freshness SLA** | Intraday for observations |
-| **TTL** | 1 hour for a live reconciliation · `ttl_anchor: from_decision` |
+| **TTL** | 1 hour for a live reconciliation · `ttl_anchor: from_decision`. **This is the product's time-to-live and is unrelated to the λ_c half-life at §B.5** — it is bound at `product_ttl_seconds: 3600` and is not a freshness figure |
 | **Policy binding** | Entitlement scope; break-materiality thresholds bound to `intent` |
 | **Lineage** | `operators_invoked` = the SDK's own set · `policy_bundle_versions` · `graph_snapshot_at` |
 | **Semantic version** | `v1.0.0` |
@@ -246,26 +246,53 @@ and so the correction is visibly the product's rather than the fabric's
 
 ### B.5 Context Debt and freshness
 
-| Class | `λ_c` | `decay_basis` | `freshness_over` | Series key |
+#### B.5.0 TWO HALF-LIFE FIGURES APPEAR IN THIS DOCUMENT AND THEY ARE NOT THE SAME CONTRACT
+
+Read this before reading any λ_c number below.
+
+| | value | what it is | where it lives | does the served product use it? |
 |---|---|---|---|---|
-| `fxr_observation` | **1 hour** | `valid-from` | **`leading-edge`** | **`system_name`** |
+| **Production freshness reference** | **1 hour** | the freshness **SLA** this product would run at against continuously refreshed market data. A *reference figure*, stated here so the production intent is on the record | **prose in this specification, and nowhere else** | **NO.** It is bound in no artifact in this tree |
+| **CP-12's illustrative half-life** | **48 hours** | the value **this example actually runs at**, chosen so the mechanism is observable against a static estate | `ccf_config.yaml` → `half_life.fxr_observation.half_life_seconds: 172800` | **YES.** Every `F` this example serves is computed from it |
+
+**The served product uses the value bound in `ccf_config.yaml` and never the
+reference printed here.** `FXR-G28` asserts exactly that, and goes red if the two
+are swapped.
+
+**48 hours is NOT a production recommendation.** It is a demonstration value
+under CLAUDE.md §9 and `D-IMPL-323`, disclosed at every site that carries it. The
+production recommendation in this document is the 1-hour reference, and it is
+deliberately not what this example runs.
+
+#### B.5.1 The λ_c table as bound
+
+The `λ_c` column below is **what `ccf_config.yaml` binds** — the values the
+served `F` is computed from.
+
+| Class | `λ_c` **as bound** | `decay_basis` | `freshness_over` | Series key |
+|---|---|---|---|---|
+| `fxr_observation` | **48 hours** — illustrative (`CP12-F-15`); production reference is 1 hour | `valid-from` | **`leading-edge`** | **`system_name`** |
 | `fxr_trade` | **no decay** (`supersede-only`) | — | — | — |
 
-**ILLUSTRATIVE CALIBRATION — the demonstration runs at 48 hours, not 1 hour**
-(`CP12-F-15`, CLAUDE.md §9, `D-IMPL-323`). One hour is the production figure and
-stays declared here. It cannot be demonstrated against this estate: the trade
-window is eight days wide, so at a 1-hour half-life every observation has aged to
-nothing and `F` is carried almost entirely by the non-decaying `fxr_trade` class.
-Measured at `as_of = 2026-08-14`:
+#### B.5.2 Why the production reference cannot be demonstrated here
+
+The trade window is 2026-08-06 .. 2026-08-13 — **eight days wide**. At a 1-hour
+half-life every observation in it has aged to nothing, so `F` is carried almost
+entirely by the non-decaying `fxr_trade` class and reads the same for a trade
+booked four days ago and one booked hours ago. The term has stopped measuring its
+own subject, which is the cp-07 failure `D-IMPL-323` records.
+
+**Measured sensitivity**, at `as_of = 2026-08-14`, on two real trades:
 
 | λ_c | `TRD-W12-0002` | `TRD-W12-0424` | spread |
 |---|---|---|---|
-| 1 hour | F `0.2500` | F `0.2508` | **0.0008** |
-| 48 hours | F `0.5151` | F `0.8999` | **0.3848** |
+| **1 hour** — production reference, *not bound* | F `0.2500` | F `0.2508` | **0.0008** |
+| **48 hours** — illustrative, *bound in `ccf_config.yaml`* | F `0.5151` | F `0.8999` | **0.3848** |
 
-At one hour the term reads the same for a trade booked four days ago and one
-booked hours ago — it has stopped measuring its own subject. `ccf_config.yaml`
-carries 48 hours with the disclosure beside the value.
+Both rows are reproduced by `FXR-G28`, which serves the same two trades under
+each binding and pins all four figures. Only the *declared threshold* is a
+demonstration value: the observations, the decay curve and the decision instant
+stay the estate's and the SDK's.
 
 > **Illustrative calibration:** This example runs against a point-in-time
 > demonstration estate rather than continuously refreshed production data.
@@ -380,8 +407,16 @@ never over latest state (`FXR-G03`).
 
 **TRAP 4 — the weekend tick.** One break's nearest preceding tick is **20.0 hours**
 old, because the series has a 173,100-second gap across the weekend. Revaluing
-against it produces a residual of **−72.49 pips** on a raw variance of 7.99 — a
-number with no meaning. **Binding:** the same `not-evaluable` rule as TRAP 2, and
+against it produces a residual of **−72.49 pips** on a raw variance of **5.15**
+— a number with no meaning.
+
+> **CORRECTED AT GATE 2** (`CP12-F-16`). This paragraph originally said the raw
+> variance was **7.99**. Measured through the served product, `TRD-W12-0124`'s
+> AUD/USD variance is **5.15 pips** — trading `0.698121` against risk and
+> settlement at `0.698636`, at a pip of `0.0001`. The `−72.49` residual, the
+> `20.0`-hour staleness and the 173,100-second weekend gap are all confirmed;
+> only the raw variance was wrong. `FXR-G27` computes both figures rather than
+> quoting either. **Binding:** the same `not-evaluable` rule as TRAP 2, and
 the staleness of the tick used is carried in the payload (`FXR-G11`).
 
 **TRAP 5 — comparing rate differences without pip normalisation.** USD/JPY prices
@@ -518,7 +553,8 @@ explicit `no-break` verdict** — not an empty payload and not an omission.
 | `CP12-F-12` | **The comparison peer was chosen non-deterministically.** `next(iter(set_of_str))` is not stable across interpreters; measured, the same trade compared against `risk` on one run and `trading` on the next, with a different content address. §D.4 declares `deterministic`, which is a property of the code and not a declaration about it. Fixed by ordering on the canonical system tuple. | FIXED-gate-2 |
 | `CP12-F-13` | **The three served decomposition figures did not close.** Quantizing independently gave `12.53 + −5.86` against a total of `6.68` on `TRD-W12-0100`, while `closes` read true because it compared unrounded intermediates. The residual is now the remainder of the figures actually served. Found by `FXR-G09` under sabotage. | FIXED-gate-2 |
 | `CP12-F-14` | **No three-way disagreement exists anywhere in the estate.** Measured across all 500 trades at 0.01 pip: 440 all-agree, 60 exactly-two-agree, **0 three-way**. In every break the two agreeing systems match to the last digit. `FXR-G08`'s `(1, 1, 1)` limb is `not-required`, and the absence is asserted by the executing test rather than assumed. | ESTATE-LIMITATION |
-| `CP12-F-15` | **The declared 1-hour λ_c cannot discriminate across an 8-day snapshot.** See §B.5. Illustrative calibration at 48 hours, disclosed at every site that carries it. | ESTATE-LIMITATION |
+| `CP12-F-15` | **The 1-hour production freshness reference cannot be demonstrated on an 8-day snapshot, so this example BINDS 48 hours instead.** The two are different contracts and §B.5.0 states which is which: 1 hour is a production SLA reference bound in no artifact; 48 hours is CP-12's disclosed illustrative half-life, bound in `ccf_config.yaml`, and the only figure the served `F` is computed from. Measured — at 1 hour two real trades read F `0.2500` and `0.2508`, a spread of 0.0008; at 48 hours they read `0.5151` and `0.8999`, a spread of 0.3848. `FXR-G28` serves under both bindings and pins all four. **48 hours is not a production recommendation.** | ESTATE-LIMITATION |
+| `CP12-F-16` | **A Gate-1 figure in TRAP 4 was wrong, and the gate that defends it does not quote either number.** §C.3 recorded `TRD-W12-0124`'s raw variance as **7.99 pips**; measured through the served product it is **5.15** — trading `0.698121` against risk and settlement at `0.698636`, at an AUD/USD pip of `0.0001`. The `−72.49`-pip naive residual, the `20.0`-hour tick staleness and the 173,100-second weekend gap are confirmed. Found because `FXR-G27` **computes** both mechanisms rather than asserting a written figure — a gate that had pinned `7.99` would have gone red against correct code, which is the third time in three rungs a text-quoting instrument would have. | FIXED-gate-2 |
 
 ---
 
@@ -573,11 +609,27 @@ specification makes it a design obligation rather than a lesson relearned.
 | `FXR-G24` | **TRAP 6's second half — the corrected instant leaking into the fabric** | the λ_c path ages an observation against the **recorded** instant. The gate asserts the corrected instant reaches no `valid_from`, no `observed_at`, no invalidation boundary and no Context Debt term — and asserts it where the two instants **differ**, i.e. on a `risk` or `settlement` observation, never on `trading`, whose offset is `0` and where the two are identical |
 | `FXR-G25` | **TRAP 2 — residual classification on 5-minute ticks** | asserted on a break whose corrected observation gap is **shorter than the tick spacing**. The correct product returns `not-evaluable`; a residual-magnitude implementation returns a confident `timing` or `genuine`. Measured: 22 of 60 differ between the two, so the divergence population is large and nameable |
 | `FXR-G26` | **TRAP 5 — missing pip normalisation** | asserted on a **USD/JPY** break, where the pip is `0.01`. Normalised it reports ~6 pips; unnormalised it reports the raw rate difference and reads 100× smaller, passing every threshold. The gate must not be asserted on a `0.0001` pair, where normalised and unnormalised differ by a factor the thresholds may not separate |
-| `FXR-G27` | **TRAP 4 — the stale weekend tick** | asserted on the one break whose nearest preceding tick is **20.0 hours** old. The correct product returns `not-evaluable` and carries the staleness; a naive implementation returns a residual of **−72.49 pips** on a raw variance of 7.99. The two answers are not close, which is what makes this gate cheap and decisive |
+| `FXR-G27` | **TRAP 4 — the stale weekend tick** | asserted on the one break whose nearest preceding tick is **20.0 hours** old. The correct product returns `not-evaluable` and carries the staleness; a naive implementation returns a residual of **−72.49 pips** on a raw variance of **5.15** (corrected at Gate 2 — `CP12-F-16`). The two answers are not close, which is what makes this gate cheap and decisive |
 
 **Every one of these is a Gate-2 sabotage target**, and the sabotage for each is
 the defective mechanism the trap names — reintroduced, and observed producing the
 wrong answer on the divergence case the gate selects.
+
+### F.1b The calibration gate
+
+Added at Gate 2 on Dave's ruling of `CP12-F-15` (2026-09-12), because two
+half-life figures appear in this document and a reader must never be able to
+take them for one contract.
+
+| id | statement | what it catches |
+|---|---|---|
+| `FXR-G28` | the served `F` is computed from the half-life **bound in `ccf_config.yaml`** (48 hours, illustrative) and **not** from the 1-hour production freshness reference printed at §B.5, which is bound in no artifact. The gate serves the same two trades under each binding and pins all four measured figures — `0.2500` / `0.2508` at 1 hour, `0.5151` / `0.8999` at 48 hours | a document and a deployment drifting apart: a spec figure read as the operative one, or a config edited without the disclosure following it |
+
+**The divergence is the whole gate.** A gate that only read `ccf_config.yaml`
+would assert the declaration and not the use — the failure `FXR-G12` was caught
+making, and cp-08's lesson besides. So `FXR-G28` boots the same product against a
+1-hour Control Plane document and against the shipped 48-hour one, and requires
+the served `F` to follow the binding in both.
 
 ### F.2 Acceptance
 
@@ -590,6 +642,6 @@ classification vocabulary; `settlesVia` and `netsWith` reported **absent** rathe
 than zero; and all six measured traps promoted to gates that must distinguish the
 wrong mechanism from the right one.
 
-**27 gates, `FXR-G01`–`FXR-G27`.** Every figure in this document is measured; no
+**28 gates, `FXR-G01`–`FXR-G28`.** `FXR-G28` was added at Gate 2 under Dave's `CP12-F-15` ruling. Every figure in this document is measured; no
 SDK gap was found, and none is authorized; the two failed measurement approaches
 are recorded as TRAP 2 and TRAP 6 rather than corrected away.

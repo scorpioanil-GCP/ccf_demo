@@ -1,4 +1,4 @@
-"""cp-12 — `FXR-G01` … `FXR-G27`, against the live estate through the served product.
+"""cp-12 — `FXR-G01` … `FXR-G28`, against the live estate through the served product.
 
 **Every gate here tests `CP-SPEC-012`, not this estate.** The assertions are
 relationships and identities: a partition, a closure, a set difference, a
@@ -113,7 +113,7 @@ STALE_TICK_HOURS = 20.0
 
 #: The six universal gates plus every behavioral gate name, so a gate that
 #: stops executing is visible as an absence rather than as a silent pass.
-GATE_IDS = tuple(f"FXR-G{n:02d}" for n in range(1, 28))
+GATE_IDS = tuple(f"FXR-G{n:02d}" for n in range(1, 29))
 
 
 @pytest.fixture(scope="module")
@@ -1228,3 +1228,151 @@ def test_fxr_g27_a_stale_weekend_tick_produces_a_number_with_no_meaning(
         "the product reported a residual against a 20-hour-old tick"
     )
     assert projection.CLASSIFICATIONS
+
+
+# =========================================================================
+# THE CALIBRATION GATE — `FXR-G28`.
+#
+# Added at Gate 2 under Dave's ruling of `CP12-F-15` (2026-09-12). Two
+# half-life figures exist for this product and they are NOT the same contract:
+#
+#   1 hour   the PRODUCTION FRESHNESS REFERENCE. An SLA figure, printed in the
+#            specification's prose, and BOUND NOWHERE. No served `F` is
+#            computed from it.
+#   48 hours CP-12's ILLUSTRATIVE HALF-LIFE. Bound in `ccf_config.yaml`, and
+#            the only figure any served `F` is computed from.
+#
+# 48 hours is not a production recommendation.
+# =========================================================================
+
+#: What `ccf_config.yaml` BINDS, in seconds. 48 hours.
+BOUND_HALF_LIFE_SECONDS = 172800
+#: The PRODUCTION FRESHNESS REFERENCE, in seconds. One hour, bound nowhere.
+PRODUCTION_REFERENCE_SECONDS = 3600
+
+#: The measured sensitivity, pinned because it IS the contract here — it is
+#: what makes 48 hours defensible and 1 hour undemonstrable on this estate.
+#: Four decimal places: `F` is an exact rational and the tail is not the claim.
+F_AT_BOUND = {WORKED: Decimal("0.5151"), JPY: Decimal("0.8999")}
+F_AT_REFERENCE = {WORKED: Decimal("0.2500"), JPY: Decimal("0.2508")}
+
+
+def serve_under_half_life(
+    example: Any, *, trade_id: str, half_life_seconds: int
+) -> Decimal:
+    """Serve one trade against a Control Plane document binding this λ_c.
+
+    Pointing `produce.HERE` at a patched `ccf_config.yaml` is what a DIFFERENT
+    DEPLOYMENT of this same product would do — the composition root naming a
+    different Control Plane document — so the whole governed path runs: boot,
+    ingest, both operators, Π, the gates, the replay append and the SDK's own
+    debt assessment. Nothing here computes a freshness figure itself.
+    """
+    produce = example["produce"]
+    document = (EXAMPLE / "ccf_config.yaml").read_text(encoding="utf-8")
+    patched = document.replace(
+        f"half_life_seconds: {BOUND_HALF_LIFE_SECONDS}",
+        f"half_life_seconds: {half_life_seconds}",
+    )
+    assert (half_life_seconds == BOUND_HALF_LIFE_SECONDS) or patched != document, (
+        "the λ_c binding was not replaced; the two runs would use one value and"
+        " the gate would compare a figure with itself"
+    )
+    asked = example["deployment"].request(trades=[trade_id], asked_at=AS_OF)
+    with tempfile.TemporaryDirectory(prefix="cp-12-g28-") as scratch:
+        root = pathlib.Path(scratch)
+        (root / "ccf_config.yaml").write_text(patched, encoding="utf-8")
+        original = produce.HERE
+        try:
+            produce.HERE = root
+            outcome = produce.assemble_and_serve(asked=asked, root=root)
+        finally:
+            produce.HERE = original
+        assert hasattr(outcome, "product"), f"refused: {outcome}"
+        return outcome.product.debt.factors.freshness
+
+
+def test_fxr_g28_the_served_freshness_follows_the_bound_half_life(
+    example: Any, served: Any
+) -> None:
+    """`FXR-G28` — the served `F` is computed from the half-life BOUND in
+    `ccf_config.yaml`, not from the 1-hour production freshness reference
+    printed in the specification. §F.1b, `CP12-F-15`.
+
+    **The divergence is the whole gate.** A gate that only read the config
+    would assert the declaration and not the use — the failure `FXR-G12` was
+    caught making. So the same product is served against a 1-hour Control Plane
+    document and against the shipped 48-hour one, and the served `F` must
+    follow the binding in both.
+
+    **The four measured figures are pinned**, because on this estate they are
+    the contract: they are what makes 48 hours defensible and 1 hour
+    undemonstrable. At the production reference the two trades read `0.2500`
+    and `0.2508` — a spread of `0.0008`, the term no longer measuring its own
+    subject. At the bound value they read `0.5151` and `0.8999`.
+
+    **48 hours is not a production recommendation.**
+    """
+    config = example["deployment"].config()
+    bound = config["half_life"]["fxr_observation"]["half_life_seconds"]
+    assert bound == BOUND_HALF_LIFE_SECONDS, (
+        f"`ccf_config.yaml` binds {bound}s; this example is bound at"
+        f" {BOUND_HALF_LIFE_SECONDS}s (48 hours) under the `CP12-F-15` ruling"
+    )
+    assert bound != PRODUCTION_REFERENCE_SECONDS, (
+        "the production freshness reference is bound in no artifact; if it ever"
+        " is, the disclosure at §B.5.0 stops being true"
+    )
+
+    at_bound = {
+        trade_id: serve_under_half_life(
+            example, trade_id=trade_id, half_life_seconds=BOUND_HALF_LIFE_SECONDS
+        )
+        for trade_id in F_AT_BOUND
+    }
+    at_reference = {
+        trade_id: serve_under_half_life(
+            example, trade_id=trade_id,
+            half_life_seconds=PRODUCTION_REFERENCE_SECONDS,
+        )
+        for trade_id in F_AT_REFERENCE
+    }
+
+    for trade_id, expected in F_AT_BOUND.items():
+        actual = Decimal(at_bound[trade_id]).quantize(Decimal("0.0001"))
+        assert actual == expected, (
+            f"{trade_id} served F {actual} under the BOUND 48-hour half-life;"
+            f" §B.5.2 records {expected}"
+        )
+    for trade_id, expected in F_AT_REFERENCE.items():
+        actual = Decimal(at_reference[trade_id]).quantize(Decimal("0.0001"))
+        assert actual == expected, (
+            f"{trade_id} served F {actual} under the 1-hour production"
+            f" reference; §B.5.2 records {expected}"
+        )
+
+    # THE COUPLING, asserted directly: a different binding produces a different
+    # served figure. If these matched, `F` would not be reading the config at
+    # all and both halves above would be pinning a constant.
+    for trade_id in F_AT_BOUND:
+        assert at_bound[trade_id] != at_reference[trade_id], (
+            f"{trade_id} served the same F under both bindings; the half-life"
+            " is not reaching the freshness term"
+        )
+
+    # AND THE REASON 48 HOURS IS USED: the reference cannot discriminate.
+    spread_at_reference = abs(at_reference[WORKED] - at_reference[JPY])
+    spread_at_bound = abs(at_bound[WORKED] - at_bound[JPY])
+    assert spread_at_reference < Decimal("0.001"), (
+        f"the production reference separated two real trades by"
+        f" {spread_at_reference}; §B.5.2's case for an illustrative value rests"
+        " on it separating them by almost nothing"
+    )
+    assert spread_at_bound > 100 * spread_at_reference, (
+        f"the bound half-life separates the same two trades by"
+        f" {spread_at_bound} against {spread_at_reference}; the illustrative"
+        " value has to make the term MOVE (CLAUDE.md §9)"
+    )
+
+    # The headline serve uses the bound value like everything else.
+    assert Decimal(served.product.debt.factors.freshness) > Decimal("0.5")

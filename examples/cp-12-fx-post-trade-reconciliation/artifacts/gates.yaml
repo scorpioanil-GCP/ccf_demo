@@ -1,9 +1,15 @@
 # yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
 #
-# THE DECLARED PRODUCT GATES OF cp-12 — ALL TWENTY-SEVEN CP-SPEC-012 §F NAMES.
+# THE DECLARED PRODUCT GATES OF cp-12 — ALL TWENTY-EIGHT CP-SPEC-012 §F NAMES.
+#
+# `FXR-G28` was added at Gate 2 under Dave's ruling of `CP12-F-15`
+# (2026-09-12). It proves the served `F` follows the half-life BOUND in
+# `ccf_config.yaml` — 48 hours, CP-12's disclosed illustrative value — and not
+# the 1-hour production freshness reference printed in the specification, which
+# is bound in no artifact. 48 hours is not a production recommendation.
 #
 # `sabotage_state` HAS THREE VALUES AND THEY ARE NOT INTERCHANGEABLE.
-# Twenty-four are `passed`. THREE are `unavailable` — the SDK refuses the bad
+# Twenty-five are `passed`. THREE are `unavailable` — the SDK refuses the bad
 # state before this deployment can reach it: `D-IMPL-86`'s operator-set
 # divergence (FXR-G01, FXR-G02) and the closed `ttl_anchor` vocabulary
 # (FXR-G04). NONE is `not-required` at the gate level.
@@ -296,8 +302,8 @@ declaration:
     observed_red:
       result: '**RED under sabotage**, observed by breaking the mechanism named above and running the gate alone.
         The gate reads payload KEYS at any depth, deliberately not a substring grep over the serialized blob: `d_c`
-        is a substring of `estate_designated_class`, and the grep version flagged the CORRECT payload.
-        cp-11''s gate 20 failed the same way.'
+        is a substring of `estate_designated_class`, and the grep version flagged the CORRECT payload. cp-11''s
+        gate 20 failed the same way.'
       date: '2026-09-12'
       commit: f23e3d4d
   - id: FXR-G20
@@ -322,8 +328,8 @@ declaration:
       clause: F.1
     observed_red:
       result: '**RED under sabotage**, observed by breaking the mechanism named above and running the gate alone.
-        Structural, and read off the SERVED payload rather than grepped out of source text — cp-11''s gate 20
-        went red against correct code because it grepped and tripped on the docstring explaining its own rule. `no-break`
+        Structural, and read off the SERVED payload rather than grepped out of source text — cp-11''s gate 20 went
+        red against correct code because it grepped and tripped on the docstring explaining its own rule. `no-break`
         is kept out of the classification tuple: it says there is nothing to classify, not that a fourth class exists.'
       date: '2026-09-12'
       commit: f23e3d4d
@@ -424,3 +430,23 @@ declaration:
         decisive.'
       date: '2026-09-12'
       commit: f23e3d4d
+  - id: FXR-G28
+    statement: THE CALIBRATION GATE — the served `F` is computed from the half-life BOUND in `ccf_config.yaml` (48
+      hours, CP-12's disclosed illustrative value) and NOT from the 1-hour production freshness reference printed
+      in the specification, which is bound in no artifact. 48 hours is not a production recommendation.
+    spec_clause:
+      document: spec/CP-SPEC-012_FX_Post_Trade_Reconciliation.md
+      clause: F.1b
+    test: tests/examples/test_cp_12_output.py::test_fxr_g28_the_served_freshness_follows_the_bound_half_life
+    sabotage: rebound `half_life_seconds` to the 1-hour production reference
+    sabotage_state: passed
+    observed_red:
+      result: '**RED under sabotage**, observed by rebinding the config to 3600 and running the gate alone — which
+        is the exact drift the gate exists to catch. DIVERGENCE: the gate does not read the config and stop. It
+        serves the SAME product against a 1-hour Control Plane document and against the shipped 48-hour one, and
+        requires the served `F` to follow the binding in both — pinning all four measured figures (0.2500 / 0.2508
+        at the reference, 0.5151 / 0.8999 at the bound value) and asserting they differ. A gate that only read the
+        declaration would assert the declaration and not the use, which is the failure FXR-G12 was caught making.
+        Added at Gate 2 under Dave''s CP12-F-15 ruling, 2026-09-12.'
+      date: '2026-09-12'
+      commit: 69675a30

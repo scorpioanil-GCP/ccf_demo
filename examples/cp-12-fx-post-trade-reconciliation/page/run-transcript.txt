@@ -1,0 +1,135 @@
+$ make -s example-cp-12
+asked        w12-worked-cases · break-investigation · as of 2026-08-14T00:00:00+00:00
+             compare_at=amendment-0  align_clocks=True  4 trades
+
+materiality  2.0000 pips   (break-investigation, from the estate's own table)
+tick series  resolves to 300 s  — below that, nothing is decomposable
+
+VERDICTS over 4 trades   — ONE per trade, and the count of this list IS the count of observations
+  timing              1
+  genuine             2
+  not-evaluable       1
+  no-break            0
+
+PER TRADE
+
+  TRD-W12-0002  USD/CAD  genuine        divergent=settlement  (estate designated timing)
+     notional band 1,000,000-5,000,000   groups [['risk', 'trading'], ['settlement']]
+     trading     amd 0  rate 1.388337   recorded 15:26:46  offset     0s  corrected 15:26:46
+     settlement  amd 0  rate 1.388751   recorded 16:00:18  offset    47s  corrected 15:59:31
+     risk        amd 0  rate 1.388337   recorded 15:24:54  offset  -112s  corrected 15:26:46
+     total 4.14 pips = timing 7.82 + residual -3.68   (closes=True, gap 1966s)
+
+  TRD-W12-0004  GBP/USD  genuine        divergent=trading     (estate designated genuine)
+     notional band 100,000,000-250,000,000   groups [['trading'], ['risk', 'settlement']]
+     trading     amd 0  rate 1.347931   recorded 07:34:39  offset     0s  corrected 07:34:39
+     settlement  amd 0  rate 1.348713   recorded 07:35:26  offset    47s  corrected 07:34:39
+     risk        amd 0  rate 1.348713   recorded 07:32:47  offset  -112s  corrected 07:34:39
+     total 7.82 pips = timing 0.00 + residual 7.82   (closes=True, gap 0s)
+       both systems observed at the same true instant, so there is no interval to decompose and no tick series was consulted; the timing component is zero by arithmetic rather than by revaluation
+
+  TRD-W12-0124  AUD/USD  not-evaluable  divergent=trading     (estate designated timing)
+     notional band 5,000,000-25,000,000   groups [['trading'], ['risk', 'settlement']]
+     trading     amd 0  rate 0.698121   recorded 19:55:41  offset     0s  corrected 19:55:41
+     settlement  amd 0  rate 0.698636   recorded 12:42:48  offset    47s  corrected 12:42:01
+     risk        amd 0  rate 0.698636   recorded 12:40:09  offset  -112s  corrected 12:42:01
+     total 5.15 pips, DECOMPOSITION REFUSED — stale-tick
+       the nearest rate observation is 20.0 h before the compared instant; revaluing against it produces a number with no meaning
+       timing and residual are NULL, not zero. A zero would be a claim rather than a measurement.
+
+  TRD-W12-0424  USD/JPY  timing         divergent=risk        (estate designated timing)
+     notional band 1,000,000-5,000,000   groups [['settlement', 'trading'], ['risk']]
+     trading     amd 0  rate 159.177222 recorded 12:18:18  offset     0s  corrected 12:18:18
+     settlement  amd 0  rate 159.177222 recorded 12:19:05  offset    47s  corrected 12:18:18
+     risk        amd 0  rate 159.230622 recorded 14:37:51  offset  -112s  corrected 14:39:43
+     total 5.34 pips = timing 6.20 + residual -0.86   (closes=True, gap 8486s)
+
+ABSENT LEGS — absent, not empty and not zero (CP12-F-01)
+  settlement_instruction           absent
+  settlesVia                       absent
+  netsWith                         absent
+  iso20022                         absent
+  settlement_cycle_conventions     absent
+
+context debt D_c 0.0571961601574865297142857143   signal ok
+  F 0.9428038398425134702857142857  C 1.0000  S 1.0000
+  NOTE: F ages each system's leading edge against the instant that
+  system RECORDED — never the corrected instant. The correction
+  is this product's alignment model and reaches no fabric
+  temporal field (FXR-G24).
+content address  e3bf887aa1f9beda66625be2c5daef8e9b6139097887374e320cef97471358a9
+replay record    b99d23013c7a67abee394ed20607ffd126431416095d6c6e81dbc78f2c81e881
+expires_at       2026-08-14T01:00:00+00:00
+
+$ make -s example-cp-12 COMPARE_AT=latest
+asked        w12-worked-cases · break-investigation · as of 2026-08-14T00:00:00+00:00
+             compare_at=latest  align_clocks=True  4 trades
+
+materiality  2.0000 pips   (break-investigation, from the estate's own table)
+tick series  resolves to 300 s  — below that, nothing is decomposable
+
+VERDICTS over 4 trades   — ONE per trade, and the count of this list IS the count of observations
+  timing              0
+  genuine             1
+  not-evaluable       1
+  no-break            2
+
+PER TRADE
+
+  TRD-W12-0002  USD/CAD  no-break       divergent=—           (estate designated timing)
+     notional band 1,000,000-5,000,000   groups [['risk', 'settlement', 'trading']]
+     trading     amd 1  rate 1.3927     recorded 23:59:58  offset     0s  corrected 23:59:58
+     settlement  amd 1  rate 1.3927     recorded 00:00:45  offset    47s  corrected 23:59:58
+     risk        amd 1  rate 1.3927     recorded 23:58:06  offset  -112s  corrected 23:59:58
+
+  TRD-W12-0004  GBP/USD  genuine        divergent=trading     (estate designated genuine)
+     notional band 100,000,000-250,000,000   groups [['trading'], ['risk', 'settlement']]
+     trading     amd 0  rate 1.347931   recorded 07:34:39  offset     0s  corrected 07:34:39
+     settlement  amd 0  rate 1.348713   recorded 07:35:26  offset    47s  corrected 07:34:39
+     risk        amd 0  rate 1.348713   recorded 07:32:47  offset  -112s  corrected 07:34:39
+     total 7.82 pips = timing 0.00 + residual 7.82   (closes=True, gap 0s)
+       both systems observed at the same true instant, so there is no interval to decompose and no tick series was consulted; the timing component is zero by arithmetic rather than by revaluation
+
+  TRD-W12-0124  AUD/USD  not-evaluable  divergent=trading     (estate designated timing)
+     notional band 5,000,000-25,000,000   groups [['trading'], ['risk', 'settlement']]
+     trading     amd 0  rate 0.698121   recorded 19:55:41  offset     0s  corrected 19:55:41
+     settlement  amd 0  rate 0.698636   recorded 12:42:48  offset    47s  corrected 12:42:01
+     risk        amd 0  rate 0.698636   recorded 12:40:09  offset  -112s  corrected 12:42:01
+     total 5.15 pips, DECOMPOSITION REFUSED — stale-tick
+       the nearest rate observation is 20.0 h before the compared instant; revaluing against it produces a number with no meaning
+       timing and residual are NULL, not zero. A zero would be a claim rather than a measurement.
+
+  TRD-W12-0424  USD/JPY  no-break       divergent=—           (estate designated timing)
+     notional band 1,000,000-5,000,000   groups [['risk', 'settlement', 'trading']]
+     trading     amd 1  rate 159.206466 recorded 13:47:49  offset     0s  corrected 13:47:49
+     settlement  amd 1  rate 159.206466 recorded 13:48:36  offset    47s  corrected 13:47:49
+     risk        amd 1  rate 159.206466 recorded 13:45:57  offset  -112s  corrected 13:47:49
+
+ABSENT LEGS — absent, not empty and not zero (CP12-F-01)
+  settlement_instruction           absent
+  settlesVia                       absent
+  netsWith                         absent
+  iso20022                         absent
+  settlement_cycle_conventions     absent
+
+context debt D_c 0.0571961601574865297142857143   signal ok
+  F 0.9428038398425134702857142857  C 1.0000  S 1.0000
+  NOTE: F ages each system's leading edge against the instant that
+  system RECORDED — never the corrected instant. The correction
+  is this product's alignment model and reaches no fabric
+  temporal field (FXR-G24).
+content address  43e289d624dbfc482fdcaba3440c2493f0bcb5fe707301a82c112d100e8a6fea
+replay record    db24f41bc977c3e0b24dde69c005a862e5ded1dd8afb5135db3f446069cb2875
+expires_at       2026-08-14T01:00:00+00:00
+
+$ make -s example-cp-12 DEBT_TOLERANCE=0.02
+asked        w12-worked-cases · break-investigation · as of 2026-08-14T00:00:00+00:00
+             compare_at=amendment-0  align_clocks=True  4 trades
+
+REFUSED      tolerance-exceeded
+  reason     tolerance-exceeded
+  detail     fulfillment was withheld because an applicable declared tolerance was exceeded
+
+  The determination is preserved in the replay record; the
+  consumer envelope discloses less than the fabric recorded.
+  replay     ccf-artifact://cp-12-reconciliation-demo/ccf.replay-record/adcc56dd061ae238283cd04e56ea57deb2acd19b81138edaeb91475f9a298fe2@591e3a637545863b45b10c5e935b201bcf964a701c9890349f90f20abd31c270

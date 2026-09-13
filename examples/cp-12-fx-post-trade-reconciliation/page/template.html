@@ -1,0 +1,409 @@
+<title>FX Post-Trade Reconciliation · cp-12</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400;6..96,500&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --paper:#EFF2F3; --surface:#FFFFFF; --sunk:#E4E9EB;
+  --ink:#16202A; --ink-2:#3A4A55; --muted:#64757F; --rule:#CBD5D9;
+  --verd:#1F7A68; --verd-soft:#DCEBE7;
+  --amber:#A65E17; --amber-soft:#F6E9DA;
+  --crit:#9B2C2C; --crit-soft:#F3E0E0;
+  --tok-c:#6C7C86; --tok-k:#1F7A68; --tok-s:#8A5A2B; --tok-n:#2B4C63;
+  --shadow:0 1px 2px rgba(22,32,42,.06),0 8px 24px -12px rgba(22,32,42,.18);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#12171A; --surface:#181F23; --sunk:#0D1214;
+    --ink:#E4EAED; --ink-2:#B4C1C8; --muted:#8497A0; --rule:#2C373D;
+    --verd:#46B39D; --verd-soft:#16302B;
+    --amber:#D9903F; --amber-soft:#2F2417;
+    --crit:#E07A7A; --crit-soft:#2E1B1B;
+    --tok-c:#7B8C96; --tok-k:#46B39D; --tok-s:#C99A63; --tok-n:#7FB0CE;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -12px rgba(0,0,0,.6);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#12171A; --surface:#181F23; --sunk:#0D1214;
+  --ink:#E4EAED; --ink-2:#B4C1C8; --muted:#8497A0; --rule:#2C373D;
+  --verd:#46B39D; --verd-soft:#16302B;
+  --amber:#D9903F; --amber-soft:#2F2417;
+  --crit:#E07A7A; --crit-soft:#2E1B1B;
+  --tok-c:#7B8C96; --tok-k:#46B39D; --tok-s:#C99A63; --tok-n:#7FB0CE;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -12px rgba(0,0,0,.6);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:"IBM Plex Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:16px; line-height:1.65; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1180px;margin:0 auto;padding:0 clamp(20px,5vw,56px)}
+.col{max-width:74ch}
+
+/* ---------- masthead ---------- */
+.mast{border-bottom:1px solid var(--rule);padding:clamp(48px,8vw,88px) 0 40px}
+.eyebrow{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12px;font-weight:600;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--verd);margin:0 0 18px
+}
+h1{
+  font-family:"Bodoni Moda",Georgia,"Times New Roman",serif;font-weight:400;
+  font-size:clamp(38px,6.2vw,68px);line-height:1.04;letter-spacing:-.015em;
+  margin:0 0 22px;text-wrap:balance
+}
+.standfirst{font-size:clamp(17px,2vw,20px);line-height:1.6;color:var(--ink-2);margin:0;max-width:66ch}
+
+/* the shape strip — what the product IS, in its own terms */
+.shape{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:1px;
+  background:var(--rule);border:1px solid var(--rule);margin-top:40px
+}
+.shape div{background:var(--surface);padding:14px 16px}
+.shape dt{
+  font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:600;
+  letter-spacing:.11em;text-transform:uppercase;color:var(--muted);margin:0 0 5px
+}
+.shape dd{margin:0;font-size:14px;font-weight:600;line-height:1.35}
+.shape dd .sub{display:block;font-weight:400;font-size:12.5px;color:var(--muted);margin-top:3px}
+
+/* ---------- sections ---------- */
+section{padding:clamp(44px,6vw,68px) 0;border-bottom:1px solid var(--rule)}
+section:last-of-type{border-bottom:0}
+h2{
+  font-family:"Bodoni Moda",Georgia,serif;font-weight:400;
+  font-size:clamp(26px,3.6vw,38px);line-height:1.14;letter-spacing:-.01em;
+  margin:0 0 8px;text-wrap:balance
+}
+h3{font-size:17px;font-weight:700;margin:34px 0 10px;letter-spacing:-.005em}
+.kicker{
+  font-family:"IBM Plex Mono",monospace;font-size:11.5px;font-weight:600;
+  letter-spacing:.13em;text-transform:uppercase;color:var(--muted);margin:0 0 14px
+}
+p{margin:0 0 16px}
+strong{font-weight:600}
+em{font-style:italic}
+code{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.875em;
+  background:var(--sunk);padding:.1em .34em;border-radius:3px;
+}
+a{color:var(--verd);text-decoration:none;border-bottom:1px solid color-mix(in srgb,var(--verd) 40%,transparent)}
+a:hover{border-bottom-color:var(--verd)}
+a:focus-visible{outline:2px solid var(--verd);outline-offset:3px;border-radius:2px}
+
+/* ---------- the two-authority device ---------- */
+.auth{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;margin:26px 0 8px}
+.auth article{background:var(--surface);border:1px solid var(--rule);border-top:3px solid var(--verd);padding:20px 22px}
+.auth article.internal{border-top-color:var(--amber)}
+.auth h4{margin:0 0 4px;font-size:15px;font-weight:700}
+.auth .who{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--verd);margin:0 0 12px}
+.auth article.internal .who{color:var(--amber)}
+.auth dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:5px 14px;font-size:13.5px}
+.auth dt{color:var(--muted)}
+.auth dd{margin:0;font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
+
+/* ---------- tables ---------- */
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:14px;margin:22px 0}
+th,td{text-align:left;padding:9px 14px 9px 0;border-bottom:1px solid var(--rule);vertical-align:top}
+th{
+  font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:600;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--muted);
+  border-bottom-color:var(--ink-2)
+}
+td code{background:none;padding:0}
+.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+
+/* pills carry state, not decoration */
+.pill{
+  display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:10.5px;
+  font-weight:600;letter-spacing:.06em;padding:2px 8px;border-radius:99px;white-space:nowrap
+}
+.pill.yes{background:var(--verd-soft);color:var(--verd)}
+.pill.no{background:var(--crit-soft);color:var(--crit)}
+.pill.warn{background:var(--amber-soft);color:var(--amber)}
+
+/* ---------- build order ---------- */
+ol.build{list-style:none;counter-reset:step;margin:26px 0 0;padding:0}
+ol.build > li{
+  counter-increment:step;position:relative;padding:0 0 26px 54px;
+  border-left:1px solid var(--rule);margin-left:15px
+}
+ol.build > li:last-child{border-left-color:transparent;padding-bottom:0}
+ol.build > li::before{
+  content:counter(step,decimal-leading-zero);position:absolute;left:-15px;top:0;
+  width:30px;height:30px;border-radius:50%;background:var(--surface);
+  border:1px solid var(--rule);color:var(--muted);
+  font-family:"IBM Plex Mono",monospace;font-size:11px;font-weight:600;
+  display:flex;align-items:center;justify-content:center
+}
+ol.build h3{margin:2px 0 6px;font-size:16px}
+ol.build p{font-size:14.5px;color:var(--ink-2);margin:0 0 12px}
+
+/* ---------- collapsibles: guidance first, source on demand ---------- */
+details{
+  background:var(--surface);border:1px solid var(--rule);border-radius:4px;
+  margin:12px 0;box-shadow:var(--shadow)
+}
+summary{
+  cursor:pointer;padding:12px 16px;font-family:"IBM Plex Mono",monospace;
+  font-size:12.5px;font-weight:600;color:var(--ink-2);list-style:none;
+  display:flex;align-items:center;gap:10px
+}
+summary::-webkit-details-marker{display:none}
+summary::before{
+  content:"";width:0;height:0;flex:none;
+  border-left:5px solid var(--muted);border-top:4px solid transparent;border-bottom:4px solid transparent;
+  transition:transform .16s ease
+}
+details[open] > summary::before{transform:rotate(90deg)}
+summary:hover{color:var(--verd)}
+summary:focus-visible{outline:2px solid var(--verd);outline-offset:-2px;border-radius:3px}
+details .note{margin:0;padding:0 16px 12px;font-size:13px;color:var(--muted)}
+details pre{margin:0;padding:16px;background:var(--sunk);font-size:12.5px;line-height:1.55}
+details .scroll{border-top:1px solid var(--rule)}
+pre{overflow-x:auto;margin:0}
+pre code{background:none;padding:0;font-size:12.5px}
+
+/* ---------- callouts ---------- */
+.call{border-left:3px solid var(--verd);background:var(--surface);padding:18px 22px;margin:24px 0}
+.call.warn{border-left-color:var(--amber)}
+.call.crit{border-left-color:var(--crit)}
+.call p:last-child{margin-bottom:0}
+.call .lbl{
+  font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:600;
+  letter-spacing:.11em;text-transform:uppercase;color:var(--verd);display:block;margin-bottom:7px
+}
+.call.warn .lbl{color:var(--amber)}
+.call.crit .lbl{color:var(--crit)}
+
+ul.plain{margin:0 0 16px;padding-left:20px}
+ul.plain li{margin-bottom:7px}
+
+footer{padding:44px 0 72px;color:var(--muted);font-size:13.5px}
+footer p{margin:0 0 8px}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap">
+
+<header class="mast">
+  <p class="eyebrow">Context Product · cp-12</p>
+  <h1>FX Post-Trade Reconciliation</h1>
+  <p class="standfirst">Why do two systems disagree about the same trade? The answer depends on <strong>whose clock you reconstruct against</strong> &mdash; and on not counting one disagreement twice.</p>
+
+  <dl class="shape">
+    <div><dt>Registry name</dt><dd>markets.fx-reconciliation.v1</dd></div>
+    <div><dt>Tier</dt><dd>3<span class="sub">relational + bitemporal ledger</span></dd></div>
+    <div><dt>Assembly mode</dt><dd>1 &mdash; pure algorithmic<span class="sub">no model in the path</span></dd></div>
+    <div><dt>Stores</dt><dd>PostgreSQL + Fluree<span class="sub"><code>ccf_v2</code> &middot; <code>fibo-v2</code></span></dd></div>
+    <div><dt>Systems reconciled</dt><dd>3<span class="sub">clocks at 0, +47 and &minus;112 seconds</span></dd></div>
+    <div><dt>SDK rulings earned</dt><dd>0<span class="sub">every mechanism already existed</span></dd></div>
+  </dl>
+</header>
+
+<section>
+  <div class="col">
+    <p class="kicker">Rung 12 &middot; Tier 3</p>
+    <h2>Nothing about the size of a discrepancy says which kind it is</h2>
+    <p>Three systems report a value for the same FX trade and they disagree. The conventional response is to call it a data-quality issue and reconcile toward one system as golden. <strong>Frequently none of them is wrong</strong>: the trading system booked at execution, the settlement system recorded post-affirmation, and the risk system revalued at a different market snapshot. All three are internally correct <em>as of their own observation time</em>.</p>
+    <p>Measured on this estate, the designed timing breaks span <strong>4.08&ndash;8.00 pips</strong> and the designed genuine breaks span <strong>4.01&ndash;7.93 pips</strong>. <strong>The ranges overlap almost completely.</strong> Magnitude is not a discriminator, and a reconciliation built on current state has thrown away the one thing that is.</p>
+    <div class="call">
+      <span class="lbl">The worked case, and the shape is the whole argument</span>
+      <p><code>TRD-W12-0002</code>, USD/CAD, at amendment 0. Risk <em>looks</em> like the outlier &mdash; it recorded at 15:24:54, before either of the others. Corrected for its own &minus;112-second skew it observed at <strong>15:26:46</strong>, the same true instant as trading, and the two agree to the last digit. Settlement observed 33 minutes later. Nobody is wrong.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">The unit of analysis</p>
+    <h2>Sixty breaks, or a hundred and twenty</h2>
+    <p>Three systems give three pairwise comparisons per trade. Choosing the pair as the unit is the obvious reading and it is wrong &mdash; when settlement disagrees with trading, it also disagrees with risk.</p>
+  </div>
+  <div class="scroll"><pre><code>over the 60 break trades, at amendment 0:
+  pairwise comparisons exceeding 0.5 pip   120
+  underlying divergences                    60
+  RATIO                                   2.00</code></pre></div>
+  <div class="col">
+    <p>Every one of the 60 partitions the same way &mdash; two systems agree and one does not, <strong>60 of 60, with no other shape present</strong>. Counting pairs reports that single fact twice, exactly and systematically. <strong>A middle office told it has 120 breaks staffs for twice the work.</strong></p>
+    <p>This is rung 10's lesson arriving from the other side: there, averaging <em>destroyed</em> a signal; here, pairwise expansion <em>manufactures</em> one. Both are the unit of analysis chosen before the phenomenon was understood. The payload exposes no field a consumer can count to reach 120 &mdash; pairwise variance lives beneath a verdict as an explanation of it, never beside it as a peer.</p>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">The honest half of the decomposition</p>
+    <h2><code>not-evaluable</code> is an answer and zero is a claim</h2>
+    <p>The obvious implementation revalues each system at its corrected instant from the tick series, subtracts, and calls the remainder residual. <strong>At the 2-pip threshold it misclassifies 22 of 60.</strong></p>
+    <p>The cause is structural. The tick series resolves to <strong>five minutes</strong> and the observation gaps are frequently smaller, so two instants inside one bucket revalue identically and the timing component reads zero. Reading that as <em>the market did not move</em> says something the evidence cannot support &mdash; the truth is <em>the series cannot see whether it did</em>.</p>
+    <div class="call crit">
+      <span class="lbl">And a tick from the previous trading day is worse than none</span>
+      <p><code>TRD-W12-0124</code>'s two compared instants are 31 hours apart across a weekend, and the nearest preceding tick is <strong>20.0 hours</strong> old. Revaluing against it yields a residual of <strong>&minus;72.49 pips</strong> on a raw variance of 5.15. The product returns <code>not-evaluable</code>, names the reason, and carries the staleness &mdash; because a number with no meaning is worse than no number.</p>
+    </div>
+    <p><strong>And the converse mattered just as much.</strong> A gap of <em>exactly zero</em> is not the same fact: two identical instants leave no interval, so the timing component is zero by arithmetic rather than by resolution, and no tick series is consulted at all. The first implementation collapsed the two cases and refused 29 of 60 breaks &mdash; which turned out to bury precisely the <strong>20 the estate designates genuine, 20 of 20</strong>. That is <code>CP12-F-10</code>, and it is the kind of defect only building the thing finds.</p>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">What the run prints</p>
+    <h2>Three questions, and a refusal that is an answer</h2>
+    <p>A committed transcript of three pinned runs, not a live re-execution: a printed run that can drift is a documentation defect that presents as a fabric defect.</p>
+  </div>
+
+  <details><summary>All three runs, as the commands print them</summary>
+    <div class="scroll"><pre><code>{{run}}</code></pre></div>
+  </details>
+
+  <div class="col">
+    <p><strong>Run 1 &mdash; the four worked cases.</strong> One <code>timing</code>, two <code>genuine</code>, one <code>not-evaluable</code>. Each carries the three systems' rates with <em>recorded instant, clock offset and corrected instant separately</em>, so a consumer audits the alignment rather than trusting it. <code>TRD-W12-0004</code> is the one that needs a human: all three systems correct to <strong>07:34:39 exactly</strong>, and trading alone still differs.</p>
+    <p><strong>Run 2 &mdash; the same question asked of current state.</strong> Two of the four breaks are simply gone. Across the designated population, <strong>13 of 60 are material at amendment 0 and immaterial at the latest amendment</strong> &mdash; the amendment reconciled the two systems. The break existed; someone either worked it or did not. A control function asking <em>&ldquo;were there unworked breaks last month&rdquo;</em> against current state gets a clean answer, and it is wrong.</p>
+    <p><strong>Run 3 &mdash; the governed refusal.</strong> A caller declaring a Context Debt ceiling of 0.02 gets <code>tolerance-exceeded</code> returned as <em>data</em>, with a replay reference &mdash; not an exception, so a client cannot swallow it in a bare <code>except</code>.</p>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">A correction the product makes, not a clock the fabric keeps</p>
+    <h2>The corrected instant reaches nothing beneath this product</h2>
+    <p>Each system carries a recorded <code>clockOffsetSeconds</code> &mdash; trading <code>0</code>, settlement <code>+47</code>, risk <code>&minus;112</code>. Correcting a recorded instant by it recovers the instant that system <em>actually</em> observed at, and that correction is the entire product.</p>
+    <p><strong>It is also domain knowledge about three named systems</strong>, and it belongs to the reconciliation and to nothing beneath it. The corrected instant is not a valid-time, not an observation time and not a supersession.</p>
+    <div class="call crit">
+      <span class="lbl">So it is kept out of the fabric's temporal machinery entirely</span>
+      <p>No <code>valid_from</code>, no <code>observed_at</code>, no invalidation boundary, no Context Debt term. What the &lambda;<sub>c</sub> table ages against is the instant the source <strong>recorded</strong>, exactly as <code>D-IMPL-331</code> declares &mdash; because a corrected instant on that path would make the SDK's freshness figure a function of this product's own alignment model.</p>
+      <p><code>FXR-G24</code> proves it through the real L2 path &mdash; boot, ingest, read the claims back out of L3 &mdash; and asserts it on <code>settlement</code> and <code>risk</code>, where the two instants genuinely differ. Never on <code>trading</code>, whose offset is <code>0</code> and where a fabric that had swallowed the correction whole would still look correct.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">Two figures, one of them bound</p>
+    <h2>A production SLA and a demonstration value are not the same contract</h2>
+    <p>Two half-life figures appear in this product's specification and a reader must never be able to take them for one.</p>
+  </div>
+  <div class="scroll"><pre><code>PRODUCTION FRESHNESS REFERENCE    1 hour     prose in the spec, BOUND NOWHERE
+CP-12's ILLUSTRATIVE HALF-LIFE    48 hours   ccf_config.yaml, and every served F
+
+measured at as_of = 2026-08-14, two real trades:
+  1 hour     F 0.2500   vs   F 0.2508      spread 0.0008
+  48 hours   F 0.5151   vs   F 0.8999      spread 0.3848</code></pre></div>
+  <div class="col">
+    <p>One hour is right for a live intraday reconciliation and it is what this product would run at in production. It cannot be <em>demonstrated</em> here: the trade window is <strong>eight days wide</strong>, so at one hour every observation has aged to nothing, <code>F</code> is carried almost entirely by the non-decaying <code>fxr_trade</code> class, and the term reads the same for a trade booked four days ago and one booked hours ago. It has stopped measuring its own subject.</p>
+    <p><strong>48 hours is not a production recommendation.</strong> It is a demonstration value under CLAUDE.md &sect;9, disclosed beside the value in <code>ccf_config.yaml</code>, at &sect;B.5.0 of the specification, in <code>FINDINGS.md</code>, in the README and in the summary.</p>
+    <div class="call">
+      <span class="lbl">And a gate keeps the document and the deployment from drifting apart</span>
+      <p><code>FXR-G28</code> does not read the config and stop &mdash; that would assert the declaration and not the use. It serves the <strong>same product</strong> against a 1-hour Control Plane document and against the shipped 48-hour one, pins all four figures above, and requires the served <code>F</code> to follow the binding. Rebinding <code>ccf_config.yaml</code> to 3600 turns it red.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">Every file, verbatim</p>
+    <h2>The example, opened up</h2>
+    <p>Each block below is the real file, read at build time. Nothing here is a copy that can drift.</p>
+  </div>
+
+  <ol class="build">
+    <li>
+      <h3>The specification</h3>
+      {{spec}}
+    </li>
+    <li>
+      <h3>The Control Plane</h3>
+      {{config}}
+      {{backends}}
+    </li>
+    <li>
+      <h3>The declared artifacts</h3>
+      {{vocabulary}}
+      {{pipscale}}
+      {{question}}
+      {{gates}}
+    </li>
+    <li>
+      <h3>Reading the estate</h3>
+      {{acquisition}}
+      {{deployment}}
+    </li>
+    <li>
+      <h3>Assembling the answer</h3>
+      {{projection}}
+      {{produce}}
+      {{run_py}}
+    </li>
+    <li>
+      <h3>The evidence and the prose</h3>
+      {{tests}}
+      {{findings}}
+      {{readme}}
+      {{summary}}
+    </li>
+  </ol>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">The half you write</p>
+    <h2>What is yours, and what the fabric already does</h2>
+    <p>The five Python files above are not equal. Three are yours to write for every product; two are nearly the same in every deployment and exist to be read once.</p>
+  </div>
+  <div class="scroll">
+  {{split_table}}
+  </div>
+  <div class="col">
+    {{split_ratio}}
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">The evidence</p>
+    <h2>Twenty-eight gates, and five were green on the first attempt</h2>
+    <p>Every gate was sabotaged. <strong>Twenty-five</strong> went red on their own assertion. <strong>Three</strong> could not be falsified from this deployment at all &mdash; an SDK guard refuses the bad state before an artifact can exist &mdash; and are recorded <code>unavailable</code>, never folded into <code>passed</code>.</p>
+    <div class="call">
+      <span class="lbl">A gate asserted only where two answers coincide proves nothing about which one produced them</span>
+      <p>Five gates were <strong>green under their first sabotage</strong> and all five are recorded. Four were weak <em>sabotages</em> &mdash; they broke code the gate never reached. One was a weak <em>test</em>: <code>FXR-G12</code> asserted the declared pip table and the pair label, and stayed green while <code>Estate.pip</code> returned <code>0.0001</code> for every pair, <strong>because it never exercised the lookup</strong>. A declaration nothing reads is documentation, not control. It now recomputes every served variance from the raw rates and requires the worked cases to exercise both scales.</p>
+      <p>The six trap gates carry an extra obligation the others do not: each <strong>builds the defective mechanism in the test</strong>, runs it on the same data, and asserts the two answers differ. That rule exists because two earlier rungs shipped trap gates that were green under their own sabotage, each having asserted only where the correct and defective mechanisms happened to agree.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">What to change first</p>
+    <h2>One file, and it is the most instructive edit in the tree</h2>
+    <ul class="plain">
+      <li><strong><code>artifacts/pip-scale.yaml</code></strong>. Add a currency pair with no entry and ask for it: the product <em>refuses</em> rather than defaulting to <code>0.0001</code>. USD/JPY prices to <code>0.01</code>, and defaulting is how a JPY-quoted variance comes to read a hundred times too small and pass every threshold there is &mdash; on 135 of the 500 trades in this estate.</li>
+      <li><strong><code>COMPARE_AT=latest</code></strong> on <code>TRD-W12-0002</code>, to watch a real break disappear.</li>
+      <li><strong><code>NO_ALIGN_CLOCKS=1</code></strong> on <code>TRD-W12-0004</code>. The genuine break becomes <code>not-evaluable</code>, because without the correction the two instants differ by 47 seconds &mdash; below what the series can resolve.</li>
+      <li><strong>The &lambda;<sub>c</sub> row in <code>ccf_config.yaml</code></strong>, set to the 1-hour production reference, to watch <code>F</code> stop discriminating between two real trades.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">Honest limits</p>
+    <h2>What this example is not</h2>
+    <ul class="plain">
+      <li><strong>No settlement, netting, ISO 20022 or CLS-cutoff leg.</strong> The article's schema names a <code>SettlementInstruction</code> entity and <code>settlesVia</code> / <code>netsWith</code> relationships. Measured, both predicates are <strong>absent</strong> from this estate's vocabulary &mdash; not present with a count of zero. The payload reports the leg <code>absent</code>, because a predicate nothing asserts is not a predicate asserting nothing.</li>
+      <li><strong>No per-trade Part 43 record.</strong> CFTC Part 43 exists here as a <em>distribution profile</em> &mdash; 44 rows summarising 30,501 real DTCC observations. The trades are patterned on it. It is provenance and calibration, never an evidence leg.</li>
+      <li><strong>Only two break classes, where the article specifies four.</strong> The estate labels <code>timing</code> and <code>genuine</code>. <code>amendment-lag</code> and <code>revaluation-basis</code> have no labels, and the product does not invent the two it cannot evidence.</li>
+      <li><strong>The product over-reports <code>genuine</code>, and it was not tuned.</strong> Of 60 designated breaks, 14 computed <code>timing</code> and <strong>all 14</strong> are designated timing &mdash; no false timing. But 37 computed <code>genuine</code> against 20 designated. The tick series and the system values were engineered by independent generators, so revaluation cannot reproduce a designed move over a long interval: the disagreement grows from ~2 pips at 400&thinsp;s to 13.73 pips at 10,849&thinsp;s. <code>break_record</code> is a designated sample and not the truth, so the evidence stands and the designation is carried <em>beside</em> the computed verdict rather than a cutoff being tuned until they agreed.</li>
+      <li><strong>No three-way disagreement anywhere.</strong> Across all 500 trades at 0.01 pip: 440 all-agree, 60 exactly-two-agree, <strong>0 three-way</strong>. In every break the two agreeing systems match to the last digit. That limb of <code>FXR-G08</code> is recorded <code>not-required</code>, and the <em>absence is asserted</em> by the executing test rather than assumed.</li>
+      <li><strong>Notionals are banded, never exact.</strong> Part 43 caps large notionals for anonymity. Every variance this product reports is in pips &mdash; a property of the rate and not of the size &mdash; and nothing reconstructs a number from a band.</li>
+    </ul>
+    <p class="note"><strong>Illustrative calibration.</strong> This example runs against a point-in-time demonstration estate rather than continuously refreshed production data. Freshness half-lives and related thresholds are calibrated to make the governed behavior observable in that snapshot. They demonstrate how the SDK applies these controls and should not be interpreted as recommended production coverage-policy thresholds.</p>
+  </div>
+</section>
+
+<footer>
+  <p><code>examples/cp-12-fx-post-trade-reconciliation</code> &middot; CCF SDK</p>
+</footer>
+
+</div>
