@@ -305,7 +305,7 @@ because a crossed pairing gives start 474431 > end 400894
 **The correct mechanism is to follow `ex:evidencedBy` to a named passage** and
 read that passage's own offsets and sha256 from MongoDB. Measured: **43 of 43
 match, zero mismatches.** **Binding:** the citation unit is the **passage**, never
-the anchor triple-set; `CXR-G07`, `CXR-G16`.
+the anchor triple-set; `CXR-G07`, `CXR-G19`.
 
 **TRAP 2 — EVERY `DefinedTerm` IS A POINT ANCHOR, SO THE CHAIN'S LAST HOP CAN
 NEVER BE EVIDENCED.** Measured: `ex:endOffset` is present on **0 of 158**
@@ -319,7 +319,7 @@ rules out truncation.
 cannot check a citation — you cannot extract the quoted text from it.
 **Binding:** a depth-3 chain terminates in a node that is *located* but not
 *quotable*, and the product reports that as **Context Debt** rather than
-emitting a citation it cannot check (`CXR-G08`, `CXR-G17`). `ex:declaredAt`,
+emitting a citation it cannot check (`CXR-G08`, `CXR-G20`). `ex:declaredAt`,
 the proposed repair, is measured at **0 assertions** and is not available.
 
 **TRAP 3 — THE DEFINITION CHAIN DOES NOT HANG OFF `ex:Covenant`.** The obvious,
@@ -334,7 +334,7 @@ seed on COVSRC-* (37 UNTYPED):     depth 1 -> 26     depth 3 -> 26
 Fluree runs without reasoning, so an entity is reachable only by the type it was
 given — and these were given none. **Binding:** the product seeds on the evidence
 nodes and **declares** that it does, rather than seeding on the type whose name
-matches the question (`CXR-G12`, `CXR-G18`).
+matches the question (`CXR-G12`, `CXR-G21`).
 
 **TRAP 4 — `governs_from` IS THE AXIS AND THE FILING DATE IS NOT.** 7 borrowers
 carry both a base and an amendment, but **only 4 of the 7 have a `governs_from`
@@ -474,15 +474,18 @@ and not a silent omission.
 | `CXR-G04` | `D_c` above tolerance refuses with the debt block | ungated debt |
 | `CXR-G05` | the four §6.3 axes are `ProductRequest` fields, absent from `parameters` | request identity demoted |
 | `CXR-G06` | the payload carries no second copy of `D_c`, the content address or the policy versions | two copies of one figure |
-| `CXR-G07` | **every emitted citation re-hashes to its recorded `sha256`** | an unchecked citation |
+| `CXR-G07` | **the citation unit is the named passage reached through `ex:evidencedBy`.** Every emitted citation is resolved by following `ex:evidencedBy` to a passage IRI, reading *that passage's* own `start_offset`, `end_offset` and `sha256` from MongoDB, and re-hashing the span — and it re-hashes to the recorded `sha256` or it is not emitted. **The anchor predicates on the evidence node are never the citation** | an unchecked citation, and a citation assembled from the wrong unit |
 | `CXR-G08` | a chain node that is located but not quotable — a point anchor, or a passage with no `sha256` — emits **no citation** and is reported as Context Debt with its reason | a citation the text does not support |
-| `CXR-G09` | the permitted-document set bounds the retrieval **before** ranking, and two principals with different entitlements receive different content addresses | TRAP 5 — post-filtering |
+| `CXR-G09` | **Policy-before-Similarity holds on BOTH limbs.** (a) the policy operator precedes the similarity operator in the resolved plan order, asserted on `operators_invoked`; **and** (b) the permitted-document set bounds the **MongoDB** retrieval before any ranking runs — the document filter is an argument to the query, never a predicate applied to its results. Two principals with different entitlements receive different content addresses. **Post-filtering unauthorized hits is prohibited**, not merely discouraged | TRAP 5 — post-filtering, on either limb |
 | `CXR-G10` | a principal with no entitlement row for the requested `corpus_scope` is **refused**, never silently narrowed | a widened scope answered as a narrow one |
 | `CXR-G11` | the governing text is selected by `governs_from` at `as_of`, never by `filed_date` | the filing-date gap |
 | `CXR-G12` | the payload **declares** which node set the traversal seeded on | TRAP 3 — a silent seed |
 | `CXR-G13` | an `as_of` before an amendment's `governs_from` serves the base text, asserted on one of the 4 borrowers whose dates separate | TRAP 4 |
 | `CXR-G14` | an unknown covenant source refuses distinctly from a source with no definition chain | request error vs world fact |
 | `CXR-G15` | no passage text is served for a document outside the permitted set, at any depth | allowlist containment |
+| `CXR-G16` | **`ex:declaredAt` is absent and is not invented.** The predicate is measured at **0 assertions**; no code path reads it, writes it, or synthesizes an end offset to stand in for it. A point anchor stays a point anchor | a repair adopted from a proposal rather than from the estate |
+| `CXR-G17` | **`ex:governedBy` is absent and is not invented.** The predicate is measured at **0 assertions** though the article's §B schema names it; the payload asserts no governing edge and substitutes no proxy for one | a schema term honored by fabrication |
+| `CXR-G18` | **an absent embedding is `not-evaluable`, never "no relevant result".** 18 of the 40 memoranda carry no embedding and cannot be ranked at all; the payload reports them as unreachable-by-similarity with that reason, and the count of ranked candidates is stated beside the count of eligible documents | silent unreachability read as an empty result |
 
 ### F.1a THE FOUR TRAP GATES
 
@@ -494,10 +497,10 @@ the rule `CP-SPEC-012` §F.1a established and this rung inherits:
 
 | id | trap | the gate, and where the two mechanisms DIVERGE |
 |---|---|---|
-| `CXR-G16` | **TRAP 1 — the unpaired anchor** | the product emits **43** checked citations, all matching; a predicate-join implementation emits **79** of which **36** fail their own hash check. Asserted on the 6 double-anchored nodes, where the two mechanisms differ by construction — never on a single-anchored node, where both agree |
-| `CXR-G17` | **TRAP 2 — the point anchor** | asserted on a `DefinedTerm`, where `endOffset` is absent on **all 158**. The correct product emits Context Debt; an implementation that treated `startOffset` as a span start emits a citation whose span is undefined. Not asserted on a `CovenantDefinition`, where 48 of 49 carry both offsets and the two coincide |
-| `CXR-G18` | **TRAP 3 — the plausible seed** | the product reaches depth 3 on **26** sources; seeding on `ex:Covenant` reaches it on **1**. The gate runs both traversals and asserts the counts differ, so a deployment that quietly changed the seed is caught by the number rather than by the prose |
-| `CXR-G19` | **TRAP 5 — post-filter similarity** | asserted across two principals whose permitted sets genuinely differ — `relationship-manager` (no memoranda at all) against `control-room` (all 40). The gate asserts the retrieval never touched an impermissible document, and that the two content addresses differ |
+| `CXR-G19` | **TRAP 1 — the unpaired anchor** | **the naive independent join of `startOffset`, `endOffset`, `passageSha256` and `evidencedBy` is PROHIBITED and is this gate's sabotage.** The product emits **43** checked citations, all matching; the predicate-join implementation emits **79** candidates of which **43** are valid and **36** are false — and the gate asserts all four numbers plus the **empty-string case**: a crossed pairing gives `start 474431 > end 400894`, an empty span, and the hash `e3b0c44298fc…`, which is `sha256("")`. Asserted on the 6 double-anchored nodes, where the two mechanisms differ by construction — never on a single-anchored node, where both agree |
+| `CXR-G20` | **TRAP 2 — the point anchor** | asserted on a `DefinedTerm`, where `endOffset` is absent on **all 158**. The correct product emits Context Debt; an implementation that treated `startOffset` as a span start emits a citation whose span is undefined. Not asserted on a `CovenantDefinition`, where 48 of 49 carry both offsets and the two coincide |
+| `CXR-G21` | **TRAP 3 — the plausible seed** | the product reaches depth 3 on **26** sources; seeding on `ex:Covenant` reaches it on **1**. The gate runs both traversals and asserts the counts differ, so a deployment that quietly changed the seed is caught by the number rather than by the prose |
+| `CXR-G22` | **TRAP 5 — post-filter similarity** | asserted across two principals whose permitted sets genuinely differ — `relationship-manager` (no memoranda at all) against `control-room` (all 40). The gate asserts the retrieval never touched an impermissible document, and that the two content addresses differ |
 
 **Every one of these is a Gate-2 sabotage target**, and the sabotage for each is
 the defective mechanism the trap names — reintroduced, and observed producing the
@@ -505,7 +508,7 @@ wrong answer on the divergence case the gate selects.
 
 ### F.2 Acceptance
 
-**19 gates, `CXR-G01`–`CXR-G19`.** Every figure in this document is measured
+**22 gates, `CXR-G01`–`CXR-G22`.** `CXR-G16`, `CXR-G17` and `CXR-G18` were added at Dave's Gate-1 GO, which required ten points to be explicit in the table rather than only in the prose; `CXR-G07`, `CXR-G09` and `CXR-G19` were tightened in the same pass. Every figure in this document is measured
 against the live estate on 2026-09-13; no SDK gap was found, and none is
 authorized. No proxy was substituted for an absent leg: `ex:governedBy` is
 reported absent, `ex:declaredAt` is reported unimplemented, and the definition
