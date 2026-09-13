@@ -254,8 +254,16 @@ to key to.
 
 ## `CP13-F-15` — the chain has no temporal basis, so `supersede-only` is the honest behavior
 
-**FIXED-gate-2. This is not a calibration choice, and it must not be read as
-one.**
+**FIXED-gate-2.**
+
+| | |
+|---|---|
+| **Reference expectation** | the article's §E declares **~365 days** for definition-chain edges |
+| **Actual estate** | **no usable temporal instant** — not one temporal predicate on any class in the chain |
+| **Shipped behavior** | **`supersede-only`**, retained relevance 1 |
+| **What this is not** | **a calibration choice.** No threshold was tuned, no production value stood in for, nothing to disclose under CLAUDE.md §9 |
+
+**It must not be read as a calibration.**
 
 **There is no instant to decay against.** Measured 2026-09-13, the full
 predicate set of each class in the chain is:

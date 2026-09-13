@@ -147,23 +147,27 @@ declaration:
       date: '2026-09-13'
       commit: 354bc583
   - id: CXR-G09
-    statement: 'Policy-before-Similarity on BOTH limbs: policy precedes similarity in the resolved plan order, AND
-      the permitted set bounds the MongoDB retrieval before ranking'
+    statement: 'Policy-before-Similarity on BOTH limbs, and they carry DIFFERENT states. LIMB A is `unavailable`:
+      `ccf.operators.base.CATEGORY_ORDER` fixes `policy, similarity, temporal, traversal` and `ccf.operators.planner.plan_operators`
+      sorts every plan by `CATEGORY_ORDER.index(operator.category)`, so similarity-before-policy cannot be constructed
+      from this deployment (whitepaper §7.4, `INV-CH7-26`, `INV-CH7-28`). LIMB B is load-bearing: the permitted-document
+      set must be passed INTO the MongoDB query before similarity runs, because the SDK never issues that query
+      and cannot enforce it.'
     spec_clause:
       document: spec/CP-SPEC-013_Covenant_Cross_Reference.md
       clause: F.1
     test: tests/examples/test_cp_13_output.py::test_cxr_g09_the_envelope_bounds_the_retrieval_before_ranking
-    sabotage: applied the classification bound AFTER the query instead of as an argument to it
+    sabotage: limb B — applied the classification bound AFTER the query instead of as an argument to it
     sabotage_state: passed
     observed_red:
-      result: '**RED under sabotage** on limb (b) — the classification bound applied AFTER the query rather than
-        as an argument to it. LIMB (a) IS `unavailable`: the planner orders operators by category, so declaring
-        `traversal` before `policy` in `required_operator_keys` still produces a policy-first plan and the bad state
-        is unreachable from this deployment. THE FIRST VERSION OF LIMB (a) WAS ALSO WRONG and is recorded at `CP13-F-16`:
-        it read execution order off `ProductLineage.operators_invoked`, which is a `frozenset` — the operator SET
-        the producer declares it ran — so it passed by luck alone and failed the moment another module shared the
-        interpreter. It now asserts `DecisionReplayRecord.content_generation_path.operator_plan` and the execution''s
-        own steps.'
+      result: '**RED under sabotage on LIMB B.** LIMB A is `unavailable` and is evidenced by the named SDK guard
+        plus the successful path: declaring `traversal` before `policy` in `required_operator_keys` still yields
+        a policy-first plan, measured. The gate asserts `CATEGORY_ORDER` and the ordered plan on the replay record;
+        it SORTS NOTHING and adds no SDK machinery to make limb A testable. THE FIRST VERSION OF LIMB A WAS WRONG
+        and is recorded at `CP13-F-16`: it read execution order off `ProductLineage.operators_invoked`, a `frozenset`
+        that cannot prove order, so it passed by INCIDENTAL ORDERING and later failed under another ordering when
+        a sibling module shared the interpreter. Ordered replay/plan data is the correct source and is what it now
+        reads.'
       date: '2026-09-13'
       commit: 354bc583
   - id: CXR-G10

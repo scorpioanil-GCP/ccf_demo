@@ -416,21 +416,45 @@ def test_cxr_g09_the_envelope_bounds_the_retrieval_before_ranking(
 ) -> None:
     """`CXR-G09` — Policy-before-Similarity on BOTH limbs. §F.1.
 
-    (a) the policy operator precedes the similarity operator in the resolved
-    plan order, asserted on `operators_invoked`; (b) the permitted-document set
-    bounds the MongoDB retrieval before any ranking runs.
+    **LIMB A IS `unavailable`, and the guard has a name.**
+    `ccf.operators.base.CATEGORY_ORDER` fixes the sequence
+    `policy, similarity, temporal, traversal`, and
+    `ccf.operators.planner.plan_operators` sorts every resolved plan by
+    `CATEGORY_ORDER.index(operator.category)`. Similarity-before-policy cannot
+    be CONSTRUCTED from this deployment: declaring `traversal` before `policy`
+    in `required_operator_keys` still yields a policy-first plan. The constant's
+    own docstring states the reason this gate exists —
+
+        Policy first because Similarity must rank only over the
+        principal-permissible subgraph: admissibility is settled up front, so
+        inadmissible content is never retrieved and no post-retrieval filter is
+        required (INV-CH7-26).
+
+    — so limb A is evidenced by that guard plus the successful path, never by a
+    local negative control. **Nothing here sorts `operators_invoked` and no SDK
+    machinery is added to make it testable**; the SDK already guarantees it.
+
+    **LIMB B IS LOAD-BEARING AND IS WHERE THE SABOTAGE LANDS.** The
+    permitted-document set must be passed INTO the MongoDB query before
+    similarity runs, because the SDK never issues that query and cannot enforce
+    it.
     """
-    # LIMB A — ORDER, off the ordered plan and NOT off the lineage.
-    #
-    # `ProductLineage.operators_invoked` is a `frozenset[str]` — "the operator
-    # SET the producer declares it ran". It carries no order at all, and
-    # iterating it yields hash order, which for strings varies per process.
-    # The first version of this gate read execution order off it and passed by
-    # luck; it failed the moment another module shared the interpreter
-    # (`CP13-F-16`).
-    #
-    # The ordered plan is on the replay record, built from the execution's own
-    # steps — which is the thing that actually records what ran and when.
+    # LIMB A — `unavailable`. THE SDK'S OWN GUARD, named and asserted.
+    from ccf.operators.base import CATEGORY_ORDER
+
+    assert CATEGORY_ORDER.index("policy") < CATEGORY_ORDER.index("similarity"), (
+        "`ccf.operators.base.CATEGORY_ORDER` no longer places policy before"
+        " similarity; Policy-before-Similarity has stopped being an SDK"
+        " invariant and limb A becomes this deployment's problem"
+    )
+
+    # And the ORDERED plan agrees — read off the replay record, NOT off the
+    # lineage. `ProductLineage.operators_invoked` is a `frozenset[str]` — "the
+    # operator SET the producer declares it ran". It carries no order at all,
+    # and iterating it yields hash order, which for strings varies per process.
+    # The first version of this gate read execution order off it, passed by
+    # incidental ordering, and failed the moment another module shared the
+    # interpreter (`CP13-F-16`). It is NOT sorted here to paper over that.
     plan = list(served.record.content_generation_path.operator_plan)
     assert plan, "the replay record carries no operator plan"
     assert isinstance(
