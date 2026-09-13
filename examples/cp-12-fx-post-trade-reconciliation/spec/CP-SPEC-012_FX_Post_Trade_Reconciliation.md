@@ -147,6 +147,7 @@ The four §6.3 axes are `ProductRequest` **fields** — `subject`, `intent`,
 | `intent` | **field** | selects the materiality threshold | `break-investigation` |
 | `asked_at` | **field** | **the reconstruction point** | — |
 | `align_clocks` | bool | **the reconciliation semantics** | `true` |
+| `compare_at` | enum | **the comparison instant — `amendment-0` or `latest`** | `amendment-0` |
 | `materiality_pips` | decimal | overrides the intent's threshold | — |
 | `debt_tolerance` | decimal | the caller's ceiling on `D_c` | — |
 
@@ -155,6 +156,28 @@ observation instant is corrected by that system's recorded clock offset before
 anything is compared. With it `false`, recorded instants are used as they stand —
 which is what conventional reconciliation does, and which is in the surface
 precisely so both can be run and the difference measured.
+
+### B.2a THE COMPARISON INSTANT IS AN EXPLICIT AXIS
+
+**`compare_at` is a request parameter and both states are preserved** (Dave,
+2026-09-12). The product does not choose for the caller and **never silently
+replaces the requested state with latest**.
+
+| value | what it compares | why it exists |
+|---|---|---|
+| `amendment-0` | each system's first observation of the trade | **the state in which a break actually occurred.** The hidden-versus-remaining analysis is evaluated here, and only here |
+| `latest` | each system's most recent observation at or before `as_of` | what a conventional reconciliation sees |
+
+**The hidden-break analysis is evaluated at `amendment-0`.** Measured: 13 of the
+60 designed breaks are material at amendment 0 and immaterial at latest, because
+the amendment reconciled the two systems. Asking the question at `latest` cannot
+find them — not because they are unimportant but because that state has forgotten
+them.
+
+A request that supplies neither `compare_at` nor an explicit acceptance of the
+default gets `amendment-0`, because the product's subject is *whether a break
+occurred*, and the alternative is the reading §A.2 exists to refuse. The value in
+force is carried in the payload (`FXR-G23`).
 
 ### B.3 THE UNIT OF ANALYSIS IS THE `(trade, as_of)` RECONCILIATION — NOT THE SYSTEM PAIR
 
@@ -180,9 +203,15 @@ A middle office told it has 120 breaks when it has 60 staffs for twice the work.
 *destroyed* a signal; here, pairwise expansion *manufactures* one. Both are the
 unit of analysis chosen before the phenomenon was understood.
 
-**So the product reports one verdict per trade**, naming the divergent system and
-carrying the per-system values behind it. Pairwise variance is available beneath
-that verdict and **never as the countable unit** (`FXR-G07`, `FXR-G08`).
+**THE UNIT OF ANALYSIS IS THE BREAK TRADE. 60 breaks means 60 product
+observations.** (Dave, 2026-09-12.) One verdict per trade, naming the divergent
+system and carrying the per-system values behind it.
+
+**Pairwise expansion to 120 comparisons is PROHIBITED.** Not discouraged, not
+defaulted away from: the payload exposes no countable list of system-pair breaks,
+and a consumer cannot arrive at 120 by counting anything the product serves.
+Pairwise variance exists beneath a verdict as an explanation of it, never beside
+it as a peer (`FXR-G07`, `FXR-G08`, `FXR-G22`).
 
 ### B.4 Temporal semantics, enumerated
 
@@ -196,11 +225,23 @@ that verdict and **never as the countable unit** (`FXR-G07`, `FXR-G08`).
 | **Reference-rate observation** | `fx_intraday_tick.obs_ts` (5-minute), `fx_reference_rate.obs_date` (daily) | revaluation |
 | **`as_of`** | `ProductRequest.asked_at`, from the caller | bounds every read; nothing later is knowable |
 
-**The clock offset is a fourth kind of time and it has no analogue in rungs 8–11.**
-It is not a valid-time, not an observation time and not a supersession: it is a
-**correction applied to a recorded instant to recover the true one.** The product
-carries the recorded instant, the offset and the corrected instant **separately in
-the payload**, so a consumer audits the alignment instead of trusting it
+**THE CLOCK OFFSET IS PRODUCT CONTEXT, NOT A NEW SDK TEMPORAL AXIS** (Dave,
+2026-09-12, and the distinction is load-bearing). It is not a valid-time, not an
+observation time and not a supersession. It is a **correction this product applies
+to a recorded instant in order to compare two systems** — domain knowledge about
+three named systems, belonging to the reconciliation and to nothing beneath it.
+
+**The corrected instant is therefore NEVER fed into the fabric's own temporal
+machinery.** Specifically it does not reach `valid_from`, `observed_at`,
+`_boundary_instant` or any Context Debt term, unless a later specification
+explicitly requires it. The λ_c table ages an observation against the instant the
+**source recorded**, exactly as `D-IMPL-331` declares, and a corrected instant
+entering that path would make the SDK's freshness figure a function of this
+product's own alignment model (`FXR-G24`).
+
+The three are carried **separately in the payload** — recorded instant, offset,
+corrected instant — so a consumer audits the alignment instead of trusting it,
+and so the correction is visibly the product's rather than the fabric's
 (`FXR-G05`).
 
 ### B.5 Context Debt and freshness
@@ -209,6 +250,22 @@ the payload**, so a consumer audits the alignment instead of trusting it
 |---|---|---|---|---|
 | `fxr_observation` | **1 hour** | `valid-from` | **`leading-edge`** | **`system_name`** |
 | `fxr_trade` | **no decay** (`supersede-only`) | — | — | — |
+
+### B.5a The pip-scale table is a versioned, asserted artifact
+
+**Not a constant inside projection logic** (Dave, 2026-09-12). The scale at which
+a currency pair quotes is a market convention this product **asserts**, not a fact
+it derives, so it lives in `artifacts/pip-scale.yaml` with its own semver and
+provenance — the shape `CP11-F-09`'s SIC mapping arrived at for the same reason.
+
+| pair | pip |
+|---|---|
+| USD/JPY | **0.01** |
+| AUD/USD · EUR/GBP · EUR/USD · GBP/USD · USD/CAD | **0.0001** |
+
+A pair the artifact does not name is **not evaluable**, never defaulted to
+`0.0001`: defaulting is how a JPY-quoted pair comes to report a variance a
+hundred times too small and passes every threshold (`FXR-G12`, `FXR-G26`).
 
 **`freshness_over: leading-edge` keyed on `system_name`, and the key is a
 first-class claim attribute.** Each system's observations of one trade form a
@@ -355,7 +412,11 @@ own `required` tuple through, as rungs 9–11 do.
 6. **Refuse to decompose where the interval is shorter than the tick spacing, or
    where the nearest tick is stale** — report `not-evaluable` with the reason,
    never a zero (TRAP 2, TRAP 4).
-7. **Classify** the verdict: `timing`, `genuine` or `not-evaluable`.
+7. **Classify** the verdict. **The vocabulary is exactly `timing`, `genuine`,
+   `not-evaluable` and is CLOSED** (Dave, 2026-09-12). The article's
+   `amendment-lag` and `revaluation-basis` are not produced, because this estate
+   carries no labels for them and a class the product cannot evidence is a label
+   it would be inventing (`FXR-G21`).
 
 **Step 6 is the honest half of step 5.** A decomposition that always produces a
 number produces a wrong one 22 times in 60.
@@ -412,7 +473,7 @@ explicit `no-break` verdict** — not an empty payload and not an omission.
 
 | id | finding | status |
 |---|---|---|
-| `CP12-F-01` | **No settlement-instruction, netting, ISO 20022 or CLS-cutoff data exists.** The article's schema names a `SettlementInstruction` entity and `settlesVia` / `netsWith` relationships; measured, both predicates have **zero** edges and no relational table matches. The product is specified without a settlement leg and does not claim one. | ESTATE-LIMITATION |
+| `CP12-F-01` | **No settlement-instruction, netting, ISO 20022 or CLS-cutoff data exists.** The article's schema names a `SettlementInstruction` entity and `settlesVia` / `netsWith` relationships; **measured, both predicates are ABSENT from this estate's vocabulary — not present with a count of zero** (Dave, 2026-09-12). The distinction is the one this project draws everywhere else: a predicate nothing asserts is not a predicate asserting nothing. No relational table matches either. The product is specified without a settlement leg, does not claim one, and reports the leg as absent rather than as empty (`FXR-G18`). | ESTATE-LIMITATION |
 | `CP12-F-02` | **CFTC Part 43 exists as a DISTRIBUTION PROFILE, not as records.** `part43_profile` holds 44 rows of `(dimension, key, observed_n)` summarising **30,501 real DTCC observations** retrieved 2026-08-22. The trades are *patterned on* it. There is no per-trade public record to join to, so Part 43 is provenance and calibration, never an `E` leg. | ESTATE-LIMITATION |
 | `CP12-F-03` | **The estate labels two break classes; the article specifies four.** `break_record.designed_class` holds only `timing` and `genuine`. The article's `amendment-lag` and `revaluation-basis` have no labels. The product classifies into `timing`, `genuine` and `not-evaluable` and **does not invent the two it cannot evidence**. | ESTATE-LIMITATION |
 | `CP12-F-04` | **The tick series cannot adjudicate sub-five-minute intervals.** 5-minute spacing against observation gaps frequently below it. Reporting a zero timing component for such an interval misclassifies 22 of 60 breaks. Handled by refusing to decompose rather than by interpolating (TRAP 2). | ESTATE-LIMITATION |
@@ -446,14 +507,51 @@ explicit `no-break` verdict** — not an empty payload and not an omission.
 | `FXR-G15` | a trade whose systems all agree serves with an explicit `no-break` verdict | absence read as an empty answer |
 | `FXR-G16` | the four §6.3 axes are `ProductRequest` fields, absent from `parameters` | request identity demoted |
 | `FXR-G17` | no notional figure appears anywhere in the payload; the band is carried as a band | `CP12-F-08` — a reconstructed notional |
-| `FXR-G18` | the payload claims no settlement instruction, netting or ISO 20022 content | `CP12-F-01` — a leg the estate does not have |
+| `FXR-G18` | the payload claims no settlement, netting or ISO 20022 content, and where it names the leg at all it names it **absent** rather than empty or zero | `CP12-F-01` — an absent leg reported as a measured nothing |
 | `FXR-G19` | the payload carries no second copy of `D_c`, the content address or the policy versions | two copies of one figure |
 | `FXR-G20` | an unknown trade refuses distinctly from a trade with no break | request error vs world fact |
 | `FXR-G21` | the classification vocabulary is exactly `timing`, `genuine`, `not-evaluable` — the two classes the article names but the estate cannot evidence are absent | `CP12-F-03` — an invented label |
 
+### F.1a THE SIX TRAP GATES
+
+**Each measured trap is its own gate and its own Gate-2 sabotage target** (Dave,
+2026-09-12). They are listed apart from the behavioral gates above because they
+share a demand the others do not:
+
+> **A trap gate must DISTINGUISH the wrong mechanism from the right one.** Two
+> answers coinciding is not evidence. Where the correct computation and the
+> defective one would agree on the population at hand, the gate must construct or
+> select the case where they **diverge**, and assert there.
+
+That rule is not new here. cp-10's `RSM-G23` and cp-11's `EWS-G27` were both
+**green under their own sabotage** for exactly this reason — each asserted only
+where the two mechanisms happened to produce the same value. Naming it in the
+specification makes it a design obligation rather than a lesson relearned.
+
+| id | trap | the gate, and where the two mechanisms DIVERGE |
+|---|---|---|
+| `FXR-G22` | **TRAP 1 — pairwise expansion** | the product reports **60** observations over the 60 break trades; a pairwise implementation reports **120**. The gate asserts the count AND that no payload field enumerates system-pair breaks countably. Divergence is exact and systematic: `2.00×`, measured |
+| `FXR-G23` | **TRAP 3 / TRAP 6 — latest-state comparison** | asserted on the **13 trades that are material at amendment 0 and immaterial at latest**. At `compare_at=amendment-0` the product reports a break; a latest-state implementation reports none. The gate names those trades and requires both answers, so the two mechanisms cannot be confused for one. **It must NOT be asserted on a trade with no amendment**, where both readings agree and the gate would prove nothing |
+| `FXR-G24` | **TRAP 6's second half — the corrected instant leaking into the fabric** | the λ_c path ages an observation against the **recorded** instant. The gate asserts the corrected instant reaches no `valid_from`, no `observed_at`, no invalidation boundary and no Context Debt term — and asserts it where the two instants **differ**, i.e. on a `risk` or `settlement` observation, never on `trading`, whose offset is `0` and where the two are identical |
+| `FXR-G25` | **TRAP 2 — residual classification on 5-minute ticks** | asserted on a break whose corrected observation gap is **shorter than the tick spacing**. The correct product returns `not-evaluable`; a residual-magnitude implementation returns a confident `timing` or `genuine`. Measured: 22 of 60 differ between the two, so the divergence population is large and nameable |
+| `FXR-G26` | **TRAP 5 — missing pip normalisation** | asserted on a **USD/JPY** break, where the pip is `0.01`. Normalised it reports ~6 pips; unnormalised it reports the raw rate difference and reads 100× smaller, passing every threshold. The gate must not be asserted on a `0.0001` pair, where normalised and unnormalised differ by a factor the thresholds may not separate |
+| `FXR-G27` | **TRAP 4 — the stale weekend tick** | asserted on the one break whose nearest preceding tick is **20.0 hours** old. The correct product returns `not-evaluable` and carries the staleness; a naive implementation returns a residual of **−72.49 pips** on a raw variance of 7.99. The two answers are not close, which is what makes this gate cheap and decisive |
+
+**Every one of these is a Gate-2 sabotage target**, and the sabotage for each is
+the defective mechanism the trap names — reintroduced, and observed producing the
+wrong answer on the divergence case the gate selects.
+
 ### F.2 Acceptance
 
-Gate 1 is Dave's ruling on §B.3 first — **the unit of analysis** — and the rest
-second. Every figure in this document is measured; no SDK gap was found; the two
-failed measurement approaches are recorded as TRAP 2 and TRAP 6 rather than
-corrected away.
+**Gate 1 is GO** (Dave, 2026-09-12), with the pre-Gate-2 amendment recorded
+above: the break trade as the explicit unit at 60 observations with pairwise
+expansion prohibited; the comparison instant as an explicit axis preserving both
+states; the pip table as a versioned asserted artifact; the clock offset held as
+product context and kept out of the fabric's temporal machinery; the closed
+classification vocabulary; `settlesVia` and `netsWith` reported **absent** rather
+than zero; and all six measured traps promoted to gates that must distinguish the
+wrong mechanism from the right one.
+
+**27 gates, `FXR-G01`–`FXR-G27`.** Every figure in this document is measured; no
+SDK gap was found, and none is authorized; the two failed measurement approaches
+are recorded as TRAP 2 and TRAP 6 rather than corrected away.
