@@ -1,0 +1,63 @@
+# yaml-language-server: $schema=../../docs/schemas/ccf.declared-artifact.json
+#
+# WHERE THINGS LIVE — as environment-variable NAMES and nothing else.
+# No host, no port, no credential, in this file or anywhere in the tree.
+
+semver: "1.0.0"
+class_id: cp-13.backend-profiles
+
+declaration:
+  profiles:
+    sqlite:
+      settings:
+        database_path:
+          prefix: cp-13-crossref
+          suffix: .sqlite
+
+  sources:
+    - name: relational
+      capability_class: relational
+      holds: >-
+        the corpus-scope entitlement rules — six rows over three principals,
+        and the only place the policy envelope is declared.
+      connection:
+        from_env: CCF_CP_13_POSTGRES_DSN
+        note: >-
+          export CCF_CP_13_POSTGRES_DSN with a READ-ONLY libpq connection
+          string. Nothing this example runs writes to the store it reads.
+      namespace:
+        from_env: CCF_CP_13_POSTGRES_SCHEMA
+        note: >-
+          the schema holding the v2 estate. NOT the value in `ccf_dataprep`'s
+          `.env`, which names v1.
+
+    - name: graph
+      capability_class: bitemporal-ledger
+      holds: >-
+        the typed relationships and the passage anchors — 44 `ex:PassageAnchor`
+        nodes, the `definedBy` / `crossReferences` / `measuredBy` chain, and
+        `ex:declaredAt` marking 170 point anchors. IT CARRIES NO TEXT.
+      connection:
+        from_env: CCF_CP_13_FLUREE_URL
+        note: >-
+          export CCF_CP_13_FLUREE_URL with the base URL of a READ-ONLY Fluree
+          instance. The example issues `POST /v1/fluree/query` only.
+      namespace:
+        from_env: CCF_CP_13_FLUREE_LEDGER
+        note: the ledger name to read — `fibo-v2`, a separate ledger from v1.
+
+    - name: document
+      capability_class: document-passage
+      holds: >-
+        THE TEXT AND THE SPANS. 249 documents, 37,865 passages with character
+        offsets and sha256, 40 internal memoranda with classification and
+        residency tags. Every citation this product emits is checked against
+        this store and nowhere else.
+      connection:
+        from_env: CCF_CP_13_MONGO_URI
+        note: >-
+          export CCF_CP_13_MONGO_URI with a READ-ONLY MongoDB URI. This store
+          is `ccf_dataprep`'s and is not ours to write.
+      namespace:
+        from_env: CCF_CP_13_MONGO_DB
+        note: the database to read — `fibo_v2`, beside v1's `fibo`.

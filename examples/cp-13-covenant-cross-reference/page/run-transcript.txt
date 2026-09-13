@@ -1,0 +1,189 @@
+$ make -s example-cp-13 
+asked        covenant-cross-reference-demo · compliance-test · as of 2026-09-13T00:00:00+00:00
+             principal=credit-officer  corpus_scope=filed  depth=3  sources=4
+
+SEEDED ON    ex:PassageAnchor   (4 sources, depth 3)
+             the type whose NAME matches the question reaches depth 3 once;
+             the type that carries the EVIDENCE reaches it 26 times
+
+ENVELOPE     credit-officer / filed
+  permitted classifications  ['public-filed']
+  permitted documents        160   (excluded for no classification: 49)
+  retrieval bound            before-ranking   filter={'classification': {'$in': ['public-filed']}}
+  candidates examined        0   <- equals the permitted, embedded population; a post-filter
+                                  would have scored the whole corpus
+  NOT EVALUABLE              0  (no-embedding)
+
+GOVERNING    by `governs_from`, never `filed_date`   in force at 2026-09-13: 36   not yet governing: 0
+
+CITATIONS    4 CHECKED over 21 chain nodes
+  not evidenced 17, and every one carries a reason:
+      span-unverifiable           4
+      point-anchor               13
+
+PER SOURCE
+
+  COVSRC-000095014226001951-eh260800571-ex1001-htm-LEVERAGE   leverage @ 4.5
+     d0 PassageAnchor          1 cited
+        CITED  60800571_ex1001.htm#p00098  [143675:145175]  checked=True
+           'the\nCollateral on a pari passu basis with the Obligations shall '
+     d1 CovenantDefinition     —
+        DEBT   span-unverifiable
+           the node names a real span and records no passage hash, and no indexed passage covers it; the text c
+     d1 MeasurementPeriod      —
+        DEBT   point-anchor
+           the node is declared a point anchor by `ex:declaredAt`; it names a position rather than a span, so t
+     d2 DefinedTerm            —
+        DEBT   point-anchor
+           the node is declared a point anchor by `ex:declaredAt`; it names a position rather than a span, so t
+     d2 DefinedTerm            —
+        DEBT   point-anchor
+           the node is declared a point anchor by `ex:declaredAt`; it names a position rather than a span, so t
+
+  COVSRC-000095014226001951-eh260800571-ex1001-htm-SECURED_LEVERAGE   secured_leverage @ 4.5
+     d0 PassageAnchor          1 cited
+        CITED  60800571_ex1001.htm#p00098  [143675:145175]  checked=True
+           'the\nCollateral on a pari passu basis with the Obligations shall '
+     d1 CovenantDefinition     —
+        DEBT   span-unverifiable
+           the node names a real span and records no passage hash, and no indexed passage covers it; the text c
+     d1 MeasurementPeriod      —
+        DEBT   point-anchor
+           the node is declared a point anchor by `ex:declaredAt`; it names a position rather than a span, so t
+     d2 DefinedTerm            —
+        DEBT   point-anchor
+           the node is declared a point anchor by `ex:declaredAt`; it names a position rather than a span, so t
+
+  COVSRC-000095017024117726-agys-ex10-1-htm-INTEREST_COVERAGE   interest_coverage @ 3.0
+     d0 PassageAnchor          1 cited
+        CITED  726:agys-ex10_1.htm#p00395  [369494:370994]  checked=True
+           'ution of assets or property in asset sale agreements, sale-lease'
+     d1 CovenantDefinition     —
+        DEBT   span-unverifiable
+           the node names a real span and records no passage hash, and no indexed passage covers it; the text c
+     d1 MeasurementPeriod      —
+        DEBT   point-anchor
+           the node is declared a point anchor by `ex:declaredAt`; it names a position rather than a span, so t
+     d2 DefinedTerm            —
+        DEBT   point-anchor
+           the node is declared a point anchor by `ex:declaredAt`; it names a position rather than a span, so t
+     d2 DefinedTerm            —
+        DEBT   point-anchor
+           the node is declared a point anchor by `ex:declaredAt`; it names a position rather than a span, so t
+     d2 DefinedTerm            —
+        DEBT   point-anchor
+           the node is declared a point anchor by `ex:declaredAt`; it names a position rather than a span, so t
+
+ABSENT LEGS
+  governedBy       absent   named as a relationship by this product's published schema and measured at 0 ass
+
+context debt D_c 0.80950000   signal forced_llm
+  F 1  C 0.1905  S 1.0000
+  NOTE: C is low BECAUSE most chain nodes cannot be evidenced.
+  That is the finding this product exists to surface, not a fault
+  in the assembly.
+content address  6f9e9e5ddce4e00086ffc725767e45c3e00979e909e9005fb0e4f1cb7e03691b
+expires_at       2026-09-20T00:00:00+00:00
+
+$ make -s example-cp-13 --principal control-room --corpus-scope filed-and-internal
+asked        covenant-cross-reference-demo · compliance-test · as of 2026-09-13T00:00:00+00:00
+             principal=control-room  corpus_scope=filed-and-internal  depth=3  sources=4
+
+SEEDED ON    ex:PassageAnchor   (4 sources, depth 3)
+             the type whose NAME matches the question reaches depth 3 once;
+             the type that carries the EVIDENCE reaches it 26 times
+
+ENVELOPE     control-room / filed-and-internal
+  permitted classifications  ['internal-confidential', 'internal-restricted', 'public-filed']
+  permitted documents        160   (excluded for no classification: 49)
+  retrieval bound            before-ranking   filter={'classification': {'$in': ['internal-confidential', 'internal-restricted', 'public-filed']}}
+  candidates examined        22   <- equals the permitted, embedded population; a post-filter
+                                  would have scored the whole corpus
+  NOT EVALUABLE              18  (no-embedding)
+       these documents are inside the permitted set and carry no embedding, so similarity cannot reach them at all. This is a limitation of the corpus, not a finding that nothing is relevant
+  hit   62%  MEMO-0020  internal-confidential  Annual review — Sabre Corp
+  hit   62%  MEMO-0010  internal-confidential  Annual review — XPO, Inc.
+  hit   60%  MEMO-0015  internal-confidential  Annual review — Thermon Group Holdings, Inc.
+
+GOVERNING    by `governs_from`, never `filed_date`   in force at 2026-09-13: 36   not yet governing: 0
+
+CITATIONS    4 CHECKED over 21 chain nodes
+  not evidenced 17, and every one carries a reason:
+      span-unverifiable           4
+      point-anchor               13
+
+PER SOURCE
+
+  COVSRC-000095014226001951-eh260800571-ex1001-htm-LEVERAGE   leverage @ 4.5
+     d0 PassageAnchor          1 cited
+        CITED  60800571_ex1001.htm#p00098  [143675:145175]  checked=True
+           'the\nCollateral on a pari passu basis with the Obligations shall '
+     d1 CovenantDefinition     —
+        DEBT   span-unverifiable
+           the node names a real span and records no passage hash, and no indexed passage covers it; the text c
+     d1 MeasurementPeriod      —
+        DEBT   point-anchor
+           the node is declared a point anchor by `ex:declaredAt`; it names a position rather than a span, so t
+     d2 DefinedTerm            —
+        DEBT   point-anchor
+           the node is declared a point anchor by `ex:declaredAt`; it names a position rather than a span, so t
+     d2 DefinedTerm            —
+        DEBT   point-anchor
+           the node is declared a point anchor by `ex:declaredAt`; it names a position rather than a span, so t
+
+  COVSRC-000095014226001951-eh260800571-ex1001-htm-SECURED_LEVERAGE   secured_leverage @ 4.5
+     d0 PassageAnchor          1 cited
+        CITED  60800571_ex1001.htm#p00098  [143675:145175]  checked=True
+           'the\nCollateral on a pari passu basis with the Obligations shall '
+     d1 CovenantDefinition     —
+        DEBT   span-unverifiable
+           the node names a real span and records no passage hash, and no indexed passage covers it; the text c
+     d1 MeasurementPeriod      —
+        DEBT   point-anchor
+           the node is declared a point anchor by `ex:declaredAt`; it names a position rather than a span, so t
+     d2 DefinedTerm            —
+        DEBT   point-anchor
+           the node is declared a point anchor by `ex:declaredAt`; it names a position rather than a span, so t
+
+  COVSRC-000095017024117726-agys-ex10-1-htm-INTEREST_COVERAGE   interest_coverage @ 3.0
+     d0 PassageAnchor          1 cited
+        CITED  726:agys-ex10_1.htm#p00395  [369494:370994]  checked=True
+           'ution of assets or property in asset sale agreements, sale-lease'
+     d1 CovenantDefinition     —
+        DEBT   span-unverifiable
+           the node names a real span and records no passage hash, and no indexed passage covers it; the text c
+     d1 MeasurementPeriod      —
+        DEBT   point-anchor
+           the node is declared a point anchor by `ex:declaredAt`; it names a position rather than a span, so t
+     d2 DefinedTerm            —
+        DEBT   point-anchor
+           the node is declared a point anchor by `ex:declaredAt`; it names a position rather than a span, so t
+     d2 DefinedTerm            —
+        DEBT   point-anchor
+           the node is declared a point anchor by `ex:declaredAt`; it names a position rather than a span, so t
+     d2 DefinedTerm            —
+        DEBT   point-anchor
+           the node is declared a point anchor by `ex:declaredAt`; it names a position rather than a span, so t
+
+ABSENT LEGS
+  governedBy       absent   named as a relationship by this product's published schema and measured at 0 ass
+
+context debt D_c 0.80950000   signal forced_llm
+  F 1  C 0.1905  S 1.0000
+  NOTE: C is low BECAUSE most chain nodes cannot be evidenced.
+  That is the finding this product exists to surface, not a fault
+  in the assembly.
+content address  035f7bb39b71d65c67834d33845cafddc30cc012fffd2c92742cf3b36d8ca72f
+expires_at       2026-09-20T00:00:00+00:00
+
+$ make -s example-cp-13 --principal relationship-manager --corpus-scope filed-and-internal
+asked        covenant-cross-reference-demo · compliance-test · as of 2026-09-13T00:00:00+00:00
+             principal=relationship-manager  corpus_scope=filed-and-internal  depth=3  sources=4
+
+REFUSED      not-entitled
+  principal 'relationship-manager' has no entitlement row for corpus scope 'filed-and-internal'; refused rather than narrowed, because narrowing answers a question the caller did not ask and hides that the document class exists
+
+  The scope was REFUSED, not narrowed. Narrowing would answer
+  a question the caller did not ask and would hide that the
+  document class exists at all.
+

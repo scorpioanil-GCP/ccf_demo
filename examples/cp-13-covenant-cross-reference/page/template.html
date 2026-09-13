@@ -1,0 +1,381 @@
+<title>Covenant Cross-Reference · cp-13</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400;6..96,500&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --paper:#EFF2F3; --surface:#FFFFFF; --sunk:#E4E9EB;
+  --ink:#16202A; --ink-2:#3A4A55; --muted:#64757F; --rule:#CBD5D9;
+  --verd:#1F7A68; --verd-soft:#DCEBE7;
+  --amber:#A65E17; --amber-soft:#F6E9DA;
+  --crit:#9B2C2C; --crit-soft:#F3E0E0;
+  --tok-c:#6C7C86; --tok-k:#1F7A68; --tok-s:#8A5A2B; --tok-n:#2B4C63;
+  --shadow:0 1px 2px rgba(22,32,42,.06),0 8px 24px -12px rgba(22,32,42,.18);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#12171A; --surface:#181F23; --sunk:#0D1214;
+    --ink:#E4EAED; --ink-2:#B4C1C8; --muted:#8497A0; --rule:#2C373D;
+    --verd:#46B39D; --verd-soft:#16302B;
+    --amber:#D9903F; --amber-soft:#2F2417;
+    --crit:#E07A7A; --crit-soft:#2E1B1B;
+    --tok-c:#7B8C96; --tok-k:#46B39D; --tok-s:#C99A63; --tok-n:#7FB0CE;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -12px rgba(0,0,0,.6);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#12171A; --surface:#181F23; --sunk:#0D1214;
+  --ink:#E4EAED; --ink-2:#B4C1C8; --muted:#8497A0; --rule:#2C373D;
+  --verd:#46B39D; --verd-soft:#16302B;
+  --amber:#D9903F; --amber-soft:#2F2417;
+  --crit:#E07A7A; --crit-soft:#2E1B1B;
+  --tok-c:#7B8C96; --tok-k:#46B39D; --tok-s:#C99A63; --tok-n:#7FB0CE;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -12px rgba(0,0,0,.6);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:"IBM Plex Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:16px; line-height:1.65; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1180px;margin:0 auto;padding:0 clamp(20px,5vw,56px)}
+.col{max-width:74ch}
+
+/* ---------- masthead ---------- */
+.mast{border-bottom:1px solid var(--rule);padding:clamp(48px,8vw,88px) 0 40px}
+.eyebrow{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12px;font-weight:600;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--verd);margin:0 0 18px
+}
+h1{
+  font-family:"Bodoni Moda",Georgia,"Times New Roman",serif;font-weight:400;
+  font-size:clamp(38px,6.2vw,68px);line-height:1.04;letter-spacing:-.015em;
+  margin:0 0 22px;text-wrap:balance
+}
+.standfirst{font-size:clamp(17px,2vw,20px);line-height:1.6;color:var(--ink-2);margin:0;max-width:66ch}
+
+/* the shape strip — what the product IS, in its own terms */
+.shape{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:1px;
+  background:var(--rule);border:1px solid var(--rule);margin-top:40px
+}
+.shape div{background:var(--surface);padding:14px 16px}
+.shape dt{
+  font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:600;
+  letter-spacing:.11em;text-transform:uppercase;color:var(--muted);margin:0 0 5px
+}
+.shape dd{margin:0;font-size:14px;font-weight:600;line-height:1.35}
+.shape dd .sub{display:block;font-weight:400;font-size:12.5px;color:var(--muted);margin-top:3px}
+
+/* ---------- sections ---------- */
+section{padding:clamp(44px,6vw,68px) 0;border-bottom:1px solid var(--rule)}
+section:last-of-type{border-bottom:0}
+h2{
+  font-family:"Bodoni Moda",Georgia,serif;font-weight:400;
+  font-size:clamp(26px,3.6vw,38px);line-height:1.14;letter-spacing:-.01em;
+  margin:0 0 8px;text-wrap:balance
+}
+h3{font-size:17px;font-weight:700;margin:34px 0 10px;letter-spacing:-.005em}
+.kicker{
+  font-family:"IBM Plex Mono",monospace;font-size:11.5px;font-weight:600;
+  letter-spacing:.13em;text-transform:uppercase;color:var(--muted);margin:0 0 14px
+}
+p{margin:0 0 16px}
+strong{font-weight:600}
+em{font-style:italic}
+code{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.875em;
+  background:var(--sunk);padding:.1em .34em;border-radius:3px;
+}
+a{color:var(--verd);text-decoration:none;border-bottom:1px solid color-mix(in srgb,var(--verd) 40%,transparent)}
+a:hover{border-bottom-color:var(--verd)}
+a:focus-visible{outline:2px solid var(--verd);outline-offset:3px;border-radius:2px}
+
+/* ---------- the two-authority device ---------- */
+.auth{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;margin:26px 0 8px}
+.auth article{background:var(--surface);border:1px solid var(--rule);border-top:3px solid var(--verd);padding:20px 22px}
+.auth article.internal{border-top-color:var(--amber)}
+.auth h4{margin:0 0 4px;font-size:15px;font-weight:700}
+.auth .who{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--verd);margin:0 0 12px}
+.auth article.internal .who{color:var(--amber)}
+.auth dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:5px 14px;font-size:13.5px}
+.auth dt{color:var(--muted)}
+.auth dd{margin:0;font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
+
+/* ---------- tables ---------- */
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:14px;margin:22px 0}
+th,td{text-align:left;padding:9px 14px 9px 0;border-bottom:1px solid var(--rule);vertical-align:top}
+th{
+  font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:600;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--muted);
+  border-bottom-color:var(--ink-2)
+}
+td code{background:none;padding:0}
+.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+
+/* pills carry state, not decoration */
+.pill{
+  display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:10.5px;
+  font-weight:600;letter-spacing:.06em;padding:2px 8px;border-radius:99px;white-space:nowrap
+}
+.pill.yes{background:var(--verd-soft);color:var(--verd)}
+.pill.no{background:var(--crit-soft);color:var(--crit)}
+.pill.warn{background:var(--amber-soft);color:var(--amber)}
+
+/* ---------- build order ---------- */
+ol.build{list-style:none;counter-reset:step;margin:26px 0 0;padding:0}
+ol.build > li{
+  counter-increment:step;position:relative;padding:0 0 26px 54px;
+  border-left:1px solid var(--rule);margin-left:15px
+}
+ol.build > li:last-child{border-left-color:transparent;padding-bottom:0}
+ol.build > li::before{
+  content:counter(step,decimal-leading-zero);position:absolute;left:-15px;top:0;
+  width:30px;height:30px;border-radius:50%;background:var(--surface);
+  border:1px solid var(--rule);color:var(--muted);
+  font-family:"IBM Plex Mono",monospace;font-size:11px;font-weight:600;
+  display:flex;align-items:center;justify-content:center
+}
+ol.build h3{margin:2px 0 6px;font-size:16px}
+ol.build p{font-size:14.5px;color:var(--ink-2);margin:0 0 12px}
+
+/* ---------- collapsibles: guidance first, source on demand ---------- */
+details{
+  background:var(--surface);border:1px solid var(--rule);border-radius:4px;
+  margin:12px 0;box-shadow:var(--shadow)
+}
+summary{
+  cursor:pointer;padding:12px 16px;font-family:"IBM Plex Mono",monospace;
+  font-size:12.5px;font-weight:600;color:var(--ink-2);list-style:none;
+  display:flex;align-items:center;gap:10px
+}
+summary::-webkit-details-marker{display:none}
+summary::before{
+  content:"";width:0;height:0;flex:none;
+  border-left:5px solid var(--muted);border-top:4px solid transparent;border-bottom:4px solid transparent;
+  transition:transform .16s ease
+}
+details[open] > summary::before{transform:rotate(90deg)}
+summary:hover{color:var(--verd)}
+summary:focus-visible{outline:2px solid var(--verd);outline-offset:-2px;border-radius:3px}
+details .note{margin:0;padding:0 16px 12px;font-size:13px;color:var(--muted)}
+details pre{margin:0;padding:16px;background:var(--sunk);font-size:12.5px;line-height:1.55}
+details .scroll{border-top:1px solid var(--rule)}
+pre{overflow-x:auto;margin:0}
+pre code{background:none;padding:0;font-size:12.5px}
+
+/* ---------- callouts ---------- */
+.call{border-left:3px solid var(--verd);background:var(--surface);padding:18px 22px;margin:24px 0}
+.call.warn{border-left-color:var(--amber)}
+.call.crit{border-left-color:var(--crit)}
+.call p:last-child{margin-bottom:0}
+.call .lbl{
+  font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:600;
+  letter-spacing:.11em;text-transform:uppercase;color:var(--verd);display:block;margin-bottom:7px
+}
+.call.warn .lbl{color:var(--amber)}
+.call.crit .lbl{color:var(--crit)}
+
+ul.plain{margin:0 0 16px;padding-left:20px}
+ul.plain li{margin-bottom:7px}
+
+footer{padding:44px 0 72px;color:var(--muted);font-size:13.5px}
+footer p{margin:0 0 8px}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap">
+
+<header class="mast">
+  <p class="eyebrow">Context Product · cp-13</p>
+  <h1>Covenant Cross-Reference</h1>
+  <p class="standfirst">What does this covenant actually require? Not the threshold &mdash; the <strong>definition</strong>. And every claim has to point at the text that says so.</p>
+
+  <dl class="shape">
+    <div><dt>Registry name</dt><dd>credit-risk.covenant-cross-reference.v1</dd></div>
+    <div><dt>Tier</dt><dd>4<span class="sub">the first &mdash; MongoDB enters</span></dd></div>
+    <div><dt>Assembly mode</dt><dd>1 &mdash; pure algorithmic<span class="sub">no model in the path</span></dd></div>
+    <div><dt>Stores</dt><dd>Postgres + Fluree + MongoDB<span class="sub"><code>ccf_v2</code> &middot; <code>fibo-v2</code> &middot; <code>fibo_v2</code></span></dd></div>
+    <div><dt>Checked citations</dt><dd>26<span class="sub">of 183 chain nodes</span></dd></div>
+    <div><dt>SDK rulings earned</dt><dd>0<span class="sub">every mechanism already existed</span></dd></div>
+  </dl>
+</header>
+
+<section>
+  <div class="col">
+    <p class="kicker">Rung 13 &middot; Tier 4</p>
+    <h2>A span can be correct and still be unauditable</h2>
+    <p>This is the first rung where the evidence is <strong>text</strong>, and the first where a claim can be wrong in a way that looks completely right.</p>
+    <p>All <strong>49</strong> <code>CovenantDefinition</code> nodes in this estate carry a span whose offsets land on exactly the right words. None carries a recorded hash. None carries a named passage. <strong>No indexed passage even covers the span.</strong></p>
+  </div>
+  <div class="scroll"><pre><code>48 of 49  startOffset, endOffset, documentId
+ 0 of 49  passageSha256
+ 0 of 49  evidencedBy
+ 0        passages matching or containing the span
+
+extracted:  "Consolidated Fixed Charge Coverage Ratio" means, for any Measurement Period …
+            "Consolidated Leverage Ratio": as at the last day of any period, the ratio o…
+
+measured through the defective mechanism:
+  48 spans extractable      47 read as genuine definitions      0 auditable</code></pre></div>
+  <div class="col">
+    <div class="call crit">
+      <span class="lbl">Which is what makes it the hard case</span>
+      <p>A <em>wrong</em> citation is caught by a hash. An <em>unauditable</em> one is caught only by a product that refuses to emit what it cannot check &mdash; and refuses while the text on screen is visibly correct. Emitting it would be an <strong>asserted</strong> citation, and an asserted citation is indistinguishable from a checked one in the payload.</p>
+    </div>
+    <p>The product emits none of them, classifies all 49 <code>span-unverifiable</code>, and says so in the payload. <strong>It does not silently omit them</strong> &mdash; an unexplained absence would make <em>&ldquo;we could not evidence this&rdquo;</em> indistinguishable from <em>&ldquo;we did not look&rdquo;</em>.</p>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">The citation unit</p>
+    <h2>A named passage, re-hashed &mdash; never four literals joined</h2>
+    <p><code>acquisition._cite</code> is the single path from a chain node to quoted text and it has no second constructor: follow <code>ex:evidencedBy</code> to a passage IRI, resolve that passage <strong>by id</strong>, read <em>its own</em> offsets and <code>sha256</code>, cut the span <strong>by offset</strong> &mdash; never by re-searching for the text, which can match a different occurrence and silently relocate the citation &mdash; re-hash, compare. Anything that fails returns <code>Uncitable</code>.</p>
+    <div class="call">
+      <span class="lbl">And the rule is the contract, not a workaround</span>
+      <p>Joining <code>startOffset</code>, <code>endOffset</code>, <code>passageSha256</code> and <code>evidencedBy</code> independently is prohibited even though, measured today, that join returns 44 clean rows. A rule that held only while the data was broken would be a workaround. The citation unit <em>is</em> the passage.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">A marker is not a repair</p>
+    <h2><code>ex:declaredAt</code> names the limitation it does not lift</h2>
+    <p>170 subjects, 158 of them <code>DefinedTerm</code>, arrived from the estate owner mid-build. It is a real improvement: the product can now read <em>&ldquo;this is intentionally a point anchor&rdquo;</em> off the graph instead of inferring it from a missing end.</p>
+    <p><strong>It supplies no end offset.</strong> <code>endOffset</code> is still absent on all 158, the text still cannot be quoted, and the claim is still Context Debt. <strong>No <code>endOffset</code> is guessed.</strong> Reading the marker as the repair is the mistake, and <code>CXR-G16</code> asserts both halves.</p>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">Policy before similarity</p>
+    <h2>Identical hits do not excuse the leak</h2>
+    <p>The permitted-document set is an <strong>argument to the MongoDB query</strong>, not a predicate over its results. A post-filter retrieves broadly, ranks everything, then drops the impermissible rows &mdash; and produces <em>byte-identical hits</em>.</p>
+  </div>
+  <div class="scroll"><pre><code>credit-officer / filed                candidates examined   0
+control-room   / filed-and-internal   candidates examined  22    not-evaluable 18
+                                      the whole corpus is larger
+
+relationship-manager / filed-and-internal   ->   REFUSED, not narrowed</code></pre></div>
+  <div class="col">
+    <p><strong>What differs is how many documents were SCORED.</strong> A post-filter has already computed similarity against documents the principal may not see, and in an MNPI setting that computation <em>is</em> the leak. <code>CXR-G22</code> asserts the two mechanisms produce the <em>same hits</em>, because that is what makes counting the scored population the only available detector.</p>
+    <div class="call">
+      <span class="lbl">And a missing embedding is not an empty result</span>
+      <p>18 of the 40 memoranda cannot be ranked at all. The payload reports them <code>not-evaluable</code> with the reason, the ids, and the count of ranked candidates beside the count of eligible documents &mdash; so a consumer can tell <em>we searched and found nothing</em> from <em>we could not search these at all</em>.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">What the run prints</p>
+    <h2>Three principals, and one of them is refused</h2>
+    <p>A committed transcript of three pinned runs, not a live re-execution: a printed run that can drift is a documentation defect that presents as a fabric defect.</p>
+  </div>
+
+  <details><summary>All three runs, as the commands print them</summary>
+    <div class="scroll"><pre><code>{{run}}</code></pre></div>
+  </details>
+
+  <div class="col">
+    <p><strong>Run 1 &mdash; the credit officer.</strong> 160 permitted documents, <strong>4 checked citations over 21 chain nodes</strong>, and 17 absences each carrying a reason: 4 <code>span-unverifiable</code>, 13 <code>point-anchor</code>. Context Debt <code>0.8095</code> with <strong>F 1, C 0.1905, S 1.0000</strong> &mdash; <code>C</code> is low <em>because</em> most chain nodes cannot be evidenced. That is the finding, not a fault in the assembly.</p>
+    <p><strong>Run 2 &mdash; the control room.</strong> All three classifications, 22 candidates scored, 18 unreachable, five hits.</p>
+    <p><strong>Run 3 &mdash; the relationship manager.</strong> No entitlement row for the widened scope, so the request is <strong>refused</strong>. Narrowing to <code>filed</code> would answer a question they did not ask and hide that an internal corpus exists.</p>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">The seed</p>
+    <h2>Where the evidence is, not where the name matches</h2>
+  </div>
+  <div class="scroll"><pre><code>seed on ex:Covenant      (182 nodes)  ->  depth 3 on   1 source
+seed on ex:PassageAnchor  (44 nodes)  ->  depth 3 on  26 sources</code></pre></div>
+  <div class="col">
+    <p>The type whose <em>name</em> answers the question reaches almost nothing. The type that carries the <em>evidence</em> reaches everything. The ontology's vocabulary and the estate's topology are different things, and the payload <strong>declares which one the traversal walked</strong>.</p>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">Every file, verbatim</p>
+    <h2>The example, opened up</h2>
+    <p>Each block below is the real file, read at build time. Nothing here is a copy that can drift.</p>
+  </div>
+
+  <ol class="build">
+    <li><h3>The specification</h3>{{spec}}</li>
+    <li><h3>The Control Plane</h3>{{config}}{{backends}}</li>
+    <li><h3>The declared artifacts</h3>{{vocabulary}}{{question}}{{gates}}</li>
+    <li><h3>Reading the estate</h3>{{acquisition}}{{deployment}}</li>
+    <li><h3>Assembling the answer</h3>{{projection}}{{produce}}{{run_py}}</li>
+    <li><h3>The evidence and the prose</h3>{{tests}}{{findings}}{{readme}}{{summary}}</li>
+  </ol>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">The half you write</p>
+    <h2>What is yours, and what the fabric already does</h2>
+    <p>The five Python files above are not equal. Three are yours to write for every product; two are nearly the same in every deployment and exist to be read once.</p>
+  </div>
+  <div class="scroll">
+  {{split_table}}
+  </div>
+  <div class="col">
+    {{split_ratio}}
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">The evidence</p>
+    <h2>Twenty-two gates, and four were green first</h2>
+    <p>Every gate was sabotaged. <strong>Nineteen</strong> went red on their own assertion. <strong>Three</strong> could not be falsified from this deployment at all &mdash; an SDK guard refuses the bad state before an artifact can exist &mdash; and are recorded <code>unavailable</code>, never folded into <code>passed</code>.</p>
+    <div class="call">
+      <span class="lbl">Four were green under their first sabotage, and all four were TEST defects</span>
+      <p><code>CXR-G07</code> compared served output on an estate that contains <em>no bad hash</em>, so removing the product's own re-hash changed nothing it serves. <code>CXR-G13</code> asserted <code>&le;</code> where only <code>&lt;</code> separates the two mechanisms. <code>CXR-G15</code> tested a limb with an <em>empty population</em> &mdash; every document the anchors cite is <code>public-filed</code>, which every principal may read. <code>CXR-G21</code> checked a constant and two side queries, none of which is what the product actually seeds on.</p>
+      <p>The principle they share: <strong>a gate must assert the thing the product does, on a population where doing it wrong would look different.</strong> All four are recorded in <code>artifacts/gates.yaml</code> with what was wrong and what fixed it.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">What to change first</p>
+    <h2>One flag, and it is the most instructive edit in the tree</h2>
+    <ul class="plain">
+      <li><strong><code>PRINCIPAL=control-room CORPUS_SCOPE=filed-and-internal</code></strong>. Watch the permitted set, the candidates examined and the content address move together. That flag is the difference between a policy envelope and a filter.</li>
+      <li><strong><code>PRINCIPAL=relationship-manager</code></strong> at the widened scope &mdash; a refusal rather than a narrower answer.</li>
+      <li><strong><code>AS_OF</code></strong> before an amendment's <code>governs_from</code>, on one of the four borrowers whose dates actually separate.</li>
+      <li><strong>The <code>cxr_node</code> &lambda;<sub>c</sub> row</strong> &mdash; set <code>decay_basis: valid-from</code> and the SDK refuses the serve, because the chain carries no instant at all.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">Honest limits</p>
+    <h2>What this example is not</h2>
+    <ul class="plain">
+      <li><strong>No auditable definition text.</strong> All 49 definition spans are correct and uncheckable. The product reports them as debt rather than quoting them, and this cannot be re-keyed away &mdash; there is no recorded hash to key to.</li>
+      <li><strong>No quotable defined terms.</strong> <code>ex:endOffset</code> is absent on all 158 <code>DefinedTerm</code> nodes. Every depth-3 chain terminates in a node that is located and not quotable.</li>
+      <li><strong>No <code>ex:governedBy</code>.</strong> The published schema for this product names it; this estate has 0 assertions. The leg is declared absent and no proxy is substituted.</li>
+      <li><strong>548 of 37,865 passages carry no <code>sha256</code></strong> and are not citable; <strong>18 of 40 memoranda carry no embedding</strong> and are not searchable. Both are reported, neither is read as an empty result.</li>
+      <li><strong>49 of 249 documents carry no classification.</strong> The entitlement rules key on it, so absence is treated as <em>not admitted</em> rather than as unrestricted.</li>
+      <li><strong>Only 4 of 7 borrowers can demonstrate the as-of axis.</strong> On the other three the base and the amendment begin governing on the identical date, and a test asserted there would prove nothing.</li>
+      <li><strong>Nothing in this chain decays, and that is measured rather than chosen.</strong> No class carries any temporal predicate &mdash; no extraction instant, no assertion date. The SDK refused a <code>valid-from</code> basis rather than falling back to the ingestion instant, so <code>supersede-only</code> is the honest declaration and not a calibration value.</li>
+    </ul>
+  </div>
+</section>
+
+<footer>
+  <p><code>examples/cp-13-covenant-cross-reference</code> &middot; CCF SDK</p>
+</footer>
+
+</div>

@@ -1,0 +1,193 @@
+# yaml-language-server: $schema=../../docs/schemas/ccf.deployment-config.json
+#
+# THE CONTROL PLANE DOCUMENT — what this fabric is permitted to do.
+#
+# Everything domain-specific about `credit-risk.covenant-cross-reference` is
+# here, and `produce.py` names none of it. Delete this file and the spine has
+# nothing left to interpret (CLAUDE.md §6.4).
+
+semver: "1.0.0"
+tenant_id: cp-13-crossref-demo
+
+backend: sqlite
+
+product_class:
+  schema_name: credit-risk.covenant-cross-reference
+  schema_version: "1.0.0"
+  ttl_anchor: from_decision
+  assembly_mode: algorithmic
+  max_ttl_key: cp-13/product/covenant-cross-reference/max-ttl
+
+  # POLICY BEFORE SIMILARITY, AS ORDER (`CXR-G09` limb a).
+  #
+  # The planner resolves these topologically, and the policy operator's output
+  # is what the rest range over. The second limb — bounding the MongoDB
+  # retrieval — cannot be expressed here, because the SDK never issues that
+  # query; `acquisition.retrieve_supporting` owns it and carries the filter out
+  # in the payload so the bound is checkable from outside.
+  required_operator_keys:
+    - policy.principal-subgraph
+    - traversal.typed-neighborhood
+
+  serve_obligations:
+    # The product must name what it computed from. A chain served without its
+    # citation summary is a set of claims with no statement of what could and
+    # could not be evidenced.
+    lineage_inputs_at:
+      - cross_references
+      - citation_summary
+
+  declared_product_gate:
+    gate_id: CXR-G07.citations-are-checked
+    gate_version: "1.0.0"
+
+operators:
+  policy.principal-subgraph:
+    classification_attribute_by_class:
+      cxr_anchor: source_uri
+      cxr_node: source_uri
+    permitted_classifications:
+      source: effective_request
+      parameter: covenant_sources
+
+  traversal.typed-neighborhood:
+    # THE EVIDENCE NODE seeds the walk. Deliberately NOT `cxr_covenant`: the
+    # type whose name matches the question reaches depth 3 once, the type that
+    # carries the evidence reaches it 26 times (TRAP 3).
+    seed_entity_classes:
+      - cxr_anchor
+    relationship_types:
+      - definesVia
+    depth_limit: 4
+
+request_contract:
+  class_id: cp-13.request-contract
+  role: register
+  registration: typed
+  schema_name: credit-risk.covenant-cross-reference
+  schema_version: "1.0.0"
+  arguments:
+    properties:
+      covenant_sources:
+        type: array
+        items:
+          type: string
+          description: one `ex:PassageAnchor` URI this request may read.
+        description: >-
+          the evidence nodes this request may walk, and the value that reaches
+          the policy operator's admitted set.
+      corpus_scope:
+        type: string
+        description: >-
+          THE POLICY ENVELOPE, not a convenience filter. Widening it changes
+          which documents may be retrieved at all, and a principal without the
+          entitlement is REFUSED rather than silently narrowed (`CXR-G10`).
+      resolve_depth:
+        type: integer
+        description: the definition-chain depth, 1 to 3.
+      debt_tolerance:
+        type: number
+        description: the caller's ceiling on assessed Context Debt.
+    required:
+      - covenant_sources
+  defaults:
+    corpus_scope: filed
+    resolve_depth: 3
+
+resolution:
+  # THREE ENTITY CLASSES, and the split is the rung's structural decision.
+  #
+  # `cxr_anchor` is the evidence node — what a citation hangs off and what the
+  # traversal seeds on. `cxr_node` is a chain member. `cxr_citation` is one
+  # CHECKED passage. Keeping the citation separate from the node is what lets a
+  # node carry two citations without either becoming a property of the other —
+  # which is the shape the 2026-09-13 URI collision violated upstream.
+  entity_rules:
+    - match_key: anchor_node
+      entity_class: cxr_anchor
+      identity_keys: [entity_uri]
+      attribute_keys: [source_uri, node_kind, covenant_type, label, payload_json]
+    - match_key: chain_node
+      entity_class: cxr_node
+      identity_keys: [entity_uri]
+      # `node_kind` stays a first-class claim attribute even though this
+      # class is `supersede-only` and no series key reads it: it is what the
+      # payload partitions the chain by, and burying it in `payload_json`
+      # would make the partition unreadable from the claim.
+      attribute_keys: [source_uri, node_kind, label, payload_json]
+    - match_key: citation_node
+      entity_class: cxr_citation
+      identity_keys: [entity_uri]
+      attribute_keys: [source_uri, node_kind, document_id, sha256, payload_json]
+
+    # Endpoint rules. NO attribute keys: an edge asserts that two nodes are
+    # related and nothing about what either node IS.
+    - {match_key: anchor_subject, entity_class: cxr_anchor,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: subject_uri}}
+    - {match_key: node_object, entity_class: cxr_node,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+
+  relationship_rules:
+    - {relationship_type: definesVia, predicate_key: predicate,
+       subject_entity_class: cxr_anchor, object_entity_class: cxr_node,
+       subject_rule: anchor_subject, object_rule: node_object}
+
+# ---------------------------------------------------------------------------
+# λ_c — and the dominant class does not decay at all.
+# ---------------------------------------------------------------------------
+#
+# Filed text is immutable once filed; supersession is by amendment, never
+# revision. `supersede-only` returns retained relevance 1, which is the honest
+# statement for a class time does not touch — and it is why rung 12's
+# calibration problem does not arise here in the same form.
+#
+# ILLUSTRATIVE CALIBRATION. This example runs against a point-in-time
+# demonstration estate rather than continuously refreshed production data.
+# Freshness half-lives and related thresholds are calibrated to make the
+# governed behavior observable in that snapshot. They demonstrate how the SDK
+# applies these controls and should not be interpreted as recommended
+# production coverage-policy thresholds. `CP13-F-12` carries the measurement.
+half_life:
+  cxr_anchor:
+    decay: supersede-only
+    decay_driver: amendment-filing
+    supersession_event: superseding-ex10-exhibit
+  cxr_citation:
+    decay: supersede-only
+    decay_driver: document-reissue
+    supersession_event: superseding-ex10-exhibit
+  cxr_node:
+    # SUPERSEDE-ONLY, AND THE SDK IS WHY (`CP13-F-15`).
+    #
+    # The article's §E declares ~365 days for definition-chain edges, on the
+    # reasoning that what ages is the EXTRACTION rather than the filed text.
+    # That is right in principle and **has no basis in this estate**: measured
+    # 2026-09-13, neither `ex:CovenantDefinition`, `ex:PassageAnchor` nor
+    # `ex:DefinedTerm` carries ANY temporal predicate — no extraction instant,
+    # no assertion date, nothing.
+    #
+    # Declaring `decay_basis: valid-from` anyway made `D-IMPL-331` refuse the
+    # serve outright rather than fall back to `observed_at`, which through L2
+    # is the ingestion instant and would have reported a perfectly fresh figure
+    # for an observation whose real age is unknown. The SDK stopped this
+    # deployment from publishing a freshness number it could not justify, and
+    # `supersede-only` — retained relevance 1 — is the honest statement for a
+    # class with no clock. Re-extraction on amendment IS supersession.
+    decay: supersede-only
+    decay_driver: chain-re-extraction
+    supersession_event: superseding-ex10-exhibit
+
+debt_profile:
+  risk_sensitivity: "1.0"
+  forced_llm_threshold: "0.60"
+  fail_closed_threshold: "0.95"
+
+policy:
+  class_id: cp-13.policy-bundle
+  role: register
+  registration: typed
+  regime: corpus-scope-entitlement
+
+default_perspective:
+  principal_id: PRIN-CRO-001
+  role: credit-officer

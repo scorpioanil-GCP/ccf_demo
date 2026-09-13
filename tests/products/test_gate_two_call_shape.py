@@ -845,6 +845,23 @@ RULED_SDK_SUPPLIED_DEPLOYMENTS: frozenset[str] = frozenset(
         # `D-IMPL-86` fires at BIND before this deployment can produce an
         # artifact.
         "examples/cp-12-fx-post-trade-reconciliation",
+        # `D-GATE-cp-13`, 2026-09-13 — rung 13, admitted on its OWN evidence
+        # and measured before this line was written: the detector's
+        # tree-derived set differed from this roster by exactly this one root
+        # and by nothing else — `roster is missing:
+        # ['examples/cp-13-covenant-cross-reference']`, `has extra: []`.
+        #
+        # The deployment authors no operator set at all: `produce.py`'s named
+        # `plan_factory` passes the resolver's own `required` tuple straight
+        # through to `CovenantCrossReferenceProjection`, which returns it
+        # unchanged from `required_operators()`. There is nothing to diverge
+        # from and no divergence guard to call — the condition `D-IMPL-141`
+        # describes, rather than a property this entry asserts. That the
+        # SDK-side guard nonetheless refuses a divergent set is separately
+        # evidenced: `CXR-G01` and `CXR-G02` are recorded `unavailable`
+        # precisely because `D-IMPL-86` fires at BIND before this deployment
+        # can produce an artifact.
+        "examples/cp-13-covenant-cross-reference",
     }
 )
 
@@ -3547,6 +3564,11 @@ def test_the_premise_detector_reads_the_shipped_tree_correctly() -> None:
         # the cp-11 entry gives: the roster records what was RULED, this
         # records what the detector ANSWERS.
         "examples/cp-12-fx-post-trade-reconciliation",
+        # `D-GATE-cp-13`, 2026-09-13 — rung 13, added in the same sitting as
+        # the roster admission above but as its OWN assertion, for the reason
+        # the cp-11 entry gives: the roster records what was RULED, this
+        # records what the detector ANSWERS.
+        "examples/cp-13-covenant-cross-reference",
         "examples/hw1-companies-over-revenue/deployment",
         # `D-IMPL-311`, 2026-09-09 — s1-00 arrives from row B above, by the
         # same second shape cp-05 took: it reaches `build_governed_resolver`
