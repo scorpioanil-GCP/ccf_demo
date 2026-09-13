@@ -884,7 +884,32 @@ class ChildResolution(CCFContract):
     grant_hash: str | None = Field(
         default=None, json_schema_extra={HASH_TRANSPARENT_KEY: False}
     )
+    # `D-IMPL-336` Amendment 3, F9 — the VERIFIED address, present only when
+    # this fabric recomputed it and it matched. Never a value a producer
+    # claimed and the gate disproved.
     child_content_address: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: False}
+    )
+    # What the producer's door CLAIMED, kept beside it and labelled as such.
+    # On an address-mismatch these differ, and the record says which is which
+    # rather than presenting the refuted one as identity.
+    child_reported_address: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: False}
+    )
+    # `D-IMPL-336` Amendment 3, F6 — which fabric the eligibility claim was
+    # made about. `eligibility_basis` said an authority answered and never
+    # named it, so a mislabelled local production left no trace.
+    producing_fabric: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: False}
+    )
+    # `D-IMPL-336` Amendment 3, F7 — the producer's own eligibility-check
+    # instant and the address of the verified assertion it came from. Recorded
+    # so replay can re-verify WHICH evidence authorized a peered child; the
+    # earlier row carried neither.
+    child_eligibility_checked_at: datetime | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: False}
+    )
+    child_eligibility_assertion_address: str | None = Field(
         default=None, json_schema_extra={HASH_TRANSPARENT_KEY: False}
     )
     child_schema_name: str | None = Field(

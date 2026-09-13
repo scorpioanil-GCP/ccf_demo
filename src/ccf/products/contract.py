@@ -829,19 +829,74 @@ class ChildRequirement(CCFContract):
             )
         return self
 
+    def compatibility_rule(self) -> str:
+        """The compatibility rule, stated precisely (`D-IMPL-336` Am. 3, F10).
+
+        Returned as text so a refusal can quote the rule rather than the word
+        *"caret"*, which names a convention without defining it.
+        """
+        return (
+            f"same MAJOR lane as {self.compatible_from} and precedence at or"
+            " above it, by semantic-version precedence (numeric core compared"
+            " field-wise; a pre-release ranks BELOW its own release; build"
+            " metadata ignored)"
+        )
+
     def accepts(self, *, child_version: str) -> bool:
         """Whether ``child_version`` is inside this requirement's lane.
 
-        Same major as :attr:`compatible_from`, and at or above it. Parses with
-        the one semver grammar this tree has (:func:`validate_semver`) rather
-        than introducing a range parser for a single rule.
+        Same major as :attr:`compatible_from`, and at or above it by **semantic
+        version precedence** — which is not the same as tuple order once
+        pre-releases exist: ``1.2.0-rc1`` precedes ``1.2.0``, per the semver
+        specification, and build metadata does not participate at all.
+
+        **Total on every form the grammar accepts** (F10). The earlier body did
+        ``int(part)`` over ``split(".")``, so the floor parse raised
+        ``ValueError`` mid-admission for a ``compatible_from`` that
+        :func:`~ccf.controlplane.artifact_base.validate_semver` had already
+        accepted at registration — a broken-deployment error surfacing at the
+        wrong boundary — and a legitimate ``1.2.0-rc1`` child was silently
+        refused. Both forms are supported here rather than narrowed at
+        registration, because the grammar already admits them and taking them
+        away would shrink a shipped surface.
         """
-        floor = tuple(int(part) for part in validate_semver(self.compatible_from).split("."))
         try:
-            actual = tuple(int(part) for part in validate_semver(child_version).split("."))
+            floor = _precedence(self.compatible_from)
+            actual = _precedence(child_version)
         except ValueError:
             return False
-        return actual[0] == floor[0] and actual >= floor
+        # actual[0] is the (major, minor, patch) CORE; the lane is its MAJOR.
+        return actual[0][0] == floor[0][0] and actual >= floor
+
+
+def _precedence(version: str) -> tuple[tuple[int, int, int], tuple[object, ...]]:
+    """Semantic-version precedence, as a sortable key.
+
+    Implements the specification's ordering rather than approximating it:
+    the numeric core compares field-wise; **build metadata is discarded**; a
+    version WITH a pre-release ranks below the same version without one; and
+    pre-release identifiers compare field-wise with numeric identifiers below
+    alphanumeric ones.
+
+    Raises:
+        ValueError: ``version`` is not a semantic version.
+    """
+    validate_semver(version)
+    core, _, rest = version.partition("-")
+    if not rest:
+        core, _, _build = version.partition("+")
+        pre: tuple[object, ...] = ()
+    else:
+        rest, _, _build = rest.partition("+")
+        # An empty tuple sorts BELOW a populated one, so a release must sort
+        # ABOVE its pre-releases: rank 1 for a release, 0 for a pre-release.
+        pre = tuple(
+            (0, int(part), "") if part.isdigit() else (1, 0, part)
+            for part in rest.split(".")
+        )
+    major, minor, patch = (int(part) for part in core.split("."))
+    rank = 1 if not pre else 0
+    return ((major, minor, patch), (rank, *pre))
 
 
 def requirements_declaration_is_coherent(
@@ -1246,6 +1301,7 @@ def register_product_class(
     payload_schema_version: str = NO_PAYLOAD_SCHEMA,
     request_contract_key: str = NO_REQUEST_CONTRACT,
     request_contract_version: str = NO_REQUEST_CONTRACT,
+    requires: tuple[ChildRequirement, ...] = (),
     serve_obligations: ServeObligations = NO_SERVE_OBLIGATIONS,
 ) -> RegisteredProductClass:
     """Register a product class, requiring its MAX_TTL to already exist.
@@ -1372,6 +1428,7 @@ def register_product_class(
         payload_schema_version=payload_schema_version,
         request_contract_key=request_contract_key,
         request_contract_version=request_contract_version,
+        requires=requires,
         serve_obligations=serve_obligations,
     )
 

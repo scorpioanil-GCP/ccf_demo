@@ -307,6 +307,11 @@ _MARKED_IN_THE_TREE = frozenset(
         # refuses one), so the key spares every required slot a permanent
         # `null` restating what `required` already says.
         "ccf.products.contract.ChildRequirement.absence_treatment",
+        # `D-IMPL-336` Amendment 3 — `requires` becomes AUTHORABLE, so the
+        # declaration artifact gains the same mark the registered class had.
+        # Transparent at `()` so every class declared before composition
+        # existed keeps its content address, and therefore its version.
+        "ccf.controlplane.artifacts.ProductClassDeclaration.requires",
         "ccf.replay.record.ContentGenerationPath.child_resolutions",
         "ccf.replay.record.ContextFabricSnapshot.store_snapshot_pin",
         # 24.6-03: the Authority layer's value in dimension 2

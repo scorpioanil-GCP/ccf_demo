@@ -348,7 +348,8 @@ def test_envelope_for_composite_child_refusal(
         detail="child answered as of a different reconstruction instant",
         product_class="CorporateFamilyTree",
         reason="as-of-mismatch",
-        child_content_address="a" * 64,
+        reported_content_address="a" * 64,
+        verified_content_address="a" * 64,
     )
     envelope = envelope_for(refusal, request=request_identity)
 
@@ -358,10 +359,15 @@ def test_envelope_for_composite_child_refusal(
     assert set(envelope.fields) == {
         "product_class",
         "reason",
-        "child_content_address",
+        "reported_content_address",
+        "verified_content_address",
     }
     assert envelope.fields["reason"] == '"as-of-mismatch"'
-    assert envelope.fields["child_content_address"] == f'"{"a" * 64}"'
+    # F9: the two addresses cross SEPARATELY and labelled. On an
+    # address-mismatch they differ, and the record must never present the
+    # value the gate disproved as the rejected product's identity.
+    assert envelope.fields["reported_content_address"] == f'"{"a" * 64}"'
+    assert envelope.fields["verified_content_address"] == f'"{"a" * 64}"'
 
 
 def test_a_child_that_never_existed_carries_no_invented_address(
@@ -382,7 +388,8 @@ def test_a_child_that_never_existed_carries_no_invented_address(
     )
     envelope = envelope_for(refusal, request=request_identity)
 
-    assert envelope.fields["child_content_address"] == "null"
+    assert envelope.fields["reported_content_address"] == "null"
+    assert envelope.fields["verified_content_address"] == "null"
 
 
 def test_envelope_for_ttl_refusal(request_identity: RequestIdentity) -> None:
