@@ -3221,3 +3221,54 @@ A2  derived after the boundary                 SERVES
 **ROSTER ADMISSION, MEASURED BEFORE IT WAS WRITTEN.** cp-13 joins `D-IMPL-141`'s SDK-supplied roster and the tree-describing literal as **two separate statements** — the roster records what was RULED, the literal what the detector ANSWERS. The measurement: `roster is missing: ['examples/cp-13-covenant-cross-reference']`, `has extra: []`. It was committed during Gate 2 and is **not** itself the gate ruling.
 
 **Next free decision id: `D-IMPL-336`** — unchanged; a gate entry spends none. **Governs:** the approval of rung 13 and what it ships with. **Related:** `D-IMPL-261` (examples are probes — and here the probe was overtaken by a repair to the thing it was probing), `D-IMPL-331` (the decay basis that refused rather than falling back, at `CP13-F-15`), `D-IMPL-316` (L2 mints its own URI), `D-IMPL-141` (the roster cp-13 was admitted to on its own evidence), `D-IMPL-323` (illustrative calibration — deliberately NOT invoked here), `D-GATE-cp-09` (the three-state sabotage vocabulary), `D-GATE-cp-12` (the trap-gate divergence rule this rung inherits), `CP-SPEC-013`, `D-GATE-cp-12`.
+
+**D-IMPL-336 — AMENDMENT 2 (2026-09-13, Dave, IMPLEMENTATION GO). The final decisions, recorded before code, per Dave's instruction *"Record the final decisions, then code."***
+
+**Status: implementation GO on a feature branch. CP-14 acquisition remains HOLD until 336 is reviewed and merged to main. Do not merge; 336 returns for implementation review.**
+
+**Carried forward unchanged from Amendment 1**, each now final rather than recommended:
+
+| Decision | Final |
+| --- | --- |
+| Producer ambiguity | **Refusal.** No arbitrary producer selection, no tie-breaker. Interchangeability proven by substitution, which is a **positive control** |
+| Child resolutions in replay | **Dimension 5**, ordered rows; `grant_set_hash` stays dimension 4 |
+| Version compatibility | A requirement declares the child lanes it accepts; outside the range refuses at admission |
+| Optional absence | **Explicitly declared** in versioned product-class configuration. **No SDK numeric default** |
+| CP-14 slots | **All five required.** No Relationship, Peer or Filing rung |
+| Scheduler | **None.** No swarm scheduler, no parallel framework, no DAG runtime, no event bus, no background worker, no new invalidation system |
+
+**Debt, stated as the arithmetic and not as a description.** Minimum over **strength** factors across the parent's own assessment and its admitted children, then the Standard's product:
+
+```
+F_parent = min(own F, admitted children's F)
+C_parent = min(own C, admitted children's C)
+S_parent = min(own S, admitted children's S)
+D_c      = 1 − F_parent × C_parent × S_parent
+```
+
+**Never `max(child D_c)`** — different children can be weak on different factors, and collapsing each to a scalar first loses both impairments. This expresses `D-IMPL-104`'s maximum-deficiency rule without reversing the strength-factor scale, and it adds **0 new weights**.
+
+**PEERED ELIGIBILITY IS RESOLVED THROUGH THE EXISTING SIGNED ASSERTIONS — Amendment 1 §11.4 is CLOSED.** `IdentityProvider.sign(assertions=...)` already places caller-supplied members in the JWS **protected** header, which is part of the signing input, and `PeeringAdmissionGate` already holds a peer to header assertions (`PRODUCER_ASSERTION_HEADER`). The eligibility assertion is one more member on that established seam, and **no wire contract is invented**.
+
+- **Typed and versioned.** A declared contract with its own schema version, canonicalized into the header — not a bare string.
+- **Bound**, so it cannot be lifted from one context to another: to the **child content address**, the **requested `as_of`**, the **producer**, the **consumer scope**, the **actual eligibility-check time**, and the **current composition invocation**.
+- **Minted only after the producer's real checks have run.** An assertion is evidence that checks happened, never a substitute for them.
+- **Verified before admission.** Missing, tampered, mismatched or **replayed** evidence refuses. Absent is not eligible.
+- **Three clocks stay separate:** reconstruction time (`as_of`), eligibility-check time, and source observation times. None substitutes for another.
+- **Invocation-specific freshness evidence stays OUT of the child's semantic content identity.** The assertion travels in the envelope; the child's content address is over the product's own canonical bytes and does not move because a different composition asked for it.
+
+**Eligibility AUTHORITY is determined by the producing fabric, not by the skill's label.** A `local_callable`, `tool`, `mcp` or `peering` label says how the bytes were fetched; it does not say whose Control Plane knows the entities' invalidation state. Where the producing fabric is this one, the local `EntityInvalidationRegister` is authoritative. Where it is another, the producer's signed assertion is, **and local-register silence can never establish remote eligibility** — silence is *don't know*, and this project's measurement rules forbid collapsing that into *pass*.
+
+**Runtime and audit distinctions, ruled:**
+
+- **Honor each child's actual governed outcome. Never turn a refusal into an empty served product.**
+- **A missing product gets no invented fields** — absent, not zero, not epoch, not a placeholder address.
+- **A product produced but REJECTED AT ADMISSION is a different case**, and Amendment 1 under-specified it: its **known identity and rejection evidence are retained in protected replay**, subject to disclosure policy. Rejection is a governed event with an artifact behind it; discarding what was rejected would make an admission failure indistinguishable from a product that never existed.
+
+**The proof package, final.** Three real children and one optional-missing case **through actual L2 and delivery paths**. The positive producer-substitution control and the targeted sabotages are retained, and three further proofs are required: **wrong-obligor / wrong-request rejection**; **signed-attestation tampering and replay rejection**; and **nested composition** — a real source supersession prevents re-serving the dependent composite chain while an equally old *unrelated* product stays eligible, **re-derivation restores eligibility where permitted**, `D-IMPL-334/335` is reused rather than duplicated, and constituent expiry limits are preserved.
+
+**CP-14 stays separate.** No acquisition, no substitute composition code, no new prerequisite rungs. Mode 1 with memo-writing outside the product remains its direction; **its own F/C/S measurement definitions belong in its revised Gate-1 contract**, and the historical debt table remains a labelled comparison.
+
+**Governs:** the implementation on branch `d-impl-336-composite`. **Related:** `D-IMPL-104` (worst-factor-wins, the deferred limb this discharges), `D-IMPL-31` (TTL floor, mixing refusal), `D-IMPL-334`/`D-IMPL-335` (eligibility, reused), `D-IMPL-12`/`D-IMPL-29` (skill catalog and grant governance), `D-IMPL-16` (Control Plane verification at the A2A boundary), `D-IMPL-243` (hash-transparency at a sentinel — how every field lands without moving an existing artifact's identity).
+
+**Next free decision id: `D-IMPL-337`.**
