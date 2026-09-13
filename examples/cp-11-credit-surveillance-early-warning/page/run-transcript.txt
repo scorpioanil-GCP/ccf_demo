@@ -1,0 +1,119 @@
+$ make -s example-cp-11
+#  The heavily-signalled name: 25 of 26 filings superseded, and they count for nothing.
+asked        54930022CZO1N2UGVW07 · daily-sweep · as of 2026-08-19T00:00:00+00:00
+
+Super Micro Computer, Inc.  ·  54930022CZO1N2UGVW07
+  SIC 3571 -> sector Manufacturing
+
+DELTA  2024-08-19 -> 2026-08-19  (prior-observation, basis valid-time)   139 signals
+
+COMPOSITE WARNING SCORE   0.3134
+  REACHED  daily-sweep                floor   0.1500   (estate declares 0.3000)
+  REACHED  credit-committee-referral  floor   0.2500   (estate declares 0.5500)
+           board-risk-report          floor   0.3500   (estate declares 0.8500)
+  band in force: credit-committee-referral
+
+SUPERSESSION — one state per signal, and they partition
+  current                 1
+  superseded             25
+  not-participating     113
+  total                 139   (participating classes: 8k_event)
+
+CLASS COVERAGE — an absent class is ABSENT, never a zero
+  8k_event           present    26
+  adverse_media      present    93
+  spread_widening    absent      0   <- no evidence at all
+  trend_delta        present    20
+  warn_notice        absent      0   <- no evidence at all
+
+CONTRIBUTING — 114 signals, newest first
+  2026-07-28  adverse_media             w=0.1200 x sev=0.5000 x ret=0.1132 (7d, 22d old)  = 0.0068
+  2026-07-28  adverse_media             w=0.1200 x sev=0.5000 x ret=0.1132 (7d, 22d old)  = 0.0068
+  2026-07-07  adverse_media             w=0.1200 x sev=0.5000 x ret=0.0142 (7d, 43d old)  = 0.0008
+  2026-07-06  adverse_media             w=0.1200 x sev=0.5000 x ret=0.0128 (7d, 44d old)  = 0.0008
+  2026-06-29  adverse_media             w=0.1200 x sev=0.5000 x ret=0.0064 (7d, 51d old)  = 0.0004
+  2026-06-16  adverse_media             w=0.1200 x sev=0.5000 x ret=0.0018 (7d, 64d old)  = 0.0001
+  … and 108 more
+
+EXCLUDED — 25, and WHY (this is how 'why did it not escalate' is answered)
+  2024-09-30  8k_event        superseded
+       a later filing replaced this one; its relevance ended rather than decayed
+  2024-09-30  8k_event        superseded
+       a later filing replaced this one; its relevance ended rather than decayed
+  2024-10-30  8k_event        superseded
+       a later filing replaced this one; its relevance ended rather than decayed
+  2024-11-01  8k_event        superseded
+       a later filing replaced this one; its relevance ended rather than decayed
+  2024-11-01  8k_event        superseded
+       a later filing replaced this one; its relevance ended rather than decayed
+  … and 20 more, all superseded
+
+context debt D_c 0.581816302490723320900000000   signal ok
+  F 0.6969728291821277985  C 0.6000  S 1.0000
+  NOTE: D_c measures how old and how complete the EVIDENCE is.
+  The composite above measures what the evidence SAYS. They are
+  separate models and move independently (EWS-G29).
+expires_at       2026-08-19T06:00:00+00:00
+
+================================================================
+$ make -s example-cp-11 LEI=G8NWFN4YP7CR6FOP4886
+#  The thinly-evidenced name: two classes ABSENT, not zero. High debt, no escalation.
+asked        G8NWFN4YP7CR6FOP4886 · daily-sweep · as of 2026-08-19T00:00:00+00:00
+
+TUPPERWARE BRANDS CORP  ·  G8NWFN4YP7CR6FOP4886
+  SIC 3089 -> sector Manufacturing
+
+DELTA  2024-08-19 -> 2026-08-19  (prior-observation, basis valid-time)   25 signals
+
+COMPOSITE WARNING SCORE   0.0900
+           daily-sweep                floor   0.1500   (estate declares 0.3000)
+           credit-committee-referral  floor   0.2500   (estate declares 0.5500)
+           board-risk-report          floor   0.3500   (estate declares 0.8500)
+  band in force: none — no escalation
+
+SUPERSESSION — one state per signal, and they partition
+  current                 1
+  superseded              1
+  not-participating      23
+  total                  25   (participating classes: 8k_event)
+
+CLASS COVERAGE — an absent class is ABSENT, never a zero
+  8k_event           present     2
+  adverse_media      present    23
+  spread_widening    absent      0   <- no evidence at all
+  trend_delta        absent      0   <- no evidence at all
+  warn_notice        absent      0   <- no evidence at all
+
+CONTRIBUTING — 24 signals, newest first
+  2025-04-04  adverse_media             w=0.1200 x sev=0.5000 x ret=0.0000 (7d, 502d old)  = 0.0000
+  2025-01-30  adverse_media             w=0.1200 x sev=0.5000 x ret=0.0000 (7d, 566d old)  = 0.0000
+  2024-11-29  8k_event        item 1.01 w=0.3000 x sev=0.3000 x ret=1.0000 (no decay, 628d old)  = 0.0900
+  2024-09-19  adverse_media             w=0.1200 x sev=0.5000 x ret=0.0000 (7d, 699d old)  = 0.0000
+  2024-09-19  adverse_media             w=0.1200 x sev=0.5000 x ret=0.0000 (7d, 699d old)  = 0.0000
+  2024-09-19  adverse_media             w=0.1200 x sev=0.5000 x ret=0.0000 (7d, 699d old)  = 0.0000
+  … and 18 more
+
+EXCLUDED — 1, and WHY (this is how 'why did it not escalate' is answered)
+  2024-09-18  8k_event        superseded
+       a later filing replaced this one; its relevance ended rather than decayed
+
+context debt D_c 0.8628171849061052213333333333   signal fail_closed
+  F 0.3429570377347369466666666667  C 0.4000  S 1.0000
+  NOTE: D_c measures how old and how complete the EVIDENCE is.
+  The composite above measures what the evidence SAYS. They are
+  separate models and move independently (EWS-G29).
+expires_at       2026-08-19T06:00:00+00:00
+
+================================================================
+$ make -s example-cp-11 DEBT_TOLERANCE=0.20
+#  The governed refusal — returned as DATA, with a replay reference.
+asked        54930022CZO1N2UGVW07 · daily-sweep · as of 2026-08-19T00:00:00+00:00
+
+REFUSED      tolerance-exceeded
+  reason     tolerance-exceeded
+  detail     fulfillment was withheld because an applicable declared tolerance was exceeded
+
+  The determination is preserved in the replay record; the
+  consumer envelope discloses less than the fabric recorded.
+  replay     ccf-artifact://cp-11-surveillance-demo/ccf.replay-record/49b1a26467ab3495ae41cd0538d8f289b53b67677576ddadf013259698a28895@4f9b7167f01fb9460a0509857ac48a9a454da17e7f463db0cf787b5651994243
+make: *** [Makefile:547: example-cp-11] Error 1
