@@ -136,6 +136,8 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from ccf.products.refusal import RefusalEnvelope
 
 __all__ = [
+    "CHILD_ADMITTED",
+    "CHILD_OUTCOME_STATUSES",
     "MODE_1_MODEL_VERSION",
     "NO_ADAPTER",
     "NO_ASSEMBLER",
@@ -154,6 +156,7 @@ __all__ = [
     "NO_HARNESS_TRACE",
     "NO_HITL_ACTIONS",
     "NO_WORKFLOW_TRACE",
+    "ChildResolution",
     "ContentGenerationPath",
     "ContextFabricSnapshot",
     "DecisionReplayRecord",
