@@ -420,14 +420,36 @@ def test_cxr_g09_the_envelope_bounds_the_retrieval_before_ranking(
     plan order, asserted on `operators_invoked`; (b) the permitted-document set
     bounds the MongoDB retrieval before any ranking runs.
     """
-    # LIMB A — order, off the served lineage.
-    invoked = list(served.product.lineage.operators_invoked)
-    policy = [i for i, key in enumerate(invoked) if key.startswith("policy.")]
-    assert policy, "no policy operator in the resolved plan"
-    others = [i for i, key in enumerate(invoked) if not key.startswith("policy.")]
-    assert min(policy) < min(others), (
-        f"the policy operator does not precede the rest: {invoked}"
+    # LIMB A — ORDER, off the ordered plan and NOT off the lineage.
+    #
+    # `ProductLineage.operators_invoked` is a `frozenset[str]` — "the operator
+    # SET the producer declares it ran". It carries no order at all, and
+    # iterating it yields hash order, which for strings varies per process.
+    # The first version of this gate read execution order off it and passed by
+    # luck; it failed the moment another module shared the interpreter
+    # (`CP13-F-16`).
+    #
+    # The ordered plan is on the replay record, built from the execution's own
+    # steps — which is the thing that actually records what ran and when.
+    plan = list(served.record.content_generation_path.operator_plan)
+    assert plan, "the replay record carries no operator plan"
+    assert isinstance(
+        served.product.lineage.operators_invoked, frozenset
+    ), "operators_invoked stopped being a set; re-read what it now means"
+    assert set(plan) == set(served.product.lineage.operators_invoked), (
+        "the ordered plan and the declared set name different operators"
     )
+    policy = [i for i, key in enumerate(plan) if key.startswith("policy.")]
+    others = [i for i, key in enumerate(plan) if not key.startswith("policy.")]
+    assert policy, "no policy operator in the resolved plan"
+    assert others, "no non-policy operator, so the ordering is untestable"
+    assert max(policy) < min(others), (
+        f"the policy operator does not precede the rest: {plan}"
+    )
+    # The execution's own steps agree with the plan, so neither is a label.
+    assert [
+        step.operator_key for step in served.record.content_generation_path.steps
+    ] == plan
 
     # LIMB B — the bound is an ARGUMENT to the query.
     for frozen in (served, widened):

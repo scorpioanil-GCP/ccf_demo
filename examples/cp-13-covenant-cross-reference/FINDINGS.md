@@ -18,7 +18,7 @@ Every `CP13-F-NN` referenced anywhere in this tree resolves here.
 > the history is what explains why the specification reads as it does. Nothing
 > here rewrites the past as though those defects never existed.
 
-**Fifteen findings. None OPEN.** No SDK gap was found and none was authorized:
+**Sixteen findings. None OPEN.** No SDK gap was found and none was authorized:
 the operator-order and `PassageAnchor` surfaces were sufficient.
 
 ---
@@ -42,6 +42,7 @@ the operator-order and `PassageAnchor` surfaces were sufficient.
 | `CP13-F-13` | FIXED-gate-2 | a Gate-1 figure was taken from a printed sample, not a population |
 | `CP13-F-14` | ESTATE-LIMITATION | **the correct span that cannot be audited** — the rung's central trap |
 | `CP13-F-15` | FIXED-gate-2 | **the chain has no temporal basis at all**, so `supersede-only` is the only honest behavior |
+| `CP13-F-16` | FIXED-gate-2 | a gate asserted execution order off a `frozenset` and passed by luck |
 
 ---
 
@@ -295,3 +296,39 @@ here that was chosen to make a mechanism observable, no production value being
 stood in for, and nothing to disclose under CLAUDE.md §9. The estate carries no
 basis; the product declares that, and the SDK is what stopped it from declaring
 otherwise.
+
+## `CP13-F-16` — a gate asserted execution order off a `frozenset`
+
+**FIXED-gate-2.**
+
+`CXR-G09`'s first limb — *policy precedes similarity in the resolved plan
+order* — read `ProductLineage.operators_invoked`. The contract documents that
+field as **"the operator SET the producer declares it ran"** and types it
+`frozenset[str]`.
+
+**A set carries no order.** Iterating it yields hash order, which for strings
+varies per interpreter. Run alone the gate was green; run beside
+`test_cp_12_output.py` in the same process it read:
+
+```
+['traversal.typed-neighborhood', 'policy.principal-subgraph']
+```
+
+and failed. It had been passing by luck, and the luck held for every run until
+another module shared the interpreter.
+
+**The ordered plan is `DecisionReplayRecord.content_generation_path.operator_plan`**,
+built from the execution's own steps. The gate now asserts that, asserts the
+steps agree with it, and asserts the plan's membership matches the declared set
+— so neither field can drift into being a label for the other.
+
+**This is `CP12-F-12`'s defect class in a second rung.** There, `next(iter(a_set))`
+chose a comparison peer and moved the content address between processes. Here, a
+set was read as a sequence. Both are the same mistake: **an unordered collection
+used where order was the claim.**
+
+**And limb (a) turns out to be `unavailable` anyway.** Declaring
+`traversal.typed-neighborhood` before `policy.principal-subgraph` in
+`required_operator_keys` still produces a policy-first plan — the planner orders
+by category — so the bad state is unreachable from this deployment. The gate
+stays `passed` on limb (b), where the retrieval bound is genuinely sabotageable.

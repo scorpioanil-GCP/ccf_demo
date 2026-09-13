@@ -156,9 +156,14 @@ declaration:
     sabotage: applied the classification bound AFTER the query instead of as an argument to it
     sabotage_state: passed
     observed_red:
-      result: '**RED under sabotage.** Limb (a) is asserted on `operators_invoked` ordering; limb (b) on the served
-        `query_filter` and on two principals producing different content addresses. Post-filtering is prohibited
-        rather than discouraged.'
+      result: '**RED under sabotage** on limb (b) — the classification bound applied AFTER the query rather than
+        as an argument to it. LIMB (a) IS `unavailable`: the planner orders operators by category, so declaring
+        `traversal` before `policy` in `required_operator_keys` still produces a policy-first plan and the bad state
+        is unreachable from this deployment. THE FIRST VERSION OF LIMB (a) WAS ALSO WRONG and is recorded at `CP13-F-16`:
+        it read execution order off `ProductLineage.operators_invoked`, which is a `frozenset` — the operator SET
+        the producer declares it ran — so it passed by luck alone and failed the moment another module shared the
+        interpreter. It now asserts `DecisionReplayRecord.content_generation_path.operator_plan` and the execution''s
+        own steps.'
       date: '2026-09-13'
       commit: 354bc583
   - id: CXR-G10
