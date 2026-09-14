@@ -1,7 +1,12 @@
 # D-IMPL-336 — remediation disposition
 
-**Candidate `10553977`** on `d-impl-336-composite`. Base `main` `374a3600`.
+**Candidate `baa659a1`** on `d-impl-336-composite`. Base `main` `374a3600`.
 **NOT merged. CP-14 acquisition remains HOLD.**
+
+> **CHECKPOINT 1 IS COMPLETE** — `O1`, `O2`, `O3` and `INT-01a`. Amendment 4
+> makes this a **stop for review**, and green does not authorize merge. The
+> full record, including the two questions put to Dave, is `D-IMPL-336 —
+> CHECKPOINT 1 RECORD` in `docs/DECISIONS.md`.
 
 > ## ⚠ SUPERSEDING NOTE — the second review panel changed the answer
 >
@@ -74,11 +79,16 @@ construction; F1, F2, F9, F11 and F15's re-binding behave as claimed.
 
 | # | Finding | Status |
 | --- | --- | --- |
-| **O1** | `LocalFabricAttestor` is publicly constructible with a caller-chosen `attestor_id`. "Boot-bound" is a convention, not enforcement | **Confirmed by execution.** Raised by codex against the repair. This is a *"declaration is not a door"* instance in my own fix and should be closed by constructing the attestor from a `BootedFabric` and deriving its id |
-| **O2** | `invocation_from_dispatch` accepts any `SkillCatalogEntry` plus a caller's `grant_hash`; nothing binds it to an actual `resolve_producing_grant` result | **Confirmed by execution.** The token replaced free strings but did not bind them |
-| **O3** | `admitted_at` is `decided_at`, which a declared historical decision instant could move | **Confirmed by reading.** Current behavior is conservative — the skew check refuses rather than admits — but the clock is wrong in principle |
+| **O1** | `LocalFabricAttestor` is publicly constructible with a caller-chosen `attestor_id`. "Boot-bound" is a convention, not enforcement | **CLOSED** at `bd66f1f0`. Token-guarded; `ccf.boot.boot` is the only minter; the id is derived from the adapter name and a digest of `graph_identity`. `attest` now takes `(product, replay_ref, store)`, refuses a record that names another product, and reads `touched_entities` out of replay dimension 1. `test_o1_*` (four) |
+| **O2** | `invocation_from_dispatch` accepts any `SkillCatalogEntry` plus a caller's `grant_hash`; nothing binds it to an actual `resolve_producing_grant` result | **CLOSED** at `ed7e4a2d`. `BoundSkillView.grant_hash_for`; token-minted `ResolvedProducer`; `resolve_producing_grant` requires the live view; the `grant_hash` keyword is **removed**. `test_o2_*` (three) plus the substitution control, rewritten as grant → revoke → grant |
+| **O3** | `admitted_at` is `decided_at`, which a declared historical decision instant could move | **CLOSED** at `be6c76a3`. `GovernedResolver.admission_clock`, required, read once per composition. **"Conservative" is withdrawn** — a check whose safety depends on which way a caller's declared instant falls is not a check. `test_o3_*` (three) |
 | **CMP-R-01** | `child_resolutions` do not reach a **refused** composite's persisted record | **Confirmed.** The refusal path records through `RefusalRecorderProtocol.record`, a public seam with no such parameter. I added a parameter and **backed it out**: one accepted and ignored would be the exact defect class this phase repairs. Closing it is a protocol change |
-| **INT-01** | The integration proof through **cp-04-canonical, cp-05, cp-13** and the nested leaf→composite→higher-composite supersession chain | **Not built.** Named rather than excluded, per the instruction. See §3 |
+| **INT-01a** | One governed question through real grant → dispatch → door → attestation → admission → composition | **CLOSED** at `baa659a1`, `tests/products/test_composite_integration.py`. No injected outcomes map, no dictionary for grant resolution, no helper bypassing the delivery boundary. Two negative controls (no grant; revoked after wiring) |
+| **R1** | The peered path is **unreachable** — joserfc's `max_header_length` defaults to 512 against a 675-byte honest header, and zero tests call `peer_provenance_from_admitted` | **OPEN, checkpoint 2.** Not a deferral: Amendment 3 forbids excluding signature verification as a known limitation |
+| **R4** | Gate 2 holds a composite's union lineage against the parent's own execution, so a real child of another class always collides | **RESOLVED under a PROPOSED reading** at `7d18004d` — the operand widens for composites, `run_gates` is untouched, and the parent's own declaration keeps a strict guard so the union cannot mask its drift. **Dave rules this at the checkpoint** |
+| **R5** | A composite is **not replayable** — `ChildResolution` carries neither the child's `expires_at` nor its `operators_invoked` | **OPEN.** Record sufficiency and a rehydrator are different jobs; the second is named **`CMP-R-02`** so that *replaying a composite* is never conflated with *reloading its record* |
+| **INT-01b** | Leaf → composite → higher composite, and supersession through the boot-bound L2 writer | **Not built.** Named rather than excluded |
+| **Estate** | The cp-04-canonical / cp-05 / cp-13 proof | **Deferred to CP-14's separate authorization**, per Amendment 4 |
 
 ---
 
@@ -87,13 +97,24 @@ construction; F1, F2, F9, F11 and F15's re-binding behave as claimed.
 Run sequentially against the clean candidate, nothing else touching the tree.
 
 ```
-make lint                                             clean
-mypy src/ccf                          149 source files, no issues
-pytest tests/products/test_composite.py            33 passed
-pytest tests/products tests/replay tests/contracts tests/peering
-       tests/projection tests/deployment tests/cli tests/skills
-       tests/agents tests/controlplane      2,444 passed, 1 skipped, 5 failed
+make lint                                                            clean
+make typecheck                        221 source files (src + runtime), clean
+pytest tests/products tests/replay tests/contracts tests/skills
+       tests/deployment tests/peering    1,975 passed, 1 skipped, 2 failed
 ```
+
+**`make typecheck` replaces the `mypy src/ccf` this document previously
+reported.** That was a narrower target than CLAUDE.md prescribes, and it never
+covered `runtime/`.
+
+**Sabotage, run before the commits and restored from git afterwards:** revert
+`R4`'s union operand and INT-01a goes red with the Gate 2 collision; disable
+the attestation address check and the O1 forgery test goes red.
+
+The 2 failures are `main`'s, diffed **by roster identity rather than by count**:
+`tests/deployment/test_class_lookup.py` (unclaimed `ccf.halflife.decay.*`) and
+`tests/peering/test_admission_record.py` (the `claims.py` pin, stale since
+`da14c544`). In `tests/invariants`, 44 reds are likewise pre-existing.
 
 **Failure-set comparison against the pinned base.** The 5 are exactly `main`'s,
 measured with this work stashed and the FAILED lists diffed — not counted:
