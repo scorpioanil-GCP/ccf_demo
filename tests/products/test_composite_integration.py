@@ -616,3 +616,104 @@ def test_cmpr01_a_NON_composite_refusal_records_no_rows_and_is_unchanged(
         )
     )
     assert record.content_generation_path.child_resolutions == ()
+
+
+def test_r5_the_record_alone_RECONSTRUCTS_the_composite(booted: _Booted) -> None:
+    """`R5` / `CMP-R-02`: a composite is reconstructible from what was written.
+
+    **The claim, precisely.** A composite's content address covers its lineage
+    — the `D-IMPL-31` union — and its expiry — the floor over its stalest
+    constituent. Before this, `ChildResolution` carried a `child_lineage_ref`
+    (a hash, which COMPARES lineages without REBUILDING one) and no child
+    expiry at all. So no rehydrator could reproduce either value, and a
+    composite was not replayable however faithfully the parent's plan re-ran.
+
+    **Dave's constraint:** *"Replay uses retained child artifacts and recorded
+    composition evidence — not fresh calls to the atomic providers."* So this
+    test re-derives both quantities from the PERSISTED ROWS and holds them
+    against the served product, and it never calls the child's skill again.
+    The child resolver is not even wired.
+    """
+    from ccf.products.composition import compose_expiry, compose_lineage
+    from ccf.products.contract import MaxTTL, ProductLineage
+
+    resolver, _children = _wire(booted)
+    outcome = _ask(resolver)
+    assert isinstance(outcome, ServedProduct), outcome
+    served = outcome.product
+
+    record = DecisionReplayRecord.model_validate_json(
+        booted.store.get(
+            content_address=booted.store.resolve_uri(uri=outcome.replay_ref.uri)
+        )
+    )
+    rows = record.content_generation_path.child_resolutions
+    assert rows and all(r.outcome_status == "admitted" for r in rows)
+
+    # Everything below comes from the ROWS. Nothing is re-dispatched.
+    assert all(r.child_operators_invoked is not None for r in rows)
+    assert all(r.child_expires_at is not None for r in rows)
+
+    own = ProductLineage(
+        operators_invoked=frozenset(record.content_generation_path.operator_plan),
+        policy_bundle_versions=served.lineage.policy_bundle_versions,
+        graph_snapshot_at=served.lineage.graph_snapshot_at,
+    )
+    rebuilt = compose_lineage(
+        [
+            own,
+            *(
+                ProductLineage(
+                    operators_invoked=r.child_operators_invoked or frozenset(),
+                    policy_bundle_versions=r.child_policy_bundle_versions
+                    or frozenset(),
+                    graph_snapshot_at=r.child_graph_snapshot_at or ASKED_AT,
+                )
+                for r in rows
+            ),
+        ]
+    )
+    # The union, re-derived from the record, IS the served lineage.
+    assert rebuilt.operators_invoked == served.lineage.operators_invoked
+
+    rebuilt_expiry = compose_expiry(
+        constituent_validities=[r.child_expires_at for r in rows if r.child_expires_at],
+        max_ttl=MaxTTL(seconds=_arguments(booted)["product_ttl_seconds"]),
+        ttl_anchor_at=record.recorded_at,
+    )
+    # ...and so is the floor.
+    assert rebuilt_expiry == served.expires_at
+
+
+def test_r5_the_child_ROWS_are_what_carry_it_not_the_lineage_hash(
+    booted: _Booted,
+) -> None:
+    """The sabotage that makes the test above about the new fields.
+
+    `child_lineage_ref` was already recorded before `R5`. If reconstruction
+    were possible from it, the finding would not exist. Asserted by showing
+    the ref is a hash of the child's lineage — it identifies, and identifying
+    is not rebuilding.
+    """
+    from ccf.contracts.canonical import content_hash
+    from ccf.products.contract import ProductLineage
+
+    resolver, _children = _wire(booted)
+    outcome = _ask(resolver)
+    assert isinstance(outcome, ServedProduct), outcome
+    record = DecisionReplayRecord.model_validate_json(
+        booted.store.get(
+            content_address=booted.store.resolve_uri(uri=outcome.replay_ref.uri)
+        )
+    )
+    row = record.content_generation_path.child_resolutions[0]
+    assert row.child_operators_invoked is not None
+    rebuilt = ProductLineage(
+        operators_invoked=row.child_operators_invoked,
+        policy_bundle_versions=row.child_policy_bundle_versions or frozenset(),
+        graph_snapshot_at=row.child_graph_snapshot_at or ASKED_AT,
+    )
+    # The rebuilt lineage hashes to exactly the ref that was already there —
+    # which is the point: the ref could CHECK this reconstruction and never
+    # produce it.
+    assert content_hash(rebuilt) == row.child_lineage_ref

@@ -854,7 +854,21 @@ class ChildResolution(CCFContract):
             only the scalar**, because the composite's debt is the per-factor
             minimum and a record of scalars could not re-derive it.
         child_policy_bundle_versions: The child's policy versions.
-        child_lineage_ref: The child's lineage identity.
+        child_lineage_ref: The child's lineage identity — a hash, which
+            identifies a lineage without reproducing it.
+        child_operators_invoked: The child's own operator set (`R5`). The
+            identity above is enough to COMPARE two lineages and not enough to
+            REBUILD one, and a composite's lineage is the union over its
+            children's (`D-IMPL-31`). Without this, no rehydrator could
+            reproduce the composite's lineage, and therefore not its content
+            address either.
+        child_expires_at: The child's own expiry (`R5`). The composite's is
+            floored by the stalest constituent, so a record carrying only the
+            composite's expiry cannot show that the floor was applied — or
+            re-derive it.
+        child_admitted_at: When admission judged this child, from the trusted
+            runtime clock (`O3`). Distinct from ``child_asked_at``, which is
+            the reconstruction instant every constituent shares.
         eligibility_basis: Which authority established eligibility —
             :data:`~ccf.products.composite.ELIGIBILITY_LOCAL_REGISTER` or
             :data:`~ccf.products.composite.ELIGIBILITY_PRODUCER_ATTESTED`.
@@ -934,6 +948,15 @@ class ChildResolution(CCFContract):
         default=None, json_schema_extra={HASH_TRANSPARENT_KEY: False}
     )
     child_lineage_ref: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: False}
+    )
+    child_operators_invoked: frozenset[str] | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: False}
+    )
+    child_expires_at: datetime | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: False}
+    )
+    child_admitted_at: datetime | None = Field(
         default=None, json_schema_extra={HASH_TRANSPARENT_KEY: False}
     )
     eligibility_basis: str | None = Field(

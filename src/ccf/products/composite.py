@@ -568,6 +568,7 @@ class AdmittedChild:
     """
 
     __slots__ = (
+        "_admitted_at",
         "_asked_at",
         "_candidate",
         "_eligibility_basis",
@@ -586,6 +587,7 @@ class AdmittedChild:
         composition_invocation: str,
         verified_address: str,
         evidence: "EligibilityEvidence | None",
+        admitted_at: datetime,
         token: object,
     ) -> None:
         if token is not _CHILD_ADMISSION_TOKEN:
@@ -605,10 +607,21 @@ class AdmittedChild:
         self._invocation = composition_invocation
         self._verified_address = verified_address
         self._evidence = evidence
+        self._admitted_at = admitted_at
+
+    @property
+    def admitted_at(self) -> datetime:
+        """When admission judged it, from the trusted runtime clock (`O3`).
+
+        Distinct from :attr:`asked_at`, which is the one reconstruction instant
+        every constituent of a composition shares. Carried so replay can say
+        when each child was let in, not only what it was asked.
+        """
+        return self._admitted_at
 
     @property
     def candidate(self) -> ChildCandidate:
-        """What was admitted, with its resolution provenance."""
+        """What was admitted, with its resolution evidence."""
         return self._candidate
 
     @property
@@ -893,6 +906,7 @@ class CompositeAdmissionGate:
             composition_invocation,
             verified,
             evidence,
+            admitted_at,
             _CHILD_ADMISSION_TOKEN,
         )
 
@@ -1556,6 +1570,13 @@ def _row_for_admitted(
         child_debt_factors=debt.factors,
         child_policy_bundle_versions=contract.lineage.policy_bundle_versions,
         child_lineage_ref=content_hash(contract.lineage),
+        # `R5`: the lineage REF identifies, these two REBUILD. A composite's
+        # lineage is the union over its children's and its expiry is floored by
+        # the stalest of them, so without both a rehydrator cannot reproduce
+        # the composite — and therefore cannot reproduce its content address.
+        child_operators_invoked=contract.lineage.operators_invoked,
+        child_expires_at=contract.expires_at,
+        child_admitted_at=admitted.admitted_at,
         eligibility_basis=admitted.eligibility_basis,
         # F6: name the provider the basis was claimed about.
         producing_fabric=_provider_of(candidate),
