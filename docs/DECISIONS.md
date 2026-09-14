@@ -3712,4 +3712,76 @@ and the subclass reached a real `ServedProduct` with the three validation gates 
 
 **Next free decision id: `D-IMPL-338`** — unchanged; a gate entry spends none. **Governs:** the approval and merge of guarded-path provenance verification. **Related:** `D-IMPL-337` (raised at `13d7e8ec`, design at `f62b8a25`), `D-GATE-336`, `D-IMPL-253` Q20, `D-IMPL-261` and CLAUDE.md §9 (frozen specimens), `D-IMPL-16`, `D-IMPL-59`, CLAUDE.md §10 (single-writer), §11 (CI-enforced invariants).
 
-**Next free decision id: `D-IMPL-338`.**
+**D-IMPL-338 — A COMPOSITE'S CHILD-RESOLUTION EVIDENCE SURVIVES EVERY DOWNSTREAM REFUSAL.** APPROVED, SCOPED. Date: 2026-09-14. Ruled by: Dave, in the consolidated `D-IMPL-338` / `D-IMPL-339` ruling on `CP-SPEC-014` Gate 1 (candidate `e759dad5`). **Exclusively scoped to `CP14-F-09`.** Baseline: the approved `main` this entry lands on. **No merge without review.**
+
+**The finding (`CP14-F-09`, measured 2026-09-14).** `compose_children` builds one `ChildResolution` row per declared requirement, refused or not, and the rows reach the persisted record on the served path (`resolver.py:2343`) and on a *composition* refusal (`:2217`, `CMP-R-01`). They do **not** reach it on the three refusals that can follow a successful composition — the universal-gate path (`:2224`), the declared-product-gate path (`:2260`) and the **tolerance** path (`:2300`) — each of which calls `_record_refusal` without `child_resolutions`. A tolerance refusal is CP-14's headline behavior, so the rows are absent in exactly the case whose cause they explain.
+
+**The ruling.**
+
+1. **Implement the targeted repair through the existing refusal-recording mechanism.** `RefusalRecorderProtocol.record` already accepts `child_resolutions` (`D-IMPL-336` `CMP-R-01`); no protocol changes.
+2. **Every applicable refusal after child acquisition preserves the available child-resolution evidence** — composition, universal-gate, declared-product-gate and tolerance refusals alike. **Enumerate the actual exits; do not fix only the first omitted argument found.**
+3. **Before acquisition, invent no child outcomes.** A refusal reached before the composite block records `()` — the true claim that no child was considered — never a synthesized row.
+4. **After acquisition, retain what actually happened**, including known child identities, grant mappings and original refusal evidence, exactly as the rows carry them.
+5. **Test against reloaded persisted records**, never the in-memory value. **Keep protected audit evidence separate from caller disclosure**: the rows are dimension-5 record content and are never part of the disclosed shell.
+6. **`D-IMPL-338` must be reviewed and merged before CP-14 Gate 2.** It is not optional merely because a successful serve would work without it.
+
+**Sabotage obligation.** Dropping the rows from any downstream refusal must make the corresponding persisted-record test fail.
+
+**Next free decision id: `D-IMPL-339`** — spent by the entry below. **Governs:** the completeness of child evidence on refused composites. **Related:** `D-IMPL-336` (`CMP-R-01`, the served-path and composition-refusal halves), `D-IMPL-253` Q13 / `D-IMPL-256` (a refusal is a first-class decision with a full record), `D-IMPL-254` (record the internal truth, disclose the shell), `CP-SPEC-014` §D.4 / §F.2 (`CP14-F-09`).
+
+**D-IMPL-339 — ACQUIRE ONCE AND EXPOSE THE ADMITTED CHILD CONTRACTS TO THE PARENT'S COMPUTATION.** DIRECTION APPROVED. Date: 2026-09-14. Ruled by: Dave, in the same consolidated ruling. **Its own SDK phase and branch, baselined on the approved `main`, independent of `D-IMPL-338` and of the CP-14 example. No merge without review. CP-14 Gate 2 remains HOLD.**
+
+**The requirement it serves, restated so it cannot be narrowed.** CP-14 consumes the five required child products' **content and governing evidence**. *"Govern, not fill"* is **not** an approved narrowing. CP-14 must not independently reconstruct financial spread, family structure, exposure, collateral or covenant material its children supply. **The atomic providers own their assembly; skills acquire those independently provided products; the composite owns the roll-up.** Do not expand `ProductSource`, remount structured payloads as graphs, or introduce another `GraphReader`.
+
+**The gap, measured.** On the shipped surface the projection plan is built at `resolver.py:1878` and executed at `:1889`; composition begins at `:1983`; the `outcomes` mapping holding the `AdmittedChild` values is built inline and never bound. Every downstream use of the composition outcome is governance. No existing interface carries admitted child content to the parent's computation — `ProductSource` takes only the peering gate's `AdmittedProduct`, requires a `graph_state` payload, must mount before the plan, and has zero consumers; `plan_factory` takes only `(required, request)`; `CompositionOutcome` has no child field; there is no second projection pass.
+
+**The approved split.**
+
+```
+existing child-independent request / policy / declaration checks
+    -> acquire and admit children ONCE
+    -> establish the read-only child-contract view
+    -> construct and execute the parent's plan
+    -> assess the parent's own evidence
+    -> compose using the SAME acquired outcomes
+    -> existing gates, tolerance, delivery / refusal, and replay
+```
+
+- **The plan receives child contracts, not raw admission machinery.** A read-only mapping keyed by the declared requirement, derived from the acquired `AdmittedChild` values **after** their existing provenance and request/slot bindings have been established.
+- **Retain those original outcomes for `compose_children`.** Content and governance refer to the same admitted products — not a second acquisition, a fresh lookup, or a separately reconstructed contract.
+- The SDK exposes the contracts; **CP-14 performs the product-specific mapping into memo sections.**
+- **No scheduler, new authorization layer, local attestor stack, or new composition algebra.**
+
+**The three ordering questions, settled.**
+
+1. **View to the plan:** the admitted children's read-only contracts. No invented graph view.
+2. **Known blocking outcome before projection:** do **not** run child-dependent computation when a required child is absent or an invoked child has refused or failed admission. Preserve the existing distinction between optional absence and optional refusal.
+3. **Later composition or parent refusal:** any payload already computed is **provisional and must not be served**. Record the refusal and the child evidence; do not substitute another child or fall back to raw source queries.
+
+Keep child-independent request/schema/policy checks above acquisition where their inputs are already available; checks requiring child state remain below admission. **Correction to the proposal's own claim:** the hoist crosses nothing that *returns or refuses in the enclosing block*, but **called functions can fail even where the block contains no literal `raise`** — the claim "crosses nothing that can raise" is withdrawn. **Keep the declaration-versus-plan binder (`refuse_operator_set_divergence`) after plan construction and before execution.** Acknowledge and test the changed order rather than building a dummy plan or acquiring twice.
+
+**Compatibility.** For non-composites, retain the existing call exactly: `plan_factory(required=required, request=effective_request)`. **Adding a defaulted parameter to a Protocol does not make existing implementations accept that keyword.** Composite-capable factories must explicitly support the child input. **Do not catch `TypeError` and retry without it.**
+
+**Replay, wired explicitly.** Retain the exact child content the parent consumed, using existing immutable artifact references where sufficient. Reconstruct the child-contract view **before** rebuilding the child-dependent plan. No current provider calls, latest-version lookup, source re-query, or reliance on a live closure holding the original objects. **Test with a fresh replay environment.** The composition laws, `R4`, the gates and the tolerance semantics remain unchanged; replay's overall position may stay unchanged, but its child-input reconstruction must be connected and proven. Also demonstrate how the parent's own child-dependent `C`/`S` measurements reach its assessment per request — moving acquisition does not by itself prove that scoring reads those inputs.
+
+**The proof, as a small SDK fixture.** `CMC-G28` / `CMC-G29` stay UNRUNNABLE on the shipped SDK until the connection exists and are never discharged with raw source legs. The fixture must establish:
+
+| Proof | Required result |
+| --- | --- |
+| Child-content dependence | Two valid child instances differ in a business value; other parent inputs fixed; the corresponding parent payload value changes |
+| Same acquisition | Each child acquired once; computation and governance use the same admitted result |
+| No source substitute | Disable the child provider/source after acquisition; the parent still computes from the retained child contract |
+| Early failure | A known blocking child outcome prevents child-dependent projection |
+| Late refusal | A later governing failure produces no served parent and retains the acquired child evidence |
+| Replay | A fresh environment reconstructs identical parent bytes/address with provider calls disabled |
+| Compatibility | Existing non-composite factories retain their signatures, behavior and identities |
+
+Keep the child's relevant governance factors equivalent in the content-differential test, so a debt or expiry change cannot masquerade as evidence that the parent read its business content. **Severing the child-content input must make that test fail.**
+
+**Execution order.** `D-IMPL-338` first, returned for targeted review; `D-IMPL-339` as its own branch. Each candidate returns its exact interface changes, regression commands and results, targeted sabotage evidence and baseline comparison. **After both are reviewed and merged, CP-14 Gate 1 is re-presented as a brief reconciliation** — the child-content path, refusal evidence, affected `F`/`C`/`S` inputs and `G28`/`G29` readiness — without rewriting the whole spec. No CP-14 `run.py`, acquisition implementation or Gate 2 until that separate ruling.
+
+**The 2026-09-14 hold release, scoped.** It authorized **Gate-1 measurement and reconciliation only**; Gate 2 remains unapproved.
+
+**Next free decision id: `D-IMPL-340`.** **Governs:** the child-content connection for composite Context Products. **Related:** `D-IMPL-336` (composition, and Amendment 5's *"the composite is a consumer, not a second Control Plane"*), `D-IMPL-337` (the provenance the view is derived after), `D-IMPL-338` (refusal evidence, independent and prior), `D-IMPL-31` / `D-IMPL-104` (the unchanged composition laws), `D-IMPL-86` / `D-IMPL-300` (the binder stays between plan construction and execution), `D-IMPL-137` row C (named plan factories), `CP-SPEC-014` §0.0 / §B.8 / §H.1.
+
+**Next free decision id: `D-IMPL-340`.**
