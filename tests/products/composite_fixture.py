@@ -417,6 +417,7 @@ def build_composite(
     mcp_skills: McpSkillRegistry | None = None,
     resource: str | None = None,
     child_arguments: ChildArguments | None = None,
+    child_door: Any | None = None,
 ) -> tuple[GovernedResolver, GrantBoundChildResolver]:
     """The composite, wired. **Only ``binding`` changes between the two proofs.**
 
@@ -437,6 +438,9 @@ def build_composite(
             the deployment's standing answer below; a test that needs the child
             to answer at a DIFFERENT instant — so admission refuses it after it
             was genuinely acquired — supplies its own.
+        child_door: The callable the grant dispatches (`D-IMPL-339`). Defaulted
+            to the real door over the child; a test proving the child is
+            acquired ONCE, or that no provider is reached on replay, wraps it.
     """
     ledger, agent_hash, definition, catalog = _ledger(booted, binding=binding, resource=resource)
     if grant:
@@ -455,7 +459,7 @@ def build_composite(
         )
         assert isinstance(outcome, str), outcome
     callables = CallableRegistry()
-    callables.register(CHILD_CALLABLE, _child_door(booted))
+    callables.register(CHILD_CALLABLE, child_door or _child_door(booted))
     arguments = _arguments(booted)
     children = GrantBoundChildResolver(
         ledger=ledger,

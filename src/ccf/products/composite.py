@@ -85,7 +85,7 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from typing import (
@@ -140,6 +140,11 @@ from ccf.skills.grants import BoundSkillView
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "ADMITTED_CHILD_CONTRACT_CLASS",
+    "ChildContractView",
+    "ChildOutcomeResolution",
+    "child_contract_view",
+    "resolve_child_outcomes",
     "ELIGIBILITY_LOCAL_REGISTER",
     "ELIGIBILITY_PROVIDER_CONTROLS",
     "ELIGIBILITY_PRODUCER_ATTESTED",
@@ -163,6 +168,13 @@ __all__ = [
     "ResolvedProducer",
     "resolve_producing_grant",
 ]
+
+#: The artifact class the consuming fabric files an ADMITTED child's contract
+#: under, by content address, at decision time (`D-IMPL-339`). A mechanism
+#: token like `GATE_CHILD_ADMISSION` below, not a domain value: nothing else
+#: retains a served product's bytes, and replay must rebuild the parent's
+#: child-contract view from what it consumed — never from a provider call.
+ADMITTED_CHILD_CONTRACT_CLASS: Final = "ccf.admitted-child-contract"
 
 #: The gate identifier every child-admission refusal carries.
 GATE_CHILD_ADMISSION: Final = "child_admission"
@@ -1288,51 +1300,105 @@ class CompositionOutcome:
         return self.refusal is None
 
 
-def compose_children(
+@dataclass(frozen=True)
+class ChildOutcomeResolution:
+    """Every declared requirement's disposition, re-bound to THIS composition.
+
+    `D-IMPL-339`. The per-requirement walk :func:`compose_children` always
+    performed — provenance (`D-IMPL-337`), slot / instant / invocation
+    re-binding (Amendment 3), the four refusal branches and the one honest
+    absence — factored out so it can run **before** the parent's plan is
+    built, and so the read-only child-contract view the plan receives is
+    derived only from children that passed it. :func:`compose_children` calls
+    this and then applies the four composition laws to exactly what it
+    returns; nothing about its behavior changed.
+
+    Attributes:
+        rows: One :class:`~ccf.replay.record.ChildResolution` per declared
+            requirement, in declaration order — whether or not the walk
+            refused.
+        admitted: The admitted children, in declaration order.
+        admitted_factors: Their debt factors, plus the declared-absence
+            factor for each optional requirement nothing produced.
+        refusal: The FIRST refusal the walk reached, or ``None``. **Any**
+            refusal here is a known blocking outcome: a required child absent,
+            an invoked child refused or rejected at admission, an unsupported
+            object, an undeclared or duplicated slot. Optional absence is not
+            a refusal and does not block.
+    """
+
+    rows: tuple[ChildResolution, ...]
+    admitted: tuple[AdmittedChild, ...]
+    admitted_factors: tuple[DebtFactors, ...]
+    refusal: ChildAdmissionRefusal | None
+
+    @property
+    def blocking(self) -> bool:
+        """Whether child-dependent computation must not run (`D-IMPL-339` Q2)."""
+        return self.refusal is not None
+
+
+class ChildContractView(Mapping[str, ContextProductContract]):
+    """The admitted children's contracts, read-only, keyed by declared class.
+
+    `D-IMPL-339`. What the parent's plan receives: **contracts, not admission
+    machinery.** Built by :func:`child_contract_view` from a
+    :class:`ChildOutcomeResolution` that reached no refusal — so every value
+    here came through :meth:`CompositeAdmissionGate.admit` and was re-bound to
+    this composition before the view existed — or, on replay, by
+    :func:`ccf.replay.engine.replay` from the contracts retained by content
+    address at decision time. It is a :class:`~collections.abc.Mapping` and
+    nothing more: no setters, no invented graph view, no second acquisition.
+    """
+
+    __slots__ = ("_contracts",)
+
+    def __init__(self, contracts: Mapping[str, ContextProductContract]) -> None:
+        self._contracts: dict[str, ContextProductContract] = dict(contracts)
+
+    def __getitem__(self, product_class: str) -> ContextProductContract:
+        return self._contracts[product_class]
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._contracts)
+
+    def __len__(self) -> int:
+        return len(self._contracts)
+
+    def __repr__(self) -> str:
+        return f"ChildContractView({sorted(self._contracts)})"
+
+
+def child_contract_view(resolved: ChildOutcomeResolution) -> ChildContractView:
+    """Derive the plan's view from a resolution that reached no refusal.
+
+    Raises:
+        ValueError: ``resolved`` carries a refusal. A view over a blocked
+            composition would let child-dependent computation run on a set
+            that is already known not to compose (`D-IMPL-339` Q2).
+    """
+    if resolved.refusal is not None:
+        raise ValueError(
+            "no child-contract view over a blocked composition:"
+            f" {resolved.refusal.reason!r} on {resolved.refusal.product_class!r}"
+            " (D-IMPL-339)"
+        )
+    return ChildContractView(
+        {child.requirement.product_class: child.contract for child in resolved.admitted}
+    )
+
+
+def resolve_child_outcomes(
     *,
-    own_factors: DebtFactors,
     requirements: Sequence[ChildRequirement],
-    # `object` and not the narrow union, DELIBERATELY (F13). The narrow type
-    # says an unsupported value cannot arrive, and mypy then proves the guard
-    # below unreachable — which is exactly the assumption that let a raw
-    # contract be read as "nothing was produced". The guard is the mechanism;
-    # the type must admit the case it guards.
     outcomes: Mapping[str, object],
     asked_at: datetime,
     composition_invocation: str,
-    own_lineage: ProductLineage,
-    max_ttl: MaxTTL,
-    ttl_anchor_at: datetime,
-    validity_floors: ConstituentValidityFloors,
-) -> CompositionOutcome:
-    """Compose an admitted child set, or refuse, and record every requirement.
+) -> ChildOutcomeResolution:
+    """The per-requirement walk, in declaration order (`D-IMPL-339`).
 
-    Walks ``requirements`` **in declaration order** — the order rows appear in
-    replay and the order a refusal names.
-
-    **`D-IMPL-336` Amendment 3 re-binds every child to THIS composition.** The
-    earlier body keyed on ``outcomes.get(requirement.product_class)`` and
-    trusted whatever it found: an admitted child could satisfy a slot it was
-    never checked against, children admitted at different instants composed
-    together, an undeclared key vanished silently, and an unsupported object
-    was read as *nothing was produced*. Each of those is now a refusal.
-
-    Args:
-        own_factors: What the parent itself assembled.
-        requirements: The composite class's declared requirements, **read from
-            the registered declaration** — never a replacement list.
-        outcomes: Per ``product_class``: the admitted child, the refusal that
-            came back, or ``None`` for a requirement no granted skill produced.
-        asked_at: The composite's single reconstruction instant. Every admitted
-            child must have been admitted at exactly this instant.
-        ttl_anchor_at: The instant the composite's TTL runs from — the
-            **decision** instant, not the reconstruction one (`D-IMPL-308`).
-            Passed rather than derived so this function reads no clock and so
-            a composite and a non-composite of one class anchor identically
-            (`R6`: they did not, and two governed answers collided on one
-            content address).
-        composition_invocation: This composition's invocation identity. Every
-            admitted child must have been admitted under exactly this one.
+    Exactly the dispositions :func:`compose_children` has always made, and
+    the only place they are made. See :class:`ChildOutcomeResolution`.
     """
     rows: list[ChildResolution] = []
     admitted_factors: list[DebtFactors] = []
@@ -1361,12 +1427,13 @@ def compose_children(
     declared: list[str] = []
     for requirement in requirements:
         if requirement.product_class in declared:
-            return CompositionOutcome(
-                factors=None,
+            return ChildOutcomeResolution(
+                admitted=(),
+                admitted_factors=(),
                 # No rows: the declaration itself is incoherent, so there is no
                 # per-requirement disposition to record. Distinct from the
                 # undeclared-key case below, which HAS dispositions.
-                resolutions=(),
+                rows=(),
                 refusal=bare(
                     "requirement-mismatch",
                     requirement.product_class,
@@ -1532,6 +1599,70 @@ def compose_children(
             )
         )
 
+    return ChildOutcomeResolution(
+        rows=tuple(rows),
+        admitted=tuple(admitted_children),
+        admitted_factors=tuple(admitted_factors),
+        refusal=refusal,
+    )
+
+
+def compose_children(
+    *,
+    own_factors: DebtFactors,
+    requirements: Sequence[ChildRequirement],
+    # `object` and not the narrow union, DELIBERATELY (F13). The narrow type
+    # says an unsupported value cannot arrive, and mypy then proves the guard
+    # below unreachable — which is exactly the assumption that let a raw
+    # contract be read as "nothing was produced". The guard is the mechanism;
+    # the type must admit the case it guards.
+    outcomes: Mapping[str, object],
+    asked_at: datetime,
+    composition_invocation: str,
+    own_lineage: ProductLineage,
+    max_ttl: MaxTTL,
+    ttl_anchor_at: datetime,
+    validity_floors: ConstituentValidityFloors,
+) -> CompositionOutcome:
+    """Compose an admitted child set, or refuse, and record every requirement.
+
+    Walks ``requirements`` **in declaration order** — the order rows appear in
+    replay and the order a refusal names.
+
+    **`D-IMPL-336` Amendment 3 re-binds every child to THIS composition.** The
+    earlier body keyed on ``outcomes.get(requirement.product_class)`` and
+    trusted whatever it found: an admitted child could satisfy a slot it was
+    never checked against, children admitted at different instants composed
+    together, an undeclared key vanished silently, and an unsupported object
+    was read as *nothing was produced*. Each of those is now a refusal.
+
+    Args:
+        own_factors: What the parent itself assembled.
+        requirements: The composite class's declared requirements, **read from
+            the registered declaration** — never a replacement list.
+        outcomes: Per ``product_class``: the admitted child, the refusal that
+            came back, or ``None`` for a requirement no granted skill produced.
+        asked_at: The composite's single reconstruction instant. Every admitted
+            child must have been admitted at exactly this instant.
+        ttl_anchor_at: The instant the composite's TTL runs from — the
+            **decision** instant, not the reconstruction one (`D-IMPL-308`).
+            Passed rather than derived so this function reads no clock and so
+            a composite and a non-composite of one class anchor identically
+            (`R6`: they did not, and two governed answers collided on one
+            content address).
+        composition_invocation: This composition's invocation identity. Every
+            admitted child must have been admitted under exactly this one.
+    """
+    resolved = resolve_child_outcomes(
+        requirements=requirements,
+        outcomes=outcomes,
+        asked_at=asked_at,
+        composition_invocation=composition_invocation,
+    )
+    rows = list(resolved.rows)
+    admitted_factors = list(resolved.admitted_factors)
+    admitted_children = list(resolved.admitted)
+    refusal = resolved.refusal
     if refusal is not None:
         return CompositionOutcome(
             factors=None, resolutions=tuple(rows), refusal=refusal

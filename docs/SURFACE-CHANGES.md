@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1134 entries**, of which **890** name a public Python surface.
+**1143 entries**, of which **899** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-586 entries — 546 public Python surface, 40 not public Python API.
+594 entries — 554 public Python surface, 40 not public Python API.
 
 ### Public Python surface
 
@@ -10201,6 +10201,102 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `336-05-the-reference-child-resolver.md`.*
 
+#### ccf.products.composite.resolve_child_outcomes
+
+- Surface: ccf.products.composite.resolve_child_outcomes
+- Public surface: true
+- Change type: added
+- Before: the per-requirement walk — provenance, slot/instant/invocation re-binding, the refusal branches and the honest absence — lived only inside `compose_children`
+- After: factored out, returning a `ChildOutcomeResolution`; `compose_children` calls it and applies the four laws to what it returns, unchanged in behavior
+- Why: the walk must run BEFORE the parent's plan so the view is derived only from children that passed it, and so a known blocking outcome refuses before any child-dependent computation
+- Migration: none — `compose_children`'s signature and behavior are unchanged
+
+*Recorded by `339-01-acquire-once-and-expose-child-contracts.md`.*
+
+#### ccf.products.composite.ChildOutcomeResolution
+
+- Surface: ccf.products.composite.ChildOutcomeResolution
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the walk's result — rows, admitted children, admitted factors, and the first refusal; `blocking` is `refusal is not None`
+- Why: one value that both the view and the composition are derived from
+- Migration: none
+
+*Recorded by `339-01-acquire-once-and-expose-child-contracts.md`.*
+
+#### ccf.products.composite.ChildContractView
+
+- Surface: ccf.products.composite.ChildContractView
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a read-only `Mapping[str, ContextProductContract]` keyed by the declared requirement's `product_class` — contracts, not admission machinery
+- Why: what the plan receives; no invented graph view, no `ProductSource` expansion, no `GraphReader`
+- Migration: none
+
+*Recorded by `339-01-acquire-once-and-expose-child-contracts.md`.*
+
+#### ccf.products.composite.child_contract_view
+
+- Surface: ccf.products.composite.child_contract_view
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: derives a `ChildContractView` from a resolution that reached no refusal; raises `ValueError` over a blocked one
+- Why: the view is derived only after provenance and request/slot bindings are established, and never over a composition already known not to compose
+- Migration: none
+
+*Recorded by `339-01-acquire-once-and-expose-child-contracts.md`.*
+
+#### ccf.products.composite.ADMITTED_CHILD_CONTRACT_CLASS
+
+- Surface: ccf.products.composite.ADMITTED_CHILD_CONTRACT_CLASS
+- Public surface: true
+- Change type: added
+- Before: absent — nothing retained a served product's bytes
+- After: the artifact class under which the consuming fabric files each admitted child's contract by content address at decision time
+- Why: replay rebuilds the parent's view from what was CONSUMED, never from a provider call, a latest-version lookup or a live closure; the row's `child_content_address` now resolves to bytes
+- Migration: none — a mechanism token, not a domain value; filed idempotently on the fabric's own store
+
+*Recorded by `339-01-acquire-once-and-expose-child-contracts.md`.*
+
+#### ccf.products.resolver.CompositePlanFactoryProtocol
+
+- Surface: ccf.products.resolver.CompositePlanFactoryProtocol
+- Public surface: true
+- Change type: added
+- Before: `ProjectionPlanFactoryProtocol.__call__(required=, request=)` was the only way a plan was built
+- After: an optional companion Protocol, `build_with_children(required=, request=, children=)`; a composite-capable factory declares support by implementing it, and the resolver chooses the call **structurally**
+- Why: adding a defaulted parameter to a Protocol does not make existing implementations accept it; no `TypeError`-and-retry
+- Migration: none — a factory implementing only `__call__` is called exactly as before, for composites and non-composites alike
+
+*Recorded by `339-01-acquire-once-and-expose-child-contracts.md`.*
+
+#### ccf.products.resolver.ChildAwareDebtScorerProtocol
+
+- Surface: ccf.products.resolver.ChildAwareDebtScorerProtocol
+- Public surface: true
+- Change type: added
+- Before: a deployment scorer received the view and the execution evidence; the parent's own child-dependent `C`/`S` had no per-request input path
+- After: an optional companion Protocol, `score_with_children(view=, evidence=, children=)`; the resolver asks it when the scorer implements it
+- Why: the parent's child-dependent measurements must reach its assessment per request from the same admitted products the plan read
+- Migration: none — a scorer implementing only `__call__` is asked exactly as before
+
+*Recorded by `339-01-acquire-once-and-expose-child-contracts.md`.*
+
+#### ccf.replay.engine.CompositeReplayEnvironment
+
+- Surface: ccf.replay.engine.CompositeReplayEnvironment
+- Public surface: true
+- Change type: added
+- Before: `ReplayEnvironment.resolve_plan(plan_id=)` was the only plan seam, so a child-dependent plan could not be rebuilt on replay
+- After: an optional companion Protocol, `resolve_composite_plan(plan_id=, children=)`; `replay()` rebuilds the view from the retained contracts BEFORE calling it, and refuses by name an environment that lacks it for a record that composed admitted children
+- Why: the child-input reconstruction must be connected and proven, with no provider calls
+- Migration: none for records that composed no admitted child; a composite's environment implements the method
+
+*Recorded by `339-01-acquire-once-and-expose-child-contracts.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -17634,7 +17730,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-143 entries — 123 public Python surface, 20 not public Python API.
+144 entries — 124 public Python surface, 20 not public Python API.
 
 ### Public Python surface
 
@@ -20555,6 +20651,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none — no signature or record shape changes; a deployment substituting its own `RefusalRecorderProtocol` already receives `child_resolutions` and should forward it
 
 *Recorded by `338-01-child-evidence-survives-every-downstream-refusal.md`.*
+
+#### ccf.products.resolver.GovernedResolver.__call__
+
+- Surface: ccf.products.resolver.GovernedResolver.__call__
+- Public surface: true
+- Change type: behavior
+- Before: children acquired and composed AFTER the projection; a known blocking child outcome still ran the plan; a composition refusal carried the execution that ran
+- After: children acquired once BEFORE the plan; a known blocking outcome (required child absent, invoked child refused or rejected at admission, no resolver wired) refuses before any child-dependent computation, recorded like a pre-assembly refusal with `execution=None` and every child row; admitted contracts are retained by address
+- Why: `D-IMPL-339` Q2 — do not run child-dependent computation on a set already known not to compose; a payload computed before a later refusal is provisional and is never served
+- Migration: none for non-composites (byte-identical path); none for composites with a legacy factory (served as before, governance only)
+
+*Recorded by `339-01-acquire-once-and-expose-child-contracts.md`.*
 
 ### Not public Python API
 

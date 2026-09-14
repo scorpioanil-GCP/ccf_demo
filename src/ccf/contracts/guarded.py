@@ -168,11 +168,13 @@ GUARDED_TYPES: Final[tuple[GuardedTypeDeclaration, ...]] = (
         mint="ccf.products.composite:CompositeAdmissionGate.admit",
         verifier="ccf.products.composite:verify_child_admission_provenance",
         verifier_aliases=("ccf.products.composite:_has_child_provenance",),
-        boundaries=("ccf.products.composite:compose_children",),
+        boundaries=("ccf.products.composite:resolve_child_outcomes",),
         propagation=(
-            "`compose_children` establishes it, and `_rebinding_failure` and"
-            " `_row_for_admitted` inherit — verified-before-entry, the"
-            " taxonomy working as ruled"
+            "`resolve_child_outcomes` establishes it — `D-IMPL-339` moved the"
+            " per-requirement walk there so it runs BEFORE the parent's plan —"
+            " and `compose_children`, `child_contract_view`,"
+            " `_rebinding_failure` and `_row_for_admitted` inherit —"
+            " verified-before-entry, the taxonomy working as ruled"
         ),
         notes=(
             "the boundary BRANCHES rather than raising, so it calls the"
