@@ -1,6 +1,14 @@
 # D-IMPL-336 — completion package
 
-**Branch `d-impl-336-composite`. NOT merged. CP-14 acquisition remains HOLD.**
+**Candidate `1edc8fe7` on `d-impl-336-composite`. NOT merged. CP-14 acquisition
+remains HOLD.**
+
+> **A close-time cross-AI panel has run against this work** and its record is
+> `docs/D-IMPL-336-CLOSE-PANEL.md` — 9 confirmed, 1 partial, 14 rejected, over
+> 30 agents. It found one real defect (`CP-F-01`: **this simplification
+> regressed `F3`**), one real spoof (`CP-F-02`), two measurement failures by
+> the orchestrator, and two false docstrings. All are remediated at `1edc8fe7`
+> and are reflected in the tables below. One advisory (`CP-F-06`) is carried.
 
 Returned against `D-IMPL-336` **Amendment 5 §6**, which asks for one package
 distinguishing **removed duplicate mechanism**, **retained control**,
@@ -29,7 +37,7 @@ constructed **five intermediate typed objects**.
 | --- | --- | --- |
 | deployment code to acquire a child | 45 lines | **16** |
 | evidence objects a deployment constructs | 5 | **0** |
-| `composite.py` | 1,910 lines | **1,569** |
+| `composite.py` | 1,910 lines | **1,666** |
 | unit-test fixture | boots a fabric + artifact store | **a bare `ControlPlaneRegistry`** |
 
 **The root cause, and it was mine.** The outcomes map was treated as a hostile
@@ -54,6 +62,15 @@ dispatch.
 | `FabricHandle.local_attestor` | Boot no longer mints a composite-specific capability. |
 | `ChildCandidate.provenance` | Replaced by `invocation` + (peered only) `admission`. |
 
+**What removing it cost, found by the panel and not by me.** Deleting
+`ChildProvenance` made `touched_entities` optional — necessary, because Dave
+ruled a consumer must not be required to read a remote provider's replay store.
+It also left the **local** leg admitting `None` while still recording
+`local-register` as the authority: `CP-F-01`, the `F3` regression. The property
+`ChildProvenance` had enforced by making the field mandatory is enforced now by
+the local leg **refusing** when it is absent. That is the one row in this table
+where "relocated, not dropped" was not true when it was written.
+
 **Verified absent** from `src/` and `runtime/` by grep; the only surviving
 mentions are docstrings recording what was removed and why.
 
@@ -66,6 +83,8 @@ mentions are docstrings recording what was removed and why.
 | A revoked or ungranted producer cannot initiate | `resolve_producing_grant` reads the live view |
 | The provider relationship cannot be relabelled | read off the dispatch result's **type**; `invocation_from_dispatch` takes no `acquisition` argument |
 | Touched entities cannot be claimed for a remote child | refused, not ignored (**F3**, closed the other way — see §3) |
+| A LOCAL child with no execution record cannot be admitted | `_establish_eligibility`, refusing `eligibility-evidence-missing` (**CP-F-01**) |
+| A remote entry cannot be relabelled as a local dispatch | `invocation_from_dispatch` holds three facts to each other: the dispatch result's type, the granted entry's `skill_type`, and the `skill_type` the dispatch stamped on its own result (**CP-F-02**) |
 | Fit checks: class, version, tenant, one `as_of`, address, assessable debt | `CompositeAdmissionGate` |
 | Slot-to-child reconciliation | `_rebinding_failure` (**F2**/**F15**) |
 | The four composition laws | `compose_children` (`D-IMPL-31`, `D-IMPL-104`) |
@@ -86,6 +105,7 @@ mentions are docstrings recording what was removed and why.
 | # | What | Status |
 | --- | --- | --- |
 | — | An over-bound protected header surfaces as `SignatureInvalid`, because `ExceededSizeError` is a `JoseError` and the identity provider maps the family. **Nothing is admitted**, so the direction is safe, but an operator debugging an oversized envelope is told the wrong thing. | **OPEN, recorded not repaired.** Changing that mapping widens what the verify path distinguishes and was not R1's subject. |
+| `CP-F-06` | On the mixing-refusal path `ChildAdmissionRefusal.product_class` is set from `child.verified_content_address`, so the field carries a content address where every other refusal in the module puts a requirement class name. | **OPEN, advisory.** Confirmed by the close panel. Not repaired here: what that field holds has readers outside this module, and changing it on one path is a wider change than this work's scope. |
 
 Nothing else from the two panels or the R-series is open. `R1`–`R6`, `F0`–`F18`,
 `V1`–`V3`, `O1`–`O3`, `CMP-R-01`, `CMP-R-02`, `INT-01a` and `INT-01b` are all
@@ -132,6 +152,8 @@ said `mypy src/ccf`, which is narrower and never covered `runtime/`.
 | `R4`'s own-declaration guard | `test_r4_the_union_CANNOT_mask_the_parents_own_declaration_drifting` |
 | The declared header bound, moved below the honest header | the same envelope refuses — proving the bound is **read at verification**, not merely present |
 | `child_operators_invoked` / `child_expires_at` | `CMP-R-02` cannot re-derive the union or the floor |
+| The local leg's missing-record refusal (`CP-F-01`) | a superseded child is ADMITTED with `basis=local-register`, measured, with the control beside it |
+| Any one of `invocation_from_dispatch`'s three facts (`CP-F-02`) | an MCP-granted entry records as `local-dispatch` with caller-chosen entities |
 
 ---
 
@@ -147,4 +169,10 @@ said `mypy src/ccf`, which is narrower and never covered `runtime/`.
   product that passes admission and matches the class.** A peer returning
   several candidates for one requirement is not disambiguated, and that is a
   gap rather than a policy.
-- The over-bound-header reporting defect in §2.
+- The over-bound-header reporting defect in §2, and `CP-F-06`.
+- **Two of the six close-panel findings were measurement failures by the
+  orchestrator, not design defects** — a surface gate that was red on this
+  branch and green on `main` and never run, and a test whose comment promised
+  an assertion the code did not carry. Both are fixed; both are recorded here
+  because the pattern (running the generator, not the gate) is the one worth
+  remembering.
