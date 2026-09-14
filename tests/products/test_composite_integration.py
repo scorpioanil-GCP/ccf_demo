@@ -31,18 +31,25 @@ from __future__ import annotations
 
 import pathlib
 from collections.abc import Iterator
+from datetime import UTC, datetime
 
 import pytest
 
+from ccf.products.contract import ProductLineage
 from ccf.products.request import ProductRequest
+from ccf.signal.envelope import SignalEnvelope, SourceIdentity
 from ccf.replay.record import DecisionReplayRecord
 from ccf.replay.serve import ServedProduct
 
 from tests.deployment.conftest import TENANT
+from datetime import UTC, datetime
+
 from ccf.products.contract import ProductLineage
+from ccf.signal.envelope import SignalEnvelope, SourceIdentity
 
 from tests.products.composite_fixture import (
     CHILD_CALLABLE,
+    CHILD_CLASS,
     CHILD_SKILL,
     _ledger,
     ask_composite,
@@ -52,6 +59,7 @@ from tests.products.composite_fixture import (
 from tests.products.provider_boot import CHILD_CLASS
 from tests.products.test_resolver_seam import (
     ASKED_AT,
+    THRESHOLD_PARAMETER,
     _arguments,
     PERSPECTIVE,
     PRODUCT_CLASS,
@@ -355,7 +363,11 @@ def test_int01b_a_composite_serves_as_ANOTHER_composites_child(
     the TOP's lineage. It can only get there by travelling through the middle,
     so a chain that silently flattened to two levels would fail here.
     """
-    from tests.products.composite_fixture import ask_higher, build_higher_composite
+    from tests.products.composite_fixture import (
+        HIGHER_CLASS,
+        ask_higher,
+        build_higher_composite,
+    )
 
     middle, _middle_children = _wire(booted)
     higher, _higher_children = build_higher_composite(booted, middle)
@@ -396,7 +408,11 @@ def test_int01b_the_top_expiry_is_FLOORED_by_the_deepest_constituent(
     stalest constituent. Over a chain that has to hold transitively, or a
     two-level composite could outlive the leaf its answer rests on.
     """
-    from tests.products.composite_fixture import ask_higher, build_higher_composite
+    from tests.products.composite_fixture import (
+        HIGHER_CLASS,
+        ask_higher,
+        build_higher_composite,
+    )
 
     middle, _mc = _wire(booted)
     higher, _hc = build_higher_composite(booted, middle)
@@ -496,3 +512,256 @@ def test_a_peered_leg_with_NO_peering_gate_refuses_rather_than_raising(
     )
     assert isinstance(outcome, str), outcome
     assert "binds no PeeringAdmissionGate" in outcome
+
+
+# --- INT-01b: dependency invalidation from a REAL L2 source change ----------
+#
+# The last ruled `D-IMPL-336` deliverable. The nested chain already exists and
+# is not redesigned here; what is added is the one thing it never proved —
+# that a composite inherits dependency invalidation from a real graph write,
+# through the boot-bound L2 writer, by COMPOSITION rather than by the test
+# attaching the leaf's entity to it.
+
+#: When the leaf was assembled. The chain's normal instant.
+T0 = ASKED_AT
+#: When the world changed. Between the leaf and the re-serve, on purpose.
+T_WORLD = datetime(2026, 3, 2, 13, 0, tzinfo=UTC)
+#: When the fabric LEARNED it. Months later, so a boundary at the wrong clock
+#: would be unmistakable (`D-IMPL-335`).
+T_INGEST = datetime(2026, 6, 15, tzinfo=UTC)
+#: When the dependent products are re-served. After the world change.
+T_LATER = datetime(2026, 3, 2, 14, 0, tzinfo=UTC)
+
+
+def _supersede_the_leafs_entity(booted: _Booted) -> None:
+    """Change the underlying entity through the REAL boot-bound L2 writer.
+
+    **Everything forbidden is avoided, and the list is the point.** Nothing
+    here writes to `EntityInvalidationRegister`, calls the invalidation sink,
+    seeds a synthetic boundary, or attaches the leaf's entity to either
+    composite. One envelope goes through `worker.ingest`; the writer
+    `ccf.boot.boot` bound the sink to publishes the boundary itself
+    (`D-IMPL-334`), at the instant `D-IMPL-335` rules.
+
+    The payload differs from the fixture's on a resolution-spec ATTRIBUTE
+    (`classification`), keyed on the same `account_ref` — so it resolves to the
+    same entity and is a genuinely different claim, which is what supersedes
+    rather than deduplicates.
+    """
+    booted.fabric.handle.worker.ingest(
+        SignalEnvelope(
+            tenant_id=TENANT,
+            envelope_id="envelope-supersede-int01b",
+            source=SourceIdentity(system_id="fixture-system"),
+            # WHEN THE FABRIC LEARNED IT. Far from the world instant, so the
+            # two clocks cannot be confused for one another.
+            ingestion_timestamp=T_INGEST,
+            # WHEN IT BECAME TRUE. This is what the boundary must take.
+            observed_time=T_WORLD,
+            raw_payload={
+                "account_ref": "acct-1",
+                "classification": "fixture-reclassified",
+                "label": "fixture account",
+            },
+        )
+    )
+
+
+def _ask_at(resolver: object, schema: str, version: str, at: datetime) -> object:
+    return resolver(  # type: ignore[operator]
+        tenant=TENANT,
+        product_class=schema,
+        version=version,
+        perspective=PERSPECTIVE,
+        request=ProductRequest(
+            schema_name=schema,
+            schema_version=version,
+            subject="acct-1",
+            intent="fixture-intent",
+            freshness="fixture-freshness",
+            asked_at=at,
+            parameters={THRESHOLD_PARAMETER: 1000},
+        ),
+    )
+
+
+def test_int01b_a_real_L2_change_invalidates_the_NESTED_composite_chain(
+    booted: _Booted,
+) -> None:
+    """`INT-01b`, the last ruled deliverable: dependency propagation by composition.
+
+    **The property.** The middle and higher composites become dependent on the
+    leaf's entity *because they consumed a governed child product whose own
+    evidence carried the relationship* — not because this test copied the
+    entity into them. Nothing here writes to `EntityInvalidationRegister`,
+    calls the invalidation sink, seeds a synthetic boundary, or attaches the
+    leaf's touched entity to either composite. One envelope goes through
+    `worker.ingest`, and the writer `ccf.boot.boot` bound the sink to publishes
+    the boundary itself.
+
+    **The reachable case, found by sabotage rather than by design.** The first
+    version of this test pinned the leaf to an instance built at `T0` and
+    re-served the composite at a later instant, expecting the stale child to be
+    refused as invalidated. It was refused — as **`as-of-mismatch`**. A child
+    answering for `T0` cannot satisfy a composition asked at `T_LATER` at all,
+    because `F15`'s one-`as_of` invariant fires first. The test passed for the
+    wrong reason, and the prescribed sabotage is what exposed it: neutering the
+    child's dependency evidence left it green.
+
+    The case that *is* reachable is **historical reconstruction**, which is
+    what `D-IMPL-334` exists for — *"a previously derived product that read it
+    at an older snapshot is no longer eligible to be served."* The same
+    question is asked again at `T0`, **after** the world changed at
+    `T_WORLD > T0`. Every level's graph snapshot is now before the boundary.
+
+    **Where the refusal starts, measured:** at the LEAF's own gate, inside its
+    own governed delivery, before `CompositeAdmissionGate.admit` is ever
+    reached. The composite refuses because the child product it consumed
+    refused. That is the propagation, and the sabotages below isolate it.
+    """
+    from ccf.controlplane.invalidation import ControlPlaneInvalidationSink
+    from tests.products.composite_fixture import (
+        HIGHER_CLASS,
+        _child_resolver,
+        build_higher_composite,
+    )
+
+    # 1-3. the chain, built through the shipped path at T0.
+    middle, _children = _wire(booted)
+    higher, _hc = build_higher_composite(booted, middle)
+    assert isinstance(
+        _ask_at(middle, PRODUCT_CLASS, PRODUCT_VERSION, T0), ServedProduct
+    )
+    first_higher = _ask_at(higher, HIGHER_CLASS, "1.0.0", T0)
+    assert isinstance(first_higher, ServedProduct), getattr(
+        first_higher, "detail", first_higher
+    )
+
+    # 4. the initial dependent state: no boundary exists yet.
+    sink = ControlPlaneInvalidationSink(registry=booted.control_plane)
+    assert sink.register(TENANT) is None
+
+    # 5-6. the world changes, through the real boot-bound writer and nothing
+    # else. The boundary is published by the writer, not by this test.
+    _supersede_the_leafs_entity(booted)
+    register = sink.register(TENANT)
+    assert register is not None, "the boot-bound writer published no boundary"
+    boundaries = {e.invalidated_from for e in register.entries}
+    # `D-IMPL-335`: the SOURCE/world clock, never the ingestion clock. The
+    # split-clock control itself already lives at
+    # `tests/products/test_dependency_invalidation.py` and is not restated
+    # here; this is the pin that the NESTED path takes the same clock.
+    assert boundaries == {T_WORLD}, boundaries
+    assert T_INGEST not in boundaries
+
+    # where it starts: the leaf's own governed delivery refuses.
+    leaf_again = _ask_at(_child_resolver(booted), CHILD_CLASS, "1.0.0", T0)
+    assert not isinstance(leaf_again, ServedProduct), (
+        "the leaf served a reconstruction whose entity had since been superseded"
+    )
+
+    # the leaf-dependent middle composite refuses...
+    after_middle = _ask_at(middle, PRODUCT_CLASS, PRODUCT_VERSION, T0)
+    assert not isinstance(after_middle, ServedProduct), (
+        "the middle composite served on a child that was no longer eligible"
+    )
+    assert after_middle.kind == "composite-child-refusal"
+
+    # ...and so does the dependent higher composite, one level further up.
+    after_higher = _ask_at(higher, HIGHER_CLASS, "1.0.0", T0)
+    assert not isinstance(after_higher, ServedProduct), (
+        "the higher composite served on a middle composite that had refused"
+    )
+    assert after_higher.kind == "composite-child-refusal"
+
+    # THE CONTROL. The same chain, over the same entity, asked at an instant
+    # AFTER the change, still serves — so the refusals above are specific to
+    # what the products read and are not a register refusing everything.
+    #
+    # Stated plainly: the fixture graph holds ONE entity, so "an unrelated
+    # product" cannot be expressed by entity identity here. It is expressed by
+    # the instant instead, which discriminates the same property.
+    assert isinstance(
+        _ask_at(_child_resolver(booted), CHILD_CLASS, "1.0.0", T_LATER),
+        ServedProduct,
+    )
+    redrawn = _ask_at(middle, PRODUCT_CLASS, PRODUCT_VERSION, T_LATER)
+    assert isinstance(redrawn, ServedProduct), getattr(redrawn, "detail", redrawn)
+
+    # permitted re-derivation restores the whole chain, two levels up.
+    restored = _ask_at(higher, HIGHER_CLASS, "1.0.0", T_LATER)
+    assert isinstance(restored, ServedProduct), getattr(restored, "detail", restored)
+
+
+def test_int01b_the_inherited_composition_state_survives_on_the_nested_chain(
+    booted: _Booted,
+) -> None:
+    """The four already-built properties, re-asserted on the REAL nested path.
+
+    Dave: *"this is a regression assertion around the real nested path"* — the
+    mechanisms are not reopened, only confirmed to survive two levels of
+    composition rather than one.
+    """
+    from tests.products.composite_fixture import HIGHER_CLASS, build_higher_composite
+
+    middle, _mc = _wire(booted)
+    higher, _hc = build_higher_composite(booted, middle)
+    top = _ask_at(higher, HIGHER_CLASS, "1.0.0", T0)
+    assert isinstance(top, ServedProduct), getattr(top, "detail", top)
+
+    record = DecisionReplayRecord.model_validate_json(
+        booted.store.get(
+            content_address=booted.store.resolve_uri(uri=top.replay_ref.uri)
+        )
+    )
+    rows = record.content_generation_path.child_resolutions
+    assert len(rows) == 1
+    row = rows[0]
+
+    # (1) child dependency lineage reaches the parent — the LEAF's operator,
+    # two levels down, is in the top's lineage. It can only arrive by
+    # travelling through the middle.
+    assert "similarity.corpus-select" in top.product.lineage.operators_invoked
+
+    # (2) parent expiry remains bounded by its children.
+    assert row.child_expires_at is not None
+    assert top.product.expires_at is not None
+    assert top.product.expires_at <= row.child_expires_at
+
+    # (3) the persisted evidence identifies the contributing governed product —
+    # by class, by verified address, and by the grant that authorized it.
+    assert row.required_product_class == PRODUCT_CLASS
+    assert row.outcome_status == "admitted"
+    assert row.child_content_address and row.grant_hash
+    assert row.child_operators_invoked is not None
+
+    # (4) replay reconstructs the served composite from the record alone —
+    # re-deriving the union and the floor from the ROWS, calling no child
+    # skill. Proven at one level by `test_r5_*`; confirmed here at two.
+    from ccf.products.composition import compose_expiry, compose_lineage
+    from ccf.products.contract import MaxTTL
+
+    own = ProductLineage(
+        operators_invoked=frozenset(record.content_generation_path.operator_plan),
+        policy_bundle_versions=top.product.lineage.policy_bundle_versions,
+        graph_snapshot_at=top.product.lineage.graph_snapshot_at,
+    )
+    rebuilt = compose_lineage(
+        [
+            own,
+            ProductLineage(
+                operators_invoked=row.child_operators_invoked,
+                policy_bundle_versions=row.child_policy_bundle_versions or frozenset(),
+                graph_snapshot_at=row.child_graph_snapshot_at or T0,
+            ),
+        ]
+    )
+    assert rebuilt.operators_invoked == top.product.lineage.operators_invoked
+    assert (
+        compose_expiry(
+            constituent_validities=[row.child_expires_at],
+            max_ttl=MaxTTL(seconds=_arguments(booted)["product_ttl_seconds"]),
+            ttl_anchor_at=record.recorded_at,
+        )
+        == top.product.expires_at
+    )
