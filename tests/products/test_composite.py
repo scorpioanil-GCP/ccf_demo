@@ -86,6 +86,8 @@ from ccf.controlplane.artifacts import declared_artifact_class, parse_artifact
 from ccf.skills.catalog import (
     NO_PRODUCT_CLASS,
     LocalCallableBinding,
+    McpBinding,
+    PeeringBinding,
     SkillArgumentSchema,
     SkillCatalog,
     SkillCatalogEntry,
@@ -233,16 +235,28 @@ def served(outcome: object) -> ContextProductContract:
 # --- skills -----------------------------------------------------------------
 
 
-def skill(name: str, *, produces: str = NO_PRODUCT_CLASS) -> SkillCatalogEntry:
+_BINDING_FOR = {
+    "local_callable": lambda n: LocalCallableBinding(callable_ref=f"ref::{n}"),
+    "mcp": lambda n: McpBinding(server="fixture-server", resource="fixture-resource"),
+    "peering": lambda n: PeeringBinding(endpoint="fixture-endpoint"),
+}
+
+
+def skill(
+    name: str,
+    *,
+    produces: str = NO_PRODUCT_CLASS,
+    skill_type: str = "local_callable",
+) -> SkillCatalogEntry:
     return SkillCatalogEntry(
         schema_version="1.0.0",
         artifact_version="1.0.0",
         name=name,
         tenant=TENANT,
-        skill_type="local_callable",
+        skill_type=skill_type,
         description=f"{name} skill",
         argument_schema=SkillArgumentSchema(properties={}, required=frozenset()),
-        binding=LocalCallableBinding(callable_ref=f"ref::{name}"),
+        binding=_BINDING_FOR[skill_type](name),
         requirements=SkillRequirements(
             required_scopes=frozenset(), required_context_products=frozenset()
         ),
@@ -311,7 +325,9 @@ def _ledger(registry: ControlPlaneRegistry) -> GrantLedger:
 
 
 def granted(
-    registry: ControlPlaneRegistry, *producers: tuple[str, str]
+    registry: ControlPlaneRegistry,
+    *producers: tuple[str, str],
+    skill_type: str = "local_callable",
 ) -> BoundSkillView:
     """Put ``producers`` in force through the REAL grant machinery (**O2**).
 
@@ -329,7 +345,9 @@ def granted(
     """
     ledger = _ledger(registry)
     for name, produces in producers:
-        ledger._catalog.register(skill(name, produces=produces))
+        ledger._catalog.register(
+            skill(name, produces=produces, skill_type=skill_type)
+        )
         outcome = ledger.request(
             SkillGrant(
                 schema_version="1.0.0",
@@ -370,8 +388,19 @@ def require(
     )
 
 
+#: The entry `skill_type` each acquisition kind must be granted against.
+#: Held here because `invocation_from_dispatch` now refuses a mismatch — the
+#: close panel showed a `local_callable` entry paired with an `McpInvocation`
+#: recorded a remote product as locally produced.
+_SKILL_TYPE_FOR = {"local": "local_callable", "mcp": "mcp", "peering": "peering"}
+
+
 def _producer(
-    registry: ControlPlaneRegistry, name: str, produces: str
+    registry: ControlPlaneRegistry,
+    name: str,
+    produces: str,
+    *,
+    skill_type: str = "local_callable",
 ) -> ResolvedProducer:
     """Resolve ``name`` through a real ledger, once per (registry, name).
 
@@ -384,7 +413,7 @@ def _producer(
         "_composite_test_producers", {}
     )
     if name not in cache:
-        view = granted(registry, (name, produces))
+        view = granted(registry, (name, produces), skill_type=skill_type)
         resolved = resolve_producing_grant(require(produces), view)
         assert resolved is not None, f"{name} was not put in force"
         cache[name] = resolved
@@ -449,7 +478,12 @@ def candidate(
         # entry and the acquisition kind from the dispatch result, so neither
         # half is a string this file typed.
         invocation=invocation_from_dispatch(
-            _producer(registry, skill_name, requirement.product_class),
+            _producer(
+                registry,
+                skill_name,
+                requirement.product_class,
+                skill_type=_SKILL_TYPE_FOR[kind],
+            ),
             result,
             touched_entities=touched if kind == "local" else None,
         ),
@@ -556,18 +590,20 @@ def test_the_acquisition_kind_is_READ_from_the_dispatch_not_declared(
     named: *"a local skill fetching a remote product must not relabel that
     product as locally produced to bypass its applicable checks."*
     """
-    producer = _producer(registry, "family-skill", FAMILY)
-    assert (
-        invocation_from_dispatch(producer, dispatched()).acquisition
-        == "local-dispatch"
-    )
-    assert (
-        invocation_from_dispatch(producer, dispatched(kind="mcp")).acquisition == "mcp"
-    )
-    assert (
-        invocation_from_dispatch(producer, dispatched(kind="peering")).acquisition
-        == "peered"
-    )
+    # A DISTINCT product class per kind: two in-force grants producing one
+    # class is `AmbiguousProducerError`, which the SDK refuses on its own terms.
+    for kind, produces, expected in (
+        ("local", FAMILY, "local-dispatch"),
+        ("mcp", EXPOSURE, "mcp"),
+        ("peering", COVENANT, "peered"),
+    ):
+        producer = _producer(
+            registry, f"skill-{kind}", produces, skill_type=_SKILL_TYPE_FOR[kind]
+        )
+        minted = invocation_from_dispatch(
+            producer, dispatched(f"skill-{kind}", kind=kind)
+        )
+        assert minted.acquisition == expected
     assert "acquisition" not in inspect.signature(invocation_from_dispatch).parameters
 
 
@@ -621,11 +657,15 @@ def test_touched_entities_CANNOT_be_supplied_for_a_remote_child(
     **claiming entities for a child whose execution record this fabric does
     not hold**. Supplying them is refused rather than ignored.
     """
-    producer = _producer(registry, "family-skill", FAMILY)
-    for kind in ("mcp", "peering"):
+    for kind, produces in (("mcp", EXPOSURE), ("peering", COVENANT)):
+        producer = _producer(
+            registry, f"remote-{kind}", produces, skill_type=_SKILL_TYPE_FOR[kind]
+        )
         with pytest.raises(ProvenanceForgeryError) as raised:
             invocation_from_dispatch(
-                producer, dispatched(kind=kind), touched_entities=(ENTITY_OBLIGOR,)
+                producer,
+                dispatched(f"remote-{kind}", kind=kind),
+                touched_entities=(ENTITY_OBLIGOR,),
             )
         assert "does not hold that provider's execution record" in str(raised.value)
 
@@ -1294,3 +1334,115 @@ def test_r6_the_ttl_anchor_is_the_DECISION_instant_not_the_request_one(
     assert later.expires_at > early.expires_at
 
 
+
+
+def test_f3_REOPENED_a_local_child_with_no_execution_record_REFUSES(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """`F3`, re-opened by Amendment 5 and closed again at the close panel.
+
+    **This is the regression, written as the test that would have caught it.**
+    Amendment 3 closed F3 by making `touched_entities` always present.
+    Amendment 5 made it optional — correctly, so a remote child need not force
+    a read of its provider's replay store — and left the LOCAL leg admitting
+    `None`: `refuse_dependency_invalidation` returns `None` immediately for
+    `None`, so the register was never resolved, and the row still recorded
+    `local-register` as the authority that had cleared it.
+
+    Four independent reviewers found it and it was reproduced here before the
+    fix, on a child whose entity really was superseded.
+
+    The assertion is paired on purpose. A test that only checked the `None`
+    case would pass against a register that refuses everything.
+    """
+    child = served(deliver(registry, _contract(schema=FAMILY)))
+    ControlPlaneInvalidationSink(registry=registry).record(
+        tenant_id=TENANT,
+        entity_uri=ENTITY_OBLIGOR,
+        invalidated_from=SUPERSEDED_AT,
+        source="test",
+        reason="superseded by a later observation",
+    )
+    req = require(FAMILY)
+
+    # The control: the register is live and it refuses a superseded child.
+    supplied = admit(registry, candidate(registry, child, req))
+    assert isinstance(supplied, ChildAdmissionRefusal), supplied
+    assert supplied.reason == "ineligible"
+
+    # The finding: no execution record is *don't know*, never *pass*.
+    absent = admit(registry, candidate(registry, child, req, touched=None))
+    assert isinstance(absent, ChildAdmissionRefusal), (
+        "a locally dispatched child with no execution record was ADMITTED, and"
+        " the row would have claimed local-register as its authority"
+    )
+    assert absent.reason == "eligibility-evidence-missing"
+    assert "not asked" in absent.detail
+
+
+def test_f3_the_local_leg_is_the_ONLY_one_that_requires_an_execution_record(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """The boundary the fix must not overrun.
+
+    Dave's ruling is explicit that a consumer must not be required to reach a
+    remote provider's replay store. So the refusal above applies to
+    `local-dispatch` and to nothing else: an MCP child with no entities is
+    admitted on the provider's own controls, and says so.
+    """
+    child = served(deliver(registry, _contract(schema=FAMILY)))
+    out = admit(registry, candidate(registry, child, require(FAMILY), kind="mcp"))
+    assert isinstance(out, AdmittedChild), out
+    assert out.eligibility_basis == ELIGIBILITY_PROVIDER_CONTROLS
+    assert out.candidate.invocation.touched_entities is None
+
+
+def test_a_remote_entry_CANNOT_be_relabelled_as_a_local_dispatch(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """The close panel's spoof, closed. Dave named this hazard by name.
+
+    *"A local skill fetching a remote product must not relabel that product as
+    locally produced to bypass its applicable checks."*
+
+    The acquisition kind is read off the dispatch result's type. The dispatch
+    RESULT types are ordinary public contracts — unlike `ChildInvocation` and
+    `ResolvedProducer`, nothing mints them — so a hand-built `SkillInvocation`
+    naming a genuinely MCP-bound entry used to yield `local-dispatch` **with
+    caller-chosen touched entities**, which buys the local invalidation
+    register's authority over a decision it never saw.
+
+    Three facts are held to each other now: the result's TYPE, the `skill_type`
+    the granted ENTRY declares, and the `skill_type` the dispatch stamps on its
+    own result. A real dispatch cannot make them disagree.
+    """
+    mcp_producer = _producer(registry, "really-mcp", FAMILY, skill_type="mcp")
+
+    # (1) an MCP-granted entry with a hand-built LOCAL result
+    with pytest.raises(ProvenanceForgeryError) as relabel:
+        invocation_from_dispatch(
+            mcp_producer,
+            SkillInvocation(
+                skill_name="really-mcp", skill_type="local_callable", output={}
+            ),
+            touched_entities=(ENTITY_OBLIGOR,),
+        )
+    assert "relabelled as locally produced" in str(relabel.value)
+
+    # (2) a result whose own two halves disagree — the right type, the wrong
+    #     stamp. Caught even though the entry matches.
+    local_producer = _producer(registry, "really-local", EXPOSURE)
+    with pytest.raises(ProvenanceForgeryError) as stamped:
+        invocation_from_dispatch(
+            local_producer,
+            SkillInvocation(skill_name="really-local", skill_type="mcp", output={}),
+        )
+    assert "two halves disagree" in str(stamped.value)
+
+    # ...and the honest pairing still works, so this is a differential.
+    assert (
+        invocation_from_dispatch(
+            local_producer, dispatched("really-local")
+        ).acquisition
+        == "local-dispatch"
+    )

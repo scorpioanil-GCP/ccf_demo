@@ -293,10 +293,19 @@ _INVOCATION_TOKEN = object()
 ChildAcquisition = Literal["local-dispatch", "mcp", "peered"]
 
 #: What each acquisition kind is evidenced by, and what it may therefore claim.
-_ACQUISITION_OF: Final[dict[str, ChildAcquisition]] = {
-    "SkillInvocation": "local-dispatch",
-    "McpInvocation": "mcp",
-    "PeeringInvocation": "peered",
+#:
+#: Keyed on the dispatch result's TYPE NAME and cross-checked against the
+#: ``skill_type`` the entry declares and the one the dispatch stamped onto its
+#: own result. The close panel found the single-key version spoofable: a
+#: hand-built ``SkillInvocation`` naming a genuinely MCP-bound entry yielded
+#: ``local-dispatch`` with caller-chosen touched entities, which is exactly the
+#: relabelling Dave's ruling forbids — *"a local skill fetching a remote
+#: product must not relabel that product as locally produced to bypass its
+#: applicable checks."* Three facts must now agree.
+_ACQUISITION_OF: Final[dict[str, tuple[ChildAcquisition, str]]] = {
+    "SkillInvocation": ("local-dispatch", "local_callable"),
+    "McpInvocation": ("mcp", "mcp"),
+    "PeeringInvocation": ("peered", "peering"),
 }
 
 
@@ -482,12 +491,34 @@ def invocation_from_dispatch(
             ``touched_entities`` was supplied for an acquisition that cannot
             have them.
     """
-    kind = _ACQUISITION_OF.get(type(dispatched).__name__)
-    if kind is None:
+    mapped = _ACQUISITION_OF.get(type(dispatched).__name__)
+    if mapped is None:
         raise ProvenanceForgeryError(
             f"a {type(dispatched).__name__} dispatch produces no Context"
             " Product, so there is no child to admit. A composite child comes"
             " from a local callable, an MCP resource or a peering endpoint"
+            " (D-IMPL-336 Amendment 5)"
+        )
+    kind, expected_skill_type = mapped
+    # THREE facts, held to each other. The result's type says how it was
+    # acquired; the ENTRY says what kind of skill the grant made effective;
+    # and the dispatch stamps its own `skill_type` onto the result it returns.
+    # A real dispatch cannot make these disagree — only a hand-built result
+    # can, which is what the close panel demonstrated.
+    if producer.entry.skill_type != expected_skill_type:
+        raise ProvenanceForgeryError(
+            f"the grant made a {producer.entry.skill_type!r} skill effective"
+            f" and the dispatch result is a {type(dispatched).__name__}, which"
+            f" would record this child as {kind!r}. A remote product relabelled"
+            " as locally produced would take the local invalidation register's"
+            " authority for a decision it never saw (D-IMPL-336 Amendment 5)"
+        )
+    stamped = getattr(dispatched, "skill_type", None)
+    if stamped != expected_skill_type:
+        raise ProvenanceForgeryError(
+            f"the dispatch result reports skill_type {stamped!r} and its own"
+            f" type implies {expected_skill_type!r}; a result whose two halves"
+            " disagree was not produced by ccf.skills.dispatch.dispatch_skill"
             " (D-IMPL-336 Amendment 5)"
         )
     name = getattr(dispatched, "skill_name", None)
@@ -764,8 +795,12 @@ class CompositeAdmissionGate:
     inside ``contract`` while everything asserted *about* it — tenant, fabric,
     touched entities, requirement, grant, composition identity, whether the
     "signed" header was ever signed — was taken on faith. Those now arrive as
-    minted evidence (:class:`ChildProvenance`, :class:`ChildInvocation`) that a
-    caller cannot author, so the gate verifies the child **and** its context.
+    minted evidence — :class:`ChildInvocation`, carrying the grant the ledger
+    made effective and the acquisition kind read off the dispatch result's own
+    type — that a caller cannot author, so the gate verifies the child **and**
+    its context. (Amendment 3 also minted a ``ChildProvenance`` here;
+    **Amendment 5 removed it**, because it asked a second time whether an
+    invocation the grant had already authorized was authorized.)
 
     The checks, in order, first refusal returned:
 
@@ -942,6 +977,37 @@ class CompositeAdmissionGate:
 
         if acquisition == "local-dispatch":
             touched = candidate.invocation.touched_entities
+            if touched is None:
+                # **The close panel's headline finding, and it was a REGRESSION
+                # this module introduced.** Amendment 3 closed `F3` by making
+                # `touched_entities` always present; Amendment 5 made it
+                # optional so a remote child need not force a read of its
+                # provider's replay store — and left this leg admitting `None`.
+                #
+                # `refuse_dependency_invalidation` returns `None` immediately
+                # for `None` (`gates.py`, the deliberate pre-`D-IMPL-334`
+                # compatibility posture Dave ruled must not change), so the
+                # register was never resolved and the row still recorded
+                # `local-register` as the authority. Measured: a child on a
+                # SUPERSEDED entity admitted, with the control beside it — the
+                # same child with `touched` supplied refuses.
+                #
+                # A local child is one THIS fabric dispatched, so its execution
+                # record is this fabric's to hold. Not holding one is *don't
+                # know*, and don't-know must never read as *pass*. Unlike the
+                # `mcp` leg below there is no other authority to name: nobody
+                # checked. So it refuses, and it refuses as MISSING EVIDENCE
+                # rather than as `ineligible` — the child may be perfectly
+                # eligible; what is absent is the means to say so.
+                return EligibilityRefused(
+                    "eligibility-evidence-missing",
+                    "this child was dispatched locally but carries no record of"
+                    " what its execution read, so this fabric's invalidation"
+                    " register cannot be consulted about it. Refused rather"
+                    " than admitted: the register's silence here is 'not"
+                    " asked', not 'nothing was superseded' (D-IMPL-336 F3,"
+                    " re-opened and re-closed at the close panel)",
+                )
             local_refusal = refuse_dependency_invalidation(
                 candidate.contract,
                 registry=self._registry,
@@ -999,11 +1065,19 @@ class CompositeAdmissionGate:
 class CompositeChildResolverProtocol(Protocol):
     """Produce the admitted-or-refused child set for a composite (`D-IMPL-336`).
 
-    **The SDK ships this Protocol and never an implementation**, because
-    resolving a requirement to a granted skill, dispatching it and delivering
-    the child is agent orchestration — the harness's, exactly as the agent loop
-    is (CLAUDE.md §7.3, §8.1). What the SDK owns is the declaration, the
-    admission and the composition on either side of this call.
+    **The SDK ships this Protocol AND a reference implementation** —
+    :class:`~ccf.products.child_resolver.GrantBoundChildResolver` — under
+    CLAUDE.md §11 (*"Reference implementations ship alongside Protocols"*).
+
+    **This paragraph said the opposite until the close panel caught it**, and
+    the correction is a ruling rather than a preference. Amendment 3 read
+    §7.3/§8.1 — the SDK never ships an agent loop — as covering acquisition
+    too. Dave's Amendment 5 settles it: resolving a requirement to a granted
+    skill and dispatching it once is not a loop, and *"the skill that the
+    composite agent has knows how to acquire the atomic context product and
+    roll it in"*. What stays out of `src/` is the scheduler, the swarm loop and
+    any new identity axis. A deployment substituting its own resolver still
+    loses no capability.
 
     A conforming implementation:
 
@@ -1015,7 +1089,9 @@ class CompositeChildResolverProtocol(Protocol):
     * dispatches that grant's skill and delivers the child through its own
       governed door;
     * mints :class:`ChildInvocation` from the resolved entry and
-      :class:`ChildProvenance` from boot or from a verified peering
+      :class:`ChildInvocation` from the grant and the dispatch, and for a
+      peered child the :class:`~ccf.peering.admission.AdmittedProduct` a
+      verified peering
       admission — never from strings it wrote itself;
     * offers each result to :meth:`CompositeAdmissionGate.admit` and returns
       what came back.

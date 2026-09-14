@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1129 entries**, of which **885** name a public Python surface.
+**1132 entries**, of which **888** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-583 entries — 543 public Python surface, 40 not public Python API.
+585 entries — 545 public Python surface, 40 not public Python API.
 
 ### Public Python surface
 
@@ -10165,6 +10165,30 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `336-03-grant-bound-child-invocation.md`.*
 
+#### ccf.products.child_resolver.GrantBoundChildResolver
+
+- Surface: ccf.products.child_resolver.GrantBoundChildResolver
+- Public surface: true
+- Change type: added
+- Before: absent — a deployment implemented `CompositeChildResolverProtocol` itself and hand-built the evidence chain
+- After: the reference implementation, binding effective grant → actual dispatch → the child's governed delivery → fit checks → compose (D-IMPL-336 Amendment 5 §1)
+- Why: the Protocol's own docstring told adopters to mint provenance objects that no longer exist, and every deployment would have written the same 45 lines
+- Migration: construct one and pass it as `GovernedResolver(composite_children=...)`; a deployment substituting its own conforming resolver loses no capability
+
+*Recorded by `336-05-the-reference-child-resolver.md`.*
+
+#### ccf.products.child_resolver.ChildArguments
+
+- Surface: ccf.products.child_resolver.ChildArguments
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the callable type turning one declared `ChildRequirement` into the typed arguments its producing skill takes (D-IMPL-336 Amendment 5)
+- Why: what a child needs to be asked is deployment configuration, and the SDK holds no domain value (D-IMPL-38)
+- Migration: none required — supply a callable when constructing `GrantBoundChildResolver`
+
+*Recorded by `336-05-the-reference-child-resolver.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -10818,7 +10842,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-394 entries — 210 public Python surface, 184 not public Python API.
+395 entries — 211 public Python surface, 184 not public Python API.
 
 ### Public Python surface
 
@@ -15132,6 +15156,18 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Migration: none required
 
 *Recorded by `336-04-refused-composites-carry-their-child-rows.md`.*
+
+#### ccf.products.composite.CompositeChildResolverProtocol
+
+- Surface: ccf.products.composite.CompositeChildResolverProtocol
+- Public surface: true
+- Change type: reshaped
+- Before: `__call__(requirements, asked_at, admitted_at, composition_invocation)`
+- After: also takes `consumer_lineage`, the composing product's own L axis (D-IMPL-336 Amendment 5)
+- Why: `PeeringAdmissionGate.admit` extends lineage by set-union at the boundary and requires it, so a resolver acquiring a peered child could not verify one without it — and inventing a lineage on the consumer's behalf would make the union a fiction
+- Migration: conforming resolvers accept the new keyword; `GovernedResolver` passes the composite's own pre-assembly lineage
+
+*Recorded by `336-05-the-reference-child-resolver.md`.*
 
 ### Not public Python API
 

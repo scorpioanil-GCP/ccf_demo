@@ -109,10 +109,20 @@ def test_int01a_one_governed_question_through_the_whole_machinery(
     # a skill it had granted. The basis records which authority applied.
     assert row.producing_fabric is None
     assert row.eligibility_basis == "local-register"
+    assert row.child_asked_at == ASKED_AT
     # ...and the entities came from the child's OWN persisted record, read
     # through the one store access the resolver makes for a local child.
-    assert row.child_asked_at == ASKED_AT
-    assert row.child_asked_at == ASKED_AT
+    # ASSERTED, not merely commented: the close panel found this line was a
+    # DUPLICATE of the one above it, so the sentence promised something no
+    # assertion carried.
+    #
+    # `local-register` is now that assertion. Before the close panel it was
+    # not — the basis was recorded whether or not any entity had been resolved,
+    # which is precisely the `F3` regression the panel measured. Since a local
+    # child with no execution record refuses outright, this row reading
+    # `local-register` means the register was consulted with real entities
+    # taken from the child's own persisted record.
+    assert row.eligibility_basis == "local-register"
 
 
 def test_int01a_a_required_child_with_NO_GRANT_refuses(booted: _Booted) -> None:
