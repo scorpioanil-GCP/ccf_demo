@@ -23,7 +23,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1127 entries**, of which **883** name a public Python surface.
+**1129 entries**, of which **885** name a public Python surface.
 
 ## Added
 
@@ -10818,7 +10818,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-392 entries — 208 public Python surface, 184 not public Python API.
+394 entries — 210 public Python surface, 184 not public Python API.
 
 ### Public Python surface
 
@@ -15108,6 +15108,30 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Migration: pass the delivered child and its `ServedProduct.replay_ref.uri`; a child with no persisted record can no longer be attested, which is the point
 
 *Recorded by `336-03-grant-bound-child-invocation.md`.*
+
+#### ccf.products.resolver.RefusalRecorderProtocol.record
+
+- Surface: ccf.products.resolver.RefusalRecorderProtocol.record
+- Public surface: true
+- Change type: reshaped
+- Before: no parameter for child resolutions, so a refused composite's persisted record could not name the children it tried
+- After: accepts `child_resolutions`, defaulted to `()` (D-IMPL-336 CMP-R-01)
+- Why: the case where a reader most needs to know which child failed is the case the record was silent about
+- Migration: none required — the parameter is defaulted and `()` is the true claim for every non-composite refusal; a deployment substituting its own recorder may accept and forward it
+
+*Recorded by `336-04-refused-composites-carry-their-child-rows.md`.*
+
+#### ccf.products.resolver.ReplayRefusalRecorder.record
+
+- Surface: ccf.products.resolver.ReplayRefusalRecorder.record
+- Public surface: true
+- Change type: reshaped
+- Before: forwarded no child resolutions to `build_replay_record`
+- After: forwards them, so a refused composite's persisted record carries one row per declared requirement (D-IMPL-336 CMP-R-01)
+- Why: the reference implementation must actually satisfy the widened seam, or the parameter would be accepted and ignored — the defect class this phase repairs
+- Migration: none required
+
+*Recorded by `336-04-refused-composites-carry-their-child-rows.md`.*
 
 ### Not public Python API
 
