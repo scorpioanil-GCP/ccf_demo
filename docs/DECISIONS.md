@@ -3608,4 +3608,40 @@ A producer serving an honest contract **and** an honest content address, while p
 
 **Next free decision id: `D-IMPL-338`** — unchanged. **Governs:** the record-to-product binding on the composite's local acquisition leg. **Related:** `D-IMPL-336` Amendment 5 §3 (the ruled contract it satisfies), `F3` (the absent-evidence case on the same leg), `D-IMPL-334`/`D-IMPL-335`, `docs/D-IMPL-336-CLOSE-PANEL.md`.
 
+---
+
+**D-GATE-336 — `D-IMPL-336` IMPLEMENTED / CLOSED. Composite Context Products are approved for merge.** APPROVED. Date: 2026-09-14. Approved by: Dave. **Merge candidate: `513d5712120f6354dc9343da5e43ea93e1718266`.**
+
+**WHAT SHIPS.** A composite Context Product declares the child product **classes** it requires; a granted skill acquires each child — in-process, over MCP, over A2A/peering — and the composite rolls them up under `D-IMPL-31`'s four laws and `D-IMPL-104`'s per-factor debt. **The composite does not assemble its atomics.** They may be registered elsewhere serving other consumers, and their provider decides whether to return an existing valid instance or assemble on demand. Dave's architecture, in his words: *"The skill that the composite agent has knows how to acquire the atomic context product and roll it in."*
+
+**THE EVIDENCE DAVE RULED SUFFICIENT:**
+
+| Item | Status | Closed by |
+| --- | --- | --- |
+| `R1` — the peering path | closed | `ccf.peering.identity.MAX_PROTECTED_HEADER_BYTES`; `tests/peering/test_peered_child_envelope.py` (5) |
+| `CMP-R-01` — refused-composite child evidence | closed | `RefusalRecorderProtocol.record(child_resolutions=…)`; 2 tests, surface recorded first |
+| `GrantBoundChildResolver` in `src/` | closed | `ccf.products.child_resolver`; `INT-01a` + negative controls; fragment `336-05` |
+| `R4` — Gate 2's operand for composites | **ruled GO** | parent declared == parent executed FIRST, then the union; children may never mask parent drift |
+| composite replay (`R5`/`CMP-R-02`) | closed | `child_operators_invoked`, `child_expires_at`, `child_admitted_at`; reconstruction from the rows alone |
+| `INT-01b` | closed | historical reconstruction → governed child-refusal propagation through the nested chain |
+| misattributed `replay_ref` | fixed | the record-to-product binding, with regression **and** sabotage |
+| MCP leakage from `ChildRecordMismatch` | fixed | through the **existing** opaque-door exception posture, not a new one |
+| full verification on the exact candidate | green | baseline failure roster **unchanged** |
+
+**HOW IT GOT HERE, recorded because the process is the lesson.** Four review rounds. The design panel found 19 defects; the R-series 6; close panel 1 nine; close panel 2 six; the final review one, plus a follow-on the repair itself introduced. **Mechanism defects fell 19 → 6 → 2 → 1** while the later rounds shifted almost entirely to *proof machinery* — tests that did not hold the mechanism they named. Dave's intervention at the midpoint — *"I simplified the architecture yet we still can't get it right… you are just repeating the same loop"* — produced Amendment 5, which **removed ~40% of the module** (a parallel authorization layer) on the ground that **the grant is the authorization**. Deployment code to acquire one child went from **45 lines and five hand-built evidence objects to 16 and none**.
+
+**TWO PROOFS THAT PASSED FOR THE WRONG REASON, and both were caught by prescribed sabotage rather than by review.** The first `R2` test was tautological under its own fix. The first `INT-01b` test measured `as-of-mismatch` rather than dependency invalidation, because `F15` fires first — *sabotage 2 remaining green* is what exposed it. Neither was found by reading.
+
+**CARRIED FORWARD AS LIMITATIONS — explicitly not hidden debt inside this close, and not to be fixed in the merge commit:**
+
+1. an over-bound peering header reports as `SignatureInvalid` (`ExceededSizeError` is a `JoseError`; nothing is admitted, but the operator is told the wrong thing);
+2. a remote-proxying `local_callable` is **structurally invisible** — the entry genuinely is local and the dispatch genuinely ran locally;
+3. multiple peered products matching one class are not disambiguated;
+4. `CP-F-06` — a content address in a field that elsewhere holds a class name;
+5. **`AmbiguousProducerError` can escape the same MCP opaque-failure posture.** Dave: *"should receive its own follow-on decision/finding if we decide to repair the runtime door. It is not a reason to reopen `D-IMPL-336`."*
+
+**`D-IMPL-337` STAYS SEPARATE AND OPEN.** Its census and design questions are untouched, and **merging 336 is not authorization to begin it**. No CP-14 acquisition work before Dave's sequencing decision between 337's design and CP-14 Gate 1.
+
+**Next free decision id: `D-IMPL-338`** — unchanged; a gate entry spends none. **Governs:** the approval and merge of composite Context Products. **Related:** `D-IMPL-336` Amendments 2–5, `D-IMPL-337`, `D-IMPL-31`, `D-IMPL-104`, `D-IMPL-334`/`D-IMPL-335`, `D-IMPL-308`, `D-IMPL-59`, `D-IMPL-253` Q20, `docs/D-IMPL-336-COMPLETION.md`, `docs/D-IMPL-336-CLOSE-PANEL.md`, `docs/D-IMPL-336-PANEL-REVIEW.md`, `docs/D-IMPL-336-REMEDIATION-DISPOSITION.md`.
+
 **Next free decision id: `D-IMPL-338`.**
