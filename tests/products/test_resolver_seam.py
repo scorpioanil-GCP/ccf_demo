@@ -178,6 +178,12 @@ MAX_TTL_SECONDS = 3600
 #: property `ccf.products.request` exists to preserve.
 ASKED_AT = datetime(2026, 3, 2, 12, 0, tzinfo=UTC)
 
+#: `D-IMPL-336` **O3** — the trusted runtime instant a child admission is
+#: judged at. DISTINCT from `ASKED_AT` and from any declared decision instant,
+#: on purpose: the whole finding is that the three are different facts and the
+#: resolver had conflated two of them.
+ADMITTED_AT = datetime(2026, 3, 2, 12, 7, tzinfo=UTC)
+
 #: The perspective a calling surface would have resolved and entitled.
 PERSPECTIVE = Perspective(principal_id="principal-fixture", role="role-fixture")
 
@@ -1981,6 +1987,7 @@ DEPLOYMENT_OWNED_ARGUMENTS: tuple[str, ...] = (
     # resolver that guessed would serve a class whose declared requirements
     # execution ignored, which is the exact defect the composite block closes.
     "composite_children",
+    "admission_clock",
     "plan_factory",
     "debt_scorer",
     # `24.10-02` / `R-11`: the deployment's implementation of its class's own
@@ -2112,6 +2119,11 @@ def _arguments(booted: _Booted) -> dict[str, Any]:
         # child resolver — the state every product shipped before D-IMPL-336
         # was in, stated rather than defaulted.
         "composite_children": None,
+        # `D-IMPL-336` O3: pinned, so the evidence-age and skew boundaries can
+        # be asserted exactly rather than approached. A deployment gets the
+        # process clock from `build_governed_resolver`; this class has no
+        # default for it, like every other value a deployment owns.
+        "admission_clock": lambda: ADMITTED_AT,
         "plan_factory": _plan_factory,
         "debt_scorer": _debt_scorer,
         # `D-IMPL-308`. `None` and the empty window are POSITIVE values here,
@@ -2719,3 +2731,94 @@ def test_r4_the_positive_control_a_child_WITHIN_the_parents_operators_serves(
     rows = record.content_generation_path.child_resolutions
     assert len(rows) == 1
     assert rows[0].outcome_status == "admitted"
+
+
+def test_o3_admission_is_judged_at_the_RUNTIME_clock_not_a_declared_instant(
+    booted_composite: _Booted,
+) -> None:
+    """`O3` — three instants, and the resolver had conflated two of them.
+
+    `asked_at` is when the graph is observed. The decision instant is when the
+    answer is produced, and `D-IMPL-308` lets a class declare it from the
+    request. **Admission time is neither.** `F7`'s evidence-age bound asks how
+    old a child's eligibility evidence is *now*, and answering that with a
+    declared historical instant lets the request move the window its own
+    evidence is checked in.
+
+    The earlier code passed `decided_at`. That was conservative in practice —
+    a historical instant makes the skew check refuse rather than admit — but a
+    check whose safety depends on which way a caller's declared instant
+    happens to fall is not a check, which is what the reviewer said and what
+    Amendment 4 ordered fixed.
+
+    Asserted by observing what the child resolver is HANDED, since that is the
+    value every downstream admission is judged against.
+    """
+    seen: dict[str, Any] = {}
+
+    def recording(**kw: Any) -> dict[str, Any]:
+        seen.update(kw)
+        return {}
+
+    outcome = _ask(
+        _resolver(booted_composite, composite_children=recording), _request()
+    )
+    assert isinstance(outcome, ServedProduct), outcome
+    assert seen["admitted_at"] == ADMITTED_AT
+    # ...and it is neither of the two instants it used to be confused with.
+    assert seen["admitted_at"] != seen["asked_at"]
+    assert seen["admitted_at"] != ASKED_AT
+
+
+def test_o3_the_admission_clock_is_read_ONCE_for_a_whole_composition(
+    booted_composite: _Booted,
+) -> None:
+    """Two children in one composition are judged in ONE window.
+
+    A clock read per child would put two constituents of one answer in two
+    evidence windows, and their rows would disagree about when the composition
+    admitted them. Asserted by counting reads, because a clock that returns a
+    constant cannot testify to how often it was called.
+    """
+    reads: list[int] = []
+
+    def counting() -> datetime:
+        reads.append(1)
+        return ADMITTED_AT
+
+    def recording(**_: Any) -> dict[str, Any]:
+        return {}
+
+    outcome = _ask(
+        _resolver(
+            booted_composite,
+            composite_children=recording,
+            admission_clock=counting,
+        ),
+        _request(),
+    )
+    assert isinstance(outcome, ServedProduct), outcome
+    assert reads == [1], f"the admission clock was read {len(reads)} times"
+
+
+def test_o3_a_non_composite_never_reads_the_admission_clock(
+    booted: _Booted,
+) -> None:
+    """The control. A product declaring no children admits none.
+
+    Reading a clock it has no use for would be harmless and still wrong: it
+    would make the value look load-bearing on a path where nothing consumes
+    it, which is how a field ends up defended as though it governed something.
+    """
+    reads: list[int] = []
+
+    def counting() -> datetime:
+        reads.append(1)
+        return ADMITTED_AT
+
+    outcome = _ask(
+        _resolver(booted, composite_children=None, admission_clock=counting),
+        _request(),
+    )
+    assert isinstance(outcome, ServedProduct), outcome
+    assert reads == []

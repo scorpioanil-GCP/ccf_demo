@@ -148,7 +148,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import Final, Protocol, TypeVar, runtime_checkable
@@ -1187,6 +1187,19 @@ def _capabilities_of(fabric: BootedFabric) -> tuple[TechnicalCapability, ...]:
     return tuple(found[key] for key in sorted(found))
 
 
+
+def _utc_now() -> datetime:
+    """The process's UTC clock.
+
+    The default for :func:`build_governed_resolver`'s ``admission_clock``
+    (`D-IMPL-336` **O3**), and the same one-line shape
+    :mod:`ccf.controlplane.registry` already uses for the same reason: the
+    machinery takes a clock so a test can pin an instant, and exactly one
+    place names the real one.
+    """
+    return datetime.now(UTC)
+
+
 @dataclass(frozen=True, kw_only=True)
 class GovernedResolver:
     """The SDK's reference composition: assemble → gate → record → serve.
@@ -1509,6 +1522,26 @@ class GovernedResolver:
     #: grant, dispatching a skill and delivering a child is orchestration, and
     #: orchestration is the harness's (CLAUDE.md §7.3, §8.1).
     composite_children: CompositeChildResolverProtocol | None
+
+    #: `D-IMPL-336` **O3** — the trusted runtime clock a child admission is
+    #: judged against.
+    #:
+    #: Admission time is **not** the decision instant. `D-IMPL-308` lets a
+    #: class declare its decision instant from the request, which is right for
+    #: expiry — a reconstruction of a historical decision expires from when
+    #: that decision was produced. It is wrong for eligibility: `F7`'s
+    #: evidence-age bound asks *how old is this evidence NOW*, and answering it
+    #: with a declared historical instant lets a request move the window its
+    #: own evidence is checked in. The earlier behavior was conservative in
+    #: practice — the skew check refused rather than admitted — but a check
+    #: whose safety depends on which way the caller's declared instant happens
+    #: to fall is not a check.
+    #:
+    #: Injected rather than read from the wall clock here, so the boundary is
+    #: testable exactly; the default lives in
+    #: :func:`build_governed_resolver`, never on this class, which permits no
+    #: constructor defaults at all.
+    admission_clock: Callable[[], datetime]
 
     #: The request-contract argument that carries this class's DECISION
     #: INSTANT, or ``None`` when the class declares none — `24.10-F-09`,
@@ -1911,6 +1944,10 @@ class GovernedResolver:
             # request so it is stable under replay and cannot be chosen per
             # child (F8: invocation-bound, and the binding is to THIS one).
             invocation = f"composition://{content_hash(request)}"
+            # Read ONCE per composition. Two children admitted against two
+            # readings of a clock would be judged in two windows, and the
+            # rows would disagree about when the composition admitted them.
+            admitted_at = self.admission_clock()
             if self.composite_children is None:
                 composed = CompositionOutcome(
                     factors=None,
@@ -1937,7 +1974,10 @@ class GovernedResolver:
                     outcomes=self.composite_children(
                         requirements=registered.requires,
                         asked_at=request.asked_at,
-                        admitted_at=decided_at,
+                        # `O3`: the trusted runtime clock, NOT `decided_at`.
+                        # Bound once here so every child in one composition is
+                        # judged at one admission instant.
+                        admitted_at=admitted_at,
                         composition_invocation=invocation,
                     ),
                     asked_at=request.asked_at,
@@ -2775,6 +2815,11 @@ def build_governed_resolver(
     #: deployments call — keeps the non-composite default that every product
     #: shipped before this surface had.
     composite_children: CompositeChildResolverProtocol | None = None,
+    #: `D-IMPL-336` **O3** — the clock a child admission is judged against.
+    #: Defaults to the process's UTC clock, which is the right value for a
+    #: deployment; tests inject a fixed instant so the evidence-age and skew
+    #: boundaries can be asserted exactly rather than approached.
+    admission_clock: Callable[[], datetime] = _utc_now,
     artifact_store: ArtifactStoreProtocol | None = None,
     replay_record_class: str | None = None,
     query_pin_class: str | None = None,
@@ -3255,6 +3300,7 @@ def build_governed_resolver(
             decision_instant_parameter=decision_instant_parameter,
             source_refresh_recency=source_refresh_recency,
             composite_children=composite_children,
+            admission_clock=admission_clock,
         )
 
     if (
@@ -3308,4 +3354,5 @@ def build_governed_resolver(
         decision_instant_parameter=decision_instant_parameter,
         source_refresh_recency=source_refresh_recency,
         composite_children=composite_children,
+        admission_clock=admission_clock,
     )

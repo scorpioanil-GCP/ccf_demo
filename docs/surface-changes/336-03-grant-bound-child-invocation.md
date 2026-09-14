@@ -98,3 +98,23 @@ until it does the claim here is exactly "granted", never "invoked".
 - After: returns that grant hash, resolved from ledger state at access time (D-IMPL-336 O2)
 - Why: there was no supported way to ask which grant authorized a bound entry, which is what forced callers to supply one
 - Migration: none required — additive; raises `KeyError` for a skill this agent does not hold
+
+## ccf.products.resolver.GovernedResolver.admission_clock
+
+- Surface: ccf.products.resolver.GovernedResolver.admission_clock
+- Public surface: true
+- Change type: added
+- Before: absent — child admission was judged at `decided_at`, which a class may declare from the request (D-IMPL-308)
+- After: a required constructor argument carrying the trusted runtime clock, read once per composition (D-IMPL-336 O3)
+- Why: evidence age asks how old a child's eligibility evidence is NOW, and a declared historical instant let a request move the window its own evidence was checked in
+- Migration: required on the dataclass, like every deployment-owned value; `build_governed_resolver` defaults it to the process UTC clock, so callers of the factory need no change
+
+## ccf.products.composite.CompositionOutcome.admitted_operators
+
+- Surface: ccf.products.composite.CompositionOutcome.admitted_operators
+- Public surface: true
+- Change type: added
+- Before: absent — only the combined union including the parent was carried, on `lineage`
+- After: the union over the admitted children's operator sets ALONE (D-IMPL-336 R4)
+- Why: Gate 2's widened operand for composites needs the children's half separable from the parent's, or a child invoking an operator would mask the parent's own declaration having drifted onto it
+- Migration: none required — defaults to `frozenset()`, which leaves a childless composition's operand exactly a non-composite's
