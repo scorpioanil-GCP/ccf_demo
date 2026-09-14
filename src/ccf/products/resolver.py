@@ -222,6 +222,9 @@ from ccf.products.entitlement import (
 )
 from ccf.products.gates import (
     DEBT_TOLERANCE_PARAMETER,
+    GATE_LINEAGE_EQUALITY,
+    GateRefusal,
+    LineageMismatchRefusal,
     ProductInvariantRefusal,
     ServableProduct,
     refuse_over_tolerance,
@@ -2032,21 +2035,85 @@ class GovernedResolver:
             ),
         )
 
-        gated = run_gates(
-            candidate,
-            engine_resolved=execution.operators_invoked,
-            # The TTL gate asks whether this product expires within bounds OF
-            # THE MOMENT IT WAS DECIDED, which is the instant its expiry runs
-            # from (`D-IMPL-308`).
-            now=decided_at,
-            registry=self.control_plane,
-            product_class=registered,
-            source_attestation=execution.source_attestation,
-            # `D-IMPL-334`: the entities this execution actually read — the same
-            # value replay dimension 1 records. The gate asks whether any of
-            # them moved after the snapshot this product was built at.
-            touched_entities=execution.touched_entities(),
+        # `R4`, the other half. Widening Gate 2's operand for composites opens
+        # a hole unless the parent's OWN declaration is held to its OWN
+        # execution first: if the engine ran operator X while the class
+        # declared only Y, and a child happens to invoke X, then X is on both
+        # sides of the widened comparison and the parent's drift is masked.
+        #
+        # So the two halves are checked separately and both strictly. This one
+        # is the pre-composition question — "did THIS fabric run what THIS
+        # class declared" — and it is exactly what Gate 2 asked before
+        # composites existed, which is why the refusal is the same type with
+        # the same gate identifier and reaches the caller identically.
+        #
+        # Proven by sabotage: `test_r4_the_union_CANNOT_mask_the_parents_own_
+        # declaration_drifting` perturbs the engine's set and gives the child
+        # precisely the drifted operator.
+        own_declared = frozenset(required)
+        drifted: GateRefusal | None = (
+            LineageMismatchRefusal(
+                gate=GATE_LINEAGE_EQUALITY,
+                detail=(
+                    f"composite {registered.schema_name!r} declares operators "
+                    f"{sorted(own_declared)} but its own engine resolved "
+                    f"{sorted(execution.operators_invoked)}; a composite's "
+                    "admitted children widen what the composition resolved, "
+                    "never what the parent itself declared, so this half stays "
+                    "strict in both directions (INV-CH7-47, D-IMPL-336 R4)"
+                ),
+                declared=own_declared,
+                resolved=execution.operators_invoked,
+            )
+            if composed is not None and own_declared != execution.operators_invoked
+            else None
         )
+
+        gated: ServableProduct | GateRefusal
+        if drifted is not None:
+            gated = drifted
+        else:
+            gated = run_gates(
+                candidate,
+                # `R4` — THE COMPOSITE'S ENGINE-RESOLVED SET INCLUDES ITS ADMITTED
+                # CHILDREN'S OPERATORS. **PROPOSED reading of INV-CH7-47, pending
+                # Dave's ruling at `D-IMPL-336` checkpoint 1.**
+                #
+                # Gate 2 compares the candidate's declared operators against what
+                # the engine resolved, by strict equality in both directions. A
+                # composite's lineage is the `D-IMPL-31` N-way union, which
+                # includes every admitted child's operators — and this fabric's
+                # engine never ran those, because the child did. So before this
+                # line a composite could serve only while every child invoked a
+                # SUBSET of the parent's own operators, which a real child of a
+                # different class never does: it exists to answer a different
+                # question. Measured, with the control, at
+                # `test_r4_a_composite_serves_with_a_child_that_ran_ITS_OWN_operators`.
+                #
+                # The two obvious alternatives each break a standing ruling — a
+                # subset check abandons INV-CH7-47's strictness, and declaring
+                # only the parent's own operators abandons `D-IMPL-31`'s union —
+                # so the operand widens instead, and Gate 2 itself is untouched.
+                # Each child's set is engine-resolved evidence: it passed that
+                # child's own Gate 2 at its own delivery.
+                #
+                # Strictly additive for every non-composite: `composed` is None,
+                # the union is with `frozenset()`, and the operand is the value it
+                # has always been.
+                engine_resolved=execution.operators_invoked
+                | (composed.admitted_operators if composed is not None else frozenset()),
+                # The TTL gate asks whether this product expires within bounds OF
+                # THE MOMENT IT WAS DECIDED, which is the instant its expiry runs
+                # from (`D-IMPL-308`).
+                now=decided_at,
+                registry=self.control_plane,
+                product_class=registered,
+                source_attestation=execution.source_attestation,
+                # `D-IMPL-334`: the entities this execution actually read — the same
+                # value replay dimension 1 records. The gate asks whether any of
+                # them moved after the snapshot this product was built at.
+                touched_entities=execution.touched_entities(),
+            )
         # 24.6-03/24.6-07: every source the resolution consulted, by exact
         # `(key, version)`. Derived ONCE and shared by the served record and
         # every refusal record below — two derivations would let a refused

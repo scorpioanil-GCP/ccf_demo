@@ -1314,6 +1314,21 @@ class CompositionOutcome:
             :class:`~ccf.products.composition.MixingRefusal` rendered as a
             child-admission refusal when a constituent breached its declared
             validity floor.
+        admitted_operators: The union over the ADMITTED CHILDREN's operator
+            sets alone — never including the parent's own (`R4`).
+
+            This is Gate 2's missing operand. :attr:`lineage` is the union
+            *including* the parent, so a caller holding only that cannot tell
+            the parent's declared half from its children's, and the two must
+            stay separable: the composite's engine-resolved set is the
+            parent's execution unioned with this, while the parent's OWN
+            declaration is still held to its OWN execution by strict equality.
+            Collapsing them would let a child that happens to invoke operator
+            X mask the parent's declaration having drifted onto X.
+
+            ``frozenset()`` when nothing was admitted, which is the honest
+            claim that no child contributed an operator — and it leaves the
+            composite's operand exactly equal to a non-composite's.
     """
 
     factors: DebtFactors | None
@@ -1321,6 +1336,7 @@ class CompositionOutcome:
     refusal: ChildAdmissionRefusal | None
     lineage: ProductLineage | None = None
     expires_at: datetime | None = None
+    admitted_operators: frozenset[str] = frozenset()
 
     @property
     def served(self) -> bool:
@@ -1630,6 +1646,13 @@ def compose_children(
             ],
             max_ttl=max_ttl,
             ttl_anchor_at=ttl_anchor_at,
+        ),
+        # `R4`. Read off each child's OWN contract lineage, which is
+        # engine-resolved evidence rather than a claim: it passed that child's
+        # own Gate 2 at its own delivery, and admission recomputed the child's
+        # content address, so the lineage carried here is the verified one.
+        admitted_operators=frozenset().union(
+            *(c.contract.lineage.operators_invoked for c in admitted_children)
         ),
     )
 

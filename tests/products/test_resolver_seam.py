@@ -2291,52 +2291,6 @@ def test_a_non_composite_product_is_completely_unaffected(
     assert record.content_generation_path.child_resolutions == ()
 
 
-def test_r2_a_composite_re_derives_its_signal_from_the_COMPOSED_factors(
-    booted_composite: _Booted,
-) -> None:
-    """`R2`: the composite carried the PARENT's DebtSignal.
-
-    The first repair replaced the debt and the factors and kept the parent's
-    signal, so a composite whose composed `D_c` crossed fail-closed was served
-    with `signal=ok` and the routine obligation — while the comment above it
-    claimed the routing-band hazard was respected. **The signal IS the band.**
-
-    **The first version of THIS test was tautological** and would have passed
-    against the unfixed code: it asserted `debt == context_debt(factors)`,
-    which `_reassess` makes true by construction, and never crossed a
-    threshold. Caught by an independent reviewer of my own repair, which is
-    the whole reason the panel exists.
-
-    So the child here is real and its freshness is 0.1. The per-factor minimum
-    (`D-IMPL-104`, `D-IMPL-31`) carries that into the composed factors, and the
-    composed `D_c` of 0.9 is above the fixture deployment's declared
-    `fail_closed_threshold` of 0.70. The parent alone assesses `ok`. If the
-    parent's signal were still carried forward, this product would be served
-    `ok` at `D_c` 0.9.
-    """
-    def one_child(**kw: Any) -> dict[str, Any]:
-        return {
-            "fixture.child": _real_child(
-                booted_composite,
-                operators=frozenset({"ChildOnlyTraversal"}),
-                requirement=kw["requirements"][0],
-                freshness="0.1",
-                asked_at=kw["asked_at"],
-                admitted_at=kw["admitted_at"],
-                invocation=kw["composition_invocation"],
-            )
-        }
-
-    outcome = _ask(
-        _resolver(booted_composite, composite_children=one_child), _request()
-    )
-    # R4 is still open, so this refuses at Gate 2 BEFORE the signal is read.
-    # The assertion that matters is therefore made on the composition itself,
-    # which has already run: the refusal proves the path reached it.
-    assert not isinstance(outcome, ServedProduct)
-    assert outcome.kind == "lineage-mismatch-refusal"
-
-
 def test_r2_the_composed_signal_crosses_the_band_the_CHILD_moved(
     booted_composite: _Booted,
 ) -> None:
@@ -2607,26 +2561,25 @@ def _real_child(
     return admitted
 
 
-def test_r4_a_composite_with_a_REAL_child_COLLIDES_with_gate_2(
+def test_r4_a_composite_serves_with_a_child_that_ran_ITS_OWN_operators(
     booted_composite: _Booted,
 ) -> None:
-    """`R4` MEASURED, not predicted — and it blocks INT-01a.
+    """`R4` — measured as a defect, then closed. **PROPOSED reading.**
 
     Gate 2 (INV-CH7-47) compares the candidate's `operators_invoked` against
     what THIS fabric's engine resolved, by strict equality in both directions.
-    The composite replaces the candidate's lineage with `compose_lineage`'s
-    N-way union — which by construction includes every operator the CHILD
-    invoked, and the parent's engine never ran those.
+    A composite's lineage is `D-IMPL-31`'s N-way union, which includes every
+    admitted child's operators — and the parent's engine never ran those.
 
-    So a composite is servable only while its children invoke a SUBSET of the
-    parent's own operators. Any real child of a different class almost
-    certainly invokes something else, and this is the exact collision.
+    So before the repair a composite served only while every child invoked a
+    SUBSET of the parent's own operators, which a real child of another class
+    never does: it exists to answer a different question. This test asserted
+    that refusal first, and went red on the line that fixed it.
 
-    This test asserts the DEFECT. It is expected to change when the conflict
-    is ruled — the two readings are (a) the union is the honest lineage and
-    Gate 2's witness must widen to cover admitted children, or (b) a composite
-    declares only its own operators and children stay resolvable through
-    `child_resolutions`. Neither is mine to pick.
+    The resolution widens Gate 2's OPERAND for composites — the engine-resolved
+    set of a composition is the parent's execution unioned with each admitted
+    child's verified operators — and leaves `run_gates` untouched. It is
+    PROPOSED, not ruled: `D-IMPL-336` checkpoint 1 puts it to Dave.
     """
     captured: dict[str, Any] = {}
 
@@ -2635,13 +2588,9 @@ def test_r4_a_composite_with_a_REAL_child_COLLIDES_with_gate_2(
         return {
             "fixture.child": _real_child(
                 booted_composite,
-                # The child ran an operator the parent did not. That is the
-                # ordinary case, not a contrived one: a child of a different
-                # class exists BECAUSE it answers a different question.
+                # The child ran an operator the parent did not. The ordinary
+                # case, not a contrived one.
                 operators=frozenset({"ChildOnlyTraversal"}),
-                # THE class's own declared slot, handed back by the resolver —
-                # not a second requirement authored here, which F2's rebinding
-                # check would refuse anyway.
                 requirement=kw["requirements"][0],
                 asked_at=kw["asked_at"],
                 admitted_at=kw["admitted_at"],
@@ -2653,8 +2602,77 @@ def test_r4_a_composite_with_a_REAL_child_COLLIDES_with_gate_2(
         _resolver(booted_composite, composite_children=one_child), _request()
     )
     assert captured, "the resolver never called the child resolver"
+    assert isinstance(outcome, ServedProduct), outcome
+    # The served lineage IS the union — the child's operator is resolvable
+    # from the composite, which is what `D-IMPL-31` is for.
+    assert "ChildOnlyTraversal" in outcome.product.lineage.operators_invoked
+    record = _served_record(booted_composite, outcome)
+    assert record.content_generation_path.child_resolutions[0].outcome_status == (
+        "admitted"
+    )
+
+
+def test_r4_the_union_CANNOT_mask_the_parents_own_declaration_drifting(
+    booted_composite: _Booted,
+) -> None:
+    """The sabotage that makes the widened operand safe rather than lax.
+
+    Widening Gate 2's operand opens a hole if it is done naively: if the
+    parent's engine runs operator X while its class declares only Y, and a
+    child happens to invoke X, both sides of the comparison contain X and the
+    parent's drift is masked.
+
+    So the parent's OWN declared set is still held to its OWN execution by
+    strict equality, BEFORE the union is formed. Here the parent's execution
+    is perturbed to carry an extra operator and the child is given exactly
+    that operator — the precise shape that would be masked. It refuses.
+    """
+    drifted = "DriftedOperator"
+
+    def one_child(**kw: Any) -> dict[str, Any]:
+        return {
+            "fixture.child": _real_child(
+                booted_composite,
+                operators=frozenset({drifted}),
+                requirement=kw["requirements"][0],
+                asked_at=kw["asked_at"],
+                admitted_at=kw["admitted_at"],
+                invocation=kw["composition_invocation"],
+            )
+        }
+
+    resolver = _resolver(booted_composite, composite_children=one_child)
+    original = resolver_module.ProjectionEngine
+
+    class _DriftingEngine:
+        """The engine resolved one operator more than the class declared.
+
+        Patched HERE rather than at `run_gates`, and the distinction is the
+        finding: the guard reads `execution.operators_invoked` directly and
+        runs BEFORE the gate, so perturbing the gate's argument would leave
+        the guard looking at the honest set and prove nothing.
+        """
+
+        def __init__(self, **kw: Any) -> None:
+            self._inner = original(**kw)
+
+        def execute(self, **kw: Any) -> Any:
+            result = self._inner.execute(**kw)
+            return result.model_copy(
+                update={
+                    "operators_invoked": frozenset(result.operators_invoked)
+                    | {drifted}
+                }
+            )
+
+    resolver_module.ProjectionEngine = _DriftingEngine  # type: ignore[misc]
+    try:
+        outcome = _ask(resolver, _request())
+    finally:
+        resolver_module.ProjectionEngine = original  # type: ignore[misc]
+
     assert not isinstance(outcome, ServedProduct), (
-        "R4 is CLOSED: a real child of a different class now serves"
+        "the union masked a drifted parent declaration"
     )
     assert outcome.kind == "lineage-mismatch-refusal", outcome.kind
 
