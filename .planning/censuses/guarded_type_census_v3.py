@@ -88,8 +88,15 @@ def survey() -> None:
         for node in ast.walk(tree):
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 continue
+            # A dunder is NOT private: `__init__` of an exported class is
+            # reachable by anyone who can name the class. Census v3 filed
+            # `ProductSource.__init__` as module-private on the strength of
+            # the leading underscore and missed a governed site — the
+            # instrument's own false-negative, found by review.
+            dunder = node.name.startswith("__") and node.name.endswith("__")
             reach = (
                 "EXPORTED" if node.name in exports
+                else "constructor" if dunder
                 else "module-private" if node.name.startswith("_")
                 else "public-name"
             )

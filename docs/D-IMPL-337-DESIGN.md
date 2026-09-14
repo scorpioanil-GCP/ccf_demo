@@ -132,8 +132,187 @@ Two panels are testing this. Results and the recommendation follow in §4–§8.
 
 ---
 
-## 4 · Design alternatives · *pending panel results*
-## 5 · Recommended mechanism · *pending*
-## 6 · Test and lint strategy · *pending*
-## 7 · Compatibility impact · *pending*
-## 8 · Proposed wording for D-IMPL-337 · *pending*
+## 4 · THE FINDING THAT DECIDES IT: `isinstance` does not verify guarded construction
+
+Measured by the orchestrator on `main` @ `78a603bb`, after two panels raised it:
+
+```
+ServableProduct   subclass, never gated  -> isinstance: True
+                  object.__new__         -> isinstance: True
+StateWriteToken   subclass               -> isinstance: True
+```
+
+And the subclass **reaches the exploit**: a `class Forged(ServableProduct)`
+that never calls `super().__init__`, with a `product` property, passes
+`isinstance` and flows through `DeliveryCapability.deliver` into a real
+`ServedProduct`. **Strictly worse than the duck type**, because it inherits the
+real attribute surface and satisfies any `isinstance`-shaped rule.
+
+**`isinstance` measures the TYPE. The invariant names the PATH.** Those are
+different properties, and the gap is reachable through supported interfaces —
+no `object.__new__` required, no module patching, no private-name access.
+
+### 4.1 · The project already settled this, at the one site where it was thought through
+
+`src/ccf/controlplane/state.py` verifies the **mint**, not the type:
+
+```python
+__slots__ = ("_minted",)
+def __init__(self, token: object) -> None:
+    if token is not _STATE_WRITE_TOKEN: raise StateWriteBypassError(...)
+    self._minted = _STATE_WRITE_TOKEN
+
+def _verify(token: StateWriteToken) -> None:
+    if getattr(token, "_minted", None) is not _STATE_WRITE_TOKEN:
+        raise StateWriteBypassError(...)
+```
+
+It **refused both forgeries** in the probe. And it is already pinned by a
+shipped test — `tests/invariants/test_state_seam_closure.py::test_a_token_subclass_skipping_init_cannot_succeed`,
+whose docstring is:
+
+> **"isinstance is not the gate — the mint is verified at the write."**
+
+**Canonizing `isinstance` would have contradicted a shipped, tested invariant**
+and would have had census v1 report the codebase's single correct
+implementation as a violation, replacing it with a strictly weaker check.
+
+---
+
+## 5 · Recommended mechanism
+
+**Verify the MINT at the boundary. Not the type, and not at every consumer.**
+
+| Half of the distinguishing question | How the mint answers it |
+| --- | --- |
+| *distinguish authority from shape* | the marker is set **only** on the guarded construction path, so a subclass, a duck type and `object.__new__` all fail it; a type check fails only the duck type |
+| *without forcing every internal helper to re-check* | the marker **travels with the value**, so a helper that received it from a verified boundary needs nothing; verification is placed, not repeated |
+
+Three properties follow, and each is measured rather than argued:
+
+1. **Placement is the entry point**, per the ruled unit of governance. 0 of the
+   5 genuinely-internal helpers change.
+2. **The predicate is the mint**, because the type is not the authority.
+3. **The population must be DECLARED, not discovered** — see §6.
+
+`type(x) is T` is a viable second-best: it excludes subclasses, and zero
+subclasses of any guarded type exist in `src/`, `tests/`, `examples/` or
+`runtime/` except an adversarial one in `test_state_seam_closure.py`. It still
+admits `object.__new__`, so it is weaker than the mint and stronger than
+`isinstance`.
+
+---
+
+## 6 · Test and lint strategy — and why the census cannot be the source of truth
+
+**The census has now been wrong three times, in three different ways**, and
+that is the argument:
+
+- **v1** under-counted verification (missed `compose_children`);
+- **v2** over-credited it (`mount_product_source` isinstance-checks the payload
+  shape; `refuse_over_tolerance` checks a tolerance value);
+- **v3** filed `ProductSource.__init__` as module-private **because the
+  function name begins with an underscore** — while `ProductSource` is in
+  `__all__` and the constructor is private *by convention only*. That is a
+  **7th governed site**, found by review, not by the instrument.
+
+Additionally, **the 7 guarded types are discovered by heuristic** — a class
+whose `__init__` contains an `ast.If` whose test unparses to contain
+`"token is not"`. All 7 happen to spell it identically, which is luck. A #8
+minting through a classmethod factory, a `_minted` sentinel, or
+`__init_subclass__` is invisible, and **nothing fails**.
+
+So the strategy is three layers, none of them load-bearing alone:
+
+1. **A DECLARED registry** of guarded types and of governed entry points. The
+   rule keys on the declaration; the census only *finds candidates* and reports
+   drift against it. A new guarded type that is not declared is a **lint
+   failure at the type**, which is how #8 enters without a hand-maintained
+   six-site list.
+2. **Runtime negative controls**, one per governed entry point, each handing it
+   a structurally compatible impostor **and a subclass that skips the guard**,
+   asserting refusal. `test_state_seam_closure.py` is the shipped template.
+3. **A drift lint** comparing the declared roster against the census, failing
+   when a candidate boundary appears that the roster does not name.
+
+**Close the subclass hole at the type as well**, with `__init_subclass__`
+refusal, so the per-consumer check stops being load-bearing for 6 of 7 types.
+
+---
+
+## 7 · Compatibility impact
+
+- **No Protocol in `src/ccf/` is outlawed.** Measured across all 50: exactly
+  one carries a guarded type in a signature — `ControlPlaneStateStore.put`
+  (`state.py:154`). Storage backends, operators, projections, MCP/A2A
+  transports, harness adapters, artifact stores, orchestration and HITL routers
+  name no guarded type and are untouched. Structural typing stays valid where
+  no guarded authority is asserted, exactly as ruled.
+- **One seam cannot be governed by any mechanism here.** The SDK invites a
+  third-party `ControlPlaneStateStore` (`state.py:44-47`) and cannot compel a
+  conforming implementation to check the token at all. That is a **stated
+  residual**, not a hole this design closes.
+- **Frozen example specimens are not touched.** The five shipped examples
+  verify with `case ServableProduct() as gated:` — PEP 634 class patterns with
+  isinstance semantics that an `isinstance`-literal signature does not credit.
+  Forcing edits there is forbidden by CLAUDE.md §9 and `D-IMPL-261`. A
+  mint-keyed rule at declared boundaries does not reach them.
+- **Two guarded types have zero annotated consumers** — `DeliveryCapability`
+  and `ChildInvocation`. An annotation-keyed rule would govern 5 of 7,
+  omitting the capability at the centre of the proven exploit.
+
+---
+
+## 8 · Proposed wording for D-IMPL-337
+
+The governing invariant is unchanged. What is added is the operative rule:
+
+> **Invariant (unchanged).** If a type derives authority or validity from a
+> guarded construction path, every publicly reachable consumer that relies on
+> that authority must positively verify the guarded runtime authority before
+> using it. Structural compatibility or duck typing is insufficient.
+>
+> **Operative rule.** A guarded type **declares** itself in the guarded-type
+> registry and carries a mint marker set only on its guarded construction path.
+> A **governed entry point** — a publicly reachable callable that can receive
+> an externally supplied value of a declared guarded type — **declares itself**
+> in the governed-boundary roster and establishes the mint before relying on
+> the value. Internal callees inherit that establishment and do not re-check.
+>
+> **`isinstance` does not satisfy this rule.** It verifies the type, not the
+> construction path: a subclass that skips the guard passes it and has been
+> measured reaching a governed delivery. Where a type check is used it is
+> `type(x) is T` at minimum, and the mint by preference.
+>
+> **Exemption.** A callable is exempt only where an externally supplied value
+> cannot reach the guarded parameter — because every caller establishes the
+> mint first, or because the value is sourced internally from a trusted
+> constructor path. Being module-private is **not** an exemption.
+
+### The eight recorded questions, answered
+
+1. **Is `isinstance` universal?** **No — it is inappropriate**, for every
+   guarded type, because it measures type rather than path. Measured.
+2. **What does *publicly reachable consumer* mean operationally?** A callable
+   nameable from outside its module **whose guarded parameter can be supplied
+   by the caller**. Two axes, not one; `child_resolver._admit` is reachable and
+   not suppliable.
+3. **Are module-private consumers exempt?** Not as a category. Three measured
+   classes: verified-before-entry (exempt), reachable-through-an-unchecked-public-path
+   (governed at the entry), internally-sourced (exempt because substitution is
+   impossible). `ProductSource.__init__` proves name-shape is not reachability.
+4. **Where does enforcement belong?** At declared boundaries, with the mint
+   travelling in the value so helpers inherit it — plus `__init_subclass__`
+   refusal at the type so the boundary check is not solely load-bearing.
+5. **Interaction with Protocols?** One Protocol touched of 50; structural
+   typing elsewhere untouched. The third-party store seam is a stated residual.
+6. **Do mutation sites need a stronger rule?** The three consequence classes —
+   gate bypass, admission/L3 bypass, Control Plane mutation — are **not
+   flattened**. The Control Plane mutation site already carries the strongest
+   mechanism in the tree and is the template, which is evidence for *yes*.
+7. **How is it tested mechanically?** Declared registry + drift lint + runtime
+   negative controls including a **subclass** impostor. The census finds
+   candidates; it is never the source of truth.
+8. **How do future guarded types enter?** By declaration. An undeclared type
+   whose construction is token-guarded is a lint failure **at the type**, not a
+   missing row in a hand-written list.
