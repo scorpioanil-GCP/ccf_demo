@@ -270,6 +270,17 @@ class GrantBoundChildResolver:
         ``None`` when the child reported no replay reference — a positive
         statement that its execution record is not resolvable here, which the
         admission gate must not read as *"nothing was touched"*.
+
+        **The binding, stated because it is the whole guarantee.** The
+        referenced record's own ``product_content_address`` is held against the
+        child's **recomputed** address — ``content_hash(contract)``, never the
+        address the producer reported — and that comparison happens **before**
+        any dependency evidence is read out of the record.
+
+        Raises:
+            ChildRecordMismatch: the referenced record describes a different
+                product. Raised rather than refused: evidence about another
+                product is not a fact about this child's eligibility.
         """
         if replay_ref is None:
             return None
