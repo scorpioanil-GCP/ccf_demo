@@ -3553,4 +3553,34 @@ Stated as the property: **guarded authority cannot be recovered through structur
 
 **Next free decision id: `D-IMPL-338`** — unchanged; a ruling on an existing entry spends none. **Governs:** Gate 2's operand for composite products. **Related:** `D-IMPL-336` Amendments 3–5, INV-CH7-47, `D-IMPL-31`, `D-IMPL-104`, `docs/D-IMPL-336-CLOSE-PANEL.md`, `D-IMPL-337` (raised by the same checkpoint, explicitly not closed by it).
 
+---
+
+**D-IMPL-336 — `INT-01b` CLOSED. Nested dependency propagation is proven through historical reconstruction.** RESOLVED. Date: 2026-09-14. Ruled by: Dave, on the measured proof at candidate `29d1885a`. This was the last outstanding pre-merge deliverable.
+
+**THE RULING, in Dave's words:**
+
+> `INT-01b` proves nested dependency propagation through historical reconstruction. After a real L2 supersession at `T_WORLD > T0`, the same child question asked again at `T0` is refused by the child's own governed delivery path. The middle and higher composites refuse because the governed child they acquire refuses. No parent invalidation boundary is separately written or synthesized.
+
+**THE FAILED FIRST PROOF, recorded because it is the more useful half — also in Dave's words:**
+
+> The original cached-child test was invalid as evidence for `D-IMPL-334`/`D-IMPL-335` because `F15`'s one-`as_of` rule produced `as-of-mismatch` before dependency invalidation could be exercised. **Sabotage 2 remaining green exposed the false proof.**
+
+The first version pinned the leaf to an instance built at `T0` and re-served the composite at a later instant, expecting the stale child to be refused as invalidated. It was refused — for the wrong reason. The prescribed sabotage (cutting the child's dependency evidence) left the test **green**, which is what surfaced it; the actual refusal reason was then obtained by instrumenting `CompositeAdmissionGate.admit` rather than by re-reading the source.
+
+**THE MEASURED FACTS, kept:**
+
+- **real boot-bound L2 ingest** — one `SignalEnvelope` through `worker.ingest`; the writer `ccf.boot.boot` bound the sink to publishes the boundary itself;
+- **invalidation boundary = 13:00 world time, not the June ingestion time** (`D-IMPL-335`, `_boundary_instant` taking `valid_from`);
+- **no direct register write**;
+- **no direct sink invocation**;
+- **no manual dependency copying into the composites**;
+- **all three targeted sabotages RED and restored byte-identically** — writer publishes no boundary; execution reports no entities; boundary reverted to ingestion time. `git diff --stat src/` empty after each;
+- **post-change re-derivation serves again through the nested chain**, at all three levels.
+
+**WHAT `INT-01b` DOES NOT PROVE, corrected by Dave against the orchestrator's own write-up.** The single-entity fixture **cannot** express an *"equally old unrelated product still serves"* control, and describing it as doing so was wrong: re-derivation and dependency **selectivity** are different claims. **Selectivity remains covered by the existing `D-IMPL-334`/`D-IMPL-335` regression** at `tests/products/test_dependency_invalidation.py`, which has the entities to express it. `INT-01b` proves **nested propagation and re-derivation**, and nothing wider. The test's own prose has been corrected to say so.
+
+**EVIDENCE.** `tests/products/test_composite_integration.py::test_int01b_a_real_L2_change_invalidates_the_NESTED_composite_chain` and `::test_int01b_the_inherited_composition_state_survives_on_the_nested_chain` (child lineage reaching the top two levels down; parent expiry bounded by its child; the persisted row identifying the contributing governed product by class, address and grant; replay re-deriving the union and the floor from the rows alone without calling a child skill).
+
+**Next free decision id: `D-IMPL-338`** — unchanged. **Governs:** the close of `INT-01b`. **Related:** `D-IMPL-336` Amendments 4–5, `D-IMPL-334`, `D-IMPL-335`, `F15` (the one-`as_of` invariant that made the first proof invalid), `D-IMPL-337` (raised separately and untouched by this entry).
+
 **Next free decision id: `D-IMPL-338`.**

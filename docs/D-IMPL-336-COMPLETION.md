@@ -193,31 +193,87 @@ No publicly reachable consumer of a guarded type in `composite.py` or
 
 ---
 
-## 4b · Close register — the pre-merge work, and its measured status
+## 4b · MERGE PACKAGE — the four ruled items, each cited to its implementation
 
-Dave, 2026-09-14: *"the previously ruled pre-merge `D-IMPL-336` work remains
-outstanding unless a later amendment explicitly removes it… Do not work those
-items now. Preserve them in the close register and stop at this checkpoint."*
+Not carried forward from a checklist: each row names the symbol and the tests
+that close it, measured against candidate `29d1885a`.
 
-Preserved below **with measured status**, because recording an item as
-outstanding when it is discharged is as wrong as the reverse. Five are
-discharged; one is partial. **None is worked at this checkpoint.**
+### R1 — the peering path · **DISCHARGED**
 
-| # | Ruled pre-merge item | Status at `13d7e8ec` | Evidence |
-| --- | --- | --- | --- |
-| 1 | Ship `GrantBoundChildResolver` in `src/` | **DISCHARGED** | `src/ccf/products/child_resolver.py`; surface fragment `336-05` |
-| 2 | Supported local acquisition path is grant → dispatch → governed door → fit → compose, without the duplicate local attestor stack | **DISCHARGED** | attestor stack removed and verified absent from `src/` and `runtime/`; `test_int01a_one_governed_question_through_the_whole_machinery` |
-| 3 | Close `R1` on the actual peering path | **DISCHARGED** | `MAX_PROTECTED_HEADER_BYTES`; `tests/peering/test_peered_child_envelope.py`, 5 tests incl. the bound-is-enforced and tamper controls |
-| 4 | Close `CMP-R-01` for persisted refused-composite child evidence | **DISCHARGED** | `RefusalRecorderProtocol.record(child_resolutions=…)`; `test_cmpr01_a_REFUSED_composite_records_which_children_it_tried`, with the non-composite control |
-| 5 | Complete composite replay as previously ruled | **DISCHARGED** | `R5`/`CMP-R-02`: `child_operators_invoked`, `child_expires_at`, `child_admitted_at`; `test_r5_the_record_alone_RECONSTRUCTS_the_composite` re-derives the union and the floor from the rows alone |
-| 6 | Complete `INT-01b`: real nested leaf → composite → higher composite **with boot-bound L2 supersession** | **PARTIAL** | The nested chain is built and green (`test_int01b_a_composite_serves_as_ANOTHER_composites_child`, `test_int01b_the_top_expiry_is_FLOORED_by_the_deepest_constituent`). **The boot-bound L2 supersession leg is NOT built** — measured: zero references to the L2 writer or to supersession in `tests/products/test_composite_integration.py`. |
+`joserfc`'s `JWSRegistry` defaults `max_header_length` to **512** and
+`_registry_declaring` never set it; an honest protected header carrying a
+child-eligibility assertion is **621 bytes**, so the peered composite path was
+**unreachable**, not merely untested.
 
-**Item 6 is the one genuinely outstanding pre-merge deliverable.** Invalidation
-is proven against a directly-recorded register entry, not against a real graph
-write propagating through the boot-bound writer to a dependent composite chain.
+- **Implementation:** `src/ccf/peering/identity.py:204`,
+  `MAX_PROTECTED_HEADER_BYTES: Final = 2048`, set on the registry **instance**
+  so no other `joserfc` user in the process is affected.
+- **Tests:** `tests/peering/test_peered_child_envelope.py`, **5 tests** — the
+  honest header exceeding the library default (so the constant cannot outlive
+  its reason); an honest signed envelope reaching composition through the real
+  `PeeringAdmissionGate`; **the bound moved BELOW the honest header and the
+  same envelope refusing**, which proves it is read at verification rather
+  than merely present; a tampered signature still refused; a stale producer
+  check still refused on the genuine envelope.
 
-`R4` is now **RULED GO as implemented** (`docs/DECISIONS.md`, 2026-09-14) and is
-no longer an open question against this branch.
+### CMP-R-01 — refused-composite child evidence · **DISCHARGED**
+
+`compose_children` always built a row per declared requirement; those rows
+reached the persisted record on the **served** path only.
+
+- **Implementation:** `src/ccf/products/resolver.py:710`
+  (`RefusalRecorderProtocol.record`) and `:963` (`ReplayRefusalRecorder.record`)
+  take `child_resolutions: tuple[ChildResolution, ...] = ()`; the composition
+  refusal branch passes `composed.resolutions`. Surface recorded **before**
+  implementation in its own commit, as ruled (`docs/surface-changes/336-04-*`).
+- **Tests:** `test_cmpr01_a_REFUSED_composite_records_which_children_it_tried`
+  reads the rows back **off the store**;
+  `test_cmpr01_a_NON_composite_refusal_records_no_rows_and_is_unchanged` is the
+  control — `()` is hash-transparent, so no existing record's address moves.
+
+### `GrantBoundChildResolver` in `src/` · **DISCHARGED**
+
+- **Implementation:** `src/ccf/products/child_resolver.py:91`. The supported
+  local path is **effective grant → actual dispatch → the child's governed door
+  → fit checks → compose**, with the duplicate local attestor stack removed and
+  verified absent from `src/` and `runtime/`.
+- **Measured effect:** acquiring one child went from **45 lines of deployment
+  code and five hand-constructed evidence objects to 16 lines and none**.
+- **Surface:** `docs/surface-changes/336-05-the-reference-child-resolver.md`,
+  written after the D-15 drift gate caught its absence.
+- **Tests:** `test_int01a_one_governed_question_through_the_whole_machinery`
+  plus the no-grant and revoked-grant negative controls; the cross-process
+  proof drives the **same** `build_composite` with only the binding changed.
+
+### INT-01b · **CLOSED** (see `docs/DECISIONS.md`, 2026-09-14)
+
+> `INT-01b` proves nested dependency propagation through historical
+> reconstruction. After a real L2 supersession at `T_WORLD > T0`, the same
+> child question asked again at `T0` is refused by the child's own governed
+> delivery path. The middle and higher composites refuse because the governed
+> child they acquire refuses. No parent invalidation boundary is separately
+> written or synthesized.
+
+**The failed first proof, kept:** the original cached-child test was invalid as
+evidence for `D-IMPL-334`/`D-IMPL-335` because `F15`'s one-`as_of` rule produced
+`as-of-mismatch` before dependency invalidation could be exercised. **Sabotage 2
+remaining green exposed the false proof.**
+
+Measured facts: real boot-bound L2 ingest; boundary at **13:00 world time, not
+the June ingestion time**; no direct register write; no direct sink invocation;
+no manual dependency copying into the composites; all three targeted sabotages
+RED and restored byte-identically; post-change re-derivation serves again
+through the nested chain.
+
+**What it does not prove:** the single-entity fixture cannot express an
+*"equally old unrelated product still serves"* control. **Dependency
+selectivity remains covered by the existing `D-IMPL-334`/`D-IMPL-335`
+regression** at `tests/products/test_dependency_invalidation.py`. INT-01b
+proves nested propagation and re-derivation.
+
+- **Tests:** `tests/products/test_composite_integration.py`, **4 `int01b`
+  tests** — the nested chain; the transitive expiry floor; the L2 supersession
+  proof; and the inherited-composition-state regression.
 
 ---
 

@@ -618,6 +618,12 @@ def test_int01b_a_real_L2_change_invalidates_the_NESTED_composite_chain(
     own governed delivery, before `CompositeAdmissionGate.admit` is ever
     reached. The composite refuses because the child product it consumed
     refused. That is the propagation, and the sabotages below isolate it.
+
+    **What this module does NOT prove.** Dependency SELECTIVITY — that a
+    product depending on a different entity is unaffected — is not expressible
+    here, because the fixture graph holds one entity. It stays covered by
+    `tests/products/test_dependency_invalidation.py`. INT-01b proves nested
+    propagation and re-derivation, and nothing wider.
     """
     from ccf.controlplane.invalidation import ControlPlaneInvalidationSink
     from tests.products.composite_fixture import (
@@ -674,13 +680,18 @@ def test_int01b_a_real_L2_change_invalidates_the_NESTED_composite_chain(
     )
     assert after_higher.kind == "composite-child-refusal"
 
-    # THE CONTROL. The same chain, over the same entity, asked at an instant
-    # AFTER the change, still serves — so the refusals above are specific to
-    # what the products read and are not a register refusing everything.
+    # RE-DERIVATION, and it is NOT a selectivity control. The same chain,
+    # over the same entity, asked at an instant AFTER the change, serves.
     #
-    # Stated plainly: the fixture graph holds ONE entity, so "an unrelated
-    # product" cannot be expressed by entity identity here. It is expressed by
-    # the instant instead, which discriminates the same property.
+    # **What this does NOT show**: that a product depending on a DIFFERENT
+    # entity still serves. The fixture graph holds ONE entity, so this module
+    # cannot express dependency SELECTIVITY at all, and an earlier version of
+    # this comment wrongly claimed the instant "discriminates the same
+    # property". It does not — re-derivation and selectivity are different
+    # claims. Selectivity is covered by the existing `D-IMPL-334`/`D-IMPL-335`
+    # regression at `tests/products/test_dependency_invalidation.py`, which
+    # has the entities to express it. What INT-01b proves is nested
+    # PROPAGATION and RE-DERIVATION.
     assert isinstance(
         _ask_at(_child_resolver(booted), CHILD_CLASS, "1.0.0", T_LATER),
         ServedProduct,
