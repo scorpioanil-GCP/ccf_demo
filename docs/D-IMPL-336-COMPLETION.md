@@ -193,6 +193,34 @@ No publicly reachable consumer of a guarded type in `composite.py` or
 
 ---
 
+## 4b · Close register — the pre-merge work, and its measured status
+
+Dave, 2026-09-14: *"the previously ruled pre-merge `D-IMPL-336` work remains
+outstanding unless a later amendment explicitly removes it… Do not work those
+items now. Preserve them in the close register and stop at this checkpoint."*
+
+Preserved below **with measured status**, because recording an item as
+outstanding when it is discharged is as wrong as the reverse. Five are
+discharged; one is partial. **None is worked at this checkpoint.**
+
+| # | Ruled pre-merge item | Status at `13d7e8ec` | Evidence |
+| --- | --- | --- | --- |
+| 1 | Ship `GrantBoundChildResolver` in `src/` | **DISCHARGED** | `src/ccf/products/child_resolver.py`; surface fragment `336-05` |
+| 2 | Supported local acquisition path is grant → dispatch → governed door → fit → compose, without the duplicate local attestor stack | **DISCHARGED** | attestor stack removed and verified absent from `src/` and `runtime/`; `test_int01a_one_governed_question_through_the_whole_machinery` |
+| 3 | Close `R1` on the actual peering path | **DISCHARGED** | `MAX_PROTECTED_HEADER_BYTES`; `tests/peering/test_peered_child_envelope.py`, 5 tests incl. the bound-is-enforced and tamper controls |
+| 4 | Close `CMP-R-01` for persisted refused-composite child evidence | **DISCHARGED** | `RefusalRecorderProtocol.record(child_resolutions=…)`; `test_cmpr01_a_REFUSED_composite_records_which_children_it_tried`, with the non-composite control |
+| 5 | Complete composite replay as previously ruled | **DISCHARGED** | `R5`/`CMP-R-02`: `child_operators_invoked`, `child_expires_at`, `child_admitted_at`; `test_r5_the_record_alone_RECONSTRUCTS_the_composite` re-derives the union and the floor from the rows alone |
+| 6 | Complete `INT-01b`: real nested leaf → composite → higher composite **with boot-bound L2 supersession** | **PARTIAL** | The nested chain is built and green (`test_int01b_a_composite_serves_as_ANOTHER_composites_child`, `test_int01b_the_top_expiry_is_FLOORED_by_the_deepest_constituent`). **The boot-bound L2 supersession leg is NOT built** — measured: zero references to the L2 writer or to supersession in `tests/products/test_composite_integration.py`. |
+
+**Item 6 is the one genuinely outstanding pre-merge deliverable.** Invalidation
+is proven against a directly-recorded register entry, not against a real graph
+write propagating through the boot-bound writer to a dependent composite chain.
+
+`R4` is now **RULED GO as implemented** (`docs/DECISIONS.md`, 2026-09-14) and is
+no longer an open question against this branch.
+
+---
+
 ## 5 · Limitations, stated plainly
 
 - **The full estate tour remains CP-14 work**, per Amendment 5. No composite

@@ -3529,4 +3529,28 @@ Stated as the property: **guarded authority cannot be recovered through structur
 
 **Next free decision id: `D-IMPL-338`.** **Governs:** the guarded-type consumer invariant across the SDK. **Related:** `D-IMPL-336` (which exposed it, and whose close-panel record at `docs/D-IMPL-336-CLOSE-PANEL.md` carries the two sampled instances), `D-IMPL-59` (Peering admission), `D-IMPL-57` (attributable vs verifiable), CLAUDE.md §10 (single-writer), §11 (invariants are CI-enforced, not aspirational), INV-CH7-46/47/52 (the three validation gates `ServableProduct` attests to).
 
+---
+
+**D-IMPL-336 — `R4` RULED: GO AS IMPLEMENTED. The engine-resolved operand widens for a composite, and the parent's own declaration is held strictly BEFORE the union.** RESOLVED. Date: 2026-09-14. Ruled by: Dave, at the Amendment 5 §6 checkpoint. This converts the PROPOSED reading carried since `7d18004d` into the ruled one; **no code changes under this entry** — the implementation already matches the ruling, and the entry exists so the reading is ruled rather than inherited from an implementation.
+
+**THE RULED SEMANTICS, in Dave's numbering:**
+
+1. **`run_gates` remains unchanged.** Gate 2 is not edited; only the operand handed to it.
+2. **Non-composite behavior remains byte-identical.** `composed` is `None`, the union is with `frozenset()`, and the operand is the value it has always been.
+3. **For composites, FIRST require** `parent_declared_operators == parent_executed_operators`.
+4. **Only after that succeeds**, form `parent_executed_operators ∪ admitted_child_operators`.
+5. **Compare the composite lineage against that union with strict equality.**
+6. **Child operators may never mask parent drift.**
+7. **Keep the parent-drift sabotage.** Codex finding no masking case is **corroboration only**.
+
+**WHY A RULING WAS NEEDED RATHER THAN A REPAIR.** INV-CH7-47 requires a candidate's declared operators to equal what this fabric's engine resolved, strictly, in both directions. `D-IMPL-31` requires a composite's lineage to be the N-way union over its constituents'. A composite satisfies both only if the operand widens: its engine never ran its children's operators, because the children did. **The two obvious alternatives each break a standing ruling** — a subset check abandons INV-CH7-47's strictness; declaring only the parent's own operators abandons `D-IMPL-31`'s union. Measured twice independently before the question was put: a real child of another class refused with `lineage-mismatch-refusal` before it could serve.
+
+**WHAT LIMB 3 BUYS, and it is the whole reason the widening is safe.** A naive union masks parent drift: if the engine runs operator X while the class declares only Y, and a child happens to invoke X, then X sits on both sides of the comparison and the parent's own divergence disappears. So the parent's declared set is held to the parent's executed set **first and strictly**, as the same refusal type with the same gate identifier. Proven by sabotage that perturbs the **engine** rather than `run_gates` — the guard reads `execution.operators_invoked` and runs before the gate, so perturbing the gate's argument would leave the guard looking at the honest set and prove nothing.
+
+**EVIDENCE.** `tests/products/test_resolver_seam.py::test_r4_a_composite_serves_with_a_child_that_ran_ITS_OWN_operators` (which asserted the DEFECT first and went red on the line that fixed it), `::test_r4_the_positive_control_a_child_WITHIN_the_parents_operators_serves`, and `::test_r4_the_union_CANNOT_mask_the_parents_own_declaration_drifting` — the limb-6 sabotage, which found the masking hole before the guard existed and which limb 7 preserves. Close panel 2 recorded a **negative result** from codex — *"I did not find an R4 masking case in the checked-out resolver path"* — which this ruling accepts as corroboration and not as clearance.
+
+**`D-IMPL-336`'s GUARDED-TYPE OBLIGATION IS ALSO DISCHARGED** (Dave, same ruling). `compose_children` positively verifies `isinstance(outcome, AdmittedChild)`, and `invocation_from_dispatch` — the branch's other exported consumer of a guarded type — raises `ProvenanceForgeryError` on a non-`ResolvedProducer`. **This does NOT close `D-IMPL-337`**, which remains OPEN at `13d7e8ec` with its six-site census and its eight design questions intact.
+
+**Next free decision id: `D-IMPL-338`** — unchanged; a ruling on an existing entry spends none. **Governs:** Gate 2's operand for composite products. **Related:** `D-IMPL-336` Amendments 3–5, INV-CH7-47, `D-IMPL-31`, `D-IMPL-104`, `docs/D-IMPL-336-CLOSE-PANEL.md`, `D-IMPL-337` (raised by the same checkpoint, explicitly not closed by it).
+
 **Next free decision id: `D-IMPL-338`.**
