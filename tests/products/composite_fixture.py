@@ -152,6 +152,8 @@ def boot_composite(tmp_path: pathlib.Path) -> Iterator[_Booted]:
             document["requires"] = _parent_requires()
         write_artifact(root, filename, document)
     write_artifact(root, "product-class-child.yaml", child_product_class())
+    write_artifact(root, "product-class-higher.yaml", higher_product_class())
+    write_artifact(root, "request-contract-higher.yaml", higher_request_contract())
     write_artifact(root, "request-contract.yaml", REQUEST_CONTRACT_DOCUMENT)
     write_artifact(root, "request-contract-child.yaml", child_request_contract())
     write_artifact(
@@ -173,6 +175,20 @@ def boot_composite(tmp_path: pathlib.Path) -> Iterator[_Booted]:
             "key": CHILD_CLASS_KEY,
             "class_id": "ccf.product-class",
             "role": "register",
+            "registration": "typed",
+        },
+        {
+            "path": "product-class-higher.yaml",
+            "key": HIGHER_CLASS_KEY,
+            "class_id": "ccf.product-class",
+            "role": "register",
+            "registration": "typed",
+        },
+        {
+            "path": "request-contract-higher.yaml",
+            "key": HIGHER_REQUEST_CONTRACT_KEY,
+            "class_id": REQUEST_CONTRACT_CLASS_ID,
+            "role": "load",
             "registration": "typed",
         },
         {
@@ -449,3 +465,227 @@ def ask_composite(resolver: GovernedResolver) -> Any:
     )
 
 
+
+
+# --- INT-01b: the nested chain, leaf -> composite -> higher composite --------
+
+HIGHER_CLASS = "fixture.higher-product"
+HIGHER_CLASS_KEY = "fixture/product-class-higher"
+HIGHER_REQUEST_CONTRACT_KEY = "fixture/request-contract-higher"
+HIGHER_SKILL = "composite-door-skill"
+HIGHER_CALLABLE = "fixture.composite-door"
+HIGHER_REGIME_KEY = f"{TENANT}/policy-bundle/higher-composite"
+
+
+def higher_product_class() -> dict[str, Any]:
+    """A class whose declared child is ITSELF a composite.
+
+    `INT-01b`. Its operator is the traversal the middle class also runs, so
+    the nesting is what this fixture varies and not the operator set — the
+    union across two levels is asserted from the LEAF's operator appearing at
+    the top, which it can only do by travelling through the middle.
+    """
+    return {
+        "semver": "1.0.0",
+        "schema_name": HIGHER_CLASS,
+        "schema_version": "1.0.0",
+        "ttl_anchor": "from_decision",
+        "assembly_mode": "algorithmic",
+        "max_ttl_key": "fixture/max-ttl",
+        "required_operator_keys": ["traversal.typed-neighborhood"],
+        "requires": [
+            {
+                "product_class": PRODUCT_CLASS,
+                "required": True,
+                "compatible_from": PRODUCT_VERSION,
+            }
+        ],
+    }
+
+
+def higher_request_contract() -> dict[str, Any]:
+    return {
+        "semver": "1.0.0",
+        "class_id": "fixture.request-contract",
+        "declaration": {
+            "schema_name": HIGHER_CLASS,
+            "schema_version": "1.0.0",
+            "arguments": {
+                "properties": {
+                    "revenue_threshold": {
+                        "type": "number",
+                        "description": "Fixture parameter; no default anywhere.",
+                    }
+                },
+                "required": ["revenue_threshold"],
+            },
+        },
+    }
+
+
+def _composite_door(inner: GovernedResolver) -> Any:
+    """A door over the MIDDLE composite, so it can be someone else's child.
+
+    The middle product crosses the same `door_answer` boundary the leaf does.
+    Nothing about being a composite changes how it is acquired — which is the
+    property `INT-01b` exists to show.
+    """
+
+    def answer(arguments: Mapping[str, str]) -> Mapping[str, str]:
+        request = ProductRequest(
+            schema_name=PRODUCT_CLASS,
+            schema_version=PRODUCT_VERSION,
+            subject=arguments["subject"],
+            intent="fixture-intent",
+            freshness="fixture-freshness",
+            asked_at=datetime.fromisoformat(arguments["asked_at"]),
+            parameters={THRESHOLD_PARAMETER: int(arguments["threshold"])},
+        )
+        resolved = inner(
+            tenant=TENANT,
+            product_class=PRODUCT_CLASS,
+            version=PRODUCT_VERSION,
+            perspective=PERSPECTIVE,
+            request=request,
+        )
+        return {
+            "outcome": door_answer(
+                resolved,
+                echo=WireRequest(
+                    product_id=PRODUCT_CLASS,
+                    parameters={"subject": arguments["subject"]},
+                    temporal_boundary=request.asked_at,
+                ),
+                resolved_request=request,
+            ).decode()
+        }
+
+    return answer
+
+
+def build_higher_composite(
+    booted: _Booted, inner: GovernedResolver
+) -> tuple[GovernedResolver, GrantBoundChildResolver]:
+    """The top of the chain, acquiring the middle composite as its child."""
+    registry = booted.control_plane
+    regime_class = declared_artifact_class("policy-bundle")
+    registry.register_typed(
+        HIGHER_REGIME_KEY,
+        parse_artifact(
+            {
+                "class_id": "policy-bundle",
+                "semver": "1.0.0",
+                "declaration": {
+                    "regime": "higher-composite",
+                    "skill_governance": {
+                        "grant_requires_approval": False,
+                        "permitted_scopes": [],
+                    },
+                },
+            },
+            regime_class,
+        ),
+        regime_class,
+    )
+    definition = AgentDefinition(
+        schema_version="1.0.0",
+        artifact_version="1.0.0",
+        name="higher-composite-assembler",
+        tenant=TENANT,
+        archetypes=("context_assembly",),
+        context_contract={
+            "consumes": [
+                {"product_class": PRODUCT_CLASS, "schema_version": PRODUCT_VERSION}
+            ]
+        },
+        perspective={"role": PERSPECTIVE.role, "selection_params": {}},
+        policy_regime={"ref": f"ccf-artifact://{HIGHER_REGIME_KEY}@1.0.0"},
+        halflife_debt_profile={"ref": f"ccf-artifact://{TENANT}/debt-profile/x@1.0.0"},
+        instruction_bindings=(),
+    )
+    catalog = SkillCatalog(registry)
+    catalog.register(
+        SkillCatalogEntry(
+            schema_version="1.0.0",
+            artifact_version="1.0.0",
+            name=HIGHER_SKILL,
+            tenant=TENANT,
+            skill_type="local_callable",
+            description="answers the middle composite through its door",
+            argument_schema=SkillArgumentSchema(
+                properties={
+                    "subject": {"type": "string", "description": "The account."},
+                    "asked_at": {"type": "string", "description": "The instant."},
+                    "threshold": {"type": "string", "description": "The threshold."},
+                },
+                required=frozenset({"subject", "asked_at", "threshold"}),
+            ),
+            binding=LocalCallableBinding(callable_ref=HIGHER_CALLABLE),
+            requirements=SkillRequirements(
+                required_scopes=frozenset(), required_context_products=frozenset()
+            ),
+            produces=PRODUCT_CLASS,
+        )
+    )
+    ledger = GrantLedger(
+        control_plane=registry, catalog=catalog, sink=None, clock=lambda: ADMITTED_AT
+    )
+    assert isinstance(
+        ledger.request(
+            SkillGrant(
+                schema_version="1.0.0",
+                artifact_version="1.0.0",
+                name=f"grant-{HIGHER_SKILL}",
+                tenant=TENANT,
+                agent_definition_hash=content_hash(definition),
+                skill_name=HIGHER_SKILL,
+                skill_version="1.0.0",
+            ),
+            definition=definition,
+            actor="higher-operator",
+        ),
+        str,
+    )
+    callables = CallableRegistry()
+    callables.register(HIGHER_CALLABLE, _composite_door(inner))
+    children = GrantBoundChildResolver(
+        ledger=ledger,
+        agent_definition_hash=content_hash(definition),
+        gate=CompositeAdmissionGate(
+            tenant_id=TENANT,
+            consumer_scope="consumer://higher-composite",
+            registry=registry,
+        ),
+        child_arguments=lambda requirement, asked_at: {
+            "subject": "acct-1",
+            "asked_at": asked_at.isoformat(),
+            "threshold": "1000",
+        },
+        callable_registry=callables,
+        artifact_store=booted.store,
+    )
+    arguments = _arguments(booted)
+    arguments.update(
+        product_class_key=HIGHER_CLASS_KEY,
+        request_contract_key=HIGHER_REQUEST_CONTRACT_KEY,
+        composite_children=children,
+    )
+    return GovernedResolver(**arguments), children
+
+
+def ask_higher(resolver: GovernedResolver) -> Any:
+    return resolver(
+        tenant=TENANT,
+        product_class=HIGHER_CLASS,
+        version="1.0.0",
+        perspective=PERSPECTIVE,
+        request=ProductRequest(
+            schema_name=HIGHER_CLASS,
+            schema_version="1.0.0",
+            subject="acct-1",
+            intent="fixture-intent",
+            freshness="fixture-freshness",
+            asked_at=ASKED_AT,
+            parameters={THRESHOLD_PARAMETER: 1000},
+        ),
+    )

@@ -321,3 +321,84 @@ def test_r5_the_child_ROWS_are_what_carry_it_not_the_lineage_hash(
     # which is the point: the ref could CHECK this reconstruction and never
     # produce it.
     assert content_hash(rebuilt) == row.child_lineage_ref
+
+
+def test_int01b_a_composite_serves_as_ANOTHER_composites_child(
+    booted: _Booted,
+) -> None:
+    """`INT-01b`: leaf -> composite -> higher composite, through the shipped path.
+
+    A composite serving as another's child was type-legal and untested. The
+    chain here is three deep and every link is the same machinery: a granted
+    skill, a real dispatch, a `door_answer` crossing, and
+    `CompositeAdmissionGate.admit`.
+
+    **Nothing about being a composite changes how the middle product is
+    acquired**, which is the property this test exists to show — the top
+    declares `requires` against a product class, not against an assembler, and
+    could not tell that its child had children of its own.
+
+    The assertion that carries the nesting is the LEAF's operator appearing in
+    the TOP's lineage. It can only get there by travelling through the middle,
+    so a chain that silently flattened to two levels would fail here.
+    """
+    from tests.products.composite_fixture import ask_higher, build_higher_composite
+
+    middle, _middle_children = _wire(booted)
+    higher, _higher_children = build_higher_composite(booted, middle)
+
+    outcome = ask_higher(higher)
+    assert isinstance(outcome, ServedProduct), getattr(outcome, "detail", outcome)
+
+    operators = outcome.product.lineage.operators_invoked
+    # the leaf's operator, two levels down
+    assert "similarity.corpus-select" in operators
+    assert "traversal.typed-neighborhood" in operators
+
+    record = DecisionReplayRecord.model_validate_json(
+        booted.store.get(
+            content_address=booted.store.resolve_uri(uri=outcome.replay_ref.uri)
+        )
+    )
+    rows = record.content_generation_path.child_resolutions
+    assert len(rows) == 1
+    # The top's own child is the MIDDLE product, not the leaf: each level
+    # records what IT admitted, and the leaf's row belongs to the middle's
+    # record rather than being flattened into this one.
+    assert rows[0].required_product_class == PRODUCT_CLASS
+    assert rows[0].outcome_status == "admitted"
+    # `R5` across two levels: the middle's operator set, as the top saw it,
+    # already carries the leaf's — so the top is reconstructible without
+    # re-acquiring anything.
+    assert rows[0].child_operators_invoked is not None
+    assert "similarity.corpus-select" in rows[0].child_operators_invoked
+
+
+def test_int01b_the_top_expiry_is_FLOORED_by_the_deepest_constituent(
+    booted: _Booted,
+) -> None:
+    """The expiry floor composes down the chain, not just across one level.
+
+    `D-IMPL-31`'s floor says a composite is never labelled fresher than its
+    stalest constituent. Over a chain that has to hold transitively, or a
+    two-level composite could outlive the leaf its answer rests on.
+    """
+    from tests.products.composite_fixture import ask_higher, build_higher_composite
+
+    middle, _mc = _wire(booted)
+    higher, _hc = build_higher_composite(booted, middle)
+
+    top = ask_higher(higher)
+    assert isinstance(top, ServedProduct), getattr(top, "detail", top)
+
+    record = DecisionReplayRecord.model_validate_json(
+        booted.store.get(
+            content_address=booted.store.resolve_uri(uri=top.replay_ref.uri)
+        )
+    )
+    middle_expiry = record.content_generation_path.child_resolutions[0].child_expires_at
+    assert middle_expiry is not None
+    assert top.product.expires_at is not None
+    assert top.product.expires_at <= middle_expiry, (
+        "the top outlived the constituent it was assembled from"
+    )
