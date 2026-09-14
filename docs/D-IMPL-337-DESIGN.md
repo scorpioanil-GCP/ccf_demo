@@ -316,3 +316,98 @@ The governing invariant is unchanged. What is added is the operative rule:
 8. **How do future guarded types enter?** By declaration. An undeclared type
    whose construction is token-guarded is a lint failure **at the type**, not a
    missing row in a hand-written list.
+
+
+---
+
+## 9 · RULED (2026-09-14) — and what the design now owes
+
+Dave ruled the mechanism family: **guarded-path provenance verification**, with
+mint verification as the reference pattern. The eleven conclusions are recorded
+at `D-IMPL-337 — DESIGN RULED GO` in `docs/DECISIONS.md`. **Implementation
+scope is NOT ruled.**
+
+### 9.1 · Final seven-site classification
+
+Governed unit: **entry point × authority-bearing value × external
+substitutability.**
+
+| # | Site | Guarded type | Authority it carries | Reach | Externally substitutable? | Consequence |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | `replay/serve.py::serve` | `ServableProduct` | the three validation gates ran | EXPORTED | **yes** | **gate bypass** |
+| 2 | `replay/serve.py::DeliveryCapability.deliver` | `ServableProduct` | as above | public name | **yes** | **gate bypass** — the proven exploit path |
+| 3 | `products/gates.py::refuse_over_tolerance` | `ServableProduct` | as above | EXPORTED | **yes** | **gate bypass** (tolerance held against an unvetted product) |
+| 4 | `graph/product_source.py::mount_product_source` | `AdmittedProduct` | signature, peer trust and policy bindings verified | EXPORTED | **yes** | **admission / L3 proof bypass** |
+| 5 | `graph/product_source.py::ProductSource.__init__` | `AdmittedProduct` | as above | **constructor of an exported class** | **yes** | **admission / L3 proof bypass** |
+| 6 | `assembly/worker.py::ingest_admitted` | `AdmittedProduct` | as above | public name | **yes** | **admission / L3 proof bypass**, against single-writer |
+| 7 | `controlplane/state.py::ControlPlaneStateStore.put` | `StateWriteToken` | the write was authorized | Protocol method | **yes** | **Control Plane mutation** |
+
+**Site 5 is the correction.** `ProductSource` is in `__all__`; its constructor
+is *"private by convention"* only. Census v3 filed it as module-private because
+the **function name** begins with an underscore — its own false negative, found
+by review.
+
+**Site 7 is a Protocol method**, so the SDK can require the check of
+`InMemoryStateStore` (which already does it, via `_verify`) but **cannot compel
+a third-party implementation**. Recorded residual.
+
+**Not governed, and why** — the taxonomy working as ruled:
+
+| Site | Why exempt |
+| --- | --- |
+| `composite.py::_rebinding_failure`, `::_row_for_admitted` | verified-before-entry — their only caller `compose_children` establishes it |
+| `child_resolver.py::_admit` | internally sourced — the `ResolvedProducer` comes from `resolve_producing_grant` and cannot be externally supplied |
+| `product_source.py::_refuse`, `::_validated_member` | behind sites 4–5; they inherit once those establish provenance |
+| `state.py::_verify` | **it is the verifier.** Adding a type check here is a strict downgrade |
+
+### 9.2 · Guarded-type registry proposal
+
+A declaration, not a discovery heuristic. Per conclusion 9, each entry states
+four things:
+
+```python
+GUARDED_TYPES = (
+    GuardedType(
+        type=ServableProduct,
+        authority="the three validation gates ran over this product",
+        mint="ccf.products.gates.run_gates, via the module-private gate token",
+        verifier=...,                      # establishes guarded-path provenance
+        boundaries=("ccf.replay.serve:serve", ...),   # externally substitutable
+    ),
+    ...
+)
+```
+
+Three properties the registry must have:
+
+1. **Declaration is mandatory.** A class whose construction is token-guarded
+   and which is *not* declared is a **lint failure at the type** — that is how
+   guarded type #8 enters without a hand-maintained site list.
+2. **The census checks the registry, never replaces it.** Drift is reported in
+   both directions: a declared type with no verifier, and a *candidate* the
+   census finds that the registry does not name.
+3. **The registry names boundaries, not every consumer.** Internal callees
+   inherit; the roster is the governed set from §9.1.
+
+**Open for the implementation ruling:** whether `verifier` is a callable in the
+registry or a method on the type; and whether `boundaries` are strings resolved
+at lint time or imported symbols (which would make the registry import half the
+SDK).
+
+### 9.3 · Proposed implementation phases
+
+**Not a recommendation of scope — the phases as they decompose.** Dave rules
+how many land in one phase.
+
+| Phase | Content | Why it can stand alone |
+| --- | --- | --- |
+| **A — the mint, one type** | Give `ServableProduct` a mint marker; verify at sites 1–3; negative controls incl. subclass and `object.__new__`; honest positive control | Closes the **proven exploit**. One type, one consequence class, no registry needed yet |
+| **B — the registry and drift lint** | Declare all 7 types with authority/mint/verifier/boundaries; census becomes a drift check | Makes the rule enforceable rather than remembered; can land with only phase A's type fully verified |
+| **C — admission provenance** | `AdmittedProduct` mint; verify at sites 4–6 | A different consequence class (L3 / single-writer) and a different module owner |
+| **D — Control Plane** | Site 7, plus the recorded residual for third-party stores | `InMemoryStateStore` already verifies; this is mostly the Protocol contract and the residual's wording |
+| **E — defense in depth** | `__init_subclass__` refusal on declared guarded types | Explicitly **not** a replacement for B/C/D; lands last so it cannot be mistaken for the proof |
+
+**Sequencing note, stated because it is a judgment the ruling may want to
+overturn:** A before B puts a closed exploit ahead of an enforceable rule, and
+B before A puts the rule ahead of any type that satisfies it. Either order is
+defensible; A-then-B closes the measured hole soonest.

@@ -3644,4 +3644,32 @@ A producer serving an honest contract **and** an honest content address, while p
 
 **Next free decision id: `D-IMPL-338`** — unchanged; a gate entry spends none. **Governs:** the approval and merge of composite Context Products. **Related:** `D-IMPL-336` Amendments 2–5, `D-IMPL-337`, `D-IMPL-31`, `D-IMPL-104`, `D-IMPL-334`/`D-IMPL-335`, `D-IMPL-308`, `D-IMPL-59`, `D-IMPL-253` Q20, `docs/D-IMPL-336-COMPLETION.md`, `docs/D-IMPL-336-CLOSE-PANEL.md`, `docs/D-IMPL-336-PANEL-REVIEW.md`, `docs/D-IMPL-336-REMEDIATION-DISPOSITION.md`.
 
+---
+
+**D-IMPL-337 — DESIGN RULED GO. The governing mechanism is GUARDED-PATH PROVENANCE VERIFICATION, with mint verification as the reference pattern.** DESIGN RESOLVED; **implementation scope NOT yet ruled.** Date: 2026-09-14. Ruled by: Dave, on the measured evidence in `docs/D-IMPL-337-DESIGN.md` at `f62b8a25`.
+
+**THE DISTINCTION THAT SETTLES IT:** *the invariant is about **provenance from the guarded construction path**, not nominal type identity.* The design therefore **canonizes the property, not a syntax**.
+
+**THE ELEVEN RULED CONCLUSIONS:**
+
+1. **`isinstance` is explicitly NOT sufficient.** It proves nominal type membership, not that the guarded construction/admission path ran. Measured: a subclass that skips `super().__init__` and `object.__new__` both pass `isinstance` on `ServableProduct` and `StateWriteToken`, and the subclass reaches a real `ServedProduct` with the three validation gates never run.
+2. **The governing rule.** *A consumer that relies on authority established by a guarded construction path must positively verify evidence that the supplied value actually passed through that guarded path. Nominal type identity, structural compatibility, annotations, Protocol conformance, pattern matching, or duck typing alone are insufficient.*
+3. **The reference implementation pattern is the existing `StateWriteToken` design**: the guarded path establishes a mint/provenance marker; the externally substitutable trust boundary verifies it; internal helpers inherit the verified value and do not repeatedly re-check. Already pinned by `tests/invariants/test_state_seam_closure.py::test_a_token_subclass_skipping_init_cannot_succeed` — *"isinstance is not the gate — the mint is verified at the write."*
+4. **Do not canonize one concrete sentinel for every type.** Equivalent construction-path proofs are permitted where they establish the same property: a private mint sentinel, a capability/token, a verified admission wrapper, a signed/verified proof object, or another construction-path proof.
+5. **The governed unit is `entry point × authority-bearing value × external substitutability`.** A function is governed when an externally substitutable value can reach it **and** it relies on authority only the guarded path establishes. Function visibility alone is insufficient.
+6. **Module-private status is not an exemption.** Reachability and substitutability determine governance, never naming convention.
+7. **The census is discovery evidence only and must not become the semantic rule.** Proven by its own failures: v1 under-counted verification, v2 over-credited it, v3 misfiled `ProductSource.__init__` as private on the strength of a leading underscore.
+8. **Introduce a declared guarded-type registry** so future guarded types cannot depend on heuristic discovery.
+9. **Drift enforcement verifies that every declared guarded type states**: the authority carried; the mint/construction mechanism; the verifier; and the externally substitutable boundary consumers.
+10. **Runtime negative controls must include**: a structural impostor; a subclass bypassing guarded construction; a constructor-bypass / `object.__new__` specimen where applicable; and an honest minted **positive control**.
+11. **`__init_subclass__` refusal is allowed as defense-in-depth but must not replace boundary provenance verification.** The boundary check remains load-bearing.
+
+**STARTING IMPLEMENTATION POPULATION: the seven measured governed sites**, including the `ProductSource.__init__` correction found by review rather than by the instrument.
+
+**STANDING CONSTRAINTS.** Frozen example specimens are **not** edited merely to satisfy a lint signature (CLAUDE.md §9, `D-IMPL-261`); the five shipped examples verify with `case ServableProduct() as gated:` and are not reached by a provenance rule at declared boundaries. **The third-party store Protocol seam remains a recorded residual** if the SDK cannot establish guarded-path provenance across that external implementation boundary — `ccf.controlplane.state.ControlPlaneStateStore` is the only Protocol of 50 in `src/ccf/` carrying a guarded type.
+
+**NOT YET RULED, and the next question:** *how much of the seven-site population is repaired in one implementation phase.* **No `D-IMPL-337` implementation before that ruling. No CP-14 acquisition.**
+
+**Next free decision id: `D-IMPL-338`** — unchanged. **Governs:** the mechanism for the guarded-type consumer invariant. **Related:** `D-IMPL-337` (raised OPEN at `13d7e8ec`), `docs/D-IMPL-337-DESIGN.md`, `.planning/censuses/guarded_type_census_v3.py`, `D-IMPL-336` (which exposed the class), `D-IMPL-261` and CLAUDE.md §9 (frozen specimens), `D-IMPL-253` Q20.
+
 **Next free decision id: `D-IMPL-338`.**
