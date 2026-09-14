@@ -152,15 +152,22 @@ def check_tree(base: pathlib.Path) -> list[str]:
                     )
                 )
                 continue
-            if not _calls(sources[bmod], bname.split(".")[-1], vname):
+            accepted = {vname} | {
+                alias.partition(":")[2].split(".")[-1]
+                for alias in declaration.verifier_aliases
+            }
+            if not any(
+                _calls(sources[bmod], bname.split(".")[-1], name)
+                for name in accepted
+            ):
                 findings.append(
                     _finding(
                         f"{_path_of(bmod)}",
                         1,
                         f"declared boundary {boundary!r} does not call its"
-                        f" type's declared verifier {vname!r}; a boundary that"
-                        " relies on guarded authority must establish it"
-                        " (D-IMPL-337)",
+                        f" type's declared verifier or any declared alias"
+                        f" ({sorted(accepted)}); a boundary that relies on"
+                        " guarded authority must establish it (D-IMPL-337)",
                     )
                 )
     return findings

@@ -72,6 +72,14 @@ class GuardedTypeDeclaration:
     boundaries: tuple[str, ...]
     propagation: str
     residual: str | None = None
+    #: Other callables that establish the SAME provenance, where a boundary
+    #: needs a different calling shape. `compose_children` must BRANCH rather
+    #: than raise — it dispatches four ways — so it calls a `TypeGuard`
+    #: predicate over the same marker. Recorded rather than papered over:
+    #: the drift lint caught the mismatch between this declaration and the
+    #: code, which is the lint doing its job, and the honest repair is to
+    #: declare both spellings rather than to teach the lint to look away.
+    verifier_aliases: tuple[str, ...] = ()
     notes: tuple[str, ...] = field(default_factory=tuple)
 
 
@@ -158,17 +166,19 @@ GUARDED_TYPES: Final[tuple[GuardedTypeDeclaration, ...]] = (
             " assessable debt and eligibility (D-IMPL-336)"
         ),
         mint="ccf.products.composite:CompositeAdmissionGate.admit",
-        verifier=None,
+        verifier="ccf.products.composite:verify_child_admission_provenance",
+        verifier_aliases=("ccf.products.composite:_has_child_provenance",),
         boundaries=("ccf.products.composite:compose_children",),
         propagation=(
-            "`compose_children` establishes it with a positive check and"
-            " `_rebinding_failure` and `_row_for_admitted` inherit —"
-            " verified-before-entry, the taxonomy working as ruled"
+            "`compose_children` establishes it, and `_rebinding_failure` and"
+            " `_row_for_admitted` inherit — verified-before-entry, the"
+            " taxonomy working as ruled"
         ),
-        residual=(
-            "the boundary check is currently `isinstance`, which D-IMPL-337"
-            " rules insufficient. Declared rather than repaired in this phase:"
-            " see the phasing in docs/D-IMPL-337-DESIGN.md §9.3"
+        notes=(
+            "the boundary BRANCHES rather than raising, so it calls the"
+            " `TypeGuard` predicate `_has_child_provenance`; a value failing"
+            " it falls to `unsupported-outcome` and must never become an"
+            " honest absence or a governed child refusal",
         ),
     ),
     GuardedTypeDeclaration(
@@ -192,17 +202,13 @@ GUARDED_TYPES: Final[tuple[GuardedTypeDeclaration, ...]] = (
             " from the agent's live in-force grant view (D-IMPL-336 O2)"
         ),
         mint="ccf.products.composite:resolve_producing_grant",
-        verifier=None,
+        verifier="ccf.products.composite:verify_resolved_producer_provenance",
         boundaries=("ccf.products.composite:invocation_from_dispatch",),
         propagation=(
             "`child_resolver._admit` receives it from `resolve_producing_grant`"
             " within the same call and cannot be externally substituted —"
             " internally sourced, and exempt for that reason rather than"
             " because the helper is private"
-        ),
-        residual=(
-            "the boundary check is currently `isinstance`, which D-IMPL-337"
-            " rules insufficient. Declared rather than repaired in this phase"
         ),
     ),
     GuardedTypeDeclaration(

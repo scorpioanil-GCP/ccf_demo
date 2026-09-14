@@ -298,3 +298,173 @@ def gated() -> ServableProduct:
     outcome = deliver(registry, _contract(schema=FAMILY))
     assert isinstance(outcome, ServableProduct), outcome
     return outcome
+
+
+# --- ResolvedProducer and AdmittedChild: the two boundaries 337 itself left --
+
+
+class TestComposeBoundaryProvenance:
+    """The two governed boundaries that were still `isinstance` after phase A.
+
+    They could not stay phased residuals: **a known governed boundary cannot
+    be declared compliant while retaining the mechanism `D-IMPL-337` exists to
+    reject.** Both were closed under `D-IMPL-337`, not by reopening
+    `D-IMPL-336` — the values' semantics are 336's and are untouched; what is
+    added is verification that they came through the path 336 established.
+    """
+
+    def test_resolved_producer_refuses_the_subclass_that_defeats_isinstance(
+        self,
+    ) -> None:
+        from ccf.products.composite import (
+            ProvenanceForgeryError,
+            ResolvedProducer,
+            verify_resolved_producer_provenance,
+        )
+
+        forged = _subclass_skipping_construction(ResolvedProducer)
+        assert isinstance(forged, ResolvedProducer), "the premise has moved"
+        with pytest.raises(ProvenanceForgeryError):
+            verify_resolved_producer_provenance(forged)
+
+    def test_resolved_producer_refuses_the_constructor_bypass(self) -> None:
+        from ccf.products.composite import (
+            ProvenanceForgeryError,
+            ResolvedProducer,
+            verify_resolved_producer_provenance,
+        )
+
+        with pytest.raises(ProvenanceForgeryError):
+            verify_resolved_producer_provenance(_constructor_bypass(ResolvedProducer))
+
+    def test_resolved_producer_refuses_the_structural_impostor(self) -> None:
+        from types import SimpleNamespace
+
+        from ccf.products.composite import (
+            ProvenanceForgeryError,
+            verify_resolved_producer_provenance,
+        )
+
+        # The exact shape the second close panel measured as ACCEPTED.
+        impostor = SimpleNamespace(
+            entry=SimpleNamespace(
+                name="fake-skill", artifact_version="1.0.0", skill_type="local_callable"
+            ),
+            grant_hash="not-from-any-ledger",
+        )
+        with pytest.raises(ProvenanceForgeryError):
+            verify_resolved_producer_provenance(impostor)
+
+    def test_the_honest_resolved_producer_passes(self) -> None:
+        """Positive control, through the real ledger."""
+        from ccf.controlplane.registry import ControlPlaneRegistry
+        from ccf.products.composite import verify_resolved_producer_provenance
+
+        from tests.products.test_composite import FAMILY, _producer
+
+        real = _producer(ControlPlaneRegistry(), "honest", FAMILY)
+        assert verify_resolved_producer_provenance(real) is real
+
+    def test_the_INVOCATION_BOUNDARY_refuses_a_nominal_forgery(self) -> None:
+        """The boundary, not the verifier — and the distinction was measured.
+
+        Sabotaging `invocation_from_dispatch` back to
+        `isinstance(producer, ResolvedProducer)` left every other control in
+        this file GREEN, because they all exercise the verifier directly. A
+        boundary is only pinned by a test that drives the boundary.
+        """
+        from ccf.products.composite import (
+            ProvenanceForgeryError,
+            ResolvedProducer,
+            invocation_from_dispatch,
+        )
+        from ccf.skills.dispatch import SkillInvocation
+
+        forged = _subclass_skipping_construction(
+            ResolvedProducer,
+            entry=type(
+                "E",
+                (),
+                {
+                    "name": "fake-skill",
+                    "artifact_version": "1.0.0",
+                    "skill_type": "local_callable",
+                },
+            )(),
+            grant_hash="not-from-any-ledger",
+        )
+        assert isinstance(forged, ResolvedProducer), "the premise has moved"
+        dispatched = SkillInvocation(
+            skill_name="fake-skill", skill_type="local_callable", output={}
+        )
+        with pytest.raises(ProvenanceForgeryError):
+            invocation_from_dispatch(forged, dispatched)  # type: ignore[arg-type]
+
+    def test_admitted_child_refuses_the_subclass_that_defeats_isinstance(self) -> None:
+        from ccf.products.composite import (
+            AdmittedChild,
+            ProvenanceForgeryError,
+            verify_child_admission_provenance,
+        )
+
+        forged = _subclass_skipping_construction(AdmittedChild)
+        assert isinstance(forged, AdmittedChild), "the premise has moved"
+        with pytest.raises(ProvenanceForgeryError):
+            verify_child_admission_provenance(forged)
+
+    def test_admitted_child_refuses_the_constructor_bypass(self) -> None:
+        from ccf.products.composite import (
+            AdmittedChild,
+            ProvenanceForgeryError,
+            verify_child_admission_provenance,
+        )
+
+        with pytest.raises(ProvenanceForgeryError):
+            verify_child_admission_provenance(_constructor_bypass(AdmittedChild))
+
+    def test_a_forged_child_becomes_UNSUPPORTED_not_an_absence_or_a_refusal(
+        self,
+    ) -> None:
+        """**The branch that had to be got right.**
+
+        `compose_children` dispatches four ways. A value that fails the
+        provenance check must fall to `unsupported-outcome` — it must NOT
+        become an honest absence (which would price a forgery at the declared
+        absence cost, the `F13` defect) and must NOT become a governed child
+        refusal (which would report a forgery as a governance decision the
+        fabric made).
+        """
+        from ccf.controlplane.registry import ControlPlaneRegistry
+        from ccf.products.composite import AdmittedChild
+
+        from tests.products.test_composite import FAMILY, compose, require
+
+        registry = ControlPlaneRegistry()
+        assert registry is not None
+        forged = _subclass_skipping_construction(AdmittedChild)
+        requirement = require(FAMILY)
+
+        out = compose([requirement], {FAMILY: forged})
+        assert not out.served
+        assert out.refusal is not None
+        assert out.refusal.reason == "unsupported-outcome", out.refusal.reason
+        # and the row records it as such rather than as an absence
+        assert len(out.resolutions) == 1
+        assert out.resolutions[0].outcome_status != "optional-absent"
+
+    def test_the_honest_admitted_child_still_composes(self) -> None:
+        """Positive control at the boundary: the four branches still work."""
+        from ccf.controlplane.registry import ControlPlaneRegistry
+
+        from tests.products.test_composite import (
+            FAMILY,
+            _admitted,
+            compose,
+            require,
+        )
+
+        registry = ControlPlaneRegistry()
+        requirement = require(FAMILY)
+        admitted = _admitted(registry, FAMILY, requirement)
+        out = compose([requirement], {FAMILY: admitted})
+        assert out.served, out.refusal
