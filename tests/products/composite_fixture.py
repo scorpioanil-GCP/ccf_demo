@@ -26,7 +26,7 @@ from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifacts import declared_artifact_class, parse_artifact
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.deployment import load_and_boot
-from ccf.products.child_resolver import GrantBoundChildResolver
+from ccf.products.child_resolver import ChildArguments, GrantBoundChildResolver
 from ccf.products.composite import CompositeAdmissionGate
 from ccf.products.door import WireRequest, door_answer
 from ccf.products.request import ProductRequest
@@ -137,12 +137,35 @@ def _parent_requires() -> list[dict[str, Any]]:
     ]
 
 
-def boot_composite(tmp_path: pathlib.Path) -> Iterator[_Booted]:
+def _deep_merge(target: dict[str, Any], overrides: Mapping[str, Any]) -> None:
+    """Merge ``overrides`` into ``target`` in place; lists replace, dicts merge."""
+    for key, value in overrides.items():
+        if isinstance(value, Mapping) and isinstance(target.get(key), dict):
+            _deep_merge(target[key], value)
+        else:
+            target[key] = copy.deepcopy(value)
+
+
+def boot_composite(
+    tmp_path: pathlib.Path,
+    *,
+    product_class_overrides: Mapping[str, Any] | None = None,
+    request_contract_overrides: Mapping[str, Any] | None = None,
+) -> Iterator[_Booted]:
     """One deployment declaring TWO product classes: a parent and its child.
 
     Built from `tests/deployment`'s artifact set rather than a second fixture
     deployment, so the parent here is the same class the seam tests drive and
     the only new things are the child's class and the parent's `requires`.
+
+    ``product_class_overrides`` (`D-IMPL-338`) merges extra fields into the
+    PARENT class document — a declared product gate, a default debt tolerance —
+    so a test can reach a refusal that lies BELOW composition without a second
+    fixture deployment. ``request_contract_overrides`` deep-merges into the
+    parent's request contract, because a class default for `debt_tolerance`
+    is refused unless the contract declares the argument (`D-IMPL-251` C1=A).
+    Both default to nothing, so every existing caller boots exactly the
+    documents it always booted.
     """
     root = tmp_path / "deployment"
     root.mkdir()
@@ -150,11 +173,16 @@ def boot_composite(tmp_path: pathlib.Path) -> Iterator[_Booted]:
         if key == PRODUCT_CLASS_KEY:
             document = copy.deepcopy(document)
             document["requires"] = _parent_requires()
+            if product_class_overrides:
+                document.update(copy.deepcopy(dict(product_class_overrides)))
         write_artifact(root, filename, document)
     write_artifact(root, "product-class-child.yaml", child_product_class())
     write_artifact(root, "product-class-higher.yaml", higher_product_class())
     write_artifact(root, "request-contract-higher.yaml", higher_request_contract())
-    write_artifact(root, "request-contract.yaml", REQUEST_CONTRACT_DOCUMENT)
+    request_contract = copy.deepcopy(REQUEST_CONTRACT_DOCUMENT)
+    if request_contract_overrides:
+        _deep_merge(request_contract, request_contract_overrides)
+    write_artifact(root, "request-contract.yaml", request_contract)
     write_artifact(root, "request-contract-child.yaml", child_request_contract())
     write_artifact(
         root,
@@ -388,6 +416,8 @@ def build_composite(
     binding: str = "local_callable",
     mcp_skills: McpSkillRegistry | None = None,
     resource: str | None = None,
+    child_arguments: ChildArguments | None = None,
+    child_door: Any | None = None,
 ) -> tuple[GovernedResolver, GrantBoundChildResolver]:
     """The composite, wired. **Only ``binding`` changes between the two proofs.**
 
@@ -404,6 +434,13 @@ def build_composite(
         mcp_skills: Required for the ``mcp`` binding — the deployment's MCP
             skill registry, built at its composition root.
         resource: The logical resource name the binding selects.
+        child_arguments: What each child is asked (`D-IMPL-338`). Defaulted to
+            the deployment's standing answer below; a test that needs the child
+            to answer at a DIFFERENT instant — so admission refuses it after it
+            was genuinely acquired — supplies its own.
+        child_door: The callable the grant dispatches (`D-IMPL-339`). Defaulted
+            to the real door over the child; a test proving the child is
+            acquired ONCE, or that no provider is reached on replay, wraps it.
     """
     ledger, agent_hash, definition, catalog = _ledger(booted, binding=binding, resource=resource)
     if grant:
@@ -422,7 +459,7 @@ def build_composite(
         )
         assert isinstance(outcome, str), outcome
     callables = CallableRegistry()
-    callables.register(CHILD_CALLABLE, _child_door(booted))
+    callables.register(CHILD_CALLABLE, child_door or _child_door(booted))
     arguments = _arguments(booted)
     children = GrantBoundChildResolver(
         ledger=ledger,
@@ -434,11 +471,14 @@ def build_composite(
         ),
         # The deployment states what its children are asked. The SDK holds no
         # domain value and cannot know (`D-IMPL-38`).
-        child_arguments=lambda requirement, asked_at: {
-            "subject": "acct-1",
-            "asked_at": asked_at.isoformat(),
-            "threshold": "1000",
-        },
+        child_arguments=child_arguments
+        or (
+            lambda requirement, asked_at: {
+                "subject": "acct-1",
+                "asked_at": asked_at.isoformat(),
+                "threshold": "1000",
+            }
+        ),
         callable_registry=callables,
         artifact_store=booted.store,
         mcp_skills=mcp_skills,

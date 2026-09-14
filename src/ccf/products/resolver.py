@@ -177,11 +177,15 @@ from pydantic import ValidationError
 
 from ccf.halflife.assessment import NO_OBLIGATION_IN_FORCE
 from ccf.products.composite import (
-    GATE_CHILD_ADMISSION,
+    ADMITTED_CHILD_CONTRACT_CLASS,
     ChildAdmissionRefusal,
+    ChildContractView,
     CompositeChildResolverProtocol,
     CompositionOutcome,
+    GATE_CHILD_ADMISSION,
+    child_contract_view,
     compose_children,
+    resolve_child_outcomes,
 )
 from ccf.halflife.debt import DebtAssessment, DebtSignal, assess_debt, context_debt
 from ccf.products.contract import (
@@ -268,6 +272,8 @@ __all__ = [
     "GovernedResolver",
     "ProductGateProtocol",
     "ProductNotResolvable",
+    "ChildAwareDebtScorerProtocol",
+    "CompositePlanFactoryProtocol",
     "ProjectionPlanFactoryProtocol",
     "RefusalRecorderProtocol",
     "ReplayRefusalRecorder",
@@ -492,6 +498,67 @@ class ProjectionPlanFactoryProtocol(Protocol):
             request: The question, carrying the parameters the interpretation
                 applies and the instant it is asked as of.
         """
+        ...
+
+
+@runtime_checkable
+class CompositePlanFactoryProtocol(Protocol):
+    """A plan factory that can build the parent's Π over its children's contracts.
+
+    `D-IMPL-339`. An **optional companion** to
+    :class:`ProjectionPlanFactoryProtocol`, on the
+    :class:`~ccf.products.debt_scorer.EvidenceAwareFactorScorer` precedent —
+    two seams rather than one widened seam. Adding a defaulted parameter to
+    the base Protocol would not make any existing factory accept it, so a
+    factory that can read the admitted children declares so by implementing
+    this method, and the resolver decides which call to make **structurally**
+    — never by probing a signature and retrying without the keyword.
+
+    A factory implementing only ``__call__`` keeps working unchanged: a
+    composite whose factory does not implement this is served exactly as it
+    was, with the children contributing governance only.
+    """
+
+    def build_with_children(
+        self,
+        *,
+        required: tuple[str, ...],
+        request: ProductRequest,
+        children: ChildContractView,
+    ) -> ProjectionPlan:
+        """Build the plan that answers ``request`` over ``children``.
+
+        Args:
+            required: As for :class:`ProjectionPlanFactoryProtocol`.
+            request: As for :class:`ProjectionPlanFactoryProtocol`.
+            children: The admitted children's contracts, keyed by the
+                declared requirement's ``product_class``. Read-only. Every
+                value came through :class:`~ccf.products.composite.CompositeAdmissionGate`
+                and was re-bound to this composition before the view existed.
+        """
+        ...
+
+
+@runtime_checkable
+class ChildAwareDebtScorerProtocol(Protocol):
+    """A debt scorer that can read the admitted children's contracts.
+
+    `D-IMPL-339`. The companion to :class:`AssemblyDebtScorerProtocol` on the
+    same precedent as :class:`CompositePlanFactoryProtocol` above: a parent
+    whose own ``C`` or ``S`` depends on what its children reported — how many
+    required legs carried positive data, say — needs those contracts at
+    assessment time, per request, and this is the one path by which they
+    arrive. A scorer implementing only ``__call__`` is asked exactly as before.
+    """
+
+    def score_with_children(
+        self,
+        *,
+        view: GraphView,
+        evidence: ExecutionEvidence | None,
+        children: ChildContractView,
+    ) -> DebtAssessment:
+        """Assess ``D_c`` over ``view``, with the children's contracts in hand."""
         ...
 
 
@@ -1868,6 +1935,115 @@ class GovernedResolver:
             # no opinion about a value it does not own.
         )
         required = tuple(declaration.required_operator_keys)
+        registered = self._register(declaration)
+        policy_version = self.fabric.pins.version_for(self.policy_bundle_key)
+        own_lineage = ProductLineage(
+            operators_invoked=frozenset(required),
+            policy_bundle_versions=frozenset({policy_version}),
+            graph_snapshot_at=request.asked_at,
+        )
+        # --- `D-IMPL-339`: ACQUIRE AND ADMIT CHILDREN ONCE, BEFORE THE PLAN ----
+        #
+        # The approved order: child-independent request / policy / declaration
+        # checks (all above) -> acquire and admit children once -> the
+        # read-only child-contract view -> the parent's plan -> the parent's
+        # own assessment -> compose using the SAME acquired outcomes -> the
+        # existing gates, tolerance, delivery / refusal and replay. Only the
+        # acquisition half moves here; `compose_children` runs below, after
+        # the assessment it needs, over exactly these `outcomes`.
+        #
+        # `registered`, `policy_version` and `own_lineage` moved up with it:
+        # none reads the projection. What stays below is what does —
+        # `assessed`, `decided_at` and the composition laws.
+        composed: CompositionOutcome | None = None
+        outcomes: Mapping[str, object] | None = None
+        children: ChildContractView | None = None
+        invocation = ""
+        if registered.requires:
+            # One governed question, one invocation identity — derived from the
+            # request so it is stable under replay and cannot be chosen per
+            # child (F8: invocation-bound, and the binding is to THIS one).
+            invocation = f"composition://{content_hash(request)}"
+            # Read ONCE per composition. Two children admitted against two
+            # readings of a clock would be judged in two windows, and the
+            # rows would disagree about when the composition admitted them.
+            admitted_at = self.admission_clock()
+            if self.composite_children is None:
+                composed = CompositionOutcome(
+                    factors=None,
+                    resolutions=(),
+                    refusal=ChildAdmissionRefusal(
+                        gate=GATE_CHILD_ADMISSION,
+                        detail=(
+                            f"class {registered.schema_name!r} declares"
+                            f" {len(registered.requires)} child requirement(s)"
+                            " and this deployment wired no composite child"
+                            " resolver, so they could not be satisfied."
+                            " Refused rather than served without them: a"
+                            " declared requirement execution ignores is the"
+                            " defect this block exists to close"
+                        ),
+                        product_class=registered.schema_name,
+                        reason="no-producing-skill",
+                    ),
+                )
+            else:
+                outcomes = self.composite_children(
+                    requirements=registered.requires,
+                    asked_at=request.asked_at,
+                    # `O3`: the trusted runtime clock, NOT `decided_at`.
+                    admitted_at=admitted_at,
+                    composition_invocation=invocation,
+                    # `D-IMPL-336` Amendment 5: peering admission extends the
+                    # consumer's lineage by set-union.
+                    consumer_lineage=own_lineage,
+                )
+                # The per-requirement walk — provenance, slot / instant /
+                # invocation re-binding, the refusal branches — runs HERE,
+                # before any child-dependent computation, and the view is
+                # derived only from what passed it (`D-IMPL-339` Q1, Q2).
+                resolved = resolve_child_outcomes(
+                    requirements=registered.requires,
+                    outcomes=outcomes,
+                    asked_at=request.asked_at,
+                    composition_invocation=invocation,
+                )
+                if resolved.blocking:
+                    composed = CompositionOutcome(
+                        factors=None,
+                        resolutions=resolved.rows,
+                        refusal=resolved.refusal,
+                    )
+                else:
+                    children = child_contract_view(resolved)
+                    # Retained by content address at decision time, so replay
+                    # rebuilds this view from what was CONSUMED — never from
+                    # a provider call, a latest-version lookup or a live
+                    # closure (`D-IMPL-339`, replay).
+                    self._retain_child_contracts(children)
+            if composed is not None and composed.refusal is not None:
+                # A KNOWN BLOCKING OUTCOME BEFORE PROJECTION (`D-IMPL-339` Q2):
+                # a required child absent, an invoked child refused or rejected
+                # at admission, or no resolver wired. Child-dependent
+                # computation does not run. Recorded through the same seam a
+                # pre-assembly refusal takes — no execution, no lineage, and
+                # dimension 1 says positively that nothing was read — with
+                # every child row the walk produced (`D-IMPL-338`).
+                return self._record_refusal(
+                    envelope=envelope_for(
+                        composed.refusal,
+                        request=identity,
+                        policy_bindings=effective.applied,
+                        provenance=effective,
+                    ),
+                    execution=None,
+                    request=request,
+                    perspective=perspective,
+                    policy_bindings=self._applied_bindings(effective),
+                    resolution=effective,
+                    child_resolutions=composed.resolutions,
+                )
+
         # `D-IMPL-300`: the plan is a NAMED LOCAL so the binder has somewhere to
         # stand. `D-IMPL-86`'s correction of 2026-08-05 puts the check between
         # plan construction and `execute`, and on this path that moment exists
@@ -1875,7 +2051,16 @@ class GovernedResolver:
         # code sits between the two. Found by cp-05's canonical adoption: its
         # hand-composed spine called the binder, and the migrated program had
         # nowhere legitimate to.
-        plan = self.plan_factory(required=required, request=effective_request)
+        # `D-IMPL-339`: a composite-capable factory receives the admitted
+        # children's contracts; every other factory is called EXACTLY as it
+        # always was. The capability is declared structurally, never inferred
+        # from a signature, and never probed with a TypeError-and-retry.
+        if children is not None and isinstance(self.plan_factory, CompositePlanFactoryProtocol):
+            plan = self.plan_factory.build_with_children(
+                required=required, request=effective_request, children=children
+            )
+        else:
+            plan = self.plan_factory(required=required, request=effective_request)
         # The product class's `required_operator_keys` and the plan's own
         # `required_operators()` are two separately authored documents (design
         # E2). Gate 2 below compares the declaration against what the engine
@@ -1917,15 +2102,23 @@ class GovernedResolver:
             seeds=request_seeds(request),
         )
 
-        registered = self._register(declaration)
-        policy_version = self.fabric.pins.version_for(self.policy_bundle_key)
         # `24.11-03` / `24.10-F-08`: hoisted out of the constructor because two
         # members are now derived from it — the assessment itself and the
         # obligation bound to the state it landed in — and scoring twice could
         # put a product's debt and its obligation on different sides of a band.
-        assessed = self.debt_scorer(
-            view=execution.view, evidence=ExecutionEvidence.of(execution)
-        )
+        # `D-IMPL-339`: a child-aware scorer receives the same view the plan
+        # did, so the parent's own child-dependent `C` / `S` reach its
+        # assessment per request; every other scorer is asked as before.
+        if children is not None and isinstance(self.debt_scorer, ChildAwareDebtScorerProtocol):
+            assessed = self.debt_scorer.score_with_children(
+                view=execution.view,
+                evidence=ExecutionEvidence.of(execution),
+                children=children,
+            )
+        else:
+            assessed = self.debt_scorer(
+                view=execution.view, evidence=ExecutionEvidence.of(execution)
+            )
         # `24.10-F-09` / `D-IMPL-308`. Bound ONCE and read three times below —
         # the product's expiry, the gate instant and the record's `recorded_at`
         # are three statements about the same moment, and deriving them
@@ -1942,79 +2135,42 @@ class GovernedResolver:
         #
         # `composed` stays None for every non-composite product, which is
         # every product shipped before this, and everything below is inert.
-        # A refusal is NOT returned here: it is carried to the same
-        # post-gate refusal path a gate refusal takes, so a composition
-        # refusal and a TTL refusal are recorded by one mechanism.
-        own_lineage = ProductLineage(
-            operators_invoked=frozenset(required),
-            policy_bundle_versions=frozenset({policy_version}),
-            graph_snapshot_at=request.asked_at,
-        )
-        composed: CompositionOutcome | None = None
-        if registered.requires:
-            # One governed question, one invocation identity — derived from the
-            # request so it is stable under replay and cannot be chosen per
-            # child (F8: invocation-bound, and the binding is to THIS one).
-            invocation = f"composition://{content_hash(request)}"
-            # Read ONCE per composition. Two children admitted against two
-            # readings of a clock would be judged in two windows, and the
-            # rows would disagree about when the composition admitted them.
-            admitted_at = self.admission_clock()
-            if self.composite_children is None:
-                composed = CompositionOutcome(
-                    factors=None,
-                    resolutions=(),
-                    refusal=ChildAdmissionRefusal(
-                        gate=GATE_CHILD_ADMISSION,
-                        detail=(
-                            f"class {registered.schema_name!r} declares"
-                            f" {len(registered.requires)} child requirement(s)"
-                            " and this deployment wired no composite child"
-                            " resolver, so they could not be satisfied."
-                            " Refused rather than served without them: a"
-                            " declared requirement execution ignores is the"
-                            " defect this block exists to close"
-                        ),
-                        product_class=registered.schema_name,
-                        reason="no-producing-skill",
-                    ),
-                )
-            else:
-                composed = compose_children(
-                    own_factors=assessed.factors,
-                    requirements=registered.requires,
-                    outcomes=self.composite_children(
-                        requirements=registered.requires,
-                        asked_at=request.asked_at,
-                        # `O3`: the trusted runtime clock, NOT `decided_at`.
-                        # Bound once here so every child in one composition is
-                        # judged at one admission instant.
-                        admitted_at=admitted_at,
-                        composition_invocation=invocation,
-                        # `D-IMPL-336` Amendment 5: peering admission extends
-                        # the consumer's lineage by set-union, so a resolver
-                        # acquiring a peered child needs the composite's own.
-                        consumer_lineage=own_lineage,
-                    ),
-                    asked_at=request.asked_at,
-                    composition_invocation=invocation,
-                    own_lineage=own_lineage,
-                    max_ttl=MaxTTL(seconds=self.product_ttl_seconds),
-                    # `R6` — THE TTL ANCHOR IS `decided_at`, NOT `asked_at`.
-                    # The first version passed the reconstruction instant here
-                    # while the non-composite branch below anchored at the
-                    # decision instant, silently reverting `D-IMPL-308` for
-                    # composites only. Measured consequence: a class with a
-                    # declared decision instant served a SHORTER window as a
-                    # composite than as a plain product, and the two landed on
-                    # the same content address — two governed answers, one
-                    # identity. The anchor is the same instant on both
-                    # branches now, which is what `D-IMPL-308` says it is:
-                    # the TTL runs from when the answer was PRODUCED.
-                    ttl_anchor_at=decided_at,
-                    validity_floors=registered.constituent_validity_floors,
-                )
-            if composed.factors is not None:
+        #
+        # `D-IMPL-339` split where a composition refusal is recorded. A KNOWN
+        # BLOCKING outcome — a required child absent, an invoked child refused
+        # or rejected at admission, no resolver wired — returned ABOVE, before
+        # the plan, through the pre-assembly seam. What can still refuse HERE
+        # is the composition of an admitted set — the mixing law — and that
+        # refusal is carried, as before, to the same post-gate path a gate
+        # refusal takes, so it and a TTL refusal are recorded by one mechanism.
+        # --- `D-IMPL-339`: COMPOSE USING THE SAME ACQUIRED OUTCOMES ------------
+        # `outcomes` is the one acquisition above; content (the view the plan
+        # received) and governance (the laws applied here) refer to the same
+        # admitted products. Nothing is re-acquired, looked up or rebuilt.
+        if outcomes is not None:
+            composed = compose_children(
+                own_factors=assessed.factors,
+                requirements=registered.requires,
+                outcomes=outcomes,
+                asked_at=request.asked_at,
+                composition_invocation=invocation,
+                own_lineage=own_lineage,
+                max_ttl=MaxTTL(seconds=self.product_ttl_seconds),
+                # `R6` — THE TTL ANCHOR IS `decided_at`, NOT `asked_at`.
+                # The first version passed the reconstruction instant here
+                # while the non-composite branch below anchored at the
+                # decision instant, silently reverting `D-IMPL-308` for
+                # composites only. Measured consequence: a class with a
+                # declared decision instant served a SHORTER window as a
+                # composite than as a plain product, and the two landed on
+                # the same content address — two governed answers, one
+                # identity. The anchor is the same instant on both
+                # branches now, which is what `D-IMPL-308` says it is:
+                # the TTL runs from when the answer was PRODUCED.
+                ttl_anchor_at=decided_at,
+                validity_floors=registered.constituent_validity_floors,
+            )
+            if composed is not None and composed.factors is not None:
                 # `24.11-03`'s hazard, respected: the composed factors replace
                 # the parent's own BEFORE `obligation_in_force` is derived
                 # below, so a composite's reported debt and its obligation
@@ -2358,6 +2514,40 @@ class GovernedResolver:
             ),
             executed_queries=execution.executed_queries,
         )
+
+    def _retain_child_contracts(self, children: ChildContractView) -> None:
+        """File each admitted child's contract by content address (`D-IMPL-339`).
+
+        Nothing else retains a served product's bytes — the writer files the
+        record and the query pins, never the product — so the parent's
+        child-contract view would be unrebuildable after the fact. Filed under
+        :data:`~ccf.products.composite.ADMITTED_CHILD_CONTRACT_CLASS` on this
+        fabric's own store, idempotently: the address IS the identity, and a
+        second composition consuming the same child files nothing twice.
+
+        The store's address for the bytes must equal
+        :func:`~ccf.contracts.canonical.content_hash` of the contract — the
+        same address the child row records — or replay could not resolve the
+        row to the bytes. A store that hashed differently is refused here,
+        loudly, rather than discovered at replay.
+        """
+        for contract in children.values():
+            address = content_hash(contract)
+            if self.artifact_store.exists(content_address=address):
+                continue
+            filed = self.artifact_store.put(
+                tenant_id=self.fabric.tenant_id,
+                artifact_class=ADMITTED_CHILD_CONTRACT_CLASS,
+                name=address,
+                artifact=contract,
+            )
+            if filed.content_address != address:
+                raise RuntimeError(
+                    "the artifact store filed an admitted child contract at"
+                    f" {filed.content_address!r} but its content address is"
+                    f" {address!r}; replay resolves child rows by content"
+                    " address and this store would break that (D-IMPL-339)"
+                )
 
     # --- the one minting seam ----------------------------------------------
 

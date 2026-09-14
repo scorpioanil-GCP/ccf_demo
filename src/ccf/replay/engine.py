@@ -97,14 +97,17 @@ from ccf.contracts.canonical import content_hash, generation_mismatch
 from ccf.controlplane.artifacts import PolicyConstraint
 from ccf.controlplane.registry import ControlPlaneMissing, ControlPlaneProtocol
 from ccf.graph.protocols import GraphReader
+from ccf.products.composite import ChildContractView
 from ccf.products.contract import ContextProductContract
 from ccf.products.request import ProductRequestContract, request_seeds
 from ccf.projection.engine import OperatorRegistry, ProjectionEngine
 from ccf.projection.plan import Perspective, ProjectionOutput, ProjectionPlan
 from ccf.replay.record import (
+    CHILD_ADMITTED,
+    ChildResolution,
+    DecisionReplayRecord,
     NO_GRAPH_QUERIES,
     NO_REQUEST_RESOLUTION,
-    DecisionReplayRecord,
     ResolutionNotApplicable,
 )
 from ccf.replay.snapshots import SnapshotReader, snapshot_of_execution
@@ -113,6 +116,7 @@ __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "ReplayDivergence",
+    "CompositeReplayEnvironment",
     "ReplayEnvironment",
     "ReplayError",
     "ReplayGenerationMismatch",
@@ -381,6 +385,32 @@ class ReplayEnvironment(Protocol):
         :data:`~ccf.halflife.assessment.NO_OBLIGATION_IN_FORCE` asserts its
         decision was under no bound obligation, and the rebuilt product asserts
         the same.
+        """
+        ...
+
+
+@runtime_checkable
+class CompositeReplayEnvironment(ReplayEnvironment, Protocol):
+    """A replay environment that can rebuild a CHILD-DEPENDENT plan (`D-IMPL-339`).
+
+    The companion to :class:`ReplayEnvironment` on the two-seams precedent
+    (:class:`~ccf.products.resolver.CompositePlanFactoryProtocol`): an
+    environment for a composite whose plan read its children's contracts
+    declares so by implementing this method. :func:`replay` reconstructs the
+    view from the contracts the deciding fabric RETAINED by content address —
+    never from a provider — and hands it here **before** the plan is rebuilt.
+    An environment implementing only :meth:`ReplayEnvironment.resolve_plan`
+    is used exactly as before for every record that composed no admitted
+    child, and is refused, by name, for one that did.
+    """
+
+    def resolve_composite_plan(
+        self, *, plan_id: str, children: ChildContractView
+    ) -> ProjectionPlan:
+        """Return the projection registered under ``plan_id``, over ``children``.
+
+        Raises:
+            LookupError: no such plan. Translated into :class:`ReplayUnresolvable`.
         """
         ...
 
@@ -680,6 +710,51 @@ def _verify_resolution_claim(
         )
 
 
+def _reconstruct_child_contracts(
+    *, store: ArtifactStoreProtocol, rows: tuple[ChildResolution, ...]
+) -> ChildContractView:
+    """Rebuild the parent's child-contract view from RETAINED bytes (`D-IMPL-339`).
+
+    Each admitted row names its child by content address; the deciding fabric
+    filed the contract under that address at decision time
+    (:meth:`~ccf.products.resolver.GovernedResolver._retain_child_contracts`).
+    Resolved here by address alone — no provider call, no latest-version
+    lookup, no live object — and held to the address it claims, so a store
+    answering different bytes is a divergence rather than a quiet substitution.
+
+    Raises:
+        ReplayUnresolvable: a row's contract is not in the store.
+        ReplayDivergence: the bytes found do not hash to the row's address.
+    """
+    contracts: dict[str, ContextProductContract] = {}
+    for row in rows:
+        address = row.child_content_address
+        if address is None:
+            raise ReplayUnresolvable(
+                f"the admitted child row for {row.required_product_class!r}"
+                " carries no content address, so its contract cannot be"
+                " resolved (D-IMPL-339)"
+            )
+        try:
+            stored = store.get(content_address=address)
+        except (LookupError, OSError) as missing:
+            raise ReplayUnresolvable(
+                f"the child contract {address!r} consumed for"
+                f" {row.required_product_class!r} is not retained in the"
+                " store; a composite's replay rebuilds its children from what"
+                " was consumed, never from a provider (D-IMPL-339)"
+            ) from missing
+        contract = ContextProductContract.model_validate_json(stored)
+        if content_hash(contract) != address:
+            raise ReplayDivergence(
+                f"the bytes retained at {address!r} rehydrate to a contract"
+                f" hashing to {content_hash(contract)!r}; the child the"
+                " decision consumed is not the child the store now answers"
+            )
+        contracts[row.required_product_class] = contract
+    return ChildContractView(contracts)
+
+
 def replay(
     *,
     record_address: str,
@@ -748,13 +823,38 @@ def replay(
     )
 
     path = record.content_generation_path
-    try:
-        plan = environment.resolve_plan(plan_id=path.plan_id)
-    except LookupError as missing:
-        raise ReplayUnresolvable(
-            f"projection plan {path.plan_id!r} cannot be resolved; the "
-            "interpretation this decision used is not available"
-        ) from missing
+    admitted_rows = tuple(
+        row for row in path.child_resolutions if row.outcome_status == CHILD_ADMITTED
+    )
+    if admitted_rows:
+        # `D-IMPL-339`: the view is rebuilt BEFORE the child-dependent plan,
+        # from the contracts the deciding fabric retained by address.
+        children = _reconstruct_child_contracts(store=store, rows=admitted_rows)
+        if not isinstance(environment, CompositeReplayEnvironment):
+            raise ReplayUnresolvable(
+                f"this decision composed {len(admitted_rows)} admitted child"
+                " product(s) and the environment does not implement"
+                " `resolve_composite_plan`; a child-dependent plan cannot be"
+                " rebuilt without the children it read (D-IMPL-339)"
+            )
+        try:
+            plan = environment.resolve_composite_plan(
+                plan_id=path.plan_id, children=children
+            )
+        except LookupError as missing:
+            raise ReplayUnresolvable(
+                f"projection plan {path.plan_id!r} cannot be resolved over its"
+                " children; the interpretation this decision used is not"
+                " available"
+            ) from missing
+    else:
+        try:
+            plan = environment.resolve_plan(plan_id=path.plan_id)
+        except LookupError as missing:
+            raise ReplayUnresolvable(
+                f"projection plan {path.plan_id!r} cannot be resolved; the "
+                "interpretation this decision used is not available"
+            ) from missing
     try:
         operators = environment.resolve_operators(operator_keys=path.operator_plan)
     except LookupError as missing:
