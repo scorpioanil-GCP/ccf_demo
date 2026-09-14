@@ -2031,6 +2031,23 @@ class GovernedResolver:
                 # claim true.
                 assessed = self._reassess(composed.factors, fallback=assessed)
 
+        # `D-IMPL-338`. THE CHILD EVIDENCE IS BOUND ONCE, HERE, AND READ BY
+        # EVERY EXIT BELOW — the served record and all four post-acquisition
+        # refusals. `CMP-R-01` widened the recorder seam and threaded the rows
+        # through the served path and the COMPOSITION refusal only; the three
+        # refusals that can follow a successful composition (universal gate,
+        # declared product gate, tolerance) each called `_record_refusal`
+        # without them, so a composite refused for excess INHERITED debt wrote
+        # a record that did not say which children it inherited it from.
+        # Enumerated rather than patched at the first omission found: every
+        # refusal exit below this line passes `child_rows`,
+        # and the two refusals ABOVE the composite block pass nothing — no
+        # child was considered there, and `()` is the true claim rather than
+        # an invented outcome.
+        child_rows: tuple[ChildResolution, ...] = (
+            composed.resolutions if composed is not None else ()
+        )
+
         candidate = ContextProductContract(
             schema_name=registered.schema_name,
             schema_version=registered.schema_version,
@@ -2214,7 +2231,7 @@ class GovernedResolver:
                 perspective=perspective,
                 policy_bindings=applied,
                 resolution=effective,
-                child_resolutions=composed.resolutions,
+                child_resolutions=child_rows,
             )
 
         if not isinstance(gated, ServableProduct):
@@ -2235,6 +2252,8 @@ class GovernedResolver:
                 perspective=perspective,
                 policy_bindings=applied,
                 resolution=effective,
+                # `D-IMPL-338`: the children this candidate was composed from.
+                child_resolutions=child_rows,
             )
 
         # `24.10-02` / `R-11` (`D-IMPL-282` option 1a), and the placement is
@@ -2281,6 +2300,8 @@ class GovernedResolver:
                     perspective=perspective,
                     policy_bindings=applied,
                     resolution=effective,
+                    # `D-IMPL-338`: the children this candidate was composed from.
+                    child_resolutions=child_rows,
                 )
 
         # 24.6-04, the delivery boundary: the gates ADMITTED this product, and
@@ -2311,6 +2332,9 @@ class GovernedResolver:
                 perspective=perspective,
                 policy_bindings=applied,
                 resolution=effective,
+                # `D-IMPL-338`: a tolerance refusal is the case that most needs
+                # its children named — the debt it refused on is inherited.
+                child_resolutions=child_rows,
             )
 
         record = build_replay_record(
@@ -2340,9 +2364,7 @@ class GovernedResolver:
             # FROM EXECUTION. Empty for every non-composite decision, which is
             # what keeps those records byte-identical to the ones written
             # before this surface existed.
-            child_resolutions=(
-                composed.resolutions if composed is not None else ()
-            ),
+            child_resolutions=child_rows,
             # 24.6-03: what was resolved, and on whose authority — dimension 2,
             # beside the versions it was resolved from (`D-IMPL-254`).
             resolution=effective,
