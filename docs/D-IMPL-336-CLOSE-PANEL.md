@@ -302,3 +302,38 @@ instructions to sabotage rather than at a payload with instructions to read.
 2-for-2 on this project, and the finding it produced here — an entire ruled
 composition law with zero execution coverage — was invisible to four reviewers
 reading the same code.
+
+
+---
+
+## 7 · What the two panels were sampling — `D-IMPL-337`
+
+Both rounds found one instance of the same shape, and both were repaired as
+individual defects:
+
+- **`CP-F-02`** — the acquisition axis was readable off a structure, so a
+  hand-built dispatch result relabelled a remote product as local.
+- **`CP2-F-01`** — `ResolvedProducer` is token-minted so it cannot be forged,
+  and its only consumer never asked whether it had one.
+
+Neither repair was wrong. But two rounds finding the same shape in different
+places is the signal that the shape is a **population, not a coincidence** — and
+Dave named the loop directly: *"You are just repeating the same loop but not
+moving forward."*
+
+An AST census of `src/` measured it: **7 token-guarded types, 15 consumer
+sites, 1 verifying at runtime, 6 publicly reachable.** Five of those six are in
+Replay, Peering, Assembly and the Control Plane, which this branch does not
+touch. The bypass was then **measured rather than argued** — a duck-typed
+`ServableProduct` is delivered as a `ServedProduct` with the three validation
+gates never having run.
+
+**That is `D-IMPL-337`**, recorded OPEN with the six sites as its census. It is
+not `D-IMPL-336`'s to remediate, and this panel record ends here rather than
+growing to cover it.
+
+**The methodological point, worth keeping.** The panels were the wrong
+instrument for this class. Forty-five agents across two rounds found two
+instances; a forty-line AST census found the whole population in under a second.
+A panel samples; a census enumerates. When a defect recurs in a new place after
+being fixed, the next move is to **count the population**, not to review harder.

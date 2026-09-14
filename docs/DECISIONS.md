@@ -3472,4 +3472,61 @@ A clean sequential package with exact commands and environment. **Restore the fu
 
 **Next free decision id: `D-IMPL-337`** — unchanged; an amendment spends none. **Governs:** the simplification on `d-impl-336-composite` through to the completion package. **Related:** Amendment 4 (the checkpoints this replaces the O1 half of), Amendment 3, `D-IMPL-59` (MCP is a Peering transport, not the concept — the separation Dave's correction rests on), `D-IMPL-31`, `D-IMPL-104`, `D-IMPL-334`/`D-IMPL-335`, `D-IMPL-308`, `D-IMPL-324`, `D-IMPL-222`, CLAUDE.md §7.3/§8.1/§11, INV-CH7-47.
 
-**Next free decision id: `D-IMPL-337`.**
+---
+
+**D-IMPL-337 — TOKEN-GUARDED VALUES MUST BE REVALIDATED AT EVERY PUBLICLY REACHABLE CONSUMER.** **OPEN — DESIGN REQUIRED.** Raised: 2026-09-14. Raised by: Dave, ruling on a measurement surfaced during `D-IMPL-336`'s close panels. **This is a cross-cutting SDK invariant gap that `D-IMPL-336` happened to expose. It is NOT a `D-IMPL-336` defect and it is not `D-IMPL-336`'s to remediate.**
+
+**THE INVARIANT, PROPOSED — and it is the INVARIANT that is canonized here, never an implementation.** Dave's wording: *"If a type derives its authority or validity from a guarded construction path, every publicly reachable consumer that relies on that authority must positively verify the guarded runtime type before using it. Structural compatibility or duck typing is insufficient."* It applies whether the guarded value represents admission, authorization, single-writer authority, replay integrity, or another capability.
+
+Stated as the property: **guarded authority cannot be recovered through structural typing.** Dave's refinement, recorded because the distinction is the whole point: *"`isinstance` may be the enforcement form, but that distinction matters… Canonize the invariant first: a consumer may not infer guarded authority from shape alone. Then let the 337 design prove whether `isinstance` is the correct universal enforcement mechanism or merely the correct mechanism for the six sites currently observed."* **A lint is the enforcement-mechanism CANDIDATE, not a silently adopted implementation detail.**
+
+**HOW IT WAS FOUND, and why the finding is a class rather than six bugs.** Two close panels on `D-IMPL-336` (30 agents, then 15) each found one instance of the same shape, and each instance was repaired individually. Dave: *"I simplified the architecture yet we still can't get it right. What seems to be the core problem? You are just repeating the same loop but not moving forward."* An AST census of `src/` then measured the population the panels had been sampling:
+
+| | |
+| --- | --- |
+| token-guarded capability types | **7** |
+| consumer sites annotated to take one | **15** |
+| sites that positively verify the type at runtime | **1** — added under `D-IMPL-336` close panel 2 |
+| sites publicly reachable by an adopter | **6** |
+
+**Minting is guarded; consumption is not.** The token is a *static* guarantee — mypy enforces it for conforming callers — presented in docstrings as a runtime one. `ccf.products.gates.ServableProduct`'s own docstring says *"holding one of these is the evidence that the gates ran."* That sentence is false at the consumer.
+
+**MEASURED, not argued** (public imports, no reflection, no private names): a duck-typed `ServableProduct` reaches `DeliveryCapability.deliver`, which does `ServedProduct(product=product.product, …)` with no type check, and a `ServedProduct` is returned. `isinstance(duck, ServableProduct)` is `False`. **The three validation gates never ran.** Dave's endorsed reading of the diagnosis: *"My three mechanism defects weren't three mistakes. They were three samples from a population."*
+
+**THE INITIAL CENSUS — six sites, recorded BEFORE any of them is modified, and deliberately NOT flattened into one severity.** Dave: *"Do not flatten these into one severity merely because one lint finds them."*
+
+*Group A — guarded product / gate bypass.* The guarded type is `ServableProduct`, whose possession is meant to be the evidence that the three validation gates (empty-operator guard, lineage strict equality, TTL bounds) ran.
+- `ccf.replay.serve.serve(product)` — **exported**.
+- `ccf.replay.serve.DeliveryCapability.deliver(product)` — public name, reachable.
+- `ccf.products.gates.refuse_over_tolerance(product)` — **exported**.
+
+*Group B — a product crossing the Peering / L3 boundary without its admission proof.* The guarded type is `ccf.peering.admission.AdmittedProduct`, whose possession is meant to be the evidence that signature verification, peer entitlement and policy-binding checks ran. A bypass here puts an unverified federated product on the path to L3, against the single-writer invariant (CLAUDE.md §10) and `D-IMPL-59`'s admission commitment.
+- `ccf.graph.product_source.mount_product_source(admitted)` — **exported**.
+- `ccf.assembly.worker.ingest_admitted(admitted)` — public name, reachable.
+
+*Group C — Control Plane state mutation on a structurally similar but unauthorized value.* The guarded type is `ccf.controlplane.state.StateWriteToken`.
+- `ccf.controlplane.state.AuditedStateWriter.put(token)` — public name, reachable.
+
+**Nine further sites are module-private** — the minter and the consumer share a module, so no caller can reach them without crossing the module boundary — and are therefore **not governed by the invariant as proposed**. Whether that exemption is correct is one of the design questions below, not a settled fact.
+
+**WHAT THE 337 DESIGN PACKAGE MUST CONTAIN**, per Dave, before any fix:
+1. the exact definition of a **token-guarded type**;
+2. what counts as a **publicly reachable consumer**;
+3. the six measured sites, and **why each is or is not actually governed** by the invariant;
+4. the proposed static lint and its **false-positive / false-negative boundary**;
+5. how **Protocol-typed consumers** interact with the rule;
+6. whether an explicit **validator or helper** can satisfy the rule in lieu of a literal `isinstance`;
+7. **negative controls** showing the lint catches a duck-typed substitute;
+8. **positive controls** showing legitimate abstraction seams are **not** accidentally outlawed.
+
+**WHAT IS FORBIDDEN, in Dave's words:** *"Do not run another broad sabotage sweep and patch whatever falls out. Do not fix all six sites opportunistically on the 336 branch. Do not record the finding and leave it indefinite. Do not call the lint complete merely because it finds the six known examples. Do not weaken Protocol usage generally; structural typing remains valid where no guarded authority is being asserted."*
+
+**WHY IT IS SEPARATE, and this is the load-bearing reason.** A four-subsystem correction inside `d-impl-336-composite` would destroy the ability to answer the basic review question *"did `D-IMPL-336` correctly implement composite Context Products?"* — the branch would become inseparable from unrelated replay, peering, assembly and Control Plane repairs. Dave: *"That is exactly the scope-accretion pattern we have been trying to eliminate."*
+
+**`D-IMPL-336`'s OWN POSITION, measured.** Dave requires that 336's own guarded-consumer site be correct and that the branch introduce no new bypass. Audited at `64d4ae4a`: `invocation_from_dispatch` is exported and **verifies** (`ProvenanceForgeryError` on a non-`ResolvedProducer`, closed at close panel 2); `compose_children` — the composition entry point, whose `outcomes` is typed `object` deliberately so mypy cannot prove its guard unreachable — **verifies** with `isinstance(outcome, AdmittedChild)`; `_admit`, `_rebinding_failure` and `_row_for_admitted` are module-private. **No publicly reachable consumer of a guarded type in `ccf/products/composite.py` or `ccf/products/child_resolver.py` trusts structure alone.** 336 carries `D-IMPL-337` as a **discovered dependency**, not as remediation scope.
+
+**SEQUENCING.** `D-IMPL-337` is recorded now as OPEN with the census above. `D-IMPL-336` then finishes on its own terms and reaches its stop-for-review checkpoint. The 337 design cycle runs **separately, afterwards**.
+
+**Next free decision id: `D-IMPL-338`.** **Governs:** the guarded-type consumer invariant across the SDK. **Related:** `D-IMPL-336` (which exposed it, and whose close-panel record at `docs/D-IMPL-336-CLOSE-PANEL.md` carries the two sampled instances), `D-IMPL-59` (Peering admission), `D-IMPL-57` (attributable vs verifiable), CLAUDE.md §10 (single-writer), §11 (invariants are CI-enforced, not aspirational), INV-CH7-46/47/52 (the three validation gates `ServableProduct` attests to).
+
+**Next free decision id: `D-IMPL-338`.**

@@ -157,6 +157,42 @@ said `mypy src/ccf`, which is narrower and never covered `runtime/`.
 
 ---
 
+## 4a · A discovered dependency, NOT remediation scope: `D-IMPL-337`
+
+`D-IMPL-336`'s two close panels each found one instance of the same shape — a
+value whose authority comes from a guarded construction path, reaching a
+consumer that never verifies it received the guarded type. Each was repaired
+individually. An AST census then measured the population those panels had been
+sampling: **7 guarded types, 15 consumer sites, 1 verifying, 6 publicly
+reachable** — and **five of the six exposed sites are in Replay, Peering,
+Assembly and the Control Plane**, none of which this branch touches.
+
+**Dave's ruling (2026-09-14): that is a cross-cutting SDK invariant gap, and it
+gets its own decision rather than being smuggled into the phase that discovered
+it.** It is recorded at `D-IMPL-337` — OPEN, design required, with the six sites
+as its initial census, severity distinguished by consequence rather than
+flattened because one instrument finds them all.
+
+**Why it is not fixed here.** A four-subsystem correction inside this branch
+would destroy the ability to answer *"did `D-IMPL-336` correctly implement
+composite Context Products?"* — the composite work would become inseparable from
+unrelated replay, peering, assembly and Control Plane repairs.
+
+**What IS this branch's obligation, and it is discharged.** 336's own guarded
+consumers must be correct and the branch must introduce no new bypass. Audited
+at `64d4ae4a`:
+
+| consumer | reachability | verifies? |
+| --- | --- | --- |
+| `invocation_from_dispatch(producer)` | **exported** | **yes** — `ProvenanceForgeryError` on a non-`ResolvedProducer` |
+| `compose_children(outcomes)` | **exported** | **yes** — `isinstance(outcome, AdmittedChild)` |
+| `_admit`, `_rebinding_failure`, `_row_for_admitted` | module-private | n/a — unreachable across the module boundary |
+
+No publicly reachable consumer of a guarded type in `composite.py` or
+`child_resolver.py` infers authority from shape alone.
+
+---
+
 ## 5 · Limitations, stated plainly
 
 - **The full estate tour remains CP-14 work**, per Amendment 5. No composite
