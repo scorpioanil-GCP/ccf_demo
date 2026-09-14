@@ -118,3 +118,23 @@ until it does the claim here is exactly "granted", never "invoked".
 - After: the union over the admitted children's operator sets ALONE (D-IMPL-336 R4)
 - Why: Gate 2's widened operand for composites needs the children's half separable from the parent's, or a child invoking an operator would mask the parent's own declaration having drifted onto it
 - Migration: none required — defaults to `frozenset()`, which leaves a childless composition's operand exactly a non-composite's
+
+## ccf.boot.FabricHandle.local_attestor
+
+- Surface: ccf.boot.FabricHandle.local_attestor
+- Public surface: true
+- Change type: added
+- Before: absent — a deployment built its own `LocalFabricAttestor` with an id it chose
+- After: minted by `boot` and carried on the handle; the only supported way to obtain one (D-IMPL-336 O1)
+- Why: "boot-bound" was a docstring while the constructor was public, so local provenance was a string any caller could write
+- Migration: read it off the handle; the id is derived from the adapter name and a digest of the graph identity and is not chosen
+
+## ccf.products.composite.LocalFabricAttestor.attest
+
+- Surface: ccf.products.composite.LocalFabricAttestor.attest
+- Public surface: true
+- Change type: reshaped
+- Before: `attest(*, touched_entities)` — vouched for whatever entities the caller named
+- After: `attest(*, product, replay_ref, store)` — resolves the decision record, refuses unless it names this product, and reads the entities out of replay dimension 1 (D-IMPL-336 O1)
+- Why: the eligibility gate checks those entities against the invalidation register, so a caller who could choose them could choose to be eligible
+- Migration: pass the delivered child and its `ServedProduct.replay_ref.uri`; a child with no persisted record can no longer be attested, which is the point

@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1125 entries**, of which **881** name a public Python surface.
+**1127 entries**, of which **883** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-582 entries — 542 public Python surface, 40 not public Python API.
+583 entries — 543 public Python surface, 40 not public Python API.
 
 ### Public Python surface
 
@@ -10153,6 +10153,18 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `336-03-grant-bound-child-invocation.md`.*
 
+#### ccf.boot.FabricHandle.local_attestor
+
+- Surface: ccf.boot.FabricHandle.local_attestor
+- Public surface: true
+- Change type: added
+- Before: absent — a deployment built its own `LocalFabricAttestor` with an id it chose
+- After: minted by `boot` and carried on the handle; the only supported way to obtain one (D-IMPL-336 O1)
+- Why: "boot-bound" was a docstring while the constructor was public, so local provenance was a string any caller could write
+- Migration: read it off the handle; the id is derived from the adapter name and a digest of the graph identity and is not chosen
+
+*Recorded by `336-03-grant-bound-child-invocation.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -10806,7 +10818,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-391 entries — 207 public Python surface, 184 not public Python API.
+392 entries — 208 public Python surface, 184 not public Python API.
 
 ### Public Python surface
 
@@ -15082,6 +15094,18 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - After: `invocation_from_dispatch(producer)` — both halves come from the ledger (D-IMPL-336 O2)
 - Why: an accepted parameter that no longer binds anything is the defect class this work repairs, so the keyword is removed rather than deprecated
 - Migration: resolve through `resolve_producing_grant` and pass the `ResolvedProducer`; there is no compatibility shim
+
+*Recorded by `336-03-grant-bound-child-invocation.md`.*
+
+#### ccf.products.composite.LocalFabricAttestor.attest
+
+- Surface: ccf.products.composite.LocalFabricAttestor.attest
+- Public surface: true
+- Change type: reshaped
+- Before: `attest(*, touched_entities)` — vouched for whatever entities the caller named
+- After: `attest(*, product, replay_ref, store)` — resolves the decision record, refuses unless it names this product, and reads the entities out of replay dimension 1 (D-IMPL-336 O1)
+- Why: the eligibility gate checks those entities against the invalidation register, so a caller who could choose them could choose to be eligible
+- Migration: pass the delivered child and its `ServedProduct.replay_ref.uri`; a child with no persisted record can no longer be attested, which is the point
 
 *Recorded by `336-03-grant-bound-child-invocation.md`.*
 

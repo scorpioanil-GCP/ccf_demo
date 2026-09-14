@@ -121,7 +121,12 @@ from ccf.products.contract import (
     ProductLineage,
 )
 from ccf.products.gates import GateRefusal, refuse_dependency_invalidation
-from ccf.replay.record import CHILD_ADMITTED, ChildResolution
+from ccf.artifacts.protocol import ArtifactStoreProtocol
+from ccf.replay.record import (
+    CHILD_ADMITTED,
+    ChildResolution,
+    DecisionReplayRecord,
+)
 from ccf.skills.catalog import NO_PRODUCT_CLASS, SkillCatalogEntry
 from ccf.skills.grants import BoundSkillView
 
@@ -490,26 +495,107 @@ class VerifiedPeerProvenance(ChildProvenance):
         return self._header
 
 
-class LocalFabricAttestor:
-    """Boot-bound authority for *"this fabric produced it"*.
+_ATTESTOR_TOKEN = object()
 
-    Constructed once at the composition root and injected. It holds no
-    registry and introduces no fabric-identity axis — **Dave's Amendment 3
-    prohibitions are explicit on both** — it is simply the object a deployment
-    can only obtain by having booted, so possessing it is what distinguishes
-    the fabric's own assembler from a caller passing a string.
+
+class LocalFabricAttestor:
+    """Boot-bound authority for *"this fabric produced it"* (**O1**).
+
+    **"Boot-bound" was a convention until `D-IMPL-336` O1; it is enforcement
+    now.** The earlier class was publicly constructible with a caller-chosen
+    ``attestor_id``, so the sentence above was a docstring: any caller could
+    build one, name it whatever a real deployment would be named, and mint
+    provenance indistinguishable from the fabric's own. That is
+    `D-IMPL-324`'s *"declaration is not a door"* occurring inside the repair
+    that was written to close it, and the panel found it there.
+
+    Two things changed.
+
+    **It can only be obtained by booting.** The constructor is token-guarded
+    and :func:`ccf.boot.boot` holds the token; the instance reaches a
+    deployment as :attr:`ccf.boot.FabricHandle.local_attestor`.
+
+    **It attests over EVIDENCE rather than over a caller's claim.**
+    :meth:`attest` no longer accepts ``touched_entities``. It takes the
+    delivered child and the reference to the decision record that authorized
+    it, resolves that record from the artifact store, refuses unless the
+    record's own ``product_content_address`` is the address of the product in
+    hand, and reads the entities out of replay dimension 1. So a
+    :class:`LocalProvenance` now means *a governed delivery happened here and
+    this is what it read*, which is what F6 asked for and what a label could
+    never carry.
+
+    **No new identity axis, and no fabric-identity-is-tenant-identity** —
+    Amendment 3 prohibits both, explicitly. The id is derived at boot from the
+    adapter's registered name and the graph identity the single-writer mint
+    already uses (:func:`ccf.graph._writer.mint_boot_token`), so this names
+    the fabric the same way the fabric was already named to itself. Nothing is
+    registered, nothing is looked up, and the tenant is not consulted.
     """
 
     __slots__ = ("_attestor_id",)
 
-    def __init__(self, *, attestor_id: str) -> None:
+    def __init__(self, *, attestor_id: str, token: object) -> None:
+        if token is not _ATTESTOR_TOKEN:
+            raise ProvenanceForgeryError(
+                "LocalFabricAttestor is minted only by ccf.boot.boot, and"
+                " reaches a deployment as FabricHandle.local_attestor. A"
+                " caller-constructible attestor with a caller-chosen id makes"
+                " 'this fabric produced it' a string anyone can write, which"
+                " is the claim the type exists to make unwritable"
+                " (D-IMPL-336 O1)"
+            )
         self._attestor_id = attestor_id
 
-    def attest(self, *, touched_entities: tuple[str, ...]) -> LocalProvenance:
-        """Vouch that this fabric executed the child, and for what it read."""
+    @property
+    def attestor_id(self) -> str:
+        """The boot-derived identity every attestation carries."""
+        return self._attestor_id
+
+    def attest(
+        self,
+        *,
+        product: ContextProductContract,
+        replay_ref: str,
+        store: ArtifactStoreProtocol,
+    ) -> LocalProvenance:
+        """Vouch that this fabric produced ``product``, from its own record.
+
+        Args:
+            product: The delivered child contract.
+            replay_ref: The URI of the decision record the delivery wrote —
+                ``ServedProduct.replay_ref.uri``.
+            store: The artifact store that record was persisted to.
+
+        Returns:
+            Provenance carrying this fabric's id and the entities the
+            execution actually read, taken from replay dimension 1.
+
+        Raises:
+            ProvenanceForgeryError: the resolved record does not name this
+                product. Refused rather than attested: a record that
+                authorized a different answer is evidence of something, and
+                that something is not this product's local production.
+        """
+        record = DecisionReplayRecord.model_validate_json(
+            store.get(content_address=store.resolve_uri(uri=replay_ref))
+        )
+        address = content_hash(product)
+        if record.content_generation_path.product_content_address != address:
+            raise ProvenanceForgeryError(
+                "the decision record at"
+                f" {replay_ref!r} names product"
+                f" {record.content_generation_path.product_content_address!r}"
+                f" and the product in hand hashes to {address!r}; local"
+                " provenance is the record's testimony about THIS product, so"
+                " a mismatch is refused rather than attested (D-IMPL-336 O1)"
+            )
         return LocalProvenance(
             attestor_id=self._attestor_id,
-            touched_entities=tuple(touched_entities),
+            # From the PERSISTED dimension-1 record, never from a caller. The
+            # eligibility gate reads these against the invalidation register,
+            # so a caller who could choose them could choose to be eligible.
+            touched_entities=tuple(record.context_fabric_snapshot.touched_entities),
             token=_LOCAL_PROVENANCE_TOKEN,
         )
 

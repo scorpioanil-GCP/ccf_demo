@@ -25,6 +25,8 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
+import inspect
+import pathlib
 import pytest
 from pydantic import ValidationError
 
@@ -72,7 +74,16 @@ from ccf.products.contract import (
     register_product_class,
 )
 from ccf.products.gates import ServableProduct, run_gates
-from ccf.replay.record import CHILD_OUTCOME_STATUSES, ContentGenerationPath
+from ccf.artifacts.file_store import FileArtifactStore
+from ccf.replay.record import (
+    CHILD_OUTCOME_STATUSES,
+    ContentGenerationPath,
+    ContextFabricSnapshot,
+    DecisionReplayRecord,
+    ModelVersionRecord,
+    PerspectiveConditioning,
+    PolicyBindingsSnapshot,
+)
 from ccf.agents.definitions import AgentDefinition
 from ccf.controlplane.artifacts import declared_artifact_class, parse_artifact
 from ccf.skills.catalog import (
@@ -118,8 +129,40 @@ _FULL = DebtFactors(
 
 
 @pytest.fixture()
-def registry() -> ControlPlaneRegistry:
-    return ControlPlaneRegistry()
+def registry(
+    fabric_boot: Any, tmp_path: pathlib.Path
+) -> ControlPlaneRegistry:
+    """The Control Plane, plus the two boot-scoped things `O1` now requires.
+
+    A real fabric is booted and its `local_attestor` and an artifact store are
+    carried on the registry object — the same idiom `_registered`, `_ledger`
+    and `_producer` already use here, and for the same reason: they share the
+    registry's lifetime, and CPython reuses an `id` so a module dict keyed on
+    one would leak between tests.
+
+    **Why a boot at all.** After `D-IMPL-336` O1 there is no supported way to
+    obtain a `LocalFabricAttestor` except by booting, which is the whole
+    point: the class claimed to be boot-bound while its constructor was
+    public, so the tests were demonstrating the opposite of the docstring.
+    """
+    control = ControlPlaneRegistry()
+    control.__dict__["_composite_test_attestor"] = fabric_boot().local_attestor
+    control.__dict__["_composite_test_store"] = FileArtifactStore(
+        root=tmp_path / "artifacts"
+    )
+    return control
+
+
+def _attestor(registry: ControlPlaneRegistry) -> LocalFabricAttestor:
+    attestor = registry.__dict__["_composite_test_attestor"]
+    assert isinstance(attestor, LocalFabricAttestor)
+    return attestor
+
+
+def _store(registry: ControlPlaneRegistry) -> FileArtifactStore:
+    store = registry.__dict__["_composite_test_store"]
+    assert isinstance(store, FileArtifactStore)
+    return store
 
 
 def _contract(
@@ -348,10 +391,66 @@ def require(
     )
 
 
-#: The boot-bound authority a deployment obtains by having booted. Tests mint
-#: local provenance through it exactly as the composition root would — there
-#: is no other supported way to assert "this fabric produced it".
-ATTESTOR = LocalFabricAttestor(attestor_id="fabric://test-boot")
+def _record_for(
+    contract: ContextProductContract, *, touched: tuple[str, ...] = (ENTITY_OBLIGOR,)
+) -> DecisionReplayRecord:
+    """A real, valid decision record naming ``contract``."""
+    return DecisionReplayRecord(
+        tenant_id=TENANT,
+        recorded_at=SERVED_AT,
+        context_fabric_snapshot=ContextFabricSnapshot(
+            graph_snapshot_id=f"snapshot://{content_hash(contract)}",
+            tenant_id=TENANT,
+            temporal_boundary=contract.temporal_boundary,
+            store_watermark=SERVED_AT.isoformat(),
+            # The entities `attest` reads back. A caller cannot supply them.
+            touched_entities=touched,
+            touched_relationships=(),
+        ),
+        policy_bindings=PolicyBindingsSnapshot(bindings=()),
+        model_version=ModelVersionRecord(assembly_mode="algorithmic"),
+        perspective_conditioning=PerspectiveConditioning(
+            principal_id="principal-composite", role="assembler"
+        ),
+        content_generation_path=ContentGenerationPath(
+            plan_id=contract.plan_id,
+            operator_plan=tuple(sorted(contract.lineage.operators_invoked)),
+            steps=(),
+            # The address `attest` checks the product against.
+            product_content_address=content_hash(contract),
+        ),
+    )
+
+
+def _local_provenance(
+    registry: ControlPlaneRegistry,
+    contract: ContextProductContract,
+    *,
+    touched: tuple[str, ...] = (ENTITY_OBLIGOR,),
+) -> LocalProvenance:
+    """Attest over a REAL persisted record that names ``contract`` (**O1**).
+
+    `attest` no longer accepts ``touched_entities``: it reads them out of
+    replay dimension 1, from the record the delivery wrote. So these tests
+    write a real record to a real store, and the entities the eligibility gate
+    later reads are the ones the record carries.
+
+    The record is minimal and honest — this module's children are delivered
+    through `run_gates` directly rather than through a whole resolver, and a
+    record asserting more than that would be a fixture pretending to be a
+    decision. The proof that a genuine `GovernedResolver` delivery produces a
+    record this method accepts is the seam's, not this module's.
+    """
+    record = _record_for(contract, touched=touched)
+    ref = _store(registry).put(
+        tenant_id=TENANT,
+        artifact_class="fixture.replay-record",
+        name=content_hash(record),
+        artifact=record,
+    )
+    return _attestor(registry).attest(
+        product=contract, replay_ref=ref.uri, store=_store(registry)
+    )
 
 
 def _producer(
@@ -389,7 +488,9 @@ def candidate(
         requirement=requirement,
         contract=contract,
         content_address=address or content_hash(contract),
-        provenance=provenance or ATTESTOR.attest(touched_entities=touched),
+        provenance=provenance or _local_provenance(
+            registry, contract, touched=touched
+        ),
         # `D-IMPL-336` **O2**: resolved through a REAL in-force grant rather
         # than paired with an `f"grant::{name}"` string. The grant hash a row
         # carries is now a ledger's, so producer-substitution and
@@ -528,13 +629,16 @@ def test_touched_entities_has_no_absent_state(
     way to express *"I did not look"* — the state the register cannot answer
     for and that used to be recorded as `local-register` anyway.
     """
-    assert ATTESTOR.attest(touched_entities=()).touched_entities == ()
+    contract = _contract(schema=FAMILY)
+    # An execution that genuinely read nothing: the record says so, and the
+    # attestation carries that claim rather than an absence.
+    assert _local_provenance(registry, contract, touched=()).touched_entities == ()
     with pytest.raises(TypeError):
         ChildCandidate(  # type: ignore[call-arg]
             requirement=require(FAMILY),
-            contract=_contract(schema=FAMILY),
+            contract=contract,
             content_address="x",
-            provenance=ATTESTOR.attest(touched_entities=()),
+            provenance=_local_provenance(registry, contract, touched=()),
         )
 
 
@@ -1057,7 +1161,7 @@ def test_positive_control_producer_substitution_leaves_the_contract_alone(
                 requirement=req,
                 contract=child,
                 content_address=content_hash(child),
-                provenance=ATTESTOR.attest(touched_entities=(ENTITY_OBLIGOR,)),
+                provenance=_local_provenance(registry, child),
                 invocation=invocation_from_dispatch(resolved),
             ),
         )
@@ -1236,7 +1340,10 @@ def test_a_rebinding_failure_keeps_the_VERIFIED_identity(
     assert not out.served
     row = out.resolutions[0]
     assert row.child_content_address == adm.verified_content_address
-    assert row.producing_fabric == "fabric://test-boot"
+    # The BOOT's own derived id, read from the attestor rather than pinned as
+    # a literal (`O1`). The literal was `"fabric://test-boot"` — a string this
+    # file chose, which is precisely what O1 found could be chosen.
+    assert row.producing_fabric == _attestor(registry).attestor_id
 
 
 def test_r6_the_ttl_anchor_is_the_DECISION_instant_not_the_request_one(
@@ -1289,3 +1396,92 @@ def test_r6_the_ttl_anchor_is_the_DECISION_instant_not_the_request_one(
     # The anchor moved by five minutes and the ceiling followed it. Before the
     # fix the function could not see the decision instant at all.
     assert later.expires_at > early.expires_at
+
+
+# --- O1: the attestor is boot-bound, and attests over EVIDENCE ---------------
+
+
+def test_o1_a_local_attestor_cannot_be_constructed_by_a_caller() -> None:
+    """`O1`: "boot-bound" was a docstring and is now enforcement.
+
+    The panel found this inside Amendment 3's own repair — the class asserted
+    it could only be obtained by booting, while its constructor was public and
+    took the id as an argument. `D-IMPL-324`'s *"declaration is not a door"*,
+    occurring in the code written to close that very defect.
+    """
+    with pytest.raises(TypeError):
+        LocalFabricAttestor(attestor_id="fabric://mine")  # type: ignore[call-arg]
+    with pytest.raises(ProvenanceForgeryError):
+        LocalFabricAttestor(attestor_id="fabric://mine", token=object())
+
+
+def test_o1_the_attestor_id_is_DERIVED_from_the_boot_not_chosen(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """No new identity axis, and not the tenant — Amendment 3 forbids both.
+
+    The id names the fabric the way the fabric was already named to itself:
+    the adapter's registered name and a digest of the graph identity the
+    single-writer mint uses. Asserted structurally rather than against a
+    literal, because a literal here would be a value this file chose, which
+    is the shape O1 exists to remove.
+    """
+    attestor_id = _attestor(registry).attestor_id
+    assert attestor_id.startswith("fabric://")
+    scheme, _, rest = attestor_id.partition("://")
+    adapter, _, digest = rest.partition("/")
+    assert adapter, "the adapter that answered the boot is not named"
+    assert len(digest) == 16 and all(c in "0123456789abcdef" for c in digest)
+    # ...and it is not the tenant wearing a different hat.
+    assert TENANT not in attestor_id
+
+
+def test_o1_attestation_refuses_a_record_that_names_a_DIFFERENT_product(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """The half that makes local provenance evidence rather than a label.
+
+    `attest` resolves the decision record the delivery wrote and refuses
+    unless that record's own `product_content_address` is the address of the
+    product in hand. A record that authorized a different answer is evidence
+    of something, and that something is not this product's local production.
+
+    Sabotaged by attesting one contract against another's record — the exact
+    move a caller would make to relabel a child it did not produce.
+    """
+    mine = _contract(schema=FAMILY)
+    theirs = _contract(schema=EXPOSURE)
+    assert content_hash(mine) != content_hash(theirs)
+
+    # A real, persisted record — for the OTHER product.
+    provenance = _local_provenance(registry, theirs)
+    assert isinstance(provenance, LocalProvenance)
+    their_ref = _store(registry).put(
+        tenant_id=TENANT,
+        artifact_class="fixture.replay-record",
+        name="decoy",
+        artifact=_record_for(theirs),
+    )
+    with pytest.raises(ProvenanceForgeryError) as raised:
+        _attestor(registry).attest(
+            product=mine, replay_ref=their_ref.uri, store=_store(registry)
+        )
+    assert "names product" in str(raised.value)
+
+
+def test_o1_touched_entities_come_from_the_RECORD_not_from_a_caller(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """The other half, and the one the eligibility gate depends on.
+
+    `attest` no longer accepts `touched_entities`. The eligibility check reads
+    them against the invalidation register, so a caller who could choose them
+    could choose to be eligible — which is what the earlier signature allowed.
+    """
+    assert "touched_entities" not in inspect.signature(
+        LocalFabricAttestor.attest
+    ).parameters
+    contract = _contract(schema=FAMILY)
+    provenance = _local_provenance(registry, contract, touched=(ENTITY_UNRELATED,))
+    # Exactly what the persisted record carried, not what was asked for here.
+    assert provenance.touched_entities == (ENTITY_UNRELATED,)
