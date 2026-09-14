@@ -832,3 +832,47 @@ def test_a_child_naming_ANOTHER_products_replay_record_is_refused(
     assert isinstance(
         _ask_at(resolver, PRODUCT_CLASS, PRODUCT_VERSION, T0), ServedProduct
     )
+
+
+def test_the_record_mismatch_is_wrapped_OPAQUE_at_the_delivery_doors() -> None:
+    """`D-IMPL-253` Q20: a runtime failure crosses a door as an id, not prose.
+
+    Found by the focused review of the binding repair. `ChildRecordMismatch`
+    was a `RuntimeError`, and the MCP egress door wraps only
+    ``(ValueError, TypeError, LookupError, OSError)`` into an opaque
+    ``ccf-runtime-failure`` id — *no message, no type name, no traceback*. So
+    the one exception this leg could newly raise delivered a replay-reference
+    URI and two content addresses to the client.
+
+    The base class is therefore load-bearing, and the precedent settles it:
+    `ccf.replay.serve.ProductRecordMismatch` is the same defect class one layer
+    up — a record that does not describe the product it is filed against
+    (`D-IMPL-279`) — and is a `ValueError` for exactly this reason.
+
+    Asserted against the door's OWN tuple, read from the runtime rather than
+    restated here, so widening or narrowing that tuple moves this test.
+    """
+    import inspect
+    import re
+
+    from ccf.products.child_resolver import ChildRecordMismatch
+    from ccf.replay.serve import ProductRecordMismatch
+
+    source = inspect.getsource(
+        __import__("ccf_runtime.mcp.egress", fromlist=["x"])
+    )
+    match = re.search(r"except \(([^)]*)\) as exc:\s*\n\s*raise _opaque_failure", source)
+    assert match is not None, "the door's opaque-failure guard has moved"
+    caught = tuple(
+        getattr(__import__("builtins"), name.strip()) for name in match.group(1).split(",")
+    )
+
+    assert issubclass(ChildRecordMismatch, caught), (
+        "ChildRecordMismatch escapes the door's opaque wrap and would deliver"
+        f" its message — a replay-ref URI and two addresses — to a client;"
+        f" the door catches {[c.__name__ for c in caught]}"
+    )
+    # ...and it matches the precedent it is modelled on, rather than merely
+    # happening to be catchable.
+    assert issubclass(ProductRecordMismatch, caught)
+    assert issubclass(ChildRecordMismatch, ValueError)

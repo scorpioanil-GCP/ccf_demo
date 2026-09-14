@@ -84,7 +84,7 @@ from ccf.skills.grants import GrantLedger
 __all__ = ["ChildRecordMismatch", "GrantBoundChildResolver", "ChildArguments"]
 
 
-class ChildRecordMismatch(RuntimeError):
+class ChildRecordMismatch(ValueError):
     """A child named a replay record that describes a different product.
 
     Raised rather than refused, deliberately. A governed refusal says *this
@@ -92,6 +92,26 @@ class ChildRecordMismatch(RuntimeError):
     this child at all*, which is a producer defect or an attempt to substitute
     evidence — neither is a fact about the child's eligibility, and reporting
     it as one would let a misattribution be read as a governed answer.
+
+    **A `ValueError`, and the base class is load-bearing rather than
+    incidental.** The focused review of this repair measured that the MCP
+    egress door wraps only ``(ValueError, TypeError, LookupError, OSError)``
+    into an opaque ``ccf-runtime-failure`` id — the ruled `D-IMPL-253` Q20
+    posture: *no message, no type name, no traceback*. As a `RuntimeError`
+    this class escaped that wrap and delivered a replay-reference URI and two
+    content addresses straight to the client.
+
+    The precedent settles the choice rather than leaving it to taste:
+    :class:`~ccf.replay.serve.ProductRecordMismatch` is the **same defect class
+    one layer up** — a record that does not describe the product it is filed
+    against (`D-IMPL-279`) — and it is a `ValueError` for exactly this reason.
+
+    **The wider hole is NOT closed here and is not this repair's.**
+    :class:`~ccf.products.composite.AmbiguousProducerError` is also a
+    `RuntimeError` reaching the same door from the same resolver, so the gap
+    predates this work; widening the door's except tuple would change a runtime
+    door's posture for a pre-existing condition and belongs to whoever owns
+    that door, not to `D-IMPL-336`.
     """
 
 #: How a deployment turns one declared requirement into the typed arguments its

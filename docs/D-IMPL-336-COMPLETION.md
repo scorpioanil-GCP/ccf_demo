@@ -259,6 +259,16 @@ not a fact about this child's eligibility.
 - **Tests:** `test_a_child_naming_ANOTHER_products_replay_record_is_refused` —
   valid-foreign-record rejection, honest-record positive control, and the
   binding-removal sabotage (RED, restored byte-identically).
+- **Follow-on from the focused repair review, fixed:** `ChildRecordMismatch`
+  was a `RuntimeError`, and the MCP egress door wraps only
+  `(ValueError, TypeError, LookupError, OSError)` into an opaque
+  `ccf-runtime-failure` id (`D-IMPL-253` Q20 — *no message, no type name, no
+  traceback*). It escaped that wrap and would have delivered a replay-reference
+  URI and two content addresses to a client. Now a `ValueError`, matching
+  `ccf.replay.serve.ProductRecordMismatch`, which is the same defect class one
+  layer up and a `ValueError` for the same reason. Pinned by
+  `test_the_record_mismatch_is_wrapped_OPAQUE_at_the_delivery_doors`, which
+  reads the door's own except tuple rather than restating it.
 
 ### INT-01b · **CLOSED** (see `docs/DECISIONS.md`, 2026-09-14)
 
@@ -335,6 +345,12 @@ proves nested propagation and re-derivation.
   audited act. It is a deployment-integrity property, not a fabric one, and it
   belongs in adopter guidance.
 - The over-bound-header reporting defect in §2, and `CP-F-06`.
+- **`AmbiguousProducerError` is a `RuntimeError` reaching the same MCP door
+  from the same resolver**, so it escapes the opaque wrap exactly as
+  `ChildRecordMismatch` did. **Pre-existing and NOT fixed here**: it predates
+  this work, and widening the door's except tuple would change a runtime
+  door's posture for a condition `D-IMPL-336` did not introduce. Recorded so
+  the next owner of that door has the measurement.
 - **Two of the six close-panel findings were measurement failures by the
   orchestrator, not design defects** — a surface gate that was red on this
   branch and green on `main` and never run, and a test whose comment promised
