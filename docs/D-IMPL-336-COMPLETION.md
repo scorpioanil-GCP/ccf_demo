@@ -169,6 +169,27 @@ said `mypy src/ccf`, which is narrower and never covered `runtime/`.
   product that passes admission and matches the class.** A peer returning
   several candidates for one requirement is not disambiguated, and that is a
   gap rather than a policy.
+- **A `local_callable` whose callable proxies a product produced elsewhere is
+  recorded as `local-dispatch`, and the SDK cannot tell.** Raised by fable at
+  close panel 2, and it is Dave's verbatim hazard — *"a local skill fetching a
+  remote product must not relabel that product as locally produced"* — in the
+  one form that is **structurally invisible**: all three cross-checks in
+  `invocation_from_dispatch` pass, because the entry genuinely is a
+  `local_callable` and the dispatch genuinely ran locally. What the SDK cannot
+  see is what the deployment's own callable did inside.
+
+  **Not repairable here, and the reason is the architecture rather than the
+  effort.** A callable is opaque by construction — that is what makes
+  in-process, MCP, A2A and another-agent acquisition interchangeable behind one
+  skill. Inspecting it would require the composite to know how its provider
+  works, which is precisely what Amendment 5 forbids.
+
+  What bounds it: the child still crosses `door_answer`, so its content address
+  is the producer's own; the local leg now **refuses** without an execution
+  record, so a proxied child that cannot produce one is not admitted at all;
+  and the grant is per-agent, so binding such a skill is a governed,
+  audited act. It is a deployment-integrity property, not a fabric one, and it
+  belongs in adopter guidance.
 - The over-bound-header reporting defect in §2, and `CP-F-06`.
 - **Two of the six close-panel findings were measurement failures by the
   orchestrator, not design defects** — a surface gate that was red on this

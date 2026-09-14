@@ -55,6 +55,7 @@ from ccf.artifacts.protocol import ArtifactStoreProtocol
 from ccf.peering.admission import AdmittedProduct, PeeringAdmissionGate
 from ccf.products.composite import (
     GATE_CHILD_ADMISSION,
+    ResolvedProducer,
     ChildAdmissionRefusal,
     ChildCandidate,
     CompositeAdmissionGate,
@@ -189,7 +190,7 @@ class GrantBoundChildResolver:
         self,
         requirement: ChildRequirement,
         *,
-        producer: object,
+        producer: ResolvedProducer,
         dispatched: object,
         asked_at: datetime,
         admitted_at: datetime,
@@ -238,7 +239,7 @@ class GrantBoundChildResolver:
                 contract=contract,
                 content_address=address,
                 invocation=invocation_from_dispatch(
-                    producer,  # type: ignore[arg-type]
+                    producer,
                     dispatched,
                     touched_entities=touched,
                 ),

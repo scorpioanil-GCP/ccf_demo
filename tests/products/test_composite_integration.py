@@ -39,7 +39,10 @@ from ccf.replay.record import DecisionReplayRecord
 from ccf.replay.serve import ServedProduct
 
 from tests.deployment.conftest import TENANT
+from ccf.products.contract import ProductLineage
+
 from tests.products.composite_fixture import (
+    CHILD_CALLABLE,
     CHILD_SKILL,
     _ledger,
     ask_composite,
@@ -412,3 +415,84 @@ def test_int01b_the_top_expiry_is_FLOORED_by_the_deepest_constituent(
     assert top.product.expires_at <= middle_expiry, (
         "the top outlived the constituent it was assembled from"
     )
+
+
+def test_a_child_whose_door_reports_NO_replay_ref_refuses_the_composite(
+    booted: _Booted,
+) -> None:
+    """The RESOLVER half of the `F3` re-close, pinned by close panel 2.
+
+    The gate refuses a local child with no execution record. What nothing
+    pinned was the resolver's side: `_touched_entities` returns `None` when the
+    child's `DoorOutcome` carries no `replay_ref`, and fable measured that
+    changing that `return None` to `return ()` left all 67 tests green — `()`
+    being the *verified* claim that the child read nothing, which sails through
+    the gate and records `local-register`.
+
+    The two halves have to be pinned separately because either one alone still
+    lets a child through. This drives the REAL resolver over a REAL door whose
+    producer reports no replay reference — a state the wire contract permits
+    for a producer that is not a shipped door.
+    """
+    from ccf.products.door import DoorOutcome
+
+    resolver, children = _wire(booted)
+
+    original = children._callables.resolve(CHILD_CALLABLE)
+
+    def without_replay_ref(arguments: object) -> object:
+        answered = original(arguments)  # type: ignore[arg-type]
+        outcome = DoorOutcome.model_validate_json(answered["outcome"])
+        stripped = outcome.model_copy(update={"replay_ref": None})
+        return {"outcome": stripped.model_dump_json()}
+
+    children._callables._callables[CHILD_CALLABLE] = without_replay_ref
+
+    outcome = _ask(resolver)
+    assert not isinstance(outcome, ServedProduct), (
+        "a child with no resolvable execution record was composed, and the row"
+        " would have claimed local-register as its authority"
+    )
+    assert outcome.kind == "composite-child-refusal"
+
+
+def test_a_peered_leg_with_NO_peering_gate_refuses_rather_than_raising(
+    booted: _Booted,
+) -> None:
+    """The peered leg of the shipped resolver, which no test executed.
+
+    Close panel 2 measured that deleting the `if self._peering_gate is None`
+    guard — which would make the leg raise `AttributeError` on `None.admit` —
+    left the suite green, because nothing ever reached it.
+
+    A deployment that binds a peering-produced child without binding a
+    `PeeringAdmissionGate` is mis-wired. That must be a governed refusal, not a
+    crash: `provenance-unverified` says exactly what is absent.
+    """
+    from ccf.products.contract import ChildRequirement
+    from ccf.skills.dispatch import PeeringInvocation
+
+    _resolver, children = _wire(booted)
+    requirement = ChildRequirement(
+        product_class=CHILD_CLASS, required=True, compatible_from="1.0.0"
+    )
+    assert children._peering_gate is None
+
+    outcome = children._admit_peered(
+        PeeringInvocation(
+            skill_name="child-door-skill",
+            skill_type="peering",
+            endpoint="fixture-endpoint",
+            products=(),
+            arguments={},
+        ),
+        requirement,
+        consumer_lineage=ProductLineage(
+            operators_invoked=frozenset({"traversal.typed-neighborhood"}),
+            policy_bundle_versions=frozenset({"fixture"}),
+            graph_snapshot_at=ASKED_AT,
+        ),
+        now=ASKED_AT,
+    )
+    assert isinstance(outcome, str), outcome
+    assert "binds no PeeringAdmissionGate" in outcome

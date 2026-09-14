@@ -1,4 +1,4 @@
-# D-IMPL-336 — close-time cross-AI panel
+# D-IMPL-336 — close-time cross-AI panels
 
 **Subject: the SHIPPED CODE at candidate `e4d53346`**, per CLAUDE.md §3.1:
 *"When execution has already happened, the panel reviews the shipped code, not
@@ -180,3 +180,125 @@ CP-14 work by Amendment 5. The MCP demonstration is one logical resource from
 one child process. The peered branch selects the first inbound product that
 passes admission and matches the class, and does not disambiguate a peer
 returning several.
+
+
+---
+
+## 5 · Panel 2 — `1edc8fe7`, aimed at whether the fixes were COMPLETE
+
+**fable, codex, cursor. 6 confirmed, 3 partial, 2 rejected, 15 agents.**
+
+The first panel was asked *"what is wrong?"*. This one was asked **"are the two
+fixes complete?"** — because both of round one's findings were fixes-that-close-
+one-route, and that is the most expensive kind of miss. Fable was given the
+**tree** rather than the payload, and told to sabotage load-bearing tests and
+report any that did not go red.
+
+That aim is what produced the round's findings: **five of the six are about
+coverage rather than mechanism**, and the sixth is the mechanism the first
+round's fix failed to bind.
+
+### CP2-F-01 — the capability token bound nothing, because its only consumer never demanded the type. **HIGH**
+
+Found by codex. `invocation_from_dispatch` annotates `producer: ResolvedProducer`
+and performs **no runtime check**. It dereferences four public attributes, so a
+`SimpleNamespace` satisfies all of them. Re-measured by the orchestrator through
+the public import, no reflection:
+
+```
+ACCEPTED: fake-skill 1.0.0 not-from-any-ledger local-dispatch
+```
+
+The minted `ChildInvocation` recorded a grant hash that was never in any ledger,
+while its own docstring called itself *"evidence that an ACTUAL grant resolution
+and skill dispatch ran"*.
+
+**The three-fact cross-check added in round one could not help, and the reason
+is the lesson**: with a forged producer, all three facts are values the *same
+caller* authored, so they are self-consistent by construction. `ResolvedProducer`
+was token-minted specifically so it could not be forged — and then the function
+that consumes it never asked whether it had one. **A capability token binds
+nothing unless the consumer demands the type.**
+
+This also made the round-one `F3` fix vacuous from one layer upstream:
+`touched_entities=()` is the forger's free choice, and `()` passes the register.
+
+Fixed: `isinstance(producer, ResolvedProducer)` at the head of the function, and
+the `# type: ignore[arg-type]` at the one call site that had suppressed the
+annotation is gone. Proof: `test_a_forged_PRODUCER_cannot_mint_an_invocation`,
+with the honest producer asserted alongside.
+
+### CP2-F-02 — the fourth composition law had NO execution coverage. **HIGH**
+
+Found by the **completeness critic**, which is the second consecutive round in
+which that step out-found the panel. Deleting the entire `refuse_mixing` call
+and its refusal branch left the suite at baseline across ten test trees.
+
+The reason nothing could see it: the only route to a breach is a non-default
+`ConstituentValidityFloors`, and **no test anywhere declared one**. The law the
+completion document lists as retained was, as far as the suite could tell, dead
+code.
+
+Fixed with three tests — a breach that refuses, a floor that is met and serves,
+and a floor declared for a *different signal type* that must not bind. Deleting
+the law now turns 8 tests red.
+
+### CP2-F-03 — four of six fit checks were not individually pinned. **MEDIUM**
+
+Found by fable, by deletion. The tests that existed asserted only *that
+something refused*, which any surviving check satisfies. Each check now has a
+test naming **its own refusal reason**, so deleting one is visible.
+
+### CP2-F-04 — the resolver half of the `F3` re-close was unpinned. **MEDIUM**
+
+Found by fable. Changing `_touched_entities`' `return None` to `return ()` left
+all 67 tests green — and `()` is the *verified* claim that the child read
+nothing, which passes the gate and records `local-register`. The gate half was
+pinned; the resolver half was not, and **either half alone still lets a child
+through**. Now driven over a real door whose producer reports no replay
+reference.
+
+### CP2-F-05 — the shipped resolver's peered leg was never executed. **LOW**
+
+Found by fable. Deleting the `if self._peering_gate is None` guard — which would
+make the leg raise `AttributeError` on `None.admit` — left the suite green. A
+mis-wired deployment must get a governed refusal, not a crash. Pinned.
+
+### CP2-F-06 — two prose drifts. **PARTIAL**
+
+`GovernedResolver.composite_children`'s field comment still said the SDK ships
+no implementation. Corrected — the third such site, and the reason they keep
+appearing is that Amendment 5 reversed a rule stated in several places at once.
+
+### A negative result, reported because it was asked
+
+Codex on **R4**: *"I did not find an R4 masking case in the checked-out resolver
+path: the parent-only drift check runs before the widened `run_gates`."* A
+negative result from a reviewer that demonstrably read the code is worth
+recording; it is not proof, and R4 remains **PROPOSED and unruled**.
+
+### The one finding that cannot be fixed in code
+
+Fable: a `local_callable` whose callable **proxies a product produced
+elsewhere** is recorded as `local-dispatch`, and all three cross-checks pass —
+because the entry genuinely is a local callable and the dispatch genuinely ran
+locally. This is Dave's verbatim hazard in its structurally invisible form.
+
+It is not repairable without the composite knowing how its provider works, which
+is exactly what Amendment 5 forbids. Recorded in
+`docs/D-IMPL-336-COMPLETION.md` §5 with what bounds it, as a deployment-
+integrity property rather than a fabric one.
+
+---
+
+## 6 · What both panels together say about this work
+
+**Round one found defects in the mechanism. Round two found that the tests did
+not hold the mechanism.** Five of round two's six are coverage findings, and
+they were only reachable because one reviewer was pointed at the tree with
+instructions to sabotage rather than at a payload with instructions to read.
+
+**The completeness critic out-found the panel in both rounds.** That is now
+2-for-2 on this project, and the finding it produced here — an entire ruled
+composition law with zero execution coverage — was invisible to four reviewers
+reading the same code.

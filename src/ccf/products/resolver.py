@@ -1527,9 +1527,12 @@ class GovernedResolver:
     #: this surface; a class that declares ``requires`` against a resolver
     #: with no child resolver is REFUSED rather than served without them.
     #:
-    #: The SDK ships the Protocol and never an implementation: resolving a
-    #: grant, dispatching a skill and delivering a child is orchestration, and
-    #: orchestration is the harness's (CLAUDE.md §7.3, §8.1).
+    #: The SDK ships the Protocol **and** a reference implementation —
+    #: :class:`~ccf.products.child_resolver.GrantBoundChildResolver` — under
+    #: CLAUDE.md §11. This comment said the opposite until close panel 2; the
+    #: correction is `D-IMPL-336` Amendment 5, which ruled that resolving a
+    #: grant and dispatching it once is not an agent loop. What stays out of
+    #: `src/` is the scheduler, the swarm loop and any new identity axis.
     composite_children: CompositeChildResolverProtocol | None
 
     #: `D-IMPL-336` **O3** — the trusted runtime clock a child admission is

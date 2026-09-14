@@ -1446,3 +1446,181 @@ def test_a_remote_entry_CANNOT_be_relabelled_as_a_local_dispatch(
         ).acquisition
         == "local-dispatch"
     )
+
+
+# --- the fourth composition law, and the fit checks: pinned by DELETION ------
+#
+# Close panel 2's completeness critic measured that removing the entire
+# `refuse_mixing` call from `compose_children` left the suite at baseline. The
+# fourth of the four laws the completion document lists as retained had NO
+# execution coverage, because no test anywhere declared a non-default
+# `ConstituentValidityFloors` — the only route to a breach.
+#
+# The same shape, found by fable in the same panel, covered four of the six fit
+# checks: deleting them changed nothing. A check nothing would miss is a
+# docstring with an `if` in front of it.
+
+
+def test_the_MIXING_REFUSAL_law_actually_refuses(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """`D-IMPL-31`'s fourth law, with the floor that makes it reachable.
+
+    *"A composite must not be built at all rather than built and labelled
+    fresher than its stalest load-bearing constituent."* The refusal exists;
+    until this test nothing declared a floor, so nothing ever breached one and
+    the whole branch was dead code as far as the suite could tell.
+
+    The child expires twelve hours after `ASKED_AT`; the floor demands a full
+    day of remaining validity at the decision instant. It refuses.
+    """
+    req = require(FAMILY)
+    adm = _admitted(registry, FAMILY, req)
+    floors = ConstituentValidityFloors(
+        min_validity_seconds_by_signal={FAMILY: 86400}
+    )
+
+    out = compose([req], {FAMILY: adm}, floors=floors)
+    assert not out.served, "a constituent below its declared floor was composed"
+    assert out.refusal is not None
+    assert out.refusal.reason == "mixing-refused"
+    # The rows survive the refusal, so a reader can see WHICH constituent.
+    assert len(out.resolutions) == 1
+
+
+def test_the_mixing_refusal_does_NOT_fire_when_the_floor_is_met(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """The control. Without it the test above would pass on a law that
+    refused everything, which is a different defect wearing the same green."""
+    req = require(FAMILY)
+    adm = _admitted(registry, FAMILY, req)
+    # One hour of required validity against twelve hours remaining.
+    floors = ConstituentValidityFloors(
+        min_validity_seconds_by_signal={FAMILY: 3600}
+    )
+    out = compose([req], {FAMILY: adm}, floors=floors)
+    assert out.served, out.refusal
+
+
+def test_a_floor_declared_for_ANOTHER_signal_type_does_not_bind_this_one(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """Floors are per signal type, and the lookup must actually key on it.
+
+    A `refuse_mixing` that applied the first declared floor to every
+    constituent would pass both tests above. This one moves only the key.
+    """
+    req = require(FAMILY)
+    adm = _admitted(registry, FAMILY, req)
+    floors = ConstituentValidityFloors(
+        min_validity_seconds_by_signal={EXPOSURE: 86400}
+    )
+    out = compose([req], {FAMILY: adm}, floors=floors)
+    assert out.served, "a floor declared for a different signal type bound this one"
+
+
+@pytest.mark.parametrize(
+    ("label", "kwargs", "reason"),
+    [
+        ("wrong class", {"schema": EXPOSURE}, "class-mismatch"),
+        ("wrong instant", {"as_of": OTHER_AS_OF}, "as-of-mismatch"),
+    ],
+)
+def test_each_FIT_CHECK_refuses_on_its_own(
+    registry: ControlPlaneRegistry, label: str, kwargs: dict, reason: str
+) -> None:
+    """Each fit check, moved ALONE, with its own refusal reason.
+
+    Close panel 2 measured that four of the six could be deleted with the
+    suite still green: the tests that existed asserted only *that something
+    refused*, which any surviving check satisfies. Naming the reason is what
+    makes each check individually load-bearing.
+    """
+    req = require(FAMILY)
+    child = served(deliver(registry, _contract(**{"schema": FAMILY, **kwargs})))
+    out = admit(registry, candidate(registry, child, req))
+    assert isinstance(out, ChildAdmissionRefusal), (label, out)
+    assert out.reason == reason, label
+
+
+def test_the_tenant_fit_check_refuses_on_its_own(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """Tenant, alone. `trust is per tenant` is the peering precedent."""
+    foreign = _contract(schema=FAMILY).model_copy(update={"tenant_id": "other-bank"})
+    out = admit(
+        registry, candidate(registry, foreign, require(FAMILY))
+    )
+    assert isinstance(out, ChildAdmissionRefusal), out
+    assert out.reason == "tenant-mismatch"
+
+
+def test_the_ADDRESS_fit_check_refuses_on_its_own(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """The address is RECOMPUTED, so a reported one that disagrees refuses."""
+    child = served(deliver(registry, _contract(schema=FAMILY)))
+    out = admit(
+        registry,
+        candidate(registry, child, require(FAMILY), address="a-forged-address"),
+    )
+    assert isinstance(out, ChildAdmissionRefusal), out
+    assert out.reason == "address-mismatch"
+
+
+def test_the_DEBT_fit_check_refuses_on_its_own(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """*Unknown debt is not zero.* A child with none is unassessable."""
+    child = served(deliver(registry, _contract(schema=FAMILY)))
+    out = admit(
+        registry,
+        candidate(registry, child.model_copy(update={"debt": None}), require(FAMILY)),
+    )
+    assert isinstance(out, ChildAdmissionRefusal), out
+    assert out.reason == "debt-unassessable"
+
+
+def test_a_forged_PRODUCER_cannot_mint_an_invocation(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """Close panel 2's HIGH finding, and the most embarrassing kind.
+
+    `ResolvedProducer` is token-minted so it cannot be forged — and its ONLY
+    consumer never asked whether it had one. An object carrying `entry.name`,
+    `entry.artifact_version`, `entry.skill_type` and `grant_hash` satisfied
+    every dereference, so the minted `ChildInvocation` recorded a grant hash
+    that was never in any ledger, while its own docstring called itself
+    evidence that a real grant resolution ran.
+
+    **The three-fact cross-check could not help**, and that is the lesson: with
+    a forged producer all three facts are values the same caller authored, so
+    they agree by construction. A capability token binds nothing unless the
+    consumer demands the type.
+
+    Reached through the public import with no reflection — `invocation_from_dispatch`,
+    `ResolvedProducer` and `resolve_producing_grant` are all in `__all__`, and
+    `CompositeChildResolverProtocol` is a documented extension point.
+    """
+    from types import SimpleNamespace
+
+    forged = SimpleNamespace(
+        entry=SimpleNamespace(
+            name="fake-skill", artifact_version="1.0.0", skill_type="local_callable"
+        ),
+        grant_hash="not-from-any-ledger",
+    )
+    with pytest.raises(ProvenanceForgeryError) as raised:
+        invocation_from_dispatch(
+            forged,  # type: ignore[arg-type]
+            SkillInvocation(
+                skill_name="fake-skill", skill_type="local_callable", output={}
+            ),
+            touched_entities=(),
+        )
+    assert "grant hash nobody granted" in str(raised.value)
+
+    # ...and the real one still works, so this is a differential.
+    real = _producer(registry, "honest-skill", FAMILY)
+    assert invocation_from_dispatch(real, dispatched("honest-skill")).grant_hash

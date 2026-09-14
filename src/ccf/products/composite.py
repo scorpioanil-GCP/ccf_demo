@@ -491,6 +491,28 @@ def invocation_from_dispatch(
             ``touched_entities`` was supplied for an acquisition that cannot
             have them.
     """
+    if not isinstance(producer, ResolvedProducer):
+        # **The second close panel's HIGH finding.** `ResolvedProducer` is
+        # token-minted so it cannot be forged — and then its ONLY consumer
+        # never asked whether it had one. A `SimpleNamespace` carrying
+        # `entry.name`, `entry.artifact_version`, `entry.skill_type` and
+        # `grant_hash` satisfied every dereference below, so the minted
+        # `ChildInvocation` recorded a grant hash that was never in any ledger
+        # while its own docstring called itself evidence that a real grant
+        # resolution ran. Measured, through the public import, with no
+        # reflection: `ACCEPTED: fake-skill 1.0.0 not-from-any-ledger`.
+        #
+        # The three-fact cross-check below did not help, and could not: with a
+        # forged producer all three facts are values the SAME caller authored,
+        # so they are self-consistent by construction. A capability token only
+        # binds anything if the consumer demands the type.
+        raise ProvenanceForgeryError(
+            "invocation_from_dispatch takes the ResolvedProducer that"
+            " ccf.products.composite.resolve_producing_grant returned, and got"
+            f" a {type(producer).__name__}. An object shaped like one carries a"
+            " grant hash nobody granted — which is the whole of what this"
+            " evidence exists to prevent (D-IMPL-336 O2, close panel 2)"
+        )
     mapped = _ACQUISITION_OF.get(type(dispatched).__name__)
     if mapped is None:
         raise ProvenanceForgeryError(
