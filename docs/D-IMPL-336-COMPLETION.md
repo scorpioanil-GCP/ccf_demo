@@ -245,7 +245,31 @@ reached the persisted record on the **served** path only.
   plus the no-grant and revoked-grant negative controls; the cross-process
   proof drives the **same** `build_composite` with only the binding changed.
 
+### The replay-record binding · **FIXED at `23c296af`**
+
+`_touched_entities` took dependency evidence from whatever record the producer
+named. The binding is now between the referenced record's
+`product_content_address` and the child's **recomputed** `content_hash(contract)`,
+established **before** the record's entities are read. Raised as
+`ChildRecordMismatch` rather than refused: evidence about another product is
+not a fact about this child's eligibility.
+
+- **Implementation:** `src/ccf/products/child_resolver.py::_touched_entities`;
+  surface entry in `336-05`.
+- **Tests:** `test_a_child_naming_ANOTHER_products_replay_record_is_refused` —
+  valid-foreign-record rejection, honest-record positive control, and the
+  binding-removal sabotage (RED, restored byte-identically).
+
 ### INT-01b · **CLOSED** (see `docs/DECISIONS.md`, 2026-09-14)
+
+**Scope, preserved exactly and not enlarged.** INT-01b is closed for: real L2
+supersession → the child's governed delivery refuses → the middle and higher
+composites propagate that refusal. It does **not** prove the composite
+admission check itself — the `F3` regressions own that check, and a mutation
+disabling `composite.py`'s local-leg register consult leaves INT-01b green
+while both `F3` tests go red. It does **not** re-prove same-age unrelated-product
+selectivity — the existing `D-IMPL-334`/`D-IMPL-335` regression owns that.
+**Not enlarged merely to make an unrelated mutation turn it red.**
 
 > `INT-01b` proves nested dependency propagation through historical
 > reconstruction. After a real L2 supersession at `T_WORLD > T0`, the same

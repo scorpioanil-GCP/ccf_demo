@@ -3583,4 +3583,29 @@ The first version pinned the leaf to an instance built at `T0` and re-served the
 
 **Next free decision id: `D-IMPL-338`** — unchanged. **Governs:** the close of `INT-01b`. **Related:** `D-IMPL-336` Amendments 4–5, `D-IMPL-334`, `D-IMPL-335`, `F15` (the one-`as_of` invariant that made the first proof invalid), `D-IMPL-337` (raised separately and untouched by this entry).
 
+---
+
+**D-IMPL-336 — the MISATTRIBUTED replay-reference defect, FIXED at `23c296af`.** RESOLVED. Date: 2026-09-14. Found by the final cross-AI review against `29d1885a`; verified by the orchestrator against `35cec2c6` before it entered the register, per Dave's ruling that reviewer assertions are not evidence.
+
+**THE DEFECT.** `ccf.products.child_resolver.GrantBoundChildResolver._touched_entities` declared a ``contract`` parameter and **never read it**. A composite child's dependency evidence — which entities the child's execution touched — was taken from whatever replay record the producing skill **named**, with no check that the record described the product being admitted. Measured:
+
+```
+my own record    -> ('entity://the-one-that-matters',)
+a FOREIGN record -> ()
+```
+
+A producer serving an honest contract **and** an honest content address, while pointing ``replay_ref`` at an unrelated resolvable record, had the invalidation register asked about the wrong product's reads — and the composite's replay row still recorded ``local-register`` as the authority that cleared it.
+
+**THE ASYMMETRY THAT MADE IT FINDABLE.** The admission gate already refuses to trust the producer on the content address, recomputing ``content_hash(contract)`` itself; ``DoorOutcome`` already binds ``replay_ref`` on the **refused** path. Only the served path left it free — and ``product_content_address`` was already a **required** field on the record, so the evidence needed to close it was present and simply unused.
+
+**`F3` closed the ABSENT-evidence case on this leg. This is the MISATTRIBUTED case**, which reads as present and passes.
+
+**THE RULED BINDING, and the repair matches it verbatim** (Dave): *"the binding is between the referenced record's product identity and the **RECOMPUTED** child content address, established **BEFORE** reading its dependency evidence."* The shipped code computes ``address = content_hash(contract)`` — never the producer-reported value — compares it against ``record.content_generation_path.product_content_address``, and does so before ``record.context_fabric_snapshot.touched_entities`` is read.
+
+**RAISED, NOT REFUSED, and the distinction is deliberate.** A governed refusal says *this child may not be composed*. ``ChildRecordMismatch`` says *the evidence offered is not about this child at all* — a producer defect or a substitution attempt, neither of which is a fact about the child's eligibility. Reporting it as one would let a misattribution be read as a governed answer.
+
+**PROOF, and all three halves Dave required are preserved.** `tests/products/test_composite_integration.py::test_a_child_naming_ANOTHER_products_replay_record_is_refused` drives the **shipped** resolver with a door that serves an honest product and swaps **only** the record reference — a real, resolvable record of a different product (the **valid-foreign-record rejection**). The **honest-record positive control** asserts the unswapped pairing still serves, so the check is a differential rather than a method that refuses everything. The **binding-removal sabotage** turns it RED, restored byte-identically.
+
+**Next free decision id: `D-IMPL-338`** — unchanged. **Governs:** the record-to-product binding on the composite's local acquisition leg. **Related:** `D-IMPL-336` Amendment 5 §3 (the ruled contract it satisfies), `F3` (the absent-evidence case on the same leg), `D-IMPL-334`/`D-IMPL-335`, `docs/D-IMPL-336-CLOSE-PANEL.md`.
+
 **Next free decision id: `D-IMPL-338`.**
