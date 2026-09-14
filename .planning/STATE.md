@@ -3,8 +3,20 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-09-13T11:05:00.000Z"
+last_updated: "2026-09-14T11:30:00.000Z"
 last_activity: >-
+  **TWO SDK DECISIONS CLOSED, RULED AND MERGED (2026-09-14). `origin/main` = `main` = `31dc12c3ae9f40593d391fbd40971ca6467b24df`, clean, 0 ahead. 49 commits on top of `374a3600`, across two branches, both now on `main`.** This sitting built NO example. **`D-GATE-336` composite Context Products** — candidate `513d5712`, merged `--no-ff` at **`78a603bb`**. **`D-GATE-337` guarded-path provenance** — candidate `1df12c6a`, merged `--no-ff` at **`31dc12c3`**. **15 shipped product trees, 237/237 gates executing, 13 of 21 rungs built — all unchanged; neither decision added or removed a product.** **NEXT: RUNG 14, `credit-memo-context` — Tier 4, algorithmic/semantic alternation and Context Debt across a multi-agent handoff. CP-14 acquisition was on HOLD for the whole of 336/337 and the confirmed merge close LIFTS IT. START AT GATE 1: pull the vault article, measure the estate, author `CP-SPEC-014`, STOP for Dave.** Next free id **`D-IMPL-338`** — re-verified against ENTRY-OPENING lines, not mentions; `D-IMPL-8888`/`9999` are `D-IMPL-201`'s documented positive-control fixtures and define nothing. Full record: `.planning/HANDOFF-2026-09-14.md`.
+
+  **`D-IMPL-336` IS THE SOCKET `D-IMPL-104` LEFT, FILLED WITH ZERO NEW WEIGHTS.** A composite declares the child product CLASSES it requires; a granted skill acquires each child (in-process / MCP / A2A / another agent); the composite rolls them up under the four PRE-RULED laws — `D-IMPL-31` per-factor debt, lineage set-union, expiry floor, mixing refusal — with aggregate debt as the per-factor maximum (`D-IMPL-104`). **The composite is a CONSUMER, not a second Control Plane: it assembles nothing atomic and re-governs nothing already governed.** Amendment 5 simplified the implementation back down to exactly that (1,910 -> ~1,666 lines in `composite.py`, five types deleted). **`MCP` IS A PEERING TRANSPORT, NOT THE CONCEPT** (`D-IMPL-59` separates them): apply the controls for the ACTUAL provider relationship, and do not demand a new signed envelope merely because acquisition used MCP; a genuinely peered product still passes peering verification however the skill retrieved it. `ChildAcquisition = Literal["local-dispatch", "mcp", "peered"]` is read from the dispatch TYPE, never from a caller's string. **TWO DETAILS THAT WILL NOT SURVIVE A CASUAL REFACTOR:** `compose_children`'s branch order is provenance -> refusal -> `None` -> `unsupported-outcome`, and reordering it changes which governed absence a caller observes; and `ChildRecordMismatch` derives from `ValueError` DELIBERATELY, because as a `RuntimeError` it escaped the MCP door's `(ValueError, TypeError, LookupError, OSError)` wrap and leaked across a boundary required to be opaque. Records: `docs/D-IMPL-336-COMPLETION.md`, `-CLOSE-PANEL.md`, `-PANEL-REVIEW.md`, `-REMEDIATION-DISPOSITION.md`.
+
+  **`D-IMPL-337` — THE RULE: if a type derives authority or validity from a guarded construction path, every publicly reachable consumer that relies on that authority must POSITIVELY VERIFY the guarded runtime type before using it; structural compatibility or duck typing is insufficient.** 336 exposed it; Dave ruled it RAISED SEPARATELY rather than widening 336 into four subsystems. **The governed unit is `entry point x authority-bearing value x external substitutability`** — not every function that touches the type, which is what keeps the rule finite and auditable. **CANONICAL ACCOUNTING: 7 DECLARED GUARDED TYPES / 9 GOVERNED BOUNDARIES.** `src/ccf/contracts/guarded.py` is the registry and single source of truth, and **EVERY FIELD IS A STRING** so it imports nothing and cannot cycle with the modules it governs; the lint resolves the strings against the tree at check time. `verifier_aliases` exists because the lint caught a REAL mismatch on its first run — `compose_children` calls the `TypeGuard` PREDICATE form, not the raising form, so a naive name match reported a genuinely governed boundary as unverified. Lint `tools/lints/guarded_provenance.py` — **IN `--all` (`every = list(CHECKERS) + list(WHOLE_TREE_CHECKERS)`) BUT WITH NO INDIVIDUAL `--guarded-provenance` FLAG, so `python -m tools.lints --help` DOES NOT LIST IT and a reader checking the help output would conclude it is unwired; PROVEN WIRED BY SABOTAGE at this save — stripping the verifier from `ccf.replay.serve:serve` turns `make lint` RED with the D-IMPL-337 message, and restoration was verified BY MARKER AND md5, never by a clean `git status`** — keys on NONE of the forbidden signals, does not scan `examples/` per `D-IMPL-261`); controls `tests/invariants/test_guarded_provenance.py`, 25 of them, four per type; design `docs/D-IMPL-337-DESIGN.md`; census `.planning/censuses/guarded_type_census_v3.py`.
+
+  **`isinstance` IS INSUFFICIENT, BY MEASUREMENT, NOT BY ARGUMENT.** A subclass skipping `__init__` and `object.__new__(Cls)` BOTH satisfy it and reach a real `ServedProduct` with the gates never run. The project had already settled this before 337 existed, at `src/ccf/controlplane/state.py::_verify`, pinned by `tests/invariants/test_state_seam_closure.py::test_a_token_subclass_skipping_init_cannot_succeed`: *"isinstance is not the gate — the mint is verified at the write."* The mechanism applied uniformly is the mint/sentinel — `getattr(v, "_x_provenance", None) is _X_TOKEN`, raising a NAMED bypass error otherwise: `GateBypassError` at `products/gates.py`, `AdmissionBypassError` at `peering/admission.py`, `ProvenanceForgeryError` at `products/composite.py`. **THE THREAT MODEL IS UNCHANGED AND IS STATED IN THE MODULES: this is the SUPPORTED-INTERFACE threat model and NOT authorization to defend against arbitrary Python reflection or module patching.** **TWO RESIDUALS, RULED NOT TO BE FIXED:** the third-party `ControlPlaneStateStore` Protocol enforcement limitation; and `AmbiguousProducerError` escaping the MCP opaque-failure posture (`D-IMPL-253` Q20 — a runtime failure crosses a door as an opaque `ccf-runtime-failure` id, no message, no type name, no traceback), which needs its OWN decision if that door is ever repaired.
+
+  **POST-MERGE VERIFICATION ON THE MERGE COMMIT `31dc12c3`, sequentially, nothing else touching the tree:** `make lint` clean; `make typecheck` **223 source files, no issues**; `make product-gates` **15 trees, 237 declared, 237 executing**; guarded-provenance + composite suites **90 passed**; full suite **46 failed, 4,402 passed, 25 skipped**. **`make typecheck` IS THE PRESCRIBED TARGET AND `mypy src/ccf` IS THE WRONG ONE** — it reads 149 files where the prescribed target reads 223 (`src` + `runtime`), so a green `mypy src/ccf` is not evidence about this repo. **THE 46 ARE THE STANDING ROSTER, COMPARED BY EXACT TEST IDENTITY against the pre-337 baseline `78a603bb`: NEW none, GONE none, ROSTER IDENTICAL.** Nothing absorbed, nothing introduced; `main` has carried standing reds since 2026-08-26 for causes predating both decisions. Merge-close confirmations: candidate `1df12c6a` IS an ancestor of `main`; `main` == `origin/main` == `31dc12c3`; tree clean (0 entries).
+
+  **WHAT THIS SITTING TAUGHT, AND THE FIRST ONE IS THE EXPENSIVE ONE.** (1) **A POPULATION CENSUS BEATS SAMPLING AND COSTS LESS.** Three separately-reported *"mechanism defects"* were three samples from a population of **15 consumer sites, of which exactly 1 verified**; **45 agents across two cross-AI panels found two instances, and a 40-line AST census found the whole population in under a second.** When the same defect recurs, STOP FIXING INSTANCES AND ENUMERATE THE POPULATION. (2) **SABOTAGE THE INVOCATION BOUNDARY, NOT JUST THE VERIFIER** — sabotage S7 reverted the CALL SITE to `isinstance` and **all 24 controls stayed green**, because every one exercised the verifier function directly; closed by `test_the_INVOCATION_BOUNDARY_refuses_a_nominal_forgery`. (3) **A TEST CAN BE TAUTOLOGICAL BY CONSTRUCTION** — R2 asserted `debt == context_debt(factors)`, true by construction under `_reassess`, caught by an independent reviewer and not by the suite. (4) **`F15`, THE ONE-`as_of` INVARIANT, FIRES BEFORE DEPENDENCY INVALIDATION** — INT-01b's first version pinned a cached leaf and measured `as-of-mismatch` instead, PASSING FOR THE WRONG REASON, and was exposed only because SABOTAGE 2 STAYED GREEN; rewritten as a historical reconstruction. (5) ***"PRE-EXISTING" IS MEASURED AGAINST THE PHASE BASE, NEVER AGAINST A STASH*** — stashing removes only UNCOMMITTED work and the cause was in my commits. (6) **`git checkout src/` DESTROYED MY OWN UNCOMMITTED FIX** while restoring a sabotage, and `git status` went clean as though nothing had happened — **verify restoration BY MARKER, never by a clean `git status`.** (7) **RUNNING THE GENERATOR IS NOT RUNNING THE GATE** — `test_surface_drift` was RED on the branch and GREEN on `main`, the only unclaimed names were the branch's headline deliverable, and I had run `make surface-changes` and never run the gate. (8) **AN ACCOUNTING ERROR REACHED DAVE** — I reported *"all seven sites"*, a design-phase census figure, while the registry declared **nine** governed boundaries; census v2 over-credited, v1 under-counted, v3 filed `ProductSource.__init__` as module-private BECAUSE THE FUNCTION NAME BEGINS WITH AN UNDERSCORE, and a 7th governed site was found by review rather than by the instrument. **State the population in the same breath as the number, and name the instrument that produced it.**
+
   **RUNG 13 IS GATED, MERGED AND PUSHED (2026-09-13). `D-GATE-cp-13` approved; the `--no-ff` merge is `1af951e7` and `origin/main` = `1af951e7`.** `examples/cp-13-covenant-cross-reference` — `credit-risk.covenant-cross-reference.v1`, **the first Tier-4 product: MongoDB enters and the evidence becomes text.** Reads THREE stores READ-ONLY — Postgres `ccf_v2` (entitlement), Fluree `fibo-v2` (typed relationships and anchors), Mongo `fibo_v2` (text and spans). **22 gates, 19 `passed` / 3 `unavailable` / 0 `not-required`, all 22 observed RED under sabotage. 16 findings, NONE OPEN. No SDK change.** 15 shipped trees, 237/237 gates executing. **13 of 21 rungs built. NEXT: RUNG 14, `credit-memo-context` — Tier 4, algorithmic/semantic alternation and Context Debt across a multi-agent handoff. START AT GATE 1: pull the vault article, measure the estate, author `CP-SPEC-014`, STOP for Dave.** Next free id **`D-IMPL-336`**, unchanged — a gate entry spends none.
 
   **THE RUNG'S CENTRAL TRAP IS A CORRECT SPAN THAT CANNOT BE AUDITED** (`CP13-F-14`, `CXR-G19`). All **49** `ex:CovenantDefinition` nodes carry offsets landing on exactly the right words — `"Consolidated Fixed Charge Coverage Ratio" means, for any Measurement Period…` — and **0 carry `passageSha256` or `ex:evidencedBy`**, with no indexed passage matching or containing the span. Measured through the gate's own defective mechanism: **48 extractable, 47 reading as genuine definitions, 0 auditable.** A wrong citation is caught by a hash; an unauditable one is caught only by a product that refuses to emit what it cannot check — **while the text on screen is visibly correct.** The gate asserts the extracted text IS a real definition, because a gate that could only show the text was wrong would be proving the easy case. **The citation unit is the named passage reached through `ex:evidencedBy`, re-hashed; `acquisition._cite` is the only constructor.**
@@ -1239,184 +1251,20 @@ progress:
     bullet is struck through as superseded). The first is the EXACT error recorded against
     a prior session and repeated here. Neither row nor bullet was ever missing."
 stopped_at: >-
-  Between phases. 24.4 closed and merged at d81d759; 24.5 banked at D-IMPL-235 with a ROADMAP entry, a phase
-  directory and a .continue-here.md; nothing in flight. Resume with /gsd-discuss-phase 24.5. PRIOR FOLLOWS.
-  **PHASE 24.4 IS CLOSED -- `D-GATE-24.4` APPROVED (Dave, 2026-09-01) and merged to `main`
-  `--no-ff`.** Nothing is in flight. The next rung of the Context Product ladder is Dave's to name.
-  Open items that PREDATE this phase and are not its debt: cp-01/02/03's one-document exemption claims
-  are unruled (`D-IMPL-234` carves the one red test to them); `D-IMPL-221`'s cp-02 history. The
-  phase's own 17 deferred rows live in `deferred-items.md`. Next free decision id `D-IMPL-235`.
-  PRIOR:
-  **PHASE 24.4 IS PAUSED AFTER ITS BUILD, AWAITING DAVE'S EVALUATION OF THE PRODUCT.** 14 of 14
-  plans complete. The stop is the DELIVERABLE, not a blocker: `example_delivery.md` sections 1 and
-  11 put the pause after the build and before any close panel, `D-GATE` or completion mark, and
-  Dave validates that `examples/cp-04-corporate-family-tree` runs from a cold shell himself.
-  **Nothing is closed** -- `docs/DECISIONS.md` has no `D-GATE-24.4` entry (0 entry-opening lines,
-  against a control of 1 for `D-GATE-24.3`), `ROADMAP.md` is untouched, no milestone is marked
-  complete. **The next event is Dave's evaluation.** He resumes with "approved" for the close
-  protocol, or with what to fix. **Five items need his ruling and none was decided by the
-  executor:** criterion 37's wording versus the measured `resources/list`; whether the
-  `mkdocs.yml` cp-04 comment stays; cycle 2's unservability; the three gates that passed their own
-  sabotage as worded (all rewritten before shipping); and the plan text that named eight gaps
-  where criterion 49 names eleven. See `## Current Position` above and `24.4-14-SUMMARY.md`.
-  PRIOR: **PHASE 24.1: WAVES 1-10 OF 11 DONE. WAVE 10 IS PARKED ON EXACTLY ONE DAVE DECISION AND
-  WAVE 11 CANNOT START UNTIL IT LANDS.**
-  **THE DECISION -- BLOCKER A.** `tests/products/test_gate_two_call_shape.py`
-  `MAXIMUM_ONE_DOCUMENT_DEPLOYMENTS = 1`, no headroom BY DESIGN so a human rules on each
-  addition. `cp-00` is a genuine second claimant beside `s1-00`. **Option 1 (recommended):
-  raise to 2, NAME `cp-00` in the commit message** -- the constant's own comment instructs
-  exactly this, and it touches `tests/` only so criterion 16 survives. **Option 2: give
-  `cp-00` a second Control Plane document** -- undoes `D-51`'s one-document teaching point
-  and is a BUILD. **DO NOT accept the executor's citation of `D-IMPL-146` as a standing
-  prohibition**: `146` refused a raise because the DETECTOR was wrong; here the detector is
-  right and the failing assertion is a ROSTER that names both claimants. Two assertions in
-  that one module are the ONLY remaining `make ci` failures.
-  **DO NOT RE-DERIVE ANY COUNT FROM THIS BLOCK (`D-65`).** It is a cached measurement.
-  Re-enumerate from the tree: findings from
-  `.planning/phases/24.1-*/deferred-items.md` and `24.1-PRESSURE-TEST.md` §4.1;
-  gate state from `make ci` chunked in the FOREGROUND; criteria from `ROADMAP.md`
-  `### Phase 24.1`. **A roster of ids, never a cardinality.**
-  Gates at `4cb235e`: `tools.lints --all` **rc=0**; `tests/examples` **537 passed / 0 failed
-  / 37 skipped**; `docs-strict` **0/0/0/0**; `tests/products` + `tests/invariants` **2
-  assertions failing, both Blocker A**. `src/` and `runtime/` diff-empty against
-  `phase-24.1-base` (142 and 71 tracked files) -- the phase built NOTHING in the SDK, which
-  is the point. Findings recorded and NONE closed; the SDK-side roster is the ONLY list
-  `D-05` reads for drift and it is **FOUR: empty-operator-gate-two-assertions (Wave 3),
-  `ProductClassDeclaration` MAX_TTL seconds (Wave 4), `build_operator_registry`
-  deployment-operator seam (Wave 5, `D-59`), `ContextAssemblerProtocol.assemble` return type
-  (Wave 5, `D-60`)** -- verify that roster against the tree before quoting it.
-  **AFTER BLOCKER A: re-run `make ci` chunked foreground, re-assert criterion 19, then Wave
-  11 = CLAUDE.md §3.1 close (cross-AI panel `--all` -> single-agent review -> verify EVERY
-  finding -> fix blocking in-phase -> present to Dave), which STOPS FOR DAVE.** `D-58`'s
-  short SDK phase for `D-59`/`D-60` is schedulable AFTER this phase. PRIOR STATE AT WAVE 8:
-  **PHASE 24.1 IS EXECUTING ON BRANCH `phase-24.1`. WAVES 1-8 OF 11 ARE COMPLETE.**
-  **Wave 8's BLOCKING human gate is DISCHARGED (`D-63`, Dave, 2026-08-26).** **NEXT:
-  Waves 9 and 10, both autonomous; Wave 11 (§3.1 close) STOPS FOR DAVE.** ONE deliberate
-  red signal remains and **WAVE 9 TASK 2 OWNS IT**: `tools.lints --all` rc=1 with exactly
-  2 `DOCS-11` findings, `.planning/REQUIREMENTS.md:36` and `:330`, citing the renamed
-  `::SECTION_ONE_GLOB` -- re-point both at
-  `tests/examples/test_spine_separation.py::SPINE_GLOBS`. The README red is CLOSED.
-  `tests/examples` stands at **537 passed / 0 failed / 37 skipped**; `docs-strict`
-  **0/0/0/0**. Criterion 19 wants `make ci` green at the GATE commit = Wave 10.
-  Running total: **SEVEN** recorded findings, none closed -- **FOUR on the SDK surface**
-  (the only number `D-05` reads for drift) and **THREE in TOOLING**, from Waves 6, 7 and 8
-  respectively. `cp-00` is green, so `D-58`'s short SDK phase for `D-59`/`D-60` is
-  SCHEDULABLE after this one. **STILL UNRULED: §F marker 15** -- measured p50/p95 latency
-  and per-call cost, owed by *"the wave that runs the assembly"*. Orchestrator recommends
-  **Wave 10** and needs the ruling BEFORE Wave 10. PRIOR STATE AT WAVE 7:
-  **PHASE 24.1 IS EXECUTING ON BRANCH `phase-24.1`. WAVES 1-7 OF 11 ARE COMPLETE.**
-  **NEXT: Wave 8, AND IT STOPS FOR DAVE** -- the docs wave (`D-28`: a deep example
-  README **and** a published page, both, because Dave chose both explicitly). **DO NOT
-  BE ALARMED BY A RED TREE AT THIS POINT: `make ci` IS DELIBERATELY RED BETWEEN WAVES
-  7 AND 9 AND BOTH SIGNALS HAVE A NAMED CLOSER** -- 4 `test_cp_readme_template.py`
-  failures that WAVE 8 turns green by writing the README, and `tools.lints --all` rc=1
-  with exactly 2 `DOCS-11` citation findings that **WAVE 9 TASK 2** turns green by
-  re-pointing `.planning/REQUIREMENTS.md:36` and `:330` at
-  `tests/examples/test_spine_separation.py::SPINE_GLOBS`. Criterion 19 wants green at
-  the GATE commit, which is Wave 10. `tests/examples` stands at **532 passed / 4
-  failed / 38 skipped**. Running total: **SIX** recorded findings, none closed --
-  **FOUR on the SDK surface** (the number `D-05` reads for drift) and **TWO in
-  TOOLING**. `cp-00` is green, so `D-58`'s short SDK phase for `D-59`/`D-60` is
-  SCHEDULABLE after this one. **UNRULED AND WAITING: §F marker 15** -- measured p50/p95
-  latency and per-call cost, owed by *"the wave that runs the assembly"*; Waves 5 and 6
-  both were and nobody measured a latency. Orchestrator recommends **Wave 10**; Dave's
-  call. PRIOR STATE AT WAVE 6:
-  **PHASE 24.1 IS EXECUTING ON BRANCH `phase-24.1`. WAVES 1-6 OF 11 ARE COMPLETE.**
-  **NEXT: Wave 7** (the three structural gates, and the one `cp-*` must deliberately
-  stay OUTSIDE with the reason WRITTEN INTO the test -- `D-23`/`D-24`). Waves 7, 9 and
-  10 are autonomous; **Wave 8 (docs: deep README + published page, `D-28`) and Wave 11
-  (§3.1 close: cross-AI panel -> single-agent review -> Dave) STOP FOR DAVE.** Wave 6's
-  pre-wave key-links check reports both of Wave 7's links unverified -- EXPECTED, both
-  name files Wave 7 itself creates, which step 7b says to skip. Running total: **FIVE**
-  recorded findings, none closed; `cp-00` is green so `D-58`'s short SDK phase for
-  `D-59`/`D-60` is now schedulable, AFTER this phase. **UNRULED AND WAITING: §F marker
-  15** -- measured p50/p95 latency and per-call cost, owed by *"the wave that runs the
-  assembly"*, which Waves 5 and 6 both were. Nobody has measured a latency; whether a
-  remaining wave takes it is Dave's call. PRIOR STATE AT WAVE 3:
-  **PHASE 24.1 IS EXECUTING ON BRANCH `phase-24.1`. WAVES 1-3 OF 11 ARE COMPLETE.**
-  Base tag `phase-24.1-base` = `d50924c` (= `main`). Nineteen Success Criteria LOCKED
-  before planning (`D-GATE-19`); criterion 3 carries a MARKED amendment. The spec
-  `examples/cp-00-institutional-holders/spec/CP-SPEC-000-institutional-holders.md` is
-  COMPLETE to the Standard (front matter + SSA-SSG) and `artifacts/assembly-recipe.yaml`
-  carries the SSD table as data with one runtime witness per step. **NEXT: Wave 4.**
-  Waves 4-7 are autonomous; **Wave 8 (docs) and Wave 11 (SS3.1 close) STOP for Dave.**
-  `src/` and `runtime/` are diff-empty against the base and MUST STAY SO -- the phase
-  builds nothing in the SDK; gaps are RECORDED, never closed (`D-04`). Forty-six
-  decisions `D-01`..`D-46` in `24-CONTEXT.md`; **ids are STABLE and never renumbered**
-  (`D-31`), and that file QUOTES ITS OWN SUPERSEDED TEXT inside corrections, so anchor
-  on the operative sentence rather than a grep hit (`D-32`). New decision entries start
-  at `D-IMPL-212` -- `202`-`211` are reserved candidates. PRIOR STATE:
-  **PHASE 23.1 IS CLOSED, GATED AND MERGED. NOTHING IS IN FLIGHT.** `D-GATE-23.1` logged
-  2026-08-25 (Dave). **NEXT ACTION: discuss and plan Phase 24 (Context Production)** -- it
-  starts on this gate, per Dave. Its criteria are NOT written and that is deliberate
-  (`D-GATE-19` locks them at the discuss sitting). **TWO SDK-SURFACE QUESTIONS GATE ITS
-  PLANNING AND ARE DAVE'S:** the closed EIGHT-operator vocabulary against the SDK's FOUR
-  categories, and the standard's SIX universal validation gates against the SDK's THREE
-  where `D-IMPL-102` limb 3 has already ruled no fourth joins `run_gates`. **DO NOT run
-  `complete-milestone`** -- blocked for the structural reason named in `D-GATE-23.1` -- and
-  **NEVER run `new-milestone` before it**. **OWED, NAMED, NOT FIXED:** the shipped
-  `channel_disagreements` blind spot (four rows, five waves; fixing it is BUILDING), the
-  four Dave-owned reading items `#2`-`#5` (NOT dischargeable at `D-GATE-24`), the
-  `D-IMPL-144` residual at 34, and DELETION for every scheduled row. PRIOR STATE:
-  **PHASE 23.1 IS THE NEXT PHASE AND IT IS NOT YET PLANNED. NOTHING IS IN FLIGHT.**
-  Its NINETEEN Success Criteria are LOCKED in the ROADMAP entry (`dcd8cad` + the criterion
-  19 follow-up) and were written BEFORE planning per `D-GATE-19`. Two of Dave's rulings are
-  RECORDED there rather than re-litigated: `D-27`'s `00`-`08` half is **KEEP-QUARANTINED
-  for v0.2** (criterion 7 LOGS it, does not make it, and DELETION STAYS OWED), and the four
-  `[run]` packet items split with `#1` reserved to Dave by `D-13`/`D-IMPL-70` and `#10`
-  needing GitHub Actions output this session cannot fetch. **Phase 24 (Context Production)
-  starts as soon as `D-GATE-23.1` lands** -- Dave confirmed this explicitly. NEXT ACTION:
-  `plan-phase 23.1`. PRIOR STATE:
-  **PHASE 23 IS CLOSED, GATED AND MERGED. NOTHING IS IN FLIGHT.**
-  `D-GATE-23` logged 2026-08-25 (Dave). Branch `phase-23`, `PHASE_BASE` `b87fe58`, **76
-  commits**, merged to `main --no-ff` naming the entry. `D-GATE-21`, `D-GATE-21.1`,
-  `D-GATE-22` and `D-GATE-22.1` remain in force and are not amended.
-  **THE MOVE IS DONE AND NOTHING WAS DELETED.** 265 files at `archive/examples/`, 58 under
-  `examples/` (`s1-00`, `s1-01`, `hw1-companies-over-revenue`, `hw1-harness-clients`).
-  **DELETION IS STILL OWED for every scheduled row** (`D-IMPL-191` ruling 3) -- an archived
-  path CONTINUES to count as a live coupling, which is what the re-pointed sweep enforces.
-  **WHAT A NEXT SESSION MUST NOT DO.** Do NOT run `complete-milestone`. The v0.2 milestone is
-  NOT done even though every ROADMAP phase reads checked: `DOCS-07`..`DOCS-19` remain
-  undischarged against retired Phase 16, `Not built` rows are still owed, and 27
-  `human_needed` items are named and not discharged.
-  **OPEN FOR DAVE, CARRIED PAST THIS GATE BY HIS OWN RULING:** the DELETION half of `D-27`;
-  the two `CLNT-17` framing questions, RAISED AND EXPRESSLY NOT RULED (content-hash EQUAL at
-  both ends, still `Not built`); `DOCS-14`/`EXAM-02`'s replacement surface; and deferred items
-  7-10 in
-  `.planning/phases/23-the-archive-move-retiring-the-ten-condemned-example-trees-wi/deferred-items.md`
-  with their exact edits named.
-  **THE OWED FOLLOW-UP FROM THIS GATE.** Criterion 15's TEXT should be updated in a small
-  follow-up so a later phase inherits the chunked-foreground reading from the criterion rather
-  than from `D-GATE-23`. Until that lands, `D-GATE-23` is the governing statement, and its four
-  conditions bind: `make -n ci` proves the chunk list IS the full recipe; every constituent
-  command runs FOREGROUND with its exit code recorded; the deviation is NAMED wherever it is
-  used; and criterion 15's coverage proof is discharged. Backgrounding the whole pipeline,
-  claiming *"make ci green"* without naming the chunking, and silent substitution are all
-  expressly refused.
-  **SIX STANDING HAZARDS, recorded so a later session does not re-derive them.** (1) THE
-  CITATION LINT IS GREEN AND FALSE on stale paths via a suffix fallback -- `tools.lints --all`
-  at exit 0 is NOT proof a path exists. (2) TESTS GO QUIET RATHER THAN RED in at least six
-  distinct ways found in this phase: a `.PHONY` name with NO RULE exits 0 printing *"Nothing to
-  be done"*; an out-of-range `--8<--` line slice renders an EMPTY code block at exit 0
-  (`check_paths: true` guards a missing file and a missing named section and guards a line
-  range NOT AT ALL -- the workaround is REJECTED, do not reinstate it); an empty diff from a
-  broken command is indistinguishable from a clean tree; an empty schedule kills pytest
-  collection so a sabotage cannot be observed at all; a misspelled pathspec and a clean tree
-  are the same string; and a predicate that SUMS where it should quantify PER MEMBER reports
-  clean over a member it never examined (`B1`, this phase). (3) `git checkout --` CAN DESTROY
-  AN UNCOMMITTED FIX while `git diff --quiet` reports success -- back up OUTSIDE the tree.
-  (4) BACKGROUND BASH DIES AT ~8-10 MINUTES on this host and a killed run looks EXACTLY like a
-  pass; run long legs FOREGROUND, chunked, with coverage proven. (5) `ccf` is
-  editable-installed, so a broken `parents[N]` cannot fail and no gate in this repo can witness
-  that class. (6) **REGENERATE `docs/surface/examples/RETIREMENT-COUPLINGS.md` LAST, in the
-  venv, after EVERY `.planning/` write including SUMMARYs** -- the sweep walks `.planning/`,
-  and this ordering was got wrong twice in this phase.
-  **PROCESS RULES THAT HELD AND MUST KEEP HOLDING.** `.planning/STATE.md` and `ROADMAP.md` are
-  **HAND-EDIT ONLY** (`D-15`); no `state.*` or `roadmap.*` writer was invoked in any wave of
-  this phase. ROADMAP success criteria **PARSE ONE PER LINE** -- a wrapped criterion becomes a
-  separate verification truth. Never write an anchored `path.py:LINE` citation; use
-  `path.py::symbol` (`D-IMPL-114`), because the anchored form is what made `make ci` red for
-  three waves against `D-IMPL-123`'s ceiling of zero.
+  Between decisions, on `main`, clean. `D-IMPL-336` and `D-IMPL-337` are both CLOSED, RULED and MERGED;
+  `origin/main` = `main` = `31dc12c3`, 0 ahead, tree clean, nothing in flight and no branch half-done.
+  **NEXT IS RUNG 14, `credit-memo-context` — Tier 4. CP-14 acquisition was on HOLD for the whole of
+  336/337 and the confirmed merge close LIFTS THAT HOLD.** **START AT GATE 1** and stop there: pull the
+  vault article, MEASURE THE ESTATE, author `spec/CP-SPEC-014` to the Context Product Specification
+  Standard v0.3, and STOP for Dave's ruling. Specs come before code; cp-06 is the recorded
+  counter-example of inverting it. **Before designing anything whose subject is freshness, check the
+  estate can DISCRIMINATE** — cp-08 taught this the expensive way, with `D_c` reading 0 on every answer
+  under every scorer because every observation was minted from a live read inside the run. **Every
+  example needs, and a gate checks each:** `spec/CP-SPEC-0NN`; `README.md` with SEVEN headings, exact
+  names and order; `FINDINGS.md` as the authoritative findings record with every `CPNN-F-NN` id resolving
+  there; and `artifacts/gates.yaml` where every declared gate has an EXECUTING test whose docstring names
+  the id. **Look for the gate BEFORE writing the artifact.** Next free decision id **`D-IMPL-338`**.
+  Full record of the two merged decisions: `.planning/HANDOFF-2026-09-14.md`.
 ---
 
 # STATE — CCF SDK
