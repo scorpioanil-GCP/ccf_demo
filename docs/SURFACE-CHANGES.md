@@ -23,7 +23,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1142 entries**, of which **898** name a public Python surface.
+**1143 entries**, of which **899** name a public Python surface.
 
 ## Added
 
@@ -17730,7 +17730,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-143 entries — 123 public Python surface, 20 not public Python API.
+144 entries — 124 public Python surface, 20 not public Python API.
 
 ### Public Python surface
 
@@ -20639,6 +20639,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none. Only a caller that both declares a binding and bypasses `GovernedResolver` can reach it, and that caller was previously producing the silent failure above.
 
 *Recorded by `24.11-04-an-operator-parameter-may-be-request-bound.md`.*
+
+#### ccf.products.resolver.GovernedResolver.__call__
+
+- Surface: ccf.products.resolver.GovernedResolver.__call__
+- Public surface: true
+- Change type: behavior
+- Before: a composite refused by the universal gates, the declared product gate or the tolerance comparison recorded no `child_resolutions`, although its children had been acquired and composed
+- After: every refusal reached after child acquisition records the same child rows the served path records; refusals reached before acquisition record `()`
+- Why: a tolerance refusal is the case that most needs its children named — the debt it refused on is inherited — and it was the case the record was silent about
+- Migration: none — no signature or record shape changes; a deployment substituting its own `RefusalRecorderProtocol` already receives `child_resolutions` and should forward it
+
+*Recorded by `338-01-child-evidence-survives-every-downstream-refusal.md`.*
 
 #### ccf.products.resolver.GovernedResolver.__call__
 
