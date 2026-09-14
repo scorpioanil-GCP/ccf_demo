@@ -156,7 +156,7 @@ from __future__ import annotations
 from collections.abc import Sized
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Final, Literal, Never
+from typing import Final, Literal, Never, cast
 
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
@@ -196,6 +196,7 @@ __all__ = [
     "LineageMismatchRefusal",
     "ProductInvariantRefusal",
     "ServableProduct",
+    "verify_gate_provenance",
     "ServableProductNotAModel",
     "TTLRefusal",
     "ToleranceExceededRefusal",
@@ -705,6 +706,42 @@ class _ServableProductMeta(type):
         )
 
 
+def verify_gate_provenance(product: object) -> "ServableProduct":
+    """Establish that ``product`` came through the three validation gates.
+
+    `D-IMPL-337`'s verifier for :class:`ServableProduct`. **The check is the
+    provenance, not the type**, and the difference is exploitable rather than
+    academic: `isinstance` admits a subclass that skipped the guarded
+    ``__init__`` and admits ``object.__new__``, both of which were measured
+    reaching a served product with no gate having run.
+
+    Returns the value, narrowed, so a caller writes
+    ``product = verify_gate_provenance(product)`` and cannot forget to use the
+    result.
+
+    **Internal callees do not repeat this.** `D-IMPL-337` governs the boundary
+    where an externally substitutable value arrives; everything downstream of
+    an established value inherits it.
+
+    Raises:
+        GateBypassError: the value did not come through :func:`run_gates`.
+            Raised rather than refused: a value with no gate provenance is not
+            a product whose governance failed, it is not a governed product at
+            all, and reporting it as a refusal would make an absent gate look
+            like a gate that said no.
+    """
+    if getattr(product, "_gate_provenance", None) is not _GATE_TOKEN:
+        raise GateBypassError(
+            "this value carries no evidence of having passed the three"
+            " validation gates. ccf.products.gates.run_gates is the only path"
+            " that establishes it, and neither a structurally compatible"
+            " object nor a subclass of ServableProduct that skipped its"
+            " guarded __init__ acquires it (D-IMPL-337; whitepaper §7.6,"
+            " INV-CH7-52)"
+        )
+    return cast(ServableProduct, product)
+
+
 class ServableProduct(metaclass=_ServableProductMeta):
     """A product that passed all three gates — the only servable form.
 
@@ -748,6 +785,13 @@ class ServableProduct(metaclass=_ServableProductMeta):
                 "(whitepaper §7.6, INV-CH7-52)"
             )
         self._product = product
+        # `D-IMPL-337`. The PROVENANCE, distinct from the type. Set only here,
+        # on the only path that runs the gates — so a value that has it came
+        # through that path, and `isinstance` says nothing about whether it
+        # did. Measured before this line existed: `class F(ServableProduct)`
+        # skipping `super().__init__` passed `isinstance` and reached a served
+        # product with the gates never run.
+        self._gate_provenance = _GATE_TOKEN
 
     @property
     def product(self) -> ContextProductContract:
@@ -871,6 +915,10 @@ def refuse_over_tolerance(
         :class:`ToleranceExceededRefusal` naming the authority, the tolerance
         and what was observed.
     """
+    # `D-IMPL-337`. A governed boundary: exported, and the tolerance below is
+    # held against a product whose gate authority this function relies on.
+    product = verify_gate_provenance(product)
+
     if tolerance is None:
         return None
     presented = tolerance.value

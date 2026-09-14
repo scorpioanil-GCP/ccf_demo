@@ -31,7 +31,7 @@ implicated because there is nothing here that could write. The admission
 gate's own words carry the same force and are quoted here deliberately —
 *"Admission is not a write. What this value confers is the right to be
 offered to L2 — L2 remains the only holder of a graph write handle"*
-(`AdmittedProduct` at src/ccf/peering/admission.py:507) — and mounting is
+(`AdmittedProduct` at src/ccf/peering/admission.py::AdmittedProduct) — and mounting is
 less than an offer: a mounted product is *read*, never offered to L2 at all.
 
 **Why mount performs no payload-size ceiling of its own.** The admission
@@ -83,7 +83,7 @@ from ccf.graph.reader import (
     Row,
     materialize_view,
 )
-from ccf.peering.admission import AdmittedProduct
+from ccf.peering.admission import AdmittedProduct, verify_admission_provenance
 from ccf.products.gates import GateRefusal
 
 __ccf_mode__ = "algorithmic"
@@ -253,6 +253,11 @@ def mount_product_source(
         :class:`ProductMountRefusal` naming what was missing or invalid —
         a returned value, never an exception.
     """
+    # `D-IMPL-337`. A governed boundary: exported, and mounting relies on the
+    # authority that only Control Plane peering admission establishes. A
+    # bypass here puts an unverified federated product on the path toward L3.
+    admitted = verify_admission_provenance(admitted)
+
     payload = admitted.product.payload
     graph_state = payload.get(_GRAPH_STATE_KEY)
     if not isinstance(graph_state, Mapping):
@@ -362,6 +367,14 @@ class ProductSource:
                 validated against
                 :class:`~ccf.graph.protocols.RelationshipRecord`.
         """
+        # `D-IMPL-337`. A governed boundary in its own right: `ProductSource`
+        # is in `__all__` and this constructor is private BY CONVENTION only,
+        # so an externally supplied value reaches it without passing
+        # `mount_product_source`. The census filed this as module-private on
+        # the strength of the leading underscore in `__init__` — its own false
+        # negative, and the reason the registry is the source of truth.
+        admitted = verify_admission_provenance(admitted)
+
         self._admitted = admitted
         self._tenant_id = admitted.product.tenant_id
         self._entities = entities

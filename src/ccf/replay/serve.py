@@ -61,7 +61,7 @@ from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
 from ccf.graph.protocols import GraphQuery
 from ccf.products.contract import ContextProductContract
-from ccf.products.gates import ServableProduct
+from ccf.products.gates import ServableProduct, verify_gate_provenance
 from ccf.replay.record import DecisionReplayRecord
 
 __ccf_mode__ = "algorithmic"
@@ -167,7 +167,13 @@ class DeliveryCapability:
         return self._replay_ref
 
     def deliver(self, product: ServableProduct) -> ServedProduct:
-        """Release ``product`` to the caller, paired with its replay reference."""
+        """Release ``product`` to the caller, paired with its replay reference.
+
+        **A governed boundary** (`D-IMPL-337`). Separately reachable from
+        :func:`serve`, so it establishes gate provenance itself rather than
+        assuming its caller did — this is the entry the measured exploit used.
+        """
+        product = verify_gate_provenance(product)
         return ServedProduct(product=product.product, replay_ref=self._replay_ref)
 
 
@@ -320,6 +326,13 @@ def serve(
             persist them, or a configured writer was given a record that pins
             queries nobody handed in. Raised before any store write.
     """
+    # `D-IMPL-337`. A governed boundary: `product` is externally substitutable
+    # and everything below relies on the authority that only the gates
+    # establish. Verified BEFORE the record is appended — a record written for
+    # a value with no gate provenance would be an audit trail for a decision
+    # the fabric never made.
+    product = verify_gate_provenance(product)
+
     # R-01 (`D-IMPL-279`): the record must be ABOUT the product being served.
     # First, because a mis-wired resolver is a defect and there is no reason to
     # check anything else about a record that does not describe what is
