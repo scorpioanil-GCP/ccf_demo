@@ -53,7 +53,7 @@ import hashlib
 import json
 import pathlib
 from collections.abc import Iterable, Mapping
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Final, Protocol, runtime_checkable
 
 from joserfc import jws
 from joserfc.errors import JoseError
@@ -177,6 +177,33 @@ def _b64url_decode(text: str) -> bytes:
         ) from error
 
 
+#: The largest protected header this build will sign or verify, in bytes.
+#:
+#: `D-IMPL-336` **R1**, and it was a BLOCKING defect rather than a tuning
+#: question: ``joserfc``'s :class:`~joserfc.jws.JWSRegistry` defaults
+#: ``max_header_length`` to **512** and ``_registry_declaring`` never set it,
+#: so the peered composite path was **unreachable** — every honest envelope
+#: carrying a child-eligibility assertion exceeded the cap and raised before
+#: any CCF check ran. Measured on this tree: the encoded assertion is **448
+#: bytes** and a complete protected header with ``alg``, ``kid``, a producer
+#: assertion and that assertion is **621 bytes**.
+#:
+#: **This is a wire-format bound, not a domain value** — the same class as
+#: ``joserfc``'s own 128000-byte payload cap, and it is declared here rather
+#: than left to the library's default because the default was chosen for
+#: envelopes that carry no CCF assertion. It is deliberately still a BOUND: an
+#: unbounded header would let a peer force arbitrary allocation before its
+#: signature is checked, and
+#: ``test_an_oversized_protected_header_is_still_refused`` holds it to that.
+#:
+#: Derived, not picked: the header's variable members are the producer hash
+#: (64 hex), one encoded eligibility assertion, and two URIs. 2048 leaves
+#: roughly 3x headroom over the measured 621 for longer consumer scopes and
+#: composition identities, while staying two orders of magnitude below the
+#: payload cap.
+MAX_PROTECTED_HEADER_BYTES: Final = 2048
+
+
 def _registry_declaring(names: Iterable[str], *, algorithm: str) -> JWSRegistry:
     """Return a JWS registry that *declares* ``names`` as string headers.
 
@@ -195,7 +222,12 @@ def _registry_declaring(names: Iterable[str], *, algorithm: str) -> JWSRegistry:
             declared[name] = HeaderParameter(
                 "CCF emitter assertion, covered by the signature", "str"
             )
-    return JWSRegistry(header_registry=declared, algorithms=[algorithm])
+    registry = JWSRegistry(header_registry=declared, algorithms=[algorithm])
+    # `R1`. The library's 512-byte default is a class attribute and it made the
+    # peered path unreachable; see MAX_PROTECTED_HEADER_BYTES. Set on the
+    # INSTANCE, so no other joserfc user in this process is affected.
+    registry.max_header_length = MAX_PROTECTED_HEADER_BYTES
+    return registry
 
 
 class SignedContextProduct(CCFContract):
