@@ -52,6 +52,7 @@ from collections.abc import Callable, Mapping
 from datetime import datetime
 
 from ccf.artifacts.protocol import ArtifactStoreProtocol
+from ccf.contracts.canonical import content_hash
 from ccf.peering.admission import AdmittedProduct, PeeringAdmissionGate
 from ccf.products.composite import (
     GATE_CHILD_ADMISSION,
@@ -80,7 +81,18 @@ from ccf.skills.dispatch import (
 )
 from ccf.skills.grants import GrantLedger
 
-__all__ = ["GrantBoundChildResolver", "ChildArguments"]
+__all__ = ["ChildRecordMismatch", "GrantBoundChildResolver", "ChildArguments"]
+
+
+class ChildRecordMismatch(RuntimeError):
+    """A child named a replay record that describes a different product.
+
+    Raised rather than refused, deliberately. A governed refusal says *this
+    child may not be composed*; this says *the evidence offered is not about
+    this child at all*, which is a producer defect or an attempt to substitute
+    evidence — neither is a fact about the child's eligibility, and reporting
+    it as one would let a misattribution be read as a governed answer.
+    """
 
 #: How a deployment turns one declared requirement into the typed arguments its
 #: producing skill takes. Deployment configuration, not SDK knowledge: what a
@@ -264,6 +276,37 @@ class GrantBoundChildResolver:
         record = DecisionReplayRecord.model_validate_json(
             self._store.get(content_address=self._store.resolve_uri(uri=replay_ref))
         )
+        # **The record must be THIS product's.** Found by the final review and
+        # reproduced: `contract` was a declared parameter this method never
+        # read, so the entities came from whatever record the producing skill
+        # NAMED rather than from the record that describes the product being
+        # admitted. A producer serving an honest contract and address while
+        # pointing `replay_ref` at an unrelated record had the eligibility
+        # check ask the register about the wrong reads — and the row still
+        # recorded `local-register` as the authority that cleared it.
+        #
+        # The asymmetry was the tell: the gate already refuses to trust the
+        # producer on the CONTENT ADDRESS, recomputing `content_hash(contract)`
+        # itself, and `DoorOutcome` already binds `replay_ref` on the REFUSED
+        # path. Only the served path left it free. The evidence needed was
+        # already required — `product_content_address` — and simply unused.
+        #
+        # `F3` closed the ABSENT-evidence case on this leg; this is the
+        # MISATTRIBUTED-evidence case, which reads as present and passes.
+        # Refused rather than admitted: the ruled contract (`D-IMPL-336`
+        # Amendment 5 §3) is *"obtain touched entities from THE CHILD'S
+        # persisted execution/replay record"*, and a record about another
+        # product is not that.
+        address = content_hash(contract)
+        if record.content_generation_path.product_content_address != address:
+            raise ChildRecordMismatch(
+                f"the child reported replay reference {replay_ref!r}, whose"
+                " record describes product"
+                f" {record.content_generation_path.product_content_address!r},"
+                f" while the product being admitted hashes to {address!r}."
+                " Eligibility is established from the record of THIS product or"
+                " not at all (D-IMPL-336 Amendment 5 §3)"
+            )
         return tuple(record.context_fabric_snapshot.touched_entities)
 
     def _admit_peered(

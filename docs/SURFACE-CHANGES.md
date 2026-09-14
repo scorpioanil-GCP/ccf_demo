@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1132 entries**, of which **888** name a public Python surface.
+**1133 entries**, of which **889** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-585 entries — 545 public Python surface, 40 not public Python API.
+586 entries — 546 public Python surface, 40 not public Python API.
 
 ### Public Python surface
 
@@ -10186,6 +10186,18 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - After: the callable type turning one declared `ChildRequirement` into the typed arguments its producing skill takes (D-IMPL-336 Amendment 5)
 - Why: what a child needs to be asked is deployment configuration, and the SDK holds no domain value (D-IMPL-38)
 - Migration: none required — supply a callable when constructing `GrantBoundChildResolver`
+
+*Recorded by `336-05-the-reference-child-resolver.md`.*
+
+#### ccf.products.child_resolver.ChildRecordMismatch
+
+- Surface: ccf.products.child_resolver.ChildRecordMismatch
+- Public surface: true
+- Change type: added
+- Before: absent — `_touched_entities` read whatever record the producing skill named, never checking it described the product being admitted
+- After: raised when the named record's `product_content_address` is not the address of the child in hand (D-IMPL-336 Amendment 5 §3, final review)
+- Why: `F3` closed the ABSENT-evidence case on this leg; this is the MISATTRIBUTED-evidence case, which reads as present and passes the register check on the wrong product's reads
+- Migration: none required — a producer naming its own record is unaffected; raised rather than refused, because evidence about another product is not a fact about this child's eligibility
 
 *Recorded by `336-05-the-reference-child-resolver.md`.*
 

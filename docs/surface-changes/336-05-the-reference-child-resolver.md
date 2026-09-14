@@ -60,3 +60,13 @@ none**.
 - After: also takes `consumer_lineage`, the composing product's own L axis (D-IMPL-336 Amendment 5)
 - Why: `PeeringAdmissionGate.admit` extends lineage by set-union at the boundary and requires it, so a resolver acquiring a peered child could not verify one without it — and inventing a lineage on the consumer's behalf would make the union a fiction
 - Migration: conforming resolvers accept the new keyword; `GovernedResolver` passes the composite's own pre-assembly lineage
+
+## ccf.products.child_resolver.ChildRecordMismatch
+
+- Surface: ccf.products.child_resolver.ChildRecordMismatch
+- Public surface: true
+- Change type: added
+- Before: absent — `_touched_entities` read whatever record the producing skill named, never checking it described the product being admitted
+- After: raised when the named record's `product_content_address` is not the address of the child in hand (D-IMPL-336 Amendment 5 §3, final review)
+- Why: `F3` closed the ABSENT-evidence case on this leg; this is the MISATTRIBUTED-evidence case, which reads as present and passes the register check on the wrong product's reads
+- Migration: none required — a producer naming its own record is unaffected; raised rather than refused, because evidence about another product is not a fact about this child's eligibility

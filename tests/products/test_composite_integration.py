@@ -776,3 +776,59 @@ def test_int01b_the_inherited_composition_state_survives_on_the_nested_chain(
         )
         == top.product.expires_at
     )
+
+
+def test_a_child_naming_ANOTHER_products_replay_record_is_refused(
+    booted: _Booted,
+) -> None:
+    """The final review's HIGH finding: MISATTRIBUTED eligibility evidence.
+
+    `F3` closed the **absent**-evidence case on this leg — a local child with
+    no execution record refuses. This is the **misattributed** case, which
+    reads as present and passes: `_touched_entities` took the entities from
+    whatever record the producing skill NAMED, never checking that the record
+    describes the product being admitted. `contract` was a declared parameter
+    the method did not read.
+
+    The asymmetry was the tell. The admission gate already refuses to trust the
+    producer on the content address — it recomputes `content_hash(contract)`
+    itself — and `DoorOutcome` already binds `replay_ref` on the refused path.
+    Only the served path left it free, while the evidence needed to close it,
+    `product_content_address`, was already a required field.
+
+    Asserted here through the SHIPPED resolver: the door serves an honest
+    contract and an honest address, and points `replay_ref` at a real,
+    resolvable record of a different product.
+    """
+    from ccf.products.child_resolver import ChildRecordMismatch
+    from ccf.products.door import DoorOutcome
+
+    resolver, children = _wire(booted)
+
+    # a real, resolvable record — of something else entirely
+    first = _ask_at(resolver, PRODUCT_CLASS, PRODUCT_VERSION, T0)
+    assert isinstance(first, ServedProduct), getattr(first, "detail", first)
+    foreign_ref = first.replay_ref.uri
+
+    original = children._callables.resolve(CHILD_CALLABLE)
+
+    def honest_product_foreign_record(arguments: object) -> object:
+        answered = original(arguments)  # type: ignore[arg-type]
+        outcome = DoorOutcome.model_validate_json(answered["outcome"])
+        # product_json and content_address untouched, so the gate's own
+        # recomputation passes. ONLY the record reference is substituted.
+        swapped = outcome.model_copy(update={"replay_ref": foreign_ref})
+        return {"outcome": swapped.model_dump_json()}
+
+    children._callables._callables[CHILD_CALLABLE] = honest_product_foreign_record
+
+    with pytest.raises(ChildRecordMismatch) as raised:
+        _ask_at(resolver, PRODUCT_CLASS, PRODUCT_VERSION, T0)
+    assert "record of THIS product or not at all" in str(raised.value)
+
+    # ...and the honest pairing still serves, so this is a differential rather
+    # than a method that now refuses everything.
+    children._callables._callables[CHILD_CALLABLE] = original
+    assert isinstance(
+        _ask_at(resolver, PRODUCT_CLASS, PRODUCT_VERSION, T0), ServedProduct
+    )
