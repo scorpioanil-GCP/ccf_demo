@@ -1269,6 +1269,7 @@ def compose_children(
     composition_invocation: str,
     own_lineage: ProductLineage,
     max_ttl: MaxTTL,
+    ttl_anchor_at: datetime,
     validity_floors: ConstituentValidityFloors,
 ) -> CompositionOutcome:
     """Compose an admitted child set, or refuse, and record every requirement.
@@ -1291,6 +1292,12 @@ def compose_children(
             came back, or ``None`` for a requirement no granted skill produced.
         asked_at: The composite's single reconstruction instant. Every admitted
             child must have been admitted at exactly this instant.
+        ttl_anchor_at: The instant the composite's TTL runs from — the
+            **decision** instant, not the reconstruction one (`D-IMPL-308`).
+            Passed rather than derived so this function reads no clock and so
+            a composite and a non-composite of one class anchor identically
+            (`R6`: they did not, and two governed answers collided on one
+            content address).
         composition_invocation: This composition's invocation identity. Every
             admitted child must have been admitted under exactly this one.
     """
@@ -1514,7 +1521,9 @@ def compose_children(
             for child in admitted_children
         ],
         floors=validity_floors,
-        evaluated_at=asked_at,
+        # Remaining validity is judged at the DECISION instant, for the same
+        # reason the expiry is anchored there.
+        evaluated_at=ttl_anchor_at,
     )
     if mixing is not None:
         return CompositionOutcome(
@@ -1547,7 +1556,7 @@ def compose_children(
                 c.contract.expires_at for c in admitted_children
             ],
             max_ttl=max_ttl,
-            ttl_anchor_at=asked_at,
+            ttl_anchor_at=ttl_anchor_at,
         ),
     )
 

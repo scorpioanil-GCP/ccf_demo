@@ -183,7 +183,7 @@ from ccf.products.composite import (
     CompositionOutcome,
     compose_children,
 )
-from ccf.halflife.debt import DebtAssessment, DebtSignal, context_debt
+from ccf.halflife.debt import DebtAssessment, DebtSignal, assess_debt, context_debt
 from ccf.products.contract import (
     AssemblyMode,
     ComputedEmptyFinding,
@@ -194,6 +194,7 @@ from ccf.products.contract import (
     register_product_class,
 )
 from ccf.halflife.assessment import (
+    DebtFactors,
     NO_SOURCE_REFRESH_RECENCY,
     SourceRefreshRecency,
 )
@@ -1940,6 +1941,18 @@ class GovernedResolver:
                     composition_invocation=invocation,
                     own_lineage=own_lineage,
                     max_ttl=MaxTTL(seconds=self.product_ttl_seconds),
+                    # `R6` — THE TTL ANCHOR IS `decided_at`, NOT `asked_at`.
+                    # The first version passed the reconstruction instant here
+                    # while the non-composite branch below anchored at the
+                    # decision instant, silently reverting `D-IMPL-308` for
+                    # composites only. Measured consequence: a class with a
+                    # declared decision instant served a SHORTER window as a
+                    # composite than as a plain product, and the two landed on
+                    # the same content address — two governed answers, one
+                    # identity. The anchor is the same instant on both
+                    # branches now, which is what `D-IMPL-308` says it is:
+                    # the TTL runs from when the answer was PRODUCED.
+                    ttl_anchor_at=decided_at,
                     validity_floors=registered.constituent_validity_floors,
                 )
             if composed.factors is not None:
@@ -1947,12 +1960,17 @@ class GovernedResolver:
                 # the parent's own BEFORE `obligation_in_force` is derived
                 # below, so a composite's reported debt and its obligation
                 # cannot land on different sides of a routing band.
-                assessed = DebtAssessment(
-                    debt=context_debt(composed.factors),
-                    signal=assessed.signal,
-                    factors=composed.factors,
-                    scorers=assessed.scorers,
-                )
+                #
+                # `R2` — AND THE SIGNAL IS RE-DERIVED, not carried forward.
+                # The first version of this block kept `signal=assessed.signal`
+                # while replacing the debt and the factors, so a composite
+                # whose composed D_c crossed fail-closed was served with
+                # `signal=ok` and the routine obligation. The signal is the
+                # thing the band is read from, so carrying the parent's own
+                # made the comment above it false: re-deriving it from the
+                # COMPOSED factors under the same profile is what makes the
+                # claim true.
+                assessed = self._reassess(composed.factors, fallback=assessed)
 
         candidate = ContextProductContract(
             schema_name=registered.schema_name,
@@ -2476,6 +2494,36 @@ class GovernedResolver:
                 f" declared field type(s): {mismatch}. A binding supplies a"
                 " value; it never converts one (D-IMPL-295)"
             ) from mismatch
+
+    def _reassess(
+        self, factors: DebtFactors, *, fallback: DebtAssessment
+    ) -> DebtAssessment:
+        """Re-derive the routing signal from COMPOSED factors (`R2`).
+
+        Read through the same manifest key `_obligation_in_force` uses, for the
+        same reason: the profile that routes a composite is provably the one
+        the manifest put in force, not one assembled beside it.
+
+        A deployment that declares no bands keeps the scorer's own signal —
+        there is nothing to re-route against, and inventing a band here would
+        be the SDK holding a value (`D-IMPL-38`).
+        """
+        debt = context_debt(factors)
+        if self.debt_profile_key is None:
+            return DebtAssessment(
+                debt=debt,
+                signal=fallback.signal,
+                factors=factors,
+                scorers=fallback.scorers,
+            )
+        profile = self._artifact(self.debt_profile_key, DebtProfile)
+        assessed = assess_debt(factors, profile=profile)
+        return DebtAssessment(
+            debt=assessed.debt,
+            signal=assessed.signal,
+            factors=factors,
+            scorers=fallback.scorers,
+        )
 
     def _obligation_in_force(self, signal: DebtSignal) -> str:
         """What this deployment's profile binds to the state debt landed in.

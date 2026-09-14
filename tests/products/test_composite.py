@@ -317,6 +317,10 @@ def compose(
             graph_snapshot_at=at,
         ),
         max_ttl=MaxTTL(seconds=86400),
+        # The DECISION instant, distinct from  (the reconstruction one).
+        # R6: passing the reconstruction instant here is what collided two
+        # governed answers onto one content address.
+        ttl_anchor_at=SERVED_AT,
         validity_floors=floors,
     )
 
@@ -1017,3 +1021,55 @@ def test_a_rebinding_failure_keeps_the_VERIFIED_identity(
     row = out.resolutions[0]
     assert row.child_content_address == adm.verified_content_address
     assert row.producing_fabric == "fabric://test-boot"
+
+
+def test_r6_the_ttl_anchor_is_the_DECISION_instant_not_the_request_one(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """`R6`: the composite path silently reverted `D-IMPL-308`.
+
+    It anchored expiry at `asked_at` while the non-composite branch anchored
+    at `decided_at`, so declaring a child requirement SHORTENED a product's
+    window by the decision lag — and the measured consequence was two distinct
+    governed answers landing on one content address.
+
+    Asserted by moving only the anchor: the composed expiry must follow it.
+    """
+    req = require(FAMILY)
+    adm = _admitted(registry, FAMILY, req)
+
+    early = compose_children(
+        own_factors=_FULL,
+        requirements=[req],
+        outcomes={FAMILY: adm},
+        asked_at=ASKED_AT,
+        composition_invocation=INVOCATION,
+        own_lineage=ProductLineage(
+            operators_invoked=OPERATORS,
+            policy_bundle_versions=(POLICY_VERSION,),
+            graph_snapshot_at=ASKED_AT,
+        ),
+        max_ttl=MaxTTL(seconds=60),
+        ttl_anchor_at=ASKED_AT,
+        validity_floors=NO_VALIDITY_FLOORS,
+    )
+    later = compose_children(
+        own_factors=_FULL,
+        requirements=[req],
+        outcomes={FAMILY: adm},
+        asked_at=ASKED_AT,
+        composition_invocation=INVOCATION,
+        own_lineage=ProductLineage(
+            operators_invoked=OPERATORS,
+            policy_bundle_versions=(POLICY_VERSION,),
+            graph_snapshot_at=ASKED_AT,
+        ),
+        max_ttl=MaxTTL(seconds=60),
+        ttl_anchor_at=ASKED_AT + timedelta(minutes=5),
+        validity_floors=NO_VALIDITY_FLOORS,
+    )
+    assert early.served and later.served
+    assert early.expires_at is not None and later.expires_at is not None
+    # The anchor moved by five minutes and the ceiling followed it. Before the
+    # fix the function could not see the decision instant at all.
+    assert later.expires_at > early.expires_at

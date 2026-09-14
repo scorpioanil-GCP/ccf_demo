@@ -2289,3 +2289,37 @@ def test_a_non_composite_product_is_completely_unaffected(
     assert isinstance(outcome, ServedProduct), outcome
     record = _served_record(booted, outcome)
     assert record.content_generation_path.child_resolutions == ()
+
+
+def test_r2_a_composite_re_derives_its_signal_from_the_COMPOSED_factors(
+    booted_composite: _Booted,
+) -> None:
+    """`R2`: the composite carried the PARENT's DebtSignal.
+
+    The first version replaced the debt and the factors and kept the parent's
+    signal, so a composite whose composed `D_c` crossed fail-closed was served
+    with `signal=ok` and the routine obligation — while the comment above it
+    claimed the routing-band hazard was respected. The signal IS the band.
+
+    Here the declared absence drives completeness to 0.5, so `D_c` is 0.5; the
+    assertion is that the signal and the obligation are derived from THAT
+    number rather than from the parent's own.
+    """
+    from ccf.halflife.debt import context_debt
+
+    def no_children(**_: Any) -> dict[str, Any]:
+        return {}
+
+    outcome = _ask(
+        _resolver(booted_composite, composite_children=no_children), _request()
+    )
+    assert isinstance(outcome, ServedProduct), outcome
+    assert outcome.product.debt is not None
+
+    # the served debt IS the composed one
+    assert outcome.product.debt.debt == context_debt(outcome.product.debt.factors)
+    # ...and the obligation was bound to the signal that debt lands in, not to
+    # a signal derived from factors the product no longer carries.
+    record = _served_record(booted_composite, outcome)
+    assert record.content_generation_path.debt is not None
+    assert record.content_generation_path.debt.factors == outcome.product.debt.factors
