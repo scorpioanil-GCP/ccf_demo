@@ -367,19 +367,25 @@ def test_the_rows_are_record_content_and_never_cross_the_disclosure_boundary(
 def test_every_refusal_exit_after_the_binding_passes_the_rows_and_none_before_it_does() -> None:
     """*"Enumerate the actual exits; do not fix only the first omitted argument."*
 
-    Read off the resolver's own source: every `self._record_refusal(` that
-    follows the one `child_rows` binding passes `child_resolutions=child_rows`,
-    and every one before it passes no `child_resolutions` at all. A fifth exit
-    added below the binding without the rows — or a row invented above it —
-    turns this red without anyone having to remember the ruling.
+    Read off the resolver's own source, partitioned on CHILD ACQUISITION —
+    the `self.composite_children(...)` call. The invariant (`D-GATE-338`):
+    **before acquisition, no child evidence; after acquisition, preserve
+    whatever child evidence exists.** Every `_record_refusal` after the
+    acquisition call passes `child_resolutions=` bound to the composed rows —
+    the one `child_rows` binding, or, for the pre-projection refusal
+    `D-IMPL-339` added (reached after acquisition and before the binding
+    exists), `composed.resolutions` directly — and every one before it passes
+    no `child_resolutions` at all. Seven exits: two before, five after. An
+    eighth added after acquisition without the rows, or a row invented before
+    it, turns this red without anyone having to remember the ruling.
     """
     source = inspect.getsource(GovernedResolver.__call__)
-    binding = source.index("child_rows: tuple[ChildResolution, ...] = (")
+    acquisition = source.index("outcomes = self.composite_children(")
     calls = [
         m.start()
         for m in re.finditer(r"^\s+return self\._record_refusal\(", source, flags=re.M)
     ]
-    assert len(calls) == 6, f"the exit census moved: {len(calls)} exits"
+    assert len(calls) == 7, f"the exit census moved: {len(calls)} exits"
 
     def call_text(start: int) -> str:
         """The full text of the call beginning at ``start``, parens balanced."""
@@ -392,12 +398,15 @@ def test_every_refusal_exit_after_the_binding_passes_the_rows_and_none_before_it
             i += 1
         raise AssertionError("unbalanced call")
 
-    before = [c for c in calls if c < binding]
-    after = [c for c in calls if c > binding]
-    assert len(before) == 2 and len(after) == 4, (len(before), len(after))
+    before = [c for c in calls if c < acquisition]
+    after = [c for c in calls if c > acquisition]
+    assert len(before) == 2 and len(after) == 5, (len(before), len(after))
     for start in before:
         assert "child_resolutions" not in call_text(start), "a row invented before acquisition"
     for start in after:
-        assert "child_resolutions=child_rows" in call_text(start), "an exit dropped the rows"
+        text = call_text(start)
+        assert "child_resolutions=" in text and (
+            "child_rows" in text or "composed.resolutions" in text
+        ), "an exit after acquisition dropped the rows"
     served = source.index("record = build_replay_record(")
     assert "child_resolutions=child_rows" in source[served : served + 3000]

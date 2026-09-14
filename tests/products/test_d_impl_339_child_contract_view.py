@@ -24,7 +24,6 @@ red (see the sabotage record in the candidate's report):
 """
 from __future__ import annotations
 
-import inspect
 import pathlib
 from collections.abc import Iterator, Mapping
 from datetime import datetime, timedelta
@@ -426,12 +425,7 @@ def test_a_later_governing_failure_serves_nothing_and_keeps_the_acquired_evidenc
     assert factory.calls == ["children"], factory.calls  # computed, provisional
     assert len(door.calls) == 1
     rows = record.content_generation_path.child_resolutions
-    if "child_rows" not in inspect.getsource(GovernedResolver.__call__):
-        pytest.xfail(
-            "child rows on a TOLERANCE refusal are D-IMPL-338's; this branch is"
-            " baselined on main before it merges. Remove this guard at the merge."
-        )
-    assert rows and rows[0].outcome_status == "admitted", rows
+    assert rows and rows[0].outcome_status == "admitted", rows  # `D-IMPL-338`
 
 
 # --- compatibility ------------------------------------------------------------------
