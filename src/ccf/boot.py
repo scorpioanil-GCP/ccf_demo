@@ -39,7 +39,6 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
-import hashlib
 from collections.abc import Callable, Mapping
 from types import TracebackType
 
@@ -51,7 +50,6 @@ from ccf.assembly.worker import (
 from ccf.controlplane.registry import ControlPlaneProtocol
 from ccf.graph._writer import adopt_writer, mint_boot_token, release_boot_token
 from ccf.graph.protocols import GraphReader
-from ccf.products.composite import _ATTESTOR_TOKEN, LocalFabricAttestor
 from ccf.controlplane.invalidation import ControlPlaneInvalidationSink
 from ccf.graph.registry import (
     AdapterPin,
@@ -88,13 +86,6 @@ class FabricHandle:
         adapter: The replay pin for the adapter that answered this boot. Three
             fields, none of which can hold a credential: a name, a version, and
             the *names* of the references the credentials came from.
-        local_attestor: The authority for *"this fabric produced it"*
-            (`D-IMPL-336` **O1**). Minted here and nowhere else, so a
-            deployment obtains one by having booted — which is what makes
-            local provenance on a composite child evidence rather than a
-            label. Carried on the handle for the same reason ``adapter`` is:
-            it is a fact about this boot that an adopter needs and cannot
-            derive. It confers no write access and holds no registry.
     """
 
     def __init__(
@@ -104,14 +95,12 @@ class FabricHandle:
         worker: AssemblyWorker,
         registry: ControlPlaneProtocol,
         adapter: AdapterPin,
-        local_attestor: LocalFabricAttestor,
         shutdown: Callable[[], None],
     ) -> None:
         self.reader = reader
         self.worker = worker
         self.registry = registry
         self.adapter = adapter
-        self.local_attestor = local_attestor
         self._shutdown = shutdown
         self._closed = False
 
@@ -445,25 +434,6 @@ def boot(
             secret_refs=tuple(
                 sorted(secret.ref_name for secret in resolved_secrets.values())
             ),
-        ),
-        # `D-IMPL-336` **O1**. The composition root's privilege, and the same
-        # posture as this module's `ccf.graph._writer` import above: the one
-        # place allowed to mint the capability is the one place that booted.
-        #
-        # The identity is DERIVED, never chosen — from the adapter's
-        # registered name and a digest of the graph identity that
-        # `mint_boot_token` already uses to enforce single-writer. So this
-        # names the fabric the way the fabric was already named to itself,
-        # rather than introducing an identity axis (which Amendment 3
-        # prohibits) or reaching for the tenant (which it prohibits
-        # separately). Digested because `graph_identity` may embed a DSN, and
-        # an attestor id travels into replay records.
-        local_attestor=LocalFabricAttestor(
-            attestor_id=(
-                f"fabric://{registration.name}/"
-                f"{hashlib.sha256(store.graph_identity.encode()).hexdigest()[:16]}"
-            ),
-            token=_ATTESTOR_TOKEN,
         ),
         shutdown=shutdown,
     )

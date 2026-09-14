@@ -75,11 +75,17 @@ Algorithmic module (CINV-03).
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Final
 
+from pydantic import field_validator
+
 from ccf.contracts.base import CCFContract
-from ccf.contracts.canonical import canonical_bytes
+from ccf.contracts.canonical import canonical_bytes, content_hash
+from ccf.controlplane.artifact_base import ArtifactClass
+from ccf.controlplane.registry import ControlPlaneMissing, ControlPlaneProtocol
 
 __ccf_mode__ = "algorithmic"
 
@@ -229,3 +235,234 @@ def decode_eligibility_assertion(claim: object) -> EligibilityAssertion:
         raise EligibilityAssertionMalformed(
             f"the child-eligibility assertion is not well formed: {error}"
         ) from error
+
+
+# --- verification: the consumer's side of the assertion ----------------------
+#
+# `D-IMPL-336` **Amendment 5**. Everything below was in
+# `ccf.products.composite`, where it made the composite surface carry a second
+# trust apparatus for the peered case. Dave's ruling: *"Remove duplicated
+# verification machinery from `composite.py`, not the verification itself…
+# composition consumes the verified result or refusal."*
+#
+# It is verification, so it lives with the thing it verifies. Composition calls
+# :func:`verify_child_eligibility` once and reads the answer.
+
+
+class EligibilityEvidencePolicy(CCFContract):
+    """How old a producer's eligibility check may be (`F7`).
+
+    A **Control Plane artifact**, because both members are values and the SDK
+    holds none (``D-IMPL-38``). There is no default and no calibration: a
+    deployment that admits peered children declares this, and one that has not
+    gets an explicit refusal rather than an invented bound.
+
+    **Validated against the ACTUAL ADMISSION TIME, never against ``asked_at``.**
+    ``asked_at`` is a reconstruction instant and may be historical, so a
+    producer legitimately checks eligibility *today* for a request *about last
+    quarter*. Comparing the two would refuse every honest peered answer about
+    the past — measured on this tree's own fixtures, where ``checked_at`` is
+    correctly later than ``asked_at``.
+
+    Attributes:
+        max_evidence_age_seconds: How long after ``checked_at`` the producer's
+            determination may still authorize an admission.
+        permitted_clock_skew_seconds: How far *ahead* of admission time a
+            producer's clock may run before its evidence is refused as
+            impossible rather than merely fresh.
+    """
+
+    max_evidence_age_seconds: int
+    permitted_clock_skew_seconds: int
+
+    @field_validator("max_evidence_age_seconds", "permitted_clock_skew_seconds")
+    @classmethod
+    def _non_negative(cls, value: int) -> int:
+        if value < 0:
+            raise ValueError(
+                "an evidence-age bound is a duration and cannot be negative;"
+                f" got {value}"
+            )
+        return value
+
+
+#: The artifact class a deployment registers its evidence bound under.
+ELIGIBILITY_EVIDENCE_POLICY = ArtifactClass(
+    class_id="ccf.eligibility-evidence-policy", contract=EligibilityEvidencePolicy
+)
+
+
+def eligibility_evidence_policy_key(*, tenant_id: str) -> str:
+    """The Control Plane key the bound registers under, per tenant."""
+    return f"{tenant_id}/{ELIGIBILITY_EVIDENCE_POLICY.class_id}"
+
+
+@dataclass(frozen=True)
+class EligibilityEvidence:
+    """What a VERIFIED producer assertion establishes, as a value.
+
+    Carried into the composite's replay row so a reader can name which
+    assertion authorized a peered child and when the producer checked.
+    """
+
+    checked_at: datetime
+    assertion_address: str
+    producer: str
+
+
+@dataclass(frozen=True)
+class EligibilityRefused:
+    """Why eligibility could not be established, as a value.
+
+    ``reason`` is one of the composite surface's refusal tokens, chosen here
+    because the *reason* a peered assertion fails is peering's knowledge, not
+    composition's. Composition maps it to its own refusal and adds nothing.
+    """
+
+    reason: str
+    detail: str
+
+
+def verify_child_eligibility(
+    *,
+    header: Mapping[str, object],
+    child_content_address: str,
+    requested_as_of: datetime,
+    verified_producer: str,
+    consumer_scope: str,
+    composition_invocation: str,
+    admitted_at: datetime,
+    registry: ControlPlaneProtocol,
+    tenant_id: str,
+) -> EligibilityEvidence | EligibilityRefused:
+    """Verify a producer's child-eligibility assertion, or say why not.
+
+    The **one** call a consumer makes. ``header`` is the **authenticated**
+    protected header a peering admission carried out — never a mapping a caller
+    assembled, which is the distinction `F16` exists to preserve, and which is
+    why ``verified_producer`` is passed separately: it is the identity the
+    verified envelope asserted, and comparing the assertion against a sibling
+    field the same caller wrote would compare two caller-supplied strings.
+
+    Five facts are bound by **equality** and ``checked_at`` is held to a
+    **declared age bound**. Those are different checks and this docstring does
+    not claim otherwise.
+    """
+    try:
+        assertion = decode_eligibility_assertion(header.get(ELIGIBILITY_ASSERTION_HEADER))
+    except EligibilityAssertionMalformed as error:
+        return EligibilityRefused("eligibility-evidence-missing", str(error))
+
+    if assertion.child_content_address != child_content_address:
+        return EligibilityRefused(
+            "eligibility-evidence-mismatch",
+            "the eligibility assertion is about"
+            f" {assertion.child_content_address!r} and this child is"
+            f" {child_content_address!r}",
+        )
+    if assertion.requested_as_of != requested_as_of:
+        return EligibilityRefused(
+            "eligibility-evidence-mismatch",
+            "the eligibility assertion was made for reconstruction instant"
+            f" {assertion.requested_as_of.isoformat()} and the child answers"
+            f" for {requested_as_of.isoformat()}",
+        )
+    if assertion.producer != verified_producer:
+        return EligibilityRefused(
+            "eligibility-evidence-mismatch",
+            f"the eligibility assertion names producer {assertion.producer!r}"
+            f" and the VERIFIED envelope was produced by {verified_producer!r}",
+        )
+    if assertion.consumer_scope != consumer_scope:
+        return EligibilityRefused(
+            "eligibility-evidence-mismatch",
+            "the eligibility assertion was minted for consumer"
+            f" {assertion.consumer_scope!r} and this gate admits for"
+            f" {consumer_scope!r}; an assertion is not bearer currency",
+        )
+    if assertion.composition_invocation != composition_invocation:
+        return EligibilityRefused(
+            "eligibility-evidence-mismatch",
+            "the eligibility assertion was minted for composition"
+            f" {assertion.composition_invocation!r} and this is"
+            f" {composition_invocation!r}; the binding is to one invocation, so"
+            " an assertion cannot be carried into a different composition",
+        )
+
+    stale = _evidence_too_old(
+        assertion, admitted_at=admitted_at, registry=registry, tenant_id=tenant_id
+    )
+    if stale is not None:
+        return stale
+
+    if not assertion.eligible:
+        return EligibilityRefused(
+            "ineligible",
+            "the producing fabric attests this child is NOT eligible as of"
+            f" {assertion.checked_at.isoformat()}; a signed negative is a"
+            " governed answer and is honored",
+        )
+    return EligibilityEvidence(
+        checked_at=assertion.checked_at,
+        assertion_address=content_hash(assertion),
+        producer=assertion.producer,
+    )
+
+
+def _evidence_too_old(
+    assertion: EligibilityAssertion,
+    *,
+    admitted_at: datetime,
+    registry: ControlPlaneProtocol,
+    tenant_id: str,
+) -> EligibilityRefused | None:
+    """Hold the producer's check to a DECLARED age bound (`F7`).
+
+    Measured against ``admitted_at`` — when this admission is running — and
+    **never** against the reconstruction instant, which may legitimately be
+    years earlier than an honest check.
+    """
+    key = eligibility_evidence_policy_key(tenant_id=tenant_id)
+    policy: object = None
+    try:
+        # `resolve_latest` returns (version, artifact); the artifact is the
+        # second member, and reading the tuple as the artifact was a live bug
+        # caught by mypy before any test ran.
+        _version, policy = registry.resolve_latest(key)
+    except ControlPlaneMissing:
+        # NARROW, deliberately. A bare `except` would swallow a registry outage
+        # and report it as an undeclared bound — a different fact, different
+        # remedy.
+        policy = None
+    if not isinstance(policy, EligibilityEvidencePolicy):
+        return EligibilityRefused(
+            # Its OWN reason: a tenant that declared no bound has a
+            # configuration error, and telling the operator their peer's
+            # evidence is stale would name the wrong party.
+            "eligibility-bound-undeclared",
+            "this tenant has declared no eligibility-evidence bound at"
+            f" {key!r}, so how old a producer's check may be is unknown."
+            " Refused rather than defaulted: the SDK holds no duration"
+            " (D-IMPL-38), and an unbounded attestation would authorize a"
+            " determination of any age (D-IMPL-336 F7)",
+        )
+
+    age = (admitted_at - assertion.checked_at).total_seconds()
+    if age > policy.max_evidence_age_seconds:
+        return EligibilityRefused(
+            "eligibility-evidence-stale",
+            "the producer checked eligibility at"
+            f" {assertion.checked_at.isoformat()}, {int(age)}s before this"
+            f" admission at {admitted_at.isoformat()}; the declared maximum"
+            f" evidence age is {policy.max_evidence_age_seconds}s",
+        )
+    if -age > policy.permitted_clock_skew_seconds:
+        return EligibilityRefused(
+            "eligibility-evidence-stale",
+            f"the producer's check is dated {assertion.checked_at.isoformat()},"
+            f" {int(-age)}s AFTER this admission at {admitted_at.isoformat()};"
+            f" the declared permitted clock skew is"
+            f" {policy.permitted_clock_skew_seconds}s. Evidence from the future"
+            " is refused rather than treated as maximally fresh",
+        )
+    return None

@@ -52,6 +52,7 @@ from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifacts import declared_artifact_class, parse_artifact
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.deployment import load_and_boot
+from ccf.products.child_resolver import GrantBoundChildResolver
 from ccf.products.composite import (
     AdmittedChild,
     ChildAdmissionRefusal,
@@ -403,117 +404,6 @@ def _ledger(booted: _Booted) -> tuple[GrantLedger, str, AgentDefinition]:
     return ledger, content_hash(definition), definition
 
 
-class _GrantBoundChildResolver:
-    """A `CompositeChildResolverProtocol` over the SDK's real machinery.
-
-    Written test-side deliberately — see this module's docstring: whether the
-    SDK should ship this is an open question for Dave, and building it in
-    `src/` would answer it by implication.
-
-    Every step is the shipped surface:
-
-    * `resolve_producing_grant` over the agent's live `BoundSkillView`, so an
-      ungranted or revoked producer resolves to nothing (`O2`);
-    * `dispatch_skill`, so the callable is reached the way any skill is;
-    * `door_answer` bytes decoded as a `DoorOutcome`, so the child crosses the
-      wire boundary rather than being handed over in-process;
-    * the boot's `local_attestor`, over the record the child's delivery wrote
-      (`O1`);
-    * `CompositeAdmissionGate.admit`, which decides.
-
-    Nothing here decides whether a child is admissible. It produces candidates
-    and hands them to the gate.
-    """
-
-    def __init__(
-        self,
-        *,
-        ledger: GrantLedger,
-        agent_definition_hash: str,
-        callables: CallableRegistry,
-        gate: CompositeAdmissionGate,
-        attestor: Any,
-        store: FileArtifactStore,
-        subject: str,
-        threshold: int,
-    ) -> None:
-        self._ledger = ledger
-        self._agent = agent_definition_hash
-        self._callables = callables
-        self._gate = gate
-        self._attestor = attestor
-        self._store = store
-        self._subject = subject
-        self._threshold = threshold
-        #: What the gate decided, per requirement. Kept so a test can name WHY
-        #: a composition refused — the served path discloses only the kind.
-        self.outcomes: dict[str, object] = {}
-
-    def __call__(
-        self,
-        *,
-        requirements: tuple[ChildRequirement, ...],
-        asked_at: datetime,
-        admitted_at: datetime,
-        composition_invocation: str,
-    ) -> dict[str, object]:
-        view: BoundSkillView = self._ledger.bound_view(self._agent)
-        outcomes: dict[str, object] = {}
-        for requirement in requirements:
-            producer = resolve_producing_grant(requirement, view)
-            if producer is None:
-                # The honest absence. Required refuses; optional takes its
-                # declared treatment. Neither decision is made here.
-                outcomes[requirement.product_class] = None
-                continue
-            dispatched = dispatch_skill(
-                producer.entry,
-                arguments={
-                    "subject": self._subject,
-                    "asked_at": asked_at.isoformat(),
-                    "threshold": str(self._threshold),
-                },
-                callable_registry=self._callables,
-            )
-            assert isinstance(dispatched, SkillInvocation), dispatched
-            answer = DoorOutcome.model_validate_json(dispatched.output["outcome"])
-            if answer.product_json is None or answer.replay_ref is None:
-                outcomes[requirement.product_class] = ChildAdmissionRefusal(
-                    gate=GATE_CHILD_ADMISSION,
-                    detail=(
-                        "the child's own door refused: "
-                        f"{answer.refusal.kind if answer.refusal else 'no product'}"
-                    ),
-                    product_class=requirement.product_class,
-                    # The child produced a governed no. It is not this
-                    # fabric's to reinterpret, and it is not an absence.
-                    reason="ineligible",
-                )
-                continue
-            contract = ContextProductContract.model_validate_json(answer.product_json)
-            outcomes[requirement.product_class] = self._gate.admit(
-                candidate=ChildCandidate(
-                    requirement=requirement,
-                    contract=contract,
-                    # The DOOR's address, not one recomputed here. The gate
-                    # recomputes it and compares; a value taken on faith
-                    # checks nothing.
-                    content_address=answer.content_address or "",
-                    provenance=self._attestor.attest(
-                        product=contract,
-                        replay_ref=answer.replay_ref,
-                        store=self._store,
-                    ),
-                    invocation=invocation_from_dispatch(producer),
-                ),
-                asked_at=asked_at,
-                admitted_at=admitted_at,
-                composition_invocation=composition_invocation,
-            )
-        self.outcomes = dict(outcomes)
-        return outcomes
-
-
 def _wire(
     booted: _Booted, *, grant: bool = True
 ) -> tuple[GovernedResolver, _GrantBoundChildResolver]:
@@ -537,23 +427,26 @@ def _wire(
     callables = CallableRegistry()
     callables.register(CHILD_CALLABLE, _child_door(booted))
     arguments = _arguments(booted)
-    arguments.update(
-        composite_children=_GrantBoundChildResolver(
-            ledger=ledger,
-            agent_definition_hash=agent_hash,
-            callables=callables,
-            gate=CompositeAdmissionGate(
-                tenant_id=TENANT,
-                consumer_scope="consumer://composite-integration",
-                registry=booted.control_plane,
-            ),
-            attestor=booted.fabric.handle.local_attestor,
-            store=booted.store,
-            subject="acct-1",
-            threshold=1000,
-        )
+    children = GrantBoundChildResolver(
+        ledger=ledger,
+        agent_definition_hash=agent_hash,
+        gate=CompositeAdmissionGate(
+            tenant_id=TENANT,
+            consumer_scope="consumer://composite-integration",
+            registry=booted.control_plane,
+        ),
+        # The deployment states what its children are asked. The SDK holds no
+        # domain value and cannot know (`D-IMPL-38`).
+        child_arguments=lambda requirement, asked_at: {
+            "subject": "acct-1",
+            "asked_at": asked_at.isoformat(),
+            "threshold": "1000",
+        },
+        callable_registry=callables,
+        artifact_store=booted.store,
     )
-    return GovernedResolver(**arguments), arguments["composite_children"]
+    arguments.update(composite_children=children)
+    return GovernedResolver(**arguments), children
 
 
 def _ask(resolver: GovernedResolver) -> Any:
@@ -585,14 +478,7 @@ def test_int01a_one_governed_question_through_the_whole_machinery(
     """
     resolver, children = _wire(booted)
     outcome = _ask(resolver)
-    # On failure, name WHY: the served path discloses only the refusal kind,
-    # and "something refused" is not a diagnosis. This is how the child's
-    # `product-request-violation` was found — a request contract is per class,
-    # and the child was being validated against the parent's.
-    assert isinstance(outcome, ServedProduct), [
-        (k, getattr(v, "reason", v), getattr(v, "detail", ""))
-        for k, v in children.outcomes.items()
-    ]
+    assert isinstance(outcome, ServedProduct), getattr(outcome, "detail", outcome)
 
     # `R4`, in its natural form: the child's own operator is in the served
     # lineage, and the parent's engine never ran it.
@@ -614,8 +500,14 @@ def test_int01a_one_governed_question_through_the_whole_machinery(
     # this test wrote (`O2`).
     assert row.producing_skill_name == CHILD_SKILL
     assert row.grant_hash
-    # The producing fabric is the BOOT's derived id (`O1`).
-    assert row.producing_fabric == booted.fabric.handle.local_attestor.attestor_id
+    # `D-IMPL-336` **Amendment 5**: a locally dispatched child names NO
+    # producing fabric, because this fabric authenticated no producer — it ran
+    # a skill it had granted. The basis records which authority applied.
+    assert row.producing_fabric is None
+    assert row.eligibility_basis == "local-register"
+    # ...and the entities came from the child's OWN persisted record, read
+    # through the one store access the resolver makes for a local child.
+    assert row.child_asked_at == ASKED_AT
     assert row.child_asked_at == ASKED_AT
 
 

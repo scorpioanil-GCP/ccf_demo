@@ -102,10 +102,9 @@ from ccf.halflife.assessment import DebtFactors
 from ccf.halflife.debt import compose_debt_factors
 from ccf.peering.admission import PRODUCER_ASSERTION_HEADER, AdmittedProduct
 from ccf.peering.eligibility import (
-    ELIGIBILITY_ASSERTION_HEADER,
-    EligibilityAssertion,
-    EligibilityAssertionMalformed,
-    decode_eligibility_assertion,
+    EligibilityEvidence,
+    EligibilityRefused,
+    verify_child_eligibility,
 )
 from ccf.products.composition import (
     ConstituentValidity,
@@ -134,18 +133,17 @@ __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "ELIGIBILITY_LOCAL_REGISTER",
+    "ELIGIBILITY_PROVIDER_CONTROLS",
     "ELIGIBILITY_PRODUCER_ATTESTED",
     "GATE_CHILD_ADMISSION",
     "CHILD_REFUSAL_REASONS",
     "EligibilityEvidence",
-    "eligibility_evidence_policy_key",
-    "ELIGIBILITY_EVIDENCE_POLICY",
-    "EligibilityEvidencePolicy",
     "AdmittedChild",
     "AmbiguousProducerError",
     "ChildAdmissionBypassError",
     "ChildAdmissionRefusal",
     "ChildCandidate",
+    "ChildAcquisition",
     "ChildInvocation",
     "ChildRefusalReason",
     "CompositeAdmissionGate",
@@ -153,12 +151,8 @@ __all__ = [
     "CompositionOutcome",
     "compose_children",
     "invocation_from_dispatch",
-    "LocalFabricAttestor",
-    "LocalProvenance",
     "ProvenanceForgeryError",
     "ResolvedProducer",
-    "VerifiedPeerProvenance",
-    "peer_provenance_from_admitted",
     "resolve_producing_grant",
 ]
 
@@ -170,6 +164,13 @@ ELIGIBILITY_LOCAL_REGISTER: Final = "local-register"
 
 #: ``eligibility_basis`` when the producing fabric attested it.
 ELIGIBILITY_PRODUCER_ATTESTED: Final = "producer-attested"
+
+#: ``eligibility_basis`` when the PROVIDER's own access controls governed the
+#: read and this fabric holds no execution record for the child — the MCP case
+#: (`D-IMPL-336` Amendment 5). A positive statement about which authority
+#: applied, never an absence: the local register was not consulted, and this
+#: row says so rather than leaving a reader to infer that it passed.
+ELIGIBILITY_PROVIDER_CONTROLS: Final = "provider-controls"
 
 #: A strength factor at full strength. Not a tunable and not a threshold: the
 #: identity element of the per-factor minimum, used where a declared absence
@@ -272,409 +273,89 @@ class ChildAdmissionRefusal(GateRefusal):
     )
 
 
-class EligibilityEvidencePolicy(CCFContract):
-    """How old a producer's eligibility check may be (`D-IMPL-336` Am. 3, F7).
-
-    A **Control Plane artifact**, because both members are values and the SDK
-    holds none (``D-IMPL-38``). There is no default and no calibration: a
-    deployment that admits peered children declares this, and one that has not
-    gets an explicit refusal rather than an invented bound.
-
-    **Validated against the ACTUAL ADMISSION TIME, never against ``asked_at``.**
-    That distinction is the whole of the ruling: ``asked_at`` is a
-    reconstruction instant and may be historical, so a producer legitimately
-    checks eligibility *today* for a request *about last quarter*. Comparing
-    the two would refuse every honest peered answer about the past — measured
-    on this tree's own fixtures, where ``checked_at`` is correctly later than
-    ``asked_at``.
-
-    Attributes:
-        max_evidence_age_seconds: How long after ``checked_at`` the producer's
-            determination may still authorize an admission.
-        permitted_clock_skew_seconds: How far *ahead* of admission time a
-            producer's clock may run before its evidence is refused as
-            impossible rather than merely fresh.
-    """
-
-    max_evidence_age_seconds: int
-    permitted_clock_skew_seconds: int
-
-    @field_validator("max_evidence_age_seconds", "permitted_clock_skew_seconds")
-    @classmethod
-    def _non_negative(cls, value: int) -> int:
-        if value < 0:
-            raise ValueError(
-                "an evidence-age bound is a duration and cannot be negative;"
-                f" got {value}"
-            )
-        return value
-
-
-#: The artifact class a deployment registers its evidence bound under.
-ELIGIBILITY_EVIDENCE_POLICY = ArtifactClass(
-    class_id="ccf.eligibility-evidence-policy", contract=EligibilityEvidencePolicy
-)
-
-
-def eligibility_evidence_policy_key(*, tenant_id: str) -> str:
-    """The Control Plane key the bound registers under, per tenant."""
-    return f"{tenant_id}/{ELIGIBILITY_EVIDENCE_POLICY.class_id}"
-
-
 class ProvenanceForgeryError(TypeError):
     """Provenance evidence was constructed outside its minting authority."""
-
-
-@dataclass(frozen=True)
-class _EligibilityRefused:
-    """Why eligibility could not be established, as a value.
-
-    A distinct type rather than a ``(reason, detail)`` tuple, because success
-    now also returns a pair and ``isinstance(x, tuple)`` would no longer
-    discriminate them — the shape of bug this module exists to refuse.
-    """
-
-    reason: str
-    detail: str
-
-
-@dataclass(frozen=True)
-class EligibilityEvidence:
-    """The verified attestation a peered child was admitted on (F7).
-
-    Recorded so replay can name *which* evidence authorized a child. The
-    earlier record carried only ``eligibility_basis="producer-attested"``,
-    which says an assertion existed and nothing about which one — so a
-    reviewer could not re-verify the decision.
-
-    ``checked_at`` is the producer's own eligibility-check instant, kept
-    **separate** from the reconstruction instant and from source observation
-    times. ``assertion_address`` is the content hash of the verified
-    assertion, so the record points at an artifact rather than restating it.
-    """
-
-    checked_at: datetime
-    assertion_address: str
-    producer: str
-
-
-_LOCAL_PROVENANCE_TOKEN = object()
-_PEER_PROVENANCE_TOKEN = object()
-
-
-class ChildProvenance:
-    """Where a child came from, as EVIDENCE rather than as a caller's label.
-
-    `D-IMPL-336` Amendment 3, F3/F6/F16. The earlier shape was a caller-chosen
-    dataclass: a deployment wrote ``ProducedHere("anything")`` and the gate
-    believed it, or hand-built a ``protected_header`` dict and the gate read a
-    "signed" assertion nobody had verified. Relabelling one peered child
-    ``ProducedHere`` skipped attestation entirely.
-
-    Both subclasses are now **minted by an authority and unconstructible
-    through the supported interfaces otherwise** — the
-    :class:`~ccf.peering.admission.AdmittedProduct` pattern, which this tree
-    already uses to keep an unverified federated product away from L2.
-
-    **`touched_entities` lives here, not on the candidate.** It is execution
-    evidence about what the child actually read, so it must arrive from
-    whatever executed the child — never as an optional keyword the assembler
-    may omit. Omitting it used to skip the invalidation register while still
-    recording that the register had authorized the child.
-    """
-
-    __slots__ = ("_touched_entities",)
-
-    def __init__(self, touched_entities: tuple[str, ...]) -> None:
-        self._touched_entities = touched_entities
-
-    @property
-    def touched_entities(self) -> tuple[str, ...]:
-        """The entities the child's execution actually read.
-
-        A tuple, never ``None``: ``()`` is the *verified* claim that the child
-        read nothing, and there is no way to express "I did not look" — which
-        is the state the register cannot answer for and must refuse.
-        """
-        return self._touched_entities
-
-
-class LocalProvenance(ChildProvenance):
-    """This fabric produced the child; its own register is authoritative.
-
-    Minted only by :class:`LocalFabricAttestor`, which is itself constructed at
-    the composition root from booted state. A caller cannot assert *"produced
-    here"* — that claim is the deployment's boot context to make.
-    """
-
-    __slots__ = ("_attestor_id",)
-
-    def __init__(
-        self, *, attestor_id: str, touched_entities: tuple[str, ...], token: object
-    ) -> None:
-        if token is not _LOCAL_PROVENANCE_TOKEN:
-            raise ProvenanceForgeryError(
-                "LocalProvenance is minted only by"
-                " ccf.products.composite.LocalFabricAttestor, which is built at"
-                " the composition root from booted state. A caller asserting"
-                " it produced a child locally is asserting the one thing this"
-                " evidence exists to establish (D-IMPL-336 Amendment 3, F6)"
-            )
-        super().__init__(touched_entities)
-        self._attestor_id = attestor_id
-
-    @property
-    def attestor_id(self) -> str:
-        """Which boot-bound attestor vouched for this child's locality.
-
-        Recorded in replay so the ``local-register`` basis names its source —
-        the earlier row asserted an authority and named no one.
-        """
-        return self._attestor_id
-
-
-class VerifiedPeerProvenance(ChildProvenance):
-    """Another fabric produced it, and its envelope has been VERIFIED.
-
-    Minted only from a peering result whose signature, peer trust and policy
-    bindings the existing :class:`~ccf.peering.admission.PeeringAdmissionGate`
-    has already checked — see :func:`peer_provenance_from_admitted`. A
-    hand-built header dictionary cannot become one of these, which is F16's
-    whole requirement.
-
-    ``header`` is therefore the **authenticated** protected header, not a
-    caller's mapping: on this tree a JWS protected header is part of the
-    signing input, so a member read from a verified envelope is covered by the
-    signature exactly as the payload is.
-    """
-
-    __slots__ = ("_header", "_peer_id", "_producer")
-
-    def __init__(
-        self,
-        *,
-        peer_id: str,
-        producer: str,
-        header: Mapping[str, object],
-        touched_entities: tuple[str, ...],
-        token: object,
-    ) -> None:
-        if token is not _PEER_PROVENANCE_TOKEN:
-            raise ProvenanceForgeryError(
-                "VerifiedPeerProvenance is minted only from a verified peering"
-                " admission (peer_provenance_from_admitted). A protected"
-                " header a caller assembled has had no signature checked, and"
-                " reading an eligibility assertion out of it would attest"
-                " nothing (D-IMPL-336 Amendment 3, F16)"
-            )
-        super().__init__(touched_entities)
-        self._peer_id = peer_id
-        self._producer = producer
-        self._header = header
-
-    @property
-    def peer_id(self) -> str:
-        """The peer whose signature the peering gate verified."""
-        return self._peer_id
-
-    @property
-    def producer(self) -> str:
-        """The producing agent identity the VERIFIED header asserted.
-
-        Taken from the authenticated header rather than from a sibling field
-        the caller also wrote — the earlier gate compared
-        ``assertion.producer`` against ``candidate.fabric.fabric_id``, both of
-        which the same caller supplied, so the check compared a string to
-        itself.
-        """
-        return self._producer
-
-    @property
-    def header(self) -> Mapping[str, object]:
-        """The authenticated protected header."""
-        return self._header
-
-
-_ATTESTOR_TOKEN = object()
-
-
-class LocalFabricAttestor:
-    """Boot-bound authority for *"this fabric produced it"* (**O1**).
-
-    **"Boot-bound" was a convention until `D-IMPL-336` O1; it is enforcement
-    now.** The earlier class was publicly constructible with a caller-chosen
-    ``attestor_id``, so the sentence above was a docstring: any caller could
-    build one, name it whatever a real deployment would be named, and mint
-    provenance indistinguishable from the fabric's own. That is
-    `D-IMPL-324`'s *"declaration is not a door"* occurring inside the repair
-    that was written to close it, and the panel found it there.
-
-    Two things changed.
-
-    **It can only be obtained by booting.** The constructor is token-guarded
-    and :func:`ccf.boot.boot` holds the token; the instance reaches a
-    deployment as :attr:`ccf.boot.FabricHandle.local_attestor`.
-
-    **It attests over EVIDENCE rather than over a caller's claim.**
-    :meth:`attest` no longer accepts ``touched_entities``. It takes the
-    delivered child and the reference to the decision record that authorized
-    it, resolves that record from the artifact store, refuses unless the
-    record's own ``product_content_address`` is the address of the product in
-    hand, and reads the entities out of replay dimension 1. So a
-    :class:`LocalProvenance` now means *a governed delivery happened here and
-    this is what it read*, which is what F6 asked for and what a label could
-    never carry.
-
-    **No new identity axis, and no fabric-identity-is-tenant-identity** —
-    Amendment 3 prohibits both, explicitly. The id is derived at boot from the
-    adapter's registered name and the graph identity the single-writer mint
-    already uses (:func:`ccf.graph._writer.mint_boot_token`), so this names
-    the fabric the same way the fabric was already named to itself. Nothing is
-    registered, nothing is looked up, and the tenant is not consulted.
-    """
-
-    __slots__ = ("_attestor_id",)
-
-    def __init__(self, *, attestor_id: str, token: object) -> None:
-        if token is not _ATTESTOR_TOKEN:
-            raise ProvenanceForgeryError(
-                "LocalFabricAttestor is minted only by ccf.boot.boot, and"
-                " reaches a deployment as FabricHandle.local_attestor. A"
-                " caller-constructible attestor with a caller-chosen id makes"
-                " 'this fabric produced it' a string anyone can write, which"
-                " is the claim the type exists to make unwritable"
-                " (D-IMPL-336 O1)"
-            )
-        self._attestor_id = attestor_id
-
-    @property
-    def attestor_id(self) -> str:
-        """The boot-derived identity every attestation carries."""
-        return self._attestor_id
-
-    def attest(
-        self,
-        *,
-        product: ContextProductContract,
-        replay_ref: str,
-        store: ArtifactStoreProtocol,
-    ) -> LocalProvenance:
-        """Vouch that this fabric produced ``product``, from its own record.
-
-        Args:
-            product: The delivered child contract.
-            replay_ref: The URI of the decision record the delivery wrote —
-                ``ServedProduct.replay_ref.uri``.
-            store: The artifact store that record was persisted to.
-
-        Returns:
-            Provenance carrying this fabric's id and the entities the
-            execution actually read, taken from replay dimension 1.
-
-        Raises:
-            ProvenanceForgeryError: the resolved record does not name this
-                product. Refused rather than attested: a record that
-                authorized a different answer is evidence of something, and
-                that something is not this product's local production.
-        """
-        record = DecisionReplayRecord.model_validate_json(
-            store.get(content_address=store.resolve_uri(uri=replay_ref))
-        )
-        address = content_hash(product)
-        if record.content_generation_path.product_content_address != address:
-            raise ProvenanceForgeryError(
-                "the decision record at"
-                f" {replay_ref!r} names product"
-                f" {record.content_generation_path.product_content_address!r}"
-                f" and the product in hand hashes to {address!r}; local"
-                " provenance is the record's testimony about THIS product, so"
-                " a mismatch is refused rather than attested (D-IMPL-336 O1)"
-            )
-        return LocalProvenance(
-            attestor_id=self._attestor_id,
-            # From the PERSISTED dimension-1 record, never from a caller. The
-            # eligibility gate reads these against the invalidation register,
-            # so a caller who could choose them could choose to be eligible.
-            touched_entities=tuple(record.context_fabric_snapshot.touched_entities),
-            token=_LOCAL_PROVENANCE_TOKEN,
-        )
-
-
-def peer_provenance_from_admitted(
-    admitted: AdmittedProduct, *, touched_entities: tuple[str, ...]
-) -> VerifiedPeerProvenance:
-    """Carry a VERIFIED peering admission into composite provenance (F16).
-
-    Takes :class:`~ccf.peering.admission.AdmittedProduct` — a type the peering
-    gate alone constructs, and only after signature verification, peer
-    entitlement and policy-binding checks. **The argument is the evidence those
-    checks ran**, which is what a hand-built header dictionary can never be.
-
-    The header is read off the admitted product rather than passed alongside
-    it, so there is no seam at which a caller could substitute an unverified
-    mapping for the verified one.
-
-    Raises:
-        ProvenanceForgeryError: the admitted product carries no authenticated
-            header. Reachable only from an ``AdmittedProduct`` built before
-            that member existed; refused rather than treated as "no claims",
-            because a peered child with no verifiable header has no
-            establishable eligibility (F16 with Amendment 3's *absence is not
-            eligible*).
-    """
-    header = admitted.protected_header
-    if header is None:
-        raise ProvenanceForgeryError(
-            "this AdmittedProduct carries no authenticated protected header, so"
-            " nothing read from it could be attributed to the verified peer;"
-            " composite provenance requires the verified envelope, not an"
-            " envelope-shaped value (D-IMPL-336 Amendment 3, F16)"
-        )
-    return VerifiedPeerProvenance(
-        peer_id=admitted.peer.peer_id,
-        producer=str(header.get(PRODUCER_ASSERTION_HEADER, "")),
-        header=header,
-        touched_entities=tuple(touched_entities),
-        token=_PEER_PROVENANCE_TOKEN,
-    )
 
 
 _INVOCATION_TOKEN = object()
 
 
+#: How the child was acquired — read off the DISPATCH RESULT TYPE, never
+#: asserted by a caller. `D-IMPL-336` **Amendment 5**: this is the *provider
+#: relationship*, which is the axis that decides which controls apply.
+#:
+#: **`D-IMPL-59` separates MCP from Peering and so does this.** Dave's
+#: correction, verbatim: *"MCP is not automatically peering… Apply the existing
+#: controls for the actual provider relationship; do not require a new signed
+#: envelope merely because acquisition uses MCP. A genuinely peered product
+#: must still pass peering verification, regardless of how the skill retrieves
+#: it."*
+ChildAcquisition = Literal["local-dispatch", "mcp", "peered"]
+
+#: What each acquisition kind is evidenced by, and what it may therefore claim.
+_ACQUISITION_OF: Final[dict[str, ChildAcquisition]] = {
+    "SkillInvocation": "local-dispatch",
+    "McpInvocation": "mcp",
+    "PeeringInvocation": "peered",
+}
+
+
 class ChildInvocation:
-    """Evidence that an ACTUAL grant resolution and skill invocation ran (F4).
+    """Evidence that an ACTUAL grant resolution and skill dispatch ran.
 
-    `D-IMPL-336` Amendment 3. The earlier candidate carried ``skill_name``,
-    ``skill_version`` and ``grant_hash`` as plain strings the assembler wrote,
-    which admission never compared against anything and replay recorded
-    verbatim. A child produced by a skill the agent was never granted was
-    admitted whenever the contract checks passed, and the record named whatever
-    grant the caller typed.
+    `D-IMPL-336` Amendment 3 replaced the assembler's free ``skill_name`` /
+    ``skill_version`` / ``grant_hash`` strings with a resolved catalog entry;
+    **O2** bound the grant hash to the ledger; **Amendment 5** binds the
+    *dispatch* as well, and makes this the ONLY provenance the composite
+    carries.
 
-    Minted only by :func:`invocation_from_dispatch`, which takes the resolved
-    catalog entry itself — so the identity recorded is the entry's own pinned
-    ``artifact_version`` and the grant's own hash, never a caller's spelling of
-    them.
+    Dave: *"Obtain invocation attribution directly from the existing grant and
+    dispatch execution records — not caller-written grant hashes or identity
+    strings."* So both halves come from machinery: the grant from
+    :class:`ResolvedProducer` (the ledger's), the acquisition kind from the
+    **type of the dispatch result** (:mod:`ccf.skills.dispatch`'s).
+
+    **This replaces the whole `LocalFabricAttestor` / `LocalProvenance` /
+    `VerifiedPeerProvenance` layer, which is deleted.** That layer asked a
+    second time whether a child was authorized. The grant authorizes invoking
+    the skill; the provider's own controls govern what the invocation may
+    return; composition duplicates neither.
+
+    Minted only by :func:`invocation_from_dispatch`.
     """
 
-    __slots__ = ("_entry_version", "_grant_hash", "_skill_name")
+    __slots__ = (
+        "_acquisition",
+        "_entry_version",
+        "_grant_hash",
+        "_skill_name",
+        "_touched_entities",
+    )
 
     def __init__(
-        self, *, skill_name: str, entry_version: str, grant_hash: str, token: object
+        self,
+        *,
+        skill_name: str,
+        entry_version: str,
+        grant_hash: str,
+        acquisition: ChildAcquisition,
+        touched_entities: tuple[str, ...] | None,
+        token: object,
     ) -> None:
         if token is not _INVOCATION_TOKEN:
             raise ProvenanceForgeryError(
                 "ChildInvocation is minted only by"
-                " ccf.products.composite.invocation_from_dispatch, from the"
-                " catalog entry a grant actually made effective. Accepting"
-                " caller-written skill and grant strings is what let an"
-                " ungranted producer be recorded as an authorized one"
-                " (D-IMPL-336 Amendment 3, F4)"
+                " ccf.products.composite.invocation_from_dispatch, from a grant"
+                " the ledger made effective and a dispatch that actually ran."
+                " Accepting caller-written skill, grant or acquisition strings"
+                " is what let an ungranted producer be recorded as an"
+                " authorized one (D-IMPL-336 F4, O2, Amendment 5)"
             )
         self._skill_name = skill_name
         self._entry_version = entry_version
         self._grant_hash = grant_hash
+        self._acquisition = acquisition
+        self._touched_entities = touched_entities
 
     @property
     def skill_name(self) -> str:
@@ -690,6 +371,32 @@ class ChildInvocation:
     def grant_hash(self) -> str:
         """The governed binding identity that made the entry effective."""
         return self._grant_hash
+
+    @property
+    def acquisition(self) -> ChildAcquisition:
+        """The provider relationship, from the dispatch result's own type."""
+        return self._acquisition
+
+    @property
+    def touched_entities(self) -> tuple[str, ...] | None:
+        """What the child's execution read, when this fabric can know it.
+
+        ``None`` is a POSITIVE statement and not an omission: *the child was
+        produced by a provider whose execution record this fabric does not
+        hold*. Dave's ruling is explicit — *"do not require access to a remote
+        provider's internal replay store"* — so for an ``mcp`` or ``peered``
+        child there is nothing here to read, and the local invalidation
+        register is **not** consulted and **not** claimed as the authority.
+
+        For a ``local-dispatch`` child it is read from the child's own
+        persisted replay record, never from a caller. ``()`` there is the
+        verified claim that the child read nothing.
+
+        `F3`'s defect was omitting this and still recording that the register
+        had authorized the child. What closes F3 is that the *basis* is
+        recorded alongside — never that the value is always present.
+        """
+        return self._touched_entities
 
 
 _PRODUCER_TOKEN = object()
@@ -744,23 +451,67 @@ class ResolvedProducer:
         return self._grant_hash
 
 
-def invocation_from_dispatch(producer: ResolvedProducer) -> ChildInvocation:
-    """Record what a real grant resolution produced (F4, **O2**).
+def invocation_from_dispatch(
+    producer: ResolvedProducer,
+    dispatched: object,
+    *,
+    touched_entities: tuple[str, ...] | None = None,
+) -> ChildInvocation:
+    """Record what a real grant resolution AND a real dispatch produced.
 
-    Takes the :class:`ResolvedProducer` :func:`resolve_producing_grant`
-    returned — entry and grant together — so neither the version nor the
-    authority recorded can disagree with what the ledger holds.
+    `D-IMPL-336` **Amendment 5**. Both arguments are machinery output:
+    ``producer`` is what :func:`resolve_producing_grant` returned from the
+    ledger, and ``dispatched`` is what :func:`ccf.skills.dispatch.dispatch_skill`
+    returned. The acquisition kind is the dispatch result's **type** — so the
+    provider relationship is observed, never declared.
 
-    **The ``grant_hash`` keyword is gone deliberately.** While it existed this
-    function would mint authority from any entry plus any string, which is
-    precisely what O2 named. There is no compatibility shim: an accepted
-    parameter that no longer binds anything is the defect class this work
-    exists to repair.
+    Args:
+        producer: The entry and the grant that made it effective.
+        dispatched: The dispatch result. A ``ToolInvocation`` is refused: a
+            tool dispatch is an effect-as-value that this SDK never executes,
+            so nothing was produced and there is no child to admit.
+        touched_entities: For a ``local-dispatch`` child only — what the
+            child's own persisted execution record says it read. Supplying it
+            for a remote acquisition is refused rather than ignored, because a
+            consumer cannot have read a provider's internal replay store and a
+            value that arrived anyway is not evidence.
+
+    Raises:
+        ProvenanceForgeryError: the dispatch names a different skill than the
+            grant resolved, the dispatch kind produces no product, or
+            ``touched_entities`` was supplied for an acquisition that cannot
+            have them.
     """
+    kind = _ACQUISITION_OF.get(type(dispatched).__name__)
+    if kind is None:
+        raise ProvenanceForgeryError(
+            f"a {type(dispatched).__name__} dispatch produces no Context"
+            " Product, so there is no child to admit. A composite child comes"
+            " from a local callable, an MCP resource or a peering endpoint"
+            " (D-IMPL-336 Amendment 5)"
+        )
+    name = getattr(dispatched, "skill_name", None)
+    if name != producer.entry.name:
+        raise ProvenanceForgeryError(
+            f"the grant resolved skill {producer.entry.name!r} and the dispatch"
+            f" result names {name!r}; an invocation record pairing one skill's"
+            " authority with another skill's execution is the defect this"
+            " evidence exists to prevent (D-IMPL-336 Amendment 5)"
+        )
+    if touched_entities is not None and kind != "local-dispatch":
+        raise ProvenanceForgeryError(
+            f"touched entities were supplied for a {kind!r} child. This fabric"
+            " does not hold that provider's execution record, so the value"
+            " cannot have been read from one — and admitting it would let the"
+            " local invalidation register be claimed as an authority over a"
+            " decision it never saw (D-IMPL-336 Amendment 5)"
+        )
     return ChildInvocation(
         skill_name=producer.entry.name,
         entry_version=producer.entry.artifact_version,
         grant_hash=producer.grant_hash,
+        acquisition=kind,
+        touched_entities=touched_entities,
         token=_INVOCATION_TOKEN,
     )
 
@@ -769,18 +520,32 @@ def invocation_from_dispatch(producer: ResolvedProducer) -> ChildInvocation:
 class ChildCandidate:
     """One served child, with everything admission needs to judge it.
 
-    ``contract`` is the typed product the child's own ``deliver()`` served, and
+    ``contract`` is the typed product the provider served, and
     ``content_address`` is what its door reported. The gate **recomputes** the
     address from the contract rather than trusting the reported one, on the
     ``DoorOutcome`` discipline: a consumer's hash of the producer's bytes is
     the check, and a value taken on faith checks nothing.
+
+    **`D-IMPL-336` Amendment 5 removed the ``provenance`` member.** It carried
+    a parallel authorization layer — an attestor-minted "this fabric produced
+    it" or a hand-carried peer envelope — on top of the grant that had already
+    authorized the invocation. What remains is the invocation (grant +
+    dispatch) and, for a peered child alone, the peering gate's own verified
+    result.
     """
 
     requirement: ChildRequirement
     contract: ContextProductContract
     content_address: str
-    provenance: ChildProvenance
     invocation: "ChildInvocation"
+    #: `D-IMPL-336` **Amendment 5**. The peering gate's VERIFIED result, for a
+    #: peered child and only for one. ``None`` for local and MCP acquisition.
+    #:
+    #: The composite does not verify a signature, check peer trust or read a
+    #: protected header — :class:`~ccf.peering.admission.PeeringAdmissionGate`
+    #: does all three and this type is the evidence it ran. Dave's ruling:
+    #: *"composition consumes the verified result or refusal."*
+    admission: AdmittedProduct | None = None
 
 
 _CHILD_ADMISSION_TOKEN = object()
@@ -1114,7 +879,7 @@ class CompositeAdmissionGate:
             admitted_at=admitted_at,
             composition_invocation=composition_invocation,
         )
-        if isinstance(established, _EligibilityRefused):
+        if isinstance(established, EligibilityRefused):
             return refuse(
                 cast(ChildRefusalReason, established.reason), established.detail
             )
@@ -1137,195 +902,83 @@ class CompositeAdmissionGate:
         candidate: ChildCandidate,
         admitted_at: datetime,
         composition_invocation: str,
-    ) -> tuple[str, EligibilityEvidence | None] | _EligibilityRefused:
+    ) -> tuple[str, EligibilityEvidence | None] | EligibilityRefused:
         """Answer *may this child still serve*, from the right authority.
 
-        **The authority follows the producing fabric, not a transport label.**
-        Where this fabric produced the child its own register decides; where
-        another did, only that producer's verified attestation can establish
-        eligibility, and **the local register's silence never can** — silence
-        is *don't know*, and reading it as *pass* is the measurement failure
-        this project's rules forbid.
+        **`D-IMPL-336` Amendment 5 — the authority follows the PROVIDER
+        RELATIONSHIP, not the transport.** Dave: *"MCP is not automatically
+        peering… Apply the existing controls for the actual provider
+        relationship."* So the three acquisitions answer differently, and each
+        answer names the authority that actually gave it:
+
+        * ``local-dispatch`` — this fabric ran the skill and holds the child's
+          execution record, so its own invalidation register decides
+          (`D-IMPL-334`/`D-IMPL-335`). The entities come from that record.
+        * ``mcp`` — the provider's own authenticated, authorized access
+          governed the read, and this fabric holds no execution record for it.
+          The local register is **not consulted and not claimed**: reading its
+          silence as a pass is exactly the *don't-know-collapsed-into-pass*
+          failure this project's rules forbid.
+        * ``peered`` — only the producer's verified attestation can establish
+          it, and the verification lives in :mod:`ccf.peering.eligibility`.
+          This method **consumes** its verdict; the five equality bindings and
+          the declared age bound are no longer restated here.
         """
-        provenance = candidate.provenance
-        contract = candidate.contract
+        acquisition = candidate.invocation.acquisition
 
-        # The local register can always REFUSE — anything this fabric knows to
-        # be superseded is superseded whoever produced it. `touched_entities`
-        # is a tuple by construction now (F3): the provenance evidence carries
-        # it, so there is no "I did not look" state to mistake for a pass.
-        local_refusal = refuse_dependency_invalidation(
-            contract,
-            registry=self._registry,
-            touched_entities=provenance.touched_entities,
-        )
-        if local_refusal is not None:
-            return _EligibilityRefused(
-                "ineligible",
-                "this fabric's invalidation register refuses the child:"
-                f" {local_refusal.detail}",
+        if acquisition == "local-dispatch":
+            touched = candidate.invocation.touched_entities
+            local_refusal = refuse_dependency_invalidation(
+                candidate.contract,
+                registry=self._registry,
+                touched_entities=touched,
             )
-
-        if isinstance(provenance, LocalProvenance):
+            if local_refusal is not None:
+                return EligibilityRefused(
+                    "ineligible",
+                    "this fabric's invalidation register refuses the child:"
+                    f" {local_refusal.detail}",
+                )
             return (ELIGIBILITY_LOCAL_REGISTER, None)
 
-        if not isinstance(provenance, VerifiedPeerProvenance):
-            return _EligibilityRefused(
+        if acquisition == "mcp":
+            # No local claim is made and none is available. The basis records
+            # WHICH authority governed the read so a replay reader is never
+            # left inferring that this fabric checked something it could not.
+            return (ELIGIBILITY_PROVIDER_CONTROLS, None)
+
+        admission = candidate.admission
+        if admission is None:
+            return EligibilityRefused(
                 "provenance-unverified",
-                "the child's provenance is neither a boot-attested local"
-                " production nor a verified peering admission, so no authority"
-                " for its eligibility can be identified (D-IMPL-336 Am. 3)",
+                "this child was acquired over a peering endpoint and carries no"
+                " PeeringAdmissionGate result, so its signature, its peer's"
+                " entitlement and its policy bindings are all unverified."
+                " Composition does not verify them itself and does not admit"
+                " on the transport's word (D-IMPL-336 Amendment 5)",
             )
-
-        try:
-            assertion = decode_eligibility_assertion(
-                provenance.header.get(ELIGIBILITY_ASSERTION_HEADER)
+        header = admission.protected_header
+        if header is None:
+            return EligibilityRefused(
+                "provenance-unverified",
+                "the peering admission carries no authenticated protected"
+                " header, so nothing read from it could be attributed to the"
+                " verified peer",
             )
-        except EligibilityAssertionMalformed as error:
-            return _EligibilityRefused("eligibility-evidence-missing", str(error))
-
-        mismatch = self._binding_mismatch(
-            assertion,
-            candidate=candidate,
-            provenance=provenance,
+        verdict = verify_child_eligibility(
+            header=header,
+            child_content_address=candidate.content_address,
+            requested_as_of=candidate.contract.temporal_boundary,
+            verified_producer=str(header.get(PRODUCER_ASSERTION_HEADER, "")),
+            consumer_scope=self._consumer_scope,
             composition_invocation=composition_invocation,
+            admitted_at=admitted_at,
+            registry=self._registry,
+            tenant_id=self._tenant_id,
         )
-        if mismatch is not None:
-            return _EligibilityRefused("eligibility-evidence-mismatch", mismatch)
-
-        stale = self._evidence_too_old(assertion, admitted_at=admitted_at)
-        if stale is not None:
-            return stale
-
-        if not assertion.eligible:
-            return _EligibilityRefused(
-                "ineligible",
-                "the producing fabric attests this child is NOT eligible as of"
-                f" {assertion.checked_at.isoformat()}; a signed negative is a"
-                " governed answer and is honored",
-            )
-        return (
-            ELIGIBILITY_PRODUCER_ATTESTED,
-            EligibilityEvidence(
-                checked_at=assertion.checked_at,
-                assertion_address=content_hash(assertion),
-                producer=assertion.producer,
-            ),
-        )
-
-    def _evidence_too_old(
-        self, assertion: EligibilityAssertion, *, admitted_at: datetime
-    ) -> _EligibilityRefused | None:
-        """Hold the producer's check to a DECLARED age bound (F7).
-
-        Measured against ``admitted_at`` — when this admission is running —
-        and **never** against the reconstruction instant, which may legitimately
-        be years earlier than an honest check.
-
-        A deployment that admits peered children and has declared no bound gets
-        an explicit refusal. The SDK holds no duration and invents none
-        (``D-IMPL-38``).
-        """
-        key = eligibility_evidence_policy_key(tenant_id=self._tenant_id)
-        policy: object = None
-        try:
-            # `resolve_latest` returns (version, artifact); the artifact is the
-            # second member, and reading the tuple as the artifact was a live
-            # bug caught by mypy before any test ran.
-            _version, policy = self._registry.resolve_latest(key)
-        except ControlPlaneMissing:
-            # NARROW, deliberately. A bare `except` here would swallow a
-            # registry outage and report it as an undeclared bound, which is a
-            # different fact with a different remedy.
-            policy = None
-        if not isinstance(policy, EligibilityEvidencePolicy):
-            return _EligibilityRefused(
-                # Its OWN reason: a tenant that declared no bound has a
-                # configuration error, and saying "your peer's evidence is
-                # stale" would name the wrong party.
-                "eligibility-bound-undeclared",
-                "this tenant has declared no eligibility-evidence bound at"
-                f" {key!r}, so how old a producer's check may be is unknown."
-                " Refused rather than defaulted: the SDK holds no duration"
-                " (D-IMPL-38), and an unbounded attestation would authorize a"
-                " determination of any age (D-IMPL-336 Am. 3, F7)",
-            )
-
-        age = (admitted_at - assertion.checked_at).total_seconds()
-        if age > policy.max_evidence_age_seconds:
-            return _EligibilityRefused(
-                "eligibility-evidence-stale",
-                f"the producer checked eligibility at"
-                f" {assertion.checked_at.isoformat()}, {int(age)}s before this"
-                f" admission at {admitted_at.isoformat()}; the declared maximum"
-                f" evidence age is {policy.max_evidence_age_seconds}s",
-            )
-        if -age > policy.permitted_clock_skew_seconds:
-            return _EligibilityRefused(
-                "eligibility-evidence-stale",
-                f"the producer's check is dated {assertion.checked_at.isoformat()},"
-                f" {int(-age)}s AFTER this admission at"
-                f" {admitted_at.isoformat()}; the declared permitted clock skew"
-                f" is {policy.permitted_clock_skew_seconds}s. Evidence from the"
-                " future is refused rather than treated as maximally fresh",
-            )
-        return None
-
-    def _binding_mismatch(
-        self,
-        assertion: EligibilityAssertion,
-        *,
-        candidate: ChildCandidate,
-        provenance: VerifiedPeerProvenance,
-        composition_invocation: str,
-    ) -> str | None:
-        """Check every EQUALITY binding — five of them, and the count is stated.
-
-        `D-IMPL-336` Amendment 3 corrects the documentation the panel caught:
-        the assertion binds five facts by **equality** here, and its
-        ``checked_at`` is held to a **declared age bound** in
-        :meth:`_evidence_too_old`. Those are different checks and the module no
-        longer claims otherwise.
-
-        ``producer`` is compared against the identity the **verified** header
-        asserted, not against a sibling field the same caller wrote — the
-        earlier comparison held two caller-supplied strings against each other.
-        """
-        if assertion.child_content_address != candidate.content_address:
-            return (
-                "the eligibility assertion is about"
-                f" {assertion.child_content_address!r} and this child is"
-                f" {candidate.content_address!r}"
-            )
-        if assertion.requested_as_of != candidate.contract.temporal_boundary:
-            return (
-                "the eligibility assertion was made for reconstruction instant"
-                f" {assertion.requested_as_of.isoformat()} and the child answers"
-                f" for {candidate.contract.temporal_boundary.isoformat()}"
-            )
-        if assertion.producer != provenance.producer:
-            return (
-                f"the eligibility assertion names producer"
-                f" {assertion.producer!r} and the VERIFIED envelope was"
-                f" produced by {provenance.producer!r}"
-            )
-        if assertion.consumer_scope != self._consumer_scope:
-            return (
-                "the eligibility assertion was minted for consumer"
-                f" {assertion.consumer_scope!r} and this gate admits for"
-                f" {self._consumer_scope!r}; an assertion is not bearer"
-                " currency"
-            )
-        if assertion.composition_invocation != composition_invocation:
-            return (
-                "the eligibility assertion was minted for composition"
-                f" {assertion.composition_invocation!r} and this is"
-                f" {composition_invocation!r}; the binding is to one"
-                " invocation, so an assertion cannot be carried into a"
-                " different composition"
-            )
-        return None
-
+        if isinstance(verdict, EligibilityRefused):
+            return verdict
+        return (ELIGIBILITY_PRODUCER_ATTESTED, verdict)
 
 
 @runtime_checkable
@@ -1365,8 +1018,17 @@ class CompositeChildResolverProtocol(Protocol):
         asked_at: datetime,
         admitted_at: datetime,
         composition_invocation: str,
+        consumer_lineage: ProductLineage,
     ) -> Mapping[str, object]:
-        """Resolve, invoke, deliver and admit; return one outcome per class."""
+        """Resolve, invoke, deliver and admit; return one outcome per class.
+
+        ``consumer_lineage`` is the composing product's own L axis, which
+        :meth:`~ccf.peering.admission.PeeringAdmissionGate.admit` requires to
+        extend lineage by set-union at the boundary (`D-IMPL-336` Amendment 5).
+        Passed because a resolver that acquires a peered child cannot verify it
+        without one, and inventing a lineage on its behalf would make the
+        union a fiction.
+        """
         ...
 
 
@@ -1563,7 +1225,7 @@ def compose_children(
                         # so it is retained. Only an address the gate DISPROVED
                         # is withheld from this field (F9).
                         child_content_address=outcome.verified_content_address,
-                        producing_fabric=_fabric_of(outcome.candidate.provenance),
+                        producing_fabric=_provider_of(outcome.candidate),
                         refusal_ref=reason,
                     )
                 )
@@ -1848,18 +1510,22 @@ def _status_for(reason: str) -> str:
         ) from None
 
 
-def _fabric_of(provenance: ChildProvenance) -> str | None:
-    """Name the fabric an eligibility claim was made ABOUT.
+def _provider_of(candidate: ChildCandidate) -> str | None:
+    """Name the provider an eligibility claim was made ABOUT.
 
     Shared by the admitted and the rejected row alike: the panel's F6 point was
     that a mislabelled production left no trace, and a rejected child whose
-    fabric went unrecorded would leave the same gap on the other branch.
+    provider went unrecorded would leave the same gap on the other branch.
+
+    **`D-IMPL-336` Amendment 5** reads this off evidence rather than off a
+    provenance label. A peered child names the peer the peering gate VERIFIED.
+    A local or MCP child names no fabric, and that is correct rather than
+    missing: naming one would be this fabric asserting an identity for a
+    producer it did not authenticate, which is the whole class of claim
+    Amendment 5 removed.
     """
-    if isinstance(provenance, LocalProvenance):
-        return provenance.attestor_id
-    if isinstance(provenance, VerifiedPeerProvenance):
-        return provenance.peer_id
-    return None
+    admission = candidate.admission
+    return None if admission is None else admission.peer.peer_id
 
 
 def _row_for_admitted(
@@ -1870,7 +1536,6 @@ def _row_for_admitted(
     contract = admitted.contract
     debt = contract.debt
     assert debt is not None  # admission refuses an unassessable child
-    provenance = candidate.provenance
     evidence = admitted.eligibility_evidence
     return ChildResolution(
         required_product_class=requirement.product_class,
@@ -1892,14 +1557,8 @@ def _row_for_admitted(
         child_policy_bundle_versions=contract.lineage.policy_bundle_versions,
         child_lineage_ref=content_hash(contract.lineage),
         eligibility_basis=admitted.eligibility_basis,
-        # F6: name the fabric the basis was claimed about.
-        producing_fabric=(
-            provenance.attestor_id
-            if isinstance(provenance, LocalProvenance)
-            else provenance.peer_id
-            if isinstance(provenance, VerifiedPeerProvenance)
-            else None
-        ),
+        # F6: name the provider the basis was claimed about.
+        producing_fabric=_provider_of(candidate),
         # F7: the producer's check instant and the assertion it came from.
         child_eligibility_checked_at=(
             evidence.checked_at if evidence is not None else None

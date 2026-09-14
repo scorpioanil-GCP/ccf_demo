@@ -2369,46 +2369,6 @@ def test_r2_the_composed_signal_crosses_the_band_the_CHILD_moved(
     assert poor.product.obligation_in_force == NO_OBLIGATION_IN_FORCE
 
 
-def _child_record_ref(booted: _Booted, contract: Any) -> str:
-    """Persist a real decision record naming ``contract``, and return its URI.
-
-    `D-IMPL-336` **O1** made `LocalFabricAttestor.attest` read the entities it
-    vouches for out of replay dimension 1 rather than accept them, so a child
-    has to have a record before it can have local provenance. That is the
-    point: provenance now means *a governed delivery happened and this is what
-    it read*.
-    """
-    record = DecisionReplayRecord(
-        tenant_id=TENANT,
-        recorded_at=ADMITTED_AT,
-        context_fabric_snapshot=ContextFabricSnapshot(
-            graph_snapshot_id=f"snapshot://{content_hash(contract)}",
-            tenant_id=TENANT,
-            temporal_boundary=contract.temporal_boundary,
-            store_watermark=ADMITTED_AT.isoformat(),
-            touched_entities=(),
-            touched_relationships=(),
-        ),
-        policy_bindings=PolicyBindingsSnapshot(bindings=()),
-        model_version=ModelVersionRecord(assembly_mode="algorithmic"),
-        perspective_conditioning=PerspectiveConditioning(
-            principal_id=PERSPECTIVE.principal_id, role=PERSPECTIVE.role
-        ),
-        content_generation_path=ContentGenerationPath(
-            plan_id=contract.plan_id,
-            operator_plan=tuple(sorted(contract.lineage.operators_invoked)),
-            steps=(),
-            product_content_address=content_hash(contract),
-        ),
-    )
-    return booted.store.put(
-        tenant_id=TENANT,
-        artifact_class="fixture.replay-record",
-        name=content_hash(record),
-        artifact=record,
-    ).uri
-
-
 def _real_child(
     booted: _Booted,
     *,
@@ -2450,6 +2410,7 @@ def _real_child(
         SkillCatalogEntry,
         SkillRequirements,
     )
+    from ccf.skills.dispatch import SkillInvocation
     from ccf.skills.grants import GrantLedger, SkillGrant
 
     registry = booted.control_plane
@@ -2600,18 +2561,19 @@ def _real_child(
         requirement=requirement,
         contract=gated.product,
         content_address=_address(gated.product),
-        # `D-IMPL-336` **O1**: the BOOT's own attestor — the only supported
-        # way to obtain one — attesting over a REAL persisted record that
-        # names this child. The record is written here rather than produced by
-        # a child `GovernedResolver` because that is INT-01a's subject; what
-        # this helper needs is that the attestation is evidence-bound, and it
-        # is: change the contract and `attest` refuses.
-        provenance=booted.fabric.handle.local_attestor.attest(
-            product=gated.product,
-            replay_ref=_child_record_ref(booted, gated.product),
-            store=booted.store,
+        # `D-IMPL-336` **Amendment 5**: the grant and the dispatch ARE the
+        # evidence. No attestor, no record to attest over, no provenance
+        # object — which is the simplification, visible here as the six lines
+        # this helper no longer needs.
+        invocation=invocation_from_dispatch(
+            producer,
+            SkillInvocation(
+                skill_name=producer.entry.name,
+                skill_type="local_callable",
+                output={},
+            ),
+            touched_entities=(),
         ),
-        invocation=invocation_from_dispatch(producer),
     )
     admitted = CompositeAdmissionGate(
         tenant_id=TENANT, consumer_scope="consumer://seam", registry=registry

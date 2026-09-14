@@ -43,23 +43,20 @@ from ccf.peering.eligibility import (
 from ccf.products.composite import (
     CHILD_REFUSAL_REASONS,
     ELIGIBILITY_LOCAL_REGISTER,
+    ELIGIBILITY_PROVIDER_CONTROLS,
     ELIGIBILITY_PRODUCER_ATTESTED,
     AdmittedChild,
     AmbiguousProducerError,
     ChildAdmissionBypassError,
     ChildAdmissionRefusal,
     ChildCandidate,
+    ChildInvocation,
     CompositeAdmissionGate,
     CompositionOutcome,
-    EligibilityEvidencePolicy,
-    LocalFabricAttestor,
-    LocalProvenance,
     ProvenanceForgeryError,
     ResolvedProducer,
-    VerifiedPeerProvenance,
     _REASON_TO_STATUS,
     compose_children,
-    eligibility_evidence_policy_key,
     invocation_from_dispatch,
     resolve_producing_grant,
 )
@@ -93,6 +90,11 @@ from ccf.skills.catalog import (
     SkillCatalog,
     SkillCatalogEntry,
     SkillRequirements,
+)
+from ccf.skills.dispatch import (
+    McpInvocation,
+    PeeringInvocation,
+    SkillInvocation,
 )
 from ccf.skills.grants import BoundSkillView, GrantLedger, SkillGrant
 
@@ -129,40 +131,17 @@ _FULL = DebtFactors(
 
 
 @pytest.fixture()
-def registry(
-    fabric_boot: Any, tmp_path: pathlib.Path
-) -> ControlPlaneRegistry:
-    """The Control Plane, plus the two boot-scoped things `O1` now requires.
+def registry() -> ControlPlaneRegistry:
+    """A bare Control Plane, and that is the Amendment 5 story in one fixture.
 
-    A real fabric is booted and its `local_attestor` and an artifact store are
-    carried on the registry object — the same idiom `_registered`, `_ledger`
-    and `_producer` already use here, and for the same reason: they share the
-    registry's lifetime, and CPython reuses an `id` so a module dict keyed on
-    one would leak between tests.
-
-    **Why a boot at all.** After `D-IMPL-336` O1 there is no supported way to
-    obtain a `LocalFabricAttestor` except by booting, which is the whole
-    point: the class claimed to be boot-bound while its constructor was
-    public, so the tests were demonstrating the opposite of the docstring.
+    Between `O1` and Amendment 5 this fixture booted a whole fabric and carried
+    an artifact store, because a child could not be admitted without an
+    attestor minted at boot and a persisted record to attest over. **That layer
+    is gone.** A child is admitted on the strength of the grant that authorized
+    its skill and the dispatch that ran it, so a unit test of composition needs
+    a Control Plane and nothing else.
     """
-    control = ControlPlaneRegistry()
-    control.__dict__["_composite_test_attestor"] = fabric_boot().local_attestor
-    control.__dict__["_composite_test_store"] = FileArtifactStore(
-        root=tmp_path / "artifacts"
-    )
-    return control
-
-
-def _attestor(registry: ControlPlaneRegistry) -> LocalFabricAttestor:
-    attestor = registry.__dict__["_composite_test_attestor"]
-    assert isinstance(attestor, LocalFabricAttestor)
-    return attestor
-
-
-def _store(registry: ControlPlaneRegistry) -> FileArtifactStore:
-    store = registry.__dict__["_composite_test_store"]
-    assert isinstance(store, FileArtifactStore)
-    return store
+    return ControlPlaneRegistry()
 
 
 def _contract(
@@ -391,77 +370,15 @@ def require(
     )
 
 
-def _record_for(
-    contract: ContextProductContract, *, touched: tuple[str, ...] = (ENTITY_OBLIGOR,)
-) -> DecisionReplayRecord:
-    """A real, valid decision record naming ``contract``."""
-    return DecisionReplayRecord(
-        tenant_id=TENANT,
-        recorded_at=SERVED_AT,
-        context_fabric_snapshot=ContextFabricSnapshot(
-            graph_snapshot_id=f"snapshot://{content_hash(contract)}",
-            tenant_id=TENANT,
-            temporal_boundary=contract.temporal_boundary,
-            store_watermark=SERVED_AT.isoformat(),
-            # The entities `attest` reads back. A caller cannot supply them.
-            touched_entities=touched,
-            touched_relationships=(),
-        ),
-        policy_bindings=PolicyBindingsSnapshot(bindings=()),
-        model_version=ModelVersionRecord(assembly_mode="algorithmic"),
-        perspective_conditioning=PerspectiveConditioning(
-            principal_id="principal-composite", role="assembler"
-        ),
-        content_generation_path=ContentGenerationPath(
-            plan_id=contract.plan_id,
-            operator_plan=tuple(sorted(contract.lineage.operators_invoked)),
-            steps=(),
-            # The address `attest` checks the product against.
-            product_content_address=content_hash(contract),
-        ),
-    )
-
-
-def _local_provenance(
-    registry: ControlPlaneRegistry,
-    contract: ContextProductContract,
-    *,
-    touched: tuple[str, ...] = (ENTITY_OBLIGOR,),
-) -> LocalProvenance:
-    """Attest over a REAL persisted record that names ``contract`` (**O1**).
-
-    `attest` no longer accepts ``touched_entities``: it reads them out of
-    replay dimension 1, from the record the delivery wrote. So these tests
-    write a real record to a real store, and the entities the eligibility gate
-    later reads are the ones the record carries.
-
-    The record is minimal and honest — this module's children are delivered
-    through `run_gates` directly rather than through a whole resolver, and a
-    record asserting more than that would be a fixture pretending to be a
-    decision. The proof that a genuine `GovernedResolver` delivery produces a
-    record this method accepts is the seam's, not this module's.
-    """
-    record = _record_for(contract, touched=touched)
-    ref = _store(registry).put(
-        tenant_id=TENANT,
-        artifact_class="fixture.replay-record",
-        name=content_hash(record),
-        artifact=record,
-    )
-    return _attestor(registry).attest(
-        product=contract, replay_ref=ref.uri, store=_store(registry)
-    )
-
-
 def _producer(
     registry: ControlPlaneRegistry, name: str, produces: str
 ) -> ResolvedProducer:
     """Resolve ``name`` through a real ledger, once per (registry, name).
 
     Cached on the registry object rather than in a module dict keyed on
-    ``id(registry)`` — the same correction ``_registered`` records, for the
-    same reason: CPython reuses an id and a later test inherits a cache entry
-    naming a grant its own ledger never made.
+    ``id(registry)`` — the same correction `_registered` records, for the same
+    reason: CPython reuses an id and a later test inherits a cache entry naming
+    a grant its own ledger never made.
     """
     cache: dict[str, ResolvedProducer] = registry.__dict__.setdefault(
         "_composite_test_producers", {}
@@ -474,30 +391,69 @@ def _producer(
     return cache[name]
 
 
+def dispatched(skill_name: str = "family-skill", *, kind: str = "local") -> object:
+    """A dispatch result, of the type the acquisition actually produces.
+
+    `D-IMPL-336` **Amendment 5** reads the provider relationship off this
+    object's **type** rather than off a caller's label, so a unit test that
+    wants the MCP or peered branch builds the matching result. The proof that
+    `dispatch_skill` really produces these — over a real callable, through a
+    real door — is `tests/products/test_composite_integration.py`.
+    """
+    if kind == "mcp":
+        return McpInvocation(
+            skill_name=skill_name,
+            skill_type="mcp",
+            server="fixture-server",
+            resource="fixture-resource",
+            contents="{}",
+            arguments={},
+        )
+    if kind == "peering":
+        return PeeringInvocation(
+            skill_name=skill_name,
+            skill_type="peering",
+            endpoint="fixture-endpoint",
+            products=(),
+            arguments={},
+        )
+    return SkillInvocation(
+        skill_name=skill_name, skill_type="local_callable", output={}
+    )
+
+
 def candidate(
     registry: ControlPlaneRegistry,
     contract: ContextProductContract,
     requirement: ChildRequirement,
     *,
-    provenance: object | None = None,
     skill_name: str = "family-skill",
-    touched: tuple[str, ...] = (ENTITY_OBLIGOR,),
+    touched: tuple[str, ...] | None = (ENTITY_OBLIGOR,),
     address: str | None = None,
+    kind: str = "local",
+    admission: object | None = None,
 ) -> ChildCandidate:
+    """One candidate, with evidence that a grant AND a dispatch both happened.
+
+    **Amendment 5 removed the `provenance` argument.** There is no attestor and
+    no peer envelope to hand in: what the gate reads is the invocation — the
+    ledger's grant, the dispatch result's type — and, for a peered child
+    alone, the peering gate's own `AdmittedProduct`.
+    """
+    result = dispatched(skill_name, kind=kind)
     return ChildCandidate(
         requirement=requirement,
         contract=contract,
         content_address=address or content_hash(contract),
-        provenance=provenance or _local_provenance(
-            registry, contract, touched=touched
-        ),
-        # `D-IMPL-336` **O2**: resolved through a REAL in-force grant rather
-        # than paired with an `f"grant::{name}"` string. The grant hash a row
-        # carries is now a ledger's, so producer-substitution and
-        # grant-identity assertions below measure the ledger and not this file.
+        # `O2` + Amendment 5: the grant comes from a REAL in-force ledger
+        # entry and the acquisition kind from the dispatch result, so neither
+        # half is a string this file typed.
         invocation=invocation_from_dispatch(
-            _producer(registry, skill_name, requirement.product_class)
+            _producer(registry, skill_name, requirement.product_class),
+            result,
+            touched_entities=touched if kind == "local" else None,
         ),
+        admission=admission,  # type: ignore[arg-type]
     )
 
 
@@ -553,20 +509,6 @@ def compose(
     )
 
 
-def declare_evidence_policy(
-    registry: ControlPlaneRegistry, *, max_age: int = 3600, skew: int = 60
-) -> None:
-    """A tenant that admits peered children declares its evidence bound (F7)."""
-    registry.register(
-        eligibility_evidence_policy_key(tenant_id=TENANT),
-        EligibilityEvidencePolicy(
-            max_evidence_age_seconds=max_age, permitted_clock_skew_seconds=skew
-        ),
-    )
-
-
-
-
 # --- the delivery path, and the evidence the gate now requires ---------------
 
 
@@ -579,67 +521,164 @@ def test_children_come_through_the_real_delivery_path(
     assert content_hash(product) == content_hash(_contract(schema=FAMILY))
 
 
-def test_provenance_and_invocation_cannot_be_authored_by_a_caller() -> None:
-    """`D-IMPL-336` Am. 3, root cause (a): the gate's INPUTS are evidence now.
+def test_the_invocation_record_cannot_be_authored_by_a_caller() -> None:
+    """Amendment 3 root cause (a), as Amendment 5 leaves it.
 
-    The panel's finding was that the gate verified the child and trusted the
-    context. These three constructors are the context, and a caller reaching
-    any of them directly is refused — so *"produced here"*, *"a peer signed
-    this"* and *"this grant produced it"* are claims only an authority can
-    make.
+    The panel's finding was that the gate verified the child and TRUSTED THE
+    CONTEXT. Amendment 3 answered with three minted evidence types; Amendment 5
+    collapsed them to **one**, because the other two were asking a second time
+    whether an invocation the grant had already authorized was authorized.
+
+    What must stay unwritable is the claim *"a grant made this skill effective
+    and it actually ran"* — so this is the retired
+    `test_provenance_and_invocation_cannot_be_authored_by_a_caller`, holding
+    the control that survived rather than deleting it with the two that did not.
     """
-    with pytest.raises(ProvenanceForgeryError):
-        LocalProvenance(attestor_id="a", touched_entities=(), token=object())
-    with pytest.raises(ProvenanceForgeryError):
-        VerifiedPeerProvenance(
-            peer_id="p", producer="q", header={}, touched_entities=(), token=object()
-        )
-    from ccf.products.composite import ChildInvocation
-
     with pytest.raises(ProvenanceForgeryError):
         ChildInvocation(
-            skill_name="s", entry_version="1.0.0", grant_hash="g", token=object()
-        )
-
-
-def test_a_hand_built_header_cannot_become_peer_provenance() -> None:
-    """F16: the type a caller must supply is one only the peering gate mints.
-
-    There is no constructor a deployment can reach that turns a dictionary
-    into verified peer provenance — which is the whole difference between
-    *"an assertion was present"* and *"an assertion was verified"*.
-    """
-    with pytest.raises(ProvenanceForgeryError):
-        VerifiedPeerProvenance(
-            peer_id="fabric://peer",
-            producer="whoever",
-            header={"ccf-child-eligibility": "{}"},
+            skill_name="s",
+            entry_version="1.0.0",
+            grant_hash="g",
+            acquisition="local-dispatch",
             touched_entities=(),
             token=object(),
         )
 
 
-def test_touched_entities_has_no_absent_state(
+def test_the_acquisition_kind_is_READ_from_the_dispatch_not_declared(
     registry: ControlPlaneRegistry,
 ) -> None:
-    """F3: the omission that skipped the register no longer has a spelling.
+    """Amendment 5's axis: the provider relationship, observed.
 
-    `touched_entities` moved onto the provenance evidence and is a tuple, so
-    ``()`` is the *verified* claim that the child read nothing and there is no
-    way to express *"I did not look"* — the state the register cannot answer
-    for and that used to be recorded as `local-register` anyway.
+    `invocation_from_dispatch` takes no ``acquisition`` argument. It reads the
+    dispatch result's type, so a caller cannot label an MCP read as a local
+    production to reach the local register — which is the substitution Dave
+    named: *"a local skill fetching a remote product must not relabel that
+    product as locally produced to bypass its applicable checks."*
     """
-    contract = _contract(schema=FAMILY)
-    # An execution that genuinely read nothing: the record says so, and the
-    # attestation carries that claim rather than an absence.
-    assert _local_provenance(registry, contract, touched=()).touched_entities == ()
-    with pytest.raises(TypeError):
-        ChildCandidate(  # type: ignore[call-arg]
-            requirement=require(FAMILY),
-            contract=contract,
-            content_address="x",
-            provenance=_local_provenance(registry, contract, touched=()),
+    producer = _producer(registry, "family-skill", FAMILY)
+    assert (
+        invocation_from_dispatch(producer, dispatched()).acquisition
+        == "local-dispatch"
+    )
+    assert (
+        invocation_from_dispatch(producer, dispatched(kind="mcp")).acquisition == "mcp"
+    )
+    assert (
+        invocation_from_dispatch(producer, dispatched(kind="peering")).acquisition
+        == "peered"
+    )
+    assert "acquisition" not in inspect.signature(invocation_from_dispatch).parameters
+
+
+def test_a_dispatch_of_ANOTHER_skill_cannot_carry_this_grants_authority(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """The pairing check Amendment 5 adds, and the reason it is needed.
+
+    The grant and the dispatch are two records. Pairing one skill's authority
+    with another skill's execution would produce a row naming a grant that
+    authorized something else — the O2 defect, one level further out.
+    """
+    producer = _producer(registry, "family-skill", FAMILY)
+    with pytest.raises(ProvenanceForgeryError) as raised:
+        invocation_from_dispatch(producer, dispatched("a-different-skill"))
+    assert "another skill's execution" in str(raised.value)
+
+
+def test_a_TOOL_dispatch_produces_no_child(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """A tool dispatch is an effect-as-value this SDK never executes.
+
+    Nothing was produced, so there is nothing to admit. Refused at the
+    invocation rather than admitted as an empty child.
+    """
+    from ccf.skills.dispatch import ToolInvocation
+
+    producer = _producer(registry, "family-skill", FAMILY)
+    with pytest.raises(ProvenanceForgeryError) as raised:
+        invocation_from_dispatch(
+            producer,
+            ToolInvocation(skill_name="family-skill", command="c", arguments={}),
         )
+    assert "produces no Context Product" in str(raised.value)
+
+
+def test_touched_entities_CANNOT_be_supplied_for_a_remote_child(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """`F3`, restated for the boundary Amendment 5 draws.
+
+    F3's defect was omitting `touched_entities` and still recording that the
+    local register had authorized the child. Amendment 3 closed it by making
+    the value always present. **Amendment 5 closes it the other way**, because
+    Dave ruled that a consumer must not be required to reach a remote
+    provider's replay store: for an `mcp` or `peered` child the value is
+    `None`, the register is not consulted, and the recorded BASIS says so.
+
+    So the thing that must be impossible is no longer *absence* — it is
+    **claiming entities for a child whose execution record this fabric does
+    not hold**. Supplying them is refused rather than ignored.
+    """
+    producer = _producer(registry, "family-skill", FAMILY)
+    for kind in ("mcp", "peering"):
+        with pytest.raises(ProvenanceForgeryError) as raised:
+            invocation_from_dispatch(
+                producer, dispatched(kind=kind), touched_entities=(ENTITY_OBLIGOR,)
+            )
+        assert "does not hold that provider's execution record" in str(raised.value)
+
+
+def test_an_mcp_child_names_the_PROVIDERS_controls_not_the_local_register(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """`D-IMPL-59`: MCP is not peering, and it is not local production either.
+
+    Dave's correction, verbatim: *"MCP is not automatically peering… Apply the
+    existing controls for the actual provider relationship; do not require a
+    new signed envelope merely because acquisition uses MCP."*
+
+    So an MCP child is admitted on the provider's own authenticated access —
+    and the row records `provider-controls`, which is a positive statement
+    about which authority applied rather than a silence a reader could mistake
+    for a local pass.
+    """
+    child = served(deliver(registry, _contract(schema=FAMILY)))
+    out = admit(registry, candidate(registry, child, require(FAMILY), kind="mcp"))
+    assert isinstance(out, AdmittedChild), out
+    assert out.eligibility_basis == ELIGIBILITY_PROVIDER_CONTROLS
+
+
+def test_a_peered_child_with_NO_peering_admission_is_refused(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """`F16`, as Amendment 5 leaves it: composition consumes a verdict.
+
+    The retired test asserted that a hand-built header could not become peer
+    provenance. There is no such type now — so the control that replaces it is
+    that a peered child WITHOUT the peering gate's own result is refused, which
+    is the same claim made where the claim now lives: an assertion that was
+    *present* is not an assertion that was *verified*.
+    """
+    child = served(deliver(registry, _contract(schema=FAMILY)))
+    out = admit(registry, candidate(registry, child, require(FAMILY), kind="peering"))
+    assert isinstance(out, ChildAdmissionRefusal), out
+    assert out.reason == "provenance-unverified"
+    assert "PeeringAdmissionGate" in out.detail
+
+
+def test_a_local_child_that_read_NOTHING_is_a_verified_claim(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """`()` still means *the child read nothing*, and still is not `None`."""
+    child = served(deliver(registry, _contract(schema=FAMILY)))
+    out = admit(
+        registry, candidate(registry, child, require(FAMILY), touched=())
+    )
+    assert isinstance(out, AdmittedChild), out
+    assert out.eligibility_basis == ELIGIBILITY_LOCAL_REGISTER
+    assert out.candidate.invocation.touched_entities == ()
 
 
 def test_f3_a_superseded_child_is_now_refused_whatever_the_caller_omits(
@@ -718,153 +757,6 @@ def test_f11_the_status_map_is_exhaustive_and_raises_on_the_unknown() -> None:
     assert set(_REASON_TO_STATUS) == CHILD_REFUSAL_REASONS
     with pytest.raises(ValueError, match="closed vocabulary"):
         _status_for("unauthorised")
-
-
-# --- F7: evidence age, held to a DECLARED bound ------------------------------
-
-
-def _peer_provenance(
-    contract: ContextProductContract,
-    *,
-    checked_at: datetime,
-    producer: str = "producer-hash",
-    consumer: str = CONSUMER_SCOPE,
-    invocation: str = INVOCATION,
-    eligible: bool = True,
-    touched: tuple[str, ...] = (ENTITY_OBLIGOR,),
-) -> VerifiedPeerProvenance:
-    """Mint peer provenance the way the peering seam does — through the token.
-
-    Tests reach the private token deliberately and say so: the point of F16 is
-    that DEPLOYMENT code cannot, and a test standing in for the peering gate is
-    the one caller that legitimately holds its authority.
-    """
-    from ccf.peering.admission import PRODUCER_ASSERTION_HEADER
-    from ccf.products.composite import _PEER_PROVENANCE_TOKEN
-
-    assertion = mint_eligibility_assertion(
-        child_content_address=content_hash(contract),
-        requested_as_of=contract.temporal_boundary,
-        producer=producer,
-        consumer_scope=consumer,
-        checked_at=checked_at,
-        composition_invocation=invocation,
-        eligible=eligible,
-    )
-    return VerifiedPeerProvenance(
-        peer_id="peer-1",
-        producer=producer,
-        header={
-            PRODUCER_ASSERTION_HEADER: producer,
-            ELIGIBILITY_ASSERTION_HEADER: encode_eligibility_assertion(assertion),
-        },
-        touched_entities=touched,
-        token=_PEER_PROVENANCE_TOKEN,
-    )
-
-
-def test_f7_a_stale_producer_check_is_refused_against_a_declared_bound(
-    registry: ControlPlaneRegistry,
-) -> None:
-    """F7: 1970 and 2999 both admitted before. Both refuse now.
-
-    Measured against **admission time**, not against `asked_at` — the
-    distinction the ruling turns on.
-    """
-    declare_evidence_policy(registry, max_age=3600, skew=60)
-    child = served(deliver(registry, _contract(schema=FAMILY)))
-
-    fresh = admit(
-        registry,
-        candidate(registry, child, require(FAMILY), provenance=_peer_provenance(child, checked_at=SERVED_AT)),
-    )
-    assert isinstance(fresh, AdmittedChild)
-    assert fresh.eligibility_basis == ELIGIBILITY_PRODUCER_ATTESTED
-
-    for label, when in [
-        ("56y stale", datetime(1970, 1, 1, tzinfo=UTC)),
-        ("973y future", datetime(2999, 12, 31, tzinfo=UTC)),
-    ]:
-        out = admit(
-            registry,
-            candidate(
-                registry,
-                child, require(FAMILY), provenance=_peer_provenance(child, checked_at=when)
-            ),
-        )
-        assert isinstance(out, ChildAdmissionRefusal), label
-        assert out.reason == "eligibility-evidence-stale", label
-
-
-def test_f7_a_historical_asked_at_does_NOT_make_honest_evidence_stale(
-    registry: ControlPlaneRegistry,
-) -> None:
-    """The ruling's load-bearing half, and the one an ordering check breaks.
-
-    A producer checks eligibility TODAY for a reconstruction request about the
-    past. `checked_at` is legitimately far later than `asked_at`, and comparing
-    the two would refuse every honest peered answer about history.
-    """
-    declare_evidence_policy(registry, max_age=3600, skew=60)
-    historical = datetime(2020, 1, 1, tzinfo=UTC)
-    child = served(
-        run_gates(
-            _contract(schema=FAMILY, as_of=historical),
-            engine_resolved=OPERATORS,
-            # Served at its own time, so the TTL gate is not the thing under
-            # test here — the child is genuinely a historical answer.
-            now=historical + timedelta(minutes=1),
-            registry=registry,
-            product_class=_registered(registry, FAMILY),
-            touched_entities=(ENTITY_OBLIGOR,),
-        )
-    )
-    admitted = admit(
-        registry,
-        candidate(
-            registry,
-            child, require(FAMILY), provenance=_peer_provenance(child, checked_at=SERVED_AT)
-        ),
-        at=historical,
-    )
-    assert isinstance(admitted, AdmittedChild)
-    assert admitted.eligibility_evidence is not None
-    assert admitted.eligibility_evidence.checked_at == SERVED_AT
-
-
-def test_f7_an_undeclared_bound_refuses_rather_than_defaulting(
-    registry: ControlPlaneRegistry,
-) -> None:
-    """No hardcoded duration, no numeric default: missing config fails loudly."""
-    child = served(deliver(registry, _contract(schema=FAMILY)))
-    out = admit(
-        registry,
-        candidate(registry, child, require(FAMILY), provenance=_peer_provenance(child, checked_at=SERVED_AT)),
-    )
-    assert isinstance(out, ChildAdmissionRefusal)
-    # Its OWN reason, not "stale" (found by the repair's own review panel):
-    # a tenant that declared no bound has a CONFIGURATION error, and telling
-    # the operator their peer's evidence is stale would name the wrong party.
-    assert out.reason == "eligibility-bound-undeclared"
-    assert "declared no eligibility-evidence bound" in out.detail
-
-
-def test_f7_the_verified_assertion_reaches_replay(
-    registry: ControlPlaneRegistry,
-) -> None:
-    """The other half of F7: replay can name WHICH evidence authorized it."""
-    declare_evidence_policy(registry)
-    child = served(deliver(registry, _contract(schema=FAMILY)))
-    req = require(FAMILY)
-    admitted = admit(
-        registry,
-        candidate(registry, child, req, provenance=_peer_provenance(child, checked_at=SERVED_AT)),
-    )
-    assert isinstance(admitted, AdmittedChild)
-    row = compose([req], {FAMILY: admitted}).resolutions[0]
-    assert row.child_eligibility_checked_at == SERVED_AT
-    assert row.child_eligibility_assertion_address is not None
-    assert row.producing_fabric == "peer-1"
 
 
 # --- composition: re-binding, the four laws, and the F1 ruling ---------------
@@ -1161,8 +1053,9 @@ def test_positive_control_producer_substitution_leaves_the_contract_alone(
                 requirement=req,
                 contract=child,
                 content_address=content_hash(child),
-                provenance=_local_provenance(registry, child),
-                invocation=invocation_from_dispatch(resolved),
+                invocation=invocation_from_dispatch(
+                    resolved, dispatched(name), touched_entities=(ENTITY_OBLIGOR,)
+                ),
             ),
         )
         assert isinstance(out, AdmittedChild)
@@ -1340,10 +1233,13 @@ def test_a_rebinding_failure_keeps_the_VERIFIED_identity(
     assert not out.served
     row = out.resolutions[0]
     assert row.child_content_address == adm.verified_content_address
-    # The BOOT's own derived id, read from the attestor rather than pinned as
-    # a literal (`O1`). The literal was `"fabric://test-boot"` — a string this
-    # file chose, which is precisely what O1 found could be chosen.
-    assert row.producing_fabric == _attestor(registry).attestor_id
+    # `D-IMPL-336` **Amendment 5**: a LOCAL child names no producing fabric,
+    # and that is correct rather than missing. Naming one would be this fabric
+    # asserting an identity for a producer it never authenticated — which is
+    # the whole class of claim the attestor layer was making and Amendment 5
+    # removed. A PEERED child names the peer the peering gate verified, which
+    # `tests/peering/test_child_eligibility.py` and the integration proof own.
+    assert row.producing_fabric is None
 
 
 def test_r6_the_ttl_anchor_is_the_DECISION_instant_not_the_request_one(
@@ -1398,90 +1294,3 @@ def test_r6_the_ttl_anchor_is_the_DECISION_instant_not_the_request_one(
     assert later.expires_at > early.expires_at
 
 
-# --- O1: the attestor is boot-bound, and attests over EVIDENCE ---------------
-
-
-def test_o1_a_local_attestor_cannot_be_constructed_by_a_caller() -> None:
-    """`O1`: "boot-bound" was a docstring and is now enforcement.
-
-    The panel found this inside Amendment 3's own repair — the class asserted
-    it could only be obtained by booting, while its constructor was public and
-    took the id as an argument. `D-IMPL-324`'s *"declaration is not a door"*,
-    occurring in the code written to close that very defect.
-    """
-    with pytest.raises(TypeError):
-        LocalFabricAttestor(attestor_id="fabric://mine")  # type: ignore[call-arg]
-    with pytest.raises(ProvenanceForgeryError):
-        LocalFabricAttestor(attestor_id="fabric://mine", token=object())
-
-
-def test_o1_the_attestor_id_is_DERIVED_from_the_boot_not_chosen(
-    registry: ControlPlaneRegistry,
-) -> None:
-    """No new identity axis, and not the tenant — Amendment 3 forbids both.
-
-    The id names the fabric the way the fabric was already named to itself:
-    the adapter's registered name and a digest of the graph identity the
-    single-writer mint uses. Asserted structurally rather than against a
-    literal, because a literal here would be a value this file chose, which
-    is the shape O1 exists to remove.
-    """
-    attestor_id = _attestor(registry).attestor_id
-    assert attestor_id.startswith("fabric://")
-    scheme, _, rest = attestor_id.partition("://")
-    adapter, _, digest = rest.partition("/")
-    assert adapter, "the adapter that answered the boot is not named"
-    assert len(digest) == 16 and all(c in "0123456789abcdef" for c in digest)
-    # ...and it is not the tenant wearing a different hat.
-    assert TENANT not in attestor_id
-
-
-def test_o1_attestation_refuses_a_record_that_names_a_DIFFERENT_product(
-    registry: ControlPlaneRegistry,
-) -> None:
-    """The half that makes local provenance evidence rather than a label.
-
-    `attest` resolves the decision record the delivery wrote and refuses
-    unless that record's own `product_content_address` is the address of the
-    product in hand. A record that authorized a different answer is evidence
-    of something, and that something is not this product's local production.
-
-    Sabotaged by attesting one contract against another's record — the exact
-    move a caller would make to relabel a child it did not produce.
-    """
-    mine = _contract(schema=FAMILY)
-    theirs = _contract(schema=EXPOSURE)
-    assert content_hash(mine) != content_hash(theirs)
-
-    # A real, persisted record — for the OTHER product.
-    provenance = _local_provenance(registry, theirs)
-    assert isinstance(provenance, LocalProvenance)
-    their_ref = _store(registry).put(
-        tenant_id=TENANT,
-        artifact_class="fixture.replay-record",
-        name="decoy",
-        artifact=_record_for(theirs),
-    )
-    with pytest.raises(ProvenanceForgeryError) as raised:
-        _attestor(registry).attest(
-            product=mine, replay_ref=their_ref.uri, store=_store(registry)
-        )
-    assert "names product" in str(raised.value)
-
-
-def test_o1_touched_entities_come_from_the_RECORD_not_from_a_caller(
-    registry: ControlPlaneRegistry,
-) -> None:
-    """The other half, and the one the eligibility gate depends on.
-
-    `attest` no longer accepts `touched_entities`. The eligibility check reads
-    them against the invalidation register, so a caller who could choose them
-    could choose to be eligible — which is what the earlier signature allowed.
-    """
-    assert "touched_entities" not in inspect.signature(
-        LocalFabricAttestor.attest
-    ).parameters
-    contract = _contract(schema=FAMILY)
-    provenance = _local_provenance(registry, contract, touched=(ENTITY_UNRELATED,))
-    # Exactly what the persisted record carried, not what was asked for here.
-    assert provenance.touched_entities == (ENTITY_UNRELATED,)

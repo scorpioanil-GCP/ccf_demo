@@ -1979,6 +1979,10 @@ class GovernedResolver:
                         # judged at one admission instant.
                         admitted_at=admitted_at,
                         composition_invocation=invocation,
+                        # `D-IMPL-336` Amendment 5: peering admission extends
+                        # the consumer's lineage by set-union, so a resolver
+                        # acquiring a peered child needs the composite's own.
+                        consumer_lineage=own_lineage,
                     ),
                     asked_at=request.asked_at,
                     composition_invocation=invocation,
