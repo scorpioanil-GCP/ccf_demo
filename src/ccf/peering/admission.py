@@ -143,6 +143,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import datetime
+from typing import cast
 from types import MappingProxyType
 
 from pydantic import Field, ValidationError, field_validator
@@ -189,6 +190,7 @@ __all__ = [
     "AdmissionRecord",
     "AdmissionRefusal",
     "AdmittedProduct",
+    "verify_admission_provenance",
     "ContractRefusal",
     "InboundPayloadCeiling",
     "LineageContinuityRefusal",
@@ -494,6 +496,35 @@ class AdmissionBypassError(TypeError):
 _ADMISSION_TOKEN = object()
 
 
+def verify_admission_provenance(admitted: object) -> "AdmittedProduct":
+    """Establish that ``admitted`` came through Control Plane peering admission.
+
+    `D-IMPL-337`'s verifier for :class:`AdmittedProduct`. **The check is the
+    provenance, not the type.** A bypass here is not a governance failure of a
+    federated product — it is an unverified one reaching the path toward L3,
+    against the single-writer invariant (CLAUDE.md §10) and `D-IMPL-16`'s
+    commitment that an inbound A2A product is inadmissible until the consuming
+    Control Plane validates it.
+
+    Returns the value, narrowed, so a caller cannot verify and then forget to
+    use the result.
+
+    Raises:
+        AdmissionBypassError: the value did not come through
+            :meth:`PeeringAdmissionGate.admit`.
+    """
+    if getattr(admitted, "_admission_provenance", None) is not _ADMISSION_TOKEN:
+        raise AdmissionBypassError(
+            "this value carries no evidence of Control Plane peering"
+            " admission. ccf.peering.admission.PeeringAdmissionGate.admit is"
+            " the only path that establishes it, and neither a structurally"
+            " compatible object nor a subclass of AdmittedProduct that skipped"
+            " its guarded __init__ acquires it (D-IMPL-337; CLAUDE.md §7.2,"
+            " D-IMPL-16)"
+        )
+    return cast("AdmittedProduct", admitted)
+
+
 class AdmittedProduct:
     """A product the consuming Control Plane has admitted — L2's inbound input.
 
@@ -538,6 +569,11 @@ class AdmittedProduct:
         self._product = product
         self._lineage = lineage
         self._peer = peer
+        # `D-IMPL-337`. The PROVENANCE, distinct from the type. Set only here,
+        # on the only path that verified the signature, the peer's entitlement
+        # and the policy bindings. `isinstance` says nothing about whether any
+        # of that ran — a subclass skipping this `__init__` passes it.
+        self._admission_provenance = _ADMISSION_TOKEN
         # FROZEN, not stored by reference. A caller holding the admitted
         # product could otherwise mutate the mapping after verification and
         # substitute a claim the gate never checked — which would make

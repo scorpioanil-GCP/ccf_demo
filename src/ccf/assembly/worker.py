@@ -51,7 +51,7 @@ from ccf.contracts.claims import EntityClaim, LineageEntry, RelationshipClaim
 from ccf.controlplane.artifact_base import VersionedArtifact
 from ccf.controlplane.registry import ControlPlaneProtocol
 from ccf.graph.protocols import GraphWriter, UpsertResult
-from ccf.peering.admission import AdmittedProduct
+from ccf.peering.admission import AdmittedProduct, verify_admission_provenance
 from ccf.signal.envelope import SignalEnvelope, SourceIdentity
 
 __ccf_mode__ = "algorithmic"
@@ -612,8 +612,16 @@ class AssemblyWorker:
         only inside
         :meth:`~ccf.peering.admission.PeeringAdmissionGate.admit`, so offering
         an unadmitted :class:`~ccf.peering.protocol.InboundProduct` here does
-        not typecheck and does not run. That is what §10's "architectural, not
-        advisory" asks of this boundary.
+        not typecheck and does not run.
+
+        **The sentence above used to end "…carried by the type system rather
+        than by caller discipline", and that was measured false**
+        (`D-IMPL-337`). The type system carries the STATIC half: a conforming
+        caller cannot pass the wrong thing. It carries nothing at runtime — a
+        subclass of `AdmittedProduct` that skips the guarded `__init__`
+        satisfies both mypy and `isinstance` while no admission ran. What makes
+        this boundary "architectural, not advisory" (§10) is the provenance
+        check below, which the type annotation alone never provided.
 
         L2 reaches the **category** here, not its first instance
         (``D-IMPL-59``): the import is ``ccf.peering``, so a second Peering
@@ -653,6 +661,11 @@ class AssemblyWorker:
                 boundary, not a badly behaved peer, and the two must not be
                 reported the same way.
         """
+        # `D-IMPL-337`. A governed boundary: L2's federated entry point, where
+        # a bypass would put an unverified peered product into the graph
+        # through the one writer (CLAUDE.md §10, D-IMPL-16).
+        admitted = verify_admission_provenance(admitted)
+
         product = admitted.product
         records = product.payload.get(spec.payload_records_key)
         if isinstance(records, (str, bytes)) or not isinstance(

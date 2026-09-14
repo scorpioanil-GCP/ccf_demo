@@ -3672,4 +3672,44 @@ A producer serving an honest contract **and** an honest content address, while p
 
 **Next free decision id: `D-IMPL-338`** — unchanged. **Governs:** the mechanism for the guarded-type consumer invariant. **Related:** `D-IMPL-337` (raised OPEN at `13d7e8ec`), `docs/D-IMPL-337-DESIGN.md`, `.planning/censuses/guarded_type_census_v3.py`, `D-IMPL-336` (which exposed the class), `D-IMPL-261` and CLAUDE.md §9 (frozen specimens), `D-IMPL-253` Q20.
 
+---
+
+**D-GATE-337 — `D-IMPL-337` IMPLEMENTED / CLOSED. Guarded-path provenance is verified at every governed boundary.** APPROVED. Date: 2026-09-14. Approved by: Dave. **Merge candidate: `1df12c6aa8d00db7418e5f71c98bd682107db6a4`.**
+
+**WHAT SHIPS, and the distinction it rests on:** *authority comes from the guarded construction/admission path, and governed externally substitutable boundaries verify that **provenance** rather than nominal type identity.*
+
+**THE MEASUREMENT THAT RULED OUT THE OBVIOUS ANSWER.** `isinstance` proves class membership and **not** that the guarded path ran:
+
+```
+ServableProduct   subclass skipping __init__ -> isinstance: True
+                  object.__new__             -> isinstance: True
+```
+
+and the subclass reached a real `ServedProduct` with the three validation gates never run — strictly worse than a duck type, because it inherits the real attribute surface and satisfies any `isinstance`-shaped rule. **The project had already settled this** at its one considered site: `ccf.controlplane.state._verify` checks the mint, and `tests/invariants/test_state_seam_closure.py` pins it — *"isinstance is not the gate — the mint is verified at the write."* Canonizing `isinstance` would have reported that single correct implementation as a violation and replaced it with a weaker check.
+
+**CANONICAL ACCOUNTING: 7 declared guarded types / 9 governed boundaries.** The earlier "seven sites" figure was the *design-phase census* population quoted against an implementation whose registry had grown; the roster and the implementation status now describe the same population.
+
+| Guarded type | Provenance | Boundaries |
+| --- | --- | --- |
+| `ServableProduct` | `verify_gate_provenance` | `serve`, `DeliveryCapability.deliver`, `refuse_over_tolerance` |
+| `AdmittedProduct` | `verify_admission_provenance` | `mount_product_source`, `ProductSource.__init__`, `ingest_admitted` |
+| `StateWriteToken` | `_verify` — **pre-existing, retained** | `InMemoryStateStore.put` |
+| `ResolvedProducer` | `verify_resolved_producer_provenance` | `invocation_from_dispatch` |
+| `AdmittedChild` | `verify_child_admission_provenance`, via the mint-backed `TypeGuard` | `compose_children` |
+| `ChildInvocation` | — | **no externally substitutable governed boundary** |
+| `DeliveryCapability` | — | **no externally substitutable governed boundary** |
+
+**`D-IMPL-336`'s SEMANTICS ARE UNCHANGED.** This is provenance hardening, not a 336 reopen: composition, grant resolution, acquisition, replay, `R4` and the child-admission rules are untouched. `compose_children` keeps `outcomes: Mapping[str, object]` **deliberately** — `F13`'s reasoning is why the guard is reachable at all — and the `TypeGuard` does the narrowing, so satisfying mypy did not reintroduce `isinstance` where no reviewer would look. The four branches and their **order** are preserved: a genuine child composes, a `ChildAdmissionRefusal` propagates, `None` takes absence handling, and **a forgery falls to `unsupported-outcome`** — never an honest absence, which would price it at the declared absence cost, and never a governed refusal, which would report a forgery as a decision the fabric made.
+
+**THE REGISTRY IS THE SOURCE OF TRUTH, NOT THE CENSUS** — and that ordering was paid for. The AST census was wrong three times in three ways: it under-counted verification, then over-credited it, then filed the constructor of an exported class as module-private **because the function name begins with an underscore**, missing a governed site. It also discovers guarded types by a heuristic that all existing types happen to share. `ccf.contracts.guarded` declares each type's authority, mint, verifier, boundaries, propagation model and residual, entirely in **strings** — a registry importing what it names would pull five subsystems into one leaf module. `tools/lints/guarded_provenance` reports drift in both directions and **keys on none of the forbidden signals**: not annotations, not name visibility, not literal `isinstance` syntax, not Protocol presence, not PEP 634 patterns; and it does not scan `examples/`, because frozen specimens are not authority checks.
+
+**THE SABOTAGE RECORD, ACCEPTED INCLUDING ITS FAILURE.** Eight sabotages, each restored and verified **by marker** rather than by a clean `git status`. **S7 did not bite on the first attempt**: reverting the invocation *boundary* to `isinstance` left all 24 controls green, because every one exercised the *verifier* directly. **A boundary is only pinned by a test that drives the boundary**, and `test_the_INVOCATION_BOUNDARY_refuses_a_nominal_forgery` was added because of it. The drift lint separately caught a real declaration/code mismatch on its first use, repaired by declaring both verifier spellings rather than relaxing the check.
+
+**RESIDUALS CARRIED FORWARD, declared rather than hidden:**
+
+1. **The third-party `ControlPlaneStateStore` Protocol.** The SDK invites a conforming external store and **cannot compel it** to verify the token. Not closed by strengthening a contract the SDK cannot enforce.
+2. **`AmbiguousProducerError` escapes the MCP opaque-failure posture** — unrelated to this work, carried from `D-GATE-336`, and still owed its own decision if that runtime door is repaired.
+
+**Next free decision id: `D-IMPL-338`** — unchanged; a gate entry spends none. **Governs:** the approval and merge of guarded-path provenance verification. **Related:** `D-IMPL-337` (raised at `13d7e8ec`, design at `f62b8a25`), `D-GATE-336`, `D-IMPL-253` Q20, `D-IMPL-261` and CLAUDE.md §9 (frozen specimens), `D-IMPL-16`, `D-IMPL-59`, CLAUDE.md §10 (single-writer), §11 (CI-enforced invariants).
+
 **Next free decision id: `D-IMPL-338`.**

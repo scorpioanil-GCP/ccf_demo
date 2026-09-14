@@ -64,6 +64,7 @@ from tools.lints import (
     algorithmic,
     backend_imports,
     citations,
+    guarded_provenance,
     harness_imports,
     hash_transparent_key,
     no_hardcoding,
@@ -202,6 +203,7 @@ CHECKERS: dict[str, Checker] = {
 #: what a check does not cover is stated, not left to path accident.
 WHOLE_TREE_CHECKERS: dict[str, TreeChecker] = {
     "citations": citations.check_tree,
+    "guarded-provenance": guarded_provenance.check_tree,
     "hash-transparent-key": hash_transparent_key.check_tree,
 }
 

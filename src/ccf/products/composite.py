@@ -88,7 +88,15 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Final, Literal, Protocol, cast, get_args, runtime_checkable
+from typing import (
+    Final,
+    Literal,
+    Protocol,
+    TypeGuard,
+    cast,
+    get_args,
+    runtime_checkable,
+)
 
 from pydantic import Field, field_validator
 
@@ -432,7 +440,7 @@ class ResolvedProducer:
     standing threat model and not a claim about ``object.__new__``.
     """
 
-    __slots__ = ("_entry", "_grant_hash")
+    __slots__ = ("_entry", "_grant_hash", "_producer_provenance")
 
     def __init__(
         self, *, entry: SkillCatalogEntry, grant_hash: str, token: object
@@ -448,6 +456,11 @@ class ResolvedProducer:
             )
         self._entry = entry
         self._grant_hash = grant_hash
+        # `D-IMPL-337`. The PROVENANCE, distinct from the type, set only on
+        # the path that read both halves from the ledger. `isinstance` proves
+        # nominal membership; a subclass skipping this `__init__` satisfies it
+        # while no grant resolution ran.
+        self._producer_provenance = _PRODUCER_TOKEN
 
     @property
     def entry(self) -> SkillCatalogEntry:
@@ -458,6 +471,72 @@ class ResolvedProducer:
     def grant_hash(self) -> str:
         """The hash of the grant that put :attr:`entry` in force."""
         return self._grant_hash
+
+
+def verify_resolved_producer_provenance(producer: object) -> "ResolvedProducer":
+    """Establish that ``producer`` came from :func:`resolve_producing_grant`.
+
+    `D-IMPL-337`'s verifier for :class:`ResolvedProducer`. **The check is the
+    provenance, not the type.** The previous check here was
+    ``isinstance(producer, ResolvedProducer)``, added against a measured
+    `SimpleNamespace` forgery — it closed the duck-typed class and left the
+    nominal one open: a subclass skipping the guarded ``__init__`` satisfies
+    `isinstance` while no grant was ever resolved.
+
+    Returns the value, narrowed, so a caller cannot verify and then forget to
+    use the result.
+
+    Raises:
+        ProvenanceForgeryError: the value did not come from
+            :func:`resolve_producing_grant`.
+    """
+    if getattr(producer, "_producer_provenance", None) is not _PRODUCER_TOKEN:
+        raise ProvenanceForgeryError(
+            "this value carries no evidence of grant resolution."
+            " ccf.products.composite.resolve_producing_grant is the only path"
+            " that establishes it, and neither a structurally compatible"
+            " object nor a subclass of ResolvedProducer that skipped its"
+            " guarded __init__ acquires it — so a grant hash nobody granted"
+            " cannot be recorded as one that was (D-IMPL-337, D-IMPL-336 O2)"
+        )
+    return cast("ResolvedProducer", producer)
+
+
+def _has_child_provenance(value: object) -> TypeGuard["AdmittedChild"]:
+    """Whether ``value`` came through :meth:`CompositeAdmissionGate.admit`.
+
+    The predicate form of :func:`verify_child_admission_provenance`, for the
+    one caller that must **branch** rather than raise: `compose_children`
+    dispatches four ways, and a value failing this test is not an error — it
+    falls to the `unsupported-outcome` branch, which is the established
+    semantics for *an object that is not a supported outcome*.
+
+    **A `TypeGuard`, so the narrowing is the PROVENANCE check's** rather than a
+    second `isinstance` added to satisfy the type checker — which would have
+    put back the very mechanism `D-IMPL-337` rejects, in a place no reviewer
+    would look. `outcomes` stays `Mapping[str, object]`.
+    """
+    return getattr(value, "_child_provenance", None) is _CHILD_ADMISSION_TOKEN
+
+
+def verify_child_admission_provenance(child: object) -> "AdmittedChild":
+    """Establish that ``child`` came through :meth:`CompositeAdmissionGate.admit`.
+
+    `D-IMPL-337`'s verifier for :class:`AdmittedChild`. Possessing one is meant
+    to be the evidence that every admission check ran — tenant, class, version
+    lane, reconstruction instant, content address, assessable debt and
+    eligibility. The type proves none of them.
+
+    Raises:
+        ProvenanceForgeryError: the value did not come through the gate.
+    """
+    if getattr(child, "_child_provenance", None) is not _CHILD_ADMISSION_TOKEN:
+        raise ProvenanceForgeryError(
+            "this value carries no evidence of composite child admission."
+            " ccf.products.composite.CompositeAdmissionGate.admit is the only"
+            " path that establishes it (D-IMPL-337, D-IMPL-336)"
+        )
+    return cast("AdmittedChild", child)
 
 
 def invocation_from_dispatch(
@@ -491,28 +570,28 @@ def invocation_from_dispatch(
             ``touched_entities`` was supplied for an acquisition that cannot
             have them.
     """
-    if not isinstance(producer, ResolvedProducer):
-        # **The second close panel's HIGH finding.** `ResolvedProducer` is
-        # token-minted so it cannot be forged — and then its ONLY consumer
-        # never asked whether it had one. A `SimpleNamespace` carrying
-        # `entry.name`, `entry.artifact_version`, `entry.skill_type` and
-        # `grant_hash` satisfied every dereference below, so the minted
-        # `ChildInvocation` recorded a grant hash that was never in any ledger
-        # while its own docstring called itself evidence that a real grant
-        # resolution ran. Measured, through the public import, with no
-        # reflection: `ACCEPTED: fake-skill 1.0.0 not-from-any-ledger`.
-        #
-        # The three-fact cross-check below did not help, and could not: with a
-        # forged producer all three facts are values the SAME caller authored,
-        # so they are self-consistent by construction. A capability token only
-        # binds anything if the consumer demands the type.
-        raise ProvenanceForgeryError(
-            "invocation_from_dispatch takes the ResolvedProducer that"
-            " ccf.products.composite.resolve_producing_grant returned, and got"
-            f" a {type(producer).__name__}. An object shaped like one carries a"
-            " grant hash nobody granted — which is the whole of what this"
-            " evidence exists to prevent (D-IMPL-336 O2, close panel 2)"
-        )
+    # `D-IMPL-337`. **PROVENANCE, not `isinstance`** — which this line was
+    # until now, and the history is the argument.
+    #
+    # The second close panel's HIGH finding was that `ResolvedProducer` is
+    # token-minted so it cannot be forged, and its ONLY consumer never asked
+    # whether it had one: a `SimpleNamespace` carrying `entry.name`,
+    # `entry.artifact_version`, `entry.skill_type` and `grant_hash` satisfied
+    # every dereference below and minted a `ChildInvocation` recording a grant
+    # hash that was in no ledger — measured, through the public import, as
+    # `ACCEPTED: fake-skill 1.0.0 not-from-any-ledger`. The repair was
+    # `isinstance`, which closed the duck-typed class.
+    #
+    # `D-IMPL-337` then measured that `isinstance` proves nominal membership
+    # and NOT that the guarded path ran: a subclass skipping the guarded
+    # `__init__` satisfies it while no grant was ever resolved. So the check
+    # is the provenance the ledger read establishes.
+    #
+    # The three-fact cross-check below still does not help on its own and
+    # could not: with a forged producer all three facts are values the SAME
+    # caller authored, so they agree by construction. A capability token binds
+    # nothing unless the consumer demands the provenance.
+    producer = verify_resolved_producer_provenance(producer)
     mapped = _ACQUISITION_OF.get(type(dispatched).__name__)
     if mapped is None:
         raise ProvenanceForgeryError(
@@ -624,6 +703,7 @@ class AdmittedChild:
         "_admitted_at",
         "_asked_at",
         "_candidate",
+        "_child_provenance",
         "_eligibility_basis",
         "_evidence",
         "_factors",
@@ -661,6 +741,10 @@ class AdmittedChild:
         self._verified_address = verified_address
         self._evidence = evidence
         self._admitted_at = admitted_at
+        # `D-IMPL-337`. Set only inside `CompositeAdmissionGate.admit`, the
+        # one path that ran every admission check. The type alone proves none
+        # of them ran.
+        self._child_provenance = _CHILD_ADMISSION_TOKEN
 
     @property
     def admitted_at(self) -> datetime:
@@ -1318,7 +1402,22 @@ def compose_children(
     for requirement in requirements:
         outcome = outcomes.get(requirement.product_class)
 
-        if isinstance(outcome, AdmittedChild):
+        # `D-IMPL-337`. **PROVENANCE, not `isinstance`.** This branch decides
+        # whether a value is a governed child, so it is an authority decision
+        # and the ruled invariant applies: a subclass of `AdmittedChild` that
+        # skipped the gate satisfies `isinstance` while no admission check ran.
+        #
+        # **`outcomes` stays `Mapping[str, object]`, deliberately** — the F13
+        # reasoning is unchanged and is the reason this works: a narrow type
+        # would let mypy prove the guard below unreachable, which is exactly
+        # the assumption that once let a raw contract be read as *nothing was
+        # produced*.
+        #
+        # **The branch ORDER is load-bearing and unchanged.** A forgery falls
+        # past this test to the `unsupported-outcome` branch below — it must
+        # never become an honest absence (`None`) or a governed child refusal,
+        # because neither of those is what happened.
+        if _has_child_provenance(outcome):
             mismatch = _rebinding_failure(
                 outcome,
                 requirement=requirement,
