@@ -123,6 +123,7 @@ from ccf.products.contract import (
 from ccf.products.gates import GateRefusal, refuse_dependency_invalidation
 from ccf.replay.record import CHILD_ADMITTED, ChildResolution
 from ccf.skills.catalog import NO_PRODUCT_CLASS, SkillCatalogEntry
+from ccf.skills.grants import BoundSkillView
 
 __ccf_mode__ = "algorithmic"
 
@@ -150,6 +151,7 @@ __all__ = [
     "LocalFabricAttestor",
     "LocalProvenance",
     "ProvenanceForgeryError",
+    "ResolvedProducer",
     "VerifiedPeerProvenance",
     "peer_provenance_from_admitted",
     "resolve_producing_grant",
@@ -604,19 +606,75 @@ class ChildInvocation:
         return self._grant_hash
 
 
-def invocation_from_dispatch(
-    entry: SkillCatalogEntry, *, grant_hash: str
-) -> ChildInvocation:
-    """Record what a real grant resolution produced (F4).
+_PRODUCER_TOKEN = object()
 
-    ``entry`` is the object :func:`resolve_producing_grant` returned — not a
-    name — so the version recorded is the pinned one the grant references and
-    cannot disagree with it.
+
+class ResolvedProducer:
+    """The grant AND the entry it made effective, resolved together (**O2**).
+
+    `D-IMPL-336` O2. Amendment 3 replaced the caller's free skill strings with
+    a catalog entry, which closed half the hole: the entry was real, and the
+    ``grant_hash`` beside it was still whatever the assembler typed. So a child
+    produced by a genuinely granted skill could be recorded against a grant
+    that authorized something else, or against one that had been revoked, and
+    nothing compared the two. The panel's phrase for the residual was exact —
+    *"the token replaced free strings but did not bind them"*.
+
+    Minted only by :func:`resolve_producing_grant`, from a
+    :class:`~ccf.skills.grants.BoundSkillView` — the ledger's own live view,
+    whose constructor is module-private for this same reason (WR-03). Both
+    halves therefore come from ledger state at resolution time and a caller
+    supplies neither.
+
+    **Unforgeable through the supported interfaces**, which is this module's
+    standing threat model and not a claim about ``object.__new__``.
+    """
+
+    __slots__ = ("_entry", "_grant_hash")
+
+    def __init__(
+        self, *, entry: SkillCatalogEntry, grant_hash: str, token: object
+    ) -> None:
+        if token is not _PRODUCER_TOKEN:
+            raise ProvenanceForgeryError(
+                "ResolvedProducer is minted only by"
+                " ccf.products.composite.resolve_producing_grant, which reads"
+                " both the entry and the grant that put it in force from the"
+                " agent's BoundSkillView. Pairing an entry with a"
+                " caller-chosen grant hash is what let an authorized producer"
+                " be recorded against an unrelated grant (D-IMPL-336 O2)"
+            )
+        self._entry = entry
+        self._grant_hash = grant_hash
+
+    @property
+    def entry(self) -> SkillCatalogEntry:
+        """The catalog entry the in-force grant resolves to."""
+        return self._entry
+
+    @property
+    def grant_hash(self) -> str:
+        """The hash of the grant that put :attr:`entry` in force."""
+        return self._grant_hash
+
+
+def invocation_from_dispatch(producer: ResolvedProducer) -> ChildInvocation:
+    """Record what a real grant resolution produced (F4, **O2**).
+
+    Takes the :class:`ResolvedProducer` :func:`resolve_producing_grant`
+    returned — entry and grant together — so neither the version nor the
+    authority recorded can disagree with what the ledger holds.
+
+    **The ``grant_hash`` keyword is gone deliberately.** While it existed this
+    function would mint authority from any entry plus any string, which is
+    precisely what O2 named. There is no compatibility shim: an accepted
+    parameter that no longer binds anything is the defect class this work
+    exists to repair.
     """
     return ChildInvocation(
-        skill_name=entry.name,
-        entry_version=entry.artifact_version,
-        grant_hash=grant_hash,
+        skill_name=producer.entry.name,
+        entry_version=producer.entry.artifact_version,
+        grant_hash=producer.grant_hash,
         token=_INVOCATION_TOKEN,
     )
 
@@ -775,32 +833,40 @@ class AdmittedChild:
 
 def resolve_producing_grant(
     requirement: ChildRequirement,
-    bound_skills: Mapping[str, SkillCatalogEntry],
-) -> SkillCatalogEntry | None:
+    bound_skills: BoundSkillView,
+) -> ResolvedProducer | None:
     """Find the in-force grant whose entry produces ``requirement``'s class.
 
     Resolution is **class to skill, never skill to class**: a requirement that
     could name an implementation would make the composite depend on the thing
     this pattern exists to decouple from.
 
+    **The argument is the agent's live** :class:`~ccf.skills.grants.BoundSkillView`
+    **and not any mapping** (`D-IMPL-336` **O2**). The looser type was a door
+    — a plain dict of entries carries no evidence that any of them was ever
+    granted, so "resolved from the in-force grants" was a claim in the
+    docstring rather than a property of the call. The view resolves from ledger
+    state at access time, so a revoked grant stops producing here immediately.
+
     Returns:
-        The one matching entry, or ``None`` when no granted skill produces the
-        class. ``None`` is a requirement-level outcome — required refuses, and
-        optional takes its declared absence treatment.
+        A :class:`ResolvedProducer` pairing the one matching entry with the
+        grant hash that put it in force, or ``None`` when no granted skill
+        produces the class. ``None`` is a requirement-level outcome — required
+        refuses, and optional takes its declared absence treatment.
 
     Raises:
         AmbiguousProducerError: two or more granted entries produce it.
     """
     candidates = [
-        entry
-        for entry in bound_skills.values()
+        name
+        for name, entry in bound_skills.items()
         if entry.produces != NO_PRODUCT_CLASS
         and entry.produces == requirement.product_class
     ]
     if not candidates:
         return None
     if len(candidates) > 1:
-        names = sorted(entry.name for entry in candidates)
+        names = sorted(candidates)
         raise AmbiguousProducerError(
             f"{len(candidates)} in-force grants declare they produce"
             f" {requirement.product_class!r} ({', '.join(names)}); this build"
@@ -809,7 +875,14 @@ def resolve_producing_grant(
             " the deployment never declared (D-IMPL-336). Interchangeability is"
             " proven by substitution, not by simultaneous grant"
         )
-    return candidates[0]
+    name = candidates[0]
+    return ResolvedProducer(
+        entry=bound_skills[name],
+        # The ledger's own answer to "which grant authorized this", never a
+        # value that arrived beside the entry.
+        grant_hash=bound_skills.grant_hash_for(name),
+        token=_PRODUCER_TOKEN,
+    )
 
 
 class CompositeAdmissionGate:

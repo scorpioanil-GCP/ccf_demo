@@ -53,6 +53,7 @@ from ccf.products.composite import (
     LocalFabricAttestor,
     LocalProvenance,
     ProvenanceForgeryError,
+    ResolvedProducer,
     VerifiedPeerProvenance,
     _REASON_TO_STATUS,
     compose_children,
@@ -72,13 +73,17 @@ from ccf.products.contract import (
 )
 from ccf.products.gates import ServableProduct, run_gates
 from ccf.replay.record import CHILD_OUTCOME_STATUSES, ContentGenerationPath
+from ccf.agents.definitions import AgentDefinition
+from ccf.controlplane.artifacts import declared_artifact_class, parse_artifact
 from ccf.skills.catalog import (
     NO_PRODUCT_CLASS,
     LocalCallableBinding,
     SkillArgumentSchema,
+    SkillCatalog,
     SkillCatalogEntry,
     SkillRequirements,
 )
+from ccf.skills.grants import BoundSkillView, GrantLedger, SkillGrant
 
 TENANT = "tenant-composite"
 CONSUMER_SCOPE = "consumer://memo-desk"
@@ -223,6 +228,103 @@ def skill(name: str, *, produces: str = NO_PRODUCT_CLASS) -> SkillCatalogEntry:
     )
 
 
+#: The agent whose grants these tests resolve against. Every field is a
+#: test-side value: the SDK holds none of them (`D-IMPL-38`).
+_AGENT = AgentDefinition(
+    schema_version="1.0.0",
+    artifact_version="1.0.0",
+    name="composite-assembler",
+    tenant=TENANT,
+    archetypes=("context_assembly",),
+    context_contract={
+        "consumes": [{"product_class": FAMILY, "schema_version": "1.0.0"}]
+    },
+    perspective={"role": "assembler", "selection_params": {}},
+    policy_regime={"ref": f"ccf-artifact://{TENANT}/policy-bundle/composite-auto@1.0.0"},
+    halflife_debt_profile={
+        "ref": f"ccf-artifact://{TENANT}/debt-profile/composite@1.0.0"
+    },
+    instruction_bindings=(),
+)
+_AGENT_HASH = content_hash(_AGENT)
+
+
+def _ledger(registry: ControlPlaneRegistry) -> GrantLedger:
+    """One real ledger per registry, with its policy regime registered once."""
+    cache: dict[str, GrantLedger] = registry.__dict__.setdefault(
+        "_composite_test_ledger", {}
+    )
+    if "ledger" not in cache:
+        regime_class = declared_artifact_class("policy-bundle")
+        registry.register_typed(
+            f"{TENANT}/policy-bundle/composite-auto",
+            parse_artifact(
+                {
+                    "class_id": "policy-bundle",
+                    "semver": "1.0.0",
+                    "declaration": {
+                        "regime": "composite-auto",
+                        # No approval gate: what these tests are about is WHICH
+                        # grant authorized a producer, not `D-IMPL-29`'s HITL
+                        # path, which `tests/skills/test_grants.py` owns.
+                        "skill_governance": {
+                            "grant_requires_approval": False,
+                            "permitted_scopes": [],
+                        },
+                    },
+                },
+                regime_class,
+            ),
+            regime_class,
+        )
+        cache["ledger"] = GrantLedger(
+            control_plane=registry,
+            catalog=SkillCatalog(registry),
+            # Omitted deliberately: it defaults to the registry's own log, and
+            # passing a second one is a SplitAuditPlaneError (INV-CH7-71).
+            sink=None,
+            clock=lambda: SERVED_AT,
+        )
+    return cache["ledger"]
+
+
+def granted(
+    registry: ControlPlaneRegistry, *producers: tuple[str, str]
+) -> BoundSkillView:
+    """Put ``producers`` in force through the REAL grant machinery (**O2**).
+
+    Registers each entry in a real :class:`~ccf.skills.catalog.SkillCatalog`
+    and asks a real :class:`~ccf.skills.grants.GrantLedger` for each grant,
+    then hands back the ledger's own
+    :class:`~ccf.skills.grants.BoundSkillView`.
+
+    **This is the point of O2 and it is why the helper exists at all.** The
+    previous shape built a dict of entries and paired each with a
+    ``f"grant::{name}"`` string, so every assertion about a recorded grant
+    identity was an assertion about that f-string. Nothing here is authored:
+    the grant hash a row carries is ``content_hash`` of a grant a ledger
+    actually made effective, and revoking it stops the resolution.
+    """
+    ledger = _ledger(registry)
+    for name, produces in producers:
+        ledger._catalog.register(skill(name, produces=produces))
+        outcome = ledger.request(
+            SkillGrant(
+                schema_version="1.0.0",
+                artifact_version="1.0.0",
+                name=f"grant-{name}",
+                tenant=TENANT,
+                agent_definition_hash=_AGENT_HASH,
+                skill_name=name,
+                skill_version="1.0.0",
+            ),
+            definition=_AGENT,
+            actor="composite-operator",
+        )
+        assert isinstance(outcome, str), outcome
+    return ledger.bound_view(_AGENT_HASH)
+
+
 def require(
     product_class: str,
     *,
@@ -252,7 +354,29 @@ def require(
 ATTESTOR = LocalFabricAttestor(attestor_id="fabric://test-boot")
 
 
+def _producer(
+    registry: ControlPlaneRegistry, name: str, produces: str
+) -> ResolvedProducer:
+    """Resolve ``name`` through a real ledger, once per (registry, name).
+
+    Cached on the registry object rather than in a module dict keyed on
+    ``id(registry)`` — the same correction ``_registered`` records, for the
+    same reason: CPython reuses an id and a later test inherits a cache entry
+    naming a grant its own ledger never made.
+    """
+    cache: dict[str, ResolvedProducer] = registry.__dict__.setdefault(
+        "_composite_test_producers", {}
+    )
+    if name not in cache:
+        view = granted(registry, (name, produces))
+        resolved = resolve_producing_grant(require(produces), view)
+        assert resolved is not None, f"{name} was not put in force"
+        cache[name] = resolved
+    return cache[name]
+
+
 def candidate(
+    registry: ControlPlaneRegistry,
     contract: ContextProductContract,
     requirement: ChildRequirement,
     *,
@@ -266,9 +390,12 @@ def candidate(
         contract=contract,
         content_address=address or content_hash(contract),
         provenance=provenance or ATTESTOR.attest(touched_entities=touched),
+        # `D-IMPL-336` **O2**: resolved through a REAL in-force grant rather
+        # than paired with an `f"grant::{name}"` string. The grant hash a row
+        # carries is now a ledger's, so producer-substitution and
+        # grant-identity assertions below measure the ledger and not this file.
         invocation=invocation_from_dispatch(
-            skill(skill_name, produces=requirement.product_class),
-            grant_hash=f"grant::{skill_name}",
+            _producer(registry, skill_name, requirement.product_class)
         ),
     )
 
@@ -428,7 +555,7 @@ def test_f3_a_superseded_child_is_now_refused_whatever_the_caller_omits(
         source="test",
         reason="superseded by a later observation",
     )
-    refusal = admit(registry, candidate(child, require(FAMILY)))
+    refusal = admit(registry, candidate(registry, child, require(FAMILY)))
     assert isinstance(refusal, ChildAdmissionRefusal)
     assert refusal.reason == "ineligible"
 
@@ -443,7 +570,7 @@ def test_f5_a_foreign_tenant_child_is_refused(
     peering precedent, so the relabel is the thing that refuses.
     """
     foreign = _contract(schema=FAMILY).model_copy(update={"tenant_id": "tenant-other"})
-    refusal = admit(registry, candidate(foreign, require(FAMILY)))
+    refusal = admit(registry, candidate(registry, foreign, require(FAMILY)))
     assert isinstance(refusal, ChildAdmissionRefusal)
     assert refusal.reason == "tenant-mismatch"
 
@@ -454,7 +581,7 @@ def test_f9_an_address_mismatch_keeps_the_two_addresses_apart(
     """F9: the disproven value is never recorded as identity."""
     child = served(deliver(registry, _contract(schema=FAMILY)))
     refusal = admit(
-        registry, candidate(child, require(FAMILY), address="a-forged-address")
+        registry, candidate(registry, child, require(FAMILY), address="a-forged-address")
     )
     assert isinstance(refusal, ChildAdmissionRefusal)
     assert refusal.reason == "address-mismatch"
@@ -545,7 +672,7 @@ def test_f7_a_stale_producer_check_is_refused_against_a_declared_bound(
 
     fresh = admit(
         registry,
-        candidate(child, require(FAMILY), provenance=_peer_provenance(child, checked_at=SERVED_AT)),
+        candidate(registry, child, require(FAMILY), provenance=_peer_provenance(child, checked_at=SERVED_AT)),
     )
     assert isinstance(fresh, AdmittedChild)
     assert fresh.eligibility_basis == ELIGIBILITY_PRODUCER_ATTESTED
@@ -557,6 +684,7 @@ def test_f7_a_stale_producer_check_is_refused_against_a_declared_bound(
         out = admit(
             registry,
             candidate(
+                registry,
                 child, require(FAMILY), provenance=_peer_provenance(child, checked_at=when)
             ),
         )
@@ -590,6 +718,7 @@ def test_f7_a_historical_asked_at_does_NOT_make_honest_evidence_stale(
     admitted = admit(
         registry,
         candidate(
+            registry,
             child, require(FAMILY), provenance=_peer_provenance(child, checked_at=SERVED_AT)
         ),
         at=historical,
@@ -606,7 +735,7 @@ def test_f7_an_undeclared_bound_refuses_rather_than_defaulting(
     child = served(deliver(registry, _contract(schema=FAMILY)))
     out = admit(
         registry,
-        candidate(child, require(FAMILY), provenance=_peer_provenance(child, checked_at=SERVED_AT)),
+        candidate(registry, child, require(FAMILY), provenance=_peer_provenance(child, checked_at=SERVED_AT)),
     )
     assert isinstance(out, ChildAdmissionRefusal)
     # Its OWN reason, not "stale" (found by the repair's own review panel):
@@ -625,7 +754,7 @@ def test_f7_the_verified_assertion_reaches_replay(
     req = require(FAMILY)
     admitted = admit(
         registry,
-        candidate(child, req, provenance=_peer_provenance(child, checked_at=SERVED_AT)),
+        candidate(registry, child, req, provenance=_peer_provenance(child, checked_at=SERVED_AT)),
     )
     assert isinstance(admitted, AdmittedChild)
     row = compose([req], {FAMILY: admitted}).resolutions[0]
@@ -641,7 +770,7 @@ def _admitted(
     registry: ControlPlaneRegistry, schema: str, req: ChildRequirement, **kw: object
 ) -> AdmittedChild:
     child = served(deliver(registry, _contract(schema=schema, **kw)))  # type: ignore[arg-type]
-    out = admit(registry, candidate(child, req))
+    out = admit(registry, candidate(registry, child, req))
     assert isinstance(out, AdmittedChild), out
     return out
 
@@ -901,22 +1030,49 @@ def test_positive_control_producer_substitution_leaves_the_contract_alone(
 ) -> None:
     """A valid substitution SUCCEEDS — it is a control, never a sabotage.
 
-    Two grants producing one class, used one at a time. The requirement, the
-    admission path and the composed contract are unchanged; only the recorded
-    producing identity differs, which is the whole claim of the pattern.
+    **Substitution is grant → REVOKE → grant, not two grants at once**
+    (`D-IMPL-336` **O2**). The first version of this test held both producers
+    effective simultaneously and paired each with an authored
+    ``f"grant::{name}"`` string, so it asserted that two different strings
+    differ. Against the real ledger that state is `AmbiguousProducerError` —
+    which the test below covers — and the honest shape is the one a Control
+    Plane operator actually performs.
+
+    It therefore carries **two** proofs at once: the requirement, the
+    admission path and the composed contract are unchanged across a producer
+    swap, and a revoked grant stops producing immediately.
     """
     req = require(FAMILY)
     child = served(deliver(registry, _contract(schema=FAMILY)))
+    ledger = _ledger(registry)
 
     rows = []
     for name in ("family-a", "family-b"):
-        out = admit(registry, candidate(child, req, skill_name=name))
+        view = granted(registry, (name, FAMILY))
+        resolved = resolve_producing_grant(req, view)
+        assert resolved is not None
+        out = admit(
+            registry,
+            ChildCandidate(
+                requirement=req,
+                contract=child,
+                content_address=content_hash(child),
+                provenance=ATTESTOR.attest(touched_entities=(ENTITY_OBLIGOR,)),
+                invocation=invocation_from_dispatch(resolved),
+            ),
+        )
         assert isinstance(out, AdmittedChild)
         composed = compose([req], {FAMILY: out})
         assert composed.served
         rows.append(composed.resolutions[0])
+        # ...and it goes out of force before the next one comes in, which is
+        # what makes the second resolution unambiguous.
+        ledger.revoke(resolved.grant_hash, actor="composite-operator")
+        assert resolve_producing_grant(req, view) is None
 
     assert rows[0].producing_skill_name != rows[1].producing_skill_name
+    # The grant identities differ because the LEDGER made two different grants
+    # effective, not because this file typed two different strings.
     assert rows[0].grant_hash != rows[1].grant_hash
     # everything governed is identical
     assert rows[0].child_content_address == rows[1].child_content_address
@@ -924,18 +1080,78 @@ def test_positive_control_producer_substitution_leaves_the_contract_alone(
     assert rows[0].child_debt_factors == rows[1].child_debt_factors
 
 
-def test_ambiguous_producers_still_refuse_with_no_tie_breaker() -> None:
-    """Unchanged by the remediation, and re-asserted because F11 touched it."""
-    bound = {
-        "a": skill("a", produces=FAMILY),
-        "b": skill("b", produces=FAMILY),
-    }
+def test_o2_a_revoked_grant_cannot_initiate_a_child(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """`O2`, stated on its own: the ledger is read LIVE, not at wiring time.
+
+    A `BoundSkillView` resolves from ledger state on every access, so a grant
+    revoked after the view was obtained stops producing through that same
+    view. Held as a separate test because the substitution control above would
+    still pass if resolution were cached at first use.
+    """
+    view = granted(registry, ("family-live", FAMILY))
+    resolved = resolve_producing_grant(require(FAMILY), view)
+    assert resolved is not None
+    _ledger(registry).revoke(resolved.grant_hash, actor="composite-operator")
+    assert resolve_producing_grant(require(FAMILY), view) is None
+
+
+def test_o2_an_ungranted_entry_produces_nothing_however_real_it_is(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """The catalog is not authority; the grant is.
+
+    A real, registered, `produces`-declaring catalog entry that no grant has
+    made effective does not exist from the agent's view — so it cannot
+    resolve, and there is no supported path to an invocation naming it.
+    """
+    ledger = _ledger(registry)
+    ledger._catalog.register(skill("family-ungranted", produces=FAMILY))
+    view = ledger.bound_view(_AGENT_HASH)
+    assert "family-ungranted" not in view
+    assert resolve_producing_grant(require(FAMILY), view) is None
+
+
+def test_o2_a_resolved_producer_cannot_be_authored(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """The capability discipline, applied to the thing O2 named.
+
+    A plain frozen dataclass would have reproduced the defect exactly: a real
+    entry beside a caller's grant hash. `ResolvedProducer` is minted only by
+    `resolve_producing_grant`, so the pair travels from the ledger or not at
+    all.
+    """
+    view = granted(registry, ("family-token", FAMILY))
+    real = resolve_producing_grant(require(FAMILY), view)
+    assert real is not None
+    with pytest.raises(ProvenanceForgeryError):
+        ResolvedProducer(
+            entry=real.entry, grant_hash="grant::whatever", token=object()
+        )
+
+
+def test_ambiguous_producers_still_refuse_with_no_tie_breaker(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """Unchanged by the remediation, and re-asserted because F11 touched it.
+
+    Now driven by two grants a real ledger made effective TOGETHER, which is
+    the state a Control Plane can genuinely be in — the earlier dict of two
+    entries could not distinguish "granted twice" from "never granted".
+    """
+    view = granted(registry, ("ambiguous-a", FAMILY), ("ambiguous-b", FAMILY))
     with pytest.raises(AmbiguousProducerError):
-        resolve_producing_grant(require(FAMILY), bound)
+        resolve_producing_grant(require(FAMILY), view)
 
 
-def test_a_skill_without_produces_still_cannot_satisfy_a_requirement() -> None:
-    assert resolve_producing_grant(require(FAMILY), {"s": skill("s")}) is None
+def test_a_skill_without_produces_still_cannot_satisfy_a_requirement(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """A granted skill that declares no product class produces none."""
+    view = granted(registry, ("declares-nothing", NO_PRODUCT_CLASS))
+    assert resolve_producing_grant(require(FAMILY), view) is None
 
 
 # --- findings the panel raised against the REPAIR itself ---------------------

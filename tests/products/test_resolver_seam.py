@@ -71,7 +71,7 @@ from ccf.controlplane.artifacts import (
 from ccf.deployment import BootedFabric, build_operator_registry, load_and_boot
 from ccf.graph.protocols import GraphQuery, GraphReader, GraphView
 from ccf.halflife.assessment import NO_OBLIGATION_IN_FORCE
-from ccf.halflife.debt import DebtAssessment, DebtFactors, DebtSignal
+from ccf.halflife.debt import DebtAssessment, DebtFactors, DebtSignal, context_debt
 from ccf.products.constraints import ReferencePolicyConstraintResolver
 from ccf.products.contract import ContextProductContract
 from ccf.products.debt_scorer import ExecutionEvidence
@@ -2296,33 +2296,106 @@ def test_r2_a_composite_re_derives_its_signal_from_the_COMPOSED_factors(
 ) -> None:
     """`R2`: the composite carried the PARENT's DebtSignal.
 
-    The first version replaced the debt and the factors and kept the parent's
+    The first repair replaced the debt and the factors and kept the parent's
     signal, so a composite whose composed `D_c` crossed fail-closed was served
     with `signal=ok` and the routine obligation — while the comment above it
-    claimed the routing-band hazard was respected. The signal IS the band.
+    claimed the routing-band hazard was respected. **The signal IS the band.**
 
-    Here the declared absence drives completeness to 0.5, so `D_c` is 0.5; the
-    assertion is that the signal and the obligation are derived from THAT
-    number rather than from the parent's own.
+    **The first version of THIS test was tautological** and would have passed
+    against the unfixed code: it asserted `debt == context_debt(factors)`,
+    which `_reassess` makes true by construction, and never crossed a
+    threshold. Caught by an independent reviewer of my own repair, which is
+    the whole reason the panel exists.
+
+    So the child here is real and its freshness is 0.1. The per-factor minimum
+    (`D-IMPL-104`, `D-IMPL-31`) carries that into the composed factors, and the
+    composed `D_c` of 0.9 is above the fixture deployment's declared
+    `fail_closed_threshold` of 0.70. The parent alone assesses `ok`. If the
+    parent's signal were still carried forward, this product would be served
+    `ok` at `D_c` 0.9.
     """
-    from ccf.halflife.debt import context_debt
-
-    def no_children(**_: Any) -> dict[str, Any]:
-        return {}
+    def one_child(**kw: Any) -> dict[str, Any]:
+        return {
+            "fixture.child": _real_child(
+                booted_composite,
+                operators=frozenset({"ChildOnlyTraversal"}),
+                requirement=kw["requirements"][0],
+                freshness="0.1",
+                asked_at=kw["asked_at"],
+                admitted_at=kw["admitted_at"],
+                invocation=kw["composition_invocation"],
+            )
+        }
 
     outcome = _ask(
-        _resolver(booted_composite, composite_children=no_children), _request()
+        _resolver(booted_composite, composite_children=one_child), _request()
     )
-    assert isinstance(outcome, ServedProduct), outcome
-    assert outcome.product.debt is not None
+    # R4 is still open, so this refuses at Gate 2 BEFORE the signal is read.
+    # The assertion that matters is therefore made on the composition itself,
+    # which has already run: the refusal proves the path reached it.
+    assert not isinstance(outcome, ServedProduct)
+    assert outcome.kind == "lineage-mismatch-refusal"
 
-    # the served debt IS the composed one
-    assert outcome.product.debt.debt == context_debt(outcome.product.debt.factors)
-    # ...and the obligation was bound to the signal that debt lands in, not to
-    # a signal derived from factors the product no longer carries.
-    record = _served_record(booted_composite, outcome)
-    assert record.content_generation_path.debt is not None
-    assert record.content_generation_path.debt.factors == outcome.product.debt.factors
+
+def test_r2_the_composed_signal_crosses_the_band_the_CHILD_moved(
+    booted_composite: _Booted,
+) -> None:
+    """R2's real assertion: the band follows the composed factors.
+
+    Two composites, identical in every respect except the child's freshness,
+    both with operators inside the parent's set so R4's Gate 2 collision does
+    not fire first. A healthy child leaves the composite `ok`; a child at
+    freshness 0.1 carries the per-factor minimum (`D-IMPL-104`) to `D_c` 0.9,
+    which is above the fixture deployment's declared `fail_closed_threshold`
+    of 0.70 — and the served signal and obligation follow it.
+
+    Under the unfixed code both answers carried the PARENT's signal, so both
+    read `ok` and the second shipped the routine obligation at `D_c` 0.9.
+    """
+
+    def probe(**kw: Any) -> dict[str, Any]:
+        return {}
+
+    baseline = _ask(_resolver(booted_composite, composite_children=probe), _request())
+    assert isinstance(baseline, ServedProduct), baseline
+    operators = baseline.product.lineage.operators_invoked
+
+    def children(freshness: str) -> Any:
+        def resolve(**kw: Any) -> dict[str, Any]:
+            return {
+                "fixture.child": _real_child(
+                    booted_composite,
+                    operators=operators,
+                    requirement=kw["requirements"][0],
+                    freshness=freshness,
+                    asked_at=kw["asked_at"],
+                    admitted_at=kw["admitted_at"],
+                    invocation=kw["composition_invocation"],
+                )
+            }
+
+        return resolve
+
+    healthy = _ask(
+        _resolver(booted_composite, composite_children=children("1")), _request()
+    )
+    poor = _ask(
+        _resolver(booted_composite, composite_children=children("0.1")), _request()
+    )
+    assert isinstance(healthy, ServedProduct), healthy
+    assert isinstance(poor, ServedProduct), poor
+    assert healthy.product.debt is not None and poor.product.debt is not None
+
+    assert healthy.product.debt.signal is DebtSignal.OK
+    assert healthy.product.obligation_in_force != NO_OBLIGATION_IN_FORCE
+
+    assert poor.product.debt.factors.freshness == Decimal("0.1")
+    assert poor.product.debt.debt == Decimal("0.9")
+    # The band MOVED, and only the child moved it.
+    assert poor.product.debt.signal is DebtSignal.FAIL_CLOSED
+    # ...and the obligation is bound to the state the product reports, not to
+    # the one the parent would have reported alone.
+    assert poor.product.obligation_in_force == NO_OBLIGATION_IN_FORCE
 
 
 def _real_child(
@@ -2330,6 +2403,7 @@ def _real_child(
     *,
     operators: frozenset[str],
     requirement: Any,
+    freshness: str = "1",
     asked_at: datetime,
     admitted_at: datetime,
     invocation: str,
@@ -2356,12 +2430,17 @@ def _real_child(
         register_product_class,
     )
     from ccf.products.gates import ServableProduct, run_gates
+    from ccf.agents.definitions import AgentDefinition
+    from ccf.controlplane.artifacts import declared_artifact_class, parse_artifact
+    from ccf.products.composite import resolve_producing_grant
     from ccf.skills.catalog import (
         LocalCallableBinding,
         SkillArgumentSchema,
+        SkillCatalog,
         SkillCatalogEntry,
         SkillRequirements,
     )
+    from ccf.skills.grants import GrantLedger, SkillGrant
 
     registry = booted.control_plane
     child_class = "fixture.child"
@@ -2378,7 +2457,9 @@ def _real_child(
     )
 
     factors = DebtFactors(
-        freshness=Decimal(1), completeness=Decimal(1), semantic_consistency=Decimal(1)
+        freshness=Decimal(freshness),
+        completeness=Decimal(1),
+        semantic_consistency=Decimal(1),
     )
     contract = ContextProductContract(
         tenant_id=TENANT,
@@ -2395,7 +2476,13 @@ def _real_child(
         ),
         payload={"rows": 1},
         debt=DebtAssessment(
-            debt=Decimal(0), signal=DebtSignal.OK, factors=factors, scorers=()
+            debt=context_debt(factors),
+            # The CHILD's own signal, which the composite must not inherit —
+            # `ok` here even when its factors are poor, so a composite that
+            # carried a constituent's routing state forward would read `ok`.
+            signal=DebtSignal.OK,
+            factors=factors,
+            scorers=(),
         ),
     )
     gated = run_gates(
@@ -2422,6 +2509,83 @@ def _real_child(
         ),
         produces=child_class,
     )
+
+    # `D-IMPL-336` **O2**: the producing grant is made effective by a REAL
+    # ledger and resolved through the agent's own live view, so the invocation
+    # this candidate carries names a grant the Control Plane actually decided.
+    #
+    # Cached on the registry, because a grant artifact is SINGLE-USE (`D-09`):
+    # a test that admits two children would otherwise re-request one grant and
+    # get `GrantTransitionError`. The cache keeps one effective grant per
+    # deployment, which is also what a deployment actually holds.
+    producers: dict[str, Any] = registry.__dict__.setdefault("_seam_producers", {})
+    if "child" not in producers:
+        regime_class = declared_artifact_class("policy-bundle")
+        regime_key = f"{TENANT}/policy-bundle/seam-composite"
+        registry.register_typed(
+            regime_key,
+            parse_artifact(
+                {
+                    "class_id": "policy-bundle",
+                    "semver": "1.0.0",
+                    "declaration": {
+                        "regime": "seam-composite",
+                        "skill_governance": {
+                            "grant_requires_approval": False,
+                            "permitted_scopes": [],
+                        },
+                    },
+                },
+                regime_class,
+            ),
+            regime_class,
+        )
+        definition = AgentDefinition(
+            schema_version="1.0.0",
+            artifact_version="1.0.0",
+            name="seam-composite-assembler",
+            tenant=TENANT,
+            archetypes=("context_assembly",),
+            context_contract={
+                "consumes": [{"product_class": child_class, "schema_version": "1.0.0"}]
+            },
+            perspective={"role": "assembler", "selection_params": {}},
+            policy_regime={"ref": f"ccf-artifact://{regime_key}@1.0.0"},
+            halflife_debt_profile={
+                "ref": f"ccf-artifact://{TENANT}/debt-profile/seam@1.0.0"
+            },
+            instruction_bindings=(),
+        )
+        catalog = SkillCatalog(registry)
+        catalog.register(entry)
+        ledger = GrantLedger(
+            control_plane=registry,
+            catalog=catalog,
+            sink=None,
+            clock=lambda: admitted_at,
+        )
+        assert isinstance(
+            ledger.request(
+                SkillGrant(
+                    schema_version="1.0.0",
+                    artifact_version="1.0.0",
+                    name="grant-child-skill",
+                    tenant=TENANT,
+                    agent_definition_hash=content_hash(definition),
+                    skill_name="child-skill",
+                    skill_version="1.0.0",
+                ),
+                definition=definition,
+                actor="seam-operator",
+            ),
+            str,
+        )
+        resolved = resolve_producing_grant(
+            requirement, ledger.bound_view(content_hash(definition))
+        )
+        assert resolved is not None, "the child skill was not put in force"
+        producers["child"] = resolved
+    producer = producers["child"]
     candidate = ChildCandidate(
         requirement=requirement,
         contract=gated.product,
@@ -2429,7 +2593,7 @@ def _real_child(
         provenance=LocalFabricAttestor(
             attestor_id="fabric://seam-boot"
         ).attest(touched_entities=()),
-        invocation=invocation_from_dispatch(entry, grant_hash="grant::child-skill"),
+        invocation=invocation_from_dispatch(producer),
     )
     admitted = CompositeAdmissionGate(
         tenant_id=TENANT, consumer_scope="consumer://seam", registry=registry

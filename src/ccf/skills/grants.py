@@ -398,6 +398,25 @@ class BoundSkillView(Mapping[str, SkillCatalogEntry]):
     def _current(self) -> dict[str, SkillCatalogEntry]:
         return self._ledger._effective_entries(self._agent_definition_hash)
 
+    def grant_hash_for(self, name: str) -> str:
+        """The hash of the grant that put ``name`` in force for this agent.
+
+        `D-IMPL-336` **O2**. A bound skill is not authority on its own — the
+        grant is — and until this method existed there was no supported way to
+        ask which grant authorized a bound entry. Composite child invocation
+        reads it here rather than accepting one, so the identity that reaches
+        replay is the ledger's and never a caller's spelling of it.
+
+        Resolved at access time from ledger state, like every other read on
+        this view, so a revoked grant stops answering immediately.
+
+        Raises:
+            KeyError: ``name`` is not bound for this agent. Skills the agent
+                has not been granted do not exist from this view, and asking
+                for their authority is the same question as asking for them.
+        """
+        return self._ledger._effective_grants(self._agent_definition_hash)[name][0]
+
     def __getitem__(self, name: str) -> SkillCatalogEntry:
         return self._current()[name]
 
@@ -1016,25 +1035,46 @@ class GrantLedger:
             return NO_GRANTS_SET_HASH
         return grant_set_hash(active)
 
-    def _effective_entries(
+    def _effective_grants(
         self, agent_definition_hash: str
-    ) -> dict[str, SkillCatalogEntry]:
-        entries: dict[str, SkillCatalogEntry] = {}
-        holders: dict[str, str] = {}
+    ) -> dict[str, tuple[str, SkillCatalogEntry]]:
+        """One agent's bound skills, each WITH the grant hash authorizing it.
+
+        The grant hash was already resolved here — as ``holders``, to detect
+        collisions — and then discarded. `D-IMPL-336` **O2** is what that
+        discarding cost: the composite surface had no way to learn which grant
+        authorized a bound skill, so ``invocation_from_dispatch`` took the
+        hash as a caller-supplied string and the audit record named whatever
+        the assembler typed. Returned now, so the authority and the capability
+        travel together and the caller cannot substitute either.
+        """
+        grants: dict[str, tuple[str, SkillCatalogEntry]] = {}
         effective = dict(self._records())
         for grant_hash in sorted(self.effective_hashes()):
             grant = effective[grant_hash].grant
             if grant.agent_definition_hash != agent_definition_hash:
                 continue
-            if grant.skill_name in holders:
+            if grant.skill_name in grants:
                 raise GrantCollisionError(
-                    grant.skill_name, holders[grant.skill_name], grant_hash
+                    grant.skill_name, grants[grant.skill_name][0], grant_hash
                 )
-            holders[grant.skill_name] = grant_hash
-            entries[grant.skill_name] = self._catalog.resolve(
-                grant.tenant, grant.skill_name, grant.skill_version
+            grants[grant.skill_name] = (
+                grant_hash,
+                self._catalog.resolve(
+                    grant.tenant, grant.skill_name, grant.skill_version
+                ),
             )
-        return entries
+        return grants
+
+    def _effective_entries(
+        self, agent_definition_hash: str
+    ) -> dict[str, SkillCatalogEntry]:
+        return {
+            name: entry
+            for name, (_grant_hash, entry) in self._effective_grants(
+                agent_definition_hash
+            ).items()
+        }
 
     def bound_view(self, agent_definition_hash: str) -> BoundSkillView:
         """A live read-only view of one agent's currently-bound skill-set.

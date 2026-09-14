@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1119 entries**, of which **875** name a public Python surface.
+**1123 entries**, of which **879** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-578 entries — 538 public Python surface, 40 not public Python API.
+580 entries — 540 public Python surface, 40 not public Python API.
 
 ### Public Python surface
 
@@ -10105,6 +10105,30 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `336-02-composite-remediation.md`.*
 
+#### ccf.products.composite.ResolvedProducer
+
+- Surface: ccf.products.composite.ResolvedProducer
+- Public surface: true
+- Change type: added
+- Before: absent — the entry and the grant hash travelled separately, and only the entry was evidence
+- After: a token-minted pair carrying the catalog entry and the hash of the grant that put it in force (D-IMPL-336 O2)
+- Why: pairing a real entry with a caller-chosen grant hash let an authorized producer be recorded against an unrelated or revoked grant
+- Migration: obtain one from `resolve_producing_grant`; it cannot be constructed
+
+*Recorded by `336-03-grant-bound-child-invocation.md`.*
+
+#### ccf.skills.grants.BoundSkillView.grant_hash_for
+
+- Surface: ccf.skills.grants.BoundSkillView.grant_hash_for
+- Public surface: true
+- Change type: added
+- Before: absent — the ledger resolved which grant put each bound skill in force and discarded it
+- After: returns that grant hash, resolved from ledger state at access time (D-IMPL-336 O2)
+- Why: there was no supported way to ask which grant authorized a bound entry, which is what forced callers to supply one
+- Migration: none required — additive; raises `KeyError` for a skill this agent does not hold
+
+*Recorded by `336-03-grant-bound-child-invocation.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -10758,7 +10782,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-389 entries — 205 public Python surface, 184 not public Python API.
+391 entries — 207 public Python surface, 184 not public Python API.
 
 ### Public Python surface
 
@@ -15012,6 +15036,30 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Migration: none — both members default to `None` and every existing construction site is unchanged; the shipped gate fills them
 
 *Recorded by `336-02-composite-remediation.md`.*
+
+#### ccf.products.composite.resolve_producing_grant
+
+- Surface: ccf.products.composite.resolve_producing_grant
+- Public surface: true
+- Change type: reshaped
+- Before: took `Mapping[str, SkillCatalogEntry]` and returned `SkillCatalogEntry | None`
+- After: takes the agent's live `ccf.skills.grants.BoundSkillView` and returns `ResolvedProducer | None` (D-IMPL-336 O2)
+- Why: a plain mapping of entries carries no evidence that any of them was granted, so the in-force claim was a docstring rather than a property of the call
+- Migration: pass `ledger.bound_view(agent_definition_hash)` instead of a dict; read `.entry` off the result where the entry itself is wanted
+
+*Recorded by `336-03-grant-bound-child-invocation.md`.*
+
+#### ccf.products.composite.invocation_from_dispatch
+
+- Surface: ccf.products.composite.invocation_from_dispatch
+- Public surface: true
+- Change type: reshaped
+- Before: `invocation_from_dispatch(entry, *, grant_hash)` — minted authority from any entry plus any string
+- After: `invocation_from_dispatch(producer)` — both halves come from the ledger (D-IMPL-336 O2)
+- Why: an accepted parameter that no longer binds anything is the defect class this work repairs, so the keyword is removed rather than deprecated
+- Migration: resolve through `resolve_producing_grant` and pass the `ResolvedProducer`; there is no compatibility shim
+
+*Recorded by `336-03-grant-bound-child-invocation.md`.*
 
 ### Not public Python API
 
