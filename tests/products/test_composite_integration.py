@@ -544,3 +544,75 @@ def test_int01a_a_REVOKED_grant_refuses_the_same_way(booted: _Booted) -> None:
     after = _ask(resolver)
     assert not isinstance(after, ServedProduct), after
     assert after.kind == "composite-child-refusal"
+
+
+def test_cmpr01_a_REFUSED_composite_records_which_children_it_tried(
+    booted: _Booted,
+) -> None:
+    """`CMP-R-01`: the rows reach the persisted record on the refused branch.
+
+    `compose_children` has always built a row for every declared requirement,
+    refused or not — deliberately, because a requirement that produced nothing
+    and left no row is indistinguishable from one that was never declared.
+    Those rows reached the record on the **served** path only, so the one case
+    where a reader most needs to know WHICH child failed was the case the
+    record did not say.
+
+    Read back **off the store**, because the claim is about what was persisted.
+    """
+    resolver, _children = _wire(booted, grant=False)
+    outcome = _ask(resolver)
+    assert not isinstance(outcome, ServedProduct), outcome
+    assert outcome.kind == "composite-child-refusal"
+
+    record = DecisionReplayRecord.model_validate_json(
+        booted.store.get(
+            content_address=booted.store.resolve_uri(uri=outcome.replay_reference)
+        )
+    )
+    rows = record.content_generation_path.child_resolutions
+    assert len(rows) == 1, "the refused composite recorded no child rows"
+    assert rows[0].required_product_class == CHILD_CLASS
+    assert rows[0].required is True
+    # The reason the composite refused is on the row, not only in the envelope
+    # detail a caller may never see at `minimal` disclosure.
+    assert rows[0].outcome_status != "admitted"
+
+
+def test_cmpr01_a_NON_composite_refusal_records_no_rows_and_is_unchanged(
+    booted: _Booted,
+) -> None:
+    """The control. `()` is the true claim for a refusal about no children.
+
+    The widened seam defaults to `()` and `child_resolutions` is
+    hash-transparent there, so a refusal that declares no children records the
+    bytes it always recorded — the parameter buys the composite case without
+    moving any existing record's content address.
+    """
+    from ccf.products.request import ProductRequest
+
+    resolver, _children = _wire(booted)
+    outcome = resolver(
+        tenant=TENANT,
+        product_class=PRODUCT_CLASS,
+        version=PRODUCT_VERSION,
+        perspective=PERSPECTIVE,
+        request=ProductRequest(
+            schema_name=PRODUCT_CLASS,
+            schema_version=PRODUCT_VERSION,
+            subject="acct-1",
+            intent="fixture-intent",
+            freshness="fixture-freshness",
+            asked_at=ASKED_AT,
+            # A parameter the request contract requires, omitted: refused
+            # before any child is considered.
+            parameters={},
+        ),
+    )
+    assert not isinstance(outcome, ServedProduct), outcome
+    record = DecisionReplayRecord.model_validate_json(
+        booted.store.get(
+            content_address=booted.store.resolve_uri(uri=outcome.replay_reference)
+        )
+    )
+    assert record.content_generation_path.child_resolutions == ()

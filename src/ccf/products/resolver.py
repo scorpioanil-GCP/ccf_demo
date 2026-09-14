@@ -247,6 +247,7 @@ from ccf.products.request import (
 from ccf.projection.engine import ExecutionResult, ProjectionEngine
 from ccf.projection.plan import Perspective, ProjectionPlan
 from ccf.replay.record import (
+    ChildResolution,
     PolicyBinding,
     ResolutionNotApplicable,
     build_replay_record,
@@ -706,6 +707,7 @@ class RefusalRecorderProtocol(Protocol):
         assembler_id: str | None = None,
         assembler_version: str | None = None,
         resolution: EffectiveRequest | ResolutionNotApplicable,
+        child_resolutions: tuple[ChildResolution, ...] = (),
     ) -> RefusalEnvelope:
         """Append ``envelope``'s decision record, then return it with its address.
 
@@ -958,6 +960,7 @@ class ReplayRefusalRecorder:
         assembler_id: str | None = None,
         assembler_version: str | None = None,
         resolution: EffectiveRequest | ResolutionNotApplicable,
+        child_resolutions: tuple[ChildResolution, ...] = (),
     ) -> RefusalEnvelope:
         """Disclose, append the INTERNAL truth, then hand back the shell.
 
@@ -1021,6 +1024,12 @@ class ReplayRefusalRecorder:
             tenant_id=self.tenant_id,
             assembler_id=assembler_id,
             assembler_version=assembler_version,
+            # `CMP-R-01`. One row per DECLARED requirement, refused or not, so
+            # a refused composite's record names the children it tried. `()`
+            # for every non-composite refusal, which is the true claim rather
+            # than a filler — and it is hash-transparent, so no existing
+            # record's content address moves.
+            child_resolutions=child_resolutions,
             # Dimension 5's own record of the Disclosure layer, pre-serialized
             # in the SDK's one canonical form — the `hitl_actions` and
             # `workflow_step_sequence` discipline: a block the layer that made
@@ -2182,16 +2191,13 @@ class GovernedResolver:
         # and evidence exactly as a TTL refusal does.
         if composed is not None and composed.refusal is not None:
             return self._record_refusal(
-                # KNOWN GAP, recorded rather than half-wired (`CMP-R-01`).
-                # `compose_children` builds a row for every requirement and
-                # this refusal path drops them: it records through
-                # `RefusalRecorderProtocol.record`, a public seam with no
-                # `child_resolutions` parameter, so carrying them is a protocol
-                # change rather than an argument. Accepting a parameter here
-                # and ignoring it would be the very defect class this phase is
-                # repairing, so nothing is accepted. A refused composite's
-                # rows therefore exist in `CompositionOutcome.resolutions` and
-                # do NOT reach its persisted record.
+                # `CMP-R-01` CLOSED. `compose_children` builds a row for every
+                # requirement and this path used to drop them, because the
+                # recorder is a public seam that had no parameter for them —
+                # so the one case where a reader most needs to know WHICH child
+                # failed was the case the record did not say. The seam was
+                # widened under Amendment 5 §5, with the surface recorded
+                # first; the rows travel now.
                 envelope=envelope_for(
                     composed.refusal,
                     request=identity,
@@ -2205,6 +2211,7 @@ class GovernedResolver:
                 perspective=perspective,
                 policy_bindings=applied,
                 resolution=effective,
+                child_resolutions=composed.resolutions,
             )
 
         if not isinstance(gated, ServableProduct):
@@ -2360,6 +2367,7 @@ class GovernedResolver:
         perspective: Perspective,
         policy_bindings: tuple[PolicyBinding, ...] = (),
         resolution: EffectiveRequest | ResolutionNotApplicable,
+        child_resolutions: tuple[ChildResolution, ...] = (),
     ) -> RefusalEnvelope:
         """Mint this refusal's decision record, then return the addressed shell.
 
@@ -2399,6 +2407,9 @@ class GovernedResolver:
             assembler_id=self._assembler_id(),
             assembler_version=self._assembler_version(),
             resolution=resolution,
+            # `CMP-R-01`: what the composition tried, on the refused branch
+            # too. `()` for every non-composite, which is what they mean.
+            child_resolutions=child_resolutions,
         )
 
     def _applied_bindings(
