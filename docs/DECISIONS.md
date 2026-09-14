@@ -3784,4 +3784,16 @@ Keep the child's relevant governance factors equivalent in the content-different
 
 **Next free decision id: `D-IMPL-340`.** **Governs:** the child-content connection for composite Context Products. **Related:** `D-IMPL-336` (composition, and Amendment 5's *"the composite is a consumer, not a second Control Plane"*), `D-IMPL-337` (the provenance the view is derived after), `D-IMPL-338` (refusal evidence, independent and prior), `D-IMPL-31` / `D-IMPL-104` (the unchanged composition laws), `D-IMPL-86` / `D-IMPL-300` (the binder stays between plan construction and execution), `D-IMPL-137` row C (named plan factories), `CP-SPEC-014` §0.0 / §B.8 / §H.1.
 
+**D-GATE-338 — `D-IMPL-338` IMPLEMENTED / CLOSED. A composite's child-resolution evidence survives every downstream refusal.** APPROVED. Date: 2026-09-14. Approved by: Dave. **Merge candidate: `8e2f7989`**, on `d-impl-338-refusal-evidence`, baselined on `main` at `57d045c9`. Merged `--no-ff` to `main` at the commit that references this entry.
+
+**THE INVARIANT CLOSED, in Dave's words:** *"Before acquisition, a refusal carries no invented child rows. After acquisition, every refusal preserves the child-resolution evidence actually available at that point."*
+
+**WHAT SHIPS.** `GovernedResolver.__call__` binds the child rows **once** after the composite block; every exit below reads that one binding. The census, enumerated rather than patched: **two pre-acquisition exits → `()`** (intent, constraint resolution — no child was considered, and `()` is the true claim rather than an invented outcome); **four post-acquisition exits → the actual `child_rows`** (composition, universal gate, declared product gate, tolerance). Dimension-5 retention only, at the default disclosure posture: neither the disclosed shell nor the internal envelope has a member for the rows. No protocol, signature or record-shape change; every non-composite refusal records `()`, which is hash-transparent, so no existing content address moves.
+
+**THE EVIDENCE.** Seven tests, each driving a REAL composite to one exit and reading the record back off a fresh store instance. Five sabotages, each restored and verified by byte comparison, every target RED — including **S5, the negative control: inventing a child row before acquisition fails.** Baseline comparison by exact test identity against `57d045c9`: 67 of 68 chunk reds, the three `tools/lints` runner reds and the fragments-claim red are identical at the baseline; the 68th asserts a clean `src/` and failed only on the uncommitted tree. **Reds caused: 0.** Unrelated baseline failures were not modified.
+
+**CARRIED, explicitly:** `D-IMPL-339` adds a seventh `_record_refusal` exit — a pre-projection refusal reached *after* child acquisition — which must carry the rows the walk already produced. The census this entry ships pins six; it is restated to seven at the 339 reconciliation, with the invariant unchanged.
+
+**Next free decision id: `D-IMPL-340`** — unchanged; a gate entry spends none. **Governs:** the approval and merge of `D-IMPL-338`. **Related:** `D-IMPL-338`, `D-IMPL-336` (`CMP-R-01`), `D-IMPL-339` (the seventh exit), `CP-SPEC-014` §F.2 (`CP14-F-09`).
+
 **Next free decision id: `D-IMPL-340`.**
