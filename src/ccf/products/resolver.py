@@ -148,7 +148,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import Final, Protocol, TypeVar, runtime_checkable
@@ -176,7 +176,14 @@ from ccf.graph.protocols import GraphView, TraversalDepthCapability
 from pydantic import ValidationError
 
 from ccf.halflife.assessment import NO_OBLIGATION_IN_FORCE
-from ccf.halflife.debt import DebtAssessment, DebtSignal
+from ccf.products.composite import (
+    GATE_CHILD_ADMISSION,
+    ChildAdmissionRefusal,
+    CompositeChildResolverProtocol,
+    CompositionOutcome,
+    compose_children,
+)
+from ccf.halflife.debt import DebtAssessment, DebtSignal, assess_debt, context_debt
 from ccf.products.contract import (
     AssemblyMode,
     ComputedEmptyFinding,
@@ -187,6 +194,7 @@ from ccf.products.contract import (
     register_product_class,
 )
 from ccf.halflife.assessment import (
+    DebtFactors,
     NO_SOURCE_REFRESH_RECENCY,
     SourceRefreshRecency,
 )
@@ -214,6 +222,9 @@ from ccf.products.entitlement import (
 )
 from ccf.products.gates import (
     DEBT_TOLERANCE_PARAMETER,
+    GATE_LINEAGE_EQUALITY,
+    GateRefusal,
+    LineageMismatchRefusal,
     ProductInvariantRefusal,
     ServableProduct,
     refuse_over_tolerance,
@@ -236,6 +247,7 @@ from ccf.products.request import (
 from ccf.projection.engine import ExecutionResult, ProjectionEngine
 from ccf.projection.plan import Perspective, ProjectionPlan
 from ccf.replay.record import (
+    ChildResolution,
     PolicyBinding,
     ResolutionNotApplicable,
     build_replay_record,
@@ -695,6 +707,7 @@ class RefusalRecorderProtocol(Protocol):
         assembler_id: str | None = None,
         assembler_version: str | None = None,
         resolution: EffectiveRequest | ResolutionNotApplicable,
+        child_resolutions: tuple[ChildResolution, ...] = (),
     ) -> RefusalEnvelope:
         """Append ``envelope``'s decision record, then return it with its address.
 
@@ -947,6 +960,7 @@ class ReplayRefusalRecorder:
         assembler_id: str | None = None,
         assembler_version: str | None = None,
         resolution: EffectiveRequest | ResolutionNotApplicable,
+        child_resolutions: tuple[ChildResolution, ...] = (),
     ) -> RefusalEnvelope:
         """Disclose, append the INTERNAL truth, then hand back the shell.
 
@@ -1010,6 +1024,12 @@ class ReplayRefusalRecorder:
             tenant_id=self.tenant_id,
             assembler_id=assembler_id,
             assembler_version=assembler_version,
+            # `CMP-R-01`. One row per DECLARED requirement, refused or not, so
+            # a refused composite's record names the children it tried. `()`
+            # for every non-composite refusal, which is the true claim rather
+            # than a filler — and it is hash-transparent, so no existing
+            # record's content address moves.
+            child_resolutions=child_resolutions,
             # Dimension 5's own record of the Disclosure layer, pre-serialized
             # in the SDK's one canonical form — the `hitl_actions` and
             # `workflow_step_sequence` discipline: a block the layer that made
@@ -1174,6 +1194,19 @@ def _capabilities_of(fabric: BootedFabric) -> tuple[TechnicalCapability, ...]:
             (capability.capability, capability.identity), capability
         )
     return tuple(found[key] for key in sorted(found))
+
+
+
+def _utc_now() -> datetime:
+    """The process's UTC clock.
+
+    The default for :func:`build_governed_resolver`'s ``admission_clock``
+    (`D-IMPL-336` **O3**), and the same one-line shape
+    :mod:`ccf.controlplane.registry` already uses for the same reason: the
+    machinery takes a clock so a test can pin an instant, and exactly one
+    place names the real one.
+    """
+    return datetime.now(UTC)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -1488,6 +1521,39 @@ class GovernedResolver:
     query_pin_class: str
     max_ttl_seconds: int
     product_ttl_seconds: int
+    #: `D-IMPL-336` Amendment 3, F0 — how this deployment resolves, invokes,
+    #: delivers and admits the children a composite class declares. ``None``
+    #: for every non-composite deployment, which is every one shipped before
+    #: this surface; a class that declares ``requires`` against a resolver
+    #: with no child resolver is REFUSED rather than served without them.
+    #:
+    #: The SDK ships the Protocol **and** a reference implementation —
+    #: :class:`~ccf.products.child_resolver.GrantBoundChildResolver` — under
+    #: CLAUDE.md §11. This comment said the opposite until close panel 2; the
+    #: correction is `D-IMPL-336` Amendment 5, which ruled that resolving a
+    #: grant and dispatching it once is not an agent loop. What stays out of
+    #: `src/` is the scheduler, the swarm loop and any new identity axis.
+    composite_children: CompositeChildResolverProtocol | None
+
+    #: `D-IMPL-336` **O3** — the trusted runtime clock a child admission is
+    #: judged against.
+    #:
+    #: Admission time is **not** the decision instant. `D-IMPL-308` lets a
+    #: class declare its decision instant from the request, which is right for
+    #: expiry — a reconstruction of a historical decision expires from when
+    #: that decision was produced. It is wrong for eligibility: `F7`'s
+    #: evidence-age bound asks *how old is this evidence NOW*, and answering it
+    #: with a declared historical instant lets a request move the window its
+    #: own evidence is checked in. The earlier behavior was conservative in
+    #: practice — the skew check refused rather than admitted — but a check
+    #: whose safety depends on which way the caller's declared instant happens
+    #: to fall is not a check.
+    #:
+    #: Injected rather than read from the wall clock here, so the boundary is
+    #: testable exactly; the default lives in
+    #: :func:`build_governed_resolver`, never on this class, which permits no
+    #: constructor defaults at all.
+    admission_clock: Callable[[], datetime]
 
     #: The request-contract argument that carries this class's DECISION
     #: INSTANT, or ``None`` when the class declares none — `24.10-F-09`,
@@ -1865,6 +1931,106 @@ class GovernedResolver:
         # are three statements about the same moment, and deriving them
         # separately is how they drift apart.
         decided_at = self._decision_instant(request, effective_request)
+
+        # --- composite assembly (`D-IMPL-336` Amendment 3, F0) -------------
+        #
+        # THE DECLARATION IS READ FROM THE REGISTERED CLASS. Until this block
+        # existed the whole composite surface had no caller: a class could
+        # declare `requires` and be served with no composition, no admission
+        # and no replay rows — `D-IMPL-324`'s "declaration is not a door",
+        # applied to an entire feature.
+        #
+        # `composed` stays None for every non-composite product, which is
+        # every product shipped before this, and everything below is inert.
+        # A refusal is NOT returned here: it is carried to the same
+        # post-gate refusal path a gate refusal takes, so a composition
+        # refusal and a TTL refusal are recorded by one mechanism.
+        own_lineage = ProductLineage(
+            operators_invoked=frozenset(required),
+            policy_bundle_versions=frozenset({policy_version}),
+            graph_snapshot_at=request.asked_at,
+        )
+        composed: CompositionOutcome | None = None
+        if registered.requires:
+            # One governed question, one invocation identity — derived from the
+            # request so it is stable under replay and cannot be chosen per
+            # child (F8: invocation-bound, and the binding is to THIS one).
+            invocation = f"composition://{content_hash(request)}"
+            # Read ONCE per composition. Two children admitted against two
+            # readings of a clock would be judged in two windows, and the
+            # rows would disagree about when the composition admitted them.
+            admitted_at = self.admission_clock()
+            if self.composite_children is None:
+                composed = CompositionOutcome(
+                    factors=None,
+                    resolutions=(),
+                    refusal=ChildAdmissionRefusal(
+                        gate=GATE_CHILD_ADMISSION,
+                        detail=(
+                            f"class {registered.schema_name!r} declares"
+                            f" {len(registered.requires)} child requirement(s)"
+                            " and this deployment wired no composite child"
+                            " resolver, so they could not be satisfied."
+                            " Refused rather than served without them: a"
+                            " declared requirement execution ignores is the"
+                            " defect this block exists to close"
+                        ),
+                        product_class=registered.schema_name,
+                        reason="no-producing-skill",
+                    ),
+                )
+            else:
+                composed = compose_children(
+                    own_factors=assessed.factors,
+                    requirements=registered.requires,
+                    outcomes=self.composite_children(
+                        requirements=registered.requires,
+                        asked_at=request.asked_at,
+                        # `O3`: the trusted runtime clock, NOT `decided_at`.
+                        # Bound once here so every child in one composition is
+                        # judged at one admission instant.
+                        admitted_at=admitted_at,
+                        composition_invocation=invocation,
+                        # `D-IMPL-336` Amendment 5: peering admission extends
+                        # the consumer's lineage by set-union, so a resolver
+                        # acquiring a peered child needs the composite's own.
+                        consumer_lineage=own_lineage,
+                    ),
+                    asked_at=request.asked_at,
+                    composition_invocation=invocation,
+                    own_lineage=own_lineage,
+                    max_ttl=MaxTTL(seconds=self.product_ttl_seconds),
+                    # `R6` — THE TTL ANCHOR IS `decided_at`, NOT `asked_at`.
+                    # The first version passed the reconstruction instant here
+                    # while the non-composite branch below anchored at the
+                    # decision instant, silently reverting `D-IMPL-308` for
+                    # composites only. Measured consequence: a class with a
+                    # declared decision instant served a SHORTER window as a
+                    # composite than as a plain product, and the two landed on
+                    # the same content address — two governed answers, one
+                    # identity. The anchor is the same instant on both
+                    # branches now, which is what `D-IMPL-308` says it is:
+                    # the TTL runs from when the answer was PRODUCED.
+                    ttl_anchor_at=decided_at,
+                    validity_floors=registered.constituent_validity_floors,
+                )
+            if composed.factors is not None:
+                # `24.11-03`'s hazard, respected: the composed factors replace
+                # the parent's own BEFORE `obligation_in_force` is derived
+                # below, so a composite's reported debt and its obligation
+                # cannot land on different sides of a routing band.
+                #
+                # `R2` — AND THE SIGNAL IS RE-DERIVED, not carried forward.
+                # The first version of this block kept `signal=assessed.signal`
+                # while replacing the debt and the factors, so a composite
+                # whose composed D_c crossed fail-closed was served with
+                # `signal=ok` and the routine obligation. The signal is the
+                # thing the band is read from, so carrying the parent's own
+                # made the comment above it false: re-deriving it from the
+                # COMPOSED factors under the same profile is what makes the
+                # claim true.
+                assessed = self._reassess(composed.factors, fallback=assessed)
+
         candidate = ContextProductContract(
             schema_name=registered.schema_name,
             schema_version=registered.schema_version,
@@ -1875,17 +2041,29 @@ class GovernedResolver:
             # from when the answer was PRODUCED (`24.10-F-09`, `D-IMPL-308`).
             # They are equal whenever a class declares no decision instant.
             temporal_boundary=request.asked_at,
-            expires_at=decided_at + timedelta(seconds=self.product_ttl_seconds),
+            # `D-IMPL-336` F14: a composite's expiry is FLOORED by its
+            # stalest admitted constituent, so it can never be labelled
+            # fresher than the child it depends on. Non-composites keep the
+            # declared window exactly as before.
+            expires_at=(
+                composed.expires_at
+                if composed is not None and composed.expires_at is not None
+                else decided_at + timedelta(seconds=self.product_ttl_seconds)
+            ),
             ttl_anchor=registered.ttl_anchor,
-            lineage=ProductLineage(
-                operators_invoked=frozenset(required),
-                policy_bundle_versions=frozenset({policy_version}),
-                graph_snapshot_at=request.asked_at,
-                # `D-IMPL-309`: the engine's store head is NOT sealed here. It
-                # is execution provenance and it is recorded in replay
-                # dimension 1 from `execution.store_snapshot_pin`, so an
-                # ambient ledger advancing between two runs of one governed
-                # question cannot mint a second product identity (`MOD-05`).
+            # `D-IMPL-336` F14: and its lineage is the N-way set-union over
+            # every admitted child's, so each constituent's provenance stays
+            # resolvable from the composite.
+            #
+            # `D-IMPL-309`: the engine's store head is NOT sealed here. It is
+            # execution provenance and it is recorded in replay dimension 1
+            # from `execution.store_snapshot_pin`, so an ambient ledger
+            # advancing between two runs of one governed question cannot mint
+            # a second product identity (`MOD-05`).
+            lineage=(
+                composed.lineage
+                if composed is not None and composed.lineage is not None
+                else own_lineage
             ),
             payload=execution.projection.payload,
             # `24.10-F-08` / `D-IMPL-308`: the window this deployment DECLARED,
@@ -1913,21 +2091,85 @@ class GovernedResolver:
             ),
         )
 
-        gated = run_gates(
-            candidate,
-            engine_resolved=execution.operators_invoked,
-            # The TTL gate asks whether this product expires within bounds OF
-            # THE MOMENT IT WAS DECIDED, which is the instant its expiry runs
-            # from (`D-IMPL-308`).
-            now=decided_at,
-            registry=self.control_plane,
-            product_class=registered,
-            source_attestation=execution.source_attestation,
-            # `D-IMPL-334`: the entities this execution actually read — the same
-            # value replay dimension 1 records. The gate asks whether any of
-            # them moved after the snapshot this product was built at.
-            touched_entities=execution.touched_entities(),
+        # `R4`, the other half. Widening Gate 2's operand for composites opens
+        # a hole unless the parent's OWN declaration is held to its OWN
+        # execution first: if the engine ran operator X while the class
+        # declared only Y, and a child happens to invoke X, then X is on both
+        # sides of the widened comparison and the parent's drift is masked.
+        #
+        # So the two halves are checked separately and both strictly. This one
+        # is the pre-composition question — "did THIS fabric run what THIS
+        # class declared" — and it is exactly what Gate 2 asked before
+        # composites existed, which is why the refusal is the same type with
+        # the same gate identifier and reaches the caller identically.
+        #
+        # Proven by sabotage: `test_r4_the_union_CANNOT_mask_the_parents_own_
+        # declaration_drifting` perturbs the engine's set and gives the child
+        # precisely the drifted operator.
+        own_declared = frozenset(required)
+        drifted: GateRefusal | None = (
+            LineageMismatchRefusal(
+                gate=GATE_LINEAGE_EQUALITY,
+                detail=(
+                    f"composite {registered.schema_name!r} declares operators "
+                    f"{sorted(own_declared)} but its own engine resolved "
+                    f"{sorted(execution.operators_invoked)}; a composite's "
+                    "admitted children widen what the composition resolved, "
+                    "never what the parent itself declared, so this half stays "
+                    "strict in both directions (INV-CH7-47, D-IMPL-336 R4)"
+                ),
+                declared=own_declared,
+                resolved=execution.operators_invoked,
+            )
+            if composed is not None and own_declared != execution.operators_invoked
+            else None
         )
+
+        gated: ServableProduct | GateRefusal
+        if drifted is not None:
+            gated = drifted
+        else:
+            gated = run_gates(
+                candidate,
+                # `R4` — THE COMPOSITE'S ENGINE-RESOLVED SET INCLUDES ITS ADMITTED
+                # CHILDREN'S OPERATORS. **PROPOSED reading of INV-CH7-47, pending
+                # Dave's ruling at `D-IMPL-336` checkpoint 1.**
+                #
+                # Gate 2 compares the candidate's declared operators against what
+                # the engine resolved, by strict equality in both directions. A
+                # composite's lineage is the `D-IMPL-31` N-way union, which
+                # includes every admitted child's operators — and this fabric's
+                # engine never ran those, because the child did. So before this
+                # line a composite could serve only while every child invoked a
+                # SUBSET of the parent's own operators, which a real child of a
+                # different class never does: it exists to answer a different
+                # question. Measured, with the control, at
+                # `test_r4_a_composite_serves_with_a_child_that_ran_ITS_OWN_operators`.
+                #
+                # The two obvious alternatives each break a standing ruling — a
+                # subset check abandons INV-CH7-47's strictness, and declaring
+                # only the parent's own operators abandons `D-IMPL-31`'s union —
+                # so the operand widens instead, and Gate 2 itself is untouched.
+                # Each child's set is engine-resolved evidence: it passed that
+                # child's own Gate 2 at its own delivery.
+                #
+                # Strictly additive for every non-composite: `composed` is None,
+                # the union is with `frozenset()`, and the operand is the value it
+                # has always been.
+                engine_resolved=execution.operators_invoked
+                | (composed.admitted_operators if composed is not None else frozenset()),
+                # The TTL gate asks whether this product expires within bounds OF
+                # THE MOMENT IT WAS DECIDED, which is the instant its expiry runs
+                # from (`D-IMPL-308`).
+                now=decided_at,
+                registry=self.control_plane,
+                product_class=registered,
+                source_attestation=execution.source_attestation,
+                # `D-IMPL-334`: the entities this execution actually read — the same
+                # value replay dimension 1 records. The gate asks whether any of
+                # them moved after the snapshot this product was built at.
+                touched_entities=execution.touched_entities(),
+            )
         # 24.6-03/24.6-07: every source the resolution consulted, by exact
         # `(key, version)`. Derived ONCE and shared by the served record and
         # every refusal record below — two derivations would let a refused
@@ -1944,6 +2186,37 @@ class GovernedResolver:
             debt=candidate.debt,
             computed_empty=candidate.computed_empty,
         )
+        # `D-IMPL-336` Amendment 3, F0: a composition refusal is recorded by
+        # the SAME mechanism a gate refusal is, and BEFORE the universal gates
+        # report on a candidate whose children never arrived. Placed here
+        # rather than at the composition itself so one refusal path serves
+        # both, and so the refusal travels with the candidate's own lineage
+        # and evidence exactly as a TTL refusal does.
+        if composed is not None and composed.refusal is not None:
+            return self._record_refusal(
+                # `CMP-R-01` CLOSED. `compose_children` builds a row for every
+                # requirement and this path used to drop them, because the
+                # recorder is a public seam that had no parameter for them —
+                # so the one case where a reader most needs to know WHICH child
+                # failed was the case the record did not say. The seam was
+                # widened under Amendment 5 §5, with the surface recorded
+                # first; the rows travel now.
+                envelope=envelope_for(
+                    composed.refusal,
+                    request=identity,
+                    pre_assembly_lineage=candidate.lineage,
+                    policy_bindings=effective.applied,
+                    evidence=evidence,
+                    provenance=effective,
+                ),
+                execution=execution,
+                request=request,
+                perspective=perspective,
+                policy_bindings=applied,
+                resolution=effective,
+                child_resolutions=composed.resolutions,
+            )
+
         if not isinstance(gated, ServableProduct):
             # A refusal is a value, and it travels with the lineage the
             # candidate claimed — a gate refusal has a candidate behind it, so
@@ -2063,6 +2336,13 @@ class GovernedResolver:
             # that DOES hold one wires its own id and version here.
             assembler_id=self._assembler_id(),
             assembler_version=self._assembler_version(),
+            # `D-IMPL-336` Amendment 3, F0 — the per-child rows, GENERATED
+            # FROM EXECUTION. Empty for every non-composite decision, which is
+            # what keeps those records byte-identical to the ones written
+            # before this surface existed.
+            child_resolutions=(
+                composed.resolutions if composed is not None else ()
+            ),
             # 24.6-03: what was resolved, and on whose authority — dimension 2,
             # beside the versions it was resolved from (`D-IMPL-254`).
             resolution=effective,
@@ -2090,6 +2370,7 @@ class GovernedResolver:
         perspective: Perspective,
         policy_bindings: tuple[PolicyBinding, ...] = (),
         resolution: EffectiveRequest | ResolutionNotApplicable,
+        child_resolutions: tuple[ChildResolution, ...] = (),
     ) -> RefusalEnvelope:
         """Mint this refusal's decision record, then return the addressed shell.
 
@@ -2129,6 +2410,9 @@ class GovernedResolver:
             assembler_id=self._assembler_id(),
             assembler_version=self._assembler_version(),
             resolution=resolution,
+            # `CMP-R-01`: what the composition tried, on the refused branch
+            # too. `()` for every non-composite, which is what they mean.
+            child_resolutions=child_resolutions,
         )
 
     def _applied_bindings(
@@ -2336,6 +2620,36 @@ class GovernedResolver:
                 " value; it never converts one (D-IMPL-295)"
             ) from mismatch
 
+    def _reassess(
+        self, factors: DebtFactors, *, fallback: DebtAssessment
+    ) -> DebtAssessment:
+        """Re-derive the routing signal from COMPOSED factors (`R2`).
+
+        Read through the same manifest key `_obligation_in_force` uses, for the
+        same reason: the profile that routes a composite is provably the one
+        the manifest put in force, not one assembled beside it.
+
+        A deployment that declares no bands keeps the scorer's own signal —
+        there is nothing to re-route against, and inventing a band here would
+        be the SDK holding a value (`D-IMPL-38`).
+        """
+        debt = context_debt(factors)
+        if self.debt_profile_key is None:
+            return DebtAssessment(
+                debt=debt,
+                signal=fallback.signal,
+                factors=factors,
+                scorers=fallback.scorers,
+            )
+        profile = self._artifact(self.debt_profile_key, DebtProfile)
+        assessed = assess_debt(factors, profile=profile)
+        return DebtAssessment(
+            debt=assessed.debt,
+            signal=assessed.signal,
+            factors=factors,
+            scorers=fallback.scorers,
+        )
+
     def _obligation_in_force(self, signal: DebtSignal) -> str:
         """What this deployment's profile binds to the state debt landed in.
 
@@ -2408,6 +2722,7 @@ class GovernedResolver:
             addressability=declaration.addressability,
             constituent_validity_floors=declaration.constituent_validity_floors,
             request_contract_key=self.request_contract_key,
+            requires=declaration.requires,
             request_contract_version=request_contract_version,
             # 24.5-L-14 / L-26: the declared obligations reach the gate off
             # the registered value, exactly as the accepted modes do.
@@ -2512,6 +2827,17 @@ def build_governed_resolver(
     product_ttl_seconds: int,
     decision_instant_parameter: str | None = None,
     source_refresh_recency: SourceRefreshRecency = NO_SOURCE_REFRESH_RECENCY,
+    #: `D-IMPL-336` Amendment 3, F0. Defaulted HERE and required on the
+    #: resolver itself: the dataclass forbids defaults so every deployment
+    #: states its posture explicitly, while this factory — which most
+    #: deployments call — keeps the non-composite default that every product
+    #: shipped before this surface had.
+    composite_children: CompositeChildResolverProtocol | None = None,
+    #: `D-IMPL-336` **O3** — the clock a child admission is judged against.
+    #: Defaults to the process's UTC clock, which is the right value for a
+    #: deployment; tests inject a fixed instant so the evidence-age and skew
+    #: boundaries can be asserted exactly rather than approached.
+    admission_clock: Callable[[], datetime] = _utc_now,
     artifact_store: ArtifactStoreProtocol | None = None,
     replay_record_class: str | None = None,
     query_pin_class: str | None = None,
@@ -2991,6 +3317,8 @@ def build_governed_resolver(
             product_ttl_seconds=product_ttl_seconds,
             decision_instant_parameter=decision_instant_parameter,
             source_refresh_recency=source_refresh_recency,
+            composite_children=composite_children,
+            admission_clock=admission_clock,
         )
 
     if (
@@ -3043,4 +3371,6 @@ def build_governed_resolver(
         product_ttl_seconds=product_ttl_seconds,
         decision_instant_parameter=decision_instant_parameter,
         source_refresh_recency=source_refresh_recency,
+        composite_children=composite_children,
+        admission_clock=admission_clock,
     )

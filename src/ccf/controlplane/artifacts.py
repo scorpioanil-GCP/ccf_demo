@@ -87,6 +87,7 @@ from ccf.operators.params import (
     TraversalNeighborhoodParameters,
 )
 from ccf.products.contract import (
+    ChildRequirement,
     NO_PAYLOAD_SCHEMA,
     NO_PRODUCT_GATE,
     NO_SERVE_OBLIGATIONS,
@@ -1500,6 +1501,9 @@ class ProductClassDeclaration(VersionedArtifact):
     constituent_validity_floors: ConstituentValidityFloors = NO_VALIDITY_FLOORS
     payload_schema_key: str = NO_PAYLOAD_SCHEMA
     request_contract_key: str = NO_REQUEST_CONTRACT
+    requires: tuple[ChildRequirement, ...] = Field(
+        default=(), json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
     serve_obligations: ServeObligations = Field(
         default=NO_SERVE_OBLIGATIONS, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )

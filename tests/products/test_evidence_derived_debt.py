@@ -689,6 +689,11 @@ def _ask_the_empty_fabric(booted: Any, *, completeness: Any | None = None) -> An
     """
     fabric, control_plane, store = booted
     resolver = GovernedResolver(
+        # This test's class declares no children; stated, never defaulted.
+        composite_children=None,
+        # `D-IMPL-336` O3. Never read on this path — no child is admitted —
+        # and supplied anyway, because the class permits no defaults.
+        admission_clock=lambda: datetime(2026, 3, 2, 12, 7, tzinfo=UTC),
         # `D-IMPL-308`: this fixture's class declares neither a distinct
         # decision instant nor a refresh window, and says so.
         decision_instant_parameter=None,

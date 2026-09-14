@@ -100,6 +100,8 @@ __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "NO_DEBT_EVIDENCE",
+    "EmptyFactorCompositionError",
+    "compose_debt_factors",
     "NO_OBLIGATION_IN_FORCE",
     "NO_SCORER_PINS",
     "NO_SIGNAL_OBLIGATIONS",
@@ -275,6 +277,84 @@ def context_debt(factors: DebtFactors) -> Decimal:
     """
     return _UNIT - (
         factors.freshness * factors.completeness * factors.semantic_consistency
+    )
+
+
+
+class EmptyFactorCompositionError(ValueError):
+    """No factors were offered to compose.
+
+    Raised — never returned — on this tree's raised/returned distinction, and
+    the same reasoning :class:`~ccf.products.composition.EmptyCompositionError`
+    gives: a caller that reached the combinator with nothing has a wiring
+    defect, and a vacuous success would hand back a composite claiming its own
+    factors while asserting it composed children.
+    """
+
+
+def compose_debt_factors(
+    own: DebtFactors, children: Sequence[DebtFactors]
+) -> DebtFactors:
+    """Compose a parent's factors with its admitted children's (D-IMPL-104).
+
+    **The limb D-IMPL-104 ruled and deferred**, arriving with the
+    aggregate-product surface that entry said it would wait for (D-IMPL-336).
+    That ruling is *"the per-factor maximum across constituents — worst factor
+    wins"*, on debt. F, C and S are **strength** factors where higher is
+    better, so maximum deficiency is **minimum strength**::
+
+        F_parent = min(own F, admitted children's F)
+        C_parent = min(own C, admitted children's C)
+        S_parent = min(own S, admitted children's S)
+
+    and :func:`context_debt` then yields ``D_c = 1 − F·C·S`` unchanged. **Zero
+    new weights**, exactly as D-IMPL-104 predicted, so the additive-form
+    foreclosure at the top of this module is untouched.
+
+    **This is not ``max(child D_c)``, and the difference is not cosmetic.**
+    Collapsing each child to one number before composing loses which factor
+    each was weak on: a child weak only on F beside a child weak only on C each
+    yield a modest D_c, and taking the larger of the two would tell the parent
+    it has one modest problem when in truth **both** its freshness and its
+    completeness are impaired. Per-factor minimum carries both impairments; the
+    scalar maximum carries neither faithfully.
+
+    **Unknown child debt is not zero.** A child whose factors could not be
+    assessed is not represented here as a triple of ones — it never reaches
+    this function, because admission refuses it
+    (:mod:`ccf.products.composite`).
+
+    Args:
+        own: The parent's own assessed factors, over what the parent itself
+            assembled.
+        children: The **admitted** children's factors, in any order — the
+            minimum is commutative and associative, so composition order
+            cannot change the result. Empty is legal: a composite whose
+            requirements were all optional and all declared-absent still has
+            its own factors, and the declared-absence treatment has already
+            entered ``children`` as a factor by then.
+
+    Returns:
+        The composed factors. Feed to :func:`context_debt` for ``D_c``.
+
+    Raises:
+        EmptyFactorCompositionError: ``own`` is ``None``.
+    """
+    if own is None:  # pragma: no cover - defensive; typed as non-optional
+        raise EmptyFactorCompositionError(
+            "compose_debt_factors needs the parent's own factors; composing"
+            " children alone would emit a parent that asserts nothing it"
+            " assembled itself (D-IMPL-104)"
+        )
+    freshness = min([own.freshness, *(child.freshness for child in children)])
+    completeness = min([own.completeness, *(child.completeness for child in children)])
+    semantic = min(
+        [own.semantic_consistency, *(child.semantic_consistency for child in children)]
+    )
+    return DebtFactors(
+        freshness=freshness,
+        completeness=completeness,
+        semantic_consistency=semantic,
     )
 
 

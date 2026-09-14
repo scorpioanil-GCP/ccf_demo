@@ -28,6 +28,14 @@ import pytest
 from pydantic import Field
 
 from ccf.contracts.base import CCFContract
+from ccf.replay.record import ChildResolution, ContentGenerationPath
+from ccf.skills.catalog import (
+    NO_PRODUCT_CLASS,
+    LocalCallableBinding,
+    SkillArgumentSchema,
+    SkillCatalogEntry,
+    SkillRequirements,
+)
 from ccf.contracts.canonical import (
     HASH_TRANSPARENT_KEY,
     CanonicalizationError,
@@ -288,6 +296,23 @@ _MARKED_IN_THE_TREE = frozenset(
         # at once the address, the stored form and the wire form, a head
         # excluded from them would be erased rather than merely unaddressed.
         # It is recorded on the snapshot below, which keeps its mark.
+        # `D-IMPL-336` — the composite/swarm surface. Three marks, each at a
+        # sentinel that is the state of every artifact registered before the
+        # field existed, so no catalog entry, product class or replay record
+        # written earlier moves its content address. Measured, not asserted:
+        # `test_d_impl_336_marks_are_silent_at_their_sentinels` below.
+        "ccf.skills.catalog.SkillCatalogEntry.produces",
+        "ccf.products.contract.RegisteredProductClass.requires",
+        # A REQUIRED requirement can never carry a treatment (the contract
+        # refuses one), so the key spares every required slot a permanent
+        # `null` restating what `required` already says.
+        "ccf.products.contract.ChildRequirement.absence_treatment",
+        # `D-IMPL-336` Amendment 3 — `requires` becomes AUTHORABLE, so the
+        # declaration artifact gains the same mark the registered class had.
+        # Transparent at `()` so every class declared before composition
+        # existed keeps its content address, and therefore its version.
+        "ccf.controlplane.artifacts.ProductClassDeclaration.requires",
+        "ccf.replay.record.ContentGenerationPath.child_resolutions",
         "ccf.replay.record.ContextFabricSnapshot.store_snapshot_pin",
         # 24.6-03: the Authority layer's value in dimension 2
         # (``D-IMPL-253`` Q1/Q6, ``D-IMPL-254``). The sentinel is the
@@ -979,3 +1004,103 @@ def test_a_config_naming_no_replay_binding_hashes_as_it_did() -> None:
     assert content_hash(declaring) != content_hash(silent)
     assert b"replay" in canonical_bytes(declaring)
     assert b"replay" not in canonical_bytes(silent)
+
+
+# --- D-IMPL-336: the three new marks, measured against `main` ----------------
+
+#: Digests MEASURED under the pre-`D-IMPL-336` tree (`main`, commit `374a3600`)
+#: by ``git archive main src | tar -x`` and the same construction under
+#: ``PYTHONPATH=<scratch>/src``, before any of these fields existed. HEAD must
+#: reproduce both **verbatim** — that is what "the mark is silent at its
+#: sentinel" means, and asserting it rather than reasoning about it is the
+#: difference between a compatibility claim and a compatibility measurement.
+#:
+#: ``RegisteredProductClass.requires`` needs no entry here: that model already
+#: carries a `13bd250` digest in ``_BASE_TREE_DIGESTS`` above, so the existing
+#: measurement covers the third mark and a second one would be a weaker copy.
+_PRE_336_DIGESTS = {
+    "SkillCatalogEntry": (
+        "53a94c2c9fd3b866236fc048565ec1e039c6db4963eeec6c56a9dc7590e91329"
+    ),
+    "ContentGenerationPath": (
+        "a74187ca5c6e9ec6a13728b9db32544f061c7b65ad1b8ee22d21c4871977dd5e"
+    ),
+}
+
+
+def test_d_impl_336_marks_are_silent_at_their_sentinels() -> None:
+    """A catalog entry and a replay record keep their identity (`D-IMPL-336`).
+
+    The compatibility claim the composite surface rests on: **every skill
+    catalog entry registered before ``produces`` existed keeps its content
+    hash, so every grant against one stays valid; and every replay record
+    written before ``child_resolutions`` existed keeps its address, so nothing
+    already stored has to be re-derived.**
+
+    Measured against ``main`` rather than argued from the mark's presence —
+    a field can carry the key and still render, and the key is a declaration
+    while the digest is evidence.
+    """
+    entry = SkillCatalogEntry(
+        schema_version="1.0.0",
+        artifact_version="1.0.0",
+        name="s",
+        tenant="t",
+        skill_type="local_callable",
+        description="d",
+        argument_schema=SkillArgumentSchema(properties={}, required=frozenset()),
+        binding=LocalCallableBinding(callable_ref="k"),
+        requirements=SkillRequirements(
+            required_scopes=frozenset(), required_context_products=frozenset()
+        ),
+    )
+    assert entry.produces == NO_PRODUCT_CLASS
+    assert content_hash(entry) == _PRE_336_DIGESTS["SkillCatalogEntry"]
+
+    path = ContentGenerationPath(
+        plan_id="plan-1",
+        operator_plan=(),
+        steps=(),
+        product_content_address="a" * 64,
+    )
+    assert path.child_resolutions == ()
+    assert content_hash(path) == _PRE_336_DIGESTS["ContentGenerationPath"]
+
+
+def test_d_impl_336_marks_RENDER_once_declared() -> None:
+    """The other half, and the one a sentinel test alone would not catch.
+
+    A field that never rendered would be silent at every value, which is not
+    transparency — it is a field nobody can use. Both marks must move the
+    address the moment they carry a real declaration.
+    """
+    entry = SkillCatalogEntry(
+        schema_version="1.0.0",
+        artifact_version="1.0.0",
+        name="s",
+        tenant="t",
+        skill_type="local_callable",
+        description="d",
+        argument_schema=SkillArgumentSchema(properties={}, required=frozenset()),
+        binding=LocalCallableBinding(callable_ref="k"),
+        requirements=SkillRequirements(
+            required_scopes=frozenset(), required_context_products=frozenset()
+        ),
+        produces="CorporateFamilyTree",
+    )
+    assert content_hash(entry) != _PRE_336_DIGESTS["SkillCatalogEntry"]
+
+    path = ContentGenerationPath(
+        plan_id="plan-1",
+        operator_plan=(),
+        steps=(),
+        product_content_address="a" * 64,
+        child_resolutions=(
+            ChildResolution(
+                required_product_class="CorporateFamilyTree",
+                required=True,
+                outcome_status="no-producing-skill",
+            ),
+        ),
+    )
+    assert content_hash(path) != _PRE_336_DIGESTS["ContentGenerationPath"]

@@ -143,6 +143,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import datetime
+from types import MappingProxyType
 
 from pydantic import Field, ValidationError, field_validator
 
@@ -524,6 +525,8 @@ class AdmittedProduct:
         lineage: ProductLineage,
         peer: PeerRef,
         token: object,
+        protected_header: Mapping[str, object] | None = None,
+        content_address: str | None = None,
     ) -> None:
         if token is not _ADMISSION_TOKEN:
             raise AdmissionBypassError(
@@ -535,6 +538,17 @@ class AdmittedProduct:
         self._product = product
         self._lineage = lineage
         self._peer = peer
+        # FROZEN, not stored by reference. A caller holding the admitted
+        # product could otherwise mutate the mapping after verification and
+        # substitute a claim the gate never checked — which would make
+        # "authenticated header" mean "a header that was authenticated at some
+        # point, and is whatever it is now".
+        self._protected_header = (
+            MappingProxyType(dict(protected_header))
+            if protected_header is not None
+            else None
+        )
+        self._content_address = content_address
 
     @property
     def product(self) -> ContextProductContract:
@@ -550,6 +564,35 @@ class AdmittedProduct:
     def peer(self) -> PeerRef:
         """The peer whose signature and entitlements were verified."""
         return self._peer
+
+    @property
+    def protected_header(self) -> Mapping[str, object] | None:
+        """The **authenticated** protected header, or ``None``.
+
+        Carried out of the gate as of ``D-IMPL-336`` Amendment 3 (F16), because
+        a consumer that needs a claim from the header must be able to reach one
+        this gate verified rather than re-reading an envelope itself. It is
+        authenticated in the strong sense: the header was part of the JWS
+        signing input, and this value is the very local
+        :meth:`PeeringAdmissionGate.admit` ran its policy-binding checks
+        against — not a second :meth:`~ccf.peering.protocol.SignedContextProduct.declared_header`
+        call, which would re-derive rather than carry.
+
+        ``None`` only on an ``AdmittedProduct`` built before this member
+        existed; the shipped gate always fills it.
+        """
+        return self._protected_header
+
+    @property
+    def content_address(self) -> str | None:
+        """The address computed over the **verified** canonical bytes.
+
+        Same carrying discipline as :attr:`protected_header`, and for the same
+        reason: a consumer recomputing it independently is fine, but a consumer
+        comparing against a value the gate already established is comparing
+        against something a peer could not choose.
+        """
+        return self._content_address
 
 
 class PeeringAdmissionGate:
@@ -1013,7 +1056,14 @@ class PeeringAdmissionGate:
             occurred_at=now,
             admission_ref=admission_ref,
         )
-        return AdmittedProduct(product, merged, peer, _ADMISSION_TOKEN)
+        return AdmittedProduct(
+            product,
+            merged,
+            peer,
+            _ADMISSION_TOKEN,
+            protected_header=header,
+            content_address=content_address,
+        )
 
     def _check_policy_bindings(
         self,

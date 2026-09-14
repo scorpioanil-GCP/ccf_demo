@@ -71,7 +71,7 @@ from ccf.controlplane.artifacts import (
 from ccf.deployment import BootedFabric, build_operator_registry, load_and_boot
 from ccf.graph.protocols import GraphQuery, GraphReader, GraphView
 from ccf.halflife.assessment import NO_OBLIGATION_IN_FORCE
-from ccf.halflife.debt import DebtAssessment, DebtFactors, DebtSignal
+from ccf.halflife.debt import DebtAssessment, DebtFactors, DebtSignal, context_debt
 from ccf.products.constraints import ReferencePolicyConstraintResolver
 from ccf.products.contract import ContextProductContract
 from ccf.products.debt_scorer import ExecutionEvidence
@@ -82,6 +82,11 @@ from ccf.products.refusal import NO_REPLAY_REFERENCE, RefusalEnvelope
 from ccf.products.request import ProductRequest, request_seeds
 from ccf.replay.record import (
     NO_FABRIC_READ,
+    ContentGenerationPath,
+    ContextFabricSnapshot,
+    ModelVersionRecord,
+    PerspectiveConditioning,
+    PolicyBindingsSnapshot,
     NO_PRODUCT_ADDRESS,
     DecisionReplayRecord,
     PolicyBinding,
@@ -177,6 +182,12 @@ MAX_TTL_SECONDS = 3600
 #: The instant every request is asked as of. Data, never a clock read — the
 #: property `ccf.products.request` exists to preserve.
 ASKED_AT = datetime(2026, 3, 2, 12, 0, tzinfo=UTC)
+
+#: `D-IMPL-336` **O3** — the trusted runtime instant a child admission is
+#: judged at. DISTINCT from `ASKED_AT` and from any declared decision instant,
+#: on purpose: the whole finding is that the three are different facts and the
+#: resolver had conflated two of them.
+ADMITTED_AT = datetime(2026, 3, 2, 12, 7, tzinfo=UTC)
 
 #: The perspective a calling surface would have resolved and entitled.
 PERSPECTIVE = Perspective(principal_id="principal-fixture", role="role-fixture")
@@ -1975,6 +1986,13 @@ DEPLOYMENT_OWNED_ARGUMENTS: tuple[str, ...] = (
     # guessed would serve "obliged to do nothing" from inside the content
     # address, where it cannot be corrected afterwards.
     "debt_profile_key",
+    # `D-IMPL-336` Amendment 3, F0: how this deployment resolves, invokes and
+    # admits the children a composite class declares. `None` is admissible and
+    # POSITIVE — this deployment composes nothing — but never a default: a
+    # resolver that guessed would serve a class whose declared requirements
+    # execution ignored, which is the exact defect the composite block closes.
+    "composite_children",
+    "admission_clock",
     "plan_factory",
     "debt_scorer",
     # `24.10-02` / `R-11`: the deployment's implementation of its class's own
@@ -2102,6 +2120,15 @@ def _arguments(booted: _Booted) -> dict[str, Any]:
         # way every other declaration is named — by key, so the profile the
         # resolver reads is provably the manifest's.
         "debt_profile_key": DEBT_PROFILE_KEY,
+        # This fixture's class declares no child requirements, so it wires no
+        # child resolver — the state every product shipped before D-IMPL-336
+        # was in, stated rather than defaulted.
+        "composite_children": None,
+        # `D-IMPL-336` O3: pinned, so the evidence-age and skew boundaries can
+        # be asserted exactly rather than approached. A deployment gets the
+        # process clock from `build_governed_resolver`; this class has no
+        # default for it, like every other value a deployment owns.
+        "admission_clock": lambda: ADMITTED_AT,
         "plan_factory": _plan_factory,
         "debt_scorer": _debt_scorer,
         # `D-IMPL-308`. `None` and the empty window are POSITIVE values here,
@@ -2169,3 +2196,643 @@ class _HandleWithReader:
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._inner, name)
+
+
+# --- D-IMPL-336 Amendment 3, F0: the composite path, END TO END --------------
+#
+# Call-site searches establish wiring; these establish BEHAVIOR. Both were
+# required by the remediation instruction, and only the first was ever true of
+# this surface before it.
+
+
+def _served_record(booted: _Booted, served: ServedProduct) -> Any:
+    """The persisted replay record behind a served product.
+
+    Resolved from the store through the served outcome's own `replay_ref`, so
+    the rows asserted below are the ones actually WRITTEN — not a record the
+    test built alongside.
+    """
+    return DecisionReplayRecord.model_validate_json(
+        booted.store.get(
+            content_address=booted.store.resolve_uri(uri=served.replay_ref.uri)
+        )
+    )
+
+
+#: One optional child requirement, declared the way a governance AUTHOR would.
+#: Until Amendment 3 this document could not be written at all:
+#: `ProductClassDeclaration` is `extra=forbid` and had no `requires` field.
+_COMPOSITE_REQUIRES = [
+    {
+        "product_class": "fixture.child",
+        "required": False,
+        "compatible_from": "1.0.0",
+        "absence_treatment": {
+            "completeness_when_absent": "0.5",
+            "omissible_outcomes": ["optional-absent"],
+        },
+    }
+]
+
+
+@pytest.fixture()
+def booted_composite(tmp_path: pathlib.Path) -> Iterator[_Booted]:
+    """A fabric whose product class DECLARES a child requirement."""
+    product_class = copy.deepcopy(
+        next(doc for key, *_rest, doc in ARTIFACT_SET if key == PRODUCT_CLASS_KEY)
+    )
+    product_class["requires"] = _COMPOSITE_REQUIRES
+    yield from _boot(tmp_path, product_class=product_class)
+
+
+def test_a_class_declaring_children_with_no_resolver_REFUSES(
+    booted_composite: _Booted,
+) -> None:
+    """A declared requirement execution ignores is the defect F0 named.
+
+    Before this block existed the answer was to serve the product anyway, with
+    no composition, no admission and no replay rows. It refuses now.
+    """
+    outcome = _ask(
+        _resolver(booted_composite, composite_children=None), _request()
+    )
+    assert not isinstance(outcome, ServedProduct)
+    # The KIND is the governed fact that crosses. The detail naming the missing
+    # resolver is withheld at `minimal` disclosure, correctly — F11's table
+    # admits only `product_class` there, because an internal wiring message is
+    # fabric state and not something a caller can act on.
+    assert outcome.kind == "composite-child-refusal"
+
+
+def test_a_composite_records_a_child_resolution_row_from_EXECUTION(
+    booted_composite: _Booted,
+) -> None:
+    """F0's behavioral half: the row is written by the served path.
+
+    `child_resolutions` was a declared field nothing wrote. This asserts a real
+    serve through `GovernedResolver` produces one — so a composite can no
+    longer be delivered with no evidence that any child was considered — and
+    that the declared absence is PRICED into the served product's debt.
+    """
+
+    def no_children(**_: Any) -> dict[str, Any]:
+        """A deployment whose grants produce none of the declared classes.
+
+        The honest absence: the one outcome that takes the declared treatment.
+        """
+        return {}
+
+    outcome = _ask(
+        _resolver(booted_composite, composite_children=no_children), _request()
+    )
+    assert isinstance(outcome, ServedProduct), outcome
+
+    rows = _served_record(
+        booted_composite, outcome
+    ).content_generation_path.child_resolutions
+    assert len(rows) == 1
+    assert rows[0].required_product_class == "fixture.child"
+    assert rows[0].outcome_status == "optional-absent"
+    assert outcome.product.debt is not None
+    assert outcome.product.debt.factors.completeness <= Decimal("0.5")
+
+
+def test_a_non_composite_product_is_completely_unaffected(
+    booted: _Booted,
+) -> None:
+    """The control. Every product shipped before this surface takes the same
+    path it always did, and its record carries no child rows."""
+    outcome = _ask(_resolver(booted, composite_children=None), _request())
+    assert isinstance(outcome, ServedProduct), outcome
+    record = _served_record(booted, outcome)
+    assert record.content_generation_path.child_resolutions == ()
+
+
+def test_r2_the_composed_signal_crosses_the_band_the_CHILD_moved(
+    booted_composite: _Booted,
+) -> None:
+    """R2's real assertion: the band follows the composed factors.
+
+    Two composites, identical in every respect except the child's freshness,
+    both with operators inside the parent's set so R4's Gate 2 collision does
+    not fire first. A healthy child leaves the composite `ok`; a child at
+    freshness 0.1 carries the per-factor minimum (`D-IMPL-104`) to `D_c` 0.9,
+    which is above the fixture deployment's declared `fail_closed_threshold`
+    of 0.70 — and the served signal and obligation follow it.
+
+    Under the unfixed code both answers carried the PARENT's signal, so both
+    read `ok` and the second shipped the routine obligation at `D_c` 0.9.
+    """
+
+    def probe(**kw: Any) -> dict[str, Any]:
+        return {}
+
+    baseline = _ask(_resolver(booted_composite, composite_children=probe), _request())
+    assert isinstance(baseline, ServedProduct), baseline
+    operators = baseline.product.lineage.operators_invoked
+
+    def children(freshness: str) -> Any:
+        def resolve(**kw: Any) -> dict[str, Any]:
+            return {
+                "fixture.child": _real_child(
+                    booted_composite,
+                    operators=operators,
+                    requirement=kw["requirements"][0],
+                    freshness=freshness,
+                    asked_at=kw["asked_at"],
+                    admitted_at=kw["admitted_at"],
+                    invocation=kw["composition_invocation"],
+                )
+            }
+
+        return resolve
+
+    healthy = _ask(
+        _resolver(booted_composite, composite_children=children("1")), _request()
+    )
+    poor = _ask(
+        _resolver(booted_composite, composite_children=children("0.1")), _request()
+    )
+    assert isinstance(healthy, ServedProduct), healthy
+    assert isinstance(poor, ServedProduct), poor
+    assert healthy.product.debt is not None and poor.product.debt is not None
+
+    assert healthy.product.debt.signal is DebtSignal.OK
+    assert healthy.product.obligation_in_force != NO_OBLIGATION_IN_FORCE
+
+    assert poor.product.debt.factors.freshness == Decimal("0.1")
+    assert poor.product.debt.debt == Decimal("0.9")
+    # The band MOVED, and only the child moved it.
+    assert poor.product.debt.signal is DebtSignal.FAIL_CLOSED
+    # ...and the obligation is bound to the state the product reports, not to
+    # the one the parent would have reported alone.
+    assert poor.product.obligation_in_force == NO_OBLIGATION_IN_FORCE
+
+
+def _real_child(
+    booted: _Booted,
+    *,
+    operators: frozenset[str],
+    requirement: Any,
+    freshness: str = "1",
+    asked_at: datetime,
+    admitted_at: datetime,
+    invocation: str,
+) -> Any:
+    """One child admitted through the REAL gate and the REAL admission gate.
+
+    Nothing here is an injected outcome: the contract is served by `run_gates`,
+    the candidate carries boot-minted local provenance and an invocation minted
+    from a catalog entry, and `CompositeAdmissionGate.admit` decides whether it
+    is an `AdmittedChild` at all. `operators` is the only variable.
+    """
+    from ccf.contracts.canonical import content_hash as _address
+    from ccf.products.composite import (
+        AdmittedChild,
+        ChildCandidate,
+        CompositeAdmissionGate,
+        invocation_from_dispatch,
+    )
+    from ccf.products.contract import (
+        ContextProductContract,
+        MaxTTL,
+        ProductLineage,
+        register_product_class,
+    )
+    from ccf.products.gates import ServableProduct, run_gates
+    from ccf.agents.definitions import AgentDefinition
+    from ccf.controlplane.artifacts import declared_artifact_class, parse_artifact
+    from ccf.products.composite import resolve_producing_grant
+    from ccf.skills.catalog import (
+        LocalCallableBinding,
+        SkillArgumentSchema,
+        SkillCatalog,
+        SkillCatalogEntry,
+        SkillRequirements,
+    )
+    from ccf.skills.dispatch import SkillInvocation
+    from ccf.skills.grants import GrantLedger, SkillGrant
+
+    registry = booted.control_plane
+    child_class = "fixture.child"
+    ttl_key = "fixture/seam/child-max-ttl"
+    ttl_version = registry.register(ttl_key, MaxTTL(seconds=86400))
+    registered_child = register_product_class(
+        registry=registry,
+        schema_name=child_class,
+        schema_version="1.0.0",
+        ttl_anchor="from_decision",
+        assembly_mode="algorithmic",
+        max_ttl_key=ttl_key,
+        max_ttl_version=ttl_version,
+    )
+
+    factors = DebtFactors(
+        freshness=Decimal(freshness),
+        completeness=Decimal(1),
+        semantic_consistency=Decimal(1),
+    )
+    contract = ContextProductContract(
+        tenant_id=TENANT,
+        schema_name=child_class,
+        schema_version="1.0.0",
+        plan_id="plan-fixture-child",
+        temporal_boundary=asked_at,
+        expires_at=asked_at + timedelta(hours=12),
+        ttl_anchor="from_decision",
+        lineage=ProductLineage(
+            operators_invoked=operators,
+            policy_bundle_versions=("fixture-child-policy-v1",),
+            graph_snapshot_at=asked_at,
+        ),
+        payload={"rows": 1},
+        debt=DebtAssessment(
+            debt=context_debt(factors),
+            # The CHILD's own signal, which the composite must not inherit —
+            # `ok` here even when its factors are poor, so a composite that
+            # carried a constituent's routing state forward would read `ok`.
+            signal=DebtSignal.OK,
+            factors=factors,
+            scorers=(),
+        ),
+    )
+    gated = run_gates(
+        contract,
+        engine_resolved=operators,
+        now=admitted_at,
+        registry=registry,
+        product_class=registered_child,
+        touched_entities=(),
+    )
+    assert isinstance(gated, ServableProduct), gated
+
+    entry = SkillCatalogEntry(
+        schema_version="1.0.0",
+        artifact_version="1.0.0",
+        name="child-skill",
+        tenant=TENANT,
+        skill_type="local_callable",
+        description="child skill",
+        argument_schema=SkillArgumentSchema(properties={}, required=frozenset()),
+        binding=LocalCallableBinding(callable_ref="ref::child-skill"),
+        requirements=SkillRequirements(
+            required_scopes=frozenset(), required_context_products=frozenset()
+        ),
+        produces=child_class,
+    )
+
+    # `D-IMPL-336` **O2**: the producing grant is made effective by a REAL
+    # ledger and resolved through the agent's own live view, so the invocation
+    # this candidate carries names a grant the Control Plane actually decided.
+    #
+    # Cached on the registry, because a grant artifact is SINGLE-USE (`D-09`):
+    # a test that admits two children would otherwise re-request one grant and
+    # get `GrantTransitionError`. The cache keeps one effective grant per
+    # deployment, which is also what a deployment actually holds.
+    producers: dict[str, Any] = registry.__dict__.setdefault("_seam_producers", {})
+    if "child" not in producers:
+        regime_class = declared_artifact_class("policy-bundle")
+        regime_key = f"{TENANT}/policy-bundle/seam-composite"
+        registry.register_typed(
+            regime_key,
+            parse_artifact(
+                {
+                    "class_id": "policy-bundle",
+                    "semver": "1.0.0",
+                    "declaration": {
+                        "regime": "seam-composite",
+                        "skill_governance": {
+                            "grant_requires_approval": False,
+                            "permitted_scopes": [],
+                        },
+                    },
+                },
+                regime_class,
+            ),
+            regime_class,
+        )
+        definition = AgentDefinition(
+            schema_version="1.0.0",
+            artifact_version="1.0.0",
+            name="seam-composite-assembler",
+            tenant=TENANT,
+            archetypes=("context_assembly",),
+            context_contract={
+                "consumes": [{"product_class": child_class, "schema_version": "1.0.0"}]
+            },
+            perspective={"role": "assembler", "selection_params": {}},
+            policy_regime={"ref": f"ccf-artifact://{regime_key}@1.0.0"},
+            halflife_debt_profile={
+                "ref": f"ccf-artifact://{TENANT}/debt-profile/seam@1.0.0"
+            },
+            instruction_bindings=(),
+        )
+        catalog = SkillCatalog(registry)
+        catalog.register(entry)
+        ledger = GrantLedger(
+            control_plane=registry,
+            catalog=catalog,
+            sink=None,
+            clock=lambda: admitted_at,
+        )
+        assert isinstance(
+            ledger.request(
+                SkillGrant(
+                    schema_version="1.0.0",
+                    artifact_version="1.0.0",
+                    name="grant-child-skill",
+                    tenant=TENANT,
+                    agent_definition_hash=content_hash(definition),
+                    skill_name="child-skill",
+                    skill_version="1.0.0",
+                ),
+                definition=definition,
+                actor="seam-operator",
+            ),
+            str,
+        )
+        resolved = resolve_producing_grant(
+            requirement, ledger.bound_view(content_hash(definition))
+        )
+        assert resolved is not None, "the child skill was not put in force"
+        producers["child"] = resolved
+    producer = producers["child"]
+    candidate = ChildCandidate(
+        requirement=requirement,
+        contract=gated.product,
+        content_address=_address(gated.product),
+        # `D-IMPL-336` **Amendment 5**: the grant and the dispatch ARE the
+        # evidence. No attestor, no record to attest over, no provenance
+        # object — which is the simplification, visible here as the six lines
+        # this helper no longer needs.
+        invocation=invocation_from_dispatch(
+            producer,
+            SkillInvocation(
+                skill_name=producer.entry.name,
+                skill_type="local_callable",
+                output={},
+            ),
+            touched_entities=(),
+        ),
+    )
+    admitted = CompositeAdmissionGate(
+        tenant_id=TENANT, consumer_scope="consumer://seam", registry=registry
+    ).admit(
+        candidate=candidate,
+        asked_at=asked_at,
+        admitted_at=admitted_at,
+        composition_invocation=invocation,
+    )
+    assert isinstance(admitted, AdmittedChild), admitted
+    return admitted
+
+
+def test_r4_a_composite_serves_with_a_child_that_ran_ITS_OWN_operators(
+    booted_composite: _Booted,
+) -> None:
+    """`R4` — measured as a defect, then closed. **PROPOSED reading.**
+
+    Gate 2 (INV-CH7-47) compares the candidate's `operators_invoked` against
+    what THIS fabric's engine resolved, by strict equality in both directions.
+    A composite's lineage is `D-IMPL-31`'s N-way union, which includes every
+    admitted child's operators — and the parent's engine never ran those.
+
+    So before the repair a composite served only while every child invoked a
+    SUBSET of the parent's own operators, which a real child of another class
+    never does: it exists to answer a different question. This test asserted
+    that refusal first, and went red on the line that fixed it.
+
+    The resolution widens Gate 2's OPERAND for composites — the engine-resolved
+    set of a composition is the parent's execution unioned with each admitted
+    child's verified operators — and leaves `run_gates` untouched. It is
+    PROPOSED, not ruled: `D-IMPL-336` checkpoint 1 puts it to Dave.
+    """
+    captured: dict[str, Any] = {}
+
+    def one_child(**kw: Any) -> dict[str, Any]:
+        captured.update(kw)
+        return {
+            "fixture.child": _real_child(
+                booted_composite,
+                # The child ran an operator the parent did not. The ordinary
+                # case, not a contrived one.
+                operators=frozenset({"ChildOnlyTraversal"}),
+                requirement=kw["requirements"][0],
+                asked_at=kw["asked_at"],
+                admitted_at=kw["admitted_at"],
+                invocation=kw["composition_invocation"],
+            )
+        }
+
+    outcome = _ask(
+        _resolver(booted_composite, composite_children=one_child), _request()
+    )
+    assert captured, "the resolver never called the child resolver"
+    assert isinstance(outcome, ServedProduct), outcome
+    # The served lineage IS the union — the child's operator is resolvable
+    # from the composite, which is what `D-IMPL-31` is for.
+    assert "ChildOnlyTraversal" in outcome.product.lineage.operators_invoked
+    record = _served_record(booted_composite, outcome)
+    assert record.content_generation_path.child_resolutions[0].outcome_status == (
+        "admitted"
+    )
+
+
+def test_r4_the_union_CANNOT_mask_the_parents_own_declaration_drifting(
+    booted_composite: _Booted,
+) -> None:
+    """The sabotage that makes the widened operand safe rather than lax.
+
+    Widening Gate 2's operand opens a hole if it is done naively: if the
+    parent's engine runs operator X while its class declares only Y, and a
+    child happens to invoke X, both sides of the comparison contain X and the
+    parent's drift is masked.
+
+    So the parent's OWN declared set is still held to its OWN execution by
+    strict equality, BEFORE the union is formed. Here the parent's execution
+    is perturbed to carry an extra operator and the child is given exactly
+    that operator — the precise shape that would be masked. It refuses.
+    """
+    drifted = "DriftedOperator"
+
+    def one_child(**kw: Any) -> dict[str, Any]:
+        return {
+            "fixture.child": _real_child(
+                booted_composite,
+                operators=frozenset({drifted}),
+                requirement=kw["requirements"][0],
+                asked_at=kw["asked_at"],
+                admitted_at=kw["admitted_at"],
+                invocation=kw["composition_invocation"],
+            )
+        }
+
+    resolver = _resolver(booted_composite, composite_children=one_child)
+    original = resolver_module.ProjectionEngine
+
+    class _DriftingEngine:
+        """The engine resolved one operator more than the class declared.
+
+        Patched HERE rather than at `run_gates`, and the distinction is the
+        finding: the guard reads `execution.operators_invoked` directly and
+        runs BEFORE the gate, so perturbing the gate's argument would leave
+        the guard looking at the honest set and prove nothing.
+        """
+
+        def __init__(self, **kw: Any) -> None:
+            self._inner = original(**kw)
+
+        def execute(self, **kw: Any) -> Any:
+            result = self._inner.execute(**kw)
+            return result.model_copy(
+                update={
+                    "operators_invoked": frozenset(result.operators_invoked)
+                    | {drifted}
+                }
+            )
+
+    resolver_module.ProjectionEngine = _DriftingEngine  # type: ignore[misc]
+    try:
+        outcome = _ask(resolver, _request())
+    finally:
+        resolver_module.ProjectionEngine = original  # type: ignore[misc]
+
+    assert not isinstance(outcome, ServedProduct), (
+        "the union masked a drifted parent declaration"
+    )
+    assert outcome.kind == "lineage-mismatch-refusal", outcome.kind
+
+
+def test_r4_the_positive_control_a_child_WITHIN_the_parents_operators_serves(
+    booted_composite: _Booted,
+) -> None:
+    """The control that makes the finding above about LINEAGE and nothing else.
+
+    Same real child, same real admission, same real composition — the only
+    change is that its operator set is a subset of the parent's. It serves.
+    So the refusal above is Gate 2 reacting to the composed union, not a
+    real child being unable to reach composition at all.
+    """
+    parent_operators: dict[str, frozenset[str]] = {}
+
+    def probe(**kw: Any) -> dict[str, Any]:
+        return {}
+
+    served_plain = _ask(
+        _resolver(booted_composite, composite_children=probe), _request()
+    )
+    assert isinstance(served_plain, ServedProduct), served_plain
+    parent_operators["set"] = served_plain.product.lineage.operators_invoked
+    assert parent_operators["set"], "the parent invoked no operators"
+
+    def one_child(**kw: Any) -> dict[str, Any]:
+        return {
+            "fixture.child": _real_child(
+                booted_composite,
+                operators=parent_operators["set"],
+                requirement=kw["requirements"][0],
+                asked_at=kw["asked_at"],
+                admitted_at=kw["admitted_at"],
+                invocation=kw["composition_invocation"],
+            )
+        }
+
+    outcome = _ask(
+        _resolver(booted_composite, composite_children=one_child), _request()
+    )
+    assert isinstance(outcome, ServedProduct), outcome
+    record = _served_record(booted_composite, outcome)
+    rows = record.content_generation_path.child_resolutions
+    assert len(rows) == 1
+    assert rows[0].outcome_status == "admitted"
+
+
+def test_o3_admission_is_judged_at_the_RUNTIME_clock_not_a_declared_instant(
+    booted_composite: _Booted,
+) -> None:
+    """`O3` — three instants, and the resolver had conflated two of them.
+
+    `asked_at` is when the graph is observed. The decision instant is when the
+    answer is produced, and `D-IMPL-308` lets a class declare it from the
+    request. **Admission time is neither.** `F7`'s evidence-age bound asks how
+    old a child's eligibility evidence is *now*, and answering that with a
+    declared historical instant lets the request move the window its own
+    evidence is checked in.
+
+    The earlier code passed `decided_at`. That was conservative in practice —
+    a historical instant makes the skew check refuse rather than admit — but a
+    check whose safety depends on which way a caller's declared instant
+    happens to fall is not a check, which is what the reviewer said and what
+    Amendment 4 ordered fixed.
+
+    Asserted by observing what the child resolver is HANDED, since that is the
+    value every downstream admission is judged against.
+    """
+    seen: dict[str, Any] = {}
+
+    def recording(**kw: Any) -> dict[str, Any]:
+        seen.update(kw)
+        return {}
+
+    outcome = _ask(
+        _resolver(booted_composite, composite_children=recording), _request()
+    )
+    assert isinstance(outcome, ServedProduct), outcome
+    assert seen["admitted_at"] == ADMITTED_AT
+    # ...and it is neither of the two instants it used to be confused with.
+    assert seen["admitted_at"] != seen["asked_at"]
+    assert seen["admitted_at"] != ASKED_AT
+
+
+def test_o3_the_admission_clock_is_read_ONCE_for_a_whole_composition(
+    booted_composite: _Booted,
+) -> None:
+    """Two children in one composition are judged in ONE window.
+
+    A clock read per child would put two constituents of one answer in two
+    evidence windows, and their rows would disagree about when the composition
+    admitted them. Asserted by counting reads, because a clock that returns a
+    constant cannot testify to how often it was called.
+    """
+    reads: list[int] = []
+
+    def counting() -> datetime:
+        reads.append(1)
+        return ADMITTED_AT
+
+    def recording(**_: Any) -> dict[str, Any]:
+        return {}
+
+    outcome = _ask(
+        _resolver(
+            booted_composite,
+            composite_children=recording,
+            admission_clock=counting,
+        ),
+        _request(),
+    )
+    assert isinstance(outcome, ServedProduct), outcome
+    assert reads == [1], f"the admission clock was read {len(reads)} times"
+
+
+def test_o3_a_non_composite_never_reads_the_admission_clock(
+    booted: _Booted,
+) -> None:
+    """The control. A product declaring no children admits none.
+
+    Reading a clock it has no use for would be harmless and still wrong: it
+    would make the value look load-bearing on a path where nothing consumes
+    it, which is how a field ends up defended as though it governed something.
+    """
+    reads: list[int] = []
+
+    def counting() -> datetime:
+        reads.append(1)
+        return ADMITTED_AT
+
+    outcome = _ask(
+        _resolver(booted, composite_children=None, admission_clock=counting),
+        _request(),
+    )
+    assert isinstance(outcome, ServedProduct), outcome
+    assert reads == []

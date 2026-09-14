@@ -51,12 +51,12 @@ Algorithmic module (CINV-03).
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, Literal, get_args
+from typing import Any, Final, Literal, get_args
 
-from pydantic import field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from ccf.contracts.base import CCFContract
-from ccf.contracts.canonical import content_hash
+from ccf.contracts.canonical import HASH_TRANSPARENT_KEY, content_hash
 from ccf.controlplane.artifact_base import ArtifactClass, validate_semver
 from ccf.controlplane.registry import ControlPlaneRegistry, RegistrationRefusal
 
@@ -64,6 +64,7 @@ __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "SKILL_CATALOG_ENTRY",
+    "NO_PRODUCT_CLASS",
     "SKILL_TYPES",
     "LocalCallableBinding",
     "McpBinding",
@@ -85,6 +86,12 @@ __all__ = [
 #: values: each names a *kind of binding* the SDK can eventually dispatch (or,
 #: for ``procedure``, inject on seam 1), and an entry declaring anything else
 #: is malformed rather than merely unknown.
+#: ``produces`` when a skill emits no governed Context Product (D-IMPL-336).
+#: A positive assertion, not an omission, and the value at which the field is
+#: hash-transparent — so every entry registered before ``produces`` existed
+#: keeps its artifact identity (D-IMPL-243).
+NO_PRODUCT_CLASS: Final = "ccf:no-product-class"
+
 SkillType = Literal["local_callable", "tool", "mcp", "peering", "procedure"]
 
 SKILL_TYPES: frozenset[str] = frozenset(get_args(SkillType))
@@ -537,6 +544,35 @@ class SkillCatalogEntry(CCFContract):
     no sentinel (D-IMPL-56; D-16): the tool surface every harness renders is
     a declared artifact property, produced by the one shared derivation in
     :mod:`ccf.skills.toolsurface` — never adapter-authored prose.
+
+    ``produces`` (D-IMPL-336) declares the Context Product **class** this skill
+    emits, by ``schema_name``. It is the mirror of
+    :attr:`SkillRequirements.required_context_products`, which declares what a
+    skill *reads*: placing both on one artifact makes a skill's context
+    footprint readable in one place — what it consumes, what it emits, what
+    policy it needs.
+
+    Four properties of ``produces``, each a decision:
+
+    * **One class per skill.** A skill needing to emit two classes is two
+      skills, which is what keeps requirement resolution a lookup rather than
+      a search.
+    * **A class name, never a version, a payload shape, or an instance.** The
+      child's ``schema_version`` is *observed* at composition and checked
+      against the requirement's declared range
+      (:class:`~ccf.products.contract.ChildRequirement`); it is not predicted
+      here, and version compatibility stays the product's own semver lane
+      (INV-CH7-49).
+    * **:data:`NO_PRODUCT_CLASS` is a positive statement** — *this skill emits
+      no governed product* — and not silence (D-IMPL-38). A skill at the
+      sentinel **cannot satisfy a composite requirement**.
+    * **Hash-transparent at the sentinel** (D-IMPL-243), so every catalog entry
+      registered before this field existed keeps its artifact identity and
+      every grant against one stays valid.
+
+    ``produces`` lives on the entry rather than on the grant because a grant
+    binds an entry *by reference and by version* and copies nothing: two grants
+    of one entry must not be able to disagree about what that skill emits.
     """
 
     schema_version: str
@@ -554,6 +590,9 @@ class SkillCatalogEntry(CCFContract):
         | ProcedureBinding
     )
     requirements: SkillRequirements
+    produces: str = Field(
+        default=NO_PRODUCT_CLASS, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
     @field_validator("schema_version", "artifact_version")
     @classmethod

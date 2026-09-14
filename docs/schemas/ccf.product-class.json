@@ -1,5 +1,42 @@
 {
   "$defs": {
+    "ChildRequirement": {
+      "additionalProperties": false,
+      "description": "One child Context Product class a composite requires (D-IMPL-336).\n\nSDK-defined (CLAUDE.md \u00a711). Names a **class**, never a skill: which\ngranted skill satisfies it is resolved at assembly from the agent's\nin-force grants, and a requirement naming an implementation would make the\ncomposite depend on the thing this pattern exists to decouple from.\n\nAttributes:\n    product_class: The child's ``schema_name``. Matched against a skill\n        catalog entry's ``produces``.\n    required: Whether the composite can be served without this child.\n        **No default** \u2014 an author who does not say has not said ``True``,\n        and silence is not a declaration (D-IMPL-38).\n    compatible_from: The lowest child ``schema_version`` this composite\n        composes over. The compatibility rule is **caret-shaped and stated\n        rather than parsed**: an admitted child must share this version's\n        **major** lane and be **at or above** it. No range grammar is\n        introduced \u2014 the SDK has none, and inventing one to express a\n        single rule would be a new surface for no gain.\n    absence_treatment: Required when ``required`` is ``False``, and\n        refused when it is ``True`` \u2014 a required child has no\n        declared-absent case, so carrying a treatment for one would be a\n        declaration that can never fire.",
+      "properties": {
+        "absence_treatment": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OptionalAbsenceTreatment"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "ccf_hash_transparent": true,
+          "default": null
+        },
+        "compatible_from": {
+          "title": "Compatible From",
+          "type": "string"
+        },
+        "product_class": {
+          "title": "Product Class",
+          "type": "string"
+        },
+        "required": {
+          "title": "Required",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "product_class",
+        "required",
+        "compatible_from"
+      ],
+      "title": "ChildRequirement",
+      "type": "object"
+    },
     "ConstituentValidityFloors": {
       "additionalProperties": false,
       "description": "D-IMPL-31's declarable floors, whose breach refuses assembly.\n\nRuled 2026-07-25 as part of the two-granularity TTL reading: *\"Product\nclasses may declare constituent-validity floors whose breach refuses\nassembly rather than emitting a product fresher-labeled than its stalest\nload-bearing constituent (the mixing-refusal rule, formally footed).\"*\nThe declaration is here; **the refusal that reads it is plan ``15.5-12``**,\nand nothing in the registration path consumes a floor, because a\nmixing-refusal enforced at wiring time would be a rule applied at the\nwrong moment \u2014 the mix does not exist until assembly.\n\nDistinct from :class:`FreshnessSLA` and not a restatement of it: the SLA\nis the currency the class *expects* of a signal, the floor is the\nremaining validity a constituent must still have for the product to be\nassemblable at all. One is an expectation, the other a refusal condition.\n\nAttributes:\n    min_validity_seconds_by_signal: Per signal type, the least remaining\n        validity a load-bearing constituent of that type must have.\n        Deployment-declared identifiers, never interpreted here.",
@@ -54,6 +91,38 @@
         "max_age_seconds_by_signal"
       ],
       "title": "FreshnessSLA",
+      "type": "object"
+    },
+    "OptionalAbsenceTreatment": {
+      "additionalProperties": false,
+      "description": "How a composite treats a DECLARED-ABSENT optional child (D-IMPL-336).\n\nSDK-defined (CLAUDE.md \u00a711). Declared per requirement in versioned\nproduct-class configuration, **with no SDK numeric default**: what a\nmissing optional input costs is a domain judgement, and a default here\nwould be the SDK holding a value (CLAUDE.md \u00a711 *\"mechanism, not\nvalues\"*; D-IMPL-38).\n\n**Absence is not refusal, invalidation, or unauthorized access**, and this\ncontract governs only the first. The other three are governed outcomes with\ntheir own evidence and their own replay rows; letting a policy failure be\ntreated as a data gap would make a governance event read as a shortfall.\n\nAttributes:\n    completeness_when_absent: The ``C`` factor this requirement contributes\n        when the child is declared absent \u2014 a strength factor in ``[0, 1]``\n        where lower is worse, entering the composite's per-factor minimum\n        exactly as an admitted child's would. **No default.** The composite\n        may still refuse on tolerance; this value decides how much the\n        absence costs, never whether the product serves.\n    omissible_outcomes: Which optional outcomes policy permits omitting\n        from the **served payload** \u2014 never from replay, where every\n        requirement keeps a row. Declared by the deployment and\n        interpreted nowhere in the SDK.",
+      "properties": {
+        "completeness_when_absent": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Completeness When Absent"
+        },
+        "omissible_outcomes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Omissible Outcomes",
+          "type": "array",
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "completeness_when_absent",
+        "omissible_outcomes"
+      ],
+      "title": "OptionalAbsenceTreatment",
       "type": "object"
     },
     "ProductAddress": {
@@ -248,6 +317,15 @@
       },
       "minItems": 1,
       "title": "Required Operator Keys",
+      "type": "array"
+    },
+    "requires": {
+      "ccf_hash_transparent": true,
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/ChildRequirement"
+      },
+      "title": "Requires",
       "type": "array"
     },
     "schema_name": {

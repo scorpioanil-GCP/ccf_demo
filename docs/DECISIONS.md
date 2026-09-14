@@ -3221,3 +3221,427 @@ A2  derived after the boundary                 SERVES
 **ROSTER ADMISSION, MEASURED BEFORE IT WAS WRITTEN.** cp-13 joins `D-IMPL-141`'s SDK-supplied roster and the tree-describing literal as **two separate statements** — the roster records what was RULED, the literal what the detector ANSWERS. The measurement: `roster is missing: ['examples/cp-13-covenant-cross-reference']`, `has extra: []`. It was committed during Gate 2 and is **not** itself the gate ruling.
 
 **Next free decision id: `D-IMPL-336`** — unchanged; a gate entry spends none. **Governs:** the approval of rung 13 and what it ships with. **Related:** `D-IMPL-261` (examples are probes — and here the probe was overtaken by a repair to the thing it was probing), `D-IMPL-331` (the decay basis that refused rather than falling back, at `CP13-F-15`), `D-IMPL-316` (L2 mints its own URI), `D-IMPL-141` (the roster cp-13 was admitted to on its own evidence), `D-IMPL-323` (illustrative calibration — deliberately NOT invoked here), `D-GATE-cp-09` (the three-state sabotage vocabulary), `D-GATE-cp-12` (the trap-gate divergence rule this rung inherits), `CP-SPEC-013`, `D-GATE-cp-12`.
+
+**D-IMPL-336 — AMENDMENT 2 (2026-09-13, Dave, IMPLEMENTATION GO). The final decisions, recorded before code, per Dave's instruction *"Record the final decisions, then code."***
+
+**Status: implementation GO on a feature branch. CP-14 acquisition remains HOLD until 336 is reviewed and merged to main. Do not merge; 336 returns for implementation review.**
+
+**Carried forward unchanged from Amendment 1**, each now final rather than recommended:
+
+| Decision | Final |
+| --- | --- |
+| Producer ambiguity | **Refusal.** No arbitrary producer selection, no tie-breaker. Interchangeability proven by substitution, which is a **positive control** |
+| Child resolutions in replay | **Dimension 5**, ordered rows; `grant_set_hash` stays dimension 4 |
+| Version compatibility | A requirement declares the child lanes it accepts; outside the range refuses at admission |
+| Optional absence | **Explicitly declared** in versioned product-class configuration. **No SDK numeric default** |
+| CP-14 slots | **All five required.** No Relationship, Peer or Filing rung |
+| Scheduler | **None.** No swarm scheduler, no parallel framework, no DAG runtime, no event bus, no background worker, no new invalidation system |
+
+**Debt, stated as the arithmetic and not as a description.** Minimum over **strength** factors across the parent's own assessment and its admitted children, then the Standard's product:
+
+```
+F_parent = min(own F, admitted children's F)
+C_parent = min(own C, admitted children's C)
+S_parent = min(own S, admitted children's S)
+D_c      = 1 − F_parent × C_parent × S_parent
+```
+
+**Never `max(child D_c)`** — different children can be weak on different factors, and collapsing each to a scalar first loses both impairments. This expresses `D-IMPL-104`'s maximum-deficiency rule without reversing the strength-factor scale, and it adds **0 new weights**.
+
+**PEERED ELIGIBILITY IS RESOLVED THROUGH THE EXISTING SIGNED ASSERTIONS — Amendment 1 §11.4 is CLOSED.** `IdentityProvider.sign(assertions=...)` already places caller-supplied members in the JWS **protected** header, which is part of the signing input, and `PeeringAdmissionGate` already holds a peer to header assertions (`PRODUCER_ASSERTION_HEADER`). The eligibility assertion is one more member on that established seam, and **no wire contract is invented**.
+
+- **Typed and versioned.** A declared contract with its own schema version, canonicalized into the header — not a bare string.
+- **Bound**, so it cannot be lifted from one context to another: to the **child content address**, the **requested `as_of`**, the **producer**, the **consumer scope**, the **actual eligibility-check time**, and the **current composition invocation**.
+- **Minted only after the producer's real checks have run.** An assertion is evidence that checks happened, never a substitute for them.
+- **Verified before admission.** Missing, tampered, mismatched or **replayed** evidence refuses. Absent is not eligible.
+- **Three clocks stay separate:** reconstruction time (`as_of`), eligibility-check time, and source observation times. None substitutes for another.
+- **Invocation-specific freshness evidence stays OUT of the child's semantic content identity.** The assertion travels in the envelope; the child's content address is over the product's own canonical bytes and does not move because a different composition asked for it.
+
+**Eligibility AUTHORITY is determined by the producing fabric, not by the skill's label.** A `local_callable`, `tool`, `mcp` or `peering` label says how the bytes were fetched; it does not say whose Control Plane knows the entities' invalidation state. Where the producing fabric is this one, the local `EntityInvalidationRegister` is authoritative. Where it is another, the producer's signed assertion is, **and local-register silence can never establish remote eligibility** — silence is *don't know*, and this project's measurement rules forbid collapsing that into *pass*.
+
+**Runtime and audit distinctions, ruled:**
+
+- **Honor each child's actual governed outcome. Never turn a refusal into an empty served product.**
+- **A missing product gets no invented fields** — absent, not zero, not epoch, not a placeholder address.
+- **A product produced but REJECTED AT ADMISSION is a different case**, and Amendment 1 under-specified it: its **known identity and rejection evidence are retained in protected replay**, subject to disclosure policy. Rejection is a governed event with an artifact behind it; discarding what was rejected would make an admission failure indistinguishable from a product that never existed.
+
+**The proof package, final.** Three real children and one optional-missing case **through actual L2 and delivery paths**. The positive producer-substitution control and the targeted sabotages are retained, and three further proofs are required: **wrong-obligor / wrong-request rejection**; **signed-attestation tampering and replay rejection**; and **nested composition** — a real source supersession prevents re-serving the dependent composite chain while an equally old *unrelated* product stays eligible, **re-derivation restores eligibility where permitted**, `D-IMPL-334/335` is reused rather than duplicated, and constituent expiry limits are preserved.
+
+**CP-14 stays separate.** No acquisition, no substitute composition code, no new prerequisite rungs. Mode 1 with memo-writing outside the product remains its direction; **its own F/C/S measurement definitions belong in its revised Gate-1 contract**, and the historical debt table remains a labelled comparison.
+
+**Governs:** the implementation on branch `d-impl-336-composite`. **Related:** `D-IMPL-104` (worst-factor-wins, the deferred limb this discharges), `D-IMPL-31` (TTL floor, mixing refusal), `D-IMPL-334`/`D-IMPL-335` (eligibility, reused), `D-IMPL-12`/`D-IMPL-29` (skill catalog and grant governance), `D-IMPL-16` (Control Plane verification at the A2A boundary), `D-IMPL-243` (hash-transparency at a sentinel — how every field lands without moving an existing artifact's identity).
+
+**D-IMPL-336 — AMENDMENT 3 (2026-09-13, Dave, REMEDIATION GO after the cross-AI panel). The panel's F0–F18 and V1–V3 become the repair register, and six open questions are ruled.**
+
+**Status: remediation GO on `d-impl-336-composite`. NO merge. CP-14 acquisition remains HOLD. Written before the code, per `D-IMPL-222`.**
+
+**The framing, and it is the ruling that shapes every other one.** Dave: *"Fix the disconnected execution path and its trust boundary together — not as unrelated symptoms."* The panel found two root causes — a declaration surface disconnected from an execution surface, and a trust boundary drawn at the gate's **output** instead of its **inputs** — and they are repaired as one thing. **Preserve the original findings and reproductions**; a repair that erased the evidence would leave the register unauditable.
+
+### The governed path, end to end (F0, F14, F18)
+
+The wiring to exist, in Dave's own sequence:
+
+    authored `requires` → registration → actual grant resolution → skill
+    invocation → child delivery/refusal → verified admission → composition →
+    parent delivery → persisted replay
+
+- `ProductClassDeclaration` and `register_product_class()` **accept and preserve `requires`**. Execution **reads the registered declaration**, never a replacement list the caller supplies.
+- The actual parent path enforces **debt composition, lineage composition, expiry limits and mixing refusal** — all four ruled laws, not the one that was called.
+- `child_resolutions` is **generated from execution**. A composite with declared requirements **cannot be delivered or recorded with missing resolution rows**.
+- **Empty-default hash transparency is preserved for existing non-composite records.** Missing composite evidence is solved **through validation, not by changing legacy identities.**
+
+### Authority comes from verified inputs (F3–F6, F16)
+
+**A candidate must originate from actual skill invocation and governed delivery. Caller-written provenance is insufficient.**
+
+| Axis | Ruling |
+| --- | --- |
+| Grant and skill | Identity derives from the **actual in-force grant resolution and invocation**. Arbitrary `skill_name` / `skill_version` / `grant_hash` strings are not evidence. |
+| Remote child | Use the **existing** signature, peer-trust and policy verification path, and pass its **verified result** into composite admission. **A hand-built protected-header dictionary must not qualify.** |
+| Local child | Provenance derives from the **trusted boot/delivery context**. A caller selecting `ProducedHere` **must not establish local authority**. Unknown or unsupported identity claims are rejected. |
+| Tenant | **Child tenant must equal the admitting gate's tenant**, following the existing peering convention. |
+| Dependencies | `touched_entities` comes from **verified execution evidence**. At composite admission, **`None` means unavailable evidence and refuses**; **`()` is acceptable only as a verified empty dependency set.** |
+
+**Two explicit prohibitions:** **do NOT add a fabric registry**, and **do NOT equate fabric identity with tenant identity.** **Do not change the shared invalidation gate's legacy `None` behavior** — that posture is deliberate for pre-`D-IMPL-334` callers and the repair belongs in the composite gate.
+
+The eligibility assertion must be **issued after the producer's real checks**, not minted from a caller-supplied `eligible=True`.
+
+### Every child is reconciled with THIS composition (F2, F12, F13, F15, F17)
+
+Each admission **binds** to: its requirement, the accepted version, the effective child request, the tenant/consumer context, the reconstruction `asked_at`, and the composition invocation. **That binding is re-checked at composition.** Individually valid admissions **from different requests or instants must not combine.**
+
+Rejected: wrong-slot children, duplicate requirements, undeclared outcome keys, and unsupported outcome objects. **An unexpected object is not `NoProducingSkill`.**
+
+**The wrong-obligor test must carry its own CORRECT hash** and otherwise valid evidence. *"A deliberately mismatched hash does not prove request isolation."*
+
+### F1 RULED — optional means optional ABSENCE, not optional governance
+
+For v1:
+
+- **Optional + honest `NoProducingSkill` → apply the declared absence treatment.**
+- **Child invoked and refused, or produced and rejected at admission/eligibility → the composite REFUSES, even for an optional slot.**
+
+**There is no "or inherit refusal factors" alternative in this version.** Do not reuse `completeness_when_absent`, do not invent a rejection penalty, and **do not wrap a refused child as an empty served product.** Preserve the actual outcome and the original refusal evidence.
+
+*This resolves the deadlock the panel identified: `OptionalAbsenceTreatment` forbids covering refusal, and `D-IMPL-38` forbids the SDK inventing a cost — so the answer is that a refusal is not an absence at all and does not get a price.*
+
+### F7 RULED — evidence age is Control-Plane-declared, and is NOT the invocation binding
+
+**Dave retains the earlier Control-Plane-declared bound rather than the audit-only proposal.** The panel named a declared bound as an available resolution; **the prohibited choice is an SDK-held threshold.**
+
+- Validate `checked_at` against **actual admission time**, using a **declared maximum evidence age and permitted clock skew**.
+- **No hardcoded duration, no numeric default, no automatic calibration. Missing required configuration fails explicitly.**
+- **Never compare `checked_at` with historical `asked_at`** — a producer may check eligibility today for a historical reconstruction request. (This is what would have broken every peered fixture.)
+- **Record `checked_at` and the verified assertion reference in replay.**
+- Correct the documentation: **the five equality bindings and the separate evidence-age validation are different checks.**
+
+### F8 RULED — the guarantee is invocation-bound, not single-use
+
+**Remove the "single-use" claims.** Exact retries within one invocation **may be idempotent**; they **cannot extend validity or bypass final serve checks.** A new composition receives a **fresh invocation binding through the supported entry point**.
+
+**Do not add a spent-token registry. Do not claim continuous knowledge of remote invalidation.**
+
+### F9–F11
+
+- **F9.** Retain the **reported** address and the **locally recomputed** address **separately**, each accurately labeled. **Never record a disproven reported address as verified identity.**
+- **F10.** Support every version form accepted at registration, **or reject unsupported forms there**. A valid declaration must not crash during admission. **Specify the compatibility rule precisely rather than relying on the word "caret."**
+- **F11.** Use **closed, typed refusal reasons** and a **supported translation** from real child-door outcomes. Preserve the **original refusal reference**, not only a reason string. **Ambiguous producer remains a distinct refused outcome — not an exception that becomes "no producer."**
+
+### The proof is replaced, not supplemented (V1–V3)
+
+Keep useful unit tests, and complete the agreed integration proof with **cp-04-canonical, cp-05, cp-13 and one optional-missing case**, through **actual grants, dispatch, L2, delivery and persisted replay**.
+
+Demonstrate a real **leaf → composite → higher composite** chain. **Supersede the leaf source through the boot-bound writer**, without manually copying its dependencies onto the parents. Confirm dependent re-serving refuses, an **equally old unrelated product remains eligible**, and permitted **re-derivation restores eligibility**.
+
+Test the **delivered parent's** identity, replay reconstruction, expiry and lineage — **not manually constructed replay fragments or isolated helper calls.**
+
+Repair V1's wrong outcome, V2's insufficient coverage assertion and V3's disconnected expiry test. **Keep producer substitution as a positive control, using actual grants and delivery.** **Distinguish invalid-input tests from mechanism sabotages.** For each finding show the **original reproduction, the corrected result, and the targeted mutation** where applicable.
+
+### Verification and the final review
+
+- Recheck that requirements are **authorable and registered**, that production execution **writes `child_resolutions`**, and that composition **calls the existing laws**. **"Call-site searches establish wiring; end-to-end tests establish behavior. Both are required."**
+- Run **sequential** regressions against a **clean, immutable candidate**. Quote exact commands, environment, **collected/executed** outcomes, and failure-set comparisons against the **pinned base**. **Do not absorb unrelated baseline failures** and **do not reopen the four rejected claims without new evidence.**
+- Give independent reviewers the **same repaired commit** — source, tests, declarations and finding dispositions — **inlined and fed through stdin** under this host's rules, and **verify each review actually examined its input; exit code zero alone is insufficient.**
+- **Signature verification and integration may NOT be excluded as "known limitations."**
+
+**Return:** candidate hash, F0–F18 / V1–V3 dispositions, exact test and sabotage results, baseline comparison, independent review verdicts, and remaining limitations. **Then stop for Dave's merge ruling.**
+
+**Governs:** the remediation on `d-impl-336-composite`. **Related:** the panel record at `docs/D-IMPL-336-PANEL-REVIEW.md` (`f3719856`, `a77af002`); `D-IMPL-104`, `D-IMPL-31` (the four composition laws); `D-IMPL-334`/`D-IMPL-335` (whose legacy `None` posture is explicitly preserved); `D-IMPL-16` (Control Plane verification at the A2A boundary); `D-IMPL-38` (no SDK-held values — the reason F1 and F7 are rulings rather than patches); `D-IMPL-243` (hash transparency, preserved for legacy records); `D-IMPL-324` (declaration is not a door — the defect class F0 instantiates).
+
+**D-IMPL-336 — AMENDMENT 4 (2026-09-13, Dave, after the second review panel). Two checkpoints; O1/O2/O3 and ONE real dispatch path first, then refused-composite replay and nested composition before merge review.**
+
+**Status: remediation GO on `d-impl-336-composite` from `10553977`. NO merge. CP-14 acquisition remains HOLD. STOP FOR REVIEW at the first checkpoint — green does not authorize merge.**
+
+**Dave's framing:** *"Candidate `10553977` is a substantial repair, but D-IMPL-336 remains HOLD for merge."* He accepts a **narrower test population** than the full estate, but **refuses to defer** refused-composite replay or basic nested dependency propagation past merge: *"Both belong to the composition contract already approved, and neither requires the full estate or CP-14."*
+
+**Retain the pinned baseline. Do not reopen the architecture or rework repairs already supported by evidence.**
+
+### Checkpoint 1 — O1, O2, O3, and one genuinely integrated path
+
+**O1 — local authority originates at BOOT.** The attestor is created through the **real `BootedFabric` lifecycle** and derives its authority-bearing identity and tenant from that trusted context. **Remove the supported path where a caller chooses an `attestor_id` and thereby obtains authority**, and do not replace that string with another caller-constructible wrapper carrying the same claim. Local provenance must bind the **actual governed delivery and execution evidence**, including the verified dependency set — never attest to an arbitrary contract because a caller supplied one. Prove: normal boot/assembly/delivery yields admissible provenance; a chosen identity cannot construct a usable attestor; a child from another producing context cannot be relabelled local; the verified remote path stays distinct and cannot be replaced by a local label. **No new fabric registry; fabric identity is NOT tenant identity.** The supported-interface threat model is preserved — this is **not** authorization to defend against arbitrary reflection or module patching.
+
+**O2 — invocation identity comes from an EFFECTIVE GRANT.** A real `CompositeChildResolverProtocol` implementation using the existing grant and dispatch machinery, establishing:
+
+    registered child requirement → effective grant for the consuming agent →
+    pinned skill catalog entry → authorized child request → actual dispatch →
+    child delivery or refusal → invocation evidence → admission
+
+**`invocation_from_dispatch(any_entry, grant_hash=...)` must no longer mint authority**: *"A catalog entry establishes that a skill exists — not that this agent is authorized to invoke it."* Derive skill identity, version, grant identity, request and composition binding from the **actual resolution and dispatch result**. Prove an ungranted entry cannot initiate, a **revoked** grant cannot initiate a new invocation, and forged grant metadata cannot substitute. Preserve the distinct ambiguous-producer outcome. **Producer substitution stays a POSITIVE control, through real grants**: grant A, execute, revoke A, grant B, execute — the requirement unchanged, the record naming the implementation actually used. **The harness still owns scheduling.**
+
+**O3 — admission time is NOT reconstruction time.** `admitted_at` comes from the **trusted runtime clock boundary at the moment admission occurs** — never from `decided_at`, a historical `asked_at`, or any request-supplied timestamp. **Injectable for deterministic tests**, without scattering wall-clock reads through algorithmic modules. Compare `checked_at` against actual admission time under the already-ruled `EligibilityEvidencePolicy`, with no SDK numeric defaults. Test fresh, expired, excessively future-dated, fresh-evidence-for-a-historical-`asked_at`, and **the policy's exact boundaries**. Preserve reconstruction time, producer check time, admission time and the verified assertion reference in replay. **Remove any suggestion that the wrong clock is acceptable "conservative" behavior.**
+
+**INT-01a — one genuinely integrated path.** A **fixture product is acceptable**; the full estate is not required. But it must traverse the real machinery: boot → author and register `requires` → grant the producing skill → resolve and dispatch → assemble and deliver the child **through the real SDK path** → provenance and invocation evidence → admit → compose → deliver the parent → **reload its persisted replay record**. **Do not inject an outcomes map, replace grant resolution with a dictionary, or use a `deliver()` helper that bypasses the delivery boundary.** It must show **O1 and O2 closed WHERE THEY MEET**, not that each token can be constructed. Add a refusal run and the optional-missing control; verify the actual parent uses the composed debt, lineage, expiry and mixing result; confirm replay carries the real requirement → grant/skill → child mapping.
+
+### Before final merge review
+
+**CMP-R-01 remains a MERGE BLOCKER, and the narrow recorder-protocol extension is AUTHORIZED.** Dave: backing out the accepted-but-ignored parameter *"was correct. It prevented another false claim of enforcement. It did not remove the need to record refused composites."* **Record the public surface change before implementing it**, then update `RefusalRecorderProtocol` and every implementation and adapter, in a **separate commit**. If a separate decision id is needed, **verify the next free id before allocating**. Requirements: carry typed child-resolution evidence from execution into the refused parent's dimension-5 record; preserve legacy/non-composite behavior and hash identity; enforce complete composition evidence where composition occurred; never silently retry after dropping the new information; distinguish a child never invoked from one refused or rejected; retain known identities, real grant mappings and resolvable refusal evidence **without fabricating unknown fields**. Test an early child-caused refusal **and** a later parent refusal after children were admitted, and **reload the persisted records** — *"in-memory rows alone do not close CMP-R-01."*
+
+**INT-01b — nested composition without an estate tour.** A small, deterministic, in-memory **leaf → composite → higher composite**, where the middle product actually results from composing the leaf and the outer actually consumes the middle. Introduce supersession **through the boot-bound L2 writer** — not by inserting into the register directly, and not by copying the leaf's dependencies onto parents. Confirm dependent re-serving refuses at **both** levels, an equally old unrelated product stays eligible, and permitted re-derivation restores eligibility. Verify the actual parent's inherited expiry and persisted replay; **a changed contributing child must affect the governed parent identity as declared, and hashing a manually constructed replay fragment is not a substitute.**
+
+### The register is split, and partial dispositions are corrected
+
+**INT-01 splits into three rows so its proofs cannot be conflated:** **INT-01a** at the next checkpoint · **INT-01b** before final merge approval · the **existing-product estate proof** (cp-04-canonical, cp-05, cp-13, then all five CP-14 prerequisites) at **CP-14's integration stage, after its separate authorization**. *"Do not mark all of INT-01 closed when only the first row is complete. Likewise, do not describe a deferred estate demonstration as an SDK capability already proven."*
+
+**Qualified until the remaining proof lands:** **F4** partial through O2 · **F6** partial through O1 · **F7** policy validation implemented, production clock wiring remains O3 · **replay completeness** reported separately for served and refused paths. **Do not claim "integration complete" while the report still says grant → dispatch → admission is unexercised.**
+
+**Keep** the repaired registration path, the optional-refusal rule, requirement rebinding, verified peer provenance, the closed outcome vocabulary, the four composition laws and the V1–V3 corrections. **Leave unrelated baseline defects alone.**
+
+### Final verification
+
+A clean sequential package with exact commands and environment. **Restore the full prescribed typecheck — the narrower `mypy src/ccf` must not stand in for it.** Explain changed coverage through **test-node and criterion mapping**, not by preserving a test count. Compare failures with the pinned baseline **by identity and cause**. Give reviewers the **same immutable candidate** — implementation, declarations, tests, protocol changes and the updated register — inlined, on stdin, with substantive output verified under this host's standing rules. **Reviewers must examine the dispatch, provenance, refusal-recording and nested paths — not exclude them as known limitations.**
+
+**CARRIED INTO THIS AMENDMENT, UNRULED: the second panel's `R1`–`R6`** (`docs/D-IMPL-336-REMEDIATION-DISPOSITION.md` §1a, recorded at `858d3823`). Dave's instruction was written against the disposition **before** that note existed and does not rule on them. **`R4` blocks INT-01a directly**: `run_gates` holds `candidate.lineage.operators_invoked` to strict equality against the parent's engine-resolved set, so a real dispatched child of another class makes the composite unservable. It is surfaced with its measurement at the checkpoint rather than resolved unilaterally.
+
+**Governs:** the remediation from `10553977`. **Related:** Amendment 3 (the rulings this continues), `docs/D-IMPL-336-PANEL-REVIEW.md`, `docs/D-IMPL-336-REMEDIATION-DISPOSITION.md`.
+
+---
+
+**D-IMPL-336 — CHECKPOINT 1 RECORD (2026-09-13, executed, NOT ruled). O1, O2 and O3 are closed and INT-01a is built; `R4` is resolved under a reading that is PROPOSED and awaits Dave.** This entry records what was executed against Amendment 4's checkpoint 1 and what is put to Dave at the stop it mandates. **It spends no decision id and rules nothing.**
+
+**WHAT AMENDMENT 4 ASKED FOR AT CHECKPOINT 1, AND WHAT WAS DELIVERED.**
+
+**`O1` — the attestor.** Amendment 4: *the local attestor created through the real `BootedFabric` lifecycle; remove the caller-chosen `attestor_id` path; bind actual governed delivery and execution evidence.* Delivered at `bd66f1f0`. `LocalFabricAttestor.__init__` is token-guarded and `ccf.boot.boot` holds the token; the instance reaches a deployment as `ccf.boot.FabricHandle.local_attestor`. **The id is DERIVED, never chosen** — the adapter's registered name plus a 16-hex digest of the `graph_identity` that `ccf.graph._writer.mint_boot_token` already uses to enforce single-writer, so the fabric is named the way it was already named to itself: **no new identity axis and no equating fabric identity with tenant identity**, both of which Amendment 3 prohibits by name. Digested because `graph_identity` may embed a DSN and an attestor id travels into replay records. `LocalFabricAttestor.attest` **no longer accepts `touched_entities`**: it takes `(product, replay_ref, store)`, resolves the decision record, **refuses** (`ProvenanceForgeryError`) unless that record's own `content_generation_path.product_content_address` is `content_hash(product)`, and reads the entities out of replay dimension 1. The eligibility gate checks those entities against the invalidation register, so a caller who could choose them could choose to be eligible. Proven by `tests/products/test_composite.py::test_o1_a_local_attestor_cannot_be_constructed_by_a_caller`, `::test_o1_the_attestor_id_is_DERIVED_from_the_boot_not_chosen`, `::test_o1_attestation_refuses_a_record_that_names_a_DIFFERENT_product`, `::test_o1_touched_entities_come_from_the_RECORD_not_from_a_caller`. **A test had pinned `"fabric://test-boot"`** — a string the test file chose, which is exactly what O1 found could be chosen; it reads the boot's derived id now.
+
+**`O2` — the grant.** Amendment 4: *`invocation_from_dispatch(any_entry, grant_hash=...)` must no longer mint authority; prove ungranted/revoked/forged cannot initiate; producer substitution as a positive control through real grants.* Delivered at `ed7e4a2d`. The grant hash already existed inside `GrantLedger._effective_entries` as `holders`, used for collision detection and then discarded; it is returned now through the new `_effective_grants` and exposed as `BoundSkillView.grant_hash_for(name)`, resolved from ledger state **at access time**. `ResolvedProducer` is token-minted by `resolve_producing_grant` alone and pairs the entry with that hash — a plain frozen dataclass would have reproduced O2 exactly. `resolve_producing_grant(requirement, bound_skills)` now requires the live `BoundSkillView` rather than `Mapping[str, SkillCatalogEntry]`: **the loose type was a door**, since a dict of entries carries no evidence any of them was granted. `invocation_from_dispatch(producer)` — **the `grant_hash` keyword is removed, not deprecated**, on the same reasoning that backed out the accepted-and-ignored `RefusalRecorderProtocol` parameter. Proven by `tests/products/test_composite.py::test_o2_a_revoked_grant_cannot_initiate_a_child`, `::test_o2_an_ungranted_entry_produces_nothing_however_real_it_is`, `::test_o2_a_resolved_producer_cannot_be_authored`, and `::test_positive_control_producer_substitution_leaves_the_contract_alone` — **rewritten as grant → REVOKE → grant**, because holding both producers effective at once is `AmbiguousProducerError` and is not substitution. **THREE GUARDS FIRED THE MOMENT THE REAL MACHINERY WAS WIRED IN**, and each is worth recording because the dict of entries could not have produced any of them: `SplitAuditPlaneError` (INV-CH7-71 — the ledger's audit log must be its registry's), `AmbiguousProducerError` (above), and `GrantTransitionError` (`D-09` — a grant artifact is single-use).
+
+**`O3` — the clock.** Amendment 4: *`admitted_at` from the trusted runtime clock at admission; injectable for tests; test policy boundaries exactly.* Delivered at `be6c76a3`. `GovernedResolver.admission_clock` is a **required** constructor argument (this class permits no defaults); `build_governed_resolver` supplies `_utc_now`, the one-line shape `ccf.controlplane.registry` already uses. Read **once per composition**, so two constituents of one answer are judged in one evidence window. **The prior disposition called the old behavior "conservative" and that wording is withdrawn from the source**: a check whose safety depends on which way a caller's declared instant happens to fall is not a check. Proven by `tests/products/test_resolver_seam.py::test_o3_admission_is_judged_at_the_RUNTIME_clock_not_a_declared_instant`, `::test_o3_the_admission_clock_is_read_ONCE_for_a_whole_composition` (which **counts reads**, because a clock returning a constant cannot testify to how often it was called), and `::test_o3_a_non_composite_never_reads_the_admission_clock`.
+
+**`INT-01a` — the one real path.** Amendment 4: *one path through the real machinery; fixture product acceptable; no injected outcomes map, no dictionary standing in for grant resolution, no `deliver()` helper bypassing the delivery boundary.* Delivered at `baa659a1` as `tests/products/test_composite_integration.py`. A real `GrantLedger` makes a grant effective; `resolve_producing_grant` finds the producer through the agent's live `BoundSkillView`; `dispatch_skill` dispatches it; the callable answers through a **child `GovernedResolver`** and emits `ccf.products.door.door_answer` — **the real wire boundary**, so the child crosses it exactly as an MCP or A2A child would and `content_address` is the door's own hash of the vessel; the boot's `local_attestor` attests over the record that delivery wrote; `CompositeAdmissionGate.admit` decides; `compose_children` composes; the parent serves; and **every assertion is read back off the store**, because the claim is that a composite is auditable afterwards and an in-memory object cannot carry that. Two negative controls: with **no grant** the catalog entry still exists, the callable is still registered and the door still works — so a resolver dispatching on catalog presence would serve, and it refuses; with the grant **revoked after wiring**, the same resolver object refuses, which proves the bound view is read at resolution time rather than captured at construction. **The first run measured `product-request-violation` from the child's own door** — a request contract is per class and the child was being validated against the parent's `schema_name` — which is the door proving it is a real door.
+
+**PUT TO DAVE, AND UNRULED: the reading of INV-CH7-47 for a composite (`R4`).** Gate 2 compares a candidate's `operators_invoked` against what this fabric's engine resolved, strictly, in both directions (`src/ccf/products/gates.py`, the `declared != engine_resolved` branch). A composite's lineage is `D-IMPL-31`'s N-way union, which includes every admitted child's operators — and the parent's engine never ran those. **Measured twice, independently**: by the orchestrator at `1f247546` and by a separate reviewer that wrote its own test against the same fixture. Before the repair, a composite served **only** while every child invoked a subset of the parent's own operators, which a real child of another class never does, because it exists to answer a different question. **Both obvious alternatives break a standing ruling**: a subset check abandons INV-CH7-47's strictness; declaring only the parent's own operators abandons `D-IMPL-31`'s union. **The implemented reading, PROPOSED at `7d18004d`:** the engine-resolved set *of a composition* is the parent's execution unioned with each admitted child's verified `lineage.operators_invoked`, carried as the new `CompositionOutcome.admitted_operators`. **`run_gates` is not changed** — only the operand, and only when `composed is not None`, so every non-composite is byte-identical. Each child's set is engine-resolved evidence rather than a claim: it passed that child's own Gate 2 at its own delivery, and admission recomputed the child's content address. **The hole this opens and the guard that closes it:** if the parent's engine runs operator X while its class declares only Y, and a child happens to invoke X, then X is on both sides of the widened comparison and the parent's drift is masked — so the parent's declared set is still held to its own execution by strict equality **before** the union, as the same refusal type with the same gate identifier. Proven by `tests/products/test_resolver_seam.py::test_r4_a_composite_serves_with_a_child_that_ran_ITS_OWN_operators` (which **asserted the defect first and went red on the line that fixed it**), `::test_r4_the_positive_control_a_child_WITHIN_the_parents_operators_serves`, and `::test_r4_the_union_CANNOT_mask_the_parents_own_declaration_drifting` — which **found the hole before the guard existed**, and which patches the ENGINE rather than `run_gates`, because the guard reads `execution.operators_invoked` and runs before the gate. **Reversing this reading is roughly twenty-five lines.**
+
+**ALSO PUT TO DAVE, AND UNRULED: where a `CompositeChildResolverProtocol` implementation belongs.** CLAUDE.md §7.3 and §8.1 say orchestration is the harness's and that the SDK *"does not ship one"*, and `ccf.products.composite`'s own docstring says the SDK ships the Protocol and never an implementation. CLAUDE.md §11 says *"Reference implementations ship alongside Protocols. For every pluggable substrate, the SDK ships a working reference impl."* `_GrantBoundChildResolver` is written **test-side** so INT-01a proves the path without that decision being taken by implication. Moving it into `src/` is a move, not a rewrite.
+
+**`R2` AND `R6` (`1b93865c`), AND A CORRECTION AGAINST THE ORCHESTRATOR.** `R2`: the composite replaced the debt and the factors and carried the **parent's** `DebtSignal`, so a composite whose composed `D_c` crossed fail-closed served with `signal=ok` and the routine obligation; `GovernedResolver._reassess` re-derives the signal from the composed factors under the same manifest-keyed profile. `R6`: `compose_children` anchored expiry at `asked_at` while every non-composite anchors at `decided_at` (`D-IMPL-308`), so declaring a child requirement silently shortened a product's window — **and two governed answers with different validity landed on one content address (`5d3a33b2…`)**. **The first `R2` test was tautological and would have passed against the unfixed code**: it asserted `debt == context_debt(factors)`, which `_reassess` makes true by construction, and crossed no threshold. Caught by an independent review of the repair, not by the orchestrator. It is now two composites differing only in the child's freshness — healthy serves `ok`, freshness `0.1` carries the per-factor minimum to `D_c` 0.9 and serves `fail_closed` with no obligation.
+
+**STILL OPEN, NAMED RATHER THAN EXCLUDED.** `R1` — the peered path is **unreachable**: joserfc's `max_header_length` defaults to 512 and `ccf.peering.identity::_registry_declaring` never sets it, against an honest header measured at 675 bytes, and **zero tests call `peer_provenance_from_admitted`**. Amendment 3 forbids excluding signature verification as a known limitation, so this is checkpoint-2 work rather than a deferral. `R5` — a composite is **not replayable**: `ChildResolution` carries neither the child's `expires_at` nor its `operators_invoked`, so no rehydrator can reproduce a composite's address, which covers the union lineage and the floored expiry; the record-sufficiency half and a rehydrator are different jobs and the second is named **`CMP-R-02`** here so that *replaying a composite* cannot be conflated with *reloading its record*. `CMP-R-01` — `child_resolutions` do not reach a **refused** composite's persisted record; closing it is a `RefusalRecorderProtocol` change, which Amendment 4 authorized and which is recorded **before** it is implemented. `INT-01b` — leaf → composite → higher composite, and supersession through the boot-bound L2 writer.
+
+**VERIFICATION.** `make lint` clean. **`make typecheck`** — the full prescribed target, 221 source files across `src` and `runtime`. **This replaces the `mypy src/ccf` the orchestrator had been reporting, which was a narrower target than the one CLAUDE.md prescribes.** `tests/products tests/replay tests/contracts tests/skills tests/deployment tests/peering`: **1,975 passed, 1 skipped, 2 failed**, both on `main` and both diffed **by roster identity rather than by count** — `tests/deployment/test_class_lookup.py` (unclaimed `ccf.halflife.decay.*`) and `tests/peering/test_admission_record.py` (the `claims.py` pin, stale since `da14c544`). In `tests/invariants`, 44 reds are pre-existing and unchanged. **Sabotage, both directions, before the commits:** reverting `R4`'s union operand turns INT-01a red with the Gate 2 collision; disabling the attestation address check turns the O1 forgery test red.
+
+**NO MERGE. CP-14 ACQUISITION REMAINS HOLD.** Amendment 4 makes checkpoint 1 a **stop for review**, and green does not authorize merge.
+
+**Next free decision id: `D-IMPL-337`** — unchanged; an amendment record spends none. **Governs:** nothing; it records execution and puts two questions. **Related:** Amendment 4 (the instruction this discharges), Amendment 3, `docs/D-IMPL-336-REMEDIATION-DISPOSITION.md`, `docs/D-IMPL-336-PANEL-REVIEW.md`, `D-IMPL-324` (*declaration is not a door* — the shape O1 turned out to be), `D-IMPL-308`, `D-IMPL-31`, `D-IMPL-104`, `D-IMPL-38`, `D-IMPL-222`, `D-09`, INV-CH7-47, INV-CH7-71.
+
+---
+
+**D-IMPL-336 — AMENDMENT 5 (2026-09-13, Dave, SIMPLIFICATION GO after he challenged the design). The composite is a CONSUMER of Context Products, not a second Control Plane. Skill-driven acquisition becomes the supported path; the parallel local attestation layer is REMOVED; verification stays at the boundary that owns it.** RESOLVED. Date: 2026-09-13. Ruled by: Dave, after asking *"I'm wondering why this is so difficult… I feel you are overcomplicating this somewhat simple structural architecture."* **Implementation GO on `d-impl-336-composite`. No merge. CP-14 acquisition remains HOLD.**
+
+**DAVE'S ARCHITECTURE, IN HIS OWN WORDS.** *"A complex context product can be made up of several other context products. It does not have to necessarily be responsible for assembling the atomic context products. They very well may be registered elsewhere servicing other use cases. The composite context product needs to be able to call the atomic context product whose definition exists either in-process, via an MCP, A2A or by calling another agent. The skill that the composite agent has knows how to acquire the atomic context product and roll it in."*
+
+**WHAT WAS MEASURED BEFORE THE RULING, and what it showed.** `src/ccf/products/composite.py` stood at **1,910 lines**. By section: `compose_children` and its helpers **478 lines (25%)** — the pre-ruled content (`D-IMPL-31`'s four laws, `D-IMPL-104`'s per-factor debt); the trust apparatus — eligibility policy and evidence (90), provenance types, attestor and peer carry (280), invocation and producer tokens (124) — plus most of `CompositeAdmissionGate` (358), together **~40%**. A deployment acquiring ONE local child wrote **45 lines of non-comment code** and constructed **five intermediate typed objects** (`ResolvedProducer`, `ChildInvocation`, `LocalProvenance`, `ChildCandidate`, `AdmittedChild`). The eligibility-evidence machinery was verified **peered-only** by reading `_establish_eligibility`: a local child takes the invalidation-register check and returns.
+
+**THE ROOT CAUSE, admitted by the orchestrator and accepted by Dave.** The outcomes map was treated as a **hostile input** — as though arbitrary code could hand the composite a fabricated child — so a second authorization layer was built on top of the one that already existed. **The grant is the authorization.** A skill is granted to produce class X; the composite declares it requires X; the skill runs. Asking a second time inside composition whether that was authorized asks the Control Plane a question it has already answered. Every panel finding that drove the token layer was real *given that design*; the design choice that made them real was making acquisition a loose seam rather than a granted skill dispatch.
+
+**DAVE'S CORRECTION TO THE ORCHESTRATOR'S PROPOSAL, recorded because it was wrong in one respect.** The proposal offered to "move cross-fabric eligibility out to sit with peering". Dave: ***"MCP is not automatically peering. `D-IMPL-59` explicitly separates them. Apply the existing controls for the actual provider relationship; do not require a new signed envelope merely because acquisition uses MCP. A genuinely peered product must still pass peering verification, regardless of how the skill retrieves it."*** The axis is the **provider relationship**, never the transport the skill happened to use.
+
+**THE RULING, in six parts, verbatim in substance.**
+
+**(1) Skill-driven acquisition is the supported path.** The local path is **effective grant → actual skill dispatch → the child's governed delivery → fit checks → compose**. `GrantBoundChildResolver` ships **in `src/`** — which also settles the question the orchestrator raised at checkpoint 1 about whether CLAUDE.md §7.3/§8.1 or §11 governs: **§11, a reference implementation ships alongside the Protocol**, because acquisition through a granted skill is not an agent loop. Deployment code **binds** the resolver; it does not construct a chain of provenance objects. **`LocalFabricAttestor` and the additional local attestation/token machinery are REMOVED.** Invocation attribution comes **directly from the existing grant and dispatch execution records** — never caller-written grant hashes or identity strings. *"The grant authorizes invoking the skill. The provider's existing authorization still governs what that invocation may return. Do not duplicate either decision inside composition."*
+
+**(2) The composite consumes products; it does not own their assembly.** `requires` names **product contracts**. `produces` means **the skill returns that product class**, not that it builds the product from raw data. An atomic Context Product **may already be registered elsewhere and serve other use cases**, and **its provider decides** whether to return a valid existing instance or assemble one on demand. **The composite must not need the atomic provider's assembler, source credentials, database handles, or boot context.** In-process, MCP, A2A and another-agent acquisition all belong **behind the skill's acquisition interface**. **No new identity axis, no scheduler, no swarm loop.**
+
+**(3) Verification stays at the boundary that owns it.** **Local** — use actual dispatch and governed delivery evidence; where local dependency eligibility is checked, take touched entities from **the child's persisted execution/replay record**, never a caller-supplied list, and **do not require access to a remote provider's internal replay store**. **Peering/A2A** — signature, trust, policy and eligibility verification stay **in the peering layer**; composition consumes the verified result or the refusal. **Remove the duplicated verification machinery from `composite.py`, not the verification itself.** **MCP** — retain its existing authenticated/authorized access and typed-result handling; **do not automatically reclassify it as peering**, and **a local skill fetching a remote product must not relabel that product as locally produced to bypass its applicable checks**. **`R1` REMAINS BLOCKING**: fix the header-cap failure in peering using the already-authorized bounded configuration, and **prove an honest signed envelope reaches `peer_provenance_from_admitted` and composition**, retaining oversized-envelope and signature-tampering controls. ***"Moving the code does not close the finding."***
+
+**(4) The composition contract is preserved.** `requires` stays authorable, registered and read by `GovernedResolver`. Fit checks are retained for class/version, subject/request, tenant, shared `asked_at`, content address, validity and assessable debt, **and so is slot-to-child reconciliation** — *"a child obtained for another requirement or request is not interchangeable."* The four existing composition rules apply: **factor-wise debt, lineage union, expiry floor, mixing refusal**. **`R4` is KEPT**: parent-declared operators are checked against parent execution **before** unioning admitted child operators; Gate 2 stays strict; inherited lineage is recorded **without claiming the parent engine executed the child's operators**. **`F1` is KEPT**: an optional declared absence takes its configured treatment, and an invoked child's refusal or admission failure **refuses the composite** — *"never turn rejection into a healthy omission."*
+
+**(5) Replay is finished and provider independence is demonstrated.** **`CMP-R-01`** for persisted refused-composite records and **`R5`/`CMP-R-02`** for actual composite reconstruction — and **replay uses retained child artifacts and recorded composition evidence, not fresh calls to the atomic providers.** Then **`INT-01b`**, a small nested chain through the shipped acquisition path. **The demonstration must also show an independently registered atomic product serving ANOTHER consumer and the composite, and must change its acquisition binding from in-process to a supported remote route WITHOUT changing the composite's requirements or roll-up logic.** It exercises real dispatch, the relevant boundary verification, refusal handling, inherited expiry and persisted replay. **The full estate tour remains CP-14 work.**
+
+**(6) One completion package.** The finding register distinguishes **removed duplicate mechanism**, **retained control**, **relocated responsibility** and **remaining defect**. **Tests of retired attestor classes are REPLACED by tests of the actual supported path — not merely deleted**, because *"do not merely delete the controls they represented."* Returned together: the **simplified deployment example**, the **candidate hash**, **exact regression and sabotage results**, **remaining limitations**, and **independent cross-AI reviews of the same immutable candidate**. ***"Stop before merge. The objective is a simple consumer-facing composition path backed by existing controls — not another Control Plane."***
+
+**WHAT THIS SUPERSEDES AND WHAT IT DOES NOT.** It supersedes **the separate local-attestor requirement** — Amendment 4's `O1` as a composite-module obligation, and the `LocalFabricAttestor` shipped at `bd66f1f0`. **It does not supersede the existing authorization, product-validation, or replay obligations**, which stand unchanged. `O2` (the grant binding) and `O3` (the admission clock) stand. `R4`, `F1`, the four composition laws, the fit checks and slot reconciliation stand.
+
+**Next free decision id: `D-IMPL-337`** — unchanged; an amendment spends none. **Governs:** the simplification on `d-impl-336-composite` through to the completion package. **Related:** Amendment 4 (the checkpoints this replaces the O1 half of), Amendment 3, `D-IMPL-59` (MCP is a Peering transport, not the concept — the separation Dave's correction rests on), `D-IMPL-31`, `D-IMPL-104`, `D-IMPL-334`/`D-IMPL-335`, `D-IMPL-308`, `D-IMPL-324`, `D-IMPL-222`, CLAUDE.md §7.3/§8.1/§11, INV-CH7-47.
+
+---
+
+**D-IMPL-337 — TOKEN-GUARDED VALUES MUST BE REVALIDATED AT EVERY PUBLICLY REACHABLE CONSUMER.** **OPEN — DESIGN REQUIRED.** Raised: 2026-09-14. Raised by: Dave, ruling on a measurement surfaced during `D-IMPL-336`'s close panels. **This is a cross-cutting SDK invariant gap that `D-IMPL-336` happened to expose. It is NOT a `D-IMPL-336` defect and it is not `D-IMPL-336`'s to remediate.**
+
+**THE INVARIANT, PROPOSED — and it is the INVARIANT that is canonized here, never an implementation.** Dave's wording: *"If a type derives its authority or validity from a guarded construction path, every publicly reachable consumer that relies on that authority must positively verify the guarded runtime type before using it. Structural compatibility or duck typing is insufficient."* It applies whether the guarded value represents admission, authorization, single-writer authority, replay integrity, or another capability.
+
+Stated as the property: **guarded authority cannot be recovered through structural typing.** Dave's refinement, recorded because the distinction is the whole point: *"`isinstance` may be the enforcement form, but that distinction matters… Canonize the invariant first: a consumer may not infer guarded authority from shape alone. Then let the 337 design prove whether `isinstance` is the correct universal enforcement mechanism or merely the correct mechanism for the six sites currently observed."* **A lint is the enforcement-mechanism CANDIDATE, not a silently adopted implementation detail.**
+
+**HOW IT WAS FOUND, and why the finding is a class rather than six bugs.** Two close panels on `D-IMPL-336` (30 agents, then 15) each found one instance of the same shape, and each instance was repaired individually. Dave: *"I simplified the architecture yet we still can't get it right. What seems to be the core problem? You are just repeating the same loop but not moving forward."* An AST census of `src/` then measured the population the panels had been sampling:
+
+| | |
+| --- | --- |
+| token-guarded capability types | **7** |
+| consumer sites annotated to take one | **15** |
+| sites that positively verify the type at runtime | **1** — added under `D-IMPL-336` close panel 2 |
+| sites publicly reachable by an adopter | **6** |
+
+**Minting is guarded; consumption is not.** The token is a *static* guarantee — mypy enforces it for conforming callers — presented in docstrings as a runtime one. `ccf.products.gates.ServableProduct`'s own docstring says *"holding one of these is the evidence that the gates ran."* That sentence is false at the consumer.
+
+**MEASURED, not argued** (public imports, no reflection, no private names): a duck-typed `ServableProduct` reaches `DeliveryCapability.deliver`, which does `ServedProduct(product=product.product, …)` with no type check, and a `ServedProduct` is returned. `isinstance(duck, ServableProduct)` is `False`. **The three validation gates never ran.** Dave's endorsed reading of the diagnosis: *"My three mechanism defects weren't three mistakes. They were three samples from a population."*
+
+**THE INITIAL CENSUS — six sites, recorded BEFORE any of them is modified, and deliberately NOT flattened into one severity.** Dave: *"Do not flatten these into one severity merely because one lint finds them."*
+
+*Group A — guarded product / gate bypass.* The guarded type is `ServableProduct`, whose possession is meant to be the evidence that the three validation gates (empty-operator guard, lineage strict equality, TTL bounds) ran.
+- `ccf.replay.serve.serve(product)` — **exported**.
+- `ccf.replay.serve.DeliveryCapability.deliver(product)` — public name, reachable.
+- `ccf.products.gates.refuse_over_tolerance(product)` — **exported**.
+
+*Group B — a product crossing the Peering / L3 boundary without its admission proof.* The guarded type is `ccf.peering.admission.AdmittedProduct`, whose possession is meant to be the evidence that signature verification, peer entitlement and policy-binding checks ran. A bypass here puts an unverified federated product on the path to L3, against the single-writer invariant (CLAUDE.md §10) and `D-IMPL-59`'s admission commitment.
+- `ccf.graph.product_source.mount_product_source(admitted)` — **exported**.
+- `ccf.assembly.worker.ingest_admitted(admitted)` — public name, reachable.
+
+*Group C — Control Plane state mutation on a structurally similar but unauthorized value.* The guarded type is `ccf.controlplane.state.StateWriteToken`.
+- `ccf.controlplane.state.AuditedStateWriter.put(token)` — public name, reachable.
+
+**Nine further sites are module-private** — the minter and the consumer share a module, so no caller can reach them without crossing the module boundary — and are therefore **not governed by the invariant as proposed**. Whether that exemption is correct is one of the design questions below, not a settled fact.
+
+**WHAT THE 337 DESIGN PACKAGE MUST CONTAIN**, per Dave, before any fix:
+1. the exact definition of a **token-guarded type**;
+2. what counts as a **publicly reachable consumer**;
+3. the six measured sites, and **why each is or is not actually governed** by the invariant;
+4. the proposed static lint and its **false-positive / false-negative boundary**;
+5. how **Protocol-typed consumers** interact with the rule;
+6. whether an explicit **validator or helper** can satisfy the rule in lieu of a literal `isinstance`;
+7. **negative controls** showing the lint catches a duck-typed substitute;
+8. **positive controls** showing legitimate abstraction seams are **not** accidentally outlawed.
+
+**WHAT IS FORBIDDEN, in Dave's words:** *"Do not run another broad sabotage sweep and patch whatever falls out. Do not fix all six sites opportunistically on the 336 branch. Do not record the finding and leave it indefinite. Do not call the lint complete merely because it finds the six known examples. Do not weaken Protocol usage generally; structural typing remains valid where no guarded authority is being asserted."*
+
+**WHY IT IS SEPARATE, and this is the load-bearing reason.** A four-subsystem correction inside `d-impl-336-composite` would destroy the ability to answer the basic review question *"did `D-IMPL-336` correctly implement composite Context Products?"* — the branch would become inseparable from unrelated replay, peering, assembly and Control Plane repairs. Dave: *"That is exactly the scope-accretion pattern we have been trying to eliminate."*
+
+**`D-IMPL-336`'s OWN POSITION, measured.** Dave requires that 336's own guarded-consumer site be correct and that the branch introduce no new bypass. Audited at `64d4ae4a`: `invocation_from_dispatch` is exported and **verifies** (`ProvenanceForgeryError` on a non-`ResolvedProducer`, closed at close panel 2); `compose_children` — the composition entry point, whose `outcomes` is typed `object` deliberately so mypy cannot prove its guard unreachable — **verifies** with `isinstance(outcome, AdmittedChild)`; `_admit`, `_rebinding_failure` and `_row_for_admitted` are module-private. **No publicly reachable consumer of a guarded type in `ccf/products/composite.py` or `ccf/products/child_resolver.py` trusts structure alone.** 336 carries `D-IMPL-337` as a **discovered dependency**, not as remediation scope.
+
+**SEQUENCING.** `D-IMPL-337` is recorded now as OPEN with the census above. `D-IMPL-336` then finishes on its own terms and reaches its stop-for-review checkpoint. The 337 design cycle runs **separately, afterwards**.
+
+**Next free decision id: `D-IMPL-338`.** **Governs:** the guarded-type consumer invariant across the SDK. **Related:** `D-IMPL-336` (which exposed it, and whose close-panel record at `docs/D-IMPL-336-CLOSE-PANEL.md` carries the two sampled instances), `D-IMPL-59` (Peering admission), `D-IMPL-57` (attributable vs verifiable), CLAUDE.md §10 (single-writer), §11 (invariants are CI-enforced, not aspirational), INV-CH7-46/47/52 (the three validation gates `ServableProduct` attests to).
+
+---
+
+**D-IMPL-336 — `R4` RULED: GO AS IMPLEMENTED. The engine-resolved operand widens for a composite, and the parent's own declaration is held strictly BEFORE the union.** RESOLVED. Date: 2026-09-14. Ruled by: Dave, at the Amendment 5 §6 checkpoint. This converts the PROPOSED reading carried since `7d18004d` into the ruled one; **no code changes under this entry** — the implementation already matches the ruling, and the entry exists so the reading is ruled rather than inherited from an implementation.
+
+**THE RULED SEMANTICS, in Dave's numbering:**
+
+1. **`run_gates` remains unchanged.** Gate 2 is not edited; only the operand handed to it.
+2. **Non-composite behavior remains byte-identical.** `composed` is `None`, the union is with `frozenset()`, and the operand is the value it has always been.
+3. **For composites, FIRST require** `parent_declared_operators == parent_executed_operators`.
+4. **Only after that succeeds**, form `parent_executed_operators ∪ admitted_child_operators`.
+5. **Compare the composite lineage against that union with strict equality.**
+6. **Child operators may never mask parent drift.**
+7. **Keep the parent-drift sabotage.** Codex finding no masking case is **corroboration only**.
+
+**WHY A RULING WAS NEEDED RATHER THAN A REPAIR.** INV-CH7-47 requires a candidate's declared operators to equal what this fabric's engine resolved, strictly, in both directions. `D-IMPL-31` requires a composite's lineage to be the N-way union over its constituents'. A composite satisfies both only if the operand widens: its engine never ran its children's operators, because the children did. **The two obvious alternatives each break a standing ruling** — a subset check abandons INV-CH7-47's strictness; declaring only the parent's own operators abandons `D-IMPL-31`'s union. Measured twice independently before the question was put: a real child of another class refused with `lineage-mismatch-refusal` before it could serve.
+
+**WHAT LIMB 3 BUYS, and it is the whole reason the widening is safe.** A naive union masks parent drift: if the engine runs operator X while the class declares only Y, and a child happens to invoke X, then X sits on both sides of the comparison and the parent's own divergence disappears. So the parent's declared set is held to the parent's executed set **first and strictly**, as the same refusal type with the same gate identifier. Proven by sabotage that perturbs the **engine** rather than `run_gates` — the guard reads `execution.operators_invoked` and runs before the gate, so perturbing the gate's argument would leave the guard looking at the honest set and prove nothing.
+
+**EVIDENCE.** `tests/products/test_resolver_seam.py::test_r4_a_composite_serves_with_a_child_that_ran_ITS_OWN_operators` (which asserted the DEFECT first and went red on the line that fixed it), `::test_r4_the_positive_control_a_child_WITHIN_the_parents_operators_serves`, and `::test_r4_the_union_CANNOT_mask_the_parents_own_declaration_drifting` — the limb-6 sabotage, which found the masking hole before the guard existed and which limb 7 preserves. Close panel 2 recorded a **negative result** from codex — *"I did not find an R4 masking case in the checked-out resolver path"* — which this ruling accepts as corroboration and not as clearance.
+
+**`D-IMPL-336`'s GUARDED-TYPE OBLIGATION IS ALSO DISCHARGED** (Dave, same ruling). `compose_children` positively verifies `isinstance(outcome, AdmittedChild)`, and `invocation_from_dispatch` — the branch's other exported consumer of a guarded type — raises `ProvenanceForgeryError` on a non-`ResolvedProducer`. **This does NOT close `D-IMPL-337`**, which remains OPEN at `13d7e8ec` with its six-site census and its eight design questions intact.
+
+**Next free decision id: `D-IMPL-338`** — unchanged; a ruling on an existing entry spends none. **Governs:** Gate 2's operand for composite products. **Related:** `D-IMPL-336` Amendments 3–5, INV-CH7-47, `D-IMPL-31`, `D-IMPL-104`, `docs/D-IMPL-336-CLOSE-PANEL.md`, `D-IMPL-337` (raised by the same checkpoint, explicitly not closed by it).
+
+---
+
+**D-IMPL-336 — `INT-01b` CLOSED. Nested dependency propagation is proven through historical reconstruction.** RESOLVED. Date: 2026-09-14. Ruled by: Dave, on the measured proof at candidate `29d1885a`. This was the last outstanding pre-merge deliverable.
+
+**THE RULING, in Dave's words:**
+
+> `INT-01b` proves nested dependency propagation through historical reconstruction. After a real L2 supersession at `T_WORLD > T0`, the same child question asked again at `T0` is refused by the child's own governed delivery path. The middle and higher composites refuse because the governed child they acquire refuses. No parent invalidation boundary is separately written or synthesized.
+
+**THE FAILED FIRST PROOF, recorded because it is the more useful half — also in Dave's words:**
+
+> The original cached-child test was invalid as evidence for `D-IMPL-334`/`D-IMPL-335` because `F15`'s one-`as_of` rule produced `as-of-mismatch` before dependency invalidation could be exercised. **Sabotage 2 remaining green exposed the false proof.**
+
+The first version pinned the leaf to an instance built at `T0` and re-served the composite at a later instant, expecting the stale child to be refused as invalidated. It was refused — for the wrong reason. The prescribed sabotage (cutting the child's dependency evidence) left the test **green**, which is what surfaced it; the actual refusal reason was then obtained by instrumenting `CompositeAdmissionGate.admit` rather than by re-reading the source.
+
+**THE MEASURED FACTS, kept:**
+
+- **real boot-bound L2 ingest** — one `SignalEnvelope` through `worker.ingest`; the writer `ccf.boot.boot` bound the sink to publishes the boundary itself;
+- **invalidation boundary = 13:00 world time, not the June ingestion time** (`D-IMPL-335`, `_boundary_instant` taking `valid_from`);
+- **no direct register write**;
+- **no direct sink invocation**;
+- **no manual dependency copying into the composites**;
+- **all three targeted sabotages RED and restored byte-identically** — writer publishes no boundary; execution reports no entities; boundary reverted to ingestion time. `git diff --stat src/` empty after each;
+- **post-change re-derivation serves again through the nested chain**, at all three levels.
+
+**WHAT `INT-01b` DOES NOT PROVE, corrected by Dave against the orchestrator's own write-up.** The single-entity fixture **cannot** express an *"equally old unrelated product still serves"* control, and describing it as doing so was wrong: re-derivation and dependency **selectivity** are different claims. **Selectivity remains covered by the existing `D-IMPL-334`/`D-IMPL-335` regression** at `tests/products/test_dependency_invalidation.py`, which has the entities to express it. `INT-01b` proves **nested propagation and re-derivation**, and nothing wider. The test's own prose has been corrected to say so.
+
+**EVIDENCE.** `tests/products/test_composite_integration.py::test_int01b_a_real_L2_change_invalidates_the_NESTED_composite_chain` and `::test_int01b_the_inherited_composition_state_survives_on_the_nested_chain` (child lineage reaching the top two levels down; parent expiry bounded by its child; the persisted row identifying the contributing governed product by class, address and grant; replay re-deriving the union and the floor from the rows alone without calling a child skill).
+
+**Next free decision id: `D-IMPL-338`** — unchanged. **Governs:** the close of `INT-01b`. **Related:** `D-IMPL-336` Amendments 4–5, `D-IMPL-334`, `D-IMPL-335`, `F15` (the one-`as_of` invariant that made the first proof invalid), `D-IMPL-337` (raised separately and untouched by this entry).
+
+---
+
+**D-IMPL-336 — the MISATTRIBUTED replay-reference defect, FIXED at `23c296af`.** RESOLVED. Date: 2026-09-14. Found by the final cross-AI review against `29d1885a`; verified by the orchestrator against `35cec2c6` before it entered the register, per Dave's ruling that reviewer assertions are not evidence.
+
+**THE DEFECT.** `ccf.products.child_resolver.GrantBoundChildResolver._touched_entities` declared a ``contract`` parameter and **never read it**. A composite child's dependency evidence — which entities the child's execution touched — was taken from whatever replay record the producing skill **named**, with no check that the record described the product being admitted. Measured:
+
+```
+my own record    -> ('entity://the-one-that-matters',)
+a FOREIGN record -> ()
+```
+
+A producer serving an honest contract **and** an honest content address, while pointing ``replay_ref`` at an unrelated resolvable record, had the invalidation register asked about the wrong product's reads — and the composite's replay row still recorded ``local-register`` as the authority that cleared it.
+
+**THE ASYMMETRY THAT MADE IT FINDABLE.** The admission gate already refuses to trust the producer on the content address, recomputing ``content_hash(contract)`` itself; ``DoorOutcome`` already binds ``replay_ref`` on the **refused** path. Only the served path left it free — and ``product_content_address`` was already a **required** field on the record, so the evidence needed to close it was present and simply unused.
+
+**`F3` closed the ABSENT-evidence case on this leg. This is the MISATTRIBUTED case**, which reads as present and passes.
+
+**THE RULED BINDING, and the repair matches it verbatim** (Dave): *"the binding is between the referenced record's product identity and the **RECOMPUTED** child content address, established **BEFORE** reading its dependency evidence."* The shipped code computes ``address = content_hash(contract)`` — never the producer-reported value — compares it against ``record.content_generation_path.product_content_address``, and does so before ``record.context_fabric_snapshot.touched_entities`` is read.
+
+**RAISED, NOT REFUSED, and the distinction is deliberate.** A governed refusal says *this child may not be composed*. ``ChildRecordMismatch`` says *the evidence offered is not about this child at all* — a producer defect or a substitution attempt, neither of which is a fact about the child's eligibility. Reporting it as one would let a misattribution be read as a governed answer.
+
+**PROOF, and all three halves Dave required are preserved.** `tests/products/test_composite_integration.py::test_a_child_naming_ANOTHER_products_replay_record_is_refused` drives the **shipped** resolver with a door that serves an honest product and swaps **only** the record reference — a real, resolvable record of a different product (the **valid-foreign-record rejection**). The **honest-record positive control** asserts the unswapped pairing still serves, so the check is a differential rather than a method that refuses everything. The **binding-removal sabotage** turns it RED, restored byte-identically.
+
+**Next free decision id: `D-IMPL-338`** — unchanged. **Governs:** the record-to-product binding on the composite's local acquisition leg. **Related:** `D-IMPL-336` Amendment 5 §3 (the ruled contract it satisfies), `F3` (the absent-evidence case on the same leg), `D-IMPL-334`/`D-IMPL-335`, `docs/D-IMPL-336-CLOSE-PANEL.md`.
+
+---
+
+**D-GATE-336 — `D-IMPL-336` IMPLEMENTED / CLOSED. Composite Context Products are approved for merge.** APPROVED. Date: 2026-09-14. Approved by: Dave. **Merge candidate: `513d5712120f6354dc9343da5e43ea93e1718266`.**
+
+**WHAT SHIPS.** A composite Context Product declares the child product **classes** it requires; a granted skill acquires each child — in-process, over MCP, over A2A/peering — and the composite rolls them up under `D-IMPL-31`'s four laws and `D-IMPL-104`'s per-factor debt. **The composite does not assemble its atomics.** They may be registered elsewhere serving other consumers, and their provider decides whether to return an existing valid instance or assemble on demand. Dave's architecture, in his words: *"The skill that the composite agent has knows how to acquire the atomic context product and roll it in."*
+
+**THE EVIDENCE DAVE RULED SUFFICIENT:**
+
+| Item | Status | Closed by |
+| --- | --- | --- |
+| `R1` — the peering path | closed | `ccf.peering.identity.MAX_PROTECTED_HEADER_BYTES`; `tests/peering/test_peered_child_envelope.py` (5) |
+| `CMP-R-01` — refused-composite child evidence | closed | `RefusalRecorderProtocol.record(child_resolutions=…)`; 2 tests, surface recorded first |
+| `GrantBoundChildResolver` in `src/` | closed | `ccf.products.child_resolver`; `INT-01a` + negative controls; fragment `336-05` |
+| `R4` — Gate 2's operand for composites | **ruled GO** | parent declared == parent executed FIRST, then the union; children may never mask parent drift |
+| composite replay (`R5`/`CMP-R-02`) | closed | `child_operators_invoked`, `child_expires_at`, `child_admitted_at`; reconstruction from the rows alone |
+| `INT-01b` | closed | historical reconstruction → governed child-refusal propagation through the nested chain |
+| misattributed `replay_ref` | fixed | the record-to-product binding, with regression **and** sabotage |
+| MCP leakage from `ChildRecordMismatch` | fixed | through the **existing** opaque-door exception posture, not a new one |
+| full verification on the exact candidate | green | baseline failure roster **unchanged** |
+
+**HOW IT GOT HERE, recorded because the process is the lesson.** Four review rounds. The design panel found 19 defects; the R-series 6; close panel 1 nine; close panel 2 six; the final review one, plus a follow-on the repair itself introduced. **Mechanism defects fell 19 → 6 → 2 → 1** while the later rounds shifted almost entirely to *proof machinery* — tests that did not hold the mechanism they named. Dave's intervention at the midpoint — *"I simplified the architecture yet we still can't get it right… you are just repeating the same loop"* — produced Amendment 5, which **removed ~40% of the module** (a parallel authorization layer) on the ground that **the grant is the authorization**. Deployment code to acquire one child went from **45 lines and five hand-built evidence objects to 16 and none**.
+
+**TWO PROOFS THAT PASSED FOR THE WRONG REASON, and both were caught by prescribed sabotage rather than by review.** The first `R2` test was tautological under its own fix. The first `INT-01b` test measured `as-of-mismatch` rather than dependency invalidation, because `F15` fires first — *sabotage 2 remaining green* is what exposed it. Neither was found by reading.
+
+**CARRIED FORWARD AS LIMITATIONS — explicitly not hidden debt inside this close, and not to be fixed in the merge commit:**
+
+1. an over-bound peering header reports as `SignatureInvalid` (`ExceededSizeError` is a `JoseError`; nothing is admitted, but the operator is told the wrong thing);
+2. a remote-proxying `local_callable` is **structurally invisible** — the entry genuinely is local and the dispatch genuinely ran locally;
+3. multiple peered products matching one class are not disambiguated;
+4. `CP-F-06` — a content address in a field that elsewhere holds a class name;
+5. **`AmbiguousProducerError` can escape the same MCP opaque-failure posture.** Dave: *"should receive its own follow-on decision/finding if we decide to repair the runtime door. It is not a reason to reopen `D-IMPL-336`."*
+
+**`D-IMPL-337` STAYS SEPARATE AND OPEN.** Its census and design questions are untouched, and **merging 336 is not authorization to begin it**. No CP-14 acquisition work before Dave's sequencing decision between 337's design and CP-14 Gate 1.
+
+**Next free decision id: `D-IMPL-338`** — unchanged; a gate entry spends none. **Governs:** the approval and merge of composite Context Products. **Related:** `D-IMPL-336` Amendments 2–5, `D-IMPL-337`, `D-IMPL-31`, `D-IMPL-104`, `D-IMPL-334`/`D-IMPL-335`, `D-IMPL-308`, `D-IMPL-59`, `D-IMPL-253` Q20, `docs/D-IMPL-336-COMPLETION.md`, `docs/D-IMPL-336-CLOSE-PANEL.md`, `docs/D-IMPL-336-PANEL-REVIEW.md`, `docs/D-IMPL-336-REMEDIATION-DISPOSITION.md`.
+
+**Next free decision id: `D-IMPL-338`.**

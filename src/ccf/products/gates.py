@@ -189,6 +189,7 @@ __all__ = [
     "AttestationRefusal",
     "DeclaredObligationRefusal",
     "EmptyOperatorRefusal",
+    "refuse_dependency_invalidation",
     "GateBypassError",
     "GateRefusal",
     "LineageAttributionRefusal",
@@ -1031,7 +1032,7 @@ def run_gates(
     # Plane's register, so the cheaper and more universal refusal stays
     # first. A product that is both expired and invalidated refuses as
     # expired, which is the older and better-understood answer.
-    invalidated = _refuse_dependency_invalidation(
+    invalidated = refuse_dependency_invalidation(
         candidate, touched_entities=touched_entities, registry=registry
     )
     if invalidated is not None:
@@ -1217,7 +1218,7 @@ def _refuse_empty_operators(
     )
 
 
-def _refuse_dependency_invalidation(
+def refuse_dependency_invalidation(
     candidate: ContextProductContract,
     *,
     touched_entities: tuple[str, ...] | None,
