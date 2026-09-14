@@ -2323,3 +2323,217 @@ def test_r2_a_composite_re_derives_its_signal_from_the_COMPOSED_factors(
     record = _served_record(booted_composite, outcome)
     assert record.content_generation_path.debt is not None
     assert record.content_generation_path.debt.factors == outcome.product.debt.factors
+
+
+def _real_child(
+    booted: _Booted,
+    *,
+    operators: frozenset[str],
+    requirement: Any,
+    asked_at: datetime,
+    admitted_at: datetime,
+    invocation: str,
+) -> Any:
+    """One child admitted through the REAL gate and the REAL admission gate.
+
+    Nothing here is an injected outcome: the contract is served by `run_gates`,
+    the candidate carries boot-minted local provenance and an invocation minted
+    from a catalog entry, and `CompositeAdmissionGate.admit` decides whether it
+    is an `AdmittedChild` at all. `operators` is the only variable.
+    """
+    from ccf.contracts.canonical import content_hash as _address
+    from ccf.products.composite import (
+        AdmittedChild,
+        ChildCandidate,
+        CompositeAdmissionGate,
+        LocalFabricAttestor,
+        invocation_from_dispatch,
+    )
+    from ccf.products.contract import (
+        ContextProductContract,
+        MaxTTL,
+        ProductLineage,
+        register_product_class,
+    )
+    from ccf.products.gates import ServableProduct, run_gates
+    from ccf.skills.catalog import (
+        LocalCallableBinding,
+        SkillArgumentSchema,
+        SkillCatalogEntry,
+        SkillRequirements,
+    )
+
+    registry = booted.control_plane
+    child_class = "fixture.child"
+    ttl_key = "fixture/seam/child-max-ttl"
+    ttl_version = registry.register(ttl_key, MaxTTL(seconds=86400))
+    registered_child = register_product_class(
+        registry=registry,
+        schema_name=child_class,
+        schema_version="1.0.0",
+        ttl_anchor="from_decision",
+        assembly_mode="algorithmic",
+        max_ttl_key=ttl_key,
+        max_ttl_version=ttl_version,
+    )
+
+    factors = DebtFactors(
+        freshness=Decimal(1), completeness=Decimal(1), semantic_consistency=Decimal(1)
+    )
+    contract = ContextProductContract(
+        tenant_id=TENANT,
+        schema_name=child_class,
+        schema_version="1.0.0",
+        plan_id="plan-fixture-child",
+        temporal_boundary=asked_at,
+        expires_at=asked_at + timedelta(hours=12),
+        ttl_anchor="from_decision",
+        lineage=ProductLineage(
+            operators_invoked=operators,
+            policy_bundle_versions=("fixture-child-policy-v1",),
+            graph_snapshot_at=asked_at,
+        ),
+        payload={"rows": 1},
+        debt=DebtAssessment(
+            debt=Decimal(0), signal=DebtSignal.OK, factors=factors, scorers=()
+        ),
+    )
+    gated = run_gates(
+        contract,
+        engine_resolved=operators,
+        now=admitted_at,
+        registry=registry,
+        product_class=registered_child,
+        touched_entities=(),
+    )
+    assert isinstance(gated, ServableProduct), gated
+
+    entry = SkillCatalogEntry(
+        schema_version="1.0.0",
+        artifact_version="1.0.0",
+        name="child-skill",
+        tenant=TENANT,
+        skill_type="local_callable",
+        description="child skill",
+        argument_schema=SkillArgumentSchema(properties={}, required=frozenset()),
+        binding=LocalCallableBinding(callable_ref="ref::child-skill"),
+        requirements=SkillRequirements(
+            required_scopes=frozenset(), required_context_products=frozenset()
+        ),
+        produces=child_class,
+    )
+    candidate = ChildCandidate(
+        requirement=requirement,
+        contract=gated.product,
+        content_address=_address(gated.product),
+        provenance=LocalFabricAttestor(
+            attestor_id="fabric://seam-boot"
+        ).attest(touched_entities=()),
+        invocation=invocation_from_dispatch(entry, grant_hash="grant::child-skill"),
+    )
+    admitted = CompositeAdmissionGate(
+        tenant_id=TENANT, consumer_scope="consumer://seam", registry=registry
+    ).admit(
+        candidate=candidate,
+        asked_at=asked_at,
+        admitted_at=admitted_at,
+        composition_invocation=invocation,
+    )
+    assert isinstance(admitted, AdmittedChild), admitted
+    return admitted
+
+
+def test_r4_a_composite_with_a_REAL_child_COLLIDES_with_gate_2(
+    booted_composite: _Booted,
+) -> None:
+    """`R4` MEASURED, not predicted — and it blocks INT-01a.
+
+    Gate 2 (INV-CH7-47) compares the candidate's `operators_invoked` against
+    what THIS fabric's engine resolved, by strict equality in both directions.
+    The composite replaces the candidate's lineage with `compose_lineage`'s
+    N-way union — which by construction includes every operator the CHILD
+    invoked, and the parent's engine never ran those.
+
+    So a composite is servable only while its children invoke a SUBSET of the
+    parent's own operators. Any real child of a different class almost
+    certainly invokes something else, and this is the exact collision.
+
+    This test asserts the DEFECT. It is expected to change when the conflict
+    is ruled — the two readings are (a) the union is the honest lineage and
+    Gate 2's witness must widen to cover admitted children, or (b) a composite
+    declares only its own operators and children stay resolvable through
+    `child_resolutions`. Neither is mine to pick.
+    """
+    captured: dict[str, Any] = {}
+
+    def one_child(**kw: Any) -> dict[str, Any]:
+        captured.update(kw)
+        return {
+            "fixture.child": _real_child(
+                booted_composite,
+                # The child ran an operator the parent did not. That is the
+                # ordinary case, not a contrived one: a child of a different
+                # class exists BECAUSE it answers a different question.
+                operators=frozenset({"ChildOnlyTraversal"}),
+                # THE class's own declared slot, handed back by the resolver —
+                # not a second requirement authored here, which F2's rebinding
+                # check would refuse anyway.
+                requirement=kw["requirements"][0],
+                asked_at=kw["asked_at"],
+                admitted_at=kw["admitted_at"],
+                invocation=kw["composition_invocation"],
+            )
+        }
+
+    outcome = _ask(
+        _resolver(booted_composite, composite_children=one_child), _request()
+    )
+    assert captured, "the resolver never called the child resolver"
+    assert not isinstance(outcome, ServedProduct), (
+        "R4 is CLOSED: a real child of a different class now serves"
+    )
+    assert outcome.kind == "lineage-mismatch-refusal", outcome.kind
+
+
+def test_r4_the_positive_control_a_child_WITHIN_the_parents_operators_serves(
+    booted_composite: _Booted,
+) -> None:
+    """The control that makes the finding above about LINEAGE and nothing else.
+
+    Same real child, same real admission, same real composition — the only
+    change is that its operator set is a subset of the parent's. It serves.
+    So the refusal above is Gate 2 reacting to the composed union, not a
+    real child being unable to reach composition at all.
+    """
+    parent_operators: dict[str, frozenset[str]] = {}
+
+    def probe(**kw: Any) -> dict[str, Any]:
+        return {}
+
+    served_plain = _ask(
+        _resolver(booted_composite, composite_children=probe), _request()
+    )
+    assert isinstance(served_plain, ServedProduct), served_plain
+    parent_operators["set"] = served_plain.product.lineage.operators_invoked
+    assert parent_operators["set"], "the parent invoked no operators"
+
+    def one_child(**kw: Any) -> dict[str, Any]:
+        return {
+            "fixture.child": _real_child(
+                booted_composite,
+                operators=parent_operators["set"],
+                requirement=kw["requirements"][0],
+                asked_at=kw["asked_at"],
+                admitted_at=kw["admitted_at"],
+                invocation=kw["composition_invocation"],
+            )
+        }
+
+    outcome = _ask(
+        _resolver(booted_composite, composite_children=one_child), _request()
+    )
+    assert isinstance(outcome, ServedProduct), outcome
+    record = _served_record(booted_composite, outcome)
+    rows = record.content_generation_path.child_resolutions
+    assert len(rows) == 1
+    assert rows[0].outcome_status == "admitted"
