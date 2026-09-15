@@ -197,6 +197,45 @@ observation's `valid_from`. `OFC-G05` holds `F < 1`.
 
 ## Sabotage matrix
 
-Each fix and each proof was made to fail deliberately at least once. The runs
-and their verdicts are recorded in the `CP14-F-22` return under this tree's
-review; a gate whose sabotage stayed green would have stopped the phase.
+Each fix and each proof was made to fail deliberately at least once, on
+2026-09-14, against the live estate: apply the mutation, run the target module,
+restore the file by `git checkout`, verify the restoration by an empty
+`git diff` — never by a clean status. Twenty-three constructible sabotages,
+twenty-three RED; the tree was clean after every run.
+
+| run | gate | mutation | verdict |
+|---|---|---|---|
+| S01 | `OFC-G01` | declare `intent` under `arguments.properties`, as the specimen did | **RED** (13 red) — the boot refuses the contract, so eleven tests error; the SDK's refusal is the control |
+| S02 | `OFC-G05` | drop `decay_basis: valid-from` from both scored λ_c rows | **RED** (2 red) |
+| S03 | `OFC-G06` | delete the window comparison from the product's gate | **RED** (1 red) |
+| S04 | `OFC-G08` | raise for an unresolvable anchor instead of ingesting nothing | **RED** (1 red) |
+| S05 | `OFC-G24` | compose a fixed fabric file name under the root | **RED** (1 red) |
+| S06 | `OFC-G25` | drop Π's subject filter and take the first obligor in the view | **RED** (1 red) |
+| S07 | `OFC-G16` | drop the door's producer assertion | **RED** (7 red) |
+| S08 | `OFC-G18` | assert another producer's id at the door | **RED** (7 red) |
+| S09 | `OFC-G19` | serve the class at lane `2.0.0` | **RED** (4 red) |
+| S10 | `OFC-G23` | let the door retype `periods` to 4 | **RED** (1 red) |
+| S11 | `OFC-G09` | remove the `discovery` declaration | **RED** (1 red) |
+| S12 | `OFC-G10` | widen the `peer_basis` domain to `sic-and-size` | **RED** (1 red) |
+| S13 | `OFC-G05` | score completeness as 1 rather than the evaluable fraction | **RED** (1 red) |
+| S14 | `OFC-G02` | declare a second operator the class did not declare | **RED** (11 red) — red by the served fixture erroring (the mutation broke the serve before the gate's own assertion ran); the gate's specific claim was not isolated by this run |
+| S15 | `OFC-G15` | append a line to the frozen specimen's README | **RED** (1 red) |
+| S16 | `OFC-G03` | ingest one envelope carrying the whole spread, as the specimen did | **RED** (11 red) — red by the served fixture erroring (the mutation broke the serve before the gate's own assertion ran); the gate's specific claim was not isolated by this run |
+| S17 | `OFC-G13` | import and call `build_replay_record` in the spine | **RED** (1 red) |
+| S18 | `OFC-G14` | construct the plan from a literal operator set instead of `required` | **RED** (1 red) |
+| S19 | `OFC-G21` | let the door override the caller's `debt_tolerance` | **RED** (1 red) |
+| S20 | `OFC-G12` | let `latest-restated` drop a column | **RED** (1 red) |
+| S21 | `OFC-G04` | stamp one accession over every line | **RED** (2 red) |
+| S22 | `OFC-G01` | put a per-run nonce in the payload | **RED** (2 red) |
+| S23 | `OFC-G17` | import the producer's assembler into the consumer process | **RED** (1 red) |
+
+**Not constructible without an SDK edit, and recorded rather than faked:**
+`OFC-G07` (the SDK computes the decision-instant anchor; the gate is the
+`CP03C-F-01` evidence and goes red when the SDK honors the declaration) and
+`OFC-G22` (synthesizing a child when the producer is unreachable would be an
+SDK-side forgery; the gate holds the SDK's own `producer-unavailable` path).
+
+Two verdicts are red for a coarser reason than the gate's claim: S14 and S16
+broke the serve itself, so the served fixture errored and the gate's specific
+assertion never ran. They are recorded as red-by-error, not as isolated proofs
+of `OFC-G02` and `OFC-G03`.
