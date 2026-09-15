@@ -28,6 +28,13 @@ optimized away by the next person.
 ladder order, or the Gate 1/Gate 2 protocol. Those are `spec_generation.md` §2
 and §3, and they still bind.
 
+**What an example is *for*, and how what it finds is judged, is not here
+either.** That is `docs/EXAMPLE-EVALUATION-CRITERIA.md` — the repository's
+normative policy for classifying findings, deciding launch blockers versus
+backlog enhancements, measuring SDK developer friction, and separating SDK
+defects from engineered-estate limitations. Read it before this document, and
+apply it while building, not only at close.
+
 ---
 
 ## 1 · The sequencing

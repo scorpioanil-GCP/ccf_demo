@@ -913,6 +913,21 @@ construction — are *demonstrated* rather than asserted.
 exercise. It is explicitly not part of the initial release.** The initial
 release ships practical, runnable, domain-neutral examples instead.
 
+### Example Development and Evaluation — REQUIRED
+
+Before designing, modifying, reviewing, or closing any CCF example under
+`examples/`, you MUST read `docs/EXAMPLE-EVALUATION-CRITERIA.md` in full.
+
+That document is the canonical repository policy for evaluating examples,
+classifying findings, deciding launch blockers versus backlog enhancements,
+assessing SDK developer friction, and distinguishing SDK defects from
+engineered-estate limitations. Apply the criteria throughout example
+development, not only during final review.
+
+If an example-specific instruction conflicts with the evaluation criteria,
+STOP and surface the conflict rather than silently overriding the repository
+policy. The policy is not duplicated here; that file is the one source.
+
 ### What the examples are, and what they are for (Dave, 2026-09-08)
 
 SDK Examples were deliberately engineered to represent real world financial
