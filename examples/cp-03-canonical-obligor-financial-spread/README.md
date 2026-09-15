@@ -57,6 +57,12 @@ in the product's own declared gate and raises the expiry half as
 `CP03C-F-01` — visible as a strict `xfail` that turns red the day the SDK
 honors the declaration.
 
+Plainly: **the product checks the filing window at evaluation time, but the
+SDK currently overstates the returned expiry for `from_entity_freshness`.
+This sibling does not repair that contract mismatch.** The gate is not
+evidence that a copy you were served earlier remains valid until its
+advertised `expires_at`; ask again.
+
 ## Run it
 
 ```bash

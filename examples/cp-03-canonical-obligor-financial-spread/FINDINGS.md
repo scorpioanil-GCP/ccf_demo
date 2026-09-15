@@ -7,6 +7,27 @@ the example. The question asked of every one is whether the behavior is
 **legitimate SDK semantics** or an **actual mismatch**, with the basis stated.
 Findings are raised, not resolved: every one below is Dave's to rule on.
 
+## Closure of `CP14-F-22` — RESOLVED by a canonical sibling (Dave, 2026-09-14)
+
+The canonical sibling and its roster admission were approved in principle on
+candidate `d63f7c40`, conditional on two proof checks (`OFC-G26`, `OFC-G27`
+and the isolated mutations S14b / S16b below), and merged after them. The
+vocabulary is the gap ledger's, and the meaning is exactly this:
+
+* **A real governed producer now exists for the required `credit-risk.spread`
+  class.** The `D-IMPL-340` cross-process acquisition path is the acceptance
+  path: a separately running producer supplies the class the composite
+  requires.
+* It does **not** mean the frozen producer was repaired (cp-03 and its
+  quarantines are untouched), that every SDK finding below was resolved, or
+  that CP-14 will serve every request: the spread can be delivered at
+  tolerance `1.0` and is withheld at `0.25`. Producer availability and
+  acceptability for a particular memo are different questions.
+* `CP03C-F-01` stays **OPEN — SDK**. `CP03C-F-04`, `F-05`, `F-06` and `F-07`
+  are carried forward, not fixed here.
+* `examples/cp-03-canonical-obligor-financial-spread` is confirmed on
+  `RULED_SDK_SUPPLIED_DEPLOYMENTS` by the same ruling.
+
 ---
 
 ## `CP03C-F-01` — the governed path records `from_entity_freshness` and computes `from_decision`
@@ -58,6 +79,17 @@ fifty of fifty instead of three.
   compute `from_entity_freshness` from the served view's freshest `valid_from`
   — and over which entities — is a design question with more than one
   reading, and it needs its own decision id.
+
+**The limitation, stated plainly (Dave's close ruling, 2026-09-14).** The
+product checks the filing window at evaluation time, but the SDK currently
+overstates the returned expiry for `from_entity_freshness`. This sibling does
+not repair that contract mismatch. The product gate is therefore **not**
+evidence that a previously returned copy remains valid until its advertised
+`expires_at`: a copy served on 2026-09-07 advertises 2026-10-07 and would be
+refused by the same gate if asked again after 2026-09-09. CP-14's
+reconciliation must carry this — the composite's inherited expiry is not to be
+treated as filing-anchored. Any SDK correction gets a separately recorded
+decision and review.
 
 ### Readings for the ruling — none asserted
 
@@ -238,4 +270,19 @@ SDK-side forgery; the gate holds the SDK's own `producer-unavailable` path).
 Two verdicts are red for a coarser reason than the gate's claim: S14 and S16
 broke the serve itself, so the served fixture errored and the gate's specific
 assertion never ran. They are recorded as red-by-error, not as isolated proofs
-of `OFC-G02` and `OFC-G03`.
+of `OFC-G02` and `OFC-G03`, and they stay in the record as such.
+
+### The two isolated mutations the close ruling required (2026-09-14)
+
+| run | gate | mutation | verdict |
+|---|---|---|---|
+| S14b | `OFC-G02` | declare a second operator (`traversal.typed-neighborhood`) SEEDED FROM EVERY CLASS, so the view is unchanged and the product serves with two operators in its lineage | **RED** — the serve is green (`OFC-G01` passed; 2 red: the gate and its `OFC-G26` control), and the gate fails at its own comparison |
+| S16b | `OFC-G03` | ingest ONE envelope (the obligor) and render the periods from a side channel — the specimen's payload-only representation, served | **RED** — the serve is green (`OFC-G01` passed; 3 red: the gate, its `OFC-G27` control and the debt gate, whose observations vanished with the graph), and the gate fails at its own comparison |
+
+**Where the SDK holds no guard, said so.** Dimension 2 is built by
+`GovernedResolver._applied_bindings` and stored verbatim by
+`build_replay_record`; dimension 1's touched set is the execution's own
+record. No validator cross-checks either against the product, and `OFC-G26` /
+`OFC-G27` assert that the defective records CONSTRUCT. Those two controls
+prove the gates' comparisons can fail; they do not prove the SDK refuses the
+states.

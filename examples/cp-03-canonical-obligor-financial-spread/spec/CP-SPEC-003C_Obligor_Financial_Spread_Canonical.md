@@ -140,7 +140,7 @@ raises for a question that merely has no answer.
 | subject | the obligor's LEI, as `ProductRequest.subject` |
 | intent | `annual-review` — the declared discovery set; judged, never an argument |
 | freshness | `filing-cadence` |
-| TTL | 30 days, **declared** `from_entity_freshness` on the freshest filing in the payload; **served** `expires_at` runs from the decision instant (`CP03C-F-01`); the window itself is held by the declared product gate |
+| TTL | 30 days, **declared** `from_entity_freshness` on the freshest filing in the payload; **served** `expires_at` runs from the decision instant (`CP03C-F-01`); the window itself is held by the declared product gate at evaluation time. The product does not repair the contract mismatch, and the gate is not evidence that a previously served copy remains valid until its advertised `expires_at` |
 | assembly mode | 1 — algorithmic |
 | operators | `policy.principal-subgraph`, and no other |
 | lineage | graph-supplied; every reported line carries its own `accession`, `filed_date`, `form`, `basis_applied`, `restated`, `restatement_class` |
