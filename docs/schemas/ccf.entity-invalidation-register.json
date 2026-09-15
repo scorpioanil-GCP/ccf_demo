@@ -1,0 +1,63 @@
+{
+  "$defs": {
+    "EntityInvalidation": {
+      "additionalProperties": false,
+      "description": "One entity's invalidation boundary, and what moved it.\n\nArgs:\n    entity_uri: The entity whose effective context changed.\n    invalidated_from: The instant from which a product built on older state\n        is ineligible. **The superseding observation's own instant**, not\n        the instant the fabric performed the write \u2014 a boundary derived\n        from wall-clock ingestion would refuse products that were correct\n        as of the evidence they actually read (``D-IMPL-332``'s reasoning,\n        arriving at delivery).\n    reason: Why the boundary moved, in the mechanism's own vocabulary.\n    source: The claim identity that superseded \u2014 what a reader follows to\n        see the change itself.",
+      "properties": {
+        "entity_uri": {
+          "title": "Entity Uri",
+          "type": "string"
+        },
+        "invalidated_from": {
+          "format": "date-time",
+          "title": "Invalidated From",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "entity_uri",
+        "invalidated_from",
+        "reason",
+        "source"
+      ],
+      "title": "EntityInvalidation",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "One tenant's entity invalidation boundaries.\n\nThe same shape as :class:`~ccf.controlplane.artifacts.HalfLifeTable` \u2014 a\nwhole table registered as one artifact, re-registered as a new immutable\nversion on each append. One row per **entity**, never one per event: the\nboundary is the latest instant at which that entity's effective context\nchanged, and an earlier boundary can refuse nothing a later one does not.\n\n**Append-only in the sense that matters.** No row is ever removed, a\nboundary only ever advances, and every append is a distinct audited\nregistry version \u2014 so the full history of appends is recoverable from the\nversion chain even though a single version holds only the current\nboundaries.",
+  "properties": {
+    "entries": {
+      "ccf_hash_transparent": false,
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/EntityInvalidation"
+      },
+      "title": "Entries",
+      "type": "array"
+    },
+    "semver": {
+      "title": "Semver",
+      "type": "string"
+    },
+    "tenant_id": {
+      "title": "Tenant Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "semver",
+    "tenant_id"
+  ],
+  "title": "EntityInvalidationRegister",
+  "type": "object",
+  "x-ccf-class-id": "ccf.entity-invalidation-register"
+}

@@ -525,7 +525,11 @@ LINEAGE_DECLARED_KEYWORD = "operators_invoked"
 #: `D-IMPL-300`. Named structurally rather than by example, so the scope rule
 #: below stays durable for every canonical adopter after cp-05.
 CANONICAL_RESOLVER_ENTRYPOINTS: frozenset[str] = frozenset(
-    {"build_governed_resolver", "GovernedResolver"}
+    # `D-IMPL-343` R-1: `open_product` is the paved road's ONE entrypoint, and
+    # it constructs `build_governed_resolver` around the factory it is handed
+    # exactly as direct adoption does — the same SDK-supplied ownership,
+    # established by the program. Vocabulary only, no roster.
+    {"build_governed_resolver", "GovernedResolver", "open_product"}
 )
 
 BINDER_CALL = "refuse_operator_set_divergence"

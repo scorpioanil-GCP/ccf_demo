@@ -983,6 +983,18 @@ def test_the_named_inputs_are_this_helper_s_own_optional_parameters() -> None:
         # of this roster left it out on the belief that the sentinel was a
         # distinct object, and the guard said otherwise.
         "source_refresh_recency",
+        # `D-IMPL-343` R-3a (`D-IMPL-292` applied): the two TTL figures became
+        # optional so a deployment's declared `ttl:` binding can supply them —
+        # a declaration, not scorer material, and held EQUAL to the call when
+        # both speak. `refusal_recorder` and `acquisition` are the paved
+        # road's two seams onto this helper: the ONE recorder a deployment
+        # already holds, and the declared acquisition boundary (R-4). Each
+        # defaults to the posture every earlier call had — the SDK's own
+        # recorder, and no seam — not from supplied material.
+        "max_ttl_seconds",
+        "product_ttl_seconds",
+        "refusal_recorder",
+        "acquisition",
     )
     parameters = inspect.signature(build_governed_resolver).parameters
     for name in not_debt_scorer_material:

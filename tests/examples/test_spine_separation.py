@@ -229,6 +229,42 @@ RESOLVER_OWNERSHIP_CALLS: frozenset[str] = frozenset(
     }
 )
 
+# ---------------------------------------------------------------------------
+# A fourth shape, and a second named refusal — `D-IMPL-343` R-1.
+# ---------------------------------------------------------------------------
+#
+# `D-IMPL-343` put ONE facade over the governed resolver: a paved tree hands
+# its three verbs to `ccf.products.product.open_product` and never reaches
+# `build_governed_resolver` itself — the facade does, on its behalf. Read by
+# the vocabulary above, such a tree has NO resolver ownership and would be
+# judged a hand-composed spine against the seven regions it does not perform.
+# So the contract gains a fourth valid shape and a second refusal:
+#
+#   paved          paved entry present, no resolver ownership, and NO       valid
+#                  hand-rolled gate / record / serve
+#   double-spined  paved entry AND resolver ownership in one tree           REFUSED
+#
+# **Paved is a STRUCTURAL STATE, not membership in a roster** — the same
+# discipline canonical is held to. And double-spined is refused for its OWN
+# reason: a tree that both opens the product on the paved road and composes
+# the resolver beside it gives a reader two accounts of who boots and who
+# serves, and publishes snippets of a spine the facade already owns.
+
+#: Handing the whole governed seam to the paved road's ONE entrypoint.
+PAVED_ENTRY_CALLS: frozenset[str] = frozenset({"ccf.products.product.open_product"})
+
+#: The paved-road region names, in order. `boot` is shared with the seven and
+#: with the canonical three, deliberately — `region_modules` finds a carrier by
+#: that shared name, and opening a product IS booting it: the one call binds the
+#: deployment's verbs to its documents. `answer` is the one governed question.
+PAVED_PATH_MARKERS: tuple[str, ...] = ("boot", "answer")
+
+#: The number of paved examples in the tree when the shape was measured
+#: (`D-IMPL-343` dogfood A, 2026-09-15: cp-03-canonical alone). A FLOOR, and
+#: only a floor, on `CANONICAL_SHAPE_FLOOR`'s reasoning: never raised to paper
+#: over a predicate that stopped recognizing a tree.
+PAVED_SHAPE_FLOOR: int = 1
+
 #: The number of canonical examples in the tree when the shape was measured
 #: (`D-IMPL-306`, 2026-09-09: cp-05 alone).
 #:
@@ -400,25 +436,40 @@ def legacy_governance_regions(directory: pathlib.Path) -> list[str]:
     )
 
 
+def paved_entry(directory: pathlib.Path) -> list[str]:
+    """Where the example opens its product on the paved road (`D-IMPL-343`)."""
+    sites = [
+        f"{module.name}:{lineno}"
+        for module in modules_in(directory)
+        for qualified, lineno in _qualified_calls(module)
+        if qualified in PAVED_ENTRY_CALLS
+    ]
+    return sorted(sites)
+
+
 def shape_of(directory: pathlib.Path) -> str:
-    """`"canonical"`, `"half-migrated"` or `"spine"` — read off the tree.
+    """`"paved"`, `"canonical"`, `"half-migrated"`, `"double-spined"` or `"spine"` — read off the tree.
 
-    **Structural, never a roster.** The classifier asks two questions of the
-    code: does anything here hand the seam to `GovernedResolver`, and does
-    anything here perform `gate`, `record` or `serve` itself? Nothing consults a
-    list of approved directories, because the property being checked is
-    delegation and a list would check approval instead.
+    **Structural, never a roster.** The classifier asks three questions of the
+    code: does anything here open the product on the paved road, does anything
+    here hand the seam to `GovernedResolver` itself, and does anything here
+    perform `gate`, `record` or `serve` itself? Nothing consults a list of
+    approved directories, because the property being checked is delegation and
+    a list would check approval instead.
 
-    `"spine"` is the default rather than a third detected state: an example
-    with no resolver ownership is judged against the seven regions, which is
-    what every example was judged against before `D-IMPL-306`.
+    `"spine"` is the default rather than a detected state: an example with no
+    paved entry and no resolver ownership is judged against the seven regions,
+    which is what every example was judged against before `D-IMPL-306`.
     """
+    paved = paved_entry(directory)
     owned = resolver_ownership(directory)
-    if not owned:
+    if paved and owned:
+        return "double-spined"
+    if not paved and not owned:
         return "spine"
     if governed_seam_calls(directory) or legacy_governance_regions(directory):
         return "half-migrated"
-    return "canonical"
+    return "paved" if paved else "canonical"
 
 
 def printing_modules(directory: pathlib.Path) -> list[pathlib.Path]:
@@ -519,11 +570,12 @@ def unbalanced(path: pathlib.Path) -> list[str]:
 
 def expected_markers(directory: pathlib.Path) -> tuple[str, ...]:
     """The region vocabulary this example's shape is judged against."""
-    return (
-        CANONICAL_PATH_MARKERS
-        if shape_of(directory) == "canonical"
-        else CANONICAL_MARKERS
-    )
+    shape = shape_of(directory)
+    if shape == "paved":
+        return PAVED_PATH_MARKERS
+    if shape == "canonical":
+        return CANONICAL_PATH_MARKERS
+    return CANONICAL_MARKERS
 
 
 def region_report(
@@ -556,7 +608,7 @@ def half_migrated_refusal(directory: pathlib.Path) -> list[str]:
     Both halves are named, with line numbers, because the repair is to delete
     one of them and the reader has to be told which two are in conflict.
     """
-    owned = resolver_ownership(directory)
+    owned = resolver_ownership(directory) or paved_entry(directory)
     performed = governed_seam_calls(directory)
     regions = legacy_governance_regions(directory)
     detail = []
@@ -569,12 +621,32 @@ def half_migrated_refusal(directory: pathlib.Path) -> list[str]:
         detail.append(f"publishes legacy governance regions {regions}")
     return [
         f"{directory.name}: HALF-MIGRATED. It hands the governed seam to"
-        f" `ccf.products.resolver` at {owned} and simultaneously "
+        f" the SDK at {owned} and simultaneously "
         + "; and ".join(detail)
         + ". An example that both delegates and rebuilds governance gives a"
         " reader two accounts of who decides, and publishes snippets of a"
         " spine the SDK already owns. Delete the hand-rolled half, or the"
-        " resolver adoption — not both, and not neither (`D-IMPL-306`)."
+        " SDK adoption — not both, and not neither (`D-IMPL-306`)."
+    ]
+
+
+def double_spined_refusal(directory: pathlib.Path) -> list[str]:
+    """The second named refusal (`D-IMPL-343` R-1), reported for ITS OWN reason.
+
+    A double-spined example is not "a tree that failed to match the paved
+    shape" — it is a tree that opens its product on the paved road AND
+    composes the governed resolver beside it, so a reader gets two accounts of
+    who boots and who serves. Both sites are named, because the repair is to
+    delete one of them.
+    """
+    return [
+        f"{directory.name}: DOUBLE-SPINED. It opens its product on the paved"
+        f" road at {paved_entry(directory)} and simultaneously hands the"
+        f" governed seam to `ccf.products.resolver` itself at"
+        f" {resolver_ownership(directory)}. The facade already composes the"
+        " resolver on the tree's behalf; a tree that does both publishes two"
+        " spines. Delete the direct composition, or the paved entry — not"
+        " both, and not neither (`D-IMPL-343`)."
     ]
 
 
@@ -600,8 +672,10 @@ def spine_problems(directory: pathlib.Path) -> list[str]:
     shape = shape_of(directory)
     if shape == "half-migrated":
         return half_migrated_refusal(directory)
+    if shape == "double-spined":
+        return double_spined_refusal(directory)
 
-    expected = CANONICAL_PATH_MARKERS if shape == "canonical" else CANONICAL_MARKERS
+    expected = expected_markers(directory)
     problems: list[str] = []
     carriers = region_modules(directory)
     if not carriers:
@@ -1308,3 +1382,123 @@ def test_the_pre_build_exclusion_releases_a_spec_only_tree(
         "a spec-only tree must not be scanned for a spine it cannot have;"
         f" got {split_examples(tmp_path)}"
     )
+
+
+# ---------------------------------------------------------------------------
+# The paved shape — `D-IMPL-343` R-1: a witness, a floor, and two refusals.
+# ---------------------------------------------------------------------------
+
+
+def _paved_subject(tmp_path: pathlib.Path) -> pathlib.Path:
+    """A copy of a tree the PREDICATE calls paved — never one named here.
+
+    `_canonical_subject`'s discipline, applied to the fourth shape: selected
+    by `shape_of`, so the controls below follow the tree and fail loudly if
+    the last paved example regresses or the predicate stops seeing it.
+    """
+    paved = [
+        directory
+        for directory in split_examples(EXAMPLES_ROOT)
+        if shape_of(directory) == "paved"
+    ]
+    assert paved, (
+        "no example in the tree is paved, so every paved assertion below would"
+        " pass over an empty set. Either the predicate stopped recognizing"
+        " `open_product` or the last paved example regressed — both are"
+        " failures, and neither is fixed here."
+    )
+    return _copied_named(tmp_path, paved[0].name)
+
+
+def test_the_paved_population_has_not_silently_dropped() -> None:
+    """A measured FLOOR on the fourth shape, and never authorization."""
+    paved = [
+        directory.name
+        for directory in split_examples(EXAMPLES_ROOT)
+        if shape_of(directory) == "paved"
+    ]
+    assert len(paved) >= PAVED_SHAPE_FLOOR, (
+        f"{len(paved)} paved examples ({paved}) against a measured floor of"
+        f" {PAVED_SHAPE_FLOOR}. An example that opened its product on the paved"
+        " road has stopped doing so, or `shape_of` has stopped seeing it. Do"
+        " not raise the floor."
+    )
+
+
+def test_a_paved_tree_is_read_as_paved_and_owes_the_paved_regions(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The positive control: the predicate has a witness before it refuses anything.
+
+    The copy is paved, problem-free, opens exactly `PAVED_PATH_MARKERS` in
+    order, hands the seam to nothing in `ccf.products.resolver` itself, and
+    performs no governed seam of its own.
+    """
+    copied = _paved_subject(tmp_path)
+    assert shape_of(copied) == "paved"
+    assert paved_entry(copied) and not resolver_ownership(copied)
+    assert expected_markers(copied) == PAVED_PATH_MARKERS
+    assert spine_problems(copied) == []
+    spine = region_modules(copied)[0]
+    assert opened(spine) == PAVED_PATH_MARKERS
+
+
+def test_a_paved_tree_that_also_composes_the_resolver_is_refused_double_spined(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Sabotage — add a direct `build_governed_resolver` call beside `open_product`.
+
+    Refused BY NAME as double-spined, for its own reason, and not as a failure
+    to match either shape.
+    """
+    copied = _paved_subject(tmp_path)
+    spine = region_modules(copied)[0]
+    spine.write_text(
+        spine.read_text(encoding="utf-8")
+        + "\nfrom ccf.products.resolver import build_governed_resolver\n"
+        "\n\ndef _second_spine() -> None:\n    build_governed_resolver()\n",
+        encoding="utf-8",
+    )
+    assert shape_of(copied) == "double-spined"
+    problems = spine_problems(copied)
+    assert len(problems) == 1 and "DOUBLE-SPINED" in problems[0], problems
+
+
+def test_a_paved_tree_that_hand_rolls_a_governed_seam_is_refused_half_migrated(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Sabotage — a paved tree calling `run_gates` itself is half-migrated, by name."""
+    copied = _paved_subject(tmp_path)
+    spine = region_modules(copied)[0]
+    spine.write_text(
+        spine.read_text(encoding="utf-8")
+        + "\nfrom ccf.products.gates import run_gates\n"
+        "\n\ndef _hand_rolled() -> None:\n    run_gates()\n",
+        encoding="utf-8",
+    )
+    assert shape_of(copied) == "half-migrated"
+    problems = spine_problems(copied)
+    assert len(problems) == 1 and "HALF-MIGRATED" in problems[0], problems
+
+
+def test_a_paved_tree_missing_its_boot_region_is_refused_by_name(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Sabotage — drop the shared `boot` region and the carrier disappears.
+
+    `boot` is the name `region_modules` finds a carrier by, deliberately
+    shared with the seven and the canonical three; a paved spine that opens
+    only `answer` publishes a region nothing reads, and P1 says so.
+    """
+    copied = _paved_subject(tmp_path)
+    spine = region_modules(copied)[0]
+    text = spine.read_text(encoding="utf-8")
+    stripped = "\n".join(
+        line for line in text.splitlines()
+        if "[start:boot]" not in line and "[end:boot]" not in line
+    )
+    assert stripped != text, "the subject never opened a `boot` region"
+    spine.write_text(stripped + "\n", encoding="utf-8")
+    assert shape_of(copied) == "paved"
+    problems = spine_problems(copied)
+    assert problems and "no module opens any of the paved regions" in problems[0], problems

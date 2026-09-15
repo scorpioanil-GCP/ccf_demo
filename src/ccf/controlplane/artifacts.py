@@ -126,6 +126,10 @@ __all__ = [
     "PRODUCT_CLASS",
     "PROJECTION_REQUIREMENTS",
     "MCP_PRODUCER",
+    "EGRESS_DOOR",
+    "EgressDoorBinding",
+    "TTL_BINDING",
+    "TtlBinding",
     "McpProducerRegistration",
     "ProducerOfferDeclaration",
     "REPLAY_BINDING",
@@ -1513,6 +1517,21 @@ class ProductClassDeclaration(VersionedArtifact):
     declared_product_gate: DeclaredProductGate = Field(
         default=NO_PRODUCT_GATE, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
+    #: `D-IMPL-343` (design §14 R-3b; `D-IMPL-292` applied). The request
+    #: parameter that carries this class's DECISION INSTANT, or ``None`` when
+    #: the class declares none — the declaration-side home of
+    #: :attr:`~ccf.products.resolver.GovernedResolver.decision_instant_parameter`,
+    #: which `24.10-F-09` recorded as an architecture question the resolver
+    #: keyword left open. A class that declares it here is served with it
+    #: whether it is reached through the paved road or through
+    #: :func:`~ccf.products.resolver.build_governed_resolver`; a builder call
+    #: that states a DIFFERENT value is refused at build, on the `ttl:`
+    #: equality shape. Hash-transparent at ``None`` for `requires`' reason: a
+    #: class declaring none is every class already authored, so no committed
+    #: declaration's content address moves.
+    decision_instant_parameter: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
 
 class ProjectionRequirements(VersionedArtifact):
@@ -2192,6 +2211,40 @@ class DeploymentConfig(VersionedArtifact):
     producers: Mapping[str, Mapping[str, Any]] | None = Field(
         default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
+    # `D-IMPL-343`: the three sections the paved road reads. Hash-transparent
+    # at ``None`` on the `replay` precedent above, for the same reason and
+    # measured by the same test module — a config naming none of them hashes
+    # as it did, so no committed pin moves.
+    #
+    # ``ttl`` — the `ccf.ttl-binding` section body: the class ceiling and the
+    # product lifetime, declared ONCE (`D-IMPL-292`: no argument for a declared
+    # value). ``door`` — the `ccf.egress-door` section body: the identity the
+    # standard door asserts and the prose its tool advertises; never a URL,
+    # never a credential, never a principal (those have their own homes).
+    # ``agent`` — the composing agent, a `ccf.agent-definition` document
+    # written where the deployment's other declarations are (CLAUDE.md §6.4:
+    # an agent is data, not code). It is author-versioned, so it is derived
+    # through the VERSIONED reserved path and never injected with a `semver`
+    # (`D-IMPL-343` R-2; `D-IMPL-85`).
+    ttl: Mapping[str, Any] | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    door: Mapping[str, Any] | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    agent: Mapping[str, Any] | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    # `D-IMPL-343` R-7 (the consumer half): ``skills`` — one
+    # `ccf.skill-catalog-entry` body per label, the deployment's statement
+    # that a declared producer is asked for one required class. Author-
+    # versioned, so derived through the VERSIONED reserved path like `agent`;
+    # completed from the keys it depends on (`requires`, `producers`) and
+    # held equal wherever it restates one. Hash-transparent at ``None`` on the
+    # `replay` precedent: a config declaring no skills hashes as it did.
+    skills: Mapping[str, Mapping[str, Any]] | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
     @model_validator(mode="before")
     @classmethod
@@ -2339,6 +2392,107 @@ class McpProducerRegistration(VersionedArtifact):
 MCP_PRODUCER = ArtifactClass(
     class_id="ccf.mcp-producer", contract=McpProducerRegistration
 )
+
+
+class TtlBinding(VersionedArtifact):
+    """One deployment's TTL figures, declared once (`D-IMPL-343`, R-3a).
+
+    **SDK-defined, not whitepaper-derived** (CLAUDE.md §11). Whitepaper §7.6
+    fixes that a product carries a TTL and that Gate 3 holds it to a class
+    ceiling; it does not say where a deployment WRITES the two numbers. Before
+    this class every canonical tree wrote them in a side document of its own
+    and restated them as two integer keyword arguments to
+    :func:`~ccf.products.resolver.build_governed_resolver` — a value stated in
+    two places, which is the shape `D-IMPL-292` refuses: *no argument for a
+    declared value*.
+
+    Two declared values, neither with a default:
+
+    * ``max_ttl_seconds`` — the class CEILING. Registering it is what mints the
+      ``MAX_TTL`` pin Gate 3 resolves, which is why the class document itself
+      cannot carry it.
+    * ``product_ttl_seconds`` — how long a served product stays servable.
+      Independent of the ceiling by construction; Gate 3 compares the two.
+
+    **The builder's two keywords are now optional and held EQUAL to this.**
+    A call that omits them reads them here; a call that states both agrees or
+    is refused with both values named — never silently overridden in either
+    direction. ``extra="forbid"`` is inherited, so a third key (the
+    ``ttl_anchor_basis`` one canonical tree carried and nothing read) is
+    refused at parse: a declared value nothing reads is documentation, not
+    control.
+    """
+
+    max_ttl_seconds: int
+    product_ttl_seconds: int
+
+    @field_validator("max_ttl_seconds", "product_ttl_seconds")
+    @classmethod
+    def _is_a_positive_window(cls, value: int) -> int:
+        if value <= 0:
+            raise ValueError(
+                f"a TTL window is a positive number of seconds; got {value!r}"
+                " (D-IMPL-343)"
+            )
+        return value
+
+
+#: A deployment's TTL binding (`D-IMPL-343`; SDK-defined per CLAUDE.md §11).
+TTL_BINDING = ArtifactClass(class_id="ccf.ttl-binding", contract=TtlBinding)
+
+
+class EgressDoorBinding(VersionedArtifact):
+    """What the standard MCP egress door asserts and advertises (`D-IMPL-343`).
+
+    **SDK-defined, not whitepaper-derived** (CLAUDE.md §7.1, §8.3, §11). The
+    ``door:`` reserved section's document: the four values a deployment
+    states about its own door, and NOTHING that belongs elsewhere.
+
+    * ``producer_id`` — the identity the door asserts on every outcome
+      (`D-IMPL-340` ruling 2). A consumer holds it to the registration IT
+      governs; equality is a binding check, never an authorization.
+    * ``producer_tenant`` — the tenant the assertion names. **Declared here
+      and CHECKED EQUAL to the deployment's ``tenant_id`` at derivation**
+      (`D-IMPL-343` R-6, Dave: *"Registration declares it; door assertion is
+      held to it; the child's served tenant_id never authorizes. Do not derive
+      tenant from the answer."*). A disagreement is refused by name before
+      anything is registered.
+    * ``tool_description`` — the prose the ``request_context_product`` tool
+      advertises. A deployment value (CINV-01); the SDK writes none.
+    * ``required_scope`` — the bearer scope the door requires.
+
+    **What is refused here by construction.** ``extra="forbid"`` is
+    inherited, so ``principal_id`` and ``role`` — which two shipped door
+    documents restated beside ``default_perspective`` and which nothing ever
+    compared — are refused as unknown keys: the door serves the deployment's
+    declared perspective and has no second authority for it. No URL and no
+    credential is a field either: the OAuth issuer, the resource-server
+    address and the bearer credential are deployment ENVIRONMENT, read by name
+    from the environment document beside the config
+    (:mod:`ccf.deployment.environment`), never content-hashed into the
+    Control Plane (Dave, `D-IMPL-343` GO: *"Do not put URLs or tokens in
+    configuration."*).
+    """
+
+    producer_id: str
+    producer_tenant: str
+    tool_description: str
+    required_scope: str
+
+    @field_validator("producer_id", "producer_tenant", "tool_description", "required_scope")
+    @classmethod
+    def _is_stated(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError(
+                "a door value is stated or absent, never blank (D-IMPL-343)"
+            )
+        return value
+
+
+#: The standard egress door's binding (`D-IMPL-343`; SDK-defined per
+#: CLAUDE.md §11). Identity and advertised prose only — no address, no
+#: secret, no principal.
+EGRESS_DOOR = ArtifactClass(class_id="ccf.egress-door", contract=EgressDoorBinding)
 
 
 #: The parameter-level policy constraint class (whitepaper §7.8; SDK-defined

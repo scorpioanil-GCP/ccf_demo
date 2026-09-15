@@ -62,6 +62,7 @@ __all__ = [
     "HttpClientFactory",
     "McpResourceClient",
     "SyncMcpBridge",
+    "bearer_client_factory",
     "run_with_session",
 ]
 
@@ -392,3 +393,28 @@ class McpResourceClient:
     def resource_templates(self) -> tuple[str, ...]:
         """Synchronous :meth:`resource_templates_async`, bounded the same way."""
         return self._require_bridge().run(self.resource_templates_async())
+
+
+def bearer_client_factory(
+    credential: str, *, timeout_seconds: float
+) -> HttpClientFactory:
+    """An :data:`HttpClientFactory` carrying ``credential`` as a bearer token.
+
+    `D-IMPL-343` (design §5.5). The one place a consuming deployment's
+    producer credential exists is on the ``httpx`` client the shared MCP
+    client threads to every call — the D-26 posture, unchanged — and every
+    shipped consumer wrote the same nineteen-line factory to put it there.
+    This is that factory: it holds no value of its own (the credential is the
+    caller's, resolved from the environment variable a producer registration
+    NAMES), and it is what :func:`~ccf.skills.producers.register_declared_producer`'s
+    ``credential_factory`` argument expects when partially applied to the
+    deadline.
+    """
+
+    def factory() -> httpx.AsyncClient:
+        return httpx.AsyncClient(
+            headers={"Authorization": f"Bearer {credential}"},
+            timeout=timeout_seconds,
+        )
+
+    return factory

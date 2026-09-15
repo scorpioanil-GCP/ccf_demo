@@ -87,6 +87,7 @@ from ccf.controlplane.artifacts import (
     DEBT_PROFILE,
     DEPLOYMENT_CONFIG,
     DEPLOYMENT_MANIFEST,
+    EGRESS_DOOR,
     HALF_LIFE_TABLE,
     OPERATOR_PARAMETERS_POLICY,
     OPERATOR_PARAMETERS_SIMILARITY,
@@ -101,6 +102,7 @@ from ccf.controlplane.artifacts import (
     REPLAY_BINDING,
     RESOLUTION_SPEC,
     SIGNAL_BATCH,
+    TTL_BINDING,
     ArtifactClass,
     ArtifactRole,
     RegistrationMode,
@@ -181,6 +183,13 @@ SDK_ARTIFACT_CLASSES: dict[str, ArtifactClass] = {
     # the section underivable rather than merely unregisterable.
     REPLAY_BINDING.class_id: REPLAY_BINDING,
     MCP_PRODUCER.class_id: MCP_PRODUCER,
+    # `D-IMPL-343`: the two bindings the paved road's `ttl:` and `door:`
+    # reserved sections derive. Manifest-addressable for `REPLAY_BINDING`'s
+    # reason — a class the lookup could not resolve would make the section
+    # underivable — and typed-registerable because neither declares an
+    # `artifact_version`: they are deployment binding, not authored content.
+    TTL_BINDING.class_id: TTL_BINDING,
+    EGRESS_DOOR.class_id: EGRESS_DOOR,
 }
 
 #: Every SDK-owned artifact class whose contract declares an ``artifact_version``

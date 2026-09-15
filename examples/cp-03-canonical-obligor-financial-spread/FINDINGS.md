@@ -286,3 +286,37 @@ record. No validator cross-checks either against the product, and `OFC-G26` /
 `OFC-G27` assert that the defective records CONSTRUCT. Those two controls
 prove the gates' comparisons can fail; they do not prove the SDK refuses the
 states.
+
+## Re-expressed on the paved road — `D-IMPL-343` dogfood A (2026-09-15)
+
+This tree is the first executable proof of the paved road: re-expressed IN
+PLACE from the canonical `boot / acquire / govern` shape, with `acquisition.py`
+(minus its environment reader), `projection.py`, the envelope mapping, the debt
+rule, the gate predicate, the class and lane, the declared gate and the
+twenty-seven gate ids unchanged. Measured, not asserted:
+
+| measure | before (`f952b304`) | after |
+|---|---|---|
+| demonstration spread's content address at the CP-14 instant (BGC Group, tolerance 1.0) | `122e0a7b0b96565eac64af7cf2fbd0d5238c46529c1914b638b237187cd1c21e` | **identical** |
+| its replay record's address | `b3d1c7b117552a2e231a2d23be1982a9ce624c3ed7c58ba6b115e95adaa6bceb` | **identical** — every one of the five dimensions is byte-identical, including dimension 2 (the record pins the sources the resolution consulted, and the three new sections are not among them) |
+| `D_c` / signal | 0.8432753… / `fail_closed` | identical |
+| code lines: produce / deployment / projection / acquisition / run / door (the counter is Appendix A of `docs/D-IMPL-343-DESIGN.md`) | 99 / 341 / 148 / 442 / 93 / 243 = 1366 | 29 / 222 / 148 / 433 / 107 / 25 = **964**; the plumbing that remains is `produce.py`'s two calls, `deployment.py`'s two ≈ 8-line adapters and the door's two lines |
+| SDK names imported by the producer's Python | 30 | 19, of which 9 are the debt rule's own vocabulary (`DebtFactors`, `FreshnessScorer`, `Observation`, the two booted artifact types, the view, the envelope and its source identity, `DebtAssessment`) and 10 are mechanism |
+| documents | 4 | 2 (`ccf_config.yaml`, `ccf_environment.yaml`) |
+| values stated in two places | 6 (replay class; principal + role; the TTL window; class/lane in the door; five section keys; producer tenant) | 0 in documents; the gate's window is read off the served candidate |
+| effective-request derivations | 2, with two postures | 1 — the resolver's own, handed to `acquire` through the declared seam |
+| registries / stores / recorders per door process | 2 / 2 / 3 | 1 / 1 / 1 |
+| gate ids | OFC-G01..G27 | the same 27 ids; OFC-G13 asserts `paved` and the absence of `ProductRequestViolation(` and `ReferencePolicyConstraintResolver(`; OFC-G24 asserts the per-question mint through the public surface |
+
+**What this closes for THIS tree, by construction.** `CP03C-F-02`'s mechanism
+is the SDK's (`open_product` mints per question; a tree cannot forget the
+uuid). `CP03C-F-07`'s class cannot recur here (nothing in the tree constructs a
+refusal envelope; the wrong-lane verdict is the product's, in `src/`).
+`CP03C-F-08`'s ingestion half is refused by name at the boundary
+(`refuse_foreign_envelope`); its decay-basis half is still the declaration's.
+**What stays open**: `CP03C-F-01` (`D-IMPL-341`) — the gate still holds the
+serving half and `OFC-G07` stays a strict xfail; `CP03C-F-05` (`D-IMPL-342`).
+`CP-SPEC-003C` §F named `backends.yaml`, which is now `ccf_environment.yaml`;
+the specification was synchronized to the built tree under `D-IMPL-343`'s
+consumer-half instruction (a name change only — no rule in the specification
+moved).

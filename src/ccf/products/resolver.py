@@ -164,6 +164,7 @@ from ccf.controlplane.artifacts import (
     OperatorParametersArtifact,
     ProductClassDeclaration,
     ReplayBinding,
+    TtlBinding,
 )
 from ccf.controlplane.registry import ControlPlaneProtocol
 from ccf.contracts.canonical import canonical_bytes, content_hash
@@ -269,8 +270,10 @@ __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "DEBT_SCORER_INPUTS",
+    "AcquisitionSeamProtocol",
     "AssemblyDebtScorerProtocol",
     "GovernedResolver",
+    "InstantAwareDebtScorerProtocol",
     "ProductGateProtocol",
     "ProductNotResolvable",
     "ChildAwareDebtScorerProtocol",
@@ -281,6 +284,7 @@ __all__ = [
     "ResolverOutcome",
     "ServedProductResolverProtocol",
     "build_governed_resolver",
+    "declared_refusal_recorder",
 ]
 
 _Artifact = TypeVar("_Artifact", bound=CCFContract)
@@ -719,6 +723,90 @@ class ProductGateProtocol(Protocol):
             string admits — it is not a violation nobody worded, and a gate
             that means to refuse says why.
         """
+        ...
+
+
+@runtime_checkable
+class AcquisitionSeamProtocol(Protocol):
+    """The declared acquisition boundary on the governed call (`D-IMPL-343` R-4).
+
+    **SDK-defined** (CLAUDE.md §11); the rulings of record are ``D-IMPL-279``
+    ``R-09`` — *"it should accept an acquisition result / prepared context
+    input produced through a declared acquisition interface"* — and Dave's
+    ``D-IMPL-343`` ruling R-4, verbatim: *"Effective-request derivation runs
+    once, on the governed call, and acquisition consumes that outcome. A
+    preview API that re-runs constraint resolution is a second derivation and
+    fails D-IMPL-289."*
+
+    **What the seam is.** One callable a deployment (or the paved road's
+    facade on its behalf) hands :class:`GovernedResolver`, invoked by
+    :meth:`GovernedResolver.__call__` exactly once per question, **after** the
+    effective request has been resolved — defaults applied, the constraints
+    in force folded, the technical capabilities held, the intent judged — and
+    **before** the graph is read at the question's boundary. It receives the
+    EFFECTIVE request, so what a deployment reads its sources at is the value
+    governance resolved, never a second derivation of it: the seven copies of
+    ``ReferencePolicyConstraintResolver`` the canonical trees carried to guess
+    that value are what this seam deletes (``D-IMPL-289``: deleted, not
+    relocated).
+
+    **What the seam is not.** It is not the resolver acquiring. The callable
+    is the deployment's composition root — the paved road's
+    :class:`~ccf.products.product.OpenedProduct`, or a hand-composed spine —
+    and it is that root that reads a source and ingests through L2's one
+    writer. :class:`GovernedResolver` holds no writer, hands no envelope to
+    one, and cannot: what its docstring says about that boundary is unchanged
+    by this Protocol, which adds a call and no capability. A refused question
+    never reaches the seam, so a refused request acquires nothing — by the
+    ordering rather than by a check the deployment remembers to write.
+
+    ``perspective`` travels because which principal asks changes WHICH
+    ENTITIES a source read may expand (a jurisdiction grant, say), and the
+    deployment's acquisition is where that expansion legitimately happens.
+    """
+
+    def __call__(self, *, request: ProductRequest, perspective: Perspective) -> None:
+        """Acquire and ingest whatever answering ``request`` needs; return nothing."""
+        ...
+
+
+@runtime_checkable
+class InstantAwareDebtScorerProtocol(Protocol):
+    """A debt scorer that is handed the DECISION INSTANT (`D-IMPL-343` R-3c).
+
+    The second structural companion to :class:`AssemblyDebtScorerProtocol`,
+    on exactly :class:`ChildAwareDebtScorerProtocol`'s precedent
+    (`D-IMPL-339`): a scorer declares that it can read the instant the answer
+    is produced as of — and, for a composite, the admitted children — by
+    implementing this method, and the resolver decides which call to make
+    **structurally**, never by probing a signature.
+
+    **Why the instant has to arrive, rather than be closed over.** A scorer
+    that measures freshness needs *now*, and before this seam every canonical
+    tree wrote a closure over ``asked_at`` — which is the graph boundary, not
+    the decision instant, and the two differ for any class declaring
+    :attr:`~ccf.controlplane.artifacts.ProductClassDeclaration.decision_instant_parameter`
+    (``24.10-F-09``, ``D-IMPL-308``). ``decided_at`` here IS the resolver's
+    own :meth:`GovernedResolver._decision_instant` — the same value the
+    product's expiry runs from and the record's ``recorded_at`` carries — so
+    a deployment's freshness reading and the SDK's expiry can no longer
+    disagree about when the answer was produced.
+
+    A scorer implementing only ``__call__`` is asked exactly as before, and a
+    child-aware scorer keeps its own call; this Protocol is checked first
+    because it is the widest, and a scorer implementing more than one is
+    asked through the widest one it declares.
+    """
+
+    def score_at(
+        self,
+        *,
+        view: GraphView,
+        evidence: ExecutionEvidence | None,
+        decided_at: datetime,
+        children: ChildContractView | None,
+    ) -> DebtAssessment:
+        """Assess ``D_c`` over ``view`` as of ``decided_at``, children in hand."""
         ...
 
 
@@ -1657,6 +1745,16 @@ class GovernedResolver:
     #: repair afterwards.
     source_refresh_recency: SourceRefreshRecency
 
+    #: `D-IMPL-343` R-4 — the declared acquisition boundary, or ``None`` for a
+    #: deployment whose fabric is populated before this resolver is reached
+    #: (every deployment shipped before the seam existed, and every hw1-shaped
+    #: long-lived fabric). When present it is called ONCE per question, with
+    #: the EFFECTIVE request, between resolution and the graph read — see
+    #: :class:`AcquisitionSeamProtocol` for what it is and is not. No default
+    #: here for the class's own reason; :func:`build_governed_resolver`
+    #: defaults it to ``None``.
+    acquisition: AcquisitionSeamProtocol | None
+
     def _decision_instant(
         self, request: ProductRequest, effective_request: ProductRequest
     ) -> datetime:
@@ -1918,6 +2016,16 @@ class GovernedResolver:
             update={"parameters": dict(effective.values())}
         )
 
+        # `D-IMPL-343` R-4: THE DECLARED ACQUISITION SEAM, HERE AND ONLY HERE.
+        # The question is resolved (above) and the graph is not yet read
+        # (below), so what the deployment reads its sources at is the value
+        # governance resolved — the one derivation — and a refused request
+        # never reaches this line. The seam is the composition root's: it
+        # reads and it ingests through L2's one writer; this resolver hands
+        # it a request and holds no handle to anything it writes.
+        if self.acquisition is not None:
+            self.acquisition(request=effective_request, perspective=perspective)
+
         view = self.fabric.handle.reader.as_of(
             tenant_id=self.fabric.tenant_id, at=request.asked_at
         )
@@ -2126,14 +2234,33 @@ class GovernedResolver:
             seeds=request_seeds(request),
         )
 
+        # `24.10-F-09` / `D-IMPL-308`. Bound ONCE and read FOUR times below —
+        # the product's expiry, the gate instant, the record's `recorded_at`
+        # and, as of `D-IMPL-343` R-3c, the instant an instant-aware scorer
+        # measures freshness as of — are four statements about the same
+        # moment, and deriving them separately is how they drift apart. Hoisted
+        # above the scorer call for that fourth reader; it reads only the two
+        # requests, so nothing about the value moved.
+        decided_at = self._decision_instant(request, effective_request)
+
         # `24.11-03` / `24.10-F-08`: hoisted out of the constructor because two
         # members are now derived from it — the assessment itself and the
         # obligation bound to the state it landed in — and scoring twice could
         # put a product's debt and its obligation on different sides of a band.
-        # `D-IMPL-339`: a child-aware scorer receives the same view the plan
-        # did, so the parent's own child-dependent `C` / `S` reach its
+        # `D-IMPL-343` R-3c: an instant-aware scorer is asked FIRST and is
+        # handed the decision instant and the admitted children (None for a
+        # non-composite) — the widest seam, so a scorer declaring it is asked
+        # through it. `D-IMPL-339`: a child-aware scorer receives the same view
+        # the plan did, so the parent's own child-dependent `C` / `S` reach its
         # assessment per request; every other scorer is asked as before.
-        if children is not None and isinstance(self.debt_scorer, ChildAwareDebtScorerProtocol):
+        if isinstance(self.debt_scorer, InstantAwareDebtScorerProtocol):
+            assessed = self.debt_scorer.score_at(
+                view=execution.view,
+                evidence=ExecutionEvidence.of(execution),
+                decided_at=decided_at,
+                children=children,
+            )
+        elif children is not None and isinstance(self.debt_scorer, ChildAwareDebtScorerProtocol):
             assessed = self.debt_scorer.score_with_children(
                 view=execution.view,
                 evidence=ExecutionEvidence.of(execution),
@@ -2143,11 +2270,6 @@ class GovernedResolver:
             assessed = self.debt_scorer(
                 view=execution.view, evidence=ExecutionEvidence.of(execution)
             )
-        # `24.10-F-09` / `D-IMPL-308`. Bound ONCE and read three times below —
-        # the product's expiry, the gate instant and the record's `recorded_at`
-        # are three statements about the same moment, and deriving them
-        # separately is how they drift apart.
-        decided_at = self._decision_instant(request, effective_request)
 
         # --- composite assembly (`D-IMPL-336` Amendment 3, F0) -------------
         #
@@ -3050,6 +3172,120 @@ def _declared_member(
     return value
 
 
+def _ttl_binding_on(fabric: BootedFabric) -> TtlBinding | None:
+    """The one :class:`~ccf.controlplane.artifacts.TtlBinding` a fabric declares, or ``None``.
+
+    `D-IMPL-343` R-3a, on :func:`_replay_binding_on`'s shape and for its
+    reason: ``None`` is a statement (every config written before the `ttl:`
+    section existed declares none, and the two builder keywords still supply
+    the figures), and more than one is refused rather than resolved.
+
+    Raises:
+        TypeError: the fabric declares more than one TTL binding.
+    """
+    declared = sorted(
+        key for key, artifact in fabric.artifacts.items() if isinstance(artifact, TtlBinding)
+    )
+    if not declared:
+        return None
+    if len(declared) > 1:
+        raise TypeError(
+            "this deployment declares more than one TTL binding —"
+            f" {', '.join(repr(key) for key in declared)} — so which window"
+            " was meant is a question only the deployment's author can"
+            " answer (D-IMPL-343 R-3a): declare one `ttl:` section"
+        )
+    binding = fabric.artifacts[declared[0]]
+    assert isinstance(binding, TtlBinding)  # narrowed by the filter above
+    return binding
+
+
+def _resolve_ttl(
+    fabric: BootedFabric, *, max_ttl_seconds: int | None, product_ttl_seconds: int | None
+) -> tuple[int, int]:
+    """The class ceiling and the product lifetime — one authority, two readers.
+
+    `D-IMPL-343` R-3a, `D-IMPL-292` applied to the two TTL figures. Per
+    figure: the call's value when the declaration has none; the declaration's
+    when the call is silent; **both, held equal**, when both speak — and a
+    disagreement is refused with both values named rather than resolved by
+    precedence, because a builder keyword that could silently override a
+    declared window is exactly the second authority the ruling deletes. When
+    neither source supplies a figure the refusal names both places it could
+    have come from, on `_declared_member`'s posture: the SDK invents no TTL.
+
+    Raises:
+        TypeError: a figure is supplied by neither source, or by both with
+            different values.
+    """
+    binding = _ttl_binding_on(fabric)
+    resolved: list[int] = []
+    for argument, member, supplied in (
+        ("max_ttl_seconds", "max_ttl_seconds", max_ttl_seconds),
+        ("product_ttl_seconds", "product_ttl_seconds", product_ttl_seconds),
+    ):
+        declared = None if binding is None else int(getattr(binding, member))
+        if supplied is None and declared is None:
+            raise TypeError(
+                f"this call omits `{argument}` and this deployment's Control"
+                " Plane declares no `ttl:` binding, so nothing supplies it."
+                f" State `{argument}` on the call, or declare a `ttl:` section"
+                f" naming `{member}` in the deployment's ccf_config.yaml — the"
+                " SDK does not invent a TTL when neither source provides one"
+                " (D-IMPL-343 R-3a; D-IMPL-292)"
+            )
+        if supplied is not None and declared is not None and supplied != declared:
+            raise TypeError(
+                f"this call states `{argument}={supplied}` and this"
+                f" deployment's `ttl:` binding declares `{member}: {declared}`;"
+                " a declared value has one authority, and a call that could"
+                " override it silently would be a second one (D-IMPL-343 R-3a;"
+                " D-IMPL-292) — drop the argument, or correct the declaration"
+            )
+        resolved.append(int(supplied if supplied is not None else declared))  # type: ignore[arg-type]
+    return resolved[0], resolved[1]
+
+
+def declared_refusal_recorder(
+    *,
+    control_plane: ControlPlaneProtocol,
+    artifact_store: ArtifactStoreProtocol,
+    replay_record_class: str,
+    tenant_id: str,
+    assembly_mode: AssemblyMode,
+    policy_bundle_pin: PolicyBinding,
+) -> ReplayRefusalRecorder:
+    """ONE :class:`ReplayRefusalRecorder` for a deployment, built once, shared everywhere.
+
+    `D-IMPL-343` (design §5.3, §5.4). The recorder :func:`build_governed_resolver`
+    builds for itself is bound to the store, class, tenant, mode and bundle pin
+    the call supplied — and before this function a door that needed the same
+    recorder could not reach it, because the canonical trees built their
+    resolver per question inside a function that returned only the outcome.
+    So every one of those doors built a SECOND recorder over a SECOND store,
+    and served and refused decisions were filed in two places under a class
+    each module restated (`CP03C-F-07`'s neighborhood). This is the same
+    construction the builder performs, exposed so a composition root can build
+    the recorder ONCE — from the declared `replay:` binding and the bundle's
+    content address — and hand the same object to the resolver (through
+    ``refusal_recorder=``) and to
+    :func:`~ccf_runtime.mcp.egress.build_egress_server`.
+
+    ``policy_bundle_pin.version`` is the bundle's content address, which is
+    what the registry mints for it (`D-IMPL-26`), so a caller holding the
+    parsed bundle can build this before anything is booted and the pin it
+    records is the pin the boot will mint.
+    """
+    return ReplayRefusalRecorder(
+        artifact_store=artifact_store,
+        replay_record_class=replay_record_class,
+        tenant_id=tenant_id,
+        assembly_mode=assembly_mode,
+        policy_bundle_pin=policy_bundle_pin,
+        disclosure_level_for=_disclosure_reader(control_plane),
+    )
+
+
 def build_governed_resolver(
     *,
     fabric: BootedFabric,
@@ -3059,8 +3295,12 @@ def build_governed_resolver(
     operator_parameter_keys: tuple[str, ...],
     policy_bundle_key: str,
     plan_factory: ProjectionPlanFactoryProtocol,
-    max_ttl_seconds: int,
-    product_ttl_seconds: int,
+    #: `D-IMPL-343` R-3a (`D-IMPL-292` applied): optional, and read from the
+    #: deployment's declared `ttl:` binding when omitted. A call stating a
+    #: value that DIFFERS from the declaration is refused with both named —
+    #: an argument for a declared value is one more place to be wrong.
+    max_ttl_seconds: int | None = None,
+    product_ttl_seconds: int | None = None,
     decision_instant_parameter: str | None = None,
     source_refresh_recency: SourceRefreshRecency = NO_SOURCE_REFRESH_RECENCY,
     #: `D-IMPL-336` Amendment 3, F0. Defaulted HERE and required on the
@@ -3088,6 +3328,13 @@ def build_governed_resolver(
     product_gate: ProductGateProtocol | None = None,
     constraint_resolver: PolicyConstraintResolver | None = None,
     capabilities: tuple[TechnicalCapability, ...] | None = None,
+    #: `D-IMPL-343`: the ONE recorder a deployment may hand in so its door and
+    #: its resolver share a writer (see :func:`declared_refusal_recorder`);
+    #: ``None`` selects the SDK's own over the store this call chose, exactly
+    #: as before. And the declared acquisition seam (R-4), ``None`` for every
+    #: deployment whose fabric is populated before the resolver is reached.
+    refusal_recorder: RefusalRecorderProtocol | None = None,
+    acquisition: AcquisitionSeamProtocol | None = None,
 ) -> GovernedResolver:
     """Build a :class:`GovernedResolver`, selecting the SDK's reference scorer.
 
@@ -3446,6 +3693,30 @@ def build_governed_resolver(
         # where the limitation is recorded rather than left to be discovered.
         store = FileArtifactStore(root=Path(artifact_store_root) / dirname)
 
+    # `D-IMPL-343` R-3a, THIRD: the two TTL figures, from the call or from the
+    # declared `ttl:` binding, held EQUAL when both speak and refused when
+    # neither does. Before the R-12 scorer material for the R-12 reason.
+    ceiling, lifetime = _resolve_ttl(
+        fabric, max_ttl_seconds=max_ttl_seconds, product_ttl_seconds=product_ttl_seconds
+    )
+    # `D-IMPL-343` R-3b, the same shape for the decision instant: the class
+    # DECLARES which request parameter carries it, this call may restate it,
+    # and the two are held equal — a keyword that could name a different
+    # parameter than the declaration would be the ungoverned second authority
+    # `24.10-F-09` recorded and `D-IMPL-292` refuses.
+    declared_instant = boot_declaration.decision_instant_parameter
+    if decision_instant_parameter is None:
+        decision_instant_parameter = declared_instant
+    elif declared_instant is not None and declared_instant != decision_instant_parameter:
+        raise TypeError(
+            f"this call states `decision_instant_parameter={decision_instant_parameter!r}`"
+            f" and the product class {product_class_key!r} declares"
+            f" `decision_instant_parameter: {declared_instant}`; the class's"
+            " declaration is the one authority for which argument carries the"
+            " decision instant (D-IMPL-343 R-3b; D-IMPL-292) — drop the"
+            " argument, or correct the declaration"
+        )
+
     # Keyed by name rather than zipped against :data:`DEBT_SCORER_INPUTS`
     # positionally: a positional pairing goes on running after somebody reorders
     # the constant, and reports the wrong argument in both refusals below.
@@ -3491,7 +3762,13 @@ def build_governed_resolver(
     # bound to a deployment exactly as its resolver is, and a mode or a pin
     # re-read at each refusal could describe a deployment that had changed
     # since the determination it is recording.
-    recorder = ReplayRefusalRecorder(
+    #
+    # `D-IMPL-343`: a recorder the deployment already holds wins — the paved
+    # road builds ONE over the declared binding and hands the same object to
+    # this resolver and to its door, so a served and a refused decision cannot
+    # land in two stores or under two classes. Nothing about the recorder the
+    # SDK builds when none is handed in has changed.
+    recorder: RefusalRecorderProtocol = refusal_recorder if refusal_recorder is not None else ReplayRefusalRecorder(
         artifact_store=store,
         replay_record_class=record_class,
         tenant_id=fabric.tenant_id,
@@ -3551,12 +3828,13 @@ def build_governed_resolver(
             artifact_store=store,
             replay_record_class=record_class,
             query_pin_class=pin_class,
-            max_ttl_seconds=max_ttl_seconds,
-            product_ttl_seconds=product_ttl_seconds,
+            max_ttl_seconds=ceiling,
+            product_ttl_seconds=lifetime,
             decision_instant_parameter=decision_instant_parameter,
             source_refresh_recency=source_refresh_recency,
             composite_children=composite_children,
             admission_clock=admission_clock,
+            acquisition=acquisition,
         )
 
     if (
@@ -3605,10 +3883,11 @@ def build_governed_resolver(
         artifact_store=store,
         replay_record_class=record_class,
         query_pin_class=pin_class,
-        max_ttl_seconds=max_ttl_seconds,
-        product_ttl_seconds=product_ttl_seconds,
+        max_ttl_seconds=ceiling,
+        product_ttl_seconds=lifetime,
         decision_instant_parameter=decision_instant_parameter,
         source_refresh_recency=source_refresh_recency,
         composite_children=composite_children,
         admission_clock=admission_clock,
+        acquisition=acquisition,
     )

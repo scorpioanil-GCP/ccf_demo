@@ -79,12 +79,12 @@ EXAMPLE = REPO_ROOT / "examples" / "cp-03-canonical-obligor-financial-spread"
 RUN = EXAMPLE / "run.py"
 
 #: The producer's OWN declarations, read from its tree rather than restated:
-#: the identity its door asserts and the tenant its fabric runs as. A consumer
+#: the identity its door asserts and the tenant its fabric runs as — both from
+#: the ONE document the paved road declares them in (`D-IMPL-343`). A consumer
 #: registers what the producer declares; equality is a binding, never an
 #: authorization.
-DOOR = yaml.safe_load((EXAMPLE / "server" / "door.yaml").read_text(encoding="utf-8"))["declaration"]
 CONFIG = yaml.safe_load((EXAMPLE / "ccf_config.yaml").read_text(encoding="utf-8"))
-PRODUCER_ID = str(DOOR["producer_id"])
+PRODUCER_ID = str(CONFIG["door"]["producer_id"])
 PRODUCER_TENANT = str(CONFIG["tenant_id"])
 PRODUCT_CLASS = str(CONFIG["product_class"]["schema_name"])
 PRODUCT_VERSION = str(CONFIG["product_class"]["schema_version"])
@@ -584,9 +584,13 @@ def test_the_door_and_the_in_process_run_serve_one_content_address(
         import deployment  # noqa: PLC0415
         import produce  # noqa: PLC0415
 
-        asked = deployment.request(lei=ROSTER_OBLIGOR, asked_at=CP14_INSTANT, debt_tolerance="1.0", intent=INTENT, freshness=FRESHNESS)
-        with tempfile.TemporaryDirectory() as scratch:
-            local = produce.assemble_and_serve(asked=asked, root=pathlib.Path(scratch))
+        with tempfile.TemporaryDirectory() as scratch, produce.product(pathlib.Path(scratch)) as opened:
+            asked = opened.question(
+                subject=ROSTER_OBLIGOR, asked_at=CP14_INSTANT, intent=INTENT, freshness=FRESHNESS,
+                parameters={deployment.DEBT_TOLERANCE: "1.0"},
+            )
+            local = opened.answer(asked)
+        assert isinstance(local, ServedProduct), getattr(local, "detail", local)
         assert content_hash(local.product) == through_the_door
     finally:
         sys.path.remove(str(EXAMPLE))

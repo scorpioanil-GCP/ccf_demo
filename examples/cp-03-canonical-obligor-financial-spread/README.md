@@ -93,10 +93,15 @@ make example-cp-03-canonical LEI=549300D0WZR1VI2QGB24 ASKED_AT=2026-08-29T12:00:
 make example-cp-03-canonical ASKED_AT=2026-09-07T12:00:00+00:00 DEBT_TOLERANCE=1.0 BASIS=latest-restated
 make example-cp-03-canonical ASKED_AT=2026-09-07T12:00:00+00:00 DEBT_TOLERANCE=1.0 PRINCIPAL=PRIN-KYC-004
 
-# The door: stdio (the entry point door.yaml declares), or a loopback HTTP port for a harness.
-PYTHONPATH=src:runtime .venv/bin/python examples/cp-03-canonical-obligor-financial-spread/server/serve.py
+# The door on a loopback HTTP port for a harness — it advertises its OWN bound address, so
+# no URL variable is needed; the bearer credential is minted per boot unless you set it.
 PYTHONPATH=src:runtime:examples/cp-03-canonical-obligor-financial-spread \
   .venv/bin/python examples/cp-03-canonical-obligor-financial-spread/run.py --door
+
+# The door on stdio, for an MCP client that spawns it. The two OAuth addresses are
+# deployment environment (`ccf_environment.yaml` names the variables; no URL is configuration):
+export CCF_CP_03C_DOOR_ISSUER_URL=https://issuer.example      CCF_CP_03C_DOOR_RESOURCE_URL=https://door.example/mcp
+PYTHONPATH=src:runtime .venv/bin/python examples/cp-03-canonical-obligor-financial-spread/server/serve.py
 ```
 
 `ASKED_AT` omitted asks now — and at the time of writing every obligor's
@@ -141,27 +146,52 @@ the operator parameter set's content hash and into replay.
 Measured while building the door: several questions under one scratch root
 booted one SQLite file, and the third question's view still held the first
 obligor's spread — a subject that resolved to nothing was served somebody
-else's figures. `backends.yaml` declares `per_run: path`; `deployment.
-connection` mints a fresh path per run; and Π serves the subject's claims and
-no other's, so a view holding a second obligor cannot be served as this one's.
+else's figures. On the paved road (`D-IMPL-343`) the per-question fabric is the
+SDK's to mint: `ccf_environment.yaml` names the substrate's setting, prefix and
+suffix, `open_product` mints a fresh path under the caller's scratch for EVERY
+question, and Π serves the subject's claims and no other's, so a view holding a
+second obligor cannot be served as this one's. Nothing in this tree remembers
+a uuid.
+
+### The paved road (`D-IMPL-343`)
+
+This tree is the first executable proof of the paved road: it was re-expressed
+IN PLACE from the canonical `boot / acquire / govern` shape with its domain
+code, its calculations, its projection, its debt rule, its class and lane, its
+declared gate and its twenty-seven gates unchanged — and the demonstration
+spread's **content address and replay record are byte-identical** before and
+after (`122e0a7b…` / `b3d1c7b1…`, measured at the CP-14 instant). What changed
+is who owns the plumbing:
+
+| before | after |
+|---|---|
+| `produce.py` 99 code lines: a registry, a boot, an effective-request re-derivation, an ingest loop, a fifteen-keyword builder call, a store, a record readback | `produce.py` ≈ 30: a named `plan_factory`, ONE `open_product(...)` call binding three verbs, ONE `opened.answer(...)` |
+| `server/serve.py` 243 code lines: a second registry, a hand-built entitlement policy, a token file, two recorders over a second store, a hand-built `class-mismatch` envelope, wire re-typing, the builder call, the stdio block, the loopback body | `server/serve.py` ≈ 12: `open_door(opened).serve_stdio()` / `.serve_loopback(...)` |
+| four documents (`ccf_config.yaml`, `backends.yaml`, `server/door.yaml`, `artifacts/ttl.yaml`); six values stated in two places | two documents (`ccf_config.yaml`, `ccf_environment.yaml`); zero values stated twice — a principal, role, URL or credential under `door:` is refused by name |
+| the effective request derived twice, with two postures | once, by the resolver, handed to `acquire` through the declared seam |
+| two replay stores, three refusal recorders per door process | one store, one recorder, shared by the spine and the door |
+
+What the developer still writes is exactly the ruled split: `acquisition.py`
+(the SELECTs), `projection.py` (Π), `deployment.py` (the envelopes, the debt
+rule, the gate predicate — and now two ≈ 8-line adapters, `acquire` and
+`assess`, that hand those to the SDK's contexts), and the two documents.
 
 ## Artifact-by-artifact
 
 | file | what it is |
 |---|---|
 | `ccf_config.yaml` | the single Control Plane document — every section this deployment puts in force, including the discovery intents, the request binding for the grant, and the declared product gate |
-| `backends.yaml` | how the one source store is reached. Variable **names** only; no host, port, schema or credential |
+| `ccf_environment.yaml` | the deployment's ENVIRONMENT: the per-question substrate, the source store's variable **names** and remedies, the door's credential and address names. No host, port, schema, credential or URL — a Control Plane value written here is refused by name |
 | `artifacts/source-vocabulary.yaml` | the store's own table names and the two fiscal markers |
 | `artifacts/spread-lines.yaml` | the tag map, the ratio definitions with their `??` fallbacks, the (empty) adjustments — the specimen's declaration, byte for byte |
 | `artifacts/restatement.yaml` | the fact identity key and the materiality threshold — the specimen's declaration, byte for byte |
-| `artifacts/ttl.yaml` | the 30-day window and its anchor basis |
 | `artifacts/gates.yaml` | the twenty-seven declared gates and the tests that claim them |
 | `acquisition.py` | the three `SELECT`s and the arithmetic interpreter. **Imports no `ccf` at all** |
 | `deployment.py` | this deployment's vocabulary, the envelopes, the debt, the product's own gate |
 | `projection.py` | Π — the payload, read off the view and scoped to the subject |
-| `produce.py` | **the fabric's half.** Three regions: `boot`, `acquire`, `govern` |
+| `produce.py` | **the fabric's half.** Two regions: `boot` (one `open_product` call binding the three verbs) and `answer` (one governed question) |
 | `run.py` | presentation. The only module that prints |
-| `server/door.yaml`, `server/serve.py` | the MCP egress door, with the identity it asserts; `run.py --door` boots it on a loopback port for a harness |
+| `server/serve.py` | the standard MCP egress door, twelve lines over `open_door`; the identity it asserts and the prose it advertises are `ccf_config.yaml`'s `door:` section; `run.py --door` boots it on a loopback port for a harness |
 | `spec/CP-SPEC-003C_…` | this tree's own specification; §G.1 approves every gate |
 | `FINDINGS.md` | what authoring this against the current SDK surface exposed |
 
@@ -171,7 +201,11 @@ and nothing in `deployment.py` has anything left to interpret.
 ### What is deliberately absent
 
 No `gate` region, no `record` region, no `serve` region, and no call to
-`run_gates`, `build_replay_record` or `serve` anywhere in this tree. The
+`run_gates`, `build_replay_record` or `serve` anywhere in this tree — and, on
+the paved road, no `build_governed_resolver`, no `ReferencePolicyConstraintResolver`
+and no `ProductRequestViolation` either: the structural classifier reads this
+tree as `paved`, and a tree that composed the resolver beside `open_product`
+would be refused `double-spined` by name. The
 specimen's call to `build_replay_record` with no resolution binding — one of the
 two defects that keep it from serving — has nowhere to exist here.
 
@@ -204,8 +238,9 @@ assertion and cross-deployment admission), `CP14-F-22` (this tree's charter).
    every cell; a restated obligor's figures — and its address — move.
 
 To point this at **your own estate**, edit `artifacts/source-vocabulary.yaml`
-(the table names) and `backends.yaml` (the environment variables). To spread
-different lines, edit `artifacts/spread-lines.yaml`. No Python changes.
+(the table names) and `ccf_environment.yaml` (the environment variable names).
+To spread different lines, edit `artifacts/spread-lines.yaml`. No Python
+changes.
 
 ## What would fail
 

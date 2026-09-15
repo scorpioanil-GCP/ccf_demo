@@ -3,7 +3,7 @@
 [ADAPT] freely — this file is presentation and nothing else.
 
 **It carries no marker region**, so nothing printed here is published-snippet
-surface: an adopter copies ``produce.py``'s three regions, not this. It is also
+surface: an adopter copies ``produce.py``'s two regions, not this. It is also
 the ONLY module in this example that writes to a terminal, which is what keeps
 a printed line out of the spine.
 
@@ -29,11 +29,14 @@ import argparse
 import sys
 import tempfile
 from datetime import UTC, datetime
+from decimal import Decimal
 from pathlib import Path
+from typing import Any
 
 import deployment
 import produce
 from ccf.products.refusal import RefusalEnvelope
+from ccf.projection.plan import Perspective
 
 #: The obligor this example demonstrates against. An argument, not a constant
 #: in the fabric's path — pass your own anchor to ask about another obligor.
@@ -59,6 +62,11 @@ STALE_AT_THE_INSTANT = "549300D0WZR1VI2QGB24"
 PRINCIPAL_WITH_NO_GRANT = "PRIN-KYC-004"
 PRINCIPAL_WITH_A_WIDER_GRANT = "PRIN-RES-002"
 
+#: The intent and freshness this class serves — the discovery set declares the
+#: first; the second is the request's own vocabulary (`CP-SPEC-003C` §B).
+INTENT = "annual-review"
+FRESHNESS = "filing-cadence"
+
 
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -68,7 +76,7 @@ def main(argv: list[str]) -> int:
         help=f"ISO instant with offset; omit to ask now (CP-14 asks at {DEMONSTRATION_INSTANT})",
     )
     parser.add_argument("--debt-tolerance", default="0.25", help="the caller's D_c ceiling (required by the contract)")
-    parser.add_argument("--intent", default="annual-review")
+    parser.add_argument("--intent", default=INTENT)
     parser.add_argument("--periods", type=int, default=None, help="omit to let the class default resolve")
     parser.add_argument("--basis", default=None, help="as-reported | latest-restated; omit for the class default")
     parser.add_argument("--no-peers", action="store_true", help="ask with include_peers=false")
@@ -88,21 +96,32 @@ def main(argv: list[str]) -> int:
         door.loopback(announce=lambda port: print(f"READY {port}", flush=True))
         return 0
 
-    asked = deployment.request(
-        lei=parsed.lei,
-        asked_at=datetime.fromisoformat(parsed.asked_at) if parsed.asked_at else datetime.now(UTC),
-        debt_tolerance=parsed.debt_tolerance,
-        intent=parsed.intent,
-        periods=parsed.periods,
-        basis=parsed.basis,
-        include_peers=False if parsed.no_peers else None,
-        principal_id=parsed.principal,
-    )
+    parameters: dict[str, Any] = {deployment.DEBT_TOLERANCE: Decimal(parsed.debt_tolerance)}
+    for name, value in (
+        (deployment.PERIODS, parsed.periods),
+        (deployment.BASIS, parsed.basis),
+        (deployment.INCLUDE_PEERS, False if parsed.no_peers else None),
+    ):
+        if value is not None:
+            parameters[name] = value
 
-    with tempfile.TemporaryDirectory() as scratch:
-        outcome = produce.assemble_and_serve(
-            asked=asked, root=Path(scratch), principal_id=parsed.principal
+    with tempfile.TemporaryDirectory() as scratch, produce.product(Path(scratch)) as opened:
+        perspective: Perspective | None = None
+        if parsed.principal and parsed.principal != opened.default_perspective.principal_id:
+            # Ask as somebody else: that principal's grant is STATED on the
+            # request, where the effective request records it.
+            parameters.update(
+                deployment.grant_parameters(parsed.principal, settings=opened.sources[deployment.SOURCE])
+            )
+            perspective = Perspective(principal_id=parsed.principal, role=opened.default_perspective.role)
+        asked = opened.question(
+            subject=parsed.lei,
+            asked_at=datetime.fromisoformat(parsed.asked_at) if parsed.asked_at else datetime.now(UTC),
+            intent=parsed.intent,
+            freshness=FRESHNESS,
+            parameters=parameters,
         )
+        outcome = opened.answer(asked, perspective=perspective)
 
         print(f"obligor     : {parsed.lei}")
         print(f"asked at    : {asked.asked_at.isoformat()}")
@@ -112,7 +131,7 @@ def main(argv: list[str]) -> int:
             print(f"{name:<12}: " + (f"{value} (as asked)" if value is not None else "absent — the class default resolves"))
         print(f"tolerance   : {asked.parameters[deployment.DEBT_TOLERANCE]}")
         if parsed.principal:
-            print(f"principal   : {parsed.principal} — grant stated as {len(asked.parameters[deployment.JURISDICTIONS])} jurisdictions")
+            print(f"principal   : {parsed.principal} — grant stated as {len(asked.parameters.get(deployment.JURISDICTIONS, ()))} jurisdictions")
 
         if isinstance(outcome, RefusalEnvelope):
             # A refusal is an ANSWER, not a crash: the question was governed and
@@ -148,7 +167,7 @@ def main(argv: list[str]) -> int:
         print(f"context debt: D_c = {debt.debt}  (F={debt.factors.freshness} C={debt.factors.completeness} S={debt.factors.semantic_consistency})")
         print(f"       signal: {debt.signal}")
         print(f"expires at  : {outcome.product.expires_at.isoformat()}")
-        print(f"replay      : {outcome.served.replay_ref.content_address}")
+        print(f"replay      : {outcome.replay_ref.content_address}")
     return 0
 
 

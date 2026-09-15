@@ -746,6 +746,7 @@
           "attribute_keys": "tuple[str, ...]",
           "entity_class": "<class 'str'>",
           "identity_keys": "tuple[str, ...]",
+          "identity_sources": "collections.abc.Mapping[str, str]",
           "match_key": "<class 'str'>"
         }
       },
@@ -1107,7 +1108,9 @@
       "WireOutcome": {
         "kind": "contract",
         "shape": {
+          "answered": "ccf.products.door.AnsweredQuestion | None",
           "content_address": "str | None",
+          "producer": "ccf.products.producer.ProducerAssertion | None",
           "product_json": "str | None",
           "refusal": "ccf.products.refusal.RefusalEnvelope | None",
           "replay_ref": "str | None",
@@ -1214,7 +1217,7 @@
           "lineage": "frozenset[ccf.contracts.claims.LineageEntry]",
           "observed_at": "<class 'datetime.datetime'>",
           "tenant_id": "<class 'str'>",
-          "valid_from": "<class 'datetime.datetime'>",
+          "valid_from": "datetime.datetime | None",
           "valid_to": "datetime.datetime | None"
         }
       },
@@ -1244,9 +1247,30 @@
           "relationship_type": "<class 'str'>",
           "subject_uri": "<class 'str'>",
           "tenant_id": "<class 'str'>",
-          "valid_from": "<class 'datetime.datetime'>",
+          "valid_from": "datetime.datetime | None",
           "valid_to": "datetime.datetime | None"
         }
+      }
+    }
+  },
+  "ccf.contracts.guarded": {
+    "__all__": [
+      "GUARDED_TYPES",
+      "GuardedTypeDeclaration",
+      "declaration_for"
+    ],
+    "exports": {
+      "GUARDED_TYPES": {
+        "kind": "constant",
+        "shape": "tuple"
+      },
+      "GuardedTypeDeclaration": {
+        "kind": "class",
+        "shape": "(type_path: 'str', authority: 'str', mint: 'str', verifier: 'str | None', boundaries: 'tuple[str, ...]', propagation: 'str', residual: 'str | None' = None, verifier_aliases: 'tuple[str, ...]' = (), notes: 'tuple[str, ...]' = <factory>) -> None"
+      },
+      "declaration_for": {
+        "kind": "function",
+        "shape": "(type_path: 'str') -> 'GuardedTypeDeclaration | None'"
       }
     }
   },
@@ -1320,10 +1344,14 @@
       "DeclaredArtifact",
       "DeploymentConfig",
       "DeploymentManifest",
+      "EGRESS_DOOR",
+      "EgressDoorBinding",
       "HALF_LIFE_TABLE",
       "HalfLifeEntry",
       "HalfLifeTable",
+      "MCP_PRODUCER",
       "ManifestEntry",
+      "McpProducerRegistration",
       "OPERATOR_PARAMETERS_POLICY",
       "OPERATOR_PARAMETERS_SIMILARITY",
       "OPERATOR_PARAMETERS_TEMPORAL",
@@ -1337,19 +1365,23 @@
       "PerspectiveArtifact",
       "PolicyConstraint",
       "PolicyFilterParametersArtifact",
+      "ProducerOfferDeclaration",
       "ProductClassDeclaration",
       "ProjectionRequirements",
       "REPLAY_BINDING",
       "RESOLUTION_SPEC",
       "RegistrationMode",
       "ReplayBinding",
+      "RequestBoundParameter",
       "SIGNAL_BATCH",
       "SecretReference",
       "SignalBatch",
       "SimilaritySelectParametersArtifact",
+      "TTL_BINDING",
       "TemporalAsOfParametersArtifact",
       "TraversalDescendantsParametersArtifact",
       "TraversalNeighborhoodParametersArtifact",
+      "TtlBinding",
       "VersionedArtifact",
       "declared_artifact_class",
       "load_artifact",
@@ -1423,23 +1455,28 @@
       "DeploymentConfig": {
         "kind": "contract",
         "shape": {
+          "agent": "collections.abc.Mapping[str, typing.Any] | None",
           "backend": "<class 'str'>",
           "backend_secrets": "tuple[ccf.controlplane.artifacts.SecretReference, ...]",
           "debt_profile": "collections.abc.Mapping[str, typing.Any] | None",
           "default_perspective": "collections.abc.Mapping[str, typing.Any] | None",
+          "door": "collections.abc.Mapping[str, typing.Any] | None",
           "half_life": "collections.abc.Mapping[str, typing.Any] | None",
           "operators": "collections.abc.Mapping[str, collections.abc.Mapping[str, typing.Any]] | None",
           "policy": "collections.abc.Mapping[str, typing.Any] | None",
           "policy_bundle_key": "str | None",
           "policy_constraints": "collections.abc.Mapping[str, collections.abc.Mapping[str, typing.Any]] | None",
+          "producers": "collections.abc.Mapping[str, collections.abc.Mapping[str, typing.Any]] | None",
           "product_class": "collections.abc.Mapping[str, typing.Any]",
           "replay": "collections.abc.Mapping[str, typing.Any] | None",
           "request_contract": "collections.abc.Mapping[str, typing.Any] | None",
           "resolution": "collections.abc.Mapping[str, typing.Any] | None",
           "resolution_spec_key": "str | None",
           "semver": "<class 'str'>",
+          "skills": "collections.abc.Mapping[str, collections.abc.Mapping[str, typing.Any]] | None",
           "survivor_cap": "int | None",
-          "tenant_id": "str | None"
+          "tenant_id": "str | None",
+          "ttl": "collections.abc.Mapping[str, typing.Any] | None"
         }
       },
       "DeploymentManifest": {
@@ -1455,6 +1492,20 @@
           "tenant_id": "str | None"
         }
       },
+      "EGRESS_DOOR": {
+        "kind": "constant",
+        "shape": "ArtifactClass"
+      },
+      "EgressDoorBinding": {
+        "kind": "contract",
+        "shape": {
+          "producer_id": "<class 'str'>",
+          "producer_tenant": "<class 'str'>",
+          "required_scope": "<class 'str'>",
+          "semver": "<class 'str'>",
+          "tool_description": "<class 'str'>"
+        }
+      },
       "HALF_LIFE_TABLE": {
         "kind": "constant",
         "shape": "ArtifactClass"
@@ -1463,8 +1514,11 @@
         "kind": "contract",
         "shape": {
           "decay": "typing.Literal['curve', 'supersede-only']",
+          "decay_basis": "typing.Literal['observed-at', 'valid-from']",
           "decay_driver": "<class 'str'>",
+          "freshness_over": "typing.Literal['series-mean', 'leading-edge']",
           "half_life_seconds": "int | None",
+          "series_key_attribute": "str | None",
           "supersession_event": "<class 'str'>"
         }
       },
@@ -1475,6 +1529,10 @@
           "semver": "<class 'str'>"
         }
       },
+      "MCP_PRODUCER": {
+        "kind": "constant",
+        "shape": "ArtifactClass"
+      },
       "ManifestEntry": {
         "kind": "contract",
         "shape": {
@@ -1483,6 +1541,18 @@
           "path": "<class 'str'>",
           "registration": "typing.Literal['typed', 'versioned']",
           "role": "typing.Literal['register', 'load']"
+        }
+      },
+      "McpProducerRegistration": {
+        "kind": "contract",
+        "shape": {
+          "credential_from_env": "<class 'str'>",
+          "endpoint_from_env": "<class 'str'>",
+          "offers": "tuple[ccf.controlplane.artifacts.ProducerOfferDeclaration, ...]",
+          "producer_id": "<class 'str'>",
+          "producer_tenant": "<class 'str'>",
+          "semver": "<class 'str'>",
+          "server": "<class 'str'>"
         }
       },
       "OPERATOR_PARAMETERS_POLICY": {
@@ -1556,8 +1626,15 @@
         "kind": "contract",
         "shape": {
           "classification_attribute_by_class": "collections.abc.Mapping[str, str]",
-          "permitted_classifications": "frozenset[str]",
+          "permitted_classifications": "frozenset[str] | ccf.controlplane.artifacts.RequestBoundParameter",
           "semver": "<class 'str'>"
+        }
+      },
+      "ProducerOfferDeclaration": {
+        "kind": "contract",
+        "shape": {
+          "product_class": "<class 'str'>",
+          "versions_from": "<class 'str'>"
         }
       },
       "ProductClassDeclaration": {
@@ -1568,6 +1645,7 @@
           "addressability": "<class 'ccf.products.contract.ProductAddress'>",
           "assembly_mode": "typing.Literal['algorithmic', 'llm_packaged', 'swarm_assembled']",
           "constituent_validity_floors": "<class 'ccf.products.contract.ConstituentValidityFloors'>",
+          "decision_instant_parameter": "str | None",
           "declared_product_gate": "<class 'ccf.products.contract.DeclaredProductGate'>",
           "discovery": "<class 'ccf.products.contract.ProductDiscovery'>",
           "freshness_sla": "<class 'ccf.products.contract.FreshnessSLA'>",
@@ -1575,6 +1653,7 @@
           "payload_schema_key": "<class 'str'>",
           "request_contract_key": "<class 'str'>",
           "required_operator_keys": "tuple[str, ...]",
+          "requires": "tuple[ccf.products.contract.ChildRequirement, ...]",
           "schema_name": "<class 'str'>",
           "schema_version": "<class 'str'>",
           "semver": "<class 'str'>",
@@ -1611,6 +1690,13 @@
           "store_dirname": "<class 'str'>"
         }
       },
+      "RequestBoundParameter": {
+        "kind": "contract",
+        "shape": {
+          "parameter": "<class 'str'>",
+          "source": "typing.Literal['effective_request']"
+        }
+      },
       "SIGNAL_BATCH": {
         "kind": "constant",
         "shape": "ArtifactClass"
@@ -1633,12 +1719,17 @@
       "SimilaritySelectParametersArtifact": {
         "kind": "contract",
         "shape": {
+          "index_version": "<class 'str'>",
           "minimum_score_percent": "<class 'int'>",
           "query": "<class 'str'>",
           "ranked_entity_classes": "frozenset[str]",
           "semver": "<class 'str'>",
           "similarity_corpus_attribute_by_class": "collections.abc.Mapping[str, str]"
         }
+      },
+      "TTL_BINDING": {
+        "kind": "constant",
+        "shape": "ArtifactClass"
       },
       "TemporalAsOfParametersArtifact": {
         "kind": "contract",
@@ -1664,6 +1755,14 @@
           "depth_limit": "<class 'int'>",
           "relationship_types": "frozenset[str]",
           "seed_entity_classes": "frozenset[str]",
+          "semver": "<class 'str'>"
+        }
+      },
+      "TtlBinding": {
+        "kind": "contract",
+        "shape": {
+          "max_ttl_seconds": "<class 'int'>",
+          "product_ttl_seconds": "<class 'int'>",
           "semver": "<class 'str'>"
         }
       },
@@ -1894,7 +1993,7 @@
       },
       "BootedFabric": {
         "kind": "class",
-        "shape": "(handle: 'FabricHandle', pins: 'ResolvedPins', tenant_id: 'str', artifacts: 'Mapping[str, CCFContract]', survivor_cap: 'int | None') -> None"
+        "shape": "(handle: 'FabricHandle', pins: 'ResolvedPins', tenant_id: 'str', artifacts: 'Mapping[str, CCFContract]', survivor_cap: 'int | None', keys: 'DeploymentKeys | None' = None) -> None"
       },
       "DeploymentManifest": {
         "kind": "contract",
@@ -1911,7 +2010,7 @@
       },
       "DerivedDeployment": {
         "kind": "class",
-        "shape": "(manifest: 'DeploymentManifest', documents: 'Mapping[str, Mapping[str, Any]]') -> None"
+        "shape": "(manifest: 'DeploymentManifest', documents: 'Mapping[str, Mapping[str, Any]]', keys: 'DeploymentKeys') -> None"
       },
       "ManifestEntry": {
         "kind": "contract",
@@ -1951,7 +2050,7 @@
       },
       "build_operator_registry": {
         "kind": "function",
-        "shape": "(*, parameters: 'Mapping[str, OperatorParametersArtifact]', view: 'GraphView', pins: 'ResolvedPins', policy_bundle_key: 'str', similarity_index_version: 'str | None' = None, deployment_operators: 'Sequence[Operator]' = ()) -> 'OperatorRegistry'"
+        "shape": "(*, parameters: 'Mapping[str, OperatorParametersArtifact]', view: 'GraphView', pins: 'ResolvedPins', policy_bundle_key: 'str', deployment_operators: 'Sequence[Operator]' = ()) -> 'OperatorRegistry'"
       },
       "derive_deployment": {
         "kind": "function",
@@ -2044,7 +2143,7 @@
     "exports": {
       "DerivedDeployment": {
         "kind": "class",
-        "shape": "(manifest: 'DeploymentManifest', documents: 'Mapping[str, Mapping[str, Any]]') -> None"
+        "shape": "(manifest: 'DeploymentManifest', documents: 'Mapping[str, Mapping[str, Any]]', keys: 'DeploymentKeys') -> None"
       },
       "derive_deployment": {
         "kind": "function",
@@ -2056,19 +2155,110 @@
       }
     }
   },
+  "ccf.deployment.environment": {
+    "__all__": [
+      "DoorEnvironment",
+      "ENVIRONMENT_DOCUMENT_NAME",
+      "EnvironmentDocument",
+      "EnvironmentMissing",
+      "EnvironmentValue",
+      "RemoteSettings",
+      "SubstrateSettings",
+      "load_environment_document",
+      "resolve_value",
+      "resolve_values"
+    ],
+    "exports": {
+      "DoorEnvironment": {
+        "kind": "contract",
+        "shape": {
+          "credential": "<class 'ccf.deployment.environment.EnvironmentValue'>",
+          "issuer_url": "<class 'ccf.deployment.environment.EnvironmentValue'>",
+          "resource_server_url": "<class 'ccf.deployment.environment.EnvironmentValue'>"
+        }
+      },
+      "ENVIRONMENT_DOCUMENT_NAME": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "EnvironmentDocument": {
+        "kind": "contract",
+        "shape": {
+          "config": "<class 'str'>",
+          "door": "ccf.deployment.environment.DoorEnvironment | None",
+          "remote": "ccf.deployment.environment.RemoteSettings | None",
+          "sources": "collections.abc.Mapping[str, collections.abc.Mapping[str, ccf.deployment.environment.EnvironmentValue]]",
+          "substrate": "<class 'ccf.deployment.environment.SubstrateSettings'>"
+        }
+      },
+      "EnvironmentMissing": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "EnvironmentValue": {
+        "kind": "contract",
+        "shape": {
+          "from_env": "<class 'str'>",
+          "remedy": "<class 'str'>"
+        }
+      },
+      "RemoteSettings": {
+        "kind": "contract",
+        "shape": {
+          "call_timeout_seconds": "<class 'int'>"
+        }
+      },
+      "SubstrateSettings": {
+        "kind": "contract",
+        "shape": {
+          "prefix": "<class 'str'>",
+          "setting": "<class 'str'>",
+          "suffix": "<class 'str'>"
+        }
+      },
+      "load_environment_document": {
+        "kind": "function",
+        "shape": "(config_root: 'Path') -> 'EnvironmentDocument'"
+      },
+      "resolve_value": {
+        "kind": "function",
+        "shape": "(value: 'EnvironmentValue', environ: 'Mapping[str, str]') -> 'str'"
+      },
+      "resolve_values": {
+        "kind": "function",
+        "shape": "(sources: 'Mapping[str, Mapping[str, EnvironmentValue]]', environ: 'Mapping[str, str]') -> 'Mapping[str, Mapping[str, str]]'"
+      }
+    }
+  },
+  "ccf.deployment.keys": {
+    "__all__": [
+      "DeploymentKeys"
+    ],
+    "exports": {
+      "DeploymentKeys": {
+        "kind": "class",
+        "shape": "(product_class: 'str', request_contract: 'str | None', policy_bundle: 'str', resolution_spec: 'str', half_life: 'str | None', debt_profile: 'str | None', default_perspective: 'str | None', replay: 'str | None', ttl: 'str | None', door: 'str | None', agent: 'str | None', operator_parameters: 'tuple[str, ...]', policy_constraints: 'tuple[str, ...]', producers: 'tuple[str, ...]', skills: 'tuple[str, ...]') -> None"
+      }
+    }
+  },
   "ccf.deployment.manifest": {
     "__all__": [
       "BootedFabric",
-      "load_and_boot"
+      "load_and_boot",
+      "register_manifest_entries"
     ],
     "exports": {
       "BootedFabric": {
         "kind": "class",
-        "shape": "(handle: 'FabricHandle', pins: 'ResolvedPins', tenant_id: 'str', artifacts: 'Mapping[str, CCFContract]', survivor_cap: 'int | None') -> None"
+        "shape": "(handle: 'FabricHandle', pins: 'ResolvedPins', tenant_id: 'str', artifacts: 'Mapping[str, CCFContract]', survivor_cap: 'int | None', keys: 'DeploymentKeys | None' = None) -> None"
       },
       "load_and_boot": {
         "kind": "function",
         "shape": "(manifest_path: 'str | Path', *, registry: 'ControlPlaneProtocol', connection: 'Mapping[str, object] | None' = None, tenant_id: 'str | None' = None) -> 'BootedFabric'"
+      },
+      "register_manifest_entries": {
+        "kind": "function",
+        "shape": "(manifest: 'DeploymentManifest', parsed: 'Mapping[str, CCFContract]', *, registry: 'ControlPlaneProtocol', only: 'frozenset[str] | None' = None) -> 'tuple[ArtifactPin, ...]'"
       }
     }
   },
@@ -2084,7 +2274,7 @@
       },
       "build_operator_registry": {
         "kind": "function",
-        "shape": "(*, parameters: 'Mapping[str, OperatorParametersArtifact]', view: 'GraphView', pins: 'ResolvedPins', policy_bundle_key: 'str', similarity_index_version: 'str | None' = None, deployment_operators: 'Sequence[Operator]' = ()) -> 'OperatorRegistry'"
+        "shape": "(*, parameters: 'Mapping[str, OperatorParametersArtifact]', view: 'GraphView', pins: 'ResolvedPins', policy_bundle_key: 'str', deployment_operators: 'Sequence[Operator]' = ()) -> 'OperatorRegistry'"
       }
     }
   },
@@ -2861,6 +3051,7 @@
       "DebtFactorScorerProtocol",
       "DebtFactors",
       "DebtSignal",
+      "EmptyFactorCompositionError",
       "FreshnessScorer",
       "NO_DEBT_EVIDENCE",
       "NO_OBLIGATION_IN_FORCE",
@@ -2874,6 +3065,7 @@
       "SourceRefreshWindow",
       "assess_debt",
       "basic_debt",
+      "compose_debt_factors",
       "context_debt"
     ],
     "exports": {
@@ -2915,6 +3107,10 @@
       "DebtSignal": {
         "kind": "class",
         "shape": "(*values)"
+      },
+      "EmptyFactorCompositionError": {
+        "kind": "class",
+        "shape": "type"
       },
       "FreshnessScorer": {
         "kind": "class",
@@ -2978,6 +3174,10 @@
         "kind": "function",
         "shape": "(*, available: 'int', required: 'int') -> 'Decimal'"
       },
+      "compose_debt_factors": {
+        "kind": "function",
+        "shape": "(own: 'DebtFactors', children: 'Sequence[DebtFactors]') -> 'DebtFactors'"
+      },
       "context_debt": {
         "kind": "function",
         "shape": "(factors: 'DebtFactors') -> 'Decimal'"
@@ -2988,24 +3188,32 @@
     "__all__": [
       "HalfLifeEntry",
       "HalfLifeTable",
+      "MissingDecayInstant",
       "MissingHalfLife",
       "NO_SUBJECT_IDENTITY",
       "NoDecayCurve",
       "Observation",
       "TemporalOrderError",
+      "decay_basis_of",
       "decay_mode_of",
       "effective_half_life",
       "freshness",
+      "freshness_over_of",
       "half_life_of",
-      "relevance_ratio"
+      "leading_edge",
+      "relevance_ratio",
+      "series_key_attribute_of"
     ],
     "exports": {
       "HalfLifeEntry": {
         "kind": "contract",
         "shape": {
           "decay": "typing.Literal['curve', 'supersede-only']",
+          "decay_basis": "typing.Literal['observed-at', 'valid-from']",
           "decay_driver": "<class 'str'>",
+          "freshness_over": "typing.Literal['series-mean', 'leading-edge']",
           "half_life_seconds": "int | None",
+          "series_key_attribute": "str | None",
           "supersession_event": "<class 'str'>"
         }
       },
@@ -3015,6 +3223,10 @@
           "entries": "collections.abc.Mapping[str, ccf.controlplane.artifacts.HalfLifeEntry]",
           "semver": "<class 'str'>"
         }
+      },
+      "MissingDecayInstant": {
+        "kind": "class",
+        "shape": "type"
       },
       "MissingHalfLife": {
         "kind": "class",
@@ -3033,12 +3245,18 @@
         "shape": {
           "observation_type": "<class 'str'>",
           "observed_at": "<class 'datetime.datetime'>",
-          "subject": "<class 'str'>"
+          "series": "str | None",
+          "subject": "<class 'str'>",
+          "valid_from": "datetime.datetime | None"
         }
       },
       "TemporalOrderError": {
         "kind": "class",
         "shape": "type"
+      },
+      "decay_basis_of": {
+        "kind": "function",
+        "shape": "(table: 'HalfLifeTable', observation_type: 'str') -> 'DecayBasis'"
       },
       "decay_mode_of": {
         "kind": "function",
@@ -3052,13 +3270,25 @@
         "kind": "function",
         "shape": "(observation: 'Observation', *, now: 'datetime', table: 'HalfLifeTable', risk_sensitivity: 'Decimal') -> 'Decimal'"
       },
+      "freshness_over_of": {
+        "kind": "function",
+        "shape": "(table: 'HalfLifeTable', observation_type: 'str') -> 'FreshnessAggregation'"
+      },
       "half_life_of": {
         "kind": "function",
         "shape": "(table: 'HalfLifeTable', observation_type: 'str') -> 'timedelta'"
       },
+      "leading_edge": {
+        "kind": "function",
+        "shape": "(observations: 'Sequence[Observation]', *, table: 'HalfLifeTable', now: 'datetime') -> 'tuple[Observation, ...]'"
+      },
       "relevance_ratio": {
         "kind": "function",
         "shape": "(*, elapsed: 'timedelta', half_life: 'timedelta') -> 'Decimal'"
+      },
+      "series_key_attribute_of": {
+        "kind": "function",
+        "shape": "(table: 'HalfLifeTable', observation_type: 'str') -> 'str | None'"
       }
     }
   },
@@ -3986,6 +4216,7 @@
       "HttpClientFactory",
       "McpResourceClient",
       "SyncMcpBridge",
+      "bearer_client_factory",
       "run_with_session"
     ],
     "exports": {
@@ -4001,6 +4232,10 @@
         "kind": "class",
         "shape": "(*, call_timeout_seconds: 'float') -> 'None'"
       },
+      "bearer_client_factory": {
+        "kind": "function",
+        "shape": "(credential: 'str', *, timeout_seconds: 'float') -> 'HttpClientFactory'"
+      },
       "run_with_session": {
         "kind": "function",
         "shape": "(*, url: 'str', operation: 'SessionOperation[T]', http_client_factory: 'HttpClientFactory | None' = None) -> 'T'"
@@ -4012,7 +4247,8 @@
       "McpClientError",
       "McpResourceAbsent",
       "McpServerUnreachable",
-      "McpTimeout"
+      "McpTimeout",
+      "McpToolFailed"
     ],
     "exports": {
       "McpClientError": {
@@ -4030,6 +4266,10 @@
       "McpTimeout": {
         "kind": "class",
         "shape": "type"
+      },
+      "McpToolFailed": {
+        "kind": "class",
+        "shape": "(tool: 'str', text: 'str') -> 'None'"
       }
     }
   },
@@ -4332,7 +4572,8 @@
       "PolicyBindingRefusal",
       "SignatureRefusal",
       "payload_ceiling_key",
-      "union_lineage"
+      "union_lineage",
+      "verify_admission_provenance"
     ],
     "exports": {
       "ADMISSION_RECORD": {
@@ -4370,7 +4611,7 @@
       },
       "AdmittedProduct": {
         "kind": "class",
-        "shape": "(product: 'ContextProductContract', lineage: 'ProductLineage', peer: 'PeerRef', token: 'object') -> 'None'"
+        "shape": "(product: 'ContextProductContract', lineage: 'ProductLineage', peer: 'PeerRef', token: 'object', protected_header: 'Mapping[str, object] | None' = None, content_address: 'str | None' = None) -> 'None'"
       },
       "ContractRefusal": {
         "kind": "contract",
@@ -4476,6 +4717,60 @@
       "union_lineage": {
         "kind": "function",
         "shape": "(*, producer: 'ProductLineage', consumer: 'ProductLineage') -> 'ProductLineage'"
+      },
+      "verify_admission_provenance": {
+        "kind": "function",
+        "shape": "(admitted: 'object') -> \"'AdmittedProduct'\""
+      }
+    }
+  },
+  "ccf.peering.eligibility": {
+    "__all__": [
+      "ELIGIBILITY_ASSERTION_HEADER",
+      "ELIGIBILITY_ASSERTION_SCHEMA_VERSION",
+      "EligibilityAssertion",
+      "EligibilityAssertionMalformed",
+      "decode_eligibility_assertion",
+      "encode_eligibility_assertion",
+      "mint_eligibility_assertion"
+    ],
+    "exports": {
+      "ELIGIBILITY_ASSERTION_HEADER": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "ELIGIBILITY_ASSERTION_SCHEMA_VERSION": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "EligibilityAssertion": {
+        "kind": "contract",
+        "shape": {
+          "checked_at": "<class 'datetime.datetime'>",
+          "child_content_address": "<class 'str'>",
+          "composition_invocation": "<class 'str'>",
+          "consumer_scope": "<class 'str'>",
+          "eligible": "<class 'bool'>",
+          "producer": "<class 'str'>",
+          "requested_as_of": "<class 'datetime.datetime'>",
+          "schema_version": "<class 'str'>"
+        }
+      },
+      "EligibilityAssertionMalformed": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "decode_eligibility_assertion": {
+        "kind": "function",
+        "shape": "(claim: 'object') -> 'EligibilityAssertion'"
+      },
+      "encode_eligibility_assertion": {
+        "kind": "function",
+        "shape": "(assertion: 'EligibilityAssertion') -> 'str'"
+      },
+      "mint_eligibility_assertion": {
+        "kind": "function",
+        "shape": "(*, child_content_address: 'str', requested_as_of: 'datetime', producer: 'str', consumer_scope: 'str', checked_at: 'datetime', composition_invocation: 'str', eligible: 'bool') -> 'EligibilityAssertion'"
       }
     }
   },
@@ -4661,6 +4956,210 @@
       }
     }
   },
+  "ccf.products.child_resolver": {
+    "__all__": [
+      "ChildArguments",
+      "ChildQuestion",
+      "ChildQuestions",
+      "ChildRecordMismatch",
+      "GrantBoundChildResolver",
+      "MalformedDoorAnswer",
+      "QuestionBoundChildResolver"
+    ],
+    "exports": {
+      "ChildArguments": {
+        "kind": "function",
+        "shape": "collections.abc.Callable[[ccf.products.contract.ChildRequirement, datetime.datetime], collections.abc.Mapping[str, str]]"
+      },
+      "ChildQuestion": {
+        "kind": "contract",
+        "shape": {
+          "freshness": "<class 'str'>",
+          "intent": "<class 'str'>",
+          "parameters": "collections.abc.Mapping[str, typing.Any]",
+          "subject": "<class 'str'>"
+        }
+      },
+      "ChildQuestions": {
+        "kind": "function",
+        "shape": "collections.abc.Callable[[ccf.products.contract.ChildRequirement, ccf.products.request.ProductRequest], ccf.products.child_resolver.ChildQuestion]"
+      },
+      "ChildRecordMismatch": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "GrantBoundChildResolver": {
+        "kind": "class",
+        "shape": "(*, ledger: 'GrantLedger', agent_definition_hash: 'str', gate: 'CompositeAdmissionGate', child_arguments: 'ChildArguments', callable_registry: 'CallableRegistry', artifact_store: 'ArtifactStoreProtocol', mcp_skills: 'McpSkillRegistry | None' = None, peering_skills: 'PeeringSkillRegistry | None' = None, peering_gate: 'PeeringAdmissionGate | None' = None) -> 'None'"
+      },
+      "MalformedDoorAnswer": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "QuestionBoundChildResolver": {
+        "kind": "class",
+        "shape": "(*, ledger: 'GrantLedger', agent_definition_hash: 'str', gate: 'CompositeAdmissionGate', child_questions: 'ChildQuestions', callable_registry: 'CallableRegistry', artifact_store: 'ArtifactStoreProtocol', mcp_skills: 'McpSkillRegistry | None' = None, peering_skills: 'PeeringSkillRegistry | None' = None, peering_gate: 'PeeringAdmissionGate | None' = None, child_arguments: 'ChildArguments | None' = None) -> 'None'"
+      }
+    }
+  },
+  "ccf.products.composite": {
+    "__all__": [
+      "ADMITTED_CHILD_CONTRACT_CLASS",
+      "AdmittedChild",
+      "AmbiguousProducerError",
+      "CHILD_REFUSAL_REASONS",
+      "ChildAcquisition",
+      "ChildAdmissionBypassError",
+      "ChildAdmissionRefusal",
+      "ChildCandidate",
+      "ChildContractView",
+      "ChildInvocation",
+      "ChildOutcomeResolution",
+      "ChildRefusalReason",
+      "CompositeAdmissionGate",
+      "CompositeChildResolverProtocol",
+      "CompositionOutcome",
+      "ELIGIBILITY_LOCAL_REGISTER",
+      "ELIGIBILITY_PRODUCER_ATTESTED",
+      "ELIGIBILITY_PROVIDER_CONTROLS",
+      "EligibilityEvidence",
+      "GATE_CHILD_ADMISSION",
+      "ProvenanceForgeryError",
+      "RequestAwareChildResolverProtocol",
+      "ResolvedProducer",
+      "child_contract_view",
+      "compose_children",
+      "invocation_from_dispatch",
+      "resolve_child_outcomes",
+      "resolve_producing_grant"
+    ],
+    "exports": {
+      "ADMITTED_CHILD_CONTRACT_CLASS": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "AdmittedChild": {
+        "kind": "class",
+        "shape": "(candidate: 'ChildCandidate', eligibility_basis: 'str', factors: 'DebtFactors', asked_at: 'datetime', composition_invocation: 'str', verified_address: 'str', evidence: \"'EligibilityEvidence | None'\", admitted_at: 'datetime', token: 'object') -> 'None'"
+      },
+      "AmbiguousProducerError": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "CHILD_REFUSAL_REASONS": {
+        "kind": "constant",
+        "shape": "frozenset"
+      },
+      "ChildAcquisition": {
+        "kind": "function",
+        "shape": "typing.Literal['local-dispatch', 'mcp', 'mcp-product', 'peered']"
+      },
+      "ChildAdmissionBypassError": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "ChildAdmissionRefusal": {
+        "kind": "contract",
+        "shape": {
+          "detail": "<class 'str'>",
+          "gate": "<class 'str'>",
+          "producer_id": "str | None",
+          "producer_registration_address": "str | None",
+          "producer_server": "str | None",
+          "producer_tenant": "str | None",
+          "product_class": "<class 'str'>",
+          "question_address": "str | None",
+          "reason": "typing.Literal['class-mismatch', 'version-incompatible', 'as-of-mismatch', 'address-mismatch', 'debt-unassessable', 'ineligible', 'eligibility-evidence-missing', 'eligibility-evidence-mismatch', 'eligibility-evidence-stale', 'eligibility-bound-undeclared', 'composition-unwired', 'tenant-mismatch', 'provenance-unverified', 'no-producing-skill', 'ambiguous-producer', 'unauthorized', 'requirement-mismatch', 'undeclared-outcome', 'unsupported-outcome', 'mixing-refused', 'producer-tenant-mismatch', 'producer-mismatch', 'producer-unasserted', 'question-mismatch', 'producer-unavailable']",
+          "reported_content_address": "str | None",
+          "verified_content_address": "str | None"
+        }
+      },
+      "ChildCandidate": {
+        "kind": "class",
+        "shape": "(requirement: 'ChildRequirement', contract: 'ContextProductContract', content_address: 'str', invocation: \"'ChildInvocation'\", admission: 'AdmittedProduct | None' = None, producer_assertion: 'ProducerAssertion | None' = None, question_echo: \"'WireRequest | None'\" = None, answered_question: \"'AnsweredQuestion | None'\" = None, child_replay_ref: 'str | None' = None) -> None"
+      },
+      "ChildContractView": {
+        "kind": "class",
+        "shape": "(contracts: 'Mapping[str, ContextProductContract]') -> 'None'"
+      },
+      "ChildInvocation": {
+        "kind": "class",
+        "shape": "(*, skill_name: 'str', entry_version: 'str', grant_hash: 'str', acquisition: 'ChildAcquisition', touched_entities: 'tuple[str, ...] | None', token: 'object', producer_id: 'str | None' = None, producer_tenant: 'str | None' = None, producer_registration_address: 'str | None' = None, producer_server: 'str | None' = None, question_address: 'str | None' = None) -> 'None'"
+      },
+      "ChildOutcomeResolution": {
+        "kind": "class",
+        "shape": "(rows: 'tuple[ChildResolution, ...]', admitted: 'tuple[AdmittedChild, ...]', admitted_factors: 'tuple[DebtFactors, ...]', refusal: 'ChildAdmissionRefusal | None') -> None"
+      },
+      "ChildRefusalReason": {
+        "kind": "function",
+        "shape": "typing.Literal['class-mismatch', 'version-incompatible', 'as-of-mismatch', 'address-mismatch', 'debt-unassessable', 'ineligible', 'eligibility-evidence-missing', 'eligibility-evidence-mismatch', 'eligibility-evidence-stale', 'eligibility-bound-undeclared', 'composition-unwired', 'tenant-mismatch', 'provenance-unverified', 'no-producing-skill', 'ambiguous-producer', 'unauthorized', 'requirement-mismatch', 'undeclared-outcome', 'unsupported-outcome', 'mixing-refused', 'producer-tenant-mismatch', 'producer-mismatch', 'producer-unasserted', 'question-mismatch', 'producer-unavailable']"
+      },
+      "CompositeAdmissionGate": {
+        "kind": "class",
+        "shape": "(*, tenant_id: 'str', consumer_scope: 'str', registry: 'ControlPlaneProtocol') -> 'None'"
+      },
+      "CompositeChildResolverProtocol": {
+        "kind": "class",
+        "shape": "(*, requirements: 'Sequence[ChildRequirement]', asked_at: 'datetime', admitted_at: 'datetime', composition_invocation: 'str', consumer_lineage: 'ProductLineage') -> 'Mapping[str, object]'"
+      },
+      "CompositionOutcome": {
+        "kind": "class",
+        "shape": "(factors: 'DebtFactors | None', resolutions: 'tuple[ChildResolution, ...]', refusal: 'ChildAdmissionRefusal | None', lineage: 'ProductLineage | None' = None, expires_at: 'datetime | None' = None, admitted_operators: 'frozenset[str]' = frozenset()) -> None"
+      },
+      "ELIGIBILITY_LOCAL_REGISTER": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "ELIGIBILITY_PRODUCER_ATTESTED": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "ELIGIBILITY_PROVIDER_CONTROLS": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "EligibilityEvidence": {
+        "kind": "class",
+        "shape": "(checked_at: 'datetime', assertion_address: 'str', producer: 'str') -> None"
+      },
+      "GATE_CHILD_ADMISSION": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "ProvenanceForgeryError": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "RequestAwareChildResolverProtocol": {
+        "kind": "class",
+        "shape": "(*args, **kwargs)"
+      },
+      "ResolvedProducer": {
+        "kind": "class",
+        "shape": "(*, entry: 'SkillCatalogEntry', grant_hash: 'str', token: 'object') -> 'None'"
+      },
+      "child_contract_view": {
+        "kind": "function",
+        "shape": "(resolved: 'ChildOutcomeResolution') -> 'ChildContractView'"
+      },
+      "compose_children": {
+        "kind": "function",
+        "shape": "(*, own_factors: 'DebtFactors', requirements: 'Sequence[ChildRequirement]', outcomes: 'Mapping[str, object]', asked_at: 'datetime', composition_invocation: 'str', own_lineage: 'ProductLineage', max_ttl: 'MaxTTL', ttl_anchor_at: 'datetime', validity_floors: 'ConstituentValidityFloors') -> 'CompositionOutcome'"
+      },
+      "invocation_from_dispatch": {
+        "kind": "function",
+        "shape": "(producer: 'ResolvedProducer', dispatched: 'object', *, touched_entities: 'tuple[str, ...] | None' = None) -> 'ChildInvocation'"
+      },
+      "resolve_child_outcomes": {
+        "kind": "function",
+        "shape": "(*, requirements: 'Sequence[ChildRequirement]', outcomes: 'Mapping[str, object]', asked_at: 'datetime', composition_invocation: 'str') -> 'ChildOutcomeResolution'"
+      },
+      "resolve_producing_grant": {
+        "kind": "function",
+        "shape": "(requirement: 'ChildRequirement', bound_skills: 'BoundSkillView') -> 'ResolvedProducer | None'"
+      }
+    }
+  },
   "ccf.products.composition": {
     "__all__": [
       "ConstituentValidity",
@@ -4816,6 +5315,7 @@
   "ccf.products.contract": {
     "__all__": [
       "AssemblyMode",
+      "ChildRequirement",
       "ComputedEmptyFinding",
       "ConstituentValidityFloors",
       "ContextProductContract",
@@ -4829,6 +5329,7 @@
       "NO_REQUEST_CONTRACT",
       "NO_SERVE_OBLIGATIONS",
       "NO_VALIDITY_FLOORS",
+      "OptionalAbsenceTreatment",
       "ProductAddress",
       "ProductClassRegistrationError",
       "ProductDiscovery",
@@ -4837,12 +5338,23 @@
       "ServeObligations",
       "TTLAnchor",
       "UNMEASURED_FRESHNESS_SLA",
-      "register_product_class"
+      "register_product_class",
+      "requirements_declaration_is_coherent",
+      "version_satisfies_floor"
     ],
     "exports": {
       "AssemblyMode": {
         "kind": "function",
         "shape": "typing.Literal['algorithmic', 'llm_packaged', 'swarm_assembled']"
+      },
+      "ChildRequirement": {
+        "kind": "contract",
+        "shape": {
+          "absence_treatment": "ccf.products.contract.OptionalAbsenceTreatment | None",
+          "compatible_from": "<class 'str'>",
+          "product_class": "<class 'str'>",
+          "required": "<class 'bool'>"
+        }
       },
       "ComputedEmptyFinding": {
         "kind": "contract",
@@ -4850,8 +5362,7 @@
           "emptiness": "typing.Literal['attested', 'unattested']",
           "operators_invoked": "frozenset[str]",
           "operators_returned_empty": "frozenset[str]",
-          "plan_id": "<class 'str'>",
-          "store_snapshot_pin": "<class 'ccf.graph.protocols.StoreSnapshotPin'>"
+          "plan_id": "<class 'str'>"
         }
       },
       "ConstituentValidityFloors": {
@@ -4926,6 +5437,13 @@
         "kind": "constant",
         "shape": "ConstituentValidityFloors"
       },
+      "OptionalAbsenceTreatment": {
+        "kind": "contract",
+        "shape": {
+          "completeness_when_absent": "<class 'decimal.Decimal'>",
+          "omissible_outcomes": "frozenset[str]"
+        }
+      },
       "ProductAddress": {
         "kind": "contract",
         "shape": {
@@ -4950,8 +5468,7 @@
         "shape": {
           "graph_snapshot_at": "<class 'datetime.datetime'>",
           "operators_invoked": "frozenset[str]",
-          "policy_bundle_versions": "frozenset[str]",
-          "store_snapshot_pin": "<class 'ccf.graph.protocols.StoreSnapshotPin'>"
+          "policy_bundle_versions": "frozenset[str]"
         }
       },
       "RegisteredProductClass": {
@@ -4970,6 +5487,7 @@
           "payload_schema_version": "<class 'str'>",
           "request_contract_key": "<class 'str'>",
           "request_contract_version": "<class 'str'>",
+          "requires": "tuple[ccf.products.contract.ChildRequirement, ...]",
           "schema_name": "<class 'str'>",
           "schema_version": "<class 'str'>",
           "serve_obligations": "<class 'ccf.products.contract.ServeObligations'>",
@@ -4993,7 +5511,15 @@
       },
       "register_product_class": {
         "kind": "function",
-        "shape": "(*, registry: 'ControlPlaneProtocol', schema_name: 'str', schema_version: 'str', ttl_anchor: 'TTLAnchor', assembly_mode: 'AssemblyMode', max_ttl_key: 'str', max_ttl_version: 'str', accepted_policy_binding_modes: 'frozenset[PolicyBindingMode]' = frozenset({'assembly-stamped'}), accepted_lineage_modes: 'frozenset[LineageMode]' = frozenset({'graph-supplied'}), freshness_sla: 'FreshnessSLA' = FreshnessSLA(max_age_seconds_by_signal={}), discovery: 'ProductDiscovery' = ProductDiscovery(domain='not-discoverable', intents=frozenset(), capabilities=frozenset(), audiences=frozenset()), addressability: 'ProductAddress' = ProductAddress(address_template='not-addressable'), constituent_validity_floors: 'ConstituentValidityFloors' = ConstituentValidityFloors(min_validity_seconds_by_signal={}), payload_schema_key: 'str' = 'no-payload-schema', payload_schema_version: 'str' = 'no-payload-schema', request_contract_key: 'str' = 'no-request-contract', request_contract_version: 'str' = 'no-request-contract', serve_obligations: 'ServeObligations' = ServeObligations(default_debt_tolerance=None, lineage_inputs_at=frozenset())) -> 'RegisteredProductClass'"
+        "shape": "(*, registry: 'ControlPlaneProtocol', schema_name: 'str', schema_version: 'str', ttl_anchor: 'TTLAnchor', assembly_mode: 'AssemblyMode', max_ttl_key: 'str', max_ttl_version: 'str', accepted_policy_binding_modes: 'frozenset[PolicyBindingMode]' = frozenset({'assembly-stamped'}), accepted_lineage_modes: 'frozenset[LineageMode]' = frozenset({'graph-supplied'}), freshness_sla: 'FreshnessSLA' = FreshnessSLA(max_age_seconds_by_signal={}), discovery: 'ProductDiscovery' = ProductDiscovery(domain='not-discoverable', intents=frozenset(), capabilities=frozenset(), audiences=frozenset()), addressability: 'ProductAddress' = ProductAddress(address_template='not-addressable'), constituent_validity_floors: 'ConstituentValidityFloors' = ConstituentValidityFloors(min_validity_seconds_by_signal={}), payload_schema_key: 'str' = 'no-payload-schema', payload_schema_version: 'str' = 'no-payload-schema', request_contract_key: 'str' = 'no-request-contract', request_contract_version: 'str' = 'no-request-contract', requires: 'tuple[ChildRequirement, ...]' = (), serve_obligations: 'ServeObligations' = ServeObligations(default_debt_tolerance=None, lineage_inputs_at=frozenset())) -> 'RegisteredProductClass'"
+      },
+      "requirements_declaration_is_coherent": {
+        "kind": "function",
+        "shape": "(requires: 'tuple[ChildRequirement, ...]') -> 'None'"
+      },
+      "version_satisfies_floor": {
+        "kind": "function",
+        "shape": "(*, floor: 'str', version: 'str') -> 'bool'"
       }
     }
   },
@@ -5108,8 +5634,10 @@
   },
   "ccf.products.door": {
     "__all__": [
+      "AnsweredQuestion",
       "DoorOutcome",
       "PRODUCT_REQUEST_TOOL",
+      "ProducerAssertion",
       "ServedAnswer",
       "UngovernedResolverResult",
       "WireRequest",
@@ -5119,10 +5647,21 @@
       "served_answer"
     ],
     "exports": {
+      "AnsweredQuestion": {
+        "kind": "contract",
+        "shape": {
+          "asked_at": "<class 'datetime.datetime'>",
+          "freshness": "<class 'str'>",
+          "intent": "<class 'str'>",
+          "subject": "<class 'str'>"
+        }
+      },
       "DoorOutcome": {
         "kind": "contract",
         "shape": {
+          "answered": "ccf.products.door.AnsweredQuestion | None",
           "content_address": "str | None",
+          "producer": "ccf.products.producer.ProducerAssertion | None",
           "product_json": "str | None",
           "refusal": "ccf.products.refusal.RefusalEnvelope | None",
           "replay_ref": "str | None",
@@ -5132,6 +5671,13 @@
       "PRODUCT_REQUEST_TOOL": {
         "kind": "constant",
         "shape": "str"
+      },
+      "ProducerAssertion": {
+        "kind": "contract",
+        "shape": {
+          "producer_id": "<class 'str'>",
+          "tenant_id": "<class 'str'>"
+        }
       },
       "ServedAnswer": {
         "kind": "class",
@@ -5151,7 +5697,7 @@
       },
       "door_answer": {
         "kind": "function",
-        "shape": "(resolved: 'object', *, echo: 'WireRequest', resolved_request: 'ProductRequest') -> 'bytes'"
+        "shape": "(resolved: 'object', *, echo: 'WireRequest', resolved_request: 'ProductRequest', producer: 'ProducerAssertion | None' = None) -> 'bytes'"
       },
       "door_question": {
         "kind": "function",
@@ -5236,9 +5782,11 @@
       "TTLRefusal",
       "ToleranceExceededRefusal",
       "refuse_attestation",
+      "refuse_dependency_invalidation",
       "refuse_over_tolerance",
       "run_federated_gates",
-      "run_gates"
+      "run_gates",
+      "verify_gate_provenance"
     ],
     "exports": {
       "AttestationRefusal": {
@@ -5371,6 +5919,10 @@
         "kind": "function",
         "shape": "(*, attestation: 'SourceAttestation | None', product_class: 'RegisteredProductClass') -> 'AttestationRefusal | None'"
       },
+      "refuse_dependency_invalidation": {
+        "kind": "function",
+        "shape": "(candidate: 'ContextProductContract', *, touched_entities: 'tuple[str, ...] | None', registry: 'ControlPlaneProtocol') -> 'DependencyInvalidationRefusal | None'"
+      },
       "refuse_over_tolerance": {
         "kind": "function",
         "shape": "(product: 'ServableProduct', *, tolerance: 'EffectiveParameter | None') -> 'ToleranceExceededRefusal | None'"
@@ -5381,7 +5933,11 @@
       },
       "run_gates": {
         "kind": "function",
-        "shape": "(candidate: 'ContextProductContract', *, engine_resolved: 'frozenset[str]', now: 'datetime', registry: 'ControlPlaneProtocol', product_class: 'RegisteredProductClass', source_attestation: 'SourceAttestation | None' = None) -> 'ServableProduct | GateRefusal'"
+        "shape": "(candidate: 'ContextProductContract', *, engine_resolved: 'frozenset[str]', now: 'datetime', registry: 'ControlPlaneProtocol', product_class: 'RegisteredProductClass', source_attestation: 'SourceAttestation | None' = None, touched_entities: 'tuple[str, ...] | None' = None) -> 'ServableProduct | GateRefusal'"
+      },
+      "verify_gate_provenance": {
+        "kind": "function",
+        "shape": "(product: 'object') -> \"'ServableProduct'\""
       }
     }
   },
@@ -5419,6 +5975,66 @@
       "refuse_payload": {
         "kind": "function",
         "shape": "(*, payload: 'Mapping[str, Any]', declared: 'ProductPayloadSchema') -> 'PayloadSchemaViolation | None'"
+      }
+    }
+  },
+  "ccf.products.producer": {
+    "__all__": [
+      "ProducerAssertion"
+    ],
+    "exports": {
+      "ProducerAssertion": {
+        "kind": "contract",
+        "shape": {
+          "producer_id": "<class 'str'>",
+          "tenant_id": "<class 'str'>"
+        }
+      }
+    }
+  },
+  "ccf.products.product": {
+    "__all__": [
+      "AcquireProtocol",
+      "AcquisitionContext",
+      "AssessProtocol",
+      "AssessmentContext",
+      "ChildResolverFactory",
+      "ConsumerContext",
+      "OpenedProduct",
+      "open_product"
+    ],
+    "exports": {
+      "AcquireProtocol": {
+        "kind": "class",
+        "shape": "(context: 'AcquisitionContext') -> 'Iterable[SignalEnvelope]'"
+      },
+      "AcquisitionContext": {
+        "kind": "class",
+        "shape": "(request: 'ProductRequest', perspective: 'Perspective', tenant_id: 'str', sources: 'Mapping[str, Mapping[str, str]]', instant: 'datetime') -> None"
+      },
+      "AssessProtocol": {
+        "kind": "class",
+        "shape": "(context: 'AssessmentContext') -> 'DebtAssessment'"
+      },
+      "AssessmentContext": {
+        "kind": "class",
+        "shape": "(view: 'GraphView', evidence: 'ExecutionEvidence | None', decided_at: 'datetime', half_life: 'HalfLifeTable | None', profile: 'DebtProfile | None', children: 'ChildContractView | None') -> None"
+      },
+      "ChildResolverFactory": {
+        "kind": "function",
+        "shape": "collections.abc.Callable[[ccf.products.product.ConsumerContext], ccf.products.composite.CompositeChildResolverProtocol | ccf.products.composite.RequestAwareChildResolverProtocol]"
+      },
+      "ConsumerContext": {
+        "kind": "class",
+        "shape": "(tenant_id: 'str', control_plane: 'ControlPlaneRegistry', artifact_store: 'ArtifactStoreProtocol', mcp_skills: 'McpSkillRegistry | None', clock: 'Callable[[], datetime]') -> None"
+      },
+      "OpenedProduct": {
+        "kind": "class",
+        "shape": "(*, config_root: 'Path', config_path: 'Path', scratch: 'Path', config: 'DeploymentConfig', environment: 'EnvironmentDocument', keys: 'DeploymentKeys', tenant_id: 'str', declaration: 'ProductClassDeclaration', replay: 'ReplayBinding', ttl: 'TtlBinding', door: 'EgressDoorBinding | None', default_perspective: 'PerspectiveArtifact', sources: 'Mapping[str, Mapping[str, str]]', control_plane: 'ControlPlaneRegistry', artifact_store: 'ArtifactStoreProtocol', refusal_recorder: 'ReplayRefusalRecorder', acquire: 'AcquireProtocol', project: 'ProjectionPlanFactoryProtocol', assess: 'AssessProtocol', gate: 'ProductGateProtocol | None', clock: 'Callable[[], datetime]', constraint_resolver: 'PolicyConstraintResolver | None', capabilities: 'tuple[TechnicalCapability, ...] | None', children: 'CompositeChildResolverProtocol | RequestAwareChildResolverProtocol | None', mcp_skills: 'McpSkillRegistry | None' = None, bridge: 'SyncMcpBridge | None' = None, agent: 'AgentDefinition | None' = None) -> 'None'"
+      },
+      "open_product": {
+        "kind": "function",
+        "shape": "(*, config_root: 'Path | str', scratch: 'Path | str', acquire: 'AcquireProtocol', project: 'ProjectionPlanFactoryProtocol', assess: 'AssessProtocol', gate: 'ProductGateProtocol | None' = None, questions: 'ChildQuestions | None' = None, clock: 'Callable[[], datetime]' = <function _utc_now at 0xee98a2903a60>, environ: 'Mapping[str, str] | None' = None, control_plane: 'ControlPlaneRegistry | None' = None, artifact_store: 'ArtifactStoreProtocol | None' = None, constraint_resolver: 'PolicyConstraintResolver | None' = None, capabilities: 'tuple[TechnicalCapability, ...] | None' = None, approval_sink: 'ApprovalSink | None' = None, children: 'CompositeChildResolverProtocol | RequestAwareChildResolverProtocol | None' = None, build_children: 'ChildResolverFactory | None' = None) -> 'OpenedProduct'"
       }
     }
   },
@@ -5547,8 +6163,7 @@
           "computed_empty": "ccf.products.contract.ComputedEmptyFinding | None",
           "debt": "ccf.halflife.assessment.DebtAssessment | None",
           "operators_invoked": "frozenset[str]",
-          "plan_id": "<class 'str'>",
-          "store_snapshot_pin": "<class 'ccf.graph.protocols.StoreSnapshotPin'>"
+          "plan_id": "<class 'str'>"
         }
       },
       "RequestIdentity": {
@@ -5593,6 +6208,8 @@
       "ProductRequestContract",
       "ProductRequestViolation",
       "ProductRequestViolationReason",
+      "RelativeDefault",
+      "decode_declared_request",
       "refuse_intent",
       "refuse_request",
       "refuse_request_contract_pin",
@@ -5644,6 +6261,7 @@
           "arguments": "<class 'ccf.skills.catalog.SkillArgumentSchema'>",
           "capability_bindings": "collections.abc.Mapping[str, str]",
           "defaults": "collections.abc.Mapping[str, typing.Any]",
+          "relative_defaults": "collections.abc.Mapping[str, ccf.products.request.RelativeDefault]",
           "schema_name": "<class 'str'>",
           "schema_version": "<class 'str'>",
           "semver": "<class 'str'>",
@@ -5666,6 +6284,17 @@
       "ProductRequestViolationReason": {
         "kind": "function",
         "shape": "typing.Literal['undeclared-parameter', 'missing-required-parameter', 'type-mismatch', 'class-mismatch', 'not-supported-at-tier', 'not-a-proportion', 'below-minimum', 'above-maximum', 'not-in-domain']"
+      },
+      "RelativeDefault": {
+        "kind": "contract",
+        "shape": {
+          "offset_seconds": "<class 'int'>",
+          "render": "typing.Literal['date', 'timestamp']"
+        }
+      },
+      "decode_declared_request": {
+        "kind": "function",
+        "shape": "(request: 'ProductRequest', declared: 'ProductRequestContract') -> 'ProductRequest'"
       },
       "refuse_intent": {
         "kind": "function",
@@ -5702,9 +6331,13 @@
   },
   "ccf.products.resolver": {
     "__all__": [
+      "AcquisitionSeamProtocol",
       "AssemblyDebtScorerProtocol",
+      "ChildAwareDebtScorerProtocol",
+      "CompositePlanFactoryProtocol",
       "DEBT_SCORER_INPUTS",
       "GovernedResolver",
+      "InstantAwareDebtScorerProtocol",
       "ProductGateProtocol",
       "ProductNotResolvable",
       "ProjectionPlanFactoryProtocol",
@@ -5712,12 +6345,25 @@
       "ReplayRefusalRecorder",
       "ResolverOutcome",
       "ServedProductResolverProtocol",
-      "build_governed_resolver"
+      "build_governed_resolver",
+      "declared_refusal_recorder"
     ],
     "exports": {
+      "AcquisitionSeamProtocol": {
+        "kind": "class",
+        "shape": "(*, request: 'ProductRequest', perspective: 'Perspective') -> 'None'"
+      },
       "AssemblyDebtScorerProtocol": {
         "kind": "class",
         "shape": "(*, view: 'GraphView', evidence: 'ExecutionEvidence | None' = None) -> 'DebtAssessment'"
+      },
+      "ChildAwareDebtScorerProtocol": {
+        "kind": "class",
+        "shape": "(*args, **kwargs)"
+      },
+      "CompositePlanFactoryProtocol": {
+        "kind": "class",
+        "shape": "(*args, **kwargs)"
       },
       "DEBT_SCORER_INPUTS": {
         "kind": "constant",
@@ -5725,7 +6371,11 @@
       },
       "GovernedResolver": {
         "kind": "class",
-        "shape": "(*, fabric: 'BootedFabric', control_plane: 'ControlPlaneProtocol', product_class_key: 'str', request_contract_key: 'str', operator_parameter_keys: 'tuple[str, ...]', policy_bundle_key: 'str', plan_factory: 'ProjectionPlanFactoryProtocol', debt_scorer: 'AssemblyDebtScorerProtocol', product_gate: 'ProductGateProtocol | None', constraint_resolver: 'PolicyConstraintResolver', capabilities: 'tuple[TechnicalCapability, ...]', refusal_recorder: 'RefusalRecorderProtocol', artifact_store: 'ArtifactStoreProtocol', replay_record_class: 'str', query_pin_class: 'str', max_ttl_seconds: 'int', product_ttl_seconds: 'int') -> None"
+        "shape": "(*, fabric: 'BootedFabric', control_plane: 'ControlPlaneProtocol', product_class_key: 'str', request_contract_key: 'str', operator_parameter_keys: 'tuple[str, ...]', policy_bundle_key: 'str', debt_profile_key: 'str | None', plan_factory: 'ProjectionPlanFactoryProtocol', debt_scorer: 'AssemblyDebtScorerProtocol', product_gate: 'ProductGateProtocol | None', constraint_resolver: 'PolicyConstraintResolver', capabilities: 'tuple[TechnicalCapability, ...]', refusal_recorder: 'RefusalRecorderProtocol', artifact_store: 'ArtifactStoreProtocol', replay_record_class: 'str', query_pin_class: 'str', max_ttl_seconds: 'int', product_ttl_seconds: 'int', composite_children: 'CompositeChildResolverProtocol | RequestAwareChildResolverProtocol | None', admission_clock: 'Callable[[], datetime]', decision_instant_parameter: 'str | None', source_refresh_recency: 'SourceRefreshRecency', acquisition: 'AcquisitionSeamProtocol | None') -> None"
+      },
+      "InstantAwareDebtScorerProtocol": {
+        "kind": "class",
+        "shape": "(*args, **kwargs)"
       },
       "ProductGateProtocol": {
         "kind": "class",
@@ -5757,7 +6407,11 @@
       },
       "build_governed_resolver": {
         "kind": "function",
-        "shape": "(*, fabric: 'BootedFabric', control_plane: 'ControlPlaneProtocol', product_class_key: 'str', request_contract_key: 'str', operator_parameter_keys: 'tuple[str, ...]', policy_bundle_key: 'str', plan_factory: 'ProjectionPlanFactoryProtocol', max_ttl_seconds: 'int', product_ttl_seconds: 'int', artifact_store: 'ArtifactStoreProtocol | None' = None, replay_record_class: 'str | None' = None, query_pin_class: 'str | None' = None, artifact_store_root: 'Path | None' = None, half_life_key: 'str | None' = None, debt_profile_key: 'str | None' = None, declared_completeness: 'Decimal | None' = None, declared_semantic_consistency: 'Decimal | None' = None, debt_scorer: 'AssemblyDebtScorerProtocol | None' = None, product_gate: 'ProductGateProtocol | None' = None, constraint_resolver: 'PolicyConstraintResolver | None' = None, capabilities: 'tuple[TechnicalCapability, ...] | None' = None) -> 'GovernedResolver'"
+        "shape": "(*, fabric: 'BootedFabric', control_plane: 'ControlPlaneProtocol', product_class_key: 'str', request_contract_key: 'str', operator_parameter_keys: 'tuple[str, ...]', policy_bundle_key: 'str', plan_factory: 'ProjectionPlanFactoryProtocol', max_ttl_seconds: 'int | None' = None, product_ttl_seconds: 'int | None' = None, decision_instant_parameter: 'str | None' = None, source_refresh_recency: 'SourceRefreshRecency' = None, composite_children: 'CompositeChildResolverProtocol | RequestAwareChildResolverProtocol | None' = None, admission_clock: 'Callable[[], datetime]' = <function _utc_now at 0xee98a3e5f9c0>, artifact_store: 'ArtifactStoreProtocol | None' = None, replay_record_class: 'str | None' = None, query_pin_class: 'str | None' = None, artifact_store_root: 'Path | None' = None, half_life_key: 'str | None' = None, debt_profile_key: 'str | None' = None, declared_completeness: 'Decimal | None' = None, declared_semantic_consistency: 'Decimal | None' = None, debt_scorer: 'AssemblyDebtScorerProtocol | None' = None, product_gate: 'ProductGateProtocol | None' = None, constraint_resolver: 'PolicyConstraintResolver | None' = None, capabilities: 'tuple[TechnicalCapability, ...] | None' = None, refusal_recorder: 'RefusalRecorderProtocol | None' = None, acquisition: 'AcquisitionSeamProtocol | None' = None) -> 'GovernedResolver'"
+      },
+      "declared_refusal_recorder": {
+        "kind": "function",
+        "shape": "(*, control_plane: 'ControlPlaneProtocol', artifact_store: 'ArtifactStoreProtocol', replay_record_class: 'str', tenant_id: 'str', assembly_mode: 'AssemblyMode', policy_bundle_pin: 'PolicyBinding') -> 'ReplayRefusalRecorder'"
       }
     }
   },
@@ -5982,6 +6636,7 @@
   },
   "ccf.replay.engine": {
     "__all__": [
+      "CompositeReplayEnvironment",
       "ReplayDivergence",
       "ReplayEnvironment",
       "ReplayError",
@@ -5994,6 +6649,10 @@
       "resolve_artifact_at_uri"
     ],
     "exports": {
+      "CompositeReplayEnvironment": {
+        "kind": "class",
+        "shape": "(*args, **kwargs)"
+      },
       "ReplayDivergence": {
         "kind": "class",
         "shape": "type"
@@ -6044,6 +6703,9 @@
   },
   "ccf.replay.record": {
     "__all__": [
+      "CHILD_ADMITTED",
+      "CHILD_OUTCOME_STATUSES",
+      "ChildResolution",
       "ContentGenerationPath",
       "ContextFabricSnapshot",
       "DecisionReplayRecord",
@@ -6075,10 +6737,54 @@
       "mint_assembly_refusal"
     ],
     "exports": {
+      "CHILD_ADMITTED": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "CHILD_OUTCOME_STATUSES": {
+        "kind": "constant",
+        "shape": "frozenset"
+      },
+      "ChildResolution": {
+        "kind": "contract",
+        "shape": {
+          "child_admitted_at": "datetime.datetime | None",
+          "child_asked_at": "datetime.datetime | None",
+          "child_content_address": "str | None",
+          "child_debt": "decimal.Decimal | None",
+          "child_debt_factors": "ccf.halflife.assessment.DebtFactors | None",
+          "child_eligibility_assertion_address": "str | None",
+          "child_eligibility_checked_at": "datetime.datetime | None",
+          "child_expires_at": "datetime.datetime | None",
+          "child_graph_snapshot_at": "datetime.datetime | None",
+          "child_lineage_ref": "str | None",
+          "child_operators_invoked": "frozenset[str] | None",
+          "child_policy_bundle_versions": "frozenset[str] | None",
+          "child_question_address": "str | None",
+          "child_replay_ref": "str | None",
+          "child_reported_address": "str | None",
+          "child_schema_name": "str | None",
+          "child_schema_version": "str | None",
+          "eligibility_basis": "str | None",
+          "grant_hash": "str | None",
+          "outcome_status": "<class 'str'>",
+          "producer_id": "str | None",
+          "producer_registration_address": "str | None",
+          "producer_server": "str | None",
+          "producer_tenant": "str | None",
+          "producing_fabric": "str | None",
+          "producing_skill_name": "str | None",
+          "producing_skill_version": "str | None",
+          "refusal_ref": "str | None",
+          "required": "<class 'bool'>",
+          "required_product_class": "<class 'str'>"
+        }
+      },
       "ContentGenerationPath": {
         "kind": "contract",
         "shape": {
           "assembly_refusal": "<class 'str'>",
+          "child_resolutions": "tuple[ccf.replay.record.ChildResolution, ...]",
           "debt": "ccf.halflife.assessment.DebtAssessment | None",
           "debt_evidence": "tuple[ccf.halflife.assessment.DebtEvidencePointer, ...]",
           "disclosure_decision": "<class 'str'>",
@@ -6250,7 +6956,7 @@
       },
       "build_replay_record": {
         "kind": "function",
-        "shape": "(*, execution: 'ExecutionResult | None', product: 'ContextProductContract | None', perspective: 'Perspective', policy_bindings: 'tuple[PolicyBinding, ...]', assembly_mode: 'AssemblyMode', recorded_at: 'datetime', resolution: \"'EffectiveRequest | ResolutionNotApplicable'\", refusal: \"'RefusalEnvelope | None'\" = None, tenant_id: 'str | None' = None, assembler_id: 'str | None' = None, assembler_version: 'str | None' = None, disclosure: 'str | None' = None, agent_conditioning: 'PerspectiveConditioning | None' = None, harness_trace: 'HarnessTrace | None' = None, hitl_actions: 'str | None' = None, workflow_step_sequence: 'str | None' = None, assembly_refusal: 'str | None' = None, adapter: 'AdapterPin | None' = None, request: 'ProductRequest | None' = None) -> 'DecisionReplayRecord'"
+        "shape": "(*, execution: 'ExecutionResult | None', product: 'ContextProductContract | None', perspective: 'Perspective', policy_bindings: 'tuple[PolicyBinding, ...]', assembly_mode: 'AssemblyMode', recorded_at: 'datetime', resolution: \"'EffectiveRequest | ResolutionNotApplicable'\", refusal: \"'RefusalEnvelope | None'\" = None, tenant_id: 'str | None' = None, assembler_id: 'str | None' = None, assembler_version: 'str | None' = None, disclosure: 'str | None' = None, agent_conditioning: 'PerspectiveConditioning | None' = None, harness_trace: 'HarnessTrace | None' = None, hitl_actions: 'str | None' = None, workflow_step_sequence: 'str | None' = None, assembly_refusal: 'str | None' = None, adapter: 'AdapterPin | None' = None, request: 'ProductRequest | None' = None, child_resolutions: 'tuple[ChildResolution, ...]' = ()) -> 'DecisionReplayRecord'"
       },
       "mint_assembly_refusal": {
         "kind": "function",
@@ -6373,7 +7079,8 @@
   "ccf.signal.envelope": {
     "__all__": [
       "SignalEnvelope",
-      "SourceIdentity"
+      "SourceIdentity",
+      "refuse_foreign_envelope"
     ],
     "exports": {
       "SignalEnvelope": {
@@ -6393,6 +7100,10 @@
         "shape": {
           "system_id": "<class 'str'>"
         }
+      },
+      "refuse_foreign_envelope": {
+        "kind": "function",
+        "shape": "(envelope: 'SignalEnvelope', *, tenant_id: 'str', asked_at: 'datetime') -> 'None'"
       }
     }
   },
@@ -6683,12 +7394,13 @@
         "shape": {
           "argument_schema": "<class 'ccf.skills.catalog.SkillArgumentSchema'>",
           "artifact_version": "<class 'str'>",
-          "binding": "ccf.skills.catalog.LocalCallableBinding | ccf.skills.catalog.ToolBinding | ccf.skills.catalog.McpBinding | ccf.skills.catalog.PeeringBinding | ccf.skills.catalog.ProcedureBinding",
+          "binding": "ccf.skills.catalog.LocalCallableBinding | ccf.skills.catalog.ToolBinding | ccf.skills.catalog.McpBinding | ccf.skills.catalog.McpProductBinding | ccf.skills.catalog.PeeringBinding | ccf.skills.catalog.ProcedureBinding",
           "description": "<class 'str'>",
           "name": "<class 'str'>",
+          "produces": "<class 'str'>",
           "requirements": "<class 'ccf.skills.catalog.SkillRequirements'>",
           "schema_version": "<class 'str'>",
-          "skill_type": "typing.Literal['local_callable', 'tool', 'mcp', 'peering', 'procedure']",
+          "skill_type": "typing.Literal['local_callable', 'tool', 'mcp', 'mcp_product', 'peering', 'procedure']",
           "tenant": "<class 'str'>"
         }
       },
@@ -6779,6 +7491,8 @@
     "__all__": [
       "LocalCallableBinding",
       "McpBinding",
+      "McpProductBinding",
+      "NO_PRODUCT_CLASS",
       "PeeringBinding",
       "ProcedureBinding",
       "SKILL_CATALOG_ENTRY",
@@ -6807,6 +7521,18 @@
           "resource": "<class 'str'>",
           "server": "<class 'str'>"
         }
+      },
+      "McpProductBinding": {
+        "kind": "contract",
+        "shape": {
+          "product_class": "<class 'str'>",
+          "product_version": "<class 'str'>",
+          "server": "<class 'str'>"
+        }
+      },
+      "NO_PRODUCT_CLASS": {
+        "kind": "constant",
+        "shape": "str"
       },
       "PeeringBinding": {
         "kind": "contract",
@@ -6870,12 +7596,13 @@
         "shape": {
           "argument_schema": "<class 'ccf.skills.catalog.SkillArgumentSchema'>",
           "artifact_version": "<class 'str'>",
-          "binding": "ccf.skills.catalog.LocalCallableBinding | ccf.skills.catalog.ToolBinding | ccf.skills.catalog.McpBinding | ccf.skills.catalog.PeeringBinding | ccf.skills.catalog.ProcedureBinding",
+          "binding": "ccf.skills.catalog.LocalCallableBinding | ccf.skills.catalog.ToolBinding | ccf.skills.catalog.McpBinding | ccf.skills.catalog.McpProductBinding | ccf.skills.catalog.PeeringBinding | ccf.skills.catalog.ProcedureBinding",
           "description": "<class 'str'>",
           "name": "<class 'str'>",
+          "produces": "<class 'str'>",
           "requirements": "<class 'ccf.skills.catalog.SkillRequirements'>",
           "schema_version": "<class 'str'>",
-          "skill_type": "typing.Literal['local_callable', 'tool', 'mcp', 'peering', 'procedure']",
+          "skill_type": "typing.Literal['local_callable', 'tool', 'mcp', 'mcp_product', 'peering', 'procedure']",
           "tenant": "<class 'str'>"
         }
       },
@@ -6905,14 +7632,24 @@
   "ccf.skills.dispatch": {
     "__all__": [
       "McpInvocation",
+      "McpProductFailure",
+      "McpProductInvocation",
+      "McpProductProvenanceError",
       "McpSkillRegistry",
       "McpSkillUnregistered",
       "PeeringInvocation",
       "PeeringSkillRegistry",
       "PeeringSkillUnregistered",
+      "ProducerDoesNotOffer",
+      "ProducerOffer",
+      "ProducerRegistration",
+      "ProductQuestion",
       "SkillInvocation",
       "ToolInvocation",
-      "dispatch_skill"
+      "dispatch_skill",
+      "question_identity",
+      "verify_mcp_product_failure",
+      "verify_mcp_product_invocation"
     ],
     "exports": {
       "McpInvocation": {
@@ -6925,6 +7662,18 @@
           "skill_name": "<class 'str'>",
           "skill_type": "<class 'str'>"
         }
+      },
+      "McpProductFailure": {
+        "kind": "class",
+        "shape": "(*, skill_name: 'str', skill_type: 'str', server: 'str', producer_id: 'str', producer_tenant: 'str', producer_registration_address: 'str', product_class: 'str', product_version: 'str', question_address: 'str', failure: 'McpProductFailureKind', detail: 'str', token: 'object') -> 'None'"
+      },
+      "McpProductInvocation": {
+        "kind": "class",
+        "shape": "(*, skill_name: 'str', skill_type: 'str', server: 'str', producer_id: 'str', producer_tenant: 'str', producer_registration_address: 'str', product_class: 'str', product_version: 'str', question_address: 'str', request_json: 'str', contents: 'str', arguments: 'Mapping[str, str]', token: 'object') -> 'None'"
+      },
+      "McpProductProvenanceError": {
+        "kind": "class",
+        "shape": "type"
       },
       "McpSkillRegistry": {
         "kind": "class",
@@ -6952,6 +7701,38 @@
         "kind": "class",
         "shape": "type"
       },
+      "ProducerDoesNotOffer": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "ProducerOffer": {
+        "kind": "contract",
+        "shape": {
+          "product_class": "<class 'str'>",
+          "versions_from": "<class 'str'>"
+        }
+      },
+      "ProducerRegistration": {
+        "kind": "contract",
+        "shape": {
+          "artifact_address": "<class 'str'>",
+          "offers": "tuple[ccf.skills.dispatch.ProducerOffer, ...]",
+          "producer_id": "<class 'str'>",
+          "producer_tenant": "<class 'str'>",
+          "server": "<class 'str'>"
+        }
+      },
+      "ProductQuestion": {
+        "kind": "contract",
+        "shape": {
+          "asked_at": "<class 'datetime.datetime'>",
+          "freshness": "<class 'str'>",
+          "intent": "<class 'str'>",
+          "parameters": "collections.abc.Mapping[str, typing.Any]",
+          "request_json": "<class 'str'>",
+          "subject": "<class 'str'>"
+        }
+      },
       "SkillInvocation": {
         "kind": "contract",
         "shape": {
@@ -6970,7 +7751,19 @@
       },
       "dispatch_skill": {
         "kind": "function",
-        "shape": "(entry: 'SkillCatalogEntry', *, arguments: 'Mapping[str, str]', callable_registry: 'CallableRegistry', mcp_skills: 'McpSkillRegistry | None' = None, peering_skills: 'PeeringSkillRegistry | None' = None) -> 'SkillInvocation | ToolInvocation | McpInvocation | PeeringInvocation'"
+        "shape": "(entry: 'SkillCatalogEntry', *, arguments: 'Mapping[str, str]', callable_registry: 'CallableRegistry', mcp_skills: 'McpSkillRegistry | None' = None, peering_skills: 'PeeringSkillRegistry | None' = None, question: 'ProductQuestion | None' = None) -> 'SkillInvocation | ToolInvocation | McpInvocation | PeeringInvocation | McpProductInvocation | McpProductFailure'"
+      },
+      "question_identity": {
+        "kind": "function",
+        "shape": "(*, request_json: 'str', subject: 'str', intent: 'str', freshness: 'str', asked_at: 'datetime') -> 'str'"
+      },
+      "verify_mcp_product_failure": {
+        "kind": "function",
+        "shape": "(value: 'object') -> 'McpProductFailure'"
+      },
+      "verify_mcp_product_invocation": {
+        "kind": "function",
+        "shape": "(value: 'object') -> 'McpProductInvocation'"
       }
     }
   },
@@ -7130,6 +7923,27 @@
       "skill_grant_key": {
         "kind": "function",
         "shape": "(grant: 'SkillGrant') -> 'str'"
+      }
+    }
+  },
+  "ccf.skills.producers": {
+    "__all__": [
+      "ProducerEnvironmentMissing",
+      "producer_registration_from_artifact",
+      "register_declared_producer"
+    ],
+    "exports": {
+      "ProducerEnvironmentMissing": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "producer_registration_from_artifact": {
+        "kind": "function",
+        "shape": "(artifact: 'McpProducerRegistration') -> 'ProducerRegistration'"
+      },
+      "register_declared_producer": {
+        "kind": "function",
+        "shape": "(registry: 'McpSkillRegistry', *, artifact: 'McpProducerRegistration', environ: 'Mapping[str, str]', bridge: 'SyncMcpBridge', credential_factory: 'CredentialFactory | None' = None) -> 'ProducerRegistration'"
       }
     }
   },
@@ -8463,6 +9277,7 @@
     "__all__": [
       "FileTokenSource",
       "SourceBackedTokenVerifier",
+      "StaticTokenSource",
       "TokenGrant",
       "TokenSourceProtocol"
     ],
@@ -8474,6 +9289,10 @@
       "SourceBackedTokenVerifier": {
         "kind": "class",
         "shape": "(*, source: 'TokenSourceProtocol') -> 'None'"
+      },
+      "StaticTokenSource": {
+        "kind": "class",
+        "shape": "(*, grants: 'Mapping[str, TokenGrant]') -> 'None'"
       },
       "TokenGrant": {
         "kind": "contract",
@@ -8554,7 +9373,7 @@
       },
       "build_egress_server": {
         "kind": "function",
-        "shape": "(*, server_name: 'str', resolver: 'ProductResolverProtocol', token_verifier: 'TokenVerifier', auth_settings: 'AuthSettings', entitlement_source: 'ProductEntitlementSourceProtocol', perspective_resolver: 'PerspectiveResolverProtocol', refusal_recorder: 'RefusalRecorderProtocol | None' = None, expose_product_resource: 'bool' = True, expose_product_tool: 'bool' = False, product_tool_description: 'str | None' = None) -> 'FastMCP'"
+        "shape": "(*, server_name: 'str', resolver: 'ProductResolverProtocol', token_verifier: 'TokenVerifier', auth_settings: 'AuthSettings', entitlement_source: 'ProductEntitlementSourceProtocol', perspective_resolver: 'PerspectiveResolverProtocol', refusal_recorder: 'RefusalRecorderProtocol | None' = None, expose_product_resource: 'bool' = True, expose_product_tool: 'bool' = False, product_tool_description: 'str | None' = None, producer_id: 'str | None' = None, producer_tenant: 'str | None' = None) -> 'FastMCP'"
       },
       "parse_product_address": {
         "kind": "function",
@@ -8784,6 +9603,27 @@
       "hitl_queue_uri": {
         "kind": "function",
         "shape": "(*, tenant: 'str') -> 'str'"
+      }
+    }
+  },
+  "ccf_runtime.mcp.product_door": {
+    "__all__": [
+      "ProductDoor",
+      "ServesProducts",
+      "open_door"
+    ],
+    "exports": {
+      "ProductDoor": {
+        "kind": "class",
+        "shape": "(product: 'ServesProducts', credential: 'str', principal_id: 'str', role: 'str', scope: 'str', tenant_id: 'str', producer_id: 'str', _token_verifier: 'TokenVerifier', _entitlement_source: 'ProductEntitlementSourceProtocol', _perspective_resolver: 'PerspectiveResolverProtocol', _environ: 'Mapping[str, str]') -> None"
+      },
+      "ServesProducts": {
+        "kind": "class",
+        "shape": "(*args, **kwargs)"
+      },
+      "open_door": {
+        "kind": "function",
+        "shape": "(product: 'ServesProducts', *, environ: 'Mapping[str, str] | None' = None, perspective_resolver: 'PerspectiveResolverProtocol | None' = None, token_verifier: 'TokenVerifier | None' = None, entitlement_source: 'ProductEntitlementSourceProtocol | None' = None) -> 'ProductDoor'"
       }
     }
   },
