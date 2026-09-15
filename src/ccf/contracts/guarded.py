@@ -214,6 +214,30 @@ GUARDED_TYPES: Final[tuple[GuardedTypeDeclaration, ...]] = (
         ),
     ),
     GuardedTypeDeclaration(
+        type_path="ccf.skills.dispatch:McpProductInvocation",
+        authority=(
+            "a registered producer was actually asked this question through"
+            " the registry the composition root populated, and the producer"
+            " identity and tenant carried here were copied from that"
+            " registration, never from the answer (D-IMPL-340)"
+        ),
+        mint="ccf.skills.dispatch:_invoke_mcp_product",
+        verifier="ccf.skills.dispatch:verify_mcp_product_invocation",
+        boundaries=("ccf.products.composite:invocation_from_dispatch",),
+        propagation=(
+            "`invocation_from_dispatch` verifies the mint and copies the"
+            " producer members onto `ChildInvocation`; `child_resolver._admit`"
+            " receives the value from `dispatch_skill` within the same call"
+            " and reads only its door contents"
+        ),
+        notes=(
+            "a frozen dataclass rather than a contract, on the"
+            " `ResolvedProducer` precedent: the members are evidence of what"
+            " the deployment registered, and a caller-built value must not"
+            " reach admission looking like a dispatch that ran",
+        ),
+    ),
+    GuardedTypeDeclaration(
         type_path="ccf.replay.serve:DeliveryCapability",
         authority="the decision record was appended before anything was served",
         mint="ccf.replay.serve:ReplayWriter.write_replay_record",

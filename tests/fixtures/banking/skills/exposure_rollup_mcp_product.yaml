@@ -1,0 +1,56 @@
+# Banking fixture skill catalog entry — mcp_product type (D-IMPL-340; CLAUDE.md
+# §6.2 channel 2). "Invoke a registered remote Context Product producer with a
+# governed parameterized product question."
+#
+# All values live here, none in `/src` or test code (No-Hardcoding Rule §6.4).
+# The binding names a PRODUCER by logical name and the product class and lane
+# it asks for; `produces` restates the class, and the two must agree or the
+# entry is refused at registration. No address, no tenant, no question here:
+# the tenant comes from the producer registration below, the question from the
+# composite's own request at dispatch.
+
+entry:
+  schema_version: "2.0.0"
+  artifact_version: "1.0.0"
+  name: exposure-rollup-ask
+  tenant: acme-bank
+  skill_type: mcp_product
+  description: >-
+    Ask the bank's registered exposure-rollup producer for the governed
+    credit-exposure rollup answering one obligor question.
+  argument_schema:
+    properties:
+      requested_by:
+        type: string
+        description: >-
+          The role or analyst the acquisition is recorded against.
+    required: [requested_by]
+  binding:
+    server: acme-bank-exposure
+    product_class: credit-risk.exposure-rollup
+    product_version: "1.0.0"
+  requirements:
+    required_scopes: [portfolio-read]
+    required_context_products: []
+  produces: credit-risk.exposure-rollup
+
+# The producer registration the binding above selects — a `ccf.mcp-producer`
+# Control Plane document. Names only: the endpoint and credential are read from
+# the environment variables it NAMES, at the composition root, never from here.
+producer:
+  semver: "1.0.0"
+  server: acme-bank-exposure
+  producer_id: acme-bank-exposure-egress
+  producer_tenant: acme-bank-credit
+  endpoint_from_env: CCF_ACME_EXPOSURE_URL
+  credential_from_env: CCF_ACME_EXPOSURE_TOKEN
+  offers:
+    - product_class: credit-risk.exposure-rollup
+      versions_from: "1.0.0"
+
+# A binding that disagrees with `produces`, for the refused-at-registration
+# case: the entry asks for one class and claims to produce another.
+disagreeing_binding:
+  server: acme-bank-exposure
+  product_class: credit-risk.collateral-coverage
+  product_version: "1.0.0"

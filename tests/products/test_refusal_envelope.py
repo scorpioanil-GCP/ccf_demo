@@ -356,12 +356,23 @@ def test_envelope_for_composite_child_refusal(
     assert envelope.kind == REFUSAL_KINDS[ChildAdmissionRefusal]
     assert envelope.kind == "composite-child-refusal"
     assert envelope.reason == GATE_CHILD_ADMISSION
+    # `D-IMPL-340`: the five producer-relationship members ride on every
+    # child refusal — `null` on a leg that has no producer — because a field
+    # added to a refusal type appears in the envelope by design
+    # (`envelope_for`'s own rule), and a refused `mcp_product` row must name
+    # the exact producer it was refused under.
     assert set(envelope.fields) == {
         "product_class",
         "reason",
         "reported_content_address",
         "verified_content_address",
+        "producer_id",
+        "producer_tenant",
+        "producer_registration_address",
+        "producer_server",
+        "question_address",
     }
+    assert envelope.fields["producer_id"] == "null"
     assert envelope.fields["reason"] == '"as-of-mismatch"'
     # F9: the two addresses cross SEPARATELY and labelled. On an
     # address-mismatch they differ, and the record must never present the

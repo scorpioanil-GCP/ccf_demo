@@ -68,6 +68,7 @@ __all__ = [
     "SKILL_TYPES",
     "LocalCallableBinding",
     "McpBinding",
+    "McpProductBinding",
     "PeeringBinding",
     "ProcedureBinding",
     "SkillArgumentElement",
@@ -92,7 +93,9 @@ __all__ = [
 #: keeps its artifact identity (D-IMPL-243).
 NO_PRODUCT_CLASS: Final = "ccf:no-product-class"
 
-SkillType = Literal["local_callable", "tool", "mcp", "peering", "procedure"]
+SkillType = Literal[
+    "local_callable", "tool", "mcp", "mcp_product", "peering", "procedure"
+]
 
 SKILL_TYPES: frozenset[str] = frozenset(get_args(SkillType))
 
@@ -156,6 +159,34 @@ class McpBinding(CCFContract):
     resource: str
 
 
+class McpProductBinding(CCFContract):
+    """An ``mcp_product`` skill's descriptor: which registered producer to ASK.
+
+    `D-IMPL-340`. Dave's definition, verbatim: *"`mcp_product` means: invoke a
+    registered remote Context Product producer with a governed parameterized
+    product question."* Its own skill type rather than a second reading of
+    :class:`McpBinding`, so that a catalog reader can see which entries can
+    *ask* and which can only *read*, and so the fixed-resource ``mcp`` path is
+    byte-for-byte what it was.
+
+    ``server`` selects a **producer registration** by logical name — the
+    ``ccf.mcp-producer`` document the composition root registered — never an
+    address. ``product_class`` and ``product_version`` are what the producer
+    is asked for, and the entry's ``produces`` must name the same class: a
+    skill that says it produces X while asking for Y is refused at
+    registration, not discovered at admission.
+    """
+
+    server: str
+    product_class: str
+    product_version: str
+
+    @field_validator("product_version")
+    @classmethod
+    def _version_is_semver(cls, value: str) -> str:
+        return validate_semver(value)
+
+
 class PeeringBinding(CCFContract):
     """A ``peering`` skill's descriptor: the remote peer-endpoint it names.
 
@@ -196,6 +227,7 @@ _BINDING_CONTRACTS: dict[str, type[CCFContract]] = {
     "local_callable": LocalCallableBinding,
     "tool": ToolBinding,
     "mcp": McpBinding,
+    "mcp_product": McpProductBinding,
     "peering": PeeringBinding,
     "procedure": ProcedureBinding,
 }
@@ -586,6 +618,7 @@ class SkillCatalogEntry(CCFContract):
         LocalCallableBinding
         | ToolBinding
         | McpBinding
+        | McpProductBinding
         | PeeringBinding
         | ProcedureBinding
     )
@@ -608,6 +641,16 @@ class SkillCatalogEntry(CCFContract):
                 f" {expected.__name__}, got"
                 f" {type(self.binding).__name__} — the binding block is what"
                 " the type discriminator promises (D-IMPL-12)"
+            )
+        if isinstance(self.binding, McpProductBinding) and (
+            self.produces != self.binding.product_class
+        ):
+            raise ValueError(
+                f"an 'mcp_product' entry asks its producer for"
+                f" {self.binding.product_class!r} and declares it produces"
+                f" {self.produces!r}; the two are one statement, and a skill"
+                " whose `produces` disagrees with what it asks for would only"
+                " be caught at admission as a class mismatch (D-IMPL-340)"
             )
         return self
 

@@ -87,19 +87,32 @@ address of its own (CLAUDE.md §11, CINV-01). Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
+import hashlib
+import json
 from collections.abc import Callable, Mapping
+from dataclasses import dataclass
 from datetime import datetime
+from typing import Any, Final, Literal
+
+from pydantic import field_validator
 
 from ccf.agents.errors import NotYetBound
 from ccf.contracts.base import CCFContract
+from ccf.controlplane.artifact_base import validate_semver
 from ccf.controlplane.audit import AuditLog
 from ccf.mcp.client import McpResourceClient
-from ccf.mcp.errors import McpClientError
+from ccf.mcp.errors import (
+    McpClientError,
+    McpServerUnreachable,
+    McpTimeout,
+    McpToolFailed,
+)
 from ccf.peering.protocol import InboundProduct, PeeringProtocol
 from ccf.skills.callables import CallableRegistry
 from ccf.skills.catalog import (
     LocalCallableBinding,
     McpBinding,
+    McpProductBinding,
     PeeringBinding,
     SkillCatalogEntry,
     ToolBinding,
@@ -110,14 +123,22 @@ __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "McpInvocation",
+    "McpProductFailure",
+    "McpProductInvocation",
+    "McpProductProvenanceError",
     "McpSkillRegistry",
     "McpSkillUnregistered",
+    "ProducerDoesNotOffer",
+    "ProducerOffer",
+    "ProducerRegistration",
+    "ProductQuestion",
     "PeeringInvocation",
     "PeeringSkillRegistry",
     "PeeringSkillUnregistered",
     "SkillInvocation",
     "ToolInvocation",
     "dispatch_skill",
+    "verify_mcp_product_invocation",
 ]
 
 
@@ -209,6 +230,266 @@ class PeeringInvocation(CCFContract):
     endpoint: str
     products: tuple[InboundProduct, ...]
     arguments: Mapping[str, str]
+
+
+#: The producer-side operation an ``mcp_product`` dispatch invokes. Spelled
+#: here and asserted equal to the door's own constant by
+#: ``tests/skills/test_mcp_product_dispatch.py``, because this module must not
+#: import :mod:`ccf.products` (the composite path imports this one).
+PRODUCT_REQUEST_TOOL: Final = "request_context_product"
+
+
+class ProducerOffer(CCFContract):
+    """One product class a registered producer may be asked for (`D-IMPL-340`).
+
+    ``versions_from`` is a floor under the same caret-shaped rule
+    :class:`~ccf.products.contract.ChildRequirement` uses — same **major**
+    lane, at or above — restated here rather than imported so that the skills
+    layer stays independent of the products layer.
+    """
+
+    product_class: str
+    versions_from: str
+
+    @field_validator("versions_from")
+    @classmethod
+    def _floor_is_semver(cls, value: str) -> str:
+        return validate_semver(value)
+
+    def accepts(self, *, version: str) -> bool:
+        """Same major as ``versions_from`` and at or above it."""
+        floor = _semver_triple(self.versions_from)
+        candidate = _semver_triple(validate_semver(version))
+        return candidate[0] == floor[0] and candidate >= floor
+
+
+def _semver_triple(value: str) -> tuple[int, int, int]:
+    major, minor, patch = value.split("-", 1)[0].split("+", 1)[0].split(".")
+    return int(major), int(minor), int(patch)
+
+
+class ProducerRegistration(CCFContract):
+    """What a deployment declared about one remote producer (`D-IMPL-340`).
+
+    **The authority for expected producer identity and producer tenant** —
+    Dave's ruling: *"The registration is the authority for expected producer
+    identity and producer tenant. The answer is evidence held against that
+    authority; it is not the authority itself."* Built at the composition root
+    from a ``ccf.mcp-producer`` Control Plane document
+    (:func:`producer_registration_from_artifact`), never from anything a
+    producer returned.
+
+    Attributes:
+        server: The logical name an :class:`~ccf.skills.catalog.McpProductBinding`
+            selects this producer by. A name, never an address (T-06-24).
+        producer_id: The identity the deployment expects this producer to
+            assert on its answers.
+        producer_tenant: The tenant the deployment expects this producer's
+            products to be governed under.
+        offers: The product classes, with version floors, the deployment is
+            willing to ask this producer for.
+        artifact_address: The content address of the ``ccf.mcp-producer``
+            document this registration was built from — what replay names as
+            the governance context of every acquisition through it.
+    """
+
+    server: str
+    producer_id: str
+    producer_tenant: str
+    offers: tuple[ProducerOffer, ...]
+    artifact_address: str
+
+    def offer_for(self, *, product_class: str, version: str) -> ProducerOffer | None:
+        """The offer that covers ``product_class`` at ``version``, or ``None``."""
+        for offer in self.offers:
+            if offer.product_class == product_class and offer.accepts(version=version):
+                return offer
+        return None
+
+
+class ProductQuestion(CCFContract):
+    """The governed question an ``mcp_product`` dispatch carries (`D-IMPL-340`).
+
+    Every member has one source, and none is an address: ``subject``,
+    ``intent``, ``freshness`` and ``parameters`` come from the composite's
+    child-question mapping; ``asked_at`` is the composite's one reconstruction
+    instant; ``request_json`` is the canonical
+    :class:`~ccf.products.door.WireRequest` the consumer built and will hold
+    the producer's echo against. The tenant, class and version the producer is
+    asked for are **not** here — they come from the registration and the
+    binding at dispatch, so a question cannot re-address itself.
+    """
+
+    subject: str
+    intent: str
+    freshness: str
+    asked_at: datetime
+    parameters: Mapping[str, Any]
+    request_json: str
+
+    @field_validator("asked_at")
+    @classmethod
+    def _asked_at_is_aware(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError(
+                "a ProductQuestion's asked_at carries an offset; a naive"
+                " instant is not one instant (D-IMPL-38)"
+            )
+        return value
+
+    @property
+    def address(self) -> str:
+        """``sha256`` of the canonical request bytes — the question's identity."""
+        return hashlib.sha256(self.request_json.encode("utf-8")).hexdigest()
+
+
+class McpProductProvenanceError(TypeError):
+    """An ``McpProductInvocation`` was not minted by :func:`_invoke_mcp_product`."""
+
+
+_MCP_PRODUCT_TOKEN: Final = object()
+
+McpProductFailureKind = Literal["timeout", "unreachable", "tool-error"]
+
+
+@dataclass(frozen=True)
+class McpProductInvocation:
+    """The typed result of one executed ``mcp_product`` dispatch (`D-IMPL-340`).
+
+    A frozen dataclass with a mint token rather than a contract, on the
+    :class:`~ccf.products.composite.ResolvedProducer` precedent: the producer
+    members below are **copied from the registration the registry resolved**,
+    and a value carrying caller-chosen producer members must not be able to
+    reach admission looking like a dispatch that ran. ``token`` is
+    module-private; :func:`verify_mcp_product_invocation` is the check a
+    boundary runs (`D-IMPL-337`).
+
+    Attributes:
+        skill_name: The catalog entry invoked.
+        skill_type: ``"mcp_product"``.
+        server: The logical producer name from the binding.
+        producer_id: From the registration — the identity the answer is held to.
+        producer_tenant: From the registration — the tenant the answer is held to.
+        producer_registration_address: From the registration — the content
+            address of the ``ccf.mcp-producer`` document.
+        product_class: What was asked for, from the binding.
+        product_version: The lane asked at, from the binding.
+        question_address: ``sha256`` of the canonical request sent.
+        request_json: The canonical request sent, so admission can hold the
+            producer's echo against it.
+        contents: The door's answer, as text — a
+            :class:`~ccf.products.door.DoorOutcome` document. Opaque here.
+        arguments: An audit copy of the tool arguments, stringified. Recorded,
+            never re-sent.
+    """
+
+    skill_name: str
+    skill_type: str
+    server: str
+    producer_id: str
+    producer_tenant: str
+    producer_registration_address: str
+    product_class: str
+    product_version: str
+    question_address: str
+    request_json: str
+    contents: str
+    arguments: Mapping[str, str]
+    _dispatch_provenance: object = None
+
+    def __init__(
+        self,
+        *,
+        skill_name: str,
+        skill_type: str,
+        server: str,
+        producer_id: str,
+        producer_tenant: str,
+        producer_registration_address: str,
+        product_class: str,
+        product_version: str,
+        question_address: str,
+        request_json: str,
+        contents: str,
+        arguments: Mapping[str, str],
+        token: object,
+    ) -> None:
+        if token is not _MCP_PRODUCT_TOKEN:
+            raise McpProductProvenanceError(
+                "McpProductInvocation is minted only by"
+                " ccf.skills.dispatch._invoke_mcp_product, which copies the"
+                " producer identity and tenant from the registration the"
+                " registry resolved. A value with caller-chosen producer"
+                " members would let a payload's claim stand in for the"
+                " deployment's expectation (D-IMPL-340)"
+            )
+        object.__setattr__(self, "skill_name", skill_name)
+        object.__setattr__(self, "skill_type", skill_type)
+        object.__setattr__(self, "server", server)
+        object.__setattr__(self, "producer_id", producer_id)
+        object.__setattr__(self, "producer_tenant", producer_tenant)
+        object.__setattr__(
+            self, "producer_registration_address", producer_registration_address
+        )
+        object.__setattr__(self, "product_class", product_class)
+        object.__setattr__(self, "product_version", product_version)
+        object.__setattr__(self, "question_address", question_address)
+        object.__setattr__(self, "request_json", request_json)
+        object.__setattr__(self, "contents", contents)
+        object.__setattr__(self, "arguments", dict(arguments))
+        object.__setattr__(self, "_dispatch_provenance", _MCP_PRODUCT_TOKEN)
+
+
+def verify_mcp_product_invocation(value: object) -> McpProductInvocation:
+    """Refuse anything that is not a minted :class:`McpProductInvocation`.
+
+    `D-IMPL-337`: the sentinel is verified, not the class — a subclass
+    skipping ``__init__`` satisfies ``isinstance`` and carries no mint.
+    """
+    if (
+        not isinstance(value, McpProductInvocation)
+        or getattr(value, "_dispatch_provenance", None) is not _MCP_PRODUCT_TOKEN
+    ):
+        raise McpProductProvenanceError(
+            f"a {type(value).__name__} reached an mcp_product boundary without"
+            " the dispatch mint; only ccf.skills.dispatch._invoke_mcp_product"
+            " produces an McpProductInvocation (D-IMPL-340, D-IMPL-337)"
+        )
+    return value
+
+
+@dataclass(frozen=True)
+class McpProductFailure:
+    """A registered, governed producer that could not answer (`D-IMPL-340`).
+
+    Dave's ruling: *"A correctly registered and governed remote producer that
+    cannot answer the requested child produces a governed
+    `producer-unavailable` outcome"* — and it is **not** to be collapsed with
+    *"this deployment was never correctly wired"*. So an unregistered server
+    or a producer that does not offer the class still **raises** (those are
+    deployment facts), while a timeout, an unreachable endpoint or a tool
+    call the producer reported as an error comes back as this value, carrying
+    the registration members admission needs to write an honest row.
+
+    Attributes:
+        failure: ``"timeout"``, ``"unreachable"`` or ``"tool-error"``.
+        detail: The producer's reported text for a tool error — for the SDK's
+            own door an opaque ``ccf-runtime-failure:<id>`` or a protocol
+            denial — or the client failure's class name otherwise. Never a
+            traceback, never an address.
+    """
+
+    skill_name: str
+    skill_type: str
+    server: str
+    producer_id: str
+    producer_tenant: str
+    producer_registration_address: str
+    product_class: str
+    product_version: str
+    question_address: str
+    failure: McpProductFailureKind
+    detail: str
 
 
 class PeeringSkillUnregistered(LookupError):
@@ -342,6 +623,15 @@ class McpSkillUnregistered(LookupError):
     """
 
 
+class ProducerDoesNotOffer(McpSkillUnregistered):
+    """A registered producer was asked for a class or lane it does not offer.
+
+    A deployment fact — the registration and the binding disagree — and so an
+    exception rather than a governed refusal, refused **before** any socket is
+    opened (`D-IMPL-340`, ruling 1).
+    """
+
+
 class McpSkillRegistry:
     """Logical ``{server, resource}`` names → a shared client and a URI.
 
@@ -375,6 +665,10 @@ class McpSkillRegistry:
         self._clock = clock
         self._clients: dict[str, McpResourceClient] = {}
         self._resources: dict[tuple[str, str], str] = {}
+        # `D-IMPL-340`: producers that can be ASKED. A separate map from the
+        # fixed-resource clients so neither registration can be reached
+        # through the other's binding type.
+        self._producers: dict[str, tuple[McpResourceClient, ProducerRegistration]] = {}
 
     @property
     def audit_log(self) -> AuditLog:
@@ -436,6 +730,70 @@ class McpSkillRegistry:
         for resource, uri in resources.items():
             self._resources[server, resource] = uri
 
+    def register_producer(
+        self, *, client: McpResourceClient, registration: ProducerRegistration
+    ) -> None:
+        """Make one registered producer askable (`D-IMPL-340`).
+
+        Args:
+            client: The shared :mod:`ccf.mcp.client` client for the producer,
+                built at the composition root against the endpoint the
+                deployment's configuration named — the registration carries
+                no address and this method reads none.
+            registration: The deployment's governed statement about the
+                producer: its logical name, the identity and tenant its
+                answers are held to, and what it may be asked for.
+
+        Raises:
+            ValueError: the logical name is already registered, as a producer
+                or as a fixed-resource server. Replacing a registration would
+                silently redirect skills already granted against it.
+        """
+        name = registration.server
+        if name in self._producers or name in self._clients:
+            raise ValueError(
+                f"MCP producer {name!r} is already registered; replacing a"
+                " registration would silently redirect skills already granted"
+                " against it (D-IMPL-340)"
+            )
+        self._producers[name] = (client, registration)
+
+    def resolve_producer(
+        self, binding: McpProductBinding
+    ) -> tuple[McpResourceClient, ProducerRegistration]:
+        """Return the client and registration an ``mcp_product`` binding selects.
+
+        Raises:
+            McpSkillUnregistered: no producer is registered under the
+                binding's logical name. Raised before any client method is
+                called, so an unresolvable binding costs no network traffic.
+            ProducerDoesNotOffer: the producer is registered but its
+                ``offers`` cover neither the binding's class nor its lane.
+        """
+        resolved = self._producers.get(binding.server)
+        if resolved is None:
+            raise McpSkillUnregistered(
+                f"no MCP producer is registered under {binding.server!r}; an"
+                " mcp_product binding selects among the producers this"
+                " deployment's composition root registered, and names no"
+                " address of its own (D-IMPL-340)"
+            )
+        client, registration = resolved
+        if (
+            registration.offer_for(
+                product_class=binding.product_class, version=binding.product_version
+            )
+            is None
+        ):
+            raise ProducerDoesNotOffer(
+                f"producer {binding.server!r} is registered but does not offer"
+                f" {binding.product_class!r} at lane {binding.product_version!r};"
+                " the registration and the granted binding disagree, which is"
+                " a deployment fact and not a verdict about any product"
+                " (D-IMPL-340)"
+            )
+        return client, registration
+
     def resolve(self, binding: McpBinding) -> tuple[McpResourceClient, str]:
         """Return the client and URI a binding selects.
 
@@ -489,6 +847,93 @@ def _invoke_mcp(
         resource=binding.resource,
         contents=contents,
         arguments=dict(arguments),
+    )
+
+
+def _invoke_mcp_product(
+    entry: SkillCatalogEntry,
+    binding: McpProductBinding,
+    question: ProductQuestion,
+    *,
+    mcp_skills: McpSkillRegistry,
+) -> McpProductInvocation | McpProductFailure:
+    """Ask a registered producer the question, through its own product tool.
+
+    `D-IMPL-340`. **Every argument has one source and none is an address.**
+    ``tenant`` is the registration's ``producer_tenant``; ``product_class`` and
+    ``version`` are the binding's; ``asked_at`` and the four question members
+    are the composite's, via ``question``. The call is
+    :meth:`~ccf.mcp.client.McpResourceClient.call_tool_text` on the client the
+    registry resolved — the URL was fixed when that client was built, and a
+    tool call cannot move it. The addressed-resource form (``…/q/{q}``) is
+    deliberately not used: it would put the question into an address.
+
+    A **completed** call that the producer refused comes back as ordinary
+    door contents (a refusal is a governed answer). A call that could not
+    complete — timeout, unreachable, or the producer's own opaque runtime
+    failure — comes back as :class:`McpProductFailure`, never as a raised
+    exception: the producer was registered and governed, and *"we could not
+    reach it"* is a fact about this composition's evidence (ruling 1). Both
+    outcomes are audited.
+    """
+    client, registration = mcp_skills.resolve_producer(binding)
+    arguments: dict[str, Any] = {
+        "tenant": registration.producer_tenant,
+        "product_class": binding.product_class,
+        "version": binding.product_version,
+        "request": question.request_json,
+        "subject": question.subject,
+        "intent": question.intent,
+        "freshness": question.freshness,
+        "asked_at": question.asked_at.isoformat(),
+        "parameters": dict(question.parameters),
+    }
+    recorded = {
+        key: value if isinstance(value, str) else json.dumps(value, sort_keys=True)
+        for key, value in arguments.items()
+    }
+
+    def failed(kind: McpProductFailureKind, detail: str) -> McpProductFailure:
+        mcp_skills.record_invocation(entry, resolved=False)
+        return McpProductFailure(
+            skill_name=entry.name,
+            skill_type=entry.skill_type,
+            server=binding.server,
+            producer_id=registration.producer_id,
+            producer_tenant=registration.producer_tenant,
+            producer_registration_address=registration.artifact_address,
+            product_class=binding.product_class,
+            product_version=binding.product_version,
+            question_address=question.address,
+            failure=kind,
+            detail=detail,
+        )
+
+    try:
+        contents = client.call_tool_text(PRODUCT_REQUEST_TOOL, arguments)
+    except McpToolFailed as reported:
+        return failed("tool-error", reported.text)
+    except McpTimeout as timed_out:
+        return failed("timeout", type(timed_out).__name__)
+    except McpServerUnreachable as unreachable:
+        return failed("unreachable", type(unreachable).__name__)
+    except McpClientError as other:
+        return failed("unreachable", type(other).__name__)
+    mcp_skills.record_invocation(entry, resolved=True)
+    return McpProductInvocation(
+        skill_name=entry.name,
+        skill_type=entry.skill_type,
+        server=binding.server,
+        producer_id=registration.producer_id,
+        producer_tenant=registration.producer_tenant,
+        producer_registration_address=registration.artifact_address,
+        product_class=binding.product_class,
+        product_version=binding.product_version,
+        question_address=question.address,
+        request_json=question.request_json,
+        contents=contents,
+        arguments=recorded,
+        token=_MCP_PRODUCT_TOKEN,
     )
 
 
@@ -583,7 +1028,15 @@ def dispatch_skill(
     callable_registry: CallableRegistry,
     mcp_skills: McpSkillRegistry | None = None,
     peering_skills: PeeringSkillRegistry | None = None,
-) -> SkillInvocation | ToolInvocation | McpInvocation | PeeringInvocation:
+    question: ProductQuestion | None = None,
+) -> (
+    SkillInvocation
+    | ToolInvocation
+    | McpInvocation
+    | PeeringInvocation
+    | McpProductInvocation
+    | McpProductFailure
+):
     """Dispatch one catalog entry with typed arguments (D-08).
 
     Args:
@@ -603,6 +1056,9 @@ def dispatch_skill(
             the composition root. A ``peering`` entry resolves here or not at
             all, on
             exactly the same terms.
+        question: The governed product question an ``mcp_product`` entry
+            carries (`D-IMPL-340`). Required for that type and ignored by every
+            other, because only that type asks a producer a question.
 
     Returns:
         A :class:`SkillInvocation` for an executed ``local_callable``, a
@@ -643,6 +1099,20 @@ def dispatch_skill(
             command=binding.command,
             arguments=dict(arguments),
         )
+    if isinstance(binding, McpProductBinding):
+        if mcp_skills is None:
+            raise McpSkillUnregistered(
+                f"skill {entry.name!r} is an 'mcp_product' entry but this"
+                " deployment supplied no McpSkillRegistry; the transport"
+                " exists, the wiring does not (D-IMPL-340)"
+            )
+        if question is None:
+            raise TypeError(
+                f"skill {entry.name!r} is an 'mcp_product' entry and was"
+                " dispatched without a ProductQuestion; a producer is asked a"
+                " governed question or not at all (D-IMPL-340)"
+            )
+        return _invoke_mcp_product(entry, binding, question, mcp_skills=mcp_skills)
     if isinstance(binding, McpBinding):
         if mcp_skills is None:
             raise McpSkillUnregistered(

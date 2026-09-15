@@ -114,11 +114,12 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from pydantic import field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from ccf.contracts.base import CCFContract
-from ccf.contracts.canonical import canonical_bytes
+from ccf.contracts.canonical import HASH_TRANSPARENT_KEY, canonical_bytes
 from ccf.products.contract import ContextProductContract
+from ccf.products.producer import ProducerAssertion
 from ccf.products.gates import ServableProduct
 from ccf.products.refusal import (
     NO_REPLAY_REFERENCE,
@@ -135,6 +136,7 @@ __ccf_mode__ = "algorithmic"
 __all__ = [
     "PRODUCT_REQUEST_TOOL",
     "DoorOutcome",
+    "ProducerAssertion",
     "ServedAnswer",
     "UngovernedResolverResult",
     "WireRequest",
@@ -425,6 +427,13 @@ class DoorOutcome(CCFContract):
     content_address: str | None
     replay_ref: str | None
     refusal: RefusalEnvelope | None
+    #: `D-IMPL-340`. Additive: ``None`` on every door that predates it and on
+    #: every door built without a producer identity, and **hash-transparent at
+    #: ``None``** (`D-IMPL-243`) so those outcomes render byte-for-byte as
+    #: they did. Stamped on BOTH branches — a refusal names its producer too.
+    producer: ProducerAssertion | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
     @model_validator(mode="after")
     def _exactly_one_half(self) -> DoorOutcome:
@@ -679,6 +688,7 @@ def door_answer(
     *,
     echo: WireRequest,
     resolved_request: ProductRequest,
+    producer: ProducerAssertion | None = None,
 ) -> bytes:
     """The canonical bytes a door puts on an envelope-carrying wire.
 
@@ -712,6 +722,10 @@ def door_answer(
             against. Kept as an argument so the door states, beside the echo,
             what it actually answered — the two are different facts and the
             outcome's temporal witness is measured against this one.
+        producer: Who this door says it is (`D-IMPL-340`), stamped on the
+            served and the refused branch alike. ``None`` — the default, and
+            what every pre-340 door passes — leaves the outcome's bytes
+            exactly as they were.
 
     Returns:
         The outcome's canonical bytes. **Bytes** rather than text, because the
@@ -734,6 +748,7 @@ def door_answer(
                 # refusal (`D-IMPL-256`).
                 replay_ref=_replay_ref_of(refusal),
                 refusal=refusal,
+                producer=producer,
             )
         )
     answer = served_answer(resolved)
@@ -745,5 +760,6 @@ def door_answer(
             content_address=hashlib.sha256(vessel).hexdigest(),
             replay_ref=answer.replay_ref,
             refusal=None,
+            producer=producer,
         )
     )

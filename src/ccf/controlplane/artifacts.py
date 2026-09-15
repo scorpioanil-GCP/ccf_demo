@@ -125,6 +125,9 @@ __all__ = [
     "POLICY_CONSTRAINT",
     "PRODUCT_CLASS",
     "PROJECTION_REQUIREMENTS",
+    "MCP_PRODUCER",
+    "McpProducerRegistration",
+    "ProducerOfferDeclaration",
     "REPLAY_BINDING",
     "RESOLUTION_SPEC",
     "SIGNAL_BATCH",
@@ -2143,6 +2146,14 @@ class DeploymentConfig(VersionedArtifact):
         default_perspective: The `ccf.perspective` section body, for an
             in-process deployment with no door to derive a grant from
             (design spec §8.1).
+        producers: `D-IMPL-340` — remote producer registrations, keyed by a
+            label the deployment chooses. Each value is one
+            `ccf.mcp-producer` body, validated against
+            :class:`McpProducerRegistration` when the section is derived, on
+            the `policy_constraints` discipline: a mapping, one manifest entry
+            per key, so each producer has its own identity and version lane.
+            Absent by default; a deployment that asks no remote producer
+            derives exactly what it derived before the section existed.
         replay: The `ccf.replay-binding` section body — this deployment's
             replay binding (`R-12`, `D-IMPL-282`). Absent by default, and an
             absent section is a deployment that declares no binding rather
@@ -2176,6 +2187,9 @@ class DeploymentConfig(VersionedArtifact):
     # `tests/contracts/test_hash_transparency.py
     # ::test_a_config_naming_no_replay_binding_hashes_as_it_did`, not assumed.
     replay: Mapping[str, Any] | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    producers: Mapping[str, Mapping[str, Any]] | None = Field(
         default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
 
@@ -2228,6 +2242,105 @@ DEBT_PROFILE = ArtifactClass(class_id="ccf.debt-profile", contract=DebtProfile)
 REPLAY_BINDING = ArtifactClass(
     class_id="ccf.replay-binding", contract=ReplayBinding
 )
+class ProducerOfferDeclaration(CCFContract):
+    """One product class a registered producer may be asked for (`D-IMPL-340`)."""
+
+    product_class: str
+    versions_from: str
+
+    @field_validator("versions_from")
+    @classmethod
+    def _floor_is_semver(cls, value: str) -> str:
+        return validate_semver(value)
+
+
+#: What an environment-variable NAME looks like. The two reference members of
+#: :class:`McpProducerRegistration` are held to it so a literal URL, host,
+#: port or token cannot be written into a Control Plane document (CINV-01).
+_ENV_VAR_NAME = re.compile(r"^[A-Z][A-Z0-9_]*$")
+
+
+class McpProducerRegistration(VersionedArtifact):
+    """One remote Context Product producer a deployment is willing to ask.
+
+    **SDK-defined, not whitepaper-derived** (CLAUDE.md §7.1, §11). Whitepaper
+    §8.3 Pattern 3 makes MCP the surface a fabric exposes products on; nothing
+    in it says how a *consuming* fabric declares which producers it trusts to
+    answer a question. `D-IMPL-340` does: **one governed registration per
+    producer, with an ``offers`` list** — Dave's ruling 4 — and *"the
+    registration is the authority for expected producer identity and producer
+    tenant. The answer is evidence held against that authority; it is not the
+    authority itself."*
+
+    Five declared values and one list, none with a default:
+
+    * ``server`` — the logical name an ``mcp_product`` binding selects this
+      producer by. A name, never an address.
+    * ``producer_id`` — the identity every answer from this producer is held
+      to (:class:`~ccf.products.door.ProducerAssertion`).
+    * ``producer_tenant`` — the tenant this producer governs its products
+      under; the tenant every answer's ``tenant_id`` is held to.
+    * ``endpoint_from_env`` / ``credential_from_env`` — the **names** of the
+      environment variables the composition root reads the endpoint URL and
+      the bearer credential from. Names, so that no URL, host, port or secret
+      is ever a Control Plane value; a literal is refused at parse.
+    * ``offers`` — the product classes, each with a version floor, this
+      deployment will ask the producer for. Not one document per class,
+      by ruling.
+
+    What this artifact does **not** carry, deliberately: a transport, a
+    resource URI, a question, or any producer preference a requirement could
+    read — ``requires:`` stays about the product (ruling 7).
+    """
+
+    server: str
+    producer_id: str
+    producer_tenant: str
+    endpoint_from_env: str
+    credential_from_env: str
+    offers: tuple[ProducerOfferDeclaration, ...]
+
+    @field_validator("endpoint_from_env", "credential_from_env")
+    @classmethod
+    def _is_an_environment_variable_name(cls, value: str) -> str:
+        if not _ENV_VAR_NAME.match(value):
+            raise ValueError(
+                f"{value!r} is not an environment-variable name; a producer"
+                " registration names WHERE the endpoint and credential are"
+                " read from, never the values — a URL, host, port or token in"
+                " a Control Plane document is exactly what CINV-01 forbids"
+                " (D-IMPL-340)"
+            )
+        return value
+
+    @model_validator(mode="after")
+    def _offers_are_declared_once(self) -> "McpProducerRegistration":
+        if not self.offers:
+            raise ValueError(
+                f"producer {self.server!r} offers nothing; a registration that"
+                " can be asked for no class is a declaration that can never"
+                " fire (D-IMPL-340)"
+            )
+        seen: set[str] = set()
+        for offer in self.offers:
+            if offer.product_class in seen:
+                raise ValueError(
+                    f"producer {self.server!r} offers {offer.product_class!r}"
+                    " twice; one floor per class, or two lanes would compete"
+                    " for one requirement (D-IMPL-340)"
+                )
+            seen.add(offer.product_class)
+        return self
+
+
+#: A remote producer registration (`D-IMPL-340`; SDK-defined per CLAUDE.md
+#: §7.1). Deployment binding only: it names a producer and what it may be
+#: asked for, and holds no address and no secret.
+MCP_PRODUCER = ArtifactClass(
+    class_id="ccf.mcp-producer", contract=McpProducerRegistration
+)
+
+
 #: The parameter-level policy constraint class (whitepaper §7.8; SDK-defined
 #: per CLAUDE.md §11, ``D-IMPL-253`` Q3, ledger row ``24.6-L-07``). Its own
 #: class rather than a member of :data:`PRODUCT_CLASS`, so that "is this a

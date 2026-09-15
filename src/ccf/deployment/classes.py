@@ -97,6 +97,7 @@ from ccf.controlplane.artifacts import (
     POLICY_CONSTRAINT,
     PRODUCT_CLASS,
     PROJECTION_REQUIREMENTS,
+    MCP_PRODUCER,
     REPLAY_BINDING,
     RESOLUTION_SPEC,
     SIGNAL_BATCH,
@@ -179,6 +180,7 @@ SDK_ARTIFACT_CLASSES: dict[str, ArtifactClass] = {
     # naming this class id, so a class the lookup could not resolve would make
     # the section underivable rather than merely unregisterable.
     REPLAY_BINDING.class_id: REPLAY_BINDING,
+    MCP_PRODUCER.class_id: MCP_PRODUCER,
 }
 
 #: Every SDK-owned artifact class whose contract declares an ``artifact_version``

@@ -163,6 +163,7 @@ from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes
 from ccf.products.door import (
     PRODUCT_REQUEST_TOOL,
+    ProducerAssertion,
     WireRequest,
     door_answer,
     door_question,
@@ -786,8 +787,19 @@ def build_egress_server(
     expose_product_resource: bool = True,
     expose_product_tool: bool = False,
     product_tool_description: str | None = None,
+    producer_id: str | None = None,
+    producer_tenant: str | None = None,
 ) -> FastMCP:
     """Build the authenticated, entitled L6 egress server over ``resolver``.
+
+    ``producer_id`` and ``producer_tenant`` (`D-IMPL-340`, ruling 2) are
+    **deployment values**, supplied together or not at all: when supplied,
+    every :class:`~ccf.products.door.DoorOutcome` this door emits — served or
+    refused, resource or tool — carries a
+    :class:`~ccf.products.door.ProducerAssertion` naming them. A consumer
+    holds that assertion against its own governed producer registration; it
+    is a claim the consumer can refuse, never an authority. Left ``None``, the
+    door emits exactly the bytes it emitted before the field existed.
 
     ``stateless_http=True`` is load-bearing, not a tuning choice: it is what
     makes the client's session-per-call cheap (:mod:`ccf.mcp.client`, and the
@@ -927,6 +939,17 @@ def build_egress_server(
             " whether a string was supplied"
         )
 
+    if (producer_id is None) != (producer_tenant is None):
+        raise ValueError(
+            "producer_id and producer_tenant are supplied together or not at"
+            " all; a producer assertion naming an identity without the tenant"
+            " it governs under (or the reverse) is half a claim (D-IMPL-340)"
+        )
+    producer = (
+        None
+        if producer_id is None or producer_tenant is None
+        else ProducerAssertion(producer_id=producer_id, tenant_id=producer_tenant)
+    )
     server = FastMCP(
         server_name,
         stateless_http=True,
@@ -1194,7 +1217,9 @@ def build_egress_server(
             # second-class replay). `door_answer` passes an envelope through
             # untouched and reports where its record landed, so the denial and
             # a fabric refusal leave this door in one shape through one site.
-            return door_answer(decided, echo=question, resolved_request=asked)
+            return door_answer(
+                decided, echo=question, resolved_request=asked, producer=producer
+            )
         try:
             resolved: object
             try:
@@ -1223,7 +1248,9 @@ def build_egress_server(
                     entitlement_source=entitlement_source,
                     refusal_recorder=recorder,
                 )
-            return door_answer(resolved, echo=question, resolved_request=asked)
+            return door_answer(
+                resolved, echo=question, resolved_request=asked, producer=producer
+            )
         except (ValueError, TypeError, LookupError, OSError) as exc:
             raise _opaque_failure(exc) from exc
 

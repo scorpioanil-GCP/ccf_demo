@@ -181,6 +181,7 @@ from ccf.products.composite import (
     ChildAdmissionRefusal,
     ChildContractView,
     CompositeChildResolverProtocol,
+    RequestAwareChildResolverProtocol,
     CompositionOutcome,
     GATE_CHILD_ADMISSION,
     child_contract_view,
@@ -1600,7 +1601,9 @@ class GovernedResolver:
     #: correction is `D-IMPL-336` Amendment 5, which ruled that resolving a
     #: grant and dispatching it once is not an agent loop. What stays out of
     #: `src/` is the scheduler, the swarm loop and any new identity axis.
-    composite_children: CompositeChildResolverProtocol | None
+    composite_children: (
+        CompositeChildResolverProtocol | RequestAwareChildResolverProtocol | None
+    )
 
     #: `D-IMPL-336` **O3** — the trusted runtime clock a child admission is
     #: judged against.
@@ -1988,16 +1991,37 @@ class GovernedResolver:
                     ),
                 )
             else:
-                outcomes = self.composite_children(
-                    requirements=registered.requires,
-                    asked_at=request.asked_at,
-                    # `O3`: the trusted runtime clock, NOT `decided_at`.
-                    admitted_at=admitted_at,
-                    composition_invocation=invocation,
-                    # `D-IMPL-336` Amendment 5: peering admission extends the
-                    # consumer's lineage by set-union.
-                    consumer_lineage=own_lineage,
-                )
+                # `D-IMPL-340`. A resolver that declares it takes the composite's
+                # EFFECTIVE request — defaults applied, policy narrowed, the same
+                # authority chain every argument travels — receives it; every other
+                # resolver takes the call it always took. Structural `isinstance` on
+                # a capability Protocol, on the `CompositePlanFactoryProtocol`
+                # precedent: no defaulted keyword, no `TypeError` probing.
+                if isinstance(
+                    self.composite_children, RequestAwareChildResolverProtocol
+                ):
+                    outcomes = self.composite_children.resolve_for(
+                        requirements=registered.requires,
+                        asked_at=request.asked_at,
+                        # `O3`: the trusted runtime clock, NOT `decided_at`.
+                        admitted_at=admitted_at,
+                        composition_invocation=invocation,
+                        # `D-IMPL-336` Amendment 5: peering admission extends the
+                        # consumer's lineage by set-union.
+                        consumer_lineage=own_lineage,
+                        request=effective_request,
+                    )
+                else:
+                    outcomes = self.composite_children(
+                        requirements=registered.requires,
+                        asked_at=request.asked_at,
+                        # `O3`: the trusted runtime clock, NOT `decided_at`.
+                        admitted_at=admitted_at,
+                        composition_invocation=invocation,
+                        # `D-IMPL-336` Amendment 5: peering admission extends the
+                        # consumer's lineage by set-union.
+                        consumer_lineage=own_lineage,
+                    )
                 # The per-requirement walk — provenance, slot / instant /
                 # invocation re-binding, the refusal branches — runs HERE,
                 # before any child-dependent computation, and the view is
@@ -3044,7 +3068,9 @@ def build_governed_resolver(
     #: states its posture explicitly, while this factory — which most
     #: deployments call — keeps the non-composite default that every product
     #: shipped before this surface had.
-    composite_children: CompositeChildResolverProtocol | None = None,
+    composite_children: (
+        CompositeChildResolverProtocol | RequestAwareChildResolverProtocol | None
+    ) = None,
     #: `D-IMPL-336` **O3** — the clock a child admission is judged against.
     #: Defaults to the process's UTC clock, which is the right value for a
     #: deployment; tests inject a fixed instant so the evidence-age and skew
