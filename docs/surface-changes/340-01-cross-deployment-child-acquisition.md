@@ -35,7 +35,7 @@ Local dispatch, fixed-resource `mcp` and peering are byte-identical.
 
 ## ccf.skills.catalog.McpProductBinding
 
-- Surface: public
+- Surface: ccf.skills.catalog.McpProductBinding
 - Public surface: true
 - Change type: added
 - Before: no binding could name a producer to ask.
@@ -45,7 +45,7 @@ Local dispatch, fixed-resource `mcp` and peering are byte-identical.
 
 ## ccf.skills.dispatch.ProducerOffer
 
-- Surface: public
+- Surface: ccf.skills.dispatch.ProducerOffer
 - Public surface: true
 - Change type: added
 - Before: —
@@ -55,7 +55,7 @@ Local dispatch, fixed-resource `mcp` and peering are byte-identical.
 
 ## ccf.skills.dispatch.ProducerRegistration
 
-- Surface: public
+- Surface: ccf.skills.dispatch.ProducerRegistration
 - Public surface: true
 - Change type: added
 - Before: —
@@ -65,7 +65,7 @@ Local dispatch, fixed-resource `mcp` and peering are byte-identical.
 
 ## ccf.skills.dispatch.ProductQuestion
 
-- Surface: public
+- Surface: ccf.skills.dispatch.ProductQuestion
 - Public surface: true
 - Change type: added
 - Before: —
@@ -75,7 +75,7 @@ Local dispatch, fixed-resource `mcp` and peering are byte-identical.
 
 ## ccf.skills.dispatch.McpProductInvocation
 
-- Surface: public
+- Surface: ccf.skills.dispatch.McpProductInvocation
 - Public surface: true
 - Change type: added
 - Before: —
@@ -85,7 +85,7 @@ Local dispatch, fixed-resource `mcp` and peering are byte-identical.
 
 ## ccf.skills.dispatch.McpProductFailure
 
-- Surface: public
+- Surface: ccf.skills.dispatch.McpProductFailure
 - Public surface: true
 - Change type: added
 - Before: —
@@ -95,7 +95,7 @@ Local dispatch, fixed-resource `mcp` and peering are byte-identical.
 
 ## ccf.skills.dispatch.McpProductProvenanceError
 
-- Surface: public
+- Surface: ccf.skills.dispatch.McpProductProvenanceError
 - Public surface: true
 - Change type: added
 - Before: —
@@ -105,7 +105,7 @@ Local dispatch, fixed-resource `mcp` and peering are byte-identical.
 
 ## ccf.skills.dispatch.ProducerDoesNotOffer
 
-- Surface: public
+- Surface: ccf.skills.dispatch.ProducerDoesNotOffer
 - Public surface: true
 - Change type: added
 - Before: —
@@ -115,7 +115,7 @@ Local dispatch, fixed-resource `mcp` and peering are byte-identical.
 
 ## ccf.skills.dispatch.verify_mcp_product_invocation
 
-- Surface: public
+- Surface: ccf.skills.dispatch.verify_mcp_product_invocation
 - Public surface: true
 - Change type: added
 - Before: —
@@ -125,7 +125,7 @@ Local dispatch, fixed-resource `mcp` and peering are byte-identical.
 
 ## ccf.skills.dispatch.dispatch_skill
 
-- Surface: public
+- Surface: ccf.skills.dispatch.dispatch_skill
 - Public surface: true
 - Change type: reshaped
 - Before: `dispatch_skill(entry, *, arguments, callable_registry, mcp_skills=None, peering_skills=None)` returning `SkillInvocation | ToolInvocation | McpInvocation | PeeringInvocation`.
@@ -135,7 +135,7 @@ Local dispatch, fixed-resource `mcp` and peering are byte-identical.
 
 ## ccf.skills.dispatch.McpSkillRegistry
 
-- Surface: public
+- Surface: ccf.skills.dispatch.McpSkillRegistry
 - Public surface: true
 - Change type: reshaped
 - Before: `register(server, client, resources)` / `resolve(binding)`.
@@ -145,7 +145,7 @@ Local dispatch, fixed-resource `mcp` and peering are byte-identical.
 
 ## ccf.skills.producers.register_declared_producer
 
-- Surface: public
+- Surface: ccf.skills.producers.register_declared_producer
 - Public surface: true
 - Change type: added
 - Before: —
@@ -155,7 +155,7 @@ Local dispatch, fixed-resource `mcp` and peering are byte-identical.
 
 ## ccf.skills.producers.producer_registration_from_artifact
 
-- Surface: public
+- Surface: ccf.skills.producers.producer_registration_from_artifact
 - Public surface: true
 - Change type: added
 - Before: —
@@ -165,7 +165,7 @@ Local dispatch, fixed-resource `mcp` and peering are byte-identical.
 
 ## ccf.skills.producers.ProducerEnvironmentMissing
 
-- Surface: public
+- Surface: ccf.skills.producers.ProducerEnvironmentMissing
 - Public surface: true
 - Change type: added
 - Before: —
@@ -175,7 +175,7 @@ Local dispatch, fixed-resource `mcp` and peering are byte-identical.
 
 ## ccf.mcp.client.McpResourceClient
 
-- Surface: public
+- Surface: ccf.mcp.client.McpResourceClient
 - Public surface: true
 - Change type: reshaped
 - Before: `read_text`, `resource_uris`, `resource_templates` and their async forms.
@@ -185,7 +185,7 @@ Local dispatch, fixed-resource `mcp` and peering are byte-identical.
 
 ## ccf.mcp.errors.McpToolFailed
 
-- Surface: public
+- Surface: ccf.mcp.errors.McpToolFailed
 - Public surface: true
 - Change type: added
 - Before: —
@@ -195,7 +195,7 @@ Local dispatch, fixed-resource `mcp` and peering are byte-identical.
 
 ## ccf.products.producer.ProducerAssertion
 
-- Surface: public
+- Surface: ccf.products.producer.ProducerAssertion
 - Public surface: true
 - Change type: added
 - Before: —
@@ -205,7 +205,7 @@ Local dispatch, fixed-resource `mcp` and peering are byte-identical.
 
 ## ccf.products.door.DoorOutcome
 
-- Surface: public
+- Surface: ccf.products.door.DoorOutcome
 - Public surface: true
 - Change type: reshaped
 - Before: `request, product_json, content_address, replay_ref, refusal`.
@@ -215,7 +215,7 @@ Local dispatch, fixed-resource `mcp` and peering are byte-identical.
 
 ## ccf.products.door.door_answer
 
-- Surface: public
+- Surface: ccf.products.door.door_answer
 - Public surface: true
 - Change type: reshaped
 - Before: `door_answer(resolved, *, echo, resolved_request)`.
@@ -225,7 +225,7 @@ Local dispatch, fixed-resource `mcp` and peering are byte-identical.
 
 ## ccf_runtime.mcp.egress.build_egress_server
 
-- Surface: public
+- Surface: ccf_runtime.mcp.egress.build_egress_server
 - Public surface: true
 - Change type: reshaped
 - Before: no producer identity.
@@ -235,7 +235,7 @@ Local dispatch, fixed-resource `mcp` and peering are byte-identical.
 
 ## ccf.controlplane.artifacts.McpProducerRegistration
 
-- Surface: public
+- Surface: ccf.controlplane.artifacts.McpProducerRegistration
 - Public surface: true
 - Change type: added
 - Before: —
@@ -245,7 +245,7 @@ Local dispatch, fixed-resource `mcp` and peering are byte-identical.
 
 ## ccf.controlplane.artifacts.DeploymentConfig
 
-- Surface: public
+- Surface: ccf.controlplane.artifacts.DeploymentConfig
 - Public surface: true
 - Change type: reshaped
 - Before: no producer section.
@@ -255,7 +255,7 @@ Local dispatch, fixed-resource `mcp` and peering are byte-identical.
 
 ## ccf.products.composite.RequestAwareChildResolverProtocol
 
-- Surface: public
+- Surface: ccf.products.composite.RequestAwareChildResolverProtocol
 - Public surface: true
 - Change type: added
 - Before: child resolvers received `requirements, asked_at, admitted_at, composition_invocation, consumer_lineage`.
@@ -265,7 +265,7 @@ Local dispatch, fixed-resource `mcp` and peering are byte-identical.
 
 ## ccf.products.composite.CompositeAdmissionGate
 
-- Surface: public
+- Surface: ccf.products.composite.CompositeAdmissionGate
 - Public surface: true
 - Change type: reshaped
 - Before: check 1 held every child to the consumer's tenant.
@@ -275,7 +275,7 @@ Local dispatch, fixed-resource `mcp` and peering are byte-identical.
 
 ## ccf.products.composite.ChildRefusalReason
 
-- Surface: public
+- Surface: ccf.products.composite.ChildRefusalReason
 - Public surface: true
 - Change type: reshaped
 - Before: twenty reasons.
@@ -285,7 +285,7 @@ Local dispatch, fixed-resource `mcp` and peering are byte-identical.
 
 ## ccf.products.composite.ChildAdmissionRefusal
 
-- Surface: public
+- Surface: ccf.products.composite.ChildAdmissionRefusal
 - Public surface: true
 - Change type: reshaped
 - Before: `product_class, reason, reported_content_address, verified_content_address`.
@@ -295,7 +295,7 @@ Local dispatch, fixed-resource `mcp` and peering are byte-identical.
 
 ## ccf.products.child_resolver.QuestionBoundChildResolver
 
-- Surface: public
+- Surface: ccf.products.child_resolver.QuestionBoundChildResolver
 - Public surface: true
 - Change type: added
 - Before: only `GrantBoundChildResolver`, whose mapping never saw the composite's request.
@@ -305,7 +305,7 @@ Local dispatch, fixed-resource `mcp` and peering are byte-identical.
 
 ## ccf.products.child_resolver.ChildQuestion
 
-- Surface: public
+- Surface: ccf.products.child_resolver.ChildQuestion
 - Public surface: true
 - Change type: added
 - Before: —
@@ -315,7 +315,7 @@ Local dispatch, fixed-resource `mcp` and peering are byte-identical.
 
 ## ccf.replay.record.ChildResolution
 
-- Surface: public
+- Surface: ccf.replay.record.ChildResolution
 - Public surface: true
 - Change type: reshaped
 - Before: no producer relationship on a row.
@@ -325,7 +325,7 @@ Local dispatch, fixed-resource `mcp` and peering are byte-identical.
 
 ## ccf.agents.agent.Agent
 
-- Surface: public
+- Surface: ccf.agents.agent.Agent
 - Public surface: true
 - Change type: reshaped
 - Before: `invoke_skill` dispatched any bound entry.

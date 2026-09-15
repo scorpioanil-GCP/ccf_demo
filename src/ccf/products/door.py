@@ -135,6 +135,7 @@ __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "PRODUCT_REQUEST_TOOL",
+    "AnsweredQuestion",
     "DoorOutcome",
     "ProducerAssertion",
     "ServedAnswer",
@@ -345,6 +346,24 @@ def _replay_ref_of(refusal: RefusalEnvelope | None) -> str | None:
     return refusal.replay_reference
 
 
+class AnsweredQuestion(CCFContract):
+    """The four §6.3 axes a door actually answered (`D-IMPL-340`).
+
+    :attr:`DoorOutcome.request` echoes the wire request — ``product_id``,
+    ``parameters``, the temporal boundary — and nothing else; ``subject``,
+    ``intent`` and ``freshness`` reach a door as separate arguments and, until
+    this type, came back on no channel at all. A consumer holding an answer to
+    the question it asked needs every axis echoed, so the door states them here
+    from the typed request it resolved (never from the caller's text), and the
+    composite's question-identity check recomputes over all of them.
+    """
+
+    subject: str
+    intent: str
+    freshness: str
+    asked_at: datetime
+
+
 class DoorOutcome(CCFContract):
     """One wire answer from a door: a served vessel, or a refusal.
 
@@ -432,6 +451,13 @@ class DoorOutcome(CCFContract):
     #: ``None``** (`D-IMPL-243`) so those outcomes render byte-for-byte as
     #: they did. Stamped on BOTH branches — a refusal names its producer too.
     producer: ProducerAssertion | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    #: `D-IMPL-340`. What the door answered, on the four axes the wire request
+    #: does not carry. Stamped by :func:`door_answer` from the resolved request
+    #: on both branches; transparent at ``None`` so a decoder of an older
+    #: producer's bytes sees exactly what it saw.
+    answered: AnsweredQuestion | None = Field(
         default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
 
@@ -735,6 +761,12 @@ def door_answer(
         UngovernedResolverResult: ``resolved`` proves no governed determination
             (see :func:`door_refusal` and :func:`served_answer`).
     """
+    answered = AnsweredQuestion(
+        subject=resolved_request.subject,
+        intent=resolved_request.intent,
+        freshness=resolved_request.freshness,
+        asked_at=resolved_request.asked_at,
+    )
     refusal = door_refusal(resolved)
     if refusal is not None:
         return canonical_bytes(
@@ -749,6 +781,7 @@ def door_answer(
                 replay_ref=_replay_ref_of(refusal),
                 refusal=refusal,
                 producer=producer,
+                answered=answered,
             )
         )
     answer = served_answer(resolved)
@@ -761,5 +794,6 @@ def door_answer(
             replay_ref=answer.replay_ref,
             refusal=None,
             producer=producer,
+            answered=answered,
         )
     )

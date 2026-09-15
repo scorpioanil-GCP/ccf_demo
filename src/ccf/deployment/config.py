@@ -102,6 +102,7 @@ from typing import Any, get_args
 
 from ccf.contracts.base import CCFContract
 from ccf.controlplane.artifacts import (
+    MCP_PRODUCER,
     DEPLOYMENT_CONFIG,
     DeploymentConfig,
     DeploymentManifest,
@@ -740,16 +741,19 @@ def derive_deployment(
     if config.producers:
         producer_class_id, producer_wrapper = _RESERVED_SECTIONS["producers"]
         for label, producer_body in sorted(config.producers.items()):
-            producer_entries.append(
-                _derive_entry(
-                    label=f"producers.{label}",
-                    body=producer_body,
-                    semver=config.semver,
-                    config_filename=config_filename,
-                    default_class_id=producer_class_id,
-                    wrapper=producer_wrapper,
-                )
+            entry, document = _derive_entry(
+                label=f"producers.{label}",
+                body=producer_body,
+                semver=config.semver,
+                config_filename=config_filename,
+                default_class_id=producer_class_id,
+                wrapper=producer_wrapper,
             )
+            # Validated HERE, at derivation, not only at boot: a literal URL
+            # or token in the section must never reach a derived document
+            # (CINV-01; `D-IMPL-340` ruling 10).
+            parse_artifact(document, MCP_PRODUCER)
+            producer_entries.append((entry, document))
     resolution_section_key: str | None = None
     policy_section_key: str | None = None
 

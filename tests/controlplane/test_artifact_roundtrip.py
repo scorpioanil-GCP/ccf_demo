@@ -48,6 +48,7 @@ from ccf.controlplane.artifacts import (
     POLICY_CONSTRAINT,
     PRODUCT_CLASS,
     PROJECTION_REQUIREMENTS,
+    MCP_PRODUCER,
     REPLAY_BINDING,
     RESOLUTION_SPEC,
     SIGNAL_BATCH,
@@ -398,6 +399,24 @@ CASES: tuple[_Case, ...] = (
         # field of either document ever names a connection value, echoed
         # here exactly as `DEPLOYMENT_MANIFEST`'s own case echoes it.
         unknown_keys=("connection", "dsn"),
+    ),
+    _Case(
+        artifact_class=MCP_PRODUCER,
+        # `D-IMPL-340`: one registration per remote producer, with an offers
+        # list. The two reference members are environment-variable NAMES —
+        # a literal URL or token is refused at parse (CINV-01, ruling 10).
+        document={
+            "semver": _SEMVER,
+            "server": "fixture-producer",
+            "producer_id": "fixture-producer-egress",
+            "producer_tenant": "fixture-producer-tenant",
+            "endpoint_from_env": "CCF_FIXTURE_PRODUCER_URL",
+            "credential_from_env": "CCF_FIXTURE_PRODUCER_TOKEN",
+            "offers": [
+                {"product_class": "fixture.child-product", "versions_from": "1.0.0"}
+            ],
+        },
+        unknown_keys=("endpoint", "tenant_id"),
     ),
     _Case(
         artifact_class=REPLAY_BINDING,

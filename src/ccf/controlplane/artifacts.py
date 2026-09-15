@@ -2257,7 +2257,7 @@ class ProducerOfferDeclaration(CCFContract):
 #: What an environment-variable NAME looks like. The two reference members of
 #: :class:`McpProducerRegistration` are held to it so a literal URL, host,
 #: port or token cannot be written into a Control Plane document (CINV-01).
-_ENV_VAR_NAME = re.compile(r"^[A-Z][A-Z0-9_]*$")
+_ENV_VAR_NAME = re.compile(r"[A-Z][A-Z0-9_]*")
 
 
 class McpProducerRegistration(VersionedArtifact):
@@ -2303,7 +2303,7 @@ class McpProducerRegistration(VersionedArtifact):
     @field_validator("endpoint_from_env", "credential_from_env")
     @classmethod
     def _is_an_environment_variable_name(cls, value: str) -> str:
-        if not _ENV_VAR_NAME.match(value):
+        if _ENV_VAR_NAME.fullmatch(value) is None:
             raise ValueError(
                 f"{value!r} is not an environment-variable name; a producer"
                 " registration names WHERE the endpoint and credential are"

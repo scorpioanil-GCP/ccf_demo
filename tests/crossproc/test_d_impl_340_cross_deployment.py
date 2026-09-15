@@ -275,6 +275,26 @@ def test_two_questions_to_one_producer_return_two_corresponding_products(
     assert recording.sessions == 2
 
 
+def test_two_subjects_are_two_questions_even_when_the_product_does_not_read_the_subject(
+    booted: _Booted, bridge: SyncMcpBridge, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The design's proof 1 as written — two requests differing only in
+    `subject`. The review found the first cut's question identity bound only
+    the wire request, so these two carried ONE identity; now the identity
+    covers every axis and the door echoes what it answered, so the two rows
+    carry two question addresses and each names its own subject — whether or
+    not the fixture product's payload happens to read the subject."""
+    with producer(monkeypatch) as url:
+        resolver, _registry, _f = consumer(booted, url=url, bridge=bridge)
+        first = ask(resolver, subject="acct-1")
+        second = ask(resolver, subject="acct-2")
+    assert isinstance(first, ServedProduct), getattr(first, "detail", first)
+    assert isinstance(second, ServedProduct), getattr(second, "detail", second)
+    row_1, row_2 = the_row(booted, first), the_row(booted, second)
+    assert row_1.outcome_status == row_2.outcome_status == "admitted"
+    assert row_1.child_question_address != row_2.child_question_address
+
+
 # --- proof 2 -----------------------------------------------------------------
 
 
@@ -311,16 +331,16 @@ def test_moving_only_the_registration_flips_the_same_bytes_to_a_tenant_refusal(
     booted: _Booted, bridge: SyncMcpBridge, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Only the consumer's registration changes. Expected tenant = the
-    producer's → admitted. Expected tenant = another → refused.
+    producer's → admitted. Expected tenant = another → `producer-tenant-mismatch`.
 
-    Over a real door the refusal arrives one step EARLIER than the in-process
-    proof's `producer-tenant-mismatch`: the tenant the producer is asked for is
-    the registration's `producer_tenant` (ruling 6 — never the mapping's), so
-    a producer that does not govern that tenant refuses the question itself and
-    the row is `ineligible` (*the child's own door refused*). Either way the
-    registration decided, and no bytes governed under the wrong tenant were
-    ever admitted. The byte-identical variant is
-    `tests/products/test_d_impl_340_producer_admission.py`.
+    Over a real door the tenant the producer is asked for is the
+    registration's `producer_tenant` (ruling 6 — never the mapping's), so the
+    producer refuses the question it does not govern; its refusal still
+    asserts the tenant it DOES govern, and that assertion is held to the
+    registration before the refusal could be filed as `ineligible` — the
+    review's point that a refusing door's claims are claims too. Either way
+    the registration decided, and no bytes governed under the wrong tenant
+    were ever admitted.
     """
     with producer(monkeypatch) as url:
         honest, _r, _f = consumer(booted, url=url, bridge=bridge)
@@ -335,8 +355,8 @@ def test_moving_only_the_registration_flips_the_same_bytes_to_a_tenant_refusal(
         refused = ask(moved)
     assert not isinstance(refused, ServedProduct)
     row = the_row(booted, refused)
-    assert row.refusal_ref == "ineligible", row.refusal_ref
-    assert row.outcome_status == "ineligible"
+    assert row.refusal_ref == "producer-tenant-mismatch", row.refusal_ref
+    assert row.outcome_status == "unauthorized"
     assert row.producer_tenant == "some-other-tenant"  # what was asked and expected
     assert row.producer_id == PRODUCER_ID
     assert row.child_content_address is None

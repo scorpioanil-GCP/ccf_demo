@@ -59,6 +59,7 @@ from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.peering.admission import AdmittedProduct, PeeringAdmissionGate
 from ccf.products.composite import (
     GATE_CHILD_ADMISSION,
+    ChildRefusalReason,
     ResolvedProducer,
     ChildAdmissionRefusal,
     ChildCandidate,
@@ -82,6 +83,8 @@ from ccf.skills.dispatch import (
     McpProductInvocation,
     McpSkillRegistry,
     ProductQuestion,
+    verify_mcp_product_failure,
+    verify_mcp_product_invocation,
     PeeringInvocation,
     PeeringSkillRegistry,
     SkillInvocation,
@@ -90,6 +93,7 @@ from ccf.skills.dispatch import (
 from ccf.skills.grants import GrantLedger
 
 __all__ = [
+    "MalformedDoorAnswer",
     "ChildArguments",
     "ChildQuestion",
     "ChildQuestions",
@@ -293,7 +297,10 @@ class GrantBoundChildResolver:
             # `D-IMPL-340` ruling 1: a registered, governed producer that
             # could not answer. A governed outcome carrying the registration
             # members, so the row names the producer; never an exception,
-            # which is what an UNREGISTERED producer still gets.
+            # which is what an UNREGISTERED producer still gets. The mint is
+            # verified first: the members are about to be written into a
+            # governed row.
+            dispatched = verify_mcp_product_failure(dispatched)
             return ChildAdmissionRefusal(
                 gate=GATE_CHILD_ADMISSION,
                 detail=(
@@ -314,16 +321,17 @@ class GrantBoundChildResolver:
                 question_address=dispatched.question_address,
             )
         elif isinstance(dispatched, McpProductInvocation):
-            asked = _door_answer({"outcome": dispatched.contents})
-            if isinstance(asked, str):
-                # The producer's own door refused — a governed answer, so an
-                # `ineligible` row as on every other leg, and (ruling 9) one
-                # that still names the exact producer it was refused by.
+            dispatched = verify_mcp_product_invocation(dispatched)
+            asked_invocation = invocation_from_dispatch(producer, dispatched)
+
+            def refuse_naming_producer(
+                reason: ChildRefusalReason, detail: str
+            ) -> ChildAdmissionRefusal:
                 return ChildAdmissionRefusal(
                     gate=GATE_CHILD_ADMISSION,
-                    detail=asked,
+                    detail=detail,
                     product_class=requirement.product_class,
-                    reason="ineligible",
+                    reason=reason,
                     producer_id=dispatched.producer_id,
                     producer_tenant=dispatched.producer_tenant,
                     producer_registration_address=(
@@ -332,10 +340,42 @@ class GrantBoundChildResolver:
                     producer_server=dispatched.server,
                     question_address=dispatched.question_address,
                 )
-            contract = ContextProductContract.model_validate_json(
-                asked.product_json or ""
-            )
-            address = asked.content_address or ""
+
+            try:
+                asked = _door_answer({"outcome": dispatched.contents})
+            except MalformedDoorAnswer as malformed:
+                # A completed call whose text is not a door outcome at all —
+                # a gateway page, a truncated body. The producer was reached
+                # and gave no governed answer: `producer-unavailable`, with
+                # the failure's class and never its bytes (review finding).
+                return refuse_naming_producer(
+                    "producer-unavailable",
+                    f"registered producer {dispatched.server!r} answered with"
+                    f" something that is not a door outcome ({malformed});"
+                    " the producer was reached and gave no governed answer"
+                    " (D-IMPL-340)",
+                )
+            if asked.product_json is None or asked.content_address is None:
+                # The producer's own door refused — a governed answer. Its
+                # claims about itself and the question are still held to the
+                # registration first: an impostor's refusal is a misrouting,
+                # not an `ineligible` row under the registered producer's name.
+                held = self._gate.hold_producer_claims(
+                    invocation=asked_invocation,
+                    assertion=asked.producer,
+                    replay_ref=asked.replay_ref,
+                    echo=asked.request,
+                    answered=asked.answered,
+                    refuse=refuse_naming_producer,
+                )
+                if held is not None:
+                    return held
+                kind = asked.refusal.kind if asked.refusal is not None else "no product"
+                return refuse_naming_producer(
+                    "ineligible", f"the child's own door refused: {kind}"
+                )
+            contract = ContextProductContract.model_validate_json(asked.product_json)
+            address = asked.content_address
             # No store read, as for `mcp`: eligibility is the producer's
             # (`provider-controls`). What the door CLAIMED about itself, its
             # echo and its replay reference travel as claims for the gate's
@@ -345,9 +385,10 @@ class GrantBoundChildResolver:
                     requirement=requirement,
                     contract=contract,
                     content_address=address,
-                    invocation=invocation_from_dispatch(producer, dispatched),
+                    invocation=asked_invocation,
                     producer_assertion=asked.producer,
                     question_echo=asked.request,
+                    answered_question=asked.answered,
                     child_replay_ref=asked.replay_ref,
                 ),
                 asked_at=asked_at,
@@ -496,26 +537,28 @@ def _refusal_for(
     return refuse
 
 
-def _door_answer(output: Mapping[str, str]) -> DoorOutcome | str:
-    """Decode a door answer in full, or say why it is not one (`D-IMPL-340`).
+class MalformedDoorAnswer(ValueError):
+    """A completed producer call whose text is not a `DoorOutcome` (`D-IMPL-340`)."""
+
+
+def _door_answer(output: Mapping[str, str]) -> DoorOutcome:
+    """Decode a door answer in full, or raise :class:`MalformedDoorAnswer`.
 
     The producer leg needs more than the vessel: the door's producer
-    assertion, its echo of the question and its replay reference are the
-    claims admission holds to the registration, so the whole outcome is
-    returned rather than the three-tuple :func:`_door_outcome` gives the
-    legacy legs.
+    assertion, its echo of the question, the axes it answered and its replay
+    reference are the claims admission holds to the registration, so the
+    whole outcome is returned rather than the three-tuple
+    :func:`_door_outcome` gives the legacy legs. A text that does not parse
+    as a door outcome is reported by exception CLASS only — never its bytes,
+    which could be anything a gateway returned.
     """
     raw = output.get("outcome")
     if raw is None:
-        return (
-            "the producing skill returned no 'outcome' member, so it did not"
-            " answer with a Context Product on the wire"
-        )
-    answer = DoorOutcome.model_validate_json(raw)
-    if answer.product_json is None or answer.content_address is None:
-        kind = answer.refusal.kind if answer.refusal is not None else "no product"
-        return f"the child's own door refused: {kind}"
-    return answer
+        raise MalformedDoorAnswer("no 'outcome' member")
+    try:
+        return DoorOutcome.model_validate_json(raw)
+    except ValueError as invalid:
+        raise MalformedDoorAnswer(type(invalid).__name__) from None
 
 
 def _door_outcome(

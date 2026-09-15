@@ -30,6 +30,7 @@ from __future__ import annotations
 import hashlib
 import inspect
 import pathlib
+from datetime import datetime
 from collections.abc import Callable, Iterator, Mapping
 from typing import Any
 
@@ -54,7 +55,8 @@ from ccf.products.composite import (
     invocation_from_dispatch,
 )
 from ccf.products.contract import ChildRequirement, ContextProductContract
-from ccf.products.door import DoorOutcome, ProducerAssertion, WireRequest
+from ccf.products.door import AnsweredQuestion, DoorOutcome, ProducerAssertion, WireRequest
+from ccf.products.refusal import RefusalEnvelope
 from ccf.products.request import ProductRequest
 from ccf.products.resolver import GovernedResolver
 from ccf.replay.record import DecisionReplayRecord
@@ -242,22 +244,52 @@ class DoorStub:
         assertion: ProducerAssertion | None = None,
         replay_tenant: str | None = None,
         echo_rewrite: Callable[[WireRequest], WireRequest] | None = None,
+        answered_rewrite: Callable[[AnsweredQuestion], AnsweredQuestion] | None = None,
         fail: Exception | None = None,
+        refuse: bool = False,
+        text: str | None = None,
     ) -> None:
         self._vessel = vessel
         self._tenant = tenant
         self._assertion = assertion
         self._replay_tenant = replay_tenant
         self._echo_rewrite = echo_rewrite
+        self._answered_rewrite = answered_rewrite
         self._fail = fail
+        self._refuse = refuse
+        self._text = text
         self.calls: list[tuple[str, dict[str, Any]]] = []
 
     def call_tool_text(self, name: str, arguments: Mapping[str, Any]) -> str:
         self.calls.append((name, dict(arguments)))
         if self._fail is not None:
             raise self._fail
+        if self._text is not None:
+            return self._text
         wire = WireRequest.model_validate_json(arguments["request"])
         echo = self._echo_rewrite(wire) if self._echo_rewrite else wire
+        answered = AnsweredQuestion(
+            subject=arguments["subject"],
+            intent=arguments["intent"],
+            freshness=arguments["freshness"],
+            asked_at=datetime.fromisoformat(arguments["asked_at"]),
+        )
+        if self._answered_rewrite is not None:
+            answered = self._answered_rewrite(answered)
+        if self._refuse:
+            # A governed refusal from this door: the shape `door_answer` emits
+            # for a recorded, disclosed envelope, with the same claims.
+            return canonical_bytes(
+                DoorOutcome(
+                    request=echo,
+                    product_json=None,
+                    content_address=None,
+                    replay_ref=_REFUSAL_REPLAY_REF.format(tenant=self._replay_tenant or self._tenant),
+                    refusal=_a_refusal(self._replay_tenant or self._tenant),
+                    producer=self._assertion,
+                    answered=answered,
+                )
+            ).decode("utf-8")
         contract = ContextProductContract.model_validate_json(self._vessel).model_copy(
             update={"tenant_id": self._tenant}
         )
@@ -272,8 +304,45 @@ class DoorStub:
                 replay_ref=f"ccf-artifact://{replay_tenant}/fixture.replay-record/x@{address}",
                 refusal=None,
                 producer=self._assertion,
+                answered=answered,
             )
         ).decode("utf-8")
+
+
+_REFUSAL_REPLAY_REF = "ccf-artifact://{tenant}/fixture.replay-record/refused@" + "b" * 64
+
+
+def _a_refusal(tenant: str) -> RefusalEnvelope:
+    """A recorded, disclosed refusal envelope, as a producer's door would emit.
+
+    Built from the envelope machinery the doors use (`envelope_for` over a
+    subject-unavailable refusal, then disclosed and given its replay
+    reference), so `door_refusal` accepts it exactly as it accepts a
+    producer's own — nothing here is a hand-typed envelope.
+    """
+    from ccf.products.refusal import (  # noqa: PLC0415
+        RequestIdentity,
+        SubjectUnavailableRefusal,
+        envelope_for,
+    )
+
+    envelope = envelope_for(
+        SubjectUnavailableRefusal(
+            cause="unauthorized", detail="the producer's own door refused", error_code="E"
+        ),
+        request=RequestIdentity(
+            product_id=CHILD_CLASS,
+            product_version="1.0.0",
+            parameters={THRESHOLD_PARAMETER: 1000},
+            temporal_boundary=ASKED_AT,
+        ),
+    )
+    return envelope.model_copy(
+        update={
+            "disclosure": "minimal",
+            "replay_reference": _REFUSAL_REPLAY_REF.format(tenant=tenant),
+        }
+    )
 
 
 def honest_assertion() -> ProducerAssertion:
@@ -466,6 +535,36 @@ def test_a_door_that_asserts_nothing_is_refused(booted: _Booted, vessel: str) ->
     assert row.producer_id == PRODUCER_ID
 
 
+def test_a_refusing_door_is_held_to_the_registration_before_it_is_ineligible(
+    booted: _Booted, vessel: str
+) -> None:
+    """Review finding on the first cut: an impostor's REFUSAL was filed as
+    `ineligible` under the registered producer's name. Now a refusing door's
+    claims are held first; only an honest refusal is `ineligible`."""
+    impostor = DoorStub(
+        vessel, refuse=True, assertion=ProducerAssertion(producer_id="impostor", tenant_id=PRODUCER_TENANT)
+    )
+    refused_as(booted, ask(wired(booted, impostor)[0]), "producer-mismatch")
+    silent = DoorStub(vessel, refuse=True)
+    refused_as(booted, ask(wired(booted, silent)[0]), "producer-unasserted")
+    honest = DoorStub(vessel, refuse=True, assertion=honest_assertion())
+    row = refused_as(booted, ask(wired(booted, honest)[0]), "ineligible")
+    assert row.producer_id == PRODUCER_ID and row.producer_server == SERVER_NAME
+
+
+def test_a_completed_call_that_is_not_a_door_outcome_is_producer_unavailable(
+    booted: _Booted, vessel: str
+) -> None:
+    """A gateway page with HTTP 200 is a producer that was reached and gave no
+    governed answer — a row, never an exception out of the composition, and
+    never the page's bytes."""
+    door = DoorStub(vessel, text="<html>maintenance</html>")
+    resolver, _r, children = wired(booted, door)
+    row = refused_as(booted, ask(resolver), "producer-unavailable")
+    assert row.outcome_status == "producer-unavailable"
+    assert row.producer_id == PRODUCER_ID
+
+
 # --- proof 7 -----------------------------------------------------------------
 
 
@@ -482,6 +581,15 @@ def test_a_payload_claiming_the_expected_producer_cannot_authorize_itself(
     # any door is reached at all.
     registry = McpSkillRegistry(
         audit_log=booted.control_plane.audit_log, clock=lambda: ADMITTED_AT
+    )
+    # A producer IS registered — under another name — so a resolver that fell
+    # back to "any registered producer" would have one to reach; the binding's
+    # name is what must resolve, or nothing does.
+    registry.register_producer(
+        client=door,  # type: ignore[arg-type]
+        registration=producer_registration_from_artifact(
+            parse_artifact(producer_document(server="someone-else"), MCP_PRODUCER)
+        ),
     )
     ledger, agent_hash = ledger_for_product_ask(booted)
     children = QuestionBoundChildResolver(
@@ -514,6 +622,20 @@ def test_an_echo_of_a_different_question_refuses(booted: _Booted, vessel: str) -
     row = refused_as(booted, ask(wired(booted, door)[0]), "question-mismatch")
     assert row.outcome_status == "rejected-at-admission"
     assert row.child_question_address is not None
+
+    # The review's blocking finding: an answer to another SUBJECT must be a
+    # different question, though the wire request is byte-identical.
+    def other_subject(answered: AnsweredQuestion) -> AnsweredQuestion:
+        return answered.model_copy(update={"subject": "victim-2"})
+
+    door = DoorStub(vessel, assertion=honest_assertion(), answered_rewrite=other_subject)
+    refused_as(booted, ask(wired(booted, door)[0]), "question-mismatch")
+
+    def other_intent(answered: AnsweredQuestion) -> AnsweredQuestion:
+        return answered.model_copy(update={"intent": "another-intent"})
+
+    door = DoorStub(vessel, assertion=honest_assertion(), answered_rewrite=other_intent)
+    refused_as(booted, ask(wired(booted, door)[0]), "question-mismatch")
 
 
 # --- proofs 10 and 11 --------------------------------------------------------
@@ -643,6 +765,7 @@ def test_a_literal_address_or_secret_is_refused_at_parse_and_no_question_member_
         assert "://" not in source
         assert ".url" not in source and "urljoin" not in source
         assert "f\"http" not in source and "f'http" not in source
+        assert "McpResourceClient(" not in source and "url=" not in source
     # The question type has the four members and no address-shaped one.
     assert set(ChildQuestion.model_fields) == {"subject", "intent", "freshness", "parameters"}
     assert "url" not in ProductQuestion.model_fields and "endpoint" not in ProductQuestion.model_fields
@@ -688,3 +811,38 @@ def test_the_legacy_resolver_takes_the_legacy_call(booted: _Booted) -> None:
     registry = McpSkillRegistry(audit_log=booted.control_plane.audit_log, clock=lambda: ADMITTED_AT)
     with pytest.raises(TypeError, match="ProductQuestion"):
         dispatch_skill(entry, arguments={}, callable_registry=CallableRegistry(), mcp_skills=registry)
+
+
+
+def test_every_new_refusal_reason_is_emitted_exactly_where_declared() -> None:
+    """A census over the source: the five reasons `D-IMPL-340` added, and the
+    number of emission sites each has. One reason per path, except the tenant
+    reason, which the ruling asked to be ONE reason over three claims (the
+    contract's tenant, the replay reference's, the assertion's) — each claim
+    with its own sabotage."""
+    import re  # noqa: PLC0415
+
+    composite_source = inspect.getsource(composite_module)
+    resolver_source = inspect.getsource(child_resolver_module)
+
+    def emissions(source: str, reason: str) -> int:
+        # An emission is a refusal CALL carrying the reason — never the
+        # vocabulary's own listing of it, and never a status-map key.
+        calls = re.findall(r'(?:refuse|refuse_naming_producer)\(\s*"' + re.escape(reason) + r'"', source)
+        fields = source.count(f'reason="{reason}"')
+        return len(calls) + fields
+
+    emitted = {
+        "producer-tenant-mismatch": emissions(composite_source, "producer-tenant-mismatch"),
+        "producer-mismatch": emissions(composite_source, "producer-mismatch"),
+        "producer-unasserted": emissions(composite_source, "producer-unasserted"),
+        "question-mismatch": emissions(composite_source, "question-mismatch"),
+        "producer-unavailable": emissions(resolver_source, "producer-unavailable"),
+    }
+    assert emitted == {
+        "producer-tenant-mismatch": 3,
+        "producer-mismatch": 1,
+        "producer-unasserted": 1,
+        "question-mismatch": 2,  # no echo at all; an echo of another question
+        "producer-unavailable": 2,  # could not answer; answered with no door outcome
+    }, emitted

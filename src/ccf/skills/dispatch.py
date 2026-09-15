@@ -89,9 +89,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, Final, Literal
 
 from pydantic import field_validator
@@ -138,6 +139,8 @@ __all__ = [
     "SkillInvocation",
     "ToolInvocation",
     "dispatch_skill",
+    "question_identity",
+    "verify_mcp_product_failure",
     "verify_mcp_product_invocation",
 ]
 
@@ -339,8 +342,52 @@ class ProductQuestion(CCFContract):
 
     @property
     def address(self) -> str:
-        """``sha256`` of the canonical request bytes — the question's identity."""
-        return hashlib.sha256(self.request_json.encode("utf-8")).hexdigest()
+        """The question's identity — over EVERY axis the producer is asked.
+
+        `D-IMPL-340` review finding: the first cut hashed ``request_json``
+        alone, which binds only ``product_id``, ``parameters`` and the
+        temporal boundary; ``subject``, ``intent`` and ``freshness`` travel as
+        separate tool arguments and were unbound, so an answer to a different
+        subject carried the same identity. See :func:`question_identity`.
+        """
+        return question_identity(
+            request_json=self.request_json,
+            subject=self.subject,
+            intent=self.intent,
+            freshness=self.freshness,
+            asked_at=self.asked_at,
+        )
+
+
+def question_identity(
+    *,
+    request_json: str,
+    subject: str,
+    intent: str,
+    freshness: str,
+    asked_at: datetime,
+) -> str:
+    """``sha256`` over the whole question, canonically (`D-IMPL-340`).
+
+    One function for both sides of the seam: the consumer computes it over
+    what it SENT, and admission recomputes it over what the door ECHOED —
+    the wire request plus the four §6.3 axes the door says it answered — so
+    the two agree only if every axis agrees. ``asked_at`` is rendered as the
+    canonical timestamp so an offset spelling cannot change the identity.
+    """
+    rendered = json.dumps(
+        {
+            "asked_at": asked_at.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+            "freshness": freshness,
+            "intent": intent,
+            "request": request_json,
+            "subject": subject,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    )
+    return hashlib.sha256(rendered.encode("utf-8")).hexdigest()
 
 
 class McpProductProvenanceError(TypeError):
@@ -462,6 +509,13 @@ def verify_mcp_product_invocation(value: object) -> McpProductInvocation:
 class McpProductFailure:
     """A registered, governed producer that could not answer (`D-IMPL-340`).
 
+    **Minted, like the invocation.** Its producer members are copied from the
+    registration the registry resolved and are written into a governed
+    ``producer-unavailable`` row, so a caller-built failure naming a producer
+    no registry resolved must not reach the row builder looking like a
+    dispatch that ran. ``token`` is module-private;
+    :func:`verify_mcp_product_failure` is the boundary check.
+
     Dave's ruling: *"A correctly registered and governed remote producer that
     cannot answer the requested child produces a governed
     `producer-unavailable` outcome"* — and it is **not** to be collapsed with
@@ -490,6 +544,75 @@ class McpProductFailure:
     question_address: str
     failure: McpProductFailureKind
     detail: str
+    _dispatch_provenance: object = None
+
+    def __init__(
+        self,
+        *,
+        skill_name: str,
+        skill_type: str,
+        server: str,
+        producer_id: str,
+        producer_tenant: str,
+        producer_registration_address: str,
+        product_class: str,
+        product_version: str,
+        question_address: str,
+        failure: McpProductFailureKind,
+        detail: str,
+        token: object,
+    ) -> None:
+        if token is not _MCP_PRODUCT_TOKEN:
+            raise McpProductProvenanceError(
+                "McpProductFailure is minted only by"
+                " ccf.skills.dispatch._invoke_mcp_product; a caller-built"
+                " failure naming a producer would write that producer into a"
+                " governed row no registration authorized (D-IMPL-340)"
+            )
+        for name, value in (
+            ("skill_name", skill_name),
+            ("skill_type", skill_type),
+            ("server", server),
+            ("producer_id", producer_id),
+            ("producer_tenant", producer_tenant),
+            ("producer_registration_address", producer_registration_address),
+            ("product_class", product_class),
+            ("product_version", product_version),
+            ("question_address", question_address),
+            ("failure", failure),
+            ("detail", detail),
+        ):
+            object.__setattr__(self, name, value)
+        object.__setattr__(self, "_dispatch_provenance", _MCP_PRODUCT_TOKEN)
+
+
+def verify_mcp_product_failure(value: object) -> McpProductFailure:
+    """Refuse anything that is not a minted :class:`McpProductFailure`."""
+    if (
+        not isinstance(value, McpProductFailure)
+        or getattr(value, "_dispatch_provenance", None) is not _MCP_PRODUCT_TOKEN
+    ):
+        raise McpProductProvenanceError(
+            f"a {type(value).__name__} reached an mcp_product boundary without"
+            " the dispatch mint; only ccf.skills.dispatch._invoke_mcp_product"
+            " produces an McpProductFailure (D-IMPL-340, D-IMPL-337)"
+        )
+    return value
+
+
+#: What a producer's error text is reduced to before it is recorded: the
+#: opaque failure id when the SDK's own door reported one, else the first line,
+#: bounded. Never a traceback; never more than this.
+_OPAQUE_FAILURE = re.compile(r"ccf-runtime-failure:[0-9a-f]{32}")
+_DETAIL_LIMIT: Final = 240
+
+
+def _recordable_detail(text: str) -> str:
+    matched = _OPAQUE_FAILURE.search(text)
+    if matched is not None:
+        return matched.group(0)
+    first_line = text.strip().splitlines()[0] if text.strip() else "no text"
+    return first_line[:_DETAIL_LIMIT]
 
 
 class PeeringSkillUnregistered(LookupError):
@@ -720,7 +843,7 @@ class McpSkillRegistry:
                 registered server would let a later, less-trusted registration
                 redirect an already-granted skill.
         """
-        if server in self._clients:
+        if server in self._clients or server in self._producers:
             raise ValueError(
                 f"MCP server {server!r} is already registered; replacing a "
                 "registration would silently redirect skills already granted "
@@ -907,12 +1030,13 @@ def _invoke_mcp_product(
             question_address=question.address,
             failure=kind,
             detail=detail,
+            token=_MCP_PRODUCT_TOKEN,
         )
 
     try:
         contents = client.call_tool_text(PRODUCT_REQUEST_TOOL, arguments)
     except McpToolFailed as reported:
-        return failed("tool-error", reported.text)
+        return failed("tool-error", _recordable_detail(reported.text))
     except McpTimeout as timed_out:
         return failed("timeout", type(timed_out).__name__)
     except McpServerUnreachable as unreachable:

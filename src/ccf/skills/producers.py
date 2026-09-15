@@ -115,6 +115,16 @@ def register_declared_producer(
             f"producer {artifact.server!r}: {artifact.endpoint_from_env!r} is"
             " set but empty; an empty endpoint is not an endpoint"
         )
+    if credential and credential_factory is None:
+        # Review finding: a configured credential silently dropped would send
+        # every question unauthenticated and surface as producer-unavailable.
+        # A configuration error, raised (ruling 1).
+        raise ValueError(
+            f"producer {artifact.server!r}: {artifact.credential_from_env!r} is"
+            " set but no credential_factory was supplied to carry it; a"
+            " credential the deployment configured is never dropped silently"
+            " (D-IMPL-340)"
+        )
     registration = producer_registration_from_artifact(artifact)
     client = McpResourceClient(
         url=endpoint,

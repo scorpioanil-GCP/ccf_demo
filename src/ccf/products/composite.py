@@ -102,7 +102,7 @@ from typing import (
 from pydantic import Field, field_validator
 
 from ccf.contracts.base import CCFContract
-from ccf.contracts.canonical import HASH_TRANSPARENT_KEY, content_hash
+from ccf.contracts.canonical import HASH_TRANSPARENT_KEY, canonical_bytes, content_hash
 from ccf.controlplane.artifact_base import ArtifactClass
 from ccf.controlplane.registry import ControlPlaneMissing, ControlPlaneProtocol
 from decimal import Decimal
@@ -138,11 +138,11 @@ from ccf.replay.record import (
 from ccf.products.producer import ProducerAssertion
 from ccf.products.request import ProductRequest
 from ccf.skills.catalog import NO_PRODUCT_CLASS, SkillCatalogEntry
-from ccf.skills.dispatch import verify_mcp_product_invocation
+from ccf.skills.dispatch import question_identity, verify_mcp_product_invocation
 from ccf.skills.grants import BoundSkillView
 
 if TYPE_CHECKING:  # the door imports the refusal module, which imports this one
-    from ccf.products.door import WireRequest
+    from ccf.products.door import AnsweredQuestion, WireRequest
 
 __ccf_mode__ = "algorithmic"
 
@@ -793,6 +793,7 @@ class ChildCandidate:
     #: none of them an authority. ``None`` on every other acquisition kind.
     producer_assertion: ProducerAssertion | None = None
     question_echo: "WireRequest | None" = None
+    answered_question: "AnsweredQuestion | None" = None
     child_replay_ref: str | None = None
 
 
@@ -1192,22 +1193,21 @@ class CompositeAdmissionGate:
         candidate: ChildCandidate,
         refuse: Callable[[ChildRefusalReason, str], ChildAdmissionRefusal],
     ) -> ChildAdmissionRefusal | None:
-        """The producer leg (`D-IMPL-340`): hold three claims to the registration.
+        """The producer leg (`D-IMPL-340`): hold every claim to the registration.
 
         The expectations — ``producer_id`` and ``producer_tenant`` — sit on
         the invocation, copied from the registration the registry resolved
         for the grant's binding. The candidate's contract, its door's producer
-        assertion and its echo of the question are **claims**. Each is held to
-        the expectation; a claim that matches merely fails to refuse, because
-        the grant and the registration authorized the acquisition before any
-        bytes arrived. Four refusals, each on exactly one path, and wrong
-        producer is distinct from wrong producer tenant by ruling.
+        assertion, its replay reference and its echo of the question are
+        **claims**. Each is held to the expectation; a claim that matches
+        merely fails to refuse, because the grant and the registration
+        authorized the acquisition before any bytes arrived. Wrong producer is
+        distinct from wrong producer tenant by ruling.
         """
         invocation = candidate.invocation
-        contract = candidate.contract
         expected_tenant = invocation.producer_tenant
-        expected_producer = invocation.producer_id
-        assert expected_tenant is not None and expected_producer is not None
+        assert expected_tenant is not None
+        contract = candidate.contract
         if contract.tenant_id != expected_tenant:
             return refuse(
                 "producer-tenant-mismatch",
@@ -1217,7 +1217,36 @@ class CompositeAdmissionGate:
                 " tenant and the answer is evidence held against it"
                 " (D-IMPL-340)",
             )
-        replay_ref = candidate.child_replay_ref
+        return self.hold_producer_claims(
+            invocation=invocation,
+            assertion=candidate.producer_assertion,
+            replay_ref=candidate.child_replay_ref,
+            echo=candidate.question_echo,
+            answered=candidate.answered_question,
+            refuse=refuse,
+        )
+
+    def hold_producer_claims(
+        self,
+        *,
+        invocation: ChildInvocation,
+        assertion: ProducerAssertion | None,
+        replay_ref: str | None,
+        echo: "WireRequest | None",
+        answered: "AnsweredQuestion | None",
+        refuse: Callable[[ChildRefusalReason, str], ChildAdmissionRefusal],
+    ) -> ChildAdmissionRefusal | None:
+        """Hold a door's claims about itself and its question to the registration.
+
+        Shared by the served path (through :meth:`admit`) and the **refused**
+        path — a governed refusal from a door that asserts another producer,
+        another tenant or another question is a misrouting to refuse as such,
+        never an `ineligible` row filed under the registered producer's name
+        (review finding on the first cut).
+        """
+        expected_tenant = invocation.producer_tenant
+        expected_producer = invocation.producer_id
+        assert expected_tenant is not None and expected_producer is not None
         if replay_ref is not None:
             claimed_tenant = _replay_ref_tenant(replay_ref)
             if claimed_tenant != expected_tenant:
@@ -1228,7 +1257,6 @@ class CompositeAdmissionGate:
                     f" expects {expected_tenant!r}; a product and its record"
                     " are governed under one tenant (D-IMPL-340)",
                 )
-        assertion = candidate.producer_assertion
         if assertion is None:
             return refuse(
                 "producer-unasserted",
@@ -1254,11 +1282,25 @@ class CompositeAdmissionGate:
                 f" producer {expected_producer!r} and the registration expects"
                 f" {expected_tenant!r} (D-IMPL-340)",
             )
-        echo = candidate.question_echo
-        if echo is None or content_hash(echo) != invocation.question_address:
+        if echo is None or answered is None:
             return refuse(
                 "question-mismatch",
-                "the producer's echo of the question does not match the"
+                "the producer's answer echoes no question, so nothing binds it"
+                f" to the question this composition sent"
+                f" ({invocation.question_address!r}) (D-IMPL-340)",
+            )
+        echoed = question_identity(
+            request_json=canonical_bytes(echo).decode("utf-8"),
+            subject=answered.subject,
+            intent=answered.intent,
+            freshness=answered.freshness,
+            asked_at=answered.asked_at,
+        )
+        if echoed != invocation.question_address:
+            return refuse(
+                "question-mismatch",
+                "the producer's echo of the question — its wire request and"
+                " the four axes it says it answered — does not match the"
                 " question this composition sent"
                 f" ({invocation.question_address!r}); an answer to a different"
                 " question is not this child (D-IMPL-340)",
