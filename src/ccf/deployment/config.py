@@ -111,9 +111,12 @@ from ccf.controlplane.artifacts import (
     DeploymentManifest,
     EgressDoorBinding,
     ManifestEntry,
+    McpProducerRegistration,
     load_artifact,
     parse_artifact,
 )
+from ccf.products.contract import ChildRequirement
+from ccf.skills.catalog import SKILL_CATALOG_ENTRY, skill_catalog_key
 from ccf.controlplane.registry import ControlPlaneProtocol
 from ccf.deployment.classes import (
     refuse_registration_the_sdk_fixes,
@@ -234,7 +237,29 @@ _RESERVED_SECTIONS: Mapping[str, tuple[str | None, str | None]] = {
 #: manifest entry that names it.
 _RESERVED_VERSIONED_SECTIONS: Mapping[str, str] = {
     "agent": AGENT_DEFINITION.class_id,
+    # `D-IMPL-343` R-7 (the consumer half): one `ccf.skill-catalog-entry` per
+    # label under `skills:`, derived per key the way `producers:` is and
+    # registered on the versioned path the class requires. What the SDK
+    # fills is read off OTHER declared keys — the label, the deployment's
+    # tenant, `produces`, the one `producers.*` entry offering that class and
+    # its `versions_from` floor — and a stated value is held equal, never
+    # overridden. What the SDK never fills: the two author lanes, the
+    # description (`D-IMPL-56`) and the requirements envelope (`D-IMPL-29`).
+    "skills": SKILL_CATALOG_ENTRY.class_id,
 }
+
+#: The one skill type the paved derivation produces (`D-IMPL-343` R-7). A
+#: composite on the road asks a REGISTERED producer a governed question; every
+#: other skill type is declared in its own catalog document and reaches a
+#: composite through the low road's `children=` hatch.
+_PAVED_SKILL_TYPE = "mcp_product"
+
+#: The argument schema an `mcp_product` dispatch is structurally held to:
+#: :func:`~ccf.skills.dispatch.dispatch_skill` passes ``arguments={}`` on the
+#: question path, so the schema of an entry derived here has exactly one
+#: legal value. Filled when the section omits it and held equal when stated —
+#: a declared value with one legal value is documentation, not control.
+_EMPTY_ARGUMENT_SCHEMA: Mapping[str, Any] = {"properties": {}, "required": []}
 
 
 @dataclass(frozen=True)
@@ -354,6 +379,322 @@ def _refuse_door_tenant_disagreement(
             " assertion to its own registration (D-IMPL-343 R-6; D-IMPL-340"
             " ruling 2) — state the deployment's tenant under 'door'"
         )
+
+
+def _hold_equal(label: str, field: str, stated: object, derived: object, *, source: str) -> None:
+    """Refuse a stated value that disagrees with what the SDK derived it from.
+
+    The `D-IMPL-292` equality shape, applied to a derived document: a section
+    may restate a value another declared key already fixes, and when it does
+    the two must agree — the SDK never overrides the author in either
+    direction, and it never lets two authorities stand.
+    """
+    if stated != derived:
+        raise ValueError(
+            f"the {label!r} section states {field}={stated!r} and {source}"
+            f" derives {derived!r}; one declared value, or two that agree —"
+            " the paved derivation fills what a section omits and never"
+            " overrides what it states (D-IMPL-343 R-7)"
+        )
+
+
+def _requirements_of(product_class_document: Mapping[str, Any]) -> tuple[ChildRequirement, ...]:
+    """The declared child requirements, parsed once for the derivations that read them.
+
+    Only the ``requires`` rows are parsed here — the whole declaration is
+    validated at boot, as it always was — so a config that derived before the
+    consumer half existed derives exactly as it did.
+    """
+    rows = product_class_document.get("requires") or ()
+    if not isinstance(rows, list | tuple):
+        raise ValueError(
+            "`product_class.requires` is not a list; each row names one child"
+            " class, whether it is required, and the lane it is admitted from"
+            " (D-IMPL-336)"
+        )
+    return tuple(ChildRequirement.model_validate(row) for row in rows)
+
+
+def _the_offering_producer(
+    produces: str,
+    producers: Mapping[str, McpProducerRegistration],
+    *,
+    label: str,
+) -> tuple[str, McpProducerRegistration]:
+    """The ONE declared producer offering ``produces`` — none or two refuse by name.
+
+    `D-IMPL-343` design `R-12′`, accepted: two registrations offering one class
+    are refused at derivation rather than chosen between, because any rule
+    the SDK applied would make composition and replay depend on something the
+    deployment never declared (the `D-IMPL-340` ruling-7 posture, held one
+    boundary earlier). A stated ``binding.server`` is held EQUAL to the one
+    derived; it never selects.
+    """
+    offering = [
+        (server, registration)
+        for server, registration in sorted(producers.items())
+        if any(offer.product_class == produces for offer in registration.offers)
+    ]
+    if not offering:
+        raise ValueError(
+            f"the {label!r} section produces {produces!r} and no entry under"
+            " `producers:` offers that class; a skill asking a producer nobody"
+            " declared can never fire — declare the producer, with an `offers`"
+            " row for the class (D-IMPL-343 R-7; D-IMPL-340)"
+        )
+    if len(offering) > 1:
+        names = ", ".join(repr(server) for server, _registration in offering)
+        raise ValueError(
+            f"{len(offering)} declared producers offer {produces!r} ({names});"
+            " the paved road selects no producer dynamically — declare the one"
+            " this deployment asks, or compose the choice through the low"
+            " road's `children=` (D-IMPL-343; D-IMPL-340 ruling 7)"
+        )
+    return offering[0]
+
+
+def _complete_skill_entry(
+    label: str,
+    body: Mapping[str, Any],
+    *,
+    name: str,
+    requirements: tuple[ChildRequirement, ...],
+    producers: Mapping[str, McpProducerRegistration],
+) -> dict[str, Any]:
+    """Fill what other declared keys fix; hold what the section states equal (`R-7`).
+
+    The declared keys, and only these, are read: the label (the entry's
+    ``name``), ``produces``, the ``producers.*`` registration whose ``offers``
+    name that class, and its ``versions_from`` floor. From them the SDK fills
+    ``name``, ``skill_type``, ``binding`` (server, class, the floor asked) and
+    the structurally empty ``argument_schema``. It fills nothing else: the two
+    author lanes, ``description`` (`D-IMPL-56`) and ``requirements``
+    (`D-IMPL-29`) are the section's own statements and are refused absent by
+    the class itself.
+
+    **`R-13` at the earlier boundary.** The floor a producer is asked from
+    (``versions_from``) must lie inside the requirement's declared lane
+    (``compatible_from``, same major and at or above), or the composite could
+    never admit what it asked for — refused here, by name, with both floors.
+    The served lane is still held to the requirement at admission, exactly as
+    the low road holds it (`version-incompatible`, reason retained).
+
+    Raises:
+        ValueError: ``produces`` absent; ``produces`` names a class the
+            composite does not require; no or two producers offer it; a stated
+            ``name``, ``skill_type``, ``binding`` member or ``argument_schema``
+            disagrees with its derivation; or the floor lies outside the lane.
+    """
+    if "key" in body:
+        raise ValueError(
+            f"the {label!r} section states 'key'; a skill catalog entry's key"
+            " is fixed by its class (`{tenant}/{class}/{name}`, the key its"
+            f" grant resolves) — remove 'key' from {label!r} (D-IMPL-343 R-7)"
+        )
+    document = dict(body)
+    produces = document.get("produces")
+    if not isinstance(produces, str) or not produces:
+        raise ValueError(
+            f"the {label!r} section declares no `produces`; a paved skill is"
+            " the statement that a declared producer is asked for one product"
+            " class, and that class is the one key the SDK reads to derive"
+            " the rest (D-IMPL-343 R-7)"
+        )
+    requirement = next((r for r in requirements if r.product_class == produces), None)
+    if requirement is None:
+        required = sorted(r.product_class for r in requirements)
+        raise ValueError(
+            f"the {label!r} section produces {produces!r}, which the product"
+            f" class does not require (its `requires` names {required!r}); a"
+            " skill producing a class the composite never asks for is wiring"
+            " nothing exercises (D-IMPL-343 R-7)"
+        )
+    server, registration = _the_offering_producer(produces, producers, label=label)
+    offer = next(o for o in registration.offers if o.product_class == produces)
+    if not requirement.accepts(child_version=offer.versions_from):
+        raise ValueError(
+            f"producer {server!r} offers {produces!r} from lane"
+            f" {offer.versions_from!r} and the composite admits it from"
+            f" {requirement.compatible_from!r} (same major, at or above); the"
+            " floor asked lies outside the lane the composite composes over,"
+            " so nothing the producer served could ever be admitted — align the"
+            " two floors (D-IMPL-343 R-13)"
+        )
+
+    source = f"the section label and `produces` ({produces!r})"
+    if "name" in document:
+        _hold_equal(label, "name", document["name"], name, source="the section label")
+    document["name"] = name
+    if "skill_type" in document:
+        _hold_equal(label, "skill_type", document["skill_type"], _PAVED_SKILL_TYPE, source="the paved road")
+    document["skill_type"] = _PAVED_SKILL_TYPE
+
+    derived_binding = {
+        "server": server,
+        "product_class": produces,
+        "product_version": offer.versions_from,
+    }
+    stated_binding = document.get("binding")
+    if stated_binding is not None:
+        if not isinstance(stated_binding, Mapping):
+            raise ValueError(
+                f"the {label!r} section's `binding` is not a mapping; a stated"
+                " binding restates the derived one and is held equal to it"
+                " (D-IMPL-343 R-7)"
+            )
+        for member, derived_value in derived_binding.items():
+            if member in stated_binding:
+                _hold_equal(
+                    label,
+                    f"binding.{member}",
+                    stated_binding[member],
+                    derived_value,
+                    source=(
+                        source
+                        if member != "product_version"
+                        else f"producer {server!r}'s `versions_from` floor (R-13)"
+                    ),
+                )
+        unknown = sorted(set(stated_binding) - set(derived_binding))
+        if unknown:
+            raise ValueError(
+                f"the {label!r} section's `binding` states {unknown!r}, which"
+                " an mcp_product binding does not carry (D-IMPL-340)"
+            )
+    document["binding"] = derived_binding
+
+    if "argument_schema" in document:
+        _hold_equal(
+            label,
+            "argument_schema",
+            document["argument_schema"],
+            _EMPTY_ARGUMENT_SCHEMA,
+            source="the mcp_product dispatch, which passes no arguments",
+        )
+    document["argument_schema"] = dict(_EMPTY_ARGUMENT_SCHEMA)
+    return document
+
+
+def _artifact_ref(key: str, semver: str, *, section: str) -> str:
+    """A pinned ``ccf-artifact://`` reference to a derived section, or a refusal by name.
+
+    The reference grammar is ``{tenant}/{class}/{name}@{version}``
+    (:func:`~ccf.artifacts.protocol.parse_artifact_uri`), so a section whose
+    key is its bare label cannot be referenced by an agent's axis; the remedy
+    is the section's own ``key:`` override, and the refusal names it. The
+    version is the config's ``semver`` — what the typed derivation injects
+    into the section's document, and what a pinned resolution matches.
+    """
+    if len(key.split("/")) != 3:
+        raise ValueError(
+            f"the `{section}` section registers under key {key!r}, which a"
+            " composing agent cannot reference: an artifact reference is"
+            " `ccf-artifact://{tenant}/{class}/{name}@{version}` — declare"
+            f" `key: <tenant>/<class>/<name>` under `{section}:` so the agent's"
+            " axis pins the same document the deployment runs under"
+            " (D-IMPL-343 R-2)"
+        )
+    return f"ccf-artifact://{key}@{semver}"
+
+
+def _complete_agent(
+    body: Mapping[str, Any],
+    *,
+    requirements: tuple[ChildRequirement, ...],
+    default_perspective: Mapping[str, Any] | None,
+    policy_key: str | None,
+    debt_profile_key: str | None,
+    semver: str,
+) -> dict[str, Any]:
+    """Fill the composing agent's derivable axes from the deployment's declarations (`R-2`).
+
+    Six axes (CLAUDE.md §6.2), and which side of the derivation each is on:
+    the archetype binding, the name and the two author lanes are the
+    section's own; the context contract is filled from ``requires`` (each
+    class at its ``compatible_from`` floor) or, when stated, checked to cover
+    every requirement at a lane the requirement accepts; the perspective is
+    filled from ``default_perspective`` or held to its role; the policy regime
+    and the debt profile are filled as pinned references to the deployment's
+    own ``policy`` and ``debt_profile`` sections, at the config's ``semver``,
+    or held equal when stated; instruction bindings default to none.
+
+    Raises:
+        ValueError: a stated ``consumes`` omits a required class or names a
+            lane its requirement does not accept; a stated role or reference
+            disagrees with the deployment's; or an axis cannot be filled
+            because the deployment declares no section to fill it from.
+    """
+    document = dict(body)
+
+    contract = document.get("context_contract")
+    if contract is None:
+        if requirements:
+            document["context_contract"] = {
+                "consumes": [
+                    {"product_class": r.product_class, "schema_version": r.compatible_from}
+                    for r in requirements
+                ]
+            }
+    elif isinstance(contract, Mapping) and isinstance(contract.get("consumes"), list):
+        consumed = {
+            str(row.get("product_class")): str(row.get("schema_version"))
+            for row in contract["consumes"]
+            if isinstance(row, Mapping)
+        }
+        for requirement in requirements:
+            lane = consumed.get(requirement.product_class)
+            if lane is None:
+                raise ValueError(
+                    f"the 'agent' section's context contract consumes"
+                    f" {sorted(consumed)!r} and the product class requires"
+                    f" {requirement.product_class!r}; a composing agent reads"
+                    " every class its composite requires, so the contract is"
+                    " held to `requires` (D-IMPL-343 R-2)"
+                )
+            if not requirement.accepts(child_version=lane):
+                raise ValueError(
+                    f"the 'agent' section consumes {requirement.product_class!r}"
+                    f" at lane {lane!r} and the product class admits it from"
+                    f" {requirement.compatible_from!r} (same major, at or"
+                    " above); the agent's contract and the requirement are one"
+                    " statement (D-IMPL-343 R-2, R-13)"
+                )
+
+    if default_perspective is not None:
+        role = default_perspective.get("role")
+        perspective = document.get("perspective")
+        if perspective is None:
+            document["perspective"] = {"role": role, "selection_params": {}}
+        elif isinstance(perspective, Mapping) and "role" in perspective:
+            _hold_equal("agent", "perspective.role", perspective["role"], role, source="`default_perspective.role`")
+
+    for axis, key, section in (
+        ("policy_regime", policy_key, "policy"),
+        ("halflife_debt_profile", debt_profile_key, "debt_profile"),
+    ):
+        stated = document.get(axis)
+        if stated is None and key is None:
+            raise ValueError(
+                f"the 'agent' section states no `{axis}` and the config"
+                f" declares no `{section}:` section to derive one from; the"
+                " axis is the deployment's own document, pinned (D-IMPL-343 R-2)"
+            )
+        if key is None:
+            continue  # stated, and nothing declared here to hold it to
+        if stated is None:
+            document[axis] = {"ref": _artifact_ref(key, semver, section=section)}
+        elif isinstance(stated, Mapping) and len(key.split("/")) == 3:
+            # Derivable and stated: the two must agree — one regime, one
+            # profile, never a second authority beside the deployment's own.
+            _hold_equal(
+                "agent",
+                f"{axis}.ref",
+                stated.get("ref"),
+                _artifact_ref(key, semver, section=section),
+                source=f"the `{section}` section's key and the config's semver",
+            )
+    document.setdefault("instruction_bindings", [])
+    return document
 
 
 def _refuse_reserved_path_override(label: str, body: Mapping[str, Any]) -> None:
@@ -867,6 +1208,7 @@ def derive_deployment(
     # order that existed before this section did is byte-for-byte what it was.
     _refuse_empty_section("producers", config.producers, fields_set)
     producer_entries: list[tuple[ManifestEntry, Mapping[str, Any]]] = []
+    producers_by_server: dict[str, McpProducerRegistration] = {}
     if config.producers:
         producer_class_id, producer_wrapper = _RESERVED_SECTIONS["producers"]
         for label, producer_body in sorted(config.producers.items()):
@@ -881,7 +1223,17 @@ def derive_deployment(
             # Validated HERE, at derivation, not only at boot: a literal URL
             # or token in the section must never reach a derived document
             # (CINV-01; `D-IMPL-340` ruling 10).
-            parse_artifact(document, MCP_PRODUCER)
+            registration = parse_artifact(document, MCP_PRODUCER)
+            assert isinstance(registration, McpProducerRegistration)  # MCP_PRODUCER's contract
+            if registration.server in producers_by_server:
+                raise ValueError(
+                    f"two entries under `producers:` declare server"
+                    f" {registration.server!r}; an mcp_product binding selects a"
+                    " producer by that name, and one name naming two"
+                    " registrations could only be resolved by a rule the"
+                    " deployment never declared (D-IMPL-340)"
+                )
+            producers_by_server[registration.server] = registration
             producer_entries.append((entry, document))
     resolution_section_key: str | None = None
     policy_section_key: str | None = None
@@ -949,12 +1301,67 @@ def derive_deployment(
     # the versioned path and validated at derivation so a malformed composing
     # agent is refused before anything is registered. Appended LAST: a config
     # declaring none derives byte-for-byte what it derived before.
+    # `skills:` (`D-IMPL-343` R-7) — optional, dynamically keyed, one
+    # author-versioned `ccf.skill-catalog-entry` per label. Each is completed
+    # from the declared keys it depends on (the product class's `requires`,
+    # the `producers:` registrations) and validated at derivation, and each
+    # registers under the `{tenant}/{class}/{name}` key its own grant resolves
+    # it through. Appended after the producers and before the agent, so every
+    # key order that existed before this section did is what it was.
+    _refuse_empty_section("skills", config.skills, fields_set)
+    skill_keys: list[str] = []
+    requirements = _requirements_of(documents[entries[0].key]) if (config.skills or config.agent) else ()
+    if config.skills:
+        for label, skill_body in sorted(config.skills.items()):
+            section = f"skills.{label}"
+            completed = _complete_skill_entry(
+                section,
+                skill_body,
+                name=label,
+                requirements=requirements,
+                producers=producers_by_server,
+            )
+            # The key the class fixes, computed by the one rule the catalog
+            # and the grant ledger resolve through — from the COMPLETED and
+            # tenant-filled document, so the two cannot disagree.
+            probe, probe_document = _derive_versioned_entry(
+                label=section,
+                body=completed,
+                config_filename=config_filename,
+                class_id=_RESERVED_VERSIONED_SECTIONS["skills"],
+                tenant_id=config.tenant_id,
+            )
+            parsed = parse_artifact(probe_document, SKILL_CATALOG_ENTRY)
+            entry = ManifestEntry(
+                path=probe.path,
+                key=skill_catalog_key(parsed),  # type: ignore[arg-type]  # SKILL_CATALOG_ENTRY's contract
+                class_id=probe.class_id,
+                role=probe.role,
+                registration=probe.registration,
+            )
+            entries.append(entry)
+            documents[entry.key] = probe_document
+            skill_keys.append(entry.key)
+
+    # `agent:` (`D-IMPL-343` R-2) — optional, author-versioned, derived
+    # through the versioned path, its derivable axes completed from the
+    # deployment's own declarations, and validated at derivation so a
+    # malformed composing agent is refused before anything is registered.
+    # Appended LAST: a config declaring none derives byte-for-byte what it
+    # derived before.
     _refuse_empty_section("agent", config.agent, fields_set)
     agent_key: str | None = None
     if config.agent is not None:
         entry, document = _derive_versioned_entry(
             label="agent",
-            body=config.agent,
+            body=_complete_agent(
+                config.agent,
+                requirements=requirements,
+                default_perspective=config.default_perspective,
+                policy_key=policy_section_key,
+                debt_profile_key=section_keys.get("debt_profile"),
+                semver=config.semver,
+            ),
             config_filename=config_filename,
             class_id=_RESERVED_VERSIONED_SECTIONS["agent"],
             tenant_id=config.tenant_id,
@@ -1025,6 +1432,7 @@ def derive_deployment(
             if entry.class_id == _RESERVED_SECTIONS["policy_constraints"][0]
         ),
         producers=tuple(entry.key for entry, _document in producer_entries),
+        skills=tuple(skill_keys),
     )
     return DerivedDeployment(manifest=manifest, documents=documents, keys=keys)
 

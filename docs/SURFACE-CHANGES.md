@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1208 entries**, of which **964** name a public Python surface.
+**1216 entries**, of which **972** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-642 entries — 602 public Python surface, 40 not public Python API.
+644 entries — 604 public Python surface, 40 not public Python API.
 
 ### Public Python surface
 
@@ -10873,6 +10873,30 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `343-01-paved-road.md`.*
 
+#### ccf.deployment.manifest.register_manifest_entries
+
+- Surface: ccf.deployment.manifest.register_manifest_entries
+- Public surface: true
+- Change type: added
+- Before: the phase-two register loop lived inline in the boot spine
+- After: `register_manifest_entries(manifest, parsed, *, registry, only=None) -> tuple[ArtifactPin, ...]` — the ONE loop, called by the boot spine and by `open_product` (which registers the regime, the agent and the skills at open, boots nothing, and lets every question's boot register the same content again idempotently)
+- Why: the consumer half must register three entries without booting; a second copy of the D-05 dispatch would drift
+- Migration: none
+
+*Recorded by `343-01-paved-road.md`.*
+
+#### ccf.products.contract.version_satisfies_floor
+
+- Surface: ccf.products.contract.version_satisfies_floor
+- Public surface: true
+- Change type: added
+- Before: the floor rule lived only inside `ChildRequirement.accepts`
+- After: `version_satisfies_floor(*, floor, version) -> bool` — the ONE rule (same major, at or above, by semver precedence, total on every accepted form), read by `ChildRequirement.accepts`, by the `skills:` derivation and by the standard door
+- Why: R-13 — "versions_from is a floor everywhere"
+- Migration: none
+
+*Recorded by `343-01-paved-road.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -11526,7 +11550,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-412 entries — 228 public Python surface, 184 not public Python API.
+416 entries — 232 public Python surface, 184 not public Python API.
 
 ### Public Python surface
 
@@ -16057,6 +16081,54 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `343-01-paved-road.md`.*
 
+#### ccf.products.product.open_product (consumer half)
+
+- Surface: ccf.products.product.open_product
+- Public surface: true
+- Change type: reshaped
+- Before: a class declaring `requires` opened only with a hand-built `children=`; `producers:` was declared but never registered by the facade
+- After: two added optional keywords — `questions=` (the developer's `ChildQuestions` mapping, required exactly when the class declares `requires` and no `children=` is handed in) and `approval_sink=` (the `D-IMPL-29` tier-2 hatch); every `producers.*` registration is registered at open on ONE `McpSkillRegistry` over ONE bridge, whether or not the chain is derived; the chain — agent, catalog entry, grant, `QuestionBoundChildResolver` behind `CompositeAdmissionGate` — is derived from `agent:`, `skills:` and the policy regime's `skill_governance`; every mixed state (a hatch beside a declared chain, a mapping with no `requires`, a missing section) is refused at open by name
+- Why: D-IMPL-343 consumer half — R-2 (a declarative composing agent), R-7 (catalog/grant fields derived only from declared keys), R-13 (floors held at the earlier boundary)
+- Migration: none; `children=` remains the hatch and composes over `opened.mcp_skills`
+
+*Recorded by `343-01-paved-road.md`.*
+
+#### ccf.products.product.OpenedProduct (consumer half)
+
+- Surface: ccf.products.product.OpenedProduct
+- Public surface: true
+- Change type: reshaped
+- Before: `close()` released nothing; no consumer members
+- After: `mcp_skills` (the one registry every declared producer is on, or `None`), `agent` (the derived composing agent, or `None`), `close()` releases the producers' bridge (idempotent); `resolve` treats the addressed lane as a FLOOR (R-13): served when the declared lane shares the floor's major and is at or above it — the request is answered at the served lane — and refused `class-mismatch` at `key="schema_version"` with both lanes in the record otherwise
+- Why: R-13 — "exact-address-at-serve while floor-at-open is a defect"; the bridge needs a place to close
+- Migration: a door addressed at exactly its lane behaves as before; a door addressed below its lane within the major now serves rather than refuses
+
+*Recorded by `343-01-paved-road.md`.*
+
+#### ccf.controlplane.artifacts.DeploymentConfig.skills
+
+- Surface: ccf.controlplane.artifacts.DeploymentConfig
+- Public surface: true
+- Change type: reshaped
+- Before: no `skills` section
+- After: `skills: Mapping[str, Mapping[str, Any]] | None`, hash-transparent at `None`
+- Why: R-7
+- Migration: none; every config authored before hashes as it did
+
+*Recorded by `343-01-paved-road.md`.*
+
+#### ccf.deployment.keys.DeploymentKeys.skills
+
+- Surface: ccf.deployment.keys.DeploymentKeys
+- Public surface: true
+- Change type: reshaped
+- Before: no `skills` member
+- After: `skills: tuple[str, ...]` — the derived entries' keys in label order
+- Why: the facade reads keys, never restates them
+- Migration: direct constructions state the new member (one in the tree, the derivation itself)
+
+*Recorded by `343-01-paved-road.md`.*
+
 ### Not public Python API
 
 #### tools/lints/__main__.py
@@ -18510,7 +18582,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-144 entries — 124 public Python surface, 20 not public Python API.
+146 entries — 126 public Python surface, 20 not public Python API.
 
 ### Public Python surface
 
@@ -21443,6 +21515,30 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none for non-composites (byte-identical path); none for composites with a legacy factory (served as before, governance only)
 
 *Recorded by `339-01-acquire-once-and-expose-child-contracts.md`.*
+
+#### ccf.deployment.config.derive_deployment (`skills:` and the completed agent)
+
+- Surface: ccf.deployment.config.derive_deployment
+- Public surface: true
+- Change type: behavior
+- Before: `agent:` derived verbatim (tenant filled); no `skills:` section
+- After: `skills:` — one author-versioned `ccf.skill-catalog-entry` per label, registered under the `{tenant}/ccf.skill-catalog-entry/{name}` key its grant resolves through; the SDK fills `name`, `skill_type` (`mcp_product`), `binding` (the ONE declared producer offering `produces`, at that producer's `versions_from` floor) and the structurally empty `argument_schema`, and holds any stated value equal; the two author lanes, `description` (`D-IMPL-56`) and `requirements` (`D-IMPL-29`) are never filled; a floor outside the requirement's lane, no or two offering producers, an unrequired class, and a `key:` override are refused at derivation by name. `agent:` — `context_contract` filled from `requires` (each class at its floor) or checked to cover it, `perspective` filled from `default_perspective` or held to its role, `policy_regime` and `halflife_debt_profile` filled as pinned references to the deployment's own sections (whose keys must then be in `{tenant}/{class}/{name}` form — refused with that remedy otherwise) or held equal, `instruction_bindings` defaulted to none
+- Why: R-7 and R-2 as ruled; no invented field, no fake semver, one authority per value
+- Migration: none for a config declaring neither section
+
+*Recorded by `343-01-paved-road.md`.*
+
+#### ccf.products.child_resolver.QuestionBoundChildResolver (two small changes)
+
+- Surface: ccf.products.child_resolver.QuestionBoundChildResolver
+- Public surface: true
+- Change type: behavior
+- Before: `resolve_for(requirements: tuple[...])` — conformed to `RequestAwareChildResolverProtocol` at runtime only; a refusing producer door was rowed `ineligible` with `the child's own door refused: {kind}`
+- After: `requirements: Sequence[...]` as the Protocol declares (nominal conformance, so the facade hands one to the builder under the Protocol's type); the retained detail names the producer's refusal `reason` and `key` beside its kind (`class-mismatch at 'schema_version'` for the R-13 case) — the reason as the producer disclosed it, never its bytes; structured recovery onto the row stays `D-IMPL-342`
+- Why: R-13 — retain the reason; the low road unchanged in behavior
+- Migration: none
+
+*Recorded by `343-01-paved-road.md`.*
 
 ### Not public Python API
 

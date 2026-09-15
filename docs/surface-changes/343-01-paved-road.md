@@ -372,6 +372,86 @@ all. *"One facade over D-IMPL-336–340 — not three helpers."*
 - Why: the paved road is not the only road
 - Migration: none
 
+## ccf.products.product.open_product (consumer half)
+
+- Surface: ccf.products.product.open_product
+- Public surface: true
+- Change type: reshaped
+- Before: a class declaring `requires` opened only with a hand-built `children=`; `producers:` was declared but never registered by the facade
+- After: two added optional keywords — `questions=` (the developer's `ChildQuestions` mapping, required exactly when the class declares `requires` and no `children=` is handed in) and `approval_sink=` (the `D-IMPL-29` tier-2 hatch); every `producers.*` registration is registered at open on ONE `McpSkillRegistry` over ONE bridge, whether or not the chain is derived; the chain — agent, catalog entry, grant, `QuestionBoundChildResolver` behind `CompositeAdmissionGate` — is derived from `agent:`, `skills:` and the policy regime's `skill_governance`; every mixed state (a hatch beside a declared chain, a mapping with no `requires`, a missing section) is refused at open by name
+- Why: D-IMPL-343 consumer half — R-2 (a declarative composing agent), R-7 (catalog/grant fields derived only from declared keys), R-13 (floors held at the earlier boundary)
+- Migration: none; `children=` remains the hatch and composes over `opened.mcp_skills`
+
+## ccf.products.product.OpenedProduct (consumer half)
+
+- Surface: ccf.products.product.OpenedProduct
+- Public surface: true
+- Change type: reshaped
+- Before: `close()` released nothing; no consumer members
+- After: `mcp_skills` (the one registry every declared producer is on, or `None`), `agent` (the derived composing agent, or `None`), `close()` releases the producers' bridge (idempotent); `resolve` treats the addressed lane as a FLOOR (R-13): served when the declared lane shares the floor's major and is at or above it — the request is answered at the served lane — and refused `class-mismatch` at `key="schema_version"` with both lanes in the record otherwise
+- Why: R-13 — "exact-address-at-serve while floor-at-open is a defect"; the bridge needs a place to close
+- Migration: a door addressed at exactly its lane behaves as before; a door addressed below its lane within the major now serves rather than refuses
+
+## ccf.deployment.config.derive_deployment (`skills:` and the completed agent)
+
+- Surface: ccf.deployment.config.derive_deployment
+- Public surface: true
+- Change type: behavior
+- Before: `agent:` derived verbatim (tenant filled); no `skills:` section
+- After: `skills:` — one author-versioned `ccf.skill-catalog-entry` per label, registered under the `{tenant}/ccf.skill-catalog-entry/{name}` key its grant resolves through; the SDK fills `name`, `skill_type` (`mcp_product`), `binding` (the ONE declared producer offering `produces`, at that producer's `versions_from` floor) and the structurally empty `argument_schema`, and holds any stated value equal; the two author lanes, `description` (`D-IMPL-56`) and `requirements` (`D-IMPL-29`) are never filled; a floor outside the requirement's lane, no or two offering producers, an unrequired class, and a `key:` override are refused at derivation by name. `agent:` — `context_contract` filled from `requires` (each class at its floor) or checked to cover it, `perspective` filled from `default_perspective` or held to its role, `policy_regime` and `halflife_debt_profile` filled as pinned references to the deployment's own sections (whose keys must then be in `{tenant}/{class}/{name}` form — refused with that remedy otherwise) or held equal, `instruction_bindings` defaulted to none
+- Why: R-7 and R-2 as ruled; no invented field, no fake semver, one authority per value
+- Migration: none for a config declaring neither section
+
+## ccf.controlplane.artifacts.DeploymentConfig.skills
+
+- Surface: ccf.controlplane.artifacts.DeploymentConfig
+- Public surface: true
+- Change type: reshaped
+- Before: no `skills` section
+- After: `skills: Mapping[str, Mapping[str, Any]] | None`, hash-transparent at `None`
+- Why: R-7
+- Migration: none; every config authored before hashes as it did
+
+## ccf.deployment.keys.DeploymentKeys.skills
+
+- Surface: ccf.deployment.keys.DeploymentKeys
+- Public surface: true
+- Change type: reshaped
+- Before: no `skills` member
+- After: `skills: tuple[str, ...]` — the derived entries' keys in label order
+- Why: the facade reads keys, never restates them
+- Migration: direct constructions state the new member (one in the tree, the derivation itself)
+
+## ccf.deployment.manifest.register_manifest_entries
+
+- Surface: ccf.deployment.manifest.register_manifest_entries
+- Public surface: true
+- Change type: added
+- Before: the phase-two register loop lived inline in the boot spine
+- After: `register_manifest_entries(manifest, parsed, *, registry, only=None) -> tuple[ArtifactPin, ...]` — the ONE loop, called by the boot spine and by `open_product` (which registers the regime, the agent and the skills at open, boots nothing, and lets every question's boot register the same content again idempotently)
+- Why: the consumer half must register three entries without booting; a second copy of the D-05 dispatch would drift
+- Migration: none
+
+## ccf.products.contract.version_satisfies_floor
+
+- Surface: ccf.products.contract.version_satisfies_floor
+- Public surface: true
+- Change type: added
+- Before: the floor rule lived only inside `ChildRequirement.accepts`
+- After: `version_satisfies_floor(*, floor, version) -> bool` — the ONE rule (same major, at or above, by semver precedence, total on every accepted form), read by `ChildRequirement.accepts`, by the `skills:` derivation and by the standard door
+- Why: R-13 — "versions_from is a floor everywhere"
+- Migration: none
+
+## ccf.products.child_resolver.QuestionBoundChildResolver (two small changes)
+
+- Surface: ccf.products.child_resolver.QuestionBoundChildResolver
+- Public surface: true
+- Change type: behavior
+- Before: `resolve_for(requirements: tuple[...])` — conformed to `RequestAwareChildResolverProtocol` at runtime only; a refusing producer door was rowed `ineligible` with `the child's own door refused: {kind}`
+- After: `requirements: Sequence[...]` as the Protocol declares (nominal conformance, so the facade hands one to the builder under the Protocol's type); the retained detail names the producer's refusal `reason` and `key` beside its kind (`class-mismatch at 'schema_version'` for the R-13 case) — the reason as the producer disclosed it, never its bytes; structured recovery onto the row stays `D-IMPL-342`
+- Why: R-13 — retain the reason; the low road unchanged in behavior
+- Migration: none
+
 ## Regression evidence
 
 `tests/products/test_paved_road.py` (the facade and the door through the public surface,
@@ -381,7 +461,15 @@ with the design's §12 sabotages that need no estate), `tests/deployment/test_pa
 `tests/examples/test_spine_separation.py` (the `paved` shape, its floor, the `double-spined`
 refusal), and the first executable proof — `examples/cp-03-canonical-obligor-financial-spread`
 re-expressed in place with OFC-G01..G27 green by the same node ids against the live estate
-and the cross-deployment proof green through `open_door`.
+and the cross-deployment proof green through `open_door`. The consumer half:
+`tests/products/test_paved_consumer.py` (the derived chain against a paved fixture producer in
+another process — `tests/crossproc/servers/paved_fixture_door.py` — with the R-13 door-side and
+consumer-side proofs and the thirteen negative controls through the public surface),
+`tests/deployment/test_paved_sections.py` §6 (the `skills:` derivation, the completed agent,
+every hold-equal refusal), and dogfood B — `tests/examples/test_cp_03_canonical_paved_consumer.py`
+over `tests/examples/cp_03_canonical_paved_consumer/` — the cross-deployment proof's consumer
+side on the paved road against the unchanged canonical producer, with child-level identity
+equivalence to the low road asserted row member by row member.
 
 Standing and NOT this change's: `tests/deployment/test_class_lookup.py::
 test_the_phases_fragments_claim_exactly_what_was_added` was red at the base commit with

@@ -48,7 +48,7 @@ own authenticated, authorized access and is **not** reclassified as peering.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime
 
 from typing import Any
@@ -370,9 +370,21 @@ class GrantBoundChildResolver:
                 )
                 if held is not None:
                     return held
-                kind = asked.refusal.kind if asked.refusal is not None else "no product"
+                # `D-IMPL-343` R-13: the producer's own reason travels with
+                # the refusal — a served lane below the floor asked names both
+                # lanes here rather than arriving as a bare `ineligible`.
+                # Structured recovery of that evidence onto the row is
+                # `D-IMPL-342`; what is retained here is the reason as the
+                # producer's door disclosed it.
+                if asked.refusal is None:
+                    described = "no product"
+                else:
+                    named = asked.refusal.reason
+                    if asked.refusal.key is not None:
+                        named = f"{named} at {asked.refusal.key!r}"
+                    described = f"{asked.refusal.kind} ({named}: {asked.refusal.detail})"
                 return refuse_naming_producer(
-                    "ineligible", f"the child's own door refused: {kind}"
+                    "ineligible", f"the child's own door refused: {described}"
                 )
             contract = ContextProductContract.model_validate_json(asked.product_json)
             address = asked.content_address
@@ -649,14 +661,21 @@ class QuestionBoundChildResolver:
     def resolve_for(
         self,
         *,
-        requirements: tuple[ChildRequirement, ...],
+        requirements: Sequence[ChildRequirement],
         request: ProductRequest,
         asked_at: datetime,
         admitted_at: datetime,
         composition_invocation: str,
         consumer_lineage: ProductLineage,
     ) -> dict[str, object]:
-        """Resolve every requirement, asking each producer the mapped question."""
+        """Resolve every requirement, asking each producer the mapped question.
+
+        ``requirements`` is typed as the
+        :class:`~ccf.products.composite.RequestAwareChildResolverProtocol`
+        declares it, so this class conforms to the Protocol the resolver
+        checks NOMINALLY as well as at runtime (`D-IMPL-343`: the paved road
+        hands one to the builder under the Protocol's type).
+        """
         legacy = self._legacy
         view = legacy._ledger.bound_view(legacy._agent)
         outcomes: dict[str, object] = {}

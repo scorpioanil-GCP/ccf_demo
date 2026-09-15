@@ -86,16 +86,19 @@ import uuid
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from functools import partial
 from pathlib import Path
 from types import TracebackType
 from typing import Any, Protocol, runtime_checkable
 
+from ccf.agents.definitions import AgentDefinition
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.artifacts.protocol import ArtifactStoreProtocol
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifacts import (
     DEPLOYMENT_CONFIG,
     EGRESS_DOOR,
+    MCP_PRODUCER,
     PERSPECTIVE,
     PRODUCT_CLASS,
     REPLAY_BINDING,
@@ -104,6 +107,7 @@ from ccf.controlplane.artifacts import (
     DeploymentConfig,
     EgressDoorBinding,
     HalfLifeTable,
+    McpProducerRegistration,
     PerspectiveArtifact,
     ProductClassDeclaration,
     ReplayBinding,
@@ -114,21 +118,26 @@ from ccf.controlplane.artifacts import (
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.deployment import BootedFabric, load_config_and_boot
 from ccf.deployment.classes import resolve_artifact_class
-from ccf.deployment.config import derive_deployment
+from ccf.deployment.config import DerivedDeployment, derive_deployment
 from ccf.deployment.environment import (
     EnvironmentDocument,
     load_environment_document,
     resolve_values,
 )
 from ccf.deployment.keys import DeploymentKeys
+from ccf.deployment.manifest import register_manifest_entries
 from ccf.graph.protocols import GraphView
 from ccf.halflife.debt import DebtAssessment
+from ccf.mcp.client import SyncMcpBridge, bearer_client_factory
+from ccf.products.child_resolver import ChildQuestions, QuestionBoundChildResolver
 from ccf.products.composite import (
     ChildContractView,
+    CompositeAdmissionGate,
     CompositeChildResolverProtocol,
     RequestAwareChildResolverProtocol,
 )
 from ccf.products.constraints import PolicyConstraintResolver, TechnicalCapability
+from ccf.products.contract import version_satisfies_floor
 from ccf.products.refusal import RefusalEnvelope, RequestIdentity, envelope_for
 from ccf.products.request import ProductRequest, ProductRequestViolation
 from ccf.products.resolver import (
@@ -145,6 +154,11 @@ from ccf.projection.plan import Perspective
 from ccf.replay.record import DecisionReplayRecord, PolicyBinding, ResolutionNotApplicable
 from ccf.replay.serve import ServedProduct
 from ccf.signal.envelope import SignalEnvelope, refuse_foreign_envelope
+from ccf.skills.callables import CallableRegistry
+from ccf.skills.catalog import SkillCatalog, SkillCatalogEntry
+from ccf.skills.dispatch import McpSkillRegistry
+from ccf.skills.grants import ApprovalOutcome, ApprovalSink, GrantLedger, SkillGrant
+from ccf.skills.producers import register_declared_producer
 
 __ccf_mode__ = "algorithmic"
 
@@ -301,8 +315,15 @@ class OpenedProduct:
     source settings, and the three developer callables.
 
     A context manager, so ``with open_product(...) as opened:`` releases what
-    it holds; today that is nothing that needs releasing, and the shape is
-    kept so the consumer half's bridge has a place to close.
+    it holds — the one MCP bridge a consuming deployment's producers are
+    reached over, when the deployment declares any (``producers:``); nothing
+    otherwise.
+
+    For a consumer, :attr:`mcp_skills` is the ONE
+    :class:`~ccf.skills.dispatch.McpSkillRegistry` every declared producer was
+    registered on at open, whether the composite chain was derived or handed
+    in through ``children=`` — so the hatch composes over the registrations
+    the deployment declared, never a second registry.
     """
 
     def __init__(
@@ -332,6 +353,9 @@ class OpenedProduct:
         constraint_resolver: PolicyConstraintResolver | None,
         capabilities: tuple[TechnicalCapability, ...] | None,
         children: CompositeChildResolverProtocol | RequestAwareChildResolverProtocol | None,
+        mcp_skills: McpSkillRegistry | None = None,
+        bridge: SyncMcpBridge | None = None,
+        agent: AgentDefinition | None = None,
     ) -> None:
         self.config_root = config_root
         self.config_path = config_path
@@ -349,6 +373,9 @@ class OpenedProduct:
         self.control_plane = control_plane
         self.artifact_store = artifact_store
         self.refusal_recorder = refusal_recorder
+        self.mcp_skills = mcp_skills
+        self.agent = agent
+        self._bridge = bridge
         self._acquire = acquire
         self._project = project
         self._assess = assess
@@ -498,11 +525,22 @@ class OpenedProduct:
         assembled refusal is, by the same recorder, into the same store. A
         wrong CLASS never reaches this method through the standard door: the
         derived entitlement permits exactly the declared class, so the door's
-        governed entitlement step denies it first. A wrong LANE does reach it,
-        and is refused ``class-mismatch`` at ``key="schema_version"``, as data
-        — the "bad question" reading of `D-IMPL-253` Q15 the two shipped doors
-        already took (`D-IMPL-343` R-9). Everything else is the governed
-        path's verdict.
+        governed entitlement step denies it first. Everything else is the
+        governed path's verdict.
+
+        **The lane an address names is a FLOOR** (`D-IMPL-343` R-13: *"Exact
+        address at serve while floor at open is a defect"*). A consumer
+        declares the lane it composes over as a floor at every boundary — the
+        requirement's ``compatible_from``, the registration's
+        ``versions_from`` — and asks at that floor; this door serves its ONE
+        declared lane when that lane lies inside the floor's major and at or
+        above it, and the answer carries the served lane, which admission
+        holds to the consumer's own floor again. A floor the served lane does
+        not satisfy — another major, or above what is served — is refused
+        ``class-mismatch`` at ``key="schema_version"``, as data, with BOTH
+        lanes retained in the record: the "bad question" reading of
+        `D-IMPL-253` Q15 the two shipped doors already took (R-9), never
+        tightened to "exact lane only".
 
         Wire parameters cross verbatim (`D-IMPL-302`; `D-IMPL-264` D-04): no
         coercion happens here, so a hand-typed ``"periods": "8"`` is refused
@@ -527,39 +565,83 @@ class OpenedProduct:
                 " request tool only, so a call carrying no request reaches"
                 " nothing this product can answer"
             )
-        declared = (self.declaration.schema_name, self.declaration.schema_version)
-        if (product_class, version) != declared:
-            identity = RequestIdentity(
-                product_id=product_class,
-                product_version=version,
-                parameters=request.parameters,
-                temporal_boundary=request.asked_at,
-            )
-            violation = ProductRequestViolation(
-                reason="class-mismatch",
-                key="schema_version" if product_class == declared[0] else "schema_name",
-                declared_type=f"{declared[0]}@{declared[1]}",
-                presented_type=f"{product_class}@{version}",
-                declared_keys=frozenset(),
-                presented_keys=frozenset(),
+        declared_name = self.declaration.schema_name
+        served_lane = self.declaration.schema_version
+        if product_class != declared_name:
+            return self._refuse_address(
+                request,
+                perspective=perspective,
+                address=(product_class, version),
+                key="schema_name",
                 detail=(
-                    f"this product serves {declared[0]!r} at lane {declared[1]!r}"
+                    f"this product serves {declared_name!r} at lane {served_lane!r}"
                     f" and was addressed for {product_class!r} at lane {version!r}"
                 ),
             )
-            return self.refusal_recorder.record(
-                envelope_for(violation, request=identity),
+        if not version_satisfies_floor(floor=version, version=served_lane):
+            return self._refuse_address(
+                request,
                 perspective=perspective,
-                recorded_at=self._clock(),
-                request=request,
-                resolution=ResolutionNotApplicable(reason="refused-before-resolution"),
+                address=(product_class, version),
+                key="schema_version",
+                detail=(
+                    f"this product serves {declared_name!r} at lane {served_lane!r},"
+                    f" and the address asks from floor {version!r}; a served lane"
+                    " satisfies a floor when it shares the floor's major and is"
+                    f" at or above it, and {served_lane!r} does not satisfy"
+                    f" {version!r} (D-IMPL-343 R-13)"
+                ),
             )
+        if request.schema_version != served_lane:
+            # The floor was satisfied: the question is answered at the ONE
+            # lane this product serves, and the record says which.
+            request = request.model_copy(update={"schema_version": served_lane})
         return self.answer(request, perspective=perspective)
+
+    def _refuse_address(
+        self,
+        request: ProductRequest,
+        *,
+        perspective: Perspective,
+        address: tuple[str, str],
+        key: str,
+        detail: str,
+    ) -> RefusalEnvelope:
+        """Record and return the door's one own refusal — an address this product does not serve."""
+        product_class, version = address
+        identity = RequestIdentity(
+            product_id=product_class,
+            product_version=version,
+            parameters=request.parameters,
+            temporal_boundary=request.asked_at,
+        )
+        violation = ProductRequestViolation(
+            reason="class-mismatch",
+            key=key,
+            declared_type=f"{self.declaration.schema_name}@{self.declaration.schema_version}",
+            presented_type=f"{product_class}@{version}",
+            declared_keys=frozenset(),
+            presented_keys=frozenset(),
+            detail=detail,
+        )
+        return self.refusal_recorder.record(
+            envelope_for(violation, request=identity),
+            perspective=perspective,
+            recorded_at=self._clock(),
+            request=request,
+            resolution=ResolutionNotApplicable(reason="refused-before-resolution"),
+        )
 
     # --- lifecycle -------------------------------------------------------------------
 
     def close(self) -> None:
-        """Release what this object holds between questions — nothing, today."""
+        """Release what this object holds between questions: the producers' one bridge, if any.
+
+        Idempotent. A deployment declaring no ``producers:`` holds nothing
+        that needs releasing.
+        """
+        if self._bridge is not None:
+            self._bridge.close()
 
     def __enter__(self) -> OpenedProduct:
         return self
@@ -639,15 +721,17 @@ def open_product(
     project: ProjectionPlanFactoryProtocol,
     assess: AssessProtocol,
     gate: ProductGateProtocol | None = None,
+    questions: ChildQuestions | None = None,
     clock: Callable[[], datetime] = _utc_now,
     environ: Mapping[str, str] | None = None,
     control_plane: ControlPlaneRegistry | None = None,
     artifact_store: ArtifactStoreProtocol | None = None,
     constraint_resolver: PolicyConstraintResolver | None = None,
     capabilities: tuple[TechnicalCapability, ...] | None = None,
+    approval_sink: ApprovalSink | None = None,
     children: CompositeChildResolverProtocol | RequestAwareChildResolverProtocol | None = None,
 ) -> OpenedProduct:
-    """Open the declared product under ``config_root``: bind the three verbs, read the bindings, refuse early.
+    """Open the declared product under ``config_root``: bind the verbs, read the bindings, refuse early.
 
     Reads the two documents (``ccf_config.yaml`` through the environment
     document's ``config``, and ``ccf_environment.yaml``), derives the manifest
@@ -655,6 +739,25 @@ def open_product(
     the environment names, and builds the ONE store and the ONE recorder.
     **Boots nothing**: every question boots its own fabric (module docstring,
     §1), so opening is cheap and refuses only on what a document says.
+
+    **A consumer opens the same way** (`D-IMPL-343`, the consumer half). A
+    deployment declaring ``producers:`` has every declared producer registered
+    at open on ONE :class:`~ccf.skills.dispatch.McpSkillRegistry` over ONE
+    bridge — the endpoint and credential read from the environment by the
+    NAMES the registration declares, never a value in either document — and
+    the registry is exposed as :attr:`OpenedProduct.mcp_skills` whether the
+    child chain is derived or handed in. A class declaring ``requires`` then
+    derives its chain from the declarations beside it: the ``agent:`` section
+    is the composing agent (R-2), each ``skills:`` entry is one governed
+    ``mcp_product`` skill (R-7), one grant per skill is requested through the
+    :class:`~ccf.skills.grants.GrantLedger` under the deployment's own policy
+    regime (idempotent over a shared registry: a skill already bound to this
+    agent is not re-requested), and ``questions=`` — the developer's ONE
+    mapping — is bound into a
+    :class:`~ccf.products.child_resolver.QuestionBoundChildResolver` behind
+    the :class:`~ccf.products.composite.CompositeAdmissionGate`. Nothing here
+    is a second grant resolution, dispatch, admission or composition: each
+    is the `D-IMPL-336`–`340` object, constructed once from declared keys.
 
     Args:
         config_root: The directory holding the two documents. Read-only.
@@ -672,10 +775,18 @@ def open_product(
         gate: The deployment's predicate for the class's declared product
             gate, or ``None`` for a class declaring none — both-or-neither
             (`D-IMPL-282` R-11), refused HERE when they disagree.
-        clock: The one clock: admission time, and the instant a door-side
-            refusal is recorded at. The entitlement audit's wall clock stays
-            the door's own, by ruling.
-        environ: Where the environment document's names are resolved from;
+        questions: For a composite, the developer's mapping from one declared
+            requirement and the composite's EFFECTIVE request to the governed
+            question its producer is asked
+            (:data:`~ccf.products.child_resolver.ChildQuestions`) — *"given
+            this parent request, what should requirement X be asked?"*.
+            Required exactly when the class declares ``requires`` and no
+            ``children=`` is handed in; refused otherwise.
+        clock: The one clock: admission time, the grant ledger's audit
+            instant, and the instant a door-side refusal is recorded at. The
+            entitlement audit's wall clock stays the door's own, by ruling.
+        environ: Where the environment document's names — source settings,
+            producer endpoints and credentials — are resolved from;
             ``os.environ`` when omitted. Passed in rather than reached for,
             so a test supplies a mapping.
         control_plane: A registry to open INTO, or ``None`` for a fresh one.
@@ -688,18 +799,26 @@ def open_product(
             ``None`` for the SDK's reference over this registry.
         capabilities: The technical capabilities the fabric reports, or
             ``None`` to ask the booted fabric.
+        approval_sink: The `D-IMPL-29` tier-2 hatch — where a derived grant
+            suspends when the deployment's policy regime declares
+            ``grant_requires_approval``. ``None`` for a regime that does not;
+            a regime that does and no sink is refused at open by name.
         children: A hand-built child resolver for a class declaring
-            ``requires`` — the composite hatch. The derived consumer chain
-            (``producers:`` + ``agent:`` + a question mapping) is the consumer
-            half of `D-IMPL-343` and lands with it; until then a composite on
-            the road hands its resolver in here.
+            ``requires`` — the composite hatch, and the low road's way onto
+            this surface. It composes over :attr:`OpenedProduct.mcp_skills`
+            when the deployment declares producers. Refused together with
+            ``questions=``, or with an ``agent:`` or ``skills:`` section: a
+            deployment declares its chain or hands one in, never both.
 
     Raises:
         ValueError: any open-time refusal in the module docstring — each
-            names the section or the key.
+            names the section or the key; a grant the Control Plane refused,
+            with the refusal's own detail.
         FileNotFoundError: the environment document is absent.
         ccf.deployment.environment.EnvironmentMissing: a variable a source
             names is unset; the document's remedy is the message.
+        ccf.skills.producers.ProducerEnvironmentMissing: a variable a producer
+            registration names is unset.
     """
     root = Path(config_root).resolve()
     scratch_root = Path(scratch).resolve()
@@ -760,22 +879,10 @@ def open_product(
             " declare `declared_product_gate` on the class, or drop the"
             " argument (D-IMPL-282 R-11)"
         )
-    if declaration.requires and children is None:
-        raise ValueError(
-            f"the product class declares {len(declaration.requires)} child"
-            " requirement(s) and this call wires no child resolver; the"
-            " derived consumer chain is the consumer half of D-IMPL-343, and"
-            " until it lands a composite on the paved road hands its resolver"
-            " in through `children=`"
-        )
-    if children is not None and not declaration.requires:
-        raise ValueError(
-            "this call supplies `children=` and the product class declares no"
-            " `requires`; a child resolver with nothing to resolve is wiring"
-            " that nothing exercises (D-IMPL-343)"
-        )
+    _refuse_half_wired_composite(declaration, keys, questions=questions, children=children)
 
-    sources = resolve_values(environment.sources, os.environ if environ is None else environ)
+    resolved_environ = os.environ if environ is None else environ
+    sources = resolve_values(environment.sources, resolved_environ)
 
     scratch_root.mkdir(parents=True, exist_ok=True)
     registry = control_plane if control_plane is not None else ControlPlaneRegistry()
@@ -804,6 +911,34 @@ def open_product(
             key=keys.policy_bundle, version=content_hash(policy_artifact)
         ),
     )
+
+    # --- the consumer half: producers, then the derived chain ---------------------
+    bridge: SyncMcpBridge | None = None
+    mcp_skills: McpSkillRegistry | None = None
+    agent: AgentDefinition | None = None
+    child_resolver: CompositeChildResolverProtocol | RequestAwareChildResolverProtocol | None = children
+    try:
+        if keys.producers:
+            bridge, mcp_skills = _register_declared_producers(
+                derived, registry=registry, environment=environment, environ=resolved_environ, clock=clock
+            )
+        if declaration.requires and children is None:
+            assert questions is not None  # `_refuse_half_wired_composite` held it
+            agent, child_resolver = _derive_consumer_chain(
+                derived,
+                declaration=declaration,
+                registry=registry,
+                store=store,
+                mcp_skills=mcp_skills,
+                questions=questions,
+                clock=clock,
+                approval_sink=approval_sink,
+            )
+    except BaseException:
+        if bridge is not None:
+            bridge.close()
+        raise
+
     return OpenedProduct(
         config_root=root,
         config_path=config_path,
@@ -828,5 +963,249 @@ def open_product(
         clock=clock,
         constraint_resolver=constraint_resolver,
         capabilities=capabilities,
-        children=children,
+        children=child_resolver,
+        mcp_skills=mcp_skills,
+        bridge=bridge,
+        agent=agent,
+    )
+
+
+def _refuse_half_wired_composite(
+    declaration: ProductClassDeclaration,
+    keys: DeploymentKeys,
+    *,
+    questions: ChildQuestions | None,
+    children: CompositeChildResolverProtocol | RequestAwareChildResolverProtocol | None,
+) -> None:
+    """A composite is declared whole or handed in whole — every mixed state refused by name.
+
+    Four declarations make a derived chain: ``requires`` on the class,
+    ``producers:``, ``skills:``, ``agent:`` — and one keyword, ``questions=``.
+    One keyword makes a handed-in chain: ``children=``. What is refused: a
+    class with ``requires`` and neither; a class without ``requires`` and
+    either; both at once; a handed-in chain beside a declared ``agent:`` or
+    ``skills:`` (which one would govern is exactly the ambiguity a declared
+    deployment cannot carry); and a derived chain missing any of its four
+    declarations, each named with the section that fills it.
+    """
+    requires = declaration.requires
+    if not requires:
+        if children is not None:
+            raise ValueError(
+                "this call supplies `children=` and the product class declares no"
+                " `requires`; a child resolver with nothing to resolve is wiring"
+                " that nothing exercises (D-IMPL-343)"
+            )
+        if questions is not None:
+            raise ValueError(
+                "this call supplies `questions=` and the product class declares"
+                " no `requires`; a question mapping for no child is wiring that"
+                " nothing exercises (D-IMPL-343)"
+            )
+        return
+    if children is not None:
+        if questions is not None:
+            raise ValueError(
+                "this call supplies both `children=` and `questions=`; a composite"
+                " hands its chain in through the hatch or has it derived from"
+                " `questions=` and the declarations beside it, never both"
+                " (D-IMPL-343)"
+            )
+        if keys.agent is not None or keys.skills:
+            declared = [s for s, present in (("agent", keys.agent), ("skills", keys.skills)) if present]
+            raise ValueError(
+                f"this call supplies `children=` and the config declares {declared!r};"
+                " a handed-in chain beside a declared one leaves the question of"
+                " which governs, so a deployment declares its chain or hands one"
+                " in, never both (D-IMPL-343)"
+            )
+        return
+    if questions is None:
+        raise ValueError(
+            f"the product class declares {len(requires)} child requirement(s)"
+            " and this call supplies no `questions=`; the mapping from the"
+            " composite's effective request to each child's governed question"
+            " is the developer's own and the SDK holds no default for it —"
+            " supply `questions=` beside the `producers:`, `skills:` and"
+            " `agent:` declarations, or hand a resolver in through `children=`"
+            " (D-IMPL-343; D-IMPL-38)"
+        )
+    missing = [
+        section
+        for section, present in (
+            ("producers", keys.producers),
+            ("skills", keys.skills),
+            ("agent", keys.agent),
+        )
+        if not present
+    ]
+    if missing:
+        raise ValueError(
+            f"the product class declares {len(requires)} child requirement(s)"
+            f" and the config declares no {missing!r} section; a composite on"
+            " the paved road names the producers it asks (`producers:`), the"
+            " governed skills that ask them (`skills:`) and the agent the"
+            " grants bind to (`agent:`, CLAUDE.md §6.4 — the SDK synthesizes no"
+            " agent); or hand a resolver in through `children=` (D-IMPL-343)"
+        )
+
+
+def _register_declared_producers(
+    derived: DerivedDeployment,
+    *,
+    registry: ControlPlaneRegistry,
+    environment: EnvironmentDocument,
+    environ: Mapping[str, str],
+    clock: Callable[[], datetime],
+) -> tuple[SyncMcpBridge, McpSkillRegistry]:
+    """Every ``producers.*`` registration onto ONE registry over ONE bridge (`D-IMPL-340`).
+
+    The endpoint and the credential are read from the environment by the
+    names the registration declares — the only place either value ever
+    exists in the process — and the credential rides the shared MCP client
+    as a bearer token through :func:`~ccf.mcp.client.bearer_client_factory`.
+    The deadline is the environment document's one ``remote`` setting.
+    """
+    remote = environment.remote
+    if remote is None:
+        raise ValueError(
+            "the config declares `producers:` and the environment document"
+            " names no `remote` block; the deadline every producer call is"
+            " held to is deployment environment, declared as"
+            " `remote: {call_timeout_seconds: N}` (D-IMPL-343; D-IMPL-340)"
+        )
+    timeout = float(remote.call_timeout_seconds)
+    bridge = SyncMcpBridge(call_timeout_seconds=timeout)
+    mcp_skills = McpSkillRegistry(audit_log=registry.audit_log, clock=clock)
+    for key in derived.keys.producers:
+        artifact = parse_artifact(derived.documents[key], MCP_PRODUCER)
+        assert isinstance(artifact, McpProducerRegistration)  # MCP_PRODUCER's contract
+        register_declared_producer(
+            mcp_skills,
+            artifact=artifact,
+            environ=environ,
+            bridge=bridge,
+            credential_factory=partial(bearer_client_factory, timeout_seconds=timeout),
+        )
+    return bridge, mcp_skills
+
+
+class _NoApprovalSink:
+    """The tier-2 surface when the deployment supplied none: refuses by name, never decides.
+
+    Reached only when the policy regime declares ``grant_requires_approval``
+    — a regime that does not never consults the sink. The ledger's own
+    no-wedged-states guard settles the grant ``refused`` and re-raises, so an
+    open over such a regime fails at open with this message, and the SDK
+    approves nothing on the deployment's behalf (`D-IMPL-29`; `D-IMPL-38`).
+    """
+
+    def decide(self, grant: SkillGrant) -> ApprovalOutcome:
+        raise ValueError(
+            f"the policy regime requires approval for grant {grant.name!r} and"
+            " this open supplied no `approval_sink=`; tier-2 approval is the"
+            " deployment's decision surface and the SDK holds no default for"
+            " it (D-IMPL-29; D-IMPL-343)"
+        )
+
+
+def _derive_consumer_chain(
+    derived: DerivedDeployment,
+    *,
+    declaration: ProductClassDeclaration,
+    registry: ControlPlaneRegistry,
+    store: ArtifactStoreProtocol,
+    mcp_skills: McpSkillRegistry | None,
+    questions: ChildQuestions,
+    clock: Callable[[], datetime],
+    approval_sink: ApprovalSink | None,
+) -> tuple[AgentDefinition, QuestionBoundChildResolver]:
+    """The declared chain: agent → catalog → grant → question-bound resolver → gate.
+
+    Registers what the ledger resolves — the policy regime, the agent and the
+    skill entries — through the manifest's ONE register loop
+    (:func:`~ccf.deployment.manifest.register_manifest_entries`; every
+    question's boot registers the same content again, idempotently), then
+    requests one grant per skill entry for the agent under the deployment's
+    regime. The grant is derived from the entry it binds and nothing else:
+    its lanes are the entry's own two, its name is the entry's, and its agent
+    is the agent's content hash (`D-IMPL-26`). A skill already bound to this
+    agent on the registry is not re-requested.
+    """
+    keys = derived.keys
+    assert keys.agent is not None and keys.skills and keys.policy_bundle  # held by the caller
+    if mcp_skills is None:
+        raise ValueError(
+            "the product class declares `requires` and the config declares no"
+            " `producers:`; a derived chain asks declared producers and none"
+            " are declared (D-IMPL-343; D-IMPL-340)"
+        )
+    wanted = frozenset({keys.policy_bundle, keys.agent, *keys.skills})
+    parsed = {
+        entry.key: parse_artifact(derived.documents[entry.key], resolve_artifact_class(entry.class_id))
+        for entry in derived.manifest.artifacts
+        if entry.key in wanted
+    }
+    register_manifest_entries(derived.manifest, parsed, registry=registry, only=wanted)
+
+    agent = parsed[keys.agent]
+    assert isinstance(agent, AgentDefinition)  # its entry names AGENT_DEFINITION
+    agent_hash = content_hash(agent)
+    ledger = GrantLedger(
+        control_plane=registry,
+        catalog=SkillCatalog(registry),
+        sink=approval_sink if approval_sink is not None else _NoApprovalSink(),
+        clock=clock,
+    )
+    bound = ledger.bound_view(agent_hash)
+    produced: set[str] = set()
+    for key in keys.skills:
+        entry = parsed[key]
+        assert isinstance(entry, SkillCatalogEntry)  # its entry names SKILL_CATALOG_ENTRY
+        produced.add(entry.produces)
+        if entry.name in bound:
+            continue  # idempotent over a shared registry: already in force for this agent
+        outcome = ledger.request(
+            SkillGrant(
+                schema_version=entry.schema_version,
+                artifact_version=entry.artifact_version,
+                name=entry.name,
+                tenant=entry.tenant,
+                agent_definition_hash=agent_hash,
+                skill_name=entry.name,
+                skill_version=entry.artifact_version,
+            ),
+            definition=agent,
+            actor=agent.name,
+        )
+        if not isinstance(outcome, str):
+            raise ValueError(
+                f"the grant derived for skill {entry.name!r} was refused by the"
+                f" Control Plane ({type(outcome).__name__}):"
+                f" {getattr(outcome, 'detail', outcome)!s}; a composite whose"
+                " agent may not bind the skill that produces a required class"
+                " cannot compose it (D-IMPL-343 R-7; D-IMPL-29)"
+            )
+    for requirement in declaration.requires:
+        if requirement.required and requirement.product_class not in produced:
+            raise ValueError(
+                f"the product class requires {requirement.product_class!r} and"
+                " no `skills:` entry produces it; a required child with no"
+                " declared way to acquire it would refuse every question"
+                " `no-producing-skill` — declare the skill, or make the"
+                " requirement optional with an absence treatment (D-IMPL-343)"
+            )
+    gate = CompositeAdmissionGate(
+        tenant_id=agent.tenant,
+        consumer_scope=f"consumer://{agent.tenant}/{agent.name}",
+        registry=registry,
+    )
+    return agent, QuestionBoundChildResolver(
+        ledger=ledger,
+        agent_definition_hash=agent_hash,
+        gate=gate,
+        child_questions=questions,
+        callable_registry=CallableRegistry(),
+        artifact_store=store,
+        mcp_skills=mcp_skills,
     )

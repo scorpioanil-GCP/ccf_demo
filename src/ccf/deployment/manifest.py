@@ -98,7 +98,7 @@ from ccf.graph.registry import (
 
 __ccf_mode__ = "algorithmic"
 
-__all__ = ["BootedFabric", "load_and_boot"]
+__all__ = ["BootedFabric", "load_and_boot", "register_manifest_entries"]
 
 
 @dataclass(frozen=True)
@@ -498,8 +498,63 @@ def _register_and_boot(
     the Control Plane.
     """
     # Phase two: register the ones the manifest marks `role: register`.
+    pinned = register_manifest_entries(manifest, parsed, registry=registry)
+    pins = ResolvedPins(entries=pinned)
+    handle = boot(
+        backend=manifest.backend,
+        connection=connection or {},
+        secrets=secrets,
+        registry=registry,
+        resolution_spec_key=manifest.resolution_spec_key,
+        resolution_spec_version=pins.version_for(manifest.resolution_spec_key),
+        policy_bundle_key=manifest.policy_bundle_key,
+        policy_bundle_version=pins.version_for(manifest.policy_bundle_key),
+    )
+    return BootedFabric(
+        handle=handle,
+        pins=pins,
+        tenant_id=resolved_tenant,
+        artifacts=parsed,
+        survivor_cap=manifest.survivor_cap,
+        keys=keys,
+    )
+
+
+def register_manifest_entries(
+    manifest: DeploymentManifest,
+    parsed: Mapping[str, CCFContract],
+    *,
+    registry: ControlPlaneProtocol,
+    only: frozenset[str] | None = None,
+) -> tuple[ArtifactPin, ...]:
+    """Register the ``role: register`` entries through the path each declares — ONE loop.
+
+    Phase two of :func:`load_and_boot`'s ordering, as a function of its own so
+    that the one other caller with a reason to register manifest entries
+    without booting — :func:`ccf.products.product.open_product`, which must
+    have the composing agent, its skills and the policy regime on the Control
+    Plane before the grant ledger can resolve them, and which boots nothing
+    at open — runs this loop rather than a copy of it. The D-05 dispatch, the
+    deliberate absence of a fallback to ``register_typed`` and the
+    :class:`ArtifactPin` construction that IS replay dimension 2 all live
+    here once.
+
+    Args:
+        manifest: The manifest whose entries are registered.
+        parsed: Every entry's document, validated against its class.
+        registry: The Control Plane registered into.
+        only: The keys to register, or ``None`` for every ``register`` entry.
+            An entry outside the set is skipped, never refused: the caller
+            names a subset of what a full boot registers, and the full boot
+            registers the same content again, idempotently.
+
+    Returns:
+        One pin per registered entry, in manifest order.
+    """
     pinned: list[ArtifactPin] = []
     for entry in manifest.artifacts:
+        if only is not None and entry.key not in only:
+            continue
         if entry.role == "load":
             # D-IMPL-80. Nothing happens here, deliberately. A `register_typed`
             # call on this branch would content-hash raw event data into Control
@@ -550,25 +605,7 @@ def _register_and_boot(
             )
         )
 
-    pins = ResolvedPins(entries=tuple(pinned))
-    handle = boot(
-        backend=manifest.backend,
-        connection=connection or {},
-        secrets=secrets,
-        registry=registry,
-        resolution_spec_key=manifest.resolution_spec_key,
-        resolution_spec_version=pins.version_for(manifest.resolution_spec_key),
-        policy_bundle_key=manifest.policy_bundle_key,
-        policy_bundle_version=pins.version_for(manifest.policy_bundle_key),
-    )
-    return BootedFabric(
-        handle=handle,
-        pins=pins,
-        tenant_id=resolved_tenant,
-        artifacts=parsed,
-        survivor_cap=manifest.survivor_cap,
-        keys=keys,
-    )
+    return tuple(pinned)
 
 
 def load_and_boot(

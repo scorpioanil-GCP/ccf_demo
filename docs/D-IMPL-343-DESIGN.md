@@ -438,7 +438,7 @@ test modules only.
   composite_children=, admission_clock=)` where `arguments` is
   `tests/products/test_resolver_seam.py:2106-2181` — a **test fixture** restating
   ≈ 20 keywords including the recorder's store/class/bundle pin.
-- **SDK API:** `QuestionBoundChildResolver` (`child_resolver.py:592`), the
+- **SDK API:** `QuestionBoundChildResolver` (`child_resolver.py::QuestionBoundChildResolver`), the
   composite keywords on `GovernedResolver`.
 - **Duplicated authority:** the parent's keywords; a second clock.
 - **Failure modes:** a non-`mcp_product` grant without `child_arguments` is
@@ -1449,6 +1449,84 @@ cp-04-canonical's fixed substrate path — are recorded here as evidence and are
 repaired.
 
 ---
+
+## 16 · As built — the consumer half (2026-09-15, synchronization of this design to the tree)
+
+Written after the consumer half landed on `d-impl-343-dx`, so a reader of §5.5, §8, §12
+and §14 knows where the tree departs from the design's estimate and why. Nothing above is
+rewritten; this section is the record of what was built where the design offered options.
+
+**`skills:` — R-7 as ruled (a declared block, with derivation).** Dave ruled *"GO only from
+declared config keys (produces, name, requirements). No invented third field. D-IMPL-56 and
+D-IMPL-29 stand."* The section is therefore the design's option (b): one `ccf.skill-catalog-entry`
+per label, author-versioned (`_RESERVED_VERSIONED_SECTIONS["skills"]`), carrying what only the
+author can state — `schema_version`, `artifact_version`, `description` (`D-IMPL-56`),
+`requirements` (`D-IMPL-29`) and `produces` — while the SDK fills, from other declared keys,
+`name` (the label), `skill_type` (`mcp_product`), `binding` (the ONE `producers.*` entry whose
+`offers` name `produces`, at that producer's `versions_from` floor) and the structurally empty
+`argument_schema` (the dispatch passes no arguments). A stated value is held EQUAL to its
+derivation (`_hold_equal`), never overridden; a `key:` override is refused because the entry
+registers under the `{tenant}/ccf.skill-catalog-entry/{name}` key its grant resolves through.
+No or two producers offering the class, a class the composite does not require, and a floor
+outside the requirement's lane are refused at derivation by name (`R-12′` accepted). The grant
+is derived from the entry alone — its lanes are the entry's two, its name the entry's, its
+agent the agent's content hash — and requested at open, idempotently over a shared registry.
+
+**`agent:` — R-2 as built.** The section is the agent document in reduced form: `name`, the
+two lanes and `archetypes` are declared; `context_contract` is filled from `requires` (each
+class at its `compatible_from`) or, when stated, checked to cover every requirement at a lane
+it accepts; `perspective` is filled from `default_perspective` or held to its role;
+`policy_regime` and `halflife_debt_profile` are filled as pinned references to the deployment's
+own `policy:` and `debt_profile:` sections at the config's `semver`, or held equal when stated;
+`instruction_bindings` defaults to none. Because a pinned reference is
+`ccf-artifact://{tenant}/{class}/{name}@{version}`, the two sections carry a `key:` override in
+that form (two lines) — the refusal names exactly that remedy. `policy.skill_governance` is the
+regime's skilling envelope, one authority for the product and for the agent.
+
+**R-13 as built — the floor at three boundaries, and no `lane` field.** Dave's ruling
+superseded both options in §14: *"versions_from is a floor everywhere … Do not tighten the
+contract to 'exact lane only'."* B-07 is therefore withdrawn and §12's row *"Lane asked equals
+the lane served"* is superseded. The one rule (`ccf.products.contract.version_satisfies_floor`:
+same major, at or above, by semver precedence) is read at derivation (the offer floor must lie
+inside the requirement's lane), at the standard door (`OpenedProduct.resolve` serves its ONE lane
+when it satisfies the floor the address names, answering at the served lane, and refuses
+`class-mismatch` at `schema_version` with BOTH lanes in its record otherwise), and at admission
+(unchanged: `version-incompatible`, reason retained). The binding's `product_version` — sent on
+the wire — is the offer floor. Where the reason lives: the producer's record holds both lanes;
+the consumer's record retains the producer's refusal by kind, reason and key
+(`class-mismatch at 'schema_version'`), as the producer's door disclosed it; the consumer's row
+says `ineligible` and carries no `child_replay_ref` for a refused child — that last gap is
+`D-IMPL-342`, excluded by ruling. Measured against the real producer (`1.1.0`): floor `1.0.0`
+serves; floor `2.0.0` refuses with the reason retained (dogfood B).
+
+**The environment document as built** (§5.1 sketched it): `substrate: {setting, prefix,
+suffix}` — the SETTING names which connection setting of the declared adapter receives the
+minted path; `door: {credential, issuer_url, resource_server_url}`, each `{from_env, remedy}`;
+`sources.<name>.<setting>: {from_env, remedy}`; `remote: {call_timeout_seconds}`. A pure consumer
+declares no `sources:`.
+
+**The consumer surface as built** (§5.5): `open_product(…, questions=, approval_sink=)`;
+`OpenedProduct.mcp_skills` (the one registry, populated whether the chain is derived or handed
+in), `OpenedProduct.agent`, `close()` (the bridge). Registration of the regime, the agent and the
+skills at open goes through the manifest's one register loop
+(`ccf.deployment.manifest.register_manifest_entries`), extracted rather than copied; open still
+boots nothing.
+
+**Measured, consumer side** (the counter in Appendix A; dogfood B's own documents): the low
+road's consumer wiring in `test_cp_03_canonical_cross_deployment.py` is 129 code lines plus the
+38-line resolver-argument mapping it depends on; the paved consumer is 15 code lines of Python
+(the question mapping and the open call) plus 26 lines of YAML (21 under `producers`/`skills`/
+`agent`, the `requires` row, two `key:` overrides, `skill_governance`, `remote`). SDK objects
+the adopter constructs: 0 (from 9: registry, bridge, client factory, regime, agent definition,
+catalog entry, ledger, grant, gate/resolver). Values stated more than once: 0 (from 3: the
+producer's lane in the offer, the binding and the agent's contract; the tenant in four objects).
+
+**Dogfood B equivalence** (`tests/examples/test_cp_03_canonical_paved_consumer.py`): against
+one canonical producer process, the low road and the paved road admit the same child — every
+child-level row member equal (25 members, enumerated), the retained child byte-identical, the
+registration address identical (the derived document IS the hand-built one) — and the
+parent-owned members (`grant_hash`, `child_admitted_at`, `child_reported_address`,
+`child_debt_factors`, `refusal_ref`) are the ones that differ, by name.
 
 ## Appendix A · The line counter (reproducible)
 

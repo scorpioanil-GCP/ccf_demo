@@ -273,6 +273,7 @@ __all__ = [
     "requirements_declaration_is_coherent",
     "TTLAnchor",
     "register_product_class",
+    "version_satisfies_floor",
 ]
 
 #: Whitepaper §7.6 TTL granularity (D-IMPL-31): a product's expiry is anchored
@@ -860,13 +861,28 @@ class ChildRequirement(CCFContract):
         registration, because the grammar already admits them and taking them
         away would shrink a shipped surface.
         """
-        try:
-            floor = _precedence(self.compatible_from)
-            actual = _precedence(child_version)
-        except ValueError:
-            return False
-        # actual[0] is the (major, minor, patch) CORE; the lane is its MAJOR.
-        return actual[0][0] == floor[0][0] and actual >= floor
+        return version_satisfies_floor(floor=self.compatible_from, version=child_version)
+
+
+def version_satisfies_floor(*, floor: str, version: str) -> bool:
+    """Whether ``version`` lies inside the lane ``floor`` opens: same major, at or above.
+
+    The ONE floor rule (`D-IMPL-343` R-13: *"versions_from is a floor
+    everywhere"*), stated once and read from three places — a composite's
+    :meth:`ChildRequirement.accepts` at admission, a producer's declared offer
+    when a consumer's floor is held to it at derivation, and the standard
+    door when an address names a floor the served lane must satisfy. Total
+    on every form the semver grammar accepts, and ``False`` (never a raise)
+    for a string that is not a version, so a malformed floor is a refusal at
+    the boundary that read it rather than an error mid-admission.
+    """
+    try:
+        floor_key = _precedence(floor)
+        actual = _precedence(version)
+    except ValueError:
+        return False
+    # actual[0] is the (major, minor, patch) CORE; the lane is its MAJOR.
+    return actual[0][0] == floor_key[0][0] and actual >= floor_key
 
 
 def _precedence(version: str) -> tuple[tuple[int, int, int], tuple[object, ...]]:

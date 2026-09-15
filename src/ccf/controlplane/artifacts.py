@@ -2235,6 +2235,16 @@ class DeploymentConfig(VersionedArtifact):
     agent: Mapping[str, Any] | None = Field(
         default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
+    # `D-IMPL-343` R-7 (the consumer half): ``skills`` — one
+    # `ccf.skill-catalog-entry` body per label, the deployment's statement
+    # that a declared producer is asked for one required class. Author-
+    # versioned, so derived through the VERSIONED reserved path like `agent`;
+    # completed from the keys it depends on (`requires`, `producers`) and
+    # held equal wherever it restates one. Hash-transparent at ``None`` on the
+    # `replay` precedent: a config declaring no skills hashes as it did.
+    skills: Mapping[str, Mapping[str, Any]] | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
     @model_validator(mode="before")
     @classmethod

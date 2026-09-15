@@ -316,6 +316,7 @@ refusal envelope; the wrong-lane verdict is the product's, in `src/`).
 (`refuse_foreign_envelope`); its decay-basis half is still the declaration's.
 **What stays open**: `CP03C-F-01` (`D-IMPL-341`) — the gate still holds the
 serving half and `OFC-G07` stays a strict xfail; `CP03C-F-05` (`D-IMPL-342`).
-`CP-SPEC-003C` §"Run it" names `backends.yaml`, which is now
-`ccf_environment.yaml`; the specification is a Gate-1 document and is not
-edited here.
+`CP-SPEC-003C` §F named `backends.yaml`, which is now `ccf_environment.yaml`;
+the specification was synchronized to the built tree under `D-IMPL-343`'s
+consumer-half instruction (a name change only — no rule in the specification
+moved).

@@ -1,0 +1,8 @@
+# THE CONSUMER'S ENVIRONMENT — the second of its two documents (`D-IMPL-343`).
+# The producer's endpoint and credential are NOT here either: `ccf_config.yaml`
+# names the variables, and only the environment holds their values. This
+# consumer reads no source store of its own (its parent fixture's acquisition
+# emits its one envelope), so it declares no `sources:`.
+config: ccf_config.yaml
+substrate: {setting: database_path, prefix: cp03c_paved_consumer, suffix: .sqlite3}
+remote: {call_timeout_seconds: 120}

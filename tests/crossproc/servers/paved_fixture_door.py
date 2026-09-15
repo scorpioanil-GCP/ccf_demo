@@ -1,0 +1,67 @@
+"""Child process: the paved fixture PRODUCER, opened and served through the standard door.
+
+`D-IMPL-343`, the consumer half. The producer side of the SDK-level consumer
+proof (``tests/products/test_paved_consumer.py``): this process writes the
+producer's two documents, opens the product on the paved road with the
+fixture's three callables, opens the standard door over it and serves on an
+ephemeral loopback port with REAL bearer authentication. It prints ``READY
+{port}`` once the server reports started — the `D-16` handshake, no sleep in
+the parent's path.
+
+**What the consumer process never gets, and that is the point.** No
+assembler, no graph handle, no artifact store, no Control Plane registry, no
+connection string — nothing but the logical server name its ``producers:``
+declaration selects, the identity its registration expects, and the typed
+door bytes that come back.
+
+The bearer credential is read from the variable the environment document
+names (``PAVED_CHILD_TOKEN``); the parent SETS it to learn it without a side
+channel, exactly as the canonical spread's harness does.
+
+Run as ``python tests/crossproc/servers/paved_fixture_door.py``.
+"""
+
+from __future__ import annotations
+
+import os
+import sys
+import tempfile
+from pathlib import Path
+
+_TESTS_ROOT = Path(__file__).resolve().parents[2]
+_REPO_ROOT = _TESTS_ROOT.parent
+# Spawned as a bare `python <file>`, so none of pytest's sys.path work applies.
+for _root in (_REPO_ROOT / "src", _REPO_ROOT / "runtime", _TESTS_ROOT, _REPO_ROOT):
+    if str(_root) not in sys.path:
+        sys.path.insert(0, str(_root))
+
+
+def main() -> None:
+    """Write the producer's documents, open the product, open its door, serve, announce."""
+    from ccf.products.product import open_product  # noqa: PLC0415
+    from ccf_runtime.mcp.product_door import open_door  # noqa: PLC0415
+
+    from tests.products import paved_fixture as fixture  # noqa: PLC0415
+
+    workspace = Path(tempfile.mkdtemp(prefix="paved-producer-"))
+    root = fixture.write_tree(
+        workspace / "deployment",
+        config=fixture.producer_config(),
+        environment=fixture.producer_environment_text(),
+    )
+    environ = {**os.environ, fixture.CHILD_DSN_VAR: "postgresql://fixture"}
+    with open_product(
+        config_root=root,
+        scratch=workspace / "scratch",
+        acquire=fixture.Acquire(),
+        project=fixture.plan_factory,
+        assess=fixture.assess,
+        environ=environ,
+    ) as opened:
+        open_door(opened, environ=environ).serve_loopback(
+            announce=lambda port: print(f"READY {port}", flush=True)
+        )
+
+
+if __name__ == "__main__":
+    main()

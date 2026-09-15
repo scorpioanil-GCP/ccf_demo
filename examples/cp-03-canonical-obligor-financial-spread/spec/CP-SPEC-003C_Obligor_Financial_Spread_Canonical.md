@@ -225,8 +225,11 @@ was moved.
 
 ## F · Source binding and readiness
 
-`backends.yaml`: two environment variables, `CCF_CP_03C_POSTGRES_DSN` and
-`CCF_CP_03C_POSTGRES_SCHEMA`, names and remedies only. The v2 namespace is
+`ccf_environment.yaml` (the deployment-environment companion of
+`ccf_config.yaml` under `D-IMPL-343`; it replaced `backends.yaml` when this
+tree was re-expressed on the paved road): two environment variables,
+`CCF_CP_03C_POSTGRES_DSN` and `CCF_CP_03C_POSTGRES_SCHEMA`, names and remedies
+only. The v2 namespace is
 `ccf_v2`; `ccf_dataprep/.env` names v1. Read-only; the role needs `SELECT`.
 
 ### F.4 Findings

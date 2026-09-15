@@ -261,3 +261,178 @@ def test_a_control_plane_value_in_the_environment_is_refused_by_name(tmp_path: p
 def test_an_absent_environment_document_is_refused_with_its_name(tmp_path: pathlib.Path) -> None:
     with pytest.raises(FileNotFoundError, match=ENVIRONMENT_DOCUMENT_NAME):
         load_environment_document(tmp_path)
+
+
+# --- 6. `skills:` and the completed agent (`D-IMPL-343` R-7, R-2, R-13) ------------------
+
+
+def _consumer(**overrides: Any) -> DeploymentConfig:
+    """A composite consumer: `requires`, one producer, one skill, one agent, the regime envelope."""
+    document: dict[str, Any] = {
+        "product_class": {
+            "schema_name": "fixture.product",
+            "schema_version": "1.0.0",
+            "ttl_anchor": "from_decision",
+            "assembly_mode": "algorithmic",
+            "max_ttl_key": "fixture/max-ttl",
+            "required_operator_keys": [],
+            "requires": [{"product_class": "fixture.child", "required": True, "compatible_from": "1.0.0"}],
+        },
+        "policy": {
+            "class_id": "acme.policy-bundle",
+            "role": "register",
+            "registration": "typed",
+            "key": f"{TENANT}/acme.policy-bundle/regime",
+            "regime": "fixture-regime",
+            "skill_governance": {"grant_requires_approval": False, "permitted_scopes": []},
+        },
+        "debt_profile": {
+            "key": f"{TENANT}/ccf.debt-profile/bands",
+            "risk_sensitivity": "1",
+            "forced_llm_threshold": "0.30",
+            "fail_closed_threshold": "0.70",
+        },
+        "default_perspective": {"principal_id": "principal-fixture", "role": "analyst"},
+        "producers": {"child": _producer()},
+        "skills": {"child-ask": _skill()},
+        "agent": {"schema_version": "1.0.0", "artifact_version": "1.0.0", "name": "composer", "archetypes": ["context_assembly"]},
+    }
+    document.update(overrides)
+    return _minimal(**document)
+
+
+def _producer(**overrides: Any) -> dict[str, Any]:
+    body: dict[str, Any] = {
+        "server": "child-producer",
+        "producer_id": "child-egress",
+        "producer_tenant": "child-tenant",
+        "endpoint_from_env": "CHILD_URL",
+        "credential_from_env": "CHILD_TOKEN",
+        "offers": [{"product_class": "fixture.child", "versions_from": "1.0.0"}],
+    }
+    body.update(overrides)
+    return body
+
+
+def _skill(**overrides: Any) -> dict[str, Any]:
+    body: dict[str, Any] = {
+        "schema_version": "1.0.0",
+        "artifact_version": "1.0.0",
+        "description": "asks the child producer",
+        "produces": "fixture.child",
+        "requirements": {"required_scopes": [], "required_context_products": []},
+    }
+    body.update(overrides)
+    return body
+
+
+SKILL_KEY = f"{TENANT}/ccf.skill-catalog-entry/child-ask"
+
+
+def test_a_skill_derives_on_the_versioned_path_under_the_key_its_grant_resolves_and_is_completed() -> None:
+    derived = derive_deployment(_consumer())
+    entry = next(entry for entry in derived.manifest.artifacts if entry.key == SKILL_KEY)
+    assert (entry.class_id, entry.role, entry.registration) == ("ccf.skill-catalog-entry", "register", "versioned")
+    document = derived.documents[SKILL_KEY]
+    assert "semver" not in document and document["tenant"] == TENANT
+    assert document["name"] == "child-ask" and document["skill_type"] == "mcp_product"
+    assert document["binding"] == {"server": "child-producer", "product_class": "fixture.child", "product_version": "1.0.0"}
+    assert document["argument_schema"] == {"properties": {}, "required": []}
+    assert document["description"] == "asks the child producer", "never composed by the SDK (D-IMPL-56)"
+    assert derived.keys.skills == (SKILL_KEY,)
+    assert derived.manifest.artifacts[-1].key == "agent", "the agent stays last"
+
+
+@pytest.mark.parametrize(
+    ("stated", "match"),
+    [
+        ({"name": "other"}, "name=.*other"),
+        ({"skill_type": "mcp"}, "skill_type="),
+        ({"binding": {"server": "someone-else"}}, "binding.server="),
+        ({"binding": {"product_class": "fixture.other"}}, "binding.product_class="),
+        ({"binding": {"product_version": "1.2.0"}}, "binding.product_version=.*R-13"),
+        ({"binding": {"resource": "x"}}, "does not carry"),
+        ({"argument_schema": {"properties": {"x": {"type": "string", "description": "d"}}, "required": []}}, "argument_schema="),
+        ({"key": "elsewhere"}, "states 'key'"),
+    ],
+)
+def test_a_stated_skill_value_is_held_equal_to_its_derivation(stated: dict[str, Any], match: str) -> None:
+    with pytest.raises(ValueError, match=match):
+        derive_deployment(_consumer(skills={"child-ask": _skill(**stated)}))
+    # Positive control: the SAME values, stated equal, derive.
+    equal = {"name": "child-ask", "skill_type": "mcp_product", "binding": {"server": "child-producer", "product_class": "fixture.child", "product_version": "1.0.0"}, "argument_schema": {"properties": {}, "required": []}}
+    assert derive_deployment(_consumer(skills={"child-ask": _skill(**equal)})).keys.skills == (SKILL_KEY,)
+
+
+@pytest.mark.parametrize(
+    ("body", "match"),
+    [
+        (_skill(produces=None), "no `produces`"),
+        (_skill(produces="fixture.other"), "does not require"),
+        ({k: v for k, v in _skill().items() if k != "description"}, "description"),
+        ({k: v for k, v in _skill().items() if k != "requirements"}, "requirements"),
+        ({k: v for k, v in _skill().items() if k != "artifact_version"}, "artifact_version"),
+    ],
+)
+def test_what_the_sdk_never_fills_is_refused_absent(body: dict[str, Any], match: str) -> None:
+    with pytest.raises(Exception, match=match):
+        derive_deployment(_consumer(skills={"child-ask": body}))
+
+
+def test_no_producer_or_two_producers_offering_the_class_refuse_at_derivation() -> None:
+    with pytest.raises(ValueError, match="no entry under `producers:` offers"):
+        derive_deployment(_consumer(producers={"child": _producer(offers=[{"product_class": "fixture.other", "versions_from": "1.0.0"}])}))
+    with pytest.raises(ValueError, match="2 declared producers offer"):
+        derive_deployment(_consumer(producers={"a": _producer(server="a"), "b": _producer(server="b")}))
+    with pytest.raises(ValueError, match="declare server 'child-producer'"):
+        derive_deployment(_consumer(producers={"a": _producer(), "b": _producer()}))
+
+
+def test_the_offer_floor_is_held_inside_the_requirements_lane_at_derivation() -> None:
+    with pytest.raises(ValueError, match="R-13") as refused:
+        derive_deployment(_consumer(producers={"child": _producer(offers=[{"product_class": "fixture.child", "versions_from": "2.0.0"}])}))
+    assert "2.0.0" in str(refused.value) and "1.0.0" in str(refused.value)
+    # Same major, above the requirement's floor: inside the lane, derives.
+    derived = derive_deployment(_consumer(producers={"child": _producer(offers=[{"product_class": "fixture.child", "versions_from": "1.3.0"}])}))
+    assert derived.documents[SKILL_KEY]["binding"]["product_version"] == "1.3.0"
+
+
+def test_the_agent_is_completed_from_the_deployments_own_declarations() -> None:
+    document = derive_deployment(_consumer()).documents["agent"]
+    assert document["context_contract"] == {"consumes": [{"product_class": "fixture.child", "schema_version": "1.0.0"}]}
+    assert document["perspective"] == {"role": "analyst", "selection_params": {}}
+    assert document["policy_regime"] == {"ref": f"ccf-artifact://{TENANT}/acme.policy-bundle/regime@1.0.0"}
+    assert document["halflife_debt_profile"] == {"ref": f"ccf-artifact://{TENANT}/ccf.debt-profile/bands@1.0.0"}
+    assert document["instruction_bindings"] == [] and document["tenant"] == TENANT
+    parse_artifact(document, SDK_VERSIONED_ARTIFACT_CLASSES["ccf.agent-definition"])
+
+
+@pytest.mark.parametrize(
+    ("axis", "match"),
+    [
+        ({"context_contract": {"consumes": [{"product_class": "fixture.other", "schema_version": "1.0.0"}]}}, "held to `requires`"),
+        ({"context_contract": {"consumes": [{"product_class": "fixture.child", "schema_version": "0.9.0"}]}}, "admits it from"),
+        ({"perspective": {"role": "someone-else", "selection_params": {}}}, "perspective.role="),
+        ({"policy_regime": {"ref": f"ccf-artifact://{TENANT}/acme.policy-bundle/other@1.0.0"}}, "policy_regime.ref="),
+        ({"halflife_debt_profile": {"ref": f"ccf-artifact://{TENANT}/ccf.debt-profile/other@1.0.0"}}, "halflife_debt_profile.ref="),
+    ],
+)
+def test_a_stated_agent_axis_is_held_to_the_deployment(axis: dict[str, Any], match: str) -> None:
+    base = {"schema_version": "1.0.0", "artifact_version": "1.0.0", "name": "composer", "archetypes": ["context_assembly"]}
+    with pytest.raises(ValueError, match=match):
+        derive_deployment(_consumer(agent={**base, **axis}))
+    # Positive control: a wider stated contract that still covers the requirement derives.
+    wider = {"context_contract": {"consumes": [{"product_class": "fixture.child", "schema_version": "1.4.0"}, {"product_class": "fixture.extra", "schema_version": "3.0.0"}]}}
+    assert derive_deployment(_consumer(agent={**base, **wider})).keys.agent == "agent"
+
+
+def test_an_agent_axis_with_no_section_to_fill_it_from_is_refused_naming_the_remedy() -> None:
+    config = _consumer()
+    unkeyed = config.model_dump(mode="json", exclude_none=True)
+    unkeyed["policy"].pop("key")
+    with pytest.raises(ValueError, match="key: <tenant>/<class>/<name>"):
+        derive_deployment(_minimal(**{k: v for k, v in unkeyed.items() if k not in ("semver", "tenant_id", "backend")}))
+    without = config.model_dump(mode="json", exclude_none=True)
+    without.pop("debt_profile")
+    with pytest.raises(ValueError, match="no `debt_profile:` section"):
+        derive_deployment(_minimal(**{k: v for k, v in without.items() if k not in ("semver", "tenant_id", "backend")}))

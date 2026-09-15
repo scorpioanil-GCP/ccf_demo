@@ -1,0 +1,126 @@
+# THE CONSUMER'S CONTROL PLANE DOCUMENT — cp-03-canonical's cross-deployment
+# proof, consumer side, re-expressed on the paved road (`D-IMPL-343`).
+#
+# The parent is the SDK's own fixture composite (the class every resolver seam
+# test drives), declaring that it REQUIRES the canonical `credit-risk.spread`
+# produced by `examples/cp-03-canonical-obligor-financial-spread` in ANOTHER
+# process. What this document adds to the parent's ordinary declarations is
+# exactly four things: the `requires` row, the producer it asks (`producers:`),
+# the governed skill that asks it (`skills:`), and the agent the grant binds to
+# (`agent:`). Everything the SDK derives from those — the catalog entry, the
+# grant, the resolver, the admission gate, the MCP client — is stated nowhere.
+#
+# NO ADDRESS AND NO CREDENTIAL APPEARS HERE. The producer's endpoint and bearer
+# credential are read from the environment by the two NAMES the registration
+# declares; the registration is the authority for the producer's identity and
+# tenant, and the answer is held to it (`D-IMPL-340`, `D-IMPL-343` R-6).
+
+semver: "1.0.0"
+tenant_id: tenant-fixture
+backend: sqlite
+
+product_class:
+  schema_name: fixture.replay-binding-product
+  schema_version: "1.0.0"
+  ttl_anchor: from_decision
+  assembly_mode: algorithmic
+  max_ttl_key: fixture/max-ttl
+  required_operator_keys: [traversal.typed-neighborhood]
+  # WHAT THIS COMPOSITE REQUIRES: the canonical spread, admitted from lane
+  # 1.0.0 upward within its major (`D-IMPL-336`; a floor, `D-IMPL-343` R-13).
+  requires:
+    - {product_class: credit-risk.spread, required: true, compatible_from: "1.0.0"}
+
+operators:
+  traversal.typed-neighborhood:
+    seed_entity_classes: [account]
+    relationship_types: [fixture-relates-to]
+    depth_limit: 2
+
+request_contract:
+  class_id: fixture.request-contract
+  role: load
+  registration: typed
+  schema_name: fixture.replay-binding-product
+  schema_version: "1.0.0"
+  arguments:
+    properties:
+      revenue_threshold: {type: number, description: "Fixture parameter; no default anywhere."}
+    required: [revenue_threshold]
+
+resolution:
+  entity_rules:
+    - {match_key: account_ref, entity_class: account, identity_keys: [account_ref], attribute_keys: [classification, label]}
+
+half_life:
+  account:
+    half_life_seconds: 3600
+    decay_driver: the fixture's nominal restatement cycle
+    supersession_event: a newer observation restating the row
+
+# The composing agent's axis 5 pins this document, so its key is spelled in the
+# `{tenant}/{class}/{name}` form a pinned reference resolves through.
+debt_profile:
+  key: tenant-fixture/ccf.debt-profile/cp-03-canonical-paved-consumer
+  risk_sensitivity: "1"
+  forced_llm_threshold: "0.30"
+  fail_closed_threshold: "0.70"
+
+# The policy regime in force — for the product AND for the agent's skilling
+# (`D-IMPL-29` tier 1): one bundle, one authority. The `skill_governance`
+# envelope is what the derived grant is judged against.
+policy:
+  class_id: fixture.policy-bundle
+  role: register
+  registration: typed
+  key: tenant-fixture/policy-bundle/cp-03-canonical-paved-consumer
+  permitted_classifications: [fixture-open]
+  skill_governance: {grant_requires_approval: false, permitted_scopes: []}
+
+default_perspective:
+  principal_id: principal-fixture
+  role: role-fixture
+
+replay:
+  record_class: ccf.replay-record
+  query_pin_class: ccf.graph-query
+  store_dirname: artifact-store
+
+ttl:
+  max_ttl_seconds: 3600
+  product_ttl_seconds: 600
+
+# WHO MAY PROVIDE IT: one registration for the canonical spread producer. The
+# identity and tenant every answer is held to; the NAMES of the variables the
+# endpoint and credential are read from; the class and the floor it is asked
+# from. Byte-for-byte the document the low-road proof registers by hand.
+producers:
+  spread:
+    server: canonical-spread-producer
+    producer_id: cp-03-canonical-obligor-financial-spread-egress
+    producer_tenant: cp-03-canonical-demo
+    endpoint_from_env: CCF_TEST_CP03C_PRODUCER_URL
+    credential_from_env: CCF_TEST_CP03C_PRODUCER_TOKEN
+    offers:
+      - {product_class: credit-risk.spread, versions_from: "1.1.0"}
+
+# THE GOVERNED SKILL that asks it: the author's two lanes, what it is for, the
+# requirements envelope tier 1 judges, and the class it produces. Its binding
+# (the one producer offering that class, at that producer's floor), its type,
+# its name and its empty argument schema are derived (`D-IMPL-343` R-7).
+skills:
+  spread-ask:
+    schema_version: "1.0.0"
+    artifact_version: "1.0.0"
+    description: asks the registered canonical spread producer a question
+    produces: credit-risk.spread
+    requirements: {required_scopes: [], required_context_products: []}
+
+# THE COMPOSING AGENT the grant binds to (CLAUDE.md §6.4: an agent is data).
+# Its context contract, perspective, policy regime and debt profile are derived
+# from the declarations above; stated here, they would be held equal.
+agent:
+  schema_version: "1.0.0"
+  artifact_version: "1.0.0"
+  name: cp-03-canonical-consumer
+  archetypes: [context_assembly]

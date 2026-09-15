@@ -60,6 +60,8 @@ class DeploymentKeys:
             ``operator_parameter_keys``.
         policy_constraints: The ``policy_constraints:`` entries' keys, sorted.
         producers: The ``producers:`` entries' keys, sorted (`D-IMPL-340`).
+        skills: The ``skills:`` entries' keys, in label order (`D-IMPL-343`
+            R-7) — each the ``{tenant}/{class}/{name}`` key the class fixes.
     """
 
     product_class: str
@@ -76,3 +78,4 @@ class DeploymentKeys:
     operator_parameters: tuple[str, ...]
     policy_constraints: tuple[str, ...]
     producers: tuple[str, ...]
+    skills: tuple[str, ...]

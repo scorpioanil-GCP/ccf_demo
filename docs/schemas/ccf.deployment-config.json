@@ -240,6 +240,23 @@
       "title": "Semver",
       "type": "string"
     },
+    "skills": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "ccf_hash_transparent": true,
+      "default": null,
+      "title": "Skills"
+    },
     "survivor_cap": {
       "anyOf": [
         {
