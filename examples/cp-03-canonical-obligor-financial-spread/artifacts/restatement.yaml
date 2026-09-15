@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE RESTATEMENT RULE — the specimen's declaration, preserved byte for byte
+# under this successor's own class id. `fact_identity_key` is what makes two
+# rows THE SAME FACT (the store's primary key minus `accession`, which is exactly
+# what a restatement varies); the partition of the fact read is built from it
+# and never from a constant. `material_threshold` classes a changed cell; an
+# undefined ratio (first value zero or absent) is NOT_EVALUABLE, never a
+# division and never a silent `material`. Item 4.02 corroborates and never
+# detects.
+
+semver: "1.0.0"
+class_id: cp-03-canonical.restatement
+declaration:
+  fact_identity_key:
+    - lei
+    - tag
+    - unit
+    - period_end
+    - fiscal_period
+  detected_by: distinct_value_across_accessions
+  material_threshold: "0.01"
+  undefined_ratio_class: NOT_EVALUABLE
+  corroborated_by: filing_profile.count_8k_item_4_02
+  corroboration_field: formally_restated

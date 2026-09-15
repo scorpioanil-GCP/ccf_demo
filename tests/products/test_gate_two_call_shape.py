@@ -710,6 +710,20 @@ RULED_SDK_SUPPLIED_DEPLOYMENTS: frozenset[str] = frozenset(
         # the tree. This entry records what the predicate already answers; it is
         # not what makes the answer true.
         "examples/cp-04-canonical-corporate-family-tree",
+        # `CP14-F-22` (Dave, 2026-09-14) — the canonical rung-3 successor,
+        # ordered "on the cp-04-canonical sibling pattern" and authored into
+        # this category the way its rung-4 sibling was: against the current SDK
+        # surface, never derived from the frozen cp-03 specimen it succeeds.
+        #
+        # THE RULING AUTHORIZED THE MOVE; THE TREE PROVED IT, in that order.
+        # Measured before this line was written: `shape_of` reads `"canonical"`,
+        # and `_sdk_supplied_operator_set` answers True with plan sources
+        # `(('required',),)` — no `ccf.projection-requirements`, a named
+        # `plan_factory` whose only operator source is the resolver's own
+        # tuple, and no `run_gates` / `build_replay_record` / `serve` anywhere
+        # in the tree (`OFC-G13`, `OFC-G14`). This entry records what the
+        # predicate already answers; it is not what makes the answer true.
+        "examples/cp-03-canonical-obligor-financial-spread",
         # `D-IMPL-315` (Dave, 2026-09-10) — rung 6, authored on this side of the
         # boundary like its rung-4 sibling rather than migrated onto it.
         #
@@ -3517,6 +3531,11 @@ def test_the_premise_detector_reads_the_shipped_tree_correctly() -> None:
     # the migration's own evidence — *one document where two were possible* ->
     # *no second document, because the SDK supplies the canonical set*.
     assert sdk_supplied == [
+        # `CP14-F-22`, 2026-09-14 — the canonical rung-3 successor, authored on
+        # this side of the boundary on the rung-4 sibling's pattern. The
+        # detector reaches it from the tree alone; this assertion and the
+        # roster both record that answer and neither causes it.
+        "examples/cp-03-canonical-obligor-financial-spread",
         # `D-IMPL-315`, 2026-09-10 — the canonical rung-4 successor, and the
         # first entry here that arrived from NEITHER list. cp-05 and s1-00
         # crossed the boundary by migration; this tree was AUTHORED on this

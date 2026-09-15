@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE TTL THIS PRODUCT DECLARES — the specimen's figures, preserved.
+#
+# `declared_ttl_seconds` is the product's own lifetime and `max_ttl_seconds` the
+# class ceiling; both reach the governed resolver as `product_ttl_seconds` and
+# `max_ttl_seconds`, and the MAX_TTL artifact the TTL gate resolves is registered
+# from the second. `ttl_anchor_basis` names what the window runs from — the
+# freshest filing any served figure rests on. `latest` rather than `earliest` is
+# a real decision this artifact makes: it says the payload is as fresh as its
+# FRESHEST claim, which is optimistic for a spread carrying one current quarter
+# and four stale annuals, and the debt reading is what corrects for it — each
+# column decays from its OWN filing.
+#
+# `CP03C-F-01`: the governed path anchors the served contract's `expires_at` at
+# the decision instant regardless of the class's declared anchor. The product's
+# own gate (`cp-03-canonical.spread-freshness-window`) reads THIS document to
+# hold the serving half of the declaration — a spread whose anchor plus this
+# window is not after the asked instant is refused — and the `expires_at` half
+# is raised as a finding, not repaired here.
+
+semver: "1.0.0"
+class_id: cp-03-canonical.ttl
+
+declaration:
+  declared_ttl_seconds: 2592000      # 30 days
+  max_ttl_seconds: 2592000           # 30 days
+  ttl_anchor_basis: latest_filed_date_in_payload

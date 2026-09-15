@@ -1,0 +1,65 @@
+# yaml-language-server: $schema=../../docs/schemas/ccf.declared-artifact.json
+#
+# HOW the fabric's own backend is composed, and how the one SYSTEM OF RECORD is
+# reached. Deliberately not in `ccf_config.yaml`: connection material is
+# deployment ENVIRONMENT rather than Control Plane state, and a DSN inside a
+# content-hashed artifact is a DSN persisted into the audit plane forever.
+#
+# NO CONNECTION VALUE APPEARS HERE — no host, no port, no path, no credential.
+# This document holds a variable's NAME, a per-run path recipe, and the remedy
+# text an unset variable raises with. Only the environment says where anything
+# is.
+#
+# THE VARIABLE NAMES ARE THIS DEPLOYMENT'S OWN. They are deliberately not
+# cp-03's `CCF_CP_03_*`: the frozen specimen and this successor read the same
+# estate but are two deployments, and sharing an environment variable would
+# make one run's estate silently become the other's.
+#
+# THE SCHEMA IS A VARIABLE, NOT A LITERAL. The frozen specimen wrote `ccf_v2`
+# into its own code; here the namespace is named beside the DSN, because the
+# v1 namespace `public` sits on the same server and a DSN alone selects the
+# wrong one silently (CLAUDE.md §9, the namespace trap).
+
+semver: "1.0.0"
+class_id: cp-03-canonical.backend-profiles
+
+declaration:
+  profiles:
+    # The FABRIC's own L3 — per run, thrown away with the run. The source store
+    # is never written to.
+    sqlite:
+      settings:
+        database_path:
+          per_run: path
+          prefix: cp_03_canonical
+          suffix: .sqlite3
+
+  sources:
+    # -----------------------------------------------------------------------
+    # THE ONE STORE — the obligor's filed facts, the crosswalk that resolves the
+    # anchor, the entitlement grants, and the peer population.
+    # -----------------------------------------------------------------------
+    #
+    # THREE SELECTs PER QUESTION, NEVER ONE PER PERIOD OR PER TAG: resolution
+    # through the crosswalk, one windowed read of every fact-cell for every
+    # period, one cohort read at the obligor's own period ends. The role needs
+    # SELECT and nothing else.
+    financial_spread:
+      settings:
+        dsn:
+          from_env: CCF_CP_03C_POSTGRES_DSN
+          remedy: >-
+            export CCF_CP_03C_POSTGRES_DSN with a READ-ONLY connection string
+            for the financial-fact estate. The role needs SELECT and nothing
+            else: this deployment never writes to the store it reads, and a
+            role that could write would make that a promise rather than a
+            guarantee. See the README's "Run it" section.
+        schema:
+          from_env: CCF_CP_03C_POSTGRES_SCHEMA
+          remedy: >-
+            export CCF_CP_03C_POSTGRES_SCHEMA with the namespace holding the
+            financial_fact, crosswalk, legal_entity, filing_profile, peer_fact,
+            peer_entity and principal_jurisdiction tables (the v2 estate reads
+            `ccf_v2`; `ccf_dataprep/.env` names v1). Declared as a variable
+            rather than defaulted: a schema name selects WHICH of a store's
+            namespaces the product reads.
