@@ -1,0 +1,289 @@
+# yaml-language-server: $schema=../../docs/schemas/ccf.deployment-config.json
+#
+# CP-14 · credit-memo-context — THE CONTROL PLANE DOCUMENT, first integration
+# slice (CP-14 Gate 2, slice 1; the consumer-side dogfood of `D-IMPL-343`).
+#
+# WHAT THIS SLICE IS. A five-child composite on the PAVED ROAD, written the way
+# the road intends: the parent declares what it REQUIRES; `producers:` names WHO
+# MAY PROVIDE each class; `skills:` declares the governed skill that asks each
+# producer; `agent:` is the composing agent the grants bind to; and ONE Python
+# mapping (`deployment.py::questions`) says what each requirement is asked. The
+# SDK derives the catalog entries, the grants, the resolver, the admission gate,
+# the MCP clients and the replay evidence. Nothing of that is written here.
+#
+# WHAT THIS SLICE IS NOT. The memo's own six-operator assembly (§D.1 of the
+# specification — templates, passages, peers, the policy envelope from the
+# ledger, internal memoranda) is the parent's product logic and lands in later
+# slices. Here the parent's own leg is the ROSTER RESOLUTION only — the obligor's
+# identity from `legal_entity`, admitted when the LEI is on the memo roster — so
+# what this document proves is the integration, not a finished memo.
+#
+# NO ADDRESS AND NO CREDENTIAL APPEARS HERE. Every producer is reached at an
+# endpoint whose NAME is declared below and whose VALUE lives only in the
+# environment; the registration is the authority for the producer's identity
+# and tenant, and every answer is held to it (`D-IMPL-340`, `D-IMPL-343` R-6).
+
+semver: "1.0.0"
+tenant_id: cp-14-demo
+backend: sqlite
+
+product_class:
+  schema_name: credit-risk.credit-memo-context
+  schema_version: "1.0.0"
+  # A memo packet is DECISION-SCOPED (spec §B.1): twelve hours from the decision
+  # instant, and floored by the stalest admitted child (`D-IMPL-31`).
+  ttl_anchor: from_decision
+  assembly_mode: algorithmic
+  max_ttl_key: cp-14/product/credit-memo-context/max-ttl
+  # THE PARENT'S OWN OPERATOR SET — and ONLY its own (spec §B.1: composite Gate
+  # 2 holds the declared set to the parent's own executed set before widening
+  # it with the admitted children's). This slice runs one: the roster leg.
+  required_operator_keys:
+    - traversal.typed-neighborhood
+  # TWO CLOCKS (spec §B.4, `CP14-F-25`): `as_of` is the DECISION instant — the
+  # policy version, the TTL anchor, the gate instant — and `asked_at` is the
+  # children's instant, held at the pin the roster's producers answer at.
+  decision_instant_parameter: as_of
+  discovery:
+    domain: credit-risk
+    intents:
+      - annual-review
+    capabilities:
+      - credit-memo-context
+    audiences:
+      - credit-officer
+  # WHAT THIS COMPOSITE REQUIRES — the five children of spec §B.7, as declared
+  # requirements: a CLASS and a FLOOR each, never a producer, a skill, a tenant
+  # or a transport. Every slot is required; a required slot carries no absence
+  # treatment (`D-IMPL-336`).
+  requires:
+    - {product_class: credit-risk.spread, required: true, compatible_from: "1.0.0"}
+    - {product_class: reference.corporate-family, required: true, compatible_from: "2.0.0"}
+    - {product_class: credit-risk.exposure-rollup, required: true, compatible_from: "1.0.0"}
+    - {product_class: credit-risk.collateral-coverage, required: true, compatible_from: "1.0.0"}
+    - {product_class: credit-risk.covenant-cross-reference, required: true, compatible_from: "1.0.0"}
+
+# The parent's own leg: the obligor node the roster resolution produced, walked
+# at depth 1 over no declared edges. What the memo's later slices add here
+# (Resolve, Policy, Traversal, Enrich, Similarity, Evaluate — spec §D.1) is the
+# parent's product logic, not composition machinery.
+operators:
+  traversal.typed-neighborhood:
+    seed_entity_classes:
+      - obligor
+    relationship_types:
+      - memo-relates-to
+    depth_limit: 1
+
+request_contract:
+  class_id: cp-14.request-contract
+  role: load
+  registration: typed
+  schema_name: credit-risk.credit-memo-context
+  schema_version: "1.0.0"
+  arguments:
+    properties:
+      memo_type:
+        type: string
+        description: >-
+          which section template the memo is drafted against — `new-facility`,
+          `annual-review`, `amendment` or `workout` (spec §B.2). Absent takes
+          the declared default below.
+      as_of:
+        type: string
+        description: >-
+          THE DECISION INSTANT, as an ISO-8601 instant with offset — the
+          class's declared `decision_instant_parameter`. Selects the policy
+          version, anchors the TTL and is the instant the gates judge at. It
+          is NOT the children's instant: that is the request's own `asked_at`
+          (spec §B.4, `CP14-F-25`).
+      debt_tolerance:
+        type: number
+        description: >-
+          the most Context Debt this consumer will act on, applied to the
+          COMPOSED debt at the delivery boundary and MAPPED, as text, into
+          every child question that takes one. In this slice it is stated by
+          the caller; the policy-version default (`debtToleranceDefault` at
+          `as_of`, spec §B.2) is the parent's own Policy step, owed by a later
+          slice.
+      facility_id:
+        type: string
+        description: >-
+          THE FACILITY whose collateral context belongs in this memo, named
+          explicitly beside the obligor (`CP14-F-20`, RULED: facility grain).
+          The collateral child answers one facility per question; the memo
+          states which, and never derives it.
+    required:
+      - as_of
+      - debt_tolerance
+      - facility_id
+  defaults:
+    memo_type: annual-review
+
+# The obligor as fabric state: identity from the GLEIF record on the estate,
+# admitted when the LEI is on the memo roster (`memo_context_debt` ⋈
+# `legal_entity`, spec §C.1). No figure from the roster's debt table is read
+# — that table is a dated DIAGNOSTIC, never the governing source (`CMC-G04`).
+resolution:
+  entity_rules:
+    - match_key: obligor_ref
+      entity_class: obligor
+      identity_keys: [entity_ref]
+      attribute_keys:
+        - lei
+        - legal_name
+        - legal_jurisdiction
+        - sic
+        - sic_description
+        - roster_member
+
+# The parent's own signal class in this slice: the GLEIF identity record,
+# refreshed on a slow cadence. Illustrative calibration (`D-IMPL-323`): a
+# point-in-time estate; the spec's §E.1 table lands with the parent logic.
+half_life:
+  obligor:
+    half_life_seconds: 31536000
+    decay_driver: gleif-record-refresh
+    supersession_event: lei-record-update
+
+# The composing agent's axis 5 pins this document, so its key is spelled in the
+# `{tenant}/{class}/{name}` form a pinned reference resolves through. Bands are
+# illustrative; the memo's fail-closed control is the tolerance at delivery
+# (spec §B.5), not these bands.
+debt_profile:
+  key: cp-14-demo/ccf.debt-profile/credit-memo-context
+  risk_sensitivity: "1.0"
+  forced_llm_threshold: "0.30"
+  fail_closed_threshold: "0.60"
+
+# THE POLICY REGIME IN FORCE — for the product AND for the agent's skilling
+# (`D-IMPL-29` tier 1): one bundle, one authority. The `skill_governance`
+# envelope is what every derived grant is judged against. The credit-memo
+# policy envelope itself (`ex:credit-memo-policy-v1`/`-v2`, spec §B.3) is read
+# by the parent's Policy step in a later slice; this document is the regime.
+policy:
+  class_id: cp-14.policy-bundle
+  role: register
+  registration: typed
+  key: cp-14-demo/policy-bundle/credit-memo-context
+  regime: credit-memo-context
+  skill_governance:
+    grant_requires_approval: false
+    permitted_scopes: []
+
+default_perspective:
+  principal_id: PRIN-CRO-001
+  role: credit-officer
+
+replay:
+  record_class: ccf.replay-record
+  query_pin_class: ccf.graph-query
+  store_dirname: artifact-store
+
+# Twelve hours (spec §B.1), both the class ceiling and the product lifetime.
+ttl:
+  max_ttl_seconds: 43200
+  product_ttl_seconds: 43200
+
+# ---------------------------------------------------------------------------
+# WHO MAY PROVIDE EACH CLASS — five registrations (`D-IMPL-340`). Each names the
+# producer's logical name, the identity and tenant every answer is HELD TO, the
+# NAMES of the two environment variables its endpoint and credential are read
+# from, and the class and floor it is asked for. The spread's registration is
+# byte-for-byte the one the cross-deployment proof registers by hand.
+#
+# THE OTHER FOUR ARE DECLARED AGAINST PRODUCERS THAT DO NOT YET ASSERT AN
+# IDENTITY. cp-04-canonical and cp-13 ship no door; cp-05 and cp-06 ship stdio
+# doors from before `D-IMPL-340` that assert no producer identity. The
+# `producer_id` below is therefore the identity this consumer REQUIRES each
+# producer to assert once it is re-expressed on the paved road (the
+# `<tree>-egress` shape cp-03-canonical's door asserts today). Until then the
+# slot is reported as it actually resolves — see FINDINGS.md.
+# ---------------------------------------------------------------------------
+producers:
+  spread:
+    server: canonical-spread-producer
+    producer_id: cp-03-canonical-obligor-financial-spread-egress
+    producer_tenant: cp-03-canonical-demo
+    endpoint_from_env: CCF_CP14_SPREAD_URL
+    credential_from_env: CCF_CP14_SPREAD_TOKEN
+    offers:
+      - {product_class: credit-risk.spread, versions_from: "1.1.0"}
+  family:
+    server: canonical-family-producer
+    producer_id: cp-04-canonical-corporate-family-tree-egress
+    producer_tenant: cp-04-canonical-demo
+    endpoint_from_env: CCF_CP14_FAMILY_URL
+    credential_from_env: CCF_CP14_FAMILY_TOKEN
+    offers:
+      - {product_class: reference.corporate-family, versions_from: "2.0.0"}
+  exposure:
+    server: exposure-rollup-producer
+    producer_id: cp-05-credit-exposure-rollup-egress
+    producer_tenant: cp-05-demo
+    endpoint_from_env: CCF_CP14_EXPOSURE_URL
+    credential_from_env: CCF_CP14_EXPOSURE_TOKEN
+    offers:
+      - {product_class: credit-risk.exposure-rollup, versions_from: "1.0.0"}
+  collateral:
+    server: collateral-coverage-producer
+    producer_id: cp-06-collateral-and-setoff-coverage-egress
+    producer_tenant: cp-06-demo
+    endpoint_from_env: CCF_CP14_COLLATERAL_URL
+    credential_from_env: CCF_CP14_COLLATERAL_TOKEN
+    offers:
+      - {product_class: credit-risk.collateral-coverage, versions_from: "1.0.0"}
+  covenant:
+    server: covenant-cross-reference-producer
+    producer_id: cp-13-covenant-cross-reference-egress
+    producer_tenant: cp-13-crossref-demo
+    endpoint_from_env: CCF_CP14_COVENANT_URL
+    credential_from_env: CCF_CP14_COVENANT_TOKEN
+    offers:
+      - {product_class: credit-risk.covenant-cross-reference, versions_from: "1.0.0"}
+
+# THE GOVERNED SKILLS that ask them — one per required class. The author's two
+# lanes, what each skill is for, the requirements envelope tier 1 judges, and
+# the class it produces. Its binding (the one producer offering that class, at
+# that producer's floor), its type, its name and its empty argument schema are
+# derived (`D-IMPL-343` R-7).
+skills:
+  spread-ask:
+    schema_version: "1.0.0"
+    artifact_version: "1.0.0"
+    description: asks the registered canonical spread producer for the obligor's financial spread
+    produces: credit-risk.spread
+    requirements: {required_scopes: [], required_context_products: []}
+  family-ask:
+    schema_version: "1.0.0"
+    artifact_version: "1.0.0"
+    description: asks the registered corporate-family producer for the obligor's family tree
+    produces: reference.corporate-family
+    requirements: {required_scopes: [], required_context_products: []}
+  exposure-ask:
+    schema_version: "1.0.0"
+    artifact_version: "1.0.0"
+    description: asks the registered exposure producer for the family's credit exposure roll-up
+    produces: credit-risk.exposure-rollup
+    requirements: {required_scopes: [], required_context_products: []}
+  collateral-ask:
+    schema_version: "1.0.0"
+    artifact_version: "1.0.0"
+    description: asks the registered collateral producer for one facility's collateral and set-off coverage
+    produces: credit-risk.collateral-coverage
+    requirements: {required_scopes: [], required_context_products: []}
+  covenant-ask:
+    schema_version: "1.0.0"
+    artifact_version: "1.0.0"
+    description: asks the registered covenant producer for the definition chain behind the facility's covenants
+    produces: credit-risk.covenant-cross-reference
+    requirements: {required_scopes: [], required_context_products: []}
+
+# THE COMPOSING AGENT the five grants bind to (CLAUDE.md §6.4: an agent is
+# data). Its context contract, perspective, policy regime and debt profile are
+# derived from the declarations above; stated here, they would be held equal.
+agent:
+  schema_version: "1.0.0"
+  artifact_version: "1.0.0"
+  name: credit-memo-composer
+  archetypes: [context_assembly]

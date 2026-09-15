@@ -880,6 +880,16 @@ RULED_SDK_SUPPLIED_DEPLOYMENTS: frozenset[str] = frozenset(
         # precisely because `D-IMPL-86` fires at BIND before this deployment
         # can produce an artifact.
         "examples/cp-13-covenant-cross-reference",
+        # CP-14 Gate 2 slice 1, 2026-09-15 — Dave's GO for the first
+        # integration slice on the PAVED ROAD (`D-IMPL-343`): a paved tree's
+        # named factory (`produce.py::MemoPlanFactory`) passes the resolver's
+        # own `required` tuple straight through to
+        # `CreditMemoContextProjection`, which returns it unchanged — the
+        # `D-IMPL-141` condition, and the only shape the paved road admits.
+        # Measured before this line was written: the detector's tree-derived
+        # set differed from this roster by exactly this one root. Added in the
+        # slice's own commit for Dave's veto at the slice review.
+        "examples/cp-14-credit-memo-context",
     }
 )
 
@@ -3592,6 +3602,9 @@ def test_the_premise_detector_reads_the_shipped_tree_correctly() -> None:
         # the cp-11 entry gives: the roster records what was RULED, this
         # records what the detector ANSWERS.
         "examples/cp-13-covenant-cross-reference",
+        # CP-14 Gate 2 slice 1, 2026-09-15 — the paved consumer tree, added
+        # as its OWN assertion for the same reason: what the detector ANSWERS.
+        "examples/cp-14-credit-memo-context",
         "examples/hw1-companies-over-revenue/deployment",
         # `D-IMPL-311`, 2026-09-09 — s1-00 arrives from row B above, by the
         # same second shape cp-05 took: it reaches `build_governed_resolver`
