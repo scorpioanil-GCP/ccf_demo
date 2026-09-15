@@ -303,6 +303,21 @@ _MARKED_IN_THE_TREE = frozenset(
         "ccf.replay.record.ChildResolution.child_question_address",
         "ccf.replay.record.ChildResolution.child_replay_ref",
         "ccf.controlplane.artifacts.DeploymentConfig.producers",
+        # `D-IMPL-343` — eight marks, ticked deliberately. The three paved-road
+        # sections and the declaration's decision-instant parameter are `None`
+        # on every config and class authored before the decision, so no
+        # committed content address or pin moves (the `replay` precedent
+        # above); the environment document's four defaults are marked because
+        # that document is never content-hashed into anything, and the mark
+        # says so structurally rather than leaving the lint to ask.
+        "ccf.controlplane.artifacts.DeploymentConfig.ttl",
+        "ccf.controlplane.artifacts.DeploymentConfig.door",
+        "ccf.controlplane.artifacts.DeploymentConfig.agent",
+        "ccf.controlplane.artifacts.ProductClassDeclaration.decision_instant_parameter",
+        "ccf.deployment.environment.EnvironmentDocument.config",
+        "ccf.deployment.environment.EnvironmentDocument.sources",
+        "ccf.deployment.environment.EnvironmentDocument.door",
+        "ccf.deployment.environment.EnvironmentDocument.remote",
         "ccf.operators.params.TraversalNeighborhoodParameters.admitted_entity_classes",
         "ccf.controlplane.artifacts.TraversalNeighborhoodParametersArtifact.admitted_entity_classes",
         "ccf.operators.params.TraversalDescendantsParameters.admitted_entity_classes",
