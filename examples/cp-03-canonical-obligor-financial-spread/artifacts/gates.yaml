@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
 #
-# THE TWENTY-FIVE DECLARED PRODUCT GATES OF THE CANONICAL RUNG-3 TREE —
-# `OFC-G01` through `OFC-G25`, one per executing test, with no hole.
+# THE TWENTY-SEVEN DECLARED PRODUCT GATES OF THE CANONICAL RUNG-3 TREE —
+# `OFC-G01` through `OFC-G27`, one per executing test, with no hole.
 #
 # `D-IMPL-224`: a product's gates are a DECLARED ARTIFACT plus CI coverage.
 # There is no `ProductGate` Protocol and no serve path for these. (The class's
@@ -188,4 +188,16 @@ declaration:
     spec_clause: {document: spec/CP-SPEC-003C_Obligor_Financial_Spread_Canonical.md, clause: G.1}
     test: tests/examples/test_cp_03_canonical_output.py::test_the_projection_serves_the_subjects_claims_and_no_others
     sabotage: drop the subject filter and take the first obligor in the view
+    observed_red: null
+  - id: OFC-G26
+    statement: the dimension-two predicate refuses a record that no longer covers the lineage — a missing contract binding, a missing policy version, a second operator, an Enrich — and the SDK holds no guard against those states
+    spec_clause: {document: spec/CP-SPEC-003C_Obligor_Financial_Spread_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_03_canonical_output.py::test_the_dimension_two_predicate_refuses_a_record_that_no_longer_covers_the_lineage
+    sabotage: make the predicate ignore one relationship
+    observed_red: null
+  - id: OFC-G27
+    statement: the fabric-state predicate refuses a payload-only representation — a dimension 1 that touched the obligor and nothing else — and the SDK holds no guard against it
+    spec_clause: {document: spec/CP-SPEC-003C_Obligor_Financial_Spread_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_03_canonical_output.py::test_the_fabric_state_predicate_refuses_a_payload_only_representation
+    sabotage: make the predicate count touched entities without classing them
     observed_red: null

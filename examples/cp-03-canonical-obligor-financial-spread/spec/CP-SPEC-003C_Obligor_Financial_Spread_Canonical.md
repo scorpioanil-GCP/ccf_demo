@@ -269,6 +269,8 @@ The acceptance authority for every gate below is **this clause**
 | `OFC-G23` | the door and the in-process run serve **one** content address |
 | `OFC-G24` | a fresh fabric per run — two connections under one root name two files; an obligor served after another under one root hashes to its own address |
 | `OFC-G25` | Π serves the subject's claims and **no other's** — two obligors in a view yield the subject's spread; only another's yields no obligor |
+| `OFC-G26` | the dimension-two predicate **refuses** a record that no longer covers the lineage, and no SDK guard makes that state unreachable |
+| `OFC-G27` | the fabric-state predicate **refuses** a payload-only representation, and no SDK guard makes that state unreachable |
 
 **All directional, structural or relational. No estate figure is pinned in a
 gate** — the counts in §A.2 and §E are measurements a reader can reproduce.

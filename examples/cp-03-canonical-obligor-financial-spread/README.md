@@ -149,7 +149,7 @@ no other's, so a view holding a second obligor cannot be served as this one's.
 | `artifacts/spread-lines.yaml` | the tag map, the ratio definitions with their `??` fallbacks, the (empty) adjustments — the specimen's declaration, byte for byte |
 | `artifacts/restatement.yaml` | the fact identity key and the materiality threshold — the specimen's declaration, byte for byte |
 | `artifacts/ttl.yaml` | the 30-day window and its anchor basis |
-| `artifacts/gates.yaml` | the twenty-five declared gates and the tests that claim them |
+| `artifacts/gates.yaml` | the twenty-seven declared gates and the tests that claim them |
 | `acquisition.py` | the three `SELECT`s and the arithmetic interpreter. **Imports no `ccf` at all** |
 | `deployment.py` | this deployment's vocabulary, the envelopes, the debt, the product's own gate |
 | `projection.py` | Π — the payload, read off the view and scoped to the subject |

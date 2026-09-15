@@ -172,6 +172,36 @@ def test_a_governed_served_product_of_the_required_class(
     assert content_hash(again.product) == content_hash(product)
 
 
+#: The one operator this product's specification names (`CP-SPEC-003C` §B.1:
+#: "`policy.principal-subgraph`, and no other"). A literal on purpose: read
+#: from the config it would agree with any second operator the config grew.
+THE_ONE_OPERATOR = frozenset({"policy.principal-subgraph"})
+
+
+def dimension_two_problems(record: Any, product: Any) -> list[str]:
+    """Every way replay dimension 2 fails to cover the product's lineage.
+
+    The predicate `OFC-G02` asserts empty and `OFC-G26` proves can be non-empty.
+    Named rather than inlined so a negative control can reach the SAME
+    comparison the gate makes, on a record it mutated.
+    """
+    problems: list[str] = []
+    bindings = record.policy_bindings.bindings
+    versions = {binding.version for binding in bindings}
+    keys = {binding.key for binding in bindings}
+    missing = set(product.lineage.policy_bundle_versions) - versions
+    if missing:
+        problems.append(f"dimension 2 does not cover lineage policy version(s) {sorted(missing)}")
+    if "request_contract" not in keys:
+        problems.append("dimension 2 carries no request-contract binding")
+    invoked = set(product.lineage.operators_invoked)
+    if invoked != set(THE_ONE_OPERATOR):
+        problems.append(f"operators invoked {sorted(invoked)} are not exactly {sorted(THE_ONE_OPERATOR)}")
+    if any("enrich" in name.lower() for name in invoked):
+        problems.append("an operator named Enrich was invoked")
+    return problems
+
+
 def test_replay_dimension_two_is_a_superset_of_the_product_lineage(served: Any) -> None:
     """The record carries every governed artifact the product's lineage names,
     and more (the request contract that judged the question), and the operators
@@ -179,16 +209,35 @@ def test_replay_dimension_two_is_a_superset_of_the_product_lineage(served: Any) 
 
     Declared product gate `OFC-G02` (`CP-SPEC-003C` §G.1).
     """
-    product, record = served.product, served.record
-    versions = {binding.version for binding in record.policy_bindings.bindings}
-    keys = {binding.key for binding in record.policy_bindings.bindings}
-    assert set(product.lineage.policy_bundle_versions) <= versions
-    assert "request_contract" in keys
-    assert set(product.lineage.operators_invoked) == {"policy.principal-subgraph"}
-    assert not any("enrich" in name.lower() for name in product.lineage.operators_invoked)
+    assert dimension_two_problems(served.record, served.product) == []
 
 
 # --- the rung's subject: per-attribute temporal validity as fabric state ------
+
+
+def fabric_state_problems(record: Any, payload: dict[str, Any]) -> list[str]:
+    """Every way the graph the record touched fails to BE the spread the payload
+    serves — one `obligor`, one `spread_period` per served column, one
+    `spread_line` per served line, the obligor's own URI among them.
+
+    The predicate `OFC-G03` asserts empty and `OFC-G27` proves can be non-empty.
+    A payload-only representation — the specimen's one entity carrying the
+    whole spread — touches an obligor and nothing else, and this says so.
+    """
+    problems: list[str] = []
+    touched = record.context_fabric_snapshot.touched_entities
+    by_class: dict[str, int] = {}
+    for uri in touched:
+        by_class[uri.split("://")[0]] = by_class.get(uri.split("://")[0], 0) + 1
+    if by_class.get("obligor") != 1:
+        problems.append(f"{by_class.get('obligor', 0)} obligor entities touched, not 1")
+    if by_class.get("spread_period", 0) != len(payload["periods"]):
+        problems.append(f"{by_class.get('spread_period', 0)} spread_period entities touched for {len(payload['periods'])} served columns")
+    if by_class.get("spread_line", 0) != len(_lines(payload)):
+        problems.append(f"{by_class.get('spread_line', 0)} spread_line entities touched for {len(_lines(payload))} served lines")
+    if payload["obligor"]["entity_id"] not in touched:
+        problems.append("the served obligor's URI is not among the touched entities")
+    return problems
 
 
 def test_the_spread_is_fabric_state_not_a_payload_carried_in(served: Any) -> None:
@@ -198,15 +247,7 @@ def test_the_spread_is_fabric_state_not_a_payload_carried_in(served: Any) -> Non
 
     Declared product gate `OFC-G03` (`CP-SPEC-003C` §G.1).
     """
-    payload = served.product.payload
-    touched = served.record.context_fabric_snapshot.touched_entities
-    by_class: dict[str, int] = {}
-    for uri in touched:
-        by_class[uri.split("://")[0]] = by_class.get(uri.split("://")[0], 0) + 1
-    assert by_class.get("obligor") == 1
-    assert by_class.get("spread_period") == len(payload["periods"])
-    assert by_class.get("spread_line") == len(_lines(payload))
-    assert payload["obligor"]["entity_id"] in touched
+    assert fabric_state_problems(served.record, served.product.payload) == []
 
 
 def test_every_reported_figure_names_the_filing_that_asserted_it(served: Any) -> None:
@@ -634,3 +675,97 @@ def test_the_projection_serves_the_subjects_claims_and_no_others(
     only_theirs = GraphView(tenant_id="t", as_of=at, entities=tuple(spread(theirs)))
     payload = plan.invoke(view=only_theirs, operator_outputs={}, perspective=perspective, temporal_boundary=at).payload
     assert payload["obligor"] is None
+
+
+# --- negative controls for the two predicates (the ruling on S14 / S16) ----------
+
+
+def test_the_dimension_two_predicate_refuses_a_record_that_no_longer_covers_the_lineage(
+    served: Any,
+) -> None:
+    """`OFC-G02`'s comparison can fail, shown on the served record itself, one
+    relationship at a time: the request-contract binding removed from
+    dimension 2; the lineage's policy version removed from dimension 2; a
+    second operator in the lineage; an operator named Enrich. Each is refused
+    by name, and the untouched record passes.
+
+    THE LIMITATION, stated rather than claimed away: no SDK guard makes these
+    states unreachable. Dimension 2 is built by
+    `GovernedResolver._applied_bindings` from the sources the resolution
+    consulted and stored verbatim by `build_replay_record`; no validator
+    cross-checks it against the product's lineage, so a record whose
+    dimension 2 omits the contract binding still CONSTRUCTS (asserted below).
+    A deployment on the canonical path never touches dimension 2, which is why
+    the tree-level mutation that reaches this assertion is a second declared
+    operator (the sabotage record's S14b) and not a broken binding. This
+    control proves the assertion can fail; it does not prove the SDK refuses
+    the state.
+
+    Declared product gate `OFC-G26` (`CP-SPEC-003C` §G.1).
+    """
+    from ccf.replay.record import DecisionReplayRecord  # noqa: PLC0415
+
+    record, product = served.record, served.product
+    assert dimension_two_problems(record, product) == []
+
+    def with_bindings(keep: Any) -> Any:
+        snapshot = record.policy_bindings
+        return record.model_copy(
+            update={"policy_bindings": snapshot.model_copy(update={"bindings": tuple(b for b in snapshot.bindings if keep(b))})}
+        )
+
+    without_contract = with_bindings(lambda b: b.key != "request_contract")
+    assert any("request-contract" in p for p in dimension_two_problems(without_contract, product))
+    version = next(iter(product.lineage.policy_bundle_versions))
+    without_policy = with_bindings(lambda b: b.version != version)
+    assert any("does not cover" in p for p in dimension_two_problems(without_policy, product))
+
+    def with_operators(names: frozenset[str]) -> Any:
+        return product.model_copy(update={"lineage": product.lineage.model_copy(update={"operators_invoked": names})})
+
+    second = with_operators(product.lineage.operators_invoked | {"traversal.typed-neighborhood"})
+    assert any("not exactly" in p for p in dimension_two_problems(record, second))
+    enriched = with_operators(product.lineage.operators_invoked | {"enrich.narrative"})
+    assert any("Enrich" in p for p in dimension_two_problems(record, enriched))
+
+    # No upstream guard: the defective record constructs.
+    DecisionReplayRecord.model_validate(without_contract.model_dump(mode="json"))
+
+
+def test_the_fabric_state_predicate_refuses_a_payload_only_representation(served: Any) -> None:
+    """`OFC-G03`'s comparison can fail, shown on the served record itself: a
+    dimension 1 that touched the obligor and nothing else — the specimen's
+    one-entity representation, with the spread carried in the payload rather
+    than held by the graph — is refused for its missing periods and lines; a
+    dimension 1 missing one line is refused for that line; the untouched
+    record passes.
+
+    THE LIMITATION, stated: the touched set is the SDK's own record of the
+    entities the execution read (`ExecutionEvidence` → dimension 1), and no
+    validator compares it to the payload. The state is reachable from a
+    deployment by construction — ingest one envelope and render the periods
+    from a side channel — which the sabotage record's S16b does; this control
+    proves the assertion can fail, it does not prove the SDK refuses the state.
+
+    Declared product gate `OFC-G27` (`CP-SPEC-003C` §G.1).
+    """
+    from ccf.replay.record import DecisionReplayRecord  # noqa: PLC0415
+
+    record, payload = served.record, served.product.payload
+    assert fabric_state_problems(record, payload) == []
+    snapshot = record.context_fabric_snapshot
+    touched = snapshot.touched_entities
+
+    def with_touched(keep: Any) -> Any:
+        return record.model_copy(
+            update={"context_fabric_snapshot": snapshot.model_copy(update={"touched_entities": type(touched)(u for u in touched if keep(u))})}
+        )
+
+    payload_only = with_touched(lambda u: u.startswith("obligor://"))
+    problems = fabric_state_problems(payload_only, payload)
+    assert any("spread_period" in p for p in problems) and any("spread_line" in p for p in problems)
+    one_line = next(u for u in touched if u.startswith("spread_line://"))
+    assert any("spread_line" in p for p in fabric_state_problems(with_touched(lambda u: u != one_line), payload))
+
+    # No upstream guard: the defective record constructs.
+    DecisionReplayRecord.model_validate(payload_only.model_dump(mode="json"))
