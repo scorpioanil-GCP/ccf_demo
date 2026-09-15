@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE SOURCE'S OWN NAMES — the tables and the two fiscal markers this deployment
+# reads by. Read by `acquisition.py` rather than written into it, so pointing
+# this example at another estate is an edit to a document instead of an edit to
+# a program (CLAUDE.md §6.4). The schema (namespace) is NOT here: it is
+# environment, named by `backends.yaml`.
+#
+# `principal` and `peer_cohort` exist in the estate and are deliberately absent:
+# the frozen specimen named them and never read them. This document names only
+# what is queried.
+
+semver: "1.0.0"
+class_id: cp-03-canonical.source-vocabulary
+
+declaration:
+  tables:
+    facts: financial_fact
+    peer_facts: peer_fact
+    peer_entities: peer_entity
+    entities: legal_entity
+    crosswalk: crosswalk
+    filing_profile: filing_profile
+    principal_jurisdictions: principal_jurisdiction
+
+  # The `fiscal_period` value that marks a full year. Everything else is a
+  # quarter, and the distinction picks the signal class a column decays against.
+  fiscal_annual: FY
+  # The form whose `FY` period end fixes the filer's fiscal year-end month.
+  annual_form: 10-K

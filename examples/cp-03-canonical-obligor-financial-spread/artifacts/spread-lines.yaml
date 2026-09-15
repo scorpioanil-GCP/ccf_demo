@@ -1,0 +1,89 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE SPREADING CONVENTION — the specimen's declaration, preserved byte for byte
+# under this successor's own class id. Tag precedence per line (first present
+# wins), the ratio definitions with their `??` declared fallbacks, and an empty
+# adjustments list meaning every figure served is AS FILED. A change to the
+# leverage definition changes every derived figure, which is why the definition
+# is versioned policy rather than code. `coverage_obligors` beside each tag is
+# the measured reason for the precedence order and is read by nothing.
+
+semver: "1.0.0"
+class_id: cp-03-canonical.spread-lines
+declaration:
+  tag_map:
+    revenue:
+      kind: duration
+      tags: [Revenues, RevenueFromContractWithCustomerExcludingAssessedTax, SalesRevenueNet, RevenueFromContractWithCustomerIncludingAssessedTax]
+      coverage_obligors: [39, 37, 25, 10]
+    operating_income:
+      kind: duration
+      tags: [OperatingIncomeLoss]
+      coverage_obligors: [46]
+    net_income:
+      kind: duration
+      tags: [NetIncomeLoss]
+      coverage_obligors: [50]
+    depreciation_amortization:
+      kind: duration
+      tags: [DepreciationDepletionAndAmortization, DepreciationAmortizationAndAccretionNet]
+      coverage_obligors: [40, 5]
+    interest_expense:
+      kind: duration
+      tags: [InterestExpense, InterestExpenseNonoperating, InterestExpenseDebt]
+      coverage_obligors: [44, 20, 14]
+      mixed_kind_tags: [InterestExpenseDebt]
+    total_debt_reported:
+      kind: instant
+      tags: [DebtLongtermAndShorttermCombinedAmount]
+      coverage_obligors: [17]
+    long_term_debt:
+      kind: instant
+      tags: [LongTermDebt, LongTermDebtNoncurrent]
+      coverage_obligors: [46, 37]
+    current_debt:
+      kind: instant
+      tags: [LongTermDebtCurrent, DebtCurrent]
+      coverage_obligors: [32, 14]
+    cash:
+      kind: instant
+      tags: [CashAndCashEquivalentsAtCarryingValue]
+      coverage_obligors: [49]
+    assets:
+      kind: instant
+      tags: [Assets]
+      coverage_obligors: [50]
+    liabilities:
+      kind: instant
+      tags: [Liabilities]
+      coverage_obligors: [40]
+    equity:
+      kind: instant
+      tags: [StockholdersEquity]
+      coverage_obligors: [46]
+    operating_lease_noncurrent:
+      kind: instant
+      tags: [OperatingLeaseLiabilityNoncurrent]
+      coverage_obligors: [41]
+  ratios:
+    ebitda:
+      expression: operating_income + depreciation_amortization
+      inputs: [operating_income, depreciation_amortization]
+      unit: currency
+    total_debt:
+      expression: total_debt_reported ?? (long_term_debt + current_debt)
+      inputs: [total_debt_reported, long_term_debt, current_debt]
+      unit: currency
+    leverage:
+      expression: total_debt / ebitda
+      inputs: [total_debt, ebitda]
+      unit: turns
+    net_leverage:
+      expression: (total_debt - cash) / ebitda
+      inputs: [total_debt, cash, ebitda]
+      unit: turns
+    interest_coverage:
+      expression: ebitda / interest_expense
+      inputs: [ebitda, interest_expense]
+      unit: turns
+  adjustments: []

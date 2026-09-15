@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE DOOR'S OWN GOVERNANCE VALUES — the SDK holds a default for none of them
+# (CINV-01). `serve.py` is this document's interpreter; delete this file and
+# that program has nothing to open.
+#
+# NO HOST, PORT, PATH OR CREDENTIAL. The bearer token is minted per boot into a
+# temporary directory and deleted on exit (or supplied by the parent that
+# spawned this process, through the one environment variable `serve.py` names);
+# the source estate is whatever `backends.yaml`'s environment variables name,
+# read-only.
+#
+# THE DOOR DUPLICATES NO GOVERNANCE. `produce.assemble_and_serve` already
+# returns the one shape a door may release — a `ServedProduct` whose replay
+# reference proves the record was appended, or a `RefusalEnvelope` recorded,
+# disclosed and addressed. What `serve.py` adds is translation, the one refusal
+# the door itself owns (an address this door does not serve), and the identity
+# it asserts.
+semver: "1.0.0"
+class_id: cp-03-canonical.egress-door
+declaration:
+  tool_description: >-
+    Answer one obligor's financial spread as a governed, content-addressed
+    Context Product (`credit-risk.spread`). The subject is the obligor's LEI.
+    Returns the declared lines for the most recent periods, every figure naming
+    the period it describes, the filing that asserted it (`accession`,
+    `filed_date`, `form`), the basis it was read under and whether a later
+    filing changed it; the derived ratios with the lines their arithmetic
+    actually consumed; and the SIC peer cohort's shape at the obligor's OWN
+    period ends. The caller may supply `periods`, `basis` (`as-reported` |
+    `latest-restated` — different numbers for the same period), `include_peers`
+    and `peer_basis`, and MUST supply `debt_tolerance`. A spread whose freshest
+    filing is outside the declared 30-day window at the asked instant, or an
+    obligor the calling principal may not see, is REFUSED by the product's own
+    declared gate; a debt above the tolerance is withheld with the debt block.
+  required_scope: ccf:egress
+  issuer_url: https://issuer.cp-03-canonical.invalid
+  resource_server_url: https://egress.cp-03-canonical.invalid/mcp
+  # THE PRINCIPAL THIS DOOR SERVES, and the role its entitlement authorizes.
+  # The same pair `ccf_config.yaml::default_perspective` declares for in-process
+  # assembly — one deployment, one identity, reached two ways.
+  principal_id: PRIN-COV-001
+  role: analyst
+  # WHAT IMPLEMENTS THIS DOOR, named as a module and callable rather than as a
+  # filesystem path — a consumer asks for a Context Product; it does not know
+  # how the producer happens to start.
+  serve_entrypoint: serve:serve
+  # `D-IMPL-340` ruling 2: the identity this door ASSERTS on every outcome,
+  # served or refused. A consumer holds it to the `producer_id` of the
+  # `ccf.mcp-producer` registration IT governs; equality here is a binding
+  # check, never an authorization. `producer_tenant` is NOT declared here — it
+  # is `ccf_config.yaml::tenant_id`, because the consumer holds the served
+  # product's own `tenant_id` to the same registration.
+  producer_id: cp-03-canonical-obligor-financial-spread-egress

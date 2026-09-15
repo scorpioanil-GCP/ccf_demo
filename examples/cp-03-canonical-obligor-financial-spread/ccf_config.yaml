@@ -1,0 +1,411 @@
+# yaml-language-server: $schema=../../docs/schemas/ccf.deployment-config.json
+#
+# THE SINGLE DEPLOYMENT DOCUMENT — every Control Plane section this example puts
+# in force, in one file (`D-IMPL-136`'s AMENDMENT: the section name IS the
+# class, so no file name, manifest key or class id is stated three times over
+# for a section the SDK owns).
+#
+# THIS IS THE CANONICAL SUCCESSOR TO `examples/cp-03-obligor-financial-spread`
+# (`CP14-F-22`, Dave, 2026-09-14). It serves THE SAME PRODUCT — `credit-risk.spread`
+# — one obligor to a typed, period-aligned financial spread in which every figure
+# names the period it describes, the filing that asserted it, and whether a later
+# filing changed it. It is authored directly against the SDK as it ships today
+# on the `cp-04-canonical` precedent (`D-IMPL-319`), not derived from cp-03's
+# tree. **cp-03 remains frozen** as the historical specimen (`D-IMPL-261`,
+# `D-IMPL-263`); nothing here reuses its content addresses or published
+# identifiers, and its 13 strict quarantines stay exactly as they are.
+#
+# WHAT A READER SHOULD COMPARE. cp-03 declared `intent` among its request
+# arguments — a shadow of the top-level `ProductRequest.intent` axis that the
+# SDK now refuses at contract construction (`D-IMPL-264` D-01; the frozen tree's
+# Defect A). It also substituted the calling principal's grant set into its
+# resolved policy artifact at runtime, and computed its own gates, replay record
+# and delivery by hand (Defect B: `build_replay_record` with no resolution
+# binding). Here `intent` is judged ONCE, on `product_class.discovery.intents`;
+# the grant set arrives from the EFFECTIVE request through a declared binding;
+# and the door, the gates, the record and the delivery are one object the SDK
+# owns. Everything else in this document is the same product.
+#
+# PRODUCER SUBSTITUTION, NOT A RENAMED CLASS. `CP-SPEC-014` §B.7 requires
+# `credit-risk.spread` at a `1.0.0` floor on the same major lane; this document
+# serves that class at `1.1.0` — compatible with the floor, and a different lane
+# member from the frozen specimen's `1.0.0` so two deployments never share one
+# lane (the `cp-04-canonical` reasoning, one major narrower because the consumer
+# pins the major).
+#
+# NO CONNECTION VALUE APPEARS HERE. The fabric's own L3 is named as a KIND; how
+# the one SOURCE store is reached is `backends.yaml`, and where it is lives only
+# in the environment. A DSN in a content-hashed artifact is a DSN persisted into
+# the audit plane forever.
+
+semver: "1.0.0"
+tenant_id: cp-03-canonical-demo
+
+# The FABRIC's own graph state, not a source. This deployment opens one source
+# store and writes to it never; L3 is per-run SQLite exactly as at every rung.
+backend: sqlite
+
+# ---------------------------------------------------------------------------
+# The product class.
+# ---------------------------------------------------------------------------
+product_class:
+  schema_name: credit-risk.spread
+  schema_version: "1.1.0"
+
+  # THE ANCHOR THIS PRODUCT DECLARES: the expiry is a function of the LATEST
+  # FILING THE PAYLOAD CONSUMED, never of the request. Filers file quarterly,
+  # so the anchored date MOVES and a refusal clears as filings land — rung 03's
+  # whole argument against rung 02's never-advancing date (`CP-SPEC-003` §E.1.1).
+  #
+  # MEASURED, AND RECORDED AS `CP03C-F-01` (see FINDINGS.md): the governed path
+  # records this declaration on the served contract and computes `expires_at`
+  # from the decision instant for every class regardless of it. The product's
+  # own invariant below (`declared_product_gate`) holds the SERVING half of the
+  # declaration — a spread whose freshest filing is outside the declared window
+  # at the asked instant is refused — and the contract's `expires_at` half is
+  # the finding, raised and not repaired here.
+  ttl_anchor: from_entity_freshness
+
+  # No LLM is reachable from any step: the whole product is three SELECTs, an
+  # arithmetic interpreter over a declared convention, and a shaping.
+  assembly_mode: algorithmic
+
+  max_ttl_key: cp-03-canonical/product/obligor-financial-spread/max-ttl
+
+  # ONE OPERATOR. Policy shapes WHICH OBLIGOR EXISTS to be spread; the spread
+  # itself is an arithmetic derivation over declared lines, not a walk, and it
+  # runs application-side in acquisition. Nothing named `Enrich` is registered
+  # and nothing is invoked that is not declared here — lineage strict equality
+  # is why that distinction is load-bearing rather than tidy.
+  required_operator_keys:
+    - policy.principal-subgraph
+
+  # WHICH INTENTS THIS CLASS ANSWERS — declared once, here, and judged here
+  # (`D-IMPL-264` D-01, amendment 1 F-1: presence of a discovery declaration
+  # makes its intent set authoritative). The frozen specimen declared `intent`
+  # as an ARGUMENT, which the SDK refuses as a shadow of the request's own axis
+  # and which is exactly the defect this successor exists not to have. A request
+  # addressed with an intent outside this set is refused `class-mismatch` at
+  # `key=intent`, returned as data with a replay reference.
+  discovery:
+    domain: credit-risk
+    intents:
+      - annual-review
+    capabilities:
+      - obligor-financial-spread
+      - restatement-marking
+      - peer-comparison-at-period-end
+    audiences:
+      - analyst
+
+  # THE PRODUCT'S OWN RUNTIME INVARIANT, by governed identity only
+  # (`D-IMPL-282` R-11). The SDK owns the slot and the execution point; the
+  # PREDICATE is `deployment.freshness_window_gate` and it says two things in
+  # one verdict: an admitted view with no obligor in it is not served (the
+  # anchor resolved to nothing this principal may see — one text for an absent
+  # obligor and a suppressed one, so the two are indistinguishable by
+  # construction), and a spread whose freshest filing lies outside the declared
+  # window at the asked instant is not served. Both are governed refusals with a
+  # record, never a raised exception (`CP14-F-21`'s population is not widened).
+  declared_product_gate:
+    gate_id: cp-03-canonical.spread-freshness-window
+    gate_version: "1.0.0"
+
+# ---------------------------------------------------------------------------
+# The L4 operator parameters.
+# ---------------------------------------------------------------------------
+operators:
+  # --- Policy runs BEFORE anything reads graph state. -----------------------
+  #
+  # The envelope shapes WHAT EXISTS rather than what is returned: an obligor a
+  # principal may not see is never materialized in the operator view, so Π
+  # cannot forget to filter it and the debt scorer cannot count it. Suppression
+  # silence holds structurally instead of by filtering afterwards.
+  policy.principal-subgraph:
+    # THE AXIS IS THE OBLIGOR'S JURISDICTION — a financial fact has no
+    # nationality of its own; it inherits the filer's (`CP-SPEC-003` §B.2). Every
+    # entity class this product mints carries the obligor's jurisdiction, so one
+    # grant admits or suppresses the whole spread rather than the obligor row
+    # alone: a period, a line or a cohort statistic surviving a suppressed
+    # obligor would be the leak the axis exists to close.
+    classification_attribute_by_class:
+      obligor: obligor_jurisdiction
+      spread_period: obligor_jurisdiction
+      spread_line: obligor_jurisdiction
+      peer_cohort: obligor_jurisdiction
+
+    # THE REQUEST BINDING THAT REPLACES cp-03's RUNTIME SUBSTITUTION. The frozen
+    # specimen declared a literal allowlist and then wrote the calling
+    # principal's expanded grant over it from `deployment.py` — an ungoverned
+    # write to a resolved Control Plane artifact, invisible to the pins and to
+    # replay. Here the value arrives from the EFFECTIVE request, after the class
+    # default and policy bounds have folded, and it travels into the operator
+    # parameter set's content hash and therefore into the replay record. An
+    # audit can read WHICH jurisdictions this decision admitted.
+    #
+    # A literal and a binding cannot both be written here — they are two
+    # variants of one field (`D-IMPL-288`, `D-IMPL-295`).
+    permitted_classifications:
+      source: effective_request
+      parameter: jurisdictions
+
+# ---------------------------------------------------------------------------
+# WHICH QUESTIONS this class answers.
+# ---------------------------------------------------------------------------
+request_contract:
+  class_id: cp-03-canonical.request-contract
+  role: register
+  registration: typed
+  schema_name: credit-risk.spread
+  schema_version: "1.1.0"
+  # `intent` IS NOT DECLARED HERE, and its absence is the correction of the
+  # frozen specimen's Defect A rather than an omission. `intent` is a top-level
+  # `ProductRequest` field; an argument of the same name shadows it and the SDK
+  # refuses the contract at construction. What this class serves is declared
+  # once, on `product_class.discovery.intents` above, and judged there.
+  #
+  # THE SUBJECT IS THE OBLIGOR. The anchor LEI travels as `ProductRequest.subject`
+  # — the request's own addressing axis — and is not duplicated as an argument.
+  # This is the surface `CP-SPEC-014` asks through: `ChildQuestion.subject`.
+  arguments:
+    properties:
+      periods:
+        type: integer
+        description: >-
+          how many DISTINCT period ends of history to spread, newest first.
+          A single period end can carry both an `FY` and a `Q1` column for a
+          non-December filer; the two are never collapsed.
+      basis:
+        type: string
+        description: >-
+          as-reported returns each figure as it was FILED for that period;
+          latest-restated returns it as most recently amended. Different numbers
+          for the same period, and which is correct depends on the decision.
+          The basis selects WITHIN a fact-cell, never across cells.
+      include_peers:
+        type: boolean
+        description: >-
+          peer comparison at IDENTICAL period_end, never at identical filing
+          date — the join key forecloses the classic spreading error.
+      peer_basis:
+        type: string
+        description: >-
+          how the cohort is selected. Only `sic` is implemented; the frozen
+          specimen declared `sic-and-size` and never implemented it, so this
+          document declares only what it can answer (see FINDINGS.md).
+      debt_tolerance:
+        type: number
+        description: >-
+          the caller's ceiling on assessed Context Debt, folded through the
+          same resolution as every other parameter; above it the governed path
+          withholds the product with the debt block. REQUIRED, as the specimen
+          required it: what keeps the contract's requirement real.
+      jurisdictions:
+        type: array
+        items:
+          type: string
+          description: one jurisdiction the request is entitled to read.
+        description: >-
+          the jurisdictions this request is entitled to read, and the value
+          that reaches the policy operator's admitted set. ABSENT TAKES THE
+          DECLARED DEFAULT below — the default perspective's grant as it
+          expands against the estate — and a caller asking as another
+          principal states that principal's expanded grant (the estate holds
+          prefixes; the operator tests exact membership).
+      as_of:
+        type: string
+        description: DECLARED AND INERT — refused, never honored. See unsupported_arguments.
+    required:
+      - debt_tolerance
+
+  # ABSENT PARAMETERS TAKE THESE, and the defaults live here rather than in code
+  # so replay resolves the same values the serve did. The four spread values are
+  # the frozen specimen's demonstration values, preserved. The jurisdiction
+  # default is the specimen's literal allowlist — `PRIN-COV-001`'s `US` prefix
+  # expanded against the estate — now a DEFAULT a caller may narrow rather than
+  # a literal a deployment overwrote.
+  defaults:
+    periods: 8
+    basis: as-reported
+    include_peers: true
+    peer_basis: sic
+    jurisdictions:
+      - US
+      - US-DE
+      - US-FL
+      - US-MD
+      - US-MN
+      - US-NV
+      - US-NY
+      - US-OH
+      - US-TX
+      - US-WA
+
+  # THE VALID DOMAIN of each parameter — part of the contract, judged where
+  # `type` is judged, returned as data (`D-IMPL-264` D-03/D-04).
+  argument_domains:
+    periods:
+      minimum: 1
+    basis:
+      members:
+        - as-reported
+        - latest-restated
+    peer_basis:
+      members:
+        - sic
+
+  # ARGUMENT NAME -> AUTHORED REASON (`D-IMPL-289`).
+  unsupported_arguments:
+    as_of: >-
+      not_supported_at_tier. Reconstructing the spread as it stood on a past
+      date requires ledger time-travel and arrives at Tier 3 with
+      covenant-in-force-as-of. This tier serves the spread as it stands, with
+      every figure naming the filing that asserted it.
+
+# ---------------------------------------------------------------------------
+# How a source fact becomes fabric state.
+# ---------------------------------------------------------------------------
+#
+# FOUR ENTITY CLASSES, AND THE REASON IS THE RUNG'S SUBJECT. "Attribute-level
+# temporal validity" was a sentence in the frozen specimen: one entity carried
+# the whole spread and the per-figure filing dates lived inside a payload the
+# graph never held, so Π and the debt reading both closed over an object carried
+# in from the side rather than reading the view. Here every period, every line
+# and every cohort statistic is its OWN entity with its OWN `observed_at` — the
+# filing that asserted it — so the view the policy operator produces IS the
+# spread, Π reads nothing around it, and the debt reading dates each column
+# from the graph rather than from a scenario object.
+#
+# Identity is ONE declared key, `entity_ref`, minted by acquisition in the
+# deployment's own vocabulary (`obligor:<lei>`, `period:<lei>:<end>:<fp>`,
+# `line:<lei>:<end>:<fp>:<name>`, `peers:<lei>:<end>:<tag>`). An identity key is
+# consumed to mint the URI, never stored back, so every readable value is named
+# under `attribute_keys` explicitly.
+resolution:
+  entity_rules:
+    - match_key: obligor_ref
+      entity_class: obligor
+      identity_keys: [entity_ref]
+      attribute_keys:
+        - lei
+        - cik
+        - obligor_legal_name
+        - obligor_jurisdiction
+        - fiscal_year_end_month
+        - latest_filed_date
+        - formally_restated
+        - basis_applied
+        - spread_periods
+        - peer_cohort_basis
+        - peer_sic
+        - peer_cohort_size
+    - match_key: period_ref
+      entity_class: spread_period
+      identity_keys: [entity_ref]
+      attribute_keys:
+        - lei
+        - obligor_jurisdiction
+        - period_end
+        - fiscal_period
+        - signal_class
+        - latest_filed
+    - match_key: line_ref
+      entity_class: spread_line
+      identity_keys: [entity_ref]
+      attribute_keys:
+        - lei
+        - obligor_jurisdiction
+        - period_end
+        - fiscal_period
+        - line
+        - derived
+        - value
+        - unit
+        - kind
+        - period_start
+        - filed_date
+        - accession
+        - form
+        - basis_applied
+        - restated
+        - restatement_class
+        - kind_conflict
+        - inputs
+        - reason
+    - match_key: peer_ref
+      entity_class: peer_cohort
+      identity_keys: [entity_ref]
+      attribute_keys:
+        - lei
+        - obligor_jurisdiction
+        - sic
+        - period_end
+        - tag
+        - peers_reporting
+        - median
+  # No `R` at all: the spread is a set of dated claims about one obligor, and
+  # the grouping Π performs is by attribute, not by edge.
+  relationship_rules: []
+
+# ---------------------------------------------------------------------------
+# λ_c — how fast each observation type goes stale. THE SPECIMEN'S VALUES,
+# PRESERVED (`CP14-F-22` §8: nothing here is tuned).
+# ---------------------------------------------------------------------------
+#
+# THE HALF-LIFE IS PER SIGNAL CLASS, NOT PER PRODUCT. One payload carries
+# annual columns decaying at ~365d and quarterly columns decaying at ~90d, and
+# each period entity names which one it decays against (`signal_class`).
+#
+# `decay_basis: valid-from` IS THE CANONICAL FORM OF THE SPECIMEN'S HAND-DATING.
+# A filed figure decays IN THE WORLD from the date it was filed, not from the
+# instant this fabric ingested it. The specimen said so by building each
+# observation by hand from the period's own filing date; the SDK now says it
+# as a declaration (`D-IMPL-331`): the row names which instant it decays
+# against, the claim carries the filing as `valid_from`, and a row declaring
+# `valid-from` for an observation carrying none is refused by name rather than
+# scored as perfectly fresh. Measured before this line existed: every column
+# read F = 1 because `observed_at` is when the FABRIC learned the claim.
+half_life:
+  annual_facts:
+    half_life_seconds: 31536000      # ~365d — superseded by the next annual filing
+    decay_basis: valid-from
+    decay_driver: filing-cadence
+    supersession_event: new-10-K-accession
+  quarterly_facts:
+    half_life_seconds: 7776000       # ~90d — superseded by the next quarterly filing
+    decay_basis: valid-from
+    decay_driver: filing-cadence
+    supersession_event: new-10-Q-accession
+  # DECLARED AND NOT SCORED — carried forward from the specimen as-is and
+  # recorded as `CP03C-F-03` rather than quietly wired: the specimen scored no
+  # observation of this class, and adding one here would move the debt reading
+  # this successor is required to preserve.
+  peer_set:
+    half_life_seconds: 15552000      # ~180d — drifts as filers change SIC or exit
+    decay_basis: valid-from
+    decay_driver: cohort-drift
+    supersession_event: sic-reclassification
+
+# ---------------------------------------------------------------------------
+# Where the D_c bands sit. THE SPECIMEN'S VALUES, PRESERVED.
+# ---------------------------------------------------------------------------
+debt_profile:
+  risk_sensitivity: "1.0"
+  forced_llm_threshold: "0.60"
+  fail_closed_threshold: "0.77"
+
+# The regime in force. Its VERSION rides the served product's lineage.
+policy:
+  class_id: cp-03-canonical.policy-bundle
+  role: register
+  registration: typed
+  regime: obligor-financial-spread-entitlement
+
+# Π role-conditioning: whose view of the graph this product is served under.
+# The DEFAULT, never the rule — which principal asks changes WHICH OBLIGORS
+# EXIST rather than how they are shaped (49 / 47 / 0 / 0 across the estate's
+# four principals), and `deployment.request(principal_id=...)` asks as somebody
+# else.
+default_perspective:
+  principal_id: PRIN-COV-001
+  role: analyst

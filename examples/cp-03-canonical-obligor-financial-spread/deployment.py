@@ -1,0 +1,591 @@
+"""This deployment's own values — the other half of ``produce.py``.
+
+[ADAPT] everything here. [MECHANISM] nothing.
+
+``produce.py`` beside this file is CCF's calls and names none of the vocabulary
+below. This file names all of it and makes no fabric call the spine does not.
+Delete ``ccf_config.yaml`` and nothing here has anything left to interpret,
+which is the No-Hardcoding Rule (CLAUDE.md §6.4) being structural rather than
+aspirational.
+
+**Its boundaries are ruled** (`D-IMPL-315`): vocabulary, source access and
+admission. No binder, no gates, no replay record, no serve — those are
+``GovernedResolver``'s, and ``produce.py`` hands it the seam.
+
+## Per-attribute temporal validity is fabric state here, not a payload
+
+The frozen specimen ingested ONE envelope carrying the whole spread and dated it
+from the payload's freshest filing; the per-figure filing dates lived inside an
+object the graph never held, so Π and the debt reading both closed over a
+scenario carried in from the side. Here :func:`ingest` emits one envelope per
+obligor, per period, per line and per cohort statistic, each dated
+``observed_time`` from THE FILING THAT ASSERTED IT. The view the policy
+operator produces is therefore the spread itself: Π reads nothing around it
+(``projection.py``), the debt reading dates each column from the graph
+(:func:`debt`), and a principal who may not see the obligor sees no period, no
+line and no cohort either — the suppression is one grant over four classes,
+not a filter Π has to remember.
+
+## What is deliberately preserved from the specimen, unmoved
+
+The λ_c values, the D_c bands, the 30-day window, the eight-period default, the
+as-reported default and the peer basis are the specimen's demonstration values
+(`CP14-F-22` §8). The debt reading is the specimen's method — one observation
+per period typed by its signal class, completeness as the evaluable fraction of
+declared lines, ``S = 1`` as a structural property of a one-store product — so
+that what moved between the two trees is the SDK path and not the answer.
+"""
+
+from __future__ import annotations
+
+import uuid
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from datetime import UTC, date, datetime, timedelta
+from decimal import Decimal
+from pathlib import Path
+from typing import Any
+
+import yaml
+
+import acquisition
+from ccf.contracts.canonical import content_hash
+from ccf.controlplane.artifacts import DebtProfile, HalfLifeTable, PerspectiveArtifact
+from ccf.controlplane.registry import ControlPlaneProtocol
+from ccf.deployment import BootedFabric
+from ccf.graph.protocols import GraphView
+from ccf.halflife.assessment import DebtAssessment, DebtFactors
+from ccf.halflife.debt import FreshnessScorer, assess_debt
+from ccf.halflife.decay import Observation
+from ccf.products.constraints import ReferencePolicyConstraintResolver
+from ccf.products.provenance import ProvenanceSource
+from ccf.products.request import ProductRequest, ProductRequestContract
+from ccf.signal.envelope import SignalEnvelope, SourceIdentity
+
+HERE = Path(__file__).parent
+
+#: The request parameters this deployment reads by name — the contract's own.
+PERIODS = "periods"
+BASIS = "basis"
+INCLUDE_PEERS = "include_peers"
+PEER_BASIS = "peer_basis"
+DEBT_TOLERANCE = "debt_tolerance"
+JURISDICTIONS = "jurisdictions"
+
+#: The four entity classes `ccf_config.yaml`'s resolution section mints.
+CLASS_OBLIGOR = "obligor"
+CLASS_PERIOD = "spread_period"
+CLASS_LINE = "spread_line"
+CLASS_COHORT = "peer_cohort"
+
+#: The attribute the policy envelope is keyed on, carried by every class.
+JURISDICTION = "obligor_jurisdiction"
+
+#: The payload member the product's own gate reads its anchor from.
+ANCHOR_MEMBER = "latest_filed_in_payload"
+
+#: How a multi-valued `inputs` list is carried through a `Mapping[str, str]`.
+#: Declared once here and read back once in `projection.py`.
+INPUTS_SEPARATOR = "|"
+
+#: The identifier the fabric records as this product's source system.
+SOURCE_SYSTEM = "financial_fact"
+
+
+def config() -> Mapping[str, Any]:
+    """The single deployment document, parsed."""
+    document: Mapping[str, Any] = yaml.safe_load(
+        (HERE / "ccf_config.yaml").read_text(encoding="utf-8")
+    )
+    return document
+
+
+def ttl() -> Mapping[str, Any]:
+    """The declared TTL figures — `artifacts/ttl.yaml`."""
+    document: Mapping[str, Any] = yaml.safe_load(
+        (HERE / "artifacts" / "ttl.yaml").read_text(encoding="utf-8")
+    )
+    return document["declaration"]
+
+
+def connection(*, root: Path) -> Mapping[str, str]:
+    """Where the FABRIC's own L3 lives for this run. Never a source store.
+
+    A FRESH PATH PER RUN, as `backends.yaml` declares (`per_run: path`), and
+    the uuid is what makes it true rather than nominal. Measured before it
+    existed: a door answering several questions under one scratch root booted
+    the SAME file every time, so the third question's view still held the
+    first obligor's spread and an anchor that resolved to nothing was served
+    somebody else's figures. Two runs of the same question build two separate
+    graphs from the same estate and must still agree byte for byte.
+    """
+    profile = yaml.safe_load(
+        (HERE / "backends.yaml").read_text(encoding="utf-8")
+    )["declaration"]["profiles"]["sqlite"]["settings"]["database_path"]
+    return {
+        "database_path": str(root / f"{profile['prefix']}_{uuid.uuid4().hex}{profile['suffix']}")
+    }
+
+
+def request(
+    *,
+    lei: str,
+    asked_at: datetime,
+    debt_tolerance: Decimal | str,
+    intent: str = "annual-review",
+    freshness: str = "filing-cadence",
+    periods: int | None = None,
+    basis: str | None = None,
+    include_peers: bool | None = None,
+    peer_basis: str | None = None,
+    principal_id: str | None = None,
+    jurisdictions: Sequence[str] | None = None,
+) -> ProductRequest:
+    """The question asked. An argument, never an artifact.
+
+    THE SUBJECT IS THE OBLIGOR: the LEI travels as ``ProductRequest.subject``,
+    the request's own addressing axis, which is also what `CP-SPEC-014` sends
+    as ``ChildQuestion.subject``. ``intent`` is the top-level axis the class
+    judges against its declared ``discovery.intents``; it is never a parameter.
+
+    Every spread parameter is omitted entirely when the caller did not supply
+    one, so the class default in ``ccf_config.yaml`` is what resolves — read
+    from the declaration rather than restated here, where it would become a
+    second authority for one number.
+
+    ``principal_id`` is how the demonstration asks as somebody else: the
+    principal's jurisdiction grant is expanded against the estate and STATED
+    as the request's ``jurisdictions``, so the value that reaches the policy
+    operator is request state the effective request records — never a value
+    written over a resolved artifact. Pass ``jurisdictions`` directly to state
+    a grant without reading the estate.
+    """
+    declared = config()["product_class"]
+    parameters: dict[str, Any] = {DEBT_TOLERANCE: Decimal(str(debt_tolerance))}
+    for name, value in (
+        (PERIODS, periods),
+        (BASIS, basis),
+        (INCLUDE_PEERS, include_peers),
+        (PEER_BASIS, peer_basis),
+    ):
+        if value is not None:
+            parameters[name] = value
+    if jurisdictions is not None:
+        parameters[JURISDICTIONS] = list(jurisdictions)
+    elif principal_id is not None and principal_id != config()["default_perspective"]["principal_id"]:
+        parameters[JURISDICTIONS] = list(acquisition.grant_for(principal_id))
+    return ProductRequest(
+        schema_name=declared["schema_name"],
+        schema_version=declared["schema_version"],
+        subject=lei,
+        intent=intent,
+        freshness=freshness,
+        asked_at=asked_at,
+        parameters=parameters,
+    )
+
+
+def perspective(*, principal_id: str | None = None) -> PerspectiveArtifact:
+    """The Π role-conditioning this product is served under.
+
+    The declared principal is the DEFAULT, never the rule: which principal asks
+    changes WHICH OBLIGORS EXIST rather than how they are shaped, and an
+    override is how the demonstration asks as somebody else.
+    """
+    declared = dict(config()["default_perspective"])
+    if principal_id is not None:
+        declared["principal_id"] = principal_id
+    return PerspectiveArtifact(semver="1.0.0", **declared)
+
+
+# ---------------------------------------------------------------------------
+# Acquire at the EFFECTIVE parameters — the SDK's own derivation, not a second
+# policy (the `cp-04-canonical` precedent, `CP04C-F-02`).
+# ---------------------------------------------------------------------------
+
+
+def effective_parameters(
+    booted: BootedFabric, registry: ControlPlaneProtocol, asked: ProductRequest,
+    *, principal_id: str | None = None,
+) -> Mapping[str, Any] | None:
+    """What THIS ask resolves to, as governance derives it — or ``None``.
+
+    :class:`~ccf.products.constraints.ReferencePolicyConstraintResolver` is the
+    same resolver ``GovernedResolver`` uses, reading the same Control Plane at
+    the same ``asked_at``, so the values returned here are the values the
+    governed path will independently resolve moments later: the class defaults
+    where the caller omitted a parameter, the caller's values where they are
+    in bounds, and a refusal where they are not.
+
+    **Why acquisition needs them.** Debt is scored over the view the OPERATORS
+    produced. Reading the estate at the caller's raw parameters would score
+    D_c over periods the governed path never resolved; reading at the
+    effective ones makes L3, the operator view and the payload the same set.
+
+    A refused request acquires nothing: the governed refusal is moments away
+    and is the resolver's to issue, so acquisition neither pre-empts it nor
+    pays for a read whose answer will not be served.
+    """
+    declared = ProductRequestContract.from_declared(booted.artifacts.get("request_contract"))
+    source = ProvenanceSource(kind="artifact", identity="request_contract", version=content_hash(declared))
+    outcome = ReferencePolicyConstraintResolver(control_plane=registry, entitlement_key=None).resolve(
+        product_class=asked.schema_name,
+        request=asked,
+        declared=declared,
+        declared_source=source,
+        perspective=perspective(principal_id=principal_id),
+        intent=asked.intent,
+        tenant=booted.tenant_id,
+        capabilities=(),
+        class_defaults=declared.defaults,
+        class_source=source,
+    )
+    if outcome.refusal is not None:
+        return None
+    return dict(outcome.evidence.values())
+
+
+def acquire_for(
+    booted: BootedFabric, registry: ControlPlaneProtocol, asked: ProductRequest,
+    *, principal_id: str | None = None,
+) -> acquisition.SpreadRead:
+    """Read the source store at the parameters this ask is allowed to spread at."""
+    effective = effective_parameters(booted, registry, asked, principal_id=principal_id)
+    if effective is None:
+        return acquisition.SpreadRead(
+            anchor_lei=asked.subject, basis="", resolved=None, periods=(), cohort=(),
+            cohort_size=0, cohort_basis="",
+        )
+    return acquisition.acquire(
+        anchor_lei=asked.subject,
+        periods=int(effective[PERIODS]),
+        basis=str(effective[BASIS]),
+        include_peers=bool(effective[INCLUDE_PEERS]),
+        peer_basis=str(effective[PEER_BASIS]),
+    )
+
+
+# ---------------------------------------------------------------------------
+# From a read to fabric state — one envelope per dated claim.
+# ---------------------------------------------------------------------------
+
+
+def _instant(value: date) -> datetime:
+    """A source DATE as a UTC instant at midnight.
+
+    Widening a date to an instant is a lossless statement about when the fact
+    is known to have held BY. Narrowing the other way would invent a time.
+    """
+    return datetime(value.year, value.month, value.day, tzinfo=UTC)
+
+
+def _amount(value: Decimal | None) -> str:
+    """One figure as text, or the word — never `0` for absent."""
+    return acquisition.NOT_EVALUABLE if value is None else str(value)
+
+
+def _envelope(
+    *, tenant_id: str, match_key: str, ref: str, at: datetime, observed: datetime,
+    attributes: Mapping[str, Any],
+) -> SignalEnvelope:
+    """One dated claim under the fabric's own vocabulary."""
+    return SignalEnvelope(
+        tenant_id=tenant_id,
+        envelope_id=ref,
+        source=SourceIdentity(system_id=SOURCE_SYSTEM),
+        # The request instant, so the as-of boundary the caller asked at is at
+        # or after the claim's `observed_at`.
+        ingestion_timestamp=at,
+        # THE FILING THAT ASSERTED THIS CLAIM — never a wall clock. A figure
+        # filed 2026-08-10 is the same age whichever instant it was asked at.
+        observed_time=observed,
+        raw_payload={
+            match_key: ref,
+            "entity_ref": ref,
+            **{key: "" if value is None else str(value) for key, value in attributes.items()},
+        },
+    )
+
+
+def envelopes(
+    read: acquisition.SpreadRead, *, tenant_id: str, at: datetime
+) -> tuple[SignalEnvelope, ...]:
+    """The whole spread as dated claims: obligor, periods, lines, cohort."""
+    resolved = read.resolved
+    if resolved is None:
+        return ()
+    fiscal_annual = str(acquisition.vocabulary()["fiscal_annual"])
+    anchor = read.latest_filed_in_payload
+    common = {"lei": resolved.lei, JURISDICTION: resolved.jurisdiction}
+    out: list[SignalEnvelope] = [
+        _envelope(
+            tenant_id=tenant_id, match_key="obligor_ref", ref=f"obligor:{resolved.lei}", at=at,
+            observed=_instant(anchor) if anchor is not None else at,
+            attributes={
+                **common,
+                "cik": resolved.cik,
+                "obligor_legal_name": resolved.legal_name,
+                "fiscal_year_end_month": resolved.fiscal_year_end_month,
+                "latest_filed_date": resolved.latest_filed.isoformat() if resolved.latest_filed else acquisition.NOT_EVALUABLE,
+                "formally_restated": str(resolved.has_non_reliance_filing).lower(),
+                "basis_applied": read.basis,
+                "spread_periods": len(read.periods),
+                "peer_cohort_basis": read.cohort_basis,
+                "peer_sic": resolved.sic or acquisition.NOT_EVALUABLE,
+                "peer_cohort_size": read.cohort_size,
+            },
+        )
+    ]
+    for period in read.periods:
+        period_observed = _instant(period.latest_filed) if period.latest_filed is not None else at
+        key = f"{resolved.lei}:{period.period_end.isoformat()}:{period.fiscal_period}"
+        out.append(
+            _envelope(
+                tenant_id=tenant_id, match_key="period_ref", ref=f"period:{key}", at=at,
+                observed=period_observed,
+                attributes={
+                    **common,
+                    "period_end": period.period_end.isoformat(),
+                    "fiscal_period": period.fiscal_period,
+                    # WHICH λ_c THIS COLUMN DECAYS AGAINST. Two columns of one
+                    # payload answer differently here.
+                    "signal_class": period.signal_class(fiscal_annual=fiscal_annual),
+                    "latest_filed": period.latest_filed.isoformat() if period.latest_filed else acquisition.NOT_EVALUABLE,
+                },
+            )
+        )
+        for name, line in sorted(period.lines.items()):
+            cell = line.cell
+            observed = _instant(cell.filed_date) if cell is not None else period_observed
+            attributes: dict[str, Any] = {
+                **common,
+                "period_end": period.period_end.isoformat(),
+                "fiscal_period": period.fiscal_period,
+                "line": name,
+                "derived": str(line.derived).lower(),
+                "value": _amount(line.value),
+                "unit": line.unit if line.unit is not None else acquisition.NOT_EVALUABLE,
+                "kind": (
+                    (acquisition.KIND_INSTANT if cell.is_instant else acquisition.KIND_DURATION)
+                    if cell is not None else line.declared_kind
+                ),
+                "period_start": cell.period_start.isoformat() if cell is not None and cell.period_start else "",
+                # WHICH FILING ASSERTED THIS FIGURE — per attribute, not per
+                # product. A column stitched from two filings reports two.
+                "filed_date": cell.filed_date.isoformat() if cell is not None else "",
+                "accession": cell.accession if cell is not None else "",
+                "form": cell.form if cell is not None else "",
+                "basis_applied": read.basis if cell is not None else "",
+                "restated": str(cell.restated).lower() if cell is not None else "",
+                "restatement_class": (cell.restatement_class or acquisition.NOT_EVALUABLE) if cell is not None else "",
+                "kind_conflict": str(line.kind_conflict).lower(),
+                "inputs": INPUTS_SEPARATOR.join(line.inputs),
+                "reason": (
+                    "no declared tag for this line was filed in this period"
+                    if cell is None and not line.derived else ""
+                ),
+            }
+            out.append(
+                _envelope(
+                    tenant_id=tenant_id, match_key="line_ref", ref=f"line:{key}:{name}", at=at,
+                    observed=observed, attributes=attributes,
+                )
+            )
+    for statistic in read.cohort:
+        out.append(
+            _envelope(
+                tenant_id=tenant_id, match_key="peer_ref",
+                ref=f"peers:{resolved.lei}:{statistic.period_end.isoformat()}:{statistic.tag}", at=at,
+                observed=_instant(statistic.latest_filed) if statistic.latest_filed is not None else at,
+                attributes={
+                    **common,
+                    "sic": resolved.sic or "",
+                    "period_end": statistic.period_end.isoformat(),
+                    "tag": statistic.tag,
+                    "peers_reporting": statistic.peers_reporting,
+                    "median": str(statistic.median),
+                },
+            )
+        )
+    return tuple(out)
+
+
+def ingest(booted: BootedFabric, read: acquisition.SpreadRead, *, at: datetime) -> int:
+    """Write the spread into L3 through the ONE write handle; return the count.
+
+    ``booted.handle.worker`` is the only write handle to L3 anywhere in this
+    process (single-writer, CLAUDE.md §10). A read that resolved nothing
+    writes nothing — the governed path then refuses on the product's own gate,
+    with a record, rather than this function raising.
+    """
+    worker = booted.handle.worker
+    count = 0
+    for envelope in envelopes(read, tenant_id=booted.tenant_id, at=at):
+        worker.ingest(envelope)
+        count += 1
+    return count
+
+
+# ---------------------------------------------------------------------------
+# D_c over the view the OPERATORS produced — the specimen's method, off the graph.
+# ---------------------------------------------------------------------------
+
+
+def debt(
+    view: GraphView, *, now: datetime, half_life: HalfLifeTable, profile: DebtProfile
+) -> DebtAssessment:
+    """`D_c` over what this question assembled — whitepaper §7.7, spec §E.2.
+
+    **One observation per spread period, TYPED BY THAT PERIOD'S CLASS and dated
+    from the graph.** An annual column decays against `annual_facts` and a
+    quarterly column against `quarterly_facts`, each from its OWN filing —
+    ``valid_from`` on the period entity, the instant the declared
+    ``decay_basis: valid-from`` rows age from — so one payload carries two decay
+    rates at once and a four-year-old annual is four years stale even beside a
+    quarter filed last week.
+
+    **Completeness is the evaluable fraction of declared lines** in the view:
+    every `NOT_EVALUABLE` line is a real shortfall and contributes its full
+    weight; none is filled with a default.
+
+    **`S` is 1 and it is a MEASURED PROPERTY of this estate, not a magic
+    constant.** This product reads ONE store: `financial_fact` is the only
+    authority for a figure, and `peer_fact` describes different companies.
+    Nothing here could disagree, so the signal cannot fire.
+
+    **An empty view is the maximum, not a score for nothing.** The scorer
+    refuses an empty sequence by design; the product's own gate refuses the
+    serve before this number could be read as a debt reading.
+    """
+    periods = [r for r in view.entities if r.claim.entity_class == CLASS_PERIOD]
+    lines = [r for r in view.entities if r.claim.entity_class == CLASS_LINE]
+    observations = tuple(
+        Observation(
+            observation_type=record.claim.attributes["signal_class"],
+            # When the FABRIC learned the claim — the request instant.
+            observed_at=record.claim.observed_at,
+            # When the SOURCE asserted it — the filing. The λ_c rows declare
+            # `decay_basis: valid-from`, so THIS is the instant a column ages
+            # from, and a period carrying none would be refused by name rather
+            # than scored fresh (`D-IMPL-331`).
+            valid_from=record.claim.valid_from,
+            subject=record.claim.entity_uri,
+        )
+        for record in periods
+    )
+    if not observations:
+        return assess_debt(
+            DebtFactors(freshness=Decimal(0), completeness=Decimal(0), semantic_consistency=Decimal(1)),
+            profile=profile,
+        )
+    evaluable = sum(1 for r in lines if r.claim.attributes.get("value") != acquisition.NOT_EVALUABLE)
+    completeness = Decimal(evaluable) / Decimal(len(lines)) if lines else Decimal(0)
+    freshness = FreshnessScorer(table=half_life, risk_sensitivity=profile.risk_sensitivity).score(
+        observations, now=now
+    )
+    return assess_debt(
+        DebtFactors(freshness=freshness, completeness=completeness, semantic_consistency=Decimal(1)),
+        profile=profile,
+    )
+
+
+# ---------------------------------------------------------------------------
+# The product's OWN invariant — the predicate behind `declared_product_gate`.
+# ---------------------------------------------------------------------------
+
+#: One text for an absent obligor and a suppressed one. §B.2's suppression
+#: rule: no count, no marker, and NO WAY TO TELL THE TWO APART.
+NO_OBLIGOR = (
+    "no obligor in the admitted view: the anchor resolved to nothing this"
+    " principal may see"
+)
+
+
+def freshness_window_gate(*, ttl_seconds: int) -> Any:
+    """The predicate for `cp-03-canonical.spread-freshness-window`.
+
+    Two refusals in one governed verdict, both returned as a detail and stamped
+    with the declared gate identity by the resolver:
+
+    * **no obligor** — the admitted view held none. The anchor resolved to no
+      entity, to one with no facts, or to one the policy envelope suppressed;
+      the text is the same for all three by construction.
+    * **outside the window** — the freshest filing the payload rests on plus
+      the declared window is not after the asked instant. This is the SERVING
+      half of `ttl_anchor: from_entity_freshness`, held here because the
+      governed path anchors the contract's `expires_at` at the decision
+      instant regardless of the declaration (`CP03C-F-01`). Filers file
+      quarterly, so this refusal clears as filings land.
+    """
+    window = timedelta(seconds=ttl_seconds)
+
+    def gate(*, candidate: Any, evidence: object = None) -> str | None:
+        payload = candidate.payload
+        if payload.get("obligor") is None:
+            return NO_OBLIGOR
+        anchor = payload.get(ANCHOR_MEMBER)
+        if anchor is None or anchor == acquisition.NOT_EVALUABLE:
+            return NO_OBLIGOR
+        expires = _instant(date.fromisoformat(str(anchor))) + window
+        asked_at = candidate.temporal_boundary
+        if not asked_at < expires:
+            return (
+                f"outside the declared window: the freshest filing in the payload"
+                f" ({anchor}) plus {window.days} days is {expires.isoformat()}, which"
+                f" is not after the asked instant {asked_at.isoformat()}; under its"
+                " declared anchor (from_entity_freshness) this spread has expired and"
+                " clears when the obligor files again"
+            )
+        return None
+
+    return gate
+
+
+# ---------------------------------------------------------------------------
+# The scenario — what one run needs, by NAME.
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class SpreadScenario:
+    """What one run needs — every argument a name or a figure the tree declares."""
+
+    read: acquisition.SpreadRead
+    asked: ProductRequest
+
+    @property
+    def product_class_key(self) -> str:
+        return "product_class"
+
+    @property
+    def request_contract_key(self) -> str:
+        return "request_contract"
+
+    @property
+    def policy_bundle_key(self) -> str:
+        return "policy"
+
+    @property
+    def half_life_key(self) -> str:
+        return "half_life"
+
+    @property
+    def debt_profile_key(self) -> str:
+        return "debt_profile"
+
+    @property
+    def operator_parameter_keys(self) -> tuple[str, ...]:
+        """However many the deployment declared — never a fixed count."""
+        return tuple(config()["operators"])
+
+    @property
+    def plan_id(self) -> str:
+        return f"cp-03-canonical.obligor-financial-spread/{self.asked.subject}"
+
+    @property
+    def max_ttl_seconds(self) -> int:
+        return int(ttl()["max_ttl_seconds"])
+
+    @property
+    def product_ttl_seconds(self) -> int:
+        return int(ttl()["declared_ttl_seconds"])

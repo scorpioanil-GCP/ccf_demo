@@ -1,0 +1,191 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE TWENTY-FIVE DECLARED PRODUCT GATES OF THE CANONICAL RUNG-3 TREE —
+# `OFC-G01` through `OFC-G25`, one per executing test, with no hole.
+#
+# `D-IMPL-224`: a product's gates are a DECLARED ARTIFACT plus CI coverage.
+# There is no `ProductGate` Protocol and no serve path for these. (The class's
+# own runtime invariant, `cp-03-canonical.spread-freshness-window`, is a
+# different thing: a `D-IMPL-282` R-11 declared product gate the SDK executes.)
+#
+# THE ACCEPTANCE AUTHORITY IS THIS TREE'S OWN SPECIFICATION (`D-IMPL-326`,
+# `D-IMPL-327`). `CP-SPEC-003C` §G.1 approves every gate below, and
+# `tools/check_product_gates.py` resolves the chain — the document exists, the
+# clause exists, and the gate's own id appears inside it.
+#
+# IT DOES NOT CITE FROZEN cp-03's SPECIFICATION, on the `cp-04-canonical` ruling
+# (`D-IMPL-327`, Dave: "do not cite frozen cp-04"). A successor whose acceptance
+# authority lived in its predecessor's document would be governed by a document
+# nobody may edit — and the two trees answer the same question differently on
+# purpose.
+#
+# THE `OFC-` PREFIX, not `OFS-`: `OFS-` is the frozen specimen's and its ids
+# are claimed. Two trees answering one question need two vocabularies, or a
+# checker reading either roster would find the other's tests.
+#
+# `observed_red` is `null` on every gate and is REQUIRED as a key: a gate
+# nobody has watched fail is visibly outstanding here rather than absent. The
+# sabotage column names what was mutated; FINDINGS.md §"Sabotage matrix"
+# records each run and its verdict.
+#
+# `OFC-G07` is quarantined `xfail(strict=True)` as EVIDENCE of `CP03C-F-01`:
+# it asserts the declaration the governed path records and does not compute,
+# and turns red the day the SDK honors it.
+
+semver: 1.0.0
+class_id: cp-03-canonical.product-gates
+declaration:
+  product: credit-risk.spread
+  test_naming_convention: the gate id appears in the executing test's docstring, as a `Declared
+    product gate` line naming the CP-SPEC clause that approves it.
+  gates:
+  - id: OFC-G01
+    statement: a governed ServedProduct of the required class, lane 1.x, at the CP-14 instant, byte-stable across two runs
+    spec_clause: {document: spec/CP-SPEC-003C_Obligor_Financial_Spread_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_03_canonical_output.py::test_a_governed_served_product_of_the_required_class
+    sabotage: serve the assembler's output without the governed resolver
+    observed_red: null
+  - id: OFC-G02
+    statement: replay dimension 2 is a superset of product lineage and the operators invoked are exactly the one declared
+    spec_clause: {document: spec/CP-SPEC-003C_Obligor_Financial_Spread_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_03_canonical_output.py::test_replay_dimension_two_is_a_superset_of_the_product_lineage
+    sabotage: register a second operator the class does not declare
+    observed_red: null
+  - id: OFC-G03
+    statement: the spread is fabric state — every served period and line is a touched entity, and Π read the view
+    spec_clause: {document: spec/CP-SPEC-003C_Obligor_Financial_Spread_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_03_canonical_output.py::test_the_spread_is_fabric_state_not_a_payload_carried_in
+    sabotage: ingest one envelope carrying the whole spread, as the specimen did
+    observed_red: null
+  - id: OFC-G04
+    statement: every reported figure names the filing that asserted it, and the spread rests on more than one filing
+    spec_clause: {document: spec/CP-SPEC-003C_Obligor_Financial_Spread_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_03_canonical_output.py::test_every_reported_figure_names_the_filing_that_asserted_it
+    sabotage: stamp one product-level filing date over every line
+    observed_red: null
+  - id: OFC-G05
+    statement: D_c = 1 − F·C·S over the view, C the evaluable fraction of declared lines, F below 1 because columns age from their filings
+    spec_clause: {document: spec/CP-SPEC-003C_Obligor_Financial_Spread_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_03_canonical_output.py::test_debt_is_the_specimens_method_read_off_the_graph
+    sabotage: drop `decay_basis valid-from` so every column ages from the ingestion instant
+    observed_red: null
+  - id: OFC-G06
+    statement: a spread whose freshest filing is outside the declared window at the asked instant is refused by the product's own gate
+    spec_clause: {document: spec/CP-SPEC-003C_Obligor_Financial_Spread_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_03_canonical_output.py::test_the_declared_window_is_held_by_the_products_own_gate
+    sabotage: delete the window comparison from the predicate
+    observed_red: null
+  - id: OFC-G07
+    statement: expires_at is anchored on the freshest filing in the payload, as the class declares — quarantined evidence of CP03C-F-01
+    spec_clause: {document: spec/CP-SPEC-003C_Obligor_Financial_Spread_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_03_canonical_output.py::test_expires_at_is_anchored_on_the_filing_not_the_question
+    sabotage: none constructible — the SDK computes the decision-instant anchor; the gate goes red (XPASS) when the SDK honors the declaration
+    observed_red: null
+  - id: OFC-G08
+    statement: an obligor the principal may not see and one that does not exist refuse with one reason, one kind, one detail
+    spec_clause: {document: spec/CP-SPEC-003C_Obligor_Financial_Spread_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_03_canonical_output.py::test_suppression_is_indistinguishable_from_absence
+    sabotage: name the suppression in the refusal detail
+    observed_red: null
+  - id: OFC-G09
+    statement: intent is a governed axis judged on the declared discovery set, and the specimen's shadow argument is refused at contract construction
+    spec_clause: {document: spec/CP-SPEC-003C_Obligor_Financial_Spread_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_03_canonical_output.py::test_intent_is_a_governed_axis_and_the_specimens_shadow_is_refused
+    sabotage: declare `intent` under arguments.properties, as the specimen did
+    observed_red: null
+  - id: OFC-G10
+    statement: as_of, an out-of-domain peer_basis and a missing debt_tolerance are refused as data, each with a record
+    spec_clause: {document: spec/CP-SPEC-003C_Obligor_Financial_Spread_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_03_canonical_output.py::test_declared_refusals_arrive_as_data_with_a_record
+    sabotage: widen the peer_basis domain to the value the specimen never implemented
+    observed_red: null
+  - id: OFC-G11
+    statement: the caller's tolerance governs — withheld at CP-14's own ceiling, served wide open — and the debt does not move with it
+    spec_clause: {document: spec/CP-SPEC-003C_Obligor_Financial_Spread_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_03_canonical_output.py::test_the_callers_tolerance_governs_and_the_debt_does_not_move_with_it
+    sabotage: score completeness over the lines that evaluated rather than the lines declared
+    observed_red: null
+  - id: OFC-G12
+    statement: the basis changes a figure only where a later filing changed it, and selects within a cell, never across cells
+    spec_clause: {document: spec/CP-SPEC-003C_Obligor_Financial_Spread_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_03_canonical_output.py::test_the_basis_changes_a_figure_only_where_a_later_filing_changed_it
+    sabotage: select the basis across cells so one basis drops a column
+    observed_red: null
+  - id: OFC-G13
+    statement: '`shape_of` reads this tree as canonical, and no build_replay_record call exists — Defect B absent by construction'
+    spec_clause: {document: spec/CP-SPEC-003C_Obligor_Financial_Spread_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_03_canonical_output.py::test_the_structural_classifier_reads_this_tree_as_canonical
+    sabotage: hand-compose a governed seam the SDK owns
+    observed_red: null
+  - id: OFC-G14
+    statement: the plan factory takes its operators only from `required`
+    spec_clause: {document: spec/CP-SPEC-003C_Obligor_Financial_Spread_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_03_canonical_output.py::test_the_plan_factory_takes_its_operators_only_from_required
+    sabotage: construct the plan from a source other than `required`
+    observed_red: null
+  - id: OFC-G15
+    statement: the frozen specimen is untouched and no specimen identity is reused
+    spec_clause: {document: spec/CP-SPEC-003C_Obligor_Financial_Spread_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_03_canonical_output.py::test_the_specimen_is_untouched_and_no_identity_is_reused
+    sabotage: modernize a file under the frozen specimen, or reuse its published content address
+    observed_red: null
+  - id: OFC-G16
+    statement: the CP-14-shaped question is answered by the producer in another process and admitted under provider-controls
+    spec_clause: {document: spec/CP-SPEC-003C_Obligor_Financial_Spread_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_03_canonical_cross_deployment.py::test_the_cp14_question_is_answered_by_the_producer_in_another_process_and_admitted
+    sabotage: drop the door's producer assertion
+    observed_red: null
+  - id: OFC-G17
+    statement: the consumer process runs no producer assembler and holds no producer record
+    spec_clause: {document: spec/CP-SPEC-003C_Obligor_Financial_Spread_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_03_canonical_cross_deployment.py::test_the_consumer_process_runs_no_producer_assembler
+    sabotage: import the producer's assembler into the consumer
+    observed_red: null
+  - id: OFC-G18
+    statement: the expected producer identity and tenant come from the registration — wrong id and wrong tenant refuse independently
+    spec_clause: {document: spec/CP-SPEC-003C_Obligor_Financial_Spread_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_03_canonical_cross_deployment.py::test_the_expected_producer_identity_and_tenant_come_from_the_registration
+    sabotage: assert a different producer id at the door
+    observed_red: null
+  - id: OFC-G19
+    statement: a lane the requirement does not admit is refused version-incompatible; an unoffered class is a wiring error before any socket
+    spec_clause: {document: spec/CP-SPEC-003C_Obligor_Financial_Spread_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_03_canonical_cross_deployment.py::test_a_lane_the_requirement_does_not_admit_is_refused_and_an_unoffered_class_is_an_error
+    sabotage: serve the child at a lane outside the requirement
+    observed_red: null
+  - id: OFC-G20
+    statement: no question argument becomes an address, and an unresolvable subject is refused by the child's own gate — no fake child
+    spec_clause: {document: spec/CP-SPEC-003C_Obligor_Financial_Spread_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_03_canonical_cross_deployment.py::test_no_question_argument_becomes_an_address_and_the_childs_own_gate_governs
+    sabotage: serve the previous obligor's spread for a subject that resolved to nothing
+    observed_red: null
+  - id: OFC-G21
+    statement: at CP-14's own tolerance the spread slot is withheld and the composite refuses on its required child
+    spec_clause: {document: spec/CP-SPEC-003C_Obligor_Financial_Spread_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_03_canonical_cross_deployment.py::test_at_cp14s_own_tolerance_the_spread_slot_is_withheld_and_the_composite_refuses
+    sabotage: make the child's tolerance the class default rather than the caller's
+    observed_red: null
+  - id: OFC-G22
+    statement: a severed producer is a governed producer-unavailable refusal, not a fake child
+    spec_clause: {document: spec/CP-SPEC-003C_Obligor_Financial_Spread_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_03_canonical_cross_deployment.py::test_a_severed_producer_is_a_governed_refusal_not_a_fake_child
+    sabotage: synthesize a child when the producer cannot be reached
+    observed_red: null
+  - id: OFC-G23
+    statement: the door and the in-process run serve one content address — the product is the constant, the transport the variable
+    spec_clause: {document: spec/CP-SPEC-003C_Obligor_Financial_Spread_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_03_canonical_cross_deployment.py::test_the_door_and_the_in_process_run_serve_one_content_address
+    sabotage: let the door retype a parameter the in-process path does not
+    observed_red: null
+  - id: OFC-G24
+    statement: a fresh fabric per run — two connections under one root name two files, and an obligor served after another under one root hashes to its own address
+    spec_clause: {document: spec/CP-SPEC-003C_Obligor_Financial_Spread_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_03_canonical_output.py::test_a_fresh_fabric_per_run_and_one_determination_across_roots
+    sabotage: compose a fixed fabric file name under the root, as the tree first did
+    observed_red: null
+  - id: OFC-G25
+    statement: Π serves the subject's claims and no other's — a view holding two obligors yields the subject's spread; a view holding only another yields no obligor
+    spec_clause: {document: spec/CP-SPEC-003C_Obligor_Financial_Spread_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_03_canonical_output.py::test_the_projection_serves_the_subjects_claims_and_no_others
+    sabotage: drop the subject filter and take the first obligor in the view
+    observed_red: null

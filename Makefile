@@ -54,7 +54,7 @@ NO_SUBSTRATE := not postgres and not chroma and not neo4j and not mongo and not 
 	conformance \
 	ci-quick-suite ci-harness-conformance ci-coverage \
 	example-s1-01 example-s1-00 example-cp-00 example-cp-01 example-cp-02 \
-	example-cp-03 example-cp-04 example-cp-04-canonical example-cp-05 example-cp-05-server \
+	example-cp-03 example-cp-03-canonical example-cp-04 example-cp-04-canonical example-cp-05 example-cp-05-server \
 	example-cp-06 example-cp-07 example-cp-09 example-cp-10 example-cp-11 \
 	example-cp-12 example-cp-13 \
 	example-hw1-harness-clients \
@@ -475,6 +475,33 @@ example-cp-04-canonical: ## Run examples/cp-04-canonical-corporate-family-tree (
 		$(PYTHON) examples/cp-04-canonical-corporate-family-tree/run.py \
 		$(if $(LEI),--lei $(LEI)) \
 		$(if $(MAX_DEPTH),--max-depth $(MAX_DEPTH))
+
+# cp-03-canonical — the CANONICAL rung-3 successor (`CP14-F-22`). Same product
+# as `example-cp-03` above — `credit-risk.spread`, one obligor's period-aligned
+# financial spread — authored against the current SDK surface; cp-03 itself
+# stays frozen as the historical specimen (`D-IMPL-261`, `D-IMPL-263`).
+#
+# NOT in the `examples:` aggregate, for cp-04-canonical's reason: it reads the
+# curated `.76` estate through declared environment variables and has no
+# in-tree fixture to fall back onto.
+#
+# TWO CONNECTION VARIABLES, AND THE TARGET NAMES ONLY THEIR NAMES.
+# `examples/cp-03-canonical-obligor-financial-spread/backends.yaml` holds each
+# name and its remedy string; no host, port, schema or credential appears here.
+#
+# POINT THEM AT THE v2 NAMESPACE — PostgreSQL schema `ccf_v2` — never the v1
+# name in `ccf_dataprep/.env` (CLAUDE.md §9).
+example-cp-03-canonical: ## Run examples/cp-03-canonical-obligor-financial-spread (LEI, ASKED_AT, DEBT_TOLERANCE, INTENT, PERIODS, BASIS, PRINCIPAL, NO_PEERS optional; needs CCF_CP_03C_POSTGRES_DSN, CCF_CP_03C_POSTGRES_SCHEMA)
+	PYTHONPATH=src:runtime:examples/cp-03-canonical-obligor-financial-spread \
+		$(PYTHON) examples/cp-03-canonical-obligor-financial-spread/run.py \
+		$(if $(LEI),--lei $(LEI)) \
+		$(if $(ASKED_AT),--asked-at $(ASKED_AT)) \
+		$(if $(DEBT_TOLERANCE),--debt-tolerance $(DEBT_TOLERANCE)) \
+		$(if $(INTENT),--intent $(INTENT)) \
+		$(if $(PERIODS),--periods $(PERIODS)) \
+		$(if $(BASIS),--basis $(BASIS)) \
+		$(if $(PRINCIPAL),--principal $(PRINCIPAL)) \
+		$(if $(NO_PEERS),--no-peers)
 
 # cp-06 — the ladder's rung 6, collateral & set-off coverage. NOT in the
 # `examples:` aggregate, for cp-05's reason: it reads the curated estate through
