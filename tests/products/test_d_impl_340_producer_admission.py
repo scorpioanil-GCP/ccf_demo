@@ -436,8 +436,18 @@ def test_each_of_the_three_tenant_claims_is_held_to_the_registration(
 ) -> None:
     """The contract's tenant, the replay reference's tenant, and the
     assertion's tenant — each alone refuses, and always as the tenant reason
-    while the producer identity stays equal."""
-    contract_claims = DoorStub(vessel, tenant="other-tenant", assertion=honest_assertion())
+    while the producer identity stays equal.
+
+    **Each case moves exactly ONE claim** and keeps the other two honest, so
+    each of the three checks is the only one that can refuse its case. The
+    first version of this proof let the replay reference follow the contract's
+    tenant, and sabotage S3 (delete the contract-tenant check) stayed green
+    because the replay-reference check refused in its place — a proof with two
+    checks behind one assertion measures neither.
+    """
+    contract_claims = DoorStub(
+        vessel, tenant="other-tenant", replay_tenant=PRODUCER_TENANT, assertion=honest_assertion()
+    )
     refused_as(booted, ask(wired(booted, contract_claims)[0]), "producer-tenant-mismatch")
     replay_claims = DoorStub(vessel, replay_tenant="other-tenant", assertion=honest_assertion())
     refused_as(booted, ask(wired(booted, replay_claims)[0]), "producer-tenant-mismatch")
