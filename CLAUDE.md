@@ -2,6 +2,11 @@
 
 > This file is the entry point for Claude Code. Read it in full at the start of
 > every session before touching code, design docs, or the whitepaper.
+>
+> Any session that adds, designs, modifies, reviews, or closes an example under
+> `examples/` also reads `docs/EXAMPLE-EVALUATION-CRITERIA.md` in full before
+> its first edit — every session, without exception; a previous session's
+> reading does not carry over, and neither does this file's summary of it (§9).
 
 ## 1. Mission
 
@@ -915,8 +920,11 @@ release ships practical, runnable, domain-neutral examples instead.
 
 ### Example Development and Evaluation — REQUIRED
 
-Before designing, modifying, reviewing, or closing any CCF example under
-`examples/`, you MUST read `docs/EXAMPLE-EVALUATION-CRITERIA.md` in full.
+Before adding a new example, or designing, modifying, reviewing, or closing
+any CCF example under `examples/`, you MUST read
+`docs/EXAMPLE-EVALUATION-CRITERIA.md` in full — in every session that touches
+an example, before the first edit. The obligation does not carry over from a
+previous session, and this section is a pointer, not a substitute.
 
 That document is the canonical repository policy for evaluating examples,
 classifying findings, deciding launch blockers versus backlog enhancements,
@@ -1131,6 +1139,10 @@ relax about writing.
 
 ### Discipline for every example
 
+- **Evaluated under `docs/EXAMPLE-EVALUATION-CRITERIA.md`** — read in full
+  before a new example is added and again in every session that works on
+  one; every material finding is classified there before it is fixed, and
+  the close report keeps that document's six sections apart.
 - **Runnable end-to-end** against the reference backends (SQLite-for-dev
   graph store, file-backed ArtifactStore), with a single documented
   command. Examples run in CI; a broken example is a broken build.

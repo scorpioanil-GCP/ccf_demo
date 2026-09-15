@@ -35,8 +35,20 @@ def test_claude_md_carries_the_required_loader() -> None:
     following = body.find("\n### ")
     section = body if following < 0 else body[:following]
     assert f"`{POLICY_REFERENCE}`" in section
-    assert re.search(r"MUST read `docs/EXAMPLE-EVALUATION-CRITERIA\.md` in full", section)
+    assert re.search(r"MUST read\s+`docs/EXAMPLE-EVALUATION-CRITERIA\.md` in full", section)
     assert "STOP and surface the conflict" in section
+    # Adding a NEW example is named, and the obligation is PER SESSION — a
+    # previous session's reading is not carried over by this file.
+    assert "adding a new example" in section
+    assert "in every session" in section
+    assert "does not carry over" in section
+
+
+def test_the_session_start_instruction_names_the_policy() -> None:
+    """The top-of-file blockquote every session reads first also names it."""
+    head = CLAUDE_MD.read_text(encoding="utf-8").split("\n## 1. Mission", 1)[0]
+    assert f"`{POLICY_REFERENCE}`" in head
+    assert "every session" in head
 
 
 def test_the_reference_resolves_from_the_repository_root() -> None:
