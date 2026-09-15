@@ -1,0 +1,71 @@
+{
+  "$defs": {
+    "ProducerOfferDeclaration": {
+      "additionalProperties": false,
+      "description": "One product class a registered producer may be asked for (`D-IMPL-340`).",
+      "properties": {
+        "product_class": {
+          "title": "Product Class",
+          "type": "string"
+        },
+        "versions_from": {
+          "title": "Versions From",
+          "type": "string"
+        }
+      },
+      "required": [
+        "product_class",
+        "versions_from"
+      ],
+      "title": "ProducerOfferDeclaration",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "One remote Context Product producer a deployment is willing to ask.\n\n**SDK-defined, not whitepaper-derived** (CLAUDE.md \u00a77.1, \u00a711). Whitepaper\n\u00a78.3 Pattern 3 makes MCP the surface a fabric exposes products on; nothing\nin it says how a *consuming* fabric declares which producers it trusts to\nanswer a question. `D-IMPL-340` does: **one governed registration per\nproducer, with an ``offers`` list** \u2014 Dave's ruling 4 \u2014 and *\"the\nregistration is the authority for expected producer identity and producer\ntenant. The answer is evidence held against that authority; it is not the\nauthority itself.\"*\n\nFive declared values and one list, none with a default:\n\n* ``server`` \u2014 the logical name an ``mcp_product`` binding selects this\n  producer by. A name, never an address.\n* ``producer_id`` \u2014 the identity every answer from this producer is held\n  to (:class:`~ccf.products.door.ProducerAssertion`).\n* ``producer_tenant`` \u2014 the tenant this producer governs its products\n  under; the tenant every answer's ``tenant_id`` is held to.\n* ``endpoint_from_env`` / ``credential_from_env`` \u2014 the **names** of the\n  environment variables the composition root reads the endpoint URL and\n  the bearer credential from. Names, so that no URL, host, port or secret\n  is ever a Control Plane value; a literal is refused at parse.\n* ``offers`` \u2014 the product classes, each with a version floor, this\n  deployment will ask the producer for. Not one document per class,\n  by ruling.\n\nWhat this artifact does **not** carry, deliberately: a transport, a\nresource URI, a question, or any producer preference a requirement could\nread \u2014 ``requires:`` stays about the product (ruling 7).",
+  "properties": {
+    "credential_from_env": {
+      "title": "Credential From Env",
+      "type": "string"
+    },
+    "endpoint_from_env": {
+      "title": "Endpoint From Env",
+      "type": "string"
+    },
+    "offers": {
+      "items": {
+        "$ref": "#/$defs/ProducerOfferDeclaration"
+      },
+      "title": "Offers",
+      "type": "array"
+    },
+    "producer_id": {
+      "title": "Producer Id",
+      "type": "string"
+    },
+    "producer_tenant": {
+      "title": "Producer Tenant",
+      "type": "string"
+    },
+    "semver": {
+      "title": "Semver",
+      "type": "string"
+    },
+    "server": {
+      "title": "Server",
+      "type": "string"
+    }
+  },
+  "required": [
+    "semver",
+    "server",
+    "producer_id",
+    "producer_tenant",
+    "endpoint_from_env",
+    "credential_from_env",
+    "offers"
+  ],
+  "title": "McpProducerRegistration",
+  "type": "object",
+  "x-ccf-class-id": "ccf.mcp-producer"
+}

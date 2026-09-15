@@ -214,6 +214,55 @@ GUARDED_TYPES: Final[tuple[GuardedTypeDeclaration, ...]] = (
         ),
     ),
     GuardedTypeDeclaration(
+        type_path="ccf.skills.dispatch:McpProductInvocation",
+        authority=(
+            "a registered producer was actually asked this question through"
+            " the registry the composition root populated, and the producer"
+            " identity and tenant carried here were copied from that"
+            " registration, never from the answer (D-IMPL-340)"
+        ),
+        mint="ccf.skills.dispatch:_invoke_mcp_product",
+        verifier="ccf.skills.dispatch:verify_mcp_product_invocation",
+        boundaries=(
+            "ccf.products.composite:invocation_from_dispatch",
+            "ccf.products.child_resolver:GrantBoundChildResolver._admit",
+        ),
+        propagation=(
+            "`_admit` verifies the mint before it reads the door contents or"
+            " copies a producer member into a refusal row, and"
+            " `invocation_from_dispatch` verifies it again before copying the"
+            " members onto `ChildInvocation`; the value never travels further"
+        ),
+        notes=(
+            "a frozen dataclass rather than a contract, on the"
+            " `ResolvedProducer` precedent: the members are evidence of what"
+            " the deployment registered, and a caller-built value must not"
+            " reach admission looking like a dispatch that ran",
+        ),
+    ),
+    GuardedTypeDeclaration(
+        type_path="ccf.skills.dispatch:McpProductFailure",
+        authority=(
+            "a registered producer was actually asked and could not answer;"
+            " the producer identity and tenant carried here were copied from"
+            " that registration, never authored by a caller (D-IMPL-340,"
+            " ruling 1)"
+        ),
+        mint="ccf.skills.dispatch:_invoke_mcp_product",
+        verifier="ccf.skills.dispatch:verify_mcp_product_failure",
+        boundaries=("ccf.products.child_resolver:GrantBoundChildResolver._admit",),
+        propagation=(
+            "`_admit` verifies the mint and writes the members into a"
+            " `producer-unavailable` refusal within the same call; nothing"
+            " else receives the value"
+        ),
+        notes=(
+            "the review of the first cut found this value unminted while its"
+            " members were written into a governed row; it now carries the"
+            " same token as the invocation",
+        ),
+    ),
+    GuardedTypeDeclaration(
         type_path="ccf.replay.serve:DeliveryCapability",
         authority="the decision record was appended before anything was served",
         mint="ccf.replay.serve:ReplayWriter.write_replay_record",

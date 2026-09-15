@@ -63,23 +63,42 @@ def _peering_fixture() -> dict[str, Any]:
     return _fixture("remote_products_peering.yaml")
 
 
+def _mcp_product_fixture() -> dict[str, Any]:
+    return _fixture("exposure_rollup_mcp_product.yaml")
+
+
 def _all_entry_documents() -> list[dict[str, Any]]:
     tool = _tool_fixture()
     return [
         tool["entry"],
         _mcp_fixture()["entry"],
+        _mcp_product_fixture()["entry"],
         *tool["variants"].values(),
     ]
 
 
 class TestEntrySchema:
-    def test_all_five_skill_types_validate(self) -> None:
+    def test_all_six_skill_types_validate(self) -> None:
+        """Five D-IMPL-12/56 types plus `mcp_product` (`D-IMPL-340`, ruling 5).
+
+        The count is pinned so the vocabulary grows only by a ruling: the
+        sixth member was added under Dave's ruling that `mcp_product` ships as
+        its own skill type rather than as a second reading of `mcp`.
+        """
         documents = _all_entry_documents()
         entries = [SkillCatalogEntry.model_validate(d) for d in documents]
         assert {e.skill_type for e in entries} == SKILL_TYPES
-        assert len(SKILL_TYPES) == 5
+        assert len(SKILL_TYPES) == 6
 
-    def test_a_fifth_skill_type_is_refused(self) -> None:
+    def test_an_mcp_product_entry_must_produce_what_it_asks_for(self) -> None:
+        """`D-IMPL-340`: `produces` and the binding's class are one statement."""
+        fixture = _mcp_product_fixture()
+        document = dict(fixture["entry"])
+        document["binding"] = dict(fixture["disagreeing_binding"])
+        with pytest.raises(ValueError, match="asks its producer for"):
+            SkillCatalogEntry.model_validate(document)
+
+    def test_a_seventh_skill_type_is_refused(self) -> None:
         document = dict(_tool_fixture()["entry"])
         document["skill_type"] = document["name"]  # any non-member value
         with pytest.raises(ValueError):

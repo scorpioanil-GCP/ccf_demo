@@ -114,11 +114,12 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from pydantic import field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from ccf.contracts.base import CCFContract
-from ccf.contracts.canonical import canonical_bytes
+from ccf.contracts.canonical import HASH_TRANSPARENT_KEY, canonical_bytes
 from ccf.products.contract import ContextProductContract
+from ccf.products.producer import ProducerAssertion
 from ccf.products.gates import ServableProduct
 from ccf.products.refusal import (
     NO_REPLAY_REFERENCE,
@@ -134,7 +135,9 @@ __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "PRODUCT_REQUEST_TOOL",
+    "AnsweredQuestion",
     "DoorOutcome",
+    "ProducerAssertion",
     "ServedAnswer",
     "UngovernedResolverResult",
     "WireRequest",
@@ -343,6 +346,44 @@ def _replay_ref_of(refusal: RefusalEnvelope | None) -> str | None:
     return refusal.replay_reference
 
 
+class AnsweredQuestion(CCFContract):
+    """The four §6.3 axes a door actually answered (`D-IMPL-340`).
+
+    :attr:`DoorOutcome.request` echoes the wire request — ``product_id``,
+    ``parameters``, the temporal boundary — and nothing else; ``subject``,
+    ``intent`` and ``freshness`` reach a door as separate arguments and, until
+    this type, came back on no channel at all. A consumer holding an answer to
+    the question it asked needs every axis echoed, so the door states them here
+    from the typed request it resolved (never from the caller's text), and the
+    composite's question-identity check recomputes over all of them.
+    """
+
+    subject: str
+    intent: str
+    freshness: str
+    asked_at: datetime
+
+    @field_validator("asked_at")
+    @classmethod
+    def _asked_at_is_one_instant(cls, value: datetime) -> datetime:
+        """A naive instant is not one instant (`D-IMPL-38`).
+
+        The review of the first cut found this echo could carry a naive
+        ``asked_at``, which the consumer's question identity would then render
+        through its host's zone — the same identity check answering
+        differently on two consumers. Refused here, at the door's own
+        boundary, exactly as :class:`WireRequest` refuses a naive temporal
+        boundary; a foreign door that stamps one emits an outcome the consumer
+        cannot decode and refuses as `producer-unavailable`.
+        """
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError(
+                "an answered question's asked_at carries an offset; a naive"
+                " instant is not one instant (D-IMPL-38)"
+            )
+        return value
+
+
 class DoorOutcome(CCFContract):
     """One wire answer from a door: a served vessel, or a refusal.
 
@@ -425,6 +466,20 @@ class DoorOutcome(CCFContract):
     content_address: str | None
     replay_ref: str | None
     refusal: RefusalEnvelope | None
+    #: `D-IMPL-340`. Additive: ``None`` on every door that predates it and on
+    #: every door built without a producer identity, and **hash-transparent at
+    #: ``None``** (`D-IMPL-243`) so those outcomes render byte-for-byte as
+    #: they did. Stamped on BOTH branches — a refusal names its producer too.
+    producer: ProducerAssertion | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    #: `D-IMPL-340`. What the door answered, on the four axes the wire request
+    #: does not carry. Stamped by :func:`door_answer` from the resolved request
+    #: on both branches; transparent at ``None`` so a decoder of an older
+    #: producer's bytes sees exactly what it saw.
+    answered: AnsweredQuestion | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
     @model_validator(mode="after")
     def _exactly_one_half(self) -> DoorOutcome:
@@ -679,6 +734,7 @@ def door_answer(
     *,
     echo: WireRequest,
     resolved_request: ProductRequest,
+    producer: ProducerAssertion | None = None,
 ) -> bytes:
     """The canonical bytes a door puts on an envelope-carrying wire.
 
@@ -712,6 +768,10 @@ def door_answer(
             against. Kept as an argument so the door states, beside the echo,
             what it actually answered — the two are different facts and the
             outcome's temporal witness is measured against this one.
+        producer: Who this door says it is (`D-IMPL-340`), stamped on the
+            served and the refused branch alike. ``None`` — the default, and
+            what every pre-340 door passes — leaves the outcome's bytes
+            exactly as they were.
 
     Returns:
         The outcome's canonical bytes. **Bytes** rather than text, because the
@@ -721,6 +781,12 @@ def door_answer(
         UngovernedResolverResult: ``resolved`` proves no governed determination
             (see :func:`door_refusal` and :func:`served_answer`).
     """
+    answered = AnsweredQuestion(
+        subject=resolved_request.subject,
+        intent=resolved_request.intent,
+        freshness=resolved_request.freshness,
+        asked_at=resolved_request.asked_at,
+    )
     refusal = door_refusal(resolved)
     if refusal is not None:
         return canonical_bytes(
@@ -734,6 +800,8 @@ def door_answer(
                 # refusal (`D-IMPL-256`).
                 replay_ref=_replay_ref_of(refusal),
                 refusal=refusal,
+                producer=producer,
+                answered=answered,
             )
         )
     answer = served_answer(resolved)
@@ -745,5 +813,7 @@ def door_answer(
             content_address=hashlib.sha256(vessel).hexdigest(),
             replay_ref=answer.replay_ref,
             refusal=None,
+            producer=producer,
+            answered=answered,
         )
     )

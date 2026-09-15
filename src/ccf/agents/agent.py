@@ -418,15 +418,36 @@ class Agent:
         # import-ordered — and an import graph whose success depends on which
         # module a caller reached first is exactly the non-determinism
         # D-IMPL-37 rejects for registries.
-        from ccf.skills.dispatch import dispatch_skill
+        from ccf.skills.dispatch import (
+            McpProductFailure,
+            McpProductInvocation,
+            dispatch_skill,
+        )
 
-        return dispatch_skill(
+        if bound.skill_type == "mcp_product":
+            # `D-IMPL-340`. A producer is asked a governed question by a
+            # composite's child resolver, which carries the composite's
+            # effective request; an agent's tool-style invocation carries
+            # only a string mapping and cannot pose one. Refused here, by
+            # name, rather than as dispatch's generic missing-question error.
+            raise TypeError(
+                f"skill {name!r} is an 'mcp_product' skill; it is invoked by a"
+                " composite through a ProductQuestion, not through"
+                " Agent.invoke_skill (D-IMPL-340)"
+            )
+        dispatched = dispatch_skill(
             bound,
             arguments=arguments,
             callable_registry=self._callable_registry,
             mcp_skills=self._mcp_skills,
             peering_skills=self._peering_skills,
         )
+        if isinstance(dispatched, (McpProductInvocation, McpProductFailure)):
+            raise TypeError(  # unreachable without a question; stated for the type
+                "dispatch returned a product-question result to an agent"
+                " invocation that posed no question (D-IMPL-340)"
+            )
+        return dispatched
 
     def emit_effect(self, payload: Mapping[str, Any]) -> EmittedEffect:
         """Emit ``payload`` as a returned typed value (no write handle).

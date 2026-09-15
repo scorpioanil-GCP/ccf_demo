@@ -102,6 +102,7 @@ from typing import Any, get_args
 
 from ccf.contracts.base import CCFContract
 from ccf.controlplane.artifacts import (
+    MCP_PRODUCER,
     DEPLOYMENT_CONFIG,
     DeploymentConfig,
     DeploymentManifest,
@@ -196,6 +197,9 @@ _RESERVED_SECTIONS: Mapping[str, tuple[str | None, str | None]] = {
     # what keeps this to one entry — *"No product-specific replay semantics in
     # the Control Plane—only deployment binding/configuration."*
     "replay": ("ccf.replay-binding", None),
+    # `D-IMPL-340`: one `ccf.mcp-producer` document per labeled producer,
+    # derived per key exactly as `policy_constraints` is.
+    "producers": ("ccf.mcp-producer", None),
 }
 
 
@@ -727,6 +731,29 @@ def derive_deployment(
             entries.append(entry)
             documents[entry.key] = document
 
+    # `producers:` (`D-IMPL-340`) — optional, dynamically keyed, one manifest
+    # entry per label on the `policy_constraints` discipline, so each remote
+    # producer registration has its own key, content-hash version and
+    # effectivity. Appended AFTER the ordered sections below so every key
+    # order that existed before this section did is byte-for-byte what it was.
+    _refuse_empty_section("producers", config.producers, fields_set)
+    producer_entries: list[tuple[ManifestEntry, Mapping[str, Any]]] = []
+    if config.producers:
+        producer_class_id, producer_wrapper = _RESERVED_SECTIONS["producers"]
+        for label, producer_body in sorted(config.producers.items()):
+            entry, document = _derive_entry(
+                label=f"producers.{label}",
+                body=producer_body,
+                semver=config.semver,
+                config_filename=config_filename,
+                default_class_id=producer_class_id,
+                wrapper=producer_wrapper,
+            )
+            # Validated HERE, at derivation, not only at boot: a literal URL
+            # or token in the section must never reach a derived document
+            # (CINV-01; `D-IMPL-340` ruling 10).
+            parse_artifact(document, MCP_PRODUCER)
+            producer_entries.append((entry, document))
     resolution_section_key: str | None = None
     policy_section_key: str | None = None
 
@@ -762,6 +789,9 @@ def derive_deployment(
         elif section_name == "policy":
             policy_section_key = entry.key
 
+    for entry, document in producer_entries:
+        entries.append(entry)
+        documents[entry.key] = document
     # The two top-level boot pointers (design spec §6.3): derived from the
     # section names, an explicit top-level value on the config wins.
     resolution_spec_key = config.resolution_spec_key or resolution_section_key

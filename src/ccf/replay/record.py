@@ -220,6 +220,10 @@ CHILD_OUTCOME_STATUSES: Final[frozenset[str]] = frozenset(
         "optional-absent",
         "ineligible",
         "unauthorized",
+        # `D-IMPL-340` ruling 1: a registered, governed producer that could
+        # not answer. Its own token, so "we could not reach the producer" is
+        # never read as a rejection of a product that was produced.
+        "producer-unavailable",
     }
 )
 
@@ -876,6 +880,23 @@ class ChildResolution(CCFContract):
             peered child's are different evidence with different trust, and
             *"eligible"* alone would make them indistinguishable.
         refusal_ref: The child's refusal, when it refused or was rejected.
+        producer_id: `D-IMPL-340` — the identity the deployment's producer
+            registration expects, copied from that registration at dispatch.
+            Recorded on every ``mcp_product`` row, admitted or not, so replay
+            names the exact producer relationship.
+        producer_tenant: The tenant that registration says the producer
+            governs under — what the child's own tenant was held to.
+        producer_registration_address: The content address of the
+            ``ccf.mcp-producer`` document the acquisition ran under — the
+            governance context, without the endpoint or credential it named.
+        producer_server: The logical producer name the granted binding
+            selected. A name, never an address.
+        child_question_address: ``sha256`` of the canonical question sent —
+            the question's identity, which the producer's echo was held to.
+        child_replay_ref: The producer's own replay-record reference, as its
+            door reported it. **Retained as the producer's claim** — this
+            fabric never resolves it (Dave: *"do not require access to a
+            remote provider's internal replay store"*).
     """
 
     # Every optional member below is marked ``False`` — a generation boundary,
@@ -964,6 +985,28 @@ class ChildResolution(CCFContract):
     )
     refusal_ref: str | None = Field(
         default=None, json_schema_extra={HASH_TRANSPARENT_KEY: False}
+    )
+    # `D-IMPL-340` — the producer relationship, from the registration the
+    # registry resolved and never from the answer. Marked ``True``: a row
+    # written before these members existed, or for a child acquired any other
+    # way, hashes exactly as it did.
+    producer_id: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    producer_tenant: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    producer_registration_address: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    producer_server: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    child_question_address: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    child_replay_ref: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
 
     @model_validator(mode="after")

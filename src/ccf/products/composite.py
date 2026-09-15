@@ -85,10 +85,11 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from typing import (
+    TYPE_CHECKING,
     Final,
     Literal,
     Protocol,
@@ -101,7 +102,7 @@ from typing import (
 from pydantic import Field, field_validator
 
 from ccf.contracts.base import CCFContract
-from ccf.contracts.canonical import HASH_TRANSPARENT_KEY, content_hash
+from ccf.contracts.canonical import HASH_TRANSPARENT_KEY, canonical_bytes, content_hash
 from ccf.controlplane.artifact_base import ArtifactClass
 from ccf.controlplane.registry import ControlPlaneMissing, ControlPlaneProtocol
 from decimal import Decimal
@@ -134,8 +135,14 @@ from ccf.replay.record import (
     ChildResolution,
     DecisionReplayRecord,
 )
+from ccf.products.producer import ProducerAssertion
+from ccf.products.request import ProductRequest
 from ccf.skills.catalog import NO_PRODUCT_CLASS, SkillCatalogEntry
+from ccf.skills.dispatch import question_identity, verify_mcp_product_invocation
 from ccf.skills.grants import BoundSkillView
+
+if TYPE_CHECKING:  # the door imports the refusal module, which imports this one
+    from ccf.products.door import AnsweredQuestion, WireRequest
 
 __ccf_mode__ = "algorithmic"
 
@@ -161,6 +168,7 @@ __all__ = [
     "ChildRefusalReason",
     "CompositeAdmissionGate",
     "CompositeChildResolverProtocol",
+    "RequestAwareChildResolverProtocol",
     "CompositionOutcome",
     "compose_children",
     "invocation_from_dispatch",
@@ -244,6 +252,14 @@ ChildRefusalReason = Literal[
     "undeclared-outcome",
     "unsupported-outcome",
     "mixing-refused",
+    # `D-IMPL-340` — the producer leg. Wrong producer and wrong producer
+    # tenant are DISTINCT by ruling; equality is a binding check, never an
+    # authorization.
+    "producer-tenant-mismatch",
+    "producer-mismatch",
+    "producer-unasserted",
+    "question-mismatch",
+    "producer-unavailable",
 ]
 
 CHILD_REFUSAL_REASONS: Final[frozenset[str]] = frozenset(get_args(ChildRefusalReason))
@@ -291,6 +307,25 @@ class ChildAdmissionRefusal(GateRefusal):
     verified_content_address: str | None = Field(
         default=None, json_schema_extra={HASH_TRANSPARENT_KEY: False}
     )
+    # `D-IMPL-340` — the producer relationship a refusal was made under, from
+    # the registration the registry resolved (never from the answer), so a
+    # refused `mcp_product` row still names the exact producer. Transparent at
+    # ``None``: every refusal on every other leg hashes as it did.
+    producer_id: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    producer_tenant: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    producer_registration_address: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    producer_server: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    question_address: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
 
 class ProvenanceForgeryError(TypeError):
@@ -310,7 +345,7 @@ _INVOCATION_TOKEN = object()
 #: envelope merely because acquisition uses MCP. A genuinely peered product
 #: must still pass peering verification, regardless of how the skill retrieves
 #: it."*
-ChildAcquisition = Literal["local-dispatch", "mcp", "peered"]
+ChildAcquisition = Literal["local-dispatch", "mcp", "mcp-product", "peered"]
 
 #: What each acquisition kind is evidenced by, and what it may therefore claim.
 #:
@@ -325,6 +360,9 @@ ChildAcquisition = Literal["local-dispatch", "mcp", "peered"]
 _ACQUISITION_OF: Final[dict[str, tuple[ChildAcquisition, str]]] = {
     "SkillInvocation": ("local-dispatch", "local_callable"),
     "McpInvocation": ("mcp", "mcp"),
+    # `D-IMPL-340`: a producer ASKED a governed question. Its own kind, so
+    # the producer admission leg runs for it and for nothing else.
+    "McpProductInvocation": ("mcp-product", "mcp_product"),
     "PeeringInvocation": ("peered", "peering"),
 }
 
@@ -357,6 +395,11 @@ class ChildInvocation:
         "_acquisition",
         "_entry_version",
         "_grant_hash",
+        "_producer_id",
+        "_producer_registration_address",
+        "_producer_server",
+        "_producer_tenant",
+        "_question_address",
         "_skill_name",
         "_touched_entities",
     )
@@ -370,6 +413,11 @@ class ChildInvocation:
         acquisition: ChildAcquisition,
         touched_entities: tuple[str, ...] | None,
         token: object,
+        producer_id: str | None = None,
+        producer_tenant: str | None = None,
+        producer_registration_address: str | None = None,
+        producer_server: str | None = None,
+        question_address: str | None = None,
     ) -> None:
         if token is not _INVOCATION_TOKEN:
             raise ProvenanceForgeryError(
@@ -385,6 +433,36 @@ class ChildInvocation:
         self._grant_hash = grant_hash
         self._acquisition = acquisition
         self._touched_entities = touched_entities
+        self._producer_id = producer_id
+        self._producer_tenant = producer_tenant
+        self._producer_registration_address = producer_registration_address
+        self._producer_server = producer_server
+        self._question_address = question_address
+
+    @property
+    def producer_id(self) -> str | None:
+        """`D-IMPL-340`: the identity the registration expects (``mcp-product`` only)."""
+        return self._producer_id
+
+    @property
+    def producer_tenant(self) -> str | None:
+        """`D-IMPL-340`: the tenant the registration expects (``mcp-product`` only)."""
+        return self._producer_tenant
+
+    @property
+    def producer_registration_address(self) -> str | None:
+        """`D-IMPL-340`: the ``ccf.mcp-producer`` document's content address."""
+        return self._producer_registration_address
+
+    @property
+    def producer_server(self) -> str | None:
+        """`D-IMPL-340`: the logical producer name the binding selected."""
+        return self._producer_server
+
+    @property
+    def question_address(self) -> str | None:
+        """`D-IMPL-340`: ``sha256`` of the canonical question sent."""
+        return self._question_address
 
     @property
     def skill_name(self) -> str:
@@ -650,6 +728,20 @@ def invocation_from_dispatch(
             " local invalidation register be claimed as an authority over a"
             " decision it never saw (D-IMPL-336 Amendment 5)"
         )
+    if kind != "mcp-product":
+        return ChildInvocation(
+            skill_name=producer.entry.name,
+            entry_version=producer.entry.artifact_version,
+            grant_hash=producer.grant_hash,
+            acquisition=kind,
+            touched_entities=touched_entities,
+            token=_INVOCATION_TOKEN,
+        )
+    # `D-IMPL-340`. The producer members are copied from a dispatch value the
+    # registry MINTED — `verify_mcp_product_invocation` checks the mint, not
+    # the class (`D-IMPL-337`) — so what admission holds the answer to is what
+    # the deployment registered, never what a caller typed.
+    asked = verify_mcp_product_invocation(dispatched)
     return ChildInvocation(
         skill_name=producer.entry.name,
         entry_version=producer.entry.artifact_version,
@@ -657,6 +749,11 @@ def invocation_from_dispatch(
         acquisition=kind,
         touched_entities=touched_entities,
         token=_INVOCATION_TOKEN,
+        producer_id=asked.producer_id,
+        producer_tenant=asked.producer_tenant,
+        producer_registration_address=asked.producer_registration_address,
+        producer_server=asked.server,
+        question_address=asked.question_address,
     )
 
 
@@ -690,6 +787,14 @@ class ChildCandidate:
     #: does all three and this type is the evidence it ran. Dave's ruling:
     #: *"composition consumes the verified result or refusal."*
     admission: AdmittedProduct | None = None
+    #: `D-IMPL-340`. What the producer's door CLAIMED about itself, its echo of
+    #: the question, and its own replay reference — three claims, all held to
+    #: the invocation (the registration) by the producer admission leg and
+    #: none of them an authority. ``None`` on every other acquisition kind.
+    producer_assertion: ProducerAssertion | None = None
+    question_echo: "WireRequest | None" = None
+    answered_question: "AnsweredQuestion | None" = None
+    child_replay_ref: str | None = None
 
 
 _CHILD_ADMISSION_TOKEN = object()
@@ -978,6 +1083,8 @@ class CompositeAdmissionGate:
         recomputed = content_hash(contract)
         verified = recomputed if recomputed == reported else None
 
+        invocation = candidate.invocation
+
         def refuse(reason: ChildRefusalReason, detail: str) -> ChildAdmissionRefusal:
             return ChildAdmissionRefusal(
                 gate=GATE_CHILD_ADMISSION,
@@ -986,9 +1093,27 @@ class CompositeAdmissionGate:
                 reason=reason,
                 reported_content_address=reported,
                 verified_content_address=verified,
+                # `D-IMPL-340`: a refusal on the producer leg still names the
+                # exact producer relationship — from the invocation, i.e. the
+                # registration, never from the answer.
+                producer_id=invocation.producer_id,
+                producer_tenant=invocation.producer_tenant,
+                producer_registration_address=invocation.producer_registration_address,
+                producer_server=invocation.producer_server,
+                question_address=invocation.question_address,
             )
 
-        if contract.tenant_id != self._tenant_id:
+        if invocation.acquisition == "mcp-product":
+            # `D-IMPL-340` ruling 3 and 8. The child was governed under its
+            # PRODUCER's tenant, and the consumer's expectation of which
+            # producer and which tenant comes from its own registration. The
+            # composite's tenant is not compared here and is never set equal
+            # to the producer's to pass; the local-dispatch check below is
+            # not weakened.
+            held = self._hold_to_registration(candidate, refuse)
+            if held is not None:
+                return held
+        elif contract.tenant_id != self._tenant_id:
             return refuse(
                 "tenant-mismatch",
                 f"the child claims tenant {contract.tenant_id!r} and this gate"
@@ -1062,6 +1187,140 @@ class CompositeAdmissionGate:
             admitted_at,
             _CHILD_ADMISSION_TOKEN,
         )
+
+    def _hold_to_registration(
+        self,
+        candidate: ChildCandidate,
+        refuse: Callable[[ChildRefusalReason, str], ChildAdmissionRefusal],
+    ) -> ChildAdmissionRefusal | None:
+        """The producer leg (`D-IMPL-340`): hold every claim to the registration.
+
+        The expectations — ``producer_id`` and ``producer_tenant`` — sit on
+        the invocation, copied from the registration the registry resolved
+        for the grant's binding. The candidate's contract, its door's producer
+        assertion, its replay reference and its echo of the question are
+        **claims**. Each is held to the expectation; a claim that matches
+        merely fails to refuse, because the grant and the registration
+        authorized the acquisition before any bytes arrived. Wrong producer is
+        distinct from wrong producer tenant by ruling.
+        """
+        invocation = candidate.invocation
+        expected_tenant = invocation.producer_tenant
+        assert expected_tenant is not None
+        contract = candidate.contract
+        if contract.tenant_id != expected_tenant:
+            return refuse(
+                "producer-tenant-mismatch",
+                f"the child was governed under tenant {contract.tenant_id!r}"
+                f" and the producer registration expects {expected_tenant!r};"
+                " the registration is the authority for the producer-side"
+                " tenant and the answer is evidence held against it"
+                " (D-IMPL-340)",
+            )
+        return self.hold_producer_claims(
+            invocation=invocation,
+            assertion=candidate.producer_assertion,
+            replay_ref=candidate.child_replay_ref,
+            echo=candidate.question_echo,
+            answered=candidate.answered_question,
+            refuse=refuse,
+        )
+
+    def hold_producer_claims(
+        self,
+        *,
+        invocation: ChildInvocation,
+        assertion: ProducerAssertion | None,
+        replay_ref: str | None,
+        echo: "WireRequest | None",
+        answered: "AnsweredQuestion | None",
+        refuse: Callable[[ChildRefusalReason, str], ChildAdmissionRefusal],
+    ) -> ChildAdmissionRefusal | None:
+        """Hold a door's claims about itself and its question to the registration.
+
+        Shared by the served path (through :meth:`admit`) and the **refused**
+        path — a governed refusal from a door that asserts another producer,
+        another tenant or another question is a misrouting to refuse as such,
+        never an `ineligible` row filed under the registered producer's name
+        (review finding on the first cut).
+        """
+        expected_tenant = invocation.producer_tenant
+        expected_producer = invocation.producer_id
+        assert expected_tenant is not None and expected_producer is not None
+        if replay_ref is not None:
+            claimed_tenant = _replay_ref_tenant(replay_ref)
+            if claimed_tenant != expected_tenant:
+                return refuse(
+                    "producer-tenant-mismatch",
+                    f"the child's replay reference sits under tenant"
+                    f" {claimed_tenant!r} and the producer registration"
+                    f" expects {expected_tenant!r}; a product and its record"
+                    " are governed under one tenant (D-IMPL-340)",
+                )
+        if assertion is None:
+            return refuse(
+                "producer-unasserted",
+                "the producer's door stamped no producer assertion on its"
+                " answer, so there is nothing to hold to the registration's"
+                f" expected producer {expected_producer!r}; a door built"
+                " without an identity cannot be composed as a registered"
+                " producer (D-IMPL-340)",
+            )
+        if assertion.producer_id != expected_producer:
+            return refuse(
+                "producer-mismatch",
+                f"the answer asserts producer {assertion.producer_id!r} and the"
+                f" registration expects {expected_producer!r}; the consumer"
+                " contacted the registered endpoint and the answer names"
+                " another producer, which is a misrouting to refuse, never an"
+                " identity to adopt (D-IMPL-340)",
+            )
+        if assertion.tenant_id != expected_tenant:
+            return refuse(
+                "producer-tenant-mismatch",
+                f"the answer asserts tenant {assertion.tenant_id!r} for"
+                f" producer {expected_producer!r} and the registration expects"
+                f" {expected_tenant!r} (D-IMPL-340)",
+            )
+        if echo is None:
+            return refuse(
+                "question-mismatch",
+                "the producer's answer echoes no wire request, so nothing binds"
+                f" it to the question this composition sent"
+                f" ({invocation.question_address!r}) (D-IMPL-340)",
+            )
+        if answered is None:
+            # A door from before `D-IMPL-340` echoes the wire request and
+            # nothing else. That is not enough to bind subject, intent and
+            # freshness, so an `mcp_product` acquisition requires a door that
+            # states the axes it answered — by design, not by accident: the
+            # producer assertion is required on the same grounds.
+            return refuse(
+                "question-mismatch",
+                "the producer's answer echoes the wire request but states no"
+                " answered axes (subject, intent, freshness, asked_at); a"
+                " door that predates D-IMPL-340 cannot be composed as a"
+                " registered producer until it is upgraded, because three of"
+                f" the four question axes would be unbound"
+                f" ({invocation.question_address!r})",
+            )
+        echoed = question_identity(
+            request_json=canonical_bytes(echo).decode("utf-8"),
+            subject=answered.subject,
+            intent=answered.intent,
+            freshness=answered.freshness,
+            asked_at=answered.asked_at,
+        )
+        if echoed != invocation.question_address:
+            return refuse(
+                "question-mismatch",
+                "the producer's echo of the question — its wire request and"
+                " the four axes it says it answered — does not match the"
+                " question this composition sent"
+                f" ({invocation.question_address!r}); an answer to a different"
+                " question is not this child (D-IMPL-340)",
+            )
+        return None
 
     def _establish_eligibility(
         self,
@@ -1139,7 +1398,7 @@ class CompositeAdmissionGate:
                 )
             return (ELIGIBILITY_LOCAL_REGISTER, None)
 
-        if acquisition == "mcp":
+        if acquisition in ("mcp", "mcp-product"):
             # No local claim is made and none is available. The basis records
             # WHICH authority governed the read so a replay reader is never
             # left inferring that this fabric checked something it could not.
@@ -1239,6 +1498,37 @@ class CompositeChildResolverProtocol(Protocol):
         """
         ...
 
+
+
+@runtime_checkable
+class RequestAwareChildResolverProtocol(Protocol):
+    """A child resolver that takes the composite's EFFECTIVE request (`D-IMPL-340`).
+
+    A **capability** Protocol on the `D-IMPL-339` precedent
+    (:class:`~ccf.products.resolver.CompositePlanFactoryProtocol`): the
+    resolver declares, structurally, that it wants the request the composite
+    resolved — defaults applied, policy narrowed — so its child questions
+    derive from the same authority chain every other argument travels.
+    :class:`~ccf.products.resolver.GovernedResolver` calls ``resolve_for`` on
+    a resolver that declares it and the legacy call on one that does not;
+    :class:`CompositeChildResolverProtocol` is not widened, because *"adding a
+    defaulted parameter to a Protocol does not make existing implementations
+    accept that keyword."*
+
+    Returns the same ``product class → outcome`` mapping the legacy call
+    does, judged by the same gate.
+    """
+
+    def resolve_for(
+        self,
+        *,
+        requirements: Sequence[ChildRequirement],
+        request: ProductRequest,
+        asked_at: datetime,
+        admitted_at: datetime,
+        composition_invocation: str,
+        consumer_lineage: ProductLineage,
+    ) -> Mapping[str, object]: ...
 
 @dataclass(frozen=True)
 class CompositionOutcome:
@@ -1505,6 +1795,16 @@ def resolve_child_outcomes(
                         child_content_address=outcome.verified_content_address,
                         producing_fabric=_provider_of(outcome.candidate),
                         refusal_ref=reason,
+                        producer_id=outcome.candidate.invocation.producer_id,
+                        producer_tenant=outcome.candidate.invocation.producer_tenant,
+                        producer_registration_address=(
+                            outcome.candidate.invocation.producer_registration_address
+                        ),
+                        producer_server=outcome.candidate.invocation.producer_server,
+                        child_question_address=(
+                            outcome.candidate.invocation.question_address
+                        ),
+                        child_replay_ref=outcome.candidate.child_replay_ref,
                     )
                 )
                 first(bare(reason, requirement.product_class, detail))
@@ -1528,6 +1828,13 @@ def resolve_child_outcomes(
                     child_reported_address=outcome.reported_content_address,
                     child_content_address=outcome.verified_content_address,
                     refusal_ref=outcome.reason,
+                    producer_id=outcome.producer_id,
+                    producer_tenant=outcome.producer_tenant,
+                    producer_registration_address=(
+                        outcome.producer_registration_address
+                    ),
+                    producer_server=outcome.producer_server,
+                    child_question_address=outcome.question_address,
                 )
             )
             first(outcome)
@@ -1821,6 +2128,15 @@ _REASON_TO_STATUS: Final[Mapping[str, str]] = {
     "provenance-unverified": "unauthorized",
     # The rest are genuine admission rejections: the child was produced and
     # did not meet the contract.
+    # `D-IMPL-340`. The producer leg's identity and tenancy checks are
+    # authorization-shaped; an echo that does not match the question sent is
+    # a produced product that did not meet the contract; and a registered
+    # producer that could not answer keeps its own token (ruling 1).
+    "producer-tenant-mismatch": "unauthorized",
+    "producer-mismatch": "unauthorized",
+    "producer-unasserted": "unauthorized",
+    "question-mismatch": "rejected-at-admission",
+    "producer-unavailable": "producer-unavailable",
     "class-mismatch": "rejected-at-admission",
     "version-incompatible": "rejected-at-admission",
     "as-of-mismatch": "rejected-at-admission",
@@ -1831,6 +2147,22 @@ _REASON_TO_STATUS: Final[Mapping[str, str]] = {
     "unsupported-outcome": "rejected-at-admission",
     "mixing-refused": "rejected-at-admission",
 }
+
+
+def _replay_ref_tenant(replay_ref: str) -> str | None:
+    """The tenant segment of a ``ccf-artifact://<tenant>/<class>/<name>@<v>`` URI.
+
+    Read as text and never resolved: this fabric holds no remote provider's
+    store (`D-IMPL-336` Amendment 5), so the reference is a claim the producer
+    leg holds to the registration, not a record it fetches. ``None`` for a
+    reference of any other shape, which the leg then treats as a mismatch.
+    """
+    prefix = "ccf-artifact://"
+    if not replay_ref.startswith(prefix):
+        return None
+    rest = replay_ref[len(prefix):]
+    tenant, separator, _ = rest.partition("/")
+    return tenant if separator and tenant else None
 
 
 def _status_for(reason: str) -> str:
@@ -1866,6 +2198,10 @@ def _provider_of(candidate: ChildCandidate) -> str | None:
     producer it did not authenticate, which is the whole class of claim
     Amendment 5 removed.
     """
+    if candidate.invocation.acquisition == "mcp-product":
+        # `D-IMPL-340`: the registered producer — a governed name the
+        # deployment declared, not an identity this fabric authenticated.
+        return candidate.invocation.producer_id
     admission = candidate.admission
     return None if admission is None else admission.peer.peer_id
 
@@ -1915,4 +2251,12 @@ def _row_for_admitted(
         child_eligibility_assertion_address=(
             evidence.assertion_address if evidence is not None else None
         ),
+        producer_id=candidate.invocation.producer_id,
+        producer_tenant=candidate.invocation.producer_tenant,
+        producer_registration_address=(
+            candidate.invocation.producer_registration_address
+        ),
+        producer_server=candidate.invocation.producer_server,
+        child_question_address=candidate.invocation.question_address,
+        child_replay_ref=candidate.child_replay_ref,
     )

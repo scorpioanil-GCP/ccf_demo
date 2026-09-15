@@ -58,6 +58,31 @@
       "title": "McpBinding",
       "type": "object"
     },
+    "McpProductBinding": {
+      "additionalProperties": false,
+      "description": "An ``mcp_product`` skill's descriptor: which registered producer to ASK.\n\n`D-IMPL-340`. Dave's definition, verbatim: *\"`mcp_product` means: invoke a\nregistered remote Context Product producer with a governed parameterized\nproduct question.\"* Its own skill type rather than a second reading of\n:class:`McpBinding`, so that a catalog reader can see which entries can\n*ask* and which can only *read*, and so the fixed-resource ``mcp`` path is\nbyte-for-byte what it was.\n\n``server`` selects a **producer registration** by logical name \u2014 the\n``ccf.mcp-producer`` document the composition root registered \u2014 never an\naddress. ``product_class`` and ``product_version`` are what the producer\nis asked for, and the entry's ``produces`` must name the same class: a\nskill that says it produces X while asking for Y is refused at\nregistration, not discovered at admission.",
+      "properties": {
+        "product_class": {
+          "title": "Product Class",
+          "type": "string"
+        },
+        "product_version": {
+          "title": "Product Version",
+          "type": "string"
+        },
+        "server": {
+          "title": "Server",
+          "type": "string"
+        }
+      },
+      "required": [
+        "server",
+        "product_class",
+        "product_version"
+      ],
+      "title": "McpProductBinding",
+      "type": "object"
+    },
     "PeeringBinding": {
       "additionalProperties": false,
       "description": "A ``peering`` skill's descriptor: the remote peer-endpoint it names.\n\nThe token names what class of counterparty the skill reaches \u2014 a peer\nfabric holding its own Control Plane \u2014 never the transport that carries\nit (D-IMPL-59 part 1). ``endpoint`` was always a *logical peer-endpoint\nname* and never a URI, so the field was about a peer from the start.\n\nA descriptor, not a transport: Peering admission verification (CLAUDE.md\n\u00a77.2) applies when products actually cross the boundary, which no code\nin this wave does.",
@@ -320,6 +345,9 @@
           "$ref": "#/$defs/McpBinding"
         },
         {
+          "$ref": "#/$defs/McpProductBinding"
+        },
+        {
           "$ref": "#/$defs/PeeringBinding"
         },
         {
@@ -354,6 +382,7 @@
         "local_callable",
         "tool",
         "mcp",
+        "mcp_product",
         "peering",
         "procedure"
       ],

@@ -284,6 +284,25 @@ def test_a_null_nested_value_is_a_leaf_not_a_walk() -> None:
 #: member audits clean forever.
 _MARKED_IN_THE_TREE = frozenset(
     {
+        # `D-IMPL-340` — fourteen marks, ticked deliberately. Each is `None`
+        # on every leg that predates the decision, so a door outcome, a child
+        # refusal, a replay row or a deployment config from before it hashes
+        # exactly as it did; each is present only for an `mcp_product`
+        # acquisition (or a deployment that declares producers).
+        "ccf.products.door.DoorOutcome.producer",
+        "ccf.products.door.DoorOutcome.answered",
+        "ccf.products.composite.ChildAdmissionRefusal.producer_id",
+        "ccf.products.composite.ChildAdmissionRefusal.producer_tenant",
+        "ccf.products.composite.ChildAdmissionRefusal.producer_registration_address",
+        "ccf.products.composite.ChildAdmissionRefusal.producer_server",
+        "ccf.products.composite.ChildAdmissionRefusal.question_address",
+        "ccf.replay.record.ChildResolution.producer_id",
+        "ccf.replay.record.ChildResolution.producer_tenant",
+        "ccf.replay.record.ChildResolution.producer_registration_address",
+        "ccf.replay.record.ChildResolution.producer_server",
+        "ccf.replay.record.ChildResolution.child_question_address",
+        "ccf.replay.record.ChildResolution.child_replay_ref",
+        "ccf.controlplane.artifacts.DeploymentConfig.producers",
         "ccf.operators.params.TraversalNeighborhoodParameters.admitted_entity_classes",
         "ccf.controlplane.artifacts.TraversalNeighborhoodParametersArtifact.admitted_entity_classes",
         "ccf.operators.params.TraversalDescendantsParameters.admitted_entity_classes",

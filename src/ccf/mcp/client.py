@@ -44,17 +44,17 @@ import asyncio
 import concurrent.futures
 import contextlib
 import threading
-from collections.abc import Awaitable, Callable, Coroutine
+from collections.abc import Awaitable, Callable, Coroutine, Mapping
 from types import TracebackType
 from typing import Any, TypeVar
 
 import httpx
 from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
-from mcp.types import TextResourceContents
+from mcp.types import TextContent, TextResourceContents
 from pydantic import AnyUrl
 
-from ccf.mcp.errors import McpServerUnreachable, McpTimeout
+from ccf.mcp.errors import McpServerUnreachable, McpTimeout, McpToolFailed
 
 __ccf_mode__ = "algorithmic"
 
@@ -287,6 +287,43 @@ class McpResourceClient:
             http_client_factory=self._http_client_factory,
         )
 
+    async def call_tool_text_async(
+        self, name: str, arguments: Mapping[str, Any]
+    ) -> str:
+        """Call one tool and return its text content, concatenated in server order.
+
+        `D-IMPL-340`. The asking primitive beside the reading one: the same
+        session-per-call lifetime, the same ``http_client_factory`` (so the
+        D-26 bearer token rides exactly as it does for a resource read), the
+        same bridge deadline on the synchronous facade. ``arguments`` cross
+        as **structured JSON** — the tool's own input schema validates them
+        server-side — and nothing here derives an address from them: the URL
+        this client contacts was fixed at construction (CINV-01) and a tool
+        call cannot move it.
+
+        Raises:
+            McpToolFailed: the server ran the tool and reported ``isError``;
+                the reported text is carried verbatim.
+            McpServerUnreachable: the call did not complete.
+        """
+
+        async def operation(session: ClientSession) -> str:
+            result = await session.call_tool(name, dict(arguments))
+            text = "".join(
+                content.text
+                for content in result.content
+                if isinstance(content, TextContent)
+            )
+            if result.isError:
+                raise McpToolFailed(name, text)
+            return text
+
+        return await run_with_session(
+            url=self._url,
+            operation=operation,
+            http_client_factory=self._http_client_factory,
+        )
+
     async def resource_uris_async(self) -> tuple[str, ...]:
         """Return the URIs the server advertises, in server order.
 
@@ -337,6 +374,16 @@ class McpResourceClient:
             McpTimeout: the call exceeded the bridge's deadline.
         """
         return self._require_bridge().run(self.read_text_async(uri))
+
+    def call_tool_text(self, name: str, arguments: Mapping[str, Any]) -> str:
+        """Synchronous :meth:`call_tool_text_async`, bounded by the bridge deadline.
+
+        Raises:
+            McpToolFailed: the server reported the call as an error.
+            McpServerUnreachable: no bridge was supplied, or the call failed.
+            McpTimeout: the call exceeded the bridge's deadline.
+        """
+        return self._require_bridge().run(self.call_tool_text_async(name, arguments))
 
     def resource_uris(self) -> tuple[str, ...]:
         """Synchronous :meth:`resource_uris_async`, bounded the same way."""

@@ -51,11 +51,15 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from datetime import datetime
 
+from typing import Any
+
 from ccf.artifacts.protocol import ArtifactStoreProtocol
-from ccf.contracts.canonical import content_hash
+from ccf.contracts.base import CCFContract
+from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.peering.admission import AdmittedProduct, PeeringAdmissionGate
 from ccf.products.composite import (
     GATE_CHILD_ADMISSION,
+    ChildRefusalReason,
     ResolvedProducer,
     ChildAdmissionRefusal,
     ChildCandidate,
@@ -68,12 +72,19 @@ from ccf.products.contract import (
     ContextProductContract,
     ProductLineage,
 )
-from ccf.products.door import DoorOutcome
+from ccf.products.door import DoorOutcome, ProducerAssertion, WireRequest
+from ccf.products.request import ProductRequest
 from ccf.replay.record import DecisionReplayRecord
 from ccf.skills.callables import CallableRegistry
+from ccf.skills.catalog import McpProductBinding
 from ccf.skills.dispatch import (
     McpInvocation,
+    McpProductFailure,
+    McpProductInvocation,
     McpSkillRegistry,
+    ProductQuestion,
+    verify_mcp_product_failure,
+    verify_mcp_product_invocation,
     PeeringInvocation,
     PeeringSkillRegistry,
     SkillInvocation,
@@ -81,7 +92,15 @@ from ccf.skills.dispatch import (
 )
 from ccf.skills.grants import GrantLedger
 
-__all__ = ["ChildRecordMismatch", "GrantBoundChildResolver", "ChildArguments"]
+__all__ = [
+    "MalformedDoorAnswer",
+    "ChildArguments",
+    "ChildQuestion",
+    "ChildQuestions",
+    "ChildRecordMismatch",
+    "GrantBoundChildResolver",
+    "QuestionBoundChildResolver",
+]
 
 
 class ChildRecordMismatch(ValueError):
@@ -118,6 +137,32 @@ class ChildRecordMismatch(ValueError):
 #: producing skill takes. Deployment configuration, not SDK knowledge: what a
 #: child needs to be asked is the deployment's to state (`D-IMPL-38`).
 ChildArguments = Callable[[ChildRequirement, datetime], Mapping[str, str]]
+
+
+class ChildQuestion(CCFContract):
+    """What one child is asked, derived from the composite's request (`D-IMPL-340`).
+
+    Four members, and only four, because these are the four the producer's
+    ``request_context_product`` operation takes from the *question*; the
+    producer's tenant, the class and lane, the reconstruction instant and the
+    endpoint all come from elsewhere (the registration, the binding, the
+    composite's own ``asked_at``) and are not reachable from here. There is no
+    code path from a ``ChildQuestion`` to an address.
+    """
+
+    subject: str
+    intent: str
+    freshness: str
+    parameters: Mapping[str, Any]
+
+
+#: How a deployment turns one requirement and the composite's EFFECTIVE
+#: request into the question its producer is asked. Deployment configuration,
+#: never SDK knowledge (`D-IMPL-38`); what differs from :data:`ChildArguments`
+#: is that the composite's own request — its subject, its resolved parameters
+#: — is in scope, so a per-request anchor reaches the child through the
+#: declared mapping rather than through state closed over beside it.
+ChildQuestions = Callable[[ChildRequirement, ProductRequest], ChildQuestion]
 
 
 class GrantBoundChildResolver:
@@ -248,6 +293,108 @@ class GrantBoundChildResolver:
             contract, address, _replay_ref = answer
             # Deliberately no store read: this fabric does not hold the
             # provider's execution record and the ruling forbids requiring it.
+        elif isinstance(dispatched, McpProductFailure):
+            # `D-IMPL-340` ruling 1: a registered, governed producer that
+            # could not answer. A governed outcome carrying the registration
+            # members, so the row names the producer; never an exception,
+            # which is what an UNREGISTERED producer still gets. The mint is
+            # verified first: the members are about to be written into a
+            # governed row.
+            dispatched = verify_mcp_product_failure(dispatched)
+            return ChildAdmissionRefusal(
+                gate=GATE_CHILD_ADMISSION,
+                detail=(
+                    f"registered producer {dispatched.server!r} could not"
+                    f" answer ({dispatched.failure}: {dispatched.detail}); the"
+                    " producer was reached through its registration and gave"
+                    " no governed answer, so this slot has no child"
+                    " (D-IMPL-340)"
+                ),
+                product_class=requirement.product_class,
+                reason="producer-unavailable",
+                producer_id=dispatched.producer_id,
+                producer_tenant=dispatched.producer_tenant,
+                producer_registration_address=(
+                    dispatched.producer_registration_address
+                ),
+                producer_server=dispatched.server,
+                question_address=dispatched.question_address,
+            )
+        elif isinstance(dispatched, McpProductInvocation):
+            dispatched = verify_mcp_product_invocation(dispatched)
+            asked_invocation = invocation_from_dispatch(producer, dispatched)
+
+            def refuse_naming_producer(
+                reason: ChildRefusalReason, detail: str
+            ) -> ChildAdmissionRefusal:
+                return ChildAdmissionRefusal(
+                    gate=GATE_CHILD_ADMISSION,
+                    detail=detail,
+                    product_class=requirement.product_class,
+                    reason=reason,
+                    producer_id=dispatched.producer_id,
+                    producer_tenant=dispatched.producer_tenant,
+                    producer_registration_address=(
+                        dispatched.producer_registration_address
+                    ),
+                    producer_server=dispatched.server,
+                    question_address=dispatched.question_address,
+                )
+
+            try:
+                asked = _door_answer({"outcome": dispatched.contents})
+            except MalformedDoorAnswer as malformed:
+                # A completed call whose text is not a door outcome at all —
+                # a gateway page, a truncated body. The producer was reached
+                # and gave no governed answer: `producer-unavailable`, with
+                # the failure's class and never its bytes (review finding).
+                return refuse_naming_producer(
+                    "producer-unavailable",
+                    f"registered producer {dispatched.server!r} answered with"
+                    f" something that is not a door outcome ({malformed});"
+                    " the producer was reached and gave no governed answer"
+                    " (D-IMPL-340)",
+                )
+            if asked.product_json is None or asked.content_address is None:
+                # The producer's own door refused — a governed answer. Its
+                # claims about itself and the question are still held to the
+                # registration first: an impostor's refusal is a misrouting,
+                # not an `ineligible` row under the registered producer's name.
+                held = self._gate.hold_producer_claims(
+                    invocation=asked_invocation,
+                    assertion=asked.producer,
+                    replay_ref=asked.replay_ref,
+                    echo=asked.request,
+                    answered=asked.answered,
+                    refuse=refuse_naming_producer,
+                )
+                if held is not None:
+                    return held
+                kind = asked.refusal.kind if asked.refusal is not None else "no product"
+                return refuse_naming_producer(
+                    "ineligible", f"the child's own door refused: {kind}"
+                )
+            contract = ContextProductContract.model_validate_json(asked.product_json)
+            address = asked.content_address
+            # No store read, as for `mcp`: eligibility is the producer's
+            # (`provider-controls`). What the door CLAIMED about itself, its
+            # echo and its replay reference travel as claims for the gate's
+            # producer leg to hold to the registration.
+            return self._gate.admit(
+                candidate=ChildCandidate(
+                    requirement=requirement,
+                    contract=contract,
+                    content_address=address,
+                    invocation=asked_invocation,
+                    producer_assertion=asked.producer,
+                    question_echo=asked.request,
+                    answered_question=asked.answered,
+                    child_replay_ref=asked.replay_ref,
+                ),
+                asked_at=asked_at,
+                admitted_at=admitted_at,
+                composition_invocation=composition_invocation,
+            )
         elif isinstance(dispatched, PeeringInvocation):
             verified = self._admit_peered(
                 dispatched,
@@ -390,6 +537,30 @@ def _refusal_for(
     return refuse
 
 
+class MalformedDoorAnswer(ValueError):
+    """A completed producer call whose text is not a `DoorOutcome` (`D-IMPL-340`)."""
+
+
+def _door_answer(output: Mapping[str, str]) -> DoorOutcome:
+    """Decode a door answer in full, or raise :class:`MalformedDoorAnswer`.
+
+    The producer leg needs more than the vessel: the door's producer
+    assertion, its echo of the question, the axes it answered and its replay
+    reference are the claims admission holds to the registration, so the
+    whole outcome is returned rather than the three-tuple
+    :func:`_door_outcome` gives the legacy legs. A text that does not parse
+    as a door outcome is reported by exception CLASS only — never its bytes,
+    which could be anything a gateway returned.
+    """
+    raw = output.get("outcome")
+    if raw is None:
+        raise MalformedDoorAnswer("no 'outcome' member")
+    try:
+        return DoorOutcome.model_validate_json(raw)
+    except ValueError as invalid:
+        raise MalformedDoorAnswer(type(invalid).__name__) from None
+
+
 def _door_outcome(
     output: Mapping[str, str],
 ) -> tuple[ContextProductContract, str, str | None] | str:
@@ -415,4 +586,142 @@ def _door_outcome(
         ContextProductContract.model_validate_json(answer.product_json),
         answer.content_address,
         answer.replay_ref,
+    )
+
+
+class QuestionBoundChildResolver:
+    """Acquire each declared child by asking its producer a governed question.
+
+    `D-IMPL-340`. Conforms to
+    :class:`~ccf.products.composite.RequestAwareChildResolverProtocol`
+    structurally — it declares :meth:`resolve_for` and deliberately does
+    **not** implement the legacy call, so a
+    :class:`~ccf.products.resolver.GovernedResolver` reaches it with the
+    composite's effective request or not at all. The grant resolution, the
+    dispatch surface and the admission gate are the same objects
+    :class:`GrantBoundChildResolver` holds; what differs is how a requirement
+    becomes what its skill is asked.
+
+    For an ``mcp_product`` entry the question is the deployment's
+    ``child_questions`` mapping over the effective request; the tenant, class
+    and lane come from the registration and the binding, the instant from the
+    composite. For any other entry type the resolver falls back to
+    ``child_arguments`` when one was supplied, so a composite may mix a
+    remote producer with a same-fabric child; without one, such an entry is
+    refused as ``unsupported-outcome`` rather than silently asked nothing.
+
+    Args:
+        child_questions: The deployment's mapping from a requirement and the
+            composite's effective request to the child's question.
+        child_arguments: Optional. The legacy mapping, for non-``mcp_product``
+            entries granted to the same agent.
+        (every other argument): exactly as :class:`GrantBoundChildResolver`.
+    """
+
+    def __init__(
+        self,
+        *,
+        ledger: GrantLedger,
+        agent_definition_hash: str,
+        gate: CompositeAdmissionGate,
+        child_questions: ChildQuestions,
+        callable_registry: CallableRegistry,
+        artifact_store: ArtifactStoreProtocol,
+        mcp_skills: McpSkillRegistry | None = None,
+        peering_skills: PeeringSkillRegistry | None = None,
+        peering_gate: PeeringAdmissionGate | None = None,
+        child_arguments: ChildArguments | None = None,
+    ) -> None:
+        self._questions = child_questions
+        self._legacy = GrantBoundChildResolver(
+            ledger=ledger,
+            agent_definition_hash=agent_definition_hash,
+            gate=gate,
+            child_arguments=child_arguments or _no_child_arguments,
+            callable_registry=callable_registry,
+            artifact_store=artifact_store,
+            mcp_skills=mcp_skills,
+            peering_skills=peering_skills,
+            peering_gate=peering_gate,
+        )
+        self._has_arguments = child_arguments is not None
+
+    def resolve_for(
+        self,
+        *,
+        requirements: tuple[ChildRequirement, ...],
+        request: ProductRequest,
+        asked_at: datetime,
+        admitted_at: datetime,
+        composition_invocation: str,
+        consumer_lineage: ProductLineage,
+    ) -> dict[str, object]:
+        """Resolve every requirement, asking each producer the mapped question."""
+        legacy = self._legacy
+        view = legacy._ledger.bound_view(legacy._agent)
+        outcomes: dict[str, object] = {}
+        for requirement in requirements:
+            producer = resolve_producing_grant(requirement, view)
+            if producer is None:
+                outcomes[requirement.product_class] = None
+                continue
+            binding = producer.entry.binding
+            if isinstance(binding, McpProductBinding):
+                question = self._questions(requirement, request)
+                wire = WireRequest(
+                    product_id=binding.product_class,
+                    parameters=dict(question.parameters),
+                    temporal_boundary=asked_at,
+                )
+                dispatched = dispatch_skill(
+                    producer.entry,
+                    arguments={},
+                    callable_registry=legacy._callables,
+                    mcp_skills=legacy._mcp,
+                    peering_skills=legacy._peering,
+                    question=ProductQuestion(
+                        subject=question.subject,
+                        intent=question.intent,
+                        freshness=question.freshness,
+                        asked_at=asked_at,
+                        parameters=dict(question.parameters),
+                        request_json=canonical_bytes(wire).decode("utf-8"),
+                    ),
+                )
+            elif self._has_arguments:
+                dispatched = dispatch_skill(
+                    producer.entry,
+                    arguments=legacy._child_arguments(requirement, asked_at),
+                    callable_registry=legacy._callables,
+                    mcp_skills=legacy._mcp,
+                    peering_skills=legacy._peering,
+                )
+            else:
+                outcomes[requirement.product_class] = _refusal_for(requirement)(
+                    "unsupported-outcome",
+                    f"the grant for {requirement.product_class!r} resolves to"
+                    f" a {producer.entry.skill_type!r} skill and this resolver"
+                    " was given no child_arguments mapping for it; a"
+                    " question-bound resolver asks mcp_product producers a"
+                    " question and cannot invent arguments for any other"
+                    " skill type (D-IMPL-340)",
+                )
+                continue
+            outcomes[requirement.product_class] = legacy._admit(
+                requirement,
+                producer=producer,
+                dispatched=dispatched,
+                asked_at=asked_at,
+                admitted_at=admitted_at,
+                composition_invocation=composition_invocation,
+                consumer_lineage=consumer_lineage,
+            )
+        return outcomes
+
+
+def _no_child_arguments(
+    requirement: ChildRequirement, asked_at: datetime
+) -> Mapping[str, str]:
+    raise TypeError(
+        f"no child_arguments mapping was supplied for {requirement.product_class!r}"
     )
