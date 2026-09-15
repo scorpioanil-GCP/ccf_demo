@@ -1487,8 +1487,10 @@ regime's skilling envelope, one authority for the product and for the agent.
 superseded both options in §14: *"versions_from is a floor everywhere … Do not tighten the
 contract to 'exact lane only'."* B-07 is therefore withdrawn and §12's row *"Lane asked equals
 the lane served"* is superseded. The one rule (`ccf.products.contract.version_satisfies_floor`:
-same major, at or above, by semver precedence) is read at derivation (the offer floor must lie
-inside the requirement's lane), at the standard door (`OpenedProduct.resolve` serves its ONE lane
+same major, at or above, by semver precedence) is read at derivation (the offer floor and the
+requirement's floor must open ONE major lane; within it they may differ in either direction —
+the close panel caught a first version that refused an asked floor below the composite's, which
+a same-major producer serving above both would have satisfied), at the standard door (`OpenedProduct.resolve` serves its ONE lane
 when it satisfies the floor the address names, answering at the served lane, and refuses
 `class-mismatch` at `schema_version` with BOTH lanes in its record otherwise), and at admission
 (unchanged: `version-incompatible`, reason retained). The binding's `product_version` — sent on
@@ -1505,9 +1507,21 @@ minted path; `door: {credential, issuer_url, resource_server_url}`, each `{from_
 `sources.<name>.<setting>: {from_env, remedy}`; `remote: {call_timeout_seconds}`. A pure consumer
 declares no `sources:`.
 
-**The consumer surface as built** (§5.5): `open_product(…, questions=, approval_sink=)`;
-`OpenedProduct.mcp_skills` (the one registry, populated whether the chain is derived or handed
-in), `OpenedProduct.agent`, `close()` (the bridge). Registration of the regime, the agent and the
+**The consumer surface as built** (§5.5): `open_product(…, questions=, approval_sink=,
+build_children=)`; `OpenedProduct.mcp_skills` (the one registry), `OpenedProduct.agent`,
+`close()` (the bridge); `OpenedProduct.answer` and `.resolve` admit a class-and-floor address
+through one method. **The hatch has two forms, by the close panel's finding**: `children=` is
+the fully external low road (refused beside `producers:`, because a resolver built before open
+cannot see the facade's registry and the declared registrations would be a second one nobody
+composes over), and `build_children=` is a factory handed a `ConsumerContext` — the facade's one
+Control Plane, store, producer registry, tenant and clock — so a hand-built resolver composes
+over the SDK's own registrations, which is what §5.5 and §12 intended. Grant idempotency over a
+shared plane is held to THE SAME grant: a `skills:` entry edited beside a grant in force is
+refused at open naming both versions, never silently superseded (revocation is a Control Plane
+action). A stated agent `consumes` lane is held EQUAL to the requirement's floor (nothing on the
+composite path reads the agent's lane, so a differing one would be a second statement admission
+never consults), and a stated regime or profile reference is held to the deployment's own section
+whenever that section exists — the `key:` remedy applies to a stated reference too. Registration of the regime, the agent and the
 skills at open goes through the manifest's one register loop
 (`ccf.deployment.manifest.register_manifest_entries`), extracted rather than copied; open still
 boots nothing.

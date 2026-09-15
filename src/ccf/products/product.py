@@ -167,6 +167,8 @@ __all__ = [
     "AcquisitionContext",
     "AssessProtocol",
     "AssessmentContext",
+    "ChildResolverFactory",
+    "ConsumerContext",
     "OpenedProduct",
     "open_product",
 ]
@@ -230,6 +232,42 @@ class AssessmentContext:
     half_life: HalfLifeTable | None
     profile: DebtProfile | None
     children: ChildContractView | None
+
+
+@dataclass(frozen=True)
+class ConsumerContext:
+    """What a hand-built child resolver is handed when it composes on the paved surface.
+
+    The low road's hatch, made intentional (`D-IMPL-343`, the panel's finding
+    on this half): a resolver built BEFORE open cannot see the registry the
+    facade populates from ``producers:``, so a deployment that wants the
+    SDK's registrations under its own resolver hands in a FACTORY
+    (``build_children=``) and receives, here, exactly the objects the derived
+    chain is built from — the ONE Control Plane, the ONE store, the ONE
+    registry every declared producer is on, the deployment's tenant and its
+    clock. Nothing here is a second instance of anything.
+
+    Attributes:
+        tenant_id: The deployment's tenant.
+        control_plane: The registry the deployment opens into.
+        artifact_store: The one replay store.
+        mcp_skills: The registry the declared producers were registered on,
+            or ``None`` when the deployment declares none.
+        clock: The one clock.
+    """
+
+    tenant_id: str
+    control_plane: ControlPlaneRegistry
+    artifact_store: ArtifactStoreProtocol
+    mcp_skills: McpSkillRegistry | None
+    clock: Callable[[], datetime]
+
+
+#: The factory form of the composite hatch: given the facade's own objects,
+#: return the child resolver the deployment composes with.
+ChildResolverFactory = Callable[
+    [ConsumerContext], CompositeChildResolverProtocol | RequestAwareChildResolverProtocol
+]
 
 
 @runtime_checkable
@@ -431,6 +469,12 @@ class OpenedProduct:
         deployment asking as somebody else states that principal's grant on
         the request's own parameters, where the effective request records it.
         """
+        chosen = perspective if perspective is not None else self.default_perspective
+        admitted = self._admit_lane(
+            request, perspective=chosen, address=(request.schema_name, request.schema_version)
+        )
+        if isinstance(admitted, RefusalEnvelope):
+            return admitted
         fabric = self._boot()
         try:
             resolver = build_governed_resolver(**self.build_arguments(fabric))
@@ -438,8 +482,8 @@ class OpenedProduct:
                 tenant=self.tenant_id,
                 product_class=self.declaration.schema_name,
                 version=self.declaration.schema_version,
-                perspective=perspective if perspective is not None else self.default_perspective,
-                request=request,
+                perspective=chosen,
+                request=admitted,
             )
         finally:
             fabric.handle.close()
@@ -544,7 +588,8 @@ class OpenedProduct:
 
         Wire parameters cross verbatim (`D-IMPL-302`; `D-IMPL-264` D-04): no
         coercion happens here, so a hand-typed ``"periods": "8"`` is refused
-        by the contract by name rather than quietly widened (R-8).
+        by the contract by name rather than quietly widened (R-8). The lane
+        admission is :meth:`_admit_lane`, shared with :meth:`answer`.
 
         Raises:
             ProductNotResolvable: the address names another tenant, or the
@@ -565,13 +610,31 @@ class OpenedProduct:
                 " request tool only, so a call carrying no request reaches"
                 " nothing this product can answer"
             )
+        admitted = self._admit_lane(request, perspective=perspective, address=(product_class, version))
+        if isinstance(admitted, RefusalEnvelope):
+            return admitted
+        return self.answer(admitted, perspective=perspective)
+
+    def _admit_lane(
+        self, request: ProductRequest, *, perspective: Perspective, address: tuple[str, str]
+    ) -> ProductRequest | RefusalEnvelope:
+        """Hold an address — class and FLOOR — to this product, once, for both public verbs.
+
+        :meth:`resolve` holds the door's address; :meth:`answer` holds the
+        request's own class and lane the same way, so a request carrying a
+        floor is served at the served lane whichever verb it reaches (the
+        panel's finding on this half: the two verbs had diverged). Returns the
+        request to answer — at the ONE lane this product serves, so the record
+        says which — or the recorded ``class-mismatch`` refusal.
+        """
+        product_class, version = address
         declared_name = self.declaration.schema_name
         served_lane = self.declaration.schema_version
         if product_class != declared_name:
             return self._refuse_address(
                 request,
                 perspective=perspective,
-                address=(product_class, version),
+                address=address,
                 key="schema_name",
                 detail=(
                     f"this product serves {declared_name!r} at lane {served_lane!r}"
@@ -582,7 +645,7 @@ class OpenedProduct:
             return self._refuse_address(
                 request,
                 perspective=perspective,
-                address=(product_class, version),
+                address=address,
                 key="schema_version",
                 detail=(
                     f"this product serves {declared_name!r} at lane {served_lane!r},"
@@ -592,11 +655,11 @@ class OpenedProduct:
                     f" {version!r} (D-IMPL-343 R-13)"
                 ),
             )
-        if request.schema_version != served_lane:
-            # The floor was satisfied: the question is answered at the ONE
-            # lane this product serves, and the record says which.
-            request = request.model_copy(update={"schema_version": served_lane})
-        return self.answer(request, perspective=perspective)
+        if request.schema_version != served_lane or request.schema_name != declared_name:
+            return request.model_copy(
+                update={"schema_name": declared_name, "schema_version": served_lane}
+            )
+        return request
 
     def _refuse_address(
         self,
@@ -730,6 +793,7 @@ def open_product(
     capabilities: tuple[TechnicalCapability, ...] | None = None,
     approval_sink: ApprovalSink | None = None,
     children: CompositeChildResolverProtocol | RequestAwareChildResolverProtocol | None = None,
+    build_children: ChildResolverFactory | None = None,
 ) -> OpenedProduct:
     """Open the declared product under ``config_root``: bind the verbs, read the bindings, refuse early.
 
@@ -804,11 +868,19 @@ def open_product(
             ``grant_requires_approval``. ``None`` for a regime that does not;
             a regime that does and no sink is refused at open by name.
         children: A hand-built child resolver for a class declaring
-            ``requires`` — the composite hatch, and the low road's way onto
-            this surface. It composes over :attr:`OpenedProduct.mcp_skills`
-            when the deployment declares producers. Refused together with
-            ``questions=``, or with an ``agent:`` or ``skills:`` section: a
-            deployment declares its chain or hands one in, never both.
+            ``requires`` — the composite hatch in its fully external form: the
+            low road built entirely beside this surface, holding its own
+            registrations. Refused together with ``questions=``, with an
+            ``agent:`` or ``skills:`` section, or with ``producers:`` (a
+            resolver built before open cannot see the facade's registry, so
+            declared producers beside it would be a second registry nobody
+            composes over — use ``build_children=`` for that).
+        build_children: The hatch in its composed form: a factory handed a
+            :class:`ConsumerContext` — the facade's one Control Plane, store,
+            producer registry, tenant and clock — returning the resolver the
+            deployment composes with. The SDK registers ``producers:`` and the
+            deployment builds everything else the low road builds. Refused
+            beside ``children=``, ``questions=``, ``agent:`` or ``skills:``.
 
     Raises:
         ValueError: any open-time refusal in the module docstring — each
@@ -879,7 +951,9 @@ def open_product(
             " declare `declared_product_gate` on the class, or drop the"
             " argument (D-IMPL-282 R-11)"
         )
-    _refuse_half_wired_composite(declaration, keys, questions=questions, children=children)
+    _refuse_half_wired_composite(
+        declaration, keys, questions=questions, children=children, build_children=build_children
+    )
 
     resolved_environ = os.environ if environ is None else environ
     sources = resolve_values(environment.sources, resolved_environ)
@@ -922,7 +996,17 @@ def open_product(
             bridge, mcp_skills = _register_declared_producers(
                 derived, registry=registry, environment=environment, environ=resolved_environ, clock=clock
             )
-        if declaration.requires and children is None:
+        if build_children is not None:
+            child_resolver = build_children(
+                ConsumerContext(
+                    tenant_id=config.tenant_id,
+                    control_plane=registry,
+                    artifact_store=store,
+                    mcp_skills=mcp_skills,
+                    clock=clock,
+                )
+            )
+        elif declaration.requires and children is None:
             assert questions is not None  # `_refuse_half_wired_composite` held it
             agent, child_resolver = _derive_consumer_chain(
                 derived,
@@ -976,23 +1060,33 @@ def _refuse_half_wired_composite(
     *,
     questions: ChildQuestions | None,
     children: CompositeChildResolverProtocol | RequestAwareChildResolverProtocol | None,
+    build_children: ChildResolverFactory | None,
 ) -> None:
     """A composite is declared whole or handed in whole — every mixed state refused by name.
 
     Four declarations make a derived chain: ``requires`` on the class,
     ``producers:``, ``skills:``, ``agent:`` — and one keyword, ``questions=``.
-    One keyword makes a handed-in chain: ``children=``. What is refused: a
-    class with ``requires`` and neither; a class without ``requires`` and
-    either; both at once; a handed-in chain beside a declared ``agent:`` or
-    ``skills:`` (which one would govern is exactly the ambiguity a declared
-    deployment cannot carry); and a derived chain missing any of its four
+    One keyword makes a handed-in chain: ``children=`` (fully external) or
+    ``build_children=`` (composed over the facade's registry). What is
+    refused: a class with ``requires`` and none of them; a class without
+    ``requires`` and any of them; two of them at once; a handed-in chain
+    beside a declared ``agent:`` or ``skills:`` (which one would govern is
+    exactly the ambiguity a declared deployment cannot carry); ``children=``
+    beside ``producers:`` (a resolver built before open cannot see the
+    facade's registry, so the declared registrations would be a second one
+    nobody composes over); and a derived chain missing any of its four
     declarations, each named with the section that fills it.
     """
     requires = declaration.requires
+    handed = [
+        name
+        for name, value in (("children=", children), ("build_children=", build_children))
+        if value is not None
+    ]
     if not requires:
-        if children is not None:
+        for name in handed:
             raise ValueError(
-                "this call supplies `children=` and the product class declares no"
+                f"this call supplies `{name}` and the product class declares no"
                 " `requires`; a child resolver with nothing to resolve is wiring"
                 " that nothing exercises (D-IMPL-343)"
             )
@@ -1003,10 +1097,16 @@ def _refuse_half_wired_composite(
                 " nothing exercises (D-IMPL-343)"
             )
         return
-    if children is not None:
+    if len(handed) == 2:
+        raise ValueError(
+            "this call supplies both `children=` and `build_children=`; the hatch"
+            " is a resolver OR a factory for one, never both (D-IMPL-343)"
+        )
+    if handed:
+        (name,) = handed
         if questions is not None:
             raise ValueError(
-                "this call supplies both `children=` and `questions=`; a composite"
+                f"this call supplies both `{name}` and `questions=`; a composite"
                 " hands its chain in through the hatch or has it derived from"
                 " `questions=` and the declarations beside it, never both"
                 " (D-IMPL-343)"
@@ -1014,10 +1114,20 @@ def _refuse_half_wired_composite(
         if keys.agent is not None or keys.skills:
             declared = [s for s, present in (("agent", keys.agent), ("skills", keys.skills)) if present]
             raise ValueError(
-                f"this call supplies `children=` and the config declares {declared!r};"
+                f"this call supplies `{name}` and the config declares {declared!r};"
                 " a handed-in chain beside a declared one leaves the question of"
                 " which governs, so a deployment declares its chain or hands one"
                 " in, never both (D-IMPL-343)"
+            )
+        if children is not None and keys.producers:
+            raise ValueError(
+                "this call supplies `children=` and the config declares"
+                " `producers:`; a resolver built before open cannot see the"
+                " registry the facade populates from those declarations, so they"
+                " would be a second registry nothing composes over — hand in a"
+                " factory through `build_children=` to compose over the SDK's"
+                " registrations, or register the producers on the low road and"
+                " drop `producers:` (D-IMPL-343)"
             )
         return
     if questions is None:
@@ -1164,7 +1274,23 @@ def _derive_consumer_chain(
         assert isinstance(entry, SkillCatalogEntry)  # its entry names SKILL_CATALOG_ENTRY
         produced.add(entry.produces)
         if entry.name in bound:
-            continue  # idempotent over a shared registry: already in force for this agent
+            in_force = bound[entry.name]
+            if content_hash(in_force) != content_hash(entry):
+                # Idempotent means THE SAME grant: a skill bound to this agent at
+                # another version is a standing Control Plane fact this open did
+                # not make and will not silently supersede — revocation is a
+                # governance action (CLAUDE.md §6.2), never a side effect of
+                # editing a section (panel finding, this half).
+                raise ValueError(
+                    f"skill {entry.name!r} is bound to agent {agent.name!r} on this"
+                    f" Control Plane at artifact_version {in_force.artifact_version!r}"
+                    f" (content {content_hash(in_force)[:12]}…) and the `skills:`"
+                    f" section now declares artifact_version {entry.artifact_version!r}"
+                    f" (content {content_hash(entry)[:12]}…); revoke the grant in"
+                    " force, or restore the declared version — a bound skill is"
+                    " never superseded by an edit (D-IMPL-343; D-IMPL-29)"
+                )
+            continue  # idempotent over a shared registry: this grant is in force
         outcome = ledger.request(
             SkillGrant(
                 schema_version=entry.schema_version,

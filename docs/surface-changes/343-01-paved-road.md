@@ -378,7 +378,7 @@ all. *"One facade over D-IMPL-336–340 — not three helpers."*
 - Public surface: true
 - Change type: reshaped
 - Before: a class declaring `requires` opened only with a hand-built `children=`; `producers:` was declared but never registered by the facade
-- After: two added optional keywords — `questions=` (the developer's `ChildQuestions` mapping, required exactly when the class declares `requires` and no `children=` is handed in) and `approval_sink=` (the `D-IMPL-29` tier-2 hatch); every `producers.*` registration is registered at open on ONE `McpSkillRegistry` over ONE bridge, whether or not the chain is derived; the chain — agent, catalog entry, grant, `QuestionBoundChildResolver` behind `CompositeAdmissionGate` — is derived from `agent:`, `skills:` and the policy regime's `skill_governance`; every mixed state (a hatch beside a declared chain, a mapping with no `requires`, a missing section) is refused at open by name
+- After: three added optional keywords — `questions=` (the developer's `ChildQuestions` mapping, required exactly when the class declares `requires` and no hatch is handed in), `approval_sink=` (the `D-IMPL-29` tier-2 hatch) and `build_children=` (the hatch's composed form: a `ChildResolverFactory` handed a `ConsumerContext` — the facade's one Control Plane, store, producer registry, tenant and clock; `children=` stays as the fully external form and is refused beside `producers:`); every `producers.*` registration is registered at open on ONE `McpSkillRegistry` over ONE bridge, whether or not the chain is derived; the chain — agent, catalog entry, grant, `QuestionBoundChildResolver` behind `CompositeAdmissionGate` — is derived from `agent:`, `skills:` and the policy regime's `skill_governance`; every mixed state (a hatch beside a declared chain, a mapping with no `requires`, a missing section) is refused at open by name
 - Why: D-IMPL-343 consumer half — R-2 (a declarative composing agent), R-7 (catalog/grant fields derived only from declared keys), R-13 (floors held at the earlier boundary)
 - Migration: none; `children=` remains the hatch and composes over `opened.mcp_skills`
 
@@ -388,7 +388,7 @@ all. *"One facade over D-IMPL-336–340 — not three helpers."*
 - Public surface: true
 - Change type: reshaped
 - Before: `close()` released nothing; no consumer members
-- After: `mcp_skills` (the one registry every declared producer is on, or `None`), `agent` (the derived composing agent, or `None`), `close()` releases the producers' bridge (idempotent); `resolve` treats the addressed lane as a FLOOR (R-13): served when the declared lane shares the floor's major and is at or above it — the request is answered at the served lane — and refused `class-mismatch` at `key="schema_version"` with both lanes in the record otherwise
+- After: `mcp_skills` (the one registry every declared producer is on, or `None`), `agent` (the derived composing agent, or `None`), `close()` releases the producers' bridge (idempotent); `resolve` AND `answer` admit a class-and-floor address through one method: served when the declared lane shares the floor's major and is at or above it — the request is answered at the served lane — and refused `class-mismatch` at `key="schema_version"` with both lanes in the record otherwise (R-13)
 - Why: R-13 — "exact-address-at-serve while floor-at-open is a defect"; the bridge needs a place to close
 - Migration: a door addressed at exactly its lane behaves as before; a door addressed below its lane within the major now serves rather than refuses
 
@@ -398,7 +398,7 @@ all. *"One facade over D-IMPL-336–340 — not three helpers."*
 - Public surface: true
 - Change type: behavior
 - Before: `agent:` derived verbatim (tenant filled); no `skills:` section
-- After: `skills:` — one author-versioned `ccf.skill-catalog-entry` per label, registered under the `{tenant}/ccf.skill-catalog-entry/{name}` key its grant resolves through; the SDK fills `name`, `skill_type` (`mcp_product`), `binding` (the ONE declared producer offering `produces`, at that producer's `versions_from` floor) and the structurally empty `argument_schema`, and holds any stated value equal; the two author lanes, `description` (`D-IMPL-56`) and `requirements` (`D-IMPL-29`) are never filled; a floor outside the requirement's lane, no or two offering producers, an unrequired class, and a `key:` override are refused at derivation by name. `agent:` — `context_contract` filled from `requires` (each class at its floor) or checked to cover it, `perspective` filled from `default_perspective` or held to its role, `policy_regime` and `halflife_debt_profile` filled as pinned references to the deployment's own sections (whose keys must then be in `{tenant}/{class}/{name}` form — refused with that remedy otherwise) or held equal, `instruction_bindings` defaulted to none
+- After: `skills:` — one author-versioned `ccf.skill-catalog-entry` per label, registered under the `{tenant}/ccf.skill-catalog-entry/{name}` key its grant resolves through; the SDK fills `name`, `skill_type` (`mcp_product`), `binding` (the ONE declared producer offering `produces`, at that producer's `versions_from` floor) and the structurally empty `argument_schema`, and holds any stated value equal; the two author lanes, `description` (`D-IMPL-56`) and `requirements` (`D-IMPL-29`) are never filled; two floors opening different majors, no or two offering producers, an unrequired class, and a `key:` override are refused at derivation by name. `agent:` — `context_contract` filled from `requires` (each class at its floor) or held to it (every required class present, at exactly the requirement's floor), `perspective` filled from `default_perspective` or held to its role, `policy_regime` and `halflife_debt_profile` filled as pinned references to the deployment's own sections or held equal to them whenever the section exists (its key must then be in `{tenant}/{class}/{name}` form — refused with that remedy otherwise, filled or stated), `instruction_bindings` defaulted to none; a grant already in force for the agent at another version of the same skill is refused at open naming both versions
 - Why: R-7 and R-2 as ruled; no invented field, no fake semver, one authority per value
 - Migration: none for a config declaring neither section
 
@@ -421,6 +421,26 @@ all. *"One facade over D-IMPL-336–340 — not three helpers."*
 - After: `skills: tuple[str, ...]` — the derived entries' keys in label order
 - Why: the facade reads keys, never restates them
 - Migration: direct constructions state the new member (one in the tree, the derivation itself)
+
+## ccf.products.product.ConsumerContext
+
+- Surface: ccf.products.product.ConsumerContext
+- Public surface: true
+- Change type: added
+- Before: absent — a hand-built resolver could not see the registry the facade populates
+- After: a frozen dataclass — `tenant_id`, `control_plane`, `artifact_store`, `mcp_skills`, `clock` — handed to a `build_children=` factory
+- Why: the close panel's finding — the hatch beside `producers:` was double-wired; now it composes over the SDK's own registrations
+- Migration: none
+
+## ccf.products.product.ChildResolverFactory
+
+- Surface: ccf.products.product.ChildResolverFactory
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `Callable[[ConsumerContext], CompositeChildResolverProtocol | RequestAwareChildResolverProtocol]`
+- Why: the factory form of the hatch
+- Migration: none
 
 ## ccf.deployment.manifest.register_manifest_entries
 

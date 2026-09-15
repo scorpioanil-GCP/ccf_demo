@@ -41,7 +41,6 @@ from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from typing import Any
 
-import httpx
 import pytest
 from pydantic import ValidationError
 
@@ -52,7 +51,7 @@ from ccf.products.child_resolver import ChildQuestion, QuestionBoundChildResolve
 from ccf.products.composite import CompositeAdmissionGate
 from ccf.products.contract import ChildRequirement, ContextProductContract
 from ccf.products.door import WireRequest
-from ccf.products.product import OpenedProduct, open_product
+from ccf.products.product import ConsumerContext, OpenedProduct, open_product
 from ccf.products.refusal import RefusalEnvelope
 from ccf.products.request import ProductRequest
 from ccf.replay.record import DecisionReplayRecord
@@ -74,6 +73,7 @@ from tests.products.paved_fixture import (
     ENDPOINT_VAR,
     PARENT_CLASS,
     PARENT_DSN_VAR,
+    PARENT_VERSION,
     PRODUCER_ID,
     PRODUCER_TENANT,
     SERVER_NAME,
@@ -480,16 +480,18 @@ def test_no_address_and_no_credential_appears_in_either_document(tmp_path: pathl
 # --- 4. the hatch, and bypass attempts ------------------------------------------------
 
 
-def _low_road_children(opened_registry: ControlPlaneRegistry, url: str) -> QuestionBoundChildResolver:
-    """The low road, built by hand beside the paved surface: registry → catalog → grant → resolver."""
-    from ccf.agents.definitions import AgentDefinition  # noqa: PLC0415
-    from ccf.controlplane.artifacts import MCP_PRODUCER, declared_artifact_class, parse_artifact  # noqa: PLC0415
-    from ccf.mcp.client import SyncMcpBridge  # noqa: PLC0415
-    from ccf.skills.catalog import McpProductBinding, SkillArgumentSchema, SkillCatalogEntry, SkillRequirements  # noqa: PLC0415
-    from ccf.skills.dispatch import McpSkillRegistry  # noqa: PLC0415
-    from ccf.skills.grants import SkillGrant  # noqa: PLC0415
-    from ccf.skills.producers import register_declared_producer  # noqa: PLC0415
+def _low_road_children(context: ConsumerContext) -> QuestionBoundChildResolver:
+    """The low road, built by hand over the facade's OWN objects: regime → agent → catalog → grant → resolver.
 
+    Registers no producer: the SDK registered the declared one on
+    ``context.mcp_skills``, and this factory composes over it — one registry.
+    """
+    from ccf.agents.definitions import AgentDefinition  # noqa: PLC0415
+    from ccf.controlplane.artifacts import declared_artifact_class, parse_artifact  # noqa: PLC0415
+    from ccf.skills.catalog import McpProductBinding, SkillArgumentSchema, SkillCatalogEntry, SkillRequirements  # noqa: PLC0415
+    from ccf.skills.grants import SkillGrant  # noqa: PLC0415
+
+    opened_registry = context.control_plane
     regime_key = f"{CONSUMER_TENANT}/policy-bundle/low-road"
     regime_class = declared_artifact_class("policy-bundle")
     opened_registry.register_typed(
@@ -520,49 +522,96 @@ def _low_road_children(opened_registry: ControlPlaneRegistry, url: str) -> Quest
         definition=definition, actor="low-road-consumer",
     )
     assert isinstance(outcome, str), outcome
-    mcp = McpSkillRegistry(audit_log=opened_registry.audit_log, clock=lambda: ADMITTED_AT)
-    register_declared_producer(
-        mcp, artifact=parse_artifact({"semver": "1.0.0", **fixture.producer_section()}, MCP_PRODUCER),  # type: ignore[arg-type]
-        environ={ENDPOINT_VAR: url, CREDENTIAL_VAR: DEV_TOKEN}, bridge=SyncMcpBridge(call_timeout_seconds=60),
-        credential_factory=lambda token: lambda: httpx.AsyncClient(headers={"Authorization": f"Bearer {token}"}, timeout=60),
-    )
+    assert context.mcp_skills is not None, "the SDK registered the declared producer"
     return QuestionBoundChildResolver(
         ledger=ledger, agent_definition_hash=content_hash(definition),
         gate=CompositeAdmissionGate(tenant_id=CONSUMER_TENANT, consumer_scope="consumer://low-road", registry=opened_registry),
         child_questions=fixture.questions, callable_registry=CallableRegistry(),
-        artifact_store=FileArtifactStore(root=tmp_store_root), mcp_skills=mcp,
+        artifact_store=context.artifact_store, mcp_skills=context.mcp_skills,
     )
 
 
-tmp_store_root = pathlib.Path()
-
-
-def test_the_children_hatch_still_works_beside_the_declared_producers(tmp_path: pathlib.Path, producer_url: str) -> None:
-    """`children=` with `producers:` declared and no `skills:`/`agent:`: the low
-    road composes on the paved surface, and the SDK's own registration of the
-    declared producer is still there on `opened.mcp_skills`."""
-    global tmp_store_root
-    tmp_store_root = tmp_path / "scratch" / "artifact-store"
-    tmp_store_root.mkdir(parents=True)
-    registry = ControlPlaneRegistry()
+def test_the_build_children_hatch_composes_over_the_sdks_own_registrations(tmp_path: pathlib.Path, producer_url: str) -> None:
+    """`build_children=` with `producers:` declared and no `skills:`/`agent:`: the
+    low road, built by hand from the facade's own context, composes on the paved
+    surface over the ONE registry the SDK populated — no second registry, no
+    second registration (the panel's finding on this half, made intentional)."""
     config = fixture.consumer_config(skills=None, agent=None)
     root = _tree(tmp_path, config=config)
-    children = _low_road_children(registry, producer_url)
-    with _open(root, tmp_path / "scratch", producer_url, questions=None, children=children, control_plane=registry) as opened:
+    with _open(root, tmp_path / "scratch", producer_url, questions=None, build_children=_low_road_children) as opened:
         assert opened.mcp_skills is not None and opened.agent is None
         served = opened.answer(_question(opened))
         assert isinstance(served, ServedProduct), getattr(served, "detail", served)
         row = _the_row(opened, served)
     assert row.outcome_status == "admitted" and row.producing_skill_name == "low-road-ask"
+    assert row.producer_server == SERVER_NAME
 
 
-def test_a_hatch_beside_a_declared_chain_or_a_mapping_is_refused_at_open(tmp_path: pathlib.Path, producer_url: str) -> None:
+def test_a_hatch_beside_a_declared_chain_a_mapping_or_declared_producers_is_refused_at_open(
+    tmp_path: pathlib.Path, producer_url: str
+) -> None:
     root = _tree(tmp_path)
     resolver = object()
     with pytest.raises(ValueError, match="never both"):
         _open(root, tmp_path / "scratch", producer_url, children=resolver)  # skills + agent declared
+    bare = fixture.consumer_config(skills=None, agent=None)
     with pytest.raises(ValueError, match="never both"):
-        _open(_tree(tmp_path / "b", config=fixture.consumer_config(skills=None, agent=None)), tmp_path / "b" / "scratch", producer_url, children=resolver)  # questions= too
+        _open(_tree(tmp_path / "b", config=bare), tmp_path / "b" / "scratch", producer_url, children=resolver)  # questions= too
+    with pytest.raises(ValueError, match="build_children="):
+        _open(_tree(tmp_path / "c", config=bare), tmp_path / "c" / "scratch", producer_url, questions=None, children=resolver)  # producers: beside a pre-built resolver
+    with pytest.raises(ValueError, match="never both"):
+        _open(_tree(tmp_path / "d", config=bare), tmp_path / "d" / "scratch", producer_url, questions=None, children=resolver, build_children=lambda context: resolver)
+
+
+def test_a_served_lane_below_the_composites_floor_is_refused_at_admission_with_the_reason(
+    tmp_path: pathlib.Path, producer_url: str
+) -> None:
+    """R-13's third boundary, reached through the paved road: the producer
+    serves `1.0.0`; the consumer asks from floor `1.0.0` (the offer) and
+    composes from `1.5.0` (the requirement) — one major, so it opens; the door
+    serves; admission holds the served lane to the composite's floor:
+    `version-incompatible`, reason retained. The low road's `OFC-G19`, paved."""
+    config = fixture.consumer_config(compatible_from="1.5.0", producers={"child": fixture.producer_section(versions_from="1.0.0")})
+    root = _tree(tmp_path, config=config)
+    with _open(root, tmp_path / "scratch", producer_url) as opened:
+        refused = opened.answer(_question(opened))
+        assert isinstance(refused, RefusalEnvelope), refused
+        row = _the_row(opened, refused)
+    assert row.refusal_ref == "version-incompatible" and row.outcome_status == "rejected-at-admission"
+    assert row.producer_id == PRODUCER_ID and row.child_question_address is not None
+
+
+def test_a_bumped_skill_beside_a_grant_in_force_is_refused_at_open_naming_both_versions(
+    tmp_path: pathlib.Path, producer_url: str
+) -> None:
+    """Idempotent means THE SAME grant: over a shared plane, an edited
+    `skills:` entry beside the grant already in force is refused by name, never
+    silently superseded (the panel's finding on this half)."""
+    registry = ControlPlaneRegistry()
+    with _open(_tree(tmp_path / "a"), tmp_path / "a" / "scratch", producer_url, control_plane=registry) as first:
+        assert isinstance(first.answer(_question(first)), ServedProduct)
+    bumped = fixture.consumer_config(skills={SKILL: fixture.skill_section(artifact_version="1.1.0", description="asks, revised")})
+    with pytest.raises(ValueError, match="1.0.0.*1.1.0|1.1.0.*1.0.0"):
+        _open(_tree(tmp_path / "b", config=bumped), tmp_path / "b" / "scratch", producer_url, control_plane=registry)
+
+
+def test_answer_admits_a_floor_bearing_request_the_way_resolve_admits_an_address(
+    tmp_path: pathlib.Path, producer_url: str
+) -> None:
+    """The two public verbs agree (the panel's finding): a request whose lane is
+    a floor the served lane satisfies is answered at the served lane through
+    `answer` too; one it does not satisfy is refused `class-mismatch`, recorded."""
+    root = _tree(tmp_path)
+    with _open(root, tmp_path / "scratch", producer_url) as opened:
+        floored = _question(opened).model_copy(update={"schema_version": "1.0.0-rc.1"})
+        served = opened.answer(floored)
+        assert isinstance(served, ServedProduct), getattr(served, "detail", served)
+        assert served.product.schema_version == PARENT_VERSION
+        answered = opened.record_of(served).content_generation_path.request
+        assert answered is not None and answered.schema_version == PARENT_VERSION
+        refused = opened.answer(_question(opened).model_copy(update={"schema_version": "2.0.0"}))
+        assert isinstance(refused, RefusalEnvelope) and refused.reason == "class-mismatch"
+        assert "2.0.0" in json.loads(opened.record_of(refused).content_generation_path.assembly_refusal)["detail"]
 
 
 def test_a_hatch_that_hands_back_an_unadmitted_product_cannot_be_composed(tmp_path: pathlib.Path, producer_url: str) -> None:
@@ -575,7 +624,7 @@ def test_a_hatch_that_hands_back_an_unadmitted_product_cannot_be_composed(tmp_pa
     def bypass(*, requirements: Any, asked_at: Any, admitted_at: Any, composition_invocation: Any, consumer_lineage: Any) -> dict[str, object]:
         return {CHILD_CLASS: vessel if vessel is not None else object()}
 
-    root = _tree(tmp_path, config=fixture.consumer_config(skills=None, agent=None))
+    root = _tree(tmp_path, config=fixture.consumer_config(producers=None, skills=None, agent=None))
     with _open(root, tmp_path / "scratch", producer_url, questions=None, children=bypass) as opened:
         refused = opened.answer(_question(opened))
         assert isinstance(refused, RefusalEnvelope), refused

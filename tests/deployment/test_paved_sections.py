@@ -88,6 +88,17 @@ def _door(**overrides: Any) -> dict[str, Any]:
     return body
 
 
+#: A `policy:` section whose key an agent's axis can reference — the
+#: `{tenant}/{class}/{name}` form a pinned artifact reference resolves through.
+KEYED_POLICY: dict[str, Any] = {
+    "class_id": "acme.policy-bundle",
+    "role": "register",
+    "registration": "typed",
+    "key": f"{TENANT}/acme.policy-bundle/regime",
+    "regime": "fixture-regime",
+}
+
+
 def _agent(**overrides: Any) -> dict[str, Any]:
     body: dict[str, Any] = {
         "schema_version": "1.0.0",
@@ -96,12 +107,18 @@ def _agent(**overrides: Any) -> dict[str, Any]:
         "archetypes": ["context_assembly"],
         "context_contract": {"consumes": [{"product_class": "fixture.child", "schema_version": "1.0.0"}]},
         "perspective": {"role": "analyst", "selection_params": {}},
-        "policy_regime": {"ref": f"ccf-artifact://{TENANT}/policy-bundle/x@1.0.0"},
+        # The deployment's own bundle, pinned — the ONE regime (held equal).
+        "policy_regime": {"ref": f"ccf-artifact://{KEYED_POLICY['key']}@1.0.0"},
         "halflife_debt_profile": {"ref": f"ccf-artifact://{TENANT}/debt-profile/x@1.0.0"},
         "instruction_bindings": [],
     }
     body.update(overrides)
     return body
+
+
+def _with_agent(**overrides: Any) -> DeploymentConfig:
+    """`_minimal` plus a referenceable policy key and an agent section."""
+    return _minimal(policy=KEYED_POLICY, agent=_agent(**overrides.pop("agent", {})), **overrides)
 
 
 # --- 1. the two typed sections ------------------------------------------------
@@ -166,7 +183,7 @@ def test_a_third_ttl_key_is_refused_as_documentation_not_control() -> None:
 
 
 def test_the_agent_section_derives_on_the_versioned_path_with_no_semver_injected() -> None:
-    derived = derive_deployment(_minimal(agent=_agent()))
+    derived = derive_deployment(_with_agent())
     entry = next(entry for entry in derived.manifest.artifacts if entry.key == "agent")
     assert (entry.class_id, entry.role, entry.registration) == ("ccf.agent-definition", "register", "versioned")
     document = derived.documents["agent"]
@@ -178,20 +195,20 @@ def test_the_agent_section_derives_on_the_versioned_path_with_no_semver_injected
 
 def test_an_agent_declaring_another_tenant_is_refused_and_the_same_tenant_is_admitted() -> None:
     with pytest.raises(ValueError, match="declares tenant 'other'"):
-        derive_deployment(_minimal(agent=_agent(tenant="other")))
-    derived = derive_deployment(_minimal(agent=_agent(tenant=TENANT)))
+        derive_deployment(_with_agent(agent={"tenant": "other"}))
+    derived = derive_deployment(_with_agent(agent={"tenant": TENANT}))
     assert derived.documents["agent"]["tenant"] == TENANT
 
 
 @pytest.mark.parametrize("fixed", ["class_id", "role", "registration"])
 def test_the_agent_sections_fixed_bookkeeping_cannot_be_overridden(fixed: str) -> None:
     with pytest.raises(ValueError, match=fixed):
-        derive_deployment(_minimal(agent=_agent(**{fixed: "x"})))
+        derive_deployment(_with_agent(agent={fixed: "x"}))
 
 
 def test_a_malformed_agent_is_refused_at_derivation_not_boot() -> None:
     with pytest.raises(Exception, match="archetype"):
-        derive_deployment(_minimal(agent=_agent(archetypes=["no-such-archetype"])))
+        derive_deployment(_with_agent(agent={"archetypes": ["no-such-archetype"]}))
 
 
 # --- 4. the keys -------------------------------------------------------------------
@@ -388,13 +405,17 @@ def test_no_producer_or_two_producers_offering_the_class_refuse_at_derivation() 
         derive_deployment(_consumer(producers={"a": _producer(), "b": _producer()}))
 
 
-def test_the_offer_floor_is_held_inside_the_requirements_lane_at_derivation() -> None:
+def test_the_two_floors_must_open_one_major_lane_and_may_differ_within_it() -> None:
+    """R-13 at derivation. Another major is refused with both floors; within one
+    major the asked floor may sit above OR below the composite's — the served
+    lane is held to the composite's floor at admission (the panel caught the
+    first version, which refused a below floor and so diverged from the low road)."""
     with pytest.raises(ValueError, match="R-13") as refused:
         derive_deployment(_consumer(producers={"child": _producer(offers=[{"product_class": "fixture.child", "versions_from": "2.0.0"}])}))
     assert "2.0.0" in str(refused.value) and "1.0.0" in str(refused.value)
-    # Same major, above the requirement's floor: inside the lane, derives.
-    derived = derive_deployment(_consumer(producers={"child": _producer(offers=[{"product_class": "fixture.child", "versions_from": "1.3.0"}])}))
-    assert derived.documents[SKILL_KEY]["binding"]["product_version"] == "1.3.0"
+    for floor in ("1.3.0", "1.0.0-rc.1"):
+        derived = derive_deployment(_consumer(producers={"child": _producer(offers=[{"product_class": "fixture.child", "versions_from": floor}])}))
+        assert derived.documents[SKILL_KEY]["binding"]["product_version"] == floor
 
 
 def test_the_agent_is_completed_from_the_deployments_own_declarations() -> None:
@@ -411,7 +432,7 @@ def test_the_agent_is_completed_from_the_deployments_own_declarations() -> None:
     ("axis", "match"),
     [
         ({"context_contract": {"consumes": [{"product_class": "fixture.other", "schema_version": "1.0.0"}]}}, "held to `requires`"),
-        ({"context_contract": {"consumes": [{"product_class": "fixture.child", "schema_version": "0.9.0"}]}}, "admits it from"),
+        ({"context_contract": {"consumes": [{"product_class": "fixture.child", "schema_version": "1.4.0"}]}}, "one statement"),
         ({"perspective": {"role": "someone-else", "selection_params": {}}}, "perspective.role="),
         ({"policy_regime": {"ref": f"ccf-artifact://{TENANT}/acme.policy-bundle/other@1.0.0"}}, "policy_regime.ref="),
         ({"halflife_debt_profile": {"ref": f"ccf-artifact://{TENANT}/ccf.debt-profile/other@1.0.0"}}, "halflife_debt_profile.ref="),
@@ -421,9 +442,17 @@ def test_a_stated_agent_axis_is_held_to_the_deployment(axis: dict[str, Any], mat
     base = {"schema_version": "1.0.0", "artifact_version": "1.0.0", "name": "composer", "archetypes": ["context_assembly"]}
     with pytest.raises(ValueError, match=match):
         derive_deployment(_consumer(agent={**base, **axis}))
-    # Positive control: a wider stated contract that still covers the requirement derives.
-    wider = {"context_contract": {"consumes": [{"product_class": "fixture.child", "schema_version": "1.4.0"}, {"product_class": "fixture.extra", "schema_version": "3.0.0"}]}}
+    # Positive control: a stated contract at the requirement's floor, with an extra
+    # class of the agent's own, derives.
+    wider = {"context_contract": {"consumes": [{"product_class": "fixture.child", "schema_version": "1.0.0"}, {"product_class": "fixture.extra", "schema_version": "3.0.0"}]}}
     assert derive_deployment(_consumer(agent={**base, **wider})).keys.agent == "agent"
+
+
+def test_a_stated_regime_ref_beside_an_unreferenceable_policy_key_is_refused_with_the_remedy() -> None:
+    """The panel's finding: a stated ref must not slip past the hold-equal just
+    because the section's key is bare — one regime, or the `key:` remedy."""
+    with pytest.raises(ValueError, match="key: <tenant>/<class>/<name>"):
+        derive_deployment(_minimal(agent=_agent()))  # bare `policy` key, stated ref
 
 
 def test_an_agent_axis_with_no_section_to_fill_it_from_is_refused_naming_the_remedy() -> None:

@@ -115,7 +115,7 @@ from ccf.controlplane.artifacts import (
     load_artifact,
     parse_artifact,
 )
-from ccf.products.contract import ChildRequirement
+from ccf.products.contract import ChildRequirement, version_satisfies_floor
 from ccf.skills.catalog import SKILL_CATALOG_ENTRY, skill_catalog_key
 from ccf.controlplane.registry import ControlPlaneProtocol
 from ccf.deployment.classes import (
@@ -473,11 +473,17 @@ def _complete_skill_entry(
     the class itself.
 
     **`R-13` at the earlier boundary.** The floor a producer is asked from
-    (``versions_from``) must lie inside the requirement's declared lane
-    (``compatible_from``, same major and at or above), or the composite could
-    never admit what it asked for — refused here, by name, with both floors.
-    The served lane is still held to the requirement at admission, exactly as
-    the low road holds it (`version-incompatible`, reason retained).
+    (``versions_from``) and the floor the composite admits from
+    (``compatible_from``) must open the SAME major lane, or nothing the
+    producer served from its floor could ever be admitted — refused here, by
+    name, with both floors. Within one major the two may differ in either
+    direction: what the producer actually serves is held to the composite's
+    floor at admission, exactly as the low road holds it
+    (`version-incompatible`, reason retained). The panel's review of this
+    half caught the first version of this check, which refused an asked floor
+    below the composite's — a same-major producer serving above both would
+    have been admitted, so that refusal was a semantic divergence from the
+    low road, not a guard.
 
     Raises:
         ValueError: ``produces`` absent; ``produces`` names a class the
@@ -511,14 +517,15 @@ def _complete_skill_entry(
         )
     server, registration = _the_offering_producer(produces, producers, label=label)
     offer = next(o for o in registration.offers if o.product_class == produces)
-    if not requirement.accepts(child_version=offer.versions_from):
+    if not _same_major(offer.versions_from, requirement.compatible_from):
         raise ValueError(
             f"producer {server!r} offers {produces!r} from lane"
             f" {offer.versions_from!r} and the composite admits it from"
-            f" {requirement.compatible_from!r} (same major, at or above); the"
-            " floor asked lies outside the lane the composite composes over,"
-            " so nothing the producer served could ever be admitted — align the"
-            " two floors (D-IMPL-343 R-13)"
+            f" {requirement.compatible_from!r}; the two floors open different"
+            " major lanes, so nothing the producer served from its floor could"
+            " ever be admitted — align the majors (D-IMPL-343 R-13). Within one"
+            " major the floors may differ: the served lane is held to the"
+            " composite's floor at admission"
         )
 
     source = f"the section label and `produces` ({produces!r})"
@@ -573,6 +580,18 @@ def _complete_skill_entry(
         )
     document["argument_schema"] = dict(_EMPTY_ARGUMENT_SCHEMA)
     return document
+
+
+def _same_major(one: str, other: str) -> bool:
+    """Whether two semantic versions open the same major lane — via the ONE floor rule.
+
+    Two versions share a major exactly when one satisfies the other's floor
+    (:func:`~ccf.products.contract.version_satisfies_floor`: same major, at or
+    above); a second parse of the grammar here would be a second rule.
+    """
+    return version_satisfies_floor(floor=one, version=other) or version_satisfies_floor(
+        floor=other, version=one
+    )
 
 
 def _artifact_ref(key: str, semver: str, *, section: str) -> str:
@@ -651,13 +670,18 @@ def _complete_agent(
                     " every class its composite requires, so the contract is"
                     " held to `requires` (D-IMPL-343 R-2)"
                 )
-            if not requirement.accepts(child_version=lane):
+            if lane != requirement.compatible_from:
+                # Held EQUAL, not merely inside the lane: nothing on the
+                # composite path reads the agent's lane, so a stricter or a
+                # looser one here would be a second statement of the floor
+                # that admission never consults (panel finding, this half).
                 raise ValueError(
                     f"the 'agent' section consumes {requirement.product_class!r}"
                     f" at lane {lane!r} and the product class admits it from"
-                    f" {requirement.compatible_from!r} (same major, at or"
-                    " above); the agent's contract and the requirement are one"
-                    " statement (D-IMPL-343 R-2, R-13)"
+                    f" {requirement.compatible_from!r}; the agent's contract and"
+                    " the requirement are one statement, so the lane is the"
+                    " requirement's floor — omit it to have it filled, or state"
+                    " it equal (D-IMPL-343 R-2, R-13)"
                 )
 
     if default_perspective is not None:
@@ -681,16 +705,20 @@ def _complete_agent(
             )
         if key is None:
             continue  # stated, and nothing declared here to hold it to
+        # The deployment's own document, pinned — refused with the `key:`
+        # remedy when the section's key cannot be referenced, whether the axis
+        # is being filled or was stated (a stated ref beside an unreferenceable
+        # section would be the second authority this derivation exists to
+        # delete; panel finding, this half).
+        derived_ref = _artifact_ref(key, semver, section=section)
         if stated is None:
-            document[axis] = {"ref": _artifact_ref(key, semver, section=section)}
-        elif isinstance(stated, Mapping) and len(key.split("/")) == 3:
-            # Derivable and stated: the two must agree — one regime, one
-            # profile, never a second authority beside the deployment's own.
+            document[axis] = {"ref": derived_ref}
+        elif isinstance(stated, Mapping):
             _hold_equal(
                 "agent",
                 f"{axis}.ref",
                 stated.get("ref"),
-                _artifact_ref(key, semver, section=section),
+                derived_ref,
                 source=f"the `{section}` section's key and the config's semver",
             )
     document.setdefault("instruction_bindings", [])
