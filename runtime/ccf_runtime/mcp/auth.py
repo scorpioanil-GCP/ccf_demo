@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import hmac
 import json
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
@@ -47,6 +48,7 @@ __ccf_mode__ = "algorithmic"
 __all__ = [
     "FileTokenSource",
     "SourceBackedTokenVerifier",
+    "StaticTokenSource",
     "TokenGrant",
     "TokenSourceProtocol",
 ]
@@ -169,3 +171,35 @@ class SourceBackedTokenVerifier:
             client_id=grant.client_id,
             scopes=list(grant.scopes),
         )
+
+
+class StaticTokenSource:
+    """Recognised tokens held in memory — the paved road's per-boot source.
+
+    `D-IMPL-343` (design §5.4). :class:`FileTokenSource` reads a JSON file so
+    a deployment can revoke by editing it; the standard product door needs the
+    other shape — ONE credential minted or read at boot, held for the life of
+    the process, written to no file — and every shipped door built that shape
+    by writing a one-entry token file into a temporary directory and deleting
+    it on exit. This is that shape without the file.
+
+    Comparison is constant-time, as :meth:`FileTokenSource.grant_for` is, and
+    for the same reason. A development substrate, like its sibling: a
+    production identity provider conforms to :class:`TokenSourceProtocol` on
+    its own terms.
+
+    Args:
+        grants: Each recognised token and its grant. A deployment value; no
+            default, because a default credential is a credential an attacker
+            knows.
+    """
+
+    def __init__(self, *, grants: Mapping[str, TokenGrant]) -> None:
+        self._grants = dict(grants)
+
+    def grant_for(self, *, token: str) -> TokenGrant | None:
+        """Return ``token``'s grant, comparing in constant time."""
+        for candidate, grant in self._grants.items():
+            if hmac.compare_digest(candidate, token):
+                return grant
+        return None

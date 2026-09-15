@@ -85,6 +85,7 @@ from ccf.deployment.classes import (
     refuse_role_the_sdk_fixes,
     resolve_artifact_class,
 )
+from ccf.deployment.keys import DeploymentKeys
 from ccf.deployment.pins import ArtifactPin, ResolvedPins
 from ccf.graph.registry import (
     ResolvedBackend,
@@ -145,6 +146,13 @@ class BootedFabric:
             (the D-IMPL-86 correction's boundary). Direct :func:`ccf.boot.boot`
             callers pass the value to the engine themselves. ``None`` = no
             cap configured, the engine's own default.
+        keys: The manifest keys the single-file derivation chose, by section
+            (`D-IMPL-343`; :class:`~ccf.deployment.keys.DeploymentKeys`) —
+            what lets a deployment READ ``keys.request_contract`` rather than
+            restate ``"request_contract"`` one file over from the document
+            that named it. ``None`` on the manifest form, where every key was
+            authored by hand and there is no section vocabulary to derive from;
+            the multi-file door is unchanged by this field.
     """
 
     handle: FabricHandle
@@ -152,6 +160,7 @@ class BootedFabric:
     tenant_id: str
     artifacts: Mapping[str, CCFContract]
     survivor_cap: int | None
+    keys: DeploymentKeys | None = None
 
 
 def _resolve_tenant(manifest: DeploymentManifest, supplied: str | None) -> str:
@@ -468,6 +477,7 @@ def _register_and_boot(
     connection: Mapping[str, object] | None,
     secrets: Mapping[str, ResolvedSecret],
     resolved_tenant: str,
+    keys: DeploymentKeys | None = None,
 ) -> BootedFabric:
     """Register the ``role: register`` entries and boot — the spine both doors share.
 
@@ -557,6 +567,7 @@ def _register_and_boot(
         tenant_id=resolved_tenant,
         artifacts=parsed,
         survivor_cap=manifest.survivor_cap,
+        keys=keys,
     )
 
 

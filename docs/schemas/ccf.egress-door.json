@@ -1,0 +1,36 @@
+{
+  "additionalProperties": false,
+  "description": "What the standard MCP egress door asserts and advertises (`D-IMPL-343`).\n\n**SDK-defined, not whitepaper-derived** (CLAUDE.md \u00a77.1, \u00a78.3, \u00a711). The\n``door:`` reserved section's document: the four values a deployment\nstates about its own door, and NOTHING that belongs elsewhere.\n\n* ``producer_id`` \u2014 the identity the door asserts on every outcome\n  (`D-IMPL-340` ruling 2). A consumer holds it to the registration IT\n  governs; equality is a binding check, never an authorization.\n* ``producer_tenant`` \u2014 the tenant the assertion names. **Declared here\n  and CHECKED EQUAL to the deployment's ``tenant_id`` at derivation**\n  (`D-IMPL-343` R-6, Dave: *\"Registration declares it; door assertion is\n  held to it; the child's served tenant_id never authorizes. Do not derive\n  tenant from the answer.\"*). A disagreement is refused by name before\n  anything is registered.\n* ``tool_description`` \u2014 the prose the ``request_context_product`` tool\n  advertises. A deployment value (CINV-01); the SDK writes none.\n* ``required_scope`` \u2014 the bearer scope the door requires.\n\n**What is refused here by construction.** ``extra=\"forbid\"`` is\ninherited, so ``principal_id`` and ``role`` \u2014 which two shipped door\ndocuments restated beside ``default_perspective`` and which nothing ever\ncompared \u2014 are refused as unknown keys: the door serves the deployment's\ndeclared perspective and has no second authority for it. No URL and no\ncredential is a field either: the OAuth issuer, the resource-server\naddress and the bearer credential are deployment ENVIRONMENT, read by name\nfrom the environment document beside the config\n(:mod:`ccf.deployment.environment`), never content-hashed into the\nControl Plane (Dave, `D-IMPL-343` GO: *\"Do not put URLs or tokens in\nconfiguration.\"*).",
+  "properties": {
+    "producer_id": {
+      "title": "Producer Id",
+      "type": "string"
+    },
+    "producer_tenant": {
+      "title": "Producer Tenant",
+      "type": "string"
+    },
+    "required_scope": {
+      "title": "Required Scope",
+      "type": "string"
+    },
+    "semver": {
+      "title": "Semver",
+      "type": "string"
+    },
+    "tool_description": {
+      "title": "Tool Description",
+      "type": "string"
+    }
+  },
+  "required": [
+    "semver",
+    "producer_id",
+    "producer_tenant",
+    "tool_description",
+    "required_scope"
+  ],
+  "title": "EgressDoorBinding",
+  "type": "object",
+  "x-ccf-class-id": "ccf.egress-door"
+}

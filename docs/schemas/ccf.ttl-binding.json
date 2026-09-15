@@ -1,0 +1,26 @@
+{
+  "additionalProperties": false,
+  "description": "One deployment's TTL figures, declared once (`D-IMPL-343`, R-3a).\n\n**SDK-defined, not whitepaper-derived** (CLAUDE.md \u00a711). Whitepaper \u00a77.6\nfixes that a product carries a TTL and that Gate 3 holds it to a class\nceiling; it does not say where a deployment WRITES the two numbers. Before\nthis class every canonical tree wrote them in a side document of its own\nand restated them as two integer keyword arguments to\n:func:`~ccf.products.resolver.build_governed_resolver` \u2014 a value stated in\ntwo places, which is the shape `D-IMPL-292` refuses: *no argument for a\ndeclared value*.\n\nTwo declared values, neither with a default:\n\n* ``max_ttl_seconds`` \u2014 the class CEILING. Registering it is what mints the\n  ``MAX_TTL`` pin Gate 3 resolves, which is why the class document itself\n  cannot carry it.\n* ``product_ttl_seconds`` \u2014 how long a served product stays servable.\n  Independent of the ceiling by construction; Gate 3 compares the two.\n\n**The builder's two keywords are now optional and held EQUAL to this.**\nA call that omits them reads them here; a call that states both agrees or\nis refused with both values named \u2014 never silently overridden in either\ndirection. ``extra=\"forbid\"`` is inherited, so a third key (the\n``ttl_anchor_basis`` one canonical tree carried and nothing read) is\nrefused at parse: a declared value nothing reads is documentation, not\ncontrol.",
+  "properties": {
+    "max_ttl_seconds": {
+      "title": "Max Ttl Seconds",
+      "type": "integer"
+    },
+    "product_ttl_seconds": {
+      "title": "Product Ttl Seconds",
+      "type": "integer"
+    },
+    "semver": {
+      "title": "Semver",
+      "type": "string"
+    }
+  },
+  "required": [
+    "semver",
+    "max_ttl_seconds",
+    "product_ttl_seconds"
+  ],
+  "title": "TtlBinding",
+  "type": "object",
+  "x-ccf-class-id": "ccf.ttl-binding"
+}

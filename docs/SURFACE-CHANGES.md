@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1173 entries**, of which **929** name a public Python surface.
+**1208 entries**, of which **964** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-612 entries — 572 public Python surface, 40 not public Python API.
+642 entries — 602 public Python surface, 40 not public Python API.
 
 ### Public Python surface
 
@@ -10513,6 +10513,366 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `340-01-cross-deployment-child-acquisition.md`.*
 
+#### ccf.products.product.open_product
+
+- Surface: ccf.products.product.open_product
+- Public surface: true
+- Change type: added
+- Before: absent — a producer wrote boot, effective-request re-derivation, ingest, a fifteen-keyword builder call, a store and a readback by hand
+- After: one call binding `acquire`, `project`, `assess` and a gate to the two documents; refuses at open, by name
+- Why: D-IMPL-343 — the plumbing burden is launch-blocking ergonomics, and the same plumbing had drifted in a copy
+- Migration: none; `build_governed_resolver` stays the low road
+
+*Recorded by `343-01-paved-road.md`.*
+
+#### ccf.products.product.OpenedProduct
+
+- Surface: ccf.products.product.OpenedProduct
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `question`, `answer`, `record_of`, `resolve` (the door's `ProductResolverProtocol`), `build_arguments` (the low road), one registry, one store, one recorder
+- Why: the object a door holds and a spine asks
+- Migration: none
+
+*Recorded by `343-01-paved-road.md`.*
+
+#### ccf.products.product.AcquireProtocol
+
+- Surface: ccf.products.product.AcquireProtocol
+- Public surface: true
+- Change type: added
+- Before: absent — each tree wrote its own acquire-at-effective-parameters against a re-derived request
+- After: `(AcquisitionContext) -> Iterable[SignalEnvelope]`, handed the EFFECTIVE request by the resolver's seam
+- Why: R-4 — one derivation
+- Migration: none
+
+*Recorded by `343-01-paved-road.md`.*
+
+#### ccf.products.product.AcquisitionContext
+
+- Surface: ccf.products.product.AcquisitionContext
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the effective request, the perspective, the tenant, the resolved source settings and the instant
+- Why: what `acquire` legitimately needs, and nothing it must re-derive
+- Migration: none
+
+*Recorded by `343-01-paved-road.md`.*
+
+#### ccf.products.product.AssessProtocol
+
+- Surface: ccf.products.product.AssessProtocol
+- Public surface: true
+- Change type: added
+- Before: absent — each tree closed a scorer over `asked_at` and the booted artifacts
+- After: `(AssessmentContext) -> DebtAssessment`
+- Why: the developer owns the rule; the SDK hands the instant and the bindings
+- Migration: none
+
+*Recorded by `343-01-paved-road.md`.*
+
+#### ccf.products.product.AssessmentContext
+
+- Surface: ccf.products.product.AssessmentContext
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the view, the evidence, the DECISION instant, the booted λ_c table and profile, the admitted children
+- Why: R-3c — the decision instant reaches the scorer from the resolver, never from a closure
+- Migration: none
+
+*Recorded by `343-01-paved-road.md`.*
+
+#### ccf.products.resolver.AcquisitionSeamProtocol
+
+- Surface: ccf.products.resolver.AcquisitionSeamProtocol
+- Public surface: true
+- Change type: added
+- Before: absent — seven trees re-ran `ReferencePolicyConstraintResolver` to guess the effective request before booting
+- After: the declared acquisition boundary, invoked once by `GovernedResolver.__call__` after resolution and before the graph read
+- Why: R-4, verbatim: "Effective-request derivation runs once, on the governed call, and acquisition consumes that outcome"
+- Migration: none; a deployment whose fabric is populated before the resolver passes nothing
+
+*Recorded by `343-01-paved-road.md`.*
+
+#### ccf.products.resolver.InstantAwareDebtScorerProtocol
+
+- Surface: ccf.products.resolver.InstantAwareDebtScorerProtocol
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `score_at(view, evidence, decided_at, children)`, checked structurally FIRST by the resolver
+- Why: R-3c; the D-IMPL-339 companion-Protocol precedent
+- Migration: none; scorers implementing only `__call__` are asked as before
+
+*Recorded by `343-01-paved-road.md`.*
+
+#### ccf.products.resolver.declared_refusal_recorder
+
+- Surface: ccf.products.resolver.declared_refusal_recorder
+- Public surface: true
+- Change type: added
+- Before: absent — a door could not reach the per-question resolver's recorder and built a second one over a second store
+- After: ONE `ReplayRefusalRecorder` built once from the declared binding and the bundle's content address, shared by the resolver and the door
+- Why: served and refused decisions land in one store under one class
+- Migration: none
+
+*Recorded by `343-01-paved-road.md`.*
+
+#### ccf.signal.envelope.refuse_foreign_envelope
+
+- Surface: ccf.signal.envelope.refuse_foreign_envelope
+- Public surface: true
+- Change type: added
+- Before: absent — nothing stated that `observed_at` is the ingestion instant (CP03C-F-08)
+- After: an envelope naming another tenant or another instant is refused by name at the paved road's boundary
+- Why: the ingest loop's tenant/instant bounds are the SDK's (Dave's lock)
+- Migration: none
+
+*Recorded by `343-01-paved-road.md`.*
+
+#### ccf.deployment.keys.DeploymentKeys
+
+- Surface: ccf.deployment.keys.DeploymentKeys
+- Public surface: true
+- Change type: added
+- Before: absent — every canonical tree restated its section keys as string properties
+- After: the derived keys by section, on `BootedFabric.keys`
+- Why: keys are read, never restated
+- Migration: none; `BootedFabric.keys` is `None` on the manifest form
+
+*Recorded by `343-01-paved-road.md`.*
+
+#### ccf.deployment.environment.EnvironmentDocument
+
+- Surface: ccf.deployment.environment.EnvironmentDocument
+- Public surface: true
+- Change type: added
+- Before: absent — each tree invented its own `backends.yaml` / `door.yaml` / `ttl.yaml` and its own reader
+- After: the one environment document: substrate, source variable NAMES with remedies, door names, remote settings; a Control Plane value is refused by name
+- Why: Dave's lock — no URLs or tokens in configuration; one shape, one reader
+- Migration: none for existing trees; a paved tree writes `ccf_environment.yaml`
+
+*Recorded by `343-01-paved-road.md`.*
+
+#### ccf.deployment.environment.EnvironmentValue
+
+- Surface: ccf.deployment.environment.EnvironmentValue
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `{from_env, remedy}` — a NAME and the deployment's own remedy text
+- Why: names, never values
+- Migration: none
+
+*Recorded by `343-01-paved-road.md`.*
+
+#### ccf.deployment.environment.SubstrateSettings
+
+- Surface: ccf.deployment.environment.SubstrateSettings
+- Public surface: true
+- Change type: added
+- Before: absent — `per_run: path` was declared and read by nothing
+- After: the connection setting, prefix and suffix the facade mints a per-question path from; `src/` names no backend
+- Why: CP03C-F-02's mechanism is the SDK's
+- Migration: none
+
+*Recorded by `343-01-paved-road.md`.*
+
+#### ccf.deployment.environment.DoorEnvironment
+
+- Surface: ccf.deployment.environment.DoorEnvironment
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the credential, issuer and resource-server NAMES the standard door reads
+- Why: no URL or token in configuration
+- Migration: none
+
+*Recorded by `343-01-paved-road.md`.*
+
+#### ccf.deployment.environment.RemoteSettings
+
+- Surface: ccf.deployment.environment.RemoteSettings
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a consumer's one MCP deadline
+- Why: the consumer half's environment block, declared now so the document's shape is complete
+- Migration: none
+
+*Recorded by `343-01-paved-road.md`.*
+
+#### ccf.deployment.environment.EnvironmentMissing
+
+- Surface: ccf.deployment.environment.EnvironmentMissing
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: raised, with the document's remedy, when a named variable is unset
+- Why: a configuration fact is an exception, never a governed refusal
+- Migration: none
+
+*Recorded by `343-01-paved-road.md`.*
+
+#### ccf.deployment.environment.ENVIRONMENT_DOCUMENT_NAME
+
+- Surface: ccf.deployment.environment.ENVIRONMENT_DOCUMENT_NAME
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `ccf_environment.yaml`
+- Why: one name a reader knows to look for
+- Migration: none
+
+*Recorded by `343-01-paved-road.md`.*
+
+#### ccf.deployment.environment.load_environment_document
+
+- Surface: ccf.deployment.environment.load_environment_document
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: reads and validates the document under a config root
+- Why: one reader
+- Migration: none
+
+*Recorded by `343-01-paved-road.md`.*
+
+#### ccf.deployment.environment.resolve_value
+
+- Surface: ccf.deployment.environment.resolve_value
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: one name → its value, or the remedy
+- Why: one reader
+- Migration: none
+
+*Recorded by `343-01-paved-road.md`.*
+
+#### ccf.deployment.environment.resolve_values
+
+- Surface: ccf.deployment.environment.resolve_values
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: every source setting resolved at once, every missing remedy carried together
+- Why: an operator fixes the environment in one pass
+- Migration: none
+
+*Recorded by `343-01-paved-road.md`.*
+
+#### ccf.controlplane.artifacts.TtlBinding
+
+- Surface: ccf.controlplane.artifacts.TtlBinding
+- Public surface: true
+- Change type: added
+- Before: absent — the two TTL figures lived in a side document and two builder keywords
+- After: the `ttl:` section's class: `max_ttl_seconds`, `product_ttl_seconds`, declared once
+- Why: R-3a
+- Migration: none
+
+*Recorded by `343-01-paved-road.md`.*
+
+#### ccf.controlplane.artifacts.TTL_BINDING
+
+- Surface: ccf.controlplane.artifacts.TTL_BINDING
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the `ccf.ttl-binding` artifact class, typed-registerable
+- Why: the reserved section derives it
+- Migration: none
+
+*Recorded by `343-01-paved-road.md`.*
+
+#### ccf.controlplane.artifacts.EgressDoorBinding
+
+- Surface: ccf.controlplane.artifacts.EgressDoorBinding
+- Public surface: true
+- Change type: added
+- Before: absent — each door read its own document with its own required-key tuple; two carried a principal/role nothing compared
+- After: the `door:` section's class: `producer_id`, `producer_tenant` (held equal to `tenant_id`, R-6), `tool_description`, `required_scope`; a principal, role, URL or credential is refused by name
+- Why: one authority per value
+- Migration: none
+
+*Recorded by `343-01-paved-road.md`.*
+
+#### ccf.controlplane.artifacts.EGRESS_DOOR
+
+- Surface: ccf.controlplane.artifacts.EGRESS_DOOR
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the `ccf.egress-door` artifact class, typed-registerable
+- Why: the reserved section derives it
+- Migration: none
+
+*Recorded by `343-01-paved-road.md`.*
+
+#### ccf.mcp.client.bearer_client_factory
+
+- Surface: ccf.mcp.client.bearer_client_factory
+- Public surface: true
+- Change type: added
+- Before: absent — each consumer wrote the same nineteen-line httpx factory
+- After: a credential-carrying `HttpClientFactory` for `register_declared_producer`
+- Why: the consumer half's one credential seam
+- Migration: none
+
+*Recorded by `343-01-paved-road.md`.*
+
+#### ccf_runtime.mcp.auth.StaticTokenSource
+
+- Surface: ccf_runtime.mcp.auth.StaticTokenSource
+- Public surface: true
+- Change type: added
+- Before: absent — each door wrote a one-entry token file into a temporary directory
+- After: recognised tokens held in memory, constant-time comparison
+- Why: the standard door's per-boot credential
+- Migration: none
+
+*Recorded by `343-01-paved-road.md`.*
+
+#### ccf_runtime.mcp.product_door.open_door
+
+- Surface: ccf_runtime.mcp.product_door.open_door
+- Public surface: true
+- Change type: added
+- Before: absent — six example doors carried the same ~106-line body
+- After: the standard door over any `ServesProducts`: the entitlement policy into the ONE registry, the static token source, the declared-role perspective, the product's own recorder; three typed overrides
+- Why: D-IMPL-343 §5.4
+- Migration: none; `build_egress_server` stays the low road
+
+*Recorded by `343-01-paved-road.md`.*
+
+#### ccf_runtime.mcp.product_door.ProductDoor
+
+- Surface: ccf_runtime.mcp.product_door.ProductDoor
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `server(issuer_url, resource_server_url)`, `serve_stdio()`, `serve_loopback(announce)`
+- Why: the two transports, once
+- Migration: none
+
+*Recorded by `343-01-paved-road.md`.*
+
+#### ccf_runtime.mcp.product_door.ServesProducts
+
+- Surface: ccf_runtime.mcp.product_door.ServesProducts
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the structural Protocol a door serves — nine members a hand-composed deployment already holds
+- Why: the paved road is not the only road
+- Migration: none
+
+*Recorded by `343-01-paved-road.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -11166,7 +11526,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-407 entries — 223 public Python surface, 184 not public Python API.
+412 entries — 228 public Python surface, 184 not public Python API.
 
 ### Public Python surface
 
@@ -15636,6 +15996,66 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Migration: none.
 
 *Recorded by `340-01-cross-deployment-child-acquisition.md`.*
+
+#### ccf.products.resolver.build_governed_resolver
+
+- Surface: ccf.products.resolver.build_governed_resolver
+- Public surface: true
+- Change type: reshaped
+- Before: `max_ttl_seconds` and `product_ttl_seconds` required ints; no recorder or seam keyword; `decision_instant_parameter` unchecked
+- After: both TTL figures optional and read from the declared `ttl:` binding when omitted, held EQUAL when both speak (R-3a); `decision_instant_parameter` held equal to the class declaration (R-3b); `refusal_recorder=` and `acquisition=` accepted
+- Why: D-IMPL-292 — no argument for a declared value
+- Migration: none for existing calls; a call restating a declared TTL with a different value is now refused with both named
+
+*Recorded by `343-01-paved-road.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: reshaped
+- Before: no acquisition field; the scorer asked at most through the child-aware seam; `decided_at` bound after scoring
+- After: a required `acquisition` field (`None` = no seam); the instant-aware scorer asked first; `decided_at` bound before scoring
+- Why: R-4 and R-3c
+- Migration: direct constructions state `acquisition=None`
+
+*Recorded by `343-01-paved-road.md`.*
+
+#### ccf.controlplane.artifacts.DeploymentConfig
+
+- Surface: ccf.controlplane.artifacts.DeploymentConfig
+- Public surface: true
+- Change type: reshaped
+- Before: no `ttl`, `door` or `agent` section
+- After: the three sections, hash-transparent at `None`; `agent:` derives on the versioned path (R-2) and stays out of the typed table
+- Why: D-IMPL-343 §5.1
+- Migration: none; a config naming none of them derives byte-for-byte what it did
+
+*Recorded by `343-01-paved-road.md`.*
+
+#### ccf.controlplane.artifacts.ProductClassDeclaration
+
+- Surface: ccf.controlplane.artifacts.ProductClassDeclaration
+- Public surface: true
+- Change type: reshaped
+- Before: no `decision_instant_parameter`
+- After: the field, hash-transparent at `None`, held equal to the builder keyword
+- Why: R-3b; closes the 24.10-F-09 architecture question
+- Migration: none
+
+*Recorded by `343-01-paved-road.md`.*
+
+#### ccf.deployment.BootedFabric
+
+- Surface: ccf.deployment.BootedFabric
+- Public surface: true
+- Change type: reshaped
+- Before: five fields
+- After: a sixth, `keys`, defaulted `None`
+- Why: the derived keys travel with the fabric
+- Migration: none
+
+*Recorded by `343-01-paved-road.md`.*
 
 ### Not public Python API
 

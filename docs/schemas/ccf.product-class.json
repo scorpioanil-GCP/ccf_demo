@@ -274,6 +274,19 @@
         "min_validity_seconds_by_signal": {}
       }
     },
+    "decision_instant_parameter": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "ccf_hash_transparent": true,
+      "default": null,
+      "title": "Decision Instant Parameter"
+    },
     "declared_product_gate": {
       "$ref": "#/$defs/DeclaredProductGate",
       "ccf_hash_transparent": true,

@@ -473,7 +473,7 @@ row-B controls that used s1-00 as their specimen were re-pointed at cp-00.
 
 Before the migration s1-00 authored its own operator set from one document and
 claimed `D-IMPL-137`'s **one-document exemption**
-(`RULED_ONE_DOCUMENT_DEPLOYMENTS`, `tests/products/test_gate_two_call_shape.py:630`).
+(`RULED_ONE_DOCUMENT_DEPLOYMENTS`, `tests/products/test_gate_two_call_shape.py::RULED_ONE_DOCUMENT_DEPLOYMENTS`).
 After it, `plan_factory` consumes the resolver's `required` and s1-00 authors
 none — which is the **SDK-supplied** category
 (`RULED_SDK_SUPPLIED_DEPLOYMENTS`). It is currently in the first roster and

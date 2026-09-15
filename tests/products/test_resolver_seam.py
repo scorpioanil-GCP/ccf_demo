@@ -1992,6 +1992,7 @@ DEPLOYMENT_OWNED_ARGUMENTS: tuple[str, ...] = (
     # resolver that guessed would serve a class whose declared requirements
     # execution ignored, which is the exact defect the composite block closes.
     "composite_children",
+    "acquisition",
     "admission_clock",
     "plan_factory",
     "debt_scorer",
@@ -2124,6 +2125,11 @@ def _arguments(booted: _Booted) -> dict[str, Any]:
         # child resolver — the state every product shipped before D-IMPL-336
         # was in, stated rather than defaulted.
         "composite_children": None,
+        # `D-IMPL-343` R-4: this fixture's fabric is populated before the
+        # resolver is reached, so it declares no acquisition seam — the state
+        # every deployment shipped before the seam existed was in, stated
+        # rather than defaulted.
+        "acquisition": None,
         # `D-IMPL-336` O3: pinned, so the evidence-age and skew boundaries can
         # be asserted exactly rather than approached. A deployment gets the
         # process clock from `build_governed_resolver`; this class has no

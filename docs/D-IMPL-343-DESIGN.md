@@ -101,7 +101,7 @@ machinery.
   `declared_ttl_seconds`, `max_ttl_seconds`, `ttl_anchor_basis`); and
   `SpreadScenario` (`deployment.py:549-591`) restating the five section keys as
   properties.
-- **SDK API:** `load_config_and_boot` (`src/ccf/deployment/config.py:836`),
+- **SDK API:** `src/ccf/deployment/config.py::load_config_and_boot`,
   `_RESERVED_SECTIONS` (`:184-202`, private), `DeploymentConfig`, `parse_artifact`.
 - **Duplicated authority:** the 30-day window (`ttl.yaml:26-27` twice, the gate
   closure, `door.yaml:33` prose, `ccf_config.yaml:57-66` prose); principal and role
@@ -129,7 +129,7 @@ machinery.
   (`deployment.py:111-127`) re-parses `backends.yaml` and mints
   `root / f"{prefix}_{uuid4().hex}{suffix}"` per call.
 - **SDK API:** `load_config_and_boot(connection: Mapping)`, `BootedFabric`,
-  `_preflight_adapter` (`manifest.py:245-290`).
+  `manifest.py::_preflight_adapter`.
 - **Duplicated authority:** the substrate prefix/suffix declared in `backends.yaml`
   and composed in code; `per_run: path` declared and honored only by the
   developer's uuid.
@@ -219,7 +219,7 @@ machinery.
   booted `half_life`/`debt_profile` artifacts.
 - **SDK API:** `FreshnessScorer`, `Observation(valid_from=)`, `DebtAssessment`,
   `DebtFactors`, `HalfLifeEntry.decay_basis` (`D-IMPL-331`),
-  `AssemblyDebtScorerProtocol` (`resolver.py:567`),
+  `resolver.py::AssemblyDebtScorerProtocol`,
   `ChildAwareDebtScorerProtocol` (`:544`).
 - **Duplicated authority:** the artifact keys (restated through `SpreadScenario`);
   the decision instant captured by closure rather than handed by the resolver.
@@ -238,7 +238,7 @@ machinery.
   `product_gate=deployment.freshness_window_gate(ttl_seconds=…)`),
   `resolve(tenant=, product_class=, version=, request=, perspective=)`, the
   `isinstance(outcome, RefusalEnvelope)` branch, record readback (`:204-206`).
-- **SDK API:** `build_governed_resolver` (`resolver.py:3053`), `GovernedResolver`,
+- **SDK API:** `resolver.py::build_governed_resolver`, `GovernedResolver`,
   `ServedProduct` / `RefusalEnvelope`, the declared product gate (`D-IMPL-282`
   R-11, both-or-neither).
 - **Duplicated authority:** `max_ttl_seconds`/`product_ttl_seconds` restated from
@@ -459,7 +459,7 @@ test modules only.
 ### C8 · Child-contract consumption
 - **Adopter writes:** `build_with_children` on the plan factory
   (`tests/products/composite_fixture.py` `_ChildReadingFactory`).
-- **SDK API:** `CompositePlanFactoryProtocol` (`resolver.py:506-523`),
+- **SDK API:** `resolver.py::CompositePlanFactoryProtocol`,
   `ChildContractView`.
 - **Duplicated authority:** none. **Failure modes:** a factory that ignores the
   children composes blind. **Classification:** **domain.**

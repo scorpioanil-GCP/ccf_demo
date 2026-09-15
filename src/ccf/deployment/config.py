@@ -101,11 +101,15 @@ from pathlib import Path
 from typing import Any, get_args
 
 from ccf.contracts.base import CCFContract
+from ccf.agents.definitions import AGENT_DEFINITION
 from ccf.controlplane.artifacts import (
+    EGRESS_DOOR,
     MCP_PRODUCER,
+    TTL_BINDING,
     DEPLOYMENT_CONFIG,
     DeploymentConfig,
     DeploymentManifest,
+    EgressDoorBinding,
     ManifestEntry,
     load_artifact,
     parse_artifact,
@@ -116,6 +120,7 @@ from ccf.deployment.classes import (
     refuse_role_the_sdk_fixes,
     resolve_artifact_class,
 )
+from ccf.deployment.keys import DeploymentKeys
 from ccf.deployment.manifest import (
     BootedFabric,
     _preflight_adapter,
@@ -200,6 +205,35 @@ _RESERVED_SECTIONS: Mapping[str, tuple[str | None, str | None]] = {
     # `D-IMPL-340`: one `ccf.mcp-producer` document per labeled producer,
     # derived per key exactly as `policy_constraints` is.
     "producers": ("ccf.mcp-producer", None),
+    # `D-IMPL-343` (R-3a, R-6/R-9/R-10): the two bindings the paved road
+    # reads. Each is deployment BINDING — a TTL window, a door's asserted
+    # identity and advertised prose — and materialises as a top-level
+    # SDK-owned document like `replay:` does. Appended after `replay:` in the
+    # derivation loop, so every key order that existed before them is
+    # byte-for-byte what it was.
+    "ttl": ("ccf.ttl-binding", None),
+    "door": ("ccf.egress-door", None),
+}
+
+#: The reserved sections whose class is AUTHOR-VERSIONED (`D-IMPL-343` R-2;
+#: `D-IMPL-85`): section name → the `ccf.*` class id, and nothing else.
+#:
+#: **A second table, and the split is the point.** `_RESERVED_SECTIONS` above
+#: derives on the TYPED path: the SDK injects the config's own `semver`, fixes
+#: `registration: typed`, and `tests/deployment/test_config_derivation.py`
+#: holds every id in it to `SDK_ARTIFACT_CLASSES`. A `ccf.agent-definition`
+#: is none of those things — it carries its author's own two lanes
+#: (`schema_version`, `artifact_version`), it is registered through the D-05
+#: hash-verified bump check, and it lives in `SDK_VERSIONED_ARTIFACT_CLASSES`,
+#: which is disjoint from the typed table by construction. Dave's ruling
+#: (R-2): *"Do not fight D-IMPL-56 by injecting a fake semver typed class. New
+#: reserved derivation that matches the existing artifact, or a dedicated
+#: reserved section — pick the one that does not require an author-versioned
+#: class in the typed table."* This is that derivation: the section's body IS
+#: the artifact document, verbatim, and the only thing the SDK adds is the
+#: manifest entry that names it.
+_RESERVED_VERSIONED_SECTIONS: Mapping[str, str] = {
+    "agent": AGENT_DEFINITION.class_id,
 }
 
 
@@ -221,10 +255,105 @@ class DerivedDeployment:
             validated against any class — `16-30`'s loader is what calls
             `~ccf.controlplane.artifacts.parse_artifact` over each one,
             against the class its own manifest entry names.
+        keys: The manifest key every section derived, by section name
+            (`D-IMPL-343`; :class:`~ccf.deployment.keys.DeploymentKeys`).
+            Handed onward to :attr:`~ccf.deployment.BootedFabric.keys` by
+            `load_config_and_boot`, so a deployment never restates a key the
+            derivation chose.
     """
 
     manifest: DeploymentManifest
     documents: Mapping[str, Mapping[str, Any]]
+    keys: DeploymentKeys
+
+
+def _derive_versioned_entry(
+    *,
+    label: str,
+    body: Mapping[str, Any],
+    config_filename: str,
+    class_id: str,
+    tenant_id: str | None,
+) -> tuple[ManifestEntry, Mapping[str, Any]]:
+    """Derive one author-versioned reserved section (`D-IMPL-343` R-2).
+
+    The versioned sibling of `_derive_entry`, and deliberately narrower: no
+    `semver` is injected (the class carries its own two lanes), `role` is
+    `register` and `registration` is `versioned` — both fixed by the class,
+    neither overridable — and the document handed back is the section's body
+    with the bookkeeping keys stripped and nothing added. What the SDK checks
+    rather than fills: the artifact's own ``tenant`` must be this deployment's
+    tenant when both are stated. It is filled from ``tenant_id`` only when the
+    section left it out, because a deployment's tenant is the one value it has
+    already declared once, and a second statement of it is the duplicated
+    authority `D-IMPL-343` exists to delete.
+
+    Raises:
+        ValueError: the section names `path:`; overrides `class_id`, `role` or
+            `registration` (each is fixed by the class); or states a `tenant`
+            that is not the deployment's.
+    """
+    _refuse_reserved_path_override(label, body)
+    for fixed in ("class_id", "role", "registration"):
+        if fixed in body:
+            raise ValueError(
+                f"the {label!r} section states {fixed!r}, which the SDK fixes"
+                f" for {class_id!r}: the section IS a {class_id} document, so"
+                " its class, its `register` role and its `versioned`"
+                " registration are properties of the class and not choices"
+                " the section makes (D-IMPL-343 R-2; D-IMPL-85) — remove"
+                f" {fixed!r} from {label!r}"
+            )
+    key = str(body.get("key", label))
+    document = {field: value for field, value in body.items() if field != "key"}
+    declared_tenant = document.get("tenant")
+    if declared_tenant is None:
+        if tenant_id is not None:
+            document["tenant"] = tenant_id
+    elif tenant_id is not None and str(declared_tenant) != tenant_id:
+        raise ValueError(
+            f"the {label!r} section declares tenant {declared_tenant!r} and"
+            f" this deployment's tenant_id is {tenant_id!r}; the composing"
+            " agent belongs to the deployment that declares it, and two"
+            " tenants for one document is a disagreement only the author can"
+            " resolve (D-IMPL-343 R-2) — state one, or omit `tenant` under"
+            f" {label!r} to take the deployment's"
+        )
+    entry = ManifestEntry(
+        path=config_filename,
+        key=key,
+        class_id=class_id,
+        role="register",
+        registration="versioned",
+    )
+    return entry, document
+
+
+def _refuse_door_tenant_disagreement(
+    door: EgressDoorBinding | None, tenant_id: str
+) -> None:
+    """`D-IMPL-343` R-6 — the door asserts the tenant the deployment declares.
+
+    Dave, verbatim: *"Registration declares it; door assertion is held to it;
+    the child's served tenant_id never authorizes. Do not derive tenant from
+    the answer."* So the `door:` section DECLARES `producer_tenant`, and this
+    is where the declaration is held to the deployment's one tenant — refused
+    by name, never corrected, before anything is registered. A door asserting
+    another tenant would be refused `producer-tenant-mismatch` by every
+    consumer registered for this fabric's tenant; refusing it here moves that
+    failure from the first remote question to the moment the document was
+    written.
+    """
+    if door is None:
+        return
+    if door.producer_tenant != tenant_id:
+        raise ValueError(
+            f"the 'door' section asserts producer_tenant {door.producer_tenant!r}"
+            f" and this deployment's tenant is {tenant_id!r}; the door asserts"
+            " the tenant the deployment declares and a consumer holds the"
+            " assertion to its own registration (D-IMPL-343 R-6; D-IMPL-340"
+            " ruling 2) — state the deployment's tenant under 'door'"
+        )
 
 
 def _refuse_reserved_path_override(label: str, body: Mapping[str, Any]) -> None:
@@ -756,6 +885,7 @@ def derive_deployment(
             producer_entries.append((entry, document))
     resolution_section_key: str | None = None
     policy_section_key: str | None = None
+    section_keys: dict[str, str] = {}
 
     for section_name, config_body in (
         ("request_contract", config.request_contract),
@@ -769,6 +899,10 @@ def derive_deployment(
         # derives exactly what it derived before, and a config with one appends
         # rather than inserts.
         ("replay", config.replay),
+        # `D-IMPL-343`: the two paved-road bindings, after `replay:` for the
+        # same reason it sits after the six before it.
+        ("ttl", config.ttl),
+        ("door", config.door),
     ):
         _refuse_empty_section(section_name, config_body, fields_set)
         if config_body is None:
@@ -784,14 +918,52 @@ def derive_deployment(
         )
         entries.append(entry)
         documents[entry.key] = document
+        section_keys[section_name] = entry.key
         if section_name == "resolution":
             resolution_section_key = entry.key
         elif section_name == "policy":
             policy_section_key = entry.key
+        elif section_name == "ttl":
+            # Validated HERE, at derivation, on the `producers:` precedent: a
+            # non-positive window or a third key (`ttl_anchor_basis`, which one
+            # canonical tree declared and nothing read) is refused by name
+            # before any document is materialised.
+            parse_artifact(document, TTL_BINDING)
+        elif section_name == "door":
+            # Validated HERE, at derivation, on the `producers:` precedent: a
+            # principal, a role, a URL or a credential written under `door:`
+            # is refused by name before any document is materialised, and the
+            # asserted tenant is held to the deployment's own (R-6) when the
+            # config declares one — `load_config_and_boot` holds it to the
+            # resolved tenant in every case.
+            door = parse_artifact(document, EGRESS_DOOR)
+            assert isinstance(door, EgressDoorBinding)  # EGRESS_DOOR's contract
+            if config.tenant_id is not None:
+                _refuse_door_tenant_disagreement(door, config.tenant_id)
 
     for entry, document in producer_entries:
         entries.append(entry)
         documents[entry.key] = document
+
+    # `agent:` (`D-IMPL-343` R-2) — optional, author-versioned, derived through
+    # the versioned path and validated at derivation so a malformed composing
+    # agent is refused before anything is registered. Appended LAST: a config
+    # declaring none derives byte-for-byte what it derived before.
+    _refuse_empty_section("agent", config.agent, fields_set)
+    agent_key: str | None = None
+    if config.agent is not None:
+        entry, document = _derive_versioned_entry(
+            label="agent",
+            body=config.agent,
+            config_filename=config_filename,
+            class_id=_RESERVED_VERSIONED_SECTIONS["agent"],
+            tenant_id=config.tenant_id,
+        )
+        parse_artifact(document, resolve_artifact_class(entry.class_id))
+        entries.append(entry)
+        documents[entry.key] = document
+        agent_key = entry.key
+
     # The two top-level boot pointers (design spec §6.3): derived from the
     # section names, an explicit top-level value on the config wins.
     resolution_spec_key = config.resolution_spec_key or resolution_section_key
@@ -830,7 +1002,31 @@ def derive_deployment(
         tenant_id=config.tenant_id,
         survivor_cap=config.survivor_cap,
     )
-    return DerivedDeployment(manifest=manifest, documents=documents)
+    keys = DeploymentKeys(
+        product_class=entries[0].key,
+        request_contract=section_keys.get("request_contract"),
+        policy_bundle=policy_bundle_key,
+        resolution_spec=resolution_spec_key,
+        half_life=section_keys.get("half_life"),
+        debt_profile=section_keys.get("debt_profile"),
+        default_perspective=section_keys.get("default_perspective"),
+        replay=section_keys.get("replay"),
+        ttl=section_keys.get("ttl"),
+        door=section_keys.get("door"),
+        agent=agent_key,
+        operator_parameters=tuple(
+            entry.key
+            for entry in entries
+            if entry.class_id.startswith(_OPERATOR_CLASS_PREFIX)
+        ),
+        policy_constraints=tuple(
+            entry.key
+            for entry in entries
+            if entry.class_id == _RESERVED_SECTIONS["policy_constraints"][0]
+        ),
+        producers=tuple(entry.key for entry, _document in producer_entries),
+    )
+    return DerivedDeployment(manifest=manifest, documents=documents, keys=keys)
 
 
 def load_config_and_boot(
@@ -948,6 +1144,14 @@ def load_config_and_boot(
         artifact_class = resolve_artifact_class(entry.class_id)
         parsed[entry.key] = parse_artifact(derived.documents[entry.key], artifact_class)
 
+    # `D-IMPL-343` R-6, against the RESOLVED tenant: a config that declares no
+    # `tenant_id` and takes it from the caller still asserts, at its door, the
+    # tenant it actually runs as.
+    if derived.keys.door is not None:
+        door = parsed[derived.keys.door]
+        assert isinstance(door, EgressDoorBinding)  # its entry names EGRESS_DOOR
+        _refuse_door_tenant_disagreement(door, resolved_tenant)
+
     return _register_and_boot(
         manifest,
         parsed,
@@ -955,4 +1159,5 @@ def load_config_and_boot(
         connection=connection,
         secrets=secrets,
         resolved_tenant=resolved_tenant,
+        keys=derived.keys,
     )

@@ -48,8 +48,10 @@ from ccf.controlplane.artifacts import (
     POLICY_CONSTRAINT,
     PRODUCT_CLASS,
     PROJECTION_REQUIREMENTS,
+    EGRESS_DOOR,
     MCP_PRODUCER,
     REPLAY_BINDING,
+    TTL_BINDING,
     RESOLUTION_SPEC,
     SIGNAL_BATCH,
     ArtifactLoadError,
@@ -442,6 +444,39 @@ CASES: tuple[_Case, ...] = (
         # out rather than testing a synthetic key that would prove only that
         # `extra=forbid` is set.
         unknown_keys=("retention_days", "redaction_policy"),
+    ),
+    _Case(
+        artifact_class=TTL_BINDING,
+        # A deployment's TTL binding (`D-IMPL-343` R-3a; `D-IMPL-292`): the
+        # class ceiling and the product's own window, declared ONCE. Two
+        # members, none with a default.
+        document={
+            "semver": _SEMVER,
+            "max_ttl_seconds": 7200,
+            "product_ttl_seconds": 3600,
+        },
+        # The third key one canonical tree carried beside the two and nothing
+        # read (`ttl_anchor_basis`), and the anchor itself, which is the
+        # product class's to declare and never this binding's: config nobody
+        # reads is documentation, not control.
+        unknown_keys=("ttl_anchor_basis", "ttl_anchor"),
+    ),
+    _Case(
+        artifact_class=EGRESS_DOOR,
+        # The standard door's binding (`D-IMPL-343` R-6/R-9): the identity it
+        # asserts, the tenant that identity governs under, the prose its tool
+        # advertises and the scope it requires. Four members, none defaulted.
+        document={
+            "semver": _SEMVER,
+            "producer_id": "fixture-egress",
+            "producer_tenant": "fixture-tenant",
+            "tool_description": "asks the fixture product one governed question",
+            "required_scope": "ccf:egress",
+        },
+        # The two keys two shipped door documents restated beside
+        # `default_perspective` and nothing ever compared, and the two the GO
+        # lock keeps out of configuration altogether (a URL, a credential).
+        unknown_keys=("principal_id", "role", "issuer_url", "credential"),
     ),
 )
 
