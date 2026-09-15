@@ -3918,4 +3918,50 @@ Keep the child's relevant governance factors equivalent in the content-different
 
 **DESIGN PACKAGE DELIVERED — 2026-09-15, awaiting Dave's implementation ruling.** `docs/D-IMPL-343-DESIGN.md` on `d-impl-343-dx` carries the thirteen items as ruled, measured at HEAD `1e22dae2` (the canonical spread: 1366 code lines by the counter in its Appendix A; the one governed consumer: 419), and asks thirteen rulings (`R-1`–`R-13`, its §14) before any code. Three findings surfaced in design and are recorded there, none implemented: the composing agent has no declarative path today (`ccf.agent-definition` is author-versioned and the typed reserved-section derivation refuses it — `R-2`); a producer offer's `versions_from` is a floor by contract and an exact address by use (`R-13`); a resolver preview would relocate, not delete, the effective-request double derivation (`D-IMPL-289`), so an acquisition seam on the governed call is recommended (`R-4`). No SDK, runtime, example or test code changed; no CP-14 work; `D-IMPL-341`/`D-IMPL-342` untouched; no id spent.
 
+**D-IMPL-343 — IMPLEMENTATION GO (2026-09-15, Dave, after the Grok review of the design package accepted it). Five rulings, verbatim:**
+
+* R-2 — declarative composing agent. GO. There must be a config/reserved-section path that yields a governed ccf.agent-definition. Building the agent only in Python is the §6.4 hole. Do not fight D-IMPL-56 by injecting a fake semver typed class. New reserved derivation that matches the existing artifact, or a dedicated reserved section — pick the one that does not require an author-versioned class in the typed table.
+* R-4 — seam, not preview. GO. Effective-request derivation runs once, on the governed call, and acquisition consumes that outcome. A preview API that re-runs constraint resolution is a second derivation and fails D-IMPL-289. Low-level ReferencePolicyConstraintResolver remains an escape hatch.
+* R-6 — producer_tenant declared and checked. GO. Registration declares it; door assertion is held to it; the child's served tenant_id never authorizes. Do not derive tenant from the answer. D-IMPL-340's low-level path stays; its as-built "derived" note does not govern the paved road.
+* R-7 — derived catalog/grant/skill fields. GO only from declared config keys (produces, name, requirements). No invented third field. D-IMPL-56 and D-IMPL-29 stand.
+* R-13 — versions_from is a floor everywhere. GO. Exact-address-at-serve while floor-at-open is a defect. Refuse when the served lane is below the floor, and retain the reason. F-05 compounds today's silence. Do not tighten the contract to "exact lane only."
+
+After those locks are recorded, implementation is GO for D-IMPL-343 only.
+
+Additional locks:
+
+* One facade over D-IMPL-336–340—not three helpers.
+* Developer responsibilities: acquire, project, assess, declare, and map the question.
+* SDK responsibilities: boot, effective request, ingest loop with tenant/instant bounds, serve/refuse, door, replay store/recorder, producer registration, grant/dispatch, and remote acquire.
+* Preserve escape hatches for custom door, transport, policy, store, and replay.
+* Preserve D-IMPL-337 mint checks visibly.
+* Do not put URLs or tokens in configuration.
+* Do not create a second composition engine.
+* Do not make the paved road the only road.
+
+Accept the design recommendations for R-1, R-3, R-5, and R-8 through R-12 subject to those constraints.
+
+Identifiers:
+
+* D-IMPL-341 remains CP03C-F-01.
+* D-IMPL-342 remains CP03C-F-05.
+* This phase spends D-IMPL-343 only.
+* D-IMPL-344 remains the next free identifier.
+
+Explicitly excluded from D-IMPL-343:
+
+* F-01 TTL actually read
+* F-05 full refusal-evidence recovery beyond R-13's retained reason
+* Fan-out
+* Swarm scheduling
+* DSL
+* Generators
+* Any CP-14 edit
+
+The first executable proof must be cp-03-canonical re-expressed through the paved road, with its content address and MCP admission unchanged and its existing cross-process proofs preserved.
+
+Push the implementation and proof, then STOP for review before making any CP-14 change.
+
+*(Recorded verbatim from Dave's message; the design package these rule on is `docs/D-IMPL-343-DESIGN.md` at `8783a89d`. "Do not put URLs or tokens in configuration" resolves the design's R-10 URL-boundary question the environment way: the door's `issuer_url`/`resource_server_url` are deployment environment, never Control Plane content.)*
+
 **Next free decision id: `D-IMPL-344`.** **Governs:** the launch-quality developer path for producing and consuming Context Products. **Related:** `D-IMPL-282` (the thin `build_governed_resolver` helper and its "no broader API redesign up front" — superseded in scope by this entry, on Dave's ruling), `D-IMPL-137` / `D-IMPL-141` (operator-set authorship and the SDK-supplied exemption), `D-IMPL-306` / `D-IMPL-313`–`D-IMPL-315` (the canonical producer shape), `D-IMPL-340` (producer registration and the `producers:` section its close left unwired), `D-IMPL-341` / `D-IMPL-342` (open; not implemented here), `D-GATE-cp-03-canonical`, `docs/EXAMPLE-EVALUATION-CRITERIA.md` §B–§F.
