@@ -543,7 +543,12 @@ proof asserts two distinct addresses, never "no error").
 
 ---
 
-## 12 · What still needs Dave before implementation
+## 12 · What still needed Dave before implementation — RULED (2026-09-14)
+
+**Implementation GO.** Q1: `producer-unavailable` is a governed outcome that preserves the child-resolution evidence and follows the `D-IMPL-338` refusal-record discipline; an unregistered producer or a malformed artifact stays a deployment/configuration **error** — the two are never collapsed. Q2: ship `DoorOutcome.producer`, additive, sourced from the governed registration / verified door path. Q3: peering unchanged; the two `tenant_id` meanings are recorded as belonging to different provider relationships, no follow-up. Q4: one registration per producer with an `offers` list. Q5: `mcp_product` as its own skill type. Dave's full sixteen-item ruling is in `docs/DECISIONS.md` under *D-IMPL-340 — IMPLEMENTATION GO*; the proof package there is **fourteen** proofs (this package's thirteen plus *question echo/binding mismatch refuses*, which §6's 1r already carries).
+
+*The questions as they were put, kept for the record:*
+
 
 - **Q1 — `producer-unavailable` as a governed refusal (§8 case 2).** Today an
   MCP transport failure during composition is an exception. This package
