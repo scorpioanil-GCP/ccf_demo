@@ -1282,12 +1282,27 @@ class CompositeAdmissionGate:
                 f" producer {expected_producer!r} and the registration expects"
                 f" {expected_tenant!r} (D-IMPL-340)",
             )
-        if echo is None or answered is None:
+        if echo is None:
             return refuse(
                 "question-mismatch",
-                "the producer's answer echoes no question, so nothing binds it"
-                f" to the question this composition sent"
+                "the producer's answer echoes no wire request, so nothing binds"
+                f" it to the question this composition sent"
                 f" ({invocation.question_address!r}) (D-IMPL-340)",
+            )
+        if answered is None:
+            # A door from before `D-IMPL-340` echoes the wire request and
+            # nothing else. That is not enough to bind subject, intent and
+            # freshness, so an `mcp_product` acquisition requires a door that
+            # states the axes it answered — by design, not by accident: the
+            # producer assertion is required on the same grounds.
+            return refuse(
+                "question-mismatch",
+                "the producer's answer echoes the wire request but states no"
+                " answered axes (subject, intent, freshness, asked_at); a"
+                " door that predates D-IMPL-340 cannot be composed as a"
+                " registered producer until it is upgraded, because three of"
+                f" the four question axes would be unbound"
+                f" ({invocation.question_address!r})",
             )
         echoed = question_identity(
             request_json=canonical_bytes(echo).decode("utf-8"),

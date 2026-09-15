@@ -363,6 +363,26 @@ class AnsweredQuestion(CCFContract):
     freshness: str
     asked_at: datetime
 
+    @field_validator("asked_at")
+    @classmethod
+    def _asked_at_is_one_instant(cls, value: datetime) -> datetime:
+        """A naive instant is not one instant (`D-IMPL-38`).
+
+        The review of the first cut found this echo could carry a naive
+        ``asked_at``, which the consumer's question identity would then render
+        through its host's zone — the same identity check answering
+        differently on two consumers. Refused here, at the door's own
+        boundary, exactly as :class:`WireRequest` refuses a naive temporal
+        boundary; a foreign door that stamps one emits an outcome the consumer
+        cannot decode and refuses as `producer-unavailable`.
+        """
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError(
+                "an answered question's asked_at carries an offset; a naive"
+                " instant is not one instant (D-IMPL-38)"
+            )
+        return value
+
 
 class DoorOutcome(CCFContract):
     """One wire answer from a door: a served vessel, or a refusal.

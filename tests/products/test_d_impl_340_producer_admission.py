@@ -248,7 +248,9 @@ class DoorStub:
         fail: Exception | None = None,
         refuse: bool = False,
         text: str | None = None,
+        schema_name: str | None = None,
     ) -> None:
+        self._schema_name = schema_name
         self._vessel = vessel
         self._tenant = tenant
         self._assertion = assertion
@@ -291,7 +293,10 @@ class DoorStub:
                 )
             ).decode("utf-8")
         contract = ContextProductContract.model_validate_json(self._vessel).model_copy(
-            update={"tenant_id": self._tenant}
+            update={
+                "tenant_id": self._tenant,
+                **({"schema_name": self._schema_name} if self._schema_name else {}),
+            }
         )
         vessel = canonical_bytes(contract)
         address = hashlib.sha256(vessel).hexdigest()
@@ -562,6 +567,53 @@ def test_a_completed_call_that_is_not_a_door_outcome_is_producer_unavailable(
     resolver, _r, children = wired(booted, door)
     row = refused_as(booted, ask(resolver), "producer-unavailable")
     assert row.outcome_status == "producer-unavailable"
+    assert row.producer_id == PRODUCER_ID
+
+
+# --- proof 8 (the class half) -----------------------------------------------
+
+
+def test_a_child_of_another_class_is_refused_on_the_producer_leg(
+    booted: _Booted, vessel: str
+) -> None:
+    """Check 2 still runs on the producer leg: an honest producer, honest
+    tenant, honest echo — but a contract declaring another class."""
+    door = DoorStub(vessel, assertion=honest_assertion(), schema_name="fixture.other-product")
+    row = refused_as(booted, ask(wired(booted, door)[0]), "class-mismatch")
+    assert row.child_schema_name is None or row.child_schema_name == "fixture.other-product"
+    assert row.producer_id == PRODUCER_ID
+
+
+def test_a_naive_answered_instant_is_a_malformed_answer_not_a_host_zone_question(
+    booted: _Booted, vessel: str
+) -> None:
+    """Review finding: an `answered.asked_at` without an offset would let the
+    question identity depend on the consumer host's zone. The door refuses
+    one at decode, so the consumer sees `producer-unavailable`, and the
+    identity it computed for its own question is untouched."""
+    honest = DoorStub(vessel, assertion=honest_assertion())
+    served_text = honest.call_tool_text(
+        "request_context_product",
+        {
+            "request": canonical_bytes(
+                WireRequest(
+                    product_id=CHILD_CLASS,
+                    parameters={THRESHOLD_PARAMETER: 1000},
+                    temporal_boundary=ASKED_AT,
+                )
+            ).decode("utf-8"),
+            "subject": "acct-1",
+            "intent": "fixture-intent",
+            "freshness": "fixture-freshness",
+            "asked_at": ASKED_AT.isoformat(),
+        },
+    )
+    import json  # noqa: PLC0415
+
+    outcome = json.loads(served_text)
+    outcome["answered"]["asked_at"] = "2026-03-02T12:00:00"  # naive
+    naive = DoorStub(vessel, text=json.dumps(outcome, sort_keys=True, separators=(",", ":")))
+    row = refused_as(booted, ask(wired(booted, naive)[0]), "producer-unavailable")
     assert row.producer_id == PRODUCER_ID
 
 
@@ -843,6 +895,6 @@ def test_every_new_refusal_reason_is_emitted_exactly_where_declared() -> None:
         "producer-tenant-mismatch": 3,
         "producer-mismatch": 1,
         "producer-unasserted": 1,
-        "question-mismatch": 2,  # no echo at all; an echo of another question
+        "question-mismatch": 3,  # no wire echo; no answered axes; an echo of another question
         "producer-unavailable": 2,  # could not answer; answered with no door outcome
     }, emitted
