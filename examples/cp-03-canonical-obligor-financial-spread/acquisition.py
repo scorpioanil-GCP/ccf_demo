@@ -31,7 +31,6 @@ and a derived line names the lines its arithmetic ACTUALLY read, which for a
 from __future__ import annotations
 
 import ast
-import os
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -105,29 +104,18 @@ def spreading_convention() -> Mapping[str, Any]:
     return declaration
 
 
-def _setting(name: str) -> str:
-    """One connection value, from the environment, or the declared remedy.
+def _schema(settings: Mapping[str, str]) -> str:
+    """The namespace the seven tables live in — environment, never a literal.
 
-    The variable's NAME and the remedy text both come from `backends.yaml`;
-    neither is written here, and no default exists. An unset variable raises
-    carrying the remedy the document declares, because a deployment that
-    quietly reached a different store than the one it names is the failure
-    this refuses.
+    ``settings`` is the environment document's ``financial_spread`` block,
+    resolved BY NAME once at open (``ccf_environment.yaml``; `D-IMPL-343`):
+    this module holds no variable name, no remedy text and no default, and a
+    deployment that quietly reached a different store than the one it names
+    is refused before the first question rather than here.
     """
-    setting = _document(HERE / "backends.yaml")["declaration"]["sources"][SOURCE][
-        "settings"
-    ][name]
-    value = os.environ.get(setting["from_env"])
-    if not value:
-        raise RuntimeError(f"{setting['from_env']} is not set.\n\n{setting['remedy']}")
-    return value
-
-
-def _schema() -> str:
-    """The namespace the seven tables live in — environment, never a literal."""
-    schema = _setting("schema")
+    schema = settings["schema"]
     if not schema.replace("_", "").isalnum():
-        raise RuntimeError(f"CCF_CP_03C_POSTGRES_SCHEMA holds {schema!r}, which is not a bare schema name")
+        raise RuntimeError(f"the declared schema setting holds {schema!r}, which is not a bare schema name")
     return schema
 
 
@@ -466,7 +454,7 @@ def _read_peers(cur: Any, schema: str, tables: Mapping[str, str], *, sic: str | 
     )
 
 
-def grant_for(principal_id: str) -> tuple[str, ...]:
+def grant_for(principal_id: str, *, settings: Mapping[str, str]) -> tuple[str, ...]:
     """The principal's jurisdiction grant, EXPANDED against the estate.
 
     A principal is granted a PREFIX — `US` reaches `US-DE`, `US-MD`, `US-NV`.
@@ -477,8 +465,8 @@ def grant_for(principal_id: str) -> tuple[str, ...]:
     `jurisdictions` — a request parameter that survives governance and lands
     in replay, never a value written over a resolved artifact.
     """
-    schema, tables = _schema(), vocabulary()["tables"]
-    with psycopg.connect(_setting("dsn")) as db, db.cursor() as cur:
+    schema, tables = _schema(settings), vocabulary()["tables"]
+    with psycopg.connect(settings["dsn"]) as db, db.cursor() as cur:
         cur.execute(
             f"""
             select distinct le.legal_jurisdiction
@@ -685,7 +673,7 @@ def cohort_statistics(peers: Sequence[PeerFact]) -> tuple[CohortStatistic, ...]:
 # ---------------------------------------------------------------------------
 
 
-def acquire(*, anchor_lei: str, periods: int, basis: str, include_peers: bool, peer_basis: str) -> SpreadRead:
+def acquire(*, anchor_lei: str, periods: int, basis: str, include_peers: bool, peer_basis: str, settings: Mapping[str, str]) -> SpreadRead:
     """Read the system of record once and arrange what it returned.
 
     Returns a read whose `resolved` is `None` when the anchor resolves to no
@@ -701,8 +689,8 @@ def acquire(*, anchor_lei: str, periods: int, basis: str, include_peers: bool, p
     identity = tuple(str(column) for column in rule["fact_identity_key"])
     words = vocabulary()
     tables = words["tables"]
-    schema = _schema()
-    with psycopg.connect(_setting("dsn")) as db, db.cursor() as cur:
+    schema = _schema(settings)
+    with psycopg.connect(settings["dsn"]) as db, db.cursor() as cur:
         resolved = _resolve_obligor(cur, schema, tables, anchor_lei, fiscal_annual=str(words["fiscal_annual"]), annual_form=str(words["annual_form"]))
         if resolved is None:
             return SpreadRead(anchor_lei=anchor_lei, basis=basis, resolved=None, periods=(), cohort=(), cohort_size=0, cohort_basis=peer_basis)

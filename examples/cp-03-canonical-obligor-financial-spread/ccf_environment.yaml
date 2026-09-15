@@ -1,0 +1,80 @@
+# THE DEPLOYMENT'S ENVIRONMENT — the second of this tree's two documents
+# (`D-IMPL-343`). `ccf_config.yaml` beside it is Control Plane content:
+# content-hashed, pinned into replay dimension 2, and never allowed to carry a
+# DSN, a host, a path, a credential or a URL. This document holds the NAMES
+# those values are read from, and the remedy an unset name raises with.
+#
+# NO CONNECTION VALUE APPEARS HERE — no host, no port, no path, no credential,
+# no URL. Only the environment says where anything is.
+#
+# THE VARIABLE NAMES ARE THIS DEPLOYMENT'S OWN. They are deliberately not
+# cp-03's `CCF_CP_03_*`: the frozen specimen and this successor read the same
+# estate but are two deployments, and sharing an environment variable would
+# make one run's estate silently become the other's.
+#
+# A CONTROL PLANE VALUE WRITTEN HERE IS REFUSED BY NAME: no principal, no role,
+# no TTL figure, no record class. Each has exactly one home, in the config.
+
+config: ccf_config.yaml
+
+# The FABRIC's own L3 — minted fresh under the caller's scratch root for EVERY
+# question (`CP03C-F-02`: several questions under one root booted one file, and
+# a subject that resolved to nothing was served somebody else's figures). The
+# setting named here is the declared adapter's; the prefix and suffix are this
+# deployment's; the SDK mints the path between them and names no backend.
+substrate:
+  setting: database_path
+  prefix: cp_03_canonical
+  suffix: .sqlite3
+
+sources:
+  # THE ONE STORE — the obligor's filed facts, the crosswalk that resolves the
+  # anchor, the entitlement grants, and the peer population. Three SELECTs per
+  # question, never one per period or per tag. The role needs SELECT and
+  # nothing else.
+  #
+  # THE SCHEMA IS A VARIABLE, NOT A LITERAL. The frozen specimen wrote `ccf_v2`
+  # into its own code; here the namespace is named beside the DSN, because the
+  # v1 namespace `public` sits on the same server and a DSN alone selects the
+  # wrong one silently (CLAUDE.md §9, the namespace trap).
+  financial_spread:
+    dsn:
+      from_env: CCF_CP_03C_POSTGRES_DSN
+      remedy: >-
+        export CCF_CP_03C_POSTGRES_DSN with a READ-ONLY connection string
+        for the financial-fact estate. The role needs SELECT and nothing
+        else: this deployment never writes to the store it reads, and a
+        role that could write would make that a promise rather than a
+        guarantee. See the README's "Run it" section.
+    schema:
+      from_env: CCF_CP_03C_POSTGRES_SCHEMA
+      remedy: >-
+        export CCF_CP_03C_POSTGRES_SCHEMA with the namespace holding the
+        financial_fact, crosswalk, legal_entity, filing_profile, peer_fact,
+        peer_entity and principal_jurisdiction tables (the v2 estate reads
+        `ccf_v2`; `ccf_dataprep/.env` names v1). Declared as a variable
+        rather than defaulted: a schema name selects WHICH of a store's
+        namespaces the product reads.
+
+# The standard door's environment. Three NAMES: the credential this boot is
+# reached with (unset → minted per boot; a parent that spawns this process
+# sets it to learn it without a side channel), and the two OAuth addresses the
+# door advertises. `run.py --door` binds a loopback port and advertises ITS OWN
+# address, so it reads neither URL; the stdio door reads both.
+door:
+  credential:
+    from_env: CCF_CP_03C_DOOR_TOKEN
+    remedy: >-
+      export CCF_CP_03C_DOOR_TOKEN with the bearer credential this door is to
+      be reached with, or leave it unset to have one minted per boot.
+  issuer_url:
+    from_env: CCF_CP_03C_DOOR_ISSUER_URL
+    remedy: >-
+      export CCF_CP_03C_DOOR_ISSUER_URL with the OAuth issuer this door's
+      auth settings advertise (any https URL for a development stdio door).
+  resource_server_url:
+    from_env: CCF_CP_03C_DOOR_RESOURCE_URL
+    remedy: >-
+      export CCF_CP_03C_DOOR_RESOURCE_URL with the resource-server address
+      this door's auth settings advertise (any https URL for a development
+      stdio door).

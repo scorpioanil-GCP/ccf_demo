@@ -31,6 +31,7 @@ import subprocess
 import sys
 import tempfile
 from collections.abc import Iterator
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
@@ -46,6 +47,37 @@ SPECIMEN = REPO_ROOT / "examples" / "cp-03-obligor-financial-spread"
 
 #: The instant `CP-SPEC-014` asks its children at — held, not tuned (`CP14-F-19`).
 CP14_INSTANT = datetime(2026, 9, 7, 12, 0, tzinfo=UTC)
+
+#: The intent and freshness this class serves — `run.py`'s own constants.
+INTENT = "annual-review"
+FRESHNESS = "filing-cadence"
+
+
+def _config() -> dict[str, Any]:
+    """The tree's ONE Control Plane document, as the declaration authority."""
+    document: dict[str, Any] = yaml.safe_load((EXAMPLE / "ccf_config.yaml").read_text(encoding="utf-8"))
+    return document
+
+
+def _environment() -> dict[str, Any]:
+    """The tree's environment document — the NAMES, never a value."""
+    document: dict[str, Any] = yaml.safe_load((EXAMPLE / "ccf_environment.yaml").read_text(encoding="utf-8"))
+    return document
+
+
+def _settings() -> dict[str, str]:
+    """The source settings, resolved from the variables the environment names."""
+    source = _environment()["sources"]["financial_spread"]
+    return {name: os.environ[value["from_env"]] for name, value in source.items()}
+
+
+@dataclass(frozen=True)
+class _Answer:
+    """One served answer, with its record, for the assertions below."""
+
+    product: Any
+    record: Any
+    served: Any
 
 #: Module names EVERY example in this repository ships. `produce.py` does a bare
 #: `import deployment`, so whichever example was imported first wins the name
@@ -115,12 +147,26 @@ def estate() -> str:
 
 
 def _ask(modules: tuple[Any, Any, Any], **question: Any) -> Any:
-    """One run, in its own scratch fabric."""
+    """One question on the paved road, in its own scratch: served with its record, or the refusal."""
+    from ccf.projection.plan import Perspective  # noqa: PLC0415
+
     deployment, produce, _ = modules
-    principal = question.get("principal_id")
-    asked = deployment.request(**{"lei": _demonstration("DEMONSTRATION_ANCHOR"), "asked_at": CP14_INSTANT, "debt_tolerance": "1.0", **question})
-    with tempfile.TemporaryDirectory() as scratch:
-        return produce.assemble_and_serve(asked=asked, root=pathlib.Path(scratch), principal_id=principal)
+    principal = question.pop("principal_id", None)
+    lei = question.pop("lei", _demonstration("DEMONSTRATION_ANCHOR"))
+    asked_at = question.pop("asked_at", CP14_INSTANT)
+    intent = question.pop("intent", INTENT)
+    parameters: dict[str, Any] = {deployment.DEBT_TOLERANCE: Decimal(str(question.pop("debt_tolerance", "1.0"))), **question}
+    with tempfile.TemporaryDirectory() as scratch, produce.product(pathlib.Path(scratch)) as opened:
+        perspective = None
+        if principal is not None and principal != opened.default_perspective.principal_id:
+            # Ask as somebody else: that principal's grant is STATED on the request.
+            parameters.update(deployment.grant_parameters(principal, settings=opened.sources[deployment.SOURCE]))
+            perspective = Perspective(principal_id=principal, role=opened.default_perspective.role)
+        asked = opened.question(subject=lei, asked_at=asked_at, intent=intent, freshness=FRESHNESS, parameters=parameters)
+        outcome = opened.answer(asked, perspective=perspective)
+        if _is_refusal(outcome):
+            return outcome
+        return _Answer(product=outcome.product, record=opened.record_of(outcome), served=outcome)
 
 
 @pytest.fixture(scope="module")
@@ -304,13 +350,12 @@ def test_the_declared_window_is_held_by_the_products_own_gate(
 
     Declared product gate `OFC-G06` (`CP-SPEC-003C` §G.1).
     """
-    deployment, _, _ = example_modules
-    window = timedelta(seconds=int(deployment.ttl()["declared_ttl_seconds"]))
+    window = timedelta(seconds=int(_config()["ttl"]["product_ttl_seconds"]))
     anchor = datetime.fromisoformat(served.product.payload["latest_filed_in_payload"]).replace(tzinfo=UTC)
     assert CP14_INSTANT < anchor + window
     stale = _ask(example_modules, lei=_demonstration("STALE_AT_THE_INSTANT"))
     assert _is_refusal(stale)
-    assert stale.reason == deployment.config()["product_class"]["declared_product_gate"]["gate_id"]
+    assert stale.reason == _config()["product_class"]["declared_product_gate"]["gate_id"]
     assert stale.kind == "product-invariant-refusal"
 
 
@@ -332,8 +377,7 @@ def test_expires_at_is_anchored_on_the_filing_not_the_question(
 
     Declared product gate `OFC-G07` (`CP-SPEC-003C` §G.1).
     """
-    deployment, _, _ = example_modules
-    window = timedelta(seconds=int(deployment.ttl()["declared_ttl_seconds"]))
+    window = timedelta(seconds=int(_config()["ttl"]["product_ttl_seconds"]))
     anchor = datetime.fromisoformat(served.product.payload["latest_filed_in_payload"]).replace(tzinfo=UTC)
     assert served.product.ttl_anchor == "from_entity_freshness"
     assert served.product.expires_at == anchor + window
@@ -355,7 +399,7 @@ def test_suppression_is_indistinguishable_from_absence(
     _, _, acquisition = example_modules
     unentitled = _demonstration("PRINCIPAL_WITH_NO_GRANT")
     jurisdiction = served.product.payload["obligor"]["obligor_jurisdiction"]
-    assert jurisdiction not in acquisition.grant_for(unentitled)
+    assert jurisdiction not in acquisition.grant_for(unentitled, settings=_settings())
     absent = _ask(example_modules, lei="000000000000000000XX")
     suppressed = _ask(example_modules, principal_id=unentitled)
     assert _is_refusal(absent) and _is_refusal(suppressed)
@@ -385,7 +429,6 @@ def test_intent_is_a_governed_axis_and_the_specimens_shadow_is_refused(
     from ccf.deployment import load_config_and_boot  # noqa: PLC0415
     from ccf.products.request import ProductRequestContract  # noqa: PLC0415
 
-    deployment, _, _ = example_modules
     wrong = _ask(example_modules, intent="covenant-check")
     assert _is_refusal(wrong)
     assert wrong.reason == "class-mismatch" and wrong.key == "intent"
@@ -400,7 +443,7 @@ def test_intent_is_a_governed_axis_and_the_specimens_shadow_is_refused(
     path.write_text(yaml.safe_dump(shadow), encoding="utf-8")
     with pytest.raises(Exception, match="shadow"):
         booted = load_config_and_boot(
-            path, registry=ControlPlaneRegistry(), connection=deployment.connection(root=tmp_path)
+            path, registry=ControlPlaneRegistry(), connection={"database_path": str(tmp_path / "shadow.sqlite3")}
         )
         try:
             ProductRequestContract.from_declared(booted.artifacts["request_contract"])
@@ -422,19 +465,16 @@ def test_declared_refusals_arrive_as_data_with_a_record(
     Declared product gate `OFC-G10` (`CP-SPEC-003C` §G.1).
     """
     deployment, produce, _ = example_modules
-    asked = deployment.request(lei=_demonstration("DEMONSTRATION_ANCHOR"), asked_at=CP14_INSTANT, debt_tolerance="1.0")
-    with tempfile.TemporaryDirectory() as scratch:
-        with_as_of = produce.assemble_and_serve(
-            asked=asked.model_copy(update={"parameters": {**asked.parameters, "as_of": "2025-12-31"}}),
-            root=pathlib.Path(scratch),
+    with tempfile.TemporaryDirectory() as scratch, produce.product(pathlib.Path(scratch)) as opened:
+        asked = opened.question(
+            subject=_demonstration("DEMONSTRATION_ANCHOR"), asked_at=CP14_INSTANT, intent=INTENT, freshness=FRESHNESS,
+            parameters={deployment.DEBT_TOLERANCE: Decimal("1.0")},
         )
+        with_as_of = opened.answer(asked.model_copy(update={"parameters": {**asked.parameters, "as_of": "2025-12-31"}}))
+        missing = opened.answer(asked.model_copy(update={"parameters": {}}))
     assert _is_refusal(with_as_of) and with_as_of.reason == "not-supported-at-tier" and with_as_of.key == "as_of"
     domain = _ask(example_modules, peer_basis="sic-and-size")
     assert _is_refusal(domain) and domain.reason == "not-in-domain" and domain.key == "peer_basis"
-    with tempfile.TemporaryDirectory() as scratch:
-        missing = produce.assemble_and_serve(
-            asked=asked.model_copy(update={"parameters": {}}), root=pathlib.Path(scratch)
-        )
     assert _is_refusal(missing) and missing.reason == "missing-required-parameter" and missing.key == "debt_tolerance"
     for refusal in (with_as_of, domain, missing):
         assert refusal.replay_reference.startswith("ccf-artifact://cp-03-canonical-demo/")
@@ -506,20 +546,30 @@ def _classifier() -> Any:
 
 
 def test_the_structural_classifier_reads_this_tree_as_canonical() -> None:
-    """Defect B, absent by construction. Something here hands the governed seam
-    to `GovernedResolver`, AND nothing here calls `run_gates`,
-    `build_replay_record` or `serve` itself — so the specimen's call with no
-    resolution binding has nowhere to exist.
+    """Defect B, absent by construction — and, as of `D-IMPL-343`, the whole
+    governed spine too. Something here opens the product on the PAVED road
+    (`open_product`, which composes `GovernedResolver` on this tree's behalf),
+    nothing here composes the resolver itself, and nothing here calls
+    `run_gates`, `build_replay_record` or `serve` — so the specimen's call
+    with no resolution binding has nowhere to exist, and the tree publishes
+    ONE spine rather than two. The classifier reads `"paved"`; a tree that
+    did both would read `"double-spined"` and be refused by name.
 
     Declared product gate `OFC-G13` (`CP-SPEC-003C` §G.1).
     """
     classifier = _classifier()
-    assert classifier.shape_of(EXAMPLE) == "canonical"
-    assert classifier.resolver_ownership(EXAMPLE)
+    assert classifier.shape_of(EXAMPLE) == "paved"
+    assert classifier.paved_entry(EXAMPLE)
+    assert classifier.resolver_ownership(EXAMPLE) == []
     assert classifier.governed_seam_calls(EXAMPLE) == {}
     assert classifier.legacy_governance_regions(EXAMPLE) == []
+    assert classifier.spine_problems(EXAMPLE) == []
     for path in EXAMPLE.rglob("*.py"):
-        assert "build_replay_record(" not in path.read_text(encoding="utf-8"), path
+        text = path.read_text(encoding="utf-8")
+        assert "build_replay_record(" not in text, path
+        # `D-IMPL-343` criterion 4: the paved road can make neither of these.
+        assert "ProductRequestViolation(" not in text, path
+        assert "ReferencePolicyConstraintResolver(" not in text, path
 
 
 def test_the_plan_factory_takes_its_operators_only_from_required() -> None:
@@ -584,34 +634,37 @@ def test_the_specimen_is_untouched_and_no_identity_is_reused(served: Any) -> Non
 def test_a_fresh_fabric_per_run_and_one_determination_across_roots(
     served: Any, estate: str, example_modules: tuple[Any, Any, Any]
 ) -> None:
-    """`backends.yaml` declares `per_run: path`, and the deployment honors it:
-    two connections under one root name two files. So several questions under
-    ONE root are several fabrics — an obligor served after another under the
-    same root hashes to the address it hashes to alone. Measured before the
-    uuid existed: the second obligor's view held the first, and the debt was
-    scored over both.
+    """The paved road mints a FRESH fabric per question under one scratch, from
+    the substrate the environment document declares: two questions under one
+    opened product leave two substrate files. So several questions under ONE
+    scratch are several fabrics — an obligor served after another under the
+    same scratch hashes to the address it hashes to alone. Measured before the
+    per-question mint existed (`CP03C-F-02`): the second obligor's view held
+    the first, and the debt was scored over both. The mechanism is the SDK's
+    now, not a uuid this tree remembers.
 
     Declared product gate `OFC-G24` (`CP-SPEC-003C` §G.1).
     """
     from ccf.contracts.canonical import content_hash  # noqa: PLC0415
 
     deployment, produce, _ = example_modules
-    with tempfile.TemporaryDirectory() as scratch:
-        root = pathlib.Path(scratch)
-        assert deployment.connection(root=root) != deployment.connection(root=root)
-        instant = datetime(2026, 8, 29, 12, 0, tzinfo=UTC)  # the stale obligor's own serving instant
-        first = produce.assemble_and_serve(
-            asked=deployment.request(lei=_demonstration("DEMONSTRATION_ANCHOR"), asked_at=instant, debt_tolerance="1.0"), root=root
+    substrate = _environment()["substrate"]
+    instant = datetime(2026, 8, 29, 12, 0, tzinfo=UTC)  # the stale obligor's own serving instant
+
+    def question(opened: Any, lei: str) -> Any:
+        return opened.question(
+            subject=lei, asked_at=instant, intent=INTENT, freshness=FRESHNESS,
+            parameters={deployment.DEBT_TOLERANCE: Decimal("1.0")},
         )
-        second = produce.assemble_and_serve(
-            asked=deployment.request(lei=_demonstration("STALE_AT_THE_INSTANT"), asked_at=instant, debt_tolerance="1.0"), root=root
-        )
+
+    with tempfile.TemporaryDirectory() as scratch, produce.product(pathlib.Path(scratch)) as opened:
+        first = opened.answer(question(opened, _demonstration("DEMONSTRATION_ANCHOR")))
+        second = opened.answer(question(opened, _demonstration("STALE_AT_THE_INSTANT")))
+        minted = sorted(pathlib.Path(scratch).glob(f"{substrate['prefix']}_*{substrate['suffix']}"))
+        assert len(minted) == 2 and minted[0] != minted[1], minted
     assert not _is_refusal(first) and not _is_refusal(second)
-    with tempfile.TemporaryDirectory() as fresh:
-        alone = produce.assemble_and_serve(
-            asked=deployment.request(lei=_demonstration("STALE_AT_THE_INSTANT"), asked_at=instant, debt_tolerance="1.0"),
-            root=pathlib.Path(fresh),
-        )
+    with tempfile.TemporaryDirectory() as fresh, produce.product(pathlib.Path(fresh)) as opened:
+        alone = opened.answer(question(opened, _demonstration("STALE_AT_THE_INSTANT")))
     assert not _is_refusal(alone)
     assert content_hash(second.product) == content_hash(alone.product)
     assert second.product.debt.debt == alone.product.debt.debt

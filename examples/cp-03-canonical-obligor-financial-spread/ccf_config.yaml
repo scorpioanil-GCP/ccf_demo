@@ -34,9 +34,17 @@
 # pins the major).
 #
 # NO CONNECTION VALUE APPEARS HERE. The fabric's own L3 is named as a KIND; how
-# the one SOURCE store is reached is `backends.yaml`, and where it is lives only
-# in the environment. A DSN in a content-hashed artifact is a DSN persisted into
-# the audit plane forever.
+# the one SOURCE store is reached, where the per-question fabric is minted and
+# what the door's credential and addresses are called live in
+# `ccf_environment.yaml` beside this file — NAMES, never values — and only the
+# environment says where anything is. A DSN in a content-hashed artifact is a
+# DSN persisted into the audit plane forever.
+#
+# ON THE PAVED ROAD (`D-IMPL-343`) THIS DOCUMENT ALSO DECLARES THE BINDINGS the
+# spine used to restate as code literals and side documents: the replay
+# binding, the TTL figures and the door's asserted identity. Each is declared
+# ONCE, here, and the SDK refuses at derivation anything a second document or
+# a call could contradict.
 
 semver: "1.0.0"
 tenant_id: cp-03-canonical-demo
@@ -409,3 +417,54 @@ policy:
 default_perspective:
   principal_id: PRIN-COV-001
   role: analyst
+
+# ---------------------------------------------------------------------------
+# The deployment's bindings — declared ONCE (`D-IMPL-343`; `D-IMPL-282` R-12;
+# `D-IMPL-292`). No spine restates any of these as an argument.
+# ---------------------------------------------------------------------------
+
+# Where every decision record for this deployment is filed, served and refused
+# alike — ONE store under ONE class, shared by the spine and the door.
+replay:
+  record_class: ccf.replay-record
+  query_pin_class: ccf.graph-query
+  store_dirname: artifact-store
+
+# THE TTL THIS PRODUCT DECLARES — the specimen's figures, preserved. The class
+# ceiling registers the MAX_TTL artifact the TTL gate resolves; the product's
+# own window is what the served contract's `expires_at` runs from and what the
+# product's own gate reads off the served candidate (`CP03C-F-01`: the governed
+# path anchors `expires_at` at the decision instant regardless of the declared
+# anchor; the gate holds the serving half, and the `expires_at` half is raised
+# as a finding, not repaired here).
+ttl:
+  max_ttl_seconds: 2592000           # 30 days
+  product_ttl_seconds: 2592000       # 30 days
+
+# THE STANDARD DOOR: what it asserts and what it advertises. The principal and
+# role it serves under are `default_perspective` above — one identity, reached
+# two ways — and a `principal_id` or `role` written here is refused by name.
+# No URL and no credential: those are `ccf_environment.yaml`'s names.
+door:
+  # `D-IMPL-340` ruling 2: the identity this door ASSERTS on every outcome,
+  # served or refused. A consumer holds it to the `producer_id` of the
+  # `ccf.mcp-producer` registration IT governs; equality is a binding check,
+  # never an authorization.
+  producer_id: cp-03-canonical-obligor-financial-spread-egress
+  # `D-IMPL-343` R-6: declared, and CHECKED EQUAL to `tenant_id` at derivation.
+  producer_tenant: cp-03-canonical-demo
+  required_scope: ccf:egress
+  tool_description: >-
+    Answer one obligor's financial spread as a governed, content-addressed
+    Context Product (`credit-risk.spread`). The subject is the obligor's LEI.
+    Returns the declared lines for the most recent periods, every figure naming
+    the period it describes, the filing that asserted it (`accession`,
+    `filed_date`, `form`), the basis it was read under and whether a later
+    filing changed it; the derived ratios with the lines their arithmetic
+    actually consumed; and the SIC peer cohort's shape at the obligor's OWN
+    period ends. The caller may supply `periods`, `basis` (`as-reported` |
+    `latest-restated` — different numbers for the same period), `include_peers`
+    and `peer_basis`, and MUST supply `debt_tolerance`. A spread whose freshest
+    filing is outside the declared 30-day window at the asked instant, or an
+    obligor the calling principal may not see, is REFUSED by the product's own
+    declared gate; a debt above the tolerance is withheld with the debt block.
