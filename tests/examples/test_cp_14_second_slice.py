@@ -20,10 +20,16 @@ What is held, exactly:
    measured estate state), the family's own answer at the memo's tolerance is
    whatever the family's producer decides, and the composite refuses — the
    production question is not raised to obtain a serve.
-3. **`CP14-F-32`, measured**: on the refused composite the admitted children's
-   bytes are not in the consumer's store; each admitted child's retained
-   content address resolves, byte for byte, in ITS PRODUCER's own ArtifactStore
-   — the same immutable address, reconstructible where the producer keeps it.
+3. **`CP14-F-32` — measured, then closed by `D-IMPL-344`.** The original
+   measurement is HISTORICAL and stays on the finding's row: on the refused
+   composite the admitted children's bytes were not in the consumer's store,
+   and no retained immutable artifact resolved the address anywhere (the
+   producer's own store holds its record and pins, never product bytes). The
+   converted test now proves the opposite property: every admitted child's
+   bytes are retained in the consumer's store at the row's address, and
+   `replay_refusal` reconstructs BOTH refused records from that store after
+   the producer processes have exited, consulting no plan, operator or
+   product.
 
 **Reads the estate, seeds nothing.**
 """
