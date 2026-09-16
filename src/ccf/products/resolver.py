@@ -146,7 +146,7 @@ between a candidate and its content address.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -2140,6 +2140,24 @@ class GovernedResolver:
                     asked_at=request.asked_at,
                     composition_invocation=invocation,
                 )
+                # `D-IMPL-344`: RETENTION FOLLOWS ADMISSION, NOT COMPOSITION
+                # SUCCESS. Every contract this walk admitted is filed by content
+                # address HERE — before the blocking split — so a partially
+                # admitted set (one child admitted, a required sibling refused
+                # or unreachable, the parent's plan never run) keeps the bytes
+                # its refusal record's row names. Read off `resolved.admitted`
+                # directly: the view below refuses a blocked resolution by
+                # design (`D-IMPL-339` Q2), and a view over a set known not to
+                # compose was never the prerequisite for keeping what WAS
+                # admitted. Replay rebuilds from what was consumed — never from
+                # a provider call, a latest-version lookup or a live closure —
+                # on every exit, not only the served one. A store that cannot
+                # file raises here, before any record is minted (§3 of the
+                # design): a determination whose evidence was not kept is not
+                # recorded as though it had been.
+                self._retain_child_contracts(
+                    child.contract for child in resolved.admitted
+                )
                 if resolved.blocking:
                     composed = CompositionOutcome(
                         factors=None,
@@ -2148,11 +2166,6 @@ class GovernedResolver:
                     )
                 else:
                     children = child_contract_view(resolved)
-                    # Retained by content address at decision time, so replay
-                    # rebuilds this view from what was CONSUMED — never from
-                    # a provider call, a latest-version lookup or a live
-                    # closure (`D-IMPL-339`, replay).
-                    self._retain_child_contracts(children)
             if composed is not None and composed.refusal is not None:
                 # A KNOWN BLOCKING OUTCOME BEFORE PROJECTION (`D-IMPL-339` Q2):
                 # a required child absent, an invoked child refused or rejected
@@ -2683,7 +2696,9 @@ class GovernedResolver:
             executed_queries=execution.executed_queries,
         )
 
-    def _retain_child_contracts(self, children: ChildContractView) -> None:
+    def _retain_child_contracts(
+        self, contracts: Iterable[ContextProductContract]
+    ) -> None:
         """File each admitted child's contract by content address (`D-IMPL-339`).
 
         Nothing else retains a served product's bytes — the writer files the
@@ -2693,13 +2708,21 @@ class GovernedResolver:
         fabric's own store, idempotently: the address IS the identity, and a
         second composition consuming the same child files nothing twice.
 
+        Takes the admitted **contracts** and not a
+        :class:`~ccf.products.composite.ChildContractView` (`D-IMPL-344`): the
+        view exists only for a composition that reached no refusal, while
+        retention follows admission on every exit. The caller hands over
+        exactly what :func:`~ccf.products.composite.resolve_child_outcomes`
+        admitted, so nothing that was refused, rejected, absent or unreachable
+        can arrive here.
+
         The store's address for the bytes must equal
         :func:`~ccf.contracts.canonical.content_hash` of the contract — the
         same address the child row records — or replay could not resolve the
         row to the bytes. A store that hashed differently is refused here,
         loudly, rather than discovered at replay.
         """
-        for contract in children.values():
+        for contract in contracts:
             address = content_hash(contract)
             if self.artifact_store.exists(content_address=address):
                 continue

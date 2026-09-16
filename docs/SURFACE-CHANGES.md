@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1218 entries**, of which **974** name a public Python surface.
+**1221 entries**, of which **977** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-646 entries — 606 public Python surface, 40 not public Python API.
+649 entries — 609 public Python surface, 40 not public Python API.
 
 ### Public Python surface
 
@@ -10920,6 +10920,42 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Migration: none
 
 *Recorded by `343-01-paved-road.md`.*
+
+#### ccf.replay.engine.replay_refusal
+
+- Surface: ccf.replay.engine.replay_refusal
+- Public surface: true
+- Change type: added
+- Before: absent — a refused decision had no reconstruction path; `replay()` reached `environment.resolve_plan("no-fabric-read")` and reported a missing plan
+- After: the same prologue and child reconstruction as `replay()`, then the record's own no-read/no-product claims asserted and the refusal held to the child rows (before projection), or the recorded operator path re-derived and the refusal's evidence held to it with `rehydrate_product` never called (after projection)
+- Why: D-IMPL-344 — a governed "no" must reconstruct from the record and the store with producers stopped, and storing the bytes alone did not make it so
+- Migration: none; a refused record's caller uses `replay_refusal()` where it could not use `replay()` before
+
+*Recorded by `344-01-refusal-reconstruction.md`.*
+
+#### ccf.replay.engine.RefusalReplayOutcome
+
+- Surface: ccf.replay.engine.RefusalReplayOutcome
+- Public surface: true
+- Change type: added
+- Before: absent — `ReplayOutcome` requires a `product`, so no verified reconstruction of a refusal could be represented
+- After: the record, its address, the re-canonicalized refusal block, every admitted child's resolved address, and the snapshot id (`no-fabric-read` before projection); no `product` member exists on the type
+- Why: D-IMPL-344 R-1 — a reconstructed refusal must not be readable as a served product one call downstream
+- Migration: none
+
+*Recorded by `344-01-refusal-reconstruction.md`.*
+
+#### ccf.replay.engine.ReplayRecordKindMismatch
+
+- Surface: ccf.replay.engine.ReplayRecordKindMismatch
+- Public surface: true
+- Change type: added
+- Before: absent — a refused record handed to `replay()` failed as `ReplayUnresolvable` naming a plan that never existed; a served record could not be refused by a refusal reconstruction
+- After: raised by name, in both directions, after the record's bindings and resolution claim are verified and before anything is resolved or re-executed; also for a record contradicting itself about its kind
+- Why: D-IMPL-344 — a *don't know* was being reported as a missing plan
+- Migration: none; it subclasses `ReplayError`, so a caller catching the base is unaffected
+
+*Recorded by `344-01-refusal-reconstruction.md`.*
 
 ### Not public Python API
 
