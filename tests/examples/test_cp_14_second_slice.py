@@ -43,7 +43,6 @@ from typing import Any
 import pytest
 
 from ccf.artifacts.file_store import FileArtifactStore
-from ccf.artifacts.protocol import ArtifactNotFound
 from ccf.contracts.canonical import content_hash
 from ccf.products.refusal import RefusalEnvelope
 from ccf.replay.record import DecisionReplayRecord
@@ -220,89 +219,125 @@ def test_the_real_question_at_the_governed_tolerance_still_refuses_with_both_doo
     assert family.outcome_status in {"admitted", "ineligible"}, family.outcome_status
 
 
-def test_f32_a_refused_composite_that_admitted_a_child_cannot_be_replayed_from_its_own_store(
-    two_child_diagnostic: tuple[Any, Any, DecisionReplayRecord], tmp_path: pathlib.Path
+def test_f32_a_refused_composite_that_admitted_a_child_is_reconstructed_from_its_own_store(
+    two_child_diagnostic: tuple[Any, Any, DecisionReplayRecord],
+    modules: tuple[Any, Any],
+    estate: None,
+    tmp_path: pathlib.Path,
 ) -> None:
-    """`CP14-F-32`, measured — a STOP condition (launch-level replay defect).
+    """`CP14-F-32` — the measurement preserved, the assertion inverted (`D-IMPL-344`).
 
-    Three facts, each held here:
+    **What was measured on 2026-09-15, and stays on the finding's row:** the
+    consumer's store held the five rows and the refusal record but not the
+    admitted children's contracts — `GovernedResolver._retain_child_contracts`
+    filed admitted bytes on the NON-BLOCKING composition path only — while
+    `ccf.replay.engine.replay` rebuilt the child view from the store for ANY
+    record with admitted rows, so both diagnostic records were UNREPLAYABLE
+    from the store that recorded them (`ReplayUnresolvable`, naming the
+    admitted child's address); and the producer's own store never holds a
+    served product's bytes, so no retained immutable artifact resolved the
+    address anywhere. Classified launch-blocking; STOP; `D-IMPL-344`.
 
-    1. The consumer's store holds the rows and the refusal record, not the
-       admitted children's contracts: `GovernedResolver._retain_child_contracts`
-       files admitted bytes on the NON-BLOCKING composition path only, and both
-       diagnostic records are blocked by three unreachable required slots.
-    2. The producer's own store holds its record and its query pins, never the
-       served product's bytes (the record names `product_content_address`);
-       the product is re-derivable there only by re-execution while the
-       producer's fabric snapshot exists. No retained immutable artifact
-       resolves the address anywhere.
-    3. `ccf.replay.engine.replay` rebuilds the child view from the store for ANY
-       record with admitted rows, so the refused parent's record is
-       UNREPLAYABLE from the store that recorded it: `ReplayUnresolvable`,
-       naming the admitted child's address.
+    **What is asserted now, positively, for BOTH slice-2 records** — the
+    `1.0` diagnostic (spread and family admitted, three slots unreachable) and
+    the real `0.25` question (family admitted, spread withheld by its producer):
 
-    **Written to go red when the SDK is fixed**: once admitted-child bytes are
-    retained on every exit (as `D-IMPL-338` made the rows survive every exit),
-    the `raises` below fails and this assertion must flip with the ruling that
-    closed the finding. Nothing is copied into CP-14 to repair it.
+    1. every admitted row's address resolves from a FRESH instance of the
+       consumer's store and the bytes re-hash to it;
+    2. `replay_refusal` reconstructs the refused determination from that store
+       and the consumer's own fabric **after both producer processes have
+       exited** — the environment handed to it raises if any member is
+       consulted, so the pre-projection path provably resolves no plan and no
+       operator — returning the admitted addresses, `no-fabric-read` as the
+       snapshot id and the recorded refusal block re-canonicalized equal;
+    3. `replay()` refuses the same record by name — a secondary check, never
+       the closure: the record-kind guard alone would have turned the old
+       `raises` red with retention still broken.
+
+    Nothing is copied into CP-14. The producers' own stores still hold no
+    product bytes; that is not a defect and is no longer load-bearing.
     """
     from ccf.deployment import load_config_and_boot  # noqa: PLC0415
-    from ccf.replay.engine import ReplayUnresolvable, replay  # noqa: PLC0415
+    from ccf.products.contract import ContextProductContract  # noqa: PLC0415
+    from ccf.replay.engine import (  # noqa: PLC0415
+        RefusalReplayOutcome,
+        ReplayRecordKindMismatch,
+        replay,
+        replay_refusal,
+    )
+    from ccf.replay.record import NO_FABRIC_READ  # noqa: PLC0415
 
-    opened, outcome, record = two_child_diagnostic
-    assert isinstance(outcome, RefusalEnvelope)
-    rows = _rows(record)
-    consumer_store = FileArtifactStore(root=opened.scratch / opened.replay.store_dirname)
-    for product_class in ("credit-risk.spread", "reference.corporate-family"):
-        with pytest.raises(ArtifactNotFound):
-            consumer_store.get(content_address=rows[product_class].child_content_address)
+    with spread_producer(estate) as spread_url, family_producer() as family_url:
+        real = _ask(modules, tmp_path / "real", environ=_environ(spread_url=spread_url, family_url=family_url), tolerance="0.25")
+    # Both producer processes have exited here; nothing below can reach one.
 
-    class _Environment:
-        """The three Protocol members; replay must fail BEFORE any is consulted."""
+    class _NeverConsulted:
+        """A refusal before projection resolves no plan, no operator, no product."""
 
-        def resolve_plan(self, *, plan_id: str) -> Any:
-            raise LookupError("not reached")
+        def resolve_plan(self, **_: Any) -> Any:
+            raise AssertionError("resolve_plan was reached")
 
-        def resolve_composite_plan(self, *, plan_id: str, children: Any) -> Any:
-            raise LookupError("not reached")
+        def resolve_composite_plan(self, **_: Any) -> Any:
+            raise AssertionError("resolve_composite_plan was reached")
 
-        def resolve_operators(self, *, operator_keys: tuple[str, ...]) -> Any:
-            raise LookupError("not reached")
+        def resolve_operators(self, **_: Any) -> Any:
+            raise AssertionError("resolve_operators was reached")
 
-    minted = sorted(opened.scratch.glob("cp14_memo_*.sqlite3"))[-1]
-    fabric = load_config_and_boot(opened.config_path, registry=opened.control_plane, connection={"database_path": str(minted)})
-    try:
-        with pytest.raises(ReplayUnresolvable, match="is not retained in the store") as refused:
-            replay(
-                record_address=consumer_store.resolve_uri(uri=outcome.replay_reference),
+        def rehydrate_product(self, **_: Any) -> Any:
+            raise AssertionError("rehydrate_product was reached")
+
+    expected_admitted = {
+        "1.0": {"credit-risk.spread", "reference.corporate-family"},
+        "0.25": {"reference.corporate-family"},
+    }
+    for tolerance, (opened, outcome, record) in (("1.0", two_child_diagnostic), ("0.25", real)):
+        assert isinstance(outcome, RefusalEnvelope), (tolerance, outcome)
+        rows = _rows(record)
+        admitted = {
+            product_class: row.child_content_address
+            for product_class, row in rows.items()
+            if row.outcome_status == "admitted"
+        }
+        assert set(admitted) == expected_admitted[tolerance], (tolerance, admitted)
+        if tolerance == "0.25":
+            # The spread withheld at its producer's door crosses as `ineligible`
+            # on the row, the producer's reason retained in the detail — the
+            # `CP14-F-30` / `D-IMPL-342` fact, unchanged by 344.
+            assert rows["credit-risk.spread"].outcome_status == "ineligible", rows["credit-risk.spread"]
+        assert record.content_generation_path.plan_id == NO_FABRIC_READ
+
+        # 1. the admitted bytes, from a fresh store instance, re-hashing to the row's address
+        consumer_store = FileArtifactStore(root=opened.scratch / opened.replay.store_dirname)
+        for product_class, address in admitted.items():
+            assert address, (tolerance, product_class)
+            contract = ContextProductContract.model_validate_json(consumer_store.get(content_address=address))
+            assert content_hash(contract) == address, (tolerance, product_class)
+            assert contract.schema_name == product_class
+
+        # 2. the refused determination, reconstructed with the producers stopped
+        minted = sorted(opened.scratch.glob("cp14_memo_*.sqlite3"))[-1]
+        fabric = load_config_and_boot(opened.config_path, registry=opened.control_plane, connection={"database_path": str(minted)})
+        try:
+            record_address = consumer_store.resolve_uri(uri=outcome.replay_reference)
+            reconstructed = replay_refusal(
+                record_address=record_address,
                 store=consumer_store, reader=fabric.handle.reader, control_plane=opened.control_plane,
-                environment=_Environment(),
+                environment=_NeverConsulted(),
             )
-    finally:
-        fabric.handle.close()
-    assert rows["credit-risk.spread"].child_content_address in str(refused.value)
+            assert isinstance(reconstructed, RefusalReplayOutcome)
+            assert set(reconstructed.child_contract_addresses) == set(admitted.values()), tolerance
+            assert reconstructed.graph_snapshot_id == NO_FABRIC_READ
+            assert reconstructed.assembly_refusal == record.content_generation_path.assembly_refusal
+            assert reconstructed.record == record
+            assert reconstructed.record_content_address == record_address
+            assert "product" not in type(reconstructed).model_fields
 
-    # The producer's side, for the record: its store retains no product bytes either.
-    saved = {name: sys.modules.pop(name, None) for name in ("acquisition", "deployment", "produce", "projection")}
-    sys.path.insert(0, str(FAMILY_EXAMPLE))
-    try:
-        import deployment as family_deployment  # noqa: PLC0415
-        import produce as family_produce  # noqa: PLC0415
-
-        with family_produce.product(tmp_path / "family-scratch") as family:
-            asked = family.question(
-                subject=BGC, asked_at=CP14_INSTANT, intent="credit-concentration", freshness="as-filed",
-                parameters={family_deployment.ANCHOR: BGC, family_deployment.FAMILIES: [BGC], "debt_tolerance": Decimal("1.0")},
-            )
-            served = family.answer(asked)
-            assert isinstance(served, ServedProduct), getattr(served, "detail", served)
-            assert content_hash(served.product) == rows["reference.corporate-family"].child_content_address, "the same question, the same address"
-            producer_store = FileArtifactStore(root=family.scratch / family.replay.store_dirname)
-            with pytest.raises(ArtifactNotFound):
-                producer_store.get(content_address=content_hash(served.product))
-    finally:
-        sys.path.remove(str(FAMILY_EXAMPLE))
-        for name, module in saved.items():
-            sys.modules.pop(name, None)
-            if module is not None:
-                sys.modules[name] = module
+            # 3. the served entry point refuses the refused record by name (secondary)
+            with pytest.raises(ReplayRecordKindMismatch):
+                replay(
+                    record_address=record_address,
+                    store=consumer_store, reader=fabric.handle.reader, control_plane=opened.control_plane,
+                    environment=_NeverConsulted(),
+                )
+        finally:
+            fabric.handle.close()

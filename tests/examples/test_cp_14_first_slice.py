@@ -42,7 +42,7 @@ from typing import Any
 import pytest
 
 from ccf.artifacts.file_store import FileArtifactStore
-from ccf.artifacts.protocol import ArtifactNotFound
+from ccf.products.contract import ContextProductContract
 from ccf.contracts.canonical import content_hash
 from ccf.products.refusal import RefusalEnvelope
 from ccf.replay.record import DecisionReplayRecord
@@ -183,11 +183,13 @@ def test_the_diagnostic_tolerance_shows_the_spread_served_and_admitted_at_its_on
     assert spread.child_content_address == DEMONSTRATION_SPREAD_ADDRESS
     assert spread.child_schema_version == "1.1.0" and spread.child_asked_at == CP14_INSTANT
     assert all(rows[c].outcome_status == "producer-unavailable" for c in CHILD_CLASSES[1:])
-    # ON A REFUSED COMPOSITE THE ADMITTED CHILD'S BYTES ARE NOT RETAINED in the
-    # consumer's store — only its identity on the row (`CP14-F-32`). Stated,
-    # not worked around: a served composite retains them (dogfood B proves it).
-    with pytest.raises(ArtifactNotFound):
-        FileArtifactStore(root=opened.scratch / opened.replay.store_dirname).get(content_address=spread.child_content_address)
+    # ON A REFUSED COMPOSITE THE ADMITTED CHILD'S BYTES ARE RETAINED in the
+    # consumer's store at the row's address (`D-IMPL-344`: retention follows
+    # admission, not composition success). Until 2026-09-16 this assertion
+    # held the opposite — the shipped defect `CP14-F-32` measured, stated
+    # rather than worked around — and it inverted with the SDK, never before.
+    retained = FileArtifactStore(root=opened.scratch / opened.replay.store_dirname).get(content_address=spread.child_content_address)
+    assert content_hash(ContextProductContract.model_validate_json(retained)) == spread.child_content_address
 
 
 def test_the_consumer_wrote_no_sdk_machinery(tmp_path: pathlib.Path, modules: tuple[Any, Any], estate: None) -> None:
