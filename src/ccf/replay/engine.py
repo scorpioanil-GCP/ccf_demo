@@ -93,20 +93,29 @@ from ccf.artifacts.protocol import (
     MovingTargetRefused,
 )
 from ccf.contracts.base import CCFContract
-from ccf.contracts.canonical import content_hash, generation_mismatch
+from ccf.contracts.canonical import canonical_bytes, content_hash, generation_mismatch
 from ccf.controlplane.artifacts import PolicyConstraint
 from ccf.controlplane.registry import ControlPlaneMissing, ControlPlaneProtocol
 from ccf.graph.protocols import GraphReader
 from ccf.products.composite import ChildContractView
 from ccf.products.contract import ContextProductContract
-from ccf.products.request import ProductRequestContract, request_seeds
-from ccf.projection.engine import OperatorRegistry, ProjectionEngine
+from ccf.products.request import (
+    ProductRequestContract,
+    ProductRequestViolation,
+    request_seeds,
+)
+from ccf.projection.engine import ExecutionResult, OperatorRegistry, ProjectionEngine
 from ccf.projection.plan import Perspective, ProjectionOutput, ProjectionPlan
 from ccf.replay.record import (
     CHILD_ADMITTED,
     ChildResolution,
+    ContentGenerationPath,
+    ContextFabricSnapshot,
     DecisionReplayRecord,
+    NO_ASSEMBLY_REFUSAL,
+    NO_FABRIC_READ,
     NO_GRAPH_QUERIES,
+    NO_PRODUCT_ADDRESS,
     NO_REQUEST_RESOLUTION,
     ResolutionNotApplicable,
 )
@@ -121,9 +130,12 @@ __all__ = [
     "ReplayError",
     "ReplayGenerationMismatch",
     "ReplayOutcome",
+    "ReplayRecordKindMismatch",
     "ReplayResolutionClaimMismatch",
     "ReplayUnresolvable",
+    "RefusalReplayOutcome",
     "replay",
+    "replay_refusal",
     "resolve_artifact",
     "resolve_artifact_at_uri",
 ]
@@ -277,6 +289,32 @@ class ReplayResolutionClaimMismatch(ReplayError):
             "misstates"
         )
 
+
+
+class ReplayRecordKindMismatch(ReplayError):
+    """The record is not the kind of decision this entry point reconstructs.
+
+    `D-IMPL-344`. A :class:`DecisionReplayRecord` is one of two kinds, and the
+    record says which on its own dimension 5: a **served** decision names a
+    product address and carries :data:`~ccf.replay.record.NO_ASSEMBLY_REFUSAL`;
+    a **refused** decision carries the refusal's own block and
+    :data:`~ccf.replay.record.NO_PRODUCT_ADDRESS`. :func:`replay` reconstructs
+    the first and :func:`replay_refusal` the second, and each refuses the
+    other's record **by name**. The order, exactly: the shared prologue
+    resolves the record at its address and verifies its generation, its
+    bindings and its resolution claim first; this guard runs after that, and
+    before any child contract, plan or operator is resolved and before
+    anything is re-executed.
+
+    Raised, not returned, for the reason every replay finding is: before this
+    guard a refused record handed to :func:`replay` failed at
+    ``environment.resolve_plan("no-fabric-read")`` — a *don't know* reported
+    as a missing plan — and a served record handed to a refusal reconstruction
+    would have had a product read off it as though nothing had been served.
+    Also raised for a record that contradicts itself about its kind (a refusal
+    block beside a product address, or neither), and for a refused record
+    whose dimension 5 contradicts its own no-read claim.
+    """
 
 @runtime_checkable
 class ReplayEnvironment(Protocol):
@@ -438,6 +476,39 @@ class ReplayOutcome(CCFContract):
     product_content_address: str
     graph_snapshot_id: str
 
+
+
+class RefusalReplayOutcome(CCFContract):
+    """A verified reconstruction of a REFUSED decision (`D-IMPL-344`).
+
+    Constructed only after every check :func:`replay_refusal` runs has passed,
+    on the same rule as :class:`ReplayOutcome`: holding one *is* the evidence.
+    **It has no ``product`` member and cannot acquire one.** A refused decision
+    served nothing, and a reconstruction that could hand back something
+    product-shaped — the provisional projection a post-projection refusal
+    re-derived, say — would let a governed "no" be read as a "yes" one call
+    downstream.
+
+    Attributes:
+        record: The record that was reconstructed, resolved at its exact
+            address.
+        record_content_address: Where the record was resolved from.
+        assembly_refusal: Dimension 5's refusal block — the refusal envelope's
+            canonical bytes — rehydrated and re-canonicalized equal.
+        child_contract_addresses: Every admitted child row's content address,
+            each resolved from the store and re-hashed to itself. Empty when
+            the decision admitted no child, which is a positive statement.
+        graph_snapshot_id: :data:`~ccf.replay.record.NO_FABRIC_READ` for a
+            refusal reached before any projection ran; otherwise the snapshot
+            id the re-execution derived, equal by construction to the
+            recorded one.
+    """
+
+    record: DecisionReplayRecord
+    record_content_address: str
+    assembly_refusal: str
+    child_contract_addresses: tuple[str, ...]
+    graph_snapshot_id: str
 
 def resolve_artifact(
     *,
@@ -744,7 +815,19 @@ def _reconstruct_child_contracts(
                 " store; a composite's replay rebuilds its children from what"
                 " was consumed, never from a provider (D-IMPL-339)"
             ) from missing
-        contract = ContextProductContract.model_validate_json(stored)
+        try:
+            contract = ContextProductContract.model_validate_json(stored)
+        except ValueError as not_a_contract:
+            # `D-IMPL-344` case 5: bytes at the address that are not a contract
+            # are an integrity failure by name, never a substitution and never
+            # a validation error escaping from inside the store's answer.
+            raise ReplayDivergence(
+                f"the bytes retained at {address!r} for"
+                f" {row.required_product_class!r} do not rehydrate as a"
+                " context product contract; the store answered something at"
+                f" the address the row names, and it is not the child"
+                f" ({not_a_contract})"
+            ) from not_a_contract
         if content_hash(contract) != address:
             raise ReplayDivergence(
                 f"the bytes retained at {address!r} rehydrate to a contract"
@@ -794,6 +877,13 @@ def replay(
             is re-executed. A record carrying the legacy
             :data:`~ccf.replay.record.NO_REQUEST_RESOLUTION` sentinel is
             exempt (D-12).
+        ReplayRecordKindMismatch: the record is a REFUSED decision — its
+            dimension 5 carries a refusal block and
+            :data:`~ccf.replay.record.NO_PRODUCT_ADDRESS` — or contradicts
+            itself about its kind (`D-IMPL-344`). Raised after the record's
+            bindings and resolution claim have been verified and before any
+            child, plan or operator is resolved; :func:`replay_refusal` is the
+            entry point for that record.
         ReplayDivergence: something resolved but did not reproduce.
         ~ccf.replay.snapshots.SnapshotPinUnresolvable: dimension 1 carries a
             real store pin and the reader is not
@@ -804,35 +894,278 @@ def replay(
             re-execution left the recorded snapshot's scope. Likewise a
             ``LookupError`` outside :class:`ReplayError`, propagated as raised.
     """
+    record = _prologue(
+        record_address=record_address, store=store, control_plane=control_plane
+    )
+    _hold_kind(
+        record,
+        content_address=record_address,
+        expected=_RECORD_KIND_SERVED,
+        entry_point="replay",
+    )
+    # `D-IMPL-339`: the view is rebuilt BEFORE the child-dependent plan, from
+    # the contracts the deciding fabric retained by address.
+    children, _addresses = _children_of(store=store, record=record)
+    execution, reproduced_snapshot = _re_execute(
+        record=record, reader=reader, environment=environment, children=children
+    )
+    path = record.content_generation_path
+    product = environment.rehydrate_product(
+        record=record, projection=execution.projection
+    )
+    reproduced_address = content_hash(product)
+    if reproduced_address != path.product_content_address:
+        raise ReplayDivergence(
+            f"the rehydrated product hashes to {reproduced_address!r}; the "
+            f"record names {path.product_content_address!r}"
+        )
+
+    return ReplayOutcome(
+        record=record,
+        product=product,
+        record_content_address=record_address,
+        product_content_address=reproduced_address,
+        graph_snapshot_id=reproduced_snapshot.graph_snapshot_id,
+    )
+
+
+def replay_refusal(
+    *,
+    record_address: str,
+    store: ArtifactStoreProtocol,
+    reader: GraphReader,
+    control_plane: ControlPlaneProtocol,
+    environment: ReplayEnvironment,
+) -> RefusalReplayOutcome:
+    """Reconstruct the REFUSED decision recorded at ``record_address``.
+
+    `D-IMPL-344`, the other half of :func:`replay`: the same prologue (the
+    record at its exact address, the generation check, every binding at its
+    pinned version, the resolution claim), the same child reconstruction from
+    the contracts the deciding fabric retained by content address — and then
+    what the record's own dimension 5 says happened, held positively rather
+    than skipped past. Nothing here calls a producer, resolves a "latest"
+    anything, or reads a live object from the serve.
+
+    **Refusal before projection** (``plan_id`` is
+    :data:`~ccf.replay.record.NO_FABRIC_READ`): the record's no-read and
+    no-product claims are each asserted — no steps, no operator plan, no query
+    pins, dimension 1 saying nothing was read — and the rehydrated refusal is
+    held against the child rows: a child-admission refusal must name a
+    declared, required requirement whose row carries a blocking disposition
+    and the refusal's own reason. **No plan is resolved, no operator runs, and
+    no payload is invented**: the environment is not consulted on this path.
+
+    **Refusal after projection** (a real ``plan_id``): the recorded operator
+    path is re-derived exactly as :func:`replay` re-derives it — the plan over
+    the reconstructed children, the operators, the execution under the recorded
+    snapshot, the step, query-pin and snapshot comparisons — and stops there.
+    ``environment.rehydrate_product`` is **never called**: the record names no
+    product, the re-executed projection is provisional computation, and the
+    outcome type has no member that could carry it. The recorded refusal's
+    evidence is then held to that re-execution (its ``operators_invoked`` must
+    equal the re-executed set) and to the record's own dimension 5 (its
+    ``plan_id`` and ``debt``). **The gate or tolerance verdict itself is not
+    recomputed** — the record does not carry the provisional candidate's
+    address, and the environment exposes no gate or scorer — so what this
+    path reproduces is the recorded verdict over a re-derived operator path
+    (the `D-IMPL-344` R-2 boundary, ruled).
+
+    Args:
+        record_address: Content address of the :class:`DecisionReplayRecord`.
+        store: Where the record and the retained child contracts live.
+        reader: Live read access to the graph; consulted only on the
+            post-projection path, scoped to the recorded snapshot.
+        control_plane: Where the recorded bindings are resolved at their
+            pinned versions.
+        environment: The deployment's plan and operators; consulted only on
+            the post-projection path.
+
+    Returns:
+        A :class:`RefusalReplayOutcome`, which exists only if every check passed.
+
+    Raises:
+        ReplayUnresolvable: the record, a binding, an admitted child's retained
+            contract, the plan or an operator cannot be resolved at its exact
+            recorded address or version.
+        ReplayGenerationMismatch: as for :func:`replay`.
+        ReplayResolutionClaimMismatch: as for :func:`replay`.
+        ReplayRecordKindMismatch: the record is a SERVED decision (use
+            :func:`replay`), contradicts itself about its kind, carries a
+            dimension-5 block that is not a governed refusal, or claims no
+            fabric read while naming steps, an operator plan or query pins.
+        ReplayDivergence: a retained child's bytes do not hash to the row's
+            address; the refusal block does not re-canonicalize to itself; the
+            re-execution differs from the recorded steps, pins or snapshot;
+            the recorded evidence does not match the re-execution.
+    """
+    record = _prologue(
+        record_address=record_address, store=store, control_plane=control_plane
+    )
+    _hold_kind(
+        record,
+        content_address=record_address,
+        expected=_RECORD_KIND_REFUSED,
+        entry_point="replay_refusal",
+    )
+    path = record.content_generation_path
+    refusal = _rehydrate_refusal_block(
+        block=path.assembly_refusal, content_address=record_address
+    )
+    if path.plan_id == NO_FABRIC_READ:
+        _hold_no_read_claims(record=record, content_address=record_address)
+        children, addresses = _children_of(store=store, record=record)
+        del children  # reconstructed and verified; no plan reads them here
+        _hold_refusal_to_rows(
+            refusal=refusal, path=path, content_address=record_address
+        )
+        return RefusalReplayOutcome(
+            record=record,
+            record_content_address=record_address,
+            assembly_refusal=path.assembly_refusal,
+            child_contract_addresses=addresses,
+            graph_snapshot_id=NO_FABRIC_READ,
+        )
+    children, addresses = _children_of(store=store, record=record)
+    execution, reproduced_snapshot = _re_execute(
+        record=record, reader=reader, environment=environment, children=children
+    )
+    _hold_refusal_to_execution(
+        refusal=refusal, path=path, execution=execution, content_address=record_address
+    )
+    return RefusalReplayOutcome(
+        record=record,
+        record_content_address=record_address,
+        assembly_refusal=path.assembly_refusal,
+        child_contract_addresses=addresses,
+        graph_snapshot_id=reproduced_snapshot.graph_snapshot_id,
+    )
+
+
+# --- the shared halves ------------------------------------------------------
+
+
+def _prologue(
+    *,
+    record_address: str,
+    store: ArtifactStoreProtocol,
+    control_plane: ControlPlaneProtocol,
+) -> DecisionReplayRecord:
+    """Everything both entry points verify before anything is re-executed.
+
+    The record at its exact address; the declared-scope generation check on the
+    record's STORED form (`D-IMPL-243` amendment 1 — here and never in
+    :func:`resolve_artifact`); every recorded binding at its pinned version;
+    and, with every pin known to resolve, the record's not-applicable claim
+    held against what those pins are (`D-IMPL-264` D-11). Factored out under
+    `D-IMPL-344` so a refused decision runs exactly the checks a served one
+    does, stated once.
+    """
     record = _resolve_record(store=store, record_address=record_address)
-    # D-IMPL-243 amendment 1: the declared-scope generation check, on the
-    # record's STORED form, here and never in resolve_artifact. A record that
-    # lacks a `False`-marked field is refused by name now; a record that lacks
-    # only `True`-marked or unmarked fields continues exactly as it always has.
     _refuse_generation_mismatch(
         contract=DecisionReplayRecord,
         stored=_stored_canonical_object(store=store, content_address=record_address),
         content_address=record_address,
     )
     _resolve_bindings(record=record, control_plane=control_plane)
-    # D-IMPL-264 D-11 (24.7-09): with every pin known to resolve, hold the
-    # record's not-applicable claim against what those pins ARE at their
-    # recorded versions — before any plan or operator is resolved.
     _verify_resolution_claim(
         record=record, control_plane=control_plane, content_address=record_address
     )
+    return record
 
+
+_RECORD_KIND_SERVED: Final = "served"
+_RECORD_KIND_REFUSED: Final = "refused"
+
+
+def _record_kind(record: DecisionReplayRecord, *, content_address: str) -> str:
+    """Which kind of decision the record says it is, from its own dimension 5.
+
+    Both claims are read, and they must agree: a served decision names a
+    product and carries no refusal block; a refused one carries the block and
+    names no product. One without the other is a record contradicting itself,
+    refused by name rather than resolved either way.
+    """
+    path = record.content_generation_path
+    has_refusal = path.assembly_refusal != NO_ASSEMBLY_REFUSAL
+    has_product = path.product_content_address != NO_PRODUCT_ADDRESS
+    if has_refusal and not has_product:
+        return _RECORD_KIND_REFUSED
+    if has_product and not has_refusal:
+        return _RECORD_KIND_SERVED
+    raise ReplayRecordKindMismatch(
+        f"the record at {content_address!r} contradicts itself about its kind:"
+        f" dimension 5 {'carries' if has_refusal else 'carries no'} refusal"
+        f" block and {'names' if has_product else 'names no'} product address;"
+        " a decision served or it refused, and the record must say which"
+        " (D-IMPL-344)"
+    )
+
+
+def _hold_kind(
+    record: DecisionReplayRecord,
+    *,
+    content_address: str,
+    expected: str,
+    entry_point: str,
+) -> None:
+    kind = _record_kind(record, content_address=content_address)
+    if kind == expected:
+        return
+    other = "replay_refusal" if entry_point == "replay" else "replay"
+    raise ReplayRecordKindMismatch(
+        f"{entry_point}() reconstructs a {expected} decision; the record at"
+        f" {content_address!r} is a {kind} one. Use {other}() for it"
+        " (D-IMPL-344)"
+    )
+
+
+def _children_of(
+    *, store: ArtifactStoreProtocol, record: DecisionReplayRecord
+) -> tuple[ChildContractView | None, tuple[str, ...]]:
+    """The admitted children, reconstructed from RETAINED bytes, or ``None``.
+
+    ``None`` — rather than an empty view — when the decision admitted no
+    child, so a non-composite record keeps taking exactly the plan-resolution
+    path it always took. The addresses returned are the rows' own; each has
+    resolved and re-hashed by the time this returns.
+    """
     path = record.content_generation_path
     admitted_rows = tuple(
         row for row in path.child_resolutions if row.outcome_status == CHILD_ADMITTED
     )
-    if admitted_rows:
-        # `D-IMPL-339`: the view is rebuilt BEFORE the child-dependent plan,
-        # from the contracts the deciding fabric retained by address.
-        children = _reconstruct_child_contracts(store=store, rows=admitted_rows)
+    if not admitted_rows:
+        return None, ()
+    children = _reconstruct_child_contracts(store=store, rows=admitted_rows)
+    addresses = tuple(
+        row.child_content_address
+        for row in admitted_rows
+        if row.child_content_address is not None
+    )
+    return children, addresses
+
+
+def _re_execute(
+    *,
+    record: DecisionReplayRecord,
+    reader: GraphReader,
+    environment: ReplayEnvironment,
+    children: ChildContractView | None,
+) -> tuple[ExecutionResult, ContextFabricSnapshot]:
+    """Re-derive the recorded operator path and hold it to the record.
+
+    The plan (over its children when the decision composed any), the operators
+    at their recorded keys, the execution under the recorded snapshot and cap
+    and seeds, then the three comparisons — step sequence, query pins, graph
+    substate and store pin. Shared by :func:`replay` and the post-projection
+    half of :func:`replay_refusal`; **stops before any product is rehydrated**,
+    which is what lets the refused path reuse it.
+    """
+    path = record.content_generation_path
+    if children is not None:
         if not isinstance(environment, CompositeReplayEnvironment):
             raise ReplayUnresolvable(
-                f"this decision composed {len(admitted_rows)} admitted child"
+                f"this decision composed {len(children)} admitted child"
                 " product(s) and the environment does not implement"
                 " `resolve_composite_plan`; a child-dependent plan cannot be"
                 " rebuilt without the children it read (D-IMPL-339)"
@@ -942,21 +1275,241 @@ def replay(
             "decision was made against is not the state it was replayed "
             "against (24.5-L-02, CLAUDE.md §7.4)"
         )
+    return execution, reproduced_snapshot
 
-    product = environment.rehydrate_product(
-        record=record, projection=execution.projection
-    )
-    reproduced_address = content_hash(product)
-    if reproduced_address != path.product_content_address:
+
+# --- the refused half's own checks -------------------------------------------
+
+
+#: The envelope kind a composite's child-admission refusal crosses in
+#: (:data:`ccf.products.refusal.REFUSAL_KINDS`). Quoted here rather than
+#: imported so this module's import order stays what it is; pinned by the
+#: `D-IMPL-344` controls against the live vocabulary.
+_COMPOSITE_CHILD_REFUSAL_KIND: Final = "composite-child-refusal"
+
+#: The one non-blocking absence a child row can carry (`D-IMPL-336` F1).
+_OPTIONAL_ABSENT: Final = "optional-absent"
+
+#: The three child-refusal reasons whose scope is not a child row
+#: (:data:`ccf.products.composite.CHILD_REFUSAL_REASONS`; pinned by the
+#: `D-IMPL-344` controls against the live vocabulary).
+_UNDECLARED_OUTCOME: Final = "undeclared-outcome"
+_REQUIREMENT_MISMATCH: Final = "requirement-mismatch"
+_NO_PRODUCING_SKILL: Final = "no-producing-skill"
+
+
+def _rehydrate_refusal_block(*, block: str, content_address: str) -> CCFContract:
+    """Dimension 5's block as the governed refusal it serializes, re-verified.
+
+    The two shapes :func:`~ccf.replay.record.mint_assembly_refusal` admits —
+    a :class:`~ccf.products.refusal.RefusalEnvelope`, or the legacy
+    :class:`~ccf.products.request.ProductRequestViolation` D-60 shipped — tried
+    in that order, exactly as the builder tries them at write. The value is
+    then re-canonicalized and held to the stored bytes, so a block that parses
+    but was not minted by the builder's own arithmetic is a divergence rather
+    than a refusal read off a record that never carried it.
+    """
+    # Function-local for the cycle `ccf.replay.record` documents at
+    # `_refusal_names`: `ccf.products.refusal` reaches this package first.
+    from ccf.products.refusal import RefusalEnvelope
+
+    refusal: CCFContract
+    try:
+        refusal = RefusalEnvelope.model_validate_json(block)
+    except ValueError as not_an_envelope:
+        try:
+            refusal = ProductRequestViolation.model_validate_json(block)
+        except ValueError as invalid:
+            raise ReplayRecordKindMismatch(
+                f"the record at {content_address!r} carries a dimension-5"
+                " refusal block that is neither a `RefusalEnvelope` nor a"
+                f" `ProductRequestViolation` (as an envelope: {not_an_envelope};"
+                f" as a violation: {invalid}); it is not a governed refusal"
+                " this engine can reconstruct (D-IMPL-344)"
+            ) from invalid
+    if canonical_bytes(refusal).decode("utf-8") != block:
         raise ReplayDivergence(
-            f"the rehydrated product hashes to {reproduced_address!r}; the "
-            f"record names {path.product_content_address!r}"
+            f"the refusal block recorded at {content_address!r} does not"
+            " re-canonicalize to itself; the bytes on dimension 5 are not the"
+            " builder's own minting of the refusal they parse as (D-IMPL-344)"
+        )
+    return refusal
+
+
+def _hold_no_read_claims(
+    *, record: DecisionReplayRecord, content_address: str
+) -> None:
+    """A refusal before projection says nothing was read or run; check each claim.
+
+    Asserted positively rather than inferred from ``plan_id`` alone: a record
+    naming :data:`~ccf.replay.record.NO_FABRIC_READ` beside a step sequence,
+    an operator plan, query pins or a real dimension-1 watermark has
+    contradicted itself, and reconstructing "nothing happened" over it would
+    be a confident answer about a record that says two things.
+    """
+    path = record.content_generation_path
+    claims = (
+        ("steps", path.steps == ()),
+        ("operator_plan", path.operator_plan == ()),
+        ("graph_query_sequence", path.graph_query_sequence == NO_GRAPH_QUERIES),
+        (
+            "context_fabric_snapshot.store_watermark",
+            record.context_fabric_snapshot.store_watermark == NO_FABRIC_READ,
+        ),
+    )
+    contradicted = [name for name, holds in claims if not holds]
+    if contradicted:
+        raise ReplayRecordKindMismatch(
+            f"the record at {content_address!r} names plan"
+            f" {NO_FABRIC_READ!r} — a refusal before any projection — while"
+            f" {contradicted!r} say a fabric read or an execution happened;"
+            " the record contradicts its own no-read claim (D-IMPL-344)"
         )
 
-    return ReplayOutcome(
-        record=record,
-        product=product,
-        record_content_address=record_address,
-        product_content_address=reproduced_address,
-        graph_snapshot_id=reproduced_snapshot.graph_snapshot_id,
-    )
+
+def _hold_refusal_to_rows(
+    *,
+    refusal: CCFContract,
+    path: ContentGenerationPath,
+    content_address: str,
+) -> None:
+    """A child-admission refusal must agree with the determination that occurred.
+
+    Held to **the evidence and scope the record carries**, never to the
+    assumption that every composite refusal is a required-slot failure. The
+    refusal's ``product_class`` and ``reason`` are canonical-bytes strings on
+    the envelope's ``fields`` (`D-IMPL-253`). The shapes
+    :func:`~ccf.products.composite.resolve_child_outcomes` and the resolver's
+    composite branch can record before projection, each with its own check:
+
+    * **``undeclared-outcome``** — the resolver produced an outcome for a class
+      the composite does not require. The named class must have **no** row:
+      a row for it would say the class was declared after all.
+    * **``requirement-mismatch`` with no rows** — one class declared twice. The
+      walk returns before producing any row. The same token is also the
+      re-binding failure of an admitted child walked under another slot or
+      invocation, which DOES write a row; with rows present it is held as a
+      child-row refusal below.
+    * **A parent-scope refusal** — the deployment wired no child resolver, and
+      the resolver records ``no-producing-skill`` against the composite's OWN
+      class with no rows (nothing was attempted, so nothing is invented). The
+      named class must equal the recorded request's class and the rows must be
+      empty; a record carrying no request cannot evidence that scope and is
+      refused by name rather than assumed.
+    * **A child-row refusal** — every other reason. The named class must have
+      a row; that row must carry a blocking disposition, which is anything in
+      the closed vocabulary except ``admitted`` and the declared optional
+      absence; and the refusal's reason must be the row's, as either its
+      ``outcome_status`` (a requirement nothing produced) or its
+      ``refusal_ref`` (a child dispatched and then refused at admission).
+      **``required`` is not a condition**: an optional child that was invoked
+      and refused blocks the composition by the `D-IMPL-336` F1 rule —
+      optional means optional *absence*, not optional governance — and its
+      row records ``required=False`` exactly as the determination did.
+
+    A refusal of any other kind before projection — a request-conformity
+    verdict, a constraint refusal — names no child and is held to nothing
+    here; its admitted rows, if any, were verified by :func:`_children_of`.
+    """
+    kind = getattr(refusal, "kind", None)
+    if kind != _COMPOSITE_CHILD_REFUSAL_KIND:
+        return
+    fields: Mapping[str, str] = refusal.fields  # type: ignore[attr-defined]
+    try:
+        named = json.loads(fields["product_class"])
+        reason = json.loads(fields["reason"])
+    except (KeyError, ValueError) as malformed:
+        raise ReplayRecordKindMismatch(
+            f"the child-admission refusal recorded at {content_address!r}"
+            " names no product_class and reason on its fields; the refusal"
+            " cannot be held to the determination (D-IMPL-344)"
+        ) from malformed
+    rows = path.child_resolutions
+    by_class = {row.required_product_class: row for row in rows}
+
+    if reason == _UNDECLARED_OUTCOME:
+        if named in by_class:
+            raise ReplayRecordKindMismatch(
+                f"the refusal recorded at {content_address!r} says {named!r}"
+                " was produced without being required, while a child row"
+                " declares that very class (D-IMPL-344)"
+            )
+        return
+    if reason == _REQUIREMENT_MISMATCH and not rows:
+        # A duplicate declaration: the walk returned before any row.
+        return
+
+    row = by_class.get(named)
+    if row is None:
+        own = path.request.schema_name if path.request is not None else None
+        if rows == () and reason == _NO_PRODUCING_SKILL and own is not None and named == own:
+            # The parent-scope refusal: no child resolver wired, recorded
+            # against the composite's own class, nothing attempted.
+            return
+        raise ReplayRecordKindMismatch(
+            f"the refusal recorded at {content_address!r} is about"
+            f" {named!r} ({reason!r}), which no child row of the record"
+            " declares and which is not the parent-scope refusal the resolver"
+            " records against its own class with no rows"
+            + (" (the record carries no request to establish that scope)" if own is None else f" (the record's own class is {own!r})")
+            + " (D-IMPL-344)"
+        )
+    if row.outcome_status in (CHILD_ADMITTED, _OPTIONAL_ABSENT):
+        raise ReplayRecordKindMismatch(
+            f"the refusal recorded at {content_address!r} blocks on"
+            f" {named!r}, whose row reads {row.outcome_status!r}; a child the"
+            " record says was admitted (or honestly absent) cannot be the one"
+            " it refused on (D-IMPL-344)"
+        )
+    if reason not in (row.outcome_status, row.refusal_ref):
+        raise ReplayDivergence(
+            f"the refusal recorded at {content_address!r} gives reason"
+            f" {reason!r} for {named!r}; its row carries outcome"
+            f" {row.outcome_status!r} and refusal_ref {row.refusal_ref!r} —"
+            " the refusal and the disposition it records disagree"
+            " (D-IMPL-344)"
+        )
+
+
+def _hold_refusal_to_execution(
+    *,
+    refusal: CCFContract,
+    path: ContentGenerationPath,
+    execution: ExecutionResult,
+    content_address: str,
+) -> None:
+    """A refusal after projection carries evidence; hold it to the re-execution.
+
+    ``operators_invoked`` is the re-derived check — what the engine just ran
+    against what the refusal said ran. ``plan_id`` and ``debt`` are integrity
+    checks between the refusal and the record's own dimension 5 (the builder
+    writes both from the same values, so they catch an edited record rather
+    than a drifted deployment). What is NOT checked here, by ruling
+    (`D-IMPL-344` R-2): the gate or tolerance verdict itself.
+    """
+    evidence = getattr(refusal, "evidence", None)
+    if evidence is None:
+        raise ReplayRecordKindMismatch(
+            f"the record at {content_address!r} names plan {path.plan_id!r}"
+            " — a refusal after projection — while its refusal carries no"
+            " evidence of that projection; the record contradicts itself"
+            " (D-IMPL-344)"
+        )
+    if evidence.plan_id != path.plan_id:
+        raise ReplayDivergence(
+            f"the refusal recorded at {content_address!r} evidences plan"
+            f" {evidence.plan_id!r}; dimension 5 names {path.plan_id!r}"
+            " (D-IMPL-344)"
+        )
+    if evidence.operators_invoked != execution.operators_invoked:
+        raise ReplayDivergence(
+            f"the refusal recorded at {content_address!r} evidences operators"
+            f" {sorted(evidence.operators_invoked)!r}; the re-execution invoked"
+            f" {sorted(execution.operators_invoked)!r} (D-IMPL-344)"
+        )
+    if evidence.debt != path.debt:
+        raise ReplayDivergence(
+            f"the refusal recorded at {content_address!r} evidences debt"
+            f" {evidence.debt!r}; dimension 5 records {path.debt!r}"
+            " (D-IMPL-344)"
+        )
