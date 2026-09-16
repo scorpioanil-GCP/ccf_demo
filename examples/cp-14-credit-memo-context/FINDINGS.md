@@ -73,6 +73,36 @@ estate state. Executable: `tests/examples/test_cp_14_second_slice.py`.
 | `CP14-F-34` | **`D-IMPL-343` R-11 named cp-04-canonical the canonical witness, and slice 2 re-expressed it.** The accepted design's R-11 held that cp-04-canonical "remains the canonical witness" for the `canonical` shape while its §8 row 2 planned this tree's re-expression; Dave's slice-2 instruction invited class A for `reference.corporate-family@2.0.0`. The witness role passes to the nine canonical trees that remain (cp-05 through cp-13); `CANONICAL_SHAPE_FLOOR` holds; `CFC-G07` now asserts `paved` under its unchanged node id | ruling synchronization — for Dave's confirmation at the slice review | Recorded |
 | `CP14-F-32`, measured — **STOP** | **A refused composite that admitted at least one child cannot be replayed from the store that recorded it.** Measured on both diagnostic records (0.25: the family admitted, the spread withheld; 1.0: the spread and the family admitted, three slots unreachable): `GovernedResolver._retain_child_contracts` files admitted-child bytes on the NON-BLOCKING composition path only (`src/ccf/products/resolver.py`, the call under the blocked/unblocked branch of `resolve_child_outcomes`'s consumer), while `ccf.replay.engine.replay` rebuilds the child view from the store for ANY record with admitted rows (`_reconstruct_child_contracts`); replaying either refused record from the consumer's store raises `ReplayUnresolvable: the child contract '…' consumed for '…' is not retained in the store`. No retained immutable artifact resolves the address anywhere: the producer's own store holds its record and query pins, never the served product's bytes (the record names `product_content_address`), and the product is re-derivable there only by re-execution while the producer's fabric snapshot exists. `D-IMPL-338` made the five rows survive every exit; `D-IMPL-339`'s byte retention did not follow them. Dave's rule for this finding: reconstructing the refused parent requires those bytes and nothing retained resolves the address → **launch-level replay defect** | **1 · launch-blocking SDK capability** (§D: "replay and reconstruct governed decisions from the record and the store"; "preserve sufficient refusal evidence") — §C step 1: no | **STOP raised for a decision.** Nothing copied into CP-14. The proof `test_f32_a_refused_composite_that_admitted_a_child_cannot_be_replayed_from_its_own_store` holds the shipped defect and goes red when the SDK retains admitted bytes on every exit |
 
+## Slice 2 ACCEPTED (Dave, 2026-09-15) — as proof, not as a merge
+
+What slice 2 proved, and only that: the family provider (`cp-04-canonical`)
+re-expressed on the paved road with its product identity preserved
+(`2da50196…` byte-identical before and after); two children admitted
+simultaneously from two paved producers under two tenants at the `1.0`
+diagnostic; and the distinct `0.25` result (the spread withheld, the family
+admitted, the composite refused) preserved. **Coverage boundaries:** neither
+result proves a served five-child memo, and neither proves a replayable refused
+composite — that is `CP14-F-32`, now `D-IMPL-344` (OPEN — DESIGN,
+`docs/D-IMPL-344-DESIGN.md`). No CP-14 implementation continues until 344 is
+ruled and built; `CP14-F-33` stays a separate paved-road coverage finding whose
+measurement belongs to the later exposure slice.
+
+**Structural checks, resolved honestly (2026-09-16, a separate commit).** Two
+reds in `tests/examples/test_artifact_schema_headers.py`
+(`test_every_example_root_has_a_covered_artifact_directory` and
+`test_every_example_roots_artifact_directory_is_non_vacuous`) enforce that every
+driver-bearing example root carries a non-empty `artifacts/` directory whose
+documents pass the header check — a No-Hardcoding obligation (CLAUDE.md §6.4),
+not a shipped-product one. This tree owed exactly one such document already:
+the roster leg's source vocabulary (spec §C.1, row "Obligor roster":
+`memo_context_debt` ⋈ `legal_entity`), which `acquisition.py` had been carrying
+as SQL literals. `artifacts/source-vocabulary.yaml` now declares the two tables,
+the join key and the identity columns, and `acquisition.py` reads them from it.
+Nothing else was added: no `gates.yaml` (the product-gates checker keeps this
+tree at Gate 1 until a real roster appears), no invented evidence, no product
+behavior change. The two slice proofs and the header check are the evidence
+that the read moved and nothing else did.
+
 ## Backlog record (§I)
 
 **Policy-derived request defaults.** *capability:* a request parameter's default
@@ -90,6 +120,6 @@ reference resolver over a ledger-read artifact; none to the paved road.
 
 ## What this slice did not touch, by instruction
 
-`D-IMPL-341`, `D-IMPL-342`, `D-IMPL-344`; `artifacts/gates.yaml` (the tree is at
+`D-IMPL-341`, `D-IMPL-342`, `D-IMPL-344` (designed separately on its own branch); `artifacts/gates.yaml` (the tree is at
 Gate 1 for the product-gates checker until a roster appears); the README; the
 page; the scenario roster; the sabotage sweep; the four producers' trees.

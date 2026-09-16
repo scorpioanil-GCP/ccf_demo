@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE SOURCE TERMS THE PARENT'S OWN LEG READS, named once.
+#
+# Every table and column this product's roster leg touches is here. Nothing
+# else in the tree spells one out — `acquisition.py` reads this file and holds
+# no vocabulary of its own (CLAUDE.md §6.4, the No-Hardcoding Rule).
+#
+# This is the roster leg ONLY (spec `CP-SPEC-014` §C.1, row "Obligor roster":
+# `memo_context_debt` ⋈ `legal_entity`). Everything a memo says about the
+# obligor's finances, family, exposure, collateral and covenants is a CHILD's,
+# acquired through the composite and never read here (`CMC-G27`, spec §B.8).
+
+semver: "1.0.0"
+class_id: cp-14.source-vocabulary
+
+declaration:
+  # --- PostgreSQL, the memo roster ------------------------------------------
+  tables:
+    #: The obligor's identity record — name, jurisdiction, SIC. The parent's
+    #: own evidence.
+    legal_entity: legal_entity
+    #: Roster MEMBERSHIP only. The join is an existence test; NO figure is read
+    #: from this table — it is a dated diagnostic (`as_of` 2026-08-22) and
+    #: never the governing source (`CMC-G04`).
+    memo_context_debt: memo_context_debt
+
+  #: The one column both tables share, and the join key.
+  roster_key: lei
+
+  #: The identity columns read from `legal_entity`, in the order the resolver
+  #: hands them back.
+  identity_columns:
+    - lei
+    - legal_name
+    - legal_jurisdiction
+    - sic
+    - sic_description
+    - retrieved_at
