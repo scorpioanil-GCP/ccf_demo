@@ -419,3 +419,79 @@ processes have exited — see the slice branch's commit.
 composite, 339 and paved-consumer suites 100 passed; served-path replay unchanged. The
 three new names are recorded in `docs/surface-changes/344-01-refusal-reconstruction.md`
 and the manifest regenerated.
+
+### 9.1 · Focused completion before merge (2026-09-16, Dave's source review of `b8212ac6`)
+
+**Accepted:** the retention point, the separate refusal-replay path, the shared halves,
+both kind guards, and the name `RefusalReplayOutcome` — *"a reconstruction result, not a
+refusal kind"*; the naming deviation from R-1's wording is recorded as accepted and the
+refusal-vocabulary allowlist is not expanded.
+
+**The defect Dave found.** `_hold_refusal_to_rows` assumed every early composite refusal
+names a *required* child row. Two determinations the SDK legitimately records did not fit:
+
+| determination | recorded as | what the first helper did |
+|---|---|---|
+| an **optional** child invoked, then refused or rejected at admission | the composite refuses (`D-IMPL-336` F1: optional means optional *absence*, not optional governance); the row carries `required=False`, `rejected-at-admission` / `as-of-mismatch`, the refused child's identity | rejected the record because `row.required` was false — optional absence and optional refusal conflated again, this time in reconstruction |
+| requirements declared, **no child resolver wired** | the resolver records `no-producing-skill` against the composite's OWN class with **no** child rows (nothing attempted, nothing invented) | demanded a child row that never existed |
+
+Both were reproduced through the supported resolver and a fresh store before the repair
+(the probe output is in the commit message), and the bounded check of the helper's
+callers found two more early shapes `resolve_child_outcomes` records: `undeclared-outcome`
+(the resolver produced an outcome for a class the composite does not require; the refusal
+names a class no row declares, by definition, while the admitted rows and their retained
+bytes stand) and `requirement-mismatch` (one class declared twice; the walk returns before
+any row — unreachable through the supported writer path, because product-class
+registration refuses the duplicate first).
+
+**The bounded check of the helper's callers** was run twice: by hand over
+`resolve_child_outcomes` and the resolver's composite branch, and by a three-reader
+read-only census (each reader from a different starting point; results in the session
+journal). The census found one shape the hand pass had mis-filed: `requirement-mismatch`
+is ALSO the token `_rebinding_failure` records when an admitted child is walked under
+another slot or invocation — and that shape writes a row. The helper now treats the token
+as the duplicate-declaration shape only when the rows are empty, and otherwise as a
+child-row refusal. It also confirmed `mixing-refused` is a post-projection shape (it is
+raised by `compose_children`, after the plan ran) and so is held by the evidence check, not
+by this helper; and that `ambiguous-producer` never reaches a record (the error escapes
+before any refusal is minted).
+
+**The repair (`src/ccf/replay/engine.py::_hold_refusal_to_rows`).** The governing
+distinction, Dave's words: *"A refusal must agree with the evidence and scope of the
+determination that actually occurred — not with an assumption that every composite refusal
+is a required-slot failure."* The helper now takes the whole dimension-5 path and checks by
+shape: `undeclared-outcome` → the named class has no row; `requirement-mismatch` → no rows;
+a parent-scope `no-producing-skill` with no rows → the named class equals the recorded
+request's own class (a record with no request cannot evidence that scope and is refused by
+name, so there is no "empty rows means valid" escape); every other reason → a row exists,
+carries a blocking disposition (anything but `admitted` and `optional-absent`) and the
+refusal's reason is the row's. **`required` is no longer a condition.** No determination
+was changed to fit replay: no flag flipped, no row invented, no blocking rule weakened.
+
+**Controls added** (`tests/products/test_d_impl_344_refusal_reconstruction.py`, now 19):
+case 8 (optional invoked and refused, through the child's real door, `required=False`
+preserved) with its F1 control (the same optional requirement honestly absent still
+serves); case 9 (no resolver → parent-scope refusal reconstructs) with its scope control
+(the same record re-pointed at a class the request does not name is refused); case 10
+(`undeclared-outcome`, the admitted row's bytes retained); case 11 (the re-binding
+`requirement-mismatch`, with its row); the record-kind guard in all
+four quadrants (valid served, valid refused, both present, neither present — the
+contradictory records built off real ones and filed on the store); the quoted tokens
+pinned to `CHILD_REFUSAL_REASONS`.
+
+**Mutation M3** — the required-row assumption restored by hand (the four early returns
+disabled, `not row.required` raising again), restored by copy and verified with `cmp`:
+case 8, case 9 and case 10 **red**; the required-child cases 1–7, both controls, case 11,
+the guard quadrants and the 339 module **green**. **Mutation M4** — the first
+reconciliation's own assumption restored (`requirement-mismatch` beside rows refused): case
+11 **red** alone; the other 27 controls **green**.
+
+**Documentation corrected:** `ReplayRecordKindMismatch`'s docstring states the actual
+order (the shared prologue resolves and verifies the record and its bindings first; the
+guard runs after that and before any child, plan or operator is resolved or anything is
+re-executed); the slice-2 module header states that F-32's missing-byte measurement is
+historical and the converted test proves retention and reconstruction. The
+`store_watermark == no-fabric-read` check stands as written — it is what the builder's
+`ContextFabricSnapshot.unread()` writes; the hashed `graph_snapshot_id` is not compared to
+the sentinel.
+

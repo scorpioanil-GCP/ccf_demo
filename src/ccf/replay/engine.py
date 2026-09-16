@@ -300,7 +300,11 @@ class ReplayRecordKindMismatch(ReplayError):
     a **refused** decision carries the refusal's own block and
     :data:`~ccf.replay.record.NO_PRODUCT_ADDRESS`. :func:`replay` reconstructs
     the first and :func:`replay_refusal` the second, and each refuses the
-    other's record **by name** before anything is resolved or re-executed.
+    other's record **by name**. The order, exactly: the shared prologue
+    resolves the record at its address and verifies its generation, its
+    bindings and its resolution claim first; this guard runs after that, and
+    before any child contract, plan or operator is resolved and before
+    anything is re-executed.
 
     Raised, not returned, for the reason every replay finding is: before this
     guard a refused record handed to :func:`replay` failed at
@@ -1013,7 +1017,7 @@ def replay_refusal(
         children, addresses = _children_of(store=store, record=record)
         del children  # reconstructed and verified; no plan reads them here
         _hold_refusal_to_rows(
-            refusal=refusal, rows=path.child_resolutions, content_address=record_address
+            refusal=refusal, path=path, content_address=record_address
         )
         return RefusalReplayOutcome(
             record=record,
@@ -1286,6 +1290,13 @@ _COMPOSITE_CHILD_REFUSAL_KIND: Final = "composite-child-refusal"
 #: The one non-blocking absence a child row can carry (`D-IMPL-336` F1).
 _OPTIONAL_ABSENT: Final = "optional-absent"
 
+#: The three child-refusal reasons whose scope is not a child row
+#: (:data:`ccf.products.composite.CHILD_REFUSAL_REASONS`; pinned by the
+#: `D-IMPL-344` controls against the live vocabulary).
+_UNDECLARED_OUTCOME: Final = "undeclared-outcome"
+_REQUIREMENT_MISMATCH: Final = "requirement-mismatch"
+_NO_PRODUCING_SKILL: Final = "no-producing-skill"
+
 
 def _rehydrate_refusal_block(*, block: str, content_address: str) -> CCFContract:
     """Dimension 5's block as the governed refusal it serializes, re-verified.
@@ -1359,22 +1370,46 @@ def _hold_no_read_claims(
 def _hold_refusal_to_rows(
     *,
     refusal: CCFContract,
-    rows: tuple[ChildResolution, ...],
+    path: ContentGenerationPath,
     content_address: str,
 ) -> None:
-    """A child-admission refusal must name a row that says the same thing.
+    """A child-admission refusal must agree with the determination that occurred.
 
-    The refusal's ``product_class`` (a canonical-bytes string on the envelope's
-    ``fields``, `D-IMPL-253`) must be a declared requirement; that requirement
-    must be **required** (an optional absence never blocks); its row must
-    carry a blocking disposition — anything in the closed vocabulary except
-    ``admitted`` and the declared optional absence; and the refusal's own
-    reason must be the row's, as either its ``outcome_status`` (a requirement
-    nothing produced) or its ``refusal_ref`` (a child dispatched and then
-    refused at admission). A refusal of any other kind before projection — a
-    request-conformity verdict, a constraint refusal — names no child and is
-    held to nothing here; its rows, if any, were verified by
-    :func:`_children_of` already.
+    Held to **the evidence and scope the record carries**, never to the
+    assumption that every composite refusal is a required-slot failure. The
+    refusal's ``product_class`` and ``reason`` are canonical-bytes strings on
+    the envelope's ``fields`` (`D-IMPL-253`). The shapes
+    :func:`~ccf.products.composite.resolve_child_outcomes` and the resolver's
+    composite branch can record before projection, each with its own check:
+
+    * **``undeclared-outcome``** — the resolver produced an outcome for a class
+      the composite does not require. The named class must have **no** row:
+      a row for it would say the class was declared after all.
+    * **``requirement-mismatch`` with no rows** — one class declared twice. The
+      walk returns before producing any row. The same token is also the
+      re-binding failure of an admitted child walked under another slot or
+      invocation, which DOES write a row; with rows present it is held as a
+      child-row refusal below.
+    * **A parent-scope refusal** — the deployment wired no child resolver, and
+      the resolver records ``no-producing-skill`` against the composite's OWN
+      class with no rows (nothing was attempted, so nothing is invented). The
+      named class must equal the recorded request's class and the rows must be
+      empty; a record carrying no request cannot evidence that scope and is
+      refused by name rather than assumed.
+    * **A child-row refusal** — every other reason. The named class must have
+      a row; that row must carry a blocking disposition, which is anything in
+      the closed vocabulary except ``admitted`` and the declared optional
+      absence; and the refusal's reason must be the row's, as either its
+      ``outcome_status`` (a requirement nothing produced) or its
+      ``refusal_ref`` (a child dispatched and then refused at admission).
+      **``required`` is not a condition**: an optional child that was invoked
+      and refused blocks the composition by the `D-IMPL-336` F1 rule —
+      optional means optional *absence*, not optional governance — and its
+      row records ``required=False`` exactly as the determination did.
+
+    A refusal of any other kind before projection — a request-conformity
+    verdict, a constraint refusal — names no child and is held to nothing
+    here; its admitted rows, if any, were verified by :func:`_children_of`.
     """
     kind = getattr(refusal, "kind", None)
     if kind != _COMPOSITE_CHILD_REFUSAL_KIND:
@@ -1387,20 +1422,37 @@ def _hold_refusal_to_rows(
         raise ReplayRecordKindMismatch(
             f"the child-admission refusal recorded at {content_address!r}"
             " names no product_class and reason on its fields; the refusal"
-            " cannot be held to a child row (D-IMPL-344)"
+            " cannot be held to the determination (D-IMPL-344)"
         ) from malformed
-    row = next((r for r in rows if r.required_product_class == named), None)
+    rows = path.child_resolutions
+    by_class = {row.required_product_class: row for row in rows}
+
+    if reason == _UNDECLARED_OUTCOME:
+        if named in by_class:
+            raise ReplayRecordKindMismatch(
+                f"the refusal recorded at {content_address!r} says {named!r}"
+                " was produced without being required, while a child row"
+                " declares that very class (D-IMPL-344)"
+            )
+        return
+    if reason == _REQUIREMENT_MISMATCH and not rows:
+        # A duplicate declaration: the walk returned before any row.
+        return
+
+    row = by_class.get(named)
     if row is None:
+        own = path.request.schema_name if path.request is not None else None
+        if rows == () and reason == _NO_PRODUCING_SKILL and own is not None and named == own:
+            # The parent-scope refusal: no child resolver wired, recorded
+            # against the composite's own class, nothing attempted.
+            return
         raise ReplayRecordKindMismatch(
             f"the refusal recorded at {content_address!r} is about"
-            f" {named!r}, which no child row of the record declares"
-            " (D-IMPL-344)"
-        )
-    if not row.required:
-        raise ReplayRecordKindMismatch(
-            f"the refusal recorded at {content_address!r} blocks on"
-            f" {named!r}, whose row says the requirement is optional; an"
-            " optional absence never blocks a composition (D-IMPL-344)"
+            f" {named!r} ({reason!r}), which no child row of the record"
+            " declares and which is not the parent-scope refusal the resolver"
+            " records against its own class with no rows"
+            + (" (the record carries no request to establish that scope)" if own is None else f" (the record's own class is {own!r})")
+            + " (D-IMPL-344)"
         )
     if row.outcome_status in (CHILD_ADMITTED, _OPTIONAL_ABSENT):
         raise ReplayRecordKindMismatch(
