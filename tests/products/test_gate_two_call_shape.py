@@ -887,8 +887,10 @@ RULED_SDK_SUPPLIED_DEPLOYMENTS: frozenset[str] = frozenset(
         # `CreditMemoContextProjection`, which returns it unchanged — the
         # `D-IMPL-141` condition, and the only shape the paved road admits.
         # Measured before this line was written: the detector's tree-derived
-        # set differed from this roster by exactly this one root. Added in the
-        # slice's own commit for Dave's veto at the slice review.
+        # set differed from this roster by exactly this one root. RULED by
+        # Dave, 2026-09-15, at the Slice-1 review: "The D-IMPL-141
+        # SDK-supplied-factory roster addition for CP-14 is approved and
+        # should be recorded as the human ruling."
         "examples/cp-14-credit-memo-context",
     }
 )
