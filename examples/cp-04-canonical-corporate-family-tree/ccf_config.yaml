@@ -393,3 +393,51 @@ policy:
 default_perspective:
   principal_id: PRIN-COV-001
   role: credit-officer
+
+# ---------------------------------------------------------------------------
+# The deployment's bindings — declared ONCE (`D-IMPL-343`; `D-IMPL-282` R-12;
+# `D-IMPL-292`). Re-expressed on the paved road for CP-14 Gate 2 slice 2
+# (2026-09-15): no spine restates any of these as an argument, and the numbers
+# `FamilyScenario` once derived from the half-life table are now the class's
+# own declared TTL — the SDK's contract keeps the two apart.
+# ---------------------------------------------------------------------------
+
+# Where every decision record for this deployment is filed, served and refused
+# alike — ONE store under ONE class, shared by the spine and the door.
+replay:
+  record_class: ccf.replay-record
+  query_pin_class: ccf.graph-query
+  store_dirname: artifact-store
+
+# THE TTL THIS PRODUCT DECLARES. The class ceiling is the ownership-edge
+# half-life (~180 days); the product's own window is the entity-attribute
+# freshness anchor the class declares (~30 days, GLEIF Level 1 refresh) — the
+# same two figures the canonical spine derived from `half_life:` above, now
+# stated as the TTL contract element they are. `ttl_anchor` remains
+# `from_entity_freshness`, subject to the open SDK finding `D-IMPL-341`.
+ttl:
+  max_ttl_seconds: 15552000          # ~180 days
+  product_ttl_seconds: 2592000       # ~30 days
+
+# THE STANDARD DOOR'S OWN VALUES: the identity every consumer's registration
+# holds this producer's answers to (`D-IMPL-340`; R-6 — the tenant is declared
+# and checked equal to this deployment's), the scope a caller must carry, and
+# the prose the tool advertises. No principal, no role, no URL and no credential
+# here — each has exactly one other home.
+door:
+  producer_id: cp-04-canonical-corporate-family-tree-egress
+  producer_tenant: cp-04-canonical-demo
+  required_scope: ccf:egress
+  tool_description: >-
+    Answer one corporate family as a governed, content-addressed Context
+    Product (`reference.corporate-family`). The subject is the anchor's LEI.
+    Returns the family walked from the anchor over the declared ownership,
+    control and consolidation predicates to the effective depth — every node
+    with its FIBO class chain, its label and its LEI, every typed edge, the
+    ownership circuits found as findings rather than errors, and the count of
+    nodes the attribute store resolved. The caller MUST supply `lei` and
+    `families` (the family identifiers this request is entitled to walk) and
+    may supply `max_depth` (absent takes the class default) and
+    `debt_tolerance`. A depth above the graph leg's technical ceiling is
+    REFUSED by name with authority `technical`; `as_of` is declared and
+    refused, never honored.
