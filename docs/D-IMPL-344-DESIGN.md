@@ -54,8 +54,11 @@ Three facts, each with its line:
 Measured on both slice-2 records (tolerance `0.25`: family admitted, spread withheld;
 `1.0`: spread and family admitted, three slots unreachable): `replay()` raises
 *"the child contract '…' is not retained in the store"* before reaching the
-environment. Held by
-`tests/examples/test_cp_14_second_slice.py::test_f32_a_refused_composite_that_admitted_a_child_cannot_be_replayed_from_its_own_store`.
+environment. Held, at the time of measurement, by the slice-2 proof
+`test_f32_a_refused_composite_that_admitted_a_child_cannot_be_replayed_from_its_own_store`
+(`cp-14-gate-2-slice-1 @ 51c12fe1`); converted at implementation into the positive proof
+`tests/examples/test_cp_14_second_slice.py::test_f32_a_refused_composite_that_admitted_a_child_is_reconstructed_from_its_own_store`
+(§9).
 
 **A fourth fact this design must not hide.** The replay engine has **no refusal
 branch at all** today. `replay()` (`:758`) resolves the record, checks generation,
