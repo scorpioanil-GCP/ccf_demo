@@ -40,10 +40,14 @@ of the refusal-to-row check assumed every early composite refusal names a
 required child row, and rejected two determinations the SDK legitimately
 records. *"A refusal must agree with the evidence and scope of the
 determination that actually occurred — not with an assumption that every
-composite refusal is a required-slot failure."* `requirement-mismatch` (one
-class declared twice) is handled by the helper but has no control here: the
-product-class registration refuses the duplicate before any composition, so
-the shape is unreachable through the supported writer path.
+composite refusal is a required-slot failure."* The `requirement-mismatch`
+token names two shapes. The **empty-row, duplicate-declaration** shape (one
+class declared twice; the walk returns before any row) is handled by the
+helper but has no control here, because product-class registration refuses
+the duplicate before any composition — it is unreachable through this
+writer. The **re-binding failure** — an admitted child walked under another
+slot or invocation, which writes a rejected-child row under the same token —
+IS reachable, and case 11 covers it.
 """
 
 from __future__ import annotations
