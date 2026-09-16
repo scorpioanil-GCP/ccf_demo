@@ -1,8 +1,9 @@
 # D-IMPL-344 — Retention and Reconstruction of Admitted Children on Composite Refusal — DESIGN
 
-**Status:** DESIGN ONLY, awaiting Dave's implementation ruling. No SDK, runtime,
-example or test code was written or changed for this document. The branch holds
-this file and the decision entry.
+**Status:** IMPLEMENTED on this branch, awaiting review (2026-09-16); not merged. §1–§8
+are the design as ruled (implementation GO with R-1/R-2/R-3 and three corrections,
+`docs/DECISIONS.md`); §9 is the as-built synchronization, including the one deviation
+from R-1's wording and the sabotage record.
 
 **Branch / baseline:** `d-impl-344-retention`, forked from the approved `main` at
 **`af91c7da`** (`origin/main` = `main` = `af91c7da`, verified before the fork; the
@@ -337,3 +338,81 @@ No SDK code. No CP-14 continuation, page, gate roster, or merge. No `D-IMPL-341`
 and no record redesign. The separate CP-14 structural cleanup (`D-IMPL-344` entry,
 "structural checks") lives on `cp-14-gate-2-slice-1` in its own commit and touches no
 product behavior.
+
+---
+
+## 9 · As built (2026-09-16, synchronization of this design to the tree)
+
+Implementation GO given by Dave on `6046e0fa` with R-1, R-2 and R-3 as proposed and three
+corrections, recorded verbatim in `docs/DECISIONS.md` under `D-IMPL-344`: the F-32 test
+converts to a positive reconstruction proof (a kind-mismatch failure is not closure); both
+refusal paths carry their complete checks; the full seven-case package with both sabotages
+is required, and "zero admissions" means zero admitted-child artifacts, not zero writes.
+
+
+**One deviation from R-1's wording, reported rather than hidden: the outcome type is
+named `RefusalReplayOutcome`, not `ReplayedRefusal`.** The tree's refusal-vocabulary gate
+(`tests/products/test_refusal_envelope.py::test_the_refusal_vocabulary_is_closed_by_set_equality`)
+walks `src/` for every contract-based class named `…Refusal` and requires each to be a
+`REFUSAL_KINDS` member or an entry on an exact allowlist that "demands a ruling" to grow.
+A `…Refusal`-named contract that is not a refusal — this type is a verified reconstruction,
+the mirror of `ReplayOutcome` — is exactly what that gate exists to refuse, so the name
+was changed rather than the allowlist. Shape, members and semantics are as R-1 proposed.
+If the ruled name is preferred, the change is one allowlist line plus a rename.
+
+**Retention** (`src/ccf/products/resolver.py::GovernedResolver.__call__`): as §3 —
+immediately after `resolve_child_outcomes`, before the `blocking` split, over
+`resolved.admitted`; `_retain_child_contracts` now takes an iterable of contracts. A
+store that raises on `put` propagates before any record is minted (case 7).
+
+**Reconstruction** (`src/ccf/replay/engine.py`): `replay()`'s prologue factored into
+`_prologue` and its re-execution into `_re_execute` (stops before any product); both
+entry points share them, stated once. `replay_refusal()` runs the prologue, the kind
+guard, rehydrates dimension 5's block through the builder's own two admissible shapes and
+holds it to re-canonicalize equal, reconstructs the admitted children from retained bytes,
+then: before projection, asserts each of `steps == ()`, `operator_plan == ()`,
+`graph_query_sequence` sentinel and dimension-1 `store_watermark == no-fabric-read`
+positively and holds a child-admission refusal to a declared, required, blocking row
+carrying the refusal's own reason — consulting the environment for nothing; after
+projection, re-derives the operator path through `_re_execute` and holds the refusal's
+evidence to it (`operators_invoked` against the re-execution; `plan_id` and `debt` against
+dimension 5 as integrity checks), never calling `rehydrate_product` and never recomputing
+the gate or tolerance verdict (R-2). `RefusalReplayOutcome` has no `product` member.
+`ReplayRecordKindMismatch` is raised in both directions and for a self-contradicting
+record. One addition to `_reconstruct_child_contracts`: bytes at the address that do not
+rehydrate as a contract are a named `ReplayDivergence` (case 5's third form) rather than a
+validation error escaping from the store's answer.
+
+**Proof** — `tests/products/test_d_impl_344_refusal_reconstruction.py`, 11 controls, all
+driven through the real composite fixture (a real grant, the child's own door, real
+admission), each on a fresh store instance with a one-shot door so a provider call raises:
+
+| case | control(s) | result |
+|---|---|---|
+| 1 | `test_case_1_an_early_blocking_refusal_retains_the_admitted_sibling_and_runs_no_plan` | green |
+| 2 | `test_case_2_a_tolerance_refusal_after_projection_keeps_its_children_and_reconstructs` | green |
+| 3 | `test_case_3_no_admitted_children_files_no_admitted_child_artifact` (zero admitted-child puts; the refusal record written) | green |
+| 4 | `test_case_4_early_blocking_refusal_reconstructs_with_the_producer_stopped`, `test_case_4_late_tolerance_refusal_reconstructs_with_the_producer_stopped` (each also asserts `replay()` refuses the record by name) | green |
+| 5 | missing / substituted (both hashes named) / unparseable retained bytes | green |
+| 6 | `test_case_6_a_served_composite_replays_as_before_and_replay_refusal_refuses_it_by_name` | green |
+| 7 | `test_case_7_a_store_that_cannot_retain_fails_the_determination_before_any_record` | green |
+| vocabulary | the engine's quoted child-refusal kind equals the live `REFUSAL_KINDS` entry | green |
+
+**Sabotage record** (run by hand on the candidate, restored by copy and verified with
+`cmp`; the 344 module and the 339 module together, 19 controls):
+
+| sabotage | red | green |
+|---|---|---|
+| S1 — retention moved back under the non-blocking arm (the shipped defect restored) | case 1, case 4 early, case 5 ×3, case 7 (6) | case 2, case 3, case 4 late, case 6, all 8 of the 339 module (13) |
+| S2 — `replay()`'s record-kind guard removed | case 4 early, case 4 late (2) | everything else including case 6 (17) |
+
+**F-32's disposition.** The measurement is preserved in `CP14-F-32`'s row on
+`examples/cp-14-credit-memo-context/FINDINGS.md`; the test on `cp-14-gate-2-slice-1`
+converts, with this branch merged into it, to a positive proof that both slice-2 records
+reconstruct through `replay_refusal` from the consumer's own store after the producer
+processes have exited — see the slice branch's commit.
+
+**Compatibility, measured.** `make typecheck` clean; `tests/replay` 180 passed; the
+composite, 339 and paved-consumer suites 100 passed; served-path replay unchanged. The
+three new names are recorded in `docs/surface-changes/344-01-refusal-reconstruction.md`
+and the manifest regenerated.
