@@ -60,7 +60,6 @@ class CovenantCrossReferenceProjection:
 
     def __init__(
         self, *, plan_id: str, required: tuple[str, ...], resolve_depth: int,
-        seeded_on: str,
     ) -> None:
         """Every input is the EFFECTIVE request's or a declared value.
 
@@ -76,7 +75,6 @@ class CovenantCrossReferenceProjection:
         self._plan_id = plan_id
         self._required = required
         self._resolve_depth = int(resolve_depth)
-        self._seeded_on = seeded_on
 
     @property
     def plan_id(self) -> str:
@@ -107,9 +105,19 @@ class CovenantCrossReferenceProjection:
         )
         in_view = {record.claim.entity_uri for record in view.entities}
         sources = [json.loads(r.claim.attributes["source_json"]) for r in anchors]
-        first = anchors[0].claim.attributes if anchors else {}
-        envelope = json.loads(first["envelope_json"]) if "envelope_json" in first else None
-        governing = json.loads(first["governing_json"]) if "governing_json" in first else None
+        # The envelope, the governing register and the seed are ONE read's
+        # facts, carried identically on every anchor of that read; they are
+        # taken off the view and must agree across the admitted anchors — a
+        # disagreement is a snapshot that was not written by one read, and Π
+        # refuses to pick a winner by sort order (close review, 2026-09-17).
+        shared: dict[str, Any] = {}
+        for key in ("envelope_json", "governing_json", "seeded_on"):
+            carried = {r.claim.attributes.get(key) for r in anchors} - {None}
+            if len(carried) > 1:
+                raise ValueError(f"the admitted anchors disagree on {key!r}; the view was not written by one read")
+            shared[key] = next(iter(carried)) if carried else None
+        envelope = json.loads(shared["envelope_json"]) if shared["envelope_json"] else None
+        governing = json.loads(shared["governing_json"]) if shared["governing_json"] else None
         return ProjectionOutput(
             plan_id=self._plan_id,
             payload={
@@ -118,7 +126,7 @@ class CovenantCrossReferenceProjection:
                 # WHAT THE TRAVERSAL SEEDED ON, declared rather than implied
                 # (`CXRC-G12`).
                 "traversal": {
-                    "seeded_on": self._seeded_on,
+                    "seeded_on": shared["seeded_on"],
                     "resolve_depth": self._resolve_depth,
                     "sources": len(sources),
                 },
@@ -333,7 +341,13 @@ def view_completeness(view: GraphView) -> Decimal:
     """
     nodes = _anchor_chains(view)
     if not nodes:
-        return Decimal("1.0000")
+        # NOTHING ADMITTED IS A COVERAGE SHORTFALL, not perfect completeness
+        # (the SDK's own freshness scorer states the same rule for F). The
+        # specimen's estate-side function returned 1 here; on the road the
+        # empty view is refused by the declared lineage obligation before a
+        # product exists, so this figure reaches only the refusal's record —
+        # and there it says 0 (close review, 2026-09-17).
+        return Decimal("0.0000")
     evidenced = sum(1 for node in nodes if node["citations"])
     return (Decimal(evidenced) / Decimal(len(nodes))).quantize(Decimal("0.0001"))
 

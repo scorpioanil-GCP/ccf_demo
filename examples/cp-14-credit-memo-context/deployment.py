@@ -186,10 +186,11 @@ class MemoQuestions:
     mapping the requirement and the effective request and nothing else; the
     covenant question is determined from the obligor's facility documents,
     which is a read of the roster and the ledger (`acquisition.covenant_sources`).
-    `produce.product` binds the resolved source settings the road already
-    holds (`opened.sources`) before the first question is answered, so the
-    settings are resolved ONCE, by the SDK, from the environment document —
-    never a second time here (`CP14-F-34` records the seam).
+    `produce.product` constructs ONE instance PER OPENED PRODUCT and binds the
+    resolved source settings the road already holds (`opened.sources`) before
+    the first question is answered, so the settings are resolved ONCE, by the
+    SDK, from the environment document — never a second time here, and never
+    shared between two opened products (`CP14-F-34` records the seam).
     """
 
     def __init__(self) -> None:
@@ -249,6 +250,3 @@ class MemoQuestions:
         raise ValueError(f"no question mapping for required class {product_class!r}")
 
 
-#: The ONE mapping `produce.product` binds — a module-level instance so the
-#: spine names it as it always has, and binds its sources after opening.
-questions = MemoQuestions()

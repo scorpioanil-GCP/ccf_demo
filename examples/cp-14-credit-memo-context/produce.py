@@ -78,20 +78,23 @@ def product(scratch: Path, *, environ: Mapping[str, str] | None = None) -> Opene
     endpoints and credentials are read from. The SDK refuses, at open and by
     name, anything the documents disagree on, and registers every producer.
     """
+    # ONE mapping per opened product — never a shared module object, so two
+    # opened products cannot see each other's sources (close review, 2026-09-17).
+    questions = deployment.MemoQuestions()
     opened = open_product(
         config_root=HERE,
         scratch=scratch,
         acquire=deployment.acquire,
         project=MemoPlanFactory(),
         assess=deployment.assess,
-        questions=deployment.questions,
+        questions=questions,
         environ=environ,
     )
     # The question mapping determines the covenant question from the
     # deployment's own sources; the settings it reads are the ones the road
     # resolved from the environment document at open — bound here, once,
     # never resolved a second time (`CP14-F-34`).
-    deployment.questions.bind(opened.sources)
+    questions.bind(opened.sources)
     return opened
 # --8<-- [end:boot]
 

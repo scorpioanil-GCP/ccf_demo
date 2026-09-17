@@ -35,7 +35,6 @@ from __future__ import annotations
 from collections.abc import Mapping
 from pathlib import Path
 
-import acquisition
 import deployment
 import projection
 from ccf.products.product import OpenedProduct, open_product
@@ -59,9 +58,9 @@ def plan_factory(*, required: tuple[str, ...], request: ProductRequest) -> Proje
         # operator set at all.
         required=required,
         # From the EFFECTIVE request the SDK hands this factory, never from a
-        # value this spine resolved for itself — and nothing from the read.
+        # value this spine resolved for itself — and nothing from the read: the
+        # seed Π declares is the anchor's own claim in the view.
         resolve_depth=int(request.parameters[deployment.RESOLVE_DEPTH]),
-        seeded_on=acquisition.SEED,
     )
 
 

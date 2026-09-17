@@ -248,7 +248,9 @@ def test_the_diagnostic_admits_every_child_that_serves_and_the_composite_outcome
     assert sorted(sections) == sorted(CHILD_CLASSES)
     assert isinstance(sections[EXPOSURE]["summary"]["gross_committed"], int) and sections[EXPOSURE]["summary"]["gross_committed"] > 0
     assert Decimal(sections[COLLATERAL]["summary"]["coverage_ratio"]) > 0 and sections[COLLATERAL]["summary"]["facility"] == BGC_FACILITY
-    assert sections[COVENANT]["summary"]["checked_citations"] >= 0 and sections[COVENANT]["summary"]["chain_nodes"] > 0
+    covenant = _retained(opened, rows[COVENANT].child_content_address)
+    assert sections[COVENANT]["summary"]["checked_citations"] == covenant.payload["citation_summary"]["checked_citations"] > 0
+    assert sections[COVENANT]["summary"]["chain_nodes"] == covenant.payload["citation_summary"]["chain_nodes"] > 0
     assert sections[FAMILY]["summary"]["entities"] > 1
     assert sections[SPREAD]["summary"]["periods"] > 0
 
@@ -295,21 +297,26 @@ def test_inherited_debt_is_the_per_factor_minimum_across_children_weak_on_differ
     assert Decimal(str(covenant.debt.factors.completeness)) < Decimal(str(exposure.debt.factors.completeness))
     children = [_retained(opened, row.child_content_address) for row in rows.values()]
     memo = outcome.product.debt.factors
-    assert Decimal(str(memo.freshness)) <= min(Decimal(str(c.debt.factors.freshness)) for c in children)
-    assert Decimal(str(memo.completeness)) <= min(Decimal(str(c.debt.factors.completeness)) for c in children)
-    assert Decimal(str(memo.semantic_consistency)) <= min(Decimal(str(c.debt.factors.semantic_consistency)) for c in children)
+    # EQUALITY with the per-factor minimum over the children, never merely
+    # "at most" — a memo worse than every child would be a defect this test
+    # exists to catch (close review, 2026-09-17). The parent's own reading is
+    # 1 on C and S and no lower than the exposure child's on F, so the
+    # children's minimum IS the composed minimum on this estate.
+    assert Decimal(str(memo.freshness)) == min(Decimal(str(c.debt.factors.freshness)) for c in children)
+    assert Decimal(str(memo.completeness)) == min(Decimal(str(c.debt.factors.completeness)) for c in children)
+    assert Decimal(str(memo.semantic_consistency)) == min(Decimal(str(c.debt.factors.semantic_consistency)) for c in children)
 
 
 # --- the content-composition proof (a controlled variant) --------------------------------
 
 
-def _variant_questions(deployment: Any) -> Any:
-    """The deployment's own mapping with ONE change: the collateral child is
-    asked WITHOUT haircuts — a meaningful content change on one child, every
-    other question byte-identical."""
+def _variant_questions(base: Any) -> Any:
+    """The deployment's own mapping (`base`, one instance for this open) with
+    ONE change: the collateral child is asked WITHOUT haircuts — a meaningful
+    content change on one child, every other question byte-identical."""
 
     def questions(requirement: ChildRequirement, request: ProductRequest) -> ChildQuestion:
-        asked = deployment.questions(requirement, request)
+        asked = base(requirement, request)
         if requirement.product_class != COLLATERAL:
             return asked
         return ChildQuestion(subject=asked.subject, intent=asked.intent, freshness=asked.freshness, parameters={**asked.parameters, "apply_haircuts": False})
@@ -330,13 +337,14 @@ def test_a_meaningful_child_content_change_changes_the_corresponding_parent_fiel
     opened, baseline, record = both[DIAGNOSTIC]
     assert isinstance(baseline, ServedProduct)
     produce, deployment = modules
+    base = deployment.MemoQuestions()
     with five_doors(estate) as environ:
         variant = open_product(
             config_root=EXAMPLE, scratch=tmp_path / "variant", acquire=deployment.acquire, project=produce.MemoPlanFactory(),
-            assess=deployment.assess, questions=_variant_questions(deployment), environ=environ,
+            assess=deployment.assess, questions=_variant_questions(base), environ=environ,
         )
         with variant as opened_variant:
-            deployment.questions.bind(opened_variant.sources)
+            base.bind(opened_variant.sources)
             outcome = opened_variant.answer(_question(opened_variant, deployment, tolerance=DIAGNOSTIC))
             assert isinstance(outcome, ServedProduct), getattr(outcome, "detail", outcome)
             variant_rows = _rows(_record_of(opened_variant, outcome))
@@ -364,8 +372,9 @@ def test_the_covenant_question_names_the_obligors_own_evidence_nodes(both: dict[
     _produce, deployment = modules
     row = _rows(record)[COVENANT]
     requirement = next(r for r in opened.declaration.requires if r.product_class == COVENANT)
-    deployment.questions.bind(opened.sources)
-    asked = deployment.questions(requirement, record.content_generation_path.request.model_copy(update={"parameters": {
+    mapping = deployment.MemoQuestions()
+    mapping.bind(opened.sources)
+    asked = mapping(requirement, record.content_generation_path.request.model_copy(update={"parameters": {
         deployment.AS_OF: CP14_INSTANT.isoformat(), deployment.DEBT_TOLERANCE: Decimal(DIAGNOSTIC), deployment.FACILITY_ID: BGC_FACILITY, deployment.MEMO_TYPE: "annual-review",
     }}))
     sources = asked.parameters["covenant_sources"]

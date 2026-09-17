@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Any
 
 import json
+import re
 import urllib.request
 
 import psycopg
@@ -139,6 +140,16 @@ def facility_documents(lei: str, *, settings: Mapping[str, str]) -> list[str]:
     return sorted({f"{accession}:{document}" for accession, document in rows})
 
 
+_IRI = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*:[^\s<>\"{}|\\^`]*$|^[A-Za-z0-9._:-]+$")
+
+
+def _iri(value: str) -> str:
+    """`value` if it is an IRI or a bare ledger name; refused otherwise."""
+    if not _IRI.match(value):
+        raise ValueError(f"{value!r} is not an IRI or a ledger name and cannot be placed in a SPARQL <…> position")
+    return value
+
+
 def evidence_anchors(document_keys: list[str], *, graph: Mapping[str, str]) -> list[str]:
     """The evidence nodes carrying a definition chain under those documents, sorted.
 
@@ -149,12 +160,16 @@ def evidence_anchors(document_keys: list[str], *, graph: Mapping[str, str]) -> l
         return []
     terms = vocabulary()["graph"]
     values = " ".join(json.dumps(key) for key in document_keys)
+    # Every IRI position is a declared value (the environment's ledger name,
+    # the vocabulary's three terms); each is held to an IRI's own character
+    # set before it is placed inside `<…>`, so a malformed declaration is
+    # refused rather than read as query structure.
     query = (
-        f"SELECT DISTINCT ?s FROM <{graph['ledger']}> WHERE {{"
+        f"SELECT DISTINCT ?s FROM <{_iri(graph['ledger'])}> WHERE {{"
         f" VALUES ?d {{ {values} }}"
-        f" ?s a <{terms['passage_anchor_class']}> ."
-        f" ?s <{terms['defined_by']}> ?o ."
-        f" ?s <{terms['document_id']}> ?d }}"
+        f" ?s a <{_iri(terms['passage_anchor_class'])}> ."
+        f" ?s <{_iri(terms['defined_by'])}> ?o ."
+        f" ?s <{_iri(terms['document_id'])}> ?d }}"
     )
     request = urllib.request.Request(
         f"{graph['url'].rstrip('/')}/v1/fluree/query", data=query.encode("utf-8"),

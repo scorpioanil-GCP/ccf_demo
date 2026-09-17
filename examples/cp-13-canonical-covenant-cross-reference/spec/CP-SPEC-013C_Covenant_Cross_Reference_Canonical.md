@@ -395,6 +395,7 @@ comparison empty, debt value, factors and signal equal, expiry equal,
 | the entitlement principal | a per-call `principal=` argument, default `credit-officer` | `perspective.role`, default `credit-officer` | the road's sanctioned channel (`CXRC-G22`); the default is the same principal |
 | `debt.scorers` — the pins `D-IMPL-47` records | `F` the SDK's freshness scorer; `C` and `S` the SDK's declared-factor scorer over two figures computed off the estate | **the same three pins**: the deployment runs the SDK's assembly scorer over the view and declares `C` and `S` to it — read off the view, not the estate | equal; the assessment is equal member for member |
 | an unknown `intent` | served | **refused** on `discovery.intents` (`CXRC-G21`) | a governed axis the specimen left open — deliberate |
+| `C` over an empty admitted view | the estate-side function returned 1 | **0** — nothing admitted is a coverage shortfall; reaches only the refusal's record, since the empty view is refused before a product exists | the SDK's own rule for an empty observation set, applied to `C` |
 | zero sources | `request()` raises `ValueError` before any read | **refused** by the declared lineage obligation on `cross_references` (`CXRC-G23`), with a record | the road's own answer to an empty admitted view |
 | the door | none (`CP14-F-26`) | a 27-line launcher over the SDK's standard door (`CXRC-G13`) | `D-IMPL-343` |
 | documents | three (`ccf_config`, `backends`, gates) | two (`ccf_config`, `ccf_environment`) | one authority per value |

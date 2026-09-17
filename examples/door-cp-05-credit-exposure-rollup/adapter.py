@@ -186,7 +186,7 @@ class ExposureProducer:
                         f" {declared['schema_version']!r} and was addressed for"
                         f" {product_class!r} at lane {version!r}"),
             )
-            return self._refused(envelope_for(violation, request=identity), perspective=perspective)
+            return self._refused(envelope_for(violation, request=identity), perspective=perspective, request=request)
         if request is None:
             return self._refused(envelope_for(self._violation(
                 "missing-required-parameter", key="lei", presented=None, declared_type="string", request=None,
@@ -194,7 +194,7 @@ class ExposureProducer:
                         " fact about a QUESTION asked at an instant, not a standing answer — so a"
                         " resource read carrying no request has no anchor, no intent and no"
                         " threshold to serve"),
-            ), request=identity), perspective=perspective)
+            ), request=identity), perspective=perspective, request=None)
         if request.asked_at != self._pinned_instant:
             return self._refused(envelope_for(self._violation(
                 "not-supported-at-tier", key="asked_at", presented=request.asked_at.isoformat(),
@@ -204,7 +204,7 @@ class ExposureProducer:
                         f" {request.asked_at.isoformat()}; the frozen assembly takes no"
                         " instant, so the question is refused rather than answered at the"
                         " wrong one and presented as the caller's (CP05D-F-01)"),
-            ), request=identity), perspective=perspective)
+            ), request=identity), perspective=perspective, request=request)
         supplied = dict(request.parameters)
         _payload, governed, _record = prod.produce_governed(
             anchor=request.subject, intent=request.intent,
@@ -232,9 +232,17 @@ class ExposureProducer:
             detail=detail,
         )
 
-    def _refused(self, envelope: Any, *, perspective: Perspective) -> Any:
-        """Record a pre-assembly refusal the same way an assembled one is recorded."""
+    def _refused(self, envelope: Any, *, perspective: Perspective, request: ProductRequest | None) -> Any:
+        """Record a pre-assembly refusal the same way an assembled one is recorded.
+
+        Stamped with the QUESTION'S instant — the SDK's own pre-resolution
+        refusals record `request.asked_at`, never the wall clock — so two
+        identical refusals are one record and replay is bit-stable (close
+        review, 2026-09-17). A resource read carries no instant; it is stamped
+        at the frozen tree's pin, the only instant this producer answers at.
+        """
         return self._recorder.record(
-            envelope, perspective=perspective, recorded_at=datetime.now(UTC),
+            envelope, perspective=perspective,
+            recorded_at=self._pinned_instant if request is None else request.asked_at,
             resolution=ResolutionNotApplicable(reason="refused-before-resolution"),
         )
