@@ -3,8 +3,10 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-09-17T14:30:00.000Z"
+last_updated: "2026-09-17T17:40:00.000Z"
 last_activity: >-
+  **CP-14 CORRECTION PASS DELIVERED (2026-09-17), branch only: `cp-14-gate-2-slice-1 @ 2ed692c9`, pushed; `main` untouched (`88de368f`); awaiting Dave's narrow final verification, then ONE merge ruling.** Two misread child fields and one mislabeled identity corrected and held by an independent field-mapping control; scope stated: five-provider acquisition, composition, governed refusal and reconstruction proven — the memo-assembly spec not completed.
+
   **CP-14 COMPLETION CANDIDATE DELIVERED (2026-09-17), branch only: `cp-14-gate-2-slice-1 @ 626f88dc`, pushed; `main` untouched; ONE merge ruling pending.** cp-13-canonical covenant successor (lane 1.0.0 by measurement), door-cp-05 exposure wrapper (option 3), five children through five doors: refused at the governed 0.25, SERVED at the diagnostic 1.0 (`c115f378…`, D_c 1.0 fail_closed); the four proofs green; close review recorded in docs/CP-14-COMPLETION-CLOSE-REVIEWS.md; the one SDK touch is a two-name re-export from `ccf.deployment` (CP05D-F-06).
 
   **CP-14 SLICE 3 DELIVERED (2026-09-17 03:30 MST), branch only: `cp-14-gate-2-slice-1 @ 1b217318` — the collateral slot re-pointed to the paved successor with the facility-specific question retained; three children admitted at once; both refused records reconstruct with three, then two, retained children. CP-14 stays OFF `main`. Next needs a ruling: covenant sibling Gate 1 (`CP-SPEC-013C`) or `CP14-F-33` for exposure; covenant first, exposure last.**
