@@ -15,7 +15,7 @@ generated: '2026-09-16'
 
 # Collateral & Set-off Coverage (canonical) — Context Product Specification
 
-**`CP-SPEC-006C` · the canonical rung-6 tree · Tier 2 · `credit-risk.collateral-coverage` — lane decided by measurement (§B.1, §D.4)**
+**`CP-SPEC-006C` · the canonical rung-6 tree · Tier 2 · `credit-risk.collateral-coverage` @ `1.0.0` — the lane decided by measurement (§B.1, §D.4; measured 2026-09-16)**
 **Fluree `fibo-v2` for edges, priority and the public register · PostgreSQL `ccf_v2` for valuations, balances and policy — read-only**
 
 > What actually secures one credit facility and what can be applied against it
@@ -129,14 +129,14 @@ Measured through the frozen specimen at the CP-14 instant
 | coverage ratio | **5.4972 — covered, and covered by deposits, not by collateral** | 1.0890 — covered |
 | assets pledged / shared with another facility | 1 (`COL-00019`, receivables) / 0 | 2 / 1 (`COL-00044`, senior) |
 | set-off excluded as unenforceable | 4 accounts | 3 accounts |
-| freshest valuation at the instant | 2025-12-20 — 231 days old | 2026-08-15 — 23 days old |
+| freshest valuation, and its age as the estate records it | 2025-12-20 — `valuation_age_days` 240 | 2026-08-15 — `valuation_age_days` 2 |
 | `D_c` / signal | **0.3660 / `ok`** | 0.3769 / `ok` |
 | payload content address (§D.4's baseline) | `d22b256e…` | `8e3e567b…` |
 
 **The memo's facility is covered five times over, and 96 % of that cover is
 deposit set-off, not collateral.** A reader who takes the ratio at its face
 misses that the collateral leg alone covers 23 % of the commitment and rests
-on one receivables valuation 231 days old at the instant. The payload carries both
+on one receivables valuation dated 2025-12-20, which the estate ages at 240 days. The payload carries both
 legs separately and dates the valuation; nothing here was tuned to change
 that.
 
@@ -152,7 +152,7 @@ not hold. Nothing raises for a question that merely has no answer.
 
 | element | value |
 |---|---|
-| schema | `credit-risk.collateral-coverage` @ **the lane §D.4 measures** — `1.0.0` if the successor's payload equals the specimen's at the pinned instant, `1.1.0` with the difference disclosed in §G.3 if not; either satisfies `CP-SPEC-014`'s `1.0.0` floor |
+| schema | `credit-risk.collateral-coverage` @ **`1.0.0`, measured** (§D.4, 2026-09-16): the successor's payload equals the specimen's at the pinned instant for both declared facilities, full canonical hashes `d22b256e…` and `8e3e567b…`, zero field-level differences — a second producer of the same product, satisfying `CP-SPEC-014`'s `1.0.0` floor |
 | subject | the facility id, as `ProductRequest.subject` — the CP-14 question names the facility as the child's subject (`CP14-F-20`) |
 | intent | `lgd-assessment` — declared on `discovery.intents`; judged, never an argument |
 | freshness | `as-filed` (what `CP-SPEC-014` asks the collateral child at); `standard` retained for the specimen's own callers |
@@ -261,9 +261,10 @@ Two decay rates in one payload: marketable-securities marks and deposit
 balances at ~1 day; real-property appraisals and lien structure at ~365 days;
 the haircut schedule at ~180 days. For the CP-14 facility the measured `D_c`
 is 0.3660 with `C = 1` (the one pledged asset is priced) and `S = 1`, so `F`
-is 0.634 by derivation — one receivables valuation 231 days old under its
-declared class; the coverage ratio would read the same with the valuation a
-day old, which is why the payload dates it.
+is 0.634 by derivation — one receivables valuation aged 240 days by the estate's
+own `valuation_age_days`, decayed from the instant under its declared class; the
+coverage ratio would read the same with the valuation a day old, which is why
+the payload dates it.
 Derived on demand; structure cacheable, valuations not.
 
 ## F · Source binding and readiness
@@ -338,9 +339,27 @@ gate** — the counts in §A.2 and §E are measurements a reader can reproduce.
 6. The frozen specimen is unchanged; CP-14's `producers.collateral` is
    re-pointed to this tree only after this tree ships.
 
-### G.3 Where the successor and the specimen differ
+### G.3 Where the successor and the specimen differ — the difference ledger (measured 2026-09-16)
 
-Filled at the build. Known before it: the door (a launcher over the standard
-door, not 150 lines and a `door.yaml`); the two documents in place of four;
-`discovery.intents` declared; the commitment on the facility node. Whether any
-of these moves a payload member is what §D.4 measures.
+**No payload member differs** for either declared facility at the pinned instant
+(`CSCC-G13`): full canonical payload hashes equal, field-level comparison empty,
+debt factors equal (`F` 0.6340 / 0.6231, `C` 1, `S` 1), expiry equal (decision
+instant + 24 h on both — `D-IMPL-341`, inherited), `operators_invoked` equal.
+The lane is therefore **`1.0.0`**.
+
+**What differs, by construction and by design — none of it in the payload:**
+
+| member or behavior | specimen | successor | why |
+|---|---|---|---|
+| `tenant_id` | `cp-06-demo` | `cp-06-canonical-demo` | a sibling under its own tenant |
+| `plan_id` | `cp-06.collateral-coverage/<facility>` | `cp-06-canonical.collateral-coverage/<facility>` | its own identity (`CSCC-G16`) |
+| `lineage.policy_bundle_versions` | the specimen's policy artifact hash | the successor's | the class id on the policy document differs; the regime and rules do not |
+| replay dimension 1 | facility node without `commitment` | facility node **with** `commitment` | the commitment is fabric state (`CSCC-G14`); the snapshot id differs accordingly |
+| an unknown `intent` | served | **refused** on `discovery.intents` (`CSCC-G19`) | a governed axis the specimen left open — deliberate |
+| a scope the caller does not hold | served: `assets: []`, `coverage_ratio: 0` over the empty view | **refused** by the product's own gate, `no facility commitment in the admitted view` (`CSCC-G20`) | an empty graph is not a coverage of zero — deliberate; the specimen's zero reads as an uncovered facility |
+| the door | 150 lines and a `door.yaml` naming a `module:callable` (`CSC-G12`) | a 27-line launcher over the SDK's standard door (`CSCC-G12`) | `D-IMPL-343` |
+| documents | four (`ccf_config`, `backends`, `server/door`, gates) | two (`ccf_config`, `ccf_environment`) | one authority per value |
+
+Neither deliberate tightening changes a unit, an allocation rule or the business
+meaning of a served answer; each converts a served non-answer into a governed
+refusal with a record.

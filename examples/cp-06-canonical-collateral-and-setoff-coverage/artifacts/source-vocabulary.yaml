@@ -1,0 +1,64 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE SOURCES' OWN NAMES — every IRI, table and column this deployment reads.
+# Code is interpreters, never the things interpreted (CLAUDE.md §6.4); an IRI
+# written as a Python constant is a routing value expressed as code.
+#
+# Every edge direction below was MEASURED against the live ledger before it was
+# written here, because a reversed edge is the kind of error that still returns
+# rows.
+
+semver: "1.0.0"
+class_id: cp-06-canonical.source-vocabulary
+
+declaration:
+  graph_leg:
+    # --- what secures the facility -----------------------------------------
+    # facility -> asset. The FIBO predicate; 95 assertions.
+    secured_by: https://spec.edmcouncil.org/fibo/ontology/FBC/DebtAndEquities/Debt/isCollateralizedBy
+    # asset -> pledgor entity; 91 assertions.
+    pledged_by: http://example.org/fibo/pledgedBy
+
+    # --- THE REIFIED PLEDGE, and the whole reason this product is a graph ---
+    #
+    # Priority belongs to the (facility, asset) PAIR, so it hangs on neither
+    # endpoint. `ccf_v2.collateral_pledge` in Postgres carries no priority
+    # column at all; these three predicates are where it lives.
+    pledge_type: http://example.org/fibo/CollateralPledge
+    pledged_asset: http://example.org/fibo/pledgedAsset
+    pledged_facility: http://example.org/fibo/pledgedFacility
+    lien_position: http://example.org/fibo/lienPosition
+
+    # --- what can be applied against the obligation ------------------------
+    # deposit -> entity. Set-off attaches to the borrower, not the facility.
+    set_off_against: http://example.org/fibo/setOffAgainst
+    netted_under: http://example.org/fibo/nettedUnder
+
+    # --- the public register (ccf-dataprep Wave 21, Florida) ---------------
+    #
+    # `ex:` rather than FIBO deliberately: FIBO models the lien POSITION and the
+    # collateral, but not the filed public notice that perfects a security
+    # interest and fixes its date of priority. That instrument is a creature of
+    # UCC Article 9.
+    ucc_filing_type: http://example.org/fibo/UccFiling
+    filing_number: http://example.org/fibo/filingNumber
+    filed_on: http://example.org/fibo/filedOn
+    lapses_on: http://example.org/fibo/lapsesOn
+    filing_status: http://example.org/fibo/filingStatus
+    debtor_of_record: http://example.org/fibo/debtorOfRecord
+    secured_party_of: http://example.org/fibo/securedPartyOf
+    amended_by: http://example.org/fibo/amendedBy
+    amendment_action: http://example.org/fibo/amendmentAction
+    label: http://www.w3.org/2000/01/rdf-schema#label
+
+  attribute_leg:
+    facility_table: facility
+    pledge_table: collateral_pledge
+    asset_table: collateral_asset
+    deposit_table: deposit_account
+    haircut_table: haircut_schedule
+    enforceability_table: setoff_enforceability
+    # The register keys on legal NAME; the fabric keys on LEI. The match is a
+    # claim with a score, never asserted as filed fact — 1 of 16 filed names
+    # currently resolves.
+    crosswalk_table: ucc_debtor_crosswalk
