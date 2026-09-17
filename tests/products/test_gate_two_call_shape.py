@@ -755,6 +755,15 @@ RULED_SDK_SUPPLIED_DEPLOYMENTS: frozenset[str] = frozenset(
         # This entry records what the predicate already answers; it is not
         # what makes the answer true.
         "examples/cp-06-canonical-collateral-and-setoff-coverage",
+        # CP-14 completion GO (Dave, 2026-09-17) — the canonical rung-13
+        # successor, `CP-SPEC-013C`, authored on the PAVED road like its rung-6
+        # sibling. Measured before this line was written: `shape_of` reads
+        # `"paved"` and `_sdk_supplied_operator_set` answers True with plan
+        # sources `(('required',),)` — a named `plan_factory` whose only
+        # operator source is the road's own tuple (`CXRC-G16`). This entry
+        # records what the predicate already answers; it is not what makes
+        # the answer true.
+        "examples/cp-13-canonical-covenant-cross-reference",
         # `D-IMPL-315` (Dave, 2026-09-10) — rung 7, authored on this side of the
         # boundary like its rung-4 and rung-6 siblings rather than migrated onto
         # it.
@@ -3619,6 +3628,10 @@ def test_the_premise_detector_reads_the_shipped_tree_correctly() -> None:
         # the roster admission above but as its OWN assertion, for the reason
         # the cp-11 entry gives: the roster records what was RULED, this
         # records what the detector ANSWERS.
+        # CP-14 completion GO, 2026-09-17 — the canonical rung-13 successor,
+        # reached from the tree alone like its rung-6 sibling; sorted before
+        # the specimen it succeeds, as the detector lists roots.
+        "examples/cp-13-canonical-covenant-cross-reference",
         "examples/cp-13-covenant-cross-reference",
         # CP-14 Gate 2 slice 1, 2026-09-15 — the paved consumer tree, added
         # as its OWN assertion for the same reason: what the detector ANSWERS.

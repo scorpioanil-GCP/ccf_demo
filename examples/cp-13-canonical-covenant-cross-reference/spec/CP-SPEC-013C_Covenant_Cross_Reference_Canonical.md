@@ -179,7 +179,7 @@ a composite consumer sees these as the producer's door reports them.
 | assembly mode | 1 — algorithmic |
 | operators | `policy.principal-subgraph` then `traversal.typed-neighborhood`, exactly two, policy before traversal |
 | lineage | graph-supplied; `serve_obligations.lineage_inputs_at` on `cross_references` and `citation_summary` |
-| debt | `D_c = 1 − F·C·S`; `F = 1` (every λ_c class `supersede-only`, `CP13-F-12`); `C` the share of chain nodes carrying a checked citation; `S` the share of absences carrying a closed-vocabulary reason — **both read off the admitted anchors' own chains in the view** |
+| debt | `D_c = 1 − F·C·S`; `F` the SDK's reference freshness scorer over the view's observations with the booted λ_c table (every class `supersede-only`, so it reads 1 — `CP13-F-12`); `C` the share of chain nodes carrying a checked citation; `S` the share of absences carrying a closed-vocabulary reason — **both read off the admitted anchors' own chains in the view** and declared to the SDK's assembly scorer, so the three pins are the specimen's own |
 
 ### B.2 Request parameter surface
 
@@ -381,8 +381,8 @@ gate** — the counts in §A.2 and §E are measurements a reader can reproduce.
 
 **No payload member differs** for the demonstration question at the pinned
 instant (`CXRC-G14`): full canonical payload hashes equal, field-level
-comparison empty, debt factors equal, expiry equal, `operators_invoked` equal.
-The lane is therefore **`1.0.0`**.
+comparison empty, debt value, factors and signal equal, expiry equal,
+`operators_invoked` equal. The lane is therefore **`1.0.0`**.
 
 **What differs, by construction and by design — none of it in the payload:**
 
@@ -393,7 +393,7 @@ The lane is therefore **`1.0.0`**.
 | `lineage.policy_bundle_versions` | the specimen's policy artifact hash | the successor's | the class id on the policy document differs; the regime and rules do not |
 | replay dimension 1 | anchors carrying `covenant_type`/`threshold`/`document_id` only | anchors **also** carrying `source_json`, `envelope_json`, `governing_json`, `seeded_on` | the evidence is fabric state (`CXRC-G15`); the snapshot id differs accordingly |
 | the entitlement principal | a per-call `principal=` argument, default `credit-officer` | `perspective.role`, default `credit-officer` | the road's sanctioned channel (`CXRC-G22`); the default is the same principal |
-| `debt_tolerance` on a served product | carried as `Decimal` | carried as `Decimal` | unchanged |
+| `debt.scorers` — the pins `D-IMPL-47` records | `F` the SDK's freshness scorer; `C` and `S` the SDK's declared-factor scorer over two figures computed off the estate | **the same three pins**: the deployment runs the SDK's assembly scorer over the view and declares `C` and `S` to it — read off the view, not the estate | equal; the assessment is equal member for member |
 | an unknown `intent` | served | **refused** on `discovery.intents` (`CXRC-G21`) | a governed axis the specimen left open — deliberate |
 | zero sources | `request()` raises `ValueError` before any read | **refused** by the declared lineage obligation on `cross_references` (`CXRC-G23`), with a record | the road's own answer to an empty admitted view |
 | the door | none (`CP14-F-26`) | a 27-line launcher over the SDK's standard door (`CXRC-G13`) | `D-IMPL-343` |

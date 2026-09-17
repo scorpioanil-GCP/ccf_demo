@@ -43,7 +43,6 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping, Sequence
 from datetime import datetime
-from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -53,8 +52,8 @@ import acquisition
 import projection
 from ccf.products.contract import ContextProductContract
 from ccf.products.product import AcquisitionContext, AssessmentContext
-from ccf.halflife.assessment import DebtFactors
-from ccf.halflife.debt import DebtAssessment, assess_debt
+from ccf.halflife.assessment import DebtAssessment
+from ccf.products.debt_scorer import AssemblyDebtScorer, DeclaredFactor
 from ccf.signal.envelope import SignalEnvelope, SourceIdentity
 
 HERE = Path(__file__).parent
@@ -254,24 +253,27 @@ def envelopes(
 
 
 def assess(context: AssessmentContext) -> DebtAssessment:
-    """The specimen's two measured factors, read off the VIEW; freshness is 1.
+    """`D_c` over the governed VIEW, by the SDK's own reference scorer.
 
-    Every λ_c class of this product decays `supersede-only` (`CP13-F-12`), so
-    the reference scorer the specimen ran reads freshness 1 and this reading
-    states it rather than re-deriving it. Completeness is the share of chain
-    nodes with a checked citation; semantic consistency the share of absences
-    carrying a closed-vocabulary reason — both off the admitted anchors' own
-    chains, so a source the caller may not read counts for nothing.
+    The same scorer the low road runs, handed the same two figures the
+    specimen declared — except that here the two are READ OFF THE VIEW: `C` is
+    the share of chain nodes carrying a checked citation and `S` the share of
+    absences carrying a closed-vocabulary reason, both off the admitted
+    anchors' own chains (`CXRC-G15`), so a source the caller may not read
+    counts for nothing and replay re-derives both from the snapshot. `F` is the
+    SDK's freshness scorer over the view's observations with the booted λ_c
+    table; every class of this product decays `supersede-only` (`CP13-F-12`),
+    so it reads 1 and the pin says who read it. The three scorer pins are the
+    specimen's own (`D-IMPL-47`).
     """
-    assert context.profile is not None
-    return assess_debt(
-        DebtFactors(
-            freshness=Decimal(1),
-            completeness=projection.view_completeness(context.view),
-            semantic_consistency=projection.view_semantic_consistency(context.view),
-        ),
+    assert context.half_life is not None and context.profile is not None
+    scorer = AssemblyDebtScorer(
+        table=context.half_life,
         profile=context.profile,
+        completeness=DeclaredFactor(value=projection.view_completeness(context.view)),
+        semantic_consistency=DeclaredFactor(value=projection.view_semantic_consistency(context.view)),
     )
+    return scorer(view=context.view, evidence=context.evidence)
 
 
 # ---------------------------------------------------------------------------
