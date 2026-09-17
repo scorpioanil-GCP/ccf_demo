@@ -1,0 +1,82 @@
+# THE CONSUMING DEPLOYMENT on the paved road — a fixture composite that
+# REQUIRES `credit-risk.covenant-cross-reference` and reaches the canonical
+# covenant producer in ANOTHER process through its registered door
+# (`D-IMPL-340`, `D-IMPL-343`). Four declarations and one Python mapping.
+semver: "1.0.0"
+tenant_id: tenant-fixture
+backend: sqlite
+product_class:
+  schema_name: fixture.replay-binding-product
+  schema_version: "1.0.0"
+  ttl_anchor: from_decision
+  assembly_mode: algorithmic
+  max_ttl_key: fixture/max-ttl
+  required_operator_keys: [traversal.typed-neighborhood]
+  requires:
+    - {product_class: credit-risk.covenant-cross-reference, required: true, compatible_from: "1.0.0"}
+operators:
+  traversal.typed-neighborhood:
+    seed_entity_classes: [account]
+    relationship_types: [fixture-relates-to]
+    depth_limit: 2
+request_contract:
+  class_id: fixture.request-contract
+  role: load
+  registration: typed
+  schema_name: fixture.replay-binding-product
+  schema_version: "1.0.0"
+  arguments:
+    properties:
+      revenue_threshold: {type: number, description: "Fixture parameter; no default anywhere."}
+    required: [revenue_threshold]
+resolution:
+  entity_rules:
+    - {match_key: account_ref, entity_class: account, identity_keys: [account_ref], attribute_keys: [classification, label]}
+half_life:
+  account:
+    half_life_seconds: 3600
+    decay_driver: the fixture's nominal restatement cycle
+    supersession_event: a newer observation restating the row
+debt_profile:
+  key: tenant-fixture/ccf.debt-profile/cp-13-canonical-paved-consumer
+  risk_sensitivity: "1"
+  forced_llm_threshold: "0.30"
+  fail_closed_threshold: "0.70"
+policy:
+  class_id: fixture.policy-bundle
+  role: register
+  registration: typed
+  key: tenant-fixture/policy-bundle/cp-13-canonical-paved-consumer
+  permitted_classifications: [fixture-open]
+  skill_governance: {grant_requires_approval: false, permitted_scopes: []}
+default_perspective:
+  principal_id: principal-fixture
+  role: role-fixture
+replay:
+  record_class: ccf.replay-record
+  query_pin_class: ccf.graph-query
+  store_dirname: artifact-store
+ttl:
+  max_ttl_seconds: 3600
+  product_ttl_seconds: 600
+producers:
+  covenant:
+    server: canonical-covenant-producer
+    producer_id: cp-13-canonical-covenant-cross-reference-egress
+    producer_tenant: cp-13-canonical-demo
+    endpoint_from_env: CCF_TEST_CP13C_PRODUCER_URL
+    credential_from_env: CCF_TEST_CP13C_PRODUCER_TOKEN
+    offers:
+      - {product_class: credit-risk.covenant-cross-reference, versions_from: "1.0.0"}
+skills:
+  covenant-ask:
+    schema_version: "1.0.0"
+    artifact_version: "1.0.0"
+    description: asks the registered canonical covenant producer a question
+    produces: credit-risk.covenant-cross-reference
+    requirements: {required_scopes: [], required_context_products: []}
+agent:
+  schema_version: "1.0.0"
+  artifact_version: "1.0.0"
+  name: cp-13-canonical-consumer
+  archetypes: [context_assembly]

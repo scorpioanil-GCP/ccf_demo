@@ -84,6 +84,9 @@ export CCF_CP_04C_POSTGRES_SCHEMA="ccf_v2"         # v2, NOT public
 make example-cp-04-canonical
 make example-cp-04-canonical MAX_DEPTH=1
 make example-cp-04-canonical LEI=<some-other-lei> MAX_DEPTH=2
+
+# The MCP egress door, for another process's consumer (CP-14 asks it here):
+.venv/bin/python examples/cp-04-canonical-corporate-family-tree/run.py --door   # prints READY {port}
 ```
 
 Everything is **read-only**: the two source stores receive SPARQL `SELECT`s and
@@ -96,6 +99,33 @@ default resolves — a different act from passing the default's value, and the r
 prints which happened.
 
 ## The story
+
+### 0. Re-expressed on the paved road (CP-14 Gate 2 slice 2, 2026-09-15)
+
+This tree was the canonical pattern — `boot`, `acquire`, `govern` by hand around
+one `build_governed_resolver` call. As of `D-IMPL-343` it is the **second
+producer on the paved road**, after cp-03-canonical: `produce.py` binds three
+verbs and a technical capability to two documents with one `open_product`
+call, and `server/serve.py` opens the standard door over it. What left the
+tree: the boot, the connection minted from `backends.yaml`, the effective-depth
+RE-DERIVATION through the SDK's own constraint resolver, the ingest loop, the
+scenario object restating five manifest keys and two TTL figures, and the
+record readback — 148 code lines of plumbing. What stayed, byte for byte:
+`projection.py`; `acquisition.py` less its environment-reading helper (its two
+legs now receive settings the road resolved from `ccf_environment.yaml`); the
+envelope builders and the debt rule.
+
+**Measured, not assumed:** the same question at one pinned instant serves the
+same content address through the canonical spine at `af91c7da` and through the
+paved tree — `2da50196…` — with the payload, the debt, the expiry and the
+dimension-2 policy pins identical. Three things changed in kind and are
+recorded in `FINDINGS.md`: the graph leg's traversal ceiling is read off the
+one declaration (`operators.traversal.typed-neighborhood.depth_limit`) rather
+than restated in a second document; the two TTL figures the scenario derived
+from the half-life table are now the class's own `ttl:` declaration; and the
+post-ingest ordering assertion has no home on the road and is held by the
+order `deployment.envelopes` yields.
+
 
 Two things will bite you if you change them.
 
@@ -132,13 +162,14 @@ at 1 because of the caller.
 | file | what it is |
 |---|---|
 | `ccf_config.yaml` | the single Control Plane document — every section this deployment puts in force |
-| `backends.yaml` | how the two source stores are reached. Variable **names** only; no host, port, path or credential |
+| `ccf_environment.yaml` | how the two source stores and the door's credential are reached (`D-IMPL-343`; it replaced `backends.yaml`). Variable **names** only; no host, port, path or credential |
 | `artifacts/source-vocabulary.yaml` | the sources' own names — six predicate IRIs, the table, its columns |
 | `artifacts/projection.yaml` | Π's declared values: the cycle bound and the roster cap |
 | `acquisition.py` | the two source legs. **Imports no `ccf` at all** |
 | `deployment.py` | this deployment's vocabulary, the envelopes, the debt |
 | `projection.py` | Π — the payload, and the cycle enumeration |
-| `produce.py` | **the fabric's half.** Three regions: `boot`, `acquire`, `govern` |
+| `produce.py` | **the fabric's half.** Two regions on the paved road: `boot`, `answer` (`D-IMPL-343`) |
+| `server/serve.py` | the standard MCP door over the opened product — eight lines that re-implement nothing |
 | `run.py` | presentation. The only module that prints |
 | `FINDINGS.md` | what authoring this against the current SDK surface exposed |
 

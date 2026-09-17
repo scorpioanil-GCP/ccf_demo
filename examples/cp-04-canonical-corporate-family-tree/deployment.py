@@ -1,45 +1,32 @@
-"""This deployment's own values — the other half of ``produce.py``.
+"""The deployment's own vocabulary and its three verbs: acquire, project's plan id, assess.
 
-[ADAPT] everything here. [MECHANISM] nothing.
+[ADAPT] everything here — every name is this product's. [MECHANISM] the two
+context types imported from the SDK; nothing else is SDK code.
 
-``produce.py`` beside this file is CCF's calls and names none of the vocabulary
-below. This file names all of it and makes no fabric call the spine does not.
-Delete ``ccf_config.yaml`` and nothing here has anything left to interpret,
-which is the No-Hardcoding Rule (CLAUDE.md §6.4) being structural rather than
-aspirational.
+**Re-expressed on the paved road** (`D-IMPL-343`; CP-14 Gate 2 slice 2). The
+canonical spine this module used to serve — a boot, a connection minted from
+``backends.yaml``, an effective-depth RE-DERIVATION through the SDK's own
+constraint resolver, an ingest loop over the one write handle, a scenario
+object restating five manifest keys and two TTL figures — is gone. What
+remains is what only this deployment can say: how the two source stores are
+read at the EFFECTIVE request the SDK hands in, how a family becomes dated
+claims under the fabric's vocabulary, and what its Context Debt is.
 
-**Its boundaries are ruled** (`D-IMPL-315`): vocabulary, source access and
-admission. No binder, no gates, no replay record, no serve — those are
-``GovernedResolver``'s, and ``produce.py`` hands it the seam.
+**Thin edges first, attributed nodes last** — still this module's contract,
+now held by the ORDER in which :func:`acquire` yields envelopes: the paved
+seam ingests them in that order through L2's one writer. The post-ingest
+assertion the canonical spine ran over the view has no home on this road (the
+seam holds no reader) and is recorded as dropped in ``FINDINGS.md``.
 
-## The ingestion-order contract, and why it is a contract
-
-Two kinds of envelope reach L2 from here:
-
-* **edge envelopes**, carrying two endpoint references and a predicate, and
-  deliberately no attributes — an edge asserts that two nodes are related and
-  nothing about what either node *is*;
-* **node envelopes**, carrying one node's attributes.
-
-**Edges are ingested FIRST and nodes LAST, and that order is load-bearing.**
-Measured on this SDK: a claim carrying fewer attributes at the same URI
-*supersedes* the richer one rather than merging into it, so an edge envelope
-arriving after a node envelope erases that node's attributes and the payload
-then serves a node with no name, no LEI and no class chain. Nothing raises.
-
-The order is therefore enforced here rather than remembered:
-:func:`ingest` is the only function that writes, it emits both kinds itself,
-and it asserts the resulting state before returning. **This deployment does not
-ask the SDK for attribute-merge semantics** — that would be widening the fabric
-to avoid stating an ordering, and the ordering is a true fact about how this
-estate's evidence arrives (`D-IMPL-316`, the ingestion-order contract).
+**One authority for the graph leg's ceiling.** ``backends.yaml`` restated the
+traversal operator's ``depth_limit`` as ``max_traversal_depth``; the technical
+capability is now read off the one declaration in ``ccf_config.yaml``.
 """
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
-from datetime import datetime, timedelta
+from collections.abc import Mapping
+from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -47,188 +34,94 @@ from typing import Any
 import yaml
 
 import acquisition
-from ccf.controlplane.artifacts import (
-    OperatorParametersArtifact,
-    PerspectiveArtifact,
-    ProductClassDeclaration,
-)
-from ccf.deployment import BootedFabric
 from ccf.graph.protocols import GraphView
-from ccf.contracts.canonical import content_hash
-from ccf.controlplane.artifacts import DebtProfile
-from ccf.controlplane.registry import ControlPlaneProtocol
 from ccf.halflife.assessment import DebtFactors
 from ccf.halflife.debt import DebtAssessment, assess_debt
-from ccf.products.constraints import (
-    CAPABILITY_TRAVERSAL_DEPTH,
-    ReferencePolicyConstraintResolver,
-    TechnicalCapability,
-)
-from ccf.products.provenance import ProvenanceSource
-from ccf.products.request import ProductRequest, ProductRequestContract
+from ccf.products.constraints import CAPABILITY_TRAVERSAL_DEPTH, TechnicalCapability
+from ccf.products.product import AcquisitionContext, AssessmentContext
 from ccf.signal.envelope import SignalEnvelope, SourceIdentity
 from projection import CHAIN_SEPARATOR
 
 HERE = Path(__file__).parent
 
-#: The request parameters this deployment reads by name.
+#: The request-contract argument names — the contract's, restated nowhere.
 ANCHOR = "lei"
 FAMILIES = "families"
 MAX_DEPTH = "max_depth"
 
+#: The environment document's names for the two source legs.
+SOURCE_GRAPH = "corporate_family_graph"
+SOURCE_ATTRIBUTES = "corporate_family_attributes"
+
+#: The one operator whose declared ceiling IS the graph leg's technical
+#: capability (`ccf_config.yaml::operators`).
+TRAVERSAL_OPERATOR = "traversal.typed-neighborhood"
+
 
 def config() -> Mapping[str, Any]:
-    """The single deployment document, parsed."""
-    document: Mapping[str, Any] = yaml.safe_load(
+    """The one Control Plane document, parsed — read for the declared ceiling only."""
+    parsed: Mapping[str, Any] = yaml.safe_load(
         (HERE / "ccf_config.yaml").read_text(encoding="utf-8")
     )
-    return document
+    return parsed
 
 
-def connection(*, root: Path) -> Mapping[str, str]:
-    """Where the FABRIC's own L3 lives for this run. Never a source store."""
-    profile = yaml.safe_load(
-        (HERE / "backends.yaml").read_text(encoding="utf-8")
-    )["declaration"]["profiles"]["sqlite"]["settings"]["database_path"]
-    return {
-        "database_path": str(
-            root / f"{profile['prefix']}{profile['suffix']}"
-        )
-    }
-
-
-def request(
-    *, anchor_lei: str, families: Sequence[str], asked_at: datetime,
-    max_depth: int | None = None,
-) -> ProductRequest:
-    """The question asked. An argument, never an artifact.
-
-    ``max_depth`` is omitted entirely when the caller did not supply one, so
-    the class default in ``ccf_config.yaml`` is what resolves — read from the
-    declaration rather than restated here, where it would become a second
-    authority for one number.
-    """
-    declared = config()["product_class"]
-    parameters: dict[str, Any] = {ANCHOR: anchor_lei, FAMILIES: list(families)}
-    if max_depth is not None:
-        parameters[MAX_DEPTH] = max_depth
-    return ProductRequest(
-        schema_name=declared["schema_name"],
-        schema_version=declared["schema_version"],
-        subject=anchor_lei,
-        intent="credit-concentration",
-        freshness="standard",
-        asked_at=asked_at,
-        parameters=parameters,
-    )
-
-
-def perspective() -> PerspectiveArtifact:
-    """The Π role-conditioning this product is served under."""
-    declared = dict(config()["default_perspective"])
-    return PerspectiveArtifact(semver="1.0.0", **declared)
+def plan_id(anchor_lei: str) -> str:
+    return f"cp-04-canonical.corporate-family/{anchor_lei}"
 
 
 def traversal_capability() -> TechnicalCapability:
     """The graph leg's declared traversal ceiling, as a technical capability.
 
-    Read from ``backends.yaml`` — a deployment fact, not Control Plane state.
-    Supplying it is what lets a request above the ceiling be refused as a
-    governed determination with authority ``technical`` rather than silently
-    answered at a depth nobody asked for.
+    Read off the traversal operator's own ``depth_limit`` — the backend ceiling
+    ``ccf_config.yaml`` declares — rather than a second statement of the same
+    number in a second document. Supplying it is what lets a request above the
+    ceiling be refused as a governed determination with authority ``technical``
+    rather than silently answered at a depth nobody asked for.
     """
-    declared = yaml.safe_load((HERE / "backends.yaml").read_text(encoding="utf-8"))
-    ceiling = declared["declaration"]["sources"]["corporate_family_graph"]["settings"][
-        "max_traversal_depth"
-    ]
+    ceiling = int(config()["operators"][TRAVERSAL_OPERATOR]["depth_limit"])
     return TechnicalCapability(
         capability=CAPABILITY_TRAVERSAL_DEPTH,
-        maximum=Decimal(str(ceiling)),
-        # What the ceiling is a property OF. Named so replay can tell one
-        # backend's limit from another's.
-        identity=f"corporate_family_graph/max_traversal_depth={ceiling}",
+        maximum=Decimal(ceiling),
+        identity=f"{TRAVERSAL_OPERATOR}/depth_limit={ceiling}",
     )
 
 
-def effective_depth(
-    booted: BootedFabric, registry: ControlPlaneProtocol, asked: ProductRequest
-) -> int:
-    """How deep THIS ask is allowed to walk, as governance derives it.
+# ---------------------------------------------------------------------------
+# From the effective request to a read; from a read to fabric state.
+# ---------------------------------------------------------------------------
 
-    **The SDK's own public derivation, not a second policy.**
-    :class:`~ccf.products.constraints.ReferencePolicyConstraintResolver` is the
-    same resolver ``GovernedResolver`` uses, reading the same Control Plane at
-    the same ``asked_at``, so the number returned here is the number the
-    governed path will independently resolve moments later — the class default
-    when the caller omitted ``max_depth``, the caller's value when it is in
-    bounds, and a refusal when it is not.
 
-    **Why acquisition needs it** (`CP04C-F-02`, Dave's reading 1). Debt is
-    scored over the view the OPERATORS produced. If acquisition read the whole
-    estate and Π clipped afterwards, ``D_c`` would be computed over rows the
-    payload never served and could not move when the served roster moved — a
-    decorative number. Reading at the bound makes L3, the operator view and the
-    payload the same set, so the debt is about the answer.
+def acquire(context: AcquisitionContext) -> tuple[SignalEnvelope, ...]:
+    """Read both source stores at the depth THIS ask is allowed to walk; hand back dated claims.
 
-    **This is acquire doing its job, not a binder.** Nothing here is written
-    onto a Control Plane declaration; this asks what the ask is permitted to
-    walk and then walks that far. ``depth_limit`` remains the technical
-    ceiling, and a request above it is still refused by the governed path with
-    authority ``technical``.
-
-    A refused request walks the anchor alone: the governed refusal is moments
-    away and is the resolver's to issue, so acquisition neither pre-empts it
-    nor pays for a read whose answer will not be served.
+    The depth is the EFFECTIVE request's — the class default where the caller
+    omitted one, the caller's value where it is in bounds — handed here by the
+    resolver through the declared seam (`D-IMPL-343` R-4), so L3, the operator
+    view and the payload are the same set (`CP04C-F-02`). A refused request
+    never reaches this function. An unresolvable anchor still RAISES here
+    (`CP14-F-21`, open): the walk's own contract, unchanged by the road.
     """
-    declared = ProductRequestContract.from_declared(
-        booted.artifacts.get("request_contract")
+    effective = context.request.parameters
+    family = acquisition.acquire(
+        anchor_lei=str(effective[ANCHOR]),
+        depth=int(effective[MAX_DEPTH]),
+        graph=context.sources[SOURCE_GRAPH],
+        attributes=context.sources[SOURCE_ATTRIBUTES],
     )
-    outcome = ReferencePolicyConstraintResolver(
-        control_plane=registry, entitlement_key=None
-    ).resolve(
-        product_class=asked.schema_name,
-        request=asked,
-        declared=declared,
-        declared_source=ProvenanceSource(
-            kind="artifact", identity="request_contract", version=content_hash(declared)
+    return envelopes(family, tenant_id=context.tenant_id, at=context.instant)
+
+
+def envelopes(
+    family: acquisition.Family, *, tenant_id: str, at: datetime
+) -> tuple[SignalEnvelope, ...]:
+    """The family as dated claims — EDGES FIRST, NODES LAST, and the order is the contract."""
+    return (
+        *(
+            _edge_envelope(edge, tenant_id=tenant_id, at=at, ordinal=ordinal)
+            for ordinal, edge in enumerate(family.edges)
         ),
-        perspective=perspective().as_perspective()
-        if hasattr(perspective(), "as_perspective")
-        else perspective(),
-        intent=asked.intent,
-        tenant=booted.tenant_id,
-        capabilities=(traversal_capability(),),
-        class_defaults=declared.defaults,
-        # A default the fabric applies must name the artifact that declared
-        # it, or the resolution records a value nobody can resolve later. The
-        # contract's own content address, minted the way the registry mints
-        # one, so the pin recorded beside a defaulted depth resolves to the
-        # exact bytes that declared it.
-        class_source=ProvenanceSource(
-            kind="artifact",
-            identity="request_contract",
-            version=content_hash(declared),
-        ),
-    )
-    if outcome.refusal is not None:
-        return 0
-    return int(outcome.evidence.values()[MAX_DEPTH])
-
-
-def acquire_for(
-    booted: BootedFabric, registry: ControlPlaneProtocol, asked: ProductRequest
-) -> acquisition.Family:
-    """Read both source stores at the depth this ask is allowed to walk.
-
-    See :func:`effective_depth` for why the bound is derived here rather than
-    left to Π. Π still clips to the same number — depth must exist in more than
-    one place or a change in either would go unnoticed — but it is no longer
-    the only place it exists, and the clip is now a no-op on a correctly
-    bounded read rather than the thing doing the bounding.
-    """
-    return acquisition.acquire(
-        anchor_lei=str(asked.parameters[ANCHOR]),
-        depth=effective_depth(booted, registry, asked),
+        *(_node_envelope(family, node, tenant_id=tenant_id, at=at) for node in family.nodes),
     )
 
 
@@ -237,13 +130,10 @@ def _node_envelope(
     at: datetime,
 ) -> SignalEnvelope:
     """One node's attributes, under the fabric's own vocabulary."""
-    # ATTRIBUTED, therefore LAST. See `_edge_envelope`'s warning: this claim
-    # is the one that must survive, and it only survives if nothing thin
-    # arrives at this URI after it.
     return SignalEnvelope(
         tenant_id=tenant_id,
         envelope_id=f"node/{node.uri}",
-        source=SourceIdentity(system_id="corporate_family_graph"),
+        source=SourceIdentity(system_id=SOURCE_GRAPH),
         ingestion_timestamp=at,
         observed_time=at,
         raw_payload={
@@ -252,7 +142,6 @@ def _node_envelope(
             "lei": node.lei or "",
             "label": node.label or "",
             "type_chain": CHAIN_SEPARATOR.join(node.type_chain),
-            # Minted at admission by the walk, never inherited or joined in.
             "family_id": family.family_id,
             "depth": str(node.depth),
             "attributes_resolved": str(
@@ -268,27 +157,18 @@ def _edge_envelope(
     """One typed family edge, carrying NO attributes.
 
     .. warning::
-
        **This envelope must reach L2 BEFORE the node envelope for either of
        its endpoints.** It resolves both endpoints as entities, and it has no
-       attributes to give them, so the claim it mints is thin.
-
-       **The last claim at a URI wins; it does not merge.** Measured on this
-       SDK: a thin claim arriving after an attributed one supersedes it, and
-       the node is then served with no name, no LEI and no class chain, with
-       nothing raised. Chronological intuition says "edges are facts we learn
-       later, so ingest them later" — that intuition is what erases the
-       attributes, and it is why this warning sits beside the envelope rather
-       than only in the module docstring.
-
-       Whether last-wins-empty is the right rule for multi-source accumulation
-       (INV-CH7-17) is a separate question and deliberately NOT answered here.
-       This spine does not merge attributes, and it does not ask the SDK to.
+       attributes to give them, so the claim it mints is thin. **The last
+       claim at a URI wins; it does not merge** — a thin claim arriving after
+       an attributed one supersedes it, and the node is then served with no
+       name, no LEI and no class chain, with nothing raised. :func:`envelopes`
+       yields every edge before any node for exactly this reason.
     """
     return SignalEnvelope(
         tenant_id=tenant_id,
         envelope_id=f"edge/{ordinal}",
-        source=SourceIdentity(system_id="corporate_family_graph"),
+        source=SourceIdentity(system_id=SOURCE_GRAPH),
         ingestion_timestamp=at,
         observed_time=at,
         raw_payload={
@@ -296,92 +176,33 @@ def _edge_envelope(
             "parent_uri": edge.source_uri,
             "child_ref": edge.target_uri,
             "child_uri": edge.target_uri,
-            # SELECTS among the six declared rules. It cannot name a type no
-            # rule declares: the comparison is against the rule.
             "predicate": edge.predicate,
         },
     )
 
 
-def ingest(
-    booted: BootedFabric, family: acquisition.Family, *, at: datetime
-) -> None:
-    """Write the family into L3 through the ONE write handle, in order.
-
-    ``booted.handle.worker`` is the only write handle to L3 anywhere in this
-    process (single-writer, CLAUDE.md §10).
-
-    **Edges first, nodes last** — the module docstring's contract. Asserted
-    rather than trusted: a node whose attributes were erased by a later thin
-    claim is served silently, so the check has to be here, where the write
-    happened, rather than in a test that may not be run.
-    """
-    worker = booted.handle.worker
-
-    # =====================================================================
-    # MEASURED PRODUCER INVARIANT — NOT A STYLISTIC PREFERENCE.
-    #
-    #   Emit thin relationship envelopes FIRST.
-    #   Admit richer attributed entity claims AFTERWARD.
-    #
-    # A later thin claim SUPERSEDES the richer entity at the same URI and can
-    # ERASE its attributes. Measured on this SDK: an attributed claim carrying
-    # {lei, label, type_chain, family_id} became {} when an endpoint-only claim
-    # for the same URI arrived after it. Nothing raised, and the product then
-    # serves nodes with no name, no LEI and no class chain.
-    #
-    # This is exactly the kind of "cleanup" a later reader reverses on
-    # chronological intuition — "edges are facts we learn later, so ingest them
-    # later." That intuition is what erases the attributes. Do not reorder
-    # these two loops. The assertion below is what makes a reorder loud instead
-    # of silent.
-    #
-    # Whether last-claim-wins is the right rule for multi-source accumulation
-    # (INV-CH7-17) is a separate question, deliberately not answered here. This
-    # spine does not merge attributes and does not ask the SDK to.
-    # =====================================================================
-    for ordinal, edge in enumerate(family.edges):
-        worker.ingest(_edge_envelope(edge, tenant_id=booted.tenant_id, at=at, ordinal=ordinal))
-    for node in family.nodes:
-        worker.ingest(_node_envelope(family, node, tenant_id=booted.tenant_id, at=at))
-
-    view = booted.handle.reader.as_of(tenant_id=booted.tenant_id, at=at)
-    unattributed = [
-        record.claim.entity_uri
-        for record in view.entities
-        if not record.claim.attributes.get("family_id")
-    ]
-    if unattributed:
-        raise AssertionError(
-            f"{len(unattributed)} of {len(view.entities)} admitted nodes carry no"
-            " attributes after ingestion. The ingestion-order contract was"
-            " violated: an endpoint-only claim arrived after the node's own"
-            f" claim and superseded it. First: {sorted(unattributed)[0]!r}"
-        )
+# ---------------------------------------------------------------------------
+# Context Debt.
+# ---------------------------------------------------------------------------
 
 
-def debt(view: GraphView) -> DebtAssessment:
-    """D_c over the view the OPERATORS produced — see `CP04C-F-02`.
+def assess(context: AssessmentContext) -> DebtAssessment:
+    """`D_c` over the view the OPERATORS produced — see `CP04C-F-02`.
+
+    Unchanged in substance from the canonical spine's ``debt``: freshness and
+    completeness are 1 and consistency is the resolved share of the admitted
+    nodes. The D_c profile is the BOOTED artifact the paved road hands here —
+    the exact document the pins record — never a second parse of the config.
 
     .. warning::
-
-       **This is not yet the served roster, and the difference is measured.**
-       ``GovernedResolver`` hands this scorer ``execution.view`` — the graph
-       view the operators produced — not the projection's output. Because this
-       deployment applies the caller's depth at Π, the payload can serve fewer
-       nodes than the scorer counted: measured on this family, the scorer sees
-       50 nodes / 30 resolved at every depth while the payload serves 36/16 at
-       depth 1 and 49/29 at depth 3. ``D_c`` is therefore **0.4 at every
-       depth** — a scalar that cannot move with the answer, which is exactly
-       the wrong-denominator defect cp-04's own specification was corrected for.
-
-       This is **not** an SDK defect. The SDK measures debt over what was
-       assembled; a projection that then serves less is choosing to. The fix
-       belongs on this side of the seam and is recorded as `CP04C-F-02`,
-       because choosing it interacts with a ruled constraint and is not this
-       module's to decide unilaterally.
+       ``GovernedResolver`` hands this scorer the graph view the operators
+       produced, not the projection's output; because this deployment applies
+       the caller's depth at Π, the payload can serve fewer nodes than the
+       scorer counted (`CP04C-F-02`, recorded and not this module's to decide
+       unilaterally).
     """
-    entities = list(view.entities)
+    assert context.profile is not None
+    entities = list(context.view.entities)
     resolved = sum(
         1
         for record in entities
@@ -392,55 +213,7 @@ def debt(view: GraphView) -> DebtAssessment:
         DebtFactors(
             freshness=Decimal(1),
             completeness=Decimal(1),
-            # The one factor this estate can actually move. Freshness and
-            # completeness are 1 and SAID to be 1 rather than quietly assumed:
-            # every served node was observed in this run's own read, and every
-            # node the walk admitted is in the payload. What varies is whether
-            # the ATTRIBUTE leg had a row for it.
             semantic_consistency=served,
         ),
-        profile=DebtProfile.model_validate(
-            {"semver": "1.0.0", **config()["debt_profile"]}
-        ),
+        profile=context.profile,
     )
-
-
-@dataclass(frozen=True)
-class FamilyScenario:
-    """What one run needs — satisfies ``produce.Scenario`` structurally."""
-
-    family: acquisition.Family
-    asked: ProductRequest
-    booted_at: datetime
-
-    @property
-    def product_class_key(self) -> str:
-        return "product_class"
-
-    @property
-    def request_contract_key(self) -> str:
-        return "request_contract"
-
-    @property
-    def policy_bundle_key(self) -> str:
-        return "policy"
-
-    @property
-    def operator_parameter_keys(self) -> tuple[str, ...]:
-        """However many the deployment declared — never a fixed count."""
-        return tuple(config()["operators"])
-
-    @property
-    def plan_id(self) -> str:
-        return f"cp-04-canonical.corporate-family/{self.family.anchor_lei}"
-
-    @property
-    def max_ttl_seconds(self) -> int:
-        return int(
-            timedelta(days=int(config()["half_life"]["ownership_edges"]["half_life_seconds"] // 86400)).total_seconds()
-        )
-
-    @property
-    def product_ttl_seconds(self) -> int:
-        """From the entity freshness anchor the class declares."""
-        return int(config()["half_life"]["entity_attributes"]["half_life_seconds"])

@@ -3,7 +3,7 @@
 [ADAPT] freely — this file is presentation and nothing else.
 
 **It carries no marker region**, so nothing printed here is published-snippet
-surface: an adopter copies ``produce.py``'s three regions, not this. It is also
+surface: an adopter copies ``produce.py``'s two regions, not this. It is also
 the ONLY module in this example that writes to a terminal, which is what keeps
 a printed line out of the spine.
 
@@ -13,6 +13,7 @@ Usage::
     export CCF_CP_04C_POSTGRES_DSN=...    CCF_CP_04C_POSTGRES_SCHEMA=...
     make example-cp-04-canonical
     make example-cp-04-canonical LEI=--lei=<lei> MAX_DEPTH=--max-depth=2
+    .venv/bin/python examples/cp-04-canonical-corporate-family-tree/run.py --door
 
 ``--max-depth`` omitted asks the question WITHOUT the parameter, so the class
 default resolves — which is a different thing from passing the default's value,
@@ -29,6 +30,7 @@ import sys
 import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import deployment
 import produce
@@ -37,6 +39,10 @@ from ccf.products.refusal import RefusalEnvelope
 #: The family this example demonstrates against. An argument, not a constant in
 #: the fabric's path — pass your own anchor to ask about another family.
 DEMONSTRATION_ANCHOR = "549300FHJQTDPPN41627"
+
+#: The intent and freshness this class serves — the request's own vocabulary.
+INTENT = "credit-concentration"
+FRESHNESS = "standard"
 
 
 def main(argv: list[str]) -> int:
@@ -48,22 +54,33 @@ def main(argv: list[str]) -> int:
         default=None,
         help="omit entirely to let the class default resolve",
     )
+    parser.add_argument(
+        "--door", action="store_true",
+        help="instead of asking once: boot the MCP egress door on an ephemeral 127.0.0.1"
+             " port, print `READY {port}`, and serve questions from other processes until terminated",
+    )
     parsed = parser.parse_args(argv[1:])
+
+    if parsed.door:
+        # The door is a fabric-facing module that writes to no terminal; the
+        # readiness line a harness reads is this module's to print.
+        from server import serve as door  # noqa: PLC0415
+
+        door.loopback(announce=lambda port: print(f"READY {port}", flush=True))
+        return 0
+
     anchor = parsed.lei
     asked_depth = parsed.max_depth
+    parameters: dict[str, Any] = {deployment.ANCHOR: anchor, deployment.FAMILIES: [anchor]}
+    if asked_depth is not None:
+        parameters[deployment.MAX_DEPTH] = asked_depth
 
-    asked = deployment.request(
-        anchor_lei=anchor,
-        # Ordinarily the anchor's own family. A caller entitled to two families
-        # can name both without a second code path.
-        families=[anchor],
-        asked_at=datetime.now(UTC),
-        max_depth=asked_depth,
-    )
-
-    with tempfile.TemporaryDirectory() as scratch:
-        outcome = produce.assemble_and_serve(asked=asked, root=Path(scratch))
-
+    with tempfile.TemporaryDirectory() as scratch, produce.product(Path(scratch)) as opened:
+        asked = opened.question(
+            subject=anchor, asked_at=datetime.now(UTC), intent=INTENT, freshness=FRESHNESS,
+            parameters=parameters,
+        )
+        outcome = opened.answer(asked)
         print(f"anchor      : {anchor}")
         print(
             "max_depth   : "
@@ -73,15 +90,10 @@ def main(argv: list[str]) -> int:
                 else "absent — the class default resolves"
             )
         )
-
         if isinstance(outcome, RefusalEnvelope):
-            # A refusal is an ANSWER, not a crash: the question was governed and
-            # the verdict was no. It carries the reason and the decision record
-            # that authorized saying it.
             print(f"\nREFUSED     : {outcome.reason}")
             print(f"replay      : {outcome.replay_reference}")
             return 1
-
         payload = outcome.product.payload
         findings = payload["findings"]
         print(f"depth served: {payload['depth_served']}")
@@ -97,12 +109,10 @@ def main(argv: list[str]) -> int:
             f" enumerated to length {findings['max_length_enumerated']}"
         )
         print()
-        # The two things a SELECT could not have told you.
         print(f"context debt: D_c = {outcome.product.debt.debt}")
         print(f"       signal: {outcome.product.debt.signal}")
         print(f"expires at  : {outcome.product.expires_at.isoformat()}")
-        print(f"replay      : {outcome.served.replay_ref.content_address}")
-
+        print(f"replay      : {outcome.replay_ref.content_address}")
         if findings["cycles"]:
             first = findings["cycles"][0]
             print()

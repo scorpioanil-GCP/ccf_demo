@@ -134,6 +134,7 @@ from ccf.deployment.operators import (
     build_operator_registry,
 )
 from ccf.deployment.pins import ArtifactPin, ResolvedPins, UnpinnedArtifactError
+from ccf.deployment.environment import EnvironmentDocument, load_environment_document
 
 __ccf_mode__ = "algorithmic"
 
@@ -145,6 +146,7 @@ __all__ = [
     "BootedFabric",
     "DeploymentManifest",
     "DerivedDeployment",
+    "EnvironmentDocument",
     "ManifestEntry",
     "ResolvedPins",
     "SimilarityCorpusAttributeError",
@@ -153,6 +155,7 @@ __all__ = [
     "derive_deployment",
     "load_and_boot",
     "load_config_and_boot",
+    "load_environment_document",
     "refuse_operator_set_divergence",
     "refuse_registration_the_sdk_fixes",
     "refuse_role_the_sdk_fixes",

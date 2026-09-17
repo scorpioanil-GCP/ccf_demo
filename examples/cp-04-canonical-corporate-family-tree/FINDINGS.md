@@ -198,3 +198,22 @@ taken.
 The structural properties are already proved and do not depend on this fork:
 `shape_of == "canonical"`, and `_sdk_supplied_operator_set == True` on all five
 conditions with the factory's plan sources reading `(('required',),)`.
+
+
+## Re-expressed on the paved road — CP-14 Gate 2 slice 2 (2026-09-15)
+
+Classified **A** under Dave's slice-2 vocabulary (paved-road compatible: the
+existing governed implementation exposed with `open_product` → `open_door`
+and minimal product binding) by a four-tree census and an independent pass,
+and chosen as the cheapest honest second producer. Nothing about the product's
+business behavior changed — measured by content address at a pinned instant
+(`2da50196…`, identical before and after; payload, debt, expiry and dimension-2
+policy pins identical).
+
+| Id | Observation | Category (`docs/EXAMPLE-EVALUATION-CRITERIA.md` §B) | Disposition |
+| --- | --- | --- | --- |
+| `CP04C-F-03` | **One number was stated in two documents, and the road collapsed it.** `backends.yaml`'s `max_traversal_depth: 6` restated the traversal operator's `depth_limit: 6` — the same backend ceiling. The environment document cannot carry a literal (a setting is an environment-variable NAME), and the SDK's own `_capabilities_of` derives no ceiling for a dev fabric, so the capability is now read off the ONE declaration in `ccf_config.yaml` (`deployment.py::traversal_capability`). The capability's recorded identity changed from `corporate_family_graph/max_traversal_depth=6` to `traversal.typed-neighborhood/depth_limit=6`; the product's address did not | 2 · ergonomics, closed for this tree (one authority) — and a §I note: the road offers no seam that hands a source leg's technical capability from the environment document to `open_product`; a deployment with a ceiling that is genuinely environmental rather than declared would read the document itself | Closed here; backlog note |
+| `CP04C-F-04` | **The road turned two DERIVED TTL figures into a restated declaration.** `FamilyScenario` derived the class ceiling from `half_life.ownership_edges` and the product window from `half_life.entity_attributes`; the SDK's contract keeps TTL as its own declaration (`ttl:`), so the two numbers now appear beside the half-life rows they equal. One number in two places, by the SDK's contract rather than by this tree's choice | 3 · post-launch: a `ttl:` binding that may reference a half-life class instead of restating seconds | Backlog; disclosed in `ccf_config.yaml` |
+| `CP04C-F-05` | **The post-ingest ordering assertion has no home on the road.** The canonical `ingest` read the view after writing and raised if any node had lost its attributes to a later thin edge claim. The paved seam ingests what `acquire` yields and holds no reader; the ordering contract is now held by `deployment.envelopes` yielding every edge before any node. The defensive check is dropped, not moved — its class of defect is an ingestion-order mistake this module can no longer make by accident | 4 · example (a defensive assertion, not a product property) | Recorded |
+| `CP14-F-21`, here | An unresolvable anchor still RAISES `LookupError` inside `acquire`; through the door it surfaces as an opaque runtime failure and at a consumer as `producer-unavailable`. Unchanged by the road, by ruling (kept open) | open, ruled | Not repaired |
+| `D-IMPL-341` / `CP03C-F-01`, here | `ttl_anchor: from_entity_freshness` is declared and unread; `expires_at` is decision-anchored (`asked_at` + 30 days) before and after | open, ruled | Not repaired |

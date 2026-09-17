@@ -1,0 +1,95 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE DECLARED PRODUCT GATES OF cp-14 — the twelve `CMC-G` ids the completion
+# slice EXECUTES against the five real producers. `CP-SPEC-014` §D.5 declares
+# twenty-nine; the seventeen not listed here are not claimed — each is named in
+# `FINDINGS.md` as unexercised, with why (`D-IMPL-224`: a roster declares
+# exactly the ids with executing tests, never the ids one wishes were tested).
+#
+# The acceptance authority for every gate below is `CP-SPEC-014` §D.5
+# (`D-IMPL-326`); each id is claimed by the executing test named beside it,
+# and `tools/check_product_gates.py` holds the two to each other. All are
+# directional, structural or relational: no estate figure is pinned.
+#
+# `observed_red` records a sabotage that was RUN and watched fail; `null`
+# means the sabotage is described and not yet individually exercised.
+
+semver: 1.0.0
+class_id: cp-14.product-gates
+declaration:
+  product: credit-risk.credit-memo-context
+  test_naming_convention: the gate id appears in the executing test's docstring, as a `Declared
+    product gate` line naming the CP-SPEC clause that approves it.
+  gates:
+  - id: CMC-G02
+    statement: 'the parent''s declared operator set equals its engine-executed set, and the composite''s lineage is the union of it with every admitted child''s operators'
+    spec_clause: {document: spec/CP-SPEC-014_Credit_Memo_Context.md, clause: D.5}
+    test: tests/examples/test_cp_14_fourth_slice.py::test_acquisition_and_composition_use_the_same_admitted_child_contracts
+    sabotage: 'name a child''s operator in the class declaration'
+    observed_red: null
+  - id: CMC-G03
+    statement: 'the memo''s expiry is within its declared ceiling and never later than its stalest admitted child''s'
+    spec_clause: {document: spec/CP-SPEC-014_Credit_Memo_Context.md, clause: D.5}
+    test: tests/examples/test_cp_14_fourth_slice.py::test_acquisition_and_composition_use_the_same_admitted_child_contracts
+    sabotage: 'anchor the memo''s expiry on its own window regardless of the children'
+    observed_red: null
+  - id: CMC-G17
+    statement: a child that did not come through the admission gate is never composed; the refused determination reconstructs along the recorded path
+    spec_clause: {document: spec/CP-SPEC-014_Credit_Memo_Context.md, clause: D.5}
+    test: tests/examples/test_cp_14_fourth_slice.py::test_refused_reconstruction_preserves_the_admitted_child_evidence_and_the_recorded_path
+    sabotage: hand the plan factory a contract the walk did not admit
+    observed_red: null
+  - id: CMC-G18
+    statement: 'a required child withheld by its producer refuses the composite; five rows persist; the first blocking producer''s reason is retained, the other withheld rows carry the admission verdict (`D-IMPL-342` open)'
+    spec_clause: {document: spec/CP-SPEC-014_Credit_Memo_Context.md, clause: D.5}
+    test: tests/examples/test_cp_14_fourth_slice.py::test_the_governed_question_withholds_where_producers_withhold_and_refuses_the_composite
+    sabotage: wrap a withheld child as a served empty product
+    observed_red: null
+  - id: CMC-G19
+    statement: 'inherited debt is the per-factor minimum across children weak on different factors — per-factor propagation on the real children; the scalar difference from `max(child D_c)` is shown on an isolated control, not on this estate, where the exposure child already sits at D_c 1'
+    spec_clause: {document: spec/CP-SPEC-014_Credit_Memo_Context.md, clause: D.5}
+    test: tests/examples/test_cp_14_fourth_slice.py::test_inherited_debt_is_the_per_factor_minimum_across_children_weak_on_different_factors
+    sabotage: replace the per-factor combinator with the scalar maximum
+    observed_red: null
+  - id: CMC-G20
+    statement: 'the composite''s lineage omits no admitted child''s operators'
+    spec_clause: {document: spec/CP-SPEC-014_Credit_Memo_Context.md, clause: D.5}
+    test: tests/examples/test_cp_14_fourth_slice.py::test_acquisition_and_composition_use_the_same_admitted_child_contracts
+    sabotage: 'drop one admitted child''s operators from the union'
+    observed_red: null
+  - id: CMC-G22
+    statement: five child replay rows on every exit after acquisition — the served path and the admission refusal alike
+    spec_clause: {document: spec/CP-SPEC-014_Credit_Memo_Context.md, clause: D.5}
+    test: tests/examples/test_cp_14_fourth_slice.py::test_the_governed_question_withholds_where_producers_withhold_and_refuses_the_composite
+    sabotage: persist rows only on the served path
+    observed_red: null
+  - id: CMC-G23
+    statement: no hand-rolled child resolution, admission, inherited-debt composition or per-child replay exists in the consumer
+    spec_clause: {document: spec/CP-SPEC-014_Credit_Memo_Context.md, clause: D.5}
+    test: tests/examples/test_cp_14_fourth_slice.py::test_the_consumer_imports_no_producer_and_rebuilds_no_child_material
+    sabotage: construct the child resolver or the admission gate in the consumer
+    observed_red: null
+  - id: CMC-G26
+    statement: 'the caller''s disclosed refusal carries no child reason token at the default disclosure level; the reason is retained on the record'
+    spec_clause: {document: spec/CP-SPEC-014_Credit_Memo_Context.md, clause: D.5}
+    test: tests/examples/test_cp_14_fourth_slice.py::test_the_governed_question_withholds_where_producers_withhold_and_refuses_the_composite
+    sabotage: copy the retained detail into the disclosed envelope
+    observed_red: null
+  - id: CMC-G27
+    statement: 'no child-owned material is re-derived: the consumer''s own legs read the roster''s identity and document keys and the ledger''s anchors, nothing a child supplies'
+    spec_clause: {document: spec/CP-SPEC-014_Credit_Memo_Context.md, clause: D.5}
+    test: tests/examples/test_cp_14_fourth_slice.py::test_the_consumer_imports_no_producer_and_rebuilds_no_child_material
+    sabotage: 'query `collateral_pledge` or follow `ex:crossReferences` in the consumer'
+    observed_red: null
+  - id: CMC-G28
+    statement: a meaningful child-content change, every other input fixed, changes the corresponding parent payload field and address and nothing else
+    spec_clause: {document: spec/CP-SPEC-014_Credit_Memo_Context.md, clause: D.5}
+    test: tests/examples/test_cp_14_fourth_slice.py::test_a_meaningful_child_content_change_changes_the_corresponding_parent_field
+    sabotage: compose the section from a store re-query instead of the admitted contract
+    observed_red: null
+  - id: CMC-G29
+    statement: the served memo reconstructs from the retained child contracts and recorded inputs with every producer exited
+    spec_clause: {document: spec/CP-SPEC-014_Credit_Memo_Context.md, clause: D.5}
+    test: tests/examples/test_cp_14_fourth_slice.py::test_served_reconstruction_uses_retained_inputs_without_calling_any_provider
+    sabotage: resolve a child from its producer during replay
+    observed_red: null

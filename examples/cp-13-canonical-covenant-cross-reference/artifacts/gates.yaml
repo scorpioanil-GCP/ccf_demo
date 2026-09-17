@@ -1,0 +1,173 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE DECLARED PRODUCT GATES OF cp-13-canonical — `CXRC-G01` through `CXRC-G25`.
+#
+# `D-IMPL-224`: a product's gates are a DECLARED ARTIFACT plus CI coverage. The
+# acceptance authority for every gate below is `CP-SPEC-013C` §G.1
+# (`D-IMPL-326`); each id is claimed by the executing test named beside it,
+# and `tools/check_product_gates.py` holds the two to each other. All are
+# directional, structural or relational: no estate figure is pinned.
+#
+# `observed_red` records a sabotage that was RUN and watched fail; `null`
+# means the sabotage is described and not yet individually exercised.
+
+semver: 1.0.0
+class_id: cp-13-canonical.product-gates
+declaration:
+  product: covenant.cross-reference-canonical
+  test_naming_convention: the gate id appears in the executing test's docstring, as a `Declared
+    product gate` line naming the CP-SPEC clause that approves it.
+  gates:
+  - id: CXRC-G01
+    statement: 'the citation unit is the named passage reached through `ex:evidencedBy`; every served citation carries `checked: true` and the passage''s own sha256'
+    spec_clause: {document: spec/CP-SPEC-013C_Covenant_Cross_Reference_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_13_canonical_output.py::test_every_served_citation_is_checked_against_the_named_passage
+    sabotage: serve a citation cut from the node's own offsets without re-hashing it
+    observed_red: null
+  - id: CXRC-G02
+    statement: 'a chain node that is located but not quotable emits no citation and is debt with a closed-vocabulary reason; `ex:declaredAt` marks a point anchor and does not repair one'
+    spec_clause: {document: spec/CP-SPEC-013C_Covenant_Cross_Reference_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_13_canonical_output.py::test_an_unquotable_node_emits_no_citation_and_is_debt_with_a_reason
+    sabotage: emit a citation for a point anchor, or report an absence with a reason outside the closed set
+    # S02 was RUN 2026-09-17: the tree refused to serve the fabrication at all,
+    # so every served-fixture test errored and this gate's red is not isolated
+    # (`CP13C-F-04` in FINDINGS.md).
+    observed_red: null
+  - id: CXRC-G03
+    statement: the bound is applied before ranking and two roles with different entitlements receive different content addresses
+    spec_clause: {document: spec/CP-SPEC-013C_Covenant_Cross_Reference_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_13_canonical_output.py::test_the_bound_is_applied_before_ranking_and_two_roles_receive_different_addresses
+    sabotage: retrieve broadly, rank, then drop the impermissible rows
+    observed_red: null
+  - id: CXRC-G04
+    statement: a role with no entitlement row for the requested corpus scope is refused, never narrowed
+    spec_clause: {document: spec/CP-SPEC-013C_Covenant_Cross_Reference_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_13_canonical_output.py::test_a_role_with_no_entitlement_row_is_refused_never_narrowed
+    sabotage: 'fall back to the `filed` scope when the register has no row'
+    observed_red: null
+  - id: CXRC-G05
+    statement: 'the governing text is selected by `governs_from` at the instant, never by `filed_date`'
+    spec_clause: {document: spec/CP-SPEC-013C_Covenant_Cross_Reference_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_13_canonical_output.py::test_the_governing_text_is_selected_by_governs_from_at_the_instant
+    sabotage: select the governing text by the filing date
+    observed_red: null
+  - id: CXRC-G06
+    statement: the payload declares which node set the traversal seeded on
+    spec_clause: {document: spec/CP-SPEC-013C_Covenant_Cross_Reference_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_13_canonical_output.py::test_the_payload_declares_the_seed
+    sabotage: 'drop `seeded_on` from the payload, or seed on a class the payload does not name'
+    observed_red: null
+  - id: CXRC-G07
+    statement: an unknown evidence node refuses distinctly from a node with no definition chain
+    spec_clause: {document: spec/CP-SPEC-013C_Covenant_Cross_Reference_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_13_canonical_output.py::test_an_unknown_evidence_node_refuses_distinctly
+    sabotage: answer an unknown source with an empty chain
+    observed_red: null
+  - id: CXRC-G08
+    statement: no passage text is served for a document outside the permitted set, at any depth
+    spec_clause: {document: spec/CP-SPEC-013C_Covenant_Cross_Reference_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_13_canonical_output.py::test_no_passage_text_is_served_outside_the_permitted_set
+    sabotage: skip the permitted-set check on a citation below depth one
+    observed_red: null
+  - id: CXRC-G09
+    statement: '`ex:governedBy` is absent and is not invented'
+    spec_clause: {document: spec/CP-SPEC-013C_Covenant_Cross_Reference_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_13_canonical_output.py::test_governed_by_is_absent_and_not_invented
+    sabotage: 'substitute `definesVia` for the absent governing edge'
+    observed_red: null
+  - id: CXRC-G10
+    statement: 'an absent embedding is `not-evaluable`, never an empty result'
+    spec_clause: {document: spec/CP-SPEC-013C_Covenant_Cross_Reference_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_13_canonical_output.py::test_an_absent_embedding_is_not_evaluable
+    sabotage: count an unembedded memorandum as a non-hit
+    observed_red: null
+  - id: CXRC-G11
+    statement: '`D_c` above the caller''s tolerance refuses with the debt block'
+    spec_clause: {document: spec/CP-SPEC-013C_Covenant_Cross_Reference_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_13_canonical_output.py::test_debt_above_tolerance_refuses_with_the_debt_block
+    sabotage: serve past the tolerance
+    observed_red: null
+  - id: CXRC-G12
+    statement: replay dimension 2 is a superset of product policy lineage
+    spec_clause: {document: spec/CP-SPEC-013C_Covenant_Cross_Reference_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_13_canonical_output.py::test_replay_dimension_two_is_a_superset_of_product_lineage
+    sabotage: record the policy bundle under another key
+    observed_red: null
+  - id: CXRC-G13
+    statement: 'the door is the SDK''s standard door opened from `door:` — no door module, no `door.yaml`, no `backends.yaml` in the tree'
+    spec_clause: {document: spec/CP-SPEC-013C_Covenant_Cross_Reference_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_13_canonical_output.py::test_the_door_is_the_sdk_standard_door_opened_from_the_declaration
+    sabotage: 'add a `door.yaml` naming a script path'
+    observed_red: null
+  - id: CXRC-G14
+    statement: 'the lane measurement: the successor''s payload equals the specimen''s at the pinned instant for the four demonstration sources'
+    spec_clause: {document: spec/CP-SPEC-013C_Covenant_Cross_Reference_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_13_canonical_output.py::test_the_lane_is_measured_the_successor_payload_equals_the_specimens
+    sabotage: rename one payload member
+    observed_red: null
+  - id: CXRC-G15
+    statement: 'the evidence is the view: Π''s constructor takes no estate; a changed chain in the governed view changes the served citations and the debt factor C in step'
+    spec_clause: {document: spec/CP-SPEC-013C_Covenant_Cross_Reference_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_13_canonical_output.py::test_the_evidence_pi_serves_is_the_one_in_the_governed_view
+    sabotage: hand Π the acquisition result through a closure or read C off a module constant
+    observed_red: null
+  - id: CXRC-G16
+    statement: '`shape_of` reads this tree as paved; no `build_governed_resolver` and no `build_replay_record` call exists'
+    spec_clause: {document: spec/CP-SPEC-013C_Covenant_Cross_Reference_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_13_canonical_output.py::test_the_structural_classifier_reads_this_tree_as_paved
+    sabotage: compose the resolver beside the opened product
+    observed_red: null
+  - id: CXRC-G17
+    statement: the frozen specimen is untouched and no specimen identity is reused
+    spec_clause: {document: spec/CP-SPEC-013C_Covenant_Cross_Reference_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_13_canonical_output.py::test_the_specimen_is_untouched_and_no_identity_is_reused
+    sabotage: edit one specimen file, or reuse its tenant
+    observed_red: null
+  - id: CXRC-G18
+    statement: 'the CP-14-shaped question is answered by the producer in another process and admitted under `provider-controls`'
+    spec_clause: {document: spec/CP-SPEC-013C_Covenant_Cross_Reference_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_13_canonical_output.py::test_the_cp14_question_is_answered_in_another_process_and_admitted_under_provider_controls
+    sabotage: serve the child from the consumer's own process
+    observed_red: null
+  - id: CXRC-G19
+    statement: the expected producer identity and tenant come from the registration — wrong id and wrong tenant refuse independently
+    spec_clause: {document: spec/CP-SPEC-013C_Covenant_Cross_Reference_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_13_canonical_output.py::test_wrong_producer_and_wrong_tenant_refuse_independently
+    sabotage: take the producer identity from the answer rather than the registration
+    observed_red: null
+  - id: CXRC-G20
+    statement: the door and the in-process run serve one content address
+    spec_clause: {document: spec/CP-SPEC-013C_Covenant_Cross_Reference_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_13_canonical_output.py::test_the_door_and_the_in_process_run_serve_one_content_address
+    sabotage: let the door restate a payload member
+    observed_red: null
+  - id: CXRC-G21
+    statement: an unknown intent is refused on the declared discovery set — the specimen accepts it
+    spec_clause: {document: spec/CP-SPEC-013C_Covenant_Cross_Reference_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_13_canonical_output.py::test_an_unknown_intent_is_refused_on_the_declared_discovery_set
+    sabotage: 'drop `discovery.intents`'
+    observed_red: null
+  - id: CXRC-G22
+    statement: 'the entitlement principal is the perspective''s role: the door serves every caller as the declared credit officer; a stated perspective in-process changes the principal the envelope reports'
+    spec_clause: {document: spec/CP-SPEC-013C_Covenant_Cross_Reference_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_13_canonical_output.py::test_the_entitlement_principal_is_the_perspectives_role
+    sabotage: read the principal off a request parameter
+    observed_red: null
+  - id: CXRC-G23
+    statement: a question admitting no evidence node is refused by the declared lineage obligation, never served empty
+    spec_clause: {document: spec/CP-SPEC-013C_Covenant_Cross_Reference_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_13_canonical_output.py::test_a_question_admitting_no_evidence_node_is_refused_never_served_empty
+    sabotage: 'drop the lineage obligation on `cross_references`'
+    observed_red: null
+  - id: CXRC-G24
+    statement: a fresh fabric per run; two questions under one root hash to their own addresses
+    spec_clause: {document: spec/CP-SPEC-013C_Covenant_Cross_Reference_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_13_canonical_output.py::test_a_fresh_fabric_per_run_and_one_determination_across_roots
+    sabotage: mint the substrate once per opened product
+    observed_red: null
+  - id: CXRC-G25
+    statement: 'replay reproduces the served bytes and the debt factors from the recorded snapshot with no acquisition object alive; a tolerance refusal reconstructs through `replay_refusal` with no product rehydrated'
+    spec_clause: {document: spec/CP-SPEC-013C_Covenant_Cross_Reference_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_13_canonical_output.py::test_replay_reproduces_the_served_product_and_a_refusal_reconstructs
+    sabotage: rehydrate the product from the served outcome instead of the snapshot
+    observed_red: null

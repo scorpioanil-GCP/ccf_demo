@@ -1,0 +1,57 @@
+# THE DEPLOYMENT'S ENVIRONMENT — the second of this tree's two documents
+# (`D-IMPL-343`). `ccf_config.yaml` beside it is Control Plane content and never
+# carries a DSN, a host, a credential or a URL; this document holds the NAMES
+# those values are read from, and the remedy an unset name raises with.
+#
+# NO CONNECTION VALUE APPEARS HERE. The five producers' endpoints and
+# credentials are named in `ccf_config.yaml`'s `producers:` and valued only in
+# the process environment (spec §F.3 for the estate variables).
+
+config: ccf_config.yaml
+
+# The fabric's own L3 — minted fresh under the caller's scratch for EVERY
+# question. The setting is the declared adapter's; the prefix and suffix are
+# this deployment's.
+substrate:
+  setting: database_path
+  prefix: cp14_memo
+  suffix: .sqlite3
+
+sources:
+  # THE ROSTER — the one store this slice's parent leg reads: `legal_entity`
+  # for the obligor's identity, `memo_context_debt` for roster MEMBERSHIP only
+  # (no figure from it is read; spec `CMC-G04`). The v2 namespace is a
+  # variable, not a literal (CLAUDE.md §9, the namespace trap).
+  roster:
+    dsn:
+      from_env: CCF_CP_14_POSTGRES_DSN
+      remedy: >-
+        export CCF_CP_14_POSTGRES_DSN with a READ-ONLY connection string for
+        the credit-memo estate (host and credentials from ccf_dataprep/.env).
+        The role needs SELECT and nothing else.
+    schema:
+      from_env: CCF_CP_14_POSTGRES_SCHEMA
+      remedy: >-
+        export CCF_CP_14_POSTGRES_SCHEMA with the namespace holding the
+        legal_entity and memo_context_debt tables (the v2 estate reads
+        `ccf_v2`; ccf_dataprep/.env names v1).
+
+# The one deadline every producer call is held to.
+  # THE LEDGER LEG — read for ONE purpose: to DETERMINE the covenant question
+  # (`CP14-F-28`). The obligor's facility documents, from the roster, name the
+  # evidence anchors the covenant child may be asked about; the anchors' chains,
+  # citations and cross-references are the child's and are never read here
+  # (`CMC-G27`, spec §B.8).
+  covenant_graph:
+    url:
+      from_env: CCF_CP_14_FLUREE_URL
+      remedy: >-
+        export CCF_CP_14_FLUREE_URL with the base URL of a READ-ONLY Fluree
+        endpoint; this deployment issues SPARQL through `/v1/fluree/query`.
+    ledger:
+      from_env: CCF_CP_14_FLUREE_LEDGER
+      remedy: >-
+        export CCF_CP_14_FLUREE_LEDGER with the ledger name to read — the v2
+        estate is `fibo-v2`.
+remote:
+  call_timeout_seconds: 120

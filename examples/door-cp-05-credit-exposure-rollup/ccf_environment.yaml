@@ -1,0 +1,35 @@
+# THE DOOR'S ENVIRONMENT — the names the standard door reads its credential and
+# advertised addresses from (`D-IMPL-343`). No value appears here.
+#
+# THIS TREE HAS NO `ccf_config.yaml` OF ITS OWN. The Control Plane document it
+# serves is the FROZEN specimen's, `../cp-05-credit-exposure-rollup/ccf_config
+# .yaml`, read by that tree's own `deployment.py`; the four estate variables are
+# that tree's `backends.yaml` names (`CCF_CP_05_*`), read straight off the
+# process environment as the specimen has always read them.
+#
+# `substrate` is REQUIRED by the document's contract and is INERT here: the
+# frozen low road mints its own per-question fabric under a temporary directory
+# (`produce.produce_governed`), and nothing in this tree mints from this block.
+
+substrate:
+  setting: database_path
+  prefix: door_cp_05_inert
+  suffix: .sqlite3
+
+door:
+  credential:
+    from_env: CCF_CP_05_DOOR_TOKEN
+    remedy: >-
+      export CCF_CP_05_DOOR_TOKEN with the bearer credential this door is to
+      be reached with, or leave it unset to have one minted per boot.
+  issuer_url:
+    from_env: CCF_CP_05_DOOR_ISSUER_URL
+    remedy: >-
+      export CCF_CP_05_DOOR_ISSUER_URL with the OAuth issuer this door's auth
+      settings advertise (any https URL for a development stdio door).
+  resource_server_url:
+    from_env: CCF_CP_05_DOOR_RESOURCE_URL
+    remedy: >-
+      export CCF_CP_05_DOOR_RESOURCE_URL with the resource-server address this
+      door's auth settings advertise (any https URL for a development stdio
+      door).

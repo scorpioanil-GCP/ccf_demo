@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE DEMONSTRATION QUESTION — the caller's vocabulary, read-side.
+#
+# `run.py` asks this when no flag overrides it. The `as_of` pin is here rather
+# than in code because it is a REQUEST parameter (`D-IMPL-98`).
+
+semver: "1.0.0"
+class_id: cp-13-canonical.question
+
+declaration:
+  question:
+    # THE PRINCIPAL, and it is the axis this rung is about. `credit-officer`
+    # may widen to internal but never to `internal-restricted`;
+    # `relationship-manager` has no `filed-and-internal` row at all and is
+    # REFUSED rather than narrowed; `control-room` reaches everything.
+    principal: credit-officer
+    corpus_scope: filed
+    # Omitted, `run.py` asks the first four seeded evidence nodes. The full
+    # population is 26 — every `ex:PassageAnchor` carrying a definition chain.
+    sources: null
+    source_limit: 4
+    scope: covenant-cross-reference-demo
+    intent: compliance-test
+    # Today. Every `governs_from` in the estate is at or before this, so the
+    # whole corpus is in force and the as-of axis is demonstrated separately
+    # by `run.py --as-of` on the four borrowers whose dates actually separate.
+    as_of: "2026-09-13T00:00:00+00:00"
+    resolve_depth: 3
+    # NO debt_tolerance by default. This product's `D_c` is genuinely high —
+    # most chain nodes cannot be evidenced, which is the finding rather than a
+    # fault — and a default ceiling would hide that behind a refusal.
+    debt_tolerance: null

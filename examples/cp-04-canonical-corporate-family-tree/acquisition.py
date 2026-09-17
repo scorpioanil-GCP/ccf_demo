@@ -35,7 +35,6 @@ policy check look populated while measuring nothing.
 
 from __future__ import annotations
 
-import os
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -69,24 +68,6 @@ def vocabulary() -> Mapping[str, Any]:
         HERE / "artifacts" / "source-vocabulary.yaml"
     )["declaration"]
     return declaration
-
-
-def _setting(source: str, name: str) -> str:
-    """One connection value, from the environment, or the declared remedy.
-
-    The variable's NAME and the remedy text both come from `backends.yaml`;
-    neither is written here, and no default exists. An unset variable raises
-    carrying the remedy its own declaration authored, because a deployment that
-    cannot be reached should say how to reach it rather than how it failed.
-    """
-    declared = _document(HERE / "backends.yaml")["declaration"]["sources"]
-    setting = declared[source]["settings"][name]
-    value = os.environ.get(setting["from_env"])
-    if not value:
-        raise RuntimeError(
-            f"{setting['from_env']} is unset. {setting['remedy'].strip()}"
-        )
-    return value
 
 
 @dataclass(frozen=True)
@@ -291,7 +272,7 @@ def _details(
 
 
 def _attributes(
-    *, leis: Sequence[str], vocab: Mapping[str, Any]
+    *, leis: Sequence[str], vocab: Mapping[str, Any], settings: Mapping[str, str]
 ) -> dict[str, dict[str, Any]]:
     """ONE query for the whole key set — the batched join, not a fan-out.
 
@@ -305,10 +286,10 @@ def _attributes(
     leg = vocab["attribute_leg"]
     columns = ", ".join(f'"{column}"' for column in leg["columns"])
     statement = (
-        f'SELECT {columns} FROM "{_setting("corporate_family_attributes", "schema")}"'
+        f'SELECT {columns} FROM "{settings["schema"]}"'
         f'."{leg["table"]}" WHERE "{leg["key_column"]}" = ANY(%s)'
     )
-    with psycopg.connect(_setting("corporate_family_attributes", "dsn")) as connection:
+    with psycopg.connect(settings["dsn"]) as connection:
         with connection.cursor() as cursor:
             cursor.execute(statement, (list(leis),))
             rows = cursor.fetchall()
@@ -318,7 +299,9 @@ def _attributes(
     }
 
 
-def acquire(*, anchor_lei: str, depth: int) -> Family:
+def acquire(
+    *, anchor_lei: str, depth: int, graph: Mapping[str, str], attributes: Mapping[str, str]
+) -> Family:
     """Open both stores, walk one, join the other, and admit what was found.
 
     Args:
@@ -328,6 +311,10 @@ def acquire(*, anchor_lei: str, depth: int) -> Family:
             `resolve_effective_request`. This function receives a number that
             survived governance and applies no bound of its own; a second
             ceiling here would be a second authority for one value.
+        graph: The graph leg's connection settings (``url``, ``ledger``), as
+            the paved road resolved them from the environment document.
+        attributes: The attribute leg's (``dsn``, ``schema``), likewise. This
+            module reads no environment variable itself (`D-IMPL-343`).
 
     Raises:
         LookupError: the anchor resolves to no node. An unresolvable anchor is
@@ -338,11 +325,7 @@ def acquire(*, anchor_lei: str, depth: int) -> Family:
     predicates: Mapping[str, str] = vocab["graph_leg"]["family_predicates"]
 
     with httpx.Client(timeout=READ_TIMEOUT_SECONDS) as client:
-        leg = _GraphLeg(
-            url=_setting("corporate_family_graph", "url"),
-            ledger=_setting("corporate_family_graph", "ledger"),
-            client=client,
-        )
+        leg = _GraphLeg(url=graph["url"], ledger=graph["ledger"], client=client)
 
         anchors = leg.query(
             f"SELECT ?s FROM <{leg.ledger}> WHERE {{"
@@ -370,8 +353,8 @@ def acquire(*, anchor_lei: str, depth: int) -> Family:
         )
         for uri, hop in sorted(admitted.items())
     )
-    attributes = _attributes(
-        leis=[node.lei for node in nodes if node.lei], vocab=vocab
+    resolved = _attributes(
+        leis=[node.lei for node in nodes if node.lei], vocab=vocab, settings=attributes
     )
 
     return Family(
@@ -381,7 +364,7 @@ def acquire(*, anchor_lei: str, depth: int) -> Family:
         family_id=anchor_lei,
         nodes=nodes,
         edges=tuple(edges),
-        attributes=attributes,
+        attributes=resolved,
         ledger_watermark=watermark,
         depth_reached=reached,
     )

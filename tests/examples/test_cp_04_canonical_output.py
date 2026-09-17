@@ -19,6 +19,7 @@ determination nor honest evidence about the SDK's evolution.
 from __future__ import annotations
 
 import ast
+import dataclasses
 import importlib.util
 import os
 import pathlib
@@ -146,18 +147,38 @@ def estate() -> tuple[str, str]:
     )
 
 
+@dataclasses.dataclass(frozen=True)
+class _Answer:
+    """What one paved-road question produced, for the assertions below."""
+
+    product: Any
+    record: Any
+    served: Any
+
+
 def _ask(modules: tuple[Any, Any], *, max_depth: int | None) -> Any:
-    """One run, in its own scratch fabric."""
+    """One question on the paved road, in its own scratch: served with its record, or the refusal.
+
+    `D-IMPL-343` (CP-14 Gate 2 slice 2): the tree is opened through
+    `produce.product` and asked through `OpenedProduct.question`/`answer`; the
+    record is read back through the SAME opened product's store.
+    """
+    from ccf.products.refusal import RefusalEnvelope  # noqa: PLC0415
+
     deployment, produce = modules
     anchor = _demonstration_anchor()
-    asked = deployment.request(
-        anchor_lei=anchor,
-        families=[anchor],
-        asked_at=datetime.now(UTC),
-        max_depth=max_depth,
-    )
-    with tempfile.TemporaryDirectory() as scratch:
-        return produce.assemble_and_serve(asked=asked, root=pathlib.Path(scratch))
+    parameters: dict[str, Any] = {deployment.ANCHOR: anchor, deployment.FAMILIES: [anchor]}
+    if max_depth is not None:
+        parameters[deployment.MAX_DEPTH] = max_depth
+    with tempfile.TemporaryDirectory() as scratch, produce.product(pathlib.Path(scratch)) as opened:
+        asked = opened.question(
+            subject=anchor, asked_at=datetime.now(UTC), intent="credit-concentration",
+            freshness="standard", parameters=parameters,
+        )
+        outcome = opened.answer(asked)
+        if isinstance(outcome, RefusalEnvelope):
+            return outcome
+        return _Answer(product=outcome.product, record=opened.record_of(outcome), served=outcome)
 
 
 @pytest.fixture(scope="module")
@@ -334,20 +355,24 @@ def _classifier() -> Any:
 def test_the_structural_classifier_reads_this_tree_as_canonical() -> None:
     """`shape_of` is structural — it asks the code, never a roster.
 
-    Canonical means both halves: something here hands the governed seam to
-    `GovernedResolver`, AND nothing here performs `gate`, `record` or `serve`
-    itself. Asserting the verdict alone would pass for a tree that delegated
-    and *also* hand-composed, which is the half-migrated shape `D-IMPL-306`
-    refuses by name.
+    **Re-expressed on the paved road (CP-14 Gate 2 slice 2, `D-IMPL-343`):
+    the shape this gate holds is now `paved`**, and paved means both halves
+    too: the tree hands the whole governed seam to `open_product`, AND
+    nothing here owns a resolver or performs `gate`, `record` or `serve`
+    itself — the `double-spined` and half-migrated shapes are refused by
+    name. The node id is unchanged so the gate roster keeps its binding; the
+    canonical witness role this tree carried under `D-IMPL-343` R-11 passes
+    to the nine canonical trees that remain (cp-05 through cp-13).
 
     Declared product gate `CFC-G07` (`CP-SPEC-004C` §G.1).
     """
     classifier = _classifier()
 
-    assert classifier.shape_of(EXAMPLE) == "canonical"
-    assert classifier.resolver_ownership(EXAMPLE)
+    assert classifier.shape_of(EXAMPLE) == "paved"
+    assert not classifier.resolver_ownership(EXAMPLE)
     assert classifier.governed_seam_calls(EXAMPLE) == {}
     assert classifier.legacy_governance_regions(EXAMPLE) == []
+    assert classifier.spine_problems(EXAMPLE) == []
 
 
 def test_the_plan_factory_takes_its_operators_only_from_required() -> None:

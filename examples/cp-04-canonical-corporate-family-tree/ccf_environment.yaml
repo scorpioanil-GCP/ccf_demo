@@ -1,0 +1,88 @@
+# THE DEPLOYMENT'S ENVIRONMENT — the second of this tree's two documents
+# (`D-IMPL-343`; it replaced `backends.yaml` when this tree was re-expressed on
+# the paved road for CP-14 Gate 2 slice 2). `ccf_config.yaml` beside it is
+# Control Plane content: content-hashed, pinned into replay dimension 2, and
+# never allowed to carry a DSN, a host, a path, a credential or a URL. This
+# document holds the NAMES those values are read from, and the remedy an unset
+# name raises with.
+#
+# NO CONNECTION VALUE APPEARS HERE. Only the environment says where anything is.
+#
+# WHAT LEFT `backends.yaml` AND WENT NOWHERE: the graph leg's `max_traversal_depth`.
+# It restated the traversal operator's own `depth_limit` (the backend ceiling
+# `ccf_config.yaml` already declares) — one number in two documents. The
+# technical capability is now read off the ONE declaration (`deployment.py::
+# traversal_capability`).
+
+config: ccf_config.yaml
+
+# The FABRIC's own L3 — minted fresh under the caller's scratch root for EVERY
+# question. The setting named here is the declared adapter's; the prefix and
+# suffix are this deployment's; the SDK mints the path between them and names
+# no backend.
+substrate:
+  setting: database_path
+  prefix: cp_04_canonical
+  suffix: .sqlite3
+
+sources:
+  # THE GRAPH LEG — the family walk and every node's class chain, label and
+  # LEI. This example issues only `/v1/fluree/query`; it never creates,
+  # updates or deletes a ledger.
+  corporate_family_graph:
+    url:
+      from_env: CCF_CP_04C_FLUREE_URL
+      remedy: >-
+        export CCF_CP_04C_FLUREE_URL with the base URL of a READ-ONLY Fluree
+        server carrying the family ledger. This example issues only
+        `/v1/fluree/query`; it never creates, updates or deletes a ledger.
+        See the README's "Run it" section for the local container the test
+        leg uses.
+    ledger:
+      from_env: CCF_CP_04C_FLUREE_LEDGER
+      remedy: >-
+        export CCF_CP_04C_FLUREE_LEDGER with the ledger name to read (the v2
+        ledger is `fibo-v2`; `ccf_dataprep/.env` names v1). Every query carries
+        an explicit `FROM <ledger>` and there is no default: a defaulted ledger
+        name would be a value nobody chose pointing at a store nobody named.
+  # THE ATTRIBUTE LEG — GLEIF Level 1 attributes, keyed by LEI. The role needs
+  # SELECT and nothing else.
+  corporate_family_attributes:
+    dsn:
+      from_env: CCF_CP_04C_POSTGRES_DSN
+      remedy: >-
+        export CCF_CP_04C_POSTGRES_DSN with a READ-ONLY connection string for
+        the entity-attribute estate. The role needs SELECT and nothing else:
+        this deployment never writes to the store it reads, and a role that
+        could write would make that a promise rather than a guarantee.
+    schema:
+      from_env: CCF_CP_04C_POSTGRES_SCHEMA
+      remedy: >-
+        export CCF_CP_04C_POSTGRES_SCHEMA with the namespace holding the entity
+        table (the v2 estate reads `ccf_v2`; `ccf_dataprep/.env` names v1).
+        Declared as a variable rather than defaulted, on the same reasoning as
+        the ledger name: a schema name selects WHICH of a store's namespaces
+        the product reads.
+
+# The standard door's environment. Three NAMES: the credential this boot is
+# reached with (unset → minted per boot; a parent that spawns this process
+# sets it to learn it without a side channel), and the two OAuth addresses the
+# door advertises. `run.py --door` binds a loopback port and advertises ITS OWN
+# address, so it reads neither URL; the stdio door reads both.
+door:
+  credential:
+    from_env: CCF_CP_04C_DOOR_TOKEN
+    remedy: >-
+      export CCF_CP_04C_DOOR_TOKEN with the bearer credential this door is to
+      be reached with, or leave it unset to have one minted per boot.
+  issuer_url:
+    from_env: CCF_CP_04C_DOOR_ISSUER_URL
+    remedy: >-
+      export CCF_CP_04C_DOOR_ISSUER_URL with the OAuth issuer this door's auth
+      settings advertise (any https URL for a development stdio door).
+  resource_server_url:
+    from_env: CCF_CP_04C_DOOR_RESOURCE_URL
+    remedy: >-
+      export CCF_CP_04C_DOOR_RESOURCE_URL with the resource-server address
+      this door's auth settings advertise (any https URL for a development
+      stdio door).
