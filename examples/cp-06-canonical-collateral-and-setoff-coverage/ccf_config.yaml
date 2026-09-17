@@ -1,0 +1,372 @@
+# yaml-language-server: $schema=../../docs/schemas/ccf.deployment-config.json
+#
+# THE SINGLE DEPLOYMENT DOCUMENT for rung 6 — `collateral-and-setoff-coverage`.
+#
+# THE QUESTION: what actually secures this exposure, and what can be applied
+# against it? The vault's §A states the counterfactual this product refutes —
+# **coverage is a graph question that gets stored as a column.** A collateral
+# field answers *"is this secured?"* and not *"by what, shared with whom, at
+# what priority?"* One asset frequently secures several facilities at different
+# priorities; a second-lien position recorded as "secured" beside a first-lien
+# position recorded identically produces two facilities that look equally
+# protected and are not.
+#
+# MEASURED IN THIS ESTATE, not asserted: `ccf_v2.collateral_pledge` carries
+# `facility_id, asset_id, provenance, basis` and **no priority column at all**.
+# Priority exists only in Fluree, reified as 95 `ex:CollateralPledge` nodes
+# carrying `lienPosition`. So the counterfactual is not a story about some other
+# bank's data model — it is reproducible against the curated estate by reading
+# one store instead of two.
+#
+# READS ONLY. Two source stores, neither written. The fabric's own L3 is per-run
+# SQLite. CLAUDE.md §9: the curated estate is evidence, not a fixture.
+
+semver: "1.0.0"
+tenant_id: cp-06-canonical-demo
+backend: sqlite
+
+product_class:
+  schema_name: credit-risk.collateral-coverage
+  schema_version: "1.0.0"
+
+  # The expiry follows the collateral evidence, never the request. Valuations
+  # move daily for marketable securities and annually for real property, and
+  # §E is explicit that the payload must carry the valuation date PER ASSET
+  # rather than flatten one product-level freshness over both.
+  ttl_anchor: from_entity_freshness
+
+  # No LLM is reachable from any step: a resolve, a policy load, a walk, a
+  # batched join and an allocation. Every one deterministic.
+  assembly_mode: algorithmic
+
+  max_ttl_key: cp-06-canonical/product/collateral-coverage/max-ttl
+
+  # THE PRODUCT'S OWN FOURTH VALIDATION GATE — §D names it beyond the SDK's
+  # three: the sum of allocations against any single asset must not exceed its
+  # haircut value.
+  #
+  # THE IDENTITY IS THE CONTROL PLANE'S HALF; THE IMPLEMENTATION IS THE
+  # DEPLOYMENT'S (`D-IMPL-282` `R-11`). Without a declared id the SDK has no
+  # identity to stamp on a refusal it produced, and replay could not say which
+  # gate refused — so `build_governed_resolver` refuses the pairing outright
+  # rather than producing an anonymous verdict.
+  # THE INTENT THIS CLASS SERVES, judged on the declared set (`D-IMPL-264`,
+  # `CSCC-G19`). The specimen declares no discovery set and accepts any
+  # intent; a memo asking `lgd-assessment` is answered, anything else is
+  # refused by name with a record.
+  discovery:
+    domain: credit-risk
+    intents:
+      - lgd-assessment
+    capabilities:
+      - collateral-coverage
+      - setoff-coverage
+      - priority-adjusted-allocation
+    audiences:
+      - credit-officer
+  # The product's own declared gate: the over-allocation guard, and — on the
+  # paved road, where Π reads the commitment off the view — the refusal of a
+  # facility the admitted view does not know the size of (`CSCC-G10`,
+  # `CSCC-G14`, `CSCC-G20`).
+  declared_product_gate:
+    gate_id: cp-06-canonical.over-allocation-guard
+    gate_version: "1.0.0"
+
+  # TWO REGISTERED OPERATORS, and the spec's five-verb recipe does not
+  # contradict that. §D names Resolve, Policy, Traversal, Enrich and Aggregate;
+  # only two of those are *registered L4 operators* in this SDK's four canonical
+  # categories. Resolve and Enrich are L1/L2 source access, and Aggregate is Π.
+  # A step that carries a Standard verb but is not a registered operator does
+  # NOT enter `operators_invoked` — lineage strict equality is why that
+  # distinction is load-bearing rather than tidy.
+  required_operator_keys:
+    - policy.principal-subgraph
+    - traversal.typed-neighborhood
+
+operators:
+  # --- Policy runs BEFORE anything reads graph state. ------------------------
+  #
+  # The admitted axis is the borrower this request resolved to. A pledge, an
+  # asset or a deposit reachable from another borrower is never materialized,
+  # so the entitlement is formative rather than a filter applied afterwards.
+  policy.principal-subgraph:
+    classification_attribute_by_class:
+      collateral_node: borrower_scope
+
+    # Bound from the effective request. The borrower is not knowable when this
+    # document is written, and a literal here would answer about one company
+    # and refuse every other. `D-IMPL-295`: a binding supplies a value and
+    # never converts one, so the caller states a list.
+    permitted_classifications:
+      source: effective_request
+      parameter: borrower_scope
+
+  # --- The walk over the admitted collateral subgraph. -----------------------
+  traversal.typed-neighborhood:
+    seed_entity_classes:
+      - collateral_node
+
+    # THE TYPED EDGE VOCABULARY §8.5 NAMES as the wholesale graph's
+    # distinguishing feature. `securedBy` and `pledgedBy` establish what secures
+    # the facility; `setOffAgainst` and `nettedUnder` establish what can be
+    # applied against it; `amendedBy` reaches the UCC amendment history that
+    # makes a lien's state time-dependent.
+    relationship_types:
+      - securedBy
+      - pledgedFacility
+      - pledgedAsset
+      - pledgedBy
+      - setOffAgainst
+      - nettedUnder
+      - amendedBy
+
+    # The BACKEND's ceiling, not the product's bound (`D-IMPL-315`). The
+    # acquisition already walked at the depth this question needs; this is the
+    # furthest the operator will ever be asked to go over L3.
+    depth_limit: 4
+
+request_contract:
+  class_id: cp-06-canonical.request-contract
+  role: register
+  registration: typed
+  schema_name: credit-risk.collateral-coverage
+  schema_version: "1.0.0"
+
+  # `intent` IS NOT DECLARED HERE. It is a top-level `ProductRequest` field and
+  # an argument of the same name shadows it — what a class serves is declared
+  # once, on `ProductDiscovery.intents` (`D-IMPL-264` D-01). The vault's §B
+  # lists `intent` in the parameter surface; on this SDK it travels as the
+  # request's own field and still selects the haircut schedule.
+  arguments:
+    properties:
+      facility_id:
+        type: string
+        description: >-
+          the anchor. An unresolvable facility is a refusal and never an empty
+          payload — an uncollateralized facility is a claim about the world,
+          and an unknown one is a claim about the request.
+      borrower_scope:
+        type: array
+        items:
+          type: string
+          description: one borrower identifier this request is entitled to walk.
+        description: >-
+          the borrower scope the policy operator admits on. Ordinarily the
+          anchor facility's own borrower, stated as a one-element list. Stated
+          by the caller rather than derived from `facility_id` because a
+          binding supplies a value and never converts one.
+      apply_haircuts:
+        type: boolean
+        description: >-
+          apply the policy haircut schedule by asset class. THIS CHANGES THE
+          CONCLUSION RATHER THAN THE DECIMALS — measured in this estate, 23
+          facilities are over-collateralized gross and under-covered after
+          haircuts.
+      include_setoff:
+        type: boolean
+        description: >-
+          widen `R` to deposits the bank may apply against the obligation.
+          Set-off rights live in a different system from collateral and are the
+          half that never enters the frame at all.
+      jurisdiction_basis:
+        type: string
+        description: >-
+          `contractual` counts every set-off right the documents grant;
+          `enforceable` counts only those the jurisdiction will honor.
+          Returning contractual rights as though enforceable OVERSTATES
+          coverage, and which answer is correct depends on the decision rather
+          than on the data.
+      shared_collateral:
+        type: string
+        description: >-
+          how an asset securing several facilities is allocated. Under
+          `priority` a junior position receives only the residual after senior
+          claims; under `pro-rata` value splits by exposure share. The two
+          disagree exactly where the graph carries a subordinate lien.
+    required:
+      - facility_id
+      - borrower_scope
+
+  defaults:
+    apply_haircuts: true
+    include_setoff: true
+    jurisdiction_basis: enforceable
+    shared_collateral: priority
+
+  # The closed member sets. Declared as the parameter's valid DOMAIN rather
+  # than as policy constraints: a value outside them is not a governed "no",
+  # it is a question this class does not answer (`D-IMPL-259`, `D-IMPL-264`).
+  argument_domains:
+    jurisdiction_basis:
+      members: [contractual, enforceable]
+    shared_collateral:
+      members: [priority, pro-rata]
+
+  unsupported_arguments:
+    as_of: >-
+      not_supported_at_tier. Reconstructing coverage as it stood on a past date
+      requires ledger time-travel on the CCF temporal axis, which arrives at
+      Tier 3 with covenant-in-force-as-of. This tier serves coverage as it
+      stands, recording the graph leg's transaction watermark beside the
+      snapshot instant and never inside it.
+
+# ---------------------------------------------------------------------------
+# How a source fact becomes fabric state.
+# ---------------------------------------------------------------------------
+#
+# ONE ENTITY CLASS. A facility, an asset, a deposit account and a UCC filing are
+# all nodes in one coverage subgraph, and the walk must cross between them; two
+# classes would only reintroduce the identity split `D-IMPL-316` closed.
+# `node_kind` carries WHAT a node is, as an attribute, because the payload cares
+# and the traversal does not.
+#
+# `identity_sources` is what lets the three edge rules agree with the node rule
+# (`D-IMPL-316`): all four identify a node by the declared key `entity_ref`,
+# each naming the payload field that supplies it. A position is not an identity.
+resolution:
+  entity_rules:
+    - match_key: node_ref
+      entity_class: collateral_node
+      identity_keys: [entity_ref]
+      attribute_keys:
+        # THE SOURCE'S OWN ID, carried explicitly. An entity URI is a content
+        # hash; a payload that spoke in hashes could not be joined against the
+        # register, and Pi comparing a readable id against a hash silently
+        # matches nothing.
+        - ref
+        - node_kind
+        - label
+        - borrower_scope
+        # THE FACILITY'S COMMITMENT, as fabric state (`CP-SPEC-006C` §0.1,
+        # `CSCC-G14`): the size of the exposure the coverage ratio is over,
+        # carried on the facility node so Π reads it from the governed view
+        # and replay reconstructs it from the snapshot.
+        - commitment
+        - category
+        - valuation
+        - valuation_date
+        - valuation_age_days
+        - haircut
+        - balance
+        - currency
+        - jurisdiction
+        - setoff_contractual
+        - setoff_enforceable
+        - lien_position
+        - filing_number
+        - filed_on
+        - lapses_on
+        - filing_status
+        - debtor_of_record
+        - amendment_action
+        - provenance
+    - match_key: subject_ref
+      entity_class: collateral_node
+      identity_keys: [entity_ref]
+      identity_sources: {entity_ref: subject_uri}
+    - match_key: object_ref
+      entity_class: collateral_node
+      identity_keys: [entity_ref]
+      identity_sources: {entity_ref: object_uri}
+
+  relationship_rules:
+    - {relationship_type: securedBy, predicate_key: predicate,
+       subject_entity_class: collateral_node, object_entity_class: collateral_node,
+       subject_rule: subject_ref, object_rule: object_ref}
+    - {relationship_type: pledgedBy, predicate_key: predicate,
+       subject_entity_class: collateral_node, object_entity_class: collateral_node,
+       subject_rule: subject_ref, object_rule: object_ref}
+    - {relationship_type: setOffAgainst, predicate_key: predicate,
+       subject_entity_class: collateral_node, object_entity_class: collateral_node,
+       subject_rule: subject_ref, object_rule: object_ref}
+    - {relationship_type: nettedUnder, predicate_key: predicate,
+       subject_entity_class: collateral_node, object_entity_class: collateral_node,
+       subject_rule: subject_ref, object_rule: object_ref}
+    - {relationship_type: amendedBy, predicate_key: predicate,
+       subject_entity_class: collateral_node, object_entity_class: collateral_node,
+       subject_rule: subject_ref, object_rule: object_ref}
+
+# ---------------------------------------------------------------------------
+# λ_c — §E's table, and the widest spread in the catalog.
+# ---------------------------------------------------------------------------
+#
+# One day against one year, inside a single product. §6.4 Temporal Validation
+# refuses to let a product flatten that, which is why the payload carries the
+# valuation date per asset rather than one product-level freshness.
+half_life:
+  marketable_securities_valuation:
+    half_life_seconds: 86400          # ~1 day
+    decay_driver: mark-to-market
+    supersession_event: a new mark on the same security
+  real_property_appraisal:
+    half_life_seconds: 31536000       # ~365 days
+    decay_driver: appraisal-cycle
+    supersession_event: a new appraisal on the same property
+  deposit_balance:
+    half_life_seconds: 86400          # ~1 day
+    decay_driver: account-activity
+    supersession_event: a balance movement beyond the declared threshold
+  lien_structure:
+    half_life_seconds: 31536000       # ~365 days
+    decay_driver: filing-driven
+    supersession_event: a new UCC filing or amendment on a pledged asset
+  haircut_schedule:
+    half_life_seconds: 15552000       # ~180 days
+    decay_driver: credit-policy-review
+    supersession_event: a new haircut schedule version
+
+debt_profile:
+  risk_sensitivity: "1.0"
+  forced_llm_threshold: "0.60"
+  fail_closed_threshold: "0.77"
+
+policy:
+  class_id: cp-06-canonical.policy-bundle
+  role: register
+  registration: typed
+  regime: collateral-coverage-entitlement
+
+default_perspective:
+  principal_id: PRIN-CRO-001
+  role: credit-officer
+
+# THE REPLAY BINDING the paved road files under (`D-IMPL-343`): the record
+# class, the query-pin class and the store directory, declared once.
+replay:
+  record_class: ccf.replay-record
+  query_pin_class: ccf.graph-query
+  store_dirname: artifact-store
+
+# THE TTL THIS PRODUCT DECLARES. The class ceiling is §B's 24 hours; the
+# product's own window follows the fastest-moving evidence the payload carries,
+# the deposit balance (`half_life.deposit_balance`). `ttl_anchor` above declares
+# `from_entity_freshness`; the served `expires_at` runs from the decision
+# instant regardless (`D-IMPL-341`, open — `CSCC-G23` holds the evidence).
+ttl:
+  max_ttl_seconds: 86400             # 24 hours
+  product_ttl_seconds: 86400         # 1 day — the deposit-balance half-life
+
+# THE STANDARD DOOR'S OWN VALUES (`D-IMPL-340`; `D-IMPL-343`): the identity
+# every consumer's registration holds this producer's answers to — the tenant
+# is declared and checked equal to this deployment's — the scope a caller must
+# carry, and the prose the tool advertises. The principal and role the door
+# serves under are `default_perspective` above, never restated.
+door:
+  producer_id: cp-06-canonical-collateral-and-setoff-coverage-egress
+  producer_tenant: cp-06-canonical-demo
+  required_scope: ccf:egress
+  tool_description: >-
+    Answer what actually secures one credit facility and what can be applied
+    against it, as a governed, content-addressed Context Product
+    (`credit-risk.collateral-coverage`). The subject is the facility id, named
+    again as `facility_id`; `borrower_scope` is the borrower the caller is
+    entitled to walk. Returns the collateral the facility can reach with its
+    lien position on each asset, the deposits the bank may set off, the
+    priority-adjusted coverage ratio over the facility's commitment, and the
+    public UCC filings behind each lien — including any the register says
+    have been RELEASED. `apply_haircuts`, `include_setoff`,
+    `jurisdiction_basis` (`contractual` | `enforceable`) and
+    `shared_collateral` (`priority` | `pro-rata`) each change the conclusion
+    rather than the decimals. An allocation exceeding an asset's haircut
+    value, or a facility the admitted view does not know the commitment of,
+    is REFUSED by the product's own declared gate.

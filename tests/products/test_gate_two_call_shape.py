@@ -740,6 +740,21 @@ RULED_SDK_SUPPLIED_DEPLOYMENTS: frozenset[str] = frozenset(
         # `build_replay_record` / `serve` anywhere in the tree. This entry
         # records what the predicate already answers.
         "examples/cp-06-collateral-and-setoff-coverage",
+        # `CP-SPEC-006C` Gate 1 approved and the bounded build ruled GO (Dave,
+        # 2026-09-16; CP-14 Gate 2 slice 3) — the canonical rung-6 successor
+        # on the PAVED road, authored into this category the way its rung-3
+        # sibling was: against the current SDK surface, never derived from
+        # the frozen cp-06 specimen it succeeds.
+        #
+        # THE RULING AUTHORIZED THE MOVE; THE TREE PROVED IT, in that order.
+        # Measured before this line was written: `shape_of` reads `"paved"`,
+        # and `_sdk_supplied_operator_set` answers True with plan sources
+        # `(('required',),)` — a named `plan_factory` whose only operator
+        # source is the road's own tuple, and no `build_governed_resolver` /
+        # `build_replay_record` / `serve` anywhere in the tree (`CSCC-G15`).
+        # This entry records what the predicate already answers; it is not
+        # what makes the answer true.
+        "examples/cp-06-canonical-collateral-and-setoff-coverage",
         # `D-IMPL-315` (Dave, 2026-09-10) — rung 7, authored on this side of the
         # boundary like its rung-4 and rung-6 siblings rather than migrated onto
         # it.
@@ -3552,6 +3567,7 @@ def test_the_premise_detector_reads_the_shipped_tree_correctly() -> None:
         # `D-IMPL-315`, 2026-09-10 — rung 6. The detector reaches it from the
         # tree alone; this assertion and the roster both record that answer and
         # neither causes it.
+        "examples/cp-06-canonical-collateral-and-setoff-coverage",
         "examples/cp-06-collateral-and-setoff-coverage",
         # `D-IMPL-315`, 2026-09-10 — rung 7, reached from the tree alone like
         # its rung-4 and rung-6 siblings.

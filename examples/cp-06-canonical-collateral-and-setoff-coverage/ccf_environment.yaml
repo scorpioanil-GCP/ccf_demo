@@ -1,0 +1,71 @@
+# THE DEPLOYMENT'S ENVIRONMENT — the second of this tree's two documents
+# (`D-IMPL-343`). `ccf_config.yaml` beside it is Control Plane content and never
+# carries a DSN, a host, a credential or a URL; this document holds the NAMES
+# those values are read from, and the remedy an unset name raises with.
+#
+# NO CONNECTION VALUE APPEARS HERE. Point the four source names at the v2
+# namespaces — Fluree `fibo-v2`, PostgreSQL `ccf_v2` — never the v1 names in
+# `ccf_dataprep/.env` (CLAUDE.md §9). Both sources are read-only.
+
+config: ccf_config.yaml
+
+# The fabric's own L3 — minted fresh under the caller's scratch for EVERY
+# question (`CP03C-F-02`: a shared scratch root is a shared fabric). The setting
+# is the declared adapter's; the prefix and suffix are this deployment's.
+substrate:
+  setting: database_path
+  prefix: cp_06_canonical
+  suffix: .sqlite3
+
+sources:
+  # THE GRAPH LEG — edges, the reified pledges and their priority, the two
+  # set-off predicates, and the public register with its amendments.
+  collateral_graph:
+    url:
+      from_env: CCF_CP_06C_FLUREE_URL
+      remedy: >-
+        export CCF_CP_06C_FLUREE_URL with the base URL of a READ-ONLY Fluree
+        endpoint. This deployment issues SPARQL through `/v1/fluree/query` and
+        reads the ledger listing; it never creates, updates or deletes a ledger.
+    ledger:
+      from_env: CCF_CP_06C_FLUREE_LEDGER
+      remedy: >-
+        export CCF_CP_06C_FLUREE_LEDGER with the ledger name to read — the v2
+        estate is `fibo-v2`; `fibo:main` in ccf_dataprep/.env is v1.
+  # THE ATTRIBUTE LEG — the facility and its commitment, valuations and their
+  # dates, deposit balances, the haircut schedule and the enforceability
+  # register.
+  collateral_attributes:
+    dsn:
+      from_env: CCF_CP_06C_POSTGRES_DSN
+      remedy: >-
+        export CCF_CP_06C_POSTGRES_DSN with a READ-ONLY connection string for
+        the collateral estate (host and credentials from ccf_dataprep/.env).
+        The role needs SELECT and nothing else.
+    schema:
+      from_env: CCF_CP_06C_POSTGRES_SCHEMA
+      remedy: >-
+        export CCF_CP_06C_POSTGRES_SCHEMA with the namespace holding the
+        facility, collateral, deposit and policy tables (the v2 estate reads
+        `ccf_v2`; ccf_dataprep/.env names v1).
+
+# THE STANDARD DOOR'S NAMES: the bearer credential this door is reached with,
+# and the two addresses its auth settings advertise. Values live in the
+# process environment; a credential left unset is minted per boot.
+door:
+  credential:
+    from_env: CCF_CP_06C_DOOR_TOKEN
+    remedy: >-
+      export CCF_CP_06C_DOOR_TOKEN with the bearer credential this door is to
+      be reached with, or leave it unset to have one minted per boot.
+  issuer_url:
+    from_env: CCF_CP_06C_DOOR_ISSUER_URL
+    remedy: >-
+      export CCF_CP_06C_DOOR_ISSUER_URL with the OAuth issuer this door's auth
+      settings advertise (any https URL for a development stdio door).
+  resource_server_url:
+    from_env: CCF_CP_06C_DOOR_RESOURCE_URL
+    remedy: >-
+      export CCF_CP_06C_DOOR_RESOURCE_URL with the resource-server address
+      this door's auth settings advertise (any https URL for a development
+      stdio door).
