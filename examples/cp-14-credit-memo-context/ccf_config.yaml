@@ -227,8 +227,15 @@ producers:
       - {product_class: credit-risk.exposure-rollup, versions_from: "1.0.0"}
   collateral:
     server: collateral-coverage-producer
-    producer_id: cp-06-collateral-and-setoff-coverage-egress
-    producer_tenant: cp-06-demo
+    # RE-POINTED to the paved successor (`D-GATE-cp-06-canonical`, merged
+    # 2026-09-16; Dave's GO 2026-09-17). The frozen cp-06 ships no door the
+    # road can reach (`CP14-F-26`); the successor serves the same product at
+    # the same lane — `1.0.0`, measured — under its own identity. The
+    # QUESTION this slot is asked is unchanged: the facility named by the
+    # memo's request, `lgd-assessment`, `as-filed`, the obligor as the
+    # borrower scope, no tolerance (`CP14-F-20`).
+    producer_id: cp-06-canonical-collateral-and-setoff-coverage-egress
+    producer_tenant: cp-06-canonical-demo
     endpoint_from_env: CCF_CP14_COLLATERAL_URL
     credential_from_env: CCF_CP14_COLLATERAL_TOKEN
     offers:

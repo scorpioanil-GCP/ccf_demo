@@ -103,6 +103,49 @@ tree at Gate 1 until a real roster appears), no invented evidence, no product
 behavior change. The two slice proofs and the header check are the evidence
 that the read moved and nothing else did.
 
+## Slice 3 — the collateral slot re-pointed; three children admitted at once (2026-09-17)
+
+**The re-point.** `producers.collateral` now names the paved successor
+`cp-06-canonical-collateral-and-setoff-coverage-egress` under
+`cp-06-canonical-demo` (`D-GATE-cp-06-canonical`, merged at `3d1433e2`; lane
+`1.0.0` by payload measurement — the successor serves the frozen cp-06's product
+byte for byte at the CP-14 instant). The endpoint and credential NAMES
+(`CCF_CP14_COLLATERAL_URL` / `_TOKEN`) and the `offers` line did not move. **The
+question did not move either** (`CP14-F-20`): the facility the memo's request
+names is the child's subject and `facility_id`, the obligor is its borrower
+scope, intent `lgd-assessment`, freshness `as-filed`, no tolerance — the
+successor's own `CP-SPEC-006C` §B.2 fixes exactly that question.
+
+**The three-child diagnostic** (spread tolerance 1.0, three doors live in three
+processes): the canonical spread, the family and the collateral are admitted
+simultaneously — three registrations, three producer tenants, three
+producer-owned content addresses, all `provider-controls`; the collateral child
+answers `FAC-5B8418` with a positive coverage ratio; the composite still refuses
+on the two unreachable required slots (exposure, covenant, `producer-unavailable`)
+with all five rows persisted.
+
+**The real 0.25 result**, three doors live: the spread is withheld by its
+producer and crosses as `ineligible` with the reason retained (`CP14-F-30`); the
+family and the collateral — whose contract takes no tolerance — are admitted;
+the composite refuses on its required spread.
+
+**Both refused records reconstruct** from the consumer's own store after all
+three producer processes exited (`D-IMPL-344`): every admitted child's bytes
+retained at the row's address — three at 1.0, two at 0.25 — and `replay_refusal`
+returning with those addresses, consulting no plan, operator or product.
+
+Proof: `tests/examples/test_cp_14_third_slice.py` (6), with slices 1 and 2
+unchanged (3 + 5) — 14 passed against the estate.
+
+**Coverage boundaries, explicit.** Slice 3 proves three-of-five admission and
+the reconstruction of a refused three-child composite. It does **not** prove a
+served memo: the exposure slot has no paved producer (`CP14-F-33`, unruled — a
+seam for post-traversal aggregation) and the covenant slot has none (cp-13 is
+class B; a paved sibling on the `cp-06-canonical` route needs its own Gate 1
+spec and ruling). Until both exist the composite refuses on a required slot at
+every tolerance, which is the SDK working, not a defect. No `gates.yaml`, README
+or page: the tree stays at Gate 1 for the product-gates checker.
+
 ## Backlog record (§I)
 
 **Policy-derived request defaults.** *capability:* a request parameter's default
@@ -120,6 +163,6 @@ reference resolver over a ledger-read artifact; none to the paved road.
 
 ## What this slice did not touch, by instruction
 
-`D-IMPL-341`, `D-IMPL-342`, `D-IMPL-344` (designed separately on its own branch); `artifacts/gates.yaml` (the tree is at
+`D-IMPL-341`, `D-IMPL-342`; `D-IMPL-344` (built on its own branch, merged at `66be7cb8`); `artifacts/gates.yaml` (the tree is at
 Gate 1 for the product-gates checker until a roster appears); the README; the
 page; the scenario roster; the sabotage sweep; the four producers' trees.
