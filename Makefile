@@ -56,7 +56,7 @@ NO_SUBSTRATE := not postgres and not chroma and not neo4j and not mongo and not 
 	example-s1-01 example-s1-00 example-cp-00 example-cp-01 example-cp-02 \
 	example-cp-03 example-cp-03-canonical example-cp-04 example-cp-04-canonical example-cp-05 example-cp-05-server \
 	example-cp-06 example-cp-06-canonical example-cp-07 example-cp-09 example-cp-10 example-cp-11 \
-	example-cp-12 example-cp-13 example-cp-13-canonical example-door-cp-05 \
+	example-cp-12 example-cp-13 example-cp-13-canonical example-cp-14 example-door-cp-05 \
 	example-hw1-harness-clients \
 	example-hw1-harness-clients-live-adk \
 	example-hw1-harness-clients-live-anthropic \
@@ -537,6 +537,15 @@ example-cp-13-canonical: ## Run examples/cp-13-canonical-covenant-cross-referenc
 	PYTHONPATH=src:runtime:examples/cp-13-canonical-covenant-cross-reference \
 		$(PYTHON) examples/cp-13-canonical-covenant-cross-reference/run.py \
 		$(ROLE) $(CORPUS_SCOPE) $(SOURCES) $(SCOPE) $(AS_OF) $(INTENT) $(RESOLVE_DEPTH) $(DEBT_TOLERANCE)
+
+# cp-14 — the credit-memo composite (rung 14). NOT in the `examples:` aggregate:
+# it reaches FIVE producers over their doors and reads the estate through its
+# own two legs. Boot the five doors first (each tree's `run.py --door`) and
+# export their `READY` ports as the CCF_CP14_*_URL names.
+example-cp-14: ## Run examples/cp-14-credit-memo-context (LEI, FACILITY, ASKED_AT, AS_OF, DEBT_TOLERANCE, MEMO_TYPE optional; needs CCF_CP_14_POSTGRES_DSN/SCHEMA, CCF_CP_14_FLUREE_URL/LEDGER and the five CCF_CP14_<CHILD>_URL/_TOKEN pairs)
+	PYTHONPATH=src:runtime:examples/cp-14-credit-memo-context \
+		$(PYTHON) examples/cp-14-credit-memo-context/run.py \
+		$(LEI) $(FACILITY) $(ASKED_AT) $(AS_OF) $(DEBT_TOLERANCE) $(MEMO_TYPE)
 
 # door-cp-05 — frozen cp-05's exposure rollup reached through the SDK's standard
 # door (CP-14 completion GO, exposure option 3). A door only: asks nothing itself.

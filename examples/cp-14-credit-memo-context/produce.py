@@ -78,7 +78,7 @@ def product(scratch: Path, *, environ: Mapping[str, str] | None = None) -> Opene
     endpoints and credentials are read from. The SDK refuses, at open and by
     name, anything the documents disagree on, and registers every producer.
     """
-    return open_product(
+    opened = open_product(
         config_root=HERE,
         scratch=scratch,
         acquire=deployment.acquire,
@@ -87,6 +87,12 @@ def product(scratch: Path, *, environ: Mapping[str, str] | None = None) -> Opene
         questions=deployment.questions,
         environ=environ,
     )
+    # The question mapping determines the covenant question from the
+    # deployment's own sources; the settings it reads are the ones the road
+    # resolved from the environment document at open — bound here, once,
+    # never resolved a second time (`CP14-F-34`).
+    deployment.questions.bind(opened.sources)
+    return opened
 # --8<-- [end:boot]
 
 

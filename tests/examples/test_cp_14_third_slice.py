@@ -76,7 +76,7 @@ COLLATERAL_TENANT = "cp-06-canonical-demo"
 COLLATERAL_TOKEN_VAR = "CCF_CP_06C_DOOR_TOKEN"
 
 ESTATE_VARIABLES = (
-    "CCF_CP_14_POSTGRES_DSN", "CCF_CP_14_POSTGRES_SCHEMA",
+    "CCF_CP_14_POSTGRES_DSN", "CCF_CP_14_POSTGRES_SCHEMA", "CCF_CP_14_FLUREE_URL", "CCF_CP_14_FLUREE_LEDGER",
     "CCF_CP_03C_POSTGRES_DSN", "CCF_CP_03C_POSTGRES_SCHEMA",
     "CCF_CP_04C_FLUREE_URL", "CCF_CP_04C_FLUREE_LEDGER", "CCF_CP_04C_POSTGRES_DSN", "CCF_CP_04C_POSTGRES_SCHEMA",
     "CCF_CP_06C_FLUREE_URL", "CCF_CP_06C_FLUREE_LEDGER", "CCF_CP_06C_POSTGRES_DSN", "CCF_CP_06C_POSTGRES_SCHEMA",
@@ -120,6 +120,10 @@ def _environ(*, spread_url: str, family_url: str, collateral_url: str) -> dict[s
     return {
         "CCF_CP_14_POSTGRES_DSN": os.environ["CCF_CP_14_POSTGRES_DSN"],
         "CCF_CP_14_POSTGRES_SCHEMA": os.environ["CCF_CP_14_POSTGRES_SCHEMA"],
+        # The ledger leg the covenant question is determined from (`CP14-F-28`),
+        # named by the tree's environment document since the completion slice.
+        "CCF_CP_14_FLUREE_URL": os.environ["CCF_CP_14_FLUREE_URL"],
+        "CCF_CP_14_FLUREE_LEDGER": os.environ["CCF_CP_14_FLUREE_LEDGER"],
         "CCF_CP14_SPREAD_URL": spread_url, "CCF_CP14_SPREAD_TOKEN": DEV_TOKEN,
         "CCF_CP14_FAMILY_URL": family_url, "CCF_CP14_FAMILY_TOKEN": DEV_TOKEN,
         "CCF_CP14_COLLATERAL_URL": collateral_url, "CCF_CP14_COLLATERAL_TOKEN": DEV_TOKEN,

@@ -21,6 +21,7 @@ diagnostic that the producer CAN serve, never the production question.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Any
@@ -167,7 +168,12 @@ def _tolerance_text(value: Any) -> str:
     return str(Decimal(str(value)))
 
 
-def questions(requirement: ChildRequirement, request: ProductRequest) -> ChildQuestion:
+#: The environment document's source name for the ledger leg the covenant
+#: question is determined from (`CP14-F-28`).
+SOURCE_GRAPH = "covenant_graph"
+
+
+class MemoQuestions:
     """*Given this memo's EFFECTIVE request, what should requirement X be asked?*
 
     The one thing the SDK cannot know. The subject, intent, freshness and
@@ -175,45 +181,74 @@ def questions(requirement: ChildRequirement, request: ProductRequest) -> ChildQu
     request; the tenant, class, lane, instant and endpoint come from elsewhere
     (the registration, the derived binding, the composite's `asked_at`) and
     are not reachable from here.
+
+    **Bound late to the deployment's own sources.** The road hands this
+    mapping the requirement and the effective request and nothing else; the
+    covenant question is determined from the obligor's facility documents,
+    which is a read of the roster and the ledger (`acquisition.covenant_sources`).
+    `produce.product` binds the resolved source settings the road already
+    holds (`opened.sources`) before the first question is answered, so the
+    settings are resolved ONCE, by the SDK, from the environment document —
+    never a second time here (`CP14-F-34` records the seam).
     """
-    effective = request.parameters
-    lei = request.subject
-    tolerance = _tolerance_text(effective[DEBT_TOLERANCE])
-    product_class = requirement.product_class
-    intent = CHILD_INTENT[product_class]
-    freshness = CHILD_FRESHNESS[product_class]
-    if product_class == SPREAD:
-        # The obligor's spread: the memo's subject IS the child's subject; the
-        # memo's tolerance is the child's, unchanged.
-        return ChildQuestion(subject=lei, intent=intent, freshness=freshness, parameters={DEBT_TOLERANCE: tolerance})
-    if product_class == FAMILY:
-        # The family walked from the obligor, entitled to its own family.
-        return ChildQuestion(
-            subject=lei, intent=intent, freshness=freshness,
-            parameters={"lei": lei, "families": [lei], DEBT_TOLERANCE: tolerance},
-        )
-    if product_class == EXPOSURE:
-        # Exposure rolled up across the obligor's family, at the memo's tolerance.
-        return ChildQuestion(
-            subject=lei, intent=intent, freshness=freshness,
-            parameters={"families": [lei], DEBT_TOLERANCE: tolerance},
-        )
-    if product_class == COLLATERAL:
-        # ONE FACILITY, named by the memo's request (`CP14-F-20`, ruled): the
-        # facility is the child's subject, the obligor is its borrower scope.
-        # The collateral contract takes no tolerance; none is invented.
-        facility = str(effective[FACILITY_ID])
-        return ChildQuestion(
-            subject=facility, intent=intent, freshness=freshness,
-            parameters={"facility_id": facility, "borrower_scope": [lei]},
-        )
-    if product_class == COVENANT:
-        # The covenant child's subject is a set of passage-anchor URIs the
-        # parent derives from the facility's credit agreement — parent logic
-        # owed by a later slice (FINDINGS.md, CP14-F-28). Asked with no sources
-        # in this slice, so the question is honest about what it can name.
-        return ChildQuestion(
-            subject=lei, intent=intent, freshness=freshness,
-            parameters={"covenant_sources": [], DEBT_TOLERANCE: tolerance},
-        )
-    raise ValueError(f"no question mapping for required class {product_class!r}")
+
+    def __init__(self) -> None:
+        self._sources: Mapping[str, Mapping[str, str]] | None = None
+
+    def bind(self, sources: Mapping[str, Mapping[str, str]]) -> None:
+        self._sources = sources
+
+    def __call__(self, requirement: ChildRequirement, request: ProductRequest) -> ChildQuestion:
+        effective = request.parameters
+        lei = request.subject
+        tolerance = _tolerance_text(effective[DEBT_TOLERANCE])
+        product_class = requirement.product_class
+        intent = CHILD_INTENT[product_class]
+        freshness = CHILD_FRESHNESS[product_class]
+        if product_class == SPREAD:
+            # The obligor's spread: the memo's subject IS the child's subject; the
+            # memo's tolerance is the child's, unchanged.
+            return ChildQuestion(subject=lei, intent=intent, freshness=freshness, parameters={DEBT_TOLERANCE: tolerance})
+        if product_class == FAMILY:
+            # The family walked from the obligor, entitled to its own family.
+            return ChildQuestion(
+                subject=lei, intent=intent, freshness=freshness,
+                parameters={"lei": lei, "families": [lei], DEBT_TOLERANCE: tolerance},
+            )
+        if product_class == EXPOSURE:
+            # Exposure rolled up across the obligor's family, at the memo's tolerance.
+            return ChildQuestion(
+                subject=lei, intent=intent, freshness=freshness,
+                parameters={"families": [lei], DEBT_TOLERANCE: tolerance},
+            )
+        if product_class == COLLATERAL:
+            # ONE FACILITY, named by the memo's request (`CP14-F-20`, ruled): the
+            # facility is the child's subject, the obligor is its borrower scope.
+            # The collateral contract takes no tolerance; none is invented.
+            facility = str(effective[FACILITY_ID])
+            return ChildQuestion(
+                subject=facility, intent=intent, freshness=freshness,
+                parameters={"facility_id": facility, "borrower_scope": [lei]},
+            )
+        if product_class == COVENANT:
+            # THE OBLIGOR'S OWN EVIDENCE NODES (`CP14-F-28`): the anchors its
+            # facility documents carry, determined from the roster and the
+            # ledger and never walked here. The obligor is the child's scope;
+            # the memo's tolerance is the child's, unchanged. An obligor whose
+            # documents carry no anchor asks with none — and the child refuses
+            # that honestly (`CXRC-G23`) rather than this mapping inventing one.
+            if self._sources is None:
+                raise RuntimeError("the memo's question mapping was asked before its sources were bound")
+            sources = acquisition.covenant_sources(
+                lei, roster=self._sources[SOURCE], graph=self._sources[SOURCE_GRAPH]
+            )
+            return ChildQuestion(
+                subject=lei, intent=intent, freshness=freshness,
+                parameters={"covenant_sources": sources, DEBT_TOLERANCE: tolerance},
+            )
+        raise ValueError(f"no question mapping for required class {product_class!r}")
+
+
+#: The ONE mapping `produce.product` binds — a module-level instance so the
+#: spine names it as it always has, and binds its sources after opening.
+questions = MemoQuestions()

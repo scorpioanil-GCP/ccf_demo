@@ -26,11 +26,14 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
+import json
+import urllib.request
+
 import psycopg
 import yaml
 from psycopg import sql
 
-__all__ = ["ResolvedObligor", "resolve", "vocabulary"]
+__all__ = ["ResolvedObligor", "covenant_sources", "evidence_anchors", "facility_documents", "resolve", "vocabulary"]
 
 HERE = Path(__file__).parent
 VOCABULARY = HERE / "artifacts" / "source-vocabulary.yaml"
@@ -102,3 +105,66 @@ def resolve(lei: str, *, settings: Mapping[str, str]) -> ResolvedObligor | None:
         sic_description=str(found["sic_description"] or ""),
         retrieved_at=found["retrieved_at"],
     )
+
+
+# --- determining the covenant question (`CP14-F-28`) ---------------------------------
+#
+# THE CONSUMER DETERMINES WHICH QUESTION TO ASK; IT ANSWERS NOTHING. The
+# covenant child's contract takes the evidence nodes it may read
+# (`covenant_sources`, `ex:PassageAnchor` URIs). Which nodes are the memo's is
+# a fact about the OBLIGOR'S OWN FACILITY DOCUMENTS — the roster's
+# `(source_accession, source_document)` joined as `"{accession}:{document}"` to
+# the anchors' `ex:documentId` (spec §C.3, §D.2). Two reads, both of the
+# obligor's own footing: the facility roster for its document keys, the ledger
+# for the anchors those documents carry. NOTHING BELOW THE ANCHOR IS READ —
+# no chain, no citation, no cross-reference; those are the child's (`CMC-G27`).
+
+
+def facility_documents(lei: str, *, settings: Mapping[str, str]) -> list[str]:
+    """The document keys of every facility the obligor borrows under, sorted."""
+    schema = _schema(settings)
+    terms = vocabulary()
+    columns = terms["facility_columns"]
+    query = sql.SQL(
+        "SELECT DISTINCT {accession}, {document} FROM {s}.{facility}"
+        " WHERE {borrower} = %(lei)s AND {accession} IS NOT NULL AND {document} IS NOT NULL"
+    ).format(
+        accession=sql.Identifier(columns["accession"]), document=sql.Identifier(columns["document"]),
+        s=sql.Identifier(schema), facility=sql.Identifier(terms["tables"]["facility"]),
+        borrower=sql.Identifier(columns["borrower"]),
+    )
+    with psycopg.connect(settings["dsn"]) as connection, connection.cursor() as cursor:
+        cursor.execute(query, {"lei": lei})
+        rows = cursor.fetchall()
+    return sorted({f"{accession}:{document}" for accession, document in rows})
+
+
+def evidence_anchors(document_keys: list[str], *, graph: Mapping[str, str]) -> list[str]:
+    """The evidence nodes carrying a definition chain under those documents, sorted.
+
+    ONE SPARQL read per question, of the anchor class and two predicates the
+    vocabulary names. The anchors' chains are never followed here.
+    """
+    if not document_keys:
+        return []
+    terms = vocabulary()["graph"]
+    values = " ".join(json.dumps(key) for key in document_keys)
+    query = (
+        f"SELECT DISTINCT ?s FROM <{graph['ledger']}> WHERE {{"
+        f" VALUES ?d {{ {values} }}"
+        f" ?s a <{terms['passage_anchor_class']}> ."
+        f" ?s <{terms['defined_by']}> ?o ."
+        f" ?s <{terms['document_id']}> ?d }}"
+    )
+    request = urllib.request.Request(
+        f"{graph['url'].rstrip('/')}/v1/fluree/query", data=query.encode("utf-8"),
+        headers={"Content-Type": "application/sparql-query"},
+    )
+    with urllib.request.urlopen(request, timeout=300) as response:
+        document = json.loads(response.read())
+    return sorted({binding["s"]["value"] for binding in document["results"]["bindings"]})
+
+
+def covenant_sources(lei: str, *, roster: Mapping[str, str], graph: Mapping[str, str]) -> list[str]:
+    """The covenant question's sources for one obligor: its facility documents' evidence nodes."""
+    return evidence_anchors(facility_documents(lei, settings=roster), graph=graph)

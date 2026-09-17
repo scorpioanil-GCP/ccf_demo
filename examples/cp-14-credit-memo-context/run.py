@@ -93,8 +93,16 @@ def main(argv: list[str]) -> int:
 
     print(f"question    : {parsed.lei} at {parsed.asked_at} (as_of {parameters[deployment.AS_OF]}), tolerance {parsed.debt_tolerance}")
     if isinstance(outcome, ServedProduct):
-        print(f"outcome     : SERVED  content address {outcome.content_address}")
-        print(json.dumps(outcome.product.payload, indent=2, default=str))
+        product = outcome.product
+        print(f"outcome     : SERVED  content address {outcome.replay_ref.content_address}")
+        print(f"memo        : {product.schema_name}@{product.schema_version}  D_c={product.debt.debt}  signal={product.debt.signal}  expires {product.expires_at.isoformat()}")
+        print(f"              F={product.debt.factors.freshness}  C={product.debt.factors.completeness}  S={product.debt.factors.semantic_consistency}")
+        payload = product.payload
+        obligor = payload.get("obligor") or {}
+        print(f"obligor     : {obligor.get('legal_name', '-')} ({obligor.get('lei', '-')})  sic={obligor.get('sic', '-')}  memo_type={payload.get('memo_type')}")
+        for product_class, section in payload["sections"].items():
+            summary = "  ".join(f"{k}={v}" for k, v in section["summary"].items())
+            print(f"  § {product_class:<40} child={section['child_content_address'][:16]}…  {summary}")
     else:
         assert isinstance(outcome, RefusalEnvelope)
         print(f"outcome     : REFUSED kind={outcome.kind} reason={outcome.reason}")

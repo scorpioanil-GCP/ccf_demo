@@ -242,8 +242,8 @@ producers:
       - {product_class: credit-risk.collateral-coverage, versions_from: "1.0.0"}
   covenant:
     server: covenant-cross-reference-producer
-    producer_id: cp-13-covenant-cross-reference-egress
-    producer_tenant: cp-13-crossref-demo
+    producer_id: cp-13-canonical-covenant-cross-reference-egress
+    producer_tenant: cp-13-canonical-demo
     endpoint_from_env: CCF_CP14_COVENANT_URL
     credential_from_env: CCF_CP14_COVENANT_TOKEN
     offers:

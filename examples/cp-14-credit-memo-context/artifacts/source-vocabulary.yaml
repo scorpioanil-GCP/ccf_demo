@@ -24,6 +24,22 @@ declaration:
     #: from this table — it is a dated diagnostic (`as_of` 2026-08-22) and
     #: never the governing source (`CMC-G04`).
     memo_context_debt: memo_context_debt
+    #: THE FACILITY ROSTER, read for its document keys only (`CP14-F-28`): the
+    #: join to the ledger's evidence anchors is `"{source_accession}:{source_document}"`
+    #: against `ex:documentId` (spec §C.3).
+    facility: facility
+  facility_columns:
+    borrower: borrower_lei
+    accession: source_accession
+    document: source_document
+  # --- Fluree, the ledger — the covenant-source selection ONLY ----------------
+  #: The anchor class, the edge that marks an anchor as carrying a definition
+  #: chain, and the predicate its document key is asserted under. Nothing below
+  #: the anchor is read here; that is the covenant child's (`CMC-G27`).
+  graph:
+    passage_anchor_class: http://example.org/fibo/PassageAnchor
+    defined_by: http://example.org/fibo/definedBy
+    document_id: http://example.org/fibo/documentId
 
   #: The one column both tables share, and the join key.
   roster_key: lei

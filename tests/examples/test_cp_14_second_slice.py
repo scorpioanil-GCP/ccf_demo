@@ -76,7 +76,7 @@ SPREAD_PRODUCER_ID = "cp-03-canonical-obligor-financial-spread-egress"
 SPREAD_TENANT = "cp-03-canonical-demo"
 
 ESTATE_VARIABLES = (
-    "CCF_CP_14_POSTGRES_DSN", "CCF_CP_14_POSTGRES_SCHEMA",
+    "CCF_CP_14_POSTGRES_DSN", "CCF_CP_14_POSTGRES_SCHEMA", "CCF_CP_14_FLUREE_URL", "CCF_CP_14_FLUREE_LEDGER",
     "CCF_CP_03C_POSTGRES_DSN", "CCF_CP_03C_POSTGRES_SCHEMA",
     "CCF_CP_04C_FLUREE_URL", "CCF_CP_04C_FLUREE_LEDGER", "CCF_CP_04C_POSTGRES_DSN", "CCF_CP_04C_POSTGRES_SCHEMA",
 )
@@ -119,6 +119,10 @@ def _environ(*, spread_url: str, family_url: str) -> dict[str, str]:
     return {
         "CCF_CP_14_POSTGRES_DSN": os.environ["CCF_CP_14_POSTGRES_DSN"],
         "CCF_CP_14_POSTGRES_SCHEMA": os.environ["CCF_CP_14_POSTGRES_SCHEMA"],
+        # The ledger leg the covenant question is determined from (`CP14-F-28`),
+        # named by the tree's environment document since the completion slice.
+        "CCF_CP_14_FLUREE_URL": os.environ["CCF_CP_14_FLUREE_URL"],
+        "CCF_CP_14_FLUREE_LEDGER": os.environ["CCF_CP_14_FLUREE_LEDGER"],
         "CCF_CP14_SPREAD_URL": spread_url, "CCF_CP14_SPREAD_TOKEN": DEV_TOKEN,
         "CCF_CP14_FAMILY_URL": family_url, "CCF_CP14_FAMILY_TOKEN": DEV_TOKEN,
         **{f"CCF_CP14_{name}_URL": UNREACHABLE for name in ("EXPOSURE", "COLLATERAL", "COVENANT")},
@@ -189,9 +193,13 @@ def test_the_consumer_imported_no_producer_and_read_no_child_store(two_child_dia
         origin = getattr(module, "__file__", None) or ""
         assert not origin.startswith(str(SPREAD_EXAMPLE)), f"the spread producer's {origin} was imported into the consumer"
         assert not origin.startswith(str(FAMILY_EXAMPLE)), f"the family producer's {origin} was imported into the consumer"
-    # No child-domain store is read by CP-14's own leg: its one query names the roster tables only.
+    # No child-OWNED material is read by CP-14's own legs (`CMC-G27`). Since the
+    # completion slice the consumer also reads the facility roster's DOCUMENT
+    # KEYS and the ledger's evidence ANCHORS — to DETERMINE the covenant
+    # question (`CP14-F-28`), never to answer it: no figure, no pledge, no
+    # ownership record, no chain, no citation.
     source = (EXAMPLE / "acquisition.py").read_text(encoding="utf-8")
-    for table in ("financial_fact", "corporate_ownership_record", "facility", "collateral_pledge", "fibo-v2", "SPARQL"):
+    for table in ("financial_fact", "corporate_ownership_record", "collateral_pledge", "commitment_amount", "outstanding_balance", "crossReferences", "evidencedBy"):
         assert table not in source, f"CP-14 reads child-owned material: {table}"
 
 

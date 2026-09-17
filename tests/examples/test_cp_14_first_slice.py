@@ -64,7 +64,7 @@ BGC_FACILITY = "FAC-5B8418"
 #: to it (dogfood A) and so does the low road (OFC-G23); one product, one address.
 DEMONSTRATION_SPREAD_ADDRESS = "122e0a7b0b96565eac64af7cf2fbd0d5238c46529c1914b638b237187cd1c21e"
 
-ESTATE_VARIABLES = ("CCF_CP_14_POSTGRES_DSN", "CCF_CP_14_POSTGRES_SCHEMA", "CCF_CP_03C_POSTGRES_DSN", "CCF_CP_03C_POSTGRES_SCHEMA")
+ESTATE_VARIABLES = ("CCF_CP_14_POSTGRES_DSN", "CCF_CP_14_POSTGRES_SCHEMA", "CCF_CP_14_FLUREE_URL", "CCF_CP_14_FLUREE_LEDGER", "CCF_CP_03C_POSTGRES_DSN", "CCF_CP_03C_POSTGRES_SCHEMA")
 UNREACHABLE = "http://127.0.0.1:1/mcp"
 CHILD_CLASSES = (
     "credit-risk.spread",
@@ -107,6 +107,10 @@ def _environ(spread_url: str) -> dict[str, str]:
     return {
         "CCF_CP_14_POSTGRES_DSN": os.environ["CCF_CP_14_POSTGRES_DSN"],
         "CCF_CP_14_POSTGRES_SCHEMA": os.environ["CCF_CP_14_POSTGRES_SCHEMA"],
+        # The ledger leg the covenant question is determined from (`CP14-F-28`),
+        # named by the tree's environment document since the completion slice.
+        "CCF_CP_14_FLUREE_URL": os.environ["CCF_CP_14_FLUREE_URL"],
+        "CCF_CP_14_FLUREE_LEDGER": os.environ["CCF_CP_14_FLUREE_LEDGER"],
         "CCF_CP14_SPREAD_URL": spread_url,
         "CCF_CP14_SPREAD_TOKEN": DEV_TOKEN,
         **{f"CCF_CP14_{name}_URL": UNREACHABLE for name in ("FAMILY", "EXPOSURE", "COLLATERAL", "COVENANT")},
