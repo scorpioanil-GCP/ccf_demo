@@ -29,6 +29,9 @@ declaration:
     spec_clause: {document: spec/CP-SPEC-013C_Covenant_Cross_Reference_Canonical.md, clause: G.1}
     test: tests/examples/test_cp_13_canonical_output.py::test_an_unquotable_node_emits_no_citation_and_is_debt_with_a_reason
     sabotage: emit a citation for a point anchor, or report an absence with a reason outside the closed set
+    # S02 was RUN 2026-09-17: the tree refused to serve the fabrication at all,
+    # so every served-fixture test errored and this gate's red is not isolated
+    # (`CP13C-F-04` in FINDINGS.md).
     observed_red: null
   - id: CXRC-G03
     statement: the bound is applied before ranking and two roles with different entitlements receive different content addresses
