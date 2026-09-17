@@ -1,0 +1,7 @@
+# The consuming deployment's environment: its own per-run substrate and the
+# one deadline every producer call is held to. The producer's endpoint and
+# credential are NAMED in `ccf_config.yaml`'s `producers:` and valued only in
+# the process environment.
+config: ccf_config.yaml
+substrate: {setting: database_path, prefix: cp05d_paved_consumer, suffix: .sqlite3}
+remote: {call_timeout_seconds: 300}

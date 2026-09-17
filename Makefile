@@ -56,7 +56,7 @@ NO_SUBSTRATE := not postgres and not chroma and not neo4j and not mongo and not 
 	example-s1-01 example-s1-00 example-cp-00 example-cp-01 example-cp-02 \
 	example-cp-03 example-cp-03-canonical example-cp-04 example-cp-04-canonical example-cp-05 example-cp-05-server \
 	example-cp-06 example-cp-06-canonical example-cp-07 example-cp-09 example-cp-10 example-cp-11 \
-	example-cp-12 example-cp-13 example-cp-13-canonical \
+	example-cp-12 example-cp-13 example-cp-13-canonical example-door-cp-05 \
 	example-hw1-harness-clients \
 	example-hw1-harness-clients-live-adk \
 	example-hw1-harness-clients-live-anthropic \
@@ -537,6 +537,12 @@ example-cp-13-canonical: ## Run examples/cp-13-canonical-covenant-cross-referenc
 	PYTHONPATH=src:runtime:examples/cp-13-canonical-covenant-cross-reference \
 		$(PYTHON) examples/cp-13-canonical-covenant-cross-reference/run.py \
 		$(ROLE) $(CORPUS_SCOPE) $(SOURCES) $(SCOPE) $(AS_OF) $(INTENT) $(RESOLVE_DEPTH) $(DEBT_TOLERANCE)
+
+# door-cp-05 — frozen cp-05's exposure rollup reached through the SDK's standard
+# door (CP-14 completion GO, exposure option 3). A door only: asks nothing itself.
+example-door-cp-05: ## Boot examples/door-cp-05-credit-exposure-rollup on a loopback port (needs CCF_CP_05_FLUREE_URL, CCF_CP_05_FLUREE_LEDGER, CCF_CP_05_POSTGRES_DSN, CCF_CP_05_POSTGRES_SCHEMA)
+	PYTHONPATH=src:runtime:examples/door-cp-05-credit-exposure-rollup \
+		$(PYTHON) examples/door-cp-05-credit-exposure-rollup/run.py --door
 
 # cp-07 — the ladder's rung 7. NOT in the `examples:` aggregate, for the same
 # reason cp-06 is not: it reads a networked estate through declared environment

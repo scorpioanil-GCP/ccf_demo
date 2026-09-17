@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE DOOR'S OWN IDENTITY — the four values `EgressDoorBinding` holds and the
+# SDK holds a default for none of (CINV-01). This is cp-05's door, asserting
+# cp-05's identity on cp-05's behalf: the producer tenant IS the frozen
+# specimen's `tenant_id`, because every contract this door releases is minted
+# by the frozen tree under that tenant, and a consumer's admission holds the
+# contract's tenant to this value (`D-IMPL-340`).
+#
+# NO PRINCIPAL, NO ROLE, NO URL, NO CREDENTIAL — `EgressDoorBinding` refuses
+# them (`D-IMPL-343`). The principal and role are the frozen specimen's own
+# `default_perspective`; the credential and the advertised URLs are NAMES in
+# `ccf_environment.yaml` beside this tree.
+
+semver: "1.0.0"
+class_id: door-cp-05.egress-door
+
+declaration:
+  producer_id: cp-05-credit-exposure-rollup-egress
+  producer_tenant: cp-05-demo
+  required_scope: ccf:egress
+  tool_description: >-
+    Roll up total credit exposure across a corporate family from an anchor LEI,
+    following guarantee and cross-default edges rather than legal-entity
+    boundaries, and return it as a governed, content-addressed Context Product
+    (`credit-risk.exposure-rollup`). The caller may supply `materiality` (which
+    of the family's exposure is enumerated rather than summarized) and
+    `debt_tolerance` (the most Context Debt this consumer will act on). BOTH
+    ARE BOUNDED BY POLICY: a materiality above a registered ceiling is REFUSED
+    by name. A determination whose measured Context Debt exceeds the effective
+    tolerance is WITHHELD — the product exists, its figures are disclosed, and
+    the fabric declines to attest that they are fit to act on. This producer
+    answers at its one recorded instant; a question asked at another instant is
+    refused by name rather than answered at the wrong one.
