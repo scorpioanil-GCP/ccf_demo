@@ -48,7 +48,7 @@ from typing import Any
 
 from ccf.controlplane.artifacts import PRODUCT_CLASS, EgressDoorBinding, ProductClassDeclaration, parse_artifact
 from ccf.controlplane.registry import ControlPlaneRegistry
-from ccf.deployment.environment import EnvironmentDocument, load_environment_document
+from ccf.deployment import EnvironmentDocument, load_environment_document
 from ccf.products.refusal import RequestIdentity, envelope_for
 from ccf.products.request import ProductRequest, ProductRequestViolation, refuse_request
 from ccf.products.resolver import ProductNotResolvable, ReplayRefusalRecorder, ResolverOutcome
