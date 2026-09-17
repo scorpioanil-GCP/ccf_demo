@@ -1,0 +1,158 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE DECLARED PRODUCT GATES OF cp-06-canonical — `CSCC-G01` through `CSCC-G23`.
+#
+# `D-IMPL-224`: a product's gates are a DECLARED ARTIFACT plus CI coverage. The
+# acceptance authority for every gate below is `CP-SPEC-006C` §G.1
+# (`D-IMPL-326`); each id is claimed by the executing test named beside it,
+# and `tools/check_product_gates.py` holds the two to each other. All are
+# directional, structural or relational: no estate figure is pinned.
+#
+# `observed_red` records a sabotage that was RUN and watched fail; `null`
+# means the sabotage is described and not yet individually exercised.
+
+semver: 1.0.0
+class_id: cp-06-canonical.product-gates
+declaration:
+  product: collateral.setoff-coverage-canonical
+  test_naming_convention: the gate id appears in the executing test's docstring, as a `Declared
+    product gate` line naming the CP-SPEC clause that approves it.
+  gates:
+  - id: CSCC-G01
+    statement: haircuts reduce coverage — a discount applied as a premium is the defect
+    spec_clause: {document: spec/CP-SPEC-006C_Collateral_And_Setoff_Coverage_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_06_canonical_output.py::test_haircuts_reduce_coverage
+    sabotage: apply the haircut as a premium
+    observed_red: null
+  - id: CSCC-G02
+    statement: valid set-off increases coverage
+    spec_clause: {document: spec/CP-SPEC-006C_Collateral_And_Setoff_Coverage_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_06_canonical_output.py::test_valid_setoff_increases_coverage
+    sabotage: count excluded set-off
+    observed_red: null
+  - id: CSCC-G03
+    statement: '`contractual` counts at least as much set-off as `enforceable`, off each deposit''s recorded enforceability'
+    spec_clause: {document: spec/CP-SPEC-006C_Collateral_And_Setoff_Coverage_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_06_canonical_output.py::test_contractual_basis_counts_more_setoff_than_enforceable
+    sabotage: invert the basis filter
+    observed_red: null
+  - id: CSCC-G04
+    statement: '`priority` and `pro-rata` disagree on a shared asset'
+    spec_clause: {document: spec/CP-SPEC-006C_Collateral_And_Setoff_Coverage_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_06_canonical_output.py::test_priority_and_pro_rata_disagree_on_a_shared_asset
+    sabotage: collapse one allocation basis onto the other
+    observed_red: null
+  - id: CSCC-G05
+    statement: the register reports a released lien
+    spec_clause: {document: spec/CP-SPEC-006C_Collateral_And_Setoff_Coverage_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_06_canonical_output.py::test_the_register_reports_a_released_lien
+    sabotage: drop the amendment walk
+    observed_red: null
+  - id: CSCC-G06
+    statement: the CP-14 facility is covered and the specimen's MasTec anchor is under-covered — the direction, never the number
+    spec_clause: {document: spec/CP-SPEC-006C_Collateral_And_Setoff_Coverage_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_06_canonical_output.py::test_the_cp14_facility_is_covered_and_mastec_is_under_covered
+    sabotage: serve a coverage ratio that does not distinguish the anchor
+    observed_red: null
+  - id: CSCC-G07
+    statement: valuation dates are per asset, never flattened
+    spec_clause: {document: spec/CP-SPEC-006C_Collateral_And_Setoff_Coverage_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_06_canonical_output.py::test_valuation_dates_are_per_asset_and_not_flattened
+    sabotage: flatten every valuation to one date
+    observed_red: null
+  - id: CSCC-G08
+    statement: priority is carried per (facility, asset) pair
+    spec_clause: {document: spec/CP-SPEC-006C_Collateral_And_Setoff_Coverage_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_06_canonical_output.py::test_priority_is_carried_on_the_facility_asset_pair
+    sabotage: hang priority on the asset alone
+    observed_red: null
+  - id: CSCC-G09
+    statement: source ids are served, never fabric URIs
+    spec_clause: {document: spec/CP-SPEC-006C_Collateral_And_Setoff_Coverage_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_06_canonical_output.py::test_source_ids_are_served_for_business_matching
+    sabotage: serve `collateral_node://…` to the consumer
+    observed_red: null
+  - id: CSCC-G10
+    statement: the over-allocation gate is declared, identified, and runs on the governed path
+    spec_clause: {document: spec/CP-SPEC-006C_Collateral_And_Setoff_Coverage_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_06_canonical_output.py::test_the_over_allocation_gate_is_declared_identified_and_runs_on_the_governed_path
+    sabotage: return None from the gate for a missing commitment
+    observed_red: null
+  - id: CSCC-G11
+    statement: replay dimension 2 is a superset of product policy lineage
+    spec_clause: {document: spec/CP-SPEC-006C_Collateral_And_Setoff_Coverage_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_06_canonical_output.py::test_replay_dimension_two_is_a_superset_of_product_lineage
+    sabotage: omit the request contract from dimension 2
+    observed_red: null
+  - id: CSCC-G12
+    statement: the door is the SDK's standard door opened from `door:` — no door module, no `door.yaml`, no script path
+    spec_clause: {document: spec/CP-SPEC-006C_Collateral_And_Setoff_Coverage_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_06_canonical_output.py::test_the_door_is_the_sdk_standard_door_opened_from_the_declaration
+    sabotage: add a `server/door.yaml` naming a script path
+    observed_red: null
+  - id: CSCC-G13
+    statement: the lane is measured — the successor's payload equals the specimen's at the pinned instant for both declared facilities, so the lane is `1.0.0`
+    spec_clause: {document: spec/CP-SPEC-006C_Collateral_And_Setoff_Coverage_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_06_canonical_output.py::test_the_lane_is_measured_the_successor_payload_equals_the_specimens
+    sabotage: rename or reorder one payload member
+    observed_red: null
+  - id: CSCC-G14
+    statement: the commitment Π divides by is the one in the governed view; Π's constructor takes no commitment and no jurisdiction register
+    spec_clause: {document: spec/CP-SPEC-006C_Collateral_And_Setoff_Coverage_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_06_canonical_output.py::test_the_commitment_pi_divides_by_is_the_one_in_the_governed_view
+    sabotage: hand Π the commitment through a closure or module constant instead of the view
+    observed_red: null
+  - id: CSCC-G15
+    statement: '`shape_of` reads this tree as paved; no `build_governed_resolver` and no `build_replay_record` call exists'
+    spec_clause: {document: spec/CP-SPEC-006C_Collateral_And_Setoff_Coverage_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_06_canonical_output.py::test_the_structural_classifier_reads_this_tree_as_paved
+    sabotage: compose the resolver beside the opened product
+    observed_red: null
+  - id: CSCC-G16
+    statement: the frozen specimen is untouched and no specimen identity is reused
+    spec_clause: {document: spec/CP-SPEC-006C_Collateral_And_Setoff_Coverage_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_06_canonical_output.py::test_the_specimen_is_untouched_and_no_identity_is_reused
+    sabotage: edit one specimen file, or reuse its tenant
+    observed_red: null
+  - id: CSCC-G17
+    statement: the CP-14-shaped question is answered by the producer in another process and admitted under `provider-controls`
+    spec_clause: {document: spec/CP-SPEC-006C_Collateral_And_Setoff_Coverage_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_06_canonical_output.py::test_the_cp14_question_is_answered_in_another_process_and_admitted_under_provider_controls
+    sabotage: serve the child from the consumer's own process
+    observed_red: null
+  - id: CSCC-G18
+    statement: the expected producer identity and tenant come from the registration — wrong id and wrong tenant refuse independently
+    spec_clause: {document: spec/CP-SPEC-006C_Collateral_And_Setoff_Coverage_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_06_canonical_output.py::test_wrong_producer_and_wrong_tenant_refuse_independently
+    sabotage: take the producer identity from the answer rather than the registration
+    observed_red: null
+  - id: CSCC-G19
+    statement: an unknown intent is refused on the declared discovery set — the specimen accepts it
+    spec_clause: {document: spec/CP-SPEC-006C_Collateral_And_Setoff_Coverage_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_06_canonical_output.py::test_an_unknown_intent_is_refused_on_the_declared_discovery_set
+    sabotage: drop `discovery.intents`
+    observed_red: null
+  - id: CSCC-G20
+    statement: a scope the caller does not hold yields an empty graph and a refusal, never a redacted payload
+    spec_clause: {document: spec/CP-SPEC-006C_Collateral_And_Setoff_Coverage_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_06_canonical_output.py::test_a_scope_the_caller_does_not_hold_yields_an_empty_graph_and_a_refusal
+    sabotage: serve a coverage ratio of zero over the empty view
+    observed_red: null
+  - id: CSCC-G21
+    statement: the door and the in-process run serve one content address
+    spec_clause: {document: spec/CP-SPEC-006C_Collateral_And_Setoff_Coverage_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_06_canonical_output.py::test_the_door_and_the_in_process_run_serve_one_content_address
+    sabotage: let the door restate the perspective
+    observed_red: null
+  - id: CSCC-G22
+    statement: a fresh fabric per run; a facility served after another under one root hashes to its own address
+    spec_clause: {document: spec/CP-SPEC-006C_Collateral_And_Setoff_Coverage_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_06_canonical_output.py::test_a_fresh_fabric_per_run_and_one_determination_across_roots
+    sabotage: mint the substrate once per opened product
+    observed_red: null
+  - id: CSCC-G23
+    statement: '`expires_at` is anchored on the freshest valuation, as declared — quarantined evidence of `D-IMPL-341`'
+    spec_clause: {document: spec/CP-SPEC-006C_Collateral_And_Setoff_Coverage_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_06_canonical_output.py::test_expires_at_is_anchored_on_the_freshest_valuation_not_the_question
+    sabotage: none — the assertion is the declared property, quarantined `xfail(strict=True)` until the SDK honors the anchor
+    observed_red: null

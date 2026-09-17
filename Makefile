@@ -55,7 +55,7 @@ NO_SUBSTRATE := not postgres and not chroma and not neo4j and not mongo and not 
 	ci-quick-suite ci-harness-conformance ci-coverage \
 	example-s1-01 example-s1-00 example-cp-00 example-cp-01 example-cp-02 \
 	example-cp-03 example-cp-03-canonical example-cp-04 example-cp-04-canonical example-cp-05 example-cp-05-server \
-	example-cp-06 example-cp-07 example-cp-09 example-cp-10 example-cp-11 \
+	example-cp-06 example-cp-06-canonical example-cp-07 example-cp-09 example-cp-10 example-cp-11 \
 	example-cp-12 example-cp-13 \
 	example-hw1-harness-clients \
 	example-hw1-harness-clients-live-adk \
@@ -515,6 +515,16 @@ example-cp-06: ## Run examples/cp-06-collateral-and-setoff-coverage (FACILITY, S
 	PYTHONPATH=src:runtime:examples/cp-06-collateral-and-setoff-coverage \
 		$(PYTHON) examples/cp-06-collateral-and-setoff-coverage/run.py \
 		$(FACILITY) $(SCOPE) $(HAIRCUTS) $(SETOFF) $(BASIS) $(SHARED)
+
+# cp-06-canonical — rung 6's canonical successor on the paved producer road
+# (`CP-SPEC-006C`; CP-14 Gate 2 slice 3). Same posture as cp-06: it reads the
+# curated estate through the four names `ccf_environment.yaml` declares and
+# has no in-tree fixture to fall back onto, so it is NOT in the `examples:`
+# aggregate. Point the names at the v2 namespaces (CLAUDE.md §9).
+example-cp-06-canonical: ## Run examples/cp-06-canonical-collateral-and-setoff-coverage (FACILITY, SCOPE, ASKED_AT, INTENT, HAIRCUTS, SETOFF, BASIS, SHARED optional; needs CCF_CP_06C_FLUREE_URL, CCF_CP_06C_FLUREE_LEDGER, CCF_CP_06C_POSTGRES_DSN, CCF_CP_06C_POSTGRES_SCHEMA)
+	PYTHONPATH=src:runtime:examples/cp-06-canonical-collateral-and-setoff-coverage \
+		$(PYTHON) examples/cp-06-canonical-collateral-and-setoff-coverage/run.py \
+		$(FACILITY) $(SCOPE) $(ASKED_AT) $(INTENT) $(HAIRCUTS) $(SETOFF) $(BASIS) $(SHARED)
 
 # cp-07 — the ladder's rung 7. NOT in the `examples:` aggregate, for the same
 # reason cp-06 is not: it reads a networked estate through declared environment
