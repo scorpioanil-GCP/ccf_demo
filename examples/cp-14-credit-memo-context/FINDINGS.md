@@ -166,3 +166,71 @@ reference resolver over a ledger-read artifact; none to the paved road.
 `D-IMPL-341`, `D-IMPL-342`; `D-IMPL-344` (built on its own branch, merged at `66be7cb8`); `artifacts/gates.yaml` (the tree is at
 Gate 1 for the product-gates checker until a roster appears); the README; the
 page; the scenario roster; the sabotage sweep; the four producers' trees.
+
+## Completion — five children through five doors (2026-09-17, the consolidated GO)
+
+**What was done.** The covenant slot re-pointed to the paved successor
+`examples/cp-13-canonical-covenant-cross-reference` (`CP-SPEC-013C`, lane `1.0.0` by
+measurement); the exposure slot reaches frozen cp-05 through the wrapper door
+`examples/door-cp-05-credit-exposure-rollup` (exposure option 3, the escape hatch
+measured in that tree's `FINDINGS.md`); the covenant question determined from the
+obligor's own facility documents (`CP14-F-28`, closed below); Π reading every child
+class by name and recording the address each section was composed from; twelve gates
+claimed; the transcript of both runs committed. Executable:
+`tests/examples/test_cp_14_fourth_slice.py` (9 passed) with the earlier slices (14 passed).
+
+**The two questions, and what each yielded** — measured with all five producers live,
+BGC Group at `2026-09-07T12:00:00+00:00`, facility `FAC-5B8418`, `memo_type` the class
+default:
+
+| tolerance | spread | family | exposure | collateral | covenant | composite |
+| --- | --- | --- | --- | --- | --- | --- |
+| **0.25** (governed) | withheld, `tolerance-exceeded` | admitted | withheld, `tolerance-exceeded` | admitted | withheld, `tolerance-exceeded` (D_c 0.80 on BGC's two anchors) | **refused** `composite-child-refusal`, five rows, both admitted contracts retained by bytes |
+| **1.0** (diagnostic) | admitted | admitted | admitted (D_c 1.0 `fail_closed`) | admitted | admitted | **served** `c115f378…` — D_c 1.0 `fail_closed`, F 0 (exposure), C 0.2000 (covenant), S 0.8333; expires 16:00 with the exposure child |
+
+Neither outcome was promised and nothing was tuned: the diagnostic serves BECAUSE the
+tolerance is one nobody would act on, and it serves `fail_closed`.
+
+**The four proofs the GO required**, each executable and each distinct in its evidence:
+
+| proof | evidence | source |
+| --- | --- | --- |
+| a meaningful child-content change changes the corresponding parent field | the collateral child asked without haircuts (a CONTROLLED variant, identified as such): its section's coverage ratio and address move, the memo's address moves, the other four sections and addresses do not | controlled test |
+| acquisition and composition use the same admitted contracts | every section's `child_content_address` equals its admission row's; the memo's lineage is the set-union of its own operators with the five children's | the diagnostic run |
+| served reconstruction uses retained inputs without calling providers again | with every producer process exited, replay rebuilds the child view from the retained contracts, hands it to the memo's plan factory, re-executes and reproduces `c115f378…` | the diagnostic run's record |
+| refused reconstruction preserves the admitted-child evidence and follows the recorded path | `replay_refusal` returns exactly the two admitted addresses, consults no plan, and reports the recorded no-fabric-read path; `replay()` refuses the record by name | the governed run's record |
+
+### Findings raised by the completion
+
+| Id | Finding | Category (§B) | Disposition |
+| --- | --- | --- | --- |
+| `CP14-F-28` | **CLOSED.** The covenant question is determined from the roster's facility document keys joined to the ledger's evidence anchors; the mapping reads nothing below the anchor. BGC's one document carries two anchors and the child answered exactly those | — | closed by this slice |
+| `CP14-F-33` | **STANDS as a paved-road coverage limitation.** Exposure aggregation stays where `D-IMPL-299` put it; the slot is served through the standard door's structural hatch over the frozen low road, at the cost `door-cp-05/FINDINGS.md` measures (~80 code lines, nothing re-implemented). This producer proves nothing about the facade's support for post-traversal aggregation | 3 · post-launch, ruled | recorded; no facade change |
+| `CP14-F-34` | **The question mapping receives no source settings.** The road hands `questions(requirement, request)` the requirement and the effective request only; a mapping that must READ to determine a question (the covenant sources) has no seam for the deployment's resolved sources. Bound late: `produce.product` binds `opened.sources` onto the mapping object after open, so the settings are resolved once by the SDK from the environment document and never a second time. ~6 lines; the seam is honest but undeclared | 3 · SDK friction (§E "custom glue"); a supported path exists | recorded; backlog candidate below |
+| `CP14-F-35` | **The child question's identity is an address, not a retained artifact.** The row carries `child_question_address`; the consumer's store does not hold the question at that address, so an examiner cannot read back what was asked without re-invoking the mapping. The proof re-invokes it | 3 · post-launch enhancement | recorded |
+| `CP14-F-36` | **The served memo is `fail_closed` at every tolerance that serves it.** Inherited debt is the per-factor minimum and the exposure child's freshness is 0 against its four-hour λ_c on this estate's balances; C is 0.2 from the covenant child. Correct, and a statement about the estate: the memo cannot be served fit-to-act-on without fresher exposure balances | 4 · engineered-estate limitation | disclosed in README and summary |
+| `CP14-F-37` | **Seventeen of the spec's twenty-nine gates are not exercised.** Unbuilt product logic: `CMC-G01`, `G04`–`G16`, `G21`, `G24`, `G25` (template sections, evidence references, peer benchmarks, the policy-version tolerance, the diagnostic comparison, the suppression rule, thinness, determinism across two runs). Named, not claimed | 4 · slice scope | the roster declares only the twelve executed |
+| `CP14-F-38` | **`CP14-F-29` stands**: the tolerance default from the policy version is stated (0.25) and not derived | 3 · post-launch | unchanged |
+
+**Carried, unchanged:** `D-IMPL-341` (`CP14-F-31`), `D-IMPL-342` (`CP14-F-30`),
+`D-IMPL-304` (the exposure wrapper's pre-resolution carry, `CP05D-F-04`),
+`CP06C-F-01` (the hand-assembled replay environment — the composite variant is its fourth copy).
+
+### Capability not exercised
+
+The memo's own assembly beyond the obligor's identity and the five sections: template
+sections, evidence references, peer benchmarks, the relationship summary, the
+policy-version tolerance and the dated diagnostic comparison (spec §B.1, §D.2). A served
+memo at the governed tolerance. Determinism across two independent runs of one question
+(each run here was asked once per tolerance).
+
+### Sabotage record (completion)
+
+Run by hand on the candidate after the build, restored by copy and verified with `diff -r`; one run of the nine-test completion suite each, five doors live.
+
+| sabotage | applied to | red | green |
+| --- | --- | --- | --- |
+| S28 — the collateral section's coverage composed from a constant, not the admitted contract | `projection.py` | `CMC-G28` (the controlled variant) alone — the constant equals today's measurement, so the same-contracts proof stays green; which is why the variant exists | the other 8 |
+| S27 — a `collateral_pledge` read added to the consumer's leg | `acquisition.py` | `CMC-G27` alone | the other 8 |
+| S23 — `resolve_child_outcomes` imported into the consumer | `deployment.py` | `CMC-G23` / `G27` (one test) | the other 8 |
+| S28b — the covenant question asked with no sources (the pre-completion shape) | `deployment.py` | 6: the diagnostic serve, the same-contracts, per-factor, variant, covenant-question and served-reconstruction proofs | 3: the governed refusal, its reconstruction, the consumer's shape |

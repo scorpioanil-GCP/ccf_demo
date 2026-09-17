@@ -1,0 +1,335 @@
+<title>Credit Memo Context · cp-14</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400;6..96,500&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --paper:#EFF2F3; --surface:#FFFFFF; --sunk:#E4E9EB;
+  --ink:#16202A; --ink-2:#3A4A55; --muted:#64757F; --rule:#CBD5D9;
+  --verd:#1F7A68; --verd-soft:#DCEBE7;
+  --amber:#A65E17; --amber-soft:#F6E9DA;
+  --crit:#9B2C2C; --crit-soft:#F3E0E0;
+  --tok-c:#6C7C86; --tok-k:#1F7A68; --tok-s:#8A5A2B; --tok-n:#2B4C63;
+  --shadow:0 1px 2px rgba(22,32,42,.06),0 8px 24px -12px rgba(22,32,42,.18);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#12171A; --surface:#181F23; --sunk:#0D1214;
+    --ink:#E4EAED; --ink-2:#B4C1C8; --muted:#8497A0; --rule:#2C373D;
+    --verd:#46B39D; --verd-soft:#16302B;
+    --amber:#D9903F; --amber-soft:#2F2417;
+    --crit:#E07A7A; --crit-soft:#2E1B1B;
+    --tok-c:#7B8C96; --tok-k:#46B39D; --tok-s:#C99A63; --tok-n:#7FB0CE;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -12px rgba(0,0,0,.6);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#12171A; --surface:#181F23; --sunk:#0D1214;
+  --ink:#E4EAED; --ink-2:#B4C1C8; --muted:#8497A0; --rule:#2C373D;
+  --verd:#46B39D; --verd-soft:#16302B;
+  --amber:#D9903F; --amber-soft:#2F2417;
+  --crit:#E07A7A; --crit-soft:#2E1B1B;
+  --tok-c:#7B8C96; --tok-k:#46B39D; --tok-s:#C99A63; --tok-n:#7FB0CE;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -12px rgba(0,0,0,.6);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:"IBM Plex Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:16px; line-height:1.65; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1180px;margin:0 auto;padding:0 clamp(20px,5vw,56px)}
+.col{max-width:74ch}
+
+/* ---------- masthead ---------- */
+.mast{border-bottom:1px solid var(--rule);padding:clamp(48px,8vw,88px) 0 40px}
+.eyebrow{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12px;font-weight:600;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--verd);margin:0 0 18px
+}
+h1{
+  font-family:"Bodoni Moda",Georgia,"Times New Roman",serif;font-weight:400;
+  font-size:clamp(38px,6.2vw,68px);line-height:1.04;letter-spacing:-.015em;
+  margin:0 0 22px;text-wrap:balance
+}
+.standfirst{font-size:clamp(17px,2vw,20px);line-height:1.6;color:var(--ink-2);margin:0;max-width:66ch}
+
+/* the shape strip — what the product IS, in its own terms */
+.shape{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:1px;
+  background:var(--rule);border:1px solid var(--rule);margin-top:40px
+}
+.shape div{background:var(--surface);padding:14px 16px}
+.shape dt{
+  font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:600;
+  letter-spacing:.11em;text-transform:uppercase;color:var(--muted);margin:0 0 5px
+}
+.shape dd{margin:0;font-size:14px;font-weight:600;line-height:1.35}
+.shape dd .sub{display:block;font-weight:400;font-size:12.5px;color:var(--muted);margin-top:3px}
+
+/* ---------- sections ---------- */
+section{padding:clamp(44px,6vw,68px) 0;border-bottom:1px solid var(--rule)}
+section:last-of-type{border-bottom:0}
+h2{
+  font-family:"Bodoni Moda",Georgia,serif;font-weight:400;
+  font-size:clamp(26px,3.6vw,38px);line-height:1.14;letter-spacing:-.01em;
+  margin:0 0 8px;text-wrap:balance
+}
+h3{font-size:17px;font-weight:700;margin:34px 0 10px;letter-spacing:-.005em}
+.kicker{
+  font-family:"IBM Plex Mono",monospace;font-size:11.5px;font-weight:600;
+  letter-spacing:.13em;text-transform:uppercase;color:var(--muted);margin:0 0 14px
+}
+p{margin:0 0 16px}
+strong{font-weight:600}
+em{font-style:italic}
+code{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.875em;
+  background:var(--sunk);padding:.1em .34em;border-radius:3px;
+}
+a{color:var(--verd);text-decoration:none;border-bottom:1px solid color-mix(in srgb,var(--verd) 40%,transparent)}
+a:hover{border-bottom-color:var(--verd)}
+a:focus-visible{outline:2px solid var(--verd);outline-offset:3px;border-radius:2px}
+
+/* ---------- the two-authority device ---------- */
+.auth{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;margin:26px 0 8px}
+.auth article{background:var(--surface);border:1px solid var(--rule);border-top:3px solid var(--verd);padding:20px 22px}
+.auth article.internal{border-top-color:var(--amber)}
+.auth h4{margin:0 0 4px;font-size:15px;font-weight:700}
+.auth .who{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--verd);margin:0 0 12px}
+.auth article.internal .who{color:var(--amber)}
+.auth dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:5px 14px;font-size:13.5px}
+.auth dt{color:var(--muted)}
+.auth dd{margin:0;font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
+
+/* ---------- tables ---------- */
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:14px;margin:22px 0}
+th,td{text-align:left;padding:9px 14px 9px 0;border-bottom:1px solid var(--rule);vertical-align:top}
+th{
+  font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:600;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--muted);
+  border-bottom-color:var(--ink-2)
+}
+td code{background:none;padding:0}
+.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+
+/* pills carry state, not decoration */
+.pill{
+  display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:10.5px;
+  font-weight:600;letter-spacing:.06em;padding:2px 8px;border-radius:99px;white-space:nowrap
+}
+.pill.yes{background:var(--verd-soft);color:var(--verd)}
+.pill.no{background:var(--crit-soft);color:var(--crit)}
+.pill.warn{background:var(--amber-soft);color:var(--amber)}
+
+/* ---------- build order ---------- */
+ol.build{list-style:none;counter-reset:step;margin:26px 0 0;padding:0}
+ol.build > li{
+  counter-increment:step;position:relative;padding:0 0 26px 54px;
+  border-left:1px solid var(--rule);margin-left:15px
+}
+ol.build > li:last-child{border-left-color:transparent;padding-bottom:0}
+ol.build > li::before{
+  content:counter(step,decimal-leading-zero);position:absolute;left:-15px;top:0;
+  width:30px;height:30px;border-radius:50%;background:var(--surface);
+  border:1px solid var(--rule);color:var(--muted);
+  font-family:"IBM Plex Mono",monospace;font-size:11px;font-weight:600;
+  display:flex;align-items:center;justify-content:center
+}
+ol.build h3{margin:2px 0 6px;font-size:16px}
+ol.build p{font-size:14.5px;color:var(--ink-2);margin:0 0 12px}
+
+/* ---------- collapsibles: guidance first, source on demand ---------- */
+details{
+  background:var(--surface);border:1px solid var(--rule);border-radius:4px;
+  margin:12px 0;box-shadow:var(--shadow)
+}
+summary{
+  cursor:pointer;padding:12px 16px;font-family:"IBM Plex Mono",monospace;
+  font-size:12.5px;font-weight:600;color:var(--ink-2);list-style:none;
+  display:flex;align-items:center;gap:10px
+}
+summary::-webkit-details-marker{display:none}
+summary::before{
+  content:"";width:0;height:0;flex:none;
+  border-left:5px solid var(--muted);border-top:4px solid transparent;border-bottom:4px solid transparent;
+  transition:transform .16s ease
+}
+details[open] > summary::before{transform:rotate(90deg)}
+summary:hover{color:var(--verd)}
+summary:focus-visible{outline:2px solid var(--verd);outline-offset:-2px;border-radius:3px}
+details .note{margin:0;padding:0 16px 12px;font-size:13px;color:var(--muted)}
+details pre{margin:0;padding:16px;background:var(--sunk);font-size:12.5px;line-height:1.55}
+details .scroll{border-top:1px solid var(--rule)}
+pre{overflow-x:auto;margin:0}
+pre code{background:none;padding:0;font-size:12.5px}
+
+/* ---------- callouts ---------- */
+.call{border-left:3px solid var(--verd);background:var(--surface);padding:18px 22px;margin:24px 0}
+.call.warn{border-left-color:var(--amber)}
+.call.crit{border-left-color:var(--crit)}
+.call p:last-child{margin-bottom:0}
+.call .lbl{
+  font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:600;
+  letter-spacing:.11em;text-transform:uppercase;color:var(--verd);display:block;margin-bottom:7px
+}
+.call.warn .lbl{color:var(--amber)}
+.call.crit .lbl{color:var(--crit)}
+
+ul.plain{margin:0 0 16px;padding-left:20px}
+ul.plain li{margin-bottom:7px}
+
+footer{padding:44px 0 72px;color:var(--muted);font-size:13.5px}
+footer p{margin:0 0 8px}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap">
+
+<header class="mast">
+  <p class="eyebrow">Context Product · cp-14</p>
+  <h1>Credit Memo Context</h1>
+  <p class="standfirst">A memo built from five other products, each made by someone else, in another process. The consumer holds each to an <strong>identity and a lane</strong> &mdash; never to how it was assembled &mdash; and prints what they served, rebuilding none of it.</p>
+
+  <dl class="shape">
+    <div><dt>Registry name</dt><dd>credit-risk.credit-memo-context</dd></div>
+    <div><dt>Tier</dt><dd>5<span class="sub">a product of products</span></dd></div>
+    <div><dt>Assembly mode</dt><dd>1 &mdash; pure algorithmic<span class="sub">no model in the path</span></dd></div>
+    <div><dt>Children</dt><dd>5 required<span class="sub">five producers, five doors, five processes</span></dd></div>
+    <div><dt>Outcomes</dt><dd>both<span class="sub">refused at 0.25 &middot; served at 1.0</span></dd></div>
+    <div><dt>Gates executed</dt><dd>12 of 29<span class="sub">the other 17 name unbuilt memo logic</span></dd></div>
+  </dl>
+</header>
+
+<section>
+  <div class="col">
+    <p class="kicker">Rung 14 &middot; Tier 5</p>
+    <h2>Both outcomes are the product</h2>
+    <p>At the memo's <strong>governed</strong> tolerance &mdash; 0.25, the v2 policy's default at the decision instant &mdash; three of the five producers <strong>withhold</strong>: the spread, the exposure roll-up and the covenant chain each measured more Context Debt than this memo will act on. The family and the collateral are admitted. The composite refuses on its required slots, with all five rows persisted and every producer's own reason retained.</p>
+    <p>At the <strong>labeled diagnostic</strong> tolerance &mdash; 1.0, a value nobody would act on &mdash; all five serve, all five are admitted under <code>provider-controls</code>, and the memo is served: <code>D_c</code> 1.0, <code>fail_closed</code>.</p>
+  </div>
+  <div class="scroll"><pre><code>tolerance 0.25   spread ineligible   family admitted   exposure ineligible   collateral admitted   covenant ineligible
+                 -> composite-child-refusal, five rows, two contracts retained by bytes
+
+tolerance 1.0    all five admitted
+                 -> SERVED  c115f378…   D_c 1.0 fail_closed   F 0 (exposure)   C 0.2 (covenant)   S 0.83
+                    expires 16:00 — with the exposure child's four-hour window, not the memo's twelve-hour ceiling</code></pre></div>
+  <div class="col">
+    <div class="call warn">
+      <span class="lbl">Nothing was tuned, and the served memo is not fit to act on</span>
+      <p>Inherited debt is the <strong>per-factor minimum</strong>. The exposure child's balances are days old against a four-hour half-life, so its freshness is zero and the memo's is too; the covenant child can check two citations in ten chain nodes, so completeness is 0.2. A memo that averaged would read as moderately stale. This one reads as what its inputs are.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">Determining a question is not answering it</p>
+    <h2>The covenant question names the obligor's own evidence nodes</h2>
+    <p>The covenant child takes the evidence nodes it may read. Which nodes are this memo's is a fact about the obligor's own facility documents: the roster's <code>(source_accession, source_document)</code> joined to the ledger's <code>ex:PassageAnchor</code> nodes by <code>ex:documentId</code>. The mapping reads exactly that &mdash; two reads &mdash; and <strong>stops at the anchor</strong>: no chain, no citation, no cross-reference. The child answered exactly those sources.</p>
+    <div class="call">
+      <span class="lbl">The seam this exposed</span>
+      <p>The road hands the question mapping the requirement and the effective request and nothing else. A mapping that must <em>read</em> to determine a question has no seam for the deployment's resolved sources, so the mapping is an object the spine binds to <code>opened.sources</code> after opening &mdash; the settings the SDK already resolved, never resolved a second time. Six lines; recorded as friction (<code>CP14-F-34</code>), not worked around.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">Composition, proven</p>
+    <h2>Each section names the address it was composed from</h2>
+    <p>Every memo section carries <code>child_content_address</code>, and that address equals the one the admission row retained &mdash; five for five. The memo's lineage is the set-union of its own operators with every child's; its expiry is its stalest child's.</p>
+    <p><strong>A controlled variant</strong>, identified as such: the collateral child asked <em>without haircuts</em>, every other input fixed. Its section's coverage ratio and address move; the memo's address moves; the other four sections and their addresses do not.</p>
+    <p><strong>With every producer process exited</strong>, replay resolves the five retained contracts from the consumer's own store, hands them to the memo's plan factory, re-executes the recorded operator path and reproduces <code>c115f378…</code>. The governed refusal reconstructs along its recorded no-read path with the two admitted addresses intact.</p>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">What the run prints</p>
+    <h2>Two questions, five doors, one transcript</h2>
+    <p>A committed transcript of two pinned runs against a named snapshot &mdash; BGC Group at <code>2026-09-07T12:00:00+00:00</code>, the five producers' doors live on the curated estate &mdash; not a live re-execution: a printed run that can drift is a documentation defect that presents as a fabric defect.</p>
+  </div>
+
+  <details><summary>Both runs, as the commands print them</summary>
+    <div class="scroll"><pre><code>{{run}}</code></pre></div>
+  </details>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">Every file, verbatim</p>
+    <h2>The example, opened up</h2>
+    <p>Each block below is the real file, read at build time. Nothing here is a copy that can drift.</p>
+  </div>
+
+  <ol class="build">
+    <li><h3>The specification</h3>{{spec}}</li>
+    <li><h3>The two documents</h3>{{config}}{{environment}}</li>
+    <li><h3>The declared artifacts</h3>{{vocabulary}}{{gates}}</li>
+    <li><h3>Reading the estate, and determining the question</h3>{{acquisition}}{{deployment}}</li>
+    <li><h3>Composing the memo</h3>{{projection}}{{produce}}{{run_py}}</li>
+    <li><h3>The evidence and the prose</h3>{{tests}}{{findings}}{{readme}}{{summary}}</li>
+  </ol>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">The half you write</p>
+    <h2>What is yours, and what the fabric already does</h2>
+    <p>The five Python files above are not equal. Three are yours to write for every composite; two are nearly the same in every deployment and exist to be read once.</p>
+  </div>
+  <div class="scroll">
+  {{split_table}}
+  </div>
+  <div class="col">
+    {{split_ratio}}
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">The evidence</p>
+    <h2>Twelve gates executed, four sabotaged by hand</h2>
+    <p>The roster declares exactly the ids the completion executes against the five real producers. Four mutations were run by hand and restored: a section composed from a constant, a child-owned read in the consumer's leg, the SDK's child resolver imported into the consumer, and the covenant question asked with no sources &mdash; each turned its gate red and was recorded with what went red beside it.</p>
+    <div class="call">
+      <span class="lbl">And seventeen gates are named as unexercised</span>
+      <p>The specification declares twenty-nine. The seventeen that name the memo's own unbuilt logic &mdash; template sections, evidence references, peer benchmarks, the policy-version tolerance, the diagnostic comparison &mdash; are listed in <code>FINDINGS.md</code> and claimed by nothing.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">What to change first</p>
+    <h2>A registration, not a line of code</h2>
+    <ul class="plain">
+      <li><strong><code>producers:</code></strong> in <code>ccf_config.yaml</code> &mdash; point a slot at another producer of the same class. The lane floor and the identity are the only things the consumer holds it to; two slots were re-pointed at successors during this rung and the mapping did not change.</li>
+      <li><strong><code>DEBT_TOLERANCE=--debt-tolerance=1.0</code></strong> &mdash; the diagnostic. Watch three <code>ineligible</code> rows become <code>admitted</code> and the memo serve <code>fail_closed</code>.</li>
+      <li><strong><code>MemoQuestions</code></strong> in <code>deployment.py</code> &mdash; ask a slot a different question; the SDK admits or refuses the answer the same way.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <p class="kicker">Honest limits</p>
+    <h2>What this example is not</h2>
+    <ul class="plain">
+      <li><strong>Not a served memo at the governed tolerance.</strong> No producer's balances on this estate are fresh enough; the serving path is reached only at the labeled diagnostic, and it serves <code>fail_closed</code>.</li>
+      <li><strong>Not the memo's own assembly.</strong> Template sections, evidence references, peer benchmarks, the relationship summary and the policy-version tolerance default remain unbuilt and are named as such.</li>
+      <li><strong>No producer replay reference on a refused row</strong> (<code>D-IMPL-342</code>): the consumer retains the producer's reason, never its record's address.</li>
+      <li><strong>The exposure slot is an escape hatch.</strong> Its producer is a frozen specimen behind a binding adapter over the SDK's standard door; the aggregation stays where it was, and the paved road's coverage limitation stands.</li>
+      <li><strong>The replay environment is hand-assembled</strong> in the test &mdash; the fourth copy of the same forty lines across the paved trees.</li>
+    </ul>
+  </div>
+</section>
+
+<footer>
+  <p><code>examples/cp-14-credit-memo-context</code> &middot; CCF SDK</p>
+</footer>
+
+</div>
