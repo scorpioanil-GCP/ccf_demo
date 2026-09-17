@@ -192,7 +192,7 @@ footer p{margin:0 0 8px}
 <header class="mast">
   <p class="eyebrow">Context Product · cp-14</p>
   <h1>Credit Memo Context</h1>
-  <p class="standfirst">A memo built from five other products, each made by someone else, in another process. The consumer holds each to an <strong>identity and a lane</strong> &mdash; never to how it was assembled &mdash; and prints what they served, rebuilding none of it.</p>
+  <p class="standfirst">A memo built from five other products, each made by someone else, in another process. The consumer holds each to an <strong>identity and a lane</strong> &mdash; never to how it was assembled &mdash; and prints what they served, rebuilding none of it. <strong>This delivery proves five-provider acquisition, admitted-content composition, governed refusal, and reconstruction. It does not complete the full memo-assembly specification.</strong></p>
 
   <dl class="shape">
     <div><dt>Registry name</dt><dd>credit-risk.credit-memo-context</dd></div>
@@ -208,14 +208,15 @@ footer p{margin:0 0 8px}
   <div class="col">
     <p class="kicker">Rung 14 &middot; Tier 5</p>
     <h2>Both outcomes are the product</h2>
-    <p>At the memo's <strong>governed</strong> tolerance &mdash; 0.25, the v2 policy's default at the decision instant &mdash; three of the five producers <strong>withhold</strong>: the spread, the exposure roll-up and the covenant chain each measured more Context Debt than this memo will act on. The family and the collateral are admitted. The composite refuses on its required slots, with all five rows persisted and every producer's own reason retained.</p>
+    <p>At the memo's <strong>governed</strong> tolerance &mdash; 0.25, the v2 policy's default at the decision instant &mdash; three of the five producers <strong>withhold</strong>: the spread, the exposure roll-up and the covenant chain each measured more Context Debt than this memo will act on. The family and the collateral are admitted. The composite refuses on its required slots, with all five rows persisted, the first blocking producer's own reason retained, and the admission verdict on every withheld row (<code>D-IMPL-342</code> keeps the per-row reason open).</p>
     <p>At the <strong>labeled diagnostic</strong> tolerance &mdash; 1.0, a value nobody would act on &mdash; all five serve, all five are admitted under <code>provider-controls</code>, and the memo is served: <code>D_c</code> 1.0, <code>fail_closed</code>.</p>
   </div>
   <div class="scroll"><pre><code>tolerance 0.25   spread ineligible   family admitted   exposure ineligible   collateral admitted   covenant ineligible
                  -> composite-child-refusal, five rows, two contracts retained by bytes
 
 tolerance 1.0    all five admitted
-                 -> SERVED  c115f378…   D_c 1.0 fail_closed   F 0 (exposure)   C 0.2 (covenant)   S 0.83
+                 -> SERVED   D_c 1.0 fail_closed   F 0 (exposure)   C 0.2 (covenant)   S 0.83
+                    product address and record address: two identities, printed separately in the transcript below
                     expires 16:00 — with the exposure child's four-hour window, not the memo's twelve-hour ceiling</code></pre></div>
   <div class="col">
     <div class="call warn">
@@ -241,9 +242,9 @@ tolerance 1.0    all five admitted
   <div class="col">
     <p class="kicker">Composition, proven</p>
     <h2>Each section names the address it was composed from</h2>
-    <p>Every memo section carries <code>child_content_address</code>, and that address equals the one the admission row retained &mdash; five for five. The memo's lineage is the set-union of its own operators with every child's; its expiry is its stalest child's.</p>
+    <p>Every memo section carries <code>child_content_address</code>, and that address equals the one the admission row retained &mdash; five for five. Every printed field names the child member it is (<code>projection.SECTION_FIELDS</code>) and an independent test holds each to the retained child &mdash; because using the correct admitted child does not prove the parent read its fields correctly. The delivered result had read the collateral child's <em>total</em> (collateral plus set-off) as collateral after haircuts, and had looked for the spread's basis where the producer does not put it; both are corrected and held. The memo's lineage is the set-union of its own operators with every child's; its expiry is its stalest child's.</p>
     <p><strong>A controlled variant</strong>, identified as such: the collateral child asked <em>without haircuts</em>, every other input fixed. Its section's coverage ratio and address move; the memo's address moves; the other four sections and their addresses do not.</p>
-    <p><strong>With every producer process exited</strong>, replay resolves the five retained contracts from the consumer's own store, hands them to the memo's plan factory, re-executes the recorded operator path and reproduces <code>c115f378…</code>. The governed refusal reconstructs along its recorded no-read path with the two admitted addresses intact.</p>
+    <p><strong>With every producer process exited</strong>, replay resolves the five retained contracts from the consumer's own store, hands them to the memo's plan factory, re-executes the recorded operator path and reproduces the served product's address exactly &mdash; the product's address, which the persisted record names, not the record's own. The governed refusal reconstructs along its recorded no-read path with the two admitted addresses intact. Asked a second time against unchanged inputs, the diagnostic yields the same product address.</p>
   </div>
 </section>
 
@@ -297,7 +298,7 @@ tolerance 1.0    all five admitted
     <p>The roster declares exactly the ids the completion executes against the five real producers. Four mutations were run by hand and restored: a section composed from a constant, a child-owned read in the consumer's leg, the SDK's child resolver imported into the consumer, and the covenant question asked with no sources &mdash; each turned its gate red and was recorded with what went red beside it.</p>
     <div class="call">
       <span class="lbl">And seventeen gates are named as unexercised</span>
-      <p>The specification declares twenty-nine. The seventeen that name the memo's own unbuilt logic &mdash; template sections, evidence references, peer benchmarks, the policy-version tolerance, the diagnostic comparison &mdash; are listed in <code>FINDINGS.md</code> and claimed by nothing.</p>
+      <p>The specification declares twenty-nine. The seventeen that name the memo's own unbuilt logic &mdash; template sections, evidence references, peer benchmarks, the policy-version tolerance, the diagnostic comparison &mdash; are listed in <code>FINDINGS.md</code> and claimed by nothing. <strong>That is a scope status, not an estate limitation:</strong> this delivery is the five-provider composition and reconstruction milestone, not the completed memo-assembly contract, and <code>memo_type</code> admits only the one mode that is implemented.</p>
     </div>
   </div>
 </section>
@@ -319,7 +320,7 @@ tolerance 1.0    all five admitted
     <p class="kicker">Honest limits</p>
     <h2>What this example is not</h2>
     <ul class="plain">
-      <li><strong>Not a served memo at the governed tolerance.</strong> No producer's balances on this estate are fresh enough; the serving path is reached only at the labeled diagnostic, and it serves <code>fail_closed</code>.</li>
+      <li><strong>Not a served memo at the governed tolerance.</strong> No producer's balances on this estate are fresh enough; the serving path is reached only at the labeled diagnostic, and it serves <code>fail_closed</code>. Because that child already sits at <code>D_c</code> 1, the estate shows per-factor propagation but not the scalar difference from <code>max(child D_c)</code>; that separate claim is held by an isolated control.</li>
       <li><strong>Not the memo's own assembly.</strong> Template sections, evidence references, peer benchmarks, the relationship summary and the policy-version tolerance default remain unbuilt and are named as such.</li>
       <li><strong>No producer replay reference on a refused row</strong> (<code>D-IMPL-342</code>): the consumer retains the producer's reason, never its record's address.</li>
       <li><strong>The exposure slot is an escape hatch.</strong> Its producer is a frozen specimen behind a binding adapter over the SDK's standard door; the aggregation stays where it was, and the paved road's coverage limitation stands.</li>

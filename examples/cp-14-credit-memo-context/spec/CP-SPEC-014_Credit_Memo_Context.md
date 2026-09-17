@@ -67,6 +67,42 @@ not rebuild is unchanged (§B.8): the atomic providers own their assembly, skill
 acquire their products, and this composite owns the roll-up and the mapping
 into memo sections.
 
+### 0.0a Current status — what the 2026-09-17 delivery proves, and what it does not
+
+**This delivery proves five-provider acquisition, admitted-content composition,
+governed refusal, and reconstruction. It does not complete the full memo-assembly
+specification.** It is accepted, if accepted, as the five-provider SDK composition and
+reconstruction milestone — not as the completed implementation of the twenty-nine
+gates this document declares.
+
+What is proven, executably, against the five real producers in five other processes
+(`tests/examples/test_cp_14_fourth_slice.py`; twelve `CMC-G` gates on the roster):
+the governed question refuses with five rows and the first blocking producer's reason
+retained; the labeled diagnostic admits all five children and serves a memo whose
+five sections are read, member by member, off the admitted contracts; a controlled
+child variant moves its section and nothing else; served and refused determinations
+reconstruct with every producer exited; the same diagnostic question asked twice
+yields one product address.
+
+What is NOT built, and stays a planned obligation of this contract rather than a
+passed one — **a scope status, not an engineered-estate limitation**: the memo's own
+assembly beyond the obligor's identity and the five sections. Two kinds are kept
+apart. *Optional memo enrichment* (product logic this consumer has not written):
+template sections and `EvidenceRef[]` (§B.1, `CMC-G08`, `G09`), peer benchmarks and
+thinness (`G10`, `G14`), the relationship summary, the suppression rule (`G11`), the
+dated diagnostic comparison (`G05`), the declared-but-inert `peer_basis` (`G12`).
+*Governed behavior this delivery does not yet exercise* (SDK guarantees the memo has
+not put under test): the policy-version tolerance default and its date boundary
+(`G07`, `G25`), the refusal's governing decomposition at the disclosure floor (`G13`),
+policy-before-similarity on the memo's own trace (`G06`), the mixing floors (`G21`),
+the empty-`sic` guard (`G24`), the empty-operator guard (`G01`), passage
+resolvability (`G09`), determinism across independent processes beyond the bounded
+in-session repeat (`G15`), TRAP 1a (`G16`). None is marked passed; none is deleted.
+
+The request contract is aligned with what is implemented: `memo_type` admits
+`annual-review` only (`argument_domains`); the other three templates §B.2 plans are
+refused `not-in-domain` rather than carried as a label that selected nothing.
+
 ### 0.1 The governing question
 
 > **Can a product report the shortfall in its own evidence — and can it still

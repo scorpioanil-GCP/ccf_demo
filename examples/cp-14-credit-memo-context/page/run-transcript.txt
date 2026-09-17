@@ -3,7 +3,7 @@ question    : 2549001IGRCG4F0RLD36 at 2026-09-07T12:00:00+00:00 (as_of 2026-09-0
 outcome     : REFUSED kind=composite-child-refusal reason=child_admission
 disclosed   : a required child Context Product did not pass admission into this composition
 retained    : the child's own door refused: tolerance-exceeded (tolerance-exceeded: fulfillment was withheld because an applicable declared tolerance was exceeded)
-record      : 8a05aea9ae9d7929f0d2188d95dde31952e86375470b23dde5ecaabbfd15c6ad
+record      : 4f93010f1c3b3de6fd40d5395f157d025b9aa83bed7be59f7d20f7003caff936
 child rows  : 5
   - credit-risk.spread                       ineligible               producer=cp-03-canonical-obligor-financial-spread-egress tenant=cp-03-canonical-demo question=yes child=-
   - reference.corporate-family               admitted                 producer=cp-04-canonical-corporate-family-tree-egress tenant=cp-04-canonical-demo question=yes child=d1af4d212313f4e41340a8b023edf1c7eb99e4d96ae50c5c7550e845bcf656a2
@@ -13,16 +13,17 @@ child rows  : 5
 
 $ make -s example-cp-14 DEBT_TOLERANCE=--debt-tolerance=1.0
 question    : 2549001IGRCG4F0RLD36 at 2026-09-07T12:00:00+00:00 (as_of 2026-09-07T12:00:00+00:00), tolerance 1.0
-outcome     : SERVED  content address c115f37849559e43ceb98190f1cd1841567da4c2a47c503d8d2a90963a439a50
+outcome     : SERVED  product address 4f40ae4d692aee155a259fd119704f76583bba5114a518b7428c84babe2237d1
+              record address  331d3041d418adce593d48e2fb346c79d548dbc68e8a5b9c43237217f1447f20
 memo        : credit-risk.credit-memo-context@1.0.0  D_c=1.000000000000000000000000000  signal=fail_closed  expires 2026-09-07T16:00:00+00:00
               F=0E-18  C=0.2000  S=0.8333333333333333333333333333
 obligor     : BGC Group, Inc. (2549001IGRCG4F0RLD36)  sic=6200  memo_type=annual-review
-  § credit-risk.collateral-coverage          child=e56338ca2c1d00ff…  facility=FAC-5B8418  commitment=40000000  coverage_ratio=5.497249422375  collateral_after_haircuts=219889976.895  setoff_value=210518930.52  shortfall=0  assets=1
+  § credit-risk.collateral-coverage          child=e56338ca2c1d00ff…  facility=FAC-5B8418  commitment=40000000  coverage_ratio=5.497249422375  collateral_after_haircuts=9371046.375  setoff_value=210518930.52  total_coverage=219889976.895  shortfall=0  assets=1
   § credit-risk.covenant-cross-reference     child=8a5a1ab82b7e55c9…  sources=2  chain_nodes=10  checked_citations=2  explained_absences=8  documents_in_force=36
   § credit-risk.exposure-rollup              child=ffe5dd8fe77c717f…  limit_regime=limit_definition/internal-appetite  family_entities=88  gross_committed=24336505256  adjusted_committed=24336505256  materiality=0.05  material_entities=2  guarantee_paths_deduplicated=0
-  § credit-risk.spread                       child=122e0a7b0b96565e…  periods=13  latest_period_end=2026-06-30  basis_applied=NOT_EVALUABLE
+  § credit-risk.spread                       child=122e0a7b0b96565e…  periods=13  latest_filed_in_payload=2026-08-10  basis_applied=as-reported
   § reference.corporate-family               child=d1af4d212313f4e4…  depth_served=3  entities=17  relationships=66  resolved=17  ownership_circuits=15
-record      : c115f37849559e43ceb98190f1cd1841567da4c2a47c503d8d2a90963a439a50
+record      : 331d3041d418adce593d48e2fb346c79d548dbc68e8a5b9c43237217f1447f20
 child rows  : 5
   - credit-risk.spread                       admitted                 producer=cp-03-canonical-obligor-financial-spread-egress tenant=cp-03-canonical-demo question=yes child=122e0a7b0b96565eac64af7cf2fbd0d5238c46529c1914b638b237187cd1c21e
   - reference.corporate-family               admitted                 producer=cp-04-canonical-corporate-family-tree-egress tenant=cp-04-canonical-demo question=yes child=d1af4d212313f4e41340a8b023edf1c7eb99e4d96ae50c5c7550e845bcf656a2

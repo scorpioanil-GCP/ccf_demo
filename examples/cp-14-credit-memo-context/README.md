@@ -10,13 +10,21 @@ one frozen specimen behind a wrapper door, one canonical producer — answer fiv
 questions over the SDK's standard door; the memo composes what they served and rebuilds
 none of it.
 
+> **Scope of this delivery.** It proves five-provider acquisition, admitted-content
+> composition, governed refusal, and reconstruction. It does not complete the full
+> memo-assembly specification: twelve of `CP-SPEC-014`'s twenty-nine gates are executed
+> here; the seventeen that name the memo's own unbuilt logic stay planned obligations of
+> that contract (spec §0.0a, `FINDINGS.md` `CP14-F-37`). `memo_type` admits the one
+> implemented mode, `annual-review`.
+
 ## What this demonstrates
 
 **Both outcomes, neither promised.** At the memo's governed tolerance (0.25, the v2
 policy's default at the CP-14 instant) three producers WITHHOLD — the spread, the
 exposure roll-up and the covenant cross-reference each measure a Context Debt above
 it — the family and the collateral are admitted, and the composite refuses on its
-required slots with all five rows persisted and every producer's reason retained. At
+required slots with all five rows persisted and the first blocking producer's reason
+retained (the other withheld rows carry the admission verdict, `D-IMPL-342`). At
 the labeled diagnostic tolerance (1.0) all five children are admitted under
 `provider-controls` and the memo is SERVED: `D_c` 1.0 `fail_closed`, because inherited
 debt is the per-factor minimum and the exposure child's freshness is zero against a
@@ -30,11 +38,16 @@ ledger's anchors (`CP14-F-28`) — and the mapping reads exactly that and nothin
 the anchor. The other four questions are the memo's subject, its facility and its
 tolerance, mapped once in `deployment.py`.
 
-**Composition is from the admitted contracts, and provably so.** Each memo section
-records the content address it was composed from, and that address equals the address
-the admission row retained — five for five. A controlled variant that asks the
-collateral child a different question moves the collateral section and the memo's
-address and nothing else. With every producer process exited, replay rebuilds the memo
+**Composition is from the admitted contracts, and read correctly — provably so.** Each
+memo section records the content address it was composed from, and that address equals
+the address the admission row retained — five for five. Every printed field names the
+child member it is (`projection.SECTION_FIELDS`) and an independent test holds each to
+the retained child: the collateral figure is the child's collateral after haircuts,
+with set-off and total kept apart; the spread's basis is the member the producer
+serves. A controlled variant that asks the collateral child a different question moves
+the collateral section and the memo's address and nothing else. The product's content
+address and the replay record's address are two identities, printed separately, and
+the record names the product it served. With every producer process exited, replay rebuilds the memo
 from the retained contracts and reproduces its bytes; the governed refusal reconstructs
 along its recorded path with the admitted children's evidence intact.
 
@@ -71,16 +84,18 @@ asks, admits and composes. The consumer constructs none of that machinery.
 ### 1. The governed question refuses honestly
 
 Three producers withhold at 0.25. The composite refuses `composite-child-refusal`; the
-disclosed envelope stays minimal; the record retains `tolerance-exceeded` for each
-withheld slot and the admitted family and collateral contracts by address and by bytes.
+disclosed envelope stays minimal; the record retains the first blocking producer's
+`tolerance-exceeded` and identity, the admission verdict on every withheld row, and the
+admitted family and collateral contracts by address and by bytes.
 
 ### 2. The diagnostic serves, and says what it is
 
 At 1.0 the memo serves five sections read off five admitted payloads by name — the
 spread's periods, the family's entities and circuits, the exposure's regime and
-totals, the collateral's coverage, the covenant's checked citations — and inherits
-the worst factor per axis: freshness from the exposure child, completeness from the
-covenant child. It expires with its stalest child.
+totals, the collateral's coverage with collateral and set-off apart, the covenant's
+checked citations — and inherits the worst factor per axis: freshness from the exposure
+child, completeness from the covenant child. It expires with its stalest child. Asked a
+second time against unchanged inputs it yields the same product address.
 
 ### 3. Reconstruction without the providers
 
@@ -116,7 +131,8 @@ registered identity), §9 (probes, not repair targets; both outcomes demonstrate
 
 `producers:` in `ccf_config.yaml` to point a slot at another producer of the same class
 — the lane floor and the identity are the only things the consumer holds it to.
-`deployment.py::MemoQuestions` to ask a slot a different question. Nothing in
+`deployment.py::MemoQuestions` to ask a slot a different question;
+`projection.py::SECTION_FIELDS` to print another member a child serves. Nothing in
 `produce.py` is yours.
 
 ## What would fail
@@ -126,4 +142,6 @@ a section from a store re-query instead of the admitted contract (`CMC-G28`); re
 pledge, an ownership record or a financial fact in the consumer's own leg (`CMC-G27`);
 construct the child resolver or the admission gate by hand (`CMC-G23`); wrap a withheld
 child as a served empty section (`CMC-G18`); resolve a child from its producer during
-replay (`CMC-G29`).
+replay (`CMC-G29`); print a child's `coverage.total` as collateral, or read a member
+where the producer does not put it (the field-mapping control); label the record's
+address as the product's (the identity control).

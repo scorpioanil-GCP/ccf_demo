@@ -53,6 +53,8 @@ from ccf.products.composition import compose_expiry, compose_lineage
 from ccf.products.contract import ChildRequirement, ContextProductContract, MaxTTL, ProductLineage
 from ccf.products.product import open_product
 from ccf.products.refusal import RefusalEnvelope
+from ccf.halflife.assessment import DebtFactors
+from ccf.halflife.debt import compose_debt_factors, context_debt
 from ccf.products.request import ProductRequest
 from ccf.replay.record import NO_FABRIC_READ, DecisionReplayRecord
 from ccf.replay.serve import ServedProduct
@@ -196,7 +198,11 @@ def both(modules: tuple[Any, Any], estate: None, tmp_path_factory: pytest.TempPa
     process has exited by the time any test reads the results."""
     scratch = tmp_path_factory.mktemp("slice4")
     with five_doors(estate) as environ:
-        return {tolerance: _ask(modules, scratch / tolerance, environ=environ, tolerance=tolerance) for tolerance in (DIAGNOSTIC, GOVERNED)}
+        asked = {tolerance: _ask(modules, scratch / tolerance, environ=environ, tolerance=tolerance) for tolerance in (DIAGNOSTIC, GOVERNED)}
+        # A BOUNDED REPEAT of the diagnostic against unchanged inputs — a second
+        # independent ask, distinct from replay — for the determinism control.
+        asked["repeat"] = _ask(modules, scratch / "repeat", environ=environ, tolerance=DIAGNOSTIC)
+        return asked
 
 
 # --- both outcomes, measured ------------------------------------------------------------
@@ -204,10 +210,11 @@ def both(modules: tuple[Any, Any], estate: None, tmp_path_factory: pytest.TempPa
 
 def test_the_governed_question_withholds_where_producers_withhold_and_refuses_the_composite(both: dict[str, Any]) -> None:
     """At the memo's own tolerance every producer whose measured debt exceeds it
-    withholds (`ineligible`, the producer's reason retained); every child that
-    serves under it is admitted; the composite refuses on its required slots
-    with all five rows persisted — the refusal path, and only that, is proven
-    here (spec §D.3 scenario 8).
+    withholds (`ineligible`); every child that serves under it is admitted; the
+    composite refuses on its required slots with all five rows persisted and the
+    FIRST blocking producer's own reason retained — the other withheld rows carry
+    the admission verdict only (`D-IMPL-342`, open). The refusal path, and only
+    that, is proven here (spec §D.3 scenario 8).
 
     Declared product gate `CMC-G18` (`CP-SPEC-014` §D.5).
     Declared product gate `CMC-G22` (`CP-SPEC-014` §D.5).
@@ -223,8 +230,18 @@ def test_the_governed_question_withholds_where_producers_withhold_and_refuses_th
     assert withheld and admitted, "the governed question must show both a withholding producer and an admitted one on this estate"
     for product_class in admitted:
         _retained(opened, rows[product_class].child_content_address)
-    retained = json.loads(record.content_generation_path.assembly_refusal)["detail"]
-    assert "tolerance-exceeded" in retained and "producer-unavailable" not in retained and "no-producing-skill" not in retained, retained
+    # WHAT IS RETAINED, EXACTLY: the composite's refusal names the FIRST
+    # blocking child and carries that producer's own reason and identity; every
+    # other withheld row carries the admission verdict `ineligible` and NOT its
+    # producer's reason — that per-row reason is `D-IMPL-342`'s open item and is
+    # not repaired here.
+    refusal = json.loads(record.content_generation_path.assembly_refusal)
+    assert "tolerance-exceeded" in refusal["detail"] and "producer-unavailable" not in refusal["detail"] and "no-producing-skill" not in refusal["detail"], refusal["detail"]
+    named = json.loads(refusal["fields"]["product_class"])
+    assert named in withheld and json.loads(refusal["fields"]["producer_id"]) == PRODUCERS[named][0]
+    for product_class in withheld:
+        assert rows[product_class].refusal_ref == "ineligible", (product_class, rows[product_class].refusal_ref)
+        assert rows[product_class].child_replay_ref is None
     assert "tolerance-exceeded" not in outcome.detail, "the disclosed envelope stays minimal (CMC-G26)"
     for product_class, row in rows.items():
         assert (row.producer_id, row.producer_tenant) == PRODUCERS[product_class], (product_class, row.producer_id, row.producer_tenant)
@@ -244,15 +261,15 @@ def test_the_diagnostic_admits_every_child_that_serves_and_the_composite_outcome
         child = _retained(opened, row.child_content_address)
         assert child.tenant_id == PRODUCERS[product_class][1] and child.temporal_boundary == CP14_INSTANT
     assert isinstance(outcome, ServedProduct), (type(outcome).__name__, getattr(outcome, "kind", None), getattr(outcome, "detail", None))
+    # TWO IDENTITIES, held apart: the PRODUCT's content address is the hash of
+    # the served contract and is what the persisted record names as the product
+    # it served; the RECORD's address is where the replay record landed.
+    product_address = content_hash(outcome.product)
+    assert product_address == record.content_generation_path.product_content_address
+    assert product_address != outcome.replay_ref.content_address
     sections = outcome.product.payload["sections"]
     assert sorted(sections) == sorted(CHILD_CLASSES)
-    assert isinstance(sections[EXPOSURE]["summary"]["gross_committed"], int) and sections[EXPOSURE]["summary"]["gross_committed"] > 0
-    assert Decimal(sections[COLLATERAL]["summary"]["coverage_ratio"]) > 0 and sections[COLLATERAL]["summary"]["facility"] == BGC_FACILITY
-    covenant = _retained(opened, rows[COVENANT].child_content_address)
-    assert sections[COVENANT]["summary"]["checked_citations"] == covenant.payload["citation_summary"]["checked_citations"] > 0
-    assert sections[COVENANT]["summary"]["chain_nodes"] == covenant.payload["citation_summary"]["chain_nodes"] > 0
-    assert sections[FAMILY]["summary"]["entities"] > 1
-    assert sections[SPREAD]["summary"]["periods"] > 0
+    assert sections[COLLATERAL]["summary"]["facility"] == BGC_FACILITY
 
 
 def test_acquisition_and_composition_use_the_same_admitted_child_contracts(both: dict[str, Any]) -> None:
@@ -282,9 +299,11 @@ def test_acquisition_and_composition_use_the_same_admitted_child_contracts(both:
 
 def test_inherited_debt_is_the_per_factor_minimum_across_children_weak_on_different_factors(both: dict[str, Any]) -> None:
     """Two children weak on DIFFERENT factors — the exposure child on freshness,
-    the covenant child on completeness — so the per-factor minimum and the
-    scalar maximum of child debts disagree, and the memo carries the minimum
-    per factor.
+    the covenant child on completeness — and the memo carries the minimum per
+    factor: PER-FACTOR PROPAGATION, on the real children. It does NOT show the
+    scalar counterexample on this estate: the exposure child already sits at
+    `D_c` 1, so `max(child D_c)` and the composed scalar coincide here; that
+    separate claim is held by the isolated control below.
 
     Declared product gate `CMC-G19` (`CP-SPEC-014` §D.5).
     """
@@ -305,6 +324,137 @@ def test_inherited_debt_is_the_per_factor_minimum_across_children_weak_on_differ
     assert Decimal(str(memo.freshness)) == min(Decimal(str(c.debt.factors.freshness)) for c in children)
     assert Decimal(str(memo.completeness)) == min(Decimal(str(c.debt.factors.completeness)) for c in children)
     assert Decimal(str(memo.semantic_consistency)) == min(Decimal(str(c.debt.factors.semantic_consistency)) for c in children)
+
+
+#: THE TEST'S OWN READING of what each printed field means — deliberately a
+#: second copy of the projection's table, so a wrong lookup in the projection
+#: cannot make the test agree with it. Each entry: the child member's path and
+#: the one stated transformation (`value` as served, `count` of a served list).
+EXPECTED_FIELDS: dict[str, dict[str, tuple[tuple[str, ...], str]]] = {
+    SPREAD: {
+        "periods": (("periods",), "count"),
+        "latest_filed_in_payload": (("latest_filed_in_payload",), "value"),
+        "basis_applied": (("basis_applied",), "value"),
+    },
+    FAMILY: {
+        "depth_served": (("depth_served",), "value"), "entities": (("node_count",), "value"),
+        "relationships": (("relationship_count",), "value"), "resolved": (("resolved_count",), "value"),
+        "ownership_circuits": (("findings", "cycles_found"), "value"),
+    },
+    EXPOSURE: {
+        "limit_regime": (("policy_version",), "value"), "family_entities": (("family", "nodes"), "value"),
+        "gross_committed": (("measures", "gross", "committed"), "value"), "adjusted_committed": (("measures", "adjusted", "committed"), "value"),
+        "materiality": (("threshold",), "value"), "material_entities": (("material",), "count"),
+        "guarantee_paths_deduplicated": (("guarantee_dedup", "cases"), "value"),
+    },
+    COLLATERAL: {
+        "facility": (("facility",), "value"), "commitment": (("commitment",), "value"),
+        "coverage_ratio": (("coverage", "coverage_ratio"), "value"),
+        "collateral_after_haircuts": (("coverage", "collateral_value"), "value"),
+        "setoff_value": (("coverage", "setoff_value"), "value"), "total_coverage": (("coverage", "total"), "value"),
+        "shortfall": (("coverage", "shortfall"), "value"), "assets": (("assets",), "count"),
+    },
+    COVENANT: {
+        "sources": (("traversal", "sources"), "value"), "chain_nodes": (("citation_summary", "chain_nodes"), "value"),
+        "checked_citations": (("citation_summary", "checked_citations"), "value"),
+        "explained_absences": (("citation_summary", "not_evidenced_total"), "value"),
+        "documents_in_force": (("governing_text", "documents_in_force"), "value"),
+    },
+}
+NOT_EVALUABLE = "NOT_EVALUABLE"
+
+
+def _walk(payload: Any, path: tuple[str, ...]) -> Any:
+    node = payload
+    for key in path:
+        if not isinstance(node, dict) or key not in node:
+            return None
+        node = node[key]
+    return node
+
+
+def test_every_summary_field_reads_the_declared_child_member(both: dict[str, Any]) -> None:
+    """Every printed field of every section equals the member of the RETAINED
+    child contract this test independently declares for it, or the one stated
+    transformation of it — presence, positivity and matching addresses are not
+    enough. The two delivered defects are held by construction: the collateral
+    figure must be the child's `coverage.collateral_value` on a child whose
+    set-off is non-zero (so its `coverage.total` is a DIFFERENT number), and the
+    spread's `basis_applied` must be the child's top-level member (its `obligor`
+    block carries none, so the wrong lookup would print `NOT_EVALUABLE`). A
+    member a child legitimately does not carry may print `NOT_EVALUABLE`; a
+    wrong consumer lookup must never become one."""
+    opened, outcome, record = both[DIAGNOSTIC]
+    assert isinstance(outcome, ServedProduct)
+    rows = _rows(record)
+    sections = outcome.product.payload["sections"]
+    for product_class, expected in EXPECTED_FIELDS.items():
+        child = _retained(opened, rows[product_class].child_content_address)
+        summary = sections[product_class]["summary"]
+        assert set(summary) == set(expected), (product_class, sorted(summary), sorted(expected))
+        for name, (path, transform) in expected.items():
+            member = _walk(child.payload, path)
+            if member is None:
+                assert summary[name] == NOT_EVALUABLE, (product_class, name, "the child carries no such member")
+                continue
+            wanted = len(member) if transform == "count" else member
+            assert summary[name] == wanted, (product_class, name, summary[name], wanted)
+    collateral = _retained(opened, rows[COLLATERAL].child_content_address).payload["coverage"]
+    assert Decimal(collateral["setoff_value"]) > 0, "the non-vacuity precondition: a child with set-off, so total and collateral differ"
+    assert Decimal(collateral["total"]) != Decimal(collateral["collateral_value"])
+    spread = _retained(opened, rows[SPREAD].child_content_address).payload
+    assert spread["basis_applied"] != NOT_EVALUABLE and "basis_applied" not in spread["obligor"]
+    assert sections[SPREAD]["summary"]["basis_applied"] == spread["basis_applied"]
+
+
+def test_the_same_diagnostic_question_yields_one_product_address_twice(both: dict[str, Any]) -> None:
+    """A bounded repeat, distinct from replay: the diagnostic asked a second
+    time against unchanged inputs in a second opened product yields the same
+    five child addresses and the same product address."""
+    _o1, first, r1 = both[DIAGNOSTIC]
+    _o2, second, r2 = both["repeat"]
+    assert isinstance(first, ServedProduct) and isinstance(second, ServedProduct)
+    assert {c: r.child_content_address for c, r in _rows(r1).items()} == {c: r.child_content_address for c, r in _rows(r2).items()}
+    assert content_hash(first.product) == content_hash(second.product)
+    assert r1.content_generation_path.product_content_address == r2.content_generation_path.product_content_address
+
+
+def test_the_per_factor_minimum_differs_from_the_scalar_maximum_on_an_isolated_control() -> None:
+    """The SEPARATE claim the estate cannot show: on this estate the exposure
+    child already sits at `D_c` 1, so the per-factor minimum and `max(child D_c)`
+    coincide as scalars even though the factor vectors differ. This isolated
+    control — no estate, no tuning — composes two children weak on DIFFERENT
+    factors through the SDK's own combinator and shows the two scalars part."""
+    own = DebtFactors(freshness=Decimal(1), completeness=Decimal(1), semantic_consistency=Decimal(1))
+    weak_on_freshness = DebtFactors(freshness=Decimal("0.5"), completeness=Decimal(1), semantic_consistency=Decimal(1))
+    weak_on_completeness = DebtFactors(freshness=Decimal(1), completeness=Decimal("0.5"), semantic_consistency=Decimal(1))
+    composed = compose_debt_factors(own, [weak_on_freshness, weak_on_completeness])
+    assert (composed.freshness, composed.completeness, composed.semantic_consistency) == (Decimal("0.5"), Decimal("0.5"), Decimal(1))
+    scalar_maximum = max(context_debt(weak_on_freshness), context_debt(weak_on_completeness))
+    assert context_debt(composed) > scalar_maximum
+
+
+def test_a_memo_type_outside_the_implemented_domain_is_refused(modules: tuple[Any, Any], estate: None, tmp_path: pathlib.Path) -> None:
+    """This scoped delivery implements `annual-review` only; the spec's other
+    templates are planned, not selected. A request naming one is refused by the
+    declared domain before any producer is asked."""
+    produce, deployment = modules
+    environ = {
+        "CCF_CP_14_POSTGRES_DSN": os.environ["CCF_CP_14_POSTGRES_DSN"], "CCF_CP_14_POSTGRES_SCHEMA": os.environ["CCF_CP_14_POSTGRES_SCHEMA"],
+        "CCF_CP_14_FLUREE_URL": os.environ["CCF_CP_14_FLUREE_URL"], "CCF_CP_14_FLUREE_LEDGER": os.environ["CCF_CP_14_FLUREE_LEDGER"],
+        **{f"CCF_CP14_{name}_URL": "http://127.0.0.1:1/mcp" for name in ("SPREAD", "FAMILY", "EXPOSURE", "COLLATERAL", "COVENANT")},
+        **{f"CCF_CP14_{name}_TOKEN": "no-door" for name in ("SPREAD", "FAMILY", "EXPOSURE", "COLLATERAL", "COVENANT")},
+    }
+    with produce.product(tmp_path, environ=environ) as opened:
+        asked = opened.question(
+            subject=BGC, asked_at=CP14_INSTANT, intent="annual-review", freshness="decision-scoped",
+            parameters={deployment.AS_OF: CP14_INSTANT.isoformat(), deployment.DEBT_TOLERANCE: Decimal(DIAGNOSTIC), deployment.FACILITY_ID: BGC_FACILITY, deployment.MEMO_TYPE: "workout"},
+        )
+        refused = opened.answer(asked)
+        assert isinstance(refused, RefusalEnvelope), refused
+        record = opened.record_of(refused)
+    assert refused.reason == "not-in-domain" and refused.replay_reference
+    assert record.content_generation_path.child_resolutions == (), "a producer was asked before the request was judged"
 
 
 # --- the content-composition proof (a controlled variant) --------------------------------
@@ -351,6 +501,8 @@ def test_a_meaningful_child_content_change_changes_the_corresponding_parent_fiel
     base_rows = _rows(record)
     base_sections, variant_sections = baseline.product.payload["sections"], outcome.product.payload["sections"]
     assert Decimal(variant_sections[COLLATERAL]["summary"]["coverage_ratio"]) > Decimal(base_sections[COLLATERAL]["summary"]["coverage_ratio"])
+    assert Decimal(variant_sections[COLLATERAL]["summary"]["collateral_after_haircuts"]) > Decimal(base_sections[COLLATERAL]["summary"]["collateral_after_haircuts"])
+    assert variant_sections[COLLATERAL]["summary"]["setoff_value"] == base_sections[COLLATERAL]["summary"]["setoff_value"]
     assert variant_sections[COLLATERAL]["child_content_address"] != base_sections[COLLATERAL]["child_content_address"]
     assert variant_rows[COLLATERAL].child_content_address == variant_sections[COLLATERAL]["child_content_address"]
     for product_class in (SPREAD, FAMILY, EXPOSURE, COVENANT):

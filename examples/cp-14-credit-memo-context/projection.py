@@ -37,64 +37,94 @@ CLASS_OBLIGOR = "obligor"
 NOT_EVALUABLE = "NOT_EVALUABLE"
 
 
-def _summary(product_class: str, contract: ContextProductContract) -> dict[str, Any]:
-    """What the child said, read off ITS payload — never re-derived, never rebuilt.
+#: WHAT EACH SECTION PRINTS, AND WHICH MEMBER OF THE CHILD'S OWN PAYLOAD IT IS.
+#:
+#: One row per printed field: the path into the child's payload and the ONE
+#: transformation applied — `value` (the member as served) or `count` (the
+#: length of a served list). Nothing is computed from the child's figures:
+#: a coverage ratio is the ratio the collateral producer served, and
+#: `collateral_after_haircuts` is that producer's `coverage.collateral_value`,
+#: NEVER its `coverage.total` (which is collateral plus set-off — the
+#: distinction that product exists to preserve; corrected 2026-09-17 after the
+#: delivered result mislabeled the total). A member the child legitimately
+#: does not carry prints `NOT_EVALUABLE`; a wrong lookup here would print the
+#: same word, which is why `tests/examples/test_cp_14_fourth_slice.py` holds
+#: every row of this table to the retained child contract independently.
+SECTION_FIELDS: Mapping[str, Mapping[str, tuple[tuple[str, ...], str]]] = {
+    "credit-risk.spread": {
+        "periods": (("periods",), "count"),
+        "latest_filed_in_payload": (("latest_filed_in_payload",), "value"),
+        "basis_applied": (("basis_applied",), "value"),
+    },
+    "reference.corporate-family": {
+        "depth_served": (("depth_served",), "value"),
+        "entities": (("node_count",), "value"),
+        "relationships": (("relationship_count",), "value"),
+        "resolved": (("resolved_count",), "value"),
+        "ownership_circuits": (("findings", "cycles_found"), "value"),
+    },
+    "credit-risk.exposure-rollup": {
+        "limit_regime": (("policy_version",), "value"),
+        "family_entities": (("family", "nodes"), "value"),
+        "gross_committed": (("measures", "gross", "committed"), "value"),
+        "adjusted_committed": (("measures", "adjusted", "committed"), "value"),
+        "materiality": (("threshold",), "value"),
+        "material_entities": (("material",), "count"),
+        "guarantee_paths_deduplicated": (("guarantee_dedup", "cases"), "value"),
+    },
+    "credit-risk.collateral-coverage": {
+        "facility": (("facility",), "value"),
+        "commitment": (("commitment",), "value"),
+        "coverage_ratio": (("coverage", "coverage_ratio"), "value"),
+        "collateral_after_haircuts": (("coverage", "collateral_value"), "value"),
+        "setoff_value": (("coverage", "setoff_value"), "value"),
+        "total_coverage": (("coverage", "total"), "value"),
+        "shortfall": (("coverage", "shortfall"), "value"),
+        "assets": (("assets",), "count"),
+    },
+    "credit-risk.covenant-cross-reference": {
+        "sources": (("traversal", "sources"), "value"),
+        "chain_nodes": (("citation_summary", "chain_nodes"), "value"),
+        "checked_citations": (("citation_summary", "checked_citations"), "value"),
+        "explained_absences": (("citation_summary", "not_evidenced_total"), "value"),
+        "documents_in_force": (("governing_text", "documents_in_force"), "value"),
+    },
+}
 
-    One block per class, each a handful of the child's own served members
-    restated by name (`CMC-G27`): the memo prints what the producer
-    determined and computes nothing the producer computed. A class this
-    consumer has no reading for lists the child's payload members, so a
-    later revision can see what it left unread.
+_ABSENT = object()
+
+
+def _member(payload: Mapping[str, Any], path: tuple[str, ...]) -> Any:
+    """The member at `path`, or `_ABSENT` — never a default the child did not serve."""
+    node: Any = payload
+    for key in path:
+        if not isinstance(node, Mapping) or key not in node:
+            return _ABSENT
+        node = node[key]
+    return node
+
+
+def _summary(product_class: str, contract: ContextProductContract) -> dict[str, Any]:
+    """What the child said, read off ITS payload by the table above — never re-derived.
+
+    A member the child does not carry prints `NOT_EVALUABLE`. A class this
+    consumer has no table for lists the child's payload members, so a later
+    revision can see what it left unread.
     """
     payload = contract.payload
-    if product_class == "credit-risk.spread":
-        periods = payload.get("periods") or []
-        return {
-            "periods": len(periods),
-            "latest_period_end": max((str(p.get("period_end", "")) for p in periods), default=NOT_EVALUABLE),
-            "basis_applied": str((payload.get("obligor") or {}).get("basis_applied", NOT_EVALUABLE)),
-        }
-    if product_class == "reference.corporate-family":
-        findings = payload.get("findings") or {}
-        return {
-            "depth_served": payload.get("depth_served", NOT_EVALUABLE),
-            "entities": payload.get("node_count", NOT_EVALUABLE),
-            "relationships": payload.get("relationship_count", NOT_EVALUABLE),
-            "resolved": payload.get("resolved_count", NOT_EVALUABLE),
-            "ownership_circuits": findings.get("cycles_found", NOT_EVALUABLE),
-        }
-    if product_class == "credit-risk.exposure-rollup":
-        measures = payload.get("measures") or {}
-        return {
-            "limit_regime": payload.get("policy_version", NOT_EVALUABLE),
-            "family_entities": (payload.get("family") or {}).get("nodes", NOT_EVALUABLE),
-            "gross_committed": (measures.get("gross") or {}).get("committed", NOT_EVALUABLE),
-            "adjusted_committed": (measures.get("adjusted") or {}).get("committed", NOT_EVALUABLE),
-            "materiality": payload.get("threshold", NOT_EVALUABLE),
-            "material_entities": len(payload.get("material") or []),
-            "guarantee_paths_deduplicated": (payload.get("guarantee_dedup") or {}).get("cases", NOT_EVALUABLE),
-        }
-    if product_class == "credit-risk.collateral-coverage":
-        coverage = payload.get("coverage") or {}
-        return {
-            "facility": payload.get("facility", NOT_EVALUABLE),
-            "commitment": payload.get("commitment", NOT_EVALUABLE),
-            "coverage_ratio": coverage.get("coverage_ratio", NOT_EVALUABLE),
-            "collateral_after_haircuts": coverage.get("total", NOT_EVALUABLE),
-            "setoff_value": coverage.get("setoff_value", NOT_EVALUABLE),
-            "shortfall": coverage.get("shortfall", NOT_EVALUABLE),
-            "assets": len(payload.get("assets") or []),
-        }
-    if product_class == "credit-risk.covenant-cross-reference":
-        summary = payload.get("citation_summary") or {}
-        return {
-            "sources": (payload.get("traversal") or {}).get("sources", NOT_EVALUABLE),
-            "chain_nodes": summary.get("chain_nodes", NOT_EVALUABLE),
-            "checked_citations": summary.get("checked_citations", NOT_EVALUABLE),
-            "explained_absences": summary.get("not_evidenced_total", NOT_EVALUABLE),
-            "documents_in_force": (payload.get("governing_text") or {}).get("documents_in_force", NOT_EVALUABLE),
-        }
-    return {"payload_members": sorted(str(key) for key in payload)}
+    fields = SECTION_FIELDS.get(product_class)
+    if fields is None:
+        return {"payload_members": sorted(str(key) for key in payload)}
+    out: dict[str, Any] = {}
+    for name, (path, transform) in fields.items():
+        member = _member(payload, path)
+        if member is _ABSENT:
+            out[name] = NOT_EVALUABLE
+        elif transform == "count":
+            out[name] = len(member) if isinstance(member, (list, tuple)) else NOT_EVALUABLE
+        else:
+            out[name] = member
+    return out
 
 
 class CreditMemoContextProjection:

@@ -40,3 +40,15 @@ none).
 (cp-13-canonical 26, the exposure door 10, the four CP-14 slices 23), the roster
 checker, lint, the docs gates and the page rebuilt; the results are in the review
 package and the commits that follow `c80d7815`.
+
+## Addendum — Dave's inspection of `5c1e3abd` (2026-09-17)
+
+Not a panel round. Dave's own reading of the delivered result found three defects the
+panel had not: two consumer misreadings of supplied child facts (the collateral total
+printed as collateral after haircuts; the spread's basis looked up where the producer
+does not put it) and one mislabeled identity (the record's address printed as the
+product's). All three are corrected and held by construction; the record is in
+`docs/DECISIONS.md` under the correction pass and in `examples/cp-14-credit-memo-context/FINDINGS.md`
+(`CP14-F-39`, `F-40`). The lesson the panel brief will carry forward: a field-by-field
+mapping check against the retained child is a category of its own, separate from
+address equality.

@@ -37,6 +37,7 @@ from pathlib import Path
 import deployment
 import produce
 from ccf.artifacts.file_store import FileArtifactStore
+from ccf.contracts.canonical import content_hash
 from ccf.products.refusal import RefusalEnvelope
 from ccf.replay.record import DecisionReplayRecord
 from ccf.replay.serve import ServedProduct
@@ -94,7 +95,14 @@ def main(argv: list[str]) -> int:
     print(f"question    : {parsed.lei} at {parsed.asked_at} (as_of {parameters[deployment.AS_OF]}), tolerance {parsed.debt_tolerance}")
     if isinstance(outcome, ServedProduct):
         product = outcome.product
-        print(f"outcome     : SERVED  content address {outcome.replay_ref.content_address}")
+        # TWO IDENTITIES, printed separately and held to each other: the
+        # PRODUCT's content address (the hash of the served contract) and the
+        # RECORD's (where the replay record landed). The persisted record names
+        # the product it served; a mismatch here would be a reporting defect.
+        product_address = content_hash(product)
+        assert product_address == record.content_generation_path.product_content_address, "the persisted record names a different product"
+        print(f"outcome     : SERVED  product address {product_address}")
+        print(f"              record address  {outcome.replay_ref.content_address}")
         print(f"memo        : {product.schema_name}@{product.schema_version}  D_c={product.debt.debt}  signal={product.debt.signal}  expires {product.expires_at.isoformat()}")
         print(f"              F={product.debt.factors.freshness}  C={product.debt.factors.completeness}  S={product.debt.factors.semantic_consistency}")
         payload = product.payload

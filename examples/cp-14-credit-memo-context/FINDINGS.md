@@ -185,8 +185,8 @@ default:
 
 | tolerance | spread | family | exposure | collateral | covenant | composite |
 | --- | --- | --- | --- | --- | --- | --- |
-| **0.25** (governed) | withheld, `tolerance-exceeded` | admitted | withheld, `tolerance-exceeded` | admitted | withheld, `tolerance-exceeded` (D_c 0.80 on BGC's two anchors) | **refused** `composite-child-refusal`, five rows, both admitted contracts retained by bytes |
-| **1.0** (diagnostic) | admitted | admitted | admitted (D_c 1.0 `fail_closed`) | admitted | admitted | **served** `c115f378…` — D_c 1.0 `fail_closed`, F 0 (exposure), C 0.2000 (covenant), S 0.8333; expires 16:00 with the exposure child |
+| **0.25** (governed) | withheld (`ineligible`; its `tolerance-exceeded` is the reason the composite retains, as the first blocking child) | admitted | withheld (`ineligible`; the row carries the admission verdict, not the producer's reason — `D-IMPL-342`) | admitted | withheld (`ineligible`; likewise; the producer's own measure is D_c 0.80 on BGC's two anchors) | **refused** `composite-child-refusal`, five rows, both admitted contracts retained by bytes |
+| **1.0** (diagnostic) | admitted | admitted | admitted (D_c 1.0 `fail_closed`) | admitted | admitted | **served** — D_c 1.0 `fail_closed`, F 0 (exposure), C 0.2000 (covenant), S 0.8333; expires 16:00 with the exposure child; the product and record addresses are in the committed transcript, printed separately |
 
 Neither outcome was promised and nothing was tuned: the diagnostic serves BECAUSE the
 tolerance is one nobody would act on, and it serves `fail_closed`.
@@ -195,9 +195,12 @@ tolerance is one nobody would act on, and it serves `fail_closed`.
 
 | proof | evidence | source |
 | --- | --- | --- |
-| a meaningful child-content change changes the corresponding parent field | the collateral child asked without haircuts (a CONTROLLED variant, identified as such): its section's coverage ratio and address move, the memo's address moves, the other four sections and addresses do not | controlled test |
+| a meaningful child-content change changes the corresponding parent field | the collateral child asked without haircuts (a CONTROLLED variant, identified as such): its section's coverage ratio and collateral-after-haircuts move, its set-off does not, its address and the memo's address move, the other four sections and addresses do not | controlled test |
+| every printed field is the declared child member | each of the 28 section fields equals the member of the retained child the test independently declares for it, or its one stated transformation (a count); the two corrected lookups are held non-vacuously (a child with non-zero set-off; a spread whose `obligor` block carries no `basis_applied`) | the diagnostic run |
+| product identity is not record identity | the served product's content address equals the persisted record's `product_content_address` and differs from the record's own address; both are printed separately by `run.py` | the diagnostic run |
+| the same question twice yields one product | a bounded repeat of the diagnostic in a second opened product yields the same five child addresses and the same product address — distinct from replay | a second in-session ask |
 | acquisition and composition use the same admitted contracts | every section's `child_content_address` equals its admission row's; the memo's lineage is the set-union of its own operators with the five children's | the diagnostic run |
-| served reconstruction uses retained inputs without calling providers again | with every producer process exited, replay rebuilds the child view from the retained contracts, hands it to the memo's plan factory, re-executes and reproduces `c115f378…` | the diagnostic run's record |
+| served reconstruction uses retained inputs without calling providers again | with every producer process exited, replay rebuilds the child view from the retained contracts, hands it to the memo's plan factory, re-executes and reproduces the served product's address exactly | the diagnostic run's record |
 | refused reconstruction preserves the admitted-child evidence and follows the recorded path | `replay_refusal` returns exactly the two admitted addresses, consults no plan, and reports the recorded no-fabric-read path; `replay()` refuses the record by name | the governed run's record |
 
 ### Findings raised by the completion
@@ -207,30 +210,41 @@ tolerance is one nobody would act on, and it serves `fail_closed`.
 | `CP14-F-28` | **CLOSED.** The covenant question is determined from the roster's facility document keys joined to the ledger's evidence anchors; the mapping reads nothing below the anchor. BGC's one document carries two anchors and the child answered exactly those | — | closed by this slice |
 | `CP14-F-33` | **STANDS as a paved-road coverage limitation.** Exposure aggregation stays where `D-IMPL-299` put it; the slot is served through the standard door's structural hatch over the frozen low road, at the cost `door-cp-05/FINDINGS.md` measures (~80 code lines, nothing re-implemented). This producer proves nothing about the facade's support for post-traversal aggregation | 3 · post-launch, ruled | recorded; no facade change |
 | `CP14-F-34` | **The question mapping receives no source settings.** The road hands `questions(requirement, request)` the requirement and the effective request only; a mapping that must READ to determine a question (the covenant sources) has no seam for the deployment's resolved sources. Bound late: `produce.product` binds `opened.sources` onto the mapping object after open, so the settings are resolved once by the SDK from the environment document and never a second time. ~6 lines; the seam is honest but undeclared | 3 · SDK friction (§E "custom glue"); a supported path exists | recorded; backlog candidate below |
-| `CP14-F-35` | **The child question's identity is an address, not a retained artifact.** The row carries `child_question_address`; the consumer's store does not hold the question at that address, so an examiner cannot read back what was asked without re-invoking the mapping. The proof re-invokes it | 3 · post-launch enhancement | recorded |
-| `CP14-F-36` | **The served memo is `fail_closed` at every tolerance that serves it.** Inherited debt is the per-factor minimum and the exposure child's freshness is 0 against its four-hour λ_c on this estate's balances; C is 0.2 from the covenant child. Correct, and a statement about the estate: the memo cannot be served fit-to-act-on without fresher exposure balances | 4 · engineered-estate limitation | disclosed in README and summary |
-| `CP14-F-37` | **Seventeen of the spec's twenty-nine gates are not exercised.** Unbuilt product logic: `CMC-G01`, `G04`–`G16`, `G21`, `G24`, `G25` (template sections, evidence references, peer benchmarks, the policy-version tolerance, the diagnostic comparison, the suppression rule, thinness, determinism across two runs). Named, not claimed | 4 · slice scope | the roster declares only the twelve executed |
+| `CP14-F-35` | **An open SDK evidence question: the child question's identity is an address, not a retained artifact.** The row carries `child_question_address`; the consumer's store does not hold the question at that address. Reconstructing the parent from the retained child CONTRACTS is not reconstructing the exact historical child QUESTION, and re-invoking today's source-reading mapping (which the proof does) is not proof of the latter — the sources it reads could have moved. Not a convenience; not repaired here | open SDK evidence question (§B), beside `D-IMPL-342` | recorded, unrepaired |
+| `CP14-F-36` | **The served memo is `fail_closed` at every tolerance that serves it.** Inherited debt is the per-factor minimum and the exposure child's freshness is 0 against its four-hour λ_c on this estate's balances; C is 0.2 from the covenant child. Correct, and a statement about the estate: the memo cannot be served fit-to-act-on without fresher exposure balances. Because that child already sits at D_c 1, the composed scalar and `max(child D_c)` coincide here: the estate shows per-factor propagation, and the scalar counterexample is held by an isolated control (`test_the_per_factor_minimum_differs_from_the_scalar_maximum_on_an_isolated_control`), never by tuning | 4 · engineered-estate limitation | disclosed in README and summary |
+| `CP14-F-37` | **Seventeen of the spec's twenty-nine gates are not exercised — a SCOPE status, not an estate limitation and not an SDK gap.** Two kinds, kept apart (spec §0.0a): *optional memo enrichment* the consumer has not written — template sections and evidence references (`G08`, `G09`), peer benchmarks and thinness (`G10`, `G14`), the suppression rule (`G11`), the dated diagnostic comparison (`G05`), the inert `peer_basis` (`G12`); and *governed behavior not yet put under test* — the policy-version tolerance and its boundary (`G07`, `G25`), the refusal's governing decomposition (`G13`), policy-before-similarity on the memo's trace (`G06`), mixing floors (`G21`), the empty-`sic` guard (`G24`), the empty-operator guard (`G01`), TRAP 1a (`G16`), determinism across independent processes beyond the bounded in-session repeat (`G15`). Named, none marked passed, none deleted | scope (unbuilt) | the roster declares only the twelve executed |
 | `CP14-F-38` | **`CP14-F-29` stands**: the tolerance default from the policy version is stated (0.25) and not derived | 3 · post-launch | unchanged |
+| `CP14-F-39` | **Two child readings and one identity label were wrong in the delivered result (Dave, correction pass 2026-09-17).** The collateral section printed the child's `coverage.total` (collateral PLUS set-off) as `collateral_after_haircuts`; the spread section read `basis_applied` under the child's `obligor` block, where the producer does not put it, and printed `NOT_EVALUABLE` for a value the child served; `run.py` printed the replay record's address as the product's. Using the correct admitted child does not prove the parent read its fields correctly. Repaired: the section table names every field's child member and its one transformation (`projection.SECTION_FIELDS`), an independent test holds every field to the retained child, and the runner prints the product and record addresses separately and asserts the record names the product | consumer mapping defects, FIXED | the memo's payload and product address changed accordingly; the children's addresses did not |
+| `CP14-F-40` | **`memo_type` promised templates the implementation never selected.** The contract described four templates while the label was carried into the payload unread. Closed to the implemented `annual-review` through `argument_domains`; a request naming another is refused `not-in-domain` before any producer is asked | contract alignment, FIXED | the other templates stay planned obligations of the spec |
 
-**Carried, unchanged:** `D-IMPL-341` (`CP14-F-31`), `D-IMPL-342` (`CP14-F-30`),
+**Carried, unchanged, and launch-level:** `D-IMPL-341` (`CP14-F-31`), `D-IMPL-342` (`CP14-F-30`),
 `D-IMPL-304` (the exposure wrapper's pre-resolution carry, `CP05D-F-04`),
 `CP06C-F-01` (the hand-assembled replay environment — the composite variant is its fourth copy).
+"No launch blocker newly raised by this package" is the whole of the claim: the three open
+SDK items above remain open launch-level findings, and this package does not close them.
 
-### Capability not exercised
+### Accepted scope, and capability not exercised
 
-The memo's own assembly beyond the obligor's identity and the five sections: template
-sections, evidence references, peer benchmarks, the relationship summary, the
-policy-version tolerance and the dated diagnostic comparison (spec §B.1, §D.2). A served
-memo at the governed tolerance. Determinism across two independent runs of one question
-(each run here was asked once per tolerance).
+**This delivery proves five-provider acquisition, admitted-content composition, governed
+refusal, and reconstruction. It does not complete the full memo-assembly specification.**
+Not built: the memo's own assembly beyond the obligor's identity and the five sections —
+template sections, evidence references, peer benchmarks, the relationship summary, the
+policy-version tolerance and the dated diagnostic comparison (spec §B.1, §D.2; `CP14-F-37`
+keeps enrichment and untested governed behavior apart). Not shown: a served memo at the
+governed tolerance; determinism across independent PROCESSES (the bounded in-session
+repeat is shown); the scalar difference from `max(child D_c)` on this estate (held by an
+isolated control).
 
 ### Sabotage record (completion)
 
-Run by hand on the candidate after the build, restored by copy and verified with `diff -r`; one run of the nine-test completion suite each, five doors live.
+Run by hand on the candidate after the build, restored by copy and verified with `diff -r`; one run of the completion suite each (nine tests at the first delivery, thirteen after the correction pass), five doors live.
 
 | sabotage | applied to | red | green |
 | --- | --- | --- | --- |
 | S28 — the collateral section's coverage composed from a constant, not the admitted contract | `projection.py` | `CMC-G28` (the controlled variant) alone — the constant equals today's measurement, so the same-contracts proof stays green; which is why the variant exists | the other 8 |
 | S27 — a `collateral_pledge` read added to the consumer's leg | `acquisition.py` | `CMC-G27` alone | the other 8 |
 | S23 — `resolve_child_outcomes` imported into the consumer | `deployment.py` | `CMC-G23` / `G27` (one test) | the other 8 |
+| SMAP1 — the collateral figure read from the child's `coverage.total` (the delivered defect) | `projection.py` | the field-mapping control alone | the other 12 |
+| SMAP2 — the spread's basis read under the child's `obligor` block (the delivered defect) | `projection.py` | the field-mapping control alone | the other 12 |
+| S28 (rerun after the correction) — the coverage ratio read from a member the child does not carry | `projection.py` | the field-mapping control; `CMC-G28` (the variant) | the other 11 |
 | S28b — the covenant question asked with no sources (the pre-completion shape) | `deployment.py` | 6: the diagnostic serve, the same-contracts, per-factor, variant, covenant-question and served-reconstruction proofs | 3: the governed refusal, its reconstruction, the consumer's shape |

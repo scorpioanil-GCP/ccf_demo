@@ -40,13 +40,13 @@ declaration:
     sabotage: hand the plan factory a contract the walk did not admit
     observed_red: null
   - id: CMC-G18
-    statement: 'a required child withheld by its producer refuses the composite; five rows persist; the producer''s reason is retained'
+    statement: 'a required child withheld by its producer refuses the composite; five rows persist; the first blocking producer''s reason is retained, the other withheld rows carry the admission verdict (`D-IMPL-342` open)'
     spec_clause: {document: spec/CP-SPEC-014_Credit_Memo_Context.md, clause: D.5}
     test: tests/examples/test_cp_14_fourth_slice.py::test_the_governed_question_withholds_where_producers_withhold_and_refuses_the_composite
     sabotage: wrap a withheld child as a served empty product
     observed_red: null
   - id: CMC-G19
-    statement: inherited debt is the per-factor minimum across children weak on different factors, never the scalar maximum of child debts
+    statement: 'inherited debt is the per-factor minimum across children weak on different factors — per-factor propagation on the real children; the scalar difference from `max(child D_c)` is shown on an isolated control, not on this estate, where the exposure child already sits at D_c 1'
     spec_clause: {document: spec/CP-SPEC-014_Credit_Memo_Context.md, clause: D.5}
     test: tests/examples/test_cp_14_fourth_slice.py::test_inherited_debt_is_the_per_factor_minimum_across_children_weak_on_different_factors
     sabotage: replace the per-factor combinator with the scalar maximum

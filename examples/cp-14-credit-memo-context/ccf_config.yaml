@@ -86,9 +86,12 @@ request_contract:
       memo_type:
         type: string
         description: >-
-          which section template the memo is drafted against — `new-facility`,
-          `annual-review`, `amendment` or `workout` (spec §B.2). Absent takes
-          the declared default below.
+          the memo mode this delivery implements. Spec §B.2 plans four section
+          templates (`new-facility`, `annual-review`, `amendment`, `workout`);
+          THIS SCOPED DELIVERY IMPLEMENTS `annual-review` ONLY — the label is
+          carried into the payload and selects no template, so the domain
+          below admits nothing else rather than pretending a template was
+          selected. Absent takes the declared default.
       as_of:
         type: string
         description: >-
@@ -119,6 +122,11 @@ request_contract:
       - facility_id
   defaults:
     memo_type: annual-review
+  # THE IMPLEMENTED DOMAIN, closed: a request naming a planned-but-unbuilt
+  # template is refused `not-in-domain` (correction pass, 2026-09-17).
+  argument_domains:
+    memo_type:
+      members: [annual-review]
 
 # The obligor as fabric state: identity from the GLEIF record on the estate,
 # admitted when the LEI is on the memo roster (`memo_context_debt` ⋈

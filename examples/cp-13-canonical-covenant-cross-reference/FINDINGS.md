@@ -52,7 +52,7 @@ specimen kept in code or did not make.
 
 ## 3 · Launch blockers
 
-None raised by this tree. `ttl_anchor: from_decision` is the specimen's own, so `D-IMPL-341`
+None newly raised by this tree — which is not "no launch blockers": the SDK's open items stay open. `ttl_anchor: from_decision` is the specimen's own, so `D-IMPL-341`
 has no subject here; `D-IMPL-342` is a consumer-side carry.
 
 ## 4 · Backlog candidates (§I)

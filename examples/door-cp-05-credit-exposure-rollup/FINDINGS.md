@@ -42,7 +42,7 @@ structural door over the low road, and the aggregation lives where the specimen 
 
 ## 3 · Launch blockers
 
-None raised by this tree. `D-IMPL-304` and `D-IMPL-342` are inherited and stay OPEN.
+None newly raised by this tree — which is not "no launch blockers": `D-IMPL-304` and `D-IMPL-342` are inherited, launch-level, and stay OPEN.
 
 ## 4 · Backlog candidates (§I)
 
