@@ -58,7 +58,7 @@ from ccf.replay.record import DecisionReplayRecord
 from ccf.replay.serve import ServedProduct
 from ccf.skills.callables import CallableRegistry
 from ccf.skills.catalog import SkillCatalog
-from ccf.skills.dispatch import question_identity
+from ccf.skills.dispatch import ChildQuestionIdentity, question_identity
 from ccf.skills.grants import GrantLedger
 from ccf.skills.producers import ProducerEnvironmentMissing
 from tests.products import paved_fixture as fixture
@@ -279,10 +279,13 @@ def test_a_floor_above_the_served_lane_is_refused_at_the_door_with_both_lanes_re
     assert "class-mismatch" in retained and "schema_version" in retained, retained
     assert "no-producing-skill" not in retained
     assert "1.5.0" not in refused.detail, "the disclosed envelope stays minimal"
-    # NOT retained on a refused child's row: the producer's replay reference
-    # (`child_replay_ref` is None here). That is `D-IMPL-342` — refused-child
-    # evidence beyond R-13's retained reason — and is excluded by ruling.
-    assert row.child_replay_ref is None
+    # `D-IMPL-342`: the producer's replay reference IS retained on the refused
+    # row now (until 2026-09-18 this line asserted `None`, the shipped gap
+    # `CP03C-F-05` measured), beside the producer's own refusal as its door
+    # disclosed it. The full evidence contract is held in
+    # tests/products/test_d_impl_342_producer_refusal_evidence.py.
+    assert row.child_replay_ref is not None and row.child_replay_ref.startswith(f"ccf-artifact://{PRODUCER_TENANT}/")
+    assert row.producer_refusal_reason == "class-mismatch" and row.producer_refusal_key == "schema_version"
 
 
 def test_the_door_refuses_a_floor_its_lane_does_not_satisfy_with_both_lanes_in_its_record(
@@ -365,6 +368,15 @@ def test_the_mapping_is_the_authority_on_the_subject_and_the_row_records_what_wa
         intent="fixture-intent", freshness="fixture-freshness", asked_at=ASKED_AT,
     )
     assert row.child_question_address == expected
+    # `D-IMPL-342` / `CP14-F-35`: the question the row names is RETAINED on the
+    # consumer's own store at that address — read back here from a fresh store
+    # instance, calling neither the mapping nor the producer. The recompute
+    # above is this test's oracle for what the mapping sent; the store is what
+    # an examiner has.
+    fresh = FileArtifactStore(root=opened.scratch / opened.replay.store_dirname)
+    assert row.child_question_ref is not None
+    retained = ChildQuestionIdentity.model_validate_json(fresh.get(content_address=fresh.resolve_uri(uri=row.child_question_ref)))
+    assert content_hash(retained) == expected and retained.subject == "acct-2"
     assert row.child_question_address != question_identity(
         request_json=canonical_bytes(wire).decode("utf-8"), subject="acct-1",
         intent="fixture-intent", freshness="fixture-freshness", asked_at=ASKED_AT,

@@ -58,6 +58,7 @@ from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.peering.admission import AdmittedProduct, PeeringAdmissionGate
 from ccf.products.composite import (
+    CHILD_QUESTION_CLASS,
     GATE_CHILD_ADMISSION,
     ChildRefusalReason,
     ResolvedProducer,
@@ -188,9 +189,12 @@ class GrantBoundChildResolver:
             peering-bound skill may produce a child; ``None`` refuses one with
             ``provenance-unverified`` rather than admitting it unverified.
         artifact_store: Where this fabric's own decision records live. Read
-            **only** for a locally dispatched child, to take its touched
-            entities from its persisted execution record. Never used to reach
-            a remote provider's store — Dave's ruling forbids requiring that.
+            here only for a locally dispatched child, to take its touched
+            entities from its persisted execution record; WRITTEN by the
+            question-bound subclass, which files each question's identity
+            bytes on it before dispatch (`D-IMPL-342` / `CP14-F-35`). Never
+            used to reach a remote provider's store — Dave's ruling forbids
+            requiring that.
     """
 
     def __init__(
@@ -273,8 +277,16 @@ class GrantBoundChildResolver:
         admitted_at: datetime,
         composition_invocation: str,
         consumer_lineage: ProductLineage,
+        question_ref: str | None = None,
     ) -> object:
-        """Turn one dispatch result into an admitted child or a refusal."""
+        """Turn one dispatch result into an admitted child or a refusal.
+
+        ``question_ref`` (`D-IMPL-342`) is the URI the parent's store returned
+        when the question-bound resolver retained the question's identity
+        bytes before dispatch; it rides onto every outcome minted for that
+        dispatch so the row can reference the retained artifact. The legacy
+        argument-bound path mints no question and passes ``None``.
+        """
         refuse = _refusal_for(requirement)
         admission: AdmittedProduct | None = None
         touched: tuple[str, ...] | None = None
@@ -319,13 +331,18 @@ class GrantBoundChildResolver:
                 ),
                 producer_server=dispatched.server,
                 question_address=dispatched.question_address,
+                question_ref=question_ref,
             )
         elif isinstance(dispatched, McpProductInvocation):
             dispatched = verify_mcp_product_invocation(dispatched)
-            asked_invocation = invocation_from_dispatch(producer, dispatched)
+            asked_invocation = invocation_from_dispatch(
+                producer, dispatched, question_ref=question_ref
+            )
 
             def refuse_naming_producer(
-                reason: ChildRefusalReason, detail: str
+                reason: ChildRefusalReason,
+                detail: str,
+                **producer_refusal: str | None,
             ) -> ChildAdmissionRefusal:
                 return ChildAdmissionRefusal(
                     gate=GATE_CHILD_ADMISSION,
@@ -339,6 +356,8 @@ class GrantBoundChildResolver:
                     ),
                     producer_server=dispatched.server,
                     question_address=dispatched.question_address,
+                    question_ref=question_ref,
+                    **producer_refusal,
                 )
 
             try:
@@ -383,8 +402,27 @@ class GrantBoundChildResolver:
                     if asked.refusal.key is not None:
                         named = f"{named} at {asked.refusal.key!r}"
                     described = f"{asked.refusal.kind} ({named}: {asked.refusal.detail})"
+                # `D-IMPL-342`: the producer's own refusal — kind, reason,
+                # key and its replay reference — is carried as EVIDENCE beside
+                # the admission verdict, which stays ``ineligible``. Until now
+                # the four were collapsed into the prose above and the
+                # reference was dropped, while a served-then-rejected child
+                # kept its reference (`CP03C-F-05`). Its ``detail`` stays in
+                # the prose: it is the producer's disclosure-level text, not
+                # an identity token.
                 return refuse_naming_producer(
-                    "ineligible", f"the child's own door refused: {described}"
+                    "ineligible",
+                    f"the child's own door refused: {described}",
+                    producer_refusal_kind=(
+                        asked.refusal.kind if asked.refusal is not None else None
+                    ),
+                    producer_refusal_reason=(
+                        asked.refusal.reason if asked.refusal is not None else None
+                    ),
+                    producer_refusal_key=(
+                        asked.refusal.key if asked.refusal is not None else None
+                    ),
+                    producer_replay_ref=asked.replay_ref,
                 )
             contract = ContextProductContract.model_validate_json(asked.product_json)
             address = asked.content_address
@@ -685,6 +723,7 @@ class QuestionBoundChildResolver:
                 outcomes[requirement.product_class] = None
                 continue
             binding = producer.entry.binding
+            question_ref: str | None = None
             if isinstance(binding, McpProductBinding):
                 question = self._questions(requirement, request)
                 wire = WireRequest(
@@ -692,20 +731,26 @@ class QuestionBoundChildResolver:
                     parameters=dict(question.parameters),
                     temporal_boundary=asked_at,
                 )
+                sent = ProductQuestion(
+                    subject=question.subject,
+                    intent=question.intent,
+                    freshness=question.freshness,
+                    asked_at=asked_at,
+                    parameters=dict(question.parameters),
+                    request_json=canonical_bytes(wire).decode("utf-8"),
+                )
+                # `D-IMPL-342` / `CP14-F-35`: the question's identity bytes go
+                # on the parent's store BEFORE the producer is called, so an
+                # admitted, refused or unreachable producer alike leaves the
+                # exact historical question behind. No artifact, no dispatch.
+                question_ref = self._retain_question(sent)
                 dispatched = dispatch_skill(
                     producer.entry,
                     arguments={},
                     callable_registry=legacy._callables,
                     mcp_skills=legacy._mcp,
                     peering_skills=legacy._peering,
-                    question=ProductQuestion(
-                        subject=question.subject,
-                        intent=question.intent,
-                        freshness=question.freshness,
-                        asked_at=asked_at,
-                        parameters=dict(question.parameters),
-                        request_json=canonical_bytes(wire).decode("utf-8"),
-                    ),
+                    question=sent,
                 )
             elif self._has_arguments:
                 dispatched = dispatch_skill(
@@ -734,8 +779,52 @@ class QuestionBoundChildResolver:
                 admitted_at=admitted_at,
                 composition_invocation=composition_invocation,
                 consumer_lineage=consumer_lineage,
+                question_ref=question_ref,
             )
         return outcomes
+
+    def _retain_question(self, sent: ProductQuestion) -> str:
+        """File the question's identity bytes on the parent's store; return the store's URI.
+
+        `D-IMPL-342` / `CP14-F-35`. The artifact is
+        :meth:`~ccf.skills.dispatch.ProductQuestion.identity_artifact` — the
+        five-member preimage whose canonical bytes
+        :func:`~ccf.skills.dispatch.question_identity` hashes — filed under
+        :data:`~ccf.products.composite.CHILD_QUESTION_CLASS`, named by the
+        address, under the consumer tenant the gate admits for. Idempotent by
+        the store's construction: the same question asked twice files once.
+
+        The store's address for the bytes must equal the question's address —
+        the identity the row records — or replay could not resolve the row to
+        the bytes; a store that hashed differently is refused here, loudly,
+        as the admitted-contract retention refuses it (`D-IMPL-339`). A store
+        that cannot file raises: the producer is then never asked, and no row
+        can claim a retained question the store does not hold (the
+        `D-IMPL-344` R-3 posture).
+
+        Raises:
+            RuntimeError: the store filed the bytes at another address.
+            OSError, ccf.contracts.canonical.CanonicalizationError: as the
+                store raises them — propagated, never converted into a
+                governed refusal.
+        """
+        legacy = self._legacy
+        address = sent.address
+        filed = legacy._store.put(
+            tenant_id=legacy._gate.tenant_id,
+            artifact_class=CHILD_QUESTION_CLASS,
+            name=address,
+            artifact=sent.identity_artifact(),
+        )
+        if filed.content_address != address:
+            raise RuntimeError(
+                "the artifact store filed a child question's identity bytes at"
+                f" {filed.content_address!r} but the question's address is"
+                f" {address!r}; replay holds the retained bytes to the row's"
+                " child_question_address and this store would break that"
+                " (D-IMPL-342 / CP14-F-35)"
+            )
+        return filed.uri
 
 
 def _no_child_arguments(

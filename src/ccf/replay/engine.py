@@ -120,6 +120,7 @@ from ccf.replay.record import (
     ResolutionNotApplicable,
 )
 from ccf.replay.snapshots import SnapshotReader, snapshot_of_execution
+from ccf.skills.dispatch import ChildQuestionIdentity
 
 __ccf_mode__ = "algorithmic"
 
@@ -136,6 +137,7 @@ __all__ = [
     "RefusalReplayOutcome",
     "replay",
     "replay_refusal",
+    "retained_child_question",
     "resolve_artifact",
     "resolve_artifact_at_uri",
 ]
@@ -906,6 +908,7 @@ def replay(
     # `D-IMPL-339`: the view is rebuilt BEFORE the child-dependent plan, from
     # the contracts the deciding fabric retained by address.
     children, _addresses = _children_of(store=store, record=record)
+    _hold_retained_questions(store=store, record=record)
     execution, reproduced_snapshot = _re_execute(
         record=record, reader=reader, environment=environment, children=children
     )
@@ -1015,6 +1018,7 @@ def replay_refusal(
     if path.plan_id == NO_FABRIC_READ:
         _hold_no_read_claims(record=record, content_address=record_address)
         children, addresses = _children_of(store=store, record=record)
+        _hold_retained_questions(store=store, record=record)
         del children  # reconstructed and verified; no plan reads them here
         _hold_refusal_to_rows(
             refusal=refusal, path=path, content_address=record_address
@@ -1027,6 +1031,7 @@ def replay_refusal(
             graph_snapshot_id=NO_FABRIC_READ,
         )
     children, addresses = _children_of(store=store, record=record)
+    _hold_retained_questions(store=store, record=record)
     execution, reproduced_snapshot = _re_execute(
         record=record, reader=reader, environment=environment, children=children
     )
@@ -1143,6 +1148,114 @@ def _children_of(
         if row.child_content_address is not None
     )
     return children, addresses
+
+
+def retained_child_question(
+    *, store: ArtifactStoreProtocol, row: ChildResolution
+) -> ChildQuestionIdentity:
+    """The exact question a child row records, from the parent's RETAINED bytes.
+
+    `D-IMPL-342` / `CP14-F-35` — the audit read. Resolves the row's
+    ``child_question_ref`` on ``store``, requires the address it resolves to
+    to be the row's ``child_question_address``, reads the bytes, holds their
+    ``sha256`` to that address, rehydrates them as a
+    :class:`~ccf.skills.dispatch.ChildQuestionIdentity` and holds the
+    rehydrated contract's content hash to the same address. It calls no
+    question mapping, no producer, and reads no configuration: what comes
+    back is what was sent, or a named failure.
+
+    Raises:
+        ReplayUnresolvable: the row carries no reference — the question is
+            **not retained** (the row predates `D-IMPL-342` retention, or was
+            written by a resolver that retains none) and is not rebuilt from
+            anything else; or the reference or the bytes are not in the store.
+        ReplayDivergence: the reference resolves to another address; the bytes
+            do not hash to the row's address; the bytes do not rehydrate as a
+            question identity; or the rehydrated contract does not hash back
+            to the address.
+    """
+    reference = row.child_question_ref
+    address = row.child_question_address
+    if reference is None:
+        raise ReplayUnresolvable(
+            f"the child row for {row.required_product_class!r} carries no"
+            " retained-question reference: the historical question is not"
+            " retained — the row predates D-IMPL-342 retention or was written"
+            " by a resolver that retains no question — and it is not rebuilt"
+            " from the mapping or the producer (D-IMPL-342 / CP14-F-35)"
+        )
+    if address is None:  # pragma: no cover - refused at row construction
+        raise ReplayDivergence(
+            f"the child row for {row.required_product_class!r} references a"
+            " retained question but records no question address"
+        )
+    try:
+        resolved = store.resolve_uri(uri=reference)
+    except (LookupError, OSError, ValueError) as missing:
+        raise ReplayUnresolvable(
+            f"the retained-question reference {reference!r} for"
+            f" {row.required_product_class!r} does not resolve on this store"
+            f" ({missing}); the question is not retained here (D-IMPL-342)"
+        ) from missing
+    if resolved != address:
+        raise ReplayDivergence(
+            f"the retained-question reference {reference!r} for"
+            f" {row.required_product_class!r} resolves to {resolved!r} but the"
+            f" row records question identity {address!r}; the reference names"
+            " a different question (D-IMPL-342)"
+        )
+    try:
+        stored = store.get(content_address=address)
+    except (LookupError, OSError) as missing:
+        raise ReplayUnresolvable(
+            f"the question bytes {address!r} sent for"
+            f" {row.required_product_class!r} are not retained in the store;"
+            " the historical question is resolved from the parent's store and"
+            " from nowhere else (D-IMPL-342 / CP14-F-35)"
+        ) from missing
+    digest = hashlib.sha256(stored).hexdigest()
+    if digest != address:
+        raise ReplayDivergence(
+            f"the bytes retained at {address!r} for"
+            f" {row.required_product_class!r} hash to {digest!r}; the store"
+            " answered different bytes at the address the row names"
+            " (D-IMPL-342)"
+        )
+    try:
+        question = ChildQuestionIdentity.model_validate_json(stored)
+    except ValueError as not_a_question:
+        raise ReplayDivergence(
+            f"the bytes retained at {address!r} for"
+            f" {row.required_product_class!r} do not rehydrate as a child"
+            f" question identity ({not_a_question})"
+        ) from not_a_question
+    rehashed = content_hash(question)
+    if rehashed != address:
+        raise ReplayDivergence(
+            f"the question retained at {address!r} for"
+            f" {row.required_product_class!r} re-canonicalizes to {rehashed!r};"
+            " the retained bytes are not the identity's canonical form"
+            " (D-IMPL-342)"
+        )
+    return question
+
+
+def _hold_retained_questions(
+    *, store: ArtifactStoreProtocol, record: DecisionReplayRecord
+) -> None:
+    """Hold every row that references a retained question to its bytes.
+
+    `D-IMPL-342` / `CP14-F-35`. Every row carrying a ``child_question_ref`` —
+    admitted, refused, rejected or unreachable — resolves and re-hashes
+    through :func:`retained_child_question`. A row carrying none is left
+    unheld **by name**: a record written before retention existed replays as
+    it did, and a resolver that retains no question is not silently credited
+    with having done so — the three-state reading (held / diverged / not
+    retained), never a don't-know collapsed into a pass.
+    """
+    for row in record.content_generation_path.child_resolutions:
+        if row.child_question_ref is not None:
+            retained_child_question(store=store, row=row)
 
 
 def _re_execute(

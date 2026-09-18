@@ -5023,6 +5023,7 @@
       "ADMITTED_CHILD_CONTRACT_CLASS",
       "AdmittedChild",
       "AmbiguousProducerError",
+      "CHILD_QUESTION_CLASS",
       "CHILD_REFUSAL_REASONS",
       "ChildAcquisition",
       "ChildAdmissionBypassError",
@@ -5062,6 +5063,10 @@
         "kind": "class",
         "shape": "type"
       },
+      "CHILD_QUESTION_CLASS": {
+        "kind": "constant",
+        "shape": "str"
+      },
       "CHILD_REFUSAL_REASONS": {
         "kind": "constant",
         "shape": "frozenset"
@@ -5080,11 +5085,16 @@
           "detail": "<class 'str'>",
           "gate": "<class 'str'>",
           "producer_id": "str | None",
+          "producer_refusal_key": "str | None",
+          "producer_refusal_kind": "str | None",
+          "producer_refusal_reason": "str | None",
           "producer_registration_address": "str | None",
+          "producer_replay_ref": "str | None",
           "producer_server": "str | None",
           "producer_tenant": "str | None",
           "product_class": "<class 'str'>",
           "question_address": "str | None",
+          "question_ref": "str | None",
           "reason": "typing.Literal['class-mismatch', 'version-incompatible', 'as-of-mismatch', 'address-mismatch', 'debt-unassessable', 'ineligible', 'eligibility-evidence-missing', 'eligibility-evidence-mismatch', 'eligibility-evidence-stale', 'eligibility-bound-undeclared', 'composition-unwired', 'tenant-mismatch', 'provenance-unverified', 'no-producing-skill', 'ambiguous-producer', 'unauthorized', 'requirement-mismatch', 'undeclared-outcome', 'unsupported-outcome', 'mixing-refused', 'producer-tenant-mismatch', 'producer-mismatch', 'producer-unasserted', 'question-mismatch', 'producer-unavailable']",
           "reported_content_address": "str | None",
           "verified_content_address": "str | None"
@@ -5100,7 +5110,7 @@
       },
       "ChildInvocation": {
         "kind": "class",
-        "shape": "(*, skill_name: 'str', entry_version: 'str', grant_hash: 'str', acquisition: 'ChildAcquisition', touched_entities: 'tuple[str, ...] | None', token: 'object', producer_id: 'str | None' = None, producer_tenant: 'str | None' = None, producer_registration_address: 'str | None' = None, producer_server: 'str | None' = None, question_address: 'str | None' = None) -> 'None'"
+        "shape": "(*, skill_name: 'str', entry_version: 'str', grant_hash: 'str', acquisition: 'ChildAcquisition', touched_entities: 'tuple[str, ...] | None', token: 'object', producer_id: 'str | None' = None, producer_tenant: 'str | None' = None, producer_registration_address: 'str | None' = None, producer_server: 'str | None' = None, question_address: 'str | None' = None, question_ref: 'str | None' = None) -> 'None'"
       },
       "ChildOutcomeResolution": {
         "kind": "class",
@@ -5164,7 +5174,7 @@
       },
       "invocation_from_dispatch": {
         "kind": "function",
-        "shape": "(producer: 'ResolvedProducer', dispatched: 'object', *, touched_entities: 'tuple[str, ...] | None' = None) -> 'ChildInvocation'"
+        "shape": "(producer: 'ResolvedProducer', dispatched: 'object', *, touched_entities: 'tuple[str, ...] | None' = None, question_ref: 'str | None' = None) -> 'ChildInvocation'"
       },
       "resolve_child_outcomes": {
         "kind": "function",
@@ -6680,7 +6690,8 @@
       "replay",
       "replay_refusal",
       "resolve_artifact",
-      "resolve_artifact_at_uri"
+      "resolve_artifact_at_uri",
+      "retained_child_question"
     ],
     "exports": {
       "CompositeReplayEnvironment": {
@@ -6750,6 +6761,10 @@
       "resolve_artifact_at_uri": {
         "kind": "function",
         "shape": "(*, store: 'ArtifactStoreProtocol', uri: 'str', contract: 'type[_ArtifactT]') -> '_ArtifactT'"
+      },
+      "retained_child_question": {
+        "kind": "function",
+        "shape": "(*, store: 'ArtifactStoreProtocol', row: 'ChildResolution') -> 'ChildQuestionIdentity'"
       }
     }
   },
@@ -6813,6 +6828,7 @@
           "child_operators_invoked": "frozenset[str] | None",
           "child_policy_bundle_versions": "frozenset[str] | None",
           "child_question_address": "str | None",
+          "child_question_ref": "str | None",
           "child_replay_ref": "str | None",
           "child_reported_address": "str | None",
           "child_schema_name": "str | None",
@@ -6821,6 +6837,9 @@
           "grant_hash": "str | None",
           "outcome_status": "<class 'str'>",
           "producer_id": "str | None",
+          "producer_refusal_key": "str | None",
+          "producer_refusal_kind": "str | None",
+          "producer_refusal_reason": "str | None",
           "producer_registration_address": "str | None",
           "producer_server": "str | None",
           "producer_tenant": "str | None",
@@ -7683,6 +7702,7 @@
   },
   "ccf.skills.dispatch": {
     "__all__": [
+      "ChildQuestionIdentity",
       "McpInvocation",
       "McpProductFailure",
       "McpProductInvocation",
@@ -7704,6 +7724,16 @@
       "verify_mcp_product_invocation"
     ],
     "exports": {
+      "ChildQuestionIdentity": {
+        "kind": "contract",
+        "shape": {
+          "asked_at": "<class 'datetime.datetime'>",
+          "freshness": "<class 'str'>",
+          "intent": "<class 'str'>",
+          "request": "<class 'str'>",
+          "subject": "<class 'str'>"
+        }
+      },
       "McpInvocation": {
         "kind": "contract",
         "shape": {

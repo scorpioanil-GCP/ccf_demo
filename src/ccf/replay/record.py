@@ -894,9 +894,30 @@ class ChildResolution(CCFContract):
         child_question_address: ``sha256`` of the canonical question sent —
             the question's identity, which the producer's echo was held to.
         child_replay_ref: The producer's own replay-record reference, as its
-            door reported it. **Retained as the producer's claim** — this
-            fabric never resolves it (Dave: *"do not require access to a
-            remote provider's internal replay store"*).
+            door reported it — on an admitted row, on a served-then-rejected
+            row, and since `D-IMPL-342` on a row the producer's own door
+            refused. **Retained as the producer's claim** — this fabric never
+            resolves it (Dave: *"do not require access to a remote provider's
+            internal replay store"*).
+        producer_refusal_kind: `D-IMPL-342`. When the child's own door refused
+            and the producer's claims held: the refusal kind that door
+            disclosed. Evidence beside the admission verdict, never a
+            replacement for it — ``outcome_status`` and ``refusal_ref`` still
+            read ``ineligible``. ``None`` everywhere else, including a row
+            written before the member existed.
+        producer_refusal_reason: `D-IMPL-342`. The producer's own reason token
+            as disclosed (a closed-vocabulary member or a declared gate id).
+            Its prose ``detail`` is not carried on the row.
+        producer_refusal_key: `D-IMPL-342`. The parameter key that refusal
+            named, when it named one.
+        child_question_ref: `D-IMPL-342` / `CP14-F-35`. The versioned URI the
+            parent's own store returned when it retained the question's
+            identity bytes at ``child_question_address``
+            (:data:`~ccf.products.composite.CHILD_QUESTION_CLASS`). Present
+            only when the bytes were filed — the reference is the store's
+            answer, never computed from the address — so replay holds every
+            row that carries one and leaves a row without one unheld BY
+            NAME: a pre-342 record replays as it did.
     """
 
     # Every optional member below is marked ``False`` — a generation boundary,
@@ -1008,6 +1029,62 @@ class ChildResolution(CCFContract):
     child_replay_ref: str | None = Field(
         default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
+    # `D-IMPL-342` — the refusing producer's own evidence and the retained
+    # question's reference. ``True`` for the same reason the producer members
+    # are: a stored row lacking them reloads to the address it was written at.
+    producer_refusal_kind: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    producer_refusal_reason: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    producer_refusal_key: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    child_question_ref: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+
+    @model_validator(mode="after")
+    def _producer_refusal_evidence_names_a_refusing_door(self) -> "ChildResolution":
+        """`D-IMPL-342`: producer refusal evidence exists only where the child's
+        own door refused — ``outcome_status`` AND ``refusal_ref`` both
+        ``ineligible``. A served child rejected at the gate carries the
+        producer's replay reference and NO producer refusal; an
+        eligibility-evidence refusal shares the status token but not the
+        reason; an unreachable producer disclosed nothing. Any other pairing
+        is a writer inventing evidence, refused at construction rather than
+        discovered at audit. (The local invalidation register's own
+        ``ineligible`` refusal of a locally dispatched child shares both
+        tokens; that leg mints no producer evidence, and the tokens alone
+        cannot tell the two apart — a closed-vocabulary limit, recorded.)"""
+        evidence = (
+            self.producer_refusal_kind,
+            self.producer_refusal_reason,
+            self.producer_refusal_key,
+        )
+        refused_by_its_door = (
+            self.outcome_status == "ineligible" and self.refusal_ref == "ineligible"
+        )
+        if any(member is not None for member in evidence) and not refused_by_its_door:
+            raise ValueError(
+                "producer refusal evidence"
+                f" (kind={self.producer_refusal_kind!r},"
+                f" reason={self.producer_refusal_reason!r},"
+                f" key={self.producer_refusal_key!r}) on a row whose"
+                f" outcome_status is {self.outcome_status!r} and refusal_ref"
+                f" {self.refusal_ref!r}; a producer's own refusal is recorded"
+                " only where its door refused (ineligible / ineligible), never"
+                " fabricated onto an admitted, rejected, eligibility-refused or"
+                " unreachable child (D-IMPL-342)"
+            )
+        if self.child_question_ref is not None and self.child_question_address is None:
+            raise ValueError(
+                "a retained-question reference without a question address; the"
+                " reference names bytes whose identity the row does not record"
+                " (D-IMPL-342 / CP14-F-35)"
+            )
+        return self
 
     @model_validator(mode="after")
     def _status_is_known(self) -> "ChildResolution":
