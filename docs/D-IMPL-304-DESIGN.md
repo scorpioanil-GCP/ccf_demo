@@ -24,7 +24,7 @@ Two executable reproductions exist on `main`, and they are the design's controls
 | where | what it asserts today |
 |---|---|
 | `tests/examples/test_cp_05_mcp_door.py::test_a_malformed_number_is_judged_correctly_but_records_nothing` | the frozen specimen's OWN pre-`D-IMPL-340` door: a malformed `debt_tolerance` returns `ccf-runtime-failure`, and three calls leave exactly two decision records |
-| `tests/examples/test_door_cp_05_exposure.py::test_a_pre_resolution_refusal_reads_as_a_runtime_failure_the_known_carry` | the SDK's standard door over the wrapper adapter: `materiality` above the regime's policy ceiling reaches the paved consumer as a row reading `producer-unavailable` with no child replay reference |
+| `tests/examples/test_door_cp_05_exposure.py::test_a_pre_resolution_refusal_is_a_recorded_governed_refusal_not_a_runtime_failure` (at the design's date, `…_reads_as_a_runtime_failure_the_known_carry`; renamed by the implementation when it flipped) | the SDK's standard door over the wrapper adapter: `materiality` above the regime's policy ceiling reached the paved consumer as a row reading `producer-unavailable` with no child replay reference |
 
 The second is the one that flips when the correction lands. The first is a statement
 about a frozen tree's own door and stays true (§6).

@@ -16,8 +16,10 @@ the same registration CP-14 holds:
   answered at the pin and presented as the caller's;
 * the door and the in-process run serve one content address;
 * wrong producer id and wrong tenant refuse independently;
-* the known `D-IMPL-304` carry (a pre-resolution refusal reads as a runtime
-  failure) is asserted as the carry it is.
+* a pre-resolution refusal — the `D-IMPL-304` reproduction — is a RECORDED
+  governed refusal through this door, reaching the consumer as `ineligible`
+  with the producer's refusal identity (closed 2026-09-18; the frozen
+  specimen's own door is unchanged).
 
 **Reads the estate, seeds nothing.** No estate figure is pinned; every
 assertion is a relationship between two answers.
@@ -339,13 +341,42 @@ def test_wrong_producer_and_wrong_tenant_refuse_independently(door: str, tmp_pat
 # --- the known carry, and the shape of the hatch ----------------------------------------
 
 
-def test_a_pre_resolution_refusal_reads_as_a_runtime_failure_the_known_carry(door: str, tmp_path: pathlib.Path) -> None:
-    """`D-IMPL-304`, carried visibly: a materiality above the regime's ceiling is
-    judged correctly by the frozen tree BEFORE its resolver runs and RAISES, so
-    the door reports a runtime failure and the consumer sees an unavailable
-    producer — no governed refusal, no replay record. When the carry closes this
-    assertion must move with it."""
-    outcome, row, child, _record = through_the_door(door, tmp_path, tolerance=DIAGNOSTIC_TOLERANCE, materiality="0.10")
+def test_a_pre_resolution_refusal_is_a_recorded_governed_refusal_not_a_runtime_failure(door: str, tmp_path: pathlib.Path) -> None:
+    """`D-IMPL-304`, CLOSED on this door: a materiality above the regime's
+    ceiling is judged by the frozen tree BEFORE its resolver runs, and until
+    2026-09-18 that judgment RAISED and reached the consumer as a runtime
+    failure (`producer-unavailable`, no record). The adapter now hands the
+    specimen's real resolution outcome up as the typed governed handoff, the
+    standard door records it at the question's instant, and the consumer's
+    row reads `ineligible` with the producer's refusal identity — the
+    `constraint-refusal` and its policy authority — never `producer-unavailable`
+    merely because the adapter could not return its determination. The
+    FROZEN specimen's own door is unchanged and still raises
+    (`tests/examples/test_cp_05_mcp_door.py` asserts it); `D-IMPL-342`'s
+    per-row reason and child replay reference remain separate."""
+    outcome, row, child, record = through_the_door(door, tmp_path, tolerance=DIAGNOSTIC_TOLERANCE, materiality="0.10")
+    assert isinstance(outcome, RefusalEnvelope) and child is None
+    assert row.outcome_status == "ineligible", row.outcome_status
+    assert row.child_question_address is not None
+    assert (row.producer_id, row.producer_tenant) == (PRODUCER_ID, PRODUCER_TENANT)
+    retained = json.loads(record.content_generation_path.assembly_refusal)
+    assert "constraint-refusal" in retained["detail"], retained["detail"]
+    assert "producer-unavailable" not in retained["detail"] and "ccf-runtime-failure" not in retained["detail"]
+    assert json.loads(retained["fields"]["producer_id"]) == PRODUCER_ID
+
+
+#: An LEI the estate does not hold — the frozen tree raises `LookupError` for it,
+#: which is a FAULT (no determination was made), not a refusal.
+NOBODY = "0000000000000000FAKE"
+
+
+def test_a_genuine_fault_in_the_frozen_tree_still_reads_as_producer_unavailable(door: str, tmp_path: pathlib.Path) -> None:
+    """`D-IMPL-304`'s other half at the adopting wrapper: the typed handoff is
+    raised ONLY from the specimen's real resolution outcome. A fault the frozen
+    tree raises — an anchor the estate does not hold, a `LookupError` — keeps
+    its opaque treatment and reaches the consumer as `producer-unavailable`; the
+    adapter fabricates no refusal from an exception."""
+    outcome, row, child, _record = through_the_door(door, tmp_path, subject=NOBODY, tolerance=DIAGNOSTIC_TOLERANCE)
     assert isinstance(outcome, RefusalEnvelope) and child is None
     assert row.outcome_status == "producer-unavailable", row.outcome_status
     assert row.child_replay_ref is None

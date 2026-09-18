@@ -63,7 +63,11 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import Any, Final
 
+from ccf.products.provenance import EffectiveRequest
 from ccf.products.refusal import (
+    NO_REPLAY_REFERENCE,
+    GovernedRefusalRaised,
+    ResolvedByTheResolver,
     RefusalEnvelope,
     RequestIdentity,
     ResourceRequestIdentity,
@@ -319,6 +323,96 @@ def govern_absence(
         # positive absence stated by the door, never inferred by the seam
         # from a keyword the door left out (`D-IMPL-264` D-09/D-10 am.1).
         resolution=ResolutionNotApplicable(reason="refused-before-resolution"),
+    )
+
+
+def govern_raised_refusal(
+    *,
+    raised: GovernedRefusalRaised,
+    tenant: str,
+    product_class: str,
+    product_version: str | None,
+    parameters: Mapping[str, Any],
+    asked_at: datetime | None,
+    surface: str,
+    address: str,
+    perspective: Perspective,
+    entitlement_source: ProductEntitlementSourceProtocol,
+    refusal_recorder: RefusalRecorderProtocol,
+) -> RefusalEnvelope:
+    """The governed determination a resolver RAISED rather than returned (`D-IMPL-304`).
+
+    The mirror of :func:`govern_absence` for the typed handoff
+    :class:`~ccf.products.refusal.GovernedRefusalRaised`: a producer or adapter
+    that held a refusal the fabric made — the frozen cp-05 low road's
+    pre-resolution refusal is the reproduction — and could not return it as a
+    value. Before this step that raise reached each door's generic fault
+    clause and left as an opaque ``ccf-runtime-failure``: no envelope, no
+    record, and a consumer reading ``producer-unavailable`` for a
+    determination that was in fact made.
+
+    **What it does, in the ruled order.** Builds the envelope from the raised
+    refusal with the request identity the raiser supplied or this boundary's
+    own, carrying the raised :class:`~ccf.products.provenance.EffectiveRequest`
+    as provenance where that is what the raiser held; records it through the
+    ONE recorder the door already holds, stamped with the QUESTION's instant
+    (the resolver's own pre-resolution refusals are stamped the same way) and
+    with ``resolution=`` exactly the state the raiser stated; returns what the
+    recorder returned, for the door's normal disclosure and emission path. An
+    envelope the raiser had ALREADY recorded — one carrying a replay reference
+    — passes through untouched, as :func:`~ccf.products.door.door_refusal`
+    would take it from a returning resolver.
+
+    **What it is not.** Not a catch-all: only the typed handoff reaches it,
+    and the boundary that calls it must keep its generic fault clause exactly
+    as it was. **A recording failure remains a failure**: whatever the store
+    raises propagates, so no governed response escapes without its record. And
+    a handoff stating :data:`~ccf.products.refusal.RESOLVED_BY_THE_RESOLVER`
+    is refused here as a ``TypeError`` — a door holds no resolver evidence and
+    will not manufacture a resolution state — which the door then reports as
+    the programming error it is.
+    """
+    resolution = raised.resolution
+    if isinstance(resolution, ResolvedByTheResolver):
+        raise TypeError(
+            "a GovernedRefusalRaised reached a delivery boundary stating"
+            " RESOLVED_BY_THE_RESOLVER; that state is valid only inside a"
+            " resolver's acquisition seam, and a door holds no resolver evidence"
+            " to record — state the EffectiveRequest evidence or an explicit"
+            " ResolutionNotApplicable (D-IMPL-304, D-IMPL-264 amendment 1)"
+        )
+    determined_at = _determined_at(entitlement_source)
+    if isinstance(raised.refusal, RefusalEnvelope):
+        if raised.refusal.replay_reference != NO_REPLAY_REFERENCE:
+            return raised.refusal
+        envelope = raised.refusal
+    else:
+        provenance = resolution if isinstance(resolution, EffectiveRequest) else None
+        envelope = envelope_for(
+            raised.refusal,
+            request=raised.request
+            if raised.request is not None
+            else RequestIdentity(
+                product_id=product_class,
+                product_version=product_version,
+                parameters=dict(parameters),
+                temporal_boundary=asked_at,
+            ),
+            policy_bindings=provenance.applied if provenance is not None else (),
+            provenance=provenance,
+            resource=ResourceRequestIdentity(
+                surface=surface,
+                address=address,
+                tenant_id=tenant,
+                determined_at=determined_at,
+            ),
+        )
+    return refusal_recorder.record(
+        envelope,
+        perspective=perspective,
+        recorded_at=asked_at if asked_at is not None else determined_at,
+        policy_bindings=(),
+        resolution=resolution,
     )
 
 

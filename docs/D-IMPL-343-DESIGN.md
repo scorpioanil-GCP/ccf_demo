@@ -278,7 +278,7 @@ machinery.
   hand-built `ProductEntitlementPolicy`, `tokens.json`, `FileTokenSource`,
   `resolve_perspective`, the thirteen-keyword `build_egress_server` call, the stdio
   identity block (`auth_context_var.set`), the socket/uvicorn/anyio loopback.
-- **SDK API:** `build_egress_server` (`egress.py:778`), `ProductEntitlementPolicy`,
+- **SDK API:** `build_egress_server` (`egress.py::build_egress_server`), `ProductEntitlementPolicy`,
   `ControlPlaneProductEntitlementSource`, `SourceBackedTokenVerifier`,
   `AuthSettings`, `ReplayRefusalRecorder`, `auth_context_var`.
 - **Duplicated authority:** everything in P3, P9, P11 and P12 restated; the

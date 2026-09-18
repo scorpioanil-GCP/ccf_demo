@@ -170,7 +170,7 @@ from ccf.products.door import (
     door_refusal,
     served_answer,
 )
-from ccf.products.refusal import RefusalEnvelope, RequestIdentity
+from ccf.products.refusal import GovernedRefusalRaised, RefusalEnvelope, RequestIdentity
 from ccf.replay.serve import ServedProduct
 from ccf.products.request import ProductRequest
 from ccf.products.resolver import RefusalRecorderProtocol
@@ -180,6 +180,7 @@ from ccf_runtime.authz.delivery_boundary import (
     SURFACE_MCP_TOOL,
     govern_absence,
     govern_entitlement,
+    govern_raised_refusal,
     recorded_boundary,
 )
 from ccf_runtime.authz.product_entitlement import (
@@ -1063,6 +1064,27 @@ def build_egress_server(
                     perspective=decided,
                     request=None,
                 )
+            except GovernedRefusalRaised as raised:
+                # `D-IMPL-304`: the typed handoff on the resource surface, which
+                # carries no question — recorded and disclosed at the boundary
+                # exactly as the typed absence is.
+                return canonical_bytes(
+                    govern_raised_refusal(
+                        raised=raised,
+                        tenant=tenant,
+                        product_class=product_class,
+                        product_version=version,
+                        parameters={},
+                        asked_at=None,
+                        surface=SURFACE_MCP_RESOURCE,
+                        address=product_uri(
+                            tenant=tenant, product_class=product_class, version=version
+                        ),
+                        perspective=decided,
+                        entitlement_source=entitlement_source,
+                        refusal_recorder=recorder,
+                    )
+                ).decode("utf-8")
             except ProductNotServable as absent:
                 # `D-IMPL-260` P-C: the typed absence is a governed
                 # determination, recorded and disclosed at the boundary, and
@@ -1245,6 +1267,25 @@ def build_egress_server(
                     address=address,
                     perspective=decided,
                     absent=absent,
+                    entitlement_source=entitlement_source,
+                    refusal_recorder=recorder,
+                )
+            except GovernedRefusalRaised as raised:
+                # `D-IMPL-304`: a governed determination the resolver HELD and
+                # could not return. Recorded through the one recorder at the
+                # question's instant and delivered through the one emission
+                # site — the typed absence's shape, for the typed handoff. Only
+                # this type; the fault clause below is unchanged.
+                resolved = govern_raised_refusal(
+                    raised=raised,
+                    tenant=tenant,
+                    product_class=product_class,
+                    product_version=version,
+                    parameters=asked.parameters,
+                    asked_at=asked_at,
+                    surface=surface,
+                    address=address,
+                    perspective=decided,
                     entitlement_source=entitlement_source,
                     refusal_recorder=recorder,
                 )
