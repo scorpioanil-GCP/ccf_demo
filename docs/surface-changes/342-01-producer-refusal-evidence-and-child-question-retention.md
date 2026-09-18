@@ -31,7 +31,7 @@ recreate the historical question during replay."*
 - Public surface: true
 - Change type: reshaped
 - Before: the refused-door branch collapsed the producer's kind, reason and key into the prose `detail` and dropped the door's `replay_ref`; no member could carry them
-- After: five optional, hash-transparent members — `producer_refusal_kind`, `producer_refusal_reason`, `producer_refusal_key`, `producer_replay_ref` (Limb A) and `question_ref` (Limb B); `envelope_for` renders them into every composite refusal's `fields`, so a composite refusal recorded after 342 hashes differently from the same determination before it, while an older block still rehydrates
+- After: five optional, hash-transparent members — `producer_refusal_kind`, `producer_refusal_reason`, `producer_refusal_key`, `producer_replay_ref` (Limb A) and `question_ref` (Limb B); `envelope_for` renders them into every composite refusal's `fields`, so a composite refusal recorded after 342 hashes differently from the same determination before it, while an older block still rehydrates. Every mint site carries what it has: the refused-door branch the four Limb A members and the reference; the unreachable and claims-refused branches the reference; the gate's own `refuse` closure in `admit()` (a served answer rejected inside the gate) the reference and the door's replay reference for the answer it served — the closure the candidate's review found minting rows without either
 - Why: D-IMPL-342 — a parent's record must say why the child's own door refused and where the producer's record is, without disclosing more than the door did
 - Migration: none for callers; a test pinning the exact `fields` key set of a composite refusal grows by five (`tests/products/test_refusal_envelope.py` did)
 
@@ -71,8 +71,8 @@ recreate the historical question during replay."*
 - Public surface: true
 - Change type: behavior
 - Before: a private `json.dumps` rendering hashed with `hashlib`
-- After: `content_hash(ChildQuestionIdentity(...))` — the SDK's one canonical form over the same five keys; the bytes and every address are unchanged
-- Why: D-IMPL-342 R-3 — one rendering in the SDK instead of two that happen to agree
+- After: `content_hash(ChildQuestionIdentity(...))` — the SDK's one canonical form over the same five keys; the bytes and every address are unchanged for every aware `asked_at`. One input the old rendering accepted is now refused: a naive `asked_at`, which the old `astimezone(UTC)` hashed through the host's zone (the same question minted a different identity on two hosts); `ChildQuestionIdentity` refuses it (`D-IMPL-38`). Every caller in the tree passes an aware instant; `ProductQuestion` already required one
+- Why: D-IMPL-342 R-3 — one rendering in the SDK instead of two that happen to agree; the naive refusal is that form's own rule
 - Migration: none
 
 ## ccf.products.composite.CHILD_QUESTION_CLASS

@@ -40,9 +40,9 @@ Three facts, each with its line:
    non-blocking arm (`:2150–2155`) derives `child_contract_view(resolved)` and calls
    `self._retain_child_contracts(children)`. `D-IMPL-338` made the rows survive every
    exit; `D-IMPL-339`'s byte retention did not follow them.
-2. **Replay reads bytes for any admitted row.** `src/ccf/replay/engine.py::_reconstruct_child_contracts`
+2. **Replay reads bytes for any admitted row.** `src/ccf/replay/engine.py::_children_of`
    selects every row with `outcome_status == CHILD_ADMITTED` and calls
-   `_reconstruct_child_contracts` (`:713`), which raises `ReplayUnresolvable` when the
+   `src/ccf/replay/engine.py::_reconstruct_child_contracts`, which raises `ReplayUnresolvable` when the
    store has no artifact at the row's `child_content_address`.
 3. **Nothing else resolves the address.** Producer stores hold the record and the
    query pins, never the served product's bytes (the record names

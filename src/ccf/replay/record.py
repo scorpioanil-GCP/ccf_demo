@@ -1048,25 +1048,35 @@ class ChildResolution(CCFContract):
     @model_validator(mode="after")
     def _producer_refusal_evidence_names_a_refusing_door(self) -> "ChildResolution":
         """`D-IMPL-342`: producer refusal evidence exists only where the child's
-        own door refused. A served child rejected at the gate carries the
-        producer's replay reference and NO producer refusal; an unreachable
-        producer disclosed nothing. Any other pairing is a writer inventing
-        evidence, refused at construction rather than discovered at audit."""
+        own door refused — ``outcome_status`` AND ``refusal_ref`` both
+        ``ineligible``. A served child rejected at the gate carries the
+        producer's replay reference and NO producer refusal; an
+        eligibility-evidence refusal shares the status token but not the
+        reason; an unreachable producer disclosed nothing. Any other pairing
+        is a writer inventing evidence, refused at construction rather than
+        discovered at audit. (The local invalidation register's own
+        ``ineligible`` refusal of a locally dispatched child shares both
+        tokens; that leg mints no producer evidence, and the tokens alone
+        cannot tell the two apart — a closed-vocabulary limit, recorded.)"""
         evidence = (
             self.producer_refusal_kind,
             self.producer_refusal_reason,
             self.producer_refusal_key,
         )
-        if any(member is not None for member in evidence) and self.outcome_status != "ineligible":
+        refused_by_its_door = (
+            self.outcome_status == "ineligible" and self.refusal_ref == "ineligible"
+        )
+        if any(member is not None for member in evidence) and not refused_by_its_door:
             raise ValueError(
                 "producer refusal evidence"
                 f" (kind={self.producer_refusal_kind!r},"
                 f" reason={self.producer_refusal_reason!r},"
                 f" key={self.producer_refusal_key!r}) on a row whose"
-                f" outcome_status is {self.outcome_status!r}; a producer's own"
-                " refusal is recorded only where its door refused (ineligible),"
-                " never fabricated onto an admitted, rejected or unreachable"
-                " child (D-IMPL-342)"
+                f" outcome_status is {self.outcome_status!r} and refusal_ref"
+                f" {self.refusal_ref!r}; a producer's own refusal is recorded"
+                " only where its door refused (ineligible / ineligible), never"
+                " fabricated onto an admitted, rejected, eligibility-refused or"
+                " unreachable child (D-IMPL-342)"
             )
         if self.child_question_ref is not None and self.child_question_address is None:
             raise ValueError(

@@ -1,9 +1,9 @@
 # D-IMPL-342 — design: the refusing producer's own evidence, and the historical child question, retained on the parent's store
 
-**Status: design only (2026-09-18), awaiting the implementation ruling. No SDK code, no
-runtime code, no example code, no test-behavior change and no CP-14 assembly work in
-this package.** Baseline: `main @ 61d2af87` (the verified post-`D-GATE-304` baseline),
-branch `d-impl-342-design`. The decisions of record are `docs/DECISIONS.md`
+**Status: IMPLEMENTED (2026-09-18) on `d-impl-342-evidence`, awaiting the review ruling;
+not merged. §0–§8 are the design as accepted; §8 records what was built, where it
+differs, what the candidate's review found, and every measurement.** Design baseline:
+`main @ 61d2af87` (the verified post-`D-GATE-304` baseline), branch `d-impl-342-design`. The decisions of record are `docs/DECISIONS.md`
 `D-IMPL-342` (OPEN, 2026-09-15, from `CP03C-F-05`) and the `CP14-F-35` ruling recorded
 under it (2026-09-18). This document does what the 2026-09-18 instruction asked and
 nothing more: two limbs, each with its failing path on the baseline, the exact fields and
@@ -580,3 +580,181 @@ argument-bound child leg. No re-pin of any example transcript or page.
 4. **Three tests were written to go red when this is fixed, and they will.** They are
    replaced by positive proofs, at the validation step for the example-level ones. That
    is the pattern working, not a regression.
+
+## 8 · As built (2026-09-18, synchronization of this design to the tree)
+
+Implemented on `d-impl-342-evidence` from the accepted design (`51127a2b` on `61d2af87`),
+under Dave's implementation GO ("implement both limbs exactly as ruled"). First candidate `5ab20614`; the candidate under review is the tip of the branch, one commit
+later, after the review below. What follows names every place the tree differs from §1–§2,
+and records the measurements the GO asked for.
+
+### 8.1 Contracts, exactly as built
+
+**Limb A.** `src/ccf/products/composite.py::ChildAdmissionRefusal` gained five optional
+members, hash-transparent at `None`: `producer_refusal_kind`, `producer_refusal_reason`,
+`producer_refusal_key`, `producer_replay_ref`, and Limb B's `question_ref`.
+`src/ccf/replay/record.py::ChildResolution` gained four: `producer_refusal_kind`,
+`producer_refusal_reason`, `producer_refusal_key`, `child_question_ref`; `child_replay_ref`
+is now written on the refused-door branch. The `_admit` refused-door branch on
+`src/ccf/products/child_resolver.py::GrantBoundChildResolver` passes the door's `kind`,
+`reason`, `key` and `replay_ref` through `refuse_naming_producer`; the row copies them in
+`src/ccf/products/composite.py::resolve_child_outcomes`. The verdict stays `ineligible`;
+the prose `detail` is unchanged; nothing new crosses the served envelope at minimal (the
+five keys cross as `"undisclosed"`, exactly like the existing producer members — measured
+in C-A5).
+
+**One addition beyond §1.6, in place of the proposed replay hold:** a model validator on
+`ChildResolution` refuses producer refusal evidence on any row that is not `ineligible` on
+BOTH `outcome_status` and `refusal_ref` (the review found that the status token alone is
+also minted for the three eligibility-evidence refusals), and a `child_question_ref` without
+a `child_question_address`. Structural for every writer and every reader, rather than a
+check one replay path runs; the §1.6 hold was not added because the validator makes the
+inconsistent row unconstructible. Sabotage S-A4 shows it firing in production code:
+mapping the producer's verdict onto the row's status makes every refused-door composition
+raise at row construction. One closed-vocabulary limit is recorded in its docstring: the
+local invalidation register's own `ineligible` refusal of a locally dispatched child shares
+both tokens, and that leg mints no producer evidence.
+
+**Limb B.** `src/ccf/skills/dispatch.py::ChildQuestionIdentity` (five members, as §2.3);
+`src/ccf/skills/dispatch.py::ProductQuestion` gained `identity_artifact()`;
+`src/ccf/skills/dispatch.py::question_identity` is now `content_hash(ChildQuestionIdentity(...))`
+— R-3 taken; the bytes and every address are unchanged (C-B1–C-B3 hold the retained bytes
+to the pre-342 rendering copied verbatim into the suite, and the in-process control in §2.3
+was repeated on the built tree). `src/ccf/products/composite.py::CHILD_QUESTION_CLASS` =
+`ccf.child-question`. `_retain_question` on
+`src/ccf/products/child_resolver.py::QuestionBoundChildResolver` files under the gate's
+tenant (a read-only `tenant_id` property was added to
+`src/ccf/products/composite.py::CompositeAdmissionGate`), named by the address, **before**
+`dispatch_skill`; a store that files at another address is refused (`RuntimeError`); a
+store that cannot file raises through `resolve_for` with the producer never asked and no
+record written (C-B10, with a loopback listener counting connections). The reference is
+the `ArtifactRef.uri` the store returned, threaded as `question_ref` through `_admit`, onto
+every refusal value minted after dispatch, and onto
+`src/ccf/products/composite.py::ChildInvocation` via
+`src/ccf/products/composite.py::invocation_from_dispatch` (refused for a non-`mcp-product`
+acquisition, as `touched_entities` is for a remote one). The legacy argument-bound leg
+passes `None` and retains nothing, as scoped.
+
+**Where the first candidate was wrong, found by its review (§8.6):** the gate's own
+`refuse` closure in `admit` on `src/ccf/products/composite.py::CompositeAdmissionGate` — the
+site that mints every rejection of a SERVED answer (`producer-mismatch`, `question-mismatch`,
+`as-of-mismatch`, `class-mismatch`, the eligibility refusals, …) — carried neither the
+retained question's reference nor the door's replay reference, so such a row named a
+`child_question_address` with `child_question_ref None`: replay left it unheld and the audit
+read called it "not retained" about bytes the store held, contradicting §2.5. The closure
+now carries `question_ref=invocation.question_ref` and
+`producer_replay_ref=candidate.child_replay_ref` (the reference the door reported for the
+answer it served, a claim retained as reported). Two controls were added for that branch
+(C-A4b, C-B12) and two sabotages (S-A6, S-B7). §1.1 (5) had described the wrong branch:
+the branch that kept `child_replay_ref` on a rejected answer is the re-binding failure in
+`resolve_child_outcomes`, not the gate's closure.
+
+**Replay.** `src/ccf/replay/engine.py::retained_child_question` is the audit read;
+`_hold_retained_questions` is called at the three child steps — `replay()` after
+`_children_of` and before `_re_execute`, and both halves of `replay_refusal()` — over every
+row whose `child_question_ref` is set. A row without one is unheld by name, and the helper
+raises `ReplayUnresolvable` "not retained" for it. Exception classes as §2.6.
+
+### 8.2 Before and after, both limbs
+
+| | before (`61d2af87`) | after (`5ab20614`) |
+|---|---|---|
+| Limb A, fixture: a served answer rejected inside the gate (a wrong producer id) | row `producer-mismatch` with `child_replay_ref None` and, at the first candidate, `child_question_ref None` | the same verdict with the door's replay reference and the retained question's reference (C-A4b, C-B12); no producer refusal invented |
+| Limb A, fixture: the paved child refused at the door on a lane floor | row `ineligible` / `ineligible`, `child_replay_ref None`, no producer refusal (`tests/products/test_paved_consumer.py::test_a_floor_above_the_served_lane_is_refused_at_the_door_with_both_lanes_retained` asserted the `None`) | the same verdict, plus `producer_refusal_kind = product-request-violation`, `reason = class-mismatch`, `key = schema_version`, `child_replay_ref = ccf-artifact://paved-child-tenant/ccf.replay-record/…` — equal to what the door itself discloses to a second dispatch (C-A1) |
+| Limb A, estate: CP-14's withheld spread | row `ineligible`, reason only in the first-blocking prose; the first and fourth slices asserted `child_replay_ref is None` | those two assertions are red by design (the flip they were written for); converted at the separate validation step (`D-IMPL-261`) |
+| Limb B, fixture: any dispatched child | `child_question_address` named bytes the store did not hold | `child_question_ref = ccf-artifact://<consumer tenant>/ccf.child-question/<address>@<address>`; the bytes at the address equal the pre-342 preimage rendered independently (C-B1 admitted, C-B2 refused, C-B3 unreachable) |
+| Limb B, replay | nothing read `child_question_address` | `replay_refusal` and `replay` hold every referenced question; producers stopped, environment and reader raising if reached (C-B6); tamper and deletion fail by name on both paths (C-B7, C-B8) |
+
+### 8.3 Sabotages, run by hand and restored (`cmp` verified after each)
+
+Targeted suites: the two limb modules, `tests/products/test_paved_consumer.py`,
+`tests/products/test_refusal_envelope.py` (113 controls at the first candidate; 115 after the
+review's two controls were added — S-A6 and S-B7 were run against the 115).
+
+| sabotage | red | green |
+|---|---|---|
+| S-A1 drop `producer_replay_ref` in `_admit` | C-A1 ×2, C-A5, the paved lane-floor test | everything else |
+| S-A2 drop the three scalars in `_admit` | C-A1 ×2, C-A5, the paved lane-floor test | everything else |
+| S-A3 keep the refusal members, drop the row copy | C-A1 ×2, the paved lane-floor test | C-A5's record-block assertion — refusal value and row held separately |
+| S-A4 map the producer's verdict onto the row status | 10, including C-A7 and five Limb B controls: the row validator refuses the fabricated pairing at construction, so every refused-door composition raises | — |
+| S-A5 mark the new members `False` | C-A7 only (a pre-342 record's stored bytes, keys deleted, no longer reload to their address) | the other 112 |
+| S-B1 file nothing | C-B1–C-B3, C-B6–C-B11, the paved mapping test (10) | C-A*, C-B5 |
+| S-B2 file the `ProductQuestion` instead of the identity | 27 — every composition raises `RuntimeError` at ask, before any dispatch | — |
+| S-B3 file after dispatch | C-B10 only — the ordering, not the write | the other 112 |
+| S-B4 drop the bytes-hash check in the audit read | C-B7 only | the other 112 |
+| S-B5 compute the reference from the address instead of witnessing the put (nothing filed) | 12, C-A1 included (its reconstruction now resolves a reference with nothing behind it) | — |
+| S-B6 drop the hold from `replay()` | C-B7 only — the served-path tamper | the other 112 |
+| S-A6 drop `producer_replay_ref` from the gate's closure | C-A4b only | the other 114 |
+| S-B7 drop `question_ref` from the gate's closure | C-A4b, C-B12 | the other 113 |
+
+S-A5 first turned nothing red: C-A7 rebuilt the pre-342 record through `model_copy`, which
+under either posture re-canonicalizes consistently. The control was strengthened to delete
+the keys from the row and record JSON and file those bytes at their own `sha256` — the
+shape a pre-342 store actually holds — before S-A5 was re-run.
+
+**Controls that differ from §1.9 / §2.8, and why.** C-A1 runs two shapes, both conformity
+refusals of the same kind (`product-request-violation`): the fixture door's only other
+refusal, `subject-unavailable`, arises under a wrong tenant, where the producer's claims
+then fail and the evidence is deliberately NOT carried (C-A4a). C-A1 holds the replay
+reference to the producer's tenant and class and to a well-formed versioned URI, not to the
+oracle's exact reference: each dispatch mints a new producer record, so a second dispatch
+cannot witness the first's reference. §1.9's C-A4 ("served, rejected at the gate,
+`question-mismatch`") became two controls — C-A4a (door refused, claims failed: nothing
+carried) and C-A4b (door served, gate rejected on `producer-mismatch`: references carried,
+no producer refusal) — because a question mismatch cannot be induced from the consumer side
+of the paved fixture. C-A8 also refuses evidence on an `ineligible` status with an
+eligibility-evidence `refusal_ref`.
+
+### 8.4 Deliberate test growth, named
+
+- `tests/products/test_refusal_envelope.py::test_envelope_for_composite_child_refusal` — the
+  pinned key set of a composite refusal's `fields` grew by five (R-1).
+- `tests/contracts/test_hash_transparency.py` — the ticked roster grew by nine marks.
+- `tests/examples/test_cp_03_canonical_paved_consumer.py` — the row-member classification
+  table grew by four (`producer_refusal_*` as child identity, `child_question_ref` as
+  parent-owned); the dogfood's member-by-member comparison is otherwise unchanged.
+- `tests/products/test_paved_consumer.py` — the assertion written to go red when 342 landed
+  flipped to a positive one; the mapping-authority test now also reads the retained question
+  from a fresh store.
+
+### 8.5 Residual limitations
+
+- A malformed door answer (`MalformedDoorAnswer` → `producer-unavailable`) has no
+  cross-process control; the unreachable-endpoint control covers the `McpProductFailure`
+  branch and the ordering.
+- The served-path replay hold is exercised by the tamper control (C-B7) only; the positive
+  served-path reconstruction needs a replay environment the paved fixture does not build
+  (`CP06C-F-01`), and is exercised on the estate by CP-14's second slice at the validation
+  step.
+- The legacy argument-bound child leg retains no question, by scope.
+
+### 8.6 The candidate's review, and what it changed
+
+Five read-only review lenses were run over the first candidate's committed diff (Limb A
+correctness; Limb B retention and replay; identity and canonical form; proof strength; docs
+and surface agreement), and every finding was handed to a second agent instructed to refute
+it. Twenty findings were raised and all twenty were confirmed by their refuters. They reduce
+to:
+
+- **One code defect (high):** the gate's `refuse` closure omission above — the same defect
+  seen through three lenses. Fixed; C-A4b, C-B12, S-A6, S-B7 added.
+- **One validator weakness (medium):** the evidence validator keyed on the status token only.
+  Tightened to both tokens; C-A8 extended.
+- **One undocumented behavior change (low):** `question_identity` now refuses a naive
+  `asked_at`, which the old rendering hashed through the host's zone. Documented in the
+  docstring and the surface fragment as the canonical form's own rule; no caller passes one.
+- **Two controls weaker or differently placed than the design said (medium, low):** C-A4 as
+  first shipped exercised the refused-door branch, not the served-then-rejected one; C-A1's
+  reference assertion was a prefix. Both re-specified above. C-B9's match pattern also
+  matched the bytes-missing branch; tightened to the no-reference message.
+- **Documentation behind the code (medium, low):** this §8 did not yet exist while both
+  suites cited it; the design's status header said design-only; the surface fragment cited
+  a GO the decision log had not yet recorded (the IMPLEMENTED entry now records it); a 344
+  re-citation named `_reconstruct_child_contracts` as its own caller (`_children_of`
+  selects, corrected); the `GrantBoundChildResolver` docstring called the store read-only.
+  All synchronized in the same commit as the fix.
+
+Nothing on the not-to-re-derive list was re-raised. The refuters' evidence for the closure
+defect was an executed cross-process reproduction with a tampered question artifact that
+`replay_refusal` did not notice — the "don't know read as pass" shape this project names in
+CLAUDE.md §3.1, inside the very change that was meant to close it for questions.

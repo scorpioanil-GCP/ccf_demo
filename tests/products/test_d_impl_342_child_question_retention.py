@@ -17,7 +17,7 @@ What is held, exactly (design `docs/D-IMPL-342-DESIGN.md` §2.8):
 
 | control | scenario | holds |
 | --- | --- | --- |
-| C-B1/2/3 | admitted; refused by the door; unreachable | the row references a retained artifact; the store resolves the reference to the row's address; **the stored bytes equal, byte for byte, the pre-342 identity preimage** (rendered here from the members, independently of the SDK) and hash to the address; the rehydrated contract hashes back to it; the retained request is the wire request an independent construction predicts |
+| C-B1/2/3/12 | admitted; refused by the door; unreachable; served and rejected inside the gate | the row references a retained artifact; the store resolves the reference to the row's address; **the stored bytes equal, byte for byte, the pre-342 identity preimage** (rendered here from the members, independently of the SDK) and hash to the address; the rehydrated contract hashes back to it; the retained request is the wire request an independent construction predicts |
 | C-B5 | identity | the ``ProductQuestion`` itself does NOT hash to the address — retaining it would not have satisfied the ruling |
 | C-B6 | replay with the world gone | producer process exited, reader and environment raising if reached: the refused record reconstructs, and the audit read returns the question for the refused and the served record alike |
 | C-B7 | tamper | other bytes at the address: the refused reconstruction AND the served replay fail as a divergence — the served one before its environment is reached |
@@ -26,8 +26,8 @@ What is held, exactly (design `docs/D-IMPL-342-DESIGN.md` §2.8):
 | C-B10 | persistence failure | a store that cannot file the question: the producer is never contacted, no record is written, the fault propagates |
 | C-B11 | idempotent | the same question asked twice files one artifact both records reference |
 
-The five sabotages S-B1–S-B5 are run by hand against this module and recorded
-in the design's §9 (as built).
+The sabotages S-B1–S-B7 are run by hand against this module and recorded in
+`docs/D-IMPL-342-DESIGN.md` §8.3 (as built).
 """
 
 from __future__ import annotations
@@ -171,6 +171,26 @@ def test_c_b3_an_unreachable_producer_leaves_its_exact_question_on_the_parents_s
     _hold_retained(opened, row)
 
 
+def test_c_b12_a_served_answer_rejected_inside_the_gate_leaves_its_exact_question_on_the_parents_store(tmp_path: pathlib.Path, producer_url: str) -> None:
+    """The registration names another producer id: the door serves, the gate
+    rejects (`producer-mismatch`). The question was filed before dispatch and
+    the row must reference it — the branch the candidate's review found writing
+    an address with no reference — and the hold must reach it: other bytes at
+    the address are a divergence on the refused reconstruction."""
+    config = fixture.consumer_config(producers={"child": fixture.producer_section(producer_id="someone-else")})
+    root = _tree(tmp_path, config=config)
+    with _open(root, tmp_path / "scratch", producer_url) as opened:
+        refused = opened.answer(_question(opened))
+        assert isinstance(refused, RefusalEnvelope), refused
+        row = _the_row(opened, refused)
+    assert row.refusal_ref == "producer-mismatch"
+    _hold_retained(opened, row)
+    other = canonical_bytes(ChildQuestionIdentity(asked_at=ASKED_AT, freshness="fixture-freshness", intent="fixture-intent", request=_predicted_request(), subject="acct-2"))
+    (_fresh(opened).root / row.child_question_address).write_bytes(other)
+    with pytest.raises(ReplayDivergence, match="hash to"):
+        _reconstruct(opened, refused)
+
+
 def test_c_b5_the_product_question_itself_does_not_hash_to_the_identity() -> None:
     """Retaining the `ProductQuestion` would NOT have satisfied the ruling: it
     carries `parameters` and names the request `request_json`, so its content
@@ -265,7 +285,7 @@ def test_c_b9_a_pre_342_record_reconstructs_unheld_and_the_audit_read_refuses_by
         reader=_NeverConsulted(), control_plane=opened.control_plane, environment=_NeverConsulted(),  # type: ignore[arg-type]
     )
     assert reconstructed.record_content_address == filed.content_address
-    with pytest.raises(ReplayUnresolvable, match="not retained"):
+    with pytest.raises(ReplayUnresolvable, match="carries no retained-question reference"):
         retained_child_question(store=fresh, row=rows[0])
 
 

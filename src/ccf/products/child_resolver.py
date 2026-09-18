@@ -189,9 +189,12 @@ class GrantBoundChildResolver:
             peering-bound skill may produce a child; ``None`` refuses one with
             ``provenance-unverified`` rather than admitting it unverified.
         artifact_store: Where this fabric's own decision records live. Read
-            **only** for a locally dispatched child, to take its touched
-            entities from its persisted execution record. Never used to reach
-            a remote provider's store — Dave's ruling forbids requiring that.
+            here only for a locally dispatched child, to take its touched
+            entities from its persisted execution record; WRITTEN by the
+            question-bound subclass, which files each question's identity
+            bytes on it before dispatch (`D-IMPL-342` / `CP14-F-35`). Never
+            used to reach a remote provider's store — Dave's ruling forbids
+            requiring that.
     """
 
     def __init__(

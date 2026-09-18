@@ -439,6 +439,13 @@ def question_identity(
     bytes a parent retains at this address are, by construction, the bytes
     this function hashes. The preimage did not change: sorted keys, compact
     separators, ``ensure_ascii=False``, the canonical UTC timestamp.
+
+    One input the old rendering accepted is now refused: a **naive**
+    ``asked_at``. The old ``astimezone(UTC)`` hashed such a value through the
+    host's zone — the same question minted a different identity on two hosts
+    — and :class:`ChildQuestionIdentity` refuses it (`D-IMPL-38`). Every
+    caller in the tree passes an aware instant; ``ProductQuestion`` already
+    required one.
     """
     return content_hash(
         ChildQuestionIdentity(

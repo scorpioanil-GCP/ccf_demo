@@ -13,17 +13,18 @@ What is held, exactly (design `docs/D-IMPL-342-DESIGN.md` §1.9):
 
 | control | scenario | holds |
 | --- | --- | --- |
-| C-A1 | the door refuses (lane floor; a typed parameter) | the row carries the producer's kind, reason, key and replay reference **equal to what the door itself discloses** — decoded independently from a raw door outcome obtained by a second dispatch, not read back through admission |
+| C-A1 | the door refuses (a lane floor; a typed parameter — the fixture door's two conformity refusals; its `subject-unavailable` refusal arises only under a wrong tenant, where the claims fail: C-A4a) | the row carries the producer's kind, reason and key **equal to what the door itself discloses** — decoded independently from a raw door outcome obtained by a second dispatch, not read back through admission — and the door's replay reference (its tenant and class; each dispatch mints a new producer record, so the oracle cannot witness the exact reference) |
 | C-A2 | served and admitted | the three refusal scalars are ``None``; the replay reference as before |
 | C-A3 | unreachable producer | ``producer-unavailable``; no producer refusal invented; no reference |
-| C-A4 | served, then refused on the producer's claims (tenant mismatch) | no producer refusal invented; distinct from C-A1 by evidence |
+| C-A4a | the door refuses AND the producer's claims fail (a wrong tenant) | no producer refusal carried — the answer was not the producer's — and no reference |
+| C-A4b | the door SERVES and the gate rejects (a wrong producer id) | no producer refusal invented; the reported product's identity, the door's replay reference and the retained question's reference are all on the row — the branch the candidate's review found minting rows without the last two |
 | C-A5 | disclosure | the served envelope discloses ``product_class`` only — the five new members cross as ``"undisclosed"`` exactly like the existing producer members — while the record's block carries the values |
 | C-A6 | vocabulary | a producer reason cannot become an admission reason or an ``outcome_status`` |
 | C-A7 | rehydration | a record written WITHOUT the new keys — the pre-342 shape — still rehydrates and reconstructs |
 | C-A8 | fabrication | producer refusal evidence on a row whose door did not refuse is refused at construction |
 
-The five sabotages S-A1–S-A5 are run by hand against this module and recorded
-in the design's §9 (as built).
+The sabotages S-A1–S-A6 are run by hand against this module and recorded in
+`docs/D-IMPL-342-DESIGN.md` §8.3 (as built).
 """
 
 from __future__ import annotations
@@ -103,7 +104,7 @@ def _typed_wrong(requirement: ChildRequirement, request: ProductRequest) -> Chil
     return ChildQuestion(subject=request.subject, intent="fixture-intent", freshness="fixture-freshness", parameters={THRESHOLD_PARAMETER: "not-a-number"})
 
 
-def _door_outcome_by_a_second_dispatch(opened: Any, *, parameters: dict[str, Any]) -> DoorOutcome:
+def _door_outcome_by_a_second_dispatch(opened: Any, *, parameters: dict[str, Any], subject: str = "acct-1") -> DoorOutcome:
     """THE INDEPENDENT ORACLE: ask the producer's door again through the dispatch
     surface alone — the consumer's registry and the granted entry, no admission,
     no `_admit` — and decode the raw door outcome the door returned."""
@@ -116,7 +117,7 @@ def _door_outcome_by_a_second_dispatch(opened: Any, *, parameters: dict[str, Any
         callable_registry=CallableRegistry(),
         mcp_skills=opened.mcp_skills,
         question=ProductQuestion(
-            subject="acct-1", intent="fixture-intent", freshness="fixture-freshness", asked_at=ASKED_AT,
+            subject=subject, intent="fixture-intent", freshness="fixture-freshness", asked_at=ASKED_AT,
             parameters=parameters, request_json=canonical_bytes(wire).decode("utf-8"),
         ),
     )
@@ -132,34 +133,40 @@ def _fresh(opened: Any) -> FileArtifactStore:
 
 
 @pytest.mark.parametrize(
-    ("label", "config", "questions", "parameters", "reason", "key"),
+    ("label", "config", "questions", "subject", "parameters", "kind", "reason", "key"),
     [
-        ("lane-floor", _lane_floor_config(), fixture.questions, {THRESHOLD_PARAMETER: 1000}, "class-mismatch", "schema_version"),
-        ("typed-parameter", fixture.consumer_config(), _typed_wrong, {THRESHOLD_PARAMETER: "not-a-number"}, "type-mismatch", THRESHOLD_PARAMETER),
+        ("lane-floor", _lane_floor_config(), fixture.questions, "acct-1", {THRESHOLD_PARAMETER: 1000}, REFUSAL_KINDS[ProductRequestViolation], "class-mismatch", "schema_version"),
+        ("typed-parameter", fixture.consumer_config(), _typed_wrong, "acct-1", {THRESHOLD_PARAMETER: "not-a-number"}, REFUSAL_KINDS[ProductRequestViolation], "type-mismatch", THRESHOLD_PARAMETER),
     ],
 )
 def test_c_a1_a_door_refusal_reaches_the_row_as_the_door_disclosed_it(
-    tmp_path: pathlib.Path, producer_url: str, label: str, config: dict[str, Any], questions: Any, parameters: dict[str, Any], reason: str, key: str
+    tmp_path: pathlib.Path, producer_url: str, label: str, config: dict[str, Any], questions: Any, subject: str,
+    parameters: dict[str, Any], kind: str, reason: str, key: str | None,
 ) -> None:
     root = _tree(tmp_path, config=config)
     with _open(root, tmp_path / "scratch", producer_url, questions=questions) as opened:
-        refused = opened.answer(_question(opened))
+        refused = opened.answer(_question(opened, subject=subject))
         assert isinstance(refused, RefusalEnvelope), refused
         row = _the_row(opened, refused)
         record = opened.record_of(refused)
-        oracle = _door_outcome_by_a_second_dispatch(opened, parameters=parameters)
+        oracle = _door_outcome_by_a_second_dispatch(opened, parameters=parameters, subject=subject)
     # the admission verdict is unchanged — the producer's word sits BESIDE it
     assert (row.outcome_status, row.refusal_ref) == ("ineligible", "ineligible")
     assert (row.producer_id, row.producer_tenant) == (PRODUCER_ID, PRODUCER_TENANT)
     # the producer's own refusal, as its door disclosed it
     assert oracle.refusal is not None and oracle.product_json is None
-    assert row.producer_refusal_kind == oracle.refusal.kind == REFUSAL_KINDS[ProductRequestViolation]
+    assert row.producer_refusal_kind == oracle.refusal.kind == kind
     assert row.producer_refusal_reason == oracle.refusal.reason == reason
     assert row.producer_refusal_key == oracle.refusal.key == key
-    # and its replay reference: the producer's claim, tenant-consistent, never resolved here
-    assert oracle.replay_ref is not None and oracle.replay_ref.startswith(f"ccf-artifact://{PRODUCER_TENANT}/")
+    # and its replay reference: the producer's claim on the producer's tenant, a
+    # well-formed versioned URI, never resolved here. Each dispatch mints a new
+    # producer record, so the oracle witnesses the reference's tenant and class,
+    # not its exact bytes.
+    assert oracle.replay_ref is not None and oracle.replay_ref.startswith(f"ccf-artifact://{PRODUCER_TENANT}/ccf.replay-record/")
     assert row.child_replay_ref is not None and row.child_replay_ref.startswith(f"ccf-artifact://{PRODUCER_TENANT}/ccf.replay-record/")
-    assert not _fresh(opened).exists(content_address=row.child_replay_ref.rsplit("@", 1)[1]), "the consumer did not copy the producer's record"
+    name, _, version = row.child_replay_ref.rpartition("@")
+    assert len(version) == 64 and set(version) <= set("0123456789abcdef") and name.rsplit("/", 1)[1] != version
+    assert not _fresh(opened).exists(content_address=version), "the consumer did not copy the producer's record"
     # the composite refusal did not erase it: the record's block and the record's row agree
     block = json.loads(record.content_generation_path.assembly_refusal)
     assert json.loads(block["fields"]["producer_refusal_reason"]) == reason
@@ -200,18 +207,46 @@ def test_c_a3_an_unreachable_producer_stays_unavailable_with_nothing_invented(tm
     assert all(block["fields"][name] == "null" for name in NEW_REFUSAL_FIELDS if name != "question_ref"), block["fields"]
 
 
-def test_c_a4_a_served_answer_refused_on_the_producers_claims_carries_no_producer_refusal(tmp_path: pathlib.Path, producer_url: str) -> None:
-    """The producer SERVED; admission refused the answer because the registration
-    names another tenant. That is the consumer's verdict about the producer's
-    claims, not the producer's refusal — and the row must not read as one."""
+def test_c_a4a_a_door_refusal_whose_claims_fail_carries_no_producer_refusal(tmp_path: pathlib.Path, producer_url: str) -> None:
+    """The registration names another tenant, so the wire asks the door for a
+    tenant it does not serve: the door REFUSES (`subject-unavailable`), and then
+    the producer's claims fail against the registration. The answer was not the
+    producer's, so its refusal is not carried as the producer's word — the row
+    reads the consumer's verdict alone. Measured, not assumed: the oracle shows
+    the door refusing."""
     config = fixture.consumer_config(producers={"child": fixture.producer_section(producer_tenant="another-tenant")})
     root = _tree(tmp_path, config=config)
     with _open(root, tmp_path / "scratch", producer_url) as opened:
         refused = opened.answer(_question(opened))
         assert isinstance(refused, RefusalEnvelope), refused
         row = _the_row(opened, refused)
+        oracle = _door_outcome_by_a_second_dispatch(opened, parameters={THRESHOLD_PARAMETER: 1000})
+    assert oracle.product_json is None and oracle.refusal is not None and oracle.refusal.reason == "subject-unavailable"
     assert row.refusal_ref == "producer-tenant-mismatch" and row.outcome_status != "ineligible"
+    assert (row.producer_refusal_kind, row.producer_refusal_reason, row.producer_refusal_key, row.child_replay_ref) == (None, None, None, None)
+
+
+def test_c_a4b_a_served_answer_rejected_inside_the_gate_carries_its_references_and_no_producer_refusal(tmp_path: pathlib.Path, producer_url: str) -> None:
+    """The registration names another producer id, so the door SERVES and the
+    gate rejects the served answer (`producer-mismatch`). No producer refusal is
+    invented; the reported product's identity (Amendment 2), the door's replay
+    reference for the answer it served, and the retained question's reference
+    are all on the row. This is the branch the candidate's review found minting
+    rows without the last two."""
+    config = fixture.consumer_config(producers={"child": fixture.producer_section(producer_id="someone-else")})
+    root = _tree(tmp_path, config=config)
+    with _open(root, tmp_path / "scratch", producer_url) as opened:
+        refused = opened.answer(_question(opened))
+        assert isinstance(refused, RefusalEnvelope), refused
+        row = _the_row(opened, refused)
+        oracle = _door_outcome_by_a_second_dispatch(opened, parameters={THRESHOLD_PARAMETER: 1000})
+        fresh = _fresh(opened)
+    assert oracle.product_json is not None and oracle.refusal is None
+    assert row.refusal_ref == "producer-mismatch" and row.outcome_status != "ineligible"
     assert (row.producer_refusal_kind, row.producer_refusal_reason, row.producer_refusal_key) == (None, None, None)
+    assert row.child_reported_address == oracle.content_address
+    assert row.child_replay_ref is not None and row.child_replay_ref.startswith(f"ccf-artifact://{PRODUCER_TENANT}/ccf.replay-record/")
+    assert row.child_question_ref is not None and fresh.resolve_uri(uri=row.child_question_ref) == row.child_question_address
 
 
 # --- C-A5 / C-A6 ------------------------------------------------------------------------
@@ -315,9 +350,12 @@ def test_c_a7_a_record_without_the_new_keys_still_rehydrates_and_reconstructs(tm
 
 def test_c_a8_producer_refusal_evidence_on_a_row_whose_door_did_not_refuse_is_refused() -> None:
     base = dict(required_product_class=CHILD_CLASS, required=True, child_question_address="a" * 64)
-    for status in ("admitted", "producer-unavailable", "unauthorized"):
+    for status in ("admitted", "producer-unavailable", "unauthorized", "rejected-at-admission"):
         with pytest.raises(ValidationError, match="never fabricated"):
             ChildResolution(**base, outcome_status=status, producer_refusal_reason="tolerance-exceeded")  # type: ignore[arg-type]
+    # the status token alone is not enough: an eligibility-evidence refusal shares it
+    with pytest.raises(ValidationError, match="never fabricated"):
+        ChildResolution(**base, outcome_status="ineligible", refusal_ref="eligibility-evidence-missing", producer_refusal_reason="tolerance-exceeded")  # type: ignore[arg-type]
     with pytest.raises(ValidationError, match="without a question address"):
         ChildResolution(required_product_class=CHILD_CLASS, required=True, outcome_status="ineligible", child_question_ref="ccf-artifact://t/ccf.child-question/x@x")
     row = ChildResolution(**base, outcome_status="ineligible", refusal_ref="ineligible", producer_refusal_kind="product-request-violation", producer_refusal_reason="class-mismatch", producer_refusal_key="schema_version")  # type: ignore[arg-type]

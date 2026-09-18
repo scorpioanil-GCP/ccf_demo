@@ -1179,6 +1179,14 @@ class CompositeAdmissionGate:
                 producer_registration_address=invocation.producer_registration_address,
                 producer_server=invocation.producer_server,
                 question_address=invocation.question_address,
+                # `D-IMPL-342`: a served answer rejected here still names the
+                # question the parent retained before dispatch, and the
+                # replay reference the door reported for the answer it served
+                # — a claim retained as reported, never resolved. Found by
+                # the candidate's review: this closure minted every in-gate
+                # rejection without either, so replay left those rows unheld.
+                question_ref=invocation.question_ref,
+                producer_replay_ref=candidate.child_replay_ref,
             )
 
         if invocation.acquisition == "mcp-product":
