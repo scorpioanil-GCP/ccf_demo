@@ -42,14 +42,16 @@ from __future__ import annotations
 
 import datetime as _dt
 import sys
+import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
+from collections.abc import Mapping
 from typing import Any
 
 from ccf.controlplane.artifacts import PRODUCT_CLASS, EgressDoorBinding, ProductClassDeclaration, parse_artifact
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.deployment import EnvironmentDocument, load_environment_document
-from ccf.products.refusal import RequestIdentity, envelope_for
+from ccf.products.refusal import GovernedRefusalRaised, RequestIdentity, envelope_for
 from ccf.products.request import ProductRequest, ProductRequestViolation, refuse_request
 from ccf.products.resolver import ProductNotResolvable, ReplayRefusalRecorder, ResolverOutcome
 from ccf.projection.plan import Perspective
@@ -206,6 +208,19 @@ class ExposureProducer:
                         " wrong one and presented as the caller's (CP05D-F-01)"),
             ), request=identity), perspective=perspective, request=request)
         supplied = dict(request.parameters)
+        # `D-IMPL-304`, THE ADOPTION. The frozen tree resolves the effective
+        # request BEFORE acquisition and, on a refusal, RAISES a ValueError that
+        # drops the partial evidence — which every door reads as a runtime
+        # failure. So this adapter runs the specimen's own resolution first,
+        # through the specimen's own seam, and hands a refusal up as the typed
+        # governed handoff WITH the evidence the SDK established, while it is
+        # still available. On success the frozen spine resolves a second time
+        # inside `produce_governed`; the duplication is deterministic (same
+        # inputs, same seam) and is the measured cost of a wrapper over a
+        # frozen spine (`CP05D-F-01`). Frozen cp-05 is not edited.
+        outcome = self._resolution(request, supplied)
+        if outcome.refusal is not None:
+            raise GovernedRefusalRaised(outcome.refusal, resolution=outcome.evidence, request=identity)
         _payload, governed, _record = prod.produce_governed(
             anchor=request.subject, intent=request.intent,
             depth=supplied.get("depth"),
@@ -218,6 +233,43 @@ class ExposureProducer:
             replay_root=self._replay_root,
         )
         return governed
+
+    def _resolution(self, request: ProductRequest, supplied: Mapping[str, Any]) -> Any:
+        """The specimen's own effective-request resolution, through the specimen's own seam.
+
+        Exactly what `produce_governed` does first (a scratch fabric for the
+        registry the constraints are read from; the same supplied mapping, the
+        family token from the pinned question), so the refusal this adapter
+        hands up is the one the frozen spine would have raised, with the
+        `ResolutionOutcome`'s evidence intact.
+        """
+        question = dep.load(dep.QUESTION)[dep.DECLARATION]
+        with tempfile.TemporaryDirectory(prefix="cp05-door-resolution-") as scratch:
+            fabric, registry = dep.boot(Path(scratch))
+            try:
+                _typed, outcome = dep.effective_request(
+                    config=self._config,
+                    registry=registry,
+                    supplied={
+                        "depth": supplied.get("depth"),
+                        "materiality": _text(supplied.get("materiality")),
+                        "follow_guarantees": supplied.get("follow_guarantees"),
+                        "follow_cross_default": supplied.get("follow_cross_default"),
+                        "basis": supplied.get("basis"),
+                        "debt_tolerance": _text(supplied.get("debt_tolerance")),
+                        "as_of": supplied.get("as_of"),
+                        "families": [str(question["parameters"]["families"][0])],
+                    },
+                    subject=request.subject,
+                    intent=request.intent,
+                    freshness=str(question["freshness"]),
+                    asked_at=self._pinned_instant,
+                )
+            finally:
+                handle = getattr(fabric, "handle", None)
+                if handle is not None:
+                    handle.close()
+        return outcome
 
     def _violation(
         self, reason: Any, *, key: str, presented: str | None, declared_type: str | None,
