@@ -87,7 +87,6 @@ address of its own (CLAUDE.md §11, CINV-01). Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
-import hashlib
 import json
 import re
 from collections.abc import Callable, Mapping
@@ -99,6 +98,7 @@ from pydantic import field_validator
 
 from ccf.agents.errors import NotYetBound
 from ccf.contracts.base import CCFContract
+from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifact_base import validate_semver
 from ccf.controlplane.audit import AuditLog
 from ccf.mcp.client import McpResourceClient
@@ -132,6 +132,7 @@ __all__ = [
     "ProducerDoesNotOffer",
     "ProducerOffer",
     "ProducerRegistration",
+    "ChildQuestionIdentity",
     "ProductQuestion",
     "PeeringInvocation",
     "PeeringSkillRegistry",
@@ -358,6 +359,63 @@ class ProductQuestion(CCFContract):
             asked_at=self.asked_at,
         )
 
+    def identity_artifact(self) -> "ChildQuestionIdentity":
+        """The identity-bearing bytes of this question, as the artifact a parent retains.
+
+        `D-IMPL-342` / `CP14-F-35`. **Not** this contract: a ``ProductQuestion``
+        also carries ``parameters`` (already inside ``request_json``) and names
+        the wire request ``request_json``, so its own content hash is NOT
+        :attr:`address`. What hashes to the address is exactly the five-member
+        :class:`ChildQuestionIdentity`, and that is what a store must hold so
+        ``content_hash(retained) == child_question_address``.
+        """
+        return ChildQuestionIdentity(
+            asked_at=self.asked_at,
+            freshness=self.freshness,
+            intent=self.intent,
+            request=self.request_json,
+            subject=self.subject,
+        )
+
+
+class ChildQuestionIdentity(CCFContract):
+    """The canonical preimage of a child question's identity (`D-IMPL-342` / `CP14-F-35`).
+
+    Five members and only five, named as the identity's five keys — in
+    particular ``request`` (the consumer's canonical
+    :class:`~ccf.products.door.WireRequest` as text), not ``request_json`` —
+    so that :func:`~ccf.contracts.canonical.canonical_bytes` of an instance
+    IS the byte string :func:`question_identity` hashes. That is what lets a
+    parent fabric retain the historical question on its own artifact store at
+    an address equal to the row's ``child_question_address``, and lets replay
+    hold the retained bytes to that address without calling the deployment's
+    question mapping or the producer (Dave, 2026-09-18: *"retain the exact
+    identity-bearing child-question bytes in the parent's artifact store, for
+    admitted, refused, and unavailable outcomes. The retained bytes must
+    reproduce the recorded question identity."*).
+
+    There is no second identity function: :func:`question_identity` is the
+    content hash of this contract, and the byte-identity test in
+    ``tests/products/test_d_impl_342_child_question_retention.py`` pins that
+    rendering to the pre-342 preimage.
+    """
+
+    asked_at: datetime
+    freshness: str
+    intent: str
+    request: str
+    subject: str
+
+    @field_validator("asked_at")
+    @classmethod
+    def _asked_at_is_aware(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError(
+                "a child question identity's asked_at carries an offset; a"
+                " naive instant is not one instant (D-IMPL-38)"
+            )
+        return value
+
 
 def question_identity(
     *,
@@ -374,20 +432,23 @@ def question_identity(
     the wire request plus the four §6.3 axes the door says it answered — so
     the two agree only if every axis agrees. ``asked_at`` is rendered as the
     canonical timestamp so an offset spelling cannot change the identity.
+
+    `D-IMPL-342` re-expressed the rendering as the content hash of
+    :class:`ChildQuestionIdentity` — the SDK's one canonical form
+    (:mod:`ccf.contracts.canonical`) over the same five keys — so that the
+    bytes a parent retains at this address are, by construction, the bytes
+    this function hashes. The preimage did not change: sorted keys, compact
+    separators, ``ensure_ascii=False``, the canonical UTC timestamp.
     """
-    rendered = json.dumps(
-        {
-            "asked_at": asked_at.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
-            "freshness": freshness,
-            "intent": intent,
-            "request": request_json,
-            "subject": subject,
-        },
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=False,
+    return content_hash(
+        ChildQuestionIdentity(
+            asked_at=asked_at,
+            freshness=freshness,
+            intent=intent,
+            request=request_json,
+            subject=subject,
+        )
     )
-    return hashlib.sha256(rendered.encode("utf-8")).hexdigest()
 
 
 class McpProductProvenanceError(TypeError):

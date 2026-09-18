@@ -371,8 +371,18 @@ def test_envelope_for_composite_child_refusal(
         "producer_registration_address",
         "producer_server",
         "question_address",
+        # `D-IMPL-342`: the refusing producer's own evidence and the retained
+        # question's reference — rendered like every other member, "null" when
+        # the branch had none, so a composite refusal recorded after 342 says
+        # what its producer said (and hashes differently from one before it).
+        "producer_refusal_kind",
+        "producer_refusal_reason",
+        "producer_refusal_key",
+        "producer_replay_ref",
+        "question_ref",
     }
     assert envelope.fields["producer_id"] == "null"
+    assert envelope.fields["producer_refusal_reason"] == "null"
     assert envelope.fields["reason"] == '"as-of-mismatch"'
     # F9: the two addresses cross SEPARATELY and labelled. On an
     # address-mismatch they differ, and the record must never present the

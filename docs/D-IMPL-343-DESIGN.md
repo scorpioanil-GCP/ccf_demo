@@ -421,7 +421,7 @@ test modules only.
 - **Adopter writes:** `questions_at` (`test:282-299`, 18 lines): subject = the LEI,
   intent `annual-review`, freshness `filing-cadence`, `debt_tolerance` as decimal
   text.
-- **SDK API:** `ChildQuestion` (`child_resolver.py:142-156`), `ChildQuestions =
+- **SDK API:** `ChildQuestion` (`src/ccf/products/child_resolver.py::ChildQuestion`), `ChildQuestions =
   Callable[[ChildRequirement, ProductRequest], ChildQuestion]` (`:165`).
 - **Duplicated authority:** the `freshness` token `filing-cadence` has no declared
   home (`deployment.py:136`, the spec, the test).
@@ -448,7 +448,7 @@ test modules only.
 ### C7 · Admission
 - **Adopter writes:** one constructor line, `CompositeAdmissionGate(tenant_id,
   consumer_scope, registry)` (`test:319`).
-- **SDK API:** `CompositeAdmissionGate.hold_producer_claims` (`composite.py:1229`;
+- **SDK API:** `CompositeAdmissionGate.hold_producer_claims` (`src/ccf/products/composite.py::CompositeAdmissionGate`;
   checks 1p/1p′/1q/1q′/1r then 2–7).
 - **Duplicated authority:** none.
 - **Failure modes:** `producer-unasserted` for a pre-340 door (cp-05, cp-06);

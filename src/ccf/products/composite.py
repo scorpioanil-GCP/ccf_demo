@@ -148,6 +148,7 @@ __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "ADMITTED_CHILD_CONTRACT_CLASS",
+    "CHILD_QUESTION_CLASS",
     "ChildContractView",
     "ChildOutcomeResolution",
     "child_contract_view",
@@ -183,6 +184,15 @@ __all__ = [
 #: retains a served product's bytes, and replay must rebuild the parent's
 #: child-contract view from what it consumed — never from a provider call.
 ADMITTED_CHILD_CONTRACT_CLASS: Final = "ccf.admitted-child-contract"
+
+#: `D-IMPL-342` / `CP14-F-35` — the artifact class under which a composite
+#: retains, on its OWN store, the identity-bearing bytes of every question it
+#: sent a registered producer (:class:`~ccf.skills.dispatch.ChildQuestionIdentity`),
+#: filed BEFORE the producer is called so an admitted, refused or unreachable
+#: producer alike leaves the exact historical question behind. Named by the
+#: question's address, so the store's address for the bytes IS the row's
+#: ``child_question_address``.
+CHILD_QUESTION_CLASS: Final = "ccf.child-question"
 
 #: The gate identifier every child-admission refusal carries.
 GATE_CHILD_ADMISSION: Final = "child_admission"
@@ -281,6 +291,29 @@ class ChildAdmissionRefusal(GateRefusal):
             mistaken for an absence. Disclosure of that identity in a *served*
             payload remains the deployment's policy call; retention in replay
             is not optional.
+        producer_refusal_kind: `D-IMPL-342`. When the child's OWN door
+            refused and the producer's claims held, the refusal kind that door
+            disclosed (a :data:`~ccf.products.refusal.REFUSAL_KINDS` token);
+            ``None`` on every other outcome. Never mapped into ``reason``: the
+            admission verdict stays ``ineligible`` and the producer's word
+            about its own product is retained beside it, not instead of it.
+        producer_refusal_reason: `D-IMPL-342`. The producer's own reason token
+            as disclosed — a closed-vocabulary member or a declared gate id,
+            never prose. Its ``detail`` is deliberately NOT carried as a
+            member: it is prose at the producer's disclosure level, and it is
+            already on this refusal's ``detail`` for the composite's record.
+        producer_refusal_key: `D-IMPL-342`. The parameter key the producer's
+            refusal named, when it named one.
+        producer_replay_ref: `D-IMPL-342`. The producer's replay-record
+            reference as its door reported it on the refusal — the SAME claim
+            the served path already retains on an admitted row, held to the
+            registration's tenant by admission before it arrives here. Never
+            resolved by this fabric.
+        question_ref: `D-IMPL-342` / `CP14-F-35`. The versioned URI the
+            parent's store returned when it filed the question's identity
+            bytes (:data:`CHILD_QUESTION_CLASS`), carried so the row can
+            reference the retained artifact rather than merely name an
+            address nothing resolves. Set only by the resolver that filed it.
     """
 
     product_class: str
@@ -324,6 +357,25 @@ class ChildAdmissionRefusal(GateRefusal):
         default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
     question_address: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    # `D-IMPL-342` — the refusing producer's own evidence, and the retained
+    # question's reference. Transparent at ``None`` for the reason the
+    # producer members above are: a refusal minted before these existed
+    # renders exactly as it did.
+    producer_refusal_kind: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    producer_refusal_reason: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    producer_refusal_key: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    producer_replay_ref: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    question_ref: str | None = Field(
         default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
 
@@ -400,6 +452,7 @@ class ChildInvocation:
         "_producer_server",
         "_producer_tenant",
         "_question_address",
+        "_question_ref",
         "_skill_name",
         "_touched_entities",
     )
@@ -418,6 +471,7 @@ class ChildInvocation:
         producer_registration_address: str | None = None,
         producer_server: str | None = None,
         question_address: str | None = None,
+        question_ref: str | None = None,
     ) -> None:
         if token is not _INVOCATION_TOKEN:
             raise ProvenanceForgeryError(
@@ -438,6 +492,7 @@ class ChildInvocation:
         self._producer_registration_address = producer_registration_address
         self._producer_server = producer_server
         self._question_address = question_address
+        self._question_ref = question_ref
 
     @property
     def producer_id(self) -> str | None:
@@ -463,6 +518,11 @@ class ChildInvocation:
     def question_address(self) -> str | None:
         """`D-IMPL-340`: ``sha256`` of the canonical question sent."""
         return self._question_address
+
+    @property
+    def question_ref(self) -> str | None:
+        """`D-IMPL-342`: the URI the parent's store returned for the question's retained bytes."""
+        return self._question_ref
 
     @property
     def skill_name(self) -> str:
@@ -634,6 +694,7 @@ def invocation_from_dispatch(
     dispatched: object,
     *,
     touched_entities: tuple[str, ...] | None = None,
+    question_ref: str | None = None,
 ) -> ChildInvocation:
     """Record what a real grant resolution AND a real dispatch produced.
 
@@ -653,6 +714,10 @@ def invocation_from_dispatch(
             for a remote acquisition is refused rather than ignored, because a
             consumer cannot have read a provider's internal replay store and a
             value that arrived anyway is not evidence.
+        question_ref: For an ``mcp-product`` child only (`D-IMPL-342`) — the
+            URI the parent's store returned when the question's identity bytes
+            were filed before dispatch. Refused for any other acquisition,
+            which mints no question and so can have retained none.
 
     Raises:
         ProvenanceForgeryError: the dispatch names a different skill than the
@@ -728,6 +793,13 @@ def invocation_from_dispatch(
             " local invalidation register be claimed as an authority over a"
             " decision it never saw (D-IMPL-336 Amendment 5)"
         )
+    if question_ref is not None and kind != "mcp-product":
+        raise ProvenanceForgeryError(
+            f"a retained-question reference was supplied for a {kind!r} child."
+            " Only an mcp-product acquisition mints a question, so nothing"
+            " could have been retained for this one; a reference that arrived"
+            " anyway is not evidence (D-IMPL-342)"
+        )
     if kind != "mcp-product":
         return ChildInvocation(
             skill_name=producer.entry.name,
@@ -754,6 +826,7 @@ def invocation_from_dispatch(
         producer_registration_address=asked.producer_registration_address,
         producer_server=asked.server,
         question_address=asked.question_address,
+        question_ref=question_ref,
     )
 
 
@@ -1053,6 +1126,11 @@ class CompositeAdmissionGate:
         self._tenant_id = tenant_id
         self._consumer_scope = consumer_scope
         self._registry = registry
+
+    @property
+    def tenant_id(self) -> str:
+        """The consumer tenant this gate admits for — the tenant a composite's own store files under (`D-IMPL-342`)."""
+        return self._tenant_id
 
     def admit(
         self,
@@ -1805,6 +1883,9 @@ def resolve_child_outcomes(
                             outcome.candidate.invocation.question_address
                         ),
                         child_replay_ref=outcome.candidate.child_replay_ref,
+                        child_question_ref=(
+                            outcome.candidate.invocation.question_ref
+                        ),
                     )
                 )
                 first(bare(reason, requirement.product_class, detail))
@@ -1835,6 +1916,15 @@ def resolve_child_outcomes(
                     ),
                     producer_server=outcome.producer_server,
                     child_question_address=outcome.question_address,
+                    # `D-IMPL-342`: the refusing producer's own evidence, as
+                    # admission carried it — and its replay reference, which
+                    # the refused branch dropped until now while the
+                    # gate-rejected branch above kept it.
+                    child_replay_ref=outcome.producer_replay_ref,
+                    producer_refusal_kind=outcome.producer_refusal_kind,
+                    producer_refusal_reason=outcome.producer_refusal_reason,
+                    producer_refusal_key=outcome.producer_refusal_key,
+                    child_question_ref=outcome.question_ref,
                 )
             )
             first(outcome)
@@ -2259,4 +2349,5 @@ def _row_for_admitted(
         producer_server=candidate.invocation.producer_server,
         child_question_address=candidate.invocation.question_address,
         child_replay_ref=candidate.child_replay_ref,
+        child_question_ref=candidate.invocation.question_ref,
     )

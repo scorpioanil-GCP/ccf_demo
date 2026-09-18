@@ -100,8 +100,15 @@ CHILD_IDENTITY = (
     "producer_registration_address", "child_question_address", "child_replay_ref", "producing_skill_name",
     "producing_skill_version", "required_product_class", "required", "producing_fabric",
     "child_eligibility_checked_at", "child_eligibility_assertion_address",
+    # `D-IMPL-342`: the producer's own refusal, as its door disclosed it — the
+    # producer's word, so it must agree between two consumers (both None here:
+    # the spread was admitted).
+    "producer_refusal_kind", "producer_refusal_reason", "producer_refusal_key",
 )
-PARENT_OWNED = ("grant_hash", "child_admitted_at", "child_reported_address", "child_debt_factors", "refusal_ref")
+# `child_question_ref` (`D-IMPL-342` / `CP14-F-35`): each parent retains the
+# question on ITS OWN store under its own tenant, so the reference differs while
+# the address it resolves to (`child_question_address`, above) agrees.
+PARENT_OWNED = ("grant_hash", "child_admitted_at", "child_reported_address", "child_debt_factors", "refusal_ref", "child_question_ref")
 
 
 def questions_at(tolerance: str) -> Callable[[ChildRequirement, ProductRequest], ChildQuestion]:

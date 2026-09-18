@@ -302,6 +302,23 @@ _MARKED_IN_THE_TREE = frozenset(
         "ccf.replay.record.ChildResolution.producer_server",
         "ccf.replay.record.ChildResolution.child_question_address",
         "ccf.replay.record.ChildResolution.child_replay_ref",
+        # `D-IMPL-342` — nine marks, ticked deliberately. The refusing
+        # producer's own evidence (kind, reason, key, its replay reference) and
+        # the retained question's reference are `None` on every refusal and
+        # row written before the decision — a served child, a rejected one, an
+        # unreachable producer, a legacy argument-bound child — so a stored
+        # composite record reloads to the address it was written at. Marked
+        # `False` instead, every stored composite record would re-hash on
+        # reload (design §1.7; sabotage S-A5 holds it through C-A7).
+        "ccf.products.composite.ChildAdmissionRefusal.producer_refusal_kind",
+        "ccf.products.composite.ChildAdmissionRefusal.producer_refusal_reason",
+        "ccf.products.composite.ChildAdmissionRefusal.producer_refusal_key",
+        "ccf.products.composite.ChildAdmissionRefusal.producer_replay_ref",
+        "ccf.products.composite.ChildAdmissionRefusal.question_ref",
+        "ccf.replay.record.ChildResolution.producer_refusal_kind",
+        "ccf.replay.record.ChildResolution.producer_refusal_reason",
+        "ccf.replay.record.ChildResolution.producer_refusal_key",
+        "ccf.replay.record.ChildResolution.child_question_ref",
         "ccf.controlplane.artifacts.DeploymentConfig.producers",
         # `D-IMPL-343` — nine marks, ticked deliberately. The four paved-road
         # sections and the declaration's decision-instant parameter are `None`

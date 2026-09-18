@@ -40,7 +40,7 @@ Three facts, each with its line:
    non-blocking arm (`:2150–2155`) derives `child_contract_view(resolved)` and calls
    `self._retain_child_contracts(children)`. `D-IMPL-338` made the rows survive every
    exit; `D-IMPL-339`'s byte retention did not follow them.
-2. **Replay reads bytes for any admitted row.** `src/ccf/replay/engine.py:826–832`
+2. **Replay reads bytes for any admitted row.** `src/ccf/replay/engine.py::_reconstruct_child_contracts`
    selects every row with `outcome_status == CHILD_ADMITTED` and calls
    `_reconstruct_child_contracts` (`:713`), which raises `ReplayUnresolvable` when the
    store has no artifact at the row's `child_content_address`.
@@ -66,7 +66,7 @@ bindings and the resolution claim, reconstructs children, then unconditionally
 resolves a plan (`:852`), operators (`:859`), re-executes (`:867`), and rehydrates a
 product (`:946`) held to `path.product_content_address` (`:950`). A refusal record
 carries `plan_id = NO_FABRIC_READ` and `product_content_address = NO_PRODUCT_ADDRESS`
-(`src/ccf/replay/record.py:1867`, `:1875–1878`), and `ReplayOutcome` (`engine.py:418`) requires
+(`src/ccf/replay/record.py::build_replay_record`), and `ReplayOutcome` (`src/ccf/replay/engine.py::ReplayOutcome`) requires
 a `product`. No test in `tests/replay/` replays a refusal record of any kind. So
 retaining the bytes moves the failure from *missing child* to *no plan named
 `no-fabric-read`* — which is exactly the outcome Dave's instruction refuses to count
@@ -84,9 +84,9 @@ Three things stay distinct, and the record keeps them distinct today:
 
 | thing | what it is | where it lives | changed by 344? |
 |---|---|---|---|
-| **child-resolution rows** | what happened to each declared requirement — `outcome_status` from the closed vocabulary at `record.py:213`, `child_content_address`, producer identity, question address | dimension 5, `ContentGenerationPath.child_resolutions` (`record.py:1250`) | **no** — shape and content unchanged |
-| **retained child contracts** | the exact bytes of every child that was *admitted*, filed under `ADMITTED_CHILD_CONTRACT_CLASS` (`composite.py:185`) at `content_hash(contract)` | the parent's own `ArtifactStore`, one artifact per distinct address | **yes** — now filed on every exit that recorded an admission |
-| **parent outcome** | served (a `ServedProduct` and a record naming a product address) or refused (a `RefusalEnvelope` and a record whose dimension 5 carries the refusal block) | the record; dimension 5 `assembly_refusal` (`record.py:1243`) | **no** |
+| **child-resolution rows** | what happened to each declared requirement — `outcome_status` from the closed vocabulary `src/ccf/replay/record.py::CHILD_OUTCOME_STATUSES`, `child_content_address`, producer identity, question address | dimension 5, `ContentGenerationPath.child_resolutions` (`src/ccf/replay/record.py::ContentGenerationPath`) | **no** — shape and content unchanged |
+| **retained child contracts** | the exact bytes of every child that was *admitted*, filed under `src/ccf/products/composite.py::ADMITTED_CHILD_CONTRACT_CLASS` at `content_hash(contract)` | the parent's own `ArtifactStore`, one artifact per distinct address | **yes** — now filed on every exit that recorded an admission |
+| **parent outcome** | served (a `ServedProduct` and a record naming a product address) or refused (a `RefusalEnvelope` and a record whose dimension 5 carries the refusal block) | the record; dimension 5 `assembly_refusal` (dimension 5, `src/ccf/replay/record.py::ContentGenerationPath`) | **no** |
 
 Consequences the invariant forces, each stated so the proof can check it:
 
@@ -95,12 +95,12 @@ Consequences the invariant forces, each stated so the proof can check it:
   admitted child's bytes are retained; the sibling has a row and no bytes; the record
   names `NO_FABRIC_READ`.
 - **`ChildContractView` is not the prerequisite.** `child_contract_view`
-  (`composite.py:1662`) raises on a blocked resolution by design (`D-IMPL-339` Q2);
+  (`src/ccf/products/composite.py::child_contract_view`) raises on a blocked resolution by design (`D-IMPL-339` Q2);
   retention must read `resolved.admitted` directly and never build a view over a
   composition already known not to compose.
 - **Nothing is retained as admitted that was not admitted.** `AdmittedChild`
-  (`composite.py:803`) is minted only by `CompositeAdmissionGate.admit`
-  (`composite.py:1179`); `ChildOutcomeResolution.admitted` (`:1621`) holds only those.
+  (`src/ccf/products/composite.py::AdmittedChild`) is minted only by `CompositeAdmissionGate.admit`
+  (`src/ccf/products/composite.py::CompositeAdmissionGate`); `ChildOutcomeResolution.admitted` (`:1621`) holds only those.
   A candidate rejected at admission, a refused child, an absent optional and an
   unreachable producer all have rows and never a retained contract. Zero admissions
   means zero artifacts filed.
@@ -170,9 +170,9 @@ one place they do not.
 The record at the envelope's `replay_reference`; one retained artifact per admitted
 row's `child_content_address`; the query pins if a projection ran. Dimension 5 of the
 record carries: the rows; `assembly_refusal`, which is the **refusal envelope's own
-canonical bytes** (`mint_assembly_refusal`, `record.py:1323` — "the canonical bytes
+canonical bytes** (`src/ccf/replay/record.py::mint_assembly_refusal` — "the canonical bytes
 of the refusal, decoded"), so the refusal's kind, its `reason` and, for a child
-admission refusal, its `product_class` (`composite.py:286–287`) are recoverable by
+admission refusal, its `product_class` (`src/ccf/products/composite.py::ChildAdmissionRefusal`) are recoverable by
 rehydration and never inferred; `plan_id`, `steps`, `graph_query_sequence` and
 `product_content_address` stating positively whether a projection ran and that no
 product exists.
@@ -182,11 +182,11 @@ product exists.
 The record's own claims: `plan_id == NO_FABRIC_READ`, `steps == ()`,
 `operator_plan == ()`, `graph_query_sequence == NO_GRAPH_QUERIES`,
 `product_content_address == NO_PRODUCT_ADDRESS`, dimension 1
-`store_watermark == NO_FABRIC_READ` (`record.py:539`), `assembly_refusal` a real
+`store_watermark == NO_FABRIC_READ` (`src/ccf/replay/record.py::ContextFabricSnapshot`), `assembly_refusal` a real
 block. Reconstruction:
 
 1. the engine's prologue, unchanged: `_resolve_record`, the generation check,
-   `_resolve_bindings`, `_verify_resolution_claim` (`engine.py:807–823`);
+   `_resolve_bindings`, `_verify_resolution_claim` (`src/ccf/replay/engine.py::_reconstruct_child_contracts`);
 2. `_reconstruct_child_contracts` over the admitted rows, unchanged (`:713`) — every
    admitted address resolves from the store and re-hashes to itself, or the
    reconstruction fails by name (`ReplayUnresolvable` / `ReplayDivergence`);
@@ -196,7 +196,7 @@ block. Reconstruction:
    dimension 5 names a plan or a query sequence is a contradiction and is refused by
    name);
 4. the refusal block rehydrates through the same admissibility check the builder
-   applies at write (`_admissible_refusal_block`, `record.py:1384`) and is held
+   applies at write (`src/ccf/replay/record.py::_admissible_refusal_block`) and is held
    against the rows: the class it names is a declared requirement whose row carries a
    blocking status from the closed vocabulary and `required=True`; no admitted row is
    the one refused. Nothing re-derives the verdict from a producer — the producers are
@@ -215,7 +215,7 @@ carries `operators_invoked`, `plan_id`, `debt` and `computed_empty`
 1. prologue and child reconstruction as in 4.2;
 2. `resolve_composite_plan` over the reconstructed children, `resolve_operators`, and
    `ProjectionEngine.execute` under the recorded snapshot, exactly as the served path
-   (`engine.py:826–891`); the step, query-pin and snapshot comparisons (`:893–943`)
+   (`src/ccf/replay/engine.py::replay`); the step, query-pin and snapshot comparisons (`:893–943`)
    unchanged — the operator path the refused decision took is re-derived and held to
    the record;
 3. **stop before `rehydrate_product`.** The record names no product; nothing is
@@ -229,7 +229,7 @@ carries `operators_invoked`, `plan_id`, `debt` and `computed_empty`
 **The boundary, stated rather than bridged.** The record does not carry the
 provisional candidate's own content address (the builder writes `NO_PRODUCT_ADDRESS`
 whenever no product is passed, and the gate and tolerance exits pass none), and
-`ReplayEnvironment` (`engine.py:282`) exposes no gate configuration or debt scorer.
+`ReplayEnvironment` (`src/ccf/replay/engine.py::ReplayEnvironment`) exposes no gate configuration or debt scorer.
 So a post-projection reconstruction under 344 re-derives **the operator path, the
 children and the recorded evidence**, and reproduces **the recorded verdict**; it does
 not recompute the gate or tolerance comparison. Recording the candidate's address and
@@ -239,7 +239,7 @@ asks whether that boundary is accepted for 344.
 
 ### 4.4 The interface gap, and the smallest change
 
-**Gap.** `ReplayOutcome.product: ContextProductContract` is required (`engine.py:436`)
+**Gap.** `ReplayOutcome.product: ContextProductContract` is required (`src/ccf/replay/engine.py::ReplayOutcome`)
 and `replay()` has one path, which ends in a product. There is no representation of a
 reconstructed refusal, and no discrimination of record kind: today `replay()` on a
 refusal record fails at `environment.resolve_plan(plan_id="no-fabric-read")` with a
