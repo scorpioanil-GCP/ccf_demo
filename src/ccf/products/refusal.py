@@ -154,6 +154,9 @@ __all__ = [
     "RequestIdentity",
     "ResourceRequestIdentity",
     "SubjectUnavailableRefusal",
+    "GovernedRefusalRaised",
+    "RESOLVED_BY_THE_RESOLVER",
+    "ResolvedByTheResolver",
     "envelope_for",
 ]
 
@@ -922,3 +925,109 @@ def envelope_for(
         provenance=provenance,
         resource=resource,
     )
+
+
+# ---------------------------------------------------------------------------
+# `D-IMPL-304` — the typed handoff for a governed refusal that cannot be RETURNED.
+# ---------------------------------------------------------------------------
+
+
+class ResolvedByTheResolver:
+    """The one explicit resolution state a raiser INSIDE a resolver's own seams may state.
+
+    A deployment's acquisition hook, or a composition root's acquisition
+    callable, holds the effective question the resolver handed it and not the
+    :class:`~ccf.products.provenance.EffectiveRequest` evidence the resolver
+    established on the way there. Stating this value says exactly that — *the
+    resolver that called me holds the resolution* — and the resolver records
+    its own evidence, which is the truth. It is a statement, never a default:
+    :class:`GovernedRefusalRaised` refuses construction without one, and a
+    delivery boundary (which holds no resolver evidence) refuses this value
+    as the programming error it is there.
+    """
+
+    __slots__ = ()
+
+    def __repr__(self) -> str:
+        return "RESOLVED_BY_THE_RESOLVER"
+
+
+#: See :class:`ResolvedByTheResolver`.
+RESOLVED_BY_THE_RESOLVER: Final[ResolvedByTheResolver] = ResolvedByTheResolver()
+
+
+class GovernedRefusalRaised(Exception):
+    """A governed determination that could not be RETURNED from where it was made (`D-IMPL-304`).
+
+    **An explicit handoff, never a translation.** Raised only by code that
+    already HOLDS a refusal the fabric produced — a value of a type
+    :data:`REFUSAL_KINDS` names, or an envelope built from one — together with
+    the resolution state that accompanied it. The delivery boundaries and the
+    resolver's acquisition seam catch exactly this type, record it through the
+    ONE recorder and deliver it through the normal disclosure and emission
+    path. Nothing in the SDK raises it on a caller's behalf, nothing parses an
+    exception's message to recover a reason, and nothing invents evidence the
+    raiser did not hold.
+
+    **Deliberately not a subclass of the fault types.** The doors treat
+    ``ValueError``, ``TypeError``, ``LookupError`` and ``OSError`` as *CCF or
+    its runtime failed* and answer with an opaque ``ccf-runtime-failure``
+    (``D-IMPL-253`` Q20). This type derives from :class:`Exception` directly so
+    it can never be mistaken for one of them — and so a raiser cannot smuggle
+    a fault through as a determination by subclassing.
+
+    **``resolution`` is required** (``D-IMPL-264`` amendment 1, Dave verbatim:
+    *"Any API that constructs or delegates construction of a replay record
+    must require an explicit resolution state: effective/partial resolution or
+    explicit not-applicable marker. No intermediate layer may manufacture the
+    marker from omission."*). Three explicit states, and which is honest
+    depends on where the raiser stands:
+
+    * an :class:`~ccf.products.provenance.EffectiveRequest` — the (possibly
+      partial) evidence the SDK's own resolution established and the raiser
+      holds, as a low-road composition root does after calling
+      ``resolve_effective_request`` itself;
+    * :class:`~ccf.replay.record.ResolutionNotApplicable` — no resolution ran,
+      with its reason;
+    * :data:`RESOLVED_BY_THE_RESOLVER` — the raiser is inside a resolver's
+      acquisition seam and the resolver holds the evidence. Valid there only.
+
+    Attributes:
+        refusal: The governed refusal itself — a :data:`REFUSAL_KINDS` value
+            or a :class:`RefusalEnvelope`.
+        resolution: One of the three states above.
+        request: The pre-assembly request identity, when the raiser holds it;
+            a boundary that catches the raise supplies its own otherwise.
+    """
+
+    def __init__(
+        self,
+        refusal: object,
+        *,
+        resolution: object,
+        request: RequestIdentity | None = None,
+    ) -> None:
+        # Lazy on purpose: `ccf.replay.record` is downstream of this module.
+        from ccf.replay.record import ResolutionNotApplicable  # noqa: PLC0415
+
+        named = next((name for cls, name in REFUSAL_KINDS.items() if isinstance(refusal, cls)), None)
+        if not isinstance(refusal, RefusalEnvelope) and named is None:
+            raise TypeError(
+                f"GovernedRefusalRaised carries a governed refusal — a value of a type"
+                f" REFUSAL_KINDS names, or a RefusalEnvelope — not {type(refusal).__name__!r};"
+                " it is a handoff for a determination the fabric made, never a wrapper"
+                " for an arbitrary failure (D-IMPL-304)"
+            )
+        if not isinstance(resolution, (EffectiveRequest, ResolutionNotApplicable, ResolvedByTheResolver)):
+            raise TypeError(
+                "GovernedRefusalRaised requires an explicit resolution state — the"
+                " EffectiveRequest evidence the raiser holds, an explicit"
+                " ResolutionNotApplicable, or RESOLVED_BY_THE_RESOLVER inside a"
+                f" resolver's acquisition seam — not {type(resolution).__name__!r}"
+                " (D-IMPL-264 amendment 1)"
+            )
+        kind = refusal.kind if isinstance(refusal, RefusalEnvelope) else named
+        super().__init__(f"governed refusal raised: {kind}")
+        self.refusal = refusal
+        self.resolution = resolution
+        self.request = request

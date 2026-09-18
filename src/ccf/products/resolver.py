@@ -238,6 +238,8 @@ from ccf.products.gates import (
 )
 from ccf.products.provenance import EffectiveRequest, ProvenanceSource
 from ccf.products.refusal import (
+    NO_REPLAY_REFERENCE,
+    GovernedRefusalRaised,
     RefusalEnvelope,
     RefusalEvidence,
     RequestIdentity,
@@ -2024,7 +2026,18 @@ class GovernedResolver:
         # reads and it ingests through L2's one writer; this resolver hands
         # it a request and holds no handle to anything it writes.
         if self.acquisition is not None:
-            self.acquisition(request=effective_request, perspective=perspective)
+            try:
+                self.acquisition(request=effective_request, perspective=perspective)
+            except GovernedRefusalRaised as raised:
+                # `D-IMPL-304`: a governed determination the seam HELD and could
+                # not return — recorded through this composition's ONE minting
+                # seam with the resolution THIS resolver established, and
+                # returned as data. Only this type; any other exception the
+                # seam raises propagates exactly as before.
+                return self._refuse_raised_at_acquisition(
+                    raised, request=request, identity=identity,
+                    perspective=perspective, effective=effective,
+                )
 
         view = self.fabric.handle.reader.as_of(
             tenant_id=self.fabric.tenant_id, at=request.asked_at
@@ -2741,6 +2754,55 @@ class GovernedResolver:
                 )
 
     # --- the one minting seam ----------------------------------------------
+
+    def _refuse_raised_at_acquisition(
+        self,
+        raised: GovernedRefusalRaised,
+        *,
+        request: ProductRequest,
+        identity: RequestIdentity,
+        perspective: Perspective,
+        effective: EffectiveRequest,
+    ) -> RefusalEnvelope:
+        """The typed handoff caught at the acquisition seam (`D-IMPL-304`).
+
+        The resolution completed before the seam ran — that is the seam's
+        contract — so dimension 2 carries THIS resolver's evidence, which is
+        the truth about what governance resolved, and the raiser's stated
+        state is held to it: :data:`~ccf.products.refusal.RESOLVED_BY_THE_RESOLVER`
+        or the same evidence are consistent; an explicit not-applicable marker
+        is a contradiction (resolution DID run) and is refused as the
+        programming error it is rather than recorded as a false statement.
+        An envelope the raiser had already recorded passes through; a bare
+        refusal is enveloped with the request identity and the resolution
+        provenance exactly as the resolver's own pre-view refusals are.
+        """
+        if isinstance(raised.resolution, ResolutionNotApplicable):
+            raise TypeError(
+                "a GovernedRefusalRaised at the acquisition seam states"
+                " ResolutionNotApplicable, but this resolver resolved the effective"
+                " request before calling the seam; state RESOLVED_BY_THE_RESOLVER"
+                " or the resolver's own evidence (D-IMPL-304)"
+            ) from raised
+        if isinstance(raised.refusal, RefusalEnvelope):
+            if raised.refusal.replay_reference != NO_REPLAY_REFERENCE:
+                return raised.refusal
+            envelope = raised.refusal
+        else:
+            envelope = envelope_for(
+                raised.refusal,
+                request=identity,
+                policy_bindings=effective.applied,
+                provenance=effective,
+            )
+        return self._record_refusal(
+            envelope=envelope,
+            execution=None,
+            request=request,
+            perspective=perspective,
+            policy_bindings=self._applied_bindings(effective),
+            resolution=effective,
+        )
 
     def _record_refusal(
         self,

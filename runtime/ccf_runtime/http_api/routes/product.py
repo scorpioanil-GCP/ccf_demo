@@ -179,7 +179,7 @@ from pydantic import ValidationError
 
 from ccf.contracts.canonical import canonical_bytes
 from ccf.products.door import WireRequest, door_refusal, served_answer
-from ccf.products.refusal import REFUSAL_KINDS, RefusalEnvelope
+from ccf.products.refusal import REFUSAL_KINDS, GovernedRefusalRaised, RefusalEnvelope
 from ccf.products.request import ProductRequest
 from ccf.products.resolver import RefusalRecorderProtocol
 from ccf.projection.plan import Perspective
@@ -187,6 +187,7 @@ from ccf_runtime.authz.delivery_boundary import (
     SURFACE_HTTP_ROUTE,
     govern_absence,
     govern_entitlement,
+    govern_raised_refusal,
     recorded_boundary,
 )
 from ccf_runtime.authz.product_entitlement import (
@@ -399,6 +400,31 @@ def build_router(
                 version=version,
                 perspective=perspective,
                 request=asked,
+            )
+        except GovernedRefusalRaised as raised:
+            # `D-IMPL-304`: a governed determination the resolver HELD and could
+            # not return — recorded and disclosed at the boundary and rendered
+            # through the ONE refusal path below, exactly as the typed absence
+            # is. Only this type; the route's other handling is unchanged.
+            grant = grant_from_request(request)
+            assert grant is not None
+            assert entitlement_source is not None
+            return _refusal_response(
+                govern_raised_refusal(
+                    raised=raised,
+                    tenant=tenant,
+                    product_class=product_class,
+                    product_version=version,
+                    parameters=dict(asked.parameters) if asked is not None else {},
+                    asked_at=asked.asked_at if asked is not None else None,
+                    surface=SURFACE_HTTP_ROUTE,
+                    address=request.url.path,
+                    perspective=perspective,
+                    entitlement_source=entitlement_source,
+                    refusal_recorder=recorded_boundary(
+                        refusal_recorder=refusal_recorder, builder="build_router"
+                    ),
+                )
             )
         except ProductNotServable as absent:
             # `D-IMPL-260` P-C: the absence of a servable product at an address
