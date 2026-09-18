@@ -4120,4 +4120,35 @@ Push the implementation and proof, then STOP for review before making any CP-14 
 
 **Scoped baseline comparison:** every suite above compared by exact test identity to `c5aaba0d`: no test that passed there fails here; the one intentional flip is the wrapper's carry test, renamed. The full suite was NOT rerun. **Limitations:** the MCP resource branch carries the same catch as the absence branch but is not driven by a control — the standard door is tool-only (`expose_product_resource=False`) and the both-surface builder lives in the crossproc suite's private fixtures; recorded, not claimed. **Out of scope and untouched:** 342/F-35, 341, CP-14 assembly, a paved exposure successor.
 
+**D-GATE-304 — D-IMPL-304 IMPLEMENTED / CLOSED (Dave, 2026-09-18). Approved candidate `7f2783a5` on `d-impl-304-governed-refusal-raised`; merged `--no-ff` into `main` on this entry.** Behavioral baseline `c5aaba0d`; the SDK change `30c59397`; the wrapper adoption `cf887b9d`; design `5ee48769`, rulings `3b2e3c2a`, implementation record `7f2783a5`.
+
+**The accepted contract:**
+
+- `GovernedRefusalRaised` is the explicit handoff for an already-governed refusal.
+- It carries the refusal plus an explicit, required resolution state.
+- It is not a subclass of the generic fault families.
+- The delivery boundary catches it before the generic `ValueError`/fault path.
+- The refusal is recorded through the existing recorder at the question instant.
+- Recording failure remains failure; no unrecorded governed refusal crosses the boundary.
+- `GovernedResolver` keeps its existing return contract.
+- The acquisition seam recognizes the same handoff.
+- `RESOLVED_BY_THE_RESOLVER` is accepted as the third resolution-state form for the acquisition-seam case where the resolver owns the actual evidence.
+- That marker is not accepted at a door as a substitute for evidence; there it remains a programming error.
+- The cp-05 wrapper is the only production adopter in this phase.
+- Materiality-over-ceiling now reaches the consumer as a recorded `ineligible` / `constraint-refusal` with producer identity instead of `producer-unavailable`.
+- Genuine programming, configuration, persistence and transport failures retain their existing opaque/unrecorded failure behavior.
+- Frozen cp-05 and its original door/test remain untouched.
+
+**Residuals — carried, not fixed, and not broadened at this close:**
+
+1. **MCP resource branch:** it carries the same typed catch but has no dedicated executable control, because the standard product door is tool-only. A coverage limitation, not a proven branch.
+2. `D-IMPL-342` / `F-35` remain separate.
+3. `D-IMPL-341` remains separate.
+4. No paved cp-05 successor was built.
+5. No CP-14 assembly work occurred.
+
+**Verification at the candidate** (the scoped package; the full suite was not run): the 18 seam/door controls and the 2 HTTP route controls passed; the wrapper door 11 passed against the estate (the flipped reproduction and the fault control included); the four CP-14 slices and the covenant successor 53 passed; the frozen cp-05 door 6 passed; `make typecheck` clean (229 files); `make lint` rc 0; `make product-gates` 19 trees / 324 declared / 324 executing; docs gates 296 passed; the surface suites identical by node id to the baseline. Five sabotages red where the design said. The post-merge measurement on the merge commit is recorded beside the merge.
+
+**Next package, by ruling:** the `D-IMPL-342` DESIGN — two distinct, separately testable obligations: (1) preserve the refusing producer's reason/kind and replay reference across the child boundary; (2) preserve `F-35`'s exact historical child-question bytes on the parent store so replay/audit requires neither the mapping nor the producer. No 342 code yet.
+
 **Next free decision id: `D-IMPL-345`.** **Governs:** replay-grade retention of admitted-child evidence on every composite exit, and the reconstruction of a refused composite determination. **Related:** `D-IMPL-336` (composites), `D-IMPL-338` (rows on every exit), `D-IMPL-339` (retention and the child-contract view on the served path), `D-IMPL-342` (the child's own refusal reason — separate), `D-IMPL-243` (record generation boundaries — why no record field is added), `D-IMPL-253` Q13 / `24.6-07` (dimension 5 carries the refusal value), `D-GATE-343`, `docs/EXAMPLE-EVALUATION-CRITERIA.md` §B.1, §D, §J.
