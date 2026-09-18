@@ -1,7 +1,7 @@
 # D-IMPL-342 — design: the refusing producer's own evidence, and the historical child question, retained on the parent's store
 
 **Status: IMPLEMENTED (2026-09-18) on `d-impl-342-evidence`, awaiting the review ruling;
-not merged. §0–§8 are the design as accepted; §8 records what was built, where it
+not merged. §0–§7 are the design as accepted; §8 records what was built, where it
 differs, what the candidate's review found, and every measurement.** Design baseline:
 `main @ 61d2af87` (the verified post-`D-GATE-304` baseline), branch `d-impl-342-design`. The decisions of record are `docs/DECISIONS.md`
 `D-IMPL-342` (OPEN, 2026-09-15, from `CP03C-F-05`) and the `CP14-F-35` ruling recorded
