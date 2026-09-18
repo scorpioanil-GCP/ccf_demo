@@ -17,7 +17,10 @@ What is held, exactly:
    slot is refused; the composite refuses; FIVE child rows are persisted and
    reloaded from a FRESH store instance (`D-IMPL-338`); the retained detail
    names the producer's refusal as its door disclosed it (`tolerance-exceeded`)
-   — never `no-producing-skill`, never `ineligible` alone.
+   — never `no-producing-skill`, never `ineligible` alone — and, since
+   `D-IMPL-342`, the refused row itself carries the producer's kind, reason and
+   replay reference, and every row references the exact question retained on
+   the consumer's own store.
 2. At tolerance 1.0 — a DIAGNOSTIC that the producer can serve — the spread is
    served and ADMITTED under `provider-controls` with the same content address
    the producer's own proofs hash to; the composite still refuses on the four
@@ -45,6 +48,7 @@ from ccf.artifacts.file_store import FileArtifactStore
 from ccf.products.contract import ContextProductContract
 from ccf.contracts.canonical import content_hash
 from ccf.products.refusal import RefusalEnvelope
+from ccf.replay.engine import retained_child_question
 from ccf.replay.record import DecisionReplayRecord
 from ccf.replay.serve import ServedProduct
 from ccf.skills.catalog import SkillCatalog
@@ -161,14 +165,32 @@ def test_the_governed_question_refuses_on_the_withheld_spread_with_five_rows_per
     assert spread.producer_server == "canonical-spread-producer"
     assert spread.child_question_address is not None, "the producer was asked"
     assert spread.child_content_address is None
-    # D-IMPL-342 / F-05, honestly: no producer replay reference on the refused row.
-    assert spread.child_replay_ref is None
+    # `D-IMPL-342` Limb A (`CP03C-F-05`, closed): the producer's OWN refusal is
+    # on the row beside the admission verdict — its kind, its reason (a
+    # tolerance refusal declares no reason of its own, so the kind is the
+    # reason) and its replay reference, a claim on the producer's tenant this
+    # fabric never resolves. Until 2026-09-18 this line asserted `None`.
+    assert (spread.producer_refusal_kind, spread.producer_refusal_reason, spread.producer_refusal_key) == ("tolerance-exceeded", "tolerance-exceeded", None)
+    assert spread.child_replay_ref is not None and spread.child_replay_ref.startswith("ccf-artifact://cp-03-canonical-demo/")
     retained = json.loads(record.content_generation_path.assembly_refusal)["detail"]
     assert "tolerance-exceeded" in retained and "no-producing-skill" not in retained, retained
     for product_class in CHILD_CLASSES[1:]:
         row = rows[product_class]
         assert row.outcome_status == "producer-unavailable" and row.child_question_address is not None
         assert row.producer_id is not None and row.producer_tenant is not None
+        assert (row.producer_refusal_kind, row.producer_refusal_reason, row.child_replay_ref) == (None, None, None), "nothing invented for an unreachable producer"
+    # `D-IMPL-342` Limb B (`CP14-F-35`, closed): every question sent — to the
+    # withholding producer and to the four unreachable ones alike — is retained
+    # on the CONSUMER's store at its own address and referenced from the row;
+    # read back from a fresh store instance, calling neither the mapping nor a
+    # producer, and held to the address the row records.
+    fresh = FileArtifactStore(root=_opened.scratch / _opened.replay.store_dirname)
+    for product_class, row in rows.items():
+        assert row.child_question_ref is not None, product_class
+        question = retained_child_question(store=fresh, row=row)
+        assert content_hash(question) == row.child_question_address, product_class
+        # the collateral child is asked about the FACILITY (`CP14-F-20`); the others about the obligor
+        assert question.subject == (BGC_FACILITY if product_class == "credit-risk.collateral-coverage" else BGC), (product_class, question.subject)
     assert "tolerance-exceeded" not in outcome.detail, "the disclosed envelope stays minimal"
 
 

@@ -669,7 +669,8 @@ raises `ReplayUnresolvable` "not retained" for it. Exception classes as §2.6.
 
 Targeted suites: the two limb modules, `tests/products/test_paved_consumer.py`,
 `tests/products/test_refusal_envelope.py` (113 controls at the first candidate; 115 after the
-review's two controls were added — S-A6 and S-B7 were run against the 115).
+review's two controls were added). All thirteen were re-run against the 115 at close, each
+restored and `cmp`-verified; the counts below are the close-time ones.
 
 | sabotage | red | green |
 |---|---|---|
@@ -677,13 +678,13 @@ review's two controls were added — S-A6 and S-B7 were run against the 115).
 | S-A2 drop the three scalars in `_admit` | C-A1 ×2, C-A5, the paved lane-floor test | everything else |
 | S-A3 keep the refusal members, drop the row copy | C-A1 ×2, the paved lane-floor test | C-A5's record-block assertion — refusal value and row held separately |
 | S-A4 map the producer's verdict onto the row status | 10, including C-A7 and five Limb B controls: the row validator refuses the fabricated pairing at construction, so every refused-door composition raises | — |
-| S-A5 mark the new members `False` | C-A7 only (a pre-342 record's stored bytes, keys deleted, no longer reload to their address) | the other 112 |
-| S-B1 file nothing | C-B1–C-B3, C-B6–C-B11, the paved mapping test (10) | C-A*, C-B5 |
-| S-B2 file the `ProductQuestion` instead of the identity | 27 — every composition raises `RuntimeError` at ask, before any dispatch | — |
-| S-B3 file after dispatch | C-B10 only — the ordering, not the write | the other 112 |
-| S-B4 drop the bytes-hash check in the audit read | C-B7 only | the other 112 |
-| S-B5 compute the reference from the address instead of witnessing the put (nothing filed) | 12, C-A1 included (its reconstruction now resolves a reference with nothing behind it) | — |
-| S-B6 drop the hold from `replay()` | C-B7 only — the served-path tamper | the other 112 |
+| S-A5 mark the new members `False` | C-A7 only (a pre-342 record's stored bytes, keys deleted, no longer reload to their address) | the other 114 |
+| S-B1 file nothing | C-B1–C-B3, C-B6–C-B12, C-A4b, the paved mapping test (12) | the other C-A*, C-B5 |
+| S-B2 file the `ProductQuestion` instead of the identity | 29 — every composition raises `RuntimeError` at ask, before any dispatch | — |
+| S-B3 file after dispatch | C-B10 only — the ordering, not the write | the other 114 |
+| S-B4 drop the bytes-hash check in the audit read | C-B7, C-B12 (the two tamper controls) | the other 113 |
+| S-B5 compute the reference from the address instead of witnessing the put (nothing filed) | 14, C-A1 and C-A4b included (their reconstructions now resolve a reference with nothing behind it) | — |
+| S-B6 drop the hold from `replay()` | C-B7 only — the served-path tamper | the other 114 |
 | S-A6 drop `producer_replay_ref` from the gate's closure | C-A4b only | the other 114 |
 | S-B7 drop `question_ref` from the gate's closure | C-A4b, C-B12 | the other 113 |
 

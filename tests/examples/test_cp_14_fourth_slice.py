@@ -56,6 +56,7 @@ from ccf.products.refusal import RefusalEnvelope
 from ccf.halflife.assessment import DebtFactors
 from ccf.halflife.debt import compose_debt_factors, context_debt
 from ccf.products.request import ProductRequest
+from ccf.replay.engine import retained_child_question
 from ccf.replay.record import NO_FABRIC_READ, DecisionReplayRecord
 from ccf.replay.serve import ServedProduct
 from tests.examples.test_cp_03_canonical_cross_deployment import DEV_TOKEN, producer as spread_producer
@@ -211,10 +212,12 @@ def both(modules: tuple[Any, Any], estate: None, tmp_path_factory: pytest.TempPa
 def test_the_governed_question_withholds_where_producers_withhold_and_refuses_the_composite(both: dict[str, Any]) -> None:
     """At the memo's own tolerance every producer whose measured debt exceeds it
     withholds (`ineligible`); every child that serves under it is admitted; the
-    composite refuses on its required slots with all five rows persisted and the
-    FIRST blocking producer's own reason retained — the other withheld rows carry
-    the admission verdict only (`D-IMPL-342`, open). The refusal path, and only
-    that, is proven here (spec §D.3 scenario 8).
+    composite refuses on its required slots with all five rows persisted, the
+    FIRST blocking producer's own reason on the refusal block, and — since
+    `D-IMPL-342` — EVERY withheld row carrying its own producer's refusal kind,
+    reason and replay reference beside the admission verdict, and every row
+    referencing the exact question retained on the consumer's store. The refusal
+    path, and only that, is proven here (spec §D.3 scenario 8).
 
     Declared product gate `CMC-G18` (`CP-SPEC-014` §D.5).
     Declared product gate `CMC-G22` (`CP-SPEC-014` §D.5).
@@ -231,17 +234,29 @@ def test_the_governed_question_withholds_where_producers_withhold_and_refuses_th
     for product_class in admitted:
         _retained(opened, rows[product_class].child_content_address)
     # WHAT IS RETAINED, EXACTLY: the composite's refusal names the FIRST
-    # blocking child and carries that producer's own reason and identity; every
-    # other withheld row carries the admission verdict `ineligible` and NOT its
-    # producer's reason — that per-row reason is `D-IMPL-342`'s open item and is
-    # not repaired here.
+    # blocking child and carries that producer's own reason and identity on the
+    # block; and since `D-IMPL-342` (Limb A) every withheld row carries ITS OWN
+    # producer's refusal — kind, reason, key — and the producer's replay
+    # reference, a claim on that producer's tenant never resolved here, beside
+    # the admission verdict, which stays `ineligible`. Until 2026-09-18 the
+    # replay-reference line below asserted `None`.
     refusal = json.loads(record.content_generation_path.assembly_refusal)
     assert "tolerance-exceeded" in refusal["detail"] and "producer-unavailable" not in refusal["detail"] and "no-producing-skill" not in refusal["detail"], refusal["detail"]
     named = json.loads(refusal["fields"]["product_class"])
     assert named in withheld and json.loads(refusal["fields"]["producer_id"]) == PRODUCERS[named][0]
     for product_class in withheld:
-        assert rows[product_class].refusal_ref == "ineligible", (product_class, rows[product_class].refusal_ref)
-        assert rows[product_class].child_replay_ref is None
+        row = rows[product_class]
+        assert row.refusal_ref == "ineligible", (product_class, row.refusal_ref)
+        assert (row.producer_refusal_kind, row.producer_refusal_reason, row.producer_refusal_key) == ("tolerance-exceeded", "tolerance-exceeded", None), (product_class, row.producer_refusal_kind, row.producer_refusal_reason)
+        assert row.child_replay_ref is not None and row.child_replay_ref.startswith(f"ccf-artifact://{PRODUCERS[product_class][1]}/"), (product_class, row.child_replay_ref)
+    # `D-IMPL-342` Limb B (`CP14-F-35`, closed): every row — admitted and
+    # withheld — references the exact question retained on the consumer's own
+    # store, read back from a fresh store instance and held to the row's
+    # address, calling neither the mapping nor any producer.
+    fresh = FileArtifactStore(root=opened.scratch / opened.replay.store_dirname)
+    for product_class, row in rows.items():
+        assert row.child_question_ref is not None, product_class
+        assert content_hash(retained_child_question(store=fresh, row=row)) == row.child_question_address, product_class
     assert "tolerance-exceeded" not in outcome.detail, "the disclosed envelope stays minimal (CMC-G26)"
     for product_class, row in rows.items():
         assert (row.producer_id, row.producer_tenant) == PRODUCERS[product_class], (product_class, row.producer_id, row.producer_tenant)
