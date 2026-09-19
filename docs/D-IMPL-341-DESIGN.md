@@ -1,8 +1,8 @@
 # D-IMPL-341 — design: `expires_at` describes when the evidence stopped being current
 
-**Status: VALIDATED AND REVIEWED (2026-09-18) on `d-impl-341-expiry` — the ruled mechanism unchanged,
-four example trees migrated, two in-scope SDK defects corrected (§12.6(f), §12.7), one of them
-found by the review; merge HOLD, not merged. §0–§11 are the design as accepted with Dave's five rulings (R-1–R-5, recorded in
+**Status: COMPLETE, awaiting merge review (2026-09-18) on `d-impl-341-expiry` — the ruled mechanism
+unchanged, four example trees migrated, two in-scope SDK defects corrected (§12.6(f), §12.7), and
+Dave's three closing rulings applied (§12.8). Merge HOLD, not merged. §0–§11 are the design as accepted with Dave's five rulings (R-1–R-5, recorded in
 `docs/DECISIONS.md` before implementation); §12 records what was built, where it differs, and
 every measurement — including the one the design got wrong.** Design baseline
 `main @ f8c33898` (post-`D-GATE-342`), design at `f55915d2`. The decisions of record are
@@ -490,14 +490,14 @@ invariants citation ratchet; the http_api eight; the peering one.
    in the payload), or keep the evidence anchor with a window on the valuation cadence under
    `D-IMPL-323`. CP-14's ten served-memo proofs are quarantined strict on this question.
 2. **The frozen specimens that declare `from_entity_freshness` over a resolver wired with
-   their own scorer and no λ_c table** are refused `ttl-anchor-unresolvable` on every question
-   (R-3, no fallback). Measured: frozen cp-06's output and door suites — 16 + 2 tests —
-   quarantined `xfail(strict=True)` under `D-IMPL-261`, the specimen untouched; cp-00–cp-03's
-   suites were already quarantined and are unchanged; frozen cp-04 never reaches a serve. The
-   cp-06-canonical lane (`CSCC-G13`) is held to the recorded payload addresses rather than a
-   live specimen. **A question for the review (lens 2):** the design placed "no table at all"
-   at serve time; R-3's registration row ("no `valid-from` row") arguably covers it, and
-   `build_governed_resolver` could refuse an evidence anchor over no table at the builder.
+   their own scorer and no λ_c table** cannot answer. Measured at the validation pass as a
+   serve-time refusal (`ttl-anchor-unresolvable`); since Dave's ruling of 2026-09-18 it is a
+   CONFIGURATION failure refused at the builder (`TTLAnchorUndeclared`) before a question
+   proceeds — §12.8 ruling 3. Frozen cp-06's output and door suites — 16 + 2 tests —
+   are quarantined `xfail(strict=True)` under `D-IMPL-261`, the specimen untouched;
+   cp-00–cp-03's suites were already quarantined and are unchanged; frozen cp-04 never reaches
+   a serve. The cp-06-canonical lane (`CSCC-G13`) is held to the recorded payload addresses
+   rather than a live specimen.
 
 **(e) The precise mismatch at cp-08** (`CP08-F-05`): `CP-SPEC-008` §E.3 anchors "on the latest
 assertion among the SERVED set"; R-1 anchors on the scored VIEW. A closed question
@@ -611,3 +611,138 @@ standing red (`test_class_lookup`, baseline); cp-03-canonical 19, paved consumer
 cross-deployment 8; cp-04-canonical 14; cp-06-canonical 30; cp-08 20; cp-13-canonical 26; CP-14
 slices 3 / 5 / 5+2 xfailed / 6+8 xfailed; lint 0; typecheck clean (230); product-gates
 19 / **325** / 325; docs gates 349. S1–S8 rerun, each reding exactly its controls and restored.
+
+
+### 12.8 The three closing rulings, applied (Dave, 2026-09-18)
+
+**Ruling 1 — collateral: keep evidence anchoring, align the window with valuation cadence**
+(`565533b3`). The class stays `from_entity_freshness`. Its window and ceiling move from the
+deposit-balance half-life to the appraisal cycle:
+
+| | previous | now | governing declaration |
+|---|---|---|---|
+| `ttl.product_ttl_seconds` | 86400 s (1 day) | **31536000 s (~365 days)** | `half_life.real_property_appraisal` |
+| `ttl.max_ttl_seconds` | 86400 s (24 h) | **31536000 s** | the ceiling equals the window: no answer may advertise more currency than one appraisal cycle from its own evidence |
+
+**The basis, and it is a declaration rather than an outcome.** The expiry is anchored on an
+asset VALUATION DATE, so the window must state how long a coverage answer stays current after a
+valuation — the valuation cadence this product's own λ_c table declares. Of the two valuation
+cadences in that table, the appraisal cycle is the one governing **74 of the 95 pledged assets
+in this estate** (real property, receivables, equipment and inventory all decay under it;
+measured 2026-09-18 by joining `ccf_v2.collateral_asset` to `ccf_v2.collateral_pledge`). The old
+window was chosen when the expiry ran from the REQUEST instant and named the fastest-moving
+evidence in the payload; with the expiry anchored on a valuation it named a cadence the anchor
+cannot read. Declared **illustrative** under `D-IMPL-323` at the config, the spec, the README and
+`CP06C-F-05`.
+
+**What it does not claim, stated at every site that carries the calibration.** It does not
+establish that the DEPOSIT BALANCES are fresh: `ccf_v2.deposit_account` carries no as-of column
+at all, so a balance contributes no instant to the anchor and nothing here dates the set-off
+leg — which is why coverage is served with collateral value, set-off value and total kept apart.
+It does not claim every asset was revalued within the window either: a marketable security is
+aged in `F` by its own one-day cadence, and each asset's valuation date and age stay in the
+payload.
+
+**Measured after, and the term still discriminates:** at the CP-14 instant **47 of the 50
+facilities with pledged collateral serve and 3 are refused** `ttl-bounds` on evidence older than
+an appraisal cycle. **`CSCC-G24`** is new and holds that refusal on `FAC-D3D1A4` (freshest
+valuation `2025-02-18`, so its coverage expired `2026-02-18`), and the consumer's `ineligible`
+crossing is asserted on the same subject through this producer's own door. `CSCC-G23` is live at
+the demonstration instant. The diagnostic serve that follows is a measured outcome; the duration
+came from the declaration above.
+
+**Ruling 2 — covenant: correct the specification to the scored-view rule** (`c3b46c70`).
+`CP-SPEC-008` §E.3 and element 8 said "the latest assertion among the SERVED set"; the anchor
+comes from the same selected observation set the freshness factor scores, before Π decides what
+to display. The specification was wrong and is corrected — no code, no source timestamp, no
+second selection algorithm, and nothing reads the finished payload. The clause now carries the
+measured closed-question case (`AMD-01BB3F-2` is excluded from the served answer on the
+assertion axis and still contributes the anchor, because it is in the scored set) and what the
+anchor does not claim: that every displayed fact was refreshed at that instant. `CP08-F-05`'s
+scored-view half is closed as a spec correction; its expired-demonstration half stands.
+
+**Ruling 3 — registration: reject missing clock configuration before answering** (`952644d4`).
+A resolver wired with neither `half_life_key` nor `evidence_clock_key` can never resolve an
+evidence instant, so an evidence-anchored class over it is refused at the builder
+(`TTLAnchorUndeclared`) rather than at every question. **`C4b`** holds the three boundaries
+apart — missing configuration at the builder, a sound configuration whose observations supply no
+instant at serve time (`C5`), an anchor whose window has passed at the expiry gate (`C6`) — and
+asserts that a decision-anchored class over the same wiring is untouched. The unpinnable-clock
+check added at §12.7 stays beside it, and the guard was not moved back into frozen-config
+derivation.
+
+**Measured consequence, reported rather than smoothed:** the frozen cp-06 specimen declares this
+anchor with its own scorer and no table, so it can no longer BOOT, where until this ruling it
+returned a governed serve-time refusal. Its quarantines (16 output tests, 2 door tests) now name
+the registration failure, the frozen door's governance test joins them, and the specimen is
+untouched (`D-IMPL-261`).
+
+**Ruling 4 (preserved, not re-litigated) — the composer's two instants.** `compose_children`
+still takes `ttl_anchor_at` for the expiry term and `decided_at` for the mixing floor; `C11` and
+sabotage `S8` are unchanged by the calibration and rerun green.
+
+**The ten CP-14 quarantines, converted (`3875ac3c`).** With the collateral child serving again
+every one of them passes on its ORIGINAL assertions; each is named in §12.9. The two consequence
+tests written while the calibration was open are deleted — their premise was the refusal the
+ruling dissolved — and nothing they displaced was left replaced: slice 3 holds the
+facility-specific question on the retained CHILD again with the retained question beside it, and
+slice 4's withheld rows read `tolerance-exceeded` again.
+
+### 12.9 Final evidence
+
+**Per product, at the CP-14 instant (`2026-09-07T12:00Z`) unless stated.** Product address and
+replay-record address are different things and are listed apart.
+
+| product | anchor basis | `ttl_anchor_at` | `expires_at` | `F` / `D_c` / signal | outcome | product address | record address |
+|---|---|---|---|---|---|---|---|
+| spread, BGC | evidence (filing) | `2026-08-10T00:00Z` | `2026-09-09T00:00Z` | 0.3189 / 0.8433 / `fail_closed` | served | `22c5ce3d…9a92d7b9` | `6c6c3a1d…6d46f6da` |
+| spread, stale obligor | evidence | — | `2026-09-04T00:00Z` (named in the refusal) | — | refused `ttl-bounds` | — | recorded |
+| family | decision | `2026-09-07T12:00Z` | `2026-10-07T12:00Z` | 1 / 0.4082 / `ok` | served | `a09c93d2…f851befa` | `d5da4991…b89d01c5` |
+| collateral, `FAC-5B8418` | evidence (valuation) | `2025-12-20T00:00Z` | `2026-12-20T00:00Z` | 0.6086 / 0.3914 / `ok` | served | `611f5dac…c28db03ae` | `60442989…99b05576` |
+| collateral, `FAC-044206` | evidence (valuation) | `2026-08-15T00:00Z` | `2027-08-15T00:00Z` | 0.4782 / 0.5218 / `ok` | served | `501ee648…f04eab6d9` | `23ba7f60…39ea6d9a2` |
+| collateral, `FAC-D3D1A4` | evidence (valuation) | — | `2026-02-18T00:00Z` (named in the refusal) | — | refused `ttl-bounds` | — | recorded |
+| covenant, `FAC-01BB3F` | evidence (booking) | `2025-10-05T00:00Z` | `2026-04-03T00:00Z` | 0.941 / 0.059 / `ok` on the booking day | served on the booking day; refused `ttl-bounds` at the wall clock | measured in-suite | measured in-suite |
+
+The lane payload addresses are unchanged by the calibration and match `CP-SPEC-006C` §A.2 in
+full: `d22b256eb343768f185ebbe09eed1949a44226cc1ffccc924550dbbc6f29a45c` and
+`8e3e567b194b1aad69bd08da53996dc89bbc4d3f9b335da119147c102d2ebe63`. A payload carries no instant,
+which is why the window moved the CONTRACT addresses above and not these.
+
+**The ten CP-14 quarantines, by test identity and disposition — all CONVERTED to normal passing
+tests on their original assertions:**
+
+| slice | test | disposition |
+|---|---|---|
+| 3 | `test_three_children_are_admitted_simultaneously_from_three_producers` | converted |
+| 3 | `test_the_real_question_admits_family_and_collateral_and_withholds_the_spread` | converted |
+| 4 | `test_the_diagnostic_admits_every_child_that_serves_and_the_composite_outcome_is_measured` | converted |
+| 4 | `test_acquisition_and_composition_use_the_same_admitted_child_contracts` | converted |
+| 4 | `test_inherited_debt_is_the_per_factor_minimum_across_children_weak_on_different_factors` | converted |
+| 4 | `test_every_summary_field_reads_the_declared_child_member` | converted |
+| 4 | `test_the_same_diagnostic_question_yields_one_product_address_twice` | converted |
+| 4 | `test_a_meaningful_child_content_change_changes_the_corresponding_parent_field` | converted |
+| 4 | `test_the_covenant_question_names_the_obligors_own_evidence_nodes` | converted |
+| 4 | `test_served_reconstruction_uses_retained_inputs_without_calling_any_provider` | converted |
+
+Two tests were DELETED rather than converted, and both were written by this branch while the
+calibration was open: `test_at_the_cp14_instant_the_collateral_child_is_withheld_for_expired_evidence`
+(slice 3) and `test_at_the_cp14_instant_the_diagnostic_refuses_on_the_expired_collateral_child`
+(slice 4). Their subject was the refusal the ruling dissolved, and the property they were
+standing in for — a producer refusal crossing as an `ineligible` child — is now held at
+cp-06-canonical on a facility whose evidence really did outlive the window.
+
+**Suites on the final candidate:** products + replay + contracts + deployment 2028 passed / 1
+standing red (`test_class_lookup`, baseline); cp-03-canonical 19, paved consumer 7,
+cross-deployment 8; cp-04-canonical 14; cp-06-canonical 29; frozen cp-06 4 passed / 16 xfailed
+and its door 1 passed / 3 xfailed; cp-08 20; cp-12 28; cp-13-canonical 26; CP-14 slices 3 / 5 / 6
+/ 13, no xfails left; lint 0; typecheck clean (230); product-gates 19 / **326** / 326; docs gates
+349; surface address-only churn discarded. **Sabotages S1–S8 rerun and restored (`cmp`)**: S1 and
+S3 red seven controls (the six plus C11's serving half, whose anchor assertion they break), S2
+C4, S4 C2, S5 three, S6 C8, S7 C9, S8 C11's refusing case alone.
+
+**Residual limitations carried past this pass** (unchanged from §12.7 unless noted): the scorer
+reduces at `view.as_of` while the anchor reduces at `decided_at` — unexercised, a ruling;
+`_hold_ttl_anchor` branches on the rehydrated declaration rather than a recorded basis; refusal
+records pin no λ_c table; no control for a composite whose CHILD's expiry binds an
+evidence-anchored parent; and the unpinnable-clock guard is defensive with no config-reachable
+control. `CIF-G15` (cp-08's dual TTL) remains declared and unimplemented, untouched by ruling 2.
