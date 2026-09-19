@@ -81,6 +81,24 @@ refused one — it looks like evidence.
 --8<-- "public/diagrams/seq-replay-resolution.mmd"
 ```
 
+## What the record does not carry
+
+Replay reconstructs; it does not repair. Three limitations of the current
+record are stated here as limitations, and they are not lifted by the shipped
+examples passing:
+
+- **The declared anchor basis is not pinned in the record.** The engine's
+  anchor hold takes it from the rehydrated declaration the environment supplies.
+  A basis that changed between serve and replay still fails — the address check
+  catches it — but under a name that describes the wrong thing.
+- **Refusal records do not pin the half-life table.** A refused determination's
+  anchor evidence is held to what was recorded, not re-derived under its own
+  pins.
+- **The environment is producer-side work with one private dependency.** The
+  supported recipe is [Reconstruct a governed determination][recipe]; it names
+  the one non-public call it makes, and it calls no producer and invokes no
+  question mapping.
+
 ## Where a human action enters the record
 
 The HITL extension to dimension 2 is not an afterthought bolted to the approval
@@ -100,6 +118,9 @@ that never resumed the workflow.
 
 ## Where this lives
 
+- [Reconstruct a governed determination][recipe] — the recipe: what an
+  environment supplies, where the records and pins come from, and the two
+  entry points.
 - [Artifact store][store] — where records and their referenced artifacts are
   resolved from, and the addressing scheme that makes exact-version reads
   possible.
@@ -119,3 +140,4 @@ that never resumed the workflow.
 [orch]: ../reference/protocols/orchestration-and-workflow.md
 [agents]: ../reference/protocols/agents.md
 [runtime]: ../reference/protocols/runtime-surfaces.md
+[recipe]: ../how-to/reconstruct-a-governed-determination.md

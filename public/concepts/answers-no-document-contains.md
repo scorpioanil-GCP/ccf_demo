@@ -186,6 +186,69 @@ the `govern` region above — which is what makes "there is no branch that reach
 a served product without a recorded decision" a property of the fabric rather
 than a property of this deployment having remembered to write one.
 
+## Two supported ways to produce, and what each carries
+
+Both routes to a governed product are supported at launch, and they are two
+routes rather than one with a shortcut.
+
+**The paved road** — `open_product` over two documents — binds a deployment's
+acquire, project, assess and gate callables to its declarations and owns the
+whole governed spine: request resolution, operators, the three gates, the
+five-dimension record, the append and the delivery. It does not cover a
+**post-traversal deterministic aggregation** — a computation that must run after
+the declared traversal and before the projection, as an exposure roll-up's
+gross-and-adjusted determination does. The road's vocabulary has no declared
+home for that step, and it is not a step this page invents.
+
+**Lower-level governed assembly plus the standard door** is the supported path
+for that shape: the deployment orders its own aggregation, then reaches the
+same one governed object through `build_governed_resolver`, and serves through
+the same door. The record, the gates and the delivery are the SDK's on both
+routes; what differs is who orders the steps before governance.
+
+On the lower-level route, **an ordinary fault stays a fault.** A `ValueError`,
+a `TypeError`, a `LookupError` or an `OSError` inside a deployment's assembly
+is answered at the door as an opaque runtime failure, never dressed as a
+business refusal. The one explicit handoff for a refusal the fabric has already
+made — a determination the deployment holds and cannot return from where it
+was made — is `GovernedRefusalRaised`, which carries that refusal and its
+resolution state to the boundary that records and delivers it. Supporting the
+route does not authorize converting arbitrary exceptions into refusals, and
+nothing in the SDK does so on a caller's behalf.
+
+One consequence is stated rather than left to be found: on the lower-level
+route, a request-contract violation that surfaces **before** acquisition — the
+effective request resolved ahead of the read, as an exposure walk must — is
+raised as an exception and reaches the door as a runtime failure with no
+governed envelope and no replay record. That is a recorded limitation of that
+route, not of the paved one.
+
+### Reconstructing what either route served
+
+A served product or a governed refusal is reproduced from its record and the
+store through the SDK's engine — [Reconstruct a governed determination][recipe]
+is the supported recipe. It supplies an environment of three methods, calls no
+producer, invokes no question mapping, and names the one private call it
+makes.
+
+### Limitations, stated as limitations
+
+These hold on the current baseline and are not lifted by the shipped examples
+passing:
+
+- **Observation reduction can use two instants.** The freshness factor reduces
+  the observation set as of the view instant while the evidence anchor reduces
+  it as of the decision instant. They coincide for every shipped class and
+  diverge only for a class that combines an evidence anchor with a declared
+  decision-instant parameter, which none does.
+- **The replay hold takes the declared anchor basis from the rehydrated
+  declaration**, not from a basis pinned in the record.
+- **Refusal records do not pin the half-life table.**
+- **A composite whose child's expiry is itself the binding floor** has no
+  dedicated control; the parent-binding case and the floored case do.
+- **The registration guard against an unpinnable evidence clock is defensive**:
+  no configuration reachable today can declare one, so the guard has no control.
+
 ## The three approaches this is usually compared against
 
 An adopter weighing this deployment against something else is usually weighing
@@ -364,3 +427,4 @@ named boundary, under a policy regime, with the operators that shaped it and the
 obligation in force recorded before it was delivered — and the price of that is
 that its provenance points at observations and source systems rather than at
 sentences.
+[recipe]: ../how-to/reconstruct-a-governed-determination.md

@@ -133,6 +133,7 @@ nav:
       - Run agents cross-process: how-to/run-agents-cross-process.md
       - Compose a workflow with HITL: how-to/compose-a-workflow-with-hitl.md
       - Swap the artifact store: how-to/swap-the-artifact-store.md
+      - Reconstruct a governed determination: how-to/reconstruct-a-governed-determination.md
       - Bind a harness adapter: how-to/bind-a-harness-adapter.md
       - Write a graph backend adapter: how-to/write-a-graph-backend-adapter.md
   - Concepts:
