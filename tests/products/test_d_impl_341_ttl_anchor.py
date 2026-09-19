@@ -279,6 +279,39 @@ def test_c8_an_evidence_anchored_composite_floors_on_its_anchor_and_its_children
     assert parent.expires_at != min(ASKED_AT + parent_window, row_.child_expires_at), "a decision-anchored own term would end with the child"
 
 
+def test_c4b_an_evidence_anchor_over_no_table_at_all_is_refused_at_the_builder(tmp_path: pathlib.Path) -> None:
+    """R-3's first row, widened by Dave's ruling of 2026-09-18: a resolver wired
+    with NO λ_c table at all — neither key given — cannot ever resolve an
+    evidence instant, so an evidence-anchored class is refused where the wiring
+    is done rather than at every question it is later asked.
+
+    The boundary this keeps: missing CONFIGURATION fails at the builder; a
+    sound configuration whose OBSERVATIONS supply no instant fails at serve time
+    (C5); an anchor whose window has passed fails at the expiry gate (C6).
+    """
+    from ccf.products.resolver import build_governed_resolver  # noqa: PLC0415
+
+    with _open(tmp_path / "t", ttl_anchor="from_entity_freshness", decay_basis="valid-from", observed={"acct-1": OBSERVED}) as template:
+        fabric = template._boot()
+        try:
+            arguments = template.build_arguments(fabric)
+            assert arguments["evidence_clock_key"] is not None, "the road stopped passing the clock key"
+            with pytest.raises(TTLAnchorUndeclared, match="wired with no λ_c table"):
+                build_governed_resolver(**{**arguments, "evidence_clock_key": None, "half_life_key": None})
+        finally:
+            fabric.handle.close()
+    # A DECISION-ANCHORED class over the same wiring is untouched: the rule is
+    # about the anchor a class declares, not about tables.
+    with _open(tmp_path / "d", ttl_anchor="from_decision", decay_basis="valid-from", observed={"acct-1": OBSERVED}) as plain_template:
+        plain_fabric = plain_template._boot()
+        try:
+            plain_arguments = plain_template.build_arguments(plain_fabric)
+            plain = build_governed_resolver(**{**plain_arguments, "evidence_clock_key": None, "half_life_key": None})
+            assert plain.half_life_key is None
+        finally:
+            plain_fabric.handle.close()
+
+
 # --- C11: the two instants, two laws (the review's blocking finding) ------------------------
 
 

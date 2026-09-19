@@ -150,7 +150,7 @@ def _payload(outcomes: dict[str, Any], key: str) -> dict[str, Any]:
     return json.loads(body["product_json"])["payload"]
 
 
-@pytest.mark.xfail(strict=True, reason="`D-IMPL-341` (validation pass 2026-09-18): the frozen cp-06 declares `ttl_anchor: from_entity_freshness` over a resolver wired with its own `debt_scorer` and no lambda_c table the SDK can read, so every serve is refused `ttl-anchor-refusal` / `ttl-anchor-unresolvable` (R-3, no fallback) — quarantined evidence of the SDK's evolution, `D-IMPL-261`; the specimen is not edited")
+@pytest.mark.xfail(strict=True, reason="`D-IMPL-341` (2026-09-18, with Dave's registration ruling): the frozen cp-06 declares `ttl_anchor: from_entity_freshness` over a resolver wired with its own `debt_scorer` and no lambda_c table, and an evidence anchor over no table is a CONFIGURATION failure refused at the builder (`TTLAnchorUndeclared`) before any question proceeds — so this tree can no longer serve at all. Quarantined evidence of the SDK's evolution, `D-IMPL-261`; the specimen is not edited")
 def test_the_door_answers_its_first_call(outcomes: Any) -> None:
     """`CP07-F-08`, and the assertion is deliberately the plainest one possible.
 
@@ -165,7 +165,7 @@ def test_the_door_answers_its_first_call(outcomes: Any) -> None:
     assert payload["assets"], "the door served a facility with no collateral"
 
 
-@pytest.mark.xfail(strict=True, reason="`D-IMPL-341` (validation pass 2026-09-18): the frozen cp-06 declares `ttl_anchor: from_entity_freshness` over a resolver wired with its own `debt_scorer` and no lambda_c table the SDK can read, so every serve is refused `ttl-anchor-refusal` / `ttl-anchor-unresolvable` (R-3, no fallback) — quarantined evidence of the SDK's evolution, `D-IMPL-261`; the specimen is not edited")
+@pytest.mark.xfail(strict=True, reason="`D-IMPL-341` (2026-09-18, with Dave's registration ruling): the frozen cp-06 declares `ttl_anchor: from_entity_freshness` over a resolver wired with its own `debt_scorer` and no lambda_c table, and an evidence anchor over no table is a CONFIGURATION failure refused at the builder (`TTLAnchorUndeclared`) before any question proceeds — so this tree can no longer serve at all. Quarantined evidence of the SDK's evolution, `D-IMPL-261`; the specimen is not edited")
 def test_a_caller_supplied_basis_reaches_the_projection_over_mcp(
     outcomes: Any
 ) -> None:
@@ -180,6 +180,7 @@ def test_a_caller_supplied_basis_reaches_the_projection_over_mcp(
     assert pro_rata != default
 
 
+@pytest.mark.xfail(strict=True, reason="`D-IMPL-341` (2026-09-18, with Dave's registration ruling): the frozen cp-06 declares `ttl_anchor: from_entity_freshness` over a resolver wired with its own `debt_scorer` and no lambda_c table, and an evidence anchor over no table is a CONFIGURATION failure refused at the builder (`TTLAnchorUndeclared`) before any question proceeds — so the door's boot raises and its governed refusal cannot be reached. Quarantined evidence of the SDK's evolution, `D-IMPL-261`; the specimen is not edited")
 def test_a_question_with_no_anchor_is_refused_by_GOVERNANCE(outcomes: Any) -> None:
     """`CP07-F-09` — and the door refuses none of it.
 

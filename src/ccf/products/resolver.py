@@ -206,6 +206,7 @@ from ccf.halflife.assessment import (
 )
 from ccf.products.expiry import (
     FROM_ENTITY_FRESHNESS,
+    TTLAnchorUndeclared,
     TTLAnchorResolution,
     refuse_undeclared_ttl_anchor,
     resolve_ttl_anchor,
@@ -3796,6 +3797,24 @@ def build_governed_resolver(
     # `D-IMPL-341` R-3 (first row), for a resolver wired by hand: the same
     # registration-time refusal the config derivation makes, over the table
     # this builder is about to anchor with.
+    #
+    # NO TABLE AT ALL IS A CONFIGURATION FAILURE, AND IT FAILS HERE (Dave's
+    # ruling of 2026-09-18, closing the review's open question). A class
+    # declaring an evidence anchor over a resolver wired with no λ_c table can
+    # never resolve one: every question it is asked would be refused at serve
+    # time for a reason that was already true at registration, and a serve-time
+    # refusal is for a class whose CONFIGURATION is sound and whose OBSERVATIONS
+    # supply no instant. The two are different failures and keep different
+    # boundaries.
+    if resolver_table_key is None and boot_declaration.ttl_anchor == FROM_ENTITY_FRESHNESS:
+        raise TTLAnchorUndeclared(
+            f"product class {boot_declaration.schema_name!r} declares"
+            " `ttl_anchor: from_entity_freshness` and this resolver is wired"
+            " with no λ_c table: neither `half_life_key` nor"
+            " `evidence_clock_key` was given, so no observation can ever supply"
+            " an evidence instant. Name the deployment's table, or declare"
+            " `ttl_anchor: from_decision` (D-IMPL-341 R-3, first row)"
+        )
     if resolver_table_key is not None:
         refuse_undeclared_ttl_anchor(
             ttl_anchor=boot_declaration.ttl_anchor,
