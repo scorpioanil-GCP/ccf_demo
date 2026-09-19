@@ -536,6 +536,8 @@ class _FreshEnvironment:
                 ttl_anchor_at=record.recorded_at,
             ),
             ttl_anchor="from_decision",
+            # `D-IMPL-341`: the anchor instant comes off the record, never recomputed.
+            ttl_anchor_at=path.ttl_anchor_at,
             lineage=lineage,
             payload=projection.payload,
             debt=path.debt,

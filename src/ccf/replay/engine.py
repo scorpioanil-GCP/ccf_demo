@@ -120,6 +120,13 @@ from ccf.replay.record import (
     ResolutionNotApplicable,
 )
 from ccf.replay.snapshots import SnapshotReader, snapshot_of_execution
+from ccf.products.expiry import (
+    FROM_DECISION,
+    FROM_ENTITY_FRESHNESS,
+    TTLAnchorResolution,
+    resolve_ttl_anchor,
+)
+from ccf.controlplane.artifacts import HalfLifeTable
 from ccf.skills.dispatch import ChildQuestionIdentity
 
 __ccf_mode__ = "algorithmic"
@@ -916,6 +923,9 @@ def replay(
     product = environment.rehydrate_product(
         record=record, projection=execution.projection
     )
+    _hold_ttl_anchor(
+        record=record, product=product, execution=execution, control_plane=control_plane
+    )
     reproduced_address = content_hash(product)
     if reproduced_address != path.product_content_address:
         raise ReplayDivergence(
@@ -1148,6 +1158,87 @@ def _children_of(
         if row.child_content_address is not None
     )
     return children, addresses
+
+
+#: What :func:`_hold_ttl_anchor` did, named — so a test can see the pre-341
+#: path was taken by name rather than infer it from an absent exception.
+TTL_ANCHOR_NOT_RECORDED: Final = "not-recorded"
+TTL_ANCHOR_HELD_DECISION: Final = "held-decision"
+TTL_ANCHOR_HELD_EVIDENCE: Final = "held-evidence"
+
+
+def _hold_ttl_anchor(
+    *,
+    record: DecisionReplayRecord,
+    product: ContextProductContract,
+    execution: ExecutionResult,
+    control_plane: ControlPlaneProtocol,
+) -> str:
+    """Re-derive the served product's TTL anchor and hold it to the record (`D-IMPL-341` R-5).
+
+    A record whose dimension 5 carries no ``ttl_anchor_at`` was written before
+    the member existed and is decision-anchored by definition of the sentinel:
+    the hold is **skipped, by name** (:data:`TTL_ANCHOR_NOT_RECORDED`), every
+    other replay check having run. That path does not establish that the old
+    expiry implemented evidence anchoring.
+
+    For a ``from_decision`` record the recorded decision instant is the
+    anchor, and the rehydrated product must agree with the record. For a
+    ``from_entity_freshness`` record the anchor is re-derived over the
+    re-executed view under the λ_c table the record pinned — the same
+    selection and clock the serve used — and must equal the recorded member.
+    Nothing is overwritten, no current configuration is substituted, and no
+    producer is called.
+
+    Raises:
+        ReplayDivergence: the product and the record disagree, or the
+            re-derived anchor differs from the recorded one.
+        ReplayUnresolvable: an evidence-anchored record pins no λ_c table.
+    """
+    path = record.content_generation_path
+    recorded = path.ttl_anchor_at
+    if recorded is None:
+        return TTL_ANCHOR_NOT_RECORDED
+    if product.ttl_anchor_at != recorded:
+        raise ReplayDivergence(
+            f"the rehydrated product's ttl_anchor_at is {product.ttl_anchor_at!r};"
+            f" the record names {recorded.isoformat()} (D-IMPL-341)"
+        )
+    if product.ttl_anchor == FROM_DECISION:
+        if recorded != record.recorded_at:
+            raise ReplayDivergence(
+                f"a decision-anchored record names ttl_anchor_at"
+                f" {recorded.isoformat()} and was recorded at"
+                f" {record.recorded_at.isoformat()}; the two are one instant"
+                " (D-IMPL-308, D-IMPL-341)"
+            )
+        return TTL_ANCHOR_HELD_DECISION
+    table: HalfLifeTable | None = None
+    for binding in record.policy_bindings.bindings:
+        artifact = control_plane.resolve(binding.key, binding.version)
+        if isinstance(artifact, HalfLifeTable):
+            table = artifact
+            break
+    if table is None:
+        raise ReplayUnresolvable(
+            "an evidence-anchored record pins no λ_c table on dimension 2, so"
+            " its anchor cannot be re-derived under the declarations it was"
+            " made under; today's table is not substituted (D-IMPL-341 R-5)"
+        )
+    derived = resolve_ttl_anchor(
+        ttl_anchor=FROM_ENTITY_FRESHNESS,
+        view=execution.view,
+        table=table,
+        decided_at=record.recorded_at,
+        product_class=product.schema_name,
+    )
+    if not isinstance(derived, TTLAnchorResolution) or derived.anchor_at != recorded:
+        raise ReplayDivergence(
+            "the TTL anchor re-derived over the re-executed view is"
+            f" {derived.anchor_at.isoformat() if isinstance(derived, TTLAnchorResolution) else 'unresolvable'};"
+            f" the record names {recorded.isoformat()} (D-IMPL-341 R-5)"
+        )
+    return TTL_ANCHOR_HELD_EVIDENCE
 
 
 def retained_child_question(

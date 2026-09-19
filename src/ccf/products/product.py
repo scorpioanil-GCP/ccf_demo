@@ -150,6 +150,7 @@ from ccf.products.resolver import (
     declared_refusal_recorder,
 )
 from ccf.products.debt_scorer import ExecutionEvidence
+from ccf.products.expiry import refuse_undeclared_ttl_anchor
 from ccf.projection.plan import Perspective
 from ccf.replay.record import DecisionReplayRecord, PolicyBinding, ResolutionNotApplicable
 from ccf.replay.serve import ServedProduct
@@ -536,6 +537,11 @@ class OpenedProduct:
             "plan_factory": self._project,
             "debt_scorer": _AssessAdapter(self._assess, half_life=half_life, profile=profile),
             "debt_profile_key": keys.debt_profile,
+            # `D-IMPL-341`: the λ_c table's manifest key, stated for the
+            # resolver — the adapter above already reads the table for `F`; the
+            # resolver reads it for the instant an evidence-anchored window runs
+            # from, and pins it on the record.
+            "evidence_clock_key": keys.half_life,
             "product_gate": self._gate,
             "artifact_store": self.artifact_store,
             "replay_record_class": self.replay.record_class,
@@ -904,6 +910,16 @@ def open_product(
     config_path = root / environment.config
     config = load_artifact(config_path.read_text(encoding="utf-8"), DEPLOYMENT_CONFIG)
     assert isinstance(config, DeploymentConfig)  # DEPLOYMENT_CONFIG's contract
+    # `D-IMPL-341` R-3 (first row), at the paved road's registration moment:
+    # a class declaring `ttl_anchor: from_entity_freshness` over a λ_c table
+    # with no `decay_basis: valid-from` row could never be honored by any
+    # data, and is refused by name at open rather than served
+    # decision-anchored under an evidence-anchored label.
+    refuse_undeclared_ttl_anchor(
+        ttl_anchor=str(config.product_class.get("ttl_anchor", "from_decision")),
+        entries=config.half_life,
+        product_class=str(config.product_class.get("schema_name", "?")),
+    )
     if config.tenant_id is None:
         raise ValueError(
             "ccf_config.yaml declares no tenant_id; on the paved road the"

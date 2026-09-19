@@ -1,8 +1,10 @@
 # D-IMPL-341 — design: `expires_at` describes when the evidence stopped being current
 
-**Status: design only (2026-09-18), awaiting the implementation GO. No SDK, runtime,
-example or test-behavior code in this package.** Branch `d-impl-341-design` from the
-verified baseline `main @ f8c33898` (post-`D-GATE-342`). The decisions of record are
+**Status: IMPLEMENTED (2026-09-18) on `d-impl-341-expiry`, awaiting implementation review;
+not merged. §0–§11 are the design as accepted with Dave's five rulings (R-1–R-5, recorded in
+`docs/DECISIONS.md` before implementation); §12 records what was built, where it differs, and
+every measurement — including the one the design got wrong.** Design baseline
+`main @ f8c33898` (post-`D-GATE-342`), design at `f55915d2`. The decisions of record are
 `docs/DECISIONS.md` `D-IMPL-341` (OPEN, 2026-09-15, from `CP03C-F-01`), `D-IMPL-31` (TTL at
 two granularities with a declared derivation), `D-IMPL-308` (the TTL runs from the decision
 instant, never collapsed onto the graph boundary), `D-IMPL-331` (a λ_c row declares which of
@@ -289,3 +291,139 @@ pass.
    reproduce `CP03C-F-01` under a name that claims it was fixed.
 3. The forbidden test shape is named as a negative control (C10) so the suite proves its own
    controls are not that shape.
+
+## 12 · As built (2026-09-18, synchronization of this design to the tree)
+
+Implemented on `d-impl-341-expiry` (from `f55915d2`, on `f8c33898`) under the implementation
+GO. What follows names every place the tree differs from §1–§10 and records the measurements
+the GO asked for — the class-by-class outcomes were measured, not predicted, and one of them
+contradicts §3.
+
+### 12.1 Contracts and API, exactly as built
+
+- **`ccf.products.expiry`** (new): `resolve_ttl_anchor(*, ttl_anchor, view, table, decided_at,
+  product_class) -> TTLAnchorResolution | TTLAnchorRefusal`; `TTLAnchorResolution(anchor_at,
+  basis, contributing_types)`; `valid_from_rows(entries)`; `refuse_undeclared_ttl_anchor(...)`
+  raising `TTLAnchorUndeclared`; the two basis constants. R-1 as ruled: the reference scorer's
+  own observation set (`AssemblyDebtScorer._observations` over the execution's view), narrowed
+  to the types the table declares, reduced per series by `leading_edge` as of the decision
+  instant, only `valid-from` rows contributing, freshest wins. `ttl_derivation` (§6) was not
+  added: R-1 ruled `freshest`, and a declarable `stalest` would have been a value nobody asked
+  for.
+- **Gate 3's second reason**: `src/ccf/products/gates.py::TTLAnchorRefusal` (kind
+  `ttl-anchor-refusal`, reason `GATE_TTL_ANCHOR` = `ttl-anchor-unresolvable`; members
+  `ttl_anchor`, `now`, `valid_from_rows`, `observation_types`), joined to `REFUSAL_KINDS`,
+  `PERMITTED_AT_MINIMAL` (nothing actionable) and the HTTP status table
+  (`STATUS_FULFILLMENT_WITHHELD`). Minted at the resolver's mint, before the candidate, on
+  both branches, and recorded with the composed child rows (`D-IMPL-338`'s census grew from
+  seven exits to eight).
+- **`ContextProductContract.ttl_anchor_at`**, **`ContentGenerationPath.ttl_anchor_at`**,
+  **`ChildResolution.child_ttl_anchor` / `child_ttl_anchor_at`** — all hash-transparent at
+  `None` (four marks ticked in the roster). R-2: every new product states the instant, the
+  decision instant included.
+- **`GovernedResolver.half_life_key: str | None`** — REQUIRED, not defaulted: the seam's own
+  invariant (`test_no_constructor_argument_carries_a_default`) refuses a default, so every
+  direct construction names it (`None` = wired without a table; an evidence-anchored class then
+  refuses at gate 3). **`build_governed_resolver(evidence_clock_key=...)`** — the same manifest
+  key, stated for the resolver when the scorer is supplied, because the builder holds
+  `half_life_key` and a supplied `debt_scorer` to be alternatives; the paved road passes it from
+  `build_arguments`. An evidence-anchored serve pins the table on dimension 2
+  (`PolicyBinding(half_life_key, pins.version_for(...))`); a decision-anchored serve pins
+  nothing new.
+- **Registration-time refusal (R-3, first row)** lives at `open_product` (the paved road's
+  registration moment, before any question) and at `build_governed_resolver` (resolvers wired
+  by hand), through one predicate. It was first placed in the config derivation and moved: the
+  derivation is also how the frozen, hand-composed specimens' configs are *read*, and reading a
+  frozen config is not registering a governed class.
+- **Replay (R-5)**: `_hold_ttl_anchor` in `ccf.replay.engine`, called in `replay()` after
+  rehydration and before the address check. Decision-anchored: `product.ttl_anchor_at ==
+  path.ttl_anchor_at == record.recorded_at`. Evidence-anchored: the anchor re-derived over the
+  re-executed view under the λ_c table resolved from the record's own pins must equal the
+  recorded member (`ReplayDivergence`); no pinned table is `ReplayUnresolvable`. A record with
+  no member returns the named sentinel `not-recorded` and every other check runs.
+  `replay_refusal()` is untouched (a refusal names no product).
+
+### 12.2 Class by class, measured on the candidate
+
+| class | registration (predicate over its config) | serve on the candidate | what was learned |
+|---|---|---|---|
+| cp-03-canonical spread | passes — rows `annual_facts`, `quarterly_facts`, `peer_set` declare `valid-from` | **refuses `ttl-anchor-unresolvable`**. Probe: the view's observation types are `obligor`, `peer_cohort`, `spread_line`, `spread_period`, **every one carrying `valid_from`**; none is a row name | **§3 was wrong for this class.** The instant exists on every claim; the λ_c rows are keyed by the deployment's own observation vocabulary (its custom `assess` reads them), not by the entity classes the reference selection reads, so R-1's selection finds no qualifying row. Prerequisite, recorded and not made: key `decay_basis: valid-from` rows by `spread_period`, `spread_line`, `peer_cohort` (a config change; its own `assess` is unchanged). `OFC-G07` therefore **did not execute** and stays quarantined; the conversion drafted for it was reverted |
+| cp-04-canonical family | **refused at open by name** (no `valid-from` row) | — | prerequisite as §3: an assertion date the estate provides, or `from_decision` |
+| cp-06-canonical collateral | **refused at open by name** | — | `CSCC-G23` **did not execute**; prerequisite as §3: `observed_time=valuation_date` and `valid-from` rows on the valuation classes |
+| cp-08 covenant-in-force | **refused by the predicate** (no `valid-from` row) | not run — its estate variables are not available in this session | prerequisite as §3 |
+| cp-13-canonical (and frozen cp-13) | `from_decision`, registers | serves as before; `ttl_anchor_at = decided_at` | its hand-built replay environment omits `ttl_anchor_at`, so its replay-reproduction control is red by the new hold's own message — a one-line environment change at its validation pass |
+| cp-14 memo | `from_decision`, registers | slice 1 red (the spread producer refuses as above); slices 2–4 error at the producers' boots (family, collateral refused at open) | blocked by its producers' prerequisites; its own environments also carry no `ttl_anchor_at` yet |
+| cp-05 (frozen and wrapper door), cp-13 frozen | `from_decision` | green | unchanged |
+| cp-09, cp-10, cp-11, cp-12 | `from_decision` | their output suites were skipped in this session for want of their estate variables | unchanged by construction: the `from_decision` branch serves exactly `decided_at + window` |
+| s1-01 | `from_decision`, a declared decision instant | 45 passed against the local Fluree leg | `D-IMPL-308`'s proofs hold; the product additionally states `ttl_anchor_at` |
+
+**The consequence, stated plainly for the review.** On this candidate four example trees cannot
+serve (cp-03-canonical at gate 3; cp-04-canonical, cp-06-canonical, cp-08 at open), and
+everything that consumes them is red: cp-03's cross-deployment and paved-consumer proofs, and
+all four CP-14 slices. Each has a small, recorded prerequisite that is an example change under
+`D-IMPL-261` and R-4, not an SDK change. Neither named example gate executed: **`OFC-G07` and
+`CSCC-G23` are both blocked by their trees' clock prerequisites**; the executable failure proof
+(§12.3) rests on the SDK controls.
+
+### 12.3 The executable failure proof
+
+`tests/products/test_d_impl_341_ttl_anchor.py` — nine controls over the paved fixture
+(`open_product`, one product, one difference per control):
+
+| control | holds |
+|---|---|
+| C1 | `expires_at == source instant + window`, `ttl_anchor_at == source instant`, and `≠ asked_at + window`, `≠ admitted_at + window`; the record carries the anchor and pins the λ_c table |
+| C2 | freshest leading edge as of the decision instant; a later-dated observation does not leak in |
+| C4 | R-3 row 1: refused by name at open (no basis; `observed-at` basis) and at the builder over a fabric the low road booted |
+| C5 | R-3 row 2: `ttl-anchor-refusal` / `ttl-anchor-unresolvable`, naming the rows and the types seen; nothing anchored, nothing claimed |
+| C6 | R-3 row 3: `ttl-refusal` / `ttl-bounds` with the anchored expiry named — distinct from C5 |
+| C7 | a `from_decision` class serves as before and states `ttl_anchor_at == decided_at == recorded_at`; no table pinned |
+| C8 | an evidence-anchored composite floors on `min(anchor + window, children)`, with the parent's own term binding, and its rows carry the child's anchor and instant |
+| C9 | replay re-derives the anchor and holds it; a disagreeing derivation fails by name with the record untouched; a pre-341 record — the member deleted from its bytes and the product address re-pointed at the decision-anchored envelope such a record described — reconstructs, and the hold returns `not-recorded` |
+| C10 | the negative control: `expires_at <= decided_at + window` holds for the anchored product and stays green under S1 |
+
+**Sabotages, run by hand and restored (`cmp` verified), over the 341 suite, the paved consumer
+and the refusal vocabulary (104 controls):**
+
+| sabotage | red | green |
+|---|---|---|
+| **S1 (required) — decision-time anchoring restored for `from_entity_freshness`** | C1, C2, C5, C6, C8, C9 | C4, C7, and **C10 — the deliberately inadequate `<=` assertion, as the GO required** |
+| S2 — the registration-time refusal dropped | C4 | the other 103 |
+| S3 — anchor on `observed_at` (the ingestion instant) | C1, C2, C5, C6, C8, C9 | C4, C7, C10 |
+| S4 — the globally newest instant instead of the edge as of the decision | C2 | the other 103 |
+| S5 — dimension 5 does not carry the anchor | C1, C7, C9 | the other 101 |
+| S6 — the composite's own term anchored on the decision instant | C8 (after C8 was tightened so the parent's own term binds — its first form let the child's floor hide S6) | the other 103 |
+| S7 — the replay anchor hold dropped | C9 | the other 103 |
+
+The named example gates could not be sabotaged because they could not execute (§12.2).
+
+### 12.4 Scoped regressions at the candidate
+
+`tests/products` + `deployment` + `contracts` + `replay`: 2023 passed, 1 standing red
+(`test_class_lookup`, red on the baseline). Paved consumer, 342 suites, refusal vocabulary,
+contracts, replay: 371 passed. `make lint` 0; `make typecheck` clean (230 files); surface suites
+4 standing reds identical to the baseline; s1-01 45 passed; cp-05 doors green. Deliberate test
+growth, named: hash-transparency roster +4; refusal vocabulary +1 kind with its own envelope
+test; the hand-rendered pre-field product now omits both transparent sentinels; the
+generation-mismatch transparent roster +1; the request-contract member pin +1; the resolver
+seam's argument enumeration +1 and its constructor dictionary; the builder's
+non-scorer-material exclusions +1; `D-IMPL-338`'s exit census 7 → 8 (2 before, 6 after); the
+339/344 replay environments carry `ttl_anchor_at` off the record; one example test names the
+resolver's new required argument (cp-03 cross-deployment, which constructs the resolver
+directly — and is red anyway, above).
+
+### 12.5 Residual limitations, carried
+
+1. The two named example gates did not execute (§12.2); the failure proof rests on the SDK
+   controls until the trees' clock prerequisites land.
+2. cp-08 was not run in this session (estate variables absent); its registration refusal is
+   measured statically over its config.
+3. Every hand-built example replay environment (cp-06-canonical, cp-13-canonical, the CP-14
+   slices) must read `ttl_anchor_at` off the record — one line each — at its validation pass;
+   until then their replay-reproduction controls are red by the hold's own message.
+4. The pinned spread address (`DEMONSTRATION_SPREAD_ADDRESS`) in the CP-14 and cross-deployment
+   proofs will move once cp-03-canonical serves evidence-anchored, and must be re-pinned at
+   that validation pass, never inside an SDK change.
+5. `OFC-G06` (the spread's own window gate refusing a stale obligor) will need re-specifying
+   at that pass: gate 3's `ttl-bounds` now fires first, which is what §4 said would make the
+   product gate's serving half redundant.

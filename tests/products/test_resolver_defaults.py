@@ -930,6 +930,10 @@ def test_the_named_inputs_are_this_helper_s_own_optional_parameters() -> None:
 
     not_debt_scorer_material = (
         "debt_scorer",
+        # `D-IMPL-341`: the λ_c table key stated for the resolver when the
+        # scorer is supplied — the resolver anchors an evidence-anchored expiry
+        # on that table and pins it; it is not scorer material.
+        "evidence_clock_key",
         "constraint_resolver",
         "capabilities",
         # `D-IMPL-336` Amendment 3, F0. How a deployment resolves, invokes and

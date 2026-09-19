@@ -673,6 +673,10 @@ def test_no_content_address_moves_because_of_the_pin() -> None:
         "lineage",
         "payload",
         "computed_empty",
+
+        # `D-IMPL-341`: the anchor instant, hash-transparent at `None`.
+
+        "ttl_anchor_at",
         "debt",
         "debt_evidence",
         "source_refresh_recency",

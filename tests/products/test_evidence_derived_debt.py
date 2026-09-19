@@ -692,6 +692,7 @@ def _ask_the_empty_fabric(booted: Any, *, completeness: Any | None = None) -> An
         # This test's class declares no children; stated, never defaulted.
         composite_children=None,
         acquisition=None,
+        half_life_key=None,
         # `D-IMPL-336` O3. Never read on this path — no child is admitted —
         # and supplied anyway, because the class permits no defaults.
         admission_clock=lambda: datetime(2026, 3, 2, 12, 7, tzinfo=UTC),

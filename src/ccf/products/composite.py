@@ -2358,4 +2358,6 @@ def _row_for_admitted(
         child_question_address=candidate.invocation.question_address,
         child_replay_ref=candidate.child_replay_ref,
         child_question_ref=candidate.invocation.question_ref,
+        child_ttl_anchor=contract.ttl_anchor,
+        child_ttl_anchor_at=contract.ttl_anchor_at,
     )

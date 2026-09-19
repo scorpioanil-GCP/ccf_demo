@@ -136,6 +136,7 @@ from ccf.products.gates import (
     ProductInvariantRefusal,
     ToleranceExceededRefusal,
     DependencyInvalidationRefusal,
+    TTLAnchorRefusal,
     TTLRefusal,
 )
 from ccf.products.payload import PayloadSchemaViolation
@@ -568,6 +569,10 @@ REFUSAL_KINDS: Final[Mapping[type[CCFContract], str]] = {
     LineageMismatchRefusal: "lineage-mismatch-refusal",
     LineageAttributionRefusal: "lineage-attribution-refusal",
     TTLRefusal: "ttl-refusal",
+    # `D-IMPL-341` R-3: gate 3's second reason — no evidence instant to anchor
+    # on — is its own kind, so a caller can tell "the window has passed" from
+    # "there was nothing to run a window from".
+    TTLAnchorRefusal: "ttl-anchor-refusal",
     AttestationRefusal: "attestation-refusal",
     # `D-IMPL-334`. Serve-time dependency invalidation: an entity this product
     # touched moved after the snapshot it was built at, so it is no longer

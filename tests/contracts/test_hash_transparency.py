@@ -319,6 +319,16 @@ _MARKED_IN_THE_TREE = frozenset(
         "ccf.replay.record.ChildResolution.producer_refusal_reason",
         "ccf.replay.record.ChildResolution.producer_refusal_key",
         "ccf.replay.record.ChildResolution.child_question_ref",
+        # `D-IMPL-341` — four marks, ticked deliberately. The instant a
+        # product's TTL anchor resolved to, on the product, on dimension 5 and
+        # on the admitted-child row (with the child's declared anchor), is
+        # `None` on everything minted before the decision — the pre-341
+        # compatibility sentinel, decision-anchored by definition — so every
+        # stored product and record reloads to the address it was written at.
+        "ccf.products.contract.ContextProductContract.ttl_anchor_at",
+        "ccf.replay.record.ContentGenerationPath.ttl_anchor_at",
+        "ccf.replay.record.ChildResolution.child_ttl_anchor",
+        "ccf.replay.record.ChildResolution.child_ttl_anchor_at",
         "ccf.controlplane.artifacts.DeploymentConfig.producers",
         # `D-IMPL-343` — nine marks, ticked deliberately. The four paved-road
         # sections and the declaration's decision-instant parameter are `None`
@@ -836,7 +846,9 @@ def test_a_product_with_no_finding_hashes_as_it_did() -> None:
     before = {
         name: getattr(silent, name)
         for name in ContextProductContract.model_fields
-        if name != "computed_empty"
+        # `ttl_anchor_at` (`D-IMPL-341`) is the second transparent member; a
+        # hand render of the pre-field product omits both sentinels.
+        if name not in ("computed_empty", "ttl_anchor_at")
     }
     assert content_hash(silent) == content_hash(before)
     assert b"computed_empty" not in canonical_bytes(silent)

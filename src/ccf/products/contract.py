@@ -17,7 +17,7 @@ Field                                        Specification element
 ===========================================  ================================
 ``schema_name``                              Schema
 ``schema_version``                           Semantic Versioning
-``expires_at`` + ``ttl_anchor``              TTL
+``expires_at`` + ``ttl_anchor`` + ``ttl_anchor_at``  TTL
 ``lineage``                                  Lineage
 ``plan_id``                                  Π identity (binds product to plan)
 ``payload``                                  the class's declared payload
@@ -1283,6 +1283,16 @@ class ContextProductContract(CCFContract):
     temporal_boundary: datetime
     expires_at: datetime
     ttl_anchor: TTLAnchor
+    # `D-IMPL-341` R-2: the instant the class's anchor resolved to — the
+    # decision instant for `from_decision`, the freshest contributing evidence
+    # instant for `from_entity_freshness` — so `expires_at - ttl_anchor_at` is
+    # the declared window and a reader can see the basis rather than infer
+    # one. Hash-transparent at ``None``: a product minted before the member
+    # existed keeps its address, and ``None`` is that pre-341 sentinel only —
+    # never a shortcut on a new product.
+    ttl_anchor_at: datetime | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
     lineage: ProductLineage
     payload: Mapping[str, Any]
     debt: DebtAssessment | None = None
