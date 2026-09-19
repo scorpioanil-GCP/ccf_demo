@@ -1,0 +1,2 @@
+PYTHONPATH=.:src:runtime .venv/bin/python tools/check_schema_headers.py 
+checked 31 artifact directories

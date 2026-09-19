@@ -1,0 +1,53 @@
+........................................................................ [ 15%]
+........................................................................ [ 31%]
+........................................................................ [ 47%]
+..............................F......................................... [ 63%]
+........................................................................ [ 78%]
+........................................................................ [ 94%]
+........................                                                 [100%]
+=================================== FAILURES ===================================
+___________ test_the_readme_fence_is_the_in_process_commands_output ____________
+tests/examples/test_hw1_readme_expected_output.py:143: in test_the_readme_fence_is_the_in_process_commands_output
+    assert not violations, "\n".join(violations)
+E   AssertionError: the fence and the run differ.
+E     --- README.md ### Expected output
+E     +++ consume.py stdout
+E     @@ -10,6 +10,6 @@
+E      
+E      and what a SELECT would not have told you:
+E         context debt D_c   0.4271  →  forced_llm
+E     -   content address    cbc7db84a98d5d2a5ab22bfb3adf1f5359dd6289f0f3f3ddbc6bcf2443d0d426
+E     -   replay record      ccf-artifact://hw1-demo/hw1.replay-record/eeaa76fccd6b54b42caf3787f614fba8f9d9f411f45ad450130e1792ade7ac0f@8b68efaf5352bc0e666cab29b8b705a69ef51ab058e03bde1a50b777aeed4a3e
+E     +   content address    a8335bb4cde42117c0efd42bac50fcf67c64c4f341e1e82a224dbcbcec5a2df4
+E     +   replay record      ccf-artifact://hw1-demo/hw1.replay-record/eeaa76fccd6b54b42caf3787f614fba8f9d9f411f45ad450130e1792ade7ac0f@b4ae700f3e968892a3bb83e7bd89e38d96479215e80fcafc7e8c39bfe4a2961e
+E         answer expires     2026-08-01 00:10:00+00:00
+E   assert not ['the fence and the run differ.\n--- README.md ### Expected output\n+++ consume.py stdout\n@@ -10,6 +10,6 @@\n \n and ...0f@b4ae700f3e968892a3bb83e7bd89e38d96479215e80fcafc7e8c39bfe4a2961e\n    answer expires     2026-08-01 00:10:00+00:00']
+---------------------------- Captured stdout setup -----------------------------
+seeded 8 envelope(s) into /tmp/pytest-of-parkave/pytest-2881/test_the_readme_fence_is_the_i0/hw1-companies-over-revenue/deployment
+=============================== warnings summary ===============================
+tests/examples/test_artifact_schema_headers.py::test_every_artifact_directory_passes_the_header_check[archive/examples/00-quickstart/artifacts]
+tests/examples/test_artifact_schema_headers.py::test_every_artifact_directory_passes_the_header_check[archive/examples/00-quickstart/artifacts]
+tests/examples/test_artifact_schema_headers.py::test_every_artifact_directory_passes_the_header_check[archive/examples/00-quickstart/artifacts]
+tests/examples/test_artifact_schema_headers.py::test_every_artifact_directory_passes_the_header_check[archive/examples/00-quickstart/artifacts]
+  <frozen abc>:106: DeprecationWarning: BaseAgentConfig is deprecated and will be removed in future versions. Config is now loaded via reflection so the separate config class is no longer needed.
+
+tests/examples/test_hw1_harness_clients_no_model.py::test_legs_one_and_three_reach_the_door_with_no_egress_at_all
+  /home/parkave/ccf_qual_f0656746/.venv/lib/python3.12/site-packages/google/adk/features/_feature_decorator.py:72: UserWarning: [EXPERIMENTAL] feature FeatureName.PLUGGABLE_AUTH is enabled.
+    check_feature_enabled()
+
+tests/examples/test_hw1_harness_clients_no_model.py::test_legs_one_and_three_reach_the_door_with_no_egress_at_all
+  /home/parkave/ccf_qual_f0656746/.venv/lib/python3.12/site-packages/google/adk/tools/mcp_tool/mcp_toolset.py:346: UserWarning: [EXPERIMENTAL] feature FeatureName._MCP_GRACEFUL_ERROR_HANDLING is enabled.
+    session = await self._mcp_session_manager.create_session(
+
+tests/examples/test_hw1_harness_clients_no_model.py::test_legs_one_and_three_reach_the_door_with_no_egress_at_all
+  /home/parkave/ccf_qual_f0656746/.venv/lib/python3.12/site-packages/google/adk/tools/mcp_tool/mcp_toolset.py:388: DeprecationWarning: MCPTool class is deprecated, use `McpTool` instead.
+    mcp_tool = MCPTool(
+
+tests/examples/test_hw1_harness_clients_no_model.py::test_legs_one_and_three_reach_the_door_with_no_egress_at_all
+  /home/parkave/ccf_qual_f0656746/.venv/lib/python3.12/site-packages/google/adk/features/_feature_decorator.py:72: UserWarning: [EXPERIMENTAL] feature FeatureName.BASE_AUTHENTICATED_TOOL is enabled.
+    check_feature_enabled()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/examples/test_hw1_readme_expected_output.py::test_the_readme_fence_is_the_in_process_commands_output
+1 failed, 455 passed, 224 deselected, 8 warnings in 33.87s

@@ -1,0 +1,2 @@
+PYTHONPATH=src:runtime .venv/bin/python -m mypy
+Success: no issues found in 230 source files

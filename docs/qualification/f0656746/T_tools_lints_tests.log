@@ -1,0 +1,65 @@
+........................................................................ [ 15%]
+........................................................................ [ 30%]
+........................................................................ [ 45%]
+........................................................................ [ 61%]
+........................................................................ [ 76%]
+..........................................................FF..F......... [ 91%]
+.......................................                                  [100%]
+=================================== FAILURES ===================================
+_____________________ test_main_exits_zero_on_a_clean_tree _____________________
+tools/lints/tests/test_runner.py:80: in test_main_exits_zero_on_a_clean_tree
+    assert main(["--all", "--base", str(tmp_path)]) == 0
+E   AssertionError: assert 1 == 0
+E    +  where 1 = main(['--all', '--base', '/tmp/pytest-of-parkave/pytest-2882/test_main_exits_zero_on_a_clea0'])
+----------------------------- Captured stdout call -----------------------------
+src/ccf/contracts/guarded.py:1 guarded-provenance declared guarded type 'ccf.products.gates:ServableProduct' names a module that does not exist (D-IMPL-337)
+src/ccf/contracts/guarded.py:1 guarded-provenance declared guarded type 'ccf.peering.admission:AdmittedProduct' names a module that does not exist (D-IMPL-337)
+src/ccf/contracts/guarded.py:1 guarded-provenance declared guarded type 'ccf.controlplane.state:StateWriteToken' names a module that does not exist (D-IMPL-337)
+src/ccf/contracts/guarded.py:1 guarded-provenance declared guarded type 'ccf.products.composite:AdmittedChild' names a module that does not exist (D-IMPL-337)
+src/ccf/contracts/guarded.py:1 guarded-provenance declared guarded type 'ccf.products.composite:ChildInvocation' names a module that does not exist (D-IMPL-337)
+src/ccf/contracts/guarded.py:1 guarded-provenance declared guarded type 'ccf.products.composite:ResolvedProducer' names a module that does not exist (D-IMPL-337)
+src/ccf/contracts/guarded.py:1 guarded-provenance declared guarded type 'ccf.skills.dispatch:McpProductInvocation' names a module that does not exist (D-IMPL-337)
+src/ccf/contracts/guarded.py:1 guarded-provenance declared guarded type 'ccf.skills.dispatch:McpProductFailure' names a module that does not exist (D-IMPL-337)
+src/ccf/contracts/guarded.py:1 guarded-provenance declared guarded type 'ccf.replay.serve:DeliveryCapability' names a module that does not exist (D-IMPL-337)
+----------------------------- Captured stderr call -----------------------------
+
+9 CCF invariant violation(s). Fix the code, or — for CINV-01 only — add a reviewed entry to tools/lints/allowlist.yaml.
+__________________ test_missing_trees_are_skipped_not_errors ___________________
+tools/lints/tests/test_runner.py:84: in test_missing_trees_are_skipped_not_errors
+    assert main(["--all", "--base", str(tmp_path)]) == 0
+E   AssertionError: assert 1 == 0
+E    +  where 1 = main(['--all', '--base', '/tmp/pytest-of-parkave/pytest-2882/test_missing_trees_are_skipped0'])
+----------------------------- Captured stdout call -----------------------------
+src/ccf/contracts/guarded.py:1 guarded-provenance declared guarded type 'ccf.products.gates:ServableProduct' names a module that does not exist (D-IMPL-337)
+src/ccf/contracts/guarded.py:1 guarded-provenance declared guarded type 'ccf.peering.admission:AdmittedProduct' names a module that does not exist (D-IMPL-337)
+src/ccf/contracts/guarded.py:1 guarded-provenance declared guarded type 'ccf.controlplane.state:StateWriteToken' names a module that does not exist (D-IMPL-337)
+src/ccf/contracts/guarded.py:1 guarded-provenance declared guarded type 'ccf.products.composite:AdmittedChild' names a module that does not exist (D-IMPL-337)
+src/ccf/contracts/guarded.py:1 guarded-provenance declared guarded type 'ccf.products.composite:ChildInvocation' names a module that does not exist (D-IMPL-337)
+src/ccf/contracts/guarded.py:1 guarded-provenance declared guarded type 'ccf.products.composite:ResolvedProducer' names a module that does not exist (D-IMPL-337)
+src/ccf/contracts/guarded.py:1 guarded-provenance declared guarded type 'ccf.skills.dispatch:McpProductInvocation' names a module that does not exist (D-IMPL-337)
+src/ccf/contracts/guarded.py:1 guarded-provenance declared guarded type 'ccf.skills.dispatch:McpProductFailure' names a module that does not exist (D-IMPL-337)
+src/ccf/contracts/guarded.py:1 guarded-provenance declared guarded type 'ccf.replay.serve:DeliveryCapability' names a module that does not exist (D-IMPL-337)
+----------------------------- Captured stderr call -----------------------------
+
+9 CCF invariant violation(s). Fix the code, or — for CINV-01 only — add a reviewed entry to tools/lints/allowlist.yaml.
+_____________ test_the_registered_rule_set_is_exactly_these_seven ______________
+tools/lints/tests/test_runner.py:131: in test_the_registered_rule_set_is_exactly_these_seven
+    assert set(WHOLE_TREE_CHECKERS) == {"citations", "hash-transparent-key"}
+E   AssertionError: assert {'citations',...nsparent-key'} == {'citations',...nsparent-key'}
+E     
+E     Extra items in the left set:
+E     'guarded-provenance'
+E     Use -v to get more diff
+=============================== warnings summary ===============================
+tools/lints/tests/test_hash_transparent_key.py::test_the_ast_universe_equals_the_imported_universe
+tools/lints/tests/test_hash_transparent_key.py::test_the_ast_universe_equals_the_imported_universe
+tools/lints/tests/test_hash_transparent_key.py::test_the_ast_universe_equals_the_imported_universe
+tools/lints/tests/test_hash_transparent_key.py::test_the_ast_universe_equals_the_imported_universe
+  <frozen abc>:106: DeprecationWarning: BaseAgentConfig is deprecated and will be removed in future versions. Config is now loaded via reflection so the separate config class is no longer needed.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tools/lints/tests/test_runner.py::test_main_exits_zero_on_a_clean_tree
+FAILED tools/lints/tests/test_runner.py::test_missing_trees_are_skipped_not_errors
+FAILED tools/lints/tests/test_runner.py::test_the_registered_rule_set_is_exactly_these_seven
+3 failed, 468 passed, 4 warnings in 14.07s

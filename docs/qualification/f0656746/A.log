@@ -1,0 +1,56 @@
+........................................................................ [  3%]
+........................................................................ [  7%]
+........................................................................ [ 10%]
+........................................................................ [ 14%]
+........................................................................ [ 17%]
+........................................................................ [ 21%]
+........................................................................ [ 24%]
+........................................................................ [ 28%]
+........................................................................ [ 31%]
+........................................................................ [ 35%]
+........................................................................ [ 39%]
+........................................................................ [ 42%]
+........................................................................ [ 46%]
+........................................................................ [ 49%]
+........................................................................ [ 53%]
+........................................................................ [ 56%]
+........................................................................ [ 60%]
+........................................................................ [ 63%]
+........................................................................ [ 67%]
+........................................................................ [ 70%]
+........................................................................ [ 74%]
+........................................................................ [ 78%]
+........................................s............................... [ 81%]
+........................................................................ [ 85%]
+.................................................................F...... [ 88%]
+........................................................................ [ 92%]
+........................................................................ [ 95%]
+........................................................................ [ 99%]
+..............                                                           [100%]
+=================================== FAILURES ===================================
+____________ test_the_phases_fragments_claim_exactly_what_was_added ____________
+tests/deployment/test_class_lookup.py:463: in test_the_phases_fragments_claim_exactly_what_was_added
+    assert added <= claimed, f"added but unclaimed: {sorted(added - claimed)}"
+E   AssertionError: added but unclaimed: ['ccf.contracts.guarded.GUARDED_TYPES', 'ccf.contracts.guarded.GuardedTypeDeclaration', 'ccf.contracts.guarded.declaration_for', 'ccf.controlplane.artifacts.MCP_PRODUCER', 'ccf.controlplane.artifacts.ProducerOfferDeclaration', 'ccf.deployment.EnvironmentDocument', 'ccf.deployment.load_environment_document', 'ccf.halflife.decay.MissingDecayInstant', 'ccf.halflife.decay.decay_basis_of', 'ccf.halflife.decay.freshness_over_of', 'ccf.halflife.decay.leading_edge', 'ccf.halflife.decay.series_key_attribute_of', 'ccf.peering.admission.verify_admission_provenance', 'ccf.products.child_resolver.ChildQuestions', 'ccf.products.child_resolver.MalformedDoorAnswer', 'ccf.products.composite.ChildAcquisition', 'ccf.products.composite.ELIGIBILITY_PROVIDER_CONTROLS', 'ccf.products.door.AnsweredQuestion', 'ccf.products.door.ProducerAssertion', 'ccf.products.expiry.FROM_DECISION', 'ccf.products.expiry.FROM_ENTITY_FRESHNESS', 'ccf.products.expiry.TTLAnchorResolution', 'ccf.products.expiry.TTLAnchorUndeclared', 'ccf.products.expiry.refuse_undeclared_ttl_anchor', 'ccf.products.expiry.resolve_ttl_anchor', 'ccf.products.expiry.valid_from_rows', 'ccf.products.gates.verify_gate_provenance', 'ccf.products.refusal.GovernedRefusalRaised', 'ccf.products.refusal.RESOLVED_BY_THE_RESOLVER', 'ccf.products.refusal.ResolvedByTheResolver', 'ccf.skills.dispatch.question_identity', 'ccf.skills.dispatch.verify_mcp_product_failure']
+E   assert {'ccf.agents....sembler', ...} <= {'ccf.agents....sembler', ...}
+E     
+E     Extra items in the left set:
+E     'ccf.halflife.decay.MissingDecayInstant'
+E     'ccf.products.expiry.FROM_ENTITY_FRESHNESS'
+E     'ccf.products.child_resolver.ChildQuestions'
+E     'ccf.peering.admission.verify_admission_provenance'
+E     'ccf.products.composite.ELIGIBILITY_PROVIDER_CONTROLS'...
+E     
+E     ...Full output truncated (27 lines hidden), use '-vv' to show
+=============================== warnings summary ===============================
+tests/deployment/test_class_lookup.py::test_the_phases_fragments_claim_exactly_what_was_added
+tests/deployment/test_class_lookup.py::test_the_phases_fragments_claim_exactly_what_was_added
+tests/deployment/test_class_lookup.py::test_the_phases_fragments_claim_exactly_what_was_added
+tests/deployment/test_class_lookup.py::test_the_phases_fragments_claim_exactly_what_was_added
+  <frozen abc>:106: DeprecationWarning: BaseAgentConfig is deprecated and will be removed in future versions. Config is now loaded via reflection so the separate config class is no longer needed.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/deployment/test_class_lookup.py::test_the_phases_fragments_claim_exactly_what_was_added
+SKIPPED [1] tests/replay/test_store_snapshot_pin_fluree.py:71: CCF_TEST_FLUREE_URL is unset; start a fluree/server:4.1.4 container and export the base URL to run the fluree leg
+1 failed, 2028 passed, 1 skipped, 4 warnings in 66.79s (0:01:06)

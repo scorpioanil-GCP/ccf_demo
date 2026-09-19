@@ -1,0 +1,4 @@
+PYTHONPATH=src:runtime CCF_REQUIRE_NEO4J=1 CCF_TEST_NEO4J_URI=neo4j://***:***@localhost:7687 \
+	.venv/bin/python -m pytest tests -q -m neo4j -rs
+.............................                                            [100%]
+29 passed, 9039 deselected in 53.17s

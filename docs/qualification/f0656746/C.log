@@ -1,0 +1,141 @@
+........................................................................ [  4%]
+........................................................................ [  9%]
+........................................................................ [ 14%]
+........................................................................ [ 19%]
+........................................................................ [ 24%]
+........................................................................ [ 28%]
+........................................................................ [ 33%]
+.....sss....sss....sss....sss....sss....sss....sss....sss....sss....sss. [ 38%]
+...sss....sss........................................................... [ 43%]
+........sss....sss....sss....sss....sss....sss....sss................... [ 48%]
+....s...s............................................................... [ 52%]
+................sss....sss....sss.....sss.....sss.....sss.....sss.....ss [ 57%]
+s.....sss............................................................... [ 62%]
+........................................................................ [ 67%]
+........................................................................ [ 72%]
+.........................................................sssssssss...... [ 76%]
+.........sss..............s.sssssss.............................sss..... [ 81%]
+....s................................................................... [ 86%]
+........................................................................ [ 91%]
+........................................................................ [ 96%]
+............................................................             [100%]
+=============================== warnings summary ===============================
+tests/conformance/test_harness_adapter.py::test_the_adapter_conforms_to_the_protocol_structurally[adk]
+tests/conformance/test_harness_adapter.py::test_the_adapter_conforms_to_the_protocol_structurally[adk]
+tests/conformance/test_harness_adapter.py::test_the_adapter_conforms_to_the_protocol_structurally[adk]
+tests/conformance/test_harness_adapter.py::test_the_adapter_conforms_to_the_protocol_structurally[adk]
+  <frozen abc>:106: DeprecationWarning: BaseAgentConfig is deprecated and will be removed in future versions. Config is now loaded via reflection so the separate config class is no longer needed.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+SKIPPED [1] tests/conformance/test_graphstore.py:153: CCF_TEST_NEO4J_URI is unset; start a neo4j:5-community container and export the Bolt URI to run the neo4j leg
+SKIPPED [1] tests/conformance/test_graphstore.py:153: CCF_TEST_MONGO_URI is unset; start a mongo:7 container and export the connection URI to run the mongo leg
+SKIPPED [1] tests/conformance/test_graphstore.py:153: CCF_TEST_FLUREE_URL is unset; start a fluree/server:4.1.4 container and export the base URL to run the fluree leg
+SKIPPED [1] tests/conformance/test_graphstore.py:179: CCF_TEST_NEO4J_URI is unset; start a neo4j:5-community container and export the Bolt URI to run the neo4j leg
+SKIPPED [1] tests/conformance/test_graphstore.py:179: CCF_TEST_MONGO_URI is unset; start a mongo:7 container and export the connection URI to run the mongo leg
+SKIPPED [1] tests/conformance/test_graphstore.py:179: CCF_TEST_FLUREE_URL is unset; start a fluree/server:4.1.4 container and export the base URL to run the fluree leg
+SKIPPED [1] tests/conformance/test_graphstore.py:214: CCF_TEST_NEO4J_URI is unset; start a neo4j:5-community container and export the Bolt URI to run the neo4j leg
+SKIPPED [1] tests/conformance/test_graphstore.py:214: CCF_TEST_MONGO_URI is unset; start a mongo:7 container and export the connection URI to run the mongo leg
+SKIPPED [1] tests/conformance/test_graphstore.py:214: CCF_TEST_FLUREE_URL is unset; start a fluree/server:4.1.4 container and export the base URL to run the fluree leg
+SKIPPED [1] tests/conformance/test_graphstore.py:245: CCF_TEST_NEO4J_URI is unset; start a neo4j:5-community container and export the Bolt URI to run the neo4j leg
+SKIPPED [1] tests/conformance/test_graphstore.py:245: CCF_TEST_MONGO_URI is unset; start a mongo:7 container and export the connection URI to run the mongo leg
+SKIPPED [1] tests/conformance/test_graphstore.py:245: CCF_TEST_FLUREE_URL is unset; start a fluree/server:4.1.4 container and export the base URL to run the fluree leg
+SKIPPED [1] tests/conformance/test_graphstore.py:269: CCF_TEST_NEO4J_URI is unset; start a neo4j:5-community container and export the Bolt URI to run the neo4j leg
+SKIPPED [1] tests/conformance/test_graphstore.py:269: CCF_TEST_MONGO_URI is unset; start a mongo:7 container and export the connection URI to run the mongo leg
+SKIPPED [1] tests/conformance/test_graphstore.py:269: CCF_TEST_FLUREE_URL is unset; start a fluree/server:4.1.4 container and export the base URL to run the fluree leg
+SKIPPED [1] tests/conformance/test_graphstore.py:281: CCF_TEST_NEO4J_URI is unset; start a neo4j:5-community container and export the Bolt URI to run the neo4j leg
+SKIPPED [1] tests/conformance/test_graphstore.py:281: CCF_TEST_MONGO_URI is unset; start a mongo:7 container and export the connection URI to run the mongo leg
+SKIPPED [1] tests/conformance/test_graphstore.py:281: CCF_TEST_FLUREE_URL is unset; start a fluree/server:4.1.4 container and export the base URL to run the fluree leg
+SKIPPED [1] tests/conformance/test_graphstore.py:300: CCF_TEST_NEO4J_URI is unset; start a neo4j:5-community container and export the Bolt URI to run the neo4j leg
+SKIPPED [1] tests/conformance/test_graphstore.py:300: CCF_TEST_MONGO_URI is unset; start a mongo:7 container and export the connection URI to run the mongo leg
+SKIPPED [1] tests/conformance/test_graphstore.py:300: CCF_TEST_FLUREE_URL is unset; start a fluree/server:4.1.4 container and export the base URL to run the fluree leg
+SKIPPED [1] tests/conformance/test_graphstore.py:330: CCF_TEST_NEO4J_URI is unset; start a neo4j:5-community container and export the Bolt URI to run the neo4j leg
+SKIPPED [1] tests/conformance/test_graphstore.py:330: CCF_TEST_MONGO_URI is unset; start a mongo:7 container and export the connection URI to run the mongo leg
+SKIPPED [1] tests/conformance/test_graphstore.py:330: CCF_TEST_FLUREE_URL is unset; start a fluree/server:4.1.4 container and export the base URL to run the fluree leg
+SKIPPED [1] tests/conformance/test_graphstore.py:350: CCF_TEST_NEO4J_URI is unset; start a neo4j:5-community container and export the Bolt URI to run the neo4j leg
+SKIPPED [1] tests/conformance/test_graphstore.py:350: CCF_TEST_MONGO_URI is unset; start a mongo:7 container and export the connection URI to run the mongo leg
+SKIPPED [1] tests/conformance/test_graphstore.py:350: CCF_TEST_FLUREE_URL is unset; start a fluree/server:4.1.4 container and export the base URL to run the fluree leg
+SKIPPED [1] tests/conformance/test_graphstore.py:366: CCF_TEST_NEO4J_URI is unset; start a neo4j:5-community container and export the Bolt URI to run the neo4j leg
+SKIPPED [1] tests/conformance/test_graphstore.py:366: CCF_TEST_MONGO_URI is unset; start a mongo:7 container and export the connection URI to run the mongo leg
+SKIPPED [1] tests/conformance/test_graphstore.py:366: CCF_TEST_FLUREE_URL is unset; start a fluree/server:4.1.4 container and export the base URL to run the fluree leg
+SKIPPED [1] tests/conformance/test_graphstore.py:409: CCF_TEST_NEO4J_URI is unset; start a neo4j:5-community container and export the Bolt URI to run the neo4j leg
+SKIPPED [1] tests/conformance/test_graphstore.py:409: CCF_TEST_MONGO_URI is unset; start a mongo:7 container and export the connection URI to run the mongo leg
+SKIPPED [1] tests/conformance/test_graphstore.py:409: CCF_TEST_FLUREE_URL is unset; start a fluree/server:4.1.4 container and export the base URL to run the fluree leg
+SKIPPED [1] tests/conformance/test_graphstore.py:428: CCF_TEST_NEO4J_URI is unset; start a neo4j:5-community container and export the Bolt URI to run the neo4j leg
+SKIPPED [1] tests/conformance/test_graphstore.py:428: CCF_TEST_MONGO_URI is unset; start a mongo:7 container and export the connection URI to run the mongo leg
+SKIPPED [1] tests/conformance/test_graphstore.py:428: CCF_TEST_FLUREE_URL is unset; start a fluree/server:4.1.4 container and export the base URL to run the fluree leg
+SKIPPED [1] tests/conformance/test_operator_tier_differential.py:351: CCF_TEST_NEO4J_URI is unset; start a neo4j:5-community container and export the Bolt URI to run the neo4j leg
+SKIPPED [1] tests/conformance/test_operator_tier_differential.py:351: CCF_TEST_MONGO_URI is unset; start a mongo:7 container and export the connection URI to run the mongo leg
+SKIPPED [1] tests/conformance/test_operator_tier_differential.py:351: CCF_TEST_FLUREE_URL is unset; start a fluree/server:4.1.4 container and export the base URL to run the fluree leg
+SKIPPED [1] tests/conformance/test_operator_tier_differential.py:385: CCF_TEST_NEO4J_URI is unset; start a neo4j:5-community container and export the Bolt URI to run the neo4j leg
+SKIPPED [1] tests/conformance/test_operator_tier_differential.py:385: CCF_TEST_MONGO_URI is unset; start a mongo:7 container and export the connection URI to run the mongo leg
+SKIPPED [1] tests/conformance/test_operator_tier_differential.py:385: CCF_TEST_FLUREE_URL is unset; start a fluree/server:4.1.4 container and export the base URL to run the fluree leg
+SKIPPED [1] tests/conformance/test_operator_tier_differential.py:434: CCF_TEST_NEO4J_URI is unset; start a neo4j:5-community container and export the Bolt URI to run the neo4j leg
+SKIPPED [1] tests/conformance/test_operator_tier_differential.py:434: CCF_TEST_MONGO_URI is unset; start a mongo:7 container and export the connection URI to run the mongo leg
+SKIPPED [1] tests/conformance/test_operator_tier_differential.py:434: CCF_TEST_FLUREE_URL is unset; start a fluree/server:4.1.4 container and export the base URL to run the fluree leg
+SKIPPED [1] tests/conformance/test_operator_tier_differential.py:495: CCF_TEST_NEO4J_URI is unset; start a neo4j:5-community container and export the Bolt URI to run the neo4j leg
+SKIPPED [1] tests/conformance/test_operator_tier_differential.py:495: CCF_TEST_MONGO_URI is unset; start a mongo:7 container and export the connection URI to run the mongo leg
+SKIPPED [1] tests/conformance/test_operator_tier_differential.py:495: CCF_TEST_FLUREE_URL is unset; start a fluree/server:4.1.4 container and export the base URL to run the fluree leg
+SKIPPED [1] tests/conformance/test_operator_tier_differential.py:556: CCF_TEST_NEO4J_URI is unset; start a neo4j:5-community container and export the Bolt URI to run the neo4j leg
+SKIPPED [1] tests/conformance/test_operator_tier_differential.py:556: CCF_TEST_MONGO_URI is unset; start a mongo:7 container and export the connection URI to run the mongo leg
+SKIPPED [1] tests/conformance/test_operator_tier_differential.py:556: CCF_TEST_FLUREE_URL is unset; start a fluree/server:4.1.4 container and export the base URL to run the fluree leg
+SKIPPED [1] tests/conformance/test_operator_tier_differential.py:589: CCF_TEST_NEO4J_URI is unset; start a neo4j:5-community container and export the Bolt URI to run the neo4j leg
+SKIPPED [1] tests/conformance/test_operator_tier_differential.py:589: CCF_TEST_MONGO_URI is unset; start a mongo:7 container and export the connection URI to run the mongo leg
+SKIPPED [1] tests/conformance/test_operator_tier_differential.py:589: CCF_TEST_FLUREE_URL is unset; start a fluree/server:4.1.4 container and export the base URL to run the fluree leg
+SKIPPED [1] tests/conformance/test_operator_tier_differential.py:662: CCF_TEST_NEO4J_URI is unset; start a neo4j:5-community container and export the Bolt URI to run the neo4j leg
+SKIPPED [1] tests/conformance/test_operator_tier_differential.py:662: CCF_TEST_MONGO_URI is unset; start a mongo:7 container and export the connection URI to run the mongo leg
+SKIPPED [1] tests/conformance/test_operator_tier_differential.py:662: CCF_TEST_FLUREE_URL is unset; start a fluree/server:4.1.4 container and export the base URL to run the fluree leg
+SKIPPED [1] tests/conformance/test_orchestration.py:489: in-sdk reference adapter holds no outcome store
+SKIPPED [1] tests/conformance/test_orchestration.py:507: in-sdk reference adapter holds no outcome store
+SKIPPED [1] tests/conformance/test_substrate_differential.py:349: CCF_TEST_NEO4J_URI is unset; start a neo4j:5-community container and export the Bolt URI to run the neo4j leg
+SKIPPED [1] tests/conformance/test_substrate_differential.py:349: CCF_TEST_MONGO_URI is unset; start a mongo:7 container and export the connection URI to run the mongo leg
+SKIPPED [1] tests/conformance/test_substrate_differential.py:349: CCF_TEST_FLUREE_URL is unset; start a fluree/server:4.1.4 container and export the base URL to run the fluree leg
+SKIPPED [1] tests/conformance/test_substrate_differential.py:387: CCF_TEST_NEO4J_URI is unset; start a neo4j:5-community container and export the Bolt URI to run the neo4j leg
+SKIPPED [1] tests/conformance/test_substrate_differential.py:387: CCF_TEST_MONGO_URI is unset; start a mongo:7 container and export the connection URI to run the mongo leg
+SKIPPED [1] tests/conformance/test_substrate_differential.py:387: CCF_TEST_FLUREE_URL is unset; start a fluree/server:4.1.4 container and export the base URL to run the fluree leg
+SKIPPED [1] tests/conformance/test_substrate_differential.py:426: CCF_TEST_NEO4J_URI is unset; start a neo4j:5-community container and export the Bolt URI to run the neo4j leg
+SKIPPED [1] tests/conformance/test_substrate_differential.py:426: CCF_TEST_MONGO_URI is unset; start a mongo:7 container and export the connection URI to run the mongo leg
+SKIPPED [1] tests/conformance/test_substrate_differential.py:426: CCF_TEST_FLUREE_URL is unset; start a fluree/server:4.1.4 container and export the base URL to run the fluree leg
+SKIPPED [1] tests/conformance/test_substrate_differential.py:520: CCF_TEST_NEO4J_URI is unset; start a neo4j:5-community container and export the Bolt URI to run the neo4j leg
+SKIPPED [1] tests/conformance/test_substrate_differential.py:520: CCF_TEST_MONGO_URI is unset; start a mongo:7 container and export the connection URI to run the mongo leg
+SKIPPED [1] tests/conformance/test_substrate_differential.py:520: CCF_TEST_FLUREE_URL is unset; start a fluree/server:4.1.4 container and export the base URL to run the fluree leg
+SKIPPED [1] tests/conformance/test_substrate_differential.py:572: CCF_TEST_NEO4J_URI is unset; start a neo4j:5-community container and export the Bolt URI to run the neo4j leg
+SKIPPED [1] tests/conformance/test_substrate_differential.py:572: CCF_TEST_MONGO_URI is unset; start a mongo:7 container and export the connection URI to run the mongo leg
+SKIPPED [1] tests/conformance/test_substrate_differential.py:572: CCF_TEST_FLUREE_URL is unset; start a fluree/server:4.1.4 container and export the base URL to run the fluree leg
+SKIPPED [1] tests/conformance/test_substrate_differential.py:618: CCF_TEST_NEO4J_URI is unset; start a neo4j:5-community container and export the Bolt URI to run the neo4j leg
+SKIPPED [1] tests/conformance/test_substrate_differential.py:618: CCF_TEST_MONGO_URI is unset; start a mongo:7 container and export the connection URI to run the mongo leg
+SKIPPED [1] tests/conformance/test_substrate_differential.py:618: CCF_TEST_FLUREE_URL is unset; start a fluree/server:4.1.4 container and export the base URL to run the fluree leg
+SKIPPED [1] tests/conformance/test_substrate_differential.py:663: CCF_TEST_NEO4J_URI is unset; start a neo4j:5-community container and export the Bolt URI to run the neo4j leg
+SKIPPED [1] tests/conformance/test_substrate_differential.py:663: CCF_TEST_MONGO_URI is unset; start a mongo:7 container and export the connection URI to run the mongo leg
+SKIPPED [1] tests/conformance/test_substrate_differential.py:663: CCF_TEST_FLUREE_URL is unset; start a fluree/server:4.1.4 container and export the base URL to run the fluree leg
+SKIPPED [1] tests/conformance/test_substrate_differential.py:713: CCF_TEST_NEO4J_URI is unset; start a neo4j:5-community container and export the Bolt URI to run the neo4j leg
+SKIPPED [1] tests/conformance/test_substrate_differential.py:713: CCF_TEST_MONGO_URI is unset; start a mongo:7 container and export the connection URI to run the mongo leg
+SKIPPED [1] tests/conformance/test_substrate_differential.py:713: CCF_TEST_FLUREE_URL is unset; start a fluree/server:4.1.4 container and export the base URL to run the fluree leg
+SKIPPED [1] tests/conformance/test_substrate_differential.py:788: CCF_TEST_NEO4J_URI is unset; start a neo4j:5-community container and export the Bolt URI to run the neo4j leg
+SKIPPED [1] tests/conformance/test_substrate_differential.py:788: CCF_TEST_MONGO_URI is unset; start a mongo:7 container and export the connection URI to run the mongo leg
+SKIPPED [1] tests/conformance/test_substrate_differential.py:788: CCF_TEST_FLUREE_URL is unset; start a fluree/server:4.1.4 container and export the base URL to run the fluree leg
+SKIPPED [1] tests/graph/test_fluree_backend.py:437: CCF_TEST_FLUREE_URL is unset; start a fluree/server:4.1.4 container and export the base URL to run the fluree leg
+SKIPPED [1] tests/graph/test_fluree_backend.py:655: CCF_TEST_FLUREE_URL is unset; start a fluree/server:4.1.4 container and export the base URL to run the fluree leg
+SKIPPED [1] tests/graph/test_fluree_backend.py:748: CCF_TEST_FLUREE_URL is unset; start a fluree/server:4.1.4 container and export the base URL to run the fluree leg
+SKIPPED [1] tests/graph/test_fluree_backend.py:899: CCF_TEST_FLUREE_URL is unset; start a fluree/server:4.1.4 container and export the base URL to run the fluree leg
+SKIPPED [1] tests/graph/test_fluree_backend.py:1008: CCF_TEST_FLUREE_URL is unset; start a fluree/server:4.1.4 container and export the base URL to run the fluree leg
+SKIPPED [1] tests/graph/test_fluree_backend.py:1075: CCF_TEST_FLUREE_URL is unset; start a fluree/server:4.1.4 container and export the base URL to run the fluree leg
+SKIPPED [1] tests/graph/test_fluree_backend.py:1217: CCF_TEST_FLUREE_URL is unset; start a fluree/server:4.1.4 container and export the base URL to run the fluree leg
+SKIPPED [1] tests/graph/test_fluree_backend.py:1260: CCF_TEST_FLUREE_URL is unset; start a fluree/server:4.1.4 container and export the base URL to run the fluree leg
+SKIPPED [1] tests/graph/test_fluree_backend.py:1438: CCF_TEST_FLUREE_URL is unset; start a fluree/server:4.1.4 container and export the base URL to run the fluree leg
+SKIPPED [1] tests/graph/test_fluree_backend.py:2097: CCF_TEST_FLUREE_URL is unset; start a fluree/server:4.1.4 container and export the base URL to run the fluree leg
+SKIPPED [1] tests/graph/test_fluree_backend.py:2164: CCF_TEST_FLUREE_URL is unset; start a fluree/server:4.1.4 container and export the base URL to run the fluree leg
+SKIPPED [1] tests/graph/test_fluree_backend.py:2228: CCF_TEST_FLUREE_URL is unset; start a fluree/server:4.1.4 container and export the base URL to run the fluree leg
+SKIPPED [1] tests/graph/test_fluree_backend.py:2910: CCF_TEST_FLUREE_URL is unset; start a fluree/server:4.1.4 container and export the base URL to run the fluree leg
+SKIPPED [1] tests/graph/test_fluree_backend.py:2998: CCF_TEST_FLUREE_URL is unset; start a fluree/server:4.1.4 container and export the base URL to run the fluree leg
+SKIPPED [1] tests/graph/test_fluree_backend.py:3101: CCF_TEST_FLUREE_URL is unset; start a fluree/server:4.1.4 container and export the base URL to run the fluree leg
+SKIPPED [1] tests/graph/test_fluree_backend.py:3194: CCF_TEST_FLUREE_URL is unset; start a fluree/server:4.1.4 container and export the base URL to run the fluree leg
+SKIPPED [1] tests/graph/test_fluree_backend.py:3266: CCF_TEST_FLUREE_URL is unset; start a fluree/server:4.1.4 container and export the base URL to run the fluree leg
+SKIPPED [1] tests/graph/test_fluree_backend.py:3334: CCF_TEST_FLUREE_URL is unset; start a fluree/server:4.1.4 container and export the base URL to run the fluree leg
+SKIPPED [1] tests/graph/test_fluree_backend.py:3499: CCF_TEST_FLUREE_URL is unset; start a fluree/server:4.1.4 container and export the base URL to run the fluree leg
+SKIPPED [1] tests/graph/test_fluree_backend.py:3637: CCF_TEST_FLUREE_URL is unset; start a fluree/server:4.1.4 container and export the base URL to run the fluree leg
+SKIPPED [1] tests/graph/test_mongo_backend.py:349: CCF_TEST_MONGO_URI is unset; start a mongo:7 container and export the connection URI to run the mongo leg
+SKIPPED [1] tests/graph/test_mongo_backend.py:414: CCF_TEST_MONGO_URI is unset; start a mongo:7 container and export the connection URI to run the mongo leg
+SKIPPED [1] tests/graph/test_mongo_backend.py:500: CCF_TEST_MONGO_URI is unset; start a mongo:7 container and export the connection URI to run the mongo leg
+SKIPPED [1] tests/graph/test_neo4j_backend.py:224: CCF_TEST_NEO4J_URI is unset; start a neo4j:5-community container and export the Bolt URI to run the neo4j leg
+1390 passed, 110 skipped, 4 warnings in 79.62s (0:01:19)
