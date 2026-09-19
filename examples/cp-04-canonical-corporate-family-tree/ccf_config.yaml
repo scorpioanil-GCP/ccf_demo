@@ -49,11 +49,22 @@ product_class:
   # specimen/successor separation exists to keep apart.
   schema_version: "2.0.0"
 
-  # The expiry is a function of the LATEST ASSERTION TIME AMONG THE FAMILY
-  # EDGES the payload admitted, never of the request. GLEIF RR-CDF publishes
-  # daily, so a new relationship record advances it and re-derivation clears
-  # the expiry — which is the test an entity-freshness anchor has to pass.
-  ttl_anchor: from_entity_freshness
+  # DECISION-ANCHORED, DECLARED HONESTLY (`D-IMPL-341`, validation pass
+  # 2026-09-18; was `from_entity_freshness`). The declaration above this line
+  # once read "the expiry is a function of the latest assertion time among the
+  # family edges the payload admitted" — and no such instant exists to read.
+  # Measured against `fibo-v2`: an `owns` / `controls` edge is a bare triple
+  # with no assertion date, and the only `validFrom` near the demonstration
+  # anchor sits on a `prior-obs-…` supersession record shared by 84 subjects
+  # (a load artifact, not a per-edge assertion). `deployment.envelopes` dates
+  # every family claim by the question instant because the source says
+  # nothing else. An evidence anchor over claims dated by the question IS a
+  # decision anchor wearing the other name, so the class now says what it
+  # does: the window runs from the decision instant. The spec's element 8 and
+  # `FINDINGS.md` carry the changed claim; a GLEIF RR-CDF record date, if one
+  # is ever ingested onto the edge claims, is what would let this return to
+  # `from_entity_freshness`.
+  ttl_anchor: from_decision
 
   # No LLM is reachable from any step: the whole product is a walk, a
   # normalization, a batched join and a circuit enumeration.
@@ -413,8 +424,9 @@ replay:
 # half-life (~180 days); the product's own window is the entity-attribute
 # freshness anchor the class declares (~30 days, GLEIF Level 1 refresh) — the
 # same two figures the canonical spine derived from `half_life:` above, now
-# stated as the TTL contract element they are. `ttl_anchor` remains
-# `from_entity_freshness`, subject to the open SDK finding `D-IMPL-341`.
+# stated as the TTL contract element they are. `ttl_anchor` is
+# `from_decision` (see the class block above, `D-IMPL-341`): the 30-day window
+# runs from the decision instant, and says so on the served contract.
 ttl:
   max_ttl_seconds: 15552000          # ~180 days
   product_ttl_seconds: 2592000       # ~30 days

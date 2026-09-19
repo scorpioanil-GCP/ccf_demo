@@ -134,7 +134,7 @@ being told one exists.
 | 5 | **Lineage** | both legs, with the graph store's transaction-time head as execution provenance |
 | 6 | **Policy** | the admitted family set, stated by the caller and verified |
 | 7 | **Debt** | `D_c` from resolved ÷ served, computed on the answer |
-| 8 | **TTL** | anchored on the latest assertion time among the family, never on request time |
+| 8 | **TTL** | anchored on the decision instant (`ttl_anchor: from_decision`) — corrected 2026-09-18 under `D-IMPL-341`: the ledger carries no assertion instant on a family edge, so the "latest assertion time among the family" this row once named does not exist to read |
 | 9 | **Determinism** | class 1 — pure algorithmic, no model call |
 
 ### B.2 Request parameter surface
@@ -252,7 +252,10 @@ moves because the walk is genuinely bounded at the depth governance resolved, so
 what was assembled and what was served are the same set.
 
 The product is assembled per request and never materialized. TTL is anchored on
-the latest assertion time among the family.
+the decision instant (`from_decision`, corrected 2026-09-18 under `D-IMPL-341`):
+the family edges carry no assertion instant in `fibo-v2`, and an evidence anchor
+over claims dated by the question would be a decision anchor under another
+name. The served contract records the anchor instant it ran from.
 
 ---
 
