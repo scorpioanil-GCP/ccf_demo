@@ -92,11 +92,13 @@ from ccf.peering.admission import (
     PolicyBindingRefusal,
     SignatureRefusal,
 )
+from ccf.products.composite import ChildAdmissionRefusal
 from ccf.products.composition import MixingRefusal
 from ccf.products.constraints import ConstraintRefusal, PolicyResolutionConflict
 from ccf.products.gates import (
     TTLAnchorRefusal,
     AttestationRefusal,
+    DependencyInvalidationRefusal,
     DeclaredObligationRefusal,
     EmptyOperatorRefusal,
     GateRefusal,
@@ -155,6 +157,15 @@ _STATUS_BY_TYPE: Final[Mapping[type[CCFContract], int]] = MappingProxyType(
         LineageAttributionRefusal: STATUS_FULFILLMENT_WITHHELD,
         TTLRefusal: STATUS_FULFILLMENT_WITHHELD,
         TTLAnchorRefusal: STATUS_FULFILLMENT_WITHHELD,
+        # `D-IMPL-334`: the world moved under a product this fabric holds —
+        # the fabric's own measured state conflicts with fulfilling a
+        # well-posed request. A gate-family refusal, the class rule above.
+        DependencyInvalidationRefusal: STATUS_FULFILLMENT_WITHHELD,
+        # `D-IMPL-336`: a child offered to a composition did not pass
+        # admission — the composite analog of the peering `admission-refusal`
+        # row below. A 400 would blame a caller who asked correctly; a 404
+        # would claim an absence that is not the case.
+        ChildAdmissionRefusal: STATUS_FULFILLMENT_WITHHELD,
         AttestationRefusal: STATUS_FULFILLMENT_WITHHELD,
         DeclaredObligationRefusal: STATUS_FULFILLMENT_WITHHELD,
         # `24.10-02` / `R-11`: a deployment's own declared product invariant
