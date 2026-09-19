@@ -124,8 +124,8 @@ Q: which companies have revenue over 1000000000?
 
 and what a SELECT would not have told you:
    context debt D_c   0.4271  →  forced_llm
-   content address    cbc7db84a98d5d2a5ab22bfb3adf1f5359dd6289f0f3f3ddbc6bcf2443d0d426
-   replay record      ccf-artifact://hw1-demo/hw1.replay-record/eeaa76fccd6b54b42caf3787f614fba8f9d9f411f45ad450130e1792ade7ac0f@8b68efaf5352bc0e666cab29b8b705a69ef51ab058e03bde1a50b777aeed4a3e
+   content address    a8335bb4cde42117c0efd42bac50fcf67c64c4f341e1e82a224dbcbcec5a2df4
+   replay record      ccf-artifact://hw1-demo/hw1.replay-record/eeaa76fccd6b54b42caf3787f614fba8f9d9f411f45ad450130e1792ade7ac0f@b4ae700f3e968892a3bb83e7bd89e38d96479215e80fcafc7e8c39bfe4a2961e
    answer expires     2026-08-01 00:10:00+00:00
 ```
 
@@ -136,6 +136,20 @@ spread from one month to twenty-three months before the `--as-of` boundary, so
 freshness decays across them, `D_c` measures `0.4271`, and the answer routes to
 `forced_llm` — inside the `[0.20, 0.60)` band `deployment/ccf_config.yaml`
 declares. That is the sentence the whole example exists to make true.
+
+**Two identities are printed, and they are different things.** The *content
+address* is the hash of the served product's bytes — the answer exactly as the
+caller received it. The *replay record* line is the record's own address in the
+artifact store: the name before `@` is the graph snapshot the record pins, and
+the version after `@` is the record's content address. The record names the
+product; the product does not name its record. Both moved once, for one
+reason: since `D-IMPL-341` every served contract carries `ttl_anchor_at` — the
+instant its expiry is measured from — so the served bytes changed, and with
+them the product's address and the record that names it. The debt, its routing
+and the expiry instant did not move; the calculation is the same, the contract
+says one more thing about itself. This fence was re-measured from the run at
+the release qualification of `f0656746` (`docs/QUALIFICATION-f0656746.md`);
+before it, the address was `cbc7db84…d426` and the record `…@8b68efaf…`.
 
 ## How this example is proven — stated plainly
 
