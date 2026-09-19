@@ -152,18 +152,34 @@ _TOKEN_GUARDED = (
     "            raise TypeError('sealed')\n"
 )
 
-_REGISTRY_NAMING_A_GHOST = (
-    "from __future__ import annotations\n"
-    "from dataclasses import dataclass\n"
-    "\n"
-    "@dataclass(frozen=True)\n"
-    "class GuardedTypeDeclaration:\n"
-    "    type_path: str\n"
-    "    verifier: str | None = None\n"
-    "    boundaries: tuple[str, ...] = ()\n"
-    "    verifier_aliases: tuple[str, ...] = ()\n"
-    "\n"
-    "GUARDED_TYPES = (GuardedTypeDeclaration(type_path='ccf.gone:Ghost'),)\n"
+def _registry(*declarations: str, prelude: str = "") -> str:
+    """A registry module mirroring the real class's field set: six required
+    fields, three optional — so the reader's required-field check is exercised
+    against the same shape `src/ccf/contracts/guarded.py` declares."""
+    return (
+        prelude
+        + "from __future__ import annotations\n"
+        "from dataclasses import dataclass, field\n"
+        "\n"
+        "@dataclass(frozen=True)\n"
+        "class GuardedTypeDeclaration:\n"
+        "    type_path: str\n"
+        "    authority: str\n"
+        "    mint: str\n"
+        "    verifier: str | None\n"
+        "    boundaries: tuple[str, ...]\n"
+        "    propagation: str\n"
+        "    residual: str | None = None\n"
+        "    verifier_aliases: tuple[str, ...] = ()\n"
+        "    notes: tuple[str, ...] = field(default_factory=tuple)\n"
+        "\n"
+        "GUARDED_TYPES = (\n" + "".join(f"    {d},\n" for d in declarations) + ")\n"
+    )
+
+
+_GHOST = (
+    "GuardedTypeDeclaration(type_path='ccf.gone:Ghost', authority='a', mint='ccf.gone:mint',"
+    " verifier=None, boundaries=(), propagation='p')"
 )
 
 
@@ -189,19 +205,145 @@ def test_guarded_provenance_still_catches_a_registry_naming_a_ghost(
 ) -> None:
     """Reading the registry from the tree did not weaken the drift class the
     rule exists for: a declaration naming an absent module is still a finding."""
-    _write(tmp_path, "src/ccf/contracts/guarded.py", _REGISTRY_NAMING_A_GHOST)
+    _write(tmp_path, "src/ccf/contracts/guarded.py", _registry(_GHOST))
     findings = run(tmp_path, ["guarded-provenance"])
     assert len(findings) == 1, findings
     assert "'ccf.gone:Ghost' names a module that does not exist" in findings[0]
 
 
-def test_an_unloadable_registry_is_a_finding_not_a_skip(tmp_path: pathlib.Path) -> None:
-    """A registry that is present but will not load is reported, never
+def test_an_unreadable_registry_is_a_finding_not_a_skip(tmp_path: pathlib.Path) -> None:
+    """A registry that is present but cannot be read is reported, never
     skipped: skipping it would hide every declaration it carries."""
     _write(tmp_path, "src/ccf/contracts/guarded.py", "GUARDED_TYPES = (\n")
     findings = run(tmp_path, ["guarded-provenance"])
     assert len(findings) == 1, findings
-    assert "registry failed to load (SyntaxError" in findings[0]
+    assert "registry could not be read (SyntaxError" in findings[0]
+
+
+def test_the_registry_is_read_as_literals_and_never_executed(tmp_path: pathlib.Path) -> None:
+    """The rule parses the registry; it does not import or run it.
+
+    A registry whose module body would raise if executed still yields its
+    declaration, and a declaration whose consulted field is not a literal is a
+    finding rather than something resolved by evaluation.
+    """
+    _write(tmp_path, "src/ccf/contracts/guarded.py", _registry(_GHOST, prelude="raise SystemExit('executed')\n"))
+    findings = run(tmp_path, ["guarded-provenance"])
+    assert len(findings) == 1, findings
+    assert "'ccf.gone:Ghost' names a module that does not exist" in findings[0]
+    bound = _GHOST.replace("boundaries=()", "boundaries=_B")
+    _write(tmp_path, "src/ccf/contracts/guarded.py", _registry(bound, prelude="_B = ('ccf.x:y',)\n"))
+    findings = run(tmp_path, ["guarded-provenance"])
+    assert len(findings) == 1, findings
+    assert "could not be read" in findings[0] and "is not a string, None or tuple of strings" in findings[0]
+
+
+def test_every_registry_shape_execution_would_reject_is_a_finding(tmp_path: pathlib.Path) -> None:
+    """What the executed dataclass refused, the reader refuses — as ONE
+    finding naming the cause, never a silent acceptance and never a traceback.
+    Each fixture was a shape the parse-only reader first accepted silently
+    (adversarial review of the f0656746 correction group)."""
+    cases = [
+        ("rebound (lines 19)", _registry(_GHOST) + "GUARDED_TYPES += ()\n"),
+        ("rebound (lines 19)", _registry(_GHOST) + "GUARDED_TYPES = ()\n"),
+        ("rebound (lines 20)", _registry(_GHOST) + "if True:\n    GUARDED_TYPES += ()\n"),
+        ("rebound (lines 19)", _registry(_GHOST) + "for GUARDED_TYPES in ():\n    pass\n"),
+        ("rebound (lines 20)", _registry(_GHOST) + "def _extend():\n    global GUARDED_TYPES\n"),
+        ("rebound (lines 21)", _registry(_GHOST) + "try:\n    pass\nexcept ValueError as GUARDED_TYPES:\n    pass\n"),
+        ("rebound (lines 20)", _registry(_GHOST) + "match ():\n    case GUARDED_TYPES:\n        pass\n"),
+        ("rebound (lines 19)", _registry(_GHOST) + "type GUARDED_TYPES = int\n"),
+        ("rebound (lines 19)", _registry(_GHOST) + "from os import *\n"),
+        ("carries no type_path", _registry(_GHOST.replace("type_path='ccf.gone:Ghost', ", "")).replace("    type_path: str\n", "    type_path: str = ''\n")),
+        ("a ** splat", _registry(_GHOST.replace("propagation='p'", "propagation='p', **{}"))),
+        ("is repeated", _registry(_GHOST.replace("propagation='p'", "propagation='p', mint='x'"))),
+        ("missing required field(s) ['propagation']", _registry(_GHOST.replace(", propagation='p'", ""))),
+        ("unknown field 'boundries'", _registry(_GHOST.replace("boundaries=()", "boundries=()"))),
+        ("positional arguments", _registry(_GHOST.replace("type_path='ccf.gone:Ghost', ", "'ccf.gone:Ghost', ").replace("(type_path", "("))),
+        ("boundaries must be a tuple of strings", _registry(_GHOST.replace("boundaries=()", "boundaries='ccf.x:y'"))),
+        ("verifier must be a string or None", _registry(_GHOST.replace("verifier=None", "verifier=('a', 'b')"))),
+        ("not a tuple literal", _registry().replace("GUARDED_TYPES = (\n)\n", "GUARDED_TYPES = []\n")),
+        ("no GuardedTypeDeclaration class", "GUARDED_TYPES = ()\n"),
+        ("not a regular file", None),
+    ]
+    for expected, source in cases:
+        target = tmp_path / "src/ccf/contracts/guarded.py"
+        if target.exists() and target.is_dir():
+            target.rmdir()
+        if source is None:
+            target.unlink(missing_ok=True)
+            target.mkdir(parents=True)
+        else:
+            _write(tmp_path, "src/ccf/contracts/guarded.py", source)
+        findings = run(tmp_path, ["guarded-provenance"])
+        assert len(findings) == 1, (expected, findings)
+        assert "could not be read" in findings[0] and expected in findings[0], (expected, findings[0])
+
+
+def test_the_required_field_rule_is_the_dataclass_rule(tmp_path: pathlib.Path) -> None:
+    """`field()` without a default is required; `ClassVar` and `KW_ONLY`
+    annotations are not init fields — exactly what dataclasses does, read
+    from the class body in the registry file."""
+    strict = _registry(_GHOST).replace(
+        "    notes: tuple[str, ...] = field(default_factory=tuple)\n",
+        "    notes: tuple[str, ...] = field(metadata={})\n"
+        "    _: KW_ONLY\n"
+        "    kind: ClassVar[str] = 'guarded'\n",
+    )
+    _write(tmp_path, "src/ccf/contracts/guarded.py", strict)
+    findings = run(tmp_path, ["guarded-provenance"])
+    assert len(findings) == 1 and "missing required field(s) ['notes']" in findings[0], findings
+    _write(tmp_path, "src/ccf/contracts/guarded.py", strict.replace("propagation='p')", "propagation='p', notes=())"))
+    findings = run(tmp_path, ["guarded-provenance"])
+    assert len(findings) == 1 and "'ccf.gone:Ghost' names a module that does not exist" in findings[0], findings
+    for spelling in ("field(default=MISSING)", "dataclasses.field()", "field(default=dataclasses.MISSING)"):
+        _write(
+            tmp_path,
+            "src/ccf/contracts/guarded.py",
+            _registry(_GHOST, prelude="import dataclasses\nfrom dataclasses import MISSING\n").replace(
+                "field(default_factory=tuple)", spelling
+            ),
+        )
+        findings = run(tmp_path, ["guarded-provenance"])
+        assert len(findings) == 1 and "missing required field(s) ['notes']" in findings[0], (spelling, findings)
+
+
+def test_a_dangling_symlink_at_the_registry_is_a_finding(tmp_path: pathlib.Path) -> None:
+    target = tmp_path / "src/ccf/contracts/guarded.py"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.symlink_to(tmp_path / "nowhere.py")
+    findings = run(tmp_path, ["guarded-provenance"])
+    assert len(findings) == 1 and "could not be read" in findings[0], findings
+
+
+def test_a_bom_and_an_annotation_restatement_still_read(tmp_path: pathlib.Path) -> None:
+    """Two shapes Python's import accepts must read too: a UTF-8 BOM, and a
+    bare annotation of the name after its assignment."""
+    source = _registry(_GHOST) + "GUARDED_TYPES: tuple[GuardedTypeDeclaration, ...]\n"
+    target = tmp_path / "src/ccf/contracts/guarded.py"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(b"\xef\xbb\xbf" + source.encode("utf-8"))
+    findings = run(tmp_path, ["guarded-provenance"])
+    assert len(findings) == 1, findings
+    assert "'ccf.gone:Ghost' names a module that does not exist" in findings[0]
+
+
+def test_the_parsed_real_registry_equals_the_executed_one() -> None:
+    """The reader and the dataclass agree on the tree that matters: every
+    declaration in `src/ccf/contracts/guarded.py`, in order, on the four
+    consulted fields."""
+    from ccf.contracts.guarded import GUARDED_TYPES
+
+    from tools.lints.guarded_provenance import _load_registry
+
+    parsed = _load_registry(REPO_ROOT)
+    assert not isinstance(parsed, str), parsed
+    assert [d.type_path for d in parsed] == [d.type_path for d in GUARDED_TYPES]
+    for read, executed in zip(parsed, GUARDED_TYPES, strict=True):
+        assert (read.verifier, read.boundaries, read.verifier_aliases) == (
+            executed.verifier,
+            tuple(executed.boundaries),
+            tuple(executed.verifier_aliases),
+        ), read.type_path
 
 
 def test_both_new_rules_are_scoped_in_config_not_by_accident() -> None:
