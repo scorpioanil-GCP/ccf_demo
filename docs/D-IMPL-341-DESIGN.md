@@ -1,7 +1,8 @@
 # D-IMPL-341 — design: `expires_at` describes when the evidence stopped being current
 
-**Status: IMPLEMENTED (2026-09-18) on `d-impl-341-expiry`, awaiting implementation review;
-not merged. §0–§11 are the design as accepted with Dave's five rulings (R-1–R-5, recorded in
+**Status: VALIDATED (2026-09-18) on `d-impl-341-expiry` — the ruled mechanism unchanged, four example
+trees migrated, one in-scope SDK defect corrected (§12.6); awaiting the independent review's
+verdict; merge HOLD, not merged. §0–§11 are the design as accepted with Dave's five rulings (R-1–R-5, recorded in
 `docs/DECISIONS.md` before implementation); §12 records what was built, where it differs, and
 every measurement — including the one the design got wrong.** Design baseline
 `main @ f8c33898` (post-`D-GATE-342`), design at `f55915d2`. The decisions of record are
@@ -427,3 +428,104 @@ directly — and is red anyway, above).
 5. `OFC-G06` (the spread's own window gate refusing a stale obligor) will need re-specifying
    at that pass: gate 3's `ttl-bounds` now fires first, which is what §4 said would make the
    product gate's serving half redundant.
+
+### 12.6 Validation pass (2026-09-18, under "validation and review GO; merge HOLD")
+
+First candidate `8f84f710` preserved as recorded; everything below is measured on the
+integrated candidate against the live estate, with the SDK mechanism of §12.1 unchanged except
+for one correction named in (f).
+
+**(a) The precise mismatch behind §12.2's first row, and the mapping that resolved it.** The
+supported λ_c table keys a row by observation type; the reference selection (R-1) types an
+observation by its entity class; the three deployments with a custom `assess` type the same
+claims by their own vocabulary (cp-03-canonical by the `signal_class` attribute onto
+`annual_facts` / `quarterly_facts`; cp-06-canonical by valuation category onto five rows;
+cp-08 by entity class already). One class cannot carry two rates in this table. The mapping
+taken, and written beside each row: **the entity-class row carries the class's CLOCK and no
+rate** (`decay: supersede-only`, `decay_basis: valid-from`), the rate rows stay as they were,
+and the deployment's `assess` is untouched. Measured: the anchor equals the payload's own
+anchor member on every served spread (`latest_filed_in_payload` = `ttl_anchor_at`), and `F` and
+the anchor read one set of claims by one clock (`spread_period.valid_from`). The design's
+assumption that this producer needed **no migration** was wrong on three counts, each recorded
+at `CP03C-F-01`: the clock row; the product's own gate, which inferred its window as
+`expires_at - temporal_boundary` and read the 30-day window as 1 day the moment the anchor
+moved (corrected to `expires_at - ttl_anchor_at`); and precedence — the SDK's TTL gate now runs
+before the product's declared gate, so the stale obligor is refused `ttl-bounds`, and an empty
+view (absent or suppressed obligor) is refused `ttl-anchor-unresolvable` before the product's
+`NO_OBLIGOR` can speak (`OFC-G08`'s byte-identity holds).
+
+**(b) The comparison table** (`from_decision` rows measured through the real path at the CP-14
+instant; `from_entity_freshness` rows at the instants named):
+
+| product | declared basis | actual source of anchor | anchor / expiry | outcome change | gate result |
+|---|---|---|---|---|---|
+| cp-03-canonical spread (BGC) | `from_entity_freshness` | `spread_period.valid_from` = filing date | `2026-08-10T00:00Z` / `2026-09-09T00:00Z` (was `2026-10-07T12:00Z`) | serves; address `122e0a7b…` → `22c5ce3d…` (re-pinned from verified output); F/C/S/D_c unchanged (0.3189 / 0.4915 / 1 / 0.8433, `fail_closed`) | `OFC-G07` live; `OFC-G06` = precedence (`ttl-bounds` first) + the predicate held directly; S1 reds both |
+| cp-03-canonical stale obligor | same | filing `2026-08-05` | `2026-09-04T00:00Z` | refused `ttl-refusal` / `ttl-bounds` (was `product-invariant-refusal` naming the product gate) | precedence recorded |
+| cp-04-canonical family | **`from_decision`** (was `from_entity_freshness`) | the decision instant — no family edge in `fibo-v2` carries an assertion instant; the nearest `validFrom` is a `prior-obs-…` supersession record shared by 84 subjects | `2026-09-07T12:00Z` / `2026-10-07T12:00Z` (value unchanged) | serves; identity moved (basis + `ttl_anchor_at`); 13 passed | `CP04C-F-06` recorded in config, spec element 8/§E, findings |
+| cp-06-canonical collateral (FAC-5B8418) | `from_entity_freshness` | `collateral_node.valid_from` = asset valuation date (stamped from `valuation_date`, `deployment._valuation_instant`) | `2025-12-20T00:00Z` / `2025-12-21T00:00Z` | **at the CP-14 instant: refused `ttl-refusal` / `ttl-bounds`** (was served, `2026-09-08T12:00Z`); on its valuation day: serves, F 0.99905, D_c 0.00095 | `CSCC-G23` live on the positive control; the CP-14-instant refusal asserted as the intentional correction; S1 reds both |
+| cp-06-canonical collateral (FAC-044206) | same | valuation `2026-08-15` | `2026-08-15T00:00Z` / `2026-08-16T00:00Z` | refused `ttl-bounds` at the CP-14 instant; serves on its day | same |
+| cp-08 covenant-in-force (FAC-01BB3F) | `from_entity_freshness` | `amendment.valid_from` = booking date (`assertedAt`, `deployment._booking_instant`) | `2025-10-05T00:00Z` / `2026-04-03T00:00Z` | **refused `ttl-bounds` at the CP-14 instant and at the wall clock** (was served, expiry = question + 180 d); serves on the booking day (F 0.941, D_c 0.059 — was F 1, D_c 0 by construction); serves through `2026-04-02`, refused from `2026-04-04` | 20 passed at the positive control; the wall-clock refusal asserted; S1 reds both new controls |
+| cp-12 (spot check, `from_decision`) | `from_decision` | the decision instant | unchanged value; `ttl_anchor_at` added | 28 passed against the estate | unchanged |
+| cp-13-canonical | `from_decision` | the decision instant | unchanged | 26 passed with the replay environment reading `path.ttl_anchor_at` | unchanged |
+| CP-14 memo (BGC) | `from_decision` | the decision instant; floor over children | composite refuses `child_admission` at BOTH tolerances | **the collateral slot is `ineligible` (`ttl-refusal` / `ttl-bounds`) at every tolerance**; slices 1–2 green on the re-pinned address; slices 3–4: 10 served-memo tests quarantined strict, the consequence asserted beside them | reported below |
+
+**(c) Intentional corrections, separated from standing failures.** Corrections: the two
+cp-06-canonical demonstrations and the cp-08 demonstration now REFUSE at the instants their
+suites historically served at, because their evidence is older than their declared windows;
+each suite asks at a positive control inside the window (each facility's valuation day; the
+covenant facility's booking day) and asserts the refusal at the historical instant. Nothing
+about data, windows, tolerances or `asked_at` for the historical questions was moved. Standing
+failures, identical to the baseline by node id: `tests/deployment/test_class_lookup.py::
+test_the_phases_fragments_claim_exactly_what_was_added`; the four surface suites; the
+invariants citation ratchet; the http_api eight; the peering one.
+
+**(d) Two consequences that are rulings, not this pass's calls.**
+1. **cp-06-canonical's window and anchor name different evidence** (`CP06C-F-05`). The
+   product window is one day, the deposit-balance half-life; the anchor can only read the
+   valuation date, the one dated evidence (`ccf_v2.deposit_account` carries no as-of column).
+   Under the declarations as written, no facility on this estate serves after `2026-08-21`, and
+   CP-14's memo for BGC serves at NO instant (spread window `2026-08-10`–`2026-09-09`;
+   collateral window `2025-12-20`–`2025-12-21`). Two honest resolutions: declare
+   `from_decision` (the fast-moving evidence carries no source instant; per-asset staleness is
+   in the payload), or keep the evidence anchor with a window on the valuation cadence under
+   `D-IMPL-323`. CP-14's ten served-memo proofs are quarantined strict on this question.
+2. **The frozen specimens that declare `from_entity_freshness` over a resolver wired with
+   their own scorer and no λ_c table** are refused `ttl-anchor-unresolvable` on every question
+   (R-3, no fallback). Measured: frozen cp-06's output and door suites — 16 + 2 tests —
+   quarantined `xfail(strict=True)` under `D-IMPL-261`, the specimen untouched; cp-00–cp-03's
+   suites were already quarantined and are unchanged; frozen cp-04 never reaches a serve. The
+   cp-06-canonical lane (`CSCC-G13`) is held to the recorded payload addresses rather than a
+   live specimen. **A question for the review (lens 2):** the design placed "no table at all"
+   at serve time; R-3's registration row ("no `valid-from` row") arguably covers it, and
+   `build_governed_resolver` could refuse an evidence anchor over no table at the builder.
+
+**(e) The precise mismatch at cp-08** (`CP08-F-05`): `CP-SPEC-008` §E.3 anchors "on the latest
+assertion among the SERVED set"; R-1 anchors on the scored VIEW. A closed question
+(`as_of` = `known_as_of` = the drawdown) serves `AMD-01BB3F-1` alone, excludes `-2` on the
+assertion axis, and anchors on `-2`'s booking regardless. The two readings coincide for a live
+question and diverge for a closed one. Reported, not repaired.
+
+**(f) One in-scope SDK defect, corrected.** The first candidate recorded a `TTLAnchorRefusal`
+with neither `pre_assembly_lineage` nor `RefusalEvidence`; `replay_refusal` then refused the
+record as contradicting itself ("names a plan — a refusal after projection — while its refusal
+carries no evidence of that projection", `D-IMPL-344`). It is a post-projection refusal and is
+now recorded with the same lineage and execution evidence a gate refusal carries
+(`src/ccf/products/resolver.py`). Measured through cp-06-canonical's 344 reconstruction control.
+
+**(g) Replay environments** — cp-06-canonical, cp-13-canonical and the CP-14 fourth slice read
+`path.ttl_anchor_at` off the record (decision-anchored records fall back to the recorded
+boundary, which equals it); the engine's own re-derivation stays active and held every served
+record in the suites above.
+
+**(h) Sabotages, rerun on the integrated candidate and restored (`cmp` verified):** S1–S7 red
+exactly the controls §12.3 lists, C10 green under S1; S1 additionally reds the seven live
+example gates — `OFC-G06` (precedence limb), `OFC-G07`, `CSCC-G23`, the two CP-14-instant
+refusal controls, cp-08's two — recorded on each roster as `observed_red`.
+
+**(i) Scoped regressions on the integrated candidate:** products + replay + contracts 1699
+passed; deployment 325 / 1 standing red; cp-03-canonical 19, its paved consumer and
+cross-deployment 23; cp-04-canonical 13; cp-06-canonical 30; cp-08 20; cp-12 28;
+cp-13-canonical 26; CP-14 slices 11 passed / 10 xfailed; frozen cp-06 6 / 18 xfailed;
+frozen cp-04 188 / 48 skipped / 41 xfailed; lint 0; typecheck clean (230); product-gates
+19 / 324 / 324; docs gates 349 (the retirement report regenerated); surface: address-only
+churn, discarded.
