@@ -367,6 +367,40 @@ def _resolve_export(module: Any, module_name: str, name: str) -> Any:
         return UNRESOLVED
 
 
+def _scrub(shape: Any) -> Any:
+    """Drop process-local ``at 0x...`` addresses from a rendered shape.
+
+    ``str(inspect.signature(obj))`` renders a parameter's default by its
+    ``repr``. A *function* default — ``clock: Callable[[], datetime] =
+    _utc_now`` on ``ccf.products.product.open_product``, ``admission_clock``
+    on ``ccf.products.resolver.build_governed_resolver`` — therefore reads
+    ``<function _utc_now at 0x7f...>``, and the address differs in every
+    process. Committed verbatim it made ``docs/surface/v0.2-surface.json``
+    irreproducible on an unchanged tree: measured at the ``f0656746``
+    qualification, two addresses that moved on every run, while the
+    same-process double build stayed byte-identical because it rendered the
+    same function object twice. **Only the address is removed.** The
+    parameter, its annotation and the default's *name* all stay, so a real
+    signature change still moves the manifest and a reader still sees which
+    callable the default is.
+
+    Applied here, at the entry, and deliberately NOT inside :func:`_shape_of`
+    or :func:`_call_shape`: the narrowness tests in
+    ``tests/test_surface_shape_capture.py`` compare a legacy rendering against
+    the shipped one by routing both through :func:`build_surface`, so a scrub
+    placed in :func:`_shape_of` alone would register the two scrubbed
+    functions as shapes the `D-IMPL-122` fix disturbed. Contract field
+    renderings pass through the same scrub for the reason
+    :func:`_render_alias` already scrubs: an ``Annotated`` validator prints as
+    ``<function ... at 0x...>``.
+    """
+    if isinstance(shape, str):
+        return _ADDRESS.sub("", shape)
+    if isinstance(shape, dict):
+        return {key: _scrub(value) for key, value in shape.items()}
+    return shape
+
+
 def build_surface() -> dict[str, Any]:
     """The manifest document: dotted module name → its public surface."""
     document: dict[str, Any] = {}
@@ -380,7 +414,7 @@ def build_surface() -> dict[str, Any]:
         for name in names:
             obj = _resolve_export(module, module_name, name)
             kind = _kind_of(obj)
-            entries[name] = {"kind": kind, "shape": _shape_of(obj, kind)}
+            entries[name] = {"kind": kind, "shape": _scrub(_shape_of(obj, kind))}
         document[module_name] = {"__all__": names, "exports": entries}
     return document
 
