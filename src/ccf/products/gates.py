@@ -184,6 +184,7 @@ __all__ = [
     "GATE_LINEAGE_ATTRIBUTABILITY",
     "GATE_LINEAGE_EQUALITY",
     "GATE_SOURCE_ATTESTATION",
+    "GATE_TTL_ANCHOR",
     "GATE_TTL_BOUNDS",
     "PYDANTIC_MODEL_FORMS",
     "AttestationRefusal",
@@ -198,6 +199,7 @@ __all__ = [
     "ServableProduct",
     "verify_gate_provenance",
     "ServableProductNotAModel",
+    "TTLAnchorRefusal",
     "TTLRefusal",
     "ToleranceExceededRefusal",
     "refuse_attestation",
@@ -217,6 +219,22 @@ GATE_EMPTY_OPERATOR = "empty-operator-guard"
 GATE_LINEAGE_EQUALITY = "lineage-strict-equality"
 GATE_LINEAGE_ATTRIBUTABILITY = "lineage-attributability"
 GATE_TTL_BOUNDS = "ttl-bounds"
+
+#: `D-IMPL-341` R-3: gate 3's SECOND reason. A class declaring an evidence
+#: anchor whose served observation set supplies no usable instant is refused
+#: here, by this name — never as ``ttl-bounds`` (which says an anchor exists
+#: and its window has passed) and never by falling back to the decision
+#: instant.
+#:
+#: **It is gate 3's reason, and it is decided BEFORE gates 1 and 2 run**
+#: (measured at 341's review, 2026-09-18). The anchor is resolved where the
+#: expiry is minted — the candidate cannot be built without it — so a class
+#: whose view carries no usable instant is refused here rather than by the
+#: empty-operator or lineage gates, and a product's own declared gate speaks
+#: later still. Where an example's own gate used to name the same empty view,
+#: that gate now describes a path the engine reaches first; two of them were
+#: re-specified at 341's validation pass rather than left claiming it.
+GATE_TTL_ANCHOR = "ttl-anchor-unresolvable"
 GATE_SOURCE_ATTESTATION = "source-attestation"
 #: ``D-IMPL-334``. Named for the question it asks — may this be served —
 #: rather than for the write that moved the boundary. NOT a cascade and
@@ -332,6 +350,32 @@ class TTLRefusal(GateRefusal):
     expires_at: datetime
     now: datetime
     max_ttl_seconds: int
+
+
+class TTLAnchorRefusal(GateRefusal):
+    """Gate 3's second reason (`D-IMPL-341` R-3): no evidence instant to anchor on.
+
+    The class declares ``ttl_anchor: from_entity_freshness`` and the served
+    observation set — the same set the freshness factor scores — carries no
+    ``valid_from`` instant on a row declaring ``decay_basis: valid-from``. Kept
+    distinct from :class:`TTLRefusal` (an anchor exists and its window has
+    passed) and from the registration-time refusal
+    (:class:`~ccf.products.expiry.TTLAnchorUndeclared`: no such row is
+    declared at all), because the three call for three different remedies.
+
+    Attributes:
+        ttl_anchor: The declared anchor, as recorded.
+        now: The decision instant the set was evaluated at.
+        valid_from_rows: The observation types whose rows could have
+            contributed — what the deployment declared.
+        observation_types: The observation types the served set actually
+            held — what the evidence was.
+    """
+
+    ttl_anchor: str
+    now: datetime
+    valid_from_rows: tuple[str, ...]
+    observation_types: tuple[str, ...]
 
 
 class DependencyInvalidationRefusal(GateRefusal):

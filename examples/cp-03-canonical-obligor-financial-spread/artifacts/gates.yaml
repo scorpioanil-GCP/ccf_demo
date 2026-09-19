@@ -28,9 +28,9 @@
 # sabotage column names what was mutated; FINDINGS.md §"Sabotage matrix"
 # records each run and its verdict.
 #
-# `OFC-G07` is quarantined `xfail(strict=True)` as EVIDENCE of `CP03C-F-01`:
-# it asserts the declaration the governed path records and does not compute,
-# and turns red the day the SDK honors it.
+# `OFC-G07` was quarantined `xfail(strict=True)` as EVIDENCE of `CP03C-F-01`
+# until `D-IMPL-341` (validation pass 2026-09-18); it is live, and `OFC-G06`
+# asserts the SDK's TTL gate runs before the product's own.
 
 semver: 1.0.0
 class_id: cp-03-canonical.product-gates
@@ -70,17 +70,25 @@ declaration:
     sabotage: drop `decay_basis valid-from` so every column ages from the ingestion instant
     observed_red: null
   - id: OFC-G06
-    statement: a spread whose freshest filing is outside the declared window at the asked instant is refused by the product's own gate
+    statement: a spread whose freshest filing is outside the declared window at the asked instant is refused — by the SDK's TTL gate first (ttl-bounds), and the product's own predicate still names the window on a candidate whose payload anchor lies outside it
     spec_clause: {document: spec/CP-SPEC-003C_Obligor_Financial_Spread_Canonical.md, clause: G.1}
     test: tests/examples/test_cp_03_canonical_output.py::test_the_declared_window_is_held_by_the_products_own_gate
-    sabotage: delete the window comparison from the predicate
-    observed_red: null
+    sabotage: delete the window comparison from the predicate (the direct limb); return the decision instant from resolve_ttl_anchor (the precedence limb)
+    observed_red:
+      result: >-
+        RED, under its own id. S24, the SDK's S1: `resolve_ttl_anchor` returns the decision instant for an evidence-anchored class. OFC-G07's anchor and expiry assertions fail (expires_at reads asked_at + 30 d again, ttl_anchor_at the decision instant); OFC-G06's precedence limb fails (the stale obligor is no longer refused ttl-bounds by the SDK's gate). Restored, cmp verified.
+      date: "2026-09-18"
+      commit: "7463be57 (the candidate the sabotage was watched on — sources identical to 4b72ea97..7463be57; this roster block lands in the commit that follows)"
   - id: OFC-G07
-    statement: expires_at is anchored on the freshest filing in the payload, as the class declares — quarantined evidence of CP03C-F-01
+    statement: expires_at is anchored on the freshest filing in the payload, as the class declares, and ttl_anchor_at records it — live since D-IMPL-341
     spec_clause: {document: spec/CP-SPEC-003C_Obligor_Financial_Spread_Canonical.md, clause: G.1}
     test: tests/examples/test_cp_03_canonical_output.py::test_expires_at_is_anchored_on_the_filing_not_the_question
-    sabotage: none constructible — the SDK computes the decision-instant anchor; the gate goes red (XPASS) when the SDK honors the declaration
-    observed_red: null
+    sabotage: return the decision instant from resolve_ttl_anchor (the SDK's S1)
+    observed_red:
+      result: >-
+        RED, under its own id. S24, the SDK's S1: `resolve_ttl_anchor` returns the decision instant for an evidence-anchored class. OFC-G07's anchor and expiry assertions fail (expires_at reads asked_at + 30 d again, ttl_anchor_at the decision instant); OFC-G06's precedence limb fails (the stale obligor is no longer refused ttl-bounds by the SDK's gate). Restored, cmp verified.
+      date: "2026-09-18"
+      commit: "7463be57 (the candidate the sabotage was watched on — sources identical to 4b72ea97..7463be57; this roster block lands in the commit that follows)"
   - id: OFC-G08
     statement: an obligor the principal may not see and one that does not exist refuse with one reason, one kind, one detail
     spec_clause: {document: spec/CP-SPEC-003C_Obligor_Financial_Spread_Canonical.md, clause: G.1}

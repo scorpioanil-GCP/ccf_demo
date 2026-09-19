@@ -218,6 +218,9 @@ def test_the_pre_extension_record_lacks_exactly_the_fifteen_plus_one_transparent
         "perspective_conditioning.assembler_id",
         "perspective_conditioning.assembler_version",
         "content_generation_path.disclosure_decision",
+        # `D-IMPL-341`: the served product's anchor instant, `None` on every
+        # record written before it existed — decision-anchored by that sentinel.
+        "content_generation_path.ttl_anchor_at",
         "content_generation_path.child_resolutions",
     )
     assert not [name for name, key in absent if key is False]

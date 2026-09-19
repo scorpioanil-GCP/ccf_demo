@@ -5413,7 +5413,8 @@
           "source_refresh_recency": "ccf.halflife.assessment.SourceRefreshWindow | None",
           "temporal_boundary": "<class 'datetime.datetime'>",
           "tenant_id": "<class 'str'>",
-          "ttl_anchor": "typing.Literal['from_decision', 'from_entity_freshness']"
+          "ttl_anchor": "typing.Literal['from_decision', 'from_entity_freshness']",
+          "ttl_anchor_at": "datetime.datetime | None"
         }
       },
       "DeclaredProductGate": {
@@ -5785,6 +5786,51 @@
       }
     }
   },
+  "ccf.products.expiry": {
+    "__all__": [
+      "FROM_DECISION",
+      "FROM_ENTITY_FRESHNESS",
+      "TTLAnchorResolution",
+      "TTLAnchorUndeclared",
+      "refuse_undeclared_ttl_anchor",
+      "resolve_ttl_anchor",
+      "valid_from_rows"
+    ],
+    "exports": {
+      "FROM_DECISION": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "FROM_ENTITY_FRESHNESS": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "TTLAnchorResolution": {
+        "kind": "contract",
+        "shape": {
+          "anchor_at": "<class 'datetime.datetime'>",
+          "basis": "typing.Literal['from_decision', 'from_entity_freshness']",
+          "contributing_types": "tuple[str, ...]"
+        }
+      },
+      "TTLAnchorUndeclared": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "refuse_undeclared_ttl_anchor": {
+        "kind": "function",
+        "shape": "(*, ttl_anchor: 'str', entries: 'Mapping[str, object] | None', product_class: 'str') -> 'None'"
+      },
+      "resolve_ttl_anchor": {
+        "kind": "function",
+        "shape": "(*, ttl_anchor: 'TTLAnchor', view: 'GraphView | None', table: 'HalfLifeTable | None', decided_at: 'datetime', product_class: 'str') -> 'TTLAnchorResolution | TTLAnchorRefusal'"
+      },
+      "valid_from_rows": {
+        "kind": "function",
+        "shape": "(entries: 'Mapping[str, object] | None') -> 'tuple[str, ...]'"
+      }
+    }
+  },
   "ccf.products.gates": {
     "__all__": [
       "AttestationRefusal",
@@ -5796,6 +5842,7 @@
       "GATE_LINEAGE_ATTRIBUTABILITY",
       "GATE_LINEAGE_EQUALITY",
       "GATE_SOURCE_ATTESTATION",
+      "GATE_TTL_ANCHOR",
       "GATE_TTL_BOUNDS",
       "GateBypassError",
       "GateRefusal",
@@ -5805,6 +5852,7 @@
       "ProductInvariantRefusal",
       "ServableProduct",
       "ServableProductNotAModel",
+      "TTLAnchorRefusal",
       "TTLRefusal",
       "ToleranceExceededRefusal",
       "refuse_attestation",
@@ -5866,6 +5914,10 @@
         "kind": "constant",
         "shape": "str"
       },
+      "GATE_TTL_ANCHOR": {
+        "kind": "constant",
+        "shape": "str"
+      },
       "GATE_TTL_BOUNDS": {
         "kind": "constant",
         "shape": "str"
@@ -5919,6 +5971,17 @@
       "ServableProductNotAModel": {
         "kind": "class",
         "shape": "type"
+      },
+      "TTLAnchorRefusal": {
+        "kind": "contract",
+        "shape": {
+          "detail": "<class 'str'>",
+          "gate": "<class 'str'>",
+          "now": "<class 'datetime.datetime'>",
+          "observation_types": "tuple[str, ...]",
+          "ttl_anchor": "<class 'str'>",
+          "valid_from_rows": "tuple[str, ...]"
+        }
       },
       "TTLRefusal": {
         "kind": "contract",
@@ -6412,7 +6475,7 @@
       },
       "GovernedResolver": {
         "kind": "class",
-        "shape": "(*, fabric: 'BootedFabric', control_plane: 'ControlPlaneProtocol', product_class_key: 'str', request_contract_key: 'str', operator_parameter_keys: 'tuple[str, ...]', policy_bundle_key: 'str', debt_profile_key: 'str | None', plan_factory: 'ProjectionPlanFactoryProtocol', debt_scorer: 'AssemblyDebtScorerProtocol', product_gate: 'ProductGateProtocol | None', constraint_resolver: 'PolicyConstraintResolver', capabilities: 'tuple[TechnicalCapability, ...]', refusal_recorder: 'RefusalRecorderProtocol', artifact_store: 'ArtifactStoreProtocol', replay_record_class: 'str', query_pin_class: 'str', max_ttl_seconds: 'int', product_ttl_seconds: 'int', composite_children: 'CompositeChildResolverProtocol | RequestAwareChildResolverProtocol | None', admission_clock: 'Callable[[], datetime]', decision_instant_parameter: 'str | None', source_refresh_recency: 'SourceRefreshRecency', acquisition: 'AcquisitionSeamProtocol | None') -> None"
+        "shape": "(*, fabric: 'BootedFabric', control_plane: 'ControlPlaneProtocol', product_class_key: 'str', request_contract_key: 'str', operator_parameter_keys: 'tuple[str, ...]', policy_bundle_key: 'str', debt_profile_key: 'str | None', plan_factory: 'ProjectionPlanFactoryProtocol', debt_scorer: 'AssemblyDebtScorerProtocol', product_gate: 'ProductGateProtocol | None', constraint_resolver: 'PolicyConstraintResolver', capabilities: 'tuple[TechnicalCapability, ...]', refusal_recorder: 'RefusalRecorderProtocol', artifact_store: 'ArtifactStoreProtocol', replay_record_class: 'str', query_pin_class: 'str', max_ttl_seconds: 'int', product_ttl_seconds: 'int', composite_children: 'CompositeChildResolverProtocol | RequestAwareChildResolverProtocol | None', admission_clock: 'Callable[[], datetime]', decision_instant_parameter: 'str | None', source_refresh_recency: 'SourceRefreshRecency', acquisition: 'AcquisitionSeamProtocol | None', half_life_key: 'str | None') -> None"
       },
       "InstantAwareDebtScorerProtocol": {
         "kind": "class",
@@ -6833,6 +6896,8 @@
           "child_reported_address": "str | None",
           "child_schema_name": "str | None",
           "child_schema_version": "str | None",
+          "child_ttl_anchor": "str | None",
+          "child_ttl_anchor_at": "datetime.datetime | None",
           "eligibility_basis": "str | None",
           "grant_hash": "str | None",
           "outcome_status": "<class 'str'>",
@@ -6867,6 +6932,7 @@
           "request": "ccf.products.request.ProductRequest | None",
           "source_refresh_recency": "ccf.halflife.assessment.SourceRefreshWindow | None",
           "steps": "tuple[ccf.projection.engine.ExecutionStep, ...]",
+          "ttl_anchor_at": "datetime.datetime | None",
           "workflow_step_sequence": "<class 'str'>"
         }
       },

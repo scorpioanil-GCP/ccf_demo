@@ -19,7 +19,7 @@ fabric, where nothing replays it.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -232,8 +232,30 @@ def _edge(source_id: str, target_id: str, relationship: str, *,
     )
 
 
+def _booking_instant(value: str | None) -> datetime | None:
+    """An amendment's booking date, as the claim's own instant — or ``None``.
+
+    `D-IMPL-341` (validation pass 2026-09-18): the amendment claim's
+    ``valid_from`` is the instant the source ASSERTED it — the booking date,
+    this product's assertion-time axis — because that is the clock §E.3
+    anchors the TTL on ("the latest assertion in the SCORED OBSERVATION SET",
+    as that clause was corrected on 2026-09-18) and the clock the `amendment`
+    λ_c row now decays against. A date widens to
+    midnight UTC, losslessly; an amendment the source never booked carries
+    ``None`` and contributes no instant, exactly as it is placeable on no
+    assertion axis. The request instant is never substituted.
+    """
+    if not value:
+        return None
+    parsed = datetime.fromisoformat(value)
+    return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)
+
+
 def _node(entity_id: str, kind: str, attributes: Mapping[str, str], *,
-          tenant_id: str, at: datetime) -> Any:
+          tenant_id: str, at: datetime, observed: datetime | None) -> Any:
+    """One attributed node. ``observed`` is the claim's own instant, stated at
+    every call: the booking date for an amendment, the request instant for a
+    facility or covenant record the source dates by nothing (`D-IMPL-341`)."""
     from ccf.signal.envelope import SignalEnvelope, SourceIdentity
 
     payload = {"kind": kind, **attributes}
@@ -242,7 +264,7 @@ def _node(entity_id: str, kind: str, attributes: Mapping[str, str], *,
         envelope_id=f"node/{kind}/{entity_id}",
         source=SourceIdentity(system_id="covenant_graph"),
         ingestion_timestamp=at,
-        observed_time=at,
+        observed_time=observed,
         raw_payload=payload,
     )
 
@@ -285,7 +307,7 @@ def ingest(
     worker.ingest(_node(window.facility_id, KIND_FACILITY,
                         {"facility_anchor": window.facility_id,
                          "facility_id": window.facility_id},
-                        tenant_id=booted.tenant_id, at=at))
+                        tenant_id=booted.tenant_id, at=at, observed=at))
     for amendment in window.amendments:
         worker.ingest(_node(
             amendment.amendment_id, KIND_AMENDMENT,
@@ -311,7 +333,9 @@ def ingest(
                     else str(amendment.booking_lag_days)
                 ),
             },
-            tenant_id=booted.tenant_id, at=at))
+            tenant_id=booted.tenant_id, at=at,
+            # THE BOOKING DATE IS THE CLAIM'S OWN INSTANT (`D-IMPL-341`).
+            observed=_booking_instant(amendment.asserted_at)))
     for covenant in window.covenants:
         worker.ingest(_node(
             covenant.covenant_id, KIND_COVENANT,
@@ -322,7 +346,7 @@ def ingest(
                 "threshold": covenant.threshold or "",
                 "threshold_unit": covenant.threshold_unit or "",
             },
-            tenant_id=booted.tenant_id, at=at))
+            tenant_id=booted.tenant_id, at=at, observed=at))
 
     view = booted.handle.reader.as_of(tenant_id=booted.tenant_id, at=at)
     unkinded = [

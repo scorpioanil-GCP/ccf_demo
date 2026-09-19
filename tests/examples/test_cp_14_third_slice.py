@@ -32,6 +32,7 @@ estate; this module reads none of it directly.
 
 from __future__ import annotations
 
+import json
 import os
 import pathlib
 import subprocess
@@ -207,13 +208,26 @@ def test_the_real_question_admits_family_and_collateral_and_withholds_the_spread
 def test_the_collateral_question_is_the_facility_specific_one_the_ruling_fixed(both: dict[str, Any]) -> None:
     """`CP14-F-20`: the memo names the facility; the child's subject is that
     facility; the row's question identity is the memo's, never a derived one.
-    The retained child's payload is over `FAC-5B8418`, not an obligor roll-up."""
+    The retained child's payload is over `FAC-5B8418`, not an obligor roll-up.
+
+    Held on BOTH the retained child and the retained question since 2026-09-18.
+    The question half was added while `D-IMPL-341`'s collateral calibration was
+    open and this child was refused for expired evidence — with the window
+    ruled to the appraisal cycle the child is retained again, so the original
+    payload assertion is restored rather than replaced, and the question
+    assertion stays beside it because it proves the consumer's own half."""
+    from ccf.replay.engine import retained_child_question  # noqa: PLC0415
+
     opened, _outcome, record = both["1.0"]
     row = _rows(record)["credit-risk.collateral-coverage"]
     assert row.child_question_address, "no question identity on the row"
     child = _retained(opened, row.child_content_address)
     assert child.payload["facility"] == BGC_FACILITY
     assert "debt_tolerance" not in child.payload.get("basis", {}), "a tolerance was invented for the collateral child"
+    question = retained_child_question(store=FileArtifactStore(root=opened.scratch / opened.replay.store_dirname), row=row)
+    assert content_hash(question) == row.child_question_address
+    assert question.subject == BGC_FACILITY
+    assert "debt_tolerance" not in json.dumps(json.loads(question.request).get("parameters", {})), "a tolerance was invented for the collateral child"
 
 
 def test_the_consumer_imported_no_producer(both: dict[str, Any]) -> None:

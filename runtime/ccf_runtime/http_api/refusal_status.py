@@ -95,6 +95,7 @@ from ccf.peering.admission import (
 from ccf.products.composition import MixingRefusal
 from ccf.products.constraints import ConstraintRefusal, PolicyResolutionConflict
 from ccf.products.gates import (
+    TTLAnchorRefusal,
     AttestationRefusal,
     DeclaredObligationRefusal,
     EmptyOperatorRefusal,
@@ -153,6 +154,7 @@ _STATUS_BY_TYPE: Final[Mapping[type[CCFContract], int]] = MappingProxyType(
         LineageMismatchRefusal: STATUS_FULFILLMENT_WITHHELD,
         LineageAttributionRefusal: STATUS_FULFILLMENT_WITHHELD,
         TTLRefusal: STATUS_FULFILLMENT_WITHHELD,
+        TTLAnchorRefusal: STATUS_FULFILLMENT_WITHHELD,
         AttestationRefusal: STATUS_FULFILLMENT_WITHHELD,
         DeclaredObligationRefusal: STATUS_FULFILLMENT_WITHHELD,
         # `24.10-02` / `R-11`: a deployment's own declared product invariant

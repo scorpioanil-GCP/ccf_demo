@@ -11,10 +11,22 @@ reconstructs — never a number restated.
 **The specimen is the control.** `examples/cp-06-collateral-and-setoff-coverage`
 is frozen (`D-IMPL-261`) and still serves on the low road, so the lane the
 successor serves is DECIDED BY MEASUREMENT (`CSCC-G13`): the two declared
-facilities at the CP-14 instant, full canonical payload hashes and a
-field-level comparison. Payload equivalence is not contract identity — the
-successor's tenant, plan id and policy-bundle version are its own by
-construction and are asserted different, never averaged in.
+facilities at one instant, full canonical payload hashes and a field-level
+comparison. Payload equivalence is not contract identity — the successor's
+tenant, plan id, policy-bundle version and, since `D-IMPL-341`, its expiry and
+its freshness figure are its own by construction and are asserted different,
+never averaged in.
+
+**The instants, and the window (`D-IMPL-341`, calibrated 2026-09-18).** The
+class declares `ttl_anchor: from_entity_freshness`, and the SDK honors it:
+`expires_at` is the freshest asset valuation date the admitted view carries
+plus the declared window, which is the appraisal cycle — the valuation cadence
+this product's own table declares, and the calibration Dave ruled on
+`CP06C-F-05`. Every question below is asked at the CP-14 instant, as it always
+was. What the window does NOT establish is asserted rather than assumed: a
+facility whose freshest valuation is older than an appraisal cycle is refused
+`ttl-bounds` (`CSCC-G24`, on a facility this estate really holds), and the
+undated deposit balances are dated by nothing here at all.
 
 **Reads the estate, seeds nothing** (CLAUDE.md §9). Nothing here pins an
 estate count; a test that did would have turned the estate back into a
@@ -45,6 +57,7 @@ from ccf.artifacts.file_store import FileArtifactStore
 from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.products.child_resolver import ChildQuestion
 from ccf.products.contract import ChildRequirement, ContextProductContract, ProductLineage
+from ccf.products.expiry import TTLAnchorUndeclared
 from ccf.products.product import OpenedProduct, open_product
 from ccf.products.refusal import RefusalEnvelope
 from ccf.products.request import ProductRequest
@@ -65,6 +78,23 @@ RUN = EXAMPLE / "run.py"
 
 CP14_INSTANT = datetime(2026, 9, 7, 12, 0, tzinfo=UTC)
 ADMITTED_AT = CP14_INSTANT + timedelta(minutes=7)
+#: A pledged facility the source does not size (`ccf_v2.facility.commitment_amount`
+#: is NULL, read 2026-09-18): a NON-EMPTY admitted view — its asset anchors the
+#: expiry — that the product's own gate refuses for no commitment. The real-path
+#: trigger for `CSCC-G10` since the SDK's anchor gate precedes the product's.
+NO_COMMITMENT_FACILITY, NO_COMMITMENT_SCOPE = "FAC-3DF1D5", "529900VKCYZW8GZ4WW58"
+#: A pledged facility whose freshest valuation (`2025-02-18`, measured
+#: 2026-09-18) is older than the declared appraisal-cycle window at the CP-14
+#: instant: the subject on which the expiry refusal is REAL. Three of this
+#: estate's fifty collateralized facilities are outside the window; this is one.
+EXPIRED_FACILITY, EXPIRED_SCOPE = "FAC-D3D1A4", "B3BS7ACMDUWISF18KY76"
+
+
+def _freshest_valuation(payload: dict[str, Any]) -> datetime:
+    """The instant a served answer's expiry must be anchored on, read off the
+    answer itself rather than pinned: no estate date appears in this module."""
+    return max(datetime.fromisoformat(a["valuation_date"]).replace(tzinfo=UTC) for a in payload["assets"])
+
 INTENT = "lgd-assessment"
 FRESHNESS = "as-filed"
 PRODUCT_CLASS = "credit-risk.collateral-coverage"
@@ -75,6 +105,15 @@ PRODUCT_CLASS = "credit-risk.collateral-coverage"
 CP14_FACILITY, CP14_SCOPE = "FAC-5B8418", "2549001IGRCG4F0RLD36"
 SPECIMEN_FACILITY, SPECIMEN_SCOPE = "FAC-044206", "529900E95812SYWMCE44"
 MASTEC_FACILITY, MASTEC_SCOPE = "FAC-102496", "549300TMDIT8WREDOF45"
+#: The lane baseline: the specimen's payload content addresses at the CP-14
+#: instant, recorded in `CP-SPEC-006C` §A.2 on 2026-09-16 as eight-character
+#: prefixes and written out in FULL there on 2026-09-18, when the successor was
+#: measured against them at each facility's control instant and matched to all
+#: sixty-four characters. A SNAPSHOT COMPARISON, and named as one: the frozen
+#: specimen cannot re-serve these since `D-IMPL-341` (`CSCC-G13`), so this pin
+#: goes red on estate drift and must then be re-MEASURED against the evidence,
+#: never re-pinned to whatever the successor happens to serve.
+LANE_BASELINE = {"FAC-5B8418": "d22b256eb343768f185ebbe09eed1949a44226cc1ffccc924550dbbc6f29a45c", "FAC-044206": "8e3e567b194b1aad69bd08da53996dc89bbc4d3f9b335da119147c102d2ebe63"}
 SCOPE_NOBODY_HOLDS = "A-SCOPE-NOBODY-HOLDS"
 
 ESTATE_VARIABLES = (
@@ -195,14 +234,14 @@ def shared(estate: None, modules: dict[str, Any], tmp_path_factory: pytest.TempP
     return _answer(modules, tmp_path_factory.mktemp("shared"), facility=SPECIMEN_FACILITY, scope=SPECIMEN_SCOPE)
 
 
-def _specimen(facility: str, scope: str, *, intent: str = INTENT) -> Any:
-    """The frozen specimen, in-process, at the same instant against the same estate."""
+def _specimen(facility: str, scope: str, *, intent: str = INTENT, asked_at: datetime = CP14_INSTANT) -> Any:
+    """The frozen specimen, in-process, at the given instant against the same estate."""
     environment = {specimen: os.environ[successor] for specimen, successor in SPECIMEN_VARIABLES.items()}
     previous = {name: os.environ.get(name) for name in environment}
     os.environ.update(environment)
     try:
         with _tree_modules(SPECIMEN) as specimen, tempfile.TemporaryDirectory() as scratch:
-            asked = specimen["deployment"].request(facility_id=facility, borrower_scope=[scope], asked_at=CP14_INSTANT)
+            asked = specimen["deployment"].request(facility_id=facility, borrower_scope=[scope], asked_at=asked_at)
             asked = asked.model_copy(update={"intent": intent})
             outcome = specimen["produce"].assemble_and_serve(asked=asked, root=pathlib.Path(scratch))
             # The specimen's spine returns its own `Assembled` record; the
@@ -214,23 +253,6 @@ def _specimen(facility: str, scope: str, *, intent: str = INTENT) -> Any:
                 os.environ.pop(name, None)
             else:
                 os.environ[name] = value
-
-
-def _field_differences(a: Any, b: Any, path: str = "") -> list[str]:
-    out: list[str] = []
-    if isinstance(a, dict) and isinstance(b, dict):
-        for key in sorted(set(a) | set(b)):
-            if key not in a or key not in b:
-                out.append(f"{path}/{key}: present on one side only")
-            else:
-                out += _field_differences(a[key], b[key], f"{path}/{key}")
-    elif isinstance(a, list) and isinstance(b, list):
-        if len(a) != len(b):
-            out.append(f"{path}: {len(a)} vs {len(b)} members")
-        out += [d for x, y in zip(a, b) for d in _field_differences(x, y, f"{path}[]")]
-    elif a != b:
-        out.append(f"{path}: {a!r} vs {b!r}")
-    return out
 
 
 # --- G01–G09: the specimen's domain properties, held by the successor ---------------
@@ -343,22 +365,31 @@ def test_source_ids_are_served_for_business_matching(served: _Answer) -> None:
 def test_the_over_allocation_gate_is_declared_identified_and_runs_on_the_governed_path(
     estate: None, modules: dict[str, Any], tmp_path: pathlib.Path
 ) -> None:
-    """Declared with an identity on the class AND executed by the road: a scope
-    nobody holds leaves the admitted view with no facility, and the refusal
-    that comes back names THIS gate as its reason (`product-invariant-refusal`).
+    """Declared with an identity on the class AND executed by the road: a
+    pledged facility the source does not size leaves the admitted view with a
+    facility node carrying no commitment, and the refusal that comes back names
+    THIS gate as its reason (`product-invariant-refusal`).
+
+    **The trigger moved on 2026-09-18 (`D-IMPL-341`).** It was "a scope nobody
+    holds" — an EMPTY view — and since the SDK's TTL-anchor gate runs before
+    the product's, an empty view is refused `ttl-anchor-unresolvable` first
+    (`CSCC-G20` holds that precedence). Reaching this gate on the real path
+    now takes a view WITH evidence to anchor on and WITHOUT a commitment:
+    `FAC-3DF1D5`, asked on its valuation day.
 
     Declared product gate `CSCC-G10` (`CP-SPEC-006C` §G.1).
     """
     declared = CONFIG["product_class"]["declared_product_gate"]
     assert declared["gate_id"] == GATE_ID and declared["gate_version"]
     with modules["produce"].product(tmp_path) as opened:
-        denied = opened.answer(_question(opened, modules["deployment"], facility=CP14_FACILITY, scope=SCOPE_NOBODY_HOLDS))
+        denied = opened.answer(_question(opened, modules["deployment"], facility=NO_COMMITMENT_FACILITY, scope=NO_COMMITMENT_SCOPE))
         assert isinstance(denied, RefusalEnvelope), denied
         record = opened.record_of(denied)
     # The disclosed shell names the gate; the gate's own text is INTERNAL —
     # on the record's dimension-5 block, never in the consumer-facing detail.
-    assert denied.kind == "product-invariant-refusal" and denied.reason == GATE_ID
+    assert denied.kind == "product-invariant-refusal" and denied.reason == GATE_ID, (denied.kind, denied.reason)
     assert "no facility commitment" in record.content_generation_path.assembly_refusal
+    assert record.context_fabric_snapshot.touched_entities, "the view was empty; the anchor gate would have spoken first"
 
 
 def test_replay_dimension_two_is_a_superset_of_product_lineage(served: _Answer) -> None:
@@ -397,29 +428,50 @@ def test_the_door_is_the_sdk_standard_door_opened_from_the_declaration() -> None
 def test_the_lane_is_measured_the_successor_payload_equals_the_specimens(
     estate: None, modules: dict[str, Any], facility: str, scope: str, tmp_path: pathlib.Path
 ) -> None:
-    """`CP-SPEC-006C` §D.4: at the CP-14 instant under the class defaults, the
-    successor's canonical payload hashes to the specimen's — full hashes and a
-    field-level comparison — so the successor serves `1.0.0`, a second producer
-    of the same product. What differs is asserted different: tenant, plan id,
-    policy-bundle version. Payload equivalence is not contract identity.
+    """`CP-SPEC-006C` §D.4: at one instant under the class defaults, the
+    successor's canonical payload hashes to the specimen's — the full
+    sixty-four-character address, not a prefix — so the successor serves
+    `1.0.0`, a second producer of the same product. What differs is asserted different: tenant, plan id,
+    policy-bundle version — and, since `D-IMPL-341`, the expiry and the
+    freshness figure. Payload equivalence is not contract identity.
+
+    **Measured at the CP-14 instant on 2026-09-16** (the historical lane
+    measurement, the baseline this test now holds): payloads `d22b256e…` /
+    `8e3e567b…` identical, `debt` and `expires_at` equal. **Measured on each
+    **Re-measured at the CP-14 instant on 2026-09-18**, after the window was
+    calibrated to the appraisal cycle: the successor's payload still hashes to the baseline, and
+    its `expires_at` runs from the valuation rather than the question. The
+    frozen specimen no longer answers at all — it declares the same anchor over
+    a resolver wired with no λ_c table, which is a configuration failure the
+    builder refuses (`TTLAnchorUndeclared`) before a question proceeds
+    (`D-IMPL-261`: evidence of the SDK's evolution, the specimen untouched).
+    Its `F` was, while it served, an asset aged by `now - valuation_age_days` —
+    a STORED count that equals the valuation's real age only on the day the
+    estate was loaded (two load dates, `2026-08-17` and `2026-08-22`).
 
     Declared product gate `CSCC-G13` (`CP-SPEC-006C` §G.1).
     """
+    instant = CP14_INSTANT
     successor = _answer(modules, tmp_path, facility=facility, scope=scope)
-    specimen = _specimen(facility, scope)
-    assert isinstance(specimen, ServedProduct), getattr(specimen, "detail", specimen)
-    assert content_hash(successor.product.payload) == content_hash(specimen.product.payload)
-    assert _field_differences(json.loads(canonical_bytes(specimen.product.payload)), json.loads(canonical_bytes(successor.product.payload))) == []
-    assert successor.product.debt == specimen.product.debt
-    assert successor.product.expires_at == specimen.product.expires_at
-    assert successor.product.lineage.operators_invoked == specimen.product.lineage.operators_invoked
-    assert (successor.product.schema_name, successor.product.schema_version) == (PRODUCT_CLASS, "1.0.0") == (specimen.product.schema_name, specimen.product.schema_version)
+    # THE BASELINE IS THE RECORDED MEASUREMENT (`CP-SPEC-006C` §A.2 / §D.4,
+    # 2026-09-16), not a live specimen: the frozen specimen declares this
+    # anchor over a resolver wired with no λ_c table, and since Dave's
+    # registration ruling that is refused at the BUILDER, so its payload can no
+    # longer be re-derived at any instant.
+    assert content_hash(successor.product.payload) == LANE_BASELINE[facility], content_hash(successor.product.payload)
+    assert successor.product.temporal_boundary == instant
+    assert successor.product.expires_at == successor.product.ttl_anchor_at + timedelta(seconds=int(CONFIG["ttl"]["product_ttl_seconds"]))
+    assert successor.product.expires_at < instant + timedelta(seconds=int(CONFIG["ttl"]["product_ttl_seconds"])), "the successor's expiry is running from the question"
+    with pytest.raises(TTLAnchorUndeclared, match="wired with no λ_c table"):
+        _specimen(facility, scope, asked_at=instant)
+    assert (successor.product.schema_name, successor.product.schema_version) == (PRODUCT_CLASS, "1.0.0")
     assert CONFIG["product_class"]["schema_version"] == CONFIG["request_contract"]["schema_version"] == "1.0.0"
     # the contract is NOT the same, by construction
-    assert successor.product.tenant_id != specimen.product.tenant_id
-    assert successor.product.plan_id != specimen.product.plan_id
-    assert successor.product.lineage.policy_bundle_versions != specimen.product.lineage.policy_bundle_versions
-    assert content_hash(successor.product) != content_hash(specimen.product)
+    # What is asserted DIFFERENT — tenant, plan id, policy-bundle version — is
+    # held against the specimen's declarations now that it serves no contract
+    # to read them off: the successor's are its own by construction.
+    assert successor.product.tenant_id == PRODUCER_TENANT != yaml.safe_load((SPECIMEN / "ccf_config.yaml").read_text(encoding="utf-8"))["tenant_id"]
+    assert successor.product.plan_id.startswith("cp-06-canonical.")
 
 
 # --- G14: the commitment is read off the governed view ------------------------------
@@ -544,10 +596,22 @@ def cp14_question(requirement: ChildRequirement, request: ProductRequest) -> Chi
     """The consumer's ONE mapping — `CP-SPEC-014`'s collateral question verbatim:
     the facility is the child's subject and `facility_id`, the obligor its
     borrower scope, no tolerance."""
-    return ChildQuestion(
-        subject=request.subject, intent=INTENT, freshness=FRESHNESS,
-        parameters={"facility_id": request.subject, "borrower_scope": [CP14_SCOPE]},
-    )
+    return cp14_question_for(CP14_SCOPE)(requirement, request)
+
+
+def cp14_question_for(scope: str) -> Callable[[ChildRequirement, ProductRequest], ChildQuestion]:
+    """The same mapping over another borrower — the scope is the CONSUMER's to
+    state, not the parent question's: this consumer's request contract declares
+    no `borrower_scope` parameter, and inventing one to reach a second facility
+    would change the contract to suit a test."""
+
+    def questions(requirement: ChildRequirement, request: ProductRequest) -> ChildQuestion:
+        return ChildQuestion(
+            subject=request.subject, intent=INTENT, freshness=FRESHNESS,
+            parameters={"facility_id": request.subject, "borrower_scope": [scope]},
+        )
+
+    return questions
 
 
 def _consumer_tree(tmp_path: pathlib.Path, *, edit: Callable[[dict[str, Any]], None] | None = None) -> pathlib.Path:
@@ -561,16 +625,19 @@ def _consumer_tree(tmp_path: pathlib.Path, *, edit: Callable[[dict[str, Any]], N
     return root
 
 
-def paved_consumer(tmp_path: pathlib.Path, *, url: str, edit: Callable[[dict[str, Any]], None] | None = None) -> OpenedProduct:
+def paved_consumer(tmp_path: pathlib.Path, *, url: str, edit: Callable[[dict[str, Any]], None] | None = None, scope: str = CP14_SCOPE) -> OpenedProduct:
     return open_product(
         config_root=_consumer_tree(tmp_path, edit=edit), scratch=tmp_path / "scratch",
         acquire=fixture.Acquire(), project=fixture.plan_factory, assess=fixture.assess,
-        questions=cp14_question, environ={ENDPOINT_VAR: url, CREDENTIAL_VAR: DEV_TOKEN}, clock=lambda: ADMITTED_AT,
+        questions=cp14_question_for(scope), environ={ENDPOINT_VAR: url, CREDENTIAL_VAR: DEV_TOKEN}, clock=lambda: ADMITTED_AT,
     )
 
 
-def ask_consumer(opened: OpenedProduct) -> Any:
-    return opened.answer(opened.question(subject=CP14_FACILITY, asked_at=CP14_INSTANT, intent="fixture-intent", freshness="fixture-freshness", parameters={THRESHOLD_PARAMETER: 1000}))
+def ask_consumer(opened: OpenedProduct, *, asked_at: datetime = CP14_INSTANT, subject: str = CP14_FACILITY) -> Any:
+    return opened.answer(opened.question(
+        subject=subject, asked_at=asked_at, intent="fixture-intent", freshness="fixture-freshness",
+        parameters={THRESHOLD_PARAMETER: 1000},
+    ))
 
 
 def consumer_row(opened: OpenedProduct, outcome: Any) -> Any:
@@ -601,6 +668,26 @@ def test_the_cp14_question_is_answered_in_another_process_and_admitted_under_pro
     assert (row.producer_id, row.producer_tenant, row.child_schema_name, row.child_schema_version) == (PRODUCER_ID, PRODUCER_TENANT, PRODUCT_CLASS, "1.0.0")
     assert (child.tenant_id, child.temporal_boundary, child.payload["facility"]) == (PRODUCER_TENANT, CP14_INSTANT, CP14_FACILITY)
     assert row.child_replay_ref and row.child_replay_ref.startswith(f"ccf-artifact://{PRODUCER_TENANT}/")
+    assert row.child_ttl_anchor == "from_entity_freshness"
+    assert row.child_ttl_anchor_at == child.ttl_anchor_at == _freshest_valuation(child.payload)
+
+
+def test_a_producer_refusal_for_expired_evidence_crosses_as_an_ineligible_child(
+    estate: None, tmp_path: pathlib.Path
+) -> None:
+    """The consumer's half of the same property, through this producer's own
+    door: asked about the facility whose evidence outlived the window, the
+    producer refuses `ttl-bounds` and the consumer records the child
+    `ineligible` with the producer's refusal retained by kind and reason —
+    never `admitted`, never `producer-unavailable`. `D-IMPL-341`.
+    """
+    with producer(estate) as url, paved_consumer(tmp_path, url=url, scope=EXPIRED_SCOPE) as opened:
+        outcome = ask_consumer(opened, subject=EXPIRED_FACILITY)
+        assert isinstance(outcome, RefusalEnvelope), getattr(outcome, "product", outcome)
+        row = consumer_row(opened, outcome)
+    assert row.outcome_status == "ineligible" and row.refusal_ref == "ineligible", (row.outcome_status, row.refusal_ref)
+    assert (row.producer_refusal_kind, row.producer_refusal_reason) == ("ttl-refusal", "ttl-bounds"), (row.producer_refusal_kind, row.producer_refusal_reason)
+    assert row.child_question_address is not None and row.child_replay_ref and row.child_replay_ref.startswith(f"ccf-artifact://{PRODUCER_TENANT}/")
 
 
 def test_the_door_and_the_in_process_run_serve_one_content_address(estate: None, served: _Answer, tmp_path: pathlib.Path) -> None:
@@ -654,8 +741,13 @@ def test_an_unknown_intent_is_refused_on_the_declared_discovery_set(estate: None
     refused = _ask(modules, tmp_path, facility=CP14_FACILITY, scope=CP14_SCOPE, intent="annual-review")
     assert isinstance(refused, RefusalEnvelope), refused
     assert refused.replay_reference
-    specimen = _specimen(CP14_FACILITY, CP14_SCOPE, intent="annual-review")
-    assert not isinstance(specimen, RefusalEnvelope), "the specimen now refuses unknown intents; this contrast is stale"
+    assert refused.kind != "ttl-anchor-refusal", "the successor was refused before the intent was judged"
+    # The specimen still judges no intent. Until `D-IMPL-341` it SERVED this
+    # question; since Dave's registration ruling its wiring is refused at the
+    # builder — for the table it does not name, never for the intent
+    # (`D-IMPL-261` evidence; the specimen is untouched).
+    with pytest.raises(TTLAnchorUndeclared, match="wired with no λ_c table"):
+        _specimen(CP14_FACILITY, CP14_SCOPE, intent="annual-review")
 
 
 def test_a_scope_the_caller_does_not_hold_yields_an_empty_graph_and_a_refusal(
@@ -673,11 +765,20 @@ def test_a_scope_the_caller_does_not_hold_yields_an_empty_graph_and_a_refusal(
         denied = opened.answer(_question(opened, modules["deployment"], facility=CP14_FACILITY, scope=SCOPE_NOBODY_HOLDS))
         assert isinstance(denied, RefusalEnvelope), denied
         record = opened.record_of(denied)
-    assert denied.reason == GATE_ID
+    # PRECEDENCE, since `D-IMPL-341` (2026-09-18): an empty view carries no
+    # evidence instant, and the SDK's TTL-anchor gate refuses it before the
+    # product's own gate can — `ttl-anchor-refusal` / `ttl-anchor-unresolvable`,
+    # where until 341 this refusal named `cp-06-canonical.over-allocation-guard`.
+    # The empty-graph properties are unchanged.
+    assert (denied.kind, denied.reason) == ("ttl-anchor-refusal", "ttl-anchor-unresolvable"), (denied.kind, denied.reason)
     path = record.content_generation_path
-    assert "no facility commitment" in path.assembly_refusal
+    assert "no evidence instant" in path.assembly_refusal
     assert path.steps and path.product_content_address == NO_PRODUCT_ADDRESS
     assert not record.context_fabric_snapshot.touched_entities
+    # The product gate's own no-commitment half, held directly on the shape it
+    # would see: a served candidate whose commitment is absent.
+    unsized = served.product.model_copy(update={"payload": {**served.product.payload, "commitment": None}})
+    assert modules["deployment"].coverage_gate(candidate=unsized) == modules["deployment"].NO_COMMITMENT
 
 
 # --- G22–G23: a fresh fabric per run; the expiry anchor --------------------------------
@@ -703,16 +804,79 @@ def test_a_fresh_fabric_per_run_and_one_determination_across_roots(
     assert content_hash(second.product) == content_hash(served.product)
 
 
-@pytest.mark.xfail(strict=True, reason="`D-IMPL-341` OPEN: the governed path anchors `expires_at` at the decision instant regardless of `ttl_anchor: from_entity_freshness`")
 def test_expires_at_is_anchored_on_the_freshest_valuation_not_the_question(served: _Answer) -> None:
-    """The declared anchor. Quarantined evidence of the SDK gap, not repaired here.
+    """The declared anchor, honored since `D-IMPL-341` (validation pass
+    2026-09-18; this test was `xfail(strict=True)` evidence of the gap until
+    then): `ttl_anchor_at` is the freshest valuation date among the served
+    assets as a UTC midnight instant — the claim's own `valid_from`, the clock
+    the `collateral_node` row declares — and `expires_at` is that plus the
+    declared window (the appraisal cycle, since the calibration of
+    2026-09-18), never the question plus the window. The record's
+    dimension 5 carries the same instant.
 
     Declared product gate `CSCC-G23` (`CP-SPEC-006C` §G.1).
     """
     assert CONFIG["product_class"]["ttl_anchor"] == "from_entity_freshness"
     freshest = max(datetime.fromisoformat(a["valuation_date"]).replace(tzinfo=UTC) for a in served.product.payload["assets"])
     window = timedelta(seconds=int(CONFIG["ttl"]["product_ttl_seconds"]))
+    assert served.product.ttl_anchor == "from_entity_freshness"
+    assert served.product.ttl_anchor_at == freshest
     assert served.product.expires_at == freshest + window
+    assert served.product.expires_at != served.product.temporal_boundary + window, "the expiry is running from the question again"
+    assert served.record.content_generation_path.ttl_anchor_at == freshest
+
+
+def _refused(modules: dict[str, Any], scratch: pathlib.Path, **question: Any) -> tuple[RefusalEnvelope, DecisionReplayRecord]:
+    """One refused question with its persisted record, read from a fresh store instance."""
+    with modules["produce"].product(scratch) as opened:
+        outcome = opened.answer(_question(opened, modules["deployment"], **question))
+        assert isinstance(outcome, RefusalEnvelope), getattr(outcome, "product", outcome)
+        store = FileArtifactStore(root=opened.scratch / opened.replay.store_dirname)
+        record = DecisionReplayRecord.model_validate_json(store.get(content_address=store.resolve_uri(uri=outcome.replay_reference)))
+    return outcome, record
+
+
+def test_evidence_older_than_the_declared_window_is_refused_by_the_expiry_gate(
+    estate: None, modules: dict[str, Any], tmp_path: pathlib.Path
+) -> None:
+    """The window is a claim that can FAIL, and it fails on a real subject.
+
+    `FAC-D3D1A4`'s freshest asset valuation is `2025-02-18`; the declared
+    window is the appraisal cycle, so its coverage expired `2026-02-18`, months
+    before the CP-14 instant, and the SDK's TTL gate refuses `ttl-refusal` /
+    `ttl-bounds` before any product gate runs. The retained record names the
+    evidence-anchored expiry it refused on — the valuation plus the window,
+    never the question plus the window.
+
+    Three of this estate's fifty collateralized facilities are outside the
+    window and forty-seven are inside (measured 2026-09-18): the term
+    discriminates between real subjects, which is what makes the calibration a
+    demonstration rather than a number that lets everything through.
+
+    Declared product gate `CSCC-G24` (`CP-SPEC-006C` §G.1).
+    """
+    window = timedelta(seconds=int(CONFIG["ttl"]["product_ttl_seconds"]))
+    assert int(CONFIG["ttl"]["product_ttl_seconds"]) == int(CONFIG["half_life"]["real_property_appraisal"]["half_life_seconds"]), (
+        "the window is no longer the appraisal cycle the calibration says it is (`CP06C-F-05`)"
+    )
+    refused, record = _refused(modules, tmp_path, facility=EXPIRED_FACILITY, scope=EXPIRED_SCOPE)
+    assert (refused.kind, refused.reason) == ("ttl-refusal", "ttl-bounds"), (refused.kind, refused.reason)
+    retained = json.loads(record.content_generation_path.assembly_refusal)
+    expires_at = datetime.fromisoformat(json.loads(retained["fields"]["expires_at"]))
+    assert expires_at < CP14_INSTANT < CP14_INSTANT + window
+    assert record.content_generation_path.product_content_address == NO_PRODUCT_ADDRESS
+    # NO ESTATE DATE IS PINNED HERE. The refusal names an expiry; the anchor it
+    # implies is that minus the declared window, and the same facility asked
+    # INSIDE its window must serve on exactly that anchor and name it as the
+    # freshest valuation in its own payload. The estate closes the loop, so
+    # revaluing this facility reds the test as the behavior change it is —
+    # the subject is no longer expired — rather than as a stale pin.
+    implied_anchor = expires_at - window
+    inside = _answer(modules, tmp_path / "inside", facility=EXPIRED_FACILITY, scope=EXPIRED_SCOPE, asked_at=implied_anchor + timedelta(hours=12))
+    assert inside.product.ttl_anchor_at == implied_anchor == _freshest_valuation(inside.product.payload), (
+        "this facility's evidence moved; re-measure the subject rather than re-pinning the expectation"
+    )
+    assert inside.product.expires_at == expires_at
 
 
 # --- identity and reconstruction ------------------------------------------------------
@@ -766,7 +930,10 @@ class _FreshEnvironment:
         return ContextProductContract(
             schema_name=CONFIG["product_class"]["schema_name"], schema_version=CONFIG["product_class"]["schema_version"],
             plan_id=projection.plan_id, tenant_id=record.tenant_id, temporal_boundary=snapshot.temporal_boundary,
-            expires_at=snapshot.temporal_boundary + timedelta(seconds=self._ttl), ttl_anchor=CONFIG["product_class"]["ttl_anchor"],
+            # `D-IMPL-341`: the anchor instant comes off the RECORD (dimension 5), never
+            # recomputed; a record without one is the pre-341, decision-anchored shape.
+            expires_at=(path.ttl_anchor_at or snapshot.temporal_boundary) + timedelta(seconds=self._ttl),
+            ttl_anchor=CONFIG["product_class"]["ttl_anchor"], ttl_anchor_at=path.ttl_anchor_at,
             lineage=ProductLineage(operators_invoked=frozenset(path.operator_plan), policy_bundle_versions=policy_versions, graph_snapshot_at=snapshot.temporal_boundary),
             payload=projection.payload, debt=path.debt, debt_evidence=path.debt_evidence,
             source_refresh_recency=path.source_refresh_recency, obligation_in_force=path.obligation_in_force,

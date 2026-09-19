@@ -27,7 +27,7 @@ import subprocess
 import sys
 import tempfile
 from collections.abc import Iterator
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -189,6 +189,33 @@ def at_depth_one(estate: tuple[str, str], example_modules: tuple[Any, Any]) -> A
 @pytest.fixture(scope="module")
 def at_depth_three(estate: tuple[str, str], example_modules: tuple[Any, Any]) -> Any:
     return _ask(example_modules, max_depth=3)
+
+
+def test_the_expiry_runs_from_the_decision_instant_and_says_so(at_depth_three: Any) -> None:
+    """The class declares `ttl_anchor: from_decision`, and since `D-IMPL-341`
+    the served contract states the instant it ran from: `ttl_anchor_at` is the
+    decision instant, `expires_at` is that plus the declared window, and the
+    record's dimension 5 carries the same instant.
+
+    **The declaration was corrected on 2026-09-18** (`CP04C-F-06`): it read
+    `from_entity_freshness` and named "the latest assertion time among the
+    family edges", an instant no edge in `fibo-v2` carries. What this test
+    holds is the honest replacement — a decision anchor that says it is one —
+    and the number is unchanged from before the correction, which is why it is
+    asserted here rather than left to the absence of a red.
+
+    Declared product gate `CFC-G14` (`CP-SPEC-004C` §G.1).
+    """
+    import yaml  # noqa: PLC0415
+
+    config = yaml.safe_load((EXAMPLE / "ccf_config.yaml").read_text(encoding="utf-8"))
+    window = timedelta(seconds=int(config["ttl"]["product_ttl_seconds"]))
+    product = at_depth_three.product
+    assert config["product_class"]["ttl_anchor"] == "from_decision"
+    assert product.ttl_anchor == "from_decision"
+    assert product.ttl_anchor_at == at_depth_three.record.recorded_at == product.temporal_boundary
+    assert product.expires_at == product.ttl_anchor_at + window
+    assert at_depth_three.record.content_generation_path.ttl_anchor_at == product.ttl_anchor_at
 
 
 # --- what the caller's depth actually changes --------------------------------

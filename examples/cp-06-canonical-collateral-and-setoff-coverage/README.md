@@ -122,6 +122,36 @@ module constant instead of the view (`G14`); compose the resolver beside the ope
 product (`G15`); edit one specimen file or reuse its tenant (`G16`); take the producer
 identity from the answer rather than the registration (`G18`); drop `discovery.intents`
 (`G19`); serve a coverage of zero over an empty view (`G20`); mint the substrate once per
-opened product (`G22`). `CSCC-G23` is quarantined `xfail(strict=True)`: it turns green the
-day the SDK honors `ttl_anchor: from_entity_freshness` (`D-IMPL-341`), and would fail
-the build if that happened silently.
+opened product (`G22`). `CSCC-G23` is live since `D-IMPL-341` (validation pass
+2026-09-18): the served `expires_at` runs from the freshest asset valuation date the
+admitted view carries, and the contract records that instant as `ttl_anchor_at`.
+
+**The window follows the clock the anchor reads** (`FINDINGS.md` `CP06C-F-05`, ruled
+2026-09-18). The expiry is anchored on the freshest asset valuation date, so the window
+states how long a coverage answer stays current AFTER a valuation: it is the appraisal
+cycle this product's own table declares (`half_life.real_property_appraisal`, ~365 days),
+the cadence of the valuation class governing 74 of this estate's 95 pledged assets. It
+replaced a one-day window taken from the deposit-balance half-life, which named a cadence
+the anchor cannot read. **Illustrative calibration** under `D-IMPL-323`: this example runs
+against a point-in-time demonstration estate rather than continuously refreshed production
+data, and the value is chosen to make the governed behavior observable in that snapshot,
+not as a recommended production coverage-policy threshold.
+
+**What it does not claim.** It does not establish that the DEPOSIT BALANCES are fresh —
+this estate's deposit records carry no as-of date at all, so they contribute no instant to
+the anchor and nothing here dates the set-off leg, which is why coverage is served with
+collateral value, set-off value and total kept apart. It does not claim every asset was
+revalued within the window either: a marketable security is aged in `F` by its own one-day
+cadence, and every asset's valuation date and age stay in the payload.
+
+> **Illustrative calibration:** This example runs against a point-in-time
+> demonstration estate rather than continuously refreshed production data.
+> Freshness half-lives and related thresholds are calibrated to make the
+> governed behavior observable in that snapshot. They demonstrate how the SDK
+> applies these controls and should not be interpreted as recommended
+> production coverage-policy thresholds.
+
+**And it can still fail.** At the CP-14 instant 47 of the 50 facilities with pledged
+collateral serve and 3 are refused `ttl-bounds` on evidence older than an appraisal cycle;
+`CSCC-G24` holds that refusal on one of them, and `CSCC-G23` holds the anchor on the
+facilities that serve.

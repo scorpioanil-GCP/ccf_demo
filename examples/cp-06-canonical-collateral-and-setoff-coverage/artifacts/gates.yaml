@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
 #
-# THE DECLARED PRODUCT GATES OF cp-06-canonical — `CSCC-G01` through `CSCC-G23`.
+# THE DECLARED PRODUCT GATES OF cp-06-canonical — `CSCC-G01` through `CSCC-G24`.
 #
 # `D-IMPL-224`: a product's gates are a DECLARED ARTIFACT plus CI coverage. The
 # acceptance authority for every gate below is `CP-SPEC-006C` §G.1
@@ -73,7 +73,7 @@ declaration:
     sabotage: serve `collateral_node://…` to the consumer
     observed_red: null
   - id: CSCC-G10
-    statement: the over-allocation gate is declared, identified, and runs on the governed path
+    statement: the over-allocation gate is declared, identified, and runs on the governed path — reached on a non-empty view the source does not size, since the SDK's anchor gate precedes it on an empty one (D-IMPL-341)
     spec_clause: {document: spec/CP-SPEC-006C_Collateral_And_Setoff_Coverage_Canonical.md, clause: G.1}
     test: tests/examples/test_cp_06_canonical_output.py::test_the_over_allocation_gate_is_declared_identified_and_runs_on_the_governed_path
     sabotage: return None from the gate for a missing commitment
@@ -91,7 +91,7 @@ declaration:
     sabotage: add a `server/door.yaml` naming a script path
     observed_red: null
   - id: CSCC-G13
-    statement: the lane is measured — the successor's payload equals the specimen's at the pinned instant for both declared facilities, so the lane is `1.0.0`
+    statement: the lane is measured — the successor's payload hashes to the specimen's recorded full payload addresses (CP-SPEC-006C §A.2) for both declared facilities, so the lane is `1.0.0`; a snapshot comparison since D-IMPL-341, because the frozen specimen is refused `ttl-anchor-unresolvable` and cannot re-serve them; estate drift reds it and it is re-measured, never re-pinned
     spec_clause: {document: spec/CP-SPEC-006C_Collateral_And_Setoff_Coverage_Canonical.md, clause: G.1}
     test: tests/examples/test_cp_06_canonical_output.py::test_the_lane_is_measured_the_successor_payload_equals_the_specimens
     sabotage: rename or reorder one payload member
@@ -133,7 +133,7 @@ declaration:
     sabotage: drop `discovery.intents`
     observed_red: null
   - id: CSCC-G20
-    statement: a scope the caller does not hold yields an empty graph and a refusal, never a redacted payload
+    statement: a scope the caller does not hold yields an empty graph and a refusal, never a redacted payload — the SDK's anchor gate speaks first on the empty view (ttl-anchor-unresolvable, D-IMPL-341); the product gate's no-commitment half is held directly
     spec_clause: {document: spec/CP-SPEC-006C_Collateral_And_Setoff_Coverage_Canonical.md, clause: G.1}
     test: tests/examples/test_cp_06_canonical_output.py::test_a_scope_the_caller_does_not_hold_yields_an_empty_graph_and_a_refusal
     sabotage: serve a coverage ratio of zero over the empty view
@@ -151,8 +151,18 @@ declaration:
     sabotage: mint the substrate once per opened product
     observed_red: null
   - id: CSCC-G23
-    statement: '`expires_at` is anchored on the freshest valuation, as declared — quarantined evidence of `D-IMPL-341`'
+    statement: '`expires_at` is anchored on the freshest valuation, as declared, and `ttl_anchor_at` records it — live since `D-IMPL-341`'
     spec_clause: {document: spec/CP-SPEC-006C_Collateral_And_Setoff_Coverage_Canonical.md, clause: G.1}
     test: tests/examples/test_cp_06_canonical_output.py::test_expires_at_is_anchored_on_the_freshest_valuation_not_the_question
-    sabotage: none — the assertion is the declared property, quarantined `xfail(strict=True)` until the SDK honors the anchor
+    sabotage: return the decision instant from `resolve_ttl_anchor` (the SDK's S1)
+    observed_red:
+      result: >-
+        RED, under its own id. S17, the SDK's S1: `resolve_ttl_anchor` returns the decision instant for an evidence-anchored class. ttl_anchor_at reads the question's instant and expires_at the question + 1 d; the two CP-14-instant refusal controls also go red because the coverage serves again, decision-anchored. Restored, cmp verified.
+      date: "2026-09-18"
+      commit: "7463be57 (the candidate the sabotage was watched on — sources identical to 4b72ea97..7463be57; this roster block lands in the commit that follows)"
+  - id: CSCC-G24
+    statement: evidence older than the declared window is refused by the expiry gate — on a facility this estate really holds, whose freshest valuation predates the appraisal-cycle window
+    spec_clause: {document: spec/CP-SPEC-006C_Collateral_And_Setoff_Coverage_Canonical.md, clause: G.1}
+    test: tests/examples/test_cp_06_canonical_output.py::test_evidence_older_than_the_declared_window_is_refused_by_the_expiry_gate
+    sabotage: return the decision instant from `resolve_ttl_anchor` (the SDK's S1), or widen the declared window past the evidence's age
     observed_red: null

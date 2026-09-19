@@ -2027,6 +2027,7 @@ def compose_children(
     own_lineage: ProductLineage,
     max_ttl: MaxTTL,
     ttl_anchor_at: datetime,
+    decided_at: datetime,
     validity_floors: ConstituentValidityFloors,
 ) -> CompositionOutcome:
     """Compose an admitted child set, or refuse, and record every requirement.
@@ -2049,12 +2050,23 @@ def compose_children(
             came back, or ``None`` for a requirement no granted skill produced.
         asked_at: The composite's single reconstruction instant. Every admitted
             child must have been admitted at exactly this instant.
-        ttl_anchor_at: The instant the composite's TTL runs from — the
-            **decision** instant, not the reconstruction one (`D-IMPL-308`).
-            Passed rather than derived so this function reads no clock and so
-            a composite and a non-composite of one class anchor identically
-            (`R6`: they did not, and two governed answers collided on one
-            content address).
+        ttl_anchor_at: The instant the composite's TTL runs from — never the
+            reconstruction one (`D-IMPL-308`). The decision instant for a
+            ``from_decision`` class; since `D-IMPL-341` the resolved evidence
+            instant for a ``from_entity_freshness`` one, which is at or before
+            the decision. Passed rather than derived so this function reads no
+            clock and so a composite and a non-composite of one class anchor
+            identically (`R6`: they did not, and two governed answers collided
+            on one content address). **Used for the expiry only.**
+        decided_at: The decision instant, and the instant `D-IMPL-31`'s mixing
+            law measures each constituent's REMAINING validity from. Separate
+            from ``ttl_anchor_at`` because the two answer different questions,
+            and the review of `D-IMPL-341` caught them sharing one argument:
+            with an evidence anchor weeks before the decision, a child's
+            remaining validity was overstated by exactly that gap and a
+            constituent breaching its declared floor at the decision instant
+            composed anyway. How long is left is a fact about NOW; how long the
+            answer is good for is a fact about its evidence.
         composition_invocation: This composition's invocation identity. Every
             admitted child must have been admitted under exactly this one.
     """
@@ -2105,9 +2117,11 @@ def compose_children(
             for child in admitted_children
         ],
         floors=validity_floors,
-        # Remaining validity is judged at the DECISION instant, for the same
-        # reason the expiry is anchored there.
-        evaluated_at=ttl_anchor_at,
+        # Remaining validity is judged at the DECISION instant — never at the
+        # evidence anchor, which for a `from_entity_freshness` class lies in
+        # the past and would report more validity remaining than there is
+        # (`D-IMPL-341` review, 2026-09-18).
+        evaluated_at=decided_at,
     )
     if mixing is not None:
         return CompositionOutcome(
@@ -2358,4 +2372,6 @@ def _row_for_admitted(
         child_question_address=candidate.invocation.question_address,
         child_replay_ref=candidate.child_replay_ref,
         child_question_ref=candidate.invocation.question_ref,
+        child_ttl_anchor=contract.ttl_anchor,
+        child_ttl_anchor_at=contract.ttl_anchor_at,
     )

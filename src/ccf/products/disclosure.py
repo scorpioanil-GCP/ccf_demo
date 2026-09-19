@@ -200,6 +200,10 @@ EXTERNAL_STATEMENTS: Final[Mapping[str, str]] = {
     "ttl-refusal": (
         "the product's declared time-to-live is outside the bound in force"
     ),
+    "ttl-anchor-refusal": (
+        "the product declares an evidence-anchored time-to-live and the"
+        " evidence it rests on carries no instant to anchor it on"
+    ),
     "composite-child-refusal": (
         "a required child Context Product did not pass admission into this"
         " composition"
@@ -324,6 +328,9 @@ PERMITTED_AT_MINIMAL: Final[Mapping[str, frozenset[str]]] = {
     # The declared ceiling is actionable — a caller can ask for a shorter TTL.
     # The product's own expiry and the deciding instant are fabric state.
     "ttl-refusal": frozenset({"max_ttl_seconds"}),
+    # `D-IMPL-341`: nothing here is actionable by the caller — the evidence
+    # instant is the producer's to carry, not the caller's to supply.
+    "ttl-anchor-refusal": frozenset(),
     # `D-IMPL-336`: the CLASS is actionable and nothing else is. A caller told
     # which child class failed can grant a producing skill, widen a version
     # lane, or ask again once the upstream product re-derives — that is a

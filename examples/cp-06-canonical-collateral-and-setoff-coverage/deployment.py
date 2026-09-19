@@ -38,7 +38,7 @@ the view does not know the size of. Nothing substitutes a zero.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from datetime import datetime, timedelta
+from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -135,12 +135,34 @@ def _pledge_ref(pledge: acquisition.Pledge) -> str:
     return f"PLEDGE~{pledge.facility_id}~{pledge.asset_id}"
 
 
+def _valuation_instant(value: str | None) -> datetime | None:
+    """A source valuation DATE as a UTC instant at midnight, or ``None``.
+
+    Widening a date to an instant is a lossless statement about when the
+    valuation is known to have held BY; narrowing the other way would invent a
+    time. ``None`` stays ``None``: an asset the source never valued carries no
+    instant, and the coverage it cannot contribute is completeness's finding.
+    """
+    if not value:
+        return None
+    return datetime.fromisoformat(value).replace(tzinfo=UTC)
+
+
 def _node(entity_ref: str, kind: str, scope: str, *, tenant_id: str,
-          at: datetime, **attributes: Any) -> SignalEnvelope:
+          at: datetime, observed: datetime | None = None, **attributes: Any) -> SignalEnvelope:
     """One node's attributes, under the fabric's own vocabulary.
 
     ATTRIBUTED, therefore LAST. See the module docstring: this claim is the one
     that must survive, and it only survives if nothing thin arrives after it.
+
+    ``observed`` is the SOURCE'S OWN instant for this node — the valuation date
+    of an asset — and becomes the claim's ``valid_from``, the clock the
+    class's ``decay_basis: valid-from`` row and the TTL anchor read
+    (`D-IMPL-341`, validation pass 2026-09-18). A node the source dates by
+    nothing carries ``None``: a facility, a pledge, a deposit balance and a
+    UCC filing contribute no evidence instant to coverage's currency, and a
+    request instant stamped in its place would anchor the expiry on the
+    question again, silently.
     """
     payload = {"node_ref": entity_ref, "entity_ref": entity_ref,
                "ref": entity_ref, KIND: kind, "borrower_scope": scope}
@@ -148,7 +170,7 @@ def _node(entity_ref: str, kind: str, scope: str, *, tenant_id: str,
     return SignalEnvelope(
         tenant_id=tenant_id, envelope_id=f"node/{kind}/{entity_ref}",
         source=SourceIdentity(system_id="collateral_graph"),
-        ingestion_timestamp=at, observed_time=at, raw_payload=payload)
+        ingestion_timestamp=at, observed_time=observed, raw_payload=payload)
 
 
 def _edge(subject: str, predicate: str, obj: str, *, tenant_id: str,
@@ -206,6 +228,8 @@ def envelopes(coverage: acquisition.Coverage, *, tenant_id: str,
     for asset_id, asset in sorted(coverage.assets.items()):
         nodes.append(_node(
             asset_id, "asset", scope, tenant_id=tenant_id, at=at,
+            # THE VALUATION DATE, as the claim's own instant (`D-IMPL-341`).
+            observed=_valuation_instant(asset.valuation_date),
             label=asset.description, category=asset.category,
             valuation=asset.valuation, valuation_date=asset.valuation_date,
             valuation_age_days=asset.valuation_age_days, haircut=asset.haircut,
@@ -263,14 +287,30 @@ def debt(view: GraphView, *, now: datetime, half_life: HalfLifeTable,
     """
     entities = list(view.entities)
     assets = [r for r in entities if r.claim.attributes.get(KIND) == "asset"]
+    # THE CLAIM'S OWN INSTANT, not an age counted back from the question
+    # (`D-IMPL-341`, validation pass 2026-09-18). The specimen aged each asset
+    # by `now - valuation_age_days`, which is the valuation date carried at
+    # the question's time of day — the source's date, read through the
+    # request's clock. The claim now carries the valuation date as its
+    # `valid_from`, and `F` and the TTL anchor read that one instant; an asset
+    # with no valuation date is not aged at all, it is unpriced, and
+    # completeness carries it.
     observations = [
         Observation(
             observation_type=DECAY_CLASS_BY_CATEGORY.get(
                 r.claim.attributes.get("category", ""), "real_property_appraisal"),
-            observed_at=now - timedelta(
-                days=int(r.claim.attributes.get("valuation_age_days") or 0)),
+            # BOTH INSTANTS, each meaning what it says: `observed_at` is when
+            # the fabric learned the claim, `valid_from` the valuation date the
+            # source put on it. The category rows declare `decay_basis:
+            # valid-from`, so the curve reads the second — stated in the
+            # Control Plane rather than achieved by loading one instant into
+            # the other field, which is how this read before the review of
+            # `D-IMPL-341` (2026-09-18) and made the declaration and the
+            # computation disagree in the reader's eye.
+            observed_at=r.claim.observed_at,
+            valid_from=r.claim.valid_from,
             subject=r.claim.entity_uri)
-        for r in assets
+        for r in assets if r.claim.valid_from is not None
     ]
     scorer = FreshnessScorer(table=half_life, risk_sensitivity=profile.risk_sensitivity)
     priced = [r for r in assets if r.claim.attributes.get("valuation")]

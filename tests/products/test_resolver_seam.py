@@ -1993,6 +1993,7 @@ DEPLOYMENT_OWNED_ARGUMENTS: tuple[str, ...] = (
     # execution ignored, which is the exact defect the composite block closes.
     "composite_children",
     "acquisition",
+    "half_life_key",
     "admission_clock",
     "plan_factory",
     "debt_scorer",
@@ -2130,6 +2131,9 @@ def _arguments(booted: _Booted) -> dict[str, Any]:
         # every deployment shipped before the seam existed was in, stated
         # rather than defaulted.
         "acquisition": None,
+        # `D-IMPL-341`: no λ_c table on this seam — every class here is
+        # decision-anchored, and an evidence-anchored one would refuse by name.
+        "half_life_key": None,
         # `D-IMPL-336` O3: pinned, so the evidence-age and skew boundaries can
         # be asserted exactly rather than approached. A deployment gets the
         # process clock from `build_governed_resolver`; this class has no

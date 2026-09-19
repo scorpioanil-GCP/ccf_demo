@@ -65,13 +65,16 @@ product_class:
   # so the anchored date MOVES and a refusal clears as filings land — rung 03's
   # whole argument against rung 02's never-advancing date (`CP-SPEC-003` §E.1.1).
   #
-  # MEASURED, AND RECORDED AS `CP03C-F-01` (see FINDINGS.md): the governed path
-  # records this declaration on the served contract and computes `expires_at`
-  # from the decision instant for every class regardless of it. The product's
-  # own invariant below (`declared_product_gate`) holds the SERVING half of the
-  # declaration — a spread whose freshest filing is outside the declared window
-  # at the asked instant is refused — and the contract's `expires_at` half is
-  # the finding, raised and not repaired here.
+  # HONORED SINCE `D-IMPL-341` (validation pass 2026-09-18; the gap was
+  # `CP03C-F-01`): the served `expires_at` is the freshest `spread_period`
+  # filing date the admitted view carries — the `spread_period` row's
+  # `valid-from` clock under `half_life:` below — plus the declared window,
+  # and the contract records that instant as `ttl_anchor_at`. Measured on the
+  # demonstration obligor at the CP-14 instant: anchor 2026-08-10, expiry
+  # 2026-09-09, the payload's `latest_filed_in_payload` the same date. An
+  # expired spread is refused by the SDK's TTL gate (`ttl-bounds`) before the
+  # product's own `declared_product_gate` runs; that gate keeps the
+  # no-obligor half and a cross-check of the payload's anchor member.
   ttl_anchor: from_entity_freshness
 
   # No LLM is reachable from any step: the whole product is three SELECTs, an
@@ -384,6 +387,26 @@ half_life:
     decay_basis: valid-from
     decay_driver: filing-cadence
     supersession_event: new-10-Q-accession
+  # THE ENTITY-CLASS ROW THE TTL ANCHOR READS (`D-IMPL-341`, validation pass
+  # 2026-09-18). `deployment.debt` scores ONE observation per `spread_period`
+  # claim, typed by the claim's `signal_class` attribute — `annual_facts` or
+  # `quarterly_facts` above, two rates in one payload — and dated by the
+  # claim's `valid_from`, the filing date. The SDK's TTL anchor reads the SAME
+  # claims and the SAME clock, but selects them BY ENTITY CLASS (the reference
+  # selection, R-1), and the supported table cannot key one class to two
+  # rates. So this row carries the class's CLOCK and no rate: `supersede-only`
+  # is the honest statement for a period entity — its figures age under the
+  # two rows above through its `signal_class`; the period itself is not aged,
+  # it is superseded by a restating filing — and `decay_basis: valid-from`
+  # names the instant the anchor takes from it. Nothing scores `F` from this
+  # row; nothing anchors from the two above. Measured 2026-09-18: the anchor
+  # equals the payload's `latest_filed_in_payload`, the newest period's own
+  # filing date (2026-08-10 for the demonstration obligor at the CP-14 instant).
+  spread_period:
+    decay: supersede-only
+    decay_basis: valid-from
+    decay_driver: filing-cadence
+    supersession_event: restating-accession-for-the-period
   # DECLARED AND NOT SCORED — carried forward from the specimen as-is and
   # recorded as `CP03C-F-03` rather than quietly wired: the specimen scored no
   # observation of this class, and adding one here would move the debt reading

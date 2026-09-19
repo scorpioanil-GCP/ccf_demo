@@ -918,6 +918,12 @@ class ChildResolution(CCFContract):
             answer, never computed from the address — so replay holds every
             row that carries one and leaves a row without one unheld BY
             NAME: a pre-342 record replays as it did.
+        child_ttl_anchor: `D-IMPL-341`. The child's declared TTL anchor
+            (``from_decision`` | ``from_entity_freshness``), from its contract.
+        child_ttl_anchor_at: `D-IMPL-341`. The instant that anchor resolved
+            to, from the child's contract — ``None`` for a child minted before
+            the member existed, in which case a consumer may state only the
+            producer's expiry and declared anchor, never an evidence age.
     """
 
     # Every optional member below is marked ``False`` — a generation boundary,
@@ -1042,6 +1048,15 @@ class ChildResolution(CCFContract):
         default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
     child_question_ref: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    # `D-IMPL-341`: the admitted child's declared anchor and the instant it
+    # resolved to, copied from the child's contract, so a consumer can print
+    # what §8 of the design permits without inferring it from `expires_at`.
+    child_ttl_anchor: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    child_ttl_anchor_at: datetime | None = Field(
         default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
 
@@ -1324,6 +1339,14 @@ class ContentGenerationPath(CCFContract):
     source_refresh_recency: SourceRefreshRecency = NO_SOURCE_REFRESH_RECENCY
     obligation_in_force: ObligationInForce = NO_OBLIGATION_IN_FORCE
     request: ProductRequest | None = None
+    # `D-IMPL-341` R-2/R-5: the instant the served product's TTL anchor
+    # resolved to, copied from the product so replay can re-derive it and hold
+    # the two equal. ``None`` on every record written before the member
+    # existed — decision-anchored by definition of the sentinel — and replay
+    # skips the anchor hold for such a record explicitly, by name.
+    ttl_anchor_at: datetime | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
     child_resolutions: tuple[ChildResolution, ...] = Field(
         default=(), json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
@@ -1962,6 +1985,7 @@ def build_replay_record(
             # declared and never written, which is why a composite could be
             # recorded with no evidence that any child was ever admitted.
             child_resolutions=child_resolutions,
+            ttl_anchor_at=product.ttl_anchor_at if product is not None else None,
             workflow_step_sequence=workflow_step_sequence
             if workflow_step_sequence is not None
             else NO_WORKFLOW_TRACE,

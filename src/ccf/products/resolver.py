@@ -204,6 +204,13 @@ from ccf.halflife.assessment import (
     NO_SOURCE_REFRESH_RECENCY,
     SourceRefreshRecency,
 )
+from ccf.products.expiry import (
+    FROM_ENTITY_FRESHNESS,
+    TTLAnchorUndeclared,
+    TTLAnchorResolution,
+    refuse_undeclared_ttl_anchor,
+    resolve_ttl_anchor,
+)
 from ccf.products.debt_scorer import (
     AssemblyDebtScorer,
     DeclaredFactor,
@@ -230,6 +237,7 @@ from ccf.products.gates import (
     DEBT_TOLERANCE_PARAMETER,
     GATE_LINEAGE_EQUALITY,
     GateRefusal,
+    TTLAnchorRefusal,
     LineageMismatchRefusal,
     ProductInvariantRefusal,
     ServableProduct,
@@ -1756,6 +1764,13 @@ class GovernedResolver:
     #: here for the class's own reason; :func:`build_governed_resolver`
     #: defaults it to ``None``.
     acquisition: AcquisitionSeamProtocol | None
+    # `D-IMPL-341`: the manifest key of this deployment's λ_c table, when it
+    # has one. Read at the mint to derive an evidence-anchored expiry from the
+    # same observations the freshness factor scores, and pinned on the record
+    # for such a serve so replay re-derives the anchor under the same table.
+    # ``None`` for a resolver wired without a table — an evidence-anchored
+    # class then refuses by name at gate 3 rather than anchoring on anything.
+    half_life_key: str | None
 
     def _decision_instant(
         self, request: ProductRequest, effective_request: ProductRequest
@@ -2319,6 +2334,24 @@ class GovernedResolver:
         # `outcomes` is the one acquisition above; content (the view the plan
         # received) and governance (the laws applied here) refer to the same
         # admitted products. Nothing is re-acquired, looked up or rebuilt.
+        # --- `D-IMPL-341`: THE TTL ANCHOR, RESOLVED ONCE FOR BOTH BRANCHES ----
+        # The decision instant for a `from_decision` class; for a
+        # `from_entity_freshness` class the freshest `valid-from` leading edge
+        # over the SAME observations the freshness factor just scored — the
+        # deployment's declared decay clock, read once more. Nothing here is
+        # minted, read off a payload, or defaulted: a set with no usable
+        # instant is gate 3's own refusal (R-3), recorded below with the
+        # child rows a composite already resolved.
+        anchor = resolve_ttl_anchor(
+            ttl_anchor=registered.ttl_anchor,
+            view=execution.view,
+            table=self._half_life_table(),
+            decided_at=decided_at,
+            product_class=registered.schema_name,
+        )
+        anchored_at = (
+            anchor.anchor_at if isinstance(anchor, TTLAnchorResolution) else decided_at
+        )
         if outcomes is not None:
             composed = compose_children(
                 own_factors=assessed.factors,
@@ -2339,7 +2372,11 @@ class GovernedResolver:
                 # identity. The anchor is the same instant on both
                 # branches now, which is what `D-IMPL-308` says it is:
                 # the TTL runs from when the answer was PRODUCED.
-                ttl_anchor_at=decided_at,
+                ttl_anchor_at=anchored_at,
+                # AND THE DECISION INSTANT, for the mixing law alone: how much
+                # validity a child has LEFT is a fact about now, not about the
+                # parent's evidence (`D-IMPL-341` review).
+                decided_at=decided_at,
                 validity_floors=registered.constituent_validity_floors,
             )
             if composed is not None and composed.factors is not None:
@@ -2375,6 +2412,40 @@ class GovernedResolver:
         child_rows: tuple[ChildResolution, ...] = (
             composed.resolutions if composed is not None else ()
         )
+        if isinstance(anchor, TTLAnchorRefusal):
+            # A POST-PROJECTION REFUSAL, and recorded as one: the plan ran, the
+            # projection produced the payload the anchor was read over, and
+            # the debt was assessed on it. The record carries that execution's
+            # evidence and the product's own lineage exactly as a gate refusal
+            # does, so `replay_refusal` can re-execute the recorded path and
+            # hold the refusal to it (`D-IMPL-344`). Measured 2026-09-18: the
+            # first candidate recorded this refusal with neither, and the
+            # reconstruction path refused the record as contradicting itself
+            # — a plan named, no evidence of it.
+            return self._record_refusal(
+                envelope=envelope_for(
+                    anchor,
+                    request=identity,
+                    pre_assembly_lineage=own_lineage,
+                    policy_bindings=effective.applied,
+                    evidence=RefusalEvidence(
+                        operators_invoked=execution.operators_invoked,
+                        plan_id=execution.plan_id,
+                        debt=assessed,
+                        computed_empty=ComputedEmptyFinding.of(
+                            execution,
+                            emptiness=emptiness_of(ExecutionEvidence.of(execution)),
+                        ),
+                    ),
+                    provenance=effective,
+                ),
+                execution=execution,
+                request=request,
+                perspective=perspective,
+                policy_bindings=self._applied_bindings(effective),
+                resolution=effective,
+                child_resolutions=child_rows,
+            )
 
         candidate = ContextProductContract(
             schema_name=registered.schema_name,
@@ -2393,9 +2464,12 @@ class GovernedResolver:
             expires_at=(
                 composed.expires_at
                 if composed is not None and composed.expires_at is not None
-                else decided_at + timedelta(seconds=self.product_ttl_seconds)
+                else anchored_at + timedelta(seconds=self.product_ttl_seconds)
             ),
             ttl_anchor=registered.ttl_anchor,
+            # `D-IMPL-341` R-2: every new product states the instant its
+            # anchor resolved to, on every class.
+            ttl_anchor_at=anchor.anchor_at,
             # `D-IMPL-336` F14: and its lineage is the N-way set-union over
             # every admitted child's, so each constituent's provenance stays
             # resolvable from the composite.
@@ -2672,6 +2746,10 @@ class GovernedResolver:
             policy_bindings=(
                 PolicyBinding(key=self.policy_bundle_key, version=policy_version),
                 *applied,
+                # `D-IMPL-341` R-5: an evidence-anchored serve pins the λ_c
+                # table it anchored under, so replay re-derives the anchor
+                # under the same declarations, never today's.
+                *self._ttl_anchor_pins(anchor),
             ),
             assembly_mode=registered.assembly_mode,
             # WHEN THE DECISION WAS TAKEN, not when the graph was read
@@ -2915,6 +2993,28 @@ class GovernedResolver:
         return None
 
     # --- reading what the manifest put in force ----------------------------
+
+    def _half_life_table(self) -> HalfLifeTable | None:
+        """The deployment's λ_c table, when the resolver was wired with one (`D-IMPL-341`)."""
+        if self.half_life_key is None:
+            return None
+        return self._artifact(self.half_life_key, HalfLifeTable)
+
+    def _ttl_anchor_pins(self, anchor: TTLAnchorResolution) -> tuple[PolicyBinding, ...]:
+        """The λ_c table pin an evidence-anchored serve records (`D-IMPL-341` R-5).
+
+        Only for ``from_entity_freshness``: a decision-anchored record needs
+        no table to re-derive its anchor, and pinning one would move the bytes
+        of every record for nothing.
+        """
+        if anchor.basis != FROM_ENTITY_FRESHNESS or self.half_life_key is None:
+            return ()
+        return (
+            PolicyBinding(
+                key=self.half_life_key,
+                version=self.fabric.pins.version_for(self.half_life_key),
+            ),
+        )
 
     def _artifact(self, key: str, expected: type[_Artifact]) -> _Artifact:
         """One parsed artifact, or a wiring refusal naming both sides.
@@ -3408,6 +3508,7 @@ def build_governed_resolver(
     half_life_key: str | None = None,
     debt_profile_key: str | None = None,
     declared_completeness: Decimal | None = None,
+    evidence_clock_key: str | None = None,
     declared_semantic_consistency: Decimal | None = None,
     debt_scorer: AssemblyDebtScorerProtocol | None = None,
     product_gate: ProductGateProtocol | None = None,
@@ -3582,6 +3683,17 @@ def build_governed_resolver(
         product_ttl_seconds: A served product's own lifetime. Two figures, and
             they stay two.
         half_life_key: Manifest key of this deployment's ``λ_c`` table.
+        evidence_clock_key: The SAME manifest key, supplied when the deployment
+            hands in its own ``debt_scorer`` (`D-IMPL-341`). A scorer and the
+            reference scorer's material are alternatives, but the resolver
+            still needs the table for something the scorer does not do: the
+            instant an evidence-anchored window runs from, and the pin that
+            instant is re-derivable under at replay. Naming it here is how a
+            supplied-scorer deployment says which table that is; the paved road
+            passes it from ``build_arguments``. Give this or ``half_life_key``,
+            never two different keys — and for a class declaring
+            ``ttl_anchor: from_entity_freshness`` at least one of them, or the
+            call is refused (R-3's first row).
         debt_profile_key: Manifest key of its ``D_c`` bands. **The one input
             here that is not only scorer material** (``24.11-03``,
             ``24.10-F-08``): the same profile binds the obligation the served
@@ -3655,6 +3767,13 @@ def build_governed_resolver(
             binding is what supplies the store and no ``artifact_store_root``
             was given, and when the fabric declares more than one binding —
             see :func:`_replay_binding_on` and :func:`_declared_member`.
+        TTLAnchorUndeclared: the class declares ``ttl_anchor:
+            from_entity_freshness`` and the clock it would need cannot exist —
+            either no λ_c table was named at all, or the named table declares
+            no ``decay_basis: valid-from`` row. Both are configuration
+            failures and both are refused here, before any question
+            (`D-IMPL-341` R-3, first row, widened by Dave's ruling of
+            2026-09-18).
         ProductNotResolvable: ``half_life_key`` or ``debt_profile_key`` names no
             artifact on the booted fabric, or names one of another class; or
             ``product_class_key`` / ``request_contract_key`` does.
@@ -3678,6 +3797,60 @@ def build_governed_resolver(
     boot_declaration = _artifact_on(
         fabric, key=product_class_key, expected=ProductClassDeclaration
     )
+    # `D-IMPL-341`: the λ_c table the resolver anchors an evidence-anchored
+    # expiry on and pins on the record. It is `half_life_key` when this call
+    # lets the helper build the reference scorer, and `evidence_clock_key` —
+    # the same manifest key, stated once more — when a supplied scorer already
+    # reads the table (the paved road), because the scorer and the resolver
+    # read it for two different things: `F`, and the instant the window runs
+    # from. Neither is a value; both name the deployment's one table.
+    if half_life_key is not None and evidence_clock_key is not None and half_life_key != evidence_clock_key:
+        raise TypeError(
+            f"this call names `half_life_key={half_life_key!r}` and"
+            f" `evidence_clock_key={evidence_clock_key!r}`; a deployment has one"
+            " λ_c table, so the two keys must agree or only one be given"
+            " (D-IMPL-341)"
+        )
+    resolver_table_key = half_life_key if half_life_key is not None else evidence_clock_key
+    # `D-IMPL-341` R-3 (first row), for a resolver wired by hand: the same
+    # registration-time refusal the config derivation makes, over the table
+    # this builder is about to anchor with.
+    #
+    # NO TABLE AT ALL IS A CONFIGURATION FAILURE, AND IT FAILS HERE (Dave's
+    # ruling of 2026-09-18, closing the review's open question). A class
+    # declaring an evidence anchor over a resolver wired with no λ_c table can
+    # never resolve one: every question it is asked would be refused at serve
+    # time for a reason that was already true at registration, and a serve-time
+    # refusal is for a class whose CONFIGURATION is sound and whose OBSERVATIONS
+    # supply no instant. The two are different failures and keep different
+    # boundaries.
+    if resolver_table_key is None and boot_declaration.ttl_anchor == FROM_ENTITY_FRESHNESS:
+        raise TTLAnchorUndeclared(
+            f"product class {boot_declaration.schema_name!r} declares"
+            " `ttl_anchor: from_entity_freshness` and this resolver is wired"
+            " with no λ_c table: neither `half_life_key` nor"
+            " `evidence_clock_key` was given, so no observation can ever supply"
+            " an evidence instant. Name the deployment's table, or declare"
+            " `ttl_anchor: from_decision` (D-IMPL-341 R-3, first row)"
+        )
+    if resolver_table_key is not None:
+        refuse_undeclared_ttl_anchor(
+            ttl_anchor=boot_declaration.ttl_anchor,
+            entries=_artifact_on(fabric, key=resolver_table_key, expected=HalfLifeTable).entries,
+            product_class=boot_declaration.schema_name,
+        )
+        # AND THE TABLE MUST BE PINNABLE, for the same reason and at the same
+        # moment (`D-IMPL-341` review, 2026-09-18). An evidence-anchored serve
+        # pins its λ_c table on dimension 2 so replay can re-derive the anchor
+        # under the declarations that were in force; a table the manifest
+        # declares `role: load` is parsed and returned but never registered
+        # (`D-IMPL-80`), so `version_for` raises for it. Read only here, that
+        # raise landed AFTER the question was admitted, the anchor resolved and
+        # the gates passed — an exception where a governed refusal belongs, and
+        # a record that could never be written. Asking at registration turns a
+        # deployment that cannot record what it anchors on into a boot failure.
+        if boot_declaration.ttl_anchor == FROM_ENTITY_FRESHNESS:
+            fabric.pins.version_for(resolver_table_key)
     refuse_undeclared_class_default(
         schema_name=boot_declaration.schema_name,
         schema_version=boot_declaration.schema_version,
@@ -3920,6 +4093,7 @@ def build_governed_resolver(
             composite_children=composite_children,
             admission_clock=admission_clock,
             acquisition=acquisition,
+            half_life_key=resolver_table_key,
         )
 
     if (
@@ -3975,4 +4149,5 @@ def build_governed_resolver(
         composite_children=composite_children,
         admission_clock=admission_clock,
         acquisition=acquisition,
+        half_life_key=resolver_table_key,
     )

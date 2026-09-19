@@ -343,44 +343,64 @@ def test_the_declared_window_is_held_by_the_products_own_gate(
     served: Any, estate: str, example_modules: tuple[Any, Any, Any]
 ) -> None:
     """A spread whose freshest filing plus the declared window is not after the
-    asked instant is REFUSED by the declared product gate, as a governed
-    refusal naming the gate; the served one's anchor is inside the window.
-    `STALE_AT_THE_INSTANT` is an obligor the estate shows filed before the
-    window at the CP-14 instant; the refusal clears when it files again.
+    asked instant is REFUSED as a governed refusal; the served one's anchor is
+    inside the window. `STALE_AT_THE_INSTANT` is an obligor the estate shows
+    filed before the window at the CP-14 instant; the refusal clears when it
+    files again.
+
+    **Precedence, since `D-IMPL-341` (validation pass 2026-09-18).** The SDK
+    anchors `expires_at` on the same filing and its own TTL gate runs BEFORE
+    the product's declared gate, so on the real path the stale spread is
+    refused `ttl-refusal` / `ttl-bounds` and never reaches this product's
+    predicate. Before 341 the same obligor was refused
+    `product-invariant-refusal` naming `cp-03-canonical.spread-freshness-window`
+    — the historical measurement, kept here as the record of what moved. The
+    predicate's original property is held directly, on a candidate whose
+    payload anchor sits outside the window the contract carries: it still
+    names the window.
 
     Declared product gate `OFC-G06` (`CP-SPEC-003C` §G.1).
     """
+    deployment, _, _ = example_modules
     window = timedelta(seconds=int(_config()["ttl"]["product_ttl_seconds"]))
     anchor = datetime.fromisoformat(served.product.payload["latest_filed_in_payload"]).replace(tzinfo=UTC)
     assert CP14_INSTANT < anchor + window
+    assert deployment.freshness_window_gate(candidate=served.product) is None
+    # (1) The real path: the SDK's TTL gate, first — never the product's own.
     stale = _ask(example_modules, lei=_demonstration("STALE_AT_THE_INSTANT"))
     assert _is_refusal(stale)
-    assert stale.reason == _config()["product_class"]["declared_product_gate"]["gate_id"]
-    assert stale.kind == "product-invariant-refusal"
+    assert (stale.kind, stale.reason) == ("ttl-refusal", "ttl-bounds"), (stale.kind, stale.reason)
+    assert stale.reason != _config()["product_class"]["declared_product_gate"]["gate_id"]
+    # (2) The predicate itself, on a served-shaped candidate whose payload anchor
+    #     is a month older than the contract's: the window half still holds.
+    outside = (anchor - timedelta(days=31)).date().isoformat()
+    candidate = served.product.model_copy(update={"payload": {**served.product.payload, "latest_filed_in_payload": outside}})
+    verdict = deployment.freshness_window_gate(candidate=candidate)
+    assert verdict is not None and verdict.startswith("outside the declared window") and f"plus {window.days} days" in verdict, verdict
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "CP03C-F-01: the governed path anchors the served contract's expires_at at"
-        " the decision instant for every class; the declared ttl_anchor"
-        " from_entity_freshness is recorded on the contract and not computed."
-        " Turns red (XPASS) the day the SDK honors the declaration."
-    ),
-)
 def test_expires_at_is_anchored_on_the_filing_not_the_question(
     served: Any, example_modules: tuple[Any, Any, Any]
 ) -> None:
     """The declaration says the expiry runs from the freshest filing in the
-    payload. Measured: the governed path runs it from `asked_at`. This test
-    asserts the DECLARATION and is quarantined as evidence of the gap.
+    payload, and since `D-IMPL-341` (validation pass 2026-09-18) the governed
+    path computes exactly that: `ttl_anchor_at` is the payload's own anchor
+    member as an instant, `expires_at` is that plus the declared window, and
+    the record's dimension 5 carries the same instant. Measured on the
+    demonstration obligor at the CP-14 instant: anchor `2026-08-10T00:00Z`,
+    expiry `2026-09-09T00:00Z` — not `asked_at + 30 d` = `2026-10-07T12:00Z`,
+    which is what this test recorded as `CP03C-F-01` while it was quarantined
+    `xfail(strict=True)`.
 
     Declared product gate `OFC-G07` (`CP-SPEC-003C` §G.1).
     """
     window = timedelta(seconds=int(_config()["ttl"]["product_ttl_seconds"]))
     anchor = datetime.fromisoformat(served.product.payload["latest_filed_in_payload"]).replace(tzinfo=UTC)
     assert served.product.ttl_anchor == "from_entity_freshness"
+    assert served.product.ttl_anchor_at == anchor
     assert served.product.expires_at == anchor + window
+    assert served.product.expires_at != CP14_INSTANT + window, "the expiry is running from the question again"
+    assert served.record.content_generation_path.ttl_anchor_at == anchor
 
 
 # --- entitlement: suppression is indistinguishable from absence ---------------

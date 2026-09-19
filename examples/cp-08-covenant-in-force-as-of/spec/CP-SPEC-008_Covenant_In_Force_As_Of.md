@@ -182,7 +182,7 @@ Out of scope, and stated before the contract so the boundary is visible:
 | 5 | **Lineage** | both legs, plus `as_of`, `known_as_of`, and the ledger transaction point the read was bounded at |
 | 6 | **Policy** | the breach-threshold register version effective at `as_of` |
 | 7 | **Debt** | the platform's reference assessment — this product declares no metric of its own (§E.2) |
-| 8 | **TTL** | anchored on the latest assertion among the served set (§E.3) |
+| 8 | **TTL** | anchored on the latest assertion in the SCORED observation set (§E.3, corrected 2026-09-18) |
 | 9 | **Determinism** | class 1, pure algorithmic — no model call anywhere in §D |
 
 ### B.2 Request parameter surface — bitemporal
@@ -422,7 +422,24 @@ population.
 ### E.3 Materialization and TTL
 
 Derived per request; never materialized. **TTL is anchored on the latest
-assertion among the served set, never on request time.**
+assertion in the SCORED OBSERVATION SET — the same selected set the freshness
+factor is scored over — never on request time.**
+
+**Corrected 2026-09-18 (Dave's ruling under `D-IMPL-341`).** This clause read
+"among the SERVED set", and the mechanism does not read the served set: the
+anchor comes from the same selected observations the freshness factor scores,
+before the projection decides what to display. Deriving an expiry from the
+finished payload would be a second selection algorithm reading a rendered
+answer, which is exactly what the ruling forbids; the correction is to this
+sentence, not to the code.
+
+The difference is visible on a closed question and is a real consequence rather
+than a rounding of words. Asked with `as_of` and `known_as_of` at the drawdown,
+this product serves `AMD-01BB3F-1` alone and excludes `AMD-01BB3F-2` on the
+assertion-time axis — yet `-2` is in the scored set, so the anchor is `-2`'s
+booking date. **What the anchor identifies is the freshness of the evidence
+this answer was selected from; it does not claim that every amendment shown was
+refreshed at that instant, and it does not claim the excluded one was served.**
 
 Two regimes follow from the two clocks, and they are a genuine consequence of
 ledger-backed temporality rather than a convenience:

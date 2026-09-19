@@ -57,7 +57,7 @@ from ccf.halflife.assessment import DebtFactors
 from ccf.halflife.debt import compose_debt_factors, context_debt
 from ccf.products.request import ProductRequest
 from ccf.replay.engine import retained_child_question
-from ccf.replay.record import NO_FABRIC_READ, DecisionReplayRecord
+from ccf.replay.record import NO_FABRIC_READ, NO_PRODUCT_ADDRESS, DecisionReplayRecord
 from ccf.replay.serve import ServedProduct
 from tests.examples.test_cp_03_canonical_cross_deployment import DEV_TOKEN, producer as spread_producer
 from tests.examples.test_cp_14_first_slice import BGC, BGC_FACILITY, CHILD_CLASSES, CP14_INSTANT, EXAMPLE, modules  # noqa: F401
@@ -258,6 +258,7 @@ def test_the_governed_question_withholds_where_producers_withhold_and_refuses_th
         assert row.child_question_ref is not None, product_class
         assert content_hash(retained_child_question(store=fresh, row=row)) == row.child_question_address, product_class
     assert "tolerance-exceeded" not in outcome.detail, "the disclosed envelope stays minimal (CMC-G26)"
+    assert record.content_generation_path.product_content_address == NO_PRODUCT_ADDRESS, "a refused composite recorded a product address"
     for product_class, row in rows.items():
         assert (row.producer_id, row.producer_tenant) == PRODUCERS[product_class], (product_class, row.producer_id, row.producer_tenant)
 
@@ -285,6 +286,7 @@ def test_the_diagnostic_admits_every_child_that_serves_and_the_composite_outcome
     sections = outcome.product.payload["sections"]
     assert sorted(sections) == sorted(CHILD_CLASSES)
     assert sections[COLLATERAL]["summary"]["facility"] == BGC_FACILITY
+
 
 
 def test_acquisition_and_composition_use_the_same_admitted_child_contracts(both: dict[str, Any]) -> None:
@@ -606,11 +608,14 @@ class _MemoReplayEnvironment:
         return ContextProductContract(
             schema_name=CONFIG["product_class"]["schema_name"], schema_version=CONFIG["product_class"]["schema_version"],
             plan_id=projection.plan_id, tenant_id=record.tenant_id, temporal_boundary=snapshot.temporal_boundary,
+            # `D-IMPL-341`: the composite's own term runs from the anchor the record
+            # carries (its decision instant, for this `from_decision` class); the floor
+            # over the children is composed exactly as it was.
             expires_at=compose_expiry(
                 constituent_validities=[r.child_expires_at for r in rows if r.child_expires_at],
-                max_ttl=MaxTTL(seconds=int(CONFIG["ttl"]["max_ttl_seconds"])), ttl_anchor_at=record.recorded_at,
+                max_ttl=MaxTTL(seconds=int(CONFIG["ttl"]["max_ttl_seconds"])), ttl_anchor_at=path.ttl_anchor_at or record.recorded_at,
             ),
-            ttl_anchor=CONFIG["product_class"]["ttl_anchor"], lineage=lineage, payload=projection.payload,
+            ttl_anchor=CONFIG["product_class"]["ttl_anchor"], ttl_anchor_at=path.ttl_anchor_at, lineage=lineage, payload=projection.payload,
             debt=path.debt, debt_evidence=path.debt_evidence, source_refresh_recency=path.source_refresh_recency,
             obligation_in_force=path.obligation_in_force,
         )

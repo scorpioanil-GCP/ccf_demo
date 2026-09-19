@@ -23,8 +23,9 @@ vocabulary is the gap ledger's, and the meaning is exactly this:
   that CP-14 will serve every request: the spread can be delivered at
   tolerance `1.0` and is withheld at `0.25`. Producer availability and
   acceptability for a particular memo are different questions.
-* `CP03C-F-01` stays **OPEN — SDK**. `CP03C-F-04`, `F-05`, `F-06` and `F-07`
-  are carried forward, not fixed here.
+* `CP03C-F-01` stayed **OPEN — SDK** at that ruling and is **FIXED-`D-IMPL-341`**
+  since the validation pass of 2026-09-18 (§ below). `CP03C-F-04`, `F-05`,
+  `F-06` and `F-07` are carried forward, not fixed here.
 * `examples/cp-03-canonical-obligor-financial-spread` is confirmed on
   `RULED_SDK_SUPPLIED_DEPLOYMENTS` by the same ruling.
 
@@ -32,9 +33,47 @@ vocabulary is the gap ledger's, and the meaning is exactly this:
 
 ## `CP03C-F-01` — the governed path records `from_entity_freshness` and computes `from_decision`
 
-**Status: OPEN — SDK. Raised, not repaired. The serving half of the declaration
-is held by this product's own declared gate; the expiry half is quarantined as
-`OFC-G07` (`xfail(strict=True)`) and turns red the day the SDK honors it.**
+**Status: FIXED-`D-IMPL-341` (validation pass 2026-09-18).** The governed path
+now anchors `expires_at` on the freshest `spread_period` filing in the admitted
+view and records the instant as `ttl_anchor_at`; `OFC-G07` is a live gate,
+`OFC-G06` asserts the SDK's TTL gate runs first. Three things this tree had to
+change to get there, each recorded because `D-IMPL-341`'s design assumed this
+producer needed **no migration** and was wrong on all three:
+
+1. **A clock row keyed by the entity class.** `deployment.debt` types the
+   `spread_period` claims by their `signal_class` attribute onto the
+   `annual_facts` / `quarterly_facts` rows for the RATE; the SDK's anchor reads
+   the same claims and the same `valid_from` but selects them BY ENTITY CLASS
+   (R-1), and the supported table cannot key one class to two rates. The
+   `spread_period` row added to `half_life:` carries the class's clock
+   (`decay_basis: valid-from`, `supersede-only`) and no rate; the mapping is
+   written beside it. Measured: the served anchor equals the payload's
+   `latest_filed_in_payload` (`2026-08-10` on the demonstration obligor at the
+   CP-14 instant), so anchor and freshness read one set of observations by one
+   clock. Until the row existed the serve was refused
+   `ttl-anchor-unresolvable` (the first measurement of the candidate).
+2. **The product's own gate inferred its window from the expiry.**
+   `freshness_window_gate` read `expires_at - temporal_boundary` as "the
+   declared window", which held only while the expiry ran from the decision
+   instant; with the anchor honored it read the 30-day window as 1 day and
+   refused a spread inside it. It now reads `expires_at - ttl_anchor_at`.
+3. **Precedence.** The SDK's TTL gate runs before the product's declared gate
+   (R-3), so the stale obligor is refused `ttl-refusal` / `ttl-bounds`, never
+   `product-invariant-refusal` naming this gate — and an empty view (absent or
+   suppressed obligor) is refused `ttl-anchor-refusal` /
+   `ttl-anchor-unresolvable` before `NO_OBLIGOR` can speak. `OFC-G08`'s
+   indistinguishability holds: the two refusals are byte-identical. The gate's
+   window half is held directly on a candidate (`OFC-G06`).
+
+The served product's content address moved with the contract (`ttl_anchor_at`
+and the corrected `expires_at` are identity), and `CP-14`'s pinned spread
+address was re-pinned from verified output. What follows is the original
+finding as raised.
+
+**Status as raised: OPEN — SDK. Raised, not repaired. The serving half of the
+declaration is held by this product's own declared gate; the expiry half is
+quarantined as `OFC-G07` (`xfail(strict=True)`) and turns red the day the SDK
+honors it.**
 
 ### What was measured
 
@@ -260,12 +299,14 @@ twenty-three RED; the tree was clean after every run.
 | S21 | `OFC-G04` | stamp one accession over every line | **RED** (2 red) |
 | S22 | `OFC-G01` | put a per-run nonce in the payload | **RED** (2 red) |
 | S23 | `OFC-G17` | import the producer's assembler into the consumer process | **RED** (1 red) |
+| S24 | `OFC-G06`, `OFC-G07` | the SDK's S1 — `resolve_ttl_anchor` returns the decision instant for an evidence-anchored class (2026-09-18, `D-IMPL-341` validation pass) | **RED** (2 red: G07's anchor and expiry, G06's precedence limb — the stale obligor is no longer refused `ttl-bounds`) |
 
 **Not constructible without an SDK edit, and recorded rather than faked:**
-`OFC-G07` (the SDK computes the decision-instant anchor; the gate is the
-`CP03C-F-01` evidence and goes red when the SDK honors the declaration) and
 `OFC-G22` (synthesizing a child when the producer is unreachable would be an
 SDK-side forgery; the gate holds the SDK's own `producer-unavailable` path).
+`OFC-G07` was in this list while the SDK computed the decision-instant anchor;
+since `D-IMPL-341` its sabotage is the SDK's own S1 (return the decision
+instant from `resolve_ttl_anchor`), run in the 341 validation pass.
 
 Two verdicts are red for a coarser reason than the gate's claim: S14 and S16
 broke the serve itself, so the served fixture errored and the gate's specific

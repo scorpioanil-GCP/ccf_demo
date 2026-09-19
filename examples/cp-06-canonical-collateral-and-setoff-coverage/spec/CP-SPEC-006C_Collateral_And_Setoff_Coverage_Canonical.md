@@ -131,14 +131,25 @@ Measured through the frozen specimen at the CP-14 instant
 | set-off excluded as unenforceable | 4 accounts | 3 accounts |
 | freshest valuation, and its age as the estate records it | 2025-12-20 — `valuation_age_days` 240 | 2026-08-15 — `valuation_age_days` 2 |
 | `D_c` / signal | **0.3660 / `ok`** | 0.3769 / `ok` |
-| payload content address (§D.4's baseline) | `d22b256e…` | `8e3e567b…` |
+| payload content address (§D.4's baseline) | `d22b256eb343768f185ebbe09eed1949a44226cc1ffccc924550dbbc6f29a45c` | `8e3e567b194b1aad69bd08da53996dc89bbc4d3f9b335da119147c102d2ebe63` |
+
+**Written out in full on 2026-09-18** (`D-IMPL-341`'s review): the table
+carried eight-character prefixes, and the frozen specimen can no longer answer
+— it declares the same anchor over a resolver wired with no λ_c table, which
+the builder refuses as a configuration failure before any question proceeds —
+so those prefixes became the only record of the lane. The successor was
+measured against them at the CP-14 instant and matches to all sixty-four
+characters. `CSCC-G13` is therefore a SNAPSHOT comparison: it goes
+red on estate drift, and the answer then is to re-measure the evidence, never
+to re-pin it to whatever the successor happens to serve.
 
 **The memo's facility is covered five times over, and 96 % of that cover is
 deposit set-off, not collateral.** A reader who takes the ratio at its face
 misses that the collateral leg alone covers 23 % of the commitment and rests
-on one receivables valuation dated 2025-12-20, which the estate ages at 240 days. The payload carries both
-legs separately and dates the valuation; nothing here was tuned to change
-that.
+on one receivables valuation dated 2025-12-20 — a figure the estate stores as
+240 days old and which the successor ages from the date itself (`CP06C-F-04`).
+The payload carries both legs separately and dates the valuation; nothing here
+was tuned to change that.
 
 ### A.3 A refusal is an answer
 
@@ -156,7 +167,7 @@ not hold. Nothing raises for a question that merely has no answer.
 | subject | the facility id, as `ProductRequest.subject` — the CP-14 question names the facility as the child's subject (`CP14-F-20`) |
 | intent | `lgd-assessment` — declared on `discovery.intents`; judged, never an argument |
 | freshness | `as-filed` (what `CP-SPEC-014` asks the collateral child at); `standard` retained for the specimen's own callers |
-| TTL | 24 hours ceiling, product window one day (the deposit-balance half-life), **declared** `from_entity_freshness`; **served** `expires_at` runs from the decision instant — the specimen measures `instant + 24 h` at §A.2 — which is `D-IMPL-341`'s open gap, inherited and disclosed, not repaired |
+| TTL | **declared** `from_entity_freshness`; **served** `expires_at` runs from the freshest asset valuation date in the admitted view and the contract records it as `ttl_anchor_at` (since `D-IMPL-341`). Ceiling and window are both the **appraisal cycle** — `half_life.real_property_appraisal`, the valuation cadence governing 74 of this estate's 95 pledged assets — recalibrated 2026-09-18 from the 24-hour ceiling and one-day deposit-balance window this row previously carried, which named a cadence the anchor cannot read (`CP06C-F-05`, ruled). **Illustrative calibration** (`D-IMPL-323`). It does NOT establish that the undated deposit balances are fresh, and does NOT claim every asset was revalued within the window: per-asset valuation dates and ages stay in the payload, and `F` ages a marketable security under its own one-day cadence |
 | assembly mode | 1 — algorithmic |
 | operators | `policy.principal-subgraph` then `traversal.typed-neighborhood`, exactly two, policy before traversal |
 | lineage | graph-supplied; every asset carries `provenance`, `valuation_date`, `lien_position`; every filing its number, dates and status |
@@ -248,8 +259,9 @@ dimension 2 carries the request contract and the policy bundle.
 defaults, is hashed and compared with the specimen's payload addresses in
 §A.2 (`d22b256e…`, `8e3e567b…`). The comparison is on the **payload**, not
 the whole contract: the contract carries `tenant_id` and `plan_id`, which a
-sibling under its own tenant cannot share, and the expiry, which
-`D-IMPL-341` anchors on the instant either way. If both payloads match, the
+sibling under its own tenant cannot share, and the expiry, which the
+specimen anchored on the instant and the successor, since `D-IMPL-341`, on
+the valuation. If both payloads match, the
 successor serves `1.0.0` — a second producer of the same product. If either
 differs, the successor serves `1.1.0`, and §G.3 states every differing member
 and why. **No payload member is adjusted to make the match.** The gate that
@@ -259,10 +271,31 @@ holds this is `CSCC-G13`.
 
 Two decay rates in one payload: marketable-securities marks and deposit
 balances at ~1 day; real-property appraisals and lien structure at ~365 days;
-the haircut schedule at ~180 days. For the CP-14 facility the measured `D_c`
-is 0.3660 with `C = 1` (the one pledged asset is priced) and `S = 1`, so `F`
-is 0.634 by derivation — one receivables valuation aged 240 days by the estate's
-own `valuation_age_days`, decayed from the instant under its declared class; the
+the haircut schedule at ~180 days. **The product's own TTL window is the
+appraisal cycle, and it is an illustrative calibration** (`D-IMPL-323`, ruled
+2026-09-18 — see the TTL row in §B and `FINDINGS.md` `CP06C-F-05`):
+
+> **Illustrative calibration:** This example runs against a point-in-time
+> demonstration estate rather than continuously refreshed production data.
+> Freshness half-lives and related thresholds are calibrated to make the
+> governed behavior observable in that snapshot. They demonstrate how the SDK
+> applies these controls and should not be interpreted as recommended
+> production coverage-policy thresholds.
+
+It states how long a coverage answer stays current after a VALUATION, which is
+what the expiry is anchored on. It is not a claim about the deposit balances:
+this estate dates them by nothing at all, so they contribute no instant to the
+anchor and the set-off leg's currency is unestablished — which is why coverage
+is served with collateral value, set-off value and total kept apart.
+
+**Measured for the CP-14 facility, both readings kept.** At the specimen's
+reading `D_c` is 0.3660 with `C = 1` (the one pledged asset is priced) and
+`S = 1`, so `F` is 0.634 by derivation — one receivables valuation aged 240 days
+by the estate's own `valuation_age_days`. Since `D-IMPL-341` (`CP06C-F-04`) the
+successor ages that asset from the valuation date the claim carries rather than
+from the stored count, which at the CP-14 instant is 261 days rather than 240:
+`F` 0.6086, `D_c` 0.3914, `C` and `S` unchanged. The older figure is the
+specimen's and is kept because the lane comparison rests on it; the
 coverage ratio would read the same with the valuation a day old, which is why
 the payload dates it.
 Derived on demand; structure cacheable, valuations not.
@@ -282,7 +315,8 @@ are `fibo-v2` and `ccf_v2`; `ccf_dataprep/.env` names v1. Read-only. No
 
 Raised in the tree's `FINDINGS.md` under `docs/EXAMPLE-EVALUATION-CRITERIA.md`.
 Two are known before the build: `D-IMPL-341` (the expiry anchor) is inherited
-and disclosed; and whether the road's refusal to pass acquisition values to Π
+and disclosed (closed 2026-09-18; the migration it took and its consequence
+for the demonstration are `CP06C-F-04` / `CP06C-F-05`); and whether the road's refusal to pass acquisition values to Π
 is friction or the correct shape is recorded as a measurement (`§E` of the
 criteria) — this specification's position is that it is the correct shape.
 
@@ -320,7 +354,8 @@ properties under the successor's ids; the twelfth replaces the specimen's
 | `CSCC-G20` | a scope the caller does not hold yields an empty graph and a refusal, never a redacted payload |
 | `CSCC-G21` | the door and the in-process run serve **one** content address |
 | `CSCC-G22` | a fresh fabric per run; two facilities under one root hash to their own addresses |
-| `CSCC-G23` | `expires_at` is anchored on the freshest valuation, as declared — **quarantined evidence of `D-IMPL-341`** |
+| `CSCC-G23` | `expires_at` is anchored on the freshest valuation, as declared, and `ttl_anchor_at` records it — live since `D-IMPL-341` (was quarantined evidence) |
+| `CSCC-G24` | evidence older than the declared window is refused by the expiry gate, on a facility this estate really holds — the calibration's own negative control (2026-09-18) |
 
 **All directional, structural or relational. No estate figure is pinned in a
 gate** — the counts in §A.2 and §E are measurements a reader can reproduce.
@@ -345,7 +380,12 @@ gate** — the counts in §A.2 and §E are measurements a reader can reproduce.
 (`CSCC-G13`): full canonical payload hashes equal, field-level comparison empty,
 debt factors equal (`F` 0.6340 / 0.6231, `C` 1, `S` 1), expiry equal (decision
 instant + 24 h on both — `D-IMPL-341`, inherited), `operators_invoked` equal.
-The lane is therefore **`1.0.0`**.
+The lane is therefore **`1.0.0`**. Since `D-IMPL-341` (2026-09-18) the lane is
+held to those recorded payload addresses rather than to a live specimen: the
+frozen specimen declares the same anchor over a resolver wired with no λ_c
+table, which the builder refuses as a configuration failure before any question
+proceeds, and the successor's `F` and expiry now run from the valuation date
+(`CSCC-G13`).
 
 **What differs, by construction and by design — none of it in the payload:**
 
@@ -356,7 +396,7 @@ The lane is therefore **`1.0.0`**.
 | `lineage.policy_bundle_versions` | the specimen's policy artifact hash | the successor's | the class id on the policy document differs; the regime and rules do not |
 | replay dimension 1 | facility node without `commitment` | facility node **with** `commitment` | the commitment is fabric state (`CSCC-G14`); the snapshot id differs accordingly |
 | an unknown `intent` | served | **refused** on `discovery.intents` (`CSCC-G19`) | a governed axis the specimen left open — deliberate |
-| a scope the caller does not hold | served: `assets: []`, `coverage_ratio: 0` over the empty view | **refused** by the product's own gate, `no facility commitment in the admitted view` (`CSCC-G20`) | an empty graph is not a coverage of zero — deliberate; the specimen's zero reads as an uncovered facility |
+| a scope the caller does not hold | served: `assets: []`, `coverage_ratio: 0` over the empty view | **refused** — since `D-IMPL-341` by the SDK's own anchor gate (`ttl-anchor-refusal` / `ttl-anchor-unresolvable`: an empty view carries no evidence instant), which runs before the product's gate; the product's `no facility commitment in the admitted view` half is held directly on the candidate (`CSCC-G20`) | an empty graph is not a coverage of zero — deliberate; the specimen's zero reads as an uncovered facility |
 | the door | 150 lines and a `door.yaml` naming a `module:callable` (`CSC-G12`) | a 27-line launcher over the SDK's standard door (`CSCC-G12`) | `D-IMPL-343` |
 | documents | four (`ccf_config`, `backends`, `server/door`, gates) | two (`ccf_config`, `ccf_environment`) | one authority per value |
 

@@ -891,7 +891,10 @@ class _FreshEnvironment:
         return ContextProductContract(
             schema_name=CONFIG["product_class"]["schema_name"], schema_version=CONFIG["product_class"]["schema_version"],
             plan_id=projection.plan_id, tenant_id=record.tenant_id, temporal_boundary=snapshot.temporal_boundary,
-            expires_at=snapshot.temporal_boundary + timedelta(seconds=self._ttl), ttl_anchor=CONFIG["product_class"]["ttl_anchor"],
+            # `D-IMPL-341`: the anchor instant comes off the RECORD (dimension 5), never
+            # recomputed; a record without one is the pre-341, decision-anchored shape.
+            expires_at=(path.ttl_anchor_at or snapshot.temporal_boundary) + timedelta(seconds=self._ttl),
+            ttl_anchor=CONFIG["product_class"]["ttl_anchor"], ttl_anchor_at=path.ttl_anchor_at,
             lineage=ProductLineage(operators_invoked=frozenset(path.operator_plan), policy_bundle_versions=policy_versions, graph_snapshot_at=snapshot.temporal_boundary),
             payload=projection.payload, debt=path.debt, debt_evidence=path.debt_evidence,
             source_refresh_recency=path.source_refresh_recency, obligation_in_force=path.obligation_in_force,

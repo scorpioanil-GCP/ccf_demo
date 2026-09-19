@@ -110,13 +110,23 @@ facility FAC-01BB3F
   D_c 0  signal ok   — the platform's reference assessment; this product declares none
 ```
 
-**`D_c` is 0 on every answer, and that is stated rather than dressed up.** This
-product declares no Context Debt metric of its own: every facility amendment in
-this estate carries both clocks, so there is no shortfall of that kind to
-report, and every observation is minted from a live read inside the run, so
-freshness is 1 by construction. An earlier draft computed a per-run ratio that
-read the same on every answer; it was withdrawn rather than kept as decoration.
-`spec/MEASUREMENT-NOTE.md` §2 carries the measurement.
+**`D_c` moves with the booking clock, and the expiry runs from it** (since
+`D-IMPL-341`, validation pass 2026-09-18). This product declares no Context Debt
+metric of its own: every facility amendment in this estate carries both clocks,
+so there is no shortfall of that kind to report. Each amendment claim now
+carries its booking date as its own instant, so the reference freshness curve
+ages it from when the ledger booked it — 0.94 on the demonstration facility's
+booking day, 0.83 at the end of the 180-day window — where before 341 every
+observation was dated by the run that ingested it and freshness read 1 by
+construction. The served `expires_at` is the freshest booking plus that window,
+never the question: the demonstration facility's freshest booking is
+`2025-10-05`, so a question asked after `2026-04-03` is refused `ttl-bounds`
+until the ledger books a newer amendment. That refusal is the product's correct
+answer on a snapshot estate, and the tests ask on the booking day itself as the
+positive control. An earlier draft computed a per-run ratio that read the same
+on every answer; it was withdrawn rather than kept as decoration.
+`spec/MEASUREMENT-NOTE.md` §2 carries the first measurement; `FINDINGS.md`
+`CP08-F-05` the second.
 
 ---
 

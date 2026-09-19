@@ -111,6 +111,8 @@ from ccf.products.gates import (
     ToleranceExceededRefusal,
     DependencyInvalidationRefusal,
     TTLRefusal,
+    GATE_TTL_ANCHOR,
+    TTLAnchorRefusal,
 )
 from ccf.products.payload import PayloadSchemaViolation
 from ccf.products.provenance import ProvenanceSource
@@ -431,6 +433,29 @@ def test_envelope_for_ttl_refusal(request_identity: RequestIdentity) -> None:
     assert envelope.fields["expires_at"] == '"2026-08-16T12:00:00.000000Z"'
     assert envelope.fields["now"] == '"2026-08-15T12:00:00.000000Z"'
     assert envelope.fields["max_ttl_seconds"] == "3600"
+
+
+def test_envelope_for_ttl_anchor_refusal(request_identity: RequestIdentity) -> None:
+    """Gate 3's second reason (`D-IMPL-341` R-3): no evidence instant to anchor on.
+    Distinct from `ttl-refusal` by kind, so a caller can tell "the window has
+    passed" from "there was nothing to run a window from"; the declaration,
+    the instant, the rows that could have contributed and the types actually
+    seen all cross intact."""
+    refusal = TTLAnchorRefusal(
+        gate=GATE_TTL_ANCHOR,
+        detail="no observation carried a valid_from instant on a valid-from row",
+        ttl_anchor="from_entity_freshness",
+        now=_INSTANT,
+        valid_from_rows=("filing",),
+        observation_types=("filing", "obligor"),
+    )
+    envelope = envelope_for(refusal, request=request_identity)
+    assert envelope.kind == REFUSAL_KINDS[TTLAnchorRefusal] == "ttl-anchor-refusal"
+    assert envelope.kind != REFUSAL_KINDS[TTLRefusal]
+    assert envelope.reason == GATE_TTL_ANCHOR == "ttl-anchor-unresolvable"
+    assert set(envelope.fields) == {"ttl_anchor", "now", "valid_from_rows", "observation_types"}
+    assert envelope.fields["now"] == '"2026-08-15T12:00:00.000000Z"'
+    assert envelope.fields["valid_from_rows"] == '["filing"]'
 
 
 def test_envelope_for_declared_obligation_refusal(
