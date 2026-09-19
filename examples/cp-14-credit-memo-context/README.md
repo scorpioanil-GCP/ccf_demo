@@ -90,13 +90,15 @@ admitted family and collateral contracts by address and by bytes.
 
 ### 2. The diagnostic serves, and says what it is
 
-**Measured 2026-09-15 and preserved as the historical result.** Since
-`D-IMPL-341` (2026-09-18) the collateral producer refuses this facility's
-question — its valuation is older than the window it now anchors on — so the
-required slot is `ineligible` and the memo refuses at the diagnostic tolerance
-too. The section below is what the memo served before that, and what it will
-serve again once the collateral class's calibration is ruled (`CP14-F-40`,
-cp-06-canonical `CP06C-F-05`). Nothing in it was tuned away.
+**Measured 2026-09-15 and re-measured 2026-09-18.** `D-IMPL-341` made every
+child's expiry run from its own evidence rather than from the question, so the
+figures below are unchanged in kind while the expiries the memo inherits now
+carry each producer's evidence instant — the spread's freshest filing, the
+collateral's freshest valuation. Between those two dates the collateral child
+was briefly refused for an expired valuation, and the ten proofs that depend on
+a served memo were quarantined rather than weakened until Dave ruled the
+producer's calibration (`CP14-F-40`). They are live again, on their original
+assertions.
 
 At 1.0 the memo serves five sections read off five admitted payloads by name — the
 spread's periods, the family's entities and circuits, the exposure's regime and

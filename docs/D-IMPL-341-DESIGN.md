@@ -479,7 +479,9 @@ failures, identical to the baseline by node id: `tests/deployment/test_class_loo
 test_the_phases_fragments_claim_exactly_what_was_added`; the four surface suites; the
 invariants citation ratchet; the http_api eight; the peering one.
 
-**(d) Two consequences that are rulings, not this pass's calls.**
+**(d) Two consequences that are rulings, not this pass's calls.** *(Both were ruled on
+2026-09-18 and the record of what was measured HERE is left as it stood; §12.8 carries the
+rulings and what changed.)*
 1. **cp-06-canonical's window and anchor name different evidence** (`CP06C-F-05`). The
    product window is one day, the deposit-balance half-life; the anchor can only read the
    valuation date, the one dated evidence (`ccf_v2.deposit_account` carries no as-of column).
