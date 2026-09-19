@@ -112,13 +112,18 @@ def test_the_real_repo_tree_passes_the_gate() -> None:
 
 
 def test_the_registered_rule_set_is_exactly_these_seven() -> None:
-    """A tripwire, not a tautology.
+    """A tripwire, not a tautology — nine rules now; the name is plan 15.4-07's.
 
     The set is spelled out so that adding a rule is a decision someone makes on
     purpose — the same discipline `SUBSTRATE_NAME_EXEMPT_PACKAGES` uses for its
     two entries. `--all` runs the union of both maps (see `main`), so this is
-    also the assertion that both new rules actually run in CI rather than
-    merely existing behind a flag.
+    also the assertion that every registered rule actually runs in CI rather
+    than merely existing behind a flag. The closed set has widened twice since
+    the name was chosen: `hash-transparent-key` (`cdfe6b9a`) and then
+    `guarded-provenance` (`c676603f`, D-IMPL-337) — the second registration
+    never touched this test, and the release qualification of `f0656746`
+    found it red. The name stays because records cite it by node id; the
+    count in it is history, the set below is the contract.
     """
     assert set(CHECKERS) == {
         "no-hardcoding",
@@ -128,7 +133,75 @@ def test_the_registered_rule_set_is_exactly_these_seven() -> None:
         "backend-imports",
         "substrate-names",
     }
-    assert set(WHOLE_TREE_CHECKERS) == {"citations", "hash-transparent-key"}
+    assert set(WHOLE_TREE_CHECKERS) == {
+        "citations",
+        "hash-transparent-key",
+        "guarded-provenance",
+    }
+
+
+# --- the D-IMPL-337 rule, registered by c676603f without a runner test -------
+
+
+_TOKEN_GUARDED = (
+    "_MINT = object()\n"
+    "\n"
+    "class Sealed:\n"
+    "    def __init__(self, *, token: object = None) -> None:\n"
+    "        if token is not _MINT:\n"
+    "            raise TypeError('sealed')\n"
+)
+
+_REGISTRY_NAMING_A_GHOST = (
+    "from __future__ import annotations\n"
+    "from dataclasses import dataclass\n"
+    "\n"
+    "@dataclass(frozen=True)\n"
+    "class GuardedTypeDeclaration:\n"
+    "    type_path: str\n"
+    "    verifier: str | None = None\n"
+    "    boundaries: tuple[str, ...] = ()\n"
+    "    verifier_aliases: tuple[str, ...] = ()\n"
+    "\n"
+    "GUARDED_TYPES = (GuardedTypeDeclaration(type_path='ccf.gone:Ghost'),)\n"
+)
+
+
+def test_guarded_provenance_reads_the_registry_under_base(tmp_path: pathlib.Path) -> None:
+    """The rule reads `--base`, like every other rule; the census still bites.
+
+    Until the release qualification of `f0656746` the rule imported its
+    registry from the installed `ccf` while its census walked `--base`, so on
+    every fixture all nine real declarations fired as *names a module that
+    does not exist* and the two clean-tree tests above were red. Negative
+    control: a fixture with no registry declares nothing. Positive control:
+    an undeclared token-guarded class under the fixture is still reported.
+    """
+    assert run(tmp_path, ["guarded-provenance"]) == []
+    _write(tmp_path, "src/ccf/ops/sealed.py", _TOKEN_GUARDED)
+    findings = run(tmp_path, ["guarded-provenance"])
+    assert len(findings) == 1, findings
+    assert "'Sealed' is token-guarded and undeclared" in findings[0]
+
+
+def test_guarded_provenance_still_catches_a_registry_naming_a_ghost(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Reading the registry from the tree did not weaken the drift class the
+    rule exists for: a declaration naming an absent module is still a finding."""
+    _write(tmp_path, "src/ccf/contracts/guarded.py", _REGISTRY_NAMING_A_GHOST)
+    findings = run(tmp_path, ["guarded-provenance"])
+    assert len(findings) == 1, findings
+    assert "'ccf.gone:Ghost' names a module that does not exist" in findings[0]
+
+
+def test_an_unloadable_registry_is_a_finding_not_a_skip(tmp_path: pathlib.Path) -> None:
+    """A registry that is present but will not load is reported, never
+    skipped: skipping it would hide every declaration it carries."""
+    _write(tmp_path, "src/ccf/contracts/guarded.py", "GUARDED_TYPES = (\n")
+    findings = run(tmp_path, ["guarded-provenance"])
+    assert len(findings) == 1, findings
+    assert "registry failed to load (SyntaxError" in findings[0]
 
 
 def test_both_new_rules_are_scoped_in_config_not_by_accident() -> None:

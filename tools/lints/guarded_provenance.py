@@ -29,7 +29,10 @@ is why this checker scans ``src/`` and ``runtime/`` and never ``examples/``.
 from __future__ import annotations
 
 import ast
+import importlib.util
 import pathlib
+import sys
+from typing import Any
 
 RULE = "guarded-provenance"
 
@@ -38,6 +41,15 @@ RULE = "guarded-provenance"
 #: `D-IMPL-261`), and a lint that reached them would force edits this project
 #: forbids.
 TREES = ("src", "runtime")
+
+#: Where the registry lives under a base tree. Read from ``--base``, never from
+#: the process's importable ``ccf``: the runner's contract is that every rule
+#: reads the tree it is pointed at and that a tree without ``src`` is skipped,
+#: and importing the installed package made this rule the one exception — on
+#: any base but the real repository every declaration named a module absent
+#: from the census, and a clean fixture failed the gate (release qualification
+#: of `f0656746`, `tools/lints/tests/test_runner.py` red since `c676603f`).
+REGISTRY = pathlib.Path("src") / "ccf" / "contracts" / "guarded.py"
 
 
 def _finding(path: str, line: int, message: str) -> str:
@@ -72,9 +84,46 @@ def _module_name(path: pathlib.Path, base: pathlib.Path) -> str:
     return ".".join(parts)
 
 
+def _load_registry(base: pathlib.Path) -> tuple[Any, ...] | str:
+    """The declarations under ``base``, or the load error's text.
+
+    No registry under ``base`` means no declarations (the token-guarded census
+    still runs, so an undeclared class is still reported). A registry that is
+    present but will not load is returned as text and reported as a finding,
+    never skipped: an unloadable registry hides every drift this rule exists
+    to catch. The module is executed by path — it imports only ``dataclasses``
+    and ``typing`` — under a private name that is removed afterwards.
+    """
+    path = base / REGISTRY
+    if not path.is_file():
+        return ()
+    spec = importlib.util.spec_from_file_location("_ccf_guarded_registry", path)
+    if spec is None or spec.loader is None:
+        return "the registry could not be located as a module"
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module  # dataclasses resolve their module by name
+    try:
+        spec.loader.exec_module(module)
+        return tuple(module.GUARDED_TYPES)
+    except Exception as error:  # noqa: BLE001 — every load failure is a finding
+        return f"{type(error).__name__}: {error}"
+    finally:
+        sys.modules.pop(spec.name, None)
+
+
 def check_tree(base: pathlib.Path) -> list[str]:
     """Findings only, in the shared format."""
-    from ccf.contracts.guarded import GUARDED_TYPES
+    registry = _load_registry(base)
+    if isinstance(registry, str):
+        return [
+            _finding(
+                str(REGISTRY),
+                1,
+                f"the guarded-type registry failed to load ({registry});"
+                " nothing it declares can be checked (D-IMPL-337)",
+            )
+        ]
+    GUARDED_TYPES = registry
 
     declared = {d.type_path: d for d in GUARDED_TYPES}
     findings: list[str] = []
