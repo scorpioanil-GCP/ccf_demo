@@ -369,17 +369,56 @@ replay:
   query_pin_class: ccf.graph-query
   store_dirname: artifact-store
 
-# THE TTL THIS PRODUCT DECLARES. The class ceiling is §B's 24 hours; the
-# product's own window follows the fastest-moving evidence the payload carries,
-# the deposit balance (`half_life.deposit_balance`). `ttl_anchor` above declares
-# `from_entity_freshness`, and since `D-IMPL-341` the served `expires_at` runs
-# from the freshest asset valuation date the admitted view carries — the
-# `collateral_node` row's clock — never from the decision instant. A window of
-# one day from a valuation that is months old expires before it is served:
-# that is the governed refusal, not a defect (`CSCC-G23`).
+# THE TTL THIS PRODUCT DECLARES, RECALIBRATED 2026-09-18 (Dave's ruling on
+# `CP06C-F-05`, under `D-IMPL-323`'s illustrative-calibration rule).
+#
+#   previous: ceiling 86400 s (24 h), window 86400 s (1 day)
+#   now:      ceiling 31536000 s, window 31536000 s (~365 days)
+#
+# ILLUSTRATIVE CALIBRATION: This example runs against a point-in-time
+# demonstration estate rather than continuously refreshed production data.
+# Freshness half-lives and related thresholds are calibrated to make the
+# governed behavior observable in that snapshot. They demonstrate how the SDK
+# applies these controls and should not be interpreted as recommended
+# production coverage-policy thresholds.
+#
+# THE BASIS, AND IT IS A DECLARATION RATHER THAN AN OUTCOME. `ttl_anchor` above
+# is `from_entity_freshness`, and since `D-IMPL-341` the served `expires_at`
+# runs from the freshest ASSET VALUATION DATE in the admitted view — the
+# `collateral_node` row's clock. A window must therefore state how long a
+# coverage answer stays current AFTER a valuation, so it is the valuation
+# cadence this table itself declares: `half_life.real_property_appraisal`
+# (31536000 s), the appraisal cycle, which is the cadence of the valuation
+# class governing 74 of the 95 pledged assets in this estate (real property,
+# receivables, equipment and inventory all decay under it; measured
+# 2026-09-18, `ccf_v2.collateral_asset` joined to `ccf_v2.collateral_pledge`).
+# The old window was the DEPOSIT-BALANCE half-life, chosen when the expiry ran
+# from the request instant; with the expiry anchored on a valuation it named a
+# cadence the anchor cannot read.
+#
+# The ceiling equals the window: no answer may advertise more currency than one
+# appraisal cycle from its own evidence.
+#
+# WHAT THIS DOES NOT CLAIM, and the limitation is the point rather than a
+# footnote:
+#   * It does NOT establish that the DEPOSIT BALANCES are fresh. This estate's
+#     `ccf_v2.deposit_account` carries no as-of column, so a balance contributes
+#     no instant to the anchor and nothing here dates the set-off leg. Coverage
+#     is served with collateral value, set-off value and total kept apart for
+#     exactly that reason.
+#   * It does NOT claim every asset was revalued within the window. A
+#     marketable security decays under `marketable_securities_valuation` (one
+#     day) and is aged by it in `F`; the payload carries each asset's own
+#     valuation date and age so a reader sees the spread the single
+#     product-level window cannot express.
+#
+# MEASURED at the CP-14 instant under this calibration: 47 of the 50 facilities
+# with pledged collateral serve and 3 are refused `ttl-bounds` on evidence
+# older than an appraisal cycle — the term moves, and `CSCC-G24` holds a
+# refusal on one of those three.
 ttl:
-  max_ttl_seconds: 86400             # 24 hours
-  product_ttl_seconds: 86400         # 1 day — the deposit-balance half-life
+  max_ttl_seconds: 31536000          # the appraisal cycle — the window's ceiling
+  product_ttl_seconds: 31536000      # ~365 days — `half_life.real_property_appraisal`
 
 # THE STANDARD DOOR'S OWN VALUES (`D-IMPL-340`; `D-IMPL-343`): the identity
 # every consumer's registration holds this producer's answers to — the tenant

@@ -165,7 +165,7 @@ not hold. Nothing raises for a question that merely has no answer.
 | subject | the facility id, as `ProductRequest.subject` — the CP-14 question names the facility as the child's subject (`CP14-F-20`) |
 | intent | `lgd-assessment` — declared on `discovery.intents`; judged, never an argument |
 | freshness | `as-filed` (what `CP-SPEC-014` asks the collateral child at); `standard` retained for the specimen's own callers |
-| TTL | 24 hours ceiling, product window one day (the deposit-balance half-life), **declared** `from_entity_freshness`; **served** `expires_at` runs from the freshest asset valuation date in the admitted view and the contract records it as `ttl_anchor_at` (since `D-IMPL-341`, 2026-09-18; the specimen measured `instant + 24 h` at §A.2 while the gap stood). Measured consequence: the one-day window closes a day after the valuation, so at the CP-14 instant both declared facilities are refused `ttl-bounds` — the calibration question is `FINDINGS.md` `CP06C-F-05` |
+| TTL | **declared** `from_entity_freshness`; **served** `expires_at` runs from the freshest asset valuation date in the admitted view and the contract records it as `ttl_anchor_at` (since `D-IMPL-341`). Ceiling and window are both the **appraisal cycle** — `half_life.real_property_appraisal`, the valuation cadence governing 74 of this estate's 95 pledged assets — recalibrated 2026-09-18 from the 24-hour ceiling and one-day deposit-balance window this row previously carried, which named a cadence the anchor cannot read (`CP06C-F-05`, ruled). **Illustrative calibration** (`D-IMPL-323`). It does NOT establish that the undated deposit balances are fresh, and does NOT claim every asset was revalued within the window: per-asset valuation dates and ages stay in the payload, and `F` ages a marketable security under its own one-day cadence |
 | assembly mode | 1 — algorithmic |
 | operators | `policy.principal-subgraph` then `traversal.typed-neighborhood`, exactly two, policy before traversal |
 | lineage | graph-supplied; every asset carries `provenance`, `valuation_date`, `lien_position`; every filing its number, dates and status |
@@ -332,6 +332,7 @@ properties under the successor's ids; the twelfth replaces the specimen's
 | `CSCC-G21` | the door and the in-process run serve **one** content address |
 | `CSCC-G22` | a fresh fabric per run; two facilities under one root hash to their own addresses |
 | `CSCC-G23` | `expires_at` is anchored on the freshest valuation, as declared, and `ttl_anchor_at` records it — live since `D-IMPL-341` (was quarantined evidence) |
+| `CSCC-G24` | evidence older than the declared window is refused by the expiry gate, on a facility this estate really holds — the calibration's own negative control (2026-09-18) |
 
 **All directional, structural or relational. No estate figure is pinned in a
 gate** — the counts in §A.2 and §E are measurements a reader can reproduce.
@@ -358,9 +359,10 @@ debt factors equal (`F` 0.6340 / 0.6231, `C` 1, `S` 1), expiry equal (decision
 instant + 24 h on both — `D-IMPL-341`, inherited), `operators_invoked` equal.
 The lane is therefore **`1.0.0`**. Since `D-IMPL-341` (2026-09-18) the lane is
 held to those recorded payload addresses rather than to a live specimen: the
-frozen specimen declares the same anchor over a resolver the SDK can read no
-clock from and is refused `ttl-anchor-unresolvable` on every question, and the
-successor's `F` and expiry now run from the valuation date (`CSCC-G13`).
+frozen specimen declares the same anchor over a resolver wired with no λ_c
+table, which the builder refuses as a configuration failure before any question
+proceeds, and the successor's `F` and expiry now run from the valuation date
+(`CSCC-G13`).
 
 **What differs, by construction and by design — none of it in the payload:**
 
