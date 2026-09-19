@@ -48,20 +48,26 @@ Under the declared 30-day window, three of the estate's fifty obligors can be
 served at that instant, two of CP-14's twenty. Nothing was moved to make that
 better.
 
-### What the SDK does not yet do
+### The expiry runs from the filing (since `D-IMPL-341`)
 
-The class declares `ttl_anchor: from_entity_freshness` and the governed path
-records the declaration on the served contract while computing `expires_at`
-from the decision instant. This tree holds the serving half of the declaration
-in the product's own declared gate and raises the expiry half as
-`CP03C-F-01` — visible as a strict `xfail` that turns red the day the SDK
-honors the declaration.
+The class declares `ttl_anchor: from_entity_freshness`, and since `D-IMPL-341`
+(validation pass 2026-09-18) the governed path computes it: the served
+`expires_at` is the freshest filing date the admitted view carries — the
+`spread_period` row's clock in `ccf_config.yaml` — plus the declared 30-day
+window, and the contract records that instant as `ttl_anchor_at`. Measured on
+the demonstration obligor at the CP-14 instant: anchor `2026-08-10`, expiry
+`2026-09-09T00:00Z`, where before 341 the same question carried
+`2026-10-07T12:00Z` (`CP03C-F-01`, closed; `FINDINGS.md`). An expired spread
+is refused by the SDK's own TTL gate — `ttl-refusal` / `ttl-bounds` — before
+the product's declared gate runs; that gate keeps its no-obligor half and now
+cross-checks the payload's anchor member against the window the contract
+carries. An empty admitted view — an obligor the estate does not hold, or one
+the principal may not see — is refused `ttl-anchor-refusal` /
+`ttl-anchor-unresolvable` for the same reason: with no filing there is no
+instant to anchor on, and the two cases stay byte-identical (`OFC-G08`).
 
-Plainly: **the product checks the filing window at evaluation time, but the
-SDK currently overstates the returned expiry for `from_entity_freshness`.
-This sibling does not repair that contract mismatch.** The gate is not
-evidence that a copy you were served earlier remains valid until its
-advertised `expires_at`; ask again.
+Plainly: **the advertised `expires_at` is now the filing window, and a copy
+you were served is exactly as current as the filing it rests on.**
 
 ## Run it
 

@@ -401,20 +401,29 @@ def freshness_window_gate(*, candidate: Any, evidence: object = None) -> str | N
       entity, to one with no facts, or to one the policy envelope suppressed;
       the text is the same for all three by construction.
     * **outside the window** — the freshest filing the payload rests on plus
-      the declared window is not after the asked instant. This is the SERVING
-      half of `ttl_anchor: from_entity_freshness`, held here because the
-      governed path anchors the contract's `expires_at` at the decision
-      instant regardless of the declaration (`CP03C-F-01`). Filers file
-      quarterly, so this refusal clears as filings land.
+      the declared window is not after the asked instant. Until `D-IMPL-341`
+      this was the SERVING half of `ttl_anchor: from_entity_freshness`, held
+      here because the governed path anchored the contract's `expires_at` at
+      the decision instant regardless of the declaration (`CP03C-F-01`).
+      Since 341 (validation pass 2026-09-18) the SDK anchors `expires_at` on
+      the same filing and its TTL gate runs BEFORE this one, so an expired
+      spread is refused as `ttl-bounds` and never reaches this predicate;
+      what this half still holds is the cross-check that the PAYLOAD's own
+      anchor member agrees with the contract's window — a served spread
+      whose `latest_filed_in_payload` sat outside the window the contract
+      carries would be a Π defect this gate names. Filers file quarterly, so
+      either refusal clears as filings land.
 
     **The window is read off the served candidate and nowhere else**
-    (`D-IMPL-343`): ``expires_at`` is the decision instant plus the declared
-    ``product_ttl_seconds`` and, for a class declaring no distinct decision
-    instant, the decision instant IS ``temporal_boundary`` — so their
-    difference is the one declared window, and this predicate restates no
-    number. The gate exists only because `expires_at` is decision-anchored
-    (`CP03C-F-01`, `D-IMPL-341`); when the SDK honors the declared anchor,
-    this serving half is deleted, not moved.
+    (`D-IMPL-343`): ``expires_at`` is the anchor instant plus the declared
+    ``product_ttl_seconds``, and the anchor instant is ``ttl_anchor_at`` —
+    the evidence instant the contract records — or, for a decision-anchored
+    contract that records none, ``temporal_boundary``. Their difference is
+    the one declared window, and this predicate restates no number. Read as
+    ``expires_at - temporal_boundary`` it silently shrank to "what is left
+    of the window at the asked instant" the moment the anchor moved off the
+    decision instant; measured 2026-09-18, that read the demonstration's
+    30-day window as 1 day and refused a spread inside it.
     """
     payload = candidate.payload
     if payload.get("obligor") is None:
@@ -422,7 +431,8 @@ def freshness_window_gate(*, candidate: Any, evidence: object = None) -> str | N
     anchor = payload.get(ANCHOR_MEMBER)
     if anchor is None or anchor == acquisition.NOT_EVALUABLE:
         return NO_OBLIGOR
-    window = candidate.expires_at - candidate.temporal_boundary
+    anchored_at = candidate.ttl_anchor_at or candidate.temporal_boundary
+    window = candidate.expires_at - anchored_at
     expires = _instant(date.fromisoformat(str(anchor))) + window
     asked_at = candidate.temporal_boundary
     if not asked_at < expires:

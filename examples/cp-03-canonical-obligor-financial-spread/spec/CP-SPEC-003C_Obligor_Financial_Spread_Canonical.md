@@ -140,7 +140,7 @@ raises for a question that merely has no answer.
 | subject | the obligor's LEI, as `ProductRequest.subject` |
 | intent | `annual-review` — the declared discovery set; judged, never an argument |
 | freshness | `filing-cadence` |
-| TTL | 30 days, **declared** `from_entity_freshness` on the freshest filing in the payload; **served** `expires_at` runs from the decision instant (`CP03C-F-01`); the window itself is held by the declared product gate at evaluation time. The product does not repair the contract mismatch, and the gate is not evidence that a previously served copy remains valid until its advertised `expires_at` |
+| TTL | 30 days, **declared** `from_entity_freshness` on the freshest filing in the payload; **served** `expires_at` runs from that filing and the contract records it as `ttl_anchor_at` (since `D-IMPL-341`, 2026-09-18; the gap was `CP03C-F-01`). The SDK's TTL gate refuses an expired spread before the declared product gate runs; that gate keeps its no-obligor half and cross-checks the payload's anchor member |
 | assembly mode | 1 — algorithmic |
 | operators | `policy.principal-subgraph`, and no other |
 | lineage | graph-supplied; every reported line carries its own `accession`, `filed_date`, `form`, `basis_applied`, `restated`, `restatement_class` |
@@ -235,7 +235,10 @@ only. The v2 namespace is
 ### F.4 Findings
 
 Raised in `FINDINGS.md`, adjudicated under `D-IMPL-315`. `CP03C-F-01` is the
-SDK gap this tree surfaces and does not repair.
+SDK gap this tree surfaced; `D-IMPL-341` closed it (validation pass 2026-09-18),
+and the migration it took — a clock row keyed by the entity class, a gate that
+read its window off the wrong instant, and the SDK's gate running first — is
+recorded under the finding.
 
 ## G · Operate and govern
 
@@ -252,8 +255,8 @@ The acceptance authority for every gate below is **this clause**
 | `OFC-G03` | the spread **is fabric state** — every served period and line is a touched entity, and Π read the view |
 | `OFC-G04` | every reported figure names the filing that asserted it, and the spread rests on more than one filing |
 | `OFC-G05` | `D_c = 1 − F·C·S` over the view; `C` the evaluable fraction of declared lines; `F` below 1 because columns age from their filings |
-| `OFC-G06` | a spread whose freshest filing is outside the declared window at the asked instant is refused by the product's own gate |
-| `OFC-G07` | `expires_at` is anchored on the freshest filing, as declared — **quarantined evidence of `CP03C-F-01`** |
+| `OFC-G06` | a spread whose freshest filing is outside the declared window at the asked instant is refused — by the SDK's TTL gate first (`ttl-bounds`, since `D-IMPL-341`), and the product's own predicate still names the window on a candidate whose payload anchor lies outside it |
+| `OFC-G07` | `expires_at` is anchored on the freshest filing, as declared, and `ttl_anchor_at` records it — live since `D-IMPL-341` (was quarantined evidence of `CP03C-F-01`) |
 | `OFC-G08` | an obligor the principal may not see and one that does not exist refuse with one reason, one kind, one detail |
 | `OFC-G09` | `intent` is judged on the declared discovery set, and the specimen's shadow argument is refused at contract construction |
 | `OFC-G10` | `as_of`, an out-of-domain `peer_basis` and a missing `debt_tolerance` are refused as data, each with a record |

@@ -104,6 +104,10 @@ CHILD_IDENTITY = (
     # producer's word, so it must agree between two consumers (both None here:
     # the spread was admitted).
     "producer_refusal_kind", "producer_refusal_reason", "producer_refusal_key",
+    # `D-IMPL-341`: the child's declared anchor and the instant it ran from, as
+    # the producer's own contract states them — child identity, so they must
+    # agree between two consumers of the same child.
+    "child_ttl_anchor", "child_ttl_anchor_at",
 )
 # `child_question_ref` (`D-IMPL-342` / `CP14-F-35`): each parent retains the
 # question on ITS OWN store under its own tenant, so the reference differs while
