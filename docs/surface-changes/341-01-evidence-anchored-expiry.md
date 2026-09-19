@@ -18,15 +18,75 @@ copied onto its contract and its expiry computed from the decision instant, so t
 - **The freshness and debt calculation is untouched.** The anchor reads the observations the
   reference scorer already builds and the decay basis the λ_c row already declares.
 
-## ccf.products.expiry
+## ccf.products.expiry.FROM_DECISION
 
-- Surface: ccf.products.expiry
+- Surface: ccf.products.expiry.FROM_DECISION
 - Public surface: true
 - Change type: added
 - Before: absent — `expires_at` was minted inline as `decided_at + product_ttl_seconds` on both resolver branches and the declared anchor was read by nothing
-- After: `resolve_ttl_anchor` (the anchor for one decision: the decision instant for `from_decision`; for `from_entity_freshness` the freshest `valid_from` among the per-series leading edges, as of the decision instant, of observation types whose λ_c row declares `decay_basis: valid-from` — over the reference scorer's own observation set, narrowed to the types the table declares), `TTLAnchorResolution`, `valid_from_rows`, `refuse_undeclared_ttl_anchor` / `TTLAnchorUndeclared` (the registration-time refusal), and the two basis constants
-- Why: D-IMPL-341 R-1 / R-3 — one pure function at the mint, reusing the deployment's declared decay clock; nothing minted, nothing read off a payload, nothing defaulted
+- After: `Final = "from_decision"` — the `TTLAnchor` member, named once
+- Why: D-IMPL-341 R-1 / R-3 (`8f84f710`) — one pure function at the mint, reusing the deployment's declared decay clock; nothing minted, nothing read off a payload, nothing defaulted
+- Migration: none
+
+## ccf.products.expiry.FROM_ENTITY_FRESHNESS
+
+- Surface: ccf.products.expiry.FROM_ENTITY_FRESHNESS
+- Public surface: true
+- Change type: added
+- Before: absent — `expires_at` was minted inline as `decided_at + product_ttl_seconds` on both resolver branches and the declared anchor was read by nothing
+- After: `Final = "from_entity_freshness"` — the other `TTLAnchor` member, named once
+- Why: D-IMPL-341 R-1 / R-3 (`8f84f710`) — one pure function at the mint, reusing the deployment's declared decay clock; nothing minted, nothing read off a payload, nothing defaulted
+- Migration: none
+
+## ccf.products.expiry.TTLAnchorResolution
+
+- Surface: ccf.products.expiry.TTLAnchorResolution
+- Public surface: true
+- Change type: added
+- Before: absent — `expires_at` was minted inline as `decided_at + product_ttl_seconds` on both resolver branches and the declared anchor was read by nothing
+- After: a `CCFContract` — `anchor_at`, `basis`, `contributing_types` — what a class's TTL anchor resolved to for one decision
+- Why: D-IMPL-341 R-1 / R-3 (`8f84f710`) — one pure function at the mint, reusing the deployment's declared decay clock; nothing minted, nothing read off a payload, nothing defaulted
+- Migration: none
+
+## ccf.products.expiry.TTLAnchorUndeclared
+
+- Surface: ccf.products.expiry.TTLAnchorUndeclared
+- Public surface: true
+- Change type: added
+- Before: absent — `expires_at` was minted inline as `decided_at + product_ttl_seconds` on both resolver branches and the declared anchor was read by nothing
+- After: a `ValueError` — a class declares `from_entity_freshness` over a clock no data could honor; a configuration failure raised at registration, at open and at the builder
+- Why: D-IMPL-341 R-1 / R-3 (`8f84f710`) — one pure function at the mint, reusing the deployment's declared decay clock; nothing minted, nothing read off a payload, nothing defaulted
 - Migration: none for a `from_decision` class. A class declaring `from_entity_freshness` must declare at least one `decay_basis: valid-from` row **keyed by an entity class the view carries** and stamp the source instant as `observed_time` on those claims; otherwise it is refused by name at open / at the builder (no row) or at gate 3 (no usable instant)
+
+## ccf.products.expiry.refuse_undeclared_ttl_anchor
+
+- Surface: ccf.products.expiry.refuse_undeclared_ttl_anchor
+- Public surface: true
+- Change type: added
+- Before: absent — `expires_at` was minted inline as `decided_at + product_ttl_seconds` on both resolver branches and the declared anchor was read by nothing
+- After: `refuse_undeclared_ttl_anchor(*, ttl_anchor: str, entries: Mapping[str, object] | None, product_class: str) -> None` — refuses, by name, an evidence-anchored class no λ_c row could support (`TTLAnchorUndeclared`)
+- Why: D-IMPL-341 R-1 / R-3 (`8f84f710`) — one pure function at the mint, reusing the deployment's declared decay clock; nothing minted, nothing read off a payload, nothing defaulted
+- Migration: none for a `from_decision` class. A class declaring `from_entity_freshness` must declare at least one `decay_basis: valid-from` row **keyed by an entity class the view carries** and stamp the source instant as `observed_time` on those claims; otherwise it is refused by name at open / at the builder (no row) or at gate 3 (no usable instant)
+
+## ccf.products.expiry.resolve_ttl_anchor
+
+- Surface: ccf.products.expiry.resolve_ttl_anchor
+- Public surface: true
+- Change type: added
+- Before: absent — `expires_at` was minted inline as `decided_at + product_ttl_seconds` on both resolver branches and the declared anchor was read by nothing
+- After: the anchor for one decision: the decision instant for `from_decision`; for `from_entity_freshness` the freshest `valid_from` among the per-series leading edges, as of the decision instant, of observation types whose λ_c row declares `decay_basis: valid-from` — over the reference scorer's own observation set, narrowed to the types the table declares; returns a `TTLAnchorResolution`
+- Why: D-IMPL-341 R-1 / R-3 (`8f84f710`) — one pure function at the mint, reusing the deployment's declared decay clock; nothing minted, nothing read off a payload, nothing defaulted
+- Migration: none for a `from_decision` class. A class declaring `from_entity_freshness` must declare at least one `decay_basis: valid-from` row **keyed by an entity class the view carries** and stamp the source instant as `observed_time` on those claims; otherwise it is refused by name at open / at the builder (no row) or at gate 3 (no usable instant)
+
+## ccf.products.expiry.valid_from_rows
+
+- Surface: ccf.products.expiry.valid_from_rows
+- Public surface: true
+- Change type: added
+- Before: absent — `expires_at` was minted inline as `decided_at + product_ttl_seconds` on both resolver branches and the declared anchor was read by nothing
+- After: `valid_from_rows(entries: Mapping[str, object] | None) -> tuple[str, ...]` — the observation types whose λ_c row decays against `valid_from`; the rows that could contribute to an evidence anchor
+- Why: D-IMPL-341 R-1 / R-3 (`8f84f710`) — one pure function at the mint, reusing the deployment's declared decay clock; nothing minted, nothing read off a payload, nothing defaulted
+- Migration: none
 
 ## ccf.products.gates.TTLAnchorRefusal
 
@@ -117,3 +177,13 @@ copied onto its contract and its expiry computed from the decision instant, so t
 - After: after rehydration and before the address check, the anchor is held: a decision-anchored record's `ttl_anchor_at` must equal its `recorded_at`; an evidence-anchored record's anchor is re-derived over the re-executed view under the λ_c table the record pinned and must equal the recorded member (`ReplayDivergence` otherwise; `ReplayUnresolvable` if no table is pinned); a record without the member is skipped by name
 - Why: D-IMPL-341 R-5
 - Migration: none for pre-341 records; a replay environment for a new record carries `ttl_anchor_at` from the record (see `ContextProductContract` above)
+
+## ccf.products.composite.compose_children
+
+- Surface: ccf.products.composite.compose_children
+- Public surface: true
+- Change type: reshaped
+- Before: `compose_children(*, own_factors, requirements, outcomes, asked_at, composition_invocation, own_lineage, max_ttl, ttl_anchor_at, validity_floors)` — one instant served as both the expiry anchor and the instant remaining validity was measured from
+- After: adds the required keyword `decided_at: datetime` between `ttl_anchor_at` and `validity_floors` — the decision instant, and the instant `D-IMPL-31`'s mixing law measures each constituent's remaining validity from; `ttl_anchor_at` is used for the expiry only
+- Why: `D-IMPL-341` (`8c0388dc`, *the mixing law measures remaining validity from the decision instant*) — the review of `D-IMPL-341` caught the two sharing one argument: with an evidence anchor weeks before the decision, a child's remaining validity was overstated by exactly that gap and a constituent breaching its declared floor at the decision instant composed anyway. How long is left is a fact about now; how long the answer is good for is a fact about its evidence. Recorded at the `f0656746` qualification (2026-09-19); the commit regenerated no manifest and claimed no entry
+- Migration: every direct caller passes `decided_at`; the SDK's one caller, `GovernedResolver`, does

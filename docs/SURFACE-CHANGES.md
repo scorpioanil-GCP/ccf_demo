@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1243 entries**, of which **999** name a public Python surface.
+**1286 entries**, of which **1042** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-655 entries — 615 public Python surface, 40 not public Python API.
+683 entries — 643 public Python surface, 40 not public Python API.
 
 ### Public Python surface
 
@@ -9205,6 +9205,65 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `24.11-06-a-declared-number-crosses-the-wire.md`.*
 
+#### ccf.replay.serve.ProductRecordMismatch
+
+- Surface: ccf.replay.serve.ProductRecordMismatch
+- Public surface: true
+- Change type: added
+- Before: absent — `serve` compared the record's pinned query sequence against the queries
+  it was handed and refused a disagreement, but nothing compared the record's
+  `product_content_address` against the vessel about to be delivered. Measured on cp-05
+  (`CP-SPEC-005` §D.10 question 1): a `ServedProduct` whose payload claimed 9,999 family
+  members, wrapping a record whose dimension 1 observed 77, crossed
+  `ccf.products.door::served_answer` unremarked — the door proved a record *existed* and
+  never read it
+- After: `serve` compares `record.content_generation_path.product_content_address` against
+  `content_hash(product.product)` **first**, before the query-pin checks and before any
+  store write, and raises `ProductRecordMismatch` naming both addresses. A `ValueError`
+  subclass, the sibling of `QueryPinMismatch`, exported from `ccf.replay.serve`
+- Why: `D-IMPL-279` (Dave, 2026-09-08), narrowing `D-IMPL-278` row 1 — the fabric must establish correspondence between the candidate product, the governed execution record and the replay record before delivery, and the enforcement point is the governed fulfillment spine before transport encoding, not MCP
+- Migration: none. A deployment whose resolver builds its record from the product it
+  serves — every shipped path — sees no change. A deployment that hands the seam a record
+  built about a different product is now refused instead of silently serving
+
+*Recorded by `279-01-the-record-must-describe-the-product-being-served.md`.*
+
+#### ccf.products.refusal.GovernedRefusalRaised
+
+- Surface: ccf.products.refusal.GovernedRefusalRaised
+- Public surface: true
+- Change type: added
+- Before: absent — a governed determination made where it could not be returned (a deployment's acquisition hook, a composition root's acquisition callable) surfaced as an ordinary exception and never reached the one recorder
+- After: an `Exception` subclass constructed with `refusal` — a value of a type `REFUSAL_KINDS` names, or an envelope built from one — and a required `resolution`: the `EffectiveRequest` evidence the raiser holds, an explicit `ResolutionNotApplicable`, or `RESOLVED_BY_THE_RESOLVER` inside a resolver's own acquisition seam; refused at construction otherwise. The delivery boundaries and the acquisition seam catch exactly this type, record it through the one recorder and deliver it through the normal disclosure and emission path
+- Why: `D-IMPL-304` (`30c59397`) — an explicit handoff, never a translation: raised only by code that already holds a refusal the fabric produced, so a refusal made anywhere on the governed spine is replay-recorded and disclosed like every other
+- Migration: none for a deployment that returns its refusals; a deployment's acquisition hook that must refuse from where it cannot return raises `GovernedRefusalRaised` with the refusal it holds and the resolution state it is in
+
+*Recorded by `304-01-the-typed-governed-refusal-handoff.md`.*
+
+#### ccf.products.refusal.ResolvedByTheResolver
+
+- Surface: ccf.products.refusal.ResolvedByTheResolver
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the one explicit resolution state a raiser inside a resolver's own seams may state — *the resolver that called me holds the resolution* — because such a raiser holds the effective question and not the `EffectiveRequest` evidence the resolver established on the way there. A statement, never a default
+- Why: `D-IMPL-304` (`30c59397`) — the resolution state on the handoff is required, and the acquisition seam needed a truthful value to require
+- Migration: none
+
+*Recorded by `304-01-the-typed-governed-refusal-handoff.md`.*
+
+#### ccf.products.refusal.RESOLVED_BY_THE_RESOLVER
+
+- Surface: ccf.products.refusal.RESOLVED_BY_THE_RESOLVER
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `Final[ResolvedByTheResolver]` — the single instance, compared by identity
+- Why: `D-IMPL-304` (`30c59397`) — one value to state, one value to compare against
+- Migration: none
+
+*Recorded by `304-01-the-typed-governed-refusal-handoff.md`.*
+
 #### ccf.products.request.RelativeDefault
 
 - Surface: ccf.products.request.RelativeDefault
@@ -9216,6 +9275,66 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Migration: none required — `ProductRequestContract.relative_defaults` defaults to the empty mapping, which is what every existing contract declares and hashes as. To adopt, move a literal date default into `relative_defaults` as an offset and a render; a parameter may appear in `defaults` or `relative_defaults`, never both
 
 *Recorded by `325-01-relative-request-defaults.md`.*
+
+#### ccf.halflife.decay.MissingDecayInstant
+
+- Surface: ccf.halflife.decay.MissingDecayInstant
+- Public surface: true
+- Change type: added
+- Before: absent — an observation with no instant for the basis its row declared could only fall back
+- After: a `LookupError` raised when a row declares `decay_basis: valid-from` and the observation carries no `valid_from`; refused rather than fallen back, because a silent fallback to `observed_at` would report a perfectly fresh figure for exactly the observations a deployment declared `valid-from` because it cared about their real age
+- Why: `D-IMPL-331` (`b2ba4e8b`) — `valid-from` with no instant is refused by name, never defaulted
+- Migration: none for a table that declares nothing; a deployment declaring `valid-from` for a type stamps the source instant on those claims or is refused by name
+
+*Recorded by `331-01-a-row-declares-which-instant-it-decays-against.md`.*
+
+#### ccf.halflife.decay.decay_basis_of
+
+- Surface: ccf.halflife.decay.decay_basis_of
+- Public surface: true
+- Change type: added
+- Before: absent — freshness always decayed against `observed_at`
+- After: `decay_basis_of(table: HalfLifeTable, observation_type: str) -> DecayBasis` — the twin of `decay_mode_of`, read at the same point in `freshness`: which of the observation's two instants this row decays against. Every table written before the field existed answers `observed-at`, which is the behavior it already had
+- Why: `D-IMPL-331` (`b2ba4e8b`) — `Observation` carries both instants; the row selects
+- Migration: none
+
+*Recorded by `331-01-a-row-declares-which-instant-it-decays-against.md`.*
+
+#### ccf.halflife.decay.freshness_over_of
+
+- Surface: ccf.halflife.decay.freshness_over_of
+- Public surface: true
+- Change type: added
+- Before: absent — freshness was always the series mean
+- After: `freshness_over_of(table: HalfLifeTable, observation_type: str) -> FreshnessAggregation` — the declared aggregation for a type, `series-mean` by default or `leading-edge`
+- Why: `D-IMPL-333` (`5c25048a`) — freshness applies to the leading edge of each logical series as of the decision instant, not to its historical members
+- Migration: none; a table declaring nothing keeps the series mean
+
+*Recorded by `333-01-freshness-reads-the-leading-edge-of-each-series.md`.*
+
+#### ccf.halflife.decay.series_key_attribute_of
+
+- Surface: ccf.halflife.decay.series_key_attribute_of
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `series_key_attribute_of(table: HalfLifeTable, observation_type: str) -> str | None` — the claim attribute that names a logical series for the type, if the row declares one
+- Why: `D-IMPL-333` (`5c25048a`) — a leading edge is per series, and the row says which attribute identifies a series
+- Migration: none
+
+*Recorded by `333-01-freshness-reads-the-leading-edge-of-each-series.md`.*
+
+#### ccf.halflife.decay.leading_edge
+
+- Surface: ccf.halflife.decay.leading_edge
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `leading_edge(observations: Sequence[Observation], *, table: HalfLifeTable, now: datetime) -> tuple[Observation, ...]` — reduces each `leading-edge` series to its newest member at or before `now`; the set, not the value — `decay` and `decay_basis` answer how fast and against which instant, this answers which observations
+- Why: `D-IMPL-333` (`5c25048a`)
+- Migration: none
+
+*Recorded by `333-01-freshness-reads-the-leading-edge-of-each-series.md`.*
 
 #### ccf.products.composite.AdmittedChild
 
@@ -10117,54 +10236,6 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `336-03-grant-bound-child-invocation.md`.*
 
-#### ccf.skills.grants.BoundSkillView.grant_hash_for
-
-- Surface: ccf.skills.grants.BoundSkillView.grant_hash_for
-- Public surface: true
-- Change type: added
-- Before: absent — the ledger resolved which grant put each bound skill in force and discarded it
-- After: returns that grant hash, resolved from ledger state at access time (D-IMPL-336 O2)
-- Why: there was no supported way to ask which grant authorized a bound entry, which is what forced callers to supply one
-- Migration: none required — additive; raises `KeyError` for a skill this agent does not hold
-
-*Recorded by `336-03-grant-bound-child-invocation.md`.*
-
-#### ccf.products.resolver.GovernedResolver.admission_clock
-
-- Surface: ccf.products.resolver.GovernedResolver.admission_clock
-- Public surface: true
-- Change type: added
-- Before: absent — child admission was judged at `decided_at`, which a class may declare from the request (D-IMPL-308)
-- After: a required constructor argument carrying the trusted runtime clock, read once per composition (D-IMPL-336 O3)
-- Why: evidence age asks how old a child's eligibility evidence is NOW, and a declared historical instant let a request move the window its own evidence was checked in
-- Migration: required on the dataclass, like every deployment-owned value; `build_governed_resolver` defaults it to the process UTC clock, so callers of the factory need no change
-
-*Recorded by `336-03-grant-bound-child-invocation.md`.*
-
-#### ccf.products.composite.CompositionOutcome.admitted_operators
-
-- Surface: ccf.products.composite.CompositionOutcome.admitted_operators
-- Public surface: true
-- Change type: added
-- Before: absent — only the combined union including the parent was carried, on `lineage`
-- After: the union over the admitted children's operator sets ALONE (D-IMPL-336 R4)
-- Why: Gate 2's widened operand for composites needs the children's half separable from the parent's, or a child invoking an operator would mask the parent's own declaration having drifted onto it
-- Migration: none required — defaults to `frozenset()`, which leaves a childless composition's operand exactly a non-composite's
-
-*Recorded by `336-03-grant-bound-child-invocation.md`.*
-
-#### ccf.boot.FabricHandle.local_attestor
-
-- Surface: ccf.boot.FabricHandle.local_attestor
-- Public surface: true
-- Change type: added
-- Before: absent — a deployment built its own `LocalFabricAttestor` with an id it chose
-- After: minted by `boot` and carried on the handle; the only supported way to obtain one (D-IMPL-336 O1)
-- Why: "boot-bound" was a docstring while the constructor was public, so local provenance was a string any caller could write
-- Migration: read it off the handle; the id is derived from the adapter name and a digest of the graph identity and is not chosen
-
-*Recorded by `336-03-grant-bound-child-invocation.md`.*
-
 #### ccf.products.child_resolver.GrantBoundChildResolver
 
 - Surface: ccf.products.child_resolver.GrantBoundChildResolver
@@ -10200,6 +10271,90 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Migration: none required — a producer naming its own record is unaffected; raised rather than refused, because evidence about another product is not a fact about this child's eligibility
 
 *Recorded by `336-05-the-reference-child-resolver.md`.*
+
+#### ccf.products.composite.ChildAcquisition
+
+- Surface: ccf.products.composite.ChildAcquisition
+- Public surface: true
+- Change type: added
+- Before: absent — how a child had been acquired was inferred from which provenance record was attached to it
+- After: a `Literal` alias — at `87daab4f` `"local-dispatch"`, `"mcp"`, `"peered"` — naming how a child was acquired, keyed on the dispatch result's type and cross-checked against the entry's declared `skill_type`. `D-IMPL-340` (`340-01`) later widened it with `"mcp-product"`, which is the member the live surface shows in addition
+- Why: `D-IMPL-336` Amendment 5 (`87daab4f`) — MCP is not automatically peering (`D-IMPL-59`): the existing controls for the actual provider relationship apply, and the acquisition kind is what selects them
+- Migration: none
+
+*Recorded by `336-06-amendment-5-acquisition-by-granted-skill.md`.*
+
+#### ccf.products.composite.ELIGIBILITY_PROVIDER_CONTROLS
+
+- Surface: ccf.products.composite.ELIGIBILITY_PROVIDER_CONTROLS
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `Final = "provider-controls"` — the `eligibility_basis` value when the provider's own access controls governed the read and this fabric holds no execution record for the child (the MCP case); a positive statement about which authority applied, never an absence — the local register was not consulted, and the row says so
+- Why: `D-IMPL-336` Amendment 5 (`87daab4f`)
+- Migration: none
+
+*Recorded by `336-06-amendment-5-acquisition-by-granted-skill.md`.*
+
+#### ccf.contracts.guarded.GUARDED_TYPES
+
+- Surface: ccf.contracts.guarded.GUARDED_TYPES
+- Public surface: true
+- Change type: added
+- Before: absent — which types were token-guarded was known only to an AST census, a heuristic the design work found wrong three times in three different ways
+- After: `Final[tuple[GuardedTypeDeclaration, ...]]` — the declared registry, one `GuardedTypeDeclaration` per guarded type, every field a `module:QualName` string so the registry imports none of the types it names and the lint resolves them at lint time
+- Why: `D-IMPL-337` (`c676603f`) — the census is a candidate instrument and this declaration is the truth; a guarded type that fails to declare itself here is a lint failure at the type
+- Migration: none for a consumer. A deployment that adds a guarded type declares it here, naming its mint, its verifier and every governed boundary
+
+*Recorded by `337-01-guarded-path-provenance.md`.*
+
+#### ccf.contracts.guarded.GuardedTypeDeclaration
+
+- Surface: ccf.contracts.guarded.GuardedTypeDeclaration
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a frozen dataclass — `type_path`, `authority`, `mint`, `verifier` (or `None` where a type carries no verifier yet and the gap is declared rather than hidden), `boundaries`, `propagation`, `residual`, `verifier_aliases`, `notes` — everything drift enforcement needs about one guarded type
+- Why: `D-IMPL-337` (`c676603f`) — conclusion 4 permits equivalent construction-path proofs and canonizes no single physical marker, so the record states which mechanism each type uses rather than performing a check itself
+- Migration: none
+
+*Recorded by `337-01-guarded-path-provenance.md`.*
+
+#### ccf.contracts.guarded.declaration_for
+
+- Surface: ccf.contracts.guarded.declaration_for
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `declaration_for(type_path: str) -> GuardedTypeDeclaration | None` — the registry lookup by `module:QualName`; `None` for a type that declares nothing
+- Why: `D-IMPL-337` (`c676603f`) — the lint and the tests read the registry through one function rather than each scanning the tuple
+- Migration: none
+
+*Recorded by `337-01-guarded-path-provenance.md`.*
+
+#### ccf.peering.admission.verify_admission_provenance
+
+- Surface: ccf.peering.admission.verify_admission_provenance
+- Public surface: true
+- Change type: added
+- Before: absent — the path toward L3 accepted an `AdmittedProduct` on its type, and `isinstance` admits a subclass that skipped the guarded `__init__` and admits `object.__new__`
+- After: `verify_admission_provenance(admitted: object) -> AdmittedProduct` — establishes that the value came through Control Plane peering admission, raises `AdmissionBypassError` otherwise, and returns the value narrowed so a caller cannot verify and then forget to use the result
+- Why: `D-IMPL-337` (`c676603f`) — the check is the provenance, not the type; an unverified federated product reaching the path toward L3 breaches the single-writer invariant (CLAUDE.md §10) and `D-IMPL-16`'s commitment that an inbound A2A product is inadmissible until the consuming Control Plane validates it
+- Migration: none on the shipped paths; a deployment that hands a peering boundary an `AdmittedProduct`-shaped value of its own making is now refused by name
+
+*Recorded by `337-01-guarded-path-provenance.md`.*
+
+#### ccf.products.gates.verify_gate_provenance
+
+- Surface: ccf.products.gates.verify_gate_provenance
+- Public surface: true
+- Change type: added
+- Before: absent — a served product was accepted on `isinstance(product, ServableProduct)`; measured before the change, both a subclass that skipped the guarded `__init__` and `object.__new__` reached a served product with no gate having run
+- After: `verify_gate_provenance(product: object) -> ServableProduct` — establishes that the value came through the three validation gates (the declared mint is `ccf.products.gates::run_gates`), raises `GateBypassError` otherwise, and returns the value narrowed
+- Why: `D-IMPL-337` (`c676603f`) — the check is the provenance, not the type, and the difference is exploitable rather than academic
+- Migration: none on the shipped paths; a caller at a boundary it owns writes `product = verify_gate_provenance(product)` and cannot forget to use the result
+
+*Recorded by `337-01-guarded-path-provenance.md`.*
 
 #### ccf.products.composite.resolve_child_outcomes
 
@@ -10513,15 +10668,183 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `340-01-cross-deployment-child-acquisition.md`.*
 
-#### ccf.products.expiry
+#### ccf.controlplane.artifacts.MCP_PRODUCER
 
-- Surface: ccf.products.expiry
+- Surface: ccf.controlplane.artifacts.MCP_PRODUCER
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `ArtifactClass(class_id="ccf.mcp-producer", contract=McpProducerRegistration)` — the class id a deployment registers a producer under; deployment binding only, naming a producer and what it may be asked for, holding no address and no secret
+- Why: `D-IMPL-340` (`4c822611`) — the producer registration is a Control Plane artifact and needs a class id a manifest can address
+- Migration: none
+
+*Recorded by `340-01-cross-deployment-child-acquisition.md`.*
+
+#### ccf.controlplane.artifacts.ProducerOfferDeclaration
+
+- Surface: ccf.controlplane.artifacts.ProducerOfferDeclaration
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a `CCFContract` — `product_class`, `versions_from` (a semver floor, validated) — one product class a registered producer may be asked for
+- Why: `D-IMPL-340` (`4c822611`) — a producer offers named classes from a version floor, never everything it holds
+- Migration: none
+
+*Recorded by `340-01-cross-deployment-child-acquisition.md`.*
+
+#### ccf.products.child_resolver.ChildQuestions
+
+- Surface: ccf.products.child_resolver.ChildQuestions
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the type alias `Callable[[ChildRequirement, ProductRequest], ChildQuestion]` — the question factory a question-bound child resolver is built from
+- Why: `D-IMPL-340` (`4c822611`) — a producer is asked a `ProductQuestion` built from the requirement and the parent's request, and the factory that builds it is a declared seam
+- Migration: none
+
+*Recorded by `340-01-cross-deployment-child-acquisition.md`.*
+
+#### ccf.products.child_resolver.MalformedDoorAnswer
+
+- Surface: ccf.products.child_resolver.MalformedDoorAnswer
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a `ValueError` raised for a completed producer call whose text is not a `DoorOutcome`; the producer leg decodes the door's answer in full — its producer assertion, its echo of the question, the axes it answered and its replay reference — or raises this
+- Why: `D-IMPL-340` (`dcfb8608`) — a refused or malformed door is held by name rather than read as an empty answer
+- Migration: none
+
+*Recorded by `340-01-cross-deployment-child-acquisition.md`.*
+
+#### ccf.products.door.AnsweredQuestion
+
+- Surface: ccf.products.door.AnsweredQuestion
+- Public surface: true
+- Change type: added
+- Before: absent — `DoorOutcome.request` echoed the wire request and nothing else; `subject`, `intent` and `freshness` reached a door as separate arguments and came back on no channel at all
+- After: a `CCFContract` — `subject`, `intent`, `freshness`, `asked_at` — the four §6.3 axes a door actually answered, stated from the typed request it resolved and never from the caller's text; the composite's question-identity check recomputes over all of them
+- Why: `D-IMPL-340` (`dcfb8608`) — a consumer holding an answer to the question it asked needs every axis echoed
+- Migration: none
+
+*Recorded by `340-01-cross-deployment-child-acquisition.md`.*
+
+#### ccf.products.door.ProducerAssertion
+
+- Surface: ccf.products.door.ProducerAssertion
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a re-export of `ccf.products.producer.ProducerAssertion` (claimed above) from `ccf.products.door`, where `DoorOutcome.producer` carries it
+- Why: `D-IMPL-340` (`4c822611`) — the door's outcome names the type it carries from the module a reader of the outcome already imports
+- Migration: none
+
+*Recorded by `340-01-cross-deployment-child-acquisition.md`.*
+
+#### ccf.skills.dispatch.question_identity
+
+- Surface: ccf.skills.dispatch.question_identity
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `question_identity(*, request_json: str, subject: str, intent: str, freshness: str, asked_at: datetime) -> str` — `sha256` over the whole question, canonically; one function for both sides of the seam. `D-IMPL-342` (`342-01`) later changed the identity's bytes, and that `behavior` entry stands beside this one
+- Why: `D-IMPL-340` (`dcfb8608`) — question identity over every axis, so a door's answer is held to the question the composite asked
+- Migration: none
+
+*Recorded by `340-01-cross-deployment-child-acquisition.md`.*
+
+#### ccf.skills.dispatch.verify_mcp_product_failure
+
+- Surface: ccf.skills.dispatch.verify_mcp_product_failure
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `verify_mcp_product_failure(value: object) -> McpProductFailure` — refuses, with `McpProductProvenanceError` (claimed above), anything that is not an `McpProductFailure` minted by the dispatch, and returns the value narrowed
+- Why: `D-IMPL-340` (`dcfb8608`), on `D-IMPL-337`'s pattern — provenance from the guarded construction path, not nominal type identity
+- Migration: none
+
+*Recorded by `340-01-cross-deployment-child-acquisition.md`.*
+
+#### ccf.products.expiry.FROM_DECISION
+
+- Surface: ccf.products.expiry.FROM_DECISION
 - Public surface: true
 - Change type: added
 - Before: absent — `expires_at` was minted inline as `decided_at + product_ttl_seconds` on both resolver branches and the declared anchor was read by nothing
-- After: `resolve_ttl_anchor` (the anchor for one decision: the decision instant for `from_decision`; for `from_entity_freshness` the freshest `valid_from` among the per-series leading edges, as of the decision instant, of observation types whose λ_c row declares `decay_basis: valid-from` — over the reference scorer's own observation set, narrowed to the types the table declares), `TTLAnchorResolution`, `valid_from_rows`, `refuse_undeclared_ttl_anchor` / `TTLAnchorUndeclared` (the registration-time refusal), and the two basis constants
-- Why: D-IMPL-341 R-1 / R-3 — one pure function at the mint, reusing the deployment's declared decay clock; nothing minted, nothing read off a payload, nothing defaulted
+- After: `Final = "from_decision"` — the `TTLAnchor` member, named once
+- Why: D-IMPL-341 R-1 / R-3 (`8f84f710`) — one pure function at the mint, reusing the deployment's declared decay clock; nothing minted, nothing read off a payload, nothing defaulted
+- Migration: none
+
+*Recorded by `341-01-evidence-anchored-expiry.md`.*
+
+#### ccf.products.expiry.FROM_ENTITY_FRESHNESS
+
+- Surface: ccf.products.expiry.FROM_ENTITY_FRESHNESS
+- Public surface: true
+- Change type: added
+- Before: absent — `expires_at` was minted inline as `decided_at + product_ttl_seconds` on both resolver branches and the declared anchor was read by nothing
+- After: `Final = "from_entity_freshness"` — the other `TTLAnchor` member, named once
+- Why: D-IMPL-341 R-1 / R-3 (`8f84f710`) — one pure function at the mint, reusing the deployment's declared decay clock; nothing minted, nothing read off a payload, nothing defaulted
+- Migration: none
+
+*Recorded by `341-01-evidence-anchored-expiry.md`.*
+
+#### ccf.products.expiry.TTLAnchorResolution
+
+- Surface: ccf.products.expiry.TTLAnchorResolution
+- Public surface: true
+- Change type: added
+- Before: absent — `expires_at` was minted inline as `decided_at + product_ttl_seconds` on both resolver branches and the declared anchor was read by nothing
+- After: a `CCFContract` — `anchor_at`, `basis`, `contributing_types` — what a class's TTL anchor resolved to for one decision
+- Why: D-IMPL-341 R-1 / R-3 (`8f84f710`) — one pure function at the mint, reusing the deployment's declared decay clock; nothing minted, nothing read off a payload, nothing defaulted
+- Migration: none
+
+*Recorded by `341-01-evidence-anchored-expiry.md`.*
+
+#### ccf.products.expiry.TTLAnchorUndeclared
+
+- Surface: ccf.products.expiry.TTLAnchorUndeclared
+- Public surface: true
+- Change type: added
+- Before: absent — `expires_at` was minted inline as `decided_at + product_ttl_seconds` on both resolver branches and the declared anchor was read by nothing
+- After: a `ValueError` — a class declares `from_entity_freshness` over a clock no data could honor; a configuration failure raised at registration, at open and at the builder
+- Why: D-IMPL-341 R-1 / R-3 (`8f84f710`) — one pure function at the mint, reusing the deployment's declared decay clock; nothing minted, nothing read off a payload, nothing defaulted
 - Migration: none for a `from_decision` class. A class declaring `from_entity_freshness` must declare at least one `decay_basis: valid-from` row **keyed by an entity class the view carries** and stamp the source instant as `observed_time` on those claims; otherwise it is refused by name at open / at the builder (no row) or at gate 3 (no usable instant)
+
+*Recorded by `341-01-evidence-anchored-expiry.md`.*
+
+#### ccf.products.expiry.refuse_undeclared_ttl_anchor
+
+- Surface: ccf.products.expiry.refuse_undeclared_ttl_anchor
+- Public surface: true
+- Change type: added
+- Before: absent — `expires_at` was minted inline as `decided_at + product_ttl_seconds` on both resolver branches and the declared anchor was read by nothing
+- After: `refuse_undeclared_ttl_anchor(*, ttl_anchor: str, entries: Mapping[str, object] | None, product_class: str) -> None` — refuses, by name, an evidence-anchored class no λ_c row could support (`TTLAnchorUndeclared`)
+- Why: D-IMPL-341 R-1 / R-3 (`8f84f710`) — one pure function at the mint, reusing the deployment's declared decay clock; nothing minted, nothing read off a payload, nothing defaulted
+- Migration: none for a `from_decision` class. A class declaring `from_entity_freshness` must declare at least one `decay_basis: valid-from` row **keyed by an entity class the view carries** and stamp the source instant as `observed_time` on those claims; otherwise it is refused by name at open / at the builder (no row) or at gate 3 (no usable instant)
+
+*Recorded by `341-01-evidence-anchored-expiry.md`.*
+
+#### ccf.products.expiry.resolve_ttl_anchor
+
+- Surface: ccf.products.expiry.resolve_ttl_anchor
+- Public surface: true
+- Change type: added
+- Before: absent — `expires_at` was minted inline as `decided_at + product_ttl_seconds` on both resolver branches and the declared anchor was read by nothing
+- After: the anchor for one decision: the decision instant for `from_decision`; for `from_entity_freshness` the freshest `valid_from` among the per-series leading edges, as of the decision instant, of observation types whose λ_c row declares `decay_basis: valid-from` — over the reference scorer's own observation set, narrowed to the types the table declares; returns a `TTLAnchorResolution`
+- Why: D-IMPL-341 R-1 / R-3 (`8f84f710`) — one pure function at the mint, reusing the deployment's declared decay clock; nothing minted, nothing read off a payload, nothing defaulted
+- Migration: none for a `from_decision` class. A class declaring `from_entity_freshness` must declare at least one `decay_basis: valid-from` row **keyed by an entity class the view carries** and stamp the source instant as `observed_time` on those claims; otherwise it is refused by name at open / at the builder (no row) or at gate 3 (no usable instant)
+
+*Recorded by `341-01-evidence-anchored-expiry.md`.*
+
+#### ccf.products.expiry.valid_from_rows
+
+- Surface: ccf.products.expiry.valid_from_rows
+- Public surface: true
+- Change type: added
+- Before: absent — `expires_at` was minted inline as `decided_at + product_ttl_seconds` on both resolver branches and the declared anchor was read by nothing
+- After: `valid_from_rows(entries: Mapping[str, object] | None) -> tuple[str, ...]` — the observation types whose λ_c row decays against `valid_from`; the rows that could contribute to an evidence anchor
+- Why: D-IMPL-341 R-1 / R-3 (`8f84f710`) — one pure function at the mint, reusing the deployment's declared decay clock; nothing minted, nothing read off a payload, nothing defaulted
+- Migration: none
 
 *Recorded by `341-01-evidence-anchored-expiry.md`.*
 
@@ -10990,6 +11313,30 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - After: `version_satisfies_floor(*, floor, version) -> bool` — the ONE rule (same major, at or above, by semver precedence, total on every accepted form), read by `ChildRequirement.accepts`, by the `skills:` derivation and by the standard door
 - Why: R-13 — "versions_from is a floor everywhere"
 - Migration: none
+
+*Recorded by `343-01-paved-road.md`.*
+
+#### ccf.deployment.EnvironmentDocument
+
+- Surface: ccf.deployment.EnvironmentDocument
+- Public surface: true
+- Change type: added
+- Before: importable only from `ccf.deployment.environment` (claimed above)
+- After: also exported from the wiring package, `from ccf.deployment import EnvironmentDocument` — the package's preferred import spelling
+- Why: `CP05D-F-06` (`e5a64371`), ruled to stay in the CP-14 slice acceptance — an example door reached for the environment document through the wiring package and found it only in a submodule
+- Migration: none; the submodule import keeps working
+
+*Recorded by `343-01-paved-road.md`.*
+
+#### ccf.deployment.load_environment_document
+
+- Surface: ccf.deployment.load_environment_document
+- Public surface: true
+- Change type: added
+- Before: importable only from `ccf.deployment.environment` (claimed above)
+- After: also exported from the wiring package, `from ccf.deployment import load_environment_document`
+- Why: `CP05D-F-06` (`e5a64371`), ruled to stay in the CP-14 slice acceptance — the same two-name re-export
+- Migration: none; the submodule import keeps working
 
 *Recorded by `343-01-paved-road.md`.*
 
@@ -11682,7 +12029,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-427 entries — 243 public Python surface, 184 not public Python API.
+426 entries — 242 public Python surface, 184 not public Python API.
 
 ### Public Python surface
 
@@ -15901,6 +16248,42 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `24.11-04-an-operator-parameter-may-be-request-bound.md`.*
 
+#### ccf.assembly.worker.EntityResolutionRule
+
+- Surface: ccf.assembly.worker.EntityResolutionRule
+- Public surface: true
+- Change type: reshaped
+- Before: `entity_class`, `identity_keys`, `attribute_keys` — each declared identity key was read from the payload field of the same name, so a rule whose source names the value positionally (`parent_uri`, `child_uri`) put the field's name into the identity
+- After: adds `identity_sources: Mapping[str, str]` — declared identity key → the payload field that supplies its value; defaulted to empty and hash-transparent, so a rule declaring nothing reads and hashes as it did. A remap of a key the rule does not declare as identity is refused at validation rather than ignored
+- Why: `D-IMPL-316` (`592ade1b`) — this field changes where an identity value is read from; it does not change what constitutes identity. The declared key is still what is hashed
+- Migration: none for a rule that reads each identity key from a field of the same name; a rule reading a value positionally declares the mapping, and the same value then mints the same URI from either position
+
+*Recorded by `316-01-a-position-is-not-an-identity.md`.*
+
+#### ccf.contracts.claims.EntityClaim
+
+- Surface: ccf.contracts.claims.EntityClaim
+- Public surface: true
+- Change type: reshaped
+- Before: `valid_from: datetime`, required — `_stitch` substituted ingestion time when the source supplied none, so the two temporal fields could answer the same question
+- After: `valid_from: datetime | None`, defaulted to `None` and hash-transparent — `None` is an absent answer, not a default value and not an open interval; the fabric no longer manufactures it
+- Why: `D-IMPL-332` (`59cfc0cd`) — a record that makes no valid-time claim cannot be excluded by a valid-time bound, because excluding it would assert *it was not true then*, as much an invention as asserting that it was
+- Migration: a reader that assumed `valid_from` is always a datetime handles `None`; a claim written before the change reloads to its address, because the member is hash-transparent
+
+*Recorded by `332-01-preserve-absence-of-valid-time.md`.*
+
+#### ccf.contracts.claims.RelationshipClaim
+
+- Surface: ccf.contracts.claims.RelationshipClaim
+- Public surface: true
+- Change type: reshaped
+- Before: `valid_from: datetime`, required — as for `EntityClaim`
+- After: `valid_from: datetime | None`, defaulted to `None` and hash-transparent — as for `EntityClaim`
+- Why: `D-IMPL-332` (`59cfc0cd`) — the same absence, on the relationship axis
+- Migration: as for `EntityClaim`
+
+*Recorded by `332-01-preserve-absence-of-valid-time.md`.*
+
 #### ccf.skills.catalog.SkillCatalogEntry
 
 - Surface: ccf.skills.catalog.SkillCatalogEntry
@@ -15961,42 +16344,6 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `336-03-grant-bound-child-invocation.md`.*
 
-#### ccf.products.composite.LocalFabricAttestor.attest
-
-- Surface: ccf.products.composite.LocalFabricAttestor.attest
-- Public surface: true
-- Change type: reshaped
-- Before: `attest(*, touched_entities)` — vouched for whatever entities the caller named
-- After: `attest(*, product, replay_ref, store)` — resolves the decision record, refuses unless it names this product, and reads the entities out of replay dimension 1 (D-IMPL-336 O1)
-- Why: the eligibility gate checks those entities against the invalidation register, so a caller who could choose them could choose to be eligible
-- Migration: pass the delivered child and its `ServedProduct.replay_ref.uri`; a child with no persisted record can no longer be attested, which is the point
-
-*Recorded by `336-03-grant-bound-child-invocation.md`.*
-
-#### ccf.products.resolver.RefusalRecorderProtocol.record
-
-- Surface: ccf.products.resolver.RefusalRecorderProtocol.record
-- Public surface: true
-- Change type: reshaped
-- Before: no parameter for child resolutions, so a refused composite's persisted record could not name the children it tried
-- After: accepts `child_resolutions`, defaulted to `()` (D-IMPL-336 CMP-R-01)
-- Why: the case where a reader most needs to know which child failed is the case the record was silent about
-- Migration: none required — the parameter is defaulted and `()` is the true claim for every non-composite refusal; a deployment substituting its own recorder may accept and forward it
-
-*Recorded by `336-04-refused-composites-carry-their-child-rows.md`.*
-
-#### ccf.products.resolver.ReplayRefusalRecorder.record
-
-- Surface: ccf.products.resolver.ReplayRefusalRecorder.record
-- Public surface: true
-- Change type: reshaped
-- Before: forwarded no child resolutions to `build_replay_record`
-- After: forwards them, so a refused composite's persisted record carries one row per declared requirement (D-IMPL-336 CMP-R-01)
-- Why: the reference implementation must actually satisfy the widened seam, or the parameter would be accepted and ignored — the defect class this phase repairs
-- Migration: none required
-
-*Recorded by `336-04-refused-composites-carry-their-child-rows.md`.*
-
 #### ccf.products.composite.CompositeChildResolverProtocol
 
 - Surface: ccf.products.composite.CompositeChildResolverProtocol
@@ -16018,18 +16365,6 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - After: gains `question: ProductQuestion | None = None` (required for an `mcp_product` entry, ignored by every other) and may return `McpProductInvocation | McpProductFailure`; every existing branch is byte-identical.
 - Why: ruling 6 — the question is structured, never a string mapping.
 - Migration: none for existing callers; a caller that switches on the result type gains two shapes.
-
-*Recorded by `340-01-cross-deployment-child-acquisition.md`.*
-
-#### ccf.skills.dispatch.McpSkillRegistry
-
-- Surface: ccf.skills.dispatch.McpSkillRegistry
-- Public surface: true
-- Change type: reshaped
-- Before: `register(server, client, resources)` / `resolve(binding)`.
-- After: adds `register_producer(*, client, registration)` and `resolve_producer(binding)`; the fixed-resource pair is unchanged and a logical name cannot be registered as both.
-- Why: ruling 10 — logical registration names, never caller URLs.
-- Migration: none.
 
 *Recorded by `340-01-cross-deployment-child-acquisition.md`.*
 
@@ -16141,18 +16476,6 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `340-01-cross-deployment-child-acquisition.md`.*
 
-#### ccf.agents.agent.Agent
-
-- Surface: ccf.agents.agent.Agent
-- Public surface: true
-- Change type: reshaped
-- Before: `invoke_skill` dispatched any bound entry.
-- After: refuses an `mcp_product` entry by name — a producer is asked by a composite through a `ProductQuestion`, not by an agent's string-argument invocation.
-- Why: ruling 6.
-- Migration: none.
-
-*Recorded by `340-01-cross-deployment-child-acquisition.md`.*
-
 #### ccf.products.contract.ContextProductContract
 
 - Surface: ccf.products.contract.ContextProductContract
@@ -16210,6 +16533,18 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - After: a new optional `evidence_clock_key: str | None = None` — the same manifest key, stated for the resolver when the scorer is supplied (the paved road passes it); the two must agree if both are given; the builder refuses a `from_entity_freshness` declaration over a table with no `valid-from` row (`TTLAnchorUndeclared`)
 - Why: D-IMPL-341 R-3 (first row) at the builder, for resolvers wired by hand
 - Migration: none for callers that let the builder build the scorer; a caller supplying a scorer and wanting evidence anchoring passes `evidence_clock_key`
+
+*Recorded by `341-01-evidence-anchored-expiry.md`.*
+
+#### ccf.products.composite.compose_children
+
+- Surface: ccf.products.composite.compose_children
+- Public surface: true
+- Change type: reshaped
+- Before: `compose_children(*, own_factors, requirements, outcomes, asked_at, composition_invocation, own_lineage, max_ttl, ttl_anchor_at, validity_floors)` — one instant served as both the expiry anchor and the instant remaining validity was measured from
+- After: adds the required keyword `decided_at: datetime` between `ttl_anchor_at` and `validity_floors` — the decision instant, and the instant `D-IMPL-31`'s mixing law measures each constituent's remaining validity from; `ttl_anchor_at` is used for the expiry only
+- Why: `D-IMPL-341` (`8c0388dc`, *the mixing law measures remaining validity from the decision instant*) — the review of `D-IMPL-341` caught the two sharing one argument: with an evidence anchor weeks before the decision, a child's remaining validity was overstated by exactly that gap and a constituent breaching its declared floor at the decision instant composed anyway. How long is left is a fact about now; how long the answer is good for is a fact about its evidence. Recorded at the `f0656746` qualification (2026-09-19); the commit regenerated no manifest and claimed no entry
+- Migration: every direct caller passes `decided_at`; the SDK's one caller, `GovernedResolver`, does
 
 *Recorded by `341-01-evidence-anchored-expiry.md`.*
 
@@ -18676,7 +19011,7 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 Surfaces that no longer exist. Each entry names what replaces it.
 
-10 entries — 10 public Python surface, 0 not public Python API.
+17 entries — 17 public Python surface, 0 not public Python API.
 
 ### Public Python surface
 
@@ -18842,11 +19177,95 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 *Recorded by `336-02-composite-remediation.md`.*
 
+#### ccf.products.composite.EligibilityEvidencePolicy
+
+- Surface: ccf.products.composite.EligibilityEvidencePolicy
+- Public surface: true
+- Change type: removed
+- Before: a `CCFContract` declaring how old a producer's eligibility check may be (`D-IMPL-336` Amendment 3, F7), claimed `added` by `336-02`
+- After: absent — deleted from `ccf.products.composite` by `87daab4f`; eligibility is stated on the child row by `eligibility_basis`, and acquisition runs through the effective grant and actual skill dispatch
+- Why: `D-IMPL-336` Amendment 5 (`87daab4f`) — the parallel authorization layer is gone. Claimed `added` by `336-02` and `removed` here, this name is a short-lived pair: it is in neither the frozen baseline nor the live surface
+- Migration: none on the shipped paths; a deployment that registered this policy directly removes the registration — nothing reads it
+
+*Recorded by `336-06-amendment-5-acquisition-by-granted-skill.md`.*
+
+#### ccf.products.composite.ELIGIBILITY_EVIDENCE_POLICY
+
+- Surface: ccf.products.composite.ELIGIBILITY_EVIDENCE_POLICY
+- Public surface: true
+- Change type: removed
+- Before: the `ArtifactClass` (`ccf.eligibility-evidence-policy`) the policy above registered under, claimed `added` by `336-02`
+- After: absent — deleted from `ccf.products.composite` by `87daab4f`
+- Why: `D-IMPL-336` Amendment 5 (`87daab4f`) — the contract it named is gone. Claimed `added` by `336-02` and `removed` here, this name is a short-lived pair: it is in neither the frozen baseline nor the live surface
+- Migration: none on the shipped paths; a manifest naming the class id is refused as an unknown `ccf.` class (`D-IMPL-84`) and drops the entry
+
+*Recorded by `336-06-amendment-5-acquisition-by-granted-skill.md`.*
+
+#### ccf.products.composite.eligibility_evidence_policy_key
+
+- Surface: ccf.products.composite.eligibility_evidence_policy_key
+- Public surface: true
+- Change type: removed
+- Before: `eligibility_evidence_policy_key(*, tenant_id: str) -> str` — the per-tenant Control Plane key the bound policy registered under, claimed `added` by `336-02`
+- After: absent — deleted from `ccf.products.composite` by `87daab4f`
+- Why: `D-IMPL-336` Amendment 5 (`87daab4f`) — nothing registers the policy, so nothing needs its key. Claimed `added` by `336-02` and `removed` here, this name is a short-lived pair: it is in neither the frozen baseline nor the live surface
+- Migration: none
+
+*Recorded by `336-06-amendment-5-acquisition-by-granted-skill.md`.*
+
+#### ccf.products.composite.LocalProvenance
+
+- Surface: ccf.products.composite.LocalProvenance
+- Public surface: true
+- Change type: removed
+- Before: a `ChildProvenance` record for a child this fabric produced, whose own register was authoritative; claimed `added` by `336-02`
+- After: absent — deleted from `ccf.products.composite` by `87daab4f`; a locally produced child is acquired through its granted skill like any other and carries its acquisition kind on the row
+- Why: `D-IMPL-336` Amendment 5 (`87daab4f`) — the composite is a consumer of Context Products and does not vouch for a child's origin itself. Claimed `added` by `336-02` and `removed` here, this name is a short-lived pair: it is in neither the frozen baseline nor the live surface
+- Migration: none on the shipped paths; a deployment that built provenance records by hand moves to a `CompositeChildResolverProtocol` implementation such as `GrantBoundChildResolver`
+
+*Recorded by `336-06-amendment-5-acquisition-by-granted-skill.md`.*
+
+#### ccf.products.composite.VerifiedPeerProvenance
+
+- Surface: ccf.products.composite.VerifiedPeerProvenance
+- Public surface: true
+- Change type: removed
+- Before: a `ChildProvenance` record for a child another fabric produced, whose envelope had been verified; claimed `added` by `336-02`
+- After: absent — deleted from `ccf.products.composite` by `87daab4f`; a genuinely peered child still passes peering verification at the peering boundary that owns it, regardless of how the skill retrieves it
+- Why: `D-IMPL-336` Amendment 5 (`87daab4f`) — verification sits at the boundary that owns it, not in a parallel record. Claimed `added` by `336-02` and `removed` here, this name is a short-lived pair: it is in neither the frozen baseline nor the live surface
+- Migration: as for `LocalProvenance`
+
+*Recorded by `336-06-amendment-5-acquisition-by-granted-skill.md`.*
+
+#### ccf.products.composite.LocalFabricAttestor
+
+- Surface: ccf.products.composite.LocalFabricAttestor
+- Public surface: true
+- Change type: removed
+- Before: the boot-bound authority for *this fabric produced it* — `attest(*, product, replay_ref, store)` resolved the decision record and read the touched entities out of replay dimension 1 (`336-03`); claimed `added` by `336-02`
+- After: absent — deleted from `ccf.products.composite` by `87daab4f`
+- Why: `D-IMPL-336` Amendment 5 (`87daab4f`) — with the provenance layer gone there is nothing to attest. Claimed `added` by `336-02` and `removed` here, this name is a short-lived pair: it is in neither the frozen baseline nor the live surface
+- Migration: none on the shipped paths; `FabricHandle.local_attestor` (`336-03`) no longer carries one
+
+*Recorded by `336-06-amendment-5-acquisition-by-granted-skill.md`.*
+
+#### ccf.products.composite.peer_provenance_from_admitted
+
+- Surface: ccf.products.composite.peer_provenance_from_admitted
+- Public surface: true
+- Change type: removed
+- Before: `peer_provenance_from_admitted(admitted: AdmittedProduct, *, touched_entities: tuple[str, ...]) -> VerifiedPeerProvenance` — built the peer provenance record from an admitted product; claimed `added` by `336-02`
+- After: absent — deleted from `ccf.products.composite` by `87daab4f`
+- Why: `D-IMPL-336` Amendment 5 (`87daab4f`) — the record it built is gone. Claimed `added` by `336-02` and `removed` here, this name is a short-lived pair: it is in neither the frozen baseline nor the live surface
+- Migration: none
+
+*Recorded by `336-06-amendment-5-acquisition-by-granted-skill.md`.*
+
 ## Behavior changes
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-151 entries — 131 public Python surface, 20 not public Python API.
+160 entries — 140 public Python surface, 20 not public Python API.
 
 ### Public Python surface
 
@@ -21756,6 +22175,90 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 
 *Recorded by `24.11-04-an-operator-parameter-may-be-request-bound.md`.*
 
+#### ccf.skills.grants.BoundSkillView.grant_hash_for
+
+- Surface: ccf.skills.grants.BoundSkillView.grant_hash_for
+- Public surface: true
+- Change type: behavior
+- Before: absent — the ledger resolved which grant put each bound skill in force and discarded it
+- After: returns that grant hash, resolved from ledger state at access time (D-IMPL-336 O2)
+- Why: there was no supported way to ask which grant authorized a bound entry, which is what forced callers to supply one The manifest records exports, not attributes or methods, so this change has no diff line; the entry's type was corrected from `added` to `behavior` at the `f0656746` qualification (2026-09-19).
+- Migration: none required — additive; raises `KeyError` for a skill this agent does not hold
+
+*Recorded by `336-03-grant-bound-child-invocation.md`.*
+
+#### ccf.products.resolver.GovernedResolver.admission_clock
+
+- Surface: ccf.products.resolver.GovernedResolver.admission_clock
+- Public surface: true
+- Change type: behavior
+- Before: absent — child admission was judged at `decided_at`, which a class may declare from the request (D-IMPL-308)
+- After: a required constructor argument carrying the trusted runtime clock, read once per composition (D-IMPL-336 O3)
+- Why: evidence age asks how old a child's eligibility evidence is NOW, and a declared historical instant let a request move the window its own evidence was checked in The manifest records exports, not attributes or methods, so this change has no diff line; the entry's type was corrected from `added` to `behavior` at the `f0656746` qualification (2026-09-19).
+- Migration: required on the dataclass, like every deployment-owned value; `build_governed_resolver` defaults it to the process UTC clock, so callers of the factory need no change
+
+*Recorded by `336-03-grant-bound-child-invocation.md`.*
+
+#### ccf.products.composite.CompositionOutcome.admitted_operators
+
+- Surface: ccf.products.composite.CompositionOutcome.admitted_operators
+- Public surface: true
+- Change type: behavior
+- Before: absent — only the combined union including the parent was carried, on `lineage`
+- After: the union over the admitted children's operator sets ALONE (D-IMPL-336 R4)
+- Why: Gate 2's widened operand for composites needs the children's half separable from the parent's, or a child invoking an operator would mask the parent's own declaration having drifted onto it The manifest records exports, not attributes or methods, so this change has no diff line; the entry's type was corrected from `added` to `behavior` at the `f0656746` qualification (2026-09-19).
+- Migration: none required — defaults to `frozenset()`, which leaves a childless composition's operand exactly a non-composite's
+
+*Recorded by `336-03-grant-bound-child-invocation.md`.*
+
+#### ccf.boot.FabricHandle.local_attestor
+
+- Surface: ccf.boot.FabricHandle.local_attestor
+- Public surface: true
+- Change type: behavior
+- Before: absent — a deployment built its own `LocalFabricAttestor` with an id it chose
+- After: minted by `boot` and carried on the handle; the only supported way to obtain one (D-IMPL-336 O1)
+- Why: "boot-bound" was a docstring while the constructor was public, so local provenance was a string any caller could write The manifest records exports, not attributes or methods, so this change has no diff line; the entry's type was corrected from `added` to `behavior` at the `f0656746` qualification (2026-09-19).
+- Migration: read it off the handle; the id is derived from the adapter name and a digest of the graph identity and is not chosen
+
+*Recorded by `336-03-grant-bound-child-invocation.md`.*
+
+#### ccf.products.composite.LocalFabricAttestor.attest
+
+- Surface: ccf.products.composite.LocalFabricAttestor.attest
+- Public surface: true
+- Change type: behavior
+- Before: `attest(*, touched_entities)` — vouched for whatever entities the caller named
+- After: `attest(*, product, replay_ref, store)` — resolves the decision record, refuses unless it names this product, and reads the entities out of replay dimension 1 (D-IMPL-336 O1)
+- Why: the eligibility gate checks those entities against the invalidation register, so a caller who could choose them could choose to be eligible The manifest records exports, not attributes or methods, so this change has no diff line; the entry's type was corrected from `reshaped` to `behavior` at the `f0656746` qualification (2026-09-19).
+- Migration: pass the delivered child and its `ServedProduct.replay_ref.uri`; a child with no persisted record can no longer be attested, which is the point
+
+*Recorded by `336-03-grant-bound-child-invocation.md`.*
+
+#### ccf.products.resolver.RefusalRecorderProtocol.record
+
+- Surface: ccf.products.resolver.RefusalRecorderProtocol.record
+- Public surface: true
+- Change type: behavior
+- Before: no parameter for child resolutions, so a refused composite's persisted record could not name the children it tried
+- After: accepts `child_resolutions`, defaulted to `()` (D-IMPL-336 CMP-R-01)
+- Why: the case where a reader most needs to know which child failed is the case the record was silent about The manifest records exports, not attributes or methods, so this change has no diff line; the entry's type was corrected from `reshaped` to `behavior` at the `f0656746` qualification (2026-09-19).
+- Migration: none required — the parameter is defaulted and `()` is the true claim for every non-composite refusal; a deployment substituting its own recorder may accept and forward it
+
+*Recorded by `336-04-refused-composites-carry-their-child-rows.md`.*
+
+#### ccf.products.resolver.ReplayRefusalRecorder.record
+
+- Surface: ccf.products.resolver.ReplayRefusalRecorder.record
+- Public surface: true
+- Change type: behavior
+- Before: forwarded no child resolutions to `build_replay_record`
+- After: forwards them, so a refused composite's persisted record carries one row per declared requirement (D-IMPL-336 CMP-R-01)
+- Why: the reference implementation must actually satisfy the widened seam, or the parameter would be accepted and ignored — the defect class this phase repairs The manifest records exports, not attributes or methods, so this change has no diff line; the entry's type was corrected from `reshaped` to `behavior` at the `f0656746` qualification (2026-09-19).
+- Migration: none required
+
+*Recorded by `336-04-refused-composites-carry-their-child-rows.md`.*
+
 #### ccf.products.resolver.GovernedResolver.__call__
 
 - Surface: ccf.products.resolver.GovernedResolver.__call__
@@ -21779,6 +22282,30 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none for non-composites (byte-identical path); none for composites with a legacy factory (served as before, governance only)
 
 *Recorded by `339-01-acquire-once-and-expose-child-contracts.md`.*
+
+#### ccf.skills.dispatch.McpSkillRegistry
+
+- Surface: ccf.skills.dispatch.McpSkillRegistry
+- Public surface: true
+- Change type: behavior
+- Before: `register(server, client, resources)` / `resolve(binding)`.
+- After: adds `register_producer(*, client, registration)` and `resolve_producer(binding)`; the fixed-resource pair is unchanged and a logical name cannot be registered as both.
+- Why: ruling 10 — logical registration names, never caller URLs. The manifest records a class's constructor shape, not its methods, so this change has no diff line; the entry's type was corrected from `reshaped` to `behavior` at the `f0656746` qualification (2026-09-19).
+- Migration: none.
+
+*Recorded by `340-01-cross-deployment-child-acquisition.md`.*
+
+#### ccf.agents.agent.Agent
+
+- Surface: ccf.agents.agent.Agent
+- Public surface: true
+- Change type: behavior
+- Before: `invoke_skill` dispatched any bound entry.
+- After: refuses an `mcp_product` entry by name — a producer is asked by a composite through a `ProductQuestion`, not by an agent's string-argument invocation.
+- Why: ruling 6. The manifest records a class's constructor shape, not its methods, so this change has no diff line; the entry's type was corrected from `reshaped` to `behavior` at the `f0656746` qualification (2026-09-19).
+- Migration: none.
+
+*Recorded by `340-01-cross-deployment-child-acquisition.md`.*
 
 #### ccf.products.product.open_product
 

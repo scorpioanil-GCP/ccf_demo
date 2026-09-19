@@ -495,3 +495,32 @@ Standing and NOT this change's: `tests/deployment/test_class_lookup.py::
 test_the_phases_fragments_claim_exactly_what_was_added` was red at the base commit with
 names from D-IMPL-336..340 unclaimed by any fragment; this fragment claims only what
 D-IMPL-343 added.
+
+## Claimed at the `f0656746` qualification — the two `ccf.deployment` re-exports
+
+The two entries below were added by `e5a64371` (*fix(door-cp-05): import the environment
+document loader from the wiring package — a two-name re-export (CP05D-F-06)*, 2026-09-17),
+after `D-IMPL-343` and without a fragment of its own. They were ruled to stay — *"The two SDK
+re-exports stay (`EnvironmentDocument`, `load_environment_document` from `ccf.deployment`;
+`CP05D-F-06`)"* — in the CP-14 integration slice acceptance recorded in `docs/DECISIONS.md`.
+Recorded here, 2026-09-19, because this fragment claims the module they re-export from.
+
+## ccf.deployment.EnvironmentDocument
+
+- Surface: ccf.deployment.EnvironmentDocument
+- Public surface: true
+- Change type: added
+- Before: importable only from `ccf.deployment.environment` (claimed above)
+- After: also exported from the wiring package, `from ccf.deployment import EnvironmentDocument` — the package's preferred import spelling
+- Why: `CP05D-F-06` (`e5a64371`), ruled to stay in the CP-14 slice acceptance — an example door reached for the environment document through the wiring package and found it only in a submodule
+- Migration: none; the submodule import keeps working
+
+## ccf.deployment.load_environment_document
+
+- Surface: ccf.deployment.load_environment_document
+- Public surface: true
+- Change type: added
+- Before: importable only from `ccf.deployment.environment` (claimed above)
+- After: also exported from the wiring package, `from ccf.deployment import load_environment_document`
+- Why: `CP05D-F-06` (`e5a64371`), ruled to stay in the CP-14 slice acceptance — the same two-name re-export
+- Migration: none; the submodule import keeps working
