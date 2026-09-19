@@ -30,7 +30,7 @@ tree actually cites rather than to match either prior document:
 | `CP08-F-02` | the estate marks no covenant supersession, so `include_superseded` is refused | unchanged since Gate 1; cited at `ccf_config.yaml`'s `unsupported_arguments` |
 | `CP08-F-03` | `assertedAt` is on amendments, never on covenants | `D-IMPL-329`'s numbering, which is Dave's ruling record |
 | `CP08-F-04` | covenant terms cannot be reconstructed for a past date | `D-IMPL-329`'s numbering; the four citations in the tree already use it |
-| `CP08-F-05` | the TTL anchor reads the scored view, not the served set; the demonstration expires under truthful bookings | raised 2026-09-18 under `D-IMPL-341`'s validation pass |
+| `CP08-F-05` | the TTL anchor reads the scored view, not the served set; the demonstration expires under truthful bookings | raised 2026-09-18 under `D-IMPL-341`'s validation pass; **the scored-view half was RULED the same day** — the specification was wrong and is corrected, the mechanism stands |
 
 **The Gate-1 `CP08-F-03` is WITHDRAWN and is not reused.** It claimed *"112 of
 137 amendments carry no `assertedAt`"* and was a count over the wrong
@@ -207,10 +207,17 @@ including those Π then excludes on either axis. Measured: a closed question
 (`as_of` = `known_as_of` = `2025-09-09`) serves `AMD-01BB3F-1` alone, excludes
 `AMD-01BB3F-2` on the assertion axis, and anchors on `-2`'s booking
 (`2025-10-05`) all the same. The two readings coincide for a live question and
-diverge for a closed one. Which set the spec should name — or whether the
-mechanism should read Π's served set — is a ruling, not this tree's call.
-`CIF-G15` (the dual TTL) is the gate that would give a closed answer its own,
-longer window; it stays unimplemented by the same ruling.
+diverge for a closed one.
+
+**RULED 2026-09-18 (Dave).** The anchor comes from the same selected
+observation set the freshness factor scores, not from the projection's final
+served subset; the SPECIFICATION was wrong and §E.3 and element 8 are
+corrected. An amendment in the scored set may contribute the anchor even when Π
+excludes it from the displayed answer, and the spec now says so — together with
+what the anchor does not claim: that every displayed fact was refreshed at that
+instant. No second selection algorithm was introduced and no source timestamp
+moved. `CIF-G15` (the dual TTL) is the gate that would give a closed answer its
+own, longer window; it stays unimplemented, unchanged by this ruling.
 
 ### Sabotage, run and restored
 
