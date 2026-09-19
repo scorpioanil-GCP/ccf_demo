@@ -145,14 +145,18 @@ def assemble_and_serve(
         # names its two Control Plane tables and DECLARES the two factors the
         # SDK cannot measure.
         #
-        # MEASURED, AND SAID PLAINLY: `D_c` reads 0 on every answer this
-        # product can serve, and the reference scorer does not change that.
-        # Freshness is the term that would move, but every observation is
-        # minted from a live read inside the run, so it is 1 by construction;
-        # the other two are declared 1 against a measured estate. §E.2 is the
-        # claim this implements — the platform's assessment applies and there
-        # is no shortfall of any of the three kinds to report. What was removed
-        # was not a working signal but a per-run ratio DRESSED as one.
+        # MEASURED TWICE, AND SAID PLAINLY. Until `D-IMPL-341` `D_c` read 0 on
+        # every answer this product could serve: freshness was the term that
+        # would move, but every observation was dated by the run that ingested
+        # it, so it was 1 by construction. Since 341 (validation pass
+        # 2026-09-18) each amendment claim carries its BOOKING date as its own
+        # instant and the `amendment` row decays on it, so freshness ages from
+        # the ledger's clock — 0.94 on the demonstration facility's booking day,
+        # 0.83 at the end of its 180-day window — and `D_c` moves with it. The
+        # other two factors are declared 1 against a measured estate. §E.2 is
+        # the claim this implements: the platform's assessment applies. What
+        # was removed before was not a working signal but a per-run ratio
+        # DRESSED as one; what moves now is the reference curve on real dates.
         half_life_key="half_life",
         debt_profile_key="debt_profile",
         declared_completeness=Decimal(deployment.declared_debt_factor("completeness")),

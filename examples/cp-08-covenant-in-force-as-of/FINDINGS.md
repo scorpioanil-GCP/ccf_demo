@@ -30,6 +30,7 @@ tree actually cites rather than to match either prior document:
 | `CP08-F-02` | the estate marks no covenant supersession, so `include_superseded` is refused | unchanged since Gate 1; cited at `ccf_config.yaml`'s `unsupported_arguments` |
 | `CP08-F-03` | `assertedAt` is on amendments, never on covenants | `D-IMPL-329`'s numbering, which is Dave's ruling record |
 | `CP08-F-04` | covenant terms cannot be reconstructed for a past date | `D-IMPL-329`'s numbering; the four citations in the tree already use it |
+| `CP08-F-05` | the TTL anchor reads the scored view, not the served set; the demonstration expires under truthful bookings | raised 2026-09-18 under `D-IMPL-341`'s validation pass |
 
 **The Gate-1 `CP08-F-03` is WITHDRAWN and is not reused.** It claimed *"112 of
 137 amendments carry no `assertedAt`"* and was a count over the wrong
@@ -165,6 +166,67 @@ without changing this product's shape.
 **Gated by** `CIF-G12` — the served covenants are labelled unversioned.
 
 ---
+
+## `CP08-F-05` — the anchor is read from the scored view, and truthful bookings expire the demonstration
+
+**Status: raised 2026-09-18 under `D-IMPL-341`'s validation pass; the spec's words and the mechanism's set differ, and the difference is stated rather than tuned away.**
+
+### What changed in this tree
+
+`deployment.ingest` now stamps each amendment claim's `valid_from` with its
+`assertedAt` — the booking date, this product's assertion-time axis — and the
+`amendment` λ_c row declares `decay_basis: valid-from`. Two consequences,
+both measured against the estate:
+
+- **Freshness moves.** The reference curve ages an amendment from when the
+  ledger booked it: 0.94 on the demonstration facility's booking day, 0.83 at
+  the end of the 180-day window. Before 341 every observation was dated by the
+  run that ingested it and `F` read 1 by construction (`produce.py`,
+  `README.md` and `spec/MEASUREMENT-NOTE.md` §2 all said so; the first two are
+  corrected, the note is the historical measurement).
+- **The expiry runs from the evidence.** `expires_at` is the freshest booking
+  among the facility's amendments at or before the question plus the amendment
+  half-life, recorded as `ttl_anchor_at`. `FAC-01BB3F`'s freshest booking is
+  `2025-10-05`, so its window closed `2026-04-03T00:00Z`; a wall-clock question
+  has been refused `ttl-refusal` / `ttl-bounds` since, and stays refused until
+  the ledger books a newer amendment. Until 341 the same question served with
+  an expiry that ran from the question and never aged. **The refusal is the
+  correct answer**, asserted as
+  `test_the_wall_clock_question_is_refused_because_its_evidence_has_expired`;
+  the serving tests now ask on the booking day (`INSTANT`), the natural instant
+  inside the window, as the positive control. No data, window or tolerance was
+  moved.
+
+### The precise mismatch
+
+`CP-SPEC-008` §E.3 says the TTL is "anchored on the latest assertion among the
+**served** set". The mechanism `D-IMPL-341` rules (R-1) anchors on the freshest
+`valid-from` leading edge **in the observation set the freshness factor scores**
+— the admitted view, which for this product is every amendment of the facility,
+including those Π then excludes on either axis. Measured: a closed question
+(`as_of` = `known_as_of` = `2025-09-09`) serves `AMD-01BB3F-1` alone, excludes
+`AMD-01BB3F-2` on the assertion axis, and anchors on `-2`'s booking
+(`2025-10-05`) all the same. The two readings coincide for a live question and
+diverge for a closed one. Which set the spec should name — or whether the
+mechanism should read Π's served set — is a ruling, not this tree's call.
+`CIF-G15` (the dual TTL) is the gate that would give a closed answer its own,
+longer window; it stays unimplemented by the same ruling.
+
+### Sabotage, run and restored
+
+The SDK's S1 — `resolve_ttl_anchor` returns the decision instant for an
+evidence-anchored class — turns both new controls red
+(`test_the_expiry_runs_from_the_freshest_booking_not_the_question`,
+`test_the_wall_clock_question_is_refused_because_its_evidence_has_expired`): the
+expiry runs from the question again and the wall-clock question serves. Restored,
+`cmp` verified, 2026-09-18.
+
+### What the estate could not supply
+
+Covenant and facility claims stay dated by the request instant: the estate
+carries no assertion date on a covenant (`CP08-F-03`) and no timestamp on the
+facility record, and their rows keep the `observed-at` basis. Only the
+amendment row — the moving part — reads a source clock.
 
 ## Carried gates — declared in the specification, not in the roster
 

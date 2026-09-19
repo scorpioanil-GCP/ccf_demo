@@ -74,7 +74,24 @@ def example() -> Iterator[tuple[Any, Any, Any]]:
 #: the determination — it sets the product's expiry — so two serves a
 #: millisecond apart are two different questions and correctly reach two
 #: different content addresses.
-INSTANT = datetime.now(UTC)
+#:
+#: **THE POSITIVE CONTROL, distinguished from the historical demonstration**
+#: (`D-IMPL-341`, validation pass 2026-09-18). Until 341 this instant was the
+#: wall clock: the expiry ran from the question, so the answer never aged.
+#: Now the class's declared anchor is honored — `expires_at` is the freshest
+#: amendment BOOKING among the facility's amendments plus the 180-day
+#: amendment half-life — and the demonstration facility's freshest booking is
+#: `2025-10-05` (`AMD-01BB3F-2`), so a wall-clock question has been refused
+#: `ttl-bounds` since `2026-04-03` and stays refused until the ledger books a
+#: newer amendment. That refusal is the correct answer and is asserted below
+#: (`test_the_wall_clock_question_is_refused_because_its_evidence_has_expired`);
+#: the serving tests ask on the booking day itself, the natural instant inside
+#: the window, and nothing about the data, the window or the tolerance moved.
+INSTANT = datetime(2025, 10, 5, 12, 0, tzinfo=UTC)
+
+#: "Knowing now" for the bitemporal comparisons: the asked instant's own date.
+#: It was the literal `2026-09-11` while the asked instant was the wall clock.
+KNOWING_NOW = INSTANT.date().isoformat()
 
 
 def _serve(example: tuple[Any, Any, Any], *, facility: str | None = None,
@@ -121,7 +138,7 @@ def test_moving_known_as_of_alone_changes_the_admitted_set(
     drawdown = run.DEMONSTRATION_DRAWDOWN
 
     at_the_time = _serve(example, as_of=drawdown, known_as_of=drawdown)
-    knowing_now = _serve(example, as_of=drawdown, known_as_of="2026-09-11")
+    knowing_now = _serve(example, as_of=drawdown, known_as_of=KNOWING_NOW)
 
     admitted_then = set(_ids(at_the_time, "amendments_in_force_and_known"))
     admitted_now = set(_ids(knowing_now, "amendments_in_force_and_known"))
@@ -192,8 +209,8 @@ def test_a_later_as_of_admits_no_fewer_amendments(
 
     Declared product gate `CIF-G01` (`CP-SPEC-008` §G.1).
     """
-    early = _serve(example, as_of="2025-06-01", known_as_of="2026-09-11")
-    late = _serve(example, as_of="2026-09-11", known_as_of="2026-09-11")
+    early = _serve(example, as_of="2025-06-01", known_as_of=KNOWING_NOW)
+    late = _serve(example, as_of=KNOWING_NOW, known_as_of=KNOWING_NOW)
     assert set(_ids(early, "amendments_in_force_and_known")) <= set(
         _ids(late, "amendments_in_force_and_known")
     )
@@ -209,7 +226,7 @@ def test_a_later_known_as_of_admits_no_fewer_amendments(
     _, _, run = example
     drawdown = run.DEMONSTRATION_DRAWDOWN
     early = _serve(example, as_of=drawdown, known_as_of=drawdown)
-    late = _serve(example, as_of=drawdown, known_as_of="2026-09-11")
+    late = _serve(example, as_of=drawdown, known_as_of=KNOWING_NOW)
     assert set(_ids(early, "amendments_in_force_and_known")) <= set(
         _ids(late, "amendments_in_force_and_known")
     )
@@ -274,7 +291,7 @@ def test_the_covenant_set_does_not_move_with_either_clock(
     _, _, run = example
     drawdown = run.DEMONSTRATION_DRAWDOWN
     then = _serve(example, as_of=drawdown, known_as_of=drawdown)
-    now = _serve(example, as_of=drawdown, known_as_of="2026-09-11")
+    now = _serve(example, as_of=drawdown, known_as_of=KNOWING_NOW)
 
     def identities(outcome: Any) -> set[str]:
         return {c["covenant_id"] for c in outcome.product.payload["covenants"]}
@@ -368,7 +385,7 @@ def test_one_question_at_one_instant_reaches_one_answer(
 
     _, _, run = example
     drawdown = run.DEMONSTRATION_DRAWDOWN
-    instant = datetime.now(UTC)
+    instant = INSTANT
     first = _serve(example, as_of=drawdown, known_as_of=drawdown, asked_at=instant)
     second = _serve(example, as_of=drawdown, known_as_of=drawdown, asked_at=instant)
     assert content_hash(first.product) == content_hash(second.product)
@@ -387,7 +404,7 @@ def test_the_declared_defaults_resolve_to_the_requests_own_instant(
     resolved window MOVES with the question — which a literal date in the
     contract would not.
     """
-    instant = datetime.now(UTC)
+    instant = INSTANT
     omitted = _serve(example, asked_at=instant)
     window = omitted.product.payload["window"]
     assert window["as_of"] == instant.date().isoformat()
@@ -398,6 +415,81 @@ def test_the_declared_defaults_resolve_to_the_requests_own_instant(
         "the declared default did not move with the question, so it is behaving"
         " as a literal rather than as a relative default"
     )
+
+
+# --- (5b) the evidence-anchored expiry (`D-IMPL-341`, 2026-09-18) --------------
+
+
+def test_the_expiry_runs_from_the_freshest_booking_not_the_question(
+    example: tuple[Any, Any, Any]
+) -> None:
+    """`CP-SPEC-008` §E.3: the TTL is anchored on the latest assertion, never on
+    request time. Since `D-IMPL-341` the served contract carries the anchor it
+    ran from — `ttl_anchor_at` — and it is the freshest `assertedAt` among the
+    facility's amendments at or before the question, as a UTC midnight instant,
+    with `expires_at` that plus the `amendment` half-life. The same question an
+    hour later reaches the same anchor and the same expiry: the window belongs
+    to the evidence.
+
+    **Measured, and stated as the precise mismatch it is:** the anchor is the
+    freshest booking in the ADMITTED VIEW — the observation set the freshness
+    factor scores (`D-IMPL-341` R-1) — not in the served set. A closed question
+    (`as_of` = `known_as_of` = the drawdown) serves `AMD-01BB3F-1` alone and
+    excludes `AMD-01BB3F-2` on the assertion axis, yet anchors on `-2`'s booking
+    all the same, because `-2` is in the view the scorer read. §E.3's words are
+    "the latest assertion among the served set"; the mechanism reads the scored
+    set. Raised as `CP08-F-05`, not repaired here.
+    """
+    from decimal import Decimal  # noqa: PLC0415
+
+    deployment, _, run = example
+    live = _serve(example)
+    bookings = sorted(datetime.fromisoformat(a["asserted_at"]).replace(tzinfo=UTC)
+                      for a in live.product.payload["amendments_in_force_and_known"] if a["asserted_at"])
+    freshest = bookings[-1]
+    window = timedelta(seconds=int(deployment.config()["half_life"]["amendment"]["half_life_seconds"]))
+    assert live.product.ttl_anchor == "from_entity_freshness"
+    assert live.product.ttl_anchor_at == freshest
+    assert live.product.expires_at == freshest + window
+    assert live.product.expires_at != INSTANT + window, "the expiry is running from the question again"
+    assert Decimal("0") < live.product.debt.factors.freshness < Decimal("1"), "freshness no longer moves with the booking date"
+
+    later = _serve(example, asked_at=INSTANT + timedelta(hours=1))
+    assert (later.product.ttl_anchor_at, later.product.expires_at) == (freshest, freshest + window)
+
+    drawdown = run.DEMONSTRATION_DRAWDOWN
+    closed = _serve(example, as_of=drawdown, known_as_of=drawdown)
+    assert _excluded_by(closed, "AMD-01BB3F-2") is not None, "the closed question did not exclude the late booking"
+    assert closed.product.ttl_anchor_at == freshest, "the anchor is read from the scored view, not the served set (CP08-F-05)"
+
+
+def test_the_wall_clock_question_is_refused_because_its_evidence_has_expired(
+    example: tuple[Any, Any, Any]
+) -> None:
+    """The historical demonstration, preserved as a measurement: asked now, the
+    facility's freshest booking plus 180 days lies in the past, and the SDK's
+    TTL gate refuses `ttl-bounds` before any product gate runs. Until
+    `D-IMPL-341` this question served, with an expiry that ran from the
+    question and never aged — the incorrect serve the correction replaces. A
+    question one day inside the window still serves; one day past it does not.
+    """
+    from ccf.products.refusal import RefusalEnvelope  # noqa: PLC0415
+
+    deployment, _, _ = example
+    window = timedelta(seconds=int(deployment.config()["half_life"]["amendment"]["half_life_seconds"]))
+    served = _serve(example)
+    edge = served.product.expires_at
+    assert edge == served.product.ttl_anchor_at + window
+    assert edge < datetime.now(UTC), "the demonstration's window has not closed yet; this control is vacuous today"
+
+    refused = _serve(example, asked_at=datetime.now(UTC))
+    assert isinstance(refused, RefusalEnvelope), getattr(refused, "product", refused)
+    assert (refused.kind, refused.reason) == ("ttl-refusal", "ttl-bounds")
+
+    inside = _serve(example, asked_at=edge - timedelta(days=1))
+    assert not isinstance(inside, RefusalEnvelope) and inside.product.expires_at == edge
+    past = _serve(example, asked_at=edge + timedelta(days=1))
+    assert isinstance(past, RefusalEnvelope) and (past.kind, past.reason) == ("ttl-refusal", "ttl-bounds")
 
 
 # --- (6) the declared invariant, the replay pin, and the decision record ---
@@ -484,7 +576,7 @@ def test_re_serving_at_a_recorded_transaction_point_reproduces_the_answer(
 
     deployment, produce, run = example
     drawdown = run.DEMONSTRATION_DRAWDOWN
-    instant = datetime.now(UTC)
+    instant = INSTANT
 
     first = _serve(example, as_of=drawdown, known_as_of=drawdown, asked_at=instant)
     recorded = first.window.graph_pin
