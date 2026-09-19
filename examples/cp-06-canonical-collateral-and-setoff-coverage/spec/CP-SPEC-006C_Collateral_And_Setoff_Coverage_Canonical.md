@@ -156,7 +156,7 @@ not hold. Nothing raises for a question that merely has no answer.
 | subject | the facility id, as `ProductRequest.subject` — the CP-14 question names the facility as the child's subject (`CP14-F-20`) |
 | intent | `lgd-assessment` — declared on `discovery.intents`; judged, never an argument |
 | freshness | `as-filed` (what `CP-SPEC-014` asks the collateral child at); `standard` retained for the specimen's own callers |
-| TTL | 24 hours ceiling, product window one day (the deposit-balance half-life), **declared** `from_entity_freshness`; **served** `expires_at` runs from the decision instant — the specimen measures `instant + 24 h` at §A.2 — which is `D-IMPL-341`'s open gap, inherited and disclosed, not repaired |
+| TTL | 24 hours ceiling, product window one day (the deposit-balance half-life), **declared** `from_entity_freshness`; **served** `expires_at` runs from the freshest asset valuation date in the admitted view and the contract records it as `ttl_anchor_at` (since `D-IMPL-341`, 2026-09-18; the specimen measured `instant + 24 h` at §A.2 while the gap stood). Measured consequence: the one-day window closes a day after the valuation, so at the CP-14 instant both declared facilities are refused `ttl-bounds` — the calibration question is `FINDINGS.md` `CP06C-F-05` |
 | assembly mode | 1 — algorithmic |
 | operators | `policy.principal-subgraph` then `traversal.typed-neighborhood`, exactly two, policy before traversal |
 | lineage | graph-supplied; every asset carries `provenance`, `valuation_date`, `lien_position`; every filing its number, dates and status |
@@ -248,8 +248,9 @@ dimension 2 carries the request contract and the policy bundle.
 defaults, is hashed and compared with the specimen's payload addresses in
 §A.2 (`d22b256e…`, `8e3e567b…`). The comparison is on the **payload**, not
 the whole contract: the contract carries `tenant_id` and `plan_id`, which a
-sibling under its own tenant cannot share, and the expiry, which
-`D-IMPL-341` anchors on the instant either way. If both payloads match, the
+sibling under its own tenant cannot share, and the expiry, which the
+specimen anchored on the instant and the successor, since `D-IMPL-341`, on
+the valuation. If both payloads match, the
 successor serves `1.0.0` — a second producer of the same product. If either
 differs, the successor serves `1.1.0`, and §G.3 states every differing member
 and why. **No payload member is adjusted to make the match.** The gate that
@@ -282,7 +283,8 @@ are `fibo-v2` and `ccf_v2`; `ccf_dataprep/.env` names v1. Read-only. No
 
 Raised in the tree's `FINDINGS.md` under `docs/EXAMPLE-EVALUATION-CRITERIA.md`.
 Two are known before the build: `D-IMPL-341` (the expiry anchor) is inherited
-and disclosed; and whether the road's refusal to pass acquisition values to Π
+and disclosed (closed 2026-09-18; the migration it took and its consequence
+for the demonstration are `CP06C-F-04` / `CP06C-F-05`); and whether the road's refusal to pass acquisition values to Π
 is friction or the correct shape is recorded as a measurement (`§E` of the
 criteria) — this specification's position is that it is the correct shape.
 
@@ -320,7 +322,7 @@ properties under the successor's ids; the twelfth replaces the specimen's
 | `CSCC-G20` | a scope the caller does not hold yields an empty graph and a refusal, never a redacted payload |
 | `CSCC-G21` | the door and the in-process run serve **one** content address |
 | `CSCC-G22` | a fresh fabric per run; two facilities under one root hash to their own addresses |
-| `CSCC-G23` | `expires_at` is anchored on the freshest valuation, as declared — **quarantined evidence of `D-IMPL-341`** |
+| `CSCC-G23` | `expires_at` is anchored on the freshest valuation, as declared, and `ttl_anchor_at` records it — live since `D-IMPL-341` (was quarantined evidence) |
 
 **All directional, structural or relational. No estate figure is pinned in a
 gate** — the counts in §A.2 and §E are measurements a reader can reproduce.
@@ -345,7 +347,11 @@ gate** — the counts in §A.2 and §E are measurements a reader can reproduce.
 (`CSCC-G13`): full canonical payload hashes equal, field-level comparison empty,
 debt factors equal (`F` 0.6340 / 0.6231, `C` 1, `S` 1), expiry equal (decision
 instant + 24 h on both — `D-IMPL-341`, inherited), `operators_invoked` equal.
-The lane is therefore **`1.0.0`**.
+The lane is therefore **`1.0.0`**. Since `D-IMPL-341` (2026-09-18) the lane is
+held to those recorded payload addresses rather than to a live specimen: the
+frozen specimen declares the same anchor over a resolver the SDK can read no
+clock from and is refused `ttl-anchor-unresolvable` on every question, and the
+successor's `F` and expiry now run from the valuation date (`CSCC-G13`).
 
 **What differs, by construction and by design — none of it in the payload:**
 

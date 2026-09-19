@@ -47,11 +47,16 @@ in code or in a third document.
 | `CP06C-F-01` | **A replay environment for a paved product is assembled by hand.** Rebuilding Π at replay needs the EFFECTIVE parameters; the record carries them on dimension 2 as `request_resolution`, a canonical JSON string a consumer must parse into an `EffectiveRequest` and fold onto the asked request; the operator registry needs `build_governed_resolver(**opened.build_arguments(fabric))` and a private `_operator_parameters`; the envelope needs the deployment's TTL and anchor restated from the documents. ~40 lines of test code that every paved producer's replay proof would write again (§E "custom adapter or glue code") | 3 · post-launch enhancement, §I record below | recorded; the proof is written by hand here |
 | `CP06C-F-02` | **The road hands Π the effective request and nothing from the side.** The specimen's Π closed over two acquisition values; the road offers no seam for that, and the honest shape turned out to be fabric state (the commitment on the facility node, `CSCC-G14`). Recorded as the measurement Dave asked for: for this graph-backed product it is the correct shape, not friction, and not a general rule that every input becomes a graph attribute | not a finding against the SDK | the ruling of 2026-09-16 stands |
 | `CP06C-F-03` | **The specimen serves a coverage of zero over an empty view.** A scope the caller does not hold yields an empty graph; the low-road specimen serves `assets: []`, `coverage_ratio: 0` — a redacted answer that reads as an uncovered facility. The successor refuses through its declared gate (`CSCC-G20`). A behavior difference between two shipped producers of one product, disclosed in `CP-SPEC-006C` §G.3 | 4 · specimen-design limitation (the specimen is frozen, `D-IMPL-261`) | disclosed; the specimen is not edited |
+| `CP06C-F-04` | **The specimen's freshness read a stored age, not the valuation date.** `deployment.debt` aged each asset by `now - valuation_age_days`, and `valuation_age_days` is a STORED column: `valuation_date + valuation_age_days` resolves to two dates on the whole table (`2026-08-17`, `2026-08-22` — the estate's load dates), so the count equals the valuation's real age only on the day it was loaded and drifts one day per day after. At the CP-14 instant the CP-14 facility's asset read 240 days old against a real 261. `D-IMPL-341` made the valuation date the claim's own `valid_from` (`deployment._valuation_instant`), `F` reads it, and the anchor reads the same instant (`CSCC-G23`). Measured: `F` 0.609 (real) against 0.634 (stored) at the CP-14 instant | 2 · example (a scorer aging from the wrong clock) — closed here 2026-09-18 | Closed; the specimen keeps the stored age (`D-IMPL-261`) |
+| `CP06C-F-05` | **Truthful timestamps expire the demonstration, and the class's window and anchor name different evidence.** With `expires_at` anchored on the freshest valuation and the product window one day (the deposit-balance half-life), `FAC-5B8418` (valued `2025-12-20`) is refused `ttl-refusal` / `ttl-bounds` at the CP-14 instant, `FAC-044206` (`2026-08-15`) likewise, and no facility on this estate serves after `2026-08-21`. The refusal is the correct answer under the declarations and is asserted as the intentional correction; the serving tests ask each facility on its valuation day as the positive control; CP-14's collateral slot is `ineligible` for the same reason and the memo for BGC serves at no instant. The precise mismatch: the window follows the DEPOSIT clock (a balance the estate does not date — `ccf_v2.deposit_account` carries no as-of column) while the anchor can only read the VALUATION clock (the one dated evidence), so the declaration as written mixes two cadences. Two honest resolutions, both rulings rather than this tree's call: declare `from_decision` (the fast-moving evidence carries no source instant; per-asset staleness stays in the payload), or keep the evidence anchor with a window matched to the valuation cadence under `D-IMPL-323`'s illustrative-calibration rule. Also measured: the frozen specimen — same anchor declared, no λ_c table the SDK can read — is refused `ttl-anchor-unresolvable` on every question since 341; its suites are quarantined `xfail(strict=True)` (`D-IMPL-261`), the specimen untouched, and `CSCC-G13` is held to the recorded payload addresses | 1 · product contract — a ruling owed | Open; raised to Dave 2026-09-18 |
 
 ## 3 · Launch blockers
 
-None raised by this tree. `D-IMPL-341` (the expiry anchor) is inherited and stays OPEN —
-`CSCC-G23` is quarantined `xfail(strict=True)` evidence, not a repair.
+None raised by this tree at Gate 1. `D-IMPL-341` (the expiry anchor) was inherited and
+OPEN — `CSCC-G23` quarantined `xfail(strict=True)` evidence — until 2026-09-18, when the
+SDK honored the declaration and this tree was migrated (`CP06C-F-04`); what that did
+to the demonstration is `CP06C-F-05`, a product-contract ruling owed rather than a
+launch blocker of the SDK.
 
 ## 4 · Backlog candidates (§I)
 
@@ -103,8 +108,11 @@ before commit; the roster's `observed_red` names the ones that ran.
 | S20 — the gate lets a missing commitment through | `deployment.py` | `CSCC-G20`, `G10`, the `D-IMPL-344` reconstruction | the other 23 |
 | S12 — a `door.yaml` naming a script path added | `server/` | `CSCC-G12` alone | the other 25 |
 | S16 — one specimen file edited | the specimen's README | `CSCC-G16` alone | the other 25 |
+| S17 — the SDK's S1: `resolve_ttl_anchor` returns the decision instant (2026-09-18, `D-IMPL-341` validation pass) | `src/ccf/products/expiry.py` | `CSCC-G23`; the two CP-14-instant refusal controls (the coverage serves again, decision-anchored) | the other 27 |
 
 Restored tree after the sweep: 26 passed, 1 xfailed (`CSCC-G23`, as declared); the
+(2026-09-18, after `D-IMPL-341`: 30 passed, 0 xfailed — `CSCC-G23` live, the
+CP-14-instant refusals and the door's `ineligible` row asserted beside them.) The
 specimen diff-empty. Not individually sabotaged: `G02`, `G03`, `G05`, `G07`, `G11`,
 `G15`, `G17`, `G18`, `G21`, `G22` — each asserted, its described sabotage recorded on
 the roster with `observed_red: null`.

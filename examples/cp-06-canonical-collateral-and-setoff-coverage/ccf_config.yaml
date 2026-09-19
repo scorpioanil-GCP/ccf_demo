@@ -314,6 +314,26 @@ half_life:
     half_life_seconds: 15552000       # ~180 days
     decay_driver: credit-policy-review
     supersession_event: a new haircut schedule version
+  # THE ENTITY-CLASS ROW THE TTL ANCHOR READS (`D-IMPL-341`, validation pass
+  # 2026-09-18). Every node of this product is one entity class,
+  # `collateral_node`, distinguished by its `node_kind` attribute;
+  # `deployment.debt` scores the ASSET nodes as observations typed by their
+  # valuation category (the rows above, one day against one year) and dated by
+  # the valuation date, which is now the claim's own `valid_from`. The SDK's
+  # TTL anchor reads the same asset claims by the same clock but selects them
+  # BY ENTITY CLASS (R-1), and the supported table cannot key one class to
+  # several rates. So this row carries the class's CLOCK and no rate:
+  # `supersede-only` for the node as an entity (its valuation ages under the
+  # category rows above; the node itself is superseded by a new mark or
+  # appraisal), and `decay_basis: valid-from` for the instant the anchor
+  # takes. A facility, pledge, deposit or UCC node carries no `valid_from` and
+  # contributes no instant. Nothing scores `F` from this row; nothing anchors
+  # from the rows above.
+  collateral_node:
+    decay: supersede-only
+    decay_basis: valid-from
+    decay_driver: valuation-cycle
+    supersession_event: a new valuation on the asset
 
 debt_profile:
   risk_sensitivity: "1.0"
@@ -340,8 +360,11 @@ replay:
 # THE TTL THIS PRODUCT DECLARES. The class ceiling is §B's 24 hours; the
 # product's own window follows the fastest-moving evidence the payload carries,
 # the deposit balance (`half_life.deposit_balance`). `ttl_anchor` above declares
-# `from_entity_freshness`; the served `expires_at` runs from the decision
-# instant regardless (`D-IMPL-341`, open — `CSCC-G23` holds the evidence).
+# `from_entity_freshness`, and since `D-IMPL-341` the served `expires_at` runs
+# from the freshest asset valuation date the admitted view carries — the
+# `collateral_node` row's clock — never from the decision instant. A window of
+# one day from a valuation that is months old expires before it is served:
+# that is the governed refusal, not a defect (`CSCC-G23`).
 ttl:
   max_ttl_seconds: 86400             # 24 hours
   product_ttl_seconds: 86400         # 1 day — the deposit-balance half-life

@@ -121,6 +121,7 @@ def default(estate: tuple[str, str], example: tuple[Any, Any]) -> Any:
 # --- the six measured behaviors, as RELATIONSHIPS ----------------------------
 
 
+@pytest.mark.xfail(strict=True, reason="`D-IMPL-341` (validation pass 2026-09-18): the frozen cp-06 declares `ttl_anchor: from_entity_freshness` over a resolver wired with its own `debt_scorer` and no lambda_c table the SDK can read, so every serve is refused `ttl-anchor-refusal` / `ttl-anchor-unresolvable` (R-3, no fallback) — quarantined evidence of the SDK's evolution, `D-IMPL-261`; the specimen is not edited")
 def test_haircuts_reduce_coverage(estate: tuple[str, str], example: tuple[Any, Any],
                                   default: Any) -> None:
     """A haircut is a discount, so applying one cannot raise coverage.
@@ -138,6 +139,7 @@ def test_haircuts_reduce_coverage(estate: tuple[str, str], example: tuple[Any, A
     )
 
 
+@pytest.mark.xfail(strict=True, reason="`D-IMPL-341` (validation pass 2026-09-18): the frozen cp-06 declares `ttl_anchor: from_entity_freshness` over a resolver wired with its own `debt_scorer` and no lambda_c table the SDK can read, so every serve is refused `ttl-anchor-refusal` / `ttl-anchor-unresolvable` (R-3, no fallback) — quarantined evidence of the SDK's evolution, `D-IMPL-261`; the specimen is not edited")
 def test_valid_setoff_increases_coverage(estate: tuple[str, str],
                                          example: tuple[Any, Any],
                                          default: Any) -> None:
@@ -153,6 +155,7 @@ def test_valid_setoff_increases_coverage(estate: tuple[str, str],
     )
 
 
+@pytest.mark.xfail(strict=True, reason="`D-IMPL-341` (validation pass 2026-09-18): the frozen cp-06 declares `ttl_anchor: from_entity_freshness` over a resolver wired with its own `debt_scorer` and no lambda_c table the SDK can read, so every serve is refused `ttl-anchor-refusal` / `ttl-anchor-unresolvable` (R-3, no fallback) — quarantined evidence of the SDK's evolution, `D-IMPL-261`; the specimen is not edited")
 def test_contractual_basis_counts_more_setoff_than_enforceable(
     estate: tuple[str, str], example: tuple[Any, Any], default: Any
 ) -> None:
@@ -175,6 +178,7 @@ def test_contractual_basis_counts_more_setoff_than_enforceable(
     )
 
 
+@pytest.mark.xfail(strict=True, reason="`D-IMPL-341` (validation pass 2026-09-18): the frozen cp-06 declares `ttl_anchor: from_entity_freshness` over a resolver wired with its own `debt_scorer` and no lambda_c table the SDK can read, so every serve is refused `ttl-anchor-refusal` / `ttl-anchor-unresolvable` (R-3, no fallback) — quarantined evidence of the SDK's evolution, `D-IMPL-261`; the specimen is not edited")
 def test_priority_and_pro_rata_disagree_on_a_shared_asset(
     estate: tuple[str, str], example: tuple[Any, Any], default: Any
 ) -> None:
@@ -196,6 +200,7 @@ def test_priority_and_pro_rata_disagree_on_a_shared_asset(
     assert _ratio(pro_rata) != _ratio(default)
 
 
+@pytest.mark.xfail(strict=True, reason="`D-IMPL-341` (validation pass 2026-09-18): the frozen cp-06 declares `ttl_anchor: from_entity_freshness` over a resolver wired with its own `debt_scorer` and no lambda_c table the SDK can read, so every serve is refused `ttl-anchor-refusal` / `ttl-anchor-unresolvable` (R-3, no fallback) — quarantined evidence of the SDK's evolution, `D-IMPL-261`; the specimen is not edited")
 def test_the_register_reports_a_released_lien(estate: tuple[str, str],
                                               example: tuple[Any, Any]) -> None:
     """The MasTec case: a lien the contract layer calls secured and the public
@@ -228,6 +233,7 @@ def test_the_register_reports_a_released_lien(estate: tuple[str, str],
         assert filing["filed_on"] and filing["filed_on"][:4].isdigit()
 
 
+@pytest.mark.xfail(strict=True, reason="`D-IMPL-341` (validation pass 2026-09-18): the frozen cp-06 declares `ttl_anchor: from_entity_freshness` over a resolver wired with its own `debt_scorer` and no lambda_c table the SDK can read, so every serve is refused `ttl-anchor-refusal` / `ttl-anchor-unresolvable` (R-3, no fallback) — quarantined evidence of the SDK's evolution, `D-IMPL-261`; the specimen is not edited")
 def test_mastec_is_under_covered(estate: tuple[str, str],
                                  example: tuple[Any, Any]) -> None:
     """One engineered receivable against a $600m commitment cannot cover it.
@@ -247,6 +253,7 @@ def test_mastec_is_under_covered(estate: tuple[str, str],
 # --- what the product must keep carrying -------------------------------------
 
 
+@pytest.mark.xfail(strict=True, reason="`D-IMPL-341` (validation pass 2026-09-18): the frozen cp-06 declares `ttl_anchor: from_entity_freshness` over a resolver wired with its own `debt_scorer` and no lambda_c table the SDK can read, so every serve is refused `ttl-anchor-refusal` / `ttl-anchor-unresolvable` (R-3, no fallback) — quarantined evidence of the SDK's evolution, `D-IMPL-261`; the specimen is not edited")
 def test_valuation_dates_are_per_asset_and_not_flattened(default: Any) -> None:
     """§6.4 refuses to let a one-day mark and a one-year appraisal collapse.
 
@@ -259,6 +266,7 @@ def test_valuation_dates_are_per_asset_and_not_flattened(default: Any) -> None:
         assert isinstance(asset["valuation_age_days"], int)
 
 
+@pytest.mark.xfail(strict=True, reason="`D-IMPL-341` (validation pass 2026-09-18): the frozen cp-06 declares `ttl_anchor: from_entity_freshness` over a resolver wired with its own `debt_scorer` and no lambda_c table the SDK can read, so every serve is refused `ttl-anchor-refusal` / `ttl-anchor-unresolvable` (R-3, no fallback) — quarantined evidence of the SDK's evolution, `D-IMPL-261`; the specimen is not edited")
 def test_priority_is_carried_on_the_facility_asset_pair(default: Any) -> None:
     """Priority belongs to the PAIR, and the payload says so per claimant.
 
@@ -274,6 +282,7 @@ def test_priority_is_carried_on_the_facility_asset_pair(default: Any) -> None:
         assert asset["allocation_basis"], "a shared asset with no allocation basis"
 
 
+@pytest.mark.xfail(strict=True, reason="`D-IMPL-341` (validation pass 2026-09-18): the frozen cp-06 declares `ttl_anchor: from_entity_freshness` over a resolver wired with its own `debt_scorer` and no lambda_c table the SDK can read, so every serve is refused `ttl-anchor-refusal` / `ttl-anchor-unresolvable` (R-3, no fallback) — quarantined evidence of the SDK's evolution, `D-IMPL-261`; the specimen is not edited")
 def test_source_ids_are_served_for_business_matching(default: Any) -> None:
     """A payload speaking only in content hashes cannot be joined to anything.
 
@@ -300,6 +309,7 @@ def test_the_over_allocation_gate_is_declared_and_identified(
     assert declared["gate_id"] and declared["gate_version"]
 
 
+@pytest.mark.xfail(strict=True, reason="`D-IMPL-341` (validation pass 2026-09-18): the frozen cp-06 declares `ttl_anchor: from_entity_freshness` over a resolver wired with its own `debt_scorer` and no lambda_c table the SDK can read, so every serve is refused `ttl-anchor-refusal` / `ttl-anchor-unresolvable` (R-3, no fallback) — quarantined evidence of the SDK's evolution, `D-IMPL-261`; the specimen is not edited")
 def test_replay_dimension_two_carries_the_request_contract(default: Any) -> None:
     """`D-IMPL-310` — replay is a SUPERSET of product policy lineage.
 
@@ -312,6 +322,7 @@ def test_replay_dimension_two_carries_the_request_contract(default: Any) -> None
     assert lineage <= versions
 
 
+@pytest.mark.xfail(strict=True, reason="`D-IMPL-341` (validation pass 2026-09-18): the frozen cp-06 declares `ttl_anchor: from_entity_freshness` over a resolver wired with its own `debt_scorer` and no lambda_c table the SDK can read, so every serve is refused `ttl-anchor-refusal` / `ttl-anchor-unresolvable` (R-3, no fallback) — quarantined evidence of the SDK's evolution, `D-IMPL-261`; the specimen is not edited")
 def test_the_spec_step_table_names_exactly_the_registered_operators(
     example: tuple[Any, Any], default: Any
 ) -> None:
@@ -364,6 +375,7 @@ def test_the_spec_step_table_names_exactly_the_registered_operators(
     )
 
 
+@pytest.mark.xfail(strict=True, reason="`D-IMPL-341` (validation pass 2026-09-18): the frozen cp-06 declares `ttl_anchor: from_entity_freshness` over a resolver wired with its own `debt_scorer` and no lambda_c table the SDK can read, so every serve is refused `ttl-anchor-refusal` / `ttl-anchor-unresolvable` (R-3, no fallback) — quarantined evidence of the SDK's evolution, `D-IMPL-261`; the specimen is not edited")
 def test_the_policy_operator_discriminates_rather_than_passing_through(
     estate: tuple[str, str], example: tuple[Any, Any], default: Any
 ) -> None:
@@ -442,6 +454,7 @@ def test_the_door_declares_its_entrypoint_rather_than_a_script_path() -> None:
 # --- CP-SPEC-006 conformance: the clauses the six behaviors do not cover ------
 
 
+@pytest.mark.xfail(strict=True, reason="`D-IMPL-341` (validation pass 2026-09-18): the frozen cp-06 declares `ttl_anchor: from_entity_freshness` over a resolver wired with its own `debt_scorer` and no lambda_c table the SDK can read, so every serve is refused `ttl-anchor-refusal` / `ttl-anchor-unresolvable` (R-3, no fallback) — quarantined evidence of the SDK's evolution, `D-IMPL-261`; the specimen is not edited")
 def test_spec_d5_replay_same_parameters_reach_the_same_address(
     estate: tuple[str, str], example: tuple[Any, Any]
 ) -> None:
@@ -468,6 +481,7 @@ def test_spec_d5_replay_same_parameters_reach_the_same_address(
     assert content_hash(later.product) != content_hash(first.product)
 
 
+@pytest.mark.xfail(strict=True, reason="`D-IMPL-341` (validation pass 2026-09-18): the frozen cp-06 declares `ttl_anchor: from_entity_freshness` over a resolver wired with its own `debt_scorer` and no lambda_c table the SDK can read, so every serve is refused `ttl-anchor-refusal` / `ttl-anchor-unresolvable` (R-3, no fallback) — quarantined evidence of the SDK's evolution, `D-IMPL-261`; the specimen is not edited")
 def test_spec_d5_one_changed_parameter_moves_the_payload_not_the_read(
     estate: tuple[str, str], example: tuple[Any, Any]
 ) -> None:
@@ -490,6 +504,7 @@ def test_spec_d5_one_changed_parameter_moves_the_payload_not_the_read(
     ), "the allocation basis changed the READ; it must change only the payload"
 
 
+@pytest.mark.xfail(strict=True, reason="`D-IMPL-341` (validation pass 2026-09-18): the frozen cp-06 declares `ttl_anchor: from_entity_freshness` over a resolver wired with its own `debt_scorer` and no lambda_c table the SDK can read, so every serve is refused `ttl-anchor-refusal` / `ttl-anchor-unresolvable` (R-3, no fallback) — quarantined evidence of the SDK's evolution, `D-IMPL-261`; the specimen is not edited")
 def test_spec_b1_lineage_carries_exactly_the_two_declared_operators(
     default: Any, example: tuple[Any, Any]
 ) -> None:
@@ -506,6 +521,7 @@ def test_spec_b1_lineage_carries_exactly_the_two_declared_operators(
     assert len(declared) == 2
 
 
+@pytest.mark.xfail(strict=True, reason="`D-IMPL-341` (validation pass 2026-09-18): the frozen cp-06 declares `ttl_anchor: from_entity_freshness` over a resolver wired with its own `debt_scorer` and no lambda_c table the SDK can read, so every serve is refused `ttl-anchor-refusal` / `ttl-anchor-unresolvable` (R-3, no fallback) — quarantined evidence of the SDK's evolution, `D-IMPL-261`; the specimen is not edited")
 def test_spec_c3_unresolved_debtor_names_are_served_not_hidden(default: Any) -> None:
     """`CP-SPEC-006` §C.3 — the register keys on name, the fabric keys on LEI.
 

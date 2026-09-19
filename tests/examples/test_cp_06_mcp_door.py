@@ -150,6 +150,7 @@ def _payload(outcomes: dict[str, Any], key: str) -> dict[str, Any]:
     return json.loads(body["product_json"])["payload"]
 
 
+@pytest.mark.xfail(strict=True, reason="`D-IMPL-341` (validation pass 2026-09-18): the frozen cp-06 declares `ttl_anchor: from_entity_freshness` over a resolver wired with its own `debt_scorer` and no lambda_c table the SDK can read, so every serve is refused `ttl-anchor-refusal` / `ttl-anchor-unresolvable` (R-3, no fallback) — quarantined evidence of the SDK's evolution, `D-IMPL-261`; the specimen is not edited")
 def test_the_door_answers_its_first_call(outcomes: Any) -> None:
     """`CP07-F-08`, and the assertion is deliberately the plainest one possible.
 
@@ -164,6 +165,7 @@ def test_the_door_answers_its_first_call(outcomes: Any) -> None:
     assert payload["assets"], "the door served a facility with no collateral"
 
 
+@pytest.mark.xfail(strict=True, reason="`D-IMPL-341` (validation pass 2026-09-18): the frozen cp-06 declares `ttl_anchor: from_entity_freshness` over a resolver wired with its own `debt_scorer` and no lambda_c table the SDK can read, so every serve is refused `ttl-anchor-refusal` / `ttl-anchor-unresolvable` (R-3, no fallback) — quarantined evidence of the SDK's evolution, `D-IMPL-261`; the specimen is not edited")
 def test_a_caller_supplied_basis_reaches_the_projection_over_mcp(
     outcomes: Any
 ) -> None:

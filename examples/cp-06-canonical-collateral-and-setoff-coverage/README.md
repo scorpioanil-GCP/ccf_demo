@@ -122,6 +122,17 @@ module constant instead of the view (`G14`); compose the resolver beside the ope
 product (`G15`); edit one specimen file or reuse its tenant (`G16`); take the producer
 identity from the answer rather than the registration (`G18`); drop `discovery.intents`
 (`G19`); serve a coverage of zero over an empty view (`G20`); mint the substrate once per
-opened product (`G22`). `CSCC-G23` is quarantined `xfail(strict=True)`: it turns green the
-day the SDK honors `ttl_anchor: from_entity_freshness` (`D-IMPL-341`), and would fail
-the build if that happened silently.
+opened product (`G22`). `CSCC-G23` is live since `D-IMPL-341` (validation pass
+2026-09-18): the served `expires_at` runs from the freshest asset valuation date the
+admitted view carries, and the contract records that instant as `ttl_anchor_at`.
+
+**What that did to the demonstration, stated plainly** (`FINDINGS.md` `CP06C-F-05`).
+The class's product window is one day — the deposit-balance half-life — and its
+anchor is now the valuation date, the only evidence this estate dates. `FAC-5B8418`'s
+one asset was valued `2025-12-20`, so at the CP-14 instant its coverage is refused
+`ttl-refusal` / `ttl-bounds`; every facility on the estate carries a valuation dated
+`2026-08-20` or earlier, so nothing serves after `2026-08-21`. The tests ask each
+facility on its own valuation day as the positive control and assert the refusal at
+the CP-14 instant as the intentional correction; CP-14's collateral slot is refused
+for the same reason. Whether the window should follow the clock it now anchors on is
+a calibration question for the class, raised and not taken here.
