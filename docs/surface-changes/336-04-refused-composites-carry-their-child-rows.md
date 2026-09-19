@@ -53,18 +53,18 @@ refusal records exactly the bytes it recorded before.
 
 - Surface: ccf.products.resolver.RefusalRecorderProtocol.record
 - Public surface: true
-- Change type: reshaped
+- Change type: behavior
 - Before: no parameter for child resolutions, so a refused composite's persisted record could not name the children it tried
 - After: accepts `child_resolutions`, defaulted to `()` (D-IMPL-336 CMP-R-01)
-- Why: the case where a reader most needs to know which child failed is the case the record was silent about
+- Why: the case where a reader most needs to know which child failed is the case the record was silent about The manifest records exports, not attributes or methods, so this change has no diff line; the entry's type was corrected from `reshaped` to `behavior` at the `f0656746` qualification (2026-09-19).
 - Migration: none required — the parameter is defaulted and `()` is the true claim for every non-composite refusal; a deployment substituting its own recorder may accept and forward it
 
 ## ccf.products.resolver.ReplayRefusalRecorder.record
 
 - Surface: ccf.products.resolver.ReplayRefusalRecorder.record
 - Public surface: true
-- Change type: reshaped
+- Change type: behavior
 - Before: forwarded no child resolutions to `build_replay_record`
 - After: forwards them, so a refused composite's persisted record carries one row per declared requirement (D-IMPL-336 CMP-R-01)
-- Why: the reference implementation must actually satisfy the widened seam, or the parameter would be accepted and ignored — the defect class this phase repairs
+- Why: the reference implementation must actually satisfy the widened seam, or the parameter would be accepted and ignored — the defect class this phase repairs The manifest records exports, not attributes or methods, so this change has no diff line; the entry's type was corrected from `reshaped` to `behavior` at the `f0656746` qualification (2026-09-19).
 - Migration: none required

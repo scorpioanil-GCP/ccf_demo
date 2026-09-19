@@ -62,13 +62,23 @@ def _legacy_shape_of(obj: Any, kind: str) -> Any:
     """
     if kind == "contract":
         fields = getattr(obj, "model_fields", {})
-        return {name: str(field.annotation) for name, field in sorted(fields.items())}
+        return {
+            name: _LEGACY_ADDRESS.sub("", str(field.annotation))
+            for name, field in sorted(fields.items())
+        }
     if kind in ("class", "function"):
         try:
-            return str(inspect.signature(obj))
+            return _LEGACY_ADDRESS.sub("", str(inspect.signature(obj)))
         except (TypeError, ValueError):
             return type(obj).__name__
     return type(obj).__name__
+
+
+#: The legacy rendering carried each default's process-local address; it is
+#: normalized here with a regex of this module's own — never the generator's —
+#: so the comparison below is about shapes and not about addresses, and stays
+#: independent of the code under test.
+_LEGACY_ADDRESS = re.compile(r" at 0x[0-9a-fA-F]+")
 
 
 def _flat(document: dict[str, Any]) -> dict[str, Any]:
@@ -332,6 +342,121 @@ def test_the_serialized_manifest_carries_no_memory_addresses() -> None:
     emitted = serialize(build_surface())
     addresses = sorted(set(re.findall(r"0x[0-9a-fA-F]{6,}", emitted)))
     assert not addresses, addresses
+
+
+def _clock() -> None:  # a function default: repr ``<function _clock at 0x…>``
+    return None
+
+
+class _Apostrophe:
+    """A default whose repr carries an unpaired quote — the round-2 attack."""
+
+    def __repr__(self) -> str:
+        return "<Foo's>"
+
+
+class _QuotedName:
+    def __repr__(self) -> str:
+        return "<Named name='at 0x7f00dead05' at 0x7f00dead06>"
+
+
+class _Untokenizable:
+    def __repr__(self) -> str:
+        return "<Trunc it's at 0x7f00dead07>"
+
+
+def test_a_function_default_renders_without_its_address() -> None:
+    """Positive control for the determinism rendering: the parameter, its
+    annotation and the default's name stay; only the address goes."""
+
+    def served(*, clock: Callable[[], None] = _clock, key: Any = lambda v: v) -> None: ...
+
+    shape = dump_surface._call_shape(served)
+    assert "clock: 'Callable[[], None]' = <function _clock>" in shape, shape
+    assert "<function test_a_function_default_renders_without_its_address.<locals>.<lambda>>" in shape, shape
+    assert " at 0x" not in shape, shape
+
+
+def test_a_literal_default_is_never_rewritten_whatever_its_neighbors_render_as() -> None:
+    """The guarantee holds by TYPE, not by parsing: a ``str``/``bytes`` default
+    is returned as is, so two neighboring reprs with stray quotes — the
+    round-2 refutation of every whole-signature scrub — cannot pair up around
+    it. Measured through ``inspect.signature`` on real objects, as the
+    generator does."""
+
+    def served(
+        a: Any = _Apostrophe(),
+        y: str = "seen at 0x7f00dead02",
+        z: Any = _Apostrophe(),
+        w: str = "<function f at 0x7f00dead03>",
+        b: bytes = b"at 0x7f00dead04",
+        clock: Callable[[], None] = _clock,
+    ) -> None: ...
+
+    shape = dump_surface._call_shape(served)
+    assert "y: 'str' = 'seen at 0x7f00dead02'" in shape, shape
+    assert "w: 'str' = '<function f at 0x7f00dead03>'" in shape, shape
+    assert "b: 'bytes' = b'at 0x7f00dead04'" in shape, shape
+    assert "a: 'Any' = <Foo's>, " in shape and "z: 'Any' = <Foo's>, " in shape, shape
+    assert shape.endswith("clock: 'Callable[[], None]' = <function _clock>) -> 'None'"), shape
+
+
+def test_a_default_whose_own_repr_quotes_an_address_keeps_the_quoted_one() -> None:
+    """Within one value's repr the tokenizer, not a regex, decides what is
+    quoted: the address in the quoted name stays, the repr's own goes."""
+
+    def served(named: Any = _QuotedName()) -> None: ...
+
+    assert "named: 'Any' = <Named name='at 0x7f00dead05'>" in dump_surface._call_shape(served)
+
+
+def test_an_untokenizable_repr_is_left_alone_and_isolated_from_its_neighbors() -> None:
+    """A repr that cannot be tokenized keeps its address (the manifest-wide
+    no-address gate is what catches that, loudly) — and because rendering is
+    per value, the neighboring function default is still scrubbed and the
+    neighboring literal untouched."""
+
+    def served(
+        t: Any = _Untokenizable(), y: str = "seen at 0x7f00dead02", clock: Callable[[], None] = _clock
+    ) -> None: ...
+
+    shape = dump_surface._call_shape(served)
+    assert "t: 'Any' = <Trunc it's at 0x7f00dead07>" in shape, shape
+    assert "y: 'str' = 'seen at 0x7f00dead02'" in shape, shape
+    assert "clock: 'Callable[[], None]' = <function _clock>" in shape, shape
+
+
+def test_an_unvalidated_signature_still_renders() -> None:
+    """A ``__signature__`` built with ``__validate_parameters__=False`` — a
+    non-default parameter after a default — rendered under the previous
+    generator; rebuilding it per value must not degrade it to a type name."""
+    parameter = inspect.Parameter
+    unvalidated = inspect.Signature(
+        [parameter("a", parameter.POSITIONAL_OR_KEYWORD, default=1), parameter("b", parameter.POSITIONAL_OR_KEYWORD)],
+        __validate_parameters__=False,
+    )
+
+    class Odd:
+        __signature__ = unvalidated
+
+    assert _shape_of(Odd, "class") == "(a=1, b)"
+
+
+def test_an_alias_carrying_a_validator_renders_without_its_address() -> None:
+    """The alias branch renders one alias alone, so a Pydantic validator's
+    function loses its address and keeps its name — the shape the five
+    ``Annotated`` aliases in the live manifest actually have."""
+    from typing import Annotated
+
+    from pydantic import AfterValidator
+
+    def _check(value: str) -> str:
+        return value
+
+    alias = Annotated[str, AfterValidator(_check)]
+    rendered = _shape_of(alias, dump_surface._kind_of(alias))
+    assert isinstance(rendered, str) and "AfterValidator(func=<function " in rendered, rendered
+    assert "._check>" in rendered and " at 0x" not in rendered, rendered
 
 
 def test_the_manifest_is_byte_stable_across_two_builds() -> None:

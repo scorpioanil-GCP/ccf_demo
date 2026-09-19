@@ -134,7 +134,9 @@ import inspect
 import json
 import pathlib
 import pkgutil
+import io
 import re
+import tokenize
 import sys
 import typing
 from typing import Any
@@ -213,9 +215,121 @@ def _kind_of(obj: Any) -> str:
     return "constant"
 
 
-#: Matches the ``at 0x7f...`` tail CPython appends to a default ``repr``.
-#: Scrubbed rather than tolerated — see :func:`_render_alias`.
-_ADDRESS = re.compile(r" at 0x[0-9a-fA-F]+")
+#: A hexadecimal literal — the only NUMBER token an ``at 0x…`` address renders as.
+_HEX = re.compile(r"0[xX][0-9a-fA-F]+")
+
+
+def _scrub_addresses(text: str) -> str:
+    """``text`` — ONE object's rendering — without its process-local ``at 0x…``.
+
+    Applied to a single value's ``repr`` (a default) or a single annotation's
+    rendering, never to a whole signature: that scoping is what makes the
+    literal-default guarantee hold by type (see :func:`_deterministic_default`)
+    rather than by parsing. Inside the one rendering, ``at`` followed by a
+    hexadecimal NUMBER token is removed wherever it stands outside a STRING
+    token, Python's own tokenizer deciding where a quoted string begins and
+    ends — so ``<function <lambda> at 0x…>``, ``<bound method X.y of <X object
+    at 0x…>>`` and ``<Foo name='at 0x1' at 0x2>`` lose exactly their address
+    and keep everything else.
+
+    **Fails safe, loudly.** A rendering that does not tokenize (an unpaired
+    quote, an unterminated truncation, a control character) is returned
+    unchanged, and an address the tokenizer places inside a STRING or COMMENT
+    token (a ``#`` in a custom repr, an even number of unpaired quotes) is not
+    touched either: that value's address then survives into the manifest and
+    ``tests/test_surface_shape_capture.py``'s no-address gate goes red, which is
+    the loud failure wanted; no other value's text is in play. The one silent
+    residual, within ONE rendering only: a custom repr that pairs an unpaired
+    quote before a quoted ``at 0x…`` with another after it makes the tokenizer
+    read the quoted text as code and the quoted address is removed too.
+    """
+    try:
+        tokens = list(tokenize.generate_tokens(io.StringIO(text).readline))
+    except (tokenize.TokenError, SyntaxError):
+        return text
+    if any(token.type == tokenize.ERRORTOKEN for token in tokens):
+        return text
+    offsets = [0]
+    for line in io.StringIO(text):  # the same line boundaries the tokenizer saw
+        offsets.append(offsets[-1] + len(line))
+
+    def absolute(position: tuple[int, int]) -> int:
+        row, column = position
+        return offsets[row - 1] + column
+
+    cuts: list[tuple[int, int]] = []
+    for token, following in zip(tokens, tokens[1:], strict=False):
+        if (
+            token.type == tokenize.NAME
+            and token.string == "at"
+            and following.type == tokenize.NUMBER
+            and _HEX.fullmatch(following.string)
+        ):
+            start, end = absolute(token.start), absolute(following.end)
+            if start and text[start - 1] == " ":
+                start -= 1
+            cuts.append((start, end))
+    if not cuts:
+        return text
+    pieces: list[str] = []
+    cursor = 0
+    for start, end in cuts:
+        pieces.append(text[cursor:start])
+        cursor = end
+    pieces.append(text[cursor:])
+    return "".join(pieces)
+
+
+class _Verbatim:
+    """A stand-in whose ``repr`` is exactly the text it was given.
+
+    Substituted for a parameter's default or annotation in a copied
+    :class:`inspect.Signature`, so that ``str(signature)`` prints the
+    deterministic rendering in that one position and renders every other
+    position exactly as CPython would.
+    """
+
+    __slots__ = ("text",)
+
+    def __init__(self, text: str) -> None:
+        self.text = text
+
+    def __repr__(self) -> str:
+        return self.text
+
+
+def _deterministic_default(value: Any) -> Any:
+    """``value``, or a stand-in printing its ``repr`` without the address.
+
+    **A ``str`` or ``bytes`` default is a literal and is returned as is — by
+    type**, so no text it contains, ``'seen at 0xdeadbeef'`` included, can ever
+    be rewritten, whatever its neighbors render as. Any other default whose
+    ``repr`` carries an address (``<function _utc_now at 0x7f…>``) is replaced
+    by a stand-in printing that one ``repr`` scrubbed, alone.
+    """
+    if isinstance(value, (str, bytes)):
+        return value
+    text = repr(value)
+    if " at 0x" not in text and " at 0X" not in text:
+        return value
+    return _Verbatim(_scrub_addresses(text))
+
+
+def _deterministic_annotation(annotation: Any) -> Any:
+    """``annotation``, or a stand-in printing its rendering without the address.
+
+    A string annotation (``from __future__ import annotations``) is a literal
+    and is returned as is. An evaluated one is rendered exactly as
+    :func:`inspect.formatannotation` would print it and, only if that carries
+    an address (``Annotated[…, AfterValidator(func=<function … at 0x…>)]``),
+    replaced by a stand-in printing the scrubbed rendering.
+    """
+    if isinstance(annotation, str):
+        return annotation
+    text = inspect.formatannotation(annotation)
+    if " at 0x" not in text and " at 0X" not in text:
+        return annotation
+    return _Verbatim(_scrub_addresses(text))
 
 
 def _protocol_call(obj: Any) -> Any | None:
@@ -247,7 +361,40 @@ def _call_shape(function: Any) -> str | None:
     parameters = list(signature.parameters.values())
     if parameters and parameters[0].name == "self":
         signature = signature.replace(parameters=parameters[1:])
-    return str(signature)
+    return _render_signature(signature)
+
+
+def _render_signature(signature: inspect.Signature) -> str:
+    """``str(signature)`` with every default and annotation rendered per value.
+
+    Each parameter's default goes through :func:`_deterministic_default` and
+    each annotation through :func:`_deterministic_annotation`, so a
+    process-local address is removed from the one value that carries it and
+    nothing else in the signature is read or rewritten. Every plain class and
+    function, and every Protocol's ``__call__``, is rendered here.
+    """
+    parameters = list(signature.parameters.values())
+    empty = inspect.Parameter.empty
+    parameters = [
+        parameter.replace(
+            default=empty if parameter.default is empty else _deterministic_default(parameter.default),
+            annotation=(
+                empty if parameter.annotation is empty else _deterministic_annotation(parameter.annotation)
+            ),
+        )
+        for parameter in parameters
+    ]
+    returns = signature.return_annotation
+    # Built without re-validation: a hand-set ``__signature__`` constructed with
+    # ``__validate_parameters__=False`` (a non-default parameter after a default)
+    # rendered under the previous generator and must render here too, rather
+    # than degrade to a bare type name.
+    rebuilt = inspect.Signature(
+        parameters,
+        return_annotation=empty if returns is empty else _deterministic_annotation(returns),
+        __validate_parameters__=False,
+    )
+    return str(rebuilt)
 
 
 def _is_type_alias(obj: Any) -> bool:
@@ -275,7 +422,7 @@ def _render_alias(obj: Any) -> str:
     manifest carries no address, so a future alias form that leaks one fails
     rather than silently destabilising the gate.
     """
-    return _ADDRESS.sub("", str(obj))
+    return _scrub_addresses(str(obj))
 
 
 def _shape_of(obj: Any, kind: str) -> Any:
@@ -305,7 +452,7 @@ def _shape_of(obj: Any, kind: str) -> Any:
     if kind == "contract":
         fields = getattr(obj, "model_fields", {})
         return {
-            name: str(field.annotation) for name, field in sorted(fields.items())
+            name: _scrub_addresses(str(field.annotation)) for name, field in sorted(fields.items())
         }
     if _is_type_alias(obj):
         return _render_alias(obj)
@@ -316,7 +463,7 @@ def _shape_of(obj: Any, kind: str) -> Any:
             if shape is not None:
                 return shape
         try:
-            return str(inspect.signature(obj))
+            return _render_signature(inspect.signature(obj))
         except (TypeError, ValueError):
             return type(obj).__name__
     return type(obj).__name__

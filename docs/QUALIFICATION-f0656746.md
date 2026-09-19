@@ -407,3 +407,13 @@ under `qual/` (`A_…xml` … `K_…xml`, `T_…xml`, `class_lookup.xml`, `leg-*
 node-level skip reconciliation). The `estate_env.sh` there derives connection names from one set and is not
 committed. The worktree `/home/parkave/ccf_qual_f0656746` was removed after this report was
 written.
+
+---
+
+## Subsequent results (added, not rewritten)
+
+The measurements above are historical and stand as measured. Dave's disposition of them is
+recorded in `docs/DECISIONS.md` under *RELEASE QUALIFICATION — FIRST CORRECTION GROUP GO*
+(2026-09-19). The first correction group's repairs, node-by-node before/after results and
+regression are in `docs/QUALIFICATION-f0656746-CORRECTION-1.md`; its evidence is under
+`qualification/f0656746/`.

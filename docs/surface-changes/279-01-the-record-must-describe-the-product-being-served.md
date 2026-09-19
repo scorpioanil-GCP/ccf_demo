@@ -40,7 +40,8 @@ before transport encoding."*
   `content_hash(product.product)` **first**, before the query-pin checks and before any
   store write, and raises `ProductRecordMismatch` naming both addresses. A `ValueError`
   subclass, the sibling of `QueryPinMismatch`, exported from `ccf.replay.serve`
-- Adopter action: none. A deployment whose resolver builds its record from the product it
+- Why: `D-IMPL-279` (Dave, 2026-09-08), narrowing `D-IMPL-278` row 1 — the fabric must establish correspondence between the candidate product, the governed execution record and the replay record before delivery, and the enforcement point is the governed fulfillment spine before transport encoding, not MCP
+- Migration: none. A deployment whose resolver builds its record from the product it
   serves — every shipped path — sees no change. A deployment that hands the seam a record
   built about a different product is now refused instead of silently serving
 

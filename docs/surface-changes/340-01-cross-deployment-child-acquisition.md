@@ -137,10 +137,10 @@ Local dispatch, fixed-resource `mcp` and peering are byte-identical.
 
 - Surface: ccf.skills.dispatch.McpSkillRegistry
 - Public surface: true
-- Change type: reshaped
+- Change type: behavior
 - Before: `register(server, client, resources)` / `resolve(binding)`.
 - After: adds `register_producer(*, client, registration)` and `resolve_producer(binding)`; the fixed-resource pair is unchanged and a logical name cannot be registered as both.
-- Why: ruling 10 — logical registration names, never caller URLs.
+- Why: ruling 10 — logical registration names, never caller URLs. The manifest records a class's constructor shape, not its methods, so this change has no diff line; the entry's type was corrected from `reshaped` to `behavior` at the `f0656746` qualification (2026-09-19).
 - Migration: none.
 
 ## ccf.skills.producers.register_declared_producer
@@ -327,8 +327,94 @@ Local dispatch, fixed-resource `mcp` and peering are byte-identical.
 
 - Surface: ccf.agents.agent.Agent
 - Public surface: true
-- Change type: reshaped
+- Change type: behavior
 - Before: `invoke_skill` dispatched any bound entry.
 - After: refuses an `mcp_product` entry by name — a producer is asked by a composite through a `ProductQuestion`, not by an agent's string-argument invocation.
-- Why: ruling 6.
+- Why: ruling 6. The manifest records a class's constructor shape, not its methods, so this change has no diff line; the entry's type was corrected from `reshaped` to `behavior` at the `f0656746` qualification (2026-09-19).
 - Migration: none.
+
+## Claimed at the `f0656746` qualification
+
+The eight entries below were added by `D-IMPL-340`'s two commits — `4c822611` (the feature) and
+`dcfb8608` (the review-closing fix) — and were left unclaimed when this fragment was written.
+Recorded 2026-09-19 from those commits; nothing about the names changed.
+
+## ccf.controlplane.artifacts.MCP_PRODUCER
+
+- Surface: ccf.controlplane.artifacts.MCP_PRODUCER
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `ArtifactClass(class_id="ccf.mcp-producer", contract=McpProducerRegistration)` — the class id a deployment registers a producer under; deployment binding only, naming a producer and what it may be asked for, holding no address and no secret
+- Why: `D-IMPL-340` (`4c822611`) — the producer registration is a Control Plane artifact and needs a class id a manifest can address
+- Migration: none
+
+## ccf.controlplane.artifacts.ProducerOfferDeclaration
+
+- Surface: ccf.controlplane.artifacts.ProducerOfferDeclaration
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a `CCFContract` — `product_class`, `versions_from` (a semver floor, validated) — one product class a registered producer may be asked for
+- Why: `D-IMPL-340` (`4c822611`) — a producer offers named classes from a version floor, never everything it holds
+- Migration: none
+
+## ccf.products.child_resolver.ChildQuestions
+
+- Surface: ccf.products.child_resolver.ChildQuestions
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the type alias `Callable[[ChildRequirement, ProductRequest], ChildQuestion]` — the question factory a question-bound child resolver is built from
+- Why: `D-IMPL-340` (`4c822611`) — a producer is asked a `ProductQuestion` built from the requirement and the parent's request, and the factory that builds it is a declared seam
+- Migration: none
+
+## ccf.products.child_resolver.MalformedDoorAnswer
+
+- Surface: ccf.products.child_resolver.MalformedDoorAnswer
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a `ValueError` raised for a completed producer call whose text is not a `DoorOutcome`; the producer leg decodes the door's answer in full — its producer assertion, its echo of the question, the axes it answered and its replay reference — or raises this
+- Why: `D-IMPL-340` (`dcfb8608`) — a refused or malformed door is held by name rather than read as an empty answer
+- Migration: none
+
+## ccf.products.door.AnsweredQuestion
+
+- Surface: ccf.products.door.AnsweredQuestion
+- Public surface: true
+- Change type: added
+- Before: absent — `DoorOutcome.request` echoed the wire request and nothing else; `subject`, `intent` and `freshness` reached a door as separate arguments and came back on no channel at all
+- After: a `CCFContract` — `subject`, `intent`, `freshness`, `asked_at` — the four §6.3 axes a door actually answered, stated from the typed request it resolved and never from the caller's text; the composite's question-identity check recomputes over all of them
+- Why: `D-IMPL-340` (`dcfb8608`) — a consumer holding an answer to the question it asked needs every axis echoed
+- Migration: none
+
+## ccf.products.door.ProducerAssertion
+
+- Surface: ccf.products.door.ProducerAssertion
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a re-export of `ccf.products.producer.ProducerAssertion` (claimed above) from `ccf.products.door`, where `DoorOutcome.producer` carries it
+- Why: `D-IMPL-340` (`4c822611`) — the door's outcome names the type it carries from the module a reader of the outcome already imports
+- Migration: none
+
+## ccf.skills.dispatch.question_identity
+
+- Surface: ccf.skills.dispatch.question_identity
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `question_identity(*, request_json: str, subject: str, intent: str, freshness: str, asked_at: datetime) -> str` — `sha256` over the whole question, canonically; one function for both sides of the seam. `D-IMPL-342` (`342-01`) later changed the identity's bytes, and that `behavior` entry stands beside this one
+- Why: `D-IMPL-340` (`dcfb8608`) — question identity over every axis, so a door's answer is held to the question the composite asked
+- Migration: none
+
+## ccf.skills.dispatch.verify_mcp_product_failure
+
+- Surface: ccf.skills.dispatch.verify_mcp_product_failure
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `verify_mcp_product_failure(value: object) -> McpProductFailure` — refuses, with `McpProductProvenanceError` (claimed above), anything that is not an `McpProductFailure` minted by the dispatch, and returns the value narrowed
+- Why: `D-IMPL-340` (`dcfb8608`), on `D-IMPL-337`'s pattern — provenance from the guarded construction path, not nominal type identity
+- Migration: none
