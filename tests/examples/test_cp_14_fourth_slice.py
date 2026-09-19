@@ -258,6 +258,7 @@ def test_the_governed_question_withholds_where_producers_withhold_and_refuses_th
         assert row.child_question_ref is not None, product_class
         assert content_hash(retained_child_question(store=fresh, row=row)) == row.child_question_address, product_class
     assert "tolerance-exceeded" not in outcome.detail, "the disclosed envelope stays minimal (CMC-G26)"
+    assert record.content_generation_path.product_content_address == NO_PRODUCT_ADDRESS, "a refused composite recorded a product address"
     for product_class, row in rows.items():
         assert (row.producer_id, row.producer_tenant) == PRODUCERS[product_class], (product_class, row.producer_id, row.producer_tenant)
 

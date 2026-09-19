@@ -97,7 +97,7 @@ carry each producer's evidence instant — the spread's freshest filing, the
 collateral's freshest valuation. Between those two dates the collateral child
 was briefly refused for an expired valuation, and the ten proofs that depend on
 a served memo were quarantined rather than weakened until Dave ruled the
-producer's calibration (`CP14-F-40`). They are live again, on their original
+producer's calibration (`CP14-F-41`). They are live again, on their original
 assertions.
 
 At 1.0 the memo serves five sections read off five admitted payloads by name — the

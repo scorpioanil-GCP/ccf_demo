@@ -3683,6 +3683,17 @@ def build_governed_resolver(
         product_ttl_seconds: A served product's own lifetime. Two figures, and
             they stay two.
         half_life_key: Manifest key of this deployment's ``λ_c`` table.
+        evidence_clock_key: The SAME manifest key, supplied when the deployment
+            hands in its own ``debt_scorer`` (`D-IMPL-341`). A scorer and the
+            reference scorer's material are alternatives, but the resolver
+            still needs the table for something the scorer does not do: the
+            instant an evidence-anchored window runs from, and the pin that
+            instant is re-derivable under at replay. Naming it here is how a
+            supplied-scorer deployment says which table that is; the paved road
+            passes it from ``build_arguments``. Give this or ``half_life_key``,
+            never two different keys — and for a class declaring
+            ``ttl_anchor: from_entity_freshness`` at least one of them, or the
+            call is refused (R-3's first row).
         debt_profile_key: Manifest key of its ``D_c`` bands. **The one input
             here that is not only scorer material** (``24.11-03``,
             ``24.10-F-08``): the same profile binds the obligation the served
@@ -3756,6 +3767,13 @@ def build_governed_resolver(
             binding is what supplies the store and no ``artifact_store_root``
             was given, and when the fabric declares more than one binding —
             see :func:`_replay_binding_on` and :func:`_declared_member`.
+        TTLAnchorUndeclared: the class declares ``ttl_anchor:
+            from_entity_freshness`` and the clock it would need cannot exist —
+            either no λ_c table was named at all, or the named table declares
+            no ``decay_basis: valid-from`` row. Both are configuration
+            failures and both are refused here, before any question
+            (`D-IMPL-341` R-3, first row, widened by Dave's ruling of
+            2026-09-18).
         ProductNotResolvable: ``half_life_key`` or ``debt_profile_key`` names no
             artifact on the booted fabric, or names one of another class; or
             ``product_class_key`` / ``request_contract_key`` does.

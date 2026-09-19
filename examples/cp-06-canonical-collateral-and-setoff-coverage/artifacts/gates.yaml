@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
 #
-# THE DECLARED PRODUCT GATES OF cp-06-canonical — `CSCC-G01` through `CSCC-G23`.
+# THE DECLARED PRODUCT GATES OF cp-06-canonical — `CSCC-G01` through `CSCC-G24`.
 #
 # `D-IMPL-224`: a product's gates are a DECLARED ARTIFACT plus CI coverage. The
 # acceptance authority for every gate below is `CP-SPEC-006C` §G.1
@@ -154,7 +154,7 @@ declaration:
     statement: '`expires_at` is anchored on the freshest valuation, as declared, and `ttl_anchor_at` records it — live since `D-IMPL-341`'
     spec_clause: {document: spec/CP-SPEC-006C_Collateral_And_Setoff_Coverage_Canonical.md, clause: G.1}
     test: tests/examples/test_cp_06_canonical_output.py::test_expires_at_is_anchored_on_the_freshest_valuation_not_the_question
-    sabotage: none — the assertion is the declared property, quarantined `xfail(strict=True)` until the SDK honors the anchor
+    sabotage: return the decision instant from `resolve_ttl_anchor` (the SDK's S1)
     observed_red:
       result: >-
         RED, under its own id. S17, the SDK's S1: `resolve_ttl_anchor` returns the decision instant for an evidence-anchored class. ttl_anchor_at reads the question's instant and expires_at the question + 1 d; the two CP-14-instant refusal controls also go red because the coverage serves again, decision-anchored. Restored, cmp verified.

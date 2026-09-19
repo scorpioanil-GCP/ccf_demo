@@ -238,8 +238,9 @@ def _booking_instant(value: str | None) -> datetime | None:
     `D-IMPL-341` (validation pass 2026-09-18): the amendment claim's
     ``valid_from`` is the instant the source ASSERTED it — the booking date,
     this product's assertion-time axis — because that is the clock §E.3
-    anchors the TTL on ("the latest assertion among the served set") and the
-    clock the `amendment` λ_c row now decays against. A date widens to
+    anchors the TTL on ("the latest assertion in the SCORED OBSERVATION SET",
+    as that clause was corrected on 2026-09-18) and the clock the `amendment`
+    λ_c row now decays against. A date widens to
     midnight UTC, losslessly; an amendment the source never booked carries
     ``None`` and contributes no instant, exactly as it is placeable on no
     assertion axis. The request instant is never substituted.

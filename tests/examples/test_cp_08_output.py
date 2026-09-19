@@ -431,14 +431,15 @@ def test_the_expiry_runs_from_the_freshest_booking_not_the_question(
     hour later reaches the same anchor and the same expiry: the window belongs
     to the evidence.
 
-    **Measured, and stated as the precise mismatch it is:** the anchor is the
-    freshest booking in the ADMITTED VIEW — the observation set the freshness
-    factor scores (`D-IMPL-341` R-1) — not in the served set. A closed question
+    **The scored set, not the served subset, and the two differ measurably.**
+    The anchor is the freshest booking in the ADMITTED VIEW — the observation
+    set the freshness factor scores (`D-IMPL-341` R-1). A closed question
     (`as_of` = `known_as_of` = the drawdown) serves `AMD-01BB3F-1` alone and
     excludes `AMD-01BB3F-2` on the assertion axis, yet anchors on `-2`'s booking
-    all the same, because `-2` is in the view the scorer read. §E.3's words are
-    "the latest assertion among the served set"; the mechanism reads the scored
-    set. Raised as `CP08-F-05`, not repaired here.
+    all the same, because `-2` is in the view the scorer read. §E.3 said "among
+    the served set" when this was raised as `CP08-F-05`; Dave ruled on
+    2026-09-18 that the SPECIFICATION was wrong, and it now names the scored
+    observation set. This test holds the corrected clause.
     """
     from decimal import Decimal  # noqa: PLC0415
 

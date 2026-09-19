@@ -28,9 +28,14 @@ product_class:
   schema_name: credit-risk.covenant-in-force
   schema_version: "1.0.0"
 
-  # The expiry is a function of the latest ASSERTION among the served set, not
-  # of request time: a closed as-of answer does not decay because neither what
-  # was true nor what was known can now change (`CP-SPEC-008` §E.3).
+  # The expiry is a function of the latest ASSERTION IN THE SCORED OBSERVATION
+  # SET — the same selected set the freshness factor is scored over — and never
+  # of request time (`CP-SPEC-008` §E.3, corrected 2026-09-18 under
+  # `D-IMPL-341`: the clause read "among the served set", and the anchor is
+  # resolved before the projection decides what to display). A closed as-of
+  # answer does not decay because neither what was true nor what was known can
+  # now change; an amendment the projection excludes from the displayed answer
+  # can still supply the anchor, because it is in the set that was scored.
   # THE FOURTH VALIDATION GATE, declared here and implemented by this
   # deployment (§D.7). Its IDENTITY is Control Plane state; the invariant it
   # holds is a property of THIS product and no universal vocabulary has a token

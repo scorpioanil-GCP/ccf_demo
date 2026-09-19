@@ -18,14 +18,18 @@ control that says so.
 | C1 | R-1: an evidence-anchored class serves `expires_at == source instant + window` and `ttl_anchor_at == source instant` — not the decision instant, not the ingestion instant |
 | C2 | R-1: with two observations the anchor is the freshest leading edge as of the decision instant; a later-dated observation does not leak into an earlier decision |
 | C4 | R-3 row 1: the declaration over a table with no `valid-from` row is refused by name at open, and at the builder |
+| C4b | R-3 row 1, widened (Dave, 2026-09-18): the declaration over NO table at all is refused at the builder, and a `from_decision` class over the same wiring is not |
+| C4c | the same widening at the road's own registration moment: a config declaring the anchor with no `half_life` section is refused by `open_product` |
 | C5 | R-3 row 2: a served set with no `valid_from` instant refuses `ttl-anchor-refusal` / `ttl-anchor-unresolvable` — nothing falls back |
 | C6 | R-3 row 3: evidence older than the window refuses `ttl-refusal` / `ttl-bounds` with the anchored expiry named — distinct from C5 |
 | C7 | R-2: a `from_decision` class serves exactly as before and states `ttl_anchor_at == decided_at` |
 | C8 | F14: an evidence-anchored composite floors on `min(anchor + window, children)` and its rows carry the child's anchor and instant |
 | C9 | R-5: replay re-derives the anchor over the re-executed view under the pinned table and holds it; a disagreeing derivation fails by name; a pre-341 record (member deleted from its bytes) reconstructs and is skipped BY NAME |
+| C11 | `D-IMPL-31`'s mixing floor is measured from the DECISION instant, never from the evidence anchor — the review's one blocking finding |
+| C12 | the builder holds its two clock keys to each other: two names for one table is a wiring defect and raises |
 | C10 | the negative control: `expires_at <= decided_at + window` holds for the evidence-anchored product too, so it distinguishes nothing — it is recorded here so nobody mistakes it for coverage |
 
-Sabotages S1–S6 are run by hand against this module and recorded in
+Sabotages S1–S8 are run by hand against this module and recorded in
 `docs/D-IMPL-341-DESIGN.md` (as built).
 """
 
@@ -310,6 +314,23 @@ def test_c4b_an_evidence_anchor_over_no_table_at_all_is_refused_at_the_builder(t
             assert plain.half_life_key is None
         finally:
             plain_fabric.handle.close()
+
+
+def test_c4c_the_road_refuses_an_evidence_anchor_with_no_half_life_section_at_open(tmp_path: pathlib.Path) -> None:
+    """Ruling 3's OTHER boundary. `C4b` holds the builder; the paved road's own
+    registration moment is `open_product`, and a config that declares the
+    anchor while carrying no `half_life` section at all is refused there — by
+    name, before a question, and naming the absent section rather than a row.
+    """
+    document = _config(ttl_anchor="from_entity_freshness", decay_basis="valid-from")
+    document.pop("half_life")
+    root = fixture.write_tree(tmp_path / "producer", config=document, environment=fixture.producer_environment_text())
+    with pytest.raises(TTLAnchorUndeclared, match="no half_life section"):
+        open_product(
+            config_root=root, scratch=tmp_path / "scratch", acquire=_Acquire({"acct-1": OBSERVED}),
+            project=fixture.plan_factory, assess=fixture.assess,
+            environ={fixture.CHILD_DSN_VAR: "postgresql://fixture"}, clock=lambda: ADMITTED_AT,
+        )
 
 
 # --- C11: the two instants, two laws (the review's blocking finding) ------------------------

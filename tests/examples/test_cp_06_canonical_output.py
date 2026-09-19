@@ -88,16 +88,13 @@ NO_COMMITMENT_FACILITY, NO_COMMITMENT_SCOPE = "FAC-3DF1D5", "529900VKCYZW8GZ4WW5
 #: instant: the subject on which the expiry refusal is REAL. Three of this
 #: estate's fifty collateralized facilities are outside the window; this is one.
 EXPIRED_FACILITY, EXPIRED_SCOPE = "FAC-D3D1A4", "B3BS7ACMDUWISF18KY76"
-#: Each named facility's freshest asset valuation date as a UTC midnight
-#: instant — the instant its expiry is anchored on, read from
-#: `ccf_v2.collateral_asset` on 2026-09-18. Named rather than recomputed so a
-#: test states which instant it expects; the anchor itself is always measured
-#: off the served payload beside it.
-VALUATION_INSTANT = {
-    "FAC-5B8418": datetime(2025, 12, 20, tzinfo=UTC),
-    "FAC-044206": datetime(2026, 8, 15, tzinfo=UTC),
-    "FAC-D3D1A4": datetime(2025, 2, 18, tzinfo=UTC),
-}
+
+
+def _freshest_valuation(payload: dict[str, Any]) -> datetime:
+    """The instant a served answer's expiry must be anchored on, read off the
+    answer itself rather than pinned: no estate date appears in this module."""
+    return max(datetime.fromisoformat(a["valuation_date"]).replace(tzinfo=UTC) for a in payload["assets"])
+
 INTENT = "lgd-assessment"
 FRESHNESS = "as-filed"
 PRODUCT_CLASS = "credit-risk.collateral-coverage"
@@ -441,8 +438,8 @@ def test_the_lane_is_measured_the_successor_payload_equals_the_specimens(
     **Measured at the CP-14 instant on 2026-09-16** (the historical lane
     measurement, the baseline this test now holds): payloads `d22b256e…` /
     `8e3e567b…` identical, `debt` and `expires_at` equal. **Measured on each
-    CP-14 instant on 2026-09-18**, after the window was calibrated to the
-    appraisal cycle: the successor's payload still hashes to the baseline, and
+    **Re-measured at the CP-14 instant on 2026-09-18**, after the window was
+    calibrated to the appraisal cycle: the successor's payload still hashes to the baseline, and
     its `expires_at` runs from the valuation rather than the question. The
     frozen specimen no longer answers at all — it declares the same anchor over
     a resolver wired with no λ_c table, which is a configuration failure the
@@ -671,7 +668,8 @@ def test_the_cp14_question_is_answered_in_another_process_and_admitted_under_pro
     assert (row.producer_id, row.producer_tenant, row.child_schema_name, row.child_schema_version) == (PRODUCER_ID, PRODUCER_TENANT, PRODUCT_CLASS, "1.0.0")
     assert (child.tenant_id, child.temporal_boundary, child.payload["facility"]) == (PRODUCER_TENANT, CP14_INSTANT, CP14_FACILITY)
     assert row.child_replay_ref and row.child_replay_ref.startswith(f"ccf-artifact://{PRODUCER_TENANT}/")
-    assert row.child_ttl_anchor == "from_entity_freshness" and row.child_ttl_anchor_at == child.ttl_anchor_at == VALUATION_INSTANT[CP14_FACILITY]
+    assert row.child_ttl_anchor == "from_entity_freshness"
+    assert row.child_ttl_anchor_at == child.ttl_anchor_at == _freshest_valuation(child.payload)
 
 
 def test_a_producer_refusal_for_expired_evidence_crosses_as_an_ineligible_child(
@@ -812,7 +810,8 @@ def test_expires_at_is_anchored_on_the_freshest_valuation_not_the_question(serve
     then): `ttl_anchor_at` is the freshest valuation date among the served
     assets as a UTC midnight instant — the claim's own `valid_from`, the clock
     the `collateral_node` row declares — and `expires_at` is that plus the
-    declared one-day window, never the question plus the window. The record's
+    declared window (the appraisal cycle, since the calibration of
+    2026-09-18), never the question plus the window. The record's
     dimension 5 carries the same instant.
 
     Declared product gate `CSCC-G23` (`CP-SPEC-006C` §G.1).
@@ -857,13 +856,27 @@ def test_evidence_older_than_the_declared_window_is_refused_by_the_expiry_gate(
     Declared product gate `CSCC-G24` (`CP-SPEC-006C` §G.1).
     """
     window = timedelta(seconds=int(CONFIG["ttl"]["product_ttl_seconds"]))
+    assert int(CONFIG["ttl"]["product_ttl_seconds"]) == int(CONFIG["half_life"]["real_property_appraisal"]["half_life_seconds"]), (
+        "the window is no longer the appraisal cycle the calibration says it is (`CP06C-F-05`)"
+    )
     refused, record = _refused(modules, tmp_path, facility=EXPIRED_FACILITY, scope=EXPIRED_SCOPE)
     assert (refused.kind, refused.reason) == ("ttl-refusal", "ttl-bounds"), (refused.kind, refused.reason)
     retained = json.loads(record.content_generation_path.assembly_refusal)
     expires_at = datetime.fromisoformat(json.loads(retained["fields"]["expires_at"]))
-    assert expires_at == VALUATION_INSTANT[EXPIRED_FACILITY] + window, retained["detail"]
     assert expires_at < CP14_INSTANT < CP14_INSTANT + window
     assert record.content_generation_path.product_content_address == NO_PRODUCT_ADDRESS
+    # NO ESTATE DATE IS PINNED HERE. The refusal names an expiry; the anchor it
+    # implies is that minus the declared window, and the same facility asked
+    # INSIDE its window must serve on exactly that anchor and name it as the
+    # freshest valuation in its own payload. The estate closes the loop, so
+    # revaluing this facility reds the test as the behavior change it is —
+    # the subject is no longer expired — rather than as a stale pin.
+    implied_anchor = expires_at - window
+    inside = _answer(modules, tmp_path / "inside", facility=EXPIRED_FACILITY, scope=EXPIRED_SCOPE, asked_at=implied_anchor + timedelta(hours=12))
+    assert inside.product.ttl_anchor_at == implied_anchor == _freshest_valuation(inside.product.payload), (
+        "this facility's evidence moved; re-measure the subject rather than re-pinning the expectation"
+    )
+    assert inside.product.expires_at == expires_at
 
 
 # --- identity and reconstruction ------------------------------------------------------

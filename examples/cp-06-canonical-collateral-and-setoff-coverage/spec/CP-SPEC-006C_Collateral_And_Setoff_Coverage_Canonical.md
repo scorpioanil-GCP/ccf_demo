@@ -134,20 +134,22 @@ Measured through the frozen specimen at the CP-14 instant
 | payload content address (§D.4's baseline) | `d22b256eb343768f185ebbe09eed1949a44226cc1ffccc924550dbbc6f29a45c` | `8e3e567b194b1aad69bd08da53996dc89bbc4d3f9b335da119147c102d2ebe63` |
 
 **Written out in full on 2026-09-18** (`D-IMPL-341`'s review): the table
-carried eight-character prefixes, and with the frozen specimen no longer able
-to serve — it declares the same anchor over a resolver the SDK can read no
-clock from — those prefixes became the only record of the lane. The successor
-was measured against them at each facility's control instant and matches to all
-sixty-four characters. `CSCC-G13` is therefore a SNAPSHOT comparison: it goes
+carried eight-character prefixes, and the frozen specimen can no longer answer
+— it declares the same anchor over a resolver wired with no λ_c table, which
+the builder refuses as a configuration failure before any question proceeds —
+so those prefixes became the only record of the lane. The successor was
+measured against them at the CP-14 instant and matches to all sixty-four
+characters. `CSCC-G13` is therefore a SNAPSHOT comparison: it goes
 red on estate drift, and the answer then is to re-measure the evidence, never
 to re-pin it to whatever the successor happens to serve.
 
 **The memo's facility is covered five times over, and 96 % of that cover is
 deposit set-off, not collateral.** A reader who takes the ratio at its face
 misses that the collateral leg alone covers 23 % of the commitment and rests
-on one receivables valuation dated 2025-12-20, which the estate ages at 240 days. The payload carries both
-legs separately and dates the valuation; nothing here was tuned to change
-that.
+on one receivables valuation dated 2025-12-20 — a figure the estate stores as
+240 days old and which the successor ages from the date itself (`CP06C-F-04`).
+The payload carries both legs separately and dates the valuation; nothing here
+was tuned to change that.
 
 ### A.3 A refusal is an answer
 

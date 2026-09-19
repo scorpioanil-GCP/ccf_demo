@@ -373,10 +373,12 @@ class ReplayEnvironment(Protocol):
         onto the rebuilt product, and reconstruct ``expires_at`` FROM it rather
         than from the graph boundary or the decision instant; a pre-341 record
         carries ``None``, which is the decision-anchored shape and reconstructs
-        as it always did. The member is hash-transparent, so an environment
-        that omits it still passes the address check and fails only the engine's
-        anchor hold — measured on three example environments at 341's
-        validation pass, each of which had to be told this.
+        as it always did. An environment that omits it fails the engine's
+        anchor hold, which runs BEFORE the address check — and the address
+        would not match either, because a non-``None`` anchor is inside the
+        hashed body; only the ``None`` sentinel is hash-transparent. Measured on
+        three example environments at 341's validation pass, each of which had
+        to be told this.
 
         **The debt in force comes off the record, and must not be re-measured**
         (15.5-11, D-IMPL-100). ``ContextProductContract.debt`` is inside the

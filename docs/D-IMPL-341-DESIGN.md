@@ -584,7 +584,7 @@ exactly C11's refusing case and nothing else, restored `cmp`-verified.
 | 7 | cp-06-canonical's `debt()` reached "one clock" by loading `valid_from` into `observed_at` while the five rate rows still declared the default basis — declaration and computation disagreeing in the reader's eye | the rows declare `decay_basis: valid-from` and the scorer passes BOTH instants, each meaning what it says. `F` is unchanged by construction; `CP06C-F-04` keeps the record of the move off the stored age |
 | 8 | cp-04-canonical moved to `from_decision` with no executable proof, though §9 committed it to gain one, and the ledger premise carried no rerunnable query | **`CFC-G14`** on the roster and in §G.1, with the control; and `CP04C-F-06` now carries the query and its answer — **639 `owns`/`controls` edges, 0 carrying any date-like predicate** |
 | 9 | the CP-14 third-slice test asserted something other than its docstring | the docstring states what it holds and where the payload-level claim moved |
-| 10 | CP-14's own ledger still described the pre-341 state, and the memo's consequence lived only in another tree | `CP14-F-31` closed FIXED-341 with the re-pinned address; **`CP14-F-40`** records that the memo serves at no instant and names the ten quarantines; README §2 is labeled the historical measurement |
+| 10 | CP-14's own ledger still described the pre-341 state, and the memo's consequence lived only in another tree | `CP14-F-31` closed FIXED-341 with the re-pinned address; **`CP14-F-41`** records that the memo serves at no instant and names the ten quarantines; README §2 is labeled the historical measurement |
 | 11 | the lane gate compared eight characters, and with the specimen unable to re-serve them the prefixes were the only record | the full 64-character addresses are measured, written into §A.2 and compared in full (`d22b256e…a45c`, `8e3e567b…be63` — both matched exactly); the roster names `CSCC-G13` a SNAPSHOT comparison to be re-measured on drift, never re-pinned; the dead field-level helper removed |
 | 12 | §12.6(h) claimed seven S1 reds "recorded on each roster", and four of them carry no gate id | the claim now separates the three roster gates from the four controls outside the instrument |
 
@@ -748,3 +748,39 @@ reduces at `view.as_of` while the anchor reduces at `decided_at` — unexercised
 records pin no λ_c table; no control for a composite whose CHILD's expiry binds an
 evidence-anchored parent; and the unpinnable-clock guard is defensive with no config-reachable
 control. `CIF-G15` (cp-08's dual TTL) remains declared and unimplemented, untouched by ruling 2.
+
+
+### 12.10 Focused review of the final delta (2026-09-18) — reviewed SHA `6309cd00`
+
+Four lenses over `4108aba9..6309cd00` with an independent skeptic per finding, scoped to the
+three rulings and the CP-14 conversions rather than to the whole design: **31 raised, 24
+survived refutation, 7 refuted** (35 agents). The reviewed SHA is `6309cd00`; two doc-only
+commits (`fc2d144a`, `b80ec83e`) landed while it ran and one lens correctly noticed, re-verifying
+against the tip. The 24 survivors deduplicate to **eleven distinct defects, all repaired**:
+
+| # | found | repaired |
+|---|---|---|
+| 1 | **Ruling 2 reached the specification only.** Three live cp-08 sites still stated "the latest ASSERTION among the served set" — `ccf_config.yaml`'s class comment (citing §E.3 as its authority), `deployment._booking_instant`'s rationale (QUOTING the deleted sentence), and the gate test's docstring — so the tree asserted and denied the ruled rule at once, and the test that IS the scored-view evidence told a reader "not repaired here" | all three restated to the scored-observation-set rule, keeping the §E.3 citation; the gate test's docstring now says the specification was corrected and that it holds the corrected clause |
+| 2 | `CSCC-G23`'s docstring still said "the declared one-day window" — the value the calibration replaced, in the file the calibration rewrote | reads "the declared window (the appraisal cycle)"; the assertion was already parameterized |
+| 3 | **A duplicate finding id**: the new CP-14 ledger row reused `CP14-F-40`, already held by the `memo_type` finding | renumbered to `CP14-F-41`, with all four citing sites updated |
+| 4 | `CSCC-G23`'s roster entry still declared the gate unsabotageable ("quarantined until the SDK honors the anchor") while carrying an `observed_red` block from a real S1 run | the `sabotage:` field names the SDK's S1 |
+| 5 | `NO_PRODUCT_ADDRESS` was imported by the fourth slice and used by nothing — the deleted consequence test had been its only consumer, so the "a refused composite records no product address" claim had quietly stopped being asserted | the assertion is restored to the surviving governed-question test |
+| 6 | **`CSCC-G24` pinned an estate valuation date**, the shape CLAUDE.md §9 asks estate tests to avoid: a revaluation would red it as a stale pin rather than as a behavior change | no estate date appears in the module at all now. The refusal names an expiry; the anchor it implies is that minus the declared window; the same facility asked INSIDE its window must serve on exactly that anchor and name it as the freshest valuation in its own payload. The estate closes the loop, and the failure message says to re-measure rather than re-pin |
+| 7 | Ruling 3's `open_product` half had no control — only the builder half did | **`C4c`**: a config declaring the anchor with no `half_life` section is refused by `open_product`, by name |
+| 8 | `TTLAnchorUndeclared` had gained a second meaning and a second raise site while its own docstring still defined only the first, and the module's R-3 taxonomy did not mention the no-table case | both widened to name the two configuration failures and the two registration sites |
+| 9 | The calibration's stated basis — the window IS `half_life.real_property_appraisal` — was asserted in four documents and held by nothing | one assertion in `CSCC-G24`'s test holds the two declarations equal. It adds no second authority for the value; it holds the stated relationship |
+| 10 | `build_governed_resolver`'s surface: `evidence_clock_key` was an undocumented public parameter that the new refusal message points adopters at, and the `Raises:` block did not name `TTLAnchorUndeclared` | both documented, with what each key is for and why omitting both is refused for an evidence-anchored class |
+| 11 | Stale prose the calibration left behind: the `rehydrate_product` contract claimed an omitted anchor "still passes the address check" (it would not — only the `None` sentinel is hash-transparent); CP-SPEC-006C §A.2 described the deleted per-facility control instants and the specimen's old failure mode; the roster header said `G01`–`G23` with 24 gates declared; the lane docstring had a half-edited sentence | each corrected |
+
+**Refuted and recorded as rejected:** that `CSCC-G24` was never observed red and is missing from
+the sabotage matrix; that the 365-day currency claim "travels on the wire" while the set-off
+leg's undatedness does not; that 56 of the lane baseline's characters were derived from the
+system under test; that the serve-time "reaches no λ_c table" branch is now unreachable through
+both shipped builders; that two gates pin estate figures against §G.1's claim; and two findings
+that the reviewed SHA had moved (true, and the delta was doc-only).
+
+**After the repairs:** cp-06-canonical 29, cp-08 20, CP-14 fourth slice 13, SDK products +
+replay + contracts 1704, lint 0, typecheck clean, product-gates 19 / 326 / 326. The controls in
+`tests/products/test_d_impl_341_ttl_anchor.py` now number fourteen (C1, C2, C4, C4b, C4c, C5,
+C6, C7, C8, C9, C10, C11, C12 and C11's second parametrization), and the module's own index
+names them.

@@ -25,9 +25,11 @@ currency. The anchor is the freshest of those (R-1). No timestamp is minted
 here, no payload field is read, and the freshness calculation is not touched.
 
 **Three failures, kept apart (R-3).** A class declaring the anchor over a λ_c
-table with no ``valid-from`` row is refused **at registration**
-(:func:`refuse_undeclared_ttl_anchor`, raised as :class:`TTLAnchorUndeclared`
-by the config derivation and the resolver builder). A served observation set
+table with no ``valid-from`` row — or over **no table at all**, which the
+resolver builder refuses directly (Dave, 2026-09-18) — is refused **at
+registration** (:func:`refuse_undeclared_ttl_anchor`, raised as
+:class:`TTLAnchorUndeclared` by ``open_product`` and the resolver
+builder). A served observation set
 that supplies no usable instant is refused **at gate 3 by its own reason**
 (:class:`~ccf.products.gates.TTLAnchorRefusal`, ``ttl-anchor-unresolvable``).
 An anchor whose window has passed keeps gate 3's existing ``ttl-bounds``.
@@ -89,12 +91,23 @@ class TTLAnchorResolution(CCFContract):
 
 
 class TTLAnchorUndeclared(ValueError):
-    """A class declares ``from_entity_freshness`` over a λ_c table with no ``valid-from`` row.
+    """A class declares ``from_entity_freshness`` over a clock no data could honor.
 
-    Raised at registration — the config derivation and the resolver builder —
-    because no data could ever honor the declaration: an anchor that silently
-    moved to the decision instant would serve the measured overstatement under
-    an evidence-anchored label (`D-IMPL-341` R-3, first row).
+    Two cases, both **configuration** failures and both raised at registration
+    — :func:`~ccf.products.product.open_product` and
+    :func:`~ccf.products.resolver.build_governed_resolver`:
+
+    * the λ_c table declares no ``decay_basis: valid-from`` row
+      (:func:`refuse_undeclared_ttl_anchor`); and
+    * the resolver reaches **no λ_c table at all** — neither ``half_life_key``
+      nor ``evidence_clock_key`` — so no observation could ever supply an
+      instant (Dave's ruling of 2026-09-18, widening `D-IMPL-341` R-3's first
+      row; the builder raises it directly).
+
+    Neither can be deferred to serve time: an anchor that silently moved to the
+    decision instant would serve the measured overstatement under an
+    evidence-anchored label, and a question refused for a reason that was
+    already true at registration is a boot failure wearing a serving verdict.
     """
 
 
