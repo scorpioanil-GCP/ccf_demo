@@ -5,6 +5,9 @@ Sanitized results of the measurement-only qualification recorded in
 produced on the detached worktree at `f0656746ec7cfeb734dfff717f388ce8c3623b6f`; connection
 strings are masked (`://***:***@`); no environment script is included.
 
+Everything below is inside `evidence.tar.gz` (text files; packed because the repository's
+documentation sweeps read loose text as documentation and counted the node lists as couplings).
+
 | file | what it is |
 |---|---|
 | `A.log` … `K.log` | the ten `tests/` chunks' pytest output with `-rfEsxX` (node-level failures, skips, expected failures) |

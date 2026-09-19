@@ -1,9 +1,0 @@
-........................................................................ [ 96%]
-...                                                                      [100%]
-=============================== warnings summary ===============================
-tests/examples/test_cp_03_canonical_paved_consumer.py::test_the_paved_consumer_admits_the_spread_with_the_low_roads_child_identities
-  /home/parkave/ccf_qual_f0656746/tests/examples/test_cp_03_canonical_paved_consumer.py:196: PydanticDeprecatedSince211: Accessing the 'model_fields' attribute on the instance is deprecated. Instead, you should access this attribute from the model class. Deprecated in Pydantic V2.11 to be removed in V3.0.
-    assert set(row.model_fields) == set(CHILD_IDENTITY) | set(PARENT_OWNED), "every row member is classified"
-
--- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-75 passed, 1 warning in 110.92s (0:01:50)

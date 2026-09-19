@@ -1,2 +1,0 @@
-PYTHONPATH=.:src:runtime .venv/bin/python tools/check_product_gates.py
-checked 19 shipped product trees, 326 declared gates, 326 executing
