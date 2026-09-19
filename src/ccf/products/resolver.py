@@ -2408,11 +2408,30 @@ class GovernedResolver:
             composed.resolutions if composed is not None else ()
         )
         if isinstance(anchor, TTLAnchorRefusal):
+            # A POST-PROJECTION REFUSAL, and recorded as one: the plan ran, the
+            # projection produced the payload the anchor was read over, and
+            # the debt was assessed on it. The record carries that execution's
+            # evidence and the product's own lineage exactly as a gate refusal
+            # does, so `replay_refusal` can re-execute the recorded path and
+            # hold the refusal to it (`D-IMPL-344`). Measured 2026-09-18: the
+            # first candidate recorded this refusal with neither, and the
+            # reconstruction path refused the record as contradicting itself
+            # — a plan named, no evidence of it.
             return self._record_refusal(
                 envelope=envelope_for(
                     anchor,
                     request=identity,
+                    pre_assembly_lineage=own_lineage,
                     policy_bindings=effective.applied,
+                    evidence=RefusalEvidence(
+                        operators_invoked=execution.operators_invoked,
+                        plan_id=execution.plan_id,
+                        debt=assessed,
+                        computed_empty=ComputedEmptyFinding.of(
+                            execution,
+                            emptiness=emptiness_of(ExecutionEvidence.of(execution)),
+                        ),
+                    ),
                     provenance=effective,
                 ),
                 execution=execution,
