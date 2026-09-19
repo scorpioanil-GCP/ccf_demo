@@ -225,6 +225,15 @@ GATE_TTL_BOUNDS = "ttl-bounds"
 #: here, by this name — never as ``ttl-bounds`` (which says an anchor exists
 #: and its window has passed) and never by falling back to the decision
 #: instant.
+#:
+#: **It is gate 3's reason, and it is decided BEFORE gates 1 and 2 run**
+#: (measured at 341's review, 2026-09-18). The anchor is resolved where the
+#: expiry is minted — the candidate cannot be built without it — so a class
+#: whose view carries no usable instant is refused here rather than by the
+#: empty-operator or lineage gates, and a product's own declared gate speaks
+#: later still. Where an example's own gate used to name the same empty view,
+#: that gate now describes a path the engine reaches first; two of them were
+#: re-specified at 341's validation pass rather than left claiming it.
 GATE_TTL_ANCHOR = "ttl-anchor-unresolvable"
 GATE_SOURCE_ATTESTATION = "source-attestation"
 #: ``D-IMPL-334``. Named for the question it asks — may this be served —

@@ -105,10 +105,14 @@ CP14_FACILITY, CP14_SCOPE = "FAC-5B8418", "2549001IGRCG4F0RLD36"
 SPECIMEN_FACILITY, SPECIMEN_SCOPE = "FAC-044206", "529900E95812SYWMCE44"
 MASTEC_FACILITY, MASTEC_SCOPE = "FAC-102496", "549300TMDIT8WREDOF45"
 #: The lane baseline: the specimen's payload content addresses at the CP-14
-#: instant as recorded in `CP-SPEC-006C` §A.2 on 2026-09-16 (the spec carries
-#: the eight-character prefixes; the specimen cannot re-serve them since
-#: `D-IMPL-341`, see `CSCC-G13`).
-LANE_BASELINE = {"FAC-5B8418": "d22b256e", "FAC-044206": "8e3e567b"}
+#: instant, recorded in `CP-SPEC-006C` §A.2 on 2026-09-16 as eight-character
+#: prefixes and written out in FULL there on 2026-09-18, when the successor was
+#: measured against them at each facility's control instant and matched to all
+#: sixty-four characters. A SNAPSHOT COMPARISON, and named as one: the frozen
+#: specimen cannot re-serve these since `D-IMPL-341` (`CSCC-G13`), so this pin
+#: goes red on estate drift and must then be re-MEASURED against the evidence,
+#: never re-pinned to whatever the successor happens to serve.
+LANE_BASELINE = {"FAC-5B8418": "d22b256eb343768f185ebbe09eed1949a44226cc1ffccc924550dbbc6f29a45c", "FAC-044206": "8e3e567b194b1aad69bd08da53996dc89bbc4d3f9b335da119147c102d2ebe63"}
 SCOPE_NOBODY_HOLDS = "A-SCOPE-NOBODY-HOLDS"
 
 ESTATE_VARIABLES = (
@@ -250,23 +254,6 @@ def _specimen(facility: str, scope: str, *, intent: str = INTENT, asked_at: date
                 os.environ.pop(name, None)
             else:
                 os.environ[name] = value
-
-
-def _field_differences(a: Any, b: Any, path: str = "") -> list[str]:
-    out: list[str] = []
-    if isinstance(a, dict) and isinstance(b, dict):
-        for key in sorted(set(a) | set(b)):
-            if key not in a or key not in b:
-                out.append(f"{path}/{key}: present on one side only")
-            else:
-                out += _field_differences(a[key], b[key], f"{path}/{key}")
-    elif isinstance(a, list) and isinstance(b, list):
-        if len(a) != len(b):
-            out.append(f"{path}: {len(a)} vs {len(b)} members")
-        out += [d for x, y in zip(a, b) for d in _field_differences(x, y, f"{path}[]")]
-    elif a != b:
-        out.append(f"{path}: {a!r} vs {b!r}")
-    return out
 
 
 # --- G01–G09: the specimen's domain properties, held by the successor ---------------
@@ -443,9 +430,9 @@ def test_the_lane_is_measured_the_successor_payload_equals_the_specimens(
     estate: None, modules: dict[str, Any], facility: str, scope: str, tmp_path: pathlib.Path
 ) -> None:
     """`CP-SPEC-006C` §D.4: at one instant under the class defaults, the
-    successor's canonical payload hashes to the specimen's — full hashes and a
-    field-level comparison — so the successor serves `1.0.0`, a second producer
-    of the same product. What differs is asserted different: tenant, plan id,
+    successor's canonical payload hashes to the specimen's — the full
+    sixty-four-character address, not a prefix — so the successor serves
+    `1.0.0`, a second producer of the same product. What differs is asserted different: tenant, plan id,
     policy-bundle version — and, since `D-IMPL-341`, the expiry and the
     freshness figure. Payload equivalence is not contract identity.
 
@@ -474,7 +461,7 @@ def test_the_lane_is_measured_the_successor_payload_equals_the_specimens(
     # re-derived. The payload carries no instant, so the successor's hash at
     # the control instant is compared to the hash the specimen served at the
     # CP-14 instant.
-    assert content_hash(successor.product.payload).startswith(LANE_BASELINE[facility]), content_hash(successor.product.payload)
+    assert content_hash(successor.product.payload) == LANE_BASELINE[facility], content_hash(successor.product.payload)
     assert successor.product.temporal_boundary == instant
     assert successor.product.expires_at == successor.product.ttl_anchor_at + timedelta(seconds=int(CONFIG["ttl"]["product_ttl_seconds"]))
     assert successor.product.expires_at < instant + timedelta(seconds=int(CONFIG["ttl"]["product_ttl_seconds"])), "the successor's expiry is running from the question"

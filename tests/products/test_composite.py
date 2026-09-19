@@ -539,6 +539,10 @@ def compose(
         # R6: passing the reconstruction instant here is what collided two
         # governed answers onto one content address.
         ttl_anchor_at=SERVED_AT,
+        # The decision instant too, for the mixing law (`D-IMPL-341` review):
+        # this fixture's decision instant IS `SERVED_AT`, so every floor
+        # measurement below is exactly the one it made before the split.
+        decided_at=SERVED_AT,
         validity_floors=floors,
     )
 
@@ -1310,6 +1314,7 @@ def test_r6_the_ttl_anchor_is_the_DECISION_instant_not_the_request_one(
         ),
         max_ttl=MaxTTL(seconds=60),
         ttl_anchor_at=ASKED_AT,
+        decided_at=ASKED_AT,
         validity_floors=NO_VALIDITY_FLOORS,
     )
     later = compose_children(
@@ -1325,6 +1330,7 @@ def test_r6_the_ttl_anchor_is_the_DECISION_instant_not_the_request_one(
         ),
         max_ttl=MaxTTL(seconds=60),
         ttl_anchor_at=ASKED_AT + timedelta(minutes=5),
+        decided_at=ASKED_AT + timedelta(minutes=5),
         validity_floors=NO_VALIDITY_FLOORS,
     )
     assert early.served and later.served

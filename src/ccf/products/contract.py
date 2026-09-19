@@ -1285,9 +1285,11 @@ class ContextProductContract(CCFContract):
     ttl_anchor: TTLAnchor
     # `D-IMPL-341` R-2: the instant the class's anchor resolved to — the
     # decision instant for `from_decision`, the freshest contributing evidence
-    # instant for `from_entity_freshness` — so `expires_at - ttl_anchor_at` is
-    # the declared window and a reader can see the basis rather than infer
-    # one. Hash-transparent at ``None``: a product minted before the member
+    # instant for `from_entity_freshness` — so a reader can see the basis
+    # rather than infer one. `expires_at - ttl_anchor_at` is the declared
+    # window for a plain product; for a COMPOSITE it is at most that, because
+    # `expires_at` is `D-IMPL-336` F14's floor over the children and a floor is
+    # a bound rather than a freshness claim (design §8). Hash-transparent at ``None``: a product minted before the member
     # existed keeps its address, and ``None`` is that pre-341 sentinel only —
     # never a shortcut on a new product.
     ttl_anchor_at: datetime | None = Field(

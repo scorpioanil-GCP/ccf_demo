@@ -208,9 +208,17 @@ def test_the_real_question_admits_family_and_collateral_and_withholds_the_spread
 
 
 def test_the_collateral_question_is_the_facility_specific_one_the_ruling_fixed(both: dict[str, Any]) -> None:
-    """`CP14-F-20`: the memo names the facility; the child's subject is that
-    facility; the row's question identity is the memo's, never a derived one.
-    The retained child's payload is over `FAC-5B8418`, not an obligor roll-up."""
+    """`CP14-F-20`: the memo names the facility, the child's subject is that
+    facility, and the row's question identity is the memo's rather than a
+    derived one — held on the RETAINED QUESTION, which is what survives here.
+
+    It was held on the retained child's payload until 2026-09-18: since
+    `D-IMPL-341` the collateral producer refuses this question at the CP-14
+    instant (its evidence expired `2025-12-21`), so there is no retained child
+    to read and the payload-level claim now lives in the producer's own suite
+    (`test_cp_06_canonical_output.py`, the control-instant serves). What this
+    test still proves is the consumer's half of `CP14-F-20`: the question
+    asked, and that it carries no invented tolerance."""
     from ccf.replay.engine import retained_child_question  # noqa: PLC0415
 
     opened, _outcome, record = both["1.0"]

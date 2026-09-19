@@ -1,8 +1,8 @@
 # D-IMPL-341 — design: `expires_at` describes when the evidence stopped being current
 
-**Status: VALIDATED (2026-09-18) on `d-impl-341-expiry` — the ruled mechanism unchanged, four example
-trees migrated, one in-scope SDK defect corrected (§12.6); awaiting the independent review's
-verdict; merge HOLD, not merged. §0–§11 are the design as accepted with Dave's five rulings (R-1–R-5, recorded in
+**Status: VALIDATED AND REVIEWED (2026-09-18) on `d-impl-341-expiry` — the ruled mechanism unchanged,
+four example trees migrated, two in-scope SDK defects corrected (§12.6(f), §12.7), one of them
+found by the review; merge HOLD, not merged. §0–§11 are the design as accepted with Dave's five rulings (R-1–R-5, recorded in
 `docs/DECISIONS.md` before implementation); §12 records what was built, where it differs, and
 every measurement — including the one the design got wrong.** Design baseline
 `main @ f8c33898` (post-`D-GATE-342`), design at `f55915d2`. The decisions of record are
@@ -518,9 +518,13 @@ boundary, which equals it); the engine's own re-derivation stays active and held
 record in the suites above.
 
 **(h) Sabotages, rerun on the integrated candidate and restored (`cmp` verified):** S1–S7 red
-exactly the controls §12.3 lists, C10 green under S1; S1 additionally reds the seven live
-example gates — `OFC-G06` (precedence limb), `OFC-G07`, `CSCC-G23`, the two CP-14-instant
-refusal controls, cp-08's two — recorded on each roster as `observed_red`.
+exactly the controls §12.3 lists, C10 green under S1. S1 additionally reds seven live example
+controls: `OFC-G06` (its precedence limb), `OFC-G07` and `CSCC-G23` — the three that carry a
+gate id, and the three that now carry an `observed_red` block on their rosters — plus four
+controls that carry no gate id and are therefore outside the product-gates instrument: the two
+CP-14-instant refusal controls at cp-06-canonical and cp-08's two. Named separately because a
+roster is the only place a gate's sabotage is auditable, and a control without an id is not on
+one.
 
 **(i) Scoped regressions on the integrated candidate:** products + replay + contracts 1699
 passed; deployment 325 / 1 standing red; cp-03-canonical 19, its paved consumer and
@@ -529,3 +533,81 @@ cp-13-canonical 26; CP-14 slices 11 passed / 10 xfailed; frozen cp-06 6 / 18 xfa
 frozen cp-04 188 / 48 skipped / 41 xfailed; lint 0; typecheck clean (230); product-gates
 19 / 324 / 324; docs gates 349 (the retirement report regenerated); surface: address-only
 churn, discarded.
+
+
+### 12.7 Independent review (2026-09-18) — reviewed SHA `4108aba9`, repair delta below
+
+Five lenses over the pushed candidate, each finding then handed to an independent skeptic
+briefed to refute it: **27 raised, 21 survived refutation, 6 refuted** (32 agents). The six
+refuted are recorded as rejected, per §3.1's rule that an unverified finding acted on is worse
+than no review: an undated period "stamping the question instant" (the SDK maps `observed_time`
+straight through and the deployment stamps nothing), the type-narrowing being undocumented (it
+is R-1's declared realization), C2's leading-edge reduction being uncovered (it is not), K2
+re-raised as new, a missing row validator on the two child members, and cp-08's demonstration
+"sitting on an equality edge" (it does, correctly — the filter is inclusive).
+
+Four lenses independently found ONE defect, and it is the review's whole yield as a blocker.
+
+**The blocking defect, and it was mine.** `compose_children` takes a single `ttl_anchor_at` and
+hands it to two different laws: `compose_expiry` (the composite's own term) and `refuse_mixing`
+(`D-IMPL-31`'s floor, whose `evaluated_at` is the instant a constituent's REMAINING validity is
+measured from). Before this branch the resolver passed `decided_at` and the two coincided. This
+branch passes the resolved anchor, so for a `from_entity_freshness` composite the mixing law
+began measuring remaining validity from an instant in the past — overstating every child's
+remaining validity by exactly `decided_at - anchored_at`, and letting a constituent that
+breaches its declared floor at the decision instant compose anyway. `D-IMPL-115` records that
+floor as a property a deployment "cannot now configure its way past"; this let a declaration do
+exactly that. Latent (no shipped class declares floors) and unreachable from the plain branch,
+which is why nothing was red.
+
+**Repaired:** `compose_children` now takes `decided_at` beside `ttl_anchor_at` — how long is
+left is a fact about now, how long the answer is good for is a fact about its evidence — and
+`refuse_mixing` reads the decision instant while `compose_expiry` keeps the anchor. **Control
+C11** (two parametrizations) drives the paved consumer with an evidence anchor five minutes
+before the decision and a child whose window ends ten minutes after it: the child has ten
+minutes left at the decision and fifteen at the anchor, so a twelve-minute floor must refuse and
+a nine-minute floor must serve. **Sabotage S8** (restore `evaluated_at=ttl_anchor_at`) reds
+exactly C11's refusing case and nothing else, restored `cmp`-verified.
+
+**The other in-scope repairs, each verified against the tree before acting:**
+
+| # | what the review found | repaired |
+|---|---|---|
+| 1 | an evidence-anchored serve over a λ_c table the manifest declares `role: load` passes registration, resolves the anchor, passes gate 3, and then raises `UnpinnedArtifactError` while BUILDING the record — an exception where a governed refusal belongs | the builder now asks for the pin at registration when the class is evidence-anchored, so an unrecordable deployment is a boot failure. **No control**: `half_life`'s role is not adopter-declarable in a config (`deployment/config.py:195`), so the state is unreachable from a tree and the guard is defensive; said here rather than left to look proven |
+| 2 | `build_governed_resolver`'s refusal when the two clock keys disagree had no control | **C12**: two disagreeing names raise naming `D-IMPL-341`; the road's own construction resolves the clock key onto the resolver; the same name twice is refused for the builder's own scorer rule, not 341's |
+| 3 | `ReplayEnvironment.rehydrate_product`'s contract enumerates every dimension-5 member an implementation must carry and never named `ttl_anchor_at` — the exact red three example environments hit | the protocol docstring now names it, says to reconstruct `expires_at` from it, and says `None` is the pre-341 shape |
+| 4 | the `ttl_anchor_at` comment asserts `expires_at - ttl_anchor_at` IS the declared window; for a composite whose expiry is F14's floor it is at most that | the comment is qualified; §8's "a bound, not a freshness claim" is cited where a reader meets the member |
+| 5 | the missing-anchor refusal is decided before gates 1 and 2, not "at gate 3" in sequence | recorded where the token is defined (`gates.py`), including that an example gate naming the same empty view now describes a path the engine reaches first — which is what `OFC-G06` and `CSCC-G20` were re-specified for |
+| 6 | cp-06-canonical's spec still said an unheld scope is refused by the product's own gate | the row names the real path: the SDK's anchor gate first, the no-commitment half held directly |
+| 7 | cp-06-canonical's `debt()` reached "one clock" by loading `valid_from` into `observed_at` while the five rate rows still declared the default basis — declaration and computation disagreeing in the reader's eye | the rows declare `decay_basis: valid-from` and the scorer passes BOTH instants, each meaning what it says. `F` is unchanged by construction; `CP06C-F-04` keeps the record of the move off the stored age |
+| 8 | cp-04-canonical moved to `from_decision` with no executable proof, though §9 committed it to gain one, and the ledger premise carried no rerunnable query | **`CFC-G14`** on the roster and in §G.1, with the control; and `CP04C-F-06` now carries the query and its answer — **639 `owns`/`controls` edges, 0 carrying any date-like predicate** |
+| 9 | the CP-14 third-slice test asserted something other than its docstring | the docstring states what it holds and where the payload-level claim moved |
+| 10 | CP-14's own ledger still described the pre-341 state, and the memo's consequence lived only in another tree | `CP14-F-31` closed FIXED-341 with the re-pinned address; **`CP14-F-40`** records that the memo serves at no instant and names the ten quarantines; README §2 is labeled the historical measurement |
+| 11 | the lane gate compared eight characters, and with the specimen unable to re-serve them the prefixes were the only record | the full 64-character addresses are measured, written into §A.2 and compared in full (`d22b256e…a45c`, `8e3e567b…be63` — both matched exactly); the roster names `CSCC-G13` a SNAPSHOT comparison to be re-measured on drift, never re-pinned; the dead field-level helper removed |
+| 12 | §12.6(h) claimed seven S1 reds "recorded on each roster", and four of them carry no gate id | the claim now separates the three roster gates from the four controls outside the instrument |
+
+**Carried, with the reason each is not repaired here:**
+
+1. **The scorer reduces at `view.as_of`; the anchor at `decided_at`** (advisory). They coincide
+   for every shipped class, and diverge only if a class combined `from_entity_freshness` with a
+   declared decision-instant parameter — none does. Closing it is a ruling (refuse the
+   combination at registration, or anchor at `as_of`), not a repair.
+2. **`_hold_ttl_anchor` branches on the rehydrated product's declaration, not on a recorded
+   basis** (advisory). A class whose basis changed between serve and replay fails under the
+   wrong name. A genuine flip is still caught — `ttl_anchor` is inside the hashed body, so the
+   address check refuses it — but the message misleads. Recording the basis on dimension 5 is a
+   schema change and wants a ruling.
+3. **Refusal records pin no λ_c table** (advisory). The served record pins it; the anchor
+   refusal and an evidence-anchored `ttl-bounds` refusal do not, so their named evidence is not
+   re-derivable under their own pins. Nothing diverges today because `replay_refusal` does not
+   recompute gates (`D-IMPL-344` R-2); whether that boundary should move is Dave's.
+4. **No control for a composite whose CHILD's expiry binds** an evidence-anchored parent (C8
+   holds the parent-binding case; C11 holds a floored composite). A coverage gap, recorded.
+5. **The CP-14 fourth-slice environment's 341 line is unexecuted** while the served-memo proofs
+   are quarantined: the first green run after the `CP06C-F-05` ruling is its first execution.
+
+**Regressions after the repairs:** products + replay + contracts + deployment 2027 passed / 1
+standing red (`test_class_lookup`, baseline); cp-03-canonical 19, paved consumer 7,
+cross-deployment 8; cp-04-canonical 14; cp-06-canonical 30; cp-08 20; cp-13-canonical 26; CP-14
+slices 3 / 5 / 5+2 xfailed / 6+8 xfailed; lint 0; typecheck clean (230); product-gates
+19 / **325** / 325; docs gates 349. S1–S8 rerun, each reding exactly its controls and restored.

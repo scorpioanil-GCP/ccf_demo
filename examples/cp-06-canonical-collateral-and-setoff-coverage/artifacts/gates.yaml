@@ -91,7 +91,7 @@ declaration:
     sabotage: add a `server/door.yaml` naming a script path
     observed_red: null
   - id: CSCC-G13
-    statement: the lane is measured — the successor's payload hashes to the specimen's recorded payload addresses for both declared facilities, so the lane is `1.0.0`; the frozen specimen itself is refused `ttl-anchor-unresolvable` since D-IMPL-341
+    statement: the lane is measured — the successor's payload hashes to the specimen's recorded full payload addresses (CP-SPEC-006C §A.2) for both declared facilities, so the lane is `1.0.0`; a snapshot comparison since D-IMPL-341, because the frozen specimen is refused `ttl-anchor-unresolvable` and cannot re-serve them; estate drift reds it and it is re-measured, never re-pinned
     spec_clause: {document: spec/CP-SPEC-006C_Collateral_And_Setoff_Coverage_Canonical.md, clause: G.1}
     test: tests/examples/test_cp_06_canonical_output.py::test_the_lane_is_measured_the_successor_payload_equals_the_specimens
     sabotage: rename or reorder one payload member

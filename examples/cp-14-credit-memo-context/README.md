@@ -90,6 +90,14 @@ admitted family and collateral contracts by address and by bytes.
 
 ### 2. The diagnostic serves, and says what it is
 
+**Measured 2026-09-15 and preserved as the historical result.** Since
+`D-IMPL-341` (2026-09-18) the collateral producer refuses this facility's
+question — its valuation is older than the window it now anchors on — so the
+required slot is `ineligible` and the memo refuses at the diagnostic tolerance
+too. The section below is what the memo served before that, and what it will
+serve again once the collateral class's calibration is ruled (`CP14-F-40`,
+cp-06-canonical `CP06C-F-05`). Nothing in it was tuned away.
+
 At 1.0 the memo serves five sections read off five admitted payloads by name — the
 spread's periods, the family's entities and circuits, the exposure's regime and
 totals, the collateral's coverage with collateral and set-off apart, the covenant's

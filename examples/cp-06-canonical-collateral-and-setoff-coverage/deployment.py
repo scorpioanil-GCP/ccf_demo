@@ -299,7 +299,16 @@ def debt(view: GraphView, *, now: datetime, half_life: HalfLifeTable,
         Observation(
             observation_type=DECAY_CLASS_BY_CATEGORY.get(
                 r.claim.attributes.get("category", ""), "real_property_appraisal"),
-            observed_at=r.claim.valid_from,
+            # BOTH INSTANTS, each meaning what it says: `observed_at` is when
+            # the fabric learned the claim, `valid_from` the valuation date the
+            # source put on it. The category rows declare `decay_basis:
+            # valid-from`, so the curve reads the second — stated in the
+            # Control Plane rather than achieved by loading one instant into
+            # the other field, which is how this read before the review of
+            # `D-IMPL-341` (2026-09-18) and made the declaration and the
+            # computation disagree in the reader's eye.
+            observed_at=r.claim.observed_at,
+            valid_from=r.claim.valid_from,
             subject=r.claim.entity_uri)
         for r in assets if r.claim.valid_from is not None
     ]

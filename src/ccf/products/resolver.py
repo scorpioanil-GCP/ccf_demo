@@ -2372,6 +2372,10 @@ class GovernedResolver:
                 # branches now, which is what `D-IMPL-308` says it is:
                 # the TTL runs from when the answer was PRODUCED.
                 ttl_anchor_at=anchored_at,
+                # AND THE DECISION INSTANT, for the mixing law alone: how much
+                # validity a child has LEFT is a fact about now, not about the
+                # parent's evidence (`D-IMPL-341` review).
+                decided_at=decided_at,
                 validity_floors=registered.constituent_validity_floors,
             )
             if composed is not None and composed.factors is not None:
@@ -3798,6 +3802,18 @@ def build_governed_resolver(
             entries=_artifact_on(fabric, key=resolver_table_key, expected=HalfLifeTable).entries,
             product_class=boot_declaration.schema_name,
         )
+        # AND THE TABLE MUST BE PINNABLE, for the same reason and at the same
+        # moment (`D-IMPL-341` review, 2026-09-18). An evidence-anchored serve
+        # pins its λ_c table on dimension 2 so replay can re-derive the anchor
+        # under the declarations that were in force; a table the manifest
+        # declares `role: load` is parsed and returned but never registered
+        # (`D-IMPL-80`), so `version_for` raises for it. Read only here, that
+        # raise landed AFTER the question was admitted, the anchor resolved and
+        # the gates passed — an exception where a governed refusal belongs, and
+        # a record that could never be written. Asking at registration turns a
+        # deployment that cannot record what it anchors on into a boot failure.
+        if boot_declaration.ttl_anchor == FROM_ENTITY_FRESHNESS:
+            fabric.pins.version_for(resolver_table_key)
     refuse_undeclared_class_default(
         schema_name=boot_declaration.schema_name,
         schema_version=boot_declaration.schema_version,

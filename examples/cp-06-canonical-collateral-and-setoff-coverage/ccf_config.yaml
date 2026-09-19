@@ -293,25 +293,37 @@ resolution:
 # One day against one year, inside a single product. §6.4 Temporal Validation
 # refuses to let a product flatten that, which is why the payload carries the
 # valuation date per asset rather than one product-level freshness.
+#
+# EVERY ROW DECAYS ON `valid-from` (`D-IMPL-341` review, 2026-09-18): the
+# instant each observation ages from is the source's own — an asset's
+# valuation date, carried on the claim — never the instant this run ingested
+# it. `deployment.debt` passes both instants and the row decides which the
+# curve reads, so what a reader of this file sees and what the scorer does are
+# the same statement.
 half_life:
   marketable_securities_valuation:
     half_life_seconds: 86400          # ~1 day
+    decay_basis: valid-from
     decay_driver: mark-to-market
     supersession_event: a new mark on the same security
   real_property_appraisal:
     half_life_seconds: 31536000       # ~365 days
+    decay_basis: valid-from
     decay_driver: appraisal-cycle
     supersession_event: a new appraisal on the same property
   deposit_balance:
     half_life_seconds: 86400          # ~1 day
+    decay_basis: valid-from
     decay_driver: account-activity
     supersession_event: a balance movement beyond the declared threshold
   lien_structure:
     half_life_seconds: 31536000       # ~365 days
+    decay_basis: valid-from
     decay_driver: filing-driven
     supersession_event: a new UCC filing or amendment on a pledged asset
   haircut_schedule:
     half_life_seconds: 15552000       # ~180 days
+    decay_basis: valid-from
     decay_driver: credit-policy-review
     supersession_event: a new haircut schedule version
   # THE ENTITY-CLASS ROW THE TTL ANCHOR READS (`D-IMPL-341`, validation pass

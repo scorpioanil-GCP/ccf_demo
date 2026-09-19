@@ -131,7 +131,16 @@ Measured through the frozen specimen at the CP-14 instant
 | set-off excluded as unenforceable | 4 accounts | 3 accounts |
 | freshest valuation, and its age as the estate records it | 2025-12-20 — `valuation_age_days` 240 | 2026-08-15 — `valuation_age_days` 2 |
 | `D_c` / signal | **0.3660 / `ok`** | 0.3769 / `ok` |
-| payload content address (§D.4's baseline) | `d22b256e…` | `8e3e567b…` |
+| payload content address (§D.4's baseline) | `d22b256eb343768f185ebbe09eed1949a44226cc1ffccc924550dbbc6f29a45c` | `8e3e567b194b1aad69bd08da53996dc89bbc4d3f9b335da119147c102d2ebe63` |
+
+**Written out in full on 2026-09-18** (`D-IMPL-341`'s review): the table
+carried eight-character prefixes, and with the frozen specimen no longer able
+to serve — it declares the same anchor over a resolver the SDK can read no
+clock from — those prefixes became the only record of the lane. The successor
+was measured against them at each facility's control instant and matches to all
+sixty-four characters. `CSCC-G13` is therefore a SNAPSHOT comparison: it goes
+red on estate drift, and the answer then is to re-measure the evidence, never
+to re-pin it to whatever the successor happens to serve.
 
 **The memo's facility is covered five times over, and 96 % of that cover is
 deposit set-off, not collateral.** A reader who takes the ratio at its face
@@ -362,7 +371,7 @@ successor's `F` and expiry now run from the valuation date (`CSCC-G13`).
 | `lineage.policy_bundle_versions` | the specimen's policy artifact hash | the successor's | the class id on the policy document differs; the regime and rules do not |
 | replay dimension 1 | facility node without `commitment` | facility node **with** `commitment` | the commitment is fabric state (`CSCC-G14`); the snapshot id differs accordingly |
 | an unknown `intent` | served | **refused** on `discovery.intents` (`CSCC-G19`) | a governed axis the specimen left open — deliberate |
-| a scope the caller does not hold | served: `assets: []`, `coverage_ratio: 0` over the empty view | **refused** by the product's own gate, `no facility commitment in the admitted view` (`CSCC-G20`) | an empty graph is not a coverage of zero — deliberate; the specimen's zero reads as an uncovered facility |
+| a scope the caller does not hold | served: `assets: []`, `coverage_ratio: 0` over the empty view | **refused** — since `D-IMPL-341` by the SDK's own anchor gate (`ttl-anchor-refusal` / `ttl-anchor-unresolvable`: an empty view carries no evidence instant), which runs before the product's gate; the product's `no facility commitment in the admitted view` half is held directly on the candidate (`CSCC-G20`) | an empty graph is not a coverage of zero — deliberate; the specimen's zero reads as an uncovered facility |
 | the door | 150 lines and a `door.yaml` naming a `module:callable` (`CSC-G12`) | a 27-line launcher over the SDK's standard door (`CSCC-G12`) | `D-IMPL-343` |
 | documents | four (`ccf_config`, `backends`, `server/door`, gates) | two (`ccf_config`, `ccf_environment`) | one authority per value |
 

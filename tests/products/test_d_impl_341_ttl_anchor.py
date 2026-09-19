@@ -279,6 +279,109 @@ def test_c8_an_evidence_anchored_composite_floors_on_its_anchor_and_its_children
     assert parent.expires_at != min(ASKED_AT + parent_window, row_.child_expires_at), "a decision-anchored own term would end with the child"
 
 
+# --- C11: the two instants, two laws (the review's blocking finding) ------------------------
+
+
+@pytest.mark.parametrize(
+    "floor_seconds,serves",
+    [(720, False), (540, True)],
+    ids=["breached-at-the-decision-instant", "met-at-the-decision-instant"],
+)
+def test_c11_a_composites_mixing_floor_is_measured_from_the_decision_instant(
+    tmp_path: pathlib.Path, floor_seconds: int, serves: bool
+) -> None:
+    """`D-IMPL-31`'s mixing law measures how much validity a child has LEFT, and
+    that is a fact about the DECISION instant — never about the parent's
+    evidence anchor, which for a `from_entity_freshness` class lies in the past.
+
+    The review of `D-IMPL-341` found the two sharing one argument: the resolver
+    passed the evidence anchor as `compose_children`'s only instant and
+    `refuse_mixing` read it as `evaluated_at`, so every constituent's remaining
+    validity was overstated by `decided_at - ttl_anchor_at` and a child
+    breaching its declared floor at the decision instant composed anyway.
+
+    The arithmetic is what makes the control decisive, and every instant is
+    measured rather than assumed: the parent's evidence is five minutes OLDER
+    than the decision, and the child's window ends ten minutes after it. So the
+    child has TEN minutes of validity left at the decision instant and FIFTEEN
+    at the evidence anchor. A floor of twelve minutes must REFUSE — it is met
+    only if the law reads the anchor — and a floor of nine minutes must SERVE,
+    which is what keeps the refusing case from passing for want of any
+    composition at all.
+    """
+    from tests.products.test_paved_consumer import _environ, _producer, _question, _the_row  # noqa: PLC0415
+
+    parent_observed, parent_window = ASKED_AT - timedelta(minutes=5), timedelta(minutes=12)
+    config = fixture.consumer_config()
+    config["product_class"]["ttl_anchor"] = "from_entity_freshness"
+    config["product_class"]["constituent_validity_floors"] = {
+        "min_validity_seconds_by_signal": {fixture.CHILD_CLASS: floor_seconds}
+    }
+    row = dict(config["half_life"][ENTITY_CLASS]); row["decay_basis"] = "valid-from"
+    config["half_life"] = {ENTITY_CLASS: row}
+    config["ttl"] = {"max_ttl_seconds": int(CEILING.total_seconds()), "product_ttl_seconds": int(parent_window.total_seconds())}
+    root = fixture.write_tree(tmp_path / "consumer", config=config, environment=fixture.consumer_environment_text())
+    with _producer() as url, open_product(
+        config_root=root, scratch=tmp_path / "scratch", acquire=_Acquire({"acct-1": parent_observed}), project=fixture.plan_factory,
+        assess=fixture.assess, questions=fixture.questions, environ=_environ(url), clock=lambda: ADMITTED_AT,
+    ) as opened:
+        outcome = opened.answer(_question(opened))
+        if serves:
+            assert isinstance(outcome, ServedProduct), getattr(outcome, "detail", outcome)
+            row_ = _the_row(opened, outcome)
+            # The premise, asserted rather than assumed: the child's remaining
+            # validity differs by clock, and the floor is met only at the
+            # decision instant — so the serving case is not vacuous either.
+            record, _fresh, _address = _record(opened, outcome)
+            assert row_.child_expires_at == ASKED_AT + timedelta(seconds=600)
+            assert row_.child_expires_at - record.recorded_at == timedelta(minutes=10), "the remaining validity at the decision instant"
+            assert row_.child_expires_at - parent_observed == timedelta(minutes=15), "and at the evidence anchor — the gap the law must not read"
+            assert timedelta(seconds=floor_seconds) <= timedelta(minutes=10), "the serving case must be met at the DECISION instant"
+            assert outcome.product.ttl_anchor_at == parent_observed, "the expiry still runs from the evidence"
+        else:
+            assert isinstance(outcome, RefusalEnvelope), getattr(outcome, "product", outcome)
+            assert outcome.kind == "composite-child-refusal", (outcome.kind, outcome.reason)
+            record, _fresh, _address = _record(opened, outcome)
+            assert record.recorded_at == ASKED_AT, "the fixture's decision instant moved; the arithmetic above is stale"
+            block = json.loads(record.content_generation_path.assembly_refusal)
+            assert "declared validity floor" in block["detail"], block["detail"]
+            assert json.loads(block["fields"]["reason"]) == "mixing-refused", block["fields"]
+            assert record.recorded_at.isoformat() in block["detail"], "the refusal names an instant other than the decision"
+            assert parent_observed.isoformat() not in block["detail"], "the mixing law read the evidence anchor"
+
+
+# --- C12: the builder's two keys cannot disagree silently -----------------------------------
+
+
+def test_c12_the_builder_refuses_two_disagreeing_clock_keys_and_accepts_one_name_twice(tmp_path: pathlib.Path) -> None:
+    """`half_life_key` and `evidence_clock_key` name the same manifest key from
+    two callers — the scorer's table and the anchor's clock are one table, and
+    the builder holds them to each other rather than silently preferring one.
+    Two names is a wiring defect and raises; one name given twice builds.
+    """
+    from ccf.products.resolver import build_governed_resolver  # noqa: PLC0415
+
+    with _open(tmp_path / "t", ttl_anchor="from_decision", decay_basis="valid-from", observed={"acct-1": OBSERVED}) as template:
+        fabric = template._boot()
+        try:
+            arguments = template.build_arguments(fabric)
+            assert arguments["evidence_clock_key"] is not None, "the road stopped passing the clock key"
+            with pytest.raises(TypeError, match="D-IMPL-341"):
+                build_governed_resolver(**{**arguments, "half_life_key": "somebody-elses-table"})
+            # And the road's own construction — the clock key alone, beside a
+            # supplied scorer — resolves to that one key on the resolver, which
+            # is what makes the two names one table rather than two.
+            built = build_governed_resolver(**arguments)
+            assert built.half_life_key == arguments["evidence_clock_key"]
+            # The same name given twice is not a disagreement and is refused
+            # only for the reason it really is: a scorer and the reference
+            # material are alternatives (the builder's own rule, not 341's).
+            with pytest.raises(TypeError, match="alternatives rather than layers"):
+                build_governed_resolver(**{**arguments, "half_life_key": arguments["evidence_clock_key"]})
+        finally:
+            fabric.handle.close()
+
+
 # --- C9 ------------------------------------------------------------------------------------
 
 

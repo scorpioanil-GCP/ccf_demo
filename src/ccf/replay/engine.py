@@ -368,6 +368,16 @@ class ReplayEnvironment(Protocol):
         The engine checks the result's content address against the record, so
         an envelope reconstructed wrongly is caught rather than accepted.
 
+        **The TTL ANCHOR comes off the record too** (`D-IMPL-341`). Read
+        ``record.content_generation_path.ttl_anchor_at`` and carry it verbatim
+        onto the rebuilt product, and reconstruct ``expires_at`` FROM it rather
+        than from the graph boundary or the decision instant; a pre-341 record
+        carries ``None``, which is the decision-anchored shape and reconstructs
+        as it always did. The member is hash-transparent, so an environment
+        that omits it still passes the address check and fails only the engine's
+        anchor hold — measured on three example environments at 341's
+        validation pass, each of which had to be told this.
+
         **The debt in force comes off the record, and must not be re-measured**
         (15.5-11, D-IMPL-100). ``ContextProductContract.debt`` is inside the
         hashed body, so an implementation that omitted it — or recomputed it —

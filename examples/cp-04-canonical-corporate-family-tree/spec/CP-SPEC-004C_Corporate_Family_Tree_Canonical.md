@@ -300,6 +300,7 @@ The acceptance authority for every gate below is **this clause**
 | `CFC-G11` | a bare ledger name resolves a real watermark |
 | `CFC-G12` | an unknown ledger reports *unreported* rather than a number |
 | `CFC-G13` | the watermark is never invented from the listing |
+| `CFC-G14` | the expiry runs from the decision instant and the contract states it (`ttl_anchor: from_decision`, `ttl_anchor_at`) — added 2026-09-18 with the anchor correction (`CP04C-F-06`) |
 
 **All directional or structural. No estate figure is pinned in a gate** — the
 counts in §A.2 and §E are measurements a reader can reproduce, not assertions a
