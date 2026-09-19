@@ -32,6 +32,7 @@ estate; this module reads none of it directly.
 
 from __future__ import annotations
 
+import json
 import os
 import pathlib
 import subprocess
@@ -166,6 +167,7 @@ def _retained(opened: Any, address: str) -> ContextProductContract:
     return contract
 
 
+@pytest.mark.xfail(strict=True, reason="`D-IMPL-341` (validation pass 2026-09-18): at the CP-14 instant the collateral child is refused `ttl-refusal` / `ttl-bounds` by its producer — `FAC-5B8418`'s one asset was valued `2025-12-20` and cp-06-canonical's declared one-day window, now anchored on that valuation, closed `2025-12-21` — so a required slot is `ineligible` and the composite refuses `child_admission` at every tolerance; the served-memo evidence this test carries is quarantined, strict, pending the collateral class's calibration ruling (cp-06-canonical `CP06C-F-05`); the demonstrated consequence is asserted beside it")
 def test_three_children_are_admitted_simultaneously_from_three_producers(both: dict[str, Any]) -> None:
     """The diagnostic at 1.0: spread, family and collateral admitted at once, from
     three registrations under three tenants at three producer-owned addresses,
@@ -189,6 +191,7 @@ def test_three_children_are_admitted_simultaneously_from_three_producers(both: d
     assert [r.required_product_class for r in record.content_generation_path.child_resolutions] == list(CHILD_CLASSES)
 
 
+@pytest.mark.xfail(strict=True, reason="`D-IMPL-341` (validation pass 2026-09-18): at the CP-14 instant the collateral child is refused `ttl-refusal` / `ttl-bounds` by its producer — `FAC-5B8418`'s one asset was valued `2025-12-20` and cp-06-canonical's declared one-day window, now anchored on that valuation, closed `2025-12-21` — so a required slot is `ineligible` and the composite refuses `child_admission` at every tolerance; the served-memo evidence this test carries is quarantined, strict, pending the collateral class's calibration ruling (cp-06-canonical `CP06C-F-05`); the demonstrated consequence is asserted beside it")
 def test_the_real_question_admits_family_and_collateral_and_withholds_the_spread(both: dict[str, Any]) -> None:
     """At the memo's own tolerance the spread is withheld by its producer and
     crosses as `ineligible` with the reason retained (`CP14-F-30`); the family
@@ -208,12 +211,47 @@ def test_the_collateral_question_is_the_facility_specific_one_the_ruling_fixed(b
     """`CP14-F-20`: the memo names the facility; the child's subject is that
     facility; the row's question identity is the memo's, never a derived one.
     The retained child's payload is over `FAC-5B8418`, not an obligor roll-up."""
+    from ccf.replay.engine import retained_child_question  # noqa: PLC0415
+
     opened, _outcome, record = both["1.0"]
     row = _rows(record)["credit-risk.collateral-coverage"]
     assert row.child_question_address, "no question identity on the row"
-    child = _retained(opened, row.child_content_address)
-    assert child.payload["facility"] == BGC_FACILITY
-    assert "debt_tolerance" not in child.payload.get("basis", {}), "a tolerance was invented for the collateral child"
+    # Held on the RETAINED QUESTION (`D-IMPL-342` Limb B) rather than the
+    # retained child: since `D-IMPL-341` the producer refuses this question at
+    # the CP-14 instant (its evidence expired `2025-12-21`), so no child is
+    # retained — the question the consumer asked is, and it is the ruling's.
+    question = retained_child_question(store=FileArtifactStore(root=opened.scratch / opened.replay.store_dirname), row=row)
+    assert content_hash(question) == row.child_question_address
+    assert question.subject == BGC_FACILITY
+    assert "debt_tolerance" not in json.dumps(json.loads(question.request).get("parameters", {})), "a tolerance was invented for the collateral child"
+
+
+def test_at_the_cp14_instant_the_collateral_child_is_withheld_for_expired_evidence(both: dict[str, Any]) -> None:
+    """The demonstrated consequence of `D-IMPL-341` at this slice, measured on
+    2026-09-18 and asserted beside the quarantined served-memo evidence: at
+    both tolerances the spread and the family cross as before — admitted at
+    `1.0`, the spread withheld `tolerance-exceeded` at `0.25` — while the
+    collateral child is `ineligible` at BOTH, with its producer's own refusal
+    retained by kind and reason (`ttl-refusal` / `ttl-bounds`: `FAC-5B8418`'s
+    valuation of `2025-12-20` plus the class's one-day window is months before
+    the CP-14 instant) and the producer's replay reference on its tenant. The
+    question the consumer asked is retained and unchanged (`CP14-F-20`); no
+    child is. Whether the collateral class's window should follow the
+    valuation clock it now anchors on is the calibration question raised at
+    cp-06-canonical `CP06C-F-05`, not a timestamp to move here.
+    """
+    for tolerance, spread_status in (("1.0", "admitted"), ("0.25", "ineligible")):
+        opened, outcome, record = both[tolerance]
+        rows = _rows(record)
+        assert isinstance(outcome, RefusalEnvelope) and outcome.kind == "composite-child-refusal", (tolerance, outcome)
+        assert rows["credit-risk.spread"].outcome_status == spread_status, (tolerance, rows["credit-risk.spread"].outcome_status)
+        assert rows["reference.corporate-family"].outcome_status == "admitted", (tolerance, rows["reference.corporate-family"])
+        collateral = rows["credit-risk.collateral-coverage"]
+        assert (collateral.outcome_status, collateral.refusal_ref) == ("ineligible", "ineligible"), (tolerance, collateral.outcome_status, collateral.refusal_ref)
+        assert (collateral.producer_refusal_kind, collateral.producer_refusal_reason, collateral.producer_refusal_key) == ("ttl-refusal", "ttl-bounds", None), (tolerance, collateral.producer_refusal_kind, collateral.producer_refusal_reason)
+        assert collateral.child_content_address is None and collateral.child_question_address is not None
+        assert collateral.child_replay_ref is not None and collateral.child_replay_ref.startswith(f"ccf-artifact://{COLLATERAL_TENANT}/"), collateral.child_replay_ref
+        assert (collateral.producer_id, collateral.producer_tenant) == (COLLATERAL_PRODUCER_ID, COLLATERAL_TENANT)
 
 
 def test_the_consumer_imported_no_producer(both: dict[str, Any]) -> None:
@@ -225,7 +263,10 @@ def test_the_consumer_imported_no_producer(both: dict[str, Any]) -> None:
     assert record.tenant_id == "cp-14-demo"
 
 
-@pytest.mark.parametrize("tolerance,expected", [("1.0", 3), ("0.25", 2)])
+# The admitted counts MOVED on 2026-09-18 (`D-IMPL-341`): the collateral child is
+# refused `ttl-bounds` at the CP-14 instant, so the diagnostic admits two (was
+# three) and the governed question one (was two). Measured, not tuned.
+@pytest.mark.parametrize("tolerance,expected", [("1.0", 2), ("0.25", 1)])
 def test_both_refused_records_reconstruct_with_every_admitted_child_retained(
     both: dict[str, Any], modules: tuple[Any, Any], tolerance: str, expected: int
 ) -> None:

@@ -57,7 +57,7 @@ from ccf.halflife.assessment import DebtFactors
 from ccf.halflife.debt import compose_debt_factors, context_debt
 from ccf.products.request import ProductRequest
 from ccf.replay.engine import retained_child_question
-from ccf.replay.record import NO_FABRIC_READ, DecisionReplayRecord
+from ccf.replay.record import NO_FABRIC_READ, NO_PRODUCT_ADDRESS, DecisionReplayRecord
 from ccf.replay.serve import ServedProduct
 from tests.examples.test_cp_03_canonical_cross_deployment import DEV_TOKEN, producer as spread_producer
 from tests.examples.test_cp_14_first_slice import BGC, BGC_FACILITY, CHILD_CLASSES, CP14_INSTANT, EXAMPLE, modules  # noqa: F401
@@ -244,10 +244,19 @@ def test_the_governed_question_withholds_where_producers_withhold_and_refuses_th
     assert "tolerance-exceeded" in refusal["detail"] and "producer-unavailable" not in refusal["detail"] and "no-producing-skill" not in refusal["detail"], refusal["detail"]
     named = json.loads(refusal["fields"]["product_class"])
     assert named in withheld and json.loads(refusal["fields"]["producer_id"]) == PRODUCERS[named][0]
+    # EACH WITHHELD ROW'S REASON IS ITS OWN PRODUCER'S, and they differ by
+    # class since `D-IMPL-341` (2026-09-18): the spread is withheld at the
+    # memo's tolerance (`tolerance-exceeded`); the collateral is refused by its
+    # producer for EXPIRED EVIDENCE (`ttl-refusal` / `ttl-bounds` — the facility's
+    # valuation of `2025-12-20` plus the class's one-day window), at every
+    # tolerance, since its contract takes none. Until 341 every withheld row
+    # read `tolerance-exceeded`; that line is the historical measurement.
+    assert {SPREAD, COLLATERAL} <= withheld, withheld
     for product_class in withheld:
         row = rows[product_class]
         assert row.refusal_ref == "ineligible", (product_class, row.refusal_ref)
-        assert (row.producer_refusal_kind, row.producer_refusal_reason, row.producer_refusal_key) == ("tolerance-exceeded", "tolerance-exceeded", None), (product_class, row.producer_refusal_kind, row.producer_refusal_reason)
+        expected = ("ttl-refusal", "ttl-bounds", None) if product_class == COLLATERAL else ("tolerance-exceeded", "tolerance-exceeded", None)
+        assert (row.producer_refusal_kind, row.producer_refusal_reason, row.producer_refusal_key) == expected, (product_class, row.producer_refusal_kind, row.producer_refusal_reason)
         assert row.child_replay_ref is not None and row.child_replay_ref.startswith(f"ccf-artifact://{PRODUCERS[product_class][1]}/"), (product_class, row.child_replay_ref)
     # `D-IMPL-342` Limb B (`CP14-F-35`, closed): every row — admitted and
     # withheld — references the exact question retained on the consumer's own
@@ -262,6 +271,7 @@ def test_the_governed_question_withholds_where_producers_withhold_and_refuses_th
         assert (row.producer_id, row.producer_tenant) == PRODUCERS[product_class], (product_class, row.producer_id, row.producer_tenant)
 
 
+@pytest.mark.xfail(strict=True, reason="`D-IMPL-341` (validation pass 2026-09-18): at the CP-14 instant the collateral child is refused `ttl-refusal` / `ttl-bounds` by its producer — `FAC-5B8418`'s one asset was valued `2025-12-20` and cp-06-canonical's declared one-day window, now anchored on that valuation, closed `2025-12-21` — so a required slot is `ineligible` and the composite refuses `child_admission` at every tolerance; the served-memo evidence this test carries is quarantined, strict, pending the collateral class's calibration ruling (cp-06-canonical `CP06C-F-05`); the demonstrated consequence is asserted beside it")
 def test_the_diagnostic_admits_every_child_that_serves_and_the_composite_outcome_is_measured(both: dict[str, Any]) -> None:
     """At the labeled diagnostic every producer serves and every child is
     admitted under `provider-controls` from its own registration; what the
@@ -287,6 +297,45 @@ def test_the_diagnostic_admits_every_child_that_serves_and_the_composite_outcome
     assert sections[COLLATERAL]["summary"]["facility"] == BGC_FACILITY
 
 
+
+def test_at_the_cp14_instant_the_diagnostic_refuses_on_the_expired_collateral_child(both: dict[str, Any]) -> None:
+    """The demonstrated consequence of `D-IMPL-341` at this slice, measured on
+    2026-09-18 and asserted beside the quarantined served-memo evidence. At the
+    diagnostic tolerance four children serve and are admitted under
+    `provider-controls` — spread, family, exposure, covenant — and the
+    collateral child is `ineligible`: its producer refuses `ttl-refusal` /
+    `ttl-bounds` because `FAC-5B8418`'s one asset was valued `2025-12-20` and
+    the class's one-day window, anchored on that valuation since 341, closed
+    `2025-12-21`. The collateral slot is required, so the composite refuses
+    `composite-child-refusal` / `child_admission` naming it, with all five rows
+    persisted and every admitted child retained and re-hashing. The memo for
+    this obligor therefore serves at NO instant under the collateral class's
+    current declarations — the spread's window (`2026-08-10` + 30 days) and
+    the collateral's (`2025-12-20` + 1 day) never overlap — which is the
+    calibration question raised at cp-06-canonical `CP06C-F-05`.
+    """
+    opened, outcome, record = both[DIAGNOSTIC]
+    rows = _rows(record)
+    assert isinstance(outcome, RefusalEnvelope) and (outcome.kind, outcome.reason) == ("composite-child-refusal", "child_admission"), outcome
+    assert sorted(rows) == sorted(CHILD_CLASSES)
+    for product_class in (SPREAD, FAMILY, EXPOSURE, COVENANT):
+        row = rows[product_class]
+        assert row.outcome_status == "admitted" and row.eligibility_basis == "provider-controls", (product_class, row.outcome_status, row.refusal_ref)
+        assert row.child_asked_at == CP14_INSTANT and row.child_content_address
+        child = _retained(opened, row.child_content_address)
+        assert content_hash(child) == row.child_content_address and child.temporal_boundary == CP14_INSTANT
+        assert (row.producer_id, row.producer_tenant) == PRODUCERS[product_class]
+    collateral = rows[COLLATERAL]
+    assert (collateral.outcome_status, collateral.refusal_ref) == ("ineligible", "ineligible"), (collateral.outcome_status, collateral.refusal_ref)
+    assert (collateral.producer_refusal_kind, collateral.producer_refusal_reason, collateral.producer_refusal_key) == ("ttl-refusal", "ttl-bounds", None)
+    assert collateral.child_content_address is None and collateral.child_question_address is not None
+    assert collateral.child_replay_ref is not None and collateral.child_replay_ref.startswith(f"ccf-artifact://{PRODUCERS[COLLATERAL][1]}/")
+    refusal = json.loads(record.content_generation_path.assembly_refusal)
+    assert json.loads(refusal["fields"]["product_class"]) == COLLATERAL
+    assert "ttl-bounds" in refusal["detail"] and "tolerance-exceeded" not in refusal["detail"], refusal["detail"]
+    assert record.content_generation_path.product_content_address == NO_PRODUCT_ADDRESS
+
+@pytest.mark.xfail(strict=True, reason="`D-IMPL-341` (validation pass 2026-09-18): at the CP-14 instant the collateral child is refused `ttl-refusal` / `ttl-bounds` by its producer — `FAC-5B8418`'s one asset was valued `2025-12-20` and cp-06-canonical's declared one-day window, now anchored on that valuation, closed `2025-12-21` — so a required slot is `ineligible` and the composite refuses `child_admission` at every tolerance; the served-memo evidence this test carries is quarantined, strict, pending the collateral class's calibration ruling (cp-06-canonical `CP06C-F-05`); the demonstrated consequence is asserted beside it")
 def test_acquisition_and_composition_use_the_same_admitted_child_contracts(both: dict[str, Any]) -> None:
     """The address each section was composed from is the address the row
     admitted — five for five — and the memo's lineage is the set-union of its
@@ -312,6 +361,7 @@ def test_acquisition_and_composition_use_the_same_admitted_child_contracts(both:
     assert outcome.product.expires_at <= CP14_INSTANT + timedelta(seconds=int(CONFIG["ttl"]["max_ttl_seconds"])) + timedelta(hours=1)
 
 
+@pytest.mark.xfail(strict=True, reason="`D-IMPL-341` (validation pass 2026-09-18): at the CP-14 instant the collateral child is refused `ttl-refusal` / `ttl-bounds` by its producer — `FAC-5B8418`'s one asset was valued `2025-12-20` and cp-06-canonical's declared one-day window, now anchored on that valuation, closed `2025-12-21` — so a required slot is `ineligible` and the composite refuses `child_admission` at every tolerance; the served-memo evidence this test carries is quarantined, strict, pending the collateral class's calibration ruling (cp-06-canonical `CP06C-F-05`); the demonstrated consequence is asserted beside it")
 def test_inherited_debt_is_the_per_factor_minimum_across_children_weak_on_different_factors(both: dict[str, Any]) -> None:
     """Two children weak on DIFFERENT factors — the exposure child on freshness,
     the covenant child on completeness — and the memo carries the minimum per
@@ -388,6 +438,7 @@ def _walk(payload: Any, path: tuple[str, ...]) -> Any:
     return node
 
 
+@pytest.mark.xfail(strict=True, reason="`D-IMPL-341` (validation pass 2026-09-18): at the CP-14 instant the collateral child is refused `ttl-refusal` / `ttl-bounds` by its producer — `FAC-5B8418`'s one asset was valued `2025-12-20` and cp-06-canonical's declared one-day window, now anchored on that valuation, closed `2025-12-21` — so a required slot is `ineligible` and the composite refuses `child_admission` at every tolerance; the served-memo evidence this test carries is quarantined, strict, pending the collateral class's calibration ruling (cp-06-canonical `CP06C-F-05`); the demonstrated consequence is asserted beside it")
 def test_every_summary_field_reads_the_declared_child_member(both: dict[str, Any]) -> None:
     """Every printed field of every section equals the member of the RETAINED
     child contract this test independently declares for it, or the one stated
@@ -422,6 +473,7 @@ def test_every_summary_field_reads_the_declared_child_member(both: dict[str, Any
     assert sections[SPREAD]["summary"]["basis_applied"] == spread["basis_applied"]
 
 
+@pytest.mark.xfail(strict=True, reason="`D-IMPL-341` (validation pass 2026-09-18): at the CP-14 instant the collateral child is refused `ttl-refusal` / `ttl-bounds` by its producer — `FAC-5B8418`'s one asset was valued `2025-12-20` and cp-06-canonical's declared one-day window, now anchored on that valuation, closed `2025-12-21` — so a required slot is `ineligible` and the composite refuses `child_admission` at every tolerance; the served-memo evidence this test carries is quarantined, strict, pending the collateral class's calibration ruling (cp-06-canonical `CP06C-F-05`); the demonstrated consequence is asserted beside it")
 def test_the_same_diagnostic_question_yields_one_product_address_twice(both: dict[str, Any]) -> None:
     """A bounded repeat, distinct from replay: the diagnostic asked a second
     time against unchanged inputs in a second opened product yields the same
@@ -489,6 +541,7 @@ def _variant_questions(base: Any) -> Any:
     return questions
 
 
+@pytest.mark.xfail(strict=True, reason="`D-IMPL-341` (validation pass 2026-09-18): at the CP-14 instant the collateral child is refused `ttl-refusal` / `ttl-bounds` by its producer — `FAC-5B8418`'s one asset was valued `2025-12-20` and cp-06-canonical's declared one-day window, now anchored on that valuation, closed `2025-12-21` — so a required slot is `ineligible` and the composite refuses `child_admission` at every tolerance; the served-memo evidence this test carries is quarantined, strict, pending the collateral class's calibration ruling (cp-06-canonical `CP06C-F-05`); the demonstrated consequence is asserted beside it")
 def test_a_meaningful_child_content_change_changes_the_corresponding_parent_field(
     both: dict[str, Any], modules: tuple[Any, Any], estate: None, tmp_path: pathlib.Path
 ) -> None:
@@ -529,6 +582,7 @@ def test_a_meaningful_child_content_change_changes_the_corresponding_parent_fiel
 # --- the covenant question is DETERMINED, not invented ------------------------------------
 
 
+@pytest.mark.xfail(strict=True, reason="`D-IMPL-341` (validation pass 2026-09-18): at the CP-14 instant the collateral child is refused `ttl-refusal` / `ttl-bounds` by its producer — `FAC-5B8418`'s one asset was valued `2025-12-20` and cp-06-canonical's declared one-day window, now anchored on that valuation, closed `2025-12-21` — so a required slot is `ineligible` and the composite refuses `child_admission` at every tolerance; the served-memo evidence this test carries is quarantined, strict, pending the collateral class's calibration ruling (cp-06-canonical `CP06C-F-05`); the demonstrated consequence is asserted beside it")
 def test_the_covenant_question_names_the_obligors_own_evidence_nodes(both: dict[str, Any], modules: tuple[Any, Any]) -> None:
     """The consumer determined the covenant question from the obligor's facility
     documents: the mapping, bound to the deployment's own sources, names the
@@ -606,11 +660,14 @@ class _MemoReplayEnvironment:
         return ContextProductContract(
             schema_name=CONFIG["product_class"]["schema_name"], schema_version=CONFIG["product_class"]["schema_version"],
             plan_id=projection.plan_id, tenant_id=record.tenant_id, temporal_boundary=snapshot.temporal_boundary,
+            # `D-IMPL-341`: the composite's own term runs from the anchor the record
+            # carries (its decision instant, for this `from_decision` class); the floor
+            # over the children is composed exactly as it was.
             expires_at=compose_expiry(
                 constituent_validities=[r.child_expires_at for r in rows if r.child_expires_at],
-                max_ttl=MaxTTL(seconds=int(CONFIG["ttl"]["max_ttl_seconds"])), ttl_anchor_at=record.recorded_at,
+                max_ttl=MaxTTL(seconds=int(CONFIG["ttl"]["max_ttl_seconds"])), ttl_anchor_at=path.ttl_anchor_at or record.recorded_at,
             ),
-            ttl_anchor=CONFIG["product_class"]["ttl_anchor"], lineage=lineage, payload=projection.payload,
+            ttl_anchor=CONFIG["product_class"]["ttl_anchor"], ttl_anchor_at=path.ttl_anchor_at, lineage=lineage, payload=projection.payload,
             debt=path.debt, debt_evidence=path.debt_evidence, source_refresh_recency=path.source_refresh_recency,
             obligation_in_force=path.obligation_in_force,
         )
@@ -629,6 +686,7 @@ def _reopened_fabric(opened: Any) -> Iterator[Any]:
         fabric.handle.close()
 
 
+@pytest.mark.xfail(strict=True, reason="`D-IMPL-341` (validation pass 2026-09-18): at the CP-14 instant the collateral child is refused `ttl-refusal` / `ttl-bounds` by its producer — `FAC-5B8418`'s one asset was valued `2025-12-20` and cp-06-canonical's declared one-day window, now anchored on that valuation, closed `2025-12-21` — so a required slot is `ineligible` and the composite refuses `child_admission` at every tolerance; the served-memo evidence this test carries is quarantined, strict, pending the collateral class's calibration ruling (cp-06-canonical `CP06C-F-05`); the demonstrated consequence is asserted beside it")
 def test_served_reconstruction_uses_retained_inputs_without_calling_any_provider(both: dict[str, Any], modules: tuple[Any, Any]) -> None:
     """Every producer process has exited. Replay rebuilds the child-contract view
     from the RETAINED contracts, hands it to the memo's own plan factory, re-
