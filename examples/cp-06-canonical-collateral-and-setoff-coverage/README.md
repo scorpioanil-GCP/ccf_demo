@@ -144,6 +144,13 @@ collateral value, set-off value and total kept apart. It does not claim every as
 revalued within the window either: a marketable security is aged in `F` by its own one-day
 cadence, and every asset's valuation date and age stay in the payload.
 
+> **Illustrative calibration:** This example runs against a point-in-time
+> demonstration estate rather than continuously refreshed production data.
+> Freshness half-lives and related thresholds are calibrated to make the
+> governed behavior observable in that snapshot. They demonstrate how the SDK
+> applies these controls and should not be interpreted as recommended
+> production coverage-policy thresholds.
+
 **And it can still fail.** At the CP-14 instant 47 of the 50 facilities with pledged
 collateral serve and 3 are refused `ttl-bounds` on evidence older than an appraisal cycle;
 `CSCC-G24` holds that refusal on one of them, and `CSCC-G23` holds the anchor on the

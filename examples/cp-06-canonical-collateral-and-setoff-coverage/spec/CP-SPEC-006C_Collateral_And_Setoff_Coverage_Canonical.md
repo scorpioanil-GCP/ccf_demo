@@ -269,10 +269,31 @@ holds this is `CSCC-G13`.
 
 Two decay rates in one payload: marketable-securities marks and deposit
 balances at ~1 day; real-property appraisals and lien structure at ~365 days;
-the haircut schedule at ~180 days. For the CP-14 facility the measured `D_c`
-is 0.3660 with `C = 1` (the one pledged asset is priced) and `S = 1`, so `F`
-is 0.634 by derivation — one receivables valuation aged 240 days by the estate's
-own `valuation_age_days`, decayed from the instant under its declared class; the
+the haircut schedule at ~180 days. **The product's own TTL window is the
+appraisal cycle, and it is an illustrative calibration** (`D-IMPL-323`, ruled
+2026-09-18 — see the TTL row in §B and `FINDINGS.md` `CP06C-F-05`):
+
+> **Illustrative calibration:** This example runs against a point-in-time
+> demonstration estate rather than continuously refreshed production data.
+> Freshness half-lives and related thresholds are calibrated to make the
+> governed behavior observable in that snapshot. They demonstrate how the SDK
+> applies these controls and should not be interpreted as recommended
+> production coverage-policy thresholds.
+
+It states how long a coverage answer stays current after a VALUATION, which is
+what the expiry is anchored on. It is not a claim about the deposit balances:
+this estate dates them by nothing at all, so they contribute no instant to the
+anchor and the set-off leg's currency is unestablished — which is why coverage
+is served with collateral value, set-off value and total kept apart.
+
+**Measured for the CP-14 facility, both readings kept.** At the specimen's
+reading `D_c` is 0.3660 with `C = 1` (the one pledged asset is priced) and
+`S = 1`, so `F` is 0.634 by derivation — one receivables valuation aged 240 days
+by the estate's own `valuation_age_days`. Since `D-IMPL-341` (`CP06C-F-04`) the
+successor ages that asset from the valuation date the claim carries rather than
+from the stored count, which at the CP-14 instant is 261 days rather than 240:
+`F` 0.6086, `D_c` 0.3914, `C` and `S` unchanged. The older figure is the
+specimen's and is kept because the lane comparison rests on it; the
 coverage ratio would read the same with the valuation a day old, which is why
 the payload dates it.
 Derived on demand; structure cacheable, valuations not.
