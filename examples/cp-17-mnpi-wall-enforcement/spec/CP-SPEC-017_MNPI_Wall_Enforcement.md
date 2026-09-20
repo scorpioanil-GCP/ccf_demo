@@ -130,7 +130,9 @@ by ruling, and the difference is disclosed rather than repaired:
 No figure in this document is a promise. Every count and date in §C and §F is
 a read-only measurement of 2026-09-20 against the live `ccf_v2`, `fibo-v2`,
 `fibo_v2` and departmental SQLite estate, reproducible from the queries §F.3
-names, and **no gate in §G.1 pins one of them** — every gate is directional,
+names and, since 2026-09-20, from ccf-dataprep's own coverage instrument for
+this product (§F.2 row 15), which the spec cites in preference to its census
+wherever the two overlap — and **no gate in §G.1 pins one of them** — every gate is directional,
 structural or relational, so estate drift exercises the example rather than
 breaking it (CLAUDE.md §9). Every `[TBC]` reappears in §F.2 with an owner.
 
@@ -351,9 +353,12 @@ public filings and narrative text (the product cites research notes; filings
 are the analyst's public corpus already served by cp-03 and cp-13 and add
 nothing to the wall demonstration), Form 4 insider activity and blackout
 windows (the blackout half has no type or predicate in `fibo-v2` — §C.4 trap
-6), public market data and adverse media (no wall property rides on them),
+6), public market data and adverse media — no wall property rides on them, and ccf-dataprep states (2026-09-20, the coverage manifest) that **no issuer-level market data exists anywhere in the estate**: the three market tables are macro-grain and none carries an `lei` column, measured with a control (§C.4 trap 11) —
 document classification and MNPI tags as a MongoDB element (the tags live in
-PostgreSQL, the classification on the note — §C.4 trap 8).
+PostgreSQL, the classification on the note — §C.4 trap 8, recorded as a
+divergence in ccf-dataprep's manifest). Filings, where a later reader probes
+them, key on `form`: `doc_type` is null on every EDGAR document in the estate
+(ccf-dataprep, 2026-09-20).
 
 ### C.2 Capability decomposition
 
@@ -482,7 +487,20 @@ and are **not read**, so no second authority is consulted for the same claim.
     jurisdictional information-barrier rule on CP-17.** The table is evidence
     and context only; no jurisdiction-based filtering or admission logic
     anywhere in the tree; the issuer's `legal_jurisdiction` member, where
-    displayed, is labeled non-governing context (§F.2 row 11, closed).
+        displayed, is labeled non-governing context (§F.2 row 11, closed).
+11. **The trader's "market data" does not exist per issuer.** The vault's
+    trader row is "positions, market data, public disclosure". ccf-dataprep
+    states (2026-09-20, the coverage manifest): the three `ccf_v2` market
+    tables (`market_oas_series`, `intraday_tick`, `fx_intraday_tick`) are
+    macro-grain — rating-band OAS, the Treasury curve, currency pairs — and
+    none carries an `lei` column, against 25 tables that do (the control).
+    *Binding:* the trader's product carries positions, the issuer and its
+    family, and no price series; the trader perspective's distinctiveness
+    rests on `hasPosition` being in its vocabulary while research and
+    engagements are not, which the plan row already states. *Cost:* the
+    vault's "public market data" `E`,`T` element is unproven by this rung,
+    and no per-issuer series is invented to prove it.
+
 
 ### C.5 What this data is — stated once more, because it is the point
 
@@ -891,7 +909,7 @@ Stated as a roster. No spec passes review with an unowned gap.
 | 12 | ~~the HTTP door in scope for `MWE-G15`~~ **RULED 2026-09-20: yes** | Dave | HTTP proves the one behavior MCP cannot expose — a caller requesting a role it is not entitled to receives a governed refusal, never a silent downgrade — with the same three entitled principals plus the fourth ungranted one; not a new product path (§D.1). Closed |
 | 13 | whether a missing plan row can be refused at open rather than at serve | this build | §D.3 step 1.3 |
 | 14 | whether the plan-artifact pin in `policy_bundle_versions` can be scoped to the served principal's own plan, or pins the whole `policy` section | this build | §B.1 lineage; §D.3 steps 1.7 and 7; `MWE-G13`, `MWE-G19` — if it cannot be scoped, the three plan versions are pinned in every record and that is recorded as a finding against `MWE-G19`, never hidden |
-| 15 | a coverage-validator manifest for `mnpi-wall-enforcement` in ccf-dataprep's `spec_coverage.py` (their handoff item 3) | Dave | non-blocking; ccf-dataprep states it is Dave's call, not theirs; until it lands the spec cites the SDK's own dated census, and switches to their instrument if it lands |
+| 15 | ~~a coverage-validator manifest for `mnpi-wall-enforcement`~~ **DONE 2026-09-20 by ccf-dataprep** (ccf_dataprep `6a8fb4c`) | Dave | `contrib/ccf-dataprep/cp-17-coverage-manifest-added-and-two-real-gaps`: `uv run validators/spec_coverage.py --product mnpi-wall-enforcement` → 15 of 15 catalog rows accounted for (11 probed clean · 2 covered by `conditions.py` · 2 GAP), exit 1 by design because a GAP is a real absence; 17 paired falsification tests. **The spec cites the instrument** (§0.2, §F.3). Closed |
 
 ### F.3 Access path, identifiers, history, text and volumetrics
 
@@ -1074,7 +1092,7 @@ generalized; no SDK review is proceeding.
 vocabulary on one plan (reification is the ruled realization); a distinct
 `plan_id` per perspective; a requested perspective over MCP; vector
 similarity; a content-widening supersession (outcome A, retired — the data
-holds no disclosed set); the embargo-expiry trigger; blackout windows; a jurisdictional
+holds no disclosed set); the embargo-expiry trigger; blackout windows; per-issuer market data (none exists — §C.4 trap 11); a jurisdictional
 rule (ruled off this rung) or a personal-account-dealing binding; a
 supervisor's separately entitled product; any A2A or peering route (the three
 consumers are principals at a door — per the Gate-0 direction, A2A is
