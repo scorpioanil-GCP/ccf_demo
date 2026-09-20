@@ -3,8 +3,10 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-09-17T20:15:00.000Z"
+last_updated: "2026-09-20T03:10:00.000Z"
 last_activity: >-
+  **THE QUALIFICATION ARC IS CLOSED (2026-09-19). `origin/main` = `main` = `42c7d76c`, clean, nothing in flight; its parent `2c9d7ba7` is the QUALIFIED SDK BASELINE THROUGH CP-14 — 0 failures on 8 871 nodes in one `make test`, four substrate legs and every CI job EXECUTED PASS (`docs/QUALIFICATION-2c9d7ba7.md`). DAVE'S RULING: baseline, NOT a release, NO TAG. Release when all 24 use cases execute through supported SDK mechanisms or carry an approved out-of-contract determination. NEXT: the Gate-0 coverage pass across the ten remaining use cases (7 unbuilt ladder specs + an A2A same-process variant + 2 Portfolio Management cases defined later), six-bucket classification, higher bar for SDK change, then batches by capability gap — on Dave's GO, read-only, no code. Handoff: `.remember/remember.md` / `.planning/HANDOFF-2026-09-19.md`. Next free id `D-IMPL-345`.**
+
   **CP-14 INTEGRATION SLICE MERGED (2026-09-17 ~12:40 MST). `main` = `origin/main` = `c5aaba0d` — the merge (`--no-ff`) of the corrected candidate `ba9eab81` with the scoped acceptance recorded at `5a0fdaca`. This supersedes the two paragraphs below that say "awaiting narrow final verification" / "ONE merge ruling pending": the verification was done and the merge ruled; the history stands as written.** The accepted milestone is the five-provider integration slice — independently produced Context Products acquired through the supported SDK path, their admitted content correctly mapped into the parent (collateral, set-off and total kept apart; the spread basis from the correct top-level member; product identity distinguished from record identity), governed refusal, and served/refused reconstruction from retained evidence. **It is NOT completion of the credit-memo specification:** CP-14 has 12 of 29 `CMC-G` gates exercised and seventeen unclaimed (`CP14-F-37`, spec §0.0a), `memo_type` restricted to `annual-review`, and **no `D-GATE-cp-14`**. **Verification boundary:** the post-merge results are `c5aaba0d`'s — CP-14 four slices 27 passed, covenant successor 26, exposure door 10, `make typecheck` clean (229 files), `make lint` rc 0, `make product-gates` 19 trees / 324 declared / 324 executing (the REPOSITORY-WIDE roster, not CP-14's coverage), docs import, README-template, spine, page-identity and classifier gates 382 passed, schema headers clean. **The full suite was not rerun**; this state-save commit is documentation only and is no new behavioral verification. **Open work, preserved as classified:** `D-IMPL-304`, `D-IMPL-341`, `D-IMPL-342` OPEN and launch-level; `CP14-F-33` a paved-road coverage limitation (the exposure slot is served through the structural door over the frozen low road); `CP14-F-35` an open SDK evidence question (the historical child question vs today's mapping); the replay-environment backlog (`CP06C-F-01`, four copies). The governed `0.25` question refuses; the diagnostic serves `fail_closed`; neither establishes launch readiness or a fit-to-act-on memo. **No next implementation phase is authorized by this state save**; Dave's stated direction — the three launch defects as focused repairs (304, 342, 341, each its own branch off `main`), the F-35 launch bar decided before code, the seventeen memo gates not built for their own sake — each requires a separate ruling.
 
   **CP-14 CORRECTION PASS DELIVERED (2026-09-17), branch only: `cp-14-gate-2-slice-1 @ 2ed692c9`, pushed; `main` untouched (`88de368f`); awaiting Dave's narrow final verification, then ONE merge ruling.** Two misread child fields and one mislabeled identity corrected and held by an independent field-mapping control; scope stated: five-provider acquisition, composition, governed refusal and reconstruction proven — the memo-assembly spec not completed.
@@ -1342,6 +1344,12 @@ degenerate to self-comparisons. The three rejected candidates and their reasons
 are in `D-IMPL-147`.
 
 ## Current Position
+
+**QUALIFICATION ARC CLOSED (2026-09-19). `origin/main` = `main` = `42c7d76c`; the qualified SDK baseline through CP-14 is its parent `2c9d7ba7`. Nothing is in flight; no worktrees; branches `release/qualification-fixes` and `release/qualification-repairs` are merged.** The arc: qualification of `f0656746` (62 reds) → first correction group (17, merged `eef849cc`) → 46-node investigation → repair package A–E (tests/docs/pins only, merged `2c9d7ba7`) → final one-shot qualification: 8 871 collected = 8 732 passed + 0 failed + 2 named-unexecutable + 137 frozen-specimen xfails + 0 xpassed + 0 errors; legs and CI jobs all EXECUTED — PASS. **Dave's ruling: baseline, not release; no tag.**
+
+**NEXT — Gate-0 coverage pass (Phase 25 in ROADMAP, awaiting GO; no code):** the ten remaining use cases — `kyc-refresh-beneficial-ownership`, `abs-securitization-surveillance`, `mnpi-wall-enforcement`, `ib-opportunity-synthesis`, `aml-typology-match`, `syndicated-lending-co-lender` (its second estate EXISTS — ccf-dataprep built it; ask via the vault), `large-exposure-rwa-concentration`, an A2A variant of a solved use case (client agent ← second agent over A2A, product built in the same process), and two Portfolio Management cases defined later. Per use case: capability tested / existing mechanism / genuinely new capability / friction / implementable today / blocker vs backlog. Six-bucket rule; a new example never earns a redesign; no multi-day remedy without a proven reusable launch-required capability. Then batches by shared gap. **Next free id `D-IMPL-345`.**
+
+---
 
 **RUNG 6 IS CLOSED. `origin/main` = `1b38debb`. Nothing is in flight.**
 
@@ -3165,3 +3173,14 @@ Read `example_delivery.md` before building it. That is what it is for.
 Resume: nothing is half-done. The tree is clean, everything is pushed, and the
 next action is Dave's choice between ruling on the open items above and starting
 rung 2.
+
+## Session resume — 2026-09-19 (qualification arc closed; Gate-0 next)
+
+**State:** `main` = `origin/main` = `42c7d76c`, clean; baseline `2c9d7ba7`; ruled not a release; no tag.
+**Read first:** `.remember/remember.md` (the handoff), `docs/QUALIFICATION-2c9d7ba7.md`, the RELEASE RULING
+entry at the end of `docs/DECISIONS.md`, and the memory note `cp-15-24-coverage-probes`.
+**Next action (on Dave's GO):** the Gate-0 matrix across the ten remaining use cases, read-only against the
+vault (`list_articles("context-products")`) and the tree; record nothing as a build. Ask ccf-dataprep through
+the vault for the co-lender's second-estate names before that row.
+**Not authorized:** a tag, `D-IMPL-345`, the paved aggregation seam, dual-TTL, CP-14 assembly, any CP-15 build.
+

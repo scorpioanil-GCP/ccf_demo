@@ -64,7 +64,10 @@ and the upgraded examples.
 - [x] **Phase 24.6: SDK Gap Phase — The Delivery Boundary Realized: Refusal as a Governed Response, the Policy-Constraint Layer, and Every Item Carried from 24.5.1** (INSERTED, `D-IMPL-252`) - Dave, 2026-09-04: *"Phase 24.6 will not introduce a new context product. It will address the gaps in what the SDK covers."* Opened by `D-IMPL-251` (the delivery boundary) and `D-GATE-24.5.1` (carry roster B-01..B-14). `src/` and `runtime/` OPEN for the first time since 24.5; `examples/` open only where an SDK change makes a rung stale (cp-04 rebuild and republish, B-01). cp-05 is the rung AFTER this phase closes; its number is not assigned (`D-IMPL-252` (5)). **DIRECTION BANKED, NOT DISCUSSED** — criteria at the discuss sitting (`D-GATE-19`).
 - [x] **Phase 24.7: Request/Replay Hardening — Enumerated Request-Contract Domains (G-26) and Fail-Closed Replay Completeness (G-33)** (INSERTED, `D-IMPL-263`) - Dave, 2026-09-05: *"G-26 and G-33 are tightly bounded extensions of machinery we just built in 24.6: request-contract validity and replay completeness."* Opened by the cp-04 SDK gap ledger (`D-IMPL-262`). `src/` and `runtime/` OPEN; `examples/` CLOSED — cp-04 frozen (`D-IMPL-261`, `D-IMPL-263`); `tests/examples/` open ONLY for quarantine/expected-failure marking under the `D-IMPL-263` rule. **DISCUSSED AND DESIGNED 2026-09-05 (`D-IMPL-264`, 13 rulings + 2 principles); criteria at the planning sitting (`D-GATE-19`); NOT researched, NOT planned.** **EXECUTED 12/12 AND CLOSED 2026-09-06 — `D-GATE-24.7` (build APPROVED `D-IMPL-266`; panel SKIPPED by ruling; review CR-01 fixed; criterion 18 am.4 re-pinned; `D-IMPL-265` archive ruling).**
 - [x] **Phase 24.8: Traversal Semantics — One Ruled Meaning for a Dangling Endpoint, In-Process and Pushed Paths Conforming (G-28)** (INSERTED, `D-IMPL-263`) - Dave, 2026-09-05: *"Then 24.8 can own traversal properly."* The SDK defect `D-IMPL-262` ruled traversal-owned and NOT bundled with 24.7; named from day one (`D-IMPL-255` (3)). Same fence and freeze as 24.7. cp-05 is the rung after this phase; its number is not assigned (`D-IMPL-252` (5)). **DISCUSSED AND DESIGNED 2026-09-06 (`D-IMPL-267`, 8 rulings + 2 principles); criteria at the planning sitting (`D-GATE-19`); NOT researched, NOT planned.** **CLOSED — `D-GATE-24.8` (Dave, 2026-09-06 20:34 MST): build APPROVED; panel SKIPPED BY RULING (`D-IMPL-269`); carries `24.8-C-01`/`C-02`/`C-03` OPEN.**
-- [ ] **Phase 24.9: Proof Infrastructure — One Tested Sabotage Harness, One Canonical Real-Tree Guard, and the Pin That Outlived Its Phase** (INSERTED, `D-IMPL-270`) - Dave, 2026-09-06: *"24.9 should exist as a small, real phase. The subject is proof infrastructure, and that is exactly where I want the criteria lock and gate discipline rather than a casual tooling chore."* Opened by `D-IMPL-269` (2) (the `24.8-C-03` carry) and (5) (*"verification machinery becomes the higher-risk surface"*), on the evidence of `.planning/PROOF-INVENTORY.md`. THREE core items only; `src/` and `runtime/` CLOSED — `24.8-C-02` NOT admitted; `examples/` frozen (`D-IMPL-261`). cp-05 follows as Phase 25. **DISCUSSED AND DESIGNED 2026-09-06 (`D-IMPL-270`, 6 rulings incl. the harness refinement); criteria at the planning sitting (`D-GATE-19`); NOT researched, NOT planned.**
+- [ ] **Phase 24.9: Proof Infrastructure — One Tested Sabotage Harness, One Canonical Real-Tree Guard, and the Pin That Outlived Its Phase** (INSERTED, `D-IMPL-270`) - Dave, 2026-09-06: *"24.9 should exist as a small, real phase. The subject is proof infrastructure, and that is exactly where I want the criteria lock and gate discipline rather than a casual tooling chore."* Opened by `D-IMPL-269` (2) (the `24.8-C-03` carry) and (5) (*"verification machinery becomes the higher-risk surface"*), on the evidence of `.planning/PROOF-INVENTORY.md`. THREE core items only; `src/` and `runtime/` CLOSED — `24.8-C-02` NOT admitted; `examples/` frozen (`D-IMPL-261`). cp-05 follows as Phase 25. **DISCUSSED AND DESIGNED 2026-09-06 (`D-IMPL-270`, 6 rulings incl. the harness refinement); criteria at the planning sitting (`D-GATE-19`); NOT researched, NOT planned.** — **SUSPENDED (`D-IMPL-276`): the branch stays unmerged and ungated; its CLAUDE.md two-list roster was carried onto `main` by the qualification repair package (`D-IMPL-271` (4)(5) recorded on `main`).**
+- [x] **Phase 24.10: cp-05 Product-Driven SDK Remediation — Reduce the Plumbing a Governed Context Product Requires** (INSERTED, `D-IMPL-285`; COMPLETE — `D-GATE-24.10` APPROVED 2026-09-09; the stop rule FAILED, which was the phase's success) - Merged with the 24.11 lineage.
+- [x] **Phase 24.11: Canonical Governed Resolution — Repair `GovernedResolver` So the SDK's Canonical Path Is Semantically Correct and Compositionally Complete** (INSERTED, `D-IMPL-286`; COMPLETE — `D-GATE-24.11` APPROVED 2026-09-09, `D-IMPL-297`) - Five rows, one at a time; cp-05 served on the canonical path.
+- [ ] **Phase 25: Launch Coverage Probes — Gate-0 Capability Matrix across CP-15–24, then Implementation in Batches by Capability Gap** (INSERTED 2026-09-19 by Dave's release ruling on `docs/QUALIFICATION-2c9d7ba7.md`; NOT STARTED — Gate-0 on his GO) - `2c9d7ba7` is the qualified SDK baseline through CP-14, not a release; the remaining ten use cases are coverage probes under the six-bucket rule; a Gate-0 matrix precedes any code.
 
 ## Phase Details
 
@@ -3783,6 +3786,48 @@ everything looks finished.** The repair is real when those two lines are **delet
 **Plans:** not yet written. A short implementation plan centered on SDK code goes to Dave for review before any
 execution begins (`D-IMPL-287` (8)).
 
+
+### Phase 25: Launch Coverage Probes — Gate-0 Capability Matrix across CP-15–24, then Implementation in Batches by Capability Gap (INSERTED 2026-09-19)
+
+**Purpose (Dave, verbatim, the RELEASE RULING of 2026-09-19 in `docs/DECISIONS.md`):** *"`2c9d7ba7` is the
+qualified SDK baseline through CP-14. The SDK is not yet release-complete. CP-15 through CP-24 are the remaining
+launch-coverage probes. We will release when all 24 use cases have either executed successfully through supported
+SDK mechanisms or have an explicit, approved determination that the capability is outside the initial release
+contract."* No tag until then.
+
+**How the ladder got here (recorded as ruled sittings in `docs/DECISIONS.md`, not as GSD phases):** rungs
+cp-05 through cp-14 (`D-GATE-cp-05` … `D-GATE-cp-13`, the CP-14 slices and completion candidate), the SDK
+decisions `D-IMPL-304`, `331`–`344`, the LAUNCH BAR and LAUNCH SCOPE rulings, the qualification of `f0656746`, the
+first correction group, the 46-node investigation and its repair package, and the final qualification of
+`2c9d7ba7` (`docs/QUALIFICATION-2c9d7ba7.md`: 8 871 nodes, 0 failures; every leg EXECUTED — PASS).
+
+**STATUS: NOT STARTED — Gate-0 on Dave's GO. No code, no CP-15 build before the matrix.**
+
+**Population (Dave, confirmed):** the seven unbuilt vault-ladder specs — `kyc-refresh-beneficial-ownership`,
+`abs-securitization-surveillance` (tier 4); `mnpi-wall-enforcement`, `ib-opportunity-synthesis`,
+`aml-typology-match`, `syndicated-lending-co-lender`, `large-exposure-rwa-concentration` (tier 5) — plus an A2A
+variant not in the vault (an already-solved use case; a client agent reaches its context from a second agent over
+A2A, that agent creating the product in the same process) and two Portfolio Management use cases defined once the
+existing ones are through. cp-00, s1-* and hw1-* are not counted. The co-lender's second data estate already exists
+(ccf-dataprep built it; names via the vault) — nothing is built for it.
+
+**The rule for each example (Dave):** first ask *"What SDK capability does this example require that CP-01–14 have
+not already proven?"*, then classify — (1) already supported → the existing SDK path, no redesign; (2)
+ergonomics/friction → backlog unless it makes the supported path impractical; (3) example/data limitation → record
+and continue, never repair the SDK for it; (4) missing capability the use case requires → stop and address the
+smallest reusable SDK abstraction; (5) incorrect SDK behavior → fix; (6) nice-to-have → backlog. *"A new example
+does not earn permission to redesign an existing SDK mechanism simply because another design would be cleaner."*
+*"No multi-day remedy without first demonstrating that the issue is a reusable, launch-required SDK capability
+rather than example complexity, ergonomics, or technical debt."* Optimize for coverage discovery, not example
+perfection. Both producer routes (paved facade; lower-level assembly plus the standard door) count as supported.
+
+**Gate-0 deliverable:** one capability matrix over all remaining use cases — per use case: the capability being
+tested; the existing SDK mechanism that should satisfy it; genuinely new capability, if any; likely friction;
+whether it can be implemented today; launch blocker vs backlog — so a capability shared by two use cases is
+discovered and designed once. **Then** implementation proceeds in batches by shared capability gap, not in
+numerical order, one ruling per batch; each example's spec still comes before its code (Gate 1, Standard v0.3).
+
+**Success criteria:** authored at the planning sitting after Gate-0, locked before any batch begins (`D-GATE-19`).
 
 ## Progress
 
