@@ -205,7 +205,7 @@ that close it, measured against candidate `29d1885a`.
 child-eligibility assertion is **621 bytes**, so the peered composite path was
 **unreachable**, not merely untested.
 
-- **Implementation:** `src/ccf/peering/identity.py:204`,
+- **Implementation:** `src/ccf/peering/identity.py::MAX_PROTECTED_HEADER_BYTES`,
   `MAX_PROTECTED_HEADER_BYTES: Final = 2048`, set on the registry **instance**
   so no other `joserfc` user in the process is affected.
 - **Tests:** `tests/peering/test_peered_child_envelope.py`, **5 tests** — the
@@ -221,7 +221,7 @@ child-eligibility assertion is **621 bytes**, so the peered composite path was
 `compose_children` always built a row per declared requirement; those rows
 reached the persisted record on the **served** path only.
 
-- **Implementation:** `src/ccf/products/resolver.py:710`
+- **Implementation:** `src/ccf/products/resolver.py::RefusalRecorderProtocol.record`
   (`RefusalRecorderProtocol.record`) and `:963` (`ReplayRefusalRecorder.record`)
   take `child_resolutions: tuple[ChildResolution, ...] = ()`; the composition
   refusal branch passes `composed.resolutions`. Surface recorded **before**
@@ -233,7 +233,7 @@ reached the persisted record on the **served** path only.
 
 ### `GrantBoundChildResolver` in `src/` · **DISCHARGED**
 
-- **Implementation:** `src/ccf/products/child_resolver.py:91`. The supported
+- **Implementation:** `src/ccf/products/child_resolver.py::GrantBoundChildResolver`. The supported
   local path is **effective grant → actual dispatch → the child's governed door
   → fit checks → compose**, with the duplicate local attestor stack removed and
   verified absent from `src/` and `runtime/`.

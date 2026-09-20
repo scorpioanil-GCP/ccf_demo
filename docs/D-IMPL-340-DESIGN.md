@@ -60,7 +60,7 @@ The flow, unchanged in shape and now real end to end:
    admitted_at, composition_invocation, consumer_lineage`; `ChildArguments` is
    `Callable[[ChildRequirement, datetime], Mapping[str, str]]`. A per-request
    anchor reaches a child only by closing over state outside the declared
-   mapping. (`src/ccf/products/resolver.py:1991`, `child_resolver.py:120`.)
+   mapping. (`src/ccf/products/resolver.py::GovernedResolver.__call__`, `child_resolver.py:120`.)
 3. **The gate admits one tenant.** `CompositeAdmissionGate.admit` check 1 is
    `contract.tenant_id != self._tenant_id → tenant-mismatch`; the peering gate
    applies the same rule. A child governed under its producer's own tenant is
@@ -304,7 +304,7 @@ class RequestAwareChildResolverProtocol(Protocol):
                     admitted_at, composition_invocation, consumer_lineage) -> dict[str, object]: ...
 ```
 
-`GovernedResolver` at the acquisition site (`resolver.py:1991`):
+`GovernedResolver` at the acquisition site (`resolver.py::GovernedResolver.__call__`):
 
 ```python
 if isinstance(self.composite_children, RequestAwareChildResolverProtocol):

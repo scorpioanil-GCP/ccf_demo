@@ -56,7 +56,7 @@ $ grep -rn "resolve_producing_grant\|CompositeAdmissionGate\|compose_children\|A
 $ grep -rn "child_resolutions" src runtime --include=*.py
   src/ccf/replay/record.py:1159      # the field declaration; nothing writes it
 
-$ grep -rn "\.requires\b" src runtime --include=*.py
+$ grep -rn "\.requires\b" src runtime --include=*.py   # at commit f3719856
   src/ccf/products/contract.py:970   # its own registration validator
   src/ccf/products/composite.py:617  # a docstring cross-reference
 ```
@@ -315,7 +315,7 @@ exists to prevent, arriving through an unvalidated string.
 **Two tokens genuinely have no originator:** `refused`, and
 `ambiguous-producer` — the latter cannot appear in a row *at all*, because
 `resolve_producing_grant` raises rather than returning an outcome.
-`record.py:208-212` names *"a governed refusal"* as one of the four absences
+`record.py::CHILD_OUTCOME_STATUSES` names *"a governed refusal"* as one of the four absences
 that must stay distinct.
 
 And the sharpest instance: the **natural** handling of `AmbiguousProducerError`

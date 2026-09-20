@@ -24,7 +24,7 @@ returns **12** readable binder call sites against
 Headroom: **0**.
 
 Eleven of the twelve are under `archive/examples/`. The twelfth —
-`examples/s1-01-hello-context-product/spine.py:387`,
+`examples/s1-01-hello-context-product/spine.py::assemble_and_serve`,
 `refuse_operator_set_divergence(declared=scenario.product_class, plan=plan)` —
 is **the only binder call site in the live `examples/` tree**.
 
@@ -41,7 +41,7 @@ that reasoning refuses, and it is what the fence forbids.
 
 **Why this is the same class of defect `D-IMPL-306` just fixed, and why it is
 NOT the same fix.** `D-IMPL-300` moved the binder INTO the canonical path:
-`src/ccf/products/resolver.py:1761` calls
+`src/ccf/products/resolver.py::GovernedResolver.__call__` calls
 `refuse_operator_set_divergence(declared=declaration, plan=plan)` at the ruled
 pre-execution point. So a canonical example legitimately does not call the
 binder — the SDK does, on its behalf. But
@@ -79,7 +79,7 @@ them. Hence: stop.
 **Status:** OPEN, and its handling is ruled by `D-IMPL-307`: *"A consumer example should not remain fat because an SDK test needs a producer witness."* If a still-valid producer-evidence test needs a shipped witness, measure whether an existing producer example already supplies it; if not, relocate deliberately. Never preserve it in s1-01, never weaken the gate silently.
 
 s1-01's other legacy witness is
-`examples/s1-01-hello-context-product/spine.py:324`,
+`examples/s1-01-hello-context-product/spine.py::assemble_and_serve`,
 `refuse_request(request=scenario.request, declared=scenario.request_contract)`.
 
 **It is not uniquely load-bearing.** Measured across the shipped trees,
@@ -89,15 +89,15 @@ them. Deleting s1-01's leaves seven.
 
 **But two SDK docstrings name s1-01 specifically:**
 
-* `src/ccf/products/request.py:1691` — *"`examples/s1-01-hello-context-product/spine.py::assemble_and_serve`
+* `src/ccf/products/request.py::refuse_request` — *"`examples/s1-01-hello-context-product/spine.py::assemble_and_serve`
   is the shipped worked example."* Migration makes this false, because the
   function would no longer make the call.
-* `src/ccf/products/bind.py:76` — *"Each has one shipped call site to read …
+* `src/ccf/products/bind.py` — *"Each has one shipped call site to read …
   and `examples/s1-01-hello-context-product/spine.py::assemble_and_serve` for
   the request refusal."* **This is already stale on today's tree**, before any
   migration: there are eight, not one. Measured, not read off the prose.
 
-`src/ccf/products/resolver.py:1244` and `:2466` also cite s1-01's spine, but as
+`src/ccf/products/resolver.py::GovernedResolver` and `:2466` also cite s1-01's spine, but as
 the subject of the `24.10-F-06`..`F-09` seam measurement — a dated finding about
 what the example *could not* adopt. Those citations describe history and are not
 falsified by the migration; if anything the migration is their conclusion.
@@ -328,7 +328,7 @@ RECORD (record.policy_bindings.bindings):
 ```
 
 The canonical path records **one binding more**. `GovernedResolver` reads the
-policy version once (`src/ccf/products/resolver.py:1855`) and uses it for both
+policy version once (`src/ccf/products/resolver.py::GovernedResolver.__call__`) and uses it for both
 the lineage and the record, so those cannot diverge; what it *additionally*
 pins is the version of the **request contract** artifact that governed the
 question. The hand-composed spine built dimension 2 with exactly one
@@ -436,7 +436,7 @@ holding it can name the decision record that authorized the refusal, which a
 bare violation value cannot. That is the `D-IMPL-251` shape (*refusal of
 fulfillment, not of response*) and the `D-IMPL-310` shape (the canonical path
 carries more). Against that: **this is the consumer surface**, which is s1-00's
-whole teaching point. `examples/s1-00-companies-over-revenue/consume.py:109`
+whole teaching point. `examples/s1-00-companies-over-revenue/consume.py::main`
 branches on `isinstance(outcome, ProductRequestViolation)`, and
 `produce.py::assemble_and_serve` declares `-> Assembled | ProductRequestViolation`
 in its signature and argues for it in its docstring: *"A refusal is not an
