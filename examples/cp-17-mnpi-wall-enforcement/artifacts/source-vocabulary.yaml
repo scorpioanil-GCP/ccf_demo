@@ -1,0 +1,88 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# EVERY NAME THE SOURCE LEGS USE — tables, collections, predicates, the
+# classification vocabulary and how each source row is classified, and the
+# minted edge vocabulary. `acquisition.py` reads this document and holds no
+# IRI, table name or classification rule of its own (CLAUDE.md §6.4).
+#
+# The five per-principal edge types the estate's projection plans name exist
+# in NO `fibo-v2` predicate (0 of 181, measured 2026-09-19); the deployment
+# MINTS them at acquisition from PostgreSQL and MongoDB rows (`CP-SPEC-017`
+# §C.4 trap 1). Family edges are the ledger's own `owns` / `controls`.
+semver: "1.0.0"
+class_id: cp-17.source-vocabulary
+declaration:
+  graph:
+    prefix: "http://example.org/fibo/"
+    types:
+      wall_crossing: WallCrossing
+      embargo_window: EmbargoWindow
+      reg_fd_event: RegFDEvent
+    predicates:
+      lei: lei
+      principal_id: principalId
+      valid_from: validFrom
+      valid_to: validTo
+      asserted_at: assertedAt
+      widens_access: widensAccess
+      label: label
+      # Full IRIs: the ledger's ownership predicates are FIBO's own, not `example.org`.
+      owns: https://spec.edmcouncil.org/fibo/ontology/FND/OwnershipAndControl/Ownership/owns
+      controls: https://spec.edmcouncil.org/fibo/ontology/FND/Relations/Relations/controls
+  relational:
+    tables:
+      issuer: legal_entity
+      principal: principal
+      projection_plan: projection_plan
+      deal: deal
+      interaction: interaction
+      position: position
+  documents:
+    collections:
+      research_note: research_note
+  control_room:
+    table: restricted_list
+  classification:
+    vocabulary: [public-filed, internal-confidential, internal-restricted]
+    # The value that needs the wall key: admitted on issuer i to principal p
+    # only when the plan permits it AND a crossing (p, i) is valid at
+    # `asked_at` and asserted by `known_as_of`.
+    walled: internal-restricted
+    # The plan's `permitted_classifications` is the DOCUMENT and MNPI
+    # envelope (it sits beside `permitted_document_types` in the plan row):
+    # it bounds the classes that carry a document classification or an MNPI
+    # tag. Desk data (positions) and the family are bounded by the plan's
+    # edge vocabulary alone; they never carry the walled value.
+    bounded_classes: [research_note, deal_engagement, interaction]
+    assignment:
+      issuer: public-filed
+      family_member: public-filed
+      position: internal-confidential
+      deal_engagement: {flag: mnpi_bearing, flagged: internal-restricted, otherwise: internal-confidential}
+      interaction: {flags: [mnpi_bearing, need_to_know], flagged: internal-restricted, otherwise: internal-confidential}
+      research_note: {status_published: public-filed, otherwise: internal-restricted}
+  edges:
+    deal_engagement: {flag: mnpi_bearing, flagged: hasMnpiEngagement, otherwise: hasDealEngagement}
+    interaction: hasInteraction
+    research_note: hasPublishedResearch
+    position: hasPosition
+    family_member: [owns, controls]
+  # ONTOLOGY BINDINGS (`CP-SPEC-017` §C.1, §F.2 row 9): foundational party
+  # terms in OMG Commons, the corporation in FIBO BE; the engagement,
+  # interaction, position and research-note classes are bound to the nearest
+  # FIBO/Commons term the estate's own vocabulary names. Documentation for
+  # registration; no reader in this tree dereferences them.
+  ontology:
+    issuer: https://spec.edmcouncil.org/fibo/ontology/BE/LegalEntities/CorporateBodies/Corporation
+    family_member: https://www.omg.org/spec/Commons/Organizations/Organization
+    deal_engagement: https://spec.edmcouncil.org/fibo/ontology/FND/Agreements/Contracts/Contract
+    interaction: https://www.omg.org/spec/Commons/Communications/Communication
+    position: https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/FinancialInstrumentPosition
+    research_note: https://www.omg.org/spec/Commons/Documents/Document
+  entity_uri_prefix:
+    issuer: "issuer:"
+    family_member: "family:"
+    deal_engagement: "deal:"
+    interaction: "interaction:"
+    research_note: "research:"
+    position: "position:"

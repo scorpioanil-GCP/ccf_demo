@@ -87,8 +87,12 @@ ccf-dataprep's evidence with two Gate-2 outcomes (§C.4 trap 5) — **answered
 the same day: outcome B**; supervisor
 semantics (claim 7, `MWE-G19`); the locked decisions preserved; both dataprep
 debts in the owner register (§F.2). No producer, `run.py` or SDK change
-exists. The hold's release condition was met on 2026-09-20 by ccf-dataprep's
-answer (§F.2 row 1, outcome B); the build begins on Dave's GO and not before.
+existed when this status was first written. The hold's release condition
+was met on 2026-09-20 by ccf-dataprep's answer (§F.2 row 1, outcome B); Dave
+gave the GO the same day; **the build is complete (2026-09-20) and paused
+for Dave's Gate-2 evaluation.** Gate-2 measurements are marked "Measured
+2026-09-20" where they land; the findings the build raised are in the tree's
+`FINDINGS.md` and summarized in §F.4.
 
 ### 0.1 What this product intends to prove, and how each claim is realized
 
@@ -127,7 +131,11 @@ by ruling, and the difference is disclosed rather than repaired:
 
 ### 0.2 Placeholder discipline
 
-No figure in this document is a promise. Every count and date in §C and §F is
+No figure in this document is a promise. **Gate 2 (2026-09-20):** the
+build's own measurements — three content addresses, the served plan order,
+the debt factors, the twenty-one executing gates — are recorded in §A.2,
+§D.4, §G.1 and the tree's `FINDINGS.md`, dated, never pinned by a gate.
+Every count and date in §C and §F is
 a read-only measurement of 2026-09-20 against the live `ccf_v2`, `fibo-v2`,
 `fibo_v2` and departmental SQLite estate, reproducible from the queries §F.3
 names and, since 2026-09-20, from ccf-dataprep's own coverage instrument for
@@ -215,6 +223,16 @@ test in the example.
 
 If step 4, 5, 6 or 7 fails, the product has not been demonstrated.
 
+**Measured 2026-09-20 (Gate 2).** Steps 1–7 execute in
+`tests/examples/test_cp_17_wall.py` (`MWE-G01`, `MWE-G02`, `MWE-G04`,
+`MWE-G21`): the three product addresses differ (banker `fdf5752d…`, analyst
+`e7a8970b…`, trader `b580d4fa…` over the door; equal to the in-process
+vessels, `MWE-G18`); no MNPI-bearing identifier crosses into the analyst's or
+trader's bytes; the analyst's member set is the same at `T1` and at
+`2025-01-01` (step 6 uses SP Plus at an instant before any of its MNPI-bearing
+records, not a second issuer); the Policy Blind control differs from the
+served analyst vessel.
+
 ### A.3 A refusal is an answer
 
 Three refusals are the wall's own and each is a successful demonstration, not
@@ -238,7 +256,7 @@ every principal with the source class named.
 | freshness | per signal class (§E.1): `position` intraday (illustrative 86,400 s half-life, §E.1 says why not the vault's hour); every other served class `supersede-only` — "event-driven" is a supersession event, not a number |
 | TTL | product window 3,600 s (the vault's one hour), class ceiling `[TBC — this build]` (proposed 14,400 s), `ttl_anchor: from_decision`: `expires_at = decided_at + 3,600 s`, and `decided_at` is `asked_at` because the class declares no separate decision instant (§B.4, the past-instant trap) |
 | policy binding | the wall (which classifications the principal's plan permits, unlocked per issuer by a valid, asserted crossing); research embargo windows; the Reg FD event as a supersession that changes the issuer's classification member (outcome B, selected by ccf-dataprep's answer of 2026-09-20 — §C.4 trap 5); the control room's restricted list read before any enterprise source. **No jurisdictional information-barrier rule** (ruled, Dave 2026-09-20): the estate's jurisdiction table is evidence and context only, never a filter or an admission rule, and a displayed jurisdiction is labeled non-governing context (§C.4 trap 10). The personal-account-dealing binding the vault names is **not bound** and its data is not invented (§F.2 row 10) |
-| lineage | `operators_invoked` — the four SDK operator keys, typed; `policy_bundle_versions` — the tenant policy and the served principal's **own** projection-plan artifact, pinned (the principal is entitled to its own plan; no other principal's plan is carried — whether the pin can be scoped to one plan or pins the whole `policy` section is `[TBC — this build]`, §F.2 row 14); the λ_c table pinned in the replay record; `graph_snapshot_at` — the as-of boundary (the source ledger `t`, 5832 on 2026-09-20, is execution provenance recorded by acquisition as a watermark, never product identity — `D-IMPL-88`, `D-IMPL-309`); `serve_obligations.lineage_inputs_at` on `issuer` and `context_debt`; passage-level `L` on research notes as note ids with content hashes |
+| lineage | `operators_invoked` — the four SDK operator keys, typed; `policy_bundle_versions` — the tenant policy, pinned (**measured 2026-09-20:** one hash for all three roles; no per-principal artifact is registered, so the served principal's own plan id and version ride on the payload's hash-bound `plan` member instead — `CP17-F-18`, §F.2 row 14); the λ_c table pinned in the replay record; `graph_snapshot_at` — the as-of boundary (the source ledger `t`, 5832 on 2026-09-20, is execution provenance recorded by acquisition as a watermark, never product identity — `D-IMPL-88`, `D-IMPL-309`); `serve_obligations.lineage_inputs_at` on `role` and `known_as_of` (an obligation on `issuer` would refuse the computed-empty serve `MWE-G16` requires — `CP17-F-13`); passage-level `L` on research notes as note ids with content hashes |
 | debt | `D_c = 1 − F·C·S`. `F` the SDK's reference scorer over the composed view against the booted λ_c table (supersede-only classes read 1; `position` decays); `C` the share of the **principal's own** required signal classes present (§E.2 — a class the principal may not receive is not in that principal's `C_required`, `D-IMPL-105`); `S = 1` stated (one authority per element, §C.3) |
 
 Assembly mode 1, semantic version `1.0.0`, discovery registered only after
@@ -567,8 +585,12 @@ measured at Gate 2 against a declared p95 envelope of 3,000 ms; the vault's
 | 7 | **Projection** | in-memory | the composed view; the entitled perspective; `known_as_of` | `plan_id` (one, role-branched) in replay dimension 5; the role in dimension 4; the typed payload of §D.6 | degrade with debt: a required class absent from the principal's `C_required` raises `D_c`, never a placeholder | `[TBC]` | `src/ccf/projection/plan.py` (`ProjectionPlan.invoke`) under `src/ccf/projection/engine.py` (`ProjectionEngine`) — **L5** |
 | 8 | *contract assembly* — not an operator | in-memory | the payload, the declared lineage, TTL and anchor; the declared gate | the served `ContextProductContract` inside a `ServableProduct`; the replay record | **503** on any L6 gate; the declared gate's `ProductInvariantRefusal` by name; **409** above tolerance with the debt block | `[TBC]` | `src/ccf/products/gates.py` (`run_gates`) then the declared gate via `src/ccf/products/resolver.py` (`ProductGateProtocol`) — **L6** |
 
-Mirrored into `artifacts/assembly-recipe.yaml` with a witness per step; a
-step nothing executes is red.
+**Not mirrored into `artifacts/assembly-recipe.yaml`** (`CP17-F-16`): the
+delivery recipe requires one with a witness per step, none of the four
+canonical/paved trees ships one and the only witness resolver is cp-00's;
+the paved precedent was followed and the conflict is surfaced for Dave rather
+than resolved silently. The steps that execute are witnessed by the gates
+that claim them (§G.1).
 
 ### D.3 Step detail
 
@@ -614,9 +636,16 @@ this order, and the order is load-bearing:
    for the issuer's draft notes; the Reg FD event for the issuer.
 5. **The envelope** `E(p, i, asked_at, known_as_of)`: the entity classes
    named by the plan's `permitted_edge_types` (axis 1, the vocabulary), and
-   the classifications the plan permits (axis 2), where `internal-restricted`
-   on issuer *i* is admitted **only if** a crossing from step 4 exists — the
-   plan is the ceiling, the crossing is the key. Draft research is admitted
+   the classifications the plan permits (axis 2) **over the classes that
+   carry a document classification or an MNPI tag** — research notes, deal
+   engagements, interactions, declared in `source-vocabulary.yaml` as the
+   bounded classes — where `internal-restricted` on issuer *i* is admitted
+   **only if** a crossing from step 4 exists: the plan is the ceiling, the
+   crossing is the key. Desk data (positions) and the family are bounded by
+   axis 1 alone and never carry the walled value (**measured 2026-09-20,
+   `CP17-F-14`:** read over every class, the trader's plan — `public-filed`
+   only, beside `permitted_document_types` — excluded the trader's own
+   positions; the plan row's classification set is its document envelope). Draft research is admitted
    by axis 2 alone (the research department's own drafts need no deal-team
    crossing; the vault's banker row).
 6. Read deals, interactions, positions (PostgreSQL), research notes
@@ -719,7 +748,12 @@ other principal's plan is carried there.
 excluding `assembled_at`; two runs of one question under one credential agree
 byte for byte, the door and the in-process run agree byte for byte
 (`MWE-G18`). Three credentials, one question, one instant: three addresses
-(`MWE-G01`).
+(`MWE-G01`). **Measured 2026-09-20:** SP Plus at `T1` — banker `fdf5752d…`,
+analyst `e7a8970b…`, trader `b580d4fa…`; two door calls with one credential
+return one address and one replay record; the served principal's product
+address is `content_hash(product)` and equals
+`record.content_generation_path.product_content_address`, while
+`ServedProduct.replay_ref.content_address` is the record's (`CP17-F-19`).
 
 ### D.5 Replay statement and replay test
 
@@ -744,25 +778,35 @@ shape; the members present are a function of the role (§D.3 step 7):
 
 ```
 mnpi_scoped_issuer_context @ 1.0.0
+  role:              string                                                   # the decided perspective's role
+  known_as_of:       datetime                                                 # the assertion-time clock in force
+  plan:              {plan_id, plan_version, permitted_edge_types, permitted_classifications, required_classes} | null   # the principal's OWN plan (CP17-F-18)
   issuer:            {lei, legal_name, legal_jurisdiction, entity_status,      # legal_jurisdiction: non-governing context (ruled)
-                      reg_fd_disclosure: {event_id, valid_from, classification: public-filed} | null}   # every role; null before the event; the member claim 6 proves (outcome B)
-  family:            [{lei, legal_name, relationship: owns|controls}]
+                      reg_fd_disclosure: {event_id, valid_from, widens_access, classification: public-filed} | null,   # every role; null before the event; the member claim 6 proves (outcome B)
+                      ledger_t} | null                                        # null only on the empty view (MWE-G16)
+  family:            [{lei, legal_name, relation: owns|controls, classification}]
+  edge_types_served: [string]                                                 # the relationship types in the governed view — the gate's first predicate
+  entities_in_view:  integer                                                  # the served count, never a withheld one
   deal_engagements:  [{deal_id, deal_type, stage, opened_date, classification}]      # coverage-banker
   interactions:      [{interaction_id, interaction_type, interaction_date, deal_id, classification}]   # coverage-banker
-  research:          [{note_id, title, authored_date, status, classification, score_percent, content_hash}]   # coverage-banker, research-analyst
-  positions:         [{position_id, book, quantity, as_of}]                          # trader
-  known_as_of:       datetime
+  research:          [{note_id, title, authored_date, status, classification, content_hash}]   # research-analyst
+  positions:         [{position_id, book, quantity, as_of, classification}]                    # trader
 ```
 
 No member counts anything withheld; no member is a marker; `classification`
 on a served member states the classification of what was served, which is
-inside the principal's envelope by construction (`MWE-G02`).
+inside the principal's envelope by construction (`MWE-G02`). **Measured
+2026-09-20:** the banker's plan names no research edge, so the banker's
+members are `deal_engagements` and `interactions` (the vault's banker row:
+deal pipeline and engagement history); `research` is the analyst's and
+`positions` the trader's; `artifacts/perspectives.yaml` declares the table.
 
 ### D.7 Validation gates
 
 The SDK's three universal gates (`src/ccf/products/gates.py` (`run_gates`):
 empty-operator guard, lineage strict equality, TTL bounds), the declared
-obligations gate (`lineage_inputs_at` on `issuer` and `context_debt`), the
+obligations gate (`lineage_inputs_at` on `role` and `known_as_of` —
+`CP17-F-13`), the
 dependency-invalidation gate for the Reg FD boundary (§E.4), and the
 product's own declared gate `cp-17.wall-holds@1.0.0` folding three
 predicates under the one slot:
@@ -896,19 +940,19 @@ Stated as a roster. No spec passes review with an unowned gap.
 | # | term | owner | what was asked |
 |---|---|---|---|
 | 1 | ~~which exact records or content `REGFD-000` releases~~ **ANSWERED 2026-09-20 by ccf-dataprep: none — outcome B** | ccf-dataprep | `contrib/ccf-dataprep/cp-17-regfd-000-designates-nothing-outcome-b` (`measurement`, `reproduce_with` stated): a dated label from Wave 7 (`7a37a4d`), no record id anywhere in source or store, the description dropped at load; zero incoming edges, literals or referencing columns, each with a control. The hold's release condition is met; the build begins on Dave's GO. Closed |
-| 2 | the Similarity query literal and `minimum_score_percent` | this build | illustrative, drawn from the intent vocabulary; disclosed in the artifact |
-| 3 | the research top-k in Π | this build | proposed 3 |
-| 4 | the class TTL ceiling | this build | proposed 14,400 s |
-| 5 | the debt profile thresholds | this build | proposed 0.60 / 0.95 |
-| 6 | whether the invalidation register's boundary is exercised on a per-request fabric (`MWE-G11`) | this build | the mechanism is direction-agnostic; what a "prior determination" is when every question boots its own fabric is the measurement |
-| 7 | p95 budgets per step and the total against 3,000 ms | this build (Gate 2) | — |
-| 8 | per-call absolute cost | this build | no billing meter; not invented |
-| 9 | the ontology IRIs for engagement, interaction, position and research note | this build | OMG Commons / FIBO terms to be bound before registration |
+| 2 | ~~the Similarity query literal and `minimum_score_percent`~~ **CLOSED 2026-09-20** | this build | `rating initiated sell` at floor 8, illustrative: SP Plus's five templated notes keep three; disclosed in `ccf_config.yaml` |
+| 3 | ~~the research top-k in Π~~ **CLOSED as a finding 2026-09-20** | this build | not implemented: per-hit scores do not reach the view, so Π can neither rank nor cut; the Similarity operator is a floor filter (`CP17-F-04`) |
+| 4 | ~~the class TTL ceiling~~ **CLOSED 2026-09-20** | this build | 14,400 s |
+| 5 | ~~the debt profile thresholds~~ **CLOSED 2026-09-20** | this build | 0.60 / 0.95; the class default tolerance 0.80 |
+| 6 | ~~whether the invalidation register's boundary is exercised on a per-request fabric (`MWE-G11`)~~ **CLOSED 2026-09-20** | this build | it is: the register is Control Plane state across questions; a boundary recorded after the forensic serves refuses every later question whose snapshot precedes it (`CP17-F-17`); `MWE-G11` claimed by an executing test |
+| 7 | p95 budgets per step and the total against 3,000 ms | this build (Gate 2) | **not measured** — no per-step timer is shipped and the estate is remote; the twenty-one gate tests run in 27 s end to end; carried |
+| 8 | per-call absolute cost | this build | no billing meter; not invented; carried |
+| 9 | ~~the ontology IRIs for engagement, interaction, position and research note~~ **CLOSED 2026-09-20** | this build | bound in `artifacts/source-vocabulary.yaml` (`ontology:`) as documentation for registration |
 | 10 | ~~whether a personal-account-dealing table exists~~ **ANSWERED 2026-09-20 by ccf-dataprep: no** | ccf-dataprep | none in any of the four stores (matcher with a positive control; 116 base tables and 2 views, 8 SQLite tables, 6 collections, 95 types); the binding stays unbound; nothing invented. Closed |
 | 11 | ~~whether a jurisdictional information-barrier rule belongs on this rung~~ **RULED 2026-09-20: no** | Dave | the jurisdiction table is evidence and context only; no jurisdiction-based filtering or admission logic; a displayed jurisdiction is labeled non-governing context (§C.4 trap 10). Closed |
 | 12 | ~~the HTTP door in scope for `MWE-G15`~~ **RULED 2026-09-20: yes** | Dave | HTTP proves the one behavior MCP cannot expose — a caller requesting a role it is not entitled to receives a governed refusal, never a silent downgrade — with the same three entitled principals plus the fourth ungranted one; not a new product path (§D.1). Closed |
-| 13 | whether a missing plan row can be refused at open rather than at serve | this build | §D.3 step 1.3 |
-| 14 | whether the plan-artifact pin in `policy_bundle_versions` can be scoped to the served principal's own plan, or pins the whole `policy` section | this build | §B.1 lineage; §D.3 steps 1.7 and 7; `MWE-G13`, `MWE-G19` — if it cannot be scoped, the three plan versions are pinned in every record and that is recorded as a finding against `MWE-G19`, never hidden |
+| 13 | ~~whether a missing plan row can be refused at open rather than at serve~~ **CLOSED 2026-09-20** | this build | at serve, as a governed refusal (`GovernedRefusalRaised`, cause unauthorized); over the door the ungranted principal never reaches acquisition because the grant set is the planned principals |
+| 14 | ~~whether the plan-artifact pin in `policy_bundle_versions` can be scoped to the served principal's own plan~~ **CLOSED 2026-09-20** | this build | it is not pinned there at all: no per-principal artifact is registered and the lineage carries one hash for all roles; the principal's own plan id and version ride on the payload's `plan` member (`CP17-F-18`; `MWE-G13` restated) |
 | 15 | ~~a coverage-validator manifest for `mnpi-wall-enforcement`~~ **DONE 2026-09-20 by ccf-dataprep** (ccf_dataprep `6a8fb4c`) | Dave | `contrib/ccf-dataprep/cp-17-coverage-manifest-added-and-two-real-gaps`: `uv run validators/spec_coverage.py --product mnpi-wall-enforcement` → 15 of 15 catalog rows accounted for (11 probed clean · 2 covered by `conditions.py` · 2 GAP), exit 1 by design because a GAP is a real absence; 17 paired falsification tests. **The spec cites the instrument** (§0.2, §F.3). Closed |
 
 ### F.3 Access path, identifiers, history, text and volumetrics
@@ -965,6 +1009,22 @@ document was written from and are committed with the example.
 - **`CP17-F-07`.** Requesting a perspective is HTTP-only; over MCP the
   channel does not exist. Disclosed, not repaired.
 
+**Raised by the build (2026-09-20; each in the tree's `FINDINGS.md` §4 with
+its class and disposition):** `CP17-F-08` a computed-empty serve cannot be
+rehydrated through the public replay seam (`ContentGenerationPath` carries no
+`computed_empty`); `CP17-F-09` a refusal raised at the acquisition seam on a
+fresh Control Plane pins a request-contract version the resolver registers
+only on the served path; `CP17-F-10` the declared gate's ceiling travels with
+the candidate (the gate seam receives no perspective); `CP17-F-11` an
+unreachable control room is a raise, not a governed refusal; `CP17-F-12` `F`
+is a mean over every observation, so supersede-only classes dilute a curve
+class; `CP17-F-13` an empty view is withheld at the class default tolerance;
+`CP17-F-14` the plan's classification set is its document envelope;
+`CP17-F-15` the specified `MWE-G07` sabotage could not go red; `CP17-F-16`
+`assembly-recipe.yaml` not shipped, conflict surfaced; `CP17-F-17` a recorded
+boundary blocks forensic asks before it; `CP17-F-18` the plan version rides
+on the payload; `CP17-F-19`, `CP17-F-20` two naming surprises on the door.
+
 ## G · Operate and govern
 
 Accountable owner: the SDK examples maintainer (role). Service objectives:
@@ -981,9 +1041,8 @@ question at a past `asked_at` under the `from_decision` anchor serves with
 an `expires_at` already elapsed by the wall clock (§B.4) — disclosed, not
 repaired. Service objectives also carry per-call absolute cost as
 `[TBC — this build]` (no billing meter; §F.2 row 8). Lifecycle: `draft` at
-Gate 1; `in-build` on Dave's GO — the hold's release condition (§F.2 row 1)
-was met on 2026-09-20 by ccf-dataprep's answer, outcome B; `certified` at
-Gate 2.
+Gate 1; `in-build` from Dave's GO of 2026-09-20; **built the same day and
+paused for Dave's evaluation**; `certified` on his Gate-2 ruling.
 
 ### G.1 Product gates
 
@@ -1002,18 +1061,18 @@ structural or relational; **none pins a count or a date.**
 | `MWE-G04` | no disclosure: the payload's member set is the role's and is identical for SP Plus at `T1` and at an instant before any of its MNPI-bearing records existed (§A.2 step 6) | relational |
 | `MWE-G05` | the served plan lists `policy.principal-subgraph` first, before `similarity`, `temporal` and `traversal` | structural |
 | `MWE-G06` | the Policy operator is live: a claim injected with a classification outside the vocabulary is absent from the served product, together with the edge minted to it (`GQ-16` endpoint closure) | sabotage |
-| `MWE-G07` | policy before similarity: a draft claim injected into the analyst's per-request fabric is absent from the Similarity operator's candidates and from the served product; on SP Plus, which has no drafts, the banker's and the analyst's ranked sets are identical and the vault's ranking-difference number is recorded as zero by construction | sabotage + relational |
+| `MWE-G07` | policy before similarity: the served research is a subset of what acquisition admitted for the analyst; the recorded plan runs policy before similarity; under an out-of-vocabulary relabel nothing is ranked (`similarity.corpus-select` among the empty operators). **Restated 2026-09-20 (`CP17-F-15`):** an injected draft carries a classification inside the class-level vocabulary and is admitted by the operator — the wall is at acquisition — so the sabotage is the out-of-vocabulary relabel of `MWE-G06`; on SP Plus (no drafts) the ranking-difference number is zero by construction | sabotage + relational |
 | `MWE-G08` | bitemporal wall: SP Plus, banker, `asked_at = TW`: `known_as_of = TW` serves no MNPI engagement, `known_as_of` after `WALL-000.assertedAt` serves it; two addresses | directional |
-| `MWE-G09` | the control room first: an unreachable departmental store refuses the product for every principal with the source class named | sabotage |
+| `MWE-G09` | the control room first: an unreachable departmental store stops every principal. **Measured 2026-09-20 (`CP17-F-11`):** a raise through `opened.answer` naming the path, not a governed refusal naming a source class — the `CP13C-F-03` class, disclosed | sabotage |
 | `MWE-G10` | Reg FD as a classification-member change (outcome B, §C.4 trap 5): SP Plus, every principal — the issuer's `reg_fd_disclosure` member is `null` at `T0` and carries the event at `T1`; outside that member the analyst's and the trader's vessels are byte-equal across the two instants, so no engagement content is admitted on the strength of the label | directional |
 | `MWE-G11` | `[TBC — this build]` the Reg FD boundary in the invalidation register refuses re-serving a determination that touched the issuer before it | structural |
-| `MWE-G12` | supersede-only in a served product: `F = 1` for the banker's and the analyst's products; for the trader `F` orders American Healthcare REIT ≥ SP Plus ≥ BGC at `T1` by position `as_of` — the ordering, never the number; the two other issuers are freshness comparison subjects only (§C.4 trap 7), not wall subjects | directional |
-| `MWE-G13` | one plan, three roles: dimension 5 `plan_id` equal across the three records, dimension 4 `role` distinct; the served principal's own plan artifact version pinned in `policy_bundle_versions` | relational |
-| `MWE-G14` | the unconfigured principal (`PRIN-KYC-004`'s credential) is refused with the deny audited, and the refusal is observationally the same as a nonexistent product at minimal disclosure | relational |
+| `MWE-G12` | supersede-only in a served product: freshness exactly 1 for the banker's and the analyst's products; for the trader freshness below 1 on SP Plus and at or above SP Plus's on American Healthcare REIT, by position `as_of` — the ordering, never the number. **Restated 2026-09-20 (`CP17-F-12`):** BGC is dropped from the ordering because `F` is a mean over every observation and its sixteen supersede-only family members dilute the position's age | directional |
+| `MWE-G13` | one plan, three roles: dimension 5 `plan_id` equal across the three records, dimension 4 `role` distinct; the served principal's own plan id and version carried on the payload's `plan` member (**restated 2026-09-20, `CP17-F-18`:** not pinned in `policy_bundle_versions`) | relational |
+| `MWE-G14` | the unconfigured principal (`PRIN-KYC-004`'s credential) is refused on MCP and on HTTP with the deny audited, and its wire shell equals the shell an entitled credential gets for a product class declared nowhere (**restated 2026-09-20:** the comparator is a nonexistent product class, since a nonexistent LEI at the class default tolerance is `tolerance-exceeded`, `CP17-F-13`) | relational |
 | `MWE-G15` | requested role over HTTP (in scope by ruling): each of the three entitled credentials with a `?role=` outside its own grant is refused by typed code, never downgraded; each with its own role served, byte-equal to the MCP vessel for the same question; the ungranted credential is refused as unconfigured on HTTP as on MCP | relational |
-| `MWE-G16` | **A6, load-bearing — the existence oracle.** For an unentitled principal, a subject whose admissible claims Policy removes entirely is observationally indistinguishable on the paved serve path from a nonexistent subject — and the comparator is a subject whose per-request fabric holds no claims, **served** on the same path (vessel and computed-empty finding path-for-path equal), never a refusal. A LEI with no issuer row yields that same served outcome under each of the three entitled credentials (the ungranted credential is refused at the door before any subject is resolved, `MWE-G14`). **Positive control kept:** the same instrument distinguishes a fabric holding restricted claims from an empty fabric *before* Policy removes the restricted content, and distinguishes an entitled, assembled subject after it. The gate asserts nothing about whether the fabric holds the restricted entity — that is not the property (§0.1 claim 3). Rests on `tests/products/test_policy_emptied_view_disclosure.py` (measured 2026-09-20) and re-executes on this rung's serve path | relational + positive control |
+| `MWE-G16` | **A6, load-bearing — the existence oracle.** For an unentitled principal, a subject whose admissible claims Policy removes entirely is observationally indistinguishable on the paved serve path from a nonexistent subject: at tolerance 1.0 both are **served** computed-empty and their vessels are path-for-path equal; at the class default tolerance both are withheld with identical refusals (`CP17-F-13`); two nonexistent LEIs are byte-identical. **Positive control kept:** the real vessel differs at `payload` and `computed_empty`. The gate asserts nothing about whether the fabric holds the restricted entity (§0.1 claim 3). Rests on `tests/products/test_policy_emptied_view_disclosure.py` (measured 2026-09-20) and re-executes on this rung's serve path | relational + positive control |
 | `MWE-G17` | replay: each principal's product rebuilds byte for byte from its record; the refused determination reconstructs with its cause | structural |
-| `MWE-G18` | determinism: two runs agree; door and in-process agree | structural |
+| `MWE-G18` | determinism: two door calls with one credential and question hash to one address and one replay record; the door's banker vessel equals the in-process vessel | structural |
 | `MWE-G19` | a principal's served vessel **and its replay record** carry no wall-decision input the principal is not entitled to — no crossing id, no restriction row, no other principal's plan; the record still replays (`MWE-G17`) | structural |
 | `MWE-G20` | debt is entitlement-neutral: the analyst's `C_required` excludes the engagement classes; its `D_c` on SP Plus at `T1` is not raised by the MNPI it may not see | relational |
 | `MWE-G21` | the Policy Blind control (§A.2 step 7) differs from the served analyst vessel | relational |
@@ -1033,8 +1092,10 @@ Each specific to this product, independently verifiable, phrased to fail.
    executed in its outcome-B form (§F.2 row 1, answered).
 3. The counterfactual acceptance test of §A.2 runs and fails when the wall
    is made cosmetic (the Policy Blind control).
-4. Every step in §D.2 has a witness in `artifacts/assembly-recipe.yaml`,
-   set-equal in both directions, each observed on a completed run.
+4. ~~Every step in §D.2 has a witness in `artifacts/assembly-recipe.yaml`~~
+   **Not met by design — `CP17-F-16`:** no paved tree ships the recipe
+   artifact; the executing steps are witnessed by the gates that claim them;
+   the conflict with the delivery recipe is surfaced for Dave.
 5. The served plan names all four operator categories; lineage strict
    equality holds in both directions.
 6. No `.py` file in the tree carries a domain value: the three plans, the
@@ -1061,19 +1122,30 @@ Each specific to this product, independently verifiable, phrased to fail.
     (predicted: the latest-wins ordering, the served `computed_empty`
     channel, `GQ-16`); whether an AI coding agent could generate the tree
     from this document plus public SDK guidance. Each pattern classified
-    under the four classes. **This rubric is recorded for the A2 measurement
-    Dave ruled (the third instance, after AML); nothing beyond this rung's
-    specification is authorized or in progress under the hold.**
+        under the four classes. **Recorded 2026-09-20 in `FINDINGS.md` §2:**
+    the door measured 3 hand-built objects (as predicted) plus 3 for HTTP;
+    the envelope ≈ 70 domain + ≈ 25 plumbing lines, 0 objects, 1 duplication;
+    two candidate ergonomics issues (A2, A1) and one backlog (A3); 34 SDK
+    names, 0 private symbols in the tree. The A2 review decides after AML's
+    third instance.
 13. Jurisdiction is never a filter or an admission rule anywhere in the
     tree; the issuer's `legal_jurisdiction` member is labeled non-governing
     context wherever it is displayed.
 
-**Implementation hold (Dave, 2026-09-20) — release condition met.** §F.2
-row 1 was answered by ccf-dataprep on 2026-09-20 (outcome B). Rows 1, 10,
-11 and 12 are closed; row 15 is Dave's and non-blocking. The build begins on
-Dave's GO and not on this document's authority.
+**Built 2026-09-20 on Dave's GO; paused for Dave's Gate-2 evaluation.** The
+hold's release condition was met the same day (§F.2 row 1, outcome B). Open
+in §F.2: rows 7 and 8 (carried, not measurable here). Raised for a decision
+(§F.4; `FINDINGS.md` §3–§4): `CP17-F-08` and `CP17-F-09` (§B.1-shaped
+replay gaps), `CP17-F-10` and `CP17-F-12` (§B.2 candidates), `CP17-F-16`
+(the recipe-artifact conflict). No close panel, `D-GATE` or completion mark
+until Dave has evaluated the built product.
 
 ### G.3 Catalog contribution
+
+**Lane, measured 2026-09-20:** `1.0.0` — the first producer of
+`cib.mnpi-wall`; there is no specimen to hold it to, and the twenty-one
+gates are the product's own. **Executing tests:** 21 passed, 3 strict
+expected failures naming `CP17-F-08`, `CP17-F-09`, `CP17-F-10`.
 
 **What this product proves that nothing earlier proved.** Several
 credentialed principals through one shipped door; an operator-bounding set

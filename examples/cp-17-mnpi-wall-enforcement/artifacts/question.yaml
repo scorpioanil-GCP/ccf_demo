@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE DEMONSTRATION QUESTION — the caller's vocabulary, read-side, and the
+# three pinned instants (`CP-SPEC-017` §C.5). Pinning `asked_at` is what a
+# snapshot estate requires; nothing moves it to get an answer.
+semver: "1.0.0"
+class_id: cp-17.question
+declaration:
+  question:
+    # SP Plus Corp — the single demonstration issuer (ruled): on 2026-09-20 it
+    # carries two MNPI-bearing deals, two MNPI-bearing interactions, one
+    # position, five published research notes, a wall crossing for the
+    # coverage banker with an engineered nine-day recording lag, a
+    # `research-restricted` row on the control room's list and the estate's
+    # only Reg FD event.
+    subject: "0IDE18EMH1CUKQCUYE69"
+    intent: client-review
+    freshness: event-driven
+    # T1 — the headline instant: every crossing valid and asserted, every
+    # restriction in force, the Reg FD event past, positions dated within
+    # the prior two days.
+    asked_at: "2026-08-17T00:00:00+00:00"
+    # The in-process caller's own perspective (the door resolves it from the
+    # credential instead): the coverage banker.
+    principal: PRIN-COV-001
+  instants:
+    T1: "2026-08-17T00:00:00+00:00"
+    T0: "2026-07-01T00:00:00+00:00"
+    TW: "2026-03-10T00:00:00+00:00"
+    TW_known_later: "2026-03-20T00:00:00+00:00"
+    before_any_mnpi_record: "2025-01-01T00:00:00+00:00"

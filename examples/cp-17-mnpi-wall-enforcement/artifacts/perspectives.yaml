@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE PRODUCT'S SHAPE PER ROLE — what Π serves for each of the three roles
+# and what the declared gate holds it to (`CP-SPEC-017` §D.3 step 7, §D.6,
+# `MWE-G04`). The member set is a function of the ROLE and never of the
+# subject: a member is present (possibly empty) for every question a role
+# asks, and absent for every question it does not.
+#
+# The classes each role REQUIRES for completeness (`C`, §E.2) are carried on
+# the issuer claim as the principal's own plan and read off the view by
+# `assess`; this document is the declared role → member table Π reads, and
+# the gate's authority for the role-constant shape. Its content derives
+# from the estate's `ccf_v2.projection_plan` rows (measured 2026-09-20):
+# the coverage banker's plan permits `owns, controls, hasDealEngagement,
+# hasInteraction, hasMnpiEngagement`; the research analyst's `owns,
+# controls, hasPublishedResearch`; the trader's `owns, controls,
+# hasPosition`. The banker's plan names no research edge, so the banker's
+# product carries no research — the vault's banker row ("deal pipeline,
+# management access, MNPI-bearing engagement history") says the same.
+semver: "1.0.0"
+class_id: cp-17.perspectives
+declaration:
+  # Every role's payload carries these; the lists below are ADDED per role.
+  common_members: [role, known_as_of, plan, issuer, family, edge_types_served, entities_in_view]
+  # The members whose items the plan's classification envelope bounds (the
+  # gate's second predicate); positions and family are vocabulary-bounded.
+  classification_bounded_members: [deal_engagements, interactions, research]
+  member_by_class:
+    family_member: family
+    deal_engagement: deal_engagements
+    interaction: interactions
+    research_note: research
+    position: positions
+  roles:
+    coverage-banker:
+      members: [deal_engagements, interactions]
+    research-analyst:
+      members: [research]
+    trader:
+      members: [positions]

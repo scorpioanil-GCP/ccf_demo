@@ -1,0 +1,164 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE DECLARED PRODUCT GATES OF cp-17 — `MWE-G01` through `MWE-G21`.
+#
+# The acceptance authority for every gate is `CP-SPEC-017` §G.1 (`D-IMPL-326`).
+# Each id is claimed by exactly one executing test under `tests/examples/`
+# (the docstring form), and no estate figure is pinned anywhere: every gate
+# is directional, structural or relational. `observed_red` records a
+# sabotage that was actually run and seen red on 2026-09-20; where the
+# mutation was applied in memory to real estate answers (the tree
+# untouched), the result says so.
+semver: "1.0.0"
+class_id: cp-17.product-gates
+declaration:
+  product: cib.mnpi-wall
+  test_naming_convention: the gate id appears in the executing test's docstring, as a `Declared
+    product gate` line naming the CP-SPEC clause that approves it.
+  sabotage_states:
+    passed: the invariant was broken and the gate went red
+    unavailable: an upstream SDK invariant makes the bad state unreachable; the guard is named
+    not-required: a documentary gate
+  gates:
+  - id: MWE-G01
+    statement: three credentials, one question, one instant — three content addresses; one schema, one plan_id, one operator set
+    spec_clause: {document: spec/CP-SPEC-017_MNPI_Wall_Enforcement.md, clause: G.1}
+    test: tests/examples/test_cp_17_wall.py::test_three_principals_get_three_addresses_under_one_class_plan_and_operator_set
+    sabotage: serve one principal's vessel to two roles (Π ignores perspective.role) so two of the three product addresses coincide
+    sabotage_state: passed
+    observed_red: {result: "RED — 'the three vessels share an address' (in-memory mutation of real estate answers; tree untouched)", date: "2026-09-20", commit: a86e7f14}
+  - id: MWE-G02
+    statement: classification containment — no served classification outside the principal's permitted set for the bounded members; no MNPI-bearing identifier in any byte of a public-side vessel
+    spec_clause: {document: spec/CP-SPEC-017_MNPI_Wall_Enforcement.md, clause: G.1}
+    test: tests/examples/test_cp_17_wall.py::test_no_served_classification_escapes_the_principal_envelope_and_no_mnpi_identifier_crosses
+    sabotage: admit a walled record for a principal whose plan does not permit it, or leak a banker-served MNPI deal id into the analyst's payload
+    sabotage_state: passed
+    observed_red: {result: "RED — '`DEAL-0000` crossed the wall' (in-memory mutation; tree untouched)", date: "2026-09-20", commit: a86e7f14}
+  - id: MWE-G03
+    statement: vocabulary containment — every served edge type is in the principal's permitted_edge_types; the declared gate refuses one that is not
+    spec_clause: {document: spec/CP-SPEC-017_MNPI_Wall_Enforcement.md, clause: G.1}
+    test: tests/examples/test_cp_17_sabotage.py::test_an_edge_outside_the_principal_vocabulary_is_refused_by_the_declared_gate
+    sabotage: inline — acquire is wrapped to mint one extra hasPosition edge and node into the analyst's fabric; the declared gate cp-17.wall-holds refuses
+    sabotage_state: passed
+    observed_red: {result: "RED with deployment.wall_gate replaced by a pass-through (the injected edge was served); GREEN with the shipped gate", date: "2026-09-20", commit: a86e7f14}
+  - id: MWE-G04
+    statement: no disclosure — the payload's member set is the role's and is identical for SP Plus at T1 and at an instant before any of its MNPI-bearing records existed
+    spec_clause: {document: spec/CP-SPEC-017_MNPI_Wall_Enforcement.md, clause: G.1}
+    test: tests/examples/test_cp_17_wall.py::test_the_analyst_member_set_is_the_role_declared_shape_at_both_instants
+    sabotage: make Π omit a role member when its list is empty, or add a member because data exists
+    sabotage_state: passed
+    observed_red: {result: "RED — the symmetric difference of member sets listed (in-memory mutation; tree untouched)", date: "2026-09-20", commit: a86e7f14}
+  - id: MWE-G05
+    statement: the served plan lists policy.principal-subgraph first, before similarity, temporal and traversal, and all four categories are invoked
+    spec_clause: {document: spec/CP-SPEC-017_MNPI_Wall_Enforcement.md, clause: G.1}
+    test: tests/examples/test_cp_17_wall.py::test_the_served_plan_runs_policy_first_and_invokes_all_four_categories
+    sabotage: remove policy.principal-subgraph from required_operator_keys, or reorder the recorded plan
+    sabotage_state: passed
+    observed_red: {result: "RED — `path.operator_plan[0] == POLICY_OPERATOR` (in-memory mutation; tree untouched)", date: "2026-09-20", commit: a86e7f14}
+  - id: MWE-G06
+    statement: the Policy operator is live — a claim injected with a classification outside the vocabulary is absent from the served product, together with the edge minted to it
+    spec_clause: {document: spec/CP-SPEC-017_MNPI_Wall_Enforcement.md, clause: G.1}
+    test: tests/examples/test_cp_17_sabotage.py::test_a_claim_outside_the_classification_vocabulary_never_reaches_the_product
+    sabotage: inline — acquire is wrapped to relabel every classified envelope `sabotage-classified`; the product carries no research, no edge, and computed_empty names the policy operator
+    observed_red: null
+  - id: MWE-G07
+    statement: policy before similarity — the served research is a subset of what acquisition admitted for the analyst; the recorded plan runs policy before similarity; under the out-of-vocabulary relabel nothing is ranked
+    spec_clause: {document: spec/CP-SPEC-017_MNPI_Wall_Enforcement.md, clause: G.1}
+    test: tests/examples/test_cp_17_sabotage.py::test_policy_forms_the_view_before_similarity_ranks_it
+    sabotage: inline for the empty limb (the MWE-G06 relabel); the ordering limb goes red if the planner ran similarity before policy
+    observed_red: null
+  - id: MWE-G08
+    statement: bitemporal wall — SP Plus, banker, asked_at TW with known_as_of TW serves no MNPI engagement; with known_as_of after WALL-000's assertedAt it serves one; two addresses
+    spec_clause: {document: spec/CP-SPEC-017_MNPI_Wall_Enforcement.md, clause: G.1}
+    test: tests/examples/test_cp_17_wall.py::test_the_wall_opens_on_the_assertion_clock_not_the_valid_clock_alone
+    sabotage: drop the assertedAt test in acquisition._over_wall so the crossing keys the wall on valid time alone
+    sabotage_state: passed
+    observed_red: {result: "RED — `unaware['known_as_of'] != aware['known_as_of']` (in-memory mutation; tree untouched)", date: "2026-09-20", commit: a86e7f14}
+  - id: MWE-G09
+    statement: the control room first — an unreachable departmental store stops every principal (a raise through opened.answer, not a governed refusal; CP17-F-11)
+    spec_clause: {document: spec/CP-SPEC-017_MNPI_Wall_Enforcement.md, clause: G.1}
+    test: tests/examples/test_cp_17_sabotage.py::test_an_unreachable_control_room_stops_every_principal
+    sabotage: inline — acquire is wrapped so the control-room path names a nonexistent file; acquisition.ControlRoomUnreachable propagates for the banker, the analyst and the trader
+    observed_red: null
+  - id: MWE-G10
+    statement: Reg FD as a classification-member change (outcome B) — the analyst's issuer.reg_fd_disclosure is null at T0 and carries the event at T1; no engagement content in either
+    spec_clause: {document: spec/CP-SPEC-017_MNPI_Wall_Enforcement.md, clause: G.1}
+    test: tests/examples/test_cp_17_wall.py::test_reg_fd_is_a_dated_member_on_the_issuer_and_admits_no_engagement_content
+    sabotage: stop applying the valid_from cut in acquisition._reg_fd so the event is served at T0, or reclassify engagement records on the strength of the event
+    sabotage_state: passed
+    observed_red: {result: "RED — `before['issuer'][REG_FD_MEMBER] is None` (in-memory mutation; tree untouched)", date: "2026-09-20", commit: a86e7f14}
+  - id: MWE-G11
+    statement: the Reg FD boundary in the invalidation register refuses re-serving a determination whose snapshot precedes it; T1 and another issuer still serve
+    spec_clause: {document: spec/CP-SPEC-017_MNPI_Wall_Enforcement.md, clause: G.1}
+    test: tests/examples/test_cp_17_replay.py::test_the_reg_fd_boundary_refuses_a_determination_that_touched_the_issuer_before_it
+    sabotage: never record the boundary (replace the ControlPlaneInvalidationSink record call with a no-op) — the T0 re-ask is served instead of refused
+    sabotage_state: passed
+    observed_red: {result: "RED — isinstance(ServedProduct, RefusalEnvelope) is False at the T0 re-ask (scratch copy of the test with the record call removed)", date: "2026-09-20", commit: a86e7f14}
+  - id: MWE-G12
+    statement: supersede-only in a served product — banker and analyst freshness exactly 1; the trader's freshness on SP Plus below 1 and on AHR at or above SP Plus's, by position as_of; the ordering, never the number
+    spec_clause: {document: spec/CP-SPEC-017_MNPI_Wall_Enforcement.md, clause: G.1}
+    test: tests/examples/test_cp_17_sabotage.py::test_supersede_only_classes_read_fresh_and_positions_decay_by_as_of
+    sabotage: give a supersede-only class a curve, or drop observed_time from the position envelope (the valid-from basis refuses)
+    observed_red: null
+  - id: MWE-G13
+    statement: one plan, three roles — dimension 5 plan_id equal across the three records, dimension 4 role distinct; the served principal's own plan id and version are carried on the payload's plan member
+    spec_clause: {document: spec/CP-SPEC-017_MNPI_Wall_Enforcement.md, clause: G.1}
+    test: tests/examples/test_cp_17_wall.py::test_one_plan_id_three_roles_and_the_principal_own_plan_version_is_served
+    sabotage: serve another principal's plan row on the issuer claim, or give each role its own plan_id in the factory
+    sabotage_state: passed
+    observed_red: {result: "RED on both — the plan row equality and the distinct-roles set (in-memory mutation; tree untouched)", date: "2026-09-20", commit: a86e7f14}
+  - id: MWE-G14
+    statement: the unconfigured principal's credential is refused over MCP and HTTP with the deny audited, and its wire shell equals the shell an entitled credential gets for a product class declared nowhere
+    spec_clause: {document: spec/CP-SPEC-017_MNPI_Wall_Enforcement.md, clause: G.1}
+    test: tests/examples/test_cp_17_doors.py::test_the_unconfigured_principal_is_refused_like_a_nonexistent_product
+    sabotage: in server/serve.py entitle, grant every principal the register names — the KYC credential is served
+    sabotage_state: passed
+    observed_red: {result: "RED — the KYC credential's internal error_code was no longer principal-not-entitled (scratch copy of serve.py entitling every principal)", date: "2026-09-20", commit: a86e7f14}
+  - id: MWE-G15
+    statement: requested role over HTTP — each entitled credential asking a role outside its grant is refused by typed code, never downgraded; its own role is served byte-equal to the MCP vessel; the ungranted credential is refused on HTTP as on MCP
+    spec_clause: {document: spec/CP-SPEC-017_MNPI_Wall_Enforcement.md, clause: G.1}
+    test: tests/examples/test_cp_17_doors.py::test_a_requested_role_outside_the_grant_is_refused_never_downgraded
+    sabotage: in server/serve.py perspective_resolver, ignore requested_role and always return the register's role — an ungranted ?role= is silently downgraded and served 200
+    sabotage_state: passed
+    observed_red: {result: "RED — `200 == 404` for the research credential asking the banker's role (scratch copy of serve.py ignoring requested_role)", date: "2026-09-20", commit: a86e7f14}
+  - id: MWE-G16
+    statement: A6, load-bearing — the analyst's policy-emptied SP Plus vessel and a nonexistent-LEI vessel are path-for-path equal at tolerance 1.0 and refuse identically at the class default; the positive control distinguishes the real vessel; two nonexistent LEIs are byte-identical
+    spec_clause: {document: spec/CP-SPEC-017_MNPI_Wall_Enforcement.md, clause: G.1}
+    test: tests/examples/test_cp_17_sabotage.py::test_a_policy_emptied_subject_reads_as_a_nonexistent_one
+    sabotage: refuse a nonexistent LEI at acquisition (raise instead of returning nothing) while serving the emptied view — the two paths differ
+    observed_red: null
+  - id: MWE-G17
+    statement: replay — each principal's product rebuilds byte for byte from its record; the ungranted principal's refusal reconstructs with its cause and replay() on it raises the kind mismatch
+    spec_clause: {document: spec/CP-SPEC-017_MNPI_Wall_Enforcement.md, clause: G.1}
+    test: tests/examples/test_cp_17_replay.py::test_each_principals_product_replays_and_the_ungranted_refusal_reconstructs
+    sabotage: make the replay environment re-derive a recorded member (rehydrate with debt=None in place of path.debt)
+    sabotage_state: passed
+    observed_red: {result: "RED — ReplayDivergence: the rehydrated product hashes differently from the record (scratch copy of the environment re-deriving debt)", date: "2026-09-20", commit: a86e7f14}
+  - id: MWE-G18
+    statement: determinism — two door calls with one credential and question hash to one address and one replay record; the door's banker vessel equals the in-process vessel
+    spec_clause: {document: spec/CP-SPEC-017_MNPI_Wall_Enforcement.md, clause: G.1}
+    test: tests/examples/test_cp_17_doors.py::test_two_door_calls_and_the_in_process_run_hash_to_one_address
+    sabotage: add a per-call counter to entities_in_view in projection.invoke so two identical questions serve different bytes (also reddens MWE-G15's byte-equality clause — not isolable)
+    sabotage_state: passed
+    observed_red: {result: "RED — the two door addresses differ (scratch copy of projection.py with a counter); MWE-G15 red as well, by construction", date: "2026-09-20", commit: a86e7f14}
+  - id: MWE-G19
+    statement: no principal's served vessel or replay record carries a wall-decision input it is not entitled to — no crossing id, no restriction row, no other principal's plan or id
+    spec_clause: {document: spec/CP-SPEC-017_MNPI_Wall_Enforcement.md, clause: G.1}
+    test: tests/examples/test_cp_17_replay.py::test_no_served_vessel_or_record_carries_a_wall_input_the_principal_is_not_entitled_to
+    sabotage: have acquire write the crossing id onto the issuer claim
+    sabotage_state: passed
+    observed_red: {result: "RED — '`WALL-000` reached `PRIN-COV-001`' in the banker's canonical vessel bytes (scratch wrapper of acquire)", date: "2026-09-20", commit: a86e7f14}
+  - id: MWE-G20
+    statement: debt is entitlement-neutral — the analyst's completeness equals the fraction of its OWN required classes present in its payload; its D_c is not raised by the MNPI it may not see
+    spec_clause: {document: spec/CP-SPEC-017_MNPI_Wall_Enforcement.md, clause: G.1}
+    test: tests/examples/test_cp_17_wall.py::test_the_analyst_completeness_is_measured_over_its_own_required_classes
+    sabotage: compute C over the union of every plan's classes
+    sabotage_state: passed
+    observed_red: {result: "RED — `_factor(analyst, 'completeness') == _present_fraction(analyst, modules)` (in-memory mutation; tree untouched)", date: "2026-09-20", commit: a86e7f14}
+  - id: MWE-G21
+    statement: the Policy Blind control — the banker's payload projected through the analyst's shape differs from the analyst's served vessel
+    spec_clause: {document: spec/CP-SPEC-017_MNPI_Wall_Enforcement.md, clause: G.1}
+    test: tests/examples/test_cp_17_wall.py::test_the_policy_blind_control_differs_from_the_served_analyst_vessel
+    sabotage: populate the analyst's research from the banker's fabric and serve the analyst the banker's plan
+    sabotage_state: passed
+    observed_red: {result: "RED — `canonical_bytes(blind) != canonical_bytes(analyst payload)` (in-memory mutation; tree untouched)", date: "2026-09-20", commit: a86e7f14}

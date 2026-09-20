@@ -1,0 +1,105 @@
+# THE DEPLOYMENT'S ENVIRONMENT — the second of this tree's two documents
+# (`D-IMPL-343`). `ccf_config.yaml` beside it is Control Plane content and never
+# carries a DSN, a host, a credential or a URL; this document holds the NAMES
+# those values are read from, and the remedy an unset name raises with.
+#
+# FOUR SOURCES PLUS THE CONTROL ROOM, ALL READ-ONLY. Point them at the v2
+# namespaces — Fluree `fibo-v2`, PostgreSQL `ccf_v2`, MongoDB `fibo_v2` — never
+# the v1 names in `ccf_dataprep/.env` (CLAUDE.md §9). The departmental SQLite
+# is opened `mode=ro`.
+
+config: ccf_config.yaml
+
+# The fabric's own L3 — minted fresh under the caller's scratch for EVERY
+# question (`CP03C-F-02`).
+substrate:
+  setting: database_path
+  prefix: cp_17
+  suffix: .sqlite3
+
+sources:
+  # THE CONTROL ROOM — read FIRST, mandatory for every principal
+  # (`CP-SPEC-017` §D.3 step 1.1, `MWE-G09`).
+  control_room:
+    path:
+      from_env: CCF_CP_17_SQLITE_PATH
+      remedy: >-
+        export CCF_CP_17_SQLITE_PATH with the path to the departmental
+        SQLite file holding `restricted_list` (ccf_dataprep/data/departmental.sqlite);
+        it is opened read-only.
+  # THE RELATIONAL LEG — issuer, principals, projection plans, deals,
+  # interactions, positions.
+  relational:
+    dsn:
+      from_env: CCF_CP_17_POSTGRES_DSN
+      remedy: >-
+        export CCF_CP_17_POSTGRES_DSN with a READ-ONLY connection string for
+        the estate (host and credentials from ccf_dataprep/.env).
+    schema:
+      from_env: CCF_CP_17_POSTGRES_SCHEMA
+      remedy: >-
+        export CCF_CP_17_POSTGRES_SCHEMA with the namespace holding the
+        principal, projection_plan, deal, interaction and position tables
+        (the v2 estate reads `ccf_v2`).
+  # THE GRAPH LEG — wall crossings, embargo windows, the Reg FD event, the
+  # issuer's family.
+  graph:
+    url:
+      from_env: CCF_CP_17_FLUREE_URL
+      remedy: >-
+        export CCF_CP_17_FLUREE_URL with the base URL of a READ-ONLY Fluree
+        endpoint; this deployment issues SPARQL through `/v1/fluree/query`.
+    ledger:
+      from_env: CCF_CP_17_FLUREE_LEDGER
+      remedy: >-
+        export CCF_CP_17_FLUREE_LEDGER with the ledger name to read — the v2
+        estate is `fibo-v2`.
+  # THE DOCUMENT LEG — research notes, published and draft.
+  documents:
+    uri:
+      from_env: CCF_CP_17_MONGO_URI
+      remedy: >-
+        export CCF_CP_17_MONGO_URI with a READ-ONLY MongoDB connection string
+        for the research corpus.
+    db:
+      from_env: CCF_CP_17_MONGO_DB
+      remedy: >-
+        export CCF_CP_17_MONGO_DB with the database holding the research_note
+        collection (the v2 estate reads `fibo_v2`).
+  # THE FOUR CREDENTIALS the door recognizes, one per principal in
+  # `ccf_v2.principal`, read by NAME: the deployment's identity substrate is
+  # environment, never a value in a document. The fourth (`PRIN-KYC-004`)
+  # is a real principal with no plan and no grant — the negative control.
+  credentials:
+    PRIN-COV-001:
+      from_env: CCF_CP_17_TOKEN_COVERAGE
+      remedy: export CCF_CP_17_TOKEN_COVERAGE with the coverage banker's bearer credential.
+    PRIN-RES-002:
+      from_env: CCF_CP_17_TOKEN_RESEARCH
+      remedy: export CCF_CP_17_TOKEN_RESEARCH with the research analyst's bearer credential.
+    PRIN-TRD-003:
+      from_env: CCF_CP_17_TOKEN_TRADER
+      remedy: export CCF_CP_17_TOKEN_TRADER with the trader's bearer credential.
+    PRIN-KYC-004:
+      from_env: CCF_CP_17_TOKEN_KYC
+      remedy: export CCF_CP_17_TOKEN_KYC with the EU KYC analyst's bearer credential (granted nothing here).
+
+door:
+  credential:
+    from_env: CCF_CP_17_DOOR_TOKEN
+    remedy: >-
+      export CCF_CP_17_DOOR_TOKEN with the bearer credential the standard
+      door's own default principal is reached with, or leave it unset to have
+      one minted per boot; the four per-principal credentials above are what
+      the demonstration uses.
+  issuer_url:
+    from_env: CCF_CP_17_DOOR_ISSUER_URL
+    remedy: >-
+      export CCF_CP_17_DOOR_ISSUER_URL with the OAuth issuer the door
+      advertises (any https URL for a development stdio door; the loopback
+      door advertises its own port).
+  resource_server_url:
+    from_env: CCF_CP_17_DOOR_RESOURCE_URL
+    remedy: >-
+      export CCF_CP_17_DOOR_RESOURCE_URL with the resource-server address the
+      door advertises.

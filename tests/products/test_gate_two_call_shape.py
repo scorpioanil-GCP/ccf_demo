@@ -916,6 +916,10 @@ RULED_SDK_SUPPLIED_DEPLOYMENTS: frozenset[str] = frozenset(
         # SDK-supplied-factory roster addition for CP-14 is approved and
         # should be recorded as the human ruling."
         "examples/cp-14-credit-memo-context",
+        # cp-17: `shape_of` read "paved" and `_sdk_supplied_operator_set`
+        # answered True on 2026-09-20 BEFORE this line was written — a named
+        # `plan_factory` passing `required` straight through (D-IMPL-137).
+        "examples/cp-17-mnpi-wall-enforcement",
     }
 )
 
@@ -3636,6 +3640,7 @@ def test_the_premise_detector_reads_the_shipped_tree_correctly() -> None:
         # CP-14 Gate 2 slice 1, 2026-09-15 — the paved consumer tree, added
         # as its OWN assertion for the same reason: what the detector ANSWERS.
         "examples/cp-14-credit-memo-context",
+        "examples/cp-17-mnpi-wall-enforcement",
         "examples/hw1-companies-over-revenue/deployment",
         # `D-IMPL-311`, 2026-09-09 — s1-00 arrives from row B above, by the
         # same second shape cp-05 took: it reaches `build_governed_resolver`

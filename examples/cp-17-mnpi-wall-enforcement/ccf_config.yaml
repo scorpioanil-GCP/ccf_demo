@@ -1,0 +1,326 @@
+# yaml-language-server: $schema=../../docs/schemas/ccf.deployment-config.json
+#
+# THE CONTROL PLANE DOCUMENT — what this fabric is permitted to do.
+#
+# Everything domain-specific about `cib.mnpi-wall` is here or under
+# `artifacts/`; `produce.py` names none of it (CLAUDE.md §6.4). The
+# specification this document realizes is `spec/CP-SPEC-017_MNPI_Wall_Enforcement.md`
+# (Gate 1 accepted with corrections, 2026-09-20; outcome B for the Reg FD event).
+
+semver: "1.0.0"
+tenant_id: cp-17-demo
+
+backend: sqlite
+
+product_class:
+  schema_name: cib.mnpi-wall
+  schema_version: "1.0.0"
+  ttl_anchor: from_decision
+  assembly_mode: algorithmic
+  max_ttl_key: cp-17/product/mnpi-wall/max-ttl
+
+  # ALL FOUR CATEGORIES, and the planner runs them in CATEGORY_ORDER —
+  # policy → similarity → temporal → traversal — whatever order they are
+  # written here (`MWE-G05`). Policy runs first with the class-level
+  # vocabulary below; the per-principal envelope is applied at the
+  # acquisition seam from the verified credential (`CP-SPEC-017` §D.3 step 1,
+  # the A2 measurement).
+  required_operator_keys:
+    - policy.principal-subgraph
+    - similarity.corpus-select
+    - temporal.as-of-boundary
+    - traversal.typed-neighborhood
+
+  serve_obligations:
+    # The caller's ceiling when none is stated. Quoted: a YAML float is
+    # refused in every Control Plane document.
+    default_debt_tolerance: "0.80"
+    # The members the product must always carry non-empty. NOT `issuer`: a
+    # subject with no issuer row is SERVED computed-empty (`MWE-G16`, the A6
+    # comparator), and an obligation on `issuer` would turn that serve into a
+    # refusal — the existence oracle the gate exists to prevent.
+    lineage_inputs_at:
+      - role
+      - known_as_of
+
+  # THE INTENT THIS CLASS SERVES, judged on the declared set (`D-IMPL-264`).
+  discovery:
+    domain: cib
+    intents:
+      - client-review
+    capabilities:
+      - mnpi-wall
+      - credential-derived-envelope
+      - policy-before-similarity
+      - bitemporal-wall-state
+    audiences:
+      - coverage-banker
+      - research-analyst
+      - trader
+
+  # ONE declared gate, three predicates (`CP-SPEC-017` §D.7): vocabulary
+  # containment, classification containment, role-constant member set.
+  declared_product_gate:
+    gate_id: cp-17.wall-holds
+    gate_version: "1.0.0"
+
+  # decision_instant_parameter: OMITTED — `decided_at` is `asked_at`
+  # (§B.4, §E.5; the past-instant expiry trap is disclosed, not repaired).
+
+operators:
+  # STEP 2 — the Policy operator. The permitted set is the product's WHOLE
+  # classification vocabulary: per-principal narrowing arrives at the
+  # acquisition seam from `context.perspective` (the SDK offers no seam by
+  # which the credential reaches this operator without becoming a caller's
+  # claim — Gate-0 A2/B1). The operator is the containment guarantee: a
+  # claim outside this vocabulary, or from a foreign policy-bundle version,
+  # is removed before anything ranks or walks, and `MWE-G06` proves it live.
+  policy.principal-subgraph:
+    classification_attribute_by_class:
+      issuer: classification
+      family_member: classification
+      deal_engagement: classification
+      interaction: classification
+      research_note: classification
+      position: classification
+    permitted_classifications:
+      - public-filed
+      - internal-confidential
+      - internal-restricted
+
+  # STEP 3 — Similarity behind Policy, over the research notes' own text
+  # with the SDK's reference lexical index. The query is a PARAMETER matched
+  # by token overlap, never a prompt; ILLUSTRATIVE (`CP-SPEC-017` §F.2 row 2):
+  # SP Plus's five published notes share one template, and a three-token
+  # query with this floor keeps some and drops some, which is the whole
+  # point of running the operator on a snapshot estate.
+  similarity.corpus-select:
+    query: "rating initiated sell"
+    minimum_score_percent: 8
+    ranked_entity_classes:
+      - research_note
+    similarity_corpus_attribute_by_class:
+      research_note: body
+    index_version: "cp-17-research-corpus@2026-09-20"
+
+  # STEP 4 — the valid-time cut at `asked_at`. Every dated claim carries its
+  # world date as `valid_from` (deal `opened_date`, interaction
+  # `interaction_date`, position `as_of`, note `authored_date`); a claim
+  # dated after the boundary is absent from the view; an undated claim (the
+  # issuer, a family member) is admitted by the absence limb (`GQ-09`).
+  temporal.as-of-boundary:
+    require_valid_at_boundary: true
+
+  # STEP 5 — the walk. Seeded on the issuer class; the vocabulary is the
+  # UNION of every plan's edge types (`ccf_v2.projection_plan`, measured
+  # 2026-09-20) so that any principal's view can be walked; per-principal
+  # narrowing is not the walk's — it sees only what acquisition put in the
+  # per-request fabric and Policy kept.
+  traversal.typed-neighborhood:
+    seed_entity_classes:
+      - issuer
+    relationship_types:
+      - hasDealEngagement
+      - hasMnpiEngagement
+      - hasInteraction
+      - hasPublishedResearch
+      - hasPosition
+      - owns
+      - controls
+    depth_limit: 1
+
+request_contract:
+  class_id: cp-17.request-contract
+  role: register
+  registration: typed
+  schema_name: cib.mnpi-wall
+  schema_version: "1.0.0"
+  # NO `perspective`, NO `corpus_scope`, NO `sections` (`CP-SPEC-017` §B.4):
+  # the perspective is the door's, the envelope is the plan's, sections are
+  # formatting. A request naming one is refused as an undeclared parameter.
+  arguments:
+    properties:
+      known_as_of:
+        type: string
+        description: >-
+          The ASSERTION-TIME clock, an ISO-8601 instant with its zone: a wall
+          crossing counts only if the control room had recorded it
+          (`assertedAt`) by this instant. Defaults to `asked_at` itself; a
+          forensic re-ask sets it after `asked_at` (`MWE-G08`).
+      debt_tolerance:
+        type: number
+        description: the caller's ceiling on assessed Context Debt, 0..1.
+    required: []
+  relative_defaults:
+    known_as_of:
+      offset_seconds: 0
+      render: timestamp
+
+resolution:
+  # REIFICATION (`CP-SPEC-017` §0.1 claim 3): engagements, interactions,
+  # notes and positions are ENTITIES carrying a `classification` attribute,
+  # reached from the issuer by a typed edge the deployment mints, so that
+  # the Policy operator's substitution and `GQ-16` endpoint closure govern
+  # the principal-conditioned view. Every reified class carries
+  # `classification`; a class that lost it would be inadmissible.
+  entity_rules:
+    - match_key: issuer_node
+      entity_class: issuer
+      identity_keys: [entity_uri]
+      # `plan_json` is the served principal's OWN plan (it is entitled to
+      # it); `reg_fd_disclosure_json` is the outcome-B member; `ledger_t` is
+      # the source watermark. No crossing id and no restriction row ride
+      # here (§D.3 step 1.7).
+      attribute_keys: [lei, legal_name, legal_jurisdiction, entity_status,
+                       classification, reg_fd_disclosure_json, plan_json, ledger_t]
+    - match_key: family_node
+      entity_class: family_member
+      identity_keys: [entity_uri]
+      attribute_keys: [lei, legal_name, relation, classification]
+    - match_key: deal_node
+      entity_class: deal_engagement
+      identity_keys: [entity_uri]
+      attribute_keys: [deal_id, deal_type, stage, opened_date, mnpi_bearing, classification]
+    - match_key: interaction_node
+      entity_class: interaction
+      identity_keys: [entity_uri]
+      attribute_keys: [interaction_id, interaction_type, interaction_date, deal_id, classification]
+    - match_key: research_node
+      entity_class: research_note
+      identity_keys: [entity_uri]
+      attribute_keys: [note_id, title, authored_date, status, classification, body, content_hash]
+    - match_key: position_node
+      entity_class: position
+      identity_keys: [entity_uri]
+      attribute_keys: [position_id, book, quantity, as_of, classification]
+
+    # Endpoint rules. NO attribute keys: an edge asserts that two nodes are
+    # related and nothing about what either node IS (`D-IMPL-316`).
+    - {match_key: issuer_subject, entity_class: issuer,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: subject_uri}}
+    - {match_key: family_object, entity_class: family_member,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+    - {match_key: deal_object, entity_class: deal_engagement,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+    - {match_key: interaction_object, entity_class: interaction,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+    - {match_key: research_object, entity_class: research_note,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+    - {match_key: position_object, entity_class: position,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+
+  relationship_rules:
+    - {relationship_type: hasDealEngagement, predicate_key: predicate,
+       subject_entity_class: issuer, object_entity_class: deal_engagement,
+       subject_rule: issuer_subject, object_rule: deal_object}
+    - {relationship_type: hasMnpiEngagement, predicate_key: predicate,
+       subject_entity_class: issuer, object_entity_class: deal_engagement,
+       subject_rule: issuer_subject, object_rule: deal_object}
+    - {relationship_type: hasInteraction, predicate_key: predicate,
+       subject_entity_class: issuer, object_entity_class: interaction,
+       subject_rule: issuer_subject, object_rule: interaction_object}
+    - {relationship_type: hasPublishedResearch, predicate_key: predicate,
+       subject_entity_class: issuer, object_entity_class: research_note,
+       subject_rule: issuer_subject, object_rule: research_object}
+    - {relationship_type: hasPosition, predicate_key: predicate,
+       subject_entity_class: issuer, object_entity_class: position,
+       subject_rule: issuer_subject, object_rule: position_object}
+    - {relationship_type: owns, predicate_key: predicate,
+       subject_entity_class: issuer, object_entity_class: family_member,
+       subject_rule: issuer_subject, object_rule: family_object}
+    - {relationship_type: controls, predicate_key: predicate,
+       subject_entity_class: issuer, object_entity_class: family_member,
+       subject_rule: issuer_subject, object_rule: family_object}
+
+# ---------------------------------------------------------------------------
+# λ_c — five served classes decay supersede-only; one decays on a curve.
+# ---------------------------------------------------------------------------
+#
+# ILLUSTRATIVE CALIBRATION. This example runs against a point-in-time
+# demonstration estate rather than continuously refreshed production data.
+# Freshness half-lives and related thresholds are calibrated to make the
+# governed behavior observable in that snapshot. They demonstrate how the SDK
+# applies these controls and should not be interpreted as recommended
+# production coverage-policy thresholds.
+#
+# The `position` row: the vault's ~1 hour is unobservable on a date-grained
+# `as_of` (every position is 0 to 2 whole days old at any instant), so
+# 86,400 s is the smallest value at which the freshness term still
+# discriminates between three real subjects at the pinned instant
+# (`CP-SPEC-017` §C.4 trap 7, §E.1); `MWE-G12` asserts the ordering, never
+# the number. Wall state, the restricted list and embargo windows have no row
+# because they are envelope INPUTS consumed at acquisition, not served
+# observations (`CP17-F-05`).
+half_life:
+  issuer:
+    decay: supersede-only
+    decay_driver: reference-data-maintenance
+    supersession_event: gleif-record-update
+  family_member:
+    decay: supersede-only
+    decay_driver: ownership-filing
+    supersession_event: superseding-ownership-assertion
+  deal_engagement:
+    decay: supersede-only
+    decay_driver: deal-stage-change
+    supersession_event: stage-or-classification-supersession
+  interaction:
+    decay: supersede-only
+    decay_driver: crm-correction
+    supersession_event: superseding-interaction-record
+  research_note:
+    decay: supersede-only
+    decay_driver: publication
+    supersession_event: draft-published-or-note-withdrawn
+  position:
+    half_life_seconds: 86400
+    decay_basis: valid-from
+    decay_driver: intraday-trading
+    supersession_event: next-position-snapshot
+
+debt_profile:
+  risk_sensitivity: "1.0"
+  forced_llm_threshold: "0.60"
+  fail_closed_threshold: "0.95"
+
+policy:
+  class_id: cp-17.policy-bundle
+  role: register
+  registration: typed
+  regime: mnpi-wall-credential-envelope
+
+# The in-process default and the one principal the standard door derives its
+# own entitlement for; the three-principal policy the deployment registers
+# after `open_door` returns supersedes it (`CP-SPEC-017` §D.3 step 0).
+default_perspective:
+  principal_id: PRIN-COV-001
+  role: coverage-banker
+
+replay:
+  record_class: ccf.replay-record
+  query_pin_class: ccf.graph-query
+  store_dirname: artifact-store
+
+# THE TTL THIS PRODUCT DECLARES: the vault's one-hour window from the decision
+# instant; the class ceiling is `[TBC — this build]` proposed at four hours
+# (`CP-SPEC-017` §F.2 row 4).
+ttl:
+  max_ttl_seconds: 14400
+  product_ttl_seconds: 3600
+
+# THE STANDARD DOOR'S OWN VALUES (`D-IMPL-343`). The credentials, the
+# perspective resolver and the three-grant entitlement policy are the door's
+# three typed overrides, composed in `server/serve.py`; nothing about a
+# principal, a token or an address lives here.
+door:
+  producer_id: cp-17-mnpi-wall-egress
+  producer_tenant: cp-17-demo
+  required_scope: ccf:egress
+  tool_description: >-
+    Answer one MNPI-wall question as a governed, content-addressed Context
+    Product (`cib.mnpi-wall`): the issuer named by `subject` as the verified
+    credential's role may see it — deal engagements and interactions for the
+    coverage banker over the wall, published research for the research
+    analyst, positions for the trader — with `known_as_of` as the control
+    room's assertion-time clock. One address; the product differs by
+    credential, never by a parameter.
