@@ -189,7 +189,7 @@ plus an accepted-limitation-needs-ruling on the design-record class. **Behaviora
 or the class exemption at its stated cost); (2) confirm the 11 living sites are converted; (3)
 for the 16 sites with no covering symbol, re-resolve at the citing SHA or bare path.
 
-### D — `tests/peering/test_admission_record.py::test_claims_py_is_unchanged_so_reading_a_cannot_creep_back_in` (1 node)
+### D — `tests/peering/test_admission_record.py` `::test_claims_py_is_unchanged_so_reading_a_cannot_creep_back_in` (1 node)
 
 **Invariant.** `D-IMPL-58` (Dave, 2026-07-27), reading (d): the merged federated lineage of an
 admitted peered product lives in an immutable `AdmissionRecord` at the admission boundary; reading
@@ -379,7 +379,7 @@ immutable candidate → single-invocation `make test` → applicable substrate a
 
 ### D — peering claims.py hash pin (1)
 
-- `tests/peering/test_admission_record.py::test_claims_py_is_unchanged_so_reading_a_cannot_creep_back_in`
+- `tests/peering/test_admission_record.py` `::test_claims_py_is_unchanged_so_reading_a_cannot_creep_back_in` — as named at commit `eef849cc`; the repair package renamed it `test_lineage_entry_holds_reading_d_so_reading_a_cannot_creep_back_in`
 
 ### E — CP-14 process-order isolation (1)
 

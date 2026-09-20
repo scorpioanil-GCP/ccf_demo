@@ -36,9 +36,9 @@ Every hop, on `main @ c5aaba0d`, for the wrapper reproduction:
 1. The consumer's child resolver calls the producer's MCP tool with the wire question.
 2. The egress tool handler builds the typed `ProductRequest` verbatim from the wire and
    calls the resolver it was built with — `resolver(...)` at
-   `runtime/ccf_runtime/mcp/egress.py:1225`.
+   `runtime/ccf_runtime/mcp/egress.py::_answer_question`.
 3. The resolver is the wrapper adapter's `resolve`
-   (`examples/door-cp-05-credit-exposure-rollup/adapter.py:159`), which, after its own
+   (`examples/door-cp-05-credit-exposure-rollup/adapter.py::ExposureProducer.resolve`), which, after its own
    two recorded pre-assembly refusals and the instant guard, calls the frozen specimen's
    low road: `prod.produce_governed(...)` at `adapter.py:209`.
 4. `produce_governed` (`examples/cp-05-credit-exposure-rollup/produce.py:136`) calls the
@@ -57,21 +57,21 @@ Every hop, on `main @ c5aaba0d`, for the wrapper reproduction:
 7. The exception propagates through the adapter untouched.
 8. The door's failure clause catches it — `except (ValueError, TypeError, LookupError,
    OSError)` at `runtime/ccf_runtime/mcp/egress.py:1254` — and `_opaque_failure`
-   (`runtime/ccf_runtime/mcp/egress.py:742`) logs it under a fresh id and raises
+   (`runtime/ccf_runtime/mcp/egress.py::_opaque_failure`) logs it under a fresh id and raises
    `ToolError("ccf-runtime-failure:<id>")`. By that function's own docstring this is the
    right treatment for *"CCF or its runtime failed"*; it is the wrong treatment for a
    determination the fabric made.
 9. The consumer's child resolver reads the tool error as the producer having given no
    governed answer and records the row as `producer-unavailable`
-   (`src/ccf/products/child_resolver.py:314`).
+   (`src/ccf/products/child_resolver.py::GrantBoundChildResolver._admit`).
 
 **The contrast that locates the gap.** The SDK's canonical resolver runs the same
 resolution seam and, on a refusal, RECORDS it through the one recorder with
 `resolution=` the partial evidence and returns the envelope as data
-(`src/ccf/products/resolver.py:2785` — the record call whose docstring quotes
+(`src/ccf/products/resolver.py::GovernedResolver._record_refusal` — the record call whose docstring quotes
 `D-IMPL-264` amendment 1: no layer may manufacture the not-applicable marker from
 omission). And the paved road resolves the effective request BEFORE it calls the
-deployment's acquisition seam (`src/ccf/products/resolver.py:2027`), so a paved product
+deployment's acquisition seam (`src/ccf/products/resolver.py::GovernedResolver.__call__`), so a paved product
 never resolves by hand and never reaches this path.
 
 **So, precisely, where the SDK gap is — and where it is not.**
@@ -84,9 +84,9 @@ never resolves by hand and never reaches this path.
   1. **No typed channel for a raised governed refusal.** The door's contract with a
      resolver is: return a `ServedProduct` or a recorded `RefusalEnvelope`; raise for a
      fault. The only typed exception the door governs is `ProductNotServable`
-     (`runtime/ccf_runtime/mcp/egress.py:348`, caught at `:1233` and turned into a
+     (`runtime/ccf_runtime/mcp/egress.py::ProductNotServable`, caught at `:1233` and turned into a
      recorded determination by `govern_absence` at
-     `runtime/ccf_runtime/authz/delivery_boundary.py:217`). A low-road composition root
+     `runtime/ccf_runtime/authz/delivery_boundary.py::govern_absence`). A low-road composition root
      or adapter that holds a refusal value in a place from which it cannot *return* it
      (inside a producer's own spine, as here) has no SDK-typed way to raise it that the
      door will recognize as governed.
@@ -122,12 +122,12 @@ class GovernedRefusalRaised(Exception):
 `resolution` is **required**, in `D-IMPL-264` amendment 1's words: the raiser states
 the effective (partial) resolution it holds, or the explicit not-applicable marker; no
 layer manufactures the marker from omission. `ResolutionNotApplicable` already exists
-(`src/ccf/replay/record.py:292`).
+(`src/ccf/replay/record.py::ResolutionNotApplicable`).
 
 ### 3.2 The door converts exactly that type, before its failure clause
 
 In the egress tool handler, immediately before the generic clause at
-`runtime/ccf_runtime/mcp/egress.py:1254`:
+`runtime/ccf_runtime/mcp/egress.py::_answer_question`:
 
 ```
 except GovernedRefusalRaised as raised:
@@ -164,7 +164,7 @@ The paved road hands the deployment's `acquire(context)` the effective request a
 nothing can refuse there today except by raising; `CP13C-F-03` records the covenant
 successor's two acquisition exceptions (`UnknownCovenantSource`, `ScopeNotEntitled`)
 propagating through `opened.answer` for exactly that reason. The same typed exception,
-caught by `GovernedResolver` around the acquisition seam (`src/ccf/products/resolver.py:2027`)
+caught by `GovernedResolver` around the acquisition seam (`src/ccf/products/resolver.py::GovernedResolver.__call__`)
 and recorded with `resolution=` the effective request it already holds, would give a
 deployment a way to say *this is a refusal* from inside acquisition without the SDK
 guessing.

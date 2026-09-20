@@ -45,7 +45,7 @@ document is at **HEAD `1e22dae2`**, re-measured.
    relocates it into `src/`.** The resolver's constraint resolution performs audited
    Control Plane reads; a preview runs them twice per question. Only an acquisition
    seam on the governed call satisfies `D-IMPL-289`. Ruling `R-4`.
-4. `examples/cp-04-canonical-corporate-family-tree/deployment.py:88-97` mints a
+4. `examples/cp-04-canonical-corporate-family-tree/deployment.py` mints a
    **fixed** substrate path — the exact shape CP03C-F-02 measured serving one
    obligor's spread for another. Recorded in §4 as a duplication site with a defect
    weight; it is the P2 responsibility the paved road takes over. Not edited here.
@@ -152,7 +152,7 @@ machinery.
   `outcome.refusal`.
 - **SDK API:** `ReferencePolicyConstraintResolver`, `resolve_effective_request`;
   the resolver's own derivation is inline in `GovernedResolver.__call__`
-  (`resolver.py:1813` `refuse_intent`, `:1845` `constraint_resolver.resolve`,
+  (`resolver.py::GovernedResolver.__call__` `refuse_intent`, `:1845` `constraint_resolver.resolve`,
   `:1917` effective request), built with `product_entitlement_key(tenant)`
   (`:3460`) and `_capabilities_of(fabric)` (`:3479`). **No preview or dry-run method
   exists** (grep `def effective|preview|resolve_effective|dry_run` in
@@ -246,7 +246,7 @@ machinery.
   (§4).
 - **Failure modes:** a gate declared without a predicate is refused (good); an
   address the resolver was never wired for is an exception, i.e. a broken
-  deployment (`resolver.py:355-361`); a wrong key is silent until the first request.
+  deployment (`resolver.py::ProductNotResolvable`); a wrong key is silent until the first request.
 - **Classification:** **SDK mechanism** — the developer legitimately supplies only
   the factory, the scorer and the gate predicate.
 
@@ -257,10 +257,10 @@ machinery.
   `serve.py:277-282` `root/replay`), two `ReplayRefusalRecorder`s in the door
   (`serve.py:182-193`, `:305-311`), record readback by
   `DecisionReplayRecord.model_validate_json(store.get(...))`.
-- **SDK API:** `ReplayBinding` (`replay:` section; `artifacts.py:599`,
+- **SDK API:** `ReplayBinding` (`replay:` section; `artifacts.py::ReplayBinding`,
   `_RESERVED_SECTIONS["replay"]`) — **exists and is unused by this tree** (no
   `replay:` in its config); the resolver builds its own recorder
-  (`resolver.py:3494-3510`) and exposes it as `refusal_recorder` (`:1586`);
+  (`resolver.py::build_governed_resolver`) and exposes it as `refusal_recorder` (`:1586`);
   `recorded_boundary` checks only structural conformance.
 - **Duplicated authority:** record class 2× (3× in cp-05); two stores per door
   process; three recorders per door process.
@@ -286,7 +286,7 @@ machinery.
   seven comment lines between cp-06 and cp-07.
 - **Failure modes:** a stale `ProductRequestViolation` constructor leaves the door
   as `ccf-runtime-failure:<id>` (CP03C-F-07: pydantic's `ValueError` is caught at
-  `egress.py:1254` into `_opaque_failure`); cp-06's door never compares class or
+  `egress.py::_answer_question` into `_opaque_failure`); cp-06's door never compares class or
   lane and answers a wrong address with its own product; a door that prints makes
   two printers (spine-separation P6); stdio auth pre-set on HTTP admits every
   caller; an uncreated assembly root fails as transport.
@@ -320,7 +320,7 @@ machinery.
   mapping, the `refused` closure.
 - **SDK API:** `ProductRequestViolation` (`request.py:1503-1568`; reasons
   `:232-242`), `envelope_for`/`RequestIdentity`, the egress handler passing
-  parameters verbatim (`egress.py:1174-1200`), `WireRequest` decode
+  parameters verbatim (`egress.py::_answer_question`), `WireRequest` decode
   (`D-IMPL-302`, `DECODED_DECLARED_TYPE = "number"`).
 - **Duplicated authority:** the door re-types what the SDK decodes and adds
   coercions the SDK refuses (a float for `debt_tolerance`); a second request
@@ -367,13 +367,13 @@ test modules only.
   (`:131-134`, `:307-308`); a bearer `httpx` client factory (`:178-196`, 19 lines);
   `register_declared_producer(...)` (`:309-315`).
 - **SDK API:** `MCP_PRODUCER`/`parse_artifact`, `register_declared_producer`
-  (`producers.py:75-115`), `McpSkillRegistry`, `SyncMcpBridge`; the `producers:`
+  (`producers.py::register_declared_producer`), `McpSkillRegistry`, `SyncMcpBridge`; the `producers:`
   section derives and validates one artifact per label (`config.py:739-756`) and
   **registers nothing** (`DECISIONS.md:3859` residual 3).
 - **Duplicated authority:** `SERVER_NAME` in the registration and the binding;
   `producer_id`/`producer_tenant` copied from the producer's documents by hand.
 - **Failure modes:** `credential_factory=None` requires the credential variable to be
-  set **and empty** (`producers.py:93-97`); an unregistered server or an unoffered
+  set **and empty** (`producers.py::register_declared_producer`); an unregistered server or an unoffered
   class is an exception at dispatch, not a governed refusal.
 - **Classification:** the values are **deployment**; registering is **SDK mechanism**
   the consumer restates because the section is unwired.
@@ -384,12 +384,12 @@ test modules only.
   `McpProductBinding(server, product_class, product_version)`, empty
   `SkillRequirements`, `produces`.
 - **SDK API:** `SkillCatalog.register` (returns `str | RegistrationRefusal`,
-  `catalog.py:699-712`), `McpProductBinding`, the `produces == binding.product_class`
+  `catalog.py::SkillCatalog.register`), `McpProductBinding`, the `produces == binding.product_class`
   validator.
 - **Duplicated authority:** `PRODUCT_VERSION` in the binding, the registration and
   `consumes`; the class in `produces` and the binding.
 - **Failure modes:** a name held by a producer is refused; `artifact_version` must
-  be semver (`catalog.py:630-633`); every value except `description` is determined
+  be semver (`catalog.py::SkillCatalogEntry._versions_are_semver`); every value except `description` is determined
   by the registration plus the requirement — yet `D-IMPL-56` and `D-IMPL-29` ruled
   that the **entry** declares `description`, `argument_schema` and `requirements`
   (`R-7`).
@@ -427,7 +427,7 @@ test modules only.
   home (`deployment.py:136`, the spec, the test).
 - **Failure modes:** a wrong mapping is refused at serve, never at boot; only the
   spread judges intent — the other four CP-14 children declare no `discovery`, so a
-  nonsense intent passes unjudged (`request.py:2057-2058`).
+  nonsense intent passes unjudged (`request.py::refuse_intent`).
 - **Classification:** **domain** — the one genuinely product-specific consumer
   artifact.
 
@@ -436,7 +436,7 @@ test modules only.
   gate, child_questions, callable_registry=CallableRegistry(), artifact_store,
   mcp_skills=registry)` (`test:317-325`) and `GovernedResolver(**arguments,
   composite_children=, admission_clock=)` where `arguments` is
-  `tests/products/test_resolver_seam.py:2106-2181` — a **test fixture** restating
+  `tests/products/test_resolver_seam.py::_arguments` — a **test fixture** restating
   ≈ 20 keywords including the recorder's store/class/bundle pin.
 - **SDK API:** `QuestionBoundChildResolver` (`child_resolver.py::QuestionBoundChildResolver`), the
   composite keywords on `GovernedResolver`.
@@ -466,7 +466,7 @@ test modules only.
 
 ### C9 · Composition
 - **Adopter writes:** nothing.
-- **SDK API:** `GovernedResolver.__call__`'s composite path (`resolver.py:1965-2069`):
+- **SDK API:** `GovernedResolver.__call__`'s composite path (`resolver.py::GovernedResolver.__call__`):
   per-factor debt minimum (`D-IMPL-31`/`D-IMPL-104`), lineage set-union, expiry
   floor, mixing refusal.
 - **Duplicated authority:** none.
@@ -481,9 +481,9 @@ test modules only.
   address, the child row, the retained child; `child_replay_ref` is a producer URI
   the consumer cannot resolve (`:430-434`).
 - **SDK API:** `DecisionReplayRecord.content_generation_path.child_resolutions`
-  (`record.py:910-1008`), `FileArtifactStore.get`/`resolve_uri`; re-execution via
+  (`record.py::ChildResolution`), `FileArtifactStore.get`/`resolve_uri`; re-execution via
   `replay()` reaches the private `_operator_parameters`
-  (`tests/crossproc/test_d_impl_340_cross_deployment.py:495`).
+  (`tests/crossproc/test_d_impl_340_cross_deployment.py::test_replay_names_the_producer_relationship_and_calls_no_producer`).
 - **Duplicated authority:** two read idioms.
 - **Failure modes:** none governed; the private reach is the gap.
 - **Classification:** reading is **SDK mechanism**; re-execution stays
@@ -505,7 +505,7 @@ Python, from fixtures the SDK does not ship.**
 | P1″ | Source connection material, door credential, substrate location | developer (`backends.yaml`, `door.yaml`) | deployment | **DEPLOYMENT** |
 | P2 | Boot, per-question substrate, handle lifecycle | developer | SDK | **SDK MECHANISM** |
 | P2′ | Naming the dev substrate (prefix/suffix values) | developer (`backends.yaml`) | deployment (values); the SDK mints, never names a backend in `src/` (cinv04) | **DEPLOYMENT** |
-| P2″ | A long-lived, pre-populated or non-SQLite L3 (per-process lifecycle: hw1, `tests/crossproc/servers/mcp_product_producer.py:208-283`) | developer, by hand | deployment, on the low road in v0 (§6 hatch 5; `R-3` names the consequence) | **ADVANCED-OPTIONAL** |
+| P2″ | A long-lived, pre-populated or non-SQLite L3 (per-process lifecycle: hw1, `tests/crossproc/servers/mcp_product_producer.py::build_server`) | developer, by hand | deployment, on the low road in v0 (§6 hatch 5; `R-3` names the consequence) | **ADVANCED-OPTIONAL** |
 | P3 | Effective-request derivation | developer re-runs the resolver | SDK, once | **SDK MECHANISM** |
 | P4 | Source acquisition (queries, vocabulary) | developer | developer | **DOMAIN** |
 | P4′ | Resolving declared source names to values | developer | SDK | **SDK MECHANISM** |
@@ -672,7 +672,7 @@ for the low road: `build_arguments(fabric) -> Mapping` (the exact keyword mappin
   Mapping[str, Mapping[str, str]], instant: datetime)` — `instant` is the question's
   `asked_at`, exposed so an SDK L1 adapter used inside `acquire` can be constructed
   with `clock=lambda: context.instant` (the adapters stamp `ingestion_timestamp` from
-  a clock: `signal/acquisition.py:235`, `signal/mcp_source.py:172`).
+  a clock: `signal/acquisition.py::FileRecordAcquisitionSource.envelopes`, `signal/mcp_source.py:172`).
 - `AssessmentContext(view, evidence, decided_at, half_life, profile, children:
   ChildContractView | None)`.
 
@@ -681,7 +681,7 @@ companion scorer Protocol `InstantAwareDebtScorerProtocol.score_at(view, evidenc
 decided_at, children)` on the `D-IMPL-339` precedent, so the decision instant and
 the admitted children reach a deployment's scorer without the facade re-deriving
 `_decision_instant`'s rule (`R-3c`). Adopting it needs one hoist in `__call__`:
-today `assessed` is computed at `resolver.py:2137-2143` and `decided_at` bound after
+today `assessed` is computed at `resolver.py::GovernedResolver.__call__` and `decided_at` bound after
 it at `:2150`; the hoist is inside the body whose regression check is "every shipped
 canonical content address unchanged", and the seam test gains a
 `decided_at`-before-scoring assertion.
@@ -704,18 +704,18 @@ canonical content address unchanged", and the seam test gains a
 2. **Resolve the effective request once.** This is `R-4`. Recommended shape (a):
    `build_governed_resolver(..., acquisition=self._acquisition_seam)` — the resolver
    runs `refuse_intent` and `constraint_resolver.resolve` exactly as today
-   (`resolver.py:1813-1917`), then hands the **effective** request to the seam
+   (`resolver.py::GovernedResolver.__call__`), then hands the **effective** request to the seam
    before it builds the view. The seam is the facade's closure: it calls the
    deployment's `acquire(AcquisitionContext(...))`, runs `refuse_foreign_envelope`
    (tenant mismatch or `ingestion_timestamp != asked_at`, refused by name — the
    as-of boundary must not precede a claim's observation, CP03C-F-08), and ingests
    through `fabric.handle.worker.ingest` — **L2 writes; the resolver holds no
-   writer and hands no envelope to it** (`resolver.py:1337-1345` stays true; the
+   writer and hands no envelope to it** (`resolver.py::GovernedResolver` stays true; the
    facade is the producer-side composition root, the role every `produce.py` and
    hw1's `compose.py` play today). A refused request acquires nothing because the
    seam is reached only after resolution succeeds. Shape (b) — a
    `GovernedResolver.effective_request` preview — is the fallback and doubles the
-   audited reads (`constraints.py:1344`, `:1698`); §14 `R-4` puts the choice to Dave.
+   audited reads (`constraints.py::constraints_in_force`, `:1698`); §14 `R-4` puts the choice to Dave.
 3. **Build the resolver** via the EXISTING `build_governed_resolver(**self.build_arguments(fabric))`:
    keys from `fabric.keys` (new `DeploymentKeys`, the section→key mapping the
    `SpreadScenario`s restate); `max_ttl_seconds`/`product_ttl_seconds` from the
@@ -724,7 +724,7 @@ canonical content address unchanged", and the seam test gains a
    shape); `artifact_store` and the two classes from `replay:` (`R-12`, unchanged
    precedence); **one** recorder — `declared_refusal_recorder(fabric, replay,
    store)` passed through a NEW `refusal_recorder=` keyword on the builder (today it
-   constructs its own at `resolver.py:3494-3510`, so the door cannot share it);
+   constructs its own at `resolver.py::build_governed_resolver`, so the door cannot share it);
    `plan_factory=project`; `debt_scorer=` an adapter over `assess`; `product_gate=gate`;
    `decision_instant_parameter` from the declaration (`R-3b`); `capabilities`,
    `constraint_resolver`, `approval_sink` pass-throughs; and for a composite the
@@ -766,7 +766,7 @@ product_tool_description=door.tool_description, producer_id=door.producer_id,
 producer_tenant=<R-6>)`.
 
 **Remote request handling on the road** (`OpenedProduct.resolve`): parameters cross
-the door **verbatim** (`egress.py:1174-1200`; `D-IMPL-264` D-04, `D-IMPL-302`) —
+the door **verbatim** (`egress.py::_answer_question`; `D-IMPL-264` D-04, `D-IMPL-302`) —
 there is no `_typed` (`R-8` records the behavior change for the canonical tree);
 the wrong-address verdict is one site in `src/` built against the current
 `ProductRequestViolation` contract. **Its reach, verified:** `_answer_question` runs
@@ -775,7 +775,7 @@ policy permits exactly `{schema_name}`, so a **wrong class** is denied by
 entitlement at the door and a **wrong lane** reaches `resolve()` and is refused
 `class-mismatch` at `key="schema_version"` with a record — `R-9` records that this
 is the "bad question" reading of `D-IMPL-253` Q15 rather than the resolver
-docstring's "broken deployment" reading (`resolver.py:355-361`).
+docstring's "broken deployment" reading (`resolver.py::ProductNotResolvable`).
 
 ### 5.5 · The consumer surface — the same object, three more declarations
 
@@ -798,7 +798,7 @@ name at open when inconsistent, from EXISTING mechanisms:
   ambiguity rule reachable only through `children=`). `artifact_version` is the
   registration document's own `semver` (`config.py:747` sets it from
   `config.semver`), never a content hash — `SkillCatalogEntry.artifact_version` is
-  semver-validated (`catalog.py:630-633`). `description`, `argument_schema` and
+  semver-validated (`catalog.py::SkillCatalogEntry._versions_are_semver`). `description`, `argument_schema` and
   `requirements` are `R-7`: the design does **not** decide them in `src/`.
 - **Grant** (C4): one `SkillGrant(agent_definition_hash=content_hash(agent), …)`
   per entry through `GrantLedger.request` with the derived regime
@@ -941,7 +941,7 @@ context. `server/serve.py` → `serve()` and `loopback(announce)` over `open_doo
 configuration**: the `candidate` it already receives carries `expires_at` and
 `temporal_boundary` (fields of `contract.py::ContextProductContract`), and for a class without a
 decision-instant parameter `expires_at − temporal_boundary` IS the declared window
-(`resolver.py:2245-2249`). So the window is read once, from the served contract —
+(`resolver.py::GovernedResolver.__call__`). So the window is read once, from the served contract —
 not re-parsed in `produce.py`, not bound in a second step. Recorded beside it: the
 gate exists only because `expires_at` is decision-anchored (CP03C-F-01); when
 `D-IMPL-341` lands, the serving half is deleted, not moved.
@@ -969,8 +969,8 @@ door verbatim — a hand-typed `"periods": "8"` is refused `type-mismatch` where
 `_typed` coerced (the SDK consumer sends JSON numbers and decimal text, so OFC-G16/G23
 are unaffected); (b) one registry per product makes the door's entitlement policy
 visible to every per-question resolver: resolver refusals through the door now
-**disclose under the policy** (`resolver.py:886-900`) and `_entitlement` performs an
-audited read on every override attempt (`constraints.py:1698`) — the content address
+**disclose under the policy** (`resolver.py::_disclosure_reader`) and `_entitlement` performs an
+audited read on every override attempt (`constraints.py::ReferencePolicyConstraintResolver._entitlement`) — the content address
 is unaffected (lineage reads operators, policy version and snapshot; no contract
 field reads the entitlement key), but OFC-G16..G22's refusal transcripts and the
 audit log differ; (c) per-question boot into one registry writes one audit row per
@@ -1005,7 +1005,7 @@ derivation); `replay:`, `ttl:`, `door:` (≈ 17; CP-14 is itself consumable);
 questions=questions)`. **The composite factory — the class carrying
 `build_with_children` — is defined in the module that calls `open_product`
 (CP-14's `produce.py`)**, because gate-two condition 3
-(`test_gate_two_call_shape.py:3084-3120`) scans the factory's own module for the
+(`test_gate_two_call_shape.py::_delegates_the_seam_to_the_resolver`) scans the factory's own module for the
 entrypoint; the projection plan class itself may live in `projection.py`.
 
 **Consumer non-domain total (estimate):** 1 keyword + ≈ 25 YAML lines once + ≈ 10
@@ -1047,16 +1047,16 @@ optional (equality-checked against `ttl:` when both given) and gains
 `None` (the manifest form sets nothing — its runtime callers to be read at
 implementation); three hash-transparent optional `DeploymentConfig` fields (`ttl`,
 `door`, and the agent document reference per `R-2`) on the `replay` precedent
-(`artifacts.py:2189-2191`, held by
+(`artifacts.py::DeploymentConfig.replay`, held by
 `tests/contracts/test_hash_transparency.py::test_a_config_naming_no_replay_binding_hashes_as_it_did`);
 one hash-transparent optional field on `ProductClassDeclaration`
-(`decision_instant_parameter`, the `requires` precedent at `artifacts.py:1507`);
+(`decision_instant_parameter`, the `requires` precedent at `artifacts.py::ProductClassDeclaration.requires`);
 `InstantAwareDebtScorerProtocol` is a structural companion no existing scorer
 implements, so no existing branch changes; new modules only otherwise.
 
 **Configuration.** `_RESERVED_SECTIONS` gains `ttl` and `door` (`R-9`/`R-10`);
 `SDK_ARTIFACT_CLASSES` gains `ccf.ttl-binding` and `ccf.egress-door`
-(`tests/deployment/test_config_derivation.py:122-132` requires it); the composing
+(`tests/deployment/test_config_derivation.py::test_reserved_section_table_ccf_ids_are_all_sdk_artifact_classes` requires it); the composing
 agent follows `R-2`; `producers:` gains no field unless `R-13` rules `lane`; no
 committed `ccf_config.yaml` uses `ttl:` or `door:` as a key (unknown keys were
 already refused, so none could).
@@ -1121,7 +1121,7 @@ scorer) with the shipped canonical content addresses as the regression check.
   `substrate_names.py` (cinv04) is satisfied because `src/` names no backend
   (§5.3 step 1); a new invariant test that no `src/` module other than the facade
   and `ccf.assembly`/`ccf.boot` reaches `handle.worker` — the writer lint
-  (`harness_imports.py:145-168`) guards imports only, so the composition-root role
+  (`harness_imports.py::WRITER_OK_MODULES`) guards imports only, so the composition-root role
   needs its own control.
 
 ---
@@ -1214,7 +1214,7 @@ scorer) with the shipped canonical content addresses as the regression check.
 7. **Dogfood identity:** the demonstration content address byte-identical before
    and after; OFC-G01..G27 green by the same node ids; dimension 2 differs by
    exactly the `replay`, `ttl`, `door` pins — traced at implementation to
-   `_register_and_boot`'s pin list (`manifest.py:490-533`), not assumed.
+   `_register_and_boot`'s pin list (`manifest.py::register_manifest_entries`), not assumed.
 8. **Structural gates:** `shape_of(cp-03-canonical) == "paved"`;
    `shape_of(cp-04-canonical) == "canonical"`; the synthetic paved tree is `"paved"`
    and problem-free; a tree calling both `open_product` and `build_governed_resolver`
@@ -1288,12 +1288,12 @@ requires. **Repeated evidence raises priority.**
 - **B-03 · A Control Plane home for the reference scorer's declared C/S.** *capability:* `assess=None` on the road. *evidence:* hw1's `binding.yaml debt:` carries them outside the Control Plane; every ladder producer authors its own scorer. *current path:* author `assess`. *friction:* ≈ 30 lines per tree of scorer boilerplate for trees that want the reference rule. *impact:* simple producers. *launch necessity:* §C — NO; the road works with an authored scorer. *scope/risk:* a `D-IMPL-292`-shaped declaration. *release:* post-launch.
 - **B-04 · `ProductGateProtocol` receiving the class's declared bindings.** *capability:* a gate that reads declared values without deriving them from the candidate. *evidence:* cp-03-canonical's window. *current path:* `expires_at − temporal_boundary`. *friction:* one derivation, documented. *impact:* gates over declared values other than TTL. *launch necessity:* NO. *scope/risk:* touches `R-11`'s Protocol. *release:* post-launch, or deleted by B-01.
 - **B-05 · Refuse `from_entity_freshness` with an `observed-at` scored row at derivation.** *capability:* CP03C-F-08 impossible by declaration. *evidence:* eight trees declare the anchor with no basis. *current path:* the author remembers. *friction:* a silent F = 1. *impact:* every entity-anchored producer. *launch necessity:* §C step 2 — arguably YES; recommended for the SDK phase as one derivation-time refusal (≈ 10 lines) if Dave folds it in, else post-launch. *scope/risk:* derivation only; frozen trees are not edited (they would read red — evidence, per `D-IMPL-261`). *release:* SDK phase if ruled in; else next.
-- **B-06 · A declared home for the request `freshness` vocabulary.** *capability:* `ProductDiscovery` carries freshness tokens. *evidence:* `filing-cadence` lives in code, spec and test. *current path:* a literal. *friction:* one unjudged token. *impact:* producers and their consumers' mappings. *launch necessity:* NO. *scope/risk:* `contract.py:389-404`. *release:* post-launch.
+- **B-06 · A declared home for the request `freshness` vocabulary.** *capability:* `ProductDiscovery` carries freshness tokens. *evidence:* `filing-cadence` lives in code, spec and test. *current path:* a literal. *friction:* one unjudged token. *impact:* producers and their consumers' mappings. *launch necessity:* NO. *scope/risk:* `contract.py::ProductDiscovery`. *release:* post-launch.
 - **B-07 · An explicit `lane` on a producer offer** (if `R-13` rules it). *capability:* the lane asked declared distinctly from the floor. *evidence:* the test binds `1.1.0` read off the producer's config. *current path:* `versions_from` read as the lane. *friction:* a floor-vs-address misread refused only at serve. *impact:* every `mcp_product` consumer. *launch necessity:* §C — YES if `R-13` selects it (it is a correctness-of-declaration gap). *scope/risk:* `ProducerOfferDeclaration`, hash-transparent. *release:* SDK phase under `R-13`.
 - **B-08 · The dangling `halflife_debt_profile` ref passes the ledger unchecked.** *capability:* the ledger resolves every ref on the definition. *evidence:* three consumer sites point at an unregistered artifact. *current path:* decorative. *friction:* a copier learns nothing. *impact:* every agent definition. *launch necessity:* NO (grant machinery, not 343's). *scope/risk:* `grants.py:663-664`. *release:* post-launch.
 - **B-09 · A `per-process` lifecycle and non-SQLite L3 on the paved road.** *capability:* `open_product` over a long-lived, CDC-fed fabric. *evidence:* hw1, the crossproc producer fixture, the stdio fixture. *current path:* the hw1 composition; the standard door via `ServesProducts`. *friction:* boot + builder by hand (≈ 60 lines). *impact:* production deployments. *launch necessity:* §C — NO for the examples; stated plainly in `R-3`. *scope/risk:* lifecycle semantics, single-writer. *release:* first post-launch enhancement.
-- **B-10 · `ReplayBinding` selecting an MCP-backed store.** *capability:* `replay:` alone binds a production store. *evidence:* `artifacts.py:640-650` limitation. *current path:* `artifact_store=`. *friction:* one keyword. *impact:* production. *launch necessity:* NO. *scope/risk:* `R-12`. *release:* post-launch.
-- **B-11 · `ccf product serve --root` and an HTTP-door builder over `door:`.** *capability:* a CLI verb on the EXISTING `product` noun (`runtime/ccf_runtime/cli/commands/product.py:32-35` already registers `product get`). *evidence:* six `serve.py` launchers. *current path:* an 8-line `server.py`. *friction:* 8 lines. *impact:* every producer. *launch necessity:* NO — tooling, excluded by ruling. *scope/risk:* the CLI's own §8.3 surfaces (`agent.py`, `skill.py`, `artifact.py`, `replay.py`) were not surveyed by the census and should be before any verb lands. *release:* post-launch.
+- **B-10 · `ReplayBinding` selecting an MCP-backed store.** *capability:* `replay:` alone binds a production store. *evidence:* `artifacts.py::ReplayBinding` limitation. *current path:* `artifact_store=`. *friction:* one keyword. *impact:* production. *launch necessity:* NO. *scope/risk:* `R-12`. *release:* post-launch.
+- **B-11 · `ccf product serve --root` and an HTTP-door builder over `door:`.** *capability:* a CLI verb on the EXISTING `product` noun (`runtime/ccf_runtime/cli/commands/product.py::register` already registers `product get`). *evidence:* six `serve.py` launchers. *current path:* an 8-line `server.py`. *friction:* 8 lines. *impact:* every producer. *launch necessity:* NO — tooling, excluded by ruling. *scope/risk:* the CLI's own §8.3 surfaces (`agent.py`, `skill.py`, `artifact.py`, `replay.py`) were not surveyed by the census and should be before any verb lands. *release:* post-launch.
 - **B-12 · Doors for cp-04-canonical and cp-13; 340-conforming doors for cp-05 and cp-06.** *capability:* CP-14's rows 2–5 acquirable. *evidence:* §8. *current path:* none. *friction:* ≈ 17 YAML lines + 8 code lines each on the paved road; frozen trees need rulings. *impact:* CP-14 only. *launch necessity:* CP-14's own gate, not the SDK's. *scope/risk:* rung work. *release:* after dogfood A, per rung.
 - **B-13 · A YAML lint for literal URLs/tokens in `ccf_config.yaml`.** *evidence:* `D-GATE-340` residual 4. *current path:* `parse_artifact` refuses at derivation. *friction:* none until a copier pastes a token. *launch necessity:* NO. *release:* post-launch.
 - **B-14 · Close the attribute-form hole in `test_spine_separation._qualified_calls`** (`:360-366` reads `ast.Name` callees only). *evidence:* the misconfiguration census. *current path:* OFC-G13's text grep on one tree. *friction:* a detector that can be evaded. *launch necessity:* NO. *release:* with the `R-1` widening if cheap, else post-launch.
@@ -1313,7 +1313,7 @@ amendment (one facade over the existing mechanisms; no second resolver, door,
 registry, ledger or gate); `D-IMPL-282` R-11 (gate declared + predicate supplied,
 both-or-neither), R-12 (the binding consumed exclusively on the road; precedence
 untouched on the low road), R-09 (acquisition through a declared interface; the
-resolver holds no writer — `resolver.py:1337-1345` unchanged); `D-IMPL-279` R-01
+resolver holds no writer — `resolver.py::GovernedResolver` unchanged); `D-IMPL-279` R-01
 (the wrong-address verdict in the spine-side adapter before transport);
 `D-IMPL-289` (every deleted line deleted because a declaration or the SDK's own
 derivation supplies it); `D-IMPL-253` Q13/Q18/Q20 (inherited through
@@ -1341,11 +1341,11 @@ harness imports).
   required of a paved tree. Vocabulary, no roster. **Recommend: rule as written.**
 - **R-2 · The composing agent as a declared document (`D-IMPL-85`/`D-IMPL-136`).**
   Measured: `ccf.agent-definition` is in `SDK_VERSIONED_ARTIFACT_CLASSES`
-  (`classes.py:209-210`), not in `SDK_ARTIFACT_CLASSES` (`:137`; the two are disjoint
+  (`classes.py::SDK_VERSIONED_ARTIFACT_CLASSES`), not in `SDK_ARTIFACT_CLASSES` (`:137`; the two are disjoint
   by construction, `:199`); the typed derivation injects `semver` (`config.py:435`)
   which `_TwoLaneVersioned` refuses; a reserved section defaults to `registration:
   typed` (`:400`) which `refuse_registration_the_sdk_fixes` (`:412`) refuses for an
-  author-versioned class; the guard test (`test_config_derivation.py:122-132`)
+  author-versioned class; the guard test (`test_config_derivation.py::test_reserved_section_table_ccf_ids_are_all_sdk_artifact_classes`)
   requires a typed class. Options: **(a) recommended** — a reserved-section
   mechanism for author-versioned classes: a third table member selecting the
   versioned path (no `semver` injection; `registration: versioned` fixed by the
@@ -1360,7 +1360,7 @@ harness imports).
   equality on the builder's two (now optional) keywords; (b)
   `decision_instant_parameter` on `ProductClassDeclaration` (hash-transparent),
   closing the "architecture question" 24.10-F-09 recorded at
-  `resolver.py:1436-1443`, with the builder keyword held equal; (c) `assess=` REQUIRED
+  `resolver.py::GovernedResolver`, with the builder keyword held equal; (c) `assess=` REQUIRED
   in v0 and `InstantAwareDebtScorerProtocol` as the way the instant and children
   reach a scorer. Also under R-3: confirm that the paved road accepts ONLY the
   per-question dev-backend lifecycle in v0, **with the stated consequence** that a
@@ -1368,7 +1368,7 @@ harness imports).
   lifecycle (B-09). **Recommend: all as written.**
 - **R-4 · One resolution per question (`D-IMPL-282` R-09 / `D-IMPL-289`).** A
   preview method relocates the double derivation into `src/` and doubles the audited
-  Control Plane reads (`constraints.py:1344`, `:1698`). Options: **(a) recommended**
+  Control Plane reads (`constraints.py::constraints_in_force`, `:1698`). Options: **(a) recommended**
   — an `acquisition=` seam on the governed call: the resolver resolves the effective
   request once, hands it to the declared seam, the facade acquires and ingests
   through L2, the same call continues; the resolver still hands no envelope to a
@@ -1401,7 +1401,7 @@ harness imports).
   canonical tree's door coerced. The ruled behavior, but a change to a shipped door
   — stated for the record. **Recommend: accept.**
 - **R-9 · A wrong lane at a door is a bad question (`D-IMPL-253` Q15).** The
-  resolver's docstring (`resolver.py:355-361`) classifies a wrong address as a
+  resolver's docstring (`resolver.py::ProductNotResolvable`) classifies a wrong address as a
   broken deployment; the two shipped doors already treat it as a governed
   `class-mismatch` with a record. Rule the door reading and record it against the
   docstring; a wrong **class** is denied by the derived entitlement before the
@@ -1423,11 +1423,11 @@ harness imports).
   witness. **Recommend: rule as written.**
 - **R-12′ · `D-IMPL-340` ruling 7 narrowed at registration level.** The road refuses
   two offers for one class at open; the grant-level ambiguity rule
-  (`composite.py:985-994`) stays reachable through `children=`. **Recommend:
+  (`composite.py::resolve_producing_grant`) stays reachable through `children=`. **Recommend:
   accept the narrowing, named.**
 - **R-13 · The lane asked (`ProducerOfferDeclaration.versions_from`).** It is a
-  floor by contract (`artifacts.py:2287`) and an exact address by use
-  (`dispatch.py:1004-1006` sends it as `version`; the door serves exactly its lane).
+  floor by contract (`artifacts.py::McpProducerRegistration`) and an exact address by use
+  (`dispatch.py::_invoke_mcp_product` sends it as `version`; the door serves exactly its lane).
   Options: **(a) recommended** — an explicit `lane` on the offer (B-07), with
   `versions_from` keeping its floor meaning and defaulting to `lane`; **(b)** rename
   the field on the road and document that the lane asked must equal the served
@@ -1581,9 +1581,9 @@ critic. Findings were verified against the tree before use.
 
 **Accepted (blocking) and applied:** the `agent:` reserved-section impossibility
 (rulings refuter and leaks refuter; three guards verified — `R-2`); semver on the
-derived catalog entry (both; `catalog.py:630-633` — §5.5); the entry's declared
+derived catalog entry (both; `catalog.py::SkillCatalogEntry._versions_are_semver` — §5.5); the entry's declared
 halves (`D-IMPL-56`/`29` — `R-7`); the preview's doubled audited reads (rulings
-refuter; `constraints.py:1344`, `:1698` — `R-4`); `PAVED_PATH_MARKERS` must keep
+refuter; `constraints.py::constraints_in_force`, `:1698` — `R-4`); `PAVED_PATH_MARKERS` must keep
 `boot` (escape refuter; `region_modules` `:310-318` — §9); OFC-G13 red by
 construction and the wider test-body change set (escape refuter and critic; §7);
 the `children=` cliff (escape refuter; §5.5, §6 hatch 2); one `root` conflating

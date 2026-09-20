@@ -34,7 +34,7 @@ reference when the child itself refuses.* `D-IMPL-341` (TTL anchor) and `CP14-F-
 Three facts, each with its line:
 
 1. **Admitted-child bytes are retained on the non-blocking path only.**
-   `src/ccf/products/resolver.py:2137` runs `resolve_child_outcomes`; at `:2143` the
+   `src/ccf/products/resolver.py::GovernedResolver.__call__` runs `resolve_child_outcomes`; at `:2143` the
    branch splits on `resolved.blocking`. The blocking arm (`:2144–2148`) builds a
    `CompositionOutcome` with the rows and the refusal and never retains anything; the
    non-blocking arm (`:2150–2155`) derives `child_contract_view(resolved)` and calls
@@ -210,7 +210,7 @@ exact bytes, with no parent payload invented and no operator pretended to have r
 The record's claims: a real `plan_id`, non-empty `steps`, pins, a snapshot,
 `product_content_address == NO_PRODUCT_ADDRESS`, a refusal block whose `evidence`
 carries `operators_invoked`, `plan_id`, `debt` and `computed_empty`
-(`resolver.py:2502–2506`). Reconstruction:
+(`resolver.py::GovernedResolver.__call__`). Reconstruction:
 
 1. prologue and child reconstruction as in 4.2;
 2. `resolve_composite_plan` over the reconstructed children, `resolve_operators`, and

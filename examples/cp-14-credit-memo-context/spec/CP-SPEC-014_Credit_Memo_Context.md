@@ -1774,7 +1774,7 @@ below are as measured at `bff2ff17`.
 | **`ProductSource` / `mount_product_source`** — *"the tier-2 read path: an admitted Context Product as a queryable source"*, answering the same `GraphReader` every substrate answers, and attached to whitepaper §6.6, the recursive context-enrichment case | **The right conceptual seam, wrong on three counts.** (a) It accepts only `AdmittedProduct`, the type `PeeringAdmissionGate.admit` alone mints — a composite's `AdmittedChild` comes from a different gate. (b) It requires the payload to carry a top-level `graph_state` mapping of `EntityRecord` / `RelationshipRecord`; CP-14's children do not emit that shape. (c) Even with both solved, a source must be mounted **before** the plan is built, and composition runs after. Separately measured: it has **zero consumers** anywhere in `src/`, `runtime/` or `examples/` |
 | **`plan_factory`** | Receives exactly `required: tuple[str, ...]` and `request: ProductRequest`. There is no parameter through which a child could arrive |
 | **`CompositionOutcome`** | Six fields — `factors`, `resolutions`, `refusal`, `lineage`, `expires_at`, `admitted_operators`. **None is the admitted children.** The contracts are dropped at the composition boundary |
-| **A second projection pass** | None exists. The plan is built at `resolver.py:1878`, executed at `:1889`, and nothing re-enters projection after composition at `:1983` |
+| **A second projection pass** | None exists. The plan is built at `resolver.py::GovernedResolver.__call__`, executed at `:1889`, and nothing re-enters projection after composition at `:1983` |
 
 #### Question 2 — the smallest additive change
 

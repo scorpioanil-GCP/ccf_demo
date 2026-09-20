@@ -31,7 +31,6 @@ is *mechanism* declared in ``/src``, not a deployment value.
 
 from __future__ import annotations
 
-import hashlib
 import json
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
@@ -53,6 +52,7 @@ from ccf.peering.admission import (
     InboundPayloadCeiling,
     payload_ceiling_key,
 )
+from ccf.products.contract import ProductLineage
 from ccf.peering.identity import (
     DetachedJwsIdentityProvider,
     FileBackedKeySource,
@@ -663,25 +663,66 @@ def test_a_store_returning_other_bytes_is_caught_not_believed(
         )
 
 
-def test_claims_py_is_unchanged_so_reading_a_cannot_creep_back_in() -> None:
+#: The three federated axes D-IMPL-58 reading (a) would have hung on
+#: ``LineageEntry`` and reading (d) keeps on the ``AdmissionRecord``'s merged
+#: ``ProductLineage``.
+FEDERATED_AXES = ("operators_invoked", "policy_bundle_versions", "graph_snapshot_at")
+#: ``LineageEntry``'s field set under reading (d) — the graph's own L axis,
+#: untouched by federation.
+LINEAGE_ENTRY_FIELDS = frozenset({"source", "envelope_id", "observed_at", "passage_anchor"})
+
+
+def _hold_reading_d(entry: type[Any]) -> None:
+    """The reading-(d) shape, asserted over a ``LineageEntry``-like class.
+
+    Three positive holds: the field set is exactly the four graph-lineage
+    fields; none of the federated axes is a field or an attribute; extra data
+    is forbidden, so a fifth field cannot ride in as payload either.
+    """
+    assert set(entry.model_fields) == set(LINEAGE_ENTRY_FIELDS), sorted(entry.model_fields)
+    for axis in FEDERATED_AXES:
+        assert axis not in entry.model_fields, axis
+        assert not hasattr(entry, axis), axis
+    assert entry.model_config.get("extra") == "forbid"
+
+
+def test_lineage_entry_holds_reading_d_so_reading_a_cannot_creep_back_in() -> None:
     """Reading (d) over reading (a) is the whole point — asserted, not assumed.
 
     D-IMPL-58's ruling is that ``LineageEntry`` is *not* extended to carry the
-    federated axes. That is a claim about a file, so it is checked as one. If
-    this hash changes, ``claims.py`` moved: either the change is unrelated and
-    the constant is updated in the same commit that justifies it, or reading (a)
-    is creeping in and the ruling has to be revisited under a new ``D-IMPL``
-    entry rather than under this test.
+    federated axes; they live on the merged :class:`ProductLineage` the
+    :class:`AdmissionRecord` persists at the admission boundary. That is a
+    claim about a **contract's shape**, so it is checked as one, positively.
+
+    History of the instrument. Until the release-qualification repair package
+    this test pinned the whole of ``src/ccf/contracts/claims.py`` by sha256
+    (``70a3e8a2…``, the file at ``78db8885``). The file moved once, to
+    ``58f97ac2…`` at ``59cfc0cd``/``da14c544`` under D-IMPL-332 —
+    ``_TemporalClaim.valid_from`` widened to ``datetime | None``,
+    hash-transparent — a ruled edit to the claim classes that touched no byte
+    of ``LineageEntry``; the pin failed on it from the D-GATE-cp-09 merge
+    onward and kept these semantic assertions dark behind it. A whole-file
+    hash reds on every unrelated ruled edit and adds no signal the shape hold
+    lacks, so it was removed rather than kept as a tripwire.
     """
-    source = Path(claims_module.__file__ or "").read_bytes()
-    assert (
-        hashlib.sha256(source).hexdigest()
-        == "70a3e8a2e4d1157c2f4d2c87f40073f15c8b6a72f62138205e039378adeabcdc"
-    )
-    assert not hasattr(claims_module.LineageEntry, "operators_invoked")
-    assert set(claims_module.LineageEntry.model_fields) == {
-        "source",
-        "envelope_id",
-        "observed_at",
-        "passage_anchor",
-    }
+    _hold_reading_d(claims_module.LineageEntry)
+    assert set(FEDERATED_AXES) <= set(ProductLineage.model_fields), sorted(ProductLineage.model_fields)
+    assert any(
+        field.annotation is ProductLineage for field in AdmissionRecord.model_fields.values()
+    ), "the AdmissionRecord no longer carries the merged ProductLineage reading (d) put there"
+
+
+def test_a_lineage_entry_widened_with_a_federated_axis_turns_the_guard_red() -> None:
+    """Negative control: reading (a) creeping in — one federated axis added to
+    the graph's lineage entry — is exactly what the hold refuses, naming it."""
+
+    class Widened(claims_module.LineageEntry):
+        operators_invoked: frozenset[str] = frozenset()
+
+    with pytest.raises(AssertionError, match="operators_invoked|model_fields|\\["):
+        _hold_reading_d(Widened)
+
+    class Renamed(claims_module.LineageEntry):
+        pass
+
+    _hold_reading_d(Renamed)  # a plain subclass with the same shape still holds

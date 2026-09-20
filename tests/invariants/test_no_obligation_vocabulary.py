@@ -115,6 +115,7 @@ from __future__ import annotations
 import ast
 import pathlib
 import shutil
+import sys
 
 import pytest
 
@@ -210,6 +211,31 @@ EXEMPT_DECLARATIONS: tuple[tuple[str, str], ...] = (
         "DecayMode",
         "24.5-L-22 — names two SDK decay paths (curve / supersede-only), not"
         " deployment values",
+    ),
+    # The two instants an observation can decay against (`D-IMPL-331`, Dave,
+    # 2026-09-11: "`decay_basis: Literal["observed-at", "valid-from"]` … the
+    # `decay` field's own shape") and the two ways the scorer reduces a series
+    # (`D-IMPL-333`: "`FreshnessAggregation = Literal["series-mean",
+    # "leading-edge"]`"). Each member names an SDK code path —
+    # `ccf.halflife.decay.decay_basis_of` picks which `Observation` instant
+    # `freshness()` reads, `ccf.halflife.decay.freshness_over_of` picks the
+    # reduction — and no deployment can add a third instant or a third
+    # reduction; the deployment chooses WHICH of its rows takes which, in its
+    # λ_c table. The `DecayMode` shape exactly. Both shipped (`b2ba4e8b`,
+    # `5c25048a`) without this entry — the reviewable event this roster exists
+    # to force — and were found red, 42 nodes, at the `f0656746` release
+    # qualification; the entries were ruled at the qualification repair package.
+    (
+        "DecayBasis",
+        "D-IMPL-331 — names the two observation instants freshness can decay"
+        " against (observed-at / valid-from), SDK code paths in"
+        " ccf.halflife.decay, not deployment values",
+    ),
+    (
+        "FreshnessAggregation",
+        "D-IMPL-333 — names the two reductions the scorer applies over a series"
+        " (series-mean / leading-edge), SDK code paths in ccf.halflife.decay,"
+        " not deployment values",
     ),
     # The three characters that make a path a glob rather than a name, used by
     # `ManifestEntry._path_is_a_name_not_a_pattern`. Added when the table shape
@@ -1209,6 +1235,51 @@ def test_the_walk_sees_the_glob_table_the_exemption_covers() -> None:
         " undone and the close-panel B4 injection would pass again"
     )
 
-    assert not declared_vocabularies(
-        REPO_ROOT / "src/ccf/controlplane/artifacts.py"
-    ), "the exemption stopped covering _GLOB_CHARACTERS — the rule has widened"
+    # The message names what was found. Its predecessor blamed _GLOB_CHARACTERS
+    # for ANY unexempted declaration in the file and misdirected the f0656746
+    # qualification; the two assertions above are what prove _GLOB_CHARACTERS
+    # seen and exempted, and this one is the whole-file cleanliness check.
+    unexempted = declared_vocabularies(REPO_ROOT / "src/ccf/controlplane/artifacts.py")
+    assert not unexempted, f"unexempted vocabulary in artifacts.py: {unexempted} — {REMEDY}"
+
+
+# ---------------------------------------------------------------------------
+# The roster entry, not the Literal's shape, is what authorizes a vocabulary.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("ruled", ["DecayBasis", "FreshnessAggregation"])
+def test_removing_a_ruled_roster_entry_turns_its_vocabulary_red(
+    monkeypatch: pytest.MonkeyPatch, ruled: str
+) -> None:
+    """Load-bearing control for the two entries ruled at the qualification
+    repair package: take one away and the real tree goes red naming exactly
+    that vocabulary, both of its declaration kinds, and not its neighbor. So
+    the entry — the ruling it cites — is what keeps the tree green, not the
+    fact that the declaration is a two-member ``Literal``."""
+    monkeypatch.setattr(sys.modules[__name__], "EXEMPT_NAMES", EXEMPT_NAMES - {ruled})
+    with pytest.raises(ObligationVocabularyFound) as refusal:
+        refuse_obligation_vocabulary(REPO_ROOT)
+    message = str(refusal.value)
+    assert f"{ruled} (literal, line" in message and f"{ruled} (table, line" in message, message
+    other = ({"DecayBasis", "FreshnessAggregation"} - {ruled}).pop()
+    assert other not in message, message
+
+
+def test_an_unruled_vocabulary_of_the_same_shape_stays_red(tmp_path: pathlib.Path) -> None:
+    """The converse control: a bound module-level ``Literal`` of two strings —
+    the exact structural shape of the two ruled aliases — with no roster entry
+    is refused, naming the plant and neither ruled neighbor. The shape earns
+    nothing; the ruling-backed entry does."""
+    base = _copied_roots(tmp_path)
+    refuse_obligation_vocabulary(base)  # the copies alone still pass
+    target = base / "src/ccf/controlplane/artifacts.py"
+    target.write_text(
+        target.read_text(encoding="utf-8") + '\n\nObligationKind = Literal["re-pull", "escalate"]\n',
+        "utf-8",
+    )
+    with pytest.raises(ObligationVocabularyFound) as refusal:
+        refuse_obligation_vocabulary(base)
+    message = str(refusal.value)
+    assert "ObligationKind (literal" in message, message
+    assert "DecayBasis" not in message and "FreshnessAggregation" not in message, message
