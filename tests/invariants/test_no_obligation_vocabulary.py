@@ -1235,15 +1235,12 @@ def test_the_walk_sees_the_glob_table_the_exemption_covers() -> None:
         " undone and the close-panel B4 injection would pass again"
     )
 
+    # The message names what was found. Its predecessor blamed _GLOB_CHARACTERS
+    # for ANY unexempted declaration in the file and misdirected the f0656746
+    # qualification; the two assertions above are what prove _GLOB_CHARACTERS
+    # seen and exempted, and this one is the whole-file cleanliness check.
     unexempted = declared_vocabularies(REPO_ROOT / "src/ccf/controlplane/artifacts.py")
-    assert not unexempted, (
-        f"artifacts.py declares a closed vocabulary the roster does not exempt: {unexempted}."
-        " Either it is SDK structure — add it to EXEMPT_DECLARATIONS with its ruling, the"
-        " reviewable event this guard exists to force — or its values belong in deployment"
-        " artifacts. This is not about _GLOB_CHARACTERS: the two assertions above prove it"
-        " is seen and exempted. (The previous message blamed _GLOB_CHARACTERS for any"
-        " unexempted declaration and misdirected the f0656746 qualification.)"
-    )
+    assert not unexempted, f"unexempted vocabulary in artifacts.py: {unexempted} — {REMEDY}"
 
 
 # ---------------------------------------------------------------------------
