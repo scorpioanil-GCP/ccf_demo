@@ -167,7 +167,7 @@ its own process. Junit files: `qualification/f0656746/correction-1/evidence.tar.
 42; `test_determination_authority_disclosure_delivery.py::test_the_document_is_unchanged_since_the_phase_base[CLAUDE.md]`
 1; `test_citation_coverage.py::test_the_unanchored_python_citation_population_cannot_regrow` 1
 (**86 unanchored citations before, 86 after** — the new fragments cite `path.py::Symbol` only);
-`tests/peering/test_admission_record.py::test_claims_py_is_unchanged_so_reading_a_cannot_creep_back_in` 1.
+`tests/peering/test_admission_record.py` `::test_claims_py_is_unchanged_so_reading_a_cannot_creep_back_in` 1.
 
 **Not rerun, stated:** the four substrate legs (`leg-fluree`, `leg-mongo`, `leg-neo4j`,
 `leg-postgres`) — no change touched substrate code; the estate example chunks F–K other than the
