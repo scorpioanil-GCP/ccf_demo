@@ -83,11 +83,12 @@ IMPLEMENTATION HOLD.** Dave's nine rulings — eight corrections and the
 implementation hold — are folded in where the reader meets them: the A6 property as a load-bearing gate (`MWE-G16`); the precise form of
 claim 3; no jurisdictional rule (§C.4 trap 10); the HTTP door in scope for
 the requested-role refusal (`MWE-G15`); the Reg FD widening held to
-ccf-dataprep's evidence with two Gate-2 outcomes (§C.4 trap 5); supervisor
+ccf-dataprep's evidence with two Gate-2 outcomes (§C.4 trap 5) — **answered
+the same day: outcome B**; supervisor
 semantics (claim 7, `MWE-G19`); the locked decisions preserved; both dataprep
 debts in the owner register (§F.2). No producer, `run.py` or SDK change
-exists or is authorized until §F.2 row 1 is answered or Dave explicitly
-authorizes the reduced Reg FD claim.
+exists. The hold's release condition was met on 2026-09-20 by ccf-dataprep's
+answer (§F.2 row 1, outcome B); the build begins on Dave's GO and not before.
 
 ### 0.1 What this product intends to prove, and how each claim is realized
 
@@ -102,7 +103,7 @@ intends to prove"* — and it is the whole subject of the rung.
 | 3 | **Restricted relationships do not survive in the principal's governed view.** The precise property, as ruled (Dave, 2026-09-20): restricted entities *may* exist in the fabric; policy-first substitution removes inadmissible entities from the principal-conditioned view, and endpoint closure prevents any relationship to a removed entity from surviving in that view. The security claim is about the governed view presented to downstream operators and to Π — never about physical absence from L3. | Reification: engagements, notes and positions are entities carrying a `classification` attribute; `src/ccf/operators/categories.py` (`PolicyFilter`) runs first (`CATEGORY_ORDER`) and substitutes the admissible subgraph; `docs/GRAPH_QUERY_SEMANTICS.md` `GQ-16` (an edge exists only when both endpoints survive). **Ruled the accepted realization** of the vault's "not in the traversal's vocabulary" (Gate-0 direction, preserved rulings). | `MWE-G03`, `MWE-G05`, `MWE-G06` |
 | 4 | **Policy before Similarity is not cosmetic.** No draft note under embargo participates in the public-side ranking of research — the candidates the Similarity operator ranks are drawn from the view Policy already formed. | `src/ccf/operators/base.py` (`CATEGORY_ORDER`: policy → similarity → temporal → traversal); `src/ccf/operators/categories.py` (`SimilaritySelect`) over the reified `research_note` entities with the reference lexical index — the first domain rung to run all four operator categories | `MWE-G07` |
 | 5 | **Wall state is bitemporal.** Who was over the wall on a date is answered on two clocks: valid time (`validFrom`) and assertion time (`assertedAt`, the control room's recording). The same question at the same `asked_at` answers differently under `known_as_of` before and after the control room recorded the crossing. | `temporal.as-of-boundary` over the claims' validity windows at `asked_at`; `known_as_of` as a declared request parameter with a relative default, applied to the wall key at acquisition (the cp-08 / cp-12 pattern) | `MWE-G08` |
-| 6 | **A widening supersession is an admission — held to dataprep's evidence.** The one Reg FD event is the intended demonstration, and Gate 2 may claim that it *widens the admissible information set* only once ccf-dataprep identifies which records the event discloses (§F.2 row 1, **blocking**). Outcome A — the disclosed set is identified: the widening proof runs and shows the exact governed content change across the event. Outcome B — it cannot be established: the claim reduces to the narrower property that the relevant classification member changes across the event — the issuer's `reg_fd_disclosure` member (§D.6), a dated public-filed fact, is `null` before the instant and carries the event after it, for every principal — and no document or content disclosure is inferred from the event label. No data is engineered to make the stronger claim work. Prior determinations that touched the issuer are invalidated in either outcome, subject to `MWE-G11`'s `[TBC]` (§F.2 row 6) on whether the boundary is exercised on a per-request fabric. | Outcome A: a superseding claim on the same entity URI with `valid_from` at the disclosure instant, composed with the as-of cut and Policy admission. Outcome B: the event served as a dated public-filed fact on the issuer whose classification member changes across the instant. `src/ccf/controlplane/invalidation.py` (`EntityInvalidationRegister`) for the boundary in either | `MWE-G10`, `MWE-G11` |
+| 6 | **A Reg FD supersession as a classification-member change — outcome B, selected by the data.** ccf-dataprep states (2026-09-20, `contrib/ccf-dataprep/cp-17-regfd-000-designates-nothing-outcome-b`, a `measurement` with `reproduce_with`) that `REGFD-000` designates no records: generated in Wave 7 (`7a37a4d`) as a dated label — its issuer whichever entity sorts first, its date the run date minus 45 days, no field able to hold a record id, the prose description dropped at load — with zero incoming edges, zero literals naming it and no referencing column, each absence measured with a positive control. So claim 6 is the narrower property Dave's ruling allows: the issuer's `reg_fd_disclosure` member (§D.6), a dated public-filed fact, is `null` before the instant and carries the event after it, for every principal, and no engagement content is admitted to anyone on the strength of the label. **Outcome A is retired**: the stronger claim was never in the data and, by ruling, is not to be put there. Prior determinations that touched the issuer are invalidated, subject to `MWE-G11`'s `[TBC]` (§F.2 row 6). | The event served as a dated public-filed fact on the issuer whose classification member changes across the instant; `src/ccf/controlplane/invalidation.py` (`EntityInvalidationRegister`) for the boundary | `MWE-G10`, `MWE-G11` |
 | 7 | **No disclosure; a supervisor is a separately entitled principal.** The served payload carries no count, marker or placeholder of withheld content; its member set is a function of the role and never of the subject; nothing restricted crosses the door in any byte; and a principal's product **and its replay record** omit the wall-decision inputs (which crossing, which restriction, which plan keyed the wall) whenever that principal is not entitled to them. "The supervisor learns everything" means a supervisor holds a different credential, entitlement and projection plan, whose independently governed product may carry the broader evidence because its plan permits it — it never means restricted information is hidden inside the banker's or the analyst's product. **The A6 property is a load-bearing gate here:** for an unentitled principal, a subject whose admissible claims are completely removed by Policy is observationally indistinguishable from a nonexistent subject on the paved serve path — an existence oracle is what it protects against. | The declared product gate (`ProductClassDeclaration.declared_product_gate`, one slot, three predicates); the A6 measurement of 2026-09-20 (`tests/products/test_policy_emptied_view_disclosure.py`, six tests, with its positive control) carried as `MWE-G16`; the replay record's pins (dimension 2 policy and plan versions, dimension 4 role) as a supervisor's reconstruction route under its own credential | `MWE-G04`, `MWE-G16`, `MWE-G19` |
 
 Three of the vault's statements are realized differently from their wording,
@@ -234,7 +235,7 @@ every principal with the source class named.
 | intent | `client-review` — declared on `discovery.intents`; judged on the declared set, never an argument; an unknown intent is refused as class-mismatch |
 | freshness | per signal class (§E.1): `position` intraday (illustrative 86,400 s half-life, §E.1 says why not the vault's hour); every other served class `supersede-only` — "event-driven" is a supersession event, not a number |
 | TTL | product window 3,600 s (the vault's one hour), class ceiling `[TBC — this build]` (proposed 14,400 s), `ttl_anchor: from_decision`: `expires_at = decided_at + 3,600 s`, and `decided_at` is `asked_at` because the class declares no separate decision instant (§B.4, the past-instant trap) |
-| policy binding | the wall (which classifications the principal's plan permits, unlocked per issuer by a valid, asserted crossing); research embargo windows; the Reg FD event as a supersession — widening only in the form §C.4 trap 5 selects (outcome A), otherwise a classification-member change (outcome B); the control room's restricted list read before any enterprise source. **No jurisdictional information-barrier rule** (ruled, Dave 2026-09-20): the estate's jurisdiction table is evidence and context only, never a filter or an admission rule, and a displayed jurisdiction is labeled non-governing context (§C.4 trap 10). The personal-account-dealing binding the vault names is **not bound** and its data is not invented (§F.2 row 10) |
+| policy binding | the wall (which classifications the principal's plan permits, unlocked per issuer by a valid, asserted crossing); research embargo windows; the Reg FD event as a supersession that changes the issuer's classification member (outcome B, selected by ccf-dataprep's answer of 2026-09-20 — §C.4 trap 5); the control room's restricted list read before any enterprise source. **No jurisdictional information-barrier rule** (ruled, Dave 2026-09-20): the estate's jurisdiction table is evidence and context only, never a filter or an admission rule, and a displayed jurisdiction is labeled non-governing context (§C.4 trap 10). The personal-account-dealing binding the vault names is **not bound** and its data is not invented (§F.2 row 10) |
 | lineage | `operators_invoked` — the four SDK operator keys, typed; `policy_bundle_versions` — the tenant policy and the served principal's **own** projection-plan artifact, pinned (the principal is entitled to its own plan; no other principal's plan is carried — whether the pin can be scoped to one plan or pins the whole `policy` section is `[TBC — this build]`, §F.2 row 14); the λ_c table pinned in the replay record; `graph_snapshot_at` — the as-of boundary (the source ledger `t`, 5832 on 2026-09-20, is execution provenance recorded by acquisition as a watermark, never product identity — `D-IMPL-88`, `D-IMPL-309`); `serve_obligations.lineage_inputs_at` on `issuer` and `context_debt`; passage-level `L` on research notes as note ids with content hashes |
 | debt | `D_c = 1 − F·C·S`. `F` the SDK's reference scorer over the composed view against the booted λ_c table (supersede-only classes read 1; `position` decays); `C` the share of the **principal's own** required signal classes present (§E.2 — a class the principal may not receive is not in that principal's `C_required`, `D-IMPL-105`); `S = 1` stated (one authority per element, §C.3) |
 
@@ -338,7 +339,7 @@ is a property of the estate (§0 banner), not a provenance class.
 | Research notes, published and draft | internal research system | MongoDB `fibo_v2.research_note` (42: 33 `published` / `public-filed`, 9 `draft` / `internal-restricted`, all with `embargo_until`; 42 of 42 embedded, 1,536 dims) | internal-SOR | `public-filed` when published, `internal-restricted` when draft | document-passage | `E`, `L`, `R` (minted `hasPublishedResearch`) | `[TBC — this build]` |
 | Wall-state assertions — who is over the wall, on which issuer, from when, recorded when | internal control-room system | Fluree `fibo-v2` type `WallCrossing` (4 nodes, all `principalId = PRIN-COV-001`, each with `validFrom`, `assertedAt`, `recordingLagDays`, `basis`) | internal-SOR | *envelope input — not a served claim* | bitemporal-ledger (literals; §C.4 trap 9) | `P`, `T` | — |
 | Research embargo windows | internal research policy | Fluree `fibo-v2` type `EmbargoWindow` (9 nodes, one per draft note, `validFrom`/`validTo`) | internal-SOR | *envelope input* | bitemporal-ledger | `P`, `T` | — |
-| Regulation FD disclosure event | public filing, engineered | Fluree `fibo-v2` type `RegFDEvent` (1 node: `REGFD-000`, SP Plus, `validFrom 2026-07-03`, `widensAccess true`) | public-filing | *supersession source* | bitemporal-ledger | `T`, `P` | — |
+| Regulation FD disclosure event | public filing, engineered | Fluree `fibo-v2` type `RegFDEvent` (1 node: `REGFD-000`, SP Plus, `validFrom 2026-07-03`, `widensAccess true`; **designates no records** — ccf-dataprep 2026-09-20; its label reads `synthetic — internal`, which ccf-dataprep flags as arguably one class too weak; cited as measured) | public-filing | *supersession source (outcome B)* | bitemporal-ledger | `T`, `P` | — |
 | Control-room restricted list | departmental system, compliance-maintained | SQLite `departmental.sqlite` table `restricted_list` (4 rows; `lei`, `restriction_type`, `added_date`, `removed_date` all NULL) | internal-SOR | *envelope input, read first* | relational (departmental) | `P` | — |
 | `ProjectionPlan` definition per principal | internal | PostgreSQL `ccf_v2.projection_plan` (3 rows keyed by `principal_id`, `plan_version v1.0.0`: `permitted_edge_types`, `permitted_classifications`, `permitted_document_types`) | internal-SOR | *the envelope* | relational | `Π`, `P` | — |
 | Principal register | internal identity substrate | PostgreSQL `ccf_v2.principal` (4: `PRIN-COV-001` coverage-banker private, `PRIN-RES-002` research-analyst public, `PRIN-TRD-003` trader public-surveilled, `PRIN-KYC-004` kyc-analyst private) | internal-SOR | *identity → role for the perspective resolver* | relational | `Π` | — |
@@ -363,7 +364,7 @@ PostgreSQL, the classification on the note — §C.4 trap 8).
 | Per-principal envelope keyed by identity | one plan row per principal | sometimes | an unconfigured principal is refused, never given a default plan |
 | Reified engagements with a classification | the deployment mints entities and edges from rows (§C.4 trap 1) | widely available | — |
 | Similarity over research text behind Policy | the SDK's reference lexical index over an entity attribute | widely available (shipped); the vector path is not (no embedder ships) | interim posture: lexical ranking, the embeddings unused and said so (§0.3) |
-| Reg FD supersession (widening only under §C.4 trap 5 outcome A) | a dated event naming the issuer | rare — one node | the demonstration is one event, once (§C.4 trap 5) |
+| Reg FD supersession (outcome B — a dated label that designates no records) | a dated event naming the issuer | rare — one node | the demonstration is one event, once, as a classification-member change (§C.4 trap 5) |
 
 ### C.3 Correlation key, single-writer discipline, and identity authority
 
@@ -420,26 +421,30 @@ and are **not read**, so no second authority is consulted for the same claim.
    2026-07-05, SP Plus `research-restricted` 2026-07-11; none removed).
    *Cost:* none while the rule holds.
 5. **The Reg FD event names the issuer and the instant, not the records it
-   discloses.** `REGFD-000` carries `lei`, `validFrom` and `widensAccess`.
-   *Binding — ruled (Dave, 2026-09-20):* the disclosed set is **not inferred
-   from the event label.** `[TBC — ccf-dataprep]` (§F.2 row 1, **blocking the
-   stronger claim and the implementation**): which exact records or content
-   the event releases. **Outcome A** — dataprep identifies the set: each
-   disclosed record is emitted as a superseding claim on the same entity URI
-   with `classification = public-filed` and `valid_from = 2026-07-03`, and
-   the widening proof shows the exact governed content change across the
-   event. **Outcome B** — the set cannot be established: claim 6 reduces to
-   the event served as a dated public-filed fact on the issuer — the
-   `reg_fd_disclosure` member of §D.6, `null` before the instant and the
-   event with its `public-filed` classification after it, for every
-   principal — with no engagement content admitted to any principal on the
-   strength of the label. No data
-   is engineered to make outcome A work. *Cost:* `MWE-G10` is authored in
-   both forms, and the build waits for the answer or for Dave's explicit
-   authorization of outcome B (§G.2).
+   discloses — and ccf-dataprep has established that it names none.**
+   `REGFD-000` carries `lei`, `validFrom` and `widensAccess`. *Binding —
+   ruled (Dave, 2026-09-20):* the disclosed set is **not inferred from the
+   event label.** *Answered 2026-09-20 by ccf-dataprep* (`contrib/ccf-dataprep/cp-17-regfd-000-designates-nothing-outcome-b`,
+   measured against ccf_dataprep `fcf7ddd` with `reproduce_with`): the event
+   was generated in Wave 7 (`7a37a4d`, 2026-08-17) as a dated label — the
+   issuer is whichever entity sorts first, the date is the run date minus 45
+   days, no field can hold a record id, and the loader writes six triples,
+   dropping even the prose `description`; zero incoming edges, zero literals
+   naming it, no Postgres column referencing it, each absence with a
+   positive control. **Outcome B is selected by the data:** the event is
+   served as a dated public-filed fact on the issuer — the `reg_fd_disclosure`
+   member of §D.6, `null` before the instant and the event with its
+   `public-filed` classification after it, for every principal — with no
+   engagement content admitted to any principal on the strength of the label.
+   **Outcome A is retired**: nothing is engineered to reach it. *Cost:* the
+   vault's "widening supersession" is demonstrated as a member change, not as
+   an admission of content, and §G.3 says so.
 6. **Blackout windows do not exist.** No type or predicate in `fibo-v2`
    matches; the Form 4 half exists as 319 `OpportunitySignal` nodes the rung
-   does not need. *Binding:* the vault's row is dropped, disclosed here and
+   does not need. An `ex:InsiderDesignation` node exists and is a Regulation O
+   related-persons designation (12 CFR 215), not a trading blackout —
+   ccf-dataprep 2026-09-20, flagged so a later scan for "insider" is not read
+   as a contradiction. *Binding:* the vault's row is dropped, disclosed here and
    in the README. *Cost:* the vault's "insider transaction and blackout
    windows" `T` element is unproven by this rung.
 7. **Position `as_of` is a date.** A one-hour half-life on a date-grained
@@ -469,10 +474,10 @@ and are **not read**, so no second authority is consulted for the same claim.
    as-of answer is the deployment's arithmetic over literals, never the
    ledger's.
 10. **Two of the vault's policy bindings have no estate, and one is ruled off
-    this rung.** No personal-account-dealing table exists in the 116-table
-    census: the binding is not bound, and neither its data nor its function
-    is invented because it is absent (`[TBC — ccf-dataprep]`, §F.2 row 10,
-    non-blocking). `principal_jurisdiction` (17 rows) exists, but data
+    this rung.** No personal-account-dealing table exists in any of the four
+    stores — confirmed by ccf-dataprep on 2026-09-20 with a matcher and a
+    positive control (§F.2 row 10, closed): the binding is not bound, and
+    neither its data nor its function is invented because it is absent. `principal_jurisdiction` (17 rows) exists, but data
     existing does not make a policy — **ruled (Dave, 2026-09-20): no
     jurisdictional information-barrier rule on CP-17.** The table is evidence
     and context only; no jurisdiction-based filtering or admission logic
@@ -599,14 +604,12 @@ this order, and the order is load-bearing:
 6. Read deals, interactions, positions (PostgreSQL), research notes
    (MongoDB) and the family (`owns`/`controls`, Fluree) for the issuer;
    **emit envelopes only for claims inside `E`**, each reified entity
-   carrying `classification`; mint the typed edge from the issuer. Under
-   §C.4 trap 5 outcome A, for each record ccf-dataprep names as disclosed,
-   emit the pre-event claim with `valid_to = 2026-07-03` and the superseding
-   public claim on the same entity URI with `valid_from = 2026-07-03` — for a
-   public-side principal only the public claim is inside `E`, and the as-of
-   cut decides whether it is in force. Under either outcome, emit the event
-   itself as a dated public-filed fact on the issuer (the `reg_fd_disclosure`
-   member, §D.6); under outcome B, that fact and nothing else.
+   carrying `classification`; mint the typed edge from the issuer. Outcome B
+   is selected (§C.4 trap 5): emit the event itself as a dated public-filed
+   fact on the issuer (the `reg_fd_disclosure` member, §D.6) and nothing
+   else — no engagement record is re-classified by it. (Outcome A, a
+   superseding public claim per disclosed record on the same entity URI, is
+   retired: the data never held a disclosed set.)
 7. **No wall-decision attribute is written into the fabric of a principal
    not entitled to it.** The crossing that keyed the wall and the restriction
    in force are consumed at this seam and are not emitted as claims or
@@ -724,7 +727,7 @@ shape; the members present are a function of the role (§D.3 step 7):
 ```
 mnpi_scoped_issuer_context @ 1.0.0
   issuer:            {lei, legal_name, legal_jurisdiction, entity_status,      # legal_jurisdiction: non-governing context (ruled)
-                      reg_fd_disclosure: {event_id, valid_from, classification: public-filed} | null}   # every role, either outcome; null before the event; the member outcome B proves
+                      reg_fd_disclosure: {event_id, valid_from, classification: public-filed} | null}   # every role; null before the event; the member claim 6 proves (outcome B)
   family:            [{lei, legal_name, relationship: owns|controls}]
   deal_engagements:  [{deal_id, deal_type, stage, opened_date, classification}]      # coverage-banker
   interactions:      [{interaction_id, interaction_type, interaction_date, deal_id, classification}]   # coverage-banker
@@ -781,7 +784,7 @@ reason.
 |---|---|---|---|---|---|
 | `issuer` | supersede-only | — | reference-data maintenance | GLEIF record update | SDK examples maintainer |
 | `family_member` | supersede-only | — | ownership filing | superseding ownership assertion | as above |
-| `deal_engagement` | supersede-only | — | deal stage change | stage or classification supersession (the Reg FD event is one only under §C.4 trap 5 outcome A) | as above |
+| `deal_engagement` | supersede-only | — | deal stage change | stage or classification supersession (the Reg FD event is **not** one — outcome B, §C.4 trap 5) | as above |
 | `interaction` | supersede-only | — | CRM correction | superseding interaction record | as above |
 | `research_note` | supersede-only | — | publication | a draft published, a note withdrawn (in this estate no draft leaves `draft` at `embargo_until` — §E.4) | as above |
 | `position` | **86,400 s — illustrative** | illustrative | intraday trading | the next position snapshot | as above |
@@ -840,7 +843,7 @@ cache key, stated for the record: tenant · schema · `plan_id` · snapshot ·
 | Wall crossing recorded | local (the principal's products on that issuer) | a new crossing changes `E` for that principal; the register boundary on the issuer entity, reason `wall-crossing`, source the node id | yes — `TW` vs `T1` |
 | Restricted-list update | local | the list is a mandatory input read first (`MWE-G09`); on this rung a restriction in force does not narrow `E` (§D.3 step 1.5), so a row's `added_date`/`removed_date` is declared as a trigger and not demonstrated as a supersession | **declared, not demonstrated** — no gate claims a restricted-list effect |
 | Embargo expiry | local | the note's window ends | **no** — every embargoed note stays `draft` after `embargo_until` in this estate; declared, not demonstrable (§C.4 trap 3) |
-| Reg FD disclosure — widening (outcome A) / classification-member change (outcome B) | cascading to `ib-opportunity-synthesis` | under outcome A the superseding public claims on the disclosed records (§D.3 step 1.6); under outcome B the dated public-filed event on the issuer; in either, an `EntityInvalidation` on the issuer at `2026-07-03`, reason `reg-fd-disclosure`, source `REGFD-000`, recorded through `ControlPlaneInvalidationSink`; the gate refuses re-serving a prior determination that touched the issuer | in the form §C.4 trap 5 selects: outcome A the widening admission, outcome B the classification member (`MWE-G10`, blocked on §F.2 row 1); the register half `[TBC — this build]` (`MWE-G11`, §F.2 row 6) |
+| Reg FD disclosure — classification-member change (outcome B) | cascading to `ib-opportunity-synthesis` | the dated public-filed event on the issuer (§D.3 step 1.6) and an `EntityInvalidation` on the issuer at `2026-07-03`, reason `reg-fd-disclosure`, source `REGFD-000`, recorded through `ControlPlaneInvalidationSink`; the gate refuses re-serving a prior determination that touched the issuer | yes for the member change (`MWE-G10`); the register half `[TBC — this build]` (`MWE-G11`, §F.2 row 6) |
 
 Re-derivation is lazy: invalidate for the next request, never re-materialize.
 
@@ -874,7 +877,7 @@ Stated as a roster. No spec passes review with an unowned gap.
 
 | # | term | owner | what was asked |
 |---|---|---|---|
-| 1 | **which exact records or content `REGFD-000` releases** — **BLOCKING** the stronger Reg FD proof and CP-17 implementation | ccf-dataprep | the event names the issuer and instant only; nothing is inferred from the label; outcome A or B of §C.4 trap 5 follows the answer; the build waits for the answer or for Dave's explicit authorization of the reduced claim (§G.2) |
+| 1 | ~~which exact records or content `REGFD-000` releases~~ **ANSWERED 2026-09-20 by ccf-dataprep: none — outcome B** | ccf-dataprep | `contrib/ccf-dataprep/cp-17-regfd-000-designates-nothing-outcome-b` (`measurement`, `reproduce_with` stated): a dated label from Wave 7 (`7a37a4d`), no record id anywhere in source or store, the description dropped at load; zero incoming edges, literals or referencing columns, each with a control. The hold's release condition is met; the build begins on Dave's GO. Closed |
 | 2 | the Similarity query literal and `minimum_score_percent` | this build | illustrative, drawn from the intent vocabulary; disclosed in the artifact |
 | 3 | the research top-k in Π | this build | proposed 3 |
 | 4 | the class TTL ceiling | this build | proposed 14,400 s |
@@ -883,11 +886,12 @@ Stated as a roster. No spec passes review with an unowned gap.
 | 7 | p95 budgets per step and the total against 3,000 ms | this build (Gate 2) | — |
 | 8 | per-call absolute cost | this build | no billing meter; not invented |
 | 9 | the ontology IRIs for engagement, interaction, position and research note | this build | OMG Commons / FIBO terms to be bound before registration |
-| 10 | whether a personal-account-dealing table exists | ccf-dataprep | none in the 116-table census; non-blocking; the binding is not bound, and neither its data nor its function is invented because it is absent |
+| 10 | ~~whether a personal-account-dealing table exists~~ **ANSWERED 2026-09-20 by ccf-dataprep: no** | ccf-dataprep | none in any of the four stores (matcher with a positive control; 116 base tables and 2 views, 8 SQLite tables, 6 collections, 95 types); the binding stays unbound; nothing invented. Closed |
 | 11 | ~~whether a jurisdictional information-barrier rule belongs on this rung~~ **RULED 2026-09-20: no** | Dave | the jurisdiction table is evidence and context only; no jurisdiction-based filtering or admission logic; a displayed jurisdiction is labeled non-governing context (§C.4 trap 10). Closed |
 | 12 | ~~the HTTP door in scope for `MWE-G15`~~ **RULED 2026-09-20: yes** | Dave | HTTP proves the one behavior MCP cannot expose — a caller requesting a role it is not entitled to receives a governed refusal, never a silent downgrade — with the same three entitled principals plus the fourth ungranted one; not a new product path (§D.1). Closed |
 | 13 | whether a missing plan row can be refused at open rather than at serve | this build | §D.3 step 1.3 |
 | 14 | whether the plan-artifact pin in `policy_bundle_versions` can be scoped to the served principal's own plan, or pins the whole `policy` section | this build | §B.1 lineage; §D.3 steps 1.7 and 7; `MWE-G13`, `MWE-G19` — if it cannot be scoped, the three plan versions are pinned in every record and that is recorded as a finding against `MWE-G19`, never hidden |
+| 15 | a coverage-validator manifest for `mnpi-wall-enforcement` in ccf-dataprep's `spec_coverage.py` (their handoff item 3) | Dave | non-blocking; ccf-dataprep states it is Dave's call, not theirs; until it lands the spec cites the SDK's own dated census, and switches to their instrument if it lands |
 
 ### F.3 Access path, identifiers, history, text and volumetrics
 
@@ -959,9 +963,9 @@ question at a past `asked_at` under the `from_decision` anchor serves with
 an `expires_at` already elapsed by the wall clock (§B.4) — disclosed, not
 repaired. Service objectives also carry per-call absolute cost as
 `[TBC — this build]` (no billing meter; §F.2 row 8). Lifecycle: `draft` at
-Gate 1; `in-build` only when §F.2 row 1 is answered or Dave explicitly
-authorizes the reduced Reg FD claim (implementation hold, 2026-09-20);
-`certified` at Gate 2.
+Gate 1; `in-build` on Dave's GO — the hold's release condition (§F.2 row 1)
+was met on 2026-09-20 by ccf-dataprep's answer, outcome B; `certified` at
+Gate 2.
 
 ### G.1 Product gates
 
@@ -983,7 +987,7 @@ structural or relational; **none pins a count or a date.**
 | `MWE-G07` | policy before similarity: a draft claim injected into the analyst's per-request fabric is absent from the Similarity operator's candidates and from the served product; on SP Plus, which has no drafts, the banker's and the analyst's ranked sets are identical and the vault's ranking-difference number is recorded as zero by construction | sabotage + relational |
 | `MWE-G08` | bitemporal wall: SP Plus, banker, `asked_at = TW`: `known_as_of = TW` serves no MNPI engagement, `known_as_of` after `WALL-000.assertedAt` serves it; two addresses | directional |
 | `MWE-G09` | the control room first: an unreachable departmental store refuses the product for every principal with the source class named | sabotage |
-| `MWE-G10` | widening as admission, in the form §C.4 trap 5 selects — **outcome A:** SP Plus, analyst, `T0` serves none of the records dataprep names as disclosed and `T1` serves them, the exact governed content change stated; for each disclosed record the banker's `T0` and `T1` members differ only in `classification`. **Outcome B:** the issuer's `reg_fd_disclosure` member is `null` at `T0` and carries the event at `T1` for every principal, and no engagement content is admitted on the strength of the label. Authored in both forms; the form executed is the one dataprep's answer or Dave's authorization selects | directional |
+| `MWE-G10` | Reg FD as a classification-member change (outcome B, §C.4 trap 5): SP Plus, every principal — the issuer's `reg_fd_disclosure` member is `null` at `T0` and carries the event at `T1`; outside that member the analyst's and the trader's vessels are byte-equal across the two instants, so no engagement content is admitted on the strength of the label | directional |
 | `MWE-G11` | `[TBC — this build]` the Reg FD boundary in the invalidation register refuses re-serving a determination that touched the issuer before it | structural |
 | `MWE-G12` | supersede-only in a served product: `F = 1` for the banker's and the analyst's products; for the trader `F` orders American Healthcare REIT ≥ SP Plus ≥ BGC at `T1` by position `as_of` — the ordering, never the number; the two other issuers are freshness comparison subjects only (§C.4 trap 7), not wall subjects | directional |
 | `MWE-G13` | one plan, three roles: dimension 5 `plan_id` equal across the three records, dimension 4 `role` distinct; the served principal's own plan artifact version pinned in `policy_bundle_versions` | relational |
@@ -1008,7 +1012,7 @@ Each specific to this product, independently verifiable, phrased to fail.
    ruling and is not a second product path.
 2. `MWE-G01` through `MWE-G21` each claimed by one executing test, with
    `MWE-G11` claimed or recorded as its `[TBC]` resolves and `MWE-G10`
-   executed in the form §F.2 row 1 selects.
+   executed in its outcome-B form (§F.2 row 1, answered).
 3. The counterfactual acceptance test of §A.2 runs and fails when the wall
    is made cosmetic (the Policy Blind control).
 4. Every step in §D.2 has a witness in `artifacts/assembly-recipe.yaml`,
@@ -1024,10 +1028,9 @@ Each specific to this product, independently verifiable, phrased to fail.
    a finding — never silently resolved.
 9. Nothing seeds the curated estate; every question boots a per-request
    scratch fabric; the departmental file is opened read-only.
-10. The Reg FD disclosed set (§C.4 trap 5) is answered by ccf-dataprep
-    through the vault, or Dave explicitly authorizes outcome B, before
-    implementation begins; the outcome follows the answer or the
-    authorization; no data is engineered to reach A.
+10. The Reg FD disclosed set (§C.4 trap 5) was answered by ccf-dataprep
+    through the vault on 2026-09-20 — none exists; outcome B is executed and
+    cites their measurement; no data is engineered to reach A.
 11. The close report keeps the six sections of
     `docs/EXAMPLE-EVALUATION-CRITERIA.md` §K apart.
 12. **The DX rubric is recorded** (Gate-0 §5.0; Dave, 2026-09-20) for the
@@ -1047,10 +1050,10 @@ Each specific to this product, independently verifiable, phrased to fail.
     tree; the issuer's `legal_jurisdiction` member is labeled non-governing
     context wherever it is displayed.
 
-**Implementation hold (Dave, 2026-09-20).** The build begins only when
-§F.2 row 1 is answered by ccf-dataprep or Dave explicitly authorizes the
-reduced Reg FD claim (outcome B). Rows 11 and 12 are ruled and closed; row
-10 is owed but non-blocking.
+**Implementation hold (Dave, 2026-09-20) — release condition met.** §F.2
+row 1 was answered by ccf-dataprep on 2026-09-20 (outcome B). Rows 1, 10,
+11 and 12 are closed; row 15 is Dave's and non-blocking. The build begins on
+Dave's GO and not on this document's authority.
 
 ### G.3 Catalog contribution
 
@@ -1059,8 +1062,8 @@ credentialed principals through one shipped door; an operator-bounding set
 sourced from the credential rather than the effective request; all four
 operator categories on one domain rung with Similarity behind Policy; a
 supersede-only class in a served product beside a curve class; a Reg FD
-supersession in the form §C.4 trap 5 selects — widening under outcome A, a
-classification-member change under outcome B; the departmental SQLite store
+supersession as a classification-member change (outcome B, §C.4 trap 5); the
+departmental SQLite store
 as a source read first; the
 two-clock question answered from a control room's own record. It is the
 first rung whose close report carries the DX rubric, and the second instance
@@ -1070,7 +1073,8 @@ generalized; no SDK review is proceeding.
 **What it deliberately does not prove.** A per-principal traversal
 vocabulary on one plan (reification is the ruled realization); a distinct
 `plan_id` per perspective; a requested perspective over MCP; vector
-similarity; the embargo-expiry trigger; blackout windows; a jurisdictional
+similarity; a content-widening supersession (outcome A, retired — the data
+holds no disclosed set); the embargo-expiry trigger; blackout windows; a jurisdictional
 rule (ruled off this rung) or a personal-account-dealing binding; a
 supervisor's separately entitled product; any A2A or peering route (the three
 consumers are principals at a door — per the Gate-0 direction, A2A is
