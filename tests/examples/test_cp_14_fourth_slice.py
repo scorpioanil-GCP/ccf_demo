@@ -32,11 +32,14 @@ consumer's own roster and ledger legs read the live estate.
 from __future__ import annotations
 
 import ast
+import builtins
+import importlib
 import json
 import os
 import pathlib
 import subprocess
 import sys
+import types
 from collections.abc import Iterator
 from contextlib import ExitStack, contextmanager
 from datetime import timedelta
@@ -178,6 +181,72 @@ def _record_of(opened: Any, outcome: Any) -> DecisionReplayRecord:
     return DecisionReplayRecord.model_validate_json(fresh.get(content_address=address))
 
 
+class ImportAudit:
+    """Imports attributable to ONE action — the consumer's — and nothing else.
+
+    Gate `CMC-G23` is a claim about what exercising CP-14 does, not about what
+    the pytest process has ever loaded: a producer module cached by an earlier
+    suite (cp-05's output suite leaves its `assembler` in `sys.modules`) is not
+    the consumer's import. So the audit is active only around the consumer
+    action and records (a) every import *statement* the action executes,
+    through `builtins.__import__` — which fires for a cached module too, the
+    case a before/after key diff would miss — and (b) every module the action
+    newly loaded or replaced under the same name, by an identity diff of
+    `sys.modules`. Nothing is deleted, reordered or reset. Found at the
+    release qualification of `f0656746`: the previous whole-process walk went
+    red after cp-05's suite in the same process while the consumer itself had
+    imported nothing from any producer tree (audited: 39 new modules, all the
+    MCP client's transport stack).
+    """
+
+    def __init__(self) -> None:
+        self.origins: dict[str, str] = {}
+
+    @contextmanager
+    def active(self) -> Iterator["ImportAudit"]:
+        before = {name: id(module) for name, module in sys.modules.items()}
+        real_import = builtins.__import__
+        real_import_module = importlib.import_module
+
+        def audited(name: str, globals: Any = None, locals: Any = None, fromlist: Any = (), level: int = 0) -> Any:  # noqa: A002
+            module = real_import(name, globals, locals, fromlist, level)
+            for candidate in (module, sys.modules.get(name) if level == 0 else None):
+                if isinstance(candidate, types.ModuleType):
+                    self.origins[candidate.__name__] = getattr(candidate, "__file__", None) or ""
+            return module
+
+        def audited_import_module(name: str, package: str | None = None) -> types.ModuleType:
+            # `importlib.import_module` of an already-cached module reaches
+            # neither `__import__` nor the identity diff — the one path a
+            # consumer could take to a producer module another suite loaded.
+            module = real_import_module(name, package)
+            self.origins[module.__name__] = getattr(module, "__file__", None) or ""
+            return module
+
+        builtins.__import__ = audited
+        importlib.import_module = audited_import_module
+        try:
+            yield self
+        finally:
+            builtins.__import__ = real_import
+            importlib.import_module = real_import_module
+            for name, module in list(sys.modules.items()):
+                if before.get(name) != id(module):
+                    self.origins[name] = getattr(module, "__file__", None) or ""
+
+    def producer_imports(self, trees: tuple[pathlib.Path, ...]) -> dict[str, str]:
+        """``module name -> origin`` for every audited import under a producer tree."""
+        return {
+            name: origin
+            for name, origin in self.origins.items()
+            if any(origin.startswith(str(tree)) for tree in trees)
+        }
+
+
+#: The audit of the module's consumer actions (filled by `both`).
+CONSUMER_IMPORTS = ImportAudit()
+
+
 def _ask(modules: tuple[Any, Any], scratch: pathlib.Path, *, environ: dict[str, str], tolerance: str) -> tuple[Any, Any, DecisionReplayRecord]:
     """One memo question on the paved road; the record reloaded from a FRESH store instance."""
     produce, deployment = modules
@@ -198,7 +267,7 @@ def both(modules: tuple[Any, Any], estate: None, tmp_path_factory: pytest.TempPa
     """Both questions with FIVE doors live — asked once per module; every producer
     process has exited by the time any test reads the results."""
     scratch = tmp_path_factory.mktemp("slice4")
-    with five_doors(estate) as environ:
+    with five_doors(estate) as environ, CONSUMER_IMPORTS.active():
         asked = {tolerance: _ask(modules, scratch / tolerance, environ=environ, tolerance=tolerance) for tolerance in (DIAGNOSTIC, GOVERNED)}
         # A BOUNDED REPEAT of the diagnostic against unchanged inputs — a second
         # independent ask, distinct from replay — for the determinism control.
@@ -690,18 +759,18 @@ def test_refused_reconstruction_preserves_the_admitted_child_evidence_and_the_re
 
 
 def test_the_consumer_imports_no_producer_and_rebuilds_no_child_material(both: dict[str, Any]) -> None:
-    """No producer module in the consumer process (six trees, five other
-    processes); no hand-built child machinery; the consumer's own two legs read
-    the roster's identity and document keys and the ledger's anchors and nothing
-    a child supplies.
+    """Exercising the consumer imports no producer module (six trees, five
+    other processes) — measured on the consumer's OWN imports by
+    :class:`ImportAudit`, never on what the pytest process loaded earlier; no
+    hand-built child machinery; the consumer's own two legs read the roster's
+    identity and document keys and the ledger's anchors and nothing a child
+    supplies.
 
     Declared product gate `CMC-G23` (`CP-SPEC-014` §D.5).
     Declared product gate `CMC-G27` (`CP-SPEC-014` §D.5).
     """
-    for module in sys.modules.values():
-        origin = getattr(module, "__file__", None) or ""
-        for tree in PRODUCER_TREES:
-            assert not origin.startswith(str(tree)), f"a producer's {origin} was imported into the consumer"
+    assert CONSUMER_IMPORTS.origins, "the audit saw no import at all — it was not active around the consumer action"
+    assert CONSUMER_IMPORTS.producer_imports(PRODUCER_TREES) == {}, "the consumer imported producer material"
     forbidden = ("McpSkillRegistry", "register_declared_producer", "SkillCatalog(", "GrantLedger(", "SkillGrant(", "QuestionBoundChildResolver",
                  "CompositeAdmissionGate", "build_governed_resolver", "AgentDefinition(", "compose_debt_factors", "resolve_child_outcomes")
     for name in ("produce.py", "deployment.py", "projection.py", "acquisition.py", "run.py"):
@@ -718,3 +787,75 @@ def test_the_consumer_imports_no_producer_and_rebuilds_no_child_material(both: d
     assert not any("ex:crossReferences" in s or "evidencedBy" in s for s in literals), "the consumer follows a covenant edge"
     _opened, _outcome, record = both[DIAGNOSTIC]
     assert record.tenant_id == "cp-14-demo"
+
+
+# --- the audit's own controls (no estate, no doors) --------------------------------------
+
+
+def test_the_import_audit_catches_a_producer_import_the_action_makes_and_ignores_a_cached_one(tmp_path: pathlib.Path) -> None:
+    """Both halves the ruling asked for, on a scratch producer tree.
+
+    Negative: a producer module cached by an earlier suite, untouched by the
+    action, is not reported — CP-14 does not falsely fail for another test's
+    import. Positive: an `import` that hits that cache IS reported; a fresh
+    import from the tree is reported; a pop-and-reimport under the same name
+    is reported. Sabotage of the audit's two mechanisms is therefore visible.
+    """
+    tree = tmp_path / "producer-tree"
+    tree.mkdir()
+    (tree / "cp99_assembler.py").write_text("VALUE = 1\n", encoding="utf-8")
+    (tree / "cp99_deployment.py").write_text("VALUE = 2\n", encoding="utf-8")
+    spec = importlib.util.spec_from_file_location("cp99_assembler", tree / "cp99_assembler.py")
+    assert spec is not None and spec.loader is not None
+    cached = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(cached)
+    saved = {name: sys.modules.get(name) for name in ("cp99_assembler", "cp99_deployment")}
+    sys.modules["cp99_assembler"] = cached  # what an earlier suite leaves behind
+    sys.path.insert(0, str(tree))
+    try:
+        idle = ImportAudit()
+        with idle.active():
+            json.dumps({"the action": "imports nothing"})
+        assert idle.producer_imports((tree,)) == {}, idle.origins
+
+        from_cache = ImportAudit()
+        with from_cache.active():
+            import cp99_assembler  # noqa: F401, PLC0415 — hits the cache; a key diff would miss it
+        assert set(from_cache.producer_imports((tree,))) == {"cp99_assembler"}
+
+        fresh = ImportAudit()
+        with fresh.active():
+            importlib.import_module("cp99_deployment")  # bypasses __import__; the identity diff sees it
+        assert set(fresh.producer_imports((tree,))) == {"cp99_deployment"}
+
+        replaced = ImportAudit()
+        with replaced.active():
+            sys.modules.pop("cp99_assembler")
+            importlib.import_module("cp99_assembler")  # same name, new object
+        assert set(replaced.producer_imports((tree,))) == {"cp99_assembler"}
+
+        cached_by_name = ImportAudit()
+        with cached_by_name.active():
+            importlib.import_module("cp99_assembler")  # cached AND bypassing __import__
+        assert set(cached_by_name.producer_imports((tree,))) == {"cp99_assembler"}
+    finally:
+        sys.path.remove(str(tree))
+        for name, module in saved.items():
+            sys.modules.pop(name, None)
+            if module is not None:
+                sys.modules[name] = module
+
+
+def test_the_audit_restores_the_import_hook_and_reports_only_producer_origins(tmp_path: pathlib.Path) -> None:
+    """The hook is put back after the action, and a non-producer import is
+    recorded but not reported against the producer trees."""
+    real_import = builtins.__import__
+    real_import_module = importlib.import_module
+    audit = ImportAudit()
+    with audit.active():
+        importlib.import_module("colorsys")
+    assert builtins.__import__ is real_import
+    assert importlib.import_module is real_import_module
+    assert "colorsys" in audit.origins
+    assert audit.producer_imports(PRODUCER_TREES) == {}
+

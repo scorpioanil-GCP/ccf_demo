@@ -578,7 +578,7 @@ def test_the_door_and_the_in_process_run_serve_one_content_address(
     assert isinstance(served, ServedProduct), getattr(served, "detail", served)
     through_the_door = the_row(booted, served).child_content_address
 
-    saved = {name: sys.modules.pop(name, None) for name in ("acquisition", "deployment", "produce", "projection")}
+    saved = {name: sys.modules.pop(name, None) for name in ("acquisition", "assembler", "deployment", "produce", "projection")}
     sys.path.insert(0, str(EXAMPLE))
     try:
         import deployment  # noqa: PLC0415

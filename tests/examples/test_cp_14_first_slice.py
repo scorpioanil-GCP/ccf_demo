@@ -96,7 +96,7 @@ def estate() -> None:
 @pytest.fixture(scope="module")
 def modules() -> Iterator[tuple[Any, Any]]:
     """The example's `produce` and `deployment`, imported from its own directory."""
-    saved = {name: sys.modules.pop(name, None) for name in ("acquisition", "deployment", "produce", "projection")}
+    saved = {name: sys.modules.pop(name, None) for name in ("acquisition", "assembler", "deployment", "produce", "projection")}
     sys.path.insert(0, str(EXAMPLE))
     try:
         import deployment  # noqa: PLC0415
