@@ -45,7 +45,18 @@ both green; the peering hash-pin node (`tests/peering/test_admission_record.py`
 green. The full mapping with outcomes is `roster46_after_repairs.txt` in
 `qualification/f0656746/repairs/evidence.tar.gz`. No new skip or expected-failure mark anywhere.
 
-## 3. Fresh-checkout verification
+## 3. Fresh-checkout verification of the package tip `73f73694`
 
-Recorded in §3 of this file's next revision after the package tip was checked out fresh (no
-ignored sidecars) and the same checks rerun there; see the commit that carries it.
+A detached worktree of `73f73694` (clean, zero ignored sidecars, `ccf` resolving inside it), the
+same checks rerun:
+
+| check | result |
+|---|---|
+| `tests/invariants` + `tests/peering` | **2 156 passed, 0 failed** (96 fewer nodes than on the working tree: the working tree carries 25 git-ignored macOS sidecar files that the present-tense sweep parametrizes over; a fresh checkout has none, so this is the candidate's count) |
+| `tools/lints/tests` / `python -m tools.lints --all` / `make typecheck` | 480 passed / exit 0 / clean (230 files) |
+| `tools/docs_tests` + `tools/publish_scan_tests` | 349 passed |
+| CP-14 isolation node alone (estate) / after `test_cp_05_output.py` in one process (estate) / its audit controls | 1 passed / 13 passed / 2 passed |
+
+Evidence: `qualification/f0656746/repairs/evidence.tar.gz` (`fresh/` inside). Not run, as ruled: the
+final release `make test`; that is the next separately authorized checkpoint on a fresh immutable
+candidate after review and merge.
