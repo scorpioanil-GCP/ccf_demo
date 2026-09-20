@@ -417,3 +417,25 @@ recorded in `docs/DECISIONS.md` under *RELEASE QUALIFICATION — FIRST CORRECTIO
 (2026-09-19). The first correction group's repairs, node-by-node before/after results and
 regression are in `docs/QUALIFICATION-f0656746-CORRECTION-1.md`; its evidence is under
 `qualification/f0656746/`.
+
+### Corrections to the measurements' attribution (added at the repair package, 2026-09-19)
+
+The observations above stand as measured; two of their attributions were wrong and are corrected
+here rather than rewritten there.
+
+- **§4.7 / §8.3, the peering pin** (`tests/peering/test_admission_record.py` `::test_claims_py_is_unchanged_so_reading_a_cannot_creep_back_in`, as named at commit `f0656746`; renamed at the repair package):
+  the report offered "the 341 closes" as the likely origin. Measured at the investigation: the
+  pinned file is `src/ccf/contracts/claims.py`; it moved exactly twice, at `59cfc0cd` and
+  `da14c544` under **D-IMPL-332** (`_TemporalClaim.valid_from` widened to `datetime | None`,
+  hash-transparent), and the red entered `main` at `0d19599f`, the D-GATE-cp-09 merge.
+  `LineageEntry`, the class the pin guards, is byte-identical throughout. D-IMPL-341 is not involved.
+- **§4.2 / §8.3, the no-obligation guard**: the report repeated the last node's message, "the
+  exemption stopped covering `_GLOB_CHARACTERS`". That message was hard-coded and misattributed:
+  `_GLOB_CHARACTERS` is seen and exempted; the assertion is a whole-file cleanliness check and it
+  failed on the same two unexempted declarations (`DecayBasis`, `FreshnessAggregation`) as the
+  other 41 nodes. There was one cause, not two. The message now names what it finds.
+- **§4.3, the CLAUDE.md pin**: "not yet established" is now established — red on every commit
+  since `4683f245`, Phase 24.6's own close commit, and already ruled a proof-machinery defect
+  (`D-IMPL-269 (2)`, `D-IMPL-270 (2)`).
+
+Full findings: `docs/QUALIFICATION-f0656746-INVESTIGATION.md`.
