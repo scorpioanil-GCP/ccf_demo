@@ -305,11 +305,11 @@ abstraction. Nothing in A1–A7 or A10 is implemented before that review.
 | | Pattern | Shared by | Rubric class (prediction, to be measured) | What batch 1 measures |
 | --- | --- | --- | --- | --- |
 | **A1** | Several credentialed principals through one standard door: `open_door` registers a one-principal policy unconditionally and shadows (latest-wins) a deployment's multi-principal policy; the alternative is three typed overrides in code | 8 (mnpi, aml, ib, abs, kyc, large exposure, co-lender, CP-23) | **Correctness depends on hand-wiring** for the shadowing half (a policy registered in the wrong order is silently replaced — a serve-time shell, no boot refusal); *substantial repeated plumbing* for the override trio | On mnpi: hand-built objects (predicted 3), the ordering rule as private knowledge, configuration duplication between the door's derived grant and the tenant policy; whether an AI agent would discover the override trio from `public/` (it is not documented there) |
-| **A2** | Credential-derived policy envelope: a permitted set or a request default sourced from the verified grant. **Determination (Dave asked):** the *values* — which classes, jurisdictions or corpus a role may see — are legitimately product-specific policy, and they already have a governed home: a `PolicyConstraint` with `perspective_role` applicability and `allowed_set`, whose bound reaches the Policy operator through `RequestBoundParameter` with dimension-2 provenance when the caller states the parameter. The *plumbing* is what repeats, and it is SDK plumbing, not policy logic: (i) filling an omitted parameter from the grant — no constraint operator does it (`preferred` folds to guidance and never fills), so each rung writes a deployment `PolicyConstraintResolver` or acquisition-seam glue (cp-13's one dataclass, three functions, two exception classes, refusing by raise); (ii) containing a *list* parameter element-wise (`_refuse_against` folds scalar membership only) | 8 (mnpi, aml, ib, kyc; abs, large exposure, co-lender, CP-23 for the default half) | **Substantial repeated plumbing plus private knowledge** → candidate SDK ergonomics issue. The smallest closure, if the review confirms it: a role-applicable *default* arm on the existing `PolicyConstraint` (an omitted parameter filled with authority `policy` and the constraint as provenance) plus the element-wise fold (B1) — same artifact, same pin, no new seam | On mnpi (2nd instance) and aml (3rd → abstraction review): plumbing LOC of the envelope, whether the values sit in a declared artifact or in code, private symbols touched, whether the refusal is governed or raised; on ib and kyc the same count |
+| **A2** (ruled: build mnpi and aml on the existing mechanism; measure at the third instance; decide then) | Credential-derived policy envelope: a permitted set or a request default sourced from the verified grant. **Determination (Dave asked):** the *values* — which classes, jurisdictions or corpus a role may see — are legitimately product-specific policy, and they already have a governed home: a `PolicyConstraint` with `perspective_role` applicability and `allowed_set`, whose bound reaches the Policy operator through `RequestBoundParameter` with dimension-2 provenance when the caller states the parameter. The *plumbing* is what repeats, and it is SDK plumbing, not policy logic: (i) filling an omitted parameter from the grant — no constraint operator does it (`preferred` folds to guidance and never fills), so each rung writes a deployment `PolicyConstraintResolver` or acquisition-seam glue (cp-13's one dataclass, three functions, two exception classes, refusing by raise); (ii) containing a *list* parameter element-wise (`_refuse_against` folds scalar membership only) | 8 (mnpi, aml, ib, kyc; abs, large exposure, co-lender, CP-23 for the default half) | **Substantial repeated plumbing plus private knowledge** → candidate SDK ergonomics issue. The smallest closure, if the review confirms it: a role-applicable *default* arm on the existing `PolicyConstraint` (an omitted parameter filled with authority `policy` and the constraint as provenance) plus the element-wise fold (B1) — same artifact, same pin, no new seam | On mnpi (2nd instance) and aml (3rd → abstraction review): plumbing LOC of the envelope, whether the values sit in a declared artifact or in code, private symbols touched, whether the refusal is governed or raised; on ib and kyc the same count |
 | **A3** | Policy-before-similarity over a passage corpus with a request-bound query and a pinned index: the SDK operator ranks graph entities from a lexical index over entity attributes with a class-level literal query; no vector substrate is wired by the builder and no embedder ships; cp-13-canonical's acquisition-side retrieval (no index pin, Similarity absent from the plan) is the copy | 7 | **Substantial repeated plumbing plus private knowledge** → candidate SDK ergonomics issue; three separable closures if confirmed (a `RequestBoundParameter` arm on the query; a passage-corpus source for `SimilaritySelect`; per-match score on the output) | On mnpi and aml: copied retrieval helper LOC; whether the served plan names Similarity; whether the index and model version are pinned; the un-embedded share of the corpus each rung meets |
 | **A4** | Policy and evidence at the decision instant when `as_of` ≠ `asked_at` | 7 | **Repetitive but understandable** → backlog. The ledger-data route is ruled acceptable where appropriate; the deployment resolver is the ruled seam; the date-typed `as_of` boot refusal is a small hardening; residual 341-1 stays a documented limitation | Count only: which route each rung takes and how many lines it costs |
 | **A5** | Several declared product gates per class | 7 | **Repetitive but understandable** → backlog, by ruling (composition today) | Count: invariants folded per class; whether the refusal's detail string is what a consumer sees |
-| **A6** | A policy-emptied view served with a marker naming the policy operator | 6 | Not plumbing — **one measurement** before the wall rungs build. If the marker reaches an unentitled principal below full disclosure, correctness depends on a deployment gate every wall rung must write → launch concern | The one test (Q8), before mnpi's Gate 1 |
+| **A6** | A policy-emptied view served with a marker naming the policy operator | 6 | **MEASURED 2026-09-20, no leak** (`tests/products/test_policy_emptied_view_disclosure.py`, six tests, all green): for the unentitled principal, a subject whose every claim policy removed is path-for-path identical on the served vessel to a subject that never existed, on a per-request fabric and on a shared fabric; the empty finding names the Policy operator in *both* cases, so it states that the principal's admitted view is empty, never that a particular subject had restricted material; nothing restricted crosses; the positive control (an entitled, assembled subject) shows the comparison can see a difference. Existing path kept; no disclosure change owed | Done — the mnpi build may proceed to Gate 1 |
 | **A7** | Per-perspective projection-plan selection (D-IMPL-49 drift) and pinned Π parameters | 6 | **Easy / keep the existing path**, by ruling (invoke-time conditioning); the distinct plan id per perspective is backlog | Count: the bundle-pinned weight route's LOC on ib |
 | **A10** | Low-road obligations that pass silently: `run_gates(touched_entities=None)` passes with no signal; the pre-acquisition refusal is raised, unrecorded (residual 304) | 4 (large exposure's group producer, abs at loan grain, CP-23, CP-24) | **Correctness depends on hand-wiring** → launch concern candidate; one guard closes the silent pass if the review confirms | On the first low-road rung (CP-23): whether the builder threaded `touched_entities`, and what an omitted set does |
 
@@ -451,10 +451,11 @@ Q5 (A3, the Similarity query and passage corpus).
 
 **Still open for Dave, in the order they are needed.**
 
-- **Q8 — authorize the one measurement** (A6): does a policy-emptied view's marker reach an
-  unentitled principal below full disclosure? One test before mnpi's Gate 1.
-- **Q12(b) — the silent pass** (A10): close it with one guard when the first low-road rung (CP-23)
-  measures it, or leave it documented?
+- **Q8 — measured, no leak** (A6, 2026-09-20; GO given by Dave the same day): a policy-emptied
+  subject and a nonexistent one are observationally equivalent on the served vessel. Closed.
+- **Q12(b) — ruled (Dave, 2026-09-20):** when the low-road path is actually exercised (abs at
+  loan grain, or CP-23), if a guard making an omitted `touched_entities` fail loudly is only a few
+  lines, add it then; if not trivial, document the issue and bring it back for a decision. Not now.
 - **Q14 — kyc's review queue** (Gate 1): the product-scoped `workflow_state_ref` convention and the
   two-record linkage; carry the estate's stored confidence as evidence, or recompute.
 - **Q17 — the co-lender's Gate 1:** Route A as the governed spine; amend `require_attestation=false`
@@ -462,15 +463,21 @@ Q5 (A3, the Similarity query and passage corpus).
   direction (the peer's agent at our door) is in scope.
 - **Q18 — abs's Gate 1:** the granularity-disclosure recast; one role or two; the demonstration
   instant.
-- **Q20 — documentation:** is the public package for the policy, temporal and composite clusters
-  launch scope, as the replay recipe was? Rubric measures 7 and 8 will put a number on it after
-  batch 1.
-- **§6 item 1:** an owner rung, or a determination, for local-callable and fixed-MCP-resource
-  skills.
+- **Q20 — ruled (Dave, 2026-09-20):** the current adoption documentation plus this matrix are
+  sufficient for now; documentation completeness is not to become another pre-release project.
+  Rubric measures 7 and 8 still count the undocumented concepts per rung.
+- **§6 item 1 — ruled (Dave, 2026-09-20):** local-callable and fixed-MCP-resource skills are
+  already tested directly in SDK fixtures; no Context Product example is to be invented to
+  exercise them. Determined out of the examples' coverage obligation.
 
 ---
 
 ## 9 · Revised build sequence, and what batch 1 measures
+
+**The governing principle (Dave, 2026-09-20):** *the remaining examples are SDK coverage tests, not
+invitations to perfect the SDK. Build the minimum honest example that exercises the capability.
+Change the SDK only when an example exposes incorrect behavior, a genuinely missing required
+capability, or repeated plumbing that materially harms adoption.*
 
 **Batch 1 — the T5 wall products, on the paved road, measuring the three patterns.**
 mnpi first (its spec asks for it; it carries all three patterns), then aml and ib reusing its
