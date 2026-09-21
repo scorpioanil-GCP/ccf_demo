@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE DEMONSTRATION QUESTION and its pinned instants (`CP-SPEC-016` §A, §D.3).
+semver: "1.0.0"
+class_id: cp-16.question
+declaration:
+  question:
+    # SDART-2022-6 (Santander Drive Auto Receivables Trust 2022-6) is the only
+    # deal carrying a trigger AMENDMENT, which is what makes the as-of
+    # question real. Measured 2026-09-21.
+    subject: "SDART-2022-6"
+    intent: trigger-monitoring
+    freshness: event-driven
+    asked_at: "2026-06-30T00:00:00+00:00"
+    principal: PRIN-SFD-001
+  instants:
+    # Both are REAL reporting periods in the estate (12 periods run
+    # 2025-07..2026-06). `asked_at` sits inside the data window so the 24 h
+    # evidence-anchored TTL is live rather than permanently expired — the
+    # illustrative calibration of `CP-SPEC-016` §C.3 trap 7.
+    ASKED_AT: "2026-06-30T00:00:00+00:00"
+    # AFTER the amendment's `valid_from`: the in-force delinquency trigger is
+    # the amended 13.50%.
+    AFTER_AMENDMENT: "2026-06-30T00:00:00+00:00"
+    # BEFORE it: the in-force trigger is the original 24.00%.
+    BEFORE_AMENDMENT: "2025-09-30T00:00:00+00:00"
+
+  # THE AS-OF CONTRAST, and it changes the answer materially (`ABS-G03`).
+  # Measured 2026-09-21 from `abs_servicer_report`: SDART-2022-6's published
+  # delinquency runs 9.98%..11.30% across the twelve periods.
+  #   against the ORIGINAL 24.00% -> roughly 12.8 points of headroom
+  #   against the AMENDED  13.50% -> roughly  2.2 points of headroom
+  # Evaluating a 2026 pool against the 2022 definition is the anachronism this
+  # rung exists to refuse. The percentages are read LIVE and never pinned.
+  as_of_contrast:
+    deal_id: "SDART-2022-6"
+    trigger_kind: delinquency
+    original_trigger_id: "abs-trigger-SDART-2022-6-delinquency"
+    amended_trigger_id: "abs-trigger-SDART-2022-6-delinquency-amendment"
+
+  # THE UNANCHORED THRESHOLD (`CP-SPEC-016` §F.4, Route B). The amendment is
+  # the ONLY one of the estate's eleven trigger definitions with no prospectus
+  # passage anchor, and MongoDB's `trigger_anchor` holds exactly ten documents,
+  # confirming it from the other side.
+  unanchored_trigger_id: "abs-trigger-SDART-2022-6-delinquency-amendment"
+
+  # A deal with NO amendment, so the as-of limb is not vacuous in one
+  # direction only: TAOT-2022-B's delinquency trigger is 4.65% throughout.
+  unamended_deal: "TAOT-2022-B"
+
+  # The trigger whose threshold is a FORMULA, not a number — served as a
+  # finding naming why proximity is uncomputable (`ABS-G15`, trap 3).
+  unvalued_trigger_id: "abs-trigger-TAOT-2022-B-yield_supplement"
+
+  # Deal ids that exist nowhere, for the computed-empty comparator.
+  nonexistent_deals:
+    - "SDART-9999-9"
+    - "SDART-9999-8"
+
+  # The three intents this product prices.
+  priced_intents: [trigger-monitoring, holdings-review, client-reporting]

@@ -543,6 +543,11 @@ example-cp-15: ## Run examples/cp-15-kyc-refresh-beneficial-ownership (ENTITY, A
 		$(PYTHON) examples/cp-15-kyc-refresh-beneficial-ownership/run.py \
 		$(ENTITY) $(ASKED_AT) $(INTENT) $(PRINCIPAL) $(AS_OF) $(THRESHOLD) $(MIN_CONFIDENCE) $(MAX_DEPTH) $(DEBT_TOLERANCE)
 
+example-cp-16: ## Run examples/cp-16-abs-securitization-surveillance (DEAL, ASKED_AT, INTENT, PRINCIPAL, AS_OF, GRANULARITY, COHORTS, LOAN_SAMPLE, DEBT_TOLERANCE optional; needs CCF_CP_16_POSTGRES_DSN, CCF_CP_16_POSTGRES_SCHEMA, CCF_CP_16_FLUREE_URL, CCF_CP_16_FLUREE_LEDGER, CCF_CP_16_MONGO_URI, CCF_CP_16_MONGO_DB and the four CCF_CP_16_TOKEN_* credentials)
+	PYTHONPATH=src:runtime:examples/cp-16-abs-securitization-surveillance \
+		$(PYTHON) examples/cp-16-abs-securitization-surveillance/run.py \
+		$(DEAL) $(ASKED_AT) $(INTENT) $(PRINCIPAL) $(AS_OF) $(GRANULARITY) $(COHORTS) $(LOAN_SAMPLE) $(DEBT_TOLERANCE)
+
 example-cp-17: ## Run examples/cp-17-mnpi-wall-enforcement (SUBJECT, ASKED_AT, INTENT, KNOWN_AS_OF, DEBT_TOLERANCE, PRINCIPAL optional; needs CCF_CP_17_SQLITE_PATH, CCF_CP_17_POSTGRES_DSN, CCF_CP_17_POSTGRES_SCHEMA, CCF_CP_17_FLUREE_URL, CCF_CP_17_FLUREE_LEDGER, CCF_CP_17_MONGO_URI, CCF_CP_17_MONGO_DB and the four CCF_CP_17_TOKEN_* credentials)
 	PYTHONPATH=src:runtime:examples/cp-17-mnpi-wall-enforcement \
 		$(PYTHON) examples/cp-17-mnpi-wall-enforcement/run.py \
