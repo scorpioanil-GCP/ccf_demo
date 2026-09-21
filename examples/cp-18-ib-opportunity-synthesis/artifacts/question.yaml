@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE DEMONSTRATION QUESTION and its pinned instants (`CP-SPEC-018` §A.2).
+# Pinning `asked_at` is what a snapshot estate requires; nothing moves it to
+# get an answer.
+semver: "1.0.0"
+class_id: cp-18.question
+declaration:
+  question:
+    # BKR014 carries the sharpest divergence in the estate, measured
+    # 2026-09-21: one prospect at M&A rank 3 and DCM rank 18 of 25 from
+    # identical signals.
+    subject: "BKR014"
+    intent: weekly-planning
+    freshness: event-driven
+    asked_at: "2026-08-25T00:00:00+00:00"
+    principal: "BKR014"
+  instants:
+    ASKED_AT: "2026-08-25T00:00:00+00:00"
+    SINCE: "2026-05-27T00:00:00+00:00"
+  # THE DIVERGENCE CASE (`IBO-G04`). Measured 2026-09-21 over BKR014's
+  # portfolio: this prospect ranks in the M&A originator's top three and in
+  # the DCM banker's bottom half, from IDENTICAL signals, because the weight
+  # vector prices a maturity wall at 1.0 for DCM and 0.05 for M&A.
+  #
+  # The prospect is named; the RANKS ARE NEVER PINNED. The gate reads both
+  # ranks live and asserts the relationship — top-third under one perspective,
+  # bottom-half under another — so estate drift exercises the gate instead of
+  # breaking it.
+  divergence_prospect: "549300FHJQTDPPN41627"
+  # Banker ids that exist nowhere, for the A6 comparator.
+  nonexistent_bankers:
+    - "BKR999"
+    - "BKR998"

@@ -1,0 +1,309 @@
+# yaml-language-server: $schema=../../docs/schemas/ccf.deployment-config.json
+#
+# THE CONTROL PLANE DOCUMENT — what this fabric is permitted to do.
+#
+# Everything domain-specific about `cib.opportunity-synthesis` is here or
+# under `artifacts/`; `produce.py` names none of it (CLAUDE.md §6.4). The
+# specification this document realizes is
+# `spec/CP-SPEC-018_IB_Opportunity_Synthesis.md`.
+
+semver: "1.0.0"
+tenant_id: cp-18-demo
+
+backend: sqlite
+
+product_class:
+  schema_name: cib.opportunity-synthesis
+  schema_version: "1.0.0"
+  ttl_anchor: from_decision
+  assembly_mode: algorithmic
+  max_ttl_key: cp-18/product/opportunity-synthesis/max-ttl
+
+  # ALL FOUR CATEGORIES. The planner runs them in `CATEGORY_ORDER` whatever
+  # order they are written here, and `IBO-G01` reads that order off the SERVED
+  # product. The RANK step is the deployment's own arithmetic in Π and is
+  # deliberately NOT an operator (`CP-SPEC-018` §0.1).
+  required_operator_keys:
+    - policy.principal-subgraph
+    - similarity.corpus-select
+    - temporal.as-of-boundary
+    - traversal.typed-neighborhood
+
+  serve_obligations:
+    default_debt_tolerance: "0.80"
+    # NOT `banker`: a banker whose candidates Policy removes entirely is
+    # SERVED computed-empty (`IBO-G16`), and an obligation on it would turn
+    # that serve into a refusal — the existence oracle the gate prevents.
+    lineage_inputs_at:
+      - perspective
+      - as_of
+
+  discovery:
+    domain: cib
+    intents:
+      - weekly-planning
+    capabilities:
+      - perspective-conditioned-ranking
+      - policy-versioned-weight-vector
+      - banker-local-evidence
+      - optional-context-as-debt
+    audiences:
+      - ma
+      - dcm
+      - sector
+
+  declared_product_gate:
+    gate_id: cp-18.ranking-holds
+    gate_version: "1.0.0"
+
+operators:
+  # STEP 2 — Policy. The permitted set is the product's WHOLE classification
+  # vocabulary; the per-banker narrowing (whose local notes, which prospects)
+  # arrives at the acquisition seam from `context.perspective`, per the
+  # adopter page `public/how-to/condition-acquisition-on-the-verified-credential.md`.
+  policy.principal-subgraph:
+    classification_attribute_by_class:
+      banker: classification
+      prospect: classification
+      signal: classification
+      standing_signal: classification
+      note: classification
+      passage: classification
+    permitted_classifications:
+      - public
+      - internal
+      - banker-local
+
+  # STEP 3 — Similarity BEHIND Policy, over the passage corpus. ILLUSTRATIVE
+  # CALIBRATION, measured 2026-09-21 exactly as rung 19 measured its own: the
+  # reference index scores integer Jaccard overlap, so a short query over long
+  # passages occupies a narrow band. The floor recorded here is the smallest
+  # value at which the operator still discriminates over THIS corpus; the
+  # measurement is in `FINDINGS.md` (`IBO-F-02`).
+  similarity.corpus-select:
+    query: "merger acquisition proxy registration refinancing maturity activist stake"
+    minimum_score_percent: 1
+    ranked_entity_classes:
+      - passage
+    similarity_corpus_attribute_by_class:
+      passage: text
+    index_version: "cp-18-filing-corpus@2026-09-21"
+
+  # STEP 4 — the valid-time cut at `as_of`. Every dated claim carries its
+  # world date as `valid_from`; an undated claim is admitted by the absence
+  # limb.
+  temporal.as-of-boundary:
+    require_valid_at_boundary: true
+
+  # STEP 5 — the walk over the per-request fabric acquisition already bounded
+  # by the banker's coverage portfolio. Everything is minted as a direct edge
+  # from the BANKER, which is what makes this product consumer-anchored.
+  traversal.typed-neighborhood:
+    seed_entity_classes:
+      - banker
+    relationship_types:
+      - coversProspect
+      - hasSignal
+      - hasStandingSignal
+      - hasLocalNote
+      - hasPassage
+    depth_limit: 1
+
+request_contract:
+  class_id: cp-18.request-contract
+  role: register
+  registration: typed
+  schema_name: cib.opportunity-synthesis
+  schema_version: "1.0.0"
+  # NO `perspective` and NO `weight_version` (`CP-SPEC-018` §B.4). The
+  # perspective is the door's. The weight version is resolved at the decision
+  # instant and pinned: a caller choosing which vector ranks its own book
+  # could choose the one that ranks it most favourably, which is strictly MORE
+  # than its credential permits.
+  arguments:
+    properties:
+      as_of:
+        type: string
+        description: >-
+          The decision instant whose weight vector governs and whose valid-time
+          cut bounds the evidence, an ISO-8601 instant with its zone. Defaults
+          to `asked_at` itself.
+      since:
+        type: string
+        description: >-
+          The lower bound of the signal window. Narrows the evidence and can
+          never widen an entitlement.
+      limit:
+        type: number
+        description: how many ranked rows are served, 1..50. Can only ask for fewer.
+      signal_types:
+        type: array
+        description: >-
+          Narrows within the perspective's permitted signal types. A type
+          OUTSIDE the plan is refused by name, never silently dropped
+          (`IBO-G14`) — asking for a type the plan does not carry is asking for
+          more than the credential permits.
+      debt_tolerance:
+        type: number
+        description: the caller's ceiling on assessed Context Debt, 0..1.
+    required: []
+  relative_defaults:
+    as_of:
+      offset_seconds: 0
+      render: timestamp
+
+resolution:
+  entity_rules:
+    - match_key: banker_node
+      entity_class: banker
+      identity_keys: [entity_uri]
+      # `weights_json` is the vector that ranked this product and
+      # `weight_version` names it; both ride on the banker claim so the
+      # SNAPSHOT carries them and replay reproduces the historical ranking
+      # (`IBO-G06`). `optional_context_json` records the absent CP-17
+      # contribution as named debt (`IBO-G17`).
+      attribute_keys: [banker_id, full_name, role, desk, classification,
+                       perspective_id, plan_json, weights_json, weight_version,
+                       portfolio_json, optional_context_json, ledger_t]
+    - match_key: prospect_node
+      entity_class: prospect
+      identity_keys: [entity_uri]
+      attribute_keys: [lei, legal_name, classification, restriction_type,
+                       mnpi_bearing, mandate_type, stated_appetite]
+    - match_key: signal_node
+      entity_class: signal
+      identity_keys: [entity_uri]
+      attribute_keys: [signal_id, lei, signal_type, observed_on, detail, classification]
+    # A STANDING signal — a maturity wall — is a state of the world at the
+    # decision instant rather than an event on a day. It is a DIFFERENT
+    # observation type from a dated signal and decays differently, which is
+    # what the SDK's own refusal taught: a class declaring
+    # `decay_basis: valid-from` will not hold an undated claim
+    # (`MissingDecayInstant`, `D-IMPL-332`), and papering over that would
+    # report a perfectly fresh figure for an observation with no known age.
+    - match_key: standing_signal_node
+      entity_class: standing_signal
+      identity_keys: [entity_uri]
+      attribute_keys: [signal_id, lei, signal_type, effective_on, detail, classification]
+    - match_key: note_node
+      entity_class: note
+      identity_keys: [entity_uri]
+      attribute_keys: [note_id, lei, banker_id, signal_type, materiality,
+                       rank_changing, note, classification]
+    - match_key: passage_node
+      entity_class: passage
+      identity_keys: [entity_uri]
+      attribute_keys: [passage_id, document_id, lei, text, classification]
+
+    # Endpoint rules. NO attribute keys: an edge asserts that two nodes are
+    # related and nothing about what either node IS (`D-IMPL-316`).
+    - {match_key: banker_subject, entity_class: banker,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: subject_uri}}
+    - {match_key: prospect_object, entity_class: prospect,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+    - {match_key: signal_object, entity_class: signal,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+    - {match_key: standing_signal_object, entity_class: standing_signal,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+    - {match_key: note_object, entity_class: note,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+    - {match_key: passage_object, entity_class: passage,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+
+  relationship_rules:
+    - {relationship_type: coversProspect, predicate_key: predicate,
+       subject_entity_class: banker, object_entity_class: prospect,
+       subject_rule: banker_subject, object_rule: prospect_object}
+    - {relationship_type: hasSignal, predicate_key: predicate,
+       subject_entity_class: banker, object_entity_class: signal,
+       subject_rule: banker_subject, object_rule: signal_object}
+    - {relationship_type: hasStandingSignal, predicate_key: predicate,
+       subject_entity_class: banker, object_entity_class: standing_signal,
+       subject_rule: banker_subject, object_rule: standing_signal_object}
+    - {relationship_type: hasLocalNote, predicate_key: predicate,
+       subject_entity_class: banker, object_entity_class: note,
+       subject_rule: banker_subject, object_rule: note_object}
+    - {relationship_type: hasPassage, predicate_key: predicate,
+       subject_entity_class: banker, object_entity_class: passage,
+       subject_rule: banker_subject, object_rule: passage_object}
+
+# ---------------------------------------------------------------------------
+# λ_c — read from the ESTATE, not authored here.
+# ---------------------------------------------------------------------------
+# `ccf_v2.ib_signal_class` carries a half-life per signal type, 1 to 180 days,
+# and THAT is the decay the ranking applies. The rows below are the fabric's
+# own per-class table and they decay `supersede-only` for every class whose
+# currency is a fact about the record rather than about the world; the
+# `signal` class alone carries a curve, on `valid-from`, because a signal's
+# age is exactly what the ranking prices.
+#
+# ILLUSTRATIVE CALIBRATION: this example runs against a point-in-time
+# demonstration estate rather than continuously refreshed production data. The
+# `signal` row's half-life is the MEDIAN of the estate's eleven declared
+# class half-lives, chosen so the fabric-level freshness term still
+# discriminates at the pinned instant; the per-type half-lives the RANKING
+# uses are the estate's own and are not calibrated here. See `FINDINGS.md`.
+half_life:
+  banker:
+    decay: supersede-only
+    decay_driver: coverage-reassignment
+    supersession_event: coverage-reassigned
+  prospect:
+    decay: supersede-only
+    decay_driver: reference-data-maintenance
+    supersession_event: entity-record-update
+  signal:
+    half_life_seconds: 2592000
+    decay_basis: valid-from
+    decay_driver: signal-publication
+    supersession_event: next-signal-on-entity
+  standing_signal:
+    decay: supersede-only
+    decay_driver: balance-sheet-state
+    supersession_event: instrument-repaid-or-refinanced
+  note:
+    decay: supersede-only
+    decay_driver: banker-annotation
+    supersession_event: note-revised
+  passage:
+    decay: supersede-only
+    decay_driver: publication
+    supersession_event: filing-superseded
+
+debt_profile:
+  risk_sensitivity: "1.0"
+  forced_llm_threshold: "0.60"
+  fail_closed_threshold: "0.95"
+
+policy:
+  class_id: cp-18.policy-bundle
+  role: register
+  registration: typed
+  regime: ib-perspective-weight-envelope
+
+default_perspective:
+  principal_id: BKR006
+  role: ma
+
+replay:
+  record_class: ccf.replay-record
+  query_pin_class: ccf.graph-query
+  store_dirname: artifact-store
+
+ttl:
+  max_ttl_seconds: 57600
+  product_ttl_seconds: 14400
+
+door:
+  producer_id: cp-18-opportunity-synthesis-egress
+  producer_tenant: cp-18-demo
+  required_scope: ccf:egress
+  tool_description: >-
+    Rank the prospects in one banker's coverage portfolio as a governed,
+    content-addressed Context Product (`cib.opportunity-synthesis`): the
+    banker named by `subject` as the verified credential's perspective ranks
+    them — strategic catalysts for the M&A originator, maturity walls and
+    refinancing windows for the DCM banker, peer-relative movement for the
+    sector strategist — from identical governed signals under a
+    policy-versioned weight vector pinned in the record, so a ranking replays
+    under the weights that were in force when it was served.
