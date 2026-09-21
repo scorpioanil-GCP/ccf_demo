@@ -920,6 +920,12 @@ RULED_SDK_SUPPLIED_DEPLOYMENTS: frozenset[str] = frozenset(
         # answered True on 2026-09-20 BEFORE this line was written — a named
         # `plan_factory` passing `required` straight through (D-IMPL-137).
         "examples/cp-17-mnpi-wall-enforcement",
+        # cp-15, 2026-09-21 — the KYC rung, arriving by the same route and
+        # measured the same way: the detector reached this root and answered
+        # True before this line existed, because `produce.py`'s named
+        # `plan_factory` hands the resolver's own `required` tuple to
+        # `BeneficialOwnershipProjection`, which returns it unchanged.
+        "examples/cp-15-kyc-refresh-beneficial-ownership",
         # cp-18, 2026-09-21 — the IB opportunity rung, arriving by the same
         # route and measured the same way: the detector reached this root and
         # answered True before this line existed, because `produce.py`'s named
@@ -3654,6 +3660,10 @@ def test_the_premise_detector_reads_the_shipped_tree_correctly() -> None:
         # CP-14 Gate 2 slice 1, 2026-09-15 — the paved consumer tree, added
         # as its OWN assertion for the same reason: what the detector ANSWERS.
         "examples/cp-14-credit-memo-context",
+        # cp-15, 2026-09-21 — the KYC rung, added as its OWN assertion for
+        # the reason the cp-11 entry gives. Sorted before cp-17, as the
+        # detector lists roots.
+        "examples/cp-15-kyc-refresh-beneficial-ownership",
         "examples/cp-17-mnpi-wall-enforcement",
         # cp-18, 2026-09-21 — the IB opportunity rung, added as its OWN
         # assertion for the reason the cp-11 entry gives.

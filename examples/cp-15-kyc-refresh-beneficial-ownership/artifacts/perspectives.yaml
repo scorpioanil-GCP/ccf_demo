@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE PRODUCT'S SHAPE PER PERSPECTIVE (`CP-SPEC-015` §D.6, `UBO-G14`).
+#
+# The member set is a function of the PERSPECTIVE and never of the entity or
+# the request. `include_cycles` and `screen_sanctions` are deliberately NOT
+# request parameters: a payload whose shape the caller chooses makes an empty
+# member informative about the subject.
+semver: "1.0.0"
+class_id: cp-15.perspectives
+declaration:
+  common_members:
+    - perspective
+    - as_of
+    - intent
+    - entity
+    - applicable_threshold
+    - min_confidence
+    - ownership_chain
+    - reportable_owners
+    - sub_threshold_findings
+    - resolution_findings
+    - sanctions_findings
+    # PRESENT AND EMPTY for every entity in this estate, and disclosed as
+    # such: no ownership cycles exist (`CP-SPEC-015` §0.3, §F.4.2, `UBO-G19`).
+    - cycle_findings
+    - refresh_state
+    - review_submissions
+    - entities_in_view
+    - edge_types_served
+  classified_list_members:
+    - ownership_chain
+    - reportable_owners
+    - sub_threshold_findings
+    - resolution_findings
+    - sanctions_findings
+    - document_declarations
+  classification_vocabulary: [public, internal, person-restricted]
+  perspectives:
+    kyc-analyst:
+      principal_id: PRIN-KYC-004
+      # The only perspective the estate grants `sees_eu_person_data`.
+      members: [document_declarations, residency_entitlement]
+    coverage-banker:
+      principal_id: PRIN-COV-001
+      members: [residency_entitlement]
+    research-analyst:
+      principal_id: PRIN-RES-002
+      members: []

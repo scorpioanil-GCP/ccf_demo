@@ -56,7 +56,7 @@ NO_SUBSTRATE := not postgres and not chroma and not neo4j and not mongo and not 
 	example-s1-01 example-s1-00 example-cp-00 example-cp-01 example-cp-02 \
 	example-cp-03 example-cp-03-canonical example-cp-04 example-cp-04-canonical example-cp-05 example-cp-05-server \
 	example-cp-06 example-cp-06-canonical example-cp-07 example-cp-09 example-cp-10 example-cp-11 \
-	example-cp-12 example-cp-13 example-cp-13-canonical example-cp-14 example-cp-17 example-cp-18 example-cp-19 example-door-cp-05 \
+	example-cp-12 example-cp-13 example-cp-13-canonical example-cp-14 example-cp-15 example-cp-17 example-cp-18 example-cp-19 example-door-cp-05 \
 	example-hw1-harness-clients \
 	example-hw1-harness-clients-live-adk \
 	example-hw1-harness-clients-live-anthropic \
@@ -537,6 +537,11 @@ example-cp-13-canonical: ## Run examples/cp-13-canonical-covenant-cross-referenc
 	PYTHONPATH=src:runtime:examples/cp-13-canonical-covenant-cross-reference \
 		$(PYTHON) examples/cp-13-canonical-covenant-cross-reference/run.py \
 		$(ROLE) $(CORPUS_SCOPE) $(SOURCES) $(SCOPE) $(AS_OF) $(INTENT) $(RESOLVE_DEPTH) $(DEBT_TOLERANCE)
+
+example-cp-15: ## Run examples/cp-15-kyc-refresh-beneficial-ownership (ENTITY, ASKED_AT, INTENT, PRINCIPAL, AS_OF, THRESHOLD, MIN_CONFIDENCE, MAX_DEPTH, DEBT_TOLERANCE optional; needs CCF_CP_15_POSTGRES_DSN, CCF_CP_15_POSTGRES_SCHEMA, CCF_CP_15_FLUREE_URL, CCF_CP_15_FLUREE_LEDGER, CCF_CP_15_MONGO_URI, CCF_CP_15_MONGO_DB and the four CCF_CP_15_TOKEN_* credentials)
+	PYTHONPATH=src:runtime:examples/cp-15-kyc-refresh-beneficial-ownership \
+		$(PYTHON) examples/cp-15-kyc-refresh-beneficial-ownership/run.py \
+		$(ENTITY) $(ASKED_AT) $(INTENT) $(PRINCIPAL) $(AS_OF) $(THRESHOLD) $(MIN_CONFIDENCE) $(MAX_DEPTH) $(DEBT_TOLERANCE)
 
 example-cp-17: ## Run examples/cp-17-mnpi-wall-enforcement (SUBJECT, ASKED_AT, INTENT, KNOWN_AS_OF, DEBT_TOLERANCE, PRINCIPAL optional; needs CCF_CP_17_SQLITE_PATH, CCF_CP_17_POSTGRES_DSN, CCF_CP_17_POSTGRES_SCHEMA, CCF_CP_17_FLUREE_URL, CCF_CP_17_FLUREE_LEDGER, CCF_CP_17_MONGO_URI, CCF_CP_17_MONGO_DB and the four CCF_CP_17_TOKEN_* credentials)
 	PYTHONPATH=src:runtime:examples/cp-17-mnpi-wall-enforcement \

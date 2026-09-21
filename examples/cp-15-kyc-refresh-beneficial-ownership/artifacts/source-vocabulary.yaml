@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# EVERY SOURCE NAME THIS DEPLOYMENT READS.
+semver: "1.0.0"
+class_id: cp-15.source-vocabulary
+declaration:
+  relational:
+    tables:
+      chain: bo_chain
+      hop: bo_chain_hop
+      threshold: bo_threshold
+      psc_person: psc_person
+      crosswalk: person_crosswalk
+      variant: person_name_variant
+      resolution_policy: resolution_policy
+      screening: sanctions_screening_result
+      refresh_state: kyc_refresh_state
+      principal: principal
+      principal_jurisdiction: principal_jurisdiction
+      legal_entity: legal_entity
+  documents:
+    collection: kyc_document
+    passage_collection: passage
+    fields:
+      document_id: document_id
+      entity_id: entity_id
+      chain_id: chain_id
+      kind: kind
+      declared_pct: declared_pct
+      declared_owner_person_key: declared_owner_person_key
+      declared_on: declared_on
+      applicable_threshold_pct: applicable_threshold_pct
+  graph:
+    watermark_only: true
+  entity_uri_prefix:
+    entity: "urn:ccf:cp15:entity:"
+    person: "urn:ccf:cp15:person:"
+    finding: "urn:ccf:cp15:finding:"
+    declaration: "urn:ccf:cp15:declaration:"
+  # `person-restricted` is admitted only for a principal whose
+  # `sees_eu_person_data` is true — the ESTATE's own column.
+  classification:
+    vocabulary: [public, internal, person-restricted]
+    assignment:
+      entity: internal
+      person: internal
+      person_eu: person-restricted
+      finding: internal
+      declaration: internal
