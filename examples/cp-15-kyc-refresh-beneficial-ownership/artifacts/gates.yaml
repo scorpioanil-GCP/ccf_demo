@@ -44,6 +44,7 @@ declaration:
       result: >-
         not run as a sabotage — UNAVAILABLE. Measured 2026-09-21: the four operator keys were reordered in `ccf_config.yaml` to put Similarity first and Policy last, and the SERVED order did not move (the test passed unchanged). `CATEGORY_ORDER` in the SDK's planner decides the executed order, so a deployment cannot express the forbidden order at all.
       date: '2026-09-21'
+      commit: a8013e97
       commit: PENDING
   - id: UBO-G02
     statement: no person record outside the principal's residency entitlement appears in any served product, and no member, count or marker indicates that one was withheld
@@ -57,6 +58,7 @@ declaration:
       result: >-
         RED 2026-09-21 — the residency check was removed so every person was admitted regardless of entitlement. The DECLARED GATE refused the product: `an invariant the product class declares does not hold for this product`.
       date: '2026-09-21'
+      commit: a8013e97
       commit: PENDING
   - id: UBO-G03
     statement: the entitled principal and an unentitled one, same entity same instant, receive different products at different addresses — and the entitled one's person set is a strict superset
@@ -70,6 +72,7 @@ declaration:
       result: >-
         RED 2026-09-21 — the entitlement read was made to return True for every principal; the two products stopped differing and the declared gate refused.
       date: '2026-09-21'
+      commit: a8013e97
       commit: PENDING
   - id: UBO-G04
     statement: every person served carries a resolution confidence; none is served without one
@@ -83,6 +86,7 @@ declaration:
       result: >-
         RED 2026-09-21 — a person was served with an empty resolution confidence and the declared gate refused it by name.
       date: '2026-09-21'
+      commit: a8013e97
       commit: PENDING
   - id: UBO-G05
     statement: every reportable owner is at or above the applicable threshold, and every sub-threshold finding is below it
@@ -96,6 +100,7 @@ declaration:
       result: >-
         RED 2026-09-21 — every person in the chain was reported regardless of the threshold; the declared gate refused, which is the stronger outcome than the test's own assertion.
       date: '2026-09-21'
+      commit: a8013e97
       commit: PENDING
   - id: UBO-G06
     statement: 'the intent selects the threshold: one entity under two intents yields two applicable thresholds and two different partitions of the SAME person'
@@ -109,6 +114,7 @@ declaration:
       result: >-
         RED 2026-09-21 — the threshold read was made to ignore the intent. Both intents returned one value and the test failed on `assert Decimal('0') < Decimal('0')`.
       date: '2026-09-21'
+      commit: a8013e97
       commit: PENDING
   - id: UBO-G07
     statement: a request below the estate's declared floor for threshold or min_confidence is REFUSED by name, never silently raised to the floor
@@ -122,6 +128,7 @@ declaration:
       result: >-
         RED by construction, run 2026-09-21 — the test asks below the estate's declared floor for `min_confidence` and again for `threshold`, and asserts `floor-breached` in the record both times. The positive control, the same request ABOVE the floor, is served.
       date: '2026-09-21'
+      commit: a8013e97
       commit: PENDING
   - id: UBO-G08
     statement: a resolution below the confidence floor is a FINDING inside the product, never an absence
@@ -135,6 +142,7 @@ declaration:
       result: >-
         RED 2026-09-21 — below-floor resolutions were dropped out of the product instead of being marked. The test failed on the contrast entity having too few resolutions left to move one, which is exactly what dropping them causes.
       date: '2026-09-21'
+      commit: a8013e97
       commit: PENDING
   - id: UBO-G09
     statement: every referred finding has a review submission, and every submission names the served product's content address
@@ -148,6 +156,7 @@ declaration:
       result: >-
         RED 2026-09-21 — the submission's `output_ref` was given an address that is not the served product's; the test named both addresses side by side.
       date: '2026-09-21'
+      commit: a8013e97
       commit: PENDING
   - id: UBO-G10
     statement: the submitted workflow_state_ref is the originating REPLAY-RECORD reference and resolves — not the content address, because identical bytes can participate in different determinations
@@ -161,6 +170,7 @@ declaration:
       result: >-
         RED 2026-09-21 — the product's content-address URI was submitted as `workflow_state_ref` instead of the originating record reference, and the test refused it: a content address cannot say which governed determination referred the finding.
       date: '2026-09-21'
+      commit: a8013e97
       commit: PENDING
   - id: UBO-G11
     statement: the product's own replay record carries NO_HITL_ACTIONS by construction
@@ -174,6 +184,7 @@ declaration:
       result: >-
         not run as a sabotage — UNAVAILABLE. The `NO_HITL_ACTIONS` sentinel is written by the SDK's own record builder (`src/ccf/replay/record.py`, the `hitl_actions` default) and NO deployment seam can set it: `open_product` takes no such argument and the resolver passes none. The bad state — a product record claiming a human action that has not happened — is unreachable from a deployment.
       date: '2026-09-21'
+      commit: a8013e97
       commit: PENDING
   - id: UBO-G12
     statement: a human verdict lands on a SECOND record linked to the originating reference and the output ref, and the served product is byte-unchanged by it
@@ -187,6 +198,7 @@ declaration:
       result: >-
         RED by construction, run 2026-09-21 — the test hashes the product and its record before and after a human release and asserts both unchanged, then holds the second record to the four links the ruling requires: the originating reference, the output ref, the reviewer identity and the verdict with its time.
       date: '2026-09-21'
+      commit: a8013e97
       commit: PENDING
   - id: UBO-G13
     statement: a reviewer binding that echoes the wrong content hash is refused — the TOCTOU guard, exercised through a product
@@ -200,6 +212,7 @@ declaration:
       result: >-
         RED by construction, run 2026-09-21 — a reviewer binding echoing a wrong content hash is refused with `ReviewResolutionRefused`, and the positive control with the right hash releases.
       date: '2026-09-21'
+      commit: a8013e97
       commit: PENDING
   - id: UBO-G14
     statement: the payload's member set is a function of the perspective and never of the entity or the request
@@ -213,6 +226,7 @@ declaration:
       result: >-
         RED 2026-09-21 — Pi emitted one extra member (`sabotage_extra_member`) and the declared gate refused the product.
       date: '2026-09-21'
+      commit: a8013e97
       commit: PENDING
   - id: UBO-G15
     statement: a KYC declaration contradicting the computed chain is served BESIDE the computed figure, never reconciled into it
@@ -226,6 +240,7 @@ declaration:
       result: >-
         RED 2026-09-21 — the computed percentage was overwritten with the declared one, so the contradiction disappeared. The test named the declaration whose computed figure had been erased.
       date: '2026-09-21'
+      commit: a8013e97
       commit: PENDING
   - id: UBO-G16
     statement: the determination replays from its own record to its served bytes
@@ -239,6 +254,7 @@ declaration:
       result: >-
         RED by construction, run 2026-09-21 — the same record is replayed against a DIFFERENT applicable threshold, which repartitions the chain, and the engine raises `ReplayDivergence`; the un-sabotaged replay of the same record still agrees byte for byte.
       date: '2026-09-21'
+      commit: a8013e97
       commit: PENDING
   - id: UBO-G17
     statement: an entity with no ownership chain is served computed-empty and is indistinguishable from an entity id that was never issued
@@ -252,6 +268,7 @@ declaration:
       result: >-
         RED by construction, run 2026-09-21 — the test relabels every acquired claim out of the Policy vocabulary and compares the emptied entity's vessel with a nonexistent entity's path for path; two different nonexistent ids hash identically, and a normally served answer differs from both at `payload` and at `computed_empty`.
       date: '2026-09-21'
+      commit: a8013e97
       commit: PENDING
   - id: UBO-G18
     statement: a principal with no jurisdiction grant is refused by name, as data, with a replay reference
@@ -265,6 +282,7 @@ declaration:
       result: >-
         RED by construction, run 2026-09-21 — the jurisdiction read is emptied and the refusal asserted. It has to be constructed: every registered principal in this estate holds at least one grant, so the ungranted state is unreachable from the data.
       date: '2026-09-21'
+      commit: a8013e97
       commit: PENDING
   - id: UBO-G19
     statement: 'the cycle member is served honestly: present and empty, computed rather than constant, no cycle asserted anywhere, and the unrelated findings all survive it so the product stays actionable'
@@ -283,6 +301,7 @@ declaration:
       result: >-
         RED 2026-09-21 — the cycle computation was replaced with a constant empty list. It reddens against the POSITIVE CONTROL that injects a cycle in-process: `a cycle was present in the view and the product reported none`. A first attempt, run against the honest-empty test alone, left the gate GREEN, because on an estate with no cycles that test cannot tell a computed empty from a constant one. Recorded as `UBO-F-05`.
       date: '2026-09-21'
+      commit: a8013e97
       commit: PENDING
   - id: UBO-G20
     statement: 'the construction boundary holds: the product is complete, governed, assessed and immutable before enqueue, and assembling with the review queue never called produces BYTE-IDENTICAL output'
@@ -296,4 +315,5 @@ declaration:
       result: >-
         RED 2026-09-21 — the review queue was imported into `deployment.py`, the construction path. The test read it off the IMPORT GRAPH and named it: `deployment.py imports the HITL surface into construction: ['ccf.hitl.review_queue']`.
       date: '2026-09-21'
+      commit: a8013e97
       commit: PENDING
