@@ -1,0 +1,369 @@
+# yaml-language-server: $schema=../../docs/schemas/ccf.deployment-config.json
+#
+# THE CONTROL PLANE DOCUMENT — what this fabric is permitted to do.
+# The specification this realizes is
+# `spec/CP-SPEC-016_ABS_Securitization_Surveillance.md`.
+
+semver: "1.0.0"
+tenant_id: cp-16-demo
+
+backend: sqlite
+
+product_class:
+  schema_name: cib.abs-surveillance
+  schema_version: "1.0.0"
+  ttl_anchor: from_entity_freshness
+  assembly_mode: algorithmic
+  max_ttl_key: cp-16/product/abs-surveillance/max-ttl
+
+  required_operator_keys:
+    - policy.principal-subgraph
+    - similarity.corpus-select
+    - temporal.as-of-boundary
+    - traversal.typed-neighborhood
+
+  serve_obligations:
+    default_debt_tolerance: "0.80"
+    # NOT `deal`: a deal with no reporting period at `as_of` is SERVED
+    # computed-empty, and an obligation on it would turn that serve into a
+    # refusal — the existence oracle `ABS-G22` exists to close.
+    lineage_inputs_at:
+      - perspective
+      - as_of
+
+  discovery:
+    domain: cib
+    intents:
+      - trigger-monitoring
+      - holdings-review
+      - client-reporting
+    capabilities:
+      - granularity-bounded-by-role
+      - cost-stated-with-the-answer
+      - trigger-definitions-as-of
+      - unanchored-thresholds-named
+    audiences:
+      - structured-finance-desk
+      - credit-risk
+      - client-reporting
+
+  declared_product_gate:
+    gate_id: cp-16.surveillance-holds
+    gate_version: "1.0.0"
+
+operators:
+  # STEP 2 — Policy. The permitted set is the product's WHOLE classification
+  # vocabulary; the per-principal GRANULARITY ceiling is formative and arrives
+  # at the acquisition seam from `context.perspective`, per the adopter page
+  # `public/how-to/condition-acquisition-on-the-verified-credential.md`.
+  # A loan record above the caller's ceiling is never minted, not filtered.
+  policy.principal-subgraph:
+    classification_attribute_by_class:
+      deal: classification
+      tranche: classification
+      trigger: classification
+      anchor: classification
+      cohort: classification
+      loan: classification
+      benchmark: classification
+      repurchase: classification
+    permitted_classifications:
+      - public
+      - internal
+      - engineered
+
+  # STEP 4 — Similarity BEHIND Policy, over the filed prospectus text itself.
+  #
+  # THE CORPUS IS ITS OWN CLASS, AND THAT IS ROUTE B MADE STRUCTURAL. An
+  # `anchor` claim exists only where filed text exists, so an UNANCHORED
+  # threshold has no anchor node at all rather than an anchor node with empty
+  # fields — which is exactly what `CP-SPEC-016` §F.4.0 forbids. The SDK
+  # forced the shape and was right to: it refuses to rank a class whose
+  # corpus attribute is missing on some members rather than guess
+  # (`src/ccf/deployment/operators.py::SimilarityCorpusAttributeError`,
+  # `ABS-F-04`).
+  #
+  # ILLUSTRATIVE CALIBRATION: a floor of 0 admits every filed span, so ranking
+  # orders the corpus without excluding evidence a committee would ask for.
+  similarity.corpus-select:
+    query: "delinquency trigger percentage overcollateralization target reserve account balance pool"
+    minimum_score_percent: 0
+    ranked_entity_classes:
+      - anchor
+    similarity_corpus_attribute_by_class:
+      anchor: anchor_text
+    index_version: "cp-16-abs-prospectus@2026-09-21"
+
+  temporal.as-of-boundary:
+    require_valid_at_boundary: true
+
+  # STEP 3/5 — the walk over the per-request fabric that acquisition already
+  # bounded by the granularity ceiling and the decision instant. Everything is
+  # minted as a direct edge from the anchor deal.
+  traversal.typed-neighborhood:
+    seed_entity_classes:
+      - deal
+    relationship_types:
+      - hasTranche
+      - hasTrigger
+      - hasAnchor
+      - hasCohort
+      - hasLoan
+      - hasBenchmark
+      - hasRepurchase
+    depth_limit: 1
+
+request_contract:
+  class_id: cp-16.request-contract
+  role: register
+  registration: typed
+  schema_name: cib.abs-surveillance
+  schema_version: "1.0.0"
+  # NO `perspective` and NO `granularity_ceiling` (`CP-SPEC-016` §B.3). A
+  # caller naming its own ceiling could name one above its entitlement, which
+  # is strictly MORE than the credential permits.
+  arguments:
+    properties:
+      as_of:
+        type: string
+        description: >-
+          The reporting period cut AND the decision instant. Acquisition is
+          bounded at this instant, never at request time (`CP-SPEC-016`
+          §F.4.1, residual 341-1).
+      granularity:
+        type: string
+        description: >-
+          The payload's shape and the assembly's cost band. A value outside
+          the declared domain is a request-validity refusal; a value inside
+          the domain but above the caller's role ceiling is a policy refusal
+          naming `not-in-allowed-set` with the bound attached (`ABS-G08`,
+          `ABS-G09`).
+      cohorts:
+        type: array
+        description: >-
+          Which credit-band cohorts to report, as a LIST of strings. Empty
+          means all. Can only ask for fewer.
+      trigger_proximity:
+        type: boolean
+        description: whether to compute distance to each in-force trigger threshold.
+      loan_sample:
+        type: number
+        description: >-
+          The bound on loan records MATERIALIZED as claims, 0..5000. At
+          `granularity=loan` a sample of 0 is refused by name
+          (`unbounded-loan-request`): the product cannot be asked to
+          materialize a 1.3-million-row population (`ABS-G13`).
+      debt_tolerance:
+        type: number
+        description: the caller's ceiling on assessed Context Debt, 0..1.
+    required: []
+
+  # THE PARAMETER'S VALID DOMAIN — declared in ONE place, and the rendered
+  # JSON-schema `enum` is DERIVED from it by
+  # `src/ccf/products/request_schema.py` rather than authored beside it.
+  # `D-IMPL-259` is explicit that this is request-contract vocabulary and NOT a
+  # policy constraint: it says which values are meaningful questions of this
+  # class, while the role ceiling says which of those this caller may ask.
+  # The two are separately gated (`ABS-G08`, `ABS-G09`).
+  argument_domains:
+    granularity:
+      members: [deal, tranche, cohort, loan]
+    loan_sample:
+      minimum: 0
+      maximum: 5000
+
+  relative_defaults:
+    as_of:
+      offset_seconds: 0
+      render: timestamp
+
+resolution:
+  entity_rules:
+    - match_key: deal_node
+      entity_class: deal
+      identity_keys: [entity_uri]
+      attribute_keys: [deal_id, legal_name, cik, depositor_cik, credit_tier, vintage,
+                       servicer, period, classification, requested_granularity,
+                       effective_granularity, granularity_ceiling, ceiling_authority,
+                       ceiling_source, pool_balance, note_balance, oc_amount, oc_target,
+                       published_delinquency_percent, published_delinquency_trigger,
+                       published_trigger_occurred, receivable_count,
+                       cumulative_net_loss_percent, records_materialized, blocks_scanned,
+                       records_scanned, cost_band, ledger_t]
+    - match_key: tranche_node
+      entity_class: tranche
+      identity_keys: [entity_uri]
+      attribute_keys: [tranche_id, class_name, seniority_rank, cusip, interest_rate,
+                       interest_rate_basis, classification]
+    - match_key: trigger_node
+      entity_class: trigger
+      identity_keys: [entity_uri]
+      attribute_keys: [trigger_id, label, threshold_value, threshold_unit,
+                       threshold_components, valid_from, asserted_at, anchored,
+                       source_classification, supersedes, classification]
+    # THE FILED SPAN, as its own claim. It exists only where filed text does.
+    - match_key: anchor_node
+      entity_class: anchor
+      identity_keys: [entity_uri]
+      attribute_keys: [anchor_id, trigger_id, anchor_text, anchor_sha256,
+                       anchor_document_id, anchor_passage_id, start_offset,
+                       end_offset, complete_span, classification]
+    - match_key: cohort_node
+      entity_class: cohort
+      identity_keys: [entity_uri]
+      attribute_keys: [credit_band, period, loan_count, pool_balance,
+                       delinquent_60_plus_balance, delinquency_percent,
+                       chargedoff_amount, recovered_amount,
+                       weighted_average_coupon_percent, classification]
+    - match_key: loan_node
+      entity_class: loan
+      identity_keys: [entity_uri]
+      attribute_keys: [asset_number, period, credit_band, reporting_period_ending_date,
+                       original_loan_amount, reporting_period_actual_end_balance_amount,
+                       current_delinquency_status, chargedoff_principal_amount,
+                       recovered_amount, classification]
+    - match_key: benchmark_node
+      entity_class: benchmark
+      identity_keys: [entity_uri]
+      attribute_keys: [asset_class, vintage, period, credit_tiers, deal_count,
+                       pool_balance, delinquency_percent, period_chargeoff_percent,
+                       classification]
+    - match_key: repurchase_node
+      entity_class: repurchase
+      identity_keys: [entity_uri]
+      attribute_keys: [repurchase_id, depositor_cik, form, accession, filed_date,
+                       deal_attributed, note, classification]
+
+    # Endpoint rules. NO attribute keys (`D-IMPL-316`).
+    - {match_key: deal_subject, entity_class: deal,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: subject_uri}}
+    - {match_key: tranche_object, entity_class: tranche,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+    - {match_key: trigger_object, entity_class: trigger,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+    - {match_key: anchor_object, entity_class: anchor,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+    - {match_key: cohort_object, entity_class: cohort,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+    - {match_key: loan_object, entity_class: loan,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+    - {match_key: benchmark_object, entity_class: benchmark,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+    - {match_key: repurchase_object, entity_class: repurchase,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+
+  relationship_rules:
+    - {relationship_type: hasTranche, predicate_key: predicate,
+       subject_entity_class: deal, object_entity_class: tranche,
+       subject_rule: deal_subject, object_rule: tranche_object}
+    - {relationship_type: hasTrigger, predicate_key: predicate,
+       subject_entity_class: deal, object_entity_class: trigger,
+       subject_rule: deal_subject, object_rule: trigger_object}
+    - {relationship_type: hasAnchor, predicate_key: predicate,
+       subject_entity_class: deal, object_entity_class: anchor,
+       subject_rule: deal_subject, object_rule: anchor_object}
+    - {relationship_type: hasCohort, predicate_key: predicate,
+       subject_entity_class: deal, object_entity_class: cohort,
+       subject_rule: deal_subject, object_rule: cohort_object}
+    - {relationship_type: hasLoan, predicate_key: predicate,
+       subject_entity_class: deal, object_entity_class: loan,
+       subject_rule: deal_subject, object_rule: loan_object}
+    - {relationship_type: hasBenchmark, predicate_key: predicate,
+       subject_entity_class: deal, object_entity_class: benchmark,
+       subject_rule: deal_subject, object_rule: benchmark_object}
+    - {relationship_type: hasRepurchase, predicate_key: predicate,
+       subject_entity_class: deal, object_entity_class: repurchase,
+       subject_rule: deal_subject, object_rule: repurchase_object}
+
+# ---------------------------------------------------------------------------
+# λ_c. TWO OBSERVATION TYPES, AND THEY ARE NOT INTERCHANGEABLE (`D-IMPL-332`,
+# recorded at `D-GATE-cp-18`).
+#
+# STANDING STATE — the deal, its tranche structure, its trigger definitions.
+# Fixed at issuance unless amended, carrying no event date of their own, so
+# each decays `supersede-only`. An undated claim in these classes is ACCEPTED.
+#
+# DATED EVENTS — a cohort's monthly performance, a loan's reporting period, a
+# vintage benchmark, a repurchase filing. Each happened on a day, so each
+# declares `decay_basis: valid-from` — and an undated claim in these classes is
+# REFUSED `MissingDecayInstant` rather than being anchored silently.
+#
+# ILLUSTRATIVE CALIBRATION (`D-IMPL-323`): 30 days against a monthly servicer
+# cadence, 90 days for benchmarks recomputed as peer deals report. See the
+# README and `CP-SPEC-016` §C.3 trap 7.
+# ---------------------------------------------------------------------------
+half_life:
+  deal:
+    decay: supersede-only
+    decay_driver: servicer-distribution-report
+    supersession_event: new-10d-filing
+  tranche:
+    decay: supersede-only
+    decay_driver: deal-structure
+    supersession_event: structural-amendment
+  trigger:
+    decay: supersede-only
+    decay_driver: prospectus-terms
+    supersession_event: trigger-definition-amendment
+  anchor:
+    decay: supersede-only
+    decay_driver: filed-prospectus-text
+    supersession_event: prospectus-amendment
+  cohort:
+    half_life_seconds: 2592000
+    decay_basis: valid-from
+    decay_driver: monthly-servicer-reporting
+    supersession_event: new-abs-ee-filing
+  loan:
+    half_life_seconds: 2592000
+    decay_basis: valid-from
+    decay_driver: monthly-servicer-reporting
+    supersession_event: new-abs-ee-filing
+  benchmark:
+    half_life_seconds: 7776000
+    decay_basis: valid-from
+    decay_driver: peer-deal-reporting
+    supersession_event: benchmark-recompute
+  repurchase:
+    half_life_seconds: 7776000
+    decay_basis: valid-from
+    decay_driver: abs-15g-filing
+    supersession_event: new-abs-15g-filing
+
+debt_profile:
+  risk_sensitivity: "1.0"
+  forced_llm_threshold: "0.60"
+  fail_closed_threshold: "0.95"
+
+policy:
+  class_id: cp-16.policy-bundle
+  role: register
+  registration: typed
+  regime: abs-granularity-ceiling-envelope
+
+default_perspective:
+  principal_id: PRIN-SFD-001
+  role: structured-finance-desk
+
+replay:
+  record_class: ccf.replay-record
+  query_pin_class: ccf.graph-query
+  store_dirname: artifact-store
+
+ttl:
+  max_ttl_seconds: 86400
+  product_ttl_seconds: 86400
+
+door:
+  producer_id: cp-16-abs-surveillance-egress
+  producer_tenant: cp-16-demo
+  required_scope: ccf:egress
+  tool_description: >-
+    Report how one securitization is performing as a governed,
+    content-addressed Context Product (`cib.abs-surveillance`): pool and
+    tranche state, the trigger definitions IN FORCE at the requested period
+    with their distance to threshold, and the cohort or sampled loan detail
+    the caller's role entitles. Granularity is bounded by the caller's
+    credential — a request above the ceiling is refused by name with the
+    bound attached, never quietly lowered — and the product states what its
+    own assembly cost so an agent can reason about asking for more detail.

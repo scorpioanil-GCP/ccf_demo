@@ -86,7 +86,7 @@ the catalog's cost stress test.
 and deal-period legs **must not materialize their complete source populations
 merely to assemble the product**, and the proof is a measurement rather than an
 assertion: **records scanned and blocks scanned** are captured at the
-acquisition seam and gated (`ABS-G12`). A rung that merely *says* it streams has
+acquisition seam and gated (`ABS-G13`). A rung that merely *says* it streams has
 proved nothing; the gate reddens when the acquired record count tracks the
 population rather than the answer.
 
@@ -120,7 +120,7 @@ it determines whether this rung's headline claim is serveable at all.
 | Can an engineer build this without a further design conversation? | **No — one ruling is owed** (§F.4). Everything else is settled here. |
 | Is every source named, with its store, its provenance and its scale? | **Yes** — §C, every figure measured 2026-09-21 against `.76`. |
 | Is every parameter's domain, default and effect stated? | **Yes** — §B.4. |
-| Is every gate expressible as a test that can go red? | **Yes, with one named risk** — §G.1, and the vacuity risk on `ABS-G09` is stated rather than discovered later. |
+| Is every gate expressible as a test that can go red? | **Yes, with one named risk** — §G.1, and the vacuity risk on `ABS-G10` is stated rather than discovered later. |
 
 ---
 
@@ -220,7 +220,7 @@ downgraded product. §F.4 is where that is ruled.
 | **Obligations** | Risk-retention and disclosure bound to `intent`; loan-level privacy bound to `perspective_role` |
 | **Assembly mode** | Governed assembly from three stores; aggregate at the effective granularity |
 | **Lineage** | `operators_invoked` as the SDK's served plan; `graph_snapshot_at` as ledger `t`; `policy_version`; passage-level `L` on every structural claim |
-| **Declared gates** | §G.1 — **21 gates**, `ABS-G01`..`ABS-G20` plus `ABS-G06b` |
+| **Declared gates** | §G.1 — **21 gates**, `ABS-G01`..`ABS-G21` plus `ABS-G07` |
 
 ### B.2 Departures from the source specification, each reasoned
 
@@ -228,7 +228,7 @@ downgraded product. §F.4 is where that is ruled.
 |---|---|---|
 | "Single role at this tier" | Three roles | The estate carries three ceilings; one role makes the ceiling unobservable (§A). |
 | `operators_invoked: [Resolve, Policy, TemporalTraversal, Similarity, Enrich, Aggregate]` — six | The SDK's **served** operator plan, three keys | Six spec operators map to three SDK operator keys; the served plan is the fact, the spec's list is vocabulary. Recorded as friction, not repaired (Gate 0). |
-| "if policy lowered the granularity, say so" | A request above the ceiling is **refused by name**; a served product states its effective granularity **and the ceiling in force**, and `ABS-G09` proves that stated ceiling equals the resolved constraint | The constraint layer refuses out-of-bound values and never narrows them (`D-IMPL-251`); a vacuous assertion is refused by ruling. §F.4.2. |
+| "if policy lowered the granularity, say so" | A request above the ceiling is **refused by name**; a served product states its effective granularity **and the ceiling in force**, and `ABS-G10` proves that stated ceiling equals the resolved constraint | The constraint layer refuses out-of-bound values and never narrows them (`D-IMPL-251`); a vacuous assertion is refused by ruling. §F.4.2. |
 | `Waterfall`, `Servicer`, `servicedBy`, `SourceDocument` | `ex:` terms, provisionally, raised upstream | No FIBO term exists / the binding pass has not reached them. **Absence from the binding table is not evidence of absence from FIBO** — a wrong module guess is indistinguishable from a missing term. |
 
 ### B.3 Request parameter surface
@@ -247,7 +247,7 @@ downgraded product. §F.4 is where that is ruled.
 simultaneously** — a caller request parameter, a product-shape and cost lever,
 and a role-bounded policy value — realized on the existing mechanisms only:
 `ArgumentDomain.members`, `PolicyConstraint`, `ConstraintApplicability.perspective_role`,
-and the `allowed_set` fold. **No new SDK abstraction.** `ABS-G09` must
+and the `allowed_set` fold. **No new SDK abstraction.** `ABS-G10` must
 **positively** prove that the ceiling the product states equals the policy
 constraint actually resolved for that principal; a vacuous *"if policy lowered
 it"* assertion is explicitly refused (§F.4.2).
@@ -259,8 +259,8 @@ The role ceiling says which of those meaningful values *this caller may ask* —
 a `PolicyConstraint` with a pin and an authority. `D-IMPL-259` is explicit that
 the first must not be turned into the second. A value outside the domain is a
 request-validity refusal; a value inside the domain but above the ceiling is a
-policy refusal carrying the bound. **They are separate gates** (`ABS-G07`,
-`ABS-G08`).
+policy refusal carrying the bound. **They are separate gates** (`ABS-G08`,
+`ABS-G09`).
 
 ### B.4 Prerequisites and scope boundary
 
@@ -541,9 +541,9 @@ and it is §F.4.
 **What this settles, and what it forecloses.** Route A (refuse) and Route C
 (mint a passage) are both closed. The product serves the amended threshold, and
 the honesty is carried by the marking and the finding rather than by a refusal.
-The two invariants are separately gated — `ABS-G06` and `ABS-G06b` — precisely
+The two invariants are separately gated — `ABS-G06` and `ABS-G07` — precisely
 so that neither can be satisfied by the other: an implementation that anchored
-everything would fail `ABS-G06b` for having nothing to name, and one that
+everything would fail `ABS-G07` for having nothing to name, and one that
 named everything unanchored would fail `ABS-G06`.
 
 **The measurement that forced the ruling follows.**
@@ -583,7 +583,7 @@ anchored, and **no passage may be minted for it**.
 | | Invariant | Gate |
 |---|---|---|
 | **1** | Every **publicly sourced** threshold has a prospectus passage anchor whose stored `sha256` re-hashes | `ABS-G06` |
-| **2** | Every threshold **without** a public anchor is explicitly named as unanchored **in the product** | `ABS-G06b` |
+| **2** | Every threshold **without** a public anchor is explicitly named as unanchored **in the product** | `ABS-G07` |
 
 The served representation of an unanchored threshold carries, together:
 `anchored: false`; a source classification of `synthetic` / engineered; and a
@@ -607,7 +607,7 @@ ceiling is refused, not narrowed. So the source specification's gate *"if policy
 lowered the granularity, say so"* would be **vacuously true forever**, which is
 the shape cp-08 taught us to refuse (*config nobody reads is documentation, not
 control*). The recast gate is therefore a **positive** assertion: the served
-product states the ceiling in force, and `ABS-G09` asserts that stated ceiling
+product states the ceiling in force, and `ABS-G10` asserts that stated ceiling
 equals the constraint the SDK actually resolved — so a sabotage that hard-codes
 the ceiling reddens it. Stated here so it is designed, not discovered at close.
 
@@ -615,7 +615,7 @@ the ceiling reddens it. Stated here so it is designed, not discovered at close.
 
 ## G · Operate and govern
 
-### G.1 Intended product gates — 21 (Route B splits the anchoring invariant)
+### G.1 Product gates — 22 (Route B splits the anchoring invariant into `ABS-G06`/`ABS-G07`)
 
 | id | What it asserts | Red when |
 |---|---|---|
@@ -625,26 +625,27 @@ the ceiling reddens it. Stated here so it is designed, not discovered at close.
 | `ABS-G04` | The amendment is reached by `specifiesTrigger` then `supersededBy` — never by a name-match join | a string join is substituted |
 | `ABS-G05` | Acquisition is bounded at the **decision instant**: a question at `2025-09-30` acquires no `2026` loan period | the bound is dropped (residual 341-1) |
 | `ABS-G06` | **Anchoring invariant 1** — every **publicly sourced** threshold resolves to a passage whose stored `sha256` re-hashes | an anchor is broken or a hash drifts |
-| `ABS-G06b` | **Anchoring invariant 2** — every threshold **without** a public anchor is named in the product as `anchored: false`, classified `synthetic`/engineered, with a finding naming the missing public anchor; and **nothing in the payload implies a passage exists** | the amendment is served as anchored, silently dropped, or given a blank/placeholder anchor |
-| `ABS-G07` | A granularity outside `ArgumentDomain.members` is a **request-validity** refusal | the domain is widened |
-| `ABS-G08` | A granularity inside the domain but above the role ceiling is refused **`not-in-allowed-set` with the bound attached** | the ceiling is dropped, or the value is silently lowered |
-| `ABS-G09` | **Positively**: the ceiling **stated in the payload** equals the `PolicyConstraint` actually resolved for that principal — asserted for all three principals, so it cannot pass by coincidence | the stated ceiling is hard-coded, or derived from anything but the resolved constraint (§F.4.2) |
-| `ABS-G10` | The enforced ceiling equals the estate's declared ceiling for that principal | the three authorities drift (trap 5) |
-| `ABS-G11` | Three principals, one door, three different effective granularities from the same question | one principal's answer is served to another |
-| `ABS-G12` | **Load-bearing.** The complete source population is never materialized: **records scanned** and **blocks scanned** are measured at the acquisition seam, and the acquired record count tracks the *answer*, not the *population* — at `loan` it is bounded by the sample, at the aggregate rungs by the cohort count | the acquired count tracks the population, or the aggregation moves out of acquisition |
-| `ABS-G13` | `loan_sample` draws **stratified across cohorts**, not a prefix | a prefix is taken |
-| `ABS-G14` | Cost is served as a **relational** fact keyed on blocks — the three aggregate rungs indistinguishable and all ≪ `loan` — with the measured counts carried as stamped evidence rather than as product constants. **Timing is never a gate.** | a time-keyed assertion is substituted, or a measured count becomes a threshold (§A.2) |
-| `ABS-G15` | The yield-supplement trigger is served as a **finding naming why proximity is uncomputable** | it is served as `0` or dropped (trap 3) |
-| `ABS-G16` | A two-component threshold carries both components and names which bound the test | one component is silently discarded (trap 4) |
-| `ABS-G17` | Repurchase activity is **depositor-scoped with a stated absence** of per-deal attribution | a deal↔filing join is invented (trap 2) |
-| `ABS-G18` | Trigger definitions and prospectus text are minted `supersede-only`; an undated claim in those classes is refused `MissingDecayInstant` | a decaying basis is declared (`D-IMPL-332`) |
-| `ABS-G19` | TTL is anchored on the servicer report's period end, not on request time | the anchor moves to `asked_at` |
-| `ABS-G20` | Replay reconstructs the served product from the record and the stores with no second producer call | any input is re-derived rather than resolved |
+| `ABS-G07` | **Anchoring invariant 2** — every threshold **without** a public anchor is named in the product as `anchored: false`, classified `synthetic`/engineered, with a finding naming the missing public anchor; and **nothing in the payload implies a passage exists** | the amendment is served as anchored, silently dropped, or given a blank/placeholder anchor |
+| `ABS-G08` | A granularity outside `ArgumentDomain.members` is a **request-validity** refusal | the domain is widened |
+| `ABS-G09` | A granularity inside the domain but above the role ceiling is refused **`not-in-allowed-set` with the bound attached** | the ceiling is dropped, or the value is silently lowered |
+| `ABS-G10` | **Positively**: the ceiling **stated in the payload** equals the `PolicyConstraint` actually resolved for that principal — asserted for all three principals, so it cannot pass by coincidence | the stated ceiling is hard-coded, or derived from anything but the resolved constraint (§F.4.2) |
+| `ABS-G11` | The enforced ceiling equals the estate's declared ceiling for that principal | the three authorities drift (trap 5) |
+| `ABS-G12` | Three principals, one door, three different effective granularities from the same question | one principal's answer is served to another |
+| `ABS-G13` | **Load-bearing.** The complete source population is never materialized: **records scanned** and **blocks scanned** are measured at the acquisition seam, and the acquired record count tracks the *answer*, not the *population* — at `loan` it is bounded by the sample, at the aggregate rungs by the cohort count | the acquired count tracks the population, or the aggregation moves out of acquisition |
+| `ABS-G14` | `loan_sample` draws **stratified across cohorts**, not a prefix | a prefix is taken |
+| `ABS-G15` | Cost is served as a **relational** fact keyed on blocks — the three aggregate rungs indistinguishable and all ≪ `loan` — with the measured counts carried as stamped evidence rather than as product constants. **Timing is never a gate.** | a time-keyed assertion is substituted, or a measured count becomes a threshold (§A.2) |
+| `ABS-G16` | The yield-supplement trigger is served as a **finding naming why proximity is uncomputable** | it is served as `0` or dropped (trap 3) |
+| `ABS-G17` | A two-component threshold carries both components and names which bound the test | one component is silently discarded (trap 4) |
+| `ABS-G18` | Repurchase activity is **depositor-scoped with a stated absence** of per-deal attribution | a deal↔filing join is invented (trap 2) |
+| `ABS-G19` | **Two observation types.** The standing classes (deal, tranche, trigger, anchor) are minted `supersede-only` and carry no observed time; the dated ones (cohort, loan, benchmark, repurchase) declare `decay_basis: valid-from` and carry their day — so an undated claim in a *dated* class is refused, which is what `D-IMPL-332` actually says | a dated class's basis is moved off `valid-from`, collapsing the distinction |
+| `ABS-G20` | TTL is anchored on the servicer report's period end, not on request time | the anchor moves to `asked_at` |
+| `ABS-G21` | Replay reconstructs the served product from the record and the stores with no second producer call | any input is re-derived rather than resolved |
+| `ABS-G22` | **Existence is not an oracle.** A deal that does not exist and a real deal with no reporting period at the instant are refused *indistinguishably*; a subject with evidence is served, so the gate is not vacuous | the two refusals differ by subject |
 
 **Two of these are at risk of being unavailable** and are named now rather than
 discovered at close: `ABS-G01` may be **inexpressible** because `CATEGORY_ORDER`
 fixes the executed order in the SDK's planner (it was unavailable on rungs 15
-and 19 for exactly that reason), and `ABS-G12` depends on the acquisition seam
+and 19 for exactly that reason), and `ABS-G13` depends on the acquisition seam
 exposing an envelope count the test can read. Both will be reported as
 `unavailable` with their guard named if they cannot be reddened — never quietly
 swapped for something easier.
@@ -669,10 +670,11 @@ trap 6.
 - **Estate:** ready on all three stores; 1,322,453 loan rows, 11 triggers, 10
   anchors, 1,882 passages, 3 principals with 3 ceilings. Eight traps recorded
   with bindings.
-- **Intended gates:** 21, two flagged as at risk of `unavailable` with their
-  guards named.
+- **Gates:** 22 declared and executing; **21 observed RED** under their own
+  sabotage, **1 `unavailable`** with its guard named (`ABS-G01` — `CATEGORY_ORDER`
+  fixes the executed order, so the forbidden ordering is inexpressible).
 - **Ruled:** §F.4 — **Route B**, 2026-09-21. The amendment is served marked
   `anchored: false` with a finding; the anchoring invariant is split in two
-  (`ABS-G06`, `ABS-G06b`); no prospectus text is minted.
+  (`ABS-G06`, `ABS-G07`); no prospectus text is minted.
 - **Authorized:** Gate 2, minimal build on the existing SDK. No new SDK
   abstraction, no `D-IMPL` id spent.

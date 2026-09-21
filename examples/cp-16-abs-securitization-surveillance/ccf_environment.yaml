@@ -1,0 +1,82 @@
+# yaml-language-server: $schema=../../docs/schemas/ccf.deployment-environment.json
+#
+# THE DEPLOYMENT DOCUMENT — every value read from the environment by NAME.
+
+config: ccf_config.yaml
+
+substrate:
+  setting: database_path
+  prefix: cp_16
+  suffix: .sqlite3
+
+sources:
+  relational:
+    dsn:
+      from_env: CCF_CP_16_POSTGRES_DSN
+      remedy: >-
+        export CCF_CP_16_POSTGRES_DSN with a READ-ONLY connection string for
+        the estate (host and credentials from ccf_dataprep/.env).
+    schema:
+      from_env: CCF_CP_16_POSTGRES_SCHEMA
+      remedy: >-
+        export CCF_CP_16_POSTGRES_SCHEMA with the namespace holding abs_deal,
+        abs_tranche, abs_cohort_performance, abs_loan_period,
+        abs_servicer_report, abs_vintage_benchmark, abs_repurchase,
+        abs_granularity_entitlement and abs_cost_measurement (the v2 estate
+        reads `ccf_v2`).
+  graph:
+    url:
+      from_env: CCF_CP_16_FLUREE_URL
+      remedy: >-
+        export CCF_CP_16_FLUREE_URL with the base URL of a READ-ONLY Fluree
+        endpoint; this deployment reads trigger definitions and the ledger
+        watermark.
+    ledger:
+      from_env: CCF_CP_16_FLUREE_LEDGER
+      remedy: export CCF_CP_16_FLUREE_LEDGER with the ledger name — the v2 estate is `fibo-v2`.
+  documents:
+    uri:
+      from_env: CCF_CP_16_MONGO_URI
+      remedy: export CCF_CP_16_MONGO_URI with a READ-ONLY MongoDB connection string.
+    db:
+      from_env: CCF_CP_16_MONGO_DB
+      remedy: >-
+        export CCF_CP_16_MONGO_DB with the database holding `trigger_anchor`
+        and `passage` (the v2 estate reads `fibo_v2`).
+
+  # The principals, as bearer credentials.
+  #
+  # UNLIKE rung 15, the estate carries NO principal register for this product:
+  # `abs_granularity_entitlement.principal` holds ROLE NAMES
+  # (`structured-finance-desk`, `credit-risk`, `client-reporting`) that join to
+  # nothing in `ccf_v2.principal`, whose four rows carry unrelated perspectives.
+  # Measured 2026-09-21; recorded as `ABS-F-05`. No join is invented — this
+  # deployment declares the credential -> role mapping itself, exactly as rungs
+  # 17, 18 and 19 did, and the estate's ceiling rows are read as the EVIDENCE
+  # the Control Plane constraint must agree with (`ABS-G10`).
+  credentials:
+    PRIN-SFD-001:
+      from_env: CCF_CP_16_TOKEN_DESK
+      remedy: export CCF_CP_16_TOKEN_DESK with the structured-finance desk's bearer credential.
+    PRIN-CRR-002:
+      from_env: CCF_CP_16_TOKEN_RISK
+      remedy: export CCF_CP_16_TOKEN_RISK with the credit-risk function's bearer credential.
+    PRIN-CLR-003:
+      from_env: CCF_CP_16_TOKEN_REPORTING
+      remedy: export CCF_CP_16_TOKEN_REPORTING with the client-reporting function's bearer credential.
+    PRIN-UNG-004:
+      from_env: CCF_CP_16_TOKEN_UNGRANTED
+      remedy: >-
+        export CCF_CP_16_TOKEN_UNGRANTED with a recognized credential this
+        deployment grants nothing — the negative control.
+
+door:
+  credential:
+    from_env: CCF_CP_16_DOOR_TOKEN
+    remedy: export CCF_CP_16_DOOR_TOKEN with the bearer the standard door's default principal presents.
+  issuer_url:
+    from_env: CCF_CP_16_DOOR_ISSUER_URL
+    remedy: export CCF_CP_16_DOOR_ISSUER_URL with the door's declared issuer URL.
+  resource_server_url:
+    from_env: CCF_CP_16_DOOR_RESOURCE_URL
+    remedy: export CCF_CP_16_DOOR_RESOURCE_URL with the door's declared resource-server URL.

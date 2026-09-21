@@ -1,0 +1,68 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE PRODUCT'S SHAPE PER PERSPECTIVE, and the GRANULARITY CEILING each role
+# is bound by (`CP-SPEC-016` §A, §B.3).
+#
+# THE CEILING LIVES HERE, IN A DECLARED ARTIFACT, because it is the Control
+# Plane's statement of what a role may ask — and `ABS-G11` asserts that this
+# declaration agrees with the estate's own `abs_granularity_entitlement` rows.
+# Two authorities that can drift are checked against each other rather than
+# being allowed to disagree silently (`CP-SPEC-016` §C.3 trap 5).
+#
+# The member set is a function of the PERSPECTIVE and the EFFECTIVE
+# GRANULARITY, never of the deal: a payload whose shape depends on the subject
+# makes an empty member informative about that subject.
+semver: "1.0.0"
+class_id: cp-16.perspectives
+declaration:
+  common_members:
+    - perspective
+    - as_of
+    - intent
+    - deal
+    - requested_granularity
+    - effective_granularity
+    - granularity_ceiling
+    - tranches
+    - triggers
+    - trigger_proximity
+    - unanchored_thresholds
+    - pool_performance
+    - benchmark_comparison
+    - repurchase_activity
+    - assembly_cost
+    - findings
+    - entities_in_view
+    - edge_types_served
+  # Members that appear ONLY when the effective granularity reaches them. The
+  # ceiling decides, so a role that may not ask for loan detail does not carry
+  # an empty `loan_sample_detail` that would read as "this deal has no loans".
+  members_by_granularity:
+    deal: []
+    tranche: []
+    cohort: [cohort_performance]
+    loan: [cohort_performance, loan_sample_detail]
+  classified_list_members:
+    - tranches
+    - triggers
+    - trigger_proximity
+    - unanchored_thresholds
+    - cohort_performance
+    - loan_sample_detail
+    - repurchase_activity
+  classification_vocabulary: [public, internal, engineered]
+  perspectives:
+    structured-finance-desk:
+      principal_id: PRIN-SFD-001
+      ceiling: loan
+      rationale: arranges and holds these deals; needs loan-level detail
+    credit-risk:
+      principal_id: PRIN-CRR-002
+      ceiling: cohort
+      rationale: monitors trigger proximity; cohort detail is sufficient
+    client-reporting:
+      principal_id: PRIN-CLR-003
+      ceiling: deal
+      rationale: external-facing; loan-level borrower attributes are not disclosable
+  # The ordering the ceiling is compared on. `deal` is the most restrictive.
+  granularity_order: [deal, tranche, cohort, loan]

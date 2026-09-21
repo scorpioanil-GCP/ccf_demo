@@ -1,0 +1,80 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# EVERY SOURCE NAME THIS DEPLOYMENT READS.
+semver: "1.0.0"
+class_id: cp-16.source-vocabulary
+declaration:
+  relational:
+    tables:
+      deal: abs_deal
+      tranche: abs_tranche
+      cohort: abs_cohort_performance
+      loan: abs_loan_period
+      servicer_report: abs_servicer_report
+      benchmark: abs_vintage_benchmark
+      repurchase: abs_repurchase
+      granularity_entitlement: abs_granularity_entitlement
+      materialization_policy: abs_materialization_policy
+      cost_measurement: abs_cost_measurement
+  documents:
+    anchor_collection: trigger_anchor
+    passage_collection: passage
+    fields:
+      trigger_id: trigger_id
+      anchor_id: anchor_id
+      passage_id: passage_id
+      document_id: document_id
+      quoted_text: quoted_text
+      start_offset: start_offset
+      end_offset: end_offset
+      complete_span: complete_span
+  graph:
+    # The trigger definitions and their supersession live here; the walk is
+    # `specifiesTrigger` from the deal, then `supersededBy` from the original.
+    trigger_class: "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/CollateralizedDebtObligations/TriggerEvent"
+    specifies_trigger: "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/CollateralizedDebtObligations/specifiesTrigger"
+    subordinated_to: "https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/DebtInstruments/isSubordinatedTo"
+    ex: "http://example.org/fibo/"
+    deal_uri_prefix: "http://example.org/fibo/abs-deal-"
+    predicates:
+      superseded_by: supersededBy
+      valid_from: validFrom
+      asserted_at: assertedAt
+      threshold_value: thresholdValue
+      threshold_component: thresholdComponent
+      threshold_unit: thresholdUnit
+      passage_anchor: passageAnchor
+      provenance: provenance
+      label: "http://www.w3.org/2000/01/rdf-schema#label"
+  # The four loan attributes the estate's own `ex:LoanLevelPrivacyConstraint`
+  # nodes restrict, each at `minimumGranularity: cohort`. They are NEVER
+  # selected below that granularity — not filtered afterwards, never minted.
+  loan_restricted_fields:
+    - obligor_credit_score
+    - obligor_geographic_location
+    - obligor_income_verification_level_code
+    - payment_to_income_percentage
+  entity_uri_prefix:
+    deal: "urn:ccf:cp16:deal:"
+    tranche: "urn:ccf:cp16:tranche:"
+    trigger: "urn:ccf:cp16:trigger:"
+    cohort: "urn:ccf:cp16:cohort:"
+    loan: "urn:ccf:cp16:loan:"
+    benchmark: "urn:ccf:cp16:benchmark:"
+    repurchase: "urn:ccf:cp16:repurchase:"
+  # `engineered` is its own classification rather than a flavor of `internal`,
+  # because Route B requires an unanchored, engineered threshold to be
+  # DISTINGUISHABLE in the served product (`CP-SPEC-016` §F.4).
+  classification:
+    vocabulary: [public, internal, engineered]
+    by_provenance:
+      public: public
+      "synthetic — internal": internal
+      "synthetic — engineered": engineered
+    assignment:
+      deal: public
+      tranche: public
+      cohort: public
+      loan: public
+      benchmark: public
+      repurchase: public
