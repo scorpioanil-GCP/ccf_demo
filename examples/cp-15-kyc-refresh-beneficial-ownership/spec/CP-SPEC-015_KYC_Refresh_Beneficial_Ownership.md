@@ -76,7 +76,11 @@ after them is the evidence for them.
 **A redesign of any of these is out of scope for this rung.** IB expressed
 them differently and that was not evidence they were wrong; KYC will too.
 
-### 0.2 Genuinely new — and there is exactly one thing
+### 0.2 Genuinely new — one coverage shape, ruled 2026-09-21
+
+**Dave's words, and the scope of this rung:** *"The one new coverage shape is
+a governed Context Product handed to an existing HITL workflow primitive."*
+**No new SDK mechanism is authorized.**
 
 **A HITL primitive composed with a PRODUCT.** `ReviewQueue.submit_for_review`,
 its transport, its two delivery surfaces and its replay landing are unit-,
@@ -466,57 +470,73 @@ which are absent entirely** (§0.3).
 
 Three stores under `CCF_CP_15_*` names, every one read-only. No new substrate.
 
-### F.4 `Q14` — THE ONE CONVENTION TO RULE
+### F.4 `Q14` — THE HITL CONVENTION, RULED 2026-09-21
 
-**This is the only genuinely new mechanism in the rung (§0.2), and the only
-thing this Gate asks Dave to rule.**
+**Approved by Dave. What follows is the convention, not a proposal.**
 
-`ReviewQueue.submit_for_review` takes `tenant`, `event_key`,
-`workflow_state_ref`, `item` and an optional `policy_ref`. `ReviewQueueItem`
-carries `output_ref` and `lineage`; the `PendingHitlEvent` it returns carries
-`event_key`, `event_class`, `tenant`, `workflow_state_ref`,
-`product_content_hash` and `policy_ref`. **The SDK already has a first-class
-field for the served product's hash**, which settles less than it appears —
-what a *product-scoped* review passes as `workflow_state_ref` is undefined,
-because every proven use of the queue so far has been inside a workflow, where
-that reference means the workflow's state.
-
-**The recommendation, and what each part costs.**
-
-| question | recommendation | why |
+| element | ruled value | the reason, as ruled |
 |---|---|---|
-| what is `workflow_state_ref` for a product-scoped review? | **the served record's replay reference** | it is the only identifier that names the determination a reviewer must be able to reconstruct, and it already exists on every served product. A synthetic id would name nothing |
-| what is `output_ref` on the item? | the served **content address** | `product_content_hash` on the event is then the same value, and the TOCTOU guard the queue already enforces becomes a guard on *the product the reviewer saw* |
-| what is in `lineage`? | one `LineageEntry` per flagged person | so a reviewer sees which finding they are clearing, not just that something was flagged |
-| does the product's own record carry HITL actions? | **no — `NO_HITL_ACTIONS` by construction** | submission is the producing agent's side; the human action has not happened when the product is served, and a record claiming otherwise would be false |
-| where does the human verdict land? | on a **second** record, linked by the content hash | which is what makes the pair auditable without mutating a served determination |
-| `TBC-3` — carried or recomputed confidence? | **carried as evidence** | the estate's `match_score` and screening `score` are the system of record's own judgment; recomputing them here would invent a second authority and make the product disagree with the source it cites |
+| `workflow_state_ref` | **the originating product's replay-RECORD reference** | it identifies *the exact governed determination that caused the human review*. **Not the content address**, and the reason is precise: **identical product bytes can participate in different governed determinations**, so an address alone cannot name which one referred the finding |
+| `output_ref` | **the Context Product's content address** | the review item therefore carries **both** — the determination that created the referral, and the immutable product being reviewed |
+| `lineage` | one evidence reference **per flagged person, where the product has that evidence** | **references are not manufactured** for members with no supporting evidence; a lineage entry pointing at nothing is worse than none |
+| the product's own record | **`NO_HITL_ACTIONS` by construction** | the human action has not happened when the product is served |
+| confidence | **the estate's, carried as evidence** | **not recomputed inside the HITL layer** — recomputing would invent a second authority and make the product disagree with the source it cites |
 
-**What this would cost, measured in advance.** `InMemoryHitlTransport` and
-`AuditLog` both ship as concrete classes, so the composition is
-`ReviewQueue(transport=…, audit=…, clock=…)` — **three objects, two of them
-shipped, one a lambda** — plus one `LineageEntry` per flagged person. Gate 0
-predicted *"4 injected objects + 1 policy artifact"*; the measured figure is
-lower, and the build will report the real count.
+**THE HUMAN ACTION.** The original Context Product and its replay record are
+**immutable**, and human review **does not modify either**. The disposition
+creates a **second workflow/audit determination record** linked to: the
+originating `workflow_state_ref`; the originating product `output_ref`; the
+reviewer identity; the action or verdict; the timestamp; and any required
+review rationale or evidence.
 
-**No SDK change is sought by any part of this recommendation.**
+**That second record is NOT a Context Product** unless it independently
+satisfies the Context Product contract, and **no synthetic "review product" is
+required for this rung.** This rung does not build one.
 
-### F.4.2 The cycle counterfactual — Dave to rule
+### F.4.1 THE CONSTRUCTION BOUNDARY — load-bearing, and gated
 
-The vault specification's first counterfactual has **no data** (§0.3). Three
-routes, with what each costs:
+**Ruled, and this is the part the gates must carry:**
 
-| route | what it does | cost |
-|---|---|---|
-| **A — serve `cycle_findings` present and empty** *(recommended)* | the member exists for every entity, is empty for all of them, and the emptiness is disclosed as an estate limitation in the README, the findings and this spec | honest; the cycle-safety *mechanism* is unproven by this rung, and says so |
-| **B — ask ccf-dataprep to engineer two cycles** | the vault's manufacture envelope asks for exactly this (*"≥ 2 engineered ownership cycles, at least one spanning jurisdictions, clearly labelled as planted"*) | a request to another agent and a wait; it is their estate, not ours to seed |
-| **C — drop the cycle member entirely** | the product does not claim to detect cycles | loses a declared contract element and makes the spec disagree with the vault |
+> The Context Product must be **completely assembled, governed, assessed and
+> immutable before enqueue**. The human review workflow **consumes its
+> references**. HITL must not become part of Context Product construction, or
+> a way to repair incomplete context manually.
 
-**A is recommended**, on rung 18's precedent: the missing SC 13D was disclosed
-and the counterfactual carried by another signal. Here the *name* counterfactual
-is supplied 75 times over and is strong enough alone. **B is worth Dave's
-consideration separately**, because unlike a 13D feed this is a small, clearly
-labelled engineering request the manufacture envelope already specifies.
+Three consequences, each gated (`UBO-G19`, `UBO-G20`):
+
+- **Enqueue happens after serve, never during assembly.** The queue is handed
+  a content address and a replay reference that already exist. There is no
+  path on which a pending review changes what the product says.
+- **A referral cannot complete a product.** A finding referred for review is
+  *served inside the product* as a finding; it is not a hole the reviewer
+  fills.
+- **The served bytes are the same whether or not a review was submitted.**
+  This is the sharpest expression of the boundary and the one a sabotage can
+  break: assembling with the queue disconnected must produce **byte-identical**
+  output.
+
+### F.4.2 The cycle counterfactual — RULED: do not engineer
+
+**Ruled by Dave, 2026-09-21:** *"Do not engineer ownership cycles into the
+estate for CP-15."*
+
+**Measured estate fact, recorded as such:** no ownership cycles exist in the
+current curated estate. The cycle-shaped product member is **kept** and served
+**honestly as empty**, with that condition disclosed. The two planted cycles
+the vault's manufacture envelope specifies are **not requested** — the
+name-resolution counterfactual and the existing ownership, sanctions and
+document contradictions provide sufficient non-vacuous evidence for this rung.
+
+**The cycle gate proves four things** (`UBO-G19`):
+
+1. absence is represented **honestly** — the member is present and empty, not
+   omitted and not filled;
+2. **no cycle is invented** — nothing in the served product asserts a cycle;
+3. empty cycle evidence **does not invalidate unrelated KYC findings** — the
+   reportable owners, the sub-threshold findings, the screening findings and
+   the document contradictions all survive an empty cycle member;
+4. the product **remains actionable** from the evidence the estate actually
+   contains.
 
 ---
 
@@ -543,7 +563,7 @@ directional, structural or relational; none pins a count or a date.**
 | `UBO-G07` | a request below the estate's declared floor for `threshold` or `min_confidence` is refused by name, never honored |
 | `UBO-G08` | a resolution below the confidence floor is a **finding inside the product**, never an absence |
 | `UBO-G09` | **every finding has a review submission, and every submission names the served product's content address** |
-| `UBO-G10` | the submitted `workflow_state_ref` is the served record's replay reference, and resolves |
+| `UBO-G10` | the submitted `workflow_state_ref` is the originating **replay-record** reference and resolves — **not** the content address, because identical bytes can participate in different determinations |
 | `UBO-G11` | the product's own replay record carries `NO_HITL_ACTIONS` |
 | `UBO-G12` | a human verdict lands on a second record linked by the content hash, and the served product is unchanged by it |
 | `UBO-G13` | a reviewer binding that echoes the wrong content hash is refused (the TOCTOU guard, exercised through a product) |
@@ -552,10 +572,13 @@ directional, structural or relational; none pins a count or a date.**
 | `UBO-G16` | the determination replays from its own record to its served bytes |
 | `UBO-G17` | an entity with no chain is served computed-empty and is indistinguishable from an entity id that was never issued |
 | `UBO-G18` | a principal with no jurisdiction grant is refused by name, as data, with a replay reference |
+| `UBO-G19` | **the cycle member is served honestly empty**: present and empty, no cycle asserted anywhere in the product, and the reportable owners, sub-threshold findings, screening findings and document contradictions all survive it — the product stays actionable on the evidence the estate contains |
+| `UBO-G20` | **the construction boundary holds**: the product is complete, governed, assessed and immutable before enqueue, and assembling with the review queue disconnected produces **byte-identical** output — HITL is not part of construction and cannot repair incomplete context |
 
-Eighteen intended gates, of which **five (`UBO-G09` to `UBO-G13`) exist only
-because of the new mechanism** — which is the proportion a Gate-1 delta review
-should expect when exactly one thing is new.
+Twenty intended gates, of which **seven (`UBO-G09` to `UBO-G13`, `UBO-G19`,
+`UBO-G20`) exist only because of the new coverage shape** — which is the
+proportion a Gate-1 delta review should expect when exactly one thing is new.
+`UBO-G20` is the construction boundary and is the one Dave named load-bearing.
 
 ### G.2 The A2 measurement
 
@@ -572,10 +595,15 @@ abstraction is pre-authorized.
 
 **Already proven and reused unchanged:** seven mechanisms (§0.1).
 **Genuinely new:** exactly one — a HITL primitive composed with a product.
-**Open questions for Dave:** two — `Q14`, the product-scoped review convention
-with a six-part recommendation (§F.4); and the cycle counterfactual with no
-data, three routes and a recommendation (§F.4.2).
+**Open questions for Dave:** none remaining. Both were **ruled 2026-09-21**:
+`Q14`'s convention is fixed at §F.4 with the construction boundary at §F.4.1,
+and the cycle counterfactual is ruled *do not engineer* at §F.4.2.
 **New SDK mechanism sought:** none.
 **Estate:** complete for the name counterfactual, the residency pair, the
 threshold-by-intent case and the review band; **empty for ownership cycles.**
-**Stop:** here. No implementation until Dave rules on the delta.
+**Gate 2:** GO given 2026-09-21 with these rulings folded in. Build minimally
+on the existing SDK and the existing HITL primitives; stop only for a missing
+KYC-required SDK capability, incorrect SDK behavior, a security or governance
+defect, HITL proving uncomposable with the immutable product and replay
+references without changing an SDK contract, or the A2 threshold being
+crossed.
