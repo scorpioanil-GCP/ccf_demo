@@ -1,5 +1,11 @@
 # CP-24 — Portfolio What-If / Stress · FINDINGS
 
+**Accepted at `D-GATE-cp-24`, 2026-09-21**, on the candidate `cp-24-whatif @ 8f519304`,
+merged `--no-ff` into `main`. **Sibling of CP-23, not a child. No `src/` or
+`runtime/` SDK behavior change.** 17 declared / 17 executing gates; all 17
+observed red under sabotage; none `unavailable`; 26 tests passed, 0 failed, 0
+skipped; active issue cap 0 of 3; no decision id spent.
+
 Classified under `docs/EXAMPLE-EVALUATION-CRITERIA.md` §B **before
 remediation**. Every measurement was taken against the live estate on
 **2026-09-21** with `CCF_REQUIRE_ESTATE=1`.
@@ -28,6 +34,11 @@ consequences. **No new SDK decision id was spent.**
 ## 2 · SDK friction observed (§K.2)
 
 ### `WIF-F-01` — the population reader, written a second time
+
+**Ruled at `D-GATE-cp-24`: SECOND instance, no abstraction yet. If a third
+substantially identical implementation appears, all three are measured before
+deciding between documentation/template, a shared example utility, or an SDK
+capability. Nothing is pre-authorized.**
 **Category 3, and the ruling made it a MEASUREMENT.** CP-24 is a sibling of
 rung 23, so its book, member and facility readers are rung 23's, adapted.
 Measured: of the ~1,300 lines in rung 23's three core modules, the population
@@ -40,6 +51,12 @@ three are measured before documentation or an SDK abstraction is considered.
 No abstraction is pre-authorized.**
 
 ### `WIF-F-02` — the float refusal is a RAISE, not a governed envelope
+
+**Recorded precisely at `D-GATE-cp-24`: a bare JSON fractional input is
+rejected; it is never silently coerced; the rejection occurs during request
+canonicalization BEFORE the governed contract-refusal boundary; therefore this
+particular failure raises without a replay reference. Carried as the existing
+`D-IMPL-304` residual shape, and `D-IMPL-346` is NOT spent on it from this rung.**
 **Category 3, CARRIED from `D-IMPL-304`.** A bare JSON fraction is refused —
 loudly, by name, and **never coerced**, which is the half the ruling requires.
 But the refusal happens inside `canonical_bytes` during request
@@ -84,6 +101,10 @@ worst-member freshness decays to **0.1226** on the declared half-life, which
 drives the debt tolerance below.
 
 ### `WIF-F-07` — the debt tolerance is calibrated to that staleness
+
+**Recorded at `D-GATE-cp-24` as an explicit `D-IMPL-323` calibration: the
+`0.98` tolerance PERMITS the demonstration and does NOT conceal the staleness.
+The stale observations remain individually visible and governed.**
 `default_debt_tolerance` is **0.98**, an illustrative calibration under
 `D-IMPL-323`. At rung 23's 0.95 every answer is withheld, because the
 worst-member freshness above puts `D_c` at 0.941 before any scenario is
@@ -116,6 +137,10 @@ member's completeness depend on the scenario's rate shift, which is precisely
 what the governing rule forbids.
 
 ### `WIF-F-05` — pinning one member of a two-member difference
+
+**Carried at `D-GATE-cp-24` as a durable reading rule at its THIRD instance
+(`ABS-F-09`, `PEW-F-07`, `WIF-F-05`): a sabotage must mutate the CLAIM the gate
+asserts, not merely one field the claim mentions.**
 Pinning only `rate_shift_bp` left `WIF-G16` green, because the two
 demonstration scenarios differ on **two** magnitudes. Corrected to pin the
 whole echo. The `ABS-F-09` shape a third time: **a sabotage must target the
