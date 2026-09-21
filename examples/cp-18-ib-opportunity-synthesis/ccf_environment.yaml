@@ -1,0 +1,101 @@
+# yaml-language-server: $schema=../../docs/schemas/ccf.deployment-environment.json
+#
+# THE DEPLOYMENT DOCUMENT — where this fabric's substrate and its identities
+# come from. Every value is read from the environment by NAME; not one address,
+# credential or namespace is a literal here (CLAUDE.md §6.4).
+
+config: ccf_config.yaml
+
+substrate:
+  setting: database_path
+  prefix: cp_18
+  suffix: .sqlite3
+
+sources:
+  # The banker's own notebook, and the control room's restricted list. Read at
+  # the acquisition seam, before any enterprise source, because the
+  # restricted/MNPI state is a CLASSIFICATION input that governs what evidence
+  # is admissible and what the principal may see (`CP-SPEC-018` §D.3 step 2).
+  control_room:
+    path:
+      from_env: CCF_CP_18_SQLITE_PATH
+      remedy: >-
+        export CCF_CP_18_SQLITE_PATH with the path to the departmental SQLite
+        file holding `prospect_note` and `restricted_list`
+        (ccf_dataprep/data/departmental.sqlite); it is opened read-only.
+  relational:
+    dsn:
+      from_env: CCF_CP_18_POSTGRES_DSN
+      remedy: >-
+        export CCF_CP_18_POSTGRES_DSN with a READ-ONLY connection string for
+        the estate (host and credentials from ccf_dataprep/.env).
+    schema:
+      from_env: CCF_CP_18_POSTGRES_SCHEMA
+      remedy: >-
+        export CCF_CP_18_POSTGRES_SCHEMA with the namespace holding the
+        banker, coverage_assignment, ib_perspective, ib_projection_plan,
+        perspective_weight, ib_signal_class and signal source tables (the v2
+        estate reads `ccf_v2`).
+  graph:
+    url:
+      from_env: CCF_CP_18_FLUREE_URL
+      remedy: >-
+        export CCF_CP_18_FLUREE_URL with the base URL of a READ-ONLY Fluree
+        endpoint; this deployment reads the ledger watermark only.
+    ledger:
+      from_env: CCF_CP_18_FLUREE_LEDGER
+      remedy: >-
+        export CCF_CP_18_FLUREE_LEDGER with the ledger name to read — the v2
+        estate is `fibo-v2`.
+  documents:
+    uri:
+      from_env: CCF_CP_18_MONGO_URI
+      remedy: >-
+        export CCF_CP_18_MONGO_URI with a READ-ONLY MongoDB connection string
+        for the filing-passage corpus.
+    db:
+      from_env: CCF_CP_18_MONGO_DB
+      remedy: >-
+        export CCF_CP_18_MONGO_DB with the database holding the `passage`
+        collection (the v2 estate reads `fibo_v2`).
+
+  # The three IB perspectives, as bearer credentials.
+  #
+  # `ccf_v2.ib_projection_plan` and `perspective_weight` are keyed by
+  # PERSPECTIVE, and no estate row maps a banker to one (`CP-SPEC-018` §C.4
+  # trap 3, §F.2 `TBC-1` — the same shape rung 19 resolved as `ATM-F-03`). So
+  # the credential → banker half of the mapping is named here; the banker →
+  # perspective half is this deployment's declaration in `server/serve.py`;
+  # the perspective → plan and → weights halves are the ESTATE's and are read
+  # from it.
+  #
+  # `BKR999` is a real credential this deployment recognizes and grants
+  # NOTHING — the negative control.
+  credentials:
+    BKR006:
+      from_env: CCF_CP_18_TOKEN_MA
+      remedy: export CCF_CP_18_TOKEN_MA with the M&A originator's bearer credential.
+    BKR014:
+      from_env: CCF_CP_18_TOKEN_DCM
+      remedy: export CCF_CP_18_TOKEN_DCM with the DCM banker's bearer credential.
+    BKR027:
+      from_env: CCF_CP_18_TOKEN_SECTOR
+      remedy: export CCF_CP_18_TOKEN_SECTOR with the sector strategist's bearer credential.
+    BKR999:
+      from_env: CCF_CP_18_TOKEN_UNGRANTED
+      remedy: >-
+        export CCF_CP_18_TOKEN_UNGRANTED with a recognized credential this
+        deployment grants nothing — the negative control.
+
+door:
+  credential:
+    from_env: CCF_CP_18_DOOR_TOKEN
+    remedy: >-
+      export CCF_CP_18_DOOR_TOKEN with the bearer the standard door's own
+      default principal presents over stdio.
+  issuer_url:
+    from_env: CCF_CP_18_DOOR_ISSUER_URL
+    remedy: export CCF_CP_18_DOOR_ISSUER_URL with the door's declared issuer URL.
+  resource_server_url:
+    from_env: CCF_CP_18_DOOR_RESOURCE_URL
+    remedy: export CCF_CP_18_DOOR_RESOURCE_URL with the door's declared resource-server URL.

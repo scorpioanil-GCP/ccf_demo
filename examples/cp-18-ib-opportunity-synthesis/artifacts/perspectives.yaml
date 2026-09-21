@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE PRODUCT'S SHAPE PER PERSPECTIVE (`CP-SPEC-018` §D.6, `IBO-G12`).
+#
+# The member set is a function of the PERSPECTIVE and never of the banker or
+# the request. A member is present, possibly empty, for every question a
+# perspective asks. `include_evidence` and `explain_ranking` are deliberately
+# NOT request parameters (§B.4): a payload whose shape the caller chooses
+# makes an empty member informative about the subject.
+#
+# The perspective ids and their labels are the ESTATE's
+# (`ccf_v2.ib_perspective`); what this document declares is the SHAPE each
+# one receives and the gate's authority for it.
+semver: "1.0.0"
+class_id: cp-18.perspectives
+declaration:
+  common_members:
+    - perspective
+    - as_of
+    - weight_version
+    - banker
+    - portfolio_size
+    - portfolio
+    - candidates_considered
+    - ranked_opportunities
+    - signal_types_admitted
+    - optional_context
+    - entities_in_view
+    - edge_types_served
+  # Members Pi emits as LISTS of classified items — the gate's containment
+  # walk. `portfolio` is a list of plain strings and `optional_context` a
+  # mapping, so neither is here.
+  classified_list_members:
+    - ranked_opportunities
+    - catalyst_evidence
+    - maturity_ladder
+    - peer_positioning
+    - local_note_attribution
+  classification_vocabulary: [public, internal, banker-local]
+  perspectives:
+    ma:
+      perspective_id: PSP-MA
+      members: [catalyst_evidence, local_note_attribution]
+    dcm:
+      perspective_id: PSP-DCM
+      members: [maturity_ladder, local_note_attribution]
+    sector:
+      perspective_id: PSP-SECTOR
+      members: [peer_positioning, policy_version_attribution, local_note_attribution]

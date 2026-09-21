@@ -1,0 +1,158 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# EVERY SOURCE NAME THIS DEPLOYMENT READS, AND THE TYPE-TO-SOURCE MAP.
+#
+# `CP-SPEC-018` §C.4 trap 1: the eleven IB signal types exist ONLY in
+# `perspective_weight` and `ib_signal_class`. No table stores a signal under
+# those names. The map below is therefore THIS DEPLOYMENT'S, declared rather
+# than discovered, and no estate row is invented to hold it.
+semver: "1.0.0"
+class_id: cp-18.source-vocabulary
+declaration:
+  relational:
+    tables:
+      banker: banker
+      coverage: coverage_assignment
+      perspective: ib_perspective
+      projection_plan: ib_projection_plan
+      weight: perspective_weight
+      signal_class: ib_signal_class
+      mandate: mandate
+      deal: deal
+      legal_entity: legal_entity
+
+  # THE MAP. Each signal type names the table it is read from, the column that
+  # dates it, and the column that ties it to a prospect. `banker_local_note`
+  # is the departmental store's and is read separately (it is the only
+  # `banker-local` class).
+  signal_sources:
+    ma_event_8k:
+      table: signal_event
+      lei_column: lei
+      date_column: observed_at
+      filter_column: signal_type
+      filter_value: 8k_event
+      detail_columns: [signal_id, severity, source_ref]
+    sector_news_gdelt:
+      table: gdelt_mention
+      lei_column: lei
+      date_column: seendate
+      detail_columns: [title, domain, tone]
+    maturity_wall:
+      table: debt_instrument
+      lei_column: lei
+      date_column: maturity
+      # FORWARD, and this is the one signal that looks ahead. A maturity wall
+      # is upcoming debt: every maturity in this estate falls between 2027 and
+      # 2051 (measured 2026-09-21), so a backward window admits none of them.
+      # The window runs from `as_of` forward by `forward_days`.
+      window: forward
+      forward_days: 1095
+      # STANDING, not dated. A maturity wall is a state of the balance sheet at
+      # the decision instant, not an event that happened on a day. Dated at the
+      # MATURITY the temporal operator correctly refuses it as future
+      # information (`require_valid_at_boundary`), and dated at the issue date
+      # it would claim the wall became true when the paper was sold. So it is
+      # minted UNDATED and admitted by the temporal operator's absence limb,
+      # and it does not decay inside the decision window — what decays is a
+      # news event, not a repayment obligation.
+      standing: true
+      # At most this many nearest maturities per prospect, so a prospect with
+      # many instruments does not outrank one with a nearer wall on volume.
+      nearest: 3
+      detail_columns: [instrument_id, face_amount_usd, seniority, rating_band]
+    institutional_positioning_13f:
+      table: institutional_holder
+      lei_column: lei
+      date_column: report_period
+      detail_columns: [manager_name, value_usd]
+    gov_revenue_concentration:
+      table: gov_contract_concentration
+      lei_column: lei
+      date_column: start_date
+      detail_columns: [awarding_agency, obligated_usd]
+    insider_activity_form4:
+      table: person_role
+      lei_column: lei
+      date_column: last_seen
+      detail_columns: [person_key, role, officer_title]
+    spread_trajectory:
+      # The only two-table read: spread observations key on `instrument_id`
+      # and reach a prospect through `debt_instrument`.
+      table: spread_observation
+      join_table: debt_instrument
+      join_column: instrument_id
+      lei_column: lei
+      date_column: obs_date
+      detail_columns: [spread_bp, benchmark_bp]
+    # Declared with no source, and that is the point. Three of the eleven
+    # types the weight vector prices have NO row anywhere in this estate:
+    # merger proxies and S-4 registrations live only as MongoDB passages with
+    # no typed signal row, and they are read as EVIDENCE rather than as scored
+    # signals (`CP-SPEC-018` §C.4 trap 1). A weight priced for a signal the
+    # estate cannot supply reads as a zero contribution, honestly.
+    merger_proxy: {unsourced: true, reason: "passages only; no typed signal row in this estate"}
+    registration_s4: {unsourced: true, reason: "passages only; no typed signal row in this estate"}
+    # THE ESTATE HOLDS NO SC 13D DATA AT ALL, measured 2026-09-21: no table,
+    # view or column anywhere in `ccf_v2` names a 13D or an activist stake.
+    # The vault specification calls this "one of the highest-signal, freely
+    # available, timestamped events for M&A origination" and prices it at the
+    # M&A originator's TOP weight (1.0 against DCM's 0.1) — so the single
+    # sharpest M&A discriminator is priced and unsupplied. Disclosed as
+    # `IBO-F-01`, never simulated.
+    activist_stake_13d: {unsourced: true, reason: "no SC 13D source exists anywhere in this estate"}
+
+  control_room:
+    note_table: prospect_note
+    note_columns:
+      note_id: note_id
+      lei: lei
+      banker_id: banker_id
+      note: note
+      signal_type: signal_type
+      materiality: materiality
+      rank_changing: rank_changing
+      created_at: created_at
+    restricted_table: restricted_list
+    restricted_columns:
+      lei: lei
+      restriction_type: restriction_type
+      added_date: added_date
+      removed_date: removed_date
+
+  documents:
+    # TWO STEPS. `passage` carries no `lei` (measured 2026-09-21): the corpus
+    # reaches a prospect through `document.lei`, so the reader resolves
+    # documents first and then their passages.
+    collection: passage
+    document_collection: document
+    fields:
+      passage_id: passage_id
+      document_id: document_id
+      text: text
+      lei: lei
+
+  graph:
+    # Read for the ledger watermark alone — `graph_snapshot_at`.
+    watermark_only: true
+
+  entity_uri_prefix:
+    banker: "urn:ccf:cp18:banker:"
+    prospect: "urn:ccf:cp18:prospect:"
+    signal: "urn:ccf:cp18:signal:"
+    standing_signal: "urn:ccf:cp18:standing:"
+    note: "urn:ccf:cp18:note:"
+    passage: "urn:ccf:cp18:passage:"
+
+  # The product's classification vocabulary and the class each thing is
+  # assigned. `banker-local` is admitted for its own banker only.
+  classification:
+    vocabulary: [public, internal, banker-local]
+    assignment:
+      banker: internal
+      prospect: internal
+      signal_public: public
+      standing_signal: public
+      signal_internal: internal
+      note: banker-local
+      passage: public

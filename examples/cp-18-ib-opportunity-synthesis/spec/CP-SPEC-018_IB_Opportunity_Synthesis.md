@@ -586,6 +586,52 @@ is an acceptable completion of this rung**, recorded as the measured reason
 rather than as a shortfall. The SDK is not to be improved merely to preserve
 the optional composition experiment.
 
+### F.4.3 THE STOP FIRED — measured 2026-09-21, before any code was written
+
+**The ruled composition is structurally unreachable through the paved seam,
+and the CP-17 child count for CP-18 is therefore ZERO.**
+
+The measurement, in one rule. `ChildQuestions` is
+`Callable[[ChildRequirement, ProductRequest], ChildQuestion]` — **one
+requirement, one question** — and `ChildQuestion.subject` is a single string.
+A composite asks a child class exactly once. The SDK then refuses the obvious
+workaround by name: a composite's `requires` list may not carry the same
+`product_class` twice, because *"two requirements naming one class have no
+distinct resolution"* (`D-IMPL-336`, enforced in
+`src/ccf/products/contract.py::requirements_declaration_is_coherent`).
+
+So asking `cib.mnpi-wall` about the MNPI-bearing subset — up to ten prospects
+— would require **reopening `D-IMPL-336`** to give duplicate classes a
+distinct resolution, or a **generic fan-out helper**, or **new resolver
+machinery** looping outside `QuestionBoundChildResolver`. All three are named
+in §F.4.2. The stop fires on its own terms.
+
+**What this rung does instead**, exactly as the ruling authorizes: the
+governed restricted and wall-state envelope alone, read at the acquisition
+seam from the control room and `deal.mnpi_bearing`, with no CP-17 child. The
+envelope still governs all three of the things §D.3 step 2 names — whether
+additional context would be requested, which evidence is admissible, and what
+the principal may see — and the third is what `IBO-G08` holds.
+
+**`IBO-G17` and `IBO-G18` survive the stop** rather than becoming vacuous.
+With the child count at zero, *every* opportunity is ranked without the
+optional CP-17 contribution, so the two gates hold the product to saying so:
+the served ranking names the optional context as absent, and records it as
+named debt, rather than being silent about an evidence base a consumer would
+otherwise assume was complete. A silence here would be exactly the disclosure
+failure the rung exists to avoid.
+
+**One ceiling recorded for Dave, not acted on.** The paved seam *can* carry
+**one** CP-17 child — one class, one question, one prospect — with no new
+machinery at all. One child is inside the ruled bound of ten. It was not built
+because reaching even one requires standing up a CP-17 producer door and its
+grant, registration and skill chain inside this rung, which is the *"material
+door or runtime complexity"* limb of the same stop, and because a single
+arbitrary prospect out of ten proves the boundary less honestly than stating
+the ceiling does. **If Dave wants the one-child demonstration, it is a small
+addition and not an SDK change** — recorded here so the option is his rather
+than silently foreclosed.
+
 ## G · Operate and govern
 
 Accountable owner: the SDK examples maintainer (role). Degradation contract:

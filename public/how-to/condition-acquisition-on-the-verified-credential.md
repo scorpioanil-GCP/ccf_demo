@@ -150,10 +150,21 @@ Assembly carries it through as the claim's `valid_from`, while
 `ingestion_timestamp` becomes `observed_at` — when the fabric learned it.
 
 Two things follow. A class whose half-life row declares `decay_basis:
-valid-from` reads this field as its freshness clock, so a claim you left at
-`None` has no age the curve can measure. And `None` **stays** unknown: it is
-never backfilled from ingestion, because substituting *when we learned it* for
-*when it became true* mints a claim about the world that no source made.
+valid-from` reads this field as its freshness clock. And `None` **stays**
+unknown: it is never backfilled from ingestion, because substituting *when we
+learned it* for *when it became true* mints a claim about the world that no
+source made.
+
+**The consequence is a refusal, not a shrug**, and it is the one adopters meet
+first. A class declaring `decay_basis: valid-from` will **refuse** an undated
+claim at serve time rather than treat it as fresh — that is what stops a
+manufactured instant reporting a perfectly fresh figure for an observation
+whose real age nobody knows. So a **standing state** and a **dated event** are
+different observation types and need different classes: a maturity date, a
+current rating, an ownership percentage are true *as of now* and have no event
+date, while a filing, a news item or a trade happened on a day. Give the
+standing one its own class with `decay: supersede-only`, and let the dated one
+carry the curve. Putting both in one class is the mistake the refusal catches.
 
 ### 4. Emit edges before attributed nodes
 
