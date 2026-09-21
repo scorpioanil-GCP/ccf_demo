@@ -1,0 +1,82 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE PRODUCT'S SHAPE PER PERSPECTIVE (`CP-SPEC-019` §D.4, `ATM-G07`).
+#
+# The member set is a function of the PERSPECTIVE and never of the alert: a
+# member is present, possibly empty, for every question a perspective asks,
+# and absent for every question it does not. That is what makes `l1`'s
+# silence about a SAR structural rather than incidental — `sar_filing_history`
+# is not a member of `l1`'s product at all.
+#
+# The element lists below are the estate's, read from
+# `ccf_v2.aml_projection_plan` (three rows, measured 2026-09-20). This
+# document declares the SHAPE Π serves and the gate's authority for it; the
+# estate's plan is the source those lists come from and `ATM-G08` holds this
+# document to it.
+#
+# The credential → perspective half of the mapping is this deployment's, named
+# in `ccf_environment.yaml`, because the estate holds no AML principal
+# (`CP-SPEC-019` §F.2 `TBC-1`). The perspective → plan half is the estate's.
+semver: "1.0.0"
+class_id: cp-19.perspectives
+declaration:
+  # Carried by every perspective, whatever its plan.
+  common_members:
+    - perspective
+    - as_of
+    - posture
+    - alert
+    - permitted_dispositions
+    - entities_in_view
+    - edge_types_served
+  # The estate's element name → the payload member Π emits.
+  member_by_element:
+    alert_core_facts: alert
+    typology_pattern_summary: typology_matches
+    disposition_candidates: disposition_candidates
+    sanctions_screening_result: sanctions_screening
+    counterparty_network: counterparty_network
+    ownership_chain: ownership_chain
+    prior_alert_lineage: prior_alert_lineage
+    sar_filing_history: sar_filing_history
+    policy_version_attribution: policy_version_attribution
+    reasoning_trail: reasoning_trail
+  # Members whose content the permitted-disposition bound contains
+  # (`ATM-G03`): every entry must fall inside `permitted_dispositions`.
+  disposition_bounded_members:
+    - disposition_candidates
+  # The members Π emits as lists of classified items; the declared gate walks
+  # these for classification containment. A mapping member and a member whose
+  # items carry no classification are deliberately not here.
+  classified_list_members:
+    - typology_matches
+    - sanctions_screening
+    - counterparty_network
+    - ownership_chain
+    - prior_alert_lineage
+    - sar_filing_history
+    - reasoning_trail
+  # The classification vocabulary, restated here as the gate's authority.
+  classification_vocabulary:
+    - public
+    - internal
+    - sar-restricted
+    - sar-confidential
+  perspectives:
+    l1:
+      # 4 estate elements. No `sar_filing_history`: the L1 analyst receives
+      # no member, count or marker indicating a SAR exists (`ATM-G09`).
+      members: [typology_matches, disposition_candidates, sanctions_screening]
+      sees_sar_classifications: []
+    l2:
+      # 6 estate elements. Investigative history and the counterparty graph;
+      # `restricted` SARs are visible, `confidential` ones are not.
+      members: [typology_matches, counterparty_network, ownership_chain,
+                prior_alert_lineage, sar_filing_history]
+      sees_sar_classifications: [restricted]
+    examiner:
+      # 10 estate elements — the full evidence chain with attribution.
+      members: [typology_matches, disposition_candidates, sanctions_screening,
+                counterparty_network, ownership_chain, prior_alert_lineage,
+                sar_filing_history, policy_version_attribution, reasoning_trail]
+      sees_sar_classifications: [restricted, confidential]

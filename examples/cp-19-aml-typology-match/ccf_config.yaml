@@ -1,0 +1,344 @@
+# yaml-language-server: $schema=../../docs/schemas/ccf.deployment-config.json
+#
+# THE CONTROL PLANE DOCUMENT — what this fabric is permitted to do.
+#
+# Everything domain-specific about `compliance.aml-typology` is here or under
+# `artifacts/`; `produce.py` names none of it (CLAUDE.md §6.4). The
+# specification this document realizes is
+# `spec/CP-SPEC-019_AML_Typology_Match.md`.
+
+semver: "1.0.0"
+tenant_id: cp-19-demo
+
+backend: sqlite
+
+product_class:
+  schema_name: compliance.aml-typology
+  schema_version: "1.0.0"
+  ttl_anchor: from_decision
+  assembly_mode: algorithmic
+  max_ttl_key: cp-19/product/aml-typology/max-ttl
+
+  # ALL FOUR CATEGORIES. The planner runs them in `CATEGORY_ORDER` — policy →
+  # similarity → temporal → traversal — whatever order they are written here,
+  # and `ATM-G01` reads that order off the SERVED product rather than off this
+  # document. Policy first is claim 1.
+  required_operator_keys:
+    - policy.principal-subgraph
+    - similarity.corpus-select
+    - temporal.as-of-boundary
+    - traversal.typed-neighborhood
+
+  serve_obligations:
+    default_debt_tolerance: "0.80"
+    # NOT `alert`: an alert whose admissible content Policy removes entirely
+    # is SERVED computed-empty (`ATM-G14`, the A6 comparator inherited from
+    # CP-17), and an obligation on it would turn that serve into a refusal —
+    # the existence oracle the gate exists to prevent.
+    lineage_inputs_at:
+      - perspective
+      - as_of
+
+  discovery:
+    domain: compliance
+    intents:
+      - alert-adjudication
+    capabilities:
+      - policy-before-similarity
+      - posture-at-as-of
+      - permitted-disposition-set
+      - sar-confidentiality
+    audiences:
+      - l1
+      - l2
+      - examiner
+
+  declared_product_gate:
+    gate_id: cp-19.dispositions-hold
+    gate_version: "1.0.0"
+
+operators:
+  # STEP 2 — Policy. The permitted set is the product's WHOLE classification
+  # vocabulary; the per-perspective narrowing arrives at the acquisition seam
+  # from `context.perspective` (the SDK offers no seam by which the credential
+  # reaches this operator without becoming a caller's claim — Gate-0 A2, third
+  # writing). The operator is the containment guarantee: a claim outside this
+  # vocabulary is removed before anything ranks or walks.
+  policy.principal-subgraph:
+    classification_attribute_by_class:
+      alert: classification
+      party: classification
+      transaction: classification
+      typology_match: classification
+      advisory_passage: classification
+      prior_alert: classification
+      sar_record: classification
+      screening_result: classification
+    permitted_classifications:
+      - public
+      - internal
+      - sar-restricted
+      - sar-confidential
+
+  # STEP 3 — Similarity BEHIND Policy, over the advisory passages' own text.
+  # The query is a CLASS-LEVEL typology vocabulary, not a per-alert query:
+  # `SimilaritySelectParameters.query` is an artifact literal with no
+  # request-bound arm, and Dave ruled the per-alert query backlog for the
+  # initial release (`CP-SPEC-019` §0.2).
+  #
+  # ILLUSTRATIVE CALIBRATION — the floor is 1, and the measurement is why.
+  # The reference index (`TokenOverlapIndex`) scores integer Jaccard overlap
+  # between a 7-token query and passages of ~90 unique tokens, so the whole
+  # 72-passage corpus scores in a four-value band: measured 2026-09-20,
+  # {3: 1, 2: 5, 1: 22, 0: 44}. At any floor of 2 or more EVERY passage the
+  # demonstration alert's typology anchors is removed, and at 0 nothing is;
+  # at 1 the operator keeps 28 of 72 and drops 44, and keeps 4 of the 12 the
+  # alert's own typology carries. That is the smallest floor at which the
+  # term still discriminates, which is the condition CLAUDE.md §9 sets. The
+  # narrowness of that band is recorded as `ATM-F-05`, not worked around.
+  similarity.corpus-select:
+    query: "structuring funnel shell trade invoicing layering pass-through"
+    minimum_score_percent: 1
+    ranked_entity_classes:
+      - advisory_passage
+    similarity_corpus_attribute_by_class:
+      advisory_passage: text
+    # No embedding and no sha256 exists on any of the 72 passages (measured
+    # 2026-09-20; `ATM-F-01`), so the ranking is lexical over passage text and
+    # the vector path is out of scope, disclosed rather than worked around.
+    index_version: "cp-19-advisory-corpus@2026-09-20"
+
+  # STEP 4 — the valid-time cut at `as_of`. Every dated claim carries its
+  # world date as `valid_from`; an undated claim is admitted by the absence
+  # limb.
+  temporal.as-of-boundary:
+    require_valid_at_boundary: true
+
+  # STEP 5 — the walk over the per-request fabric acquisition already bounded
+  # by `network_depth`. The SDK operator's own limit is 1 hop from the alert
+  # because acquisition mints the network as direct edges from the alert;
+  # depth is a request parameter that bounds ACQUISITION, not this operator.
+  traversal.typed-neighborhood:
+    seed_entity_classes:
+      - alert
+    relationship_types:
+      - hasSubjectParty
+      - hasCounterparty
+      - hasTypologyMatch
+      - hasAdvisory
+      - hasPriorAlert
+      - hasSarRecord
+      - hasScreeningResult
+      - hasTransaction
+    depth_limit: 1
+
+request_contract:
+  class_id: cp-19.request-contract
+  role: register
+  registration: typed
+  schema_name: compliance.aml-typology
+  schema_version: "1.0.0"
+  # NO `perspective` (`CP-SPEC-019` §B.2, the CP-17 ruling preserved): the
+  # perspective is the door's, derived from the verified credential. A request
+  # naming one is refused as an undeclared parameter.
+  arguments:
+    properties:
+      as_of:
+        type: string
+        description: >-
+          The instant whose FILING POSTURE governs, an ISO-8601 instant with
+          its zone. An examiner reviewing a disposition entered months ago
+          evaluates it against the posture in force then, not the posture in
+          force now (`ATM-G05`). Defaults to `asked_at` itself.
+      network_depth:
+        type: number
+        description: >-
+          How many transactedWith hops from the subject party the acquisition
+          walk follows, 1..4. The estate holds alerts whose own trigger names
+          a subject three ownership hops deep, invisible at the default.
+      debt_tolerance:
+        type: number
+        description: the caller's ceiling on assessed Context Debt, 0..1.
+    required: []
+  relative_defaults:
+    as_of:
+      offset_seconds: 0
+      render: timestamp
+
+resolution:
+  # REIFICATION: every served thing is an ENTITY carrying a `classification`
+  # attribute, reached from the alert by a typed edge the deployment mints, so
+  # the Policy operator's substitution and endpoint closure govern the
+  # perspective-conditioned view.
+  entity_rules:
+    - match_key: alert_node
+      entity_class: alert
+      identity_keys: [entity_uri]
+      # `plan_json` is the asking perspective's OWN plan; `permitted_json` is
+      # the disposition bound the posture computed; `posture_json` names the
+      # posture that governed. No SAR classification row and no rule set ride
+      # here — those are envelope inputs consumed at acquisition.
+      attribute_keys: [alert_id, subject_party, raised_at, trigger, case_id,
+                       classification, plan_json, permitted_json, posture_json, ledger_t]
+    - match_key: party_node
+      entity_class: party
+      identity_keys: [entity_uri]
+      attribute_keys: [party_id, legal_name, jurisdiction, party_kind, hops, classification]
+    - match_key: transaction_node
+      entity_class: transaction
+      identity_keys: [entity_uri]
+      attribute_keys: [txn_id, from_party, to_party, amount_usd, value_date, channel, classification]
+    - match_key: typology_node
+      entity_class: typology_match
+      identity_keys: [entity_uri]
+      attribute_keys: [typology_id, label, confidence, classification]
+    - match_key: advisory_node
+      entity_class: advisory_passage
+      identity_keys: [entity_uri]
+      attribute_keys: [passage_id, advisory_number, document_id, typology_id, text, classification]
+    - match_key: prior_alert_node
+      entity_class: prior_alert
+      identity_keys: [entity_uri]
+      attribute_keys: [alert_id, relation, raised_at, classification]
+    - match_key: sar_node
+      entity_class: sar_record
+      identity_keys: [entity_uri]
+      attribute_keys: [sar_id, alert_id, classification]
+    - match_key: screening_node
+      entity_class: screening_result
+      identity_keys: [entity_uri]
+      attribute_keys: [person_key, listed_name, score, disposition, classification]
+
+    # Endpoint rules. NO attribute keys: an edge asserts that two nodes are
+    # related and nothing about what either node IS (`D-IMPL-316`).
+    - {match_key: alert_subject, entity_class: alert,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: subject_uri}}
+    - {match_key: party_object, entity_class: party,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+    - {match_key: transaction_object, entity_class: transaction,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+    - {match_key: typology_object, entity_class: typology_match,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+    - {match_key: advisory_object, entity_class: advisory_passage,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+    - {match_key: prior_alert_object, entity_class: prior_alert,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+    - {match_key: sar_object, entity_class: sar_record,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+    - {match_key: screening_object, entity_class: screening_result,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+
+  relationship_rules:
+    - {relationship_type: hasSubjectParty, predicate_key: predicate,
+       subject_entity_class: alert, object_entity_class: party,
+       subject_rule: alert_subject, object_rule: party_object}
+    - {relationship_type: hasCounterparty, predicate_key: predicate,
+       subject_entity_class: alert, object_entity_class: party,
+       subject_rule: alert_subject, object_rule: party_object}
+    - {relationship_type: hasTransaction, predicate_key: predicate,
+       subject_entity_class: alert, object_entity_class: transaction,
+       subject_rule: alert_subject, object_rule: transaction_object}
+    - {relationship_type: hasTypologyMatch, predicate_key: predicate,
+       subject_entity_class: alert, object_entity_class: typology_match,
+       subject_rule: alert_subject, object_rule: typology_object}
+    - {relationship_type: hasAdvisory, predicate_key: predicate,
+       subject_entity_class: alert, object_entity_class: advisory_passage,
+       subject_rule: alert_subject, object_rule: advisory_object}
+    - {relationship_type: hasPriorAlert, predicate_key: predicate,
+       subject_entity_class: alert, object_entity_class: prior_alert,
+       subject_rule: alert_subject, object_rule: prior_alert_object}
+    - {relationship_type: hasSarRecord, predicate_key: predicate,
+       subject_entity_class: alert, object_entity_class: sar_record,
+       subject_rule: alert_subject, object_rule: sar_object}
+    - {relationship_type: hasScreeningResult, predicate_key: predicate,
+       subject_entity_class: alert, object_entity_class: screening_result,
+       subject_rule: alert_subject, object_rule: screening_object}
+
+# ---------------------------------------------------------------------------
+# λ_c — ILLUSTRATIVE CALIBRATION.
+# ---------------------------------------------------------------------------
+# This example runs against a point-in-time demonstration estate rather than
+# continuously refreshed production data. Freshness half-lives and related
+# thresholds are calibrated to make the governed behavior observable in that
+# snapshot. They demonstrate how the SDK applies these controls and should not
+# be interpreted as recommended production coverage-policy thresholds.
+#
+# The `transaction` row: the vault asks ~1 hour; the estate's newest value
+# date is 2026-08-24 and value dates are date-grained, so an hourly curve read
+# at any 2026 instant reads the same for every alert. 86,400 s is the smallest
+# value at which the term still discriminates between alerts at the pinned
+# instant; `ATM-G13`'s debt assertions read the ORDERING, never the number.
+# Posture, disposition rules and SAR classification have no row: they are
+# envelope INPUTS consumed at acquisition, not served observations.
+half_life:
+  alert:
+    decay: supersede-only
+    decay_driver: alert-state-change
+    supersession_event: alert-disposition-entered
+  party:
+    decay: supersede-only
+    decay_driver: reference-data-maintenance
+    supersession_event: party-record-update
+  transaction:
+    half_life_seconds: 86400
+    decay_basis: valid-from
+    decay_driver: intraday-settlement
+    supersession_event: next-transaction-batch
+  typology_match:
+    decay: supersede-only
+    decay_driver: advisory-revision
+    supersession_event: typology-redefinition
+  advisory_passage:
+    decay: supersede-only
+    decay_driver: publication
+    supersession_event: advisory-superseded
+  prior_alert:
+    decay: supersede-only
+    decay_driver: alert-linkage
+    supersession_event: linkage-revised
+  sar_record:
+    decay: supersede-only
+    decay_driver: filing
+    supersession_event: sar-amended
+  screening_result:
+    decay: supersede-only
+    decay_driver: list-publication
+    supersession_event: ofac-daily-delta
+
+debt_profile:
+  risk_sensitivity: "1.0"
+  forced_llm_threshold: "0.60"
+  fail_closed_threshold: "0.95"
+
+policy:
+  class_id: cp-19.policy-bundle
+  role: register
+  registration: typed
+  regime: aml-posture-disposition-envelope
+
+default_perspective:
+  principal_id: PRIN-AML-L1
+  role: l1
+
+replay:
+  record_class: ccf.replay-record
+  query_pin_class: ccf.graph-query
+  store_dirname: artifact-store
+
+ttl:
+  max_ttl_seconds: 14400
+  product_ttl_seconds: 3600
+
+door:
+  producer_id: cp-19-aml-typology-egress
+  producer_tenant: cp-19-demo
+  required_scope: ccf:egress
+  tool_description: >-
+    Adjudicate one AML alert as a governed, content-addressed Context Product
+    (`compliance.aml-typology`): the alert named by `subject` as the verified
+    credential's perspective may see it — triage and disposition candidates
+    for the L1 analyst, counterparty network and prior-alert lineage for the
+    L2 reviewer, the full evidence chain with policy-version attribution for
+    the examiner — with `as_of` selecting the filing posture that governs. The
+    permitted disposition set is computed before any candidate is generated,
+    and the existence of a SAR is itself restricted.

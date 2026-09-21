@@ -56,7 +56,7 @@ NO_SUBSTRATE := not postgres and not chroma and not neo4j and not mongo and not 
 	example-s1-01 example-s1-00 example-cp-00 example-cp-01 example-cp-02 \
 	example-cp-03 example-cp-03-canonical example-cp-04 example-cp-04-canonical example-cp-05 example-cp-05-server \
 	example-cp-06 example-cp-06-canonical example-cp-07 example-cp-09 example-cp-10 example-cp-11 \
-	example-cp-12 example-cp-13 example-cp-13-canonical example-cp-14 example-cp-17 example-door-cp-05 \
+	example-cp-12 example-cp-13 example-cp-13-canonical example-cp-14 example-cp-17 example-cp-19 example-door-cp-05 \
 	example-hw1-harness-clients \
 	example-hw1-harness-clients-live-adk \
 	example-hw1-harness-clients-live-anthropic \
@@ -542,6 +542,11 @@ example-cp-17: ## Run examples/cp-17-mnpi-wall-enforcement (SUBJECT, ASKED_AT, I
 	PYTHONPATH=src:runtime:examples/cp-17-mnpi-wall-enforcement \
 		$(PYTHON) examples/cp-17-mnpi-wall-enforcement/run.py \
 		$(SUBJECT) $(ASKED_AT) $(INTENT) $(KNOWN_AS_OF) $(DEBT_TOLERANCE) $(PRINCIPAL)
+
+example-cp-19: ## Run examples/cp-19-aml-typology-match (SUBJECT, ASKED_AT, INTENT, AS_OF, NETWORK_DEPTH, DEBT_TOLERANCE, PRINCIPAL optional; needs CCF_CP_19_SQLITE_PATH, CCF_CP_19_POSTGRES_DSN, CCF_CP_19_POSTGRES_SCHEMA, CCF_CP_19_FLUREE_URL, CCF_CP_19_FLUREE_LEDGER, CCF_CP_19_MONGO_URI, CCF_CP_19_MONGO_DB and the four CCF_CP_19_TOKEN_* credentials)
+	PYTHONPATH=src:runtime:examples/cp-19-aml-typology-match \
+		$(PYTHON) examples/cp-19-aml-typology-match/run.py \
+		$(SUBJECT) $(ASKED_AT) $(INTENT) $(AS_OF) $(NETWORK_DEPTH) $(DEBT_TOLERANCE) $(PRINCIPAL)
 
 # cp-14 — the credit-memo composite (rung 14). NOT in the `examples:` aggregate:
 # it reaches FIVE producers over their doors and reads the estate through its

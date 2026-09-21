@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE DEMONSTRATION QUESTION — the caller's vocabulary and the pinned
+# instants (`CP-SPEC-019` §C). Pinning `asked_at` is what a snapshot estate
+# requires; nothing moves it to get an answer.
+semver: "1.0.0"
+class_id: cp-19.question
+declaration:
+  question:
+    # ALT-000021 — chosen on evidence, measured 2026-09-20. Its subject party
+    # AMLP-0023 is one of six carrying `matchesTypology TYP-STRUCT`, the ONE
+    # typology whose permitted dispositions invert across the posture
+    # boundary; and it carries SAR-0007 at classification `restricted`,
+    # visible to `l2` and `examiner` and invisible to `l1`. One alert
+    # therefore demonstrates claims 2, 3 and 5 together.
+    subject: "ALT-000021"
+    intent: alert-adjudication
+    freshness: event-driven
+    # The decision instant, pinned to the estate's own window: the newest
+    # transaction value date is 2026-08-24, so a decision instant after it
+    # keeps every transaction inside the valid-time cut and lets the
+    # illustrative curve discriminate.
+    asked_at: "2026-08-25T00:00:00+00:00"
+    # The in-process caller's own perspective; the door resolves it from the
+    # credential instead.
+    principal: PRIN-AML-L1
+  instants:
+    # The posture boundary. POST-2025-01 is effective 2025-03-01 and
+    # POST-2026-01 is effective 2026-01-15, so these two instants select
+    # different postures for the same alert.
+    AS_OF_EARLY: "2025-06-01T00:00:00+00:00"
+    AS_OF_LATE: "2026-02-01T00:00:00+00:00"
+    # Before any posture is effective: the permitted set is empty and the
+    # product is served with no candidate at all.
+    BEFORE_ANY_POSTURE: "2025-01-01T00:00:00+00:00"
+    ASKED_AT: "2026-08-25T00:00:00+00:00"
+  # The second demonstration alert: a CONFIDENTIAL SAR, visible to the
+  # examiner alone, so `l2`'s silence is measurable beside `l1`'s.
+  confidential_sar_alert: "ALT-000005"
+  # The SHAPE comparator (`ATM-G08`). One perspective asked about this alert
+  # and about the subject above must receive the same member set while the
+  # CONTENT differs: measured 2026-09-20, ALT-000142 carries two prior-alert
+  # links and ALT-000021 carries none, so `prior_alert_lineage` is non-empty
+  # for one and empty for the other. A comparator whose members were empty
+  # on both sides would let an implementation that drops empty members pass.
+  shape_comparator_alert: "ALT-000142"
+  # Alert ids that exist nowhere, for the A6 comparator.
+  nonexistent_alerts:
+    - "ALT-999999"
+    - "ALT-999998"

@@ -920,6 +920,14 @@ RULED_SDK_SUPPLIED_DEPLOYMENTS: frozenset[str] = frozenset(
         # answered True on 2026-09-20 BEFORE this line was written — a named
         # `plan_factory` passing `required` straight through (D-IMPL-137).
         "examples/cp-17-mnpi-wall-enforcement",
+        # cp-19, 2026-09-20 — the AML typology rung, arriving by the cp-17
+        # route and measured the same way: the detector reached this root and
+        # answered True before this line existed, because `produce.py`'s named
+        # `plan_factory` hands the resolver's own `required` tuple to
+        # `AmlTypologyProjection`, which returns it unchanged. The deployment
+        # authors no operator set, so there is nothing to diverge from — the
+        # `D-IMPL-141` condition, not a property this entry asserts.
+        "examples/cp-19-aml-typology-match",
     }
 )
 
@@ -3641,6 +3649,10 @@ def test_the_premise_detector_reads_the_shipped_tree_correctly() -> None:
         # as its OWN assertion for the same reason: what the detector ANSWERS.
         "examples/cp-14-credit-memo-context",
         "examples/cp-17-mnpi-wall-enforcement",
+        # cp-19, 2026-09-20 — the AML typology rung, added as its OWN
+        # assertion for the reason the cp-11 entry gives: the roster above
+        # records what was RULED, this records what the detector ANSWERS.
+        "examples/cp-19-aml-typology-match",
         "examples/hw1-companies-over-revenue/deployment",
         # `D-IMPL-311`, 2026-09-09 — s1-00 arrives from row B above, by the
         # same second shape cp-05 took: it reaches `build_governed_resolver`
