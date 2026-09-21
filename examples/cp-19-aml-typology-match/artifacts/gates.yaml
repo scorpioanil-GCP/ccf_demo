@@ -1,0 +1,195 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE DECLARED PRODUCT GATES OF cp-19 — `ATM-G01` through `ATM-G14`.
+#
+# The acceptance authority for every gate is `CP-SPEC-019` §G.1
+# (`D-IMPL-326`). Each id is claimed by exactly one executing test under
+# `tests/examples/` (the docstring form), and no estate figure is pinned
+# anywhere: every gate is directional, structural or relational.
+# `observed_red` records a sabotage that was actually run and seen red.
+semver: 1.0.0
+class_id: cp-19.product-gates
+declaration:
+  product: compliance.aml-typology
+  test_naming_convention: the gate id appears in the executing test's docstring, as a `Declared product gate` line naming the CP-SPEC clause that approves it.
+  sabotage_states:
+    passed: the invariant was broken and the gate went red
+    unavailable: an upstream SDK invariant makes the bad state unreachable; the guard is named
+    not-required: a documentary gate
+  # Measured 2026-09-20 against the live estate with `CCF_REQUIRE_ESTATE=1`:
+  # 13 of 14 gates observed RED under their own sabotage; `ATM-G01` is
+  # `unavailable` and its guard is named in its `observed_red`. Two sabotages
+  # left their gate GREEN on the first attempt and were corrected — the
+  # defects were in the proof machinery, not in the product (`ATM-F-07`,
+  # `ATM-F-08`).
+  gates:
+  - id: ATM-G01
+    statement: the SERVED product's operator plan names Policy before Similarity — read off the product, never off the configuration
+    spec_clause:
+      document: spec/CP-SPEC-019_AML_Typology_Match.md
+      clause: G.1
+    test: tests/examples/test_cp_19_typology.py::test_the_served_plan_runs_policy_before_similarity
+    sabotage: reorder the required operator keys so Similarity precedes Policy in the configuration and assert the served order is unchanged (CATEGORY_ORDER decides)
+    sabotage_state: unavailable
+    observed_red:
+      result: >-
+        not run as a sabotage — UNAVAILABLE. Measured 2026-09-20: the four operator keys were reordered in `ccf_config.yaml` to put Similarity first and Policy last, and the SERVED order did not move (the test passed unchanged). `CATEGORY_ORDER` in the SDK's planner decides the executed order, so a deployment cannot express the forbidden order at all.
+      date: '2026-09-20'
+  - id: ATM-G02
+    statement: classification containment — no served item carries a classification outside the product's declared vocabulary
+    spec_clause:
+      document: spec/CP-SPEC-019_AML_Typology_Match.md
+      clause: G.1
+    test: tests/examples/test_cp_19_typology.py::test_every_served_classification_is_inside_the_vocabulary
+    sabotage: relabel one admitted claim's classification out of vocabulary at the acquisition seam
+    sabotage_state: passed
+    observed_red:
+      result: >-
+        RED 2026-09-20 — `source-vocabulary.yaml` assigned `party-secret` to the party class and `ccf_config.yaml` admitted that label at the Policy operator, so an out-of-vocabulary item reached the product. The DECLARED GATE refused it: `an invariant the product class declares does not hold for this product`.
+      date: '2026-09-20'
+  - id: ATM-G03
+    statement: disposition containment — every candidate falls inside the permitted set the posture computed
+    spec_clause:
+      document: spec/CP-SPEC-019_AML_Typology_Match.md
+      clause: G.1
+    test: tests/examples/test_cp_19_typology.py::test_every_disposition_candidate_is_inside_the_permitted_set
+    sabotage: generate a candidate the posture forbids and assert the declared gate refuses the product by name
+    sabotage_state: passed
+    observed_red:
+      result: >-
+        RED 2026-09-20 — Π generated the candidate list from a fixed pair instead of from the permitted set. The declared gate refused the product: `an invariant the product class declares does not hold for this product`.
+      date: '2026-09-20'
+  - id: ATM-G04
+    statement: a candidate outside the permitted set refuses the product BY NAME rather than being filtered
+    spec_clause:
+      document: spec/CP-SPEC-019_AML_Typology_Match.md
+      clause: G.1
+    test: tests/examples/test_cp_19_sabotage.py::test_a_forbidden_disposition_refuses_the_product_by_name
+    sabotage: 'the control IS the sabotage: Π emits a forbidden candidate and the gate must refuse'
+    sabotage_state: passed
+    observed_red:
+      result: >-
+        RED by construction, run 2026-09-20 — the test injects the disposition the OTHER posture permits and this one does not, measured from two live answers, and asserts the refusal: `product-invariant-refusal` naming `cp-19.dispositions-hold`, with the record's `assembly_refusal` naming the disposition and `ATM-G03`.
+      date: '2026-09-20'
+  - id: ATM-G05
+    statement: one alert at two as_of values yields two permitted sets, and TYP-STRUCT/close-no-action is in the earlier and not the later
+    spec_clause:
+      document: spec/CP-SPEC-019_AML_Typology_Match.md
+      clause: G.1
+    test: tests/examples/test_cp_19_typology.py::test_the_posture_at_as_of_governs_and_the_two_instants_differ
+    sabotage: read the posture at the LATEST effective date regardless of as_of and assert the two instants stop differing
+    sabotage_state: passed
+    observed_red:
+      result: >-
+        RED 2026-09-20 — `posture_at` was made to ignore its `at` argument and take the latest effective posture. The two instants stopped differing: `AssertionError: ({'escalate-l2'}, {'escalate-l2'})`.
+      date: '2026-09-20'
+  - id: ATM-G06
+    statement: the posture pinned on the served product is the one effective at as_of, not the latest
+    spec_clause:
+      document: spec/CP-SPEC-019_AML_Typology_Match.md
+      clause: G.1
+    test: tests/examples/test_cp_19_typology.py::test_the_served_posture_is_the_one_effective_at_as_of
+    sabotage: as ATM-G05's mutation; the served posture id stops tracking as_of
+    sabotage_state: passed
+    observed_red:
+      result: >-
+        RED 2026-09-20 — the same mutation. The served posture stopped tracking `as_of`: `AssertionError: ({'effective_from': '2026-01-15', 'posture_id': 'POST-2026-01'}, {'effective_from': '2026-01-15', 'posture_id': 'POST-2026-01'})` — one posture for both.
+      date: '2026-09-20'
+  - id: ATM-G07
+    statement: each perspective's member set equals its declared shape, for every alert
+    spec_clause:
+      document: spec/CP-SPEC-019_AML_Typology_Match.md
+      clause: G.1
+    test: tests/examples/test_cp_19_typology.py::test_each_perspective_serves_its_declared_member_set
+    sabotage: emit one extra member for one perspective and assert the declared gate refuses
+    sabotage_state: passed
+    observed_red:
+      result: >-
+        RED 2026-09-20 — Π emitted one extra member (`sabotage_extra_member`) for every perspective. The declared gate refused the product before the test's own comparison was reached.
+      date: '2026-09-20'
+  - id: ATM-G08
+    statement: the member set is a function of the perspective and never of the alert
+    spec_clause:
+      document: spec/CP-SPEC-019_AML_Typology_Match.md
+      clause: G.1
+    test: tests/examples/test_cp_19_typology.py::test_the_member_set_does_not_vary_with_the_alert
+    sabotage: >-
+      drop any member whose value is empty, so the member set becomes a function of the alert — the natural implementation error this gate forbids. It is measurable only against a comparator alert whose content genuinely differs (ALT-000142 carries prior-alert lineage, ALT-000021 carries none); the first comparator chosen had the same empty members on both sides and could not redden the gate at all.
+    sabotage_state: passed
+    observed_red:
+      result: >-
+        RED 2026-09-20 — with empty members dropped, the two alerts gave one perspective two shapes and the declared gate refused the product. The first attempt at this sabotage left the gate GREEN and was recorded as a defect in the proof machinery, not in the product: see `ATM-F-07`.
+      date: '2026-09-20'
+  - id: ATM-G09
+    statement: l1 receives no member, count or marker indicating a SAR exists
+    spec_clause:
+      document: spec/CP-SPEC-019_AML_Typology_Match.md
+      clause: G.1
+    test: tests/examples/test_cp_19_typology.py::test_the_l1_analyst_is_told_nothing_about_a_sar
+    sabotage: >-
+      break BOTH guards — the estate's projection plan (which omits `sar_filing_history` from l1's elements, so the class is never minted) and the departmental audience filter (`visible_to_perspectives`) — and declare the member on l1's shape. Breaking either one alone leaves l1's silence standing, which is the measurement.
+    sabotage_state: passed
+    observed_red:
+      result: >-
+        RED 2026-09-20 — with the plan element appended, the audience filter bypassed and the member declared, the SAR reached l1 and the test failed on l1's member set. Breaking the audience filter ALONE left the gate green (measured first), because l1's estate plan does not carry the class: the silence is doubly enforced. Recorded as `ATM-F-08`.
+      date: '2026-09-20'
+  - id: ATM-G10
+    statement: a confidential SAR is invisible to l2 and visible to examiner
+    spec_clause:
+      document: spec/CP-SPEC-019_AML_Typology_Match.md
+      clause: G.1
+    test: tests/examples/test_cp_19_typology.py::test_a_confidential_sar_reaches_the_examiner_alone
+    sabotage: treat every classification as visible to every perspective at the departmental read
+    sabotage_state: passed
+    observed_red:
+      result: >-
+        RED 2026-09-20 — the departmental audience filter was bypassed so every classification was visible to every perspective. The confidential SAR reached l2 and the declared gate refused the product on its SAR-visibility predicate.
+      date: '2026-09-20'
+  - id: ATM-G11
+    statement: constrained-resident party detail is admitted only to a principal holding the declared entitlement
+    spec_clause:
+      document: spec/CP-SPEC-019_AML_Typology_Match.md
+      clause: G.1
+    test: tests/examples/test_cp_19_typology.py::test_constrained_resident_detail_requires_the_declared_entitlement
+    sabotage: admit constrained residents regardless of the entitlement flag and assert the view grows
+    sabotage_state: passed
+    observed_red:
+      result: >-
+        RED 2026-09-20 — the residency check was removed from `_records`, admitting constrained residents regardless of the entitlement. 60 of the 200 network parties are constrained residents (measured), and the first reached the product: `('l2', 'counterparty_network', {'party_id': 'AMLP-0001', ... 'jurisdiction': 'FRA' ...})`.
+      date: '2026-09-20'
+  - id: ATM-G12
+    statement: every typology match carries a resolvable advisory passage
+    spec_clause:
+      document: spec/CP-SPEC-019_AML_Typology_Match.md
+      clause: G.1
+    test: tests/examples/test_cp_19_typology.py::test_every_typology_match_is_anchored_to_an_advisory_passage
+    sabotage: drop the advisory claims and assert a match is served with nothing behind it
+    sabotage_state: passed
+    observed_red:
+      result: >-
+        RED 2026-09-20 — the Similarity floor was raised from 1 to 2, which the corpus measurement says removes every passage the demonstration alert's typology anchors. `AssertionError: the reasoning trail carries no advisory passage`.
+      date: '2026-09-20'
+  - id: ATM-G13
+    statement: replay reconstructs the posture, the plan and the passages the determination rested on
+    spec_clause:
+      document: spec/CP-SPEC-019_AML_Typology_Match.md
+      clause: G.1
+    test: tests/examples/test_cp_19_replay.py::test_a_served_adjudication_replays_from_its_own_record
+    sabotage: rehydrate with a different posture and assert the replay diverges
+    sabotage_state: passed
+    observed_red:
+      result: >-
+        RED by construction, run 2026-09-20 — the companion test replays the same record with `as_of` moved across the posture boundary and the engine raises `ReplayDivergence`; the un-sabotaged replay of the same record still agrees byte for byte.
+      date: '2026-09-20'
+  - id: ATM-G14
+    statement: an alert whose admissible content Policy removes entirely is indistinguishable from a nonexistent alert id, at both measured tolerances
+    spec_clause:
+      document: spec/CP-SPEC-019_AML_Typology_Match.md
+      clause: G.1
+    test: tests/examples/test_cp_19_sabotage.py::test_a_policy_emptied_alert_reads_as_a_nonexistent_one
+    sabotage: 'the control IS the sabotage: relabel every classification out of vocabulary and compare the vessels path-for-path'
+    sabotage_state: passed
+    observed_red:
+      result: >-
+        RED by construction, run 2026-09-20 — the test relabels every acquired claim out of the Policy vocabulary and compares the emptied alert's vessel with a nonexistent alert's path for path; two different nonexistent ids hash identically, and a normally served answer differs from both at `payload` and at `computed_empty`.
+      date: '2026-09-20'

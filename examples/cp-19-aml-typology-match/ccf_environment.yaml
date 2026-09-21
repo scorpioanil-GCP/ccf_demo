@@ -1,0 +1,97 @@
+# yaml-language-server: $schema=../../docs/schemas/ccf.deployment-environment.json
+#
+# THE DEPLOYMENT DOCUMENT — where this fabric's substrate and its identities
+# come from. Every value is read from the environment by NAME; not one address,
+# credential or namespace is a literal here (CLAUDE.md §6.4).
+
+config: ccf_config.yaml
+
+substrate:
+  setting: database_path
+  prefix: cp_19
+  suffix: .sqlite3
+
+sources:
+  # READ FIRST, BEFORE ANY ENTERPRISE SOURCE. The existence of a SAR is itself
+  # restricted, so the departmental classification is what bounds the fabric
+  # rather than something applied to it afterwards (`CP-SPEC-019` §D.3 step 1).
+  control_room:
+    path:
+      from_env: CCF_CP_19_SQLITE_PATH
+      remedy: >-
+        export CCF_CP_19_SQLITE_PATH with the path to the departmental SQLite
+        file holding `sar_classification`
+        (ccf_dataprep/data/departmental.sqlite); it is opened read-only.
+  relational:
+    dsn:
+      from_env: CCF_CP_19_POSTGRES_DSN
+      remedy: >-
+        export CCF_CP_19_POSTGRES_DSN with a READ-ONLY connection string for
+        the estate (host and credentials from ccf_dataprep/.env).
+    schema:
+      from_env: CCF_CP_19_POSTGRES_SCHEMA
+      remedy: >-
+        export CCF_CP_19_POSTGRES_SCHEMA with the namespace holding the
+        aml_alert, aml_party, aml_transaction, aml_projection_plan, principal
+        and sanctions tables (the v2 estate reads `ccf_v2`).
+  graph:
+    url:
+      from_env: CCF_CP_19_FLUREE_URL
+      remedy: >-
+        export CCF_CP_19_FLUREE_URL with the base URL of a READ-ONLY Fluree
+        endpoint; this deployment issues SPARQL through `/v1/fluree/query`.
+    ledger:
+      from_env: CCF_CP_19_FLUREE_LEDGER
+      remedy: >-
+        export CCF_CP_19_FLUREE_LEDGER with the ledger name to read — the v2
+        estate is `fibo-v2`.
+  documents:
+    uri:
+      from_env: CCF_CP_19_MONGO_URI
+      remedy: >-
+        export CCF_CP_19_MONGO_URI with a READ-ONLY MongoDB connection string
+        for the advisory corpus.
+    db:
+      from_env: CCF_CP_19_MONGO_DB
+      remedy: >-
+        export CCF_CP_19_MONGO_DB with the database holding the `passage`
+        collection (the v2 estate reads `fibo_v2`).
+
+  # The three AML perspectives, as bearer credentials.
+  #
+  # `ccf_v2.aml_projection_plan` is keyed by PERSPECTIVE and the estate holds
+  # no AML principal (`CP-SPEC-019` §C.2 trap 3, §F.2 `TBC-1`), so the
+  # credential → perspective half of the mapping is this deployment's and is
+  # named here rather than invented as an estate row. The perspective → plan
+  # half is the estate's and is read from it.
+  #
+  # `PRIN-AML-XXX` is a real credential this deployment recognizes and grants
+  # NOTHING — the negative control, as `PRIN-KYC-004` is for CP-17.
+  credentials:
+    PRIN-AML-L1:
+      from_env: CCF_CP_19_TOKEN_L1
+      remedy: export CCF_CP_19_TOKEN_L1 with the L1 analyst's bearer credential.
+    PRIN-AML-L2:
+      from_env: CCF_CP_19_TOKEN_L2
+      remedy: export CCF_CP_19_TOKEN_L2 with the L2 reviewer's bearer credential.
+    PRIN-AML-EXAM:
+      from_env: CCF_CP_19_TOKEN_EXAMINER
+      remedy: export CCF_CP_19_TOKEN_EXAMINER with the regulatory examiner's bearer credential.
+    PRIN-AML-XXX:
+      from_env: CCF_CP_19_TOKEN_UNGRANTED
+      remedy: >-
+        export CCF_CP_19_TOKEN_UNGRANTED with a recognized credential this
+        deployment grants nothing — the negative control.
+
+door:
+  credential:
+    from_env: CCF_CP_19_DOOR_TOKEN
+    remedy: >-
+      export CCF_CP_19_DOOR_TOKEN with the bearer the standard door's own
+      default principal presents over stdio.
+  issuer_url:
+    from_env: CCF_CP_19_DOOR_ISSUER_URL
+    remedy: export CCF_CP_19_DOOR_ISSUER_URL with the door's declared issuer URL.
+  resource_server_url:
+    from_env: CCF_CP_19_DOOR_RESOURCE_URL
+    remedy: export CCF_CP_19_DOOR_RESOURCE_URL with the door's declared resource-server URL.

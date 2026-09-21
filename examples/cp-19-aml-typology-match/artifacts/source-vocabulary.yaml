@@ -1,0 +1,94 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE SOURCE VOCABULARY — every table, collection, ledger type and predicate
+# this deployment reads, by NAME. `acquisition.py` names none of them: it
+# reads this document. Every value was measured read-only against the live
+# estate on 2026-09-20 and the counts are in `CP-SPEC-019` §C.1.
+semver: "1.0.0"
+class_id: cp-19.source-vocabulary
+declaration:
+  relational:
+    tables:
+      alert: aml_alert
+      alert_link: aml_alert_link
+      party: aml_party
+      transaction: aml_transaction
+      projection_plan: aml_projection_plan
+      principal: principal
+      screening_result: sanctions_screening_result
+      sanctions_entry: sanctions_entry
+  control_room:
+    # Read FIRST, before any enterprise source (`CP-SPEC-019` §D.3 step 1).
+    table: sar_classification
+    columns:
+      sar_id: sar_id
+      alert_id: alert_id
+      classification: classification
+      visible_to: visible_to_perspectives
+  graph:
+    prefix: "http://example.org/fibo/"
+    types:
+      typology: Typology
+      typology_pattern: TypologyPattern
+      filing_posture: FilingPosture
+      disposition_rule: DispositionRule
+      residency_constraint: ResidencyConstraint
+    predicates:
+      matches_typology: "http://example.org/fibo/matchesTypology"
+      transacted_with: "http://example.org/fibo/transactedWith"
+      permits_disposition: "http://example.org/fibo/permitsDisposition"
+      posture_effective_from: "http://example.org/fibo/postureEffectiveFrom"
+      requires_entitlement: "http://example.org/fibo/requiresEntitlement"
+      applies_to_country: "http://example.org/fibo/appliesToCountry"
+      label: "http://www.w3.org/2000/01/rdf-schema#label"
+    # A `DispositionRule` node's id encodes the triple it decides:
+    # RULE-<posture>-<typology>-<disposition>. Measured: 16 nodes =
+    # 2 postures x 4 typologies x 2 dispositions.
+    rule_id_pattern: "RULE-(?P<posture>POST-[0-9]+-[0-9]+)-(?P<typology>TYP-[A-Z]+)-(?P<disposition>.+)"
+  documents:
+    collection: passage
+    # The 72 advisory passages. Measured: 0 of 72 carry an `embedding` or a
+    # `sha256` (`ATM-F-01`), so the corpus is ranked lexically over `text`
+    # and anchoring uses `passage_id` with offsets.
+    match:
+      document_id_regex: "FINCEN|FATF|ADV"
+    fields:
+      passage_id: passage_id
+      document_id: document_id
+      advisory_number: advisory_number
+      typology: typology
+      text: text
+      start_offset: start_offset
+      length: length
+  # The classification each served class carries. The Policy operator's
+  # permitted set is this vocabulary at class level; the per-perspective
+  # narrowing happens at the acquisition seam.
+  classification:
+    vocabulary: [public, internal, sar-restricted, sar-confidential]
+    assignment:
+      alert: internal
+      party: internal
+      transaction: internal
+      typology_match: public
+      advisory_passage: public
+      prior_alert: internal
+      screening_result: public
+    # A SAR claim's classification is the departmental row's own value,
+    # prefixed: `restricted` -> `sar-restricted`.
+    sar_prefix: "sar-"
+  # The entitlement a residency constraint demands, read off the principal
+  # register. The constraint names countries in full and parties carry ISO3
+  # while principals carry ISO2 prefixes — three vocabularies for one concept
+  # (`ATM-F-02`). The binding evaluates the DECLARED ENTITLEMENT and invents
+  # no country mapping.
+  residency:
+    entitlement_column: sees_eu_person_data
+  entity_uri_prefix:
+    alert: "alert://"
+    party: "party://"
+    transaction: "txn://"
+    typology_match: "typology://"
+    advisory_passage: "advisory://"
+    prior_alert: "prior-alert://"
+    sar_record: "sar://"
+    screening_result: "screening://"
