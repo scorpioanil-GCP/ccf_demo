@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE DEMONSTRATION QUESTION and its pinned instant (`CP-SPEC-015` §A).
+semver: "1.0.0"
+class_id: cp-15.question
+declaration:
+  question:
+    # ICJ-SPV-027 (Redstone Ventures S.A., PAN) selected on evidence, measured
+    # 2026-09-21. Its chain is depth 3 and terminates in PSC-0026 at 12.59%
+    # effective ownership, BELOW the 25% reporting threshold; that person
+    # carries a sanctions screening in the review band (0.7925); and the person
+    # is an EU resident, so the residency entitlement is live. ONE question
+    # therefore exercises all three referral paths and the entitled split.
+    subject: "ICJ-SPV-027"
+    intent: onboarding
+    freshness: event-driven
+    asked_at: "2026-08-25T00:00:00+00:00"
+    principal: PRIN-KYC-004
+  instants:
+    ASKED_AT: "2026-08-25T00:00:00+00:00"
+  # Entity ids that exist nowhere, for the A6 comparator.
+  nonexistent_entities:
+    - "ICJ-SPV-999999"
+    - "ICJ-SPV-999998"
+  # An anchor whose chain is ABOVE the threshold, so the reportable-owner limb
+  # is not vacuous (measured 2026-09-21: 63.62%).
+  above_threshold_entity: "ICJ-SPV-026"
+  # THE INTENT CONTRAST (`UBO-G06`). ICJ-SPV-149's chain sits at 17.75% with
+  # GB on its jurisdiction path, so under `onboarding` (GB prices 25%) the
+  # person is a SUB-THRESHOLD FINDING referred for review, and under
+  # `enhanced-due-diligence` (GB prices 10%) the SAME person is a REPORTABLE
+  # OWNER. One anchor, two intents, two different answers — and the ranks and
+  # percentages are read live, never pinned.
+  intent_contrast_entity: "ICJ-SPV-149"
+  # The three intents the estate actually prices. `kyc-refresh` is the
+  # business TRIGGER (§A) and is deliberately not among them: no
+  # `bo_threshold` row prices it, and inventing one would be a fixture.
+  priced_intents: [onboarding, enhanced-due-diligence, sanctions-screening]

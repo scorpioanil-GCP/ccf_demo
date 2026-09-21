@@ -1,0 +1,77 @@
+# yaml-language-server: $schema=../../docs/schemas/ccf.deployment-environment.json
+#
+# THE DEPLOYMENT DOCUMENT — every value read from the environment by NAME.
+
+config: ccf_config.yaml
+
+substrate:
+  setting: database_path
+  prefix: cp_15
+  suffix: .sqlite3
+
+sources:
+  relational:
+    dsn:
+      from_env: CCF_CP_15_POSTGRES_DSN
+      remedy: >-
+        export CCF_CP_15_POSTGRES_DSN with a READ-ONLY connection string for
+        the estate (host and credentials from ccf_dataprep/.env).
+    schema:
+      from_env: CCF_CP_15_POSTGRES_SCHEMA
+      remedy: >-
+        export CCF_CP_15_POSTGRES_SCHEMA with the namespace holding bo_chain,
+        bo_chain_hop, bo_threshold, psc_person, person_crosswalk,
+        resolution_policy, sanctions_screening_result, principal and
+        principal_jurisdiction (the v2 estate reads `ccf_v2`).
+  graph:
+    url:
+      from_env: CCF_CP_15_FLUREE_URL
+      remedy: >-
+        export CCF_CP_15_FLUREE_URL with the base URL of a READ-ONLY Fluree
+        endpoint; this deployment reads the ledger watermark only.
+    ledger:
+      from_env: CCF_CP_15_FLUREE_LEDGER
+      remedy: export CCF_CP_15_FLUREE_LEDGER with the ledger name — the v2 estate is `fibo-v2`.
+  documents:
+    uri:
+      from_env: CCF_CP_15_MONGO_URI
+      remedy: export CCF_CP_15_MONGO_URI with a READ-ONLY MongoDB connection string.
+    db:
+      from_env: CCF_CP_15_MONGO_DB
+      remedy: >-
+        export CCF_CP_15_MONGO_DB with the database holding `kyc_document`
+        (the v2 estate reads `fibo_v2`).
+
+  # The principals, as bearer credentials. UNLIKE rungs 17, 19 and 18, the
+  # ESTATE already carries the axis this product needs: `principal.perspective`
+  # names the role and `principal.sees_eu_person_data` names the residency
+  # entitlement. Only the credential -> principal half is declared here.
+  #
+  # `PRIN-TRD-003` is a real registered principal this deployment grants
+  # NOTHING at the door — the negative control.
+  credentials:
+    PRIN-KYC-004:
+      from_env: CCF_CP_15_TOKEN_KYC
+      remedy: export CCF_CP_15_TOKEN_KYC with the KYC analyst's bearer credential.
+    PRIN-COV-001:
+      from_env: CCF_CP_15_TOKEN_COVERAGE
+      remedy: export CCF_CP_15_TOKEN_COVERAGE with the coverage banker's bearer credential.
+    PRIN-RES-002:
+      from_env: CCF_CP_15_TOKEN_RESEARCH
+      remedy: export CCF_CP_15_TOKEN_RESEARCH with the research analyst's bearer credential.
+    PRIN-TRD-003:
+      from_env: CCF_CP_15_TOKEN_UNGRANTED
+      remedy: >-
+        export CCF_CP_15_TOKEN_UNGRANTED with a recognized credential this
+        deployment grants nothing — the negative control.
+
+door:
+  credential:
+    from_env: CCF_CP_15_DOOR_TOKEN
+    remedy: export CCF_CP_15_DOOR_TOKEN with the bearer the standard door's default principal presents.
+  issuer_url:
+    from_env: CCF_CP_15_DOOR_ISSUER_URL
+    remedy: export CCF_CP_15_DOOR_ISSUER_URL with the door's declared issuer URL.
+  resource_server_url:
+    from_env: CCF_CP_15_DOOR_RESOURCE_URL
+    remedy: export CCF_CP_15_DOOR_RESOURCE_URL with the door's declared resource-server URL.

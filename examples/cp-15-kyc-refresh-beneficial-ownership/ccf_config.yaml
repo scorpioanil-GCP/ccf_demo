@@ -1,0 +1,283 @@
+# yaml-language-server: $schema=../../docs/schemas/ccf.deployment-config.json
+#
+# THE CONTROL PLANE DOCUMENT — what this fabric is permitted to do.
+# The specification this realizes is
+# `spec/CP-SPEC-015_KYC_Refresh_Beneficial_Ownership.md`.
+
+semver: "1.0.0"
+tenant_id: cp-15-demo
+
+backend: sqlite
+
+product_class:
+  schema_name: compliance.beneficial-ownership
+  schema_version: "1.0.0"
+  ttl_anchor: from_decision
+  assembly_mode: algorithmic
+  max_ttl_key: cp-15/product/beneficial-ownership/max-ttl
+
+  required_operator_keys:
+    - policy.principal-subgraph
+    - similarity.corpus-select
+    - temporal.as-of-boundary
+    - traversal.typed-neighborhood
+
+  serve_obligations:
+    default_debt_tolerance: "0.80"
+    # NOT `entity`: an anchor with no chain is SERVED computed-empty
+    # (`UBO-G17`), and an obligation on it would turn that serve into a
+    # refusal — the existence oracle the gate exists to prevent.
+    lineage_inputs_at:
+      - perspective
+      - as_of
+
+  discovery:
+    domain: compliance
+    intents:
+      - onboarding
+      - enhanced-due-diligence
+      - sanctions-screening
+    capabilities:
+      - residency-bounded-person-data
+      - threshold-by-intent
+      - resolution-confidence-carried
+      - findings-referred-for-human-review
+    audiences:
+      - kyc-analyst
+      - coverage-banker
+      - research-analyst
+
+  declared_product_gate:
+    gate_id: cp-15.ownership-holds
+    gate_version: "1.0.0"
+
+operators:
+  # STEP 2 — Policy. The permitted set is the product's WHOLE vocabulary; the
+  # per-principal residency narrowing arrives at the acquisition seam from
+  # `context.perspective`, per the adopter page
+  # `public/how-to/condition-acquisition-on-the-verified-credential.md`.
+  policy.principal-subgraph:
+    classification_attribute_by_class:
+      entity: classification
+      person: classification
+      resolution: classification
+      screening: classification
+      hop: classification
+      declaration: classification
+    permitted_classifications:
+      - public
+      - internal
+      - person-restricted
+
+  # STEP 3 — Similarity BEHIND Policy, over the KYC declarations' own text.
+  #
+  # ILLUSTRATIVE CALIBRATION, and the corpus needed composing before the
+  # floor could mean anything: `kyc_document` carries no text field, only
+  # typed attributes, so the ranked text is composed at the acquisition seam
+  # from the document's kind, its entity and owner names and its
+  # jurisdiction. A floor of 0 admits the whole class; the measured
+  # distribution and the reason the floor sits where it does are in
+  # `FINDINGS.md` (`UBO-F-0x`).
+  similarity.corpus-select:
+    query: "beneficial owner ultimate controlling person declaration ownership interest"
+    minimum_score_percent: 0
+    ranked_entity_classes:
+      - declaration
+    similarity_corpus_attribute_by_class:
+      declaration: text
+    index_version: "cp-15-kyc-declarations@2026-09-21"
+
+  temporal.as-of-boundary:
+    require_valid_at_boundary: true
+
+  # STEP 5 — the walk over the per-request fabric acquisition already bounded
+  # by the entitlement and `max_depth`. Everything is minted as a direct edge
+  # from the anchor entity.
+  traversal.typed-neighborhood:
+    seed_entity_classes:
+      - entity
+    relationship_types:
+      - hasBeneficialOwner
+      - hasResolution
+      - hasScreening
+      - hasOwnershipHop
+      - hasDeclaration
+    depth_limit: 1
+
+request_contract:
+  class_id: cp-15.request-contract
+  role: register
+  registration: typed
+  schema_name: compliance.beneficial-ownership
+  schema_version: "1.0.0"
+  # NO `perspective` and NO `jurisdictions` (`CP-SPEC-015` §B.4). A caller
+  # naming a jurisdiction set could name one wider than its entitlement, which
+  # is strictly MORE than the credential permits.
+  arguments:
+    properties:
+      as_of:
+        type: string
+        description: the decision instant and the valid-time cut, an ISO-8601 instant with its zone.
+      threshold:
+        type: number
+        description: >-
+          The reporting threshold, 0..100. May be RAISED above the estate's
+          declared value for this intent and jurisdiction and may never be
+          lowered below it: lowering would report more than the credential
+          permits, and is refused by name (`UBO-G07`).
+      min_confidence:
+        type: number
+        description: >-
+          The resolution floor, 0..1. Floored at the estate's own
+          `review_floor` on the same terms as `threshold`.
+      max_depth:
+        type: number
+        description: how many ownership hops the walk follows, 1..10. Can only ask for less.
+      debt_tolerance:
+        type: number
+        description: the caller's ceiling on assessed Context Debt, 0..1.
+    required: []
+  relative_defaults:
+    as_of:
+      offset_seconds: 0
+      render: timestamp
+
+resolution:
+  entity_rules:
+    - match_key: entity_node
+      entity_class: entity
+      identity_keys: [entity_uri]
+      attribute_keys: [entity_id, entity_kind, chain_id, depth, jurisdiction_path,
+                       crosses_jurisdictions, classification, applicable_threshold,
+                       threshold_basis, min_confidence, policy_version, intent,
+                       refresh_state_json, ledger_t]
+    - match_key: person_node
+      entity_class: person
+      identity_keys: [entity_uri]
+      attribute_keys: [person_key, nationality, country_of_residence, is_eu_resident,
+                       dob_year, effective_pct, depth, reportable, classification]
+    - match_key: resolution_node
+      entity_class: resolution
+      identity_keys: [entity_uri]
+      attribute_keys: [person_key, source_system, source_name, match_score, match_band,
+                       below_floor, classification]
+    - match_key: screening_node
+      entity_class: screening
+      identity_keys: [entity_uri]
+      attribute_keys: [person_key, entry_id, listed_name, score, disposition,
+                       in_review_band, classification]
+    - match_key: hop_node
+      entity_class: hop
+      identity_keys: [entity_uri]
+      attribute_keys: [hop_index, owner_id, owner_kind, owned_id, owned_kind,
+                       stake_pct, classification]
+    - match_key: declaration_node
+      entity_class: declaration
+      identity_keys: [entity_uri]
+      attribute_keys: [document_id, kind, text, declared_pct, declared_owner_person_key,
+                       computed_pct, contradicts, classification]
+
+    # Endpoint rules. NO attribute keys (`D-IMPL-316`).
+    - {match_key: entity_subject, entity_class: entity,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: subject_uri}}
+    - {match_key: person_object, entity_class: person,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+    - {match_key: resolution_object, entity_class: resolution,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+    - {match_key: screening_object, entity_class: screening,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+    - {match_key: hop_object, entity_class: hop,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+    - {match_key: declaration_object, entity_class: declaration,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+
+  relationship_rules:
+    - {relationship_type: hasBeneficialOwner, predicate_key: predicate,
+       subject_entity_class: entity, object_entity_class: person,
+       subject_rule: entity_subject, object_rule: person_object}
+    - {relationship_type: hasResolution, predicate_key: predicate,
+       subject_entity_class: entity, object_entity_class: resolution,
+       subject_rule: entity_subject, object_rule: resolution_object}
+    - {relationship_type: hasScreening, predicate_key: predicate,
+       subject_entity_class: entity, object_entity_class: screening,
+       subject_rule: entity_subject, object_rule: screening_object}
+    - {relationship_type: hasOwnershipHop, predicate_key: predicate,
+       subject_entity_class: entity, object_entity_class: hop,
+       subject_rule: entity_subject, object_rule: hop_object}
+    - {relationship_type: hasDeclaration, predicate_key: predicate,
+       subject_entity_class: entity, object_entity_class: declaration,
+       subject_rule: entity_subject, object_rule: declaration_object}
+
+# ---------------------------------------------------------------------------
+# λ_c. Every class here is a STANDING STATE — an ownership percentage, a
+# resolution score, a screening disposition are true AS OF NOW and carry no
+# event date — so every class decays `supersede-only`. The one dated class is
+# the KYC declaration, which was filed on a day.
+#
+# `D-GATE-cp-18` recorded the rule this follows: a class declaring
+# `decay_basis: valid-from` REFUSES an undated claim rather than anchoring it
+# silently, so a standing state and a dated event belong in different classes.
+# ---------------------------------------------------------------------------
+half_life:
+  entity:
+    decay: supersede-only
+    decay_driver: registry-maintenance
+    supersession_event: ownership-change
+  person:
+    decay: supersede-only
+    decay_driver: psc-filing
+    supersession_event: psc-record-update
+  resolution:
+    decay: supersede-only
+    decay_driver: resolution-recompute
+    supersession_event: source-record-change
+  screening:
+    decay: supersede-only
+    decay_driver: list-publication
+    supersession_event: ofac-daily-delta
+  hop:
+    decay: supersede-only
+    decay_driver: registry-maintenance
+    supersession_event: stake-change
+  declaration:
+    half_life_seconds: 2592000
+    decay_basis: valid-from
+    decay_driver: client-attestation
+    supersession_event: declaration-superseded
+
+debt_profile:
+  risk_sensitivity: "1.0"
+  forced_llm_threshold: "0.60"
+  fail_closed_threshold: "0.95"
+
+policy:
+  class_id: cp-15.policy-bundle
+  role: register
+  registration: typed
+  regime: kyc-residency-and-threshold-envelope
+
+default_perspective:
+  principal_id: PRIN-KYC-004
+  role: kyc-analyst
+
+replay:
+  record_class: ccf.replay-record
+  query_pin_class: ccf.graph-query
+  store_dirname: artifact-store
+
+ttl:
+  max_ttl_seconds: 86400
+  product_ttl_seconds: 86400
+
+door:
+  producer_id: cp-15-beneficial-ownership-egress
+  producer_tenant: cp-15-demo
+  required_scope: ccf:egress
+  tool_description: >-
+    Resolve the natural persons behind one entity as a governed,
+    content-addressed Context Product (`compliance.beneficial-ownership`):
+    the ownership chain walked to person level, a resolution confidence
+    carried per person, sanctions screening, and the findings that fall below
+    the reporting threshold or the confidence floor kept INSIDE the product
+    and referred for human review rather than dropped. Person records outside
+    the verified principal's residency entitlement are never materialized.
