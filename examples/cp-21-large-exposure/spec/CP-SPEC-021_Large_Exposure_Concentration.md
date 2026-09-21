@@ -7,15 +7,16 @@
   (`risk.large-exposure.v1`, standard q019, generated 2026-08-15) and
   `docs/GATE-0-COVERAGE-CP15-24.md` §4.1/§4.2 row CP-21.
 
-  NOTHING HERE IS AUTHORIZED TO BE BUILT. Gate 2 is Dave's.
+  GATE 2 GRANTED 2026-09-21: both recommendations accepted. The rulings were
+  folded into this document BEFORE any implementation, per the instruction.
 -->
 
 # Large Exposure / Concentration — Context Product Specification
 
 **Rung 21 · Postgres + Fluree + MongoDB + departmental SQLite · `risk.large-exposure`**
 
-**Status: GATE 1 — awaiting Dave's ruling. No implementation, no SDK work, no
-`D-IMPL` id spent.**
+**Status: GATE 2 — `Q1` and `Q2` RULED, 2026-09-21. Build authorized, minimal,
+single-class, on the paved road. No SDK work, no `D-IMPL` id spent.**
 
 ---
 
@@ -148,7 +149,7 @@ survivable alone; together they are a regulatory finding.
 | **Obligations** | regime and limit set bound to `intent` and `regime`; the rendering bound to the role |
 | **Assembly mode** | derive the group, then governed assembly over its members, then deterministic evaluation |
 | **Lineage** | `graph_snapshot_at` as ledger `t`; `policy_version`; passage-level `L` on every regime claim |
-| **Declared gates** | §G.1 — 20 gates, `LEX-G01`..`LEX-G20` |
+| **Declared gates** | §G.1 — **21 gates**, `LEX-G01`..`LEX-G21` |
 
 ### B.2 The measures
 
@@ -168,6 +169,13 @@ mitigation effect; the position **with and without** a proposal.
 | `proposal` | object, closed | `{facility_type, commitment_usd, obligor_lei}` | none | the hypothetical, in integer canonical units (rung 24's `Q1`) |
 | `apply_mitigation` | boolean | — | `true` | whether eligible mitigation is counted |
 | `debt_tolerance` | number | 0..1 | class default | fail-closed bound |
+
+**RULED 2026-09-21 — `connection_basis` IS FORMATIVE, and the causal chain is
+load-bearing.** The same anchor under a different basis may produce a different
+**membership**, therefore a different **aggregate exposure**, therefore a
+different **headroom and breach result**. `LEX-G04` proves that chain end to
+end rather than merely that the parameter reaches the traversal. **The
+connected group is not a static roster.**
 
 **`connection_basis` defaults to `both`, and that is the conservative
 posture.** A product exposing only control-based grouping computes a
@@ -214,6 +222,14 @@ departmental SQLite, read first, on the cp-17 pattern.
 | `regime-version-pra-2022` | PRA Large Exposures Part | **2022-01-01** | `limitPctOfCapital` **25.0** |
 | `regime-version-reg-o` | Regulation O (12 CFR 215.4(b)) | **2026-01-01** | `limitAbsoluteUsd` **500,000** |
 
+**RULED 2026-09-21 — the regime is a first-class, effective-dated governed
+artifact, and selection is made AT THE DETERMINATION INSTANT.** Every regime is
+**not** reducible to `percentage × capital`: **Regulation O's $500,000 absolute
+limit must exercise the alternate rule shape** (`LEX-G08`). The payload states,
+for the determination: the **regime and version selected**, the **effective
+basis**, the **rule form**, the **resulting limit**, and the
+**authority/evidence supporting it** (`LEX-G05`, `LEX-G07`).
+
 `pra-2022` cites **two** provisions — `crr-art-395-2021-12-31` and
 `pra-large-exposures-01-01-2022` — and all three cited provisions resolve to
 real rulebook text.
@@ -243,7 +259,12 @@ literal in code, the normalised and raw figures are **both served**, and
 `LEX-G06` asserts the estate's own proposal outcomes come out as labelled —
 which no unscaled implementation can satisfy.
 
-**Trap 2 — two authorities disagree about the internal limit.**
+**Trap 2 — two authorities disagree about the internal limit. RULED
+2026-09-21: PRESERVE the measured disagreement and do NOT silently choose one.**
+Serve and cite the disagreement according to the product's governed evidence
+model so the conflict is **visible**. Where a policy rule legitimately selects
+one for a particular determination, **identify that rule explicitly rather than
+presenting the other source as wrong**.
 `ccf_v2.limit_definition` prices `internal-appetite` at **0.15** (15 % of
 capital); Fluree's `ex:LimitEnvelope` declares **5.0 %**. **Binding:** the
 Control Plane artifact is the single authority the product enforces, both
@@ -251,7 +272,10 @@ values are served with their source named, and `LEX-G09` asserts the enforced
 figure equals the declared one — rung 23's trap 5, a second time, and this time
 the two genuinely differ.
 
-**Trap 3 — regime passages carry no `sha256`.** All 464 resolve by
+**Trap 3 — regime passages carry no `sha256`. RULED 2026-09-21: prove
+anchoring through a resolvable authority/document reference, a resolvable
+passage, and quoted text matching the cited regulatory rule. DO NOT MINT
+HASHES.** All 464 resolve by
 `passage_id` and carry text, but **none stores a hash** (for contrast, ABS's
 1,882 passages all do). **Binding:** regime anchoring is proved by
 **resolvability and quoted text**, not by re-hash, and the absence is stated
@@ -272,7 +296,12 @@ components**, not rows (Gate 0). **Binding:** the group is computed per request
 from the edges at the ledger point, its composition is served, and the product
 does not pretend to a stable group identifier the estate does not have.
 
-**Trap 6 — the capital base is a quarter old.** Latest `bank_capital` is
+**Trap 6 — the capital base is a quarter old. RULED 2026-09-21: intraday
+exposure and quarterly capital do not share a clock, and the asymmetry is
+DISCLOSED.** The product must not **pretend capital is intraday**, **age
+exposure to the capital date**, **refresh capital to the exposure instant**, or
+**collapse both into one misleading freshness timestamp**. Context Debt and
+freshness continue to reflect the **actual evidence**. Latest `bank_capital` is
 **2026-03-31**; a decision instant later than that measures today's exposure
 against last quarter's capital. **Binding:** §0.2c — the asymmetry is
 **disclosed**, not resolved. The capital base's own `report_date` and its age
@@ -361,7 +390,21 @@ with `properties` and `SkillArgumentMember` (the one-level ceiling, rung 24) ·
 
 ### F.4 — THE QUESTIONS OWED
 
-#### `Q1` — is CP-21 a COMPOSITE over group-scoped children, or a single-class producer? **(structural)**
+#### `Q1` — RULED 2026-09-21: SINGLE-CLASS PRODUCER
+
+> **Dave's ruling.** **CP-21 is ONE Context Product. Do not create child
+> producer trees.** The capabilities under test are: derived connected-group
+> membership; caller-selected `connection_basis`; a versioned, effective-dated
+> regulatory regime; regulatory exposure arithmetic; and the disclosed
+> freshness asymmetry. **Composition is explicitly NOT proven by this rung and
+> remains a named coverage gap. Do not enlarge CP-21 merely to prove
+> composition.**
+
+**What this settles.** Route A stands; route B is closed. The composition gap
+is recorded in `FINDINGS.md` as a **named coverage gap**, not as a defect and
+not as future work implied by this rung.
+
+**The original question, for the record.**
 
 Gate 0 calls group-scoped children *"the ruled path"* (`Q13`) and notes it
 *"needs 1–2 **new** group-scoped producer trees"* — *"example work to authorize
@@ -377,7 +420,30 @@ thing the capstone does **not** demonstrate — so the ladder's coverage claim
 stays honest. **If Dave prefers B, that is a materially larger rung** and the
 extra producer trees are the authorisation being requested.
 
-#### `Q2` — how is the capital-units mismatch handled? **(binding, with a recommendation)**
+#### `Q2` — RULED 2026-09-21: NORMALIZE AT THE ACQUISITION BOUNDARY
+
+> **Dave's ruling.** Normalize the FFIEC capital values **at the acquisition
+> boundary**. The conversion factor **must be declared in the product's
+> vocabulary/configuration artifact** and **not hard-coded in acquisition or
+> projection code**. **Do not ask dataprep to rewrite the source table** — the
+> source's thousands convention is **legitimate source semantics**. **Serve
+> both**: the raw source value with its source unit, and the normalized value
+> with its normalized unit. **The normalized value is what the regulatory
+> arithmetic consumes.**
+>
+> **LEX-G06 must make an unscaled implementation impossible to pass**, and
+> keeps **both** controls: a **negative** control — an interpretation producing
+> roughly $0.30 bn of Tier 1 for JPMorgan Chase NA is **dimensionally wrong**;
+> and **positive** controls — the engineered $75.0 bn proposal must **breach**
+> and the $59.4 bn proposal must **fit after mitigation**, reconciled against
+> the correctly normalized capital and limit. **Do not gate merely on a
+> conversion constant. Gate on the regulatory consequence.**
+
+**What this settles.** Route A stands; B and C are closed. `LEX-G06` asserts
+the *consequence*, so an implementation that carried the right constant but
+applied it wrongly still fails.
+
+**The original question, for the record.**
 
 Not a question about SDK capability — a question about how the product stays
 honest about a 1000× unit difference that silently turns a compliant bank into
@@ -395,30 +461,39 @@ a catastrophically breaching one (trap 1).
 
 ## G · Operate and govern
 
-### G.1 Intended product gates — 20
+### G.1 Product gates — 21 (the rulings of 2026-09-21 strengthen six and add one)
 
 | id | What it asserts | Red when |
 |---|---|---|
 | `LEX-G01` | the served operator set is the class's declaration and the executed plan runs Policy first | a key is dropped or reordered |
 | `LEX-G02` | the group is **DERIVED** from edges at the ledger point, not read from a registry | a stored group id is substituted |
-| `LEX-G03` | the payload states which `connection_basis` produced the group | the basis is not disclosed |
-| `LEX-G04` | **`connection_basis` MOVES the membership**: `control` and `both` give different groups on the demonstration anchor, and therefore different exposure | the basis stops reaching the traversal |
-| `LEX-G05` | the regime **in force at `as_of`** is selected, and an earlier instant selects an earlier version | the regime is fixed regardless of instant |
-| `LEX-G06` | **THE UNITS GATE**: the capital base is normalised by a DECLARED factor, and the estate's own two proposals evaluate to `breaches` and `fits_after_mitigation` as labelled | the raw figure is used, or the factor becomes a code literal |
-| `LEX-G07` | every applicable limit **cites a provision that resolves** to rulebook text, with the quoted words served | a limit is served with no provision, or a citation that does not resolve |
-| `LEX-G08` | an **absolute** limit (Reg O, $500,000) and a **percentage** limit are both expressible, and the product says which kind each is | a limit is assumed to be a percentage |
-| `LEX-G09` | the enforced internal limit equals the declared one, and both disagreeing sources are served with their origin named | the two authorities drift silently |
-| `LEX-G10` | the product identifies which limit **binds first**, not merely that some limit binds | only a pass/fail is served |
-| `LEX-G11` | headroom and utilisation are computed against the **eligible** capital base under the regime's counting rules (`counts_guarantees`, `counts_undrawn`) | a counting rule is ignored |
-| `LEX-G12` | **the freshness asymmetry is DISCLOSED**: every ratio carries the capital base's `report_date` and its age in days | a ratio is served without its denominator's date |
-| `LEX-G13` | `apply_mitigation` is load-bearing: the same group evaluates differently with and without it | mitigation stops reaching the arithmetic |
-| `LEX-G14` | the `proposal` is computed **with and without**, and both positions are served | only the post-proposal position is served |
-| `LEX-G15` | the `proposal` is a closed object in integer canonical units; a noncanonical form is refused, never coerced | rung 24's `Q1` is weakened |
-| `LEX-G16` | the **examiner** rendering carries methodology, `policy_version` and the replay anchor that the committee rendering does not | the three renderings collapse |
-| `LEX-G17` | **a proposal is an assumption and cannot move `D_c`** — two proposals over one instant and group give identical debt | the hypothetical becomes evidence (rung 24's rule) |
-| `LEX-G18` | economic-dependency edges carry their stated `dependencyBasis` and synthetic provenance, so judgment is distinguishable from filing | the provenance is lost |
-| `LEX-G19` | debt beyond `debt_tolerance` **fails closed** — a limit calculation on incomplete exposure is withheld, not served | the tolerance stops binding |
-| `LEX-G20` | replay reconstructs the determination; the same anchor, regime, basis, instant and proposal hash to the same bytes, and a changed regime or basis does not | any input is re-derived |
+| `LEX-G03` | the payload states which `connection_basis` produced the group, and the group's composition | the basis is not disclosed |
+| `LEX-G04` | **`connection_basis` IS FORMATIVE, end to end**: a different basis gives a different **membership**, therefore a different **aggregate exposure**, therefore a different **headroom/breach result**. The whole causal chain is asserted, not merely that the parameter arrives | the basis stops reaching the traversal, or reaches it without changing the answer |
+| `LEX-G05` | the regime **in force at the determination instant** is selected, and an earlier instant selects an earlier version | the regime is fixed regardless of instant |
+| `LEX-G06` | **THE UNIT GATE, ON THE REGULATORY CONSEQUENCE.** *Negative control:* an interpretation yielding ~$0.30 bn of Tier 1 for a $4 tn bank is dimensionally wrong and is refused. *Positive controls:* the engineered **$75.0 bn** proposal **breaches** and the **$59.4 bn** proposal **fits after mitigation**, against the correctly normalized capital and limit. **Not gated on a conversion constant** — an implementation carrying the right factor but applying it wrongly still fails | the raw figure is used, the factor is hard-coded, or either proposal's outcome flips |
+| `LEX-G07` | **unit provenance survives normalization**: the payload serves the **raw source value with its source unit** AND the **normalized value with its normalized unit**, and the arithmetic consumes the normalized one | either figure is dropped, or the raw one feeds the arithmetic |
+| `LEX-G08` | every applicable limit **cites an authority and a provision that RESOLVE**, with the quoted rulebook text served and matching the cited rule. **No hash is minted** | a limit cites nothing, a citation does not resolve, or a hash is invented |
+| `LEX-G09` | **the alternate rule shape is honest**: an **absolute** limit (Reg O, $500,000) and a **percentage** limit are both expressible, and the payload names the **rule form** for each | a limit is assumed to be `percentage × capital` |
+| `LEX-G10` | the determination states the **regime and version selected**, the **effective basis**, the **rule form**, the **resulting limit** and the **authority/evidence** supporting it | any of the five is absent |
+| `LEX-G11` | **the conflicting internal authorities are BOTH served and the conflict is visible** — Postgres 15 % and Fluree 5 % — and where a policy rule selects one for a determination, **that rule is named** rather than the other source being presented as wrong | one authority is silently dropped, or the selection is unexplained |
+| `LEX-G12` | the product identifies which limit **binds first**, not merely that some limit binds | only a pass/fail is served |
+| `LEX-G13` | headroom and utilisation honour the regime's counting rules (`counts_guarantees`, `counts_undrawn`) | a counting rule is ignored |
+| `LEX-G14` | **the freshness asymmetry is DISCLOSED**: every ratio carries the capital base's `report_date` and its age in days, and the product does not pretend capital is intraday, age exposure to the capital date, refresh capital to the exposure instant, or collapse both into one timestamp | a ratio is served without its denominator's date, or a single fused freshness appears |
+| `LEX-G15` | `apply_mitigation` is load-bearing: the same group evaluates differently with and without it | mitigation stops reaching the arithmetic |
+| `LEX-G16` | the `proposal` is computed **with and without**, and both positions are served | only the post-proposal position is served |
+| `LEX-G17` | the `proposal` is a closed object in integer canonical units; a noncanonical form is refused, never coerced | rung 24's `Q1` is weakened |
+| `LEX-G18` | the **examiner** rendering carries methodology, `policy_version` and the replay anchor that the committee rendering does not | the three renderings collapse |
+| `LEX-G19` | **a proposal is an assumption and cannot move `D_c`** — two proposals over one instant and group give identical debt | the hypothetical becomes evidence (rung 24's rule) |
+| `LEX-G20` | economic-dependency edges carry their stated `dependencyBasis` and synthetic provenance, so judgment is distinguishable from a filing | the provenance is lost |
+| `LEX-G21` | replay reconstructs the determination; the same anchor, regime, basis, instant and proposal hash to the same bytes, and a changed regime or basis does not | any input is re-derived |
+
+**THE CP-23 BOUNDARY, PRESERVED CONCEPTUALLY (ruled 2026-09-21).** CP-23's book
+concentration is **not a substitute** for CP-21's regulatory large-exposure
+arithmetic, and **CP-23's simple declared threshold is never reused as the
+regulatory answer**. CP-21 owns `limit_definition`, `bank_capital`,
+`connection_basis`, the regulatory group derivation and the regulatory limit
+calculation — and `LEX-G06`, `LEX-G09` and `LEX-G13` are what make that
+ownership real rather than declared.
 
 **One is at risk of coming back `unavailable`** — `LEX-G01`'s ordering limb,
 because `CATEGORY_ORDER` has made the forbidden order inexpressible on rungs
@@ -453,9 +528,13 @@ and the cost of four stores in one product.
   two engineered proposals that act as a positive control on the units trap.
 - **Six traps recorded**, one of them severe: reading the capital base in the
   wrong unit makes **42 of 60 facilities breach single-handedly**.
-- **Intended gates:** 20, one flagged as at risk of `unavailable`.
-- **Owed:** **`Q1`** (composite over new group-scoped children, or a
-  single-class producer — recommend **single-class**, and record the
-  composition gap honestly) and **`Q2`** (the capital-units normalisation —
-  recommend normalising at the acquisition seam with a declared factor).
-- **Not started:** no implementation, no SDK work, no `D-IMPL` id spent.
+- **Intended gates:** 21, one flagged as at risk of `unavailable`; a
+  structurally impossible sabotage names its SDK guard and the implementation
+  is NOT weakened.
+- **Ruled 2026-09-21:** `Q1` — **single-class producer, no child trees**;
+  composition remains a **named coverage gap** and the rung is not enlarged to
+  close it. `Q2` — **normalize at the acquisition boundary** with the factor
+  **declared in the configuration artifact**, both figures served, the source
+  table untouched, and `LEX-G06` gated on the **regulatory consequence**.
+- **Authorized:** Gate 2, minimal build on the paved road. No SDK work, no
+  `D-IMPL` id spent.
