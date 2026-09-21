@@ -54,7 +54,7 @@ declaration:
       result: >-
         UNAVAILABLE 2026-09-21 — the four operator keys were reordered so Similarity precedes Policy and the EXECUTED plan in replay dimension 5 did not move. `CATEGORY_ORDER` in the SDK's planner fixes the executed order, so the forbidden ordering is inexpressible from a deployment. The same guard rungs 15 and 19 named.
       date: '2026-09-21'
-      commit: PENDING
+      commit: '55536420'
   - id: ABS-G02
     statement: tranches are ordered by SENIORITY read from the served claims, never by identifier
     spec_clause: {document: spec/CP-SPEC-016_ABS_Securitization_Surveillance.md, clause: G.1}
@@ -65,7 +65,7 @@ declaration:
       result: >-
         RED 2026-09-21 — the seniority sort was removed. The estate alone could not redden it, because every tranche identifier here sorts into seniority order; the positive control, whose identifiers disagree with its seniority, did.
       date: '2026-09-21'
-      commit: PENDING
+      commit: '55536420'
   - id: ABS-G03
     statement: the trigger definition IN FORCE is the one valid at the requested instant — a 2026 pool is not evaluated against a 2022 definition, and a definition not yet valid is not disclosed
     spec_clause: {document: spec/CP-SPEC-016_ABS_Securitization_Surveillance.md, clause: G.1}
@@ -76,7 +76,7 @@ declaration:
       result: >-
         RED 2026-09-21 — the candidate definitions stopped being cut at the instant, so a definition not yet valid was served as in force.
       date: '2026-09-21'
-      commit: PENDING
+      commit: '55536420'
   - id: ABS-G04
     statement: the amendment is reached by `specifiesTrigger` then `supersededBy` — the estate's own two-hop structure, never a name-prefix join
     spec_clause: {document: spec/CP-SPEC-016_ABS_Securitization_Surveillance.md, clause: G.1}
@@ -87,7 +87,7 @@ declaration:
       result: >-
         RED 2026-09-21 — the in-force definition stopped naming what it replaced, so the supersession walk was no longer observable.
       date: '2026-09-21'
-      commit: PENDING
+      commit: '55536420'
   - id: ABS-G05
     statement: acquisition is BOUNDED AT THE DECISION INSTANT — a filing made after it is never selected, and the proof is what acquisition materialized rather than what the payload shows
     spec_clause: {document: spec/CP-SPEC-016_ABS_Securitization_Surveillance.md, clause: G.1}
@@ -98,7 +98,7 @@ declaration:
       result: >-
         RED 2026-09-21 — the `filed_date <= as_of` bound was removed from the statement. The SERVED rows were unchanged, because the temporal operator also cuts at the boundary; the gate reddened on what ACQUISITION materialized, which is the distinction residual 341-1 is about.
       date: '2026-09-21'
-      commit: PENDING
+      commit: '55536420'
   - id: ABS-G06
     statement: ANCHORING INVARIANT 1 — every publicly sourced threshold resolves to a filed prospectus passage whose stored `sha256` is carried
     spec_clause: {document: spec/CP-SPEC-016_ABS_Securitization_Surveillance.md, clause: G.1}
@@ -109,7 +109,7 @@ declaration:
       result: >-
         RED 2026-09-21 — a publicly sourced threshold was unanchored, and separately an anchor's stored hash was emptied. Both refused by name.
       date: '2026-09-21'
-      commit: PENDING
+      commit: '55536420'
   - id: ABS-G07
     statement: ANCHORING INVARIANT 2 — every threshold WITHOUT a public anchor is named as unanchored, classified by what sourced it, and carries no field implying a passage exists
     spec_clause: {document: spec/CP-SPEC-016_ABS_Securitization_Surveillance.md, clause: G.1}
@@ -120,7 +120,7 @@ declaration:
       result: >-
         RED 2026-09-21 — the unanchored threshold was given an empty `anchor_passage_id`, and separately the `unanchored_thresholds` member was emptied. Both refused: an absence must be stated, never encoded as a blank, and never left unnamed.
       date: '2026-09-21'
-      commit: PENDING
+      commit: '55536420'
   - id: ABS-G08
     statement: a granularity outside the declared DOMAIN is a request-contract violation, not a policy refusal
     spec_clause: {document: spec/CP-SPEC-016_ABS_Securitization_Surveillance.md, clause: G.1}
@@ -131,7 +131,7 @@ declaration:
       result: >-
         RED 2026-09-21 — `servicer` was added to the declared domain, and the out-of-domain refusal stopped being a request-contract violation.
       date: '2026-09-21'
-      commit: PENDING
+      commit: '55536420'
   - id: ABS-G09
     statement: a granularity inside the domain but above the role ceiling is refused by POLICY, and the bound travels into the determination
     spec_clause: {document: spec/CP-SPEC-016_ABS_Securitization_Surveillance.md, clause: G.1}
@@ -142,7 +142,7 @@ declaration:
       result: >-
         RED 2026-09-21 — a loan-granularity payload was presented under a cohort ceiling and the declared gate refused it.
       date: '2026-09-21'
-      commit: PENDING
+      commit: '55536420'
   - id: ABS-G10
     statement: POSITIVELY — the ceiling the product states equals the constraint actually resolved for that principal, asserted for all three roles so it cannot pass by coincidence
     spec_clause: {document: spec/CP-SPEC-016_ABS_Securitization_Surveillance.md, clause: G.1}
@@ -153,7 +153,7 @@ declaration:
       result: >-
         RED 2026-09-21 — the payload stated a ceiling that was not the resolved constraint. This is the anti-vacuity control: nothing ever lowers a granularity here, so a `did policy lower it` assertion would be true forever.
       date: '2026-09-21'
-      commit: PENDING
+      commit: '55536420'
   - id: ABS-G11
     statement: the Control Plane ceiling agrees with the estate's own `abs_granularity_entitlement` row for the same role
     spec_clause: {document: spec/CP-SPEC-016_ABS_Securitization_Surveillance.md, clause: G.1}
@@ -164,7 +164,7 @@ declaration:
       result: >-
         RED 2026-09-21 — one role's declared ceiling was raised above what `abs_granularity_entitlement` grants it, and the two authorities disagreed.
       date: '2026-09-21'
-      commit: PENDING
+      commit: '55536420'
   - id: ABS-G12
     statement: the payload's SHAPE is a function of the perspective and the effective granularity and never of the deal — three ceilings give three nested shapes
     spec_clause: {document: spec/CP-SPEC-016_ABS_Securitization_Surveillance.md, clause: G.1}
@@ -175,7 +175,7 @@ declaration:
       result: >-
         RED 2026-09-21 — the loan-granularity member set was returned for every granularity, so a coarser role carried members it may not ask for.
       date: '2026-09-21'
-      commit: PENDING
+      commit: '55536420'
   - id: ABS-G13
     statement: LOAD-BEARING — the complete source population is never materialized; records materialized track the answer while records scanned track the partition
     spec_clause: {document: spec/CP-SPEC-016_ABS_Securitization_Surveillance.md, clause: G.1}
@@ -186,7 +186,7 @@ declaration:
       result: >-
         RED 2026-09-21 — the assembly reported the whole 1,322,453-row population as materialized and the declared gate refused it.
       date: '2026-09-21'
-      commit: PENDING
+      commit: '55536420'
   - id: ABS-G14
     statement: the loan sample is REPRESENTATIVE and is not the partition's prefix
     spec_clause: {document: spec/CP-SPEC-016_ABS_Securitization_Surveillance.md, clause: G.1}
@@ -197,7 +197,7 @@ declaration:
       result: >-
         RED 2026-09-21 — the deterministic stride was replaced by a plain `order by … limit`, and the sample became the partition's prefix.
       date: '2026-09-21'
-      commit: PENDING
+      commit: '55536420'
   - id: ABS-G15
     statement: cost is served RELATIONALLY in blocks and records — the aggregate rungs indistinguishable and all far from `loan` — with the measured counts as stamped evidence and never a time
     spec_clause: {document: spec/CP-SPEC-016_ABS_Securitization_Surveillance.md, clause: G.1}
@@ -208,7 +208,7 @@ declaration:
       result: >-
         RED 2026-09-21 — an elapsed time was added to the cost, the band was made to contradict the granularity, and the cost was removed entirely. All three refused.
       date: '2026-09-21'
-      commit: PENDING
+      commit: '55536420'
   - id: ABS-G16
     statement: a threshold defined as a FORMULA is served as a finding naming why proximity is uncomputable, never as a distance of zero
     spec_clause: {document: spec/CP-SPEC-016_ABS_Securitization_Surveillance.md, clause: G.1}
@@ -219,7 +219,7 @@ declaration:
       result: >-
         RED 2026-09-21 — the reason was dropped from an uncomputable proximity, leaving a distance that reads as already breached.
       date: '2026-09-21'
-      commit: PENDING
+      commit: '55536420'
   - id: ABS-G17
     statement: a two-component threshold carries BOTH components, and the served value is one of them
     spec_clause: {document: spec/CP-SPEC-016_ABS_Securitization_Surveillance.md, clause: G.1}
@@ -230,7 +230,7 @@ declaration:
       result: >-
         RED 2026-09-21 — only the first component of a two-component threshold was kept.
       date: '2026-09-21'
-      commit: PENDING
+      commit: '55536420'
   - id: ABS-G18
     statement: repurchase activity is DEPOSITOR-SCOPED with per-deal attribution stated as absent; no deal-to-filing join is invented
     spec_clause: {document: spec/CP-SPEC-016_ABS_Securitization_Surveillance.md, clause: G.1}
@@ -241,7 +241,7 @@ declaration:
       result: >-
         RED 2026-09-21 — every ABS-15G filing was claimed as attributed to this deal, which is the invented join the gate exists to refuse.
       date: '2026-09-21'
-      commit: PENDING
+      commit: '55536420'
   - id: ABS-G19
     statement: standing state and dated events are DIFFERENT CLASSES — the standing ones decay supersede-only and carry no observed time, the dated ones declare `valid-from` and carry their day
     spec_clause: {document: spec/CP-SPEC-016_ABS_Securitization_Surveillance.md, clause: G.1}
@@ -252,7 +252,7 @@ declaration:
       result: >-
         RED 2026-09-21 — a dated class's decay basis was moved off `valid-from`, collapsing the distinction between a standing state and a dated event.
       date: '2026-09-21'
-      commit: PENDING
+      commit: '55536420'
   - id: ABS-G20
     statement: expiry is anchored on the EVIDENCE's own reporting period, never on request time
     spec_clause: {document: spec/CP-SPEC-016_ABS_Securitization_Surveillance.md, clause: G.1}
@@ -263,7 +263,7 @@ declaration:
       result: >-
         RED 2026-09-21 — the TTL anchor was moved to `from_decision` and expiry stopped following the evidence's own reporting period.
       date: '2026-09-21'
-      commit: PENDING
+      commit: '55536420'
   - id: ABS-G21
     statement: the determination replays from its record with no second producer call, and the same question hashes to the same bytes while a different instant or role does not
     spec_clause: {document: spec/CP-SPEC-016_ABS_Securitization_Surveillance.md, clause: G.1}
@@ -274,7 +274,7 @@ declaration:
       result: >-
         RED 2026-09-21 — the period reader was made to ignore the instant, collapsing two instants into one determination and one content address.
       date: '2026-09-21'
-      commit: PENDING
+      commit: '55536420'
   - id: ABS-G22
     statement: EXISTENCE IS NOT AN ORACLE — a deal that does not exist and a real deal with no reporting period at the instant are refused indistinguishably, while a subject with evidence is served
     spec_clause: {document: spec/CP-SPEC-016_ABS_Securitization_Surveillance.md, clause: G.1}
@@ -285,4 +285,4 @@ declaration:
       result: >-
         RED 2026-09-21 — a distinct refusal was raised for a deal id the estate does not carry, and the two refusals stopped being indistinguishable.
       date: '2026-09-21'
-      commit: PENDING
+      commit: '55536420'
