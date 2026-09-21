@@ -14,6 +14,10 @@ executing test; the two extra tests are positive controls. **18 of the 20 were
 observed RED** under their own sabotage; `UBO-G01` and `UBO-G11` are
 `unavailable` and each names its guard.
 
+**Accepted at `D-GATE-cp-15`, 2026-09-21**, on the candidate
+`cp-15-kyc @ bfdf7837`, merged `--no-ff` into `main`. **No SDK behavior
+change.**
+
 **Active SDK issue cap: 0 of 3.** None of the five stop conditions fired. In
 particular **stop condition 4 did not fire**: HITL composes with the immutable
 product and its replay references **without changing an SDK contract** — the
@@ -73,6 +77,9 @@ appears. `D-IMPL-343` is not reopened and no abstraction is pre-authorized.
 | duplicated authority | 0 | 1 | 3 | 2 | **0** |
 | AI-generatable from spec + public guidance | no | partly | partly | yes for the seam | **yes for the seam** |
 
+**RULED at `D-GATE-cp-15`: B remains the disposition — documentation and
+pattern, no SDK abstraction. No envelope SDK phase is opened.**
+
 **Neither trigger fired.** Substantially identical generic glue measures
 **18 lines**, below the ruled threshold of roughly 30 — and it *fell* from
 cp-18's 23 rather than rising, because this rung's seam carries four typed
@@ -114,12 +121,12 @@ None raised.
 
 | id | finding | class (§B) | disposition |
 |---|---|---|---|
-| `UBO-F-01` | **No ownership cycles exist in the curated estate.** Measured two ways — no chain in `bo_chain_hop` revisits an owner, and no hop's `owned_id` equals an earlier hop's `owner_id`. The vault specification's first counterfactual therefore has no data. | §B.4 estate limitation | **RULED: do not engineer** (`CP-SPEC-015` §F.4.2). The member is kept, served honestly empty and **computed**, with a positive control proving it reports a cycle when one is present |
-| `UBO-F-02` | **`ReviewQueueItem.output_ref` requires a `ccf-artifact` versioned URI and refuses a bare content address**, while the ruling names the content address. Both are satisfied without changing either: the URI's version component **is** the address, so the product URI carries exactly what the ruling named. Nothing on the public surface says `output_ref` is URI-shaped. | §B.3 documentation gap | recorded; no SDK change. The gate asserts the URI's version component equals the served address, so the equivalence is proven rather than assumed |
+| `UBO-F-01` | **No ownership cycles exist in the curated estate.** Measured two ways — no chain in `bo_chain_hop` revisits an owner, and no hop's `owned_id` equals an earlier hop's `owner_id`. The vault specification's first counterfactual therefore has no data. | §B.4 estate limitation | **RULED, and re-affirmed at `D-GATE-cp-15`: do not engineer.** No engineered estate cycles are required. The member is kept, served honestly empty and **computed**, and the injected-cycle in-process positive control is kept — it proves the implementation can detect a cycle and that estate emptiness is not the same thing as constant-empty code |
+| `UBO-F-02` | **`ReviewQueueItem.output_ref` requires a `ccf-artifact` versioned URI and refuses a bare content address**, while the ruling names the content address. Both are satisfied without changing either: the URI's version component **is** the address, so the product URI carries exactly what the ruling named. Nothing on the public surface says `output_ref` is URI-shaped. | §B.3 documentation gap | recorded; no SDK change. **Ruled at `D-GATE-cp-15`: the SDK's URI requirement is NOT to be loosened to accept a bare content address**, and the gate proving the version component equals the served address is kept |
 | `UBO-F-03` | **`PendingHitlEvent.product_content_hash` is the ITEM's hash, not the product's content address.** A reader reaching for the product's address by that name gets the hash of the review item instead. The TOCTOU guard binds the item, which is correct — the name is the surprise. `CP17-F-19`'s family. | DX note | recorded |
 | `UBO-F-04` | **`ReviewQueueItem.lineage` requires at least one entry**, so a finding with no supporting evidence cannot be submitted at all. That is *why* the ruling's "do not manufacture references" is expressible here as **do not refer**, and the product names such findings as not-referred rather than referring them with an empty trail. | §B.4 design consequence | recorded; the behavior is correct and the constraint is what makes it so |
 | `UBO-F-05` | **A sabotage that cannot redden its gate is not a sabotage.** Replacing the cycle computation with a constant empty list left `UBO-G19` GREEN, because on an estate with no cycles the served value is `[]` either way. A positive control that injects a cycle in-process was added, and the gate now reddens. | proof-machinery defect, mine | corrected before close; recorded rather than quietly fixed |
-| `UBO-F-06` | **The refresh register and the ownership chains do not join.** `kyc_refresh_state` is keyed by LEI; every chain anchor in this estate is an offshore vehicle. The two populations have no overlap at all. | §B.4 estate limitation | the `refresh_state` member is served as a **stated absence** with its reason, rather than omitted or silently empty |
+| `UBO-F-06` | **The refresh register and the ownership chains do not join.** `kyc_refresh_state` is keyed by LEI; every chain anchor in this estate is an offshore vehicle. The two populations have no overlap at all. | §B.4 estate limitation | **ruled at `D-GATE-cp-15`: no invented join.** The `refresh_state` member is served as a **stated absence** with its reason, rather than omitted or silently empty |
 | `UBO-F-07` | **`kyc_document` carries no text field**, only typed attributes, so a lexical Similarity corpus had to be composed at the acquisition seam from the document's kind, entity and owner names and jurisdiction. A one-word `kind` scores zero against any multi-word query and would empty the class at any floor above zero. | §B.4 estate limitation | disclosed at the declaration site and in the README; the floor is 0 and says why |
 | `UBO-F-08` | **One chain per anchor**: 50 chains over 50 anchors, so each entity has exactly one beneficial-ownership chain and one terminal person. Assertions about *sets* of owners would be vacuous. | §B.4 estate limitation | the gates assert the threshold partition and its exhaustiveness, never a count of owners |
 | `UBO-F-09` | **Every sanctions screening in the estate is in the review band** — all 19 score between 0.71 and 0.84, none clears `auto_clear` and none falls below `review_floor`. There is no auto-cleared and no auto-rejected screening to contrast against. | §B.4 estate limitation | the product's screening member is therefore always a review finding, and the gate asserts the disposition follows the policy thresholds rather than a mix that does not exist |
