@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# SEVERITY TIERS AND THE CONCENTRATION THRESHOLD — Control Plane VALUES, and
+# the only authority for either (`PEW-G08`, `PEW-G18`).
+#
+# ILLUSTRATIVE CALIBRATION (`D-IMPL-323`): these values are chosen so the
+# mechanism is observable against a point-in-time demonstration estate. They
+# demonstrate how the SDK applies a declared threshold and are not recommended
+# production values.
+semver: "1.0.0"
+class_id: cp-23.severity-tiers
+declaration:
+  # The requirements' three-tier architecture, as VALUES.
+  tiers:
+    - {tier: "1", label: action-red, minimum_severity: "0.75"}
+    - {tier: "2", label: warning-amber, minimum_severity: "0.45"}
+    - {tier: "3", label: informational-blue, minimum_severity: "0.0"}
+  # The floor a caller may RAISE and never lower.
+  severity_floor: "0.0"
+  # CP-23's OWN concentration threshold. Not `limit_definition`, not
+  # `bank_capital`, not a regulatory connection basis — those are CP-21's.
+  concentration:
+    single_name_threshold_pct: "25.0"
+    sector_threshold_pct: "40.0"
+    basis: committed-exposure

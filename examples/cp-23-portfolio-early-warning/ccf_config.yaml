@@ -1,0 +1,330 @@
+# yaml-language-server: $schema=../../docs/schemas/ccf.deployment-config.json
+#
+# THE CONTROL PLANE DOCUMENT — what this fabric is permitted to do.
+# The specification this realizes is
+# `spec/CP-SPEC-023_Portfolio_Early_Warning_Concentration.md`.
+
+semver: "1.0.0"
+tenant_id: cp-23-demo
+
+backend: sqlite
+
+product_class:
+  schema_name: cib.portfolio-early-warning
+  schema_version: "1.0.0"
+  # NOT evidence-anchored (`CP-SPEC-023` §E.1). A book's evidence is 25
+  # members' worth with staleness from 12 to 53 days, so *whose* freshness
+  # would anchor it is not answerable. The evidence's age lives in the
+  # per-class freshness and in `D_c`, where it belongs (`PEW-G11`).
+  ttl_anchor: from_decision
+  assembly_mode: algorithmic
+  max_ttl_key: cp-23/product/portfolio-early-warning/max-ttl
+
+  # THREE keys, not four. There is no ranked corpus here: the signals are typed
+  # rows, not passages, so Similarity is absent from the declaration and
+  # `PEW-G01` asserts the served plan against THIS list rather than a fixed
+  # four (`CP-SPEC-023` §D.2).
+  required_operator_keys:
+    - policy.principal-subgraph
+    - temporal.as-of-boundary
+    - traversal.typed-neighborhood
+
+  serve_obligations:
+    default_debt_tolerance: "0.95"
+    lineage_inputs_at:
+      - perspective
+      - as_of
+
+  discovery:
+    domain: cib
+    intents:
+      - portfolio-review
+      - credit-review
+      - concentration-review
+    capabilities:
+      - population-grain-assembly
+      - worst-factor-debt-over-members
+      - per-signal-class-freshness
+      - book-concentration-against-declared-threshold
+    audiences:
+      - coverage
+      - credit
+      - product
+
+  declared_product_gate:
+    gate_id: cp-23.portfolio-holds
+    gate_version: "1.0.0"
+
+operators:
+  # STEP 2 — Policy. The permitted set is the product's whole vocabulary; the
+  # per-role member and measure narrowing is formative and arrives at the
+  # acquisition seam from `context.perspective`, per the adopter page
+  # `public/how-to/condition-acquisition-on-the-verified-credential.md`.
+  policy.principal-subgraph:
+    classification_attribute_by_class:
+      book: classification
+      member: classification
+      facility: classification
+      covenant: classification
+      signal_adverse_media: classification
+      signal_8k_event: classification
+      signal_trend_delta: classification
+      signal_spread_widening: classification
+      signal_warn_notice: classification
+    permitted_classifications:
+      - public
+      - internal
+
+  temporal.as-of-boundary:
+    require_valid_at_boundary: true
+
+  traversal.typed-neighborhood:
+    seed_entity_classes:
+      - book
+    relationship_types:
+      - hasMember
+      - hasFacility
+      - hasCovenant
+      - hasAdverseMedia
+      - hasEightKEvent
+      - hasTrendDelta
+      - hasSpreadWidening
+      - hasWarnNotice
+    depth_limit: 1
+
+request_contract:
+  class_id: cp-23.request-contract
+  role: register
+  registration: typed
+  schema_name: cib.portfolio-early-warning
+  schema_version: "1.0.0"
+  arguments:
+    properties:
+      as_of:
+        type: string
+        description: the decision instant, which bounds acquisition and cuts every dated claim.
+      members:
+        type: array
+        description: >-
+          Which book members to report, as a LIST of LEIs. Empty means the
+          whole book. NARROWS ONLY — a member outside the book is refused
+          `not-in-book`. The deployment CANONICALIZES this list before the
+          effective request is built, because membership is semantically a
+          set (`CP-SPEC-023` §F.4 `Q2`, ruled 2026-09-21), so two orderings of
+          one membership are one determination.
+      signal_classes:
+        type: array
+        description: which of the five declared signal classes to read. Empty means all.
+      severity_floor:
+        type: number
+        description: >-
+          The floor on signal severity, 0..1. May be RAISED above the tier
+          artifact's floor and never lowered: lowering would surface more than
+          the policy admits, and is refused by name.
+      debt_tolerance:
+        type: number
+        description: the caller's ceiling on assessed Context Debt, 0..1.
+    required: []
+
+  argument_domains:
+    severity_floor:
+      minimum: 0
+      maximum: 1
+
+  relative_defaults:
+    as_of:
+      offset_seconds: 0
+      render: timestamp
+
+resolution:
+  entity_rules:
+    - match_key: book_node
+      entity_class: book
+      identity_keys: [entity_uri]
+      attribute_keys: [banker_id, banker_name, banker_role, banker_desk, perspective,
+                       as_of, intent, member_count, book_member_total, book_roster_total,
+                       members_requested, member_digest,
+                       facility_covered_count, severity_floor, tier_policy_version,
+                       concentration_threshold_pct, records_materialized, classification]
+    # MEMBERSHIP IS AN ENTITY ATTRIBUTE, NOT AN EDGE (`CP-SPEC-023` §C.3 trap 1,
+    # settling Gate 0's Q16), so per-member supersession reaches the
+    # invalidation register.
+    - match_key: member_node
+      entity_class: member
+      identity_keys: [entity_uri]
+      attribute_keys: [lei, legal_name, sic, sic_description, in_book, is_primary,
+                       assigned_date, classification]
+    - match_key: facility_node
+      entity_class: facility
+      identity_keys: [entity_uri]
+      attribute_keys: [facility_id, lei, facility_type, commitment_amount, drawn_amount,
+                       drawdown_count, maturity_date, classification]
+    - match_key: covenant_node
+      entity_class: covenant
+      identity_keys: [entity_uri]
+      attribute_keys: [facility_id, lei, covenant_type, breach_date, observed_value,
+                       threshold_at_breach, cured_date, compliant_today, classification]
+
+    # FIVE SIGNAL CLASSES, ONE PER SIGNAL TYPE — because `half_life` is keyed by
+    # ENTITY CLASS, and per-class freshness is the ruling (`CP-SPEC-023` §C.2).
+    # One `signal` class would give the book one average and hide a stale class,
+    # which is exactly what the ruling forbids.
+    - {match_key: adverse_media_node, entity_class: signal_adverse_media,
+       identity_keys: [entity_uri],
+       attribute_keys: [signal_id, lei, signal_type, severity, observed_at, source_ref, classification]}
+    - {match_key: eightk_node, entity_class: signal_8k_event,
+       identity_keys: [entity_uri],
+       attribute_keys: [signal_id, lei, signal_type, severity, observed_at, source_ref, classification]}
+    - {match_key: trend_node, entity_class: signal_trend_delta,
+       identity_keys: [entity_uri],
+       attribute_keys: [signal_id, lei, signal_type, severity, observed_at, source_ref, classification]}
+    - {match_key: spread_node, entity_class: signal_spread_widening,
+       identity_keys: [entity_uri],
+       attribute_keys: [signal_id, lei, signal_type, severity, observed_at, source_ref, classification]}
+    - {match_key: warn_node, entity_class: signal_warn_notice,
+       identity_keys: [entity_uri],
+       attribute_keys: [signal_id, lei, signal_type, severity, observed_at, source_ref, classification]}
+
+    # Endpoint rules. NO attribute keys (`D-IMPL-316`).
+    - {match_key: book_subject, entity_class: book,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: subject_uri}}
+    - {match_key: member_object, entity_class: member,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+    - {match_key: facility_object, entity_class: facility,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+    - {match_key: covenant_object, entity_class: covenant,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+    - {match_key: adverse_media_object, entity_class: signal_adverse_media,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+    - {match_key: eightk_object, entity_class: signal_8k_event,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+    - {match_key: trend_object, entity_class: signal_trend_delta,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+    - {match_key: spread_object, entity_class: signal_spread_widening,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+    - {match_key: warn_object, entity_class: signal_warn_notice,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+
+  relationship_rules:
+    - {relationship_type: hasMember, predicate_key: predicate,
+       subject_entity_class: book, object_entity_class: member,
+       subject_rule: book_subject, object_rule: member_object}
+    - {relationship_type: hasFacility, predicate_key: predicate,
+       subject_entity_class: book, object_entity_class: facility,
+       subject_rule: book_subject, object_rule: facility_object}
+    - {relationship_type: hasCovenant, predicate_key: predicate,
+       subject_entity_class: book, object_entity_class: covenant,
+       subject_rule: book_subject, object_rule: covenant_object}
+    - {relationship_type: hasAdverseMedia, predicate_key: predicate,
+       subject_entity_class: book, object_entity_class: signal_adverse_media,
+       subject_rule: book_subject, object_rule: adverse_media_object}
+    - {relationship_type: hasEightKEvent, predicate_key: predicate,
+       subject_entity_class: book, object_entity_class: signal_8k_event,
+       subject_rule: book_subject, object_rule: eightk_object}
+    - {relationship_type: hasTrendDelta, predicate_key: predicate,
+       subject_entity_class: book, object_entity_class: signal_trend_delta,
+       subject_rule: book_subject, object_rule: trend_object}
+    - {relationship_type: hasSpreadWidening, predicate_key: predicate,
+       subject_entity_class: book, object_entity_class: signal_spread_widening,
+       subject_rule: book_subject, object_rule: spread_object}
+    - {relationship_type: hasWarnNotice, predicate_key: predicate,
+       subject_entity_class: book, object_entity_class: signal_warn_notice,
+       subject_rule: book_subject, object_rule: warn_object}
+
+# ---------------------------------------------------------------------------
+# λ_c — PER SIGNAL CLASS, and that is the ruling (`CP-SPEC-023` §C.2).
+#
+# The five signal classes carry genuinely different staleness in the
+# demonstration book — 12, 14, 51, 52 and 53 days at the pinned instant — so
+# one table keyed by entity class makes the book's freshness a DISTRIBUTION
+# rather than an average. Collapsing them into a single `signal` class would
+# hide a stale class behind a fresh one, which `PEW-G09` refuses.
+#
+# The standing classes carry no event date and decay `supersede-only`
+# (`D-IMPL-332`): book membership, the member itself and a facility's terms are
+# true AS OF NOW, not on a day.
+#
+# ILLUSTRATIVE CALIBRATION (`D-IMPL-323`): the half-lives below are chosen so
+# the mechanism is observable against a point-in-time snapshot. See the README.
+# ---------------------------------------------------------------------------
+half_life:
+  book:
+    decay: supersede-only
+    decay_driver: coverage-assignment
+    supersession_event: coverage-reassignment
+  member:
+    decay: supersede-only
+    decay_driver: coverage-assignment
+    supersession_event: coverage-reassignment
+  facility:
+    decay: supersede-only
+    decay_driver: facility-agreement
+    supersession_event: facility-amendment
+  covenant:
+    half_life_seconds: 7776000
+    decay_basis: valid-from
+    decay_driver: covenant-testing
+    supersession_event: breach-or-cure
+  signal_adverse_media:
+    half_life_seconds: 1209600
+    decay_basis: valid-from
+    decay_driver: media-monitoring
+    supersession_event: new-mention
+  signal_8k_event:
+    half_life_seconds: 2592000
+    decay_basis: valid-from
+    decay_driver: sec-filing
+    supersession_event: new-8k
+  signal_trend_delta:
+    half_life_seconds: 7776000
+    decay_basis: valid-from
+    decay_driver: quarterly-reporting
+    supersession_event: new-period
+  signal_spread_widening:
+    half_life_seconds: 2592000
+    decay_basis: valid-from
+    decay_driver: market-observation
+    supersession_event: new-quote
+  signal_warn_notice:
+    half_life_seconds: 7776000
+    decay_basis: valid-from
+    decay_driver: warn-filing
+    supersession_event: new-notice
+
+debt_profile:
+  risk_sensitivity: "1.0"
+  forced_llm_threshold: "0.70"
+  fail_closed_threshold: "0.99"
+
+policy:
+  class_id: cp-23.policy-bundle
+  role: register
+  registration: typed
+  regime: portfolio-role-and-severity-envelope
+
+default_perspective:
+  principal_id: PRIN-PM-001
+  role: coverage
+
+replay:
+  record_class: ccf.replay-record
+  query_pin_class: ccf.graph-query
+  store_dirname: artifact-store
+
+ttl:
+  max_ttl_seconds: 86400
+  product_ttl_seconds: 86400
+
+door:
+  producer_id: cp-23-portfolio-early-warning-egress
+  producer_tenant: cp-23-demo
+  required_scope: ccf:egress
+  tool_description: >-
+    Report one coverage book's proactive-monitoring state as a governed,
+    content-addressed Context Product (`cib.portfolio-early-warning`):
+    utilization and headroom across the book's facilities, severity-tiered
+    early-warning signals in five classes each with its own freshness,
+    covenant history, and the book's concentration against a declared
+    threshold. Context Debt is the WORST FACTOR across members, so a weak
+    member cannot disappear behind a stronger aggregate, and the member and
+    signal class each weak factor came from are named.

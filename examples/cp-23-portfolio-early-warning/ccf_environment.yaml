@@ -1,0 +1,63 @@
+# yaml-language-server: $schema=../../docs/schemas/ccf.deployment-environment.json
+#
+# THE DEPLOYMENT DOCUMENT — every value read from the environment by NAME.
+
+config: ccf_config.yaml
+
+substrate:
+  setting: database_path
+  prefix: cp_23
+  suffix: .sqlite3
+
+sources:
+  relational:
+    dsn:
+      from_env: CCF_CP_23_POSTGRES_DSN
+      remedy: >-
+        export CCF_CP_23_POSTGRES_DSN with a READ-ONLY connection string for
+        the estate (host and credentials from ccf_dataprep/.env).
+    schema:
+      from_env: CCF_CP_23_POSTGRES_SCHEMA
+      remedy: >-
+        export CCF_CP_23_POSTGRES_SCHEMA with the namespace holding
+        coverage_assignment, banker, legal_entity, facility, drawdown,
+        signal_event and covenant_breach (the v2 estate reads `ccf_v2`).
+  graph:
+    url:
+      from_env: CCF_CP_23_FLUREE_URL
+      remedy: >-
+        export CCF_CP_23_FLUREE_URL with the base URL of a READ-ONLY Fluree
+        endpoint; this deployment reads the ledger watermark only.
+    ledger:
+      from_env: CCF_CP_23_FLUREE_LEDGER
+      remedy: export CCF_CP_23_FLUREE_LEDGER with the ledger name — the v2 estate is `fibo-v2`.
+
+  # The estate carries banker ROLES (`coverage`, `credit`, `product`) but no
+  # principal register for them, so this deployment declares the credential ->
+  # principal chain itself and maps each principal to one estate role.
+  credentials:
+    PRIN-PM-001:
+      from_env: CCF_CP_23_TOKEN_COVERAGE
+      remedy: export CCF_CP_23_TOKEN_COVERAGE with the coverage banker's bearer credential.
+    PRIN-CO-002:
+      from_env: CCF_CP_23_TOKEN_CREDIT
+      remedy: export CCF_CP_23_TOKEN_CREDIT with the credit officer's bearer credential.
+    PRIN-PR-003:
+      from_env: CCF_CP_23_TOKEN_PRODUCT
+      remedy: export CCF_CP_23_TOKEN_PRODUCT with the product banker's bearer credential.
+    PRIN-UNG-004:
+      from_env: CCF_CP_23_TOKEN_UNGRANTED
+      remedy: >-
+        export CCF_CP_23_TOKEN_UNGRANTED with a recognized credential this
+        deployment grants nothing — the negative control.
+
+door:
+  credential:
+    from_env: CCF_CP_23_DOOR_TOKEN
+    remedy: export CCF_CP_23_DOOR_TOKEN with the bearer the standard door's default principal presents.
+  issuer_url:
+    from_env: CCF_CP_23_DOOR_ISSUER_URL
+    remedy: export CCF_CP_23_DOOR_ISSUER_URL with the door's declared issuer URL.
+  resource_server_url:
+    from_env: CCF_CP_23_DOOR_RESOURCE_URL
+    remedy: export CCF_CP_23_DOOR_RESOURCE_URL with the door's declared resource-server URL.
