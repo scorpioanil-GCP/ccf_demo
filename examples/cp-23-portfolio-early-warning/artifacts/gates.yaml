@@ -37,7 +37,7 @@ declaration:
       result: >-
         RED 2026-09-21 — Policy was removed from the declared keys and the served set no longer matched the declaration.
       date: '2026-09-21'
-      commit: PENDING
+      commit: 'ea9816d5'
   - id: PEW-G02
     statement: "every served member declares its book membership as an ENTITY ATTRIBUTE, so per-member supersession reaches the invalidation register"
     spec_clause: {document: spec/CP-SPEC-023_Portfolio_Early_Warning_Concentration.md, clause: G.1}
@@ -48,7 +48,7 @@ declaration:
       result: >-
         RED 2026-09-21 — a member was served without declaring membership and the declared gate refused it by name.
       date: '2026-09-21'
-      commit: PENDING
+      commit: 'ea9816d5'
   - id: PEW-G03
     statement: "the book is served at POPULATION grain: the member count is a served fact agreeing with the roster, and the measures span the set"
     spec_clause: {document: spec/CP-SPEC-023_Portfolio_Early_Warning_Concentration.md, clause: G.1}
@@ -59,7 +59,7 @@ declaration:
       result: >-
         RED 2026-09-21 — the stated count and the served population disagreed and the gate refused.
       date: '2026-09-21'
-      commit: PENDING
+      commit: 'ea9816d5'
   - id: PEW-G04
     statement: "`members` NARROWS and never widens; a member outside the book is refused `not-in-book` at the acquisition seam, never dropped"
     spec_clause: {document: spec/CP-SPEC-023_Portfolio_Early_Warning_Concentration.md, clause: G.1}
@@ -70,7 +70,7 @@ declaration:
       result: >-
         RED 2026-09-21 — the containment check was removed. The product still refused downstream on the count mismatch, so the gate now asserts the refusal at ITS OWN seam; without that the test could not tell which mechanism fired (`PEW-F-04`).
       date: '2026-09-21'
-      commit: PENDING
+      commit: 'ea9816d5'
   - id: PEW-G05
     statement: "two orderings of one membership are ONE determination — the same content address AND the same canonical `members` in the effective request"
     spec_clause: {document: spec/CP-SPEC-023_Portfolio_Early_Warning_Concentration.md, clause: G.1}
@@ -81,7 +81,7 @@ declaration:
       result: >-
         RED 2026-09-21 — BOTH sabotages redden. The payload sorts its own population, so the address alone could not tell whether the REQUEST was canonicalized; the gate now reads the effective request from the replay record, which is where canonicalization has to land (`PEW-F-05`).
       date: '2026-09-21'
-      commit: PENDING
+      commit: 'ea9816d5'
   - id: PEW-G06
     statement: "and the CONVERSE — a genuinely different membership is a DIFFERENT determination, so `PEW-G05` cannot be satisfied by collapsing everything"
     spec_clause: {document: spec/CP-SPEC-023_Portfolio_Early_Warning_Concentration.md, clause: G.1}
@@ -92,7 +92,7 @@ declaration:
       result: >-
         RED 2026-09-21 — membership stopped reaching the request and two different populations collapsed to one address.
       date: '2026-09-21'
-      commit: PENDING
+      commit: 'ea9816d5'
   - id: PEW-G07
     statement: "the payload's SHAPE and POPULATION are a function of the role, never of the book; a role that may not see covenant history carries no empty covenant member"
     spec_clause: {document: spec/CP-SPEC-023_Portfolio_Early_Warning_Concentration.md, clause: G.1}
@@ -103,7 +103,7 @@ declaration:
       result: >-
         RED 2026-09-21 — the `product` role received the whole book and its population stopped being smaller than the coverage role's.
       date: '2026-09-21'
-      commit: PENDING
+      commit: 'ea9816d5'
   - id: PEW-G08
     statement: "every tiered signal names the Control Plane artifact version that tiered it, and a severity floor may be RAISED and never lowered"
     spec_clause: {document: spec/CP-SPEC-023_Portfolio_Early_Warning_Concentration.md, clause: G.1}
@@ -114,7 +114,7 @@ declaration:
       result: >-
         RED 2026-09-21 — every signal collapsed into one tier and the artifact stopped discriminating.
       date: '2026-09-21'
-      commit: PENDING
+      commit: 'ea9816d5'
   - id: PEW-G09
     statement: "freshness is reported PER SIGNAL CLASS with the weakest first; no single portfolio freshness timestamp is minted"
     spec_clause: {document: spec/CP-SPEC-023_Portfolio_Early_Warning_Concentration.md, clause: G.1}
@@ -125,7 +125,7 @@ declaration:
       result: >-
         RED 2026-09-21 — the empty-rows sabotage reddens `PEW-G09` directly. The book-wide-timestamp sabotage is caught FIRST by the shape check (`PEW-G07`), so that limb is defence in depth behind a stricter gate; recorded rather than hidden (`PEW-F-03`).
       date: '2026-09-21'
-      commit: PENDING
+      commit: 'ea9816d5'
   - id: PEW-G10
     statement: "two signal classes with different ages are reported separately and ordered weakest-first, so a fresh class cannot hide a stale one"
     spec_clause: {document: spec/CP-SPEC-023_Portfolio_Early_Warning_Concentration.md, clause: G.1}
@@ -136,7 +136,7 @@ declaration:
       result: >-
         RED 2026-09-21 — the ordering inverted and the stale class stopped being the first thing a reader meets.
       date: '2026-09-21'
-      commit: PENDING
+      commit: 'ea9816d5'
   - id: PEW-G11
     statement: "expiry is anchored on the DECISION; the evidence's age lives in the per-class freshness and in `D_c`, never in the TTL"
     spec_clause: {document: spec/CP-SPEC-023_Portfolio_Early_Warning_Concentration.md, clause: G.1}
@@ -147,7 +147,7 @@ declaration:
       result: >-
         RED 2026-09-21 — the anchor moved and the declaration no longer matched. A book's evidence has many ages, so none of them can anchor its expiry.
       date: '2026-09-21'
-      commit: PENDING
+      commit: 'ea9816d5'
   - id: PEW-G12
     statement: "population debt is the SDK combinator's PER-FACTOR MINIMUM across members, naming the member each weak factor came from — understandable BY FACTOR"
     spec_clause: {document: spec/CP-SPEC-023_Portfolio_Early_Warning_Concentration.md, clause: G.1}
@@ -158,7 +158,7 @@ declaration:
       result: >-
         RED 2026-09-21 — both in-test sabotages redden, and the reverting edit that renamed the law reddens the served assertion. THE ESTATE ALONE CANNOT SHOW THE LAWS DIFFER: on this book the member weakest on freshness also sits at the completeness floor, so both laws give 0.88. A positive control with three members each weak on a different factor shows the difference (`PEW-F-01`).
       date: '2026-09-21'
-      commit: PENDING
+      commit: 'ea9816d5'
   - id: PEW-G13
     statement: "a member the ROLE excluded still counts against completeness — but a member the CALLER narrowed away does not, because narrowing your own question denies you nothing"
     spec_clause: {document: spec/CP-SPEC-023_Portfolio_Early_Warning_Concentration.md, clause: G.1}
@@ -169,7 +169,7 @@ declaration:
       result: >-
         RED 2026-09-21 — and this gate found a real defect in the product before it found one in a sabotage: the `product` role originally reached completeness 1.0 and LOWER debt than the coverage role, so the entitlement looked free. Corrected (`PEW-F-06`).
       date: '2026-09-21'
-      commit: PENDING
+      commit: 'ea9816d5'
   - id: PEW-G14
     statement: "what assembly materialized is a served fact and tracks the POPULATION, not the estate"
     spec_clause: {document: spec/CP-SPEC-023_Portfolio_Early_Warning_Concentration.md, clause: G.1}
@@ -180,7 +180,7 @@ declaration:
       result: >-
         RED 2026-09-21 — asserted against the member count; a count tracking the estate's 1,000 coverage rows fails the relation.
       date: '2026-09-21'
-      commit: PENDING
+      commit: 'ea9816d5'
   - id: PEW-G15
     statement: "utilization is computed from OBSERVED drawdowns and a zero carries its drawdown count, so undrawn and unobserved stay distinguishable"
     spec_clause: {document: spec/CP-SPEC-023_Portfolio_Early_Warning_Concentration.md, clause: G.1}
@@ -191,7 +191,7 @@ declaration:
       result: >-
         RED 2026-09-21 — the count was emptied and a zero utilization stopped being interpretable.
       date: '2026-09-21'
-      commit: PENDING
+      commit: 'ea9816d5'
   - id: PEW-G16
     statement: "members with no facility remain members, and the facility-covered count is stated"
     spec_clause: {document: spec/CP-SPEC-023_Portfolio_Early_Warning_Concentration.md, clause: G.1}
@@ -202,7 +202,7 @@ declaration:
       result: >-
         RED 2026-09-21 — the uncovered members vanished and the book's utilization began to read as the whole book's.
       date: '2026-09-21'
-      commit: PENDING
+      commit: 'ea9816d5'
   - id: PEW-G17
     statement: "covenant history states zero active AND the historical/cured breaches; the member is never dropped for being currently quiet"
     spec_clause: {document: spec/CP-SPEC-023_Portfolio_Early_Warning_Concentration.md, clause: G.1}
@@ -213,7 +213,7 @@ declaration:
       result: >-
         RED 2026-09-21 — the member was removed and the declared gate refused: zero current state is not absent history.
       date: '2026-09-21'
-      commit: PENDING
+      commit: 'ea9816d5'
   - id: PEW-G18
     statement: "book concentration uses THIS rung's declared threshold artifact and CP-21's regulatory inputs are named nowhere in the tree"
     spec_clause: {document: spec/CP-SPEC-023_Portfolio_Early_Warning_Concentration.md, clause: G.1}
@@ -224,7 +224,7 @@ declaration:
       result: >-
         RED 2026-09-21 — the authority changed and the scope-separation assertion failed. The source-side limb additionally reads the three forbidden names out of the modules and the declared tables.
       date: '2026-09-21'
-      commit: PENDING
+      commit: 'ea9816d5'
   - id: PEW-G19
     statement: "the determination replays from its record; the same book, instant and role hash to the same bytes and a different book does not"
     spec_clause: {document: spec/CP-SPEC-023_Portfolio_Early_Warning_Concentration.md, clause: G.1}
@@ -235,4 +235,4 @@ declaration:
       result: >-
         RED 2026-09-21 — two books collapsed to one address. A single-field pin did NOT redden it, because two books differ on many axes; the sabotage that works is one that ignores the subject (`PEW-F-07`, the `ABS-F-09` shape).
       date: '2026-09-21'
-      commit: PENDING
+      commit: 'ea9816d5'
