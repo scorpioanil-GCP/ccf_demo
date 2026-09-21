@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE SENSITIVITY ARTIFACT — Control Plane VALUES, and the only authority for
+# how an assumption becomes an impact (`WIF-G07`).
+#
+# NO MODEL LIVES HERE. Each entry is a stated arithmetic rule, not a fitted
+# coefficient: a rate shift moves interest cost on the drawn balance, and a
+# collateral shift moves the stressed value of one named category. Nothing is
+# estimated, nothing is predicted (`CP-SPEC-024` §0.3).
+#
+# ILLUSTRATIVE CALIBRATION (`D-IMPL-323`): the floor and the horizon default
+# are chosen so the mechanism is observable against a point-in-time
+# demonstration estate. They are not recommended production values.
+semver: "1.0.0"
+class_id: cp-24.sensitivities
+declaration:
+  # A basis point, as the exact fraction the arithmetic uses. The wire carries
+  # the INTEGER; this Decimal never crosses one (`Q1`, ruled 2026-09-21).
+  basis_point: "0.0001"
+  rate:
+    # Incremental annual interest = drawn x (shift_bp x basis_point).
+    applies_to: drawn_amount
+    rule: linear-on-drawn
+    default_horizon_months: 12
+  collateral:
+    # Stressed value = valuation x (1 + shift_bp x basis_point), then the
+    # estate's OWN haircut. The haircut is never altered by a scenario.
+    applies_to: valuation
+    rule: linear-on-valuation
+    haircut_source: estate
+  coverage:
+    # Secured coverage = stressed haircut value / drawn. The floor a member is
+    # counted as crossing.
+    default_floor_bp: "10000"
+    basis: stressed-secured-over-drawn
+  # The domain a scenario magnitude must fall inside. Outside it the request is
+  # refused by name (`WIF-G03`).
+  bounds:
+    rate_shift_bp: {minimum: -1000, maximum: 2000}
+    collateral_shift_bp: {minimum: -5000, maximum: 2000}
+    horizon_months: {minimum: 1, maximum: 60}

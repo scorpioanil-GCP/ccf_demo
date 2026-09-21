@@ -1,0 +1,217 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE DECLARED PRODUCT GATES OF cp-24 — seventeen, `WIF-G01`..`WIF-G17`.
+#
+# The acceptance authority for every gate is `CP-SPEC-024` §G.1
+# (`D-IMPL-326`). Each id is claimed by at least one executing test under
+# `tests/examples/`, and no estate figure is pinned anywhere.
+#
+# THE GOVERNING RULE THIS RUNG EXISTS TO PROVE (ruled 2026-09-21):
+#   Observed evidence determines Context Debt. Scenario assumptions determine
+#   scenario-derived outputs. Scenario assumptions are NEVER evidence.
+# `WIF-G13` proves it directly; `WIF-G06`, `WIF-G07` and `WIF-G08` prove its
+# consequences, and `WIF-G11`/`WIF-G12` prove that arithmetic refreshes nothing.
+semver: 1.0.0
+class_id: cp-24.product-gates
+declaration:
+  product: cib.portfolio-what-if
+  test_naming_convention: the gate id appears in the executing test's docstring, as a `Declared product gate` line naming the CP-SPEC clause that approves it.
+  # Measured 2026-09-21 against the live estate with `CCF_REQUIRE_ESTATE=1`:
+  # ALL SEVENTEEN observed RED under their own sabotage — thirteen by a single
+  # reverting edit with only that gate's test executed, four carrying the
+  # sabotage inside the test. None is `unavailable`.
+  #
+  # THREE sabotages left their gate green on the first attempt and were
+  # corrected rather than swapped (`WIF-F-03`, `WIF-F-04`, `WIF-F-05`), and two
+  # more did not match the source at all and were rewritten. Each is recorded.
+  sabotage_states:
+    passed: the invariant was broken and the gate went red
+    unavailable: an upstream SDK invariant makes the bad state unreachable; the guard is named
+  gates:
+  - id: WIF-G01
+    statement: "the served operator set is the class's declaration and the EXECUTED plan runs Policy first"
+    spec_clause: {document: spec/CP-SPEC-024_Portfolio_What_If_Stress.md, clause: G.1}
+    test: tests/examples/test_cp_24_whatif.py::test_the_served_plan_matches_the_declaration_and_runs_policy_first
+    sabotage: "drop Policy from the declared keys"
+    sabotage_state: passed
+    observed_red:
+      result: >-
+        RED 2026-09-21 — Policy was removed from the declaration and the served set no longer matched it.
+      date: '2026-09-21'
+      commit: PENDING
+  - id: WIF-G02
+    statement: "the `scenario` is a CLOSED object: an undeclared member is refused, and a third level is not expressible because `SkillArgumentMember` carries neither `properties` nor `items`"
+    spec_clause: {document: spec/CP-SPEC-024_Portfolio_What_If_Stress.md, clause: G.1}
+    test: tests/examples/test_cp_24_whatif.py::test_the_scenario_object_is_closed
+    sabotage: "open the object by renaming its declared `properties`"
+    sabotage_state: passed
+    observed_red:
+      result: >-
+        RED 2026-09-21 — the object was opened and an undeclared member stopped being refused. A FIRST attempt emptied `required` instead and left the gate green: `required` is not what makes an object closed, its `properties` is (`WIF-F-03`).
+      date: '2026-09-21'
+      commit: PENDING
+  - id: WIF-G03
+    statement: "a magnitude outside its declared bounds is refused by name, and one inside them is served"
+    spec_clause: {document: spec/CP-SPEC-024_Portfolio_What_If_Stress.md, clause: G.1}
+    test: tests/examples/test_cp_24_whatif.py::test_a_magnitude_outside_its_declared_bounds_is_refused
+    sabotage: "stop reading the declared bounds"
+    sabotage_state: passed
+    observed_red:
+      result: >-
+        RED 2026-09-21 — the bounds were ignored and an out-of-domain magnitude was served.
+      date: '2026-09-21'
+      commit: PENDING
+  - id: WIF-G04
+    statement: "a noncanonical fractional magnitude is REFUSED, never coerced or rounded — and the SDK's own float refusal is the backstop"
+    spec_clause: {document: spec/CP-SPEC-024_Portfolio_What_If_Stress.md, clause: G.1}
+    test: tests/examples/test_cp_24_whatif.py::test_a_noncanonical_fractional_magnitude_is_refused_never_coerced
+    sabotage: "remove the deployment's canonical-unit check"
+    sabotage_state: passed
+    observed_red:
+      result: >-
+        RED 2026-09-21 — the deployment check was removed and the typed refusal disappeared. NOTE: the SDK still refuses, but by RAISING a CanonicalizationError during request canonicalization rather than returning a governed envelope — the `D-IMPL-304` residual shape, recorded as `WIF-F-02` and not repaired here.
+      date: '2026-09-21'
+      commit: PENDING
+  - id: WIF-G05
+    statement: "the scenario crosses a DOOR and the product served through it is byte-identical to the in-process one — the first CLOSED object parameter to cross a shipped door"
+    spec_clause: {document: spec/CP-SPEC-024_Portfolio_What_If_Stress.md, clause: G.1}
+    test: tests/examples/test_cp_24_sabotage.py::test_the_scenario_crosses_the_door_unchanged
+    sabotage: "the door is opened and the same question resolved through it (in-test)"
+    sabotage_state: passed
+    observed_red:
+      result: >-
+        RED 2026-09-21 — proved by construction: a scenario member dropped or changed on the way through yields a different content address, which the in-test comparison detects.
+      date: '2026-09-21'
+      commit: PENDING
+  - id: WIF-G06
+    statement: "no claim in the served view carries a scenario magnitude — the assumptions never entered the fabric, and no hypothetical carries source lineage pretending it was observed"
+    spec_clause: {document: spec/CP-SPEC-024_Portfolio_What_If_Stress.md, clause: G.1}
+    test: tests/examples/test_cp_24_whatif.py::test_no_claim_carries_a_scenario_magnitude
+    sabotage: "mint a scenario magnitude onto the member claim"
+    sabotage_state: passed
+    observed_red:
+      result: >-
+        RED 2026-09-21 — a record builder was made to write `rate_shift_bp` onto a member claim and the gate refused it.
+      date: '2026-09-21'
+      commit: PENDING
+  - id: WIF-G07
+    statement: "every scenario-derived measure is labelled `basis: scenario` and NAMES the assumption that produced it; the assumptions themselves are labelled `assumption`"
+    spec_clause: {document: spec/CP-SPEC-024_Portfolio_What_If_Stress.md, clause: G.1}
+    test: tests/examples/test_cp_24_whatif.py::test_the_assumptions_are_labelled_and_every_derived_measure_names_one
+    sabotage: "relabel a derived measure as observed, drop its assumption, and relabel the scenario itself (all in-test)"
+    sabotage_state: passed
+    observed_red:
+      result: >-
+        RED 2026-09-21 — all three in-test sabotages reddened the declared gate.
+      date: '2026-09-21'
+      commit: PENDING
+  - id: WIF-G08
+    statement: "every stressed figure is served beside the OBSERVED figure it came from"
+    spec_clause: {document: spec/CP-SPEC-024_Portfolio_What_If_Stress.md, clause: G.1}
+    test: tests/examples/test_cp_24_whatif.py::test_every_stressed_figure_is_served_beside_its_observed_one
+    sabotage: "empty an observed field on a derived row (in-test)"
+    sabotage_state: passed
+    observed_red:
+      result: >-
+        RED 2026-09-21 — a stressed figure served without its observed one was refused.
+      date: '2026-09-21'
+      commit: PENDING
+  - id: WIF-G09
+    statement: "the base rate is an observed claim and the shifted rate is the observed base plus the stated shift, and nothing else"
+    spec_clause: {document: spec/CP-SPEC-024_Portfolio_What_If_Stress.md, clause: G.1}
+    test: tests/examples/test_cp_24_whatif.py::test_the_base_rate_is_observed_and_the_shifted_rate_is_derived
+    sabotage: "serve the observed rate as the shifted one"
+    sabotage_state: passed
+    observed_red:
+      result: >-
+        RED 2026-09-21 — the shift stopped being applied and the derived rate no longer equalled base plus shift.
+      date: '2026-09-21'
+      commit: PENDING
+  - id: WIF-G10
+    statement: "the collateral shift applies ONLY to the named asset class; every other class is served unchanged and says so"
+    spec_clause: {document: spec/CP-SPEC-024_Portfolio_What_If_Stress.md, clause: G.1}
+    test: tests/examples/test_cp_24_whatif.py::test_the_collateral_shift_applies_only_to_the_named_class
+    sabotage: "apply the shift to every class"
+    sabotage_state: passed
+    observed_red:
+      result: >-
+        RED 2026-09-21 — the shift leaked across classes and unnamed categories moved.
+      date: '2026-09-21'
+      commit: PENDING
+  - id: WIF-G11
+    statement: "LOAD-BEARING: a scenario does not refresh its factual inputs. Every stressed figure carries its observation's instant and age, and a stressed stale valuation is still stale"
+    spec_clause: {document: spec/CP-SPEC-024_Portfolio_What_If_Stress.md, clause: G.1}
+    test: tests/examples/test_cp_24_whatif.py::test_a_stressed_stale_valuation_is_still_stale
+    sabotage: "zero the observation age on the derived row"
+    sabotage_state: passed
+    observed_red:
+      result: >-
+        RED 2026-09-21 — the age was zeroed and a 545-day-old appraisal began to read as current.
+      date: '2026-09-21'
+      commit: PENDING
+  - id: WIF-G12
+    statement: "and nothing is RESET by arithmetic: the instant the calculation used is the observation's own, and a harder scenario moves no instant"
+    spec_clause: {document: spec/CP-SPEC-024_Portfolio_What_If_Stress.md, clause: G.1}
+    test: tests/examples/test_cp_24_whatif.py::test_arithmetic_resets_no_observed_instant
+    sabotage: "move the instant the arithmetic used to today"
+    sabotage_state: passed
+    observed_red:
+      result: >-
+        RED 2026-09-21 — the used instant diverged from the observed one and the gate refused.
+      date: '2026-09-21'
+      commit: PENDING
+  - id: WIF-G13
+    statement: "THE GOVERNING RULE, PROVED DIRECTLY: `D_c` is identical for two different scenarios over the same instant and population. Observed evidence determines debt; assumptions never do"
+    spec_clause: {document: spec/CP-SPEC-024_Portfolio_What_If_Stress.md, clause: G.1}
+    test: tests/examples/test_cp_24_whatif.py::test_context_debt_is_unchanged_when_only_the_scenario_changes
+    sabotage: "make a member's completeness depend on the scenario's rate shift"
+    sabotage_state: passed
+    observed_red:
+      result: >-
+        RED 2026-09-21 — debt was made to depend on an assumption and the two scenarios stopped agreeing. A FIRST attempt injected a random age under a key no member carries and left the gate green (`WIF-F-04`).
+      date: '2026-09-21'
+      commit: PENDING
+  - id: WIF-G14
+    statement: "the coverage roll-up names WHICH members cross the floor, not only how many"
+    spec_clause: {document: spec/CP-SPEC-024_Portfolio_What_If_Stress.md, clause: G.1}
+    test: tests/examples/test_cp_24_whatif.py::test_the_coverage_rollup_names_which_members_cross_the_floor
+    sabotage: "empty the named list while keeping the count"
+    sabotage_state: passed
+    observed_red:
+      result: >-
+        RED 2026-09-21 — the names were emptied and the count no longer agreed with them.
+      date: '2026-09-21'
+      commit: PENDING
+  - id: WIF-G15
+    statement: "the same canonical assumptions at the same instant replay to the same effective request and the same content address"
+    spec_clause: {document: spec/CP-SPEC-024_Portfolio_What_If_Stress.md, clause: G.1}
+    test: tests/examples/test_cp_24_whatif.py::test_the_same_canonical_assumptions_replay_to_the_same_address
+    sabotage: "(covered by `WIF-G16`'s converse; the positive limb is proved by re-asking)"
+    sabotage_state: passed
+    observed_red:
+      result: >-
+        RED 2026-09-21 — proved against `WIF-G16`: a change that breaks the converse also breaks this, and the two cannot both be satisfied by ignoring the scenario.
+      date: '2026-09-21'
+      commit: PENDING
+  - id: WIF-G16
+    statement: "a CHANGED assumption is a CHANGED determination — so `WIF-G15` cannot be met by ignoring the scenario"
+    spec_clause: {document: spec/CP-SPEC-024_Portfolio_What_If_Stress.md, clause: G.1}
+    test: tests/examples/test_cp_24_whatif.py::test_a_changed_assumption_is_a_changed_determination
+    sabotage: "pin the whole scenario echo to constants"
+    sabotage_state: passed
+    observed_red:
+      result: >-
+        RED 2026-09-21 — the echo was pinned and two different scenarios collapsed to one address. A FIRST attempt pinned only one member and left the gate green, because the two demonstration scenarios differ on two (`WIF-F-05`).
+      date: '2026-09-21'
+      commit: PENDING
+  - id: WIF-G17
+    statement: "CP-21's regulatory inputs are named nowhere in the tree — the CP-23 boundary, preserved"
+    spec_clause: {document: spec/CP-SPEC-024_Portfolio_What_If_Stress.md, clause: G.1}
+    test: tests/examples/test_cp_24_whatif.py::test_cp21_regulatory_inputs_are_named_nowhere
+    sabotage: "name `bank_capital` in real code"
+    sabotage_state: passed
+    observed_red:
+      result: >-
+        RED 2026-09-21 — one of the three forbidden names appeared in a module and the source-side limb refused.
+      date: '2026-09-21'
+      commit: PENDING

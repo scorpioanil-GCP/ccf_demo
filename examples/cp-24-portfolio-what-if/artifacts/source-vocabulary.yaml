@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# EVERY SOURCE NAME THIS DEPLOYMENT READS.
+#
+# NOTE WHAT IS ABSENT, AND DELIBERATELY SO (`WIF-G17`): `limit_definition`,
+# `bank_capital` and `connection_basis` are CP-21's regulatory large-exposure
+# inputs and are named NOWHERE in this deployment. Book concentration uses
+# CP-23's own declared threshold and nothing else.
+semver: "1.0.0"
+class_id: cp-24.source-vocabulary
+declaration:
+  relational:
+    tables:
+      book: coverage_assignment
+      banker: banker
+      entity: legal_entity
+      facility: facility
+      drawdown: drawdown
+      collateral: collateral_asset
+      rate: reference_rate
+  graph:
+    watermark_only: true
+  entity_uri_prefix:
+    book: "urn:ccf:cp24:book:"
+    member: "urn:ccf:cp24:member:"
+    facility: "urn:ccf:cp24:facility:"
+    collateral: "urn:ccf:cp24:collateral:"
+    rate: "urn:ccf:cp24:rate:"
+  classification:
+    vocabulary: [public, internal]
+    assignment:
+      book: internal
+      member: internal
+      facility: internal
+      collateral: internal
+      rate: public
