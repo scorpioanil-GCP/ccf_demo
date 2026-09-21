@@ -1,5 +1,15 @@
 # CP-23 — Portfolio Early-Warning / Concentration · FINDINGS
 
+**Accepted at `D-GATE-cp-23`, 2026-09-21**, on the candidate `cp-23-portfolio @ 2fcc2e87`,
+merged `--no-ff` into `main`. **Paved-road implementation; no `src/` or `runtime/`
+SDK behavior change.** 19 declared / 19 executing gates; all 19 observed red under
+sabotage; none `unavailable`; 30 tests passed, 0 failed, 0 skipped; active issue
+cap 0 of 3. **A coverage probe, not a Portfolio Management application.**
+
+**Gate-id note:** the CP-21 boundary gate is `PEW-G18` in the shipped numbering
+(it was `PEW-G17` at Gate 1, before `Q2` split the identity invariant and shifted
+the ids); `PEW-G17` is now the covenant-history gate. Both are load-bearing.
+
 Classified under `docs/EXAMPLE-EVALUATION-CRITERIA.md` §B **before
 remediation**. Every measurement was taken against the live estate on
 **2026-09-21** with `CCF_REQUIRE_ESTATE=1`.
@@ -28,6 +38,9 @@ or design consequences.
 ## 2 · SDK friction observed (§K.2)
 
 ### `PEW-F-08` — `compose_debt_factors` names its sequence `children`
+
+**Ruled at `D-GATE-cp-23`: a DX/naming observation ONLY — no combinator rename,
+no widening to `Member`, no new SDK phase.**
 **Category 3 (backlog note). Ruled not to repair.** The combinator implements
 exactly the rule a population needs — per-factor minimum strength, explicitly
 not `max(child D_c)` — but its parameter and docstring speak of *admitted
@@ -37,6 +50,9 @@ and do not open a naming phase. Recorded so the naming is a known cost rather
 than a silent one; a later widening of the docstring would close it.
 
 ### `PEW-F-09` — Gate 0 predicted a low road this rung does not need
+
+**Recorded at `D-GATE-cp-23`: CP-23 proved to be a paved-road rung and the
+low-road guard is NOT added from it.**
 **Category 3, a CORRECTION rather than a defect.**
 `docs/GATE-0-COVERAGE-CP15-24.md` §4.1 names CP-23 *"the first low-road rung"*,
 measured against cp-05's 2,382 lines over five files, and says it would measure
@@ -74,6 +90,10 @@ will meet it, and because a governed refusal is a successful demonstration
 ## 5 · Estate / example limitations (§K.5)
 
 ### `PEW-F-01` — this book cannot show that the ruled debt law differs
+
+**Recorded at `D-GATE-cp-23`: the live book does NOT demonstrate a numerical
+divergence and no such claim is made. Both figures stay visible and the positive
+control is kept.**
 The ruled law (per-factor minimum) and the forbidden one (`max(member D_c)`)
 give **the same number on `BKR019`** — 0.88 — because the member weakest on
 freshness also sits at the completeness floor. **The estate alone therefore
@@ -120,6 +140,10 @@ instead. The gate now asserts the refusal **at its own seam** so the mechanism
 under test is the one observed.
 
 ### `PEW-F-05` — the product address could not prove canonicalization
+
+**Ruled at `D-GATE-cp-23`: payload sorting is NOT evidence of request
+canonicalization; the load-bearing proof reads the effective request from replay
+evidence.**
 The payload sorts its own population, so two orderings give the same content
 address **whether or not the request was canonicalized**. Removing the sort
 left `PEW-G05` green. The gate now reads the canonical `members` out of the
@@ -133,6 +157,11 @@ the subject entirely. The `ABS-F-09` shape, a second time: **a sabotage must
 target the claim the gate makes, not a field the claim mentions.**
 
 ### `PEW-F-06` — the entitlement looked FREE, and the gate caught it
+
+**Corrected denominator recorded at `D-GATE-cp-23`: after caller-request
+narrowing, before role-based entitlement exclusion. Caller narrowing must not
+reduce completeness; role exclusion must remain visible. The gate that caught it
+is preserved.**
 `PEW-G13` found a defect in the **product**, not in a sabotage. The `product`
 role, which sees only facility-covered members, originally reached completeness
 **1.0** and a *lower* `D_c` (0.861) than the `coverage` role's (0.943) — so
