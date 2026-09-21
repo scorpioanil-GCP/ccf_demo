@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE DEMONSTRATION QUESTION and its pinned instant (`CP-SPEC-024` §A.1).
+semver: "1.0.0"
+class_id: cp-24.question
+declaration:
+  question:
+    # BKR019 (Mei Nkosi, role `product`, desk M&A Advisory) — the only book of
+    # the forty carrying ALL TEN signal families. Measured 2026-09-21.
+    subject: "BKR019"
+    intent: stress-test
+    freshness: event-driven
+    asked_at: "2026-08-25T00:00:00+00:00"
+    principal: PRIN-PM-001
+  instants:
+    ASKED_AT: "2026-08-25T00:00:00+00:00"
+  # A second book, for the membership-identity proof (`WIF-G06`).
+  other_book: "BKR001"
+  # Books that exist nowhere, for the no-oracle comparator.
+  nonexistent_books: ["BKR999", "BKR998"]
+  priced_intents: [stress-test, credit-review, what-if]
+
+  # THE DEMONSTRATION SCENARIO, from the requirements' own words: "how does a
+  # 150 bps rise in SOFR impact the DSCR of our commercial real estate
+  # sub-portfolio?" Every magnitude is an INTEGER IN BASIS POINTS (`Q1`).
+  scenario:
+    rate_shift_bp: 150
+    collateral_shift_bp: -1000
+    collateral_class: real_property
+    horizon_months: 12
+  # A SECOND scenario over the same instant and population, for the two
+  # identity limbs: `WIF-G13` (debt identical) and `WIF-G16` (address differs).
+  alternate_scenario:
+    rate_shift_bp: 300
+    collateral_shift_bp: -2000
+    collateral_class: real_property
+    horizon_months: 12
+  # The collateral class the estate carries most of, and the requirements'
+  # own CRE sub-portfolio.
+  stressed_class: real_property
+  # The base rate the shift applies to.
+  base_rate_series: SOFR
