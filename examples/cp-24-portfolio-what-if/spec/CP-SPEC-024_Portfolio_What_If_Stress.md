@@ -7,15 +7,16 @@
   Portfolio Management POC requirements, supplied 2026-09-20) and the CP-24
   definition derived from it in `docs/GATE-0-COVERAGE-CP15-24.md` §4.2.
 
-  NOTHING HERE IS AUTHORIZED TO BE BUILT. Gate 2 is Dave's.
+  GATE 2 GRANTED 2026-09-21: both recommendations accepted. The rulings were
+  folded into this document BEFORE any implementation, per the instruction.
 -->
 
 # Portfolio What-If / Stress — Context Product Specification
 
 **Rung 24 · Postgres (+ the graph watermark) · `cib.portfolio-what-if`**
 
-**Status: GATE 1 — awaiting Dave's ruling. No implementation, no SDK work, no
-`D-IMPL` id spent.**
+**Status: GATE 2 — `Q1` and `Q2` RULED, 2026-09-21. Build authorized, minimal,
+on the paved road as a SIBLING product. No SDK work, no `D-IMPL` id spent.**
 
 ---
 
@@ -140,7 +141,7 @@ payload is labelled as such** (`WIF-G07`).
 | **Obligations** | the sensitivity artifact and the scenario domain bound to `intent`; the impact set bound to the role |
 | **Assembly mode** | governed assembly of the observed population, then deterministic Π arithmetic under the bound assumptions |
 | **Lineage** | observed claims carry source `L`; **assumptions carry none, and that is the separation** |
-| **Declared gates** | §G.1 — 16 gates, `WIF-G01`..`WIF-G16` |
+| **Declared gates** | §G.1 — **17 gates**, `WIF-G01`..`WIF-G17` |
 
 ### B.2 The three impact limbs — the smallest set that proves the shape
 
@@ -178,8 +179,12 @@ scenario:
   required: [rate_shift_bp]
 ```
 
-**EVERY MAGNITUDE IS AN INTEGER IN BASIS POINTS, and that is a measured
-requirement rather than a style choice** (`Q1`, §F.4). Measured 2026-09-21: a
+**EVERY MAGNITUDE IS AN INTEGER IN CANONICAL UNITS — basis points — BY RULING
+(`Q1`, 2026-09-21), and the ruling rests on a measurement rather than a style
+choice.** The request surface **rejects undeclared members, structures deeper
+than the one declared level, and noncanonical fractional forms**; a float is
+**refused, never coerced**. `SkillArgumentMember` is **not widened** and no
+recursive request schema is introduced for this rung. Measured 2026-09-21: a
 JSON fraction such as `0.015` parses to a Python `float`, and the SDK's
 canonicalizer **refuses a float outright** — *"float is not canonically
 encodable (not bit-stable across platforms)"*. Integers and decimal *strings*
@@ -231,11 +236,23 @@ none, and the shifted rate is a **derived** value labelled as
 scenario-conditioned. All three are served, so a reader can see the arithmetic
 rather than a single number of unclear provenance.
 
-**Trap 2 — collateral valuations are up to 320 days old.** An `inventory`
-valuation averaging 320 days is stale evidence, and stressing a stale value
-compounds the staleness. **Binding:** the valuation age travels with every
-stressed figure, and the observed valuation's own freshness continues to drive
-`D_c` exactly as rung 23 established. The scenario does not refresh anything.
+**Trap 2 — STALE EVIDENCE UNDER STRESS. Ruled 2026-09-21, and load-bearing.**
+An `inventory` valuation averaging **320 days** is stale evidence, and stressing
+it yields **a stressed stale valuation** — not a fresh one.
+
+> **A scenario does not refresh its factual inputs.** Carry the original
+> observation's age and freshness into the derived result. **Do not reset
+> `observed_at`, `valid_from`, freshness, TTL or Context Debt merely because
+> arithmetic was applied.** Make it visible in the product and load-bearing in
+> a gate.
+
+**Binding:** every stressed figure carries the observed input's `observed_at`
+and its age in days; the derived value is minted as **no claim at all**, so
+there is no second `observed_at` to drift; the TTL anchor and `D_c` are
+computed from the observed evidence alone. `WIF-G11` proves it, and
+`WIF-G12` proves the negative — that no derived value carries a fresher
+instant than the observation it came from. **No fresher collateral observation
+is manufactured to make the stress result cleaner** (§C.3 trap 5).
 
 **Trap 3 — not every member has collateral or a facility.** 12 of 25 members
 have collateral and 14 have a facility. **Binding:** rung 23's rule, unchanged
@@ -278,7 +295,23 @@ GET /context-products/cib/portfolio-what-if/BKR019
 
 Three operator keys, as rung 23 — there is no ranked corpus.
 
-### D.3 Where the separation lives, and why it is structural
+### D.3 THE GOVERNING FACT/HYPOTHETICAL RULE — load-bearing, ruled 2026-09-21
+
+> **Observed evidence determines Context Debt. Scenario assumptions determine
+> scenario-derived outputs. Scenario assumptions are NEVER evidence.**
+
+Six consequences, each gated:
+
+| # | Consequence | Gate |
+|---|---|---|
+| 1 | scenario magnitudes **never become graph claims** | `WIF-G06` |
+| 2 | assumptions live in the **canonical effective request / replay evidence** | `WIF-G15` |
+| 3 | derived values **explicitly identify which assumption produced them** | `WIF-G07` |
+| 4 | observed **source lineage remains attached to the factual input** | `WIF-G08` |
+| 5 | hypothetical inputs **carry no source lineage pretending they were observed** | `WIF-G06`, `WIF-G08` |
+| 6 | **`D_c` is unchanged when only scenario assumptions change** | **`WIF-G13`, which proves the rule directly** |
+
+### D.3.1 Where the separation lives, and why it is structural
 
 **The assumptions never become claims.** Nothing in the scenario is minted as a
 `SignalEnvelope`; it reaches Π as the effective request, not as graph content.
@@ -379,7 +412,25 @@ the one-level ceiling) · `src/ccf/products/request.py::ProductRequest` ·
 
 ### F.4 — THE QUESTIONS OWED
 
-#### `Q1` — how does a fractional magnitude cross the wire? **(capability)**
+#### `Q1` — RULED 2026-09-21: INTEGER CANONICAL UNITS
+
+> **Dave's ruling.** Scenario magnitudes crossing a CCF boundary use **integer
+> canonical units**. For CP-24: SOFR **+150 bps → `150`**; CRE **−10 % →
+> `-1000`**. **Do not accept bare JSON fractional values and do not add
+> float→Decimal coercion** — the existing refusal of floating-point values as
+> non-bit-stable is **correct behavior**. Domain calculations may convert the
+> canonical integer assumption to `Decimal` internally. **Gate the identity
+> property:** same canonical assumptions → same effective-request identity;
+> changed assumption → changed identity; **equivalent-looking but noncanonical
+> float input → governed refusal, not coercion.** **No SDK parsing change.**
+
+**What this settles.** Route A stands; B and C are closed. Three gates carry
+it and none can satisfy another: `WIF-G15` (same → same), `WIF-G16` (changed →
+changed) and `WIF-G04` (a noncanonical float is **refused**, never coerced or
+rounded). The `Decimal` conversion happens *inside* the arithmetic, never on a
+wire and never in a request.
+
+**The original question, for the record.**
 
 **Measured 2026-09-21, by execution rather than by reading:**
 
@@ -404,7 +455,22 @@ chooses a form.
 
 **Recommendation: A.** Route C is explicitly not recommended.
 
-#### `Q2` — does CP-24 COMPOSE CP-23, or re-assemble the same shape? **(scope)**
+#### `Q2` — RULED 2026-09-21: SIBLING, NOT CHILD
+
+> **Dave's ruling.** Build CP-24 as a **sibling portfolio product** using the
+> authoritative underlying sources and the population shape proven by CP-23.
+> **Do not compose CP-23 as a child** — the new capability under test is
+> explicit hypotheticals, not product composition. **Record duplicated
+> population-reader plumbing as a friction measurement. This is the SECOND
+> instance only.** If a later rung produces a third substantially identical
+> population reader, **measure all three before considering documentation or an
+> SDK abstraction. No abstraction is pre-authorized.**
+
+**What this settles.** Route A stands; B is closed. The duplicated reader is
+measured in `FINDINGS.md` §2 as `WIF-F-01`, counted as instance two of two, and
+nothing is abstracted.
+
+**The original question, for the record.**
 
 Gate 0 allows either: *"CP-23's book context **or its sources**"*. Dave's
 instruction says *reuse CP-23's portfolio population shape*.
@@ -422,26 +488,27 @@ should be said so plainly.**
 
 ## G · Operate and govern
 
-### G.1 Intended product gates — 16
+### G.1 Product gates — 17 (the two standing rules of 2026-09-21 add two)
 
 | id | What it asserts | Red when |
 |---|---|---|
 | `WIF-G01` | the served operator set is the class's declaration and the executed plan runs Policy first | a key is dropped or reordered |
-| `WIF-G02` | the `scenario` is a CLOSED object: an undeclared member is refused, and a third level is not expressible | the object is opened, or nesting is admitted |
-| `WIF-G03` | a magnitude outside its declared domain is refused by name; the refusal is a request-contract violation, not a policy one | the domain is widened |
-| `WIF-G04` | **a JSON fraction is refused** rather than silently rounded — the float path never yields an address | a float reaches canonicalization and succeeds |
+| `WIF-G02` | the `scenario` is a CLOSED object: an undeclared member is refused, and a structure deeper than the one declared level is not representable | the object is opened, or nesting is admitted |
+| `WIF-G03` | a magnitude outside its declared domain is refused by name, as a request-contract violation rather than a policy one | the domain is widened |
+| `WIF-G04` | **a noncanonical fractional form is REFUSED, never coerced or rounded** — the float path never yields an address | a float is coerced, or reaches canonicalization and succeeds |
 | `WIF-G05` | the scenario crosses a DOOR and the product served over it is byte-identical to the in-process one | the door drops or mangles a scenario member |
-| `WIF-G06` | **no claim in the served view carries a scenario magnitude** — the assumptions never entered the fabric | a scenario value is minted as a claim |
-| `WIF-G07` | every scenario-derived measure is labelled `basis: scenario` and names the assumption it used | a derived measure is served unlabelled |
-| `WIF-G08` | every stressed figure is served beside the OBSERVED figure it came from, and the observed one carries source lineage | a stressed figure is served alone |
-| `WIF-G09` | the base rate is an observed claim at `as_of`, and the shifted rate is derived from it and the shift — all three served | the shifted rate is served as if observed |
-| `WIF-G10` | the collateral shift applies only to the named asset class; other classes are unchanged | the shift leaks across classes |
-| `WIF-G11` | a stressed collateral figure carries its valuation age | the staleness of the observed input is lost |
-| `WIF-G12` | the coverage roll-up names WHICH members cross the floor, not only how many | the roll-up is a bare count |
-| `WIF-G13` | `D_c` measures the OBSERVED evidence and is unchanged by the scenario — two scenarios over one instant give identical debt | the assumptions move the debt |
-| `WIF-G14` | CP-21's regulatory inputs are named nowhere in the tree | `limit_definition`, `bank_capital` or `connection_basis` appears |
-| `WIF-G15` | the same scenario at the same instant replays to the same content address | any input is re-derived rather than resolved |
-| `WIF-G16` | a DIFFERENT scenario over identical observed facts is a DIFFERENT determination — so `WIF-G15` cannot be met by ignoring the scenario | the scenario stops reaching the address |
+| `WIF-G06` | **no claim in the served view carries a scenario magnitude** — the assumptions never entered the fabric, and no hypothetical carries source lineage pretending it was observed | a scenario value is minted as a claim |
+| `WIF-G07` | every scenario-derived measure is labelled `basis: scenario` and **names the assumption that produced it** | a derived measure is served unlabelled or unattributed |
+| `WIF-G08` | every stressed figure is served beside the OBSERVED figure it came from; the observed one carries source lineage and the assumption carries none | a stressed figure is served alone, or the two provenances become indistinguishable |
+| `WIF-G09` | the base rate is an observed claim at `as_of`, the shift is an assumption, and the shifted rate is derived from both — all three served | the shifted rate is served as if observed |
+| `WIF-G10` | the collateral shift applies ONLY to the named asset class; other classes are unchanged | the shift leaks across classes |
+| `WIF-G11` | **LOAD-BEARING: a scenario does not refresh its factual inputs.** Every stressed figure carries its observation's `observed_at` and age, and a stressed stale valuation is still stale | the observed instant or age is dropped from the derived result |
+| `WIF-G12` | **and nothing is RESET by arithmetic**: no derived value carries a fresher instant than its observation, and the TTL anchor and `D_c` are computed from the observed evidence alone | `observed_at`, `valid_from`, freshness, TTL or debt moves because a calculation ran |
+| `WIF-G13` | **THE GOVERNING RULE, PROVED DIRECTLY: `D_c` is identical for two different scenarios over the same instant and population.** Observed evidence determines debt; assumptions never do | the assumptions move the debt |
+| `WIF-G14` | the coverage roll-up names WHICH members cross the floor, not only how many | the roll-up is a bare count |
+| `WIF-G15` | the same canonical assumptions at the same instant replay to the same effective request and the same content address | any input is re-derived rather than resolved |
+| `WIF-G16` | a CHANGED assumption is a CHANGED determination — so `WIF-G15` cannot be met by ignoring the scenario | the scenario stops reaching the address |
+| `WIF-G17` | CP-21's regulatory inputs are named nowhere in the tree | `limit_definition`, `bank_capital` or `connection_basis` appears |
 
 **One is at risk of coming back `unavailable`**, named now: `WIF-G01`'s
 ordering limb, because `CATEGORY_ORDER` has made the forbidden order
@@ -475,9 +542,14 @@ hypotheticals apart.
   Five traps recorded with bindings.
 - **Scope held to a probe** (§0.3): three impact limbs, no model, no
   prediction, no sandbox, no sweep.
-- **Intended gates:** 16, one flagged as at risk of `unavailable`.
-- **Owed:** **one capability question** (`Q1`, the wire form — recommend
-  integers in basis points; explicitly do *not* change SDK parsing) and **one
-  scope decision** (`Q2`, sibling or child — recommend sibling, and say plainly
-  that the child route is a materially larger rung).
-- **Not started:** no implementation, no SDK work, no `D-IMPL` id spent.
+- **Intended gates:** 17, one flagged as at risk of `unavailable`; if a
+  predicted sabotage is structurally impossible the guard is named and the
+  mechanism is NOT weakened to manufacture a red.
+- **Ruled 2026-09-21:** `Q1` — integer canonical units (basis points); a
+  noncanonical float is refused, never coerced; no SDK parsing change. `Q2` —
+  **sibling, not child**; the duplicated population reader is a friction
+  measurement, **second instance only**, and no abstraction is pre-authorized.
+- **Two standing rules made load-bearing:** the governing fact/hypothetical
+  rule (§D.3) and stale-evidence-under-stress (§C.3 trap 2).
+- **Authorized:** Gate 2, minimal build on the paved road. No SDK work, no
+  `D-IMPL` id spent.
