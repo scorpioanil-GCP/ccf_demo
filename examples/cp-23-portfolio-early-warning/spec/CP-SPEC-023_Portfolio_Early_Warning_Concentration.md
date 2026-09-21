@@ -7,15 +7,16 @@
   of Dave's `cbcib` Portfolio Management POC, supplied 2026-09-20, and the
   CP-23 definition derived from it in `docs/GATE-0-COVERAGE-CP15-24.md` §4.2.
 
-  NOTHING HERE IS AUTHORIZED TO BE BUILT. Gate 2 is Dave's.
+  GATE 2 GRANTED 2026-09-21 with Q1 and Q2 ruled. Both rulings were folded
+  into this document BEFORE any implementation, per Dave's instruction.
 -->
 
 # Portfolio Early-Warning / Concentration — Context Product Specification
 
 **Rung 23 · Postgres (+ the graph watermark) · `cib.portfolio-early-warning`**
 
-**Status: GATE 1 — awaiting Dave's ruling. No implementation, no SDK work, no
-`D-IMPL` id spent.**
+**Status: GATE 2 — `Q1` and `Q2` RULED, 2026-09-21. Build authorized, minimal,
+on the paved road. No SDK work, no `D-IMPL` id spent.**
 
 ---
 
@@ -165,7 +166,7 @@ book. The subject is the book; the perspective is the caller's.
 | **Obligations** | severity tiers and the concentration threshold bound to `intent`; the member set bounded by the caller's role |
 | **Assembly mode** | governed assembly at book grain; per-member acquisition, aggregated before Π |
 | **Lineage** | the SDK's served operator plan; `graph_snapshot_at`; `policy_version`; one lineage entry per member |
-| **Declared gates** | §G.1 — 18 gates, `PEW-G01`..`PEW-G18` |
+| **Declared gates** | §G.1 — **19 gates**, `PEW-G01`..`PEW-G19` plus `PEW-G06` |
 
 ### B.2 The four limbs, and what each demonstrates
 
@@ -230,9 +231,15 @@ Measured in `BKR019`'s book at the pinned instant `2026-08-25`:
 | `spread_widening` | 15 | 8 | 2026-07-05 | **51** |
 | `warn_notice` | 2 | 1 | 2026-07-03 | **53** |
 
+**RULED 2026-09-21 — per-class freshness is preserved and never averaged.**
+The product uses the measured class-specific ages and `λ` behavior rather than
+collapsing the book into one average that can hide a stale class, and it must
+make it possible to **see which required signal class is weak or stale**. **No
+single portfolio freshness timestamp is manufactured.**
+
 **The spread is the point.** A per-class `λ_c` table makes these five decay at
 different rates, so the book's freshness factor is driven by *which* classes a
-member has — and `PEW-G09` asserts that two members with different class mixes
+member has — and `PEW-G10` asserts that two members with different class mixes
 get different freshness, never a book-wide average.
 
 ### C.3 The data traps, each with the binding chosen
@@ -246,7 +253,10 @@ Q16 resolution — membership as an **entity attribute on the member claim**, no
 an edge, so per-member supersession reaches the invalidation register — is
 adopted unchanged.
 
-**Trap 2 — the estate's only two covenant breaches are both CURED.**
+**Trap 2 — the estate's only two covenant breaches are both CURED. RULED
+2026-09-21: preserve zero active AND two historical/cured; do not drop the
+covenant member merely because current active pressure is zero — it is a useful
+proof that zero current state is not absent history.**
 `compliant_today = True` on both; breach dates 2025-04-15 and 2025-05-27, cured
 2025-06-06 and 2025-07-18. So **active covenant pressure in this book is
 genuinely zero**, and the two historical breaches are real evidence of past
@@ -269,7 +279,11 @@ members and carry their signal and concentration measures; the product states
 the facility-covered count. Dropping them would make the book's utilization
 look like the whole book's.
 
-**Trap 5 — `concentration_limit` is a TREASURY limit, not a credit one.** Its
+**Trap 5 — `concentration_limit` is a TREASURY limit, not a credit one. RULED
+2026-09-21: CP-23 must NOT implement CP-21's regulatory large-exposure
+arithmetic; `PEW-G18` remains load-bearing, and any touch of `limit_definition`,
+`bank_capital` or `connection_basis` in the CP-23 calculation is a failure of
+scope separation. Book concentration may use CP-23's declared threshold only.** Its
 intents are `reserve-buffer` and `short-term-investment` and it is keyed
 holder → counterparty; that is cp-09's deposit concentration. **Binding:**
 CP-23's concentration limb is **book concentration by SIC sector and by
@@ -316,7 +330,7 @@ than against a fixed four.
 
 **Step 3 is the fan-out.** 25 members × four limbs. The member reads are
 batched per limb rather than looped per member, and what acquisition
-materialized is a served fact (`PEW-G13`) — the cp-16 discipline, reused.
+materialized is a served fact (`PEW-G14`) — the cp-16 discipline, reused.
 
 **Step 6 carries (b).** Each member yields its own `DebtFactors`; the book's
 are the **per-factor minimum** across members. The SDK's own composition rule
@@ -368,7 +382,7 @@ anchor it is not answerable — and rung 16 measured what happens when an
 evidence anchor has nothing to anchor on: a `ttl-anchor-unresolvable` refusal
 (`ABS-F-10`). **Binding:** expiry is anchored on the decision, and the
 *evidence's* age is carried where it belongs, in the per-class freshness and
-in `D_c`. `PEW-G10` asserts the two are not confused.
+in `D_c`. `PEW-G11` asserts the two are not confused.
 
 ### E.2 Debt
 
@@ -409,6 +423,12 @@ measure. **Read against the tree on 2026-09-21, that does not hold:**
 - `ProductRequest.subject` is opaque (proven at cp-18), so a book id is a legal
   subject and `open_product` needs no widening.
 
+**RULED 2026-09-21: CP-23 stays on the paved road. The paved resolver already
+threads `ExecutionResult.touched_entities` from the composed view into the gate
+sequence, so the low-road `touched_entities=None` hazard is not exercised here,
+and the `Q12(b)`/A10 guard is NOT to be added merely because Gate 0 predicted a
+low-road rung. The Gate-0 correction is recorded.**
+
 **Therefore CP-23 is a paved-road rung, A10 does not arise from it, and the
 `Q12(b)` guard question is not triggered here.** A10 remains open for a
 genuinely hand-built low-road caller; this rung is not one. **This is a Gate-1
@@ -437,7 +457,26 @@ Every one resolves. None is invented.
 
 ### F.4 — THE TWO GENUINELY NEW CAPABILITY QUESTIONS
 
-#### `Q1` — may `compose_debt_factors` be called with MEMBERS rather than children?
+#### `Q1` — RULED 2026-09-21: YES, use the existing combinator
+
+> **Dave's ruling.** Use the existing SDK `compose_debt_factors` for the
+> portfolio members. **The governing semantic is the `D-IMPL-104` worst-factor
+> composition rule: for each debt factor, compose the minimum strength across
+> the population; do not compute `max(member D_c)` and do not invent another
+> portfolio debt law.** Record that the API's child-oriented naming is friction
+> when applied to population members. **Do not** copy or re-implement the
+> combinator, **do not** widen the SDK type or vocabulary to `Member`, and
+> **do not** open an SDK phase for naming. The resulting product must make
+> population debt **understandable by factor**, so a weak class or member
+> cannot disappear behind a stronger aggregate.
+
+**What this settles.** Route A stands; routes B and C are closed. The
+deployment calls the SDK's combinator with each member's `DebtFactors`, and
+`PEW-G12` asserts the per-factor minimum AND names the member each weak factor
+came from — the *understandable by factor* requirement is the gate, not a
+description. The naming friction is recorded as a finding, not repaired.
+
+**The original question, for the record.**
 
 **The measurement.** `src/ccf/halflife/debt.py::compose_debt_factors(own, children)`
 takes `children: Sequence[DebtFactors]` and returns the **per-factor minimum
@@ -458,7 +497,24 @@ members of a population. The arithmetic is identical; the vocabulary is not.
 **Recommendation: A**, with the naming recorded as a friction finding rather
 than repaired in this rung.
 
-#### `Q2` — is a member set's ORDER part of the determination's identity?
+#### `Q2` — RULED 2026-09-21: the DEPLOYMENT canonicalizes
+
+> **Dave's ruling.** The deployment owns canonicalization, because CP-23 knows
+> its portfolio membership is **semantically a set**. Before constructing the
+> effective request: **canonicalize the member list deterministically, and use
+> that canonical order consistently for assembly and identity.** Prove that
+> `[A,B,C]` and `[C,B,A]` for the same membership yield the **same** effective
+> determination and product identity after deployment normalization; and prove
+> that **actually changing membership changes identity**. **Do not change SDK
+> list canonicalization globally.**
+
+**What this settles.** Route A stands; routes B and C are closed. Two gates
+carry it and neither can satisfy the other: `PEW-G05` proves order-invariance
+(two orderings, one address) and `PEW-G06` proves the converse — a genuinely
+different membership is a different address — so a canonicalization that
+collapsed *everything* to one address would fail the second.
+
+**The original question, for the record.**
 
 **The measurement.** Array parameter order **is** identity today: a
 `ProductRequest` carrying `members: ["A","B","C"]` and one carrying
@@ -485,7 +541,7 @@ defensible and changing it reaches every rung.
 
 ## G · Operate and govern
 
-### G.1 Intended product gates — 18
+### G.1 Product gates — 19 (`Q2` splits the identity invariant into `PEW-G05`/`PEW-G06`)
 
 | id | What it asserts | Red when |
 |---|---|---|
@@ -493,20 +549,21 @@ defensible and changing it reaches every rung.
 | `PEW-G02` | every served member belongs to the subject's book; a member outside it is refused `not-in-book`, never dropped | a foreign member is served or silently removed |
 | `PEW-G03` | the book is served at **population grain** — the member count is a served fact and the measures are set properties | a single-member answer would satisfy the payload |
 | `PEW-G04` | `members` narrows and never widens; the effective population is the intersection with the book | the parameter can add a member |
-| `PEW-G05` | **two orderings of the same member set are ONE determination** (per `Q2` route A) | the canonicalization is removed |
-| `PEW-G06` | three roles over one book give three different member sets or measure sets from the same question | one role's answer is served to another |
-| `PEW-G07` | the severity tier of every signal names the Control Plane artifact version that assigned it | a tier is hard-coded |
-| `PEW-G08` | `severity_floor` may only be RAISED above the artifact's; a lower floor is refused by name | the floor can be lowered |
-| `PEW-G09` | two members with different signal-class mixes get different freshness — the book is not an average | freshness is computed book-wide |
-| `PEW-G10` | expiry is anchored on the DECISION and the evidence's age lives in `D_c`, not in the TTL | the TTL is re-anchored on evidence |
-| `PEW-G11` | the book's debt is the **per-factor minimum** across members and names the member each weak factor came from | `max(member D_c)` is substituted |
-| `PEW-G12` | a member the role excluded still counts against completeness | the entitlement is made to look free |
-| `PEW-G13` | what acquisition materialized is a served fact and tracks the member count, not the estate | the count tracks the population |
-| `PEW-G14` | utilization is computed from observed drawdowns; a facility with no drawdown is zero **with its drawdown count** | undrawn and unobserved become indistinguishable |
-| `PEW-G15` | members with no facility remain members, and the facility-covered count is stated | they are dropped from the book |
-| `PEW-G16` | covenant pressure states zero active AND two historical-and-cured; the member is never omitted | the member is dropped when empty |
-| `PEW-G17` | concentration is computed against the declared threshold artifact and touches no regulatory large-exposure input | `limit_definition` or `bank_capital` is read |
-| `PEW-G18` | replay reconstructs the determination with no second producer call; the same book, instant and role hash to the same bytes | any input is re-derived |
+| `PEW-G05` | **two orderings of the same member set are ONE determination** — `[A,B,C]` and `[C,B,A]` yield the same effective request and the same content address | the deployment's canonicalization is removed |
+| `PEW-G06` | and the CONVERSE — a genuinely different membership is a **different** determination, so `PEW-G05` cannot be satisfied by collapsing everything | membership stops reaching the address |
+| `PEW-G07` | three roles over one book give three different member sets or measure sets from the same question | one role's answer is served to another |
+| `PEW-G08` | the severity tier of every signal names the Control Plane artifact version that assigned it | a tier is hard-coded |
+| `PEW-G09` | `severity_floor` may only be RAISED above the artifact's; a lower floor is refused by name | the floor can be lowered |
+| `PEW-G10` | two members with different signal-class mixes get different freshness, and the payload names **which signal class is weakest** — the book is not an average and no single portfolio freshness timestamp is minted | freshness is computed book-wide, or the weak class is not identifiable |
+| `PEW-G11` | expiry is anchored on the DECISION and the evidence's age lives in `D_c`, not in the TTL | the TTL is re-anchored on evidence |
+| `PEW-G12` | the book's debt is the SDK combinator's **per-factor minimum** across members, and the payload names the member each weak factor came from — population debt is **understandable by factor**, so a weak member cannot disappear behind a stronger aggregate | `max(member D_c)` is substituted, the combinator is re-implemented, or the weak member is not identifiable |
+| `PEW-G13` | a member the role excluded still counts against completeness | the entitlement is made to look free |
+| `PEW-G14` | what acquisition materialized is a served fact and tracks the member count, not the estate | the count tracks the population |
+| `PEW-G15` | utilization is computed from observed drawdowns; a facility with no drawdown is zero **with its drawdown count** | undrawn and unobserved become indistinguishable |
+| `PEW-G16` | members with no facility remain members, and the facility-covered count is stated | they are dropped from the book |
+| `PEW-G17` | covenant pressure states zero active AND two historical-and-cured; the member is never omitted | the member is dropped when empty |
+| `PEW-G18` | concentration is computed against the declared threshold artifact and touches no regulatory large-exposure input | `limit_definition` or `bank_capital` is read |
+| `PEW-G19` | replay reconstructs the determination with no second producer call; the same book, instant and role hash to the same bytes | any input is re-derived |
 
 **Two are at risk of coming back `unavailable`**, named now rather than
 discovered at close: `PEW-G01`, because `CATEGORY_ORDER` may again make the bad
@@ -537,8 +594,13 @@ book grain.
   bindings.
 - **Scope held to a probe** (§0.3): four limbs, not the requirements' six
   pillars; no regulatory large-exposure arithmetic, which is CP-21's.
-- **Intended gates:** 18, two flagged as at risk of `unavailable`.
-- **Owed:** **two rulings** — `Q1` (may `compose_debt_factors` take members;
-  recommend **A**, call it) and `Q2` (is member order identity; recommend
-  **A**, the deployment sorts).
-- **Not started:** no implementation, no SDK work, no `D-IMPL` id spent.
+- **Gates:** 19 intended, two flagged as at risk of `unavailable` — and if a
+  predicted sabotage is impossible because the SDK makes the forbidden state
+  inexpressible, it is marked `unavailable` with its guard named and **the
+  mechanism is not weakened to manufacture a red**.
+- **Ruled:** `Q1` — use the SDK's `compose_debt_factors` under the
+  `D-IMPL-104` worst-factor rule; naming friction recorded, not repaired.
+  `Q2` — the deployment canonicalizes; SDK list canonicalization is not
+  changed globally.
+- **Authorized:** Gate 2, minimal build on the paved road. No SDK work, no
+  `D-IMPL` id spent.
