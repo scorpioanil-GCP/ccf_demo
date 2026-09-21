@@ -35,6 +35,7 @@ declaration:
       result: >-
         not run as a sabotage — UNAVAILABLE. Measured 2026-09-20: the four operator keys were reordered in `ccf_config.yaml` to put Similarity first and Policy last, and the SERVED order did not move (the test passed unchanged). `CATEGORY_ORDER` in the SDK's planner decides the executed order, so a deployment cannot express the forbidden order at all.
       date: '2026-09-20'
+      commit: d87ba413
   - id: ATM-G02
     statement: classification containment — no served item carries a classification outside the product's declared vocabulary
     spec_clause:
@@ -47,6 +48,7 @@ declaration:
       result: >-
         RED 2026-09-20 — `source-vocabulary.yaml` assigned `party-secret` to the party class and `ccf_config.yaml` admitted that label at the Policy operator, so an out-of-vocabulary item reached the product. The DECLARED GATE refused it: `an invariant the product class declares does not hold for this product`.
       date: '2026-09-20'
+      commit: d87ba413
   - id: ATM-G03
     statement: disposition containment — every candidate falls inside the permitted set the posture computed
     spec_clause:
@@ -59,6 +61,7 @@ declaration:
       result: >-
         RED 2026-09-20 — Π generated the candidate list from a fixed pair instead of from the permitted set. The declared gate refused the product: `an invariant the product class declares does not hold for this product`.
       date: '2026-09-20'
+      commit: d87ba413
   - id: ATM-G04
     statement: a candidate outside the permitted set refuses the product BY NAME rather than being filtered
     spec_clause:
@@ -71,6 +74,7 @@ declaration:
       result: >-
         RED by construction, run 2026-09-20 — the test injects the disposition the OTHER posture permits and this one does not, measured from two live answers, and asserts the refusal: `product-invariant-refusal` naming `cp-19.dispositions-hold`, with the record's `assembly_refusal` naming the disposition and `ATM-G03`.
       date: '2026-09-20'
+      commit: d87ba413
   - id: ATM-G05
     statement: one alert at two as_of values yields two permitted sets, and TYP-STRUCT/close-no-action is in the earlier and not the later
     spec_clause:
@@ -83,6 +87,7 @@ declaration:
       result: >-
         RED 2026-09-20 — `posture_at` was made to ignore its `at` argument and take the latest effective posture. The two instants stopped differing: `AssertionError: ({'escalate-l2'}, {'escalate-l2'})`.
       date: '2026-09-20'
+      commit: d87ba413
   - id: ATM-G06
     statement: the posture pinned on the served product is the one effective at as_of, not the latest
     spec_clause:
@@ -95,6 +100,7 @@ declaration:
       result: >-
         RED 2026-09-20 — the same mutation. The served posture stopped tracking `as_of`: `AssertionError: ({'effective_from': '2026-01-15', 'posture_id': 'POST-2026-01'}, {'effective_from': '2026-01-15', 'posture_id': 'POST-2026-01'})` — one posture for both.
       date: '2026-09-20'
+      commit: d87ba413
   - id: ATM-G07
     statement: each perspective's member set equals its declared shape, for every alert
     spec_clause:
@@ -107,6 +113,7 @@ declaration:
       result: >-
         RED 2026-09-20 — Π emitted one extra member (`sabotage_extra_member`) for every perspective. The declared gate refused the product before the test's own comparison was reached.
       date: '2026-09-20'
+      commit: d87ba413
   - id: ATM-G08
     statement: the member set is a function of the perspective and never of the alert
     spec_clause:
@@ -120,6 +127,7 @@ declaration:
       result: >-
         RED 2026-09-20 — with empty members dropped, the two alerts gave one perspective two shapes and the declared gate refused the product. The first attempt at this sabotage left the gate GREEN and was recorded as a defect in the proof machinery, not in the product: see `ATM-F-07`.
       date: '2026-09-20'
+      commit: d87ba413
   - id: ATM-G09
     statement: l1 receives no member, count or marker indicating a SAR exists
     spec_clause:
@@ -133,6 +141,7 @@ declaration:
       result: >-
         RED 2026-09-20 — with the plan element appended, the audience filter bypassed and the member declared, the SAR reached l1 and the test failed on l1's member set. Breaking the audience filter ALONE left the gate green (measured first), because l1's estate plan does not carry the class: the silence is doubly enforced. Recorded as `ATM-F-08`.
       date: '2026-09-20'
+      commit: d87ba413
   - id: ATM-G10
     statement: a confidential SAR is invisible to l2 and visible to examiner
     spec_clause:
@@ -145,6 +154,7 @@ declaration:
       result: >-
         RED 2026-09-20 — the departmental audience filter was bypassed so every classification was visible to every perspective. The confidential SAR reached l2 and the declared gate refused the product on its SAR-visibility predicate.
       date: '2026-09-20'
+      commit: d87ba413
   - id: ATM-G11
     statement: constrained-resident party detail is admitted only to a principal holding the declared entitlement
     spec_clause:
@@ -157,6 +167,7 @@ declaration:
       result: >-
         RED 2026-09-20 — the residency check was removed from `_records`, admitting constrained residents regardless of the entitlement. 60 of the 200 network parties are constrained residents (measured), and the first reached the product: `('l2', 'counterparty_network', {'party_id': 'AMLP-0001', ... 'jurisdiction': 'FRA' ...})`.
       date: '2026-09-20'
+      commit: d87ba413
   - id: ATM-G12
     statement: every typology match carries a resolvable advisory passage
     spec_clause:
@@ -169,6 +180,7 @@ declaration:
       result: >-
         RED 2026-09-20 — the Similarity floor was raised from 1 to 2, which the corpus measurement says removes every passage the demonstration alert's typology anchors. `AssertionError: the reasoning trail carries no advisory passage`.
       date: '2026-09-20'
+      commit: d87ba413
   - id: ATM-G13
     statement: replay reconstructs the posture, the plan and the passages the determination rested on
     spec_clause:
@@ -181,6 +193,7 @@ declaration:
       result: >-
         RED by construction, run 2026-09-20 — the companion test replays the same record with `as_of` moved across the posture boundary and the engine raises `ReplayDivergence`; the un-sabotaged replay of the same record still agrees byte for byte.
       date: '2026-09-20'
+      commit: d87ba413
   - id: ATM-G14
     statement: an alert whose admissible content Policy removes entirely is indistinguishable from a nonexistent alert id, at both measured tolerances
     spec_clause:
@@ -193,3 +206,4 @@ declaration:
       result: >-
         RED by construction, run 2026-09-20 — the test relabels every acquired claim out of the Policy vocabulary and compares the emptied alert's vessel with a nonexistent alert's path for path; two different nonexistent ids hash identically, and a normally served answer differs from both at `payload` and at `computed_empty`.
       date: '2026-09-20'
+      commit: d87ba413
