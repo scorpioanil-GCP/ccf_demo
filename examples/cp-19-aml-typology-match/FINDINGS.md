@@ -11,11 +11,12 @@ mixed. Measured passes, expected failures and sabotage outcomes are reported
 separately from each other and from the count of declared gates.
 
 **Measured at close (2026-09-20, live estate, `CCF_REQUIRE_ESTATE=1`):**
-15 gate tests **passed**, 0 failed, 2 **xfailed** (strict; each names the
-finding it keeps executable), 0 skipped, in three modules under
+17 tests **passed**, 0 failed, 2 **xfailed** (strict; each names the finding
+it keeps executable), 0 skipped, in four modules under
 `tests/examples/test_cp_19_*.py`. 14 gates declared, 14 claimed by an
-executing test. Thirteen of the fourteen were observed RED under their own
-sabotage; `ATM-G01` is `unavailable` with its guard named.
+executing test; the remaining two passing tests exercise the doors and claim
+no gate (`ATM-F-14`). Thirteen of the fourteen gates were observed RED under
+their own sabotage; `ATM-G01` is `unavailable` with its guard named.
 
 **Active SDK issue cap: 0 of 3.** No launch blocker, no missing AML-required
 capability, no incorrect SDK behavior and no security or governance defect
@@ -35,7 +36,7 @@ not charging a new one.
 | refuse correctly, as data, with a replay reference | the forbidden disposition, the unmapped perspective, the tolerance — each a `RefusalEnvelope` with a record (`ATM-G04`) |
 | preserve sufficient refusal evidence | the declared gate's breach names the disposition and the gate clause in `assembly_refusal` (`ATM-G04`) |
 | replay and reconstruct | the three adjudications rebuild byte for byte with the posture that governed, the perspective's shape and the advisory passages; a replay handed a different posture instant diverges (`ATM-G13`) — with the two recorded gaps in §4 |
-| local and remote producer boundaries | in-process, the standard MCP door and the HTTP door over one opened product |
+| local and remote producer boundaries | in-process, the standard MCP door and the HTTP door over ONE opened product, measured: four credentials through the MCP door give three perspectives, three addresses and three shapes with the fourth refused, and the HTTP door's bytes for a perspective's own role are identical to the MCP door's (`ATM-F-14`) |
 | prevent identity masquerading | the request surface carries no `perspective`; the resolver proposes and the entitlement source decides |
 
 First on the ladder at this rung: **a bound computed before the thing it
@@ -161,6 +162,7 @@ that pending decision and not a new charge against the cap.
 | `ATM-F-10` | **`CP17-F-08`, second instance.** A computed-empty serve cannot be rehydrated through the public replay seam: `ContentGenerationPath` carries no `computed_empty`, so `replay()` raises `ReplayDivergence` on the nonexistent-alert serve at tolerance 1.0. Measured here with the same cause and a different tree. | §B.1-shaped, raised for a decision by CP-17 | not repaired; kept executable as a strict xfail. This rung's contribution is that it is not tree-specific |
 | `ATM-F-11` | **`CP17-F-09`, second instance.** A refusal recorded at the acquisition seam on a fresh Control Plane cannot be replayed: its dimension-2 bindings pin the request-contract version the resolver registers only on the served path. `ReplayUnresolvable` names the exact artifact key. | §B.1-shaped, raised for a decision by CP-17 | not repaired; kept executable as a strict xfail |
 | `ATM-F-12` | The replay environment is hand-assembled in the tests (~70 lines, one private reach — `GovernedResolver._operator_parameters`). `CP06C-F-01` / `CP17-F-06`, third instance. | §B.3 carried | carried; the tree itself reaches no private symbol |
+| `ATM-F-14` | **The specification declares no door gate.** `CP-SPEC-019` §G.1 declares fourteen gates, all of them about the product; the tree nonetheless ships a standard MCP door and an HTTP door, because the estate holds four credentials and the perspective is the door's. A shipped door that nothing opens passes every test there is (`D-IMPL-324`). Two tests in `tests/examples/test_cp_19_door.py` therefore exercise both doors and **claim no gate**: three credentials receive three perspectives, three addresses and three shapes; the ungranted fourth is refused with the minimal shell and a replay reference, and the wire shell names neither the principal, nor `no-projection-plan`, nor the unmapped perspective; over HTTP a requested perspective outside the grant is refused with the same shell rather than downgraded, and the same credential asking for its own role receives bytes identical to the MCP door's. | §B.4 spec gap, surfaced not resolved | the gate roster is the specification's and was not widened to suit the tree; the measurement is kept executable instead |
 | `ATM-F-13` | The posture bound (`posture_at`, `permitted_dispositions`, 47 / 46 lines) is a *second* envelope pattern in this tree, keyed on `as_of` rather than on the credential. It is not A2 and is counted apart in §2 so the A2 figures are not inflated by it. | measurement hygiene | recorded |
 
 ## 5 · Estate / example limitations (§B.4)
@@ -207,6 +209,25 @@ rely on:** any statement about what was withheld (none is made); a sanctions
 screening result (none exists in the estate); replay of a computed-empty
 serve or of a seam refusal asked first of a fresh product (`ATM-F-10`,
 `ATM-F-11`); the freshness factor as a per-class number (`ATM-F-04`).
+
+## The doors, measured
+
+Not a gate, and recorded here because the tree ships them
+(`ATM-F-14`). Four credentials, one standard MCP door, one question, one
+instant:
+
+| credential | outcome |
+|---|---|
+| the L1 analyst | served; `sar_filing_history` absent from its shape |
+| the L2 reviewer | served; a different address and a different shape |
+| the examiner | served; a third address and the largest shape |
+| the recognized credential with no grant | refused, `subject-unavailable` at `minimal` disclosure, with a replay reference and no mention of the principal, the missing plan or the unmapped perspective |
+
+Over HTTP, against the same opened product: the L1 analyst requesting the
+examiner's perspective is refused 404 with the same minimal shell and the
+refusal does not echo the role it refused; the same analyst requesting its own
+role is served 200 with bytes identical to the MCP door's; an unrecognized
+credential is 401 `unauthenticated`.
 
 ## Sabotage record
 

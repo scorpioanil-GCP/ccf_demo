@@ -14,6 +14,7 @@
 - **Residency as a formative constraint** (`ATM-G11`): a constrained resident's detail is admitted only under the declared entitlement, and no perspective in this deployment holds it — 60 of the 200 parties in the demonstration alert's network are removed before anything ranks or walks.
 - **Every claim anchored** (`ATM-G12`): each typology match the examiner reads is anchored to an advisory passage carrying its document and advisory number.
 - **Replay, and the existence oracle closed** (`ATM-G13`, `ATM-G14`): each adjudication rebuilds byte for byte from its own record with the posture that governed; an alert whose admissible content Policy removes entirely is indistinguishable from an alert id that was never issued.
+- **Four credentials, one door** (no declared gate; see `ATM-F-14`): three grants receive three perspectives and three content addresses through the standard MCP door, and the fourth is refused with the minimal shell. Over HTTP a caller may request a perspective, and one outside its grant is refused rather than downgraded.
 
 ## Run it
 
@@ -80,7 +81,7 @@ One projection plan branches on the perspective. The L1 analyst's product carrie
 | `produce.py` | the paved producer road — two marker regions and nothing domain-specific |
 | `server/serve.py` | the standard door with its three typed overrides, and the HTTP door over the same opened product |
 | `run.py` | presentation only; the one module that writes to a terminal |
-| `FINDINGS.md` | what this rung measured about the SDK, classified under `docs/EXAMPLE-EVALUATION-CRITERIA.md` |
+| `FINDINGS.md` | what this rung measured about the SDK, classified under `docs/EXAMPLE-EVALUATION-CRITERIA.md`, including the mandatory A2 third-instance measurement |
 
 ## What to change first to adapt it
 
