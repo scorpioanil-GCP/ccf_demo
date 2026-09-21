@@ -33,7 +33,9 @@ from ccf.artifacts.protocol import (
     ArtifactNotFound,
     ArtifactRef,
     ArtifactUriUnresolvable,
+    MalformedContentAddress,
     artifact_uri,
+    held_content_address,
     parse_artifact_uri,
 )
 from ccf.contracts.canonical import canonical_bytes, content_hash
@@ -65,7 +67,15 @@ class FileArtifactStore:
         return self._root
 
     def _path(self, content_address: str) -> Path:
-        return self._root / content_address
+        """The file one content address names, and no other path.
+
+        ``held_content_address`` runs FIRST, so the join below can only ever
+        produce a child of the root: a 64-character hex string contains no
+        separator, no ``..`` and no leading ``/`` (``D-IMPL-345`` `S-02`).
+        Before it, this method was a path join over caller input, and the
+        store read whatever the filesystem would give it.
+        """
+        return self._root / held_content_address(content_address)
 
     # --- the naming index (D-IMPL-26) --------------------------------------
     #
@@ -206,5 +216,16 @@ class FileArtifactStore:
             raise ArtifactNotFound(content_address) from None
 
     def exists(self, *, content_address: str) -> bool:
-        """Whether an artifact is stored at ``content_address``."""
-        return self._path(content_address).is_file()
+        """Whether an artifact is stored at ``content_address``.
+
+        A string that is not a content address answers ``False`` rather than
+        raising: this is a boolean question and *no* is the true answer for it
+        (``D-IMPL-345`` `S-02`). The filesystem is still never reached — the
+        shape decides — and :meth:`get`'s refusal stays typed for the caller
+        that wants to tell the two apart.
+        """
+        try:
+            target = self._path(content_address)
+        except MalformedContentAddress:
+            return False
+        return target.is_file()

@@ -27,7 +27,8 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
-from typing import Protocol, runtime_checkable
+import re
+from typing import Final, Protocol, runtime_checkable
 
 from ccf.contracts.base import CCFContract
 
@@ -35,6 +36,7 @@ __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "ARTIFACT_URI_SCHEME",
+    "CONTENT_ADDRESS_PATTERN",
     "LATEST_VERSION_TOKEN",
     "ArtifactName",
     "ArtifactNotFound",
@@ -42,8 +44,10 @@ __all__ = [
     "ArtifactStoreError",
     "ArtifactStoreProtocol",
     "ArtifactUriUnresolvable",
+    "MalformedContentAddress",
     "MovingTargetRefused",
     "artifact_uri",
+    "held_content_address",
     "parse_artifact_uri",
 ]
 
@@ -70,6 +74,28 @@ class ArtifactNotFound(ArtifactStoreError, KeyError):
 
     Also a ``KeyError``, so callers written against the mapping-shaped reading
     of :meth:`ArtifactStoreProtocol.get` keep working.
+    """
+
+
+class MalformedContentAddress(ArtifactNotFound):
+    """The string asked for is not a content address, so nothing is stored at it.
+
+    ``D-IMPL-345`` (`S-02`). A content address is ``sha256(canonical_bytes)``
+    rendered as 64 lowercase hex characters and is nothing else. A store whose
+    read path accepts an arbitrary string accepts a *path*: the measured
+    consequences on the file-backed store were a traversal
+    (``../../../../etc/hostname`` read the host's file) and a read of the
+    store's own naming index at ``.artifact-names.json``, which enumerates
+    every tenant, class, name and address the store holds.
+
+    **A subclass of** :class:`ArtifactNotFound`, deliberately, on two counts.
+    It is *true*: no artifact can be stored at a string that cannot be an
+    address. And it keeps the refusal indistinguishable from an absent
+    artifact for every caller that already catches ``ArtifactNotFound`` — a
+    malformed address that answered differently from an unused one would be an
+    existence oracle at every door at once (``D-IMPL-253`` amendment 2 (4)).
+    A caller that wants the distinction for its own diagnostics can still
+    catch this type by name.
     """
 
 
@@ -106,6 +132,49 @@ class ArtifactName(CCFContract):
     artifact_class: str
     name: str
     artifact_version: str
+
+
+#: What a content address is, and the whole of it (``D-IMPL-26``): the
+#: lowercase hexadecimal sha256 digest :func:`~ccf.contracts.canonical.content_hash`
+#: produces. Stated once, here, beside the addressing rule — a store that
+#: spelled its own check would let two implementations disagree about what an
+#: address is, and the one that disagreed downward would be a path reader.
+CONTENT_ADDRESS_PATTERN: Final[re.Pattern[str]] = re.compile(r"\A[0-9a-f]{64}\Z")
+
+
+def held_content_address(content_address: str) -> str:
+    """Return ``content_address`` if it is one; otherwise refuse (``S-02``).
+
+    The ONE shape check every store's read path runs **before it touches its
+    substrate**. It is deliberately total rather than a list of dangerous
+    shapes: an address either matches :data:`CONTENT_ADDRESS_PATTERN` or it is
+    not an address, which refuses ``..`` traversal, absolute paths, the naming
+    index's own filename, uppercase digests, truncated digests, the empty
+    string and every other malformed string in one invariant, without any of
+    them being named. Naming them one at a time is how a filter acquires a
+    hole (``D-IMPL-345`` `S-02`: *"Do not special-case `/etc/hostname`, HTTP
+    paths, or MCP paths"*).
+
+    Placed on the Protocol module rather than in a door because the doors are
+    not where the substrate is touched: HTTP, the MCP artifact resources, the
+    CLI and in-process replay all reach a store's ``get``, and a check at one
+    door leaves the others reading paths.
+
+    Args:
+        content_address: What a caller asked for.
+
+    Returns:
+        The address, unchanged, so a call site reads
+        ``target = self._path(held_content_address(content_address))``.
+
+    Raises:
+        MalformedContentAddress: it is not a content address. An
+            :class:`ArtifactNotFound` subclass, so a caller that already
+            handles absence handles this identically.
+    """
+    if not CONTENT_ADDRESS_PATTERN.match(content_address):
+        raise MalformedContentAddress(content_address)
+    return content_address
 
 
 def artifact_uri(

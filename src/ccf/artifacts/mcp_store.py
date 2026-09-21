@@ -71,7 +71,9 @@ from ccf.artifacts.protocol import (
     ArtifactRef,
     ArtifactStoreError,
     ArtifactUriUnresolvable,
+    MalformedContentAddress,
     artifact_uri,
+    held_content_address,
     parse_artifact_uri,
 )
 from ccf.contracts.canonical import canonical_bytes
@@ -228,7 +230,9 @@ class McpArtifactStore:
                 down.
         """
         try:
-            return self._read_blob(f"{_BLOB_SCHEME}://{content_address}")
+            return self._read_blob(
+                f"{_BLOB_SCHEME}://{held_content_address(content_address)}"
+            )
         except McpServerUnreachable:
             # The failed read tells us nothing typed; the presence resource
             # does. Asking costs a round trip only on the failure path, which
@@ -247,7 +251,14 @@ class McpArtifactStore:
             ccf.mcp.errors.McpServerUnreachable: the substrate is unreachable
                 or refused the credentials.
         """
-        answer = self._read_text(f"{_META_SCHEME}://{content_address}")
+        try:
+            addressed = held_content_address(content_address)
+        except MalformedContentAddress:
+            # Not an address, so nothing is stored at it — and no round trip
+            # is spent asking a server about a string it could not hold
+            # (`D-IMPL-345` `S-02`).
+            return False
+        answer = self._read_text(f"{_META_SCHEME}://{addressed}")
         return _presence_of(answer)
 
     def resolve_uri(self, *, uri: str) -> str:

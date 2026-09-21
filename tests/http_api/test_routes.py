@@ -55,6 +55,8 @@ from ccf_runtime.mcp.auth import FileTokenSource
 # imported rather than copied (`24.6-09`).
 from tests.http_api.test_product_declared_obligation_409 import _recorder
 
+from ccf.contracts.canonical import content_hash
+from ccf_runtime.http_api.errors import ERROR_PRODUCT_DOOR_UNGOVERNED
 from http_api.conftest import Fabric, call
 
 DECISIONS = Path(__file__).resolve().parents[2] / "docs" / "DECISIONS.md"
@@ -662,54 +664,89 @@ def test_hitl_action_receipt_for_an_unqueued_event_is_not_pending(
     assert body["submissions_for_event"] == 1
 
 
-# --- replay: decisions and exact-version resolution ------------------------
+# --- replay and artifact: governed dereferences (D-IMPL-345) ---------------
+#
+# These four nouns answered `200` to a caller with no credential at all until
+# `D-IMPL-345`, which is what made `S-01` reachable. On THIS module's app —
+# built with no auth hook and no entitlement seam, deliberately, because this
+# module is about routing rather than posture — every evidence read is now the
+# product route's own ungoverned refusal (R-1). The positive behavior moved
+# with the governance: an authorized read, the `404` shell, the `409` for
+# `@latest` and the no-oracle equality are proven in
+# `tests/http_api/test_evidence_dereference.py`, against a door that has the
+# seams to decide.
 
 
-def test_replay_decision_returns_the_typed_record(
+def _ungoverned(response: Any) -> None:
+    assert response.status_code == 503, response.text
+    assert response.json()["detail"]["error_code"] == ERROR_PRODUCT_DOOR_UNGOVERNED
+
+
+def test_replay_decisions_refuses_on_an_ungoverned_door(
     app: Any, fabric: Fabric
 ) -> None:
-    response = call(
+    _ungoverned(
+        call(
+            app,
+            "GET",
+            "/replay/decisions",
+            params={"content_address": fabric.replay_ref.content_address},
+        )
+    )
+
+
+def test_replay_resolutions_refuses_on_an_ungoverned_door(
+    app: Any, fabric: Fabric
+) -> None:
+    _ungoverned(
+        call(
+            app, "GET", "/replay/resolutions", params={"uri": fabric.replay_ref.uri}
+        )
+    )
+
+
+def test_replay_refuses_a_moving_target_only_once_it_may_answer(
+    app: Any, fabric: Fabric
+) -> None:
+    """``@latest`` still dies — but the ungoverned door never gets that far.
+
+    The `409` itself is unchanged and is proven on a governed door
+    (`test_evidence_dereference.py::test_c13_a_moving_target_is_still_a_409`);
+    here the point is the ORDER: a door that cannot decide refuses before it
+    parses what it was asked, so a caller learns nothing from the shape of its
+    own malformed reference.
+    """
+    moving = fabric.replay_ref.uri.rsplit("@", 1)[0] + "@latest"
+    _ungoverned(call(app, "GET", "/replay/resolutions", params={"uri": moving}))
+
+
+def test_replay_of_nothing_is_refused_the_same_way_as_something(
+    app: Any, fabric: Fabric
+) -> None:
+    """The ungoverned refusal is not a channel either."""
+    nothing = call(
+        app, "GET", "/replay/decisions", params={"content_address": "f" * 64}
+    )
+    something = call(
         app,
         "GET",
         "/replay/decisions",
         params={"content_address": fabric.replay_ref.content_address},
     )
-    assert response.status_code == 200
-    assert response.json()["tenant_id"] == "acme-bank"
+    _ungoverned(nothing)
+    assert nothing.status_code == something.status_code
+    assert nothing.json() == something.json()
 
 
-def test_replay_resolution_follows_the_versioned_uri(
-    app: Any, fabric: Fabric
-) -> None:
-    response = call(
-        app, "GET", "/replay/resolutions", params={"uri": fabric.replay_ref.uri}
-    )
-    assert response.status_code == 200
-    assert response.json()["tenant_id"] == "acme-bank"
+# --- artifact: put is unchanged; get is governed ---------------------------
 
 
-def test_replay_refuses_a_moving_target(app: Any, fabric: Fabric) -> None:
-    """``@latest`` dies on the replay path over HTTP exactly as in-process."""
-    pinned = fabric.replay_ref.uri
-    moving = pinned.rsplit("@", 1)[0] + "@latest"
-    response = call(app, "GET", "/replay/resolutions", params={"uri": moving})
-    assert response.status_code == 409
+def test_artifact_put_still_stores_and_returns_its_reference(app: Any) -> None:
+    """`D-IMPL-345` leaves the write path exactly as it was (R-3, §7).
 
-
-def test_replay_of_nothing_is_a_404(app: Any) -> None:
-    response = call(
-        app,
-        "GET",
-        "/replay/decisions",
-        params={"content_address": "f" * 64},
-    )
-    assert response.status_code == 404
-
-
-# --- artifact: get/put against the injected store --------------------------
-
-
-def test_artifact_put_then_get_round_trips(app: Any) -> None:
+    Artifact PUT remains the named `D-IMPL-73` limitation: bearer-authenticated
+    when a hook is bound, ungoverned by grant, and out of this ruling's scope.
+    """
     put = call(
         app,
         "POST",
@@ -723,15 +760,26 @@ def test_artifact_put_then_get_round_trips(app: Any) -> None:
     )
     assert put.status_code == 200
     ref = put.json()
-    got = call(app, "GET", f"/artifact/{ref['content_address']}")
-    assert got.status_code == 200
-    assert got.json() == {"field": "value"}
+    assert ref["content_address"] == content_hash({"field": "value"})
+    assert ref["uri"].startswith("ccf-artifact://acme-bank/ccf.test-blob/blob-1@")
 
 
-def test_artifact_get_of_nothing_is_a_404(app: Any) -> None:
-    assert (
-        call(app, "GET", f"/artifact/{'e' * 64}").status_code == 404
+def test_artifact_get_refuses_on_an_ungoverned_door(app: Any) -> None:
+    """Including for bytes the same app just stored: a write is not a read."""
+    put = call(
+        app,
+        "POST",
+        "/artifact",
+        json={
+            "tenant_id": "acme-bank",
+            "artifact_class": "ccf.test-blob",
+            "name": "blob-2",
+            "artifact": {"field": "value"},
+        },
     )
+    assert put.status_code == 200
+    _ungoverned(call(app, "GET", f"/artifact/{put.json()['content_address']}"))
+    _ungoverned(call(app, "GET", f"/artifact/{'e' * 64}"))
 
 
 # --- config: Control Plane introspection ------------------------------------

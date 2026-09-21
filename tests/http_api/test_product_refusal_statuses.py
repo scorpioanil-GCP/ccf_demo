@@ -120,6 +120,15 @@ CHECK_LINES = (
     "        recorded_boundary(\n"
     "            refusal_recorder=refusal_recorder, builder=\"create_app\"\n"
     "        )\n"
+    "        # `D-IMPL-345` R-2, in the same breath and for the same reason: the\n"
+    "        # two evidence-read routes disclose at the level the recorder that\n"
+    "        # disclosed the serve would state, so a recorder that cannot state one\n"
+    "        # cannot govern them. Kept beside the check above rather than folded\n"
+    "        # into it — that one is the product door's, in its own words and with\n"
+    "        # its own sabotage, and this one is the evidence doors'.\n"
+    "        evidence_recorder = disclosing_boundary(\n"
+    "            refusal_recorder=refusal_recorder, builder=\"create_app\"\n"
+    "        )\n"
 )
 
 #: The transport trees this plan's half of the no-transport-mint gate walks.
@@ -553,7 +562,9 @@ def _scratch_app(root: pathlib.Path, *, mutate: bool) -> Any:
     )
     if mutate:
         source = source.replace(
-            CHECK_LINES, "        pass  # sabotaged (D-IMPL-256 (2))\n"
+            CHECK_LINES,
+            "        evidence_recorder = refusal_recorder"
+            "  # sabotaged (D-IMPL-256 (2))\n",
         )
     name = "scratch_http_app_" + ("sabotaged" if mutate else "control")
     path = root / f"{name}.py"

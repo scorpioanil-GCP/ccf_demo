@@ -118,6 +118,7 @@ __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "DISCLOSURE_LEVELS",
+    "DISCLOSURE_FULL",
     "DISCLOSURE_MINIMAL",
     "EXTERNAL_STATEMENTS",
     "INDISTINGUISHABLE_BELOW_FULL",
@@ -161,6 +162,13 @@ DISCLOSURE_LEVELS: Final[frozenset[str]] = frozenset({"minimal", "reasoned", "fu
 #: level type, and what makes a typo here a red build rather than a value the
 #: disclosure step refuses at runtime.
 DISCLOSURE_MINIMAL: Final[DisclosureLevel] = "minimal"
+
+#: The level at which nothing is withheld, named rather than spelled. A
+#: posture the deployment grants per tenant and per principal, and the only
+#: one at which a whole governed record may cross a door (``D-IMPL-345`` R-2):
+#: a record *is* the internal truth, so the level that would withhold a
+#: refusal's cause withholds the record that carries it.
+DISCLOSURE_FULL: Final[DisclosureLevel] = "full"
 
 #: What a withheld value becomes. A positive statement — *this was withheld* —
 #: rather than an empty string or a removed key, either of which a consumer

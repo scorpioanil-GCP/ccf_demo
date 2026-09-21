@@ -688,10 +688,19 @@ def test_a_boundary_with_no_recorder_is_refused_at_construction(
 # --- (7) the recorder-skipping sabotage --------------------------------------
 
 
-#: The return the sabotage replaces. Asserted present, exactly once, before
-#: mutating — so a reflow makes this control fail loudly rather than silently
-#: mutate nothing.
-MINTING_RETURN = "        return refusal_recorder.record(\n"
+#: The return the sabotage replaces — ``govern_entitlement``'s, named by the
+#: comment that precedes only it. Asserted present, exactly once, before
+#: mutating, so a reflow makes this control fail loudly rather than silently
+#: mutate nothing. The preceding lines are part of the anchor because
+#: ``D-IMPL-345`` added a second minting call to this module
+#: (``govern_dereference``'s), and a control that sabotaged whichever one it
+#: happened to find first would measure a different function on a later edit.
+MINTING_RETURN = (
+    "        # The mint AND the disclosure, both inside the seam and in that order.\n"
+    "        # Nothing is disclosed before it is recorded, and a failed append\n"
+    "        # propagates rather than releasing an unrecorded response.\n"
+    "        return refusal_recorder.record(\n"
+)
 SKIPPING_RETURN = "        return envelope  # SABOTAGE\n"
 
 

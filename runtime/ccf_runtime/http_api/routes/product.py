@@ -203,78 +203,18 @@ from ccf_runtime.http_api.errors import (
 )
 from ccf_runtime.http_api.grants import grant_from_request
 from ccf_runtime.http_api.refusal_status import STATUS_BY_KIND, status_for
-from ccf_runtime.http_api.routes import canonical_response
+from ccf_runtime.http_api.routes import (
+    canonical_response,
+    # Imported under the name this module has always called it by: the
+    # delivery-boundary sabotage control anchors on the literal call text
+    # `return _refusal_response(decided)` here (D-IMPL-345 §4.2).
+    governed_refusal_response as _refusal_response,
+)
 from ccf_runtime.mcp.egress import ProductNotServable
 
 __ccf_mode__ = "algorithmic"
 
 __all__ = ["build_router"]
-
-
-#: :data:`~ccf.products.refusal.REFUSAL_KINDS`, read backwards.
-#:
-#: The body's ``refusal_type`` has been the Python class name since the first
-#: mapped kind, and the two deleted branches each spelled one by hand
-#: (``DeclaredObligationRefusal.__name__``). Derived here instead, so a body
-#: shape that was correct for two kinds is correct for twenty-three without a
-#: branch per kind — and so this module names no refusal class at all.
-_TYPE_NAME_BY_KIND: Final[Mapping[str, str]] = MappingProxyType(
-    {kind: refusal_type.__name__ for refusal_type, kind in REFUSAL_KINDS.items()}
-)
-
-
-def _type_name_for(kind: str) -> str:
-    """The refusal class's own name, for the body's ``refusal_type`` member.
-
-    Args:
-        kind: :attr:`~ccf.products.refusal.RefusalEnvelope.kind`.
-
-    Returns:
-        The Python class name the kind was minted from.
-
-    Raises:
-        KeyError: ``kind`` is not in the vocabulary — the same invariant
-            violation :func:`~ccf_runtime.http_api.refusal_status.status_for`
-            refuses, and reached only by a caller that skipped the membership
-            test this route runs first.
-    """
-    return _TYPE_NAME_BY_KIND[kind]
-
-
-def _refusal_response(envelope: RefusalEnvelope) -> JSONResponse:
-    """One governed refusal, one status class, one body shape.
-
-    The ONE emission path for every refusal this door answers — a gate's, a
-    request-conformity verdict's, and the delivery boundary's entitlement
-    determination alike. That sameness is the D-27 property (``D-IMPL-253``
-    amendment 2 (4)): an unauthorized principal and a nonexistent subject reach
-    the consumer through this function, so the status, the schema, the field
-    set and the message are the same by construction rather than by two
-    branches that happen to agree.
-
-    The status comes from the **disclosed** kind
-    (:mod:`ccf_runtime.http_api.refusal_status`) and from nothing else. The
-    body is the whole envelope in the ``routes/skill.py`` shape, so the debt
-    block's numbers, a violation's reason and key, the request identity and the
-    replay reference all travel — whatever of them the Disclosure layer
-    permitted to cross (``D-IMPL-254``). This door withholds nothing of its own
-    and adds nothing of its own.
-
-    Args:
-        envelope: The disclosed shell, as the fabric or the governed delivery
-            boundary produced it.
-
-    Returns:
-        The response, ready to return.
-    """
-    return JSONResponse(
-        status_code=status_for(envelope.kind),
-        content={
-            "kind": envelope.kind,
-            "refusal_type": _type_name_for(envelope.kind),
-            "refusal": json.loads(canonical_bytes(envelope)),
-        },
-    )
 
 
 def build_router(

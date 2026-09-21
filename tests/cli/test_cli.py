@@ -202,31 +202,29 @@ def test_read_verbs_dispatch(
     )
     assert code == 0 and json.loads(out)["name"] == fabric.auto_agent.name
 
-    code, out, _ = run_cli(
-        [
-            "replay",
-            "query",
-            "--content-address",
-            fabric.replay_ref.content_address,
-        ],
-        capsys,
-        dependencies=deps,
-    )
-    assert code == 0 and json.loads(out)["tenant_id"] == "acme-bank"
-
-    code, out, _ = run_cli(
+    # The three evidence reads reach the same HTTP door every other client
+    # reaches, and that door now refuses to hand over governed evidence it
+    # cannot decide about (`D-IMPL-345` R-1, the `D-IMPL-108` precedent
+    # directly below applied to the replay and artifact nouns). `ccf`'s app is
+    # built with `acknowledge_insecure_default=True`, binds no entitlement
+    # seams, and carries no credential in either mode, so the CLI is in
+    # exactly the posture the refusal describes.
+    #
+    # These three assertions changed from `code == 0` deliberately, and the
+    # change is the honest report of a real consequence rather than a test
+    # made to pass: `S-01` measured a replay record and the evidence it names
+    # crossing to a caller with no entitlement at all, and the repair cannot
+    # keep an unauthenticated local path around it. Restoring these reads is a
+    # matter of giving `ccf` a credential to present — a `D-IMPL-22` amendment
+    # named in `docs/D-IMPL-345-DESIGN.md` §9.2 and not made here.
+    for verb in (
+        ["replay", "query", "--content-address", fabric.replay_ref.content_address],
         ["replay", "resolve", "--uri", fabric.replay_ref.uri],
-        capsys,
-        dependencies=deps,
-    )
-    assert code == 0 and json.loads(out)["tenant_id"] == "acme-bank"
-
-    code, out, _ = run_cli(
         ["artifact", "inspect", fabric.replay_ref.content_address],
-        capsys,
-        dependencies=deps,
-    )
-    assert code == 0 and json.loads(out)["tenant_id"] == "acme-bank"
+    ):
+        code, out, err = run_cli(verb, capsys, dependencies=deps)
+        assert code != 0, verb
+        assert "product-door-ungoverned" in (out + err), verb
 
     # `product get` reaches the same HTTP door every other client reaches, and
     # that door now refuses to serve a product it cannot name a Perspective for
