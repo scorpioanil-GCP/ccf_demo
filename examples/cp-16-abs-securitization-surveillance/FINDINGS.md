@@ -1,5 +1,10 @@
 # CP-16 — ABS / Securitization Surveillance · FINDINGS
 
+**Accepted at `D-GATE-cp-16`, 2026-09-21**, on the candidate `cp-16-abs @ 5915d959`,
+merged `--no-ff` into `main`. **No SDK or runtime change.** 22 declared / 22
+executing gates; 21 observed red under sabotage; 1 `unavailable` with its guard
+named; 41 tests passed, 0 failed, 0 skipped; active issue cap 0 of 3.
+
 Classified under `docs/EXAMPLE-EVALUATION-CRITERIA.md` §B **before remediation**,
 as that policy requires. Every measurement was taken against the live estate on
 **2026-09-21** with `CCF_REQUIRE_ESTATE=1`.
@@ -47,7 +52,10 @@ Correct — the key is mechanism, not a value — and the failure is loud. The c
 is one round trip for an adopter who expects to name their own.
 
 ### `ABS-F-06` — the bound reaches the examiner, not the caller
-**Category 3, CARRIED from a closed decision.** Dave's ruling requires the
+**Category 3, CARRIED from a closed decision. Ruled at `D-GATE-cp-16`: the
+caller-facing minimal envelope may redact the reason while the governed
+determination retains the actual bound — existing `D-IMPL-345` behavior, NOT an
+HTTP defect to reopen.** Dave's ruling requires the
 ceiling refusal to carry the bound. It does — `not-in-allowed-set`, the role,
 the ceiling and the requested value are all present **in the replay record**,
 verified by reading it back. The caller-facing envelope redacts `error_code` to
@@ -77,6 +85,10 @@ measure every serve.
 ## 4 · Backlog candidates (§K.4)
 
 ### `ABS-F-14` — the estate's vector half is ready and the SDK's is not
+
+**Carried at `D-GATE-cp-16` as coverage evidence only: ABS passages have
+embeddings, CP-16 does not implement vector Similarity, and no embedding SDK
+work is authorized from this rung.**
 **Category 3, and it INVERTS the evidence recorded at rung 19.** All **1,882**
 ABS passages carry a 1536-dimension `text-embedding-3-small` embedding. At
 cp-19 the vector path was blocked by the *estate* (72 advisory passages, no
@@ -100,6 +112,11 @@ operator is used, as at cp-19.
 ## 5 · Estate / example limitations (§K.5)
 
 ### `ABS-F-01` — a representative sample costs what a full scan costs
+
+**Recorded at `D-GATE-cp-16`: sampling can reduce materialized rows without
+reducing the underlying blocks read. The warm measurements stand and the
+cold-cache interpretation is rejected. No claim is made that `LIMIT` is
+generally a cost optimization.**
 **The rung's most useful measurement, and it is counter-intuitive.** Measured
 on `SDART-2022-6` / `2026-06`, five warm runs each, block counts stable to a
 single distinct value:
@@ -152,6 +169,9 @@ the **evidence** the Control Plane constraint must agree with (`ABS-G11`). Rung
 15's estate-supplied mapping was the exception, not the rule.
 
 ### `ABS-F-10` — an evidence-anchored TTL cannot serve an empty subject
+
+**Posture kept at `D-GATE-cp-16`: a different mechanism from the computed-empty
+cases of earlier rungs, serving the same no-oracle governance objective.**
 A question with no evidence at the instant has nothing to anchor its expiry on,
 so it is **refused** (`ttl-anchor-unresolvable`) rather than served
 computed-empty as rung 15's product was. **Measured, because the governance
@@ -183,6 +203,9 @@ coincide. Corrected with an in-process positive control whose identifiers
 disagree with its seniority. The estate alone cannot prove this gate.
 
 ### `ABS-F-08` — the served payload cannot prove where a bound was applied
+
+**CARRIED at `D-GATE-cp-16`. This is the existing residual `341-1` becoming
+observable; no further SDK phase is opened.**
 Removing the `filed_date <= as_of` bound from the statement left `ABS-G05`
 **green**, because the temporal operator *also* cuts at the boundary and the
 served rows were identical. **This is residual `341-1`'s entire point:** whether
@@ -197,6 +220,10 @@ two determinations differ in their trigger sets too. Corrected to a sabotage
 that actually collapses them: make the period reader ignore the instant.
 
 ### `ABS-F-04` — reading an unordered collection as a sequence, caught
+
+**Recorded at `D-GATE-cp-16`: `operators_invoked` is an unordered `frozenset`
+and must not be used to prove execution order. The ordered operator plan is held
+in replay dimension 5 and is the correct evidence.**
 `ContextProductContract.lineage.operators_invoked` is a **`frozenset`**. My
 first `ABS-G01` asserted an ordering against it, which is meaningless, and it
 failed loudly rather than passing by luck. The executed order lives in replay
