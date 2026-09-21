@@ -91,8 +91,8 @@ Dave's own framing, and the spine of everything below.
 2. **A pinned, policy-versioned weight vector so replay reproduces the
    historical ranking** — §B.4, §D.5, `IBO-G05`–`IBO-G07`.
 3. **MNPI and wall state consumed as governed context rather than
-   reconstructed** — §D.3 step 2 and **§F.4, the one genuinely new capability
-   question this rung raises**.
+   reconstructed** — §D.3 step 2 (classification, not deletion) and §F.4
+   (**ruled**: optional, bounded composition with a hard complexity stop).
 4. **Banker-local notes as evidence that moves a ranking** — §C.1, §D.3
    step 6, `IBO-G10`, `IBO-G11`.
 5. **A2 measured again on the same seven dimensions** — §G.2.
@@ -397,13 +397,23 @@ candidate set. The perspective's `ib_projection_plan` row bounds which signal
 types may be admitted at all. *This is the A2 seam, written exactly as the
 adopter page specifies, and it is measured in §G.2 — not redesigned.*
 
-**2. The wall and restricted-list bound — before anything is ranked.** A
-restricted prospect is **removed from the candidate space**, never marked as
-restricted in the output: a suppressed row with a marker tells the banker
-exactly what the wall exists to hide. Four of the fifty covered prospects are
-on the list and none has been removed, so a banker covering all four loses
-four candidates and is told nothing. **How the wall determination itself is
-obtained is the open question of §F.4.**
+**2. The restricted and MNPI state — classification, NOT candidate deletion.**
+**Ruled by Dave, 2026-09-21, and this overrides both the vault specification
+and this document's own first draft.** A restricted prospect **remains a
+candidate**; the four restricted prospects stay in the candidate universe as
+the estate specifies. What the restricted and MNPI state governs is three
+other things:
+
+- **whether additional CP-17 context is requested** for that prospect (§F.4);
+- **which evidence is admissible** to the ranking;
+- **what the principal may see and use.**
+
+It is a classification and policy input, not a deletion. The earlier reading —
+suppress the row so a marker cannot betray the wall — was written from the
+vault specification and is withdrawn: the wall is expressed here by bounding
+what may *contribute to and be shown for* a candidate, not by making the
+candidate vanish. Whether a *marker* naming the restriction may be shown is
+itself governed by the third bullet and is held by `IBO-G08`.
 
 **3. The weight vector in force.** Resolved from the Control Plane policy
 bundle at the decision instant, never from the request. The version is pinned
@@ -515,73 +525,66 @@ readiness risks are the six traps of §C.4, and none of them blocks the build.
 | `TBC-2` | The Similarity floor over the passage corpus | build | measure the score distribution first, then declare the smallest floor that still discriminates, with the measurement at the declaration site |
 | `TBC-3` | Do all three perspectives carry the evidence trail and the local-note attribution, or only some? | Dave, at Gate 2 | the member set must be fixed per perspective either way |
 | `TBC-4` | Does any half-life need an illustrative calibration against the snapshot? | build | measure; declare only if the term cannot be shown discriminating |
-| `TBC-5` | **How the wall determination is obtained** | **Dave, at this Gate** | §F.4 |
+| `TBC-5` | **How the wall determination is obtained** | ~~Dave, at this Gate~~ | **RESOLVED 2026-09-21** — §F.4: optional, bounded CP-17 composition over the MNPI-bearing subset, with a hard complexity stop |
 
 ### F.3 Access path
 
 The four stores rung 19 already reads, under `CCF_CP_18_*` names declared in
 `ccf_environment.yaml`, every one read-only. No new substrate.
 
-### F.4 The one genuinely new capability question
+### F.4 RULED — optional, bounded CP-17 composition
 
-**Everything else in this rung is a second or third writing of settled
-mechanism. This is not, and it is the only question this Gate 1 asks Dave to
-rule.**
+**This was the one open question of Gate 1. Dave ruled it on 2026-09-21 and
+it is closed. What follows is the ruling, not a proposal.**
 
-**The requirement.** IB must consume MNPI and wall state as governed context
-rather than reconstruct it. CP-17 (`cib.mnpi-wall`) is the product that
-determines it, and it is **anchored per issuer**: one question, one issuer,
-one answer.
+**Do not build 25 CP-17 children.** CP-18 remains **one** IB ranking Context
+Product over the banker's candidate universe.
 
-**The arithmetic that makes this a question.** IB's candidate set is a
-banker's coverage portfolio — **25 prospects, measured, for every one of the
-40 bankers.** Composing CP-17 as a governed child at the candidate-set grain
-is therefore **25 child questions per IB question**, and the SDK's supported
-path is one parameterized `mcp_product` call per question. Asking one producer
-many questions is named in `docs/EXAMPLE-EVALUATION-CRITERIA.md` §F as an
-explicitly **post-launch** capability ("fan-out helpers that ask one producer
-many questions"), so the supported path today is the twenty-five calls.
+**The bounded composition.** The governed restricted and MNPI state is read
+first and identifies the **declared MNPI-bearing subset**, measured at **up to
+10 prospects** across the covered set. For that subset only, CP-18 may compose
+**optional** CP-17 children under four constraints, all of them the paved
+road's own:
 
-**What the estate says about how much of CP-17 is actually needed.** Measured
-(§C.4 trap 6): the banker-to-interaction join **exists** — 4,000 rows over 37
-bankers — but **none of the 18 MNPI-bearing interactions carries a participant
-of any kind**, and `deal` names no banker. **This estate therefore cannot
-express a per-banker wall crossing**, however much it can express a banker's
-ordinary contact history. The bound IB needs at step 2 is consequently *is
-this prospect restricted or MNPI-bearing at this instant*, which is one row of
-the control room's restricted list plus `deal.mnpi_bearing` — and the control
-room is a system of record **both** products read, not an output either owns.
-Were the estate to attach bankers to MNPI interactions later, the per-banker
-crossing would become expressible and route B's full fan-out would become the
-honest answer; that is the condition under which this ruling should be
-revisited.
+| constraint | what it means here |
+|---|---|
+| **one child class** | `cib.mnpi-wall` and nothing else |
+| **same `asked_at`** | the child's instant is the parent's decision instant, never a fresh clock |
+| **paved `questions=`** | the SDK's declared child-question seam, not hand-rolled orchestration |
+| **a declared prospect list owned by this example** | the subset is *this deployment's* declaration |
 
-**The distinction that matters, stated plainly.** Reading the restricted list
-is not reconstructing CP-17's determination; CP-17 reads it too. What IB must
-not do is recompute CP-17's *crossing-based, two-clock wall determination* —
-the part that combines the restricted list with crossings valid at one instant
-and asserted by another. The question is whether IB needs that determination
-at all, or only the restricted-list bound.
+**CP-17 must not discover the subset.** The child is asked about a prospect it
+is given; it never enumerates, infers or widens the set it is asked about.
 
-**Three routes, with what each costs. Dave to rule; nothing is
-pre-authorized.**
+### F.4.1 Optional means optional
 
-| route | what it does | cost | what it proves |
-|---|---|---|---|
-| **A — restricted-list bound only** | IB reads the control room directly for the candidate bound, and composes no child | one SQLite read; no composition | the bound, and nothing about composition. Risks reading as "IB reconstructs MNPI state" even though the control room is a shared system of record |
-| **B — CP-17 as a governed child, full fan-out** | 25 child questions per IB question, one per candidate | 25 `mcp_product` calls per question; the fan-out §F names as post-launch | composition at full grain, at a cost the criteria already classify as backlog-shaped |
-| **C — bound first, compose a demonstration subset** *(recommended)* | the restricted-list bound removes candidates before ranking; CP-17 is then composed as a governed child for the **MNPI-bearing prospects only** — measured at **10 of 50** | one SQLite read plus a bounded number of child calls | both halves: the bound is governed, and the composition boundary is genuinely exercised, without writing a fan-out helper the criteria say not to write |
+**A CP-17 child refusal must not refuse the IB product.** A missing or refused
+optional child is recorded as **named debt** and the ranking continues from
+the evidence CP-18 can admit on its own. This is the rung's clearest
+expression of a governed "no" being an answer rather than a failure.
 
-**The recommendation is C**, and the reason is the rung's own evidence: the
-estate cannot express the per-banker crossing that would make full fan-out
-necessary, and the criteria explicitly reject building the fan-out helper
-inside the example that surfaces the need. **If Dave rules B**, the fan-out
-cost becomes a measured backlog record rather than a helper. **If Dave rules
-A**, §D.3 step 2 loses its composition claim and says so.
+The gates must make it visible **when an opportunity was ranked without the
+optional CP-17 contribution** — a served ranking may not be silent about which
+of its rows rest on the narrower evidence base (`IBO-G17`, `IBO-G18`).
 
-**No SDK change is sought by any of the three routes.**
+### F.4.2 The hard complexity stop
 
----
+**This composition is an example-scoped experiment, not a new SDK feature.**
+
+If implementing ten optional children requires any of the following, the
+experiment stops rather than the SDK growing:
+
+- a generic fan-out helper;
+- new resolver machinery;
+- reopening `D-IMPL-336` or `D-IMPL-343`;
+- substantial repeated child orchestration;
+- material door or runtime complexity.
+
+**On any of those, set the CP-17 child count for CP-18 to zero** and complete
+the rung using the governed restricted and wall-state envelope alone. **That
+is an acceptable completion of this rung**, recorded as the measured reason
+rather than as a shortfall. The SDK is not to be improved merely to preserve
+the optional composition experiment.
 
 ## G · Operate and govern
 
@@ -606,7 +609,7 @@ directional, structural or relational; none pins a count or a date.**
 | `IBO-G05` | the served product names the weight version that ranked it |
 | `IBO-G06` | a ranking served under `v1` replays to its served bytes after the Control Plane has moved to `v2` |
 | `IBO-G07` | the same record replayed against the wrong weight version **diverges** |
-| `IBO-G08` | no restricted prospect appears in any served ranking, and no member, count or marker indicates that one was removed |
+| `IBO-G08` | a restricted prospect **remains a candidate**; what the restriction bounds is the evidence admitted for it and what the principal may see — never its presence (the ruling of §D.3 step 2) |
 | `IBO-G09` | no prospect outside the banker's own portfolio appears in any served ranking |
 | `IBO-G10` | a banker's local notes reach that banker's ranking and no other banker's |
 | `IBO-G11` | at least one ranked row's position depends on a local note — removing it moves the row |
@@ -615,8 +618,10 @@ directional, structural or relational; none pins a count or a date.**
 | `IBO-G14` | a `signal_types` value outside the perspective's plan is refused, not silently dropped |
 | `IBO-G15` | a banker with no coverage assignment is refused by name, as data, with a replay reference |
 | `IBO-G16` | a banker id that exists nowhere is indistinguishable from one whose candidates Policy removed entirely |
+| `IBO-G17` | a refused or absent optional CP-17 child **does not refuse the IB product**: the ranking is served, and the missing context is recorded as named debt |
+| `IBO-G18` | a served ranking makes visible **which rows were ranked without the optional CP-17 contribution** — the narrower evidence base is stated, not silent |
 
-Sixteen intended gates. Each will carry a named sabotage and be watched to go
+Eighteen intended gates. Each will carry a named sabotage and be watched to go
 red, or be recorded `unavailable` with its guard named — rung 19's discipline,
 including the rule that **a sabotage which cannot redden its gate is a defect
 in the proof machinery and is recorded as one.**
@@ -643,9 +648,12 @@ source, and whether that was sufficient is itself worth recording.
 
 **Built on:** the MNPI and AML deployment shape, unchanged.
 **New mechanism sought from the SDK:** none.
-**Open question for Dave:** one — §F.4, how the wall determination is
-obtained, with three routes and a recommendation.
+**Open question for Dave:** none remaining. The one Gate-1 question — §F.4,
+how the wall determination is obtained — was **ruled on 2026-09-21**: optional,
+bounded CP-17 composition over the MNPI-bearing subset, with a hard complexity
+stop that ends the experiment rather than growing the SDK.
 **Estate:** complete. Every element measured, every claim in §A.2 confirmed
 against live data, no missing source.
-**Stop:** here. No implementation, no SDK work, no gates written until Dave
-rules.
+**Gate 2:** GO given 2026-09-21 with the §F.4 ruling folded in. Build
+minimally; stop only for a missing IB-required SDK capability, incorrect SDK
+behavior, a security or governance defect, or the §F.4.2 complexity stop.
