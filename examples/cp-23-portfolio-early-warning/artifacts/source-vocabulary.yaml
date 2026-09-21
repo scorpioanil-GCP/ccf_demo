@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# EVERY SOURCE NAME THIS DEPLOYMENT READS.
+#
+# NOTE WHAT IS ABSENT, AND DELIBERATELY SO (`PEW-G18`): `limit_definition`,
+# `bank_capital` and `connection_basis` are CP-21's regulatory large-exposure
+# inputs and are named NOWHERE in this deployment. Book concentration uses
+# CP-23's own declared threshold and nothing else.
+semver: "1.0.0"
+class_id: cp-23.source-vocabulary
+declaration:
+  relational:
+    tables:
+      book: coverage_assignment
+      banker: banker
+      entity: legal_entity
+      facility: facility
+      drawdown: drawdown
+      signal: signal_event
+      covenant: covenant_breach
+  graph:
+    watermark_only: true
+  # The five signal types the estate carries for a book, each mapped to the
+  # entity class whose `λ_c` governs it.
+  signal_classes:
+    adverse_media: signal_adverse_media
+    8k_event: signal_8k_event
+    trend_delta: signal_trend_delta
+    spread_widening: signal_spread_widening
+    warn_notice: signal_warn_notice
+  signal_edges:
+    signal_adverse_media: hasAdverseMedia
+    signal_8k_event: hasEightKEvent
+    signal_trend_delta: hasTrendDelta
+    signal_spread_widening: hasSpreadWidening
+    signal_warn_notice: hasWarnNotice
+  entity_uri_prefix:
+    book: "urn:ccf:cp23:book:"
+    member: "urn:ccf:cp23:member:"
+    facility: "urn:ccf:cp23:facility:"
+    covenant: "urn:ccf:cp23:covenant:"
+    signal: "urn:ccf:cp23:signal:"
+  classification:
+    vocabulary: [public, internal]
+    assignment:
+      book: internal
+      member: internal
+      facility: internal
+      covenant: internal
+      signal: public

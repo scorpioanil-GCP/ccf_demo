@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE DEMONSTRATION QUESTION and its pinned instant (`CP-SPEC-023` §A.1).
+semver: "1.0.0"
+class_id: cp-23.question
+declaration:
+  question:
+    # BKR019 (Mei Nkosi, role `product`, desk M&A Advisory) — the only book of
+    # the forty carrying ALL TEN signal families. Measured 2026-09-21.
+    subject: "BKR019"
+    intent: portfolio-review
+    freshness: event-driven
+    asked_at: "2026-08-25T00:00:00+00:00"
+    principal: PRIN-PM-001
+  instants:
+    ASKED_AT: "2026-08-25T00:00:00+00:00"
+  # The five signal classes the estate carries for this book, with the
+  # staleness measured at the pinned instant. Read LIVE by the product; these
+  # are recorded for a reader, never asserted as constants.
+  signal_classes: [adverse_media, 8k_event, trend_delta, spread_widening, warn_notice]
+  # A second book, for the membership-identity proof (`PEW-G06`).
+  other_book: "BKR001"
+  # Books that exist nowhere, for the no-oracle comparator.
+  nonexistent_books: ["BKR999", "BKR998"]
+  priced_intents: [portfolio-review, credit-review, concentration-review]

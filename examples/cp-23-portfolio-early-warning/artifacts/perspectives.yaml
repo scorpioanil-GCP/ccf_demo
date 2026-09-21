@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE PRODUCT'S SHAPE PER PERSPECTIVE (`CP-SPEC-023` §A, `PEW-G07`).
+#
+# THE ROLE NAMES ARE THE ESTATE'S OWN. `ccf_v2.banker.role` holds exactly
+# `coverage`, `credit` and `product`; nothing is invented here that the estate
+# already says (the cp-15 discipline).
+#
+# The member set is a function of the PERSPECTIVE, never of the book: a role
+# that may not see covenant history carries no empty covenant member, because
+# an empty one would read as "this book has no covenant history".
+semver: "1.0.0"
+class_id: cp-23.perspectives
+declaration:
+  common_members:
+    - perspective
+    - as_of
+    - intent
+    - book
+    - population
+    - member_count
+    - utilization
+    - early_warning
+    - signal_freshness_by_class
+    - population_debt
+    - findings
+    - entities_in_view
+    - edge_types_served
+  perspectives:
+    coverage:
+      principal_id: PRIN-PM-001
+      members: []
+      rationale: covers the relationship; sees the whole book and its client-facing signals
+    credit:
+      principal_id: PRIN-CO-002
+      members: [covenant_history, concentration]
+      rationale: owns credit risk; additionally sees covenant history and concentration
+    product:
+      principal_id: PRIN-PR-003
+      members: []
+      facility_covered_only: true
+      rationale: sells product against facilities; sees only members that have one
+  # GENUINE LISTS ONLY. `covenant_history` and `concentration` are mappings
+  # whose classified rows are nested, and the gate reaches those by name —
+  # iterating a mapping would walk its keys, which are strings.
+  classified_list_members:
+    - population
+    - utilization
+    - early_warning
+  nested_classified_lists:
+    covenant_history: breaches
+    concentration: by_name
+  classification_vocabulary: [public, internal]
