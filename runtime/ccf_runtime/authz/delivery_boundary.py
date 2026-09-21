@@ -33,12 +33,19 @@ and rejects.
 
 What this module imports, and what it deliberately does not
 -----------------------------------------------------------
-It imports the fabric's own product package and this package's entitlement
-seam, and **no transport**: nothing here names the HTTP tree or the MCP tree
-directly. A determination module that imported a transport would be the
-inversion criterion 36 forbids, in the same spirit as
+It imports the fabric's own product package, this package's entitlement seam,
+and — since ``D-IMPL-345`` — the shared door error vocabulary for the four
+``evidence-*`` codes a dereference determination records. It imports **no
+transport machinery**: nothing here builds a response, reads a request object
+or reaches a router. A determination module that imported a transport would be
+the inversion criterion 36 forbids, in the same spirit as
 ``tests/invariants/test_mcp_role_separation.py``'s rule that the MCP roles are
-separate modules importing none of their siblings.
+separate modules importing none of their siblings. Knowing a door's error
+*vocabulary* is not that inversion, and is the permission the entitlement seam
+beside this one already has, in
+``tests/invariants/test_delivery_boundary_replay.py``'s own words: *"The
+determination layer is allowed to know a door's error vocabulary; a door is
+not allowed to make the determination."*
 
 **That statement is about this module's own imports, and it is deliberately
 not transitive.** The entitlement seam module beside this one already reaches
@@ -49,8 +56,8 @@ and nobody should "fix" it: the discipline is that the *determination* does not
 reach for a transport's machinery, not that a vocabulary two doors share must
 be duplicated per door. It is also why the verified-token type is read from
 that seam module here rather than from where it is defined — it is part of the
-seam this module composes, and taking it from the seam keeps this module's own
-import list to two packages.
+seam this module composes, and taking it from the seam keeps this module's
+import list to the packages it genuinely composes.
 
 Algorithmic module (CINV-03): no LLM client, and no wall-clock read of any
 kind — the only instant this module knows is the one the deployment declared on
@@ -59,11 +66,24 @@ its own entitlement source.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Final
+from typing import Any, Final, Protocol, runtime_checkable
 
-from ccf.products.provenance import EffectiveRequest
+from pydantic import ValidationError
+
+from ccf.artifacts.protocol import (
+    ArtifactNotFound,
+    ArtifactStoreError,
+    ArtifactStoreProtocol,
+    MovingTargetRefused,
+    held_content_address,
+    parse_artifact_uri,
+)
+from ccf.controlplane.audit import AuditLog
+from ccf.products.disclosure import DISCLOSURE_FULL, DisclosureLevel
+from ccf.products.provenance import EffectiveRequest, ProvenanceSource
 from ccf.products.refusal import (
     NO_REPLAY_REFERENCE,
     GovernedRefusalRaised,
@@ -76,10 +96,27 @@ from ccf.products.refusal import (
 )
 from ccf.products.resolver import RefusalRecorderProtocol
 from ccf.projection.plan import Perspective
+from ccf.replay.engine import (
+    ReplayDivergence,
+    ReplayUnresolvable,
+    resolve_artifact,
+)
 from ccf.replay.record import (
+    NO_ASSEMBLY_REFUSAL,
     NO_ROLE_RESOLVED,
+    DecisionReplayRecord,
     PolicyBinding,
     ResolutionNotApplicable,
+)
+from ccf_runtime.authz.refusals import (
+    ACTION_ARTIFACT_READ,
+    ACTION_REPLAY_READ,
+)
+from ccf_runtime.http_api.errors import (
+    ERROR_EVIDENCE_ABSENT,
+    ERROR_EVIDENCE_CLASS_UNRECOVERABLE,
+    ERROR_EVIDENCE_DISCLOSURE_WITHHELD,
+    ERROR_EVIDENCE_PRINCIPAL_MISMATCH,
 )
 from ccf_runtime.authz.product_entitlement import (
     PerspectiveResolverProtocol,
@@ -92,11 +129,20 @@ from ccf_runtime.authz.product_entitlement import (
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "DEREFERENCE_PRODUCT_ID",
+    "EVIDENCE_SURFACES",
+    "SURFACE_HTTP_ARTIFACT_READ",
+    "SURFACE_HTTP_REPLAY_READ",
     "SURFACE_HTTP_ROUTE",
     "SURFACE_MCP_RESOURCE",
     "SURFACE_MCP_TOOL",
+    "DereferenceRequest",
+    "DereferencedEvidence",
+    "DisclosingRecorderProtocol",
     "UnrecordableDeliveryBoundaryError",
+    "disclosing_boundary",
     "govern_absence",
+    "govern_dereference",
     "govern_entitlement",
     "recorded_boundary",
 ]
@@ -112,6 +158,31 @@ __all__ = [
 SURFACE_HTTP_ROUTE: Final[str] = "http-route"
 SURFACE_MCP_TOOL: Final[str] = "mcp-tool"
 SURFACE_MCP_RESOURCE: Final[str] = "mcp-resource"
+
+#: The two evidence-read surfaces ``D-IMPL-345`` adds. Separate tokens from
+#: :data:`SURFACE_HTTP_ROUTE` because a dereference is a different question
+#: from a serve, and an examiner reading a record must be able to tell which
+#: was asked without inferring it from the address.
+SURFACE_HTTP_REPLAY_READ: Final[str] = "http-replay-read"
+SURFACE_HTTP_ARTIFACT_READ: Final[str] = "http-artifact-read"
+
+#: The surfaces a read-refusal record can have been minted at. One of the two
+#: constants that together identify such a record (:data:`DEREFERENCE_PRODUCT_ID`
+#: is the other) — both, never either, so a record forged through the open
+#: write path cannot present one and borrow the other's meaning.
+EVIDENCE_SURFACES: Final[frozenset[str]] = frozenset(
+    {SURFACE_HTTP_REPLAY_READ, SURFACE_HTTP_ARTIFACT_READ}
+)
+
+#: The ``product_id`` every dereference refusal carries in its request
+#: identity, for every outcome (``D-IMPL-345`` R-4). A mechanism constant, not
+#: a recovered class: :func:`~ccf.products.disclosure.disclose` leaves
+#: ``request`` untouched at every level because on a serve it is what the
+#: caller itself asked, and a dereference caller asks only for an address — so
+#: anything recovered from the target and placed here would cross the boundary
+#: below ``full`` and tell the caller that the target exists and what class it
+#: was decided on.
+DEREFERENCE_PRODUCT_ID: Final[str] = "ccf.evidence-dereference"
 
 
 class UnrecordableDeliveryBoundaryError(ValueError):
@@ -605,3 +676,461 @@ def govern_entitlement(
                 else ()
             ),
         )
+
+
+# =========================================================================
+# D-IMPL-345 — a dereference is a governed determination
+# =========================================================================
+
+
+@runtime_checkable
+class DisclosingRecorderProtocol(Protocol):
+    """A recorder that can also state the level it would disclose at.
+
+    ``D-IMPL-345`` R-2, Dave, verbatim: *"Read disclosure authority through
+    the recorder, not the entitlement source. The entitlement source answers
+    whether the caller is entitled; it is not the authority for what the serve
+    disclosed."*
+
+    The two extra members are the two
+    :class:`~ccf.products.resolver.ReplayRefusalRecorder` already carries as
+    fields, so the reference recorder conforms without changing. They are
+    declared here rather than on
+    :class:`~ccf.products.resolver.RefusalRecorderProtocol` because a door
+    that only records refusals needs neither, and the MCP builders must keep
+    accepting exactly what they accept today (``D-IMPL-345`` §6.3).
+
+    ``disclosure_level_for`` is typed as the ``Callable`` attribute the
+    recorder holds rather than as a method: the recorder takes it by
+    injection, and a Protocol that declared a method would refuse the shipped
+    object.
+    """
+
+    tenant_id: str
+    disclosure_level_for: Callable[
+        ..., tuple[DisclosureLevel, ProvenanceSource | None]
+    ]
+
+    def record(
+        self,
+        envelope: RefusalEnvelope,
+        *,
+        perspective: Perspective,
+        recorded_at: datetime,
+        resolution: object,
+        policy_bindings: tuple[PolicyBinding, ...] = (),
+    ) -> RefusalEnvelope:
+        """Mint the record, then return the disclosed shell."""
+        ...
+
+
+def disclosing_boundary(
+    *, refusal_recorder: object | None, builder: str
+) -> DisclosingRecorderProtocol:
+    """Return the recorder, or refuse to build an evidence-dereferencing door.
+
+    :func:`recorded_boundary`'s check FIRST — so a door that cannot record is
+    refused in exactly the words it is refused in everywhere else — and then
+    the two members ``D-IMPL-345`` needs on top.
+
+    **A sibling rather than a widening**, deliberately.
+    :func:`recorded_boundary` is one function shared with the egress and
+    experience MCP builders, which ``D-IMPL-345`` leaves byte-for-byte
+    unchanged; tightening it there would change the construction posture of
+    two doors this ruling does not touch.
+    """
+    recorder = recorded_boundary(refusal_recorder=refusal_recorder, builder=builder)
+    if not isinstance(recorder, DisclosingRecorderProtocol):
+        raise UnrecordableDeliveryBoundaryError(
+            f"{builder} was asked to build a door that dereferences governed"
+            f" evidence, but its `refusal_recorder=` of type"
+            f" {type(recorder).__name__} cannot state a disclosure level: a"
+            " dereference is disclosed at the level that disclosed the serve,"
+            " read through the recorder rather than the entitlement source"
+            " (D-IMPL-345 R-2), so the recorder must carry `tenant_id` and"
+            " `disclosure_level_for`. The SDK's `ReplayRefusalRecorder` does."
+            " A door that cannot decide what it may disclose is not a valid"
+            " governed door (D-IMPL-256 (2))"
+        )
+    return recorder
+
+
+@dataclass(frozen=True, kw_only=True)
+class DereferenceRequest:
+    """What a caller asked for, and nothing recovered from what it names.
+
+    Attributes:
+        reference: The address or versioned URI, exactly as the caller wrote
+            it. This string is the only caller-supplied member a refusal
+            echoes (``D-IMPL-345`` R-4).
+        by_uri: Whether ``reference`` is a versioned URI rather than a bare
+            content address.
+        wants_bytes: Whether the caller asked for stored bytes (the artifact
+            route) rather than the typed record (the replay routes). Both are
+            decided identically; only what is delivered differs.
+    """
+
+    reference: str
+    by_uri: bool
+    wants_bytes: bool
+
+
+@dataclass(frozen=True, kw_only=True)
+class DereferencedEvidence:
+    """One authorized read: the record, its address, and the exact bytes.
+
+    ``payload`` is populated only for a ``wants_bytes`` ask, and it is what
+    the store returned rather than a re-serialization — the caller asked for
+    the bytes at an address and gets those bytes, so the address it verifies
+    them against is the one it asked for.
+    """
+
+    content_address: str
+    record: DecisionReplayRecord
+    payload: bytes | None = None
+
+
+def _internal_refusal(record: DecisionReplayRecord) -> RefusalEnvelope | None:
+    """The record's own internal refusal envelope, or ``None`` if it served.
+
+    Dimension 5 holds the envelope as canonical JSON. A block that does not
+    validate — the legacy pre-``24.6-07`` shape included — is *no recoverable
+    identity*, which the caller's own hold 2 turns into a withheld read rather
+    than a guess.
+    """
+    block = record.content_generation_path.assembly_refusal
+    if block == NO_ASSEMBLY_REFUSAL:
+        return None
+    try:
+        return RefusalEnvelope.model_validate_json(block)
+    except ValidationError:
+        return None
+
+
+def _is_read_refusal(internal: RefusalEnvelope | None) -> bool:
+    """Whether this record is one a dereference itself produced.
+
+    Recognized by **both** constants together — the mechanism
+    :data:`DEREFERENCE_PRODUCT_ID` and one of :data:`EVIDENCE_SURFACES` — and
+    never by either alone. A record filed through the still-open write path
+    (``D-IMPL-73``) could carry one and borrow the other's meaning; requiring
+    both makes that forgery a record with no recoverable identity instead.
+    It is safe rather than merely careful because hold 1 binds every record to
+    its author: a forged record is readable by its forger and by nobody else.
+    """
+    return (
+        internal is not None
+        and internal.request.product_id == DEREFERENCE_PRODUCT_ID
+        and internal.resource is not None
+        and internal.resource.surface in EVIDENCE_SURFACES
+    )
+
+
+def _decided_identity(
+    record: DecisionReplayRecord, internal: RefusalEnvelope | None
+) -> tuple[str, str, str | None] | None:
+    """``(tenant, product_class, lane)`` the serve was decided under, or ``None``.
+
+    The tenant is the one the determination was **keyed on**, which differs
+    from the record's own tenant exactly where it matters: a delivery-boundary
+    denial is decided under the tenant the caller addressed, retained at
+    ``assembly_refusal.resource.tenant_id``, while ``record.tenant_id`` is the
+    tenant of the recorder that wrote it. Re-deciding a cross-tenant denial
+    under the recorder's tenant would answer a different question from the one
+    the serve asked.
+
+    The class comes from the served request when there was one, and from the
+    internal envelope's request identity otherwise. ``None`` — no recoverable
+    class — is returned rather than a default: ``D-IMPL-345`` §9.1 withholds
+    those records rather than inventing ownership for them.
+    """
+    served = record.content_generation_path.request
+    if served is not None:
+        return (record.tenant_id, served.schema_name, served.schema_version)
+    if internal is None:
+        return None
+    product_id = internal.request.product_id
+    if not product_id:
+        return None
+    tenant = (
+        internal.resource.tenant_id
+        if internal.resource is not None
+        else record.tenant_id
+    )
+    return (tenant, product_id, internal.request.product_version)
+
+
+def govern_dereference(
+    *,
+    grant: TokenGrant,
+    reference: DereferenceRequest,
+    store: ArtifactStoreProtocol,
+    entitlement_source: ProductEntitlementSourceProtocol,
+    refusal_recorder: DisclosingRecorderProtocol,
+    audit_log: AuditLog,
+    surface: str,
+    address: str,
+) -> DereferencedEvidence | RefusalEnvelope:
+    """Decide one dereference of governed evidence (``D-IMPL-345``).
+
+    The ONE governed step both evidence routes call, in ``D-IMPL-256``'s ruled
+    sequence — request → identity/policy → determination → replay →
+    disclosure shaping → transport encoding — with the transport holding only
+    the sixth. A caller receives either the evidence it asked for or an
+    already-recorded, already-disclosed shell.
+
+    **The holds, in order, and the order is the property** (``D-IMPL-345``
+    R-2):
+
+    1. **Principal.** The verified ``client_id`` equals the record's own
+       ``perspective_conditioning.principal_id``. On a mismatch the boundary
+       stops reading the record: ``authorize`` is never called, no policy pin
+       is obtained, and nothing about the target — its principal, class, role
+       or tenant — reaches the read-refusal record or the shell. That is
+       structural, not careful: the ordering is what makes it true.
+    2. **Product grant, re-decided now.** The identical ``authorize`` call the
+       serve's entitlement made, under the tenant the determination was keyed
+       on, for the class the record retains and the role it resolved
+       (:func:`_decided_identity`). Resolved per call, so a revoked grant
+       stops the read immediately; audited by the source as every entitlement
+       decision is. The deployment's perspective resolver is **not** re-run —
+       the record already carries the role it resolved, and the D-IMPL-67
+       subject-conflict check is hold 1. A record this boundary itself wrote
+       carries no product determination and skips this hold; a record with no
+       recoverable class is withheld.
+    3. **Disclosure, through the recorder.** The level in force for this
+       principal, read from the recorder that disclosed the serve and under
+       the recorder's own tenant, must be
+       :data:`~ccf.products.disclosure.DISCLOSURE_FULL`. Below it the record
+       does not cross — a dereference never upgrades a caller to the cause its
+       own shell withheld.
+
+    Only after all three pass is a versioned URI's naming checked, and the
+    ordering is again the property: :meth:`resolve_uri` answers only under the
+    exact ``(tenant, class, name)`` triple a version was registered under, so
+    a caller allowed to consult it before the holds could confirm those three
+    facts about a record it may not read by varying the segments.
+
+    **Every refusal and every absence is one outcome**: a
+    :class:`~ccf.products.refusal.SubjectUnavailableRefusal` recorded through
+    the door's recorder and returned disclosed. ``cause="unauthorized"``
+    distinguishes a hold failure on a genuine record from ``"nonexistent"``
+    for everything else, as internal truth; below ``full`` the two are one
+    shell, and the request identity every shell carries is the mechanism
+    constant plus the caller's own reference, never anything recovered from
+    the target.
+
+    Args:
+        grant: The verified caller. Never a caller's claim.
+        reference: What was asked for, verbatim.
+        store: The artifact store the door was built over.
+        entitlement_source: The deployment's entitlement seam and the holder
+            of the determination clock.
+        refusal_recorder: The ONE minting seam, which also states the level.
+            Checked at construction by :func:`disclosing_boundary`.
+        audit_log: The Control Plane's own append-only log. Every dereference
+            appends exactly one ``authz_decision`` event naming the reference
+            asked and the address delivered — the trail of a read, which the
+            entitlement decision's own event is not (``D-IMPL-345`` R-5).
+        surface: :data:`SURFACE_HTTP_REPLAY_READ` or
+            :data:`SURFACE_HTTP_ARTIFACT_READ`.
+        address: The route path the caller asked, for the resource identity.
+
+    Returns:
+        The evidence, or the disclosed shell carrying its own record's address.
+
+    Raises:
+        ccf.artifacts.protocol.MovingTargetRefused: the URI asks for
+            ``@latest``. A request-shape refusal raised by the shared parser
+            before any lookup, which reveals nothing and which the route
+            renders as the ``409`` it renders today.
+        Exception: whatever the artifact store raises on append, deliberately
+            uncaught — a failure to record is a failure to decide.
+    """
+    determined_at = _determined_at(entitlement_source)
+    action_id = (
+        ACTION_ARTIFACT_READ
+        if reference.wants_bytes
+        else ACTION_REPLAY_READ
+    )
+
+    def audited(*, delivered: str, allowed: bool) -> None:
+        audit_log.append(
+            action="authz_decision",
+            key=reference.reference,
+            version=delivered,
+            resolved=allowed,
+            occurred_at=determined_at,
+            actor=grant.client_id,
+            artifact_class=DEREFERENCE_PRODUCT_ID,
+            authz_action_id=action_id,
+            authz_matched_pattern=None,
+        )
+
+    def refuse(
+        *,
+        cause: str,
+        error_code: str,
+        detail: str,
+        policy: ProvenanceSource | None = None,
+    ) -> RefusalEnvelope:
+        envelope = envelope_for(
+            SubjectUnavailableRefusal(
+                cause=cause,  # type: ignore[arg-type]
+                detail=detail,
+                error_code=error_code,
+            ),
+            # The caller asked for an address. That is the whole of what its
+            # request identity may say (`D-IMPL-260` (2)): authorization state
+            # must never change an identity member's presence OR its value,
+            # and `disclose` leaves `request` untouched at every level.
+            request=RequestIdentity(
+                product_id=DEREFERENCE_PRODUCT_ID,
+                product_version=None,
+                parameters={"reference": reference.reference},
+                temporal_boundary=None,
+            ),
+            resource=ResourceRequestIdentity(
+                surface=surface,
+                address=address,
+                # The door's own tenant: an address ask carries none, and an
+                # absent target has none to carry. Normalized below `full`.
+                tenant_id=refusal_recorder.tenant_id,
+                determined_at=determined_at,
+            ),
+            policy_bindings=(policy,) if policy is not None else (),
+        )
+        audited(delivered="", allowed=False)
+        return refusal_recorder.record(
+            envelope,
+            perspective=Perspective(
+                principal_id=grant.client_id,
+                # No perspective is resolved on a read: the positive absence,
+                # never a role borrowed from the record being asked for.
+                role=NO_ROLE_RESOLVED,
+            ),
+            recorded_at=determined_at,
+            # Dimension 2: there is no resolution step on this path at all —
+            # the door states it rather than the seam inferring it from
+            # silence (`D-IMPL-264` D-09/D-10).
+            resolution=ResolutionNotApplicable(reason="no-resolution-step"),
+            policy_bindings=(
+                (PolicyBinding(key=policy.identity, version=policy.version),)
+                if policy is not None and policy.version is not None
+                else ()
+            ),
+        )
+
+    absent = "the requested evidence is not available to this principal"
+
+    # --- resolution: every failure below is the SAME absence -----------------
+    if reference.by_uri:
+        # `@latest` raises MovingTargetRefused here, before any lookup.
+        parsed = parse_artifact_uri(reference.reference)
+        candidate = parsed.artifact_version
+    else:
+        candidate = reference.reference
+    try:
+        content_address = held_content_address(candidate)
+        record = resolve_artifact(
+            store=store,
+            content_address=content_address,
+            contract=DecisionReplayRecord,
+        )
+    except (
+        ArtifactNotFound,
+        ArtifactStoreError,
+        ReplayUnresolvable,
+        ReplayDivergence,
+        ValidationError,
+    ):
+        # A malformed address, nothing stored, bytes that are not a record,
+        # bytes that do not hash to their address: ONE outcome at every level.
+        # The non-record classes are addressed by the hash of their own
+        # inputs, so a caller able to tell them apart from nothing could
+        # confirm that a particular traversal or question happened.
+        return refuse(
+            cause="nonexistent", error_code=ERROR_EVIDENCE_ABSENT, detail=absent
+        )
+
+    # --- hold 1: the record's own principal ---------------------------------
+    if grant.client_id != record.perspective_conditioning.principal_id:
+        return refuse(
+            cause="unauthorized",
+            error_code=ERROR_EVIDENCE_PRINCIPAL_MISMATCH,
+            detail=(
+                "the record at the requested reference was determined for"
+                " another principal"
+            ),
+        )
+
+    internal = _internal_refusal(record)
+
+    # --- hold 2: the product grant that governed the serve ------------------
+    if not _is_read_refusal(internal):
+        decided = _decided_identity(record, internal)
+        if decided is None:
+            return refuse(
+                cause="unauthorized",
+                error_code=ERROR_EVIDENCE_CLASS_UNRECOVERABLE,
+                detail=(
+                    "the record retains no product class, so the grant that"
+                    " governed its serve cannot be re-decided"
+                ),
+            )
+        decided_tenant, product_class, _lane = decided
+        try:
+            entitlement_source.authorize(
+                grant=grant,
+                tenant=decided_tenant,
+                product_class=product_class,
+                role=record.perspective_conditioning.role,
+            )
+        except ProductEntitlementRefused as refused:
+            return refuse(
+                cause="unauthorized",
+                error_code=refused.error_code,
+                detail=refused.message,
+                policy=refused.policy,
+            )
+
+    # --- hold 3: the level that disclosed the serve -------------------------
+    level, _policy = refusal_recorder.disclosure_level_for(
+        tenant=refusal_recorder.tenant_id, principal_id=grant.client_id
+    )
+    if level != DISCLOSURE_FULL:
+        return refuse(
+            cause="unauthorized",
+            error_code=ERROR_EVIDENCE_DISCLOSURE_WITHHELD,
+            detail=(
+                f"the disclosure level in force for this principal is {level!r};"
+                " a governed record crosses a door only at full disclosure"
+            ),
+        )
+
+    # --- the URI's naming, checked LAST -------------------------------------
+    if reference.by_uri:
+        try:
+            registered = store.resolve_uri(uri=reference.reference)
+        except (ArtifactStoreError, LookupError):
+            return refuse(
+                cause="nonexistent",
+                error_code=ERROR_EVIDENCE_ABSENT,
+                detail=absent,
+            )
+        if registered != content_address:
+            return refuse(
+                cause="nonexistent",
+                error_code=ERROR_EVIDENCE_ABSENT,
+                detail=absent,
+            )
+
+    payload = (
+        store.get(content_address=content_address)
+        if reference.wants_bytes
+        else None
+    )
+    audited(delivered=content_address, allowed=True)
+    return DereferencedEvidence(
+        content_address=content_address, record=record, payload=payload
+    )

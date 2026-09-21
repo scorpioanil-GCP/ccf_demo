@@ -25,9 +25,11 @@ from typing import Final
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "ACTION_ARTIFACT_READ",
     "ACTION_HITL_ACTION_SUBMIT",
     "ACTION_HITL_QUEUE_READ",
     "ACTION_PRODUCT_RETRIEVE",
+    "ACTION_REPLAY_READ",
 ]
 
 #: Reading one tenant's pending HITL queue — declared by the HTTP door's
@@ -46,3 +48,20 @@ ACTION_HITL_ACTION_SUBMIT: Final[str] = "hitl.action.submit"
 #: class?" must not have to know which surface the caller happened to reach
 #: (D-02; D-08).
 ACTION_PRODUCT_RETRIEVE: Final[str] = "product.retrieve"
+
+#: Retrieving one Decision Replay record over a door — declared by the HTTP
+#: ``GET /replay/decisions`` and ``GET /replay/resolutions`` routes
+#: (``D-IMPL-345``, R-5). Distinct from :data:`ACTION_PRODUCT_RETRIEVE`
+#: because the question differs: *retrieve* asks whether a principal may be
+#: SERVED a class, this asks whether it may READ the governed evidence of a
+#: determination already made. The event this id rides on is the trail of a
+#: read — it names the reference asked and the address delivered, which the
+#: entitlement decision's own event does not.
+ACTION_REPLAY_READ: Final[str] = "replay.read"
+
+#: Retrieving artifact bytes by content address over a door — declared by the
+#: HTTP ``GET /artifact/{content_address}`` route (``D-IMPL-345``, R-3/R-5).
+#: A separate id from :data:`ACTION_REPLAY_READ` because the two routes are
+#: separately mountable and an examiner filtering on one must not silently
+#: receive the other, even though ``D-IMPL-345`` decides both the same way.
+ACTION_ARTIFACT_READ: Final[str] = "artifact.read"

@@ -659,9 +659,12 @@
       "ArtifactStoreError",
       "ArtifactStoreProtocol",
       "ArtifactUriUnresolvable",
+      "CONTENT_ADDRESS_PATTERN",
       "LATEST_VERSION_TOKEN",
+      "MalformedContentAddress",
       "MovingTargetRefused",
       "artifact_uri",
+      "held_content_address",
       "parse_artifact_uri"
     ],
     "exports": {
@@ -704,9 +707,17 @@
         "kind": "class",
         "shape": "type"
       },
+      "CONTENT_ADDRESS_PATTERN": {
+        "kind": "constant",
+        "shape": "Pattern"
+      },
       "LATEST_VERSION_TOKEN": {
         "kind": "constant",
         "shape": "str"
+      },
+      "MalformedContentAddress": {
+        "kind": "class",
+        "shape": "type"
       },
       "MovingTargetRefused": {
         "kind": "class",
@@ -715,6 +726,10 @@
       "artifact_uri": {
         "kind": "function",
         "shape": "(*, tenant_id: 'str', artifact_class: 'str', name: 'str', artifact_version: 'str') -> 'str'"
+      },
+      "held_content_address": {
+        "kind": "function",
+        "shape": "(content_address: 'str') -> 'str'"
       },
       "parse_artifact_uri": {
         "kind": "function",
@@ -5599,6 +5614,7 @@
   },
   "ccf.products.disclosure": {
     "__all__": [
+      "DISCLOSURE_FULL",
       "DISCLOSURE_LEVELS",
       "DISCLOSURE_MINIMAL",
       "DisclosureDecision",
@@ -5611,6 +5627,10 @@
       "disclose"
     ],
     "exports": {
+      "DISCLOSURE_FULL": {
+        "kind": "constant",
+        "shape": "str"
+      },
       "DISCLOSURE_LEVELS": {
         "kind": "constant",
         "shape": "frozenset"
@@ -8502,15 +8522,52 @@
   },
   "ccf_runtime.authz.delivery_boundary": {
     "__all__": [
+      "DEREFERENCE_PRODUCT_ID",
+      "DereferenceRequest",
+      "DereferencedEvidence",
+      "DisclosingRecorderProtocol",
+      "EVIDENCE_SURFACES",
+      "SURFACE_HTTP_ARTIFACT_READ",
+      "SURFACE_HTTP_REPLAY_READ",
       "SURFACE_HTTP_ROUTE",
       "SURFACE_MCP_RESOURCE",
       "SURFACE_MCP_TOOL",
       "UnrecordableDeliveryBoundaryError",
+      "disclosing_boundary",
       "govern_absence",
+      "govern_dereference",
       "govern_entitlement",
       "recorded_boundary"
     ],
     "exports": {
+      "DEREFERENCE_PRODUCT_ID": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "DereferenceRequest": {
+        "kind": "class",
+        "shape": "(*, reference: 'str', by_uri: 'bool', wants_bytes: 'bool') -> None"
+      },
+      "DereferencedEvidence": {
+        "kind": "class",
+        "shape": "(*, content_address: 'str', record: 'DecisionReplayRecord', payload: 'bytes | None' = None) -> None"
+      },
+      "DisclosingRecorderProtocol": {
+        "kind": "class",
+        "shape": "(*args, **kwargs)"
+      },
+      "EVIDENCE_SURFACES": {
+        "kind": "constant",
+        "shape": "frozenset"
+      },
+      "SURFACE_HTTP_ARTIFACT_READ": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "SURFACE_HTTP_REPLAY_READ": {
+        "kind": "constant",
+        "shape": "str"
+      },
       "SURFACE_HTTP_ROUTE": {
         "kind": "constant",
         "shape": "str"
@@ -8527,9 +8584,17 @@
         "kind": "class",
         "shape": "type"
       },
+      "disclosing_boundary": {
+        "kind": "function",
+        "shape": "(*, refusal_recorder: 'object | None', builder: 'str') -> 'DisclosingRecorderProtocol'"
+      },
       "govern_absence": {
         "kind": "function",
         "shape": "(*, grant: 'TokenGrant', tenant: 'str', product_class: 'str', product_version: 'str | None', parameters: 'Mapping[str, Any]', asked_at: 'datetime | None', surface: 'str', address: 'str', perspective: 'Perspective', absent: 'LookupError', entitlement_source: 'ProductEntitlementSourceProtocol', refusal_recorder: 'RefusalRecorderProtocol') -> 'RefusalEnvelope'"
+      },
+      "govern_dereference": {
+        "kind": "function",
+        "shape": "(*, grant: 'TokenGrant', reference: 'DereferenceRequest', store: 'ArtifactStoreProtocol', entitlement_source: 'ProductEntitlementSourceProtocol', refusal_recorder: 'DisclosingRecorderProtocol', audit_log: 'AuditLog', surface: 'str', address: 'str') -> 'DereferencedEvidence | RefusalEnvelope'"
       },
       "govern_entitlement": {
         "kind": "function",
@@ -8619,11 +8684,17 @@
   },
   "ccf_runtime.authz.refusals": {
     "__all__": [
+      "ACTION_ARTIFACT_READ",
       "ACTION_HITL_ACTION_SUBMIT",
       "ACTION_HITL_QUEUE_READ",
-      "ACTION_PRODUCT_RETRIEVE"
+      "ACTION_PRODUCT_RETRIEVE",
+      "ACTION_REPLAY_READ"
     ],
     "exports": {
+      "ACTION_ARTIFACT_READ": {
+        "kind": "constant",
+        "shape": "str"
+      },
       "ACTION_HITL_ACTION_SUBMIT": {
         "kind": "constant",
         "shape": "str"
@@ -8633,6 +8704,10 @@
         "shape": "str"
       },
       "ACTION_PRODUCT_RETRIEVE": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "ACTION_REPLAY_READ": {
         "kind": "constant",
         "shape": "str"
       }
@@ -8990,6 +9065,10 @@
   },
   "ccf_runtime.http_api.errors": {
     "__all__": [
+      "ERROR_EVIDENCE_ABSENT",
+      "ERROR_EVIDENCE_CLASS_UNRECOVERABLE",
+      "ERROR_EVIDENCE_DISCLOSURE_WITHHELD",
+      "ERROR_EVIDENCE_PRINCIPAL_MISMATCH",
       "ERROR_INVALID_GRANT",
       "ERROR_PRINCIPAL_NOT_ENTITLED",
       "ERROR_PRODUCT_CLASS_UNENTITLED",
@@ -9007,6 +9086,22 @@
       "refusal_detail"
     ],
     "exports": {
+      "ERROR_EVIDENCE_ABSENT": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "ERROR_EVIDENCE_CLASS_UNRECOVERABLE": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "ERROR_EVIDENCE_DISCLOSURE_WITHHELD": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "ERROR_EVIDENCE_PRINCIPAL_MISMATCH": {
+        "kind": "constant",
+        "shape": "str"
+      },
       "ERROR_INVALID_GRANT": {
         "kind": "constant",
         "shape": "str"
@@ -9117,6 +9212,7 @@
       "REPLAY_REF_HEADER",
       "REQUEST_ECHO_HEADER",
       "canonical_response",
+      "governed_refusal_response",
       "refusal_response"
     ],
     "exports": {
@@ -9135,6 +9231,10 @@
       "canonical_response": {
         "kind": "function",
         "shape": "(payload: 'object', *, replay_ref: 'str | None' = None, asked: 'WireRequest | None' = None) -> 'Response'"
+      },
+      "governed_refusal_response": {
+        "kind": "function",
+        "shape": "(envelope: 'RefusalEnvelope') -> 'JSONResponse'"
       },
       "refusal_response": {
         "kind": "function",
@@ -9186,7 +9286,7 @@
       },
       "build_router": {
         "kind": "function",
-        "shape": "(deps: 'ApiDependencies') -> 'APIRouter'"
+        "shape": "(deps: 'ApiDependencies', *, entitlement_source: 'ProductEntitlementSourceProtocol | None' = None, refusal_recorder: 'DisclosingRecorderProtocol | None' = None) -> 'APIRouter'"
       }
     }
   },
@@ -9258,7 +9358,7 @@
     "exports": {
       "build_router": {
         "kind": "function",
-        "shape": "(deps: 'ApiDependencies') -> 'APIRouter'"
+        "shape": "(deps: 'ApiDependencies', *, entitlement_source: 'ProductEntitlementSourceProtocol | None' = None, refusal_recorder: 'DisclosingRecorderProtocol | None' = None) -> 'APIRouter'"
       }
     }
   },

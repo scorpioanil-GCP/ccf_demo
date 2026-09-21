@@ -42,10 +42,13 @@ from typing import Awaitable, Callable
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, params
 
 from ccf.products.resolver import RefusalRecorderProtocol
-from ccf_runtime.authz.delivery_boundary import recorded_boundary
 from ccf_runtime.authz.product_entitlement import (
     PerspectiveResolverProtocol,
     ProductEntitlementSourceProtocol,
+)
+from ccf_runtime.authz.delivery_boundary import (
+    disclosing_boundary,
+    recorded_boundary,
 )
 from ccf_runtime.authz.protocol import TenantAuthorizerProtocol
 from ccf_runtime.http_api.auth import HttpAuthProtocol
@@ -278,6 +281,17 @@ def create_app(
         recorded_boundary(
             refusal_recorder=refusal_recorder, builder="create_app"
         )
+        # `D-IMPL-345` R-2, in the same breath and for the same reason: the
+        # two evidence-read routes disclose at the level the recorder that
+        # disclosed the serve would state, so a recorder that cannot state one
+        # cannot govern them. Kept beside the check above rather than folded
+        # into it — that one is the product door's, in its own words and with
+        # its own sabotage, and this one is the evidence doors'.
+        evidence_recorder = disclosing_boundary(
+            refusal_recorder=refusal_recorder, builder="create_app"
+        )
+    else:
+        evidence_recorder = None
 
     app = FastAPI(
         title="CCF HTTP API",
@@ -372,11 +386,27 @@ def create_app(
         prefix="/hitl",
         dependencies=guarded,
     )
+    # `D-IMPL-345`: the two evidence-read routes are governed dereferences,
+    # so they receive the same seams the product route does — the entitlement
+    # source that decides, and the recorder that mints and states the level,
+    # both checked at construction above.
     app.include_router(
-        replay.build_router(deps), prefix="/replay", dependencies=guarded
+        replay.build_router(
+            deps,
+            entitlement_source=product_entitlement,
+            refusal_recorder=evidence_recorder,
+        ),
+        prefix="/replay",
+        dependencies=guarded,
     )
     app.include_router(
-        artifact.build_router(deps), prefix="/artifact", dependencies=guarded
+        artifact.build_router(
+            deps,
+            entitlement_source=product_entitlement,
+            refusal_recorder=evidence_recorder,
+        ),
+        prefix="/artifact",
+        dependencies=guarded,
     )
     app.include_router(
         product.build_router(

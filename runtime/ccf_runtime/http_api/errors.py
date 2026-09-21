@@ -25,6 +25,10 @@ from typing import Final
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "ERROR_EVIDENCE_ABSENT",
+    "ERROR_EVIDENCE_CLASS_UNRECOVERABLE",
+    "ERROR_EVIDENCE_DISCLOSURE_WITHHELD",
+    "ERROR_EVIDENCE_PRINCIPAL_MISMATCH",
     "ERROR_INVALID_GRANT",
     "ERROR_PRINCIPAL_NOT_ENTITLED",
     "ERROR_PRODUCT_CLASS_UNENTITLED",
@@ -44,6 +48,34 @@ __all__ = [
 
 #: The request carried no credential the bound auth hook recognises (401).
 ERROR_UNAUTHENTICATED: Final[str] = "unauthenticated"
+
+#: The caller asked to dereference a governed record that belongs to another
+#: principal (``D-IMPL-345`` R-2/R-4). Internal truth only: the shell a
+#: consumer receives below ``full`` is the one every other absence produces,
+#: because a principal must not learn from a refusal that a record exists.
+ERROR_EVIDENCE_PRINCIPAL_MISMATCH: Final[str] = "evidence-principal-mismatch"
+
+#: The caller's own record carries no recoverable product class, so the grant
+#: that governed its serve cannot be re-decided and the record does not cross
+#: (``D-IMPL-345`` §9.1). Conservative by ruling: ownership is never inferred
+#: from current state for a record that predates the identity members.
+ERROR_EVIDENCE_CLASS_UNRECOVERABLE: Final[str] = "evidence-class-unrecoverable"
+
+#: The caller's own record exists and its grant holds, but the disclosure
+#: level in force for that principal is below ``full`` (``D-IMPL-345`` R-2).
+#: The record IS the internal truth, so the level that withheld the serve
+#: withholds its record — a dereference never upgrades a caller to the cause
+#: its own shell hid.
+ERROR_EVIDENCE_DISCLOSURE_WITHHELD: Final[str] = "evidence-disclosure-withheld"
+
+#: Nothing readable is at the reference: no such address, a malformed one, a
+#: URI naming no registered version, bytes that are not a record, or bytes
+#: that do not hash to their address (``D-IMPL-345`` R-4). ONE code for every
+#: absence, at every level — the non-record artifact classes are addressed by
+#: the hash of their own inputs, so a caller able to tell *bytes that are not
+#: a record* from *nothing* could confirm that a particular traversal or
+#: question happened.
+ERROR_EVIDENCE_ABSENT: Final[str] = "evidence-absent"
 
 #: The body principal's subject conflicts with the verified caller
 #: identity (403; D-IMPL-67/21 — the audited subject is derived, never

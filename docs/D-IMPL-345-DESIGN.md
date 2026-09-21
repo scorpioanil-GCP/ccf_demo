@@ -1020,23 +1020,22 @@ exactly as today. Nothing has shipped; that is a smaller cost than a guess.
 
 ### 9.2 Existing tests and callers — measured, not assumed
 
-- `tests/http_api/test_routes.py` holds six tests on the four operations,
-  all on the module app with **no auth hook**, asserting `200`/`404`/`409`
-  for a credential-less caller. Three keep their assertions on a governed
-  fixture: `tests/http_api/test_routes.py::test_replay_refuses_a_moving_target`
-  (`409` — row 9), `tests/http_api/test_routes.py::test_replay_of_nothing_is_a_404`
-  and `tests/http_api/test_routes.py::test_artifact_get_of_nothing_is_a_404`
-  (`404` — the status stands; the body becomes the shell). **Three change**,
-  named: `tests/http_api/test_routes.py::test_artifact_put_then_get_round_trips`
-  reads back a `ccf.test-blob` — row 8 under 345, so its GET limb becomes a
-  row-8 control and the PUT limb stays; `tests/http_api/test_routes.py::test_replay_decision_returns_the_typed_record`
-  and `tests/http_api/test_routes.py::test_replay_resolution_follows_the_versioned_uri`
-  resolve the conftest fixture record, which is built with **no**
-  `ProductRequest` — row 5 (class unrecoverable) even for its own principal at
-  `full` — so either the fixture record gains a request (the honest repair:
-  the test then proves C4) or the two become row-5 controls. Their present
-  form is kept in the as-built record as the measurement of what shipped,
-  the `D-IMPL-108` precedent for the product happy-path tests.
+- `tests/http_api/test_routes.py` held six tests on the four operations, all
+  on the module app with **no auth hook**, asserting `200`/`404`/`409` for a
+  credential-less caller — the posture R-1 ends on these nouns. As built, all
+  six were re-dispositioned in place rather than moved: that module is about
+  routing, so it now asserts the ungoverned posture
+  (`tests/http_api/test_routes.py::test_replay_decisions_refuses_on_an_ungoverned_door`
+  and its siblings, including
+  `tests/http_api/test_routes.py::test_replay_of_nothing_is_refused_the_same_way_as_something`,
+  which pins that the `503` is not a channel either), the write path keeps its
+  own control
+  (`tests/http_api/test_routes.py::test_artifact_put_still_stores_and_returns_its_reference`),
+  and every positive read — an authorized `200`, the `404` shell, the `409` for
+  `@latest`, the no-oracle equality — is proven against a door that has the
+  seams to decide, in `tests/http_api/test_evidence_dereference.py`. Their
+  present form is kept in the as-built record (§13) as the measurement of what
+  shipped, the `D-IMPL-108` precedent for the product happy-path tests.
 - **The CLI.** `runtime/ccf_runtime/cli/main.py` builds its local app with
   `create_app(dependencies, acknowledge_insecure_default=True)` — no auth
   hook, no seams — and sends no bearer in `--base-url` mode; nothing under
@@ -1216,3 +1215,147 @@ consequences wrong in ways only execution showed — it read the level through
 the wrong object, and it let the shell carry a value the caller never
 supplied — which is the strongest argument this document can make for the
 proof plan being mostly about proving equivalence rather than mechanism.
+
+---
+
+## 13 · As built (2026-09-20, synchronization of this design to the tree)
+
+Implemented on `d-impl-345-authz`, forked from the design commit `014705b0`,
+under Dave's implementation GO of 2026-09-20 (R-1..R-5 and `S-02` in scope).
+CP-17 is untouched and remains frozen at `f5e22e6b`. Sections 1–12 are the
+design as ruled; this section is what the tree now holds, including the four
+places the implementation departed from the design and why.
+
+### 13.1 What was built
+
+| file | what |
+|---|---|
+| `src/ccf/artifacts/protocol.py` | `CONTENT_ADDRESS_PATTERN`, `held_content_address`, `MalformedContentAddress` (an `ArtifactNotFound` subclass) — the one shape check, on the Protocol module that owns addressing (`S-02`) |
+| `src/ccf/artifacts/file_store.py` | `_path` runs the check before the join, so the join can only produce a child of the root; `exists` answers `False` for a non-address rather than raising, and still touches no filesystem |
+| `src/ccf/artifacts/mcp_store.py` | the same check before each resource URI is composed, so the MCP store spends no round trip on a string a server could not hold |
+| `src/ccf/products/disclosure.py` | `DISCLOSURE_FULL`, named beside `DISCLOSURE_MINIMAL` |
+| `runtime/ccf_runtime/authz/delivery_boundary.py` | `govern_dereference` with the four holds, `DisclosingRecorderProtocol`, `disclosing_boundary`, `DereferenceRequest`, `DereferencedEvidence`, the two evidence surface tokens, `EVIDENCE_SURFACES`, `DEREFERENCE_PRODUCT_ID` |
+| `runtime/ccf_runtime/authz/refusals.py` | `ACTION_REPLAY_READ`, `ACTION_ARTIFACT_READ` |
+| `runtime/ccf_runtime/http_api/errors.py` | the four `ERROR_EVIDENCE_*` codes |
+| `runtime/ccf_runtime/http_api/routes/__init__.py` | `governed_refusal_response` — the renderer lifted out of the product route, with the kind→type-name map beside it |
+| `runtime/ccf_runtime/http_api/routes/product.py` | imports that renderer under its historical local name; its own call text is byte-unchanged |
+| `runtime/ccf_runtime/http_api/routes/replay.py`, `.../artifact.py` | authenticate, call the governed step, encode; `_route_path` so the caller's string is echoed in exactly one member |
+| `runtime/ccf_runtime/http_api/app.py` | both construction checks in one block; the evidence recorder threaded into both routers |
+| `tests/http_api/test_evidence_dereference.py` | 32 controls (new module) |
+| `docs/surface-changes/345-01-…md` | 20 entries |
+
+### 13.2 The four departures from §1–§12, named
+
+1. **The four `ERROR_EVIDENCE_*` codes live in `ccf_runtime.http_api.errors`,
+   and `delivery_boundary` imports them from there** — so that module now
+   names a transport module, which its own docstring previously said it did
+   not. The alternative was a second error vocabulary in the authz package. The
+   enforced invariant permits it in as many words
+   (`tests/invariants/test_delivery_boundary_replay.py`: *"The determination
+   layer is allowed to know a door's error vocabulary; a door is not allowed to
+   make the determination"*), it is the permission the entitlement seam beside
+   it already uses, and the module docstring was corrected rather than left
+   true-by-omission.
+2. **`resource.address` is the route's own path, not the route path plus the
+   reference** (§4.4 said the latter). Measured: with the concrete path, two
+   refusals for two different asks differed at `resource.address` as well as at
+   `request.parameters.reference`, which would have forced the comparator to
+   normalize two members instead of one. The caller's string is now echoed in
+   exactly one place and every other member of the shell is constant across
+   asks, which makes the comparator strict on `resource` rather than blind to
+   it.
+3. **Both construction checks sit in one block in `create_app`**, and
+   `tests/http_api/test_product_refusal_statuses.py`'s sabotage anchor was
+   widened to cover both. The design said `disclosing_boundary` would be called
+   at the mount site; that would have been a second construction check the
+   existing recorder-check sabotage does not remove, silently defeating a
+   shipped control. The test's own anchor assertion asks to be re-anchored when
+   the builder's checks change; it was, and its assertions are unchanged.
+4. **`tests/authz/test_delivery_boundary.py`'s minting-sabotage anchor was
+   narrowed** to `govern_entitlement`'s mint by including the comment that
+   precedes only it. `govern_dereference` added a second
+   `return refusal_recorder.record(` at the same indentation, and a control
+   that sabotaged whichever one it found first would measure a different
+   function on a later edit.
+
+### 13.3 Controls, measured
+
+`tests/http_api/test_evidence_dereference.py`: **32 passed**. They cover every
+behavior the ruling required, including the four the design added after its
+second review (the URI naming probe, the computed-pin probe, the audit trail
+of an allowed read, and the own-read-refusal-record read), plus the MCP
+inheritance of the store-level refusal and the store-level refusal itself.
+
+One control's expectation was corrected against the implementation rather than
+the other way round, and the correction is the more interesting property: in
+C1 the ungranted principal dereferences the reference of **its own** product
+denial, so hold 1 passes and **hold 2** refuses with the source's own
+`principal-not-entitled`. The same entitlement decision that refused the serve
+refuses the record of that serve, which is *"held to the applicable product
+grant"* at its tightest.
+
+### 13.4 Sabotages, run by hand and restored byte-clean (`cmp`)
+
+| sabotage | reds | greens |
+|---|---|---|
+| S1 — the shipped pre-345 replay handler restored | 23 | the 8 that do not read a record through the replay routes |
+| S2 — the shipped pre-345 artifact handler restored | C2 (artifact limb), C3, C5, C23, C24 | 26 others |
+| S3 — hold 3 removed | C9, C15, C19 | 28 others, C2/C2′/C4/C6 included |
+| S4 — hold 1 removed | C2, **C2′**, C6′, C20, C22 | 26 others |
+| S6 — hold 2 removed | C1, C10, C11, C21 | 27 others |
+| S7 — the recovered class written onto `request.product_id` | C1, C9 | 29 others |
+| S9 — the store shape check removed | the store-level control | 30 others |
+| S10 — the URI's naming consulted before the holds | C22 | 30 others |
+| S11 — absences given distinct internal codes | C3, C12, C17, C23 | 27 others |
+| S12 — the allowed read's audit event dropped | C24 | 30 others |
+| S14 — the unbound-seam guard bypassed | C14 | 30 others |
+
+Every sabotage is load-bearing and each reds a distinct set. Three results are
+worth recording because they differ from what §8.3 predicted:
+
+- **S4 reds C2′ and C2 both.** The design expected only C2′, reasoning that
+  C2's principals differ in role; in the built fixture `A` and `B` hold the
+  same role, so both catch it. C2′ remains the control that would catch hold-1
+  removal even if that changed.
+- **S7 reds C1 and C9, not C6.** Because hold 1 stops before the record's
+  identity is read, no class is ever recovered on a cross-principal ask — so
+  the leak the first draft carried is reachable only on the caller's *own*
+  records. That is the ordering property of §4.4 showing up as a narrower blast
+  radius than the design assumed, and the two controls that do catch it are
+  enough.
+- **S9 reds only the store-level control.** At the HTTP door the record
+  validation already refuses the naming index, so the shape check is
+  defence-in-depth there. It is not redundant: it is the only defence for the
+  MCP blob resource and for every in-process caller, which is exactly why the
+  ruling placed it at the store.
+
+`S5` (absence rendered as today's prose 404) is subsumed by S1 and S2, which
+restore precisely that behavior along with the rest of the shipped handlers;
+it was not run separately.
+
+### 13.5 Regression package, measured at the candidate
+
+`tests/http_api`, `tests/authz`, `tests/cli`, `tests/invariants`, `tests/mcp`,
+`tests/products`, `tests/replay`, `tests/contracts`: **4 460 passed, 1
+skipped**, with the single remaining red being
+`tests/invariants/test_determination_authority_disclosure_delivery.py::test_no_control_here_edits_the_real_source_tree`,
+which asserts `git status --porcelain -- src runtime` is empty and is therefore
+a statement about an uncommitted working tree rather than about this change;
+it passes at the commit. `python -m tools.lints --all` is clean, the citation
+ratchet holds, the surface manifest and its fragment agree, and `openapi.json`
+is byte-identical (the committed spec is generated from an app with no auth
+hook, and no route's declared request or response model moved).
+
+Three test dispositions changed, each named in §9.2/§9.3 before it happened:
+the six `test_routes.py` evidence-route tests now assert the ungoverned
+posture, `tests/cli/test_cli.py::test_read_verbs_dispatch` records that the
+CLI's three evidence verbs answer `product-door-ungoverned` until `ccf` can
+carry a credential (a `D-IMPL-22` amendment, named and not made), and the two
+sabotage anchors of §13.2 were re-anchored.
+
+### 13.6 What remains open
+
+R-1..R-5 are implemented as recommended; `S-02` is closed at the store. The
+reachability extension (`?via=<record>`) and artifact PUT governance stay
+closed together under a later id, as R-3 ruled. `D-IMPL-129` is untouched and
+its pin still asserts that an unentitled credential reads a record over MCP.

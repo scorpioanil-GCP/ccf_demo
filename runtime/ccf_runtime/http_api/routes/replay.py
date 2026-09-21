@@ -1,10 +1,28 @@
 """The ``replay`` noun — decisions and exact-version resolution (D-IMPL-23).
 
-Both reads go through :mod:`ccf.replay.engine`'s resolution path, so the
-HTTP surface inherits its guarantees unchanged: an absent record is a 404,
-divergent bytes are a 409, and ``@latest`` dies here exactly as it dies
-in-process (:class:`~ccf.artifacts.protocol.MovingTargetRefused` → 409) —
-replay resolves an exact version and has no fallback (D-IMPL-26).
+Both reads are **governed dereferences** (``D-IMPL-345``), not lookups. The
+route authenticates through the app's own dependency, reads the verified
+grant, calls the ONE governed step
+:func:`~ccf_runtime.authz.delivery_boundary.govern_dereference`, and
+**encodes what it returns**: a
+:class:`~ccf.replay.record.DecisionReplayRecord` as its canonical bytes, or an
+already-recorded, already-disclosed refusal shell through the same renderer
+every other governed refusal on this API goes through. Nothing on this page
+decides, mints a record, discloses, or reads a clock.
+
+What changed, and why (``D-IMPL-345``, from ``S-01``). Before it, both
+handlers took only their query parameter and answered ``200`` with the whole
+five-dimension record to any recognized bearer — so a principal whose serve
+had been refused at minimal disclosure could dereference the very
+``replay_reference`` that refusal handed it and read the cause the shell
+withheld, and any bearer holding another principal's record address could read
+that principal's record. Absence answered in a different body shape from
+presence, which is the existence oracle ``D-IMPL-253`` amendment 2 (4)
+forbids. The guarantees this surface inherits from
+:mod:`ccf.replay.engine` are unchanged underneath: an exact version is
+resolved and there is no fallback, and ``@latest`` still dies here
+(:class:`~ccf.artifacts.protocol.MovingTargetRefused` → 409) exactly as it
+dies in-process (D-IMPL-26).
 
 Algorithmic module (CINV-03).
 """
@@ -13,55 +31,129 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
+from starlette.requests import Request
 
 from ccf.artifacts.protocol import MovingTargetRefused
-from ccf.replay.engine import ReplayDivergence, ReplayUnresolvable
-from ccf.replay.engine import resolve_artifact, resolve_artifact_at_uri
-from ccf.replay.record import DecisionReplayRecord
+from ccf.products.refusal import RefusalEnvelope
+from ccf_runtime.authz.delivery_boundary import (
+    SURFACE_HTTP_REPLAY_READ,
+    DereferenceRequest,
+    DisclosingRecorderProtocol,
+    govern_dereference,
+)
+from ccf_runtime.authz.product_entitlement import (
+    ProductEntitlementSourceProtocol,
+)
 from ccf_runtime.http_api.dependencies import ApiDependencies
-from ccf_runtime.http_api.routes import canonical_response
+from ccf_runtime.http_api.errors import (
+    ERROR_PRODUCT_DOOR_UNGOVERNED,
+    refusal_detail,
+)
+from ccf_runtime.http_api.grants import grant_from_request
+from ccf_runtime.http_api.routes import (
+    canonical_response,
+    governed_refusal_response,
+)
 
 __ccf_mode__ = "algorithmic"
 
 __all__ = ["build_router"]
 
 
-def build_router(deps: ApiDependencies) -> APIRouter:
-    """The replay router over the injected artifact store."""
+def _route_path(request: Request, reference: str) -> str:
+    """The ROUTE the caller reached, never the string it asked for.
+
+    ``/artifact/{content_address}`` rather than ``/artifact/<the address>``:
+    the reference a caller supplied is echoed in exactly ONE place, its
+    refusal's ``request.parameters``, so every other member of the shell is
+    constant across asks and a control comparing two refusals is comparing
+    the determination rather than the two strings that provoked it.
+    """
+    path = request.url.path
+    template = str(getattr(request.scope.get("route"), "path", ""))
+    if template.endswith("}") and path.endswith(reference):
+        return path[: -len(reference)] + template[template.rfind("{") :]
+    return path
+
+
+def build_router(
+    deps: ApiDependencies,
+    *,
+    entitlement_source: ProductEntitlementSourceProtocol | None = None,
+    refusal_recorder: DisclosingRecorderProtocol | None = None,
+) -> APIRouter:
+    """The replay router over the injected artifact store and governance seams.
+
+    Args:
+        deps: The named provider bundle carrying the artifact store and the
+            Control Plane whose audit log every dereference appends to.
+        entitlement_source: The deployment's entitlement seam. ``None`` — the
+            posture of an app built without it — makes every dereference a
+            ``503``: the routes are mounted, and they refuse to read governed
+            evidence ungoverned (``D-IMPL-345`` R-1).
+        refusal_recorder: The ONE minting seam, which also states the
+            disclosure level. Checked at construction by the app's
+            :func:`~ccf_runtime.authz.delivery_boundary.disclosing_boundary`.
+    """
     router = APIRouter()
 
-    @router.get("/decisions", summary="Replay decision (D-IMPL-23)")
-    def decision(content_address: str) -> Response:
-        try:
-            record = resolve_artifact(
-                store=deps.artifact_store,
-                content_address=content_address,
-                contract=DecisionReplayRecord,
-            )
-        except ReplayUnresolvable as absent:
-            raise HTTPException(status_code=404, detail=str(absent)) from absent
-        except ReplayDivergence as diverged:
+    def _dereferenced(
+        request: Request, reference: DereferenceRequest
+    ) -> Response:
+        """Authenticate, govern, encode. The route's whole job."""
+        grant = grant_from_request(request)
+        if entitlement_source is None or refusal_recorder is None or grant is None:
+            # The product route's own posture for an ungoverned door, in its
+            # own words and with its own code: a surface that cannot decide
+            # does not answer from the store (D-IMPL-345 R-1). Refusing here
+            # rather than serving is also what keeps unauthorized and
+            # nonexistent from diverging through a configuration path.
             raise HTTPException(
-                status_code=409, detail=str(diverged)
-            ) from diverged
-        return canonical_response(record)
-
-    @router.get("/resolutions", summary="Replay resolve (D-IMPL-23)")
-    def resolution(uri: str) -> Response:
+                status_code=503,
+                detail=refusal_detail(
+                    error_code=ERROR_PRODUCT_DOOR_UNGOVERNED,
+                    message=(
+                        "this door dereferences governed evidence without a"
+                        " bound entitlement source, recorder and verified"
+                        " caller; bind auth=, product_entitlement= and"
+                        " refusal_recorder= at create_app (D-IMPL-345 R-1)"
+                    ),
+                ),
+            )
         try:
-            record = resolve_artifact_at_uri(
+            decided = govern_dereference(
+                grant=grant,
+                reference=reference,
                 store=deps.artifact_store,
-                uri=uri,
-                contract=DecisionReplayRecord,
+                entitlement_source=entitlement_source,
+                refusal_recorder=refusal_recorder,
+                audit_log=deps.control_plane.audit_log,
+                surface=SURFACE_HTTP_REPLAY_READ,
+                address=_route_path(request, reference.reference),
             )
         except MovingTargetRefused as moving:
+            # A request-shape refusal raised by the shared parser before any
+            # lookup: it reveals nothing about the store, and it answered 409
+            # here before D-IMPL-345 as it does in-process.
             raise HTTPException(status_code=409, detail=str(moving)) from moving
-        except ReplayUnresolvable as absent:
-            raise HTTPException(status_code=404, detail=str(absent)) from absent
-        except ReplayDivergence as diverged:
-            raise HTTPException(
-                status_code=409, detail=str(diverged)
-            ) from diverged
-        return canonical_response(record)
+        if isinstance(decided, RefusalEnvelope):
+            return governed_refusal_response(decided)
+        return canonical_response(decided.record)
+
+    @router.get("/decisions", summary="Replay decision (D-IMPL-23)")
+    def decision(content_address: str, request: Request) -> Response:
+        return _dereferenced(
+            request,
+            DereferenceRequest(
+                reference=content_address, by_uri=False, wants_bytes=False
+            ),
+        )
+
+    @router.get("/resolutions", summary="Replay resolve (D-IMPL-23)")
+    def resolution(uri: str, request: Request) -> Response:
+        return _dereferenced(
+            request,
+            DereferenceRequest(reference=uri, by_uri=True, wants_bytes=False),
+        )
 
     return router
