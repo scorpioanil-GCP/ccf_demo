@@ -36,7 +36,7 @@ declaration:
       result: >-
         not run as a sabotage — UNAVAILABLE. Measured 2026-09-21: the four operator keys were reordered in `ccf_config.yaml` to put Similarity first and Policy last, and the SERVED order did not move (the test passed unchanged). `CATEGORY_ORDER` in the SDK's planner decides the executed order, so a deployment cannot express the forbidden order at all.
       date: '2026-09-21'
-      commit: PENDING
+      commit: e2e526c9
   - id: IBO-G02
     statement: three perspectives, one banker, one instant — three orderings and three content addresses
     spec_clause:
@@ -50,7 +50,7 @@ declaration:
       result: >-
         RED 2026-09-21 — with one vector for all three perspectives the three orderings coincided and the test failed on the ordering set. The first sabotage left the gate green and is recorded as `IBO-F-06`: it taught where the perspective actually enters the ranking.
       date: '2026-09-21'
-      commit: PENDING
+      commit: e2e526c9
   - id: IBO-G03
     statement: the ordering differs while the admitted signal-type set does not — the weight vector is the discriminator, not the projection plan
     spec_clause:
@@ -63,7 +63,7 @@ declaration:
       result: >-
         RED 2026-09-21 — the weight vector was flattened to one value per signal type; the three orderings collapsed into one while the admitted signal-type set was unchanged, which is exactly the trap the gate guards.
       date: '2026-09-21'
-      commit: PENDING
+      commit: e2e526c9
   - id: IBO-G04
     statement: 'the counterfactual: one prospect in one perspective''s top third and another''s bottom half, from identical signals'
     spec_clause:
@@ -76,7 +76,7 @@ declaration:
       result: >-
         RED 2026-09-21 — the same flattening. The divergence prospect's two ranks converged and the test failed on `(3, 25)` — top-third under one perspective is no longer bottom-half under the other.
       date: '2026-09-21'
-      commit: PENDING
+      commit: e2e526c9
   - id: IBO-G05
     statement: the served product names the weight version that ranked it
     spec_clause:
@@ -89,7 +89,7 @@ declaration:
       result: >-
         RED 2026-09-21 — `weight_version` was emptied in the payload. The DECLARED GATE refused the product before the test's own assertion was reached: `an invariant the product class declares does not hold for this product`.
       date: '2026-09-21'
-      commit: PENDING
+      commit: e2e526c9
   - id: IBO-G06
     statement: a ranking served under one weight version replays to its served bytes after the Control Plane has moved to a later version
     spec_clause:
@@ -102,7 +102,7 @@ declaration:
       result: >-
         RED 2026-09-21 — the weight vector was stripped from the banker claim, so the snapshot no longer carried what ranked the product. The declared gate refused it, which is the stronger outcome: a ranking whose vector is not in the fabric cannot be served, let alone replayed.
       date: '2026-09-21'
-      commit: PENDING
+      commit: e2e526c9
   - id: IBO-G07
     statement: the same record replayed against a different weight vector DIVERGES rather than quietly agreeing
     spec_clause:
@@ -115,7 +115,7 @@ declaration:
       result: >-
         RED by construction, run 2026-09-21 — the test replays the same record with the banker claim's weight vector INVERTED (whatever was cheapest becomes dearest, a real re-pricing rather than a nonsense value) and the engine raises `ReplayDivergence`; the un-sabotaged replay of the same record still agrees byte for byte.
       date: '2026-09-21'
-      commit: PENDING
+      commit: e2e526c9
   - id: IBO-G08
     statement: a restricted prospect REMAINS a candidate; what the restriction bounds is the evidence admitted for it, never its presence
     spec_clause:
@@ -129,7 +129,7 @@ declaration:
       result: >-
         RED 2026-09-21 — with both halves broken a banker-local note reached restricted prospect `0J0XRGZE3PBRFEZ7MV65` and the test named it. The first attempt, removing the bound alone, left the gate GREEN for want of data.
       date: '2026-09-21'
-      commit: PENDING
+      commit: e2e526c9
   - id: IBO-G09
     statement: no prospect outside the banker's own coverage portfolio appears in any served ranking
     spec_clause:
@@ -142,7 +142,7 @@ declaration:
       result: >-
         RED 2026-09-21 — the coverage read was widened past the banker's own portfolio. The served ranking drew on 40 prospects against a portfolio of 14 and the test failed on `assert 40 == 14`.
       date: '2026-09-21'
-      commit: PENDING
+      commit: e2e526c9
   - id: IBO-G10
     statement: a banker's local notes reach that banker's ranking and no other banker's
     spec_clause:
@@ -155,7 +155,7 @@ declaration:
       result: >-
         RED 2026-09-21 — the departmental note read was unbound from the asking banker's id, so every banker's notebook reached the product; the test named the six note ids that crossed. (A first attempt at this sabotage broke the f-string quoting and errored rather than reddening — a broken sabotage is not a sabotage, and it was rewritten.)
       date: '2026-09-21'
-      commit: PENDING
+      commit: e2e526c9
   - id: IBO-G11
     statement: at least one ranked row's position depends on a local note — removing it moves the row
     spec_clause:
@@ -168,7 +168,7 @@ declaration:
       result: >-
         RED by construction, run 2026-09-21 — the test withholds every banker-local note at the acquisition seam and compares the two orderings; the ordering moves, and the moved rows intersect the rows a note had reached. A green here would mean the notebook reaches the fabric but not the ranking.
       date: '2026-09-21'
-      commit: PENDING
+      commit: e2e526c9
   - id: IBO-G12
     statement: the payload's member set is a function of the perspective and never of the banker or the request
     spec_clause:
@@ -181,7 +181,7 @@ declaration:
       result: >-
         RED 2026-09-21 — Pi emitted one extra member (`sabotage_extra_member`) for every perspective and the declared gate refused the product.
       date: '2026-09-21'
-      commit: PENDING
+      commit: e2e526c9
   - id: IBO-G13
     statement: every ranked row carries at least one contributing signal with its weight, its age and its evidence
     spec_clause:
@@ -195,7 +195,7 @@ declaration:
       result: >-
         RED 2026-09-21 — with the explanation emptied on every ranked row the declared gate refused the product by name. The first attempt, admitting candidates with no evidence, left the gate GREEN because the estate has no such candidate.
       date: '2026-09-21'
-      commit: PENDING
+      commit: e2e526c9
   - id: IBO-G14
     statement: a signal type outside the perspective's plan is REFUSED by name, never silently dropped
     spec_clause:
@@ -208,7 +208,7 @@ declaration:
       result: >-
         RED by construction, run 2026-09-21 — the request names a signal type the perspective's plan does not carry and is refused `subject-unavailable` with `signal-type-outside-plan` and the offending type in the record. The positive control, the same request narrowed to a type the plan DOES carry, is served.
       date: '2026-09-21'
-      commit: PENDING
+      commit: e2e526c9
   - id: IBO-G15
     statement: a banker with no coverage portfolio is refused by name, as data, with a replay reference
     spec_clause:
@@ -221,7 +221,7 @@ declaration:
       result: >-
         RED by construction, run 2026-09-21 — the coverage read is emptied and the refusal asserted. It has to be constructed: every one of the estate's forty bankers covers exactly twenty-five prospects, so the empty-portfolio state is unreachable from the data.
       date: '2026-09-21'
-      commit: PENDING
+      commit: e2e526c9
   - id: IBO-G16
     statement: a banker id that exists nowhere is indistinguishable from one whose candidates Policy removed entirely
     spec_clause:
@@ -234,7 +234,7 @@ declaration:
       result: >-
         RED by construction, run 2026-09-21 — the test relabels every acquired claim out of the Policy vocabulary and compares the emptied banker's vessel with a nonexistent banker's path for path; two different nonexistent ids hash identically, and a normally served answer differs from both at `payload` and at `computed_empty`.
       date: '2026-09-21'
-      commit: PENDING
+      commit: e2e526c9
   - id: IBO-G17
     statement: 'a refused or absent optional CP-17 child does NOT refuse the IB product: the ranking is served and the missing context is recorded as named debt'
     spec_clause:
@@ -247,7 +247,7 @@ declaration:
       result: >-
         RED 2026-09-21 — the declared gate was made to refuse when the optional child count is zero. The product stopped being served, which is precisely what the ruling forbids: a refused or absent optional child must not refuse the IB product.
       date: '2026-09-21'
-      commit: PENDING
+      commit: e2e526c9
   - id: IBO-G18
     statement: a served ranking makes visible WHICH rows were ranked without the optional CP-17 contribution — the narrower evidence base is stated, not silent
     spec_clause:
@@ -260,4 +260,4 @@ declaration:
       result: >-
         RED 2026-09-21 — every ranked row was made to claim the optional context HAD contributed. The test named the first row that lied about its own evidence base.
       date: '2026-09-21'
-      commit: PENDING
+      commit: e2e526c9
