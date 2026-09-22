@@ -176,6 +176,24 @@ def exchange(*, port: int = PORT, subject: str = SUBJECT, instant: str = INSTANT
     return result
 
 
+def _in_process_answer() -> tuple[dict[str, Any], dict[str, Any]]:
+    """Ask the same question in THIS process, through Agent B's own entry.
+
+    `_ask_ccf` carries the guarded import (`AIA-F-07`), so calling it is both
+    the honest comparison and the one that cannot pick up another tree's
+    `produce`.
+    """
+    sys.path.insert(0, str(EXAMPLE))
+    try:
+        import agent_b  # noqa: PLC0415
+
+        payload = agent_b._ask_ccf(subject=SUBJECT, instant=INSTANT, strict=False)
+        return dict(payload), dict(agent_b._answer_from(payload))
+    finally:
+        sys.path.remove(str(EXAMPLE))
+        sys.modules.pop("agent_b", None)
+
+
 @pytest.fixture(scope="module")
 def served(peer: subprocess.Popen[bytes]) -> Exchange:
     result = exchange()
@@ -295,15 +313,7 @@ def test_the_wire_answer_agrees_with_the_in_process_product(served: Exchange) ->
     the A2A response is NOT required to preserve CCF content identity, so this
     compares the FACT and never a hash.
     """
-    sys.path.insert(0, str(EXAMPLE))
-    try:
-        import agent_b  # noqa: PLC0415
-
-        payload = agent_b._ask_ccf(subject=SUBJECT, instant=INSTANT, strict=False)
-        direct = agent_b._answer_from(payload)
-    finally:
-        sys.path.remove(str(EXAMPLE))
-        sys.modules.pop("agent_b", None)
+    payload, direct = _in_process_answer()
     assert direct["counterparty"] == served.answer["counterparty"]
     assert direct["headroom_usd"] == served.answer["headroom_usd"]
 
@@ -337,14 +347,7 @@ def test_the_extraction_is_lossy_by_a_wide_margin(served: Exchange) -> None:
     RELATIONSHIP is asserted — the answer is a small fraction of the payload —
     never the measured byte counts, which are estate-dependent.
     """
-    sys.path.insert(0, str(EXAMPLE))
-    try:
-        import agent_b  # noqa: PLC0415
-
-        payload = agent_b._ask_ccf(subject=SUBJECT, instant=INSTANT, strict=False)
-    finally:
-        sys.path.remove(str(EXAMPLE))
-        sys.modules.pop("agent_b", None)
+    payload, _ = _in_process_answer()
     assert len(served.answer) < len(payload) / 4, (
         "the answer carries most of the payload's members; nothing was extracted"
     )
@@ -440,11 +443,14 @@ def test_the_decision_is_reconstructible_inside_agent_b(estate: None) -> None:
     assert "record_of" in (EXAMPLE / "agent_b.py").read_text(encoding="utf-8"), (
         "Agent B never resolves its replay record; the decision is not reconstructible there"
     )
+    # THE TEST USES AGENT B'S OWN GUARDED IMPORT, not a second hand-rolled
+    # one. Rolling its own was how this test acquired `AIA-F-07`'s collision
+    # for itself after the product was fixed — and a test that reaches the
+    # consumed tree by a different route is not testing the route that ships.
     sys.path.insert(0, str(EXAMPLE))
-    sys.path.insert(0, str(CONSUMED))
     try:
-        import produce  # noqa: PLC0415
-        import deployment  # noqa: PLC0415
+        import agent_b  # noqa: PLC0415
+
         from ccf.projection.plan import Perspective  # noqa: PLC0415
         from ccf.replay.record import DecisionReplayRecord  # noqa: PLC0415
         from ccf.replay.serve import ServedProduct  # noqa: PLC0415
@@ -454,24 +460,23 @@ def test_the_decision_is_reconstructible_inside_agent_b(estate: None) -> None:
 
         envelope = DECLARATION["envelope"]
         principal = DECLARATION["principal"]
-        with tempfile.TemporaryDirectory() as scratch:
-            with produce.product(pathlib.Path(scratch)) as opened:
-                asked = produce.large_exposure_question(
-                    opened, anchor=SUBJECT, asked_at=datetime.fromisoformat(INSTANT),
-                    intent=envelope["intent"], freshness=envelope["freshness"],
-                    **{deployment.AS_OF: INSTANT, deployment.REGIME: envelope["regime"],
-                       deployment.CONNECTION_BASIS: envelope["connection_basis"],
-                       deployment.APPLY_MITIGATION: envelope["apply_mitigation"],
-                       "debt_tolerance": Decimal(str(DECLARATION["debt_tolerance"]))})
-                outcome = opened.answer(asked, perspective=Perspective(
-                    principal_id=principal["principal_id"], role=principal["role"]))
-                assert isinstance(outcome, ServedProduct)
-                record = opened.record_of(outcome)
-                assert isinstance(record, DecisionReplayRecord)
-                assert record.content_generation_path.operator_plan
+        with agent_b._consumed_modules() as (produce, deployment):
+            with tempfile.TemporaryDirectory() as scratch:
+                with produce.product(pathlib.Path(scratch)) as opened:
+                    asked = produce.large_exposure_question(
+                        opened, anchor=SUBJECT, asked_at=datetime.fromisoformat(INSTANT),
+                        intent=envelope["intent"], freshness=envelope["freshness"],
+                        **{deployment.AS_OF: INSTANT, deployment.REGIME: envelope["regime"],
+                           deployment.CONNECTION_BASIS: envelope["connection_basis"],
+                           deployment.APPLY_MITIGATION: envelope["apply_mitigation"],
+                           "debt_tolerance": Decimal(str(DECLARATION["debt_tolerance"]))})
+                    outcome = opened.answer(asked, perspective=Perspective(
+                        principal_id=principal["principal_id"], role=principal["role"]))
+                    assert isinstance(outcome, ServedProduct)
+                    record = opened.record_of(outcome)
+                    assert isinstance(record, DecisionReplayRecord)
+                    assert record.content_generation_path.operator_plan
     finally:
-        for path in (str(CONSUMED), str(EXAMPLE)):
-            if path in sys.path:
-                sys.path.remove(path)
-        for name in ("produce", "deployment", "projection", "acquisition", "agent_b"):
-            sys.modules.pop(name, None)
+        if str(EXAMPLE) in sys.path:
+            sys.path.remove(str(EXAMPLE))
+        sys.modules.pop("agent_b", None)

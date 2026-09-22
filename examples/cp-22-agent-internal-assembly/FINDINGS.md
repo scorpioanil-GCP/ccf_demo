@@ -17,6 +17,8 @@ Measured 2026-09-21 against the live estate (`CCF_REQUIRE_ESTATE=1`).
 | `AIA-F-04` | proof machinery (mine) | fixed during build |
 | `AIA-F-05` | 3 · post-launch enhancement | backlog record below |
 | `AIA-F-06` | 4 · estate/example limitation | recorded |
+| `AIA-F-07` | example defect (mine) | **fixed** — a cross-tree module collision |
+| `AIA-F-08` | **needs a ruling** | the spine classifier has no CONSUMER shape |
 
 **Active issue cap: 1 of 3** — `AIA-F-01`, and it is a new instance of a known
 family rather than a new defect.
@@ -209,3 +211,107 @@ means. It is recorded so a reader meets it rather than discovers it.
   `opened.record_of(outcome)`.
 - **No SDK source file was touched, no new class was declared, no new
   dependency was added, and no new decision id was spent.**
+
+---
+
+## `AIA-F-07` — Agent B imported another product tree's producer
+
+**Example defect. Mine. Fixed. It only appeared in the full suite, and the
+error it produced was the lucky outcome.**
+
+A CCF product tree is imported **by bare module name off `sys.path`** —
+`produce`, `deployment`, `projection`, `acquisition`. Any two trees in one
+process claim exactly the same four names.
+
+Agent B's tests passed alone and under `-k cp_22`, and failed in the full
+`tests/examples` run with:
+
+```
+AttributeError: module 'produce' has no attribute 'product'. Did you mean: '_project'?
+```
+
+Another example's `produce` was already in `sys.modules`, so Agent B's
+`import produce` returned **that tree's module** and Agent B assembled nothing
+at all.
+
+**The AttributeError is why this was cheap to find, and it is not the
+dangerous case.** Two trees whose producers happen to share a function name —
+and this ladder names them similarly on purpose — would have had Agent B
+assemble **the wrong product** and answer Agent A from it. That is a
+governance failure wearing a successful answer: the right principal, the right
+tolerance, the right extraction, and the wrong subject entirely.
+
+**Fixed in `agent_b.py`, not in the test**, because the import is Agent B's:
+`_consumed_modules()` evicts the four colliding names, inserts the consumed
+tree's path, imports, **verifies the file actually loaded lives in that tree**,
+and restores whatever it displaced. A mismatch raises `CannotAnswer` rather
+than answering.
+
+**AND THE FIX HAD TO BE APPLIED TWICE, WHICH IS THE INSTRUCTIVE PART.**
+Guarding `agent_b.py` cleared two of the three failing tests. The third —
+`test_the_decision_is_reconstructible_inside_agent_b` — kept failing because
+it rolled its **own** hand-written import of the consumed tree, and so
+inherited the identical collision the product had just been fixed for. It now
+goes through `agent_b._consumed_modules()`, which is both the guarded route
+and the route that actually ships. **A test that reaches the consumed tree by
+a different path is not testing the path under test.**
+
+**Second instance of a class already recorded.** `LEX-F-11` (cp-21) was the
+same failure in a different namespace — `server.serve` surviving an eviction
+that popped only `server`. Two instances, two namespaces, one cause: **bare
+module names shared across example trees, evicted incompletely.** The
+`sys.modules` isolation sweep Dave carried from CP-21 now has a second data
+point, and this one shows the failure is not confined to test harnesses — it
+reached shipped agent code.
+
+---
+
+## `AIA-F-08` — the spine contract has four shapes, and none of them is CONSUMER
+
+**Needs a ruling. NOT worked around, and the shared gate was NOT edited.**
+
+`tests/examples/test_spine_separation.py` scans `examples/cp-*` by glob and
+judges each tree against the regions its **shape** owes. Measured 2026-09-21:
+
+| tree | `paved_entry` | shape | regions owed | has |
+|---|---|---|---|---|
+| cp-21 | **True** | `paved` | `boot`, `answer` | both |
+| **cp-22** | **False** | `spine` *(the default)* | **all seven** | none |
+
+The cause is exact. `PAVED_ENTRY_CALLS` is
+`{"ccf.products.product.open_product"}`, matched by **qualified call name
+within the tree**. Agent B reaches the paved road through **cp-21's**
+`produce.product(...)` wrapper, so the detector cannot see it, and `shape_of`
+falls through to its `"spine"` default — which demands a full producer's call
+spine (`ingest`, `operators`, `project`, `gate`, `record`, `serve`) **from a
+tree that produces nothing**.
+
+`shape_of` has four shapes — `paved`, `canonical`, `half-migrated`,
+`double-spined` — plus `"spine"` as the default. **None of them is
+"consumer."** CP-22 is the first `cp-*` tree that consumes a product rather
+than producing one, and the glob was written before such a tree existed.
+
+**Five tests fail as a result**, all introduced by cp-22's arrival (measured:
+`main` at `ec0c153e` has **zero** spine failures), including
+`test_discovery_is_independent_of_the_working_directory`, a cross-tree
+aggregate that cp-22's presence breaks.
+
+**Why nothing was changed to make them pass.**
+
+- **Not `agent_b.py`.** Calling `open_product` directly would mean duplicating
+  cp-21's entire boot — its `config_root` and its `acquire` / `project` /
+  `assess` / `gate` wiring — purely so a detector fires. That is the inversion
+  `D-IMPL-326` exists to prevent: *the tool accepts the authority that governs
+  the product, not the other way round.* It would also make Agent B a worse
+  demonstration, since reusing the tree's own boot is exactly what an adopter
+  should do.
+- **Not the gate.** It governs 28 trees and carries rulings from phase 16
+  D-11, `D-IMPL-306` and `D-IMPL-343`. Widening a shared classifier on one
+  rung's authority is not this rung's call.
+- **Not a `# ccf-schema: deferred(...)`-shaped exception.** That is the move
+  this project refuses everywhere else.
+
+**What a ruling would choose between:** teaching `shape_of` a `consumer`
+shape that owes `boot` and `answer` (or nothing); narrowing the glob so it
+scans producers rather than every `cp-*`; or accepting cp-22 as a named
+exception. **This rung takes none of them.**

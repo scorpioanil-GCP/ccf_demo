@@ -35,7 +35,8 @@ import argparse
 import json
 import sys
 import tempfile
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
+from contextlib import contextmanager
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
@@ -94,12 +95,60 @@ def _ask_ccf(*, subject: str, instant: str, strict: bool) -> Mapping[str, Any]:
         CannotAnswer: the determination was refused or withheld. The CCF
             refusal is inspected here and does not leave this function.
     """
-    sys.path.insert(0, str(_consumed_tree()))
+    with _consumed_modules() as (produce, deployment):
+        return _assemble(produce, deployment, subject=subject, instant=instant, strict=strict)
+
+
+#: The bare module names a product tree occupies. A second tree in the same
+#: process occupies exactly the same ones, which is why they are evicted
+#: rather than assumed absent (`AIA-F-07`).
+COLLIDING = ("produce", "deployment", "projection", "acquisition")
+
+
+@contextmanager
+def _consumed_modules() -> Iterator[tuple[Any, Any]]:
+    """Import the consumed tree's modules, and PROVE they are that tree's.
+
+    A product tree is imported by BARE MODULE NAME off `sys.path`, so any two
+    trees in one process claim the same names. Measured 2026-09-21: with
+    another tree's `produce` already in `sys.modules`, Agent B's `import
+    produce` silently returned THAT tree's module and failed with
+    `AttributeError: module 'produce' has no attribute 'product'`.
+
+    The AttributeError was the lucky outcome. Two trees whose producers happen
+    to share a function name would have had Agent B assemble THE WRONG
+    PRODUCT and answer from it, which is a governance failure wearing a
+    successful answer (`AIA-F-07`).
+
+    So: evict, import, VERIFY the file actually loaded lives in the consumed
+    tree, and restore whatever was displaced.
+    """
+    tree = _consumed_tree()
+    saved = {name: sys.modules.pop(name, None) for name in COLLIDING}
+    sys.path.insert(0, str(tree))
     try:
         import deployment  # noqa: PLC0415
         import produce  # noqa: PLC0415
+
+        for module in (produce, deployment):
+            resolved = Path(module.__file__ or "").parent
+            if resolved != tree:
+                raise CannotAnswer(
+                    f"the peer loaded `{module.__name__}` from {resolved}, which is not the"
+                    f" product it is configured to consume"
+                )
+        yield produce, deployment
     finally:
-        sys.path.remove(str(_consumed_tree()))
+        sys.path.remove(str(tree))
+        for name in COLLIDING:
+            sys.modules.pop(name, None)
+            if saved[name] is not None:
+                sys.modules[name] = saved[name]
+
+
+def _assemble(produce: Any, deployment: Any, *, subject: str, instant: str,
+              strict: bool) -> Mapping[str, Any]:
+    """The governed assembly itself, with the consumed tree's modules bound."""
 
     from ccf.projection.plan import Perspective  # noqa: PLC0415
     from ccf.replay.serve import ServedProduct  # noqa: PLC0415
