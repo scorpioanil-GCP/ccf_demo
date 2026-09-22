@@ -292,7 +292,7 @@ SDK-supplied-factory exemption. The assertion's own text is explicit:
 
 > *"A human rules on each addition."*
 
-Measured on `main` at `7356a0f1`, **before any cp-21 code existed**, the test
+Measured on `main` at `114cbdf2`, **before any cp-21 code existed**, the test
 is RED with three trees missing from the roster:
 
 ```
@@ -358,7 +358,7 @@ today because of collection order, not because they are isolated.
 `tests/examples/test_cp_readme_template.py` requires exactly seven `## `
 headings, named and ordered, from the single definition in
 `archive/examples/external/00-hello-context/run.py::README_HEADINGS`. Measured
-on `main` at `7356a0f1`, six merged rungs fail it:
+on `main` at `114cbdf2`, six merged rungs fail it:
 
 ```
 cp-15-kyc-refresh-beneficial-ownership
