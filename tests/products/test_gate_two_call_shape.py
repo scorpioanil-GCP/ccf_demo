@@ -940,6 +940,28 @@ RULED_SDK_SUPPLIED_DEPLOYMENTS: frozenset[str] = frozenset(
         # authors no operator set, so there is nothing to diverge from — the
         # `D-IMPL-141` condition, not a property this entry asserts.
         "examples/cp-19-aml-typology-match",
+        # cp-16, cp-21, cp-23 and cp-24, 2026-09-21 — RULED BY DAVE AS ONE
+        # ADDITION at the CP-21 close: *"Add these four paved `open_product`
+        # trees to the SDK-supplied-factory roster in one commit ... They use
+        # the same SDK-supplied paved factory and should be classified
+        # consistently. Do not add CP-21 alone merely to make its branch green
+        # while leaving three already-merged trees red."*
+        #
+        # All four reach this roster by the cp-17 route and were measured
+        # answering True before these lines existed: each `produce.py` defines
+        # a NAMED `plan_factory` that hands the resolver's own `required` tuple
+        # straight to its projection, which returns it unchanged. None of the
+        # four deployments authors an operator set, so there is nothing to
+        # diverge from — the `D-IMPL-141` condition, not a property these
+        # entries assert.
+        #
+        # Three of them were already merged and already red here; adding only
+        # the fourth would have made one branch green and left the standing
+        # failure exactly where it was. Recorded as `LEX-F-10`.
+        "examples/cp-16-abs-securitization-surveillance",
+        "examples/cp-21-large-exposure",
+        "examples/cp-23-portfolio-early-warning",
+        "examples/cp-24-portfolio-what-if",
     }
 )
 
@@ -3661,9 +3683,16 @@ def test_the_premise_detector_reads_the_shipped_tree_correctly() -> None:
         # as its OWN assertion for the same reason: what the detector ANSWERS.
         "examples/cp-14-credit-memo-context",
         # cp-15, 2026-09-21 — the KYC rung, added as its OWN assertion for
-        # the reason the cp-11 entry gives. Sorted before cp-17, as the
+        # the reason the cp-11 entry gives. Sorted before cp-16, as the
         # detector lists roots.
         "examples/cp-15-kyc-refresh-beneficial-ownership",
+        # cp-16, cp-21, cp-23 and cp-24, 2026-09-21 — the four trees Dave
+        # ruled onto the roster above as one addition at the CP-21 close.
+        # Recorded here as their OWN assertion for the reason the cp-11 entry
+        # gives: the roster records what was RULED, this records what the
+        # detector ANSWERS. Interleaved in sorted position, as the detector
+        # lists roots.
+        "examples/cp-16-abs-securitization-surveillance",
         "examples/cp-17-mnpi-wall-enforcement",
         # cp-18, 2026-09-21 — the IB opportunity rung, added as its OWN
         # assertion for the reason the cp-11 entry gives.
@@ -3672,6 +3701,9 @@ def test_the_premise_detector_reads_the_shipped_tree_correctly() -> None:
         # assertion for the reason the cp-11 entry gives: the roster above
         # records what was RULED, this records what the detector ANSWERS.
         "examples/cp-19-aml-typology-match",
+        "examples/cp-21-large-exposure",
+        "examples/cp-23-portfolio-early-warning",
+        "examples/cp-24-portfolio-what-if",
         "examples/hw1-companies-over-revenue/deployment",
         # `D-IMPL-311`, 2026-09-09 — s1-00 arrives from row B above, by the
         # same second shape cp-05 took: it reaches `build_governed_resolver`
