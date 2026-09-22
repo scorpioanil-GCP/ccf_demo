@@ -90,6 +90,7 @@ import re
 import shutil
 
 import pytest
+import yaml
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 
@@ -249,6 +250,36 @@ RESOLVER_OWNERSHIP_CALLS: frozenset[str] = frozenset(
 # reason: a tree that both opens the product on the paved road and composes
 # the resolver beside it gives a reader two accounts of who boots and who
 # serves, and publishes snippets of a spine the facade already owns.
+
+# A fifth shape, and it answers the gate's own question — `AIA-F-08`, ruled by
+# Dave 2026-09-22.
+#
+# The gate asks DOES THIS TREE PRODUCE A CONTEXT PRODUCT, OR CONSUME ONE? Every
+# shape above answers it one way: each is a producer, differing only in how it
+# reaches the governed seam. A tree that produces nothing had no answer, and
+# fell to the `"spine"` default — which then asked it for the seven regions of a
+# producer spine it does not own.
+#
+#   consumer   declares no product class of its own AND reaches an        valid
+#              existing paved entry belonging to ANOTHER product tree
+#
+# **Consumer is a STRUCTURAL STATE, not membership in a roster** — the same
+# discipline canonical and paved are held to, and the reason the ruling of
+# 2026-09-22 refused an allowlist: a permission list would make the gate answer
+# "is this tree approved?", which is the question this module exists not to ask.
+# Both limbs are read off the tree, and both are required: the first says the
+# tree is not a producer, the second says it is a consumer rather than merely
+# empty.
+
+#: How a tree declares a Context Product class OF ITS OWN. The deployment
+#: document is the Control Plane artifact that names the class, so a tree
+#: carrying one is a producer whatever its code does.
+DEPLOYMENT_CONFIG: str = "ccf_config.yaml"
+PRODUCT_CLASS_KEY: str = "product_class"
+
+#: A consumer owes NO producer regions. It publishes no spine because it has
+#: none: the spine it consumes is the other tree's, already published there.
+CONSUMER_MARKERS: tuple[str, ...] = ()
 
 #: Handing the whole governed seam to the paved road's ONE entrypoint.
 PAVED_ENTRY_CALLS: frozenset[str] = frozenset({"ccf.products.product.open_product"})
@@ -447,6 +478,97 @@ def paved_entry(directory: pathlib.Path) -> list[str]:
     return sorted(sites)
 
 
+def declares_product_class(directory: pathlib.Path) -> bool:
+    """Does this tree declare a Context Product class of its OWN?
+
+    Read from the deployment document rather than from code, because the class
+    is a Control Plane artifact and that is where a producer names it. A tree
+    with no `ccf_config.yaml`, or one that names no `product_class`, declares
+    no class — which is the first limb of `consumer`.
+    """
+    document = directory / DEPLOYMENT_CONFIG
+    if not document.is_file():
+        return False
+    try:
+        declared = yaml.safe_load(document.read_text(encoding="utf-8"))
+    except yaml.YAMLError:  # pragma: no cover - defensive
+        return False
+    return isinstance(declared, dict) and PRODUCT_CLASS_KEY in declared
+
+
+def _attribute_calls(module: pathlib.Path) -> list[tuple[str, str, int]]:
+    """`(name, attribute, lineno)` for every `name.attribute(...)` call.
+
+    Deliberately separate from `_qualified_calls`, which resolves `ccf` imports
+    only. A consumer reaches ANOTHER TREE's module, and that module is imported
+    by bare name off `sys.path` rather than from a package.
+    """
+    try:
+        tree = ast.parse(module.read_text(encoding="utf-8"))
+    except SyntaxError:  # pragma: no cover - defensive
+        return []
+    found: list[tuple[str, str, int]] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        if isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name):
+            found.append((func.value.id, func.attr, node.lineno))
+    return found
+
+
+def paved_entry_symbols(directory: pathlib.Path) -> set[tuple[str, str]]:
+    """`(module stem, function name)` for every paved entry this tree PUBLISHES.
+
+    A paved entry is a function whose body calls `open_product`. `cp-21`'s
+    `produce.py::product` is one, so this tree publishes `("produce",
+    "product")` — the pair another tree's code would call to reach it.
+    """
+    published: set[tuple[str, str]] = set()
+    for module in modules_in(directory):
+        try:
+            tree = ast.parse(module.read_text(encoding="utf-8"))
+        except SyntaxError:  # pragma: no cover - defensive
+            continue
+        imports = ccf_import_map(module)
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.FunctionDef):
+                continue
+            for inner in ast.walk(node):
+                if not isinstance(inner, ast.Call):
+                    continue
+                callee = inner.func
+                local = callee.id if isinstance(callee, ast.Name) else None
+                if local is not None and imports.get(local) in PAVED_ENTRY_CALLS:
+                    published.add((module.stem, node.name))
+    return published
+
+
+def foreign_paved_reach(directory: pathlib.Path) -> list[str]:
+    """Where this tree reaches a paved entry belonging to ANOTHER product tree.
+
+    Structural on both ends. The call site is read from this tree's AST; the
+    target is read from the other trees' ASTs, so a reach counts only when the
+    symbol it names really is a paved entry somewhere else. A tree calling its
+    own `produce.product` matches nothing here — the module is its own.
+    """
+    own_modules = {module.stem for module in modules_in(directory)}
+    foreign: dict[tuple[str, str], str] = {}
+    for tree_root in split_examples(EXAMPLES_ROOT):
+        if tree_root == directory:
+            continue
+        for symbol in paved_entry_symbols(tree_root):
+            foreign.setdefault(symbol, tree_root.name)
+
+    sites = [
+        f"{module.name}:{lineno} -> {name}.{attribute} ({foreign[(name, attribute)]})"
+        for module in modules_in(directory)
+        for name, attribute, lineno in _attribute_calls(module)
+        if name not in own_modules and (name, attribute) in foreign
+    ]
+    return sorted(sites)
+
+
 def shape_of(directory: pathlib.Path) -> str:
     """`"paved"`, `"canonical"`, `"half-migrated"`, `"double-spined"` or `"spine"` — read off the tree.
 
@@ -466,6 +588,12 @@ def shape_of(directory: pathlib.Path) -> str:
     if paved and owned:
         return "double-spined"
     if not paved and not owned:
+        # BOTH LIMBS, AND BOTH REQUIRED (`AIA-F-08`, ruled 2026-09-22). The
+        # first says this tree is not a producer; the second says it is a
+        # consumer rather than merely empty. A tree with neither does not
+        # become a consumer by accident — it is still judged against the seven.
+        if not declares_product_class(directory) and foreign_paved_reach(directory):
+            return "consumer"
         return "spine"
     if governed_seam_calls(directory) or legacy_governance_regions(directory):
         return "half-migrated"
@@ -502,6 +630,9 @@ def print_problems(directory: pathlib.Path) -> list[str]:
             " properties would pass over an empty set"
         ]
 
+    if shape_of(directory) == "consumer":
+        return consumer_print_problems(directory, facing)
+
     carriers = region_modules(directory)
     if carriers and PRINT_RE.search(carriers[0].read_text(encoding="utf-8")):
         problems.append(
@@ -522,6 +653,40 @@ def print_problems(directory: pathlib.Path) -> list[str]:
             f"{directory.name}: more than one fabric-facing module prints"
             f" ({[module.name for module in printers]}). Exactly one drives"
             " the run."
+        )
+    return problems
+
+
+def consumer_print_problems(
+    directory: pathlib.Path, facing: list[pathlib.Path]
+) -> list[str]:
+    """P5 and P6 for a consumer — the same two intents, over the right modules.
+
+    P5 says presentation does not belong in the CCF-facing code; for a
+    consumer that is its fabric-facing module rather than a region carrier,
+    since it carries no regions. P6 says the example shows a reader something,
+    and for a consumer the module that does so is legitimately NOT
+    fabric-facing — the client half of an agent pair imports no `ccf` at all,
+    which is the property that half exists to demonstrate.
+    """
+    problems: list[str] = []
+    noisy = sorted(
+        module.name for module in facing
+        if PRINT_RE.search(module.read_text(encoding="utf-8"))
+    )
+    if noisy:
+        problems.append(
+            f"{directory.name}: {noisy} reach the fabric AND print. A consumer's"
+            " fabric-facing module assembles and extracts; presentation belongs"
+            " in the module that drives the run."
+        )
+    if not any(
+        PRINT_RE.search(module.read_text(encoding="utf-8"))
+        for module in modules_in(directory)
+    ):
+        problems.append(
+            f"{directory.name} prints nothing — the example runs and shows a"
+            " reader nothing (Dave's ruling, 2026-08-13)"
         )
     return problems
 
@@ -575,6 +740,8 @@ def expected_markers(directory: pathlib.Path) -> tuple[str, ...]:
         return PAVED_PATH_MARKERS
     if shape == "canonical":
         return CANONICAL_PATH_MARKERS
+    if shape == "consumer":
+        return CONSUMER_MARKERS
     return CANONICAL_MARKERS
 
 
@@ -650,6 +817,32 @@ def double_spined_refusal(directory: pathlib.Path) -> list[str]:
     ]
 
 
+def consumer_problems(directory: pathlib.Path) -> list[str]:
+    """What a CONSUMER tree is held to — which is not nothing.
+
+    A consumer owes no producer regions because it owns no producer spine, and
+    that is the whole of the relief the shape grants. It is still refused for
+    publishing a spine it does not have: a tree that opens `gate`, `record` or
+    `serve` regions while producing nothing is offering an adopter snippets of
+    steps it never performs, which is the same defect `half-migrated` is
+    refused for, arriving from the other direction.
+    """
+    published = sorted(
+        f"{module.name} opens {list(opened(module))}"
+        for module in modules_in(directory)
+        if opened(module)
+    )
+    if published:
+        return [
+            f"{directory.name}: CONSUMER, and it opens producer regions"
+            f" ({'; '.join(published)}). A consumer declares no product class"
+            " of its own and reaches another tree's paved entry; the spine it"
+            " consumes is published THERE. Regions here would be snippets of"
+            " steps this tree does not perform (`AIA-F-08`, ruled 2026-09-22)."
+        ]
+    return []
+
+
 def spine_problems(directory: pathlib.Path) -> list[str]:
     """Every way one example directory fails the separation contract.
 
@@ -674,6 +867,8 @@ def spine_problems(directory: pathlib.Path) -> list[str]:
         return half_migrated_refusal(directory)
     if shape == "double-spined":
         return double_spined_refusal(directory)
+    if shape == "consumer":
+        return consumer_problems(directory)
 
     expected = expected_markers(directory)
     problems: list[str] = []
@@ -768,6 +963,14 @@ def test_exactly_one_module_carries_the_canonical_regions(
     failure while every property it claimed to prove held.
     """
     carriers = region_modules(directory)
+    if shape_of(directory) == "consumer":
+        # A consumer owns no producer spine, so it carries no regions — and
+        # `consumer_problems` refuses it if it publishes any (`AIA-F-08`).
+        assert not carriers, (
+            f"{directory.name}: CONSUMER, yet {[m.name for m in carriers]} open"
+            " producer regions"
+        )
+        return
     assert carriers, (
         f"{directory.name}: no module opens any canonical region"
     )
@@ -799,6 +1002,12 @@ def test_the_spine_opens_the_regions_its_shape_owes_in_order(
     """
     shape = shape_of(directory)
     expected = expected_markers(directory)
+    if shape == "consumer":
+        assert expected == (), "a consumer owes no producer regions"
+        assert not region_modules(directory), (
+            f"{directory.name}: CONSUMER, yet a module opens producer regions"
+        )
+        return
     spine = region_modules(directory)[0]
     found, missing, extra = region_report(spine, expected)
     assert not missing, (
@@ -1502,3 +1711,171 @@ def test_a_paved_tree_missing_its_boot_region_is_refused_by_name(
     assert shape_of(copied) == "paved"
     problems = spine_problems(copied)
     assert problems and "no module opens any of the paved regions" in problems[0], problems
+
+
+# ---------------------------------------------------------------------------
+# The consumer shape — `AIA-F-08`, ruled by Dave 2026-09-22.
+#
+# Every control below is STRUCTURAL: each builds or perturbs a tree and asks
+# the shipped predicate. None names an approved directory, because the ruling
+# that created this shape refused an allowlist — the gate answers "does this
+# tree produce a Context Product, or consume one?", never "is this tree
+# approved?".
+# ---------------------------------------------------------------------------
+
+
+def _consumer_subject(tmp_path: pathlib.Path) -> pathlib.Path:
+    """A copy of a tree the PREDICATE calls a consumer — never one named here.
+
+    The same discipline `_paved_subject` and `_canonical_subject` are held to:
+    selected by `shape_of`, so these controls follow the tree and fail loudly
+    if the last consumer regresses or the predicate stops seeing it.
+    """
+    found = [
+        directory for directory in split_examples(EXAMPLES_ROOT)
+        if shape_of(directory) == "consumer"
+    ]
+    assert found, (
+        "no shipped example classifies as `consumer`; the controls below would"
+        " prove nothing about a shape nothing has"
+    )
+    subject = tmp_path / found[0].name
+    shutil.copytree(found[0], subject)
+    return subject
+
+
+def test_a_consumer_tree_classifies_as_consumer_and_satisfies_the_contract() -> None:
+    """CONTROL 1 — the shipped consumer, through the shipped predicates.
+
+    The shape exists, a tree has it, and that tree passes the aggregate
+    contract and the printing properties without owing producer regions.
+    """
+    subjects = [
+        directory for directory in split_examples(EXAMPLES_ROOT)
+        if shape_of(directory) == "consumer"
+    ]
+    assert subjects, "no shipped example classifies as `consumer`"
+    for subject in subjects:
+        assert not declares_product_class(subject), subject.name
+        assert foreign_paved_reach(subject), subject.name
+        assert expected_markers(subject) == ()
+        assert not spine_problems(subject), subject.name
+        assert not print_problems(subject), subject.name
+
+
+def test_a_paved_producer_is_not_swept_into_the_consumer_shape() -> None:
+    """CONTROL 2 — a producer calling its OWN `open_product` stays `paved`.
+
+    The reach must be FOREIGN. A tree that calls its own `produce.product`
+    matches nothing in `foreign_paved_reach`, because the module is its own —
+    and that is what keeps every shipped producer out of this shape.
+    """
+    paved = [
+        directory for directory in split_examples(EXAMPLES_ROOT)
+        if shape_of(directory) == "paved"
+    ]
+    assert paved, "no shipped example is paved; control 2 would prove nothing"
+    for directory in paved:
+        assert shape_of(directory) != "consumer"
+        assert foreign_paved_reach(directory) == [], (
+            f"{directory.name} reaches a foreign paved entry: "
+            f"{foreign_paved_reach(directory)}"
+        )
+
+
+def test_a_declared_product_class_removes_the_consumer_shape(
+    tmp_path: pathlib.Path,
+) -> None:
+    """CONTROL 3 — Dave's sabotage, both limbs broken at once.
+
+    Give the consumer a product-class declaration of its own AND remove its
+    foreign paved-entry reach: it must not classify `consumer`. A tree that
+    declares a class is a producer, whatever else it does.
+    """
+    subject = _consumer_subject(tmp_path)
+    assert shape_of(subject) == "consumer", "the copy did not carry the shape"
+
+    (subject / DEPLOYMENT_CONFIG).write_text(
+        "semver: '1.0.0'\nproduct_class:\n  schema_name: fake.not-a-product\n", "utf-8")
+    for module in modules_in(subject):
+        text = module.read_text(encoding="utf-8")
+        module.write_text(text.replace("produce.product(", "_severed.product("), "utf-8")
+
+    assert shape_of(subject) != "consumer", (
+        "a tree declaring its own product class and reaching no foreign paved"
+        " entry still classified as a consumer"
+    )
+
+
+def test_each_limb_alone_is_not_enough_to_be_a_consumer(
+    tmp_path: pathlib.Path,
+) -> None:
+    """THE `AND` IS REAL — each limb broken on its own.
+
+    Control 3 breaks both at once, which cannot tell a conjunction from a
+    disjunction. These two do it one at a time, so a predicate that had
+    silently become `or` fails here.
+    """
+    only_class = _consumer_subject(tmp_path / "declared")
+    (only_class / DEPLOYMENT_CONFIG).write_text(
+        "semver: '1.0.0'\nproduct_class:\n  schema_name: fake.not-a-product\n", "utf-8")
+    assert foreign_paved_reach(only_class), "the reach limb was disturbed too"
+    assert shape_of(only_class) != "consumer", (
+        "declaring a product class of its own did not remove the shape"
+    )
+
+    only_reach = _consumer_subject(tmp_path / "severed")
+    for module in modules_in(only_reach):
+        text = module.read_text(encoding="utf-8")
+        module.write_text(text.replace("produce.product(", "_severed.product("), "utf-8")
+    assert not declares_product_class(only_reach), "the class limb was disturbed too"
+    assert shape_of(only_reach) != "consumer", (
+        "severing the foreign paved reach did not remove the shape"
+    )
+
+
+def test_an_empty_tree_does_not_become_a_consumer_by_accident(
+    tmp_path: pathlib.Path,
+) -> None:
+    """CONTROL 4 — neither limb, and it must NOT be a consumer.
+
+    This is the failure mode the shape could most easily have introduced: a
+    tree that declares no class is not thereby a consumer, or every incomplete
+    example would be excused from the contract it is failing. Absence of a
+    producer is not presence of a consumer.
+    """
+    example = tmp_path / "cp-98-neither"
+    (example / "spec").mkdir(parents=True)
+    (example / "spec" / "CP-SPEC-998_Neither.md").write_text("# authored\n", "utf-8")
+    (example / "solo.py").write_text(
+        "import ccf.products.product as _p\n\n\ndef go() -> None:\n    print(_p)\n", "utf-8")
+
+    assert not declares_product_class(example)
+    assert foreign_paved_reach(example) == []
+    assert shape_of(example) != "consumer", (
+        "a tree with no product class and no foreign paved reach became a"
+        " consumer by accident; absence of a producer is not presence of a"
+        " consumer"
+    )
+    assert shape_of(example) == "spine", shape_of(example)
+
+
+def test_a_consumer_that_publishes_producer_regions_is_refused(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The relief the shape grants is bounded.
+
+    A consumer owes no producer regions — it may not publish them either. A
+    tree producing nothing while opening `gate` or `serve` offers an adopter
+    snippets of steps it never performs.
+    """
+    subject = _consumer_subject(tmp_path)
+    assert not spine_problems(subject), "the copy did not start clean"
+
+    facing = fabric_facing(subject)[0]
+    facing.write_text(
+        "# --8<-- [start:gate]\n" + facing.read_text(encoding="utf-8")
+        + "\n# --8<-- [end:gate]\n", "utf-8")
+
+    problems = spine_problems(subject)
+    assert problems and "CONSUMER" in problems[0], problems

@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# WHAT MAY CROSS THE A2A BOUNDARY, AND WHAT MAY NOT.
+#
+# This artifact is the machine-readable form of the central invariant:
+#
+#     CCF terminates inside Agent B. A2A is an external agent protocol and is
+#     NOT a CCF delivery surface.
+#
+# `AIA-G05` reads it and scans the ACTUAL WIRE BYTES (ruled 2026-09-21 —
+# checking the response object before serialization is the weaker test and
+# would pass a forbidden value carried through a field the object does not
+# name).
+semver: "1.0.0"
+class_id: cp-22.wire-contract
+declaration:
+  # THE ONLY TWO FIELDS AGENT B READS FROM AN INBOUND MESSAGE (`Q3`).
+  # Anything else on the wire is IGNORED — not refused, ignored — so a caller
+  # that adds a field changes nothing about the determination.
+  inbound_admitted_fields: [subject, instant]
+
+  # FIELDS A CALLER MIGHT PLAUSIBLY SEND TO STEER THE DETERMINATION. Each is
+  # a real cp-21 request parameter or policy input. `AIA-G08` sends ALL of
+  # them and asserts the answer is byte-identical to one sent without them.
+  inbound_ignored_probes:
+    - debt_tolerance
+    - role
+    - principal_id
+    - perspective
+    - regime
+    - connection_basis
+    - intent
+    - apply_mitigation
+    - tenant_id
+
+  # WHAT THE OUTBOUND BYTES MAY CONTAIN — the use-case answer and nothing
+  # beside it.
+  outbound_admitted_fields: [answer, counterparty, headroom_usd, as_of]
+
+  # THE SEVEN FORBIDDEN CLASSES, ruled 2026-09-21. Each is given as the tokens
+  # a scan can actually look for in the serialized bytes.
+  forbidden:
+    content_address:
+      why: the Context Product's content address is CCF identity and belongs inside Agent B
+      tokens: [content_address, contentAddress, content-address, content_hash]
+    replay_reference:
+      why: a replay record address is an internal audit anchor, not an answer
+      tokens: [replay_ref, replay_record, replayRef, replay-reference, decision_replay]
+    context_debt:
+      why: D_c governs inside Agent B and does not travel (`AIA-G10`)
+      tokens: [context_debt, "D_c", debt, freshness, completeness, semantic_consistency]
+    lineage:
+      why: lineage names operators and policy bundles a caller cannot act on
+      tokens: [lineage, operators_invoked, policy_bundle_versions, graph_snapshot_at]
+    ccf_artifact_uris:
+      why: an artifact URI exposes internal addressing
+      tokens: ["urn:ccf:", "ccf.", "cp-21.", "cp-22."]
+    refusal_vocabulary:
+      why: CCF refusal codes and envelopes are internal governance structure
+      tokens: [RefusalEnvelope, refusal, error_code, tolerance-exceeded, subject-unavailable,
+               governed-refusal, withheld, fail_closed]
+    policy_and_grant_identifiers:
+      why: principal, grant and policy ids are Agent B's internals
+      tokens: [PRIN-, principal_id, policy_version, grant, entitlement, perspective]
+
+  # THE NON-SUCCESS CONTRACT. A governed refusal becomes an honest A2A
+  # failure carrying none of the vocabulary above (`AIA-G06`), and is never a
+  # successful business answer (`AIA-G07`).
+  non_success:
+    shape: a JSON-RPC error returned by the A2A harness
+    reason_text: the question could not be answered with sufficient confidence

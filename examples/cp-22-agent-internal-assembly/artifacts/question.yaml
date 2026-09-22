@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE DEMONSTRATION QUESTION — Agent A's, in Agent A's vocabulary.
+#
+# Note what is NOT here: no intent, no principal, no perspective, no regime, no
+# connection basis, no tolerance. Those are Agent B's and live in
+# `agent-b.yaml`. A question carries a SUBJECT and an INSTANT (`Q3`).
+semver: "1.0.0"
+class_id: cp-22.question
+declaration:
+  question:
+    # Bausch Health Companies Inc. — the anchor cp-21's breaching case is
+    # written against, and a group with real exposure to have headroom in.
+    subject: "B3BS7ACMDUWISF18KY76"
+    instant: "2026-08-25T00:00:00+00:00"
+  # A subject the estate cannot answer for, for the non-success path
+  # (`AIA-G06`, `AIA-G07`).
+  unanswerable_subject: "NOTANLEIATALL00000000"
+  # Measured 2026-09-21 against the live estate.
+  expected:
+    counterparty: "Bausch Health Companies Inc."
+    # The relationship, never the figure: a headroom that is not negative.
+    within_limit: true
+  # THE LOSSY EXTRACTION, MEASURED (`AIA-G05`). The governed payload carries
+  # 18 top-level members and 11,389 bytes; the A2A answer carries 4 fields and
+  # 216 bytes. Seventeen of the eighteen members are dropped at the seam.
+  extraction:
+    product_payload_bytes: 11389
+    product_payload_members: 18
+    wire_answer_bytes: 216
+    wire_answer_fields: 4
+    ratio: "52.7 : 1"
