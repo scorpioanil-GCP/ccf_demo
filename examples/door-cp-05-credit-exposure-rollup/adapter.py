@@ -109,12 +109,25 @@ def _specimen_modules() -> tuple[Any, Any]:
                     " prove which product it serves must not open (`AIA-F-07`)"
                 )
         return produce, deployment
-    finally:
+    except BaseException:
+        # Only on FAILURE is what was displaced put back. On success the
+        # specimen STAYS resident and SPECIMEN stays on `sys.path`, and that
+        # is deliberate: cp-05's own modules import their siblings lazily, so
+        # unwinding here would leave this door bound to modules whose later
+        # imports resolve somewhere else — measured 2026-09-22, when a
+        # restoring version booted, announced READY, and then failed every
+        # served question with `producer-unavailable`.
+        #
+        # The eviction above is what makes the VERIFICATION meaningful in a
+        # poisoned process; keeping the result is what makes the door work.
+        # This module is the last thing loaded in the door's process, and in
+        # a test process it is the one binding that has proven what it holds.
         sys.path.remove(str(SPECIMEN))
         for name in _COLLIDING:
             sys.modules.pop(name, None)
             if saved[name] is not None:
                 sys.modules[name] = saved[name]
+        raise
 
 
 prod, dep = _specimen_modules()
