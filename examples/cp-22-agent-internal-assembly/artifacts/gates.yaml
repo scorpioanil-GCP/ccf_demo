@@ -1,0 +1,212 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE DECLARED PRODUCT GATES OF cp-22 — twelve, `AIA-G01`..`AIA-G12`.
+#
+# The acceptance authority for every gate is `CP-SPEC-022` §G.1
+# (`D-IMPL-326`). Each id is claimed by at least one executing test under
+# `tests/examples/`, and no estate figure is pinned anywhere.
+#
+# DELIBERATELY FEWER THAN RECENT RUNGS. CP-22 re-proves nothing: it declares no
+# product class, no operator and no artifact schema. Every gate below is an
+# edge of the one thing this rung owns —
+#
+#     CCF terminates inside Agent B. A2A is an external agent protocol and is
+#     NOT a CCF delivery surface.
+semver: 1.0.0
+class_id: cp-22.product-gates
+declaration:
+  product: cp-22.agent-internal-assembly
+  test_naming_convention: the gate id appears in the executing test's docstring, as a `Declared product
+    gate` line naming the CP-SPEC clause that approves it.
+  sabotage_states:
+    passed: the invariant was broken and the gate went red
+    unavailable: an upstream SDK invariant makes the bad state unreachable; the guard is named
+  gates:
+  - id: AIA-G01
+    statement: Agent B assembles the product IN-PROCESS, in the same process that serves A2A — no MCP
+      door, no HTTP door, no subprocess
+    spec_clause:
+      document: spec/CP-SPEC-022_Agent_Internal_Assembly.md
+      clause: G.1
+    test: tests/examples/test_cp_22_agent_internal.py::test_agent_b_assembles_in_process_behind_no_door
+    sabotage: Agent B reaches for a door instead of assembling in-process
+    sabotage_state: passed
+    observed_red:
+      result: RED 2026-09-21 — importing `open_door` reddened the gate.
+      date: '2026-09-21'
+      commit: 29bcb457
+  - id: AIA-G02
+    statement: Agent A's request carries NO CCF vocabulary, and only `subject` and `instant` are read
+      from it
+    spec_clause:
+      document: spec/CP-SPEC-022_Agent_Internal_Assembly.md
+      clause: G.1
+    test: tests/examples/test_cp_22_agent_internal.py::test_agent_a_contains_no_ccf
+    sabotage: Agent A imports CCF; and, separately, a third field is admitted from the wire
+    sabotage_state: passed
+    observed_red:
+      result: 'RED 2026-09-21 on both limbs — `import ccf.client` in Agent A, and admitting `debt_tolerance`
+        as a third inbound field. SECOND CONTROL — `test_only_the_two_admitted_fields_are_read_from_the_wire`.  Asserted
+        by AST over Agent A''s imports and names, never by grepping prose: its docstring legitimately
+        explains the claim and would defeat a text scan. This is the control for the whole rung — if anything
+        CCF-shaped were needed to ask the question or read the answer, it would have to appear in that
+        file.'
+      date: '2026-09-21'
+      commit: 29bcb457
+  - id: AIA-G03
+    statement: the A2A reply ANSWERS the question — the use-case fact is present and correct
+    spec_clause:
+      document: spec/CP-SPEC-022_Agent_Internal_Assembly.md
+      clause: G.1
+    test: tests/examples/test_cp_22_agent_internal.py::test_the_reply_answers_the_question
+    sabotage: the extraction returns something the product does not say
+    sabotage_state: passed
+    observed_red:
+      result: RED 2026-09-21 — the counterparty was replaced with a name the product never carried.
+      date: '2026-09-21'
+      commit: 29bcb457
+  - id: AIA-G04
+    statement: the in-process product and the A2A answer agree on the FACT for the same question and instant
+    spec_clause:
+      document: spec/CP-SPEC-022_Agent_Internal_Assembly.md
+      clause: G.1
+    test: tests/examples/test_cp_22_agent_internal.py::test_the_wire_answer_agrees_with_the_in_process_product
+    sabotage: the wire answer is mutated after extraction so it drifts from its source
+    sabotage_state: passed
+    observed_red:
+      result: 'RED 2026-09-21 — the served headroom no longer matched the product''s.  Compares the FACT
+        and never a hash. Ruled 2026-09-21: the A2A response is NOT required to preserve CCF content identity
+        — the observable identity contract on the wire belongs to A2A and the use case, not to CCF. A
+        gate demanding byte identity across this boundary would have re-imposed the delivery surface the
+        central invariant refuses.'
+      date: '2026-09-21'
+      commit: 29bcb457
+  - id: AIA-G05
+    statement: NO CCF-shaped structure crosses the wire, asserted against the ACTUAL WIRE BYTES
+    spec_clause:
+      document: spec/CP-SPEC-022_Agent_Internal_Assembly.md
+      clause: G.1
+    test: tests/examples/test_cp_22_agent_internal.py::test_no_ccf_shaped_structure_crosses_the_wire
+    sabotage: export a content address for transparency; and, separately, export the whole governed payload
+    sabotage_state: passed
+    observed_red:
+      result: 'RED 2026-09-21 on both limbs — a `content_address` field on the answer, and returning the
+        payload itself. SECOND CONTROL — `test_the_extraction_is_lossy_by_a_wide_margin`.  Ruled 2026-09-21
+        to read the socket rather than the response object: checking the object before serialization would
+        pass a forbidden value carried through a field the object does not name. The scan covers the AGENT
+        CARD too, because that is on the wire as well. Seven forbidden classes are declared in `artifacts/wire-contract.yaml`
+        as tokens a byte scan can find. Measured lossiness at the seam — 11,389 bytes over 18 members
+        becomes 216 bytes over 4 fields, 52.7 : 1.'
+      date: '2026-09-21'
+      commit: 29bcb457
+  - id: AIA-G06
+    statement: a governed refusal becomes an honest A2A non-success response carrying NO CCF refusal vocabulary
+    spec_clause:
+      document: spec/CP-SPEC-022_Agent_Internal_Assembly.md
+      clause: G.1
+    test: tests/examples/test_cp_22_agent_internal.py::test_a_refusal_carries_no_ccf_vocabulary
+    sabotage: forward the CCF refusal vocabulary in the non-success reason
+    sabotage_state: passed
+    observed_red:
+      result: RED 2026-09-21 — `RefusalEnvelope` and `tolerance-exceeded` appeared on the wire.  Kept
+        SEPARATE from `AIA-G07` by ruling, because they prove different properties. G06 is about VOCABULARY;
+        G07 is about OUTCOME. A leaked envelope that is honestly a failure passes G07 and fails G06; a
+        silent empty success passes G06 and fails G07.
+      date: '2026-09-21'
+      commit: 29bcb457
+  - id: AIA-G07
+    statement: a refusal is NEVER silently a successful business answer
+    spec_clause:
+      document: spec/CP-SPEC-022_Agent_Internal_Assembly.md
+      clause: G.1
+    test: tests/examples/test_cp_22_agent_internal.py::test_a_refusal_is_never_silently_a_success
+    sabotage: return an empty-but-successful answer on refusal
+    sabotage_state: passed
+    observed_red:
+      result: RED 2026-09-21 — a refusal arrived as a successful business answer.
+      date: '2026-09-21'
+      commit: 29bcb457
+  - id: AIA-G08
+    statement: Agent B assembles under its OWN principal whatever the A2A request claims, and no wire
+      field reaches the policy envelope
+    spec_clause:
+      document: spec/CP-SPEC-022_Agent_Internal_Assembly.md
+      clause: G.1
+    test: tests/examples/test_cp_22_agent_internal.py::test_a_caller_cannot_steer_the_determination
+    sabotage: let a caller-supplied tolerance actually REACH the determination
+    sabotage_state: passed
+    observed_red:
+      result: 'RED 2026-09-21, after the first sabotage was corrected rather than swapped: it leaked the
+        caller''s value into an environment variable but never let it reach the determination, so it did
+        not mutate the claim and left the gate green.  The probe sends every field a caller might plausibly
+        use to reach the envelope — a tolerance, a role, a principal, a perspective, a regime, a basis,
+        an intent, a mitigation flag and a tenant — and the answer must be BYTE-IDENTICAL to one asked
+        without them. Ignored rather than refused, deliberately: a caller that adds a field changes nothing.'
+      date: '2026-09-21'
+      commit: 29bcb457
+  - id: AIA-G09
+    statement: this tree imports NO `ccf_runtime.peering` — CP-22 is an agent conversation, not a fabric
+      federation
+    spec_clause:
+      document: spec/CP-SPEC-022_Agent_Internal_Assembly.md
+      clause: G.1
+    test: tests/examples/test_cp_22_agent_internal.py::test_this_tree_imports_no_peering
+    sabotage: reach for the peering transport
+    sabotage_state: passed
+    observed_red:
+      result: 'RED 2026-09-21 — importing `ccf_runtime.peering.lf_a2a` reddened the gate.  The temptation
+        is concrete and already half-built: `lf_a2a.py` exists and speaks A2A, so a reader reaching for
+        the word finds it. Peering is a peer-symmetric exchange between two FABRICS in which a Context
+        Product really crosses and another Control Plane admits it. Agent A has no fabric and no Control
+        Plane. Using it would silently impose a Control Plane the counterparty does not have.'
+      date: '2026-09-21'
+      commit: 29bcb457
+  - id: AIA-G10
+    statement: D_c GOVERNS WITHOUT TRAVELLING — a tighter declared tolerance changes the reply, and no
+      debt value appears on the wire
+    spec_clause:
+      document: spec/CP-SPEC-022_Agent_Internal_Assembly.md
+      clause: G.1
+    test: tests/examples/test_cp_22_agent_internal.py::test_debt_governs_without_travelling
+    sabotage: make the declared tolerance reach nothing
+    sabotage_state: passed
+    observed_red:
+      result: 'RED 2026-09-21 — the strict peer served the same answer as the permissive one.  Both halves
+        are asserted. Two Agent B processes differ ONLY in their declared tolerance: the permissive one
+        answers and the strict one refuses, on the same question at the same instant, and neither wire
+        carries a debt value. The book''s measured debt is 0.30 against declared tolerances of 0.98 and
+        0.20.'
+      date: '2026-09-21'
+      commit: 29bcb457
+  - id: AIA-G11
+    statement: the governed decision is reconstructible INSIDE Agent B from its own record, though nothing
+      of it reached Agent A
+    spec_clause:
+      document: spec/CP-SPEC-022_Agent_Internal_Assembly.md
+      clause: G.1
+    test: tests/examples/test_cp_22_agent_internal.py::test_the_decision_is_reconstructible_inside_agent_b
+    sabotage: Agent B never resolves its replay record
+    sabotage_state: passed
+    observed_red:
+      result: RED 2026-09-21 — after a limb was added binding the gate to AGENT B. Without it the gate
+        proved that cp-21 writes a record and nothing about Agent B, and removing the call would have
+        left it green.
+      date: '2026-09-21'
+      commit: 29bcb457
+  - id: AIA-G12
+    statement: the exchange crosses a GENUINE OS PROCESS BOUNDARY over the A2A protocol
+    spec_clause:
+      document: spec/CP-SPEC-022_Agent_Internal_Assembly.md
+      clause: G.1
+    test: tests/examples/test_cp_22_agent_internal.py::test_the_exchange_crosses_a_real_process_boundary
+    sabotage: run Agent B in the test's own process instead of a subprocess
+    sabotage_state: passed
+    observed_red:
+      result: 'RED 2026-09-21 — a peer whose pid equals the test''s reddened the gate.  Ruled 2026-09-21
+        as the gate most at risk of being faked: a direct call to Agent B''s handler proves the extraction
+        logic and NOTHING about A2A. Loopback is sufficient and no external deployment is required, but
+        a function call is not. Agent B is started as a subprocess, its pid is asserted different from
+        the test''s, and the captured wire bytes are asserted non-empty — the answer arrived as bytes
+        over a socket, not as a return value.'
+      date: '2026-09-21'
+      commit: 29bcb457
