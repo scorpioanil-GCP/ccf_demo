@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import pytest
+from tests.examples.estate_guard import refuse_to_write_the_curated_estate
 
 if TYPE_CHECKING:
     from ccf.boot import FabricHandle
@@ -226,6 +227,52 @@ def mongo_uri() -> str:
 
 #: Set by the CI job (GitHub Actions Fluree service container). Env-driven
 #: only: locally run `docker run --rm -p 8090:8090 fluree/server:4.1.4`.
+#: The two variables that name the LOCAL DISPOSABLE store every writing test
+#: seeds. CLAUDE.md §9 and `D-IMPL-318`: reads go to the curated estate, writes
+#: go to a throwaway. Fenced together at session scope below.
+DISPOSABLE_STORE_ENV = ("CCF_TEST_FLUREE_URL", "CCF_TEST_POSTGRES_DSN")
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _refuse_a_disposable_store_on_a_curated_host() -> None:
+    """Refuse the whole session if the throwaway store names the curated estate.
+
+    **The fence `tests/examples/estate_guard.py` already states, moved to where
+    it actually covers.** That helper refuses a seed whose target names a
+    curated host — but it only protects the modules that import it, and
+    measured 2026-09-22 only **two of the nine** modules naming
+    ``CCF_TEST_*`` did. The nine are not the whole exposure either: a test can
+    reach the store through its example's own ``backends.yaml`` without
+    mentioning the variable at all, which is precisely how
+    ``test_s1_01_governed_resolver_adoption.py`` wrote **134 transactions into
+    the curated `ccf:main` ledger** (t 1474 → 1608) during the
+    release-hardening sweep. No call site could have caught that one.
+
+    So the fence is here, autouse and session-scoped: it runs once, before any
+    test can write, and it refuses **the run** rather than a call.
+
+    **Refused, never redirected.** Rewriting the target to localhost would run
+    the suite against a store the operator did not choose and report it as
+    though they had — `estate_guard`'s own reasoning, and it holds here.
+
+    Fluree is append-only. A seeded ledger there is PERMANENT, which is why
+    this is a fence and not a warning.
+    """
+    try:
+        refuse_to_write_the_curated_estate(
+            *(os.environ.get(name, "") for name in DISPOSABLE_STORE_ENV)
+        )
+    except RuntimeError as refusal:
+        # `pytrace=False`, and it is a CREDENTIAL decision rather than a
+        # tidiness one. The guard redacts the password out of its MESSAGE —
+        # but a pytest traceback renders the raising frame's arguments, and
+        # one of them is the raw DSN. Measured 2026-09-22: the message read
+        # `postgresql://parkave:***@192…` while the traceback beside it
+        # carried the password in full. The operator needs the sentence, not
+        # the stack.
+        pytest.fail(str(refusal), pytrace=False)
+
+
 FLUREE_URL_ENV = "CCF_TEST_FLUREE_URL"
 
 #: Set in CI. Turns "no Fluree available" from a skip into a failure — the
