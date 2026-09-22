@@ -39,6 +39,8 @@ import pathlib
 import subprocess
 import sys
 
+from tests.examples import tree_import
+
 import pytest
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -196,3 +198,115 @@ def test_the_door_refuses_rather_than_binding_a_tree_it_cannot_vouch_for() -> No
         f" than refusing: {result}"
     )
     assert result["loaded"] != INTRUDER.name, result
+
+
+# ---------------------------------------------------------------------------
+# The `server.serve` namespace — `LEX-F-11`, and the third instance of it.
+# ---------------------------------------------------------------------------
+
+#: Two trees that both ship a door. Their door modules define DIFFERENT opener
+#: names, which is what made the third instance surface as an AttributeError
+#: rather than as a wrong answer.
+DOOR_TREES = ("cp-21-large-exposure", "cp-24-portfolio-what-if")
+
+#: Every test module that reaches an example's door by the bare `server` name.
+DOOR_IMPORTERS = (
+    "test_cp_17_doors.py",
+    "test_cp_19_door.py",
+    "test_cp_21_sabotage.py",
+    "test_cp_24_sabotage.py",
+)
+
+
+def test_the_door_helper_beats_a_resident_foreign_door() -> None:
+    """`LEX-F-11` / `AIA-F-07` in the door namespace, with its control.
+
+    Measured 2026-09-22: `test_cp_24_sabotage` failed in the full suite and
+    passed alone, bisected to ONE predecessor — `test_cp_21_sabotage` — with
+    `module 'server.serve' has no attribute 'open_book_door'`. cp-21 evicts
+    correctly on entry and leaves its own `server.serve` resident; cp-24 did
+    not evict at all, so it bound cp-21's door.
+
+    **The negative control is the point.** With one tree's door resident, a
+    plain `from server import serve` must still return THAT tree's module —
+    otherwise this test proves nothing about the helper that follows it.
+    """
+    first, second = (EXAMPLES / name for name in DOOR_TREES)
+    saved = {
+        name: sys.modules.pop(name, None)
+        for name in [n for n in list(sys.modules) if n == "server" or n.startswith("server.")]
+    }
+    try:
+        sys.path.insert(0, str(first))
+        try:
+            from server import serve as resident  # noqa: PLC0415
+        finally:
+            sys.path.remove(str(first))
+        assert pathlib.Path(resident.__file__).parent.parent == first
+
+        # THE CONTROL: unguarded, the second tree's import binds the FIRST
+        # tree's module. If this ever stops being true the collision is gone
+        # and the helper below is measuring nothing.
+        sys.path.insert(0, str(second))
+        try:
+            from server import serve as unguarded  # noqa: PLC0415
+        finally:
+            sys.path.remove(str(second))
+        assert pathlib.Path(unguarded.__file__).parent.parent == first, (
+            "an unguarded import no longer inherits the resident door; the"
+            " collision this helper exists for is not being reproduced"
+        )
+
+        # AND THE HELPER: same contaminated process, correct module.
+        guarded = tree_import.door_module_of(second)
+        assert pathlib.Path(guarded.__file__).parent.parent == second
+    finally:
+        for name in [n for n in list(sys.modules) if n == "server" or n.startswith("server.")]:
+            del sys.modules[name]
+        for name, module in saved.items():
+            if module is not None:
+                sys.modules[name] = module
+
+
+def test_the_helper_refuses_rather_than_returning_a_foreign_door() -> None:
+    """The helper RAISES on a mismatch; it does not fall back.
+
+    A guard that degrades to the ambient module is the original defect with an
+    extra step — and here the ambient module is another product's door, whose
+    determination would then be compared as though it were this product's.
+    """
+    # cp-22 ships no door at all, so the helper cannot resolve one — and the
+    # point is WHICH way it fails. `WrongTreeLoaded` is an `ImportError`, as is
+    # the `ModuleNotFoundError` a doorless tree produces; either way nothing
+    # foreign is returned. A fallback would hand back whatever `server.serve`
+    # happened to be resident, which here is another product's door.
+    with pytest.raises(ImportError):
+        tree_import.door_module_of(EXAMPLES / "cp-22-agent-internal-assembly")
+
+
+def test_every_door_importer_goes_through_the_one_helper() -> None:
+    """Four importers, one home — so they cannot drift apart again.
+
+    Two of the four had drifted when this was measured: `test_cp_19_door`
+    evicted `server` without `server.serve` and never verified `serve`, and
+    `test_cp_24_sabotage` did neither. A hand-rolled fourth copy is how the
+    third instance of this defect was written.
+    """
+    for name in DOOR_IMPORTERS:
+        source = (REPO_ROOT / "tests" / "examples" / name).read_text(encoding="utf-8")
+        assert "tree_import.door_module_of" in source, (
+            f"{name} reaches an example's door without the verifying helper"
+        )
+        # AST, not a substring: two of these modules describe the defect in
+        # their own comments, and a grep would read the description as the
+        # defect. The check is on what EXECUTES.
+        bare = [
+            node
+            for node in ast.walk(ast.parse(source))
+            if isinstance(node, ast.ImportFrom)
+            and (node.module or "").split(".")[0] == "server"
+        ]
+        assert not bare, (
+            f"{name} executes a bare `from server import ...` at line"
+            f" {bare[0].lineno}; it binds whatever is resident (`LEX-F-11`)"
+        )
