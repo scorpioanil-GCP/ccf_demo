@@ -1,0 +1,199 @@
+# yaml-language-server: $schema=../../docs/schemas/ccf.deployment-config.json
+#
+# THE CO-LENDER'S OWN DEPLOYMENT — a SECOND organization's fabric.
+#
+# [ADAPT] every value. [MECHANISM] none: this is a declaration, not a program.
+#
+# This tree is Bank of America's, not ours. It reads the peer estate on
+# `192.168.4.76:8091` / `bofa_syndicated` and serves ONE Context Product
+# (`cb.co-lender-position`) behind the standard door. Its `tenant_id` is its
+# own and is never equal to the consumer's — that inequality is what
+# `CLD-G01` asserts, and what `D-IMPL-340`'s admission holds every answer to.
+#
+# NO ADDRESS AND NO CREDENTIAL APPEARS HERE. `ccf_environment.yaml` names the
+# environment variables; the values live only in the operator's shell.
+
+semver: "1.0.0"
+tenant_id: cp-20-peer-demo
+
+backend: sqlite
+
+product_class:
+  schema_name: cb.co-lender-position
+  schema_version: "1.0.0"
+  # The peer answers about its CURRENT position, so its validity runs from the
+  # instant it decided, not from the age of the row it read. An
+  # entity-freshness anchor would expire every answer before it was served —
+  # the peer's positions are stamped `2026-08-26` — and make the rung
+  # unobservable rather than governed (spec §C.5 trap 4).
+  ttl_anchor: from_decision
+  assembly_mode: algorithmic
+  max_ttl_key: cp-20-peer/product/co-lender-position/max-ttl
+  required_operator_keys:
+    - policy.principal-subgraph
+    - traversal.typed-neighborhood
+
+operators:
+  # THE ATTESTATION CONTROL, AND IT IS A POLICY FILTER — NOT A DEBT FACTOR.
+  #
+  # `Q3.2` (Dave, 2026-09-22): *"An unattested remote child produces a governed
+  # refusal... Do not admit it and convert missing attestation into Context
+  # Debt."* So the peer does not serve an unattested position with a low score;
+  # it does not serve it at all. Every entity this deployment mints carries the
+  # POSITION's classification — `attested` when a signed attestation record
+  # stands behind the row, `unattested` when `peer_product_declaration
+  # .attestation` is NULL — and only `attested` is permitted.
+  #
+  # The counterparty node inherits the position's classification deliberately.
+  # Were it classified `attested` on its own (its GLEIF identity is public),
+  # the view would survive with one node and the product would serve a
+  # positionless answer, disclosing THAT an unattested position exists for that
+  # counterparty. Filtering both empties the view, and an empty view is a
+  # governed refusal whose record names the operator that emptied it — the
+  # cp-17 `Q8` posture, measured and accepted at its Gate 2.
+  policy.principal-subgraph:
+    classification_attribute_by_class:
+      peer_position: classification
+      peer_counterparty: classification
+    permitted_classifications:
+      - attested
+
+  # One hop from the position to the counterparty it concerns. The edge is the
+  # JOIN between the two peer stores: the position is a Postgres row, the
+  # counterparty a Fluree node, and neither leg carries the other's facts.
+  traversal.typed-neighborhood:
+    seed_entity_classes:
+      - peer_position
+    relationship_types:
+      - positionOf
+    depth_limit: 1
+
+request_contract:
+  class_id: cp-20-peer.request-contract
+  role: register
+  registration: typed
+  schema_name: cb.co-lender-position
+  schema_version: "1.0.0"
+  arguments:
+    properties:
+      facility_id:
+        type: string
+        description: >-
+          the syndicated facility the position is held in. Both fabrics already
+          hold this identifier — it is the whole negotiated interface, together
+          with the counterparty's LEI — so neither side invents a key for the
+          other.
+      counterparty:
+        type: string
+        description: >-
+          the LEI of the syndicate member whose position is asked for. A
+          counterparty this fabric holds no position for is a refusal, never an
+          empty payload: an empty position is a claim about the world, and this
+          one would be a claim about the request.
+      debt_tolerance:
+        type: number
+        description: >-
+          the caller's ceiling on assessed Context Debt, folded through the
+          same resolution as every other parameter.
+    required:
+      - facility_id
+      - counterparty
+
+resolution:
+  entity_rules:
+    - match_key: position_ref
+      entity_class: peer_position
+      identity_keys: [entity_uri]
+      attribute_keys:
+        - counterparty
+        - facility_id
+        - precision
+        - share_usd
+        - band_low
+        - band_high
+        - internal_rating
+        - workout_posture
+        - declared_ttl_seconds
+        - declared_latency_ms
+        - classification
+        - position_as_of
+        - provenance
+    - match_key: counterparty_ref
+      entity_class: peer_counterparty
+      identity_keys: [entity_uri]
+      attribute_keys: [lei, label, precision, classification, provenance]
+    # The edge's two endpoints, thin — they carry no attributes, which is why
+    # `deployment.envelopes` yields every edge BEFORE any attributed node
+    # (`D-IMPL-316`: the last claim at a URI wins and does not merge).
+    - match_key: subject_ref
+      entity_class: peer_position
+      identity_keys: [entity_uri]
+      identity_sources: {entity_uri: subject_uri}
+    - match_key: object_ref
+      entity_class: peer_counterparty
+      identity_keys: [entity_uri]
+      identity_sources: {entity_uri: object_uri}
+  relationship_rules:
+    - {relationship_type: positionOf, predicate_key: predicate,
+       subject_entity_class: peer_position, object_entity_class: peer_counterparty,
+       subject_rule: subject_ref, object_rule: object_ref}
+
+# ILLUSTRATIVE CALIBRATION (`D-IMPL-323`). The peer estate is a point-in-time
+# snapshot: its positions are stamped `2026-08-26`. These half-lives make the
+# governed behavior observable in that snapshot and are NOT recommended
+# production values.
+half_life:
+  peer_position:
+    half_life_seconds: 86400          # ~1 day — the spec's "own position" class
+    decay_driver: daily-position-marking
+    supersession_event: assignment-transfer-or-repricing
+  peer_counterparty:
+    half_life_seconds: 15552000       # ~180 days — syndicate composition
+    decay_driver: assignment
+    supersession_event: gleif-record-update
+
+debt_profile:
+  risk_sensitivity: "1.0"
+  forced_llm_threshold: "0.60"
+  fail_closed_threshold: "0.90"
+
+policy:
+  class_id: cp-20-peer.policy-bundle
+  role: register
+  registration: typed
+  regime: co-lender-disclosure
+
+default_perspective:
+  principal_id: PRIN-PEER-DESK-001
+  role: syndicate-desk
+
+replay:
+  record_class: ccf.replay-record
+  query_pin_class: ccf.graph-query
+  store_dirname: artifact-store
+
+# SIX HOURS — and the number is not arbitrary. `peer_product_declaration`
+# declares `declared_ttl_seconds` PER FACILITY (21600 / 10800 / 7200), and the
+# SDK has no per-row product TTL: a class carries one ceiling. 21600 is the
+# declaration for `FAC-6F4065`, the one facility this rung ever serves, and
+# `CLD-G05` asserts the served lifetime against the row read LIVE rather than
+# against this constant — so if the estate's declaration moves, the gate goes
+# red instead of the coincidence going unnoticed. The gap is recorded as
+# `CLD-F-02`, not papered over.
+ttl:
+  max_ttl_seconds: 21600
+  product_ttl_seconds: 21600
+
+door:
+  producer_id: cp-20-peer-co-lender-position-egress
+  producer_tenant: cp-20-peer-demo
+  required_scope: ccf:egress
+  tool_description: >-
+    Answer one co-lender's position in one syndicated facility as a governed,
+    content-addressed Context Product (`cb.co-lender-position`). The caller
+    MUST supply `facility_id` and `counterparty` (the member's LEI). The
+    position is served AT THE PRECISION THE MEMBER DISCLOSES AT: an `exact`
+    member carries `share_usd`; a `band` member carries `band_low` and
+    `band_high` and NO point estimate, because a midpoint would be a number
+    nobody disclosed. A position with no attestation record behind it is
+    REFUSED rather than served with a caveat.

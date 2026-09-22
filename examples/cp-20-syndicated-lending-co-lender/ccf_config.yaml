@@ -1,0 +1,297 @@
+# yaml-language-server: $schema=../../docs/schemas/ccf.deployment-config.json
+#
+# THE CONSUMING BANK'S DEPLOYMENT — JPMorgan Chase Bank, N.A.
+#
+# [ADAPT] every value. [MECHANISM] none.
+#
+# This composite declares ONE optional child class and ONE producer that may
+# provide it. That producer is a SECOND ORGANIZATION's deployment, under its
+# own tenant, reached at an endpoint whose NAME is declared here and whose
+# VALUE lives only in the environment. `D-IMPL-340` holds every answer to the
+# registration below; `CLD-G01`–`CLD-G03` are what make that real.
+#
+# WHAT IS DELIBERATELY ABSENT: `agent:`, `skills:` and `questions=`.
+# `include_federated` is a REQUEST parameter, and the only supported way a
+# request parameter reaches the child-resolution seam is `build_children=`
+# (`ccf.products.product`), which `open_product` REFUSES beside a declared
+# `agent:` or `skills:`. The chain those sections would have derived is
+# therefore hand-built in `deployment.FederatedChildren` from the artifacts in
+# `artifacts/consumer-chain.yaml`. That cost is the rung's measured friction
+# (`CLD-F-04`), not a preference.
+
+semver: "1.0.0"
+tenant_id: cp-20-demo
+
+backend: sqlite
+
+product_class:
+  schema_name: cb.syndicate-co-lender
+  schema_version: "1.0.0"
+  ttl_anchor: from_decision
+  assembly_mode: algorithmic
+  max_ttl_key: cp-20/product/syndicate-co-lender/max-ttl
+  required_operator_keys:
+    - policy.principal-subgraph
+    - temporal.as-of-boundary
+    - traversal.typed-neighborhood
+  decision_instant_parameter: as_of
+
+  # THE ONE CHILD. A CLASS and a FLOOR — never a producer, a skill, a tenant or
+  # a transport. `required: false` because reaching across an organizational
+  # boundary is a deliberate act with legal consequences and `include_federated`
+  # defaults to `false` (spec §B.3).
+  #
+  # OPTIONAL MEANS OPTIONAL *ABSENCE*, NOT OPTIONAL GOVERNANCE (`D-IMPL-336`
+  # F1, and Dave's `Q3.2`). A child the peer REFUSES refuses this composite
+  # even in this slot; only an honest "no skill produced it" takes the
+  # treatment below. `CLD-G07` is the gate, and it is load-bearing.
+  requires:
+    - product_class: cb.co-lender-position
+      required: false
+      compatible_from: "1.0.0"
+      absence_treatment:
+        # What a missing federated position COSTS. Stated by this class because
+        # the SDK holds no default (`D-IMPL-38`): a domestic-only answer is
+        # complete about what we hold and silent about what the peer holds, so
+        # completeness — not freshness, not consistency — is what it dents.
+        completeness_when_absent: "0.50"
+        # Which optional outcomes this deployment permits omitting from the
+        # SERVED PAYLOAD. `optional-absent` only: nothing was ever invoked, so
+        # there is nothing to report but the absence itself, which the
+        # `federation.include_federated` key states positively. Every other
+        # outcome — a refusal above all — stays visible. **Replay keeps a row
+        # for the requirement either way**, which is why this is a payload
+        # convenience and never a governance decision.
+        omissible_outcomes: [optional-absent]
+
+  serve_obligations:
+    # ILLUSTRATIVE CALIBRATION (`D-IMPL-323`). The peer's positions are stamped
+    # `2026-08-26` and the primary's syndicate data is a filed-document
+    # snapshot; a tighter tolerance would withhold every answer and make the
+    # mechanism unobservable rather than demonstrate it.
+    default_debt_tolerance: "0.95"
+    # THE TOP-LEVEL PAYLOAD MEMBERS THIS CLASS MAY NEVER SERVE EMPTY. Not
+    # request inputs — the members a consumer's decision actually turns on:
+    # which facility was answered about, what the consent arithmetic came to,
+    # and whether the organizational boundary was crossed. A product missing
+    # any of the three is refused by name rather than served thin.
+    lineage_inputs_at:
+      - facility
+      - consent
+      - federation
+
+  discovery:
+    domain: cib
+    intents:
+      - amendment-consent
+      - participation-review
+    capabilities:
+      - cross-organizational-federation
+      - negotiated-disclosure-envelope
+      - declared-precision-honesty
+    audiences:
+      - credit-officer
+
+operators:
+  # STEP 2 — Policy, and it runs FIRST (whitepaper §7.4 composition invariant
+  # 1: impermissible content is never materialized).
+  policy.principal-subgraph:
+    classification_attribute_by_class:
+      facility: classification
+      participation: classification
+      threshold: classification
+      envelope: classification
+    permitted_classifications:
+      - public
+      - internal
+
+  # STEP 3 — the graph at the decision instant.
+  temporal.as-of-boundary:
+    require_valid_at_boundary: true
+
+  # STEP 4 — the syndicate, its consent mechanics and the envelopes in force,
+  # one hop from the facility.
+  traversal.typed-neighborhood:
+    seed_entity_classes:
+      - facility
+    relationship_types:
+      - hasParticipation
+      - hasConsentThreshold
+      - hasEnvelope
+    depth_limit: 1
+
+request_contract:
+  class_id: cp-20.request-contract
+  role: register
+  registration: typed
+  schema_name: cb.syndicate-co-lender
+  schema_version: "1.0.0"
+  arguments:
+    properties:
+      facility_id:
+        type: string
+        description: >-
+          the syndicated facility. The anchor, and one half of the negotiated
+          interface with the peer — both fabrics already hold this identifier.
+          `intent` is NOT declared here: it is a top-level `ProductRequest`
+          field judged against `discovery.intents`, and the SDK refuses a
+          request contract that shadows it (`D-IMPL-264` D-01).
+      include_federated:
+        type: boolean
+        description: >-
+          whether to reach across the organizational boundary at all. ABSENT
+          TAKES THE DECLARED DEFAULT, which is `false`: a federated request has
+          legal consequences and must never happen because a default made it
+          happen. `true` and `false` are DIFFERENT QUESTIONS and hash to
+          different content addresses (`CLD-G09`).
+      counterparties:
+        type: array
+        items:
+          type: string
+          description: one syndicate member's LEI.
+        description: >-
+          which co-lenders to ask. A member whose bilateral envelope does not
+          admit this product CLASS in its `requestScope` is REFUSED BY NAME
+          before any peer is called (`Q1`(b), `CLD-G10`) — the envelope
+          refusal is the demonstration, and the estate is not retuned to make
+          an out-of-scope member admissible.
+      as_of:
+        type: string
+        description: >-
+          THE DECISION INSTANT, as an ISO-8601 instant with offset — the
+          class's declared `decision_instant_parameter`. Selects the policy
+          version, anchors the TTL and is the instant the gates judge at.
+      debt_tolerance:
+        type: number
+        description: >-
+          the caller's ceiling on assessed Context Debt, folded through the
+          same resolution as every other parameter.
+    required:
+      - facility_id
+  defaults:
+    include_federated: false
+
+resolution:
+  entity_rules:
+    - match_key: facility_ref
+      entity_class: facility
+      identity_keys: [entity_uri]
+      attribute_keys: [facility_id, borrower_lei, commitment_amount, syndicated, classification]
+    - match_key: participation_ref
+      entity_class: participation
+      identity_keys: [entity_uri]
+      attribute_keys:
+        - member_lei
+        - member_label
+        - commitment_usd
+        - is_own_position
+        - internal_rating
+        - workout_posture
+        - source_passage
+        - classification
+    - match_key: threshold_ref
+      entity_class: threshold
+      identity_keys: [entity_uri]
+      attribute_keys: [consent_standard, consent_percent, amendment_type, source_passage, classification]
+    - match_key: envelope_ref
+      entity_class: envelope
+      identity_keys: [entity_uri]
+      attribute_keys: [counterparty_lei, request_scope, disclose_scope, envelope_version, valid_from, classification]
+    # The three edges' endpoints, thin.
+    - match_key: subject_ref
+      entity_class: facility
+      identity_keys: [entity_uri]
+      identity_sources: {entity_uri: subject_uri}
+    - match_key: participation_object_ref
+      entity_class: participation
+      identity_keys: [entity_uri]
+      identity_sources: {entity_uri: object_uri}
+    - match_key: threshold_object_ref
+      entity_class: threshold
+      identity_keys: [entity_uri]
+      identity_sources: {entity_uri: object_uri}
+    - match_key: envelope_object_ref
+      entity_class: envelope
+      identity_keys: [entity_uri]
+      identity_sources: {entity_uri: object_uri}
+  relationship_rules:
+    - {relationship_type: hasParticipation, predicate_key: predicate,
+       subject_entity_class: facility, object_entity_class: participation,
+       subject_rule: subject_ref, object_rule: participation_object_ref}
+    - {relationship_type: hasConsentThreshold, predicate_key: predicate,
+       subject_entity_class: facility, object_entity_class: threshold,
+       subject_rule: subject_ref, object_rule: threshold_object_ref}
+    - {relationship_type: hasEnvelope, predicate_key: predicate,
+       subject_entity_class: facility, object_entity_class: envelope,
+       subject_rule: subject_ref, object_rule: envelope_object_ref}
+
+# ILLUSTRATIVE CALIBRATION (`D-IMPL-323`) — spec §E. The estate is a
+# point-in-time snapshot; these make the governed behavior observable in it and
+# are NOT recommended production values.
+half_life:
+  syndicate_composition:
+    half_life_seconds: 15552000       # ~180 days — changes on assignment
+    decay_driver: assignment-or-transfer
+    supersession_event: amended-commitment-schedule-filed
+  consent_mechanics:
+    half_life_seconds: 31536000       # ~365 days — amendment-driven
+    decay_driver: amendment
+    supersession_event: new-ex-10-filed
+  own_position:
+    half_life_seconds: 86400          # ~1 day
+    decay_driver: daily-position-marking
+    supersession_event: assignment-transfer-or-repricing
+  disclosure_envelope:
+    half_life_seconds: 31536000       # ~365 days — renegotiated periodically
+    decay_driver: bilateral-renegotiation
+    supersession_event: envelope-version-increment
+
+debt_profile:
+  # Keyed so the hand-built agent can PIN it (`artifacts/consumer-chain.yaml`).
+  # The paved road derives this pin; `build_children=` means deriving it here.
+  key: cp-20-demo/ccf.debt-profile/syndicate-co-lender
+  risk_sensitivity: "1.0"
+  forced_llm_threshold: "0.60"
+  fail_closed_threshold: "0.97"
+
+policy:
+  class_id: cp-20.policy-bundle
+  role: register
+  registration: typed
+  key: cp-20-demo/policy-bundle/syndicate-co-lender
+  regime: syndicate-co-lender
+  skill_governance:
+    grant_requires_approval: false
+    permitted_scopes: []
+
+default_perspective:
+  principal_id: PRIN-SYN-001
+  role: participant
+
+replay:
+  record_class: ccf.replay-record
+  query_pin_class: ccf.graph-query
+  store_dirname: artifact-store
+
+# FOUR HOURS — the spec's §B.1 value, and `Q4` RULED it stays. It is NOT
+# raised above the peer's declared 6 h to manufacture a binding child: the two
+# peer declarations short enough to floor this ceiling are exactly the two the
+# governance rules refuse, so `CLD-G04` is `unavailable` with its guard named
+# and `CLD-G05` carries the floor rule on its ceiling-binding arm.
+ttl:
+  max_ttl_seconds: 14400
+  product_ttl_seconds: 14400
+
+# WHO MAY PROVIDE THE CHILD CLASS — one registration (`D-IMPL-340`), naming a
+# SECOND ORGANIZATION's producer. The identity and tenant every answer is held
+# to, and the NAMES of the two environment variables its endpoint and
+# credential are read from. No address and no credential appears here.
+producers:
+  peer:
+    server: co-lender-producer
+    producer_id: cp-20-peer-co-lender-position-egress
+    producer_tenant: cp-20-peer-demo
+    endpoint_from_env: CCF_CP20_PEER_URL
+    credential_from_env: CCF_CP20_PEER_TOKEN
+    offers:
+      - {product_class: cb.co-lender-position, versions_from: "1.0.0"}

@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# THE FEDERATION POLICY — values, never code (CLAUDE.md §11).
+#
+# Two governed values and one vocabulary, all of them the deployment's to
+# state and none of them the SDK's.
+
+semver: "1.0.0"
+class_id: cp-20.federation-policy
+declaration:
+  # THE CLASS THIS COMPOSITE MAY REQUEST ACROSS THE BOUNDARY.
+  #
+  # `Q1`(b), Dave 2026-09-22: *"`requestScope` and `discloseScope` name product
+  # classes, not payload fields."* A counterparty's envelope admits this
+  # composite's federated ask only if its `requestScope` contains this class.
+  # Bank of America's does (`own_position`); Citibank's does not — its
+  # `requestScope` is `amendment_vote_posture` alone — so Citibank's position
+  # is NOT REQUESTABLE and the refusal is the demonstration.
+  requested_class: own_position
+
+  # The scope token each envelope must carry for the ask to be in bounds, and
+  # the two scope predicates read off the envelope node. They are read as TWO
+  # DIFFERENT SETS (`CLD-G11`); an implementation that read one for both would
+  # admit Citibank, which is the failure the gate exists to catch.
+  scope_predicates:
+    request: http://example.org/fibo/requestScope
+    disclose: http://example.org/fibo/discloseScope
+
+  # ILLUSTRATIVE CALIBRATION (`D-IMPL-323`).
+  #
+  # The bound a peer's DECLARED latency is compared against. The vault spec's
+  # `max_federation_latency` default is 5 s and this is that value in
+  # milliseconds. It is NOT a socket timeout and nothing is measured off a
+  # wire: the peer publishes `declared_latency_ms` in its own data, the
+  # product compares the declaration against this bound, and a peer declaring
+  # beyond it is refused by name (`CLD-G12`). Citibank declares 7200 ms
+  # against this 5000 — but Citibank is already out of envelope, so on this
+  # estate the two controls are independent and are gated independently.
+  #
+  # The transport's own patience is a different number in a different
+  # document: `ccf_environment.yaml`'s `remote.call_timeout_seconds`.
+  declared_latency_bound_ms: 5000
