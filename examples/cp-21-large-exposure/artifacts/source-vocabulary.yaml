@@ -1,0 +1,90 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# EVERY SOURCE NAME THIS DEPLOYMENT READS.
+#
+# NOTE WHAT CP-21 OWNS, and what rung 23 deliberately excluded (`PEW-G18`): `limit_definition`,
+# `bank_capital` and `connection_basis` are CP-21's regulatory large-exposure
+# inputs and are named NOWHERE in this deployment. Book concentration uses
+# CP-23's own declared threshold and nothing else.
+semver: "1.0.0"
+class_id: cp-21.source-vocabulary
+declaration:
+  relational:
+    tables:
+      entity: legal_entity
+      facility: facility
+      drawdown: drawdown
+      capital: bank_capital
+      limit_definition: limit_definition
+      guarantee: guarantee_terms
+      proposal: exposure_proposal
+      reporting_bank: reporting_bank
+  graph:
+    # CP-21 reads the graph for REAL, not just a watermark: the connected group
+    # is DERIVED from these edges, and the regime is an effective-dated node.
+    ledger: fibo-v2
+    connected_to: "http://example.org/fibo/connectedTo"
+    economically_dependent_on: "http://example.org/fibo/economicallyDependentOn"
+    dependency_basis: "http://example.org/fibo/dependencyBasis"
+    regime_version_class: "http://example.org/fibo/RegimeVersion"
+    limit_envelope_class: "http://example.org/fibo/LimitEnvelope"
+    ex: "http://example.org/fibo/"
+    entity_uri_prefix_graph: "http://example.org/fibo/"
+  documents:
+    # The regime rulebook text. These passages carry NO `sha256` (measured
+    # 2026-09-21), so anchoring is proved by a resolvable authority, a
+    # resolvable passage and matching quoted text — NO HASH IS MINTED
+    # (`LEX-G08`, ruled 2026-09-21).
+    passage_collection: passage
+    document_collection: document
+    regime_document_prefixes: [crr, pra, reg-o]
+
+  # ===================================================================
+  # THE CAPITAL UNIT — DECLARED HERE, NEVER A LITERAL IN CODE
+  # ===================================================================
+  #
+  # `Q2`, ruled 2026-09-21. `bank_capital` is denominated in THOUSANDS of
+  # dollars, the FFIEC Call Report convention. That is LEGITIMATE SOURCE
+  # SEMANTICS and the source table is not rewritten. The product normalizes at
+  # the acquisition boundary using the factor below, serves BOTH the raw value
+  # with its source unit and the normalized value with its normalized unit, and
+  # the regulatory arithmetic consumes the normalized one.
+  #
+  # Getting this wrong is silent and catastrophic: read as dollars, the
+  # reporting bank shows ~$0.30bn of Tier 1 against ~$4bn of assets, a 25%
+  # limit becomes ~$74 MILLION, and 42 of the estate's 60 facilities breach it
+  # single-handedly. `LEX-G06` gates on that CONSEQUENCE, not on this constant.
+  capital_units:
+    source_unit: usd_thousands
+    normalized_unit: usd
+    factor: 1000
+    authority: "FFIEC Call Report — amounts reported in thousands of dollars"
+
+  # THE CONNECTION BASES, DECLARED ONCE. `connection_basis` decides the whole
+  # answer (`LEX-G04`), so the set of admissible values is a declared artifact
+  # and NOT a tuple in code — the No-Hardcoding Rule (CLAUDE.md §6.4) applies
+  # to a routing vocabulary exactly as it applies to a threshold.
+  #
+  # `ccf_config.yaml` states the same list under
+  # `request_contract.argument_domains.connection_basis.members`, because the
+  # SDK derives the caller-facing schema from there. The two are asserted equal
+  # by `LEX-G03`, so a domain widened in one place and not the other is caught
+  # rather than silently admitted.
+  connection_bases: [control, economic-dependency, both]
+
+  entity_uri_prefix:
+    group: "urn:ccf:cp21:group:"
+    member: "urn:ccf:cp21:member:"
+    exposure: "urn:ccf:cp21:exposure:"
+    capital: "urn:ccf:cp21:capital:"
+    regime: "urn:ccf:cp21:regime:"
+    limit: "urn:ccf:cp21:limit:"
+  classification:
+    vocabulary: [public, internal]
+    assignment:
+      group: internal
+      member: internal
+      exposure: internal
+      capital: public
+      regime: public
+      limit: internal

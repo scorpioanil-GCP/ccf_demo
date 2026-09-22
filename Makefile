@@ -558,6 +558,11 @@ example-cp-24: ## Run examples/cp-24-portfolio-what-if (BOOK, ASKED_AT, INTENT, 
 		$(PYTHON) examples/cp-24-portfolio-what-if/run.py \
 		$(BOOK) $(ASKED_AT) $(INTENT) $(PRINCIPAL) $(AS_OF) $(SCENARIO) $(MEMBERS) $(COVERAGE_FLOOR) $(DEBT_TOLERANCE)
 
+example-cp-21: ## Run examples/cp-21-large-exposure (CASE, ANCHOR, ASKED_AT, INTENT, PRINCIPAL, AS_OF, REGIME, CONNECTION_BASIS, PROPOSAL, NO_MITIGATION, DEBT_TOLERANCE optional; needs CCF_CP_21_POSTGRES_DSN, CCF_CP_21_POSTGRES_SCHEMA, CCF_CP_21_FLUREE_URL, CCF_CP_21_FLUREE_LEDGER, CCF_CP_21_MONGO_URI, CCF_CP_21_MONGO_DB and the four CCF_CP_21_TOKEN_* credentials)
+	PYTHONPATH=src:runtime:examples/cp-21-large-exposure \
+		$(PYTHON) examples/cp-21-large-exposure/run.py \
+		$(CASE) $(ANCHOR) $(ASKED_AT) $(INTENT) $(PRINCIPAL) $(AS_OF) $(REGIME) $(CONNECTION_BASIS) $(PROPOSAL) $(NO_MITIGATION) $(DEBT_TOLERANCE)
+
 example-cp-17: ## Run examples/cp-17-mnpi-wall-enforcement (SUBJECT, ASKED_AT, INTENT, KNOWN_AS_OF, DEBT_TOLERANCE, PRINCIPAL optional; needs CCF_CP_17_SQLITE_PATH, CCF_CP_17_POSTGRES_DSN, CCF_CP_17_POSTGRES_SCHEMA, CCF_CP_17_FLUREE_URL, CCF_CP_17_FLUREE_LEDGER, CCF_CP_17_MONGO_URI, CCF_CP_17_MONGO_DB and the four CCF_CP_17_TOKEN_* credentials)
 	PYTHONPATH=src:runtime:examples/cp-17-mnpi-wall-enforcement \
 		$(PYTHON) examples/cp-17-mnpi-wall-enforcement/run.py \

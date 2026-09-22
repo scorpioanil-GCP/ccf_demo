@@ -1,0 +1,166 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE DEMONSTRATION QUESTIONS and their pinned instant (`CP-SPEC-021` §A.1).
+#
+# THREE ANCHORS, BECAUSE THE ESTATE ENGINEERED THREE DIFFERENT THINGS, and one
+# anchor does not carry all three. Every figure below was measured against
+# `.76` on 2026-09-21 and each is reproduced by `run.py`.
+semver: "1.0.0"
+class_id: cp-21.question
+declaration:
+  question:
+    # Bausch Health Companies Inc. — the anchor the estate's BREACHING
+    # proposal is written against. Five group members, eight facilities,
+    # $16.015bn of commitment.
+    subject: "B3BS7ACMDUWISF18KY76"
+    intent: limit-test
+    freshness: event-driven
+    asked_at: "2026-08-25T00:00:00+00:00"
+    principal: PRIN-CO-001
+  instants:
+    ASKED_AT: "2026-08-25T00:00:00+00:00"
+  nonexistent_anchors: ["NOTANLEIATALL00000000", "ZZZZ0000ZZZZ0000ZZ00"]
+  priced_intents: [limit-test, committee-review, supervisory-request]
+
+  # =====================================================================
+  # THE UNITS TRAP, MEASURED (`LEX-G06`, `LEX-G07`)
+  # =====================================================================
+  #
+  # `bank_capital` reports in THOUSANDS of dollars — the FFIEC Call Report
+  # convention. The latest quarter is 2026-03-31.
+  capital:
+    report_date: "2026-03-31"
+    tier1_raw: 295758000
+    source_unit: usd_thousands
+    tier1_normalized_usd: 295758000000
+    total_assets_raw: 4016571000
+  # THE NEGATIVE CONTROL. Read as dollars, this bank shows $0.296bn of Tier 1
+  # against $4.017bn of assets — which is dimensionally absurd, and a 25%
+  # limit computed on it is $73,939,500. FORTY-TWO of the estate's sixty
+  # facilities breach that single-handedly.
+  dimensionally_wrong_tier1_usd: 295758000
+  dimensionally_wrong_limit_usd: 73939500
+  # The correctly normalized limits, by authority.
+  correct_limits_usd:
+    pra_2022_25pct: 73939500000
+    internal_appetite_15pct: 44363700000
+    graph_envelope_5pct: 14787900000
+
+  # =====================================================================
+  # THE TWO ENGINEERED PROPOSALS, EACH ON ITS OWN ANCHOR (`LEX-G06`)
+  # =====================================================================
+  #
+  # Every magnitude is an INTEGER in canonical units — whole dollars, because
+  # a commitment is a whole-dollar amount (`D-GATE-cp-24` `Q1`).
+  breaching_case:
+    anchor: "B3BS7ACMDUWISF18KY76"
+    legal_name: "Bausch Health Companies Inc."
+    members: 5
+    observed_commitment_usd: 16014775000
+    observed_drawn_usd: 7829265450
+    proposal:
+      facility_type: "Term Loan"
+      commitment_usd: 75000000000
+      obligor_lei: "B3BS7ACMDUWISF18KY76"
+    # $16.015bn + $75bn = $91.015bn, and $7.829bn + $75bn = $82.829bn.
+    # BOTH exceed $73.940bn, so this one breaches with or without mitigation.
+    expected_outcome: breaches
+    breaches_with_mitigation: true
+    breaches_without_mitigation: true
+
+  fits_after_mitigation_case:
+    anchor: "549300EQD0ZXRSMG3549"
+    legal_name: "TransDigm Group INC"
+    members: 1
+    observed_commitment_usd: 14600000000
+    observed_drawn_usd: 5064744515
+    proposal:
+      facility_type: "Revolving Credit Facility"
+      commitment_usd: 59400000000
+      obligor_lei: "549300EQD0ZXRSMG3549"
+    # THE SHARPEST NUMBER ON THIS RUNG. Gross, $14.600bn + $59.400bn =
+    # $74.000bn against a $73.940bn limit — over by SIXTY MILLION, which is
+    # 0.08%. Recognizing the undrawn relief gives $5.065bn + $59.400bn =
+    # $64.465bn and it fits. `apply_mitigation` is what moves it, which is
+    # exactly what `LEX-G15` asserts.
+    expected_outcome: fits_after_mitigation
+    breaches_with_mitigation: false
+    breaches_without_mitigation: true
+    overshoot_without_mitigation_usd: 60500000
+
+  # =====================================================================
+  # THE BASIS CONTRAST (`LEX-G04`), ON THE ONLY ANCHOR THAT CARRIES IT
+  # =====================================================================
+  #
+  # Super Micro Computer, Inc. is one of only THREE anchors in this estate
+  # where economic dependency changes the group. The whole causal chain moves:
+  # membership -> aggregate exposure -> headroom. Neither engineered proposal
+  # is written against it, which is why it is a third anchor and not the
+  # demonstration subject.
+  basis_contrast:
+    anchor: "54930022CZO1N2UGVW07"
+    legal_name: "Super Micro Computer, Inc."
+    control_members: 2
+    control_facilities: 1
+    control_commitment_usd: 2000000000
+    both_members: 4
+    both_facilities: 4
+    both_commitment_usd: 2570000000
+
+  # =====================================================================
+  # THE REGIMES AND THE LIMIT AUTHORITIES
+  # =====================================================================
+  regimes: [pra-2022, crr-2014-2021, reg-o]
+  default_regime: pra-2022
+  # `crr-2014-2021` carries `effectiveFrom 2014-01-01` AND
+  # `effectiveTo 2021-12-31`. It is a real regime that really EXPIRED, so at
+  # the pinned 2026 instant it is NOT in force and asking for it is REFUSED
+  # rather than silently substituted — while an EARLIER instant selects it and
+  # rejects `pra-2022`. That pair is `LEX-G05`'s positive and negative control.
+  regime_not_in_force_at_asked_at: crr-2014-2021
+  regime_in_force_at_earlier_instant:
+    regime: crr-2014-2021
+    instant: "2021-06-01T00:00:00+00:00"
+    effective_from: "2014-01-01"
+    effective_to: "2021-12-31"
+  # ...BUT THAT INSTANT CANNOT BE SERVED, AND THE REASON MATTERS. The capital
+  # series starts 2023-06-30, so at any 2021 instant there is no denominator
+  # and the product refuses with `no-capital-base`. The two windows — CRR in
+  # force, and capital observable — DO NOT OVERLAP in this estate. A test
+  # asking a 2021 question therefore proves nothing about regime selection:
+  # it would go green whatever the selector did. Recorded as `LEX-F-06`.
+  regime_selection_unprovable_before: "2023-06-30"
+
+  # THE INSTANT THAT DOES PROVE IT. Capital exists from 2023-06-30 and
+  # Regulation O begins 2026-01-01, so at 2025-06-01 `reg-o` is NOT yet in
+  # force while `pra-2022` is. The same anchor, the same instant: one regime
+  # refuses and the other serves.
+  regime_effective_dating_control:
+    instant: "2025-06-01T00:00:00+00:00"
+    not_yet_in_force: reg-o
+    in_force: pra-2022
+  # `reg-o` is the ALTERNATE RULE SHAPE — an absolute USD limit, not a
+  # percentage of capital (`LEX-G09`).
+  absolute_limit_regime: reg-o
+  absolute_limit_usd: 500000
+  connection_bases: [control, economic-dependency, both]
+  default_connection_basis: both
+
+  # THE TWO INTERNAL AUTHORITIES THAT GENUINELY DISAGREE (`LEX-G11`).
+  # Neither is presented as wrong; the conservative one binds, by a rule the
+  # payload names.
+  limit_authority_conflict:
+    limit_id: internal-appetite
+    relational_register_pct: "15.0"
+    graph_envelope_pct: "5.0"
+    selected_by_rule: most-conservative-internal-authority-binds
+
+  # WHICH LIMIT BINDS FIRST (`LEX-G12`) — not merely that one does. The graph
+  # envelope at 5% is the lowest of the four, so it binds before the internal
+  # appetite at 15% and before the PRA's 25%.
+  expected_binding_authority: graph-limit-envelope
+
+  # THE FRESHNESS ASYMMETRY, MEASURED (`LEX-G14`). Exposure is intraday;
+  # capital is a quarterly filing. At the pinned instant the capital base is
+  # 147 days old, and nothing ages one clock into the other.
+  capital_age_days_at_asked_at: 147

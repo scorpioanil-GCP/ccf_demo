@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE PRODUCT'S SHAPE PER PERSPECTIVE (`CP-SPEC-021` §A).
+#
+# THE ROLE NAMES ARE THIS DEPLOYMENT'S, AND THAT IS STATED RATHER THAN HIDDEN.
+# Rung 23 took its roles from `ccf_v2.banker.role` because the estate said
+# them. This estate says nothing about who asks a large-exposure question — it
+# holds no register of credit officers, credit committees or supervisors — so
+# the three renderings below are DECLARED here. Declaring what the estate does
+# not say is correct; pretending it said it would not be.
+#
+# The member set is a function of the PERSPECTIVE, never of the group: a role
+# that may not see the methodology carries no empty methodology member, because
+# an empty one would read as "this determination has no methodology".
+semver: "1.0.0"
+class_id: cp-21.perspectives
+declaration:
+  common_members:
+    - perspective
+    - as_of
+    - intent
+    - group
+    - members
+    - member_count
+    - capital_base
+    - regime_in_force
+    - limits
+    - limit_authority_conflict
+    - aggregate_exposure
+    - evaluation
+    - freshness_asymmetry
+    - population_debt
+    - findings
+    - entities_in_view
+    - edge_types_served
+  perspectives:
+    credit-officer:
+      principal_id: PRIN-CO-001
+      members: [proposal_effect]
+      rationale: tests a specific proposal; sees headroom and what would breach
+    committee:
+      principal_id: PRIN-CM-002
+      members: [concentration_view]
+      rationale: sees utilisation and concentration across the group
+    examiner:
+      principal_id: PRIN-EX-003
+      members: [methodology, replay_attribution]
+      rationale: >-
+        reconstructs the determination; sees methodology, the policy version in
+        force and the replay anchor that the committee rendering never requests
+  # GENUINE LISTS ONLY. `capital_base`, `regime_in_force` and `evaluation` are
+  # MAPPINGS whose classified rows are nested, and the gate reaches those by
+  # name — iterating a mapping would walk its keys, which are strings.
+  classified_list_members:
+    - members
+    - limits
+  nested_classified_lists:
+    aggregate_exposure: by_member
+    concentration_view: by_member
+  classification_vocabulary: [public, internal]
