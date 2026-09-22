@@ -22,10 +22,12 @@ Measured 2026-09-21 against the live estate (`CCF_REQUIRE_ESTATE=1`).
 | `LEX-F-07` | example defect (mine) | fixed — a No-Hardcoding violation |
 | `LEX-F-08` | estate limitation | disclosed in the payload |
 | `LEX-F-09` | friction measurement | **not** a third instance; nothing requested |
+| `LEX-F-10` | **pre-existing red on `main`** | needs a ruling — not cp-21's to make |
 
 **Issue cap (CLAUDE.md §9): one SDK issue is open from this rung** —
 `LEX-F-02`, which is a known carried residual rather than a new one. `LEX-F-03`
-is a specification/design divergence, not an SDK defect.
+is a specification/design divergence, not an SDK defect. `LEX-F-10` is a
+standing red that predates this rung and needs a ruling.
 
 ---
 
@@ -274,3 +276,40 @@ the build.
   artifacts for the capital base and the regime. That split is what made
   `LEX-G14` expressible at all.
 - **No new `D-IMPL` was needed**, and no SDK source file was touched.
+
+---
+
+## `LEX-F-10` — the `D-IMPL-141` roster needs a ruling, and already did before this rung
+
+**Pre-existing red on `main`. NOT cp-21's to fix, and deliberately not fixed
+here.**
+
+`tests/products/test_gate_two_call_shape.py::test_the_sdk_supplied_exemption_has_not_spread`
+holds a roster of example trees permitted to claim the `D-IMPL-141`
+SDK-supplied-factory exemption. The assertion's own text is explicit:
+
+> *"A human rules on each addition."*
+
+Measured on `main` at `7356a0f1`, **before any cp-21 code existed**, the test
+is RED with three trees missing from the roster:
+
+```
+examples/cp-16-abs-securitization-surveillance
+examples/cp-23-portfolio-early-warning
+examples/cp-24-portfolio-what-if
+```
+
+All three are **merged rungs**. cp-21 arrives by the same route as cp-15,
+cp-17, cp-18 and cp-19 — a named `plan_factory` in `produce.py` handing the
+resolver's own `required` tuple straight to the projection, which returns it
+unchanged — so it becomes a fourth name on the same failure.
+`test_the_premise_detector_reads_the_shipped_tree_correctly` fails for the same
+reason.
+
+**I have not added cp-21 to the roster**, because adding it would be exactly
+the edit the assertion exists to require a human for, and because doing so
+would leave three merged rungs still red while making this one look clean.
+
+**What is owed:** a ruling on all four roots together. The precedent is
+recorded in the roster's own comments — cp-14's addition was ruled by Dave at
+the Slice-1 review and the ruling written beside the entry.
