@@ -13,16 +13,18 @@
 
   GATE 1 ACCEPTED 2026-09-22 AS BUCKET 1. Dave's rulings on `Q1`, `Q2` and the
   three `Q3` amendments are folded into this document BEFORE any
-  implementation, per the instruction. One question remains owed (§F.4 `Q4`).
+  implementation, per the instruction. `Q4` was RULED 2026-09-22 (Option 1)
+  and is folded here as the GATE-2 BASELINE. Nothing is owed.
 -->
 
 # Syndicated Lending Co-Lender — Context Product Specification
 
 **Rung 20 · Postgres + Fluree + a second organization's fabric · `cb.syndicate-co-lender`**
 
-**Status: GATE 1 ACCEPTED — BUCKET 1, 2026-09-22. No SDK or runtime capability
-is missing. `D-IMPL-346` remains unspent. Build is NOT yet authorized: `Q4`
-(§F.4) is owed before Gate 2.**
+**Status: GATE 2 BASELINE — BUCKET 1, 2026-09-22. All of `Q1`, `Q2`, `Q3.1`–
+`Q3.3` and `Q4` are ruled and folded. No SDK or runtime capability is missing;
+none is added. `D-IMPL-346` remains unspent. 20 gates declared — 19 executing,
+`CLD-G04` `unavailable` with its guard named. BUILD AUTHORIZED.**
 
 ---
 
@@ -202,7 +204,7 @@ it never controls.
 | **Classification / residency** | `internal`; single jurisdiction; the peer's material never leaves the record it was admitted into. |
 | **Assembly Mode** | **Mode 1 — pure algorithmic.** No LLM anywhere. |
 | **Freshness SLA** | Daily for positions; event-driven for amendments. |
-| **TTL** | **4 hours** · `ttl_anchor: from_decision` · floored by any admitted child's own expiry (§E). **`Q4` is owed on this value — see §F.4.** |
+| **TTL** | **4 hours** · `ttl_anchor: from_decision` · floored by any admitted child's own expiry (§E). **`Q4` RULED 2026-09-22: the 4 h stays, and is NOT raised above 6 h to manufacture a binding child** (§F.4). |
 | **Policy Binding** | Entitlement scope; **the bilateral disclosure envelope per counterparty**, request scope and disclosure scope held as two distinct sets; competition-law constraints (`CLR-001`–`CLR-004`); the credit agreement's confidentiality provisions. |
 | **Lineage** | `operators_invoked` — **runtime categories only**: `policy.principal-subgraph`, `temporal.as-of-boundary`, `traversal.typed-neighborhood`. Plus `graph_snapshot_at` (ledger `t`), `policy_version`, `projection_plan_id`, and the **admitted child's own lineage by set-union** (`D-IMPL-31`). Federation appears in replay dimension 2 as the child row's `producer_id` / `producer_tenant` / `question_ref` / `producer_replay_ref` / `eligibility_basis` — **not** as an operator. |
 | **Semantic Version** | `v1.0.0` |
@@ -437,18 +439,36 @@ added and none is changed.**
 | # | Item | Owner |
 |---|---|---|
 | `[TBC-1]` | The consent-arithmetic denominator (§C.5 trap 3) | Dave — bind at Gate 2; both figures served either way |
-| `[TBC-2]` | **`Q4` — the class TTL, and whether `CLD-G04` has a carrier** | **Dave — owed before Gate 2 (§F.4)** |
+| `[TBC-2]` | ~~`Q4` — the class TTL, and whether `CLD-G04` has a carrier~~ **RULED 2026-09-22 (§F.4): class TTL stays 4 h; `CLD-G04` is `unavailable` with its guard named** | closed |
 | `[TBC-3]` | The illustrative `λ_c` values | Dave — under `D-IMPL-323` |
 | `[TBC-4]` | The deployment's federation latency bound (§G.1 `CLD-G12`) | Dave — recommended at 5 s, the vault spec's value |
 
-### F.4 — THE QUESTION OWED
+### F.4 — THE QUESTION, RULED
 
-#### `Q4` — `CLD-G04` and `CLD-G05` cannot both be carried against this estate
+#### `Q4` — RULED 2026-09-22: `CLD-G04` IS `unavailable`, WITH ITS GUARD NAMED
 
-**This is a conflict between the locked gate boundaries and the `Q1`/`Q2`
-rulings, surfaced rather than resolved.** The locked boundary reads: *"G04/G05
-— peer child expiry binds on one facility; composite ceiling binds on
-another."* Measured against the estate, that is not satisfiable.
+> **Dave's ruling (Option 1).** Mark `CLD-G04` `unavailable`. Name the guard
+> explicitly: under `Q1`(b) + `Q2`, **every peer declaration whose TTL is
+> shorter than the 4-hour composite ceiling is inadmissible** — Citibank 3 h
+> is out of the disclosure envelope, Bank of America 2 h is unattested and
+> therefore a governed refusal, and **no fourth declaration exists**.
+> Therefore the estate cannot produce an admitted child that becomes the
+> binding TTL floor. **This is an engineered-estate limitation, not an SDK
+> defect.** Use the existing unavailable-gate precedent, `ABS-G01` /
+> `D-GATE-cp-16`.
+>
+> **Do not** raise the class TTL above 6 h · weaken `Q1`(b) · admit the
+> unattested child · retune or manufacture another peer declaration.
+>
+> **Keep `CLD-G05` load-bearing.** On `FAC-6F4065` the peer TTL is 6 h and the
+> composite ceiling is 4 h, so the composite expiry **must** be the 4 h
+> ceiling — which positively proves the existing
+> `min(parent ceiling, admitted child expiries)` rule on its ceiling-binding
+> arm.
+
+The measurement the ruling rests on, kept because a named guard is only as
+good as the evidence behind it. The class TTL is the vault spec's 4 h under
+`ttl_anchor: from_decision`:
 
 The arithmetic, with the class TTL at the vault spec's 4 h and
 `ttl_anchor: from_decision`:
@@ -466,25 +486,20 @@ candidate. An admitted child whose expiry floors the composite is therefore
 **unreachable from this estate without weakening a governed refusal**, which
 `Q1` and `Q2` both forbid.
 
-Three ways forward. None may be taken without a ruling:
+**The two alternatives, recorded as considered and REFUSED** (Dave,
+2026-09-22), so no later sitting re-derives them as fresh ideas: raising the
+class TTL above 6 h would buy `CLD-G04` and **lose `CLD-G05`**, trading one arm
+for the other rather than carrying both; retuning the estate or manufacturing a
+fourth declaration is forbidden outright by `Q1` and by CLAUDE.md §9.
 
-1. **Declare `CLD-G04` `unavailable`, with its guard named** — the rulings and
-   the estate jointly make the arm unreachable. Precedent: `ABS-G01` at
-   `D-GATE-cp-16`, where a structurally impossible sabotage was named rather
-   than manufactured. **Recommended.** It is the honest statement, it costs
-   nothing, and `CLD-G05` still proves the floor formula positively.
-2. **Raise the class TTL above 6 h** as an illustrative calibration under
-   `D-IMPL-323`, so the attested child's 6 h binds. This buys `CLD-G04` and
-   **loses `CLD-G05`** — no declaration exceeds any ceiling above 6 h — so it
-   trades one arm for the other rather than carrying both.
-3. **Retune the estate.** Explicitly forbidden by `Q1` and by CLAUDE.md §9.
-   Listed only to record that it was considered and refused.
-
-**A consequence worth stating plainly: residual `341-4` does not become live
-on CP-20.** Gate 0 predicted this rung would be its first live carrier, and my
-own Gate-1 report repeated that prediction. Measured against the estate under
-the `Q1`/`Q2` rulings, it is wrong — the binding-child case is exactly the
-case those rulings refuse. `341-4` remains a carried residual.
+**RESIDUAL `341-4` REMAINS CARRIED — and no evidence is manufactured to retire
+it.** Gate 0 predicted this rung would be `341-4`'s first live carrier, and my
+own Gate-1 report repeated the prediction. Both are **corrected here**:
+**CP-20 does not make the child the binding floor, because the only estate rows
+capable of doing so are refused by the accepted governance rules.** The
+correction is recorded in three places by ruling — this section, the gate table
+(§G.1 `CLD-G04`), and `FINDINGS.md` as `CLD-F-01` — and again in the close
+record.
 
 **Two notes that need no ruling, recorded because they change what would
 otherwise have been asked:**
@@ -507,15 +522,15 @@ otherwise have been asked:**
 
 ## G · Operate and govern
 
-### G.1 Product gates — 20
+### G.1 Product gates — 20 declared, 19 executing, 1 `unavailable` by ruling
 
 | id | What it asserts | Red when |
 |---|---|---|
 | `CLD-G01` | the admitted child is governed under the **producer's** tenant, and the composite's own tenant is neither compared to it nor set equal to it | the child is admitted only by claiming our tenant |
 | `CLD-G02` | a child whose `tenant_id` disagrees with the registration is refused **`producer-tenant-mismatch`**, by name, as data | the mismatch is tolerated or raised |
 | `CLD-G03` | a child whose `producer_id` disagrees with the registration is refused **`producer-mismatch`** — a **distinct** reason from `CLD-G02` | the two refusals collapse into one |
-| `CLD-G04` | **the admitted child's expiry floors the composite** — `expires_at` equals the child's when the child is the lower term | the child term is dropped from the minimum. **Carrier owed — see `Q4` (§F.4)** |
-| `CLD-G05` | **the class ceiling floors the composite** when it is the lower term, on `FAC-6F4065` (6 h child against a 4 h ceiling), computed from the live declared value | the ceiling term is dropped, or the value is hard-coded |
+| `CLD-G04` | **`unavailable` BY RULING (`Q4`, 2026-09-22), GUARD NAMED.** The arm — an admitted child's expiry becoming the binding floor — is **unreachable from this estate**: under `Q1`(b) + `Q2` every peer declaration shorter than the 4 h ceiling is inadmissible (Citibank 3 h out of envelope; Bank of America 2 h unattested and refused) and **no fourth declaration exists**. An **engineered-estate limitation, not an SDK defect** — the SDK's `min(parent ceiling, admitted child expiries)` is proven on its other arm by `CLD-G05`. **Residual `341-4` stays carried** (`CLD-F-01`) | — not executing; precedent `ABS-G01` / `D-GATE-cp-16`. **The mechanism is not weakened, and no declaration is manufactured, to produce a red** |
+| `CLD-G05` | **LOAD-BEARING, and the surviving proof of the floor rule.** On `FAC-6F4065` the peer declares 6 h and the class ceiling is 4 h, so the composite's `expires_at` **must** be the 4 h ceiling — positively proving `min(parent ceiling, admitted child expiries)` on its ceiling-binding arm, computed from the **live declared value** read from the peer | the ceiling term is dropped from the minimum, the child's 6 h is served as the composite's expiry, or either value is hard-coded rather than read |
 | `CLD-G06` | the unattested declaration on **`FAC-A4A5EE`** produces a **governed refusal** — as data, with a replay reference, never a raise and never a product | the child is admitted, or the refusal escapes as an exception |
 | `CLD-G07` | **that refusal refuses the composite even though the federated slot is optional.** Optional means optional *absence*, not optional governance (`D-IMPL-336` F1) | an optional slot swallows a refused child |
 | `CLD-G08` | `include_federated=false` serves, admitting no child, recording the row as `optional-absent` and applying the declared absence treatment to debt | the flag is ignored, or absence is priced as zero |
@@ -532,9 +547,10 @@ otherwise have been asked:**
 | `CLD-G19` | `prospective` receives strictly less than `participant`, which receives strictly less than `agent` — an **ordering**, asserted as containment, never as a count | the ordering inverts, or the gate pins a number |
 | `CLD-G20` | **the example holds no peer database handle.** The peer fabric is reachable only through the registered producer; no peer address or credential appears in the tree | any module opens a connection to the peer's Postgres, Fluree or MongoDB |
 
-**`CLD-G04` is the one at risk of `unavailable`,** for the reason §F.4 gives.
-If the ruling makes the arm unreachable the guard is named and **the mechanism
-is not weakened to manufacture a red** — the standing rule from `D-GATE-cp-16`.
+**19 gates execute; `CLD-G04` is `unavailable` by ruling**, its guard named in
+§F.4 and in the row itself. The standing rule from `D-GATE-cp-16` applies
+without exception: **the mechanism is not weakened to manufacture a red**, and
+neither is the estate.
 
 ### G.2 What this rung measures for the backlog
 
@@ -548,7 +564,7 @@ YAML lines.
 
 ---
 
-## Gate 1 summary
+## Gate 2 baseline
 
 **Bucket 1. No SDK or runtime capability is missing; none is added.** The
 genuinely new capability count is **zero**. `D-IMPL-346` remains unspent. The
@@ -556,6 +572,10 @@ active issue cap for this rung is **0 of 3** — `AIA-F-01` was charged on rung
 22 and does not carry here, because nothing in CP-20 depends on or reactivates
 it.
 
-**Owed before Gate 2:** `Q4` (§F.4) — whether `CLD-G04` is declared
-`unavailable` with its guard named (recommended), or the class TTL is
-recalibrated to carry `CLD-G04` at the cost of `CLD-G05`.
+**Nothing is owed.** `Q1`, `Q2`, the three `Q3` amendments and `Q4` are all
+ruled and folded. **20 gates declared: 19 executing, `CLD-G04` `unavailable`
+with its guard named.** Residual `341-4` remains carried, recorded as
+`CLD-F-01`, and no evidence is manufactured to retire it.
+
+**Build is authorized** — minimum proof, on the existing paved path, with no
+SDK or runtime change unless implementation proves one genuinely required.
