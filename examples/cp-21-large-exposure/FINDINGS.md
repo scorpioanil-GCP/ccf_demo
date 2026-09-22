@@ -23,6 +23,8 @@ Measured 2026-09-21 against the live estate (`CCF_REQUIRE_ESTATE=1`).
 | `LEX-F-08` | estate limitation | disclosed in the payload |
 | `LEX-F-09` | friction measurement | **not** a third instance; nothing requested |
 | `LEX-F-10` | **pre-existing red on `main`** | needs a ruling — not cp-21's to make |
+| `LEX-F-11` | proof machinery (mine) | fixed — a cross-tree module collision |
+| `LEX-F-12` | **pre-existing red on `main`** | cp-21 conformed; six merged rungs did not |
 
 **Issue cap (CLAUDE.md §9): one SDK issue is open from this rung** —
 `LEX-F-02`, which is a known carried residual rather than a new one. `LEX-F-03`
@@ -313,3 +315,65 @@ would leave three merged rungs still red while making this one look clean.
 **What is owed:** a ruling on all four roots together. The precedent is
 recorded in the roster's own comments — cp-14's addition was ruled by Dave at
 the Slice-1 review and the ruling written beside the entry.
+
+---
+
+## `LEX-F-11` — the door test reached ANOTHER product's door
+
+**Proof-machinery defect. Mine. Fixed. It only appeared in the full suite.**
+
+`test_the_proposal_crosses_the_door_unchanged` passed alone and passed under
+`-k cp_21`. In the full `tests/examples` run it failed with:
+
+```
+AttributeError: module 'server.serve' has no attribute 'open_large_exposure_door'
+```
+
+The module-eviction fixture pops `server` but **not `server.serve`**. An
+earlier example's tree had already imported the submodule, so popping the
+package re-imported it from this tree's path while `from server import serve`
+short-circuited on the stale **submodule** still in `sys.modules`. The door
+under test was another product's door.
+
+**The attribute error was the lucky outcome.** Had the two trees happened to
+share a symbol name — and every rung on this ladder names its door opener
+similarly — the test would have served another product's determination and
+compared it against ours as though it were the same door. It would have passed,
+and it would have been meaningless. This is the same family as the recorded
+*"a shared scratch root is a shared fabric"* measurement.
+
+Fixed by evicting **every** `server.*` entry, scoping the `sys.path` insertion
+to the import itself, and then **verifying** the loaded module's file actually
+lives in this tree rather than assuming the eviction worked.
+
+**Worth a sweep:** every other rung's door test has the same shape. They pass
+today because of collection order, not because they are isolated.
+
+---
+
+## `LEX-F-12` — the Phase-13 README template is red for six merged rungs
+
+**Pre-existing red on `main`. cp-21 now conforms; the other six do not.**
+
+`tests/examples/test_cp_readme_template.py` requires exactly seven `## `
+headings, named and ordered, from the single definition in
+`archive/examples/external/00-hello-context/run.py::README_HEADINGS`. Measured
+on `main` at `7356a0f1`, six merged rungs fail it:
+
+```
+cp-15-kyc-refresh-beneficial-ownership
+cp-16-abs-securitization-surveillance
+cp-18-ib-opportunity-synthesis
+cp-19-aml-typology-match
+cp-23-portfolio-early-warning
+cp-24-portfolio-what-if
+```
+
+cp-21's README was written the same way and failed as a seventh. **It has been
+restructured to the template** — conforming costs nothing but arrangement, and
+matching six red rungs because they are red is not a reason.
+
+The six remain red and are not cp-21's to fix. What is owed is a ruling on
+whether the Phase-13 template still governs rungs built long after it: it is an
+executable gate that six consecutive shipped products have ignored, and a gate
+nobody honours is either a gate to enforce or a gate to retire.

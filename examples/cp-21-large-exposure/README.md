@@ -1,14 +1,28 @@
 # cp-21 — Large Exposure / Concentration
 
-**What it determines.** Whether one counterparty group's exposure fits inside
-the limits that actually bind it — under a regulatory regime selected at the
-determination instant, against a capital base whose units are not the units the
-arithmetic needs, over a group that does not exist until this product derives
-it.
-
 **The specification is
-[`spec/CP-SPEC-021_Large_Exposure_Concentration.md`](spec/CP-SPEC-021_Large_Exposure_Concentration.md)**
-and it was written, reviewed and ruled on before any of this code existed.
+[`spec/CP-SPEC-021_Large_Exposure_Concentration.md`](spec/CP-SPEC-021_Large_Exposure_Concentration.md)**,
+written, reviewed and ruled on before any of this code existed.
+
+## What this demonstrates
+
+Whether one counterparty group's exposure fits inside the limits that actually
+bind it — under a regulatory regime selected at the determination instant,
+against a capital base whose units are not the units the arithmetic needs, over
+a group that **does not exist until this product derives it**.
+
+Four capabilities nothing earlier on the ladder demonstrated:
+
+1. **A DERIVED connected group**, where the caller's `connection_basis` changes
+   the membership and therefore the answer (`LEX-G02`, `LEX-G03`, `LEX-G04`).
+2. **Normalization at the acquisition boundary with a DECLARED factor**, gated
+   on the regulatory consequence rather than on the constant (`LEX-G06`,
+   `LEX-G07`).
+3. **A limit that is a percentage of capital OR an absolute amount**, selected
+   from an effective-dated regime (`LEX-G05`, `LEX-G09`, `LEX-G10`).
+4. **A disclosed freshness asymmetry** that is never resolved (`LEX-G14`).
+
+## Run it
 
 ```
 make -s example-cp-21 CASE="--case breaching"
@@ -17,24 +31,23 @@ make -s example-cp-21 CASE="--case fits" NO_MITIGATION=--no-mitigation
 make -s example-cp-21 CASE="--case basis" CONNECTION_BASIS="--connection-basis control"
 ```
 
----
+Needs `CCF_CP_21_POSTGRES_DSN`, `CCF_CP_21_POSTGRES_SCHEMA`,
+`CCF_CP_21_FLUREE_URL`, `CCF_CP_21_FLUREE_LEDGER`, `CCF_CP_21_MONGO_URI`,
+`CCF_CP_21_MONGO_DB` and the four `CCF_CP_21_TOKEN_*` credentials.
+`ccf_environment.yaml` names every one with the remedy for it.
 
-## What this rung exists to prove
+## The story
 
-Rungs 01–20 proved a great deal about assembling governed context. This one is
-about **regulatory arithmetic over a population nobody handed you**, and four
-things it needs that nothing earlier demonstrated.
-
-### 1. The group is DERIVED, and the basis that derives it changes the answer
+### The group is derived, and the basis that derives it changes the answer
 
 There is no group registry. The connected group is the transitive closure of
-the connection edges admitted by the caller's `connection_basis`, computed at
-the ledger point — `control` walks control edges, `economic-dependency` walks
+the connection edges the caller's `connection_basis` admits, computed at the
+ledger point — `control` walks control edges, `economic-dependency` walks
 judgment-based edges, `both` walks both and is the default because it is the
 conservative posture.
 
-**The whole causal chain moves, and `LEX-G04` asserts all of it.** Measured on
-Super Micro Computer, Inc., 2026-09-21:
+**The whole causal chain moves.** Measured on Super Micro Computer, Inc.,
+2026-09-21, asked without mitigation:
 
 | basis | members | facilities | commitment | headroom |
 |---|---|---|---|---|
@@ -44,10 +57,9 @@ Super Micro Computer, Inc., 2026-09-21:
 A different basis gives a different **membership**, therefore a different
 **aggregate exposure**, therefore a different **headroom**. A product exposing
 only control-based grouping computes a compliant-looking number against an
-incomplete group — which is the *Context Starved* counterfactual this rung
-exists to refuse.
+incomplete group — the *Context Starved* counterfactual this rung refuses.
 
-### 2. The units trap, and why the gate is on the consequence
+### The units trap, and why the gate is on the consequence
 
 `bank_capital` is denominated in **thousands of dollars** — the FFIEC Call
 Report convention, and legitimate source semantics. Read as dollars:
@@ -68,37 +80,25 @@ own `expected_outcome` labels, and the product has to reproduce them. An
 implementation holding the correct factor of 1000 and applying it to the limit
 instead of the base still fails — that sabotage was run, and it went red.
 
-### 3. A limit is a percentage of capital OR an absolute amount
+### A limit is a percentage of capital OR an absolute amount
 
 Regulation O's limit is **$500,000** — five orders of magnitude below the
-percentage limits beside it, and not expressible at all by a product that
-assumed `percentage × capital`. The payload names the **rule form** for every
-limit (`LEX-G09`), and the regime is an effective-dated artifact selected at
-the determination instant **at both ends of its window** (`LEX-G05`): the
-estate's CRR version carries an `effectiveTo`, and applying repealed law to a
-2026 determination is refused.
+percentage limits beside it, and not expressible by a product that assumed
+`percentage × capital`. The payload names the **rule form** for every limit,
+and the regime is effective-dated **at both ends**: the estate's CRR version
+carries an `effectiveTo`, and applying repealed law to a 2026 determination is
+refused.
 
-### 4. The freshness asymmetry is disclosed, never resolved
+### The freshness asymmetry is disclosed, never resolved
 
 Exposure is intraday. The capital base is a quarterly filing, **147 days old**
-at the pinned instant. The product does four things it must not do — none of
-them:
+at the pinned instant. The product does none of the four things it must not:
+it does not pretend capital is intraday, does not age exposure to the capital
+date, does not refresh capital to the exposure instant, and mints no fused
+timestamp. The denominator's own `report_date` and `age_days` travel **with**
+the ratio, and `freshness_asymmetry.resolved` says `false` out loud.
 
-- it does not pretend capital is intraday;
-- it does not age exposure to the capital date;
-- it does not refresh capital to the exposure instant;
-- it mints no single fused timestamp.
-
-Instead the denominator's own `report_date` and `age_days` travel **with** the
-ratio, and `freshness_asymmetry.resolved` says `false` out loud (`LEX-G14`).
-
----
-
-## The determination, end to end
-
-```
-make -s example-cp-21 CASE="--case fits"
-```
+### The determination, end to end
 
 ```
   capital    raw 295758000 usd_thousands  ->  $295.758bn usd
@@ -130,9 +130,35 @@ and the same question with `--no-mitigation`:
 relief is what crosses it. That is `LEX-G15`: `apply_mitigation` is not a flag
 that travels, it is a flag that decides.
 
----
+## Artifact-by-artifact
 
-## What you should change first to adapt it
+| artifact | what it carries |
+|---|---|
+| `artifacts/source-vocabulary.yaml` | every store, table and URI prefix read; **the declared capital-unit factor and its authority**; **the admissible connection bases** |
+| `artifacts/question.yaml` | the three demonstration anchors and the pinned instant, every measured figure they reproduce, the regime set and the two conflicting limit authorities |
+| `artifacts/perspectives.yaml` | the three renderings and which members each carries |
+| `artifacts/gates.yaml` | the twenty-one declared gates, each with its sabotage and the observation of it going red |
+| `ccf_config.yaml` | operator declaration, request contract and argument domains, λ_c per entity class, TTL, debt thresholds, the door's description |
+| `ccf_environment.yaml` | every environment variable by name, with the remedy for each |
+
+The code is thin and generic. **An example whose code would still run
+meaningfully with its artifacts deleted has violated the No-Hardcoding Rule** —
+and one such violation was found and fixed during this build (`LEX-F-07`).
+
+## Whitepaper / CLAUDE.md sections exercised
+
+| section | how |
+|---|---|
+| Whitepaper §7.4 — operator algebra | Policy → Temporal → Traversal, asserted against this class's own declaration (`LEX-G01`) |
+| Whitepaper §7.5 — Projection | one `plan_id`, three renderings branching on `perspective.role` |
+| Whitepaper §7.6 — Context Product Contract | `extra=forbid` payload whose member set is a function of the perspective |
+| Whitepaper §7.7 — half-life and Context Debt | λ_c per entity class; `compose_debt_factors` under `D-IMPL-104` worst-factor |
+| Whitepaper §7.10 — Decision Replay | the examiner's `replay_attribution`, and `policy_bundle_versions` on lineage |
+| CLAUDE.md §6.4 — No-Hardcoding | the capital factor and the basis vocabulary are declared artifacts, not code |
+| CLAUDE.md §7.1/§7.3 — MCP egress | the standard door with three typed overrides; the closed `proposal` object crosses it byte-identically |
+| CLAUDE.md §9 — estate discipline | reads `.76` only; seeds nothing; asserts relationships, never estate counts |
+
+## What to change first
 
 | To change | Edit |
 |---|---|
@@ -144,13 +170,7 @@ that travels, it is a flag that decides.
 | operators, λ_c, TTL, debt thresholds | `ccf_config.yaml` |
 | environment variable names | `ccf_environment.yaml` |
 
-The code is thin and generic. **An example whose code would still run
-meaningfully with its artifacts deleted has violated the No-Hardcoding Rule** —
-and one such violation was found and fixed during this build (`LEX-F-07`).
-
----
-
-## Illustrative calibration
+### Illustrative calibration
 
 > **Illustrative calibration:** This example runs against a point-in-time
 > demonstration estate rather than continuously refreshed production data.
@@ -160,14 +180,35 @@ and one such violation was found and fixed during this build (`LEX-F-07`).
 > production coverage-policy thresholds.
 
 Concretely (`D-IMPL-323`): the capital base is a quarterly filing 147 days old
-at the pinned instant, so `default_debt_tolerance` is set to `0.98`. A tighter
+at the pinned instant, so `default_debt_tolerance` is `0.98`. A tighter
 tolerance would withhold every answer and demonstrate nothing. The staleness is
 not hidden by that choice — it is what forced it, it travels with every ratio,
 and it is the subject of `LEX-G14`.
 
----
+## What would fail
 
-## What this rung does NOT prove
+Twenty-one declared gates, `LEX-G01`..`LEX-G21`, in
+[`artifacts/gates.yaml`](artifacts/gates.yaml). **All twenty-one were observed
+RED under their own sabotage** on 2026-09-21 against the live estate; none is
+`unavailable`. Four sabotages failed to redden on the first attempt and were
+**corrected rather than swapped** — each is recorded as a finding, because each
+was a defect in the proof machinery rather than in the product.
+
+What breaks the product, concretely:
+
+- reading the capital base as dollars — both engineered outcomes flip
+  (`LEX-G06`);
+- pinning `connection_basis`, so a larger group consumes no more of the limit
+  (`LEX-G04`);
+- ignoring a regime's `effectiveFrom` or `effectiveTo` (`LEX-G05`);
+- assuming every limit is `percentage × capital`, which makes Regulation O
+  inexpressible (`LEX-G09`);
+- dropping either internal limit authority, or choosing between them without
+  naming the rule (`LEX-G11`);
+- letting a proposal reach the debt factors (`LEX-G19`);
+- minting a ledger point this estate cannot resolve (`LEX-G21`).
+
+### What this rung does NOT prove
 
 **Composition.** `Q1` was ruled on 2026-09-21: CP-21 is a **single-class
 producer** and builds no child trees. The six prerequisites the source
@@ -180,19 +221,8 @@ is the capability under test.
 
 **Rung 23's boundary is preserved** (`PEW-G18`): nothing in
 `examples/cp-23-portfolio-early-warning` reads `limit_definition`,
-`bank_capital` or a connection basis. Those are this product's inputs. Nothing
-here reaches back into rung 23.
+`bank_capital` or a connection basis. Those are this product's inputs, and
+nothing here reaches back into rung 23.
 
----
-
-## Gates and findings
-
-Twenty-one declared gates, `LEX-G01`..`LEX-G21`, in
-[`artifacts/gates.yaml`](artifacts/gates.yaml). **All twenty-one were observed
-RED under their own sabotage** on 2026-09-21 against the live estate; none is
-`unavailable`. Four sabotages failed to redden on the first attempt and were
-**corrected rather than swapped** — each is recorded as a finding, because each
-was a defect in the proof machinery rather than in the product.
-
-The findings, including three SDK-adjacent ones and four estate limitations,
-are in [`FINDINGS.md`](FINDINGS.md).
+The nine findings, including three SDK-adjacent ones and four estate
+limitations, are in [`FINDINGS.md`](FINDINGS.md).

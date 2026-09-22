@@ -151,8 +151,8 @@ declaration:
   # payload names.
   limit_authority_conflict:
     limit_id: internal-appetite
-    relational_register_pct: 15.0
-    graph_envelope_pct: 5.0
+    relational_register_pct: "15.0"
+    graph_envelope_pct: "5.0"
     selected_by_rule: most-conservative-internal-authority-binds
 
   # WHICH LIMIT BINDS FIRST (`LEX-G12`) — not merely that one does. The graph

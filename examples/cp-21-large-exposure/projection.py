@@ -442,14 +442,23 @@ def _role_member(
             "note": "a proposal is a hypothetical; it does not affect Context Debt",
         }
     if member == "concentration_view":
+        # A share is QUANTIZED, never truncated by slicing a string: a sliced
+        # `Decimal` repr loses precision unevenly and can cut an exponent in
+        # half. `total` falls back to 1 only to avoid dividing by zero on an
+        # exposureless group, where every share is 0 anyway.
         total = _decimal(exposure.get("total_commitment")) or Decimal(1)
         return {
             "total_commitment": str(total),
-            "by_member": [
-                {**row, "share_pct": str((_decimal(row["commitment"]) or Decimal(0))
-                                         / total * Decimal(100)).__str__()[:8]}
-                for row in exposure.get("by_member", [])
-            ],
+            "members_ranked_by_share": "true",
+            "by_member": sorted(
+                (
+                    {**row, "share_pct": str(
+                        ((_decimal(row["commitment"]) or Decimal(0)) / total * Decimal(100))
+                        .quantize(Decimal("0.0001")))}
+                    for row in exposure.get("by_member", [])
+                ),
+                key=lambda row: (-Decimal(row["share_pct"]), row["lei"]),
+            ),
         }
     if member == "methodology":
         return {
