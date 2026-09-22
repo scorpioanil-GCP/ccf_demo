@@ -1,0 +1,64 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# AGENT B'S OWN DECLARATION — everything that GOVERNS, stated here and
+# unreachable from the A2A wire (`Q3`, ruled 2026-09-21).
+#
+# THE POINT OF THIS FILE. Agent A supplies a subject and an instant. Every
+# other input to the governed determination — which product, whose principal,
+# which rendering, which regime, which connection basis, what debt is
+# tolerable — is declared below. A caller cannot reach any of it, which is
+# what `AIA-G08` asserts.
+semver: "1.0.0"
+class_id: cp-22.agent-b
+declaration:
+  # THE PRODUCT AGENT B CONSUMES. An EXISTING paved rung on the live `.76`
+  # estate (`Q2`, ruled). No new class, no new binding mechanism.
+  consumed_product:
+    tree: examples/cp-21-large-exposure
+    schema_name: risk.large-exposure
+    # The three module-level names Agent B calls. Named here so a reader can
+    # see the whole of Agent B's dependency on CCF without reading its code.
+    entry: produce.product
+    question: produce.large_exposure_question
+
+  # AGENT B'S GOVERNED IDENTITY. Agent B executes as THIS principal whatever
+  # Agent A claims about itself (`Q3` prohibition 2).
+  principal:
+    principal_id: PRIN-CO-001
+    role: credit-officer
+
+  # THE POLICY ENVELOPE, DECLARED. Agent A cannot supply or select any of it
+  # (`Q3` prohibitions 3 and 4).
+  envelope:
+    intent: limit-test
+    freshness: event-driven
+    regime: pra-2022
+    connection_basis: both
+    apply_mitigation: true
+
+  # THE TOLERANCE THAT GOVERNS INSIDE AGENT B AND NEVER TRAVELS (`AIA-G10`).
+  #
+  # Written as a STRING deliberately. Parsed from YAML as a bare number this
+  # is a Python `float`, and `canonical_bytes` refuses a float as not
+  # bit-stable — so a tolerance declared the obvious way raises during request
+  # canonicalization rather than governing anything. Recorded as `AIA-F-01`.
+  debt_tolerance: "0.98"
+  # The second tolerance is not a fallback. It exists so the demonstration can
+  # ask ONE question at TWO tolerances and show the reply change, which is the
+  # whole of `AIA-G10`. The book's measured debt is 0.30.
+  strict_debt_tolerance: "0.20"
+
+  # THE A2A SURFACE. Harness values, not CCF values (`Q1`: `a2a-sdk` direct).
+  a2a:
+    name: counterparty-headroom-agent
+    version: "1.0.0"
+    description: >-
+      Answers whether a named counterparty group has headroom for new exposure
+      as of a given instant. Ask with a subject and an instant; the answer is a
+      sentence and a figure.
+    host: 127.0.0.1
+    port: 8722
+    rpc_path: /a2a
+    protocol_binding: JSONRPC
+    input_modes: [text/plain]
+    output_modes: [text/plain]

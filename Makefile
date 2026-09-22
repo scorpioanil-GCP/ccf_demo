@@ -558,6 +558,11 @@ example-cp-24: ## Run examples/cp-24-portfolio-what-if (BOOK, ASKED_AT, INTENT, 
 		$(PYTHON) examples/cp-24-portfolio-what-if/run.py \
 		$(BOOK) $(ASKED_AT) $(INTENT) $(PRINCIPAL) $(AS_OF) $(SCENARIO) $(MEMBERS) $(COVERAGE_FLOOR) $(DEBT_TOLERANCE)
 
+example-cp-22: ## Run examples/cp-22-agent-internal-assembly (SUBJECT, INSTANT, PORT, STRICT, NOISE optional; starts Agent B in its OWN process and asks from Agent A; consumes cp-21, so it needs cp-21's CCF_CP_21_* variables)
+	PYTHONPATH=src:runtime:examples/cp-22-agent-internal-assembly \
+		$(PYTHON) examples/cp-22-agent-internal-assembly/run.py \
+		$(SUBJECT) $(INSTANT) $(PORT) $(STRICT) $(NOISE)
+
 example-cp-21: ## Run examples/cp-21-large-exposure (CASE, ANCHOR, ASKED_AT, INTENT, PRINCIPAL, AS_OF, REGIME, CONNECTION_BASIS, PROPOSAL, NO_MITIGATION, DEBT_TOLERANCE optional; needs CCF_CP_21_POSTGRES_DSN, CCF_CP_21_POSTGRES_SCHEMA, CCF_CP_21_FLUREE_URL, CCF_CP_21_FLUREE_LEDGER, CCF_CP_21_MONGO_URI, CCF_CP_21_MONGO_DB and the four CCF_CP_21_TOKEN_* credentials)
 	PYTHONPATH=src:runtime:examples/cp-21-large-exposure \
 		$(PYTHON) examples/cp-21-large-exposure/run.py \
