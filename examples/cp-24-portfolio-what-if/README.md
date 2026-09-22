@@ -156,6 +156,19 @@ are not recommended production stress parameters.
 
 ## What would fail
 
+### No source ledger point reaches this product
+
+Acquisition reads Fluree's `x-fdb-t` **response header**, which this
+deployment does not emit, and the resulting `unreported` is not carried into
+the product at all. So the payload makes no claim about the source's ledger
+position — neither a value nor a substitute. `graph_snapshot_at` remains what
+it has always been: the CCF snapshot the replay record retains, which answers
+a different question and is never aliased to the source's position.
+
+`tests/examples/test_fluree_ledger_point_disclosure.py` pins this disposition
+and records the measured finding that the estate does publish a watermark on a
+route this rung does not ask (`LEX-F-04`, corrected).
+
 ### Known limitations
 
 

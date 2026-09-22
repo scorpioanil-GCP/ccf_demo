@@ -223,3 +223,78 @@ def test_the_source_watermark_is_not_the_ccf_snapshot() -> None:
                     f"{rung} assigns its source watermark from the CCF snapshot"
                     f" instant: {source_text[:80]!r}"
                 )
+
+
+# ---------------------------------------------------------------------------
+# `AIA-F-04`'s explicit-disclosure requirement, rung by rung.
+# ---------------------------------------------------------------------------
+
+#: Where each rung's ledger point ENDS UP, measured from the tree. The three
+#: dispositions are different and the difference is the finding.
+DISPOSITION = {
+    # serves it, WITH an explicit `ledger_point_resolvable` beside it
+    "cp-21-large-exposure": "served-and-disclosed",
+    # carries it into a claim attribute; the projection serves neither it nor
+    # any substitute, so nothing in the payload implies an observed position
+    "cp-16-abs-securitization-surveillance": "carried-not-served",
+    # never reaches the product at all
+    "cp-24-portfolio-what-if": "dropped-at-acquisition",
+}
+
+
+def test_each_rung_disposes_of_the_ledger_point_as_recorded() -> None:
+    """`AIA-F-04` — the three dispositions, enumerated rather than assumed.
+
+    Dave's requirement is that where `x-fdb-t` is absent, ``unreported`` is the
+    EXPLICIT disclosure — and that nothing implies a Fluree historical position
+    was observed when it was not. The three rungs satisfy the second half three
+    different ways, and only cp-21 satisfies the first half in its payload.
+
+    **cp-16 and cp-24 serving `ledger_t: "unreported"` in their payloads would
+    change their content addresses**, which the release-hardening scope forbids.
+    So the gap is recorded here and returned, and this test pins what each rung
+    does today so a silent change is impossible.
+    """
+    for rung, disposition in DISPOSITION.items():
+        projection = (EXAMPLES / rung / "projection.py").read_text(encoding="utf-8")
+        deployment = (EXAMPLES / rung / "deployment.py").read_text(encoding="utf-8")
+        if disposition == "served-and-disclosed":
+            assert "ledger_point_resolvable" in projection, (
+                f"{rung} no longer discloses whether its ledger point resolved"
+            )
+        elif disposition == "carried-not-served":
+            assert "ledger_t" in deployment, f"{rung} stopped carrying it"
+            assert "ledger_t" not in projection, (
+                f"{rung} now SERVES a ledger point. If it resolves it must be"
+                " disclosed with a resolvability flag as cp-21 does; if it is"
+                " `unreported` it must say so. Either way this row is stale"
+            )
+        else:
+            assert "ledger_t" not in deployment and "ledger_t" not in projection, (
+                f"{rung} now carries a ledger point; give it a disposition"
+            )
+
+
+def test_no_rung_substitutes_request_or_ingest_time_for_the_ledger_point() -> None:
+    """`AIA-F-04`'s sharpest negative: a plausible clock is worse than silence.
+
+    A source ledger position and the fabric's own instants answer different
+    questions. Substituting `asked_at`, an ingestion timestamp or
+    `graph_snapshot_at` for an absent watermark would put a specific,
+    checkable, FALSE claim about the source's state into the record — which is
+    exactly what `unreported` exists to avoid.
+    """
+    for rung in HEADER_ROUTE_RUNGS + LISTING_ROUTE_RUNGS:
+        source = _acquisition(rung)
+        tree = ast.parse(source)
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.Assign, ast.Return)):
+                continue
+            rendered = ast.unparse(node)
+            if "ledger_t" not in rendered and "watermark" not in rendered:
+                continue
+            for clock in ("asked_at", "ingestion_timestamp", "datetime.now", "utcnow"):
+                assert clock not in rendered, (
+                    f"{rung} appears to substitute {clock!r} where the source"
+                    f" gave no ledger point: {rendered[:120]!r}"
+                )

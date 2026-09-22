@@ -175,6 +175,21 @@ deal has no cohorts* rather than *you may not ask*.
 
 ## What would fail
 
+### The source ledger point is not observed here, and the payload does not claim it
+
+This rung reads the ledger position from Fluree's `x-fdb-t` **response
+header**, which this deployment does not emit — so what acquisition carries is
+the literal `unreported`. **Nothing is minted to stand in for it**: no request
+time, no ingestion time, and never `graph_snapshot_at`, which answers a
+different question (the CCF snapshot the replay record retains, not the
+source's position).
+
+The payload serves **no** ledger point at all, so nothing in it implies a
+Fluree historical position was observed. `tests/examples/
+test_fluree_ledger_point_disclosure.py` pins that disposition, and pins that
+the estate in fact publishes its watermark on a route this rung does not ask
+(`LEX-F-04`, corrected) — a returned finding, not a change made here.
+
 ### Known limitations
 
 
