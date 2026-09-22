@@ -1,0 +1,323 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE DECLARED PRODUCT GATES OF cp-21 — twenty-one, `LEX-G01`..`LEX-G21`.
+#
+# The acceptance authority for every gate is `CP-SPEC-021` §G.1
+# (`D-IMPL-326`). Each id is claimed by at least one executing test under
+# `tests/examples/`, and no estate figure is pinned anywhere.
+#
+# WHAT THIS RUNG EXISTS TO PROVE, and the four gates that carry it:
+#   `LEX-G04` — `connection_basis` is FORMATIVE END TO END: a different basis
+#     gives a different membership, therefore a different aggregate exposure,
+#     therefore a different headroom. The whole chain is asserted.
+#   `LEX-G06` — THE UNIT GATE, ON THE REGULATORY CONSEQUENCE, never on a
+#     conversion constant. An implementation carrying the right factor and
+#     applying it wrongly still fails.
+#   `LEX-G09` — a limit is a percentage of capital OR an absolute amount, and
+#     Regulation O's $500,000 exercises the second shape.
+#   `LEX-G14` — the freshness asymmetry is DISCLOSED, never fused.
+semver: 1.0.0
+class_id: cp-21.product-gates
+declaration:
+  product: risk.large-exposure
+  test_naming_convention: the gate id appears in the executing test's docstring, as a `Declared product gate` line naming the CP-SPEC clause that approves it.
+  # Measured 2026-09-21 against the live estate with `CCF_REQUIRE_ESTATE=1`:
+  # ALL TWENTY-ONE observed RED under their own sabotage. Nineteen by a single
+  # reverting edit to the shipped source with only that gate's test executed
+  # (the sweep in `tests/examples/test_cp_21_sabotage.py` carries a further
+  # twenty-one payload-level controls). None is `unavailable`.
+  #
+  # FOUR SABOTAGES DID NOT REDDEN THEIR GATE ON THE FIRST ATTEMPT AND WERE
+  # CORRECTED RATHER THAN SWAPPED. Each is recorded as a finding, because each
+  # was a defect in the proof machinery and not in the product:
+  #   `LEX-F-05` — the fused-freshness limb of `LEX-G14` could not fire at all:
+  #     the declared-shape check refuses any undeclared TOP-LEVEL key first, so
+  #     the limb was dead code. The scan is now recursive and the sabotage
+  #     mints the key nested, which is also the likelier real shape.
+  #   `LEX-F-06` — `LEX-G05`'s positive control was asked at a 2021 instant
+  #     where NO capital base exists, so the product refused for a different
+  #     reason and the test went green with the regime selector disabled. The
+  #     control instant moved to 2025-06-01, where capital exists and `reg-o`
+  #     is not yet in force, and a companion assertion proves the SAME instant
+  #     serves under `pra-2022`.
+  #   `LEX-F-07` — `connection_bases()` was a TUPLE IN CODE, so widening the
+  #     declared domain changed nothing and `LEX-G03` could not redden. The
+  #     vocabulary moved into the declared artifact and the gate now asserts
+  #     the acquisition seam and the request contract agree.
+  #   A fourth sabotage (`LEX-G08`) was a logical no-op — `{} or f()` evaluates
+  #     `f()` — and was rewritten to blank the resolver's return.
+  sabotage_states:
+    passed: the invariant was broken and the gate went red
+    unavailable: an upstream SDK invariant makes the bad state unreachable; the guard is named
+  gates:
+  - id: LEX-G01
+    statement: "the served operator set is the class's declaration and the EXECUTED plan runs Policy first"
+    spec_clause: {document: spec/CP-SPEC-021_Large_Exposure_Concentration.md, clause: G.1}
+    test: tests/examples/test_cp_21_large_exposure.py::test_the_served_plan_matches_the_declaration_and_runs_policy_first
+    sabotage: "drop Policy from the declared operator keys"
+    sabotage_state: passed
+    observed_red:
+      result: "RED 2026-09-21 — the served set no longer matched the declaration."
+      date: '2026-09-21'
+    note: >-
+      Asserted against THIS class's declaration of THREE keys, not a fixed
+      four. `LEX-F-03` records why the specification's fourth (Similarity) is
+      not one of them. Order is asserted against replay dimension 5, because
+      `lineage.operators_invoked` is a `frozenset` and carries none.
+  - id: LEX-G02
+    statement: "the group is DERIVED from edges at the ledger point, not read from a registry"
+    spec_clause: {document: spec/CP-SPEC-021_Large_Exposure_Concentration.md, clause: G.1}
+    test: tests/examples/test_cp_21_large_exposure.py::test_the_group_is_derived_and_declares_the_basis_that_derived_it
+    sabotage: "serve a group that does not declare itself derived"
+    sabotage_state: passed
+    observed_red:
+      result: "RED 2026-09-21 — `test_the_gate_refuses_a_group_that_does_not_declare_itself_derived`."
+      date: '2026-09-21'
+    note: >-
+      The SUBSTANTIVE control for derivation is `LEX-G04`'s: a producer that
+      read a stored roster could not make the basis move the membership. That
+      is said here rather than claimed as a second independent control.
+  - id: LEX-G03
+    statement: "the payload states which connection_basis produced the group, and an undeclared basis is REFUSED, never narrowed"
+    spec_clause: {document: spec/CP-SPEC-021_Large_Exposure_Concentration.md, clause: G.1}
+    test: tests/examples/test_cp_21_large_exposure.py::test_a_basis_outside_the_declared_domain_is_refused_not_narrowed
+    sabotage: "widen the declared basis vocabulary so an undeclared basis is admitted"
+    sabotage_state: passed
+    observed_red:
+      result: "RED 2026-09-21 — after `LEX-F-07` moved the vocabulary out of code and into the declared artifact."
+      date: '2026-09-21'
+  - id: LEX-G04
+    statement: "connection_basis IS FORMATIVE END TO END — a different basis gives a different membership, therefore a different aggregate exposure, therefore a different headroom"
+    spec_clause: {document: spec/CP-SPEC-021_Large_Exposure_Concentration.md, clause: B.3}
+    test: tests/examples/test_cp_21_large_exposure.py::test_the_connection_basis_moves_membership_exposure_and_headroom
+    sabotage: "make the basis stop reaching the traversal"
+    sabotage_state: passed
+    observed_red:
+      result: "RED 2026-09-21 — with the basis pinned to `both`, the two determinations became one."
+      date: '2026-09-21'
+    note: >-
+      Asked WITHOUT mitigation. With mitigation recognized, this anchor's
+      counted exposure is its drawn balance and both bases read zero there —
+      a true fact about the estate that would make the last link untestable.
+      The assertion is the ORDERING, never a figure.
+  - id: LEX-G05
+    statement: "the regime IN FORCE at the determination instant is selected — at BOTH ends of its effective window"
+    spec_clause: {document: spec/CP-SPEC-021_Large_Exposure_Concentration.md, clause: C.2}
+    test: tests/examples/test_cp_21_large_exposure.py::test_the_regime_in_force_at_the_instant_is_the_one_selected
+    sabotage: "ignore effectiveFrom — apply a regime before it exists"
+    sabotage_state: passed
+    observed_red:
+      result: "RED 2026-09-21 — after `LEX-F-06` moved the control instant to one where a capital base exists."
+      date: '2026-09-21'
+    second_test: tests/examples/test_cp_21_large_exposure.py::test_an_expired_regime_is_not_applied_to_a_later_determination
+    second_sabotage: "ignore effectiveTo — apply a repealed regime to a 2026 determination"
+    second_observed_red:
+      result: "RED 2026-09-21 — the estate's CRR version carries `effectiveTo 2021-12-31`."
+      date: '2026-09-21'
+  - id: LEX-G06
+    statement: "THE UNIT GATE, ON THE REGULATORY CONSEQUENCE — the estate's own engineered outcomes come back out, and a dimensionally wrong reading is refused"
+    spec_clause: {document: spec/CP-SPEC-021_Large_Exposure_Concentration.md, clause: F.4}
+    test: tests/examples/test_cp_21_large_exposure.py::test_the_engineered_proposals_reproduce_the_estate_s_own_outcomes
+    sabotage: "never normalize — read thousands as dollars"
+    sabotage_state: passed
+    observed_red:
+      result: "RED 2026-09-21 — both engineered outcomes flipped."
+      date: '2026-09-21'
+    second_test: tests/examples/test_cp_21_large_exposure.py::test_the_dimensionally_wrong_reading_is_refused_by_consequence
+    second_sabotage: "carry the right factor and apply it to the wrong side of the calculation"
+    second_observed_red:
+      result: >-
+        RED 2026-09-21 — and this is the limb that makes the gate consequential
+        rather than constant-shaped: the implementation held the correct factor
+        of 1000 and still failed, because it applied it to the limit instead of
+        to the base.
+      date: '2026-09-21'
+    note: >-
+      The two engineered rows are written against DIFFERENT anchors, so each is
+      asked on its own. Measured 2026-09-21 — $16.015bn + $75bn = $91.015bn
+      breaches; $5.065bn + $59.400bn = $64.465bn fits, where the gross
+      $74.000bn would have breached by $60.5m.
+  - id: LEX-G07
+    statement: "unit provenance survives normalization: raw value with source unit AND normalized value with normalized unit, and the arithmetic consumes the normalized one"
+    spec_clause: {document: spec/CP-SPEC-021_Large_Exposure_Concentration.md, clause: F.4}
+    test: tests/examples/test_cp_21_large_exposure.py::test_unit_provenance_survives_normalization
+    sabotage: "drop the raw figure from the capital base"
+    sabotage_state: passed
+    observed_red:
+      result: "RED 2026-09-21 — the gate refused a base reporting one unit twice."
+      date: '2026-09-21'
+  - id: LEX-G08
+    statement: "every applicable limit cites an authority and a provision that RESOLVE, with the quoted rulebook text served — and NO HASH IS MINTED"
+    spec_clause: {document: spec/CP-SPEC-021_Large_Exposure_Concentration.md, clause: G.1}
+    test: tests/examples/test_cp_21_large_exposure.py::test_every_cited_provision_resolves_to_quoted_text_and_no_hash_is_minted
+    sabotage: "stop resolving the cited provisions"
+    sabotage_state: passed
+    observed_red:
+      result: "RED 2026-09-21 — after the first sabotage was found to be the logical no-op `{} or f()`."
+      date: '2026-09-21'
+    note: >-
+      These passages carry no `sha256` in this estate (measured), so anchoring
+      is proved by a resolvable authority, a resolvable passage and the
+      rulebook's own words. A minted hash would look like provenance and prove
+      nothing — so the payload states `hash_available: false` and the gate
+      asserts it.
+  - id: LEX-G09
+    statement: "the alternate rule shape is honest — an ABSOLUTE limit and a PERCENTAGE limit are both expressible, and the payload names the rule form for each"
+    spec_clause: {document: spec/CP-SPEC-021_Large_Exposure_Concentration.md, clause: C.2}
+    test: tests/examples/test_cp_21_large_exposure.py::test_the_alternate_rule_shape_is_expressible_and_named
+    sabotage: "assume every limit is a percentage of capital"
+    sabotage_state: passed
+    observed_red:
+      result: "RED 2026-09-21 — Regulation O stopped being expressible."
+      date: '2026-09-21'
+  - id: LEX-G10
+    statement: "the determination states the regime and version selected, the effective basis, the rule form, the resulting limit and the authority supporting it"
+    spec_clause: {document: spec/CP-SPEC-021_Large_Exposure_Concentration.md, clause: G.1}
+    test: tests/examples/test_cp_21_large_exposure.py::test_the_determination_names_all_five_regime_facts
+    sabotage: "serve a determination missing one of the five facts"
+    sabotage_state: passed
+    observed_red:
+      result: "RED 2026-09-21 — `test_the_gate_refuses_a_determination_missing_one_of_the_five_facts`."
+      date: '2026-09-21'
+  - id: LEX-G11
+    statement: "the conflicting internal authorities are BOTH served and the conflict is visible, and where a rule selects one, THAT RULE IS NAMED"
+    spec_clause: {document: spec/CP-SPEC-021_Large_Exposure_Concentration.md, clause: G.1}
+    test: tests/examples/test_cp_21_large_exposure.py::test_both_internal_authorities_are_served_and_the_conflict_is_visible
+    sabotage: "drop the graph limit envelope — serve one authority"
+    sabotage_state: passed
+    observed_red:
+      result: "RED 2026-09-21 — the conflict vanished and the gate refused the silent choice."
+      date: '2026-09-21'
+    note: >-
+      Measured 2026-09-21: the relational register prices the internal appetite
+      at 15.0% of capital and the graph envelope at 5.0%. Both are served,
+      neither is called wrong, and the conservative one binds by the named rule
+      `most-conservative-internal-authority-binds`.
+  - id: LEX-G12
+    statement: "the product identifies which limit BINDS FIRST, not merely that some limit binds"
+    spec_clause: {document: spec/CP-SPEC-021_Large_Exposure_Concentration.md, clause: G.1}
+    test: tests/examples/test_cp_21_large_exposure.py::test_the_product_identifies_which_limit_binds_first
+    sabotage: "name the largest-headroom row as binding instead of the tightest"
+    sabotage_state: passed
+    observed_red:
+      result: "RED 2026-09-21 — the named limit no longer had the least headroom."
+      date: '2026-09-21'
+    note: >-
+      Binding is LEAST HEADROOM, not smallest limit: a limit's counting rule
+      can make a larger limit the tighter one.
+  - id: LEX-G13
+    statement: "headroom and utilisation honour the regime's counting rules (counts_guarantees, counts_undrawn)"
+    spec_clause: {document: spec/CP-SPEC-021_Large_Exposure_Concentration.md, clause: G.1}
+    test: tests/examples/test_cp_21_large_exposure.py::test_each_limit_is_evaluated_under_its_own_counting_rules
+    sabotage: "ignore each limit's own counts_undrawn rule"
+    sabotage_state: passed
+    observed_red:
+      result: "RED 2026-09-21 — every limit began counting one exposure."
+      date: '2026-09-21'
+    note: >-
+      Two limits over ONE group legitimately count two different exposures, and
+      the payload names which rules it applied to each.
+  - id: LEX-G14
+    statement: "the freshness asymmetry is DISCLOSED — every ratio carries the capital base's report_date and its age, and the product neither ages one clock into the other nor mints a fused timestamp"
+    spec_clause: {document: spec/CP-SPEC-021_Large_Exposure_Concentration.md, clause: G.1}
+    test: tests/examples/test_cp_21_large_exposure.py::test_the_freshness_asymmetry_is_disclosed_and_not_resolved
+    sabotage: "mint a fused freshness key inside `freshness_asymmetry`"
+    sabotage_state: passed
+    observed_red:
+      result: >-
+        RED 2026-09-21 — after `LEX-F-05`: the original TOP-LEVEL sabotage
+        reddened the declared-shape check instead, leaving this limb dead code.
+      date: '2026-09-21'
+    note: >-
+      Three further payload controls execute: an asymmetry declared resolved, a
+      capital base that lost its own date, and a ratio carrying someone else's
+      capital date. Measured 2026-09-21 — exposure is intraday, capital is a
+      quarterly filing 147 days old at the pinned instant.
+  - id: LEX-G15
+    statement: "apply_mitigation is load-bearing: the same group evaluates differently with and without it"
+    spec_clause: {document: spec/CP-SPEC-021_Large_Exposure_Concentration.md, clause: G.1}
+    test: tests/examples/test_cp_21_large_exposure.py::test_mitigation_is_load_bearing
+    sabotage: "make apply_mitigation stop reaching the arithmetic"
+    sabotage_state: passed
+    observed_red:
+      result: "RED 2026-09-21 — the two determinations became one product."
+      date: '2026-09-21'
+    note: >-
+      Measured 2026-09-21: mitigation is what turns the engineered $59.4bn
+      proposal from a breach into a fit. It is not a flag that travels, it is a
+      flag that decides. What mitigation IS here is disclosed rather than
+      assumed — see `LEX-F-08`.
+  - id: LEX-G16
+    statement: "the proposal is computed WITH and WITHOUT, and both positions are served"
+    spec_clause: {document: spec/CP-SPEC-021_Large_Exposure_Concentration.md, clause: G.1}
+    test: tests/examples/test_cp_21_large_exposure.py::test_the_proposal_is_computed_with_and_without_and_both_are_served
+    sabotage: "serve only the post-proposal position"
+    sabotage_state: passed
+    observed_red:
+      result: "RED 2026-09-21 — the pre-proposal position was blanked."
+      date: '2026-09-21'
+  - id: LEX-G17
+    statement: "the proposal is a CLOSED object in integer canonical units; a noncanonical form is refused, never coerced"
+    spec_clause: {document: spec/CP-SPEC-021_Large_Exposure_Concentration.md, clause: B.3}
+    test: tests/examples/test_cp_21_large_exposure.py::test_a_noncanonical_proposal_magnitude_is_refused_never_coerced
+    sabotage: "coerce a fractional magnitude instead of refusing"
+    sabotage_state: passed
+    observed_red:
+      result: "RED 2026-09-21 — the refusal stopped being raised."
+      date: '2026-09-21'
+    note: >-
+      Rung 24's `Q1`, carried unchanged. A second control asserts an undeclared
+      member is refused, and a third — `test_the_proposal_crosses_the_door_unchanged`
+      — asserts the closed object survives a shipped door byte-identically.
+  - id: LEX-G18
+    statement: "the EXAMINER rendering carries methodology, the policy version in force and the replay anchor that the committee rendering does not"
+    spec_clause: {document: spec/CP-SPEC-021_Large_Exposure_Concentration.md, clause: G.1}
+    test: tests/examples/test_cp_21_large_exposure.py::test_the_three_renderings_do_not_collapse
+    sabotage: "give the committee the examiner's members"
+    sabotage_state: passed
+    observed_red:
+      result: "RED 2026-09-21 — two of the three renderings became one."
+      date: '2026-09-21'
+    note: >-
+      `policy_version` is asserted on the CONTRACT'S LINEAGE, not in the
+      payload: it belongs to lineage, and copying it into the payload would
+      mint a second, divergeable copy of a governed fact.
+  - id: LEX-G19
+    statement: "a proposal is an assumption and CANNOT move D_c — two proposals over one instant and group give identical debt"
+    spec_clause: {document: spec/CP-SPEC-021_Large_Exposure_Concentration.md, clause: G.1}
+    test: tests/examples/test_cp_21_large_exposure.py::test_two_proposals_over_one_instant_and_group_give_identical_debt
+    sabotage: "let the proposal reach the debt factors"
+    sabotage_state: passed
+    observed_red:
+      result: "RED 2026-09-21 — debt moved with the hypothetical."
+      date: '2026-09-21'
+    note: >-
+      Rung 24's governing rule, carried: observed evidence determines Context
+      Debt; assumptions determine assumption-derived outputs; assumptions are
+      never evidence. The two proposals still hash differently — only the debt
+      is invariant.
+  - id: LEX-G20
+    statement: "economic-dependency edges carry their stated dependencyBasis and synthetic provenance, so judgment stays distinguishable from a filing"
+    spec_clause: {document: spec/CP-SPEC-021_Large_Exposure_Concentration.md, clause: C.3}
+    test: tests/examples/test_cp_21_large_exposure.py::test_economic_dependency_members_carry_their_basis_and_provenance
+    sabotage: "lose the dependency basis and provenance"
+    sabotage_state: passed
+    observed_red:
+      result: "RED 2026-09-21 — a judgment edge became indistinguishable from a filed control edge."
+      date: '2026-09-21'
+  - id: LEX-G21
+    statement: "replay reconstructs the determination — the same anchor, regime, basis, instant and proposal hash to the same bytes, and a changed regime or basis does not"
+    spec_clause: {document: spec/CP-SPEC-021_Large_Exposure_Concentration.md, clause: G.1}
+    test: tests/examples/test_cp_21_large_exposure.py::test_replay_reconstructs_the_determination_and_a_changed_input_does_not
+    sabotage: "mint a plausible ledger point beside a disclosure saying none resolved"
+    sabotage_state: passed
+    observed_red:
+      result: "RED 2026-09-21 — `test_the_gate_refuses_a_minted_ledger_point`."
+      date: '2026-09-21'
+    note: >-
+      THE LEDGER POINT IS DISCLOSED, NOT ASSERTED. Measured 2026-09-21: this
+      Fluree deployment emits no `x-fdb-t` header on its SPARQL endpoint and
+      exposes no route returning the ledger `t`, so the group's derivation
+      point is NOT recoverable from this estate (`LEX-F-04`). Gating on a value
+      that is always `unreported` would be a vacuous gate; gating on the
+      DISCLOSURE, and refusing a minted `t`, is not.

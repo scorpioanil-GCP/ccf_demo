@@ -1,0 +1,369 @@
+# yaml-language-server: $schema=../../docs/schemas/ccf.deployment-config.json
+#
+# THE CONTROL PLANE DOCUMENT — what this fabric is permitted to do.
+# The specification this realizes is
+# `spec/CP-SPEC-021_Large_Exposure_Concentration.md`.
+
+semver: "1.0.0"
+tenant_id: cp-21-demo
+
+backend: sqlite
+
+product_class:
+  schema_name: risk.large-exposure
+  schema_version: "1.0.0"
+  # NOT evidence-anchored (`CP-SPEC-021` §B.1). A connected group's evidence
+  # has MANY ages by construction — an intraday exposure book beside a
+  # quarterly capital filing beside a regime that changed in 2022 — so *whose*
+  # freshness would anchor the product is not answerable. Each age is served
+  # where it belongs instead: on the claim that carries it, and in `D_c`.
+  ttl_anchor: from_decision
+  assembly_mode: algorithmic
+  max_ttl_key: cp-21/product/large-exposure/max-ttl
+
+  # THREE KEYS, NOT FOUR — AND THE SPECIFICATION SAID FOUR.
+  #
+  # `CP-SPEC-021` §D.2 assigns step 4 (retrieve the regime provisions
+  # supporting each limit) to the Similarity category. Building it that way was
+  # attempted and is WRONG, for a structural reason worth recording:
+  # `similarity.corpus-select` RANKS ENTITIES THAT ARE ALREADY IN THE VIEW
+  # against a query, using an injected index. It cannot retrieve anything from
+  # MongoDB — by the time an operator runs, acquisition is over and the graph
+  # exists. The rulebook passages are therefore resolved at the ACQUISITION
+  # seam, where source retrieval belongs, and travel as claims on the regime
+  # entity with their quoted text.
+  #
+  # Declaring a fourth key anyway would have added an operator that ranks three
+  # regime nodes against a query nobody asked, which is scaffolding, not
+  # mechanism. The divergence from §D.2 is recorded as `LEX-F-03` rather than
+  # papered over, and `LEX-G01` asserts the served plan against THIS list
+  # rather than against a fixed four.
+  required_operator_keys:
+    - policy.principal-subgraph
+    - temporal.as-of-boundary
+    - traversal.typed-neighborhood
+
+  serve_obligations:
+    # ILLUSTRATIVE CALIBRATION (`D-IMPL-323`). The capital base is a QUARTERLY
+    # filing and the pinned instant is 147 days after it, so the denominator of
+    # every ratio in this product is genuinely old. A tighter tolerance would
+    # withhold every answer and make the mechanism unobservable rather than
+    # demonstrate it. The staleness is not hidden: it drives this number, it
+    # travels with every ratio as `capital_report_date` and `age_days`, and it
+    # is the subject of `LEX-G14`.
+    default_debt_tolerance: "0.98"
+    lineage_inputs_at:
+      - perspective
+      - as_of
+
+  discovery:
+    domain: cib
+    intents:
+      - limit-test
+      - committee-review
+      - supervisory-request
+    capabilities:
+      - derived-connected-group
+      - caller-selected-connection-basis
+      - effective-dated-regulatory-regime
+      - absolute-and-percentage-limit-forms
+      - disclosed-freshness-asymmetry
+    audiences:
+      - credit-officer
+      - committee
+      - examiner
+
+  declared_product_gate:
+    gate_id: cp-21.large-exposure-holds
+    gate_version: "1.0.0"
+
+operators:
+  # STEP 2 — Policy, and it runs FIRST. The permitted set is the product's
+  # whole vocabulary; the per-role member narrowing is formative and arrives at
+  # the acquisition seam from `context.perspective`, per the adopter page
+  # `public/how-to/condition-acquisition-on-the-verified-credential.md`.
+  policy.principal-subgraph:
+    classification_attribute_by_class:
+      group: classification
+      member: classification
+      exposure: classification
+      capital: classification
+      regime: classification
+      limit: classification
+    permitted_classifications:
+      - public
+      - internal
+
+  temporal.as-of-boundary:
+    require_valid_at_boundary: true
+
+  # STEP 3 — the DERIVED group and everything hanging off it. The group node is
+  # the only seed; its membership was computed from graph edges at the ledger
+  # point before this operator ever runs (`LEX-G02`).
+  traversal.typed-neighborhood:
+    seed_entity_classes:
+      - group
+    relationship_types:
+      - hasMember
+      - hasExposure
+      - hasCapital
+      - hasRegime
+      - hasLimit
+    depth_limit: 1
+
+request_contract:
+  class_id: cp-21.request-contract
+  role: register
+  registration: typed
+  schema_name: risk.large-exposure
+  schema_version: "1.0.0"
+  arguments:
+    properties:
+      as_of:
+        type: string
+        description: >-
+          The determination instant. It bounds acquisition of the observed
+          state AND selects the regulatory regime IN FORCE — at both ends of
+          its effective window, so a repealed regime is not applied to a
+          later determination (`LEX-G05`).
+      regime:
+        type: string
+        description: >-
+          Which regulatory regime governs the determination. A regime that is
+          not in force at `as_of` is REFUSED, never silently substituted.
+      connection_basis:
+        type: string
+        description: >-
+          WHICH EDGES DEFINE THE GROUP, and therefore the whole answer
+          (`LEX-G04`). `control` admits control edges only;
+          `economic-dependency` admits judgment-based edges only; `both` — the
+          default, and the conservative posture — admits both. A product
+          exposing only control-based grouping computes a compliant-looking
+          number against an incomplete group.
+      proposal:
+        type: object
+        description: >-
+          THE HYPOTHETICAL, and a CLOSED object (rung 24's `Q1`,
+          `LEX-G17`). `commitment_usd` is an INTEGER IN CANONICAL UNITS —
+          whole dollars — so no fraction ever reaches a wire. A bare JSON
+          fraction parses to a float and the SDK REFUSES it as not bit-stable;
+          that refusal is correct behavior and is never coerced around. An
+          undeclared member is refused, and a structure deeper than this one
+          level is not representable — `SkillArgumentMember` carries no
+          `properties` and no `items`, and is NOT widened for this rung.
+          A proposal is an ASSUMPTION and can never move Context Debt
+          (`LEX-G19`).
+        properties:
+          facility_type:
+            type: string
+            description: the kind of facility proposed.
+          commitment_usd:
+            type: integer
+            description: the proposed commitment, in whole dollars.
+          obligor_lei:
+            type: string
+            description: the obligor the proposed facility would be written to.
+        required:
+          - commitment_usd
+      apply_mitigation:
+        type: boolean
+        description: >-
+          Whether eligible credit risk mitigation is recognized. LOAD-BEARING
+          (`LEX-G15`): the same group evaluates differently with and without
+          it. Defaults to true, and the default is declared here rather than
+          assumed in code.
+      debt_tolerance:
+        type: number
+        description: the caller's ceiling on assessed Context Debt, 0..1.
+    required:
+      - as_of
+
+  # THE DECLARED DOMAINS. A value outside one is REFUSED and never narrowed
+  # (`D-IMPL-251`); the `enum` a reader sees is DERIVED from these members by
+  # `ccf.products.request_schema`, never authored (`D-IMPL-259`).
+  argument_domains:
+    regime:
+      members: [pra-2022, crr-2014-2021, reg-o]
+    connection_basis:
+      members: [control, economic-dependency, both]
+
+  relative_defaults:
+    as_of:
+      offset_seconds: 0
+      render: timestamp
+
+resolution:
+  entity_rules:
+    - match_key: group_node
+      entity_class: group
+      identity_keys: [entity_uri]
+      attribute_keys: [anchor_lei, connection_basis, member_count, members_lei_registered,
+                       regime, regime_label, regime_effective_from, rule_form,
+                       limit_pct_of_capital, limit_absolute_usd,
+                       capital_raw_value, capital_source_unit, capital_normalized_value,
+                       capital_normalized_unit, capital_unit_authority,
+                       capital_report_date, capital_age_days, exposure_instant,
+                       apply_mitigation, guarantees_given, guarantee_cover_given,
+                       guarantees_received_resolvable, guarantee_cover_received,
+                       proposal_facility_type, proposal_commitment_usd, proposal_obligor_lei,
+                       ledger_t, intent, perspective, as_of, records_materialized,
+                       acquisition_findings,
+                       classification]
+    # THE DERIVED MEMBERS. A member with no LEI is served WITHOUT one rather
+    # than dropped: dropping it would shrink the group and understate the
+    # exposure denominator (`LEX-F-01`). An economic-dependency member carries
+    # its stated basis and its synthetic provenance (`LEX-G20`).
+    - match_key: member_node
+      entity_class: member
+      identity_keys: [entity_uri]
+      attribute_keys: [lei, legal_name, is_anchor, in_group, admitted_by,
+                       lei_registered, dependency_basis, dependency_provenance,
+                       classification]
+    - match_key: exposure_node
+      entity_class: exposure
+      identity_keys: [entity_uri]
+      attribute_keys: [facility_id, lei, facility_type, commitment_amount, drawn_amount,
+                       undrawn_amount, maturity_date, classification]
+    # THE CAPITAL BASE, RAW AND NORMALIZED, EACH WITH ITS UNIT (`Q2`,
+    # `LEX-G07`). It keeps its OWN `report_date`: nothing ages it to the
+    # exposure instant and nothing ages exposure back to it (`LEX-G14`).
+    - match_key: capital_node
+      entity_class: capital
+      identity_keys: [entity_uri]
+      attribute_keys: [rssd, report_date, tier1_raw, source_unit, tier1_normalized,
+                       normalized_unit, unit_authority, classification]
+    # THE REGIME AS AN EFFECTIVE-DATED ARTIFACT, with its rule form and the
+    # rulebook text supporting it.
+    - match_key: regime_node
+      entity_class: regime
+      identity_keys: [entity_uri]
+      attribute_keys: [regime_id, label, effective_from, effective_to,
+                       in_force_at_instant, rule_form, limit_pct_of_capital,
+                       limit_absolute_usd, provenance, cited_provisions,
+                       provisions_cited, provisions_resolved, classification]
+    # BOTH INTERNAL AUTHORITIES. They genuinely disagree and neither is
+    # discarded (`LEX-G11`).
+    - match_key: limit_node
+      entity_class: limit
+      identity_keys: [entity_uri]
+      attribute_keys: [limit_id, authority, limit_pct_of_capital, counts_guarantees,
+                       counts_undrawn, connection_basis, effective_from, classification]
+
+    - {match_key: group_subject, entity_class: group,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: subject_uri}}
+    - {match_key: member_object, entity_class: member,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+    - {match_key: exposure_object, entity_class: exposure,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+    - {match_key: capital_object, entity_class: capital,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+    - {match_key: regime_object, entity_class: regime,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+    - {match_key: limit_object, entity_class: limit,
+       identity_keys: [entity_uri], identity_sources: {entity_uri: object_uri}}
+
+  relationship_rules:
+    - {relationship_type: hasMember, predicate_key: predicate,
+       subject_entity_class: group, object_entity_class: member,
+       subject_rule: group_subject, object_rule: member_object}
+    - {relationship_type: hasExposure, predicate_key: predicate,
+       subject_entity_class: group, object_entity_class: exposure,
+       subject_rule: group_subject, object_rule: exposure_object}
+    - {relationship_type: hasCapital, predicate_key: predicate,
+       subject_entity_class: group, object_entity_class: capital,
+       subject_rule: group_subject, object_rule: capital_object}
+    - {relationship_type: hasRegime, predicate_key: predicate,
+       subject_entity_class: group, object_entity_class: regime,
+       subject_rule: group_subject, object_rule: regime_object}
+    - {relationship_type: hasLimit, predicate_key: predicate,
+       subject_entity_class: group, object_entity_class: limit,
+       subject_rule: group_subject, object_rule: limit_object}
+
+# ---------------------------------------------------------------------------
+# λ_c — PER ENTITY CLASS, and the spread is the point (`CP-SPEC-021` §E).
+#
+# THIS TABLE IS WHERE THE FRESHNESS ASYMMETRY BECOMES MEASURABLE. Exposure is
+# intraday; the capital base is a quarterly filing; a regime changes on the
+# scale of years. One table keyed by entity class keeps those apart so a stale
+# denominator cannot hide behind a fresh numerator. Collapsing them into one
+# class is what `LEX-G14` refuses.
+#
+# The standing classes carry no event date and decay `supersede-only`
+# (`D-IMPL-332`): group membership, an exposure's terms and an internal limit
+# are true AS OF NOW, not on a day.
+#
+# ILLUSTRATIVE CALIBRATION (`D-IMPL-323`): the half-lives below are chosen so
+# the mechanism is observable against a point-in-time snapshot. See the README.
+# ---------------------------------------------------------------------------
+half_life:
+  group:
+    decay: supersede-only
+    decay_driver: group-derivation
+    supersession_event: membership-change
+  member:
+    decay: supersede-only
+    decay_driver: group-derivation
+    supersession_event: membership-change
+  exposure:
+    decay: supersede-only
+    decay_driver: facility-agreement
+    supersession_event: facility-amendment
+  limit:
+    decay: supersede-only
+    decay_driver: internal-limit-policy
+    supersession_event: limit-revision
+  # DATED ARTIFACTS, and they are dated on DIFFERENT CLOCKS from the exposure
+  # book. That gap is disclosed, never resolved (`LEX-G14`).
+  capital:
+    half_life_seconds: 7776000
+    decay_basis: valid-from
+    decay_driver: quarterly-call-report
+    supersession_event: next-quarter-filing
+  regime:
+    half_life_seconds: 63072000
+    decay_basis: valid-from
+    decay_driver: rulebook-amendment
+    supersession_event: new-regime-version
+
+debt_profile:
+  risk_sensitivity: "1.0"
+  forced_llm_threshold: "0.70"
+  fail_closed_threshold: "0.99"
+
+policy:
+  class_id: cp-21.policy-bundle
+  role: register
+  registration: typed
+  regime: large-exposure-role-envelope
+
+default_perspective:
+  principal_id: PRIN-CO-001
+  role: credit-officer
+
+replay:
+  record_class: ccf.replay-record
+  query_pin_class: ccf.graph-query
+  store_dirname: artifact-store
+
+ttl:
+  max_ttl_seconds: 14400
+  product_ttl_seconds: 14400
+
+door:
+  producer_id: cp-21-large-exposure-egress
+  producer_tenant: cp-21-demo
+  required_scope: ccf:egress
+  tool_description: >-
+    Determine one counterparty group's large-exposure position as a governed,
+    content-addressed Context Product (`risk.large-exposure`). The group is
+    DERIVED from connection edges at the ledger point under a caller-selected
+    basis — control, economic dependency, or both — not read from a registry,
+    so the basis moves the membership, the aggregate exposure and the breach
+    result together. The regulatory regime is an effective-dated artifact
+    selected at the determination instant, and a limit is a percentage of
+    capital OR an absolute amount; the product names which. The capital base is
+    served RAW with its source unit and NORMALIZED with its normalized unit,
+    and the arithmetic consumes the normalized one. Exposure is intraday and
+    capital is quarterly: that asymmetry is DISCLOSED with the denominator's
+    own date and age, never collapsed into one timestamp. A proposal is an
+    assumption, is computed with and without, and cannot move Context Debt.
