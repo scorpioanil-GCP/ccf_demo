@@ -1,0 +1,70 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE CONSUMER CHAIN, AS ARTIFACTS — because `build_children=` forbids the
+# declared one.
+#
+# `open_product` REFUSES `build_children=` beside a declared `agent:` or
+# `skills:` section: *"a handed-in chain beside a declared one leaves the
+# question of which governs."* `include_federated` is a REQUEST parameter and
+# the child-resolution seam is the only place it can be honored, so this
+# deployment hands its chain in — and the agent, the skill and the grant the
+# `agent:`/`skills:` sections would have derived live here instead, as data.
+#
+# **This file is what `CLD-F-04` measures.** Every key below is a key the
+# paved road derives for a composite that does not need a request-scoped
+# child. It is not domain vocabulary and it is not a call an adopter chooses
+# to make: it is the derived chain, restated by hand because one request
+# parameter had to reach the resolver.
+#
+# It stays an ARTIFACT rather than becoming `AgentDefinition(...)` in a module
+# — the No-Hardcoding Rule (CLAUDE.md §6.4) is not suspended by friction.
+#
+# `pins` names the two CONTENT-PINNED refs (`D-IMPL-26`) the paved road
+# derives: their version component is a content address that moves whenever
+# `ccf_config.yaml`'s `policy:` or `debt_profile:` section moves, so writing
+# either by hand would be a second statement of a value that drifts.
+# `deployment.FederatedChildren.factory` reads the version in force off the
+# Control Plane and renders them — derivation, exactly as the road does it.
+semver: 1.0.0
+class_id: cp-20.consumer-chain
+declaration:
+  agent:
+    schema_version: 1.0.0
+    artifact_version: 1.0.0
+    name: syndicate-co-lender-composer
+    tenant: cp-20-demo
+    archetypes:
+    - context_assembly
+    context_contract:
+      consumes:
+      - product_class: cb.co-lender-position
+        schema_version: 1.0.0
+    perspective:
+      role: participant
+      selection_params: {}
+    instruction_bindings: []
+  skill:
+    schema_version: 1.0.0
+    artifact_version: 1.0.0
+    name: peer-position-ask
+    tenant: cp-20-demo
+    skill_type: mcp_product
+    description: asks the registered co-lender producer for one syndicate member's position in one
+      syndicated facility, at the precision that member discloses at
+    produces: cb.co-lender-position
+    argument_schema:
+      properties: {}
+      required: []
+    binding:
+      server: co-lender-producer
+      product_class: cb.co-lender-position
+      product_version: 1.0.0
+    requirements:
+      required_scopes: []
+      required_context_products: []
+  pins:
+    policy_regime_key: cp-20-demo/policy-bundle/syndicate-co-lender
+    debt_profile_key: cp-20-demo/ccf.debt-profile/syndicate-co-lender
+  keys:
+    agent: cp-20-demo/ccf.agent-definition/syndicate-co-lender-composer
+    skill: cp-20-demo/ccf.skill-catalog-entry/peer-position-ask

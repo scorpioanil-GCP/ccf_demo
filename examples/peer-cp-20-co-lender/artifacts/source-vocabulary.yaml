@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE PEER'S STORES, IN THEIR OWN WORDS.
+#
+# Every table, column, IRI and literal the peer's acquisition reads is named
+# here rather than written into `acquisition.py`, so pointing this deployment
+# at another co-lender's estate is an edit to a document instead of an edit to
+# a program (CLAUDE.md §6.4, the No-Hardcoding Rule).
+
+semver: "1.0.0"
+class_id: cp-20-peer.source-vocabulary
+declaration:
+  relational_leg:
+    # Both tables live in the schema the environment document names; neither
+    # name is defaulted.
+    position_table: peer_position
+    declaration_table: peer_product_declaration
+    position_columns:
+      position_id: position_id
+      counterparty: counterparty
+      facility_id: facility_id
+      share_usd: share_usd
+      band_low: band_low
+      band_high: band_high
+      internal_rating: internal_rating
+      workout_posture: workout_posture
+      as_of: as_of
+      provenance: provenance
+    declaration_columns:
+      declaration_id: declaration_id
+      counterparty: counterparty
+      product_id: product_id
+      declared_ttl_seconds: declared_ttl_seconds
+      declared_latency_ms: declared_latency_ms
+      attestation: attestation
+      provenance: provenance
+
+  graph_leg:
+    # The peer loader's own URI prefix and predicates. `ex:` here is the PEER's
+    # namespace, not ours; the two fabrics share a vocabulary shape and not a
+    # vocabulary.
+    lei_predicate: http://example.org/fibo/lei
+    precision_predicate: http://example.org/fibo/disclosurePrecision
+    provenance_predicate: http://example.org/fibo/provenance
+    label_predicate: http://www.w3.org/2000/01/rdf-schema#label
+    member_type: https://spec.edmcouncil.org/fibo/ontology/SEC/Debt/DistributedLoans/FinanceSyndicateMember
+
+  # The two disclosure precisions the peer's graph declares, and what each
+  # obliges the product to serve. `CLD-G13` is the assertion that `band` never
+  # becomes a number.
+  precisions:
+    exact: share_usd
+    band: band_low_and_band_high
+
+  # The classification vocabulary the policy operator filters on. It is NOT a
+  # debt signal and NOT a score: an unattested position is one the peer will
+  # not assert, so the policy envelope removes it and the product refuses
+  # (`Q3.2`).
+  classifications:
+    attested: attested
+    unattested: unattested
+
+  # The one edge this deployment mints, joining the two legs.
+  predicates:
+    position_of: positionOf
+
+  # The URI shapes the two entity classes are minted at. Both are the PEER's;
+  # the consumer never constructs either.
+  uri_templates:
+    position: "urn:cp-20-peer:position:{position_id}"
+    counterparty: "urn:cp-20-peer:counterparty:{lei}"

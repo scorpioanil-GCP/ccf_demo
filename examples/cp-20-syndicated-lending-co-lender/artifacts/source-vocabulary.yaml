@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE CONSUMING BANK'S OWN STORES, IN THEIR OWN WORDS.
+#
+# Every table, column, IRI and literal this deployment's acquisition reads is
+# named here rather than written into `acquisition.py` (CLAUDE.md §6.4).
+
+semver: "1.0.0"
+class_id: cp-20.source-vocabulary
+declaration:
+  relational_leg:
+    facility_table: facility
+    own_position_table: own_position
+    member_table: syndicate_member
+    facility_columns:
+      facility_id: facility_id
+      borrower_lei: borrower_lei
+      commitment_amount: commitment_amount
+      syndicated: syndicated
+    own_position_columns:
+      facility_id: facility_id
+      member_id: member_id
+      share_usd: share_usd
+      internal_rating: internal_rating
+      workout_posture: workout_posture
+      as_of: as_of
+    member_columns:
+      member_id: member_id
+      legal_name: legal_name
+      lei: lei
+
+  graph_leg:
+    facility_uri_prefix: http://example.org/fibo/syndicate/
+    participation_type: http://example.org/fibo/SyndicateParticipation
+    threshold_type: http://example.org/fibo/AmendmentThreshold
+    envelope_type: http://example.org/fibo/DisclosureEnvelope
+    predicates:
+      participation_in: http://example.org/fibo/participationIn
+      participation_of: http://example.org/fibo/participationOf
+      commitment_usd: http://example.org/fibo/commitmentUsd
+      source_passage: http://example.org/fibo/sourcePassage
+      threshold_governs: http://example.org/fibo/thresholdGoverns
+      consent_standard: http://example.org/fibo/consentStandard
+      consent_percent: http://example.org/fibo/consentPercent
+      amendment_type: http://example.org/fibo/amendmentType
+      envelope_counterparty: http://example.org/fibo/counterparty
+      envelope_version: http://example.org/fibo/envelopeVersion
+      valid_from: http://example.org/fibo/validFrom
+      label: http://www.w3.org/2000/01/rdf-schema#label
+      member_lei: http://example.org/fibo/lei
+
+  # The fabric's own short edge names — minted by this deployment, never read
+  # from a store.
+  edges:
+    participation: hasParticipation
+    threshold: hasConsentThreshold
+    envelope: hasEnvelope
+
+  # The classification every entity carries, and the two the policy operator
+  # permits. Filed syndicate composition and filed consent mechanics are
+  # `public`; our own position and the bilateral envelopes are `internal`.
+  classifications:
+    public: public
+    internal: internal
+
+  uri_templates:
+    facility: "urn:cp-20:facility:{facility_id}"
+    participation: "urn:cp-20:participation:{participation_id}"
+    own_participation: "urn:cp-20:participation:own:{facility_id}"
+    threshold: "urn:cp-20:threshold:{threshold_id}"
+    envelope: "urn:cp-20:envelope:{envelope_id}"

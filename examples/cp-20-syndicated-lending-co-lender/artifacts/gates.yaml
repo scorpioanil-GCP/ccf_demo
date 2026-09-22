@@ -1,0 +1,328 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE DECLARED PRODUCT GATES OF cp-20 — twenty, `CLD-G01`..`CLD-G20`.
+#
+# The acceptance authority for every gate is `CP-SPEC-020` §G.1
+# (`D-IMPL-326`). Each id is claimed by at least one executing test under
+# `tests/examples/`, and no estate figure is pinned anywhere.
+#
+# WHAT THIS RUNG EXISTS TO PROVE, and the five gates that carry it:
+#   `CLD-G01` — a composite admits a child governed under ANOTHER
+#     ORGANIZATION's tenant, and its own tenant is never set equal to the
+#     producer's to let it pass.
+#   `CLD-G07` — OPTIONAL MEANS OPTIONAL ABSENCE, NOT OPTIONAL GOVERNANCE. A
+#     peer that refuses its own position refuses this composite even though
+#     the slot is `required: false`.
+#   `CLD-G10` — an ask outside the negotiated envelope is refused BEFORE any
+#     peer is called, and the refusal KIND is what proves it.
+#   `CLD-G13` — no served payload contains a point estimate derived from a
+#     band declaration. The band is observable; a midpoint is not derivable.
+#   `CLD-G20` — the consumer holds NO handle to the peer's stores. The two
+#     fabrics share a host, so this is structural rather than a nicety.
+#
+# ONE GATE IS `unavailable` BY RULING. `CLD-G04`'s arm — an admitted child's
+# expiry becoming the binding floor — is unreachable on this estate, because
+# every peer declaration shorter than the class ceiling is inadmissible under
+# `Q1`(b) and `Q2`. An ENGINEERED-ESTATE LIMITATION, not an SDK defect; the
+# floor rule is proven on its other arm by `CLD-G05`; residual `341-4` stays
+# carried (`CLD-F-01`); and the mechanism is not weakened, nor the estate
+# retuned, to manufacture a red. Its test is a TRIPWIRE on the guard.
+semver: 1.0.0
+class_id: cp-20.product-gates
+declaration:
+  product: cb.syndicate-co-lender
+  test_naming_convention: the gate id appears in the executing test's docstring, as a `Declared product gate` line
+    naming the CP-SPEC clause that approves it.
+  sabotage_states:
+    passed: the invariant was broken and the gate went red
+    unavailable: an upstream ruling or the estate makes the bad state unreachable; the guard is named
+  gates:
+  - id: CLD-G01
+    statement: the admitted child is governed under the PRODUCER's tenant, and the composite's own tenant is never
+      set equal to it to let it pass
+    spec_clause:
+      document: spec/CP-SPEC-020_Syndicated_Lending_Co_Lender.md
+      clause: G.1
+    test: tests/examples/test_cp_20_co_lender.py::test_the_child_is_admitted_under_the_producers_own_tenant
+    sabotage: assert the child's tenant equals the consumer's
+    sabotage_state: passed
+    observed_red:
+      result: RED 2026-09-22 — the payload reported the consumer's own tenant as the producer's, and cross-organizational
+        admission became indistinguishable from a same-tenant one.
+      date: '2026-09-22'
+      commit: a154e8d4
+  - id: CLD-G02
+    statement: a peer asserting a producer_id the registration does not expect is refused, and the UNMODIFIED copy
+      of the same door is admitted
+    spec_clause:
+      document: spec/CP-SPEC-020_Syndicated_Lending_Co_Lender.md
+      clause: G.1
+    test: tests/examples/test_cp_20_peer_and_identity.py::test_a_peer_asserting_another_producer_id_is_refused
+    sabotage: point the consumer's registration at the impostor's asserted id
+    sabotage_state: passed
+    observed_red:
+      result: RED 2026-09-22 — the consumer's registration was pointed at the impostor's asserted id, and the impostor
+        was admitted. The positive control in the same test (the UNMODIFIED copy of the door, admitted) is what
+        stops this gate passing for any door failure at all.
+      date: '2026-09-22'
+      commit: a154e8d4
+  - id: CLD-G03
+    statement: a peer governed under a tenant the registration does not expect is refused, and wrong producer and
+      wrong producer tenant are DISTINCT refusals
+    spec_clause:
+      document: spec/CP-SPEC-020_Syndicated_Lending_Co_Lender.md
+      clause: G.1
+    test: tests/examples/test_cp_20_peer_and_identity.py::test_a_peer_asserting_another_tenant_is_refused
+    sabotage: point the consumer's registration at the impostor's tenant
+    sabotage_state: passed
+    observed_red:
+      result: RED 2026-09-22 — the registration was pointed at the impostor's tenant. Note the SDK ALSO refuses
+        at the producer's own boot when a `door` section asserts a tenant its deployment does not declare, so the
+        impostor had to be a whole other deployment.
+      date: '2026-09-22'
+      commit: a154e8d4
+  - id: CLD-G04
+    statement: '`unavailable` BY RULING (`Q4`, 2026-09-22), GUARD NAMED. An admitted child''s expiry becoming the
+      composite''s binding floor is unreachable from this estate: Citibank''s shorter declaration is out of envelope,
+      Bank of America''s is unattested and refused, and no fourth declaration exists. The test is a TRIPWIRE that
+      reddens if the estate ever gains an admissible declaration below the ceiling.'
+    spec_clause:
+      document: spec/CP-SPEC-020_Syndicated_Lending_Co_Lender.md
+      clause: G.1
+    test: tests/examples/test_cp_20_co_lender.py::test_the_estate_cannot_produce_a_child_that_floors_the_composite
+    sabotage: none available — the ruling and the estate jointly make the arm unreachable, and neither the mechanism
+      nor the estate may be weakened to produce one
+    sabotage_state: unavailable
+    observed_red:
+      result: NOT OBSERVED — `unavailable` by ruling (`Q4`, 2026-09-22). The arm is unreachable from this estate
+        and neither the mechanism nor the estate may be weakened to reach it. The test is a TRIPWIRE on the guard
+        and reddens if an admissible declaration below the ceiling ever appears.
+      date: '2026-09-22'
+      commit: a154e8d4
+  - id: CLD-G05
+    statement: the composite's expiry is `min(class ceiling, every admitted child's expiry)` and takes the CEILING
+      where the ceiling is lower, against the child's live declared TTL
+    spec_clause:
+      document: spec/CP-SPEC-020_Syndicated_Lending_Co_Lender.md
+      clause: G.1
+    test: tests/examples/test_cp_20_co_lender.py::test_the_composite_expiry_is_floored_by_the_class_ceiling
+    sabotage: serve the child's own longer expiry as the composite's
+    sabotage_state: passed
+    observed_red:
+      result: 'RED 2026-09-22 — sabotage carried inside the test: the expected lifetime was moved to the child''s
+        declared 6 h. The floor rule itself lives in `compose_expiry`, which this rung may not edit.'
+      date: '2026-09-22'
+      commit: a154e8d4
+  - id: CLD-G06
+    statement: a position with no attestation record behind it produces a GOVERNED REFUSAL — as data, with a replay
+      reference, never a raise and never a serve — and never a debt factor
+    spec_clause:
+      document: spec/CP-SPEC-020_Syndicated_Lending_Co_Lender.md
+      clause: G.1
+    test: tests/examples/test_cp_20_peer_and_identity.py::test_the_peer_refuses_its_own_unattested_position
+    sabotage: remove the attestation refusal from the peer's acquisition seam
+    sabotage_state: passed
+    observed_red:
+      result: RED 2026-09-22 — the attestation refusal was removed from the peer's acquisition seam and the peer
+        served a position it publishes no attestation for.
+      date: '2026-09-22'
+      commit: a154e8d4
+  - id: CLD-G07
+    statement: that refusal refuses the COMPOSITE even though the federated slot is optional; optional means optional
+      ABSENCE, not optional governance
+    spec_clause:
+      document: spec/CP-SPEC-020_Syndicated_Lending_Co_Lender.md
+      clause: G.1
+    test: tests/examples/test_cp_20_co_lender.py::test_an_unattested_peer_refuses_the_composite_in_an_optional_slot
+    sabotage: swallow the refused child and serve the composite without it
+    sabotage_state: passed
+    observed_red:
+      result: 'RED 2026-09-22, on the SECOND sabotage. The first added `refused` to `omissible_outcomes` and stayed
+        GREEN — correctly: that field governs the served payload, never admission, so the SDK refused regardless.
+        The sabotage that bites is a DEPLOYMENT one: the `build_children` wrapper swallowing a refused child and
+        returning no outcome, which the composite would then price as an honest absence.'
+      date: '2026-09-22'
+      commit: a154e8d4
+  - id: CLD-G08
+    statement: '`include_federated=false` serves, admits no child, and the class''s declared `completeness_when_absent`
+      is what the absence costs — so the domestic answer''s debt is strictly worse than the federated one''s'
+    spec_clause:
+      document: spec/CP-SPEC-020_Syndicated_Lending_Co_Lender.md
+      clause: G.1
+    test: tests/examples/test_cp_20_co_lender.py::test_the_absence_treatment_prices_an_unasked_child
+    sabotage: make the absence free
+    sabotage_state: passed
+    observed_red:
+      result: RED 2026-09-22 — `completeness_when_absent` was raised to 1.00, the absence became free, and the domestic
+        answer's debt equalled the federated one's.
+      date: '2026-09-22'
+      commit: a154e8d4
+  - id: CLD-G09
+    statement: '`include_federated` true and false are different questions about one facility and hash to different
+      content addresses'
+    spec_clause:
+      document: spec/CP-SPEC-020_Syndicated_Lending_Co_Lender.md
+      clause: G.1
+    test: tests/examples/test_cp_20_co_lender.py::test_the_federation_flag_is_part_of_the_questions_identity
+    sabotage: stop the flag reaching the request's identity
+    sabotage_state: passed
+    observed_red:
+      result: 'RED 2026-09-22 — sabotage carried inside the test: the domestic address was compared against itself.
+        The flag reaches the address through the SDK''s request identity, which this rung may not edit.'
+      date: '2026-09-22'
+      commit: a154e8d4
+  - id: CLD-G10
+    statement: an ask outside the negotiated envelope is refused BEFORE any peer is called, proven by the refusal
+      KIND — `subject-unavailable` at the acquisition seam versus `child_admission` after a producer answered —
+      with the in-envelope counterparty still admitted on the same door
+    spec_clause:
+      document: spec/CP-SPEC-020_Syndicated_Lending_Co_Lender.md
+      clause: G.1
+    test: tests/examples/test_cp_20_co_lender.py::test_an_out_of_envelope_ask_is_refused_before_any_peer_is_called
+    sabotage: move the envelope check behind child resolution so the peer is called first
+    sabotage_state: passed
+    observed_red:
+      result: RED 2026-09-22 — the envelope check was removed from the acquisition seam, and the out-of-envelope
+        ask reached the wire. The gate's evidence is the refusal KIND, so a check moved behind child resolution
+        reddens it too.
+      date: '2026-09-22'
+      commit: a154e8d4
+  - id: CLD-G11
+    statement: '`requestScope` and `discloseScope` are read as TWO DIFFERENT SETS from one envelope node, and for
+      at least one counterparty they differ'
+    spec_clause:
+      document: spec/CP-SPEC-020_Syndicated_Lending_Co_Lender.md
+      clause: G.1
+    test: tests/examples/test_cp_20_co_lender.py::test_request_scope_and_disclose_scope_are_two_different_sets
+    sabotage: read one predicate for both scopes
+    sabotage_state: passed
+    observed_red:
+      result: RED 2026-09-22 — the request predicate was read for both scopes, the two sets became equal, and Citibank's
+        envelope stopped being asymmetric.
+      date: '2026-09-22'
+      commit: a154e8d4
+  - id: CLD-G12
+    statement: the latency verdict follows from the peer's DECLARED `declared_latency_ms` and the deployment's declared
+      bound, and no wall-clock timing appears in the payload
+    spec_clause:
+      document: spec/CP-SPEC-020_Syndicated_Lending_Co_Lender.md
+      clause: G.1
+    test: tests/examples/test_cp_20_co_lender.py::test_the_latency_comparison_is_against_a_declaration
+    sabotage: invert the comparison against the declared bound
+    sabotage_state: passed
+    observed_red:
+      result: RED 2026-09-22 — the comparison against the declared bound was inverted.
+      date: '2026-09-22'
+      commit: a154e8d4
+  - id: CLD-G13
+    statement: no served payload contains a point estimate derived from a band declaration — `share_usd` is ABSENT,
+      not null — while the exact member still carries its figure
+    spec_clause:
+      document: spec/CP-SPEC-020_Syndicated_Lending_Co_Lender.md
+      clause: G.1
+    test: tests/examples/test_cp_20_peer_and_identity.py::test_a_band_never_becomes_a_point_estimate
+    sabotage: serve the band's midpoint as `share_usd`
+    sabotage_state: passed
+    observed_red:
+      result: RED 2026-09-22 — the band's midpoint was served as `share_usd`. The exact member's positive control
+        in the same test is what stops this gate passing by serving no figure for anybody.
+      date: '2026-09-22'
+      commit: a154e8d4
+  - id: CLD-G14
+    statement: divergence is computed only where BOTH sides are exact, and the difference is the arithmetic of the
+      two figures served beside it
+    spec_clause:
+      document: spec/CP-SPEC-020_Syndicated_Lending_Co_Lender.md
+      clause: G.1
+    test: tests/examples/test_cp_20_co_lender.py::test_divergence_is_computed_only_where_both_sides_are_exact
+    sabotage: compute a divergence when the filed side is absent
+    sabotage_state: passed
+    observed_red:
+      result: RED 2026-09-22 — a zero divergence was returned where no peer figure existed, and the domestic answer
+        acquired a divergence it has no evidence for.
+      date: '2026-09-22'
+      commit: a154e8d4
+  - id: CLD-G15
+    statement: every claim is marked local-reconstructible or remote-attested, and the marking is DERIVED from the
+      admitted child's own tenant rather than authored
+    spec_clause:
+      document: spec/CP-SPEC-020_Syndicated_Lending_Co_Lender.md
+      clause: G.1
+    test: tests/examples/test_cp_20_co_lender.py::test_every_claim_states_whether_it_is_reconstructible
+    sabotage: mark the remote claim local-reconstructible
+    sabotage_state: passed
+    observed_red:
+      result: RED 2026-09-22 — the remote claim was marked local-reconstructible, and an unreconstructible claim
+        inherited the credibility of a reconstructible one.
+      date: '2026-09-22'
+      commit: a154e8d4
+  - id: CLD-G16
+    statement: the replay record names the producer, its tenant and the child class, so an examiner can tell WHO
+      was asked WHAT from the record alone
+    spec_clause:
+      document: spec/CP-SPEC-020_Syndicated_Lending_Co_Lender.md
+      clause: G.1
+    test: tests/examples/test_cp_20_co_lender.py::test_replay_names_the_producer_and_the_question
+    sabotage: drop the producer relationship from the recorded child row
+    sabotage_state: passed
+    observed_red:
+      result: 'RED 2026-09-22 — sabotage carried inside the test: the producer id searched for was altered. The
+        record is written by the SDK, which this rung may not edit.'
+      date: '2026-09-22'
+      commit: a154e8d4
+  - id: CLD-G17
+    statement: the composite's lineage is the SET-UNION of its own and the admitted child's — admitting the child
+      strictly enlarges `policy_bundle_versions` — and `operators_invoked` names no `Federate` or `Enrich`, because
+      acquisition is not an operator
+    spec_clause:
+      document: spec/CP-SPEC-020_Syndicated_Lending_Co_Lender.md
+      clause: G.1
+    test: tests/examples/test_cp_20_co_lender.py::test_lineage_is_the_union_and_names_no_federation_operator
+    sabotage: put `Federate` into the served operator set
+    sabotage_state: passed
+    observed_red:
+      result: RED 2026-09-22, on the SECOND sabotage — and the first STAYING GREEN was a defect in this gate's own
+        test, not in the product. The check used exact set membership, so a forbidden token inside an operator key
+        (`federate.peer-position`) would have sailed past it. The test now matches as a SUBSTRING over each member
+        and the sabotage bites. Recorded as `CLD-F-07`.
+      date: '2026-09-22'
+      commit: a154e8d4
+  - id: CLD-G18
+    statement: three perspectives serve structurally different key sets from one class through one door
+    spec_clause:
+      document: spec/CP-SPEC-020_Syndicated_Lending_Co_Lender.md
+      clause: G.1
+    test: tests/examples/test_cp_20_co_lender.py::test_three_perspectives_serve_structurally_different_products
+    sabotage: collapse two renderings to the same shape
+    sabotage_state: passed
+    observed_red:
+      result: RED 2026-09-22 — the narrowest rendering was given the widest one's branch and two perspectives served
+        the same key set.
+      date: '2026-09-22'
+      commit: a154e8d4
+  - id: CLD-G19
+    statement: '`prospective` receives strictly less than `participant`, which receives strictly less than `agent`
+      — asserted as CONTAINMENT, never as a count'
+    spec_clause:
+      document: spec/CP-SPEC-020_Syndicated_Lending_Co_Lender.md
+      clause: G.1
+    test: tests/examples/test_cp_20_co_lender.py::test_the_renderings_are_strictly_nested
+    sabotage: give the narrowest rendering a key the widest does not carry
+    sabotage_state: passed
+    observed_red:
+      result: RED 2026-09-22 — `prospective` was given a key `agent` does not carry, and the strict nesting broke.
+      date: '2026-09-22'
+      commit: a154e8d4
+  - id: CLD-G20
+    statement: the consumer's own modules and documents name no peer store, no peer credential and no peer namespace;
+      the co-lender is reachable only through the registered door
+    spec_clause:
+      document: spec/CP-SPEC-020_Syndicated_Lending_Co_Lender.md
+      clause: G.1
+    test: tests/examples/test_cp_20_peer_and_identity.py::test_the_consumer_holds_no_handle_to_the_peers_stores
+    sabotage: read the peer's Postgres directly from the consumer's acquisition
+    sabotage_state: passed
+    observed_red:
+      result: RED 2026-09-22 — a peer source-setting name was introduced into the consumer's own acquisition module.
+      date: '2026-09-22'
+      commit: a154e8d4

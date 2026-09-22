@@ -1,0 +1,73 @@
+#
+# WHERE THE CO-LENDER'S OWN STORES LIVE — names only, never values.
+#
+# The peer's connection material lives in the operator's shell, and on this
+# host it lives in `~/.bashrc`, which returns early for non-interactive
+# shells. Peer work therefore runs under `bash -ic` (spec §C.1). Note also
+# that `ccf_dataprep/.env.example` documents a peer at `192.168.4.77` that
+# DOES NOT EXIST — the provisioned peer is on `.76`, Fluree port 8091.
+#
+# `CLD-G20` asserts the consequence of this file: no peer address and no peer
+# credential appears anywhere in the example's code, and the CONSUMER tree
+# holds no handle to these stores at all. The peer is reachable only through
+# the registered door.
+
+config: ccf_config.yaml
+
+substrate:
+  setting: database_path
+  prefix: cp_20_peer
+  suffix: .sqlite3
+
+sources:
+  peer_positions:
+    dsn:
+      from_env: CCF_CP_20_PEER_POSTGRES_DSN
+      remedy: >-
+        export CCF_CP_20_PEER_POSTGRES_DSN with a READ-ONLY connection string
+        for the co-lender's own database (`bofa_syndicated`, role `colender`).
+        The role needs SELECT and nothing else — this deployment never writes
+        to the store it reads, and a role that could write would make that a
+        promise rather than a guarantee.
+    schema:
+      from_env: CCF_CP_20_PEER_POSTGRES_SCHEMA
+      remedy: >-
+        export CCF_CP_20_PEER_POSTGRES_SCHEMA with the namespace holding
+        `peer_position` and `peer_product_declaration` (the provisioned peer
+        uses `colender`). Declared rather than defaulted: a schema name
+        selects WHICH of a store's namespaces the product reads, and the peer
+        database sits on the same host and port as ours.
+  peer_counterparties:
+    url:
+      from_env: CCF_CP_20_PEER_FLUREE_URL
+      remedy: >-
+        export CCF_CP_20_PEER_FLUREE_URL with the base URL of the co-lender's
+        READ-ONLY Fluree server (the provisioned peer is port 8091, ours is
+        8090 — they differ ONLY by port, which is why the isolation is a
+        software property and `CLD-G20` is a real gate rather than a nicety).
+        This example issues only `/v1/fluree/query`.
+    ledger:
+      from_env: CCF_CP_20_PEER_FLUREE_LEDGER
+      remedy: >-
+        export CCF_CP_20_PEER_FLUREE_LEDGER with the peer's ledger name
+        (`bofa/syndicate`). Every query carries an explicit `from` and there is
+        no default: a defaulted ledger name would be a value nobody chose
+        pointing at a store nobody named.
+
+door:
+  credential:
+    from_env: CCF_CP_20_PEER_DOOR_TOKEN
+    remedy: >-
+      export CCF_CP_20_PEER_DOOR_TOKEN with the bearer credential this door is
+      to be reached with, or leave it unset to have one minted per boot.
+  issuer_url:
+    from_env: CCF_CP_20_PEER_DOOR_ISSUER_URL
+    remedy: >-
+      export CCF_CP_20_PEER_DOOR_ISSUER_URL with the OAuth issuer this door's
+      auth settings advertise (any https URL for a development door).
+  resource_server_url:
+    from_env: CCF_CP_20_PEER_DOOR_RESOURCE_URL
+    remedy: >-
+      export CCF_CP_20_PEER_DOOR_RESOURCE_URL with the resource-server address
+      this door's auth settings advertise (any https URL for a development
+      door).

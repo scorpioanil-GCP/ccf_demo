@@ -1,0 +1,52 @@
+#
+# WHERE THE CONSUMING BANK'S OWN STORES LIVE, AND WHERE THE PEER IS REACHED.
+#
+# Note what is NOT here: the peer's Postgres DSN, the peer's Fluree URL, the
+# peer's schema, the peer's ledger. This deployment holds no handle to the
+# co-lender's stores — it reaches the co-lender at ONE endpoint, through the
+# registered door, and that is the whole cross-organizational surface.
+# `CLD-G20` is the gate that keeps it so.
+
+config: ccf_config.yaml
+
+substrate:
+  setting: database_path
+  prefix: cp_20
+  suffix: .sqlite3
+
+sources:
+  syndicate_graph:
+    url:
+      from_env: CCF_CP_20_FLUREE_URL
+      remedy: >-
+        export CCF_CP_20_FLUREE_URL with the base URL of a READ-ONLY Fluree
+        server carrying the syndicate ledger. This example issues only
+        `/v1/fluree/query`; it never creates, updates or deletes a ledger.
+    ledger:
+      from_env: CCF_CP_20_FLUREE_LEDGER
+      remedy: >-
+        export CCF_CP_20_FLUREE_LEDGER with the ledger name to read. The v2
+        ledger is `fibo-v2`; `ccf_dataprep/.env` names v1 (`fibo:main`), and
+        deriving this from `.env` alone points the example at an estate where
+        the anchor resolves in Postgres and has no node in the graph
+        (CLAUDE.md §9, the namespace trap).
+  syndicate_relational:
+    dsn:
+      from_env: CCF_CP_20_POSTGRES_DSN
+      remedy: >-
+        export CCF_CP_20_POSTGRES_DSN with a READ-ONLY connection string for
+        the bank's own estate. The role needs SELECT and nothing else.
+    schema:
+      from_env: CCF_CP_20_POSTGRES_SCHEMA
+      remedy: >-
+        export CCF_CP_20_POSTGRES_SCHEMA with the namespace holding `facility`,
+        `own_position` and `syndicate_member`. The v2 estate reads `ccf_v2`;
+        `ccf_dataprep/.env` names v1 (`public`).
+
+# The transport deadline for every federated call — ONE environment-level
+# bound, not a per-request parameter (spec §B.3). It is the wire's patience.
+# It is NOT the declared-latency bound `CLD-G12` asserts: that one is a policy
+# value in `artifacts/federation-policy.yaml`, compared against a declaration
+# in the peer's own data rather than measured off a socket.
+remote:
+  call_timeout_seconds: 120
