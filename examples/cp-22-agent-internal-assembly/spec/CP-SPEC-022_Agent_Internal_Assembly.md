@@ -2,7 +2,7 @@
 class_id: cp-22.specification
 semver: "1.0.0"
 standard: Context Product Specification Standard v0.3
-status: GATE 1 — requirements and questions only; no implementation
+status: GATE 2 — Q1/Q2/Q3 RULED 2026-09-21 and folded; implementation authorized
 authored: 2026-09-21
 measured_against:
   repo: ccf_code @ ec0c153e
@@ -14,6 +14,25 @@ measured_against:
 **CP-22 is not a new Context Product.** It is a proof about *where* a Context
 Product can be assembled: **inside an agent that is itself a server in someone
 else's protocol.**
+
+---
+
+## THE CENTRAL INVARIANT (RULED 2026-09-21)
+
+> ### CCF terminates inside Agent B.
+> ### A2A is an external agent protocol and is NOT a CCF delivery surface.
+
+Agent B, in six steps and no others:
+
+1. receives a **narrow** A2A request;
+2. maps **only the approved fields** into its own use-case invocation;
+3. assembles a Context Product **internally** using CCF;
+4. lets **CCF governance and debt determine whether an answer may be used**;
+5. **deliberately extracts a lossy** use-case answer;
+6. sends **that answer** over A2A.
+
+**The Context Product itself never crosses the A2A boundary.** Every gate in
+§G.1 exists to hold one edge of that sentence.
 
 ---
 
@@ -303,47 +322,58 @@ Everything required is present and measured (§C.1, §C.2). **No estate gap.**
 
 ### F.4 — THE QUESTIONS OWED
 
-#### `Q1` — which harness carries the A2A side?
+#### `Q1` — RULED 2026-09-21: `a2a-sdk` DIRECTLY
 
-| | option | consequence |
-|---|---|---|
-| **A** | **`a2a-sdk` directly** *(recommended)* | the protocol, nothing above it; ~60 lines for an `AgentExecutor` + routes + a client; no agent framework's opinions leak into the demonstration; matches how `lf_a2a.py` already uses the same library, so the shape is familiar without being reused |
-| B | `google-adk`'s native A2A | closer to "a real agent", but drags ADK's agent/session/runner model into a rung whose subject is a boundary, and makes the demonstration ADK-shaped |
+> **Dave's ruling.** *"Use `a2a-sdk` directly. Do not use ADK. Do not introduce
+> an agent framework merely to prove the protocol boundary."*
 
-**Recommendation: A.** Gate 0 said *"the example should show one, not build an
-adapter"*; `a2a-sdk` is the smaller of the two and keeps the rung about the
-seam rather than about an agent framework.
+**What this settles.** The A2A side is the protocol and nothing above it: an
+`AgentExecutor`, the JSON-RPC and agent-card routes, and a client built by
+`ClientFactory`. `google-adk` is installed and is **not used**. No agent
+framework, session model or runner enters this tree — the rung's subject is a
+boundary, and a framework's opinions would make the demonstration
+framework-shaped rather than boundary-shaped.
 
-#### `Q2` — what does Agent B consume, and by which in-process route?
+#### `Q2` — RULED 2026-09-21: `open_product` AGAINST ONE EXISTING PAVED PRODUCT ON THE LIVE ESTATE
 
-| | option | consequence |
-|---|---|---|
-| **A** | **`open_product` against an existing paved rung** *(recommended)* | measured at 25 lines (§C.2); reads the **curated `.76` estate**, as CLAUDE.md §9 requires of every example; Agent A's question is a real banking question; no new binding document |
-| B | `ProductClient` + `CCF_BINDING=inprocess:` against `hw1` | the thinnest possible glue and the route Gate 0 named — **but `hw1` is the only tree with a `binding.yaml` (measured: 1 of 27)**, and its deployment is a **seeded local sqlite**, so CP-22 would read no curated estate |
-| C | write CP-22 its own product | a new class for a rung whose whole point is that it needs none |
+> **Dave's ruling.** *"Use `open_product` against one existing paved product on
+> the live `.76` estate. CP-21 is acceptable. Do not: create another Context
+> Product class; use `hw1` merely because it has `binding.yaml`; substitute
+> seeded local SQLite for the live estate; add a new binding mechanism. The
+> measured ~25 lines of standalone `open_product` glue are the baseline DX
+> cost. Record the actual implementation cost after build."*
 
-**Recommendation: A**, with a measured note. Option B is cheaper by a few
-lines and is what Gate 0 anticipated, but it would make CP-22 the one rung on
-the ladder that demonstrates nothing against the live estate. **If Dave prefers
-B for cost, that is a coherent choice and the estate exception should be stated
-in the README rather than discovered.**
+**What this settles.** Option A stands; B and C are closed. Agent B consumes
+**`risk.large-exposure` from `examples/cp-21-large-exposure`**, reading the
+curated `.76` estate exactly as that rung does. **No new class, no new binding
+mechanism, no seeded substitute.** The `hw1` route is closed despite being
+cheaper, because it would have made CP-22 the one rung on the ladder
+demonstrating nothing against the live estate.
 
-Under A, **which** rung is a second-order choice; the recommendation is a rung
-whose answer is a single legible fact an agent would actually ask for.
+**A measurement is owed by this rung**: the standalone probe cost **25 lines**
+(§C.2), and §G.2 records what the shipped Agent B actually cost against it.
 
-#### `Q3` — how much of Agent A's question does Agent B trust?
+#### `Q3` — RULED 2026-09-21: A NARROW TRUST MAP, AND THE PROHIBITIONS ARE NAMED
 
-This is the only question with a governance consequence, and it is where a
-careless answer invents the protocol Dave's framing forbids.
+> **Dave's ruling.** *"The A2A request may supply only: subject; instant.
+> Everything else comes from Agent B's own declaration/configuration."*
 
-| | option | consequence |
-|---|---|---|
-| **A** | **a fixed, narrow mapping** *(recommended)* | Agent B accepts one subject and one instant from the message and supplies everything else — intent, perspective, tolerance — from its own declaration. Agent A cannot reach the policy envelope at all. |
-| B | pass A2A metadata through as request parameters | Agent A can shape the governed request from outside, which is a CCF request surface over A2A wearing a disguise — **the thing the framing forbids** |
-| C | derive the perspective from Agent A's A2A identity | Trap 3; makes an unverified external identity a Control Plane principal |
+**Explicitly prohibited**, each closed rather than left open because each is
+what a well-meaning implementer reaches for next:
 
-**Recommendation: A**, and B and C should be closed explicitly rather than left
-open, because both are what a well-meaning implementer reaches for next.
+- arbitrary A2A metadata becoming CCF request parameters;
+- Agent A's **asserted identity** becoming a Control Plane principal;
+- Agent A **selecting Agent B's perspective or role**;
+- Agent A **supplying policy-envelope values**.
+
+> **Agent B executes under Agent B's governed principal, regardless of what
+> Agent A claims about itself.** `AIA-G08` stays load-bearing.
+
+**Two fields cross, and they are data, not authority.** A subject names *what*
+is asked about; an instant names *when*. Neither can widen an envelope, select
+a rendering, or raise a tolerance. Everything that governs — intent,
+perspective, regime, connection basis, debt tolerance — is Agent B's
+declaration and is unreachable from the wire.
 
 ---
 
@@ -357,21 +387,90 @@ is about the **boundary**, which is the only thing this rung owns.
 | id | statement | sabotage |
 |---|---|---|
 | `AIA-G01` | Agent B assembles the product **in-process**, in the same process that serves A2A — no MCP door, no HTTP door, no subprocess | assembly is moved behind a door |
-| `AIA-G02` | Agent A's request carries **no CCF vocabulary** — no product class, no principal, no tolerance, no instant semantics beyond a plain timestamp | a CCF term is required to ask |
+| `AIA-G02` | Agent A's request carries **no CCF vocabulary**, and only **`subject` and `instant`** are read from it (`Q3`) | a third field is read from the wire |
 | `AIA-G03` | the A2A reply **answers the question** — the use-case fact is present and correct against the same question asked in-process | the extraction returns something the product does not say |
-| `AIA-G04` | the in-process product and the A2A answer **agree**: the fact Agent A receives equals the fact the product carries, for the same question and instant | the extraction drifts from its source |
-| `AIA-G05` | **no CCF-shaped structure crosses the wire** — the outbound payload contains no contract member names, no content address, no lineage, no replay reference, no `D_c`, asserted by scanning the bytes | the payload is exported "for transparency" |
-| `AIA-G06` | a governed **refusal** becomes an honest A2A answer carrying **no CCF refusal vocabulary** — no error code, no envelope, no replay reference | the refusal envelope is forwarded |
-| `AIA-G07` | a refusal is **never silently a success** — Agent A can tell an unanswerable question from an answered one | a refusal returns an empty-but-successful answer |
-| `AIA-G08` | Agent B assembles under **its own** principal, whatever the A2A request claims | the caller's claimed identity reaches the perspective |
+| `AIA-G04` | the in-process product and the A2A answer **agree on the FACT** for the same question and instant | the extraction drifts from its source |
+| `AIA-G05` | **no CCF-shaped structure crosses the wire**, asserted against the **ACTUAL WIRE BYTES** | any forbidden token is exported |
+| `AIA-G06` | a governed **refusal** becomes an honest A2A **non-success** response carrying **no CCF refusal vocabulary** | the refusal envelope is forwarded |
+| `AIA-G07` | a refusal is **never silently a successful business answer** | a refusal returns an empty-but-successful answer |
+| `AIA-G08` | Agent B assembles under **its own** principal, whatever the A2A request claims, and no wire field reaches the policy envelope | the caller's claimed identity or a policy value reaches the request |
 | `AIA-G09` | this tree **imports no `ccf_runtime.peering`** — CP-22 is an agent conversation, not a fabric federation | `LfA2AWire` is reached for |
-| `AIA-G10` | **`D_c` governs without travelling** — a tighter declared tolerance changes the A2A reply for the same question | the tolerance reaches nothing |
+| `AIA-G10` | **`D_c` governs without travelling** — a tighter declared tolerance changes the A2A reply for the same question, and no debt value appears on the wire | the tolerance reaches nothing |
 | `AIA-G11` | the governed decision is **reconstructible inside Agent B** from its own record, though nothing of it reached Agent A | the record is not written, or not resolvable |
-| `AIA-G12` | the whole exchange runs **across a real process boundary** — Agent A in one process, Agent B in another, over a real socket | the "A2A" call is an in-process function call wearing the protocol's name |
+| `AIA-G12` | the exchange crosses a **genuine OS process boundary** over the A2A protocol | the call is an in-process function call wearing the protocol's name |
 
-**`AIA-G12` is the one most at risk of being faked**, and it is why it is
-named: a test that calls Agent B's handler directly proves the extraction and
-**nothing about A2A**.
+#### `AIA-G05` — THE FORBIDDEN LIST, AND IT IS CHECKED ON THE BYTES
+
+> **Ruled 2026-09-21.** *"`AIA-G05` should inspect the actual wire bytes, not
+> merely the response object before serialization."*
+
+Checking the response object is the weaker test and would pass a payload that
+serializes a forbidden value through a field the object does not name. The gate
+reads what the socket carried. **The A2A response must not contain:**
+
+- the Context Product **content address**;
+- the **replay-record** address or reference;
+- **Context Debt** or any factor value;
+- **lineage**;
+- **CCF artifact URIs**;
+- **CCF refusal vocabulary**;
+- **internal policy or grant identifiers**.
+
+**Only the use-case-specific answer Agent A needs is returned.**
+
+#### `AIA-G06` AND `AIA-G07` ARE SEPARATE, AND PROVE DIFFERENT PROPERTIES
+
+Ruled kept apart. **`G06` is about VOCABULARY**: the non-success reply must not
+carry CCF refusal codes, details or replay references. **`G07` is about
+OUTCOME**: a refusal must not arrive as a successful business answer at all.
+A reply could satisfy either alone — a leaked envelope that is honestly a
+failure passes `G07` and fails `G06`; a silent empty success passes `G06` and
+fails `G07`.
+
+#### `AIA-G10` — DEBT GOVERNS, AND DOES NOT TRAVEL
+
+`D_c` **determines whether Agent B may use the Context Product**. It does not
+cross the boundary. Both halves are asserted: the tolerance must change the
+reply, and no debt value may appear on the wire.
+
+#### `AIA-G12` — A GENUINE OS PROCESS BOUNDARY
+
+> **Ruled 2026-09-21.** *"A direct call to Agent B's handler proves extraction
+> logic only and does not satisfy this rung. Use a loopback/local process if
+> appropriate; no external deployment is required."*
+
+**Loopback is sufficient; a function call is not.** This is the gate most at
+risk of being faked, which is why the ruling names the failure.
+
+#### WHAT IS NOT REQUIRED: CCF CONTENT IDENTITY ON THE WIRE
+
+> **Ruled 2026-09-21.** *"Do not require the A2A response to preserve CCF
+> content identity. The product and replay record remain internal to Agent B.
+> The observable identity contract on the A2A wire belongs to A2A/use-case
+> semantics, not CCF."*
+
+So `AIA-G04` asserts the **fact** agrees, never that an address agrees — and
+no gate asks the wire to be content-addressed. A rung that demanded byte
+identity across this boundary would have re-imposed the delivery surface the
+central invariant refuses.
+
+### G.0 Stop conditions — ruled 2026-09-21
+
+**This rung should remain cheap.** Implementation STOPS IMMEDIATELY, and the
+finding is raised before any further building, on any of:
+
+1. a **missing capability** required to assemble the internal Context Product;
+2. **incorrect CCF governance behavior**;
+3. a **security or governance leak across the extraction seam**;
+4. evidence that **satisfying A2A requires a CCF protocol, door or peering
+   change**.
+
+Otherwise: complete the minimal product reuse, the A2A harness, the gates, the
+sabotages and the findings; push the candidate and stop for review. **No large
+close panel unless a security or governance boundary finding warrants one.**
+
+**Also out, by ruling:** no peering import; no ADK; no new Context Product
+class; no new SDK decision id; no CP-20 work.
 
 ### G.2 What this rung measures for the backlog
 
@@ -385,15 +484,16 @@ named: a test that calls Agent B's handler directly proves the extraction and
 
 ---
 
-## Gate 1 summary
+## Gate 2 summary
 
 **CP-22 requires no SDK change, no new class, no new operator and no new
 dependency.** The CCF half is measured at **25 lines** and already works. What
 the rung owns is a **boundary**, and the entire risk is that someone widens it
 into a protocol.
 
-**Three questions are owed** (`Q1` harness, `Q2` consumed product and route,
-`Q3` trust in Agent A's question), each with a recommendation. `Q2` carries a
-real trade-off Dave should settle: the cheapest route reads no curated estate.
+**All three questions are RULED and folded** (2026-09-21): `a2a-sdk` directly;
+`open_product` against `examples/cp-21-large-exposure` on the live `.76`
+estate; and a narrow trust map admitting **subject and instant only**.
 
-**Twelve gates are proposed.** Nothing is implemented. Stopping for ruling.
+**Twelve gates, `AIA-G01`..`AIA-G12`**, every one an edge of the central
+invariant. Four stop conditions are in force. Implementation is authorized.
