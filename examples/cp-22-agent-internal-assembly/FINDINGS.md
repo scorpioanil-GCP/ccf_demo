@@ -18,7 +18,7 @@ Measured 2026-09-21 against the live estate (`CCF_REQUIRE_ESTATE=1`).
 | `AIA-F-05` | 3 · post-launch enhancement | backlog record below |
 | `AIA-F-06` | 4 · estate/example limitation | recorded |
 | `AIA-F-07` | example defect (mine) | **fixed** — a cross-tree module collision |
-| `AIA-F-08` | **needs a ruling** | the spine classifier has no CONSUMER shape |
+| `AIA-F-08` | 2 · launch ergonomics | **CLOSED** by a structural `CONSUMER` shape (ruled B) |
 
 **Active issue cap: 1 of 3** — `AIA-F-01`, and it is a new instance of a known
 family rather than a new defect.
@@ -266,9 +266,9 @@ reached shipped agent code.
 
 ---
 
-## `AIA-F-08` — the spine contract has four shapes, and none of them is CONSUMER
+## `AIA-F-08` — the spine contract had four shapes, and none of them was CONSUMER
 
-**Needs a ruling. NOT worked around, and the shared gate was NOT edited.**
+**CLOSED 2026-09-22 by a structural `CONSUMER` shape. Dave ruled B.**
 
 `tests/examples/test_spine_separation.py` scans `examples/cp-*` by glob and
 judges each tree against the regions its **shape** owes. Measured 2026-09-21:
@@ -311,7 +311,49 @@ aggregate that cp-22's presence breaks.
 - **Not a `# ccf-schema: deferred(...)`-shaped exception.** That is the move
   this project refuses everywhere else.
 
-**What a ruling would choose between:** teaching `shape_of` a `consumer`
-shape that owes `boot` and `answer` (or nothing); narrowing the glob so it
-scans producers rather than every `cp-*`; or accepting cp-22 as a named
-exception. **This rung takes none of them.**
+### The ruling, and what it settled
+
+> **Dave, 2026-09-22.** *"Do not create a CONSUMER allowlist. The spine gate
+> remains structural. Add a `CONSUMER` structural classification … A `cp-*`
+> tree is `CONSUMER` when it: (1) declares no Context Product class of its
+> own; and (2) reaches an existing paved product entry belonging to another
+> product tree. That answers the gate's actual question: Does this tree
+> produce a Context Product, or consume one? It does not answer: Is this tree
+> approved?"*
+
+**I had first been told to add CP-22 to "the existing human-ruled spine
+roster." There is no such roster**, and the module's own ruled text forbids
+one — *"There is no roster of canonical examples anywhere in this module and
+none may be added"* (line 176), and again for the paved shape at line 247. The
+`D-IMPL-141` ruled-list mechanism lives in a different module,
+`tests/products/test_gate_two_call_shape.py`. Surfacing that rather than
+inventing a roster is what produced ruling B.
+
+**What shipped** (`5169d191`), in `tests/examples/test_spine_separation.py`
+only:
+
+- `declares_product_class` reads the deployment document, because a class is a
+  Control Plane artifact and that is where a producer names it;
+- `foreign_paved_reach` is structural on **both** ends — the call site from
+  this tree's AST, the target from the other trees' — so a reach counts only
+  when the symbol it names really is a paved entry somewhere else. A tree
+  calling its own `produce.product` matches nothing, which is what keeps every
+  shipped producer out of the shape;
+- a consumer owes no producer regions **and may not publish them**:
+  `consumer_problems` refuses a tree that opens `gate`/`record`/`serve` while
+  producing nothing.
+
+**Nothing consults a list of approved directories.** No glob was narrowed, no
+`agent_b.py` line changed, no `src/` or `runtime/` file touched.
+
+**Six controls, each selecting its subject BY PREDICATE rather than by name**,
+so they follow the tree and fail loudly if the last consumer regresses. Four
+are the ones the ruling required; two more break **each limb alone**, which
+Dave's both-limbs sabotage cannot distinguish from a disjunction. Measured:
+**181 passed**, and four sabotages of the classifier itself — `AND`→`OR`, the
+reach losing FOREIGN, the product class ignored, a consumer allowed to publish
+a spine — each observed **RED**.
+
+**Carried forward, per the ruling:** the follow-up to add a first-class
+CONSUMER shape *"before another agent-internal consumer tree is introduced"* is
+discharged by this commit. What remains open is nothing.
