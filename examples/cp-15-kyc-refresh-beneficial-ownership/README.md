@@ -81,14 +81,55 @@ Nothing the queue does can reach the product. That is checked by assembling the 
 | `run.py` | presentation only; serves first, then refers |
 | `FINDINGS.md` | what this rung measured about the SDK |
 
-## What to change first to adapt it
+## Whitepaper / CLAUDE.md sections exercised
+
+| section | how |
+|---|---|
+| Whitepaper §7.4 — operator algebra | Policy → Similarity → Temporal → Traversal, four declared keys, Policy first |
+| Whitepaper §7.5 — Projection | one plan, role-conditioned by the audience shapes in `artifacts/perspectives.yaml` |
+| Whitepaper §7.6 — Context Product Contract | `extra=forbid` payload; a sub-threshold finding stays INSIDE it |
+| Whitepaper §7.7 — half-life and Context Debt | evidence-anchored freshness over the sanctions publish date |
+| Whitepaper §7.10 — Decision Replay | the served content address is the review item's `output_ref` |
+| CLAUDE.md §6.4 — No-Hardcoding | the thresholds, the audience shapes and the estate's names are artifacts |
+| CLAUDE.md §8.2 — HITL, audit by construction | the SDK's `ReviewQueue`, composed with the product rather than bolted after it |
+| CLAUDE.md §9 — estate discipline | reads `.76` only; seeds nothing; asserts relationships, never estate counts |
+
+## What to change first
 
 Replace `artifacts/source-vocabulary.yaml` with your own estate's names and `artifacts/perspectives.yaml` with your own audience shapes; rewrite the readers in `acquisition.py`. `produce.py` names no domain value and does not change. The seam that derives the envelope from the verified credential is documented at `public/how-to/condition-acquisition-on-the-verified-credential.md`, and this tree was written against that page.
 
 **If you are adding HITL to your own product, copy `review.py`'s shape rather than its content** — in particular, that it takes a `ServedProduct` rather than anything earlier. That single type choice is what makes the construction boundary structural instead of a convention somebody has to remember.
 
-## Illustrative calibration
+### Illustrative calibration
 
 This example runs against a point-in-time demonstration estate rather than continuously refreshed production data. Freshness half-lives and related thresholds are calibrated to make the governed behavior observable in that snapshot. They demonstrate how the SDK applies these controls and should not be interpreted as recommended production coverage-policy thresholds.
 
 The Similarity floor is 0 here, and the reason is recorded where it is declared: `kyc_document` carries no text field, so the ranked corpus is composed at the acquisition seam from the document's kind, its entity and owner names and its jurisdiction. The reporting thresholds and the confidence floors are the **estate's own**, not calibrated by this example; what the request may do is raise them, never lower them.
+
+## What would fail
+
+**A finding referred without evidence.** `ReviewQueueItem.lineage` requires at
+least one entry, so a flagged person with nothing supporting it cannot be
+submitted at all — the product names it as *not referred* rather than
+manufacturing a reference (`UBO-F-04`).
+
+**A review item pointed at a bare content address.** `output_ref` requires a
+versioned `ccf-artifact` URI and refuses one (`UBO-F-02`); and
+`PendingHitlEvent.product_content_hash` is the ITEM's hash, not the product's,
+so a reader reaching for the product's address through it gets the wrong one
+(`UBO-F-03`).
+
+**Twenty declared gates**, each claimed by an executing test and each observed
+red under its own sabotage. The one that could not redden on its first attempt
+is recorded rather than swapped: replacing the cycle computation with a
+constant empty list left `UBO-G19` green, because this estate contains no
+ownership cycles to begin with (`UBO-F-05`, `UBO-F-01`).
+
+### What this rung does NOT prove
+
+Ownership cycles — the estate has none, measured two ways, and none is
+engineered (`UBO-F-01`). The refresh register and the ownership chains do not
+join: `kyc_refresh_state` is keyed by LEI and every chain anchor here is not
+(`UBO-F-06`). And `kyc_document` carries no text field, so the Similarity
+corpus is composed at the acquisition seam rather than ranked over prose
+(`UBO-F-07`).

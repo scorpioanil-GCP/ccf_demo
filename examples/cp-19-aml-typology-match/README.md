@@ -83,11 +83,24 @@ One projection plan branches on the perspective. The L1 analyst's product carrie
 | `run.py` | presentation only; the one module that writes to a terminal |
 | `FINDINGS.md` | what this rung measured about the SDK, classified under `docs/EXAMPLE-EVALUATION-CRITERIA.md`, including the mandatory A2 third-instance measurement |
 
-## What to change first to adapt it
+## Whitepaper / CLAUDE.md sections exercised
+
+| section | how |
+|---|---|
+| Whitepaper §7.4(c) — **policy-before-similarity** | the four-operator composition, served as an operator-plan fact rather than asserted in prose |
+| Whitepaper §7.5 — Projection | three perspectives differing in what is ASSEMBLED, not merely in what is shown |
+| Whitepaper §7.6 — Context Product Contract | `extra=forbid`; a filing posture in force at a past `as_of` |
+| Whitepaper §7.7 — half-life and Context Debt | supersede-only classes, and what that does to the freshness mean (`ATM-F-04`) |
+| Whitepaper §7.10 — Decision Replay | the posture, the bound and the plan all reconstructible from the record |
+| CLAUDE.md §6.4 — No-Hardcoding | the typology vocabulary and the posture windows are artifacts and estate data |
+| CLAUDE.md §7.1/§7.3 — MCP egress | the standard door, four credentials, the fourth granted nothing |
+| CLAUDE.md §9 — estate discipline | reads `.76` only; seeds nothing; asserts relationships, never estate counts |
+
+## What to change first
 
 Replace `artifacts/source-vocabulary.yaml` with your own estate's names and `artifacts/perspectives.yaml` with your own audience shapes; rewrite the readers in `acquisition.py` against your stores. `produce.py` names no domain value and does not change. The declared gate in `deployment.py` is where a product-specific invariant goes — a containment rule, a shape rule, a visibility rule — and the SDK runs it after its own universal gates and before the tolerance check.
 
-## Illustrative calibration
+### Illustrative calibration
 
 This example runs against a point-in-time demonstration estate rather than continuously refreshed production data. Freshness half-lives and related thresholds are calibrated to make the governed behavior observable in that snapshot. They demonstrate how the SDK applies these controls and should not be interpreted as recommended production coverage-policy thresholds.
 
@@ -97,3 +110,30 @@ Two values here are demonstration values, each labeled where it is declared and 
 - the Similarity floor of 1 percent, because the reference index scores integer token overlap between a seven-token query and passages of about ninety unique tokens, and the whole seventy-two-passage corpus therefore scores in a four-value band. `ccf_config.yaml` carries the measured distribution and the reason 1 is the smallest floor at which the operator still discriminates.
 
 The observations, the decay curve and the decision instant stay the SDK's and the estate's. Only the declared thresholds are demonstration values.
+
+## What would fail
+
+**Similarity running before Policy.** The whole rung is §7.4(c): the permitted
+set is computed first and the ranking happens inside it. An implementation that
+ranked first and filtered after would serve the same rows and a different
+guarantee — which is why the gate reads the EXECUTED plan from replay
+dimension 5 rather than `operators_invoked`, an unordered `frozenset`.
+
+**An L1 analyst learning that a SAR exists.** The silence is doubly enforced
+and **either guard alone suffices** — breaking the departmental audience filter
+is not enough to leak it (`ATM-F-08`). That is recorded as a measured property
+of the rung, not as redundancy to trim.
+
+**Fourteen declared gates**, each claimed by an executing test. `ATM-G08`'s
+first sabotage could not redden it — making a member conditional on the alert
+did not mutate the claim the gate asserts — and was corrected rather than
+swapped (`ATM-F-07`).
+
+### What this rung does NOT prove
+
+The vector path. **0 of 72 advisory passages carry an embedding or a
+`sha256`**, so ranking uses the SDK's lexical operator and anchoring uses the
+passage id (`ATM-F-01`). The reference index's usable score band also collapses
+for a short query over long passages (`ATM-F-05`). No alert's subject party has
+a sanctions-screening row anywhere in the estate (`ATM-F-06`), and jurisdiction
+is spelled three different ways across three sources (`ATM-F-02`).

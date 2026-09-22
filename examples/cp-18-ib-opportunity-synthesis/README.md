@@ -82,12 +82,52 @@ Every claim carries a classification; Policy runs first and removes anything out
 | `run.py` | presentation only; the one module that writes to a terminal |
 | `FINDINGS.md` | what this rung measured about the SDK, classified under `docs/EXAMPLE-EVALUATION-CRITERIA.md` |
 
-## What to change first to adapt it
+## Whitepaper / CLAUDE.md sections exercised
+
+| section | how |
+|---|---|
+| Whitepaper §7.4 — operator algebra | Policy → Similarity → Temporal → Traversal, four declared keys, Policy first |
+| Whitepaper §7.5 — Projection | **Π as a dimension of the product**: one plan, three orderings from identical signals |
+| Whitepaper §7.6 — Context Product Contract | `extra=forbid` payload whose ranking is a function of the resolved weight vector |
+| Whitepaper §7.7 — half-life and Context Debt | `decay_basis: valid-from`, which REFUSES an undated claim (`IBO-F-04`) |
+| Whitepaper §7.10 — Decision Replay | the weight version pinned into `policy_bundle_versions`, so a ranking replays under the version in force |
+| CLAUDE.md §6.4 — No-Hardcoding | the weight vector lives in the policy bundle, read through a late-bound closure — never on disk beside the code |
+| CLAUDE.md §7.1/§7.3 — MCP egress | the standard door with typed overrides; the wall state inherited from rung 17 |
+| CLAUDE.md §9 — estate discipline | reads `.76` only; seeds nothing; asserts orderings, never estate counts |
+
+## What to change first
 
 Replace `artifacts/source-vocabulary.yaml` with your own estate's names and its type-to-source map, and `artifacts/perspectives.yaml` with your own audience shapes. Rewrite the readers in `acquisition.py` against your stores and the scoring rule in `projection.py` against your domain. `produce.py` names no domain value and does not change. The seam that derives the envelope from the verified credential is documented at `public/how-to/condition-acquisition-on-the-verified-credential.md`, and this tree was written against that page rather than against another example's source.
 
-## Illustrative calibration
+### Illustrative calibration
 
 This example runs against a point-in-time demonstration estate rather than continuously refreshed production data. Freshness half-lives and related thresholds are calibrated to make the governed behavior observable in that snapshot. They demonstrate how the SDK applies these controls and should not be interpreted as recommended production coverage-policy thresholds.
 
 Two values here are demonstration values, each labeled where it is declared. The fabric's `signal` half-life is the median of the estate's eleven declared per-type half-lives, so the fabric-level freshness term still discriminates at the pinned instant; the per-type half-lives the *ranking* uses are the estate's own and are not calibrated. The Similarity floor over the filing corpus is chosen by the same measured rule rung 19 recorded. The observations, the decay curve and the decision instant stay the SDK's and the estate's.
+
+## What would fail
+
+**A ranking that ignores the weight vector in force.** The three projection
+plans permit identical signal types, so the plan is *not* the discriminator —
+the weight vector is (`IBO-F-05`). A perspective that reached Π but not the
+ranking would leave the perspective gate green, which is why that sabotage was
+corrected rather than accepted (`IBO-F-06`).
+
+**An undated claim on a `valid-from` class.** The class refuses it rather than
+dating it from ingestion. A maturity wall — a structural fact with no
+observation date — cannot be modeled on this class at all, and the public page
+understated that (`IBO-F-04`).
+
+**Eighteen declared gates**, each claimed by an executing test. Two could not
+redden for want of data and are named rather than quietly dropped: the
+restricted-evidence bound has no candidate to fire on for this banker
+(`IBO-F-07`).
+
+### What this rung does NOT prove
+
+Activist-stake signals: the estate holds **no SC 13D data at all** — no table,
+view or column names one (`IBO-F-01`) — and four of the eleven priced signal
+types therefore reach no product (`IBO-F-02`). The signal-type vocabulary is a
+deployment mapping rather than an estate column (`IBO-F-03`), and the weight
+version in force is resolved as the highest version rather than temporally,
+because the source carries no effective date (`IBO-F-08`).
