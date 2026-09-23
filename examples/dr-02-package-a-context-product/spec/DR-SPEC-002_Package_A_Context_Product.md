@@ -172,10 +172,11 @@ to every existing gate, and nothing in the suite tests it today.
 
 ---
 
-## G · Proposed gates
+## G.1 · Declared gates
 
-Ids are `PKG-G01`..`PKG-G08`. **The roster is proposed, not declared** — no
-`gates.yaml` exists until Gate 1 is ruled.
+Ids are `PKG-G01`..`PKG-G08`. **Declared and observed RED** — `artifacts/gates.yaml`
+carries each one's sabotage and the observation made against it. This section is
+the acceptance authority for every id (`D-IMPL-326`).
 
 | id | claim |
 | --- | --- |

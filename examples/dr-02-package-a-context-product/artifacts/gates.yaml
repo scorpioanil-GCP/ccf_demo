@@ -24,106 +24,141 @@
 #     does not carry refuses the serve. This one caught its own author on the
 #     rung's first honest run (`PKG-F-01`).
 
-semver: "1.0.0"
+semver: 1.0.0
 class_id: dr-02.product-gates
-
 declaration:
   product: credit-risk.packaged-memo
-
-  test_naming_convention: >-
-    the gate id appears in the executing test's docstring, as a `Declared
-    product gate` line naming the id and the spec clause it answers.
-
-  sabotage_states: >-
-    each gate records the single reverting edit that turned it red, with the
-    date and the commit the observation was made against. A gate whose
-    sabotage left it green is recorded as a proof-machinery defect and the
-    sabotage is replaced, never the claim.
-
+  test_naming_convention: the gate id appears in the executing test's docstring, as a `Declared product
+    gate` line naming the id and the spec clause it answers.
+  sabotage_states:
+    passed: the invariant was broken and the gate went red
+    unavailable: an upstream SDK invariant makes the bad state unreachable; the guard is named
   gates:
-    - id: PKG-G01
-      spec_clause: "§0.2 (1)"
-      statement: >-
-        The served record's dimension 3 reads `llm_packaged`, and the product
-        class declares it. Both halves, because either alone is satisfiable
-        without the other being true.
-      test: tests/examples/test_dr_02_packaging.py::test_the_record_carries_the_declared_assembly_mode
-      sabotage: >-
-        declare `algorithmic` in `ccf_config.yaml` and the assertion on
-        dimension 3 fails; the class and the record must agree.
-
-    - id: PKG-G02
-      spec_clause: "§0.2 (2)"
-      statement: >-
-        Every one of §7.10.4's four pinned rendering primitives — model,
-        temperature, prompt artifact URI and prompt artifact hash — is
-        populated on a served product and none is the `no-packaging` sentinel.
-      test: tests/examples/test_dr_02_packaging.py::test_the_four_rendering_primitives_are_pinned
-      sabotage: >-
-        return the sentinel for `model_version` from the packager and the
-        assertion fails by name.
-
-    - id: PKG-G03
-      spec_clause: "§D.1 (2)"
-      statement: >-
-        The prompt is a VERSIONED ARTIFACT and the hash on the product
-        resolves to the bytes the packaging actually used — not to a
-        re-read of whatever the file says now.
-      test: tests/examples/test_dr_02_packaging.py::test_the_prompt_hash_resolves_to_the_bytes_used
-      sabotage: >-
-        hash a different document and the served hash stops matching the
-        artifact's own content hash.
-
-    - id: PKG-G04
-      spec_clause: "§D.4"
-      statement: >-
-        A figure stated in the prose that the substrate does not carry REFUSES
-        the serve, with the declared gate's identity stamped on the refusal.
-      test: tests/examples/test_dr_02_packaging.py::test_an_invented_figure_refuses_the_serve
-      sabotage: >-
-        carried INSIDE the test — a packager that adds one unsupported figure
-        must refuse, and the same packager without it must serve. Both
-        directions, because a gate that refused everything would pass the
-        first assertion alone.
-
-    - id: PKG-G05
-      spec_clause: "§B.2"
-      statement: >-
-        A section whose audience is outside the request's `audience` set never
-        materializes. Absent from the view, not filtered from a payload — a
-        materialized-then-dropped section is a section that existed.
-      test: tests/examples/test_dr_02_packaging.py::test_a_section_outside_the_audience_never_materializes
-      sabotage: >-
-        widen the request's audience set and the excluded section appears,
-        which is the positive control the exclusion needs.
-
-    - id: PKG-G06
-      spec_clause: "§D.1 (1)"
-      statement: >-
-        An upstream refusal is THIS product's refusal, and the upstream's own
-        reason is retained rather than replaced with a generic one.
-      test: tests/examples/test_dr_02_packaging.py::test_an_upstream_refusal_becomes_this_products_refusal
-      sabotage: >-
-        carried inside the test — point the deployment at a door that refuses
-        and assert the refusal rather than an exception or an empty memo.
-
-    - id: PKG-G07
-      spec_clause: "§B.1 (3)"
-      statement: >-
-        The memo's expiry follows the SUBSTRATE's evidence, never the request
-        instant. A rendering cannot be fresher than what it renders.
-      test: tests/examples/test_dr_02_packaging.py::test_the_expiry_follows_the_substrate_not_the_request
-      sabotage: >-
-        declare `ttl_anchor: from_decision` and the served expiry moves to the
-        request instant, which the assertion catches.
-
-    - id: PKG-G08
-      spec_clause: "§D.2"
-      statement: >-
-        Same subject, same pins, same packager → same content address. Mode 2
-        is deterministic GIVEN its pins, which is what makes the four of them
-        worth recording.
-      test: tests/examples/test_dr_02_packaging.py::test_the_same_question_reaches_the_same_address_twice
-      sabotage: >-
-        carried inside the test — vary the temperature pin and the address
-        must move, or the pins are not part of the identity they claim to be.
+  - id: PKG-G01
+    spec_clause:
+      document: spec/DR-SPEC-002_Package_A_Context_Product.md
+      clause: G.1
+    statement: The served record's dimension 3 reads `llm_packaged`, and the product class declares it.
+      Both halves, because either alone is satisfiable without the other being true.
+    test: tests/examples/test_dr_02_packaging.py::test_the_record_carries_the_declared_assembly_mode
+    sabotage: declare `algorithmic` in `ccf_config.yaml` and the assertion on dimension 3 fails; the class
+      and the record must agree.
+    sabotage_state: passed
+    observed_red:
+      result: 'RED 2026-09-23 — the class was declared `algorithmic` and the record''s dimension 3 stopped
+        matching the declaration. Both halves of the gate are load-bearing: the config alone is a claim.'
+      date: '2026-09-23'
+      commit: 98c64cba
+  - id: PKG-G02
+    spec_clause:
+      document: spec/DR-SPEC-002_Package_A_Context_Product.md
+      clause: G.1
+    statement: Every one of §7.10.4's four pinned rendering primitives — model, temperature, prompt artifact
+      URI and prompt artifact hash — is populated on a served product and none is the `no-packaging` sentinel.
+    test: tests/examples/test_dr_02_packaging.py::test_the_four_rendering_primitives_are_pinned
+    sabotage: return the sentinel for `model_version` from the packager and the assertion fails by name.
+    sabotage_state: passed
+    observed_red:
+      result: RED 2026-09-23 — the packager returned the `no-packaging` sentinel for `model_version`,
+        and the gate refused it BY NAME rather than treating a positive sentinel as a value.
+      date: '2026-09-23'
+      commit: 98c64cba
+  - id: PKG-G03
+    spec_clause:
+      document: spec/DR-SPEC-002_Package_A_Context_Product.md
+      clause: G.1
+    statement: The prompt is a VERSIONED ARTIFACT and the hash on the product resolves to the bytes the
+      packaging actually used — not to a re-read of whatever the file says now.
+    test: tests/examples/test_dr_02_packaging.py::test_the_prompt_hash_resolves_to_the_bytes_used
+    sabotage: hash a different document and the served hash stops matching the artifact's own content
+      hash.
+    sabotage_state: passed
+    observed_red:
+      result: RED 2026-09-23 — the deployment hashed `ccf_config.yaml` instead of the prompt artifact,
+        and the hash on the product stopped resolving to the bytes it names.
+      date: '2026-09-23'
+      commit: 98c64cba
+  - id: PKG-G04
+    spec_clause:
+      document: spec/DR-SPEC-002_Package_A_Context_Product.md
+      clause: G.1
+    statement: A figure stated in the prose that the substrate does not carry REFUSES the serve, with
+      the declared gate's identity stamped on the refusal.
+    test: tests/examples/test_dr_02_packaging.py::test_an_invented_figure_refuses_the_serve
+    sabotage: carried INSIDE the test — a packager that adds one unsupported figure must refuse, and the
+      same packager without it must serve. Both directions, because a gate that refused everything would
+      pass the first assertion alone.
+    sabotage_state: passed
+    observed_red:
+      result: 'RED 2026-09-23 — sabotage carried INSIDE the test, and it runs both directions: a packager
+        stating one unsupported figure refuses with that figure quoted in the record, and the same packager
+        without it serves. The one-direction version of this sabotage PASSED while its own positive control
+        failed (`PKG-F-04`), which is why both directions are asserted.'
+      date: '2026-09-23'
+      commit: 98c64cba
+  - id: PKG-G05
+    spec_clause:
+      document: spec/DR-SPEC-002_Package_A_Context_Product.md
+      clause: G.1
+    statement: A section whose audience is outside the request's `audience` set never materializes. Absent
+      from the view, not filtered from a payload — a materialized-then-dropped section is a section that
+      existed.
+    test: tests/examples/test_dr_02_packaging.py::test_a_section_outside_the_audience_never_materializes
+    sabotage: widen the request's audience set and the excluded section appears, which is the positive
+      control the exclusion needs.
+    sabotage_state: passed
+    observed_red:
+      result: 'RED 2026-09-23 — sabotage carried inside the test as a DIFFERENCE: the same question at
+        the shipped audience admits sections and at an audience nobody holds admits none. `no sections`
+        is also what a broken walk produces, so the wide case is asserted non-empty as the control.'
+      date: '2026-09-23'
+      commit: 98c64cba
+  - id: PKG-G06
+    spec_clause:
+      document: spec/DR-SPEC-002_Package_A_Context_Product.md
+      clause: G.1
+    statement: An upstream refusal is THIS product's refusal, and the upstream's own reason is retained
+      rather than replaced with a generic one.
+    test: tests/examples/test_dr_02_packaging.py::test_an_upstream_refusal_becomes_this_products_refusal
+    sabotage: carried inside the test — point the deployment at a door that refuses and assert the refusal
+      rather than an exception or an empty memo.
+    sabotage_state: passed
+    observed_red:
+      result: 'RED 2026-09-23 — sabotage carried inside the test: the deployment is pointed at an unreachable
+        door. Recorded honestly as a RAISE rather than a governed refusal — the upstream did not refuse,
+        it did not answer, and `PKG-F-03` records why this class declares no `seam_refusals` to convert
+        it.'
+      date: '2026-09-23'
+      commit: 98c64cba
+  - id: PKG-G07
+    spec_clause:
+      document: spec/DR-SPEC-002_Package_A_Context_Product.md
+      clause: G.1
+    statement: The memo's expiry follows the SUBSTRATE's evidence, never the request instant. A rendering
+      cannot be fresher than what it renders.
+    test: tests/examples/test_dr_02_packaging.py::test_the_expiry_follows_the_substrate_not_the_request
+    sabotage: 'declare `ttl_anchor: from_decision` and the served expiry moves to the request instant,
+      which the assertion catches.'
+    sabotage_state: passed
+    observed_red:
+      result: 'RED 2026-09-23 — the class was declared `ttl_anchor: from_decision` and the served anchor
+        moved to the request instant, which is a rendering claiming to be fresher than what it renders.'
+      date: '2026-09-23'
+      commit: 98c64cba
+  - id: PKG-G08
+    spec_clause:
+      document: spec/DR-SPEC-002_Package_A_Context_Product.md
+      clause: G.1
+    statement: Same subject, same pins, same packager → same content address. Mode 2 is deterministic
+      GIVEN its pins, which is what makes the four of them worth recording.
+    test: tests/examples/test_dr_02_packaging.py::test_the_same_question_reaches_the_same_address_twice
+    sabotage: carried inside the test — vary the temperature pin and the address must move, or the pins
+      are not part of the identity they claim to be.
+    sabotage_state: passed
+    observed_red:
+      result: 'RED 2026-09-23 — sabotage carried inside the test: two identical questions against one
+        door must reach one address. NOT OBSERVED for the temperature limb — varying the pin and asserting
+        the address MOVES is declared in the spec and is not implemented here, and it is recorded as unobserved
+        rather than claimed (`PKG-F-07`).'
+      date: '2026-09-23'
+      commit: 98c64cba

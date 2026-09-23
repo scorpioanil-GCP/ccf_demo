@@ -37,6 +37,7 @@ import pytest
 import yaml
 
 from tools.check_product_gates import (
+    GATED_SPINES,
     GATE_ID_TOKEN,
     CONVENTION_DOCSTRING_FORM,
     CONVENTION_NAME_FORM,
@@ -626,15 +627,36 @@ def test_a_root_with_no_product_tree_is_not_clean(tmp_path: pathlib.Path) -> Non
     assert "no examples/cp-* tree" in problems[0]
 
 
-def test_only_the_cp_ladder_is_in_scope() -> None:
-    """`D-IMPL-224` (4): ``hw1-*`` and ``s1-*`` exist on the tree and are not trees here."""
+def test_only_the_gated_spines_are_in_scope() -> None:
+    """`D-IMPL-224` (4), widened at `PKG-F-05` (2026-09-23).
+
+    The population is the SPINES that declare gates — `cp-*` and `dr-*` — and
+    within them the trees that ship a deployment or a roster. `hw1-*` and
+    `s1-*` stay out by construction, and so does `dr-01`, which is one script
+    that serves nothing and declares nothing.
+
+    The widening was forced by a measurement: under `cp-*` alone this checker
+    reported **29 trees unchanged** after `dr-02`, a thirtieth serving tree
+    with eight declared gates, appeared. A count that does not move when its
+    population does is measuring something else.
+    """
     others = sorted(
-        p.name for p in (REPO_ROOT / "examples").iterdir() if p.is_dir() and not p.name.startswith("cp-")
+        p.name
+        for p in (REPO_ROOT / "examples").iterdir()
+        if p.is_dir() and not p.name.startswith(GATED_SPINES)
     )
     assert any(name.startswith(("hw1-", "s1-")) for name in others), others
     trees = product_trees(REPO_ROOT)
     assert trees, "the real ladder was not found"
-    assert all(tree.name.startswith("cp-") for tree in trees), trees
+    assert all(tree.name.startswith(GATED_SPINES) for tree in trees), trees
+    names = {tree.name for tree in trees}
+    assert "dr-02-package-a-context-product" in names, (
+        "a gate-declaring tree on the dr spine is outside the population"
+    )
+    assert "dr-01-replay-a-governed-determination" not in names, (
+        "a script that serves nothing and declares no roster is in the"
+        " population; a missing gates.yaml would then be red for it"
+    )
 
 
 def test_test_modules_follow_the_rung_number(tmp_path: pathlib.Path) -> None:
@@ -1204,7 +1226,8 @@ def test_the_real_repository_agrees_with_the_rule() -> None:
     roster, and a tree carrying a roster is shipped and fully enforced. That is
     asserted over whatever trees exist rather than over a roster of names.
     """
-    from tools.check_product_gates import (  # noqa: PLC0415
+    from tools.check_product_gates import (
+    GATED_SPINES,  # noqa: PLC0415
         ROSTER_RELATIVE,
         SPEC_RELATIVE,
         gate_one_trees,
