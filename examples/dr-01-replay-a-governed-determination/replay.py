@@ -13,7 +13,7 @@ Usage (the producer's own environment names must be exported — for the default
 tree those are the ``CCF_CP_06C_*`` variables its ``ccf_environment.yaml``
 declares)::
 
-    .venv/bin/python examples/replay-a-governed-determination/replay.py \\
+    .venv/bin/python examples/dr-01-replay-a-governed-determination/replay.py \\
         --tree examples/cp-06-canonical-collateral-and-setoff-coverage \\
         --subject FAC-5B8418 --intent lgd-assessment --freshness as-filed \\
         --asked-at 2026-09-07T12:00:00+00:00 \\

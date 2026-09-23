@@ -1,7 +1,7 @@
 """`D-IMPL-346` — the supported replay environment, and what it refuses.
 
 The environment itself is proven END-TO-END by
-`examples/replay-a-governed-determination/replay.py`, which reconstructs a
+`examples/dr-01-replay-a-governed-determination/replay.py`, which reconstructs a
 served determination against the curated estate and reaches the **same content
 address** as the serve. That is the real proof and it needs an estate; these
 tests hold the parts that do not.

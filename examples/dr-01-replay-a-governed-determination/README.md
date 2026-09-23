@@ -20,8 +20,8 @@ The producer's own environment names must be exported — for the default tree,
 curated estate (read-only; nothing here writes).
 
 ```sh
-.venv/bin/python examples/replay-a-governed-determination/replay.py
-.venv/bin/python examples/replay-a-governed-determination/replay.py --refuse
+.venv/bin/python examples/dr-01-replay-a-governed-determination/replay.py
+.venv/bin/python examples/dr-01-replay-a-governed-determination/replay.py --refuse
 ```
 
 The first reproduces a served product and prints the record address, the

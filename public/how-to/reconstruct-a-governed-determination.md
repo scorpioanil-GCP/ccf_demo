@@ -8,15 +8,15 @@ This page documents the path that exists today, sourced from the replay proofs
 the shipped producers carry in their own test suites. It is a recipe, not a
 framework: what you supply is an environment of three methods, and the engine
 does the rest and checks all of it. Everything below is literal-included from
-`examples/replay-a-governed-determination/replay.py`, which runs against the
+`examples/dr-01-replay-a-governed-determination/replay.py`, which runs against the
 curated estate.
 
 Run it with the producer's environment exported (for the default tree, the
 `CCF_CP_06C_*` names its `ccf_environment.yaml` declares):
 
 ```sh
-.venv/bin/python examples/replay-a-governed-determination/replay.py
-.venv/bin/python examples/replay-a-governed-determination/replay.py --refuse
+.venv/bin/python examples/dr-01-replay-a-governed-determination/replay.py
+.venv/bin/python examples/dr-01-replay-a-governed-determination/replay.py --refuse
 ```
 
 ## Two addresses, two entry points
@@ -59,7 +59,7 @@ fails the step sequence, a wrong parameter set fails the parameter hash, and a
 wrong envelope fails the address check.
 
 ```py
---8<-- "examples/replay-a-governed-determination/replay.py:environment"
+--8<-- "examples/dr-01-replay-a-governed-determination/replay.py:environment"
 ```
 
 What the class builds, and where each part comes from:
@@ -83,7 +83,7 @@ What the class builds, and where each part comes from:
 ## What the engine does with it
 
 ```py
---8<-- "examples/replay-a-governed-determination/replay.py:reconstruct"
+--8<-- "examples/dr-01-replay-a-governed-determination/replay.py:reconstruct"
 ```
 
 The engine resolves the record at its exact address, refuses a record written
