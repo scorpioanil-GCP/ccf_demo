@@ -114,11 +114,14 @@ governance the product carried is gone.
 
 ### B.3 Prerequisites
 
-The upstream product's door, reachable and credentialed. **The upstream tree
-is configuration, not a constant** — `dr-02` packages whatever product its
-environment names, so the same tree demonstrates Mode 2 over a single-tree
-producer (the shipped default, one process) or over the five-child
-`cp-14-credit-memo-context` (documented, six processes).
+The upstream product's door, reachable and credentialed. **The upstream is
+`cp-06-canonical-collateral-and-setoff-coverage`** (R1) — one process, and the
+same tree `dr-01` reconstructs against.
+
+The door URL is configuration rather than a constant, because a connection
+value belongs in the environment document either way. That is **not** a claim
+of portability: one upstream is demonstrated and no other is tested, and the
+README says exactly that rather than implying a generality nobody measured.
 
 ---
 
