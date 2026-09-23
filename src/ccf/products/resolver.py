@@ -247,10 +247,12 @@ from ccf.products.gates import (
 from ccf.products.provenance import EffectiveRequest, ProvenanceSource
 from ccf.products.refusal import (
     NO_REPLAY_REFERENCE,
+    RESOLVED_BY_THE_RESOLVER,
     GovernedRefusalRaised,
     RefusalEnvelope,
     RefusalEvidence,
     RequestIdentity,
+    SubjectUnavailableRefusal,
     envelope_for,
 )
 from ccf.products.request import (
@@ -262,7 +264,10 @@ from ccf.products.request import (
 )
 from ccf.projection.engine import ExecutionResult, ProjectionEngine
 from ccf.projection.plan import Perspective, ProjectionPlan
+from ccf.controlplane.artifacts import SeamRefusalBinding
 from ccf.replay.record import (
+    NO_REFUSAL_SEAM,
+    REFUSAL_SEAMS,
     ChildResolution,
     PolicyBinding,
     ResolutionNotApplicable,
@@ -874,6 +879,7 @@ class RefusalRecorderProtocol(Protocol):
         assembler_version: str | None = None,
         resolution: EffectiveRequest | ResolutionNotApplicable,
         child_resolutions: tuple[ChildResolution, ...] = (),
+        refusal_seam: str = NO_REFUSAL_SEAM,
     ) -> RefusalEnvelope:
         """Append ``envelope``'s decision record, then return it with its address.
 
@@ -1127,6 +1133,7 @@ class ReplayRefusalRecorder:
         assembler_version: str | None = None,
         resolution: EffectiveRequest | ResolutionNotApplicable,
         child_resolutions: tuple[ChildResolution, ...] = (),
+        refusal_seam: str = NO_REFUSAL_SEAM,
     ) -> RefusalEnvelope:
         """Disclose, append the INTERNAL truth, then hand back the shell.
 
@@ -1196,6 +1203,7 @@ class ReplayRefusalRecorder:
             # than a filler — and it is hash-transparent, so no existing
             # record's content address moves.
             child_resolutions=child_resolutions,
+            refusal_seam=refusal_seam,
             # Dimension 5's own record of the Disclosure layer, pre-serialized
             # in the SDK's one canonical form — the `hitl_actions` and
             # `workflow_step_sequence` discipline: a block the layer that made
@@ -2049,16 +2057,27 @@ class GovernedResolver:
                 # seam with the resolution THIS resolver established, and
                 # returned as data. Only this type; any other exception the
                 # seam raises propagates exactly as before.
-                return self._refuse_raised_at_acquisition(
-                    raised, request=request, identity=identity,
+                return self._refuse_raised_at_seam(
+                    raised, seam="acquisition", request=request, identity=identity,
                     perspective=perspective, effective=effective,
+                )
+            except Exception as error:  # noqa: BLE001 — re-raised unless DECLARED
+                # `D-IMPL-347` B2: only a type THIS class declared converts.
+                # Everything else re-raises unchanged, which is what keeps a
+                # defect a defect.
+                binding = self._declared_seam_refusal(error)
+                if binding is None:
+                    raise
+                return self._refuse_declared_at_seam(
+                    error, binding, seam="acquisition", request=request,
+                    identity=identity, perspective=perspective, effective=effective,
                 )
 
         view = self.fabric.handle.reader.as_of(
             tenant_id=self.fabric.tenant_id, at=request.asked_at
         )
         operators = build_operator_registry(
-            parameters=self._operator_parameters(effective_request),
+            parameters=self.operator_parameters(effective_request),
             view=view,
             pins=self.fabric.pins,
             policy_bundle_key=self.policy_bundle_key,
@@ -2068,7 +2087,7 @@ class GovernedResolver:
             # which fixed the propagation and left a decision-affecting
             # semantic value in ungoverned deployment hands. It is now
             # declared on the similarity artifact — one of the very artifacts
-            # `_operator_parameters()` returns on the line above — so the
+            # `operator_parameters()` returns on the line above — so the
             # builder reads the corpus identity off the same declaration it
             # already reads the corpus map off, and this composition states
             # no opinion about a value it does not own.
@@ -2133,30 +2152,53 @@ class GovernedResolver:
                 # resolver takes the call it always took. Structural `isinstance` on
                 # a capability Protocol, on the `CompositePlanFactoryProtocol`
                 # precedent: no defaulted keyword, no `TypeError` probing.
-                if isinstance(
-                    self.composite_children, RequestAwareChildResolverProtocol
-                ):
-                    outcomes = self.composite_children.resolve_for(
-                        requirements=registered.requires,
-                        asked_at=request.asked_at,
-                        # `O3`: the trusted runtime clock, NOT `decided_at`.
-                        admitted_at=admitted_at,
-                        composition_invocation=invocation,
-                        # `D-IMPL-336` Amendment 5: peering admission extends the
-                        # consumer's lineage by set-union.
-                        consumer_lineage=own_lineage,
-                        request=effective_request,
+                # `D-IMPL-347` A2 / `CLD-F-06`: a refusal the FACTORY raises is
+                # a COMPOSITE refusal (Dave, 2026-09-23) — an envelope check, a
+                # policy bound, a "do not dispatch". There is no child outcome
+                # to attach it to, and treating it as one is the mix-up cp-20's
+                # workaround was avoiding. A child DOOR's own governed refusal
+                # is a different path entirely: it arrives as an outcome row
+                # below, where the slot rules decide (`D-IMPL-336` F1).
+                try:
+                    if isinstance(
+                        self.composite_children, RequestAwareChildResolverProtocol
+                    ):
+                        outcomes = self.composite_children.resolve_for(
+                            requirements=registered.requires,
+                            asked_at=request.asked_at,
+                            # `O3`: the trusted runtime clock, NOT `decided_at`.
+                            admitted_at=admitted_at,
+                            composition_invocation=invocation,
+                            # `D-IMPL-336` Amendment 5: peering admission extends the
+                            # consumer's lineage by set-union.
+                            consumer_lineage=own_lineage,
+                            request=effective_request,
+                        )
+                    else:
+                        outcomes = self.composite_children(
+                            requirements=registered.requires,
+                            asked_at=request.asked_at,
+                            # `O3`: the trusted runtime clock, NOT `decided_at`.
+                            admitted_at=admitted_at,
+                            composition_invocation=invocation,
+                            # `D-IMPL-336` Amendment 5: peering admission
+                            # extends the consumer's lineage by set-union.
+                            consumer_lineage=own_lineage,
+                        )
+                except GovernedRefusalRaised as raised:
+                    return self._refuse_raised_at_seam(
+                        raised, seam="build_children", request=request,
+                        identity=identity, perspective=perspective,
+                        effective=effective,
                     )
-                else:
-                    outcomes = self.composite_children(
-                        requirements=registered.requires,
-                        asked_at=request.asked_at,
-                        # `O3`: the trusted runtime clock, NOT `decided_at`.
-                        admitted_at=admitted_at,
-                        composition_invocation=invocation,
-                        # `D-IMPL-336` Amendment 5: peering admission extends the
-                        # consumer's lineage by set-union.
-                        consumer_lineage=own_lineage,
+                except Exception as error:  # noqa: BLE001 — re-raised unless DECLARED
+                    binding = self._declared_seam_refusal(error)
+                    if binding is None:
+                        raise
+                    return self._refuse_declared_at_seam(
+                        error, binding, seam="build_children", request=request,
+                        identity=identity, perspective=perspective,
+                        effective=effective,
                     )
                 # The per-requirement walk — provenance, slot / instant /
                 # invocation re-binding, the refusal branches — runs HERE,
@@ -2228,12 +2270,31 @@ class GovernedResolver:
         # children's contracts; every other factory is called EXACTLY as it
         # always was. The capability is declared structurally, never inferred
         # from a signature, and never probed with a TypeError-and-retry.
-        if children is not None and isinstance(self.plan_factory, CompositePlanFactoryProtocol):
-            plan = self.plan_factory.build_with_children(
-                required=required, request=effective_request, children=children
+        # `D-IMPL-347` A2: the plan factory is a deployment seam, so a refusal
+        # it raises is data. Wrapped individually rather than as part of a
+        # broader block — the refusal must be attributable to THIS seam.
+        try:
+            if children is not None and isinstance(
+                self.plan_factory, CompositePlanFactoryProtocol
+            ):
+                plan = self.plan_factory.build_with_children(
+                    required=required, request=effective_request, children=children
+                )
+            else:
+                plan = self.plan_factory(required=required, request=effective_request)
+        except GovernedRefusalRaised as raised:
+            return self._refuse_raised_at_seam(
+                raised, seam="plan_factory", request=request, identity=identity,
+                perspective=perspective, effective=effective,
             )
-        else:
-            plan = self.plan_factory(required=required, request=effective_request)
+        except Exception as error:  # noqa: BLE001 — re-raised unless DECLARED
+            binding = self._declared_seam_refusal(error)
+            if binding is None:
+                raise
+            return self._refuse_declared_at_seam(
+                error, binding, seam="plan_factory", request=request,
+                identity=identity, perspective=perspective, effective=effective,
+            )
         # The product class's `required_operator_keys` and the plan's own
         # `required_operators()` are two separately authored documents (design
         # E2). Gate 2 below compares the declaration against what the engine
@@ -2673,9 +2734,29 @@ class GovernedResolver:
         # refusal" a fact rather than a claim the failing code made about
         # itself.
         if self.product_gate is not None:
-            gate_violation = self.product_gate(
-                candidate=gated.product, evidence=ExecutionEvidence.of(execution)
-            )
+            # `D-IMPL-347` A2: the gate is a deployment seam. A gate that
+            # RETURNS a violation string already refuses through the branch
+            # below; this catches the gate that RAISES a governed refusal —
+            # previously a traceback, now data attributable to `product_gate`.
+            try:
+                gate_violation = self.product_gate(
+                    candidate=gated.product, evidence=ExecutionEvidence.of(execution)
+                )
+            except GovernedRefusalRaised as raised:
+                return self._refuse_raised_at_seam(
+                    raised, seam="product_gate", request=request,
+                    identity=identity, perspective=perspective,
+                    effective=effective,
+                )
+            except Exception as error:  # noqa: BLE001 — re-raised unless DECLARED
+                binding = self._declared_seam_refusal(error)
+                if binding is None:
+                    raise
+                return self._refuse_declared_at_seam(
+                    error, binding, seam="product_gate", request=request,
+                    identity=identity, perspective=perspective,
+                    effective=effective,
+                )
             if gate_violation:
                 declared_gate = self._declaration().declared_product_gate
                 return self._record_refusal(
@@ -2833,16 +2914,89 @@ class GovernedResolver:
 
     # --- the one minting seam ----------------------------------------------
 
-    def _refuse_raised_at_acquisition(
+    def _declared_seam_refusal(
+        self, error: BaseException
+    ) -> SeamRefusalBinding | None:
+        """The class's binding for ``error``'s type, or ``None`` to re-raise.
+
+        `D-IMPL-347` B2. **Matched, never imported**: the raised value's own
+        ``module.QualName`` is compared against the declared string, so a
+        declaration cannot cause an import and a misspelled one never matches
+        rather than executing something.
+
+        **Exact type, never a subclass walk.** A subclass of a declared type is
+        a DIFFERENT failure the product has not spoken about, and silently
+        inheriting a parent's cause is how a narrow declaration becomes a wide
+        one without anybody widening it. The deployment declares what it means.
+        """
+        raised = f"{type(error).__module__}.{type(error).__qualname__}"
+        for binding in self._declaration().seam_refusals:
+            if binding.exception == raised:
+                return binding
+        return None
+
+    def _refuse_declared_at_seam(
         self,
-        raised: GovernedRefusalRaised,
+        error: BaseException,
+        binding: SeamRefusalBinding,
         *,
+        seam: str,
         request: ProductRequest,
         identity: RequestIdentity,
         perspective: Perspective,
         effective: EffectiveRequest,
     ) -> RefusalEnvelope:
-        """The typed handoff caught at the acquisition seam (`D-IMPL-304`).
+        """Mint the refusal the class declared for ``error``, at ``seam``.
+
+        The cause and the code are the PRODUCT's statement; the detail is the
+        exception's own message, unedited — the SDK does not paraphrase a
+        failure it did not diagnose.
+        """
+        return self._refuse_raised_at_seam(
+            GovernedRefusalRaised(
+                SubjectUnavailableRefusal(
+                    cause=binding.cause,
+                    detail=str(error) or type(error).__name__,
+                    error_code=binding.error_code,
+                ),
+                resolution=RESOLVED_BY_THE_RESOLVER,
+            ),
+            seam=seam,
+            request=request,
+            identity=identity,
+            perspective=perspective,
+            effective=effective,
+        )
+
+    def _refuse_raised_at_seam(
+        self,
+        raised: GovernedRefusalRaised,
+        *,
+        seam: str,
+        request: ProductRequest,
+        identity: RequestIdentity,
+        perspective: Perspective,
+        effective: EffectiveRequest,
+    ) -> RefusalEnvelope:
+        """The typed handoff caught at a DEPLOYMENT-SUPPLIED seam.
+
+        `D-IMPL-304` opened this for ``acquisition``; `D-IMPL-347` A2 (Dave,
+        2026-09-23) widened it to the other three seams a deployment supplies —
+        ``build_children``, ``plan_factory`` and ``product_gate`` — because the
+        narrow scope was itself the defect: `CLD-F-06` measured the RIGHT
+        exception raised from the WRONG seam escaping as a traceback, and
+        cp-20 worked around it by moving an envelope check into ``acquire``.
+
+        **Each seam is wrapped individually and NEVER the whole resolve.** A
+        blanket ``try`` would convert a ``GovernedRefusalRaised`` escaping from
+        deep inside the SDK into a plausible-looking governed "no" — an SDK
+        defect wearing a refusal's clothes. These four are exactly the
+        callables the deployment supplies, which is the whole reason their
+        refusals are data rather than defects.
+
+        ``seam`` is recorded on dimension 5 and is one of
+        :data:`~ccf.replay.record.REFUSAL_SEAMS`. Without it the four wraps
+        collapse into one undifferentiated "no" and A2 is un-auditable.
 
         The resolution completed before the seam ran — that is the seam's
         contract — so dimension 2 carries THIS resolver's evidence, which is
@@ -2857,7 +3011,7 @@ class GovernedResolver:
         """
         if isinstance(raised.resolution, ResolutionNotApplicable):
             raise TypeError(
-                "a GovernedRefusalRaised at the acquisition seam states"
+                f"a GovernedRefusalRaised at the {seam} seam states"
                 " ResolutionNotApplicable, but this resolver resolved the effective"
                 " request before calling the seam; state RESOLVED_BY_THE_RESOLVER"
                 " or the resolver's own evidence (D-IMPL-304)"
@@ -2880,6 +3034,7 @@ class GovernedResolver:
             perspective=perspective,
             policy_bindings=self._applied_bindings(effective),
             resolution=effective,
+            refusal_seam=seam,
         )
 
     def _record_refusal(
@@ -2892,6 +3047,7 @@ class GovernedResolver:
         policy_bindings: tuple[PolicyBinding, ...] = (),
         resolution: EffectiveRequest | ResolutionNotApplicable,
         child_resolutions: tuple[ChildResolution, ...] = (),
+        refusal_seam: str = NO_REFUSAL_SEAM,
     ) -> RefusalEnvelope:
         """Mint this refusal's decision record, then return the addressed shell.
 
@@ -2934,6 +3090,9 @@ class GovernedResolver:
             # `CMP-R-01`: what the composition tried, on the refused branch
             # too. `()` for every non-composite, which is what they mean.
             child_resolutions=child_resolutions,
+            # `D-IMPL-347` A2: WHICH deployment seam held this refusal. The
+            # sentinel for the resolver's own refusals, which is what they are.
+            refusal_seam=refusal_seam,
         )
 
     def _applied_bindings(
@@ -3074,7 +3233,7 @@ class GovernedResolver:
         """
         return _request_contract_on(self.fabric, key=self.request_contract_key)
 
-    def _operator_parameters(
+    def operator_parameters(
         self, effective_request: ProductRequest
     ) -> dict[str, OperatorParametersArtifact]:
         """The adopter-side idiom: name your own keys, no type filtering.

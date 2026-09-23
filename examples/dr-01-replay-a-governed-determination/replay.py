@@ -13,7 +13,7 @@ Usage (the producer's own environment names must be exported — for the default
 tree those are the ``CCF_CP_06C_*`` variables its ``ccf_environment.yaml``
 declares)::
 
-    .venv/bin/python examples/replay-a-governed-determination/replay.py \\
+    .venv/bin/python examples/dr-01-replay-a-governed-determination/replay.py \\
         --tree examples/cp-06-canonical-collateral-and-setoff-coverage \\
         --subject FAC-5B8418 --intent lgd-assessment --freshness as-filed \\
         --asked-at 2026-09-07T12:00:00+00:00 \\
@@ -25,7 +25,7 @@ and reconstruct THAT determination instead, through the refusal path.
 **One private dependency, named rather than hidden.** Re-executing the
 recorded operator path needs each operator's parameter artifact bound from the
 EFFECTIVE request the record carries. The SDK exposes that binding only as
-``GovernedResolver._operator_parameters``, reached here by building a resolver
+``GovernedResolver.operator_parameters``, reached here by building a resolver
 from the opened product's own arguments. It is the one call in this file that
 is not public contract, and the reason this example lives beside the product
 trees rather than inside one: a paved tree's structural classifier forbids the
@@ -49,89 +49,24 @@ import yaml
 
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.contracts.canonical import content_hash
-from ccf.products.contract import ContextProductContract, ProductLineage
 from ccf.products.refusal import RefusalEnvelope
 from ccf.replay.record import DecisionReplayRecord
+from ccf.replay.environment import RecordedEnvironment
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 # --8<-- [start:environment]
-class RecordedEnvironment:
-    """A replay environment built from the record and the deployment's documents.
-
-    The three methods are the whole of ``ccf.replay.engine.ReplayEnvironment``.
-    Everything they return is checked by the engine — a wrong plan fails the
-    step sequence, a wrong parameter set fails the parameter hash, a wrong
-    envelope fails the content address — so nothing here is taken on trust.
-    """
-
-    def __init__(self, *, opened: Any, produce: Any, config: dict[str, Any], fabric: Any, record: DecisionReplayRecord) -> None:
-        from ccf.deployment import build_operator_registry
-        from ccf.products.provenance import EffectiveRequest
-        from ccf.products.resolver import build_governed_resolver
-
-        path = record.content_generation_path
-        if path.request is None:
-            raise ValueError("the record carries no request identity; nothing to rebuild Π from")
-        # Π is rebuilt from the EFFECTIVE request on dimension 2 — the class
-        # defaults and policy bounds as they folded at decision time — never
-        # from the caller's raw parameters and never from a value resolved now.
-        resolution = record.policy_bindings.request_resolution
-        effective = EffectiveRequest.model_validate_json(resolution) if isinstance(resolution, str) else resolution
-        if not isinstance(effective, EffectiveRequest):
-            raise ValueError(f"dimension 2 carries no effective request: {resolution!r}")
-        self._produce = produce
-        self._config = config
-        self._request = path.request.model_copy(update={"parameters": dict(effective.values())})
-        self._required = tuple(path.operator_plan)
-        arguments = opened.build_arguments(fabric)
-        self._policy_key = arguments["policy_bundle_key"]
-        # THE PRIVATE DEPENDENCY (see the module docstring): the operator
-        # parameter artifacts bound from the effective request.
-        resolver = build_governed_resolver(**arguments)
-        self._operators = build_operator_registry(
-            parameters=resolver._operator_parameters(self._request),  # noqa: SLF001
-            view=fabric.handle.reader.as_of(tenant_id=record.tenant_id, at=record.context_fabric_snapshot.temporal_boundary),
-            pins=fabric.pins,
-            policy_bundle_key=self._policy_key,
-        )
-
-    def resolve_plan(self, *, plan_id: str) -> Any:
-        return self._produce.plan_factory(required=self._required, request=self._request)
-
-    def resolve_operators(self, *, operator_keys: tuple[str, ...]) -> Any:
-        return self._operators
-
-    def rehydrate_product(self, *, record: DecisionReplayRecord, projection: Any) -> ContextProductContract:
-        path, snapshot = record.content_generation_path, record.context_fabric_snapshot
-        declared = self._config["product_class"]
-        window = timedelta(seconds=int(self._config["ttl"]["product_ttl_seconds"]))
-        policy_versions = frozenset(b.version for b in record.policy_bindings.bindings if b.key == self._policy_key)
-        # Every member below that the record carries is copied VERBATIM: the
-        # anchor instant, the debt in force and what it pointed at, the
-        # sources' refresh recency, the obligation. Re-deriving any of them
-        # would be a different decision wearing this one's identifier.
-        return ContextProductContract(
-            schema_name=declared["schema_name"],
-            schema_version=declared["schema_version"],
-            plan_id=projection.plan_id,
-            tenant_id=record.tenant_id,
-            temporal_boundary=snapshot.temporal_boundary,
-            expires_at=(path.ttl_anchor_at or snapshot.temporal_boundary) + window,
-            ttl_anchor=declared["ttl_anchor"],
-            ttl_anchor_at=path.ttl_anchor_at,
-            lineage=ProductLineage(
-                operators_invoked=frozenset(path.operator_plan),
-                policy_bundle_versions=policy_versions,
-                graph_snapshot_at=snapshot.temporal_boundary,
-            ),
-            payload=projection.payload,
-            debt=path.debt,
-            debt_evidence=path.debt_evidence,
-            source_refresh_recency=path.source_refresh_recency,
-            obligation_in_force=path.obligation_in_force,
-        )
+# THE ENVIRONMENT IS THE SDK'S (`D-IMPL-346`). Before it existed, this script
+# and five example test suites each wrote the same 40-95 lines and each reached
+# the same private member to bind operator parameters — `CP06C-F-01`,
+# `CP13C-F-02`, `CP17-F-06`, `ATM-F-12`, `IBO-F-11`, `UBO-F-12`. Three
+# arguments replace all of it, and the engine still checks everything the
+# environment returns: a wrong plan fails the step sequence, a wrong parameter
+# set fails the parameter hash, a wrong envelope fails the content address.
+def recorded_environment(*, opened: Any, fabric: Any, record: DecisionReplayRecord) -> RecordedEnvironment:
+    """The supported environment for `record`, built from the deployment it names."""
+    return RecordedEnvironment(record=record, opened=opened, fabric=fabric)
 # --8<-- [end:environment]
 
 
@@ -166,13 +101,11 @@ def _record_address(opened: Any, outcome: Any) -> str:
 def reconstruct(*, tree: Path, opened: Any, produce: Any, outcome: Any) -> None:
     """Reproduce the determination `outcome` records, through the SDK's engine."""
     from ccf.replay.engine import replay, replay_refusal
-
-    config = yaml.safe_load((tree / "ccf_config.yaml").read_text(encoding="utf-8"))
     store = FileArtifactStore(root=opened.scratch / opened.replay.store_dirname)
     record_address = _record_address(opened, outcome)
     record = DecisionReplayRecord.model_validate_json(store.get(content_address=record_address))
     with _reopened_fabric(opened, tree) as fabric:
-        environment = RecordedEnvironment(opened=opened, produce=produce, config=config, fabric=fabric, record=record)
+        environment = recorded_environment(opened=opened, fabric=fabric, record=record)
         shared = {"record_address": record_address, "store": store, "reader": fabric.handle.reader, "control_plane": opened.control_plane, "environment": environment}
         if isinstance(outcome, RefusalEnvelope):
             # A REFUSAL is reconstructed positively — the recorded refusal held

@@ -462,7 +462,7 @@ class _Environment:
         self._carry = carry_anchor
         resolver = build_governed_resolver(**arguments)
         self._operators = build_operator_registry(
-            parameters=resolver._operator_parameters(self._request),
+            parameters=resolver.operator_parameters(self._request),
             view=fabric.handle.reader.as_of(tenant_id=record.tenant_id, at=record.context_fabric_snapshot.temporal_boundary),
             pins=fabric.pins, policy_bundle_key=self._policy_key,
         )

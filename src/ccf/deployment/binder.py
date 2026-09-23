@@ -290,3 +290,49 @@ def refuse_unpromisable_freshness_sla(
                 " author knows which (D-IMPL-31)"
             )
     return
+
+
+class SeamRefusalWidening(ValueError):
+    """A deployment named a seam-refusal type its product class does not declare."""
+
+
+def refuse_seam_refusal_widening(
+    *,
+    declared: ProductClassDeclaration,
+    deployment_exceptions: frozenset[str],
+) -> None:
+    """Hold a deployment's seam-refusal selection to a SUBSET of the class's.
+
+    `D-IMPL-347` B2, Dave 2026-09-23: *"Product class first; deployment may
+    narrow, not widen."* The class states which of its own failures are
+    governed refusals and what each one means; a deployment may run with fewer
+    of them — a stricter posture, which is always safe — and may not invent
+    one, because inventing one would let a deployment convert a defect the
+    product never classified into an answer.
+
+    Refused by NAME rather than silently intersected: an ignored widening and
+    an honored narrowing are the same green build, and the operator who wrote
+    the extra name would never learn it did nothing.
+
+    Args:
+        declared: The product class's own binding set.
+        deployment_exceptions: The exception names the deployment selects. The
+            empty set means *"no narrowing"* and is accepted — it is not a
+            deployment that converts nothing, which is what a declaration of
+            zero bindings on the class already expresses.
+
+    Raises:
+        SeamRefusalWidening: the deployment names one the class does not.
+    """
+    if not deployment_exceptions:
+        return
+    permitted = {binding.exception for binding in declared.seam_refusals}
+    widened = sorted(deployment_exceptions - permitted)
+    if widened:
+        raise SeamRefusalWidening(
+            f"this deployment selects seam-refusal types its product class does"
+            f" not declare: {widened}. A deployment may narrow the class's map,"
+            " never widen it — the class is where an exception's MEANING is"
+            " stated (D-IMPL-347 B2). Declare them on the class, or drop them"
+            f" here. The class declares: {sorted(permitted)}"
+        )

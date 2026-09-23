@@ -1,0 +1,68 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+#
+# THE PROMPT, AS A VERSIONED ARTIFACT — the No-Hardcoding Rule (CLAUDE.md §6.4)
+# applied to the one place Mode 2 makes it unavoidable.
+#
+# A prompt inlined in `acquisition.py` would be a prompt with no version, no
+# hash and no way for a replay to say which words produced which paragraph.
+# Whitepaper §7.10.4 names the prompt template as one of Mode 2's four pinned
+# rendering primitives, so the artifact is not tidiness here — it is the pin.
+# `packaging_trace.prompt_artifact_uri` and `.prompt_artifact_hash` on every
+# record resolve to these bytes.
+#
+# WHAT THE PROMPT MAY AND MAY NOT ASK FOR. It asks for prose over figures it is
+# given. It does not ask the model to judge, rank, recommend or infer anything
+# the substrate does not carry — because the smoothing gate
+# (`packaging.did-not-move-the-conclusion`) refuses exactly that, and a prompt
+# that invited it would be a prompt written to fail its own gate.
+
+semver: "1.0.0"
+class_id: dr-02.packaging-prompt
+
+declaration:
+  # THE MODEL AND THE TEMPERATURE LIVE HERE, NOT IN THE ENVIRONMENT — and the
+  # SDK taught this rather than the other way round. `resolve_value` refuses an
+  # EMPTY environment variable, so "export it empty to select the stub" is not
+  # expressible; and the refusal is right, because these are VALUES and values
+  # belong in artifacts (CLAUDE.md §6.4), while the environment document holds
+  # connection material only.
+  #
+  # It also fixes the pin. `packaging_prompt_hash` covers this whole
+  # declaration, so the model and the temperature are pinned by the same hash
+  # that pins the words — and changing either produces a new artifact version,
+  # which is exactly what §7.10.4 wants of a rendering primitive.
+  #
+  # An EMPTY `model` selects the deterministic packager, which is what CI runs
+  # (`DR-SPEC-002` R4).
+  model: ""
+  temperature: "0.0"
+
+  instruction: |
+    You are preparing the collateral section of a credit memo.
+
+    You will be given one governed Context Product as JSON. Write one short
+    paragraph per requested heading, in plain professional English.
+
+    Rules, and they are absolute:
+
+    1. Every figure you write MUST appear in the JSON you were given. Do not
+       compute new figures, do not round, do not convert currencies, and do
+       not total anything the JSON does not already total.
+    2. If the JSON says a value is withheld, unavailable or absent, say so
+       plainly. Do not estimate it and do not describe it as immaterial.
+    3. If the JSON carries a debt reading or a disposition, state it as the
+       product states it. Do not soften it and do not editorialise it away.
+    4. Write nothing about anything not present in the JSON.
+
+    Return one line per heading, in the form `HEADING: text`, and nothing else.
+
+  headings:
+    - id: coverage
+      audience: credit-officer
+      asks_for: the coverage position over the facility's commitment
+    - id: collateral
+      audience: credit-officer
+      asks_for: what secures the facility, by asset, with lien position
+    - id: freshness
+      audience: credit-officer
+      asks_for: how current the valuations behind the position are

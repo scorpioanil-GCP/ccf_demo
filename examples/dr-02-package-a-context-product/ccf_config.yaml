@@ -1,0 +1,209 @@
+# yaml-language-server: $schema=../../docs/schemas/ccf.deployment-config.json
+#
+# THE SINGLE DEPLOYMENT DOCUMENT for `dr-02` — the Assembly Mode 2
+# demonstration.
+#
+# THE QUESTION: what does an algorithmically-assembled Context Product read
+# like to the person who has to act on it? The upstream product carries assets,
+# haircuts, realizable values and a ratio. A credit officer reads prose. Mode 2
+# is the seam between those two, and whitepaper §7.10.4 is precise about what
+# it costs: the algorithmic substrate remains the ARTIFACT-OF-RECORD, the
+# packaged form is a derivative view, and the packaging must not have altered
+# the algorithmic conclusion.
+#
+# THIS IS NOT A CONTEXT PRODUCT RUNG. The ladder closed at 24 of 24 and stays
+# closed; `dr-NN` enumerates the capabilities exercised OVER products.
+#
+# WHERE THE MODEL SITS, AND WHY. At the ACQUISITION seam, over a product that
+# is already finished. Its output enters as a claim and is then projected,
+# gated and served by the ordinary algorithmic path — Algorithmic ⇄ Semantic
+# Alternation (§7.6.6) honored rather than bent. A model inside the projection
+# would be a model whose output nothing gates.
+#
+# READS ONE SOURCE, AND IT IS ANOTHER PRODUCT'S DOOR. No store is written and
+# no store is read directly. CLAUDE.md §9.
+
+semver: "1.0.0"
+tenant_id: dr-02-packaging-demo
+backend: sqlite
+
+product_class:
+  schema_name: credit-risk.packaged-memo
+  schema_version: "1.0.0"
+
+  # THE EXPIRY FOLLOWS THE SUBSTRATE, NEVER THE PACKAGING. A rendering of a
+  # product cannot be fresher than the product it renders, and a decision
+  # anchor would make it exactly that — prose minted now over evidence from
+  # last quarter, reading as current.
+  ttl_anchor: from_entity_freshness
+
+  # THE DECLARATION THIS WHOLE TREE EXISTS TO MAKE. 29 of 29 shipped trees
+  # declare `algorithmic`; this one packages an assembled product with a model,
+  # so §7.10.4's Mode 2 replay footprint applies and dimension 3 carries the
+  # four pinned rendering primitives.
+  assembly_mode: llm_packaged
+
+  max_ttl_key: dr-02/product/packaged-memo/max-ttl
+
+  # THE SMOOTHING GATE — §7.10.4's own watchpoint as this product's fourth
+  # validation gate. The SDK's three check the envelope; this one checks that
+  # the packaging did not move the conclusion. It REFUSES (`DR-SPEC-002` R3).
+  #
+  # The identity is the Control Plane's half and the implementation is the
+  # deployment's (`D-IMPL-282` R-11): without a declared id the SDK has no
+  # identity to stamp on a refusal the gate produced.
+  declared_product_gate:
+    gate_id: packaging.did-not-move-the-conclusion
+    gate_version: "1.0.0"
+
+  discovery:
+    domain: credit-risk
+    intents:
+      - credit-memo-drafting
+    capabilities:
+      - context-product-packaging
+      - substrate-identity-disclosure
+    audiences:
+      - credit-officer
+
+  required_operator_keys:
+    - policy.principal-subgraph
+    - traversal.typed-neighborhood
+
+operators:
+  # Sections are entitlement-bearing exactly as their substrate was: a section
+  # derived from evidence a principal may not see is not a section this
+  # principal receives. Admitted BEFORE materialization, so an excluded
+  # section never exists rather than being filtered out of a payload.
+  policy.principal-subgraph:
+    classification_attribute_by_class:
+      memo_section: audience
+    permitted_classifications:
+      source: effective_request
+      parameter: audience
+
+  traversal.typed-neighborhood:
+    seed_entity_classes:
+      - memo_section
+    relationship_types: []
+    depth_limit: 1
+
+request_contract:
+  class_id: dr-02.request-contract
+  role: register
+  registration: typed
+  schema_name: credit-risk.packaged-memo
+  schema_version: "1.0.0"
+  arguments:
+    properties:
+      facility_id:
+        type: string
+        description: >-
+          the anchor, passed to the upstream product unchanged. This deployment
+          resolves no subject of its own — it packages what the upstream served
+          for this subject, and an upstream refusal is this product's refusal.
+      borrower_scope:
+        type: array
+        items:
+          type: string
+          description: one borrower identifier the upstream walk is entitled to.
+        description: >-
+          carried to the upstream verbatim. The packaging cannot widen an
+          entitlement the substrate narrowed.
+      audience:
+        type: array
+        items:
+          type: string
+          description: one audience classification this rendering may include.
+        description: >-
+          which sections this principal receives. The Policy operator admits on
+          it, so a section outside the set never materializes.
+    required:
+      - facility_id
+  # NO `argument_domains`, and the SDK is why. An enumerated domain is typed
+  # against its own property, and `audience` is an ARRAY — so a `members:` list
+  # of strings is refused at declaration as mistyped (`D-IMPL-259`). The
+  # closed audience vocabulary lives where it is actually enforced instead:
+  # the prompt artifact declares which audiences exist, and the Policy
+  # operator admits sections on it.
+  relative_defaults: {}
+
+resolution:
+  # ONE CLASS. Every packaged section carries its own packaging identity and
+  # its own substrate address, so there is no second node to join to and no
+  # edge to mint — see `acquisition.envelopes` for why that is the better
+  # model rather than only the smaller one.
+  entity_rules:
+    - match_key: section_ref
+      entity_class: memo_section
+      identity_keys:
+        - entity_ref
+      attribute_keys:
+        - ref
+        - facility_id
+        - heading
+        - prose
+        - audience
+        - figures_cited
+        - derived_from
+        - upstream_expires_at
+        - upstream_debt
+        - upstream_disposition
+        - packaging_model
+        - packaging_temperature
+        - packaging_prompt_uri
+        - packaging_prompt_hash
+
+half_life:
+  # ONE class, and it is the SUBSTRATE's clock rather than the packaging's.
+  # Prose does not age on its own — it ages exactly as fast as the product it
+  # renders, which is what `ttl_anchor: from_entity_freshness` says above and
+  # what this table must not contradict.
+  # KEYED BY ENTITY CLASS, and the SDK taught this. `AssemblyDebtScorer.
+  # _observations` sets `observation_type = record.claim.entity_class`, so a
+  # row named after the CONCEPT ("packaged_section") matches no observation at
+  # all — and the evidence-anchored TTL then refuses with
+  # `ttl-anchor-unresolvable`, which is a correct refusal over an empty
+  # observation set rather than a broken anchor.
+  memo_section:
+    half_life_seconds: 31536000
+    decay_basis: valid-from
+    decay_driver: upstream-product-expiry
+    supersession_event: a new serve of the upstream product for the same subject
+
+debt_profile:
+  risk_sensitivity: "1.0"
+  forced_llm_threshold: "0.60"
+  fail_closed_threshold: "0.77"
+
+policy:
+  class_id: dr-02.policy-bundle
+  role: register
+  registration: typed
+  regime: packaged-memo-audience
+
+default_perspective:
+  principal_id: PRIN-CRO-001
+  role: credit-officer
+
+replay:
+  record_class: ccf.replay-record
+  query_pin_class: ccf.graph-query
+  store_dirname: artifact-store
+
+ttl:
+  max_ttl_seconds: 31536000
+  product_ttl_seconds: 31536000
+
+door:
+  producer_id: dr-02-package-a-context-product-egress
+  producer_tenant: dr-02-packaging-demo
+  required_scope: ccf:egress
+  tool_description: >-
+    Package a governed Context Product into the prose a credit officer reads,
+    as a governed, content-addressed Context Product of its own
+    (`credit-risk.packaged-memo`, Assembly Mode 2). The subject is the facility
+    id; `audience` selects which sections this principal receives. The
+    algorithmic product it packages remains the artifact-of-record and its
+    content address is carried on the memo and on every section, so any figure
+    in the prose is checkable against the substrate that produced it.

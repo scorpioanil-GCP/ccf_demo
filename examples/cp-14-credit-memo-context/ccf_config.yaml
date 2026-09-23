@@ -33,7 +33,7 @@ product_class:
   # A memo packet is DECISION-SCOPED (spec §B.1): twelve hours from the decision
   # instant, and floored by the stalest admitted child (`D-IMPL-31`).
   ttl_anchor: from_decision
-  assembly_mode: algorithmic
+  assembly_mode: swarm_assembled
   max_ttl_key: cp-14/product/credit-memo-context/max-ttl
   # THE PARENT'S OWN OPERATOR SET — and ONLY its own (spec §B.1: composite Gate
   # 2 holds the declared set to the parent's own executed set before widening

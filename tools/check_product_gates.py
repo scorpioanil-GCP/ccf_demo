@@ -143,13 +143,70 @@ def _display(path: pathlib.Path, root: pathlib.Path) -> str:
 # ---------------------------------------------------------------------------
 
 
-def product_trees(root: pathlib.Path) -> list[pathlib.Path]:
-    """Every ``examples/cp-*`` directory under ``root``, sorted.
+#: The example spines whose trees declare product gates. `cp-*` is the Context
+#: Product ladder; `dr-*` is the Decision Replay series opened 2026-09-23.
+#:
+#: **Widened from `cp-*` alone (`PKG-F-05`, 2026-09-23).** `hw1-*` and `s1-*`
+#: stay outside by construction — they declare no gates — but `dr-02` declares
+#: eight and serves a product, and under the old glob this checker reported
+#: **29 trees unchanged** after that thirtieth serving tree appeared. A count
+#: that does not move when its population does is measuring something else,
+#: and a declared roster nothing holds to its tests is the `make gate-tools`
+#: failure wearing a different prefix.
+GATED_SPINES: tuple[str, ...] = ("cp-", "dr-")
 
-    ``hw1-*`` and ``s1-*`` are outside the glob, which is `D-IMPL-224` (4)
-    realized by construction rather than by a list of exemptions.
+
+def spine_trees(root: pathlib.Path) -> list[pathlib.Path]:
+    """EVERY directory on a gated spine, whatever it ships.
+
+    The population for questions about what EXISTS — sibling discovery, rung
+    partitioning. :func:`product_trees` narrows this to what must DECLARE.
     """
-    return sorted(path for path in root.glob("examples/cp-*") if path.is_dir())
+    return sorted(
+        path
+        for prefix in GATED_SPINES
+        for path in root.glob(f"examples/{prefix}*")
+        if path.is_dir()
+    )
+
+
+def product_trees(root: pathlib.Path) -> list[pathlib.Path]:
+    """Every gate-declaring example tree under ``root``, sorted.
+
+    The population is :data:`GATED_SPINES`, which is `D-IMPL-224` (4) realized
+    by construction rather than by a list of exemptions — a spine is in or out,
+    and no individual tree is ever named here.
+    """
+    return [tree for tree in spine_trees(root) if _is_a_governed_example(tree)]
+
+
+def _is_a_governed_example(tree: pathlib.Path) -> bool:
+    """A tree that ships a DEPLOYMENT or a GATE ROSTER, rather than a script.
+
+    The structural half of the population, and it is not "has gates.yaml" —
+    that would lose the non-vacuity protection entirely, since a tree which
+    ought to declare a roster and forgot would simply drop out of the
+    population instead of going red.
+
+    Any one of the three markers puts a tree in, and each is load-bearing:
+
+    * `ccf_config.yaml` — it serves;
+    * `artifacts/gates.yaml` — it declares a roster.
+      `cp-22-agent-internal-assembly` has this and no config, because it is a
+      CONSUMER;
+    * `spec/` — it is a **Gate-1 tree**, specified and not yet built. These
+      must stay IN so :func:`gate_one_trees` can name them: a tree that
+      vanishes from the output is a tree nobody revisits.
+
+    `dr-01-replay-a-governed-determination` has none of the three — one
+    script, one README, serving nothing and declaring nothing — and is
+    correctly out. Once a tree is in, a missing roster is still red.
+    """
+    return (
+        (tree / "ccf_config.yaml").is_file()
+        or (tree / "artifacts" / "gates.yaml").is_file()
+        or (tree / "spec").is_dir()
+    )
 
 
 def _discriminator(name: str) -> str | None:
@@ -192,9 +249,14 @@ def test_modules_for(root: pathlib.Path, tree: pathlib.Path) -> list[pathlib.Pat
     rung = match.group(1)
     candidates = sorted(root.glob(f"tests/examples/test_cp_{rung}_*.py"))
 
+    # SIBLING DISCOVERY IS A DIFFERENT QUESTION from the gated population, and
+    # conflating them was measured wrong (`PKG-F-05`, 2026-09-23). "Which trees
+    # exist on this rung" must see EVERY directory on the spine — a sibling
+    # that ships no roster yet still owns its discriminated modules, and
+    # dropping it hands them to the base tree.
     siblings = [
         other
-        for other in product_trees(root)
+        for other in spine_trees(root)
         if other != tree and re.match(rf"^cp-{rung}(?:-|$)", other.name)
     ]
 

@@ -154,6 +154,7 @@ __all__ = [
     "RequestBoundParameter",
     "PolicyFilterParametersArtifact",
     "ProductClassDeclaration",
+    "SeamRefusalBinding",
     "ProjectionRequirements",
     "RegistrationMode",
     "ReplayBinding",
@@ -1300,6 +1301,40 @@ class PerspectiveArtifact(VersionedArtifact, Perspective):
     """
 
 
+class SeamRefusalBinding(CCFContract):
+    """One exception type this product class treats as a governed refusal.
+
+    `D-IMPL-347` B2 (Dave, 2026-09-23): *"Product class first; deployment may
+    narrow, not widen. The map is a governed value: exception type → cause /
+    error code."*
+
+    **Why this is a declared value and not SDK mechanism.** A2 widened the
+    SCOPE at which a typed ``GovernedRefusalRaised`` is honored; it deliberately
+    did not widen the TYPE, because the SDK cannot know whether a deployment's
+    ``ControlRoomUnreachable`` means *the subject is unavailable* or *this
+    deployment is broken*. Only the product knows, so the product says — in an
+    artifact, like every other governed value (CLAUDE.md §11).
+
+    **The type is matched, never imported.** :attr:`exception` is compared
+    against the raised exception's own ``module.QualName``; nothing here
+    resolves a dotted path, so a declaration cannot cause an import and a
+    misspelled name simply never matches rather than executing something.
+
+    Attributes:
+        exception: The fully qualified ``module.QualName`` of the exception
+            type, as Python reports it on the raised value.
+        cause: The refusal cause to mint, from
+            :class:`~ccf.products.refusal.SubjectUnavailableRefusal`'s own
+            closed vocabulary. The product's statement about what the failure
+            MEANS, which is the half the SDK cannot supply.
+        error_code: The deployment-facing code carried on the minted refusal.
+    """
+
+    exception: str
+    cause: Literal["nonexistent", "unauthorized", "undisclosed"]
+    error_code: str
+
+
 class ProductClassDeclaration(VersionedArtifact):
     """A product class's authored governance, minus the pin registration mints (§7.6).
 
@@ -1509,6 +1544,12 @@ class ProductClassDeclaration(VersionedArtifact):
     payload_schema_key: str = NO_PAYLOAD_SCHEMA
     request_contract_key: str = NO_REQUEST_CONTRACT
     requires: tuple[ChildRequirement, ...] = Field(
+        default=(), json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    #: `D-IMPL-347` B2 — the exception types THIS product considers a governed
+    #: refusal, with what each one means. Empty is the honest default: a class
+    #: that declares none converts nothing, which is exactly A2's behavior.
+    seam_refusals: tuple[SeamRefusalBinding, ...] = Field(
         default=(), json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
     serve_obligations: ServeObligations = Field(

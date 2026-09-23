@@ -389,3 +389,50 @@ def acquire(
         envelopes=envelopes,
         ledger_watermark=watermark,
     )
+
+
+def envelopes_in_force(
+    *, relational: Mapping[str, str], graph: Mapping[str, str]
+) -> tuple[Envelope, ...]:
+    """The bilateral envelopes ALONE — the minimum second read the child seam needs.
+
+    `CLD-F-06` Option 1 (Dave, 2026-09-23). The per-question child seam may
+    raise a governed refusal as of `D-IMPL-347` A2, but it receives no source
+    handles — neither `ConsumerContext` nor `resolve_for` carries them — so a
+    refusal decided on THIS deployment's own facts has to read them itself.
+
+    **Narrow, and narrow deliberately.** This is NOT `acquire` again: it reads
+    the member id -> LEI map and the three envelope queries, and nothing else.
+    No facility row, no participations, no consent thresholds, no ledger
+    watermark. Four source calls against `acquire`'s nine, and the product's
+    own acquisition is untouched — a second FULL acquisition would be a second
+    answer, and two answers to one question is the thing this must not become.
+
+    **Temporally aligned by construction.** Both legs are read at the same
+    ledger and schema the acquisition reads, under the same tenant's
+    configuration, for the same question. The envelope rows are negotiated
+    agreements rather than a moving market series, so re-reading them cannot
+    produce a figure that disagrees with the served payload; nothing here
+    reaches a per-instant series, and nothing here calls a peer.
+
+    The friction is recorded as `CLD-F-11`, a category-2 DX candidate — not a
+    missing capability, because this is implementable with no SDK change.
+    """
+    vocab = vocabulary()
+    leg = vocab["relational_leg"]
+    member_columns = leg["member_columns"]
+    with psycopg.connect(relational["dsn"]) as connection:
+        members = {
+            str(member_id): str(lei)
+            for member_id, lei in connection.execute(
+                f"SELECT {member_columns['member_id']}, {member_columns['lei']}"
+                f" FROM {relational['schema']}.{leg['member_table']}"
+                f" WHERE {member_columns['lei']} IS NOT NULL"
+            ).fetchall()
+        }
+    with httpx.Client(timeout=READ_TIMEOUT_SECONDS) as client:
+        return _envelopes(
+            leg=_GraphLeg(url=graph["url"], ledger=graph["ledger"], client=client),
+            vocab=vocab,
+            members=members,
+        )

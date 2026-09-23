@@ -976,6 +976,17 @@ RULED_SDK_SUPPLIED_DEPLOYMENTS: frozenset[str] = frozenset(
         # repeat is why the qualification command must stay the full tree.
         "examples/cp-20-syndicated-lending-co-lender",
         "examples/peer-cp-20-co-lender",
+        # `DR-SPEC-002` / 2026-09-23 — the `dr-NN` series' first SERVING tree,
+        # and the first tree on either spine whose payload a model wrote
+        # (Assembly Mode 2). It qualifies on the same terms as every entry
+        # above and NOT because it is listed: its `plan_factory` consumes the
+        # resolver's `required` and authors nothing, it declares no
+        # `ccf.projection-requirements`, and it carries no competing operator
+        # set or projection engine of its own.
+        #
+        # Ruled UP FRONT at Gate 1 rather than discovered at qualification —
+        # this is the check that shipped red through two closes at `172f1612`.
+        "examples/dr-02-package-a-context-product",
     }
 )
 
@@ -3725,6 +3736,10 @@ def test_the_premise_detector_reads_the_shipped_tree_correctly() -> None:
         "examples/cp-21-large-exposure",
         "examples/cp-23-portfolio-early-warning",
         "examples/cp-24-portfolio-what-if",
+        # `DR-SPEC-002` / 2026-09-23 — recorded here as its OWN assertion for
+        # the reason the cp-11 entry gives: the roster above records what was
+        # RULED, this records what the detector ANSWERS.
+        "examples/dr-02-package-a-context-product",
         "examples/hw1-companies-over-revenue/deployment",
         "examples/peer-cp-20-co-lender",
         # `D-IMPL-311`, 2026-09-09 — s1-00 arrives from row B above, by the
