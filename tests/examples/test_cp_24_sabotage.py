@@ -13,6 +13,8 @@ from collections.abc import Mapping
 from typing import Any
 
 import pytest
+
+from tests.examples import tree_import
 from ccf.contracts.canonical import content_hash
 from ccf.projection.plan import Perspective
 from ccf.replay.serve import ServedProduct
@@ -182,12 +184,12 @@ def test_the_scenario_crosses_the_door_unchanged(
 
     Declared product gate `WIF-G05` (`CP-SPEC-024` §0.2b, §G.1).
     """
-    sys_path = str(EXAMPLE)
-    import sys  # noqa: PLC0415
-
-    if sys_path not in sys.path:
-        sys.path.insert(0, sys_path)
-    from server import serve as door_module  # noqa: PLC0415
+    # `LEX-F-11` / `AIA-F-07`. This import used to insert the path and take
+    # whatever `server.serve` was resident — and measured 2026-09-22, after
+    # `test_cp_21_sabotage` ran, that was CP-21's door: `module 'server.serve'
+    # has no attribute 'open_book_door'`. The helper evicts every `server.*`
+    # entry first and PROVES the module it loaded lives in this tree.
+    door_module = tree_import.door_module_of(EXAMPLE)
 
     deployment, produce = modules["deployment"], modules["produce"]
     inprocess = answer(modules, tmp_path / "direct", principal=COVERAGE)

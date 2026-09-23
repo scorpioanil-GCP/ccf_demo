@@ -33,6 +33,8 @@ from typing import Any
 
 import httpx
 import pytest
+
+from tests.examples import tree_import
 import yaml
 from mcp import ClientSession
 from mcp.types import TextContent
@@ -123,10 +125,12 @@ def _tree_modules(tree: pathlib.Path) -> Iterator[dict[str, Any]]:
         import deployment  # noqa: PLC0415
         import produce  # noqa: PLC0415
         import projection  # noqa: PLC0415
-        from server import serve  # noqa: PLC0415
 
         assert pathlib.Path(deployment.__file__).parent == tree, "the eviction did not hold"
-        assert pathlib.Path(serve.__file__).parent.parent == tree, "the eviction did not hold"
+        # `LEX-F-11`, through the shared helper so the four door importers
+        # cannot drift apart again. `COLLIDING` above already pops both
+        # `server` and `server.serve`; the helper re-evicts and VERIFIES.
+        serve = tree_import.door_module_of(tree)
         yield {"acquisition": acquisition, "deployment": deployment, "produce": produce, "projection": projection, "serve": serve}
     finally:
         sys.path.remove(str(tree))

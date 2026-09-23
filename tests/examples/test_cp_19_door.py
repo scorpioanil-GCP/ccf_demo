@@ -31,6 +31,8 @@ from typing import Any
 
 import httpx
 import pytest
+
+from tests.examples import tree_import
 import yaml
 from ccf.contracts.canonical import canonical_bytes
 from ccf.mcp.client import run_with_session
@@ -85,10 +87,14 @@ def _tree_modules(tree: pathlib.Path) -> Iterator[dict[str, Any]]:
     sys.path.insert(0, str(tree))
     try:
         import produce  # noqa: PLC0415
-        from server import serve  # noqa: PLC0415
 
         assert pathlib.Path(produce.__file__).parent == tree, "the eviction did not hold"
-        yield {"produce": produce, "serve": serve}
+        # `LEX-F-11`: `COLLIDING` above pops `server` but NOT `server.serve`,
+        # and `from server import serve` short-circuits on the stale SUBMODULE
+        # — so this door was reachable from another tree and was never
+        # verified. The helper evicts every `server.*` entry and proves what it
+        # loaded.
+        yield {"produce": produce, "serve": tree_import.door_module_of(tree)}
     finally:
         sys.path.remove(str(tree))
         for name in COLLIDING:

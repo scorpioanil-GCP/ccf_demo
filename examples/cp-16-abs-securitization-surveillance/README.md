@@ -33,58 +33,8 @@ new SDK symbol:
 It is also the first rung to exercise **residual `341-1`**: acquisition bounded
 at the *decision instant* rather than at request time.
 
-## The demonstration, in one contrast
 
-`SDART-2022-6` is the one deal in the estate carrying a **trigger amendment**.
-Its published delinquency runs 9.98 %–11.30 % across twelve periods.
-
-| asked at | in-force delinquency trigger | distance | anchored? |
-|---|---:|---:|---|
-| `2025-09-30` | **24.00 %** (original) | ~13.4 points | yes — filed prospectus text |
-| `2026-06-30` | **13.50 %** (amended) | **2.32 points** | **no** |
-
-Evaluating a 2026 pool against the 2022 definition is the anachronism this rung
-exists to refuse. And the filed servicer report *still publishes 24.00 %* in
-every period, so the product serves **both** the in-force definition and the
-filed figure rather than silently preferring one.
-
-## Route B — the unanchored threshold
-
-The amendment is the only one of the estate's eleven trigger definitions with
-**no prospectus passage**, because it was engineered and never filed. Dave
-ruled (2026-09-21) that it is **served, marked**, not refused and not invented:
-
-- `anchored: false`, classified `engineered`, and named in
-  `unanchored_thresholds` and in `findings`;
-- **nothing in the payload implies a passage exists** — no empty anchor object,
-  no null `passage_id`, no placeholder document id;
-- the anchoring invariant is **split in two** so neither half can satisfy the
-  other: `ABS-G06` (every publicly sourced threshold anchors and re-hashes) and
-  `ABS-G07` (every threshold without a public anchor is named unanchored).
-
-**No prospectus text is minted.** The absence is stated.
-
-## Cost is blocks and records — never time
-
-The estate's own 24 timed runs put `cohort`'s median between **0.148 ms and
-205.871 ms** on identical data while its block count never moved off 2. Its
-worst run is 4.9× slower than `loan`'s best. **A time-keyed cost gate would
-invert the ordering this rung teaches**, so every cost assertion is keyed on
-blocks and records, and the measured counts travel as stamped evidence rather
-than as thresholds anything is compared against.
-
-The sharpest measurement is counter-intuitive and is why *both* numbers matter:
-
-| approach | rows materialized | blocks | representative? |
-|---|---:|---:|---|
-| full partition | 35,814 | 1,849 | yes, but materializes the pool |
-| prefix `LIMIT` | 200 | **16** | **no** — the cheap option is the forbidden one |
-| deterministic stride | 166 | 1,849 | **yes** |
-
-**Sampling saves materialization, not blocks.** Rows alone would have called the
-prefix a 178× win.
-
-## Running it
+## Run it
 
 ```bash
 export CCF_CP_16_POSTGRES_DSN=...   CCF_CP_16_POSTGRES_SCHEMA=ccf_v2
@@ -106,7 +56,65 @@ historical question is *decided* at the instant it asks about. Holding
 `asked_at` at today while moving `as_of` back asks for a product whose
 evidence-anchored expiry is already months past, and it is refused.
 
-## The three principals
+
+## The story
+
+### The demonstration, in one contrast
+
+
+`SDART-2022-6` is the one deal in the estate carrying a **trigger amendment**.
+Its published delinquency runs 9.98 %–11.30 % across twelve periods.
+
+| asked at | in-force delinquency trigger | distance | anchored? |
+|---|---:|---:|---|
+| `2025-09-30` | **24.00 %** (original) | ~13.4 points | yes — filed prospectus text |
+| `2026-06-30` | **13.50 %** (amended) | **2.32 points** | **no** |
+
+Evaluating a 2026 pool against the 2022 definition is the anachronism this rung
+exists to refuse. And the filed servicer report *still publishes 24.00 %* in
+every period, so the product serves **both** the in-force definition and the
+filed figure rather than silently preferring one.
+
+### Route B — the unanchored threshold
+
+
+The amendment is the only one of the estate's eleven trigger definitions with
+**no prospectus passage**, because it was engineered and never filed. Dave
+ruled (2026-09-21) that it is **served, marked**, not refused and not invented:
+
+- `anchored: false`, classified `engineered`, and named in
+  `unanchored_thresholds` and in `findings`;
+- **nothing in the payload implies a passage exists** — no empty anchor object,
+  no null `passage_id`, no placeholder document id;
+- the anchoring invariant is **split in two** so neither half can satisfy the
+  other: `ABS-G06` (every publicly sourced threshold anchors and re-hashes) and
+  `ABS-G07` (every threshold without a public anchor is named unanchored).
+
+**No prospectus text is minted.** The absence is stated.
+
+### Cost is blocks and records — never time
+
+
+The estate's own 24 timed runs put `cohort`'s median between **0.148 ms and
+205.871 ms** on identical data while its block count never moved off 2. Its
+worst run is 4.9× slower than `loan`'s best. **A time-keyed cost gate would
+invert the ordering this rung teaches**, so every cost assertion is keyed on
+blocks and records, and the measured counts travel as stamped evidence rather
+than as thresholds anything is compared against.
+
+The sharpest measurement is counter-intuitive and is why *both* numbers matter:
+
+| approach | rows materialized | blocks | representative? |
+|---|---:|---:|---|
+| full partition | 35,814 | 1,849 | yes, but materializes the pool |
+| prefix `LIMIT` | 200 | **16** | **no** — the cheap option is the forbidden one |
+| deterministic stride | 166 | 1,849 | **yes** |
+
+**Sampling saves materialization, not blocks.** Rows alone would have called the
+prefix a 178× win.
+
+### The three principals
+
 
 | credential | role | ceiling |
 |---|---|---|
@@ -123,7 +131,34 @@ deal has no cohorts* rather than *you may not ask*.
 `unbounded-loan-request` rather than accepting an instruction to materialize a
 1.3-million-row population.
 
-## What to change first to adapt it
+
+## Artifact-by-artifact
+
+| file | what it carries |
+|---|---|
+| `ccf_config.yaml` | the class, the four operator keys, the request contract with the granularity domain, and the role-applicable `allowed_set` ceiling |
+| `ccf_environment.yaml` | where the three source legs are read from — names only, never values |
+| `artifacts/source-vocabulary.yaml` | the estate's own tables, columns and IRIs |
+| `artifacts/perspectives.yaml` | the three audience shapes |
+| `artifacts/question.yaml` | the demonstration deal and its two instants, and nothing else |
+| `artifacts/gates.yaml` | the twenty-two declared gates and their observed reds |
+
+
+## Whitepaper / CLAUDE.md sections exercised
+
+| section | how |
+|---|---|
+| Whitepaper §7.4 — operator algebra | the declared keys, Policy first, order read from replay dimension 5 rather than an unordered `frozenset` |
+| Whitepaper §7.5 — Projection | the member set is a function of the perspective AND the effective granularity |
+| Whitepaper §7.6 — Context Product Contract | `extra=forbid`; an evidence-anchored TTL beside a decision-instant parameter |
+| Whitepaper §7.7 — half-life and Context Debt | evidence-anchored freshness on a monthly-reporting estate |
+| Whitepaper §7.10 — Decision Replay | both observed states — the original threshold anchored, the amendment unanchored — reconstructible |
+| CLAUDE.md §6.4 — No-Hardcoding | the granularity domain, the ceiling and the estate's names are artifacts |
+| CLAUDE.md §7.1/§7.3 — MCP egress | the standard door; a redacted caller envelope over a governed determination that retains the bound |
+| CLAUDE.md §9 — estate discipline | reads `.76` only; seeds nothing; cost is blocks and records, never wall-clock |
+
+
+## What to change first
 
 - `artifacts/perspectives.yaml` — the roles, their ceilings, and the member set
   each granularity carries. `ABS-G11` checks this against the estate's own
@@ -137,7 +172,26 @@ deal has no cohorts* rather than *you may not ask*.
 - `acquisition.py` — the readers. This is where the ceiling is resolved first
   and where the fan-out is bounded.
 
-## Known limitations
+
+## What would fail
+
+### The source ledger point is not observed here, and the payload does not claim it
+
+This rung reads the ledger position from Fluree's `x-fdb-t` **response
+header**, which this deployment does not emit — so what acquisition carries is
+the literal `unreported`. **Nothing is minted to stand in for it**: no request
+time, no ingestion time, and never `graph_snapshot_at`, which answers a
+different question (the CCF snapshot the replay record retains, not the
+source's position).
+
+The payload serves **no** ledger point at all, so nothing in it implies a
+Fluree historical position was observed. `tests/examples/
+test_fluree_ledger_point_disclosure.py` pins that disposition, and pins that
+the estate in fact publishes its watermark on a route this rung does not ask
+(`LEX-F-04`, corrected) — a returned finding, not a change made here.
+
+### Known limitations
+
 
 All measured and classified in `FINDINGS.md`. The ones a reader meets first:
 
@@ -155,7 +209,8 @@ All measured and classified in `FINDINGS.md`. The ones a reader meets first:
 - **The estate's passages carry embeddings the SDK cannot yet use.** The lexical
   operator is used instead; recorded as a backlog item.
 
-## Gates
+### Gates
+
 
 22 declared gates, `ABS-G01`..`ABS-G22`, in `artifacts/gates.yaml`, each claimed
 by an executing test under `tests/examples/test_cp_16_*.py`. **21 observed red**
@@ -163,7 +218,8 @@ under their own sabotage; **one `unavailable`** with its guard named —
 `ABS-G01`, because `CATEGORY_ORDER` in the SDK's planner fixes the executed
 operator order and the forbidden ordering is unreachable from a deployment.
 
-## Specification
+### Specification
+
 
 `spec/CP-SPEC-016_ABS_Securitization_Surveillance.md`, authored to Context
 Product Specification Standard v0.3 before any code existed, with Dave's Gate-2

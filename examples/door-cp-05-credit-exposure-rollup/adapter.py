@@ -61,11 +61,76 @@ from ccf_runtime.authz.product_entitlement import ControlPlaneProductEntitlement
 HERE = Path(__file__).resolve().parent
 #: The FROZEN specimen this door serves. Imported, never copied, never edited.
 SPECIMEN = HERE.parent / "cp-05-credit-exposure-rollup"
-if str(SPECIMEN) not in sys.path:
-    sys.path.insert(0, str(SPECIMEN))
 
-import deployment as dep  # noqa: E402
-import produce as prod  # noqa: E402
+#: The bare module names a product tree occupies. ANY two trees in one process
+#: occupy exactly the same ones, which is why they are evicted rather than
+#: assumed absent (`AIA-F-07`).
+_COLLIDING = ("produce", "deployment", "projection", "acquisition", "assembler")
+
+
+class WrongProductLoaded(ImportError):
+    """This door loaded a module that does not live in the specimen it serves."""
+
+
+def _specimen_modules() -> tuple[Any, Any]:
+    """Import the frozen specimen's modules, and PROVE they are the specimen's.
+
+    A product tree is imported by BARE MODULE NAME off ``sys.path``, and
+    **Python resolves a bare name from ``sys.modules`` before it ever consults
+    ``sys.path``** — so inserting :data:`SPECIMEN` does nothing at all when
+    another tree's ``produce`` is already resident. This module is *imported*
+    rather than run as ``__main__``, so a second tree frequently is.
+
+    Measured 2026-09-22 on the release-hardening sweep, with
+    ``cp-21-large-exposure`` resident: this door bound **cp-21's** ``produce``
+    and would have served the large-exposure product through the exposure
+    rollup's door. cp-21's producer defines ``product()`` too, so there was no
+    ``AttributeError`` to catch it — the door would have answered, correctly
+    shaped and entirely wrong. That is the dangerous half of `AIA-F-07`: a
+    governance failure wearing a successful answer.
+
+    So: evict, insert, import, **verify the file actually loaded lives in the
+    specimen**, and restore whatever was displaced. A mismatch raises rather
+    than binding, because a door that cannot prove which product it serves
+    must not open.
+    """
+    saved = {name: sys.modules.pop(name, None) for name in _COLLIDING}
+    sys.path.insert(0, str(SPECIMEN))
+    try:
+        import deployment  # noqa: PLC0415
+        import produce  # noqa: PLC0415
+
+        for module in (produce, deployment):
+            resolved = Path(module.__file__ or "").resolve().parent
+            if resolved != SPECIMEN.resolve():
+                raise WrongProductLoaded(
+                    f"this door serves {SPECIMEN.name!r} and loaded"
+                    f" `{module.__name__}` from {resolved}; a door that cannot"
+                    " prove which product it serves must not open (`AIA-F-07`)"
+                )
+        return produce, deployment
+    except BaseException:
+        # Only on FAILURE is what was displaced put back. On success the
+        # specimen STAYS resident and SPECIMEN stays on `sys.path`, and that
+        # is deliberate: cp-05's own modules import their siblings lazily, so
+        # unwinding here would leave this door bound to modules whose later
+        # imports resolve somewhere else — measured 2026-09-22, when a
+        # restoring version booted, announced READY, and then failed every
+        # served question with `producer-unavailable`.
+        #
+        # The eviction above is what makes the VERIFICATION meaningful in a
+        # poisoned process; keeping the result is what makes the door work.
+        # This module is the last thing loaded in the door's process, and in
+        # a test process it is the one binding that has proven what it holds.
+        sys.path.remove(str(SPECIMEN))
+        for name in _COLLIDING:
+            sys.modules.pop(name, None)
+            if saved[name] is not None:
+                sys.modules[name] = saved[name]
+        raise
+
+
+prod, dep = _specimen_modules()
 
 #: This door's own identity document.
 DOOR = HERE / "artifacts" / "door.yaml"

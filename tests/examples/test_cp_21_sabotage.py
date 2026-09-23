@@ -19,6 +19,8 @@ from collections.abc import Mapping
 from typing import Any
 
 import pytest
+
+from tests.examples import tree_import
 from ccf.contracts.canonical import content_hash
 from ccf.projection.plan import Perspective
 from ccf.replay.serve import ServedProduct
@@ -390,31 +392,12 @@ def test_the_proposal_crosses_the_door_unchanged(
     must be byte-identical to the in-process one — a closed object that lost a
     member or changed a magnitude on the way through would hash differently.
     """
-    import sys  # noqa: PLC0415
-
-    # EVERY `server.*` ENTRY IS EVICTED, NOT JUST `server`.
-    #
-    # Measured 2026-09-21: this test passed alone and FAILED in the full suite
-    # with `module 'server.serve' has no attribute 'open_large_exposure_door'`
-    # — because an earlier example's tree had already imported `server.serve`,
-    # and popping only the `server` package re-imports the package from this
-    # path while `from server import serve` short-circuits on the stale
-    # SUBMODULE still sitting in `sys.modules`. The door under test was then
-    # another product's door, and the attribute error is the lucky outcome:
-    # had the two trees shared a symbol name, this would have served another
-    # product's determination and compared it as though it were ours.
-    for name in [n for n in sys.modules if n == "server" or n.startswith("server.")]:
-        del sys.modules[name]
-    sys.path.insert(0, str(EXAMPLE))
-    try:
-        from server import serve as door_module  # noqa: PLC0415
-    finally:
-        sys.path.remove(str(EXAMPLE))
-    # AND THE EVICTION IS VERIFIED, never assumed: the module actually loaded
-    # must live in THIS tree.
-    assert pathlib.Path(door_module.__file__).parent.parent == EXAMPLE, (
-        f"the door module resolved to {door_module.__file__}, outside this example"
-    )
+    # `LEX-F-11`, and the pattern now has ONE home. This block used to evict
+    # every `server.*` entry and verify the result by hand; the helper does
+    # exactly that, and routing all four door importers through it is what
+    # stopped the fourth from being written without a guard at all
+    # (`test_cp_24_sabotage`, measured 2026-09-22).
+    door_module = tree_import.door_module_of(EXAMPLE)
 
     deployment, produce = modules["deployment"], modules["produce"]
     inprocess = answer(modules, tmp_path / "direct", anchor=BREACHING["anchor"],

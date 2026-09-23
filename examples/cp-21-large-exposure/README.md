@@ -187,6 +187,21 @@ and it is the subject of `LEX-G14`.
 
 ## What would fail
 
+### The source ledger point, and what `unreported` means
+
+This rung reads the ledger position from Fluree's `x-fdb-t` **response
+header**, which this deployment does not emit. The payload therefore serves
+`ledger_t: "unreported"` **beside** `ledger_point_resolvable: "false"` — the
+disclosure is explicit, and `LEX-G21` gates on it rather than on a value.
+Nothing is minted: not request time, not ingestion time, and never
+`graph_snapshot_at`, which is the CCF snapshot the replay record retains
+rather than the source's own position.
+
+`LEX-F-04` concluded the point was unrecoverable from this estate. Measured
+2026-09-22, it is recoverable — on `/v1/fluree/ledgers`, a route this rung
+does not ask. Returned as a finding; correcting it would change what this
+shipped product serves.
+
 Twenty-one declared gates, `LEX-G01`..`LEX-G21`, in
 [`artifacts/gates.yaml`](artifacts/gates.yaml). **All twenty-one were observed
 RED under their own sabotage** on 2026-09-21 against the live estate; none is
