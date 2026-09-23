@@ -124,3 +124,58 @@ No repair of the curated ledger: no deletion, no rewind, no compensating
 writes. No restart of the stopped `ccf-fluree-15-3` container the six `s1-01`
 tests actually need — that is the estate owner's decision, and those nodes stay
 recorded as **NOT EXECUTED** rather than skipped.
+
+---
+
+## Package disposition — approved and merged
+
+**Approved by Dave, 2026-09-22**, on `release-hardening @ bd1fd5f8` against
+baseline `main @ 0bc58525`, merged `--no-ff`. No tag. Final qualification is
+explicitly **not** part of this close.
+
+- **`AIA-F-07` — CLOSED.** Diagnosed to root cause by bisection over 68
+  predecessors to a single one, and repaired in one place. Two namespaces were
+  affected and both are now proven: `produce`/`deployment` (the `door-cp-05`
+  adapter, the only shipped module imported rather than run) and
+  `server.serve` (all four door importers, through
+  `tests/examples/tree_import.py`, which evicts every `server.*` entry and
+  **proves the module loaded lives in the requested tree**). Not closed by
+  collection order, a skip, an xfail, or process isolation. The shipped path
+  was never ambiguous — all fourteen `run.py --door` entry points own their
+  process, asserted repository-wide.
+- **`LEX-F-12` — CLOSED** for the six README-template failures (cp-15, cp-16,
+  cp-18, cp-19, cp-23, cp-24). Zero unique tokens dropped; the template was
+  not weakened.
+- **The estate fence and this incident record landed** — the fence as a
+  session-scoped autouse fixture in `tests/conftest.py`, and a release
+  requirement rather than a cleanup item.
+- **The Fluree disclosure work is limited to tests and docs.** No product
+  behavior changed.
+- **No served payload or content-address change for CP-16 or CP-24.** Each
+  rung's disposition is pinned by test and disclosed in its README; no
+  `ledger_t` field was added to either payload.
+- **The `/v1/fluree/ledgers` route finding is carried as a follow-on.** Five
+  product addresses were **not** rebased. No value minted; `graph_snapshot_at`
+  never aliased.
+- **Six `test_s1_01_governed_resolver_adoption` nodes remain NOT EXECUTED** —
+  `CCF_TEST_FLUREE_URL` unavailable, the local `ccf-fluree-15-3` container
+  exited by the estate owner on 2026-09-19. Not restarted, not skipped, not
+  xfailed.
+- **Two typecheck failures are baseline** and live in
+  `runtime/ccf_runtime/authz/delivery_boundary.py`, a file this package does
+  not touch. Byte-identical at `0bc58525`.
+- **`src/` and `runtime/` are unchanged** — zero files across the package.
+- **`D-IMPL-346` remains unspent.**
+
+**Suite at close**, fresh checkout with no sidecars, against the live estate:
+baseline 13 failed / 1546 passed / 0 errors; candidate **6 failed / 1571
+passed / 0 errors**. **Zero regressions, seven fixed.** No skip or xfail was
+introduced to clear a failure.
+
+**QUALIFICATION PROVENANCE, RETAINED IN THIS RECORD.** Any qualification
+evidence depending on this estate names the position actually measured:
+
+> **`ccf:main @ t=1608`**
+
+Qualification is **not** described against the pre-incident estate. The
+candidate is not the estate as it stood before this pass.
