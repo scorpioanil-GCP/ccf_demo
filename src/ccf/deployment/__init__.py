@@ -114,7 +114,11 @@ Algorithmic package (CINV-03).
 from __future__ import annotations
 
 from ccf.controlplane.artifacts import DeploymentManifest, ManifestEntry
-from ccf.deployment.binder import refuse_operator_set_divergence
+from ccf.deployment.binder import (
+    SeamRefusalWidening,
+    refuse_operator_set_divergence,
+    refuse_seam_refusal_widening,
+)
 from ccf.deployment.classes import (
     SDK_ARTIFACT_CLASSES,
     SDK_ARTIFACT_ROLES,
@@ -153,6 +157,7 @@ __all__ = [
     "EnvironmentDocument",
     "ManifestEntry",
     "ResolvedPins",
+    "SeamRefusalWidening",
     "SimilarityCorpusAttributeError",
     "UnpinnedArtifactError",
     "build_operator_registry",
@@ -163,6 +168,7 @@ __all__ = [
     "refuse_operator_set_divergence",
     "refuse_registration_the_sdk_fixes",
     "refuse_role_the_sdk_fixes",
+    "refuse_seam_refusal_widening",
     # `D-GATE-cp-20` follow-up (Dave, 2026-09-22). ADDITIVE ONLY — the symbol
     # was already public at `ccf.deployment.manifest`, already in the
     # committed surface, and unchanged in behavior; what was missing was the

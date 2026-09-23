@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1321 entries**, of which **1077** name a public Python surface.
+**1324 entries**, of which **1078** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-714 entries — 674 public Python surface, 40 not public Python API.
+717 entries — 675 public Python surface, 42 not public Python API.
 
 ### Public Python surface
 
@@ -7171,18 +7171,6 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `20.2-01-the-adopter-surface-d-impl-346.md`.*
 
-#### ccf.replay.record.ModelVersionRecord.packaging_trace
-
-- Surface: ccf.replay.record.ModelVersionRecord.packaging_trace
-- Public surface: true
-- Change type: added
-- Before: dimension 3 carried no packaging block
-- After: a sentinel-defaulted, hash-transparent field holding the Mode-2 pins
-- Why: whitepaper §7.10.4's four pinned rendering primitives, readable without a dereference
-- Migration: none — hash-transparent at its sentinel, so no existing record's address moves
-
-*Recorded by `20.2-01-the-adopter-surface-d-impl-346.md`.*
-
 #### ccf.replay.environment.RecordedEnvironmentUnbuildable
 
 - Surface: ccf.replay.environment.RecordedEnvironmentUnbuildable
@@ -7219,17 +7207,41 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `20.3-01-seam-held-refusals-d-impl-347.md`.*
 
-#### ccf.replay.record.ContentGenerationPath.refusal_seam
+#### ccf.controlplane.artifacts.SeamRefusalBinding
 
-- Surface: ccf.replay.record.ContentGenerationPath.refusal_seam
+- Surface: ccf.controlplane.artifacts.SeamRefusalBinding
 - Public surface: true
 - Change type: added
-- Before: dimension 5 recorded that a refusal happened, never where it was held
-- After: one of `REFUSAL_SEAMS`, or `NO_REFUSAL_SEAM`
-- Why: it makes the four wraps auditable and distinguishable; `CLD-F-06` was a refusal from the wrong seam escaping as a traceback, and a record that cannot name the seam cannot show that it no longer does
-- Migration: none — hash-transparent at its sentinel
+- Before: absent — a deployment's own domain exception could only escape as a traceback (`CP17-F-11`, `CP13C-F-03`, `CP14-F-21`)
+- After: one declared binding of `exception` → `cause` / `error_code`, carried on the product class as `seam_refusals`
+- Why: the meaning of a product's own failure is a governed value the product states, in an artifact, like every other governed value (CLAUDE.md §11)
+- Migration: none — `seam_refusals` defaults to empty and is hash-transparent, so no existing class declaration changes shape or address
 
-*Recorded by `20.3-01-seam-held-refusals-d-impl-347.md`.*
+*Recorded by `20.3-02-declared-seam-refusals-d-impl-347-b2.md`.*
+
+#### ccf.deployment.refuse_seam_refusal_widening
+
+- Surface: ccf.deployment.refuse_seam_refusal_widening
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: holds a deployment's selection to a subset of the class's bindings
+- Why: *"Deployment may subset or bind codes already named by the class."* Refused by NAME rather than silently intersected — an ignored widening and an honored narrowing are the same green build, and the operator who wrote the extra name would never learn it did nothing
+- Migration: none — an empty selection means "no narrowing" and is accepted
+
+*Recorded by `20.3-02-declared-seam-refusals-d-impl-347-b2.md`.*
+
+#### ccf.deployment.SeamRefusalWidening
+
+- Surface: ccf.deployment.SeamRefusalWidening
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the typed refusal raised when a deployment names a seam-refusal type its class does not declare
+- Why: widening would let a deployment convert a defect the product never classified into an answer
+- Migration: none
+
+*Recorded by `20.3-02-declared-seam-refusals-d-impl-347-b2.md`.*
 
 #### ccf.graph.protocols.TemporalAxis
 
@@ -12445,6 +12457,40 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Migration: none — a module-level constant, not exported
 
 *Recorded by `18-99-close-review-blocking-fixes.md`.*
+
+#### ccf.replay.record.ModelVersionRecord.packaging_trace
+
+- Surface: ccf.replay.record.ModelVersionRecord.packaging_trace
+- Public surface: false
+- Note: a FIELD on an already-exported contract, not a new `__all__`
+  name. The generated manifest is derived from module `__all__`, so it
+  cannot see this and the phase-close cross-check would demand a diff
+  line that will never exist. Adopters still act on it, which is why it
+  is logged here.
+- Change type: added
+- Before: dimension 3 carried no packaging block
+- After: a sentinel-defaulted, hash-transparent field holding the Mode-2 pins
+- Why: whitepaper §7.10.4's four pinned rendering primitives, readable without a dereference
+- Migration: none — hash-transparent at its sentinel, so no existing record's address moves
+
+*Recorded by `20.2-01-the-adopter-surface-d-impl-346.md`.*
+
+#### ccf.replay.record.ContentGenerationPath.refusal_seam
+
+- Surface: ccf.replay.record.ContentGenerationPath.refusal_seam
+- Public surface: false
+- Note: a FIELD on an already-exported contract, not a new `__all__`
+  name. The generated manifest is derived from module `__all__`, so it
+  cannot see this and the phase-close cross-check would demand a diff
+  line that will never exist. Adopters still act on it, which is why it
+  is logged here.
+- Change type: added
+- Before: dimension 5 recorded that a refusal happened, never where it was held
+- After: one of `REFUSAL_SEAMS`, or `NO_REFUSAL_SEAM`
+- Why: it makes the four wraps auditable and distinguishable; `CLD-F-06` was a refusal from the wrong seam escaping as a traceback, and a record that cannot name the seam cannot show that it no longer does
+- Migration: none — hash-transparent at its sentinel
+
+*Recorded by `20.3-01-seam-held-refusals-d-impl-347.md`.*
 
 #### ccf.operator-parameters.traversal-descendants
 

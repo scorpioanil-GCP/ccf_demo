@@ -247,10 +247,12 @@ from ccf.products.gates import (
 from ccf.products.provenance import EffectiveRequest, ProvenanceSource
 from ccf.products.refusal import (
     NO_REPLAY_REFERENCE,
+    RESOLVED_BY_THE_RESOLVER,
     GovernedRefusalRaised,
     RefusalEnvelope,
     RefusalEvidence,
     RequestIdentity,
+    SubjectUnavailableRefusal,
     envelope_for,
 )
 from ccf.products.request import (
@@ -262,6 +264,7 @@ from ccf.products.request import (
 )
 from ccf.projection.engine import ExecutionResult, ProjectionEngine
 from ccf.projection.plan import Perspective, ProjectionPlan
+from ccf.controlplane.artifacts import SeamRefusalBinding
 from ccf.replay.record import (
     NO_REFUSAL_SEAM,
     REFUSAL_SEAMS,
@@ -2058,6 +2061,17 @@ class GovernedResolver:
                     raised, seam="acquisition", request=request, identity=identity,
                     perspective=perspective, effective=effective,
                 )
+            except Exception as error:  # noqa: BLE001 — re-raised unless DECLARED
+                # `D-IMPL-347` B2: only a type THIS class declared converts.
+                # Everything else re-raises unchanged, which is what keeps a
+                # defect a defect.
+                binding = self._declared_seam_refusal(error)
+                if binding is None:
+                    raise
+                return self._refuse_declared_at_seam(
+                    error, binding, seam="acquisition", request=request,
+                    identity=identity, perspective=perspective, effective=effective,
+                )
 
         view = self.fabric.handle.reader.as_of(
             tenant_id=self.fabric.tenant_id, at=request.asked_at
@@ -2177,6 +2191,15 @@ class GovernedResolver:
                         identity=identity, perspective=perspective,
                         effective=effective,
                     )
+                except Exception as error:  # noqa: BLE001 — re-raised unless DECLARED
+                    binding = self._declared_seam_refusal(error)
+                    if binding is None:
+                        raise
+                    return self._refuse_declared_at_seam(
+                        error, binding, seam="build_children", request=request,
+                        identity=identity, perspective=perspective,
+                        effective=effective,
+                    )
                 # The per-requirement walk — provenance, slot / instant /
                 # invocation re-binding, the refusal branches — runs HERE,
                 # before any child-dependent computation, and the view is
@@ -2263,6 +2286,14 @@ class GovernedResolver:
             return self._refuse_raised_at_seam(
                 raised, seam="plan_factory", request=request, identity=identity,
                 perspective=perspective, effective=effective,
+            )
+        except Exception as error:  # noqa: BLE001 — re-raised unless DECLARED
+            binding = self._declared_seam_refusal(error)
+            if binding is None:
+                raise
+            return self._refuse_declared_at_seam(
+                error, binding, seam="plan_factory", request=request,
+                identity=identity, perspective=perspective, effective=effective,
             )
         # The product class's `required_operator_keys` and the plan's own
         # `required_operators()` are two separately authored documents (design
@@ -2717,6 +2748,15 @@ class GovernedResolver:
                     identity=identity, perspective=perspective,
                     effective=effective,
                 )
+            except Exception as error:  # noqa: BLE001 — re-raised unless DECLARED
+                binding = self._declared_seam_refusal(error)
+                if binding is None:
+                    raise
+                return self._refuse_declared_at_seam(
+                    error, binding, seam="product_gate", request=request,
+                    identity=identity, perspective=perspective,
+                    effective=effective,
+                )
             if gate_violation:
                 declared_gate = self._declaration().declared_product_gate
                 return self._record_refusal(
@@ -2873,6 +2913,60 @@ class GovernedResolver:
                 )
 
     # --- the one minting seam ----------------------------------------------
+
+    def _declared_seam_refusal(
+        self, error: BaseException
+    ) -> SeamRefusalBinding | None:
+        """The class's binding for ``error``'s type, or ``None`` to re-raise.
+
+        `D-IMPL-347` B2. **Matched, never imported**: the raised value's own
+        ``module.QualName`` is compared against the declared string, so a
+        declaration cannot cause an import and a misspelled one never matches
+        rather than executing something.
+
+        **Exact type, never a subclass walk.** A subclass of a declared type is
+        a DIFFERENT failure the product has not spoken about, and silently
+        inheriting a parent's cause is how a narrow declaration becomes a wide
+        one without anybody widening it. The deployment declares what it means.
+        """
+        raised = f"{type(error).__module__}.{type(error).__qualname__}"
+        for binding in self._declaration().seam_refusals:
+            if binding.exception == raised:
+                return binding
+        return None
+
+    def _refuse_declared_at_seam(
+        self,
+        error: BaseException,
+        binding: SeamRefusalBinding,
+        *,
+        seam: str,
+        request: ProductRequest,
+        identity: RequestIdentity,
+        perspective: Perspective,
+        effective: EffectiveRequest,
+    ) -> RefusalEnvelope:
+        """Mint the refusal the class declared for ``error``, at ``seam``.
+
+        The cause and the code are the PRODUCT's statement; the detail is the
+        exception's own message, unedited — the SDK does not paraphrase a
+        failure it did not diagnose.
+        """
+        return self._refuse_raised_at_seam(
+            GovernedRefusalRaised(
+                SubjectUnavailableRefusal(
+                    cause=binding.cause,
+                    detail=str(error) or type(error).__name__,
+                    error_code=binding.error_code,
+                ),
+                resolution=RESOLVED_BY_THE_RESOLVER,
+            ),
+            seam=seam,
+            request=request,
+            identity=identity,
+            perspective=perspective,
+            effective=effective,
+        )
 
     def _refuse_raised_at_seam(
         self,

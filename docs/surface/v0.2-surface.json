@@ -1389,6 +1389,7 @@
       "ReplayBinding",
       "RequestBoundParameter",
       "SIGNAL_BATCH",
+      "SeamRefusalBinding",
       "SecretReference",
       "SignalBatch",
       "SimilaritySelectParametersArtifact",
@@ -1671,6 +1672,7 @@
           "requires": "tuple[ccf.products.contract.ChildRequirement, ...]",
           "schema_name": "<class 'str'>",
           "schema_version": "<class 'str'>",
+          "seam_refusals": "tuple[ccf.controlplane.artifacts.SeamRefusalBinding, ...]",
           "semver": "<class 'str'>",
           "serve_obligations": "<class 'ccf.products.contract.ServeObligations'>",
           "ttl_anchor": "typing.Literal['from_decision', 'from_entity_freshness']"
@@ -1715,6 +1717,14 @@
       "SIGNAL_BATCH": {
         "kind": "constant",
         "shape": "ArtifactClass"
+      },
+      "SeamRefusalBinding": {
+        "kind": "contract",
+        "shape": {
+          "cause": "typing.Literal['nonexistent', 'unauthorized', 'undisclosed']",
+          "error_code": "<class 'str'>",
+          "exception": "<class 'str'>"
+        }
       },
       "SecretReference": {
         "kind": "contract",
@@ -1986,6 +1996,7 @@
       "SDK_ARTIFACT_CLASSES",
       "SDK_ARTIFACT_ROLES",
       "SDK_VERSIONED_ARTIFACT_CLASSES",
+      "SeamRefusalWidening",
       "SimilarityCorpusAttributeError",
       "UnpinnedArtifactError",
       "build_operator_registry",
@@ -1996,6 +2007,7 @@
       "refuse_operator_set_divergence",
       "refuse_registration_the_sdk_fixes",
       "refuse_role_the_sdk_fixes",
+      "refuse_seam_refusal_widening",
       "register_manifest_entries",
       "resolve_artifact_class"
     ],
@@ -2068,6 +2080,10 @@
         "kind": "constant",
         "shape": "dict"
       },
+      "SeamRefusalWidening": {
+        "kind": "class",
+        "shape": "type"
+      },
       "SimilarityCorpusAttributeError": {
         "kind": "class",
         "shape": "type"
@@ -2107,6 +2123,10 @@
       "refuse_role_the_sdk_fixes": {
         "kind": "function",
         "shape": "(class_id: 'str', role: 'ArtifactRole') -> 'None'"
+      },
+      "refuse_seam_refusal_widening": {
+        "kind": "function",
+        "shape": "(*, declared: 'ProductClassDeclaration', deployment_exceptions: 'frozenset[str]') -> 'None'"
       },
       "register_manifest_entries": {
         "kind": "function",

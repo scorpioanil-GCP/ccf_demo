@@ -221,3 +221,122 @@ def test_a_refusal_raised_by_the_child_factory_refuses_the_COMPOSITE(
             "a refusal raised IN the factory produced a child row; it is a"
             " composite refusal and has no child outcome to attach to"
         )
+
+
+# --------------------------------------------------------------------------
+# B2 — the declared map. Product class first; deployment may narrow, not widen.
+# --------------------------------------------------------------------------
+
+
+class _ControlRoomUnreachable(RuntimeError):
+    """A deployment's own domain error, standing in for `CP17-F-11`'s."""
+
+
+def _class_declaring_the_domain_error() -> dict[str, Any]:
+    config = _config()
+    config["product_class"]["seam_refusals"] = [
+        {
+            "exception": f"{__name__}._ControlRoomUnreachable",
+            "cause": "unauthorized",
+            "error_code": "control-room-unreachable",
+        }
+    ]
+    return config
+
+
+def test_a_declared_domain_exception_becomes_a_governed_refusal(
+    tmp_path: pathlib.Path,
+) -> None:
+    """`CP17-F-11` / `CP13C-F-03` / `CP14-F-21`, closed BY DECLARATION.
+
+    The product says what its own failure means; the SDK mints the refusal it
+    was told to and carries the exception's own message as the detail, unedited.
+    """
+    root = _write_tree(tmp_path / "b2", config=_class_declaring_the_domain_error())
+    scratch = tmp_path / "b2" / "scratch"
+
+    def _unreachable(**_: Any) -> Any:
+        raise _ControlRoomUnreachable("the control room did not answer")
+
+    with _open(root, scratch, project=_unreachable) as opened:
+        outcome = opened.answer(_question(opened))
+        assert isinstance(outcome, RefusalEnvelope), outcome
+        assert _seam_of(opened, outcome) == "plan_factory"
+        # The SERVED shell is the minimal disclosure — the detail is
+        # deliberately not disclosed to the caller. The declared code and the
+        # exception's own message are in the RECORD, which is where an
+        # examiner reads them.
+        block = str(opened.record_of(outcome).content_generation_path.assembly_refusal)
+        assert "control-room-unreachable" in block, block
+
+
+def test_an_UNdeclared_domain_exception_still_propagates(
+    tmp_path: pathlib.Path,
+) -> None:
+    """THE CONTROL that keeps B2 from being a blanket catch.
+
+    Same tree, same seam, same shape of failure — a type the class did NOT
+    name. It re-raises, which is what keeps a defect a defect.
+    """
+    root = _write_tree(tmp_path / "b2u", config=_class_declaring_the_domain_error())
+    scratch = tmp_path / "b2u" / "scratch"
+
+    def _other(**_: Any) -> Any:
+        raise TimeoutError("undeclared, therefore a defect")
+
+    with _open(root, scratch, project=_other) as opened:
+        with pytest.raises(TimeoutError, match="undeclared, therefore a defect"):
+            opened.answer(_question(opened))
+
+
+def test_a_subclass_of_a_declared_type_is_NOT_converted(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Exact type, never a subclass walk.
+
+    A subclass is a different failure the product has not spoken about, and
+    inheriting a parent's cause is how a narrow declaration silently becomes a
+    wide one. The declaration is the whole authority.
+    """
+
+    class _Narrower(_ControlRoomUnreachable):
+        pass
+
+    root = _write_tree(tmp_path / "b2s", config=_class_declaring_the_domain_error())
+    scratch = tmp_path / "b2s" / "scratch"
+
+    def _subclassed(**_: Any) -> Any:
+        raise _Narrower("a subclass nobody declared")
+
+    with _open(root, scratch, project=_subclassed) as opened:
+        with pytest.raises(_ControlRoomUnreachable, match="a subclass nobody declared"):
+            opened.answer(_question(opened))
+
+
+def test_a_deployment_may_narrow_the_class_map_but_never_widen_it() -> None:
+    """Dave: *"Deployment may subset or bind codes already named by the class."*
+
+    Refused by NAME rather than silently intersected: an ignored widening and
+    an honored narrowing are the same green build, and the operator who wrote
+    the extra name would never learn it did nothing.
+    """
+    from ccf.controlplane.artifacts import ProductClassDeclaration, SeamRefusalBinding
+    from ccf.deployment import SeamRefusalWidening, refuse_seam_refusal_widening
+
+    declared = ProductClassDeclaration.model_construct(
+        seam_refusals=(
+            SeamRefusalBinding(
+                exception="pkg.Known", cause="nonexistent", error_code="known"
+            ),
+        )
+    )
+    # narrowing to nothing, and to the declared member, are both accepted
+    refuse_seam_refusal_widening(declared=declared, deployment_exceptions=frozenset())
+    refuse_seam_refusal_widening(
+        declared=declared, deployment_exceptions=frozenset({"pkg.Known"})
+    )
+    with pytest.raises(SeamRefusalWidening, match="pkg.Invented"):
+        refuse_seam_refusal_widening(
+            declared=declared,
+            deployment_exceptions=frozenset({"pkg.Known", "pkg.Invented"}),
+        )
