@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1309 entries**, of which **1065** name a public Python surface.
+**1317 entries**, of which **1073** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-704 entries — 664 public Python surface, 40 not public Python API.
+711 entries — 671 public Python surface, 40 not public Python API.
 
 ### Public Python surface
 
@@ -7111,6 +7111,90 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `20.1-01-a-public-name-needs-a-legal-spelling.md`.*
 
+#### ccf.skills.grants.RefusingApprovalSink
+
+- Surface: ccf.skills.grants.RefusingApprovalSink
+- Public surface: true
+- Change type: added
+- Before: the SDK's own `_NoApprovalSink`, private in `ccf.products.product` and reachable only through `open_product`; a deployment building a `GrantLedger` directly had to supply a sink it could not name, and cp-20 copied the private class verbatim into its own tree (`CLD-F-04`)
+- After: public, named, and the one the SDK itself uses
+- Why: `GrantLedger.__init__` requires `sink`, and a composite hand-building its consumer chain must construct one. It **refuses** rather than approving — which is why it is a named class and not a defaulted `sink=None`: a permissive default would have the SDK deciding tier-2 approval on the deployment's behalf, which `D-IMPL-29` and `D-IMPL-343` refuse
+- Migration: none. Deployments passing their own sink are unaffected; the copied private class in cp-20 is deleted in this change.
+
+*Recorded by `20.2-01-the-adopter-surface-d-impl-346.md`.*
+
+#### ccf.replay.record.PackagingTrace
+
+- Surface: ccf.replay.record.PackagingTrace
+- Public surface: true
+- Change type: added
+- Before: dimension 3 held `assembly_mode`, `model_version` and `harness_trace`. Whitepaper §7.10.4 names four pinned rendering primitives for Assembly Mode 2 — model version, temperature, prompt template and output hash — of which three were reachable only by dereferencing the agent definition and one, the temperature, was not reachable at all
+- After: a named block on the `harness_trace` precedent the record's own docstring specifies, carrying all four so an examiner reads the packaging from the record without a dereference
+- Why: Mode 2 is an algorithmically-assembled product an LLM then packages into a delivered form; the substrate stays the artifact-of-record and §7.10.4's watchpoint is that the packaging must not have altered the algorithmic conclusion. A record that cannot say what packaged it cannot support that question
+- Migration: none. Sentinel-defaulted and hash-transparent, so every existing record is unchanged in bytes and in address.
+
+*Recorded by `20.2-01-the-adopter-surface-d-impl-346.md`.*
+
+#### ccf.replay.environment.RecordedEnvironment
+
+- Surface: ccf.replay.environment.RecordedEnvironment
+- Public surface: true
+- Change type: added
+- Before: `ReplayEnvironment` was a Protocol with no supported implementation, so every consumer wrote its own. **Six trees did** — `CP06C-F-01` → `CP13C-F-02` → `CP17-F-06` → `ATM-F-12` → `IBO-F-11` → `UBO-F-12` — at 40–95 lines each, every one also reaching the private member above. This is the single most-repeated finding in the corpus
+- After: three arguments — the record, the opened product, the fabric — and the class derives the rest through `OpenedProduct.build_arguments`, which is the documented escape hatch, so it is the same resolver the serve path builds rather than a second architecture
+- Why: six independent duplications of one shape is `docs/EXAMPLE-EVALUATION-CRITERIA.md` §B.2's launch-blocking-ergonomics test met rather than approached
+- Migration: none. The Protocol is unchanged and a hand-written environment keeps working — which matters, because a test that sabotages its own environment legitimately implements the Protocol directly. Proven end to end: `examples/replay-a-governed-determination/replay.py` reconstructs a served determination against the curated estate and reaches the **same content address** (`611f5dac…`, identical bytes) as before the swap, with its environment falling from ~76 lines to 4.
+
+*Recorded by `20.2-01-the-adopter-surface-d-impl-346.md`.*
+
+#### ccf.replay.record.NO_PACKAGING
+
+- Surface: ccf.replay.record.NO_PACKAGING
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the positive sentinel every `PackagingTrace` field carries when no packaging stage ran, in the `MODE_1_MODEL_VERSION` voice
+- Why: a Mode-1 decision must *assert* that nothing packaged its result rather than leaving a field absent for a reader to interpret
+- Migration: none
+
+*Recorded by `20.2-01-the-adopter-surface-d-impl-346.md`.*
+
+#### ccf.replay.record.NO_PACKAGING_TRACE
+
+- Surface: ccf.replay.record.NO_PACKAGING_TRACE
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the whole packaging block in its positive no-packaging form, on the `NO_HARNESS_TRACE` precedent
+- Why: one named default rather than five field defaults a reader must reassemble
+- Migration: none
+
+*Recorded by `20.2-01-the-adopter-surface-d-impl-346.md`.*
+
+#### ccf.replay.record.ModelVersionRecord.packaging_trace
+
+- Surface: ccf.replay.record.ModelVersionRecord.packaging_trace
+- Public surface: true
+- Change type: added
+- Before: dimension 3 carried no packaging block
+- After: a sentinel-defaulted, hash-transparent field holding the Mode-2 pins
+- Why: whitepaper §7.10.4's four pinned rendering primitives, readable without a dereference
+- Migration: none — hash-transparent at its sentinel, so no existing record's address moves
+
+*Recorded by `20.2-01-the-adopter-surface-d-impl-346.md`.*
+
+#### ccf.replay.environment.RecordedEnvironmentUnbuildable
+
+- Surface: ccf.replay.environment.RecordedEnvironmentUnbuildable
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the typed refusal raised when a record carries no request identity or no effective request
+- Why: refused rather than defaulted — a substituted request would rebuild the projection against parameters the decision never ran under, while wearing its identifier
+- Migration: none
+
+*Recorded by `20.2-01-the-adopter-surface-d-impl-346.md`.*
+
 #### ccf.graph.protocols.TemporalAxis
 
 - Surface: ccf.graph.protocols.TemporalAxis
@@ -12373,7 +12457,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-428 entries — 244 public Python surface, 184 not public Python API.
+429 entries — 245 public Python surface, 184 not public Python API.
 
 ### Public Python surface
 
@@ -14895,6 +14979,18 @@ Surfaces that still exist under the same name but whose shape moved. These are t
   in-tree call site is updated in this plan
 
 *Recorded by `19-02-the-adapter-seam-carries-bytes.md`.*
+
+#### ccf.products.resolver.GovernedResolver.operator_parameters
+
+- Surface: ccf.products.resolver.GovernedResolver.operator_parameters
+- Public surface: true
+- Change type: reshaped
+- Before: `_operator_parameters` — private, while its own docstring called it *"the adopter-side idiom"*; reached 9 times across 6 files including the adopter-facing `examples/replay-a-governed-determination/replay.py`, which carried a `# noqa: SLF001` to say so
+- After: public, same signature and behavior
+- Why: six example trees and the published how-to all had to reach a private member to bind operator parameters from the effective request; a public need with no legal spelling is a surface defect
+- Migration: none for adopters — the public name is new. Renamed rather than aliased because nothing has shipped (`D-IMPL-293`).
+
+*Recorded by `20.2-01-the-adopter-surface-d-impl-346.md`.*
 
 #### ccf.graph.backends.fluree.FlureeGraphStore
 

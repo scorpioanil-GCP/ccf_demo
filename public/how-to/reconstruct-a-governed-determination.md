@@ -45,16 +45,24 @@ the record says happened, not by what you would like to prove:
 
 ## What you supply
 
-An object with three methods — the whole of `ReplayEnvironment` in
-`ccf.replay.engine`. The engine trusts none of them: a wrong plan fails the step
-sequence, a wrong parameter set fails the parameter hash, and a wrong envelope
-fails the address check.
+**Three arguments.** `RecordedEnvironment` in `ccf.replay.environment` is the
+supported implementation of `ReplayEnvironment` — the record to reconstruct,
+the product opened against the deployment that produced it, and the fabric to
+read through. It derives everything else from those.
+
+Before it existed (`D-IMPL-346`) an adopter wrote the Protocol's three methods
+themselves, and six example trees each wrote the same 40–95 lines. If you need
+a seam the supported class does not have — a test that sabotages its own
+environment, say — implement the Protocol directly or subclass this; the engine
+is what makes a replay true either way, and it trusts neither. A wrong plan
+fails the step sequence, a wrong parameter set fails the parameter hash, and a
+wrong envelope fails the address check.
 
 ```py
 --8<-- "examples/replay-a-governed-determination/replay.py:environment"
 ```
 
-What each method is built from, and where that comes from:
+What the class builds, and where each part comes from:
 
 - **`resolve_plan`** returns the projection for the recorded plan id, from the
   deployment's own `plan_factory` over the recorded operator plan and the

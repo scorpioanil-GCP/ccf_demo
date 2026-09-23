@@ -6856,6 +6856,22 @@
       }
     }
   },
+  "ccf.replay.environment": {
+    "__all__": [
+      "RecordedEnvironment",
+      "RecordedEnvironmentUnbuildable"
+    ],
+    "exports": {
+      "RecordedEnvironment": {
+        "kind": "class",
+        "shape": "(*, record: 'DecisionReplayRecord', opened: 'OpenedProduct', fabric: 'BootedFabric') -> 'None'"
+      },
+      "RecordedEnvironmentUnbuildable": {
+        "kind": "class",
+        "shape": "type"
+      }
+    }
+  },
   "ccf.replay.record": {
     "__all__": [
       "CHILD_ADMITTED",
@@ -6879,10 +6895,13 @@
       "NO_HARNESS",
       "NO_HARNESS_TRACE",
       "NO_HITL_ACTIONS",
+      "NO_PACKAGING",
+      "NO_PACKAGING_TRACE",
       "NO_PRODUCT_ADDRESS",
       "NO_REQUEST_RESOLUTION",
       "NO_ROLE_RESOLVED",
       "NO_WORKFLOW_TRACE",
+      "PackagingTrace",
       "PerspectiveConditioning",
       "PolicyBinding",
       "PolicyBindingsSnapshot",
@@ -7010,7 +7029,8 @@
         "shape": {
           "assembly_mode": "typing.Literal['algorithmic', 'llm_packaged', 'swarm_assembled']",
           "harness_trace": "<class 'ccf.replay.record.HarnessTrace'>",
-          "model_version": "<class 'str'>"
+          "model_version": "<class 'str'>",
+          "packaging_trace": "<class 'ccf.replay.record.PackagingTrace'>"
         }
       },
       "NO_ADAPTER": {
@@ -7057,6 +7077,14 @@
         "kind": "constant",
         "shape": "str"
       },
+      "NO_PACKAGING": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "NO_PACKAGING_TRACE": {
+        "kind": "constant",
+        "shape": "PackagingTrace"
+      },
       "NO_PRODUCT_ADDRESS": {
         "kind": "constant",
         "shape": "str"
@@ -7072,6 +7100,16 @@
       "NO_WORKFLOW_TRACE": {
         "kind": "constant",
         "shape": "str"
+      },
+      "PackagingTrace": {
+        "kind": "contract",
+        "shape": {
+          "model_version": "<class 'str'>",
+          "output_hash": "<class 'str'>",
+          "prompt_artifact_hash": "<class 'str'>",
+          "prompt_artifact_uri": "<class 'str'>",
+          "temperature": "<class 'str'>"
+        }
       },
       "PerspectiveConditioning": {
         "kind": "contract",
@@ -7957,6 +7995,7 @@
       "GrantTransitionError",
       "PolicyRegimeGovernance",
       "PolicyRegimeUnresolvable",
+      "RefusingApprovalSink",
       "RequirementsExceedRegime",
       "SKILL_GRANT",
       "SkillGrant",
@@ -8049,6 +8088,10 @@
           "detail": "<class 'str'>",
           "ref": "<class 'str'>"
         }
+      },
+      "RefusingApprovalSink": {
+        "kind": "class",
+        "shape": "()"
       },
       "RequirementsExceedRegime": {
         "kind": "contract",
