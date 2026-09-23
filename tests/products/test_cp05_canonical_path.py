@@ -51,7 +51,7 @@ The findings
 ------------
 ``24.10-F-11``
     **cp-05's declared operator envelope cannot be bound to the question being
-    asked.** :meth:`~ccf.products.resolver.GovernedResolver._operator_parameters`
+    asked.** :meth:`~ccf.products.resolver.GovernedResolver.operator_parameters`
     reads its operator-parameters artifacts verbatim off
     :attr:`~ccf.deployment.BootedFabric.artifacts` by key, with no request in
     scope. cp-05 declares ``permitted_classifications: []`` **on purpose** —

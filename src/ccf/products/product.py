@@ -158,7 +158,12 @@ from ccf.signal.envelope import SignalEnvelope, refuse_foreign_envelope
 from ccf.skills.callables import CallableRegistry
 from ccf.skills.catalog import SkillCatalog, SkillCatalogEntry
 from ccf.skills.dispatch import McpSkillRegistry
-from ccf.skills.grants import ApprovalOutcome, ApprovalSink, GrantLedger, SkillGrant
+from ccf.skills.grants import (
+    ApprovalSink,
+    GrantLedger,
+    RefusingApprovalSink,
+    SkillGrant,
+)
 from ccf.skills.producers import register_declared_producer
 
 __ccf_mode__ = "algorithmic"
@@ -1216,25 +1221,6 @@ def _register_declared_producers(
     return bridge, mcp_skills
 
 
-class _NoApprovalSink:
-    """The tier-2 surface when the deployment supplied none: refuses by name, never decides.
-
-    Reached only when the policy regime declares ``grant_requires_approval``
-    — a regime that does not never consults the sink. The ledger's own
-    no-wedged-states guard settles the grant ``refused`` and re-raises, so an
-    open over such a regime fails at open with this message, and the SDK
-    approves nothing on the deployment's behalf (`D-IMPL-29`; `D-IMPL-38`).
-    """
-
-    def decide(self, grant: SkillGrant) -> ApprovalOutcome:
-        raise ValueError(
-            f"the policy regime requires approval for grant {grant.name!r} and"
-            " this open supplied no `approval_sink=`; tier-2 approval is the"
-            " deployment's decision surface and the SDK holds no default for"
-            " it (D-IMPL-29; D-IMPL-343)"
-        )
-
-
 def _derive_consumer_chain(
     derived: DerivedDeployment,
     *,
@@ -1280,7 +1266,7 @@ def _derive_consumer_chain(
     ledger = GrantLedger(
         control_plane=registry,
         catalog=SkillCatalog(registry),
-        sink=approval_sink if approval_sink is not None else _NoApprovalSink(),
+        sink=approval_sink if approval_sink is not None else RefusingApprovalSink(),
         clock=clock,
     )
     bound = ledger.bound_view(agent_hash)

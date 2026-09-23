@@ -2058,7 +2058,7 @@ class GovernedResolver:
             tenant_id=self.fabric.tenant_id, at=request.asked_at
         )
         operators = build_operator_registry(
-            parameters=self._operator_parameters(effective_request),
+            parameters=self.operator_parameters(effective_request),
             view=view,
             pins=self.fabric.pins,
             policy_bundle_key=self.policy_bundle_key,
@@ -2068,7 +2068,7 @@ class GovernedResolver:
             # which fixed the propagation and left a decision-affecting
             # semantic value in ungoverned deployment hands. It is now
             # declared on the similarity artifact — one of the very artifacts
-            # `_operator_parameters()` returns on the line above — so the
+            # `operator_parameters()` returns on the line above — so the
             # builder reads the corpus identity off the same declaration it
             # already reads the corpus map off, and this composition states
             # no opinion about a value it does not own.
@@ -3074,7 +3074,7 @@ class GovernedResolver:
         """
         return _request_contract_on(self.fabric, key=self.request_contract_key)
 
-    def _operator_parameters(
+    def operator_parameters(
         self, effective_request: ProductRequest
     ) -> dict[str, OperatorParametersArtifact]:
         """The adopter-side idiom: name your own keys, no type filtering.

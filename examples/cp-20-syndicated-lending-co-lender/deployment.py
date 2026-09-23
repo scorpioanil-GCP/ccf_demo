@@ -49,7 +49,7 @@ from ccf.products.request import ProductRequest
 from ccf.signal.envelope import SignalEnvelope, SourceIdentity
 from ccf.skills.callables import CallableRegistry
 from ccf.skills.catalog import SkillCatalog, SkillCatalogEntry
-from ccf.skills.grants import ApprovalOutcome, GrantLedger, SkillGrant
+from ccf.skills.grants import GrantLedger, RefusingApprovalSink, SkillGrant
 
 HERE = Path(__file__).parent
 
@@ -448,24 +448,6 @@ def _registered_chain(registry: Any) -> tuple[str, AgentDefinition, str, SkillCa
     return str(keys["agent"]), agent, str(keys["skill"]), skill
 
 
-class _NoApprovalSink:
-    """The tier-2 surface this deployment supplies: it refuses, never decides.
-
-    A copy of the SDK's own private `_NoApprovalSink`, because a chain handed
-    in through `build_children=` must supply one and the SDK's is not
-    exported. The regime in force declares `grant_requires_approval: false`,
-    so this is never consulted — and if a later regime required approval, an
-    open over it would fail here by name rather than the SDK approving
-    anything on this deployment's behalf (`D-IMPL-29`).
-    """
-
-    def decide(self, grant: SkillGrant) -> ApprovalOutcome:
-        raise ValueError(
-            f"the policy regime requires approval for grant {grant.name!r} and"
-            " this deployment supplied no approval sink"
-        )
-
-
 def _pinned_ref(registry: Any, key: str) -> str:
     """The `ccf-artifact://` ref for the version of ``key`` in force.
 
@@ -517,7 +499,7 @@ class FederatedChildren:
         agent_hash = content_hash(agent)
         ledger = GrantLedger(
             control_plane=registry, catalog=SkillCatalog(registry),
-            sink=_NoApprovalSink(), clock=context.clock
+            sink=RefusingApprovalSink(), clock=context.clock
         )
         if skill.name not in ledger.bound_view(agent_hash):
             outcome = ledger.request(

@@ -573,7 +573,7 @@ def test_a_fresh_environment_reconstructs_the_parent_with_providers_disabled(
         request=path.request,
         required=tuple(path.operator_plan),
         operators=build_operator_registry(
-            parameters=configuration._operator_parameters(path.request),
+            parameters=configuration.operator_parameters(path.request),
             view=booted.fabric.handle.reader.as_of(
                 tenant_id=record.tenant_id,
                 at=record.context_fabric_snapshot.temporal_boundary,

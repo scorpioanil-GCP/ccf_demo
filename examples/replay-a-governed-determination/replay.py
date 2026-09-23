@@ -25,7 +25,7 @@ and reconstruct THAT determination instead, through the refusal path.
 **One private dependency, named rather than hidden.** Re-executing the
 recorded operator path needs each operator's parameter artifact bound from the
 EFFECTIVE request the record carries. The SDK exposes that binding only as
-``GovernedResolver._operator_parameters``, reached here by building a resolver
+``GovernedResolver.operator_parameters``, reached here by building a resolver
 from the opened product's own arguments. It is the one call in this file that
 is not public contract, and the reason this example lives beside the product
 trees rather than inside one: a paved tree's structural classifier forbids the
@@ -91,7 +91,7 @@ class RecordedEnvironment:
         # parameter artifacts bound from the effective request.
         resolver = build_governed_resolver(**arguments)
         self._operators = build_operator_registry(
-            parameters=resolver._operator_parameters(self._request),  # noqa: SLF001
+            parameters=resolver.operator_parameters(self._request),
             view=fabric.handle.reader.as_of(tenant_id=record.tenant_id, at=record.context_fabric_snapshot.temporal_boundary),
             pins=fabric.pins,
             policy_bundle_key=self._policy_key,

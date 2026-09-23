@@ -86,6 +86,7 @@ __all__ = [
     "GrantTransitionError",
     "PolicyRegimeGovernance",
     "PolicyRegimeUnresolvable",
+    "RefusingApprovalSink",
     "RequirementsExceedRegime",
     "SkillGrant",
     "SplitAuditPlaneError",
@@ -359,6 +360,40 @@ class ApprovalSink(Protocol):
     def decide(self, grant: SkillGrant) -> ApprovalOutcome:
         """Return the verdict for ``grant``."""
         ...
+
+
+class RefusingApprovalSink:
+    """The conforming sink for a deployment that has no tier-2 surface.
+
+    `D-IMPL-346`. **It refuses; it is not a permissive default**, and the
+    distinction is the whole reason this class exists rather than a defaulted
+    ``sink=None``. A regime declaring ``grant_requires_approval`` and reaching a
+    sink that approved would have the SDK deciding tier-2 on the deployment's
+    behalf, which `D-IMPL-29` and `D-IMPL-343` refuse. The ledger's own
+    no-wedged-states guard settles the grant ``refused`` and re-raises, so an
+    open over such a regime fails at open, by name.
+
+    **Why it is public.** It was the SDK's own private ``_NoApprovalSink``,
+    reachable only through :func:`~ccf.products.product.open_product`. A
+    deployment that builds a :class:`GrantLedger` directly — which a composite
+    hand-building its consumer chain must — had to supply a sink it could not
+    name, and cp-20 **copied the private class verbatim** into its own tree
+    (`CLD-F-04`). A public need with no legal spelling is a surface defect; this
+    is the spelling.
+
+    A regime that does not require approval never consults a sink at all, so
+    passing this is the correct declaration of *"no tier-2 surface here"*
+    rather than a weakening of one.
+    """
+
+    def decide(self, grant: SkillGrant) -> ApprovalOutcome:
+        """Refuse by name, naming the argument the deployment did not supply."""
+        raise ValueError(
+            f"the policy regime requires approval for grant {grant.name!r} and"
+            " this open supplied no `approval_sink=`; tier-2 approval is the"
+            " deployment's decision surface and the SDK holds no default for"
+            " it (D-IMPL-29; D-IMPL-343)"
+        )
 
 
 def grant_set_hash(active_grant_hashes: frozenset[str]) -> str:

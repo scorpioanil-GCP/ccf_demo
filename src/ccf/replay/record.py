@@ -154,6 +154,8 @@ __all__ = [
     "NO_GRAPH_QUERIES",
     "NO_HARNESS",
     "NO_HARNESS_TRACE",
+    "NO_PACKAGING",
+    "NO_PACKAGING_TRACE",
     "NO_HITL_ACTIONS",
     "NO_WORKFLOW_TRACE",
     "ChildResolution",
@@ -162,6 +164,7 @@ __all__ = [
     "DecisionReplayRecord",
     "HarnessTrace",
     "ModelVersionRecord",
+    "PackagingTrace",
     "PerspectiveConditioning",
     "PolicyBinding",
     "PolicyBindingsSnapshot",
@@ -187,6 +190,12 @@ NO_GRANTS_SET_HASH = "no-grants"
 #: harness ran rather than leaving a field absent for a reader to interpret. An
 #: absent trace and a dropped trace would otherwise be the same artifact.
 NO_HARNESS = "no-harness"
+
+#: Dimension 3's packaging-block value when no LLM packaging stage ran
+#: (`D-IMPL-346`). A positive claim in the :data:`MODE_1_MODEL_VERSION` voice:
+#: every Mode-1 decision *asserts* that nothing packaged its result rather
+#: than leaving a field absent for a reader to interpret.
+NO_PACKAGING = "no-packaging"
 
 #: Dimension 4's agent-identity value when no agent participated (D-06).
 #: Pre-agent records — the whole of I.1, and any fabric-direct decision — carry
@@ -691,6 +700,82 @@ class HarnessTrace(CCFContract):
 NO_HARNESS_TRACE = HarnessTrace()
 
 
+class PackagingTrace(CCFContract):
+    """Dimension 3's Mode-2 packaging block (whitepaper §7.10.4; `D-IMPL-346`).
+
+    SDK-defined, and an **extension** of dimension 3 on the
+    :class:`HarnessTrace` precedent — never a sixth dimension. INV-CH7-80 makes
+    the five dimensions inviolate, and what a packaging stage invoked is
+    model-attributable, so :class:`ModelVersionRecord` is where it belongs.
+
+    **What Mode 2 is, and what it is not.** Assembly Mode 2 is an
+    algorithmically-assembled Context Product that an LLM then packages into a
+    delivered form — a banker's memo over a credit-memo-context product, say.
+    The packaging is a **derivative view**: the algorithmic substrate remains
+    the artifact-of-record, and §7.10.4's watchpoint is that the packaging must
+    not have altered the algorithmic conclusion. Nothing here licenses a model
+    call inside the algorithmic path; Algorithmic ⇄ Semantic Alternation
+    (whitepaper §7.6.6) is unchanged.
+
+    **Why the values are pinned here rather than dereferenced.** §7.10.4 names
+    four pinned rendering primitives: model version, temperature, prompt
+    template and output hash. Three could be reached by resolving the agent
+    definition and the prompt artifact it binds, and one — the temperature —
+    could not be reached at all. Dave, 2026-09-23, on a pre-launch surface:
+    pin them so an examiner reads the packaging from the record without a
+    dereference. The *values* still originate in Control Plane artifacts; this
+    block records which ones were in force, the way
+    :class:`PolicyBindingsSnapshot` records a policy version rather than owning
+    a policy.
+
+    Every field defaults to a positive sentinel, so a partially-reported
+    packaging still asserts what it does not know instead of going quiet, and a
+    Mode-1 record says *no packaging stage ran* rather than staying silent.
+
+    Attributes:
+        model_version: The model the packaging stage invoked, as the stage
+            reported it. Distinct from :attr:`ModelVersionRecord.model_version`,
+            which the fabric alone writes, for the reason
+            :class:`HarnessTrace` gives: conflating the two would let a
+            packaging stage overwrite a governed field.
+        temperature: The sampling temperature in force, as text so an
+            unreported value is a named absence rather than a numeric default
+            a reader could mistake for a declared ``0.0``.
+        prompt_artifact_uri: The versioned URI of the prompt artifact the stage
+            bound (the No-Hardcoding Rule, CLAUDE.md §6.4, already requires the
+            prompt to be an artifact rather than an inline string).
+        prompt_artifact_hash: That artifact's content hash — the identity, per
+            the `D-IMPL-26` replay rule; the URI is for humans and stores.
+        output_hash: Content hash of the packaged output. The *substrate's*
+            address stays :attr:`ContentGenerationPath.product_content_address`;
+            this is the derivative view's, and holding both is what lets an
+            examiner ask whether the packaging moved the conclusion.
+    """
+
+    model_version: str = Field(
+        default=NO_PACKAGING, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    temperature: str = Field(
+        default=NO_PACKAGING, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    prompt_artifact_uri: str = Field(
+        default=NO_PACKAGING, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    prompt_artifact_hash: str = Field(
+        default=NO_PACKAGING, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    output_hash: str = Field(
+        default=NO_PACKAGING, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+
+
+#: Dimension 3's packaging block when no packaging stage ran (`D-IMPL-346`).
+#: The whole sub-structure in its positive no-packaging form, on the
+#: :data:`NO_HARNESS_TRACE` precedent: one named value rather than five field
+#: defaults a reader must reassemble.
+NO_PACKAGING_TRACE = PackagingTrace()
+
+
 class ModelVersionRecord(CCFContract):
     """Dimension 3 — the models invoked (INV-CH7-83).
 
@@ -708,6 +793,10 @@ class ModelVersionRecord(CCFContract):
     assembly_mode: AssemblyMode
     model_version: str = MODE_1_MODEL_VERSION
     harness_trace: HarnessTrace = NO_HARNESS_TRACE
+    packaging_trace: PackagingTrace = Field(
+        default=NO_PACKAGING_TRACE,
+        json_schema_extra={HASH_TRANSPARENT_KEY: True},
+    )
 
 
 class PerspectiveConditioning(CCFContract):
