@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1317 entries**, of which **1073** name a public Python surface.
+**1321 entries**, of which **1077** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-711 entries — 671 public Python surface, 40 not public Python API.
+714 entries — 674 public Python surface, 40 not public Python API.
 
 ### Public Python surface
 
@@ -7195,6 +7195,42 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `20.2-01-the-adopter-surface-d-impl-346.md`.*
 
+#### ccf.replay.record.REFUSAL_SEAMS
+
+- Surface: ccf.replay.record.REFUSAL_SEAMS
+- Public surface: true
+- Change type: added
+- Before: absent — a refusal held at a seam could not say which seam
+- After: the closed four-name vocabulary `{acquisition, build_children, plan_factory, product_gate}`, exactly the callables a deployment supplies to `build_governed_resolver`
+- Why: Dave, *"Without it, A2 is un-auditable and the four wraps collapse into one 'no'."* A fifth name would mean a fifth seam, which is a design change rather than a vocabulary one
+- Migration: none
+
+*Recorded by `20.3-01-seam-held-refusals-d-impl-347.md`.*
+
+#### ccf.replay.record.NO_REFUSAL_SEAM
+
+- Surface: ccf.replay.record.NO_REFUSAL_SEAM
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the positive sentinel a refusal carries when the resolver refused on its own account
+- Why: silence is not an answer — an absent field would read as "seam unknown" rather than "no deployment seam held this"
+- Migration: none
+
+*Recorded by `20.3-01-seam-held-refusals-d-impl-347.md`.*
+
+#### ccf.replay.record.ContentGenerationPath.refusal_seam
+
+- Surface: ccf.replay.record.ContentGenerationPath.refusal_seam
+- Public surface: true
+- Change type: added
+- Before: dimension 5 recorded that a refusal happened, never where it was held
+- After: one of `REFUSAL_SEAMS`, or `NO_REFUSAL_SEAM`
+- Why: it makes the four wraps auditable and distinguishable; `CLD-F-06` was a refusal from the wrong seam escaping as a traceback, and a record that cannot name the seam cannot show that it no longer does
+- Migration: none — hash-transparent at its sentinel
+
+*Recorded by `20.3-01-seam-held-refusals-d-impl-347.md`.*
+
 #### ccf.graph.protocols.TemporalAxis
 
 - Surface: ccf.graph.protocols.TemporalAxis
@@ -12457,7 +12493,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-429 entries — 245 public Python surface, 184 not public Python API.
+430 entries — 246 public Python surface, 184 not public Python API.
 
 ### Public Python surface
 
@@ -14991,6 +15027,18 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Migration: none for adopters — the public name is new. Renamed rather than aliased because nothing has shipped (`D-IMPL-293`).
 
 *Recorded by `20.2-01-the-adopter-surface-d-impl-346.md`.*
+
+#### ccf.products.resolver.RefusalRecorderProtocol.record
+
+- Surface: ccf.products.resolver.RefusalRecorderProtocol.record
+- Public surface: true
+- Change type: reshaped
+- Before: no way to state which seam held a refusal
+- After: a defaulted `refusal_seam` keyword, on the `child_resolutions` precedent
+- Why: the seam has to reach the replay writer through the one minting seam, not around it
+- Migration: none — defaulted, so every existing implementation and call site is unchanged
+
+*Recorded by `20.3-01-seam-held-refusals-d-impl-347.md`.*
 
 #### ccf.graph.backends.fluree.FlureeGraphStore
 

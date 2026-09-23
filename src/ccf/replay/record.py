@@ -156,6 +156,7 @@ __all__ = [
     "NO_HARNESS_TRACE",
     "NO_PACKAGING",
     "NO_PACKAGING_TRACE",
+    "NO_REFUSAL_SEAM",
     "NO_HITL_ACTIONS",
     "NO_WORKFLOW_TRACE",
     "ChildResolution",
@@ -166,6 +167,7 @@ __all__ = [
     "ModelVersionRecord",
     "PackagingTrace",
     "PerspectiveConditioning",
+    "REFUSAL_SEAMS",
     "PolicyBinding",
     "PolicyBindingsSnapshot",
     "ResolutionNotApplicable",
@@ -196,6 +198,25 @@ NO_HARNESS = "no-harness"
 #: every Mode-1 decision *asserts* that nothing packaged its result rather
 #: than leaving a field absent for a reader to interpret.
 NO_PACKAGING = "no-packaging"
+
+#: Dimension 5's seam value when a refusal was not held at a deployment seam
+#: (`D-IMPL-347` A2). A positive claim in the :data:`NO_ASSEMBLY_REFUSAL` voice:
+#: the resolver's OWN refusals — an unresolvable request, a failed gate, a
+#: policy-emptied view — assert that no deployment seam held them, rather than
+#: leaving a field absent for a reader to read as "seam unknown".
+NO_REFUSAL_SEAM = "not-seam-held"
+
+#: The four deployment-supplied seams a governed refusal can be held at
+#: (`D-IMPL-347` A2, Dave 2026-09-23). **Closed, and closed deliberately**:
+#: these are exactly the callables a deployment supplies to
+#: :func:`~ccf.products.resolver.build_governed_resolver`, which is the whole
+#: reason their refusals are data rather than defects. A fifth name would mean
+#: a fifth seam exists, and that is a design change rather than a vocabulary
+#: one. Without this field the four wraps collapse into one undifferentiated
+#: "no" and A2 is un-auditable (Dave: *"Without it, A2 is un-auditable"*).
+REFUSAL_SEAMS: Final[frozenset[str]] = frozenset(
+    {"acquisition", "build_children", "plan_factory", "product_gate"}
+)
 
 #: Dimension 4's agent-identity value when no agent participated (D-06).
 #: Pre-agent records — the whole of I.1, and any fabric-direct decision — carry
@@ -1422,6 +1443,13 @@ class ContentGenerationPath(CCFContract):
     )
     workflow_step_sequence: str = NO_WORKFLOW_TRACE
     assembly_refusal: str = NO_ASSEMBLY_REFUSAL
+    #: `D-IMPL-347` A2 — WHICH deployment seam held this refusal, one of
+    #: :data:`REFUSAL_SEAMS`, or :data:`NO_REFUSAL_SEAM` when the resolver
+    #: refused on its own account. Hash-transparent at its sentinel, so no
+    #: record written before this field existed moves address.
+    refusal_seam: str = Field(
+        default=NO_REFUSAL_SEAM, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
     graph_query_sequence: tuple[str, ...] = NO_GRAPH_QUERIES
     debt: DebtAssessment | None = None
     debt_evidence: DebtEvidence = NO_DEBT_EVIDENCE
@@ -1672,6 +1700,7 @@ def build_replay_record(
     hitl_actions: str | None = None,
     workflow_step_sequence: str | None = None,
     assembly_refusal: str | None = None,
+    refusal_seam: str = NO_REFUSAL_SEAM,
     adapter: AdapterPin | None = None,
     request: ProductRequest | None = None,
     child_resolutions: tuple[ChildResolution, ...] = (),
@@ -2097,6 +2126,7 @@ def build_replay_record(
                     else NO_ASSEMBLY_REFUSAL
                 )
             ),
+            refusal_seam=refusal_seam,
             graph_query_sequence=(
                 tuple(content_hash(query) for query in execution.executed_queries)
                 if execution is not None

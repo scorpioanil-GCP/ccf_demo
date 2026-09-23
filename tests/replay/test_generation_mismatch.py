@@ -191,8 +191,8 @@ def stored(tmp_path: Path) -> tuple[FileArtifactStore, str]:
 def test_the_pre_extension_record_lacks_exactly_the_fifteen_plus_one_transparent() -> None:
     """Amendment 1's measurement, re-measured: a roster, not a count.
 
-    Twenty-three fields are absent from the bytes: the fifteen, none keyed,
-    and eight marked ``True`` — ``context_fabric_snapshot.store_snapshot_pin``
+    Twenty-four fields are absent from the bytes: the fifteen, none keyed,
+    and nine marked ``True`` — ``context_fabric_snapshot.store_snapshot_pin``
     (24.5's row 5), which the first specification already excluded and which
     the amendment therefore did not count; ``policy_bindings.request_resolution``
     (``24.6-03``); and ``24.6-07``'s three, the assembler in force on
@@ -200,12 +200,12 @@ def test_the_pre_extension_record_lacks_exactly_the_fifteen_plus_one_transparent
     dimension 5 (``D-IMPL-254``); and ``D-IMPL-336``'s child resolutions, also
     on dimension 5 — the composite surface's requirement-to-grant-to-child
     mapping, which is empty and therefore silent for every non-composite
-    decision ever recorded. Every one of the eight joins that side and **not**
+    decision ever recorded. Every one of the nine joins that side and **not**
     the fifteen: a keyed field is one whose absence at its sentinel is silence
     by declaration, which is exactly why it is not a generation boundary.
 
-    ``THE_FIFTEEN`` is unchanged by ``24.6-07``, by ``D-IMPL-336`` and by
-    ``D-IMPL-346``, and that
+    ``THE_FIFTEEN`` is unchanged by ``24.6-07``, by ``D-IMPL-336``, by
+    ``D-IMPL-346`` and by ``D-IMPL-347``, and that
     is the load-bearing
     half of this assertion — the lineage a pre-extension record replays past
     is a closed historical fact, and a row that grew it would be a row that
@@ -225,6 +225,11 @@ def test_the_pre_extension_record_lacks_exactly_the_fifteen_plus_one_transparent
         "perspective_conditioning.assembler_id",
         "perspective_conditioning.assembler_version",
         "content_generation_path.disclosure_decision",
+        # `D-IMPL-347` A2: which deployment seam held a refusal. Sentinel on
+        # every record written before the seams were wrapped, and on every
+        # refusal the resolver raised on its own account. Placed by the
+        # model's own field order, which is what the walk reports.
+        "content_generation_path.refusal_seam",
         # `D-IMPL-341`: the served product's anchor instant, `None` on every
         # record written before it existed — decision-anchored by that sentinel.
         "content_generation_path.ttl_anchor_at",

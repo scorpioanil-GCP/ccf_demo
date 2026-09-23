@@ -6898,6 +6898,7 @@
       "NO_PACKAGING",
       "NO_PACKAGING_TRACE",
       "NO_PRODUCT_ADDRESS",
+      "NO_REFUSAL_SEAM",
       "NO_REQUEST_RESOLUTION",
       "NO_ROLE_RESOLVED",
       "NO_WORKFLOW_TRACE",
@@ -6905,6 +6906,7 @@
       "PerspectiveConditioning",
       "PolicyBinding",
       "PolicyBindingsSnapshot",
+      "REFUSAL_SEAMS",
       "ResolutionNotApplicable",
       "ResolutionNotApplicableReason",
       "build_replay_record",
@@ -6973,6 +6975,7 @@
           "operator_plan": "tuple[str, ...]",
           "plan_id": "<class 'str'>",
           "product_content_address": "<class 'str'>",
+          "refusal_seam": "<class 'str'>",
           "request": "ccf.products.request.ProductRequest | None",
           "source_refresh_recency": "ccf.halflife.assessment.SourceRefreshWindow | None",
           "steps": "tuple[ccf.projection.engine.ExecutionStep, ...]",
@@ -7089,6 +7092,10 @@
         "kind": "constant",
         "shape": "str"
       },
+      "NO_REFUSAL_SEAM": {
+        "kind": "constant",
+        "shape": "str"
+      },
       "NO_REQUEST_RESOLUTION": {
         "kind": "constant",
         "shape": "str"
@@ -7144,6 +7151,10 @@
           "survivor_cap": "int | None"
         }
       },
+      "REFUSAL_SEAMS": {
+        "kind": "constant",
+        "shape": "frozenset"
+      },
       "ResolutionNotApplicable": {
         "kind": "contract",
         "shape": {
@@ -7156,7 +7167,7 @@
       },
       "build_replay_record": {
         "kind": "function",
-        "shape": "(*, execution: 'ExecutionResult | None', product: 'ContextProductContract | None', perspective: 'Perspective', policy_bindings: 'tuple[PolicyBinding, ...]', assembly_mode: 'AssemblyMode', recorded_at: 'datetime', resolution: \"'EffectiveRequest | ResolutionNotApplicable'\", refusal: \"'RefusalEnvelope | None'\" = None, tenant_id: 'str | None' = None, assembler_id: 'str | None' = None, assembler_version: 'str | None' = None, disclosure: 'str | None' = None, agent_conditioning: 'PerspectiveConditioning | None' = None, harness_trace: 'HarnessTrace | None' = None, hitl_actions: 'str | None' = None, workflow_step_sequence: 'str | None' = None, assembly_refusal: 'str | None' = None, adapter: 'AdapterPin | None' = None, request: 'ProductRequest | None' = None, child_resolutions: 'tuple[ChildResolution, ...]' = ()) -> 'DecisionReplayRecord'"
+        "shape": "(*, execution: 'ExecutionResult | None', product: 'ContextProductContract | None', perspective: 'Perspective', policy_bindings: 'tuple[PolicyBinding, ...]', assembly_mode: 'AssemblyMode', recorded_at: 'datetime', resolution: \"'EffectiveRequest | ResolutionNotApplicable'\", refusal: \"'RefusalEnvelope | None'\" = None, tenant_id: 'str | None' = None, assembler_id: 'str | None' = None, assembler_version: 'str | None' = None, disclosure: 'str | None' = None, agent_conditioning: 'PerspectiveConditioning | None' = None, harness_trace: 'HarnessTrace | None' = None, hitl_actions: 'str | None' = None, workflow_step_sequence: 'str | None' = None, assembly_refusal: 'str | None' = None, refusal_seam: 'str' = 'not-seam-held', adapter: 'AdapterPin | None' = None, request: 'ProductRequest | None' = None, child_resolutions: 'tuple[ChildResolution, ...]' = ()) -> 'DecisionReplayRecord'"
       },
       "mint_assembly_refusal": {
         "kind": "function",
