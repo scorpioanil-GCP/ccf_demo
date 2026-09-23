@@ -859,3 +859,79 @@ def test_the_audit_restores_the_import_hook_and_reports_only_producer_origins(tm
     assert "colorsys" in audit.origins
     assert audit.producer_imports(PRODUCER_TREES) == {}
 
+
+
+# ===========================================================================
+# Assembly Mode 3 — the replay footprint a composite actually owes
+# ===========================================================================
+
+
+def test_the_composite_declares_mode_3_and_its_record_carries_the_recursion(
+    both: dict[str, Any],
+) -> None:
+    """Whitepaper §7.10.4 Mode 3, asserted rather than declared.
+
+    **Mode 3 is two properties and nothing else** — *"orchestration-layer
+    determinism plus recursive per-agent replay. The coordinator's dispatch is
+    reconstructible and each dispatched agent carries its own record."* This
+    rung dispatches five children through five doors across four producer
+    tenants, so it is the strongest Mode 3 case on the ladder.
+
+    **The declaration alone would prove nothing.** `assembly_mode` is a string
+    in a config file; what makes it true is that the record carries what the
+    mode obliges. Both halves are checked here, and the second is the one that
+    could fail.
+
+    **The recursion is a REFERENCE, never a resolution** — the consumer retains
+    the producer's own replay reference and never dereferences it, on Dave's
+    standing ruling that a fabric may not require access to a remote provider's
+    internal replay store. That is what makes Mode 3 workable across an
+    organizational boundary at all (cp-20's co-lender is another bank).
+    """
+    opened, outcome, record = both[DIAGNOSTIC]
+
+    # (1) the mode the class declares reaches dimension 3 of the served record
+    assert record.model_version.assembly_mode == "swarm_assembled", (
+        "the composite's record does not carry the mode its class declares;"
+        f" dimension 3 says {record.model_version.assembly_mode!r}"
+    )
+
+    rows = _rows(record)
+    assert len(rows) == len(CHILD_CLASSES), (sorted(rows), CHILD_CLASSES)
+
+    for product_class, row in rows.items():
+        # (2) the coordinator's dispatch is reconstructible: who was asked,
+        #     under whose tenant, against which registration, on what grant.
+        assert (row.producer_id, row.producer_tenant) == PRODUCERS[product_class]
+        assert row.producer_registration_address, product_class
+        assert row.child_question_address, product_class
+        # (3) each dispatched agent carries ITS OWN record, referenced on the
+        #     producer's own tenant and never on ours.
+        assert row.child_replay_ref is not None, (
+            f"{product_class} was dispatched and carries no replay reference;"
+            " Mode 3's recursion is a reference the consumer retains"
+        )
+        assert row.child_replay_ref.startswith(
+            f"ccf-artifact://{PRODUCERS[product_class][1]}/"
+        ), (product_class, row.child_replay_ref)
+
+
+def test_mode_3_is_a_claim_this_rung_can_actually_fail() -> None:
+    """THE CONTROL: the vocabulary admits a mode this rung is not in.
+
+    Without it, the assertion above could pass on a record whose mode field
+    was the only value the type allows. `AssemblyMode` admits three, the class
+    declares one of them, and the two Mode-1 neighbours are what the other
+    twenty-eight shipped trees carry.
+    """
+    from ccf.products.contract import AssemblyMode
+    from typing import get_args
+
+    admitted = set(get_args(AssemblyMode))
+    assert admitted == {"algorithmic", "llm_packaged", "swarm_assembled"}, admitted
+
+    declared = yaml.safe_load(
+        (REPO_ROOT / "examples/cp-14-credit-memo-context/ccf_config.yaml")
+        .read_text(encoding="utf-8")
+    )["product_class"]["assembly_mode"]
+    assert declared == "swarm_assembled"
