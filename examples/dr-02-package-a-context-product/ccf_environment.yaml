@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=../../docs/schemas/ccf.environment-document.json
+#
+# NAMES, NEVER VALUES. Every connection-shaped thing here is an environment
+# variable NAME and the remedy an operator follows when it is unset.
+#
+# THE ONE SOURCE IS ANOTHER PRODUCT'S DOOR, and that is the whole shape of this
+# rung: `dr-02` reads no store. Its substrate is an already-assembled,
+# already-governed Context Product, reached where every other consumer reaches
+# one.
+
+config: ccf_config.yaml
+
+substrate:
+  setting: database_path
+  prefix: dr_02_packaging
+  suffix: .sqlite3
+
+sources:
+  upstream_product:
+    url:
+      from_env: CCF_DR_02_UPSTREAM_URL
+      remedy: >-
+        export CCF_DR_02_UPSTREAM_URL with the MCP endpoint of the upstream
+        product's door — for the demonstrated upstream, start
+        `examples/cp-06-canonical-collateral-and-setoff-coverage/run.py --door`
+        and use the URL it announces. `dr-02` packages ONE upstream
+        (`DR-SPEC-002` R1); the name is configuration because a connection
+        value belongs in this document, not because portability was tested.
+    token:
+      from_env: CCF_DR_02_UPSTREAM_TOKEN
+      remedy: >-
+        export CCF_DR_02_UPSTREAM_TOKEN with a credential the upstream door
+        accepts for its declared egress scope. The packaging inherits whatever
+        that credential is entitled to and can widen nothing.
+door:
+  credential:
+    from_env: CCF_DR_02_DOOR_TOKEN
+    remedy: >-
+      export CCF_DR_02_DOOR_TOKEN with the bearer credential this product's
+      own door accepts, or leave it unset to have one minted per boot.
+  issuer_url:
+    from_env: CCF_DR_02_DOOR_ISSUER_URL
+    remedy: >-
+      export CCF_DR_02_DOOR_ISSUER_URL with the OAuth issuer this door's auth
+      settings advertise (any https URL for a development stdio door).
+  resource_server_url:
+    from_env: CCF_DR_02_DOOR_RESOURCE_URL
+    remedy: >-
+      export CCF_DR_02_DOOR_RESOURCE_URL with the resource-server address this
+      door's auth settings advertise (any https URL for a development stdio
+      door).
