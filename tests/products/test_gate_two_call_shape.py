@@ -962,6 +962,20 @@ RULED_SDK_SUPPLIED_DEPLOYMENTS: frozenset[str] = frozenset(
         "examples/cp-21-large-exposure",
         "examples/cp-23-portfolio-early-warning",
         "examples/cp-24-portfolio-what-if",
+        # `D-GATE-cp-20` (Dave, 2026-09-22) — rung 20 and its peer producer,
+        # ruled onto this roster after the release qualification of
+        # `172f1612` found them claiming the exemption unruled. **The claim
+        # stays in the trees**; what was missing was the human ruling this
+        # roster exists to record, not the property itself.
+        #
+        # THE LESSON IS THE SCOPE, NOT THE ENTRY. Both trees shipped through a
+        # close and a merge while this gate was red, because CP-20's close and
+        # the release-hardening close each measured `tests/examples` and this
+        # gate lives in `tests/products`. `LEX-F-10` recorded the same shape
+        # one rung earlier — three merged trees already red here — and the
+        # repeat is why the qualification command must stay the full tree.
+        "examples/cp-20-syndicated-lending-co-lender",
+        "examples/peer-cp-20-co-lender",
     }
 )
 
@@ -3701,10 +3715,18 @@ def test_the_premise_detector_reads_the_shipped_tree_correctly() -> None:
         # assertion for the reason the cp-11 entry gives: the roster above
         # records what was RULED, this records what the detector ANSWERS.
         "examples/cp-19-aml-typology-match",
+        # cp-20 and its peer producer, `D-GATE-cp-20` / 2026-09-22 — recorded
+        # here as their OWN assertion for the reason the cp-11 entry gives:
+        # the roster above records what was RULED, this records what the
+        # detector ANSWERS. Interleaved in sorted position, as the detector
+        # lists roots — which is why the peer sits below `hw1` rather than
+        # beside the consumer it serves.
+        "examples/cp-20-syndicated-lending-co-lender",
         "examples/cp-21-large-exposure",
         "examples/cp-23-portfolio-early-warning",
         "examples/cp-24-portfolio-what-if",
         "examples/hw1-companies-over-revenue/deployment",
+        "examples/peer-cp-20-co-lender",
         # `D-IMPL-311`, 2026-09-09 — s1-00 arrives from row B above, by the
         # same second shape cp-05 took: it reaches `build_governed_resolver`
         # directly rather than through a `binding.yaml`.
