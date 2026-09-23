@@ -41,7 +41,7 @@ from ccf.products.refusal import (
 )
 from ccf.signal.envelope import SignalEnvelope, SourceIdentity
 
-from packaging import PackagedSection, PackagingModel, PackagingRefused
+from memo_packaging import PackagedSection, PackagingModel, PackagingRefused
 
 __all__ = ["UpstreamAnswer", "ask_upstream", "envelopes"]
 
@@ -76,7 +76,12 @@ class UpstreamAnswer:
 def ask_upstream(
     *,
     settings: Mapping[str, str],
+    tenant: str,
     product_class: str,
+    version: str,
+    subject: str,
+    intent: str,
+    freshness: str,
     parameters: Mapping[str, Any],
     at: datetime,
 ) -> UpstreamAnswer:
@@ -97,11 +102,26 @@ def ask_upstream(
                 settings["token"], timeout_seconds=CALL_TIMEOUT_SECONDS
             ),
         )
+        # The door addresses a product by the same three segments its resource
+        # URI carries, and asks whitepaper §6.3's four axes alongside them.
+        # All are required, deliberately: a some-but-not-all address would
+        # leave the door guessing which question it was asked.
         wire = WireRequest(
             product_id=product_class, parameters=dict(parameters), temporal_boundary=at
         )
         text = client.call_tool_text(
-            PRODUCT_REQUEST_TOOL, {"request": canonical_bytes(wire).decode("utf-8")}
+            PRODUCT_REQUEST_TOOL,
+            {
+                "tenant": tenant,
+                "product_class": product_class,
+                "version": version,
+                "request": canonical_bytes(wire).decode("utf-8"),
+                "subject": subject,
+                "intent": intent,
+                "freshness": freshness,
+                "asked_at": at.isoformat(),
+                "parameters": dict(parameters),
+            },
         )
     finally:
         bridge.close()
@@ -188,56 +208,52 @@ def envelopes(
     operator admits on, and the upstream address each derives from.
     """
     memo_ref = f"memo/{facility_id}"
-    built: list[SignalEnvelope] = [
+
+    # ONE CLASS, AND EVERY SECTION IS SELF-DESCRIBING. An earlier shape put the
+    # packaging identity on a separate `packaged_memo` node joined by
+    # `hasSection` edges, and the memo node never reached the view: the
+    # traversal returns the neighbourhood its seeds reach, and a subject that
+    # is not itself reached is not in it.
+    #
+    # Carrying the identity on each section is better anyway rather than merely
+    # simpler: a section that travels alone — quoted, pasted, forwarded — still
+    # names the model, the temperature, the prompt and the substrate that
+    # produced it. That is the property this rung exists to demonstrate, and a
+    # separate identity node is exactly the thing that gets left behind.
+    return tuple(
         SignalEnvelope(
             tenant_id=tenant_id,
-            envelope_id=memo_ref,
+            envelope_id=f"section/{section.heading}",
             source=SourceIdentity(system_id=SOURCE_UPSTREAM),
             ingestion_timestamp=at,
             observed_time=at,
             raw_payload={
-                "memo_ref": memo_ref,
-                "entity_ref": memo_ref,
-                "ref": memo_ref,
+                "section_ref": f"{memo_ref}/{section.heading}",
+                "entity_ref": f"{memo_ref}/{section.heading}",
+                "ref": f"{memo_ref}/{section.heading}",
                 "facility_id": facility_id,
-                "upstream_content_address": answer.content_address,
-                "upstream_expires_at": answer.expires_at,
-                "upstream_debt": answer.debt,
-                "upstream_disposition": answer.disposition,
+                "heading": section.heading,
+                "prose": section.prose,
+                "audience": section.audience,
+                # The figures the packager DECLARES it cited. The smoothing
+                # gate checks these against the substrate; a figure in the
+                # prose that is not declared here is treated as unsupported,
+                # which is the strict reading on purpose.
+                "figures_cited": "|".join(section.figures_cited),
+                # THE SUBSTRATE — the artifact-of-record this prose renders.
+                "derived_from": answer.content_address,
+                "upstream_expires_at": answer.expires_at or "",
+                "upstream_debt": answer.debt or "",
+                "upstream_disposition": answer.disposition or "",
+                # §7.10.4's four pinned rendering primitives, on every section.
                 "packaging_model": model.model_version,
                 "packaging_temperature": model.temperature,
                 "packaging_prompt_uri": prompt_uri,
                 "packaging_prompt_hash": prompt_hash,
             },
         )
-    ]
-    for section in sections:
-        section_ref = f"{memo_ref}/{section.heading}"
-        built.append(
-            SignalEnvelope(
-                tenant_id=tenant_id,
-                envelope_id=section_ref,
-                source=SourceIdentity(system_id=SOURCE_UPSTREAM),
-                ingestion_timestamp=at,
-                observed_time=at,
-                raw_payload={
-                    "section_ref": section_ref,
-                    "entity_ref": section_ref,
-                    "ref": section_ref,
-                    "heading": section.heading,
-                    "prose": section.prose,
-                    "audience": section.audience,
-                    "derived_from": answer.content_address,
-                    # The figures the packager DECLARES it cited. The smoothing
-                    # gate checks these against the substrate; a figure in the
-                    # prose that is not declared here is treated as
-                    # unsupported, which is the strict reading on purpose.
-                    "figures_cited": "|".join(section.figures_cited),
-                    "memo_ref": memo_ref,
-                },
-            )
-        )
-    return tuple(built)
+        for section in sections
+    )
 
 
 def _text(value: object) -> str | None:

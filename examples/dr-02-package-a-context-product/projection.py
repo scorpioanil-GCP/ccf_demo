@@ -67,52 +67,46 @@ class PackagedMemoProjection:
         perspective: Perspective,
         temporal_boundary: datetime,
     ) -> ProjectionOutput:
-        memo: dict[str, Any] | None = None
-        sections: list[dict[str, Any]] = []
-
-        for record in view.entities:
-            attributes = record.claim.attributes
-            if attributes.get("facility_id") is not None:
-                memo = dict(attributes)
-            elif attributes.get("heading") is not None:
-                sections.append(dict(attributes))
-
-        if memo is None:
-            # The memo node is the packaging's identity — model, temperature,
-            # prompt. Without it the sections are prose with no provenance,
-            # and serving them would be serving exactly the ungoverned
-            # rendering this rung exists to refute. Reported as absent; the
-            # product's own gate refuses the serve.
+        sections = sorted(
+            (dict(record.claim.attributes) for record in view.entities),
+            key=lambda section: str(section.get("heading", "")),
+        )
+        if not sections:
+            # No section survived admission. Reported as absent rather than
+            # served empty: an empty memo reads as "nothing to report", which
+            # is a claim this product did not make. The gate refuses it.
             return ProjectionOutput(
-                payload={
-                    "facility_id": self._anchor,
-                    "memo_identity_absent": True,
-                    "sections": [],
-                }
+                plan_id=self._plan_id,
+                payload={"facility_id": self._anchor, "sections": []},
             )
 
-        sections.sort(key=lambda section: str(section.get("heading", "")))
+        # THE IDENTITY IS READ OFF THE SECTIONS, not off a separate node.
+        # Every section carries the same packaging identity and the same
+        # substrate address, which is what makes a section self-describing
+        # when it travels alone.
+        first = sections[0]
         return ProjectionOutput(
+            plan_id=self._plan_id,
             payload={
-                "facility_id": memo.get("facility_id"),
+                "facility_id": first.get("facility_id") or self._anchor,
                 # THE SUBSTRATE, NAMED ON THE PRODUCT ITSELF. A reader holding
                 # this memo can fetch the exact product it renders and check
-                # any sentence against it. That is what makes the packaged
+                # any sentence against it — which is what makes the packaged
                 # form a derivative VIEW rather than a replacement.
                 "packaged_from": {
-                    "content_address": memo.get("upstream_content_address"),
-                    "expires_at": memo.get("upstream_expires_at"),
-                    "debt": memo.get("upstream_debt"),
-                    "disposition": memo.get("upstream_disposition"),
+                    "content_address": first.get("derived_from"),
+                    "expires_at": first.get("upstream_expires_at") or None,
+                    "debt": first.get("upstream_debt") or None,
+                    "disposition": first.get("upstream_disposition") or None,
                 },
-                # The four §7.10.4 rendering primitives, on the payload as well
-                # as on dimension 3 — a reader of the memo should not have to
-                # fetch a replay record to learn what wrote it.
+                # §7.10.4's four pinned rendering primitives, on the payload as
+                # well as on dimension 3 — a reader of the memo should not have
+                # to fetch a replay record to learn what wrote it.
                 "packaged_by": {
-                    "model": memo.get("packaging_model"),
-                    "temperature": memo.get("packaging_temperature"),
-                    "prompt_artifact_uri": memo.get("packaging_prompt_uri"),
-                    "prompt_artifact_hash": memo.get("packaging_prompt_hash"),
+                    "model": first.get("packaging_model"),
+                    "temperature": first.get("packaging_temperature"),
+                    "prompt_artifact_uri": first.get("packaging_prompt_uri"),
+                    "prompt_artifact_hash": first.get("packaging_prompt_hash"),
                 },
                 "sections": [
                     {
@@ -124,7 +118,7 @@ class PackagedMemoProjection:
                     }
                     for section in sections
                 ],
-            }
+            },
         )
 
 

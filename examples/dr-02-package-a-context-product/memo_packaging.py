@@ -1,5 +1,13 @@
 """The semantic stage — and the fail-loud stand-in that keeps CI honest.
 
+**NAMED `memo_packaging`, NOT `packaging`, and that is not fastidiousness.**
+`packaging` is an installed distribution in this very venv, so a module by that
+name here is reachable or shadowed depending on `sys.path` order — measured
+2026-09-23, when the test suite imported the distribution and failed on
+`PackagedSection`. It is the `AIA-F-07` bare-name collision in a new costume:
+a tree's module names share one namespace with everything installed beside it.
+Recorded as `PKG-F-02`.
+
 `DR-SPEC-002` R4 (Dave, 2026-09-23): *"the stub suffices; a green build never
 depends on a model provider."*
 
@@ -200,8 +208,13 @@ class DeterministicPackager:
                 cited.append(str(lien))
                 clause += f" at lien position {lien}"
             clauses.append(clause)
+        # NO COUNT. `len(assets)` is a figure this packager would have
+        # COMPUTED, and the substrate does not carry it — the smoothing gate
+        # refused exactly that on this rung's first honest run, which is the
+        # gate doing its job on its own author. The prose states what it was
+        # given and nothing it derived.
         return (
-            f"{len(assets)} asset(s) secure this facility: " + "; ".join(clauses) + ".",
+            "The following secure this facility: " + "; ".join(clauses) + ".",
             tuple(cited),
         )
 

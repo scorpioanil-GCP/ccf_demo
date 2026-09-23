@@ -19,12 +19,19 @@ import yaml
 
 import acquisition
 from ccf.contracts.canonical import content_hash
+from ccf.controlplane.artifacts import DebtProfile, HalfLifeTable
+from ccf.graph.protocols import GraphView
 from ccf.halflife.assessment import DebtFactors
-from ccf.halflife.debt import DebtAssessment, assess_debt
+from ccf.halflife.debt import (
+    DebtAssessment,
+    FreshnessScorer,
+    Observation,
+    assess_debt,
+)
 from ccf.products.product import AcquisitionContext, AssessmentContext
 from ccf.signal.envelope import SignalEnvelope
 
-from packaging import AnthropicPackager, DeterministicPackager, PackagingModel
+from memo_packaging import AnthropicPackager, DeterministicPackager, PackagingModel
 
 HERE = Path(__file__).parent
 
@@ -34,6 +41,10 @@ AUDIENCE = "audience"
 
 #: The upstream product class this rung packages (`DR-SPEC-002` R1).
 UPSTREAM_CLASS = "credit-risk.collateral-coverage"
+UPSTREAM_VERSION = "1.0.0"
+UPSTREAM_TENANT = "cp-06-canonical-demo"
+UPSTREAM_INTENT = "lgd-assessment"
+UPSTREAM_FRESHNESS = "as-filed"
 
 #: The prompt artifact — versioned, hashed, and pinned on every record.
 PROMPT_ARTIFACT = HERE / "artifacts" / "memo-prompt.yaml"
@@ -98,7 +109,16 @@ def acquire(context: AcquisitionContext) -> tuple[SignalEnvelope, ...]:
     declaration = prompt()
     answer = acquisition.ask_upstream(
         settings=context.sources[acquisition.SOURCE_UPSTREAM],
+        tenant=UPSTREAM_TENANT,
         product_class=UPSTREAM_CLASS,
+        version=UPSTREAM_VERSION,
+        subject=str(effective[FACILITY]),
+        # The upstream's own intent, not this product's. `dr-02` asks a
+        # coverage question and packages the answer; asking under
+        # `credit-memo-drafting` would be asking the upstream a question its
+        # discovery set does not declare.
+        intent=UPSTREAM_INTENT,
+        freshness=UPSTREAM_FRESHNESS,
         parameters={
             FACILITY: str(effective[FACILITY]),
             # Carried VERBATIM. The packaging cannot widen an entitlement the
@@ -137,10 +157,65 @@ def assess(context: AssessmentContext) -> DebtAssessment:
     a debt reading that said otherwise would be the clearest possible way for
     a rendering to look fresher than what it renders.
     """
-    return assess_debt(
-        factors=DebtFactors.of(view=context.view, now=context.instant),
+    assert context.half_life is not None and context.profile is not None
+    return debt(
+        context.view,
+        now=context.decided_at,
         half_life=context.half_life,
         profile=context.profile,
+    )
+
+
+def debt(
+    view: GraphView,
+    *,
+    now: datetime,
+    half_life: HalfLifeTable,
+    profile: DebtProfile,
+) -> DebtAssessment:
+    """Freshness over the sections; completeness over the ones that rendered.
+
+    **Every section carries the same instant**, because the packaging read one
+    product at one moment — so `F` here measures the age of the SUBSTRATE's
+    reading, which is the only clock this rung has and the correct one.
+
+    **Completeness is the share of declared sections that carry prose.** A
+    section that came back blank is not a section with nothing to report; it
+    is a section the packaging did not produce, and pricing it as complete
+    would hide exactly the failure the smoothing gate refuses.
+    """
+    sections = [
+        record
+        for record in view.entities
+        if record.claim.attributes.get("heading") is not None
+    ]
+    observations = [
+        Observation(
+            observation_type=record.claim.entity_class,
+            observed_at=record.claim.observed_at,
+            valid_from=record.claim.valid_from,
+            subject=record.claim.entity_uri,
+        )
+        for record in sections
+        if record.claim.valid_from is not None
+    ]
+    rendered = [
+        record for record in sections if record.claim.attributes.get("prose")
+    ]
+    scorer = FreshnessScorer(
+        table=half_life, risk_sensitivity=profile.risk_sensitivity
+    )
+    return assess_debt(
+        DebtFactors(
+            freshness=scorer.score(observations, now=now) if observations else Decimal(1),
+            completeness=(
+                Decimal(len(rendered)) / Decimal(len(sections))
+                if sections
+                else Decimal(0)
+            ),
+            semantic_consistency=Decimal(1),
+        ),
+        profile=profile,
     )
 
 
@@ -179,12 +254,6 @@ def packaging_gate(*, candidate: Any, evidence: object = None) -> str | None:
     payload = getattr(candidate, "payload", None)
     if not isinstance(payload, Mapping):
         return "the candidate carries no payload to check"
-
-    if payload.get("memo_identity_absent"):
-        return (
-            "the packaged memo carries no packaging identity — prose with no"
-            " model, temperature or prompt behind it is an ungoverned rendering"
-        )
 
     packaged_from = payload.get("packaged_from")
     address = (

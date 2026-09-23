@@ -84,11 +84,9 @@ operators:
 
   traversal.typed-neighborhood:
     seed_entity_classes:
-      - packaged_memo
       - memo_section
-    relationship_types:
-      - hasSection
-    depth_limit: 2
+    relationship_types: []
+    depth_limit: 1
 
 request_contract:
   class_id: dr-02.request-contract
@@ -122,22 +120,32 @@ request_contract:
           it, so a section outside the set never materializes.
     required:
       - facility_id
-  argument_domains:
-    facility_id: subject
-    borrower_scope: entitlement
-    audience: entitlement
+  # NO `argument_domains`, and the SDK is why. An enumerated domain is typed
+  # against its own property, and `audience` is an ARRAY — so a `members:` list
+  # of strings is refused at declaration as mistyped (`D-IMPL-259`). The
+  # closed audience vocabulary lives where it is actually enforced instead:
+  # the prompt artifact declares which audiences exist, and the Policy
+  # operator admits sections on it.
   relative_defaults: {}
 
 resolution:
+  # ONE CLASS. Every packaged section carries its own packaging identity and
+  # its own substrate address, so there is no second node to join to and no
+  # edge to mint — see `acquisition.envelopes` for why that is the better
+  # model rather than only the smaller one.
   entity_rules:
-    - match_key: memo_ref
-      entity_class: packaged_memo
+    - match_key: section_ref
+      entity_class: memo_section
       identity_keys:
         - entity_ref
       attribute_keys:
         - ref
         - facility_id
-        - upstream_content_address
+        - heading
+        - prose
+        - audience
+        - figures_cited
+        - derived_from
         - upstream_expires_at
         - upstream_debt
         - upstream_disposition
@@ -145,29 +153,19 @@ resolution:
         - packaging_temperature
         - packaging_prompt_uri
         - packaging_prompt_hash
-    - match_key: section_ref
-      entity_class: memo_section
-      identity_keys:
-        - entity_ref
-      attribute_keys:
-        - ref
-        - heading
-        - prose
-        - audience
-        - derived_from
-        - figures_cited
-  relationship_rules:
-    - match_key: memo_ref
-      relationship_type: hasSection
-      subject_key: memo_ref
-      object_key: section_ref
 
 half_life:
   # ONE class, and it is the SUBSTRATE's clock rather than the packaging's.
   # Prose does not age on its own — it ages exactly as fast as the product it
   # renders, which is what `ttl_anchor: from_entity_freshness` says above and
   # what this table must not contradict.
-  packaged_section:
+  # KEYED BY ENTITY CLASS, and the SDK taught this. `AssemblyDebtScorer.
+  # _observations` sets `observation_type = record.claim.entity_class`, so a
+  # row named after the CONCEPT ("packaged_section") matches no observation at
+  # all — and the evidence-anchored TTL then refuses with
+  # `ttl-anchor-unresolvable`, which is a correct refusal over an empty
+  # observation set rather than a broken anchor.
+  memo_section:
     half_life_seconds: 31536000
     decay_basis: valid-from
     decay_driver: upstream-product-expiry
