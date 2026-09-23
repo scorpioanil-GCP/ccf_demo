@@ -339,9 +339,25 @@ def test_an_out_of_envelope_ask_is_refused_before_any_peer_is_called(
     admitted on that same door, so this gate cannot pass by refusing
     everything.
     """
-    _opened, outcome, _record = answers["out_of_envelope"]
+    _opened, outcome, record = answers["out_of_envelope"]
     assert isinstance(outcome, RefusalEnvelope), (
         "an ask outside the negotiated envelope was SERVED"
+    )
+    # `CLD-F-06` CLOSED (2026-09-23). This refusal is now raised at the
+    # CHILD-RESOLUTION seam, not the acquisition seam, and the record says so.
+    # Before `D-IMPL-347` A2 a refusal raised there escaped as an exception,
+    # which is why the check had been moved into `acquire` at all.
+    path = record.content_generation_path
+    assert path.refusal_seam == "build_children", (
+        "the out-of-envelope refusal is no longer held at the child seam;"
+        f" the record names {path.refusal_seam!r}"
+    )
+    # A COMPOSITE refusal, by ruling (Dave, 2026-09-23): a refusal raised IN
+    # the child factory has no child outcome to attach it to. A child DOOR's
+    # own refusal is the `unattested` case below, which DOES carry rows.
+    assert path.child_resolutions == (), (
+        "a refusal raised at the child seam minted a child resolution row; it"
+        " is a composite refusal and has none"
     )
     assert outcome.reason == "subject-unavailable", (
         "the out-of-envelope ask was refused by the ADMISSION gate, which means"

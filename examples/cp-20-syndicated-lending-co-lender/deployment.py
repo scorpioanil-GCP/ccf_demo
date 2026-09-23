@@ -22,6 +22,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
+
 import yaml
 
 import acquisition
@@ -129,25 +130,18 @@ def acquire(context: AcquisitionContext) -> tuple[SignalEnvelope, ...]:
             ),
             resolution=RESOLVED_BY_THE_RESOLVER,
         ) from unknown
-    # ENVELOPE CONTAINMENT, AND IT RUNS HERE FOR A MEASURED REASON.
+    # ENVELOPE CONTAINMENT USED TO RUN HERE, AND NO LONGER DOES (`CLD-F-06`).
     #
-    # The acquisition seam is the ONLY place a deployment's governed refusal
-    # becomes data: `GovernedResolver` catches `GovernedRefusalRaised` around
-    # `acquisition(...)` and nowhere else, and child resolution happens
-    # strictly after. Raising the same refusal from the `build_children=`
-    # seam escapes as an exception instead of a `RefusalEnvelope` — measured
-    # 2026-09-22 and recorded as `CLD-F-06`.
-    #
-    # It also belongs here: the envelope is a fact this deployment reads from
-    # its OWN stores, in this read, and checking it here avoids a second read
-    # of the same two legs. No peer has been called at this point and none
-    # will be if this refuses (`CLD-G10`).
-    refuse_outside_envelope(syndicate, request=context.request)
+    # It was here because the acquisition seam was the ONLY place a
+    # deployment's governed refusal became data. `D-IMPL-347` A2 wrapped the
+    # other three seams, so the check now runs where the decision belongs —
+    # at the child-resolution seam, immediately before dispatch — and this
+    # acquisition is back to doing one thing.
     return envelopes(syndicate, tenant_id=context.tenant_id, at=context.instant)
 
 
 def refuse_outside_envelope(
-    syndicate: acquisition.Syndicate, *, request: ProductRequest
+    in_force_rows: Sequence[acquisition.Envelope], *, request: ProductRequest
 ) -> None:
     """Hold every named counterparty to its bilateral envelope. Before any dispatch.
 
@@ -168,7 +162,7 @@ def refuse_outside_envelope(
     requested = str(acquisition.federation_policy()["requested_class"])
     in_force = {
         row.counterparty_lei: row
-        for row in syndicate.envelopes
+        for row in in_force_rows
         if row.counterparty_lei is not None
     }
     for counterparty in named:
@@ -540,11 +534,15 @@ class FederatedChildren:
     def bind(self, sources: Mapping[str, Mapping[str, str]]) -> None:
         """Bind the source settings the road resolved, once, at open.
 
-        Retained deliberately though this class no longer reads a store: the
-        envelope check moved to the acquisition seam (`CLD-F-06`), and keeping
-        the binding here would be keeping a handle nothing uses. It is the
-        opened product's `sources` and nothing else, so a later seam that
-        needs them has one place to find them.
+        **The "later seam" this anticipated is now here** (`CLD-F-06`, Option
+        1, 2026-09-23). The binding was retained when the envelope check moved
+        OUT to the acquisition seam, on the reasoning that a seam needing the
+        sources would want one place to find them. `D-IMPL-347` A2 let the
+        check move back, and it reads them from here — so the second read
+        costs no environment resolution at all, only the queries themselves.
+
+        It is the opened product's `sources` and nothing else: the settings the
+        road resolved once at open, never re-resolved per question.
         """
         self._sources = sources
 
@@ -586,6 +584,26 @@ class FederatedChildren:
             # Nothing was ever invoked. The declared absence treatment prices
             # it; no refusal is minted, because nothing refused.
             return {}
+        # ENVELOPE CONTAINMENT, AT THE SEAM THAT OWNS THE DISPATCH DECISION
+        # (`CLD-F-06`, Option 1). Before `D-IMPL-347` A2 a refusal raised here
+        # escaped as an exception, so the check lived in `acquire`. It runs
+        # here now, and it runs BEFORE `self._dispatches` moves — `CLD-G10`'s
+        # evidence is that no peer is called when this refuses.
+        #
+        # THE SECOND READ, and why it is narrow. The seam receives no source
+        # handles, so it resolves its own from the deployment's environment
+        # document and reads the ENVELOPE ROWS ONLY — not the facility, the
+        # participations, the thresholds or the watermark. Four source calls,
+        # never a second acquisition: two answers to one question is what this
+        # must not become. The friction is `CLD-F-11`.
+        assert self._sources is not None  # `bind` ran at open
+        refuse_outside_envelope(
+            acquisition.envelopes_in_force(
+                relational=self._sources[SOURCE_RELATIONAL],
+                graph=self._sources[SOURCE_GRAPH],
+            ),
+            request=request,
+        )
         assert self._resolver is not None  # `factory` ran at open
         self._dispatches += 1
         return self._resolver.resolve_for(

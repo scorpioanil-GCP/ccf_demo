@@ -10,11 +10,12 @@ remediation, and the six sections of §K are kept apart.
 | `CLD-F-03` | 3 · post-launch enhancement | backlog record below |
 | `CLD-F-04` | **2 · launch ergonomics CANDIDATE** | **raised with the friction measured; not repaired** |
 | `CLD-F-05` | 4 · estate limitation | recorded; both authorities served |
-| `CLD-F-06` | 3 · post-launch enhancement | backlog record below |
+| `CLD-F-06` | 3 · post-launch enhancement | **CLOSED 2026-09-23** — `D-IMPL-347` A2; the shipped path now refuses at the child seam |
 | `CLD-F-07` | — · proof-machinery defect, mine | corrected before close, recorded not swapped |
 | `CLD-F-08` | — · working as designed | recorded so it is not re-derived |
 | `CLD-F-09` | — · working as designed | recorded so it is not re-derived |
 | `CLD-F-10` | 4 · example-contract limitation | resolved by structure, not by weakening the check |
+| `CLD-F-11` | **2 · launch ergonomics CANDIDATE** | raised with the friction measured; not repaired, and not an `D-IMPL` |
 
 **Active issue cap: 0 of 3.** `CLD-F-04` is a category-2 **candidate** and is
 not a blocker until ruled one (§C). `AIA-F-01` was charged on rung 22 and does
@@ -87,12 +88,91 @@ child-resolution call site has no such handler.
 Measured 2026-09-22: raising `GovernedRefusalRaised` from a `build_children=`
 resolver produces a traceback, not a `RefusalEnvelope`.
 
-**Current supported path**, and it is the right one anyway: refuse at the
-acquisition seam, which runs strictly before child resolution. The envelope is
-read there in the same pass, so the check costs nothing extra and no peer has
-been called. **Adoption impact:** a deployment whose refusal condition is only
-knowable *after* a child answers has no seam for it. Nothing in this rung is
-in that position. **Recommended release:** post-launch.
+**The workaround, preserved as history:** the check ran at the **acquisition
+seam**, which runs strictly before child resolution. The envelope was read
+there in the same pass, so the check cost nothing extra and no peer had been
+called. It worked — and it put a dispatch decision in the seam that reads
+sources, which is not where it belongs.
+
+---
+
+### `CLD-F-06` — CLOSED 2026-09-23
+
+**The shipped CP-20 path now exercises governed refusal at the
+child-resolution seam end to end.** `D-IMPL-347` A2 wrapped all four
+deployment-supplied seams, so a `GovernedRefusalRaised` from the child resolver
+becomes a `RefusalEnvelope` recorded as a **composite** refusal — Dave's
+ruling: *"there is no child outcome to attach it to."*
+
+**Proven against the live estate**, in `test_an_out_of_envelope_ask_is_refused_before_any_peer_is_called`
+(`CLD-G10`'s own gate, strengthened rather than a new one):
+
+| # | proof | result |
+|---|---|---|
+| 1 | Citibank remains outside the request envelope | unchanged; no estate retuning |
+| 2–3 | the child resolver raises; the SDK converts it | `RefusalEnvelope`, `reason = subject-unavailable` |
+| 4 | `refusal_seam` | **`build_children`** |
+| 5 | `child_resolutions` | **`()`** — a composite refusal, no child row |
+| 6 | no peer dispatch | the refusal KIND proves it: a post-dispatch refusal is `child_admission`, which the `unattested` case still produces, and the two must differ |
+| 7 | no band-derived point estimate | `CLD-G13` unchanged and green |
+| 8 | externally equivalent to the workaround | the whole 20-test suite passes unchanged |
+
+**The second read, measured.** The child seam receives no source handles, so
+it reads the envelope rows itself through `acquisition.envelopes_in_force` —
+**3 source calls against a full acquire's 9** (one member-id→LEI query, two
+scope passes plus the envelope rows). It costs **no** environment resolution:
+`FederatedChildren.bind()` already held the road-resolved settings from open,
+retained by an earlier pass for exactly this. Latency **25 ms median against
+the live estate, versus 35 ms for a full acquire — 71%**, and that ratio is
+honest rather than flattering: by *calls* the read is narrow, by *wall time*
+connection setup dominates a small query. It is not a second acquisition; no
+second answer to the question is produced, and no peer is called before the
+decision.
+
+The friction that remains is `CLD-F-11`.
+
+---
+
+## `CLD-F-11` — the child seam may refuse, but cannot see the deployment's sources
+
+**Category 2 (launch ergonomics CANDIDATE), raised 2026-09-23 with the friction
+measured. Not a missing capability**, and deliberately **not** a `D-IMPL`:
+Dave, 2026-09-23 — *"The SDK can already express the correct behavior; the cost
+is that the child resolver must perform a narrow second read... That is real
+friction, but it is not yet evidence that the SDK cannot ship honestly."*
+
+**Measured.** `D-IMPL-347` A2 lets the per-question child seam raise a governed
+refusal. Neither surface it is handed carries the deployment's source handles:
+
+| seam | receives | reaches this deployment's two legs? |
+| --- | --- | --- |
+| `acquire(context)` | `AcquisitionContext`, with `context.sources` | **yes** |
+| the `build_children=` factory | `ConsumerContext` — `artifact_store`, `clock`, `control_plane`, `mcp_skills`, `tenant_id` | **no** |
+| `resolve_for(...)` | `requirements`, `request`, `asked_at`, `admitted_at`, `composition_invocation`, `consumer_lineage` | **no** |
+
+So a refusal decided on the deployment's **own** facts — exactly what an
+envelope check is — requires the deployment to carry the sources across the
+seam boundary itself. This rung does it with `FederatedChildren.bind()`, eight
+lines, called once at open from `produce.product`.
+
+**Why it is a candidate and not a blocker.** The correct behavior is fully
+expressible today with no SDK change, the carry is small and local, and the
+second read is narrow by call count (3 against 9). The one figure that is
+*not* flattering is latency: 25 ms against a full acquire's 35 ms, because
+connection setup dominates a small query. That is recorded rather than
+smoothed.
+
+**Revisit only if** a second credible product independently needs the same
+source-reach pattern; or the second read creates material correctness or
+temporal-consistency problems; or the measured glue or latency makes the paved
+path impractical. **Do not open a `D-IMPL` for this on one instance.**
+
+**A second, smaller instance of the same shape, recorded here rather than
+given its own id:** `ccf.deployment.environment.resolve_values` is public at
+its submodule and not re-exported at the package, so a seam resolving
+environment values itself would have to write the `A-1` submodule import that
+`D-IMPL-346` just closed elsewhere. This rung does not need it — `bind()`
+already holds resolved settings — but the next tree that does will meet it.
 
 ---
 
