@@ -9,7 +9,7 @@ A `PKG-F-NN` id resolves here.
 | `PKG-F-02` | example defect (mine) | **fixed** — a module named after an installed distribution |
 | `PKG-F-03` | 4 · example limitation | recorded; `D-IMPL-347` B2 is the route if it is ever wanted |
 | `PKG-F-04` | — · proof-machinery defect, mine | corrected before close, recorded not swapped |
-| `PKG-F-05` | **2 · launch ergonomics CANDIDATE** | raised with the gap measured; not repaired |
+| `PKG-F-05` | 2 · launch ergonomics | **CLOSED 2026-09-23** — the checker now sees the gated spines |
 | `PKG-F-06` | — · working as designed | recorded so it is not re-derived |
 
 ---
@@ -95,11 +95,25 @@ else.** This is the same shape as the `make gate-tools` incident, where the
 same `469 passed` was reported before and after ten tests were added to a suite
 the target never reached.
 
-The eight tests are real either way, and each gate id appears in its test's
-docstring so the pairing is greppable. What is missing is the checker holding
-one to the other. **Returned for a ruling rather than widened here** — the
-criterion could reasonably be "declares gates" rather than a directory prefix,
-but that is a change to a check's population and those are ruled, not assumed.
+### `PKG-F-05` — CLOSED 2026-09-23
+
+Ruled and widened. The checker now reports **30 trees, 518 declared, 518
+executing** — the count moved, which is the whole point.
+
+**Two populations, kept apart**, because conflating them was measured wrong:
+`spine_trees` answers *what exists* (sibling discovery, rung partitioning) and
+`product_trees` answers *what must declare*. A rung-mate that ships no roster
+still owns its discriminated test modules, and dropping it hands them to the
+base tree — which the checker's own
+`test_two_trees_of_one_rung_do_not_see_each_others_modules` caught within
+minutes.
+
+**The criterion is structural, never a list of named exemptions**: a tree is in
+if it ships a deployment, a roster, or a `spec/`. All three markers were forced
+by a failing test — `cp-22` declares gates and ships no config because it is a
+consumer; a Gate-1 tree is spec-only and must stay in so `gate_one_trees` can
+NAME it, since a tree that vanishes from the output is a tree nobody revisits.
+`dr-01` has none of the three and is correctly out.
 
 ## `PKG-F-06` — an empty memo refuses at gate 3, not at gate 4
 

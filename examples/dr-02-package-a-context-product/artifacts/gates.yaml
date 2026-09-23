@@ -6,14 +6,12 @@
 # claimed by at least one executing test under `tests/examples/`, and no
 # estate figure is pinned anywhere.
 #
-# A CHECKER GAP, RECORDED RATHER THAN WORKED AROUND. `tools/
-# check_product_gates.py` globs `examples/cp-*` **by construction** — its own
-# docstring says `hw1-*` and `s1-*` are outside it — so this roster is NOT
-# held to its executing tests by that checker. It reported 29 trees unchanged
-# after this thirtieth serving tree appeared, and a count that does not move
-# when its population does is measuring something else. Raised for a ruling
-# (`PKG-F-05`); the tests below are real either way, and each id appears in
-# its test's docstring so the pairing is greppable until the glob widens.
+# THIS ROSTER IS CHECKED. `tools/check_product_gates.py` globbed
+# `examples/cp-*` by construction and reported 29 trees UNCHANGED after this
+# thirtieth serving tree appeared — a count that does not move when its
+# population does is measuring something else. Widened at `PKG-F-05`
+# (2026-09-23) to the spines that declare gates; the checker now reports 30
+# trees and 518 gates, and every id below is held to an executing test.
 #
 # WHAT THIS RUNG EXISTS TO PROVE, and the three gates that carry it:
 #   `PKG-G01` — the record CARRIES the mode the class declares. A config
