@@ -1,7 +1,8 @@
 # Package a Context Product — Assembly Mode 2 Specification
 
 > **`dr-02`** · Decision Replay series · authored to the Context Product
-> Specification Standard v0.3 · **Gate 1, for Dave's ruling. No code exists.**
+> Specification Standard v0.3 · **Gate 1 ACCEPTED 2026-09-23. The four
+> rulings are folded below; this is the Gate-2 baseline.**
 
 ---
 
@@ -186,23 +187,56 @@ Ids are `PKG-G01`..`PKG-G08`. **The roster is proposed, not declared** — no
 
 ---
 
-## Questions needing a ruling before Gate 2
+## The Gate-1 rulings of 2026-09-23, folded
 
-1. **Which upstream product ships as the default?** I propose the
-   single-process `cp-06-canonical-collateral-and-setoff-coverage` for CI, with
-   `cp-14-credit-memo-context` documented as the richer six-process target. You
-   named the credit memo; I am proposing the cheap one as the *default* and
-   yours as the *documented* target, not replacing it.
-2. **`D-IMPL-141` exemption roster.** `dr-02` will be the 30th shipped tree and
-   needs a human ruling on `RULED_SDK_SUPPLIED_DEPLOYMENTS`. This is the check
-   that shipped red through two closes at `172f1612`; I would rather have the
-   ruling up front than rediscover it at qualification.
-3. **Does the smoothing gate refuse, or serve with a finding?** I propose
-   **refuse** — an unsupported figure in a credit memo is the failure this
-   whole rung exists to prevent. But a refusal makes the product unusable when
-   the model is merely verbose, and you may prefer a governed downgrade.
-4. **Is a real-model run ever required**, or is the stub sufficient for the
-   close? I propose stub-only for CI, with one recorded real-model run as
-   evidence in `FINDINGS.md`.
+All four answered by Dave. Folded here **before any code was written**.
 
-**No code will be written until this is ruled.**
+### R1 — the upstream product is `cp-06-canonical-collateral-and-setoff-coverage`
+
+Not a default with a richer alternative behind it: **it is the upstream.** One
+process, already `dr-01`'s own default, asset-level figures that give the
+smoothing gate something real to check. `cp-14-credit-memo-context` is not
+built against and is not a documented target of this rung.
+
+Consequence for §B.3: the upstream stays *configuration* rather than a
+constant — the environment document names the door — but only one upstream is
+demonstrated, and the README says so rather than implying portability nobody
+tested.
+
+### R2 — `dr-02` is the 30th shipped tree
+
+Ruled onto the roster at build time **if it claims the `D-IMPL-141`
+SDK-supplied exemption**, with `DR-SPEC-002` / 2026-09-23 as the citation.
+Whether it claims that exemption is a property of the tree, not a choice: it
+qualifies only if it authors no operator set of its own and its
+`plan_factory` consumes what the resolver supplies. **If it does not qualify,
+no roster entry is made and the absence is recorded** — a roster entry for a
+tree that does not claim the exemption would be worse than none.
+
+`tools/check_product_gates.py` moves from 29 trees to 30, and from 510
+declared gates to 518.
+
+### R3 — the smoothing gate REFUSES
+
+`packaging.did-not-move-the-conclusion` produces a governed refusal, not a
+served product carrying a finding. **An unsupported figure in a credit memo is
+the failure this rung exists to prevent**, and a product that serves it with a
+caveat has served it.
+
+The accepted cost, stated rather than discovered: a model that is merely
+verbose makes the product refuse. That is the correct trade for this subject
+and it is what the gate's own sabotage will demonstrate.
+
+### R4 — the deterministic stub suffices
+
+CI runs the fail-loud loopback stub and never requires a live model. One
+recorded real-model run is evidence in `FINDINGS.md`, not a test. A green
+build must never depend on a network call to a model provider.
+
+---
+
+## What Gate 2 will return
+
+The candidate, its gate roster with each id's observed-red sabotage, the
+measured glue, the SDK/runtime diff (expected empty), findings, and the active
+issue cap. **Nothing merges without a separate GO.**
