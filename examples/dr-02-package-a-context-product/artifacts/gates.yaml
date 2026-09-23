@@ -150,13 +150,19 @@ declaration:
     statement: Same subject, same pins, same packager → same content address. Mode 2 is deterministic
       GIVEN its pins, which is what makes the four of them worth recording.
     test: tests/examples/test_dr_02_packaging.py::test_the_same_question_reaches_the_same_address_twice
-    sabotage: carried inside the test — vary the temperature pin and the address must move, or the pins
-      are not part of the identity they claim to be.
+    sabotage: carried inside the test, and it runs BOTH limbs — two identical questions against one door
+      must reach one address, and a question whose temperature pin differs must reach a DIFFERENT one.
+      The second limb is what makes the pin part of the identity rather than a populated field nobody
+      reads.
     sabotage_state: passed
     observed_red:
-      result: 'RED 2026-09-23 — sabotage carried inside the test: two identical questions against one
-        door must reach one address. NOT OBSERVED for the temperature limb — varying the pin and asserting
-        the address MOVES is declared in the spec and is not implemented here, and it is recorded as unobserved
-        rather than claimed (`PKG-F-07`).'
+      result: 'RED 2026-09-23 — BOTH limbs observed. Sameness: two identical questions against one door
+        reach one address. Movement: `deployment.packager` is replaced with one pinned at `temperature:
+        0.7` and the served address must move. The sabotage that reddens it pins `packaging_temperature`
+        to a constant at the claim — the pin then varies while the address stands still, and the assertion
+        fires by name with the identical address on both sides. The address limb was ISOLATED to prove
+        it is not vacuous: under the same sabotage with the payload-reach control suspended, the address
+        assertion fired alone (`PKG-F-07`). The two are coupled by construction — the address hashes the
+        payload and the pin rides on the payload — and that coupling is the property §7.10.4 asks for.'
       date: '2026-09-23'
-      commit: 98c64cba
+      commit: 9283a8a4
