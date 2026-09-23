@@ -11,6 +11,7 @@ A `PKG-F-NN` id resolves here.
 | `PKG-F-04` | — · proof-machinery defect, mine | corrected before close, recorded not swapped |
 | `PKG-F-05` | 2 · launch ergonomics | **CLOSED 2026-09-23** — the checker now sees the gated spines |
 | `PKG-F-06` | — · working as designed | recorded so it is not re-derived |
+| `PKG-F-07` | — · recording defect, mine | **CLOSED 2026-09-23** — a gate claimed a limb it never ran, and cited an id nobody wrote |
 
 ---
 
@@ -129,6 +130,50 @@ Both are correct refusals of an empty memo. `PKG-G05` asserts *either*, rather
 than pinning one: the ordering between two gates that both say no is the SDK's
 to decide, and a test that pinned it would fail on a reordering that changed
 nothing about the answer.
+
+## `PKG-F-07` — a gate claimed a limb it never ran, and cited a finding nobody wrote
+
+**Recording defect, mine. Found by review, not by the suite. CLOSED
+2026-09-23 by implementing the limb.**
+
+`PKG-G08` declared its sabotage as *"vary the temperature pin and the address
+must move"* and carried `sabotage_state: passed`. The test varied nothing: it
+asserted only that two identical questions reach one address. The entry then
+recorded the temperature limb as **NOT OBSERVED** and cited `PKG-F-07` — **an
+id that was never written to this file**, so the citation resolved to nothing
+and the gap had no record anywhere.
+
+Three defects in one entry, and they compound: a `sabotage_state: passed` on a
+sabotage that never ran, a declared limb the test did not carry, and a dangling
+citation standing in for the finding that would have disclosed both. **A roster
+that admits a gap in prose while reporting `passed` in the field a checker reads
+is worse than one that simply omits it** — the checker counts it green, and the
+prose is the only place the truth lives.
+
+### What closed it
+
+The limb is implemented rather than narrowed, because the pin *is* load-bearing
+here. `deployment.packager` is replaced with one pinned at `temperature: 0.7`
+and the served content address must move.
+
+**Both directions were observed.** Pinning `packaging_temperature` to a
+constant at the claim reddens it. And because a test with two assertions can
+carry a vacuous one — the earlier assertion always fires first, which is
+exactly how `PKG-F-04` hid — the address assertion was **isolated**: under the
+same sabotage with the payload-reach control suspended, it fired alone, with
+the identical address on both sides of the comparison.
+
+**The coupling is the property, not a weakness of the test.** The address
+hashes the payload and the pin rides on the payload, so the temperature cannot
+vary while the address stands still. That is what makes §7.10.4's rendering
+primitive part of the identity rather than a populated field nobody reads —
+and `PKG-G02`, which only checks that the four are *populated*, would have
+passed either way.
+
+**What the review caught that the suite could not.** Eight gates were green and
+the checker reported 518 of 518 executing. No instrument in this repository
+reads a `sabotage:` sentence and asks whether the test performs it. That gap is
+general, not specific to this rung.
 
 ---
 

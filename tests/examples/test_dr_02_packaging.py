@@ -387,10 +387,51 @@ def test_the_same_question_reaches_the_same_address_twice(estate: None) -> None:
     four of them worth doing. Two identical questions against one door reach
     one address.
     """
-    with _upstream_door() as url:
-        addresses = []
-        for _ in range(2):
-            with _asked(url) as (_opened, outcome, _record):
-                assert not isinstance(outcome, RefusalEnvelope), outcome
-                addresses.append(outcome.replay_ref.content_address)
-    assert addresses[0] == addresses[1], addresses
+    sys.path.insert(0, str(DR02))
+    try:
+        import deployment  # noqa: PLC0415
+
+        def _address(record: Any) -> str:
+            return str(record.content_generation_path.product_content_address)
+
+        with _upstream_door() as url:
+            addresses = []
+            for _ in range(2):
+                with _asked(url) as (_opened, outcome, record):
+                    assert not isinstance(outcome, RefusalEnvelope), outcome
+                    addresses.append(_address(record))
+            assert addresses[0] == addresses[1], addresses
+
+            # THE OTHER LIMB, and the gate claims both. Without it,
+            # "deterministic GIVEN its pins" is half asserted: a pin that can
+            # change while the address stands still is not part of the
+            # identity it claims to be, and `PKG-G02` would still pass because
+            # the field would be POPULATED and simply not load-bearing.
+            #
+            # `deployment.packager` is the binding the deployment actually
+            # calls -- `acquisition` receives the model as an argument and
+            # binds nothing of its own. Patching the module global is what
+            # `PKG-F-04` says to verify rather than assume.
+            honest = deployment.packager
+
+            def _warmer(declaration: Any) -> Any:
+                return deployment.DeterministicPackager(temperature="0.7")
+
+            deployment.packager = _warmer  # type: ignore[assignment]
+            try:
+                with _asked(url) as (_opened, warmer, warm_record):
+                    assert not isinstance(warmer, RefusalEnvelope), warmer
+                    moved = _address(warm_record)
+                    assert dict(warmer.product.payload)["packaged_by"][
+                        "temperature"
+                    ] == "0.7", "the sabotage did not reach the served payload"
+            finally:
+                deployment.packager = honest  # type: ignore[assignment]
+
+            assert moved != addresses[0], (
+                "the temperature pin moved and the product's content address"
+                f" did not ({moved}); the pin is RECORDED but is not part of"
+                " the identity §7.10.4 asks it to pin"
+            )
+    finally:
+        sys.path.remove(str(DR02))
