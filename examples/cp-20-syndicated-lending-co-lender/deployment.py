@@ -29,9 +29,11 @@ from ccf.agents.definitions import AgentDefinition
 from ccf.artifacts.protocol import artifact_uri
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifacts import DEPLOYMENT_CONFIG, load_artifact, parse_artifact
-from ccf.deployment.classes import resolve_artifact_class
-from ccf.deployment.config import derive_deployment
-from ccf.deployment.manifest import register_manifest_entries
+from ccf.deployment import (
+    derive_deployment,
+    register_manifest_entries,
+    resolve_artifact_class,
+)
 from ccf.halflife.assessment import DebtFactors
 from ccf.halflife.debt import DebtAssessment, assess_debt
 from ccf.products.child_resolver import ChildQuestion, QuestionBoundChildResolver

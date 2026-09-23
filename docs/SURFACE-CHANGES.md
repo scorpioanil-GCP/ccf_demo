@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1308 entries**, of which **1064** name a public Python surface.
+**1309 entries**, of which **1065** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-703 entries — 663 public Python surface, 40 not public Python API.
+704 entries — 664 public Python surface, 40 not public Python API.
 
 ### Public Python surface
 
@@ -7098,6 +7098,18 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Migration: none — a new name, and a new header a consumer may ignore
 
 *Recorded by `19-06-the-http-door-publishes-the-question.md`.*
+
+#### ccf.deployment.register_manifest_entries
+
+- Surface: ccf.deployment.register_manifest_entries
+- Public surface: true
+- Change type: added
+- Before: reachable only as `from ccf.deployment.manifest import register_manifest_entries` — public in the submodule's `__all__`, absent from the package's, and therefore writable only in the spelling A-1 forbids
+- After: re-exported at the package, so `from ccf.deployment import register_manifest_entries` is the day-1 spelling and matches how `BootedFabric` and `load_and_boot` already resolve
+- Why: a public name with no convention-legal spelling is a surface defect, not a style preference; cp-20 wrote the forbidden spelling because it was the only one that worked
+- Migration: none. The submodule path still resolves and no existing call site has to move; new code should prefer the package spelling.
+
+*Recorded by `20.1-01-a-public-name-needs-a-legal-spelling.md`.*
 
 #### ccf.graph.protocols.TemporalAxis
 

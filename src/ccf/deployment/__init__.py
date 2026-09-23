@@ -128,7 +128,11 @@ from ccf.deployment.config import (
     derive_deployment,
     load_config_and_boot,
 )
-from ccf.deployment.manifest import BootedFabric, load_and_boot
+from ccf.deployment.manifest import (
+    BootedFabric,
+    load_and_boot,
+    register_manifest_entries,
+)
 from ccf.deployment.operators import (
     SimilarityCorpusAttributeError,
     build_operator_registry,
@@ -159,5 +163,17 @@ __all__ = [
     "refuse_operator_set_divergence",
     "refuse_registration_the_sdk_fixes",
     "refuse_role_the_sdk_fixes",
+    # `D-GATE-cp-20` follow-up (Dave, 2026-09-22). ADDITIVE ONLY — the symbol
+    # was already public at `ccf.deployment.manifest`, already in the
+    # committed surface, and unchanged in behavior; what was missing was the
+    # package-level spelling every adopter is told to use.
+    #
+    # The omission was accidental rather than deliberate, and the evidence is
+    # its own siblings: `manifest.__all__` names three symbols and the other
+    # two — `BootedFabric` and `load_and_boot` — were re-exported here from
+    # the start. A public name reachable ONLY by the submodule path it is a
+    # convention violation to write (`A-1`) is a surface with no legal
+    # spelling, which is how cp-20 came to write the illegal one.
+    "register_manifest_entries",
     "resolve_artifact_class",
 ]

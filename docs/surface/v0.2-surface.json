@@ -1996,6 +1996,7 @@
       "refuse_operator_set_divergence",
       "refuse_registration_the_sdk_fixes",
       "refuse_role_the_sdk_fixes",
+      "register_manifest_entries",
       "resolve_artifact_class"
     ],
     "exports": {
@@ -2106,6 +2107,10 @@
       "refuse_role_the_sdk_fixes": {
         "kind": "function",
         "shape": "(class_id: 'str', role: 'ArtifactRole') -> 'None'"
+      },
+      "register_manifest_entries": {
+        "kind": "function",
+        "shape": "(manifest: 'DeploymentManifest', parsed: 'Mapping[str, CCFContract]', *, registry: 'ControlPlaneProtocol', only: 'frozenset[str] | None' = None) -> 'tuple[ArtifactPin, ...]'"
       },
       "resolve_artifact_class": {
         "kind": "function",
