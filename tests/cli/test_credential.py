@@ -29,11 +29,22 @@ the request body the CLI builds carries no actor, and that a grant file
 naming one is refused rather than silently stripped — silently stripping
 would leave the operator believing they had set something.
 
+**SEC-002 — the exemption is gone.** This module recorded one boundary:
+"the local leg is unchanged", on the reasoning that ``--local`` hosts no
+network boundary and so resolves no credential. That reasoning does not
+survive a TOTAL gate. ``--local`` is suspended, and the in-process leg
+that replaced it is gated like any other — the claim below is that an
+in-process invocation without a bearer is refused, and that no value of
+the ``authority`` parameter builds an application that would have let it
+through.
+
 **Exit codes.** Unchanged and still true (see
 :mod:`ccf_runtime.cli.main`): a missing or unusable credential is
 deployment *wiring*, reported on stderr with status 2, exactly as a
 missing base URL already was. A grant file that names an actor is a verb
-refusing its own inputs — a typed refusal, status 1 on stdout.
+refusing its own inputs — a typed refusal, status 1 on stdout. A
+credential the door does not recognise is that door's typed refusal,
+status 1 on stdout, since it crossed the boundary and was answered.
 """
 
 from __future__ import annotations
@@ -381,18 +392,89 @@ def test_the_sdk_names_no_default_credential_source() -> None:
         resolve_remote_credential(token_env=None, token_file=None, environ={})
 
 
-# --- the local leg is unchanged (boundary: --local is not this lane's) -----
+# --- the in-process leg is a request like any other (SEC-002) --------------
 
 
-def test_the_local_leg_needs_no_credential(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+def test_the_in_process_leg_requires_a_credential_too(
+    deps: Any, authority_bundle: Any, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """``--local`` hosts no network leg, so it resolves no credential."""
-    code, out, _ = run_cli(
-        ["--local", "--local-root", str(tmp_path), "skill", "list"], capsys
+    """The absence of a network boundary entitles nothing (`SEC-002`).
+
+    This asserted the opposite — that ``--local`` "hosts no network leg, so
+    it resolves no credential" — and Tier 1 deleted the posture that made it
+    true. ``--local`` is suspended outright, and the in-process leg that
+    replaced it drives an app built with the same five seams as any other: a
+    pure-ASGI middleware gates EVERY request before any handler exists. So an
+    in-process request carrying no bearer is refused exactly as a remote one
+    is, and the exemption this test used to record no longer exists anywhere
+    in the CLI.
+
+    Both arms are measured, because a refusal with no positive control beside
+    it is indistinguishable from a leg that never worked: the same command,
+    same bundle and same authority answers `0` with the recognised credential
+    and `1` without one.
+
+    Driven through ``main`` rather than through ``run_cli``, since ``run_cli``
+    supplies the credential for the rest of the suite — a test of what happens
+    without one has to be the thing that withholds it.
+    """
+    from pydantic import SecretStr
+
+    from ccf_runtime.cli.main import main
+
+    from cli.conftest import CLI_TOKEN
+
+    refused = main(
+        ["skill", "list"],
+        dependencies=deps,
+        authority=authority_bundle,
+        credential=None,
     )
-    assert code == 0
-    assert json.loads(out) == []
+    anonymous = capsys.readouterr()
+    # A typed refusal: status 1 with the body on stdout, the same contract a
+    # 4xx over HTTP takes (T-07-26). Nothing of the catalog crossed.
+    assert refused == 1
+    assert json.loads(anonymous.out)["detail"]["error_code"] == (
+        "unauthenticated"
+    )
+    assert anonymous.err == ""
+
+    served = main(
+        ["skill", "list"],
+        dependencies=deps,
+        authority=authority_bundle,
+        credential=SecretStr(CLI_TOKEN),
+    )
+    assert served == 0
+    assert json.loads(capsys.readouterr().out)
+
+
+def test_no_value_of_authority_builds_an_unauthenticated_app(
+    deps: Any, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Omitting the authority REFUSES; it does not fall back (`SEC-002`).
+
+    A guard whose applicability the caller decides is not a guard. There is
+    no ``authority=None`` arm that builds a permissive application for an
+    embedder or a test — the invocation exits 2 on stderr as deployment
+    wiring, which is the same answer ``--local`` gets for the same reason:
+    nothing has declared what this app would be allowed to do.
+    """
+    from pydantic import SecretStr
+
+    from ccf_runtime.cli.main import main
+
+    from cli.conftest import CLI_TOKEN
+
+    with pytest.raises(SystemExit) as wiring:
+        main(
+            ["skill", "list"],
+            dependencies=deps,
+            authority=None,
+            credential=SecretStr(CLI_TOKEN),
+        )
+    assert wiring.value.code == 2
+    assert capsys.readouterr().out == ""
 
 
 # --- SEC-012: the audit actor is not the caller's to type ------------------
