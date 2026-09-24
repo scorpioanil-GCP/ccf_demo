@@ -59,7 +59,17 @@ from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.controlplane.artifacts import declared_artifact_class, parse_artifact
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.graph.protocols import GraphView
-from ccf.hitl.approval_gate import ApprovalGate, GateResolution
+from ccf.hitl.approval_gate import (
+    GATE_ACTIONS,
+    ApprovalGate,
+    GateResolution,
+)
+from ccf.hitl.escalation import (
+    EscalationHandOff,
+    EscalationResolution,
+    ExceptionEscalation,
+    ExplicitEscalation,
+)
 from ccf.hitl.principal import (
     ApproverIdentity,
     AuthenticationContext,
@@ -1037,3 +1047,347 @@ def test_a_substituted_definition_is_refused_even_with_a_real_approval(
     )
     assert isinstance(record, WorkflowStateRecord)
     assert record.status == "suspended"
+
+
+# --- SEC-001 Tier 0: the exception-routed branch, and which primitive answered
+#
+# Two holes the first SEC-001 remedy left, found by the follow-up read of
+# 2026-09-24:
+#
+# 1. ``resume``'s exception-routed branch — everything after the
+#    ``status == "suspended"`` block — advanced with NO authority check and
+#    audited ``resolved=True, actor=None``: the exact signature SEC-001
+#    named, one branch over. The engine's own ``_route_exception`` enqueues
+#    nothing, so the branch reads as human-free — but
+#    :class:`~ccf.hitl.escalation.ExceptionEscalation` IS the shipped
+#    primitive for a routed state, and a deployment that composes it really
+#    does put a human in the loop that the engine then walked past.
+# 2. ``_gate_authority`` never asked WHICH HITL primitive the submission
+#    answered, so an action taken against another primitive's event could
+#    satisfy an approval-gate check.
+#
+# The tests below were written first and watched fail against the pre-fix
+# engine.
+
+
+def _escalate(
+    registry: ControlPlaneRegistry,
+    transport: InMemoryHitlTransport,
+    *,
+    tenant: str,
+    key: str,
+    event_key: str,
+    product_content_hash: str,
+) -> ExceptionEscalation:
+    """Compose the shipped ExceptionEscalation over a routed state.
+
+    The composition-root wiring of ``tests/workflow/test_exception_paths.py``
+    — the engine returns the routed outcome, the deployment hands that state
+    to the primitive on the shared transport. The primitive instance is
+    returned because its hand-off trigger is per-instance (WR-01): the
+    deployment resolves on the instance that escalated.
+    """
+    escalation = ExceptionEscalation(
+        transport=transport, audit=registry.audit_log, clock=_ticking_clock()
+    )
+    hand_off = escalation.escalate(
+        tenant=tenant,
+        event_key=event_key,
+        workflow_state_ref=key,
+        product_content_hash=product_content_hash,
+        policy_ref=None,
+        trigger=ExplicitEscalation(
+            reason=_load("hitl.yaml")["escalation"]["explicit_reason"]
+        ),
+    )
+    assert isinstance(hand_off, EscalationHandOff)
+    return escalation
+
+
+def _resolve_escalation(
+    escalation: ExceptionEscalation,
+    *,
+    tenant: str,
+    event_key: str,
+    product_content_hash: str,
+    subject_id: str = "duty-officer-9",
+) -> None:
+    """Put a real human action through the real ExceptionEscalation."""
+    resolution = escalation.resolve(
+        tenant=tenant,
+        event_key=event_key,
+        action="approve",
+        principal=_binding(product_content_hash, subject_id=subject_id),
+    )
+    assert isinstance(resolution, EscalationResolution)
+
+
+def _route(
+    registry: ControlPlaneRegistry, tmp_path: Path, *, execution_id: str
+) -> tuple[WorkflowEngine, InMemoryHitlTransport, _Bindings, Workflow, str]:
+    """Drive one execution onto the exception-routed branch."""
+    engine, transport, bindings = _engine(
+        registry, tmp_path, failing=frozenset({"fetch-certificates"})
+    )
+    workflow = _covenant(registry)
+    routed = asyncio.run(engine.execute(workflow, execution_id=execution_id))
+    assert isinstance(routed, WorkflowExceptionRouted)
+    # The retry must be able to succeed, or the resume re-routes and the
+    # assertions below would read the second routing rather than the resume.
+    bindings.failing = frozenset()
+    return (
+        engine,
+        transport,
+        bindings,
+        workflow,
+        f"{workflow.definition.tenant}/{execution_id}",
+    )
+
+
+def test_a_pending_escalation_holds_the_exception_routed_resume(
+    registry: ControlPlaneRegistry, tmp_path: Path
+) -> None:
+    """SEC-001 on the exception-routed branch.
+
+    With an unresolved ``exception-escalation`` bound to this execution on
+    the authority path, a human is genuinely in the loop. The engine must
+    not walk past them.
+    """
+    engine, transport, _, workflow, key = _route(
+        registry, tmp_path, execution_id="exec-esc"
+    )
+    tenant = workflow.definition.tenant
+    record = registry.state_store.get(WORKFLOW_STATE, key)
+    assert isinstance(record, WorkflowStateRecord)
+    _escalate(
+        registry,
+        transport,
+        tenant=tenant,
+        key=key,
+        event_key=f"{key}/fetch-certificates",
+        product_content_hash=content_hash(record),
+    )
+    outcome = asyncio.run(
+        engine.resume(workflow, execution_id="exec-esc", decision="retry")
+    )
+    assert isinstance(outcome, WorkflowResumeRefused)
+    # The routed state still holds, and the human's question is still open.
+    after = registry.state_store.get(WORKFLOW_STATE, key)
+    assert isinstance(after, WorkflowStateRecord)
+    assert after.status == "exception-routed"
+    assert len(transport.pending(tenant=tenant)) == 1
+    refusals = [
+        event
+        for event in registry.audit_log.events()
+        if event.action == "workflow_resumed" and not event.resolved
+    ]
+    assert len(refusals) == 1
+
+
+def test_a_resolved_escalation_resumes_and_audits_the_resolver(
+    registry: ControlPlaneRegistry, tmp_path: Path
+) -> None:
+    """SEC-001 on the exception-routed branch, the admitting case.
+
+    The resolving human is the audit ``actor`` — the branch used to record
+    ``resolved=True, actor=None`` whatever had happened.
+    """
+    engine, transport, _, workflow, key = _route(
+        registry, tmp_path, execution_id="exec-esc"
+    )
+    tenant = workflow.definition.tenant
+    record = registry.state_store.get(WORKFLOW_STATE, key)
+    assert isinstance(record, WorkflowStateRecord)
+    event_key = f"{key}/fetch-certificates"
+    escalation = _escalate(
+        registry,
+        transport,
+        tenant=tenant,
+        key=key,
+        event_key=event_key,
+        product_content_hash=content_hash(record),
+    )
+    _resolve_escalation(
+        escalation,
+        tenant=tenant,
+        event_key=event_key,
+        product_content_hash=content_hash(record),
+    )
+    outcome = asyncio.run(
+        engine.resume(workflow, execution_id="exec-esc", decision="retry")
+    )
+    assert isinstance(outcome, WorkflowSuspended)  # retried, reached the gate
+    resumed = [
+        event
+        for event in registry.audit_log.events()
+        if event.action == "workflow_resumed"
+    ]
+    assert len(resumed) == 1
+    assert resumed[0].resolved
+    assert resumed[0].actor == "duty-officer-9"
+
+
+def test_an_exception_routed_resume_without_escalation_is_unaffected(
+    registry: ControlPlaneRegistry, tmp_path: Path
+) -> None:
+    """The positive control, and the compatibility claim in one.
+
+    A deployment that composes no escalation has no human in the loop, so
+    the routed resume proceeds exactly as before — and states positively
+    that no human acted. Without this test the guard above could be
+    satisfied by an engine that refused every routed resume.
+    """
+    engine, transport, _, workflow, key = _route(
+        registry, tmp_path, execution_id="exec-esc"
+    )
+    tenant = workflow.definition.tenant
+    assert transport.pending(tenant=tenant) == ()
+    outcome = asyncio.run(
+        engine.resume(workflow, execution_id="exec-esc", decision="retry")
+    )
+    assert isinstance(outcome, WorkflowSuspended)
+    resumed = [
+        event
+        for event in registry.audit_log.events()
+        if event.action == "workflow_resumed"
+    ]
+    assert len(resumed) == 1
+    assert resumed[0].resolved and resumed[0].actor is None
+
+
+def test_another_executions_escalation_does_not_release_this_routing(
+    registry: ControlPlaneRegistry, tmp_path: Path
+) -> None:
+    """The hand-off binds to the execution it was taken against (D-23).
+
+    An open escalation about exec-1 neither holds nor releases exec-2, and
+    exec-2's resume must not borrow exec-1's resolver as its actor.
+    """
+    engine, transport, bindings = _engine(
+        registry, tmp_path, failing=frozenset({"fetch-certificates"})
+    )
+    workflow = _covenant(registry)
+    tenant = workflow.definition.tenant
+    first = asyncio.run(engine.execute(workflow, execution_id="exec-1"))
+    second = asyncio.run(engine.execute(workflow, execution_id="exec-2"))
+    assert isinstance(first, WorkflowExceptionRouted)
+    assert isinstance(second, WorkflowExceptionRouted)
+    bindings.failing = frozenset()
+    first_key = f"{tenant}/exec-1"
+    first_record = registry.state_store.get(WORKFLOW_STATE, first_key)
+    assert isinstance(first_record, WorkflowStateRecord)
+    _escalate(
+        registry,
+        transport,
+        tenant=tenant,
+        key=first_key,
+        event_key=f"{first_key}/fetch-certificates",
+        product_content_hash=content_hash(first_record),
+    )
+    outcome = asyncio.run(
+        engine.resume(workflow, execution_id="exec-2", decision="retry")
+    )
+    assert isinstance(outcome, WorkflowSuspended)
+    resumed = [
+        event
+        for event in registry.audit_log.events()
+        if event.action == "workflow_resumed"
+    ]
+    assert len(resumed) == 1
+    assert resumed[0].actor is None
+    # exec-1's question is still open, and exec-1 is still held.
+    held = asyncio.run(
+        engine.resume(workflow, execution_id="exec-1", decision="retry")
+    )
+    assert isinstance(held, WorkflowResumeRefused)
+
+
+def test_an_escalation_resolution_is_not_an_approval_gate_verdict(
+    registry: ControlPlaneRegistry, tmp_path: Path
+) -> None:
+    """The second hole: ``_gate_authority`` never asked which primitive
+    answered.
+
+    A deployment may legitimately hand a stuck gate to
+    :class:`~ccf.hitl.escalation.ExceptionEscalation` — that is what the
+    primitive is for. The duty officer who resolves that escalation has
+    not approved the credit, and their ``approve`` must not open the gate.
+    Both primitives carry the same two-verdict vocabulary and the same
+    suspension hash, so nothing but the answered event class separates
+    them.
+    """
+    engine, transport, _ = _engine(registry, tmp_path)
+    workflow = _covenant(registry)
+    tenant = workflow.definition.tenant
+    suspended = asyncio.run(engine.execute(workflow, execution_id="exec-1"))
+    assert isinstance(suspended, WorkflowSuspended)
+    key = f"{tenant}/exec-1"
+    record = registry.state_store.get(WORKFLOW_STATE, key)
+    assert isinstance(record, WorkflowStateRecord)
+    # The deployment routes the stuck gate to the escalation primitive: the
+    # gate's own pending event is consumed and re-posted as an escalation.
+    assert (
+        transport.remove(tenant=tenant, event_key=suspended.event_key)
+        is not None
+    )
+    escalation = _escalate(
+        registry,
+        transport,
+        tenant=tenant,
+        key=key,
+        event_key=suspended.event_key,
+        product_content_hash=content_hash(record),
+    )
+    _resolve_escalation(
+        escalation,
+        tenant=tenant,
+        event_key=suspended.event_key,
+        product_content_hash=content_hash(record),
+    )
+    # The submission names this gate, attests to this suspension, and reads
+    # ``approve`` — everything the pre-fix check compared.
+    (recorded,) = transport.submissions(tenant=tenant)
+    assert recorded.event_key == suspended.event_key
+    assert recorded.principal.product_content_hash == content_hash(record)
+    assert recorded.action in GATE_ACTIONS
+    outcome = asyncio.run(
+        engine.resume(workflow, execution_id="exec-1", decision="approved")
+    )
+    assert isinstance(outcome, WorkflowResumeRefused)
+
+
+def test_a_bare_submission_needs_this_gate_to_still_be_pending(
+    registry: ControlPlaneRegistry, tmp_path: Path
+) -> None:
+    """The submit-only door's submission joins to a real pending gate event.
+
+    ``POST /hitl/actions`` is submit-only by ruling (D-IMPL-62): it records
+    an action and resolves nothing, so the gate's own event is still
+    pending when such a submission is the authority. That pending
+    approval-gate event is the join. With no pending gate event and no
+    primitive having claimed one, nothing on the authority path says this
+    submission answered an approval gate at all.
+    """
+    engine, transport, _ = _engine(registry, tmp_path)
+    workflow = _covenant(registry)
+    tenant = workflow.definition.tenant
+    suspended = asyncio.run(engine.execute(workflow, execution_id="exec-1"))
+    assert isinstance(suspended, WorkflowSuspended)
+    key = f"{tenant}/exec-1"
+    record = registry.state_store.get(WORKFLOW_STATE, key)
+    assert isinstance(record, WorkflowStateRecord)
+    transport.submit(
+        submission=HitlActionSubmission(
+            event_key=suspended.event_key,
+            tenant=tenant,
+            action="approve",
+            principal=_binding(content_hash(record), subject_id="officer-3"),
+        )
+    )
+    # Drained rather than resolved: no primitive claimed it, so no recorded
+    # fact says which primitive this submission answered.
+    assert transport.dequeue(tenant=tenant) is not None
+    outcome = asyncio.run(
+        engine.resume(workflow, execution_id="exec-1", decision="approved")
+    )
+    assert isinstance(outcome, WorkflowResumeRefused)

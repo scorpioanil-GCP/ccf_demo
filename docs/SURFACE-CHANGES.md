@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1334 entries**, of which **1084** name a public Python surface.
+**1339 entries**, of which **1088** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-723 entries — 681 public Python surface, 42 not public Python API.
+725 entries — 683 public Python surface, 42 not public Python API.
 
 ### Public Python surface
 
@@ -11941,6 +11941,39 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `350-01-a-gate-opens-on-a-human-action.md`.*
 
+#### ccf.hitl.approval_gate.GATE_EVENT_CLASS
+
+- Surface: ccf.hitl.approval_gate.GATE_EVENT_CLASS
+- Public surface: true
+- Change type: added
+- Before: absent — `"approval-gate"` appeared as a bare literal at the two
+  sites that produce it (`WorkflowEngine._suspend`) and consume it, outside
+  the module that owns the vocabulary
+- After: `"approval-gate"`, the `HITL_EVENT_CLASSES` member this primitive
+  owns
+- Why: the engine now has to ask *which* HITL primitive answered a
+  submission. Reaching for a bare `"approval-gate"` literal in `/runtime`
+  would put a vocabulary value outside its owning module — exactly the
+  reasoning that put `GATE_APPROVE` here in `350-01`
+- Migration: none. A new public constant naming a value that already existed
+
+*Recorded by `350-02-which-primitive-answered.md`.*
+
+#### ccf.hitl.escalation.ESCALATION_EVENT_CLASS
+
+- Surface: ccf.hitl.escalation.ESCALATION_EVENT_CLASS
+- Public surface: true
+- Change type: added
+- Before: absent — `"exception-escalation"` was an inline literal at the two
+  sites in `escalation.py` that write and filter on it
+- After: `"exception-escalation"`, the `HITL_EVENT_CLASSES` member this
+  primitive owns, used by both of those sites and by the engine
+- Why: the same reason as `GATE_EVENT_CLASS`, for the primitive on the other
+  side of the new check
+- Migration: none
+
+*Recorded by `350-02-which-primitive-answered.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -12628,7 +12661,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-432 entries — 246 public Python surface, 186 not public Python API.
+434 entries — 248 public Python surface, 186 not public Python API.
 
 ### Public Python surface
 
@@ -17400,6 +17433,51 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `350-01-a-gate-opens-on-a-human-action.md`.*
 
+#### ccf.hitl.transport.HitlActionSubmission
+
+- Surface: ccf.hitl.transport.HitlActionSubmission
+- Public surface: true
+- Change type: reshaped
+- Before: six fields. A recorded submission said **what** a human did and
+  **who** they were, and nothing about **which pending event** the action
+  answered — so `WorkflowEngine._gate_authority` could not ask, and matched on
+  `event_key` + tenant + product hash + `action in GATE_ACTIONS` alone.
+  `GATE_ACTIONS` and `ESCALATION_ACTIONS` are the same two verdicts, so an
+  action taken against an escalation that named the same event key satisfied
+  an approval-gate check
+- After: two optional fields, `answered_event_class` and
+  `answered_workflow_state_ref`, **stamped by the transport and never by the
+  submitter**. `submit` overwrites both from the event the transport itself
+  observed being claimed through `remove`, and writes `None` when the
+  submitter claimed nothing
+- Why: a consumer of the authority path has to be able to ask "which
+  primitive answered this, and about which execution?" and get an answer that
+  the answerer did not author. Declared on the contract rather than kept in a
+  transport side-table because the stamp has to travel with the action
+  wherever the recorded submission travels
+- Migration: none for a constructor — both fields default to `None` and any
+  value a caller supplies is discarded at `submit` rather than rejected. A
+  **third-party `HITLTransportProtocol` implementation must stamp**: one that
+  does not leaves every submission reading `None`, and the engine's gate check
+  then falls back to requiring the gate's own event to be still pending. That
+  is fail-closed, which is the right direction, but it is a behavior change
+  for such an implementation and it is why the obligation is written into the
+  Protocol's `remove` and `submit` docstrings
+
+*Recorded by `350-02-which-primitive-answered.md`.*
+
+#### ccf.hitl.HitlActionSubmission
+
+- Surface: ccf.hitl.HitlActionSubmission
+- Public surface: true
+- Change type: reshaped
+- Before: the package-level re-export of the six-field contract above
+- After: the package-level re-export of the eight-field contract above
+- Why: `ccf/hitl/__init__.py` re-exports the name; the reshape is the same one
+- Migration: none beyond the entry above
+
+*Recorded by `350-02-which-primitive-answered.md`.*
+
 ### Not public Python API
 
 #### tools/lints/__main__.py
@@ -19961,7 +20039,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-162 entries — 140 public Python surface, 22 not public Python API.
+163 entries — 140 public Python surface, 23 not public Python API.
 
 ### Public Python surface
 
@@ -23756,3 +23834,36 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: a package that genuinely wants a file's contents ships the file
 
 *Recorded by `350-01-a-gate-opens-on-a-human-action.md`.*
+
+#### runtime/ccf_runtime/workflow/engine.py
+
+- Surface: runtime/ccf_runtime/workflow/engine.py
+- Public surface: false
+- Change type: behavior
+- Before: **two holes.** (1) The branch after `if record.status ==
+  "suspended":` — the exception-routed path — advanced with *no* authority
+  check of any kind and audited `workflow_resumed, resolved=True, actor=None`,
+  which is the exact audit signature `SEC-001` named, one branch over. The
+  reading that justified it is in the `350-01` record: "the exception-routed
+  resume path is unchanged. It crosses no gate, so it acquires no approver."
+  That is true of `_route_exception`, which enqueues nothing — and false of
+  the deployment, because `ExceptionEscalation` is the shipped primitive *for*
+  a routed state and a deployment that composes it really does put a human in
+  the loop the engine then walked past. (2) `_gate_authority` never asked
+  which primitive a submission answered
+- After: (1) a routed resume is refused while the transport holds a pending
+  `exception-escalation` event whose `workflow_state_ref` is this execution's
+  own state key, and the resolving human is the audit `actor` when one is
+  found; (2) the gate check additionally requires that the submission answered
+  an `approval-gate` bound to this execution — by the transport's stamp when a
+  primitive claimed the event, and otherwise by joining to the gate's own
+  still-pending event
+- Why: `SEC-001`. The HITL pillar is sold on the claim that a human authorized
+  the transition, and a control that holds on one branch of a two-branch
+  method is not a control
+- Migration: a deployment that composes `ExceptionEscalation` over a routed
+  state must resolve the escalation before resuming — which is what the
+  primitive is for, and what `tests/workflow/test_exception_paths.py` already
+  did. A deployment that composes no escalation is unaffected
+
+*Recorded by `350-02-which-primitive-answered.md`.*

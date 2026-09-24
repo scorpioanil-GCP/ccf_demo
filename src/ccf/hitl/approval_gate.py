@@ -87,6 +87,7 @@ __ccf_mode__ = "algorithmic"
 __all__ = [
     "GATE_ACTIONS",
     "GATE_APPROVE",
+    "GATE_EVENT_CLASS",
     "HITL_ACTION_ARTIFACT_CLASS",
     "ApprovalGate",
     "ApprovalSinkAdapter",
@@ -117,6 +118,14 @@ GATE_ACTIONS: frozenset[str] = frozenset({"approve", "reject"})
 #: acted" from "a human said yes" (the workflow engine's gate-authority
 #: check, SEC-001) reference the vocabulary rather than a bare literal.
 GATE_APPROVE = "approve"
+
+#: The :data:`~ccf.hitl.transport.HITL_EVENT_CLASSES` member this primitive
+#: owns. A mechanism identifier, named here because this is the module that
+#: owns the vocabulary: a consumer asking "did an approval gate answer
+#: this?" — the workflow engine's gate-authority check (SEC-001) — must not
+#: reach for a bare ``"approval-gate"`` literal outside it. Exactly the
+#: reasoning that put :data:`GATE_APPROVE` here.
+GATE_EVENT_CLASS = "approval-gate"
 
 
 class UnknownGateEventError(LookupError):

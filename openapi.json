@@ -451,6 +451,30 @@
             ],
             "title": "Annotation"
           },
+          "answered_event_class": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "ccf_hash_transparent": true,
+            "title": "Answered Event Class"
+          },
+          "answered_workflow_state_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "ccf_hash_transparent": true,
+            "title": "Answered Workflow State Ref"
+          },
           "event_key": {
             "title": "Event Key",
             "type": "string"
