@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1354 entries**, of which **1102** name a public Python surface.
+**1358 entries**, of which **1105** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-737 entries — 695 public Python surface, 42 not public Python API.
+740 entries — 698 public Python surface, 42 not public Python API.
 
 ### Public Python surface
 
@@ -11974,6 +11974,51 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `350-02-which-primitive-answered.md`.*
 
+#### ccf_runtime.cli.credential.resolve_remote_credential
+
+- Surface: ccf_runtime.cli.credential.resolve_remote_credential
+- Public surface: true
+- Change type: added
+- Before: absent — the CLI had no credential concept
+- After: resolves the remote-leg bearer from `--token-env` / `CCF_TOKEN_ENV` or
+  `--token-file` / `CCF_TOKEN_FILE`, beside the existing base-URL resolution
+- Why: `SEC-016`. Unset, empty, unreadable, and *both sources at once* are all
+  refusals — both-at-once because which credential was in force is an audit
+  fact, so a precedence rule would be a silent choice
+- Migration: a remote invocation must now name a credential source
+
+*Recorded by `350-03-the-cli-carries-a-credential.md`.*
+
+#### ccf_runtime.cli.credential.authorization_headers
+
+- Surface: ccf_runtime.cli.credential.authorization_headers
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the single site where the resolved secret is unwrapped, attached as
+  client-default headers on the one `httpx.AsyncClient` the CLI constructs
+- Why: one unwrap site is auditable; a value unwrapped at several is not
+- Migration: none — internal to the CLI's request path
+
+*Recorded by `350-03-the-cli-carries-a-credential.md`.*
+
+#### ccf_runtime.cli.credential.CredentialUnresolved
+
+- Surface: ccf_runtime.cli.credential.CredentialUnresolved
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the typed refusal when nothing names a credential, or when what is
+  named cannot be read. Reported at **exit 2 on stderr** — the same status the
+  existing missing-base-URL check already took
+- Why: both are deployment wiring that must be settled before a request can be
+  built, so they belong on the same exit status rather than on two. A typed
+  class rather than a bare `ValueError` so the door can distinguish it
+- Migration: none. The exit-code contract in `cli/main.py`'s docstring was
+  widened to say so, rather than left asserting something the code no longer did
+
+*Recorded by `350-03-the-cli-carries-a-credential.md`.*
+
 #### ccf.artifacts.protocol.GovernedRecordClasses
 
 - Surface: ccf.artifacts.protocol.GovernedRecordClasses
@@ -20283,7 +20328,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-164 entries — 140 public Python surface, 24 not public Python API.
+165 entries — 140 public Python surface, 25 not public Python API.
 
 ### Public Python surface
 
@@ -24111,6 +24156,21 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   did. A deployment that composes no escalation is unaffected
 
 *Recorded by `350-02-which-primitive-answered.md`.*
+
+#### runtime/ccf_runtime/cli/commands/skill.py
+
+- Surface: runtime/ccf_runtime/cli/commands/skill.py
+- Public surface: false
+- Change type: behavior
+- Before: `--actor` on skill grant/revoke; the caller typed the audit actor
+- After: the flag is deleted and a grant file naming an `actor:` key is refused;
+  the actor is whoever the credential says you are
+- Why: `SEC-012`. An audit actor a caller can type is not an audit actor
+- Migration: drop `--actor`. Measured with its population: no consumer of
+  `ccf_runtime.cli` exists outside `runtime/ccf_runtime/cli/` and `tests/cli/`,
+  and no doc, example or script references the flag
+
+*Recorded by `350-03-the-cli-carries-a-credential.md`.*
 
 #### runtime/ccf_runtime/cli/commands/skill_import.py
 
