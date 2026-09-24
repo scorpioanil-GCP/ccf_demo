@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1334 entries**, of which **1084** name a public Python surface.
+**1338 entries**, of which **1087** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-723 entries — 681 public Python surface, 42 not public Python API.
+726 entries — 684 public Python surface, 42 not public Python API.
 
 ### Public Python surface
 
@@ -11941,6 +11941,52 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `350-01-a-gate-opens-on-a-human-action.md`.*
 
+#### ccf_runtime.cli.commands.CommandRefused
+
+- Surface: ccf_runtime.cli.commands.CommandRefused
+- Public surface: true
+- Change type: added
+- Before: absent — only a refusal that had already crossed the HTTP boundary
+  could reach the documented exit-1-with-body contract, so a verb refusing its
+  own local inputs could do nothing but raise
+- After: a `ValueError` subclass; `ccf_runtime.cli.main.main` catches it, prints
+  it on stdout and returns `EXIT_REFUSED`
+- Why: a hostile skill package is a governance outcome and has to read like one.
+  An operator handed a traceback learns less than an operator handed a refusal
+- Migration: none for existing verbs. A new verb refusing its own inputs should
+  raise this rather than a bare `ValueError`
+
+*Recorded by `351-01-an-imported-skill-package-is-untrusted-input.md`.*
+
+#### ccf_runtime.cli.commands.skill_import.MAX_REFERENCE_BYTES
+
+- Surface: ccf_runtime.cli.commands.skill_import.MAX_REFERENCE_BYTES
+- Public surface: true
+- Change type: added
+- Before: absent — `reference.read_text()` was unbounded
+- After: `1_048_576`, the per-file ceiling the containment helper enforces
+- Why: a skill package exists to be distributed, which makes it untrusted input,
+  and an unbounded read of untrusted input is a resource hazard independent of
+  what the bytes turn out to be. Public so an operator can see the ceiling they
+  are held to
+- Migration: none below the ceiling; a package above it is refused
+
+*Recorded by `351-01-an-imported-skill-package-is-untrusted-input.md`.*
+
+#### ccf_runtime.cli.commands.skill_import.MAX_REFERENCES
+
+- Surface: ccf_runtime.cli.commands.skill_import.MAX_REFERENCES
+- Public surface: true
+- Change type: added
+- Before: absent — one import registered as many prompt artifacts as the
+  directory held
+- After: `64`, the per-import ceiling on registered reference artifacts
+- Why: the same reason as the byte ceiling, one level up — the count was as
+  unbounded as the size was
+- Migration: none below the ceiling
+
+*Recorded by `351-01-an-imported-skill-package-is-untrusted-input.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -19961,7 +20007,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-162 entries — 140 public Python surface, 22 not public Python API.
+163 entries — 140 public Python surface, 23 not public Python API.
 
 ### Public Python surface
 
@@ -23756,3 +23802,27 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: a package that genuinely wants a file's contents ships the file
 
 *Recorded by `350-01-a-gate-opens-on-a-human-action.md`.*
+
+#### runtime/ccf_runtime/cli/commands/skill_import.py
+
+- Surface: runtime/ccf_runtime/cli/commands/skill_import.py
+- Public surface: false
+- Change type: behavior
+- Before: `references.iterdir()` filtered on `reference.is_file()`, which
+  **follows symlinks**, and `SKILL.md` was read the same way. No `resolve()`, no
+  `is_symlink()`, no containment check and no ceiling anywhere in the module
+- After: every read goes through one containment helper that refuses a symlink
+  outright, refuses a path resolving outside the package, refuses anything that
+  is not a regular file, and refuses a file over the byte ceiling; the reference
+  count is checked before any read
+- Why: `SEC-003`, and it chains. A shared package carrying
+  `references/usage.md -> ~/.aws/credentials` had those bytes registered as a
+  prompt artifact, where `GET /config/resolution` — unauthorized, `SEC-002`,
+  still open on this branch — served them to any caller. The most complete
+  exfiltration path the review found. A symlink is refused rather than
+  resolved-and-allowed because a link inside a *distributed* package has no
+  legitimate meaning on the importing machine, and refusing is the only answer
+  that does not depend on where the link points
+- Migration: a package that wants a file's contents ships the file
+
+*Recorded by `351-01-an-imported-skill-package-is-untrusted-input.md`.*
