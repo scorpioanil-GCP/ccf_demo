@@ -223,11 +223,11 @@ Rows by coupling shape:
 | `public/reference/artifacts/task-definitions.md` | 16 | `archive/examples/05-workflow-hitl` | `snippet-include` | live | - | - | 23-04 |  |
 | `public/reference/artifacts/workflow-definitions.md` | 18 | `archive/examples/05-workflow-hitl` | `snippet-include` | live | - | - | 23-04 |  |
 | `pyproject.toml` | 83 | `tests/examples/test_ext00_fixture_schemas.py` | `comment` | documentary | - | - | 23-10 |  |
-| `runtime/ccf_runtime/mcp/egress.py` | 509 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
-| `runtime/ccf_runtime/mcp/egress.py` | 511 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
-| `runtime/ccf_runtime/mcp/experience.py` | 368 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
-| `runtime/ccf_runtime/mcp/experience.py` | 370 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
-| `runtime/ccf_runtime/mcp/experience.py` | 529 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
+| `runtime/ccf_runtime/mcp/egress.py` | 510 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
+| `runtime/ccf_runtime/mcp/egress.py` | 512 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
+| `runtime/ccf_runtime/mcp/experience.py` | 372 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
+| `runtime/ccf_runtime/mcp/experience.py` | 374 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
+| `runtime/ccf_runtime/mcp/experience.py` | 533 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
 | `src/ccf/products/bind.py` | 74 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
 | `src/ccf/products/bind.py` | 76 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
 | `src/ccf/products/request.py` | 1153 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |

@@ -619,6 +619,18 @@ _MARKED_IN_THE_TREE = frozenset(
         "ccf.replay.record.PackagingTrace.prompt_artifact_uri",
         "ccf.replay.record.PackagingTrace.prompt_artifact_hash",
         "ccf.replay.record.PackagingTrace.output_hash",
+        # `SEC-001` Tier 0 — which primitive answered a HITL gate. Two marks,
+        # both ADDITIVE and both sentinel-silent (`str | None = None`), so a
+        # submission recorded before the transport could stamp a claim
+        # canonicalizes exactly as it did. The tick is correct rather than
+        # merely recorded because the sentinel is the RESTRICTIVE reading
+        # wherever the pair is consumed: an unstamped submission fails the
+        # gate check's stamped leg and the escalation authority join outright,
+        # so `None` never reads as "unconstrained". Ticked here at the join
+        # rather than by the lane that added them, which is exactly the
+        # arrival this set-equality test exists to report.
+        "ccf.hitl.transport.HitlActionSubmission.answered_event_class",
+        "ccf.hitl.transport.HitlActionSubmission.answered_workflow_state_ref",
     }
 )
 
