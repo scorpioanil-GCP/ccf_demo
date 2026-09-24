@@ -38,6 +38,13 @@ taken as absence: the store asks the presence resource, which answers
 dangerous direction, because absence is what a replay writes down as a fact
 about the past. There is no ``except McpError`` handler in this file.
 
+**Governed record classes are refused here AND at the server.** The
+deployment's declaration (``SEC-004``) is enforced by this store before the
+call leaves the process, and independently by the store the artifact server
+holds — so a remote client that skips this class entirely and speaks to the
+server directly meets the same refusal. That is the property that makes the
+rule the store's rather than any transport's.
+
 **The naming index is the server's.** This store holds none. Two stores
 pointed at one server therefore resolve identically, which is what makes a URI
 recorded years ago resolvable by a process that never wrote it — and it is why
@@ -67,13 +74,17 @@ from mcp.types import BlobResourceContents, TextResourceContents
 from pydantic import AnyUrl
 
 from ccf.artifacts.protocol import (
+    NOTHING_GOVERNED,
     ArtifactNotFound,
     ArtifactRef,
     ArtifactStoreError,
     ArtifactUriUnresolvable,
+    GovernedRecordClasses,
+    GovernedWriteToken,
     MalformedContentAddress,
     artifact_uri,
     held_content_address,
+    held_writable_class,
     parse_artifact_uri,
 )
 from ccf.contracts.canonical import canonical_bytes
@@ -115,6 +126,13 @@ class McpArtifactStore:
             server; a deployment that omits it against an authenticated one
             gets :class:`~ccf.mcp.errors.McpServerUnreachable`, not silent
             anonymous access.
+        governed: The deployment's declaration of which artifact classes only
+            fabric mechanism may file under (``SEC-004``). Enforced *before the
+            call leaves this process*, exactly as ``@latest`` is, so the refusal
+            is this store's own and a server outage cannot turn it into
+            something else. The server behind the URL runs the identical check
+            over its own store, which is what makes the rule the same one at
+            both ends of the wire rather than two rules that agree today.
     """
 
     def __init__(
@@ -123,15 +141,22 @@ class McpArtifactStore:
         url: str,
         bridge: SyncMcpBridge,
         http_client_factory: HttpClientFactory | None = None,
+        governed: GovernedRecordClasses = NOTHING_GOVERNED,
     ) -> None:
         self._url = url
         self._bridge = bridge
         self._http_client_factory = http_client_factory
+        self._governed = governed
 
     @property
     def url(self) -> str:
         """The server this store reads and writes through."""
         return self._url
+
+    @property
+    def governed(self) -> GovernedRecordClasses:
+        """Which artifact classes this store reserves for fabric mechanism."""
+        return self._governed
 
     # --- transport ---------------------------------------------------------
 
@@ -180,7 +205,13 @@ class McpArtifactStore:
     # --- the four Protocol methods -----------------------------------------
 
     def put(
-        self, *, tenant_id: str, artifact_class: str, name: str, artifact: object
+        self,
+        *,
+        tenant_id: str,
+        artifact_class: str,
+        name: str,
+        artifact: object,
+        minted: GovernedWriteToken | None = None,
     ) -> ArtifactRef:
         """Store ``artifact`` and return its reference.
 
@@ -189,7 +220,16 @@ class McpArtifactStore:
         re-derives them from what it parses and refuses the write if the two
         disagree, so neither side has to trust the other's serializer.
 
+        ``held_writable_class`` runs before the payload is even encoded, so a
+        governed class never reaches the wire and the refusal is typed rather
+        than whatever a remote server happened to answer (``SEC-004``).
+
         Raises:
+            ccf.artifacts.protocol.GovernedWriteRefused: ``artifact_class`` is
+                one this store reserves for fabric mechanism and no authority
+                was presented. Raised before the call leaves this process.
+            ccf.artifacts.protocol.GovernedWriteForgery: a value that is not a
+                minted authority was presented as one.
             ccf.contracts.canonical.CanonicalizationError: the artifact has no
                 canonical form and therefore no stable identity. Raised before
                 anything reaches the wire.
@@ -197,6 +237,9 @@ class McpArtifactStore:
                 or refused the credentials.
             ArtifactStoreError: the server declined the write.
         """
+        writable = held_writable_class(
+            artifact_class, governed=self._governed, minted=minted
+        )
         payload = base64.b64encode(canonical_bytes(artifact)).decode("ascii")
 
         async def operation(session: ClientSession) -> ArtifactRef:
@@ -204,7 +247,7 @@ class McpArtifactStore:
                 _PUT_TOOL,
                 {
                     "tenant_id": tenant_id,
-                    "artifact_class": artifact_class,
+                    "artifact_class": writable,
                     "name": name,
                     "canonical_b64": payload,
                 },
