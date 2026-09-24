@@ -286,6 +286,24 @@ TTLAnchor = Literal["from_decision", "from_entity_freshness"]
 #: fabric core.
 AssemblyMode = Literal["algorithmic", "llm_packaged", "swarm_assembled"]
 
+#: What the fabric determined when a subject is not served, as
+#: :class:`~ccf.products.refusal.SubjectUnavailableRefusal` carries it.
+#:
+#: **Declared once, and here rather than beside that class**, for the reason
+#: `TTLAnchor` and `AssemblyMode` are here: this module is the shared ancestor
+#: every consumer already imports. `ccf.controlplane.artifacts` needs it for
+#: `SeamRefusalBinding.cause`, and importing it from `ccf.products.refusal`
+#: closes a real cycle — `artifacts` -> `refusal` -> `composite` ->
+#: `halflife.debt` -> `artifacts` — which only fails when `artifacts` is
+#: imported first, so mypy and a passing suite both miss it.
+#:
+#: Restating the literal instead is what the guard at
+#: `tests/invariants/test_no_obligation_vocabulary.py` measures: `artifacts.py`
+#: is one of its two scanned roots, and the copy took it from 54 passed to 43
+#: failed (`D-IMPL-117`, CLAUDE.md §11 — the SDK owns mechanism, not
+#: vocabularies it enumerates by hand).
+RefusalCause = Literal["nonexistent", "unauthorized", "undisclosed"]
+
 
 class ProductClassRegistrationError(ValueError):
     """A product class cannot be registered as configured.
