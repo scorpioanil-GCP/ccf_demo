@@ -145,11 +145,24 @@ def authorized_http_client(token: str = DEV_TOKEN) -> httpx.AsyncClient:
     return httpx.AsyncClient(headers={"Authorization": f"Bearer {token}"})
 
 
-def write_token_file(*, workspace: Path, client_id: str) -> Path:
-    """Write the child's token file for ``client_id`` and return its path."""
+def write_token_file(
+    *, workspace: Path, client_id: str, tenants: frozenset[str]
+) -> Path:
+    """Write the child's token file for ``client_id``, scoped to ``tenant``.
+
+    The tenant is required (``SEC-018``): an unscoped grant reaches nothing.
+    """
     token_file = workspace / TOKEN_FILENAME
     token_file.write_text(
-        json.dumps({DEV_TOKEN: {"client_id": client_id, "scopes": [SCOPE]}}),
+        json.dumps(
+            {
+                DEV_TOKEN: {
+                    "client_id": client_id,
+                    "scopes": [SCOPE],
+                    "tenants": sorted(tenants),
+                }
+            }
+        ),
         encoding="utf-8",
     )
     return token_file
@@ -535,7 +548,19 @@ def build_server(*, workspace: Path) -> FastMCP:
         token_verifier=SourceBackedTokenVerifier(
             source=FileTokenSource(
                 path=write_token_file(
-                    workspace=workspace, client_id=assembled.principal_id
+                    workspace=workspace,
+                    client_id=assembled.principal_id,
+                    # The neighbour is included DELIBERATELY: the parent
+                    # asserts what the ENTITLEMENT decides about a foreign
+                    # address the caller can reach. The tenancy floor is
+                    # proven separately (`SEC-018`).
+                    tenants=frozenset(
+                        {
+                            assembled.tenant_id,
+                            f"{assembled.tenant_id}-not-this-one",
+                            f"{assembled.tenant_id}-no-policy",
+                        }
+                    ),
                 )
             )
         ),

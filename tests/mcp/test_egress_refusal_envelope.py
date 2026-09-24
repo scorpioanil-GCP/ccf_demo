@@ -599,10 +599,25 @@ def _recorder(root: Path, *, tenant: str) -> ReplayRefusalRecorder:
     )
 
 
-def _token_file(root: Path) -> Path:
+def _token_file(root: Path, *, tenant: str) -> Path:
+    """The door's token file, whose one credential is scoped to ``tenant``.
+
+    ``tenant`` is required rather than defaulted (``SEC-018``): a credential
+    that names no tenant reaches nothing, so a fixture that forgot it would
+    fail loudly instead of quietly minting the unscoped bearer this finding is
+    about.
+    """
     path = root / "egress-refusal-tokens.json"
     path.write_text(
-        json.dumps({TOKEN: {"client_id": PRINCIPAL, "scopes": [SCOPE]}}),
+        json.dumps(
+            {
+                TOKEN: {
+                    "client_id": PRINCIPAL,
+                    "scopes": [SCOPE],
+                    "tenants": [tenant],
+                }
+            }
+        ),
         encoding="utf-8",
     )
     return path
@@ -647,7 +662,7 @@ def _mcp_server(
         server_name=SERVER_NAME,
         resolver=resolver,  # type: ignore[arg-type]
         token_verifier=SourceBackedTokenVerifier(
-            source=FileTokenSource(path=_token_file(root))
+            source=FileTokenSource(path=_token_file(root, tenant=address.tenant))
         ),
         auth_settings=AuthSettings(
             issuer_url=AnyHttpUrl("https://issuer.invalid"),
@@ -776,7 +791,7 @@ def _http_app(
             product_resolver=resolver,  # type: ignore[arg-type]
         ),
         auth=BearerTokenAuth(
-            token_source=FileTokenSource(path=_token_file(root))
+            token_source=FileTokenSource(path=_token_file(root, tenant=address.tenant))
         ),
         product_entitlement=_entitlement(address),
         perspective_resolver=(

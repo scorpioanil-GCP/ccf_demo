@@ -65,7 +65,15 @@ def _build_spiked_server(tmp_path: Path) -> FastMCP:
     """A real authenticated HITL server plus one instrumented resource."""
     token_file = tmp_path / "tokens.json"
     token_file.write_text(
-        json.dumps({SPIKE_TOKEN: {"client_id": CLIENT_ID, "scopes": [SCOPE]}}),
+        json.dumps(
+        {
+            SPIKE_TOKEN: {
+                "client_id": CLIENT_ID,
+                "scopes": [SCOPE],
+                "tenants": [TENANT],
+            }
+        }
+    ),
         encoding="utf-8",
     )
 

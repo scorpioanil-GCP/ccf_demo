@@ -183,6 +183,7 @@ from ccf_runtime.authz.delivery_boundary import (
     govern_raised_refusal,
     recorded_boundary,
 )
+from ccf_runtime.mcp.tenancy import TenantGuardedServer
 from ccf_runtime.authz.product_entitlement import (
     PerspectiveResolverProtocol,
     ProductEntitlementSourceProtocol,
@@ -951,18 +952,26 @@ def build_egress_server(
         if producer_id is None or producer_tenant is None
         else ProducerAssertion(producer_id=producer_id, tenant_id=producer_tenant)
     )
-    server = FastMCP(
-        server_name,
-        stateless_http=True,
-        json_response=True,
-        token_verifier=token_verifier,
-        auth=auth_settings,
+    door = TenantGuardedServer(
+        FastMCP(
+            server_name,
+            stateless_http=True,
+            json_response=True,
+            token_verifier=token_verifier,
+            auth=auth_settings,
+        )
     )
+    server = door.fastmcp
 
     # 24.5-L-09: the resource is optional. Nothing inside the guard moved;
     # a deployment naming no flag registers exactly what it always did.
     if expose_product_resource:
-        @server.resource(PRODUCT_URI_TEMPLATE, mime_type=PRODUCT_MIME_TYPE)
+        @door.resource(
+            PRODUCT_URI_TEMPLATE,
+            subject=door.from_argument("tenant"),
+            mutating=False,
+            mime_type=PRODUCT_MIME_TYPE,
+        )
         def context_product(tenant: str, product_class: str, version: str) -> str:
             """Serve one gate-admitted Context Product as canonical JSON.
 
@@ -1297,8 +1306,14 @@ def build_egress_server(
 
     if expose_product_tool:
 
-        @server.tool(
-            name=PRODUCT_REQUEST_TOOL, description=product_tool_description
+        @door.tool(
+            name=PRODUCT_REQUEST_TOOL,
+            subject=door.from_argument("tenant"),
+            # A read: this tool answers a question, it does not write. The
+            # reading is stated at the site rather than assumed from the
+            # protocol's tool/resource split (`SEC-018`).
+            mutating=False,
+            description=product_tool_description,
         )
         def request_context_product(
             tenant: str,
@@ -1647,7 +1662,12 @@ def build_egress_server(
                 ),
             ).decode("utf-8")
 
-        @server.resource(PRODUCT_ADDRESS_TEMPLATE, mime_type=PRODUCT_MIME_TYPE)
+        @door.resource(
+            PRODUCT_ADDRESS_TEMPLATE,
+            subject=door.from_argument("tenant"),
+            mutating=False,
+            mime_type=PRODUCT_MIME_TYPE,
+        )
         def addressed_context_product(
             tenant: str, product_class: str, version: str, q: str
         ) -> str:

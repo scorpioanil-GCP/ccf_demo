@@ -155,10 +155,25 @@ def assembled(tmp_path_factory: pytest.TempPathFactory) -> Any:
     )
 
 
-def _token_file(root: Path) -> Path:
+def _token_file(root: Path, *, tenant: str) -> Path:
+    """The door's token file, whose one credential is scoped to ``tenant``.
+
+    ``tenant`` is required rather than defaulted (``SEC-018``): a credential
+    that names no tenant reaches nothing, so a fixture that forgot it would
+    fail loudly instead of quietly minting the unscoped bearer this finding is
+    about.
+    """
     path = root / "egress-channels-tokens.json"
     path.write_text(
-        json.dumps({TOKEN: {"client_id": PRINCIPAL, "scopes": [SCOPE]}}),
+        json.dumps(
+            {
+                TOKEN: {
+                    "client_id": PRINCIPAL,
+                    "scopes": [SCOPE],
+                    "tenants": [tenant],
+                }
+            }
+        ),
         encoding="utf-8",
     )
     return path
@@ -213,7 +228,7 @@ class _World:
             server_name=SERVER_NAME,
             resolver=resolver,  # type: ignore[arg-type]
             token_verifier=SourceBackedTokenVerifier(
-                source=FileTokenSource(path=_token_file(root))
+                source=FileTokenSource(path=_token_file(root, tenant=address.tenant))
             ),
             auth_settings=AuthSettings(
                 issuer_url=AnyHttpUrl("https://issuer.invalid"),
@@ -847,7 +862,7 @@ def _builder_kwargs(address: ProductAddress, root: Path) -> dict[str, Any]:
         "server_name": SERVER_NAME,
         "resolver": _answering(None),
         "token_verifier": SourceBackedTokenVerifier(
-            source=FileTokenSource(path=_token_file(root))
+            source=FileTokenSource(path=_token_file(root, tenant=address.tenant))
         ),
         "auth_settings": AuthSettings(
             issuer_url=AnyHttpUrl("https://issuer.invalid"),

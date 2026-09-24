@@ -141,10 +141,25 @@ def assembled(tmp_path_factory: pytest.TempPathFactory) -> Any:
     )
 
 
-def _token_file(root: Path) -> Path:
+def _token_file(root: Path, *, tenant: str) -> Path:
+    """The door's token file, whose one credential is scoped to ``tenant``.
+
+    ``tenant`` is required rather than defaulted (``SEC-018``): a credential
+    that names no tenant reaches nothing, so a fixture that forgot it would
+    fail loudly instead of quietly minting the unscoped bearer this finding is
+    about.
+    """
     path = root / "egress-disclosure-tokens.json"
     path.write_text(
-        json.dumps({TOKEN: {"client_id": PRINCIPAL, "scopes": [SCOPE]}}),
+        json.dumps(
+            {
+                TOKEN: {
+                    "client_id": PRINCIPAL,
+                    "scopes": [SCOPE],
+                    "tenants": [tenant],
+                }
+            }
+        ),
         encoding="utf-8",
     )
     return path
@@ -190,7 +205,7 @@ class _World:
             assembly_mode="algorithmic",
             disclosure_level_for=self.source.disclosure_level_for,
         )
-        self._tokens = _token_file(root)
+        self._tokens = _token_file(root, tenant=address.tenant)
 
     def server(self) -> Any:
         """A FRESH door over this world's one registry, source, store and recorder.

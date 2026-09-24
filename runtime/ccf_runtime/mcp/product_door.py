@@ -34,6 +34,19 @@ client spawned, under the same user, on the same host. So
 serving: the deployment's declared principal, under the declared scope. On
 the loopback transport bearer auth is REAL and the identity is NOT pre-set.
 
+**What that statement is now bounded by** (``SEC-018``). Reviewers were right
+that an ambient identity is an identity nobody presented, and the answer is to
+bound its warrant rather than to remove the only identity stdio can have. The
+stated identity is built by
+:func:`~ccf_runtime.mcp.tenancy.ambient_stdio_identity`, which scopes it to
+**exactly this door's own tenant** — before the tenant axis existed it carried
+none, so its reach was unbounded — and marks it *ambient*, which makes every
+surface registered ``mutating`` refuse it outright. Process ownership warrants
+reading what the child was spawned to serve; it does not warrant writing on an
+authority nobody presented. None of this touches the loopback transport, whose
+bearer authentication is real and whose identity is not ambient — keeping those
+two transports distinguishable is the point of having both.
+
 Where the URLs come from (Dave, `D-IMPL-343` GO: *"Do not put URLs or tokens
 in configuration."*)
 --------------------------------------------------------------------------
@@ -60,7 +73,7 @@ from typing import Protocol, runtime_checkable
 
 from mcp.server.auth.middleware.auth_context import auth_context_var
 from mcp.server.auth.middleware.bearer_auth import AuthenticatedUser
-from mcp.server.auth.provider import AccessToken, TokenVerifier
+from mcp.server.auth.provider import TokenVerifier
 from mcp.server.auth.settings import AuthSettings
 from mcp.server.fastmcp import FastMCP
 from pydantic import AnyHttpUrl
@@ -84,6 +97,7 @@ from ccf_runtime.authz.product_entitlement import (
     TokenGrant,
 )
 from ccf_runtime.mcp.auth import SourceBackedTokenVerifier, StaticTokenSource
+from ccf_runtime.mcp.tenancy import ambient_stdio_identity
 from ccf_runtime.mcp.egress import build_egress_server
 
 __all__ = ["ProductDoor", "ServesProducts", "open_door"]
@@ -216,7 +230,15 @@ class ProductDoor:
         )
         auth_context_var.set(
             AuthenticatedUser(
-                AccessToken(token=self.credential, client_id=self.principal_id, scopes=[self.scope])
+                ambient_stdio_identity(
+                    credential=self.credential,
+                    principal_id=self.principal_id,
+                    scope=self.scope,
+                    # Exactly the tenant this door was opened to serve. Before
+                    # the tenant axis existed the stated identity carried none,
+                    # so nothing about its reach was bounded (`SEC-018`).
+                    tenant=self.tenant_id,
+                )
             )
         )
         server.run(transport="stdio")
@@ -356,7 +378,14 @@ def open_door(
             if token_verifier is not None
             else SourceBackedTokenVerifier(
                 source=StaticTokenSource(
-                    grants={credential: TokenGrant(client_id=principal, scopes=(scope,))}
+                    grants={
+                        credential: TokenGrant(
+                            client_id=principal,
+                            scopes=(scope,),
+                            # The one tenant this door serves (`SEC-018`).
+                            tenants=frozenset({tenant}),
+                        )
+                    }
                 )
             )
         ),

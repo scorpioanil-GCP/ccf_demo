@@ -69,6 +69,12 @@ REJECTED_TOKEN = "ccf-conformance-not-a-token"
 
 #: Deployment vocabulary, chosen here because a test *is* the deployment.
 CLIENT_ID = "ccf-conformance-client"
+
+#: The one tenant this child serves. Its credential is scoped to exactly
+#: this (``SEC-018``), and `tests/conformance/test_artifactstore.py` imports
+#: it rather than keeping a second copy of the same literal — two spellings
+#: of one deployment value is how a fixture drifts from the server it drives.
+TENANT = "tenant-conformance"
 SCOPE = "ccf:artifact"
 SERVER_NAME = "ccf-artifact-conformance"
 
@@ -98,11 +104,23 @@ def rejected_http_client() -> httpx.AsyncClient:
     return authorized_http_client(REJECTED_TOKEN)
 
 
-def write_token_file(*, workspace: Path) -> Path:
-    """Write the child's token file and return its path."""
+def write_token_file(*, workspace: Path, tenant: str = TENANT) -> Path:
+    """Write the child's token file and return its path.
+
+    The credential is scoped to the one tenant this child serves
+    (``SEC-018``); an unscoped grant reaches nothing.
+    """
     token_file = workspace / TOKEN_FILENAME
     token_file.write_text(
-        json.dumps({DEV_TOKEN: {"client_id": CLIENT_ID, "scopes": [SCOPE]}}),
+        json.dumps(
+            {
+                DEV_TOKEN: {
+                    "client_id": CLIENT_ID,
+                    "scopes": [SCOPE],
+                    "tenants": [tenant],
+                }
+            }
+        ),
         encoding="utf-8",
     )
     return token_file

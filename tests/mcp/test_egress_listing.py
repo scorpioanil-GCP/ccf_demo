@@ -308,10 +308,25 @@ def _refusing(declared: ProductRequestContract) -> Callable[..., object]:
 # ---------------------------------------------------------------------------
 
 
-def _token_file(root: Path) -> Path:
+def _token_file(root: Path, *, tenant: str) -> Path:
+    """The door's token file, whose one credential is scoped to ``tenant``.
+
+    ``tenant`` is required rather than defaulted (``SEC-018``): a credential
+    that names no tenant reaches nothing, so a fixture that forgot it would
+    fail loudly instead of quietly minting the unscoped bearer this finding is
+    about.
+    """
     path = root / "egress-listing-tokens.json"
     path.write_text(
-        json.dumps({TOKEN: {"client_id": PRINCIPAL, "scopes": [SCOPE]}}),
+        json.dumps(
+            {
+                TOKEN: {
+                    "client_id": PRINCIPAL,
+                    "scopes": [SCOPE],
+                    "tenants": [tenant],
+                }
+            }
+        ),
         encoding="utf-8",
     )
     return path
@@ -373,7 +388,7 @@ def _server(
         server_name=SERVER_NAME,
         resolver=resolver,
         token_verifier=SourceBackedTokenVerifier(
-            source=FileTokenSource(path=_token_file(root))
+            source=FileTokenSource(path=_token_file(root, tenant=address.tenant))
         ),
         auth_settings=AuthSettings(
             issuer_url=AnyHttpUrl("https://issuer.invalid"),
@@ -676,7 +691,7 @@ def test_a_surface_less_door_is_refused(assembled: Any, tmp_path: Path) -> None:
             server_name=SERVER_NAME,
             resolver=_answering(assembled.served),  # type: ignore[arg-type]
             token_verifier=SourceBackedTokenVerifier(
-                source=FileTokenSource(path=_token_file(tmp_path))
+                source=FileTokenSource(path=_token_file(tmp_path, tenant=assembled.address.tenant))
             ),
             auth_settings=AuthSettings(
                 issuer_url=AnyHttpUrl("https://issuer.invalid"),

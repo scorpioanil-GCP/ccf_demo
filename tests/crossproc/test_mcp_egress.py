@@ -555,13 +555,40 @@ def _local_world(
     token_file.write_text(
         json.dumps(
             {
+                # Both are scoped to the address's tenant: what these tests
+                # vary is ENTITLEMENT, so a stranger refused for tenancy would
+                # go red for the wrong reason (`SEC-018`).
                 LOCAL_TOKEN: {
                     "client_id": LOCAL_PRINCIPAL,
                     "scopes": [LOCAL_SCOPE],
+                    "tenants": [
+                        address.tenant,
+                        # The neighbour is in the credential DELIBERATELY:
+                        # what these suites test is what the ENTITLEMENT
+                        # decides about a tenant the caller can reach. A
+                        # credential stopped by the tenancy floor first
+                        # would leave the entitlement untested; the floor
+                        # is proven in `tests/mcp/test_tenant_guard.py`
+                        # against these same shipped servers (`SEC-018`).
+                        f"{address.tenant}-not-this-one",
+                        f"{address.tenant}-no-policy",
+                    ],
                 },
                 LOCAL_STRANGER_TOKEN: {
                     "client_id": LOCAL_STRANGER,
                     "scopes": [LOCAL_SCOPE],
+                    "tenants": [
+                        address.tenant,
+                        # The neighbour is in the credential DELIBERATELY:
+                        # what these suites test is what the ENTITLEMENT
+                        # decides about a tenant the caller can reach. A
+                        # credential stopped by the tenancy floor first
+                        # would leave the entitlement untested; the floor
+                        # is proven in `tests/mcp/test_tenant_guard.py`
+                        # against these same shipped servers (`SEC-018`).
+                        f"{address.tenant}-not-this-one",
+                        f"{address.tenant}-no-policy",
+                    ],
                 },
             }
         ),
@@ -1112,7 +1139,24 @@ def test_a_tenant_with_no_registered_policy_is_refused_not_served(
     token_file = tmp_path / "empty-policy-tokens.json"
     token_file.write_text(
         json.dumps(
-            {LOCAL_TOKEN: {"client_id": LOCAL_PRINCIPAL, "scopes": [LOCAL_SCOPE]}}
+            {
+                LOCAL_TOKEN: {
+                    "client_id": LOCAL_PRINCIPAL,
+                    "scopes": [LOCAL_SCOPE],
+                    "tenants": [
+                        assembled.address.tenant,
+                        # The neighbour is in the credential DELIBERATELY:
+                        # what these suites test is what the ENTITLEMENT
+                        # decides about a tenant the caller can reach. A
+                        # credential stopped by the tenancy floor first
+                        # would leave the entitlement untested; the floor
+                        # is proven in `tests/mcp/test_tenant_guard.py`
+                        # against these same shipped servers (`SEC-018`).
+                        f"{assembled.address.tenant}-not-this-one",
+                        f"{assembled.address.tenant}-no-policy",
+                    ],
+                }
+            }
         ),
         encoding="utf-8",
     )

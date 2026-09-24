@@ -72,7 +72,14 @@ def token_source(opened: OpenedProduct) -> StaticTokenSource:
     """The four credentials the environment names, each to its principal."""
     scope = opened.door.required_scope if opened.door is not None else "ccf:egress"
     return StaticTokenSource(grants={
-        token: TokenGrant(client_id=principal_id, scopes=(scope,))
+        token: TokenGrant(
+            client_id=principal_id,
+            scopes=(scope,),
+            # This door serves ONE tenant, so every credential it recognises is
+            # scoped to exactly that tenant (`SEC-018`). A grant with no tenant
+            # reaches nothing, which is what makes forgetting this loud.
+            tenants=frozenset({opened.tenant_id}),
+        )
         for token, principal_id in deployment.credential_grants(opened.sources).items()
     })
 
