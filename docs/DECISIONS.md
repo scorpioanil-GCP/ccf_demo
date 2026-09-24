@@ -4610,7 +4610,7 @@ assertion is not vacuous.
 
 **WHAT THIS DOES NOT DECIDE.** Whether `tools/proof/` is ever revived, and under what phase if so — a future ruling, on evidence that the 50-site duplication has cost something measurable. The other four `phase-24.9`-naming deferrals' *remaining* subjects (the cp-05 branch's merge, `D-IMPL-277`, the post-phase cp-05 adoption step) — each stands or falls on its own entry. The missing progress-table rows for 24.10 and 24.11, which this entry observes but does not repair.
 
-**Next free decision id: `D-IMPL-352`.** **Related:** `D-IMPL-270` (the phase exists), `D-IMPL-271`/`272`/`273` (its surface decisions, criteria and blockers — all now moot), `D-IMPL-276` (proof infra is support machinery), `D-IMPL-278`, `D-GATE-24.10`.
+**Next free decision id: `D-IMPL-353`.** **Related:** `D-IMPL-270` (the phase exists), `D-IMPL-271`/`272`/`273` (its surface decisions, criteria and blockers — all now moot), `D-IMPL-276` (proof infra is support machinery), `D-IMPL-278`, `D-GATE-24.10`.
 
 ---
 
@@ -4663,3 +4663,22 @@ assertion is not vacuous.
 **WHAT THIS DOES NOT DECIDE.** When `archive/` is deprecated, and what replaces the 15 published pages that currently transclude from it. Whether the archived trees' `pytest.mark.archived` suites (`D-IMPL-265`, already deselected unless `--run-archived`) are deleted with the trees or kept as history.
 
 **Next free decision id: `D-IMPL-352`.** **Related:** `D-IMPL-261` (the frozen-specimen rule, which this scopes to the live `examples/` trees), `D-IMPL-265` (archived runners are non-gating), `D-IMPL-350` (Tier 0, whose migration arithmetic and evidence this corrects).
+
+---
+
+**D-IMPL-352 — THE CROSS-AI PANEL RUNS AT EVERY PHASE CLOSE OF THE SECURITY REMEDIATION, NOT ONLY AT THE END.** Ruled by Dave, 2026-09-24: *"Given the severity and expense we are incurring with these fixes. Let's enlist fable, cursor, and codex review after every phase completes. I don't want to get to the end to discover we missed a critical item and we have to redo it."*
+
+**WHAT THIS EXTENDS.** `CLAUDE.md` §3.1 already makes the panel mandatory at a phase gate. This ruling makes each *wave* of the security remediation a phase for that purpose — the Wave-1 join, each subsequent wave, each Tier close — rather than running one panel at the end of Tier 3.
+
+**THE EVIDENCE THAT JUSTIFIES THE COST, MEASURED THE SAME DAY.** The Tier-0 fix was reported to Dave as complete. The close-panel attack on the *follow-on design work* then reproduced `SEC-001` with that fix in place: the engine asked the CALLER'S handle whether the paused node was a gate, and a second workflow definition registered under any other key carries a byte-identical `definition_uri`. Reproduced at `00bfeaa9` — workflow completed at `approved`, zero human actions, approval still pending, audit `resolved=True actor=None`. **Without a panel between phases that defect would have shipped inside a phase that was already called done**, and every later phase would have been built on it.
+
+**WHAT A CONFORMING PANEL IS.** Three independent reviewers — Fable (with repo access), OpenAI Codex, Cursor — reviewing the SHIPPED code of the closing phase, not its plans. `CLAUDE.md` §3.1's close-time rules apply in full and are restated because each has already been paid for once:
+
+1. **Inline the source.** Codex's sandbox on this host can exit 0 having read nothing. A payload that points at paths can silently produce an empty review that reads like a clean one.
+2. **Brief the panel on the findings already known and tell it not to re-derive them.** Budget is better spent on what is ADJACENT to each known defect. Every high-value finding today came from that framing.
+3. **Verify every finding against the tree before recording or acting on it, and record rejections as rejections.** Measured this session: a synthesis agent read a repaired tree and reported a REAL reproduced finding as *wrong*; three agents called a four-line MCP change "unimplementable"; three numbers reported to Dave were counts from a narrowed population. **Verify a retraction as hard as a finding.**
+4. **Tell the panel the destination.** The 2026-09-24 panel was NOT told the SDK is destined for a bank — an omission that almost certainly made it less conservative than warranted, and one reviewer's ruling on a tenant-only authorization axis reads differently under a bank's segregation-of-duties bar.
+
+**COST, STATED SO IT IS A DECISION AND NOT A SURPRISE.** A three-reviewer panel measures ~0.2M–0.5M tokens. At the remaining wave count that is ~1M–3M tokens across the remediation, inside the budget Dave sized on the same day. The alternative cost is a redone tier.
+
+**Next free decision id: `D-IMPL-353`.** **Related:** `CLAUDE.md` §3.1 (the panel is mandatory at a phase gate), `D-IMPL-350` (Tier 0, whose first fix the panel caught), `D-IMPL-351` (`archive/` out of scope), `D-IMPL-293` (nothing has shipped — correctness beats compatibility).
