@@ -570,6 +570,18 @@ def test_every_moved_name_is_a_call_protocol_or_a_type_alias(
 #: ``__init__``. The claim is therefore amended in reach rather than withdrawn:
 #: every *unlisted* shape must still read identically.
 _SHAPE_MOVED_BY_FRAGMENT = {
+    # `SEC-004` — governed record classes are not client-writable. Both stores
+    # gain a `governed=NOTHING_GOVERNED` constructor keyword and a defaulted,
+    # keyword-only `minted` on `put`: additive and behavior-preserving at every
+    # existing call site, which is exactly the case this allowance was written
+    # for. The fragment names both and says why the refusal is at the store
+    # rather than at a door.
+    "ccf.artifacts.file_store.FileArtifactStore": (
+        "350-04-governed-record-classes-are-not-client-writable.md"
+    ),
+    "ccf.artifacts.mcp_store.McpArtifactStore": (
+        "350-04-governed-record-classes-are-not-client-writable.md"
+    ),
     # `PKG-F-08` — §7.10.4's Mode 2 footprint reaching replay dimension 3.
     # Five shapes, one parameter: `packaging_trace`. Additive and keyword-only
     # on all four helpers, so every existing call site reads identically at

@@ -16,6 +16,13 @@ for writing, and none that removes one: an artifact that a decision was
 recorded against cannot be edited out from under the replay that will look for
 it years later.
 
+**Governed record classes are not client-writable.** The deployment declares
+which artifact classes only fabric mechanism may file under, and ``put``
+refuses one to a caller with no minted authority (``SEC-004``, and see
+:func:`~ccf.artifacts.protocol.held_writable_class` for why the refusal is here
+rather than at a door). The check runs before the substrate is touched, so a
+refused write leaves nothing behind.
+
 Suitable for development, tests, and single-node deployments. Concurrency
 posture is the filesystem's: the write is done to a temporary file and moved
 into place, so a reader never observes a partial artifact.
@@ -30,12 +37,16 @@ import os
 from pathlib import Path
 
 from ccf.artifacts.protocol import (
+    NOTHING_GOVERNED,
     ArtifactNotFound,
     ArtifactRef,
     ArtifactUriUnresolvable,
+    GovernedRecordClasses,
+    GovernedWriteToken,
     MalformedContentAddress,
     artifact_uri,
     held_content_address,
+    held_writable_class,
     parse_artifact_uri,
 )
 from ccf.contracts.canonical import canonical_bytes, content_hash
@@ -56,15 +67,32 @@ class FileArtifactStore:
         root: Directory the artifacts live in. Created if absent — a store
             that refused to initialize its own directory would push that
             concern into every caller's setup path for no gain.
+        governed: The deployment's declaration of which artifact classes only
+            fabric mechanism may file under (``SEC-004``). Defaults to
+            :data:`~ccf.artifacts.protocol.NOTHING_GOVERNED`, which is the
+            posture every store had before the declaration existed — so no
+            deployment changes behavior by upgrading, and the declaration is
+            the one thing an adopter must add to get the refusal.
     """
 
-    def __init__(self, *, root: Path | str) -> None:
+    def __init__(
+        self,
+        *,
+        root: Path | str,
+        governed: GovernedRecordClasses = NOTHING_GOVERNED,
+    ) -> None:
         self._root = Path(root)
         self._root.mkdir(parents=True, exist_ok=True)
+        self._governed = governed
 
     @property
     def root(self) -> Path:
         return self._root
+
+    @property
+    def governed(self) -> GovernedRecordClasses:
+        """Which artifact classes this store reserves for fabric mechanism."""
+        return self._governed
 
     def _path(self, content_address: str) -> Path:
         """The file one content address names, and no other path.
@@ -168,9 +196,33 @@ class FileArtifactStore:
         return tuple(self._read_index().get(key, []))
 
     def put(
-        self, *, tenant_id: str, artifact_class: str, name: str, artifact: object
+        self,
+        *,
+        tenant_id: str,
+        artifact_class: str,
+        name: str,
+        artifact: object,
+        minted: GovernedWriteToken | None = None,
     ) -> ArtifactRef:
-        """Store ``artifact``; return its content-addressed reference."""
+        """Store ``artifact``; return its content-addressed reference.
+
+        ``held_writable_class`` runs FIRST — before canonicalization, before the
+        address is derived, and before any file is opened — so a refused write
+        leaves the substrate byte-for-byte as it was: no artifact file, no entry
+        in the naming index, and nothing for a later reader to resolve. A
+        refusal that wrote the bytes and declined only the name would still
+        leave the plant retrievable by address, which is half of ``SEC-004``.
+
+        Raises:
+            ccf.artifacts.protocol.GovernedWriteRefused: ``artifact_class`` is
+                one this store reserves for fabric mechanism and no authority
+                was presented.
+            ccf.artifacts.protocol.GovernedWriteForgery: a value that is not a
+                minted authority was presented as one.
+        """
+        writable = held_writable_class(
+            artifact_class, governed=self._governed, minted=minted
+        )
         payload = canonical_bytes(artifact)
         address = content_hash(artifact)
         target = self._path(address)
@@ -183,7 +235,7 @@ class FileArtifactStore:
             staging.replace(target)
         self._register_name(
             tenant_id=tenant_id,
-            artifact_class=artifact_class,
+            artifact_class=writable,
             name=name,
             address=address,
         )
@@ -191,12 +243,12 @@ class FileArtifactStore:
             content_address=address,
             uri=artifact_uri(
                 tenant_id=tenant_id,
-                artifact_class=artifact_class,
+                artifact_class=writable,
                 name=name,
                 artifact_version=address,
             ),
             tenant_id=tenant_id,
-            artifact_class=artifact_class,
+            artifact_class=writable,
             name=name,
         )
 
