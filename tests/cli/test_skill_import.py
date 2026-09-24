@@ -215,7 +215,9 @@ def test_a_symlinked_reference_is_refused(
     assert "TOPSECRETVALUE" not in out
     # and nothing about it reached the Control Plane
     registered = fabric.registry.keys_of_class(PROMPT_ARTIFACT.class_id)
-    assert not any("symlinked-reference-reference" in key for key in registered)
+    assert not any(
+        "symlinked-reference-reference" in key for key in registered
+    )
 
 
 def test_a_symlinked_skill_document_is_refused(
@@ -280,3 +282,22 @@ def test_a_plain_reference_directory_still_imports(
     (directory / "references" / "usage.md").write_text("How to use it.\n")
     code, out = _import(deps, capsys, directory)
     assert code == 0, out
+
+
+def test_a_reference_symlinked_inside_the_package_is_refused(
+    fabric: Fabric,
+    deps: Any,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    """SEC-003. Containment alone would admit this one — the target sits
+    inside the package — so this is what proves the symlink refusal is
+    load-bearing rather than shadowed by the containment check."""
+    directory = _package(tmp_path, name="inward-link")
+    (directory / "references" / "real.md").write_text("The real text.\n")
+    (directory / "references" / "alias.md").symlink_to(
+        directory / "references" / "real.md"
+    )
+    code, out = _import(deps, capsys, directory)
+    assert code != 0
+    assert "symlink" in out.lower()

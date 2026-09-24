@@ -70,7 +70,13 @@ def _read_contained(path: Path, *, within: Path) -> str:
       the importing machine, and refusing is the only answer that does not
       depend on where the link happens to point.
     * **Escape.** The resolved path must still sit under the package, so a
-      component further up the path cannot walk out of it.
+      component further up the path cannot walk out of it. **A backstop:
+      given the symlink refusal above, and that ``iterdir`` yields only
+      direct children, nothing reachable today fails this check and
+      severing it reddens nothing.** It is kept because it is the total
+      statement of the property, and the symlink refusal is the specific
+      one that could be loosened later; it is recorded as a backstop so it
+      is never mistaken for independent evidence.
     * **Size.** A bounded read; a reference is prompt text.
 
     Raises:

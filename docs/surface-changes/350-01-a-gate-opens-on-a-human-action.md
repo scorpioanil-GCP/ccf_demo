@@ -171,9 +171,49 @@ execution is still suspended afterwards.
 resolves each gate through `ApprovalGate` before resuming it, so every
 generated interleaving exercises the authority path rather than bypassing it.
 
-`tests/cli/test_skill_import.py`: four `SEC-003` refusals — a symlinked
+`tests/cli/test_skill_import.py`: five `SEC-003` refusals — a symlinked
 reference (asserting the secret's bytes appear in no output and no reference
-artifact reaches the registry), a symlinked `SKILL.md`, an oversized
-reference, and too many references — each with the ordinary package as a
-live control in the same module, so the guards are shown refusing the
-hostile case and passing the benign one.
+artifact reaches the registry), a symlinked `SKILL.md`, a reference
+symlinked at a target *inside* the package, an oversized reference, and too
+many references — each with the ordinary package as a live control in the
+same module, so the guards are shown refusing the hostile case and passing
+the benign one.
+
+## Sabotage verification, including what it caught in these tests
+
+Nine guards were severed one at a time in a detached worktree. **Three
+severings left every gate green on the first pass**, and each was a real
+gap rather than a formality:
+
+1. **The suspension-hash binding could be removed with nothing going red.**
+   `test_another_executions_approval_does_not_open_this_gate` was passing on
+   the *event-key* comparison alone, because two executions have different
+   event keys — so the hash, which is the load-bearing check, was never
+   exercised. Closed by
+   `test_a_submission_that_never_saw_this_suspension_is_not_authority`,
+   which submits through the transport directly (the shape `POST
+   /hitl/actions` makes reachable, since the submit-only door compares no
+   hashes) with the right gate and the wrong hash.
+2. **Re-enabling the target enumeration reddened nothing.** Both
+   no-enumeration tests refused at the *authority* check, which is ordered
+   first, and never reached the branch that could leak. Both now approve
+   first.
+3. **Removing the symlink refusal reddened nothing**, because containment
+   caught the same case — the review's exfiltration target sits outside the
+   package. Closed by a symlink pointing *inside* the package, which only
+   the symlink refusal can refuse.
+
+Two guards are **backstops that cannot currently fail**, and both now say so
+in their own docstrings rather than being left to read as independent
+evidence: the event-key comparison (the hash already separates any two
+suspensions) and the containment check (the symlink refusal and
+`iterdir`'s direct children leave it nothing reachable to catch). Recording
+which checks are load-bearing and which are belt-and-braces is the same
+discipline `SEC-011` exists to enforce — a control that cannot fail is not a
+control, and the honest response is to name it, not to imply three
+independent guards where there are two.
+
+The remaining six severings each reddened exactly the gate that owns them:
+the authority precondition (6 tests across engine, HTTP and CLI), the
+approver-into-audit assignment (2), the byte ceiling (1), the count ceiling
+(1), and the two above once repaired.

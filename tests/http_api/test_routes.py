@@ -496,7 +496,9 @@ def test_workflow_duplicate_invocation_is_a_typed_409(
     assert "already exists" in second.json()["reason"]
 
 
-def _suspend_over_http(app: Any, fabric: Fabric, execution_id: str) -> dict[str, Any]:
+def _suspend_over_http(
+    app: Any, fabric: Fabric, execution_id: str
+) -> dict[str, Any]:
     key, version = fabric.covenant
     body: dict[str, Any] = call(
         app,
@@ -566,7 +568,10 @@ def test_workflow_resume_refusal_does_not_enumerate_the_declared_targets(
     """SEC-001 remedy 3: the 409 must not hand the caller the transitions
     it would have accepted."""
     key, version = fabric.covenant
-    _suspend_over_http(app, fabric, "http-covenant-noleak")
+    body = _suspend_over_http(app, fabric, "http-covenant-noleak")
+    # Approve first, or the authority refusal answers and this test never
+    # reaches the branch that could leak.
+    _approve_over_http(app, fabric, body)
     response = call(
         app,
         "POST",

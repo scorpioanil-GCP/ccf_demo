@@ -452,7 +452,9 @@ class WorkflowEngine:
                 # approval authorizes exactly the passage it was taken
                 # against (CLAUDE.md §8.2 audit-by-construction).
                 authority = self._gate_authority(
-                    tenant=tenant, key=key, gate=record.current_state,
+                    tenant=tenant,
+                    key=key,
+                    gate=record.current_state,
                     record=record,
                 )
                 if authority is None:
@@ -817,15 +819,22 @@ class WorkflowEngine:
 
         Three conditions, all necessary:
 
-        * the submission names this gate's pending event, so an approval of
-          one gate is not an approval of another;
-        * its principal echoes ``content_hash(record)`` — the suspension's
+        * the submission names this gate's pending event. **A backstop,
+          not the load-bearing check** — two suspensions differ in at
+          least ``execution_id`` or ``current_state``, so the hash below
+          already separates them and severing this line reddens nothing.
+          Kept because it is what a reader expects to see, and stated so
+          nobody mistakes it for the guard that is doing the work;
+        * **(load-bearing)** its principal echoes ``content_hash(record)``
+          — the suspension's
           own identity, which is what the pending event bound at suspend
           time and what :class:`~ccf.hitl.approval_gate.ApprovalGate`
           already makes the approver attest to (T-07-39). A suspension's
           trace is unique to it, so an approval cannot be replayed onto
           another execution, another tenant, or a later suspension of the
-          same gate;
+          same gate. This is what refuses a submission made through the
+          submit-only action door (D-IMPL-62), which compares no hashes of
+          its own;
         * the action is an approval-gate verdict. Both verdicts authorize
           the engine to leave the gate — a rejection routes to whichever
           target the artifact declares for it, which is why the check is

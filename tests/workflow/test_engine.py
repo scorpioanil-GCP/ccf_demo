@@ -64,7 +64,7 @@ from ccf.hitl.principal import (
     AuthenticationContext,
     HumanPrincipalBinding,
 )
-from ccf.hitl.transport import InMemoryHitlTransport
+from ccf.hitl.transport import HitlActionSubmission, InMemoryHitlTransport
 from ccf.products.contract import ContextProductContract, ProductLineage
 from ccf.projection.engine import ExecutionResult, ExecutionStep
 from ccf.projection.plan import Perspective, ProjectionOutput
@@ -718,7 +718,9 @@ def _resolve_gate(
         tenant=tenant,
         event_key=event_key,
         action=action,
-        principal=_binding(pending.product_content_hash, subject_id=subject_id),
+        principal=_binding(
+            pending.product_content_hash, subject_id=subject_id
+        ),
     )
     assert isinstance(resolution, GateResolution)
     return resolution
@@ -755,9 +757,20 @@ def test_a_refused_gate_resume_does_not_enumerate_the_declared_targets(
 ) -> None:
     """SEC-001 remedy 3. The refusal must not answer the caller's question
     for them by printing the transitions it would have accepted."""
-    engine, _, _ = _engine(registry, tmp_path)
+    engine, transport, _ = _engine(registry, tmp_path)
     workflow = _covenant(registry)
-    asyncio.run(engine.execute(workflow, execution_id="exec-1"))
+    suspended = asyncio.run(engine.execute(workflow, execution_id="exec-1"))
+    assert isinstance(suspended, WorkflowSuspended)
+    # Approve first: the authority check is ordered ahead of the routing
+    # check, so without a real human action this test would never reach the
+    # branch that used to enumerate — and would pass vacuously. (It did,
+    # until a sabotage run proved it.)
+    _resolve_gate(
+        registry,
+        transport,
+        tenant=workflow.definition.tenant,
+        event_key=suspended.event_key,
+    )
     declared = {
         transition.target
         for transition in workflow.definition.transitions
@@ -810,7 +823,8 @@ def test_a_rejection_authorizes_resumption_but_does_not_bind_the_target(
     A recorded rejection IS a human action on the authority path, so it
     satisfies the gate-authority check and the workflow leaves the gate —
     that is how a rejection reaches its declared ``rejected`` terminal
-    (``test_slice.py::test_a_rejected_approval_routes_as_a_recorded_transition``).
+    (``test_slice.py::
+    test_a_rejected_approval_routes_as_a_recorded_transition``).
 
     What no artifact declares is WHICH target each verdict may take, so a
     rejection can still be routed down the approving branch. This test
@@ -862,5 +876,34 @@ def test_another_executions_approval_does_not_open_this_gate(
     )
     outcome = asyncio.run(
         engine.resume(workflow, execution_id="exec-2", decision="approved")
+    )
+    assert isinstance(outcome, WorkflowResumeRefused)
+
+
+def test_a_submission_that_never_saw_this_suspension_is_not_authority(
+    registry: ControlPlaneRegistry, tmp_path: Path
+) -> None:
+    """SEC-001. The HITL action door is submit-only by ruling (D-IMPL-62)
+    and does not itself compare hashes, so a submission naming the right
+    gate while attesting to something else is a reachable shape. It is not
+    authority: an approval authorizes the suspension it actually saw.
+    """
+    engine, transport, _ = _engine(registry, tmp_path)
+    workflow = _covenant(registry)
+    suspended = asyncio.run(engine.execute(workflow, execution_id="exec-1"))
+    assert isinstance(suspended, WorkflowSuspended)
+    transport.submit(
+        submission=HitlActionSubmission(
+            event_key=suspended.event_key,
+            tenant=workflow.definition.tenant,
+            action="approve",
+            principal=_binding("0" * 64, subject_id="impostor"),
+        )
+    )
+    # It really is on the authority path — the refusal below is the hash
+    # binding refusing it, not an empty queue.
+    assert len(transport.submissions(tenant=workflow.definition.tenant)) == 1
+    outcome = asyncio.run(
+        engine.resume(workflow, execution_id="exec-1", decision="approved")
     )
     assert isinstance(outcome, WorkflowResumeRefused)
