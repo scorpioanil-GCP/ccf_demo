@@ -20,7 +20,20 @@ import yaml
 
 __ccf_mode__ = "algorithmic"
 
-__all__ = ["RequestSpec", "load_document"]
+__all__ = ["CommandRefused", "RequestSpec", "load_document"]
+
+
+class CommandRefused(ValueError):
+    """A verb refuses its own inputs before any request is built.
+
+    SDK-defined (D-IMPL-22). The exit-code contract in
+    :mod:`ccf_runtime.cli.main` maps a *typed refusal* to exit 1 with the
+    refusal printed on stdout; until this type existed only refusals that
+    had already crossed the HTTP boundary could be reported that way, so a
+    verb that had to refuse its own local inputs — an untrusted skill
+    package, SEC-003 — could only raise and hand the operator a traceback.
+    A refusal is a governance outcome and reads like one.
+    """
 
 
 @dataclass(frozen=True)
