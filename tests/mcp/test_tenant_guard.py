@@ -38,6 +38,7 @@ meaningful nowhere else (CINV-01 applied to test data).
 from __future__ import annotations
 
 import json
+import pathlib
 from typing import Any
 
 import anyio
@@ -351,6 +352,47 @@ def test_every_shipped_server_registers_every_surface_through_the_guard(
 
     server = build_for(builder, tmp_path)
     assert unguarded_surfaces(server) == frozenset()
+
+
+def test_every_server_builder_in_the_package_is_on_the_roster() -> None:
+    """A fifth MCP server cannot ship uncovered by the test above.
+
+    The roster test drives four named builders. That is a roster rather than a
+    count, which is right — but it is a roster of what exists *today*, and a
+    new ``build_*_server`` added to this package would simply not be driven by
+    it. The guard would be absent and every test would stay green, which is the
+    shape of a gate that stops being one without failing.
+
+    So the population is derived from the package rather than restated: every
+    public ``build_*_server`` found under ``runtime/ccf_runtime/mcp/`` must
+    appear in ``tests/mcp/guarded_servers.py``'s roster. Adding a server and
+    forgetting to cover it fails here.
+    """
+    import re
+
+    from tests.mcp import guarded_servers
+
+    package = pathlib.Path(guarded_servers.__file__).parents[2] / (
+        "runtime/ccf_runtime/mcp"
+    )
+    found = {
+        match.group(1)
+        for module in package.glob("*.py")
+        for match in re.finditer(
+            r"^def (build_\w*server)\(", module.read_text(), re.M
+        )
+    }
+    covered = set(
+        re.findall(
+            r"from ccf_runtime\.mcp\.\w+ import \(?[\s\w,]*?(build_\w*server)",
+            pathlib.Path(guarded_servers.__file__).read_text(),
+        )
+    )
+    assert found, "no server builder was found at all — the glob is wrong"
+    assert found <= covered, (
+        f"server builders with no tenant-guard coverage: {sorted(found - covered)};"
+        " add them to tests/mcp/guarded_servers.py::build_for"
+    )
 
 
 def test_the_untenanted_roster_is_pinned(tmp_path: Any) -> None:
