@@ -11,10 +11,21 @@ the shared :class:`~ccf_runtime.http_api.dependencies.ApiDependencies`
 bundle (:mod:`ccf_runtime.cli.local`) and drives the identical routes over
 an in-process ASGI transport.
 
-**Exit codes.** 0 — success. 1 — a typed 4xx refusal; the refusal body is
-printed to stdout. 2 — a wiring error (transport failure or 5xx), reported
-on stderr. The refusal-vs-exception line holds on the exit status exactly
-as it holds over HTTP (T-07-26).
+**The remote leg is authenticated (SEC-016).** Every remote invocation
+carries a bearer credential resolved by :mod:`ccf_runtime.cli.credential`
+from a source the deployment *names* — ``--token-env NAME`` /
+``CCF_TOKEN_ENV``, or ``--token-file PATH`` / ``CCF_TOKEN_FILE``. No flag
+takes a token value, no default source exists, and a remote invocation
+with none configured **refuses**: the CLI does not fall back to an
+anonymous call, and there is no flag that turns the requirement off. The
+local leg hosts no network boundary and resolves no credential.
+
+**Exit codes.** 0 — success. 1 — a typed 4xx refusal, or a verb refusing
+its own inputs; the refusal body is printed to stdout. 2 — a wiring
+error, reported on stderr: deployment wiring that has to be settled
+before any request can be built (no base URL, no usable credential), a
+transport failure, or a 5xx. The refusal-vs-exception line holds on the
+exit status exactly as it holds over HTTP (T-07-26).
 
 **B3 discipline.** One httpx client per invocation inside one
 ``asyncio.run`` — never a held session blocking a portal.
@@ -32,6 +43,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 import httpx
+from pydantic import SecretStr
 
 from ccf_runtime.cli.commands import (
     CommandRefused,
@@ -46,6 +58,11 @@ from ccf_runtime.cli.commands import (
     schema,
     skill,
     workflow,
+)
+from ccf_runtime.cli.credential import (
+    CredentialUnresolved,
+    authorization_headers,
+    resolve_remote_credential,
 )
 from ccf_runtime.http_api.dependencies import ApiDependencies
 
@@ -76,6 +93,24 @@ def build_parser() -> argparse.ArgumentParser:
         "--base-url",
         help="HTTP API base URL (or set CCF_BASE_URL)",
     )
+    # A source is NAMED, never a value: no flag here takes a token,
+    # because a secret in `argv` is a secret in `ps` (SEC-016). Neither
+    # flag has a default — the SDK ships no token and names no default
+    # place to look for one (CINV-01).
+    parser.add_argument(
+        "--token-env",
+        help=(
+            "name of the environment variable holding the API bearer"
+            " token (or set CCF_TOKEN_ENV)"
+        ),
+    )
+    parser.add_argument(
+        "--token-file",
+        help=(
+            "path of the file holding the API bearer token (or set"
+            " CCF_TOKEN_FILE)"
+        ),
+    )
     parser.add_argument(
         "--local",
         action="store_true",
@@ -104,10 +139,21 @@ async def _execute(
     *,
     transport: httpx.AsyncBaseTransport | None,
     base_url: str,
+    credential: SecretStr | None,
 ) -> int:
-    """Run the specs in order over one fresh client (B3)."""
+    """Run the specs in order over one fresh client (B3).
+
+    ``credential`` is the bearer token for the remote leg and is
+    ``None`` only on the in-process leg, which crosses no network
+    boundary. It is carried as client-default headers rather than
+    attached per request so no route can be added later that quietly
+    skips it (SEC-016).
+    """
+    headers = (
+        authorization_headers(credential) if credential is not None else {}
+    )
     async with httpx.AsyncClient(
-        transport=transport, base_url=base_url
+        transport=transport, base_url=base_url, headers=headers
     ) as client:
         for spec in specs:
             response = await client.request(
@@ -173,6 +219,7 @@ def main(
         return EXIT_REFUSED
 
     transport: httpx.AsyncBaseTransport | None
+    credential: SecretStr | None = None
     if dependencies is not None or args.local:
         if dependencies is None:
             if not args.local_root:
@@ -196,12 +243,32 @@ def main(
         configured = args.base_url or os.environ.get("CCF_BASE_URL")
         if not configured:
             parser.error("no base URL: pass --base-url or set CCF_BASE_URL")
+        # Resolved BEFORE any request is built, and unconditionally: the
+        # remote leg is a network boundary, so "no credential" is a
+        # refusal rather than a quieter request (SEC-016). `parser.error`
+        # is the same exit-2-on-stderr path the missing base URL above
+        # takes, because both are deployment wiring.
+        try:
+            credential = resolve_remote_credential(
+                token_env=args.token_env or os.environ.get("CCF_TOKEN_ENV"),
+                token_file=(
+                    args.token_file or os.environ.get("CCF_TOKEN_FILE")
+                ),
+                environ=os.environ,
+            )
+        except CredentialUnresolved as unresolved:
+            parser.error(str(unresolved))
         transport = None
         base_url = configured
 
     try:
         return asyncio.run(
-            _execute(specs, transport=transport, base_url=base_url)
+            _execute(
+                specs,
+                transport=transport,
+                base_url=base_url,
+                credential=credential,
+            )
         )
     except httpx.TransportError as unreachable:
         sys.stderr.write(f"wiring error: {unreachable}\n")
