@@ -35,6 +35,7 @@ names no harness and imports no dispatch target.
 from __future__ import annotations
 
 import asyncio
+import copy
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -907,3 +908,132 @@ def test_a_submission_that_never_saw_this_suspension_is_not_authority(
         engine.resume(workflow, execution_id="exec-1", decision="approved")
     )
     assert isinstance(outcome, WorkflowResumeRefused)
+
+
+def test_a_substituted_handle_cannot_turn_a_gate_into_an_ordinary_node(
+    registry: ControlPlaneRegistry, tmp_path: Path
+) -> None:
+    """SEC-001, the walk-around found by the close-panel attack on the first
+    Tier-0 fix and reproduced before this test was written.
+
+    ``definition_uri`` is built from the artifact's OWN declared tenant, name
+    and artifact_version, so two definitions registered under different keys
+    can carry the same URI. The first fix asked the caller's handle whether
+    the suspended node was a gate; a handle whose task definition calls that
+    node an ordinary step skipped the authority check entirely and completed
+    the workflow with nobody's approval.
+
+    Whether an execution is waiting on a human is the fabric's recorded fact,
+    never the caller's claim.
+    """
+    engine, transport, _ = _engine(registry, tmp_path)
+    workflow = _covenant(registry)
+    suspended = asyncio.run(engine.execute(workflow, execution_id="exec-1"))
+    assert isinstance(suspended, WorkflowSuspended)
+
+    # A task definition that calls the gate node an ordinary skill step.
+    task_fixture = _load("tasks/covenant_review_task.yaml")
+    task_document = copy.deepcopy(task_fixture["task_definition"])
+    borrowed_ref = next(
+        step["ref"] for step in task_document["steps"] if step.get("ref")
+    )
+    for step in task_document["steps"]:
+        if step["kind"] == "hitl-gate":
+            step["kind"] = "skill"
+            step["ref"] = borrowed_ref
+    task_document["artifact_version"] = "9.9.9"
+    substitute_task = parse_artifact(task_document, TASK_DEFINITION)
+    registry.register_versioned(
+        "acme-bank/ccf.task-definition/covenant-review-substitute",
+        substitute_task,
+        TASK_DEFINITION,
+    )
+
+    # A workflow definition with the SAME tenant/name/version — so the same
+    # definition_uri — wrapping that task, under a different registry key.
+    workflow_document = copy.deepcopy(
+        _load("workflows/covenant_review_workflow.yaml")["workflow_definition"]
+    )
+    workflow_document["task_definition_ref"] = (
+        "ccf-artifact://acme-bank/ccf.task-definition/"
+        "covenant-review-substitute@9.9.9"
+    )
+    workflow_document["gate_policies"] = {}
+    substitute = parse_artifact(workflow_document, WORKFLOW_DEFINITION)
+    version = registry.register_versioned(
+        "attacker/covenant-review", substitute, WORKFLOW_DEFINITION
+    )
+    handle = WorkflowFactory(control_plane=registry).construct(
+        definition_key="attacker/covenant-review", definition_version=version
+    )
+    # The substitution really is indistinguishable by URI — otherwise this
+    # test would be passing on the definition-uri check it exists to get past.
+    assert handle.identity.definition_uri == workflow.identity.definition_uri
+
+    outcome = asyncio.run(
+        engine.resume(handle, execution_id="exec-1", decision="approved")
+    )
+    assert isinstance(outcome, WorkflowResumeRefused)
+    assert transport.submissions(tenant=workflow.definition.tenant) == ()
+    assert len(transport.pending(tenant=workflow.definition.tenant)) == 1
+    record = registry.state_store.get(
+        WORKFLOW_STATE, f"{workflow.definition.tenant}/exec-1"
+    )
+    assert isinstance(record, WorkflowStateRecord)
+    assert record.status == "suspended"
+
+
+def test_a_substituted_definition_is_refused_even_with_a_real_approval(
+    registry: ControlPlaneRegistry, tmp_path: Path
+) -> None:
+    """SEC-001, the substitution class rather than one instance.
+
+    ``resume``'s own refusal says an execution "continues only under the
+    definition it was started with" — but it compared ``definition_uri``,
+    which the artifact declares about itself. A second definition under a
+    different registry key carries the same URI while declaring different
+    routing, so a genuine approver's action could be spent on a transition
+    their workflow never declared. The execution is bound to the definition
+    by content, not by the name that definition gives itself.
+    """
+    engine, transport, _ = _engine(registry, tmp_path)
+    workflow = _covenant(registry)
+    suspended = asyncio.run(engine.execute(workflow, execution_id="exec-1"))
+    assert isinstance(suspended, WorkflowSuspended)
+    # A real human really does approve this suspension.
+    _resolve_gate(
+        registry,
+        transport,
+        tenant=workflow.definition.tenant,
+        event_key=suspended.event_key,
+    )
+
+    document = copy.deepcopy(
+        _load("workflows/covenant_review_workflow.yaml")["workflow_definition"]
+    )
+    document["transitions"] = list(document["transitions"]) + [
+        {"source": "credit-officer-approval", "target": "elsewhere"}
+    ]
+    document["terminal_states"] = list(document["terminal_states"]) + [
+        "elsewhere"
+    ]
+    substitute = parse_artifact(document, WORKFLOW_DEFINITION)
+    version = registry.register_versioned(
+        "attacker/covenant-review-routes", substitute, WORKFLOW_DEFINITION
+    )
+    handle = WorkflowFactory(control_plane=registry).construct(
+        definition_key="attacker/covenant-review-routes",
+        definition_version=version,
+    )
+    assert handle.identity.definition_uri == workflow.identity.definition_uri
+    assert handle.identity.definition_hash != workflow.identity.definition_hash
+
+    outcome = asyncio.run(
+        engine.resume(handle, execution_id="exec-1", decision="elsewhere")
+    )
+    assert isinstance(outcome, WorkflowResumeRefused)
+    record = registry.state_store.get(
+        WORKFLOW_STATE, f"{workflow.definition.tenant}/exec-1"
+    )
+    assert isinstance(record, WorkflowStateRecord)
+    assert record.status == "suspended"

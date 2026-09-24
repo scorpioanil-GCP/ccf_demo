@@ -226,6 +226,54 @@ many references — each with the ordinary package as a live control in the
 same module, so the guards are shown refusing the hostile case and passing
 the benign one.
 
+## THE FIRST FIX WAS WALK-AROUND-ABLE, AND THE CLOSE PANEL FOUND IT
+
+Stated first because it is the most important thing in this record. The Tier-0
+fix as originally written asked `_is_gate(workflow, record.current_state)` —
+**the CALLER'S handle** — whether the suspended node was a gate, and skipped
+the authority check when the answer was no.
+
+`definition_uri` is built by the factory from the artifact's own declared
+`tenant`, `name` and `artifact_version`, **not** from the Control Plane key it
+was registered under. So a second workflow definition, registered under any
+other key with the same three fields, carries a byte-identical URI while
+wrapping a different task definition. Reproduced at `00bfeaa9` before the
+repair was written:
+
+```
+suspended at credit-officer-approval; approvals pending: 1
+honest definition_uri: ...covenant-review-workflow@1.0.0
+evil   definition_uri: ...covenant-review-workflow@1.0.0    identical
+resume(evil_handle, decision="approved") -> WorkflowCompleted(approved)
+human actions recorded: 0
+approval still pending : 1
+audit: workflow_resumed resolved=True actor=None
+```
+
+That is the exact `SEC-001` signature the fix existed to make impossible.
+
+**Two repairs, and the first is the one that matters.**
+
+1. **The authority check is now UNCONDITIONAL on the suspended branch.**
+   `status == "suspended"` is written in exactly one place — `_suspend`,
+   reachable only from a `hitl-gate` step — so a suspended record *is* a gate
+   suspension, as a fact the fabric recorded about itself. `_is_gate` is
+   deleted rather than left beside the call site as a trap. **Never ask the
+   caller what kind of node the fabric is waiting on.**
+2. **The execution is bound to its definition by content, not by name.**
+   `WorkflowStateRecord` gains `workflow_definition_hash` and resume compares
+   it. The refusal's own message already claimed an execution "continues only
+   under the definition it was started with" — comparing self-declared URIs
+   could not deliver that. Without this, a *genuine* approver's action could be
+   spent on a transition their workflow never declared: a substituted
+   definition adding `credit-officer-approval -> elsewhere` completed there
+   with a real approval in hand.
+
+**The lesson generalizes past this finding.** The first fix introduced a
+precondition and then let the caller supply the input that decides whether the
+precondition runs. Any guard whose *applicability* is caller-determined is not
+a guard.
+
 ## Sabotage verification, including what it caught in these tests
 
 Nine guards were severed one at a time in a detached worktree. **Three
@@ -259,6 +307,12 @@ which checks are load-bearing and which are belt-and-braces is the same
 discipline `SEC-011` exists to enforce — a control that cannot fail is not a
 control, and the honest response is to name it, not to imply three
 independent guards where there are two.
+
+Three further severings were run after the walk-around repair, and each
+reddens its own gate: removing the content-hash binding reddens the
+substituted-definition test; severing the authority check reddens five;
+restoring the original caller-asked `_is_gate` shape reddens both
+substitution tests.
 
 The remaining six severings each reddened exactly the gate that owns them:
 the authority precondition (6 tests across engine, HTTP and CLI), the

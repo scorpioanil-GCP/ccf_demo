@@ -117,9 +117,16 @@ class WorkflowStateRecord(CCFContract):
             (:data:`WORKFLOW_STATUSES`).
         trace: Every transition recorded so far, in order.
         workflow_definition_uri: The pinned versioned URI of the workflow
-            definition this execution runs (D-IMPL-26) — resume validates
-            the supplied handle against it, so an execution never continues
-            under a definition it was not started with.
+            definition this execution runs (D-IMPL-26).
+        workflow_definition_hash: The content hash of that definition —
+            what actually binds the execution to it. The URI alone does
+            not: it is built from the artifact's OWN declared tenant, name
+            and artifact_version, so a second definition registered under a
+            different Control Plane key carries an identical URI while
+            declaring different routing. Resume compares this, so an
+            execution never continues under a definition it was not started
+            with — the thing the URI check already claimed and could not
+            deliver (SEC-001, security review 2026-09-23).
     """
 
     tenant: str
@@ -128,6 +135,7 @@ class WorkflowStateRecord(CCFContract):
     status: str
     trace: tuple[TraceEntry, ...]
     workflow_definition_uri: str
+    workflow_definition_hash: str
 
     @field_validator("status")
     @classmethod

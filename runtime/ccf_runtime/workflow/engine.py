@@ -430,48 +430,72 @@ class WorkflowEngine:
                     " never transitions again (CLAUDE.md §8.1)"
                 ),
             )
-        if record.workflow_definition_uri != workflow.identity.definition_uri:
+        if (
+            record.workflow_definition_uri != workflow.identity.definition_uri
+            or record.workflow_definition_hash
+            != workflow.identity.definition_hash
+        ):
             return self._refuse(
                 workflow,
                 tenant=tenant,
                 execution_id=execution_id,
                 reason=(
                     f"execution {key!r} was started under"
-                    f" {record.workflow_definition_uri!r}, not"
-                    f" {workflow.identity.definition_uri!r}; an execution"
+                    f" {record.workflow_definition_uri!r} at content"
+                    f" {record.workflow_definition_hash!r}, not"
+                    f" {workflow.identity.definition_uri!r} at"
+                    f" {workflow.identity.definition_hash!r}; an execution"
                     " continues only under the definition it was started"
-                    " with (D-IMPL-26)"
+                    " with, matched by content because the URI is the"
+                    " artifact's statement about itself (D-IMPL-26;"
+                    " SEC-001)"
                 ),
             )
         if record.status == "suspended":
-            actor: str | None = None
-            if self._is_gate(workflow, record.current_state):
-                # SEC-001: a gate opens on a human action returned through
-                # the HITL authority path, never on the caller's decision
-                # string. The authority is bound to THIS suspension, so one
-                # approval authorizes exactly the passage it was taken
-                # against (CLAUDE.md §8.2 audit-by-construction).
-                authority = self._gate_authority(
+            # SEC-001: a gate opens on a human action returned through the
+            # HITL authority path, never on the caller's decision string.
+            # The authority is bound to THIS suspension, so one approval
+            # authorizes exactly the passage it was taken against
+            # (CLAUDE.md §8.2 audit-by-construction).
+            #
+            # The check is UNCONDITIONAL on the suspended branch, and that
+            # is the whole of its integrity. ``status == "suspended"`` is
+            # written in exactly one place — :meth:`_suspend`, reachable
+            # only from a ``hitl-gate`` step — so a suspended record IS a
+            # gate suspension, as a fact the fabric recorded about itself.
+            # The first version of this fix asked
+            # ``_is_gate(workflow, record.current_state)`` instead, reading
+            # the kind out of the CALLER'S handle. That was walk-around-able
+            # and was demonstrated: ``definition_uri`` is built from the
+            # artifact's own declared tenant, name and artifact_version, so
+            # a second definition registered under a different key carries
+            # the same URI, and one whose task calls the gate node an
+            # ordinary step skipped this block entirely and completed the
+            # workflow with the approval still pending and
+            # ``resolved=True, actor=None`` in the audit — the exact
+            # signature SEC-001 named. Never ask the caller what kind of
+            # node the fabric is waiting on.
+            authority = self._gate_authority(
+                tenant=tenant,
+                key=key,
+                gate=record.current_state,
+                record=record,
+            )
+            if authority is None:
+                return self._refuse(
+                    workflow,
                     tenant=tenant,
-                    key=key,
-                    gate=record.current_state,
-                    record=record,
+                    execution_id=execution_id,
+                    reason=(
+                        f"execution {key!r} is suspended on HITL gate"
+                        f" {record.current_state!r} and no approval for"
+                        " this suspension has returned through the HITL"
+                        " authority path; a gate is opened by a recorded"
+                        " human action, never by naming a transition"
+                        " (CLAUDE.md §8.2; D-IMPL-20)"
+                    ),
                 )
-                if authority is None:
-                    return self._refuse(
-                        workflow,
-                        tenant=tenant,
-                        execution_id=execution_id,
-                        reason=(
-                            f"execution {key!r} is suspended on HITL gate"
-                            f" {record.current_state!r} and no approval for"
-                            " this suspension has returned through the HITL"
-                            " authority path; a gate is opened by a recorded"
-                            " human action, never by naming a transition"
-                            " (CLAUDE.md §8.2; D-IMPL-20)"
-                        ),
-                    )
-                actor = authority.principal.approver.subject_id
+            actor: str | None = authority.principal.approver.subject_id
             targets = self._targets(workflow, record.current_state)
             if decision not in targets:
                 return self._refuse(
@@ -795,14 +819,6 @@ class WorkflowEngine:
         """The pending-event key a gate suspension enqueues under."""
         return f"{key}/{gate}"
 
-    @staticmethod
-    def _is_gate(workflow: Workflow, state: str) -> bool:
-        """Whether ``state`` names a hitl-gate step in the resolved task."""
-        return any(
-            step.name == state and step.kind == "hitl-gate"
-            for step in workflow.task_definition.steps
-        )
-
     def _gate_authority(
         self,
         *,
@@ -911,6 +927,7 @@ class WorkflowEngine:
             status=status,
             trace=trace,
             workflow_definition_uri=workflow.identity.definition_uri,
+            workflow_definition_hash=workflow.identity.definition_hash,
         )
 
     def _persist(
