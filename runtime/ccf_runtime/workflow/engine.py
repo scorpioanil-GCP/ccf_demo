@@ -65,7 +65,8 @@ from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.controlplane.resolution import resolve_pinned
 from ccf.controlplane.state import AuditedStateWriter
 from ccf.halflife.debt import DebtAssessment, DebtSignal
-from ccf.hitl.approval_gate import GATE_ACTIONS
+from ccf.hitl.approval_gate import GATE_ACTIONS, GATE_EVENT_CLASS
+from ccf.hitl.escalation import ESCALATION_EVENT_CLASS
 from ccf.hitl.transport import (
     HITLTransportProtocol,
     HitlActionSubmission,
@@ -537,13 +538,51 @@ class WorkflowEngine:
                 trace=trace,
             )
         # exception-routed: the handler handed the state back — retry the
-        # node it was routed from. No gate, and so no human actor.
+        # node it was routed from.
+        #
+        # SEC-001, one branch over. This path used to advance with NO
+        # authority check at all and audit ``resolved=True, actor=None`` —
+        # the exact signature the finding named — on the reading that an
+        # exception path "crosses no gate, so it acquires no approver".
+        # :meth:`_route_exception` really does enqueue nothing, but
+        # :class:`~ccf.hitl.escalation.ExceptionEscalation` is the shipped
+        # primitive FOR a routed state (CLAUDE.md §8.2), and a deployment
+        # that composes it puts a human in the loop that the engine then
+        # walked straight past.
+        #
+        # Applicability is the fabric's recorded fact, never the caller's:
+        # an escalation is in force iff the transport HOLDS a pending
+        # ``exception-escalation`` event bound to this execution's own
+        # state key. The resume caller supplies nothing that decides
+        # whether this runs — the key is derived from the record the state
+        # store returned — and a deployment that composes no escalation
+        # has no such event and is unaffected.
+        if self._escalation_pending(tenant=tenant, key=key):
+            return self._refuse(
+                workflow,
+                tenant=tenant,
+                execution_id=execution_id,
+                reason=(
+                    f"execution {key!r} was routed to an exception path and"
+                    " an escalation of this state is still open on the HITL"
+                    " authority path; the designated role has not acted, and"
+                    " retrying the node would spend their decision before"
+                    " they made it (CLAUDE.md §8.2; D-IMPL-20)"
+                ),
+            )
+        resolution = self._escalation_authority(
+            tenant=tenant, key=key, record=record
+        )
         self._append(
             workflow,
             key,
             action="workflow_resumed",
             resolved=True,
-            actor=None,
+            actor=(
+                None
+                if resolution is None
+                else resolution.principal.approver.subject_id
+            ),
         )
         return await self._advance(
             workflow,
@@ -690,7 +729,7 @@ class WorkflowEngine:
         self._hitl_transport.enqueue(
             event=PendingHitlEvent(
                 event_key=event_key,
-                event_class="approval-gate",
+                event_class=GATE_EVENT_CLASS,
                 tenant=tenant,
                 workflow_state_ref=key,
                 product_content_hash=content_hash(record),
@@ -854,7 +893,54 @@ class WorkflowEngine:
         * the action is an approval-gate verdict. Both verdicts authorize
           the engine to leave the gate — a rejection routes to whichever
           target the artifact declares for it, which is why the check is
-          ``in GATE_ACTIONS`` and not ``== GATE_APPROVE``.
+          ``in GATE_ACTIONS`` and not ``== GATE_APPROVE``;
+        * **(added by the 2026-09-24 follow-up read)** an approval gate is
+          what the action answered. A submission carries the same two
+          verdicts as
+          :data:`~ccf.hitl.escalation.ESCALATION_ACTIONS`, so before this
+          the three conditions above could all be met by a human action
+          taken against a *different* primitive's event that happened to
+          name this event key — a reachable composition, because handing a
+          stuck gate to
+          :class:`~ccf.hitl.escalation.ExceptionEscalation` is what that
+          primitive is for, and the duty officer who takes the hand-off has
+          not approved the credit.
+
+        **Why the answered-class test has two legs, and what decides which
+        one runs.** Not the caller: the submission's own
+        ``answered_event_class`` does, and the transport — not the
+        submitter — writes it (see
+        :class:`~ccf.hitl.transport.HitlActionSubmission`).
+
+        * **Stamped.** Some primitive claimed an event through
+          :meth:`~ccf.hitl.transport.HITLTransportProtocol.remove` before
+          submitting. The class it claimed must be
+          :data:`~ccf.hitl.approval_gate.GATE_EVENT_CLASS` and the claimed
+          event must have been bound to this execution's state key. This is
+          the leg that refuses the escalation-answered action above.
+          :meth:`~ccf.hitl.approval_gate.ApprovalGate.resolve` consumes the
+          pending event, so by resume time this is the ONLY leg a
+          gate-resolved approval can take — which is why the class cannot
+          simply be read off the pending queue.
+        * **Unstamped.** Nothing was claimed: the shape the submit-only
+          action door produces (D-IMPL-62 — it records and resolves
+          nothing). Then the join is to the gate's own event, which is
+          still pending precisely because nothing resolved it, and its
+          class must be ``GATE_EVENT_CLASS``. Both terms are the engine's
+          own: the event key is minted by :meth:`_event_key` and the class
+          was written by :meth:`_suspend`.
+
+        **The residual that leaves, stated so it is not read as closed.**
+        The unstamped leg accepts an action that the ApprovalGate primitive
+        never resolved — so the gate's TOCTOU guard and its signed-binding
+        enforcement did not run, only the transport's own D-16 leg did.
+        That path is not anonymous (the door derives the principal from a
+        verified token grant, D-IMPL-67, and the hash binding above still
+        holds), but it is weaker than a gate resolution, and closing it
+        means giving the door a *resolve* route rather than a submit-only
+        one — a change to D-IMPL-62's ruled contract and to
+        ``runtime/ccf_runtime/http_api/routes/hitl.py``, not something this
+        module may decide alone.
 
         **Known residual (D-IMPL-350).** The verdict does not bind WHICH
         declared target the resume may take, because no artifact declares
@@ -873,6 +959,11 @@ class WorkflowEngine:
         """
         event_key = self._event_key(key, gate)
         suspension = content_hash(record)
+        gate_still_pending = any(
+            event.event_key == event_key
+            and event.event_class == GATE_EVENT_CLASS
+            for event in self._hitl_transport.pending(tenant=tenant)
+        )
         return next(
             (
                 submission
@@ -883,6 +974,112 @@ class WorkflowEngine:
                 and submission.tenant == tenant
                 and submission.principal.product_content_hash == suspension
                 and submission.action in GATE_ACTIONS
+                and (
+                    submission.answered_event_class == GATE_EVENT_CLASS
+                    and submission.answered_workflow_state_ref == key
+                    if submission.answered_event_class is not None
+                    else gate_still_pending
+                )
+            ),
+            None,
+        )
+
+    def _escalation_pending(self, *, tenant: str, key: str) -> bool:
+        """Whether an unanswered escalation of ``key`` is on the transport.
+
+        SEC-001 Tier 0, the exception-routed branch's applicability test
+        (CLAUDE.md §8.2; D-IMPL-20). True iff the HITL transport HOLDS a
+        pending :data:`~ccf.hitl.escalation.ESCALATION_EVENT_CLASS` event
+        whose ``workflow_state_ref`` is this execution's own state key.
+
+        Every term is a fact the fabric recorded about itself. ``key`` is
+        derived from the tenant the artifact declares and the execution id
+        the state store answered under; the event class and the state ref
+        were written by
+        :meth:`~ccf.hitl.escalation.ExceptionEscalation.escalate` at
+        hand-off. The resume caller declares, sends and omits nothing that
+        reaches this test — which is the lesson the first SEC-001 fix
+        taught at cost (a guard whose applicability the caller decides is
+        not a guard).
+
+        Pending is the right state to read because resolution *consumes*
+        the event: every shipped primitive claims through
+        :meth:`~ccf.hitl.transport.HITLTransportProtocol.remove` before it
+        submits, so an event that is still pending is an unanswered one. A
+        deployment that composes no escalation holds no such event and is
+        unaffected — pinned by ``test_an_exception_routed_resume_without_
+        escalation_is_unaffected``.
+
+        **The same residual the gate carries (D-IMPL-350).** Either
+        :data:`~ccf.hitl.escalation.ESCALATION_ACTIONS` verdict releases
+        the hold, because a declined hand-off is still a recorded human
+        decision about this state and nothing in a
+        :class:`~ccf.workflow.definitions.WorkflowDefinition` maps a
+        verdict to a route. What changed is that some human must have
+        acted on this routing, and the audit names them.
+        """
+        return any(
+            event.event_class == ESCALATION_EVENT_CLASS
+            and event.workflow_state_ref == key
+            for event in self._hitl_transport.pending(tenant=tenant)
+        )
+
+    def _escalation_authority(
+        self, *, tenant: str, key: str, record: WorkflowStateRecord
+    ) -> HitlActionSubmission | None:
+        """The recorded human action that released this routed state.
+
+        SEC-001 Tier 0. The attribution half of the exception-routed
+        branch: :meth:`_escalation_pending` decides whether the resume may
+        proceed, this decides whose name the audit carries. ``None`` is the
+        honest answer for a deployment that composed no escalation — the
+        audit then states positively that no human acted, which
+        :meth:`_append`'s defaultless ``actor`` keyword forces every call
+        site to do.
+
+        Three conditions, all read off recorded facts:
+
+        * the transport stamped the submission as answering an
+          ``exception-escalation`` — its own observation of which event was
+          claimed, overwritten on every submit and therefore not something
+          a submitter can assert about itself (the submit-only action door,
+          D-IMPL-62, claims nothing and is stamped ``None``);
+        * the claimed event was bound to THIS execution's state key, which
+          the escalating deployment stated at hand-off and the engine
+          re-derives here — so one execution's escalation never attributes
+          another's resume;
+        * **(binding to the specific routing)** the resolver's principal
+          echoes ``content_hash(record)``, the routed state's own identity,
+          exactly as :meth:`_gate_authority` binds an approval to its
+          suspension. A later routing of the same execution has a different
+          trace and therefore a different hash.
+
+        **Known residual, stated rather than implied.** The third condition
+        holds only when the deployment hands
+        :meth:`~ccf.hitl.escalation.ExceptionEscalation.escalate` the
+        content hash of the routed :class:`WorkflowStateRecord` — the
+        composition its own ``product_content_hash`` docstring describes
+        ("the content hash of the state the human will review") and the one
+        ``tests/workflow/test_exception_paths.py`` exercises. A deployment
+        that binds some other hash still cannot resume past an OPEN
+        escalation — that is :meth:`_escalation_pending`, which compares no
+        hashes — but its resolver will not be named in the audit. Losing an
+        attribution is not the same defect as losing the control, and the
+        alternative (naming whoever last answered any escalation about this
+        execution) would put a human's name against a decision that may not
+        be theirs.
+        """
+        routing = content_hash(record)
+        return next(
+            (
+                submission
+                for submission in self._hitl_transport.submissions(
+                    tenant=tenant
+                )
+                if submission.tenant == tenant
+                and submission.answered_event_class == ESCALATION_EVENT_CLASS
+                and submission.answered_workflow_state_ref == key
+                and submission.principal.product_content_hash == routing
             ),
             None,
         )

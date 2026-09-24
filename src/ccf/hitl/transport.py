@@ -39,10 +39,11 @@ from collections import deque
 from collections.abc import Mapping
 from typing import Literal, Protocol, runtime_checkable
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 
 from ccf.artifacts.protocol import ArtifactStoreError, parse_artifact_uri
 from ccf.contracts.base import CCFContract
+from ccf.contracts.canonical import HASH_TRANSPARENT_KEY
 from ccf.controlplane.artifact_base import ArtifactClass, validate_semver
 from ccf.controlplane.registry import ControlPlaneProtocol
 from ccf.hitl.identity_binding import (
@@ -304,6 +305,43 @@ class HitlActionSubmission(CCFContract):
     #: never a code constant. When present it travels on the recorded
     #: submission, so the audit/receipt surface carries it verbatim.
     signed_binding: SignedPrincipalBinding | None = None
+    #: **Transport-stamped, never caller-authored** (SEC-001 Tier 0; the
+    #: 2026-09-24 follow-up read). The :data:`HITL_EVENT_CLASSES` member of
+    #: the pending event this action was recorded as answering, and that
+    #: event's ``workflow_state_ref``. A submitter cannot decide either:
+    #: :meth:`HITLTransportProtocol.submit` overwrites both from the event
+    #: the transport ITSELF observed being claimed through
+    #: :meth:`HITLTransportProtocol.remove`, and writes ``None`` when no
+    #: claim exists. Declared on the contract rather than kept in a
+    #: side-table because the stamp travels with the action wherever the
+    #: recorded submission travels.
+    #:
+    #: They are what lets a consumer of
+    #: :meth:`HITLTransportProtocol.submissions` ask **which primitive
+    #: answered, and about which execution** — questions a submission could
+    #: not answer before, so an approval-gate authority check could be
+    #: satisfied by an action taken against an escalation, an override or a
+    #: review item that happened to name the same event key.
+    #:
+    #: **Hash-transparent at the sentinel (CINV-06; D-IMPL-243).** ``None``
+    #: here is not "an older record that did not declare" — it is a live,
+    #: current state the transport writes on purpose: *this submitter
+    #: claimed nothing*. That is exactly what was true of every submission
+    #: recorded before the stamp existed, so "silence equals yesterday"
+    #: holds literally and the two fields render into
+    #: :func:`~ccf.contracts.canonical.canonical_bytes` only once a claim
+    #: was actually observed. Note the direction, because it is what
+    #: separates this from the ``False`` cases: the sentinel is the
+    #: RESTRICTIVE reading everywhere it is consumed — an unstamped
+    #: submission fails the gate check's stamped leg and the escalation
+    #: authority join outright — so an unset value never means
+    #: "unconstrained".
+    answered_event_class: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    answered_workflow_state_ref: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
     @field_validator("action")
     @classmethod
@@ -374,11 +412,23 @@ class HITLTransportProtocol(Protocol):
     """
 
     def enqueue(self, *, event: PendingHitlEvent) -> None:
-        """Queue ``event`` for its tenant, preserving arrival order."""
+        """Queue ``event`` for its tenant, preserving arrival order.
+
+        An enqueue discards any outstanding claim (see :meth:`remove`) for
+        the same ``(tenant, event_key)``: a re-enqueued event is pending
+        again, so nothing has answered it. That is what keeps the
+        primitives' give-the-claim-back rollback honest — a refused
+        authority submission must leave no residue that a later bare
+        submission could inherit as a stamp.
+        """
         ...
 
     def dequeue(self, *, tenant: str) -> PendingHitlEvent | None:
-        """Pop the oldest pending event for ``tenant``, or ``None``."""
+        """Pop the oldest pending event for ``tenant``, or ``None``.
+
+        A drain, not a resolution: it records no claim, so a submission
+        made against a drained event carries no stamp (see :meth:`submit`).
+        """
         ...
 
     def pending(self, *, tenant: str) -> tuple[PendingHitlEvent, ...]:
@@ -399,11 +449,29 @@ class HITLTransportProtocol(Protocol):
         relative order of every event not removed is preserved. Exactly
         one of any number of concurrent ``remove`` calls for the same
         event receives it; the rest receive ``None``.
+
+        **Removal is a claim, and the transport records it** (SEC-001 Tier
+        0). The winning caller is the primitive that is about to resolve
+        this event, so the transport retains the removed event against
+        ``(tenant, event_key)`` and stamps the next :meth:`submit` for that
+        pair with its class and ``workflow_state_ref``. The claim is
+        consumed by that submit and discarded by a re-:meth:`enqueue`;
+        conforming implementations must do both, because a consumer asking
+        "which primitive answered this?" gets ``None`` — and must fail
+        closed — from an implementation that stamps nothing.
         """
         ...
 
     def submit(self, *, submission: HitlActionSubmission) -> None:
-        """Record one human action returning through the authority path."""
+        """Record one human action returning through the authority path.
+
+        The recorded submission is stamped with the class and
+        ``workflow_state_ref`` of the event this action claimed — taken
+        from the transport's own :meth:`remove` observation, never from
+        ``submission`` — and stamped ``None`` when this submitter claimed
+        nothing. ``submission`` itself is not mutated (it is a frozen
+        contract); the stamped copy is what :meth:`submissions` returns.
+        """
         ...
 
     def submissions(self, *, tenant: str) -> tuple[HitlActionSubmission, ...]:
@@ -465,6 +533,11 @@ class InMemoryHitlTransport:
         self._lock = threading.Lock()
         self._pending: dict[str, deque[PendingHitlEvent]] = {}
         self._submissions: dict[str, list[HitlActionSubmission]] = {}
+        #: Events claimed through :meth:`remove` and not yet answered or
+        #: given back, keyed ``(tenant, event_key)`` — the transport's own
+        #: record of which primitive is resolving what (SEC-001 Tier 0).
+        #: Guarded by the same lock as the queues.
+        self._claims: dict[tuple[str, str], PendingHitlEvent] = {}
         self._control_plane = control_plane
         self._hitl_policy_key = hitl_policy_key
         self._identity_provider = identity_provider
@@ -504,8 +577,16 @@ class InMemoryHitlTransport:
         )
 
     def enqueue(self, *, event: PendingHitlEvent) -> None:
-        """Queue ``event`` for its tenant, preserving arrival order."""
+        """Queue ``event`` for its tenant, preserving arrival order.
+
+        Any outstanding claim for the same ``(tenant, event_key)`` is
+        discarded: the event is pending again, so nothing has answered it.
+        This is what makes the primitives' rollback path
+        (``remove`` → failed ``submit`` → ``enqueue``) leave no stamp
+        behind for a later bare submission to inherit.
+        """
         with self._lock:
+            self._claims.pop((event.tenant, event.event_key), None)
             self._pending.setdefault(event.tenant, deque()).append(event)
 
     def dequeue(self, *, tenant: str) -> PendingHitlEvent | None:
@@ -532,6 +613,11 @@ class InMemoryHitlTransport:
         and exactly one of any number of racing removals for the same
         event key receives the event. Every retained event keeps its
         relative order.
+
+        The removal is recorded as a claim in the same lock acquisition
+        (SEC-001 Tier 0), so the next :meth:`submit` for this pair is
+        stamped with what was actually claimed. Only the winner records a
+        claim, because only the winner removes anything.
         """
         with self._lock:
             queue = self._pending.get(tenant)
@@ -540,6 +626,7 @@ class InMemoryHitlTransport:
             for index, event in enumerate(queue):
                 if event.event_key == event_key:
                     del queue[index]
+                    self._claims[(tenant, event_key)] = event
                     return event
             return None
 
@@ -549,6 +636,34 @@ class InMemoryHitlTransport:
         When the Control Plane HITL policy in force requires a signed
         principal binding, the submission is verified before anything is
         recorded (D-16): a refused submission never lands on the queue.
+        Verification runs outside the lock and before the claim is
+        consumed, so a refusal leaves both the pending event and its claim
+        untouched (D-IMPL-69; Pitfall 4).
+
+        What is recorded is a copy stamped with the claim this submitter
+        actually made — ``answered_event_class`` and
+        ``answered_workflow_state_ref`` come from the event the transport
+        observed being :meth:`remove`\\ d, never from ``submission``, and
+        are stamped ``None`` when nothing was claimed. A caller-supplied
+        value on either field is therefore discarded rather than trusted
+        (SEC-001 Tier 0: a guard whose input the caller supplies is not a
+        guard).
+
+        **Residual: the claim is addressed, not held.** A claim is keyed
+        ``(tenant, event_key)`` and consumed by whichever submission for
+        that pair arrives first, because ``submit`` has no caller identity
+        to bind it to. A submitter that races the window a primitive opens
+        between its ``remove`` and its ``submit`` — the two adjacent
+        statements in
+        :meth:`~ccf.hitl.approval_gate.ApprovalGate.resolve` — therefore
+        takes the stamp, and the primitive's own submission is recorded
+        unstamped. Closing it means ``remove`` minting an opaque claim
+        token that ``submit`` requires, which is a
+        :class:`HITLTransportProtocol` signature change and belongs with
+        the D-IMPL-62 door ruling rather than here. Recorded because it
+        NARROWS an existing hole rather than opening one: a submit-only
+        submission that wins no race is still admitted by the engine's
+        unstamped fallback leg today, with no race at all.
 
         Raises:
             SignedBindingRequiredRefused: binding required and absent.
@@ -558,8 +673,22 @@ class InMemoryHitlTransport:
         if self._signed_binding_required():
             self._enforce_signed_binding(submission)
         with self._lock:
+            claimed = self._claims.pop(
+                (submission.tenant, submission.event_key), None
+            )
             self._submissions.setdefault(submission.tenant, []).append(
-                submission
+                submission.model_copy(
+                    update={
+                        "answered_event_class": (
+                            None if claimed is None else claimed.event_class
+                        ),
+                        "answered_workflow_state_ref": (
+                            None
+                            if claimed is None
+                            else claimed.workflow_state_ref
+                        ),
+                    }
+                )
             )
 
     def submissions(self, *, tenant: str) -> tuple[HitlActionSubmission, ...]:

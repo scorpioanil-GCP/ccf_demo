@@ -83,6 +83,7 @@ __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "ESCALATION_ACTIONS",
+    "ESCALATION_EVENT_CLASS",
     "EscalationActionError",
     "EscalationActionRecord",
     "EscalationHandOff",
@@ -99,6 +100,14 @@ __all__ = [
 #: identifiers, never routing rules — *who* the designated role is comes
 #: from the pinned ``policy_ref`` artifact (CINV-01).
 ESCALATION_ACTIONS: frozenset[str] = frozenset({"approve", "reject"})
+
+#: The :data:`~ccf.hitl.transport.HITL_EVENT_CLASSES` member this primitive
+#: owns. A mechanism identifier, named here for the same reason
+#: :data:`~ccf.hitl.approval_gate.GATE_EVENT_CLASS` is named there: the
+#: workflow engine has to ask whether a routed execution is waiting on an
+#: escalation, and reaching for a bare ``"exception-escalation"`` literal
+#: in ``/runtime`` would put this module's vocabulary outside it.
+ESCALATION_EVENT_CLASS = "exception-escalation"
 
 
 class UnknownEscalationEventError(LookupError):
@@ -324,7 +333,7 @@ class ExceptionEscalation:
             )
         event = PendingHitlEvent(
             event_key=event_key,
-            event_class="exception-escalation",
+            event_class=ESCALATION_EVENT_CLASS,
             tenant=tenant,
             workflow_state_ref=workflow_state_ref,
             product_content_hash=product_content_hash,
@@ -391,7 +400,7 @@ class ExceptionEscalation:
                 pending
                 for pending in self._transport.pending(tenant=tenant)
                 if pending.event_key == event_key
-                and pending.event_class == "exception-escalation"
+                and pending.event_class == ESCALATION_EVENT_CLASS
             ),
             None,
         )
