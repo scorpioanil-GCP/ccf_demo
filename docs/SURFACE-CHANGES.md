@@ -23,7 +23,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1333 entries**, of which **1083** name a public Python surface.
+**1334 entries**, of which **1084** name a public Python surface.
 
 ## Added
 
@@ -12628,7 +12628,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-431 entries — 245 public Python surface, 186 not public Python API.
+432 entries — 246 public Python surface, 186 not public Python API.
 
 ### Public Python surface
 
@@ -17372,6 +17372,33 @@ Surfaces that still exist under the same name but whose shape moved. These are t
   until the seams are passed; its `PUT` is unaffected
 
 *Recorded by `345-01-a-dereference-is-a-governed-determination.md`.*
+
+#### ccf_runtime.workflow.state.WorkflowStateRecord
+
+- Surface: ccf_runtime.workflow.state.WorkflowStateRecord
+- Public surface: true
+- Change type: reshaped
+- Before: six fields, the last being `workflow_definition_uri` — whose
+  docstring said resume "validates the supplied handle against it, so an
+  execution never continues under a definition it was not started with"
+- After: a seventh required field, `workflow_definition_hash`, and the pair
+  is what resume compares
+- Why: the URI could not deliver what its own docstring claimed. The factory
+  builds `definition_uri` from the artifact's declared `tenant`, `name` and
+  `artifact_version` — never from the Control Plane key it was registered
+  under — so a second definition registered under any other key carries a
+  byte-identical URI while declaring different routing. Demonstrated: a
+  substituted definition adding `credit-officer-approval -> elsewhere`
+  completed there **with a genuine approver's action in hand**, spending a
+  real human decision on a transition their workflow never declared
+  (`SEC-001`, security review 2026-09-23)
+- Migration: none for a caller. The engine writes the field; the record is
+  the engine's own opaque state (D-IMPL-18/27) and no adopter constructs
+  one. An execution suspended under an older record shape is not resumable
+  across the change, which is correct rather than regrettable — the whole
+  point is that the fabric can no longer be told what it was running
+
+*Recorded by `350-01-a-gate-opens-on-a-human-action.md`.*
 
 ### Not public Python API
 

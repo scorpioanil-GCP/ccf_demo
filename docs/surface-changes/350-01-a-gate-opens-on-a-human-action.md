@@ -84,6 +84,31 @@ imported package and published their targets into the Control Plane.
   unbounded as the size was
 - Migration: none below the ceiling
 
+## ccf_runtime.workflow.state.WorkflowStateRecord
+
+- Surface: ccf_runtime.workflow.state.WorkflowStateRecord
+- Public surface: true
+- Change type: reshaped
+- Before: six fields, the last being `workflow_definition_uri` — whose
+  docstring said resume "validates the supplied handle against it, so an
+  execution never continues under a definition it was not started with"
+- After: a seventh required field, `workflow_definition_hash`, and the pair
+  is what resume compares
+- Why: the URI could not deliver what its own docstring claimed. The factory
+  builds `definition_uri` from the artifact's declared `tenant`, `name` and
+  `artifact_version` — never from the Control Plane key it was registered
+  under — so a second definition registered under any other key carries a
+  byte-identical URI while declaring different routing. Demonstrated: a
+  substituted definition adding `credit-officer-approval -> elsewhere`
+  completed there **with a genuine approver's action in hand**, spending a
+  real human decision on a transition their workflow never declared
+  (`SEC-001`, security review 2026-09-23)
+- Migration: none for a caller. The engine writes the field; the record is
+  the engine's own opaque state (D-IMPL-18/27) and no adopter constructs
+  one. An execution suspended under an older record shape is not resumable
+  across the change, which is correct rather than regrettable — the whole
+  point is that the fabric can no longer be told what it was running
+
 ## runtime/ccf_runtime/workflow/engine.py
 
 - Surface: runtime/ccf_runtime/workflow/engine.py
