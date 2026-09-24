@@ -271,6 +271,7 @@ __all__ = [
     "OptionalAbsenceTreatment",
     "ServeObligations",
     "requirements_declaration_is_coherent",
+    "RefusalCause",
     "TTLAnchor",
     "register_product_class",
     "version_satisfies_floor",

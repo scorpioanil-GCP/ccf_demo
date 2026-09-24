@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1324 entries**, of which **1078** name a public Python surface.
+**1327 entries**, of which **1079** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-717 entries — 675 public Python surface, 42 not public Python API.
+719 entries — 677 public Python surface, 42 not public Python API.
 
 ### Public Python surface
 
@@ -7243,6 +7243,30 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `20.3-02-declared-seam-refusals-d-impl-347-b2.md`.*
 
+#### ccf.products.resolver.PackagingTraceProtocol
+
+- Surface: ccf.products.resolver.PackagingTraceProtocol
+- Public surface: true
+- Change type: added
+- Before: no way for a deployment to report what its packaging stage did
+- After: a `__call__(*, product)` seam returning the five pinned values, exported beside the other deployment-supplied seam Protocols
+- Why: §7.10.4 requires the Mode 2 footprint on the record, and only the deployment knows it
+- Migration: none — `None` for every Mode 1 deployment, which is every one shipped before `dr-02`
+
+*Recorded by `20.4-01-mode-2-packaging-reaches-dimension-3.md`.*
+
+#### ccf.products.contract.RefusalCause
+
+- Surface: ccf.products.contract.RefusalCause
+- Public surface: true
+- Change type: added
+- Before: the three refusal causes were spelled as a literal in two modules
+- After: one exported alias beside `TTLAnchor` and `AssemblyMode`, referenced by both
+- Why: the restatement in `controlplane/artifacts.py` read as the SDK enumerating a vocabulary it does not own and took `test_no_obligation_vocabulary.py` from 54 passed to 43 failed (`D-IMPL-117`)
+- Migration: none — same three values, same validation; the emitted JSON Schema enum is byte-identical
+
+*Recorded by `20.4-01-mode-2-packaging-reaches-dimension-3.md`.*
+
 #### ccf.graph.protocols.TemporalAxis
 
 - Surface: ccf.graph.protocols.TemporalAxis
@@ -12539,7 +12563,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-430 entries — 246 public Python surface, 184 not public Python API.
+431 entries — 245 public Python surface, 186 not public Python API.
 
 ### Public Python surface
 
@@ -15062,29 +15086,17 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `19-02-the-adapter-seam-carries-bytes.md`.*
 
-#### ccf.products.resolver.GovernedResolver.operator_parameters
+#### ccf.replay.record.ModelVersionRecord
 
-- Surface: ccf.products.resolver.GovernedResolver.operator_parameters
+- Surface: ccf.replay.record.ModelVersionRecord
 - Public surface: true
 - Change type: reshaped
-- Before: `_operator_parameters` — private, while its own docstring called it *"the adopter-side idiom"*; reached 9 times across 6 files including the adopter-facing `examples/replay-a-governed-determination/replay.py`, which carried a `# noqa: SLF001` to say so
-- After: public, same signature and behavior
-- Why: six example trees and the published how-to all had to reach a private member to bind operator parameters from the effective request; a public need with no legal spelling is a surface defect
-- Migration: none for adopters — the public name is new. Renamed rather than aliased because nothing has shipped (`D-IMPL-293`).
+- Before: `packaging_trace` existed on the model with no path to populate it
+- After: `build_replay_record` accepts `packaging_trace=` and threads it into dimension 3
+- Why: a typed slot nothing can fill is documentation wearing a type annotation
+- Migration: none — the argument defaults to `None` and the field keeps `NO_PACKAGING_TRACE`, so every existing caller and every record already written is unchanged
 
-*Recorded by `20.2-01-the-adopter-surface-d-impl-346.md`.*
-
-#### ccf.products.resolver.RefusalRecorderProtocol.record
-
-- Surface: ccf.products.resolver.RefusalRecorderProtocol.record
-- Public surface: true
-- Change type: reshaped
-- Before: no way to state which seam held a refusal
-- After: a defaulted `refusal_seam` keyword, on the `child_resolutions` precedent
-- Why: the seam has to reach the replay writer through the one minting seam, not around it
-- Migration: none — defaulted, so every existing implementation and call site is unchanged
-
-*Recorded by `20.3-01-seam-held-refusals-d-impl-347.md`.*
+*Recorded by `20.4-01-mode-2-packaging-reaches-dimension-3.md`.*
 
 #### ccf.graph.backends.fluree.FlureeGraphStore
 
@@ -19560,6 +19572,30 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Migration: boot your replica from the same manifest; do not import another module's private loaders
 
 *Recorded by `15-20-external.md`.*
+
+#### ccf.products.resolver.GovernedResolver.operator_parameters
+
+- Surface: ccf.products.resolver.GovernedResolver.operator_parameters
+- Public surface: false
+- Change type: reshaped
+- Before: `_operator_parameters` — private, while its own docstring called it *"the adopter-side idiom"*; reached 9 times across 6 files including the adopter-facing `examples/replay-a-governed-determination/replay.py`, which carried a `# noqa: SLF001` to say so
+- After: public, same signature and behavior
+- Why: six example trees and the published how-to all had to reach a private member to bind operator parameters from the effective request; a public need with no legal spelling is a surface defect
+- Migration: none for adopters — the public name is new. Renamed rather than aliased because nothing has shipped (`D-IMPL-293`).
+
+*Recorded by `20.2-01-the-adopter-surface-d-impl-346.md`.*
+
+#### ccf.products.resolver.RefusalRecorderProtocol.record
+
+- Surface: ccf.products.resolver.RefusalRecorderProtocol.record
+- Public surface: false
+- Change type: reshaped
+- Before: no way to state which seam held a refusal
+- After: a defaulted `refusal_seam` keyword, on the `child_resolutions` precedent
+- Why: the seam has to reach the replay writer through the one minting seam, not around it
+- Migration: none — defaulted, so every existing implementation and call site is unchanged
+
+*Recorded by `20.3-01-seam-held-refusals-d-impl-347.md`.*
 
 #### docs/schemas/ccf.product-request-contract.json
 

@@ -152,7 +152,17 @@ GOVERNED_DIMENSIONS = (
 #: what *it* invoked in these, and the harness records what *it* invoked in
 #: ``harness_trace``. Conflating the two is precisely how a harness overwrites a
 #: governed claim (T-06-62).
-GOVERNED_MODEL_VERSION_FIELDS = ("assembly_mode", "model_version")
+GOVERNED_MODEL_VERSION_FIELDS = (
+    "assembly_mode",
+    "model_version",
+    # §7.10.4's Mode 2 footprint (`PKG-F-08`). GOVERNED, not harness-attributable:
+    # it records what the DEPLOYMENT's packaging stage did — which model, at what
+    # temperature, against which prompt artifact, producing which bytes — and the
+    # harness reports none of it. Two harnesses driving one deployment must
+    # therefore agree on it exactly, which is what puts it on this side of the
+    # line rather than beside `harness_trace`.
+    "packaging_trace",
+)
 
 #: Dimension 3's harness-attributable sub-structure — excluded from the
 #: governed comparison and asserted to *differ* per harness instead (D-18, D-25).

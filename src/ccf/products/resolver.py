@@ -294,6 +294,7 @@ __all__ = [
     "ProductNotResolvable",
     "ChildAwareDebtScorerProtocol",
     "CompositePlanFactoryProtocol",
+    "PackagingTraceProtocol",
     "ProjectionPlanFactoryProtocol",
     "RefusalRecorderProtocol",
     "ReplayRefusalRecorder",

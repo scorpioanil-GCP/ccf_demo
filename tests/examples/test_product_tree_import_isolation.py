@@ -310,3 +310,110 @@ def test_every_door_importer_goes_through_the_one_helper() -> None:
             f"{name} executes a bare `from server import ...` at line"
             f" {bare[0].lineno}; it binds whatever is resident (`LEX-F-11`)"
         )
+
+
+# ---------------------------------------------------------------------------
+# `AIA-F-07`, the dr-02 instance — the bare TOP-LEVEL names, not the door
+# ---------------------------------------------------------------------------
+
+#: The pair that reproduced it. `dr-02`'s substrate IS cp-06's product, so the
+#: canonical suite reaches cp-06 first by ordinary dependency, not by accident.
+DR02_TREE = EXAMPLES / "dr-02-package-a-context-product"
+INTRUDER_TREE = EXAMPLES / "cp-06-canonical-collateral-and-setoff-coverage"
+
+#: Run in a FRESH interpreter so the result depends on nothing about this
+#: session's `sys.modules`. Two bindings are reported: what the UNGUARDED
+#: import gives once the intruder is resident — the negative control, which
+#: must bind the wrong tree or the poisoning proves nothing — and what
+#: `tree_modules_of` gives under the same poisoning.
+_DR02_PROBE = """
+import json, pathlib, sys
+repo, dr02, intruder = sys.argv[1], pathlib.Path(sys.argv[2]), pathlib.Path(sys.argv[3])
+sys.path.insert(0, repo)
+
+# Poison exactly as the canonical run does: the intruder's tree, imported
+# by its bare name, resident first.
+sys.path.insert(0, str(intruder))
+import deployment as poisoned
+sys.path.remove(str(intruder))
+
+# THE NEGATIVE CONTROL. The old unguarded idiom, verbatim.
+sys.path.insert(0, str(dr02))
+import deployment as unguarded
+sys.path.remove(str(dr02))
+
+from tests.examples.tree_import import tree_modules_of
+(guarded,) = tree_modules_of(dr02, "deployment")
+
+print(json.dumps({
+    "poisoned": str(pathlib.Path(poisoned.__file__).resolve().parent),
+    "unguarded": str(pathlib.Path(unguarded.__file__).resolve().parent),
+    "guarded": str(pathlib.Path(guarded.__file__).resolve().parent),
+}))
+"""
+
+
+def test_the_unguarded_import_binds_the_wrong_tree_and_the_guarded_one_does_not() -> None:
+    """`AIA-F-07` for `dr-02` — with its own negative control.
+
+    `dr-02` passed alone and failed all nine gates in the canonical run,
+    reproduced as `test_cp_06_mcp_door.py` then `test_dr_02_packaging.py`:
+    its `produce` bound **cp-06's** `deployment` and died on `module
+    'deployment' has no attribute 'acquire'`.
+
+    **Both halves are asserted in one process.** A guarded import that passes
+    while the unguarded one ALSO passes has proven nothing — it would mean the
+    poisoning never took, and the guard was never the reason for the green.
+    """
+    import json  # noqa: PLC0415
+    import subprocess  # noqa: PLC0415
+
+    completed = subprocess.run(
+        [sys.executable, "-c", _DR02_PROBE, str(REPO_ROOT), str(DR02_TREE), str(INTRUDER_TREE)],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stderr[-2000:]
+    seen = json.loads(completed.stdout.strip().splitlines()[-1])
+
+    assert seen["poisoned"] == str(INTRUDER_TREE), seen
+    # THE NEGATIVE CONTROL: the unguarded idiom binds the INTRUDER, because
+    # Python resolves a bare name from `sys.modules` before `sys.path`.
+    assert seen["unguarded"] == str(INTRUDER_TREE), (
+        "the unguarded import bound the right tree, so this poisoning proves"
+        f" nothing about the guarded one: {seen}"
+    )
+    # ...and the guard defeats exactly that.
+    assert seen["guarded"] == str(DR02_TREE), seen
+
+
+def test_the_three_colliding_rosters_agree() -> None:
+    """One roster of bare names, stated in three places, held together here.
+
+    `tree_import.COLLIDING_MODULES`, this module's `COLLIDING`, and the cp-05
+    door adapter's `_COLLIDING` each name the bare modules a product tree
+    occupies. Three copies drift, and a name missing from one of them is a
+    name that tree does not evict — which is `AIA-F-07` returning through the
+    one roster nobody updated.
+    """
+    import ast  # noqa: PLC0415
+
+    from tests.examples.tree_import import COLLIDING_MODULES  # noqa: PLC0415
+
+    adapter = (EXAMPLES / "door-cp-05-credit-exposure-rollup" / "adapter.py").read_text(
+        encoding="utf-8"
+    )
+    declared: set[str] | None = None
+    for node in ast.walk(ast.parse(adapter)):
+        if isinstance(node, ast.Assign) and any(
+            isinstance(t, ast.Name) and t.id == "_COLLIDING" for t in node.targets
+        ):
+            declared = {ast.literal_eval(e) for e in node.value.elts}  # type: ignore[attr-defined]
+    assert declared is not None, "the cp-05 door adapter no longer declares `_COLLIDING`"
+    assert set(COLLIDING_MODULES) == COLLIDING == declared, (
+        sorted(COLLIDING_MODULES),
+        sorted(COLLIDING),
+        sorted(declared),
+    )

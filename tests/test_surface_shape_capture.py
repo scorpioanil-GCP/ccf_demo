@@ -570,6 +570,28 @@ def test_every_moved_name_is_a_call_protocol_or_a_type_alias(
 #: ``__init__``. The claim is therefore amended in reach rather than withdrawn:
 #: every *unlisted* shape must still read identically.
 _SHAPE_MOVED_BY_FRAGMENT = {
+    # `PKG-F-08` — §7.10.4's Mode 2 footprint reaching replay dimension 3.
+    # Five shapes, one parameter: `packaging_trace`. Additive and keyword-only
+    # on all four helpers, so every existing call site reads identically at
+    # the signature; REQUIRED on `GovernedResolver` alone, on the
+    # `composite_children` precedent, because a default there made "this
+    # deployment does no packaging" and "nobody wired the seam" the same
+    # construction. The fragment names all five and says why.
+    "ccf.products.product.OpenedProduct": (
+        "20.4-01-mode-2-packaging-reaches-dimension-3.md"
+    ),
+    "ccf.products.product.open_product": (
+        "20.4-01-mode-2-packaging-reaches-dimension-3.md"
+    ),
+    "ccf.products.resolver.GovernedResolver": (
+        "20.4-01-mode-2-packaging-reaches-dimension-3.md"
+    ),
+    "ccf.products.resolver.build_governed_resolver": (
+        "20.4-01-mode-2-packaging-reaches-dimension-3.md"
+    ),
+    "ccf.replay.record.build_replay_record": (
+        "20.4-01-mode-2-packaging-reaches-dimension-3.md"
+    ),
     # Phase 24.1.1 (D-58, D-IMPL-213, D-IMPL-214). Three additive,
     # keyword-only, defaulted widenings across the two Protocol-shaped seams —
     # exactly the case this allowance was written for. Every existing call site

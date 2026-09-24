@@ -182,6 +182,36 @@
       "title": "ProductDiscovery",
       "type": "object"
     },
+    "SeamRefusalBinding": {
+      "additionalProperties": false,
+      "description": "One exception type this product class treats as a governed refusal.\n\n`D-IMPL-347` B2 (Dave, 2026-09-23): *\"Product class first; deployment may\nnarrow, not widen. The map is a governed value: exception type \u2192 cause /\nerror code.\"*\n\n**Why this is a declared value and not SDK mechanism.** A2 widened the\nSCOPE at which a typed ``GovernedRefusalRaised`` is honored; it deliberately\ndid not widen the TYPE, because the SDK cannot know whether a deployment's\n``ControlRoomUnreachable`` means *the subject is unavailable* or *this\ndeployment is broken*. Only the product knows, so the product says \u2014 in an\nartifact, like every other governed value (CLAUDE.md \u00a711).\n\n**The type is matched, never imported.** :attr:`exception` is compared\nagainst the raised exception's own ``module.QualName``; nothing here\nresolves a dotted path, so a declaration cannot cause an import and a\nmisspelled name simply never matches rather than executing something.\n\nAttributes:\n    exception: The fully qualified ``module.QualName`` of the exception\n        type, as Python reports it on the raised value.\n    cause: The refusal cause to mint, typed as\n        :data:`~ccf.products.contract.RefusalCause` \u2014 **referenced, never\n        restated**. The product's statement about what the failure MEANS,\n        which is the half the SDK cannot supply. It was spelled out here\n        as a literal once, and that copy read as this module enumerating a\n        vocabulary of its own: `artifacts.py` is one of the two roots\n        `tests/invariants/test_no_obligation_vocabulary.py` scans, and the\n        restatement turned that guard from 54 passed to 43 failed\n        (`D-IMPL-117`, CLAUDE.md \u00a711). One declaration, in the module that\n        owns the concept.\n    error_code: The deployment-facing code carried on the minted refusal.",
+      "properties": {
+        "cause": {
+          "enum": [
+            "nonexistent",
+            "unauthorized",
+            "undisclosed"
+          ],
+          "title": "Cause",
+          "type": "string"
+        },
+        "error_code": {
+          "title": "Error Code",
+          "type": "string"
+        },
+        "exception": {
+          "title": "Exception",
+          "type": "string"
+        }
+      },
+      "required": [
+        "exception",
+        "cause",
+        "error_code"
+      ],
+      "title": "SeamRefusalBinding",
+      "type": "object"
+    },
     "ServeObligations": {
       "additionalProperties": false,
       "description": "What a product class declares about serving \u2014 one obligation and one default.\n\nSDK-defined per CLAUDE.md \u00a711; whitepaper \u00a77.6 (the delivery contract and\nits validation gates) and \u00a77.7.4\u2013\u00a77.7.8 (Context Debt gating Forced LLM\nand Fail-Closed behavior). Ledger rows ``24.5-L-14`` and ``24.6-L-04`` (the\ndebt figure) and ``24.5-L-26`` (the per-attribute lineage obligation).\n\n**The two members are no longer the same kind of thing, and that is the\npoint** (``D-IMPL-251`` C1=A, recorded as ``D-IMPL-240`` amendment 2).\n``lineage_inputs_at`` is an *obligation*: the one structural serve-time\ngate ``D-IMPL-237`` licenses holds the product to it and refuses by name\n(:data:`~ccf.products.gates.GATE_DECLARED_OBLIGATIONS`).\n``default_debt_tolerance`` is a *default*: Dave's *\"a product class cannot\nindependently withhold otherwise deliverable context because its own debt\npreference was exceeded\"* \u2014 the class value *\"can be a declared/default\ntolerance characteristic, but it is not itself a policy boundary\"*.\n\n**The three debt concepts, which this field is exactly one of**\n(``D-IMPL-240`` amendment 2):\n\n1. the product's own figure \u2014 *informative*, and applied only as a\n   **default** when the caller states no tolerance (worked case 2);\n2. the consumer's declared ``debt_tolerance`` \u2014 enforced **as requested**,\n   looser or tighter, because the consumer owns fitness (``C2=B``);\n3. an applicable regulatory or enterprise policy constraint \u2014 enforced as\n   **governance**, through :mod:`ccf.products.constraints` and never\n   through this artifact (*\"policy limits are not placed in product-class\n   registration\"*).\n\nAll three reach one place: the Authority layer resolves them into one\n:class:`~ccf.products.provenance.EffectiveParameter` carrying the\nauthority that established it, and\n:func:`~ccf.products.gates.refuse_over_tolerance` holds an already-admitted\nproduct to it. Nothing here is a ceiling and nothing here is folded with\n``min``.\n\nAttributes:\n    default_debt_tolerance: The class's declared ``D_c`` tolerance, a\n        proportion in ``[0, 1]`` (the interval\n        :class:`~ccf.halflife.assessment.DebtAssessment` already holds\n        ``debt`` to). ``None`` is the positive sentinel *this class\n        declares no default* \u2014 under which no tolerance applies unless a\n        caller or a policy states one. It is the effective tolerance ONLY\n        when the caller omits ``debt_tolerance``, and it is then recorded\n        with authority ``default`` and this artifact's pin as its source.\n        A caller's *looser* value is honored, because a class preference\n        is not governance. The NUMBER is the deployment's to author in its\n        product-class artifact; the SDK ships no default and no threshold\n        (CINV-01, CLAUDE.md \u00a711).\n    lineage_inputs_at: The TOP-LEVEL payload members that must be present\n        and non-empty at serve \u2014 the class's per-attribute lineage\n        obligation (``24.5-L-26``; the SDK's declared form of what cp-03\n        carries as a product gate). The empty set is the positive sentinel\n        *no obligation declared*. Names only: which members a class\n        obliges is the class's to say, and what those members contain is\n        never read here.\n\n**The name moved with the meaning** (``D-IMPL-253`` Q9). Dave: *\"Rename\nit.\"* \u2014 keeping the previous name, which called this figure a ceiling,\n*\"after changing its authority would perpetuate the conceptual error we\njust fixed.\"* The field is the same field, renamed at ``24.6-04``; its\nhash posture and its sentinel are unchanged. The previous name is spelled\nnowhere in ``src/``, ``runtime/`` or ``tools/``; under ``tests/`` it appears\nonly in the assertions that assert its ABSENCE, so a reader grepping for it\nfinds those and the dated records that made it.\n\nBoth fields are hash-transparent at their sentinels under ``D-IMPL-243``\namendment 2 (Dave: *\"``ServeObligations``' two fields at empty True \u2014\nempty \u2261 pre-phase 'nothing enforced'\"*): a model absent at ``13bd250``\nwhose empty form obliges nothing is omitted member-by-member at that\nvalue, so a class declaring a tolerance and no lineage obligation renders\nthe tolerance alone.",
@@ -348,6 +378,15 @@
     "schema_version": {
       "title": "Schema Version",
       "type": "string"
+    },
+    "seam_refusals": {
+      "ccf_hash_transparent": true,
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/SeamRefusalBinding"
+      },
+      "title": "Seam Refusals",
+      "type": "array"
     },
     "semver": {
       "title": "Semver",
