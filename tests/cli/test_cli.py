@@ -313,7 +313,8 @@ def test_workflow_invoke_status_resume(
     )
     assert code == 0 and json.loads(out)["status"] == "suspended"
 
-    # an undeclared decision is a typed refusal → exit 1, body printed
+    # resuming the gate with nothing on the HITL authority path is a typed
+    # refusal → exit 1, body printed (SEC-001, security review 2026-09-23).
     code, out, _ = run_cli(
         [
             "workflow",
@@ -325,12 +326,26 @@ def test_workflow_invoke_status_resume(
             "--execution-id",
             "cli-covenant-1",
             "--decision",
-            "no-such-transition",
+            "approved",
         ],
         capsys,
         dependencies=deps,
     )
-    assert code == 1 and "declared transition" in out
+    assert code == 1 and "authority path" in out
+    # and the execution is where it was: still waiting on its human
+    code, out, _ = run_cli(
+        [
+            "workflow",
+            "status",
+            "--tenant",
+            suspended["tenant"],
+            "--execution-id",
+            "cli-covenant-1",
+        ],
+        capsys,
+        dependencies=deps,
+    )
+    assert code == 0 and json.loads(out)["status"] == "suspended"
 
 
 # --- hitl submit travels the typed authority path --------------------------

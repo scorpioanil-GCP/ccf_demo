@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1327 entries**, of which **1079** name a public Python surface.
+**1333 entries**, of which **1083** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-719 entries — 677 public Python surface, 42 not public Python API.
+723 entries — 681 public Python surface, 42 not public Python API.
 
 ### Public Python surface
 
@@ -11876,6 +11876,71 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `345-01-a-dereference-is-a-governed-determination.md`.*
 
+#### ccf.hitl.approval_gate.GATE_APPROVE
+
+- Surface: ccf.hitl.approval_gate.GATE_APPROVE
+- Public surface: true
+- Change type: added
+- Before: absent — `GATE_ACTIONS` named the pair, and nothing named the
+  affirmative member
+- After: `"approve"`, the one gate verdict that is an authorization rather
+  than merely a recorded action
+- Why: the engine's gate-authority check has to distinguish "a human acted"
+  from "a human said yes". Reaching for a bare `"approve"` literal in
+  `/runtime` would put a vocabulary value outside the module that owns the
+  vocabulary
+- Migration: none. A new public constant drawn from the existing
+  `GATE_ACTIONS`
+
+*Recorded by `350-01-a-gate-opens-on-a-human-action.md`.*
+
+#### ccf_runtime.cli.commands.CommandRefused
+
+- Surface: ccf_runtime.cli.commands.CommandRefused
+- Public surface: true
+- Change type: added
+- Before: absent — only a refusal that had crossed the HTTP boundary could
+  reach the documented exit-1-with-body contract, so a verb refusing its own
+  local inputs could do nothing but raise
+- After: a `ValueError` subclass; `ccf_runtime.cli.main.main` catches it,
+  prints it on stdout and returns `EXIT_REFUSED`
+- Why: `SEC-003`'s refusals are governance outcomes and have to read like
+  one. An operator handed a traceback for a hostile skill package learns
+  less than an operator handed a refusal
+- Migration: none for existing verbs. A new verb that refuses its own inputs
+  should raise this rather than a bare `ValueError`
+
+*Recorded by `350-01-a-gate-opens-on-a-human-action.md`.*
+
+#### ccf_runtime.cli.commands.skill_import.MAX_REFERENCE_BYTES
+
+- Surface: ccf_runtime.cli.commands.skill_import.MAX_REFERENCE_BYTES
+- Public surface: true
+- Change type: added
+- Before: absent — `reference.read_text()` was unbounded
+- After: `1_048_576`, the per-file ceiling `_read_contained` enforces
+- Why: a skill package exists to be distributed, which makes it untrusted
+  input, and an unbounded read of untrusted input is a resource hazard
+  independent of what the bytes turn out to be. Public so an operator can
+  see the ceiling they are being held to
+- Migration: none below the ceiling. A package above it is refused
+
+*Recorded by `350-01-a-gate-opens-on-a-human-action.md`.*
+
+#### ccf_runtime.cli.commands.skill_import.MAX_REFERENCES
+
+- Surface: ccf_runtime.cli.commands.skill_import.MAX_REFERENCES
+- Public surface: true
+- Change type: added
+- Before: absent — one import registered as many prompt artifacts as the
+  directory held
+- After: `64`, the per-import ceiling on registered reference artifacts
+- Why: the same reason as the byte ceiling, one level up: the count is as
+  unbounded as the size was
+- Migration: none below the ceiling
+
+*Recorded by `350-01-a-gate-opens-on-a-human-action.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -19869,7 +19934,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-160 entries — 140 public Python surface, 20 not public Python API.
+162 entries — 140 public Python surface, 22 not public Python API.
 
 ### Public Python surface
 
@@ -23612,3 +23677,55 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none — test-tree only
 
 *Recorded by `19-06-the-http-door-publishes-the-question.md`.*
+
+#### runtime/ccf_runtime/workflow/engine.py
+
+- Surface: runtime/ccf_runtime/workflow/engine.py
+- Public surface: false
+- Change type: behavior
+- Before: `resume` checked four things and then `if decision not in targets`.
+  `self._hitl_transport` appeared once in the whole gate path — at line 619,
+  to *enqueue* the pending approval. Nothing ever read it back. The audit
+  then recorded `workflow_resumed, resolved=True` with no actor, so the
+  record did not merely omit the approval, it asserted a resolution that
+  never happened
+- After: a gate-suspended execution resumes only when the HITL authority
+  path holds a submission that (a) names this gate's pending event, (b)
+  echoes `content_hash(record)` — the suspension's own identity, which the
+  pending event already binds and `ApprovalGate` already makes the approver
+  attest to (T-07-39) — and (c) carries a `GATE_ACTIONS` verdict. The
+  approver's `subject_id` is then the audit event's `actor`, and `_append`'s
+  `actor` keyword carries no default, so no call site can omit it silently.
+  The refusal no longer prints the declared transition targets
+- Why: `SEC-001`. The whole HITL pillar is sold on the claim that a human
+  authorized the transition
+- Migration: a deployment that resumed gates programmatically must now route
+  the human action through the HITL transport first — which is the path
+  `ApprovalGate`, `POST /hitl/actions` and `ccf hitl submit` already offer.
+  The in-tree example and test suites needed exactly that one edit
+
+*Recorded by `350-01-a-gate-opens-on-a-human-action.md`.*
+
+#### runtime/ccf_runtime/cli/commands/skill_import.py
+
+- Surface: runtime/ccf_runtime/cli/commands/skill_import.py
+- Public surface: false
+- Change type: behavior
+- Before: `references.iterdir()` filtered on `reference.is_file()`, which
+  **follows symlinks**, and `SKILL.md` was read the same way. No `resolve()`,
+  no `is_symlink()`, no containment check, no ceiling anywhere in the module
+- After: every read goes through `_read_contained`, which refuses a symlink
+  outright, refuses a path resolving outside the package, refuses anything
+  that is not a regular file, and refuses a file over the byte ceiling; the
+  reference count is checked against `MAX_REFERENCES` before any read
+- Why: `SEC-003`, and it chains. A shared package carrying
+  `references/usage.md -> ~/.aws/credentials` had those bytes registered as
+  a prompt artifact, where `GET /config/resolution` — unauthorized, `SEC-002`
+  — served them to any caller. That was the most complete exfiltration path
+  the review found. A symlink is refused rather than resolved-and-allowed
+  because a link inside a *distributed* package has no legitimate meaning on
+  the importing machine, and refusing is the only answer that does not depend
+  on where the link happens to point
+- Migration: a package that genuinely wants a file's contents ships the file
+
+*Recorded by `350-01-a-gate-opens-on-a-human-action.md`.*

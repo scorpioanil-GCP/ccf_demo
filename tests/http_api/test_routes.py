@@ -496,20 +496,98 @@ def test_workflow_duplicate_invocation_is_a_typed_409(
     assert "already exists" in second.json()["reason"]
 
 
-def test_workflow_resume_with_an_undeclared_decision_is_refused(
-    app: Any, fabric: Fabric
-) -> None:
+def _suspend_over_http(app: Any, fabric: Fabric, execution_id: str) -> dict[str, Any]:
     key, version = fabric.covenant
-    call(
+    body: dict[str, Any] = call(
         app,
         "POST",
         "/workflow/invocations",
         json={
             "definition_key": key,
             "definition_version": version,
-            "execution_id": "http-covenant-resume",
+            "execution_id": execution_id,
+        },
+    ).json()
+    return body
+
+
+def _approve_over_http(app: Any, fabric: Fabric, body: dict[str, Any]) -> None:
+    """Put a human action on the authority path for this suspension."""
+    pending = next(
+        event
+        for event in fabric.hitl.pending(tenant=body["tenant"])
+        if event.event_key == body["event_key"]
+    )
+    submission = _bound_submission(body["event_key"])
+    submission["principal"]["product_content_hash"] = (
+        pending.product_content_hash
+    )
+    assert call(
+        app, "POST", "/hitl/actions", json=submission
+    ).status_code == 200
+
+
+def test_workflow_resume_of_a_gate_without_a_human_action_is_refused(
+    app: Any, fabric: Fabric
+) -> None:
+    """SEC-001 at the door. ``POST /workflow/resumptions`` is the reachable
+    path the security review of 2026-09-23 named: with nothing on the HITL
+    authority path, naming a declared transition does not open the gate."""
+    key, version = fabric.covenant
+    body = _suspend_over_http(app, fabric, "http-covenant-unapproved")
+    response = call(
+        app,
+        "POST",
+        "/workflow/resumptions",
+        json={
+            "definition_key": key,
+            "definition_version": version,
+            "execution_id": "http-covenant-unapproved",
+            "decision": "approved",
         },
     )
+    assert response.status_code == 409
+    assert "authority path" in response.json()["reason"]
+    status = call(
+        app,
+        "GET",
+        "/workflow/execution",
+        params={
+            "tenant": body["tenant"],
+            "execution_id": "http-covenant-unapproved",
+        },
+    )
+    assert status.json()["status"] == "suspended"
+
+
+def test_workflow_resume_refusal_does_not_enumerate_the_declared_targets(
+    app: Any, fabric: Fabric
+) -> None:
+    """SEC-001 remedy 3: the 409 must not hand the caller the transitions
+    it would have accepted."""
+    key, version = fabric.covenant
+    _suspend_over_http(app, fabric, "http-covenant-noleak")
+    response = call(
+        app,
+        "POST",
+        "/workflow/resumptions",
+        json={
+            "definition_key": key,
+            "definition_version": version,
+            "execution_id": "http-covenant-noleak",
+            "decision": "no-such-transition",
+        },
+    )
+    assert response.status_code == 409
+    assert "approved" not in response.json()["reason"]
+
+
+def test_workflow_resume_with_an_undeclared_decision_is_refused(
+    app: Any, fabric: Fabric
+) -> None:
+    key, version = fabric.covenant
+    body = _suspend_over_http(app, fabric, "http-covenant-resume")
+    _approve_over_http(app, fabric, body)
     response = call(
         app,
         "POST",

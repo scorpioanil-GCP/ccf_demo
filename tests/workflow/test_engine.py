@@ -58,6 +58,12 @@ from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.controlplane.artifacts import declared_artifact_class, parse_artifact
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.graph.protocols import GraphView
+from ccf.hitl.approval_gate import ApprovalGate, GateResolution
+from ccf.hitl.principal import (
+    ApproverIdentity,
+    AuthenticationContext,
+    HumanPrincipalBinding,
+)
 from ccf.hitl.transport import InMemoryHitlTransport
 from ccf.products.contract import ContextProductContract, ProductLineage
 from ccf.projection.engine import ExecutionResult, ExecutionStep
@@ -497,10 +503,16 @@ def test_two_tenants_do_not_collide(
 def test_suspend_resume_terminal_round_trip(
     registry: ControlPlaneRegistry, tmp_path: Path
 ) -> None:
-    engine, _, _ = _engine(registry, tmp_path)
+    engine, transport, _ = _engine(registry, tmp_path)
     workflow = _covenant(registry)
     suspended = asyncio.run(engine.execute(workflow, execution_id="exec-1"))
     assert isinstance(suspended, WorkflowSuspended)
+    _resolve_gate(
+        registry,
+        transport,
+        tenant=workflow.definition.tenant,
+        event_key=suspended.event_key,
+    )
     outcome = asyncio.run(
         engine.resume(workflow, execution_id="exec-1", decision="approved")
     )
@@ -523,10 +535,16 @@ def test_the_trace_writes_through_at_suspend_and_at_terminal(
 ) -> None:
     """D-IMPL-18: trace artifacts at both write-through points; D-IMPL-27:
     the live suspended record stays native, never on the ArtifactStore."""
-    engine, _, _ = _engine(registry, tmp_path)
+    engine, transport, _ = _engine(registry, tmp_path)
     workflow = _covenant(registry)
     suspended = asyncio.run(engine.execute(workflow, execution_id="exec-1"))
     assert isinstance(suspended, WorkflowSuspended)
+    _resolve_gate(
+        registry,
+        transport,
+        tenant=workflow.definition.tenant,
+        event_key=suspended.event_key,
+    )
     store = engine.artifact_store
     suspend_trace = store.get(
         content_address=suspended.trace_artifact.content_address
@@ -552,9 +570,16 @@ def test_the_step_sequence_and_delegation_chain_land_on_replay(
 ) -> None:
     """Byte-equality: dim 5 records the engine's block verbatim; dim 4's
     chain extends with the workflow execution id and agent identities."""
-    engine, _, _ = _engine(registry, tmp_path)
+    engine, transport, _ = _engine(registry, tmp_path)
     workflow = _covenant(registry)
-    asyncio.run(engine.execute(workflow, execution_id="exec-1"))
+    suspended = asyncio.run(engine.execute(workflow, execution_id="exec-1"))
+    assert isinstance(suspended, WorkflowSuspended)
+    _resolve_gate(
+        registry,
+        transport,
+        tenant=workflow.definition.tenant,
+        event_key=suspended.event_key,
+    )
     outcome = asyncio.run(
         engine.resume(workflow, execution_id="exec-1", decision="approved")
     )
@@ -624,11 +649,218 @@ def test_resuming_with_an_undeclared_decision_is_a_typed_refusal(
 ) -> None:
     """Routing is interpreted from the artifact only (CINV-01): a decision
     must name a declared transition target from the suspended gate."""
-    engine, _, _ = _engine(registry, tmp_path)
+    engine, transport, _ = _engine(registry, tmp_path)
     workflow = _covenant(registry)
-    asyncio.run(engine.execute(workflow, execution_id="exec-1"))
+    suspended = asyncio.run(engine.execute(workflow, execution_id="exec-1"))
+    assert isinstance(suspended, WorkflowSuspended)
+    # A real approval is on the authority path, so the refusal below is
+    # about routing and nothing else (SEC-001 ordering: authority first).
+    _resolve_gate(
+        registry,
+        transport,
+        tenant=workflow.definition.tenant,
+        event_key=suspended.event_key,
+    )
     outcome = asyncio.run(
         engine.resume(workflow, execution_id="exec-1", decision="escalated")
     )
     assert isinstance(outcome, WorkflowResumeRefused)
     assert "escalated" in outcome.reason
+
+
+# --- SEC-001: a gate is authority, not a string ------------------------------
+#
+# The security review of 2026-09-23 found that ``resume`` advanced a
+# gate-suspended execution on the caller's ``decision`` string alone: the
+# HITL transport was written to at suspend and never read at resume, and the
+# audit recorded ``resolved=True`` with no approver. These tests pin the
+# restored control — they fail against the pre-fix engine.
+
+
+def _binding(product_content_hash: str, *, subject_id: str = "officer-1"):
+    """One approver's complete D-IMPL-21 binding over what they saw."""
+    return HumanPrincipalBinding(
+        approver=ApproverIdentity(
+            subject_id=subject_id,
+            identity_provider_ref="oidc://acme-bank/staff",
+        ),
+        authentication=AuthenticationContext(
+            method="oidc",
+            assurance_level="aal2",
+            session_ref="sess-1",
+        ),
+        action_time=datetime(2026, 7, 30, 12, tzinfo=UTC),
+        product_content_hash=product_content_hash,
+    )
+
+
+def _resolve_gate(
+    registry: ControlPlaneRegistry,
+    transport: InMemoryHitlTransport,
+    *,
+    tenant: str,
+    event_key: str,
+    action: str = "approve",
+    subject_id: str = "officer-1",
+) -> GateResolution:
+    """Put a real human action through the real ApprovalGate."""
+    pending = next(
+        event
+        for event in transport.pending(tenant=tenant)
+        if event.event_key == event_key
+    )
+    gate = ApprovalGate(
+        transport=transport,
+        audit=registry.audit_log,
+        clock=_ticking_clock(),
+    )
+    resolution = gate.resolve(
+        tenant=tenant,
+        event_key=event_key,
+        action=action,
+        principal=_binding(pending.product_content_hash, subject_id=subject_id),
+    )
+    assert isinstance(resolution, GateResolution)
+    return resolution
+
+
+def test_resuming_a_gate_with_no_human_action_is_refused(
+    registry: ControlPlaneRegistry, tmp_path: Path
+) -> None:
+    """SEC-001. Naming a declared transition is not approving: with nothing
+    returned through the HITL authority path, the gate does not open."""
+    engine, transport, _ = _engine(registry, tmp_path)
+    workflow = _covenant(registry)
+    suspended = asyncio.run(engine.execute(workflow, execution_id="exec-1"))
+    assert isinstance(suspended, WorkflowSuspended)
+    outcome = asyncio.run(
+        engine.resume(workflow, execution_id="exec-1", decision="approved")
+    )
+    assert isinstance(outcome, WorkflowResumeRefused)
+    key = f"{workflow.definition.tenant}/exec-1"
+    record = registry.state_store.get(WORKFLOW_STATE, key)
+    assert isinstance(record, WorkflowStateRecord)
+    assert record.status == "suspended"  # the gate still holds
+    assert len(transport.pending(tenant=workflow.definition.tenant)) == 1
+    refusals = [
+        event
+        for event in registry.audit_log.events()
+        if event.action == "workflow_resumed" and not event.resolved
+    ]
+    assert len(refusals) == 1
+
+
+def test_a_refused_gate_resume_does_not_enumerate_the_declared_targets(
+    registry: ControlPlaneRegistry, tmp_path: Path
+) -> None:
+    """SEC-001 remedy 3. The refusal must not answer the caller's question
+    for them by printing the transitions it would have accepted."""
+    engine, _, _ = _engine(registry, tmp_path)
+    workflow = _covenant(registry)
+    asyncio.run(engine.execute(workflow, execution_id="exec-1"))
+    declared = {
+        transition.target
+        for transition in workflow.definition.transitions
+        if transition.source == "credit-officer-approval"
+    }
+    assert declared  # the fixture really does declare targets to leak
+    outcome = asyncio.run(
+        engine.resume(workflow, execution_id="exec-1", decision="escalated")
+    )
+    assert isinstance(outcome, WorkflowResumeRefused)
+    for target in declared:
+        assert target not in outcome.reason
+
+
+def test_a_resolved_gate_resumes_and_audits_the_approver(
+    registry: ControlPlaneRegistry, tmp_path: Path
+) -> None:
+    """SEC-001. With a real ApprovalGate resolution on the authority path
+    the workflow advances, and the audit names who opened the gate."""
+    engine, transport, _ = _engine(registry, tmp_path)
+    workflow = _covenant(registry)
+    suspended = asyncio.run(engine.execute(workflow, execution_id="exec-1"))
+    assert isinstance(suspended, WorkflowSuspended)
+    _resolve_gate(
+        registry,
+        transport,
+        tenant=workflow.definition.tenant,
+        event_key=suspended.event_key,
+    )
+    outcome = asyncio.run(
+        engine.resume(workflow, execution_id="exec-1", decision="approved")
+    )
+    assert isinstance(outcome, WorkflowCompleted)
+    assert outcome.terminal_state == "approved"
+    resumed = [
+        event
+        for event in registry.audit_log.events()
+        if event.action == "workflow_resumed"
+    ]
+    assert len(resumed) == 1
+    assert resumed[0].resolved
+    assert resumed[0].actor == "officer-1"
+
+
+def test_a_rejection_authorizes_resumption_but_does_not_bind_the_target(
+    registry: ControlPlaneRegistry, tmp_path: Path
+) -> None:
+    """SEC-001 residual, pinned (D-IMPL-350).
+
+    A recorded rejection IS a human action on the authority path, so it
+    satisfies the gate-authority check and the workflow leaves the gate —
+    that is how a rejection reaches its declared ``rejected`` terminal
+    (``test_slice.py::test_a_rejected_approval_routes_as_a_recorded_transition``).
+
+    What no artifact declares is WHICH target each verdict may take, so a
+    rejection can still be routed down the approving branch. This test
+    records that residual as executable evidence and goes RED the moment a
+    verdict→target binding is declared and enforced — which is the point.
+    """
+    engine, transport, _ = _engine(registry, tmp_path)
+    workflow = _covenant(registry)
+    suspended = asyncio.run(engine.execute(workflow, execution_id="exec-1"))
+    assert isinstance(suspended, WorkflowSuspended)
+    _resolve_gate(
+        registry,
+        transport,
+        tenant=workflow.definition.tenant,
+        event_key=suspended.event_key,
+        action="reject",
+        subject_id="officer-2",
+    )
+    outcome = asyncio.run(
+        engine.resume(workflow, execution_id="exec-1", decision="approved")
+    )
+    assert isinstance(outcome, WorkflowCompleted)  # the residual, visible
+    resumed = [
+        event
+        for event in registry.audit_log.events()
+        if event.action == "workflow_resumed"
+    ]
+    # The audit does name the human whose action opened the gate, so the
+    # divergence is at least answerable from the record.
+    assert resumed[0].actor == "officer-2"
+
+
+def test_another_executions_approval_does_not_open_this_gate(
+    registry: ControlPlaneRegistry, tmp_path: Path
+) -> None:
+    """SEC-001. The human action binds to the suspension it was taken
+    against — an approval of exec-1 is not an approval of exec-2."""
+    engine, transport, _ = _engine(registry, tmp_path)
+    workflow = _covenant(registry)
+    first = asyncio.run(engine.execute(workflow, execution_id="exec-1"))
+    second = asyncio.run(engine.execute(workflow, execution_id="exec-2"))
+    assert isinstance(first, WorkflowSuspended)
+    assert isinstance(second, WorkflowSuspended)
+    _resolve_gate(
+        registry,
+        transport,
+        tenant=workflow.definition.tenant,
+        event_key=first.event_key,
+    )
+    outcome = asyncio.run(
+        engine.resume(workflow, execution_id="exec-2", decision="approved")
+    )
+    assert isinstance(outcome, WorkflowResumeRefused)

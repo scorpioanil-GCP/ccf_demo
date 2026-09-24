@@ -86,6 +86,7 @@ __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "GATE_ACTIONS",
+    "GATE_APPROVE",
     "HITL_ACTION_ARTIFACT_CLASS",
     "ApprovalGate",
     "ApprovalSinkAdapter",
@@ -109,6 +110,13 @@ HITL_ACTION_ARTIFACT_CLASS = "ccf.hitl-action"
 #: identifiers, never approval rules: *who* may act and under what policy is
 #: the gate's pinned ``policy_ref``'s statement (CINV-01).
 GATE_ACTIONS: frozenset[str] = frozenset({"approve", "reject"})
+
+#: The affirmative verdict — the one gate action that authorizes passage
+#: past the gate it resolves. A mechanism identifier drawn from
+#: :data:`GATE_ACTIONS`, named so consumers that must distinguish "a human
+#: acted" from "a human said yes" (the workflow engine's gate-authority
+#: check, SEC-001) reference the vocabulary rather than a bare literal.
+GATE_APPROVE = "approve"
 
 
 class UnknownGateEventError(LookupError):

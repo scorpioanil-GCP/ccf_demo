@@ -34,15 +34,74 @@ import jinja2.sandbox
 import yaml
 
 from ccf.agents.definitions import PROMPT_ARTIFACT
-from ccf_runtime.cli.commands import RequestSpec
+from ccf_runtime.cli.commands import CommandRefused, RequestSpec
 
 __ccf_mode__ = "algorithmic"
 
-__all__ = ["register"]
+__all__ = ["MAX_REFERENCES", "MAX_REFERENCE_BYTES", "register"]
+
+#: Ceilings on what one import reads out of an untrusted skill package
+#: (SEC-003, security review 2026-09-23). A skill directory is *shared
+#: material* — the format exists to be distributed — so it is untrusted
+#: input, and an unbounded read of untrusted input is a resource hazard
+#: independent of what the bytes turn out to be. Mechanism limits on the
+#: importer's own appetite, not domain values: nothing here describes any
+#: deployment's skills.
+MAX_REFERENCE_BYTES = 1_048_576
+MAX_REFERENCES = 64
 
 #: Current schema lanes of the two SDK artifact classes the importer emits.
 _PROMPT_SCHEMA_VERSION = "1.0.0"
 _ENTRY_SCHEMA_VERSION = "2.0.0"
+
+
+def _read_contained(path: Path, *, within: Path) -> str:
+    """Read ``path`` as text, or refuse it (SEC-003).
+
+    An imported skill directory is shared material and therefore untrusted
+    input. Three refusals, each closing a measured hole from the security
+    review of 2026-09-23:
+
+    * **Symlinks.** ``Path.is_file()`` follows them, so a package shipping
+      ``references/usage.md -> ~/.aws/credentials`` had its target read and
+      published into the Control Plane, where an unauthenticated read route
+      served it. Refused outright rather than resolved-and-allowed: a
+      symlink inside a *distributed* package has no legitimate meaning on
+      the importing machine, and refusing is the only answer that does not
+      depend on where the link happens to point.
+    * **Escape.** The resolved path must still sit under the package, so a
+      component further up the path cannot walk out of it.
+    * **Size.** A bounded read; a reference is prompt text.
+
+    Raises:
+        CommandRefused: the path is a symlink, escapes ``within``, or
+            exceeds :data:`MAX_REFERENCE_BYTES`.
+    """
+    if path.is_symlink():
+        raise CommandRefused(
+            f"refusing {str(path)!r}: it is a symlink, and an imported"
+            " skill package is untrusted input — a link would publish"
+            " whatever it points at into the Control Plane (SEC-003)"
+        )
+    resolved = path.resolve()
+    try:
+        resolved.relative_to(within.resolve())
+    except ValueError:
+        raise CommandRefused(
+            f"refusing {str(path)!r}: it resolves outside the imported"
+            f" package {str(within)!r} (SEC-003)"
+        ) from None
+    if not resolved.is_file():
+        raise CommandRefused(
+            f"refusing {str(path)!r}: not a regular file (SEC-003)"
+        )
+    size = resolved.stat().st_size
+    if size > MAX_REFERENCE_BYTES:
+        raise CommandRefused(
+            f"refusing {str(path)!r}: {size} bytes exceeds the"
+            f" {MAX_REFERENCE_BYTES}-byte import ceiling (SEC-003)"
+        )
+    return resolved.read_text()
 
 
 def _split_frontmatter(text: str) -> tuple[dict[str, Any], str]:
@@ -96,7 +155,7 @@ def _prompt_registration(
 def _build(args: argparse.Namespace) -> tuple[RequestSpec, ...]:
     directory = Path(args.directory)
     frontmatter, body = _split_frontmatter(
-        (directory / "SKILL.md").read_text()
+        _read_contained(directory / "SKILL.md", within=directory)
     )
     name = str(frontmatter["name"])
     description = str(frontmatter["description"])
@@ -114,20 +173,26 @@ def _build(args: argparse.Namespace) -> tuple[RequestSpec, ...]:
         )
     ]
     references = directory / "references"
-    if references.is_dir():
-        for reference in sorted(references.iterdir()):
-            if reference.is_file():
-                specs.append(
-                    _prompt_registration(
-                        tenant=args.tenant,
-                        name=f"{name}-reference-{reference.stem}",
-                        version=version,
-                        template=reference.read_text(),
-                        # a re-import with this reference unchanged is the
-                        # by-design idempotent case, not a failure
-                        tolerate_empty_bump=True,
-                    )
+    if references.is_dir() and not references.is_symlink():
+        entries = sorted(references.iterdir())
+        if len(entries) > MAX_REFERENCES:
+            raise CommandRefused(
+                f"refusing {str(references)!r}: {len(entries)} references"
+                f" exceeds the ceiling of {MAX_REFERENCES} artifacts one"
+                " import may register (SEC-003)"
+            )
+        for reference in entries:
+            specs.append(
+                _prompt_registration(
+                    tenant=args.tenant,
+                    name=f"{name}-reference-{reference.stem}",
+                    version=version,
+                    template=_read_contained(reference, within=references),
+                    # a re-import with this reference unchanged is the
+                    # by-design idempotent case, not a failure
+                    tolerate_empty_bump=True,
                 )
+            )
 
     prompt_uri = (
         f"ccf-artifact://{args.tenant}/{PROMPT_ARTIFACT.class_id}/"

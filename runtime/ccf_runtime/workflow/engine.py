@@ -65,7 +65,12 @@ from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.controlplane.resolution import resolve_pinned
 from ccf.controlplane.state import AuditedStateWriter
 from ccf.halflife.debt import DebtAssessment, DebtSignal
-from ccf.hitl.transport import HITLTransportProtocol, PendingHitlEvent
+from ccf.hitl.approval_gate import GATE_ACTIONS
+from ccf.hitl.transport import (
+    HITLTransportProtocol,
+    HitlActionSubmission,
+    PendingHitlEvent,
+)
 from ccf.skills.grants import SplitAuditPlaneError
 from ccf.workflow.definitions import (
     WORKFLOW_DEFINITION,
@@ -439,6 +444,32 @@ class WorkflowEngine:
                 ),
             )
         if record.status == "suspended":
+            actor: str | None = None
+            if self._is_gate(workflow, record.current_state):
+                # SEC-001: a gate opens on a human action returned through
+                # the HITL authority path, never on the caller's decision
+                # string. The authority is bound to THIS suspension, so one
+                # approval authorizes exactly the passage it was taken
+                # against (CLAUDE.md §8.2 audit-by-construction).
+                authority = self._gate_authority(
+                    tenant=tenant, key=key, gate=record.current_state,
+                    record=record,
+                )
+                if authority is None:
+                    return self._refuse(
+                        workflow,
+                        tenant=tenant,
+                        execution_id=execution_id,
+                        reason=(
+                            f"execution {key!r} is suspended on HITL gate"
+                            f" {record.current_state!r} and no approval for"
+                            " this suspension has returned through the HITL"
+                            " authority path; a gate is opened by a recorded"
+                            " human action, never by naming a transition"
+                            " (CLAUDE.md §8.2; D-IMPL-20)"
+                        ),
+                    )
+                actor = authority.principal.approver.subject_id
             targets = self._targets(workflow, record.current_state)
             if decision not in targets:
                 return self._refuse(
@@ -447,9 +478,9 @@ class WorkflowEngine:
                     execution_id=execution_id,
                     reason=(
                         f"decision {decision!r} names no declared transition"
-                        f" target from {record.current_state!r} (declared:"
-                        f" {sorted(targets)}); routing is interpreted from"
-                        " the artifact only (CINV-01; CLAUDE.md §8.1)"
+                        f" target from {record.current_state!r}; routing is"
+                        " interpreted from the artifact only (CINV-01;"
+                        " CLAUDE.md §8.1)"
                     ),
                 )
             trace = record.trace + (
@@ -458,7 +489,11 @@ class WorkflowEngine:
                 ),
             )
             self._append(
-                workflow, key, action="workflow_resumed", resolved=True
+                workflow,
+                key,
+                action="workflow_resumed",
+                resolved=True,
+                actor=actor,
             )
             if decision in workflow.definition.effective_terminal_states:
                 return self._complete(
@@ -476,8 +511,14 @@ class WorkflowEngine:
                 trace=trace,
             )
         # exception-routed: the handler handed the state back — retry the
-        # node it was routed from.
-        self._append(workflow, key, action="workflow_resumed", resolved=True)
+        # node it was routed from. No gate, and so no human actor.
+        self._append(
+            workflow,
+            key,
+            action="workflow_resumed",
+            resolved=True,
+            actor=None,
+        )
         return await self._advance(
             workflow,
             tenant=tenant,
@@ -581,7 +622,11 @@ class WorkflowEngine:
             (target,) = targets
             trace = trace + (self._entry(trace, state, target, "transition"),)
             self._append(
-                workflow, key, action="workflow_transition", resolved=True
+                workflow,
+                key,
+                action="workflow_transition",
+                resolved=True,
+                actor=None,
             )
             if target in workflow.definition.effective_terminal_states:
                 return self._complete(
@@ -615,7 +660,7 @@ class WorkflowEngine:
         )
         self._persist(workflow, key, record, action="workflow_suspended")
         trace_artifact = self._write_trace(tenant, execution_id, trace)
-        event_key = f"{key}/{gate}"
+        event_key = self._event_key(key, gate)
         self._hitl_transport.enqueue(
             event=PendingHitlEvent(
                 event_key=event_key,
@@ -672,7 +717,13 @@ class WorkflowEngine:
         trace = trace + (
             self._entry(trace, node, WORKFLOW_FAILED_STATE, "exception"),
         )
-        self._append(workflow, key, action="workflow_exception", resolved=True)
+        self._append(
+            workflow,
+            key,
+            action="workflow_exception",
+            resolved=True,
+            actor=None,
+        )
         return self._complete(
             workflow,
             tenant=tenant,
@@ -736,6 +787,80 @@ class WorkflowEngine:
     @staticmethod
     def _key(tenant: str, execution_id: str) -> str:
         return f"{tenant}/{execution_id}"
+
+    @staticmethod
+    def _event_key(key: str, gate: str) -> str:
+        """The pending-event key a gate suspension enqueues under."""
+        return f"{key}/{gate}"
+
+    @staticmethod
+    def _is_gate(workflow: Workflow, state: str) -> bool:
+        """Whether ``state`` names a hitl-gate step in the resolved task."""
+        return any(
+            step.name == state and step.kind == "hitl-gate"
+            for step in workflow.task_definition.steps
+        )
+
+    def _gate_authority(
+        self,
+        *,
+        tenant: str,
+        key: str,
+        gate: str,
+        record: WorkflowStateRecord,
+    ) -> HitlActionSubmission | None:
+        """The recorded human approval authorizing passage past ``gate``.
+
+        SEC-001. Reads the HITL transport's authority path — the only
+        surface a human action returns through (D-IMPL-20) — and returns
+        the submission that authorizes THIS suspension, or ``None``.
+
+        Three conditions, all necessary:
+
+        * the submission names this gate's pending event, so an approval of
+          one gate is not an approval of another;
+        * its principal echoes ``content_hash(record)`` — the suspension's
+          own identity, which is what the pending event bound at suspend
+          time and what :class:`~ccf.hitl.approval_gate.ApprovalGate`
+          already makes the approver attest to (T-07-39). A suspension's
+          trace is unique to it, so an approval cannot be replayed onto
+          another execution, another tenant, or a later suspension of the
+          same gate;
+        * the action is an approval-gate verdict. Both verdicts authorize
+          the engine to leave the gate — a rejection routes to whichever
+          target the artifact declares for it, which is why the check is
+          ``in GATE_ACTIONS`` and not ``== GATE_APPROVE``.
+
+        **Known residual (D-IMPL-350).** The verdict does not bind WHICH
+        declared target the resume may take, because no artifact declares
+        that mapping: a :class:`~ccf.workflow.definitions.WorkflowDefinition`
+        carries ``transitions`` (source→target) and nothing verdict-shaped.
+        Deriving one in code would put domain routing values in ``/src``
+        (No-Hardcoding, CLAUDE.md §6.4), so the mapping must be declared
+        before it can be enforced. Until then a recorded rejection can be
+        routed down the approving branch. Pinned by
+        ``tests/workflow/test_engine.py::
+        test_a_rejection_authorizes_resumption_but_does_not_bind_the_target``.
+
+        Note the direction of trust: the engine *reads* the authority path
+        and never writes a verdict to it. Resolution stays the gate
+        primitive's act (CLAUDE.md §8.2).
+        """
+        event_key = self._event_key(key, gate)
+        suspension = content_hash(record)
+        return next(
+            (
+                submission
+                for submission in self._hitl_transport.submissions(
+                    tenant=tenant
+                )
+                if submission.event_key == event_key
+                and submission.tenant == tenant
+                and submission.principal.product_content_hash == suspension
+                and submission.action in GATE_ACTIONS
+            ),
+            None,
+        )
 
     @staticmethod
     def _targets(workflow: Workflow, source: str) -> frozenset[str]:
@@ -811,14 +936,23 @@ class WorkflowEngine:
         *,
         action: AuditAction,
         resolved: bool,
+        actor: str | None,
     ) -> None:
-        """Audit one transition that changes no persisted state."""
+        """Audit one transition that changes no persisted state.
+
+        ``actor`` carries no default (SEC-001 remedy 2): every call site
+        states who acted, or states positively that no human did. A default
+        would let a gate resolution be audited with the approver silently
+        omitted — the shape that let the pre-fix engine record
+        ``resolved=True`` for an approval that never happened.
+        """
         self._audit.append(
             action=action,
             key=key,
             version=workflow.identity.definition_hash,
             resolved=resolved,
             occurred_at=self._clock(),
+            actor=actor,
             artifact_class=WORKFLOW_DEFINITION.class_id,
         )
 
@@ -836,6 +970,7 @@ class WorkflowEngine:
             self._key(tenant, execution_id),
             action="workflow_resumed",
             resolved=False,
+            actor=None,
         )
         return WorkflowResumeRefused(
             tenant=tenant, execution_id=execution_id, reason=reason
