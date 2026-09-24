@@ -81,12 +81,11 @@ class CredentialUnresolved(ValueError):
 def _refuse_no_source() -> CredentialUnresolved:
     """The refusal an operator sees when nothing names a credential."""
     return CredentialUnresolved(
-        "no credential is configured for the remote leg. Name the"
-        " environment variable holding the token with --token-env NAME"
-        " (or set CCF_TOKEN_ENV), or the file holding it with"
-        " --token-file PATH (or set CCF_TOKEN_FILE). The SDK ships no"
-        " token and no default location for one, and it does not call a"
-        " remote API anonymously — there is no flag that turns this off."
+        "no credential is configured for the remote leg: neither"
+        " `--token-env` / `CCF_TOKEN_ENV` nor `--token-file` /"
+        " `CCF_TOKEN_FILE` names one. The SDK ships no token and no"
+        " default location for one, and the remote leg is never called"
+        " anonymously — no flag disables it (SEC-016)."
     )
 
 
