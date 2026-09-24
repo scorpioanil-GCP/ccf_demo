@@ -288,6 +288,19 @@ def main(
         # `--local` MEANS, not a wiring detail, so it is Dave's and is not
         # taken here. Refusing is the honest interim: the remote leg is
         # unaffected and fully functional.
+        if not args.local:
+            # An embedder supplied handles but no authority. Refusing is
+            # right; telling them about `--local` would not be, since they
+            # never asked for it. Keyed on `args.local` and NOT on
+            # `dependencies`, which `build_local_dependencies` has already
+            # populated by this point — that is how this diagnostic first
+            # answered the wrong caller.
+            parser.error(
+                "in-process invocation needs `authority=`: `create_app`"
+                " requires an auth hook, an authorizer, an entitlement"
+                " source, a perspective resolver and a refusal recorder,"
+                " and none of them has a default (`SEC-002`)."
+            )
         parser.error(
             "`--local` is suspended: it built an app with"
             " `acknowledge_insecure_default`, and that posture is deleted."

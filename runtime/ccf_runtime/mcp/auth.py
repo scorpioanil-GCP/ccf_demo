@@ -41,7 +41,10 @@ from typing import Any, Final, Protocol, runtime_checkable
 
 from mcp.server.auth.provider import AccessToken
 
+from pydantic import Field
+
 from ccf.contracts.base import CCFContract
+from ccf.contracts.canonical import HASH_TRANSPARENT_KEY
 
 __ccf_mode__ = "algorithmic"
 
@@ -112,7 +115,16 @@ class TokenGrant(CCFContract):
 
     client_id: str
     scopes: tuple[str, ...]
-    tenants: frozenset[str] = frozenset()
+    #: ``True`` — hash-transparent, and the sentinel really does mean the old
+    #: contract (``D-IMPL-243``: *"silence equals yesterday"*). An EMPTY set
+    #: is "this token claimed no tenant", which is exactly what was true of
+    #: every grant minted before the field existed. It is also the
+    #: RESTRICTIVE reading everywhere it is consumed — empty means no tenant,
+    #: never every tenant — so a forgotten scope fails loudly rather than
+    #: opening a door. A non-empty value is a real claim and is rendered.
+    tenants: frozenset[str] = Field(
+        default=frozenset(), json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
 
 def tenant_claims(grant: TokenGrant) -> Mapping[str, Any]:

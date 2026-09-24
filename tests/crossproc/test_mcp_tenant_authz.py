@@ -60,7 +60,10 @@ from ccf_runtime.authz.refusals import (
     ACTION_HITL_ACTION_SUBMIT,
     ACTION_HITL_QUEUE_READ,
 )
-from ccf_runtime.http_api.errors import ERROR_TENANT_UNAUTHORIZED
+from ccf_runtime.http_api.errors import (
+    ERROR_REQUEST_UNAUTHORIZED,
+    ERROR_TENANT_UNAUTHORIZED,
+)
 from ccf_runtime.mcp.auth import (
     FileTokenSource,
     SourceBackedTokenVerifier,
@@ -77,6 +80,18 @@ MAPPING_KEY = "authz-mcp/scope-mapping"
 SCOPE_EXACT = "authz:hitl-exact"
 SCOPE_PREFIX = "authz:hitl-prefix"
 CLIENT_ID = "authz-mcp-caller-1"
+#: The projection role this module's perspective resolver returns. No test
+#: here reads a product, so it exists only because every app binds the seam.
+ROLE = "authz-mcp-role"
+#: A product class no test in this module asks for. The entitlement policy
+#: every app binds requires a non-empty principal table, and naming a class
+#: that is never requested says so rather than implying a reachable grant.
+UNASKED_CLASS = "authz-mcp-class-no-test-asks-for"
+#: The submission both doors are asked to route. One spelling, because the
+#: scope mapping below names it as a RESOURCE and a policy that named a
+#: different key than the requests send would deny for a reason no test
+#: meant to assert.
+EVENT_KEY = "authz-event-1"
 TOKEN = "authz-mcp-token"
 INSTANT = datetime(2026, 8, 1, 9, 0, tzinfo=UTC)
 _VALID_HASH = "e" * 64
@@ -90,6 +105,30 @@ def _clock() -> datetime:
 
 
 def _mapping() -> ScopeMappingArtifact:
+    """The two scopes this module decides with.
+
+    ``resource_patterns`` is written exactly as wide as what the doors below
+    actually name, and no wider. A blanket resource grant would still pass
+    every assertion here and would quietly stop being evidence about the axis
+    it was written for, so each pattern is a thing some door really acts on.
+
+    **Three patterns for two actions, because the two doors do not name the
+    resource the same way — and that asymmetry is the SDK's, not this
+    fixture's.** The MCP HITL door acts on no addressable subject, so it names
+    *itself*: it passes ``resource=action_id`` for both the queue read and the
+    action submit. Its HTTP twin declares
+    ``@authorizes(ACTION_HITL_QUEUE_READ, resource=ResourceBinding.route())``
+    for the read — the same spelling — but
+    ``resource=ResourceBinding.body("event_key")`` for the submit, which names
+    the *submission*, not the door. So a deployment that wants one scope to
+    authorize the submit at both doors has to name both vocabularies, which is
+    what :data:`EVENT_KEY` is doing in this tuple. Measured: without it,
+    ``test_both_doors_decide_identically_for_the_same_tuple`` splits on
+    ``("tenant-a", ACTION_HITL_ACTION_SUBMIT)`` — MCP allows, HTTP denies.
+
+    The field is required with no default, so an author cannot leave the axis
+    opt-in (``SEC-002``).
+    """
     return ScopeMappingArtifact(
         semver="1.0.0",
         scopes={
@@ -99,10 +138,16 @@ def _mapping() -> ScopeMappingArtifact:
                     ACTION_HITL_QUEUE_READ,
                     ACTION_HITL_ACTION_SUBMIT,
                 ),
+                resource_patterns=(
+                    ACTION_HITL_QUEUE_READ,
+                    ACTION_HITL_ACTION_SUBMIT,
+                    EVENT_KEY,
+                ),
             ),
             SCOPE_PREFIX: ScopeEntry(
                 tenant_patterns=("tenant-b-*",),
                 action_ids=(ACTION_HITL_QUEUE_READ,),
+                resource_patterns=(ACTION_HITL_QUEUE_READ,),
             ),
         },
     )
@@ -116,9 +161,14 @@ class Harness:
         self.mapping_version = self.registry.register_typed(
             MAPPING_KEY, _mapping(), SCOPE_MAPPING
         )
+        # The version is pinned, not resolved at decision time (``SEC-002``):
+        # an authorizer that read "latest" would change its mind whenever the
+        # Control Plane was written to, and a replayed decision could not be
+        # reproduced against the mapping that actually made it.
         self.authorizer = ControlPlaneTenantAuthorizer(
             control_plane=self.registry,
             scope_mapping_key=MAPPING_KEY,
+            scope_mapping_version=str(self.mapping_version),
             clock=_clock,
         )
         self.transport = InMemoryHitlTransport()
@@ -236,7 +286,7 @@ EXERCISED_TENANTS = frozenset({"tenant-a", "tenant-b-7", "tenant-z"})
 def _tool_arguments(tenant: str) -> dict[str, Any]:
     return {
         "tenant": tenant,
-        "event_key": "authz-event-1",
+        "event_key": EVENT_KEY,
         "action": "approve",
         "subject_id": CLIENT_ID,
         "identity_provider_ref": "idp://acme-bank/dev-token-file",
@@ -367,18 +417,108 @@ def test_over_the_wire_a_deny_carries_the_shared_code(
 
 
 def _http_outcome(
-    harness: Harness, *, tenant: str, action_id: str
+    harness: Harness, root: Path, *, tenant: str, action_id: str
 ) -> bool:
-    """The HTTP door's observed outcome for one (grant, tenant, action)."""
-    from ccf_runtime.http_api.dependencies import ApiDependencies
-    from ccf_runtime.http_api.routes import hitl as hitl_routes
+    """The HTTP door's observed outcome for one (grant, tenant, action).
 
-    def stash(request: Request) -> None:
-        request.state.token_grant = TokenGrant(
-            client_id=CLIENT_ID,
-            scopes=(SCOPE_EXACT, SCOPE_PREFIX),
-            tenants=EXERCISED_TENANTS,
-        )
+    **Rewritten for the posture that replaced the one it was built on**
+    (``SEC-002``). The predecessor assembled a bare :class:`FastAPI`, mounted
+    ``hitl_routes.build_router(deps, authorizer=...)`` on it, and supplied the
+    verified identity with a route dependency that wrote
+    ``request.state.token_grant`` directly. Every one of those is gone: the
+    authorization gate is no longer a router argument but pure-ASGI
+    middleware that ``create_app`` installs over the whole application, and a
+    hand-mounted router therefore has **no gate at all** — the old shape would
+    now measure an ungated door and report it as an allow.
+
+    So the app is the shipped one. What the module claims is unchanged and is
+    now load-bearing for a wider surface: the HTTP door and the MCP door,
+    handed the **same** scope-mapping artifact at the **same** pinned version
+    and the same grant, reach the same allow/deny for the same action.
+    :func:`~http_api.gate_fixtures.authority` supplies the four seams this
+    module has no opinion about, and the fifth — the authorizer, which is the
+    entire subject — is replaced with the harness's own.
+
+    Two differences between the doors are real and are asserted rather than
+    papered over:
+
+    * **The tenant is the grant's** (``tenant := grant.tenant``), so the
+      credential is minted per case. The queue route's ``tenant`` query
+      parameter and the submission body's ``tenant`` field may only *agree*
+      with it; neither supplies it any more.
+    * **The deny code differs by door.** The MCP door answers
+      ``ERROR_TENANT_UNAUTHORIZED``; the HTTP gate answers the single
+      ``ERROR_REQUEST_UNAUTHORIZED`` it emits for all five of its denial
+      reasons, deliberately, so a caller cannot tell which axis refused it.
+      The *decision* is what this module asserts is shared — not its
+      rendering.
+    """
+    from ccf.artifacts.file_store import FileArtifactStore
+    from ccf.controlplane.registry import ControlPlaneRegistry
+    from ccf.products.entitlement import (
+        PRODUCT_ENTITLEMENT_POLICY,
+        ProductEntitlementGrant,
+        ProductEntitlementPolicy,
+        product_entitlement_key,
+    )
+    from ccf.products.resolver import ReplayRefusalRecorder
+    from ccf.projection.plan import Perspective
+    from ccf_runtime.authz.product_entitlement import (
+        ControlPlaneProductEntitlementSource,
+    )
+    from ccf_runtime.http_api.app import create_app
+    from ccf_runtime.http_api.dependencies import ApiDependencies
+
+    from http_api.gate_fixtures import authority, probe
+
+    # This module's OWN entitlement policy, naming this module's tenant and
+    # no principal grants: nothing here asks for a product, and borrowing
+    # another suite's registry would decide about another suite's vocabulary.
+    entitlements = ControlPlaneRegistry()
+    entitlements.register_typed(
+        product_entitlement_key(tenant_id=tenant),
+        ProductEntitlementPolicy(
+            tenant_id=tenant,
+            policy_version="1.0.0",
+            # One principal, entitled to a class no test here asks for: the
+            # policy requires a non-empty table, and this module's doors are
+            # HITL doors that read no product at all.
+            principals={
+                CLIENT_ID: ProductEntitlementGrant(
+                    permitted_schema_names=frozenset({UNASKED_CLASS}),
+                    permitted_roles=frozenset({ROLE}),
+                )
+            },
+        ),
+        PRODUCT_ENTITLEMENT_POLICY,
+    )
+    source = ControlPlaneProductEntitlementSource(
+        control_plane=entitlements, clock=_clock
+    )
+    seams = authority(
+        tenant=tenant,
+        # `authority` builds a wide authorizer inside a registry of its own,
+        # and the line below throws it away: both doors have to decide against
+        # ONE artifact at ONE pinned version or the comparison is vacuous. The
+        # key is therefore never read.
+        key=MAPPING_KEY,
+        grants={TOKEN: (CLIENT_ID, (SCOPE_EXACT, SCOPE_PREFIX), tenant)},
+        product_entitlement=source,
+        perspective_resolver=(
+            lambda *, grant, tenant, requested_role: Perspective(
+                principal_id=grant.client_id, role=ROLE
+            )
+        ),
+        refusal_recorder=ReplayRefusalRecorder(
+            artifact_store=FileArtifactStore(root=root / "artifacts"),
+            replay_record_class="ccf.decision-replay-record",
+            tenant_id=tenant,
+            assembly_mode="algorithmic",
+            policy_bundle_pin=None,
+            disclosure_level_for=source.disclosure_level_for,
+        ),
+    )
+    seams["authorizer"] = harness.authorizer
 
     deps = ApiDependencies(
         control_plane=harness.registry,
@@ -390,31 +530,22 @@ def _http_outcome(
         skill_catalog=cast(Any, None),
         grant_ledger=cast(Any, None),
     )
-    app = FastAPI()
-    app.include_router(
-        hitl_routes.build_router(deps, authorizer=harness.authorizer),
-        prefix="/hitl",
-        dependencies=[Depends(stash)],
-    )
-
-    async def go() -> httpx.Response:
-        transport = httpx.ASGITransport(app=app)
-        async with httpx.AsyncClient(
-            transport=transport, base_url="http://fabric.invalid"
-        ) as client:
-            if action_id == ACTION_HITL_QUEUE_READ:
-                return await client.get(
-                    "/hitl/queue", params={"tenant": tenant}
-                )
-            return await client.post(
-                "/hitl/actions", json=_http_submission(tenant)
-            )
-
-    response = asyncio.run(go())
+    app = create_app(deps, **seams)
+    headers = {"Authorization": f"Bearer {TOKEN}"}
+    if action_id == ACTION_HITL_QUEUE_READ:
+        response = probe(
+            app, "GET", "/hitl/queue",
+            params={"tenant": tenant}, headers=headers,
+        )
+    else:
+        response = probe(
+            app, "POST", "/hitl/actions",
+            json=_http_submission(tenant), headers=headers,
+        )
     assert response.status_code in (200, 403), response.text
     if response.status_code == 403:
         detail = response.json()["detail"]
-        assert detail["error_code"] == ERROR_TENANT_UNAUTHORIZED
+        assert detail["error_code"] == ERROR_REQUEST_UNAUTHORIZED
         return False
     return True
 
@@ -440,7 +571,7 @@ def _http_submission(tenant: str) -> dict[str, Any]:
         product_content_hash=_VALID_HASH,
     )
     return {
-        "event_key": "authz-event-1",
+        "event_key": EVENT_KEY,
         "tenant": tenant,
         "action": "approve",
         "principal": principal.model_dump(mode="json"),
@@ -479,11 +610,12 @@ def _mcp_outcome(
 def test_both_doors_decide_identically_for_the_same_tuple(
     harness: Harness,
     verified_token: None,
+    tmp_path: Path,
     tenant: str,
     action_id: str,
 ) -> None:
     """Same scope-mapping artifact + same grant => the same allow/deny
     outcome at both doors for the same action ID (D-02)."""
     assert _http_outcome(
-        harness, tenant=tenant, action_id=action_id
+        harness, tmp_path, tenant=tenant, action_id=action_id
     ) == _mcp_outcome(harness, tenant=tenant, action_id=action_id)

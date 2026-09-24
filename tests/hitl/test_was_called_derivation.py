@@ -16,8 +16,13 @@ call-count assertions on both named seams:
 * the MCP door (``ccf_runtime.mcp.hitl_server``) — same assertion for
   the D-IMPL-20 primary authority channel.
 
-And the negative guard: on the unauthenticated posture the derivation is
-not called at all — no accidental derivation from a ``None`` grant.
+And the negative guard, restated for the posture that replaced the one it
+was written against (``SEC-002``): ``create_app`` no longer has an
+unauthenticated arm, so *"the derivation is not called from a ``None``
+grant"* can no longer be staged by building a door with no auth hook. The
+same fact now has a stronger witness — a credential-less request is refused
+by the total gate before any handler runs, so the derivation is not reached
+at all and nothing lands on the transport.
 """
 
 from __future__ import annotations
@@ -29,9 +34,13 @@ from typing import Any
 
 import pytest
 
-from ccf_runtime.mcp.auth import FileTokenSource
+from ccf_runtime.http_api.errors import (
+    ERROR_UNAUTHENTICATED,
+    ERROR_UNTENANTED_GRANT,
+)
 
 from http_api.conftest import Fabric, call
+from http_api.gate_fixtures import SCOPE_EVERYTHING
 
 _VALID_HASH = "c" * 64
 _AWARE_TIME = datetime(2026, 7, 30, 12, 0, tzinfo=UTC)
@@ -41,6 +50,7 @@ _TOKEN = "derivation-token"
 _MCP_TENANT = "was-called-mcp-tenant"
 
 _CLIENT_ID = "derivation-auditor-1"
+_ROLE = "was-called-role"
 
 
 def _submission_body(*, subject_id: str, tenant: str) -> dict[str, Any]:
@@ -70,16 +80,84 @@ def fabric(tmp_path_factory: pytest.TempPathFactory) -> Fabric:
     return Fabric(tmp_path_factory.mktemp("was-called"))
 
 
-@pytest.fixture(scope="module")
-def token_file(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    path = tmp_path_factory.mktemp("was-called-auth") / "tokens.json"
-    path.write_text(
-        json.dumps(
-            {_TOKEN: {"client_id": _CLIENT_ID, "scopes": ["hitl"]}}
-        ),
-        encoding="utf-8",
+#: The tenant the HTTP leg acts on. It is the GRANT's, and the body field of
+#: the same name may only agree with it (``SEC-002``): ``tenant :=
+#: grant.tenant`` has no second clause, so one spelling here keeps the
+#: credential and the submission from drifting apart.
+_HTTP_TENANT = "was-called-auth-tenant"
+
+#: This suite's own scope-mapping key, entitlement registry and credential
+#: table. A borrowed policy decides about a borrowed vocabulary and fails on
+#: refusal kinds that have nothing to do with the derivation seam. The scope
+#: STRING is `authority`'s own — its wide mapping keys on that single name —
+#: so it is imported rather than invented here.
+_MAPPING_KEY = "was-called/scope-mapping"
+_GRANTS: dict[str, tuple[object, ...]] = {
+    _TOKEN: (_CLIENT_ID, (SCOPE_EVERYTHING,), _HTTP_TENANT),
+}
+
+
+def _seams(fabric: Fabric, root: Path) -> dict[str, Any]:
+    """Everything ``create_app`` requires, with this suite's credentials.
+
+    Built through :func:`~http_api.gate_fixtures.authority` rather than seam
+    by seam: five separately-built seams are five chances to build a
+    permissive one, and none of the five is this module's subject.
+    """
+    from ccf.artifacts.file_store import FileArtifactStore
+    from ccf.controlplane.registry import ControlPlaneRegistry
+    from ccf.products.entitlement import (
+        PRODUCT_ENTITLEMENT_POLICY,
+        ProductEntitlementGrant,
+        ProductEntitlementPolicy,
+        product_entitlement_key,
     )
-    return path
+    from ccf.products.resolver import ReplayRefusalRecorder
+    from ccf.projection.plan import Perspective
+    from ccf_runtime.authz.product_entitlement import (
+        ControlPlaneProductEntitlementSource,
+    )
+
+    from http_api.gate_fixtures import authority
+
+    address = fabric.product_address
+    entitlements = ControlPlaneRegistry()
+    entitlements.register_typed(
+        product_entitlement_key(tenant_id=address.tenant),
+        ProductEntitlementPolicy(
+            tenant_id=address.tenant,
+            policy_version="1.0.0",
+            principals={
+                _CLIENT_ID: ProductEntitlementGrant(
+                    permitted_schema_names=frozenset({address.product_class}),
+                    permitted_roles=frozenset({_ROLE}),
+                )
+            },
+        ),
+        PRODUCT_ENTITLEMENT_POLICY,
+    )
+    source = ControlPlaneProductEntitlementSource(
+        control_plane=entitlements, clock=lambda: _AWARE_TIME
+    )
+    return authority(
+        tenant=(_HTTP_TENANT, address.tenant),
+        key=_MAPPING_KEY,
+        grants=_GRANTS,
+        product_entitlement=source,
+        perspective_resolver=(
+            lambda *, grant, tenant, requested_role: Perspective(
+                principal_id=grant.client_id, role=_ROLE
+            )
+        ),
+        refusal_recorder=ReplayRefusalRecorder(
+            artifact_store=FileArtifactStore(root=root / "artifacts"),
+            replay_record_class="ccf.decision-replay-record",
+            tenant_id=address.tenant,
+            assembly_mode="algorithmic",
+            policy_bundle_pin=None,
+            disclosure_level_for=source.disclosure_level_for,
+        ),
+    )
 
 
 def _deps(fabric: Fabric) -> Any:
@@ -118,21 +196,20 @@ class _WrapCounter:
 
 
 def test_http_auth_bound_path_invokes_the_derivation(
-    fabric: Fabric, token_file: Path, monkeypatch: pytest.MonkeyPatch
+    fabric: Fabric, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     import ccf_runtime.http_api.routes.hitl as hitl_routes
     from ccf_runtime.http_api.app import create_app
-    from ccf_runtime.http_api.auth import BearerTokenAuth
 
     spy = _WrapCounter(hitl_routes.principal_from_token_grant)
     monkeypatch.setattr(
         hitl_routes, "principal_from_token_grant", spy
     )
-    app = create_app(
-        _deps(fabric),
-        auth=BearerTokenAuth(token_source=FileTokenSource(path=token_file)),
-    )
-    tenant = "was-called-auth-tenant"
+    # The dev ``FileTokenSource`` mints a grant carrying no tenant, which
+    # every door now refuses (``SEC-002``), so the credential comes from the
+    # tenanted table instead. What the test asserts is unchanged.
+    app = create_app(_deps(fabric), **_seams(fabric, tmp_path))
+    tenant = _HTTP_TENANT
     response = call(
         app,
         "POST",
@@ -151,33 +228,102 @@ def test_http_auth_bound_path_invokes_the_derivation(
     assert recorded.principal is spy.returns[0]
 
 
-# --- Test 2: unauthenticated posture never derives --------------------------
+# --- Test 2: no credential never reaches the derivation ---------------------
 
 
-def test_http_unauthenticated_posture_does_not_derive(
-    fabric: Fabric, monkeypatch: pytest.MonkeyPatch
+def test_a_credentialless_request_never_reaches_the_derivation(
+    fabric: Fabric, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """No auth hook bound (T-07-24 posture): no derivation from no grant."""
+    """No credential: refused at the gate, so no derivation and nothing lands.
+
+    **Rewritten for the posture that replaced the one it asserted**
+    (``SEC-002``). The predecessor built ``create_app(deps,
+    acknowledge_insecure_default=True)`` — an application with no auth hook —
+    sent an anonymous submission, and asserted that it returned ``200`` with
+    the caller's own body subject recorded verbatim. Every clause of that is
+    now false by design: the keyword is deleted, the five authority seams are
+    required, and a pure-ASGI gate refuses every request that carries no
+    recognised credential before any handler runs.
+
+    The finding the old shape asserted was ``T-07-24``'s *unbound default*,
+    which is the ``SEC-002`` defect itself — a door whose authentication the
+    deployment could decline. What survives is the claim the test was written
+    for: the derivation is never fed a ``None`` grant. It now has a stronger
+    witness than a spy count on a permissive app, because there is no arm in
+    which an ungranted request reaches the route at all.
+    """
     import ccf_runtime.http_api.routes.hitl as hitl_routes
     from ccf_runtime.http_api.app import create_app
+
+    from http_api.gate_fixtures import probe
 
     spy = _WrapCounter(hitl_routes.principal_from_token_grant)
     monkeypatch.setattr(
         hitl_routes, "principal_from_token_grant", spy
     )
-    app = create_app(_deps(fabric), acknowledge_insecure_default=True)
+    app = create_app(_deps(fabric), **_seams(fabric, tmp_path))
     tenant = "was-called-unauth-tenant"
-    response = call(
+    # `probe`, not `call`: `call` supplies the suite's credential, and a
+    # helper that adds one cannot witness what happens to a request without.
+    response = probe(
         app,
         "POST",
         "/hitl/actions",
         json=_submission_body(subject_id="as-sent-subject", tenant=tenant),
     )
-    assert response.status_code == 200
+    assert response.status_code == 401
+    assert response.json()["detail"]["error_code"] == ERROR_UNAUTHENTICATED
+    # Not reached: neither the derivation nor the transport behind it.
     assert spy.call_count == 0
-    # The submission travels exactly as sent on the recorded posture.
-    (recorded,) = fabric.hitl.submissions(tenant=tenant)
-    assert recorded.principal.approver.subject_id == "as-sent-subject"
+    assert fabric.hitl.submissions(tenant=tenant) == ()
+
+
+def test_an_untenanted_grant_is_refused_before_the_derivation(
+    fabric: Fabric, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A recognised credential naming no tenant is refused, not defaulted.
+
+    The other half of the same posture change, and the one the dev
+    ``FileTokenSource`` still produces: authentication succeeds, so the old
+    ``None``-grant question does not arise, but ``tenant := grant.tenant``
+    has nothing to read. The door refuses with its own code rather than
+    picking a tenant for the deployment — a server-side spelling of the
+    caller-supplied tenant ``SEC-002`` names — and the derivation is again
+    never reached.
+    """
+    import ccf_runtime.http_api.routes.hitl as hitl_routes
+    from ccf_runtime.http_api.app import create_app
+    from ccf_runtime.http_api.auth import BearerTokenAuth
+    from ccf_runtime.mcp.auth import FileTokenSource
+
+    from http_api.gate_fixtures import probe
+
+    spy = _WrapCounter(hitl_routes.principal_from_token_grant)
+    monkeypatch.setattr(
+        hitl_routes, "principal_from_token_grant", spy
+    )
+    path = tmp_path / "dev-tokens.json"
+    path.write_text(
+        json.dumps(
+            {_TOKEN: {"client_id": _CLIENT_ID, "scopes": [SCOPE_EVERYTHING]}}
+        ),
+        encoding="utf-8",
+    )
+    seams = _seams(fabric, tmp_path)
+    seams["auth"] = BearerTokenAuth(token_source=FileTokenSource(path=path))
+    app = create_app(_deps(fabric), **seams)
+    tenant = "was-called-untenanted-tenant"
+    response = probe(
+        app,
+        "POST",
+        "/hitl/actions",
+        json=_submission_body(subject_id=_CLIENT_ID, tenant=tenant),
+        headers={"Authorization": f"Bearer {_TOKEN}"},
+    )
+    assert response.status_code == 403
+    assert response.json()["detail"]["error_code"] == ERROR_UNTENANTED_GRANT
+    assert spy.call_count == 0
+    assert fabric.hitl.submissions(tenant=tenant) == ()
 
 
 # --- Test 3: the MCP door's derivation seam (R1 names it too) ---------------
@@ -192,7 +338,10 @@ def test_mcp_door_invokes_the_derivation(
 
     import ccf_runtime.mcp.hitl_server as hitl_server
     from ccf.hitl.transport import HitlActionSubmission, PendingHitlEvent
-    from ccf_runtime.mcp.auth import SourceBackedTokenVerifier
+    from ccf_runtime.mcp.auth import (
+        FileTokenSource,
+        SourceBackedTokenVerifier,
+    )
     from ccf_runtime.mcp.hitl_server import (
         SUBMIT_HITL_ACTION_TOOL,
         build_hitl_server,

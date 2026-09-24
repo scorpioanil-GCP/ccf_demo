@@ -135,8 +135,9 @@ from ccf_runtime.authz.product_entitlement import (
     ControlPlaneProductEntitlementSource,
 )
 from ccf_runtime.http_api.app import create_app
-from ccf_runtime.http_api.auth import BearerTokenAuth
 from ccf_runtime.http_api.dependencies import ApiDependencies
+
+from http_api.gate_fixtures import SCOPE_EVERYTHING, authority
 from ccf_runtime.mcp.auth import (
     FileTokenSource,
     SourceBackedTokenVerifier,
@@ -153,6 +154,10 @@ TOKEN = "egress-parameters-token"
 PRINCIPAL = "egress-parameters-caller"
 SCOPE = "ccf:egress-parameters"
 ROLE = "egress-parameters-role"
+#: This suite's own scope-mapping key. The authorizer pins one version at
+#: one key, so a key of its own is what keeps another suite's mapping from
+#: deciding about this suite's vocabulary.
+MAPPING_KEY = "egress-parameters/scope-mapping"
 SERVER_NAME = "ccf-egress-parameters"
 
 #: The artifact class this module's doors file a denial under. Nothing here
@@ -645,27 +650,43 @@ def _ask_mcp(assembled: Any, tmp_path: Path) -> AskDoor:
 def _http_app(
     root: Path, *, servable: object, address: ProductAddress, carried: list[Any]
 ) -> Any:
-    """The real HTTP product door, authenticated and entitled."""
+    """The real HTTP product door, authenticated, authorized and entitled.
+
+    The five authority seams come from
+    :func:`~http_api.gate_fixtures.authority` as one bundle. None of them is
+    this module's subject — it compares the width of two doors — and building
+    five seams by hand in a module that is about something else is five
+    chances to build a permissive one.
+
+    The credential is the tenanted one that helper mints, not the dev
+    ``FileTokenSource`` beside it: that source mints a grant with no scalar
+    ``tenant``, and the HTTP door refuses it (``SEC-002``). The MCP leg keeps
+    the token file, because the MCP tenancy floor reads the plural ``tenants``
+    claim instead — the two doors read different shapes of the same fact, and
+    that asymmetry is the SDK's, not this fixture's.
+    """
     return create_app(
         ApiDependencies(
             control_plane=ControlPlaneRegistry(),
             artifact_store=FileArtifactStore(root=root / "artifacts"),
             product_resolver=_recording_resolver(servable, carried),  # type: ignore[arg-type]
         ),
-        auth=BearerTokenAuth(
-            token_source=FileTokenSource(path=_token_file(root, tenant=address.tenant))
+        **authority(
+            tenant=address.tenant,
+            key=MAPPING_KEY,
+            grants={TOKEN: (PRINCIPAL, (SCOPE_EVERYTHING,), address.tenant)},
+            product_entitlement=_entitlement(address),
+            perspective_resolver=(
+                lambda *, grant, tenant, requested_role: Perspective(
+                    principal_id=grant.client_id, role=ROLE
+                )
+            ),
+            # The HTTP twin binds the same seam on the same rule
+            # (`D-IMPL-256` (2)). `create_app`'s own keyword and its
+            # construction-time check are plan `24.6-09`'s, in this same wave;
+            # this call site is plan `24.6-10`'s.
+            refusal_recorder=_recorder(root, tenant=address.tenant),
         ),
-        product_entitlement=_entitlement(address),
-        perspective_resolver=(
-            lambda *, grant, tenant, requested_role: Perspective(
-                principal_id=grant.client_id, role=ROLE
-            )
-        ),
-        # The HTTP twin binds the same seam on the same rule
-        # (`D-IMPL-256` (2)). `create_app`'s own keyword and its
-        # construction-time check are plan `24.6-09`'s, in this same wave; this
-        # call site is plan `24.6-10`'s.
-        refusal_recorder=_recorder(root, tenant=address.tenant),
     )
 
 

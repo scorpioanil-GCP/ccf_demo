@@ -90,19 +90,38 @@ anonymous request, which is `SEC-016` as an executable artifact.
 **Sabotage-verified, 11 severings, 11 reds**: header never sent (3 tests),
 no-credential proceeds anonymously, unset env var accepted (2), missing token
 file tolerated, empty token file accepted, two sources silently ordered,
-credential not masked, revoke body carries an actor, `--actor` restored, grant
-file's actor accepted, local leg forced to resolve a credential.
+credential not masked, revoke body carries an actor, `--actor` restored, and a
+grant file's actor accepted.
 
 The lane's first attempt at one severing was a no-op that stayed green; it
 rejected its own result and rewrote the severing as a real one, which then
 reddened. Recorded because a sabotage that cannot redden its gate is the failure
 mode this project keeps finding.
 
-## Known follow-up, not a gap in this change
+## The follow-up this had, now closed at the join
 
-`tests/cli/test_cli.py::test_skill_grant_and_revoke` is written for the
-post-join state and marked `xfail(strict=False)`: the server-side
-`GrantRequest.actor` / `GrantRevocationRequest.actor` fields are required on
-`extra=forbid` contracts, so the bodies the CLI now builds are 422'd until the
-HTTP lane deletes them. It XPASSes when the halves meet and cannot redden either
-lane meanwhile.
+`tests/cli/test_cli.py::test_skill_grant_and_revoke` was marked
+`xfail(strict=False)` pending the HTTP lane deleting the server-side
+`GrantRequest.actor` / `GrantRevocationRequest.actor` fields, which are
+required on `extra=forbid` contracts. Those landed, the test XPASSed at the
+join, and the marker is removed. The two halves met exactly as predicted,
+which is the cheap evidence that the handoff was stated correctly rather than
+guessed.
+
+## The posture change this forced, recorded because it surprises people
+
+`--local` is **suspended**. It built its app with `acknowledge_insecure_default`,
+and that posture is deleted (`SEC-002`). `build_local_dependencies` mints a
+fresh EMPTY Control Plane per invocation, so the one shipped authorizer —
+deny-by-default against a registered scope mapping — has nothing to decide
+against, and `create_app`'s other three seams are required now too. Reviving
+the mode means declaring a real local deployment; that is a decision about what
+`--local` MEANS and is not taken here. It refuses at exit 2 naming each seam a
+local deployment would have to declare, pinned by
+`tests/cli/test_cli.py::test_local_is_suspended_and_names_what_reviving_it_would_cost`
+so the message cannot decay into a bare "not supported".
+
+The in-process leg used to be exempt from credentials on the reasoning that it
+crossed no network boundary. It is not exempt now: the gate is total, an
+in-process request is a request, and the absence of a network boundary entitles
+it to nothing.
