@@ -146,6 +146,53 @@ Until then a recorded rejection can still be routed down the approving
 branch. What changed is that some human must have acted on this exact
 suspension, and the audit names them.
 
+**What closing it would cost, measured 2026-09-24 so it is not re-derived.**
+Three gate-bearing workflow documents would need one line each —
+`tests/fixtures/banking/workflows/covenant_review_workflow.yaml`,
+`.../payment_release_workflow.yaml` and `perf/synth/artifacts/workflow.yaml`.
+The two archived ones are out of scope under `D-IMPL-351`. No live example is
+affected: `examples/cp-15` is the only HITL example and it composes
+`ccf.hitl` directly, never `WorkflowEngine`. **`WorkflowDefinition` is
+constructed nowhere in Python** — the only match for `WorkflowDefinition(` in
+the tree is its own class statement — so this is a data migration with no code
+to port.
+
+Every gate in the tree has exactly two exits, and each pair uses a different
+domain vocabulary: `approved`/`rejected`, `released`/`rejected`,
+`accepted`/`declined`, and (archived) `disbursed`/`declined`,
+`authorized`/`withheld`. **That is the argument for declaration rather than
+derivation**: five vocabularies for two verdicts, none of them guessable from
+the verdict name.
+
+**Hash churn is avoidable and was measured both ways.** An unmarked
+sentinel-defaulted field renders into `canonical_bytes` and moves the content
+hash of every existing definition (`0c3a7bf9…` → `a4578fd0…`). The same field
+marked `json_schema_extra={HASH_TRANSPARENT_KEY: True}` leaves it
+byte-identical at its sentinel (`0c3a7bf9…` → `0c3a7bf9…`) and moves it only
+once routes are actually declared — which is `D-IMPL-243`'s *"silence equals
+yesterday"* applied exactly as ruled.
+
+**`D-IMPL-293` decides which of those to take, and it is not the cheap one.**
+Hash-transparency exists to buy compatibility with records written before a
+field existed. There are none: the SDK has no adopters, and Dave restated the
+rule while reviewing this work — *"the SDK has not been used by anyone yet. We
+have the liberty of making the correct changes instead of patching something."*
+Marking the field `True` would make an unset value mean *unconstrained*, which
+is precisely the vulnerable state, bought with compatibility nobody needs.
+
+**So the recommended shape is the honest one: a gate that declares no verdict
+routes is refused, and the field is marked `{HASH_TRANSPARENT_KEY: False}` — a
+generation boundary.** That mark is `D-IMPL-243`'s own third state and it says
+exactly what is true here: a workflow definition written without verdict routes
+belongs to an earlier generation of the contract, and the replay engine names
+it (`canonical_generation_mismatch`) rather than running it. Hashes move, which
+is correct — the artifact really did change — and the three in-tree documents
+take one line each. The refusal belongs at factory construction, not at resume,
+so a deployment learns at boot rather than at the first approval.
+
+This remains Dave's ruling to make formally; what `D-IMPL-293` removes is the
+argument for the weaker shape.
+
 The residual is pinned by
 `tests/workflow/test_engine.py::test_a_rejection_authorizes_resumption_but_does_not_bind_the_target`,
 which goes RED the moment a verdict→target binding is declared and enforced.
