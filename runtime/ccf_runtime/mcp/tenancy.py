@@ -64,13 +64,12 @@ import functools
 import inspect
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from typing import Any, Final, TypeVar
+from typing import Any, TypeVar
 from weakref import WeakKeyDictionary
 
 from mcp.server.auth.provider import AccessToken
-from mcp.server.auth.settings import AuthSettings
-from mcp.server.fastmcp import FastMCP
 from mcp.server.auth.middleware.auth_context import get_access_token
+from mcp.server.fastmcp import FastMCP
 
 from ccf_runtime.mcp.auth import (
     AMBIENT_STDIO_CLAIM,

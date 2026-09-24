@@ -353,7 +353,7 @@ def test_every_shipped_server_registers_every_surface_through_the_guard(
     assert unguarded_surfaces(server) == frozenset()
 
 
-def test_the_untenanted_roster_is_pinned() -> None:
+def test_the_untenanted_roster_is_pinned(tmp_path: Any) -> None:
     """``untenanted()`` cannot become a quiet escape hatch.
 
     Two artifact surfaces are addressed by content hash, and
@@ -372,6 +372,14 @@ def test_the_untenanted_roster_is_pinned() -> None:
         ARTIFACT_BLOB_SURFACE,
         ARTIFACT_META_SURFACE,
     )
+    from tests.mcp.guarded_servers import build_for
+
+    # Build all four shipped servers first, so the roster measures the SDK's
+    # own surfaces rather than whatever this process happened to register
+    # before this test ran. Without it the assertion passes or fails on
+    # collection order, which is a property of the runner and not of the SDK.
+    for builder in ("artifact", "hitl", "experience", "egress"):
+        build_for(builder, tmp_path / builder)
 
     assert untenanted_surfaces() == frozenset(
         {ARTIFACT_BLOB_SURFACE, ARTIFACT_META_SURFACE}
