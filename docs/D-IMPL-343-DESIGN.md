@@ -353,7 +353,7 @@ test modules only.
 ### C1 · Requires declaration
 - **Adopter writes:** three lines under `product_class.requires` (`test:139-144`):
   `product_class`, `required`, `compatible_from`.
-- **SDK API:** `ChildRequirement` (`contract.py:781-799`), `accepts` (same-major floor).
+- **SDK API:** `ChildRequirement` (`contract.py::ChildRequirement`), `accepts` (same-major floor).
 - **Duplicated authority:** the floor (`1.0.0`) and the lane asked (`1.1.0`) live in
   two authorities (C3).
 - **Failure modes:** silence on `required` is refused; a required row carrying

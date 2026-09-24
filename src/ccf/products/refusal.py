@@ -125,7 +125,11 @@ from ccf.peering.admission import (
 from ccf.products.composite import ChildAdmissionRefusal
 from ccf.products.composition import MixingRefusal
 from ccf.products.constraints import ConstraintRefusal, PolicyResolutionConflict
-from ccf.products.contract import ComputedEmptyFinding, ProductLineage
+from ccf.products.contract import (
+    ComputedEmptyFinding,
+    ProductLineage,
+    RefusalCause,
+)
 from ccf.products.gates import (
     AttestationRefusal,
     DeclaredObligationRefusal,
@@ -265,7 +269,7 @@ class SubjectUnavailableRefusal(CCFContract):
             ``full``: a code is as fine-grained a leak as prose.
     """
 
-    cause: Literal["nonexistent", "unauthorized", "undisclosed"]
+    cause: RefusalCause
     detail: str
     error_code: str | None = Field(
         default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}

@@ -140,7 +140,9 @@ README says exactly that rather than implying a generality nobody measured.
 ### D.2 Determinism class
 
 **Deterministic given a pinned model, temperature and prompt** — which is what
-the four pins record. For CI the model is a fail-loud loopback stub answering
+the pins record, on the payload **and** on the retained replay record's
+dimension 3. `output_hash` is the fifth, over the sections actually served,
+so it is re-derivable from the memo alone by anyone holding the record. For CI the model is a fail-loud loopback stub answering
 a declared conversation (`hw1-harness-clients` leg 2's discipline). The real
 model is opt-in and never required for a green build.
 
@@ -174,7 +176,7 @@ to every existing gate, and nothing in the suite tests it today.
 
 ## G.1 · Declared gates
 
-Ids are `PKG-G01`..`PKG-G08`. **Declared and observed RED** — `artifacts/gates.yaml`
+Ids are `PKG-G01`..`PKG-G09`. **Declared and observed RED** — `artifacts/gates.yaml`
 carries each one's sabotage and the observation made against it. This section is
 the acceptance authority for every id (`D-IMPL-326`).
 
@@ -187,7 +189,8 @@ the acceptance authority for every id (`D-IMPL-326`).
 | `PKG-G05` | a section outside the `audience` set never materializes |
 | `PKG-G06` | an upstream refusal becomes this product's refusal, with the upstream reason retained |
 | `PKG-G07` | the memo's `expires_at` follows the upstream product's, never the request instant |
-| `PKG-G08` | same subject, same pins, same model → same content address |
+| `PKG-G08` | same subject, same pins, same model → same content address; and a DIFFERENT temperature must reach a different one |
+| `PKG-G09` | the RETAINED replay record's dimension 3 carries all five pins — not the `no-packaging` sentinel — and `output_hash` re-derives from the served sections |
 
 ---
 

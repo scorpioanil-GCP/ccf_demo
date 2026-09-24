@@ -13,7 +13,7 @@ rendered named on every section.
 | | |
 | --- | --- |
 | **`assembly_mode: llm_packaged`** | 29 of 29 other shipped trees declare `algorithmic`. Assembly Mode is the **ninth element** of the Context Product Contract and had never been exercised past Mode 1 |
-| **§7.10.4's four pinned rendering primitives** | model, temperature, prompt artifact URI and hash — on the payload *and* on dimension 3, so an examiner reads the packaging without dereferencing anything |
+| **§7.10.4's pinned rendering primitives** | model, temperature, prompt artifact URI and hash, and the **output hash** — on the payload *and* on replay dimension 3, so an examiner reads the packaging without dereferencing anything. This sentence was true of the payload and false of the record for the whole of this rung's first build (`PKG-F-08`); `PKG-G09` now reads the **retained** record, because a gate handed the payload cannot see what was filed |
 | **The smoothing gate** | `packaging.did-not-move-the-conclusion` **refuses** a memo stating a figure the substrate does not carry |
 | **The substrate stays the artifact-of-record** | every section names the upstream content address, so any sentence is checkable against the bytes that produced it |
 
@@ -72,11 +72,11 @@ person who wrote both (`PKG-F-01`).
 | `ccf_config.yaml` | the class, `assembly_mode: llm_packaged`, the declared smoothing gate, the audience-admitting Policy operator |
 | `ccf_environment.yaml` | one source — the upstream door — as **names, never values** |
 | `artifacts/memo-prompt.yaml` | the prompt **as a versioned artifact**, with the model and temperature beside it so one hash pins all three |
-| `artifacts/gates.yaml` | the eight declared gates and each one's sabotage |
+| `artifacts/gates.yaml` | the nine declared gates and each one's sabotage |
 | `acquisition.py` | ask the door → package → emit claims. The Mode 2 seam |
 | `memo_packaging.py` | the fail-loud deterministic packager, and the opt-in real-model one |
 | `projection.py` | Π over the packaged claims. Nothing semantic happens here, and that is the point |
-| `deployment.py` | the three verbs and **the smoothing gate** |
+| `deployment.py` | the three verbs, **the smoothing gate**, and `packaging_trace` — what this deployment tells replay dimension 3 its packager did |
 
 ## Whitepaper / CLAUDE.md sections exercised
 
@@ -111,3 +111,6 @@ packaging path is identical; only the packager changes.
   without passing a gate.
 - **Naming a module `packaging`** — it collides with an installed
   distribution and is shadowed depending on `sys.path` order (`PKG-F-02`).
+- **Serving Mode 2 without wiring `packaging_trace=`** — the memo still
+  carries its pins and the filed record says no packaging happened. Nothing
+  refuses it, which is why `PKG-G09` exists (`PKG-F-08`).

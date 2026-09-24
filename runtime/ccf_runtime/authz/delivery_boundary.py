@@ -684,7 +684,7 @@ def govern_entitlement(
 
 
 @runtime_checkable
-class DisclosingRecorderProtocol(Protocol):
+class DisclosingRecorderProtocol(RefusalRecorderProtocol, Protocol):
     """A recorder that can also state the level it would disclose at.
 
     ``D-IMPL-345`` R-2, Dave, verbatim: *"Read disclosure authority through
@@ -704,24 +704,24 @@ class DisclosingRecorderProtocol(Protocol):
     recorder holds rather than as a method: the recorder takes it by
     injection, and a Protocol that declared a method would refuse the shipped
     object.
+
+    **``record`` is INHERITED rather than restated**, which is what "the two
+    extra members on top" means when it is said in code instead of in prose.
+    It was restated once, and the copy drifted: it narrowed ``resolution`` to
+    ``object`` and dropped the six optional keywords the seam actually
+    carries. Two protocols declaring one method incompatibly is a pair no
+    class can satisfy, so mypy read the conformance check in
+    :func:`disclosing_boundary` as narrowing to ``Never`` and reported its
+    refusal branch unreachable — the guard was typed out of existence while
+    still running. Inheritance makes the relationship the docstring always
+    claimed, and leaves the runtime member set exactly as it was:
+    ``record`` — the base Protocol's only member — plus the two below.
     """
 
     tenant_id: str
     disclosure_level_for: Callable[
         ..., tuple[DisclosureLevel, ProvenanceSource | None]
     ]
-
-    def record(
-        self,
-        envelope: RefusalEnvelope,
-        *,
-        perspective: Perspective,
-        recorded_at: datetime,
-        resolution: object,
-        policy_bindings: tuple[PolicyBinding, ...] = (),
-    ) -> RefusalEnvelope:
-        """Mint the record, then return the disclosed shell."""
-        ...
 
 
 def disclosing_boundary(

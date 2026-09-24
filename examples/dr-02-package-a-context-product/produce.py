@@ -52,6 +52,10 @@ def product(scratch: Path, *, environ: Mapping[str, str] | None = None) -> Opene
         project=plan_factory,
         assess=deployment.assess,
         gate=deployment.packaging_gate,
+        # §7.10.4's Mode 2 footprint. Without this the payload would carry the
+        # packaging pins and replay dimension 3 would read `no-packaging` on
+        # every field — measured, and recorded as `PKG-F-08`.
+        packaging_trace=deployment.packaging_trace,
         environ=environ,
     )
 

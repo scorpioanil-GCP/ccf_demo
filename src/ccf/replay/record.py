@@ -1697,6 +1697,7 @@ def build_replay_record(
     disclosure: str | None = None,
     agent_conditioning: PerspectiveConditioning | None = None,
     harness_trace: HarnessTrace | None = None,
+    packaging_trace: PackagingTrace | None = None,
     hitl_actions: str | None = None,
     workflow_step_sequence: str | None = None,
     assembly_refusal: str | None = None,
@@ -2061,6 +2062,19 @@ def build_replay_record(
             harness_trace=harness_trace
             if harness_trace is not None
             else NO_HARNESS_TRACE,
+            # §7.10.4's Mode 2 footprint, recorded VERBATIM from the packaging
+            # stage rather than re-derived from the payload here. A record
+            # that re-observed the pins would be reporting what the payload
+            # says now, not what the packager did — and the whole point of
+            # holding `output_hash` beside `product_content_address` is to let
+            # an examiner ask whether those two ever disagreed.
+            #
+            # `None` keeps the no-packaging sentinel, which is the TRUE claim
+            # for Mode 1 and for any Mode 2 deployment that supplies no
+            # trace — and `PKG-G09` is what stops the latter passing silently.
+            packaging_trace=packaging_trace
+            if packaging_trace is not None
+            else NO_PACKAGING_TRACE,
         ),
         # 24.6-07: dimension 4 is the caller's conditioning, then the
         # assembler's identity stamped onto it. A `model_copy` rather than two

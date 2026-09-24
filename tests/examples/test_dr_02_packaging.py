@@ -26,6 +26,7 @@ from typing import Any
 import pytest
 
 from ccf.products.refusal import RefusalEnvelope
+from tests.examples.tree_import import tree_modules_of
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 DR02 = REPO_ROOT / "examples" / "dr-02-package-a-context-product"
@@ -105,26 +106,21 @@ def _asked(
     url: str, *, audience: tuple[str, ...] = ("credit-officer",)
 ) -> Iterator[tuple[Any, Any, Any]]:
     """One question, answered, with its record — the opened product held open."""
-    sys.path.insert(0, str(DR02))
-    try:
-        import deployment  # noqa: PLC0415
-        import produce  # noqa: PLC0415
+    deployment, produce = tree_modules_of(DR02, "deployment", "produce")
 
-        with tempfile.TemporaryDirectory() as scratch:
-            with produce.product(pathlib.Path(scratch), environ=_environ(url)) as opened:
-                question = opened.question(
-                    subject=FACILITY, asked_at=INSTANT, intent=INTENT,
-                    freshness=FRESHNESS,
-                    parameters={
-                        deployment.FACILITY: FACILITY,
-                        deployment.BORROWER_SCOPE: [SCOPE],
-                        deployment.AUDIENCE: list(audience),
-                    },
-                )
-                outcome = opened.answer(question)
-                yield opened, outcome, opened.record_of(outcome)
-    finally:
-        sys.path.remove(str(DR02))
+    with tempfile.TemporaryDirectory() as scratch:
+        with produce.product(pathlib.Path(scratch), environ=_environ(url)) as opened:
+            question = opened.question(
+                subject=FACILITY, asked_at=INSTANT, intent=INTENT,
+                freshness=FRESHNESS,
+                parameters={
+                    deployment.FACILITY: FACILITY,
+                    deployment.BORROWER_SCOPE: [SCOPE],
+                    deployment.AUDIENCE: list(audience),
+                },
+            )
+            outcome = opened.answer(question)
+            yield opened, outcome, opened.record_of(outcome)
 
 
 @pytest.fixture(scope="module")
@@ -232,57 +228,53 @@ def test_an_invented_figure_refuses_the_serve(estate: None) -> None:
     packager wrote *"3 asset(s) secure this facility"*, a COMPUTED count the
     substrate never carried, and the serve refused (`PKG-F-01`).
     """
-    sys.path.insert(0, str(DR02))
-    try:
-        import deployment  # noqa: PLC0415
-        import memo_packaging as packaging_module  # noqa: PLC0415
+    (deployment,) = tree_modules_of(DR02, "deployment")
+    import memo_packaging as packaging_module  # noqa: PLC0415
 
-        # PATCHED WHERE IT IS USED, not where it is defined. `deployment` binds
-        # the class by `from`-import at module load, so rebinding the source
-        # module leaves the deployment holding whatever it captured first —
-        # which is how this sabotage first "passed" while its own positive
-        # control failed. The control is why that was caught.
-        honest = deployment.DeterministicPackager
+    # PATCHED WHERE IT IS USED, not where it is defined. `deployment` binds
+    # the class by `from`-import at module load, so rebinding the source
+    # module leaves the deployment holding whatever it captured first —
+    # which is how this sabotage first "passed" while its own positive
+    # control failed. The control is why that was caught.
+    honest = deployment.DeterministicPackager
 
-        class _Liar(honest):  # type: ignore[misc, valid-type]
-            """States one figure the substrate does not carry, and nothing else."""
+    class _Liar(honest):  # type: ignore[misc, valid-type]
+        """States one figure the substrate does not carry, and nothing else."""
 
-            def package(self, *, product: Any, headings: Any) -> Any:
-                rendered = super().package(product=product, headings=headings)
-                first = rendered[0]
-                return (
-                    packaging_module.PackagedSection(
-                        heading=first.heading,
-                        audience=first.audience,
-                        # 4242424242 appears nowhere in a coverage product.
-                        prose=first.prose + " Total exposure is 4242424242.",
-                        figures_cited=first.figures_cited,
-                    ),
-                    *rendered[1:],
+        def package(self, *, product: Any, headings: Any) -> Any:
+            rendered = super().package(product=product, headings=headings)
+            first = rendered[0]
+            return (
+                packaging_module.PackagedSection(
+                    heading=first.heading,
+                    audience=first.audience,
+                    # 4242424242 appears nowhere in a coverage product.
+                    prose=first.prose + " Total exposure is 4242424242.",
+                    figures_cited=first.figures_cited,
+                ),
+                *rendered[1:],
+            )
+
+    with _upstream_door() as url:
+        deployment.DeterministicPackager = _Liar  # type: ignore[misc]
+        try:
+            with _asked(url) as (_opened, refused, record):
+                assert isinstance(refused, RefusalEnvelope), (
+                    "a memo stating a figure the substrate does not carry"
+                    " was SERVED"
                 )
+                assert refused.reason == "packaging.did-not-move-the-conclusion"
+                block = str(record.content_generation_path.assembly_refusal)
+                assert "4242424242" in block, block
+        finally:
+            deployment.DeterministicPackager = honest  # type: ignore[misc]
 
-        with _upstream_door() as url:
-            deployment.DeterministicPackager = _Liar  # type: ignore[misc]
-            try:
-                with _asked(url) as (_opened, refused, record):
-                    assert isinstance(refused, RefusalEnvelope), (
-                        "a memo stating a figure the substrate does not carry"
-                        " was SERVED"
-                    )
-                    assert refused.reason == "packaging.did-not-move-the-conclusion"
-                    block = str(record.content_generation_path.assembly_refusal)
-                    assert "4242424242" in block, block
-            finally:
-                deployment.DeterministicPackager = honest  # type: ignore[misc]
-
-            # THE POSITIVE CONTROL, same door, same question, honest packager.
-            with _asked(url) as (_opened, served_again, _record):
-                assert not isinstance(served_again, RefusalEnvelope), (
-                    "the honest packager was refused too; the gate is not"
-                    " discriminating, it is refusing everything"
-                )
-    finally:
-        sys.path.remove(str(DR02))
+        # THE POSITIVE CONTROL, same door, same question, honest packager.
+        with _asked(url) as (_opened, served_again, _record):
+            assert not isinstance(served_again, RefusalEnvelope), (
+                "the honest packager was refused too; the gate is not"
+                " discriminating, it is refusing everything"
+            )
 
 
 # ===========================================================================
@@ -329,37 +321,32 @@ def test_an_upstream_refusal_becomes_this_products_refusal(estate: None) -> None
     about nothing — so the refusal is raised at the acquisition seam, where a
     deployment's governed refusal becomes data rather than a traceback.
     """
-    sys.path.insert(0, str(DR02))
-    try:
-        import deployment  # noqa: PLC0415
-        import produce  # noqa: PLC0415
+    deployment, produce = tree_modules_of(DR02, "deployment", "produce")
 
-        unreachable = "http://127.0.0.1:1/mcp"
-        with tempfile.TemporaryDirectory() as scratch:
-            with produce.product(
-                pathlib.Path(scratch), environ=_environ(unreachable)
-            ) as opened:
-                question = opened.question(
-                    subject=FACILITY, asked_at=INSTANT, intent=INTENT,
-                    freshness=FRESHNESS,
-                    parameters={
-                        deployment.FACILITY: FACILITY,
-                        deployment.BORROWER_SCOPE: [SCOPE],
-                        deployment.AUDIENCE: ["credit-officer"],
-                    },
-                )
-                with pytest.raises(Exception) as unreached:
-                    opened.answer(question)
-                # An unreachable door is a DEFECT, not a determination — the
-                # upstream did not refuse, it did not answer. `D-IMPL-347` B2
-                # is what would convert this by declaration, and this class
-                # declares no `seam_refusals`, so it propagates. Recorded as
-                # `PKG-F-03` rather than converted here.
-                assert "did not complete" in str(unreached.value) or "Unreachable" in type(
-                    unreached.value
-                ).__name__
-    finally:
-        sys.path.remove(str(DR02))
+    unreachable = "http://127.0.0.1:1/mcp"
+    with tempfile.TemporaryDirectory() as scratch:
+        with produce.product(
+            pathlib.Path(scratch), environ=_environ(unreachable)
+        ) as opened:
+            question = opened.question(
+                subject=FACILITY, asked_at=INSTANT, intent=INTENT,
+                freshness=FRESHNESS,
+                parameters={
+                    deployment.FACILITY: FACILITY,
+                    deployment.BORROWER_SCOPE: [SCOPE],
+                    deployment.AUDIENCE: ["credit-officer"],
+                },
+            )
+            with pytest.raises(Exception) as unreached:
+                opened.answer(question)
+            # An unreachable door is a DEFECT, not a determination — the
+            # upstream did not refuse, it did not answer. `D-IMPL-347` B2
+            # is what would convert this by declaration, and this class
+            # declares no `seam_refusals`, so it propagates. Recorded as
+            # `PKG-F-03` rather than converted here.
+            assert "did not complete" in str(unreached.value) or "Unreachable" in type(
+                unreached.value
+            ).__name__
 
 
 def test_the_expiry_follows_the_substrate_not_the_request(
@@ -387,51 +374,145 @@ def test_the_same_question_reaches_the_same_address_twice(estate: None) -> None:
     four of them worth doing. Two identical questions against one door reach
     one address.
     """
-    sys.path.insert(0, str(DR02))
-    try:
-        import deployment  # noqa: PLC0415
+    (deployment,) = tree_modules_of(DR02, "deployment")
 
-        def _address(record: Any) -> str:
-            return str(record.content_generation_path.product_content_address)
+    def _address(record: Any) -> str:
+        return str(record.content_generation_path.product_content_address)
 
-        with _upstream_door() as url:
-            addresses = []
-            for _ in range(2):
-                with _asked(url) as (_opened, outcome, record):
-                    assert not isinstance(outcome, RefusalEnvelope), outcome
-                    addresses.append(_address(record))
-            assert addresses[0] == addresses[1], addresses
+    with _upstream_door() as url:
+        addresses = []
+        for _ in range(2):
+            with _asked(url) as (_opened, outcome, record):
+                assert not isinstance(outcome, RefusalEnvelope), outcome
+                addresses.append(_address(record))
+        assert addresses[0] == addresses[1], addresses
 
-            # THE OTHER LIMB, and the gate claims both. Without it,
-            # "deterministic GIVEN its pins" is half asserted: a pin that can
-            # change while the address stands still is not part of the
-            # identity it claims to be, and `PKG-G02` would still pass because
-            # the field would be POPULATED and simply not load-bearing.
-            #
-            # `deployment.packager` is the binding the deployment actually
-            # calls -- `acquisition` receives the model as an argument and
-            # binds nothing of its own. Patching the module global is what
-            # `PKG-F-04` says to verify rather than assume.
-            honest = deployment.packager
+        # THE OTHER LIMB, and the gate claims both. Without it,
+        # "deterministic GIVEN its pins" is half asserted: a pin that can
+        # change while the address stands still is not part of the
+        # identity it claims to be, and `PKG-G02` would still pass because
+        # the field would be POPULATED and simply not load-bearing.
+        #
+        # `deployment.packager` is the binding the deployment actually
+        # calls -- `acquisition` receives the model as an argument and
+        # binds nothing of its own. Patching the module global is what
+        # `PKG-F-04` says to verify rather than assume.
+        honest = deployment.packager
 
-            def _warmer(declaration: Any) -> Any:
-                return deployment.DeterministicPackager(temperature="0.7")
+        def _warmer(declaration: Any) -> Any:
+            return deployment.DeterministicPackager(temperature="0.7")
 
-            deployment.packager = _warmer  # type: ignore[assignment]
-            try:
-                with _asked(url) as (_opened, warmer, warm_record):
-                    assert not isinstance(warmer, RefusalEnvelope), warmer
-                    moved = _address(warm_record)
-                    assert dict(warmer.product.payload)["packaged_by"][
-                        "temperature"
-                    ] == "0.7", "the sabotage did not reach the served payload"
-            finally:
-                deployment.packager = honest  # type: ignore[assignment]
+        deployment.packager = _warmer  # type: ignore[assignment]
+        try:
+            with _asked(url) as (_opened, warmer, warm_record):
+                assert not isinstance(warmer, RefusalEnvelope), warmer
+                moved = _address(warm_record)
+                assert dict(warmer.product.payload)["packaged_by"][
+                    "temperature"
+                ] == "0.7", "the sabotage did not reach the served payload"
+        finally:
+            deployment.packager = honest  # type: ignore[assignment]
 
-            assert moved != addresses[0], (
-                "the temperature pin moved and the product's content address"
-                f" did not ({moved}); the pin is RECORDED but is not part of"
-                " the identity §7.10.4 asks it to pin"
+        assert moved != addresses[0], (
+            "the temperature pin moved and the product's content address"
+            f" did not ({moved}); the pin is RECORDED but is not part of"
+            " the identity §7.10.4 asks it to pin"
+        )
+
+
+# ===========================================================================
+# PKG-G09 — the RETAINED record, not the served payload
+# ===========================================================================
+
+
+def test_the_retained_record_carries_the_real_packaging_trace(estate: None) -> None:
+    """Declared product gate `PKG-G09` (`DR-SPEC-002` §D.2).
+
+    §7.10.4 pins Mode 2's rendering primitives so an examiner reads the
+    packaging off replay **dimension 3** without dereferencing anything. This
+    reads the bytes the store retained, because the payload passing is not
+    evidence about the record: measured 2026-09-23, `dr-02` served real pins
+    on the payload while every field of dimension 3 read `no-packaging`, and
+    all eight gates were green (`PKG-F-08`).
+    """
+    acquisition, deployment = tree_modules_of(DR02, "acquisition", "deployment")
+    from ccf.replay.record import NO_PACKAGING  # noqa: PLC0415
+    from ccf.replay.record import DecisionReplayRecord  # noqa: PLC0415
+
+    with _upstream_door() as url:
+        with _asked(url) as (opened, outcome, _record):
+            assert not isinstance(outcome, RefusalEnvelope), outcome
+            retained = DecisionReplayRecord.model_validate_json(
+                opened.artifact_store.get(
+                    content_address=outcome.replay_ref.content_address
+                )
             )
-    finally:
-        sys.path.remove(str(DR02))
+            trace = retained.model_version.packaging_trace
+            assert retained.model_version.assembly_mode == "llm_packaged"
+
+            # All five, named individually so a failure says WHICH pin.
+            for pin in (
+                "model_version",
+                "temperature",
+                "prompt_artifact_uri",
+                "prompt_artifact_hash",
+                "output_hash",
+            ):
+                assert getattr(trace, pin) != NO_PACKAGING, (
+                    f"dimension 3's `{pin}` is the no-packaging sentinel on"
+                    " a product a model wrote; an examiner reading this"
+                    " record would be told no packaging happened"
+                )
+
+            # The record and the memo agree, so a reader holding either
+            # reaches the same four pins.
+            payload = dict(outcome.product.payload)
+            pins = payload["packaged_by"]
+            assert trace.model_version == pins["model"]
+            assert trace.temperature == pins["temperature"]
+            assert trace.prompt_artifact_uri == pins["prompt_artifact_uri"]
+            assert trace.prompt_artifact_hash == pins["prompt_artifact_hash"]
+            assert trace.output_hash == pins["output_hash"]
+
+            # THE REPLAY CONTRACT. `output_hash` is re-derivable from the
+            # served memo alone, which is what makes it checkable by
+            # someone holding the record and the product and nothing else.
+            assert trace.output_hash == acquisition.output_hash(
+                payload["sections"]
+            )
+
+            # DETECTION, carried inside the test: move one word of the
+            # prose and the re-derivation stops matching the pin. Without
+            # this the equality above would hold for ANY hash function,
+            # including one that ignored its input.
+            tampered = [dict(section) for section in payload["sections"]]
+            tampered[0]["prose"] = str(tampered[0]["prose"]) + " (altered)"
+            assert acquisition.output_hash(tampered) != trace.output_hash, (
+                "the packaged prose was altered and the output hash did"
+                " not move; the pin cannot detect a rewritten memo"
+            )
+
+        # THE SABOTAGE. A deployment that supplies no trace serves the
+        # same payload pins and records the sentinel — exactly the state
+        # this gate exists to refuse, and the one `dr-02` shipped in.
+        honest = deployment.packaging_trace
+        deployment.packaging_trace = None  # type: ignore[assignment]
+        try:
+            with _asked(url) as (opened, dark, _record):
+                assert not isinstance(dark, RefusalEnvelope), dark
+                unrecorded = DecisionReplayRecord.model_validate_json(
+                    opened.artifact_store.get(
+                        content_address=dark.replay_ref.content_address
+                    )
+                )
+                sentinel = unrecorded.model_version.packaging_trace
+                assert sentinel.model_version == NO_PACKAGING
+                assert sentinel.output_hash == NO_PACKAGING
+                # ...while the memo still carries real pins. The payload
+                # is why this was invisible for a whole rung.
+                assert (
+                    dict(dark.product.payload)["packaged_by"]["model"]
+                    != NO_PACKAGING
+                )
+        finally:
+            deployment.packaging_trace = honest  # type: ignore[assignment]

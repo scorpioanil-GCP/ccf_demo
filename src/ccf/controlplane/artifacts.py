@@ -87,6 +87,7 @@ from ccf.operators.params import (
     TraversalNeighborhoodParameters,
 )
 from ccf.products.contract import (
+    RefusalCause,
     ChildRequirement,
     NO_PAYLOAD_SCHEMA,
     NO_PRODUCT_GATE,
@@ -1323,15 +1324,21 @@ class SeamRefusalBinding(CCFContract):
     Attributes:
         exception: The fully qualified ``module.QualName`` of the exception
             type, as Python reports it on the raised value.
-        cause: The refusal cause to mint, from
-            :class:`~ccf.products.refusal.SubjectUnavailableRefusal`'s own
-            closed vocabulary. The product's statement about what the failure
-            MEANS, which is the half the SDK cannot supply.
+        cause: The refusal cause to mint, typed as
+            :data:`~ccf.products.contract.RefusalCause` — **referenced, never
+            restated**. The product's statement about what the failure MEANS,
+            which is the half the SDK cannot supply. It was spelled out here
+            as a literal once, and that copy read as this module enumerating a
+            vocabulary of its own: `artifacts.py` is one of the two roots
+            `tests/invariants/test_no_obligation_vocabulary.py` scans, and the
+            restatement turned that guard from 54 passed to 43 failed
+            (`D-IMPL-117`, CLAUDE.md §11). One declaration, in the module that
+            owns the concept.
         error_code: The deployment-facing code carried on the minted refusal.
     """
 
     exception: str
-    cause: Literal["nonexistent", "unauthorized", "undisclosed"]
+    cause: RefusalCause
     error_code: str
 
 

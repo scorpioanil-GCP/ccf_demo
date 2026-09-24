@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
 #
-# THE DECLARED PRODUCT GATES OF `dr-02` — eight, `PKG-G01`..`PKG-G08`.
+# THE DECLARED PRODUCT GATES OF `dr-02` — nine, `PKG-G01`..`PKG-G09`.
 #
 # The acceptance authority for every gate is `DR-SPEC-002` §G. Each id is
 # claimed by at least one executing test under `tests/examples/`, and no
@@ -18,6 +18,10 @@
 #     string nobody checks is a claim, not a demonstration.
 #   `PKG-G02` — §7.10.4's four pinned rendering primitives are populated, so
 #     an examiner reads the packaging off the record without a dereference.
+#   `PKG-G09` — the RETAINED RECORD carries the packaging, not just the
+#     payload. `PKG-G02` reads the served product and passed for a whole rung
+#     while replay dimension 3 read `no-packaging` on every field (`PKG-F-08`).
+#     A gate that reads only what it was handed cannot see what was FILED.
 #   `PKG-G04` — THE SMOOTHING GATE. A figure in the prose that the substrate
 #     does not carry refuses the serve. This one caught its own author on the
 #     rung's first honest run (`PKG-F-01`).
@@ -166,3 +170,26 @@ declaration:
         payload and the pin rides on the payload — and that coupling is the property §7.10.4 asks for.'
       date: '2026-09-23'
       commit: 9283a8a4
+  - id: PKG-G09
+    spec_clause:
+      document: spec/DR-SPEC-002_Package_A_Context_Product.md
+      clause: G.1
+    statement: The RETAINED replay record's dimension 3 carries all five of §7.10.4's pinned rendering
+      primitives — model, temperature, prompt URI, prompt hash and output hash — none of them the `no-packaging`
+      sentinel, agreeing with the memo's own pins, and `output_hash` is re-derivable from the served sections
+      alone.
+    test: tests/examples/test_dr_02_packaging.py::test_the_retained_record_carries_the_real_packaging_trace
+    sabotage: carried inside the test, and the gate was reddened by unwiring the seam — a deployment that
+      supplies no `packaging_trace` serves the same payload pins and files the sentinel. Plus a tamper
+      control — one word of prose altered and the re-derived output hash must stop matching the pin.
+    sabotage_state: passed
+    observed_red:
+      result: 'RED 2026-09-23 — `packaging_trace=` removed from `produce.py` and the gate refused BY NAME:
+        "dimension 3''s `model_version` is the no-packaging sentinel on a product a model wrote". That
+        is not a hypothetical: it is the state `dr-02` SHIPPED in and the state this gate was written
+        to catch (`PKG-F-08`). The sabotage is also carried inside the test, which asserts the sentinel
+        is filed while the payload still carries real pins — the asymmetry that made it invisible. The
+        tamper control is the second limb: altering one section''s prose moves the re-derived hash, so
+        the equality above is a claim about these bytes rather than a property of any hash function.'
+      date: '2026-09-23'
+      commit: 6529de1d

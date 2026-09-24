@@ -602,6 +602,23 @@ _MARKED_IN_THE_TREE = frozenset(
         # no committed resolution spec's pin moves and no entity URI shifts —
         # the repair changes where a value is read from, never what is hashed.
         "ccf.assembly.worker.EntityResolutionRule.identity_sources",
+        # `D-IMPL-347` — the governed-refusal seam surface, and `PKG-F-08`'s
+        # connection of §7.10.4's Mode 2 footprint. Eight marks, every one
+        # ADDITIVE: the drift measured here was 8 extra and **0 missing**, so
+        # no field that was ticked has stopped being marked and no record
+        # written before these existed hashes differently. Each is sentinel-
+        # defaulted (`NO_REFUSAL_SEAM`, `NO_PACKAGING`, `NO_PACKAGING_TRACE`,
+        # an empty tuple), which is what makes the tick correct rather than
+        # merely recorded — a Mode 1 record carries the no-packaging block and
+        # hashes exactly as it did before dimension 3 could hold one.
+        "ccf.controlplane.artifacts.ProductClassDeclaration.seam_refusals",
+        "ccf.replay.record.ContentGenerationPath.refusal_seam",
+        "ccf.replay.record.ModelVersionRecord.packaging_trace",
+        "ccf.replay.record.PackagingTrace.model_version",
+        "ccf.replay.record.PackagingTrace.temperature",
+        "ccf.replay.record.PackagingTrace.prompt_artifact_uri",
+        "ccf.replay.record.PackagingTrace.prompt_artifact_hash",
+        "ccf.replay.record.PackagingTrace.output_hash",
     }
 )
 

@@ -999,6 +999,14 @@ def test_the_named_inputs_are_this_helper_s_own_optional_parameters() -> None:
         "product_ttl_seconds",
         "refusal_recorder",
         "acquisition",
+        # `PKG-F-08`. §7.10.4's Mode 2 footprint — what this deployment's
+        # packaging stage did — and not debt-scorer material. The same shape
+        # as `composite_children` above: optional on THIS helper so every
+        # Mode 1 product shipped before the seam existed keeps building, and
+        # REQUIRED on the resolver itself, because a default there made "no
+        # packaging happened" and "nobody wired the seam" the same
+        # construction.
+        "packaging_trace",
     )
     parameters = inspect.signature(build_governed_resolver).parameters
     for name in not_debt_scorer_material:

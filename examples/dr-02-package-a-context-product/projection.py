@@ -23,6 +23,7 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import Any
 
+import acquisition
 from ccf.graph.protocols import GraphView
 from ccf.operators.base import OperatorOutput
 from ccf.projection.plan import Perspective, ProjectionOutput
@@ -99,14 +100,23 @@ class PackagedMemoProjection:
                     "debt": first.get("upstream_debt") or None,
                     "disposition": first.get("upstream_disposition") or None,
                 },
-                # §7.10.4's four pinned rendering primitives, on the payload as
+                # §7.10.4's pinned rendering primitives, on the payload as
                 # well as on dimension 3 — a reader of the memo should not have
                 # to fetch a replay record to learn what wrote it.
+                #
+                # `output_hash` here is the packager's DECLARATION. Dimension 3
+                # carries the same hash recomputed from what was served, which
+                # is what lets the two be compared (`PKG-G09`).
                 "packaged_by": {
                     "model": first.get("packaging_model"),
                     "temperature": first.get("packaging_temperature"),
                     "prompt_artifact_uri": first.get("packaging_prompt_uri"),
                     "prompt_artifact_hash": first.get("packaging_prompt_hash"),
+                    # Over the sections THIS payload carries — the admitted
+                    # ones. `deployment.packaging_trace` recomputes the same
+                    # digest from the served product for replay dimension 3,
+                    # so an examiner can re-derive it from the memo alone.
+                    "output_hash": acquisition.output_hash(sections),
                 },
                 "sections": [
                     {

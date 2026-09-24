@@ -1992,6 +1992,13 @@ DEPLOYMENT_OWNED_ARGUMENTS: tuple[str, ...] = (
     # resolver that guessed would serve a class whose declared requirements
     # execution ignored, which is the exact defect the composite block closes.
     "composite_children",
+    # `PKG-F-08`: §7.10.4's Mode 2 footprint. `None` is admissible and
+    # POSITIVE — this deployment runs no packaging stage, so dimension 3's
+    # no-packaging sentinel is the true claim — but never a default. A
+    # default made "no packaging happened" and "nobody wired the seam"
+    # indistinguishable, and `dr-02` shipped a model-written memo whose
+    # filed record said no packaging happened on every one of the five pins.
+    "packaging_trace",
     "acquisition",
     "half_life_key",
     "admission_clock",
@@ -2131,6 +2138,9 @@ def _arguments(booted: _Booted) -> dict[str, Any]:
         # every deployment shipped before the seam existed was in, stated
         # rather than defaulted.
         "acquisition": None,
+        # `PKG-F-08`: stated, never defaulted — this fixture packages nothing,
+        # and saying so is different from nobody having wired the seam.
+        "packaging_trace": None,
         # `D-IMPL-341`: no λ_c table on this seam — every class here is
         # decision-anchored, and an evidence-anchored one would refuse by name.
         "half_life_key": None,
