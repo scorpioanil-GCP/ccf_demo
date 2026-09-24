@@ -178,10 +178,10 @@ Rows by coupling shape:
 | `public/how-to/compose-a-workflow-with-hitl.md` | 121 | `tests/examples/test_workflow_hitl_output.py` | `prose` | documentary | - | - | 23-10 |  |
 | `public/how-to/compose-a-workflow-with-hitl.md` | 124 | `archive/examples/05-workflow-hitl` | `snippet-include` | live | - | - | 23-04 |  |
 | `public/how-to/compose-a-workflow-with-hitl.md` | 130 | `archive/examples/05-workflow-hitl` | `snippet-include` | live | - | - | 23-04 |  |
-| `public/how-to/compose-a-workflow-with-hitl.md` | 140 | `archive/examples/05-workflow-hitl` | `snippet-include` | live | - | - | 23-04 |  |
-| `public/how-to/compose-a-workflow-with-hitl.md` | 151 | `archive/examples/05-workflow-hitl` | `snippet-include` | live | - | - | 23-04 |  |
-| `public/how-to/compose-a-workflow-with-hitl.md` | 162 | `archive/examples/05-workflow-hitl` | `snippet-include` | live | - | - | 23-04 |  |
-| `public/how-to/compose-a-workflow-with-hitl.md` | 170 | `archive/examples/05-workflow-hitl` | `snippet-include` | live | - | - | 23-04 |  |
+| `public/how-to/compose-a-workflow-with-hitl.md` | 144 | `archive/examples/05-workflow-hitl` | `snippet-include` | live | - | - | 23-04 |  |
+| `public/how-to/compose-a-workflow-with-hitl.md` | 155 | `archive/examples/05-workflow-hitl` | `snippet-include` | live | - | - | 23-04 |  |
+| `public/how-to/compose-a-workflow-with-hitl.md` | 166 | `archive/examples/05-workflow-hitl` | `snippet-include` | live | - | - | 23-04 |  |
+| `public/how-to/compose-a-workflow-with-hitl.md` | 174 | `archive/examples/05-workflow-hitl` | `snippet-include` | live | - | - | 23-04 |  |
 | `public/how-to/grant-and-revoke-a-skill.md` | 15 | `archive/examples/02-skilling` | `prose` | documentary | - | - | 23-04 |  |
 | `public/how-to/grant-and-revoke-a-skill.md` | 29 | `archive/examples/02-skilling` | `prose` | documentary | - | - | 23-04 |  |
 | `public/how-to/grant-and-revoke-a-skill.md` | 46 | `archive/examples/02-skilling` | `snippet-include` | live | - | - | 23-04 |  |
@@ -826,7 +826,7 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/24.8-traversal-semantics-one-ruled-meaning-for-a-dangling-endpoin/24.8-LEGS.md` | 91 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/24.8-traversal-semantics-one-ruled-meaning-for-a-dangling-endpoin/24.8-RESEARCH.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `CLAUDE.md` | 11 | the project charter; revised by Dave, by no plan (CLAUDE.md §2) |
-| `docs/DECISIONS.md` | 104 | append-only decision log |
+| `docs/DECISIONS.md` | 105 | append-only decision log |
 | `docs/PHASE_15_5_GATE.md` | 2 | append-only per-phase gate records |
 | `docs/PHASE_I1_GATE.md` | 1 | append-only per-phase gate records |
 | `docs/PHASE_I3_GATE.md` | 5 | append-only per-phase gate records |
