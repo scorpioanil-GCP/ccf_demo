@@ -1,5 +1,12 @@
 """The ``workflow`` noun — invocations/status/resume (D-IMPL-23; ORCH-01).
 
+**The tenant is the grant's (``SEC-002``).** ``GET /execution`` used to take
+``tenant`` as a query parameter and build its state key from it, so a
+recognized bearer read any tenant's workflow state by typing its name. The
+parameter is **deleted** and the key's tenant half comes from the verified
+grant; ``execution_id`` stays, and is also this route's authorization
+resource.
+
 Invocation goes through the WorkflowFactory handle path and nothing else:
 the route resolves the pinned definition through the factory (ORCH-01 "via
 the Task Factory", held at the HTTP boundary too) and delegates to the
@@ -15,13 +22,20 @@ from __future__ import annotations
 
 from typing import Union
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from ccf.contracts.base import CCFContract
 from ccf.controlplane.registry import ControlPlaneMissing
 from ccf.workflow.factory import Workflow, WorkflowConstructionError
+from ccf_runtime.authz.refusals import (
+    ACTION_WORKFLOW_INVOKE,
+    ACTION_WORKFLOW_RESUME,
+    ACTION_WORKFLOW_STATUS_READ,
+)
+from ccf_runtime.authz.route_declaration import ResourceBinding, authorizes
 from ccf_runtime.http_api.dependencies import ApiDependencies
+from ccf_runtime.http_api.grants import tenant_from_request
 from ccf_runtime.http_api.routes import _required_handle, refusal_response
 from ccf_runtime.workflow.engine import (
     WorkflowCompleted,
@@ -91,6 +105,10 @@ def build_router(deps: ApiDependencies) -> APIRouter:
         response_model=_Progressed,
         summary="Workflow invoke (D-IMPL-23)",
     )
+    @authorizes(
+        ACTION_WORKFLOW_INVOKE,
+        resource=ResourceBinding.body("definition_key"),
+    )
     async def invoke(
         request: WorkflowInvocationRequest,
     ) -> WorkflowOutcome | JSONResponse:
@@ -115,6 +133,13 @@ def build_router(deps: ApiDependencies) -> APIRouter:
         response_model=_Progressed,
         summary="Workflow resume (D-IMPL-23)",
     )
+    # Its own action id, never `workflow.invoke`: resumption is the verb that
+    # carries a human decision past an approval gate, and a deployment that
+    # granted *start a workflow* has not thereby granted *approve one*.
+    @authorizes(
+        ACTION_WORKFLOW_RESUME,
+        resource=ResourceBinding.body("definition_key"),
+    )
     async def resume(
         request: WorkflowResumptionRequest,
     ) -> WorkflowOutcome | JSONResponse:
@@ -138,7 +163,16 @@ def build_router(deps: ApiDependencies) -> APIRouter:
         response_model=WorkflowStateRecord,
         summary="Workflow status (D-IMPL-23)",
     )
-    def execution(tenant: str, execution_id: str) -> WorkflowStateRecord:
+    @authorizes(
+        ACTION_WORKFLOW_STATUS_READ,
+        resource=ResourceBinding.query("execution_id"),
+    )
+    def execution(execution_id: str, request: Request) -> WorkflowStateRecord:
+        # `SEC-002`: the tenant half of the state key is the verified grant's.
+        # There is no `tenant` parameter to supply one, which is why reading
+        # another tenant's execution is now unrepresentable rather than merely
+        # refused.
+        tenant = tenant_from_request(request)
         record = deps.control_plane.state_store.get(
             WORKFLOW_STATE, f"{tenant}/{execution_id}"
         )

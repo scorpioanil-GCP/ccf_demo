@@ -37,17 +37,47 @@ __all__ = [
     "ERROR_PRODUCT_POLICY_ABSENT",
     "ERROR_PRODUCT_REQUEST_INCOMPLETE",
     "ERROR_PRODUCT_ROLE_UNGRANTED",
+    "ERROR_REQUEST_UNAUTHORIZED",
     "ERROR_ROUTE_HANDLE_ABSENT",
     "ERROR_SIGNED_BINDING_INVALID",
     "ERROR_SIGNED_BINDING_REQUIRED",
     "ERROR_SUBJECT_CONFLICT",
     "ERROR_TENANT_UNAUTHORIZED",
     "ERROR_UNAUTHENTICATED",
+    "ERROR_UNTENANTED_GRANT",
     "refusal_detail",
 ]
 
 #: The request carried no credential the bound auth hook recognises (401).
 ERROR_UNAUTHENTICATED: Final[str] = "unauthenticated"
+
+#: The verified grant does not authorize this request (403; ``SEC-001``/
+#: ``SEC-002``). The **one** code the total gate
+#: (:mod:`ccf_runtime.http_api.gate`) emits for every denial it makes, and the
+#: message beside it is one constant sentence that names neither the action
+#: nor the resource nor which axis failed.
+#:
+#: One code and one sentence, deliberately. The gate denies for five distinct
+#: internal reasons — no declaration covers the request line, the path's tenant
+#: segment disagrees with the grant's, the declared resource could not be read
+#: out of the request, the scope mapping said no, or no mapping resolved at the
+#: pinned version — and a caller able to tell those apart could enumerate which
+#: routes exist, which tenants it is near, and which of its own parameters the
+#: door reads. The full decision tuple goes to the **audit plane**, where an
+#: operator can read it and a caller cannot: that is the split, not a silence.
+ERROR_REQUEST_UNAUTHORIZED: Final[str] = "request-unauthorized"
+
+#: The verified grant names no tenant, so no door can act on one (403;
+#: ``SEC-002``; :class:`~ccf_runtime.authz.tenancy.UntenantedGrantRefused`).
+#:
+#: **Its own code rather than** :data:`ERROR_REQUEST_UNAUTHORIZED`, and the
+#: reason is the oracle test rather than tidiness: a caller cannot change what
+#: its own credential carries, so this answer is constant for a given
+#: credential across every route and every parameter, and distinguishing it
+#: discloses nothing a caller could probe with. What it buys is an operator
+#: who wired a token source that mints untenanted grants reading the cause
+#: instead of an opaque refusal on every route at once.
+ERROR_UNTENANTED_GRANT: Final[str] = "untenanted-grant"
 
 #: The caller asked to dereference a governed record that belongs to another
 #: principal (``D-IMPL-345`` R-2/R-4). Internal truth only: the shell a

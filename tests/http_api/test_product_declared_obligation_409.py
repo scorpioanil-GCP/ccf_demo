@@ -461,10 +461,19 @@ def _governed(
     instance the door was built with (the D-27 control), and passes ``None``
     explicitly when the subject is the construction-time refusal itself.
     """
-    token_file = root / "declared-obligation-tokens.json"
-    token_file.write_text(
-        json.dumps({TOKEN: {"client_id": PRINCIPAL, "scopes": ["product"]}}),
-        encoding="utf-8",
+    # `SEC-001`/`SEC-002`: every app binds an authorizer, and the tenant is
+    # the credential's. This suite's subject is the declared-obligation
+    # refusal rather than the gate, so the mapping is registered wide and the
+    # token source mints tenanted grants.
+    from .gate_fixtures import (
+        SCOPE_EVERYTHING,
+        tenanted_source,
+        wide_authorizer,
+    )
+
+    tenant = fabric.product_address.tenant
+    token_source = tenanted_source(
+        {TOKEN: (PRINCIPAL, (SCOPE_EVERYTHING,))}, tenant=tenant
     )
     source = ControlPlaneProductEntitlementSource(
         control_plane=_entitlement_registry(
@@ -484,7 +493,10 @@ def _governed(
                 artifact_store=fabric.store,
                 product_resolver=resolver,  # type: ignore[arg-type]
             ),
-            auth=BearerTokenAuth(token_source=FileTokenSource(path=token_file)),
+            auth=BearerTokenAuth(token_source=token_source),
+            authorizer=wide_authorizer(
+                tenant=tenant, key="declared-obligation/scope-mapping"
+            ),
             product_entitlement=source,
             perspective_resolver=_perspective,
             refusal_recorder=recorder,
@@ -847,15 +859,40 @@ def test_the_existing_refusal_statuses_are_unchanged(
     )
     assert absent.status == 404
 
-    # 503 — the module fixture's ungoverned door refuses before any resolver.
+    # 503 — **no longer reachable from the front door** (`SEC-001`). This leg
+    # used to call the module fixture's app, which was built with no seams and
+    # refused `product-door-ungoverned` before any resolver. `create_app` has
+    # no such arm now, so the honest subject is the handler reached with no
+    # verified grant — the one path that can still produce the status, and the
+    # reason the branch is kept in the route rather than deleted.
+    from fastapi import HTTPException
+    from starlette.requests import Request
+
+    from ccf_runtime.http_api.gate import mounted_routes
+
     address = fabric.product_address
-    ungoverned = call(
-        app,
-        "GET",
-        f"/product/{address.tenant}/{address.product_class}/{address.version}",
-    )
-    assert ungoverned.status_code == 503
-    assert ungoverned.json()["detail"]["error_code"] == "product-door-ungoverned"
+    (handler,) = [
+        route.endpoint
+        for template, route in mounted_routes(governed)
+        if template.startswith("/product/")
+    ]
+    with pytest.raises(HTTPException) as ungoverned:
+        handler(
+            tenant=address.tenant,
+            product_class=address.product_class,
+            version=address.version,
+            request=Request(
+                {
+                    "type": "http",
+                    "method": "GET",
+                    "path": "/product",
+                    "headers": [],
+                    "query_string": b"",
+                }
+            ),
+        )
+    assert ungoverned.value.status_code == 503
+    assert ungoverned.value.detail["error_code"] == "product-door-ungoverned"
 
 
 # ---------------------------------------------------------------------------

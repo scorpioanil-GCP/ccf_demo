@@ -61,6 +61,11 @@ from skills.sinks import ScriptedApprovalSink
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "banking"
 
+#: The credential :func:`call` supplies when a test does not bring its own.
+#: Named here rather than imported at module scope from ``gate_fixtures`` so
+#: that module's own imports of the SDK stay lazy inside the fixture.
+DEFAULT_TOKEN = "gate-token-everything"
+
 
 def _load(relative: str) -> dict[str, Any]:
     loaded: dict[str, Any] = yaml.safe_load((FIXTURES / relative).read_text())
@@ -372,35 +377,48 @@ def fabric(tmp_path_factory: pytest.TempPathFactory) -> Fabric:
 
 
 @pytest.fixture(scope="module")
-def app(fabric: Fabric) -> Any:
-    from ccf_runtime.http_api.app import create_app
-    from ccf_runtime.http_api.dependencies import ApiDependencies
+def gate_app(fabric: Fabric, tmp_path_factory: pytest.TempPathFactory) -> Any:
+    """The one authorized application these tests talk to (``SEC-001``).
 
-    return create_app(
-        ApiDependencies(
-            control_plane=fabric.registry,
-            artifact_store=fabric.store,
-            product_resolver=fabric.product_resolver,
-            workflow_factory=fabric.factory,
-            workflow_engine=fabric.engine,
-            hitl_transport=fabric.hitl,
-            skill_catalog=fabric.catalog,
-            grant_ledger=fabric.ledger,
-        ),
-        # This fixture is about the routes, not the posture; the D-IMPL-73
-        # warning has its own dedicated suite (test_insecure_default_warning).
-        acknowledge_insecure_default=True,
-    )
+    ``create_app`` has no unauthenticated arm any more, so there is no
+    "about the routes, not the posture" app to build: every application is a
+    governed one, and this fixture is the governed one.
+    """
+    from .gate_fixtures import build_gate_app
+
+    return build_gate_app(fabric, tmp_path_factory.mktemp("http-gate"))
+
+
+@pytest.fixture(scope="module")
+def app(gate_app: Any) -> Any:
+    """The application itself, for the many tests that need only that."""
+    return gate_app.app
 
 
 def call(app: Any, method: str, url: str, **kwargs: Any) -> httpx.Response:
-    """One in-process ASGI request — no server hosting, ever."""
+    """One in-process ASGI request — no server hosting, ever.
+
+    **Supplies the broadly-authorized credential unless the caller supplies
+    its own.** Every route is behind the total gate now
+    (:mod:`ccf_runtime.http_api.gate`), so a helper that sent no credential
+    would turn every route test in this package into a 401 assertion. A
+    caller's own ``Authorization`` header always wins, so the auth- and
+    authz-specific suites are unaffected by the default.
+
+    This convenience is deliberately **not** where the gate's totality is
+    evidenced: that is ``test_total_gate.py``, which probes with
+    :func:`~http_api.gate_fixtures.probe` and adds nothing of its own.
+    """
+    headers = {
+        "Authorization": f"Bearer {DEFAULT_TOKEN}",
+        **dict(kwargs.pop("headers", None) or {}),
+    }
 
     async def go() -> httpx.Response:
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(
             transport=transport, base_url="http://fabric.invalid"
         ) as client:
-            return await client.request(method, url, **kwargs)
+            return await client.request(method, url, headers=headers, **kwargs)
 
     return asyncio.run(go())

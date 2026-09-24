@@ -50,12 +50,14 @@ from ccf_runtime.authz.delivery_boundary import (
 from ccf_runtime.authz.product_entitlement import (
     ProductEntitlementSourceProtocol,
 )
+from ccf_runtime.authz.refusals import ACTION_ARTIFACT_READ, ACTION_ARTIFACT_WRITE
+from ccf_runtime.authz.route_declaration import ResourceBinding, authorizes
 from ccf_runtime.http_api.dependencies import ApiDependencies
 from ccf_runtime.http_api.errors import (
     ERROR_PRODUCT_DOOR_UNGOVERNED,
     refusal_detail,
 )
-from ccf_runtime.http_api.grants import grant_from_request
+from ccf_runtime.http_api.grants import grant_from_request, tenant_from_request
 from ccf_runtime.http_api.routes import (
     CONTENT_ADDRESS_HEADER,
     governed_refusal_response,
@@ -85,9 +87,26 @@ def _route_path(request: Request, reference: str) -> str:
 
 
 class ArtifactPutRequest(CCFContract):
-    """One put: the addressing facts and the canonicalizable payload."""
+    """One put: the addressing facts and the canonicalizable payload.
 
-    tenant_id: str
+    **There is no ``tenant_id`` here, and its absence is the contract**
+    (``SEC-002``). The field used to be the caller's, which made the tenant an
+    artifact was filed under a thing the caller wrote — so a recognized bearer
+    could file into any tenant's namespace and the store faithfully obliged.
+    The tenant now comes from the verified grant
+    (:func:`~ccf_runtime.http_api.grants.tenant_from_request`) and from nothing
+    else. Deleted rather than kept-and-checked: a field that must equal a value
+    the door already holds is a field with no readings left, and every one it
+    could still have is wrong.
+
+    Attributes:
+        artifact_class: The class the bytes are filed under.
+        name: The artifact's name within that class. It is also this route's
+            **authorization resource**, so a deployment states which names a
+            scope may write rather than granting the write verb whole.
+        artifact: The canonicalizable payload.
+    """
+
     artifact_class: str
     name: str
     artifact: dict[str, object]
@@ -96,19 +115,20 @@ class ArtifactPutRequest(CCFContract):
 def build_router(
     deps: ApiDependencies,
     *,
-    entitlement_source: ProductEntitlementSourceProtocol | None = None,
-    refusal_recorder: DisclosingRecorderProtocol | None = None,
+    entitlement_source: ProductEntitlementSourceProtocol,
+    refusal_recorder: DisclosingRecorderProtocol,
 ) -> APIRouter:
     """The artifact router over the injected store and governance seams.
 
     Args:
         deps: The named provider bundle carrying the artifact store and the
             Control Plane whose audit log every dereference appends to.
-        entitlement_source: The deployment's entitlement seam. ``None`` makes
-            every ``GET`` a ``503`` (``D-IMPL-345`` R-1); ``put`` is
-            unaffected, as that path makes no governed determination.
+        entitlement_source: The deployment's entitlement seam. **Required**
+            (``SEC-001``): there is no longer a configuration of
+            ``create_app`` that omits it, so the rule ``D-IMPL-345`` R-1 used
+            to hold with a per-request ``503`` is held by the signature.
         refusal_recorder: The ONE minting seam, which also states the
-            disclosure level.
+            disclosure level. **Required**, same reason.
     """
     router = APIRouter()
 
@@ -117,27 +137,37 @@ def build_router(
         response_model=ArtifactRef,
         summary="Artifact put (D-IMPL-23)",
     )
-    def put(request: ArtifactPutRequest) -> ArtifactRef:
+    @authorizes(ACTION_ARTIFACT_WRITE, resource=ResourceBinding.body("name"))
+    def put(body: ArtifactPutRequest, request: Request) -> ArtifactRef:
         return deps.artifact_store.put(
-            tenant_id=request.tenant_id,
-            artifact_class=request.artifact_class,
-            name=request.name,
-            artifact=request.artifact,
+            # `SEC-002`: the grant's, never the body's. The parameter renamed
+            # to `body` so the live `Request` can be taken under its usual
+            # name — and so nothing in this handler can read a tenant from the
+            # thing the caller sent.
+            tenant_id=tenant_from_request(request),
+            artifact_class=body.artifact_class,
+            name=body.name,
+            artifact=body.artifact,
         )
 
     @router.get("/{content_address}", summary="Artifact get (D-IMPL-23)")
+    @authorizes(
+        ACTION_ARTIFACT_READ, resource=ResourceBinding.path("content_address")
+    )
     def get(content_address: str, request: Request) -> Response:
         grant = grant_from_request(request)
-        if entitlement_source is None or refusal_recorder is None or grant is None:
+        if grant is None:
+            # Unreachable behind the total gate (401 before any handler);
+            # kept for a handler reached some other way, where refusing beats
+            # dereferencing governed evidence for nobody.
             raise HTTPException(
                 status_code=503,
                 detail=refusal_detail(
                     error_code=ERROR_PRODUCT_DOOR_UNGOVERNED,
                     message=(
-                        "this door dereferences governed evidence without a"
-                        " bound entitlement source, recorder and verified"
-                        " caller; bind auth=, product_entitlement= and"
-                        " refusal_recorder= at create_app (D-IMPL-345 R-1)"
+                        "this door dereferences governed evidence and no"
+                        " verified caller accompanies the call; it refuses"
+                        " rather than reading ungoverned (D-IMPL-345 R-1)"
                     ),
                 ),
             )

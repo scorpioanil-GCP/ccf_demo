@@ -149,15 +149,47 @@ def enforcing_transport(
     )
 
 
+#: One credential per tenant this suite keeps its tests apart with.
+#: ``SEC-002`` makes a credential name exactly ONE tenant, so a suite that
+#: isolates by tenant isolates by token too — and a body naming another
+#: tenant is refused rather than believed.
+_TENANTS = ("required", "invalid", "admitted", "mcp")
+_TOKENS = {
+    f"{_TOKEN}-{suffix}": (_CLIENT_ID, ("gate:everything",), f"{_TENANT_BASE}-{suffix}")
+    for suffix in _TENANTS
+}
+
+
+def _token_for(tenant: str) -> str:
+    """The credential that acts for ``tenant``."""
+    return f"{_TOKEN}-{tenant.rsplit('-', 1)[-1]}"
+
+
 @pytest.fixture()
 def auth_app(
     fabric: Fabric,
     token_file: Path,
     enforcing_transport: InMemoryHitlTransport,
+    tmp_path: Path,
 ) -> Any:
     from ccf_runtime.http_api.app import create_app
-    from ccf_runtime.http_api.auth import BearerTokenAuth
     from ccf_runtime.http_api.dependencies import ApiDependencies
+
+    from .gate_fixtures import authority
+    from .test_product_declared_obligation_409 import (
+        _entitlement_registry,
+        _recorder,
+    )
+
+    from ccf.projection.plan import Perspective
+    from ccf_runtime.authz.product_entitlement import (
+        ControlPlaneProductEntitlementSource,
+    )
+
+    _source = ControlPlaneProductEntitlementSource(
+        control_plane=_entitlement_registry(fabric),
+        clock=lambda: datetime(2026, 8, 11, tzinfo=UTC),
+    )
 
     return create_app(
         ApiDependencies(
@@ -170,7 +202,18 @@ def auth_app(
             skill_catalog=fabric.catalog,
             grant_ledger=fabric.ledger,
         ),
-        auth=BearerTokenAuth(token_source=FileTokenSource(path=token_file)),
+        **authority(
+            tenant=tuple(f"{_TENANT_BASE}-{suffix}" for suffix in _TENANTS),
+            key="signed-binding/mapping",
+            grants=_TOKENS,
+            product_entitlement=_source,
+            perspective_resolver=(
+                lambda *, grant, tenant, requested_role: Perspective(
+                    principal_id=grant.client_id, role="signed-binding-role"
+                )
+            ),
+            refusal_recorder=_recorder(fabric, tmp_path, source=_source),
+        ),
     )
 
 
@@ -190,7 +233,7 @@ def test_http_unsigned_submission_carries_the_required_code(
         json=_submission_body(
             subject_id=_CLIENT_ID, tenant=tenant, signed=None
         ),
-        headers={"Authorization": f"Bearer {_TOKEN}"},
+        headers={"Authorization": f"Bearer {_token_for(tenant)}"},
     )
     assert response.status_code == 403
     detail = response.json()["detail"]
@@ -224,7 +267,7 @@ def test_http_invalid_binding_carries_the_invalid_code(
         json=_submission_body(
             subject_id=_CLIENT_ID, tenant=tenant, signed=tampered
         ),
-        headers={"Authorization": f"Bearer {_TOKEN}"},
+        headers={"Authorization": f"Bearer {_token_for(tenant)}"},
     )
     assert response.status_code == 403
     detail = response.json()["detail"]
@@ -252,7 +295,7 @@ def test_http_valid_signed_submission_is_admitted_with_binding(
         json=_submission_body(
             subject_id=_CLIENT_ID, tenant=tenant, signed=signed
         ),
-        headers={"Authorization": f"Bearer {_TOKEN}"},
+        headers={"Authorization": f"Bearer {_token_for(tenant)}"},
     )
     assert response.status_code == 200
     receipt = response.json()

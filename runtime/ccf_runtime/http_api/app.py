@@ -4,10 +4,10 @@ SDK-defined framing per CLAUDE.md §8.3 (the HTTP API as one of the three
 v0 Experience Layer front doors). The app mirrors the D-IMPL-22/23 ruled
 noun set exactly — ``agent``, ``skill``, ``workflow``, ``hitl``,
 ``replay``, ``artifact``, ``product``, ``config``, ``schema`` — plus
-health and the
-generated OpenAPI document; the routes take and return the SDK's existing
-``extra=forbid`` contracts directly, so ``app.openapi()`` *is* the contract
-schema, with serialization and routing added and no new semantics.
+health and the generated OpenAPI document; the routes take and return the
+SDK's existing ``extra=forbid`` contracts directly, so ``app.openapi()``
+*is* the contract schema, with serialization and routing added and no new
+semantics.
 
 **What this server cannot do.** It cannot write to the graph: it holds no
 graph handle of any kind, and neither does the
@@ -23,37 +23,61 @@ host itself: :func:`create_app` returns an application, never a server —
 no bind address, tenant, or threshold exists in this package, and choosing
 an interface would be choosing an exposure surface (T-06-14; CINV-01).
 
-**The v0 auth posture, stated honestly (D-22).** The exact sentence lives
-in :data:`AUTH_POSTURE_SENTENCE`, is carried verbatim in the OpenAPI
-``info.description``, and is asserted by test as the string it is. The
-posture is a residual deployment risk recorded at the phase gate: HITL and
-agent invocation are authority-bearing surfaces, and the deployment must
-keep this app inside its trust boundary.
+**Authority is required, and the insecure default is gone** (``SEC-001``;
+supersedes D-IMPL-73). The ruling that permitted shipping this app
+unauthenticated behind a ``CcfInsecureDefaultWarning`` has been withdrawn:
+nothing has shipped, so the correct change is available rather than the
+compatible one. There is no ``auth=None`` arm, no ``authorizer=None`` arm and
+no ``acknowledge_insecure_default`` kwarg. The warning classes are deleted
+with them — a warning nothing in CI escalates is a comment with a stack trace,
+and this repository was measured to hold **zero** ``filterwarnings`` directives
+that would have turned it into a failure.
+
+Three further parameters were optional *because* D-IMPL-73 was: an entitlement
+seam that were required would have made the acknowledged insecure posture
+unbuildable. With that posture deleted, their reason went with it, so
+``product_entitlement``, ``perspective_resolver`` and ``refusal_recorder`` are
+required too. Each door they govern used to carry a per-request ``503`` for
+the configuration in which they were absent; those branches are gone, because
+the configuration is.
+
+**The gate is total and has no carve-outs** (:mod:`ccf_runtime.http_api.gate`).
+Every request — documentation routes, 404s, trailing-slash redirects,
+malformed bodies, liveness — is authenticated and authorized before routing.
+``create_app`` **refuses to build** an application containing a route that
+declares no action id, which is what makes that completeness a property of the
+application rather than of a CI sweep somebody might not run.
 
 Algorithmic module (CINV-03).
 """
 
 from __future__ import annotations
 
-import logging
-import warnings
-from typing import Awaitable, Callable
-
-from fastapi import Depends, FastAPI, HTTPException, Request, Response, params
+from fastapi import FastAPI
 
 from ccf.products.resolver import RefusalRecorderProtocol
-from ccf_runtime.authz.product_entitlement import (
-    PerspectiveResolverProtocol,
-    ProductEntitlementSourceProtocol,
-)
 from ccf_runtime.authz.delivery_boundary import (
     disclosing_boundary,
     recorded_boundary,
 )
+from ccf_runtime.authz.product_entitlement import (
+    PerspectiveResolverProtocol,
+    ProductEntitlementSourceProtocol,
+)
 from ccf_runtime.authz.protocol import TenantAuthorizerProtocol
+from ccf_runtime.authz.refusals import (
+    ACTION_DOCS_READ,
+    ACTION_HEALTH_READ,
+    ACTION_OPENAPI_READ,
+)
+from ccf_runtime.authz.route_declaration import (
+    ResourceBinding,
+    authorizes,
+    route_authorization,
+)
 from ccf_runtime.http_api.auth import HttpAuthProtocol
 from ccf_runtime.http_api.dependencies import ApiDependencies
-from ccf_runtime.http_api.errors import ERROR_UNAUTHENTICATED, refusal_detail
+from ccf_runtime.http_api.gate import AuthorizationGate, build_route_table
 from ccf_runtime.http_api.routes import (
     agent,
     artifact,
@@ -69,105 +93,7 @@ from ccf_runtime.http_api.routes import (
 
 __ccf_mode__ = "algorithmic"
 
-__all__ = [
-    "AUTH_POSTURE_SENTENCE",
-    "CcfDeadAuthorizerWarning",
-    "CcfDeadEntitlementWarning",
-    "CcfInsecureDefaultWarning",
-    "create_app",
-]
-
-
-class CcfInsecureDefaultWarning(UserWarning):
-    """The app was built on the insecure default posture (D-IMPL-73).
-
-    Emitted by :func:`create_app` when no auth hook is bound and the
-    caller has not passed ``acknowledge_insecure_default=True`` — the
-    single suppression surface (no environment variable, by ruling).
-    Exported so CI can escalate it (``-W error::…``) and tests can
-    target it (``pytest.warns``). SDK-defined mechanism per CLAUDE.md
-    §8.3; the warning text is a security-posture signal, not a domain
-    value (No-Hardcoding boundary note in the D-IMPL-73 ruling).
-    """
-
-
-class CcfDeadAuthorizerWarning(UserWarning):
-    """An authorizer was bound with no auth hook — it can never run (WR-05).
-
-    Emitted by :func:`create_app` when ``authorizer`` is supplied and
-    ``auth`` is ``None``. Under the ruled D-06 posture, tenant-authz
-    enforcement requires a verified ``TokenGrant``, which only a bound
-    auth hook produces — so an authorizer without an auth hook is inert
-    by construction. Unlike the plain insecure default, this is a
-    configuration in which the operator *explicitly expressed intent to
-    authorize* and gets zero enforcement; the warning is the missing
-    signal. Same emission pattern as :class:`CcfInsecureDefaultWarning`
-    (exported so CI can escalate and tests can target it); there is no
-    suppression kwarg — the fix is binding ``auth=``, not accepting the
-    dead configuration.
-    """
-
-
-class CcfDeadEntitlementWarning(UserWarning):
-    """Product entitlement was bound with no auth hook — it can never run.
-
-    The WR-05 shape, applied to the third exposed product door (15.5-06).
-    Entitlement decides *per principal*, and a principal only exists here
-    once a bound auth hook has verified one, so an entitlement source
-    without ``auth=`` is inert by construction. Its own class rather than a
-    reuse of :class:`CcfDeadAuthorizerWarning` because the two name
-    different dead configurations and an operator reading a warning should
-    not have to work out which seam is the one that will never fire.
-    Exported so CI can escalate it and tests can target it; there is no
-    suppression kwarg — the fix is binding ``auth=``, not accepting the
-    dead configuration.
-    """
-
-
-#: The WR-05 dead-authorizer message: authorizer bound, auth unbound,
-#: enforcement structurally unreachable (D-06).
-_DEAD_AUTHORIZER_MESSAGE = (
-    "create_app was called with authorizer= but no auth= hook: tenant"
-    " authorization enforcement requires the verified TokenGrant only a"
-    " bound auth hook produces (D-06), so the supplied authorizer can"
-    " never run and the HITL routes enforce nothing. Bind auth= to make"
-    " the authorizer effective (WR-05; D-IMPL-68)."
-)
-
-
-#: The 15.5-06 dead-entitlement message: entitlement seams bound, auth
-#: unbound, per-principal enforcement structurally unreachable.
-_DEAD_ENTITLEMENT_MESSAGE = (
-    "create_app() was called with product entitlement seams but no auth= hook:"
-    " per-principal product entitlement decides about a verified TokenGrant,"
-    " which only a bound auth hook produces, so the supplied seams can never"
-    " run and GET /product/... serves every class to every caller. Bind"
-    " auth= to make them effective (15.5-06; the WR-05 shape)."
-)
-
-
-#: One message for both ruled emission points (warnings.warn at
-#: construction; logging WARNING at first request) — the D-IMPL-73
-#: "two emission points to keep consistent" consequence, kept
-#: consistent by sharing the string.
-_INSECURE_DEFAULT_MESSAGE = (
-    "create_app was called with no auth hook: this application performs"
-    " no authentication or authorization and every request acts with the"
-    " full authority of the injected fabric handles. Bind auth=, or pass"
-    " acknowledge_insecure_default=True to accept this posture"
-    " explicitly (D-IMPL-73)."
-)
-
-_LOGGER = logging.getLogger("ccf_runtime.http_api")
-
-#: The exact, testable v0 auth-posture sentence (D-22 honesty; 07-10 Task 2).
-#: One constant so the served document and the test assert the same string.
-AUTH_POSTURE_SENTENCE = (
-    "This API performs no authentication or authorization in v0: every"
-    " request acts with the full authority of the injected fabric handles,"
-    " it must be deployed inside the tenant trust boundary, and any future"
-    " authentication is a new contract, not a configuration of this one."
-)
+__all__ = ["AUTH_POSTURE_SENTENCE", "create_app"]
 
 #: What the surface is, mechanism only (CINV-01 — no deployment vocabulary).
 _MECHANISM_LINE = (
@@ -176,218 +102,99 @@ _MECHANISM_LINE = (
     " §8.3; EXPR-03)."
 )
 
-
-#: One optional-hook sentence beside the constant, kept out of it so the
-#: test-asserted D-22 posture string stays byte-identical (07-16;
-#: D-IMPL-66(a)).
-_AUTH_HOOK_LINE = (
-    "A deployment may bind an optional bearer-auth hook at create_app"
-    " (ccf_runtime.http_api.auth); when no hook is bound, the sentence"
-    " above is the posture in force."
+#: The auth posture, stated in the served document as the v0 sentence once
+#: was — and now stating the opposite thing (``SEC-001``). It is carried
+#: verbatim in the OpenAPI ``info.description`` and pinned by test as the
+#: string it is, exactly as its predecessor was: an adopter reading the
+#: document learns the posture from the document.
+AUTH_POSTURE_SENTENCE = (
+    "Every request to this API is authenticated and authorized before it is"
+    " routed: there is no unauthenticated arm, no path is exempt, every route"
+    " declares the action identifier its authorization is decided under, and"
+    " what each action reaches is the deployment's own versioned scope"
+    " mapping rather than any default this API ships."
 )
 
 
 def create_app(
     deps: ApiDependencies,
     *,
-    auth: HttpAuthProtocol | None = None,
-    authorizer: TenantAuthorizerProtocol | None = None,
-    product_entitlement: ProductEntitlementSourceProtocol | None = None,
-    perspective_resolver: PerspectiveResolverProtocol | None = None,
-    refusal_recorder: RefusalRecorderProtocol | None = None,
-    acknowledge_insecure_default: bool = False,
+    auth: HttpAuthProtocol,
+    authorizer: TenantAuthorizerProtocol,
+    product_entitlement: ProductEntitlementSourceProtocol,
+    perspective_resolver: PerspectiveResolverProtocol,
+    refusal_recorder: RefusalRecorderProtocol,
 ) -> FastAPI:
     """Build the skeleton over ``deps`` — built, never hosted.
 
     Args:
         deps: The named provider bundle carrying every injected fabric
             handle (the same type the CLI's ``--local`` mode constructs).
-        auth: Optional D-IMPL-66(a) auth hook. When provided, every
-            mounted router except ``/health`` (liveness carries no
-            authority) refuses requests whose credentials the hook does
-            not recognise with 401, and the verified grant is stashed on
-            ``request.state.token_grant`` for route compositions. When
-            ``None`` — the default — nothing is registered and the
-            recorded T-07-24 posture is unchanged.
-        authorizer: Optional HARD-04 tenant authorizer (D-IMPL-68; 10-03).
-            When provided *and* the request carries a verified
-            ``TokenGrant`` (i.e. ``auth`` is also bound — D-06), the two
-            HITL routes enforce per-tenant authorization inside their
-            handlers with the door-declared action IDs, refusing a deny
-            with the typed 403 ``ERROR_TENANT_UNAUTHORIZED`` body.
-            When ``None`` — the default — the HITL routes are
-            byte-identical to the unauthorized-posture routes. Binding
-            an authorizer *without* ``auth`` leaves it structurally
-            inert and emits a :class:`CcfDeadAuthorizerWarning` (WR-05).
-        product_entitlement: Optional 15.5-06 per-principal product
-            entitlement seam. Supplied *together* with
-            ``perspective_resolver``; when both are bound **and** the
-            request carries a verified ``TokenGrant`` (i.e. ``auth`` is also
-            bound), ``GET /product/...`` refuses an unentitled class or an
-            ungranted role with a typed 403. Optional here — unlike on the
-            two MCP product doors, where it is required — because
-            authentication on this surface is itself optional by ruling
-            (D-IMPL-73), so a required seam would make the acknowledged
-            insecure posture unbuildable. Binding it *without* ``auth``
-            leaves it structurally inert and emits a
-            :class:`CcfDeadEntitlementWarning`.
-        perspective_resolver: Optional 15.5-06 role-derivation seam,
-            supplied together with ``product_entitlement``.
+        auth: The authentication hook (:mod:`ccf_runtime.http_api.auth`).
+            **Required**: the gate has no arm in which authentication is
+            skipped, so there is no value of this parameter that produces an
+            unauthenticated application (``SEC-001``).
+        authorizer: The authorizer every request is decided by
+            (:class:`~ccf_runtime.authz.protocol.TenantAuthorizerProtocol`).
+            **Required**, and the SDK ships exactly one implementation —
+            :class:`~ccf_runtime.authz.protocol.ControlPlaneTenantAuthorizer`,
+            which is deny-by-default and needs a registered scope mapping at a
+            pinned version. There is deliberately no permissive or dev
+            authorizer anywhere in the library to pass here.
+        product_entitlement: The per-principal product entitlement seam.
+            **Required.** It was optional only because the unauthenticated
+            posture had to stay buildable; with that posture deleted there is
+            no configuration in which a product door decides nothing, and the
+            per-request ``503`` that represented one is deleted with it.
+        perspective_resolver: The role-derivation seam, supplied with
+            ``product_entitlement``. **Required**, same reason: a door that
+            cannot name the Π conditioning a product is shaped under must not
+            serve one, and now it cannot be built.
         refusal_recorder: The deployment's ONE minting seam
-            (:class:`~ccf.products.resolver.RefusalRecorderProtocol`; the SDK
-            ships :class:`~ccf.products.resolver.ReplayRefusalRecorder` over
-            the artifact store the governed resolver already holds, and
-            :func:`~ccf.products.resolver.build_governed_resolver` builds one).
-            A denial at the product door is a governed determination, and it is
-            appended by the **same** writer the resolver's own refusals are, so
-            replay holds one record shape rather than two (``D-IMPL-253`` Q13:
-            *"Do not create second-class replay"*).
-
-            **Required whenever ``product_entitlement`` is bound, and refused
-            at construction.** ``D-IMPL-256`` (2) rules that *a door configured
-            to make governed determinations without the ability to record them
-            is not a valid governed door*, so the pair reaches
-            :func:`~ccf_runtime.authz.delivery_boundary.recorded_boundary` here
-            and an unrecordable entitling door raises
-            :class:`~ccf_runtime.authz.delivery_boundary.UnrecordableDeliveryBoundaryError`
-            rather than building. There is deliberately no warn-and-serve
-            posture and no per-request refusal: a door that failed closed only
-            on denial would make auditability contingent on outcome, and would
-            reopen the observational difference between an unauthorized and a
-            nonexistent subject as a *misconfiguration*.
-
-            Bound **without** ``product_entitlement`` it is accepted and inert
-            — nothing at that door can deny — which keeps the D-IMPL-73
-            acknowledged-insecure posture buildable exactly as before.
-        acknowledge_insecure_default: Explicit acceptance of the
-            unauthenticated posture (D-IMPL-73). When ``auth`` is
-            ``None`` and this is ``False`` — the default — the SDK
-            emits a :class:`CcfInsecureDefaultWarning` at construction
-            and one logging WARNING at the first served request. This
-            kwarg is the single suppression surface: no environment
-            variable is consulted, so the acceptance is greppable in
-            the caller's code. Irrelevant once ``auth`` is bound.
+            (:class:`~ccf.products.resolver.RefusalRecorderProtocol`).
+            **Required**, and checked at construction: ``D-IMPL-256`` (2) rules
+            that *a door configured to make governed determinations without the
+            ability to record them is not a valid governed door*, so
+            :func:`~ccf_runtime.authz.delivery_boundary.recorded_boundary` and
+            :func:`~ccf_runtime.authz.delivery_boundary.disclosing_boundary`
+            run here and refuse rather than building. There is deliberately no
+            warn-and-serve posture and no per-request refusal: failing closed
+            only on denial would make auditability contingent on outcome.
 
     Returns:
         A configured ``FastAPI`` application. Deliberately not started and
         bound to nothing — hosting is the deployment's decision.
+
+    Raises:
+        UnrecordableDeliveryBoundaryError: ``refusal_recorder`` cannot record
+            a governed determination, or cannot state a disclosure level.
+        ~ccf_runtime.http_api.gate.UndeclaredRouteError: a mounted route
+            declares no action id. The message names every one of them.
     """
-    if product_entitlement is not None:
-        # `D-IMPL-256` (2), before anything else is built: an entitling door
-        # with no way to record what it decides is not built at all. First,
-        # because a warning about a door that will not exist is noise, and
-        # because the operator's fix is a constructor argument rather than
-        # anything downstream of one.
-        recorded_boundary(
-            refusal_recorder=refusal_recorder, builder="create_app"
-        )
-        # `D-IMPL-345` R-2, in the same breath and for the same reason: the
-        # two evidence-read routes disclose at the level the recorder that
-        # disclosed the serve would state, so a recorder that cannot state one
-        # cannot govern them. Kept beside the check above rather than folded
-        # into it — that one is the product door's, in its own words and with
-        # its own sabotage, and this one is the evidence doors'.
-        evidence_recorder = disclosing_boundary(
-            refusal_recorder=refusal_recorder, builder="create_app"
-        )
-    else:
-        evidence_recorder = None
+    # `D-IMPL-256` (2), before anything else is built: an entitling door with
+    # no way to record what it decides is not built at all.
+    recorded_boundary(refusal_recorder=refusal_recorder, builder="create_app")
+    # `D-IMPL-345` R-2, in the same breath and for the same reason: the two
+    # evidence-read routes disclose at the level the recorder that disclosed
+    # the serve would state, so a recorder that cannot state one cannot govern
+    # them.
+    evidence_recorder = disclosing_boundary(
+        refusal_recorder=refusal_recorder, builder="create_app"
+    )
 
     app = FastAPI(
         title="CCF HTTP API",
-        description=(
-            f"{_MECHANISM_LINE} {AUTH_POSTURE_SENTENCE} {_AUTH_HOOK_LINE}"
-        ),
+        description=f"{_MECHANISM_LINE} {AUTH_POSTURE_SENTENCE}",
     )
 
-    if authorizer is not None and auth is None:
-        # WR-05: the operator expressed intent to authorize and wired a
-        # configuration in which enforcement is structurally unreachable
-        # (D-06: no auth hook, no TokenGrant, no authz). Warn at the
-        # call site — a dead authorizer with zero signal ships wide open
-        # while believing it is tenant-scoped.
-        warnings.warn(
-            CcfDeadAuthorizerWarning(_DEAD_AUTHORIZER_MESSAGE),
-            stacklevel=2,
-        )
+    _declare_generated_routes(app)
 
-    if (
-        product_entitlement is not None or perspective_resolver is not None
-    ) and auth is None:
-        # 15.5-06, the WR-05 shape: the operator expressed intent to gate
-        # delivery per principal and wired a configuration in which there is
-        # no principal to gate on. A dead entitlement with zero signal ships
-        # every product class to every caller while believing it is gated.
-        warnings.warn(
-            CcfDeadEntitlementWarning(_DEAD_ENTITLEMENT_MESSAGE),
-            stacklevel=2,
-        )
-
-    if auth is None and not acknowledge_insecure_default:
-        # D-IMPL-73 emission point 1: construction-time warning aimed at
-        # the caller (stacklevel=2 points at the create_app call site).
-        warnings.warn(
-            CcfInsecureDefaultWarning(_INSECURE_DEFAULT_MESSAGE),
-            stacklevel=2,
-        )
-
-        # D-IMPL-73 emission point 2: once-only logging WARNING at the
-        # first served request, covering the operator loop. Same message
-        # as the construction warning (the ruling's consistency
-        # consequence). The flag is per-app, so each unacknowledged app
-        # logs exactly once.
-        logged = False
-
-        @app.middleware("http")
-        async def _log_insecure_default_once(
-            request: Request,
-            call_next: Callable[[Request], Awaitable[Response]],
-        ) -> Response:
-            nonlocal logged
-            if not logged:
-                logged = True
-                _LOGGER.warning(_INSECURE_DEFAULT_MESSAGE)
-            return await call_next(request)
-
-    guarded: list[params.Depends] = []
-    if auth is not None:
-        hook = auth
-
-        def _require_grant(request: Request) -> None:
-            grant = hook.grant_for_request(
-                authorization_header=request.headers.get("Authorization")
-            )
-            if grant is None:
-                raise HTTPException(
-                    status_code=401,
-                    detail=refusal_detail(
-                        error_code=ERROR_UNAUTHENTICATED,
-                        message=(
-                            "the request carries no credential the bound"
-                            " auth hook recognises"
-                        ),
-                    ),
-                )
-            request.state.token_grant = grant
-
-        guarded = [Depends(_require_grant)]
-
-    app.include_router(
-        agent.build_router(deps), prefix="/agent", dependencies=guarded
-    )
-    app.include_router(
-        skill.build_router(deps), prefix="/skill", dependencies=guarded
-    )
-    app.include_router(
-        workflow.build_router(deps), prefix="/workflow", dependencies=guarded
-    )
-    app.include_router(
-        hitl.build_router(deps, authorizer=authorizer),
-        prefix="/hitl",
-        dependencies=guarded,
-    )
-    # `D-IMPL-345`: the two evidence-read routes are governed dereferences,
-    # so they receive the same seams the product route does — the entitlement
+    app.include_router(agent.build_router(deps), prefix="/agent")
+    app.include_router(skill.build_router(deps), prefix="/skill")
+    app.include_router(workflow.build_router(deps), prefix="/workflow")
+    app.include_router(hitl.build_router(deps), prefix="/hitl")
+    # `D-IMPL-345`: the two evidence-read routes are governed dereferences, so
+    # they receive the same seams the product route does — the entitlement
     # source that decides, and the recorder that mints and states the level,
     # both checked at construction above.
     app.include_router(
@@ -397,7 +204,6 @@ def create_app(
             refusal_recorder=evidence_recorder,
         ),
         prefix="/replay",
-        dependencies=guarded,
     )
     app.include_router(
         artifact.build_router(
@@ -406,7 +212,6 @@ def create_app(
             refusal_recorder=evidence_recorder,
         ),
         prefix="/artifact",
-        dependencies=guarded,
     )
     app.include_router(
         product.build_router(
@@ -416,22 +221,54 @@ def create_app(
             refusal_recorder=refusal_recorder,
         ),
         prefix="/product",
-        dependencies=guarded,
     )
-    app.include_router(
-        config.build_router(deps), prefix="/config", dependencies=guarded
-    )
-
-    app.include_router(
-        schema.build_router(deps), prefix="/schema", dependencies=guarded
-    )
-
-    app.include_router(
-        backends.build_router(deps), prefix="/backends", dependencies=guarded
-    )
+    app.include_router(config.build_router(deps), prefix="/config")
+    app.include_router(schema.build_router(deps), prefix="/schema")
+    app.include_router(backends.build_router(deps), prefix="/backends")
 
     @app.get("/health", summary="Liveness (D-IMPL-23)")
+    @authorizes(ACTION_HEALTH_READ, resource=ResourceBinding.route())
     def health() -> dict[str, str]:
         return {"status": "ok"}
 
+    # Built from the FULLY mounted application and BEFORE the gate is
+    # installed, so the table the gate decides from and the routes the app
+    # actually serves are the same enumeration. This is the line that refuses
+    # to return an application with an undeclared route on it.
+    table = build_route_table(app)
+    app.add_middleware(
+        AuthorizationGate, auth=auth, authorizer=authorizer, table=table
+    )
     return app
+
+
+def _declare_generated_routes(app: FastAPI) -> None:
+    """Give FastAPI's own routes the declarations their authors could not.
+
+    ``/openapi.json``, ``/docs``, ``/docs/oauth2-redirect`` and ``/redoc`` are
+    built inside ``FastAPI.setup()``, so there is no definition site of ours to
+    decorate. They are declared here instead — which is still *this
+    application's* code declaring them, and still one declaration per mounted
+    route. The alternative, a carve-out list in the gate, would be the
+    applicability switch this design exists to remove.
+
+    Called immediately after construction, so the only routes it can see are
+    FastAPI's own; every router mounted afterwards carries declarations from
+    its own handlers, and the ``is not None`` check leaves those untouched.
+
+    **The fallback is the safe direction.** A route matching the app's
+    ``openapi_url`` takes the document action; anything else FastAPI generates
+    takes the documentation action. A future FastAPI route absorbed by that
+    fallback is a *gated* route under an action a deployment must have granted
+    — it can never become an open one.
+    """
+    for route in app.routes:
+        endpoint = getattr(route, "endpoint", None)
+        if endpoint is None or route_authorization(endpoint) is not None:
+            continue
+        action = (
+            ACTION_OPENAPI_READ
+            if getattr(route, "path", None) == app.openapi_url
+            else ACTION_DOCS_READ
+        )
+        authorizes(action, resource=ResourceBinding.route())(endpoint)
