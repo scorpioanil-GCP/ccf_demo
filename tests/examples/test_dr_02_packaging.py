@@ -435,3 +435,106 @@ def test_the_same_question_reaches_the_same_address_twice(estate: None) -> None:
             )
     finally:
         sys.path.remove(str(DR02))
+
+
+# ===========================================================================
+# PKG-G09 — the RETAINED record, not the served payload
+# ===========================================================================
+
+
+def test_the_retained_record_carries_the_real_packaging_trace(estate: None) -> None:
+    """Declared product gate `PKG-G09` (`DR-SPEC-002` §D.2).
+
+    §7.10.4 pins Mode 2's rendering primitives so an examiner reads the
+    packaging off replay **dimension 3** without dereferencing anything. This
+    reads the bytes the store retained, because the payload passing is not
+    evidence about the record: measured 2026-09-23, `dr-02` served real pins
+    on the payload while every field of dimension 3 read `no-packaging`, and
+    all eight gates were green (`PKG-F-08`).
+    """
+    sys.path.insert(0, str(DR02))
+    try:
+        import acquisition  # noqa: PLC0415
+        import deployment  # noqa: PLC0415
+        from ccf.replay.record import NO_PACKAGING  # noqa: PLC0415
+        from ccf.replay.record import DecisionReplayRecord  # noqa: PLC0415
+
+        with _upstream_door() as url:
+            with _asked(url) as (opened, outcome, _record):
+                assert not isinstance(outcome, RefusalEnvelope), outcome
+                retained = DecisionReplayRecord.model_validate_json(
+                    opened.artifact_store.get(
+                        content_address=outcome.replay_ref.content_address
+                    )
+                )
+                trace = retained.model_version.packaging_trace
+                assert retained.model_version.assembly_mode == "llm_packaged"
+
+                # All five, named individually so a failure says WHICH pin.
+                for pin in (
+                    "model_version",
+                    "temperature",
+                    "prompt_artifact_uri",
+                    "prompt_artifact_hash",
+                    "output_hash",
+                ):
+                    assert getattr(trace, pin) != NO_PACKAGING, (
+                        f"dimension 3's `{pin}` is the no-packaging sentinel on"
+                        " a product a model wrote; an examiner reading this"
+                        " record would be told no packaging happened"
+                    )
+
+                # The record and the memo agree, so a reader holding either
+                # reaches the same four pins.
+                payload = dict(outcome.product.payload)
+                pins = payload["packaged_by"]
+                assert trace.model_version == pins["model"]
+                assert trace.temperature == pins["temperature"]
+                assert trace.prompt_artifact_uri == pins["prompt_artifact_uri"]
+                assert trace.prompt_artifact_hash == pins["prompt_artifact_hash"]
+                assert trace.output_hash == pins["output_hash"]
+
+                # THE REPLAY CONTRACT. `output_hash` is re-derivable from the
+                # served memo alone, which is what makes it checkable by
+                # someone holding the record and the product and nothing else.
+                assert trace.output_hash == acquisition.output_hash(
+                    payload["sections"]
+                )
+
+                # DETECTION, carried inside the test: move one word of the
+                # prose and the re-derivation stops matching the pin. Without
+                # this the equality above would hold for ANY hash function,
+                # including one that ignored its input.
+                tampered = [dict(section) for section in payload["sections"]]
+                tampered[0]["prose"] = str(tampered[0]["prose"]) + " (altered)"
+                assert acquisition.output_hash(tampered) != trace.output_hash, (
+                    "the packaged prose was altered and the output hash did"
+                    " not move; the pin cannot detect a rewritten memo"
+                )
+
+            # THE SABOTAGE. A deployment that supplies no trace serves the
+            # same payload pins and records the sentinel — exactly the state
+            # this gate exists to refuse, and the one `dr-02` shipped in.
+            honest = deployment.packaging_trace
+            deployment.packaging_trace = None  # type: ignore[assignment]
+            try:
+                with _asked(url) as (opened, dark, _record):
+                    assert not isinstance(dark, RefusalEnvelope), dark
+                    unrecorded = DecisionReplayRecord.model_validate_json(
+                        opened.artifact_store.get(
+                            content_address=dark.replay_ref.content_address
+                        )
+                    )
+                    sentinel = unrecorded.model_version.packaging_trace
+                    assert sentinel.model_version == NO_PACKAGING
+                    assert sentinel.output_hash == NO_PACKAGING
+                    # ...while the memo still carries real pins. The payload
+                    # is why this was invisible for a whole rung.
+                    assert (
+                        dict(dark.product.payload)["packaged_by"]["model"]
+                        != NO_PACKAGING
+                    )
+            finally:
+                deployment.packaging_trace = honest  # type: ignore[assignment]
+    finally:
+        sys.path.remove(str(DR02))

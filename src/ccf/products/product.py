@@ -146,6 +146,7 @@ from ccf.products.resolver import (
     ProjectionPlanFactoryProtocol,
     ReplayRefusalRecorder,
     ResolverOutcome,
+    PackagingTraceProtocol,
     build_governed_resolver,
     declared_refusal_recorder,
 )
@@ -397,6 +398,7 @@ class OpenedProduct:
         constraint_resolver: PolicyConstraintResolver | None,
         capabilities: tuple[TechnicalCapability, ...] | None,
         children: CompositeChildResolverProtocol | RequestAwareChildResolverProtocol | None,
+        packaging_trace: PackagingTraceProtocol | None = None,
         mcp_skills: McpSkillRegistry | None = None,
         bridge: SyncMcpBridge | None = None,
         agent: AgentDefinition | None = None,
@@ -428,6 +430,7 @@ class OpenedProduct:
         self._constraint_resolver = constraint_resolver
         self._capabilities = capabilities
         self._children = children
+        self._packaging_trace = packaging_trace
 
     # --- the developer's three verbs ------------------------------------------
 
@@ -553,6 +556,9 @@ class OpenedProduct:
             "query_pin_class": self.replay.query_pin_class,
             "refusal_recorder": self.refusal_recorder,
             "acquisition": self._acquisition_seam(fabric),
+            # §7.10.4's Mode 2 footprint. `None` for every Mode 1 deployment,
+            # and dimension 3's no-packaging sentinel is then the true claim.
+            "packaging_trace": self._packaging_trace,
             "composite_children": self._children,
             "admission_clock": self._clock,
         }
@@ -805,6 +811,7 @@ def open_product(
     approval_sink: ApprovalSink | None = None,
     children: CompositeChildResolverProtocol | RequestAwareChildResolverProtocol | None = None,
     build_children: ChildResolverFactory | None = None,
+    packaging_trace: PackagingTraceProtocol | None = None,
 ) -> OpenedProduct:
     """Open the declared product under ``config_root``: bind the verbs, read the bindings, refuse early.
 
@@ -1069,6 +1076,7 @@ def open_product(
         constraint_resolver=constraint_resolver,
         capabilities=capabilities,
         children=child_resolver,
+        packaging_trace=packaging_trace,
         mcp_skills=mcp_skills,
         bridge=bridge,
         agent=agent,

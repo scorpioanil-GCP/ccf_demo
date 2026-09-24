@@ -269,6 +269,7 @@ from ccf.replay.record import (
     NO_REFUSAL_SEAM,
     REFUSAL_SEAMS,
     ChildResolution,
+    PackagingTrace,
     PolicyBinding,
     ResolutionNotApplicable,
     build_replay_record,
@@ -377,6 +378,48 @@ class ProductNotResolvable(LookupError):
     *broken deployment* and comes back as an exception. Reporting the two the
     same way would let a mis-wiring read to a caller as a governed "no".
     """
+
+
+@runtime_checkable
+class PackagingTraceProtocol(Protocol):
+    """How a Mode 2 deployment reports what its packaging stage actually did.
+
+    **SDK-defined** (CLAUDE.md §11). Whitepaper §7.10.4 makes Assembly Mode 2
+    pin four rendering primitives — model version, temperature, prompt
+    template and output hash — so that an examiner reads the packaging off
+    replay dimension 3 without dereferencing anything.
+
+    **Why a seam and not a derivation.** The SDK cannot compute any of these:
+    which model ran, at what temperature, against which prompt artifact, and
+    what bytes it produced are facts of the deployment's packaging stage. The
+    SDK could *re-read* them from the served payload, and that is exactly what
+    this seam exists to avoid — a record re-derived from the payload reports
+    what the payload says, which makes ``output_hash`` and
+    ``product_content_address`` agree by construction and destroys the one
+    question §7.10.4 asks them to answer together: whether the packaging moved
+    the conclusion.
+
+    **Mode 1 supplies nothing**, and the no-packaging sentinel is then the
+    true claim rather than a gap. A Mode 2 deployment that supplies nothing is
+    a defect this Protocol makes visible instead of silent: it was measured
+    on `dr-02`, whose payload carried real pins while dimension 3 read
+    ``no-packaging`` on every field (`PKG-F-08`).
+    """
+
+    def __call__(self, *, product: ContextProductContract) -> PackagingTrace:
+        """The trace for one served product, as the packaging stage knows it.
+
+        Args:
+            product: The product about to be served, so a deployment can hash
+                its own packaged output. Passed rather than left implicit
+                because ``output_hash`` is per-serve while the other four pins
+                are usually per-deployment.
+
+        Returns:
+            The five pinned values. A deployment that ran no packaging returns
+            :data:`~ccf.replay.record.NO_PACKAGING_TRACE` rather than raising.
+        """
+        ...
 
 
 @runtime_checkable
@@ -1695,6 +1738,17 @@ class GovernedResolver:
     query_pin_class: str
     max_ttl_seconds: int
     product_ttl_seconds: int
+    #: §7.10.4's Mode 2 footprint — how this deployment reports what its
+    #: packaging stage did. ``None`` for every Mode 1 deployment, which is
+    #: every one shipped before `dr-02`, and the no-packaging sentinel is then
+    #: dimension 3's true claim rather than a gap.
+    #:
+    #: **No default**, like every other argument here: a deployment states
+    #: what it supplies, including when it supplies nothing. A default would
+    #: make "this deployment does no packaging" and "nobody thought about
+    #: packaging" the same construction, and `PKG-F-08` is what that costs —
+    #: a Mode 2 product filed `no-packaging` on every pin for a whole rung.
+    packaging_trace: PackagingTraceProtocol | None
     #: `D-IMPL-336` Amendment 3, F0 — how this deployment resolves, invokes,
     #: delivers and admits the children a composite class declares. ``None``
     #: for every non-composite deployment, which is every one shipped before
@@ -2855,6 +2909,14 @@ class GovernedResolver:
             # 24.6-03: what was resolved, and on whose authority — dimension 2,
             # beside the versions it was resolved from (`D-IMPL-254`).
             resolution=effective,
+            # §7.10.4's Mode 2 pins, from the deployment that did the
+            # packaging. `None` for Mode 1, and `build_replay_record` then
+            # keeps the no-packaging sentinel.
+            packaging_trace=(
+                self.packaging_trace(product=gated.product)
+                if self.packaging_trace is not None
+                else None
+            ),
         )
         return serve(
             product=gated,
@@ -3680,6 +3742,8 @@ def build_governed_resolver(
     #: deployment whose fabric is populated before the resolver is reached.
     refusal_recorder: RefusalRecorderProtocol | None = None,
     acquisition: AcquisitionSeamProtocol | None = None,
+    #: §7.10.4's Mode 2 footprint. ``None`` for every Mode 1 deployment.
+    packaging_trace: PackagingTraceProtocol | None = None,
 ) -> GovernedResolver:
     """Build a :class:`GovernedResolver`, selecting the SDK's reference scorer.
 
@@ -4252,6 +4316,7 @@ def build_governed_resolver(
             composite_children=composite_children,
             admission_clock=admission_clock,
             acquisition=acquisition,
+            packaging_trace=packaging_trace,
             half_life_key=resolver_table_key,
         )
 
@@ -4308,5 +4373,6 @@ def build_governed_resolver(
         composite_children=composite_children,
         admission_clock=admission_clock,
         acquisition=acquisition,
+        packaging_trace=packaging_trace,
         half_life_key=resolver_table_key,
     )

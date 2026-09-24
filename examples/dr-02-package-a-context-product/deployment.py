@@ -28,7 +28,9 @@ from ccf.halflife.debt import (
     Observation,
     assess_debt,
 )
+from ccf.products.contract import ContextProductContract
 from ccf.products.product import AcquisitionContext, AssessmentContext
+from ccf.replay.record import NO_PACKAGING, PackagingTrace
 from ccf.signal.envelope import SignalEnvelope
 
 from memo_packaging import AnthropicPackager, DeterministicPackager, PackagingModel
@@ -84,6 +86,39 @@ def packager(declaration: Mapping[str, Any]) -> PackagingModel:
         model=model,
         temperature=temperature,
         instruction=str(declaration["instruction"]),
+    )
+
+
+def packaging_trace(*, product: ContextProductContract) -> PackagingTrace:
+    """§7.10.4's five pins for replay dimension 3 (`PKG-F-08`).
+
+    **Conforms to** :class:`~ccf.products.resolver.PackagingTraceProtocol`.
+    The SDK cannot compute any of this — which model ran, at what temperature,
+    against which prompt, and what bytes came back are facts of THIS
+    deployment's packaging stage — so the deployment says, and the resolver
+    records it verbatim.
+
+    **`output_hash` is RECOMPUTED here, from the payload actually being
+    served**, rather than copied out of `packaged_by`. Copying would make the
+    record agree with the payload by construction, and §7.10.4 wants the two
+    readings independent: the payload carries what the packager DECLARED it
+    produced, dimension 3 carries what was actually served, and `PKG-G09`
+    compares them. A prose edit between packaging and serve moves one and not
+    the other.
+
+    The other four are read off the payload because they are the packager's
+    own identity, carried on every section — there is no second place to read
+    them from, and nothing downstream can alter them without altering the
+    sections they ride on.
+    """
+    payload = dict(product.payload)
+    pins = dict(payload.get("packaged_by") or {})
+    return PackagingTrace(
+        model_version=str(pins.get("model") or NO_PACKAGING),
+        temperature=str(pins.get("temperature") or NO_PACKAGING),
+        prompt_artifact_uri=str(pins.get("prompt_artifact_uri") or NO_PACKAGING),
+        prompt_artifact_hash=str(pins.get("prompt_artifact_hash") or NO_PACKAGING),
+        output_hash=acquisition.output_hash(payload.get("sections") or ()),
     )
 
 

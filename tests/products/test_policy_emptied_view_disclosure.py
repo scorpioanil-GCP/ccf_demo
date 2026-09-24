@@ -303,6 +303,8 @@ def _serve(booted: Any, subject: str) -> Any:
     resolver = GovernedResolver(
         composite_children=None,
         acquisition=None,
+        # `PKG-F-08`: stated, never defaulted.
+        packaging_trace=None,
         half_life_key=None,
         admission_clock=lambda: datetime(2026, 3, 2, 12, 7, tzinfo=UTC),
         decision_instant_parameter=None,

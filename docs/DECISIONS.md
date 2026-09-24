@@ -4513,3 +4513,77 @@ A product tree is imported by bare module name — `produce`, `deployment`, `pro
 **NOT DONE, DELIBERATELY.** cp-20's workaround — the envelope check moved into `acquire` — is **untouched**. It is evidence (`D-IMPL-261`), and removing it is a separate pass now that the mechanism exists. `CP06-F-03`/`CP07-F-09` needs re-measurement against `D-IMPL-345` before it is counted as open. The two live replay xfails (`CP17-F-08`/`CP17-F-09`) are unrelated to this class and remain carried.
 
 **Next free decision id: `D-IMPL-348`.** **Related:** `D-IMPL-304` (the original acquisition-seam handoff this widens), `D-IMPL-336` F1, `D-IMPL-343`, `D-IMPL-346`, `D-IMPL-261`; `docs/surface-changes/20.3-01-seam-held-refusals-d-impl-347.md` and `20.3-02-declared-seam-refusals-d-impl-347-b2.md`.
+
+---
+
+## Decision Replay — the 1.0 capability boundary (Dave, 2026-09-23)
+
+**Not a `D-IMPL` entry, and deliberately not.** Dave: *"No D-IMPL-348 merely
+for this release decision."* `D-IMPL-348` stays unspent. This records a scope
+ruling made against a read-only audit of the vault's canonical Decision Replay
+material (`wiki/context-products/content/decision-replay-reconstruction.md` —
+the one canonical article; the other 26 in that topic are product specs, and
+Q011's link to `decision-replayability-and-compression` resolves to nothing).
+
+**The question asked:** does the shipped Decision Replay surface cover every
+distinct replay capability the vault says CCF 1.0 requires? Two replay
+examples existing was explicitly not accepted as an answer.
+
+### PROVEN for 1.0
+
+| Vault requirement | Proven by |
+| --- | --- |
+| Five dimensions captured, inviolate (`INV-CH7-80`) | `tests/replay` |
+| Environment replay, not model trace | `dr-01` via `replay` |
+| Refusals replay on the determination path | `dr-01` via `replay_refusal` |
+| Mode 1 footprint | `dr-01` and 29 trees |
+| Mode 2 footprint — five pins on the RETAINED record | `dr-02` `PKG-G09` (`PKG-F-08`) |
+| Mode 3 — recursive per-agent replay | `ChildResolution.child_replay_ref`, cp-14 |
+| Dimension 5 is the operator trace, with no fabricated LLM rationale | SDK |
+
+### OUTSIDE the 1.0 implementation boundary — named, not silently dropped
+
+- **Three audiences, three Π renderings** (`D-56` / `INV-CH7-91`, whitepaper
+  §7.10.7). A **named post-1.0 capability**. Dave's boundary: it is governed
+  disclosure and product work, and it is not required to prove the minimum
+  Decision Replay reconstruction surface. The record is one record; rendering
+  it three ways is a consumption surface over it, and nothing about the
+  five-dimension record forecloses adding them.
+- **Three-tier retention with severity exemption** (`D-IMPL-50`, resolved
+  2026-07-25; whitepaper §7.10.5; `INV-CH7-89`). A **deployment and retention
+  obligation**, not a service the SDK builds to tag a release. Dave: *"The SDK
+  must replay from whatever retained evidence is available; orchestration of
+  the retention lifecycle is outside this release boundary."* `D-IMPL-50`
+  stays resolved as written — the SDK owes the lifecycle mechanism — and this
+  ruling places the build after 1.0 rather than reversing it. Compression was
+  never a licence to capture fewer than five dimensions at write time, and
+  nothing here changes that.
+- **Replay-record discoverability** — indexing by temporal boundary and
+  decision class (whitepaper §7.10, the `T_audit` walkthrough). Already
+  deferred to the DR architecture phase; restated here so the three sit
+  together.
+
+### The Fluree watermark contract, FROZEN for 1.0
+
+A source ledger watermark is reported **only when the configured acquisition
+path exposes it**. Otherwise it is `unreported`. It is **never synthesized or
+aliased from `graph_snapshot_at`** — an invented watermark is worse than an
+absent one, because it reads as a measurement.
+
+CP-16 and CP-24 keep their currently qualified behavior (`AIA-F-04`). The
+`/v1/fluree/ledgers` route correction is **post-1.0**: changing it now rebases
+five product content addresses, and a release is the wrong moment to move
+addresses that already qualified.
+
+### Sabotage attestation — a general gap, not a 1.0 blocker
+
+**No instrument in this repository reads a gate's prose `sabotage:` sentence
+and proves the named test performs it.** Measured at `PKG-G08` and `PKG-G09`:
+eight gates were green and the checker reported 518 of 518 executing while one
+declared sabotage had never run (`PKG-F-07`) and one gate read the payload
+where it claimed to read the record (`PKG-F-08`). Both were found by review.
+
+Carried as **post-1.0 test-infrastructure work**. It is not a release blocker:
+`dr-02`'s required sabotages have since been executed and observed RED by
+hand, including the isolation run that proved the temperature/address
+assertion is not vacuous.

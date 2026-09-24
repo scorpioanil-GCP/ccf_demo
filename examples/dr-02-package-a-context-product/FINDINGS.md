@@ -12,6 +12,7 @@ A `PKG-F-NN` id resolves here.
 | `PKG-F-05` | 2 · launch ergonomics | **CLOSED 2026-09-23** — the checker now sees the gated spines |
 | `PKG-F-06` | — · working as designed | recorded so it is not re-derived |
 | `PKG-F-07` | — · recording defect, mine | **CLOSED 2026-09-23** — a gate claimed a limb it never ran, and cited an id nobody wrote |
+| `PKG-F-08` | 1 · SDK gap + example defect | **CLOSED 2026-09-23** — dimension 3 read `no-packaging` on the one Mode 2 product |
 
 ---
 
@@ -174,6 +175,74 @@ passed either way.
 the checker reported 518 of 518 executing. No instrument in this repository
 reads a `sabotage:` sentence and asks whether the test performs it. That gap is
 general, not specific to this rung.
+
+## `PKG-F-08` — the payload carried the packaging and the replay record said none happened
+
+**Found by review, in work already accepted. CLOSED 2026-09-23 by connecting
+the seam, not by editing the claim.**
+
+`dr-02`'s README said §7.10.4's pins land *"on the payload **and** on dimension
+3, so an examiner reads the packaging without dereferencing anything."*
+Measured on a live serve, dimension 3 read:
+
+```
+model_version "no-packaging"        temperature "no-packaging"
+prompt_artifact_uri "no-packaging"  prompt_artifact_hash "no-packaging"
+output_hash "no-packaging"
+```
+
+while the payload carried every real value. **An examiner pulling the replay
+record of a memo a model wrote would have been told no packaging happened.**
+
+### Why eight green gates could not see it
+
+`PKG-G02` asserts the four pins "on a served product" — and reads the
+**payload**, which was correct. Nothing read what was **filed**. This is
+`collection is not execution` in a new costume: the thing being measured and
+the thing being claimed were one dereference apart, and no instrument crossed
+it.
+
+`PKG-G01` made it worse by reading *half* of dimension 3. It asserts
+`assembly_mode == "llm_packaged"` on the record — which was true — so the
+record looked inspected.
+
+### The SDK half, which is the larger half
+
+`PackagingTrace` and `ModelVersionRecord.packaging_trace` were added in
+`D-IMPL-347` **with no producer**. `build_replay_record` did not take a
+`packaging_trace` argument, so no caller could have supplied one: the field
+was unreachable, and `NO_PACKAGING_TRACE` was not a default but the only
+value it could ever hold. A typed slot nothing can fill is documentation
+wearing a type annotation.
+
+Closed by adding the missing connection — `PackagingTraceProtocol` on the
+resolver, threaded through `open_product` and `build_replay_record`. The SDK
+supplies the seam and the wiring; the deployment supplies the values, because
+which model ran at what temperature against which prompt is not something the
+SDK can compute (CLAUDE.md §11).
+
+### `output_hash` is over the ADMITTED sections, and that was measured
+
+The first implementation hashed the packager's full output at acquisition and
+recomputed from the served payload for dimension 3 — and the two digests
+**disagreed on an honest serve**. The cause is this rung's own Policy
+operator: it admits sections by audience, so a narrowed memo carries fewer
+sections than were rendered. Both digests are facts; only one is *what this
+decision delivered*, which is what §7.10.4 asks replay to pin.
+
+It is also why `output_hash` is not the product's content address. A hash of
+the payload cannot be carried inside that payload, and a hash covering the
+substrate would move whenever the substrate moved and stop being a statement
+about the packaging at all.
+
+### What `PKG-G09` asserts that `PKG-G02` cannot
+
+It reads the **retained bytes** from the artifact store, names each of the
+five pins individually so a failure says which, checks the record and the memo
+agree, and re-derives `output_hash` from the served sections — with a tamper
+control, because an equality that holds for any hash function proves nothing.
+Reddened by unwiring the seam, which reproduces exactly the state this rung
+shipped in.
 
 ---
 

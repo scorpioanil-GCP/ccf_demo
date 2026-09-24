@@ -31,7 +31,7 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any
 
-from ccf.contracts.canonical import canonical_bytes
+from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.mcp.client import McpResourceClient, SyncMcpBridge, bearer_client_factory
 from ccf.products.door import PRODUCT_REQUEST_TOOL, DoorOutcome, WireRequest
 from ccf.products.refusal import (
@@ -245,7 +245,7 @@ def envelopes(
                 "upstream_expires_at": answer.expires_at or "",
                 "upstream_debt": answer.debt or "",
                 "upstream_disposition": answer.disposition or "",
-                # §7.10.4's four pinned rendering primitives, on every section.
+                # §7.10.4's pinned rendering primitives, on every section.
                 "packaging_model": model.model_version,
                 "packaging_temperature": model.temperature,
                 "packaging_prompt_uri": prompt_uri,
@@ -253,6 +253,38 @@ def envelopes(
             },
         )
         for section in sections
+    )
+
+
+def output_hash(sections: Sequence[Mapping[str, Any]]) -> str:
+    """The content hash of the packaged output — §7.10.4's fourth pin.
+
+    Over the MODEL'S OWN OUTPUT **as served**, never over the finished
+    product: a hash of the payload could not be carried inside that payload,
+    and a hash that covered the substrate would move when the substrate moved
+    and stop being a statement about the packaging at all.
+
+    **Over the ADMITTED sections, not everything packaged.** Measured
+    2026-09-23: hashing the packager's full output and the served payload
+    gave two different digests for one honest serve, because the Policy
+    operator admits by audience and a narrowed memo carries fewer sections
+    than were rendered. Both are facts; only one of them is *what this
+    decision delivered*, and that is the one §7.10.4 asks replay to pin.
+
+    Heading, audience and prose in payload order, through the SDK's canonical
+    encoder so the digest survives a re-serialization.
+    """
+    return content_hash(
+        canonical_bytes(
+            [
+                {
+                    "heading": str(section.get("heading")),
+                    "audience": str(section.get("audience")),
+                    "prose": str(section.get("prose")),
+                }
+                for section in sections
+            ]
+        ).decode("utf-8")
     )
 
 
