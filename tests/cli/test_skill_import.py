@@ -28,6 +28,11 @@ import pytest
 from ccf.agents.definitions import PROMPT_ARTIFACT, PromptArtifact
 from ccf.skills.catalog import SKILL_CATALOG_ENTRY, SkillCatalogEntry
 
+from ccf_runtime.cli.commands.skill_import import (
+    MAX_REFERENCE_BYTES,
+    MAX_REFERENCES,
+)
+
 from cli.conftest import Fabric, run_cli
 
 FIXTURE = (
@@ -170,3 +175,129 @@ def test_import_parses_and_dispatches() -> None:
         ["skill", "import", "some-dir", "--tenant", "t", "--version", "1.0.0"]
     )
     assert getattr(parsed, "build", None) is not None
+
+
+# --- SEC-003: an imported skill directory is untrusted input -----------------
+#
+# The security review of 2026-09-23 found that `references/` was walked with
+# `Path.is_file()`, which follows symlinks: a shared skill package could
+# point a reference at ~/.aws/credentials and have the importer publish its
+# bytes into the Control Plane. These tests fail against the pre-fix CLI.
+
+
+def _package(root: Path, *, name: str) -> Path:
+    """A minimal, well-formed skill directory to hang a probe on."""
+    directory = root / name
+    (directory / "references").mkdir(parents=True)
+    (directory / "SKILL.md").write_text(
+        f"---\nname: {name}\ndescription: A skill package under test.\n"
+        "---\n\nBody text.\n"
+    )
+    return directory
+
+
+def test_a_symlinked_reference_is_refused(
+    fabric: Fabric,
+    deps: Any,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    """SEC-003. The exfiltration chain: a reference symlinked at a secret
+    outside the package must not be read, let alone published."""
+    secret = tmp_path / "credentials"
+    secret.write_text("aws_secret_access_key = TOPSECRETVALUE\n")
+    directory = _package(tmp_path, name="symlinked-reference")
+    (directory / "references" / "usage.md").symlink_to(secret)
+
+    code, out = _import(deps, capsys, directory)
+    assert code != 0
+    assert "symlink" in out.lower()
+    assert "TOPSECRETVALUE" not in out
+    # and nothing about it reached the Control Plane
+    registered = fabric.registry.keys_of_class(PROMPT_ARTIFACT.class_id)
+    assert not any(
+        "symlinked-reference-reference" in key for key in registered
+    )
+
+
+def test_a_symlinked_skill_document_is_refused(
+    fabric: Fabric,
+    deps: Any,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    """SEC-003. SKILL.md itself is read with the same trust as a reference."""
+    secret = tmp_path / "id_ed25519"
+    secret.write_text("-----BEGIN OPENSSH PRIVATE KEY-----\n")
+    directory = tmp_path / "linked"
+    (directory / "references").mkdir(parents=True)
+    (directory / "SKILL.md").symlink_to(secret)
+
+    code, out = _import(deps, capsys, directory)
+    assert code != 0
+    assert "symlink" in out.lower()
+
+
+def test_an_oversized_reference_is_refused(
+    fabric: Fabric,
+    deps: Any,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    """SEC-003. A reference is prompt text; an unbounded read of untrusted
+    input is a resource hazard regardless of what the bytes are."""
+    directory = _package(tmp_path, name="oversized")
+    oversized = directory / "references" / "huge.md"
+    oversized.write_bytes(b"x" * (MAX_REFERENCE_BYTES + 1))
+
+    code, out = _import(deps, capsys, directory)
+    assert code != 0
+    assert "bytes" in out.lower()
+
+
+def test_too_many_references_are_refused(
+    fabric: Fabric,
+    deps: Any,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    """SEC-003. One import registers a bounded number of artifacts."""
+    directory = _package(tmp_path, name="too-many")
+    for index in range(MAX_REFERENCES + 1):
+        (directory / "references" / f"r{index}.md").write_text("text\n")
+
+    code, out = _import(deps, capsys, directory)
+    assert code != 0
+    assert "references" in out.lower()
+
+
+def test_a_plain_reference_directory_still_imports(
+    fabric: Fabric,
+    deps: Any,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    """The guards refuse the hostile case and pass the ordinary one."""
+    directory = _package(tmp_path, name="ordinary")
+    (directory / "references" / "usage.md").write_text("How to use it.\n")
+    code, out = _import(deps, capsys, directory)
+    assert code == 0, out
+
+
+def test_a_reference_symlinked_inside_the_package_is_refused(
+    fabric: Fabric,
+    deps: Any,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    """SEC-003. Containment alone would admit this one — the target sits
+    inside the package — so this is what proves the symlink refusal is
+    load-bearing rather than shadowed by the containment check."""
+    directory = _package(tmp_path, name="inward-link")
+    (directory / "references" / "real.md").write_text("The real text.\n")
+    (directory / "references" / "alias.md").symlink_to(
+        directory / "references" / "real.md"
+    )
+    code, out = _import(deps, capsys, directory)
+    assert code != 0
+    assert "symlink" in out.lower()

@@ -34,6 +34,7 @@ from pathlib import Path
 import httpx
 
 from ccf_runtime.cli.commands import (
+    CommandRefused,
     RequestSpec,
     agent,
     artifact,
@@ -163,7 +164,13 @@ def main(
     """
     parser = build_parser()
     args = parser.parse_args(list(argv) if argv is not None else None)
-    specs = args.build(args)
+    try:
+        specs = args.build(args)
+    except CommandRefused as refused:
+        # A verb refused its own inputs. Same exit status and same stream
+        # as a refusal that crossed the HTTP boundary (T-07-26).
+        sys.stdout.write(f"{refused}\n")
+        return EXIT_REFUSED
 
     transport: httpx.AsyncBaseTransport | None
     if dependencies is not None or args.local:
