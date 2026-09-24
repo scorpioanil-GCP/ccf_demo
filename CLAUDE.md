@@ -208,6 +208,19 @@ optional and its steps do not merge:
    to Dave — a review report is a precondition of requesting approval,
    not a substitute for it.
 
+   **EVERY WAVE OF THE SECURITY REMEDIATION IS A PHASE FOR THIS PURPOSE**
+   (`D-IMPL-352`, Dave, 2026-09-24): *"enlist fable, cursor, and codex review
+   after every phase completes. I don't want to get to the end to discover we
+   missed a critical item and we have to redo it."* Not one panel at the end of
+   Tier 3 — one per wave, per tier close. The justification is measured: the
+   Tier-0 fix was reported COMPLETE, and the close panel on the *follow-on*
+   work then reproduced the CRITICAL with that fix in place. Two additions to
+   the close-time rules below, each already paid for once: **verify every
+   RETRACTION as hard as a finding** (a synthesis agent read a repaired tree
+   and reported a real reproduced defect as *wrong*), and **tell the panel the
+   SDK is destined for a BANK** (the first panel was not told, which made it
+   less conservative than warranted).
+
    **This step is the cross-AI panel, and nothing else satisfies it.**
    `/gsd-review --all` invokes every available external reviewer; a
    single-agent code review (`/gsd:code-review`, the `gsd-code-reviewer`
