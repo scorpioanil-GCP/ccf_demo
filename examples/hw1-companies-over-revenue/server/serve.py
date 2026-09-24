@@ -60,6 +60,7 @@ from ccf_runtime.authz.product_entitlement import (
 )
 from ccf_runtime.mcp.auth import FileTokenSource, SourceBackedTokenVerifier
 from ccf_runtime.mcp.egress import build_egress_server
+from ccf_runtime.mcp.tenancy import ambient_stdio_identity
 
 # The boot next door. This program is spawned as a bare `python <this file>`,
 # so its own directory is already on `sys.path` and the sibling module imports
@@ -181,12 +182,21 @@ def serve(root: Path) -> None:
         # served. See the module docstring: stdio carries no bearer channel, and
         # a deployment that left this unstated would refuse every caller as
         # unverified rather than serve the process that spawned it.
+        #
+        # Built through `ambient_stdio_identity` rather than as a bare
+        # AccessToken: `SEC-018` gave every MCP surface a mandatory tenancy
+        # floor, so an identity that names no tenant now reaches nothing. The
+        # helper scopes this one to exactly the tenant the door was opened to
+        # serve, and marks it ambient — which is what makes every *mutating*
+        # surface refuse it. Before the tenant axis existed, a stated stdio
+        # identity was unbounded in reach.
         auth_context_var.set(
             AuthenticatedUser(
-                AccessToken(
-                    token=credential,
-                    client_id=perspective.principal_id,
-                    scopes=[scope],
+                ambient_stdio_identity(
+                    credential=credential,
+                    principal_id=perspective.principal_id,
+                    scope=scope,
+                    tenant=composed.fabric.tenant_id,
                 )
             )
         )

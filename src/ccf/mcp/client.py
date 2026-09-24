@@ -86,6 +86,35 @@ SessionOperation = Callable[[ClientSession], Awaitable[T]]
 HttpClientFactory = Callable[[], httpx.AsyncClient]
 
 
+def _unwrap_exception_group(error: BaseException) -> BaseException:
+    """The single exception an ``ExceptionGroup`` stands for, or ``error``.
+
+    anyio's task groups wrap whatever a task raised, sometimes twice, so an
+    error that arrived through a session reads as
+    ``ExceptionGroup: unhandled errors in a TaskGroup`` — a sentence that
+    names nothing. Tier 1 made that visible: the MCP servers gained a
+    mandatory tenancy floor that RAISES a named refusal, and the operator
+    saw the wrapper instead.
+
+    A group carrying exactly ONE member is that member, recursively. A group
+    carrying several is left whole on purpose: two concurrent failures have
+    no single cause to name, and picking one would be a guess presented as a
+    fact — which is the defect this function exists to stop, not a licence
+    to commit it more precisely.
+
+    This changes what the fallback branch *says*, never what it decides:
+    :class:`~ccf.mcp.errors.McpServerUnreachable` remains the classification
+    for anything the client cannot classify, deliberately (see
+    :mod:`ccf.mcp.errors`).
+    """
+    while (
+        isinstance(error, BaseExceptionGroup)
+        and len(error.exceptions) == 1
+    ):
+        error = error.exceptions[0]
+    return error
+
+
 async def run_with_session(
     *,
     url: str,
@@ -134,9 +163,10 @@ async def run_with_session(
     except asyncio.CancelledError:
         raise
     except Exception as error:
+        named = _unwrap_exception_group(error)
         raise McpServerUnreachable(
             f"MCP call against {url!r} did not complete: "
-            f"{type(error).__name__}: {error}"
+            f"{type(named).__name__}: {named}"
         ) from error
     raise AssertionError("unreachable")  # pragma: no cover
 
