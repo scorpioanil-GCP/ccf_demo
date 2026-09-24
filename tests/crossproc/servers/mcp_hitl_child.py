@@ -117,11 +117,26 @@ def authorized_http_client(token: str = DEV_TOKEN) -> httpx.AsyncClient:
     return httpx.AsyncClient(headers={"Authorization": f"Bearer {token}"})
 
 
-def write_token_file(*, workspace: Path) -> Path:
-    """Write the child's token file and return its path."""
+def write_token_file(*, workspace: Path, tenants: frozenset[str]) -> Path:
+    """Write the child's token file, scoped to ``tenant``.
+    Args:
+        workspace: Where the file is written.
+        tenant: The one tenant this child's credential is scoped to. Required
+            rather than defaulted (``SEC-018``): a grant naming no tenant
+            reaches nothing, so a fixture that omitted it would fail loudly
+            rather than mint the unscoped bearer the finding is about.
+    """
     token_file = workspace / TOKEN_FILENAME
     token_file.write_text(
-        json.dumps({DEV_TOKEN: {"client_id": CLIENT_ID, "scopes": [SCOPE]}}),
+        json.dumps(
+            {
+                DEV_TOKEN: {
+                    "client_id": CLIENT_ID,
+                    "scopes": [SCOPE],
+                    "tenants": sorted(tenants),
+                }
+            }
+        ),
         encoding="utf-8",
     )
     return token_file
@@ -281,7 +296,17 @@ def build_server(*, workspace: Path) -> FastMCP:
         queue_view=queue_view,
         action_route=route_action,
         token_verifier=SourceBackedTokenVerifier(
-            source=FileTokenSource(path=write_token_file(workspace=workspace))
+            source=FileTokenSource(path=write_token_file(
+                workspace=workspace,
+                # The neighbour is included DELIBERATELY: the parent asserts
+                # that one tenant's queue never shows another's events, which
+                # is a QUEUE-PARTITION property and only observable if the
+                # caller can reach the neighbouring queue at all. The tenancy
+                # floor is proven separately (`SEC-018`).
+                tenants=frozenset(
+                    {event.tenant, f"{event.tenant}-not-this-one"}
+                ),
+            ))
         ),
         auth_settings=AuthSettings(
             issuer_url=AnyHttpUrl(ISSUER_URL),

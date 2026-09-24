@@ -329,7 +329,15 @@ def _unit_server(tmp_path: Path, action_route: Any) -> Any:
 
     token_file = tmp_path / "tokens.json"
     token_file.write_text(
-        json.dumps({"unit-token": {"client_id": "auditor-1", "scopes": ["h"]}}),
+        json.dumps(
+            {
+                "unit-token": {
+                    "client_id": "auditor-1",
+                    "scopes": ["h"],
+                    "tenants": [UNIT_TENANT],
+                }
+            }
+        ),
         encoding="utf-8",
     )
 
@@ -351,9 +359,14 @@ def _unit_server(tmp_path: Path, action_route: Any) -> Any:
     )
 
 
+#: The tenant the unit-level HITL fixtures act on. One spelling, so the
+#: credential's scope and the tool argument cannot drift apart (`SEC-018`).
+UNIT_TENANT = "unit-tenant"
+
+
 def _unit_arguments(*, subject_id: str) -> dict[str, Any]:
     return {
-        "tenant": "unit-tenant",
+        "tenant": UNIT_TENANT,
         "event_key": "unit-event-1",
         "action": "approve",
         "subject_id": subject_id,
@@ -375,7 +388,39 @@ def _tool_fn(server: Any) -> Any:
 def _access_token(client_id: str) -> Any:
     from mcp.server.auth.provider import AccessToken
 
-    return AccessToken(token="unit-token", client_id=client_id, scopes=["h"])
+    from ccf_runtime.mcp.auth import TokenGrant, tenant_claims
+
+    return AccessToken(
+        token="unit-token",
+        client_id=client_id,
+        scopes=["h"],
+        claims=dict(
+            tenant_claims(
+                TokenGrant(
+                    client_id=client_id,
+                    scopes=("h",),
+                    tenants=frozenset({UNIT_TENANT}),
+                )
+            )
+        ),
+    )
+
+
+def _verified_as(monkeypatch: Any, client_id: str) -> None:
+    """Stand in for the bearer middleware on BOTH readers of the identity.
+
+    Two modules read ``get_access_token``: the HITL door, for the subject
+    binding, and :mod:`ccf_runtime.mcp.tenancy`, for the tenancy floor. Each
+    imported the name into its own namespace, so patching one leaves the other
+    reading the real (empty) context — which fails closed, but for a reason
+    that has nothing to do with what these tests are about.
+    """
+    import ccf_runtime.mcp.hitl_server as hitl_server
+    import ccf_runtime.mcp.tenancy as tenancy
+
+    token = _access_token(client_id)
+    monkeypatch.setattr(hitl_server, "get_access_token", lambda: token)
+    monkeypatch.setattr(tenancy, "get_access_token", lambda: token)
 
 
 def test_a_conflicting_subject_is_a_typed_refusal(
@@ -392,9 +437,7 @@ def test_a_conflicting_subject_is_a_typed_refusal(
         return "{}"
 
     server = _unit_server(tmp_path, action_route)
-    monkeypatch.setattr(
-        hitl_server, "get_access_token", lambda: _access_token("auditor-1")
-    )
+    _verified_as(monkeypatch, "auditor-1")
 
     with pytest.raises(SubjectIdentityConflictRefused) as excinfo:
         _tool_fn(server)(**_unit_arguments(subject_id="someone-else"))
@@ -417,9 +460,7 @@ def test_a_matching_subject_binds_the_verified_identity(
         return "{}"
 
     server = _unit_server(tmp_path, action_route)
-    monkeypatch.setattr(
-        hitl_server, "get_access_token", lambda: _access_token("auditor-1")
-    )
+    _verified_as(monkeypatch, "auditor-1")
 
     _tool_fn(server)(**_unit_arguments(subject_id="auditor-1"))
 
@@ -448,9 +489,27 @@ def test_a_missing_access_token_is_a_typed_refusal(
         routed.append(submission)
         return "{}"
 
+    import ccf_runtime.mcp.tenancy as tenancy
+    from ccf_runtime.mcp.tenancy import UnverifiedTenantCallerRefused
+
     server = _unit_server(tmp_path, action_route)
     monkeypatch.setattr(hitl_server, "get_access_token", lambda: None)
+    monkeypatch.setattr(tenancy, "get_access_token", lambda: None)
 
+    # **Two refusals stand here now, and the OUTER one arrives first**
+    # (`SEC-018`). The tenancy floor is installed at registration and runs
+    # before the handler's first statement, so an unverified caller is refused
+    # by `UnverifiedTenantCallerRefused` and never reaches the door's own
+    # `UnverifiedCallerRefused`. Both are asserted rather than one swapped for
+    # the other: the door's check is defense in depth and is still reachable by
+    # calling the unwrapped body, and a test that only named the new one would
+    # go green if the door's own check were deleted.
+    with pytest.raises(UnverifiedTenantCallerRefused):
+        _tool_fn(server)(**_unit_arguments(subject_id="auditor-1"))
+
+    assert routed == []
+
+    monkeypatch.setattr(tenancy, "get_access_token", lambda: _access_token("auditor-1"))
     with pytest.raises(UnverifiedCallerRefused):
         _tool_fn(server)(**_unit_arguments(subject_id="auditor-1"))
 

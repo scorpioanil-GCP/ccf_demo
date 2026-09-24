@@ -207,7 +207,7 @@ def authorized_http_client(token: str = DEV_TOKEN) -> httpx.AsyncClient:
     return httpx.AsyncClient(headers={"Authorization": f"Bearer {token}"})
 
 
-def write_token_file(*, workspace: Path) -> Path:
+def write_token_file(*, workspace: Path, tenants: frozenset[str]) -> Path:
     """Write the child's token file and return its path.
 
     Two credentials, both genuinely recognised: one whose principal the
@@ -219,10 +219,20 @@ def write_token_file(*, workspace: Path) -> Path:
     token_file.write_text(
         json.dumps(
             {
-                DEV_TOKEN: {"client_id": CLIENT_ID, "scopes": [SCOPE]},
+                # Both credentials carry the SAME tenants, because what this
+                # child exists to demonstrate is that verification and
+                # entitlement are two different decisions (`SEC-018` is a
+                # third). An unentitled caller refused for *tenancy* would go
+                # red for the wrong reason and stop testing the subject.
+                DEV_TOKEN: {
+                    "client_id": CLIENT_ID,
+                    "scopes": [SCOPE],
+                    "tenants": sorted(tenants),
+                },
                 UNENTITLED_TOKEN: {
                     "client_id": UNENTITLED_CLIENT_ID,
                     "scopes": [SCOPE],
+                    "tenants": sorted(tenants),
                 },
             }
         ),
@@ -612,9 +622,34 @@ def build_server(
         get_context_description=GET_CONTEXT_DESCRIPTION,
         get_lineage_description=GET_LINEAGE_DESCRIPTION,
         get_replay_record_description=GET_REPLAY_RECORD_DESCRIPTION,
+        # The tool carries no arguments, so its tenant is declared rather than
+        # named by the caller (`SEC-018`).
+        replay_record_tenant=world.tenant,
         tool_allowlist=tool_allowlist,
         token_verifier=SourceBackedTokenVerifier(
-            source=FileTokenSource(path=write_token_file(workspace=workspace))
+            source=FileTokenSource(path=write_token_file(
+                workspace=workspace,
+                # This child serves TWO tenants: the agent world's and the
+                # assembled product's. They coincide in the shipped fixture,
+                # and the union is passed rather than either one so that a
+                # fixture change separating them does not silently lock the
+                # credential out of half this server (`SEC-018`).
+                tenants=frozenset(
+                    {
+                        world.tenant,
+                        assembled.address.tenant,
+                        # # The neighbouring tenant is in the credential DELIBERATELY. These
+                        # suites test what the ENTITLEMENT (and the per-tenant queue
+                        # partition) decides about a tenant the caller can reach; a
+                        # credential stopped by the tenancy floor first would make the
+                        # entitlement untested. The floor itself is proven in
+                        # `tests/mcp/test_tenant_guard.py`, against these same shipped
+                        # servers (`SEC-018`).
+                        f"{world.tenant}-not-this-one",
+                        f"{assembled.address.tenant}-not-this-one",
+                    }
+                ),
+            ))
         ),
         auth_settings=AuthSettings(
             issuer_url=AnyHttpUrl(ISSUER_URL),

@@ -304,8 +304,21 @@ def _token_verifier(tmp_path: pathlib.Path) -> Any:
     tokens.write_text(
         json.dumps(
             {
-                "entitled": {"client_id": PRINCIPAL, "scopes": [SCOPE]},
-                "stranger": {"client_id": STRANGER, "scopes": [SCOPE]},
+                # Both credentials are scoped to this door's one tenant
+                # (`SEC-018`), because what these tests vary is ENTITLEMENT —
+                # the stranger is a verified caller of the same tenant whom the
+                # policy does not grant. A stranger refused for tenancy instead
+                # would still go red and would stop testing the subject.
+                "entitled": {
+                    "client_id": PRINCIPAL,
+                    "scopes": [SCOPE],
+                    "tenants": [TENANT],
+                },
+                "stranger": {
+                    "client_id": STRANGER,
+                    "scopes": [SCOPE],
+                    "tenants": [TENANT],
+                },
             }
         ),
         encoding="utf-8",
@@ -338,10 +351,27 @@ def _as_principal(principal: str, operation: Any, *, render: Any) -> str:
     from mcp.server.auth.middleware.bearer_auth import AuthenticatedUser
     from mcp.server.auth.provider import AccessToken
 
+    from ccf_runtime.mcp.auth import TokenGrant, tenant_claims
+
     reset = auth_context_var.set(
         AuthenticatedUser(
             AccessToken(
-                token="in-process", client_id=principal, scopes=[SCOPE]
+                token="in-process",
+                client_id=principal,
+                scopes=[SCOPE],
+                # The claim the bearer middleware would carry, composed through
+                # the shipped renderer rather than spelled here, so this stand-in
+                # cannot drift from what a real verification produces
+                # (`SEC-018`).
+                claims=dict(
+                    tenant_claims(
+                        TokenGrant(
+                            client_id=principal,
+                            scopes=(SCOPE,),
+                            tenants=frozenset({TENANT}),
+                        )
+                    )
+                ),
             )
         )
     )

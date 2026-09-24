@@ -126,9 +126,16 @@ class Harness:
         token_file.write_text(
             json.dumps(
                 {
+                    # BOTH tenants, deliberately. What this module tests is
+                    # the per-action AUTHORIZER, so the credential has to reach
+                    # the denied tenant for the authorizer to be what denies
+                    # it. The tenancy floor and the action policy are two
+                    # layers, and this fixture exercises the upper one
+                    # (`SEC-018`).
                     TOKEN: {
                         "client_id": CLIENT_ID,
                         "scopes": [SCOPE_EXACT, SCOPE_PREFIX],
+                        "tenants": sorted(EXERCISED_TENANTS),
                     }
                 }
             ),
@@ -184,17 +191,46 @@ def harness(tmp_path: Path) -> Harness:
 
 @pytest.fixture()
 def verified_token(monkeypatch: pytest.MonkeyPatch) -> None:
-    import ccf_runtime.mcp.hitl_server as hitl_server
+    """Stand in for the bearer middleware on BOTH readers of the identity.
 
-    monkeypatch.setattr(
-        hitl_server,
-        "get_access_token",
-        lambda: AccessToken(
-            token=TOKEN,
-            client_id=CLIENT_ID,
-            scopes=[SCOPE_EXACT, SCOPE_PREFIX],
+    Two modules read ``get_access_token``: the HITL door, for its per-action
+    authorization, and :mod:`ccf_runtime.mcp.tenancy`, for the tenancy floor.
+    Each imported the name into its own namespace, so one patch leaves the
+    other reading the real (empty) context.
+
+    **The grant carries every tenant this module exercises, deliberately.**
+    What is under test here is the per-action AUTHORIZER — that it allows
+    ``tenant-a``, allows only the read on ``tenant-b-7``, and denies
+    ``tenant-z``. A credential that did not reach those tenants would be
+    stopped by the tenancy floor first and the authorizer would never be the
+    thing deciding, which is the whole subject (`SEC-018`).
+    """
+    import ccf_runtime.mcp.hitl_server as hitl_server
+    import ccf_runtime.mcp.tenancy as tenancy
+
+    from ccf_runtime.mcp.auth import TokenGrant, tenant_claims
+
+    token = AccessToken(
+        token=TOKEN,
+        client_id=CLIENT_ID,
+        scopes=[SCOPE_EXACT, SCOPE_PREFIX],
+        claims=dict(
+            tenant_claims(
+                TokenGrant(
+                    client_id=CLIENT_ID,
+                    scopes=(SCOPE_EXACT, SCOPE_PREFIX),
+                    tenants=EXERCISED_TENANTS,
+                )
+            )
         ),
     )
+    monkeypatch.setattr(hitl_server, "get_access_token", lambda: token)
+    monkeypatch.setattr(tenancy, "get_access_token", lambda: token)
+
+
+#: Every tenant this module drives a door with. One roster, so the credential
+#: cannot fall out of step with the cases (`SEC-018`).
+EXERCISED_TENANTS = frozenset({"tenant-a", "tenant-b-7", "tenant-z"})
 
 
 def _tool_arguments(tenant: str) -> dict[str, Any]:
@@ -339,7 +375,9 @@ def _http_outcome(
 
     def stash(request: Request) -> None:
         request.state.token_grant = TokenGrant(
-            client_id=CLIENT_ID, scopes=(SCOPE_EXACT, SCOPE_PREFIX)
+            client_id=CLIENT_ID,
+            scopes=(SCOPE_EXACT, SCOPE_PREFIX),
+            tenants=EXERCISED_TENANTS,
         )
 
     deps = ApiDependencies(

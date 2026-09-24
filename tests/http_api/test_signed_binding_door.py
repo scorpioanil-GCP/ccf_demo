@@ -390,13 +390,31 @@ def test_mcp_door_returns_the_same_typed_error_codes(
         return "{}"
 
     server = _mcp_server(tmp_path, action_route)
-    monkeypatch.setattr(
-        hitl_server,
-        "get_access_token",
-        lambda: AccessToken(
-            token="unit-token", client_id=_CLIENT_ID, scopes=["h"]
+    # BOTH readers of the verified identity: the door, for its subject
+    # binding, and `ccf_runtime.mcp.tenancy`, for the tenancy floor installed
+    # at registration. Each imported the name into its own namespace, so one
+    # patch leaves the other reading the real (empty) context (`SEC-018`).
+    import ccf_runtime.mcp.tenancy as tenancy
+
+    from ccf_runtime.mcp.auth import TokenGrant, tenant_claims
+
+    _mcp_tenant = f"{_TENANT_BASE}-mcp"
+    _token = AccessToken(
+        token="unit-token",
+        client_id=_CLIENT_ID,
+        scopes=["h"],
+        claims=dict(
+            tenant_claims(
+                TokenGrant(
+                    client_id=_CLIENT_ID,
+                    scopes=("h",),
+                    tenants=frozenset({_mcp_tenant}),
+                )
+            )
         ),
     )
+    monkeypatch.setattr(hitl_server, "get_access_token", lambda: _token)
+    monkeypatch.setattr(tenancy, "get_access_token", lambda: _token)
     tool = _tool_fn(server)
 
     # Case 1: no signed binding presented — required code in the payload.

@@ -85,6 +85,7 @@ from ccf.artifacts.protocol import (
 )
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes
+from ccf_runtime.mcp.tenancy import TenantGuardedServer
 
 __ccf_mode__ = "algorithmic"
 
@@ -94,6 +95,8 @@ __all__ = [
     "BLOB_URI_TEMPLATE",
     "META_URI_TEMPLATE",
     "NAME_URI_TEMPLATE",
+    "ARTIFACT_BLOB_SURFACE",
+    "ARTIFACT_META_SURFACE",
     "PUT_ARTIFACT_TOOL",
     "ArtifactPresence",
     "ArtifactResolution",
@@ -126,6 +129,13 @@ NAME_URI_TEMPLATE = (
 
 #: Name of the one mutating surface. A Tool, because Resources are read-only.
 PUT_ARTIFACT_TOOL = "put_artifact"
+
+#: The two surfaces addressed by content hash, named so the pinned roster in
+#: ``tests/mcp/test_tenant_guard.py`` can assert them by identity rather than
+#: by count. See :meth:`~ccf_runtime.mcp.tenancy.TenantGuardedServer.untenanted`
+#: and the handoff recorded in :func:`build_artifact_server`.
+ARTIFACT_BLOB_SURFACE = BLOB_URI_TEMPLATE
+ARTIFACT_META_SURFACE = META_URI_TEMPLATE
 
 _BLOB_MIME_TYPE = "application/octet-stream"
 _JSON_MIME_TYPE = "application/json"
@@ -224,15 +234,23 @@ def build_artifact_server(
         address is chosen here — hosting is the deployment's decision, and a
         library that picked an interface would be picking an exposure surface.
     """
-    server = FastMCP(
-        server_name,
-        stateless_http=True,
-        json_response=True,
-        token_verifier=token_verifier,
-        auth=auth_settings,
+    door = TenantGuardedServer(
+        FastMCP(
+            server_name,
+            stateless_http=True,
+            json_response=True,
+            token_verifier=token_verifier,
+            auth=auth_settings,
+        )
     )
+    server = door.fastmcp
 
-    @server.resource(BLOB_URI_TEMPLATE, mime_type=_BLOB_MIME_TYPE)
+    @door.resource(
+        BLOB_URI_TEMPLATE,
+        subject=door.untenanted(),
+        mutating=False,
+        mime_type=_BLOB_MIME_TYPE,
+    )
     def artifact_blob(content_address: str) -> bytes:
         """Return the exact canonical bytes stored at ``content_address``.
 
@@ -240,10 +258,28 @@ def build_artifact_server(
         ``BlobResourceContents`` over ``TextResourceContents``, and the
         difference is byte fidelity for every artifact the fabric will ever
         replay against (06-RESEARCH.md Pitfall 4).
+
+        **Untenanted, and the residual is recorded rather than hidden**
+        (``SEC-018``). A content address is a hash; no tenant appears on this
+        surface and
+        :class:`~ccf.artifacts.protocol.ArtifactStoreProtocol` has no method
+        that answers *which tenant owns this address*, so there is nothing to
+        compare against. The guard still refuses an unverified caller and a
+        grant carrying no tenant, and the sibling naming resource — the only
+        way to *learn* an address from a name — is tenant-decided, which closes
+        the enumeration path. What remains is that possession of a 64-character
+        address is the last thing between a verified caller and another
+        tenant's bytes. Closing it needs a tenant-of-address query on the store
+        Protocol; that is the recorded handoff, not a decision taken here.
         """
         return store.get(content_address=content_address)
 
-    @server.resource(META_URI_TEMPLATE, mime_type=_JSON_MIME_TYPE)
+    @door.resource(
+        META_URI_TEMPLATE,
+        subject=door.untenanted(),
+        mutating=False,
+        mime_type=_JSON_MIME_TYPE,
+    )
     def artifact_presence(content_address: str) -> str:
         """Answer whether the substrate holds ``content_address``.
 
@@ -251,13 +287,22 @@ def build_artifact_server(
         discriminates absence from outage on, so it must not fail when the
         answer is "no" — a failure is indistinguishable from the server being
         down, which is exactly the conflation this resource exists to prevent.
+
+        Untenanted for the reason :func:`artifact_blob` states, and strictly
+        less disclosing than it: this answers one bit about an address the
+        caller already holds.
         """
         presence = ArtifactPresence(
             found=store.exists(content_address=content_address)
         )
         return canonical_bytes(presence).decode("utf-8")
 
-    @server.resource(NAME_URI_TEMPLATE, mime_type=_JSON_MIME_TYPE)
+    @door.resource(
+        NAME_URI_TEMPLATE,
+        subject=door.from_argument("tenant"),
+        mutating=False,
+        mime_type=_JSON_MIME_TYPE,
+    )
     def artifact_resolution(
         tenant: str, artifact_class: str, name: str, artifact_version: str
     ) -> str:
@@ -267,6 +312,12 @@ def build_artifact_server(
         substrate's own resolver, so the scoping rules — a version registered
         under one name does not resolve under another — are the substrate's
         and are not re-derived here.
+
+        **Tenant-decided** (``SEC-018``). This is the surface that turns a name
+        into a content address, so leaving it open would hand any verified
+        caller the addresses the two untenanted resources answer on — the pair
+        was a complete cross-tenant read primitive. The ``tenant`` segment
+        stays the caller's and is now decided against the grant.
         """
         try:
             address = store.resolve_uri(
@@ -283,7 +334,11 @@ def build_artifact_server(
             resolution = ArtifactResolution(found=True, content_address=address)
         return canonical_bytes(resolution).decode("utf-8")
 
-    @server.tool(name=PUT_ARTIFACT_TOOL)
+    @door.tool(
+        name=PUT_ARTIFACT_TOOL,
+        subject=door.from_argument("tenant_id"),
+        mutating=True,
+    )
     def put_artifact(
         tenant_id: str, artifact_class: str, name: str, canonical_b64: str
     ) -> ArtifactRef:
@@ -297,6 +352,18 @@ def build_artifact_server(
         ``structuredContent``; a handler annotated ``-> dict`` leaves it
         ``None`` and forces the client to parse ``content[0].text``, which is a
         second, untyped contract nobody wrote down.
+
+        **``tenant_id`` no longer supplies the tenant; it names one**
+        (``SEC-018``). This tool took the tenant it wrote under as a caller
+        argument and filed the artifact there — the same shape as the finding
+        on the HTTP door. The parameter stays on the input schema, because it
+        selects *which* of a multi-tenant operator's tenants is being written
+        to and a grant may carry several; what changed is that it is now a
+        claim decided against the grant before this body runs, exactly as
+        ``submit_hitl_action``'s ``subject_id`` is a claim that must match.
+
+        Mutating, so a stated stdio identity cannot reach it — see
+        :func:`~ccf_runtime.mcp.tenancy.ambient_stdio_identity`.
 
         Raises:
             NonCanonicalPayload: the payload is not the canonical rendering of

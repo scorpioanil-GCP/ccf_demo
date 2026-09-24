@@ -98,7 +98,8 @@ from ccf_runtime.http_api.errors import (
     refusal_detail,
 )
 from ccf_runtime.identity_binding import principal_from_token_grant
-from ccf_runtime.mcp.auth import TokenGrant
+from ccf_runtime.mcp.auth import TokenGrant, granted_tenants
+from ccf_runtime.mcp.tenancy import TenantGuardedServer
 
 __ccf_mode__ = "algorithmic"
 
@@ -244,28 +245,54 @@ def build_hitl_server(
             (:mod:`ccf_runtime.mcp.auth` ships the reference implementation).
         auth_settings: Issuer, resource-server identity, required scopes —
             deployment values in their entirety.
-        authorizer: Optional HARD-04 tenant authorizer (D-IMPL-68). When
-            bound, the queue resource and the action tool enforce
-            per-tenant authorization with the door-declared action IDs,
-            denying with the shared ``ERROR_TENANT_UNAUTHORIZED``
-            constant rendered protocol-natively (D-08). When ``None`` —
-            the default — behavior is unchanged.
+        authorizer: Optional HARD-04 **per-action** authorizer (D-IMPL-68).
+            When bound, the queue resource and the action tool additionally
+            enforce the door-declared action IDs, denying with the shared
+            ``ERROR_TENANT_UNAUTHORIZED`` constant rendered protocol-natively
+            (D-08).
+
+            **It is no longer what decides tenancy, and leaving it optional
+            no longer leaves this door open** (``SEC-018``). Membership in the
+            verified grant's tenants is decided by
+            :class:`~ccf_runtime.mcp.tenancy.TenantGuardedServer` on every
+            call, bound authorizer or not; an action vocabulary is a
+            deployment's to declare and stays optional on top of that floor.
 
     Returns:
         A configured ``FastMCP``. Deliberately *not* started, and no bind
         address is chosen here — hosting is the deployment's decision
         (T-06-14).
     """
-    server = FastMCP(
-        server_name,
-        stateless_http=True,
-        json_response=True,
-        token_verifier=token_verifier,
-        auth=auth_settings,
+    door = TenantGuardedServer(
+        FastMCP(
+            server_name,
+            stateless_http=True,
+            json_response=True,
+            token_verifier=token_verifier,
+            auth=auth_settings,
+        )
     )
+    server = door.fastmcp
 
     def _enforce_tenant_authz(*, tenant: str, action_id: str) -> None:
         """Ask the bound authorizer before any injected seam is touched.
+
+        **This function is no longer where tenancy is decided, and it never
+        should have been the only place** (``SEC-018``). It opened
+        ``if authorizer is None: return`` and the builder's ``authorizer``
+        defaulted to ``None``, so the door's tenant check was optional *by
+        construction* — its applicability decided by the deployer, which is the
+        same defect class as a guard whose applicability the caller decides. A
+        deployment that bound no authorizer served every tenant's queue to any
+        verified bearer.
+
+        Membership in the verified grant's tenants is now decided by
+        :class:`~ccf_runtime.mcp.tenancy.TenantGuardedServer` at registration,
+        unconditionally, before either body below runs. What remains here is
+        what an authorizer was actually for: **fine-grained per-action**
+        authorization, which is legitimately optional because an action
+        vocabulary is a deployment's to declare. Optional detail on top of a
+        mandatory floor, rather than an optional floor.
 
         Inert when no authorizer is bound. The verified identity comes
         from ``get_access_token()`` — available in tool AND resource
@@ -285,7 +312,12 @@ def build_hitl_server(
             )
         decision = authorizer.authorize(
             grant=TokenGrant(
-                client_id=token.client_id, scopes=tuple(token.scopes)
+                client_id=token.client_id,
+                scopes=tuple(token.scopes),
+                # The tenants the token was VERIFIED carrying (`SEC-018`).
+                # Rebuilding the grant without them would hand the authorizer
+                # a weaker claim than the one the caller actually presented.
+                tenants=granted_tenants(token),
             ),
             tenant=tenant,
             action_id=action_id,
@@ -306,16 +338,29 @@ def build_hitl_server(
                 )
             )
 
-    @server.resource(HITL_QUEUE_URI_TEMPLATE, mime_type=QUEUE_MIME_TYPE)
+    @door.resource(
+        HITL_QUEUE_URI_TEMPLATE,
+        subject=door.from_argument("tenant"),
+        mutating=False,
+        mime_type=QUEUE_MIME_TYPE,
+    )
     def hitl_queue(tenant: str) -> str:
-        """Serve one tenant's pending HITL events as canonical JSON."""
+        """Serve one tenant's pending HITL events as canonical JSON.
+
+        The ``tenant`` segment is decided against the verified grant before
+        this body runs (``SEC-018``), whether or not an authorizer is bound.
+        """
         _enforce_tenant_authz(
             tenant=tenant, action_id=ACTION_HITL_QUEUE_READ
         )
         view = HitlQueueView(tenant=tenant, events=queue_view(tenant=tenant))
         return canonical_bytes(view).decode("utf-8")
 
-    @server.tool(name=SUBMIT_HITL_ACTION_TOOL)
+    @door.tool(
+        name=SUBMIT_HITL_ACTION_TOOL,
+        subject=door.from_argument("tenant"),
+        mutating=True,
+    )
     def submit_hitl_action(
         tenant: str,
         event_key: str,
@@ -381,7 +426,12 @@ def build_hitl_server(
         )
         derived = principal_from_token_grant(
             grant=TokenGrant(
-                client_id=token.client_id, scopes=tuple(token.scopes)
+                client_id=token.client_id,
+                scopes=tuple(token.scopes),
+                # The tenants the token was VERIFIED carrying (`SEC-018`).
+                # Rebuilding the grant without them would hand the authorizer
+                # a weaker claim than the one the caller actually presented.
+                tenants=granted_tenants(token),
             ),
             identity_provider_ref=identity_provider_ref,
             method=method,

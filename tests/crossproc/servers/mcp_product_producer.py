@@ -247,7 +247,23 @@ def build_server(workspace: Path) -> FastMCP:
     )
     tokens = workspace / TOKEN_FILENAME
     tokens.write_text(
-        json.dumps({DEV_TOKEN: {"client_id": PRINCIPAL, "scopes": [SCOPE]}}),
+        json.dumps(
+            {
+                DEV_TOKEN: {
+                    "client_id": PRINCIPAL,
+                    "scopes": [SCOPE],
+                    # The producer's OWN tenant, plus the two neighbours this
+                    # suite addresses to prove what the door refuses about
+                    # them. The tenancy floor would otherwise stop those calls
+                    # first and the door's own refusals would go untested; the
+                    # floor is proven in `tests/mcp/test_tenant_guard.py`
+                    # (`SEC-018`).
+                    "tenants": sorted(
+                        {PRODUCER_TENANT, TENANT, "some-other-tenant"}
+                    ),
+                }
+            }
+        ),
         encoding="utf-8",
     )
 

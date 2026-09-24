@@ -61,7 +61,10 @@ from crossproc.servers.mcp_artifact_child import (
 
 pytestmark = pytest.mark.conformance
 
-TENANT = "tenant-conformance"
+#: Imported from the child rather than restated: the tenant a server serves
+#: is the server's own deployment value, and its credential is scoped to it
+#: (``SEC-018``).
+from crossproc.servers.mcp_artifact_child import TENANT  # noqa: E402
 ARTIFACT_CLASS = "conformance-artifact"
 NAME = "the-artifact"
 

@@ -68,6 +68,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from mcp.server.auth.middleware.auth_context import auth_context_var
+from ccf_runtime.mcp.tenancy import ambient_stdio_identity
 from mcp.server.auth.middleware.bearer_auth import AuthenticatedUser
 from mcp.server.auth.provider import AccessToken
 from mcp.server.auth.settings import AuthSettings
@@ -144,7 +145,15 @@ def serve(root: Path) -> None:
     tokens = root / TOKEN_FILE
     tokens.write_text(
         json.dumps(
-            {"stdio": {"client_id": perspective.principal_id, "scopes": [SCOPE]}}
+            {
+                "stdio": {
+                    "client_id": perspective.principal_id,
+                    "scopes": [SCOPE],
+                    # The one tenant this door serves (`SEC-018`); an
+                    # unscoped credential reaches nothing.
+                    "tenants": [booted.fabric.tenant_id],
+                }
+            }
         ),
         encoding="utf-8",
     )
@@ -178,12 +187,17 @@ def serve(root: Path) -> None:
     # See the module docstring: stdio carries no bearer channel, and a
     # deployment that left this unstated would refuse every caller as
     # unverified rather than serve the process that spawned it.
+    # Built by the shipped helper rather than hand-rolled here, so this
+    # fixture gets the same bounds `ProductDoor.serve_stdio` does: scoped to
+    # this door's one tenant, and marked ambient so no MUTATING surface will
+    # accept it (`SEC-018`).
     auth_context_var.set(
         AuthenticatedUser(
-            AccessToken(
-                token="stdio",
-                client_id=perspective.principal_id,
-                scopes=[SCOPE],
+            ambient_stdio_identity(
+                credential="stdio",
+                principal_id=perspective.principal_id,
+                scope=SCOPE,
+                tenant=booted.fabric.tenant_id,
             )
         )
     )

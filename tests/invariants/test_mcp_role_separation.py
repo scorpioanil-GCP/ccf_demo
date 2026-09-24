@@ -53,6 +53,9 @@ from ccf.mcp.client import SyncMcpBridge
 from ccf.signal.envelope import SourceIdentity
 
 from crossproc.conftest import spawn_child_server
+from crossproc.servers.mcp_artifact_child import (
+    TENANT as ARTIFACT_SERVER_TENANT,
+)
 from crossproc.servers.mcp_artifact_child import authorized_http_client
 
 if TYPE_CHECKING:
@@ -383,7 +386,10 @@ def test_a_full_store_cycle_leaves_the_fabric_byte_identical(
 
         with _mcp_store() as store:
             ref = store.put(
-                tenant_id="tenant-invariant",
+                # The tenant the child's credential is scoped to. Writing under
+                # an arbitrary tenant used to work because the credential named
+                # none at all, which is `SEC-018` in one line.
+                tenant_id=ARTIFACT_SERVER_TENANT,
                 artifact_class="invariant-artifact",
                 name="the-artifact",
                 artifact={"label": "alpha", "ordinal": 1},

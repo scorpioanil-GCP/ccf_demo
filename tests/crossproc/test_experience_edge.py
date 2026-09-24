@@ -404,7 +404,9 @@ def _builder_kwargs(tmp_path: Path) -> dict[str, Any]:
         # The agent seams are conditional like every other provider (D-03).
         "product_resolver": unreachable,
         "token_verifier": SourceBackedTokenVerifier(
-            source=FileTokenSource(path=write_token_file(workspace=tmp_path))
+            source=FileTokenSource(path=write_token_file(
+                workspace=tmp_path, tenants=frozenset({build_world().tenant})
+            ))
         ),
         "auth_settings": AuthSettings(
             issuer_url=AnyHttpUrl(ISSUER_URL),
@@ -550,10 +552,35 @@ def _call_in_process(server: Any, arguments: dict[str, Any]) -> str:
 
     from crossproc.servers.mcp_experience_child import CLIENT_ID, SCOPE
 
+    from ccf_runtime.mcp.auth import TokenGrant, tenant_claims
+
     reset = auth_context_var.set(
         AuthenticatedUser(
             AccessToken(
-                token="in-process", client_id=CLIENT_ID, scopes=[SCOPE]
+                token="in-process",
+                client_id=CLIENT_ID,
+                scopes=[SCOPE],
+                # The tenant claim the bearer middleware would carry, composed
+                # through the shipped renderer so this stand-in cannot drift
+                # from a real verification (`SEC-018`).
+                claims=dict(
+                    tenant_claims(
+                        TokenGrant(
+                            client_id=CLIENT_ID,
+                            scopes=(SCOPE,),
+                            # The neighbour too: this helper drives the
+                            # foreign-tenant case, whose subject is what the
+                            # ENTITLEMENT decides (`SEC-018` floor is proven in
+                            # `tests/mcp/test_tenant_guard.py`).
+                            tenants=frozenset(
+                                {
+                                    build_world().tenant,
+                                    f"{build_world().tenant}-not-this-one",
+                                }
+                            ),
+                        )
+                    )
+                ),
             )
         )
     )
