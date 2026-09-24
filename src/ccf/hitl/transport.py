@@ -649,6 +649,22 @@ class InMemoryHitlTransport:
         (SEC-001 Tier 0: a guard whose input the caller supplies is not a
         guard).
 
+        **Residual: the claim is addressed, not held.** A claim is keyed
+        ``(tenant, event_key)`` and consumed by whichever submission for
+        that pair arrives first, because ``submit`` has no caller identity
+        to bind it to. A submitter that races the window a primitive opens
+        between its ``remove`` and its ``submit`` — the two adjacent
+        statements in
+        :meth:`~ccf.hitl.approval_gate.ApprovalGate.resolve` — therefore
+        takes the stamp, and the primitive's own submission is recorded
+        unstamped. Closing it means ``remove`` minting an opaque claim
+        token that ``submit`` requires, which is a
+        :class:`HITLTransportProtocol` signature change and belongs with
+        the D-IMPL-62 door ruling rather than here. Recorded because it
+        NARROWS an existing hole rather than opening one: a submit-only
+        submission that wins no race is still admitted by the engine's
+        unstamped fallback leg today, with no race at all.
+
         Raises:
             SignedBindingRequiredRefused: binding required and absent.
             SignedBindingInvalidRefused: binding invalid or its verified

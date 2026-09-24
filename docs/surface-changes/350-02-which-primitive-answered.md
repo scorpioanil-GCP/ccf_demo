@@ -171,6 +171,16 @@ smaller defect than losing the control, and the alternative — naming whoever
 last answered any escalation about this execution — would put a human's name
 against a decision that may not be theirs.
 
+**3. The claim is addressed, not held.** A claim is keyed
+`(tenant, event_key)` and consumed by whichever submission for that pair
+arrives first, because `submit` has no caller identity to bind it to. A
+submitter that races the window `ApprovalGate.resolve` opens between its
+`remove` and its `submit` takes the stamp. Closing it means `remove` minting
+an opaque claim token that `submit` requires — a `HITLTransportProtocol`
+signature change, and it belongs with the door ruling in residual 1. Recorded
+because it **narrows** an existing hole rather than opening one: today the
+same submitter is admitted by the unstamped fallback leg with no race at all.
+
 ## Regression evidence
 
 `tests/workflow/test_engine.py`, six tests written first and watched fail

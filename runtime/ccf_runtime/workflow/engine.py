@@ -1009,6 +1009,14 @@ class WorkflowEngine:
         deployment that composes no escalation holds no such event and is
         unaffected — pinned by ``test_an_exception_routed_resume_without_
         escalation_is_unaffected``.
+
+        **The same residual the gate carries (D-IMPL-350).** Either
+        :data:`~ccf.hitl.escalation.ESCALATION_ACTIONS` verdict releases
+        the hold, because a declined hand-off is still a recorded human
+        decision about this state and nothing in a
+        :class:`~ccf.workflow.definitions.WorkflowDefinition` maps a
+        verdict to a route. What changed is that some human must have
+        acted on this routing, and the audit names them.
         """
         return any(
             event.event_class == ESCALATION_EVENT_CLASS
