@@ -321,6 +321,12 @@ def build_hitl_server(
             ),
             tenant=tenant,
             action_id=action_id,
+            # ROUTE semantics: this door IS the resource, so its action id
+            # names it (`ccf_runtime.authz.route_declaration.ResourceBinding
+            # .route`). The MCP surface has no path template to bind a
+            # finer resource from, and inventing one here would put a
+            # resource vocabulary in the door rather than in the policy.
+            resource=action_id,
         )
         if not decision.allowed:
             raise ValueError(

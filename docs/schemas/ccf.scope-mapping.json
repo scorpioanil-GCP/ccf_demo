@@ -2,13 +2,20 @@
   "$defs": {
     "ScopeEntry": {
       "additionalProperties": false,
-      "description": "One scope's authorization statement: which tenants, which actions.\n\nAttributes:\n    tenant_patterns: D-01 patterns (exact or single-trailing-``*``)\n        naming the tenants this scope reaches.\n    action_ids: The door-declared action identifiers this scope may\n        perform (D-02; :mod:`ccf_runtime.authz.refusals` holds the\n        HITL doors' declarations).",
+      "description": "One scope's statement: which tenants, which actions, which resources.\n\nAttributes:\n    tenant_patterns: D-01 patterns naming the tenants this scope reaches.\n    action_ids: The door-declared action identifiers this scope may\n        perform (D-02; :mod:`ccf_runtime.authz.refusals` holds the\n        vocabulary every shipped door declares from).\n    resource_patterns: D-01 patterns naming the **things** those actions\n        may be performed on \u2014 the Control Plane key a registration\n        rewrites, the content address a read dereferences, the product\n        class a retrieval serves, or, for a door that acts on no\n        addressable subject, the door's own action id\n        (:class:`~ccf_runtime.authz.route_declaration.ResourceSource`).\n\n        **Required, with no permissive default, and that is the point**\n        (``SEC-002``). A field defaulting to *everything* would make the\n        axis opt-in: an artifact written before the field existed would\n        keep authorizing exactly as widely as it did, and the finding\n        would be closed in the code and open in every deployment. An\n        author who means *every resource this action can name* writes an\n        explicit non-empty prefix and can be seen to have written it.",
       "properties": {
         "action_ids": {
           "items": {
             "type": "string"
           },
           "title": "Action Ids",
+          "type": "array"
+        },
+        "resource_patterns": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Resource Patterns",
           "type": "array"
         },
         "tenant_patterns": {
@@ -21,14 +28,15 @@
       },
       "required": [
         "tenant_patterns",
-        "action_ids"
+        "action_ids",
+        "resource_patterns"
       ],
       "title": "ScopeEntry",
       "type": "object"
     }
   },
   "additionalProperties": false,
-  "description": "The Control Plane scope-mapping policy artifact (D-IMPL-68; D-03).\n\nMaps each token scope string to the tenants and door-declared actions\nit authorizes. Interpreted by\n:class:`~ccf_runtime.authz.protocol.ControlPlaneTenantAuthorizer`;\nwhich scopes exist, and what they reach, are the deployment's\nstatements (CINV-01) \u2014 the SDK invents no scope vocabulary (D-02).\n\nAttributes:\n    semver: The artifact's own semver lane (D-04; whitepaper \u00a76.3).\n    scopes: Scope string \u2192 :class:`ScopeEntry`.",
+  "description": "The Control Plane scope-mapping policy artifact (D-IMPL-68; D-03).\n\nMaps each token scope string to the tenants, door-declared actions and\nresources it authorizes. Interpreted by\n:class:`~ccf_runtime.authz.protocol.ControlPlaneTenantAuthorizer`;\nwhich scopes exist, and what they reach, are the deployment's\nstatements (CINV-01) \u2014 the SDK invents no scope vocabulary (D-02).\n\nAttributes:\n    semver: The artifact's own semver lane (D-04; whitepaper \u00a76.3).\n    scopes: Scope string \u2192 :class:`ScopeEntry`.",
   "properties": {
     "scopes": {
       "additionalProperties": {

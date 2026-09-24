@@ -39,7 +39,7 @@ import argparse
 import asyncio
 import os
 import sys
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 import httpx
@@ -198,6 +198,8 @@ def main(
     argv: Sequence[str] | None = None,
     *,
     dependencies: ApiDependencies | None = None,
+    authority: Mapping[str, object] | None = None,
+    credential: SecretStr | None = None,
 ) -> int:
     """Parse, translate, and execute one CLI invocation.
 
@@ -205,8 +207,19 @@ def main(
         argv: Argument vector; ``None`` reads ``sys.argv``.
         dependencies: Optional injected bundle (tests; embedding). When
             supplied, the command runs in-process over these handles —
-            the same type ``--local`` constructs and ``create_app``
-            consumes.
+            the same type ``create_app`` consumes.
+        authority: The five seams ``create_app`` requires, as one keyword
+            bundle, for the in-process path. **Required whenever
+            ``dependencies`` is supplied**: the gate has no arm in which
+            authentication is skipped (``SEC-002``), so an in-process app
+            is built with a real authority or not at all. There is no
+            value of this parameter that produces an unauthenticated
+            application — omitting it refuses rather than defaulting.
+        credential: The bearer the in-process leg presents. Required
+            alongside ``authority`` for the same reason the remote leg
+            requires one: the gate is TOTAL, so an in-process request is a
+            request like any other and the absence of a network boundary
+            entitles it to nothing (``SEC-002``, ``SEC-016``).
     """
     parser = build_parser()
     args = parser.parse_args(list(argv) if argv is not None else None)
@@ -219,7 +232,10 @@ def main(
         return EXIT_REFUSED
 
     transport: httpx.AsyncBaseTransport | None
-    credential: SecretStr | None = None
+    # `credential` is the parameter: the in-process leg is handed one
+    # by its embedder, the remote leg resolves its own below. A local
+    # re-declaration here would shadow the parameter and silently send
+    # the in-process request anonymously (found at the Tier-1 join).
     if dependencies is not None or args.local:
         if dependencies is None:
             if not args.local_root:
@@ -229,16 +245,58 @@ def main(
             dependencies = build_local_dependencies(
                 root=Path(args.local_root)
             )
-        from ccf_runtime.http_api.app import create_app
+        if dependencies is not None and authority is not None:
+            # The in-process path with a REAL authority: an embedder or a
+            # test supplies the same five seams a deployment does, so the
+            # app the CLI drives is the app everyone else gets.
+            from ccf_runtime.http_api.app import create_app
 
-        # In-process ASGI transport over the caller's own handles: the app
-        # is never bound to a network interface, so the D-IMPL-73 insecure-
-        # default posture is the caller's existing in-process authority,
-        # not a new exposure surface — acknowledged, not suppressed.
-        transport = httpx.ASGITransport(
-            app=create_app(dependencies, acknowledge_insecure_default=True)
+            transport = httpx.ASGITransport(
+                app=create_app(dependencies, **authority)  # type: ignore[arg-type]
+            )
+            base_url = _LOCAL_BASE
+            try:
+                return asyncio.run(
+                    _execute(
+                        specs,
+                        transport=transport,
+                        base_url=base_url,
+                        credential=credential,
+                    )
+                )
+            except httpx.TransportError as unreachable:
+                sys.stderr.write(f"wiring error: {unreachable}\n")
+                return EXIT_WIRING
+
+        # `--local` is SUSPENDED, and it fails closed rather than quietly
+        # building a weaker app (`SEC-002`; `D-IMPL-352` conservative
+        # posture).
+        #
+        # It used to pass `acknowledge_insecure_default=True`, which was the
+        # in-process reading of `D-IMPL-73`. That ruling is deleted: the gate
+        # now has no arm in which authentication is skipped, and the SDK
+        # ships exactly one authorizer — `ControlPlaneTenantAuthorizer` —
+        # which is deny-by-default against a scope mapping registered at a
+        # pinned version. `build_local_dependencies` mints a FRESH, EMPTY
+        # `ControlPlaneRegistry` per invocation, so there is nothing for that
+        # authorizer to decide against, and `create_app`'s other three seams
+        # are required now too.
+        #
+        # Reviving the mode means declaring a real local deployment — a
+        # scope mapping, a token source, an entitlement source, a perspective
+        # resolver and a refusal recorder. That is a decision about what
+        # `--local` MEANS, not a wiring detail, so it is Dave's and is not
+        # taken here. Refusing is the honest interim: the remote leg is
+        # unaffected and fully functional.
+        parser.error(
+            "`--local` is suspended: it built an app with"
+            " `acknowledge_insecure_default`, and that posture is deleted."
+            " The mode returns once a local deployment declares a scope"
+            " mapping, a token source, an entitlement source, a perspective"
+            " resolver and a refusal recorder. Use `--base-url` against a"
+            " running deployment meanwhile (`SEC-002`)."
         )
-        base_url = _LOCAL_BASE
+        raise AssertionError("unreachable: parser.error exits")  # pragma: no cover
     else:
         configured = args.base_url or os.environ.get("CCF_BASE_URL")
         if not configured:

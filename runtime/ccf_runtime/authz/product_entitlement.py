@@ -99,7 +99,7 @@ from ccf_runtime.http_api.errors import (
     ERROR_SUBJECT_CONFLICT,
     refusal_detail,
 )
-from ccf_runtime.mcp.auth import TokenGrant
+from ccf_runtime.mcp.auth import TokenGrant, granted_tenants
 
 __ccf_mode__ = "algorithmic"
 
@@ -552,7 +552,20 @@ def verified_grant() -> TokenGrant:
             "no verified access token accompanies this call; an entitled"
             " product surface decides on verified identities only (D-26)"
         )
-    return TokenGrant(client_id=token.client_id, scopes=tuple(token.scopes))
+    return TokenGrant(
+        client_id=token.client_id,
+        scopes=tuple(token.scopes),
+        # The verified token's tenants travel with the grant it produces.
+        # Dropping them here made `verified_grant().tenants` empty, which is
+        # not merely lossy: it reads as "this caller has no tenants" to every
+        # later consumer, which is the opposite of what the token said. No
+        # gap today — the MCP tenancy floor reads the claims directly — but a
+        # latent trap for the next reader, and the durable fix for the
+        # channel pre-emption noted at `ccf_runtime.mcp.tenancy` (a governed
+        # cross-tenant refusal should cross as a RefusalEnvelope through
+        # `govern_entitlement`, not as a transport error; D-IMPL-256).
+        tenants=granted_tenants(token),
+    )
 
 
 def entitled_perspective(
