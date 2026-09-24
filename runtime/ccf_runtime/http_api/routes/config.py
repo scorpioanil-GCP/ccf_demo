@@ -27,6 +27,13 @@ from ccf.contracts.canonical import canonical_bytes
 from ccf.controlplane.artifacts import ArtifactClass, ArtifactLoadError, parse_artifact
 from ccf.controlplane.registry import ControlPlaneMissing, RegistrationRefusal
 from ccf.workflow.definitions import WORKFLOW_DEFINITION
+from ccf_runtime.authz.refusals import (
+    ACTION_CONFIG_KEYS_READ,
+    ACTION_CONFIG_REGISTER,
+    ACTION_CONFIG_RESOLVE,
+    ACTION_CONFIG_VERSIONS_READ,
+)
+from ccf_runtime.authz.route_declaration import ResourceBinding, authorizes
 from ccf_runtime.http_api.dependencies import ApiDependencies
 from ccf_runtime.http_api.routes import canonical_response
 
@@ -78,6 +85,9 @@ def build_router(deps: ApiDependencies) -> APIRouter:
         response_model=list[str],
         summary="Config keys (D-IMPL-23)",
     )
+    @authorizes(
+        ACTION_CONFIG_KEYS_READ, resource=ResourceBinding.query("class_id")
+    )
     def keys(class_id: str) -> list[str]:
         return list(deps.control_plane.keys_of_class(class_id))
 
@@ -86,10 +96,14 @@ def build_router(deps: ApiDependencies) -> APIRouter:
         response_model=list[str],
         summary="Config versions (D-IMPL-23)",
     )
+    @authorizes(
+        ACTION_CONFIG_VERSIONS_READ, resource=ResourceBinding.query("key")
+    )
     def versions(key: str) -> list[str]:
         return list(deps.control_plane.versions(key))
 
     @router.get("/resolution", summary="Config resolve (D-IMPL-23)")
+    @authorizes(ACTION_CONFIG_RESOLVE, resource=ResourceBinding.query("key"))
     def resolution(key: str, version: str) -> Response:
         try:
             artifact = deps.control_plane.resolve(key, version)
@@ -102,6 +116,10 @@ def build_router(deps: ApiDependencies) -> APIRouter:
         response_model=ConfigRegistered,
         summary="Config register (D-IMPL-22)",
     )
+    # The ``SEC-002`` door, and the reason the resource axis exists: the key
+    # this registration writes is the prompt artifact an agent then runs on,
+    # so the decision is about WHICH key, not only about who is recognized.
+    @authorizes(ACTION_CONFIG_REGISTER, resource=ResourceBinding.body("key"))
     def registration(
         request: ConfigRegistrationRequest,
     ) -> ConfigRegistered | JSONResponse:

@@ -118,6 +118,13 @@ PARAMETERS: dict[str, Any] = {
 }
 
 
+from .gate_fixtures import (  # noqa: E402
+    SCOPE_EVERYTHING,
+    tenanted_source,
+    wide_authorizer,
+)
+
+
 def _resolver(
     *, grant: TokenGrant, tenant: str, requested_role: str | None
 ) -> Perspective:
@@ -165,7 +172,18 @@ def _app(fabric: Fabric, tmp_path: Path) -> Any:
             skill_catalog=fabric.catalog,
             grant_ledger=fabric.ledger,
         ),
-        auth=BearerTokenAuth(token_source=FileTokenSource(path=token_file)),
+        # `SEC-001`/`SEC-002`: every app binds an authorizer, and the
+        # tenant is the credential's. This module's subject is elsewhere,
+        # so the mapping is registered wide and visibly so.
+        auth=BearerTokenAuth(
+            token_source=tenanted_source(
+                {TOKEN: (PRINCIPAL, (SCOPE_EVERYTHING,))},
+                tenant=fabric.product_address.tenant,
+            )
+        ),
+        authorizer=wide_authorizer(
+            tenant=fabric.product_address.tenant, key="content-address/mapping"
+        ),
         product_entitlement=source,
         perspective_resolver=_resolver,
         # `24.6-09` / `D-IMPL-256` (2): an entitling door that cannot record a

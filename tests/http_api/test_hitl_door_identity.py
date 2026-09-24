@@ -86,14 +86,61 @@ def token_file(tmp_path_factory: pytest.TempPathFactory) -> Path:
     return path
 
 
+#: The tenants this suite keeps its tests apart with, and one credential per
+#: tenant: ``tenant := grant.tenant`` (``SEC-002``) means a credential names
+#: exactly one, so isolating by tenant isolates by token too.
+_SUFFIXES = ("conflict", "derive", "unbound", "hardened")
+_TOKENS = {
+    f"{_TOKEN}-{suffix}": (_CLIENT_ID, ("gate:everything",), f"{_TENANT}-{suffix}")
+    for suffix in _SUFFIXES
+}
+
+
+def _token_for(tenant: str) -> str:
+    return f"{_TOKEN}-{tenant.rsplit('-', 1)[-1]}"
+
+
+def _seams(fabric: Fabric, root: Path) -> dict[str, Any]:
+    """Everything ``create_app`` requires, with this suite's credentials."""
+    from datetime import UTC, datetime
+
+    from ccf.projection.plan import Perspective
+    from ccf_runtime.authz.product_entitlement import (
+        ControlPlaneProductEntitlementSource,
+    )
+
+    from .gate_fixtures import authority
+    from .test_product_declared_obligation_409 import (
+        _entitlement_registry,
+        _recorder,
+    )
+
+    source = ControlPlaneProductEntitlementSource(
+        control_plane=_entitlement_registry(fabric),
+        clock=lambda: datetime(2026, 8, 11, tzinfo=UTC),
+    )
+    return authority(
+        tenant=tuple(f"{_TENANT}-{suffix}" for suffix in _SUFFIXES),
+        key="hitl-door-identity/mapping",
+        grants=_TOKENS,
+        product_entitlement=source,
+        perspective_resolver=(
+            lambda *, grant, tenant, requested_role: Perspective(
+                principal_id=grant.client_id, role="hitl-door-role"
+            )
+        ),
+        refusal_recorder=_recorder(fabric, root, source=source),
+    )
+
+
 @pytest.fixture(scope="module")
-def authed_app(fabric: Fabric, token_file: Path) -> Any:
+def authed_app(
+    fabric: Fabric, tmp_path_factory: pytest.TempPathFactory
+) -> Any:
     from ccf_runtime.http_api.app import create_app
-    from ccf_runtime.http_api.auth import BearerTokenAuth
 
     return create_app(
-        _deps(fabric),
-        auth=BearerTokenAuth(token_source=FileTokenSource(path=token_file)),
+        _deps(fabric), **_seams(fabric, tmp_path_factory.mktemp("hitl-door"))
     )
 
 
@@ -109,7 +156,7 @@ class TestConflictRefusal:
             "POST",
             "/hitl/actions",
             json=_submission_body(subject_id="someone-else", tenant=tenant),
-            headers={"Authorization": f"Bearer {_TOKEN}"},
+            headers={"Authorization": f"Bearer {_token_for(tenant)}"},
         )
         assert response.status_code == 403
         # The refusal is the typed subject-conflict code (no prose parsing),
@@ -137,7 +184,7 @@ class TestDerivation:
             "POST",
             "/hitl/actions",
             json=body,
-            headers={"Authorization": f"Bearer {_TOKEN}"},
+            headers={"Authorization": f"Bearer {_token_for(tenant)}"},
         )
         assert response.status_code == 200
         receipt = response.json()
@@ -170,33 +217,42 @@ class TestDerivation:
         assert principal.product_content_hash == _VALID_HASH
 
 
-class TestUnboundPostureUnchanged:
-    """Test C: with no hook bound, the T-07-24 posture stands unchanged."""
+class TestTheUnboundPostureIsGone:
+    """Test C, inverted by ``SEC-001``.
 
-    def test_c_unbound_door_accepts_an_arbitrary_subject(
-        self, fabric: Fabric
-    ) -> None:
+    It read ``TestUnboundPostureUnchanged`` and proved that a door built with
+    no auth hook accepted ``subject_id="anyone-at-all"`` and recorded it —
+    the T-07-24 posture, preserved deliberately. There is no hookless door to
+    build now, and an arbitrary subject is refused on the door that exists,
+    which is the two halves of the same claim.
+    """
+
+    def test_c_there_is_no_unbound_door(self, fabric: Fabric) -> None:
         from ccf_runtime.http_api.app import create_app
 
+        with pytest.raises(TypeError):
+            create_app(_deps(fabric))  # type: ignore[call-arg]
+
+    def test_c_an_arbitrary_subject_is_refused_and_nothing_lands(
+        self, authed_app: Any, fabric: Fabric
+    ) -> None:
         tenant = f"{_TENANT}-unbound"
-        app = create_app(_deps(fabric), acknowledge_insecure_default=True)
         response = call(
-            app,
+            authed_app,
             "POST",
             "/hitl/actions",
             json=_submission_body(subject_id="anyone-at-all", tenant=tenant),
+            headers={"Authorization": f"Bearer {_token_for(tenant)}"},
         )
-        assert response.status_code == 200
-        assert response.json()["status"] == "submitted"
-        (recorded,) = fabric.hitl.submissions(tenant=tenant)
-        assert recorded.principal.approver.subject_id == "anyone-at-all"
+        assert response.status_code == 403
+        assert fabric.hitl.submissions(tenant=tenant) == ()
 
 
 class TestHardenedPath:
     """D-IMPL-67 item 3: auth bound => derived principal => replay dim 2."""
 
     def test_hardened_path_verified_subject_reaches_replay_dim2(
-        self, fabric: Fabric, token_file: Path
+        self, fabric: Fabric, tmp_path: Path
     ) -> None:
         from datetime import timedelta
 
@@ -241,12 +297,7 @@ class TestHardenedPath:
             skill_catalog=fabric.catalog,
             grant_ledger=fabric.ledger,
         )
-        app = create_app(
-            deps,
-            auth=BearerTokenAuth(
-                token_source=FileTokenSource(path=token_file)
-            ),
-        )
+        app = create_app(deps, **_seams(fabric, tmp_path))
 
         # 2. The authenticated POST, subject matching the verified identity.
         response = call(
@@ -257,7 +308,7 @@ class TestHardenedPath:
                 **_submission_body(subject_id=_CLIENT_ID, tenant=tenant),
                 "event_key": event.event_key,
             },
-            headers={"Authorization": f"Bearer {_TOKEN}"},
+            headers={"Authorization": f"Bearer {_token_for(tenant)}"},
         )
         assert response.status_code == 200
 

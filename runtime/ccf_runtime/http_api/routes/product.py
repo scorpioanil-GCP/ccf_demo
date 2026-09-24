@@ -194,6 +194,8 @@ from ccf_runtime.authz.product_entitlement import (
     PerspectiveResolverProtocol,
     ProductEntitlementSourceProtocol,
 )
+from ccf_runtime.authz.refusals import ACTION_PRODUCT_RETRIEVE
+from ccf_runtime.authz.route_declaration import ResourceBinding, authorizes
 from ccf_runtime.http_api.dependencies import ApiDependencies
 from ccf_runtime.http_api.errors import (
     ERROR_PRODUCT_DOOR_UNGOVERNED,
@@ -220,20 +222,24 @@ __all__ = ["build_router"]
 def build_router(
     deps: ApiDependencies,
     *,
-    entitlement_source: ProductEntitlementSourceProtocol | None = None,
-    perspective_resolver: PerspectiveResolverProtocol | None = None,
-    refusal_recorder: RefusalRecorderProtocol | None = None,
+    entitlement_source: ProductEntitlementSourceProtocol,
+    perspective_resolver: PerspectiveResolverProtocol,
+    refusal_recorder: RefusalRecorderProtocol,
 ) -> APIRouter:
     """The product router over the injected resolver seam.
 
     Args:
         deps: The named provider bundle carrying the assemble-and-gate path.
         entitlement_source: The deployment's per-principal entitlement
-            decision seam. Required *together* with ``perspective_resolver``
-            when either is supplied: an entitlement with no perspective to
-            decide about, or a perspective nothing checks, is a half-bound
-            door that looks governed.
+            decision seam. **Required** (``SEC-001``). It was optional, with a
+            half-bound configuration refused by a ``ValueError`` and an
+            unbound one refused per request with a ``503``, because
+            ``create_app`` had an unauthenticated arm that an entitlement
+            requirement would have made unbuildable. That arm is deleted, so
+            both refusals are deleted with it: the pairing they enforced is
+            now a property of the signature.
         perspective_resolver: The deployment's role-derivation seam.
+            **Required**, same reason.
         refusal_recorder: The deployment's ONE minting seam
             (:class:`~ccf.products.resolver.RefusalRecorderProtocol`, and the
             SDK ships :class:`~ccf.products.resolver.ReplayRefusalRecorder`
@@ -246,31 +252,26 @@ def build_router(
             half-governed door.
 
     Raises:
-        ValueError: exactly one of the two governance seams was supplied.
-        UnrecordableDeliveryBoundaryError: an entitlement source was supplied
-            with no conforming ``refusal_recorder``.
+        UnrecordableDeliveryBoundaryError: ``refusal_recorder`` cannot record
+            a governed determination.
     """
-    if (entitlement_source is None) != (perspective_resolver is None):
-        raise ValueError(
-            "entitlement_source and perspective_resolver are supplied"
-            " together or not at all: an entitlement source with no"
-            " perspective to decide about, or a perspective resolver whose"
-            " output nothing checks, is a door that looks governed and"
-            " enforces half a decision (15.5-06)"
-        )
-    if entitlement_source is not None:
-        # `D-IMPL-256` (2) at this builder too, not only at `create_app`: the
-        # posture belongs to *a door that entitles*, and this function is one
-        # of the two ways to build one. The message names whichever builder was
-        # actually called, which is the one an operator has to fix.
-        recorded_boundary(
-            refusal_recorder=refusal_recorder, builder="build_router"
-        )
+    # `D-IMPL-256` (2) at this builder too, not only at `create_app`: the
+    # posture belongs to *a door that entitles*, and this function is one of
+    # the two ways to build one. The message names whichever builder was
+    # actually called, which is the one an operator has to fix.
+    recorded_boundary(refusal_recorder=refusal_recorder, builder="build_router")
     router = APIRouter()
 
     @router.get(
         "/{tenant}/{product_class}/{version}",
         summary="Product retrieval (D-IMPL-23)",
+    )
+    # The resource is the CLASS being served, not the tenant segment beside
+    # it: the tenant is the grant's and the gate has already held the segment
+    # to it (`SEC-002`; `TENANT_PATH_PARAM`). What a deployment states here is
+    # which product classes a scope may receive.
+    @authorizes(
+        ACTION_PRODUCT_RETRIEVE, resource=ResourceBinding.path("product_class")
     )
     def retrieve(
         tenant: str,
@@ -348,7 +349,6 @@ def build_router(
             # is. Only this type; the route's other handling is unchanged.
             grant = grant_from_request(request)
             assert grant is not None
-            assert entitlement_source is not None
             return _refusal_response(
                 govern_raised_refusal(
                     raised=raised,
@@ -374,10 +374,11 @@ def build_router(
             # at the boundary and rendered through the ONE refusal path below.
             # The status is the kind's (404); the body is the common shell.
             grant = grant_from_request(request)
-            # Both narrowed by `_authorized_perspective` having RETURNED a
-            # perspective: it refuses 503 before either could be absent.
+            # Narrowed by `_authorized_perspective` having RETURNED a
+            # perspective: it refuses 503 before the grant could be absent.
+            # The entitlement source needs no narrowing any more — it is a
+            # required parameter of this builder (`SEC-001`).
             assert grant is not None
-            assert entitlement_source is not None
             return _refusal_response(
                 govern_absence(
                     grant=grant,
@@ -554,36 +555,23 @@ def build_router(
                 :data:`~ccf_runtime.http_api.errors.ERROR_PRODUCT_DOOR_UNGOVERNED`
                 when no authorized perspective can be produced at all.
         """
-        if entitlement_source is None or perspective_resolver is None:
-            raise HTTPException(
-                status_code=503,
-                detail=refusal_detail(
-                    error_code=ERROR_PRODUCT_DOOR_UNGOVERNED,
-                    message=(
-                        "this product door has no entitlement seam and no"
-                        " perspective resolver bound, so it cannot name the"
-                        " Π conditioning a product would be shaped under;"
-                        " it refuses rather than serving one conditioned on"
-                        " a role nobody granted (D-IMPL-108, DI-15.5-03)."
-                        " Supply product_entitlement= and"
-                        " perspective_resolver= to create_app()"
-                    ),
-                ),
-            )
         grant = grant_from_request(request)
         if grant is None:
+            # Unreachable behind the total gate, which refuses 401 before any
+            # handler exists; the seam-unbound arm this branch used to share
+            # is gone entirely, because the seams are required. Kept for a
+            # handler reached some other way: deciding about an unverified
+            # claim is worse than not deciding, and serving without a
+            # perspective is worse than both (D-IMPL-108).
             raise HTTPException(
                 status_code=503,
                 detail=refusal_detail(
                     error_code=ERROR_PRODUCT_DOOR_UNGOVERNED,
                     message=(
-                        "this product door's entitlement seams are bound but"
-                        " no verified grant accompanies the call, so there is"
-                        " no principal to resolve a perspective for; deciding"
-                        " about an unverified claim is worse than not"
-                        " deciding, and serving without a perspective is"
-                        " worse than both (D-IMPL-108). Bind auth= to"
-                        " create_app()"
+                        "no verified grant accompanies this call, so there is"
+                        " no principal to resolve a perspective for; this"
+                        " door refuses rather than serving a product"
+                        " conditioned on a role nobody granted (D-IMPL-108)"
                     ),
                 ),
             )

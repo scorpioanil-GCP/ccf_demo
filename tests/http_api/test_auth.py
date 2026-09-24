@@ -7,9 +7,11 @@ Two surfaces under test:
   ``subject_id`` comes from the *verified* ``TokenGrant``, never from a
   caller-typed parameter (T-07.1-05).
 - ``ccf_runtime.http_api.auth`` — the minimal Protocol-based bearer hook
-  over the D-26 ``TokenSourceProtocol`` machinery, optional at
-  ``create_app`` (T-07.1-04); the unbound default remains the recorded
-  T-07-24 posture.
+  over the D-26 ``TokenSourceProtocol`` machinery. **No longer optional at**
+  ``create_app`` (``SEC-001``, superseding T-07.1-04 and the T-07-24 unbound
+  posture): the hook is a required argument and the gate in front of the app
+  has no arm that skips it. ``TestPostureIsGone`` is what the old
+  ``TestPosturePreserved`` became.
 """
 
 from __future__ import annotations
@@ -25,10 +27,10 @@ from typing import Any
 
 from ccf.hitl.principal import HumanPrincipalBinding
 from ccf_runtime.identity_binding import principal_from_token_grant
-from ccf_runtime.http_api.app import CcfInsecureDefaultWarning
 from ccf_runtime.mcp.auth import FileTokenSource, TokenGrant
 
 from .conftest import Fabric, call
+from .gate_fixtures import GateApp, probe
 
 #: A syntactically valid lowercase sha256 hex digest (shape only — the
 #: contract validator checks shape, not provenance).
@@ -118,25 +120,27 @@ def token_file(tmp_path_factory: pytest.TempPathFactory) -> Path:
     return path
 
 
-@pytest.fixture(scope="module")
-def authed_app(fabric: Fabric, token_file: Path) -> Any:
-    from ccf_runtime.http_api.app import create_app
-    from ccf_runtime.http_api.auth import BearerTokenAuth
-
-    return create_app(
-        _deps(fabric),
-        auth=BearerTokenAuth(token_source=FileTokenSource(path=token_file)),
-    )
-
-
 class TestHookBound:
-    def test_c_missing_header_is_401(self, authed_app: Any) -> None:
-        assert call(authed_app, "POST", "/hitl/actions", json={}).status_code == 401
-        assert call(authed_app, "GET", "/workflow/execution").status_code == 401
+    """Recognition, on the one app there is. Probed with no default header.
 
-    def test_c_unrecognised_token_is_401(self, authed_app: Any) -> None:
-        response = call(
-            authed_app,
+    ``probe`` rather than ``call``: ``call`` supplies a credential so route
+    tests stay about routes, and evidence about *recognition* taken through a
+    helper that supplies a credential would be evidence about the helper.
+    """
+
+    def test_c_missing_header_is_401(self, gate_app: GateApp) -> None:
+        assert (
+            probe(gate_app.app, "POST", "/hitl/actions", json={}).status_code
+            == 401
+        )
+        assert (
+            probe(gate_app.app, "GET", "/workflow/execution").status_code
+            == 401
+        )
+
+    def test_c_unrecognised_token_is_401(self, gate_app: GateApp) -> None:
+        response = probe(
+            gate_app.app,
             "POST",
             "/hitl/actions",
             json={},
@@ -144,40 +148,121 @@ class TestHookBound:
         )
         assert response.status_code == 401
 
-    def test_c_non_bearer_scheme_is_401(self, authed_app: Any) -> None:
-        response = call(
-            authed_app,
+    def test_c_non_bearer_scheme_is_401(self, gate_app: GateApp) -> None:
+        response = probe(
+            gate_app.app,
             "POST",
             "/hitl/actions",
             json={},
-            headers={"Authorization": "Basic recognised-token"},
+            headers={"Authorization": f"Basic {gate_app.token_everything}"},
         )
         assert response.status_code == 401
 
-    def test_c_recognised_token_reaches_the_route(self, authed_app: Any) -> None:
-        response = call(
-            authed_app,
+    def test_c_recognised_token_reaches_the_route(
+        self, gate_app: GateApp
+    ) -> None:
+        """Recognition passes; the empty payload then fails validation.
+
+        The body has to carry the field the route **declared** as its
+        authorization resource — ``event_key`` — because the gate decides
+        before validation and a body with no resource in it is a deny, not a
+        422. The empty-body leg below is the other half of that pair, and it
+        is the more interesting one: an unauthorized caller learns nothing
+        about the route's schema, because the schema is never consulted.
+        """
+        response = probe(
+            gate_app.app,
+            "POST",
+            "/hitl/actions",
+            json={"event_key": "authz-probe-event"},
+            headers=gate_app.auth(),
+        )
+        assert response.status_code == 422
+
+    def test_c_a_body_with_no_declared_resource_is_denied_not_validated(
+        self, gate_app: GateApp
+    ) -> None:
+        """A caller's choice of body leads to the check running, never past it.
+
+        What would fail here: the gate skipping its resource read when the
+        field is absent and falling through to the handler. That is the
+        applicability-switch shape — the caller omits a field and the check
+        does not happen.
+        """
+        response = probe(
+            gate_app.app,
             "POST",
             "/hitl/actions",
             json={},
-            headers={"Authorization": "Bearer recognised-token"},
+            headers=gate_app.auth(),
         )
-        # Auth passed; the empty payload fails route validation, not auth.
-        assert response.status_code == 422
+        assert response.status_code == 403
 
-    def test_e_health_needs_no_token(self, authed_app: Any) -> None:
-        response = call(authed_app, "GET", "/health")
-        assert response.status_code == 200
+    def test_e_health_needs_a_token_too(self, gate_app: GateApp) -> None:
+        """The carve-out that used to exist, asserted as gone (``SEC-001``).
+
+        This test previously read ``test_e_health_needs_no_token`` and
+        asserted 200 with no credential. Liveness is now an action like any
+        other: a path-based exemption is a branch whose condition is the
+        caller's path, and the operational cost — a probe carries a
+        credential — is paid in the deployment's scope mapping where it can
+        be read.
+        """
+        assert probe(gate_app.app, "GET", "/health").status_code == 401
+        assert (
+            probe(
+                gate_app.app, "GET", "/health", headers=gate_app.auth()
+            ).status_code
+            == 200
+        )
 
 
-class TestPosturePreserved:
-    def test_d_no_hook_means_no_401_anywhere(self, fabric: Fabric) -> None:
+class TestPostureIsGone:
+    def test_d_there_is_no_hookless_application_to_build(
+        self, fabric: Fabric
+    ) -> None:
+        """What ``test_d_no_hook_means_no_401_anywhere`` became.
+
+        It used to build ``create_app(deps)`` bare and assert that ``GET
+        /health`` answered 200 and ``POST /hitl/actions`` reached body
+        validation — the T-07-24 posture, preserved on purpose. There is no
+        such application now, and the ``TypeError`` is the whole assertion.
+        """
         from ccf_runtime.http_api.app import create_app
 
-        # The bare construction is the point here — the D-IMPL-73 warning
-        # fires and documents the posture this test asserts is preserved.
-        with pytest.warns(CcfInsecureDefaultWarning):
-            app = create_app(_deps(fabric))
-        assert call(app, "GET", "/health").status_code == 200
-        # Authority-bearing route: reaches route validation, never 401.
-        assert call(app, "POST", "/hitl/actions", json={}).status_code == 422
+        with pytest.raises(TypeError):
+            create_app(_deps(fabric))  # type: ignore[call-arg]
+
+    def test_an_authority_bearing_route_is_never_reachable_unauthenticated(
+        self, gate_app: GateApp
+    ) -> None:
+        assert (
+            probe(gate_app.app, "POST", "/hitl/actions", json={}).status_code
+            == 401
+        )
+
+
+class TestTheBearerHookItself:
+    """The hook in isolation: what it recognises, over a real token file."""
+
+    @pytest.mark.parametrize(
+        ("header", "expected"),
+        [
+            (None, None),
+            ("", None),
+            ("Bearer ", None),
+            ("Basic recognised-token", None),
+            ("Bearer wrong", None),
+            ("Bearer recognised-token", "alice"),
+            # RFC 9110 §11.1: the scheme comparison is case-insensitive.
+            ("bEaReR recognised-token", "alice"),
+        ],
+    )
+    def test_recognition(
+        self, token_file: Path, header: str | None, expected: str | None
+    ) -> None:
+        from ccf_runtime.http_api.auth import BearerTokenAuth
+
+        hook = BearerTokenAuth(token_source=FileTokenSource(path=token_file))
+        grant = hook.grant_for_request(authorization_header=header)
+        assert (grant.client_id if grant is not None else None) == expected
