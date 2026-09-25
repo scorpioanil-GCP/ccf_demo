@@ -1,6 +1,6 @@
 # D-IMPL-353 — implementation review package
 
-**Candidate:** branch `security-tier-0`, HEAD = **the commit that carries this package** (2026-09-25; it holds `81b6f1c7`'s code plus the second panel's skill-grant guard, the pinned `max_ttl_key` hazard test, the sharpened in-process limit in `capability.py`, and this package). Fork point `d895d889` (`main`, v1.0.0 + the
+**Candidate:** branch `security-tier-0`, HEAD = **the commit that carries this package** (2026-09-25). The code is `e385df29` — the ruling of 2026-09-25 (`CompositionRegister`, the stated in-process limit, the named residuals) on `81b6f1c7` (the first panel's fixes) on `cdd3450c` and `b1ec0e5e` (the join).
 2026-09-23 security review). **Nothing is merged to `main`, nothing is tagged, nothing is pushed.** This package is the
 stop Dave asked for: *"Return the candidate SHA, changed-signature inventory, static/runtime control results, sabotage
 results, panel dispositions, and remaining limitations. Stop for implementation review."*
@@ -22,7 +22,8 @@ Two provisional readings the join had to take, both **OPEN and Dave's** (`docs/D
 2026-09-25 addendum):
 
 - **Composition authority (`D-IMPL-354`).** A composition root — the config loader, `boot`, the paved road, the
-  resolver, the MCP product door — mints `Register` / `ReplayMint` for its own fabric by one recipe (append a
+  resolver, the MCP product door — mints `CompositionRegister` / `ReplayMint` (distinct from every door kind, ruled
+  2026-09-25) for its own fabric by one recipe (append a
   `composition` audit event, mint with that event's content hash as `decision_id`). `mint_at_composition` refuses
   every door kind by overload and at runtime; the lint names the five roots.
 - **One key derivation.** A deployment's Control Plane keys are placed under its resolved tenant before anything is
@@ -63,18 +64,19 @@ The per-name record is the surface log: `docs/surface-changes/353-01-…` throug
 - `ccf_runtime.http_api.grants.tenant_from_request`
 - `ccf_runtime.mcp.product_door.scope_mapping_key`
 
-## 4. Controls, measured on the candidate
+## 4. Controls, measured on the candidate (code `e385df29`)
 
 | control | result |
 |---|---|
-| `make lint` (the six-rule `D-IMPL-353` authorization lint; roster of standing reds EMPTY; fork-point red at `d895d889` proven by test) | rc 0 |
+| `make lint` (the six-rule `D-IMPL-353` authorization lint — rule 3 now also refuses the issuance table's names; roster of standing reds EMPTY) | rc 0 |
 | `mypy --strict` over `src` + `runtime` | clean, 241 files |
-| `tests/` — chunk A (`examples`, `conformance`) | 25 failed / 1337 passed — **all 25 pre-existing** at the join's census base `457552ce` (0 new, 9 fixed; node ids diffed); frozen specimens under `D-IMPL-261`, rows in the gap ledger |
-| `tests/` — chunk B (`products`, `crossproc`, `client`, `invariants`) | 4275 passed (the one red before commit is the dirty-tree control) |
-| `tests/` — chunk C (everything else under `tests/`) | 3602 passed, 28 skipped |
-| `tools/lints/tests`, `tools/product_gates_tests`, `tools/publish_scan_tests`, `tools/docs_tests` | 976 passed |
-| seam controls (`tests/authz`: capability, static, dereference) | 208 passed incl. the two forgery controls added after the panel |
+| `tests/` — chunk A (`examples`, `conformance`) | 25 failed / 1337 passed — **all 25 pre-existing** at the join's census base `457552ce` (0 new; node ids diffed); frozen specimens under `D-IMPL-261`, rows in the gap ledger |
+| `tests/` — chunk B (`products`, `crossproc`, `client`, `invariants`), post-commit | 4278 passed |
+| `tests/` — chunk C (everything else under `tests/`), post-commit | 3607 passed, 28 skipped |
+| `tools/lints/tests`, `tools/product_gates_tests`, `tools/publish_scan_tests`, `tools/docs_tests` | 976 passed (the retirement report regenerated last, as the standing rule requires) |
+| seam controls (`tests/authz`: capability incl. `TestFabrication`'s real-sentinel and copy/pickle controls, `TestCompositionKindIsDistinct`, `TestNoDoorMintsTheGovernedRecord`; the static control marks the door kind as the type error) | green |
 | served-surface probe (`tests/http_api/test_join_routes_under_the_capability.py::test_on_every_mounted_route_no_credential_mints_nothing_and_a_foreign_one_mints_only_for_itself`) | every path the app publishes + the doc routes: no credential / malformed → nothing minted, 401/403; a foreign-tenant credential mints only for its own tenant |
+| cross-tenant reads (`…::test_a_read_after_an_allow_sees_only_the_capabilitys_tenant`) | lists are the capability's tenant's; foreign keyed reads and the skill-grant definition key read as absent, byte-identical |
 | surface gates + fragment-claim gate | 93 passed |
 
 ## 5. Sabotage
@@ -112,6 +114,10 @@ the coordinator's scratch, summarised here):
 | M25 | cursor's S-FORGE: honor an exact-type instance not in the table | `TestFabrication` incl. the real-sentinel forgery (14) |
 | M26 / M27 | read routes: list unfiltered / foreign key resolved | `test_a_read_after_an_allow_sees_only_the_capabilitys_tenant` |
 | M28 | register loop mints for the key's segment, not the given tenant | `test_the_register_loop_mints_for_the_tenant_it_is_given…` |
+| M29 | resolver composition mint from the key's segment | 47 reds while the fix was in; the fix was REVERTED under the ruling (residual R1) — the severing is withdrawn and the pinned test documents the current behavior |
+| M30 | `skill.grant` resolves a foreign definition key before the ledger | `test_a_read_after_an_allow_sees_only_the_capabilitys_tenant` |
+| M31 | `mint_at_composition` accepts the door's `Register` (runtime check gone) | `TestMintAtComposition::test_a_door_kind_cannot_be_minted_at_composition` (6) |
+| M32 | a door declares `composition.register` (`kind_for_action` yields it) | `TestCompositionKindIsDistinct` (2) |
 
 ## 6. Panel — round 1 (codex, cursor, gemini; executing model excluded per D-GATE-21)
 
@@ -176,6 +182,21 @@ in `353-09-the-join.md`.
 | R8 | two spellings of the test recipe helper (`tests/composition.py`, `tests/http_api/composition_authority.py`) | test infrastructure |
 | R9 | `register_manifest_entries` requires `tenant=`: the frozen `cp-20` deployment's direct call raises `TypeError` | gap ledger `SEC353-G-05` |
 | R10 | 25 `tests/examples` reds, all pre-existing at the census base, 0 new | gap ledger, §10 |
+| R11 | keyed HTTP reads (`agent.declaration`/`versions`, `config.resolution`/`versions`) and workflow status resolve the FastAPI-bound `key` / `execution_id` rather than asserting `key == authorized.resource`; the gate minted from the same single query value, so no wire split is demonstrated — defense-in-depth only (cursor, final round) | `runtime/ccf_runtime/http_api/routes/agent.py`, `config.py` |
+
+## 7c. Panel — final round (Dave's one question, at `e385df29`)
+
+> *Find a governed served route that reaches a protected handle without a valid authorization mint for that exact kind + resource + tenant.*
+
+Payload: the brief with the ruled limit and the named residuals, 200 KB of inlined source (the capability module, the gate, the reader, the MCP wrapper, HITL, execute/resume, the factory, every registry/state/artifact/grant handle, the governed dereference, every composition mint site, the six route modules, the lint).
+
+| reviewer | answer | disposition |
+|---|---|---|
+| codex | **not found** — walked the HTTP mint path, the reader, the MCP path, every protected handle's `verify`, and the tenant/resource bindings; counted the ruled limit and the named residuals as such | CLEAR |
+| cursor | **CLEAR** — walked the same; considered and RETRACTED four candidates with what it re-read (keyed GETs use `key` not `authorized.resource`; `experience.get_replay_record` drops the capability before a deployment seam; `invoke_agent` under `workflow.invoke`; product doors' entitlement plane); one optional hardening | CLEAR; the hardening is residual R11 |
+| gemini | claimed a bypass: a `DerivedWrite` payload steers `authorized_write_target` to a class/name the capability was not minted for | **REJECTED, measured**: with a store declaring nothing the derived branch refuses by name (`ArtifactWriteRefused: a derived write names class 'classB', which this store does not declare mechanism-written`); with the class declared under `ReplayMint` the `ArtifactWrite` capability dies at `verify_any` (wrong kind). And no served route can present a `DerivedWrite`: the HTTP and MCP artifact doors pass the wire body (a JSON value) to `store.put`; every `DerivedWrite` constructor in the tree is an SDK mechanism writer |
+
+No served-surface defect was confirmed in the final round; nothing was fixed after `e385df29`.
 
 ## 8. Rulings owed to Dave
 
@@ -209,7 +230,7 @@ in `353-09-the-join.md`.
    `_issued`, register a raw FastMCP body, or pass a weak authority; the examples are frozen specimens
    (`D-IMPL-261`). After F-FORGE-01 the sentinel confers nothing, but the table's name would — widening rule 3's tree
    scope is a one-constant change once the examples are unfrozen.
-2. **The identity table is Python (F-FORGE-02, measured).** `verify.__globals__`, `vars(sys.modules[...])` or
+2. **The identity table is Python (F-FORGE-02, measured; RULED outside the threat model 2026-09-25).** `verify.__globals__`, `vars(sys.modules[...])` or
    `gc.get_referrers` reach the table and the sentinel without naming them, and code that can do that can replace
    `verify`. What F-FORGE-01 removed is the cheap path (one held capability → all). The module states the limit; the
    ruling on it is §8 item 10.
