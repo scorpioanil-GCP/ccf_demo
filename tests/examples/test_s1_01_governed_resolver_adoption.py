@@ -127,9 +127,12 @@ from typing import Any, NamedTuple
 import pytest
 
 from ccf.artifacts.file_store import FileArtifactStore
+from ccf.artifacts.protocol import WriteKinds
+from ccf.authz.capability import ReplayMint
 from ccf.contracts.canonical import content_hash
-from ccf.controlplane.registry import ControlPlaneRegistry
+from ccf.controlplane.registry import ControlPlaneRegistry, namespaced_key
 from ccf.deployment import load_and_boot
+from ccf.products.composite import ADMITTED_CHILD_CONTRACT_CLASS
 from ccf.products.resolver import build_governed_resolver
 from ccf.replay.record import DecisionReplayRecord
 
@@ -197,6 +200,28 @@ def questions(example: Any) -> Any:
     return example.deployment.declared_questions()
 
 
+def _evidence_store(root: pathlib.Path, scenario: Any) -> FileArtifactStore:
+    """The deployment's evidence store, declared the way its own spine declares it.
+
+    D-IMPL-353 §1.2: the store carries the deployment's statement of which
+    artifact classes its mechanism writes and under which kind — the two
+    replay classes ``product-governance.yaml`` names and the SDK's
+    admitted-child class, all ``ReplayMint``. The same declaration serves the
+    reader that opens the record back, so what this module reads is filed
+    under the lanes the deployment declared.
+    """
+    return FileArtifactStore(
+        root=root / scenario.artifact_store_dirname,
+        write_kinds=WriteKinds.declare(
+            {
+                scenario.replay_record_class: (ReplayMint,),
+                scenario.query_pin_class: (ReplayMint,),
+                ADMITTED_CHILD_CONTRACT_CLASS: (ReplayMint,),
+            }
+        ),
+    )
+
+
 def _wire(
     example: Any,
     *,
@@ -233,22 +258,28 @@ def _wire(
     def debt_scorer(*, view: Any, evidence: Any = None) -> Any:
         return scenario.debt(view)
 
+    # The keys this module names are the deployment's bare section names; the
+    # fabric holds them placed under its tenant (D-IMPL-353 §1.3), so the
+    # resolver is handed the placed keys through the one derivation.
+    def placed(key: str) -> str:
+        return namespaced_key(tenant=booted.tenant_id, key=key)
+
     resolver = build_governed_resolver(
         fabric=booted,
         control_plane=registry,
-        product_class_key=PRODUCT_CLASS_KEY,
-        request_contract_key=REQUEST_CONTRACT_KEY,
-        operator_parameter_keys=OPERATOR_PARAMETER_KEYS,
-        policy_bundle_key=POLICY_BUNDLE_KEY,
+        product_class_key=placed(PRODUCT_CLASS_KEY),
+        request_contract_key=placed(REQUEST_CONTRACT_KEY),
+        operator_parameter_keys=tuple(placed(key) for key in OPERATOR_PARAMETER_KEYS),
+        policy_bundle_key=placed(POLICY_BUNDLE_KEY),
         # `24.11-03` / `24.10-F-08`: this deployment declares its bands AND
         # supplies its own scorer, which are two different seams — the scorer
         # is behavior, the profile is a declaration. Naming the key is what
         # lets the resolver carry the obligation the profile binds; nothing
         # about the scorer changes, and no value is restated here.
-        debt_profile_key=DEBT_PROFILE_KEY,
+        debt_profile_key=placed(DEBT_PROFILE_KEY),
         plan_factory=plan_factory,
         debt_scorer=debt_scorer,
-        artifact_store=FileArtifactStore(root=root / scenario.artifact_store_dirname),
+        artifact_store=_evidence_store(root, scenario),
         replay_record_class=scenario.replay_record_class,
         query_pin_class=scenario.query_pin_class,
         max_ttl_seconds=scenario.max_ttl_seconds,
@@ -337,7 +368,7 @@ def adopted_resolver(
         return Answered(
             outcome=outcome,
             scenario=scenario,
-            store=FileArtifactStore(root=root / scenario.artifact_store_dirname),
+            store=_evidence_store(root, scenario),
         )
 
     try:
@@ -453,7 +484,7 @@ def test_the_served_product_carries_the_obligation_the_deployment_declared(
     reason the finding was left executable rather than only written down.
     """
     answered = adopted_resolver(questions[2])
-    declared = example.deployment.expectation(answered.scenario.artifacts)[
+    declared = example.deployment.expectation(answered.scenario)[
         EXPECTED_OBLIGATION_THIRD
     ]
     assert declared != NO_OBLIGATION, "the fixture's own premise has moved"

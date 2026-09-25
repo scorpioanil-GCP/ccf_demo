@@ -61,6 +61,7 @@ from ccf.controlplane.artifacts import (
     SignalBatch,
 )
 from ccf.controlplane.artifacts import DebtProfile, HalfLifeTable
+from ccf.controlplane.registry import namespaced_key
 from ccf.deployment import BootedFabric
 from ccf.graph.protocols import GraphView
 from ccf.halflife.debt import (
@@ -220,8 +221,15 @@ class KycScenario:
     Satisfies ``spine.Scenario`` structurally. The members past
     ``artifacts`` are this deployment's business and the fabric never asks for
     them — they are what the projection interprets.
+
+    ``artifacts`` is keyed the way the loader registered it: every manifest key
+    placed under ``tenant_id`` (``{tenant}/{key}``, D-IMPL-353 §1.3), so a
+    reader derives the placed key with
+    :func:`~ccf.controlplane.registry.namespaced_key` and never by the bare
+    section name.
     """
 
+    tenant_id: str
     artifacts: Mapping[str, CCFContract]
     envelopes: tuple[SignalEnvelope, ...]
     request: ProductRequest
@@ -859,26 +867,44 @@ def read(booted: BootedFabric, request: ProductRequest) -> KycScenario:
     it exactly as it derived from the old ``decision.yaml``'s ``now``. Nothing
     here reads a clock: replay feeds the recorded values back through this same
     function and gets the same product.
+
+    **Every key is read under this deployment's tenant.** ``load_and_boot``
+    placed each manifest key under ``booted.tenant_id`` before registering it
+    (``{tenant}/{key}`` — the one derivation, D-IMPL-353 §1.3 / D-IMPL-354), so
+    the bare ``KEY_*`` names below are this file's vocabulary and
+    :func:`~ccf.controlplane.registry.namespaced_key` is how each becomes the
+    key the fabric holds. There is no bare-key fallback: a key that is not under
+    this tenant is not this deployment's key.
     """
-    events = cast(SignalBatch, booted.artifacts[KEY_EVENTS])
+
+    def placed(key: str) -> str:
+        return namespaced_key(tenant=booted.tenant_id, key=key)
+
+    events = cast(SignalBatch, booted.artifacts[placed(KEY_EVENTS)])
     governance = cast(
-        DeclaredArtifact, booted.artifacts[KEY_PRODUCT_GOVERNANCE]
+        DeclaredArtifact, booted.artifacts[placed(KEY_PRODUCT_GOVERNANCE)]
     ).declaration
-    policy = cast(DeclaredArtifact, booted.artifacts[KEY_POLICY_BUNDLE]).declaration
-    question = cast(DeclaredArtifact, booted.artifacts[KEY_UBO_QUESTION]).declaration
+    policy = cast(
+        DeclaredArtifact, booted.artifacts[placed(KEY_POLICY_BUNDLE)]
+    ).declaration
+    question = cast(
+        DeclaredArtifact, booted.artifacts[placed(KEY_UBO_QUESTION)]
+    ).declaration
     # The projection's own operator set, authored separately from the claim the
     # product class carries. Design E2 keeps these two documents apart on
     # purpose; the binder in `spine.py` is what keeps them in agreement.
     requirements = cast(
-        ProjectionRequirements, booted.artifacts[KEY_PROJECTION_REQUIREMENTS]
+        ProjectionRequirements,
+        booted.artifacts[placed(KEY_PROJECTION_REQUIREMENTS)],
     )
 
     contract_artifact = cast(
-        DeclaredArtifact, booted.artifacts[KEY_REQUEST_CONTRACT]
+        DeclaredArtifact, booted.artifacts[placed(KEY_REQUEST_CONTRACT)]
     )
     contract = contract_artifact.declaration
     now = datetime.fromisoformat(request.parameters[PARAM_DECISION_INSTANT])
     return KycScenario(
+        tenant_id=booted.tenant_id,
         artifacts=booted.artifacts,
         envelopes=events.envelopes,
         request=request,
@@ -898,30 +924,34 @@ def read(booted: BootedFabric, request: ProductRequest) -> KycScenario:
             ),
         ),
         request_contract_key=governance[GOVERNANCE_REQUEST_CONTRACT_KEY],
-        product_class_key=KEY_PRODUCT_CLASS,
-        debt_profile_key=KEY_DEBT_PROFILE,
-        request_contract_artifact_key=KEY_REQUEST_CONTRACT,
+        product_class_key=placed(KEY_PRODUCT_CLASS),
+        debt_profile_key=placed(KEY_DEBT_PROFILE),
+        request_contract_artifact_key=placed(KEY_REQUEST_CONTRACT),
         decision_instant_parameter=PARAM_DECISION_INSTANT,
         temporal_boundary=request.asked_at,
         now=now,
         expires_at=now + timedelta(seconds=governance[GOVERNANCE_PRODUCT_TTL_SECONDS]),
         operator_parameters={
-            key: cast(OperatorParametersArtifact, booted.artifacts[key])
+            placed(key): cast(OperatorParametersArtifact, booted.artifacts[placed(key)])
             for key in OPERATOR_KEYS
         },
-        policy_bundle_key=KEY_POLICY_BUNDLE,
+        policy_bundle_key=placed(KEY_POLICY_BUNDLE),
         product_class=cast(
-            ProductClassDeclaration, booted.artifacts[KEY_PRODUCT_CLASS]
+            ProductClassDeclaration, booted.artifacts[placed(KEY_PRODUCT_CLASS)]
         ),
         plan_id=requirements.plan_id,
         required_operator_keys=requirements.required_operator_keys,
-        perspective=cast(PerspectiveArtifact, booted.artifacts[KEY_PERSPECTIVE]),
+        perspective=cast(
+            PerspectiveArtifact, booted.artifacts[placed(KEY_PERSPECTIVE)]
+        ),
         max_ttl_seconds=governance[GOVERNANCE_MAX_TTL_SECONDS],
         replay_record_class=governance[GOVERNANCE_REPLAY_RECORD_CLASS],
         query_pin_class=governance[GOVERNANCE_QUERY_PIN_CLASS],
         artifact_store_dirname=governance[GOVERNANCE_ARTIFACT_STORE_DIRNAME],
-        half_life_table=cast(HalfLifeTable, booted.artifacts[KEY_HALF_LIFE_TABLE]),
-        debt_profile=cast(DebtProfile, booted.artifacts[KEY_DEBT_PROFILE]),
+        half_life_table=cast(
+            HalfLifeTable, booted.artifacts[placed(KEY_HALF_LIFE_TABLE)]
+        ),
+        debt_profile=cast(DebtProfile, booted.artifacts[placed(KEY_DEBT_PROFILE)]),
         required_entity_classes=tuple(
             governance[GOVERNANCE_REQUIRED_ENTITY_CLASSES]
         ),
@@ -965,14 +995,17 @@ def read(booted: BootedFabric, request: ProductRequest) -> KycScenario:
     )
 
 
-def expectation(artifacts: Mapping[str, CCFContract]) -> Mapping[str, Any]:
+def expectation(scenario: KycScenario) -> Mapping[str, Any]:
     """This deployment's own declaration of what the product should contain.
 
     Used by ``tests/examples/test_s1_01_output.py``, never by the pipeline. It
     lives here rather than in the test module so that the test reads the
     deployment's declaration rather than agreeing with itself (CLAUDE.md §6.4).
+    Read under the scenario's tenant, exactly as :func:`read` reads every other
+    key — the expectation document is a placed key like the rest.
     """
-    return cast(DeclaredArtifact, artifacts[KEY_EXPECTED]).declaration
+    key = namespaced_key(tenant=scenario.tenant_id, key=KEY_EXPECTED)
+    return cast(DeclaredArtifact, scenario.artifacts[key]).declaration
 
 
 def envelope_count(envelopes: Sequence[SignalEnvelope]) -> int:

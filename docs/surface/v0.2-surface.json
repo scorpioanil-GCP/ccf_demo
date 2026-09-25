@@ -1024,6 +1024,7 @@
       "COMPOSITION_KINDS",
       "COMPOSITION_PRINCIPAL",
       "CapabilityBypassError",
+      "CompositionRegister",
       "ConfigKeysRead",
       "ConfigRegister",
       "ConfigResolve",
@@ -1101,6 +1102,10 @@
       "CapabilityBypassError": {
         "kind": "class",
         "shape": "type"
+      },
+      "CompositionRegister": {
+        "kind": "class",
+        "shape": "(*_: 'Any', **__: 'Any') -> \"'ActionKind'\""
       },
       "ConfigKeysRead": {
         "kind": "class",
@@ -2338,7 +2343,7 @@
       },
       "DerivedRegisterAuthority": {
         "kind": "function",
-        "shape": "typing.Union[ccf.authz.capability.Authorized[ccf.authz.capability.ConfigRegister], ccf.authz.capability.Authorized[ccf.authz.capability.AgentDeclare], ccf.authz.capability.Authorized[ccf.authz.capability.SkillCatalogRegister], ccf.authz.capability.Authorized[ccf.authz.capability.SkillGrant]]"
+        "shape": "typing.Union[ccf.authz.capability.Authorized[ccf.authz.capability.ConfigRegister], ccf.authz.capability.Authorized[ccf.authz.capability.CompositionRegister], ccf.authz.capability.Authorized[ccf.authz.capability.AgentDeclare], ccf.authz.capability.Authorized[ccf.authz.capability.SkillCatalogRegister], ccf.authz.capability.Authorized[ccf.authz.capability.SkillGrant]]"
       },
       "REGISTER_KINDS": {
         "kind": "constant",
@@ -2366,7 +2371,7 @@
       },
       "RegisterAuthority": {
         "kind": "function",
-        "shape": "typing.Union[ccf.authz.capability.Authorized[ccf.authz.capability.ConfigRegister], ccf.authz.capability.Authorized[ccf.authz.capability.AgentDeclare], ccf.authz.capability.Authorized[ccf.authz.capability.SkillCatalogRegister]]"
+        "shape": "typing.Union[ccf.authz.capability.Authorized[ccf.authz.capability.ConfigRegister], ccf.authz.capability.Authorized[ccf.authz.capability.CompositionRegister], ccf.authz.capability.Authorized[ccf.authz.capability.AgentDeclare], ccf.authz.capability.Authorized[ccf.authz.capability.SkillCatalogRegister]]"
       },
       "RegistrationRefusal": {
         "kind": "contract",
@@ -2619,7 +2624,7 @@
       },
       "register_manifest_entries": {
         "kind": "function",
-        "shape": "(manifest: 'DeploymentManifest', parsed: 'Mapping[str, CCFContract]', *, registry: 'ControlPlaneProtocol', only: 'frozenset[str] | None' = None) -> 'tuple[ArtifactPin, ...]'"
+        "shape": "(manifest: 'DeploymentManifest', parsed: 'Mapping[str, CCFContract]', *, registry: 'ControlPlaneProtocol', tenant: 'str', only: 'frozenset[str] | None' = None) -> 'tuple[ArtifactPin, ...]'"
       },
       "resolve_artifact_class": {
         "kind": "function",
@@ -2813,7 +2818,7 @@
       },
       "register_manifest_entries": {
         "kind": "function",
-        "shape": "(manifest: 'DeploymentManifest', parsed: 'Mapping[str, CCFContract]', *, registry: 'ControlPlaneProtocol', only: 'frozenset[str] | None' = None) -> 'tuple[ArtifactPin, ...]'"
+        "shape": "(manifest: 'DeploymentManifest', parsed: 'Mapping[str, CCFContract]', *, registry: 'ControlPlaneProtocol', tenant: 'str', only: 'frozenset[str] | None' = None) -> 'tuple[ArtifactPin, ...]'"
       }
     }
   },
@@ -9249,6 +9254,7 @@
       "COMPOSITION_KINDS",
       "COMPOSITION_PRINCIPAL",
       "CapabilityBypassError",
+      "CompositionRegister",
       "ConfigKeysRead",
       "ConfigRegister",
       "ConfigResolve",
@@ -9326,6 +9332,10 @@
       "CapabilityBypassError": {
         "kind": "class",
         "shape": "type"
+      },
+      "CompositionRegister": {
+        "kind": "class",
+        "shape": "(*_: 'Any', **__: 'Any') -> \"'ActionKind'\""
       },
       "ConfigKeysRead": {
         "kind": "class",
@@ -10376,17 +10386,27 @@
   },
   "ccf_runtime.http_api.grants": {
     "__all__": [
+      "absent",
       "authorized_from_request",
-      "grant_from_request"
+      "grant_from_request",
+      "within_tenant"
     ],
     "exports": {
+      "absent": {
+        "kind": "function",
+        "shape": "(key: 'str', version: 'str') -> 'HTTPException'"
+      },
       "authorized_from_request": {
         "kind": "function",
-        "shape": "(request: 'Request', *, kind: 'type[ActionKind] | None' = None) -> 'Authorized[Any]'"
+        "shape": "(request: 'Request', *, kind: 'type[A]') -> 'Authorized[A]'"
       },
       "grant_from_request": {
         "kind": "function",
         "shape": "(request: 'Request') -> 'TokenGrant | None'"
+      },
+      "within_tenant": {
+        "kind": "function",
+        "shape": "(*, tenant: 'str', key: 'str') -> 'bool'"
       }
     }
   },

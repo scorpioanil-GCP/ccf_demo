@@ -86,6 +86,8 @@ After the panel (2026-09-25): `register_manifest_entries` requires `tenant=` (th
 `examples/cp-20-syndicated-lending-co-lender/deployment.py::FederatedChildren`'s direct call now stops with a
 `TypeError` before the `GrantNotInForce`/G-06 stop it would otherwise reach — same row (`SEC353-G-05`), one keyword.
 
+Repair ruling (Dave, 2026-09-25, on the qualification hold of `1f081151`): **`s1_01` is the 1.0 reference-path exception to the frozen-example posture; the remaining frozen family stays out of this repair.** `examples/s1-01-hello-context-product` now derives every Control Plane key it reads or hands the resolver through `namespaced_key` under its own tenant (the G-07 stop), declares its `max_ttl_key` under that tenant, and declares its evidence store's write kinds (the G-03 stop it reached next); the six `test_s1_01_governed_resolver_adoption.py` nodes and `test_s1_01_output.py` pass against a fresh empty Fluree, and the Fluree leg carries no `s1_01` red. No other row's subject was touched: `SEC353-G-01..G-08` stay OPEN as dispositioned, cp-00 and the frozen server set stay frozen, and the twelve Postgres-leg reds remain acceptable only as exact members of the R10 census.
+
 ## What this lane measured, and what it did not
 
 **The revert (§7).** `git checkout d895d889 -- <the seven paths>`, then the proof:

@@ -81,6 +81,8 @@ from pathlib import Path
 from typing import Protocol
 
 from ccf.artifacts.file_store import FileArtifactStore
+from ccf.artifacts.protocol import WriteKinds
+from ccf.authz.capability import ReplayMint
 from ccf.contracts.base import CCFContract
 from ccf.controlplane.artifacts import (
     DebtProfile,
@@ -92,6 +94,7 @@ from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.deployment import BootedFabric, load_and_boot
 from ccf.graph.protocols import GraphView
 from ccf.halflife.debt import DebtAssessment, SourceRefreshRecency
+from ccf.products.composite import ADMITTED_CHILD_CONTRACT_CLASS
 from ccf.products.contract import ContextProductContract
 from ccf.products.request import ProductRequest, ProductRequestContract
 from ccf.products.resolver import build_governed_resolver
@@ -351,7 +354,22 @@ def assemble_and_serve(
         #    `debt-profile.yaml`, the ceiling and the two instants in
         #    `product-governance.yaml`, the operator parameters in their four
         #    documents; this file restates none of them (CLAUDE.md §6.4).
-        store = FileArtifactStore(root=root / scenario.artifact_store_dirname)
+        # The deployment's declaration of what its own mechanism writes and
+        # under which kind (D-IMPL-353 §1.2): the two replay classes
+        # `product-governance.yaml` names and the SDK's admitted-child class,
+        # all `ReplayMint`. The resolver mints against this declaration and
+        # refuses at construction if a class it files is missing; everything
+        # undeclared stays the client lane.
+        store = FileArtifactStore(
+            root=root / scenario.artifact_store_dirname,
+            write_kinds=WriteKinds.declare(
+                {
+                    scenario.replay_record_class: (ReplayMint,),
+                    scenario.query_pin_class: (ReplayMint,),
+                    ADMITTED_CHILD_CONTRACT_CLASS: (ReplayMint,),
+                }
+            ),
+        )
         resolve = build_governed_resolver(
             fabric=booted,
             control_plane=registry,
