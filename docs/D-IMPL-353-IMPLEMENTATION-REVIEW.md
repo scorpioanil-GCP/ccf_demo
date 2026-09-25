@@ -1,6 +1,6 @@
 # D-IMPL-353 — implementation review package
 
-**Candidate:** branch `security-tier-0`, HEAD = **the commit that carries this package** (2026-09-25). The code is `e385df29` — the ruling of 2026-09-25 (`CompositionRegister`, the stated in-process limit, the named residuals) on `81b6f1c7` (the first panel's fixes) on `cdd3450c` and `b1ec0e5e` (the join).
+**Candidate:** branch `security-tier-0`, HEAD = **the commit that carries this package** (2026-09-25). The code is the pre-merge commit (R6 closed by signature, R11 bound at the handle) on `e385df29` (the ruling of 2026-09-25) on `81b6f1c7` (the first panel's fixes) on `cdd3450c` and `b1ec0e5e` (the join).
 2026-09-23 security review). **Nothing is merged to `main`, nothing is tagged, nothing is pushed.** This package is the
 stop Dave asked for: *"Return the candidate SHA, changed-signature inventory, static/runtime control results, sabotage
 results, panel dispositions, and remaining limitations. Stop for implementation review."*
@@ -118,6 +118,8 @@ the coordinator's scratch, summarised here):
 | M30 | `skill.grant` resolves a foreign definition key before the ledger | `test_a_read_after_an_allow_sees_only_the_capabilitys_tenant` |
 | M31 | `mint_at_composition` accepts the door's `Register` (runtime check gone) | `TestMintAtComposition::test_a_door_kind_cannot_be_minted_at_composition` (6) |
 | M32 | a door declares `composition.register` (`kind_for_action` yields it) | `TestCompositionKindIsDistinct` (2) |
+| M33 | `config.resolution` no longer refuses a parameter that differs from the capability's resource | `test_a_keyed_read_resolves_the_capabilitys_resource_and_a_differing_parameter_reads_nothing` |
+| M34 | a shipped module calls the reader without a kind, through an ALIASED import | first run: 0 reds — the roster matched the bare name only; the roster now resolves every `ImportFrom` alias, and M34 reddens `test_every_shipped_caller_of_the_reader_names_its_kind` (the signature makes the call a `TypeError` besides) |
 
 ## 6. Panel — round 1 (codex, cursor, gemini; executing model excluded per D-GATE-21)
 
@@ -177,12 +179,12 @@ in `353-09-the-join.md`.
 | R3 | the authorization lint's tree scope is `src/` + `runtime/`; `examples/` and `tools/` may name the private names, register a raw FastMCP body, or pass a weak authority — examples are frozen specimens | `tools/lints/__main__.py::RULE_TREE_SCOPE`; §9 item 1 |
 | R4 | SEC353-J-01 — FastMCP drops unknown wire arguments rather than refusing them (HTTP refuses via `extra=forbid`) | `tests/mcp` assert no effect; ruling owed |
 | R5 | SEC353-J-02 (half) — a producer that REFUSED by error at its tenancy floor reads `producer-unavailable` in the child-admission row (the client classification itself is fixed) | `tests/products/test_d_impl_342_producer_refusal_evidence.py::test_c_a4a_a_door_refusal_whose_claims_fail_carries_no_producer_refusal` asserts the vocabulary and says so; ruling owed |
-| R6 | `authorized_from_request`'s kind-less overload returns `Authorized[ActionKind]` (no route uses it) | advisory; `runtime/ccf_runtime/http_api/grants.py` |
+| R6 | **CLOSED by construction (pre-merge check).** `authorized_from_request(request, *, kind)` — `kind` is a required keyword; the kind-less overload is gone, so no HTTP route, MCP route, HITL path, door or dereference can reach a kind-less read (the MCP wrapper and the dereference never import the reader; only the six route modules do). Roster: every shipped call in `runtime/` and `src/` names its kind (`test_every_shipped_caller_of_the_reader_names_its_kind`, an AST walk, ≥20 calls) | `runtime/ccf_runtime/http_api/grants.py`; severing M34 |
 | R7 | `open_product(approval_sink=)` is vestigial now that the road requests no grant | ruling owed on the paved road's posture (panel: keep) |
 | R8 | two spellings of the test recipe helper (`tests/composition.py`, `tests/http_api/composition_authority.py`) | test infrastructure |
-| R9 | `register_manifest_entries` requires `tenant=`: the frozen `cp-20` deployment's direct call raises `TypeError` | gap ledger `SEC353-G-05` |
+| R9 | `register_manifest_entries` requires `tenant=`: the frozen `cp-20` deployment's direct call raises `TypeError`. **Carried (pre-merge check):** not reachable from a governed served path — it is a `build_children=` hook that runs inside `open_product` at composition, in-process; its qualification exposure is the estate leg (`tests/examples/test_cp_20_*.py`, `postgres`+`fluree`, `CCF_CP_20_*`), where cp-20's open is already red independently by `SEC353-G-06` (the facade self-grants through `ledger.request(…, actor=)`, the posture D-IMPL-353 removed — no keyword repairs it). Not repaired; the required arguments are not weakened | gap ledger `SEC353-G-05` / `G-06` |
 | R10 | 25 `tests/examples` reds, all pre-existing at the census base, 0 new | gap ledger, §10 |
-| R11 | keyed HTTP reads (`agent.declaration`/`versions`, `config.resolution`/`versions`) and workflow status resolve the FastAPI-bound `key` / `execution_id` rather than asserting `key == authorized.resource`; the gate minted from the same single query value, so no wire split is demonstrated — defense-in-depth only (cursor, final round) | `runtime/ccf_runtime/http_api/routes/agent.py`, `config.py` |
+| R11 | **CLOSED, non-defect (pre-merge check): one resource source.** For a `ResourceBinding.query(name)` route the gate reads `scope["query_string"]` once, decodes it latin-1, parses it with `parse_qs(keep_blank_values=True)`, requires exactly one non-blank value or denies before minting, and mints `authorized.resource` from that value; the router's parameter is Starlette's `QueryParams(scope["query_string"])` — `parse_qsl(latin-1-decoded, keep_blank_values=True)` over the same bytes with the same stdlib decoder; the gate is the app's only middleware (`add_middleware` once), so nothing rewrites the scope between mint and handler. The handles no longer rely on the argument: `agent.declaration`/`versions`, `config.keys`/`versions`/`resolution` and `workflow.execution` resolve `authorized.resource` and refuse a differing parameter before the first read. Negative control: `test_a_keyed_read_resolves_the_capabilitys_resource_and_a_differing_parameter_reads_nothing` (calls the endpoints directly with a capability for one key and a parameter naming another — a state no wire request can produce — and asserts nothing is read); severing M33 reddens it | routes `agent.py`, `config.py`, `workflow.py` |
 
 ## 7c. Panel — final round (Dave's one question, at `e385df29`)
 
@@ -197,6 +199,12 @@ Payload: the brief with the ruled limit and the named residuals, 200 KB of inlin
 | gemini | claimed a bypass: a `DerivedWrite` payload steers `authorized_write_target` to a class/name the capability was not minted for | **REJECTED, measured**: with a store declaring nothing the derived branch refuses by name (`ArtifactWriteRefused: a derived write names class 'classB', which this store does not declare mechanism-written`); with the class declared under `ReplayMint` the `ArtifactWrite` capability dies at `verify_any` (wrong kind). And no served route can present a `DerivedWrite`: the HTTP and MCP artifact doors pass the wire body (a JSON value) to `store.put`; every `DerivedWrite` constructor in the tree is an SDK mechanism writer |
 
 No served-surface defect was confirmed in the final round; nothing was fixed after `e385df29`.
+
+## 7d. Pre-merge check (Dave, 2026-09-25): R6 and R11 resolved, R9 carried
+
+- **R6 — kind-less reader overload:** no governed served path reached it (all 21 shipped calls named `kind=`; the MCP wrapper, the dereference and the HITL transport never import the reader), and it is now unreachable by construction — the overload is removed and `kind` is a required keyword. Control: the signature test and the AST roster; severing M34.
+- **R11 — keyed HTTP read, one resource source or two:** one, structurally (the statement in the R11 row above); and the handles now read the capability's resource and refuse a differing parameter, with a wrong-resource negative control; severing M33.
+- **R9 — cp-20's direct register call:** not reachable from a governed served path; its only qualification exposure is the estate leg, where the same open is already red by `SEC353-G-06`; carried, arguments not weakened.
 
 ## 8. Rulings owed to Dave
 

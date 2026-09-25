@@ -218,9 +218,17 @@ def build_router(deps: ApiDependencies) -> APIRouter:
         # CAPABILITY's — selected by the gate from the verified grant's set.
         # There is no `tenant` parameter to supply one, which is why reading
         # another tenant's execution is unrepresentable rather than refused.
-        tenant = authorized_from_request(request, kind=WorkflowStatusRead).tenant
+        authorized = authorized_from_request(request, kind=WorkflowStatusRead)
+        tenant = authorized.tenant
+        if execution_id != authorized.resource:
+            # One resource source (pre-merge check R11): the execution the gate
+            # minted for, or the same 404 an absent one gets.
+            raise HTTPException(
+                status_code=404,
+                detail=f"no execution exists under {tenant}/{execution_id}",
+            )
         record = deps.control_plane.state_store.get(
-            WORKFLOW_STATE, f"{tenant}/{execution_id}"
+            WORKFLOW_STATE, f"{tenant}/{authorized.resource}"
         )
         if record is None:
             raise HTTPException(

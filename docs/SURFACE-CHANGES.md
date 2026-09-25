@@ -23,7 +23,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1729 entries**, of which **1471** name a public Python surface.
+**1731 entries**, of which **1473** name a public Python surface.
 
 ## Added
 
@@ -15999,7 +15999,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-481 entries — 294 public Python surface, 187 not public Python API.
+482 entries — 295 public Python surface, 187 not public Python API.
 
 ### Public Python surface
 
@@ -21423,6 +21423,18 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `353-09-the-join.md`.*
 
+#### ccf_runtime.http_api.grants.authorized_from_request
+
+- Surface: ccf_runtime.http_api.grants.authorized_from_request
+- Public surface: true
+- Change type: reshaped
+- Before: `authorized_from_request(request, *, kind=None)` with a kind-less overload returning `Authorized[ActionKind]` — the route's declared action was still enforced, but a handler could hold a capability without naming the operation it performs
+- After: `authorized_from_request(request, *, kind: type[A]) -> Authorized[A]` — `kind` is required; there is no kind-less form, so no HTTP route, MCP route, HITL path, door or dereference can reach one, and every shipped caller names its kind (`tests/http_api/test_capability_gate.py::TestTheGateMints::test_every_shipped_caller_of_the_reader_names_its_kind`, an AST roster over `runtime/` and `src/`)
+- Why: pre-merge check (Dave, 2026-09-25), residual R6: a tenant-scoped governed read must not remain callable without a kind — closed by construction rather than by proof of non-use
+- Migration: pass `kind=<the route's declared kind>`; every shipped route already did
+
+*Recorded by `353-09-the-join.md`.*
+
 ### Not public Python API
 
 #### tools/lints/__main__.py
@@ -24270,7 +24282,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-219 entries — 191 public Python surface, 28 not public Python API.
+220 entries — 192 public Python surface, 28 not public Python API.
 
 ### Public Python surface
 
@@ -28079,6 +28091,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - After: the union also names `Authorized[CompositionRegister]` — a deployment declaring a catalog entry at boot registers it under the composition kind
 - Why: see `CompositionRegister`
 - Migration: none
+
+*Recorded by `353-09-the-join.md`.*
+
+#### ccf_runtime.http_api.routes.workflow.build_router
+
+- Surface: ccf_runtime.http_api.routes.workflow.build_router
+- Public surface: true
+- Change type: behavior
+- Before: `execution` (status) read the state key `{capability tenant}/{execution_id}` with `execution_id` from the router's parse of the query string — the same value the gate minted from
+- After: same signature; `execution` resolves `{capability tenant}/{authorized.resource}` and refuses an `execution_id` parameter that differs from the capability's resource with the same 404 an absent execution gets
+- Why: pre-merge check (Dave, 2026-09-25), residual R11 — one resource source, held at the handle rather than argued from the parser; `tests/http_api/test_join_routes_under_the_capability.py::test_a_keyed_read_resolves_the_capabilitys_resource_and_a_differing_parameter_reads_nothing`
+- Migration: none for a wire caller
 
 *Recorded by `353-09-the-join.md`.*
 

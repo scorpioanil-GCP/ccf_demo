@@ -210,7 +210,7 @@ class _Echo:
         @router.get("/untyped")
         @authorizes(ACTION_HEALTH_READ, resource=ResourceBinding.route())
         def untyped(request: Request) -> dict[str, Any]:
-            return report(authorized_from_request(request))
+            return report(authorized_from_request(request, kind=HealthRead))
 
         @router.get("/wrong-kind")
         @authorizes(ACTION_HEALTH_READ, resource=ResourceBinding.route())
@@ -454,12 +454,48 @@ class TestTheGateMints:
         assert echo.get("/probe", token=TOKEN_A).status_code == 200
         assert len(minted) == 1
 
-    def test_an_untyped_read_returns_the_same_capability(self, echo: _Echo) -> None:
-        """``authorized_from_request(request)`` — the spec'd signature — is
-        the same read, still verified against the route's own action."""
+    def test_the_reader_has_no_kind_less_form(self, echo: _Echo) -> None:
+        """Pre-merge check (2026-09-25, R6): a tenant-scoped governed read is not
+        callable without naming its operation. The kind-less overload is gone by
+        signature — `kind` is a required keyword — so no HTTP route, MCP route,
+        HITL path, door or dereference can reach a kind-less read; and every
+        shipped caller names one (the roster control below)."""
+        import inspect
+
+        parameter = inspect.signature(authorized_from_request).parameters["kind"]
+        assert parameter.default is inspect.Parameter.empty
+        assert parameter.kind is inspect.Parameter.KEYWORD_ONLY
+        with pytest.raises(TypeError):
+            authorized_from_request(_bare_request(endpoint=_health_endpoint, state={"authorized": _genuine()}))  # type: ignore[call-arg]
         body = echo.get("/untyped", token=TOKEN_A).json()
         assert body["action"] == ACTION_HEALTH_READ
         assert body["tenant"] == A
+
+    def test_every_shipped_caller_of_the_reader_names_its_kind(self) -> None:
+        """The roster, by AST, over every ``.py`` under ``runtime/`` and ``src/``:
+        each call to ``authorized_from_request`` passes ``kind=``. The signature
+        already makes the kind-less call a ``TypeError``; this names the population."""
+        import ast
+
+        calls: list[tuple[str, int, bool]] = []
+        for tree_root in (_RUNTIME, _RUNTIME.parent.parent / "src"):
+            for path in sorted(tree_root.rglob("*.py")):
+                if path.name == "grants.py" and path.parent.name == "http_api":
+                    continue
+                module = ast.parse(path.read_text(encoding="utf-8"))
+                # The reader under every name a module imports it as — an
+                # aliased import is the evasion merged-tree severing M34 found.
+                names = {"authorized_from_request"}
+                for node in ast.walk(module):
+                    if isinstance(node, ast.ImportFrom):
+                        names.update(alias.asname for alias in node.names if alias.name == "authorized_from_request" and alias.asname)
+                for node in ast.walk(module):
+                    if isinstance(node, ast.Call):
+                        name = node.func.attr if isinstance(node.func, ast.Attribute) else getattr(node.func, "id", None)
+                        if name in names:
+                            calls.append((str(path), node.lineno, any(k.arg == "kind" for k in node.keywords)))
+        assert len(calls) >= 20, calls
+        assert all(named for _, _, named in calls), [c for c in calls if not c[2]]
 
 
 # --- the tenant is SELECTED; the gate does not pick ----------------------------
@@ -602,6 +638,7 @@ def _genuine(kind: Any = HealthRead, action: str = ACTION_HEALTH_READ) -> Any:
 
 class TestAHandlerHoldsTheCapabilityOrNothing:
     def _refused(self, state: dict[str, Any], **kwargs: Any) -> HTTPException:
+        kwargs.setdefault("kind", HealthRead)  # the route's declared kind; the reader has no kind-less form (R6)
         with pytest.raises(HTTPException) as raised:
             authorized_from_request(
                 _bare_request(endpoint=_health_endpoint, state=state), **kwargs
@@ -639,7 +676,6 @@ class TestAHandlerHoldsTheCapabilityOrNothing:
     def test_a_genuine_capability_for_this_route_is_returned(self) -> None:
         capability = _genuine()
         request = _bare_request(endpoint=_health_endpoint, state={"authorized": capability})
-        assert authorized_from_request(request) is capability
         assert authorized_from_request(request, kind=HealthRead) is capability
 
     def test_a_handler_naming_the_wrong_kind_is_refused(self, echo: _Echo) -> None:

@@ -97,10 +97,13 @@ def build_router(deps: ApiDependencies) -> APIRouter:
     @authorizes(ACTION_AGENT_READ, resource=ResourceBinding.query("key"))
     def declaration(key: str, version: str, request: Request) -> Response:
         authorized = authorized_from_request(request, kind=AgentRead)
-        if not within_tenant(tenant=authorized.tenant, key=key):
-            raise absent_response(key, version)  # another tenant's key reads as absent (F-READ-04)
+        # One resource source (pre-merge check R11): the gate minted from this
+        # request's `key`; the handle reads the CAPABILITY's resource, and a
+        # parameter that differs from it is refused before the first read.
+        if key != authorized.resource or not within_tenant(tenant=authorized.tenant, key=authorized.resource):
+            raise absent_response(key, version)
         try:
-            artifact = deps.control_plane.resolve(key, version)
+            artifact = deps.control_plane.resolve(authorized.resource, version)
         except ControlPlaneMissing as absent:
             raise HTTPException(status_code=404, detail=str(absent)) from absent
         return canonical_response(AGENT_DEFINITION.validate(artifact))
@@ -113,8 +116,8 @@ def build_router(deps: ApiDependencies) -> APIRouter:
     @authorizes(ACTION_AGENT_VERSIONS, resource=ResourceBinding.query("key"))
     def versions(key: str, request: Request) -> list[str]:
         authorized = authorized_from_request(request, kind=AgentVersions)
-        if not within_tenant(tenant=authorized.tenant, key=key):
-            return []  # another tenant's key has no versions here, exactly like an absent one
-        return list(deps.control_plane.versions(key))
+        if key != authorized.resource or not within_tenant(tenant=authorized.tenant, key=authorized.resource):
+            return []  # a differing parameter or another tenant's key: no versions, exactly like an absent one
+        return list(deps.control_plane.versions(authorized.resource))
 
     return router

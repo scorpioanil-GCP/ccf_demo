@@ -40,7 +40,7 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
-from typing import Any, TypeVar, cast, overload
+from typing import TypeVar, cast, overload
 
 from fastapi import HTTPException, Request
 
@@ -110,28 +110,20 @@ def _no_capability(why: str) -> HTTPException:
     )
 
 
-@overload
-def authorized_from_request(request: Request) -> Authorized[ActionKind]: ...
-
-
-@overload
-def authorized_from_request(request: Request, *, kind: type[A]) -> Authorized[A]: ...
-
-
-def authorized_from_request(
-    request: Request, *, kind: type[ActionKind] | None = None
-) -> Authorized[Any]:
+def authorized_from_request(request: Request, *, kind: type[A]) -> Authorized[A]:
     """The capability the gate minted for this request — verified, or refuse.
 
     Args:
         request: The live request. The capability is read from
             ``request.state.authorized``; the route's declared action is read
             from the endpoint the router resolved (``scope["endpoint"]``).
-        kind: Optionally, the kind this handler performs. When given, the
-            capability must be of exactly that kind (by identity) and the
-            return is typed to it, so every handle call after this line is
-            held by ``mypy --strict`` (§1.4). When omitted the return is typed
-            to the marker base; the route's declared action is still enforced.
+        kind: The kind this handler performs — REQUIRED. The capability must be
+            of exactly that kind (by identity) and the return is typed to it, so
+            every handle call after this line is held by ``mypy --strict``
+            (§1.4). There is no kind-less form: a tenant-scoped governed read
+            is not callable without naming its operation (pre-merge check,
+            2026-09-25, residual R6 closed by construction), and the route's
+            declared action is enforced as well.
 
     Returns:
         The capability, unchanged. Never a copy: the object a handle later
@@ -175,12 +167,12 @@ def authorized_from_request(
                 f"the capability is for {claimed_kind.__name__} and this route"
                 f" declares {expected.__name__}"
             )
-    if kind is not None and claimed_kind is not kind:
+    if claimed_kind is not kind:
         raise _no_capability(
             f"the handler performs {kind.__name__} and the capability is for"
             f" {claimed_kind.__name__}"
         )
-    return cast(Authorized[Any], found)
+    return cast(Authorized[A], found)
 
 
 def within_tenant(*, tenant: str, key: str) -> bool:

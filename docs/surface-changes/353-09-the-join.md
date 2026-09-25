@@ -137,6 +137,7 @@ reconciling them — nothing a lane claimed in `353-01` … `353-08`.
 - Change type: behavior
 - Before: `declarations` listed every tenant's agent keys; `declaration` and `versions` served any key the caller named after the gate's allow
 - After: same signature; `declarations` lists the capability's tenant's keys; `declaration` of another tenant's key is the absent 404 (`absent`); `versions` of another tenant's key is `[]`
+- Also, pre-merge (R11): `declaration` and `versions` resolve the CAPABILITY's resource and refuse a `key` parameter that differs from it before the first read (pre-merge check R11)
 - Why: F-READ-01/-04 (see `within_tenant`)
 - Migration: none for a caller reading its own tenant
 
@@ -147,6 +148,7 @@ reconciling them — nothing a lane claimed in `353-01` … `353-08`.
 - Change type: behavior
 - Before: `keys` listed every tenant's keys in a class; `resolution` and `versions` served any key the caller named after the gate's allow
 - After: same signature; `keys` lists the capability's tenant's; `resolution` of another tenant's key is the absent 404 (`absent`); `versions` of another tenant's key is `[]`
+- Also, pre-merge (R11): `keys`, `versions` and `resolution` resolve the CAPABILITY's resource and refuse a parameter that differs from it before the first read (pre-merge check R11)
 - Why: F-READ-03/-04 (see `within_tenant`)
 - Migration: none for a caller reading its own tenant
 
@@ -239,6 +241,26 @@ reconciling them — nothing a lane claimed in `353-01` … `353-08`.
 - After: the union also names `Authorized[CompositionRegister]` — a deployment declaring a catalog entry at boot registers it under the composition kind
 - Why: see `CompositionRegister`
 - Migration: none
+
+## ccf_runtime.http_api.grants.authorized_from_request
+
+- Surface: ccf_runtime.http_api.grants.authorized_from_request
+- Public surface: true
+- Change type: reshaped
+- Before: `authorized_from_request(request, *, kind=None)` with a kind-less overload returning `Authorized[ActionKind]` — the route's declared action was still enforced, but a handler could hold a capability without naming the operation it performs
+- After: `authorized_from_request(request, *, kind: type[A]) -> Authorized[A]` — `kind` is required; there is no kind-less form, so no HTTP route, MCP route, HITL path, door or dereference can reach one, and every shipped caller names its kind (`tests/http_api/test_capability_gate.py::TestTheGateMints::test_every_shipped_caller_of_the_reader_names_its_kind`, an AST roster over `runtime/` and `src/`)
+- Why: pre-merge check (Dave, 2026-09-25), residual R6: a tenant-scoped governed read must not remain callable without a kind — closed by construction rather than by proof of non-use
+- Migration: pass `kind=<the route's declared kind>`; every shipped route already did
+
+## ccf_runtime.http_api.routes.workflow.build_router
+
+- Surface: ccf_runtime.http_api.routes.workflow.build_router
+- Public surface: true
+- Change type: behavior
+- Before: `execution` (status) read the state key `{capability tenant}/{execution_id}` with `execution_id` from the router's parse of the query string — the same value the gate minted from
+- After: same signature; `execution` resolves `{capability tenant}/{authorized.resource}` and refuses an `execution_id` parameter that differs from the capability's resource with the same 404 an absent execution gets
+- Why: pre-merge check (Dave, 2026-09-25), residual R11 — one resource source, held at the handle rather than argued from the parser; `tests/http_api/test_join_routes_under_the_capability.py::test_a_keyed_read_resolves_the_capabilitys_resource_and_a_differing_parameter_reads_nothing`
+- Migration: none for a wire caller
 
 ## ccf_runtime.http_api.grants.tenant_from_request
 

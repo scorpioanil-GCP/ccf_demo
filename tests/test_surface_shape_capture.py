@@ -819,6 +819,11 @@ _SHAPE_MOVED_BY_FRAGMENT = {
     "ccf.deployment.register_manifest_entries": (
         "353-09-the-join.md"
     ),
+    # Pre-merge check R6 (2026-09-25): the reader loses its kind-less overload;
+    # `kind` is a required keyword.
+    "ccf_runtime.http_api.grants.authorized_from_request": (
+        "353-09-the-join.md"
+    ),
 }
 
 

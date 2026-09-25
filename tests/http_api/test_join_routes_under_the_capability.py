@@ -35,6 +35,8 @@ from pathlib import Path
 from typing import Any
 
 import re
+
+from fastapi import HTTPException
 import pytest
 
 from ccf.agents.definitions import AGENT_DEFINITION, PROMPT_ARTIFACT
@@ -733,3 +735,71 @@ def test_a_read_after_an_allow_sees_only_the_capabilitys_tenant(tmp_path: Path) 
     assert not [
         event for event in registry.audit_events()[events_before:] if event.key == agent_keys[other]
     ], "the foreign key was never resolved"
+
+
+def test_a_keyed_read_resolves_the_capabilitys_resource_and_a_differing_parameter_reads_nothing(
+    tmp_path: Path,
+) -> None:
+    """Pre-merge check R11, the wrong-resource negative control.
+
+    On the wire the gate mints from the request's own `key` (one query value,
+    read once off the scope, refused unless exactly one) and the router parses
+    the same bytes with the same stdlib decoder, so X and Y cannot differ. The
+    handle does not rely on that: it resolves the CAPABILITY's resource, and a
+    parameter that differs from it is refused before the first read. This
+    calls the endpoints directly with a capability for one key and a parameter
+    naming another — a state no wire request can produce — and asserts nothing
+    is read.
+    """
+    from starlette.requests import Request
+
+    from ccf.authz.capability import AgentRead, ConfigResolve, ConfigVersionsRead, WorkflowStatusRead
+    from tests.controlplane.capabilities import capability
+
+    registry = ControlPlaneRegistry()
+    store = deployment_store(tmp_path / "store", REPLAY_RECORD_CLASS)
+    mine = f"{TENANT}/{PRODUCT_ENTITLEMENT_POLICY.class_id}/mine"
+    other = f"{TENANT}/{PRODUCT_ENTITLEMENT_POLICY.class_id}/other"
+    for key in (mine, other):
+        register_typed_at_composition(
+            registry,
+            key,
+            ProductEntitlementPolicy(
+                tenant_id=TENANT,
+                policy_version="1.0.0",
+                principals={CLIENT: ProductEntitlementGrant(permitted_schema_names=frozenset({"x"}), permitted_roles=frozenset({ROLE}))},
+            ),
+            PRODUCT_ENTITLEMENT_POLICY,
+        )
+    version = registry.versions(mine)[0]
+    app = create_app(_deps(registry, store), **_seams_over(tmp_path, _recorder_over(store, registry)))
+    endpoints: dict[str, Any] = {}
+    for route in app.routes:
+        included = getattr(route, "original_router", None)
+        if included is not None:
+            prefix = getattr(getattr(route, "include_context", None), "prefix", "")
+            for sub in included.routes:
+                if hasattr(sub, "endpoint"):
+                    endpoints[prefix + sub.path] = sub.endpoint
+        elif hasattr(route, "endpoint"):
+            endpoints[route.path] = route.endpoint
+
+    def request_holding(kind: Any, resource: str, path: str) -> Request:
+        held = capability(kind, tenant=TENANT, resource=resource, principal=CLIENT)
+        return Request({"type": "http", "method": "GET", "path": path, "headers": [], "query_string": b"", "endpoint": endpoints[path], "state": {"authorized": held}, "app": app})
+
+    before = len(registry.audit_events())
+    # The parameter names `other`; the capability is for `mine`: nothing is read.
+    with pytest.raises(HTTPException) as refused:
+        endpoints["/config/resolution"](key=other, version=version, request=request_holding(ConfigResolve, mine, "/config/resolution"))
+    assert refused.value.status_code == 404
+    assert endpoints["/config/versions"](key=other, request=request_holding(ConfigVersionsRead, mine, "/config/versions")) == []
+    with pytest.raises(HTTPException):
+        endpoints["/agent/declaration"](key=other, version=version, request=request_holding(AgentRead, mine, "/agent/declaration"))
+    with pytest.raises(HTTPException) as absent_execution:
+        endpoints["/workflow/execution"](execution_id="other", request=request_holding(WorkflowStatusRead, "mine", "/workflow/execution"))
+    assert absent_execution.value.status_code == 404
+    assert [e for e in registry.audit_events()[before:] if e.action == "resolve"] == [], "no key was resolved"
+    # The parameter names the capability's own key: the read is served.
+    served = endpoints["/config/resolution"](key=mine, version=version, request=request_holding(ConfigResolve, mine, "/config/resolution"))
+    assert served.status_code == 200

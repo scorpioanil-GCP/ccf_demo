@@ -98,10 +98,12 @@ def build_router(deps: ApiDependencies) -> APIRouter:
     )
     def keys(class_id: str, request: Request) -> list[str]:
         authorized = authorized_from_request(request, kind=ConfigKeysRead)
+        if class_id != authorized.resource:
+            return []  # one resource source (R11): the class the gate minted for, or nothing
         # The capability's tenant's keys, and no other tenant's (F-READ-03).
         return [
             key
-            for key in deps.control_plane.keys_of_class(class_id)
+            for key in deps.control_plane.keys_of_class(authorized.resource)
             if within_tenant(tenant=authorized.tenant, key=key)
         ]
 
@@ -115,18 +117,21 @@ def build_router(deps: ApiDependencies) -> APIRouter:
     )
     def versions(key: str, request: Request) -> list[str]:
         authorized = authorized_from_request(request, kind=ConfigVersionsRead)
-        if not within_tenant(tenant=authorized.tenant, key=key):
-            return []  # another tenant's key has no versions here, exactly like an absent one
-        return list(deps.control_plane.versions(key))
+        if key != authorized.resource or not within_tenant(tenant=authorized.tenant, key=authorized.resource):
+            return []  # a differing parameter or another tenant's key: no versions, exactly like an absent one
+        return list(deps.control_plane.versions(authorized.resource))
 
     @router.get("/resolution", summary="Config resolve (D-IMPL-23)")
     @authorizes(ACTION_CONFIG_RESOLVE, resource=ResourceBinding.query("key"))
     def resolution(key: str, version: str, request: Request) -> Response:
         authorized = authorized_from_request(request, kind=ConfigResolve)
-        if not within_tenant(tenant=authorized.tenant, key=key):
-            raise absent_response(key, version)  # another tenant's key reads as absent (F-READ-04)
+        # One resource source (pre-merge check R11): the gate minted from this
+        # request's `key`; the handle reads the CAPABILITY's resource, and a
+        # parameter that differs from it is refused before the first read.
+        if key != authorized.resource or not within_tenant(tenant=authorized.tenant, key=authorized.resource):
+            raise absent_response(key, version)
         try:
-            artifact = deps.control_plane.resolve(key, version)
+            artifact = deps.control_plane.resolve(authorized.resource, version)
         except ControlPlaneMissing as absent:
             raise HTTPException(status_code=404, detail=str(absent)) from absent
         return canonical_response(artifact)
