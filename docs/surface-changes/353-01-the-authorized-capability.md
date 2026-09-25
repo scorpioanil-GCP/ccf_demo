@@ -1077,3 +1077,63 @@ spelling to the definer and treats the shim as a mint site in neither.
 - After: a named re-export of `ccf.authz.capability.COMPOSITION_KINDS`
 - Why: runtime callers reach the capability through the runtime package (`D-29`)
 - Migration: none
+
+## ccf.authz.capability.COMPOSITION_PRINCIPAL
+
+- Surface: ccf.authz.capability.COMPOSITION_PRINCIPAL
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the principal every composition root mints under (`ccf.composition-root`) — SDK wire vocabulary, naming no tenant and no person
+- Why: `D-IMPL-354`: one spelling for the composition principal across the composition roots
+- Migration: none
+
+## ccf.authz.capability.verify_any
+
+- Surface: ccf.authz.capability.verify_any
+- Public surface: true
+- Change type: added
+- Before: absent (Lane HANDLES defined it in `ccf.controlplane.state`)
+- After: verify against whichever of a tuple of kinds the capability was minted for; lives in the definer, the one module where an `object`-typed verifier is by design
+- Why: the §4 lint exempts `object`-typed verification in the definer only; a verifier belongs there
+- Migration: none; `ccf.controlplane.state.verify_any` still resolves to it
+
+## ccf_runtime.authz.capability.COMPOSITION_PRINCIPAL
+
+- Surface: ccf_runtime.authz.capability.COMPOSITION_PRINCIPAL
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a named re-export of `ccf.authz.capability.COMPOSITION_PRINCIPAL`
+- Why: runtime callers reach the capability through the runtime package (`D-29`)
+- Migration: none
+
+## ccf_runtime.authz.capability.verify_any
+
+- Surface: ccf_runtime.authz.capability.verify_any
+- Public surface: true
+- Change type: added
+- Before: absent (Lane HANDLES defined it in `ccf.controlplane.state`)
+- After: a named re-export of `ccf.authz.capability.verify_any`
+- Why: runtime callers reach the capability through the runtime package (`D-29`)
+- Migration: none; `ccf.controlplane.state.verify_any` still resolves to it
+
+## ccf.controlplane.audit.AuditEvent
+
+- Surface: ccf.controlplane.audit.AuditEvent
+- Public surface: true
+- Change type: reshaped
+- Before: `action: AuditAction` admitted the registration, resolution, grant and peering actions
+- After: `AuditAction` also admits `"composition"` — the event a composition root appends before it mints (`D-IMPL-354`), whose content hash is the capability's `decision_id`
+- Why: a composition mint must be recorded on the Control Plane audit log by the caller, and the log's action vocabulary is closed
+- Migration: none; every existing action is unchanged
+
+## ccf.controlplane.registry.AuditEvent
+
+- Surface: ccf.controlplane.registry.AuditEvent
+- Public surface: true
+- Change type: reshaped
+- Before: `action: AuditAction` admitted the registration, resolution, grant and peering actions
+- After: `AuditAction` also admits `"composition"` — the event a composition root appends before it mints (`D-IMPL-354`), whose content hash is the capability's `decision_id`
+- Why: a composition mint must be recorded on the Control Plane audit log by the caller, and the log's action vocabulary is closed
+- Migration: none; every existing action is unchanged

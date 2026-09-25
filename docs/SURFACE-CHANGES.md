@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1676 entries**, of which **1421** name a public Python surface.
+**1682 entries**, of which **1427** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-976 entries — 934 public Python surface, 42 not public Python API.
+980 entries — 938 public Python surface, 42 not public Python API.
 
 ### Public Python surface
 
@@ -14254,6 +14254,54 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `353-01-the-authorized-capability.md`.*
 
+#### ccf.authz.capability.COMPOSITION_PRINCIPAL
+
+- Surface: ccf.authz.capability.COMPOSITION_PRINCIPAL
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the principal every composition root mints under (`ccf.composition-root`) — SDK wire vocabulary, naming no tenant and no person
+- Why: `D-IMPL-354`: one spelling for the composition principal across the composition roots
+- Migration: none
+
+*Recorded by `353-01-the-authorized-capability.md`.*
+
+#### ccf.authz.capability.verify_any
+
+- Surface: ccf.authz.capability.verify_any
+- Public surface: true
+- Change type: added
+- Before: absent (Lane HANDLES defined it in `ccf.controlplane.state`)
+- After: verify against whichever of a tuple of kinds the capability was minted for; lives in the definer, the one module where an `object`-typed verifier is by design
+- Why: the §4 lint exempts `object`-typed verification in the definer only; a verifier belongs there
+- Migration: none; `ccf.controlplane.state.verify_any` still resolves to it
+
+*Recorded by `353-01-the-authorized-capability.md`.*
+
+#### ccf_runtime.authz.capability.COMPOSITION_PRINCIPAL
+
+- Surface: ccf_runtime.authz.capability.COMPOSITION_PRINCIPAL
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a named re-export of `ccf.authz.capability.COMPOSITION_PRINCIPAL`
+- Why: runtime callers reach the capability through the runtime package (`D-29`)
+- Migration: none
+
+*Recorded by `353-01-the-authorized-capability.md`.*
+
+#### ccf_runtime.authz.capability.verify_any
+
+- Surface: ccf_runtime.authz.capability.verify_any
+- Public surface: true
+- Change type: added
+- Before: absent (Lane HANDLES defined it in `ccf.controlplane.state`)
+- After: a named re-export of `ccf.authz.capability.verify_any`
+- Why: runtime callers reach the capability through the runtime package (`D-29`)
+- Migration: none; `ccf.controlplane.state.verify_any` still resolves to it
+
+*Recorded by `353-01-the-authorized-capability.md`.*
+
 #### ccf_runtime.authz.tenancy.tenants_of_grant
 
 - Surface: ccf_runtime.authz.tenancy.tenants_of_grant
@@ -15819,7 +15867,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-471 entries — 285 public Python surface, 186 not public Python API.
+473 entries — 287 public Python surface, 186 not public Python API.
 
 ### Public Python surface
 
@@ -20786,6 +20834,30 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Migration: a token source supplies tenants; the dev `FileTokenSource` mints none, so every door refuses its grant
 
 *Recorded by `350-05-default-deny-at-every-door.md`.*
+
+#### ccf.controlplane.audit.AuditEvent
+
+- Surface: ccf.controlplane.audit.AuditEvent
+- Public surface: true
+- Change type: reshaped
+- Before: `action: AuditAction` admitted the registration, resolution, grant and peering actions
+- After: `AuditAction` also admits `"composition"` — the event a composition root appends before it mints (`D-IMPL-354`), whose content hash is the capability's `decision_id`
+- Why: a composition mint must be recorded on the Control Plane audit log by the caller, and the log's action vocabulary is closed
+- Migration: none; every existing action is unchanged
+
+*Recorded by `353-01-the-authorized-capability.md`.*
+
+#### ccf.controlplane.registry.AuditEvent
+
+- Surface: ccf.controlplane.registry.AuditEvent
+- Public surface: true
+- Change type: reshaped
+- Before: `action: AuditAction` admitted the registration, resolution, grant and peering actions
+- After: `AuditAction` also admits `"composition"` — the event a composition root appends before it mints (`D-IMPL-354`), whose content hash is the capability's `decision_id`
+- Why: a composition mint must be recorded on the Control Plane audit log by the caller, and the log's action vocabulary is closed
+- Migration: none; every existing action is unchanged
+
+*Recorded by `353-01-the-authorized-capability.md`.*
 
 #### ccf_runtime.http_api.gate.AuthorizationGate
 
