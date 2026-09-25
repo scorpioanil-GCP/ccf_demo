@@ -39,7 +39,8 @@ import argparse
 import asyncio
 import os
 import sys
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
+from typing import TYPE_CHECKING
 from pathlib import Path
 
 import httpx
@@ -65,6 +66,9 @@ from ccf_runtime.cli.credential import (
     resolve_remote_credential,
 )
 from ccf_runtime.http_api.dependencies import ApiDependencies
+
+if TYPE_CHECKING:
+    from ccf_runtime.http_api.app import HttpAuthority
 
 __ccf_mode__ = "algorithmic"
 
@@ -198,7 +202,7 @@ def main(
     argv: Sequence[str] | None = None,
     *,
     dependencies: ApiDependencies | None = None,
-    authority: Mapping[str, object] | None = None,
+    authority: HttpAuthority | None = None,
     credential: SecretStr | None = None,
 ) -> int:
     """Parse, translate, and execute one CLI invocation.
@@ -208,8 +212,10 @@ def main(
         dependencies: Optional injected bundle (tests; embedding). When
             supplied, the command runs in-process over these handles —
             the same type ``create_app`` consumes.
-        authority: The five seams ``create_app`` requires, as one keyword
-            bundle, for the in-process path. **Required whenever
+        authority: The five seams ``create_app`` requires, as one
+            :class:`~ccf_runtime.http_api.app.HttpAuthority` bundle, for
+            the in-process path — typed, so an incomplete bundle is a
+            type error where it is written. **Required whenever
             ``dependencies`` is supplied**: the gate has no arm in which
             authentication is skipped (``SEC-002``), so an in-process app
             is built with a real authority or not at all. There is no
@@ -252,7 +258,7 @@ def main(
             from ccf_runtime.http_api.app import create_app
 
             transport = httpx.ASGITransport(
-                app=create_app(dependencies, **authority)  # type: ignore[arg-type]
+                app=create_app(dependencies, **authority)
             )
             base_url = _LOCAL_BASE
             try:

@@ -53,6 +53,8 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
+from typing import TypedDict
+
 from fastapi import FastAPI
 
 from ccf.products.resolver import RefusalRecorderProtocol
@@ -93,7 +95,7 @@ from ccf_runtime.http_api.routes import (
 
 __ccf_mode__ = "algorithmic"
 
-__all__ = ["AUTH_POSTURE_SENTENCE", "create_app"]
+__all__ = ["AUTH_POSTURE_SENTENCE", "HttpAuthority", "create_app"]
 
 #: What the surface is, mechanism only (CINV-01 — no deployment vocabulary).
 _MECHANISM_LINE = (
@@ -114,6 +116,29 @@ AUTH_POSTURE_SENTENCE = (
     " what each action reaches is the deployment's own versioned scope"
     " mapping rather than any default this API ships."
 )
+
+
+class HttpAuthority(TypedDict):
+    """The five seams :func:`create_app` requires, as one typed bundle.
+
+    For embedders that build the app somewhere other than a deployment's own
+    composition — the CLI's in-process leg (:func:`ccf_runtime.cli.main.main`),
+    a test fixture — and hand the seams along as a unit. Every key is required
+    and every value type is the seam's own, so a bundle missing a seam is a
+    type error where the bundle is written, and ``**bundle`` at
+    :func:`create_app` is checked key by key. This replaces the one call site
+    that carried ``# type: ignore[arg-type]`` over an untyped mapping
+    (``D-IMPL-353`` §4 rule 6).
+    ``tests/cli/test_authority_bundle.py::test_the_bundle_names_exactly_create_apps_keyword_seams``
+    holds the keys and types equal to :func:`create_app`'s keyword seams, so
+    the two cannot drift apart.
+    """
+
+    auth: HttpAuthProtocol
+    authorizer: TenantAuthorizerProtocol
+    product_entitlement: ProductEntitlementSourceProtocol
+    perspective_resolver: PerspectiveResolverProtocol
+    refusal_recorder: RefusalRecorderProtocol
 
 
 def create_app(
