@@ -135,8 +135,8 @@ BEFORE_BOUNDARY = BOUNDARY - timedelta(days=1)
 #: the policy id each artifact carries. Key and policy id are deliberately
 #: different strings, so a test that confused them fails rather than passing by
 #: coincidence.
-KEY_EARLY = "fixture/policy_constraints/early"
-KEY_LATE = "fixture/policy_constraints/late"
+KEY_EARLY = "tenant-fixture/policy_constraints/early"
+KEY_LATE = "tenant-fixture/policy_constraints/late"
 POLICY_EARLY = "early"
 POLICY_LATE = "late"
 
@@ -151,7 +151,7 @@ CALLER_TOLERANCE = Decimal("0.30")
 #: The key the version control registers a threshold ceiling under, and the two
 #: values it is registered at. A changed value is a changed content address, so
 #: the second registration is a new VERSION of the same key.
-KEY_THRESHOLD = "fixture/policy_constraints/threshold"
+KEY_THRESHOLD = "tenant-fixture/policy_constraints/threshold"
 POLICY_THRESHOLD = "threshold"
 THRESHOLD_MAXIMUM_FIRST = Decimal(500)
 THRESHOLD_MAXIMUM_SECOND = Decimal(400)
@@ -174,8 +174,8 @@ BACKEND_IDENTITY = "fixture-backend"
 #: The two admitted sets whose intersection is empty — the deployment's own
 #: Control Plane contradicting itself, which is a governed
 #: ``policy-resolution-conflict`` rather than a silent pick.
-KEY_SET_A = "fixture/policy_constraints/set_a"
-KEY_SET_B = "fixture/policy_constraints/set_b"
+KEY_SET_A = "tenant-fixture/policy_constraints/set_a"
+KEY_SET_B = "tenant-fixture/policy_constraints/set_b"
 POLICY_SET_A = "set-a"
 POLICY_SET_B = "set-b"
 ADMITTED_A = ("alpha",)

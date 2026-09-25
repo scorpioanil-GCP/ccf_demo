@@ -111,7 +111,7 @@ def _config_document(**overrides: Any) -> dict[str, Any]:
             "schema_version": "1.0.0",
             "ttl_anchor": "from_decision",
             "assembly_mode": "algorithmic",
-            "max_ttl_key": "fixture/max-ttl",
+            "max_ttl_key": "tenant-fixture/max-ttl",
             "required_operator_keys": [],
         },
         "resolution": {"entity_rules": [dict(_RESOLUTION_RULE)]},
@@ -309,7 +309,7 @@ def _servable_config(**overrides: Any) -> dict[str, Any]:
             "schema_version": PRODUCT_VERSION,
             "ttl_anchor": "from_decision",
             "assembly_mode": "algorithmic",
-            "max_ttl_key": "fixture/max-ttl",
+            "max_ttl_key": "tenant-fixture/max-ttl",
             "required_operator_keys": [OPERATOR_ID],
         },
         "operators": {
@@ -471,15 +471,17 @@ def _resolver_arguments(booted: _Booted, **overrides: Any) -> dict[str, Any]:
     arguments: dict[str, Any] = {
         "fabric": booted.fabric,
         "control_plane": booted.control_plane,
-        "product_class_key": "product_class",
-        "request_contract_key": "request_contract",
-        "operator_parameter_keys": (OPERATOR_ID,),
-        "policy_bundle_key": "policy",
+        # The loader placed every derived key under the tenant (D-IMPL-354);
+        # the resolver resolves the same strings.
+        "product_class_key": f"{TENANT}/product_class",
+        "request_contract_key": f"{TENANT}/request_contract",
+        "operator_parameter_keys": (f"{TENANT}/{OPERATOR_ID}",),
+        "policy_bundle_key": f"{TENANT}/policy",
         "plan_factory": _plan_factory,
         "max_ttl_seconds": MAX_TTL_SECONDS,
         "product_ttl_seconds": PRODUCT_TTL_SECONDS,
-        "half_life_key": "half_life",
-        "debt_profile_key": "debt_profile",
+        "half_life_key": f"{TENANT}/half_life",
+        "debt_profile_key": f"{TENANT}/debt_profile",
         "declared_completeness": Decimal("1"),
         "declared_semantic_consistency": Decimal("1"),
     }
@@ -517,7 +519,7 @@ def test_the_replay_section_boots_and_the_binding_is_readable(
     """The honest subject, first. cp-05 measured this exact section refused by
     name; here it boots, and the parsed binding is on the fabric under the key
     the section name derives."""
-    binding = declared.fabric.artifacts["replay"]
+    binding = declared.fabric.artifacts[f"{TENANT}/replay"]
 
     assert isinstance(binding, ReplayBinding), binding
     assert binding.record_class == CP05_RECORD_CLASS

@@ -214,7 +214,7 @@ def test_the_governed_resolution_computes_over_the_decoded_number() -> None:
         request=_asked(LEXICAL),
         declared=_declared(),
         declared_source=ProvenanceSource(
-            kind="artifact", identity="fixture/request-contract", version="1.0.0"
+            kind="artifact", identity="tenant-fixture/request-contract", version="1.0.0"
         ),
         constraints=(),
         capabilities=(),

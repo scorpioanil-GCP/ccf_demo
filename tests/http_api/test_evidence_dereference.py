@@ -773,10 +773,12 @@ def test_c19_the_level_is_read_through_the_recorder_not_the_source(
     )
 
     door = _governed(fabric, tmp_path)
-    default_reader = ReplayRefusalRecorder(
-        artifact_store=fabric.store,
+    # The recorder holds the composition-minted ReplayMint for its class (D-IMPL-354).
+    default_reader = refusal_recorder(
+        fabric.registry,
+        store=fabric.store,
+        tenant=door.tenant,
         replay_record_class=REPLAY_RECORD_CLASS,
-        tenant_id=door.tenant,
         assembly_mode="algorithmic",
         policy_bundle_pin=None,
     )

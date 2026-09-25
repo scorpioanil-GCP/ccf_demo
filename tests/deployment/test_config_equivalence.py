@@ -108,13 +108,18 @@ _POLICY_CLASS_ID = "fixture.equivalence-policy-bundle"
 #: multi-file manifest below declares its `artifacts:` in this same order, so
 #: the two `ResolvedPins.entries` tuples compare equal position for position,
 #: not merely as sets.
-_KEY_ORDER = (
-    "product_class",
-    "temporal.as-of-boundary",
-    "resolution",
-    "half_life",
-    "policy",
-    "default_perspective",
+# Every derived key lives under the deployment's tenant (D-IMPL-354): the loader
+# places a bare section key there before it mints, registers or composes.
+_KEY_ORDER = tuple(
+    f"{TENANT}/{name}"
+    for name in (
+        "product_class",
+        "temporal.as-of-boundary",
+        "resolution",
+        "half_life",
+        "policy",
+        "default_perspective",
+    )
 )
 
 
@@ -339,6 +344,6 @@ def test_perturbing_the_single_file_form_moves_exactly_one_pin(
     differing = {
         key for key in _KEY_ORDER if baseline_pins[key] != perturbed_pins[key]
     }
-    assert differing == {"half_life"}, (
-        f"expected exactly {{'half_life'}} to differ; got {sorted(differing)}"
+    assert differing == {f"{TENANT}/half_life"}, (
+        f"expected exactly the tenant's half_life key to differ; got {sorted(differing)}"
     )

@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1682 entries**, of which **1427** name a public Python surface.
+**1712 entries**, of which **1454** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-980 entries — 938 public Python surface, 42 not public Python API.
+987 entries — 944 public Python surface, 43 not public Python API.
 
 ### Public Python surface
 
@@ -15096,6 +15096,42 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `353-06-the-approval-record-is-server-attested.md`.*
 
+#### ccf.products.child_resolver.QuestionRetentionUnauthorized
+
+- Surface: ccf.products.child_resolver.QuestionRetentionUnauthorized
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `PermissionError` raised at construction when the capability's tenant is not the gate's
+- Why: §1.3 — one consumer tenant, compared once
+- Migration: none
+
+*Recorded by `353-07-the-composition-roots-mint-for-their-own-writes.md`.*
+
+#### ccf.products.resolver.UndeclaredMechanismClass
+
+- Surface: ccf.products.resolver.UndeclaredMechanismClass
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `TypeError` raised by `GovernedResolver.__post_init__` and `ReplayRefusalRecorder.__post_init__` when the store does not declare a class the resolver/recorder writes under `ReplayMint`
+- Why: fail closed at construction rather than at the first governed write
+- Migration: declare the class on the store's `WriteKinds`
+
+*Recorded by `353-07-the-composition-roots-mint-for-their-own-writes.md`.*
+
+#### ccf.products.product.GrantNotInForce
+
+- Surface: ccf.products.product.GrantNotInForce
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `PermissionError` raised by `open_product`'s derived chain naming the declared skills not granted to the composing agent on this Control Plane
+- Why: above
+- Migration: none
+
+*Recorded by `353-07-the-composition-roots-mint-for-their-own-writes.md`.*
+
 #### ccf_runtime.authz.delivery_boundary.EVIDENCE_READ_KINDS
 
 - Surface: ccf_runtime.authz.delivery_boundary.EVIDENCE_READ_KINDS
@@ -15179,6 +15215,42 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Migration: none for `FileArtifactStore`; a deployment's own substrate carries the two members
 
 *Recorded by `353-08-the-runtime-callers-hold-the-capability.md`.*
+
+#### ccf.controlplane.registry.namespaced_key
+
+- Surface: ccf.controlplane.registry.namespaced_key
+- Public surface: true
+- Change type: added
+- Before: absent — the config loader derived bare section keys (`product_class`, `policy`, `half_life`, `policy_constraints.<label>`) and the binding document named them the same way; under the `{tenant}/{class}[/{name}]` grammar the registry enforces (§1.3) a bare key belongs to nobody and, once every registration required a capability, could not be registered at all
+- After: `namespaced_key(*, tenant, key)` — the one derivation that CONFINES a deployment's key to its resolved tenant: a key already under `{tenant}/` is returned unchanged; every other key, bare or prefixed, is placed under it (`{tenant}/{key}`). Applied through `src/ccf/deployment/manifest.py::manifest_under_tenant` (manifest entries, the two boot keys, the parsed-artifact mapping, the resolver's `DeploymentKeys`) by the loader (`src/ccf/deployment/manifest.py::_register_and_boot`) and by the consumer chain `open_product` derives (`src/ccf/products/product.py::_derive_consumer_chain`), and in `src/ccf/client/adapters/inprocess.py::_boot` for the binding document's keys. Confinement rather than refusal because a section label may legitimately contain `/` (a policy constraint named by a path), so a leading segment is not evidence of an author's tenant claim; a deployment composed through the loader can never register outside its own tenant, and the audit log shows the confined key
+- Why: `D-IMPL-354`: the loader is SDK mechanism, not an example; the grammar is the security invariant, so the loader adapts to it rather than the registry admitting tenant-less keys (which would let two tenants collide on one bare name). Direct callers of `register_manifest_entries` place their keys with `manifest_under_tenant` first; the register loop and the door handles keep the registry's own tenant-segment check
+- Migration: none for a deployment that names bare keys — they are placed under its tenant; a deployment that authored keys under another prefix finds them under `{tenant}/{prefix}/…`, never under the other prefix
+
+*Recorded by `353-09-the-join.md`.*
+
+#### ccf.deployment.manifest.manifest_under_tenant
+
+- Surface: ccf.deployment.manifest.manifest_under_tenant
+- Public surface: true
+- Change type: added
+- Before: absent — `register_manifest_entries` was handed a derived manifest whose keys were the bare section names, and the registry (before §1.3) admitted them
+- After: `manifest_under_tenant(manifest, parsed, keys, *, tenant) -> (manifest, parsed, keys)` — applies `namespaced_key` to a derived manifest's entries and its two boot keys, to the parsed-artifact mapping keyed by those entries, and to the resolver's `DeploymentKeys` (`None` passes through), so the key an artifact is registered under and the key the resolver later reads are the same string by construction. Called by `src/ccf/deployment/manifest.py::_register_and_boot` and `src/ccf/products/product.py::_derive_consumer_chain`; a direct caller of `register_manifest_entries` (a test standing in for a deployment; `examples/cp-20-syndicated-lending-co-lender/deployment.py`, frozen under `D-IMPL-261` and recorded in its gap ledger) calls it before the loop, because the loop admits only keys already under a tenant
+- Why: `D-IMPL-354`: one placement, applied at every composition root that hands a derived manifest to the register loop, rather than the loop guessing a tenant from a key segment
+- Migration: a caller holding a `DerivedDeployment` and a resolved tenant calls `manifest_under_tenant(derived.manifest, parsed, derived.keys, tenant=<tenant>)` and registers the returned manifest and mapping; the returned `DeploymentKeys` are the strings to resolve by
+
+*Recorded by `353-09-the-join.md`.*
+
+#### ccf.deployment.manifest.keys_under_tenant
+
+- Surface: ccf.deployment.manifest.keys_under_tenant
+- Public surface: true
+- Change type: added
+- Before: absent — a `DeploymentKeys` record held the bare section names the derivation produced, and every consumer of it read the Control Plane by those strings
+- After: `keys_under_tenant(keys, *, tenant) -> DeploymentKeys` — every `str` field and every member of every `tuple` field through `namespaced_key`, `None` kept; idempotent for keys already under the tenant. `manifest_under_tenant` applies it to the keys it returns; `src/ccf/products/product.py::open_product` computes it once and exposes the result as `OpenedProduct.keys`
+- Why: `D-IMPL-354`: the keys a product exposes, pins and resolves by must be the strings the loader registered — one derivation, applied where the record is handed out rather than re-derived by every reader
+- Migration: a caller holding derived `DeploymentKeys` and a resolved tenant calls `keys_under_tenant(keys, tenant=<tenant>)` before reading the Control Plane by them
+
+*Recorded by `353-09-the-join.md`.*
 
 ### Not public Python API
 
@@ -15863,11 +15935,23 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `24.6-16-the-experience-server-entitles-through-the-governed-step.md`.*
 
+#### ccf.controlplane.invalidation.InvalidationUnauthorized
+
+- Surface: ccf.controlplane.invalidation.InvalidationUnauthorized
+- Public surface: false
+- Change type: added
+- Before: absent
+- After: `PermissionError` raised by the sink at construction (duplicate or no capability) and at `record` (a tenant the fabric was not composed for)
+- Why: a supersession the fabric has no authority to record is refused, typed, never skipped
+- Migration: none
+
+*Recorded by `353-07-the-composition-roots-mint-for-their-own-writes.md`.*
+
 ## Reshaped
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-473 entries — 287 public Python surface, 186 not public Python API.
+479 entries — 292 public Python surface, 187 not public Python API.
 
 ### Public Python surface
 
@@ -21159,6 +21243,54 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `353-06-the-approval-record-is-server-attested.md`.*
 
+#### ccf.boot.boot
+
+- Surface: ccf.boot.boot
+- Public surface: true
+- Change type: reshaped
+- Before: `boot(*, backend, connection=None, secrets=None, registry, resolution_spec_key, resolution_spec_version, policy_bundle_key, policy_bundle_version)`
+- After: `boot(*, backend, connection=None, secrets=None, registry, resolution_spec_key, resolution_spec_version, policy_bundle_key, policy_bundle_version, tenant_ids: Sequence[str])` — required, non-empty, distinct; for each tenant the root mints `Register` for `register_key(tenant)` through the recipe (one `composition` event per tenant on `registry.audit_log`) and hands the capabilities to the writer's `ControlPlaneInvalidationSink`
+- Why: D-IMPL-354 — the sink is not a composition root and may hold only what its composer minted; the composer can mint only for tenants it knows
+- Migration: pass the tenants the fabric ingests and supersedes under; `load_and_boot` passes its resolved tenant. A supersession under a tenant not named is refused by the sink (`InvalidationUnauthorized`), never filed under a fallback
+
+*Recorded by `353-07-the-composition-roots-mint-for-their-own-writes.md`.*
+
+#### ccf.peering.admission.PeeringAdmissionGate
+
+- Surface: ccf.peering.admission.PeeringAdmissionGate
+- Public surface: true
+- Change type: reshaped
+- Before: `PeeringAdmissionGate(*, identity, control_plane, audit_log, artifact_store, tenant_id, trust_policy_version, payload_ceiling_version, product_classes)`; persisted the admission record with `put(tenant_id=..., artifact_class=..., name=..., artifact=...)`
+- After: `PeeringAdmissionGate(*, identity, control_plane, audit_log, artifact_store, authorized: Authorized[ReplayMint], trust_policy_version, payload_ceiling_version, product_classes)` — first statement `verify(authorized, kind=ReplayMint, resource=ADMISSION_RECORD.class_id)`; **the tenant the gate admits for IS `authorized.tenant`** (`tenant_id` deleted); the record is a `DerivedWrite` under the capability
+- Why: §1.2 (the handle's caller holds the capability for its own evidence class), §1.3 (no second source for the tenant); the gate is not a composition root
+- Migration: the deployment composing the gate mints `ReplayMint` for `ADMISSION_RECORD.class_id` under the admitting tenant (tests: `tests/composition.py::composition_replay_mint`) and declares that class on the store's `WriteKinds`
+
+*Recorded by `353-07-the-composition-roots-mint-for-their-own-writes.md`.*
+
+#### ccf.products.child_resolver.QuestionBoundChildResolver
+
+- Surface: ccf.products.child_resolver.QuestionBoundChildResolver
+- Public surface: true
+- Change type: reshaped
+- Before: `QuestionBoundChildResolver(*, ledger, agent_definition_hash, gate, child_questions, callable_registry, artifact_store, mcp_skills=None, peering_skills=None, peering_gate=None, child_arguments=None)`; retained each question with `put(tenant_id=gate.tenant_id, artifact_class=CHILD_QUESTION_CLASS, ...)`
+- After: adds `authorized: Authorized[ReplayMint]` (keyword, required): verified at construction against exactly `CHILD_QUESTION_CLASS`, its tenant held equal to `gate.tenant_id` once (`QuestionRetentionUnauthorized`); the question is a `DerivedWrite` under it
+- Why: §1.2 / §2 P3 — the resolver is not a composition root and receives the evidence-class capability its composer minted
+- Migration: `open_product` mints and passes it; a `build_children=` factory or a hand composition mints `ReplayMint` for `CHILD_QUESTION_CLASS` under the consumer tenant
+
+*Recorded by `353-07-the-composition-roots-mint-for-their-own-writes.md`.*
+
+#### ccf.products.resolver.ReplayRefusalRecorder
+
+- Surface: ccf.products.resolver.ReplayRefusalRecorder
+- Public surface: true
+- Change type: reshaped
+- Before: `ReplayRefusalRecorder(*, artifact_store, replay_record_class, tenant_id, assembly_mode, policy_bundle_pin=None, disclosure_level_for=<factory>)`
+- After: `ReplayRefusalRecorder(*, authorized: Authorized[ReplayMint], artifact_store, assembly_mode, policy_bundle_pin=None, disclosure_level_for=<factory>)` — `replay_record_class` and `tenant_id` are read-only properties of the capability (its resource, its tenant); verified at construction, and the store must declare the class (`UndeclaredMechanismClass`)
+- Why: §1.2, §1.3 — no second source for the class or the tenant; the recorder holds the one capability its composition minted
+- Migration: `declared_refusal_recorder` and `build_governed_resolver` mint it; a hand composition mints `ReplayMint` for the record class under the tenant
+
+*Recorded by `353-07-the-composition-roots-mint-for-their-own-writes.md`.*
+
 #### ccf_runtime.authz.delivery_boundary.govern_dereference
 
 - Surface: ccf_runtime.authz.delivery_boundary.govern_dereference
@@ -21206,6 +21338,18 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Migration: none
 
 *Recorded by `353-08-the-runtime-callers-hold-the-capability.md`.*
+
+#### ccf.replay.serve.QueryPinWriter
+
+- Surface: ccf.replay.serve.QueryPinWriter
+- Public surface: true
+- Change type: reshaped
+- Before: `QueryPinWriter(*, store, artifact_class)`; `write_query_bytes(*, tenant_id, queries)` took the tenant from the caller
+- After: `QueryPinWriter(*, authorized: Authorized[ReplayMint], store)` — the capability is verified at construction (kind, mint, resource = the pin class) and supplies the tenant and the class; `tenant_id` is a property read off it. The twin of `ReplayWriter` in `353-03`, whose entry Lane HANDLES wrote; this one was left unclaimed there and is recorded at the join on that lane's behalf (the shape gate `tests/test_surface_shape_capture.py::test_no_committed_plain_class_or_function_shape_is_disturbed` found it)
+- Why: `D-IMPL-353` §1.2 — a writer of a governed evidence class holds the composition-minted capability for it; the tenant a pin is filed under is the capability's, never an argument
+- Migration: `QueryPinWriter(authorized=mint_at_composition(ReplayMint, tenant=…, principal=COMPOSITION_PRINCIPAL, resource=<pin class>, decision_id=…), store=store)`; callers of `write_query_bytes` drop `tenant_id=`
+
+*Recorded by `353-09-the-join.md`.*
 
 ### Not public Python API
 
@@ -23510,11 +23654,23 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `24.7-01-the-request-contract-declares-an-enumerated-domain.md`.*
 
+#### ccf.controlplane.invalidation.ControlPlaneInvalidationSink
+
+- Surface: ccf.controlplane.invalidation.ControlPlaneInvalidationSink
+- Public surface: false
+- Change type: reshaped
+- Before: `ControlPlaneInvalidationSink(*, registry)`; `record(...)` registered `register_key(tenant_id)` with no capability
+- After: `ControlPlaneInvalidationSink(*, registry, authorities: tuple[Authorized[Register], ...])` — each verified at construction against exactly `register_key(authorized.tenant)`, one per tenant, at least one; `tenants` property; `record(...)` looks the capability up FIRST and raises `InvalidationUnauthorized` for a tenant it holds none for, then `register_typed(authorized, ...)`
+- Why: D-IMPL-353 §1.2 (the handle requires the capability) and D-IMPL-354 (the sink mints nothing)
+- Migration: construct through `boot()`; a test composing a sink by hand mints `Register` for `register_key(tenant)` through the recipe
+
+*Recorded by `353-07-the-composition-roots-mint-for-their-own-writes.md`.*
+
 ## Removed
 
 Surfaces that no longer exist. Each entry names what replaces it.
 
-37 entries — 37 public Python surface, 0 not public Python API.
+38 entries — 38 public Python surface, 0 not public Python API.
 
 ### Public Python surface
 
@@ -24026,11 +24182,23 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 *Recorded by `353-06-the-approval-record-is-server-attested.md`.*
 
+#### ccf_runtime.http_api.grants.tenant_from_request
+
+- Surface: ccf_runtime.http_api.grants.tenant_from_request
+- Public surface: true
+- Change type: removed
+- Before: the tenant read off the verified grant, kept by Lane CAP-GATE as `authorized_from_request(request).tenant` only for `routes/hitl.py` until Lane HITL-DOOR migrated
+- After: deleted at the join; every route reads its tenant from the capability (`authorized_from_request(request, kind=…).tenant`) and nothing reads a tenant off a grant
+- Why: `D-IMPL-353` §1.3 — the tenant on every write is the capability's; a second reader was a second source
+- Migration: `authorized_from_request(request, kind=<the route's kind>).tenant`
+
+*Recorded by `353-09-the-join.md`.*
+
 ## Behavior changes
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-192 entries — 165 public Python surface, 27 not public Python API.
+208 entries — 180 public Python surface, 28 not public Python API.
 
 ### Public Python surface
 
@@ -27326,6 +27494,150 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 
 *Recorded by `353-04-the-engine-runs-under-a-capability.md`.*
 
+#### ccf.controlplane.registry.ControlPlaneProtocol
+
+- Surface: ccf.controlplane.registry.ControlPlaneProtocol
+- Public surface: true
+- Change type: behavior
+- Before: the Protocol exposed `audit_events()` (a read) and no appendable log; only the in-process `ControlPlaneRegistry` had `audit_log`
+- After: the Protocol declares the `audit_log` property (the append-only `AuditLog` the plane records into), as `ControlPlaneRegistry` already implemented it
+- Why: D-IMPL-354 — a composition root records its `composition` decision on the plane's own log before minting; a plane with no appendable log cannot host a composition. On the surface for `register_versioned`'s reason: a remote plane cannot conform while quietly dropping it (FABR-07 obligation)
+- Migration: a remote/alternative Control Plane implementation exposes its log as `audit_log`
+
+*Recorded by `353-07-the-composition-roots-mint-for-their-own-writes.md`.*
+
+#### ccf.deployment.manifest.register_manifest_entries
+
+- Surface: ccf.deployment.manifest.register_manifest_entries
+- Public surface: true
+- Change type: behavior
+- Before: called `register_versioned(entry.key, ...)` / `register_typed(entry.key, ...)` with a bare key
+- After: for each entry mints `Register` for exactly `entry.key` through the recipe (tenant = the key's own tenant segment; a key with no segment is refused with `CrossTenantKeyRefused` before minting) and passes the capability; one `composition` audit event per entry precedes each registration
+- Why: D-IMPL-354 (composition-time registrations); §1.3 (the key's tenant is the capability's)
+- Migration: none for tenant-prefixed keys; a deployment whose manifest keys are bare cannot register them until the bare-key question is ruled (reported)
+
+*Recorded by `353-07-the-composition-roots-mint-for-their-own-writes.md`.*
+
+#### ccf.deployment.manifest.load_and_boot
+
+- Surface: ccf.deployment.manifest.load_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: booted with no tenant handed to `boot()`
+- After: passes `tenant_ids=(resolved_tenant,)` — the one tenant the manifest resolves — so the fabric is composed for it and its invalidation register is mintable
+- Why: `boot()` requires it (above)
+- Migration: none
+
+*Recorded by `353-07-the-composition-roots-mint-for-their-own-writes.md`.*
+
+#### ccf.peering.admission.payload_ceiling_key
+
+- Surface: ccf.peering.admission.payload_ceiling_key
+- Public surface: true
+- Change type: behavior
+- Before: `ccf.inbound-payload-ceiling/{tenant_id}`
+- After: `{tenant_id}/ccf.inbound-payload-ceiling`
+- Why: §1.3 (see `register_key`)
+- Migration: derive through the builder
+
+*Recorded by `353-07-the-composition-roots-mint-for-their-own-writes.md`.*
+
+#### ccf.peering.trust_policy.trust_policy_key
+
+- Surface: ccf.peering.trust_policy.trust_policy_key
+- Public surface: true
+- Change type: behavior
+- Before: `ccf.peering-trust-policy/{tenant_id}`
+- After: `{tenant_id}/ccf.peering-trust-policy`
+- Why: §1.3 (see `register_key`)
+- Migration: derive through the builder
+
+*Recorded by `353-07-the-composition-roots-mint-for-their-own-writes.md`.*
+
+#### ccf.products.entitlement.product_entitlement_key
+
+- Surface: ccf.products.entitlement.product_entitlement_key
+- Public surface: true
+- Change type: behavior
+- Before: `ccf.product-entitlement-policy/{tenant_id}`
+- After: `{tenant_id}/ccf.product-entitlement-policy`
+- Why: §1.3 (see `register_key`); the paved door registers this key at composition and must mint for the tenant, not the class name
+- Migration: derive through the builder; a provenance identity that spelled the old string (one test did) is the new string
+
+*Recorded by `353-07-the-composition-roots-mint-for-their-own-writes.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: constructed `ReplayWriter(store=, artifact_class=)` / `QueryPinWriter(...)` per serve and filed admitted child contracts with `put(tenant_id=..., ...)`; registered `max_ttl_key` and `request_contract_key` with bare keys
+- After: the constructor is unchanged (no new parameter; every construction site keeps working); `__post_init__` (1) refuses a store that does not declare `replay_record_class`, `query_pin_class` and `ADMITTED_CHILD_CONTRACT_CLASS` under `ReplayMint` (`UndeclaredMechanismClass` — fail closed at boot, never at the first write; a store exposing no `write_kinds` is refused the same way), (2) mints through the recipe three `ReplayMint` (one per class) and two `Register` (the declaration's `max_ttl_key`, the `request_contract_key`), audited with the process clock — never `admission_clock` — and holds them in one `init=False` value. Writers are built from the held capabilities; `_register` registers under them and refuses a declaration whose `max_ttl_key` differs from the minted one
+- Why: D-IMPL-354 — the resolver's constructor and factories ARE its composition (this module is a `COMPOSITION_MINT_SITES` root). Authorities as constructor parameters were rejected because that makes every caller of a resolver a minter
+- Migration: the store handed to a resolver declares the three classes under `ReplayMint` (`build_governed_resolver`, `open_product` and the in-process adapter declare them when they build the store)
+
+*Recorded by `353-07-the-composition-roots-mint-for-their-own-writes.md`.*
+
+#### ccf.products.resolver.declared_refusal_recorder
+
+- Surface: ccf.products.resolver.declared_refusal_recorder
+- Public surface: true
+- Change type: behavior
+- Before: built the recorder from `replay_record_class` and `tenant_id`
+- After: same signature; mints `ReplayMint` for `replay_record_class` under `tenant_id` through the recipe on `control_plane.audit_log` and builds the recorder over it
+- Why: this function is the recorder's composition
+- Migration: none
+
+*Recorded by `353-07-the-composition-roots-mint-for-their-own-writes.md`.*
+
+#### ccf.products.resolver.build_governed_resolver
+
+- Surface: ccf.products.resolver.build_governed_resolver
+- Public surface: true
+- Change type: behavior
+- Before: built a `FileArtifactStore(root=...)` from a declared `store_dirname`; built the SDK's recorder from class and tenant
+- After: same signature; the store it builds declares `record_class`, `pin_class` and `ADMITTED_CHILD_CONTRACT_CLASS` under `ReplayMint`; the recorder it builds holds a recipe-minted `ReplayMint`; the resolver it returns has minted its own authorities (above)
+- Why: D-IMPL-353 §1.2 (`write_kinds` has no default); D-IMPL-354
+- Migration: a caller passing `artifact_store=` passes one that declares the three classes
+
+*Recorded by `353-07-the-composition-roots-mint-for-their-own-writes.md`.*
+
+#### ccf.products.product.open_product
+
+- Surface: ccf.products.product.open_product
+- Public surface: true
+- Change type: behavior
+- Before: built `FileArtifactStore(root=scratch/<store_dirname>)`; the derived consumer chain **requested one grant per declared skill** (`actor=agent.name`) and built the child resolver with no capability
+- After: same signature; the store it builds declares the `replay:` binding's two classes plus `ADMITTED_CHILD_CONTRACT_CLASS` and `CHILD_QUESTION_CLASS` under `ReplayMint`; the derived chain registers the agent, skills and regime (composition-time `Register`), mints `ReplayMint` for `CHILD_QUESTION_CLASS` under the agent's tenant for the child resolver, reads which declared skills are bound to the agent, and **raises `GrantNotInForce`** for any that is not — it grants nothing
+- Why: `GrantLedger.request` requires `Authorized[SkillGrant]`, a door kind a composition root may not mint (D-IMPL-353 §1.6; D-IMPL-354). A deployment that could grant itself skills at open was ambient authority
+- Migration: grant the declared skills to the agent through a governed door as an authorized principal before opening; whether the paved road may make declared grants at composition is reported for ruling
+
+*Recorded by `353-07-the-composition-roots-mint-for-their-own-writes.md`.*
+
+#### ccf.skills.catalog.SkillCatalog
+
+- Surface: ccf.skills.catalog.SkillCatalog
+- Public surface: true
+- Change type: behavior
+- Before: `register(entry, *, actor=None)` — the catalog derived the key and called `register_versioned(key, entry, SKILL_CATALOG_ENTRY, actor=actor)`
+- After: `register(authorized: Authorized[SkillCatalogRegister] | Authorized[Register], entry)` — the catalog derives `skill_catalog_key(entry)` and binds the capability to it with `verify_any` BEFORE anything reaches the registry (wrong key, wrong kind, fabricated or retargeted all die there); `actor` is deleted (the audit actor is `authorized.principal`). `discover` and `resolve` are unchanged — a METHOD signature (`register`) changed while the class shape the manifest records (`__init__`) did not, so the log's vocabulary classes this as `behavior` on the exported name rather than `reshaped` (README, *Change type*); the join relabeled it when the shape gate refused the `reshaped` claim
+- Why: §1.2 (the handle's caller holds the capability for its own action; the door kind is `skill.catalog.register`, the composition kind is `Register` for the entry's key), §1.5f
+- Migration: the `skill.catalog.register` route passes its gate-minted capability; a deployment declaring entries at boot mints `Register` for `skill_catalog_key(entry)` (tests: `tests/composition.py::register_skill_entry`)
+
+*Recorded by `353-07-the-composition-roots-mint-for-their-own-writes.md`.*
+
+#### ccf.client.adapters.inprocess.InProcessAdapter
+
+- Surface: ccf.client.adapters.inprocess.InProcessAdapter
+- Public surface: true
+- Change type: behavior
+- Before: booted the bound deployment over `FileArtifactStore(root=document.artifact_store)`
+- After: the store declares the binding document's `replay_record_class` and `query_pin_class` plus `ADMITTED_CHILD_CONTRACT_CLASS` under `ReplayMint`; the resolver it builds mints its own authorities against that declaration and refuses at boot if a class it files is undeclared
+- Why: D-IMPL-353 §1.2 — `write_kinds` has no default; the adapter is a composition site and states what its deployment's mechanism writes
+- Migration: none for a binding document; a deployment on another substrate declares the same classes on its own store
+
+*Recorded by `353-07-the-composition-roots-mint-for-their-own-writes.md`.*
+
 #### ccf_runtime.authz.delivery_boundary.EVIDENCE_SURFACES
 
 - Surface: ccf_runtime.authz.delivery_boundary.EVIDENCE_SURFACES
@@ -27541,6 +27853,42 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none
 
 *Recorded by `353-08-the-runtime-callers-hold-the-capability.md`.*
+
+#### ccf.products.product.OpenedProduct
+
+- Surface: ccf.products.product.OpenedProduct
+- Public surface: true
+- Change type: behavior
+- Before: `OpenedProduct.keys` was the derivation's `DeploymentKeys` — the bare section names (`product_class`, `policy`, `half_life`) — while every per-question boot registered the same artifacts under `{tenant}/…`; the refusal recorder's policy-bundle pin was recorded under the bare key
+- After: same signature; `OpenedProduct.keys` is `keys_under_tenant(derived.keys, tenant=config.tenant_id)` — the placed strings the booted fabric holds and a served record's bindings carry — and the refusal recorder's `policy_bundle_pin` names the placed key, the same string the resolver's own records pin
+- Why: `D-IMPL-354`: a public record naming a key the Control Plane does not hold under that string is a lie a replay reader would act on; found by `tests/products/test_d_impl_341_ttl_anchor.py::test_c1_an_evidence_anchored_class_expires_from_the_source_instant_not_the_decision`, whose record carried `{tenant}/half_life` while `opened.keys.half_life` read `half_life`
+- Migration: none for a reader of `opened.keys` that compares against what the product served; a reader that compared against the bare section names now compares against the placed ones
+
+*Recorded by `353-09-the-join.md`.*
+
+#### ccf.mcp.client.run_with_session
+
+- Surface: ccf.mcp.client.run_with_session
+- Public surface: true
+- Change type: behavior
+- Before: every exception the operation raised inside the session was re-raised as `McpServerUnreachable` — including `McpToolFailed` (a tool that reported an error) and `McpTimeout` — so `dispatch_skill`'s `tool-error` and `timeout` arms could never fire and a producer door refusing at its tenancy floor (`SEC-018`) reached the consumer's row as unreachability
+- After: same signature; an error that is already a `McpClientError` — bare, or the member of the single-member exception group the transport's task group wraps it in — propagates as itself (`raise named from error`); only an error the client cannot classify becomes `McpServerUnreachable`, as before. Found at the join by `tests/products/test_d_impl_342_producer_refusal_evidence.py::test_c_a4a_a_door_refusal_whose_claims_fail_carries_no_producer_refusal`, whose door started refusing by error under `SEC-018`; the wrap predates the phase (`SEC353-J-02`)
+- Why: `D-IMPL-353` §1.1 made doors refuse a tenant the grant does not carry; a refusal reported as an outage is the wrong fact in an audit row, and it hid two dead classification arms. The row vocabulary still has no reason for a producer that REFUSED by error rather than answered (`producer-unavailable` is what the slot reads) — reported for ruling
+- Migration: a caller that caught `McpServerUnreachable` to mean "any failure" now sees `McpToolFailed` and `McpTimeout` by their own types; `McpTimeout` remains a subclass of `McpServerUnreachable`, so an `except McpServerUnreachable` still catches a timeout and no longer catches a tool error
+
+*Recorded by `353-09-the-join.md`.*
+
+#### ccf_runtime.mcp.product_door.scope_mapping_key
+
+- Surface: ccf_runtime.mcp.product_door.scope_mapping_key
+- Public surface: true
+- Change type: behavior
+- Before: derived `{class}/{tenant}` — class first — so under the registry's tenant-segment rule the door's own scope mapping could only be registered by minting for the class id as if it were a tenant
+- After: derives `{tenant}/{class}`, the grammar the registry reads the tenant from; the door mints `Register` for the tenant it composes for and the registry's check is a real check. Its sibling `product_entitlement_key` was flipped by Lane J-SRC (`353-07`)
+- Why: `D-IMPL-353` §1.3; a capability whose tenant is a class id is a false statement in the audit log
+- Migration: none for callers (the function derives); a deployment that persisted the old key string re-registers its mapping under the new one
+
+*Recorded by `353-09-the-join.md`.*
 
 ### Not public Python API
 
@@ -28344,3 +28692,15 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   injecting — is Lane MCP's and is a join item; this module codes against it
 
 *Recorded by `353-06-the-approval-record-is-server-attested.md`.*
+
+#### ccf.controlplane.invalidation.register_key
+
+- Surface: ccf.controlplane.invalidation.register_key
+- Public surface: false
+- Change type: behavior
+- Before: returned `ccf.entity-invalidation/{tenant_id}` (class-first)
+- After: returns `{tenant_id}/ccf.entity-invalidation` (tenant-first); `KEY_PREFIX` keeps its name and value
+- Why: §1.3 — the registry reads the key's tenant as the text before the first `/`; a class-first key could be registered only by a capability whose tenant was the class name
+- Migration: derive the key through the builder; nothing persisted carries the old string (the register is a Control Plane artifact re-registered per boot)
+
+*Recorded by `353-07-the-composition-roots-mint-for-their-own-writes.md`.*

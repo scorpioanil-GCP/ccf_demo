@@ -463,7 +463,7 @@ def test_supplying_the_other_backends_argument_is_refused(
     in a validation error.
     """
     registry = ControlPlaneRegistry()
-    stray = "postgresql://fixture/never-connected"
+    stray = "postgresql://tenant-fixture/never-connected"
     with pytest.raises(ValueError) as raised:
         load_and_boot(
             deployment.manifest_path,
@@ -782,14 +782,14 @@ def test_two_entries_sharing_a_path_under_distinct_keys_parse(
     """The asymmetry is a decision: one document may be in force under two names,
     and nothing about that is ambiguous."""
     body = manifest_document()
-    twin = dict(body["artifacts"][2], key="fixture/half-life-table-twin")
+    twin = dict(body["artifacts"][2], key="tenant-fixture/half-life-table-twin")
     body["artifacts"] = list(body["artifacts"]) + [twin]
     path = deployment.variant_manifest("duplicate-path.yaml", body)
 
     booted = _boot(deployment, tmp_path, manifest=path)
     try:
         assert booted.pins.version_for(
-            "fixture/half-life-table-twin"
+            "tenant-fixture/half-life-table-twin"
         ) == booted.pins.version_for(ARTIFACT_SET[2][0])
     finally:
         booted.handle.close()
@@ -949,7 +949,7 @@ def test_an_author_versioned_class_declared_typed_registration_is_refused(
         deployment,
         name="versioned-class-typed.yaml",
         filename="prompt-artifact.yaml",
-        key="fixture/prompt-artifact",
+        key="tenant-fixture/prompt-artifact",
         class_id="ccf.prompt-artifact",
         registration="typed",
         document=_prompt_artifact(),
@@ -996,7 +996,7 @@ def test_an_envelope_squat_on_an_sdk_class_id_is_refused(
         deployment,
         name="envelope-squat.yaml",
         filename="squat.yaml",
-        key="fixture/squatted-key",
+        key="tenant-fixture/squatted-key",
         class_id="ccf.hitl-policy",
         registration="typed",
         document=_envelope_squat("ccf.hitl-policy"),
@@ -1007,7 +1007,7 @@ def test_an_envelope_squat_on_an_sdk_class_id_is_refused(
         _boot(deployment, tmp_path, registry=registry, manifest=path)
     assert "D-IMPL-84" in str(raised.value)
     assert registry.audit_events() == ()
-    assert registry.versions("fixture/squatted-key") == ()
+    assert registry.versions("tenant-fixture/squatted-key") == ()
 
 
 @pytest.mark.parametrize(
@@ -1050,7 +1050,7 @@ def test_the_ccf_namespace_reservation_is_wide_not_a_four_id_list(
         deployment,
         name=f"reservation-{class_id.replace('.', '-')}.yaml",
         filename=f"squat-{class_id.replace('.', '-')}.yaml",
-        key="fixture/squatted-key",
+        key="tenant-fixture/squatted-key",
         class_id=class_id,
         registration="typed",
         document=_envelope_squat(class_id),
@@ -1079,7 +1079,7 @@ def test_the_versioned_dispatch_runs_the_bump_check(
     on a ``DeclaredArtifact`` raises ``TypeError`` — the envelope declares no
     ``artifact_version``, so the bump check had nothing to verify.
     """
-    key = "fixture/prompt-artifact"
+    key = "tenant-fixture/prompt-artifact"
     path = _with_extra_entry(
         deployment,
         name="versioned-dispatch.yaml",
@@ -1129,7 +1129,7 @@ def test_an_unbumped_change_refusal_mid_load_is_loud_and_pins_nothing(
     manifest path to ``register_versioned`` for this class at all, so nothing
     reached the bump check and the second boot succeeded.
     """
-    key = "fixture/prompt-artifact"
+    key = "tenant-fixture/prompt-artifact"
     registry = ControlPlaneRegistry()
     first = _boot(
         deployment,
@@ -1205,13 +1205,12 @@ def test_every_registered_entry_is_preceded_by_its_own_composition_event(
         booted.handle.close()
 
 
-def test_a_manifest_key_with_no_tenant_segment_is_refused_before_anything_is_minted(
+def test_a_bare_manifest_key_is_placed_under_the_deployments_tenant(
     deployment: Deployment, tmp_path: pathlib.Path
 ) -> None:
-    """§1.3 as landed: a bare key belongs to nobody — refused with the registry's own error,
-    and nothing is minted or registered for it (the entries before it in manifest order are)."""
-    from ccf.controlplane.registry import CrossTenantKeyRefused
-
+    """D-IMPL-354 (join): a key with no tenant segment is the deployment's own —
+    the loader places it under the resolved tenant before minting, and the
+    artifact is registered there, never under the bare name."""
     bare = "prompt-artifact"
     path = _with_extra_entry(
         deployment,
@@ -1223,7 +1222,38 @@ def test_a_manifest_key_with_no_tenant_segment_is_refused_before_anything_is_min
         document=_prompt_artifact(),
     )
     registry = ControlPlaneRegistry()
-    with pytest.raises(CrossTenantKeyRefused, match="no tenant segment"):
-        _boot(deployment, tmp_path, registry=registry, manifest=path)
-    assert not [e for e in registry.audit_events() if e.key == bare]
-    assert registry.versions(bare) == ()
+    booted = _boot(deployment, tmp_path, registry=registry, manifest=path)
+    try:
+        placed = f"{booted.tenant_id}/{bare}"
+        assert registry.versions(placed) != ()
+        assert registry.versions(bare) == ()
+        assert placed in {pin.key for pin in booted.pins.entries}
+    finally:
+        booted.handle.close()
+
+
+def test_a_manifest_key_under_another_prefix_is_confined_to_the_deployments_tenant(
+    deployment: Deployment, tmp_path: pathlib.Path
+) -> None:
+    """§1.3: a deployment composes under its own tenant and no other — a key an
+    author placed under a different prefix lands under the deployment's tenant,
+    and nothing is registered or audited under the foreign prefix."""
+    foreign = "some-other-bank/prompt-artifact"
+    path = _with_extra_entry(
+        deployment,
+        name="foreign-key.yaml",
+        filename="prompt-artifact.yaml",
+        key=foreign,
+        class_id="ccf.prompt-artifact",
+        registration="versioned",
+        document=_prompt_artifact(),
+    )
+    registry = ControlPlaneRegistry()
+    booted = _boot(deployment, tmp_path, registry=registry, manifest=path)
+    try:
+        confined = f"{booted.tenant_id}/{foreign}"
+        assert registry.versions(confined) != ()
+        assert registry.versions(foreign) == ()
+        assert not [e for e in registry.audit_events() if e.key == foreign]
+    finally:
+        booted.handle.close()

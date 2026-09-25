@@ -64,6 +64,10 @@ is not a contradiction.
 
 from __future__ import annotations
 
+from typing import Any, cast
+
+import dataclasses
+
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -88,6 +92,7 @@ from ccf.controlplane.artifacts import (
     load_artifact,
 )
 from ccf.controlplane.registry import (
+    namespaced_key,
     ControlPlaneProtocol,
     CrossTenantKeyRefused,
     RegistrationRefusal,
@@ -110,7 +115,7 @@ from ccf.graph.registry import (
 
 __ccf_mode__ = "algorithmic"
 
-__all__ = ["BootedFabric", "load_and_boot", "register_manifest_entries"]
+__all__ = ["BootedFabric", "load_and_boot", "register_manifest_entries", "manifest_under_tenant", "keys_under_tenant"]
 
 
 @dataclass(frozen=True)
@@ -563,6 +568,13 @@ def _register_and_boot(
     its declared class; this function is what decides which of them enter
     the Control Plane.
     """
+    # D-IMPL-354 (join): every key the deployment derived or authored lives under
+    # the tenant it resolved — a bare `product_class` becomes
+    # `{tenant}/product_class` here, once, before anything is minted,
+    # registered or composed; a key an author placed under another tenant is
+    # refused here, before minting. The registry's tenant-segment check
+    # (§1.3) then holds for the manifest root as a real check.
+    manifest, parsed, keys = manifest_under_tenant(manifest, parsed, keys, tenant=resolved_tenant)
     # Phase two: register the ones the manifest marks `role: register`.
     pinned = register_manifest_entries(manifest, parsed, registry=registry)
     pins = ResolvedPins(entries=pinned)
@@ -588,6 +600,66 @@ def _register_and_boot(
         survivor_cap=manifest.survivor_cap,
         keys=keys,
     )
+
+
+def keys_under_tenant(keys: DeploymentKeys, *, tenant: str) -> DeploymentKeys:
+    """The resolver's :class:`~ccf.deployment.keys.DeploymentKeys`, every key placed under ``tenant``.
+
+    Every ``str`` field and every member of every ``tuple`` field goes through
+    :func:`~ccf.controlplane.registry.namespaced_key`; a ``None`` stays ``None``.
+    Idempotent — a key already under ``{tenant}/`` comes back unchanged — so the
+    keys a deployment authored in the full grammar are exactly the keys it
+    resolves by, and a bare section name resolves by the string the loader
+    registered it under (D-IMPL-354). :func:`open_product` computes these once
+    and exposes them as :attr:`OpenedProduct.keys`; the loader applies them
+    through :func:`manifest_under_tenant`.
+    """
+    moved: dict[str, object] = {}
+    for field in dataclasses.fields(keys):
+        value = getattr(keys, field.name)
+        if isinstance(value, str):
+            moved[field.name] = namespaced_key(tenant=tenant, key=value)
+        elif isinstance(value, tuple):
+            moved[field.name] = tuple(namespaced_key(tenant=tenant, key=item) for item in value)
+    return dataclasses.replace(keys, **cast(dict[str, Any], moved))
+
+
+def manifest_under_tenant(
+    manifest: DeploymentManifest,
+    parsed: Mapping[str, CCFContract],
+    keys: DeploymentKeys | None,
+    *,
+    tenant: str,
+) -> tuple[DeploymentManifest, Mapping[str, CCFContract], DeploymentKeys | None]:
+    """Place every Control Plane key the deployment names under ``tenant``.
+
+    The derivation a composition root applies to a derived manifest BEFORE
+    handing it to :func:`register_manifest_entries` — the loader here and the
+    consumer chain :func:`ccf.products.product.open_product` derives both call
+    it; a direct caller of the register loop calls it too, because the loop
+    itself admits only keys already under a tenant (D-IMPL-354).
+
+    One derivation, :func:`~ccf.controlplane.registry.namespaced_key`, applied
+    to the manifest's entries and its two boot keys, to the parsed-artifact
+    mapping keyed by those entries, and to the resolver's
+    :class:`~ccf.deployment.keys.DeploymentKeys` — so the key an artifact is
+    registered under and the key the resolver later resolves are the same
+    string by construction (D-IMPL-354; D-IMPL-353 §1.3).
+    """
+
+    def under(key: str) -> str:
+        return namespaced_key(tenant=tenant, key=key)
+
+    entries = tuple(entry.model_copy(update={"key": under(entry.key)}) for entry in manifest.artifacts)
+    renamed = manifest.model_copy(
+        update={
+            "artifacts": entries,
+            "resolution_spec_key": under(manifest.resolution_spec_key),
+            "policy_bundle_key": under(manifest.policy_bundle_key),
+        }
+    )
+    rekeyed = {under(key): artifact for key, artifact in parsed.items()}
+    return renamed, rekeyed, None if keys is None else keys_under_tenant(keys, tenant=tenant)
 
 
 def register_manifest_entries(

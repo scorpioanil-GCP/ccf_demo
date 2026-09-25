@@ -42,7 +42,9 @@ _REPO_ROOT = _TESTS_ROOT.parent
 # sys.path work and cannot rely on a relative PYTHONPATH surviving a cwd
 # change. Resolving the three roots from __file__ is what makes the child
 # runnable from anywhere, which is a property the fixture depends on.
-for _root in (_REPO_ROOT / "src", _REPO_ROOT / "runtime", _TESTS_ROOT):
+# The repo root too (last on the path): the shared test helpers import as
+# `tests.composition`, which resolves only from there (D-IMPL-354).
+for _root in (_REPO_ROOT, _REPO_ROOT / "src", _REPO_ROOT / "runtime", _TESTS_ROOT):
     if str(_root) not in sys.path:
         sys.path.insert(0, str(_root))
 
@@ -276,6 +278,8 @@ def build_servable_product(*, database_path: Path) -> AssembledProduct:
         resolution_spec_version=spec_version,
         policy_bundle_key=keys["policy_bundle"],
         policy_bundle_version=policy_version,
+        # D-IMPL-354: the tenant(s) this test composes the fabric for.
+        tenant_ids=(ontology["tenant_id"],),
     )
     try:
         for envelope in _envelopes(ontology, events):

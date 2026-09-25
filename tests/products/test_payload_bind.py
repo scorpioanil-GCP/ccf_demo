@@ -50,8 +50,8 @@ from ccf.products.payload import (
 )
 from tests.composition import register_at_composition
 
-MAX_TTL_KEY = "fixture/max-ttl"
-PAYLOAD_SCHEMA_KEY = "fixture/payload-schema"
+MAX_TTL_KEY = "tenant-fixture/max-ttl"
+PAYLOAD_SCHEMA_KEY = "tenant-fixture/payload-schema"
 
 
 def _schema() -> ProductPayloadSchema:

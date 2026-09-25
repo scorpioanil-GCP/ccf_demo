@@ -32,7 +32,7 @@ from ccf.controlplane.artifacts import (
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.deployment.classes import resolve_artifact_class
 from ccf.deployment.config import derive_deployment
-from ccf.deployment.manifest import register_manifest_entries
+from ccf.deployment.manifest import manifest_under_tenant, register_manifest_entries
 from ccf.products.child_resolver import QuestionBoundChildResolver
 from ccf.products.composite import ADMITTED_CHILD_CONTRACT_CLASS, CHILD_QUESTION_CLASS
 from ccf.products.product import GrantNotInForce, _derive_consumer_chain
@@ -60,6 +60,7 @@ def _chain(derived: Any, registry: ControlPlaneRegistry, store: Any) -> tuple[Ag
     assert isinstance(declaration, ProductClassDeclaration)
     return _derive_consumer_chain(
         derived,
+        tenant=CONSUMER_TENANT,
         declaration=declaration,
         registry=registry,
         store=store,
@@ -92,14 +93,19 @@ def test_a_declared_skill_nobody_granted_is_refused_by_name_and_no_grant_is_made
 def test_a_skill_granted_through_the_ledger_by_an_authorized_principal_composes(tmp_path: pathlib.Path) -> None:
     derived = _derived()
     registry = ControlPlaneRegistry()
-    keys = derived.keys
-    wanted = frozenset({keys.policy_bundle, keys.agent, *keys.skills})
-    parsed = {
+    declared_keys = derived.keys
+    declared_wanted = frozenset({declared_keys.policy_bundle, declared_keys.agent, *declared_keys.skills})
+    declared = {
         entry.key: parse_artifact(derived.documents[entry.key], resolve_artifact_class(entry.class_id))
         for entry in derived.manifest.artifacts
-        if entry.key in wanted
+        if entry.key in declared_wanted
     }
-    register_manifest_entries(derived.manifest, parsed, registry=registry, only=wanted)
+    # A direct caller of the register loop is a composition root too: it places
+    # the derived keys under its tenant first (D-IMPL-354), as `open_product` does.
+    manifest, parsed, keys = manifest_under_tenant(derived.manifest, declared, declared_keys, tenant=CONSUMER_TENANT)
+    assert keys is not None and keys.agent is not None
+    wanted = frozenset({keys.policy_bundle, keys.agent, *keys.skills})
+    register_manifest_entries(manifest, parsed, registry=registry, only=wanted)
     agent = parsed[keys.agent]
     assert isinstance(agent, AgentDefinition)
     entry = parsed[keys.skills[0]]

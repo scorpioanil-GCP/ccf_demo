@@ -44,7 +44,7 @@ from tests.composition import register_at_composition
 
 _REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 
-MAX_TTL_KEY = "fixture/discovery-audiences/max-ttl"
+MAX_TTL_KEY = "tenant-fixture/discovery-audiences/max-ttl"
 
 
 def _registry_with_ceiling() -> tuple[ControlPlaneRegistry, str]:
@@ -114,7 +114,7 @@ schema_name: fixture.discovery-audiences.artifact
 schema_version: "1.0.0"
 ttl_anchor: from_decision
 assembly_mode: algorithmic
-max_ttl_key: fixture/discovery-audiences/artifact-max-ttl
+max_ttl_key: tenant-fixture/discovery-audiences/artifact-max-ttl
 required_operator_keys:
   - traversal.typed-neighborhood
 discovery:

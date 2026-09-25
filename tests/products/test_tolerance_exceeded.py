@@ -131,7 +131,7 @@ ANY_DEBT = Decimal("0.99")
 
 #: The Control Plane key the policy constraint is registered under, and the
 #: policy id the artifact carries. Two different strings on purpose.
-POLICY_KEY = "fixture/policy_constraints/tolerance"
+POLICY_KEY = "tenant-fixture/policy_constraints/tolerance"
 POLICY_ID = "tolerance-policy"
 
 PERSPECTIVE = Perspective(principal_id="principal-fixture", role="role-fixture")
@@ -572,7 +572,7 @@ def test_a_class_default_the_contract_does_not_declare_is_refused() -> None:
         ),
     )
     pin = ProvenanceSource(
-        kind="artifact", identity="fixture/product-class", version="1"
+        kind="artifact", identity="tenant-fixture/product-class", version="1"
     )
     request = ProductRequest(
         schema_name=PRODUCT_CLASS,
@@ -670,7 +670,7 @@ def test_a_class_default_with_no_pin_is_refused() -> None:
             request=request,
             declared=contract,
             declared_source=ProvenanceSource(
-                kind="artifact", identity="fixture/request-contract", version="1"
+                kind="artifact", identity="tenant-fixture/request-contract", version="1"
             ),
             constraints=(),
             capabilities=(),

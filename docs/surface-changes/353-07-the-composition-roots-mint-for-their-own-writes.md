@@ -70,10 +70,16 @@ in `src/` became. Two shapes, and nothing else:
 - Why: D-IMPL-354 — the sink is not a composition root and may hold only what its composer minted; the composer can mint only for tenants it knows
 - Migration: pass the tenants the fabric ingests and supersedes under; `load_and_boot` passes its resolved tenant. A supersession under a tenant not named is refused by the sink (`InvalidationUnauthorized`), never filed under a fallback
 
+> **Join note (2026-09-24).** `ccf.controlplane.invalidation` declares no `__all__` and has never been on the surface manifest
+> (`tools/dump_surface.py::build_surface` indexes a module's `__all__` and skips a module without one), so the three
+> entries below are recorded for the audit trail and marked **non-public** — the module's standing, not a judgment on the
+> names; `tests/deployment/test_class_lookup.py::test_the_phases_fragments_claim_exactly_what_was_added` holds every
+> `added` + public claim to the manifest.
+
 ## ccf.controlplane.invalidation.ControlPlaneInvalidationSink
 
 - Surface: ccf.controlplane.invalidation.ControlPlaneInvalidationSink
-- Public surface: true
+- Public surface: false
 - Change type: reshaped
 - Before: `ControlPlaneInvalidationSink(*, registry)`; `record(...)` registered `register_key(tenant_id)` with no capability
 - After: `ControlPlaneInvalidationSink(*, registry, authorities: tuple[Authorized[Register], ...])` — each verified at construction against exactly `register_key(authorized.tenant)`, one per tenant, at least one; `tenants` property; `record(...)` looks the capability up FIRST and raises `InvalidationUnauthorized` for a tenant it holds none for, then `register_typed(authorized, ...)`
@@ -83,7 +89,7 @@ in `src/` became. Two shapes, and nothing else:
 ## ccf.controlplane.invalidation.InvalidationUnauthorized
 
 - Surface: ccf.controlplane.invalidation.InvalidationUnauthorized
-- Public surface: true
+- Public surface: false
 - Change type: added
 - Before: absent
 - After: `PermissionError` raised by the sink at construction (duplicate or no capability) and at `record` (a tenant the fabric was not composed for)
@@ -93,7 +99,7 @@ in `src/` became. Two shapes, and nothing else:
 ## ccf.controlplane.invalidation.register_key
 
 - Surface: ccf.controlplane.invalidation.register_key
-- Public surface: true
+- Public surface: false
 - Change type: behavior
 - Before: returned `ccf.entity-invalidation/{tenant_id}` (class-first)
 - After: returns `{tenant_id}/ccf.entity-invalidation` (tenant-first); `KEY_PREFIX` keeps its name and value
@@ -264,9 +270,9 @@ in `src/` became. Two shapes, and nothing else:
 
 - Surface: ccf.skills.catalog.SkillCatalog
 - Public surface: true
-- Change type: reshaped
+- Change type: behavior
 - Before: `register(entry, *, actor=None)` — the catalog derived the key and called `register_versioned(key, entry, SKILL_CATALOG_ENTRY, actor=actor)`
-- After: `register(authorized: Authorized[SkillCatalogRegister] | Authorized[Register], entry)` — the catalog derives `skill_catalog_key(entry)` and binds the capability to it with `verify_any` BEFORE anything reaches the registry (wrong key, wrong kind, fabricated or retargeted all die there); `actor` is deleted (the audit actor is `authorized.principal`). `discover` and `resolve` are unchanged
+- After: `register(authorized: Authorized[SkillCatalogRegister] | Authorized[Register], entry)` — the catalog derives `skill_catalog_key(entry)` and binds the capability to it with `verify_any` BEFORE anything reaches the registry (wrong key, wrong kind, fabricated or retargeted all die there); `actor` is deleted (the audit actor is `authorized.principal`). `discover` and `resolve` are unchanged — a METHOD signature (`register`) changed while the class shape the manifest records (`__init__`) did not, so the log's vocabulary classes this as `behavior` on the exported name rather than `reshaped` (README, *Change type*); the join relabeled it when the shape gate refused the `reshaped` claim
 - Why: §1.2 (the handle's caller holds the capability for its own action; the door kind is `skill.catalog.register`, the composition kind is `Register` for the entry's key), §1.5f
 - Migration: the `skill.catalog.register` route passes its gate-minted capability; a deployment declaring entries at boot mints `Register` for `skill_catalog_key(entry)` (tests: `tests/composition.py::register_skill_entry`)
 

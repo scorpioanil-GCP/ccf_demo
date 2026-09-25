@@ -71,6 +71,7 @@ from ccf.controlplane.state import (
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "namespaced_key",
     "DERIVED_REGISTER_KINDS",
     "REGISTER_KINDS",
     "AmbiguousPinnedVersionError",
@@ -195,6 +196,36 @@ _KEY_SEPARATOR: Final[str] = "/"
 def _tenant_segment(key: str) -> str | None:
     tenant, separator, _ = key.partition(_KEY_SEPARATOR)
     return tenant if separator and tenant else None
+
+
+def namespaced_key(*, tenant: str, key: str) -> str:
+    """Confine a deployment's own key to its tenant — the one derivation (D-IMPL-354).
+
+    The grammar is ``{tenant}/{class}[/{name}]`` and :func:`_tenant_segment`
+    reads the tenant as the text before the first separator. A key already
+    under ``tenant`` is returned unchanged; every other key — bare (the config
+    loader's ``product_class``, a binding document's ``policy``) or prefixed
+    by anything else — is placed under ``tenant``. Confinement rather than
+    refusal, deliberately: a section label may legitimately contain ``/`` (a
+    policy constraint named by a path), so a leading segment is not evidence
+    of an author's tenant claim, and a deployment composed through the loader
+    can never register outside its own tenant either way (§1.3). The
+    registry's own tenant-segment check remains the guard for every direct
+    caller.
+
+    Raises:
+        ValueError: ``tenant`` or ``key`` is empty, has surrounding
+            whitespace, or has an empty segment; ``tenant`` contains ``/``.
+    """
+    for label, value in (("tenant", tenant), ("key", key)):
+        if not value or value != value.strip():
+            raise ValueError(f"{label} {value!r} is not a usable Control Plane key part")
+    if _KEY_SEPARATOR in tenant:
+        raise ValueError(f"tenant {tenant!r} may not contain {_KEY_SEPARATOR!r}")
+    if any(not segment for segment in key.split(_KEY_SEPARATOR)):
+        raise ValueError(f"key {key!r} has an empty segment")
+    prefix = f"{tenant}{_KEY_SEPARATOR}"
+    return key if key.startswith(prefix) else prefix + key
 
 
 def _door_key(authorized: DerivedRegisterAuthority) -> str:

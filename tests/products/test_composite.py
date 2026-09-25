@@ -125,7 +125,7 @@ PEERS = "fixture.peer-benchmark"
 ENTITY_OBLIGOR = "entity://obligor-alpha"
 ENTITY_UNRELATED = "entity://obligor-beta"
 
-MAX_TTL_KEY = "fixture/composite/max-ttl"
+MAX_TTL_KEY = "tenant-fixture/composite/max-ttl"
 OPERATORS = frozenset({"Resolve", "Traversal"})
 POLICY_VERSION = "fixture-policy-v1"
 

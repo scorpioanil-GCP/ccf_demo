@@ -29,6 +29,14 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
+from ccf.agents.definitions import AgentDefinition
+from ccf.contracts.canonical import content_hash
+from ccf.controlplane.artifacts import DEPLOYMENT_CONFIG, DeploymentConfig, load_artifact, parse_artifact
+from ccf.controlplane.registry import ControlPlaneRegistry, RegistrationRefusal
+from ccf.deployment.classes import resolve_artifact_class
+from ccf.deployment.config import derive_deployment
+from ccf.deployment.environment import load_environment_document
+from ccf.deployment.manifest import manifest_under_tenant, register_manifest_entries
 from ccf.graph.protocols import GraphView
 from ccf.halflife.assessment import DebtFactors
 from ccf.halflife.debt import DebtAssessment, assess_debt
@@ -38,7 +46,10 @@ from ccf.products.product import AcquisitionContext, AssessmentContext
 from ccf.products.request import ProductRequest
 from ccf.projection.plan import Perspective, ProjectionOutput
 from ccf.signal.envelope import SignalEnvelope
+from ccf.skills.catalog import SkillCatalog, SkillCatalogEntry
+from ccf.skills.grants import ApprovalSink, GrantLedger, GrantRefusal, RefusingApprovalSink, SkillGrant
 from tests.deployment.conftest import write_artifact
+from tests.skills.authority import grant_capability
 from tests.deployment.test_replay_binding import (
     PRODUCT_CLASS as PARENT_CLASS,
     PRODUCT_VERSION as PARENT_VERSION,
@@ -346,3 +357,83 @@ def write_tree(root: pathlib.Path, *, config: Mapping[str, Any], environment: st
     write_artifact(root, "ccf_config.yaml", config)
     (root / "ccf_environment.yaml").write_text(environment, encoding="utf-8")
     return root
+
+
+# --- the grants a paved deployment opens over -------------------------------------------------
+
+#: The principal that grants a deployment's declared skills to its agent through the
+#: ledger — an authorized operator, never the road and never the agent itself.
+GRANTING_PRINCIPAL = "an-authorized-operator"
+
+
+def grants_in_force(
+    root: pathlib.Path,
+    *,
+    principal: str = GRANTING_PRINCIPAL,
+    sink: ApprovalSink | None = None,
+    control_plane: ControlPlaneRegistry | None = None,
+    clock: Any = lambda: ADMITTED_AT,
+) -> tuple[ControlPlaneRegistry, tuple[str | GrantRefusal | RegistrationRefusal, ...]]:
+    """Grant the deployment at ``root`` its declared skills, the way an operator would.
+
+    :func:`~ccf.products.product.open_product` requests no grant (D-IMPL-353
+    §1.6; D-IMPL-354): a grant is a ``skill.grant`` door action requiring
+    ``Authorized[SkillGrant]``, which a composition root cannot mint, so a
+    deployment declaring ``skills:`` is opened over a Control Plane on which an
+    authorized principal already granted them — the migration `353-07` names.
+    This does exactly that, on the deployment's own derived documents: the
+    regime, the agent and the catalog entries are registered as the road
+    registers them (composition-time ``Register``, keys placed under the
+    tenant), then ONE grant per declared skill is requested through the ledger
+    under a capability minted for ``principal``. Returns the plane and every
+    grant outcome, so a test about a refused grant reads the ledger's reason.
+    """
+    environment = load_environment_document(root)
+    config = load_artifact((root / environment.config).read_text(encoding="utf-8"), DEPLOYMENT_CONFIG)
+    assert isinstance(config, DeploymentConfig) and config.tenant_id is not None
+    derived = derive_deployment(config)
+    registry = control_plane if control_plane is not None else ControlPlaneRegistry()
+    declared_keys = derived.keys
+    if declared_keys.agent is None or not declared_keys.skills:
+        return registry, ()
+    declared_wanted = frozenset({declared_keys.policy_bundle, declared_keys.agent, *declared_keys.skills})
+    declared = {
+        entry.key: parse_artifact(derived.documents[entry.key], resolve_artifact_class(entry.class_id))
+        for entry in derived.manifest.artifacts
+        if entry.key in declared_wanted
+    }
+    manifest, parsed, keys = manifest_under_tenant(derived.manifest, declared, declared_keys, tenant=config.tenant_id)
+    assert keys is not None and keys.agent is not None
+    register_manifest_entries(manifest, parsed, registry=registry, only=frozenset({keys.policy_bundle, keys.agent, *keys.skills}))
+    agent = parsed[keys.agent]
+    assert isinstance(agent, AgentDefinition)
+    ledger = GrantLedger(
+        control_plane=registry,
+        catalog=SkillCatalog(registry),
+        sink=sink if sink is not None else RefusingApprovalSink(),
+        clock=clock,
+    )
+    outcomes: list[str | GrantRefusal | RegistrationRefusal] = []
+    for key in keys.skills:
+        entry = parsed[key]
+        assert isinstance(entry, SkillCatalogEntry)
+        outcomes.append(
+            ledger.request(
+                grant_capability(agent, principal=principal),
+                SkillGrant(
+                    schema_version=entry.schema_version, artifact_version=entry.artifact_version,
+                    name=entry.name, tenant=entry.tenant, agent_definition_hash=content_hash(agent),
+                    skill_name=entry.name, skill_version=entry.artifact_version,
+                ),
+                definition=agent,
+            )
+        )
+    return registry, tuple(outcomes)
+
+
+def granted_control_plane(root: pathlib.Path, **arguments: Any) -> ControlPlaneRegistry:
+    """The Control Plane a paved deployment opens over, every declared grant in force."""
+    registry, outcomes = grants_in_force(root, **arguments)
+    refused = [outcome for outcome in outcomes if not isinstance(outcome, str)]
+    assert not refused, refused
+    return registry

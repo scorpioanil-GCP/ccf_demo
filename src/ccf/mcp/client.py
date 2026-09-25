@@ -54,7 +54,12 @@ from mcp.client.streamable_http import streamable_http_client
 from mcp.types import TextContent, TextResourceContents
 from pydantic import AnyUrl
 
-from ccf.mcp.errors import McpServerUnreachable, McpTimeout, McpToolFailed
+from ccf.mcp.errors import (
+    McpClientError,
+    McpServerUnreachable,
+    McpTimeout,
+    McpToolFailed,
+)
 
 __ccf_mode__ = "algorithmic"
 
@@ -164,6 +169,15 @@ async def run_with_session(
         raise
     except Exception as error:
         named = _unwrap_exception_group(error)
+        if isinstance(named, McpClientError):
+            # An error the client CAN classify is the answer, not a symptom: a
+            # tool that reported an error (a door refusing at its tenancy
+            # floor), a call that timed out. It keeps its type — unwrapped from
+            # the single-member group the transport's task group puts it in —
+            # so a caller's `except McpToolFailed` / `except McpTimeout` fires.
+            # Before SEC353-J-02 this arm did not exist and every such error
+            # was reported as unreachability.
+            raise named from error
         raise McpServerUnreachable(
             f"MCP call against {url!r} did not complete: "
             f"{type(named).__name__}: {named}"

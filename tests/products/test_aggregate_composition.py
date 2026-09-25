@@ -346,7 +346,7 @@ def _declaration(
             "schema_version: 1.0.0\n"
             "ttl_anchor: from_decision\n"
             "assembly_mode: algorithmic\n"
-            "max_ttl_key: fixture/composition/max-ttl\n"
+            "max_ttl_key: tenant-fixture/composition/max-ttl\n"
             "required_operator_keys:\n"
             "- fixture.operator\n"
         )

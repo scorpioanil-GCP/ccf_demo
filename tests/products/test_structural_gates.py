@@ -109,7 +109,7 @@ NOW = datetime(2026, 3, 2, 12, 0, 0, tzinfo=UTC)
 BOUNDARY = datetime(2026, 3, 2, 11, 59, 0, tzinfo=UTC)
 POLICY_VERSION = "policy-version-fixture"
 OPERATORS = frozenset({"fixture-operator"})
-MAX_TTL_KEY = "fixture/max-ttl"
+MAX_TTL_KEY = "tenant-fixture/max-ttl"
 MAX_TTL_SECONDS = 3600
 CANDIDATE_TTL_SECONDS = 600
 SCHEMA_NAME = "fixture.declared-obligations"
@@ -128,9 +128,9 @@ ANY_DEBT = Decimal("0.99")
 
 #: The test's own provenance vocabulary for the three authorities. Fixture
 #: identities: nothing here is resolved, and nothing here lives in `src/`.
-CLASS_ARTIFACT_KEY = "fixture/product-class"
+CLASS_ARTIFACT_KEY = "tenant-fixture/product-class"
 CLASS_ARTIFACT_VERSION = "fixture-class-version"
-POLICY_ARTIFACT_KEY = "fixture/policy-constraint"
+POLICY_ARTIFACT_KEY = "tenant-fixture/policy-constraint"
 POLICY_ARTIFACT_VERSION = "fixture-policy-version"
 REQUEST_IDENTITY = "fixture-request-identity"
 

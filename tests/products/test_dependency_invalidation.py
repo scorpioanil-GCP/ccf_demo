@@ -84,7 +84,7 @@ SERVED_AT = datetime(2026, 3, 4, 12, 0, 0, tzinfo=UTC)
 
 SCHEMA = "fixture.dependency-invalidation"
 VERSION = "1.0.0"
-MAX_TTL_KEY = "fixture/max-ttl"
+MAX_TTL_KEY = "tenant-fixture/max-ttl"
 MAX_TTL_SECONDS = 86400
 OPERATORS = frozenset({"fixture-operator"})
 POLICY_VERSION = "fixture-policy"

@@ -787,6 +787,29 @@ _SHAPE_MOVED_BY_FRAGMENT = {
     "ccf.products.resolver.GovernedResolver": (
         "24.11-03-the-resolver-carries-the-declared-obligation.md"
     ),
+    # `D-IMPL-353` (the join, 2026-09-24) — the handles and the composition
+    # roots take the capability for their own action. Each constructor gains a
+    # keyword-only `authorized: Authorized[<Kind>]` (or, for `boot`, the
+    # `tenant_ids` the fabric composes for) and the fragment named here claims
+    # the name `reshaped` and says what the capability replaces.
+    "ccf.boot.boot": (
+        "353-07-the-composition-roots-mint-for-their-own-writes.md"
+    ),
+    "ccf.peering.admission.PeeringAdmissionGate": (
+        "353-07-the-composition-roots-mint-for-their-own-writes.md"
+    ),
+    "ccf.products.child_resolver.QuestionBoundChildResolver": (
+        "353-07-the-composition-roots-mint-for-their-own-writes.md"
+    ),
+    "ccf.products.resolver.ReplayRefusalRecorder": (
+        "353-07-the-composition-roots-mint-for-their-own-writes.md"
+    ),
+    "ccf.replay.serve.ReplayWriter": (
+        "353-03-the-handles-require-the-capability-for-their-own-action.md"
+    ),
+    "ccf.replay.serve.QueryPinWriter": (
+        "353-09-the-join.md"
+    ),
 }
 
 

@@ -157,6 +157,8 @@ def fabric(tmp_path: Path) -> Iterator[Any]:
         resolution_spec_version=spec_version,
         policy_bundle_key=keys["policy_bundle"],
         policy_bundle_version=policy_version,
+        # D-IMPL-354: the tenant(s) this test composes the fabric for.
+        tenant_ids=(PRIMARY, SECONDARY),
     )
     try:
         for envelope in _envelopes(ontology, events):

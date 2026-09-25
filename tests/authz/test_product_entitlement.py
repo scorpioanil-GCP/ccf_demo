@@ -245,7 +245,9 @@ def test_neither_resolution_surface_returns_a_boolean() -> None:
 def test_the_key_derivation_is_a_pure_function_of_its_argument() -> None:
     key = product_entitlement_key(tenant_id=TENANT_ONE)
     assert key == product_entitlement_key(tenant_id=TENANT_ONE)
-    assert key.startswith(f"{PRODUCT_ENTITLEMENT_POLICY.class_id}/")
+    # `{tenant}/{class}` — the Control Plane key grammar (D-IMPL-353 §1.3); the
+    # derivation was class-first until the D-IMPL-353 join corrected it.
+    assert key == f"{TENANT_ONE}/{PRODUCT_ENTITLEMENT_POLICY.class_id}"
     assert TENANT_ONE in key
 
 

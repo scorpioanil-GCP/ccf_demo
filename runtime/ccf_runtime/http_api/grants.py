@@ -32,9 +32,8 @@ the capability to it and refuses a handler that names anything else.
 :func:`grant_from_request` remains for the handles that still take ``grant=``
 (the governed dereference, the entitlement determination, the HITL identity
 derivation) until their §1.2 signatures land; it derives no tenant and no
-actor. :func:`tenant_from_request` is ``authorized.tenant`` and nothing else,
-kept under its old name only for ``routes/hitl.py`` until that door migrates;
-it is deleted at join.
+actor. The join-time shim ``tenant_from_request`` is gone: every route reads
+its tenant from the capability and nothing reads a tenant off a grant.
 
 Algorithmic module (CINV-03).
 """
@@ -62,7 +61,7 @@ from ccf_runtime.mcp.auth import TokenGrant
 
 __ccf_mode__ = "algorithmic"
 
-__all__ = ["authorized_from_request", "grant_from_request", "tenant_from_request"]
+__all__ = ["authorized_from_request", "grant_from_request"]
 
 A = TypeVar("A", bound=ActionKind)
 

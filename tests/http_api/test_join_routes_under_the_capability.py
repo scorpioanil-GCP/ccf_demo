@@ -41,6 +41,7 @@ from ccf.authz.decision import AuthzDecision
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifacts import parse_artifact
 from ccf.controlplane.registry import ControlPlaneRegistry
+from ccf.products.resolver import UndeclaredMechanismClass
 from ccf.products.entitlement import (
     PRODUCT_ENTITLEMENT_POLICY,
     ProductEntitlementGrant,
@@ -338,6 +339,33 @@ def _seams_over(tmp_path: Path, recorder: Any) -> dict[str, Any]:
     )
 
 
+
+class _ConformingRecorder:
+    """A recorder the app did not build: the two attributes `governed_wiring` reads, and the method.
+
+    Stands in for a third party's ``RefusalRecorderProtocol`` wired over a store
+    that has not declared its class. The SDK's own recorder refuses to EXIST over
+    such a store (``UndeclaredMechanismClass``, at construction), so only a foreign
+    recorder can reach the app's check — which is why the app keeps one.
+    """
+
+    replay_record_class = REPLAY_RECORD_CLASS
+
+    def __init__(self, store: Any, *, tenant: str) -> None:
+        self.artifact_store = store
+        self._tenant = tenant
+
+    @property
+    def tenant_id(self) -> str:
+        return self._tenant
+
+    def disclosure_level_for(self, *args: Any, **kwargs: Any) -> Any:  # pragma: no cover — refused at boot
+        raise AssertionError("a door over an undeclared store must not build")
+
+    def record(self, *args: Any, **kwargs: Any) -> Any:  # pragma: no cover — refused at boot
+        raise AssertionError("a door over an undeclared store must not build")
+
+
 def _recorder_over(store: Any, registry: ControlPlaneRegistry) -> Any:
     return refusal_recorder(
         registry, store=store, tenant=TENANT, replay_record_class=REPLAY_RECORD_CLASS
@@ -355,8 +383,12 @@ def test_a_recorder_over_a_store_not_declaring_its_class_is_refused_at_boot(tmp_
 
     registry = ControlPlaneRegistry()
     undeclared = FileArtifactStore(root=tmp_path / "undeclared", write_kinds=WriteKinds({}))
+    # The SDK's recorder refuses FIRST, at composition (D-IMPL-353 §1.2); the
+    # app then refuses any conforming recorder it cannot show admitted.
+    with pytest.raises(UndeclaredMechanismClass, match=REPLAY_RECORD_CLASS):
+        _recorder_over(undeclared, registry)
     with pytest.raises(GovernedWiringError, match=REPLAY_RECORD_CLASS):
-        create_app(_deps(registry, undeclared), **_seams_over(tmp_path, _recorder_over(undeclared, registry)))
+        create_app(_deps(registry, undeclared), **_seams_over(tmp_path, _ConformingRecorder(undeclared, tenant=TENANT)))
 
 
 def test_a_recorder_over_a_store_exposing_no_declaration_is_refused_at_boot(tmp_path: Path) -> None:
@@ -380,8 +412,10 @@ def test_a_recorder_over_a_store_exposing_no_declaration_is_refused_at_boot(tmp_
 
     registry = ControlPlaneRegistry()
     opaque = _Undeclaring(deployment_store(tmp_path / "opaque", REPLAY_RECORD_CLASS))
+    with pytest.raises(UndeclaredMechanismClass, match="write_kinds"):
+        _recorder_over(opaque, registry)
     with pytest.raises(GovernedWiringError, match="write_kinds"):
-        create_app(_deps(registry, opaque), **_seams_over(tmp_path, _recorder_over(opaque, registry)))
+        create_app(_deps(registry, opaque), **_seams_over(tmp_path, _ConformingRecorder(opaque, tenant=TENANT)))
 
 
 def test_the_same_recorder_over_a_declaring_store_builds(tmp_path: Path) -> None:

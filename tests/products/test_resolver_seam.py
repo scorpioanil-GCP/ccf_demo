@@ -52,7 +52,7 @@ import copy
 import dataclasses
 import inspect
 import pathlib
-from collections.abc import Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
@@ -134,7 +134,7 @@ from tests.skills.authority import grant_capability, revoke_capability
 # none of them.
 
 #: The manifest key the request contract is authored under.
-REQUEST_CONTRACT_KEY = "fixture/request-contract"
+REQUEST_CONTRACT_KEY = "tenant-fixture/request-contract"
 
 #: The class id it is declared as — an adopter namespace, so a manifest
 #: resolves it to a `DeclaredArtifact` and the resolver reads it through
@@ -150,7 +150,7 @@ THRESHOLD_PARAMETER = "revenue_threshold"
 #: that the obligation seam has a *declaration* to read, which is the whole
 #: subject: `DebtProfile.obligation_for` is the extract half `D-IMPL-117` says
 #: the SDK owes, and the resolver composing it is the populate half.
-DEBT_PROFILE_KEY = "fixture/debt-profile"
+DEBT_PROFILE_KEY = "tenant-fixture/debt-profile"
 
 #: What this deployment binds to the routing state its scorer lands in.
 #:
@@ -2127,23 +2127,31 @@ def test_a_call_carrying_no_request_raises_rather_than_guessing(
 # --- helpers ----------------------------------------------------------------
 
 
-def _arguments(booted: _Booted) -> dict[str, Any]:
+def _arguments(booted: _Booted, *, key: Callable[[str], str] = lambda name: name) -> dict[str, Any]:
+    """The seam's resolver arguments over ``booted``.
+
+    ``key`` maps each fixture key to the string the fabric was booted under —
+    identity here, where the fixture IS the tenant; a program that re-tenanted
+    the fixture's documents (``tests/crossproc/servers/mcp_product_producer.py``)
+    passes the same move, so the keys it resolves by are the keys it registered
+    (D-IMPL-354).
+    """
     return {
         "fabric": booted.fabric,
         "control_plane": booted.control_plane,
-        "product_class_key": PRODUCT_CLASS_KEY,
-        "request_contract_key": REQUEST_CONTRACT_KEY,
+        "product_class_key": key(PRODUCT_CLASS_KEY),
+        "request_contract_key": key(REQUEST_CONTRACT_KEY),
         # `24.11-02b` / `D-IMPL-292`: naming the similarity key is now the WHOLE
         # of wiring similarity — the artifact it resolves to carries its own
         # `index_version`, and there is no companion argument to keep in step
         # with it. The default wiring names no similarity artifact; the test
         # below adds the key and nothing else.
-        "operator_parameter_keys": (TRAVERSAL_KEY,),
-        "policy_bundle_key": POLICY_BUNDLE_KEY,
+        "operator_parameter_keys": (key(TRAVERSAL_KEY),),
+        "policy_bundle_key": key(POLICY_BUNDLE_KEY),
         # `24.11-03` / `24.10-F-08`: the deployment's D_c bands, named the
         # way every other declaration is named — by key, so the profile the
         # resolver reads is provably the manifest's.
-        "debt_profile_key": DEBT_PROFILE_KEY,
+        "debt_profile_key": key(DEBT_PROFILE_KEY),
         # This fixture's class declares no child requirements, so it wires no
         # child resolver — the state every product shipped before D-IMPL-336
         # was in, stated rather than defaulted.
@@ -2204,8 +2212,8 @@ def _arguments(booted: _Booted) -> dict[str, Any]:
             # way that would leave dimension 2 thinner on the refusal path
             # than on the served one.
             policy_bundle_pin=PolicyBinding(
-                key=POLICY_BUNDLE_KEY,
-                version=booted.fabric.pins.version_for(POLICY_BUNDLE_KEY),
+                key=key(POLICY_BUNDLE_KEY),
+                version=booted.fabric.pins.version_for(key(POLICY_BUNDLE_KEY)),
             ),
         ),
         "artifact_store": booted.store,
@@ -2451,7 +2459,7 @@ def _real_child(
 
     registry = booted.control_plane
     child_class = "fixture.child"
-    ttl_key = "fixture/seam/child-max-ttl"
+    ttl_key = "tenant-fixture/seam/child-max-ttl"
     ttl_version = register_at_composition(registry, ttl_key, MaxTTL(seconds=86400))
     registered_child = register_product_class(
         registry=registry,

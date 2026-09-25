@@ -52,7 +52,9 @@ _REPO_ROOT = _TESTS_ROOT.parent
 # The child is spawned as a bare `python <file>`, so it gets none of pytest's
 # sys.path work. Resolving the three roots from __file__ is what makes the
 # child runnable from anywhere, which the fixture depends on.
-for _root in (_REPO_ROOT / "src", _REPO_ROOT / "runtime", _TESTS_ROOT):
+# The repo root too (last on the path): the shared test helpers import as
+# `tests.composition`, which resolves only from there (D-IMPL-354).
+for _root in (_REPO_ROOT, _REPO_ROOT / "src", _REPO_ROOT / "runtime", _TESTS_ROOT):
     if str(_root) not in sys.path:
         sys.path.insert(0, str(_root))
 

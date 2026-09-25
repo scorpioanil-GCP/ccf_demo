@@ -51,7 +51,7 @@ from ccf.replay.record import NO_FABRIC_READ, ChildResolution, DecisionReplayRec
 from ccf.replay.serve import ServedProduct
 from ccf.skills.callables import CallableRegistry
 from ccf.skills.catalog import SkillCatalog
-from ccf.skills.dispatch import McpProductInvocation, ProductQuestion, dispatch_skill
+from ccf.skills.dispatch import dispatch_skill, McpProductFailure, McpProductInvocation, ProductQuestion
 from ccf.skills.grants import GrantLedger
 from tests.products import paved_fixture as fixture
 from tests.products.paved_fixture import (
@@ -104,10 +104,10 @@ def _typed_wrong(requirement: ChildRequirement, request: ProductRequest) -> Chil
     return ChildQuestion(subject=request.subject, intent="fixture-intent", freshness="fixture-freshness", parameters={THRESHOLD_PARAMETER: "not-a-number"})
 
 
-def _door_outcome_by_a_second_dispatch(opened: Any, *, parameters: dict[str, Any], subject: str = "acct-1") -> DoorOutcome:
+def _second_dispatch(opened: Any, *, parameters: dict[str, Any], subject: str = "acct-1") -> Any:
     """THE INDEPENDENT ORACLE: ask the producer's door again through the dispatch
     surface alone — the consumer's registry and the granted entry, no admission,
-    no `_admit` — and decode the raw door outcome the door returned."""
+    no `_admit` — and return exactly what the dispatch returned."""
     ledger = GrantLedger(control_plane=opened.control_plane, catalog=SkillCatalog(opened.control_plane), sink=None, clock=lambda: ADMITTED_AT)  # type: ignore[arg-type]
     entry = ledger.bound_view(content_hash(opened.agent))[SKILL]
     wire = WireRequest(product_id=entry.binding.product_class, parameters=parameters, temporal_boundary=ASKED_AT)  # type: ignore[union-attr]
@@ -121,6 +121,12 @@ def _door_outcome_by_a_second_dispatch(opened: Any, *, parameters: dict[str, Any
             parameters=parameters, request_json=canonical_bytes(wire).decode("utf-8"),
         ),
     )
+    return dispatched
+
+
+def _door_outcome_by_a_second_dispatch(opened: Any, *, parameters: dict[str, Any], subject: str = "acct-1") -> DoorOutcome:
+    """The oracle, decoded: the door completed the call and returned an outcome."""
+    dispatched = _second_dispatch(opened, parameters=parameters, subject=subject)
     assert isinstance(dispatched, McpProductInvocation), dispatched
     return DoorOutcome.model_validate_json(dispatched.contents)
 
@@ -212,20 +218,26 @@ def test_c_a3_an_unreachable_producer_stays_unavailable_with_nothing_invented(tm
 
 def test_c_a4a_a_door_refusal_whose_claims_fail_carries_no_producer_refusal(tmp_path: pathlib.Path, producer_url: str) -> None:
     """The registration names another tenant, so the wire asks the door for a
-    tenant it does not serve: the door REFUSES (`subject-unavailable`), and then
-    the producer's claims fail against the registration. The answer was not the
-    producer's, so its refusal is not carried as the producer's word — the row
-    reads the consumer's verdict alone. Measured, not assumed: the oracle shows
-    the door refusing."""
+    tenant the caller's grant does not carry. The door does not serve and does
+    not refuse in its governed vocabulary: it ERRORS at the tenancy floor
+    (`SEC-018`, D-IMPL-353 §1.1), which the wire reports as a completed call
+    that failed (`tool-error`) — never as unreachability (`SEC353-J-02`). No
+    producer answer means no producer refusal is carried; the row reads the
+    consumer's verdict alone. Measured, not assumed: the oracle shows the door
+    erroring."""
     config = fixture.consumer_config(producers={"child": fixture.producer_section(producer_tenant="another-tenant")})
     root = _tree(tmp_path, config=config)
     with _open(root, tmp_path / "scratch", producer_url) as opened:
         refused = opened.answer(_question(opened))
         assert isinstance(refused, RefusalEnvelope), refused
         row = _the_row(opened, refused)
-        oracle = _door_outcome_by_a_second_dispatch(opened, parameters={THRESHOLD_PARAMETER: 1000})
-    assert oracle.product_json is None and oracle.refusal is not None and oracle.refusal.reason == "subject-unavailable"
-    assert row.refusal_ref == "producer-tenant-mismatch" and row.outcome_status != "ineligible"
+        oracle = _second_dispatch(opened, parameters={THRESHOLD_PARAMETER: 1000})
+    assert isinstance(oracle, McpProductFailure) and oracle.failure == "tool-error", oracle
+    # The slot reads `producer-unavailable`: the row vocabulary has no reason
+    # for a producer that REFUSED by error rather than answered, which is the
+    # half of `SEC353-J-02` reported for ruling — this assertion goes red when
+    # the vocabulary gains one.
+    assert (row.outcome_status, row.refusal_ref) == ("producer-unavailable", "producer-unavailable")
     assert (row.producer_refusal_kind, row.producer_refusal_reason, row.producer_refusal_key, row.child_replay_ref) == (None, None, None, None)
 
 

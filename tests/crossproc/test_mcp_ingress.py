@@ -274,6 +274,8 @@ def test_acquired_signal_reaches_the_graph_only_through_l2(
         resolution_spec_version=spec_version,
         policy_bundle_key=keys["policy_bundle"],
         policy_bundle_version=policy_version,
+        # D-IMPL-354: the tenant(s) this test composes the fabric for.
+        tenant_ids=(ontology["tenant_id"],),
     )
     try:
         boundary = datetime(2100, 1, 1, tzinfo=UTC)

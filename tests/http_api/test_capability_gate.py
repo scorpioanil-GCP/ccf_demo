@@ -59,7 +59,7 @@ from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.audit import AuthzDecisionAuditEvent
 from ccf.controlplane.registry import ControlPlaneRegistry
-from ccf.products.resolver import ReplayRefusalRecorder
+from ccf.products.resolver import ReplayRefusalRecorder, UndeclaredMechanismClass
 from ccf.projection.plan import Perspective
 from ccf_runtime.authz.artifact import (
     SCOPE_MAPPING,
@@ -757,6 +757,33 @@ class TestTheDoorActsUnderTheCapabilitysTenant:
 # --- create_app refuses mismatched wiring --------------------------------------
 
 
+
+class _ConformingRecorder:
+    """A recorder the app did not build: the two attributes `governed_wiring` reads, and the method.
+
+    Stands in for a third party's ``RefusalRecorderProtocol`` wired over a store
+    that has not declared its class. The SDK's own recorder refuses to EXIST over
+    such a store (``UndeclaredMechanismClass``, at construction), so only a foreign
+    recorder can reach the app's check — which is why the app keeps one.
+    """
+
+    replay_record_class = REPLAY_RECORD_CLASS
+
+    def __init__(self, store: Any, *, tenant: str) -> None:
+        self.artifact_store = store
+        self._tenant = tenant
+
+    @property
+    def tenant_id(self) -> str:
+        return self._tenant
+
+    def disclosure_level_for(self, *args: Any, **kwargs: Any) -> Any:  # pragma: no cover — refused at boot
+        raise AssertionError("a door over an undeclared store must not build")
+
+    def record(self, *args: Any, **kwargs: Any) -> Any:  # pragma: no cover — refused at boot
+        raise AssertionError("a door over an undeclared store must not build")
+
+
 class TestCreateAppRefusesMismatchedWiring:
     def _seams(self, fabric: Fabric, root: pathlib.Path, recorder: Any) -> dict[str, Any]:
         source = ControlPlaneProductEntitlementSource(
@@ -808,10 +835,16 @@ class TestCreateAppRefusesMismatchedWiring:
         undeclared = FileArtifactStore(
             root=tmp_path / "undeclared", write_kinds=WriteKinds({})
         )
+        # The SDK's recorder refuses FIRST, at composition (D-IMPL-353 §1.2): a
+        # writer whose store has not declared its class never comes to exist.
+        with pytest.raises(UndeclaredMechanismClass, match=REPLAY_RECORD_CLASS):
+            self._recorder_over(undeclared, fabric)
+        # And the app refuses a conforming recorder — anyone's — that it cannot
+        # show admitted, so a foreign recorder over that store builds no door.
         with pytest.raises(GovernedWiringError, match=REPLAY_RECORD_CLASS):
             create_app(
                 self._deps(fabric),
-                **self._seams(fabric, tmp_path, self._recorder_over(undeclared, fabric)),
+                **self._seams(fabric, tmp_path, _ConformingRecorder(undeclared, tenant=fabric.product_address.tenant)),
             )
 
     def test_a_recorder_over_a_store_exposing_no_declaration_is_refused_at_boot(
@@ -841,10 +874,12 @@ class TestCreateAppRefusesMismatchedWiring:
                 return str(self._inner.resolve_uri(uri=uri))
 
         opaque = _Undeclaring(deployment_store(tmp_path / "opaque", REPLAY_RECORD_CLASS))
+        with pytest.raises(UndeclaredMechanismClass, match="write_kinds"):
+            self._recorder_over(opaque, fabric)
         with pytest.raises(GovernedWiringError, match="write_kinds"):
             create_app(
                 self._deps(fabric),
-                **self._seams(fabric, tmp_path, self._recorder_over(opaque, fabric)),
+                **self._seams(fabric, tmp_path, _ConformingRecorder(opaque, tenant=fabric.product_address.tenant)),
             )
 
     def test_the_same_recorder_over_a_store_declaring_its_class_builds(

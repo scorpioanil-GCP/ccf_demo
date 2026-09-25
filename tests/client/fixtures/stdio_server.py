@@ -91,6 +91,7 @@ from ccf_runtime.authz.product_entitlement import (
 from ccf_runtime.mcp.auth import FileTokenSource, SourceBackedTokenVerifier
 from ccf_runtime.mcp.egress import build_egress_server
 from ccf.authz.actions import ACTION_PRODUCT_RETRIEVE
+from ccf.controlplane.registry import namespaced_key
 from ccf_runtime.authz.artifact import SCOPE_MAPPING, ScopeEntry, ScopeMappingArtifact
 from ccf_runtime.authz.protocol import ControlPlaneTenantAuthorizer
 from http_api.composition_authority import (
@@ -115,11 +116,13 @@ def serve(root: Path) -> None:
     document = load_binding_document(root)
     booted = _boot(document)
     perspective = document.perspective
-    declaration = booted.fabric.artifacts[document.product_class_key]
+    # The binding names the deployment's bare section key; the loader placed it
+    # under the deployment's tenant (D-IMPL-354), so the fabric is read by the
+    # placed key — the same derivation the in-process adapter applies.
+    product_class_key = namespaced_key(tenant=booted.fabric.tenant_id, key=document.product_class_key)
+    declaration = booted.fabric.artifacts[product_class_key]
     if not isinstance(declaration, ProductClassDeclaration):  # pragma: no cover
-        raise TypeError(
-            f"`{document.product_class_key}` is not a product class declaration"
-        )
+        raise TypeError(f"`{product_class_key}` is not a product class declaration")
 
     # The clock is this deployment's DECLARED instant, not a wall-clock read.
     # The entitlement source stamps an audit event per decision, and a fixture

@@ -48,10 +48,10 @@ from ccf.artifacts.file_store import FileArtifactStore
 from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.products.child_resolver import ChildQuestion, QuestionBoundChildResolver
-from ccf.products.composite import CompositeAdmissionGate
+from ccf.products.composite import CHILD_QUESTION_CLASS, CompositeAdmissionGate
 from ccf.products.contract import ChildRequirement, ContextProductContract
 from ccf.products.door import WireRequest
-from ccf.products.product import ConsumerContext, OpenedProduct, open_product
+from ccf.products.product import ConsumerContext, GrantNotInForce, OpenedProduct, open_product
 from ccf.products.refusal import RefusalEnvelope
 from ccf.products.request import ProductRequest
 from ccf.replay.record import DecisionReplayRecord
@@ -59,7 +59,7 @@ from ccf.replay.serve import ServedProduct
 from ccf.skills.callables import CallableRegistry
 from ccf.skills.catalog import SkillCatalog
 from ccf.skills.dispatch import ChildQuestionIdentity, question_identity
-from ccf.skills.grants import GrantLedger
+from ccf.skills.grants import GrantLedger, RequirementsExceedRegime
 from ccf.skills.producers import ProducerEnvironmentMissing
 from tests.products import paved_fixture as fixture
 from tests.products.paved_fixture import (
@@ -80,7 +80,13 @@ from tests.products.paved_fixture import (
     SKILL,
     THRESHOLD_PARAMETER,
 )
-from tests.composition import register_typed_at_composition
+from tests.composition import (
+    composition_replay_mint,
+    declaring_store,
+    register_skill_entry,
+    register_typed_at_composition,
+)
+from tests.skills.authority import grant_capability, revoke_capability
 
 pytestmark = [pytest.mark.crossproc]
 
@@ -147,6 +153,10 @@ def _open(root: pathlib.Path, scratch: pathlib.Path, url: str, **overrides: Any)
         "clock": lambda: ADMITTED_AT,
     }
     arguments.update(overrides)
+    if "control_plane" not in arguments:
+        # The declared skills are granted through the ledger by an authorized
+        # principal BEFORE opening: the paved road requests no grant (D-IMPL-354).
+        arguments["control_plane"] = fixture.granted_control_plane(root)
     return open_product(**arguments)
 
 
@@ -164,7 +174,9 @@ def _the_row(opened: OpenedProduct, outcome: Any) -> Any:
 
 
 def _retained_child(opened: OpenedProduct, address: str) -> ContextProductContract:
-    fresh = FileArtifactStore(root=opened.scratch / opened.replay.store_dirname)
+    # A read-back store declaring nothing writable (D-IMPL-353 §1.2): the test reads
+    # what the product's own writer filed and files nothing itself.
+    fresh = declaring_store(opened.scratch / opened.replay.store_dirname)
     return ContextProductContract.model_validate_json(fresh.get(content_address=address))
 
 
@@ -218,7 +230,7 @@ def test_the_adopter_constructed_none_of_the_consumer_machinery_and_each_exists_
 
 def test_opening_twice_over_one_control_plane_serves_twice(tmp_path: pathlib.Path, producer_url: str) -> None:
     root = _tree(tmp_path)
-    registry = ControlPlaneRegistry()
+    registry = fixture.granted_control_plane(root)
     with _open(root, tmp_path / "s1", producer_url, control_plane=registry) as first:
         assert isinstance(first.answer(_question(first)), ServedProduct)
     with _open(root, tmp_path / "s2", producer_url, control_plane=registry) as second:
@@ -374,7 +386,7 @@ def test_the_mapping_is_the_authority_on_the_subject_and_the_row_records_what_wa
     # instance, calling neither the mapping nor the producer. The recompute
     # above is this test's oracle for what the mapping sent; the store is what
     # an examiner has.
-    fresh = FileArtifactStore(root=opened.scratch / opened.replay.store_dirname)
+    fresh = declaring_store(opened.scratch / opened.replay.store_dirname)  # read-back only
     assert row.child_question_ref is not None
     retained = ChildQuestionIdentity.model_validate_json(fresh.get(content_address=fresh.resolve_uri(uri=row.child_question_ref)))
     assert content_hash(retained) == expected and retained.subject == "acct-2"
@@ -428,26 +440,36 @@ def test_a_revoked_grant_refuses_no_producing_skill_as_a_governed_row(tmp_path: 
         assert opened.agent is not None
         ledger = GrantLedger(control_plane=opened.control_plane, catalog=SkillCatalog(opened.control_plane), sink=None, clock=lambda: ADMITTED_AT)  # type: ignore[arg-type]
         agent_hash = content_hash(opened.agent)
-        ledger.revoke(ledger.bound_view(agent_hash).grant_hash_for(SKILL), actor="test")
+        ledger.revoke(revoke_capability(ledger.bound_view(agent_hash).grant_hash_for(SKILL), tenant=opened.agent.tenant, principal="test"))
         refused = opened.answer(_question(opened))
         assert isinstance(refused, RefusalEnvelope), refused
         assert _the_row(opened, refused).outcome_status == "no-producing-skill"
 
 
-def test_a_grant_the_regime_does_not_permit_is_refused_at_open_with_the_ledgers_reason(
+def test_a_grant_the_regime_does_not_permit_is_refused_by_the_ledger_and_open_refuses_by_name(
     tmp_path: pathlib.Path, producer_url: str
 ) -> None:
     config = fixture.consumer_config(skills={SKILL: fixture.skill_section(requirements={"required_scopes": ["scope:x"], "required_context_products": []})})
     root = _tree(tmp_path, config=config)
-    with pytest.raises(ValueError, match="RequirementsExceedRegime"):
-        _open(root, tmp_path / "scratch", producer_url)
+    # The grant is a door action the road no longer makes (D-IMPL-354): the
+    # ledger refuses it with its own reason, and open — finding nothing in
+    # force — refuses by name rather than granting around the regime.
+    registry, outcomes = fixture.grants_in_force(root)
+    assert outcomes and all(isinstance(outcome, RequirementsExceedRegime) for outcome in outcomes), outcomes
+    with pytest.raises(GrantNotInForce, match=SKILL):
+        _open(root, tmp_path / "scratch", producer_url, control_plane=registry)
 
 
-def test_a_regime_requiring_approval_with_no_sink_is_refused_at_open_by_name(tmp_path: pathlib.Path, producer_url: str) -> None:
+def test_a_regime_requiring_approval_with_no_sink_is_refused_at_grant_and_open_refuses_by_name(tmp_path: pathlib.Path, producer_url: str) -> None:
     config = fixture.consumer_config(governance={"grant_requires_approval": True, "permitted_scopes": []})
     root = _tree(tmp_path, config=config)
+    # Tier-2 approval is decided at the grant, by the sink the granting
+    # deployment supplies — the refusing sink refuses by name — and an open
+    # over a plane holding no grant refuses by name too (D-IMPL-346; D-IMPL-354).
     with pytest.raises(ValueError, match="approval_sink="):
-        _open(root, tmp_path / "scratch", producer_url)
+        fixture.grants_in_force(root)
+    with pytest.raises(GrantNotInForce, match=SKILL):
+        _open(root, tmp_path / "scratch", producer_url, control_plane=ControlPlaneRegistry())
 
 
 def test_an_unreachable_producer_is_a_governed_producer_unavailable_row(tmp_path: pathlib.Path) -> None:
@@ -462,7 +484,12 @@ def test_an_unreachable_producer_is_a_governed_producer_unavailable_row(tmp_path
 def test_a_producer_asserting_another_identity_or_tenant_refuses_by_name(tmp_path: pathlib.Path, producer_url: str) -> None:
     for label, section, reason in (
         ("id", fixture.producer_section(producer_id="someone-else"), "producer-mismatch"),
-        ("tenant", fixture.producer_section(producer_tenant="another-tenant"), "producer-tenant-mismatch"),
+        # A registration naming a tenant the caller's grant does not carry is
+        # refused at the door's tenancy floor (SEC-018) before any product logic:
+        # a completed call that failed, so the slot reads `producer-unavailable`
+        # (the row vocabulary's only reason for a producer that gave no governed
+        # answer — `SEC353-J-02`, reported for ruling).
+        ("tenant", fixture.producer_section(producer_tenant="another-tenant"), "producer-unavailable"),
     ):
         root = _tree(tmp_path / label, config=fixture.consumer_config(producers={"child": section}))
         with _open(root, tmp_path / label / "scratch", producer_url) as opened:
@@ -521,7 +548,7 @@ def _low_road_children(context: ConsumerContext) -> QuestionBoundChildResolver:
         instruction_bindings=(),
     )
     catalog = SkillCatalog(opened_registry)
-    catalog.register(SkillCatalogEntry(
+    register_skill_entry(catalog, opened_registry, SkillCatalogEntry(
         schema_version="1.0.0", artifact_version="1.0.0", name="low-road-ask", tenant=CONSUMER_TENANT, skill_type="mcp_product",
         description="asks the paved child producer on the low road", argument_schema=SkillArgumentSchema(properties={}, required=()),
         binding=McpProductBinding(server=SERVER_NAME, product_class=CHILD_CLASS, product_version=CHILD_VERSION),
@@ -529,14 +556,18 @@ def _low_road_children(context: ConsumerContext) -> QuestionBoundChildResolver:
     ))
     ledger = GrantLedger(control_plane=opened_registry, catalog=catalog, sink=None, clock=lambda: ADMITTED_AT)  # type: ignore[arg-type]
     outcome = ledger.request(
+        grant_capability(definition, principal="low-road-consumer"),
         SkillGrant(schema_version="1.0.0", artifact_version="1.0.0", name="grant-low-road-ask", tenant=CONSUMER_TENANT,
                    agent_definition_hash=content_hash(definition), skill_name="low-road-ask", skill_version="1.0.0"),
-        definition=definition, actor="low-road-consumer",
+        definition=definition,
     )
     assert isinstance(outcome, str), outcome
     assert context.mcp_skills is not None, "the SDK registered the declared producer"
     return QuestionBoundChildResolver(
         ledger=ledger, agent_definition_hash=content_hash(definition),
+        # D-IMPL-354: the low road is the composition root; it mints for the
+        # child questions it files, under the consumer tenant.
+        authorized=composition_replay_mint(opened_registry, tenant=CONSUMER_TENANT, artifact_class=CHILD_QUESTION_CLASS),
         gate=CompositeAdmissionGate(tenant_id=CONSUMER_TENANT, consumer_scope="consumer://low-road", registry=opened_registry),
         child_questions=fixture.questions, callable_registry=CallableRegistry(),
         artifact_store=context.artifact_store, mcp_skills=context.mcp_skills,
@@ -599,8 +630,9 @@ def test_a_bumped_skill_beside_a_grant_in_force_is_refused_at_open_naming_both_v
     """Idempotent means THE SAME grant: over a shared plane, an edited
     `skills:` entry beside the grant already in force is refused by name, never
     silently superseded (the panel's finding on this half)."""
-    registry = ControlPlaneRegistry()
-    with _open(_tree(tmp_path / "a"), tmp_path / "a" / "scratch", producer_url, control_plane=registry) as first:
+    first_root = _tree(tmp_path / "a")
+    registry = fixture.granted_control_plane(first_root)  # the grant in force: 1.0.0
+    with _open(first_root, tmp_path / "a" / "scratch", producer_url, control_plane=registry) as first:
         assert isinstance(first.answer(_question(first)), ServedProduct)
     bumped = fixture.consumer_config(skills={SKILL: fixture.skill_section(artifact_version="1.1.0", description="asks, revised")})
     with pytest.raises(ValueError, match="1.0.0.*1.1.0|1.1.0.*1.0.0"):

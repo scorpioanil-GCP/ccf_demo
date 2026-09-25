@@ -311,7 +311,9 @@ def scope_mapping_key(*, tenant_id: str) -> str:
     disagree about where a tenant's mapping lives, and supplies no tenant, so
     it holds no deployment's vocabulary (CINV-01).
     """
-    return f"{SCOPE_MAPPING.class_id}/{tenant_id}"
+    # `{tenant}/{class}` — the grammar the registry reads the tenant from
+    # (D-IMPL-353 §1.3); class-first until the D-IMPL-353 join corrected it.
+    return f"{tenant_id}/{SCOPE_MAPPING.class_id}"
 
 
 def open_door(
@@ -445,36 +447,19 @@ def _boot_credential(
 
 
 def _registration(
-    control_plane: ControlPlaneRegistry, *, key: str, clock: Callable[[], datetime]
+    control_plane: ControlPlaneRegistry, *, tenant: str, key: str, clock: Callable[[], datetime]
 ) -> Authorized[Register]:
-    """The D-IMPL-354 composition recipe for ONE Control Plane key, verbatim.
+    """The composition recipe for ONE of the door's own keys (D-IMPL-354).
 
-    This module is a composition root (the §4 lint's ``COMPOSITION_MINT_SITES``
-    names it): opening the paved-road door composes a deployment's door, and
-    the two registrations that composition performs — the entitlement policy
-    and the scope mapping — are the deployment's own act on its own fabric,
-    which no served caller requests and no gate can mint for. So the root
-    records the decision on the Control Plane's own audit log, as a
-    ``composition`` event naming the key, and mints ``Register`` for exactly
-    that key from that event's content address. A boot-minted ``Register``
-    opens one key; it is not a wildcard and cannot be widened (§1.5).
-
-    **The capability's tenant is the key's tenant segment as the Control Plane
-    defines it** — the segment before the first ``/``
-    (:mod:`ccf.controlplane.registry`, §1.3: *"the key's tenant segment must
-    equal the capability's tenant"*). Stated rather than assumed because the
-    two keys this door registers do not put the tenant there:
-    :func:`~ccf.products.entitlement.product_entitlement_key` and
-    :func:`scope_mapping_key` both derive ``{class}/{tenant}``, so under the
-    registry's rule their tenant segment is the class id. A ``Register``
-    minted for the door's own ``tenant_id`` is refused as cross-tenant; one
-    minted for the segment is admitted. That disagreement between two key
-    derivations and the registry's grammar is a finding of the D-IMPL-353
-    join, recorded in the join report and owed a ruling — it is not resolved
-    here, and this function encodes no opinion about which side moves: it
-    mints for what the Control Plane will read the key as, and says so.
+    The door is a composition root (§1.6): it records a ``composition`` event
+    on the product's Control Plane audit log naming the key, and mints
+    ``Register`` for exactly that key from that event's content address —
+    for the tenant the door composes for. Both keys the door registers
+    (:func:`~ccf.products.entitlement.product_entitlement_key`,
+    :func:`scope_mapping_key`) are ``{tenant}/{class}``, so the registry's
+    own tenant-segment check (§1.3) is a real check here, not a tautology:
+    a key that did not belong to this tenant would be refused at the write.
     """
-    tenant_segment, _, _ = key.partition("/")
     event = control_plane.audit_log.append(
         action="composition",
         key=key,
@@ -485,7 +470,7 @@ def _registration(
     )
     return mint_at_composition(
         Register,
-        tenant=tenant_segment,
+        tenant=tenant,
         principal=COMPOSITION_PRINCIPAL,
         resource=key,
         decision_id=content_hash(event),
@@ -521,7 +506,7 @@ def _compose(
     product.control_plane.register_typed(
         _registration(
             product.control_plane,
-            key=product_entitlement_key(tenant_id=tenant),
+            tenant=tenant, key=product_entitlement_key(tenant_id=tenant),
             clock=now,
         ),
         ProductEntitlementPolicy(
@@ -546,7 +531,7 @@ def _compose(
     mapping_version = product.control_plane.register_typed(
         _registration(
             product.control_plane,
-            key=scope_mapping_key(tenant_id=tenant),
+            tenant=tenant, key=scope_mapping_key(tenant_id=tenant),
             clock=now,
         ),
         ScopeMappingArtifact(

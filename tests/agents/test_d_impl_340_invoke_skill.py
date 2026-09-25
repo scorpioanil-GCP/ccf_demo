@@ -25,6 +25,8 @@ from ccf.skills.grants import GrantLedger, SkillGrant
 
 from tests.skills.sinks import ScriptedApprovalSink
 from tests.controlplane.composition import compose_register_versioned
+from tests.composition import register_skill_entry
+from tests.skills.authority import grant_capability
 from tests.agents.test_assembler import (  # noqa: F401 — `registry` is a fixture
     ASKED_AT,
     FIXTURES,
@@ -55,7 +57,7 @@ def test_invoke_skill_refuses_an_mcp_product_entry_by_name(
     assert isinstance(version, str)
     catalog = SkillCatalog(registry)
     entry = _mcp_product_entry()
-    assert isinstance(catalog.register(entry), str)
+    assert isinstance(register_skill_entry(catalog, registry, entry), str)
     ledger = GrantLedger(
         control_plane=registry,
         catalog=catalog,
@@ -65,6 +67,7 @@ def test_invoke_skill_refuses_an_mcp_product_entry_by_name(
     )
     definition_hash = content_hash(definition)
     grant_hash = ledger.request(
+        grant_capability(definition, principal=granted_values["requesting_actor"]),
         SkillGrant(
             schema_version="1.0.0",
             artifact_version="1.0.0",
@@ -75,7 +78,6 @@ def test_invoke_skill_refuses_an_mcp_product_entry_by_name(
             skill_version=entry.artifact_version,
         ),
         definition=definition,
-        actor=granted_values["requesting_actor"],
     )
     assert isinstance(grant_hash, str), grant_hash
     agent = AgentFactory(control_plane=registry).construct(

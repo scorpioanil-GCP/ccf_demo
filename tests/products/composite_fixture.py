@@ -93,10 +93,10 @@ REGIME_KEY = f"{TENANT}/policy-bundle/composite-integration"
 #: point: a composite whose child answers the same question with the same
 #: operators would demonstrate nothing about composition.
 CHILD_CLASS = "fixture.child-product"
-CHILD_CLASS_KEY = "fixture/product-class-child"
+CHILD_CLASS_KEY = "tenant-fixture/product-class-child"
 CHILD_SKILL = "child-door-skill"
 CHILD_CALLABLE = "fixture.child-door"
-CHILD_MAX_TTL_KEY = "fixture/max-ttl"
+CHILD_MAX_TTL_KEY = "tenant-fixture/max-ttl"
 
 #: The regime and the agent the grant hangs off. Test-side values, every one.
 REGIME_KEY = f"{TENANT}/policy-bundle/composite-integration"
@@ -105,7 +105,7 @@ REGIME_KEY = f"{TENANT}/policy-bundle/composite-integration"
 #: `schema_name: fixture.manifest-product`, so a child request validated
 #: against it is a `product-request-violation` — which is what the first run
 #: of this module measured, and correctly: a request contract is per class.
-CHILD_REQUEST_CONTRACT_KEY = "fixture/request-contract-child"
+CHILD_REQUEST_CONTRACT_KEY = "tenant-fixture/request-contract-child"
 CHILD_REQUEST_CONTRACT_DOCUMENT: dict[str, Any] = {
     "semver": "1.0.0",
     "class_id": "fixture.request-contract",
@@ -524,8 +524,8 @@ def ask_composite(resolver: GovernedResolver) -> Any:
 # --- INT-01b: the nested chain, leaf -> composite -> higher composite --------
 
 HIGHER_CLASS = "fixture.higher-product"
-HIGHER_CLASS_KEY = "fixture/product-class-higher"
-HIGHER_REQUEST_CONTRACT_KEY = "fixture/request-contract-higher"
+HIGHER_CLASS_KEY = "tenant-fixture/product-class-higher"
+HIGHER_REQUEST_CONTRACT_KEY = "tenant-fixture/request-contract-higher"
 HIGHER_SKILL = "composite-door-skill"
 HIGHER_CALLABLE = "fixture.composite-door"
 HIGHER_REGIME_KEY = f"{TENANT}/policy-bundle/higher-composite"
@@ -545,7 +545,7 @@ def higher_product_class() -> dict[str, Any]:
         "schema_version": "1.0.0",
         "ttl_anchor": "from_decision",
         "assembly_mode": "algorithmic",
-        "max_ttl_key": "fixture/max-ttl",
+        "max_ttl_key": "tenant-fixture/max-ttl",
         "required_operator_keys": ["traversal.typed-neighborhood"],
         "requires": [
             {

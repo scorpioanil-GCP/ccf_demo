@@ -33,6 +33,7 @@ from ccf_runtime.http_api.errors import (
 from ccf_runtime.mcp.auth import StaticTokenSource, TokenGrant
 
 from http_api.conftest import Fabric, call
+from http_api.composition_authority import refusal_recorder
 from http_api.gate_fixtures import SCOPE_EVERYTHING
 from tests.controlplane.composition import compose_register_typed
 
@@ -89,7 +90,6 @@ def _seams(fabric: Fabric, root: Path) -> dict[str, Any]:
         ProductEntitlementPolicy,
         product_entitlement_key,
     )
-    from ccf.products.resolver import ReplayRefusalRecorder
     from ccf.projection.plan import Perspective
     from ccf_runtime.authz.product_entitlement import (
         ControlPlaneProductEntitlementSource,
@@ -127,8 +127,11 @@ def _seams(fabric: Fabric, root: Path) -> dict[str, Any]:
                 principal_id=grant.client_id, role=_ROLE
             )
         ),
-        refusal_recorder=ReplayRefusalRecorder(
-            artifact_store=FileArtifactStore(
+        # The recorder holds the ReplayMint its composition root minted for its
+        # class (D-IMPL-354): the recipe, spelled once in `composition_authority`.
+        refusal_recorder=refusal_recorder(
+            entitlements,
+            store=FileArtifactStore(
                 root=root / "artifacts",
                 # The recorder is fabric mechanism writing its own evidence
                 # class (D-IMPL-353 §1.2): declared, so it admits the
@@ -137,8 +140,8 @@ def _seams(fabric: Fabric, root: Path) -> dict[str, Any]:
                     {"ccf.decision-replay-record": (ReplayMint,)}
                 ),
             ),
+            tenant=address.tenant,
             replay_record_class="ccf.decision-replay-record",
-            tenant_id=address.tenant,
             assembly_mode="algorithmic",
             policy_bundle_pin=None,
             disclosure_level_for=source.disclosure_level_for,

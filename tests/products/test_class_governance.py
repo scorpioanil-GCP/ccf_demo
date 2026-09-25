@@ -54,8 +54,8 @@ from ccf.products.contract import (
 from ccf.products.payload import ProductPayloadSchema
 from tests.composition import register_at_composition
 
-MAX_TTL_KEY = "fixture/max-ttl"
-PAYLOAD_SCHEMA_KEY = "fixture/payload-schema"
+MAX_TTL_KEY = "tenant-fixture/max-ttl"
+PAYLOAD_SCHEMA_KEY = "tenant-fixture/payload-schema"
 
 
 def _registry_with_ceiling() -> tuple[ControlPlaneRegistry, str]:
@@ -135,7 +135,7 @@ class TestTheThreeAbsentElementsAreBorne:
     def test_addressability_carries_the_address_the_class_answers_at(self) -> None:
         """§6.3 at ``:1465``, whose worked pattern is a path plus arguments."""
         address = ProductAddress(
-            address_template="/context-products/fixture/{subject}"
+            address_template="/context-products/tenant-fixture/{subject}"
         )
         assert _register(addressability=address).addressability == address
 

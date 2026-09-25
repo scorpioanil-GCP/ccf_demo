@@ -118,8 +118,8 @@ BEFORE_T1 = T1 - timedelta(days=1)
 #: is where the artifact lives; the policy id is what a caller would name in an
 #: override. They are deliberately different strings, so a test that confused
 #: them would fail rather than pass by coincidence.
-KEY_A = "fixture/policy_constraints/a"
-KEY_B = "fixture/policy_constraints/b"
+KEY_A = "tenant-fixture/policy_constraints/a"
+KEY_B = "tenant-fixture/policy_constraints/b"
 POLICY_A = "a"
 POLICY_B = "b"
 
@@ -139,7 +139,7 @@ UNENTITLED = Perspective(principal_id=UNENTITLED_PRINCIPAL, role=ROLE)
 
 #: The request contract's own pin, as the governed resolver mints it.
 DECLARED_SOURCE = ProvenanceSource(
-    kind="artifact", identity="fixture/request-contract", version="1"
+    kind="artifact", identity="tenant-fixture/request-contract", version="1"
 )
 
 #: The needle the C-10 sabotage cuts, and the marker that makes it findable.
@@ -347,7 +347,7 @@ def _scratch_constraints(
 #: A presence constraint on the threshold, which the fixture question never
 #: supplies and the fixture contract never defaults — so the seam REFUSES
 #: after the tolerance ceiling in force has already folded.
-KEY_PRESENCE = "fixture/policy_constraints/presence"
+KEY_PRESENCE = "tenant-fixture/policy_constraints/presence"
 POLICY_PRESENCE = "presence"
 
 

@@ -20,8 +20,8 @@ from pathlib import Path
 from typing import Any
 
 CHILD_CLASS = "fixture.child-product"
-CHILD_CLASS_KEY = "fixture/product-class-child"
-CHILD_REQUEST_CONTRACT_KEY = "fixture/request-contract-child"
+CHILD_CLASS_KEY = "tenant-fixture/product-class-child"
+CHILD_REQUEST_CONTRACT_KEY = "tenant-fixture/request-contract-child"
 
 
 def child_product_class() -> dict[str, Any]:
@@ -36,7 +36,7 @@ def child_product_class() -> dict[str, Any]:
         "schema_version": "1.0.0",
         "ttl_anchor": "from_decision",
         "assembly_mode": "algorithmic",
-        "max_ttl_key": "fixture/max-ttl",
+        "max_ttl_key": "tenant-fixture/max-ttl",
         "required_operator_keys": ["similarity.corpus-select"],
     }
 

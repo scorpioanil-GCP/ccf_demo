@@ -27,16 +27,16 @@ import yaml
 
 #: Fixture vocabulary. Test-side names, never SDK values (CINV-01).
 TENANT = "tenant-fixture"
-RESOLUTION_SPEC_KEY = "fixture/resolution-spec"
-POLICY_BUNDLE_KEY = "fixture/policy-bundle"
-HALF_LIFE_KEY = "fixture/half-life-table"
-TRAVERSAL_KEY = "fixture/operator-parameters/traversal"
-TEMPORAL_KEY = "fixture/operator-parameters/temporal"
-POLICY_PARAMS_KEY = "fixture/operator-parameters/policy"
-SIMILARITY_KEY = "fixture/operator-parameters/similarity"
-PERSPECTIVE_KEY = "fixture/perspective"
-PRODUCT_CLASS_KEY = "fixture/product-class"
-SIGNAL_BATCH_KEY = "fixture/signal-batch"
+RESOLUTION_SPEC_KEY = "tenant-fixture/resolution-spec"
+POLICY_BUNDLE_KEY = "tenant-fixture/policy-bundle"
+HALF_LIFE_KEY = "tenant-fixture/half-life-table"
+TRAVERSAL_KEY = "tenant-fixture/operator-parameters/traversal"
+TEMPORAL_KEY = "tenant-fixture/operator-parameters/temporal"
+POLICY_PARAMS_KEY = "tenant-fixture/operator-parameters/policy"
+SIMILARITY_KEY = "tenant-fixture/operator-parameters/similarity"
+PERSPECTIVE_KEY = "tenant-fixture/perspective"
+PRODUCT_CLASS_KEY = "tenant-fixture/product-class"
+SIGNAL_BATCH_KEY = "tenant-fixture/signal-batch"
 
 #: ``key -> (filename, class_id, role, registration, document)`` for the complete
 #: artifact set. Declaration order is manifest order, and the tests depend on it:
@@ -164,7 +164,7 @@ ARTIFACT_SET: tuple[tuple[str, str, str, str, str, dict[str, Any]], ...] = (
             "schema_version": "1.0.0",
             "ttl_anchor": "from_decision",
             "assembly_mode": "algorithmic",
-            "max_ttl_key": "fixture/max-ttl",
+            "max_ttl_key": "tenant-fixture/max-ttl",
             "required_operator_keys": ["traversal.typed-neighborhood"],
         },
     ),

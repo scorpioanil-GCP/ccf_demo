@@ -74,7 +74,7 @@ def _declaration() -> ProductClassDeclaration:
             "schema_version": "1.0.0",
             "ttl_anchor": "from_decision",
             "assembly_mode": "algorithmic",
-            "max_ttl_key": "fixture/max-ttl",
+            "max_ttl_key": "tenant-fixture/max-ttl",
             "required_operator_keys": sorted(OPERATORS),
         },
         PRODUCT_CLASS,

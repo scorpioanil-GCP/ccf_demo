@@ -94,7 +94,7 @@ CLOCK_CALLS = ("now", "utcnow", "today", "time", "monotonic")
 
 CLASS_NAME = "fixture.request"
 CLASS_VERSION = "1.0.0"
-CONTRACT_KEY = "fixture/request-contract"
+CONTRACT_KEY = "tenant-fixture/request-contract"
 INSTANT = datetime(2026, 8, 11, 12, 0, tzinfo=timezone.utc)
 
 
@@ -456,7 +456,7 @@ def test_a_declaration_written_before_this_plan_still_parses() -> None:
         schema_version=CLASS_VERSION,
         ttl_anchor="from_decision",
         assembly_mode="algorithmic",
-        max_ttl_key="fixture/max-ttl",
+        max_ttl_key="tenant-fixture/max-ttl",
         required_operator_keys=("fixture.operator",),
     )
     assert declaration.request_contract_key == NO_REQUEST_CONTRACT
@@ -541,14 +541,14 @@ def _register(**overrides: Any) -> Any:
     from ccf.products.contract import MaxTTL, register_product_class
 
     registry, version = overrides.pop("pair", _registry_with_contract())
-    max_ttl_version = register_at_composition(registry, "fixture/max-ttl", MaxTTL(seconds=600))
+    max_ttl_version = register_at_composition(registry, "tenant-fixture/max-ttl", MaxTTL(seconds=600))
     fields: dict[str, Any] = {
         "registry": registry,
         "schema_name": CLASS_NAME,
         "schema_version": CLASS_VERSION,
         "ttl_anchor": "from_decision",
         "assembly_mode": "algorithmic",
-        "max_ttl_key": "fixture/max-ttl",
+        "max_ttl_key": "tenant-fixture/max-ttl",
         "max_ttl_version": max_ttl_version,
         "request_contract_key": CONTRACT_KEY,
         "request_contract_version": version,

@@ -132,7 +132,11 @@ from ccf.deployment.environment import (
     resolve_values,
 )
 from ccf.deployment.keys import DeploymentKeys
-from ccf.deployment.manifest import register_manifest_entries
+from ccf.deployment.manifest import (
+    keys_under_tenant,
+    manifest_under_tenant,
+    register_manifest_entries,
+)
 from ccf.graph.protocols import GraphView
 from ccf.halflife.debt import DebtAssessment
 from ccf.mcp.client import SyncMcpBridge, bearer_client_factory
@@ -976,6 +980,11 @@ def open_product(
     derived = derive_deployment(config, config_filename=config_path.name)
     keys = derived.keys
     documents = derived.documents
+    # The strings on the Control Plane: every per-question boot places the derived
+    # keys under the deployment's tenant (D-IMPL-354), so what this product exposes,
+    # pins and resolves by is the placed key — the bare `keys` above index only the
+    # derivation's own documents.
+    placed = keys_under_tenant(keys, tenant=config.tenant_id)
 
     declaration = parse_artifact(documents[keys.product_class], PRODUCT_CLASS)
     assert isinstance(declaration, ProductClassDeclaration)
@@ -1060,7 +1069,7 @@ def open_product(
         tenant_id=config.tenant_id,
         assembly_mode=declaration.assembly_mode,
         policy_bundle_pin=PolicyBinding(
-            key=keys.policy_bundle, version=content_hash(policy_artifact)
+            key=placed.policy_bundle, version=content_hash(policy_artifact)
         ),
     )
 
@@ -1088,6 +1097,7 @@ def open_product(
             assert questions is not None  # `_refuse_half_wired_composite` held it
             agent, child_resolver = _derive_consumer_chain(
                 derived,
+                tenant=config.tenant_id,
                 declaration=declaration,
                 registry=registry,
                 store=store,
@@ -1107,7 +1117,7 @@ def open_product(
         scratch=scratch_root,
         config=config,
         environment=environment,
-        keys=keys,
+        keys=placed,
         tenant_id=config.tenant_id,
         declaration=declaration,
         replay=replay,
@@ -1311,6 +1321,7 @@ def _mint_child_question_authority(
 def _derive_consumer_chain(
     derived: DerivedDeployment,
     *,
+    tenant: str,
     declaration: ProductClassDeclaration,
     registry: ControlPlaneRegistry,
     store: ArtifactStoreProtocol,
@@ -1322,7 +1333,8 @@ def _derive_consumer_chain(
     """The declared chain: agent → catalog → grant → question-bound resolver → gate.
 
     Registers what the ledger resolves — the policy regime, the agent and the
-    skill entries — through the manifest's ONE register loop
+    skill entries — placed under ``tenant`` (D-IMPL-354) and registered
+    through the manifest's ONE register loop
     (:func:`~ccf.deployment.manifest.register_manifest_entries`; every
     question's boot registers the same content again, idempotently), then
     **reads** which declared skills are bound to the agent on this Control
@@ -1332,21 +1344,32 @@ def _derive_consumer_chain(
     (D-IMPL-353 §1.6; D-IMPL-354). A skill bound at another version than the
     one declared is refused rather than superseded, as before.
     """
-    keys = derived.keys
-    assert keys.agent is not None and keys.skills and keys.policy_bundle  # held by the caller
+    declared_keys = derived.keys
+    assert declared_keys.agent is not None and declared_keys.skills and declared_keys.policy_bundle  # held by the caller
     if mcp_skills is None:
         raise ValueError(
             "the product class declares `requires` and the config declares no"
             " `producers:`; a derived chain asks declared producers and none"
             " are declared (D-IMPL-343; D-IMPL-340)"
         )
-    wanted = frozenset({keys.policy_bundle, keys.agent, *keys.skills})
-    parsed = {
+    declared_wanted = frozenset({declared_keys.policy_bundle, declared_keys.agent, *declared_keys.skills})
+    declared = {
         entry.key: parse_artifact(derived.documents[entry.key], resolve_artifact_class(entry.class_id))
         for entry in derived.manifest.artifacts
-        if entry.key in wanted
+        if entry.key in declared_wanted
     }
-    register_manifest_entries(derived.manifest, parsed, registry=registry, only=wanted)
+    # This is the consumer's composition root: every key the derived manifest
+    # names is placed under the deployment's own tenant BEFORE the one register
+    # loop mints for it — the same derivation `load_config_and_boot` applies to
+    # the paved road, so the key an artifact registers under and the key this
+    # chain reads it back by are one string by construction (D-IMPL-354;
+    # D-IMPL-353 §1.3). The loop itself admits no key outside a tenant.
+    manifest, parsed, keys = manifest_under_tenant(
+        derived.manifest, declared, declared_keys, tenant=tenant
+    )
+    assert keys is not None and keys.agent is not None  # every field kept; `agent` held above
+    wanted = frozenset({keys.policy_bundle, keys.agent, *keys.skills})
+    register_manifest_entries(manifest, parsed, registry=registry, only=wanted)
 
     agent = parsed[keys.agent]
     assert isinstance(agent, AgentDefinition)  # its entry names AGENT_DEFINITION

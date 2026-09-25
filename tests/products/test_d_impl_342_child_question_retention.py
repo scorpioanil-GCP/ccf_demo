@@ -63,6 +63,7 @@ from tests.products import paved_fixture as fixture
 from tests.products.paved_fixture import ASKED_AT, CHILD_CLASS, CONSUMER_TENANT, THRESHOLD_PARAMETER
 from tests.products.test_paved_consumer import _open, _producer, _question, _the_row, _tree
 from tests.composition import declaring_store
+from tests.replay.authority import mechanism_put
 from ccf.products.composite import ADMITTED_CHILD_CONTRACT_CLASS
 
 pytestmark = [pytest.mark.crossproc]
@@ -284,7 +285,10 @@ def test_c_b9_a_pre_342_record_reconstructs_unheld_and_the_audit_read_refuses_by
     fresh = _fresh(opened)
     # even with the artifact gone: a row that never referenced one is not held to it
     (fresh.root / rows[0].child_question_address).unlink()
-    filed = fresh.put(tenant_id=record.tenant_id, artifact_class="ccf.replay-record", name="pre-342", artifact=older)
+    # A doctored legacy record is planted the way the real writer files one —
+    # under the capability for the declared class (D-IMPL-353 §1.2), never by an
+    # open lane the test happens to hold.
+    filed = mechanism_put(fresh, tenant=record.tenant_id, artifact_class="ccf.replay-record", name="pre-342", artifact=older)
     reconstructed = replay_refusal(
         record_address=filed.content_address, store=fresh,
         reader=_NeverConsulted(), control_plane=opened.control_plane, environment=_NeverConsulted(),  # type: ignore[arg-type]

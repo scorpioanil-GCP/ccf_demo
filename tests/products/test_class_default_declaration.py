@@ -74,8 +74,8 @@ from tests.composition import register_at_composition
 #: Test fixture vocabulary.
 CLASS_NAME = "fixture.class-default-declaration"
 CLASS_VERSION = "1.0.0"
-CONTRACT_KEY = "fixture/request-contract"
-MAX_TTL_KEY = "fixture/max-ttl"
+CONTRACT_KEY = "tenant-fixture/request-contract"
+MAX_TTL_KEY = "tenant-fixture/max-ttl"
 OTHER_PARAMETER = "fixture_threshold"
 
 #: The number a class declares. Authored here, in a test, never in ``src/``
