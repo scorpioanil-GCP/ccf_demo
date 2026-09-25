@@ -37,6 +37,8 @@ from typing import TYPE_CHECKING, Any
 import pytest
 
 from ccf.artifacts.file_store import FileArtifactStore
+from ccf.artifacts.protocol import WriteKinds
+from ccf.authz.capability import ReplayMint
 from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.graph import product_source as product_source_module
@@ -53,7 +55,7 @@ from ccf.graph.protocols import (
     GraphView,
     RelationshipRecord,
 )
-from ccf.peering.admission import AdmissionBypassError, AdmittedProduct
+from ccf.peering.admission import ADMISSION_RECORD, AdmissionBypassError, AdmittedProduct
 from ccf.peering.identity import DetachedJwsIdentityProvider, FileBackedKeySource
 from ccf.peering.protocol import PeerRef
 from ccf.products.contract import (
@@ -92,6 +94,7 @@ from tests.peering.test_admission import (
     consumer_lineage,
 )
 from tests.properties.strategies import ENTITY_POOL, TENANT
+from tests.controlplane.composition import compose_register
 
 if TYPE_CHECKING:
     from ccf.contracts.claims import EntityClaim, RelationshipClaim
@@ -121,7 +124,7 @@ def admit_product(
         key_source=FileBackedKeySource(directory=key_dir)
     )
     registry = ControlPlaneRegistry()
-    registry.register("max-ttl/fixture", MaxTTL(seconds=300))
+    compose_register(registry, "max-ttl/fixture", MaxTTL(seconds=300))
     version, _ = registry.resolve_latest("max-ttl/fixture")
     product_class = register_product_class(
         registry=registry,
@@ -149,7 +152,12 @@ def admit_product(
         tenant_id=product.tenant_id,
         policy_version=policy_version,
         ceiling_version=ceiling_version,
-        artifact_store=FileArtifactStore(root=work_dir / "admission-records"),
+        # The gate files admission records itself — fabric evidence, declared
+        # under the composition kind (D-IMPL-353 §1.2; D-IMPL-354 (b)).
+        artifact_store=FileArtifactStore(
+            root=work_dir / "admission-records",
+            write_kinds=WriteKinds.declare({ADMISSION_RECORD.class_id: (ReplayMint,)}),
+        ),
     )
     return gate.admit(
         inbound=_inbound(

@@ -24,6 +24,7 @@ from ccf.skills.catalog import SKILL_CATALOG_ENTRY, SkillCatalog, SkillCatalogEn
 from ccf.skills.grants import GrantLedger, SkillGrant
 
 from tests.skills.sinks import ScriptedApprovalSink
+from tests.controlplane.composition import compose_register_versioned
 from tests.agents.test_assembler import (  # noqa: F401 — `registry` is a fixture
     ASKED_AT,
     FIXTURES,
@@ -50,7 +51,7 @@ def test_invoke_skill_refuses_an_mcp_product_entry_by_name(
     granted_values = _fixture("covenant_analytics.yaml")["slice"]["granted_skill"]
     definition = _definition(_wide_regime_document(artifact_version="2.9.0"))
     key = _assembler_fixture()["keys"]["agent_definition"]
-    version = registry.register_versioned(key, definition, AGENT_DEFINITION)
+    version = compose_register_versioned(registry, key, definition, AGENT_DEFINITION)
     assert isinstance(version, str)
     catalog = SkillCatalog(registry)
     entry = _mcp_product_entry()

@@ -43,6 +43,7 @@ from ccf.graph._writer import SingleWriterViolation
 from ccf.graph.protocols import GraphQuery, GraphReader
 from ccf.graph.registry import ReservedBackendName, declared_names, resolve
 from ccf.signal.envelope import SourceIdentity
+from tests.controlplane.composition import compose_register
 
 # The fake-distribution helper, reused rather than reimplemented. Shipping a
 # second real distribution whose only purpose is to claim a name it must not
@@ -96,8 +97,8 @@ def demo_boot(banking_spec: Any) -> Iterator[Callable[[str], "FabricHandle"]]:
 
     def factory(graph_name: str) -> "FabricHandle":
         control_plane = ControlPlaneRegistry()
-        spec_version = control_plane.register(SPEC_KEY, banking_spec)
-        policy_version = control_plane.register(
+        spec_version = compose_register(control_plane, SPEC_KEY, banking_spec)
+        policy_version = compose_register(control_plane,
             POLICY_KEY, {"regime": "test-fixture"}
         )
         handle = boot(

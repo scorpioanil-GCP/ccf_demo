@@ -34,6 +34,7 @@ from ccf_runtime.mcp.auth import StaticTokenSource, TokenGrant
 
 from http_api.conftest import Fabric, call
 from http_api.gate_fixtures import SCOPE_EVERYTHING
+from tests.controlplane.composition import compose_register_typed
 
 _VALID_HASH = "c" * 64
 _CLOCK_TIME = datetime(2026, 7, 30, 12, 0, tzinfo=UTC)
@@ -79,6 +80,8 @@ def _grant() -> TokenGrant:
 def _seams(fabric: Fabric, root: Path) -> dict[str, Any]:
     """Everything ``create_app`` requires, with this suite's credentials."""
     from ccf.artifacts.file_store import FileArtifactStore
+    from ccf.artifacts.protocol import WriteKinds
+    from ccf.authz.capability import ReplayMint
     from ccf.controlplane.registry import ControlPlaneRegistry
     from ccf.products.entitlement import (
         PRODUCT_ENTITLEMENT_POLICY,
@@ -97,7 +100,7 @@ def _seams(fabric: Fabric, root: Path) -> dict[str, Any]:
 
     address = fabric.product_address
     entitlements = ControlPlaneRegistry()
-    entitlements.register_typed(
+    compose_register_typed(entitlements,
         product_entitlement_key(tenant_id=address.tenant),
         ProductEntitlementPolicy(
             tenant_id=address.tenant,
@@ -125,7 +128,15 @@ def _seams(fabric: Fabric, root: Path) -> dict[str, Any]:
             )
         ),
         refusal_recorder=ReplayRefusalRecorder(
-            artifact_store=FileArtifactStore(root=root / "artifacts"),
+            artifact_store=FileArtifactStore(
+                root=root / "artifacts",
+                # The recorder is fabric mechanism writing its own evidence
+                # class (D-IMPL-353 §1.2): declared, so it admits the
+                # ReplayMint the composition root hands the writer.
+                write_kinds=WriteKinds.declare(
+                    {"ccf.decision-replay-record": (ReplayMint,)}
+                ),
+            ),
             replay_record_class="ccf.decision-replay-record",
             tenant_id=address.tenant,
             assembly_mode="algorithmic",

@@ -45,6 +45,7 @@ import pytest
 
 from ccf.graph._writer import _LIVE_WRITERS
 from ccf.graph.registry import BACKEND_ENTRY_POINT_GROUP
+from tests.controlplane.composition import compose_register
 
 #: Graph identities this module mints, so teardown can clear whatever a
 #: deliberately-broken release left behind. Both tests below sabotage a cleanup
@@ -174,8 +175,8 @@ def _boot_probe(adapter_name: str, identity: str, spec: Any) -> Any:
     from ccf.controlplane.registry import ControlPlaneRegistry
 
     control_plane = ControlPlaneRegistry()
-    spec_version = control_plane.register("probe/spec", spec)
-    policy_version = control_plane.register("probe/policy", {"regime": "probe"})
+    spec_version = compose_register(control_plane, "probe/spec", spec)
+    policy_version = compose_register(control_plane, "probe/policy", {"regime": "probe"})
     return boot(
         backend=adapter_name,
         connection={"identity": identity},

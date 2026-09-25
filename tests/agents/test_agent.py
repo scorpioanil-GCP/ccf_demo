@@ -60,6 +60,7 @@ from ccf.controlplane.artifacts import declared_artifact_class, parse_artifact
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.products.contract import ContextProductContract, ProductLineage
 from ccf.replay.record import NO_GRANTS_SET_HASH, PerspectiveConditioning
+from tests.controlplane.composition import compose_register_typed, compose_register_versioned
 
 FIXTURE = (
     Path(__file__).parent.parent
@@ -109,7 +110,7 @@ def _registry() -> ControlPlaneRegistry:
     plane = ControlPlaneRegistry()
     prompt_fixture = yaml.safe_load(PROMPT_FIXTURE.read_text())
     prompt = parse_artifact(prompt_fixture["prompt_artifact"], PROMPT_ARTIFACT)
-    plane.register_typed(
+    compose_register_typed(plane,
         prompt_fixture["keys"]["prompt_artifact"], prompt, PROMPT_ARTIFACT
     )
     for reference in yaml.safe_load(FIXTURE.read_text())["referenced_artifacts"].values():
@@ -122,7 +123,7 @@ def _registry() -> ControlPlaneRegistry:
             },
             artifact_class,
         )
-        plane.register_typed(reference["key"], declared, artifact_class)
+        compose_register_typed(plane, reference["key"], declared, artifact_class)
     return plane
 
 
@@ -131,7 +132,7 @@ def _agent() -> Agent:
     registry = _registry()
     definition = _definition()
     key = f"{definition.tenant}/{AGENT_DEFINITION.class_id}/{definition.name}"
-    version = registry.register_versioned(key, definition, AGENT_DEFINITION)
+    version = compose_register_versioned(registry, key, definition, AGENT_DEFINITION)
     assert isinstance(version, str)
     return AgentFactory(control_plane=registry).construct(
         definition_key=key, definition_version=version

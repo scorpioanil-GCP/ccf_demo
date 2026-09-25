@@ -47,6 +47,8 @@ for _root in (_REPO_ROOT / "src", _REPO_ROOT / "runtime"):
         sys.path.insert(0, str(_root))
 
 from ccf.artifacts.file_store import FileArtifactStore  # noqa: E402
+from ccf.artifacts.protocol import WriteKinds  # noqa: E402
+from ccf.authz.capability import ReplayMint  # noqa: E402
 from ccf.contracts.canonical import canonical_bytes, content_hash  # noqa: E402
 from ccf.controlplane.registry import ControlPlaneRegistry  # noqa: E402
 from ccf.graph.protocols import GraphReader  # noqa: E402
@@ -70,6 +72,10 @@ from ccf.replay.record import (  # noqa: E402
 )
 from ccf.replay.serve import ReplayWriter  # noqa: E402
 
+from perf.conftest import (  # noqa: E402
+    register_at_composition,
+    replay_mint_at_composition,
+)
 from perf.suites.common import (  # noqa: E402
     PerfPanelPlan,
     build_operators,
@@ -224,8 +230,8 @@ def recorded_decision(fabric_1k: Any) -> RecordedDecision:
         tenant_id=tenant_id,
         temporal_boundary=boundary,
     )
-    max_ttl_version = registry.register(
-        keys["max_ttl"], MaxTTL(seconds=control["max_ttl_seconds"])
+    max_ttl_version = register_at_composition(
+        registry, keys["max_ttl"], MaxTTL(seconds=control["max_ttl_seconds"])
     )
     product_class = register_product_class(
         registry=registry,
@@ -342,8 +348,12 @@ def history_store_factory(
         if count in cache:
             return cache[count]
         control = _load("controlplane.yaml")
+        replay_record_class = control["artifacts"]["replay_record_class"]
+        # The replay lane is mechanism-written: declared under ReplayMint, so
+        # the writer below is admitted and nothing else is (D-IMPL-353 §1.2).
         store = FileArtifactStore(
-            root=tmp_path_factory.mktemp("perf-replay") / f"store-{count}"
+            root=tmp_path_factory.mktemp("perf-replay") / f"store-{count}",
+            write_kinds=WriteKinds.declare({replay_record_class: (ReplayMint,)}),
         )
         written = 0
         replica = 0
@@ -360,8 +370,12 @@ def history_store_factory(
                 written += 1
             replica += 1
         capability = ReplayWriter(
+            authorized=replay_mint_at_composition(
+                recorded_decision.registry,
+                tenant=recorded_decision.tenant_id,
+                artifact_class=replay_record_class,
+            ),
             store=store,
-            artifact_class=control["artifacts"]["replay_record_class"],
         ).write_replay_record(record=recorded_decision.record)
         populated = PopulatedStore(
             store=store,

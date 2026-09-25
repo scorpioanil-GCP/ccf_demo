@@ -26,6 +26,7 @@ from ccf.assembly.worker import (
 )
 from ccf.controlplane.registry import ControlPlaneMissing, ControlPlaneRegistry
 from ccf.signal.envelope import SignalEnvelope, SourceIdentity
+from tests.controlplane.composition import compose_register
 
 if TYPE_CHECKING:
     from ccf.boot import FabricHandle
@@ -237,7 +238,7 @@ def test_a_fabric_whose_policy_bundle_is_unregistered_refuses_to_boot(
     from ccf.boot import boot
 
     registry = ControlPlaneRegistry()
-    spec_version = registry.register(SPEC_KEY, banking_spec)
+    spec_version = compose_register(registry, SPEC_KEY, banking_spec)
 
     with pytest.raises(ControlPlaneMissing):
         boot(
@@ -264,7 +265,7 @@ def test_a_failed_boot_leaves_the_graph_bootable(
 
     database_path = tmp_path / "retry.sqlite3"
     registry = ControlPlaneRegistry()
-    spec_version = registry.register(SPEC_KEY, banking_spec)
+    spec_version = compose_register(registry, SPEC_KEY, banking_spec)
 
     with pytest.raises(ControlPlaneMissing):
         boot(
@@ -277,7 +278,7 @@ def test_a_failed_boot_leaves_the_graph_bootable(
             policy_bundle_version="never-registered",
         )
 
-    policy_version = registry.register(POLICY_KEY, {"regime": "retry"})
+    policy_version = compose_register(registry, POLICY_KEY, {"regime": "retry"})
     handle = boot(
         backend="sqlite",
         connection={"database_path": database_path},
@@ -417,8 +418,8 @@ def spec_fabric() -> Iterator[Callable[[EntityResolutionSpec], "FabricHandle"]]:
 
     def factory(spec: EntityResolutionSpec) -> "FabricHandle":
         registry = ControlPlaneRegistry()
-        spec_version = registry.register(SPEC_KEY, spec)
-        policy_version = registry.register(POLICY_KEY, {"regime": "l-21"})
+        spec_version = compose_register(registry, SPEC_KEY, spec)
+        policy_version = compose_register(registry, POLICY_KEY, {"regime": "l-21"})
         handle = boot(
             backend="memory",
             connection={},

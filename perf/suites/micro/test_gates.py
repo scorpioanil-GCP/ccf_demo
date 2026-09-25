@@ -18,6 +18,8 @@ from typing import Any, NamedTuple
 
 import pytest
 
+from perf.conftest import register_at_composition
+
 from ccf.products.contract import (
     ContextProductContract,
     MaxTTL,
@@ -62,8 +64,8 @@ def gate_env(
     registry = fabric_1k.registry
     keys = control["keys"]
     policy_version, _ = registry.resolve_latest(keys["policy_bundle"])
-    max_ttl_version = registry.register(
-        keys["max_ttl"], MaxTTL(seconds=control["max_ttl_seconds"])
+    max_ttl_version = register_at_composition(
+        registry, keys["max_ttl"], MaxTTL(seconds=control["max_ttl_seconds"])
     )
     declared_class = control["product_class"]
     product_class = register_product_class(

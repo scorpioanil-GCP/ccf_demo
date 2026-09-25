@@ -51,6 +51,7 @@ from ccf.hitl.transport import (
     PendingHitlEvent,
 )
 from ccf.skills.grants import ApprovalOutcome
+from tests.controlplane.composition import compose_register_typed
 
 from .capabilities import submit_capability
 
@@ -265,7 +266,7 @@ def _required_policy_plane() -> tuple[Any, str]:
 
     plane = ControlPlaneRegistry()
     policy_key = "acme-bank/hitl/policy"
-    plane.register_typed(
+    compose_register_typed(plane,
         policy_key,
         parse_artifact(
             {"semver": "1.0.0", "signed_binding_required": True},

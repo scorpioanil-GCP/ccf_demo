@@ -44,6 +44,7 @@ from ccf.hitl.principal import (
     HumanPrincipalBinding,
 )
 from ccf.hitl.transport import PendingHitlEvent, HitlActionSubmission, InMemoryHitlTransport
+from tests.controlplane.composition import compose_register_typed
 
 from .capabilities import submit_capability
 
@@ -364,7 +365,7 @@ def _bound_escalation(
     provider, kid, trusted = _signing_env(tmp_path)
     plane = ControlPlaneRegistry()
     policy_key = "acme-bank/hitl/policy"
-    plane.register_typed(
+    compose_register_typed(plane,
         policy_key,
         parse_artifact(
             {"semver": "1.0.0", "signed_binding_required": True},

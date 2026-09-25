@@ -30,6 +30,11 @@ from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.workflow.definitions import WORKFLOW_DEFINITION, WorkflowDefinition
 from ccf.workflow.factory import Workflow, WorkflowFactory
 
+from perf.conftest import (
+    execute_capability,
+    register_typed_at_composition,
+    register_versioned_at_composition,
+)
 from perf.suites.common import load_artifact
 
 
@@ -41,6 +46,8 @@ class FactoryEnv(NamedTuple):
     agent_version: str
     workflow_key: str
     workflow_version: str
+    #: The ``Execute`` capability the factory takes its definition key from.
+    workflow_execute: Any
 
 
 def _register_references(registry: ControlPlaneRegistry, doc: Any) -> None:
@@ -54,7 +61,7 @@ def _register_references(registry: ControlPlaneRegistry, doc: Any) -> None:
             },
             artifact_class,
         )
-        registry.register_typed(reference["key"], declared, artifact_class)
+        register_typed_at_composition(registry, reference["key"], declared, artifact_class)
 
 
 @pytest.fixture(scope="session")
@@ -71,19 +78,20 @@ def factory_env() -> FactoryEnv:
 
     prompt = parse_artifact(prompt_doc["prompt_artifact"], PROMPT_ARTIFACT)
     assert isinstance(prompt, PromptArtifact)
-    registry.register_typed(
-        prompt_doc["keys"]["prompt_artifact"], prompt, PROMPT_ARTIFACT
+    register_typed_at_composition(
+        registry, prompt_doc["keys"]["prompt_artifact"], prompt, PROMPT_ARTIFACT
     )
 
     definition = parse_artifact(agent_doc["agent_definition"], AGENT_DEFINITION)
     assert isinstance(definition, AgentDefinition)
     agent_key = agent_doc["keys"]["agent_definition"]
-    agent_version = registry.register_versioned(
-        agent_key, definition, AGENT_DEFINITION
+    agent_version = register_versioned_at_composition(
+        registry, agent_key, definition, AGENT_DEFINITION
     )
     assert isinstance(agent_version, str)
     # The task's agent-step ref resolves at the URI-derived key.
-    registry.register_versioned(
+    register_versioned_at_composition(
+        registry,
         task_doc["keys"]["referenced_agent_definition"],
         definition,
         AGENT_DEFINITION,
@@ -91,8 +99,8 @@ def factory_env() -> FactoryEnv:
 
     task = parse_artifact(task_doc["task_definition"], TASK_DEFINITION)
     assert isinstance(task, TaskDefinition)
-    registry.register_versioned(
-        workflow_doc["keys"]["task_definition"], task, TASK_DEFINITION
+    register_versioned_at_composition(
+        registry, workflow_doc["keys"]["task_definition"], task, TASK_DEFINITION
     )
 
     workflow = parse_artifact(
@@ -100,12 +108,15 @@ def factory_env() -> FactoryEnv:
     )
     assert isinstance(workflow, WorkflowDefinition)
     workflow_key = workflow_doc["keys"]["workflow_definition"]
-    workflow_version = registry.register_versioned(
-        workflow_key, workflow, WORKFLOW_DEFINITION
+    workflow_version = register_versioned_at_composition(
+        registry, workflow_key, workflow, WORKFLOW_DEFINITION
     )
     assert isinstance(workflow_version, str)
 
     return FactoryEnv(
+        workflow_execute=execute_capability(
+            tenant=workflow.tenant, resource=workflow_key
+        ),
         registry=registry,
         agent_key=agent_key,
         agent_version=agent_version,
@@ -128,7 +139,7 @@ def test_agent_factory_construct(benchmark, factory_env: FactoryEnv) -> None:
 def test_task_factory_construct(benchmark, factory_env: FactoryEnv) -> None:
     def construct() -> Workflow:
         return WorkflowFactory(control_plane=factory_env.registry).construct(
-            definition_key=factory_env.workflow_key,
+            factory_env.workflow_execute,
             definition_version=factory_env.workflow_version,
         )
 

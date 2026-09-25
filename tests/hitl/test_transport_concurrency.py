@@ -53,6 +53,7 @@ from ccf.peering.identity import (
     FileBackedKeySource,
     JsonWebKey,
 )
+from tests.controlplane.composition import compose_register_typed
 
 ACTION_TIME = datetime(2026, 7, 30, 12, 0, 0, tzinfo=UTC)
 
@@ -312,7 +313,7 @@ def test_d16_wired_submit_path_hammers_without_lock_ordering_issues(
         {"semver": "1.0.0", "signed_binding_required": True}, HITL_POLICY
     )
     assert isinstance(policy, HitlPolicy)
-    plane.register_typed(POLICY_KEY, policy, HITL_POLICY)
+    compose_register_typed(plane, POLICY_KEY, policy, HITL_POLICY)
     transport = InMemoryHitlTransport(
         control_plane=plane,
         hitl_policy_key=POLICY_KEY,
