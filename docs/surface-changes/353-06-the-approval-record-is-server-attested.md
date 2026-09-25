@@ -540,10 +540,16 @@ lane (coordinator, 2026-09-24); the probe was run and printed the worktree.
   `mypy --strict` on `tests/hitl/static_controls/wrong_kind_hitl.py` and
   asserts both wrong-kind calls are incompatible-argument errors.
 - **`mypy --strict` over the nine source files this lane touched: clean with
-  the patch.** Without it, exactly two `attr-defined` errors, both at named
-  handoff reads: `runtime/ccf_runtime/identity_binding.py::authentication_of_grant`
-  (`TokenGrant.authentication`) and the `deps.clock` read in
-  `runtime/ccf_runtime/http_api/routes/hitl.py::build_router`.
+  the patch.** Without it, **five errors at four sites, every one a handoff
+  seam and nothing else**: `runtime/ccf_runtime/identity_binding.py::authentication_of_grant`
+  reads `TokenGrant.authentication` (`attr-defined` plus the `no-any-return` it
+  implies — HANDOFF-B); `runtime/ccf_runtime/mcp/hitl_server.py::build_hitl_server`
+  passes `authorizer=` to `TenantGuardedServer` (`call-arg`) and calls
+  `door.route()` (`attr-defined`) — HANDOFF-C, the wrapper wiring; and
+  `runtime/ccf_runtime/http_api/routes/hitl.py::build_router` reads
+  `deps.clock` (`attr-defined` — HANDOFF-D). The first draft of this bullet
+  said "exactly two"; that was the prediction, not the measurement, and the
+  measurement replaces it.
 - **`python -m tools.lints --all`: rc 0**, after re-resolving one stale
   `::_enforce_tenant_authz` node-id citation in
   `docs/surface-changes/16-24-experience-door-entitlement.md` that this lane's
