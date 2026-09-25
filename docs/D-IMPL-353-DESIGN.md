@@ -77,6 +77,26 @@ handle, its action, and the signature before and after.
 | `GrantLedger.request` / `revoke` | `Authorized[GrantMutate]` | `(..., actor)` | `(authorized, ...)` — **`actor` is deleted**; the actor is `authorized.principal` |
 | MCP `TenantGuardedServer` tool/resource bodies | the body's declared action type | raw arguments | `authorized` as first argument, minted by the wrapper for that body's declared action |
 
+**Derived writes — a clarification recorded before any lane codes against
+§1.2 (2026-09-24).** The engine's state-store put and its trace put do not act
+on the decision's resource; they act on an execution the decision *started*.
+§1.5(f) as first written would refuse them. The rule: a state or trace write
+requires `Authorized[Execute] | Authorized[Resume]` — the capability that
+authorized the run — and its resource bind is the **state key the engine derived
+from `authorized.tenant` and the execution id**. The engine passes that derived
+key to `verify`; because it was derived from the capability's own tenant, a
+mismatch is unreachable on the served path, and the check stands against a
+forged key. Nothing here lets a caller supply the tenant.
+
+**Per-class write kinds at the artifact store.** `put(authorized, artifact)`
+looks up the kind it requires by the artifact class in `authorized.resource`
+(`"<class>/<name>"`): the SDK's own trace class maps to `Execute | Resume`; a
+class the deployment declares governed maps to `ReplayMint`; everything else is
+`ArtifactWrite`. This mapping is declared at composition (it generalizes and
+retires `GovernedRecordClasses`/`GovernedWriteHandle`) — mechanism interprets a
+declaration, it does not name a class (No-Hardcoding). `ReplayMint` is minted
+only by `mint_at_composition`, which can mint no other kind.
+
 Where a handle's target IS the resource the authorizer decided on — the
 registry key, the workflow definition key, the state key — the handle **takes it
 from the capability** and has no caller-supplied parameter for it. Where the
