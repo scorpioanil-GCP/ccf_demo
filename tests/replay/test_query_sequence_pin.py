@@ -80,6 +80,10 @@ from ccf.replay.serve import (
     ReplayWriter,
     serve,
 )
+from ccf.artifacts.protocol import DerivedWrite
+from ccf.authz.capability import Register
+from tests.controlplane.capabilities import register_capability
+from tests.replay.authority import mechanism_put, pin_writer, replay_store, replay_writer
 
 from tests.integration.test_proto_quickstart import (
     CreditExposureSummaryPlan,
@@ -132,10 +136,10 @@ def fabric(
     keys = control["keys"]
     registry = ControlPlaneRegistry()
     spec_version = registry.register(
-        keys["resolution_spec"], _resolution_spec(ontology)
+        register_capability(keys["resolution_spec"], Register), _resolution_spec(ontology)
     )
     policy_version = registry.register(
-        keys["policy_bundle"], control["policy_bundle"]
+        register_capability(keys["policy_bundle"], Register), control["policy_bundle"]
     )
     handle = boot(
         backend="sqlite",
@@ -159,8 +163,15 @@ def fabric(
 
 
 @pytest.fixture
-def store(tmp_path: Path) -> FileArtifactStore:
-    return FileArtifactStore(root=tmp_path / "artifacts")
+def store(tmp_path: Path, control: Any) -> FileArtifactStore:
+    """Declares the deployment's replay-record class and the query-pin class
+    mechanism-written, as the deployment it stands in for would."""
+    return replay_store(
+        tmp_path / "artifacts",
+        control["artifacts"]["replay_record_class"],
+        "decision-replay-record",
+        QUERY_ARTIFACT_CLASS,
+    )
 
 
 def _execute(
@@ -227,13 +238,8 @@ def _serve_decision(
     served = serve(
         product=gated,
         record=record,
-        replay_writer=ReplayWriter(
-            store=store,
-            artifact_class=fabric.control["artifacts"]["replay_record_class"],
-        ),
-        query_pin_writer=QueryPinWriter(
-            store=store, artifact_class=QUERY_ARTIFACT_CLASS
-        ),
+        replay_writer=replay_writer(store, tenant=fabric.tenant_id, artifact_class=fabric.control["artifacts"]["replay_record_class"]),
+        query_pin_writer=pin_writer(store, tenant=fabric.tenant_id, artifact_class=QUERY_ARTIFACT_CLASS),
         executed_queries=execution.executed_queries,
     )
     return execution, record, served.replay_ref.content_address
@@ -388,16 +394,14 @@ class _PutRecordingStore:
         self._inner = inner
         self.put_classes: list[str] = []
 
-    def put(
-        self, *, tenant_id: str, artifact_class: str, name: str, artifact: object
-    ) -> ArtifactRef:
-        self.put_classes.append(artifact_class)
-        return self._inner.put(
-            tenant_id=tenant_id,
-            artifact_class=artifact_class,
-            name=name,
-            artifact=artifact,
-        )
+    def put(self, authorized: Any, artifact: object) -> ArtifactRef:
+        # The class a write lands in: the mechanism's own for a derived write,
+        # the capability's resource for an addressed one — never an argument.
+        if isinstance(artifact, DerivedWrite):
+            self.put_classes.append(artifact.artifact_class)
+        else:
+            self.put_classes.append(str(authorized.resource).partition("/")[0])
+        return self._inner.put(authorized, artifact)
 
     def get(self, *, content_address: str) -> bytes:
         return self._inner.get(content_address=content_address)
@@ -420,13 +424,8 @@ def test_the_query_bytes_land_before_the_record_append(
     serve(
         product=gated,
         record=record,
-        replay_writer=ReplayWriter(
-            store=recording,
-            artifact_class=fabric.control["artifacts"]["replay_record_class"],
-        ),
-        query_pin_writer=QueryPinWriter(
-            store=recording, artifact_class=QUERY_ARTIFACT_CLASS
-        ),
+        replay_writer=replay_writer(recording, tenant=fabric.tenant_id, artifact_class=fabric.control["artifacts"]["replay_record_class"]),
+        query_pin_writer=pin_writer(recording, tenant=fabric.tenant_id, artifact_class=QUERY_ARTIFACT_CLASS),
         executed_queries=execution.executed_queries,
     )
     record_class = fabric.control["artifacts"]["replay_record_class"]
@@ -448,15 +447,10 @@ def test_a_pin_mismatch_is_refused_before_anything_is_persisted(
         serve(
             product=gated,
             record=record,
-            replay_writer=ReplayWriter(
-                store=recording,
-                artifact_class=fabric.control["artifacts"][
+            replay_writer=replay_writer(recording, tenant=fabric.tenant_id, artifact_class=fabric.control["artifacts"][
                     "replay_record_class"
-                ],
-            ),
-            query_pin_writer=QueryPinWriter(
-                store=recording, artifact_class=QUERY_ARTIFACT_CLASS
-            ),
+                ]),
+            query_pin_writer=pin_writer(recording, tenant=fabric.tenant_id, artifact_class=QUERY_ARTIFACT_CLASS),
             # Reversed: same queries, wrong order — the pinned sequence is an
             # order, not a set.
             executed_queries=tuple(reversed(execution.executed_queries)),
@@ -467,12 +461,9 @@ def test_a_pin_mismatch_is_refused_before_anything_is_persisted(
         serve(
             product=gated,
             record=record,
-            replay_writer=ReplayWriter(
-                store=recording,
-                artifact_class=fabric.control["artifacts"][
+            replay_writer=replay_writer(recording, tenant=fabric.tenant_id, artifact_class=fabric.control["artifacts"][
                     "replay_record_class"
-                ],
-            ),
+                ]),
             # Queries handed in with nowhere to persist them.
             executed_queries=execution.executed_queries,
         )
@@ -484,12 +475,10 @@ def test_two_executions_asking_the_same_question_converge_on_one_artifact(
 ) -> None:
     """Content addressing: the same question stored twice is one artifact."""
     execution = _execute(fabric, NO_SIMILARITY)
-    writer = QueryPinWriter(store=store, artifact_class=QUERY_ARTIFACT_CLASS)
-    first = writer.write_query_bytes(
-        tenant_id=fabric.tenant_id, queries=execution.executed_queries
+    writer = pin_writer(store, tenant=fabric.tenant_id, artifact_class=QUERY_ARTIFACT_CLASS)
+    first = writer.write_query_bytes(queries=execution.executed_queries
     )
-    second = writer.write_query_bytes(
-        tenant_id=fabric.tenant_id, queries=execution.executed_queries
+    second = writer.write_query_bytes(queries=execution.executed_queries
     )
     assert [ref.content_address for ref in first] == [
         ref.content_address for ref in second
@@ -594,12 +583,7 @@ def test_a_doctored_pin_sequence_is_caught_as_divergence(
             )
         }
     )
-    doctored_address = store.put(
-        tenant_id=doctored.tenant_id,
-        artifact_class=fabric.control["artifacts"]["replay_record_class"],
-        name="doctored",
-        artifact=doctored,
-    ).content_address
+    doctored_address = mechanism_put(store, tenant=doctored.tenant_id, artifact_class=fabric.control["artifacts"]["replay_record_class"], name="doctored", artifact=doctored).content_address
     with pytest.raises(ReplayDivergence, match="query sequence"):
         replay(
             record_address=doctored_address,
@@ -658,12 +642,7 @@ def test_the_four_case_compatibility_matrix(
     cap_fragment = f',"survivor_cap":{cap}'.encode()
 
     # (iv) both fields — today's writer, resolved through the real store.
-    address_iv = store.put(
-        tenant_id=record.tenant_id,
-        artifact_class="decision-replay-record",
-        name="matrix-iv",
-        artifact=record,
-    ).content_address
+    address_iv = mechanism_put(store, tenant=record.tenant_id, artifact_class="decision-replay-record", name="matrix-iv", artifact=record).content_address
     assert address_iv == hashlib.sha256(full).hexdigest()
     resolved_iv = resolve_artifact(
         store=store, content_address=address_iv, contract=DecisionReplayRecord

@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1614 entries**, of which **1359** name a public Python surface.
+**1647 entries**, of which **1392** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-947 entries — 905 public Python surface, 42 not public Python API.
+969 entries — 927 public Python surface, 42 not public Python API.
 
 ### Public Python surface
 
@@ -14386,6 +14386,270 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `353-02-the-gate-mints-the-capability.md`.*
 
+#### ccf.artifacts.protocol.WriteKinds
+
+- Surface: ccf.artifacts.protocol.WriteKinds
+- Public surface: true
+- Change type: added
+- Before: absent — the store had a `GovernedRecordClasses` set and a separate token that said *this writer is mechanism*
+- After: the deployment's declaration, bound to a store at construction with no default, of which artifact classes are **mechanism-written and under which action kinds** — `WriteKinds.declare({"ccf.replay-record": (ReplayMint,), "ccf.workflow-trace": (Execute, Resume)})`. `for_class(class_id)` answers the declared kinds or `(ArtifactWrite,)`; `is_declared`, `declared_classes` for introspection. A declaration refuses an id that is empty, untrimmed or carries `/` (the naming-key collision `350-04` measured), an empty kind set, a non-kind, and **`ArtifactWrite` itself**: the client kind is what an *undeclared* class requires, and a class a door and mechanism could both file under is the `SEC-004` naming lane reopened
+- Why: §1.2 — *"the kind IS the mint"*. Which kind a write requires is looked up per class from a declaration; mechanism interprets it and names no class (CLAUDE.md §6.4)
+- Migration: every store constructor now takes `write_kinds=`; a deployment declares its replay-record class and query-pin class under `ReplayMint` and its workflow-trace class under `(Execute, Resume)`. A store whose replay class is undeclared refuses the fabric's own writer at first use — wrong kind — which is the loud boot-time failure §3 asks `create_app` to surface
+
+*Recorded by `353-03-the-handles-require-the-capability-for-their-own-action.md`.*
+
+#### ccf.artifacts.protocol.WriteKindsDeclarationError
+
+- Surface: ccf.artifacts.protocol.WriteKindsDeclarationError
+- Public surface: true
+- Change type: added
+- Before: absent (`GovernedClassDeclarationError` played the role for the retired declaration)
+- After: raised at declaration — at boot, where an operator sees it — when a `WriteKinds` declaration could not be enforced. An `ArtifactStoreError`, never a `ValueError`, for the reason its predecessor was not one
+- Why: §1.2
+- Migration: none
+
+*Recorded by `353-03-the-handles-require-the-capability-for-their-own-action.md`.*
+
+#### ccf.artifacts.protocol.DerivedWrite
+
+- Surface: ccf.artifacts.protocol.DerivedWrite
+- Public surface: true
+- Change type: added
+- Before: absent — a writer passed `artifact_class=` and `name=` to `put`
+- After: the derived-write shape: `DerivedWrite(artifact_class=..., name=..., artifact=...)`, presented to `put` by the fabric's own mechanism (the replay writer naming a record by its snapshot id, the engine naming a trace by its execution id) when the capability authorized the action that produced the record rather than the record itself. The store files the **inner** artifact — the wrapper never reaches the substrate and never enters the content address — under the capability's tenant, after verifying the capability against the kinds declared for the class. Refused outright for a class that is not declared, so a door holding `ArtifactWrite` for one target cannot use it to file under another name
+- Why: §1.2 (the derived-writes clarification): *"a state or trace write ... acts on an execution the decision started"*; the target did not exist when the decision was made, so the mechanism supplies it and the tenant stays the capability's
+- Migration: `ReplayWriter` and `QueryPinWriter` build it internally; the engine's trace write and any other fabric writer of a declared class build one where they used to pass `artifact_class=` and `name=`
+
+*Recorded by `353-03-the-handles-require-the-capability-for-their-own-action.md`.*
+
+#### ccf.artifacts.protocol.WriteTarget
+
+- Surface: ccf.artifacts.protocol.WriteTarget
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the resolved `(tenant_id, artifact_class, name)` a verified write lands at, returned by `authorized_write_target` only. `tenant_id` is `authorized.tenant` and nothing else (§1.3)
+- Why: a store's `put` should read `target = authorized_write_target(...)` and then act on the target and on nothing it was handed directly
+- Migration: none for callers; implementers of `ArtifactStoreProtocol` use it as the first statement of their own `put`
+
+*Recorded by `353-03-the-handles-require-the-capability-for-their-own-action.md`.*
+
+#### ccf.artifacts.protocol.ArtifactWriteAuthority
+
+- Surface: ccf.artifacts.protocol.ArtifactWriteAuthority
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the static type of `put`'s first parameter — `Authorized[ArtifactWrite] | Authorized[ReplayMint] | Authorized[Execute] | Authorized[Resume]`, the kinds under which the client door and the SDK's own writers file artifacts. A handler holding any other kind is a `mypy --strict` error at the call; the runtime authority for a given class is the store's `WriteKinds`
+- Why: §1.4, §1.5b — the static tooth
+- Migration: a fabric writer of a declared class under a kind outside this union (a HITL action record under `HitlSubmit`, should Lane HITL-DOOR file one) widens the alias in one place
+
+*Recorded by `353-03-the-handles-require-the-capability-for-their-own-action.md`.*
+
+#### ccf.artifacts.protocol.ArtifactWriteRefused
+
+- Surface: ccf.artifacts.protocol.ArtifactWriteRefused
+- Public surface: true
+- Change type: added
+- Before: absent (`GovernedWriteRefused` was the refusal for a client naming a governed class)
+- After: raised **after** the capability is verified genuine — a fabricated, retargeted or wrong-kind capability dies in `verify` first — for the target shapes a genuine capability still cannot write: an addressed write whose resource is not `"<class>/<name>"`, or a `DerivedWrite` naming an undeclared class. Not an `ArtifactNotFound`, for `350-04`'s reason
+- Why: §1.5f
+- Migration: none
+
+*Recorded by `353-03-the-handles-require-the-capability-for-their-own-action.md`.*
+
+#### ccf.artifacts.protocol.authorized_write_target
+
+- Surface: ccf.artifacts.protocol.authorized_write_target
+- Public surface: true
+- Change type: added
+- Before: absent (`held_writable_class` was the one shared check)
+- After: the ONE function both shipped stores run first, before canonicalization, before the address is derived and before the substrate is touched: pure parsing of the target (from the `DerivedWrite` or from the capability's resource), then `verify_any` against the kinds the declaration names for that class, then the shape refusals. Returns the `WriteTarget` and the payload to canonicalize
+- Why: §1.5c/f/g applied on the write path every transport reaches — *"the doors are not where the substrate is touched"*
+- Migration: none for callers; implementers of `ArtifactStoreProtocol` call it as the first statement of `put`
+
+*Recorded by `353-03-the-handles-require-the-capability-for-their-own-action.md`.*
+
+#### ccf.controlplane.registry.RegisterAuthority
+
+- Surface: ccf.controlplane.registry.RegisterAuthority
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `Authorized[Register] | Authorized[AgentDeclare] | Authorized[SkillCatalogRegister]` — the static type of the door registration handles' first parameter (§1.2, the registry-union clarification: three doors register under three declared actions, and policy granularity is preserved)
+- Why: §1.4, §1.5b
+- Migration: none
+
+*Recorded by `353-03-the-handles-require-the-capability-for-their-own-action.md`.*
+
+#### ccf.controlplane.registry.DerivedRegisterAuthority
+
+- Surface: ccf.controlplane.registry.DerivedRegisterAuthority
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `RegisterAuthority | Authorized[SkillGrant]` — what `register_versioned` accepts: the door kinds, or the one derived kind
+- Why: §1.2 — the ledger's grant artifact is a record the `skill.grant` decision created
+- Migration: none
+
+*Recorded by `353-03-the-handles-require-the-capability-for-their-own-action.md`.*
+
+#### ccf.controlplane.registry.REGISTER_KINDS
+
+- Surface: ccf.controlplane.registry.REGISTER_KINDS
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `(Register, AgentDeclare, SkillCatalogRegister)` — the kinds under which a door registers; the handle verifies against whichever the capability was minted for and the key IS the capability's resource
+- Why: §1.2
+- Migration: none
+
+*Recorded by `353-03-the-handles-require-the-capability-for-their-own-action.md`.*
+
+#### ccf.controlplane.registry.DERIVED_REGISTER_KINDS
+
+- Surface: ccf.controlplane.registry.DERIVED_REGISTER_KINDS
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `(SkillGrant,)` — the kinds under which registration is a derived write, admitted by `register_versioned` alone, the key derived from the capability's tenant, the declared class and the artifact's own `name`
+- Why: §1.2
+- Migration: none
+
+*Recorded by `353-03-the-handles-require-the-capability-for-their-own-action.md`.*
+
+#### ccf.controlplane.registry.CrossTenantKeyRefused
+
+- Surface: ccf.controlplane.registry.CrossTenantKeyRefused
+- Public surface: true
+- Change type: added
+- Before: absent — nothing compared a registration key's tenant to anything
+- After: the ONE tenant comparison §1.3 places on the registry, inside the handle that holds the capability: the key's tenant segment (before the first `/`) must equal `authorized.tenant`; a key with no tenant segment fails the same way, as does a derived registration whose artifact claims another tenant or names no `name`. A `PermissionError`, raised and never returned, after `verify` has proven the capability genuine — the disagreement is the authorizer's mapping having allowed a cross-tenant resource, not a governance outcome
+- Why: §1.3 — *"That is the one comparison, and it is inside the handle that holds the capability, not in a door that might forget"*
+- Migration: every Control Plane key carries a tenant segment; bare keys (`"policy"`, a class id alone) are refused
+
+*Recorded by `353-03-the-handles-require-the-capability-for-their-own-action.md`.*
+
+#### ccf.controlplane.state.STATE_WRITE_KINDS
+
+- Surface: ccf.controlplane.state.STATE_WRITE_KINDS
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `(Execute, Resume, SkillGrant, SkillRevoke)` — the kinds whose handles write Control Plane state as a consequence of their action: the engine under the run's `Execute` / `Resume`, the ledger under the transition's `SkillGrant` / `SkillRevoke`
+- Why: §1.2, the derived-writes rule; widened from the design's `Execute | Resume` because the ledger is the other state writer
+- Migration: none
+
+*Recorded by `353-03-the-handles-require-the-capability-for-their-own-action.md`.*
+
+#### ccf.controlplane.state.StateWriteAuthority
+
+- Surface: ccf.controlplane.state.StateWriteAuthority
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the union type of `put`'s first parameter over `STATE_WRITE_KINDS`
+- Why: §1.4, §1.5b
+- Migration: none
+
+*Recorded by `353-03-the-handles-require-the-capability-for-their-own-action.md`.*
+
+#### ccf.controlplane.state.verify_any
+
+- Surface: ccf.controlplane.state.verify_any
+- Public surface: true
+- Change type: added
+- Before: absent — the seam's `verify` takes one kind
+- After: `verify_any(authorized, *, kinds, resource) -> type[ActionKind]`: selects, by identity, which of `kinds` the capability's current `kind` is and hands that one to `verify`, which proves the reading against the mint tuple; if the current kind is none of them, the first is passed so the failure is the wrong-kind diagnostic naming the kind actually minted. Used by the registry, the state store and the artifact store
+- Why: three handles are legitimately reached under more than one kind and the seam is frozen; nothing is trusted from the read (§1.5g)
+- Migration: none; a handle reached under one kind calls `verify` directly
+
+*Recorded by `353-03-the-handles-require-the-capability-for-their-own-action.md`.*
+
+#### ccf.controlplane.state.state_key
+
+- Surface: ccf.controlplane.state.state_key
+- Public surface: true
+- Change type: added
+- Before: absent — each consumer spelled its own key (`f"{tenant}/{execution_id}"` in the engine; the bare grant hash in the ledger)
+- After: `state_key(*, tenant, record_id) -> "{tenant}/{record_id}"`, derived by the store from the capability's tenant and the record's identity; injective because the tenant may not carry the separator. Readers derive the same key the same way
+- Why: §1.3 — the tenant on the write is the capability's, so the key's tenant half cannot be caller-supplied
+- Migration: the engine's `_key` and the ledger's reads use it; grant state is now keyed under its tenant, and `GrantLedger.state` scans the class for an unqualified hash
+
+*Recorded by `353-03-the-handles-require-the-capability-for-their-own-action.md`.*
+
+#### ccf.controlplane.state.split_state_key
+
+- Surface: ccf.controlplane.state.split_state_key
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the `(tenant, record_id)` a `state_key` was built from; refuses a key with no tenant segment
+- Why: consumers folding over `items()` recover the record id without re-deriving the grammar
+- Migration: none
+
+*Recorded by `353-03-the-handles-require-the-capability-for-their-own-action.md`.*
+
+#### ccf.controlplane.state.STATE_KEY_SEPARATOR
+
+- Surface: ccf.controlplane.state.STATE_KEY_SEPARATOR
+- Public surface: true
+- Change type: added
+- Before: absent — `"/"` spelled inline in the engine
+- After: named once
+- Why: the reason a tenant may not contain it is a fact about the grammar
+- Migration: none
+
+*Recorded by `353-03-the-handles-require-the-capability-for-their-own-action.md`.*
+
+#### ccf.controlplane.state.StateKeyError
+
+- Surface: ccf.controlplane.state.StateKeyError
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: raised at derivation when a tenant is empty, untrimmed or carries the separator, or a record id is empty — a misconfiguration surfaced where the operator sees it
+- Why: §1.3 — two tenants must not be able to share a key
+- Migration: none
+
+*Recorded by `353-03-the-handles-require-the-capability-for-their-own-action.md`.*
+
+#### ccf.controlplane.state.StateTenantMismatch
+
+- Surface: ccf.controlplane.state.StateTenantMismatch
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: raised before the dict is touched when a record that *declares* a `tenant` declares one other than the capability's; records stay otherwise opaque
+- Why: §1.3, at Lane ENGINE's request on the join — the store files under the capability's tenant and a record may not name another
+- Migration: none
+
+*Recorded by `353-03-the-handles-require-the-capability-for-their-own-action.md`.*
+
+#### ccf.replay.serve.ReplayTenantMismatch
+
+- Surface: ccf.replay.serve.ReplayTenantMismatch
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: raised by `ReplayWriter.write_replay_record` and `QueryPinWriter.write_query_bytes` before the store is touched when the record or a query names a tenant other than the writer's capability's — a resolver wired to the wrong writer, a deployment defect, the `ProductRecordMismatch` posture
+- Why: §1.3
+- Migration: none
+
+*Recorded by `353-03-the-handles-require-the-capability-for-their-own-action.md`.*
+
+#### ccf.skills.grants.GrantAuthorityMismatch
+
+- Surface: ccf.skills.grants.GrantAuthorityMismatch
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: raised by `GrantLedger.request` after `verify` when the capability does not cover the definition it was handed: the resource's tenant segment, the definition's tenant and the capability's tenant must be one tenant, and the resource must end in the definition's own name. A `PermissionError`, raised and never returned
+- Why: §1.5f — *"where a handle is handed a target by an inner caller anyway, verify takes the target and refuses by identity of the resource string"*; the ledger cannot import the agent class id (a runtime cycle), so it binds the two segments it can
+- Migration: none
+
+*Recorded by `353-03-the-handles-require-the-capability-for-their-own-action.md`.*
+
 #### ccf.workflow.factory.WorkflowTenantMismatchError
 
 - Surface: ccf.workflow.factory.WorkflowTenantMismatchError
@@ -15471,7 +15735,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-464 entries — 278 public Python surface, 186 not public Python API.
+467 entries — 281 public Python surface, 186 not public Python API.
 
 ### Public Python surface
 
@@ -20487,6 +20751,42 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `353-02-the-gate-mints-the-capability.md`.*
 
+#### ccf.artifacts.file_store.FileArtifactStore
+
+- Surface: ccf.artifacts.file_store.FileArtifactStore
+- Public surface: true
+- Change type: reshaped
+- Before: `FileArtifactStore(*, root, governed=NOTHING_GOVERNED)`, a `governed` property, `put(*, tenant_id, artifact_class, name, artifact, minted=None)`
+- After: `FileArtifactStore(*, root, write_kinds)` — required, keyword-only, no default — a `write_kinds` property, and `put(authorized, artifact)` whose first statement is `authorized_write_target`. A refused write leaves the substrate byte-for-byte as it was: no artifact file, no naming-index entry
+- Why: §1.2, §1.3
+- Migration: pass `write_kinds=WriteKinds.declare({...})`; call `put` with the capability and the artifact (or a `DerivedWrite`)
+
+*Recorded by `353-03-the-handles-require-the-capability-for-their-own-action.md`.*
+
+#### ccf.artifacts.mcp_store.McpArtifactStore
+
+- Surface: ccf.artifacts.mcp_store.McpArtifactStore
+- Public surface: true
+- Change type: reshaped
+- Before: `McpArtifactStore(*, url, bridge, http_client_factory=None, governed=NOTHING_GOVERNED)`, a `governed` property, `put(*, tenant_id, artifact_class, name, artifact, minted=None)`
+- After: `McpArtifactStore(*, url, bridge, write_kinds, http_client_factory=None)`, a `write_kinds` property, and `put(authorized, artifact)` which runs `authorized_write_target` **before the payload is encoded**, so a refused write never reaches the wire. What crosses the wire is the resolved target and the bytes; the capability never does — the server's wrapper mints its own for the caller it authenticated, and the server's store runs the identical check over its own declaration
+- Why: §1.2 — the rule is the store's, so every transport inherits it
+- Migration: as `FileArtifactStore`
+
+*Recorded by `353-03-the-handles-require-the-capability-for-their-own-action.md`.*
+
+#### ccf.replay.serve.ReplayWriter
+
+- Surface: ccf.replay.serve.ReplayWriter
+- Public surface: true
+- Change type: reshaped
+- Before: `ReplayWriter(*, store, artifact_class)`; `write_replay_record(*, record)` put under `record.tenant_id`
+- After: `ReplayWriter(*, authorized: Authorized[ReplayMint], store)` — verified at construction so a mis-wired composition root fails before any request; `tenant_id` and `artifact_class` properties read from the capability; `write_replay_record(*, record)` refuses a record naming another tenant (`ReplayTenantMismatch`) and files a `DerivedWrite` named by the snapshot id under the capability's tenant. One writer per tenant, by construction
+- Why: §2 P3 — *"The fabric's own replay writer is handed a `ReplayMint` capability at composition by the deployment, not minted by a gate"*; §1.3
+- Migration: the composition root calls `mint_at_composition(tenant=..., principal=..., resource=<record class>, decision_id=...)` once per governed class (and once more for `QueryPinWriter`'s class) and hands the result to the writer; the `artifact_class` argument is gone
+
+*Recorded by `353-03-the-handles-require-the-capability-for-their-own-action.md`.*
+
 #### ccf.workflow.factory.Workflow
 
 - Surface: ccf.workflow.factory.Workflow
@@ -23010,7 +23310,7 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 Surfaces that no longer exist. Each entry names what replaces it.
 
-29 entries — 29 public Python surface, 0 not public Python API.
+37 entries — 37 public Python surface, 0 not public Python API.
 
 ### Public Python surface
 
@@ -23339,6 +23639,102 @@ Surfaces that no longer exist. Each entry names what replaces it.
 - Migration: type against `TokenGrant`
 
 *Recorded by `353-02-the-gate-mints-the-capability.md`.*
+
+#### ccf.artifacts.protocol.GovernedRecordClasses
+
+- Surface: ccf.artifacts.protocol.GovernedRecordClasses
+- Public surface: true
+- Change type: removed
+- Before: the `350-04` declaration of which classes only mechanism may file under, defaulting to `NOTHING_GOVERNED`
+- After: absent. `WriteKinds` carries the same declaration with the kind that writes each class, and has no default
+- Why: §1.2 — *"the kind IS the mint"*; a default-open declaration is exactly what the design makes inexpressible
+- Migration: `GovernedRecordClasses.declare("a", "b")` becomes `WriteKinds.declare({"a": (ReplayMint,), "b": (ReplayMint,)})`
+
+*Recorded by `353-03-the-handles-require-the-capability-for-their-own-action.md`.*
+
+#### ccf.artifacts.protocol.NOTHING_GOVERNED
+
+- Surface: ccf.artifacts.protocol.NOTHING_GOVERNED
+- Public surface: true
+- Change type: removed
+- Before: the explicit empty declaration and both stores' default
+- After: absent; `write_kinds` has no default
+- Why: §1.2 — retired, not adapted
+- Migration: declare the mechanism-written classes; a store that genuinely has none passes `WriteKinds.declare({})` and says so
+
+*Recorded by `353-03-the-handles-require-the-capability-for-their-own-action.md`.*
+
+#### ccf.artifacts.protocol.GovernedWriteToken
+
+- Surface: ccf.artifacts.protocol.GovernedWriteToken
+- Public surface: true
+- Change type: removed
+- Before: the module-private-sentinel token that said *this write is the fabric's own*
+- After: absent. The `ReplayMint` kind of `ccf.authz.capability.Authorized`, minted only by `mint_at_composition`, is that statement — with the tenant, the class and the deployment's `decision_id` bound to it
+- Why: §2 P3 — *"`GovernedWriteHandle` and `minted=` are retired: the kind IS the mint"*
+- Migration: none; its `ccf.contracts.guarded.GUARDED_TYPES` declaration retires with it (the join edits that census — the capability is the guarded type now)
+
+*Recorded by `353-03-the-handles-require-the-capability-for-their-own-action.md`.*
+
+#### ccf.artifacts.protocol.GovernedWriteHandle
+
+- Surface: ccf.artifacts.protocol.GovernedWriteHandle
+- Public surface: true
+- Change type: removed
+- Before: an `ArtifactStoreProtocol` wrapper that attached the token to `put`
+- After: absent. A writer holds its `Authorized[ReplayMint]` and passes it to `put` itself
+- Why: §2 P3
+- Migration: `ReplayWriter(store=GovernedWriteHandle(store), artifact_class=C)` becomes `ReplayWriter(authorized=mint_at_composition(tenant=..., principal=..., resource=C, decision_id=...), store=store)`
+
+*Recorded by `353-03-the-handles-require-the-capability-for-their-own-action.md`.*
+
+#### ccf.artifacts.protocol.held_writable_class
+
+- Surface: ccf.artifacts.protocol.held_writable_class
+- Public surface: true
+- Change type: removed
+- Before: the one shared check every store's write path ran first
+- After: absent; `authorized_write_target` is that first statement
+- Why: §1.2
+- Migration: implementers of `ArtifactStoreProtocol` call `authorized_write_target` where they called this
+
+*Recorded by `353-03-the-handles-require-the-capability-for-their-own-action.md`.*
+
+#### ccf.artifacts.protocol.GovernedWriteRefused
+
+- Surface: ccf.artifacts.protocol.GovernedWriteRefused
+- Public surface: true
+- Change type: removed
+- Before: the typed refusal for a client write naming a governed class
+- After: absent. That write now dies in `verify` as `CapabilityBypassError` (wrong kind: the class requires `ReplayMint`), before the store's own `ArtifactWriteRefused` is reached
+- Why: §1.5d — *"reuse across actions is unrepresentable, not refused later"*
+- Migration: a door that caught this catches `CapabilityBypassError`, which the gate lanes already translate
+
+*Recorded by `353-03-the-handles-require-the-capability-for-their-own-action.md`.*
+
+#### ccf.artifacts.protocol.GovernedWriteForgery
+
+- Surface: ccf.artifacts.protocol.GovernedWriteForgery
+- Public surface: true
+- Change type: removed
+- Before: raised when something that was not a minted token was presented as one
+- After: absent; a forged capability dies in `verify` as `CapabilityBypassError`
+- Why: §1.1
+- Migration: as above
+
+*Recorded by `353-03-the-handles-require-the-capability-for-their-own-action.md`.*
+
+#### ccf.artifacts.protocol.GovernedClassDeclarationError
+
+- Surface: ccf.artifacts.protocol.GovernedClassDeclarationError
+- Public surface: true
+- Change type: removed
+- Before: the boot-time refusal of an unenforceable governed-class declaration
+- After: absent; `WriteKindsDeclarationError` is its successor and refuses the same ids plus an empty kind set, a non-kind and `ArtifactWrite`
+- Why: §1.2
+- Migration: catch `WriteKindsDeclarationError`
+
+*Recorded by `353-03-the-handles-require-the-capability-for-their-own-action.md`.*
 
 #### ccf_runtime.mcp.tenancy.untenanted_surfaces
 

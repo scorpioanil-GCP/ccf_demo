@@ -63,6 +63,7 @@ from ccf.replay.engine import (
     resolve_artifact,
 )
 from ccf.replay.record import ContextFabricSnapshot, DecisionReplayRecord
+from tests.replay.authority import replay_store
 from tests.replay.test_generation_mismatch import _key_state
 
 FIXTURE = Path(__file__).parent / "fixtures" / "golden_13bd250"
@@ -94,7 +95,7 @@ class _Golden:
         self.handle: FabricHandle = golden.boot_fabric(
             database_path=root / golden.DATABASE_FILE, bindings=self.bindings
         )
-        self.store = FileArtifactStore(root=root / golden.ARTIFACTS_DIR)
+        self.store = replay_store(root / golden.ARTIFACTS_DIR, golden.ARTIFACT_CLASS)
 
     def replay(self, address: str) -> ReplayOutcome:
         return replay(

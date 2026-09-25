@@ -36,6 +36,8 @@ from ccf.controlplane.registry import (
     ControlPlaneRegistry,
 )
 from ccf.controlplane.resolution import ControlPlaneResolution, resolve_pinned
+from ccf.authz.capability import Authorized, Register
+from tests.controlplane.capabilities import register_capability
 
 FIXTURE = (
     Path(__file__).parent.parent
@@ -49,6 +51,11 @@ TENANT = "acme-bank"
 NAME = "covenant-analytics"
 KEY = f"{TENANT}/{AGENT_DEFINITION.class_id}/{NAME}"
 
+
+
+def _cap(key: str) -> Authorized[Register]:
+    """A ``config.register`` capability for ``key``, minted as the gate would."""
+    return register_capability(key, Register)
 
 def _definition(**overrides: Any) -> AgentDefinition:
     loaded = yaml.safe_load(FIXTURE.read_text())
@@ -74,7 +81,7 @@ def test_the_reference_registry_conforms_to_the_read_surface() -> None:
 def test_a_content_hash_uri_resolves_on_the_fast_path() -> None:
     registry = ControlPlaneRegistry()
     definition = _definition()
-    version = registry.register_versioned(KEY, definition, AGENT_DEFINITION)
+    version = registry.register_versioned(_cap(KEY), definition, AGENT_DEFINITION)
     assert isinstance(version, str)
     assert resolve_pinned(registry, _uri(version)) == definition
 
@@ -85,8 +92,8 @@ def test_a_declared_version_uri_resolves_by_probing() -> None:
     second = _definition(
         name=f"{NAME}-revised", artifact_version="9.9.9"
     )
-    registry.register_versioned(KEY, first, AGENT_DEFINITION)
-    registry.register_versioned(KEY, second, AGENT_DEFINITION)
+    registry.register_versioned(_cap(KEY), first, AGENT_DEFINITION)
+    registry.register_versioned(_cap(KEY), second, AGENT_DEFINITION)
     assert resolve_pinned(registry, _uri("9.9.9")) == second
 
 
@@ -98,9 +105,8 @@ def test_probes_are_not_audited_and_the_returned_read_is(
     second = _definition(
         name=f"{NAME}-revised", artifact_version="9.9.9"
     )
-    registry.register_versioned(KEY, first, AGENT_DEFINITION)
-    second_version = registry.register_versioned(
-        KEY, second, AGENT_DEFINITION
+    registry.register_versioned(_cap(KEY), first, AGENT_DEFINITION)
+    second_version = registry.register_versioned(_cap(KEY), second, AGENT_DEFINITION
     )
     assert isinstance(second_version, str)
 
@@ -120,8 +126,8 @@ def test_an_ambiguous_declared_version_is_refused() -> None:
     second = _definition(name=f"{NAME}-revised", artifact_version="9.9.9")
     # content-hash identity, so both distinct contents land under one key
     # while declaring the same semver — the collision WR-08 refuses.
-    registry.register_typed(KEY, first, AGENT_DEFINITION)
-    registry.register_typed(KEY, second, AGENT_DEFINITION)
+    registry.register_typed(_cap(KEY), first, AGENT_DEFINITION)
+    registry.register_typed(_cap(KEY), second, AGENT_DEFINITION)
     assert len(registry.versions(KEY)) == 2
 
     with pytest.raises(AmbiguousPinnedVersionError):
@@ -130,12 +136,12 @@ def test_an_ambiguous_declared_version_is_refused() -> None:
 
 def test_a_miss_is_returned_not_raised() -> None:
     registry = ControlPlaneRegistry()
-    registry.register_versioned(KEY, _definition(), AGENT_DEFINITION)
+    registry.register_versioned(_cap(KEY), _definition(), AGENT_DEFINITION)
     assert resolve_pinned(registry, _uri("0.0.0-absent")) is None
 
 
 def test_the_factory_turns_the_shared_miss_into_a_definition_error() -> None:
     registry = ControlPlaneRegistry()
-    registry.register_versioned(KEY, _definition(), AGENT_DEFINITION)
+    registry.register_versioned(_cap(KEY), _definition(), AGENT_DEFINITION)
     with pytest.raises(AgentDefinitionError):
         _resolve_pinned(registry, _uri("0.0.0-absent"))

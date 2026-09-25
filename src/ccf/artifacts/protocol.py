@@ -22,17 +22,46 @@ different one. An implementation therefore never needs, and must never offer,
 an update or delete operation. That is what makes the tampering threat
 (T-04-11) structural rather than procedural.
 
+**A write requires the capability for its own action (D-IMPL-353 §1.2).**
+``put(authorized, artifact)`` takes no tenant, no class and no name from its
+caller. Which kind it requires is looked up **per artifact class** from a
+:class:`WriteKinds` declaration bound to the store at composition: a class the
+deployment has not declared is the *client lane* and requires
+``Authorized[ArtifactWrite]`` whose resource IS the target,
+``"<class>/<name>"``; a class the deployment has declared is *mechanism
+written* and requires one of the kinds declared for it — the fabric's replay
+writer under ``ReplayMint`` (§2 P3; minted only at composition, so no served
+surface can obtain one), the workflow engine's trace under ``Execute |
+Resume``. The kind IS the mint: there is no separate token, no minting
+handle, and no default that leaves a class open — ``write_kinds`` has no
+default, and a declaration may not name ``ArtifactWrite``. The tenant is the
+capability's on every path (§1.3). :func:`authorized_write_target` is the one
+function both shipped stores run first, before canonicalization, before the
+address is derived and before the substrate is touched; it is where
+``ccf.controlplane.state.verify_any`` refuses a fabricated, retargeted or
+wrong-kind capability, and where the target is resolved from the capability
+(an addressed write) or from the mechanism's own :class:`DerivedWrite` (a
+derived write — the record did not exist when the decision was made).
+
 Algorithmic module (CINV-03).
 """
 
 from __future__ import annotations
 
 import re
-from typing import Final, Protocol, runtime_checkable
+from collections.abc import Iterable, Mapping
+from typing import Final, Protocol, TypeAlias, runtime_checkable
 
-from pydantic import model_validator
-
+from ccf.authz.capability import (
+    ActionKind,
+    ArtifactWrite,
+    Authorized,
+    Execute,
+    ReplayMint,
+    Resume,
+)
 from ccf.contracts.base import CCFContract
+from ccf.controlplane.state import verify_any
 
 __ccf_mode__ = "algorithmic"
 
@@ -41,24 +70,23 @@ __all__ = [
     "CONTENT_ADDRESS_PATTERN",
     "LATEST_VERSION_TOKEN",
     "NAME_SEGMENT_SEPARATOR",
-    "NOTHING_GOVERNED",
     "ArtifactName",
     "ArtifactNotFound",
     "ArtifactRef",
     "ArtifactStoreError",
     "ArtifactStoreProtocol",
     "ArtifactUriUnresolvable",
-    "GovernedClassDeclarationError",
-    "GovernedRecordClasses",
-    "GovernedWriteForgery",
-    "GovernedWriteHandle",
-    "GovernedWriteRefused",
-    "GovernedWriteToken",
+    "ArtifactWriteAuthority",
+    "ArtifactWriteRefused",
+    "DerivedWrite",
     "MalformedContentAddress",
     "MovingTargetRefused",
+    "WriteKinds",
+    "WriteKindsDeclarationError",
+    "WriteTarget",
     "artifact_uri",
+    "authorized_write_target",
     "held_content_address",
-    "held_writable_class",
     "parse_artifact_uri",
 ]
 
@@ -129,66 +157,30 @@ class MovingTargetRefused(ArtifactStoreError, ValueError):
     """
 
 
-class GovernedWriteRefused(ArtifactStoreError):
-    """A write named an artifact class only fabric mechanism may file under.
+class ArtifactWriteRefused(ArtifactStoreError):
+    """A write's *target* could not be resolved from what was presented (D-IMPL-353 §1.2).
 
-    ``SEC-004``. The store's write path took four values — tenant, class, name,
-    payload — and every one of them arrives off the wire at the HTTP artifact
-    door (``ArtifactPutRequest``) and at the MCP ``put_artifact`` tool. A client
-    therefore chose the artifact class its bytes were filed under, *including*
-    the class a deployment keeps its Decision Replay records in, and the plant
-    was then resolvable through that class's naming lane. Content addressing
-    does not close it: an address proves INTEGRITY — these bytes hash to this
-    address — and never PROVENANCE, so a replay resolving the forged URI would
-    reproduce the plant and validate it as genuine.
+    Raised **after** the capability has been verified genuine — a fabricated,
+    retargeted or wrong-kind capability never reaches this refusal; it dies in
+    ``verify`` first — for the shapes a genuine capability still cannot
+    write: an addressed write whose resource is not ``"<class>/<name>"``, or
+    a :class:`DerivedWrite` naming a class the deployment never declared as
+    mechanism-written (which would let a door's ``ArtifactWrite`` capability
+    pick a name other than its own resource's). Nothing has been
+    canonicalized and nothing has been touched when it is raised.
 
-    **Not an** :class:`ArtifactNotFound`. A refused write is a determination the
-    fabric made, not an absence; typing it as absence would tell a caller its
-    write had vanished rather than been refused, and would be swallowed by every
-    ``except ArtifactNotFound`` written for the read path. **Not an**
-    ``OSError`` either: that is the substrate's family, and this refusal is
-    raised before the substrate is reached, so a caller distinguishing "the disk
-    failed" from "you may not write here" keeps the distinction.
-
-    **What it discloses.** Exactly one bit, about the caller's own supplied
-    string: *the class you named is governed here*. It names no other member of
-    the declaration, and it does not vary with what the store already holds —
-    the refusal is decided before canonicalization, before addressing and before
-    any substrate contact, so it cannot become the write-path twin of the
-    existence oracle :class:`MalformedContentAddress` closes on the read path
-    (``D-IMPL-253`` amendment 2 (4)).
+    **Not an** :class:`ArtifactNotFound`: a refused write is a determination,
+    not an absence, and typing it as absence would be swallowed by every
+    ``except ArtifactNotFound`` written for the read path.
     """
 
 
-class GovernedWriteForgery(GovernedWriteRefused):
-    """Something was presented as minting authority that this module did not mint.
+class WriteKindsDeclarationError(ArtifactStoreError):
+    """A :class:`WriteKinds` declaration could not be enforced (D-IMPL-353 §1.2).
 
-    **A subclass of** :class:`GovernedWriteRefused`, deliberately: to the caller
-    it is the same refusal — the write does not happen — and a door that catches
-    the parent catches this identically. The separate type exists for the
-    deployment that is debugging its own wiring, exactly as
-    :class:`MalformedContentAddress` is separable from ordinary absence.
-
-    It is the reason the mint check is *identity against a module-private
-    sentinel* rather than a truthiness test. A door that forwarded a JSON body
-    field would present ``True``, ``1``, ``"minted"`` or ``{"_minted": true}``,
-    and every one of those passes ``if minted:``. None of them is
-    :data:`_GOVERNED_WRITE_TOKEN`.
-    """
-
-
-class GovernedClassDeclarationError(ArtifactStoreError):
-    """A deployment declared an artifact class that cannot be governed.
-
-    Raised at declaration — at boot, where an operator sees it — rather than at
-    request time, because an unusable declaration is a misconfiguration and not
-    a decision about any caller.
-
-    Deliberately **not** a ``ValueError`` even though it reports a malformed
-    value: it is raised from a Pydantic ``model_validator``, and Pydantic
-    absorbs ``ValueError`` into its own ``ValidationError``. A typed refusal
-    that the validation framework rewrote into an untyped one would leave
-    callers matching on message text.
+    Raised at declaration — at boot, where an operator sees it — never at
+    request time: an unusable declaration is a misconfiguration, not a
+    decision about any caller.
     """
 
 
@@ -257,207 +249,247 @@ def held_content_address(content_address: str) -> str:
 NAME_SEGMENT_SEPARATOR: Final[str] = "/"
 
 
-class GovernedRecordClasses(CCFContract):
-    """Which artifact classes only fabric mechanism may file under (``SEC-004``).
+class WriteKinds:
+    """Which action kinds may write each *mechanism-written* artifact class (D-IMPL-353 §1.2).
 
-    **The SDK cannot name them, so the deployment declares them.** There is no
-    SDK constant for "the replay record class": :mod:`ccf.replay.serve` takes it
-    as a constructor argument and says so in as many words — *"Deployment
-    vocabulary, so it is supplied rather than assumed"* — and the same is true
-    of query pins, HITL actions, admission records and everything else an
-    adopter files. A set of class names baked into ``/src`` would be precisely
-    the hard-coded domain vocabulary CLAUDE.md §6.4 forbids, and it would be
-    wrong for every deployment that spells its classes differently.
+    **The deployment declares, mechanism interprets.** The SDK cannot name the
+    replay record class, the query-pin class or the workflow-trace class —
+    :mod:`ccf.replay.serve` has always called them *"deployment vocabulary,
+    supplied rather than assumed"*, and a class list in ``/src`` would be the
+    hardcoding CLAUDE.md §6.4 forbids. So the deployment states, once, at
+    composition: *these classes are written by fabric mechanism, under these
+    kinds*. Everything undeclared is the client lane and requires
+    ``Authorized[ArtifactWrite]`` for exactly ``"<class>/<name>"``.
 
-    So the shape is the one this project uses everywhere a value is the
-    adopter's and the rule is the SDK's: **the deployment declares, mechanism
-    enforces.** The declaration is a value bound to the store at construction —
-    deployment-side, boot-time, never per request — which is where CLAUDE.md §10
-    already puts the single-writer invariant (*"enforce via dependency injection
-    at boot"*). Nothing a caller sends can widen it, narrow it, or restate it:
-    a request body supplies the class being classified, never the set it is
-    classified against.
+    **Two lanes, and no class is in both.** A declaration may not name
+    ``ArtifactWrite``: the client kind is what an *undeclared* class requires,
+    and a class that both a door and mechanism could file under would be the
+    ``SEC-004`` naming lane reopened. A declared class therefore admits only
+    derived writes (:class:`DerivedWrite`) under its declared kinds; an
+    undeclared class admits only addressed writes under ``ArtifactWrite``.
 
-    **Membership is exact.** No casefolding and no trimming. Normalizing would
-    make two genuinely distinct naming lanes compare equal, which is a worse
-    defect than the near-miss it would catch — and a near-miss gains a caller
-    nothing, because its bytes register under a key no genuine URI resolves.
+    **No default.** Both shipped stores take ``write_kinds`` as a required
+    constructor argument. A store whose replay class is undeclared refuses the
+    fabric's own ``ReplayMint`` writer at first use — wrong kind — which is
+    the loud boot-time failure ``create_app`` is meant to surface (§3), never
+    a silently open lane.
 
-    Attributes:
-        class_ids: The declared classes. A ``frozenset`` because this is
-            genuinely a membership question and has no order to preserve; the
-            canonical serializer sorts it, so two deployments that declared the
-            same classes in different order record the same bytes.
-
-    Raises:
-        GovernedClassDeclarationError: a declared id is empty, is not its own
-            ``strip()``, or contains :data:`NAME_SEGMENT_SEPARATOR`.
+    **Membership is exact.** No casefolding, no trimming. A class id is refused
+    at declaration if it is empty, untrimmed, or carries
+    :data:`NAME_SEGMENT_SEPARATOR` — the naming key is
+    ``f"{tenant}/{artifact_class}/{name}"``, so a slash-free id admits exactly
+    one ``(tenant, class, name)`` decomposition of a target, while
+    ``class="a/b", name="x"`` and ``class="a", name="b/x"`` collide on
+    ``t/a/b/x``; the rule is measured, not stylistic.
     """
 
-    class_ids: frozenset[str]
+    __slots__ = ("_kinds_by_class",)
 
-    @classmethod
-    def declare(cls, *class_ids: str) -> GovernedRecordClasses:
-        """Declare the governed classes by name.
-
-        The documented constructor. ``GovernedRecordClasses.declare("x", "y")``
-        reads as the deployment statement it is, where
-        ``GovernedRecordClasses(class_ids=frozenset({...}))`` reads as plumbing.
-        """
-        return cls(class_ids=frozenset(class_ids))
-
-    @model_validator(mode="after")
-    def _every_id_is_governable(self) -> GovernedRecordClasses:
-        """Refuse a declaration mechanism could not actually enforce.
-
-        The separator rule is measured, not stylistic. A file-backed naming key
-        is ``f"{tenant}{sep}{artifact_class}{sep}{name}"``, so a key built from a
-        slash-free class id contains exactly two separators and has exactly one
-        ``(tenant, class, name)`` decomposition — the one naming the governed
-        class, which is refused. Let the class id carry a separator and that
-        stops being true: ``class="a/b", name="x"`` and ``class="a", name="b/x"``
-        produce the identical key ``t/a/b/x``, and only the first is refused. The
-        declaration would then describe a lane with a documented bypass, so it is
-        refused at boot instead. :func:`parse_artifact_uri` agrees independently
-        — it splits the naming half into exactly three segments, so such a class
-        could never round-trip through a versioned URI either.
-
-        The empty and untrimmed rules catch the other way a declaration fails
-        silently: an id that does not match the string the fabric actually writes
-        governs nothing at all, and does so without complaint.
-        """
-        for class_id in sorted(self.class_ids):
+    def __init__(self, kinds_by_class: Mapping[str, tuple[type[ActionKind], ...]]) -> None:
+        for class_id, kinds in kinds_by_class.items():
             if not class_id or class_id != class_id.strip():
-                raise GovernedClassDeclarationError(
-                    f"{class_id!r} is not a usable artifact class id; a governed"
+                raise WriteKindsDeclarationError(
+                    f"{class_id!r} is not a usable artifact class id; a declared"
                     " class must be a non-empty string with no surrounding"
                     " whitespace, because an id that does not match the string"
                     " the fabric writes governs nothing and says nothing"
                 )
             if NAME_SEGMENT_SEPARATOR in class_id:
-                raise GovernedClassDeclarationError(
+                raise WriteKindsDeclarationError(
                     f"{class_id!r} contains {NAME_SEGMENT_SEPARATOR!r}, so a"
                     " client could reach its naming lane by splitting the id"
-                    " across `artifact_class` and `name`; declare a class id"
-                    " that is one naming segment (SEC-004)"
+                    " across the class and the name; declare a class id that is"
+                    " one naming segment (SEC-004; D-IMPL-353 §1.2)"
                 )
-        return self
+            if not kinds:
+                raise WriteKindsDeclarationError(
+                    f"class {class_id!r} declares no write kind; a declared"
+                    " class is mechanism-written and must name the kind(s)"
+                    " that write it (D-IMPL-353 §1.2)"
+                )
+            for kind in kinds:
+                if not (isinstance(kind, type) and issubclass(kind, ActionKind)):
+                    raise WriteKindsDeclarationError(
+                        f"class {class_id!r} declares {kind!r}, which is not an"
+                        " action kind (D-IMPL-353 §1.5b)"
+                    )
+                if kind is ArtifactWrite:
+                    raise WriteKindsDeclarationError(
+                        f"class {class_id!r} declares ArtifactWrite; the client"
+                        " kind is what an UNDECLARED class requires, and a class"
+                        " both a door and mechanism could file under is the"
+                        " naming lane SEC-004 closed (D-IMPL-353 §1.2)"
+                    )
+        self._kinds_by_class: dict[str, tuple[type[ActionKind], ...]] = {
+            class_id: tuple(kinds) for class_id, kinds in kinds_by_class.items()
+        }
 
-    def governs(self, artifact_class: str) -> bool:
-        """Whether ``artifact_class`` is one only mechanism may write."""
-        return artifact_class in self.class_ids
+    @classmethod
+    def declare(
+        cls, kinds_by_class: Mapping[str, Iterable[type[ActionKind]]]
+    ) -> WriteKinds:
+        """Declare the mechanism-written classes and their kinds.
+
+        The documented constructor::
+
+            WriteKinds.declare({
+                "ccf.replay-record": (ReplayMint,),
+                "ccf.graph-query": (ReplayMint,),
+                "ccf.workflow-trace": (Execute, Resume),
+            })
+        """
+        return cls({class_id: tuple(kinds) for class_id, kinds in kinds_by_class.items()})
+
+    @property
+    def declared_classes(self) -> frozenset[str]:
+        """The mechanism-written classes, for introspection."""
+        return frozenset(self._kinds_by_class)
+
+    def is_declared(self, artifact_class: str) -> bool:
+        """Whether ``artifact_class`` is mechanism-written."""
+        return artifact_class in self._kinds_by_class
+
+    def for_class(self, artifact_class: str) -> tuple[type[ActionKind], ...]:
+        """The kinds that may write ``artifact_class``: its declaration, or ``(ArtifactWrite,)``."""
+        return self._kinds_by_class.get(artifact_class, (ArtifactWrite,))
+
+    def __repr__(self) -> str:
+        declared = {c: tuple(k.__name__ for k in ks) for c, ks in sorted(self._kinds_by_class.items())}
+        return f"WriteKinds({declared!r})"
 
 
-#: The explicit empty declaration, and the stores' default.
-#:
-#: Named rather than left as ``frozenset()`` so a store that governs nothing
-#: *says* so — ``store.governed is NOTHING_GOVERNED`` is answerable — instead of
-#: leaving the question unasked. A deployment holding this is in the posture it
-#: was in before ``SEC-004`` was closed, which is why the declaration is the one
-#: thing an adopter must now add.
-NOTHING_GOVERNED: Final[GovernedRecordClasses] = GovernedRecordClasses(
-    class_ids=frozenset()
+class DerivedWrite:
+    """An artifact the fabric's own mechanism files, naming its class and name itself (D-IMPL-353 §1.2).
+
+    The *derived-writes* shape. A door-minted capability names its target —
+    ``"<class>/<name>"`` — because the authorizer decided on that target. A
+    decision that *started* something — an ``Execute`` for a workflow
+    definition, a ``ReplayMint`` for a record class — could not name the
+    record it would produce, so the mechanism that produces it (the engine
+    for its trace, the replay writer for its record) names the class and the
+    name here, and the store files it under the capability's tenant, after
+    verifying the capability against the kinds the deployment declared for
+    that class.
+
+    Not a name parameter in disguise: a class that is not declared
+    mechanism-written refuses this shape outright (:class:`ArtifactWriteRefused`),
+    so a door holding ``ArtifactWrite`` for one target cannot use it to file
+    under another name; and a declared class never admits ``ArtifactWrite``.
+
+    Attributes:
+        artifact_class: The declared class this is filed under.
+        name: The logical name within the class — the record's own identity
+            (a snapshot id, an execution id, a query's content hash), never a
+            remote caller's string.
+        artifact: The canonicalizable payload. The content address, the bytes
+            and the canonical form are this value's alone; the wrapper never
+            reaches the substrate.
+    """
+
+    __slots__ = ("artifact_class", "name", "artifact")
+
+    def __init__(self, *, artifact_class: str, name: str, artifact: object) -> None:
+        self.artifact_class = artifact_class
+        self.name = name
+        self.artifact = artifact
+
+    def __repr__(self) -> str:
+        return f"DerivedWrite(artifact_class={self.artifact_class!r}, name={self.name!r})"
+
+
+class WriteTarget(CCFContract):
+    """Where a verified write lands: the tenant is the capability's, the rest is resolved.
+
+    Returned by :func:`authorized_write_target` only, so a store's ``put`` reads
+    ``target = authorized_write_target(...)`` and then acts on the target and
+    nothing it was handed directly.
+
+    Attributes:
+        tenant_id: ``authorized.tenant`` — the only source (§1.3).
+        artifact_class: From the capability's resource (addressed) or the
+            :class:`DerivedWrite` (derived).
+        name: Likewise.
+    """
+
+    tenant_id: str
+    artifact_class: str
+    name: str
+
+
+#: The static type of ``put``'s first parameter: the kinds under which the
+#: SDK's own writers and the client door file artifacts. A handler holding any
+#: other kind is a ``mypy --strict`` error at the call; the runtime authority
+#: for a given class is the store's :class:`WriteKinds` declaration.
+ArtifactWriteAuthority: TypeAlias = (
+    Authorized[ArtifactWrite]
+    | Authorized[ReplayMint]
+    | Authorized[Execute]
+    | Authorized[Resume]
 )
 
-#: The sentinel a genuine minting authority carries. Module-private and
-#: compared by identity, never by truthiness: a door that forwarded a request
-#: body field would present ``True``, ``1``, ``"minted"`` or
-#: ``{"_minted": true}``, and every one of those satisfies ``if minted:``.
-_GOVERNED_WRITE_TOKEN = object()
 
+def authorized_write_target(
+    authorized: object, artifact: object, *, write_kinds: WriteKinds
+) -> tuple[WriteTarget, object]:
+    """Verify the capability and resolve the write's target — the first statement of every ``put``.
 
-class GovernedWriteToken:
-    """Evidence that a write is the fabric's own and not a client's (``SEC-004``).
+    Order is load-bearing and is the order of the design's teeth:
 
-    Not constructible outside this module: the constructor demands the
-    module-private sentinel, and :func:`held_writable_class` verifies the mint
-    rather than trusting the type — so a subclass that skips this ``__init__``
-    is refused at the write. This is
-    :class:`ccf.controlplane.state.StateWriteToken`'s posture, for the same
-    reason and with the same honesty about its limit.
-
-    The only supported producer is :class:`GovernedWriteHandle`.
-
-    **Scope, stated rather than overclaimed.** What this makes unrepresentable
-    is a *wire-originated* governed write: no JSON body, no MCP tool argument
-    and no query string can produce a Python object, so no remote caller can
-    mint. Python has no barrier that stops a door's *author* from importing the
-    handle; that is covered by CI (``tests/artifacts`` asserts no module under
-    ``runtime/ccf_runtime`` names either symbol), never claimed impossible.
-    """
-
-    __slots__ = ("_minted",)
-
-    def __init__(self, token: object) -> None:
-        if token is not _GOVERNED_WRITE_TOKEN:
-            raise GovernedWriteForgery(
-                "GovernedWriteToken is minted only by"
-                " ccf.artifacts.protocol.GovernedWriteHandle; a governed record"
-                " class is written by fabric mechanism holding that handle, and"
-                " by nothing a transport hands through (SEC-004)"
-            )
-        self._minted = _GOVERNED_WRITE_TOKEN
-
-
-def held_writable_class(
-    artifact_class: str,
-    *,
-    governed: GovernedRecordClasses,
-    minted: GovernedWriteToken | None,
-) -> str:
-    """Return ``artifact_class`` if this writer may file under it (``SEC-004``).
-
-    The ONE governance check every store's write path runs **before it
-    canonicalizes the artifact, derives an address, or touches its substrate**.
-    Placed on the Protocol module rather than in a door for the reason
-    :func:`held_content_address` is: the doors are not where the substrate is
-    touched. HTTP ``POST /artifact``, the MCP ``put_artifact`` tool, the CLI and
-    every in-process caller all reach a store's ``put``, so a check at one door
-    leaves the others filing records. Authorizing the HTTP route instead would
-    also convert unauthorized forgery into *authorized* forgery — any principal
-    holding artifact-write could still mint a replay record — which is why the
-    refusal is here and not there.
-
-    **Order is load-bearing.** A presented authority is verified first, so a
-    mis-wired door that forwards a caller's value is refused on every class
-    rather than only on governed ones, and the operator sees it immediately.
-    Only then is the declaration consulted, and that consultation depends on
-    nothing but the caller's own string and the deployment's boot-time
-    declaration — never on what the store already holds. That is what keeps the
-    refusal from becoming an existence oracle.
-
-    Args:
-        artifact_class: The class a writer asked to file under.
-        governed: The deployment's declaration, bound to the store at
-            construction. Never a per-call value.
-        minted: The fabric's authority, or ``None`` for an ordinary write.
-            ``None`` can only make this stricter; there is no value of this
-            argument that skips the check.
+    1. **Pure parsing only.** The class is read from the :class:`DerivedWrite`
+       if that is the shape, else from the capability's resource split at its
+       first :data:`NAME_SEGMENT_SEPARATOR`. Nothing is trusted yet.
+    2. :func:`~ccf.controlplane.state.verify_any` against the kinds the
+       declaration names for that class (``(ArtifactWrite,)`` for an
+       undeclared one), with the capability's own resource as the resource
+       bind. A fabricated, retargeted or wrong-kind capability dies here — the
+       same line and the same exception whichever shape was presented.
+    3. **Shape refusals**, now that the capability is known genuine: a derived
+       write into an undeclared class, or an addressed write whose resource is
+       not ``"<class>/<name>"``.
 
     Returns:
-        The class, unchanged, so a call site reads as a pass-through.
+        The target under ``authorized.tenant``, and the payload to canonicalize
+        (the artifact itself, or the derived write's inner artifact).
 
     Raises:
-        GovernedWriteForgery: something was presented as authority that this
-            module did not mint.
-        GovernedWriteRefused: the class is governed and no authority was
-            presented.
+        ccf.authz.capability.CapabilityBypassError: from ``verify_any``.
+        ArtifactWriteRefused: the target shape.
     """
-    if minted is not None and (
-        getattr(minted, "_minted", None) is not _GOVERNED_WRITE_TOKEN
-    ):
-        raise GovernedWriteForgery(
-            "the value presented as minting authority was not minted by"
-            " ccf.artifacts.protocol.GovernedWriteHandle (SEC-004)"
+    resource_value = getattr(authorized, "resource", None)
+    resource = resource_value if isinstance(resource_value, str) else ""
+    if isinstance(artifact, DerivedWrite):
+        artifact_class, name, payload = artifact.artifact_class, artifact.name, artifact.artifact
+        derived = True
+    else:
+        artifact_class, _, name = resource.partition(NAME_SEGMENT_SEPARATOR)
+        payload = artifact
+        derived = False
+    kinds = write_kinds.for_class(artifact_class) if artifact_class else (ArtifactWrite,)
+    verify_any(authorized, kinds=kinds, resource=resource)
+    assert isinstance(authorized, Authorized)  # proven by verify_any
+    if derived:
+        if not write_kinds.is_declared(artifact_class):
+            raise ArtifactWriteRefused(
+                f"a derived write names class {artifact_class!r}, which this"
+                " store does not declare mechanism-written; only a declared"
+                " class admits the mechanism naming its own record, and a"
+                " door's capability names its target in its resource"
+                " (D-IMPL-353 §1.2)"
+            )
+        if not artifact_class or not name:
+            raise ArtifactWriteRefused(
+                "a derived write must name a class and a name (D-IMPL-353 §1.2)"
+            )
+    elif not artifact_class or not name:
+        raise ArtifactWriteRefused(
+            f"the capability's resource {resource!r} is not an artifact target;"
+            f" an addressed write is authorized for '<class>{NAME_SEGMENT_SEPARATOR}<name>'"
+            " and the store takes both from it (D-IMPL-353 §1.2, §1.5f)"
         )
-    if minted is None and governed.governs(artifact_class):
-        raise GovernedWriteRefused(
-            f"{artifact_class!r} is a governed record class on this store and is"
-            " written by fabric mechanism only; a client cannot file bytes under"
-            " it, because an address proves integrity and never provenance"
-            " (SEC-004; CLAUDE.md §7.4)"
-        )
-    return artifact_class
+    return (
+        WriteTarget(tenant_id=authorized.tenant, artifact_class=artifact_class, name=name),
+        payload,
+    )
 
 
 def artifact_uri(
@@ -541,47 +573,35 @@ class ArtifactRef(CCFContract):
 class ArtifactStoreProtocol(Protocol):
     """Immutable, content-addressed artifact persistence (CLAUDE.md §7.4)."""
 
-    def put(
-        self,
-        *,
-        tenant_id: str,
-        artifact_class: str,
-        name: str,
-        artifact: object,
-        minted: GovernedWriteToken | None = None,
-    ) -> ArtifactRef:
-        """Store ``artifact`` and return its reference.
+    def put(self, authorized: ArtifactWriteAuthority, artifact: object) -> ArtifactRef:
+        """Store ``artifact`` under the capability's tenant; return its reference.
 
         Idempotent by construction: storing byte-identical content again
         returns the same address and leaves the stored bytes untouched. There
         is deliberately no ``overwrite`` parameter.
 
-        **This is the client-facing write surface**, and it is the one every
-        transport reaches. An implementation runs
-        :func:`held_writable_class` over ``artifact_class`` before it
-        canonicalizes anything, so an artifact class the deployment declared
-        governed is refused here (``SEC-004``).
+        **This is the one write surface, and every transport reaches it.**
+        An implementation's first statement is
+        :func:`authorized_write_target`, which verifies ``authorized`` for the
+        kind the store's :class:`WriteKinds` declaration names for the target
+        class and resolves the tenant, class and name — from the capability's
+        resource for an addressed write, from the :class:`DerivedWrite` for a
+        derived one. Nothing about the target comes from a parameter
+        (D-IMPL-353 §1.2, §1.3, §1.5f).
 
         Args:
-            tenant_id: Owning tenant.
-            artifact_class: The class to file under. A *declaration* to be
-                checked, never the authority to write.
-            name: The logical name within the class.
-            artifact: The canonicalizable payload.
-            minted: The fabric's own authority for a governed record class,
-                obtained from :class:`GovernedWriteHandle` and from nowhere
-                else. ``None`` — the default, and the only value any transport
-                can produce — means an ordinary client write. Passing it can
-                only require *more* authority, never less: there is no value of
-                this argument that skips the check.
+            authorized: The capability for this write — ``ArtifactWrite`` for
+                exactly ``"<class>/<name>"`` on the client lane; a declared
+                mechanism kind for a declared class.
+            artifact: The canonicalizable payload, or a :class:`DerivedWrite`
+                wrapping one.
 
         Raises:
+            ccf.authz.capability.CapabilityBypassError: fabricated,
+                retargeted, or wrong-kind capability.
+            ArtifactWriteRefused: the target shape.
             ccf.contracts.canonical.CanonicalizationError: the artifact has no
                 canonical form and therefore no stable identity.
-            GovernedWriteRefused: ``artifact_class`` is governed and no
-                authority was presented.
-            GovernedWriteForgery: something that is not a minted authority was
-                presented as one.
         """
         ...
 
@@ -619,79 +639,3 @@ class ArtifactStoreProtocol(Protocol):
                 tenant/class/name/version combination this store never stored.
         """
         ...
-
-
-class GovernedWriteHandle:
-    """The fabric's write handle for governed record classes (``SEC-004``).
-
-    SDK-defined; CLAUDE.md §7.4 (the ArtifactStore seam) and §10 (*"enforce via
-    dependency injection at boot"*).
-
-    **This is how the fabric's own writer still writes a governed record**, and
-    it required no change to any writer. An
-    :class:`~ccf.replay.serve.ReplayWriter` takes an
-    :class:`ArtifactStoreProtocol`; this handle *is* one, delegating every
-    method to the store it wraps and attaching the minted authority to the one
-    call that needs it. A deployment injects the handle where it injects the
-    store today::
-
-        store = FileArtifactStore(root=..., governed=declaration)   # doors
-        fabric = GovernedWriteHandle(store)                         # mechanism
-        ReplayWriter(store=fabric, artifact_class=declaration_class)
-
-    The asymmetry is the whole point, and it is the single-writer invariant's
-    shape applied to the artifact substrate: **a transport door is handed the
-    store, mechanism is handed the handle, and nothing in a request body turns
-    one into the other.**
-
-    The handle grants no read authority it did not already have — the three
-    read methods are plain delegation — because reads are governed at the
-    delivery boundary (``D-IMPL-345``), not here.
-
-    Args:
-        store: The substrate this handle mints against. Any conforming
-            implementation; the handle adds authority, never behavior.
-    """
-
-    def __init__(self, store: ArtifactStoreProtocol) -> None:
-        self._store = store
-        self._token = GovernedWriteToken(_GOVERNED_WRITE_TOKEN)
-
-    @property
-    def store(self) -> ArtifactStoreProtocol:
-        """The substrate behind this handle."""
-        return self._store
-
-    def put(
-        self,
-        *,
-        tenant_id: str,
-        artifact_class: str,
-        name: str,
-        artifact: object,
-        minted: GovernedWriteToken | None = None,
-    ) -> ArtifactRef:
-        """Store ``artifact`` with this handle's authority attached.
-
-        ``minted`` is accepted so the handle satisfies
-        :class:`ArtifactStoreProtocol` exactly, and is ignored: the handle's own
-        authority is the one that travels. A caller that supplied a forged token
-        here would gain nothing and lose nothing — the write was already
-        authorized by holding the handle.
-        """
-        return self._store.put(
-            tenant_id=tenant_id,
-            artifact_class=artifact_class,
-            name=name,
-            artifact=artifact,
-            minted=self._token,
-        )
-
-    def get(self, *, content_address: str) -> bytes:
-        return self._store.get(content_address=content_address)
-
-    def exists(self, *, content_address: str) -> bool:
-        return self._store.exists(content_address=content_address)
-
-    def resolve_uri(self, *, uri: str) -> str:
-        return self._store.resolve_uri(uri=uri)

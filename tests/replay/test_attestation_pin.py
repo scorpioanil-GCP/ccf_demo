@@ -50,6 +50,9 @@ from ccf.replay.record import (
     ContextFabricSnapshot,
     DecisionReplayRecord,
 )
+from ccf.authz.capability import Register
+from tests.controlplane.capabilities import register_capability
+from tests.replay.authority import mechanism_put, replay_store
 
 from tests.integration.test_proto_quickstart import (
     _envelopes,
@@ -105,10 +108,10 @@ def fabric(
     keys = control["keys"]
     registry = ControlPlaneRegistry()
     spec_version = registry.register(
-        keys["resolution_spec"], _resolution_spec(ontology)
+        register_capability(keys["resolution_spec"], Register), _resolution_spec(ontology)
     )
     policy_version = registry.register(
-        keys["policy_bundle"], control["policy_bundle"]
+        register_capability(keys["policy_bundle"], Register), control["policy_bundle"]
     )
     handle = boot(
         backend="sqlite",
@@ -135,7 +138,7 @@ def fabric(
 
 @pytest.fixture
 def store(tmp_path: Path) -> FileArtifactStore:
-    return FileArtifactStore(root=tmp_path / "artifacts")
+    return replay_store(tmp_path / "artifacts", "decision-replay-record")
 
 
 # --- 1. the pin: recorded from execution, unconditionally --------------------
@@ -218,12 +221,7 @@ def test_the_combined_three_extension_matrix(
     )
 
     # (all) three fields — today's writer, resolved through the real store.
-    address_all = store.put(
-        tenant_id=record.tenant_id,
-        artifact_class="decision-replay-record",
-        name="matrix-all",
-        artifact=record,
-    ).content_address
+    address_all = mechanism_put(store, tenant=record.tenant_id, artifact_class="decision-replay-record", name="matrix-all", artifact=record).content_address
     assert address_all == hashlib.sha256(full).hexdigest()
     resolved_all = resolve_artifact(
         store=store, content_address=address_all, contract=DecisionReplayRecord

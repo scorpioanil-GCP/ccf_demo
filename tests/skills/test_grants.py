@@ -63,7 +63,11 @@ from ccf.skills.grants import (
     grant_set_hash,
     skill_grant_key,
 )
+from ccf.authz.capability import Register
+from ccf.controlplane.state import state_key
 from skills.sinks import RaisingApprovalSink, ScriptedApprovalSink
+from tests.controlplane.capabilities import register_capability
+from tests.skills.authority import grant_capability, register_entry, revoke_capability
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "banking" / "skills"
 
@@ -121,7 +125,9 @@ class _World:
                 },
                 artifact_class,
             )
-            self.registry.register_typed(regime["key"], declared, artifact_class)
+            self.registry.register_typed(
+                register_capability(regime["key"], Register), declared, artifact_class
+            )
         tool = _tool_fixture()
         for document in (
             tool["entry"],
@@ -130,7 +136,7 @@ class _World:
         ):
             entry = parse_artifact(document, SKILL_CATALOG_ENTRY)
             assert isinstance(entry, SkillCatalogEntry)
-            outcome = self.catalog.register(entry)
+            outcome = register_entry(self.registry, entry)
             assert isinstance(outcome, str)
         self.ledger = GrantLedger(
             control_plane=self.registry,
@@ -140,6 +146,15 @@ class _World:
             clock=lambda: instant,
         )
         self.actor: str = fixture["approval"]["requesting_actor"]
+        self.tenant: str = fixture["agents"]["auto"]["tenant"]
+
+    def grant_cap(self, definition: AgentDefinition) -> Any:
+        """The ``skill.grant`` capability the door mints for this definition."""
+        return grant_capability(definition, principal=self.actor)
+
+    def revoke_cap(self, grant_hash: str) -> Any:
+        """The ``skill.revoke`` capability the door mints for this grant hash."""
+        return revoke_capability(grant_hash, tenant=self.tenant, principal=self.actor)
 
     def definition(self, which: str) -> AgentDefinition:
         parsed = parse_artifact(self.fixture["agents"][which], AGENT_DEFINITION)
@@ -173,7 +188,7 @@ class TestGrantArtifact:
         """The grant is a versioned Control Plane artifact (D-IMPL-12/26)."""
         definition = world.definition("auto")
         grant = world.grant("metrics_tool", definition)
-        outcome = world.ledger.request(grant, definition=definition, actor=world.actor)
+        outcome = world.ledger.request(world.grant_cap(definition), grant, definition=definition)
         assert outcome == content_hash(grant)
         key = skill_grant_key(grant)
         stored = world.registry.resolve(key, content_hash(grant))
@@ -198,7 +213,7 @@ class TestTierOne:
     ) -> None:
         definition = world.definition("auto")
         grant = world.grant("writeback", definition)
-        refusal = world.ledger.request(grant, definition=definition, actor=world.actor)
+        refusal = world.ledger.request(world.grant_cap(definition), grant, definition=definition)
         assert isinstance(refusal, RequirementsExceedRegime)
         assert refusal.excess_scopes == frozenset(
             world.fixture["expected_excess"]["scopes"]
@@ -211,7 +226,7 @@ class TestTierOne:
     ) -> None:
         definition = world.definition("auto")
         grant = world.grant("offcontract", definition)
-        refusal = world.ledger.request(grant, definition=definition, actor=world.actor)
+        refusal = world.ledger.request(world.grant_cap(definition), grant, definition=definition)
         assert isinstance(refusal, RequirementsExceedRegime)
         assert refusal.excess_context_products == frozenset(
             world.fixture["expected_excess"]["context_products"]
@@ -224,14 +239,14 @@ class TestTierOne:
         """No silent defaults (D-IMPL-38): unresolvable regime → refusal."""
         definition = world.definition("unresolvable")
         grant = world.grant("metrics_tool", definition)
-        refusal = world.ledger.request(grant, definition=definition, actor=world.actor)
+        refusal = world.ledger.request(world.grant_cap(definition), grant, definition=definition)
         assert isinstance(refusal, PolicyRegimeUnresolvable)
         assert definition.policy_regime.ref in refusal.detail or refusal.ref
 
     def test_a_regime_without_skill_governance_refuses(self, world: _World) -> None:
         definition = world.definition("ungoverned")
         grant = world.grant("metrics_tool", definition)
-        refusal = world.ledger.request(grant, definition=definition, actor=world.actor)
+        refusal = world.ledger.request(world.grant_cap(definition), grant, definition=definition)
         assert isinstance(refusal, GovernanceUndeclared)
 
     def test_a_tier_1_refusal_is_a_returned_contract_value(
@@ -240,7 +255,7 @@ class TestTierOne:
         """GateRefusal discipline: a bad grant is data, not control flow."""
         definition = world.definition("auto")
         grant = world.grant("writeback", definition)
-        refusal = world.ledger.request(grant, definition=definition, actor=world.actor)
+        refusal = world.ledger.request(world.grant_cap(definition), grant, definition=definition)
         assert isinstance(refusal, GrantRefusal)
         assert isinstance(refusal, CCFContract)
 
@@ -250,7 +265,7 @@ class TestTierOne:
         """Tier 1 always runs first: the sink never sees a tier-1 failure."""
         definition = world.definition("gated")
         grant = world.grant("writeback", definition)
-        refusal = world.ledger.request(grant, definition=definition, actor=world.actor)
+        refusal = world.ledger.request(world.grant_cap(definition), grant, definition=definition)
         assert isinstance(refusal, RequirementsExceedRegime)
         assert world.sink.decided == []
 
@@ -264,7 +279,7 @@ class TestStateMachine:
     ) -> None:
         definition = world.definition("auto")
         grant = world.grant("metrics_tool", definition)
-        outcome = world.ledger.request(grant, definition=definition, actor=world.actor)
+        outcome = world.ledger.request(world.grant_cap(definition), grant, definition=definition)
         assert isinstance(outcome, str)
         assert world.ledger.state(content_hash(grant)) == "effective"
         assert world.sink.decided == []
@@ -274,7 +289,7 @@ class TestStateMachine:
     ) -> None:
         definition = world.definition("gated")
         grant = world.grant("metrics_tool", definition)
-        outcome = world.ledger.request(grant, definition=definition, actor=world.actor)
+        outcome = world.ledger.request(world.grant_cap(definition), grant, definition=definition)
         assert isinstance(outcome, str)
         assert world.ledger.state(content_hash(grant)) == "effective"
         assert world.sink.decided == [grant]
@@ -290,7 +305,7 @@ class TestStateMachine:
         world = rejecting_world
         definition = world.definition("gated")
         grant = world.grant("metrics_tool", definition)
-        refusal = world.ledger.request(grant, definition=definition, actor=world.actor)
+        refusal = world.ledger.request(world.grant_cap(definition), grant, definition=definition)
         assert isinstance(refusal, ApprovalRejected)
         assert refusal.approver_id == world.fixture["approval"]["approver_id"]
         assert world.ledger.state(content_hash(grant)) == "refused"
@@ -298,8 +313,8 @@ class TestStateMachine:
     def test_an_effective_grant_can_be_revoked(self, world: _World) -> None:
         definition = world.definition("auto")
         grant = world.grant("metrics_tool", definition)
-        world.ledger.request(grant, definition=definition, actor=world.actor)
-        world.ledger.revoke(content_hash(grant), actor=world.actor)
+        world.ledger.request(world.grant_cap(definition), grant, definition=definition)
+        world.ledger.revoke(world.revoke_cap(content_hash(grant)))
         assert world.ledger.state(content_hash(grant)) == "revoked"
 
     def test_revoking_a_non_effective_grant_raises_the_typed_error(
@@ -307,24 +322,24 @@ class TestStateMachine:
     ) -> None:
         definition = world.definition("auto")
         grant = world.grant("writeback", definition)
-        world.ledger.request(grant, definition=definition, actor=world.actor)
+        world.ledger.request(world.grant_cap(definition), grant, definition=definition)
         with pytest.raises(GrantTransitionError):
-            world.ledger.revoke(content_hash(grant), actor=world.actor)
+            world.ledger.revoke(world.revoke_cap(content_hash(grant)))
 
     def test_revoking_an_unknown_grant_raises_the_typed_error(
         self, world: _World
     ) -> None:
         with pytest.raises(GrantTransitionError):
-            world.ledger.revoke("never-requested", actor=world.actor)
+            world.ledger.revoke(world.revoke_cap("never-requested"))
 
     def test_re_requesting_a_decided_grant_raises_the_typed_error(
         self, world: _World
     ) -> None:
         definition = world.definition("auto")
         grant = world.grant("metrics_tool", definition)
-        world.ledger.request(grant, definition=definition, actor=world.actor)
+        world.ledger.request(world.grant_cap(definition), grant, definition=definition)
         with pytest.raises(GrantTransitionError):
-            world.ledger.request(grant, definition=definition, actor=world.actor)
+            world.ledger.request(world.grant_cap(definition), grant, definition=definition)
 
 
 # --- audit: every transition, injected clock (D-09; T-05-16) -----------------
@@ -336,8 +351,8 @@ class TestAudit:
     ) -> None:
         definition = world.definition("gated")
         grant = world.grant("metrics_tool", definition)
-        world.ledger.request(grant, definition=definition, actor=world.actor)
-        world.ledger.revoke(content_hash(grant), actor=world.actor)
+        world.ledger.request(world.grant_cap(definition), grant, definition=definition)
+        world.ledger.revoke(world.revoke_cap(content_hash(grant)))
         # The log is shared with the registry (WR-07), so grant lifecycle
         # events are filtered out of the single unified sequence here.
         events = [
@@ -365,7 +380,7 @@ class TestAudit:
     def test_a_tier_1_refusal_is_audited_as_unresolved(self, world: _World) -> None:
         definition = world.definition("auto")
         grant = world.grant("writeback", definition)
-        world.ledger.request(grant, definition=definition, actor=world.actor)
+        world.ledger.request(world.grant_cap(definition), grant, definition=definition)
         events = [
             event
             for event in world.audit.events()
@@ -383,7 +398,7 @@ class TestAudit:
         world = rejecting_world
         definition = world.definition("gated")
         grant = world.grant("metrics_tool", definition)
-        world.ledger.request(grant, definition=definition, actor=world.actor)
+        world.ledger.request(world.grant_cap(definition), grant, definition=definition)
         refused = world.audit.events()[-1]
         assert refused.action == "grant_refused"
         assert refused.resolved is False
@@ -399,7 +414,7 @@ class TestAudit:
         definition = world.definition("auto")
         grant = world.grant("metrics_tool", definition)
         outcome = world.ledger.request(
-            grant, definition=definition, actor=world.actor
+            world.grant_cap(definition), grant, definition=definition
         )
         assert isinstance(outcome, str)
         # Literally one log: the registry's view IS the ledger's view.
@@ -452,7 +467,7 @@ class TestGrantSetHash:
                 grant = world.grant(which, definition)
                 assert isinstance(
                     world.ledger.request(
-                        grant, definition=definition, actor=world.actor
+                        world.grant_cap(definition), grant, definition=definition
                     ),
                     str,
                 )
@@ -464,12 +479,12 @@ class TestGrantSetHash:
         definition = world.definition("auto")
         agent_hash = content_hash(definition)
         first = world.grant("metrics_tool", definition)
-        world.ledger.request(first, definition=definition, actor=world.actor)
+        world.ledger.request(world.grant_cap(definition), first, definition=definition)
         before = world.ledger.grant_set_hash(agent_hash)
         second = world.grant("metrics_local", definition)
-        world.ledger.request(second, definition=definition, actor=world.actor)
+        world.ledger.request(world.grant_cap(definition), second, definition=definition)
         assert world.ledger.grant_set_hash(agent_hash) != before
-        world.ledger.revoke(content_hash(second), actor=world.actor)
+        world.ledger.revoke(world.revoke_cap(content_hash(second)))
         assert world.ledger.grant_set_hash(agent_hash) == before
 
     def test_no_grants_in_force_is_the_positive_sentinel(
@@ -494,7 +509,7 @@ class TestGrantSetHash:
 
         grant_b = world.grant("metrics_tool", agent_b)
         outcome = world.ledger.request(
-            grant_b, definition=agent_b, actor=world.actor
+            world.grant_cap(agent_b), grant_b, definition=agent_b
         )
         assert isinstance(outcome, str)
         assert world.ledger.grant_set_hash(hash_a) == NO_GRANTS_SET_HASH
@@ -503,7 +518,7 @@ class TestGrantSetHash:
 
         grant_a = world.grant("metrics_local", agent_a)
         outcome = world.ledger.request(
-            grant_a, definition=agent_a, actor=world.actor
+            world.grant_cap(agent_a), grant_a, definition=agent_a
         )
         assert isinstance(outcome, str)
         assert world.ledger.grant_set_hash(hash_b) == b_after_own_grant
@@ -526,9 +541,9 @@ class TestGrantSetHash:
         before = content_hash(definition)
         for which in ("metrics_tool", "metrics_local"):
             grant = world.grant(which, definition)
-            world.ledger.request(grant, definition=definition, actor=world.actor)
+            world.ledger.request(world.grant_cap(definition), grant, definition=definition)
         world.ledger.revoke(
-            content_hash(world.grant("metrics_local", definition)), actor=world.actor
+            world.revoke_cap(content_hash(world.grant("metrics_local", definition)))
         )
         assert content_hash(definition) == before
 
@@ -546,7 +561,7 @@ class TestGovernanceSeams:
         definition = world.definition("auto")
         grant = world.grant("latecomer", definition)
         with pytest.raises(SkillNotInCatalog):
-            world.ledger.request(grant, definition=definition, actor=world.actor)
+            world.ledger.request(world.grant_cap(definition), grant, definition=definition)
         with pytest.raises(KeyError):
             world.ledger.state(content_hash(grant))
         failed = world.audit.events()[-1]
@@ -558,10 +573,10 @@ class TestGovernanceSeams:
             world.fixture["late_skills"]["latecomer"], SKILL_CATALOG_ENTRY
         )
         assert isinstance(entry, SkillCatalogEntry)
-        registered = world.catalog.register(entry)
+        registered = register_entry(world.registry, entry)
         assert isinstance(registered, str)
         outcome = world.ledger.request(
-            grant, definition=definition, actor=world.actor
+            world.grant_cap(definition), grant, definition=definition
         )
         assert outcome == content_hash(grant)
         assert world.ledger.state(content_hash(grant)) == "effective"
@@ -572,7 +587,7 @@ class TestGovernanceSeams:
         definition = world.definition("auto")
         grant = world.grant("crosstenant", definition)
         refusal = world.ledger.request(
-            grant, definition=definition, actor=world.actor
+            world.grant_cap(definition), grant, definition=definition
         )
         assert isinstance(refusal, TenantMismatch)
         assert refusal.grant_tenant == grant.tenant
@@ -597,7 +612,7 @@ class TestGovernanceSeams:
         assert grant.tenant != definition.tenant
 
         refusal = world.ledger.request(
-            grant, definition=definition, actor=world.actor
+            world.grant_cap(definition), grant, definition=definition
         )
         assert isinstance(refusal, TenantMismatch)
 
@@ -628,7 +643,7 @@ class TestGovernanceSeams:
         second = world.grant("metrics_upgrade", definition)
         for grant in (first, second):
             outcome = world.ledger.request(
-                grant, definition=definition, actor=world.actor
+                world.grant_cap(definition), grant, definition=definition
             )
             assert isinstance(outcome, str)
         view = world.ledger.bound_view(content_hash(definition))
@@ -639,7 +654,7 @@ class TestGovernanceSeams:
             content_hash(first),
             content_hash(second),
         }
-        world.ledger.revoke(content_hash(first), actor=world.actor)
+        world.ledger.revoke(world.revoke_cap(content_hash(first)))
         assert set(view) == {second.skill_name}
 
 
@@ -658,7 +673,7 @@ class TestGovernanceSeams:
         definition = world.definition("gated")
         grant = world.grant("metrics_tool", definition)
         rejected = world.ledger.request(
-            grant, definition=definition, actor=world.actor
+            world.grant_cap(definition), grant, definition=definition
         )
         assert isinstance(rejected, ApprovalRejected)
         assert world.ledger.state(content_hash(grant)) == "refused"
@@ -680,7 +695,7 @@ class TestGovernanceSeams:
             clock=lambda: instant,
         )
         outcome = world.ledger.request(
-            reissued, definition=definition, actor=world.actor
+            world.grant_cap(definition), reissued, definition=definition
         )
         assert outcome == content_hash(reissued)
         assert world.ledger.state(content_hash(reissued)) == "effective"
@@ -700,16 +715,15 @@ class TestGovernanceSeams:
         definition = world.definition("auto")
         grant = world.grant("metrics_tool", definition)
         assert isinstance(
-            world.ledger.request(grant, definition=definition, actor=world.actor),
+            world.ledger.request(world.grant_cap(definition), grant, definition=definition),
             str,
         )
         # Same artifact_version, different content, same key.
         divergent = grant.model_copy(update={"agent_definition_hash": "0" * 64})
         refusal = world.registry.register_versioned(
-            skill_grant_key(divergent),
+            register_capability(skill_grant_key(divergent), Register),
             divergent,
             SKILL_GRANT,
-            actor=world.actor,
             reissuable=True,
         )
         assert isinstance(refusal, RefuseUnbumpedChange)
@@ -738,7 +752,7 @@ class TestGovernanceSeams:
         definition = world.definition("auto")
         grant = world.grant("metrics_tool", definition)
         assert isinstance(
-            world.ledger.request(grant, definition=definition, actor=world.actor),
+            world.ledger.request(world.grant_cap(definition), grant, definition=definition),
             str,
         )
         definition_hash = content_hash(definition)
@@ -787,7 +801,7 @@ class TestGovernanceSeams:
         definition = world.definition("auto")
         grant = world.grant("metrics_tool", definition)
         grant_hash = world.ledger.request(
-            grant, definition=definition, actor=world.actor
+            world.grant_cap(definition), grant, definition=definition
         )
         assert isinstance(grant_hash, str)
         definition_hash = content_hash(definition)
@@ -801,7 +815,7 @@ class TestGovernanceSeams:
         )
         before = reader.grant_set_hash(definition_hash)
 
-        world.ledger.revoke(grant_hash, actor=world.actor)
+        world.ledger.revoke(world.revoke_cap(grant_hash))
 
         assert reader.state(grant_hash) == "revoked"
         assert reader.effective_hashes(definition_hash) == frozenset()
@@ -822,11 +836,13 @@ class TestGovernanceSeams:
         definition = world.definition("auto")
         grant = world.grant("metrics_tool", definition)
         grant_hash = world.ledger.request(
-            grant, definition=definition, actor=world.actor
+            world.grant_cap(definition), grant, definition=definition
         )
         assert isinstance(grant_hash, str)
 
-        record = world.registry.state_store.get(GRANT_STATE, grant_hash)
+        record = world.registry.state_store.get(
+            GRANT_STATE, state_key(tenant=world.tenant, record_id=grant_hash)
+        )
         assert isinstance(record, GrantStateRecord)
         assert record.state == "effective"
         assert record.grant == grant
@@ -872,7 +888,7 @@ class TestNoWedgedStates:
         grant = world.grant("metrics_tool", definition)
 
         with pytest.raises(RuntimeError) as excinfo:
-            world.ledger.request(grant, definition=definition, actor=world.actor)
+            world.ledger.request(world.grant_cap(definition), grant, definition=definition)
         assert excinfo.value is error  # re-raised unchanged, never swallowed
 
         assert world.ledger.state(content_hash(grant)) == "refused"
@@ -908,12 +924,14 @@ class TestNoWedgedStates:
             },
             artifact_class,
         )
-        world.registry.register_typed(regime["key"], rival, artifact_class)
+        world.registry.register_typed(
+            register_capability(regime["key"], Register), rival, artifact_class
+        )
 
         definition = world.definition("auto")
         grant = world.grant("metrics_tool", definition)
         with pytest.raises(AmbiguousPinnedVersionError):
-            world.ledger.request(grant, definition=definition, actor=world.actor)
+            world.ledger.request(world.grant_cap(definition), grant, definition=definition)
 
         assert world.ledger.state(content_hash(grant)) == "refused"
         refused = world.audit.events()[-1]
@@ -938,7 +956,7 @@ class TestSingularAuditPlane:
         grant = world.grant("metrics_tool", definition)
         before = len(world.audit.events())
         result = ledger.request(
-            grant, definition=definition, actor=world.actor
+            world.grant_cap(definition), grant, definition=definition
         )
         assert isinstance(result, str)
         # the transitions landed in the registry's log without being named
