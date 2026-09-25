@@ -34,13 +34,6 @@ import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, NamedTuple
-from http_api.composition_authority import (
-    composition_replay_mint,
-    deployment_store,
-    refusal_recorder,
-    register_at_composition,
-    register_typed_at_composition,
-)
 
 _TESTS_ROOT = Path(__file__).resolve().parents[2]
 _REPO_ROOT = _TESTS_ROOT.parent
@@ -58,6 +51,13 @@ from mcp.server.auth.settings import AuthSettings  # noqa: E402
 from pydantic import AnyHttpUrl  # noqa: E402
 
 from crossproc.servers.wide_authorizer import wide_authorizer  # noqa: E402
+from http_api.composition_authority import (  # noqa: E402
+    composition_replay_mint,
+    deployment_store,
+    refusal_recorder,
+    register_at_composition,
+    register_typed_at_composition,
+)
 
 from ccf.artifacts.file_store import FileArtifactStore  # noqa: E402
 from ccf.controlplane.registry import ControlPlaneRegistry  # noqa: E402
