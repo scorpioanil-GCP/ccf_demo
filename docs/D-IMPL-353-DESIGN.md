@@ -1,224 +1,303 @@
-# D-IMPL-353 — Authorization as an invariant, not a feature
+# D-IMPL-353 — Authorization as a capability: unauthorized work is unrepresentable
 
-**Status:** DESIGN, awaiting Dave's approval. Amends Tier 1 of the 2026-09-23
-security remediation after the close panel (Fable, Codex, Cursor; `D-IMPL-352`)
-**rejected it for amendment**.
+**Status:** DESIGN, awaiting Dave's acceptance of THIS TEXT. **No implementation
+until it is accepted.** Rewritten 2026-09-24 after Dave rejected the first
+draft — a checklist design — with the ruling that a checklist does not ensure
+success.
 
-**Date:** 2026-09-24. **Author:** the model that designed the original, which is
-the point of writing this one down.
+**Supersedes** the first draft of this file. Amends Tier 1 of the 2026-09-23
+security remediation after the close panel (`D-IMPL-352`) rejected it.
 
 ---
 
-## 0. What the panel found, in one sentence each — all verified against the tree
+## 0. The ruling this design answers
 
-| # | Finding | Verified how |
+> *"The checklist design does not ensure success. Same shape as
+> `StateWriteToken`: unauthorized work is unrepresentable, not 'missed a
+> check.'"* — Dave, 2026-09-24
+
+The first draft closed ten panel findings with ten repairs and a lint that
+enumerated doors. Its correctness rested on the enumeration being complete. The
+enumeration has been wrong three times in this remediation. A design whose
+success depends on the author having found every door is not a design that
+ensures anything.
+
+This project already enforces one invariant the right way. Single-writer is not
+a check; it is `StateWriteToken` (`src/ccf/controlplane/state.py::StateWriteToken`):
+
+> *"Not constructible outside this module: the constructor demands the
+> module-private sentinel, and `InMemoryStateStore.put` verifies the mint
+> rather than trusting the type alone... This makes an unaudited write
+> unrepresentable through the public write surface."*
+
+Nobody checks whether a write was audited. An unaudited write cannot be
+expressed. **Authorization gets the identical shape.**
+
+---
+
+## 1. The mechanism — four statements, and nothing else is the mechanism
+
+### 1.1 `Authorized` is not constructible outside the gate module
+
+A new type, `ccf_runtime.authz.capability.Authorized`, mirroring
+`StateWriteToken` line for line:
+
+- `__slots__`; a constructor that demands a **module-private sentinel** and
+  raises otherwise; a `_minted` field set to that sentinel; a module-level
+  `_verify(capability)` that checks the mint **by identity** (`is`), never by
+  type — so a subclass that skips `__init__`, a `Mock`, an `object()`, or a
+  duck-typed impostor is refused at the point of use.
+- Fields, all frozen at mint: `tenant: str` (exactly one — see §1.3),
+  `principal: str` (the verified `client_id`), `action: str` (the door-declared
+  action id the decision was made for), `resource: str`, and `decision_id: str`
+  (the audit event this capability is evidence of).
+- **The only producer is the real token path.** Exactly two mint sites, both in
+  the gate module: the HTTP `AuthorizationGate` after `TenantAuthorizerProtocol`
+  returns *allowed*, and the MCP `TenantGuardedServer` wrapper at the same point.
+  Nothing else in `src/`, `runtime/`, `examples/` or `tools/` may name the
+  sentinel. A lint (§4) refuses a third mint site.
+
+### 1.2 Every mutating handle and every tenant-read handle REQUIRES it
+
+Not "checks it". *Requires it*, as a positional-or-keyword parameter with no
+default, verified by identity on entry — exactly as `InMemoryStateStore.put`
+requires and verifies the `StateWriteToken`.
+
+The handles, with today's signature and the new one:
+
+| handle | today | after |
 |---|---|---|
-| P1 | The HTTP gate reads `grant.tenant`; the shipped `TokenGrant` has `tenants: frozenset` and no `.tenant`. **Every real credential is refused.** The suite is green because a test-only subclass adds the missing field. | reproduced: `tenant_of_grant(TokenGrant(tenants={"acme-bank"}))` raises |
-| P2 | A caller authorized for tenant B invokes tenant A's workflow key; the gate decides on the grant, the engine keys the execution on `workflow.definition.tenant` — **the artifact's self-declared tenant**. Filed under A, HITL event enqueued in A's queue. Same on `/agent/declarations`. | read: `routes/workflow.py:113`, `engine.py:370` |
-| P3 | The store guard for forged replay records defaults to `NOTHING_GOVERNED`; `GovernedWriteHandle` is constructed **nowhere** outside its own docstring; the fabric's own writers never mint. **Inert in every shipped composition.** | grep: 0 constructions in `src/`, `runtime/`, `examples/` |
-| P4 | The MCP HITL door's authorizer is `TenantAuthorizerProtocol \| None = None` with `if authorizer is None: return`. Mandatory on HTTP, optional on MCP, same action. | read: `hitl_server.py:226, 304` |
-| P5 | MCP artifact blob/meta resources are `untenanted()` and call `store.get(content_address=...)` directly. Any verified bearer of any tenant reads any tenant's bytes by hash. HTTP's sibling goes through `govern_dereference`. | read: `artifact_server.py:250, 275, 279` |
-| P6 | `POST /hitl/actions` derives `subject_id` from the grant and copies `assurance_level`, `method`, `identity_provider_ref`, `session_ref`, `action_time` from the **body**. A step-up-MFA claim written by the client. | read: `routes/hitl.py:174-178` |
-| P7 | The `authz_decision` audit event carries action and matched tenant pattern; **not the resource, not the matched resource pattern, not which axis refused**. The gate's own refusal text promises otherwise. | read: `authz/protocol.py` `_audit(...)` |
-| P8 | Eight example servers were edited by this branch (+9 lines each: `tenants=`) and none passes the now-required `authorizer=`, so each raises `TypeError` at build. Their tests skip without the estate, so it reads green. | `git diff --stat`, grep `authorizer=` → 0 |
-| P9 | `TenantGuardedServer` exposes the raw `FastMCP`; `unguarded_surfaces()` is a test sweep, not a construction-time refusal. | read: `mcp/tenancy.py` |
-| P10 | `hitl.queue.read` + `hitl.action.submit` opens every gate in a tenant, through the unstamped fallback leg kept to preserve HTTP tests. `policy_ref` has zero readers. | read: `engine.py::_gate_authority`, grep |
+| `ControlPlaneRegistry.register` / `register_typed` / `register_versioned` | `(key, artifact, ...)` | `(authorized, key, artifact, ...)` |
+| `ControlPlaneStateStore.put` (both implementations) | `(record_class, key, record, token)` | `(authorized, record_class, key, record, token)` |
+| `ArtifactStoreProtocol.put` (both implementations) | `(tenant_id, artifact_class, name, artifact, *, minted)` | `(authorized, artifact_class, name, artifact, *, minted)` — **`tenant_id` is deleted** |
+| `WorkflowEngine.execute` / `resume` | `(workflow, *, execution_id, ...)` | `(authorized, workflow, *, execution_id, ...)` |
+| `HITLTransportProtocol.submit` | `(*, submission)` | `(authorized, *, submission)` |
+| `GrantLedger.request` / `revoke` | `(..., actor)` | `(authorized, ...)` — **`actor` is deleted**; the actor is `authorized.principal` |
+| MCP `TenantGuardedServer` tool/resource bodies | receive raw arguments | receive `authorized` as their first argument, minted by the wrapper |
+| the governed dereference (`govern_dereference`) and every tenant-scoped read | `(grant, ...)` | `(authorized, ...)` |
 
-Corrections to numbers I reported: `app.routes` sees **5** of 30, not 6; the
-"0 `filterwarnings` repo-wide" claim is true only for the population the test
-measures; the branch is 34 commits / 122 files, not 32 / 117.
+A handle that today takes `tenant_id`, `tenant`, or `actor` from its caller
+**loses that parameter**. The value is `authorized.tenant` /
+`authorized.principal`. There is no second source.
 
----
+### 1.3 The tenant on the write IS the capability's tenant
 
-## 1. The structural diagnosis
+This is the sentence that makes Fable's cross-tenant write inexpressible rather
+than refused.
 
-This project enforces five invariants with CI teeth — single-writer,
-composition-preservation, the three validation gates, No-Hardcoding, zero
-harness imports. Each has a lint or structural test that turns a violation into
-a build failure.
+- The engine does not compare `workflow.definition.tenant` with anything. It
+  receives `authorized` for tenant X and files the execution under X. If the
+  workflow artifact declares some other tenant, the *factory* refuses to
+  construct a handle for it under this capability — one refusal, at
+  construction, before any state exists — because `WorkflowFactory.construct`
+  also takes `authorized` and checks the artifact's tenant against
+  `authorized.tenant` once. After that there is no tenant anywhere in the
+  engine except the capability's.
+- The artifact store files under `authorized.tenant`. `ArtifactPutRequest`,
+  `put_artifact`'s `tenant_id` argument, and the store's `tenant_id` parameter
+  are all deleted.
+- The registry's key is checked once, at `register`: its tenant segment must
+  equal `authorized.tenant`. That is the *one* comparison, and it is inside the
+  handle that holds the capability, not in a door that might forget.
 
-**Authorization was never one of them.** It was built as an option a component
-could take — a keyword a router might receive, a check a tool body might
-remember, a handle a writer might hold. That is the design error, and it
-recurred **five times** in this remediation: the gate asking the caller's
-handle (Tier 0), the MCP tenant check opening `if authorizer is None: return`,
-the CLI sending a credential only when configured, the store guard inert by
-default, and now the engine trusting the artifact's tenant over the grant's.
+**Why exactly one tenant per capability.** `TokenGrant.tenants` is a set — an
+operator credential legitimately spans tenants (`SEC-018`, Lane MCP's
+reasoning, kept). But a *decision* is about one tenant. The gate selects it
+from the grant's set — the request names one and it is a member; or the grant
+holds exactly one; otherwise **refuse as ambiguous, the gate does not pick** —
+and mints a capability for that one tenant. Everything downstream sees one
+tenant, and it is the authorized one.
 
-Every one is the same defect: **a guard whose applicability is decided by
-something other than the guard.**
+### 1.4 A handler with no capability does not type-check
 
-The fix is therefore not eleven patches. It is to give authorization the status
-the other five invariants already have — **enforced by construction, with a lint
-that makes the optional arm a build failure** — and then to close the specific
-holes under that discipline.
+A route handler, an MCP body, or an engine driver that wants to register,
+write, execute, submit or read tenant data must pass `authorized` to the handle.
+It can obtain one only from the gate. A handler that skips the gate has nothing
+to pass; the call is a `mypy --strict` error; the build fails.
 
----
-
-## 2. The design — seven parts
-
-### Part A — One tenant, one spelling, one reader  *(closes P1)*
-
-- `TokenGrant.tenants: frozenset[str]` is the **only** representation. The
-  singular `.tenant` is deleted from every reader. `TenantedTokenGrant` is
-  deleted from the test fixture so the fixture cannot pass where a deployment
-  fails.
-- One shared reader, `tenants_of_grant(grant) -> frozenset[str]`, used by the
-  HTTP gate, the MCP wrapper and the engine. Empty set → refuse. Empty *string*
-  → refuse (closes the HTTP/MCP asymmetry Codex found).
-- **The acting tenant for a request is selected, never supplied:**
-  - the request names a tenant (path segment, resource key, artifact) → it must
-    be a **member** of `grant.tenants`, else refuse;
-  - the request names none and the grant has exactly one → that one;
-  - the request names none and the grant has several → **refuse as ambiguous**.
-    The gate will not pick.
-
-### Part B — The tenant a write ACTS ON is bound to the tenant the grant AUTHORIZED  *(closes P2)*
-
-At **two** layers, because P2 was a single-layer check that the second layer
-undid.
-
-- **At the door:** every mutating route compares the tenant its write targets —
-  the artifact's declared tenant, or the key's tenant segment — with the acting
-  tenant from Part A, the way `routes/skill.py` already does. Mismatch is a 403
-  naming both, never a redirect.
-- **At the engine:** `WorkflowEngine.execute` and `resume` take `acting_tenant`
-  as an explicit parameter and refuse a handle whose `definition.tenant`
-  differs. The state key is derived from `acting_tenant`, never from the
-  artifact. This is the same repair Tier 0 made to `resume` — take the
-  predicate from what was authorized, not from what the caller presents —
-  applied to the branch it missed.
-- The Control Plane registry gains no tenancy (that is its own cycle, `B` of the
-  original design). What it gains is that **no door can register or invoke an
-  artifact whose declared tenant is not the caller's.**
-
-### Part C — Governed writes are governed by construction  *(closes P3)*
-
-- `ReplayWriter`, `ReplayRefusalRecorder` and every other component that
-  **knows** it writes a governed class take a `GovernedWriteHandle`, **not** a
-  bare `ArtifactStoreProtocol`. The type system refuses the bare store.
-- `create_app` (and the MCP builders) refuse at boot on the mismatch **in both
-  directions**: a recorder naming a replay class over a store that governs
-  nothing; a store governing a class no writer holds a handle for.
-- `NOTHING_GOVERNED` stays as the Protocol default (test doubles need it), but
-  no shipped composition can reach a served door with it — the boot refusal is
-  the gate, the default is not.
-
-### Part D — MCP parity with HTTP  *(closes P4, P5, P9)*
-
-- The MCP HITL door's authorizer becomes **required**. Same action, same
-  posture as HTTP.
-- The blob/meta artifact resources go through the same `govern_dereference`
-  the HTTP GET uses. There is no untenanted read of artifact bytes.
-- `TenantGuardedServer` runs `unguarded_surfaces()` **at construction** and
-  refuses; the raw `FastMCP` is not exposed for registration. A body registered
-  behind the wrapper is a boot failure, not a test finding.
-
-### Part E — The approval record is server-attested  *(closes P6)*
-
-`POST /hitl/actions` and the MCP submit derive **every** field of the
-`HumanPrincipalBinding` from the verified grant or the server — `subject_id`,
-`identity_provider_ref`, `method`, `assurance_level`, `session_ref` from the
-token's verified claims; `action_time` from the server clock. The body may
-carry `product_content_hash` (what the human saw) and `annotation`. Nothing
-else. A caller-typed assurance level is deleted from the contract, so it is
-unrepresentable, not refused.
-
-*(`action_time` from the server clock is the first, narrowest use of the fabric
-clock `SEC-008/010` will generalize in Tier 2. It is taken here for this one
-field because a caller-typed time on an approval record is an audit defect
-independent of the temporal-integrity work.)*
-
-### Part F — The deny audit says what was denied  *(closes P7)*
-
-`AuthzDecisionAuditEvent` gains `authz_resource`, `authz_matched_resource_pattern`
-and `authz_failing_axis` (`tenant` \| `action` \| `resource`). The gate's refusal
-text already promises this; the event now delivers it.
-
-### Part G — THE LINT: authorization joins the enforced invariants  *(closes the habit)*
-
-A new CI check, `tools/lints/authorization_invariant.py`, alongside the other
-five. It refuses:
-
-1. Any `@router.<verb>` handler in `runtime/` without `@authorizes` — before
-   boot, not at boot.
-2. Any `@server.tool` / `@server.resource` registration in `runtime/` outside
-   `mcp/tenancy.py`'s wrapper.
-3. **Any parameter of an authority type with a default of `None`** in
-   `runtime/` — `TenantAuthorizerProtocol | None = None`,
-   `HttpAuthProtocol | None = None`, `GovernedWriteHandle | None = None`, and
-   their kin. This is the pattern that produced P4 and D-IMPL-73 and it becomes
-   a build failure by name.
-4. Any read of a tenant from a request body, query string or artifact field on
-   a mutating route that is not compared against `tenants_of_grant`.
-
-Rules 1–3 are exact and cheap. Rule 4 is heuristic and will need a reviewed
-allowlist in the `D-08` shape; it exists so the class is *named* in CI even where
-it cannot be *proven* there.
+**`mypy --strict` is therefore the primary lint.** Not a grep I wrote — the type
+checker this project already runs on every commit.
 
 ---
 
-## 3. What this does NOT do — kept out deliberately
+## 2. What becomes inexpressible
 
-- **SEC-006 approver eligibility** (four-eyes, `policy_ref` enforcement). Tier 2.
-  Named in the panel as a bank blocker; it is, and it is a different mechanism.
-- **SEC-005 signing the verdict.** Tier 2, with the verdict→target binding
-  (`D-IMPL-350`).
-- **Registry tenancy.** Its own cycle. Part B makes it unnecessary for
-  correctness at the doors; a bank will still ask.
-- **The unstamped HITL leg (P10).** Closing it means giving the door a *resolve*
-  route, which changes `D-IMPL-62`'s ruled contract. **Ruling required** — the
-  design recommends closing it and folding it into Tier 2's HITL work.
-- **The eight edited example servers (P8).** They are frozen specimens
-  (`D-IMPL-261`) and the edit was a violation. **Recommendation: revert the eight
-  edits** and file a gap-ledger entry that they do not build under Tier 1 —
-  which is honest evidence that a real deployment needs a scope mapping the
-  examples never declared. Unfreezing them to complete the migration is Dave's
-  call, not the remediation's.
+Stated as consequences of §1, so a reader can check each against the mechanism
+rather than trusting the list.
+
+| panel finding | why it cannot be expressed under §1 |
+|---|---|
+| **P2** cross-tenant workflow invocation / agent declaration | the engine and registry have no tenant but `authorized.tenant`; the artifact's declared tenant is checked once at factory construction against the capability and never consulted again |
+| **P1** the HTTP door refusing every real credential | there is one reader, `tenants_of_grant`, over the one field, `tenants`; `.tenant` and the test-only `TenantedTokenGrant` are deleted, so the fixture cannot pass a shape production never mints |
+| **P3** the governed-class store guard inert by default | a client cannot reach `ArtifactStoreProtocol.put` without a capability; a capability's `action` is checked against the class's declared write action at the store — a `decision-replay-record` write needs `replay.mint`, which no door declares, so no served surface can mint one. `GovernedWriteHandle` is retired: the capability's action IS the mint |
+| **P4** MCP HITL authorizer optional | the MCP body receives `authorized` from the wrapper or receives nothing; there is no `authorizer=None` arm because there is no `authorizer` parameter on the body |
+| **P5** untenanted MCP artifact read by hash | `govern_dereference` requires `authorized`; the blob/meta resources go through it because there is no other way to call the store's read |
+| **P6** caller-typed assurance on the approval record | `HumanPrincipalBinding` is minted by the door from `authorized` + the verified token's claims + the server clock; the body carries `product_content_hash` and `annotation` and nothing else — the assurance field is deleted from the request contract |
+| **P9** raw registration behind the MCP wrapper | a raw-registered body has no `authorized` to pass to any handle; it cannot do anything, and §4's lint refuses the registration anyway |
+
+Rule of reading: if a finding's closure is described here as a *check*, this
+document has failed its own ruling and must be corrected.
 
 ---
 
-## 4. Effort and lanes
+## 3. Consequences kept from the first draft — as consequences, not mechanism
 
-| lane | parts | h | owns |
+Each of these falls out of §1 or is required to make §1 hold. None is a
+separate safety mechanism.
+
+- **Server-attested approval fields** (§2, P6): a consequence of the door
+  minting the binding from the capability.
+- **Deny audit contents**: `AuthzDecisionAuditEvent` carries `resource`,
+  `matched_resource_pattern` and the failing axis, and the capability carries
+  the `decision_id` of the *allow* — so every action is traceable to the
+  decision that authorized it, and every refusal says what it refused.
+- **MCP HITL authorizer required**: a consequence of the body having no
+  authorizer parameter at all.
+- **Artifact GET via governed dereference**: a consequence of there being no
+  other read path.
+- **`create_app` refuses mismatched wiring**: a recorder naming a replay class
+  over a store with no declared write action for it, or a store declaring an
+  action no door can mint — refused at boot in both directions.
+- **Delete `.tenant` and `TenantedTokenGrant`**: a consequence of §1.3's single
+  reader. The fixture mints real `TokenGrant`s through the real
+  `FileTokenSource` or `StaticTokenSource`.
+- **Acting tenant from the grant set only**: §1.3 verbatim.
+- **`--local` stays suspended**: a local deployment that cannot mint a
+  capability has nothing to hand its handles.
+
+---
+
+## 4. Still required beside `mypy` — the `None`-default lint
+
+Types do not catch `authorized: Authorized | None = None`, nor
+`authorized: object`, nor a call site passing `None  # type: ignore`. That
+pattern **is** `D-IMPL-73`, and it is the pattern behind P4 and behind the
+original finding. So one lint stays, narrowed to what the type checker cannot
+see:
+
+`tools/lints/authorization_invariant.py` refuses, in `runtime/` and `src/`:
+
+1. any parameter annotated with an authority type — `Authorized`,
+   `TenantAuthorizerProtocol`, `HttpAuthProtocol`, `TokenVerifier`,
+   `TokenSourceProtocol` — that carries a default, `None` or otherwise;
+2. any such parameter annotated `object`, `Any`, or a union with `None`;
+3. any construction of `Authorized` outside `ccf_runtime.authz.capability`,
+   and any reference to its sentinel outside that module;
+4. any `@server.tool` / `@server.resource` registration outside the
+   `TenantGuardedServer` wrapper.
+
+**Fork-point red is the acceptance test.** Run this lint against `d895d889`. It
+must report `create_app(deps, auth=None, authorizer=None, ...)` — `D-IMPL-73`'s
+own signature. A lint that would not have caught the original defect is not the
+lint, and the lint's own test asserts this by checking out the fork point.
+
+---
+
+## 5. The limit, named
+
+**In-process code that already holds the registry, the state store, or the
+artifact store can still write.** A caller with `ControlPlaneRegistry` in hand
+can call `register(...)` — it needs an `Authorized`, and `_verify` refuses an
+impostor, but it can also reach the underlying dict. That is the same limit
+single-writer has, and `StateWriteToken`'s docstring states it:
+
+> *"reflection and private-construction bypasses are lint- and CI-covered,
+> never claimed impossible."*
+
+**The claim this design makes is: no served surface can perform an unauthorized
+operation.** HTTP, MCP (HTTP and stdio), the CLI's remote leg, and every
+orchestration driver reach the fabric only through handles that require a
+capability only the gate mints. In-process trust — code the deployment linked
+into its own process — is the deployment's, as it is for single-writer.
+
+A bank's reviewer should hear that sentence exactly as written, and the
+`SECURITY.md` this remediation owes them says it.
+
+---
+
+## 6. The MCP round-trip — in this design, not set aside again
+
+The first design workflow set the capability model aside because "the tenant
+field cannot survive the round-trip through the MCP library's own token
+object." That was wrong, and it cost an iteration. The round-trip is **four
+lines and it is already landed on this branch**:
+
+- `TokenGrant.tenants` → `tenant_claims(grant)` → `AccessToken.claims`
+  (the library's own field; `mcp==1.28.1` `AccessToken` carries `claims`,
+  `subject`, `resource` — measured);
+- `get_access_token()` → `granted_tenants(token)` → `TokenGrant(...,
+  tenants=...)` at the four reconstruction sites (`hitl_server.py` ×2,
+  `product_door.py`, `product_entitlement.py::verified_grant`), all migrated.
+
+The MCP wrapper mints `Authorized` from exactly that reconstructed grant. Nothing
+about the library stands in the way, and the design does not discuss it further.
+
+---
+
+## 7. Unchanged rulings
+
+- **`SEC-005` / `SEC-006` stay out** (verdict signing; approver eligibility and
+  four-eyes). Tier 2, different mechanisms. The capability makes four-eyes
+  *representable* — a second `Authorized` for `hitl.approve` from a different
+  principal — which is the precondition Tier 2 needs.
+- **The eight edited example servers are reverted** (`cp-16/17/18/19/21/23/24`
+  and `hw1`'s tenancy edit stays, since hw1 is not a frozen `cp-*` specimen and
+  the edit is what `D-IMPL-261`'s exception clause permits). A gap-ledger entry
+  records that the seven do not build under Tier 1 — evidence that a real
+  deployment needs a scope mapping the examples never declared.
+- **`D-IMPL-348` (the v1.0.0 release) is untouched.** No re-tag, no rewrite of
+  the release record; the remediation lands on `security-tier-0` and merges to
+  `main` under its own gate.
+- **The panel runs after the capability ships, not after a green board.** A
+  green suite was the state in which the HTTP door was unopenable. The panel is
+  briefed on the capability as the mechanism and asked, specifically, to find a
+  served surface that reaches a handle without it.
+
+---
+
+## 8. Effort and lanes
+
+The blast radius is every mutating handle signature — the same radius
+`StateWriteToken` had. Nothing has shipped; nothing external breaks.
+
+| lane | scope | h | owns |
 |---|---|---|---|
-| **HTTP+engine** | A, B, F | 9 | `authz/`, `http_api/`, `workflow/engine.py`, `tests/http_api`, `tests/authz` |
-| **store** | C | 4 | `src/ccf/artifacts/`, `src/ccf/replay/serve.py`, the two recorder call sites |
-| **MCP** | D | 4 | `mcp/`, `tests/mcp` |
-| **HITL door** | E | 3 | `routes/hitl.py`, `mcp/hitl_server.py`, `identity_binding.py`, `src/ccf/hitl/principal.py` |
-| **lint** | G | 5 | `tools/lints/`, `Makefile`, `tools/lints/tests` — **fully independent** |
-| **examples** | P8 revert + ledger | 1 | 8 example files, `docs/` |
-| **join** | regenerate once, sabotage on the merged tree, **panel** | 6 | — |
+| **capability + gate** | §1.1, the HTTP gate mint, `tenants_of_grant`, delete `.tenant`/subclass | 8 | `authz/`, `http_api/gate.py`, `tests/http_api/gate_fixtures.py` |
+| **handles** | §1.2 signatures on registry, state store, artifact store, grant ledger; delete `tenant_id`/`actor` | 10 | `src/ccf/controlplane/`, `src/ccf/artifacts/`, `src/ccf/skills/grants.py` |
+| **engine + factory** | §1.3 for `execute`/`resume`/`construct` | 5 | `workflow/`, `src/ccf/workflow/factory.py` |
+| **MCP** | the wrapper mint, bodies take `authorized`, governed dereference on blob/meta | 6 | `mcp/` |
+| **HITL door** | §2 P6 — binding minted from capability + claims + clock | 4 | `routes/hitl.py`, `mcp/hitl_server.py`, `identity_binding.py`, `src/ccf/hitl/principal.py` |
+| **lint** | §4, with the fork-point acceptance test | 5 | `tools/lints/` — **depends on nothing; starts first** |
+| **examples + ledger** | §7 revert + gap entry | 1 | seven `serve.py`, `docs/` |
+| **join** | regenerate once, sabotage the merged tree, **panel** | 8 | — |
 
-**~32h; ~14h wall-clock across six lanes.** The lint lane is the one that
-prevents the next instance and it depends on nothing.
-
-**Disjoint ownership as before.** `tests/http_api/gate_fixtures.py` is owned by
-the HTTP lane and is the one file two lanes will want; the MCP and store lanes
-build their own fixtures.
+**~47h; ~16h wall-clock across seven lanes.** Lane ownership is disjoint; the
+one contested file (`gate_fixtures.py`) belongs to the capability lane.
 
 ---
 
-## 5. What "done" means this time
+## 9. What "accepted" means for this text, and "done" for the work
 
-Not a green suite. The Tier 1 suite was green while the door was unopenable.
+**Accepted** means Dave agrees §1 is the mechanism and §2 follows from it. Any
+finding whose closure in §2 reads as a *check* is a defect in this document.
 
-1. **A production credential opens the HTTP door.** A test that mints a
-   `TokenGrant` through `FileTokenSource` — the real source, no subclass — and
-   is served.
-2. **Fable's two reproductions are executable tests and they refuse.** The
-   cross-tenant workflow invocation and the cross-tenant agent declaration, as
-   written in its review, asserting 403 and *nothing filed under the other
-   tenant*.
-3. **The lint is red on the fork point.** Run `authorization_invariant.py`
-   against `d895d889` and it must find D-IMPL-73's optional `auth=` — a lint that
-   would not have caught the original defect is not the lint.
-4. **Sabotage on the merged tree**, each guard severed alone, each reddening a
-   named test — and this time including *"replace `TokenGrant` with the test
-   subclass"* as a severing, so the fixture can never again pass where
-   production fails.
-5. **The panel accepts**, or names what it rejects, and its findings are
-   verified against the tree before they are recorded.
+**Done** means:
+
+1. A `TokenGrant` minted through the **real** `FileTokenSource` opens the HTTP
+   door and the MCP door. No subclass exists to fake it.
+2. Fable's two reproductions exist as tests. They do not assert a 403; they
+   assert that **the call cannot be constructed** — the factory refuses the
+   handle, and no state exists under the other tenant.
+3. `mypy --strict` fails on a handler that reaches any handle in §1.2 without
+   `authorized`. Demonstrated by a committed negative control that is
+   `# type: ignore`-free and red.
+4. The lint is **red at `d895d889`** and green at the tip.
+5. Sabotage on the merged tree, each guard severed alone — and the severings
+   include: *mint `Authorized` from a stub sentinel*, *pass a `Mock` as
+   `authorized`*, *restore `tenant_id` on `put`*, *restore `.tenant` on the
+   grant*, *reinstate `TenantedTokenGrant`*. Each must redden a named test.
+6. The panel accepts, or names what it rejects, and every finding is verified
+   against the tree before it is recorded.
 
 ---
 
