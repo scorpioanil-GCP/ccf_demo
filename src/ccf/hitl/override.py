@@ -365,7 +365,10 @@ class OverrideBoundary(Generic[ProductT]):
                 " the claim; this one lost)"
             )
         try:
-            self._transport.submit(authorized, submission=submission)
+            # The transport returns the RECORDED copy — stamped with the
+            # authorizing decision id (D-IMPL-353 §9) — and that copy, not
+            # this primitive's input, is what the replay block carries.
+            recorded = self._transport.submit(authorized, submission=submission)
         except BaseException:
             # A refused authority submission never consumes the pending
             # event: the claim is given back (re-enqueued at the tail).
@@ -382,7 +385,7 @@ class OverrideBoundary(Generic[ProductT]):
         )
         record: OverrideActionRecord[ProductT] = OverrideActionRecord(
             event=event,
-            submission=submission,
+            submission=recorded,
             original=original,
             final=final,
             overridden=overridden,

@@ -382,7 +382,10 @@ class ApprovalGate:
                 " the claim; this one lost)"
             )
         try:
-            self._transport.submit(authorized, submission=submission)
+            # The transport returns the RECORDED copy — stamped with the
+            # authorizing decision id (D-IMPL-353 §9) — and that copy, not
+            # this primitive's input, is what the replay block carries.
+            recorded = self._transport.submit(authorized, submission=submission)
         except BaseException:
             # The claim precedes the submit so a failed submit must give
             # the event back — a refused authority submission never
@@ -398,7 +401,7 @@ class ApprovalGate:
             actor=principal.approver.subject_id,
         )
         record = HitlActionRecord(
-            event=event, submission=submission, approved=approved
+            event=event, submission=recorded, approved=approved
         )
         return GateResolution(
             record=record,

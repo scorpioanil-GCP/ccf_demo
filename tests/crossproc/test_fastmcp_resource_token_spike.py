@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -45,6 +46,7 @@ from ccf.hitl.transport import PendingHitlEvent
 from ccf.mcp.client import run_with_session
 from ccf_runtime.mcp.auth import FileTokenSource, SourceBackedTokenVerifier
 from ccf_runtime.mcp.hitl_server import build_hitl_server, hitl_queue_uri
+from crossproc.servers.wide_authorizer import wide_authorizer
 
 #: Test deployment vocabulary. The SDK ships none of these values.
 SPIKE_TOKEN = "ccf-spike-token"
@@ -77,10 +79,10 @@ def _build_spiked_server(tmp_path: Path) -> FastMCP:
         encoding="utf-8",
     )
 
-    def queue_view(*, tenant: str) -> tuple[PendingHitlEvent, ...]:
+    def queue_view(authorized: Any) -> tuple[PendingHitlEvent, ...]:
         return ()
 
-    def action_route(*, submission: Any) -> str:  # pragma: no cover
+    def action_route(authorized: Any, *, submission: Any) -> str:  # pragma: no cover
         raise AssertionError("the spike never submits an action")
 
     server = build_hitl_server(
@@ -95,6 +97,8 @@ def _build_spiked_server(tmp_path: Path) -> FastMCP:
             resource_server_url=AnyHttpUrl(f"{BASE_URL}/mcp"),
             required_scopes=[SCOPE],
         ),
+        authorizer=wide_authorizer(scopes=[SCOPE]),
+        clock=lambda: datetime(2026, 7, 30, 12, tzinfo=UTC),
     )
 
     @server.resource(SPIKE_RESOURCE_URI, mime_type="application/json")

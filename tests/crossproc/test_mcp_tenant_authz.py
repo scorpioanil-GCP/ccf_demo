@@ -69,6 +69,7 @@ from ccf_runtime.mcp.auth import (
     SourceBackedTokenVerifier,
     TokenGrant,
 )
+from ccf_runtime.mcp.tenancy import ActionUnauthorizedRefused
 from ccf_runtime.mcp.hitl_server import (
     HITL_QUEUE_URI_TEMPLATE,
     SUBMIT_HITL_ACTION_TOOL,
@@ -95,6 +96,14 @@ EVENT_KEY = "authz-event-1"
 TOKEN = "authz-mcp-token"
 INSTANT = datetime(2026, 8, 1, 9, 0, tzinfo=UTC)
 _VALID_HASH = "e" * 64
+#: What the verifier attests about the module's one credential (D-IMPL-353
+#: §2 P6): the doors mint the approver binding from these, never the wire.
+_CLAIMS = {
+    "method": "bearer-token",
+    "assurance_level": "dev",
+    "identity_provider_ref": "idp://acme-bank/dev-token-file",
+    "session_ref": "authz-session-1",
+}
 _AWARE_TIME = datetime(2026, 7, 31, 15, 0, tzinfo=UTC)
 #: FastMCP DNS-rebinding defaults allow ``127.0.0.1:<port>`` (A1 spike).
 BASE_URL = "http://127.0.0.1:8124"
@@ -186,17 +195,18 @@ class Harness:
                         "client_id": CLIENT_ID,
                         "scopes": [SCOPE_EXACT, SCOPE_PREFIX],
                         "tenants": sorted(EXERCISED_TENANTS),
+                        "authentication": _CLAIMS,
                     }
                 }
             ),
             encoding="utf-8",
         )
 
-        def queue_view(*, tenant: str) -> tuple[PendingHitlEvent, ...]:
+        def queue_view(authorized: Any) -> tuple[PendingHitlEvent, ...]:
             return ()
 
-        def action_route(*, submission: HitlActionSubmission) -> str:
-            self.transport.submit(submission=submission)
+        def action_route(authorized: Any, *, submission: HitlActionSubmission) -> str:
+            self.transport.submit(authorized, submission=submission)
             return "{}"
 
         self.server = build_hitl_server(
@@ -212,6 +222,7 @@ class Harness:
                 required_scopes=[SCOPE_EXACT],
             ),
             authorizer=self.authorizer,
+            clock=_clock,
         )
 
     def resource_fn(self) -> Any:
@@ -258,21 +269,20 @@ def verified_token(monkeypatch: pytest.MonkeyPatch) -> None:
     import ccf_runtime.mcp.hitl_server as hitl_server
     import ccf_runtime.mcp.tenancy as tenancy
 
-    from ccf_runtime.mcp.auth import TokenGrant, tenant_claims
+    from ccf.hitl.principal import AuthenticationClaims
+    from ccf_runtime.mcp.auth import TokenGrant, authentication_claims, tenant_claims
 
+    grant = TokenGrant(
+        client_id=CLIENT_ID,
+        scopes=(SCOPE_EXACT, SCOPE_PREFIX),
+        tenants=EXERCISED_TENANTS,
+        authentication=AuthenticationClaims(**_CLAIMS),
+    )
     token = AccessToken(
         token=TOKEN,
         client_id=CLIENT_ID,
         scopes=[SCOPE_EXACT, SCOPE_PREFIX],
-        claims=dict(
-            tenant_claims(
-                TokenGrant(
-                    client_id=CLIENT_ID,
-                    scopes=(SCOPE_EXACT, SCOPE_PREFIX),
-                    tenants=EXERCISED_TENANTS,
-                )
-            )
-        ),
+        claims={**tenant_claims(grant), **authentication_claims(grant)},
     )
     monkeypatch.setattr(hitl_server, "get_access_token", lambda: token)
     monkeypatch.setattr(tenancy, "get_access_token", lambda: token)
@@ -288,12 +298,6 @@ def _tool_arguments(tenant: str) -> dict[str, Any]:
         "tenant": tenant,
         "event_key": EVENT_KEY,
         "action": "approve",
-        "subject_id": CLIENT_ID,
-        "identity_provider_ref": "idp://acme-bank/dev-token-file",
-        "method": "bearer-token",
-        "assurance_level": "dev",
-        "session_ref": "authz-session-1",
-        "action_time": _AWARE_TIME.isoformat(),
         "product_content_hash": _VALID_HASH,
     }
 
@@ -315,7 +319,7 @@ def test_the_queue_resource_serves_an_authorized_tenant(
 def test_the_queue_resource_denies_with_the_shared_code(
     harness: Harness, verified_token: None
 ) -> None:
-    with pytest.raises(ValueError) as denied:
+    with pytest.raises(ActionUnauthorizedRefused) as denied:
         harness.resource_fn()(tenant="tenant-z")
     payload = json.loads(str(denied.value))
     assert payload["error_code"] == ERROR_TENANT_UNAUTHORIZED
@@ -344,7 +348,7 @@ def test_the_action_tool_denies_and_never_touches_the_route(
 ) -> None:
     # tenant-b-7 matches only the read-scoped prefix entry: the submit
     # action is denied by default (T-10-01).
-    with pytest.raises(ValueError) as denied:
+    with pytest.raises(ActionUnauthorizedRefused) as denied:
         harness.tool_fn()(**_tool_arguments("tenant-b-7"))
     payload = json.loads(str(denied.value))
     assert payload["error_code"] == ERROR_TENANT_UNAUTHORIZED
@@ -529,6 +533,7 @@ def _http_outcome(
         hitl_transport=harness.transport,
         skill_catalog=cast(Any, None),
         grant_ledger=cast(Any, None),
+        clock=_clock,
     )
     app = create_app(deps, **seams)
     headers = {"Authorization": f"Bearer {TOKEN}"}
@@ -551,30 +556,14 @@ def _http_outcome(
 
 
 def _http_submission(tenant: str) -> dict[str, Any]:
-    from ccf.hitl.principal import (
-        ApproverIdentity,
-        AuthenticationContext,
-        HumanPrincipalBinding,
-    )
-
-    principal = HumanPrincipalBinding(
-        approver=ApproverIdentity(
-            subject_id=CLIENT_ID,
-            identity_provider_ref="idp://acme-bank/dev-token-file",
-        ),
-        authentication=AuthenticationContext(
-            method="bearer-token",
-            assurance_level="dev",
-            session_ref="authz-session-1",
-        ),
-        action_time=_AWARE_TIME,
-        product_content_hash=_VALID_HASH,
-    )
+    # D-IMPL-353 §2 P6: the body names no tenant and no principal — both are
+    # the door's (the capability's tenant; a binding minted from the verified
+    # claims and the injected clock). The tenant under test is the grant's.
+    del tenant
     return {
         "event_key": EVENT_KEY,
-        "tenant": tenant,
         "action": "approve",
-        "principal": principal.model_dump(mode="json"),
+        "product_content_hash": _VALID_HASH,
         "annotation": None,
         "signed_binding": None,
     }
@@ -589,7 +578,7 @@ def _mcp_outcome(
             harness.resource_fn()(tenant=tenant)
         else:
             harness.tool_fn()(**_tool_arguments(tenant))
-    except ValueError as error:
+    except ActionUnauthorizedRefused as error:
         payload = json.loads(str(error))
         assert payload["error_code"] == ERROR_TENANT_UNAUTHORIZED
         return False

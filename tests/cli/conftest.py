@@ -87,6 +87,9 @@ def deps(fabric: Fabric) -> Any:
         hitl_transport=fabric.hitl,
         skill_catalog=fabric.catalog,
         grant_ledger=fabric.ledger,
+        # The hitl noun's action route stamps action_time from this clock,
+        # never from the document (D-IMPL-353 §2 P6).
+        clock=lambda: CLI_DETERMINED_AT,
     )
 
 

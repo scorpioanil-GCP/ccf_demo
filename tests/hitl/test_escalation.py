@@ -617,3 +617,31 @@ def test_a_capability_for_another_event_dies_at_the_primitive() -> None:
     assert transport.pending(tenant=document["tenant"]) == pending_before
     assert transport.submissions(tenant=document["tenant"]) == ()
     assert audit.events() == audit_before
+
+
+def test_the_record_carries_the_authorizing_decision_id() -> None:
+    """The recorded submission is the transport's stamped copy: the replay
+    block names the authorization that produced the action (D-IMPL-353 §9),
+    never the primitive's pre-stamp input."""
+    fixture = _hitl()
+    escalation, transport, _ = _escalation()
+    trigger = ExplicitEscalation(
+        reason=fixture["escalation"]["explicit_reason"]
+    )
+    _hand_off(escalation, fixture, trigger)
+    document = _event_document(fixture)
+    authorized = _authorized(document["tenant"], document["event_key"])
+    resolution = escalation.resolve(
+        authorized,
+        event_key=document["event_key"],
+        action="approve",
+        principal=_principal(
+            fixture, product_content_hash=content_hash(document)
+        ),
+    )
+    assert isinstance(resolution, EscalationResolution)
+    assert (
+        resolution.record.submission.authorizing_decision_id
+        == authorized.decision_id
+    )
+    assert authorized.decision_id in resolution.hitl_actions_block

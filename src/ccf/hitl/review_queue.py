@@ -432,7 +432,10 @@ class ReviewQueue:
                 " the claim; this one lost)"
             )
         try:
-            self._transport.submit(authorized, submission=submission)
+            # The transport returns the RECORDED copy — stamped with the
+            # authorizing decision id (D-IMPL-353 §9) — and that copy, not
+            # this primitive's input, is what the replay block carries.
+            recorded = self._transport.submit(authorized, submission=submission)
         except BaseException:
             # A refused authority submission never consumes the pending
             # event: the claim is given back (re-enqueued at the tail).
@@ -447,7 +450,7 @@ class ReviewQueue:
             actor=principal.approver.subject_id,
         )
         record = ReviewActionRecord(
-            event=event, item=item, submission=submission, released=released
+            event=event, item=item, submission=recorded, released=released
         )
         return ReviewResolution(
             record=record,

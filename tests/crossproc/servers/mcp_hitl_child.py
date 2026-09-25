@@ -85,6 +85,9 @@ from ccf_runtime.mcp.auth import (  # noqa: E402
 )
 from ccf_runtime.mcp.hitl_server import build_hitl_server  # noqa: E402
 
+from ccf.authz.capability import Authorized, HitlQueueRead, HitlSubmit  # noqa: E402
+from crossproc.servers.wide_authorizer import wide_authorizer  # noqa: E402
+
 if TYPE_CHECKING:
     from mcp.server.fastmcp import FastMCP
 
@@ -134,12 +137,34 @@ def write_token_file(*, workspace: Path, tenants: frozenset[str]) -> Path:
                     "client_id": CLIENT_ID,
                     "scopes": [SCOPE],
                     "tenants": sorted(tenants),
+                    # What the verifier attests about this credential: the
+                    # door mints the approver binding from these claims and
+                    # the parent recomputes the replay block from the same
+                    # fixture (D-IMPL-353 §2 P6).
+                    "authentication": authentication_claims_of_fixture(),
                 }
             }
         ),
         encoding="utf-8",
     )
     return token_file
+
+
+def authentication_claims_of_fixture() -> dict[str, str]:
+    """The fixture credit officer's authentication, as the token's claims."""
+    binding = principal_binding(product_content_hash="0" * 64)
+    return {
+        "method": binding.authentication.method,
+        "assurance_level": binding.authentication.assurance_level,
+        "session_ref": binding.authentication.session_ref,
+        "identity_provider_ref": binding.approver.identity_provider_ref,
+    }
+
+
+def door_clock() -> datetime:
+    """The instant the door stamps on every action: the fixture approver's
+    ``action_time``, so a door-minted binding equals the fixture binding."""
+    return principal_binding(product_content_hash="0" * 64).action_time
 
 
 def _hitl_fixture() -> dict[str, Any]:
@@ -238,11 +263,11 @@ def build_server(*, workspace: Path) -> FastMCP:
         artifact_class=REPLAY_ARTIFACT_CLASS,
     )
 
-    def queue_view(*, tenant: str) -> tuple[PendingHitlEvent, ...]:
-        """The tenant's pending events, straight off the typed transport."""
-        return transport.pending(tenant=tenant)
+    def queue_view(authorized: Authorized[HitlQueueRead]) -> tuple[PendingHitlEvent, ...]:
+        """The capability's tenant's pending events, off the typed transport."""
+        return transport.pending(tenant=authorized.tenant)
 
-    def route_action(*, submission: HitlActionSubmission) -> str:
+    def route_action(authorized: Authorized[HitlSubmit], *, submission: HitlActionSubmission) -> str:
         """Resolve through the real gate; land the action on replay dim 2.
 
         The recording obligation belongs to the primitive-consuming
@@ -252,7 +277,7 @@ def build_server(*, workspace: Path) -> FastMCP:
         append.
         """
         resolution = gate.resolve(
-            tenant=submission.tenant,
+            authorized,
             event_key=submission.event_key,
             action=submission.action,
             principal=submission.principal,
@@ -313,6 +338,8 @@ def build_server(*, workspace: Path) -> FastMCP:
             resource_server_url=AnyHttpUrl(RESOURCE_SERVER_URL),
             required_scopes=[SCOPE],
         ),
+        authorizer=wide_authorizer(scopes=[SCOPE]),
+        clock=door_clock,
     )
 
 

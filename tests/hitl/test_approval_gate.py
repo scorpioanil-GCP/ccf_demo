@@ -499,3 +499,28 @@ def test_a_capability_for_another_event_dies_at_the_primitive() -> None:
     assert transport.pending(tenant=event.tenant) == pending_before
     assert transport.submissions(tenant=event.tenant) == ()
     assert audit.events() == audit_before
+
+
+def test_the_record_carries_the_authorizing_decision_id() -> None:
+    """The recorded submission is the transport's stamped copy: the replay
+    block names the authorization that produced the action (D-IMPL-353 §9),
+    never the primitive's pre-stamp input."""
+    fixture = _hitl()
+    gate, transport, _ = _gate()
+    event = _event(fixture)
+    transport.enqueue(event=event)
+    authorized = _authorized(event.tenant, event.event_key)
+    resolution = gate.resolve(
+        authorized,
+        event_key=event.event_key,
+        action="approve",
+        principal=_principal(
+            fixture, product_content_hash=event.product_content_hash
+        ),
+    )
+    assert isinstance(resolution, GateResolution)
+    assert (
+        resolution.record.submission.authorizing_decision_id
+        == authorized.decision_id
+    )
+    assert authorized.decision_id in resolution.hitl_actions_block

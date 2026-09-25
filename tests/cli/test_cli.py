@@ -426,28 +426,13 @@ def test_hitl_submit_submits_the_typed_action(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    # The five-field body of D-IMPL-353 §2 P6: subject, assurance and time
+    # are the door's to state (capability, verified claims, injected clock),
+    # so the document carries none of them.
     submission = {
         "event_key": "acme-bank/cli-covenant-1/gate",
-        "tenant": "acme-bank",
         "action": "approve",
-        "principal": {
-            "approver": {
-                # The verified caller, because the door derives the audited
-                # subject from the grant and refuses a submission that claims
-                # a different one (`SEC-002`; the 403 itself is measured in
-                # `http_api/test_hitl_door_identity.py`). A document naming
-                # someone else would be testing that refusal, not this path.
-                "subject_id": CLI_PRINCIPAL,
-                "identity_provider_ref": "idp:acme-sso",
-            },
-            "authentication": {
-                "method": "sso",
-                "assurance_level": "aal2",
-                "session_ref": "session-1",
-            },
-            "action_time": "2026-07-30T12:00:00+00:00",
-            "product_content_hash": "0" * 64,
-        },
+        "product_content_hash": "0" * 64,
         "annotation": None,
     }
     action_file = tmp_path / "action.yaml"
@@ -470,28 +455,13 @@ def test_hitl_submit_output_states_submitted_with_disposition(
 ) -> None:
     """D-IMPL-62 hardening: the CLI output states ``submitted`` — never
     implies resolution — and carries the honest disposition state."""
+    # The five-field body of D-IMPL-353 §2 P6: subject, assurance and time
+    # are the door's to state (capability, verified claims, injected clock),
+    # so the document carries none of them.
     submission = {
         "event_key": "acme-bank/cli-receipt-1/gate",
-        "tenant": "acme-bank",
         "action": "approve",
-        "principal": {
-            "approver": {
-                # The verified caller, because the door derives the audited
-                # subject from the grant and refuses a submission that claims
-                # a different one (`SEC-002`; the 403 itself is measured in
-                # `http_api/test_hitl_door_identity.py`). A document naming
-                # someone else would be testing that refusal, not this path.
-                "subject_id": CLI_PRINCIPAL,
-                "identity_provider_ref": "idp:acme-sso",
-            },
-            "authentication": {
-                "method": "sso",
-                "assurance_level": "aal2",
-                "session_ref": "session-1",
-            },
-            "action_time": "2026-07-30T12:00:00+00:00",
-            "product_content_hash": "0" * 64,
-        },
+        "product_content_hash": "0" * 64,
         "annotation": None,
     }
     action_file = tmp_path / "receipt-action.yaml"
