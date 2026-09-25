@@ -23,6 +23,7 @@ from datetime import datetime, timezone
 
 import pytest
 
+from ccf.authz.capability import Authorized, Execute
 from ccf.controlplane.audit import AuditEvent, AuditLog
 from ccf.controlplane.state import (
     AuditedStateWriter,
@@ -30,10 +31,32 @@ from ccf.controlplane.state import (
     InMemoryStateStore,
     StateWriteBypassError,
     StateWriteToken,
+    state_key,
 )
+from tests.controlplane.capabilities import capability
 
 CLASS_A = "test.seam-closure"
 WHEN = datetime(2026, 7, 30, tzinfo=timezone.utc)
+
+#: The tenant every state write below is authorized for, and the record id
+#: the write files under: ``put`` derives the key from the CAPABILITY's
+#: tenant and this id (D-IMPL-353 §1.3), never from a caller-supplied key.
+TENANT_A = "tenant-a"
+RECORD_ID = "k"
+
+
+def _authorized(tenant: str = TENANT_A) -> Authorized[Execute]:
+    """A genuine ``Execute`` capability — the kind a state write is a consequence
+    of (``STATE_WRITE_KINDS``) — minted through the real ``mint`` from an
+    allowed decision, exactly as the door does. The token seam under test is
+    the D-20 one; the capability is what D-IMPL-353 §1.2 added in front of it,
+    so every write here holds a real one and the token is the only thing that
+    varies."""
+    return capability(Execute, tenant=tenant, resource=f"{tenant}/workflow/seam-probe")
+
+
+def _key(tenant: str = TENANT_A, record_id: str = RECORD_ID) -> str:
+    return state_key(tenant=tenant, record_id=record_id)
 
 
 def _event(key: str) -> AuditEvent:
@@ -58,14 +81,18 @@ class TestAdversarialBypass:
     def test_a_direct_call_without_a_token_cannot_succeed(self) -> None:
         store = InMemoryStateStore()
         with pytest.raises(TypeError):
-            store.put(CLASS_A, "k", "v")  # type: ignore[call-arg]
-        assert store.get(CLASS_A, "k") is None
+            store.put(_authorized(), CLASS_A, "v", record_id=RECORD_ID)  # type: ignore[call-arg]
+        assert store.get(CLASS_A, _key()) is None
 
     def test_a_forged_kwarg_token_cannot_succeed(self) -> None:
+        """A genuine capability does not excuse a forged token: the two proofs
+        are two proofs (D-IMPL-353 §1.5e), and the D-20 one still refuses."""
         store = InMemoryStateStore()
         with pytest.raises(StateWriteBypassError):
-            store.put(CLASS_A, "k", "v", token=object())  # type: ignore[arg-type]
-        assert store.get(CLASS_A, "k") is None
+            store.put(
+                _authorized(), CLASS_A, "v", record_id=RECORD_ID, token=object()  # type: ignore[arg-type]
+            )
+        assert store.get(CLASS_A, _key()) is None
 
     def test_the_token_cannot_be_constructed_by_a_caller(self) -> None:
         with pytest.raises(StateWriteBypassError):
@@ -80,8 +107,8 @@ class TestAdversarialBypass:
 
         store = InMemoryStateStore()
         with pytest.raises(StateWriteBypassError):
-            store.put(CLASS_A, "k", "v", token=Forged())
-        assert store.get(CLASS_A, "k") is None
+            store.put(_authorized(), CLASS_A, "v", record_id=RECORD_ID, token=Forged())
+        assert store.get(CLASS_A, _key()) is None
 
 
 class TestCounterfactualClosure:
@@ -108,8 +135,10 @@ class TestCounterfactualClosure:
         store = InMemoryStateStore()
         audit = AuditLog()
         writer = AuditedStateWriter(store=store, audit=audit)
-        writer.write(CLASS_A, "k", "v", event=_event("k"))
-        assert store.get(CLASS_A, "k") == "v"
+        writer.write(
+            _authorized(), CLASS_A, "v", record_id=RECORD_ID, event=_event(_key())
+        )
+        assert store.get(CLASS_A, _key()) == "v"
         assert len(audit) == 1
         assert audit.events()[0].action == "state_written"
 
@@ -122,11 +151,22 @@ class TestCounterfactualClosure:
         store = InMemoryStateStore()
         audit = AuditLog()
         writer = AuditedStateWriter(store=store, audit=audit)
+        # The tenant prefix is no longer something a caller writes into the
+        # key: it is the capability's tenant, and two capabilities for two
+        # tenants file the same record id under two keys (D-IMPL-353 §1.3).
         writer.write(
-            CLASS_A, "tenant-a/g", "a-state", event=_event("tenant-a/g")
+            _authorized("tenant-a"),
+            CLASS_A,
+            "a-state",
+            record_id="g",
+            event=_event("tenant-a/g"),
         )
         writer.write(
-            CLASS_A, "tenant-b/g", "b-state", event=_event("tenant-b/g")
+            _authorized("tenant-b"),
+            CLASS_A,
+            "b-state",
+            record_id="g",
+            event=_event("tenant-b/g"),
         )
         assert store.get(CLASS_A, "tenant-a/g") == "a-state"
         assert store.get(CLASS_A, "tenant-b/g") == "b-state"

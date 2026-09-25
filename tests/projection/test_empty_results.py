@@ -89,6 +89,7 @@ from tests.integration.test_proto_quickstart import (
 )
 from tests.projection.test_segmentation import _perspective, _plan
 from tests.properties import strategies
+from tests.controlplane.composition import compose_register
 
 #: A bundle version no claim in the fixture carries. The one invented value.
 NO_SUCH_VERSION = "policy-version-that-no-claim-carries"
@@ -119,10 +120,10 @@ def fabric(
     """Boot a fabric from the fixtures and ingest the whole event stream."""
     keys = control["keys"]
     registry = ControlPlaneRegistry()
-    spec_version = registry.register(
+    spec_version = compose_register(registry,
         keys["resolution_spec"], _resolution_spec(ontology)
     )
-    policy_version = registry.register(
+    policy_version = compose_register(registry,
         keys["policy_bundle"], control["policy_bundle"]
     )
     handle = boot(

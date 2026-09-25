@@ -69,6 +69,7 @@ from ccf.controlplane.registry import (
     RefuseUnbumpedChange,
 )
 from ccf.replay.record import NO_GRANTS_SET_HASH
+from tests.controlplane.composition import compose_register_typed, compose_register_versioned
 
 FIXTURES = Path(__file__).parent.parent / "fixtures" / "banking"
 
@@ -101,7 +102,7 @@ def registry() -> ControlPlaneRegistry:
     plane = ControlPlaneRegistry()
     prompt_fixture = _prompt_fixture()
     prompt = parse_artifact(prompt_fixture["prompt_artifact"], PROMPT_ARTIFACT)
-    plane.register_typed(
+    compose_register_typed(plane,
         prompt_fixture["keys"]["prompt_artifact"], prompt, PROMPT_ARTIFACT
     )
     for reference in _agent_fixture()["referenced_artifacts"].values():
@@ -114,14 +115,14 @@ def registry() -> ControlPlaneRegistry:
             },
             artifact_class,
         )
-        plane.register_typed(reference["key"], declared, artifact_class)
+        compose_register_typed(plane, reference["key"], declared, artifact_class)
     return plane
 
 
 def _registered_definition(
     registry: ControlPlaneRegistry, definition: AgentDefinition, key: str
 ) -> str:
-    version = registry.register_versioned(key, definition, AGENT_DEFINITION)
+    version = compose_register_versioned(registry, key, definition, AGENT_DEFINITION)
     assert isinstance(version, str)
     return version
 
@@ -269,10 +270,10 @@ def task_registry(registry: ControlPlaneRegistry) -> ControlPlaneRegistry:
             },
             artifact_class,
         )
-        registry.register_typed(reference["key"], declared, artifact_class)
+        compose_register_typed(registry, reference["key"], declared, artifact_class)
     # The agent step resolves the covenant_analytics definition through the
     # URI-derived Control Plane key (DESIGN.md §3.5).
-    registry.register_versioned(
+    compose_register_versioned(registry,
         fixture["keys"]["referenced_agent_definition"],
         _definition(),
         AGENT_DEFINITION,
@@ -284,7 +285,7 @@ def _construct_task(registry: ControlPlaneRegistry) -> Task:
     fixture = _task_fixture()
     definition = _task_definition()
     key = fixture["keys"]["task_definition"]
-    version = registry.register_versioned(key, definition, TASK_DEFINITION)
+    version = compose_register_versioned(registry, key, definition, TASK_DEFINITION)
     assert isinstance(version, str)
     return TaskFactory(control_plane=registry).construct(
         definition_key=key, definition_version=version
@@ -370,7 +371,7 @@ def test_an_unresolvable_task_step_ref_fails_construction(
     """The agent registry alone lacks the skill and agent-step targets."""
     definition = _task_definition()
     key = _task_fixture()["keys"]["task_definition"]
-    version = registry.register_versioned(key, definition, TASK_DEFINITION)
+    version = compose_register_versioned(registry, key, definition, TASK_DEFINITION)
     assert isinstance(version, str)
     with pytest.raises(AgentDefinitionError):
         TaskFactory(control_plane=registry).construct(
@@ -388,7 +389,7 @@ def test_a_task_prompt_parameter_mismatch_fails_construction(
         prompt=binding.prompt, parameters=binding.parameters[:1]
     )
     definition = original.model_copy(update={"instruction_bindings": (narrowed,)})
-    version = task_registry.register_versioned(
+    version = compose_register_versioned(task_registry,
         "acme-bank/tasks/mismatch-mutant", definition, TASK_DEFINITION
     )
     assert isinstance(version, str)
@@ -503,7 +504,7 @@ def test_every_unbumped_axis_change_is_refused_at_registration(
     key = _agent_fixture()["keys"]["agent_definition"]
     version = _registered_definition(registry, original, key)
     for axis, mutant in _axis_mutants(original).items():
-        outcome = registry.register_versioned(key, mutant, AGENT_DEFINITION)
+        outcome = compose_register_versioned(registry, key, mutant, AGENT_DEFINITION)
         assert isinstance(outcome, RefuseUnbumpedChange), (
             f"axis {axis!r}: expected RefuseUnbumpedChange, got {outcome!r}"
         )
@@ -524,7 +525,7 @@ def test_a_bumped_axis_change_lands_in_dimension_four(
     mutant = _axis_mutants(original)["instruction_bindings"].model_copy(
         update={"artifact_version": "1.4.0"}
     )
-    bumped_version = registry.register_versioned(key, mutant, AGENT_DEFINITION)
+    bumped_version = compose_register_versioned(registry, key, mutant, AGENT_DEFINITION)
     assert isinstance(bumped_version, str)
     agent = AgentFactory(control_plane=registry).construct(
         definition_key=key, definition_version=bumped_version
@@ -586,7 +587,7 @@ def test_an_ambiguous_pinned_declared_version_is_refused(
     """
     reference = _agent_fixture()["referenced_artifacts"]["policy_regime"]
     rival, artifact_class = _rival_declared_artifact(reference)
-    registry.register_typed(reference["key"], rival, artifact_class)
+    compose_register_typed(registry, reference["key"], rival, artifact_class)
     definition = _definition()
     key = _agent_fixture()["keys"]["agent_definition"]
     version = _registered_definition(registry, definition, key)
@@ -610,7 +611,7 @@ def test_declared_version_probes_are_not_audited_as_resolutions(
     """
     reference = _agent_fixture()["referenced_artifacts"]["policy_regime"]
     rival, artifact_class = _rival_declared_artifact(reference, semver="9.9.9")
-    registry.register_typed(reference["key"], rival, artifact_class)
+    compose_register_typed(registry, reference["key"], rival, artifact_class)
     ref_key = reference["key"]
     before = [
         event
@@ -661,7 +662,7 @@ def test_an_agent_step_resolving_to_a_non_agent_definition_is_refused(
     )
     definition = original.model_copy(update={"steps": steps})
     key = "acme-bank/tasks/misref-mutant"
-    version = task_registry.register_versioned(key, definition, TASK_DEFINITION)
+    version = compose_register_versioned(task_registry, key, definition, TASK_DEFINITION)
     assert isinstance(version, str)
     with pytest.raises(AgentDefinitionError) as excinfo:
         TaskFactory(control_plane=task_registry).construct(
@@ -699,7 +700,7 @@ def test_a_skill_step_resolving_to_an_sdk_owned_non_skill_class_is_refused(
     )
     definition = original.model_copy(update={"steps": steps})
     key = "acme-bank/tasks/skillmisref-mutant"
-    version = task_registry.register_versioned(key, definition, TASK_DEFINITION)
+    version = compose_register_versioned(task_registry, key, definition, TASK_DEFINITION)
     assert isinstance(version, str)
     with pytest.raises(AgentDefinitionError) as excinfo:
         TaskFactory(control_plane=task_registry).construct(

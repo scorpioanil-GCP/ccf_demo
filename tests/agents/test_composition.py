@@ -54,6 +54,7 @@ from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes
 from ccf.controlplane.artifacts import declared_artifact_class, parse_artifact
 from ccf.controlplane.registry import ControlPlaneRegistry
+from tests.controlplane.composition import compose_register_typed, compose_register_versioned
 
 FIXTURES = Path(__file__).parent.parent / "fixtures" / "banking"
 
@@ -205,7 +206,7 @@ def _prompt_registered(plane: ControlPlaneRegistry) -> None:
     prompt_fixture: dict[str, Any] = yaml.safe_load(
         (FIXTURES / "prompts" / "covenant_summary.yaml").read_text()
     )
-    plane.register_typed(
+    compose_register_typed(plane,
         prompt_fixture["keys"]["prompt_artifact"],
         parse_artifact(prompt_fixture["prompt_artifact"], PROMPT_ARTIFACT),
         PROMPT_ARTIFACT,
@@ -221,7 +222,7 @@ def registry() -> ControlPlaneRegistry:
         "referenced_artifacts"
     ].values():
         artifact_class = declared_artifact_class(reference["class_id"])
-        plane.register_typed(
+        compose_register_typed(plane,
             reference["key"],
             parse_artifact(
                 {
@@ -243,7 +244,7 @@ def _construct_fixture_agent(registry: ControlPlaneRegistry) -> Agent:
     )
     assert isinstance(definition, AgentDefinition)
     key = fixture["keys"]["agent_definition"]
-    version = registry.register_versioned(key, definition, AGENT_DEFINITION)
+    version = compose_register_versioned(registry, key, definition, AGENT_DEFINITION)
     assert isinstance(version, str)
     return AgentFactory(control_plane=registry).construct(
         definition_key=key, definition_version=version

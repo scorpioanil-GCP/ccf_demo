@@ -44,6 +44,7 @@ from ccf.products.gates import (
     TTLRefusal,
     run_gates,
 )
+from tests.controlplane.composition import compose_register
 
 # Fixture values (test-side vocabulary, never SDK values).
 TENANT = "tenant-fixture"
@@ -62,7 +63,7 @@ def registry() -> ControlPlaneRegistry:
 
 @pytest.fixture
 def product_class(registry: ControlPlaneRegistry) -> RegisteredProductClass:
-    version = registry.register(MAX_TTL_KEY, MaxTTL(seconds=MAX_TTL_SECONDS))
+    version = compose_register(registry, MAX_TTL_KEY, MaxTTL(seconds=MAX_TTL_SECONDS))
     return register_product_class(
         registry=registry,
         schema_name="fixture.exposure-summary",
@@ -320,7 +321,7 @@ def test_registering_against_a_non_max_ttl_artifact_fails(
     registry: ControlPlaneRegistry,
 ) -> None:
     """A key that exists but holds the wrong artifact is equally a failure."""
-    version = registry.register(MAX_TTL_KEY, {"seconds": MAX_TTL_SECONDS})
+    version = compose_register(registry, MAX_TTL_KEY, {"seconds": MAX_TTL_SECONDS})
     with pytest.raises(ProductClassRegistrationError):
         register_product_class(
             registry=registry,

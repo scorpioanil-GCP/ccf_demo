@@ -59,6 +59,7 @@ from ccf.peering.identity import (
     FileBackedKeySource,
     JsonWebKey,
 )
+from tests.controlplane.composition import compose_register, compose_register_typed
 
 APPROVER_KID = "hitl-approver-signing-key"
 
@@ -192,7 +193,7 @@ def test_required_and_validly_signed_submission_is_admitted(
     trusted_keys: Mapping[str, JsonWebKey],
 ) -> None:
     """A verified binding whose principal matches is admitted, binding kept."""
-    plane.register_typed(POLICY_KEY, _policy(required=True), HITL_POLICY)
+    compose_register_typed(plane, POLICY_KEY, _policy(required=True), HITL_POLICY)
     transport = _transport(plane, provider, trusted_keys)
     binding = _binding()
     signed = sign_principal_binding(
@@ -213,7 +214,7 @@ def test_required_and_unsigned_submission_is_a_typed_refusal(
     provider: DetachedJwsIdentityProvider,
     trusted_keys: Mapping[str, JsonWebKey],
 ) -> None:
-    plane.register_typed(POLICY_KEY, _policy(required=True), HITL_POLICY)
+    compose_register_typed(plane, POLICY_KEY, _policy(required=True), HITL_POLICY)
     transport = _transport(plane, provider, trusted_keys)
     with pytest.raises(SignedBindingRequiredRefused):
         _submit(transport, _binding(), None)
@@ -228,7 +229,7 @@ def test_required_and_invalid_or_mismatched_binding_is_refused(
     provider: DetachedJwsIdentityProvider,
     trusted_keys: Mapping[str, JsonWebKey],
 ) -> None:
-    plane.register_typed(POLICY_KEY, _policy(required=True), HITL_POLICY)
+    compose_register_typed(plane, POLICY_KEY, _policy(required=True), HITL_POLICY)
     transport = _transport(plane, provider, trusted_keys)
     binding = _binding()
     signed = sign_principal_binding(
@@ -259,7 +260,7 @@ def test_not_required_admits_unsigned_submissions_unchanged(
     provider: DetachedJwsIdentityProvider,
     trusted_keys: Mapping[str, JsonWebKey],
 ) -> None:
-    plane.register_typed(POLICY_KEY, _policy(required=False), HITL_POLICY)
+    compose_register_typed(plane, POLICY_KEY, _policy(required=False), HITL_POLICY)
     transport = _transport(plane, provider, trusted_keys)
     _submit(transport, _binding(), None)
     assert len(transport.submissions(tenant=_TENANT)) == 1
@@ -279,12 +280,12 @@ def test_requiredness_is_a_control_plane_value_not_a_code_constant(
     trusted_keys: Mapping[str, JsonWebKey],
 ) -> None:
     """Flipping the registered value flips behavior with zero code change."""
-    plane.register_typed(POLICY_KEY, _policy(required=False), HITL_POLICY)
+    compose_register_typed(plane, POLICY_KEY, _policy(required=False), HITL_POLICY)
     transport = _transport(plane, provider, trusted_keys)
     _submit(transport, _binding(), None)
     assert len(transport.submissions(tenant=_TENANT)) == 1
     # Flip the Control Plane value — same transport object, no code change.
-    plane.register_typed(
+    compose_register_typed(plane,
         POLICY_KEY, _policy(required=True, semver="1.0.1"), HITL_POLICY
     )
     with pytest.raises(SignedBindingRequiredRefused):
@@ -318,14 +319,14 @@ def test_helper_signed_binding_required_unbound_is_false() -> None:
 def test_helper_signed_binding_required_resolves_per_call(
     plane: ControlPlaneRegistry,
 ) -> None:
-    plane.register_typed(POLICY_KEY, _policy(required=False), HITL_POLICY)
+    compose_register_typed(plane, POLICY_KEY, _policy(required=False), HITL_POLICY)
     assert (
         signed_binding_required(
             control_plane=plane, hitl_policy_key=POLICY_KEY
         )
         is False
     )
-    plane.register_typed(
+    compose_register_typed(plane,
         POLICY_KEY, _policy(required=True, semver="1.0.1"), HITL_POLICY
     )
     assert (
@@ -340,7 +341,7 @@ def test_helper_signed_binding_required_rejects_non_hitl_policy(
     plane: ControlPlaneRegistry,
 ) -> None:
     """A key naming a non-HitlPolicy artifact is a TypeError, not a refusal."""
-    plane.register(POLICY_KEY, {"not": "a-policy"})
+    compose_register(plane, POLICY_KEY, {"not": "a-policy"})
     with pytest.raises(TypeError):
         signed_binding_required(
             control_plane=plane, hitl_policy_key=POLICY_KEY
@@ -460,7 +461,7 @@ def _both_layers_bound(
     provider: DetachedJwsIdentityProvider,
     trusted_keys: Mapping[str, JsonWebKey],
 ) -> InMemoryHitlTransport:
-    plane.register_typed(POLICY_KEY, _policy(required=True), HITL_POLICY)
+    compose_register_typed(plane, POLICY_KEY, _policy(required=True), HITL_POLICY)
     return _transport(plane, provider, trusted_keys)
 
 

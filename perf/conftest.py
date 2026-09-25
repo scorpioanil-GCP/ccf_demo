@@ -14,6 +14,7 @@ being collected (D-04).
 from __future__ import annotations
 
 from collections.abc import Iterator
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -34,6 +35,106 @@ ARTIFACTS = Path(__file__).resolve().parent / "synth" / "artifacts"
 
 def _load(name: str) -> Any:
     return yaml.safe_load((ARTIFACTS / name).read_text(encoding="utf-8"))
+
+
+#: The fixed instant every perf composition decision is recorded at, so the
+#: capability's ``decision_id`` is the same bytes on every run.
+COMPOSED_AT = datetime(2026, 9, 24, 12, 0, tzinfo=UTC)
+
+
+def _composition_capability(registry: Any, kind: Any, *, tenant: str, resource: str) -> Any:
+    """Mint one composition kind for one resource, the decision recorded first.
+
+    The perf tree boots its fabrics as a deployment would: it is the
+    composition root of the graphs it times, and a composition root registers
+    its own Control Plane entries under ``Register`` minted for ONE key — and
+    hands its replay writer ``ReplayMint`` for ONE evidence class — after
+    recording the decision on the registry's audit log (D-IMPL-354). The
+    capability comes from :func:`ccf.authz.capability.mint_at_composition`,
+    the only producer of a composition kind; nothing here names the sentinel.
+    """
+    from ccf.authz.capability import COMPOSITION_PRINCIPAL, mint_at_composition
+    from ccf.contracts.canonical import content_hash
+
+    event = registry.audit_log.append(
+        action="composition",
+        key=resource,
+        version=kind.action_id,
+        resolved=True,
+        occurred_at=COMPOSED_AT,
+        actor=COMPOSITION_PRINCIPAL,
+    )
+    return mint_at_composition(
+        kind,
+        tenant=tenant,
+        principal=COMPOSITION_PRINCIPAL,
+        resource=resource,
+        decision_id=content_hash(event),
+    )
+
+
+def _register_capability(registry: Any, key: str) -> Any:
+    from ccf.authz.capability import Register
+
+    return _composition_capability(
+        registry, Register, tenant=key.partition("/")[0], resource=key
+    )
+
+
+def register_at_composition(registry: Any, key: str, artifact: object) -> str:
+    """``registry.register`` under a composition-minted ``Register`` for ``key``."""
+    return registry.register(_register_capability(registry, key), artifact)
+
+
+def register_typed_at_composition(
+    registry: Any, key: str, artifact: object, artifact_class: Any
+) -> str:
+    """``registry.register_typed`` under a composition-minted ``Register`` for ``key``."""
+    return registry.register_typed(_register_capability(registry, key), artifact, artifact_class)
+
+
+def register_versioned_at_composition(
+    registry: Any, key: str, artifact: object, artifact_class: Any
+) -> Any:
+    """``registry.register_versioned`` under a composition-minted ``Register`` for ``key``."""
+    return registry.register_versioned(
+        _register_capability(registry, key), artifact, artifact_class
+    )
+
+
+def execute_capability(*, tenant: str, resource: str) -> Any:
+    """``Authorized[Execute]`` for ``tenant`` on the workflow key ``resource``.
+
+    ``WorkflowFactory.construct`` takes the definition key from the capability
+    (D-IMPL-353 §1.2), so the benchmark holds the capability a served caller
+    would hold: minted by :func:`ccf.authz.capability.mint` from an *allowed*
+    decision for exactly this tenant, action and key — the gate's own path,
+    not a fabrication. The decision id names no real audit event; the perf
+    tree measures construction, not authorization.
+    """
+    from ccf.authz.actions import ACTION_WORKFLOW_INVOKE
+    from ccf.authz.capability import Execute, mint
+    from ccf.authz.decision import AuthzDecision
+
+    decision = AuthzDecision(
+        allowed=True,
+        matched_scope_pattern=tenant,
+        matched_resource_pattern=resource,
+        artifact_version="1.0.0",
+        action_id=ACTION_WORKFLOW_INVOKE,
+        tenant=tenant,
+        resource=resource,
+    )
+    return mint(
+        Execute, decision=decision, principal="perf-battery", decision_id="authz-decision-perf"
+    )
+
+
+def replay_mint_at_composition(registry: Any, *, tenant: str, artifact_class: str) -> Any:
+    """The composition root's ``ReplayMint`` for ``artifact_class`` under ``tenant``."""
+    from ccf.authz.capability import ReplayMint
+
+    return _composition_capability(registry, ReplayMint, tenant=tenant, resource=artifact_class)
 
 
 def _resolution_spec(ontology: Any) -> Any:
@@ -81,11 +182,11 @@ def boot_fabric(*, database_path: Path) -> "FabricHandle":
     keys = control["keys"]
 
     registry = ControlPlaneRegistry()
-    spec_version = registry.register(
-        keys["resolution_spec"], _resolution_spec(ontology)
+    spec_version = register_at_composition(
+        registry, keys["resolution_spec"], _resolution_spec(ontology)
     )
-    policy_version = registry.register(
-        keys["policy_bundle"], control["policy_bundle"]
+    policy_version = register_at_composition(
+        registry, keys["policy_bundle"], control["policy_bundle"]
     )
     return boot(
         backend="sqlite",

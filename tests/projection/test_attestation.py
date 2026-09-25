@@ -74,6 +74,7 @@ from tests.projection.test_segmentation import (
     _perspective,
     _plan,
 )
+from tests.controlplane.composition import compose_register
 
 #: The three well-known attestation values (D-09): three values of one schema.
 TIER_1 = SourceAttestation(
@@ -110,10 +111,10 @@ def fabric(
     """Boot a fabric from the fixtures and ingest the whole event stream."""
     keys = control["keys"]
     registry = ControlPlaneRegistry()
-    spec_version = registry.register(
+    spec_version = compose_register(registry,
         keys["resolution_spec"], _resolution_spec(ontology)
     )
-    policy_version = registry.register(
+    policy_version = compose_register(registry,
         keys["policy_bundle"], control["policy_bundle"]
     )
     handle = boot(
@@ -183,7 +184,7 @@ def _engine(fabric: _Fabric, source: _StubSource) -> ProjectionEngine:
 def _tier2_accepting_class(fabric: _Fabric) -> RegisteredProductClass:
     """Register the fixture class with the explicit tier-2 opt-in (D-09)."""
     declared = fabric.control["product_class"]
-    max_ttl_version = fabric.registry.register(
+    max_ttl_version = compose_register(fabric.registry,
         fabric.control["keys"]["max_ttl"],
         MaxTTL(seconds=fabric.control["max_ttl_seconds"]),
     )
@@ -250,7 +251,7 @@ def test_the_refusal_names_the_lineage_dimension_when_that_is_the_gap(
 ) -> None:
     """The failing dimension is a per-dimension fact, not an aggregate."""
     declared = fabric.control["product_class"]
-    max_ttl_version = fabric.registry.register(
+    max_ttl_version = compose_register(fabric.registry,
         fabric.control["keys"]["max_ttl"],
         MaxTTL(seconds=fabric.control["max_ttl_seconds"]),
     )
