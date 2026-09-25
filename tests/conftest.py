@@ -355,6 +355,8 @@ def fabric_boot(
     from ccf.boot import boot
     from ccf.controlplane.registry import ControlPlaneRegistry
 
+    from tests.composition import register_at_composition
+
     handles: list[FabricHandle] = []
     counter = {"n": 0}
 
@@ -363,8 +365,16 @@ def fabric_boot(
     ) -> "FabricHandle":
         counter["n"] += 1
         registry = ControlPlaneRegistry()
-        spec_version = registry.register(RESOLUTION_SPEC_KEY, _resolution_spec())
-        policy_version = registry.register(POLICY_BUNDLE_KEY, _policy_bundle())
+        # This factory IS the test suite's composition root (D-IMPL-354): the
+        # two artifacts the fabric resolves at boot are registered under a
+        # `Register` capability minted by the recipe in `tests/composition.py`,
+        # one per key, each audited on this registry's own log.
+        spec_version = register_at_composition(
+            registry, RESOLUTION_SPEC_KEY, _resolution_spec()
+        )
+        policy_version = register_at_composition(
+            registry, POLICY_BUNDLE_KEY, _policy_bundle()
+        )
         # The keys are the field names on the adapter's own connection
         # contract (plan 15.4-04), not `boot`'s — `boot` has no per-database
         # parameter left to name.
