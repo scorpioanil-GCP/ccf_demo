@@ -46,6 +46,8 @@ import pytest
 from ccf.graph._writer import _LIVE_WRITERS
 from ccf.graph.registry import BACKEND_ENTRY_POINT_GROUP
 
+from tests.composition import register_at_composition
+
 #: Graph identities this module mints, so teardown can clear whatever a
 #: deliberately-broken release left behind. Both tests below sabotage a cleanup
 #: path on purpose, and one of them sabotages the mint release itself — so the
@@ -64,6 +66,7 @@ from ccf.contracts.base import CCFContract
 from ccf.graph.backends.memory import MemoryGraphStore
 from ccf.graph.backends.memory_write import MemoryGraphWriter
 from ccf.graph.registry import BackendRegistration
+from tests.composition import register_at_composition
 
 #: One-element lists so the test can flip them through the imported module.
 EXPLODE_WRITER_CTOR = [False]
@@ -174,8 +177,8 @@ def _boot_probe(adapter_name: str, identity: str, spec: Any) -> Any:
     from ccf.controlplane.registry import ControlPlaneRegistry
 
     control_plane = ControlPlaneRegistry()
-    spec_version = control_plane.register("probe/spec", spec)
-    policy_version = control_plane.register("probe/policy", {"regime": "probe"})
+    spec_version = register_at_composition(control_plane, "probe/spec", spec)
+    policy_version = register_at_composition(control_plane, "probe/policy", {"regime": "probe"})
     return boot(
         backend=adapter_name,
         connection={"identity": identity},
@@ -184,6 +187,7 @@ def _boot_probe(adapter_name: str, identity: str, spec: Any) -> Any:
         resolution_spec_version=spec_version,
         policy_bundle_key="probe/policy",
         policy_bundle_version=policy_version,
+        tenant_ids=("probe-tenant",),
     )
 
 

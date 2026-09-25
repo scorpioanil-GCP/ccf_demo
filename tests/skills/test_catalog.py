@@ -42,6 +42,7 @@ from ccf.skills.catalog import (
     SkillRequirements,
     skill_catalog_key,
 )
+from tests.composition import register_skill_entry
 
 FIXTURES = Path(__file__).parent.parent / "fixtures" / "banking" / "skills"
 
@@ -253,7 +254,7 @@ class TestRegistration:
         control_plane = ControlPlaneRegistry()
         catalog = SkillCatalog(control_plane)
         entry = SkillCatalogEntry.model_validate(_tool_fixture()["entry"])
-        version = catalog.register(entry)
+        version = register_skill_entry(catalog, control_plane, entry)
         assert version == content_hash(entry)
         key = skill_catalog_key(entry)
         assert control_plane.versions(key) == (version,)
@@ -266,7 +267,7 @@ class TestRegistration:
         catalog = SkillCatalog(control_plane)
         fixture = _tool_fixture()
         entry = SkillCatalogEntry.model_validate(fixture["entry"])
-        catalog.register(entry)
+        register_skill_entry(catalog, control_plane, entry)
         mutant = entry.model_copy(
             update={
                 "requirements": SkillRequirements(
@@ -278,34 +279,37 @@ class TestRegistration:
                 )
             }
         )
-        refusal = catalog.register(mutant)
+        refusal = register_skill_entry(catalog, control_plane, mutant)
         assert isinstance(refusal, RefuseUnbumpedChange)
         # Nothing new stored under the key.
         assert len(control_plane.versions(skill_catalog_key(entry))) == 1
 
     def test_both_banking_fixtures_register(self) -> None:
-        catalog = SkillCatalog(ControlPlaneRegistry())
+        registry = ControlPlaneRegistry()
+        catalog = SkillCatalog(registry)
         for document in (_tool_fixture()["entry"], _mcp_fixture()["entry"]):
             entry = SkillCatalogEntry.model_validate(document)
-            assert isinstance(catalog.register(entry), str)
+            assert isinstance(register_skill_entry(catalog, registry, entry), str)
 
     def test_mcp_and_peering_entries_register_without_dispatch(self) -> None:
         # D-08: the schema covers all four types now; no transport exists yet.
-        catalog = SkillCatalog(ControlPlaneRegistry())
+        registry = ControlPlaneRegistry()
+        catalog = SkillCatalog(registry)
         tool = _tool_fixture()
         for document in (_mcp_fixture()["entry"], tool["variants"]["peering"]):
             entry = SkillCatalogEntry.model_validate(document)
-            assert isinstance(catalog.register(entry), str)
+            assert isinstance(register_skill_entry(catalog, registry, entry), str)
 
 
 class TestDiscovery:
     def _populated(self) -> tuple[SkillCatalog, list[SkillCatalogEntry]]:
-        catalog = SkillCatalog(ControlPlaneRegistry())
+        registry = ControlPlaneRegistry()
+        catalog = SkillCatalog(registry)
         entries = [
             SkillCatalogEntry.model_validate(d) for d in _all_entry_documents()
         ]
         for entry in entries:
-            catalog.register(entry)
+            register_skill_entry(catalog, registry, entry)
         return catalog, entries
 
     def test_discovery_lists_all_registered_entries(self) -> None:
@@ -334,7 +338,7 @@ class TestDiscovery:
             SkillCatalogEntry.model_validate(d) for d in _all_entry_documents()
         ]
         for entry in entries:
-            assert isinstance(first.register(entry), str)
+            assert isinstance(register_skill_entry(first, registry, entry), str)
         second = SkillCatalog(registry)
         assert set(second.discover()) == set(entries)
         assert set(second.discover()) == set(first.discover())
@@ -373,7 +377,7 @@ class TestDiscovery:
         catalog = SkillCatalog(registry)
         fixture = _tool_fixture()
         first = SkillCatalogEntry.model_validate(fixture["entry"])
-        assert isinstance(catalog.register(first), str)
+        assert isinstance(register_skill_entry(catalog, registry, first), str)
         major, minor, patch = (
             int(part) for part in first.artifact_version.split(".")
         )
@@ -389,7 +393,7 @@ class TestDiscovery:
                 ),
             }
         )
-        assert isinstance(catalog.register(second), str)
+        assert isinstance(register_skill_entry(catalog, registry, second), str)
         key = skill_catalog_key(first)
         assert len(registry.versions(key)) == 2
 
@@ -411,3 +415,40 @@ class TestDiscovery:
         entry = entries[0]
         with pytest.raises(SkillNotInCatalog):
             catalog.resolve(entry.tenant, entry.name, entry.schema_version + "-x")
+
+
+class TestCapability:
+    """D-IMPL-353 §1.2 / §1.5f: `register` takes the capability for exactly the entry's key."""
+
+    def test_a_capability_for_another_key_is_refused_before_anything_is_registered(self) -> None:
+        from ccf.authz.capability import CapabilityBypassError
+
+        from tests.composition import composition_register
+
+        registry = ControlPlaneRegistry()
+        catalog = SkillCatalog(registry)
+        entry = SkillCatalogEntry.model_validate(_tool_fixture()["entry"])
+        other = f"{entry.tenant}/{SKILL_CATALOG_ENTRY.class_id}/not-this-entry"
+        with pytest.raises(CapabilityBypassError, match="resource"):
+            catalog.register(composition_register(registry, other), entry)
+        assert registry.versions(skill_catalog_key(entry)) == ()
+        assert registry.versions(other) == ()
+        assert "register_versioned" not in {e.action for e in registry.audit_events()}
+
+    def test_the_door_kind_and_the_composition_kind_both_register_and_a_fabrication_dies(self) -> None:
+        from ccf.authz.capability import CapabilityBypassError, Register, SkillCatalogRegister
+
+        from tests.controlplane.capabilities import fabrications, register_capability
+
+        registry = ControlPlaneRegistry()
+        catalog = SkillCatalog(registry)
+        entry = SkillCatalogEntry.model_validate(_tool_fixture()["entry"])
+        key = skill_catalog_key(entry)
+        for label, forged in fabrications(SkillCatalogRegister, tenant=entry.tenant, resource=key):
+            with pytest.raises(CapabilityBypassError):
+                catalog.register(forged, entry)  # type: ignore[arg-type]
+            assert registry.versions(key) == (), label
+        assert isinstance(catalog.register(register_capability(key, SkillCatalogRegister), entry), str)
+        bumped = entry.model_copy(update={"artifact_version": "9.9.9", "description": "bumped"})
+        assert isinstance(catalog.register(register_capability(key, Register), bumped), str)
+        assert len(registry.versions(key)) == 2

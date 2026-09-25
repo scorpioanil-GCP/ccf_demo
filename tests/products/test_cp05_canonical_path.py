@@ -189,6 +189,7 @@ from tests.signal_layer.test_cp05_acquisition_boundary import (
     counts_off_l3,
     drive_into_l2,
 )
+from tests.composition import declaring_store
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 
@@ -867,8 +868,8 @@ def _recorded_refusal(fabric: Fabric, envelope: RefusalEnvelope) -> dict[str, An
 
     reference = envelope.replay_reference
     assert reference, "a governed refusal was released with no replay reference"
-    store = FileArtifactStore(
-        root=fabric.root / _load(REPLAY_ARTIFACT)[DECLARATION]["store_dirname"]
+    store = declaring_store(
+        fabric.root / _load(REPLAY_ARTIFACT)[DECLARATION]["store_dirname"]
     )
     document = json.loads(store.get(content_address=str(reference).split("@")[-1]))
     recorded = json.loads(document["content_generation_path"]["assembly_refusal"])

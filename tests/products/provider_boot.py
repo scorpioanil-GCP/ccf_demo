@@ -159,10 +159,22 @@ def serve_atomic_child(workspace: Path) -> str:
     )
     for envelope in fabric.artifacts[SIGNAL_BATCH_KEY].envelopes:
         fabric.handle.worker.ingest(envelope)
+    from ccf.products.composite import ADMITTED_CHILD_CONTRACT_CLASS, CHILD_QUESTION_CLASS
+
+    from tests.composition import declaring_store
+    from tests.products.test_resolver_seam import QUERY_PIN_CLASS, REPLAY_RECORD_CLASS
+
     booted = _Booted(
         fabric=fabric,
         control_plane=control_plane,
-        store=FileArtifactStore(root=workspace / "artifacts"),
+        # The provider's declaration of what its own resolver files (D-IMPL-353 §1.2).
+        store=declaring_store(
+            workspace / "artifacts",
+            REPLAY_RECORD_CLASS,
+            QUERY_PIN_CLASS,
+            ADMITTED_CHILD_CONTRACT_CLASS,
+            CHILD_QUESTION_CLASS,
+        ),
         root=root,
     )
     try:

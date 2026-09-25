@@ -122,6 +122,8 @@ from tests.products.test_resolver_seam import (
     MAX_TTL_SECONDS,
     PRODUCT_TTL_SECONDS,
 )
+from tests.composition import composition_replay_mint, declaring_store
+from ccf.products.composite import ADMITTED_CHILD_CONTRACT_CLASS
 
 # --- this module's own fixture vocabulary ------------------------------------
 
@@ -674,7 +676,13 @@ def booted_empty(tmp_path: pathlib.Path) -> Iterator[Any]:
         connection={"database_path": str(tmp_path / "evidence-derived.sqlite3")},
     )
     try:
-        yield (fabric, control_plane, FileArtifactStore(root=tmp_path / "artifacts"))
+        yield (
+            fabric,
+            control_plane,
+            declaring_store(
+                tmp_path / "artifacts", REPLAY_RECORD_CLASS, QUERY_PIN_CLASS, ADMITTED_CHILD_CONTRACT_CLASS
+            ),
+        )
     finally:
         fabric.handle.close()
 
@@ -741,9 +749,10 @@ def _ask_the_empty_fabric(booted: Any, *, completeness: Any | None = None) -> An
         # fixture holds none, and `None` means the record's bindings are
         # exactly the caller's tuple.
         refusal_recorder=ReplayRefusalRecorder(
+            authorized=composition_replay_mint(
+                control_plane, tenant=TENANT, artifact_class=REPLAY_RECORD_CLASS
+            ),
             artifact_store=store,
-            replay_record_class=REPLAY_RECORD_CLASS,
-            tenant_id=TENANT,
             assembly_mode="algorithmic",
         ),
         artifact_store=store,

@@ -36,6 +36,7 @@ from ccf.peering.trust_policy import (
 )
 from ccf.contracts.base import CCFContract
 from ccf.controlplane.registry import ControlPlaneRegistry
+from tests.composition import register_typed_at_composition
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "banking"
 
@@ -145,7 +146,7 @@ def test_registering_a_bare_mapping_under_the_class_is_refused(
     one — the whole argument for a typed artifact class."""
     key = trust_policy_key(tenant_id=TENANT_ONE)
     with pytest.raises(TypeError):
-        registry.register_typed(key, {"peers": {}}, PEERING_TRUST_POLICY)
+        register_typed_at_composition(registry, key, {"peers": {}}, PEERING_TRUST_POLICY)
 
 
 def test_a_failed_trust_policy_resolution_is_audited_as_unresolved(
@@ -160,7 +161,7 @@ def test_a_failed_trust_policy_resolution_is_audited_as_unresolved(
     artifact's, and is logged rather than papered over here.
     """
     key = trust_policy_key(tenant_id=TENANT_ONE)
-    registry.register_typed(key, policy(), PEERING_TRUST_POLICY)
+    register_typed_at_composition(registry, key, policy(), PEERING_TRUST_POLICY)
     with pytest.raises(Exception):
         registry.resolve(key, "no-such-version")
     unresolved = [
@@ -176,7 +177,7 @@ def test_a_registered_policy_resolves_by_pinned_key_and_version(
 ) -> None:
     key = trust_policy_key(tenant_id=TENANT_ONE)
     registered = policy()
-    version = registry.register_typed(key, registered, PEERING_TRUST_POLICY)
+    version = register_typed_at_composition(registry, key, registered, PEERING_TRUST_POLICY)
     assert registry.resolve(key, version) == registered
 
 
@@ -290,8 +291,8 @@ def test_two_tenant_policies_resolve_independently(
     )
     key_one = trust_policy_key(tenant_id=TENANT_ONE)
     key_two = trust_policy_key(tenant_id=TENANT_TWO)
-    version_one = registry.register_typed(key_one, one, PEERING_TRUST_POLICY)
-    version_two = registry.register_typed(key_two, two, PEERING_TRUST_POLICY)
+    version_one = register_typed_at_composition(registry, key_one, one, PEERING_TRUST_POLICY)
+    version_two = register_typed_at_composition(registry, key_two, two, PEERING_TRUST_POLICY)
 
     assert key_one != key_two
     assert version_one != version_two

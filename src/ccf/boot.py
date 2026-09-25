@@ -39,7 +39,8 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
+from datetime import UTC, datetime
 from types import TracebackType
 
 from ccf.assembly.worker import (
@@ -47,10 +48,17 @@ from ccf.assembly.worker import (
     EntityResolutionSpec,
     SpecDrivenEntityResolution,
 )
+from ccf.authz.capability import (
+    COMPOSITION_PRINCIPAL,
+    Authorized,
+    Register,
+    mint_at_composition,
+)
+from ccf.contracts.canonical import content_hash
 from ccf.controlplane.registry import ControlPlaneProtocol
 from ccf.graph._writer import adopt_writer, mint_boot_token, release_boot_token
 from ccf.graph.protocols import GraphReader
-from ccf.controlplane.invalidation import ControlPlaneInvalidationSink
+from ccf.controlplane.invalidation import ControlPlaneInvalidationSink, register_key
 from ccf.graph.registry import (
     AdapterPin,
     ResolvedSecret,
@@ -220,6 +228,67 @@ def _refuse_undeclared_secrets(
         )
 
 
+def _utc_now() -> datetime:
+    return datetime.now(tz=UTC)
+
+
+def _mint_invalidation_register(
+    registry: ControlPlaneProtocol, *, tenant_id: str
+) -> Authorized[Register]:
+    """The composition recipe, for one tenant's invalidation register (D-IMPL-354).
+
+    This module is a composition root — the one place the fabric's own
+    writes obtain authority — and this is the whole of how it does so: the
+    decision to let THIS fabric move ``tenant_id``'s invalidation boundary is
+    recorded on the Control Plane's own audit log as a ``composition`` event,
+    and the capability is minted with that event's content address as its
+    ``decision_id``. One key, one tenant, one capability; nothing here is a
+    wildcard and nothing here can be widened.
+    """
+    key = register_key(tenant_id)
+    event = registry.audit_log.append(
+        action="composition",
+        key=key,
+        version=Register.action_id,
+        resolved=True,
+        occurred_at=_utc_now(),
+        actor=COMPOSITION_PRINCIPAL,
+    )
+    return mint_at_composition(
+        Register,
+        tenant=tenant_id,
+        principal=COMPOSITION_PRINCIPAL,
+        resource=key,
+        decision_id=content_hash(event),
+    )
+
+
+def _composed_tenants(tenant_ids: Sequence[str]) -> tuple[str, ...]:
+    """The tenants this boot composes for: non-empty, distinct, each a real id."""
+    if not tenant_ids:
+        raise ValueError(
+            "tenant_ids is empty: a fabric is composed for at least one tenant,"
+            " because the composition root mints — per tenant — the Register"
+            " capability under which a supersession moves that tenant's"
+            " invalidation boundary; a fabric composed for nobody could record"
+            " no supersession (D-IMPL-334; D-IMPL-354)"
+        )
+    seen: list[str] = []
+    for tenant_id in tenant_ids:
+        if not isinstance(tenant_id, str) or not tenant_id or tenant_id != tenant_id.strip():
+            raise ValueError(
+                f"tenant_ids contains {tenant_id!r}, which is not a tenant id"
+            )
+        if tenant_id in seen:
+            raise ValueError(
+                f"tenant_ids names {tenant_id!r} twice; a composition mints one"
+                " capability per tenant, and a repeated tenant is a mistake"
+                " rather than a second grant"
+            )
+        seen.append(tenant_id)
+    return tuple(seen)
+
+
 def boot(
     *,
     backend: str,
@@ -230,6 +299,7 @@ def boot(
     resolution_spec_version: str,
     policy_bundle_key: str,
     policy_bundle_version: str,
+    tenant_ids: Sequence[str],
 ) -> FabricHandle:
     """Construct a fabric over one graph and return its handle.
 
@@ -294,8 +364,20 @@ def boot(
         resolution_spec_version: Pinned version of that artifact.
         policy_bundle_key: Key of the policy bundle in force.
         policy_bundle_version: Pinned version of that bundle.
+        tenant_ids: The tenants this fabric is composed for. Required and
+            non-empty, with no default (D-IMPL-354): for each, this
+            composition root mints — through the recipe, audited on
+            ``registry.audit_log`` — the one ``Register`` capability under
+            which a supersession moves that tenant's invalidation boundary
+            (``D-IMPL-334``), and hands them to the writer's
+            :class:`~ccf.controlplane.invalidation.ControlPlaneInvalidationSink`.
+            A supersession under a tenant not named here is refused by the
+            sink, typed, at the write — never filed under a fallback.
+            A manifest-driven deployment passes its one resolved tenant.
 
     Raises:
+        ValueError: ``tenant_ids`` is empty, repeats a tenant, or carries a
+            value that is not a tenant id.
         ccf.graph.registry.UnknownBackend: no installed adapter registers
             ``backend``.
         ccf.graph.registry.InvalidBackendConfig: ``connection`` does not
@@ -323,6 +405,7 @@ def boot(
             graph is released, so a corrected retry boots rather than being
             refused as a second writer.
     """
+    composed = _composed_tenants(tenant_ids)
     record = resolve(backend)
     registration = record.registration
     config = validate_connection(registration, connection or {})
@@ -359,7 +442,18 @@ def boot(
         # (`D-IMPL-93`) and its signature is not this function's to change.
         attach = getattr(writer, "attach_invalidation_sink", None)
         if attach is not None:
-            attach(ControlPlaneInvalidationSink(registry=registry))
+            # D-IMPL-354: the sink is not a composition root and mints
+            # nothing; this function is, and mints exactly one `Register` per
+            # composed tenant — for that tenant's register key and no other.
+            attach(
+                ControlPlaneInvalidationSink(
+                    registry=registry,
+                    authorities=tuple(
+                        _mint_invalidation_register(registry, tenant_id=tenant_id)
+                        for tenant_id in composed
+                    ),
+                )
+            )
     except BaseException:
         # The same guard the mint above gets, for the same reason, over a call
         # that needs it more: since D-IMPL-93 this constructor is a callable an

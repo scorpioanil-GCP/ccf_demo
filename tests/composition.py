@@ -62,12 +62,14 @@ from ccf.controlplane.registry import (
     CrossTenantKeyRefused,
     RegistrationRefusal,
 )
+from ccf.skills.catalog import SkillCatalog, SkillCatalogEntry, skill_catalog_key
 
 __all__ = [
     "composition_register",
     "composition_replay_mint",
     "declaring_store",
     "register_at_composition",
+    "register_skill_entry",
     "register_typed_at_composition",
     "register_versioned_at_composition",
     "tenant_of_key",
@@ -194,3 +196,16 @@ def declaring_store(root: Path | str, *classes: str) -> FileArtifactStore:
         root=root,
         write_kinds=WriteKinds.declare({name: (ReplayMint,) for name in classes}),
     )
+
+
+def register_skill_entry(
+    catalog: SkillCatalog, registry: ControlPlaneRegistry, entry: SkillCatalogEntry
+) -> str | RegistrationRefusal:
+    """``catalog.register`` under a recipe-minted ``Register`` for exactly the entry's own key.
+
+    The catalog derives the key from the entry and binds the capability to it
+    (``D-IMPL-353`` §1.5f); a deployment declaring a catalog entry at boot is
+    a composition-time registration (``D-IMPL-354``), which is what a test
+    composing its own catalog is doing.
+    """
+    return catalog.register(composition_register(registry, skill_catalog_key(entry)), entry)

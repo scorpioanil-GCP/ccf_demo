@@ -105,6 +105,11 @@ from tests.products.test_resolver_seam import (
     _Booted,
     _arguments,
 )
+from tests.composition import register_typed_at_composition
+from tests.composition import composition_replay_mint
+from ccf.products.composite import CHILD_QUESTION_CLASS
+from tests.composition import register_skill_entry
+from tests.skills.authority import grant_capability, revoke_capability
 
 SKILL = "child-product-ask"
 REGIME_KEY = f"{TENANT}/policy-bundle/d-impl-340"
@@ -128,8 +133,7 @@ def ledger_for_product_ask(
     if grant and id(registry) in _LEDGERS:
         return _LEDGERS[id(registry)]
     regime_class = declared_artifact_class("policy-bundle")
-    registry.register_typed(
-        REGIME_KEY,
+    register_typed_at_composition(registry, REGIME_KEY,
         parse_artifact(
             {
                 "class_id": "policy-bundle",
@@ -161,7 +165,9 @@ def ledger_for_product_ask(
         instruction_bindings=(),
     )
     catalog = SkillCatalog(registry)
-    catalog.register(
+    register_skill_entry(
+        catalog,
+        registry,
         SkillCatalogEntry(
             schema_version="1.0.0",
             artifact_version="1.0.0",
@@ -184,6 +190,7 @@ def ledger_for_product_ask(
     )
     if grant:
         outcome = ledger.request(
+            grant_capability(definition),
             SkillGrant(
                 schema_version="1.0.0",
                 artifact_version="1.0.0",
@@ -194,7 +201,6 @@ def ledger_for_product_ask(
                 skill_version="1.0.0",
             ),
             definition=definition,
-            actor="d-impl-340",
         )
         assert isinstance(outcome, str), outcome
         _LEDGERS[id(registry)] = (ledger, content_hash(definition))
@@ -390,6 +396,9 @@ def wired(
         agent_definition_hash=agent_hash,
         gate=CompositeAdmissionGate(
             tenant_id=TENANT, consumer_scope="consumer://d-impl-340", registry=booted.control_plane
+        ),
+        authorized=composition_replay_mint(
+            booted.control_plane, tenant=TENANT, artifact_class=CHILD_QUESTION_CLASS
         ),
         child_questions=questions,
         callable_registry=CallableRegistry(),
@@ -650,6 +659,9 @@ def test_a_payload_claiming_the_expected_producer_cannot_authorize_itself(
         gate=CompositeAdmissionGate(
             tenant_id=TENANT, consumer_scope="consumer://d-impl-340", registry=booted.control_plane
         ),
+        authorized=composition_replay_mint(
+            booted.control_plane, tenant=TENANT, artifact_class=CHILD_QUESTION_CLASS
+        ),
         child_questions=questions,
         callable_registry=CallableRegistry(),
         artifact_store=booted.store,
@@ -840,6 +852,9 @@ def test_the_legacy_resolver_takes_the_legacy_call(booted: _Booted) -> None:
         agent_definition_hash=agent_hash,
         gate=CompositeAdmissionGate(
             tenant_id=TENANT, consumer_scope="consumer://d-impl-340", registry=booted.control_plane
+        ),
+        authorized=composition_replay_mint(
+            booted.control_plane, tenant=TENANT, artifact_class=CHILD_QUESTION_CLASS
         ),
         child_questions=questions,
         callable_registry=CallableRegistry(),

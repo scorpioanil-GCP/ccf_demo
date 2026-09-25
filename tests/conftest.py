@@ -40,6 +40,38 @@ if TYPE_CHECKING:
 RESOLUTION_SPEC_KEY = "test/entity-resolution-spec"
 POLICY_BUNDLE_KEY = "test/policy-bundle"
 
+#: The tenants the shared fixture fabric is COMPOSED FOR (D-IMPL-354): `boot`
+#: mints, per tenant, the `Register` capability under which a supersession
+#: moves that tenant's invalidation boundary, and a supersession under any
+#: other tenant is refused by the sink, typed. These are the tenant ids the
+#: fixture-driven suites (conformance, assembly, graph, projection, products)
+#: ingest and supersede under — fixture values, in test code. A test that
+#: writes under another tenant passes `tenant_ids=` to the factory.
+FIXTURE_TENANTS: tuple[str, ...] = (
+    "tenant-a",
+    "tenant-b",
+    "tenant-c",
+    "tenant-alpha",
+    "tenant-beta",
+    "tenant-fixture",
+    "fixture-tenant",
+    "tenant-conformance",
+    "tenant-composite",
+    "tenant-under-test",
+    "tenant-replay",
+    "acme-bank",
+    "beta-bank",
+    "other-bank",
+    "borealis-bank",
+    "other-tenant",
+    "another-tenant",
+    "globex",
+    "acme",
+    "t",
+    "t1",
+    "t-1",
+)
+
 
 def _resolution_spec() -> Any:
     """The fixture ontology mapping: source payload vocabulary -> E and R.
@@ -361,7 +393,10 @@ def fabric_boot(
     counter = {"n": 0}
 
     def factory(
-        *, database_path: Path | None = None, backend: str = "sqlite"
+        *,
+        database_path: Path | None = None,
+        backend: str = "sqlite",
+        tenant_ids: tuple[str, ...] = FIXTURE_TENANTS,
     ) -> "FabricHandle":
         counter["n"] += 1
         registry = ControlPlaneRegistry()
@@ -442,6 +477,7 @@ def fabric_boot(
             resolution_spec_version=spec_version,
             policy_bundle_key=POLICY_BUNDLE_KEY,
             policy_bundle_version=policy_version,
+            tenant_ids=tenant_ids,
         )
         handles.append(handle)
         return handle

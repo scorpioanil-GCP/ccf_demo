@@ -53,6 +53,8 @@ from ccf.graph.registry import (
     resolve,
 )
 
+from tests.composition import register_at_composition
+
 if TYPE_CHECKING:
     from collections.abc import Callable
 
@@ -83,16 +85,34 @@ import pathlib
 import sys
 import tempfile
 
+from datetime import UTC, datetime
+
 from ccf.assembly.worker import EntityResolutionRule, EntityResolutionSpec
+from ccf.authz.capability import COMPOSITION_PRINCIPAL, Register, mint_at_composition
 from ccf.boot import boot
+from ccf.contracts.canonical import content_hash
 from ccf.controlplane.registry import ControlPlaneRegistry
 
 adapter = sys.argv[1]
 connection = json.loads(sys.argv[2])
 
+
+def register_at_composition(registry, key, artifact):
+    # This child process is its own composition root (D-IMPL-354): the recipe,
+    # inline, because `tests.composition` is not on the child's path.
+    event = registry.audit_log.append(
+        action="composition", key=key, version=Register.action_id, resolved=True,
+        occurred_at=datetime.now(tz=UTC), actor=COMPOSITION_PRINCIPAL,
+    )
+    capability = mint_at_composition(
+        Register, tenant=key.partition("/")[0], principal=COMPOSITION_PRINCIPAL,
+        resource=key, decision_id=content_hash(event),
+    )
+    return registry.register(capability, artifact)
+
+
 registry = ControlPlaneRegistry()
-spec_version = registry.register(
-    "probe/spec",
+spec_version = register_at_composition(registry, "probe/spec",
     EntityResolutionSpec(
         semver="1.0.0",
         entity_rules=(
@@ -104,7 +124,7 @@ spec_version = registry.register(
         ),
     ),
 )
-policy_version = registry.register("probe/policy", {"regime": "probe"})
+policy_version = register_at_composition(registry, "probe/policy", {"regime": "probe"})
 
 with tempfile.TemporaryDirectory() as directory:
     resolved = {
@@ -119,6 +139,7 @@ with tempfile.TemporaryDirectory() as directory:
         resolution_spec_version=spec_version,
         policy_bundle_key="probe/policy",
         policy_bundle_version=policy_version,
+        tenant_ids=("probe-tenant",),
     )
     handle.close()
 
@@ -257,6 +278,7 @@ def test_an_unregistered_name_is_refused_at_boot_naming_what_is_registered(
             resolution_spec_version="never",
             policy_bundle_key="never",
             policy_bundle_version="never",
+            tenant_ids=("probe-tenant",),
         )
     message = str(caught.value)
     assert UNREGISTERED_NAME in message
@@ -288,6 +310,7 @@ def test_a_misspelled_real_name_is_refused_the_same_way() -> None:
             resolution_spec_version="never",
             policy_bundle_key="never",
             policy_bundle_version="never",
+            tenant_ids=("probe-tenant",),
         )
     message = str(caught.value)
     assert misspelled in message
@@ -417,8 +440,8 @@ def test_the_pin_records_the_reference_name_never_the_field_or_the_value(
     from ccf.controlplane.registry import ControlPlaneRegistry
 
     registry = ControlPlaneRegistry()
-    spec_version = registry.register("probe/spec", banking_spec)
-    policy_version = registry.register("probe/policy", {"regime": "probe"})
+    spec_version = register_at_composition(registry, "probe/spec", banking_spec)
+    policy_version = register_at_composition(registry, "probe/policy", {"regime": "probe"})
 
     handle = boot(
         backend=secretful_adapter,
@@ -434,6 +457,7 @@ def test_the_pin_records_the_reference_name_never_the_field_or_the_value(
         resolution_spec_version=spec_version,
         policy_bundle_key="probe/policy",
         policy_bundle_version=policy_version,
+        tenant_ids=("probe-tenant",),
     )
     try:
         pin = handle.adapter
@@ -471,8 +495,8 @@ def test_closing_a_handle_twice_reaches_the_store_once(
 
     adapter_name, module_name = exploding_writer_adapter
     control_plane = ControlPlaneRegistry()
-    spec_version = control_plane.register("probe/spec", banking_spec)
-    policy_version = control_plane.register("probe/policy", {"regime": "probe"})
+    spec_version = register_at_composition(control_plane, "probe/spec", banking_spec)
+    policy_version = register_at_composition(control_plane, "probe/policy", {"regime": "probe"})
 
     probe = None
     handle = None
@@ -490,6 +514,7 @@ def test_closing_a_handle_twice_reaches_the_store_once(
             resolution_spec_version=spec_version,
             policy_bundle_key="probe/policy",
             policy_bundle_version=policy_version,
+            tenant_ids=("probe-tenant",),
         ) as handle:
             handle.close()
     finally:
@@ -521,8 +546,8 @@ def test_a_credential_keyed_by_a_field_its_record_disowns_is_refused(
     from ccf.controlplane.registry import ControlPlaneRegistry
 
     control_plane = ControlPlaneRegistry()
-    spec_version = control_plane.register("probe/spec", banking_spec)
-    policy_version = control_plane.register("probe/policy", {"regime": "probe"})
+    spec_version = register_at_composition(control_plane, "probe/spec", banking_spec)
+    policy_version = register_at_composition(control_plane, "probe/policy", {"regime": "probe"})
     disowned = "a_field_this_record_does_not_name"
 
     with pytest.raises(ValueError) as caught:
@@ -543,6 +568,7 @@ def test_a_credential_keyed_by_a_field_its_record_disowns_is_refused(
             resolution_spec_version=spec_version,
             policy_bundle_key="probe/policy",
             policy_bundle_version=policy_version,
+            tenant_ids=("probe-tenant",),
         )
 
     message = str(caught.value)
@@ -691,8 +717,8 @@ def test_a_failing_writer_constructor_closes_the_store_and_frees_the_graph(
     adapter_name, module_name = exploding_writer_adapter
     identity = "probe://cr-01-one-graph"
     control_plane = ControlPlaneRegistry()
-    spec_version = control_plane.register("probe/spec", banking_spec)
-    policy_version = control_plane.register("probe/policy", {"regime": "probe"})
+    spec_version = register_at_composition(control_plane, "probe/spec", banking_spec)
+    policy_version = register_at_composition(control_plane, "probe/policy", {"regime": "probe"})
 
     def _boot() -> Any:
         return boot(
@@ -703,6 +729,7 @@ def test_a_failing_writer_constructor_closes_the_store_and_frees_the_graph(
             resolution_spec_version=spec_version,
             policy_bundle_key="probe/policy",
             policy_bundle_version=policy_version,
+            tenant_ids=("probe-tenant",),
         )
 
     with pytest.raises(RuntimeError) as caught:
@@ -856,8 +883,8 @@ def test_a_writer_that_can_never_release_the_graph_is_refused_at_boot(
     adapter_name, module_name = duck_writer_adapter
     identity = "probe://f6-one-graph"
     control_plane = ControlPlaneRegistry()
-    spec_version = control_plane.register("probe/spec", banking_spec)
-    policy_version = control_plane.register("probe/policy", {"regime": "probe"})
+    spec_version = register_at_composition(control_plane, "probe/spec", banking_spec)
+    policy_version = register_at_composition(control_plane, "probe/policy", {"regime": "probe"})
 
     def _boot() -> Any:
         return boot(
@@ -868,6 +895,7 @@ def test_a_writer_that_can_never_release_the_graph_is_refused_at_boot(
             resolution_spec_version=spec_version,
             policy_bundle_key="probe/policy",
             policy_bundle_version=policy_version,
+            tenant_ids=("probe-tenant",),
         )
 
     with pytest.raises(TypeError) as caught:

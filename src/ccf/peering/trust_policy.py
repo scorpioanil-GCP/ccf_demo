@@ -228,4 +228,8 @@ def trust_policy_key(*, tenant_id: str) -> str:
     two components cannot disagree about where a tenant's policy lives, and
     supplies no tenant, so it holds no deployment's vocabulary (CINV-01).
     """
-    return f"{PEERING_TRUST_POLICY.class_id}/{tenant_id}"
+    # Tenant-first (``{tenant}/{class}``): the registry's one tenant comparison
+    # reads the segment before the first ``/`` (D-IMPL-353 §1.3), so a
+    # class-first key could be registered only by a capability whose tenant
+    # was the class name.
+    return f"{tenant_id}/{PEERING_TRUST_POLICY.class_id}"

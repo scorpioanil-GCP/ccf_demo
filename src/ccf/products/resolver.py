@@ -154,7 +154,15 @@ from pathlib import Path
 from typing import Final, Protocol, TypeVar, runtime_checkable
 
 from ccf.artifacts.file_store import FileArtifactStore
-from ccf.artifacts.protocol import ArtifactStoreProtocol
+from ccf.artifacts.protocol import ArtifactStoreProtocol, DerivedWrite, WriteKinds
+from ccf.authz.capability import (
+    COMPOSITION_PRINCIPAL,
+    Authorized,
+    Register,
+    ReplayMint,
+    mint_at_composition,
+    verify,
+)
 from ccf.contracts.base import CCFContract
 from ccf.controlplane.artifacts import (
     DebtProfile,
@@ -166,7 +174,7 @@ from ccf.controlplane.artifacts import (
     ReplayBinding,
     TtlBinding,
 )
-from ccf.controlplane.registry import ControlPlaneProtocol
+from ccf.controlplane.registry import ControlPlaneProtocol, CrossTenantKeyRefused
 from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.deployment import (
     BootedFabric,
@@ -298,6 +306,7 @@ __all__ = [
     "ProjectionPlanFactoryProtocol",
     "RefusalRecorderProtocol",
     "ReplayRefusalRecorder",
+    "UndeclaredMechanismClass",
     "ResolverOutcome",
     "ServedProductResolverProtocol",
     "build_governed_resolver",
@@ -1092,6 +1101,129 @@ def _minimal_disclosure(
     return DISCLOSURE_MINIMAL, None
 
 
+# --- the composition recipe (D-IMPL-354) --------------------------------------
+#
+# This module is a composition root — `COMPOSITION_MINT_SITES` names it — and
+# these three functions are the whole of how the resolver's own writes obtain
+# authority: the decision is recorded on the Control Plane's own audit log as a
+# `composition` event, and the capability carries that event's content address
+# as its `decision_id`. `ReplayMint` on one evidence class for one tenant;
+# `Register` on one Control Plane key whose tenant is the key's own segment,
+# derived as the registry derives it. Nothing here is a wildcard.
+
+
+def _composition_decision(
+    control_plane: ControlPlaneProtocol, *, key: str, action_id: str
+) -> str:
+    event = control_plane.audit_log.append(
+        action="composition",
+        key=key,
+        version=action_id,
+        resolved=True,
+        occurred_at=_utc_now(),
+        actor=COMPOSITION_PRINCIPAL,
+    )
+    return content_hash(event)
+
+
+def _mint_replay_at_composition(
+    control_plane: ControlPlaneProtocol, *, tenant: str, artifact_class: str
+) -> Authorized[ReplayMint]:
+    """``Authorized[ReplayMint]`` for ``artifact_class`` under ``tenant``, audited."""
+    return mint_at_composition(
+        ReplayMint,
+        tenant=tenant,
+        principal=COMPOSITION_PRINCIPAL,
+        resource=artifact_class,
+        decision_id=_composition_decision(
+            control_plane, key=artifact_class, action_id=ReplayMint.action_id
+        ),
+    )
+
+
+def _mint_register_at_composition(
+    control_plane: ControlPlaneProtocol, *, key: str
+) -> Authorized[Register]:
+    """``Authorized[Register]`` for exactly ``key``, for the key's own tenant, audited."""
+    tenant, separator, _ = key.partition("/")
+    if not separator or not tenant:
+        raise CrossTenantKeyRefused(
+            f"Control Plane key {key!r} has no tenant segment; a composition"
+            " root mints Register for `{tenant}/{class}/{name}` and a key that"
+            " names no tenant belongs to nobody (D-IMPL-353 §1.3; D-IMPL-354)"
+        )
+    return mint_at_composition(
+        Register,
+        tenant=tenant,
+        principal=COMPOSITION_PRINCIPAL,
+        resource=key,
+        decision_id=_composition_decision(
+            control_plane, key=key, action_id=Register.action_id
+        ),
+    )
+
+
+@dataclass(frozen=True, kw_only=True)
+class _ComposedAuthorities:
+    """What a :class:`GovernedResolver`'s composition minted for its own writes (D-IMPL-354).
+
+    One value, built once in :meth:`GovernedResolver.__post_init__` and held for
+    the resolver's life. Every member is required and typed for the one kind
+    and one resource it opens; nothing here has a default, because a
+    composition that minted four of five would be a resolver that fails at
+    its first write instead of at boot.
+    """
+
+    replay: Authorized[ReplayMint]
+    query_pin: Authorized[ReplayMint]
+    admitted_child: Authorized[ReplayMint]
+    max_ttl: Authorized[Register]
+    request_contract: Authorized[Register]
+
+
+class UndeclaredMechanismClass(TypeError):
+    """The store handed to a resolver does not declare a class the resolver writes under ``ReplayMint``.
+
+    D-IMPL-353 §1.2: which kind a write requires is looked up per artifact
+    class from the :class:`~ccf.artifacts.protocol.WriteKinds` declaration
+    bound to the store at composition. A resolver writes its replay records,
+    its query pins and its admitted child contracts under the composition-
+    minted ``ReplayMint``; a store whose declaration does not name one of
+    those classes under that kind would refuse the resolver's own writer at
+    the first serve — wrong kind, loudly. This refusal moves that failure to
+    **construction**: fail closed at boot, never at the first write. A store
+    that exposes no declaration at all cannot show it declares them, and is
+    refused the same way — *don't know* is not *pass*.
+    """
+
+
+@runtime_checkable
+class _DeclaresWriteKinds(Protocol):
+    @property
+    def write_kinds(self) -> WriteKinds: ...
+
+
+def _require_declared(store: ArtifactStoreProtocol, classes: tuple[str, ...]) -> None:
+    if not isinstance(store, _DeclaresWriteKinds):
+        raise UndeclaredMechanismClass(
+            f"the artifact store ({type(store).__name__}) exposes no `write_kinds`"
+            " declaration, so it cannot be shown to admit the resolver's own"
+            f" writes under ReplayMint for {list(classes)!r}; both shipped"
+            " stores take `write_kinds=` at construction (D-IMPL-353 §1.2)"
+        )
+    declared = store.write_kinds
+    for artifact_class in classes:
+        if not any(kind is ReplayMint for kind in declared.for_class(artifact_class)):
+            raise UndeclaredMechanismClass(
+                f"the artifact store does not declare class {artifact_class!r}"
+                " mechanism-written under ReplayMint; the resolver files that"
+                " class under its composition-minted capability and would be"
+                " refused at the first serve — declare it at composition:"
+                f" WriteKinds.declare({{{artifact_class!r}: (ReplayMint,), ...}})"
+                " (D-IMPL-353 §1.2; D-IMPL-354)"
+            )
+
+
 @dataclass(frozen=True, kw_only=True)
 class ReplayRefusalRecorder:
     """The SDK's reference :class:`RefusalRecorderProtocol` — one writer, one store.
@@ -1110,14 +1242,19 @@ class ReplayRefusalRecorder:
     nothing below reaches one.
 
     Attributes:
+        authorized: The composition-minted ``Authorized[ReplayMint]`` this
+            recorder writes under (D-IMPL-353 §2 P3; D-IMPL-354). **The record
+            class IS its resource and the tenant IS its tenant** — there is no
+            ``replay_record_class`` and no ``tenant_id`` field, so no second
+            source for either (§1.2, §1.3); both are exposed as read-only
+            properties for readers. Minted by the composition that builds the
+            recorder — :func:`declared_refusal_recorder` and
+            :func:`build_governed_resolver` here, a test or example composing
+            by hand — and verified again at construction so a mis-wired
+            composition fails before any refusal is recorded.
         artifact_store: Where the record lands. A substrate reached *through*
-            mechanism.
-        replay_record_class: The artifact class replay records are filed under.
-            Deployment vocabulary, supplied rather than assumed.
-        tenant_id: The tenant every determination this recorder writes was made
-            under. A refusal carries no vessel to read it off, so it is stated
-            once here rather than at each call — a recorder is bound to a
-            deployment exactly as its resolver is.
+            mechanism. Must declare the capability's class under ``ReplayMint``
+            (:class:`UndeclaredMechanismClass` otherwise, at construction).
         assembly_mode: The mode dimension 3 records.
             :func:`~ccf.replay.record.build_replay_record` takes it with no
             default, so it is held here rather than defaulted into existence.
@@ -1147,9 +1284,8 @@ class ReplayRefusalRecorder:
             reader over the deployment's own registry.
     """
 
+    authorized: Authorized[ReplayMint]
     artifact_store: ArtifactStoreProtocol
-    replay_record_class: str
-    tenant_id: str
     assembly_mode: AssemblyMode
     policy_bundle_pin: PolicyBinding | None = None
     # A `default_factory` rather than a bare `default`, and the reason is a
@@ -1163,6 +1299,24 @@ class ReplayRefusalRecorder:
     disclosure_level_for: Callable[
         ..., tuple[DisclosureLevel, ProvenanceSource | None]
     ] = field(default_factory=lambda: _minimal_disclosure)
+
+    def __post_init__(self) -> None:
+        verify(
+            self.authorized,
+            kind=ReplayMint,
+            resource=getattr(self.authorized, "resource", ""),
+        )
+        _require_declared(self.artifact_store, (self.authorized.resource,))
+
+    @property
+    def replay_record_class(self) -> str:
+        """The artifact class refusal records are filed under — the capability's resource."""
+        return self.authorized.resource
+
+    @property
+    def tenant_id(self) -> str:
+        """The tenant every determination this recorder writes was made under — the capability's."""
+        return self.authorized.tenant
 
     def record(
         self,
@@ -1259,8 +1413,7 @@ class ReplayRefusalRecorder:
         reference = record_refusal(
             record=record,
             replay_writer=ReplayWriter(
-                store=self.artifact_store,
-                artifact_class=self.replay_record_class,
+                authorized=self.authorized, store=self.artifact_store
             ),
         )
         return disclosed.model_copy(update={"replay_reference": reference.uri})
@@ -1739,6 +1892,20 @@ class GovernedResolver:
     query_pin_class: str
     max_ttl_seconds: int
     product_ttl_seconds: int
+    #: D-IMPL-354 — the capabilities THIS composition minted for its own
+    #: writes, at construction (:meth:`__post_init__`), and holds for its
+    #: life. Not constructor arguments, deliberately: the resolver's
+    #: constructor and factories ARE the resolver's composition (this module
+    #: is a `COMPOSITION_MINT_SITES` root), so every existing construction
+    #: site keeps working with no new parameter, and no caller of a resolver
+    #: becomes a minter. The alternative — authorities as constructor
+    #: parameters — was rejected for exactly that reason. Three `ReplayMint`,
+    #: one per evidence class the resolver files (records, query pins,
+    #: admitted child contracts), and two `Register`, one per Control Plane
+    #: key `_register` opens (the class's MAX_TTL and its request contract).
+    #: `init=False`: not a parameter of any signature, so nothing can omit it
+    #: or pass a substitute; set exactly once below.
+    _authorities: _ComposedAuthorities = field(init=False, repr=False, compare=False)
     #: §7.10.4's Mode 2 footprint — how this deployment reports what its
     #: packaging stage did. ``None`` for every Mode 1 deployment, which is
     #: every one shipped before `dr-02`, and the no-packaging sentinel is then
@@ -1834,6 +2001,48 @@ class GovernedResolver:
     # ``None`` for a resolver wired without a table — an evidence-anchored
     # class then refuses by name at gate 3 rather than anchoring on anything.
     half_life_key: str | None
+
+    def __post_init__(self) -> None:
+        """Compose: refuse an undeclared store, then mint this resolver's own authorities (D-IMPL-354).
+
+        Order is the order of refusals a deployment should meet at boot rather
+        than at its first question: the store's :class:`~ccf.artifacts.protocol.WriteKinds`
+        must name the three classes this resolver files under ``ReplayMint``
+        (:class:`UndeclaredMechanismClass` otherwise — fail closed at boot,
+        never at the first write); then five capabilities are minted through
+        the composition recipe, each audited on the Control Plane's own log,
+        for exactly the class or key each will open. The clock those audit
+        events carry is the process clock at composition — never
+        ``admission_clock``, which the serve path reads exactly once per
+        admission and which nothing at construction may consume.
+        """
+        _require_declared(
+            self.artifact_store,
+            (self.replay_record_class, self.query_pin_class, ADMITTED_CHILD_CONTRACT_CLASS),
+        )
+        tenant = self.fabric.tenant_id
+        declaration = self._declaration()
+        minted = _ComposedAuthorities(
+            replay=_mint_replay_at_composition(
+                self.control_plane, tenant=tenant, artifact_class=self.replay_record_class
+            ),
+            query_pin=_mint_replay_at_composition(
+                self.control_plane, tenant=tenant, artifact_class=self.query_pin_class
+            ),
+            admitted_child=_mint_replay_at_composition(
+                self.control_plane, tenant=tenant, artifact_class=ADMITTED_CHILD_CONTRACT_CLASS
+            ),
+            max_ttl=_mint_register_at_composition(
+                self.control_plane, key=declaration.max_ttl_key
+            ),
+            request_contract=_mint_register_at_composition(
+                self.control_plane, key=self.request_contract_key
+            ),
+        )
+        # Frozen dataclass: the one sanctioned way to set a field from
+        # `__post_init__`; the field is `init=False` and exists for nothing
+        # but this.
+        object.__setattr__(self, "_authorities", minted)
 
     def _decision_instant(
         self, request: ProductRequest, effective_request: ProductRequest
@@ -2923,10 +3132,10 @@ class GovernedResolver:
             product=gated,
             record=record,
             replay_writer=ReplayWriter(
-                store=self.artifact_store, artifact_class=self.replay_record_class
+                authorized=self._authorities.replay, store=self.artifact_store
             ),
             query_pin_writer=QueryPinWriter(
-                store=self.artifact_store, artifact_class=self.query_pin_class
+                authorized=self._authorities.query_pin, store=self.artifact_store
             ),
             executed_queries=execution.executed_queries,
         )
@@ -2961,11 +3170,16 @@ class GovernedResolver:
             address = content_hash(contract)
             if self.artifact_store.exists(content_address=address):
                 continue
+            # A derived write under the composition-minted capability
+            # (D-IMPL-353 §1.2): the class is the SDK's, the name is the
+            # contract's own address, the tenant is the capability's.
             filed = self.artifact_store.put(
-                tenant_id=self.fabric.tenant_id,
-                artifact_class=ADMITTED_CHILD_CONTRACT_CLASS,
-                name=address,
-                artifact=contract,
+                self._authorities.admitted_child,
+                DerivedWrite(
+                    artifact_class=ADMITTED_CHILD_CONTRACT_CLASS,
+                    name=address,
+                    artifact=contract,
+                ),
             )
             if filed.content_address != address:
                 raise RuntimeError(
@@ -3465,11 +3679,23 @@ class GovernedResolver:
         *declared* accepted lineage modes and then had them silently replaced
         by a default would have written a policy the fabric never enforced.
         """
+        # D-IMPL-354: both registrations run under the `Register` capability
+        # this composition minted for exactly that key. The registry takes the
+        # key FROM the capability; the comparison below is what keeps a
+        # declaration handed in later from silently landing under the key the
+        # composition minted for.
+        if declaration.max_ttl_key != self._authorities.max_ttl.resource:
+            raise TypeError(
+                f"the declaration names max_ttl_key {declaration.max_ttl_key!r}"
+                " and this resolver's composition minted Register for"
+                f" {self._authorities.max_ttl.resource!r}; one resolver registers"
+                " one class's ceiling (D-IMPL-354)"
+            )
         max_ttl_version = self.control_plane.register(
-            declaration.max_ttl_key, MaxTTL(seconds=self.max_ttl_seconds)
+            self._authorities.max_ttl, MaxTTL(seconds=self.max_ttl_seconds)
         )
         request_contract_version = self.control_plane.register(
-            self.request_contract_key,
+            self._authorities.request_contract,
             self._request_contract(declaration),
         )
         return register_product_class(
@@ -3684,9 +3910,13 @@ def declared_refusal_recorder(
     records is the pin the boot will mint.
     """
     return ReplayRefusalRecorder(
+        # D-IMPL-354: this function is the recorder's composition; it mints
+        # the ONE `ReplayMint` the recorder writes under, audited on the
+        # Control Plane it was handed.
+        authorized=_mint_replay_at_composition(
+            control_plane, tenant=tenant_id, artifact_class=replay_record_class
+        ),
         artifact_store=artifact_store,
-        replay_record_class=replay_record_class,
-        tenant_id=tenant_id,
         assembly_mode=assembly_mode,
         policy_bundle_pin=policy_bundle_pin,
         disclosure_level_for=_disclosure_reader(control_plane),
@@ -4173,7 +4403,19 @@ def build_governed_resolver(
         # deployment on the MCP-backed store passes `artifact_store` and wins
         # under the precedence above. See `ReplayBinding`'s own docstring,
         # where the limitation is recorded rather than left to be discovered.
-        store = FileArtifactStore(root=Path(artifact_store_root) / dirname)
+        # The deployment's declaration of what its own mechanism writes and
+        # under which kind (D-IMPL-353 §1.2): the two replay classes the
+        # binding names and the SDK's admitted-child class, all `ReplayMint`.
+        store = FileArtifactStore(
+            root=Path(artifact_store_root) / dirname,
+            write_kinds=WriteKinds.declare(
+                {
+                    record_class: (ReplayMint,),
+                    pin_class: (ReplayMint,),
+                    ADMITTED_CHILD_CONTRACT_CLASS: (ReplayMint,),
+                }
+            ),
+        )
 
     # `D-IMPL-343` R-3a, THIRD: the two TTL figures, from the call or from the
     # declared `ttl:` binding, held EQUAL when both speak and refused when
@@ -4251,9 +4493,10 @@ def build_governed_resolver(
     # land in two stores or under two classes. Nothing about the recorder the
     # SDK builds when none is handed in has changed.
     recorder: RefusalRecorderProtocol = refusal_recorder if refusal_recorder is not None else ReplayRefusalRecorder(
+        authorized=_mint_replay_at_composition(
+            control_plane, tenant=fabric.tenant_id, artifact_class=record_class
+        ),
         artifact_store=store,
-        replay_record_class=record_class,
-        tenant_id=fabric.tenant_id,
         assembly_mode=_artifact_on(
             fabric, key=product_class_key, expected=ProductClassDeclaration
         ).assembly_mode,

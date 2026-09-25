@@ -1098,7 +1098,10 @@ def test_the_versioned_dispatch_runs_the_bump_check(
             for event in registry.audit_events()
             if event.key == key
         }
-        assert actions == {"register_versioned"}
+        # D-IMPL-354: the composition root records its decision to mint the
+        # entry's `Register` capability on the same log, so the versioned
+        # dispatch leaves exactly those two actions — and never `register_typed`.
+        assert actions == {"composition", "register_versioned"}
         assert "register_typed" not in actions
         pin = next(entry for entry in booted.pins.entries if entry.key == key)
         assert pin.registration == "versioned"
@@ -1177,3 +1180,50 @@ def test_an_unbumped_change_refusal_mid_load_is_loud_and_pins_nothing(
     # string, and a `RegistrationRefusal` could never satisfy that.
     assert all(isinstance(pin.version, str) for pin in first.pins.entries)
     assert first.pins.entries
+
+
+# --- D-IMPL-354: the manifest applier is a composition root -----------------------------
+
+
+def test_every_registered_entry_is_preceded_by_its_own_composition_event(
+    deployment: Deployment, tmp_path: pathlib.Path
+) -> None:
+    """One `composition` event per registered key, by the composition principal, BEFORE the registration."""
+    from ccf.authz.capability import COMPOSITION_PRINCIPAL
+
+    registry = ControlPlaneRegistry()
+    booted = _boot(deployment, tmp_path, registry=registry)
+    try:
+        events = registry.audit_events()
+        for pin in booted.pins.entries:
+            mine = [e for e in events if e.key == pin.key]
+            assert mine[0].action == "composition", pin.key
+            assert mine[0].actor == COMPOSITION_PRINCIPAL
+            assert mine[0].version == "config.register"
+            assert any(e.action in ("register_typed", "register_versioned") and e.actor == COMPOSITION_PRINCIPAL for e in mine[1:]), pin.key
+    finally:
+        booted.handle.close()
+
+
+def test_a_manifest_key_with_no_tenant_segment_is_refused_before_anything_is_minted(
+    deployment: Deployment, tmp_path: pathlib.Path
+) -> None:
+    """§1.3 as landed: a bare key belongs to nobody — refused with the registry's own error,
+    and nothing is minted or registered for it (the entries before it in manifest order are)."""
+    from ccf.controlplane.registry import CrossTenantKeyRefused
+
+    bare = "prompt-artifact"
+    path = _with_extra_entry(
+        deployment,
+        name="bare-key.yaml",
+        filename="prompt-artifact.yaml",
+        key=bare,
+        class_id="ccf.prompt-artifact",
+        registration="versioned",
+        document=_prompt_artifact(),
+    )
+    registry = ControlPlaneRegistry()
+    with pytest.raises(CrossTenantKeyRefused, match="no tenant segment"):
+        _boot(deployment, tmp_path, registry=registry, manifest=path)
+    assert not [e for e in registry.audit_events() if e.key == bare]
+    assert registry.versions(bare) == ()

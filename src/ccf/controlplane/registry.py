@@ -339,6 +339,22 @@ class ControlPlaneProtocol(Protocol):
         """Return the append-only audit log, oldest first."""
         ...
 
+    @property
+    def audit_log(self) -> AuditLog:
+        """The append-only log this plane records into — the composition root's audit surface (D-IMPL-354).
+
+        On the Protocol, not only on the in-process registry, because a
+        composition root records its own decision to mint on THIS log
+        (``action="composition"``) before it mints, and takes the event's
+        content address as the capability's ``decision_id``: a plane that
+        offered no appendable log could not host a composition at all. The
+        obligation sits on the surface for the reason :meth:`register_versioned`
+        does — so a remote plane cannot conform while quietly dropping it.
+        Holding the reference confers no rewrite capability; the log is
+        append-only.
+        """
+        ...
+
 
 def _utc_now() -> datetime:
     return datetime.now(tz=UTC)

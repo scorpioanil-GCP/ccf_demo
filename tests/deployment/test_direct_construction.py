@@ -48,6 +48,7 @@ from ccf.operators.params import (
     TraversalNeighborhoodParameters,
 )
 from ccf.signal.envelope import SignalEnvelope, SourceIdentity
+from tests.composition import register_at_composition
 
 _SPEC_KEY = "direct/resolution-spec"
 _POLICY_KEY = "direct/policy-bundle"
@@ -67,9 +68,8 @@ def _boot_by_hand(database_path: pathlib.Path) -> FabricHandle:
         ),
     )
     registry = ControlPlaneRegistry()
-    spec_version = registry.register(_SPEC_KEY, spec)
-    policy_version = registry.register(
-        _POLICY_KEY, {"permitted_classifications": ["fixture-open"]}
+    spec_version = register_at_composition(registry, _SPEC_KEY, spec)
+    policy_version = register_at_composition(registry, _POLICY_KEY, {"permitted_classifications": ["fixture-open"]}
     )
     return boot(
         backend="sqlite",
@@ -79,6 +79,7 @@ def _boot_by_hand(database_path: pathlib.Path) -> FabricHandle:
         resolution_spec_version=spec_version,
         policy_bundle_key=_POLICY_KEY,
         policy_bundle_version=policy_version,
+        tenant_ids=("tenant-direct",),
     )
 
 

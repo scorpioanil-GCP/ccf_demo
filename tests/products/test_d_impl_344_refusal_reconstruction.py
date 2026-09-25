@@ -107,6 +107,7 @@ from tests.products.test_d_impl_339_child_contract_view import (
     _wired,
 )
 from tests.products.test_resolver_seam import POLICY_BUNDLE_KEY, PRODUCT_CLASS, _arguments
+from tests.replay.authority import mechanism_put
 
 #: A second REQUIRED class the parent declares and nothing in the fixture
 #: produces — the blocking sibling of case 1.
@@ -226,7 +227,7 @@ def _reconstruct(
     booted: _Booted, outcome: Any, environment: Any
 ) -> tuple[RefusalReplayOutcome, FileArtifactStore]:
     """`replay_refusal` off a FRESH store instance — nothing the serve held."""
-    fresh = FileArtifactStore(root=booted.store.root)
+    fresh = FileArtifactStore(root=booted.store.root, write_kinds=booted.store.write_kinds)
     reconstructed = replay_refusal(
         record_address=_address_of(outcome, fresh),
         store=fresh,
@@ -246,13 +247,20 @@ class _SpyStore:
         self._refuse = refuse_class
         self.puts: list[str] = []
 
-    def put(self, *, tenant_id: str, artifact_class: str, name: str, artifact: Any) -> Any:
+    @property
+    def write_kinds(self) -> Any:
+        return self._inner.write_kinds
+
+    def put(self, authorized: Any, artifact: Any) -> Any:
+        # The class is the DerivedWrite's (mechanism-written) or the
+        # capability's resource prefix (an addressed write).
+        artifact_class = getattr(artifact, "artifact_class", None) or str(
+            getattr(authorized, "resource", "")
+        ).partition("/")[0]
         self.puts.append(artifact_class)
         if artifact_class == self._refuse:
             raise OSError(f"the store refused to file {artifact_class!r}")
-        return self._inner.put(
-            tenant_id=tenant_id, artifact_class=artifact_class, name=name, artifact=artifact
-        )
+        return self._inner.put(authorized, artifact)
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._inner, name)
@@ -269,9 +277,8 @@ def _wired_over(
         composite_children=children,
         artifact_store=store,
         refusal_recorder=ReplayRefusalRecorder(
+            authorized=recorder.authorized,  # the deployment's own composition mint, reused
             artifact_store=store,
-            replay_record_class=recorder.replay_record_class,
-            tenant_id=recorder.tenant_id,
             assembly_mode=recorder.assembly_mode,
             policy_bundle_pin=recorder.policy_bundle_pin,
         ),
@@ -307,7 +314,7 @@ def test_case_1_an_early_blocking_refusal_retains_the_admitted_sibling_and_runs_
     assert sibling.outcome_status == "no-producing-skill" and sibling.required
     assert sibling.child_content_address is None
 
-    fresh = FileArtifactStore(root=booted.store.root)
+    fresh = FileArtifactStore(root=booted.store.root, write_kinds=booted.store.write_kinds)
     assert fresh.exists(content_address=admitted.child_content_address)
     retained = ContextProductContract.model_validate_json(
         fresh.get(content_address=admitted.child_content_address)
@@ -521,7 +528,7 @@ def test_case_6_a_served_composite_replays_as_before_and_replay_refusal_refuses_
     assert path.assembly_refusal == NO_ASSEMBLY_REFUSAL
     assert path.product_content_address == content_hash(product)
     (address,) = _admitted_addresses(record)
-    fresh = FileArtifactStore(root=booted.store.root)
+    fresh = FileArtifactStore(root=booted.store.root, write_kinds=booted.store.write_kinds)
     assert fresh.exists(content_address=address)
 
     environment = _fresh_environment(booted, record)
@@ -571,9 +578,8 @@ def test_case_7_a_store_that_cannot_retain_fails_the_determination_before_any_re
         artifact_store=spy,
         plan_factory=_ChildReadingFactory(),
         refusal_recorder=ReplayRefusalRecorder(
+            authorized=recorder.authorized,
             artifact_store=spy,
-            replay_record_class=recorder.replay_record_class,
-            tenant_id=recorder.tenant_id,
             assembly_mode=recorder.assembly_mode,
             policy_bundle_pin=recorder.policy_bundle_pin,
         ),
@@ -690,8 +696,8 @@ def test_case_9_control_a_parent_scope_claim_that_names_a_foreign_class_is_refus
     forged = record.model_copy(
         update={"content_generation_path": path.model_copy(update={"assembly_refusal": forged_block})}
     )
-    fresh = FileArtifactStore(root=booted.store.root)
-    filed = fresh.put(tenant_id=TENANT, artifact_class="fixture.replay-record", name="forged", artifact=forged)
+    fresh = FileArtifactStore(root=booted.store.root, write_kinds=booted.store.write_kinds)
+    filed = mechanism_put(fresh, tenant=TENANT, artifact_class="fixture.replay-record", name="forged", artifact=forged)
     with pytest.raises(ReplayRecordKindMismatch, match="not the parent-scope refusal"):
         replay_refusal(
             record_address=filed.content_address,
@@ -796,8 +802,8 @@ def test_case_11_a_child_rebound_under_another_slot_refuses_with_a_row_and_recon
 
 
 def _refile(booted: _Booted, record: DecisionReplayRecord) -> tuple[str, FileArtifactStore]:
-    fresh = FileArtifactStore(root=booted.store.root)
-    filed = fresh.put(tenant_id=TENANT, artifact_class="fixture.replay-record", name="quadrant", artifact=record)
+    fresh = FileArtifactStore(root=booted.store.root, write_kinds=booted.store.write_kinds)
+    filed = mechanism_put(fresh, tenant=TENANT, artifact_class="fixture.replay-record", name="quadrant", artifact=record)
     return filed.content_address, fresh
 
 

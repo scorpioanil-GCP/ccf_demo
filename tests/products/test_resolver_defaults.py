@@ -115,6 +115,8 @@ from tests.products.test_resolver_seam import (
     REQUEST_CONTRACT_KEY,
     THRESHOLD_PARAMETER,
 )
+from tests.composition import declaring_store
+from ccf.products.composite import ADMITTED_CHILD_CONTRACT_CLASS
 
 # --- what this module adds to the fixture deployment ------------------------
 #
@@ -509,7 +511,16 @@ def _boot(
         yield _Booted(
             fabric=fabric,
             control_plane=control_plane,
-            store=FileArtifactStore(root=root / "artifacts"),
+            store=declaring_store(
+                root / "artifacts",
+                REPLAY_RECORD_CLASS,
+                QUERY_PIN_CLASS,
+                DECLARED_RECORD_CLASS,
+                DECLARED_QUERY_PIN_CLASS,
+                "fixture.explicit-replay-record",
+                "fixture.explicit-graph-query",
+                ADMITTED_CHILD_CONTRACT_CLASS,
+            ),
         )
     finally:
         fabric.handle.close()

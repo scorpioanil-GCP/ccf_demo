@@ -72,6 +72,10 @@ from tests.workflow.capabilities import (
     execute_capability,
     resume_as,
 )
+from tests.composition import register_typed_at_composition, register_versioned_at_composition
+from ccf.artifacts.protocol import WriteKinds
+from ccf.authz.capability import Execute, Resume
+from ccf_runtime.workflow.engine import WORKFLOW_TRACE_ARTIFACT_CLASS
 
 pytestmark = [pytest.mark.conformance]
 
@@ -111,7 +115,7 @@ def _register_declared(
             },
             artifact_class,
         )
-        registry.register_typed(reference["key"], declared, artifact_class)
+        register_typed_at_composition(registry, reference["key"], declared, artifact_class)
 
 
 class _Bindings:
@@ -147,8 +151,7 @@ class World:
         task = parse_artifact(task_fixture["task_definition"], TASK_DEFINITION)
         assert isinstance(task, TaskDefinition)
         workflow_fixture = _load("workflows/payment_release_workflow.yaml")
-        self.registry.register_versioned(
-            workflow_fixture["keys"]["task_definition"], task, TASK_DEFINITION
+        register_versioned_at_composition(self.registry, workflow_fixture["keys"]["task_definition"], task, TASK_DEFINITION
         )
         _register_declared(
             self.registry, workflow_fixture["referenced_artifacts"]
@@ -157,7 +160,10 @@ class World:
         self.bindings = _Bindings()
         self.engine = WorkflowEngine(
             control_plane=self.registry,
-            artifact_store=FileArtifactStore(root=tmp_path / "artifacts"),
+            artifact_store=FileArtifactStore(
+                root=tmp_path / "artifacts",
+                write_kinds=WriteKinds.declare({WORKFLOW_TRACE_ARTIFACT_CLASS: (Execute, Resume)}),
+            ),
             hitl_transport=self.transport,
             skill_binding=self.bindings,
             agent_binding=self.bindings,
@@ -178,8 +184,7 @@ class World:
         key = fixture["keys"]["workflow_definition"]
         if mutations:
             key = f"{definition.tenant}/workflows/{definition.name}"
-        version = self.registry.register_versioned(
-            key, definition, WORKFLOW_DEFINITION
+        version = register_versioned_at_composition(self.registry, key, definition, WORKFLOW_DEFINITION
         )
         assert isinstance(version, str)
         return WorkflowFactory(control_plane=self.registry).construct(

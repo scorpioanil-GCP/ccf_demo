@@ -92,6 +92,8 @@ from ccf.replay.engine import (
     resolve_artifact,
     resolve_artifact_at_uri,
 )
+from tests.composition import register_at_composition, register_typed_at_composition
+from tests.composition import composition_replay_mint, declaring_store
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "banking"
 
@@ -274,12 +276,12 @@ def store(tmp_path: Path) -> FileArtifactStore:
     record "persist" into something no deployment could resolve it from, which is
     the class of false green this file exists to prevent.
     """
-    return FileArtifactStore(root=tmp_path / "artifacts")
+    return declaring_store(tmp_path / "artifacts", ADMISSION_RECORD.class_id)
 
 
 @pytest.fixture
 def product_class(registry: ControlPlaneRegistry) -> RegisteredProductClass:
-    version = registry.register(MAX_TTL_KEY, MaxTTL(seconds=300))
+    version = register_at_composition(registry, MAX_TTL_KEY, MaxTTL(seconds=300))
     return register_product_class(
         registry=registry,
         schema_name=PRODUCT_CLASS["schema_name"],
@@ -299,8 +301,7 @@ def _build_gate(
     product_class: RegisteredProductClass,
     artifact_store: Any,
 ) -> PeeringAdmissionGate:
-    policy_version = registry.register_typed(
-        trust_policy_key(tenant_id=TENANT),
+    policy_version = register_typed_at_composition(registry, trust_policy_key(tenant_id=TENANT),
         PeeringTrustPolicy(
             semver=POLICY_SEMVER,
             tenant_id=TENANT,
@@ -317,8 +318,7 @@ def _build_gate(
         ),
         PEERING_TRUST_POLICY,
     )
-    ceiling_version = registry.register_typed(
-        payload_ceiling_key(tenant_id=TENANT),
+    ceiling_version = register_typed_at_composition(registry, payload_ceiling_key(tenant_id=TENANT),
         InboundPayloadCeiling(
             semver=POLICY_SEMVER, max_payload_bytes=CEILING_BYTES
         ),
@@ -329,7 +329,9 @@ def _build_gate(
         control_plane=registry,
         audit_log=registry.audit_log,
         artifact_store=artifact_store,
-        tenant_id=TENANT,
+        authorized=composition_replay_mint(
+            registry, tenant=TENANT, artifact_class=ADMISSION_RECORD.class_id
+        ),
         trust_policy_version=policy_version,
         payload_ceiling_version=ceiling_version,
         product_classes={PRODUCT_CLASS["schema_name"]: product_class},
@@ -494,7 +496,7 @@ def test_a_store_outage_is_not_reported_as_an_admission(
     """
 
     class _BrokenStore:
-        def put(self, **_: Any) -> ArtifactRef:
+        def put(self, *_: Any, **__: Any) -> ArtifactRef:
             raise ArtifactStoreError("the substrate is unreachable")
 
         def get(self, *, content_address: str) -> bytes:

@@ -48,6 +48,7 @@ from ccf.signal.envelope import SourceIdentity
 # second real distribution whose only purpose is to claim a name it must not
 # have would be a liability in the tree for a fact a fixture already proves.
 from graph.test_backend_registry import _entry_point, _entry_points
+from tests.composition import register_at_composition
 
 if TYPE_CHECKING:
     from ccf.boot import FabricHandle
@@ -96,9 +97,8 @@ def demo_boot(banking_spec: Any) -> Iterator[Callable[[str], "FabricHandle"]]:
 
     def factory(graph_name: str) -> "FabricHandle":
         control_plane = ControlPlaneRegistry()
-        spec_version = control_plane.register(SPEC_KEY, banking_spec)
-        policy_version = control_plane.register(
-            POLICY_KEY, {"regime": "test-fixture"}
+        spec_version = register_at_composition(control_plane, SPEC_KEY, banking_spec)
+        policy_version = register_at_composition(control_plane, POLICY_KEY, {"regime": "test-fixture"}
         )
         handle = boot(
             backend=ADAPTER,
@@ -108,6 +108,7 @@ def demo_boot(banking_spec: Any) -> Iterator[Callable[[str], "FabricHandle"]]:
             resolution_spec_version=spec_version,
             policy_bundle_key=POLICY_KEY,
             policy_bundle_version=policy_version,
+            tenant_ids=(TENANT,),
         )
         handles.append(handle)
         return handle

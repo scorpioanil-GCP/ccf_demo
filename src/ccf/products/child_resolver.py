@@ -53,7 +53,8 @@ from datetime import datetime
 
 from typing import Any
 
-from ccf.artifacts.protocol import ArtifactStoreProtocol
+from ccf.artifacts.protocol import ArtifactStoreProtocol, DerivedWrite
+from ccf.authz.capability import Authorized, ReplayMint, verify
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.peering.admission import AdmittedProduct, PeeringAdmissionGate
@@ -101,7 +102,20 @@ __all__ = [
     "ChildRecordMismatch",
     "GrantBoundChildResolver",
     "QuestionBoundChildResolver",
+    "QuestionRetentionUnauthorized",
 ]
+
+
+class QuestionRetentionUnauthorized(PermissionError):
+    """The child-question capability does not cover the gate's tenant (D-IMPL-353 §1.3).
+
+    A :class:`QuestionBoundChildResolver` files each question's identity bytes
+    under its ``Authorized[ReplayMint]``'s tenant; the gate admits children for
+    its own tenant. The two are one deployment's one consumer tenant, compared
+    once at construction, so a question can never be retained under a tenant
+    other than the one whose composite asked it. Raised, never returned —
+    broken composition, not a governance outcome.
+    """
 
 
 class ChildRecordMismatch(ValueError):
@@ -663,6 +677,16 @@ class QuestionBoundChildResolver:
     Args:
         child_questions: The deployment's mapping from a requirement and the
             composite's effective request to the child's question.
+        authorized: The composition-minted ``Authorized[ReplayMint]`` for
+            :data:`~ccf.products.composite.CHILD_QUESTION_CLASS` (D-IMPL-353
+            §1.2, §2 P3; D-IMPL-354) — the capability under which this
+            resolver files each question's identity bytes. **This resolver is
+            not a composition root**: the deployment that composes it
+            (:func:`~ccf.products.product.open_product`, or a test or example
+            composing by hand) mints it and hands it in. Verified here, at
+            construction, against exactly the child-question class, and its
+            tenant is held equal to the gate's — one consumer tenant, compared
+            once (§1.3).
         child_arguments: Optional. The legacy mapping, for non-``mcp_product``
             entries granted to the same agent.
         (every other argument): exactly as :class:`GrantBoundChildResolver`.
@@ -674,6 +698,7 @@ class QuestionBoundChildResolver:
         ledger: GrantLedger,
         agent_definition_hash: str,
         gate: CompositeAdmissionGate,
+        authorized: Authorized[ReplayMint],
         child_questions: ChildQuestions,
         callable_registry: CallableRegistry,
         artifact_store: ArtifactStoreProtocol,
@@ -682,6 +707,17 @@ class QuestionBoundChildResolver:
         peering_gate: PeeringAdmissionGate | None = None,
         child_arguments: ChildArguments | None = None,
     ) -> None:
+        # The capability first: kind, mint and resource by identity, before
+        # anything about this resolver exists (D-IMPL-353 §1.5).
+        verify(authorized, kind=ReplayMint, resource=CHILD_QUESTION_CLASS)
+        if authorized.tenant != gate.tenant_id:
+            raise QuestionRetentionUnauthorized(
+                f"the child-question capability is for tenant"
+                f" {authorized.tenant!r} and the admission gate admits for"
+                f" {gate.tenant_id!r}; a composite retains its questions under"
+                " the one consumer tenant it admits for (D-IMPL-353 §1.3)"
+            )
+        self._authorized = authorized
         self._questions = child_questions
         self._legacy = GrantBoundChildResolver(
             ledger=ledger,
@@ -791,7 +827,8 @@ class QuestionBoundChildResolver:
         five-member preimage whose canonical bytes
         :func:`~ccf.skills.dispatch.question_identity` hashes — filed under
         :data:`~ccf.products.composite.CHILD_QUESTION_CLASS`, named by the
-        address, under the consumer tenant the gate admits for. Idempotent by
+        address, under the capability's tenant — the consumer tenant the gate
+        admits for, held equal at construction. Idempotent by
         the store's construction: the same question asked twice files once.
 
         The store's address for the bytes must equal the question's address —
@@ -810,11 +847,17 @@ class QuestionBoundChildResolver:
         """
         legacy = self._legacy
         address = sent.address
+        # A derived write under the composition-minted capability (D-IMPL-353
+        # §1.2): the class is the SDK's, the name is the question's own
+        # address, and the tenant is the capability's — held equal to the
+        # gate's at construction.
         filed = legacy._store.put(
-            tenant_id=legacy._gate.tenant_id,
-            artifact_class=CHILD_QUESTION_CLASS,
-            name=address,
-            artifact=sent.identity_artifact(),
+            self._authorized,
+            DerivedWrite(
+                artifact_class=CHILD_QUESTION_CLASS,
+                name=address,
+                artifact=sent.identity_artifact(),
+            ),
         )
         if filed.content_address != address:
             raise RuntimeError(

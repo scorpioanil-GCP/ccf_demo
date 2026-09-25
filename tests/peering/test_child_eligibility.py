@@ -38,6 +38,7 @@ from ccf.peering.eligibility import (
     mint_eligibility_assertion,
     verify_child_eligibility,
 )
+from tests.composition import register_typed_at_composition
 
 TENANT = "tenant-composite"
 CONSUMER_SCOPE = "consumer://memo-desk"
@@ -57,8 +58,7 @@ def registry() -> ControlPlaneRegistry:
 def declare_bound(
     registry: ControlPlaneRegistry, *, max_age: int = 3600, skew: int = 60
 ) -> None:
-    registry.register_typed(
-        eligibility_evidence_policy_key(tenant_id=TENANT),
+    register_typed_at_composition(registry, eligibility_evidence_policy_key(tenant_id=TENANT),
         EligibilityEvidencePolicy(
             max_evidence_age_seconds=max_age, permitted_clock_skew_seconds=skew
         ),

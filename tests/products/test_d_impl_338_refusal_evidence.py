@@ -118,7 +118,7 @@ def _reload(booted: _Booted, shell: RefusalEnvelope) -> DecisionReplayRecord:
     memory can answer for what was persisted — the ruling's *"test against
     reloaded persisted records"*.
     """
-    fresh = FileArtifactStore(root=booted.store.root)
+    fresh = FileArtifactStore(root=booted.store.root, write_kinds=booted.store.write_kinds)
     return DecisionReplayRecord.model_validate_json(
         fresh.get(content_address=fresh.resolve_uri(uri=shell.replay_reference))
     )
