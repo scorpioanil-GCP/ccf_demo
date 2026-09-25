@@ -149,10 +149,12 @@ authentication, deciding nothing, and labelled as such in its own docstring.
 **What would close it.** `TenantAuthorizerProtocol`
 (`runtime/ccf_runtime/authz/protocol.py::TenantAuthorizerProtocol`) with new action ids beside the
 three at `src/ccf/authz/actions.py::ACTION_PRODUCT_RETRIEVE`, plus an
-adopter-registered policy artifact — the shape the HITL door already carries at
-`runtime/ccf_runtime/mcp/hitl_server.py::_enforce_tenant_authz`. `D-IMPL-129` records that
-precedent under a path that does not exist; the correct one is the `mcp/` path
-above. That is a new required builder seam and a new artifact type, authorised
+adopter-registered policy artifact — the shape the HITL door carried at the
+time as a per-body `_enforce_tenant_authz` helper in
+`runtime/ccf_runtime/mcp/hitl_server.py` (removed under `D-IMPL-353` §2 P4: the
+tenancy wrapper now mints the body's capability from the authorizer's decision,
+and no body holds an authorizer). `D-IMPL-129` records that precedent under a
+path that does not exist; the correct one is the `mcp/` path above. That is a new required builder seam and a new artifact type, authorised
 by nothing so far, and **no owner is assigned**.
 
 **The corroborating measurement, because it shows the cost of the SDK requiring

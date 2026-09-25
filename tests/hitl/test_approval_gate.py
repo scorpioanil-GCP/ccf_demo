@@ -29,6 +29,7 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
+from ccf.authz.capability import Authorized, HitlSubmit
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.audit import AuditLog
 from ccf.hitl.approval_gate import (
@@ -51,6 +52,8 @@ from ccf.hitl.transport import (
 )
 from ccf.skills.grants import ApprovalOutcome
 
+from .capabilities import submit_capability
+
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "banking"
 
 
@@ -59,6 +62,17 @@ def _hitl() -> dict[str, Any]:
         (FIXTURES / "hitl.yaml").read_text()
     )
     return loaded
+
+
+def _authorized(tenant: str, event_key: str) -> Authorized[HitlSubmit]:
+    """The capability a resolver presents (D-IMPL-353 §1.2): minted for
+    exactly this tenant and event, for the fixture's credit officer — the
+    subject every binding below names, so the transport's actor check and
+    the capability agree."""
+    subject = _hitl()["approvers"]["credit_officer"]["identity"]["subject_id"]
+    return submit_capability(
+        tenant=tenant, principal=subject, event_key=event_key
+    )
 
 
 def _clock() -> Any:
@@ -107,7 +121,6 @@ def test_a_submission_without_a_binding_is_unrepresentable() -> None:
     with pytest.raises(ValidationError):
         HitlActionSubmission(  # type: ignore[call-arg]
             event_key=event.event_key,
-            tenant=event.tenant,
             action="approve",
         )
 
@@ -118,7 +131,7 @@ def test_an_approval_is_an_audited_typed_resolution() -> None:
     event = _event(fixture)
     transport.enqueue(event=event)
     resolution = gate.resolve(
-        tenant=event.tenant,
+        _authorized(event.tenant, event.event_key),
         event_key=event.event_key,
         action="approve",
         principal=_principal(
@@ -142,7 +155,7 @@ def test_a_rejection_is_a_returned_value_with_a_resolved_false_audit() -> None:
     event = _event(fixture)
     transport.enqueue(event=event)
     resolution = gate.resolve(
-        tenant=event.tenant,
+        _authorized(event.tenant, event.event_key),
         event_key=event.event_key,
         action="reject",
         principal=_principal(
@@ -164,7 +177,7 @@ def test_a_toctou_hash_mismatch_is_a_returned_audited_refusal() -> None:
     mutated_hash = content_hash({"mutated": "product"})
     assert mutated_hash != event.product_content_hash
     refusal = gate.resolve(
-        tenant=event.tenant,
+        _authorized(event.tenant, event.event_key),
         event_key=event.event_key,
         action="approve",
         principal=_principal(fixture, product_content_hash=mutated_hash),
@@ -185,7 +198,7 @@ def test_resolving_an_unknown_event_raises() -> None:
     event = _event(fixture)
     with pytest.raises(UnknownGateEventError):
         gate.resolve(
-            tenant=event.tenant,
+            _authorized(event.tenant, "no-such-event"),
             event_key="no-such-event",
             action="approve",
             principal=_principal(
@@ -202,7 +215,7 @@ def test_the_resolution_carries_the_preserialized_dim_2_block() -> None:
     event = _event(fixture)
     transport.enqueue(event=event)
     resolution = gate.resolve(
-        tenant=event.tenant,
+        _authorized(event.tenant, event.event_key),
         event_key=event.event_key,
         action="approve",
         principal=_principal(
@@ -302,7 +315,7 @@ def test_gate_required_and_unsigned_resolve_is_refused_event_pending(
     )
     with pytest.raises(SignedBindingRequiredRefused):
         gate.resolve(
-            tenant=event.tenant,
+            _authorized(event.tenant, event.event_key),
             event_key=event.event_key,
             action="approve",
             principal=principal,
@@ -313,7 +326,7 @@ def test_gate_required_and_unsigned_resolve_is_refused_event_pending(
     # A subsequent valid resolve of the SAME event succeeds.
     signed = sign_principal_binding(principal, provider=provider, key_id=kid)
     resolution = gate.resolve(
-        tenant=event.tenant,
+        _authorized(event.tenant, event.event_key),
         event_key=event.event_key,
         action="approve",
         principal=principal,
@@ -341,7 +354,7 @@ def test_gate_required_and_tampered_binding_is_refused_event_pending(
     )
     with pytest.raises(SignedBindingInvalidRefused):
         gate.resolve(
-            tenant=event.tenant,
+            _authorized(event.tenant, event.event_key),
             event_key=event.event_key,
             action="approve",
             principal=principal,
@@ -366,7 +379,7 @@ def test_gate_required_and_valid_binding_passes_both_layers(
     )
     signed = sign_principal_binding(principal, provider=provider, key_id=kid)
     resolution = gate.resolve(
-        tenant=event.tenant,
+        _authorized(event.tenant, event.event_key),
         event_key=event.event_key,
         action="approve",
         principal=principal,
@@ -385,7 +398,7 @@ def test_gate_unbound_kwargs_behave_as_before() -> None:
     event = _event(fixture)
     transport.enqueue(event=event)
     resolution = gate.resolve(
-        tenant=event.tenant,
+        _authorized(event.tenant, event.event_key),
         event_key=event.event_key,
         action="approve",
         principal=_principal(
@@ -403,3 +416,86 @@ def test_decide_with_no_bound_decision_raises_a_typed_error() -> None:
     adapter = ApprovalSinkAdapter()
     with pytest.raises(UnboundDecisionError):
         adapter.decide(object())  # type: ignore[arg-type]
+
+
+# --- D-IMPL-353 §1.2: the primitive requires the capability for ITS action ----
+#
+# The resolver mutates (``remove`` claims the event) and audits (a hash
+# mismatch writes ``resolved=False``) BEFORE it submits, so the capability
+# is verified at entry — a wrong kind or a capability minted for another
+# event dies before the queue is read, before anything is audited, and
+# before any claim is taken. Without these controls, severing ``verify`` at
+# the primitive would redden nothing.
+
+
+def test_a_queue_read_capability_dies_at_the_primitive_before_anything_is_touched() -> None:
+    from ccf.authz.capability import CapabilityBypassError
+
+    from .capabilities import queue_read_capability
+
+    fixture = _hitl()
+    gate, transport, audit = _gate()
+    event = _event(fixture)
+    transport.enqueue(event=event)
+    transport.enqueue(
+        event=PendingHitlEvent(
+            event_key=event.event_key + "-decoy",
+            event_class="approval-gate",
+            tenant=event.tenant,
+            workflow_state_ref="decoy/exec",
+            product_content_hash="e" * 64,
+        )
+    )
+    # Two events, so a claim taken BEFORE the capability died (and given back
+    # at the tail on rollback) shows up as a reorder rather than as nothing.
+    pending_before = transport.pending(tenant=event.tenant)
+    assert len(pending_before) == 2
+    audit_before = audit.events()
+    principal = _principal(fixture, product_content_hash=event.product_content_hash)
+    read = queue_read_capability(
+        tenant=event.tenant, principal="credit-officer-11", resource=event.event_key
+    )
+    with pytest.raises(CapabilityBypassError, match="kind"):
+        gate.resolve(
+            read,  # type: ignore[arg-type]
+            event_key=event.event_key,
+            action="approve",
+            principal=principal,
+        )
+    assert transport.pending(tenant=event.tenant) == pending_before
+    assert transport.submissions(tenant=event.tenant) == ()
+    assert audit.events() == audit_before
+
+
+def test_a_capability_for_another_event_dies_at_the_primitive() -> None:
+    from ccf.authz.capability import CapabilityBypassError
+
+    fixture = _hitl()
+    gate, transport, audit = _gate()
+    event = _event(fixture)
+    transport.enqueue(event=event)
+    transport.enqueue(
+        event=PendingHitlEvent(
+            event_key=event.event_key + "-decoy",
+            event_class="approval-gate",
+            tenant=event.tenant,
+            workflow_state_ref="decoy/exec",
+            product_content_hash="e" * 64,
+        )
+    )
+    # Two events, so a claim taken BEFORE the capability died (and given back
+    # at the tail on rollback) shows up as a reorder rather than as nothing.
+    pending_before = transport.pending(tenant=event.tenant)
+    assert len(pending_before) == 2
+    audit_before = audit.events()
+    principal = _principal(fixture, product_content_hash=event.product_content_hash)
+    with pytest.raises(CapabilityBypassError, match="resource"):
+        gate.resolve(
+            _authorized(event.tenant, "some-other-event"),
+            event_key=event.event_key,
+            action="approve",
+            principal=principal,
+        )
+    assert transport.pending(tenant=event.tenant) == pending_before
+    assert transport.submissions(tenant=event.tenant) == ()
+    assert audit.events() == audit_before

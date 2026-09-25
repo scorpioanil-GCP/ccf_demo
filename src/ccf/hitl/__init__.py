@@ -61,7 +61,9 @@ from ccf.hitl.identity_binding import (
     verify_principal_binding,
 )
 from ccf.hitl.principal import (
+    AUTHENTICATION_CLAIM,
     ApproverIdentity,
+    AuthenticationClaims,
     AuthenticationContext,
     HumanPrincipalBinding,
 )
@@ -78,9 +80,11 @@ from ccf.hitl.transport import (
     HITL_EVENT_CLASSES,
     HITLTransportProtocol,
     HitlActionReceipt,
+    HitlActionRequest,
     HitlActionSubmission,
     InMemoryHitlTransport,
     PendingHitlEvent,
+    PrincipalMismatchRefused,
 )
 from ccf.hitl.webhook import (
     HitlEventNotification,
@@ -129,14 +133,18 @@ __all__ = [
     "HitlActionRecord",
     "UnboundDecisionError",
     "UnknownGateEventError",
+    "AUTHENTICATION_CLAIM",
+    "AuthenticationClaims",
     "AuthenticationContext",
     "HITLTransportProtocol",
     "HitlActionReceipt",
+    "HitlActionRequest",
     "HitlActionSubmission",
     "HitlEventNotification",
     "HumanPrincipalBinding",
     "InMemoryHitlTransport",
     "PendingHitlEvent",
+    "PrincipalMismatchRefused",
     "RecordingWebhookDeliverer",
     "WebhookDeliveryOutcome",
     "WebhookDeliveryProtocol",
