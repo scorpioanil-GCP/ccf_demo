@@ -68,7 +68,7 @@ handle, its action, and the signature before and after.
 |---|---|---|---|
 | `ControlPlaneRegistry.register` / `register_typed` / `register_versioned` | `Authorized[Register]` | `(key, artifact, ...)` | `(authorized, artifact, ...)` — **`key` is `authorized.resource`** |
 | `ControlPlaneStateStore.put` (both implementations) | `Authorized[StateWrite]` | `(record_class, key, record, token)` | `(authorized, record_class, record, token)` — **`key` is derived from `authorized.tenant` + `authorized.resource`** |
-| `ArtifactStoreProtocol.put` (both implementations) | `Authorized[ArtifactWrite]` | `(tenant_id, artifact_class, name, artifact, *, minted)` | `(authorized, artifact_class, name, artifact)` — **`tenant_id` and `minted` are deleted** |
+| `ArtifactStoreProtocol.put` (both implementations) | `Authorized[ArtifactWrite]` | `(tenant_id, artifact_class, name, artifact, *, minted)` | `(authorized, artifact)` — **`tenant_id`, `minted`, `artifact_class` and `name` are deleted**; class and name are `authorized.resource` (`"<class>/<name>"`, the same segments the naming key already uses) |
 | `ArtifactStoreProtocol.get` / `govern_dereference` / every tenant-scoped read | `Authorized[ArtifactRead]` | `(grant, ...)` / `(content_address)` | `(authorized, ...)` |
 | `WorkflowFactory.construct` | `Authorized[Execute]` or `Authorized[Resume]` | `(definition_key, definition_version)` | `(authorized, definition_version)` — **`definition_key` is `authorized.resource`** |
 | `WorkflowEngine.execute` | `Authorized[Execute]` | `(workflow, *, execution_id, ...)` | `(authorized, workflow, *, execution_id, ...)` |
@@ -207,13 +207,17 @@ wrong kind, are rejected at use — and only that. Neither replaces the other. A
 design claim that names only one of them is incomplete, and §9's controls test
 each separately.
 
-**(f) Resource follows tenant.** The handle acts on `authorized.resource` as it
-acts on `authorized.tenant`: where the target is the resource (a key), the handle
-has no parameter for it; where the resource is a class of thing, the handle's
-one comparison — inside the handle, beside `_verify` — is that the thing it is
-about to touch is that resource. This is not a second authorization decision; it
-is the handle refusing to act on something other than what it was handed a
-capability for.
+**(f) Resource follows tenant — the mint is kind + resource + tenant + principal,
+not kind alone.** `Authorized[ArtifactWrite]` for artifact X is not a write wand
+for artifact Y. The handle acts on `authorized.resource` as it acts on
+`authorized.tenant`: **a handle that takes a target takes it only from
+`authorized.resource`** and has no caller-supplied parameter for it — the
+registry key, the artifact class and name, the workflow definition key, the state
+key. Where a handle is handed a target by an inner caller anyway (a resolver
+building an artifact from parts), `_verify` takes the target and refuses by
+identity of the resource string, beside the kind and the mint, before the
+handle's first statement. This is not a second authorization decision; it is
+the same tooth as (c), applied to the resource axis.
 
 ---
 
@@ -399,6 +403,12 @@ finding whose closure in §2 reads as a *check* is a defect in this document.
      carries no `# type: ignore`; (ii) with the type error forced past via a
      `cast` in a second, quarantined file, `_verify` raises at use before any
      state changes, and the test asserts nothing was written under tenant A.
+   - **Negative control — wrong resource, right kind.** Mint a genuine
+     `Authorized[ArtifactWrite]` for artifact X under tenant A. Force a put of
+     artifact Y through it (the store has no `name` parameter, so this means a
+     resolver-side construction that hands `_verify` a target other than
+     `authorized.resource`). `_verify` dies; the test asserts nothing exists
+     under tenant A at Y's address and nothing at X's either.
    - **Positive control — right kind.** Mint `Authorized[ArtifactWrite]` for
      that exact action and resource under tenant A; `put` runs, files under
      `authorized.tenant` only, and the resulting audit event carries the
@@ -410,9 +420,11 @@ finding whose closure in §2 reads as a *check* is a defect in this document.
    include: *remove the kind check from `_verify` (mint check alone)*, *make
    `Authorized` non-generic*, *mint from a stub sentinel*, *restore `tenant_id`
    on `put`*, *restore `.tenant` on the grant*, *reinstate
-   `TenantedTokenGrant`*. Each must redden a named test — and severing the kind
-   check alone must redden the negative control's runtime half while leaving its
-   static half green, proving the two teeth are two.
+   `TenantedTokenGrant`*, *drop the resource bind from `_verify`*. Each must
+   redden a named test — and two severings prove the teeth are two: dropping the
+   **kind** check alone reddens the wrong-kind control's runtime half and leaves
+   its static half green; dropping the **resource** bind alone reddens the
+   wrong-resource control's runtime half.
 7. The panel accepts, or names what it rejects, and every finding is verified
    against the tree before it is recorded.
 
