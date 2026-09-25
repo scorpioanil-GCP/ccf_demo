@@ -57,13 +57,34 @@ A new type, `ccf_runtime.authz.capability.Authorized`, mirroring
   Nothing else in `src/`, `runtime/`, `examples/` or `tools/` may name the
   sentinel. A lint (§4) refuses a third mint site.
 
-### 1.2 Every mutating handle and every tenant-read handle REQUIRES it
+### 1.2 Every mutating handle and every tenant-read handle REQUIRES the capability FOR ITS OWN ACTION
 
-Not "checks it". *Requires it*, as a positional-or-keyword parameter with no
-default, verified by identity on entry — exactly as `InMemoryStateStore.put`
-requires and verifies the `StateWriteToken`.
+Not "checks it". *Requires it*, as a parameter with no default — and **not a
+generic `Authorized`**. Each handle's parameter is the capability for the one
+action that handle performs. See §1.5 for the binding; this table names the
+handle, its action, and the signature before and after.
 
-The handles, with today's signature and the new one:
+| handle | action type required | today | after |
+|---|---|---|---|
+| `ControlPlaneRegistry.register` / `register_typed` / `register_versioned` | `Authorized[Register]` | `(key, artifact, ...)` | `(authorized, artifact, ...)` — **`key` is `authorized.resource`** |
+| `ControlPlaneStateStore.put` (both implementations) | `Authorized[StateWrite]` | `(record_class, key, record, token)` | `(authorized, record_class, record, token)` — **`key` is derived from `authorized.tenant` + `authorized.resource`** |
+| `ArtifactStoreProtocol.put` (both implementations) | `Authorized[ArtifactWrite]` | `(tenant_id, artifact_class, name, artifact, *, minted)` | `(authorized, artifact_class, name, artifact)` — **`tenant_id` and `minted` are deleted** |
+| `ArtifactStoreProtocol.get` / `govern_dereference` / every tenant-scoped read | `Authorized[ArtifactRead]` | `(grant, ...)` / `(content_address)` | `(authorized, ...)` |
+| `WorkflowFactory.construct` | `Authorized[Execute]` or `Authorized[Resume]` | `(definition_key, definition_version)` | `(authorized, definition_version)` — **`definition_key` is `authorized.resource`** |
+| `WorkflowEngine.execute` | `Authorized[Execute]` | `(workflow, *, execution_id, ...)` | `(authorized, workflow, *, execution_id, ...)` |
+| `WorkflowEngine.resume` | `Authorized[Resume]` | `(workflow, *, execution_id, decision)` | `(authorized, workflow, *, execution_id, decision)` |
+| `HITLTransportProtocol.submit` | `Authorized[HitlSubmit]` | `(*, submission)` | `(authorized, *, submission)` |
+| `GrantLedger.request` / `revoke` | `Authorized[GrantMutate]` | `(..., actor)` | `(authorized, ...)` — **`actor` is deleted**; the actor is `authorized.principal` |
+| MCP `TenantGuardedServer` tool/resource bodies | the body's declared action type | raw arguments | `authorized` as first argument, minted by the wrapper for that body's declared action |
+
+Where a handle's target IS the resource the authorizer decided on — the
+registry key, the workflow definition key, the state key — the handle **takes it
+from the capability** and has no caller-supplied parameter for it. Where the
+resource is a class of thing (an artifact class under a write action), the
+handle acts on `authorized.resource` the same way. There is no second source for
+tenant, principal, *or* resource.
+
+The old handles table follows for the record of what each signature was:
 
 | handle | today | after |
 |---|---|---|
@@ -118,6 +139,82 @@ to pass; the call is a `mypy --strict` error; the build fails.
 **`mypy --strict` is therefore the primary lint.** Not a grep I wrote — the type
 checker this project already runs on every commit.
 
+### 1.5 THE BINDING CLAUSE — what a minted `Authorized` permits, and only that
+
+*Added 2026-09-24 after ChatGPT's review question and Dave's ruling: "Authorized
+that is only (tenant, principal) is ambient tenant authority. That is a new
+defect, not a fix." As first written, §1.1 bound `action` at mint but §1.2 had
+handles verify only the mint. This clause is the contract; §1.2 above is its
+application.*
+
+**(a) The mint binds the authorizer's whole decision.** A capability is minted
+for exactly one `(tenant, principal, action, resource)` — the four values the
+authorizer returned *allowed* for — plus the `decision_id` of that audit event.
+Nothing is minted from a partial decision. The gate calls the authorizer once
+per request with the door-declared action and the resolved resource, and mints
+from that answer or refuses.
+
+**(b) The action is part of the TYPE, not only a field.** `Authorized` is
+generic over an action kind:
+
+```python
+class ActionKind: ...                    # marker; never instantiated
+class ArtifactRead(ActionKind): ...
+class ArtifactWrite(ActionKind): ...
+class Register(ActionKind): ...
+class StateWrite(ActionKind): ...
+class Execute(ActionKind): ...
+class Resume(ActionKind): ...
+class HitlSubmit(ActionKind): ...
+class GrantMutate(ActionKind): ...
+# one subclass per door-declared action id; the existing ACTION_* strings
+# become the .id of these kinds rather than free-standing constants
+
+class Authorized(Generic[A]):            # A bound to ActionKind
+    __slots__ = ("_minted", "kind", "tenant", "principal", "resource", "decision_id")
+```
+
+A handle that performs an artifact write is typed `authorized:
+Authorized[ArtifactWrite]`. A handle that resumes a workflow is typed
+`authorized: Authorized[Resume]`. `Authorized[ArtifactRead]` is not assignable
+to either. **That is the static tooth.** A handler holding a read capability
+cannot pass it to a write handle without a `# type: ignore` — which §4's lint
+refuses in `runtime/` and `src/`.
+
+**(c) The handle verifies the kind by identity, beside the mint.** On entry,
+every handle runs `_verify(authorized, kind=ArtifactWrite)`, which checks
+**both** `authorized._minted is _SENTINEL` **and** `authorized.kind is
+ArtifactWrite`. Identity, not `isinstance`, not `==`: a subclass, a `Mock`, an
+`object()`, a capability with `kind` overwritten, or a genuine capability of
+another kind all fail the same way at the same line. **That is the runtime
+tooth.** It exists because types do not run: a `# type: ignore`, a call from
+untyped code, a `cast`, or a dynamically built argument list all reach the
+handle with whatever object they carry, and the handle must not trust the
+annotation.
+
+**(d) Reuse across actions is therefore unrepresentable, not refused later.**
+There is no code path in which a read-minted capability *arrives at* a write
+handle and is turned away by a policy lookup. It does not type-check, and if it
+is forced through anyway it dies at `_verify` before the handle's first real
+statement — the same place and the same way a fabricated one dies. No handle
+contains an action check *after* that line, because after that line the action
+is known to be its own.
+
+**(e) The two teeth are two teeth.** Static enforcement means a *checked*
+handler cannot omit or mis-type the capability — and only that. Runtime
+enforcement means a fabricated capability, and a genuine capability of the
+wrong kind, are rejected at use — and only that. Neither replaces the other. A
+design claim that names only one of them is incomplete, and §9's controls test
+each separately.
+
+**(f) Resource follows tenant.** The handle acts on `authorized.resource` as it
+acts on `authorized.tenant`: where the target is the resource (a key), the handle
+has no parameter for it; where the resource is a class of thing, the handle's
+one comparison — inside the handle, beside `_verify` — is that the thing it is
+about to touch is that resource. This is not a second authorization decision; it
+is the handle refusing to act on something other than what it was handed a
+capability for.
+
 ---
 
 ## 2. What becomes inexpressible
@@ -129,7 +226,7 @@ rather than trusting the list.
 |---|---|
 | **P2** cross-tenant workflow invocation / agent declaration | the engine and registry have no tenant but `authorized.tenant`; the artifact's declared tenant is checked once at factory construction against the capability and never consulted again |
 | **P1** the HTTP door refusing every real credential | there is one reader, `tenants_of_grant`, over the one field, `tenants`; `.tenant` and the test-only `TenantedTokenGrant` are deleted, so the fixture cannot pass a shape production never mints |
-| **P3** the governed-class store guard inert by default | a client cannot reach `ArtifactStoreProtocol.put` without a capability; a capability's `action` is checked against the class's declared write action at the store — a `decision-replay-record` write needs `replay.mint`, which no door declares, so no served surface can mint one. `GovernedWriteHandle` is retired: the capability's action IS the mint |
+| **P3** the governed-class store guard inert by default | `ArtifactStoreProtocol.put` requires `Authorized[ArtifactWrite]`; writing a governed record class requires `Authorized[ReplayMint]`, a distinct kind (§1.5b) that **no door declares an action for**, so no served surface can obtain one. The fabric's own replay writer is handed a `ReplayMint` capability at composition by the deployment, not minted by a gate. `GovernedWriteHandle` and `minted=` are retired: the kind IS the mint |
 | **P4** MCP HITL authorizer optional | the MCP body receives `authorized` from the wrapper or receives nothing; there is no `authorizer=None` arm because there is no `authorizer` parameter on the body |
 | **P5** untenanted MCP artifact read by hash | `govern_dereference` requires `authorized`; the blob/meta resources go through it because there is no other way to call the store's read |
 | **P6** caller-typed assurance on the approval record | `HumanPrincipalBinding` is minted by the door from `authorized` + the verified token's claims + the server clock; the body carries `product_content_hash` and `annotation` and nothing else — the assurance field is deleted from the request contract |
@@ -292,11 +389,31 @@ finding whose closure in §2 reads as a *check* is a defect in this document.
    `authorized`. Demonstrated by a committed negative control that is
    `# type: ignore`-free and red.
 4. The lint is **red at `d895d889`** and green at the tip.
-5. Sabotage on the merged tree, each guard severed alone — and the severings
-   include: *mint `Authorized` from a stub sentinel*, *pass a `Mock` as
-   `authorized`*, *restore `tenant_id` on `put`*, *restore `.tenant` on the
-   grant*, *reinstate `TenantedTokenGrant`*. Each must redden a named test.
-6. The panel accepts, or names what it rejects, and every finding is verified
+5. **The binding controls (§1.5), committed and named:**
+   - **Negative control — wrong kind.** Mint a genuine `Authorized[ArtifactRead]`
+     for artifact X under tenant A through the real gate. Pass that object to
+     `ArtifactStoreProtocol.put`, `HITLTransportProtocol.submit`,
+     `WorkflowEngine.execute` and `ControlPlaneRegistry.register`. Each must
+     fail **twice, separately measured**: (i) `mypy --strict` reports an
+     incompatible argument type on the committed source — the control file
+     carries no `# type: ignore`; (ii) with the type error forced past via a
+     `cast` in a second, quarantined file, `_verify` raises at use before any
+     state changes, and the test asserts nothing was written under tenant A.
+   - **Positive control — right kind.** Mint `Authorized[ArtifactWrite]` for
+     that exact action and resource under tenant A; `put` runs, files under
+     `authorized.tenant` only, and the resulting audit event carries the
+     capability's `decision_id`.
+   - **Fabrication controls.** A stub sentinel, a `Mock`, an `object()`, a
+     subclass skipping `__init__`, and a genuine capability with `kind`
+     reassigned — each dies at `_verify` on every handle in §1.2.
+6. Sabotage on the merged tree, each guard severed alone — and the severings
+   include: *remove the kind check from `_verify` (mint check alone)*, *make
+   `Authorized` non-generic*, *mint from a stub sentinel*, *restore `tenant_id`
+   on `put`*, *restore `.tenant` on the grant*, *reinstate
+   `TenantedTokenGrant`*. Each must redden a named test — and severing the kind
+   check alone must redden the negative control's runtime half while leaving its
+   static half green, proving the two teeth are two.
+7. The panel accepts, or names what it rejects, and every finding is verified
    against the tree before it is recorded.
 
 ---
