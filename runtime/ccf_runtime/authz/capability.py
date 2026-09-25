@@ -119,6 +119,7 @@ __all__ = [
     "WorkflowStatusRead",
     "kind_for_action",
     "mint",
+    "mint_at_composition",
     "verify",
 ]
 
@@ -365,6 +366,34 @@ def mint(
         tenant=decision.tenant,
         principal=principal,
         resource=decision.resource,
+        decision_id=decision_id,
+    )
+
+
+def mint_at_composition(
+    *, tenant: str, principal: str, resource: str, decision_id: str
+) -> Authorized[ReplayMint]:
+    """Mint the one kind no door can: ``ReplayMint``, at composition (§2 P3).
+
+    The deployment's own statement, made once at boot by the composition
+    root that wires the fabric's replay writer, that THIS process may mint
+    governed records for ``tenant`` under ``resource`` (the governed record
+    class). Not a gate's act — there is no request, no authorizer, and no
+    caller — which is why it takes no :class:`AuthzDecision`: the decision is
+    the deployment's, recorded under ``decision_id`` on the Control Plane
+    audit log by the caller before this is called.
+
+    Every other kind is minted by :func:`mint` from an allowed decision and
+    only there. This function mints ``ReplayMint`` and only that; it cannot
+    be asked for another kind, so a composition root cannot use it to hand a
+    served surface a door capability.
+    """
+    return Authorized(
+        _SENTINEL,
+        kind=ReplayMint,
+        tenant=tenant,
+        principal=principal,
+        resource=resource,
         decision_id=decision_id,
     )
 
