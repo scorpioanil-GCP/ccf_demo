@@ -219,6 +219,32 @@ identity of the resource string, beside the kind and the mint, before the
 handle's first statement. This is not a second authorization decision; it is
 the same tooth as (c), applied to the resource axis.
 
+**(g) The minted authorization is bound to its original values.** *Added
+2026-09-24 on ChatGPT's acceptance condition: a valid sentinel plus a reassigned
+`kind` must never confer new authority.* As (c) was first written, a genuine
+`Authorized[ArtifactRead]` whose `kind` attribute was reassigned to the
+legitimate `ArtifactWrite` identity would pass both checks — valid sentinel,
+current kind is `ArtifactWrite`. So the fields are not merely set at mint; the
+mint is **over** them:
+
+- `_minted` is not the bare sentinel. It is an immutable tuple captured at mint:
+  `(_SENTINEL, kind, tenant, principal, resource, decision_id)`.
+- `_verify(authorized, kind=K)` checks `authorized._minted[0] is _SENTINEL`,
+  then `authorized._minted[1] is K`, then that `authorized.kind is
+  _minted[1]`, `authorized.tenant == _minted[2]`, `authorized.principal ==
+  _minted[3]`, `authorized.resource == _minted[4]`, `authorized.decision_id ==
+  _minted[5]`. **The current attributes are compared against what was minted,
+  not trusted on their own.**
+- `Authorized` additionally refuses attribute assignment after mint
+  (`__setattr__`/`__delattr__` raise). That is defense in depth against a
+  careless caller; it is not the mechanism. `object.__setattr__` bypasses it,
+  and the mint tuple is what makes even that bypass die at `_verify`.
+
+Retargeting a genuine capability — to another kind, tenant, principal,
+resource, or decision — is therefore rejected at use by the same line and in
+the same way as fabrication. §9 tests retargeting separately from fabrication,
+on every field, by both `setattr` and `object.__setattr__`.
+
 ---
 
 ## 2. What becomes inexpressible
@@ -413,14 +439,23 @@ finding whose closure in §2 reads as a *check* is a defect in this document.
      that exact action and resource under tenant A; `put` runs, files under
      `authorized.tenant` only, and the resulting audit event carries the
      capability's `decision_id`.
-   - **Fabrication controls.** A stub sentinel, a `Mock`, an `object()`, a
-     subclass skipping `__init__`, and a genuine capability with `kind`
-     reassigned — each dies at `_verify` on every handle in §1.2.
+   - **Fabrication controls.** A stub sentinel, a `Mock`, an `object()`, and a
+     subclass skipping `__init__` — each dies at `_verify` on every handle in
+     §1.2.
+   - **Retargeting controls (§1.5g) — separate from fabrication.** Mint a
+     genuine `Authorized[ArtifactRead]` for X under tenant A through the real
+     gate. For each of `kind`, `tenant`, `principal`, `resource`,
+     `decision_id`: attempt reassignment by plain `setattr` (must raise) and by
+     `object.__setattr__` (bypasses the guard). After the bypass, the
+     capability must be **unusable for the write** and **unusable for its
+     original read** — `_verify` rejects on every handle, and nothing is read or
+     written under A or under the retargeted tenant.
 6. Sabotage on the merged tree, each guard severed alone — and the severings
    include: *remove the kind check from `_verify` (mint check alone)*, *make
    `Authorized` non-generic*, *mint from a stub sentinel*, *restore `tenant_id`
    on `put`*, *restore `.tenant` on the grant*, *reinstate
-   `TenantedTokenGrant`*, *drop the resource bind from `_verify`*. Each must
+   `TenantedTokenGrant`*, *drop the resource bind from `_verify`*, *compare the
+   current `kind` instead of the minted one*. Each must
    redden a named test — and two severings prove the teeth are two: dropping the
    **kind** check alone reddens the wrong-kind control's runtime half and leaves
    its static half green; dropping the **resource** bind alone reddens the
