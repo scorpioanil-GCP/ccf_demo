@@ -148,7 +148,7 @@ authentication, deciding nothing, and labelled as such in its own docstring.
 
 **What would close it.** `TenantAuthorizerProtocol`
 (`runtime/ccf_runtime/authz/protocol.py::TenantAuthorizerProtocol`) with new action ids beside the
-three at `runtime/ccf_runtime/authz/refusals.py::ACTION_PRODUCT_RETRIEVE`, plus an
+three at `src/ccf/authz/actions.py::ACTION_PRODUCT_RETRIEVE`, plus an
 adopter-registered policy artifact — the shape the HITL door already carries at
 `runtime/ccf_runtime/mcp/hitl_server.py::_enforce_tenant_authz`. `D-IMPL-129` records that
 precedent under a path that does not exist; the correct one is the `mcp/` path
