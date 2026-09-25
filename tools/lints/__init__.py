@@ -11,6 +11,11 @@ blocking CI gate per D-07 (`python -m tools.lints --all`):
 * ``substrate_names``        — CINV-04, no substrate name in core, two rule ids
   under one walk (D-IMPL-93 property (2))
 * ``orchestration_imports``  — D-06, the orchestration/adapters split
+* ``authorization_invariant`` — D-IMPL-353 §4, authorization as a capability:
+  no authority parameter with a default or a type that admits absence, one
+  mint site, no MCP registration outside the ``TenantGuardedServer`` wrapper,
+  no route handler without ``@authorizes``, no ``# type: ignore`` beside an
+  authority argument (six rule ids under one walk)
 * ``citations``              — cross-file citation drift (SDK-defined)
 * ``hash_transparent_key``   — CINV-06, every sentinel-defaulted ``CCFContract``
   field NEW since ``13bd250`` declares ``ccf_hash_transparent`` (D-IMPL-243
@@ -19,7 +24,7 @@ blocking CI gate per D-07 (`python -m tools.lints --all`):
   by ``base_roster.py`` (``--check``); CINV-05 is reserved by D-GATE-15.4
   ruling (3).
 
-The first six are **per-file AST** checkers and expose the same pair of
+The first seven are **per-file AST** checkers and expose the same pair of
 entrypoints, so the runner can treat them uniformly::
 
     check_source(source: str, path: Path, module_name: str) -> list[str]
@@ -38,7 +43,7 @@ crosses files::
 
     check_tree(base: Path) -> list[str]
 
-All eight agree on the finding format: ``"{path}:{lineno} {rule} {message}"``.
+All nine agree on the finding format: ``"{path}:{lineno} {rule} {message}"``.
 The rule token is always the second whitespace-separated field; the runner and
 the allowlist both key off it — and only ``no_hardcoding`` findings are ever
 offered to the allowlist (D-13).

@@ -82,6 +82,12 @@ CORE_SCOPED_RULES: dict[str, str] = {
         "an example that boots a particular store has to say which store"
     ),
     "substrate-names": ("CINV-04 is worded over the core alone"),
+    "authorization-invariant": (
+        "D-IMPL-353 §4 is worded over runtime/ and src/; the §9 controls under"
+        " tests/ build impostor capabilities on purpose, and the frozen example"
+        " servers that register raw MCP surfaces are gap-ledger entries, not"
+        " lint subjects"
+    ),
 }
 
 

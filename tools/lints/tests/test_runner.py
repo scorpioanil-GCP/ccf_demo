@@ -123,7 +123,8 @@ def test_the_registered_rule_set_is_exactly_these_seven() -> None:
     `guarded-provenance` (`c676603f`, D-IMPL-337) — the second registration
     never touched this test, and the release qualification of `f0656746`
     found it red. The name stays because records cite it by node id; the
-    count in it is history, the set below is the contract.
+    count in it is history, the set below is the contract. Widened a third
+    time by `authorization-invariant` (D-IMPL-353 §4), on purpose and here.
     """
     assert set(CHECKERS) == {
         "no-hardcoding",
@@ -132,6 +133,7 @@ def test_the_registered_rule_set_is_exactly_these_seven() -> None:
         "orchestration-imports",
         "backend-imports",
         "substrate-names",
+        "authorization-invariant",
     }
     assert set(WHOLE_TREE_CHECKERS) == {
         "citations",
