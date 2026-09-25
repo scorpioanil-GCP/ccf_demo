@@ -34,17 +34,40 @@ holds across this boundary because there is no second writer here to hold
 (T-06-19). The honest claim (D-21) is the structural one, and the AST scan in
 ``tests/invariants/test_mcp_role_separation.py`` is the mechanism of record.
 
-**Four methods, three MCP shapes.** The split is not cosmetic — MCP Resources
-are read-only, and ``put`` mutates:
+**Every body runs under a capability minted for it** (``D-IMPL-353`` §1.2,
+§2 P5). The :class:`~ccf_runtime.mcp.tenancy.TenantGuardedServer` decides
+tenancy, asks the deployment's authorizer for each surface's declared action on
+its declared resource, and hands the body an
+:class:`~ccf.authz.capability.Authorized` as its first argument. The body hands
+that — and nothing else it could have chosen — to the handle it acts through:
 
 ============================  ==========================================
-``get(content_address)``      Resource ``ccf-artifact-blob://{address}``,
-                              handler returning ``bytes``
-``exists(content_address)``   Resource ``ccf-artifact-meta://{address}``
+``put(authorized, artifact)`` Tool ``put_artifact`` —
+                              ``Authorized[ArtifactWrite]`` for
+                              ``"<class>/<name>"``; **no ``tenant_id``
+                              argument**, the tenant is the capability's
+``govern_dereference(...)``   Resource ``ccf-artifact-blob://{address}``,
+                              handler returning ``bytes`` —
+                              ``Authorized[ArtifactRead]`` for the address
+``govern_dereference(...)``   Resource ``ccf-artifact-meta://{address}`` —
+                              the same capability; a bit about the address
 ``resolve_uri(uri)``          Resource ``ccf-artifact://{tenant}/{class}/
-                              {name}@{version}``
-``put(...)``                  Tool ``put_artifact``
+                              {name}@{version}`` —
+                              ``Authorized[ArtifactRead]`` for
+                              ``"<class>/<name>"``
 ============================  ==========================================
+
+**There is no untenanted read of artifact bytes.** The two hash-addressed
+resources carry no tenant on the wire; their capability's tenant is the
+verified grant's **sole** tenant, and a grant spanning several is refused as
+ambiguous rather than picked for (§1.3). Their reads go through
+:func:`~ccf_runtime.authz.delivery_boundary.govern_dereference` — the one
+governed evidence read, with its three holds — because after §1.2 there is no
+other way to call the store's read. **A consequence, stated rather than
+hidden:** that dereference resolves its target as a Decision Replay record, so
+a stored artifact of any other class answers the ``nonexistent`` shell through
+the blob resource. The HTTP artifact GET has had this property since
+``D-IMPL-345``; the MCP blob now has it too.
 
 The blob handler's ``-> bytes`` annotation is load-bearing: it produces
 ``BlobResourceContents`` (base64) and preserves canonical bytes exactly, where
@@ -52,13 +75,13 @@ a ``str`` handler would produce ``TextResourceContents`` and put the fidelity
 of every stored artifact at the mercy of a text round trip (06-RESEARCH.md
 Pitfall 4, T-06-20).
 
-**Absence is answered, never inferred.** ``McpError`` carries a stringified
-server-side exception with no typed code, so a client that learned "missing"
-from a failed read would be string-matching another project's error formatting
-(06-RESEARCH.md Pitfall 2, T-06-21). Both metadata resources therefore return a
-*positive structured answer* — ``found: false`` is a successful read — so the
-client discriminates absence from outage on a typed contract and never on a
-message.
+**A governed refusal crosses as a response, never as a transport error**
+(``D-IMPL-256``). On the blob resource the shell's canonical bytes stand where
+the artifact would — they cannot hash to the address asked for, so a verifying
+client cannot mistake them for it — and on the presence resource the same
+shell stands where ``found: true`` would, told apart by the top-level ``kind``
+key a presence answer does not have. Absence is therefore still answered and
+never inferred: the answer is the shell.
 
 Server name, bind address, token values, scopes, tenant identifiers, and
 artifact-class names are all deployment values supplied by the caller. This
@@ -83,8 +106,20 @@ from ccf.artifacts.protocol import (
     ArtifactUriUnresolvable,
     artifact_uri,
 )
+from ccf.authz.actions import ACTION_ARTIFACT_READ, ACTION_ARTIFACT_WRITE
+from ccf.authz.capability import ArtifactRead, ArtifactWrite, Authorized
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes
+from ccf.controlplane.audit import AuditLog
+from ccf.products.refusal import RefusalEnvelope
+from ccf_runtime.authz.delivery_boundary import (
+    SURFACE_MCP_RESOURCE,
+    DereferenceRequest,
+    DisclosingRecorderProtocol,
+    govern_dereference,
+)
+from ccf_runtime.authz.product_entitlement import ProductEntitlementSourceProtocol
+from ccf_runtime.authz.protocol import TenantAuthorizerProtocol
 from ccf_runtime.mcp.tenancy import TenantGuardedServer
 
 __ccf_mode__ = "algorithmic"
@@ -95,8 +130,6 @@ __all__ = [
     "BLOB_URI_TEMPLATE",
     "META_URI_TEMPLATE",
     "NAME_URI_TEMPLATE",
-    "ARTIFACT_BLOB_SURFACE",
-    "ARTIFACT_META_SURFACE",
     "PUT_ARTIFACT_TOOL",
     "ArtifactPresence",
     "ArtifactResolution",
@@ -130,12 +163,11 @@ NAME_URI_TEMPLATE = (
 #: Name of the one mutating surface. A Tool, because Resources are read-only.
 PUT_ARTIFACT_TOOL = "put_artifact"
 
-#: The two surfaces addressed by content hash, named so the pinned roster in
-#: ``tests/mcp/test_tenant_guard.py`` can assert them by identity rather than
-#: by count. See :meth:`~ccf_runtime.mcp.tenancy.TenantGuardedServer.untenanted`
-#: and the handoff recorded in :func:`build_artifact_server`.
-ARTIFACT_BLOB_SURFACE = BLOB_URI_TEMPLATE
-ARTIFACT_META_SURFACE = META_URI_TEMPLATE
+#: The resource a write and a name resolution are decided on: the class and
+#: name segments the naming key already uses (``D-IMPL-353`` §1.2), spelled
+#: from the wire arguments by the wrapper so a scope mapping names artifacts
+#: in one vocabulary for both.
+_CLASS_AND_NAME = "{artifact_class}/{name}"
 
 _BLOB_MIME_TYPE = "application/octet-stream"
 _JSON_MIME_TYPE = "application/json"
@@ -203,8 +235,12 @@ def build_artifact_server(
     store: ArtifactStoreProtocol,
     token_verifier: TokenVerifier,
     auth_settings: AuthSettings,
+    authorizer: TenantAuthorizerProtocol,
+    entitlement_source: ProductEntitlementSourceProtocol,
+    refusal_recorder: DisclosingRecorderProtocol,
+    audit_log: AuditLog,
 ) -> FastMCP:
-    """Build the authenticated artifact server over ``store``.
+    """Build the authenticated, authorized artifact server over ``store``.
 
     ``stateless_http=True`` is load-bearing rather than a tuning choice: it is
     what makes the client's session-per-call cheap (:mod:`ccf.mcp.client`, and
@@ -228,6 +264,18 @@ def build_artifact_server(
             for what a deployment must supply instead of it.
         auth_settings: Issuer, resource-server identity, and required scopes.
             Deployment values in their entirety.
+        authorizer: The deployment's authorizer, asked by the wrapper for
+            every surface's declared action before its body runs. **Required**
+            (``D-IMPL-353`` §2 P4): there is no arm in which the decision is
+            skipped.
+        entitlement_source: The deployment's entitlement seam and the holder of
+            the determination clock, for the governed dereference's second
+            hold.
+        refusal_recorder: The ONE minting seam, which also states the
+            disclosure level, for the dereference's third hold and for the
+            shell it records on every refusal.
+        audit_log: The Control Plane's own append-only log, where every
+            dereference appends the trail of its read (``D-IMPL-345`` R-5).
 
     Returns:
         A configured ``FastMCP``. Deliberately *not* started, and no bind
@@ -241,17 +289,45 @@ def build_artifact_server(
             json_response=True,
             token_verifier=token_verifier,
             auth=auth_settings,
-        )
+        ),
+        authorizer=authorizer,
     )
-    server = door.fastmcp
+
+    def dereference(
+        authorized: Authorized[ArtifactRead], *, content_address: str, address: str
+    ) -> bytes | RefusalEnvelope:
+        """The one governed read both hash-addressed resources make.
+
+        A bytes ask under this surface's identity and the URI the caller
+        read; what comes back is either the exact stored bytes or an
+        already-recorded, already-disclosed shell.
+        """
+        decided = govern_dereference(
+            authorized,
+            reference=DereferenceRequest(
+                reference=content_address, by_uri=False, wants_bytes=True
+            ),
+            store=store,
+            entitlement_source=entitlement_source,
+            refusal_recorder=refusal_recorder,
+            audit_log=audit_log,
+            surface=SURFACE_MCP_RESOURCE,
+            address=address,
+        )
+        if isinstance(decided, RefusalEnvelope):
+            return decided
+        assert decided.payload is not None  # a bytes ask always carries them
+        return decided.payload
 
     @door.resource(
         BLOB_URI_TEMPLATE,
-        subject=door.untenanted(),
+        action=ACTION_ARTIFACT_READ,
+        subject=door.from_grant(),
+        resource=door.resource_argument("content_address"),
         mutating=False,
         mime_type=_BLOB_MIME_TYPE,
     )
-    def artifact_blob(content_address: str) -> bytes:
+    def artifact_blob(authorized: Authorized[ArtifactRead], content_address: str) -> bytes:
         """Return the exact canonical bytes stored at ``content_address``.
 
         ``-> bytes`` and never ``-> str``: this annotation is what selects
@@ -259,52 +335,65 @@ def build_artifact_server(
         difference is byte fidelity for every artifact the fabric will ever
         replay against (06-RESEARCH.md Pitfall 4).
 
-        **Untenanted, and the residual is recorded rather than hidden**
-        (``SEC-018``). A content address is a hash; no tenant appears on this
-        surface and
-        :class:`~ccf.artifacts.protocol.ArtifactStoreProtocol` has no method
-        that answers *which tenant owns this address*, so there is nothing to
-        compare against. The guard still refuses an unverified caller and a
-        grant carrying no tenant, and the sibling naming resource — the only
-        way to *learn* an address from a name — is tenant-decided, which closes
-        the enumeration path. What remains is that possession of a 64-character
-        address is the last thing between a verified caller and another
-        tenant's bytes. Closing it needs a tenant-of-address query on the store
-        Protocol; that is the recorded handoff, not a decision taken here.
+        **Through the governed dereference, under a read capability**
+        (``D-IMPL-353`` §2 P5). No tenant appears on this surface, so the
+        capability's tenant is the verified grant's sole tenant — a grant
+        spanning several is refused as ambiguous before this body runs. What
+        ``SEC-018`` recorded as a residual (possession of a 64-character
+        address as the last thing between a verified caller and another
+        tenant's bytes) is now the dereference's three holds: the record's own
+        principal, the grant that governed its serve, and the disclosure level
+        in force. A refusal crosses as the shell's canonical bytes.
         """
-        return store.get(content_address=content_address)
+        served = dereference(
+            authorized,
+            content_address=content_address,
+            address=artifact_blob_uri(content_address=content_address),
+        )
+        if isinstance(served, RefusalEnvelope):
+            return canonical_bytes(served)
+        return served
 
     @door.resource(
         META_URI_TEMPLATE,
-        subject=door.untenanted(),
+        action=ACTION_ARTIFACT_READ,
+        subject=door.from_grant(),
+        resource=door.resource_argument("content_address"),
         mutating=False,
         mime_type=_JSON_MIME_TYPE,
     )
-    def artifact_presence(content_address: str) -> str:
+    def artifact_presence(authorized: Authorized[ArtifactRead], content_address: str) -> str:
         """Answer whether the substrate holds ``content_address``.
 
-        A successful read either way. This is the structured signal the client
-        discriminates absence from outage on, so it must not fail when the
-        answer is "no" — a failure is indistinguishable from the server being
-        down, which is exactly the conflation this resource exists to prevent.
-
-        Untenanted for the reason :func:`artifact_blob` states, and strictly
-        less disclosing than it: this answers one bit about an address the
-        caller already holds.
+        A successful read either way, and the structured signal the client
+        discriminates absence from outage on. Decided exactly as
+        :func:`artifact_blob` is — the same capability, the same three holds —
+        and strictly less disclosing: one bit about an address the caller
+        already holds. A refusal, absence included, crosses as the shell,
+        which the ``kind`` key tells apart from a presence answer.
         """
-        presence = ArtifactPresence(
-            found=store.exists(content_address=content_address)
+        served = dereference(
+            authorized,
+            content_address=content_address,
+            address=artifact_meta_uri(content_address=content_address),
         )
-        return canonical_bytes(presence).decode("utf-8")
+        if isinstance(served, RefusalEnvelope):
+            return canonical_bytes(served).decode("utf-8")
+        return canonical_bytes(ArtifactPresence(found=True)).decode("utf-8")
 
     @door.resource(
         NAME_URI_TEMPLATE,
+        action=ACTION_ARTIFACT_READ,
         subject=door.from_argument("tenant"),
+        resource=door.resource_composed(_CLASS_AND_NAME),
         mutating=False,
         mime_type=_JSON_MIME_TYPE,
     )
     def artifact_resolution(
-        tenant: str, artifact_class: str, name: str, artifact_version: str
+        authorized: Authorized[ArtifactRead],
+        artifact_class: str,
+        name: str,
+        artifact_version: str,
     ) -> str:
         """Resolve a versioned URI to its exact content address.
 
@@ -313,16 +402,18 @@ def build_artifact_server(
         under one name does not resolve under another — are the substrate's
         and are not re-derived here.
 
-        **Tenant-decided** (``SEC-018``). This is the surface that turns a name
-        into a content address, so leaving it open would hand any verified
-        caller the addresses the two untenanted resources answer on — the pair
-        was a complete cross-tenant read primitive. The ``tenant`` segment
-        stays the caller's and is now decided against the grant.
+        **Tenant-decided by its segment, and the tenant that reaches the
+        resolver is the capability's** (``SEC-018``; ``D-IMPL-353`` §1.2). The
+        ``tenant`` segment stays on the wire — it selects which of a
+        multi-tenant grant's tenants — but the body never sees it: the wrapper
+        decides it against the grant and this body reads
+        ``authorized.tenant``. This is the surface that turns a name into a
+        content address, which is why it was never untenanted.
         """
         try:
             address = store.resolve_uri(
                 uri=artifact_uri(
-                    tenant_id=tenant,
+                    tenant_id=authorized.tenant,
                     artifact_class=artifact_class,
                     name=name,
                     artifact_version=artifact_version,
@@ -336,11 +427,16 @@ def build_artifact_server(
 
     @door.tool(
         name=PUT_ARTIFACT_TOOL,
-        subject=door.from_argument("tenant_id"),
+        action=ACTION_ARTIFACT_WRITE,
+        subject=door.from_grant(),
+        resource=door.resource_composed(_CLASS_AND_NAME),
         mutating=True,
     )
     def put_artifact(
-        tenant_id: str, artifact_class: str, name: str, canonical_b64: str
+        authorized: Authorized[ArtifactWrite],
+        artifact_class: str,
+        name: str,
+        canonical_b64: str,
     ) -> ArtifactRef:
         """Store one artifact carried as base64 canonical bytes.
 
@@ -353,17 +449,18 @@ def build_artifact_server(
         ``None`` and forces the client to parse ``content[0].text``, which is a
         second, untyped contract nobody wrote down.
 
-        **``tenant_id`` no longer supplies the tenant; it names one**
-        (``SEC-018``). This tool took the tenant it wrote under as a caller
-        argument and filed the artifact there — the same shape as the finding
-        on the HTTP door. The parameter stays on the input schema, because it
-        selects *which* of a multi-tenant operator's tenants is being written
-        to and a grant may carry several; what changed is that it is now a
-        claim decided against the grant before this body runs, exactly as
-        ``submit_hitl_action``'s ``subject_id`` is a claim that must match.
+        **``tenant_id`` is deleted** (``D-IMPL-353`` §1.2, §1.3). This tool took
+        the tenant it wrote under as a caller argument — the same shape as the
+        finding on the HTTP door — and ``SEC-018`` turned that into a claim
+        decided against the grant. Now there is no argument at all: the store
+        files under ``authorized.tenant``, and ``artifact_class`` and ``name``
+        reach it as ``authorized.resource`` (``"<class>/<name>"``), the
+        resource the write was authorized *for*. The store verifies kind,
+        resource and mint by identity before its first statement; a capability
+        for another name, or of another kind, dies there.
 
-        Mutating, so a stated stdio identity cannot reach it — see
-        :func:`~ccf_runtime.mcp.tenancy.ambient_stdio_identity`.
+        Mutating, so a stated stdio identity cannot reach it — the wrapper
+        refuses it before any decision is made.
 
         Raises:
             NonCanonicalPayload: the payload is not the canonical rendering of
@@ -378,11 +475,6 @@ def build_artifact_server(
                 "refusing to file bytes under an address a reader would not "
                 "recompute"
             )
-        return store.put(
-            tenant_id=tenant_id,
-            artifact_class=artifact_class,
-            name=name,
-            artifact=artifact,
-        )
+        return store.put(authorized, artifact)
 
-    return server
+    return door.build()

@@ -102,6 +102,7 @@ from ccf_runtime.mcp.egress import (
     build_egress_server,
     product_uri,
 )
+from tests.mcp.guarded_servers import wide_authorizer
 
 from ccf_runtime.mcp.egress import ProductNotServable
 from crossproc.servers.mcp_egress_child import ProductAddress, build_servable_product
@@ -235,6 +236,7 @@ class _World:
                 resource_server_url=AnyHttpUrl(f"{IN_PROCESS_BASE_URL}/mcp"),
                 required_scopes=[SCOPE],
             ),
+            authorizer=wide_authorizer(scopes=(SCOPE,)),
             entitlement_source=self.source,
             perspective_resolver=(
                 lambda *, grant, tenant, requested_role: Perspective(
@@ -869,6 +871,7 @@ def _builder_kwargs(address: ProductAddress, root: Path) -> dict[str, Any]:
             resource_server_url=AnyHttpUrl(f"{IN_PROCESS_BASE_URL}/mcp"),
             required_scopes=[SCOPE],
         ),
+        "authorizer": wide_authorizer(scopes=(SCOPE,)),
         "entitlement_source": ControlPlaneProductEntitlementSource(
             control_plane=ControlPlaneRegistry(), clock=lambda: DETERMINED_AT
         ),

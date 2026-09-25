@@ -117,6 +117,7 @@ from ccf_runtime.mcp.experience import (
     build_experience_server,
     experience_product_uri,
 )
+from tests.mcp.guarded_servers import wide_authorizer
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 EXPERIENCE_PATH = REPO_ROOT / "runtime/ccf_runtime/mcp/experience.py"
@@ -238,6 +239,7 @@ class _Door:
             "tool_allowlist": frozenset({GET_CONTEXT_TOOL, GET_LINEAGE_TOOL}),
             "token_verifier": _token_verifier(tmp_path),
             "auth_settings": _auth_settings(),
+            "authorizer": wide_authorizer(scopes=(SCOPE,)),
             "entitlement_source": self.source,
             "perspective_resolver": resolve_perspective,
             "refusal_recorder": self.recorder,
