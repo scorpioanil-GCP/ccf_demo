@@ -53,6 +53,7 @@ from ccf.replay.record import (
     ResolutionNotApplicable,
     build_replay_record,
 )
+from tests.replay.authority import replay_store
 from tests.replay.test_harness_trace import PRE_CHANGE_CANONICAL
 from tests.replay.test_query_sequence_pin import _stored_verbatim
 
@@ -356,7 +357,7 @@ def test_a_record_written_before_the_adapter_pin_still_resolves(
     would serialize the three fields this plan added and reject an honest
     pre-extension record as tampered.
     """
-    store = FileArtifactStore(root=tmp_path / "artifacts")
+    store = replay_store(tmp_path / "artifacts")
     address = _stored_verbatim(store, PRE_CHANGE_CANONICAL)
 
     record = resolve_artifact(

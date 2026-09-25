@@ -65,6 +65,7 @@ from ccf.replay.record import (
     ModelVersionRecord,
     PolicyBindingsSnapshot,
 )
+from tests.replay.authority import replay_store
 from tests.replay.test_harness_trace import PRE_CHANGE_CANONICAL
 from tests.replay.test_query_sequence_pin import _stored_verbatim
 
@@ -181,7 +182,7 @@ def _replay_pre_change(store: FileArtifactStore, address: str) -> None:
 
 @pytest.fixture
 def stored(tmp_path: Path) -> tuple[FileArtifactStore, str]:
-    store = FileArtifactStore(root=tmp_path / "artifacts")
+    store = replay_store(tmp_path / "artifacts")
     return store, _stored_verbatim(store, PRE_CHANGE_CANONICAL)
 
 

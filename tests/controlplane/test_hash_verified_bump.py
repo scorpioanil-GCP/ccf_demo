@@ -39,6 +39,8 @@ from ccf.controlplane.registry import (
     RefuseEmptyBump,
     RefuseUnbumpedChange,
 )
+from ccf.authz.capability import Authorized, Register
+from tests.controlplane.capabilities import register_capability
 
 FIXTURE = (
     Path(__file__).parent.parent
@@ -50,6 +52,11 @@ FIXTURE = (
 
 KEY = "acme-bank/agents/covenant-analytics"
 
+
+
+def _cap(key: str) -> Authorized[Register]:
+    """A ``config.register`` capability for ``key``, minted as the gate would."""
+    return register_capability(key, Register)
 
 def _definition(**overrides: Any) -> AgentDefinition:
     loaded = yaml.safe_load(FIXTURE.read_text())
@@ -66,8 +73,8 @@ def _definition(**overrides: Any) -> AgentDefinition:
 def test_same_content_same_version_is_idempotent() -> None:
     registry = ControlPlaneRegistry()
     definition = _definition()
-    first = registry.register_versioned(KEY, definition, AGENT_DEFINITION)
-    second = registry.register_versioned(KEY, definition, AGENT_DEFINITION)
+    first = registry.register_versioned(_cap(KEY), definition, AGENT_DEFINITION)
+    second = registry.register_versioned(_cap(KEY), definition, AGENT_DEFINITION)
     assert first == content_hash(definition)
     assert second == first
     assert registry.versions(KEY) == (first,)
@@ -76,9 +83,9 @@ def test_same_content_same_version_is_idempotent() -> None:
 def test_changed_content_without_a_bump_is_refused() -> None:
     registry = ControlPlaneRegistry()
     original = _definition()
-    registry.register_versioned(KEY, original, AGENT_DEFINITION)
+    registry.register_versioned(_cap(KEY), original, AGENT_DEFINITION)
     drifted = _definition(name="covenant-analytics-drifted")
-    refusal = registry.register_versioned(KEY, drifted, AGENT_DEFINITION)
+    refusal = registry.register_versioned(_cap(KEY), drifted, AGENT_DEFINITION)
     assert isinstance(refusal, RefuseUnbumpedChange)
     assert refusal.key == KEY
     assert refusal.artifact_version == original.artifact_version
@@ -91,9 +98,9 @@ def test_changed_content_without_a_bump_is_refused() -> None:
 def test_a_bump_without_a_content_change_is_refused() -> None:
     registry = ControlPlaneRegistry()
     original = _definition()
-    registry.register_versioned(KEY, original, AGENT_DEFINITION)
+    registry.register_versioned(_cap(KEY), original, AGENT_DEFINITION)
     rebadged = _definition(artifact_version="1.1.0")
-    refusal = registry.register_versioned(KEY, rebadged, AGENT_DEFINITION)
+    refusal = registry.register_versioned(_cap(KEY), rebadged, AGENT_DEFINITION)
     assert isinstance(refusal, RefuseEmptyBump)
     assert refusal.key == KEY
     assert refusal.artifact_version == "1.1.0"
@@ -104,11 +111,11 @@ def test_a_bump_without_a_content_change_is_refused() -> None:
 def test_changed_content_with_a_bump_appends_a_new_version() -> None:
     registry = ControlPlaneRegistry()
     original = _definition()
-    first = registry.register_versioned(KEY, original, AGENT_DEFINITION)
+    first = registry.register_versioned(_cap(KEY), original, AGENT_DEFINITION)
     revised = _definition(
         name="covenant-analytics-v2", artifact_version="1.1.0"
     )
-    second = registry.register_versioned(KEY, revised, AGENT_DEFINITION)
+    second = registry.register_versioned(_cap(KEY), revised, AGENT_DEFINITION)
     assert second == content_hash(revised)
     assert registry.versions(KEY) == (first, second)
     assert registry.resolve(KEY, second) == revised
@@ -119,9 +126,8 @@ def test_changed_content_with_a_bump_appends_a_new_version() -> None:
 
 def test_refusals_are_contract_values_not_exceptions() -> None:
     registry = ControlPlaneRegistry()
-    registry.register_versioned(KEY, _definition(), AGENT_DEFINITION)
-    outcome = registry.register_versioned(
-        KEY, _definition(name="drift"), AGENT_DEFINITION
+    registry.register_versioned(_cap(KEY), _definition(), AGENT_DEFINITION)
+    outcome = registry.register_versioned(_cap(KEY), _definition(name="drift"), AGENT_DEFINITION
     )
     assert isinstance(outcome, CCFContract)
     assert not isinstance(outcome, Exception)
@@ -129,13 +135,11 @@ def test_refusals_are_contract_values_not_exceptions() -> None:
 
 def test_every_outcome_is_audited_including_refusals() -> None:
     registry = ControlPlaneRegistry()
-    registry.register_versioned(KEY, _definition(), AGENT_DEFINITION)  # append
-    registry.register_versioned(KEY, _definition(), AGENT_DEFINITION)  # no-op
-    registry.register_versioned(
-        KEY, _definition(name="drift"), AGENT_DEFINITION
+    registry.register_versioned(_cap(KEY), _definition(), AGENT_DEFINITION)  # append
+    registry.register_versioned(_cap(KEY), _definition(), AGENT_DEFINITION)  # no-op
+    registry.register_versioned(_cap(KEY), _definition(name="drift"), AGENT_DEFINITION
     )  # RefuseUnbumpedChange
-    registry.register_versioned(
-        KEY, _definition(artifact_version="2.0.0"), AGENT_DEFINITION
+    registry.register_versioned(_cap(KEY), _definition(artifact_version="2.0.0"), AGENT_DEFINITION
     )  # RefuseEmptyBump
     events = [
         event

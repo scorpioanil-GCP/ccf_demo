@@ -16,12 +16,18 @@ for writing, and none that removes one: an artifact that a decision was
 recorded against cannot be edited out from under the replay that will look for
 it years later.
 
-**Governed record classes are not client-writable.** The deployment declares
-which artifact classes only fabric mechanism may file under, and ``put``
-refuses one to a caller with no minted authority (``SEC-004``, and see
-:func:`~ccf.artifacts.protocol.held_writable_class` for why the refusal is here
-rather than at a door). The check runs before the substrate is touched, so a
-refused write leaves nothing behind.
+**A write requires the capability for its own action (D-IMPL-353 §1.2).**
+``put(authorized, artifact)`` takes no tenant, class or name from its caller:
+:func:`~ccf.artifacts.protocol.authorized_write_target` runs first — before
+canonicalization, before the address is derived, before any file is opened —
+verifies the capability against the kinds the deployment's
+:class:`~ccf.artifacts.protocol.WriteKinds` declaration names for the target
+class, and resolves the target from the capability (or from the mechanism's
+:class:`~ccf.artifacts.protocol.DerivedWrite`). A refused write leaves the
+substrate byte-for-byte as it was: no artifact file, no naming-index entry.
+The tenant is the capability's (§1.3); ``SEC-004``'s naming-lane forgery is
+inexpressible rather than refused, because there is no name parameter to
+forge into.
 
 Suitable for development, tests, and single-node deployments. Concurrency
 posture is the filesystem's: the write is done to a temporary file and moved
@@ -37,16 +43,15 @@ import os
 from pathlib import Path
 
 from ccf.artifacts.protocol import (
-    NOTHING_GOVERNED,
     ArtifactNotFound,
     ArtifactRef,
     ArtifactUriUnresolvable,
-    GovernedRecordClasses,
-    GovernedWriteToken,
+    ArtifactWriteAuthority,
     MalformedContentAddress,
+    WriteKinds,
     artifact_uri,
+    authorized_write_target,
     held_content_address,
-    held_writable_class,
     parse_artifact_uri,
 )
 from ccf.contracts.canonical import canonical_bytes, content_hash
@@ -67,32 +72,27 @@ class FileArtifactStore:
         root: Directory the artifacts live in. Created if absent — a store
             that refused to initialize its own directory would push that
             concern into every caller's setup path for no gain.
-        governed: The deployment's declaration of which artifact classes only
-            fabric mechanism may file under (``SEC-004``). Defaults to
-            :data:`~ccf.artifacts.protocol.NOTHING_GOVERNED`, which is the
-            posture every store had before the declaration existed — so no
-            deployment changes behavior by upgrading, and the declaration is
-            the one thing an adopter must add to get the refusal.
+        write_kinds: The deployment's declaration of which artifact classes
+            are mechanism-written and under which kinds (D-IMPL-353 §1.2).
+            **Required, no default**: a store whose replay class is
+            undeclared refuses the fabric's own writer at first use, loudly,
+            rather than leaving the lane open. Everything undeclared is the
+            client lane under ``ArtifactWrite``.
     """
 
-    def __init__(
-        self,
-        *,
-        root: Path | str,
-        governed: GovernedRecordClasses = NOTHING_GOVERNED,
-    ) -> None:
+    def __init__(self, *, root: Path | str, write_kinds: WriteKinds) -> None:
         self._root = Path(root)
         self._root.mkdir(parents=True, exist_ok=True)
-        self._governed = governed
+        self._write_kinds = write_kinds
 
     @property
     def root(self) -> Path:
         return self._root
 
     @property
-    def governed(self) -> GovernedRecordClasses:
-        """Which artifact classes this store reserves for fabric mechanism."""
-        return self._governed
+    def write_kinds(self) -> WriteKinds:
+        """Which artifact classes are mechanism-written here, and by which kinds."""
+        return self._write_kinds
 
     def _path(self, content_address: str) -> Path:
         """The file one content address names, and no other path.
@@ -195,61 +195,53 @@ class FileArtifactStore:
         )
         return tuple(self._read_index().get(key, []))
 
-    def put(
-        self,
-        *,
-        tenant_id: str,
-        artifact_class: str,
-        name: str,
-        artifact: object,
-        minted: GovernedWriteToken | None = None,
-    ) -> ArtifactRef:
-        """Store ``artifact``; return its content-addressed reference.
+    def put(self, authorized: ArtifactWriteAuthority, artifact: object) -> ArtifactRef:
+        """Store ``artifact`` under the capability's tenant; return its content-addressed reference.
 
-        ``held_writable_class`` runs FIRST — before canonicalization, before the
-        address is derived, and before any file is opened — so a refused write
-        leaves the substrate byte-for-byte as it was: no artifact file, no entry
-        in the naming index, and nothing for a later reader to resolve. A
-        refusal that wrote the bytes and declined only the name would still
-        leave the plant retrievable by address, which is half of ``SEC-004``.
+        :func:`~ccf.artifacts.protocol.authorized_write_target` runs FIRST —
+        before canonicalization, before the address is derived, and before
+        any file is opened — so a refused write leaves the substrate
+        byte-for-byte as it was: no artifact file, no entry in the naming
+        index, and nothing for a later reader to resolve. A refusal that
+        wrote the bytes and declined only the name would still leave the
+        plant retrievable by address, which is half of ``SEC-004``.
 
         Raises:
-            ccf.artifacts.protocol.GovernedWriteRefused: ``artifact_class`` is
-                one this store reserves for fabric mechanism and no authority
-                was presented.
-            ccf.artifacts.protocol.GovernedWriteForgery: a value that is not a
-                minted authority was presented as one.
+            ccf.authz.capability.CapabilityBypassError: the capability is
+                fabricated, retargeted, or not of a kind that writes the
+                target class.
+            ccf.artifacts.protocol.ArtifactWriteRefused: the target shape.
         """
-        writable = held_writable_class(
-            artifact_class, governed=self._governed, minted=minted
+        target, payload_artifact = authorized_write_target(
+            authorized, artifact, write_kinds=self._write_kinds
         )
-        payload = canonical_bytes(artifact)
-        address = content_hash(artifact)
-        target = self._path(address)
-        if not target.exists():
+        payload = canonical_bytes(payload_artifact)
+        address = content_hash(payload_artifact)
+        file = self._path(address)
+        if not file.exists():
             # Write-then-move: a reader either sees no artifact or sees the
             # whole one. A half-written replay record is worse than a missing
             # one, because it looks answerable.
-            staging = target.with_name(f".{address}.{os.getpid()}.partial")
+            staging = file.with_name(f".{address}.{os.getpid()}.partial")
             staging.write_bytes(payload)
-            staging.replace(target)
+            staging.replace(file)
         self._register_name(
-            tenant_id=tenant_id,
-            artifact_class=writable,
-            name=name,
+            tenant_id=target.tenant_id,
+            artifact_class=target.artifact_class,
+            name=target.name,
             address=address,
         )
         return ArtifactRef(
             content_address=address,
             uri=artifact_uri(
-                tenant_id=tenant_id,
-                artifact_class=writable,
-                name=name,
+                tenant_id=target.tenant_id,
+                artifact_class=target.artifact_class,
+                name=target.name,
                 artifact_version=address,
             ),
-            tenant_id=tenant_id,
-            artifact_class=writable,
-            name=name,
+            tenant_id=target.tenant_id,
+            artifact_class=target.artifact_class,
+            name=target.name,
         )
 
     def get(self, *, content_address: str) -> bytes:

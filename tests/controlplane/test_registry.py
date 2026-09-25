@@ -29,6 +29,8 @@ from ccf.controlplane.artifacts import (
     parse_artifact,
 )
 from ccf.controlplane.audit import AuditLog
+from ccf.authz.capability import Authorized, Register
+from tests.controlplane.capabilities import register_capability
 from ccf.controlplane.registry import (
     ControlPlaneMissing,
     ControlPlaneProtocol,
@@ -40,6 +42,11 @@ from ccf.controlplane.registry import (
 class _Bundle(CCFContract):
     label: str
 
+
+
+def _cap(key: str) -> Authorized[Register]:
+    """A ``config.register`` capability for ``key``, minted as the gate would."""
+    return register_capability(key, Register)
 
 def _clock() -> object:
     start = datetime(2026, 7, 25, 12, 0, 0, tzinfo=UTC)
@@ -57,28 +64,28 @@ def _registry() -> ControlPlaneRegistry:
 
 def test_register_returns_a_version_and_resolves_exactly() -> None:
     registry = _registry()
-    version = registry.register("policy", _Bundle(label="a"))
-    assert registry.resolve("policy", version) == _Bundle(label="a")
+    version = registry.register(_cap("acme/policy"), _Bundle(label="a"))
+    assert registry.resolve("acme/policy", version) == _Bundle(label="a")
 
 
 def test_registration_is_append_only() -> None:
     registry = _registry()
-    v1 = registry.register("policy", _Bundle(label="a"))
-    v2 = registry.register("policy", _Bundle(label="b"))
+    v1 = registry.register(_cap("acme/policy"), _Bundle(label="a"))
+    v2 = registry.register(_cap("acme/policy"), _Bundle(label="b"))
     assert v1 != v2
-    assert registry.versions("policy") == (v1, v2)
+    assert registry.versions("acme/policy") == (v1, v2)
     # The first version survives the second registration byte-identically.
-    assert canonical_bytes(registry.resolve("policy", v1)) == canonical_bytes(
+    assert canonical_bytes(registry.resolve("acme/policy", v1)) == canonical_bytes(
         _Bundle(label="a")
     )
 
 
 def test_reregistering_identical_content_is_idempotent() -> None:
     registry = _registry()
-    v1 = registry.register("policy", _Bundle(label="a"))
-    v2 = registry.register("policy", _Bundle(label="a"))
+    v1 = registry.register(_cap("acme/policy"), _Bundle(label="a"))
+    v2 = registry.register(_cap("acme/policy"), _Bundle(label="a"))
     assert v1 == v2
-    assert registry.versions("policy") == (v1,)
+    assert registry.versions("acme/policy") == (v1,)
 
 
 def test_missing_key_raises_typed_error() -> None:
@@ -89,18 +96,18 @@ def test_missing_key_raises_typed_error() -> None:
 
 def test_missing_version_raises_typed_error() -> None:
     registry = _registry()
-    registry.register("policy", _Bundle(label="a"))
+    registry.register(_cap("acme/policy"), _Bundle(label="a"))
     with pytest.raises(ControlPlaneMissing):
-        registry.resolve("policy", "not-a-version")
+        registry.resolve("acme/policy", "not-a-version")
 
 
 def test_latest_requires_the_explicitly_named_method() -> None:
     registry = _registry()
     assert not hasattr(registry.resolve, "default_version")
-    v1 = registry.register("policy", _Bundle(label="a"))
-    v2 = registry.register("policy", _Bundle(label="b"))
-    assert registry.resolve_latest("policy") == (v2, _Bundle(label="b"))
-    assert registry.resolve("policy", v1) == _Bundle(label="a")
+    v1 = registry.register(_cap("acme/policy"), _Bundle(label="a"))
+    v2 = registry.register(_cap("acme/policy"), _Bundle(label="b"))
+    assert registry.resolve_latest("acme/policy") == (v2, _Bundle(label="b"))
+    assert registry.resolve("acme/policy", v1) == _Bundle(label="a")
 
 
 def test_latest_on_missing_key_raises_typed_error() -> None:
@@ -110,14 +117,14 @@ def test_latest_on_missing_key_raises_typed_error() -> None:
 
 def test_every_register_and_resolve_is_audited() -> None:
     registry = _registry()
-    version = registry.register("policy", _Bundle(label="a"))
-    registry.resolve("policy", version)
-    registry.resolve_latest("policy")
+    version = registry.register(_cap("acme/policy"), _Bundle(label="a"))
+    registry.resolve("acme/policy", version)
+    registry.resolve_latest("acme/policy")
     events = registry.audit_events()
     assert len(events) == 3
     assert [e.action for e in events] == ["register", "resolve", "resolve_latest"]
     assert [e.sequence for e in events] == [0, 1, 2]
-    assert all(e.key == "policy" and e.version == version for e in events)
+    assert all(e.key == "acme/policy" and e.version == version for e in events)
     assert events[0].occurred_at < events[1].occurred_at
 
 
@@ -134,7 +141,7 @@ def test_failed_resolution_is_audited_too() -> None:
 def test_uncanonicalizable_artifact_is_refused() -> None:
     registry = _registry()
     with pytest.raises(TypeError):
-        registry.register("policy", {"rate": 1.5})
+        registry.register(_cap("acme/policy"), {"rate": 1.5})
 
 
 def test_registry_satisfies_the_control_plane_protocol() -> None:
@@ -176,7 +183,7 @@ def _debt_profile() -> DebtProfile:
 def test_typed_registration_stores_and_records_the_class() -> None:
     registry = _registry()
     key = "acme-bank/half-life/wholesale"
-    version = registry.register_typed(key, _half_life_table(), HALF_LIFE_TABLE)
+    version = registry.register_typed(_cap(key), _half_life_table(), HALF_LIFE_TABLE)
     assert registry.resolve(key, version) == _half_life_table()
     assert registry.artifact_class_of(key) == HALF_LIFE_TABLE.class_id
     assert registry.audit_events()[0].artifact_class == HALF_LIFE_TABLE.class_id
@@ -185,29 +192,29 @@ def test_typed_registration_stores_and_records_the_class() -> None:
 def test_typed_registration_rejects_an_artifact_of_the_wrong_class() -> None:
     registry = _registry()
     with pytest.raises(TypeError):
-        registry.register_typed("acme/half-life", _debt_profile(), HALF_LIFE_TABLE)
+        registry.register_typed(_cap("acme/half-life"), _debt_profile(), HALF_LIFE_TABLE)
 
 
 def test_typed_registration_rejects_an_untyped_mapping() -> None:
     registry = _registry()
     with pytest.raises(TypeError):
-        registry.register_typed("acme/half-life", {"entries": {}}, HALF_LIFE_TABLE)
+        registry.register_typed(_cap("acme/half-life"), {"entries": {}}, HALF_LIFE_TABLE)
 
 
 def test_a_key_cannot_be_rebound_to_a_different_artifact_class() -> None:
     registry = _registry()
     key = "acme/config"
-    registry.register_typed(key, _half_life_table(), HALF_LIFE_TABLE)
+    registry.register_typed(_cap(key), _half_life_table(), HALF_LIFE_TABLE)
     with pytest.raises(TypeError):
-        registry.register_typed(key, _debt_profile(), DEBT_PROFILE)
+        registry.register_typed(_cap(key), _debt_profile(), DEBT_PROFILE)
 
 
 def test_typed_registration_is_append_only_like_the_untyped_path() -> None:
     registry = _registry()
     key = "acme/half-life"
-    v1 = registry.register_typed(key, _half_life_table(), HALF_LIFE_TABLE)
+    v1 = registry.register_typed(_cap(key), _half_life_table(), HALF_LIFE_TABLE)
     widened = _half_life_table().model_copy(update={"semver": "1.1.0"})
-    v2 = registry.register_typed(key, widened, HALF_LIFE_TABLE)
+    v2 = registry.register_typed(_cap(key), widened, HALF_LIFE_TABLE)
     assert registry.versions(key) == (v1, v2)
     assert registry.resolve(key, v1) == _half_life_table()
 
@@ -221,7 +228,7 @@ def test_a_user_declared_artifact_class_is_registrable() -> None:
         class_id=policy.class_id,
         declaration={"regime": "acme-bank-credit", "jurisdiction": "NL"},
     )
-    version = registry.register_typed("acme/policy", artifact, policy)
+    version = registry.register_typed(_cap("acme/policy"), artifact, policy)
     assert registry.resolve("acme/policy", version) == artifact
 
 
@@ -288,8 +295,8 @@ def test_a_loaded_artifact_registers_and_content_addresses_identically() -> None
         )
     )
     loaded = load_artifact(text, DEBT_PROFILE)
-    from_code = registry.register_typed("acme/debt", _debt_profile(), DEBT_PROFILE)
-    from_yaml = registry.register_typed("acme/debt", loaded, DEBT_PROFILE)
+    from_code = registry.register_typed(_cap("acme/debt"), _debt_profile(), DEBT_PROFILE)
+    from_yaml = registry.register_typed(_cap("acme/debt"), loaded, DEBT_PROFILE)
     assert from_code == from_yaml
 
 
@@ -300,7 +307,7 @@ def test_the_audit_log_grows_on_every_register_and_resolve() -> None:
     registry = _registry()
     before = len(registry.audit_events())
     version = registry.register_typed(
-        "acme/half-life", _half_life_table(), HALF_LIFE_TABLE
+        _cap("acme/half-life"), _half_life_table(), HALF_LIFE_TABLE
     )
     after_register = len(registry.audit_events())
     registry.resolve("acme/half-life", version)
@@ -308,13 +315,20 @@ def test_the_audit_log_grows_on_every_register_and_resolve() -> None:
     assert before < after_register < after_resolve
 
 
-def test_an_actor_is_recorded_when_stated_and_never_invented() -> None:
+def test_the_actor_is_the_capabilitys_principal_and_never_invented() -> None:
+    """D-IMPL-353 §1.2: no caller-typed actor exists; the audit actor is the
+    verified principal the capability was minted for, on every registration."""
     registry = _registry()
-    registry.register("acme/policy", _Bundle(label="a"), actor="ops@acme-bank")
-    registry.register("acme/policy", _Bundle(label="b"))
+    registry.register(
+        register_capability("acme/policy", Register, principal="ops@acme-bank"),
+        _Bundle(label="a"),
+    )
+    registry.register(
+        register_capability("acme/policy", Register, principal="risk@acme-bank"),
+        _Bundle(label="b"),
+    )
     events = registry.audit_events()
-    assert events[0].actor == "ops@acme-bank"
-    assert events[1].actor is None
+    assert [e.actor for e in events] == ["ops@acme-bank", "risk@acme-bank"]
 
 
 def test_the_audit_log_is_append_only() -> None:
@@ -349,7 +363,7 @@ def test_audit_sequence_numbers_are_assigned_by_the_log() -> None:
 
 def test_the_replay_resolver_cannot_reach_latest() -> None:
     registry = _registry()
-    version = registry.register("acme/policy", _Bundle(label="a"))
+    version = registry.register(_cap("acme/policy"), _Bundle(label="a"))
     resolver = ReplayResolver(registry)
     assert resolver.resolve("acme/policy", version) == _Bundle(label="a")
     assert not hasattr(resolver, "resolve_latest")
@@ -367,7 +381,7 @@ def test_the_replay_resolver_propagates_a_missing_version() -> None:
 def test_peek_returns_the_artifact_without_auditing() -> None:
     """Declared-version probes are not resolutions (WR-08 side effect)."""
     registry = _registry()
-    version = registry.register("acme/policy", _Bundle(label="a"))
+    version = registry.register(_cap("acme/policy"), _Bundle(label="a"))
     before = len(registry.audit_events())
     assert registry.peek("acme/policy", version) == _Bundle(label="a")
     assert len(registry.audit_events()) == before
@@ -392,9 +406,9 @@ def test_keys_of_class_lists_only_keys_bound_to_that_class() -> None:
     other = DeclaredArtifact(
         class_id="debt-profile", semver="1.0.0", declaration={"y": 2}
     )
-    registry.register_typed("acme/policy-bundle/a", bundle, bundle_class)
-    registry.register_typed("acme/debt-profile/b", other, other_class)
-    registry.register("acme/untyped", _Bundle(label="a"))
+    registry.register_typed(_cap("acme/policy-bundle/a"), bundle, bundle_class)
+    registry.register_typed(_cap("acme/debt-profile/b"), other, other_class)
+    registry.register(_cap("acme/untyped"), _Bundle(label="a"))
     assert registry.keys_of_class(bundle_class.class_id) == (
         "acme/policy-bundle/a",
     )

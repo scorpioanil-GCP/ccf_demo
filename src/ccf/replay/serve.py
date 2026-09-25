@@ -56,7 +56,8 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
-from ccf.artifacts.protocol import ArtifactRef, ArtifactStoreProtocol
+from ccf.artifacts.protocol import ArtifactRef, ArtifactStoreProtocol, DerivedWrite
+from ccf.authz.capability import Authorized, ReplayMint, verify
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
 from ccf.graph.protocols import GraphQuery
@@ -70,6 +71,7 @@ __all__ = [
     "CapabilityForgeryError",
     "DeliveryCapability",
     "ProductRecordMismatch",
+    "ReplayTenantMismatch",
     "QueryPinMismatch",
     "QueryPinWriter",
     "ReplayWriter",
@@ -119,6 +121,16 @@ class ProductRecordMismatch(ValueError):
     :class:`QueryPinMismatch` does, rather than returning a
     :class:`~ccf.products.refusal.RefusalEnvelope` a caller could mistake for
     an answer.
+    """
+
+
+class ReplayTenantMismatch(ValueError):
+    """The record (or query) names a tenant other than the writer's capability's (D-IMPL-353 §1.3).
+
+    A :class:`ReplayWriter` files under ``authorized.tenant`` and nothing else
+    may name a tenant. A record whose ``tenant_id`` differs was built by a
+    resolver wired to the wrong writer — a deployment defect, raised before
+    anything is persisted, exactly as :class:`ProductRecordMismatch` is.
     """
 
 
@@ -180,22 +192,50 @@ class DeliveryCapability:
 class ReplayWriter:
     """Appends replay records to the ArtifactStore and grants delivery.
 
+    **Holds the one capability no door can mint (D-IMPL-353 §2 P3).** The
+    composition root obtains ``Authorized[ReplayMint]`` through
+    :func:`~ccf.authz.capability.mint_at_composition` — its statement, made
+    once at boot and audited under the capability's ``decision_id``, that this
+    process may mint governed records for one tenant under one record class —
+    and hands it here. The record class IS the capability's resource; the
+    tenant IS the capability's tenant; there is no ``artifact_class`` parameter
+    and no second source for either. Each record is filed as a
+    :class:`~ccf.artifacts.protocol.DerivedWrite` — the decision that minted the
+    capability could not name a record that did not yet exist, so this writer
+    names it (by its snapshot id) and the store verifies the capability against
+    the kinds the deployment declared for the class. A store whose declaration
+    does not name the class under ``ReplayMint`` refuses at the first write:
+    wrong kind, loudly, at boot's first serve.
+
+    One writer per tenant, by construction: the capability is minted for one.
+
     Args:
+        authorized: The composition-minted ``ReplayMint`` capability. Verified
+            here at construction so a mis-wired root fails before any request,
+            and verified again by the store at every write.
         store: The artifact substrate (CLAUDE.md §7.4). Any conforming
-            implementation — file-backed here, MCP-backed in I.3 — and the
-            store is never a second writer to the graph: this module holds no
-            graph handle and imports no reader and no writer (its one
-            :mod:`ccf.graph` import is the frozen :class:`GraphQuery` *value*
-            contract the pin surface persists).
-        artifact_class: Which artifact class replay records are filed under.
-            Deployment vocabulary, so it is supplied rather than assumed.
+            implementation, and the store is never a second writer to the
+            graph: this module holds no graph handle and imports no reader and
+            no writer (its one :mod:`ccf.graph` import is the frozen
+            :class:`GraphQuery` *value* contract the pin surface persists).
     """
 
     def __init__(
-        self, *, store: ArtifactStoreProtocol, artifact_class: str
+        self, *, authorized: Authorized[ReplayMint], store: ArtifactStoreProtocol
     ) -> None:
+        verify(authorized, kind=ReplayMint, resource=getattr(authorized, "resource", ""))
+        self._authorized = authorized
         self._store = store
-        self._artifact_class = artifact_class
+
+    @property
+    def tenant_id(self) -> str:
+        """The one tenant this writer files under — the capability's."""
+        return self._authorized.tenant
+
+    @property
+    def artifact_class(self) -> str:
+        """The record class this writer files under — the capability's resource."""
+        return self._authorized.resource
 
     def write_replay_record(
         self, *, record: DecisionReplayRecord
@@ -207,16 +247,27 @@ class ReplayWriter:
         rather than accumulating near-duplicates.
 
         Raises:
+            ReplayTenantMismatch: the record's ``tenant_id`` is not the
+                capability's tenant. Raised before the store is touched.
             Exception: whatever the store raises. Deliberately not caught: a
                 failure to record is a failure to serve, and translating it
                 into a softer outcome here would be the exact hole this design
                 exists to close.
         """
+        if record.tenant_id != self._authorized.tenant:
+            raise ReplayTenantMismatch(
+                f"the replay record names tenant {record.tenant_id!r} but this"
+                f" writer's capability is for {self._authorized.tenant!r}; a"
+                " record is filed under the capability's tenant and nothing"
+                " else may name one (D-IMPL-353 §1.3)"
+            )
         ref = self._store.put(
-            tenant_id=record.tenant_id,
-            artifact_class=self._artifact_class,
-            name=record.context_fabric_snapshot.graph_snapshot_id,
-            artifact=record,
+            self._authorized,
+            DerivedWrite(
+                artifact_class=self._authorized.resource,
+                name=record.context_fabric_snapshot.graph_snapshot_id,
+                artifact=record,
+            ),
         )
         return DeliveryCapability(ref, _DELIVERY_TOKEN)
 
@@ -238,22 +289,37 @@ class QueryPinWriter:
     engine: the engine stays free of persistence collaborators, exactly as it
     holds no replay writer.
 
+    Holds its own ``Authorized[ReplayMint]`` for the query-pin class, minted at
+    composition beside the replay writer's (D-IMPL-353 §2 P3): one capability,
+    one class, one tenant. There is no ``artifact_class`` and no ``tenant_id``
+    parameter anywhere on this type.
+
     Args:
+        authorized: The composition-minted ``ReplayMint`` capability whose
+            resource is the query-pin class.
         store: The artifact substrate (CLAUDE.md §7.4) — ordinarily the same
             store the deployment's :class:`ReplayWriter` appends to.
-        artifact_class: Which artifact class query bytes are filed under.
-            Deployment vocabulary, supplied rather than assumed — this
-            project's examples and tests use ``"ccf.graph-query"``.
     """
 
     def __init__(
-        self, *, store: ArtifactStoreProtocol, artifact_class: str
+        self, *, authorized: Authorized[ReplayMint], store: ArtifactStoreProtocol
     ) -> None:
+        verify(authorized, kind=ReplayMint, resource=getattr(authorized, "resource", ""))
+        self._authorized = authorized
         self._store = store
-        self._artifact_class = artifact_class
+
+    @property
+    def tenant_id(self) -> str:
+        """The one tenant this writer files under — the capability's."""
+        return self._authorized.tenant
+
+    @property
+    def artifact_class(self) -> str:
+        """The query-pin class this writer files under — the capability's resource."""
+        return self._authorized.resource
 
     def write_query_bytes(
-        self, *, tenant_id: str, queries: tuple[GraphQuery, ...]
+        self, *, queries: tuple[GraphQuery, ...]
     ) -> tuple[ArtifactRef, ...]:
         """Persist every query's canonical bytes; return the refs, in order.
 
@@ -263,18 +329,29 @@ class QueryPinWriter:
         lane or the address lane resolves a pin to its bytes.
 
         Raises:
+            ReplayTenantMismatch: a query names a tenant other than the
+                capability's. Raised before the store is touched.
             Exception: whatever the store raises, deliberately uncaught — the
                 :meth:`ReplayWriter.write_replay_record` posture: a failure to
                 persist a pinned question must fail the serve, because a
                 record whose pins cannot be resolved is the T-15.2-28
                 repudiation threat made durable.
         """
+        for query in queries:
+            if query.tenant_id != self._authorized.tenant:
+                raise ReplayTenantMismatch(
+                    f"a pinned query names tenant {query.tenant_id!r} but this"
+                    f" writer's capability is for {self._authorized.tenant!r}"
+                    " (D-IMPL-353 §1.3)"
+                )
         return tuple(
             self._store.put(
-                tenant_id=tenant_id,
-                artifact_class=self._artifact_class,
-                name=content_hash(query),
-                artifact=query,
+                self._authorized,
+                DerivedWrite(
+                    artifact_class=self._authorized.resource,
+                    name=content_hash(query),
+                    artifact=query,
+                ),
             )
             for query in queries
         )
@@ -366,9 +443,7 @@ def serve(
     if query_pin_writer is not None and executed_queries:
         # Bytes first, record second: the append below must never publish a
         # pin the store cannot already resolve (T-15.2-28).
-        query_pin_writer.write_query_bytes(
-            tenant_id=record.tenant_id, queries=executed_queries
-        )
+        query_pin_writer.write_query_bytes(queries=executed_queries)
     return replay_writer.write_replay_record(record=record).deliver(product)
 
 

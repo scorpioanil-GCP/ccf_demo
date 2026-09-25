@@ -55,6 +55,9 @@ from ccf.replay.record import (
     PolicyBindingsSnapshot,
 )
 from ccf.replay.serve import ProductRecordMismatch, ReplayWriter, ServedProduct, serve
+from ccf.authz.capability import Register
+from tests.controlplane.capabilities import register_capability
+from tests.replay.authority import replay_store, replay_writer
 
 TENANT = "tenant-fixture"
 NOW = datetime(2026, 9, 8, 12, 0, tzinfo=UTC)
@@ -91,7 +94,7 @@ def _servable(product: ContextProductContract) -> ServableProduct:
     """
     registry = ControlPlaneRegistry()
     key = "test/product/max-ttl"
-    version = registry.register(key, MaxTTL(seconds=900))
+    version = registry.register(register_capability(key, Register), MaxTTL(seconds=900))
     product_class = register_product_class(
         registry=registry,
         schema_name="fixture.exposure-summary",
@@ -167,8 +170,8 @@ def test_serve_refuses_a_record_that_describes_a_different_product(
         "the two fixtures must differ, or this test measures nothing"
     )
 
-    store = FileArtifactStore(root=tmp_path / "artifacts")
-    writer = ReplayWriter(store=store, artifact_class=RECORD_CLASS)
+    store = replay_store(tmp_path / "artifacts", RECORD_CLASS)
+    writer = replay_writer(store, tenant=TENANT, artifact_class=RECORD_CLASS)
 
     # --- CONTROL: the record is about the product being served --------------
     served = serve(

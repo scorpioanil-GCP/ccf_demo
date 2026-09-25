@@ -48,11 +48,14 @@ from typing import TYPE_CHECKING, Literal, Protocol, runtime_checkable
 
 from pydantic import field_validator
 
+from ccf.authz.capability import Authorized, verify
+from ccf.authz.capability import SkillGrant as SkillGrantKind
+from ccf.authz.capability import SkillRevoke as SkillRevokeKind
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifact_base import ArtifactClass, validate_semver
 from ccf.controlplane.audit import AuditAction, AuditEvent, AuditLog
-from ccf.controlplane.state import AuditedStateWriter
+from ccf.controlplane.state import AuditedStateWriter, split_state_key, state_key
 from ccf.controlplane.registry import (
     ControlPlaneRegistry,
     RegistrationRefusal,
@@ -78,6 +81,7 @@ __all__ = [
     "ApprovalSink",
     "BoundSkillView",
     "GovernanceUndeclared",
+    "GrantAuthorityMismatch",
     "GrantCollisionError",
     "GrantLedger",
     "GrantRefusal",
@@ -128,6 +132,23 @@ class GrantTransitionError(RuntimeError):
     refused grant, re-requesting a decided one) is broken wiring in the
     caller, not an expected governance outcome (I.1 refusal-vs-exception
     line: refusals are values; a misused state machine is an exception).
+    """
+
+
+class GrantAuthorityMismatch(PermissionError):
+    """The capability does not cover the definition the ledger was handed (D-IMPL-353 §1.3, §1.5f).
+
+    The ``skill.grant`` door decides on the **agent definition key**; the
+    ledger is handed the resolved definition object by an inner caller. This
+    is the (f) case the design names — *"where a handle is handed a target by
+    an inner caller anyway, verify takes the target and refuses by identity of
+    the resource string"* — so the ledger binds the capability's resource to
+    the definition it was given: the resource's tenant segment, the
+    definition's tenant and the capability's tenant must be one tenant, and
+    the resource must end in the definition's own name. Raised, never
+    returned: after ``verify`` the capability is genuine and for its resource,
+    so a definition that does not match it is broken door wiring or an attack,
+    not a governance outcome.
     """
 
 
@@ -554,9 +575,16 @@ class GrantLedger:
 
     # -- state (on the Control Plane seam, never on this instance) -----------
 
-    def _record_for(self, grant_hash: str) -> GrantStateRecord | None:
-        """The state record for one grant, or ``None`` if unseen."""
-        record = self._state_store.get(GRANT_STATE, grant_hash)
+    def _record_for(self, tenant: str, grant_hash: str) -> GrantStateRecord | None:
+        """The state record for one grant, or ``None`` if unseen.
+
+        Keyed by :func:`~ccf.controlplane.state.state_key` of the tenant and
+        the grant hash — the tenant is the writing capability's (§1.3), so a
+        reader names the tenant it is reading for.
+        """
+        record = self._state_store.get(
+            GRANT_STATE, state_key(tenant=tenant, record_id=grant_hash)
+        )
         if record is None:
             return None
         if not isinstance(record, GrantStateRecord):
@@ -571,6 +599,7 @@ class GrantLedger:
 
     def _put_state(
         self,
+        authorized: Authorized[SkillGrantKind] | Authorized[SkillRevokeKind],
         grant_hash: str,
         state: GrantState,
         grant: SkillGrant,
@@ -585,12 +614,16 @@ class GrantLedger:
         in 07-02: the ledger's existing domain transition event travels as
         the write's required event, so the write evidence rides on the
         ``grant_*`` action itself — one event per transition, never a second
-        generic entry (INV-CH7-71).
+        generic entry (INV-CH7-71). The capability that authorized the
+        transition travels with the write (D-IMPL-353 §1.2, the derived-writes
+        rule): the store verifies it and files under its tenant; the grant
+        hash is the record's identity within that tenant.
         """
         self._writer.write(
+            authorized,
             GRANT_STATE,
-            grant_hash,
             GrantStateRecord(state=state, grant=grant),
+            record_id=grant_hash,
             event=AuditEvent(
                 sequence=0,  # reassigned by the log; sequencing is its own
                 action=action,
@@ -604,10 +637,17 @@ class GrantLedger:
         )
 
     def _records(self) -> tuple[tuple[str, GrantStateRecord], ...]:
-        """Every grant state record on this Control Plane, hash-sorted."""
+        """Every grant state record on this Control Plane, key-sorted.
+
+        The store's key is ``{tenant}/{grant_hash}``; the grant hash — the
+        identity the D-07 folds are computed over — is recovered by
+        :func:`~ccf.controlplane.state.split_state_key`. Hashes are
+        content-derived over a grant that carries its tenant, so two tenants
+        cannot share one.
+        """
         return tuple(
-            (grant_hash, record)
-            for grant_hash, record in self._state_store.items(GRANT_STATE)
+            (split_state_key(key)[1], record)
+            for key, record in self._state_store.items(GRANT_STATE)
             if isinstance(record, GrantStateRecord)
         )
 
@@ -739,12 +779,23 @@ class GrantLedger:
 
     def request(
         self,
+        authorized: Authorized[SkillGrantKind],
         grant: SkillGrant,
         *,
         definition: AgentDefinition,
-        actor: str,
     ) -> str | GrantRefusal | RegistrationRefusal:
         """Run one grant through both tiers; return its hash or a refusal.
+
+        **Requires the capability for its own action** (D-IMPL-353 §1.2):
+        ``Authorized[SkillGrant]``, minted by the ``skill.grant`` door for the
+        agent definition key. ``verify`` runs before the first real statement;
+        the capability's resource is then bound to ``definition`` (§1.5f —
+        :class:`GrantAuthorityMismatch`); the audit actor is
+        ``authorized.principal`` — there is no ``actor`` parameter; the grant
+        artifact registers as a *derived* registration under the capability's
+        tenant; every state transition writes under the same capability. Note
+        ``SkillGrant is not SkillRevoke``: this handle requires the kind for
+        the transition it performs.
 
         The sequence is fixed: resolve the referenced catalog entry (so a
         missing entry leaves the ledger untouched and the same grant content
@@ -803,8 +854,14 @@ class GrantLedger:
                 (``resolved=False``) audit record — the audit plane records
                 what it turned away without wedging a phantom request.
         """
+        # `getattr`, not attribute access: a handle must not trust its
+        # annotation, and a bare `object()` presented here dies at `verify`
+        # rather than one line earlier as an AttributeError (§1.5c).
+        verify(authorized, kind=SkillGrantKind, resource=getattr(authorized, "resource", ""))
+        self._require_covers(authorized, definition)
+        actor = authorized.principal
         grant_hash = content_hash(grant)
-        seen = self._record_for(grant_hash)
+        seen = self._record_for(authorized.tenant, grant_hash)
         if seen is not None:
             state = seen.state
             decided = state not in ("requested", "pending-approval")
@@ -837,6 +894,7 @@ class GrantLedger:
         mismatch = self._tenant_mismatch(grant, definition, entry)
         if mismatch is not None:
             self._put_state(
+                authorized,
                 grant_hash,
                 "refused",
                 grant,
@@ -853,13 +911,19 @@ class GrantLedger:
         # alone, which the D-05 empty-bump refusal would otherwise reject —
         # leaving the retry path reachable only by renaming the grant, i.e.
         # by minting a second Control Plane key for the same request.
+        # A DERIVED registration (D-IMPL-353 §1.2): the decision named the
+        # agent definition; the grant artifact is a record it created. The
+        # registry derives the key from the capability's tenant, the class and
+        # the grant's own name — which is `skill_grant_key(grant)` exactly,
+        # because tenant coherence was established above.
         registered = self._control_plane.register_versioned(
-            skill_grant_key(grant), grant, SKILL_GRANT, actor=actor, reissuable=True
+            authorized, grant, SKILL_GRANT, reissuable=True
         )
         if isinstance(registered, RegistrationRefusal):
             return registered
 
         self._put_state(
+            authorized,
             grant_hash,
             "requested",
             grant,
@@ -880,10 +944,11 @@ class GrantLedger:
         # exception unchanged — the caller still sees the real failure.
         try:
             return self._decide(
-                grant, grant_hash, definition=definition, entry=entry, actor=actor
+                authorized, grant, grant_hash, definition=definition, entry=entry
             )
         except Exception:
             self._put_state(
+                authorized,
                 grant_hash,
                 "refused",
                 grant,
@@ -892,6 +957,39 @@ class GrantLedger:
                 actor=actor,
             )
             raise
+
+    @staticmethod
+    def _require_covers(
+        authorized: Authorized[SkillGrantKind], definition: AgentDefinition
+    ) -> None:
+        """Bind the capability's resource to the definition handed in (§1.5f).
+
+        The resource is the agent definition key the door decided on and
+        resolved ``definition`` from — ``{tenant}/{class}/{name}``. The ledger
+        cannot import the agent class id (a runtime cycle), so it binds the
+        two segments it can: the tenant segment must be the capability's
+        tenant and the definition's tenant, and the final segment must be the
+        definition's own name.
+
+        Raises:
+            GrantAuthorityMismatch: the definition is not the one the
+                capability was minted for.
+        """
+        resource_tenant, separator, remainder = authorized.resource.partition("/")
+        resource_name = remainder.rpartition("/")[2]
+        if (
+            not separator
+            or resource_tenant != authorized.tenant
+            or definition.tenant != authorized.tenant
+            or resource_name != definition.name
+        ):
+            raise GrantAuthorityMismatch(
+                f"the capability authorizes skill.grant on {authorized.resource!r}"
+                f" for tenant {authorized.tenant!r}, but the ledger was handed"
+                f" definition {definition.name!r} of tenant {definition.tenant!r};"
+                " a grant capability covers the definition it was minted for"
+                " and no other (D-IMPL-353 §1.3, §1.5f)"
+            )
 
     def _tenant_mismatch(
         self,
@@ -926,12 +1024,12 @@ class GrantLedger:
 
     def _decide(
         self,
+        authorized: Authorized[SkillGrantKind],
         grant: SkillGrant,
         grant_hash: str,
         *,
         definition: AgentDefinition,
         entry: SkillCatalogEntry,
-        actor: str,
     ) -> str | GrantRefusal:
         """Tier 1, then tier 2 — the decided part of the run.
 
@@ -941,9 +1039,11 @@ class GrantLedger:
         checked here — it runs before registration (IN-04), so by the time
         this method is reached the grant is already known tenant-coherent.
         """
+        actor = authorized.principal
         verdict = self._tier_1(grant, definition, entry)
         if isinstance(verdict, GrantRefusal):
             self._put_state(
+                authorized,
                 grant_hash,
                 "refused",
                 grant,
@@ -955,6 +1055,7 @@ class GrantLedger:
 
         if verdict.grant_requires_approval:
             self._put_state(
+                authorized,
                 grant_hash,
                 "pending-approval",
                 grant,
@@ -965,6 +1066,7 @@ class GrantLedger:
             outcome = self._sink.decide(grant)
             if not outcome.approved:
                 self._put_state(
+                    authorized,
                     grant_hash,
                     "refused",
                     grant,
@@ -985,6 +1087,7 @@ class GrantLedger:
             effective_actor = actor
 
         self._put_state(
+            authorized,
             grant_hash,
             "effective",
             grant,
@@ -994,15 +1097,29 @@ class GrantLedger:
         )
         return grant_hash
 
-    def revoke(self, grant_hash: str, *, actor: str) -> None:
-        """Revoke one effective grant.
+    def revoke(self, authorized: Authorized[SkillRevokeKind]) -> None:
+        """Revoke one effective grant — the one the capability names.
+
+        **Requires the capability for its own action** (D-IMPL-353 §1.2):
+        ``Authorized[SkillRevoke]``, minted by the ``skill.revoke`` door for the
+        grant hash. The grant hash IS ``authorized.resource`` — a handle that
+        takes a target takes it only from the capability (§1.5f) — and the
+        state is read under the capability's tenant, so a revoke capability
+        for one tenant finds nothing under another's. The audit actor is
+        ``authorized.principal``.
 
         Raises:
+            ccf.authz.capability.CapabilityBypassError: fabricated,
+                retargeted, or not a ``SkillRevoke`` — a ``SkillGrant``
+                capability does not revoke.
             GrantTransitionError: the hash names no grant decided on this
-                Control Plane, or the grant is not currently effective — the
-                machine defines revocation from ``effective`` only.
+                Control Plane for this tenant, or the grant is not currently
+                effective — the machine defines revocation from ``effective``
+                only.
         """
-        record = self._record_for(grant_hash)
+        verify(authorized, kind=SkillRevokeKind, resource=getattr(authorized, "resource", ""))
+        grant_hash = authorized.resource
+        record = self._record_for(authorized.tenant, grant_hash)
         state = None if record is None else record.state
         if record is None or state != "effective":
             raise GrantTransitionError(
@@ -1011,12 +1128,13 @@ class GrantLedger:
                 " only (D-09)"
             )
         self._put_state(
+            authorized,
             grant_hash,
             "revoked",
             record.grant,
             action="grant_revoked",
             resolved=True,
-            actor=actor,
+            actor=authorized.principal,
         )
 
     # -- introspection and identity --------------------------------------------
@@ -1027,7 +1145,7 @@ class GrantLedger:
         Raises:
             KeyError: the hash names no grant on this Control Plane.
         """
-        record = self._record_for(grant_hash)
+        record = dict(self._records()).get(grant_hash)
         if record is None:
             raise KeyError(grant_hash)
         return record.state
