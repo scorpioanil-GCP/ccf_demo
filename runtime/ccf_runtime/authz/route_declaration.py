@@ -56,10 +56,12 @@ __all__ = [
 ]
 
 #: The path parameter the SDK addresses a tenant by, wherever a route is
-#: tenant-addressed. **Derived, never declared**: the gate enforces
-#: ``path[TENANT_PATH_PARAM] == grant.tenant`` for every route whose template
-#: names it, so a tenant-addressed route cannot be mounted having forgotten the
-#: assertion — there is no per-route switch to omit.
+#: tenant-addressed. **Derived, never declared**: the gate holds
+#: ``path[TENANT_PATH_PARAM]`` to a member of the verified grant's ``tenants``
+#: set for every route whose template names it, and selects that member as the
+#: acting tenant (D-IMPL-353 §1.3) — so a tenant-addressed route cannot be
+#: mounted having forgotten the assertion; there is no per-route switch to
+#: omit.
 #:
 #: The segment remains part of the product address (it is what a URI *means* on
 #: a surface whose MCP siblings address the same three facts); what changed is

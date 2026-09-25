@@ -177,6 +177,7 @@ from starlette.requests import Request
 
 from pydantic import ValidationError
 
+from ccf.authz.capability import ProductRetrieve
 from ccf.contracts.canonical import canonical_bytes
 from ccf.products.door import WireRequest, door_refusal, served_answer
 from ccf.products.refusal import REFUSAL_KINDS, GovernedRefusalRaised, RefusalEnvelope
@@ -203,7 +204,7 @@ from ccf_runtime.http_api.errors import (
     ERROR_PRODUCT_REQUEST_INCOMPLETE,
     refusal_detail,
 )
-from ccf_runtime.http_api.grants import grant_from_request
+from ccf_runtime.http_api.grants import authorized_from_request, grant_from_request
 from ccf_runtime.http_api.refusal_status import STATUS_BY_KIND, status_for
 from ccf_runtime.http_api.routes import (
     canonical_response,
@@ -321,9 +322,16 @@ def build_router(
         # (`D-IMPL-38`); a `500` there for a value this door already knows how
         # to refuse `400` would be a door lie.
         echo = _echo(asked) if asked is not None else None
+        # D-IMPL-353 §1.3/§1.4: the capability for THIS class, or nothing.
+        # The tenant every call below acts under is the CAPABILITY's; the
+        # `tenant` path segment is the product's address, which the gate has
+        # already held equal to a tenant the credential holds, and it supplies
+        # nothing here.
+        authorized = authorized_from_request(request, kind=ProductRetrieve)
+        assert authorized.resource == product_class
         decided = _authorized_perspective(
             request,
-            tenant=tenant,
+            tenant=authorized.tenant,
             product_class=product_class,
             version=version,
             role=role,
@@ -336,7 +344,7 @@ def build_router(
         perspective = decided
         try:
             resolved = deps.product_resolver(
-                tenant=tenant,
+                tenant=authorized.tenant,
                 product_class=product_class,
                 version=version,
                 perspective=perspective,
@@ -347,12 +355,15 @@ def build_router(
             # not return — recorded and disclosed at the boundary and rendered
             # through the ONE refusal path below, exactly as the typed absence
             # is. Only this type; the route's other handling is unchanged.
+            # JOIN (§1.2, Lane HANDLES/MCP): `govern_raised_refusal(authorized,
+            # ...)`; until then the governed step takes the verified grant the
+            # gate stashed beside the capability, and the capability's tenant.
             grant = grant_from_request(request)
             assert grant is not None
             return _refusal_response(
                 govern_raised_refusal(
                     raised=raised,
-                    tenant=tenant,
+                    tenant=authorized.tenant,
                     product_class=product_class,
                     product_version=version,
                     parameters=dict(asked.parameters) if asked is not None else {},
@@ -379,10 +390,11 @@ def build_router(
             # The entitlement source needs no narrowing any more — it is a
             # required parameter of this builder (`SEC-001`).
             assert grant is not None
+            # JOIN (§1.2, Lane HANDLES/MCP): `govern_absence(authorized, ...)`.
             return _refusal_response(
                 govern_absence(
                     grant=grant,
-                    tenant=tenant,
+                    tenant=authorized.tenant,
                     product_class=product_class,
                     product_version=version,
                     parameters=dict(asked.parameters) if asked is not None else {},
@@ -555,6 +567,9 @@ def build_router(
                 :data:`~ccf_runtime.http_api.errors.ERROR_PRODUCT_DOOR_UNGOVERNED`
                 when no authorized perspective can be produced at all.
         """
+        # JOIN (§1.2, Lane HANDLES/MCP): `govern_entitlement(authorized, ...)`
+        # replaces `grant=`; until then the governed step takes the verified
+        # grant the gate stashed beside the capability.
         grant = grant_from_request(request)
         if grant is None:
             # Unreachable behind the total gate, which refuses 401 before any

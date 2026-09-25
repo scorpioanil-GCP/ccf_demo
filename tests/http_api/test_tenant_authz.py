@@ -23,9 +23,11 @@ deny-by-default (T-10-01)                   an unmatched grant or an
 the resource axis (``SEC-002``)             holding an action would authorize
                                             every resource that action can
                                             name — the finding's exact shape
-``tenant := grant.tenant``                  a path segment, query parameter
-                                            or body field would supply the
-                                            tenant a decision is made under
+the tenant is SELECTED from the grant's     a path segment, query parameter
+set (D-IMPL-353 §1.3)                       or body field would supply a
+                                            tenant the grant does not hold; a
+                                            grant spanning several would have
+                                            one picked for it
 a grant with no tenant                      would be given one
 audit-by-construction (D-09/D-10)           an allow or a deny would leave no
                                             ``authz_decision`` event on the
@@ -68,14 +70,13 @@ from ccf_runtime.authz.refusals import (
 )
 from ccf_runtime.http_api.auth import BearerTokenAuth
 from ccf_runtime.http_api.errors import (
+    ERROR_AMBIGUOUS_TENANT,
     ERROR_REQUEST_UNAUTHORIZED,
     ERROR_UNTENANTED_GRANT,
 )
-from ccf_runtime.mcp.auth import TokenGrant
 
 from .conftest import Fabric
 from .gate_fixtures import (
-    TenantedTokenGrant,
     WIDE_RESOURCES,
     probe,
     tenanted_source,
@@ -93,6 +94,7 @@ TOKEN_NARROW = "gate-authz-narrow"
 TOKEN_WIDE = "gate-authz-wide"
 TOKEN_OTHER = "gate-authz-other-tenant"
 TOKEN_UNTENANTED = "gate-authz-untenanted"
+TOKEN_BOTH = "gate-authz-both-tenants"
 CLIENT_ID = "gate-authz-caller"
 OTHER_TENANT = "gate-authz-other-tenant-name"
 #: The one Control Plane key ``SCOPE_NARROW`` may register into, and the one
@@ -101,10 +103,6 @@ OTHER_TENANT = "gate-authz-other-tenant-name"
 PERMITTED_KEY = "gate-authz-permitted/prompt"
 FORBIDDEN_KEY = "gate-authz-forbidden/prompt"
 INSTANT = datetime(2026, 8, 11, tzinfo=UTC)
-
-
-class _Impostor:
-    """A grant-shaped object carrying no tenant — the base ``TokenGrant``."""
 
 
 def _mapping(tenant: str) -> ScopeMappingArtifact:
@@ -149,24 +147,19 @@ def door(fabric: Fabric, tmp_path_factory: pytest.TempPathFactory) -> Any:
     )
     assert isinstance(version, str)
 
+    # Every credential is the base `TokenGrant` through the real per-boot
+    # source (D-IMPL-353 §2 P1). The untenanted one is the SAME contract with
+    # an EMPTY `tenants` set — what a source never told a tenant mints.
     source = tenanted_source(
         {
             TOKEN_NARROW: (CLIENT_ID, (SCOPE_NARROW,)),
             TOKEN_WIDE: (CLIENT_ID, (SCOPE_WIDE,)),
             TOKEN_OTHER: (CLIENT_ID, (SCOPE_WIDE,), OTHER_TENANT),
+            TOKEN_BOTH: (CLIENT_ID, (SCOPE_WIDE,), (tenant, OTHER_TENANT)),
+            TOKEN_UNTENANTED: (CLIENT_ID, (SCOPE_WIDE,), ()),
         },
         tenant=tenant,
     )
-    # A fourth credential the helper cannot express, deliberately: the BASE
-    # `TokenGrant`, which is what a token source that has not been taught
-    # about tenancy mints today.
-    untenanted = TokenGrant(client_id=CLIENT_ID, scopes=(SCOPE_WIDE,))
-
-    class _Source:
-        def grant_for(self, *, token: str) -> Any:
-            if token == TOKEN_UNTENANTED:
-                return untenanted
-            return source.grant_for(token=token)
 
     entitlement = ControlPlaneProductEntitlementSource(
         control_plane=_entitlement_registry(fabric), clock=lambda: INSTANT
@@ -178,7 +171,7 @@ def door(fabric: Fabric, tmp_path_factory: pytest.TempPathFactory) -> Any:
             product_resolver=fabric.product_resolver,
             hitl_transport=fabric.hitl,
         ),
-        auth=BearerTokenAuth(token_source=_Source()),
+        auth=BearerTokenAuth(token_source=source),
         authorizer=ControlPlaneTenantAuthorizer(
             control_plane=registry,
             scope_mapping_key=MAPPING_KEY,
@@ -277,7 +270,7 @@ def test_a_wider_grant_reaches_the_same_key_the_narrow_one_cannot(
     assert door.register(FORBIDDEN_KEY, token=TOKEN_WIDE).status_code != 403
 
 
-# --- tenant := grant.tenant -------------------------------------------------
+# --- the tenant is selected from the grant's set (D-IMPL-353 §1.3) -----------
 
 
 def test_a_path_segment_may_agree_with_the_grant_but_never_supply_it(
@@ -320,6 +313,28 @@ def test_a_credential_for_another_tenant_reaches_its_own_address(
         token=TOKEN_OTHER,
     )
     assert crossed.status_code == 403
+
+
+def test_a_grant_spanning_two_tenants_is_refused_where_the_route_names_none(
+    door: Any, fabric: Fabric
+) -> None:
+    """§1.3: the gate does not pick. The same credential is decided for the
+    member a tenanted route names, and refused as ambiguous on a route that
+    names none — with its own code, because the answer is a function of the
+    credential and the template and nothing a caller can vary."""
+    address = fabric.product_address
+    ambiguous = door.get("/health", token=TOKEN_BOTH)
+    assert ambiguous.status_code == 403
+    assert ambiguous.json()["detail"]["error_code"] == ERROR_AMBIGUOUS_TENANT
+
+    before = len(door.events())
+    named = door.get(
+        f"/product/{OTHER_TENANT}/{address.product_class}/{address.version}",
+        token=TOKEN_BOTH,
+    )
+    assert named.status_code != 403, named.text
+    (decision,) = door.events()[before:]
+    assert decision.key == OTHER_TENANT
 
 
 def test_a_grant_with_no_tenant_is_refused_rather_than_given_one(
@@ -405,6 +420,16 @@ def test_allow_and_deny_both_audit_with_the_pinned_version(door: Any) -> None:
     assert all(
         event.authz_action_id == ACTION_CONFIG_REGISTER for event in new
     )
+    # D-IMPL-353 §3: both say WHAT they decided about, and the deny says
+    # WHICH axis refused — here the resource, since the narrow scope holds
+    # the action for this tenant and not for this key.
+    allow, deny = new
+    assert allow.authz_resource == PERMITTED_KEY
+    assert allow.authz_matched_resource_pattern == "gate-authz-permitted/*"
+    assert allow.authz_failing_axis is None
+    assert deny.authz_resource == FORBIDDEN_KEY
+    assert deny.authz_matched_resource_pattern is None
+    assert deny.authz_failing_axis == "resource"
 
 
 def test_a_denial_before_the_authorizer_is_reached_writes_no_decision(
@@ -412,14 +437,15 @@ def test_a_denial_before_the_authorizer_is_reached_writes_no_decision(
 ) -> None:
     """The honest edge, recorded rather than smoothed over.
 
-    An untenanted grant and an unmatched request line are refused *before* the
-    authorizer is asked, so they leave no ``authz_decision`` event — there was
-    no decision to record. That is a real gap in the trail for those two
-    cases, and naming it here is the alternative to a test that quietly
-    assumes every refusal is audited.
+    An untenanted grant, an unmatched request line and an ambiguous tenant
+    are refused *before* the authorizer is asked, so they leave no
+    ``authz_decision`` event — there was no decision to record. That is a real
+    gap in the trail for those three cases, and naming it here is the
+    alternative to a test that quietly assumes every refusal is audited.
     """
     before = len(door.events())
     door.get("/health", token=TOKEN_UNTENANTED)
     door.get("/no-such-route", token=TOKEN_WIDE)
+    door.get("/health", token=TOKEN_BOTH)  # ambiguous: refused before asking
 
     assert len(door.events()) == before

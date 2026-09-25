@@ -24,7 +24,8 @@ submission's subject is derived from the verified
 rather than believed. The field is **deleted** rather than checked: a field
 that must equal the verified identity has no remaining correct reading, and
 leaving it would keep a second spelling of the author in the wire contract.
-The audited actor is now :attr:`~ccf_runtime.mcp.auth.TokenGrant.client_id`,
+The audited actor is the **capability's principal** (D-IMPL-353 §1.2) —
+``authorized.principal``, the verified ``client_id`` the gate minted for —
 through the same ledger transition any in-process client takes.
 
 Algorithmic module (CINV-03).
@@ -38,6 +39,13 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from ccf.agents.definitions import AGENT_DEFINITION, AgentDefinition
+from ccf.authz.capability import (
+    Authorized,
+    SkillCatalogRead,
+    SkillCatalogRegister,
+    SkillGrant as SkillGrantKind,
+    SkillRevoke,
+)
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes
 from ccf.controlplane.registry import ControlPlaneMissing, RegistrationRefusal
@@ -51,12 +59,8 @@ from ccf_runtime.authz.refusals import (
 )
 from ccf_runtime.authz.route_declaration import ResourceBinding, authorizes
 from ccf_runtime.http_api.dependencies import ApiDependencies
-from ccf_runtime.http_api.errors import (
-    ERROR_INVALID_GRANT,
-    ERROR_TENANT_UNAUTHORIZED,
-    refusal_detail,
-)
-from ccf_runtime.http_api.grants import grant_from_request, tenant_from_request
+from ccf_runtime.http_api.errors import ERROR_TENANT_UNAUTHORIZED, refusal_detail
+from ccf_runtime.http_api.grants import authorized_from_request
 from ccf_runtime.http_api.routes import _required_handle
 
 __ccf_mode__ = "algorithmic"
@@ -104,39 +108,10 @@ class GrantRevocationRequest(CCFContract):
     grant_hash: str
 
 
-def _acting(request: Request) -> str:
-    """The audited author of a grant transition — the verified caller.
-
-    ``SEC-002``, and the shape is :func:`~ccf_runtime.identity_binding
-    .principal_from_token_grant`'s: there is **no actor parameter**, so the
-    recorded author is what the deployment verified rather than what the
-    caller typed. Behind the total gate a verified grant is always present;
-    the refusal below is for a handler reached some other way, where refusing
-    beats attributing a ledger transition to nobody.
-
-    Raises:
-        HTTPException: 403 carrying
-            :data:`~ccf_runtime.http_api.errors.ERROR_INVALID_GRANT`.
-    """
-    grant = grant_from_request(request)
-    if grant is None:
-        raise HTTPException(
-            status_code=403,
-            detail=refusal_detail(
-                error_code=ERROR_INVALID_GRANT,
-                message=(
-                    "no verified grant accompanies this call, so the ledger"
-                    " transition has no author; the actor is derived from the"
-                    " verified identity and never taken from the request"
-                    " body (SEC-002; D-IMPL-67)"
-                ),
-            ),
-        )
-    return grant.client_id
-
-
-def _own_tenant(request: Request, declared: str) -> None:
-    """Refuse an entry that declares a tenant other than the grant's.
+def _own_tenant(
+    authorized: Authorized[SkillCatalogRegister], declared: str
+) -> None:
+    """Refuse an entry that declares a tenant other than the capability's.
 
     ``SEC-002``. :class:`~ccf.skills.catalog.SkillCatalogEntry` carries a
     ``tenant`` field, and the field lives in ``src/ccf/skills/catalog.py``
@@ -154,7 +129,7 @@ def _own_tenant(request: Request, declared: str) -> None:
         HTTPException: 403 carrying
             :data:`~ccf_runtime.http_api.errors.ERROR_TENANT_UNAUTHORIZED`.
     """
-    if declared != tenant_from_request(request):
+    if declared != authorized.tenant:
         raise HTTPException(
             status_code=403,
             detail=refusal_detail(
@@ -178,7 +153,8 @@ def build_router(deps: ApiDependencies) -> APIRouter:
         summary="Skill catalog (D-IMPL-23)",
     )
     @authorizes(ACTION_SKILL_CATALOG_READ, resource=ResourceBinding.route())
-    def catalog() -> list[SkillCatalogEntry]:
+    def catalog(request: Request) -> list[SkillCatalogEntry]:
+        authorized_from_request(request, kind=SkillCatalogRead)
         # Narrowed once per body (D-IMPL-126 item (3)): a deployment that
         # publishes no skill catalog wired none, and this route refuses with a
         # typed 503 naming the field rather than dereferencing `None`.
@@ -199,7 +175,8 @@ def build_router(deps: ApiDependencies) -> APIRouter:
     def register_entry(
         entry: SkillCatalogEntry, request: Request
     ) -> JSONResponse:
-        _own_tenant(request, entry.tenant)
+        authorized = authorized_from_request(request, kind=SkillCatalogRegister)
+        _own_tenant(authorized, entry.tenant)
         catalog_handle = _required_handle(
             deps.skill_catalog,
             field="skill_catalog",
@@ -228,6 +205,9 @@ def build_router(deps: ApiDependencies) -> APIRouter:
     def grant(
         body: GrantRequest, request: Request
     ) -> GrantIssued | JSONResponse:
+        # D-IMPL-353 §1.4: `Authorized[SkillGrant]` for THIS definition key.
+        authorized = authorized_from_request(request, kind=SkillGrantKind)
+        assert authorized.resource == body.definition_key
         ledger = _required_handle(
             deps.grant_ledger,
             field="grant_ledger",
@@ -241,8 +221,11 @@ def build_router(deps: ApiDependencies) -> APIRouter:
             raise HTTPException(status_code=404, detail=str(absent)) from absent
         definition = AGENT_DEFINITION.validate(artifact)
         assert isinstance(definition, AgentDefinition)
+        # JOIN (§1.2, Lane HANDLES): `ledger.request(authorized, grant,
+        # definition=...)` — `actor` is deleted; the actor is
+        # `authorized.principal`. Left on today's signature with that value.
         outcome = ledger.request(
-            body.grant, definition=definition, actor=_acting(request)
+            body.grant, definition=definition, actor=authorized.principal
         )
         if isinstance(outcome, (GrantRefusal, RegistrationRefusal)):
             kind = (
@@ -271,13 +254,20 @@ def build_router(deps: ApiDependencies) -> APIRouter:
     def revoke(
         body: GrantRevocationRequest, request: Request
     ) -> GrantRevocationRequest:
+        # D-IMPL-353 §1.4: `Authorized[SkillRevoke]`, its own kind — revoking
+        # is deliberately not the granting action (see `refusals`).
+        authorized = authorized_from_request(request, kind=SkillRevoke)
+        assert authorized.resource == body.grant_hash
         ledger = _required_handle(
             deps.grant_ledger,
             field="grant_ledger",
             routes="skill grant revocation",
         )
         try:
-            ledger.revoke(body.grant_hash, actor=_acting(request))
+            # JOIN (§1.2, Lane HANDLES): `ledger.revoke(authorized, grant_hash)`
+            # — `actor` is deleted. Left on today's signature with the
+            # capability's principal.
+            ledger.revoke(body.grant_hash, actor=authorized.principal)
         except GrantTransitionError as refused:
             raise HTTPException(
                 status_code=409, detail=str(refused)

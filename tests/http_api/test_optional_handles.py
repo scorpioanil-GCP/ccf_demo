@@ -140,7 +140,6 @@ def _partial_deps(fabric: Fabric) -> ApiDependencies:
 
 from .gate_fixtures import (  # noqa: E402
     SCOPE_EVERYTHING,
-    tenanted_source,
     wide_authorizer,
 )
 
@@ -163,9 +162,20 @@ def _app(fabric: Fabric, tmp_path: Path, deps: ApiDependencies) -> Any:
     from ccf_runtime.http_api.auth import BearerTokenAuth
 
     tmp_path.mkdir(parents=True, exist_ok=True)
+    # The REAL dev token file, `tenants` included, read through the REAL
+    # `FileTokenSource` (D-IMPL-353 §2 P1). This file used to be written and
+    # then ignored in favour of a test-only grant subclass.
     token_file = tmp_path / "optional-handles-tokens.json"
     token_file.write_text(
-        json.dumps({TOKEN: {"client_id": PRINCIPAL, "scopes": [SCOPE]}}),
+        json.dumps(
+            {
+                TOKEN: {
+                    "client_id": PRINCIPAL,
+                    "scopes": [SCOPE_EVERYTHING],
+                    "tenants": [fabric.product_address.tenant],
+                }
+            }
+        ),
         encoding="utf-8",
     )
     address = fabric.product_address
@@ -192,12 +202,7 @@ def _app(fabric: Fabric, tmp_path: Path, deps: ApiDependencies) -> Any:
         # `SEC-001`/`SEC-002`: every app binds an authorizer, and the
         # tenant is the credential's. This module's subject is elsewhere,
         # so the mapping is registered wide and visibly so.
-        auth=BearerTokenAuth(
-            token_source=tenanted_source(
-                {TOKEN: (PRINCIPAL, (SCOPE_EVERYTHING,))},
-                tenant=fabric.product_address.tenant,
-            )
-        ),
+        auth=BearerTokenAuth(token_source=FileTokenSource(path=token_file)),
         authorizer=wide_authorizer(
             tenant=fabric.product_address.tenant, key="optional-handles/mapping"
         ),

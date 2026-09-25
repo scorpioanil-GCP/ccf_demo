@@ -193,25 +193,25 @@ def _entitled(
     """An app whose product door is authenticated *and* entitled."""
     from ccf_runtime.http_api.auth import BearerTokenAuth
 
-    from .gate_fixtures import TenantedTokenGrant
+    from ccf_runtime.mcp.auth import StaticTokenSource
 
     address = fabric.product_address
-    # `SEC-002`: the tenant is the credential's, so this module's token source
-    # mints tenanted grants. A `FileTokenSource` still mints the base type,
-    # which every door now refuses — that gap is owed in
-    # `runtime/ccf_runtime/mcp/auth.py`, which is another lane's tree.
-    grants = {
-        TOKEN: TenantedTokenGrant(
-            client_id=PRINCIPAL, scopes=(SCOPE,), tenant=address.tenant
-        ),
-        STRANGER_TOKEN: TenantedTokenGrant(
-            client_id=STRANGER, scopes=(SCOPE,), tenant=address.tenant
-        ),
-    }
-
-    class _Source:
-        def grant_for(self, *, token: str) -> Any:
-            return grants.get(token)
+    # `SEC-002` / D-IMPL-353 §2 P1: the tenant is the credential's `tenants`
+    # set, minted on the base contract through the real per-boot source.
+    source_of_tokens = StaticTokenSource(
+        grants={
+            TOKEN: TokenGrant(
+                client_id=PRINCIPAL,
+                scopes=(SCOPE,),
+                tenants=frozenset({address.tenant}),
+            ),
+            STRANGER_TOKEN: TokenGrant(
+                client_id=STRANGER,
+                scopes=(SCOPE,),
+                tenants=frozenset({address.tenant}),
+            ),
+        }
+    )
 
     registry = ControlPlaneRegistry()
     registry.register_typed(
@@ -254,7 +254,7 @@ def _entitled(
     return Entitled(
         app=create_app(
             _deps(fabric),
-            auth=BearerTokenAuth(token_source=_Source()),
+            auth=BearerTokenAuth(token_source=source_of_tokens),
             authorizer=_wide_authorizer(tenant=address.tenant),
             product_entitlement=source,
             perspective_resolver=_resolver,

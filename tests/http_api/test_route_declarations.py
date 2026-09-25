@@ -145,7 +145,8 @@ class TestTheSweep:
     def test_at_least_one_route_is_tenant_addressed(self, app: Any) -> None:
         """The positive control for the derived tenant assertion.
 
-        The gate holds ``path[tenant] == grant.tenant`` for any route whose
+        The gate holds ``path[tenant]`` to a member of the grant's ``tenants``
+        set — and selects it as the acting tenant — for any route whose
         template names the segment. If no route named it, that code would be
         dead and every *"a path segment may never supply the tenant"* claim in
         this remediation would be unexercised.

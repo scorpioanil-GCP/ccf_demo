@@ -1,43 +1,77 @@
-"""Reading the verified grant off a request, failing closed — once, for every route.
+"""What a handler may hold: the capability the gate minted — once, for every route.
 
-SDK-defined (CLAUDE.md §8.3). When :func:`~ccf_runtime.http_api.app.create_app`
-binds an auth hook, the verified
-:class:`~ccf_runtime.mcp.auth.TokenGrant` is stashed on
-``request.state.token_grant``. Every route composition that authorizes on
-identity has to read it back, and every one of them has to fail closed on a
-near-miss — an object that is not the verified type must never fall through to
-an authorization path or to a principal derivation (the Codex fail-closed
-finding, 07-REVIEWS round 2).
+SDK-defined (CLAUDE.md §8.3; D-IMPL-353 §1.4). :class:`~ccf_runtime.http_api
+.gate.AuthorizationGate` decides every request before any handler exists and,
+on an allow, mints one :class:`~ccf_runtime.authz.capability.Authorized` for
+that request's action, tenant, principal and resource, parked on
+``request.state.authorized``. :func:`authorized_from_request` is how a
+handler picks it up, and it is the **only** thing a handler picks up: the
+tenant a door acts under is ``authorized.tenant``, the audited actor is
+``authorized.principal``, the target is ``authorized.resource``, and every
+handle the door calls takes the capability itself (§1.2).
 
-That was one helper inside ``routes/hitl.py`` while exactly one router needed
-it. The product route needs it too, so it lives here rather than being typed a
-second time: two doors reading the same stash with two readings of "not a
-``TokenGrant``" is the drift ``run_gates``/``run_federated_gates`` share their
-comparison functions specifically to prevent, and the copy that drifted would
-be the one nobody was watching.
+**The reader verifies; it does not trust the stash.** ``request.state`` is a
+dictionary anyone holding the scope can write to, and a handler can be called
+outside the gate — by a test, by a future in-process composition. So the read
+runs :func:`~ccf_runtime.authz.capability.verify` on what it finds, exactly as
+a handle would: the mint by identity, the fields against the minted tuple, and
+the kind against **this route's own declared action**, read off the endpoint
+the router resolved. An absent, fabricated, retargeted or wrong-action object
+is refused 403 with one code, because there is nothing useful for a caller to
+learn from which. Reached behind the gate, none of this can fire; it exists so
+that a handler reached any other way holds proof or holds nothing.
+
+**Why the route's action, and not only the handler's word.** A handler may
+also name the kind it performs (``kind=Register``), which is the static
+statement §1.4 wants a handler to make and which ``mypy --strict`` then holds
+at every handle call. But a handler's word is a second source, and this
+project's rule for second sources is that they may agree and never supply: the
+declaration on the endpoint is what the gate minted for, so the reader holds
+the capability to it and refuses a handler that names anything else.
+
+:func:`grant_from_request` remains for the handles that still take ``grant=``
+(the governed dereference, the entitlement determination, the HITL identity
+derivation) until their §1.2 signatures land; it derives no tenant and no
+actor. :func:`tenant_from_request` is ``authorized.tenant`` and nothing else,
+kept under its old name only for ``routes/hitl.py`` until that door migrates;
+it is deleted at join.
 
 Algorithmic module (CINV-03).
 """
 
 from __future__ import annotations
 
+from typing import Any, TypeVar, cast, overload
+
 from fastapi import HTTPException, Request
 
-from ccf_runtime.authz.tenancy import UntenantedGrantRefused, tenant_of_grant
+from ccf.authz.capability import (
+    ActionKind,
+    Authorized,
+    CapabilityBypassError,
+    kind_for_action,
+    verify,
+)
+from ccf_runtime.authz.route_declaration import route_authorization
 from ccf_runtime.http_api.errors import (
     ERROR_INVALID_GRANT,
-    ERROR_UNTENANTED_GRANT,
+    ERROR_NO_CAPABILITY,
     refusal_detail,
 )
 from ccf_runtime.mcp.auth import TokenGrant
 
 __ccf_mode__ = "algorithmic"
 
-__all__ = ["grant_from_request", "tenant_from_request"]
+__all__ = ["authorized_from_request", "grant_from_request", "tenant_from_request"]
+
+A = TypeVar("A", bound=ActionKind)
 
 
 def grant_from_request(request: Request) -> TokenGrant | None:
-    """The stashed verified grant, or ``None`` when no auth hook is bound.
+    """The stashed verified grant, or ``None`` when none is stashed.
+
+    For the handles that still take ``grant=`` (§1.2 join items). It derives
+    nothing: no tenant, no actor. Those are the capability's.
 
     Raises:
         HTTPException: 403 with :data:`~ccf_runtime.http_api.errors
@@ -62,47 +96,104 @@ def grant_from_request(request: Request) -> TokenGrant | None:
     return grant
 
 
-def tenant_from_request(request: Request) -> str:
-    """The tenant this request acts under — the verified grant's, only.
+def _no_capability(why: str) -> HTTPException:
+    return HTTPException(
+        status_code=403,
+        detail=refusal_detail(
+            error_code=ERROR_NO_CAPABILITY,
+            message=(
+                "no genuine capability for this route's action accompanies"
+                f" this call ({why}); a handler holds the capability the gate"
+                " minted or it holds nothing, and it acts on nothing"
+                " (D-IMPL-353 §1.4)"
+            ),
+        ),
+    )
 
-    ``SEC-002``. Every route that used to take a tenant from a path segment, a
-    query parameter or a request body reads it here instead, so there is one
-    source in the tree and a handler cannot accidentally acquire a second by
-    adding a parameter.
 
-    Structurally, this cannot refuse behind the gate: no request reaches a
-    handler without :class:`~ccf_runtime.http_api.gate.AuthorizationGate`
-    having stashed a grant whose tenant it already read. The refusal exists
-    for the handler called directly — in a test, or by a future in-process
-    composition — where failing closed beats returning a tenant nobody
-    verified.
+@overload
+def authorized_from_request(request: Request) -> Authorized[ActionKind]: ...
+
+
+@overload
+def authorized_from_request(request: Request, *, kind: type[A]) -> Authorized[A]: ...
+
+
+def authorized_from_request(
+    request: Request, *, kind: type[ActionKind] | None = None
+) -> Authorized[Any]:
+    """The capability the gate minted for this request — verified, or refuse.
+
+    Args:
+        request: The live request. The capability is read from
+            ``request.state.authorized``; the route's declared action is read
+            from the endpoint the router resolved (``scope["endpoint"]``).
+        kind: Optionally, the kind this handler performs. When given, the
+            capability must be of exactly that kind (by identity) and the
+            return is typed to it, so every handle call after this line is
+            held by ``mypy --strict`` (§1.4). When omitted the return is typed
+            to the marker base; the route's declared action is still enforced.
+
+    Returns:
+        The capability, unchanged. Never a copy: the object a handle later
+        verifies is the object the gate minted.
 
     Raises:
-        HTTPException: 403 carrying
-            :data:`~ccf_runtime.http_api.errors.ERROR_INVALID_GRANT` when no
-            verified grant is stashed, or
-            :data:`~ccf_runtime.http_api.errors.ERROR_UNTENANTED_GRANT` when
-            the stashed grant names no tenant.
+        HTTPException: 403 with :data:`~ccf_runtime.http_api.errors
+            .ERROR_NO_CAPABILITY` when nothing is stashed, when what is stashed
+            is not a genuine unretargeted capability, when its kind is not the
+            kind this route's endpoint declares, or when it is not the kind
+            the handler named. One code for all four.
     """
-    grant = grant_from_request(request)
-    if grant is None:
-        raise HTTPException(
-            status_code=403,
-            detail=refusal_detail(
-                error_code=ERROR_INVALID_GRANT,
-                message=(
-                    "no verified grant accompanies this call, so there is no"
-                    " tenant to act under; the tenant is never read from the"
-                    " path, the query string or the body (SEC-002)"
-                ),
-            ),
-        )
+    found: object = getattr(request.state, "authorized", None)
+    if found is None:
+        raise _no_capability("nothing was minted for this request")
+    claimed_kind = getattr(found, "kind", None)
+    claimed_resource = getattr(found, "resource", None)
+    if (
+        not isinstance(claimed_kind, type)
+        or not issubclass(claimed_kind, ActionKind)
+        or not isinstance(claimed_resource, str)
+    ):
+        raise _no_capability("the object present is not a capability")
     try:
-        return tenant_of_grant(grant)
-    except UntenantedGrantRefused as untenanted:
-        raise HTTPException(
-            status_code=403,
-            detail=refusal_detail(
-                error_code=ERROR_UNTENANTED_GRANT, message=str(untenanted)
-            ),
-        ) from untenanted
+        # The runtime tooth, applied at the reader as a handle applies it: the
+        # mint by identity and every field against what was minted (§1.5c, g).
+        verify(found, kind=claimed_kind, resource=claimed_resource)
+    except CapabilityBypassError as bypass:
+        raise _no_capability(str(bypass)) from bypass
+    declaration = route_authorization(request.scope.get("endpoint"))
+    if declaration is not None:
+        # The gate minted for THIS route's declared action. A capability of
+        # any other kind arriving here means the gate authorized one route
+        # and something is serving another; refuse.
+        try:
+            expected = kind_for_action(declaration.action_id)
+        except CapabilityBypassError as no_kind:
+            raise _no_capability(str(no_kind)) from no_kind
+        if claimed_kind is not expected:
+            raise _no_capability(
+                f"the capability is for {claimed_kind.__name__} and this route"
+                f" declares {expected.__name__}"
+            )
+    if kind is not None and claimed_kind is not kind:
+        raise _no_capability(
+            f"the handler performs {kind.__name__} and the capability is for"
+            f" {claimed_kind.__name__}"
+        )
+    return cast(Authorized[Any], found)
+
+
+def tenant_from_request(request: Request) -> str:
+    """``authorized.tenant`` — under the old name, for one caller, until join.
+
+    **Not a second reader of the tenant.** There is no grant read here: the
+    value is the capability's, which the gate selected from the verified
+    grant's set (D-IMPL-353 §1.3). The name survives only because
+    ``routes/hitl.py`` belongs to Lane HITL-DOOR and still imports it; that
+    lane's migration to :func:`authorized_from_request` makes this function
+    unreferenced, and it is deleted at join.
+    ``tests/http_api/test_capability_gate.py`` pins that ``hitl.py`` is its
+    only caller, so a second one cannot appear meanwhile.
+    """
+    return authorized_from_request(request).tenant

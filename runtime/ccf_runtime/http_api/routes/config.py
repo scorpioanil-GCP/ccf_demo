@@ -14,13 +14,19 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
 
 from ccf.agents.definitions import (
     AGENT_DEFINITION,
     PROMPT_ARTIFACT,
     TASK_DEFINITION,
+)
+from ccf.authz.capability import (
+    ConfigKeysRead,
+    ConfigRegister,
+    ConfigResolve,
+    ConfigVersionsRead,
 )
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes
@@ -35,6 +41,7 @@ from ccf_runtime.authz.refusals import (
 )
 from ccf_runtime.authz.route_declaration import ResourceBinding, authorizes
 from ccf_runtime.http_api.dependencies import ApiDependencies
+from ccf_runtime.http_api.grants import authorized_from_request
 from ccf_runtime.http_api.routes import canonical_response
 
 __ccf_mode__ = "algorithmic"
@@ -88,7 +95,8 @@ def build_router(deps: ApiDependencies) -> APIRouter:
     @authorizes(
         ACTION_CONFIG_KEYS_READ, resource=ResourceBinding.query("class_id")
     )
-    def keys(class_id: str) -> list[str]:
+    def keys(class_id: str, request: Request) -> list[str]:
+        authorized_from_request(request, kind=ConfigKeysRead)
         return list(deps.control_plane.keys_of_class(class_id))
 
     @router.get(
@@ -99,12 +107,14 @@ def build_router(deps: ApiDependencies) -> APIRouter:
     @authorizes(
         ACTION_CONFIG_VERSIONS_READ, resource=ResourceBinding.query("key")
     )
-    def versions(key: str) -> list[str]:
+    def versions(key: str, request: Request) -> list[str]:
+        authorized_from_request(request, kind=ConfigVersionsRead)
         return list(deps.control_plane.versions(key))
 
     @router.get("/resolution", summary="Config resolve (D-IMPL-23)")
     @authorizes(ACTION_CONFIG_RESOLVE, resource=ResourceBinding.query("key"))
-    def resolution(key: str, version: str) -> Response:
+    def resolution(key: str, version: str, request: Request) -> Response:
+        authorized_from_request(request, kind=ConfigResolve)
         try:
             artifact = deps.control_plane.resolve(key, version)
         except ControlPlaneMissing as absent:
@@ -121,23 +131,29 @@ def build_router(deps: ApiDependencies) -> APIRouter:
     # so the decision is about WHICH key, not only about who is recognized.
     @authorizes(ACTION_CONFIG_REGISTER, resource=ResourceBinding.body("key"))
     def registration(
-        request: ConfigRegistrationRequest,
+        body: ConfigRegistrationRequest, request: Request
     ) -> ConfigRegistered | JSONResponse:
-        artifact_class = _TYPED_CLASSES.get(request.class_id)
+        # D-IMPL-353 §1.4: the capability for THIS action, or nothing.
+        authorized = authorized_from_request(request, kind=ConfigRegister)
+        artifact_class = _TYPED_CLASSES.get(body.class_id)
         if artifact_class is None:
             raise HTTPException(
                 status_code=422,
                 detail=(
-                    f"{request.class_id!r} is not an SDK-typed artifact"
+                    f"{body.class_id!r} is not an SDK-typed artifact"
                     " class this route interprets"
                 ),
             )
         try:
-            artifact = parse_artifact(request.artifact, artifact_class)
+            artifact = parse_artifact(body.artifact, artifact_class)
         except (ArtifactLoadError, ValueError) as bad:
             raise HTTPException(status_code=422, detail=str(bad)) from bad
+        # JOIN (§1.2, Lane HANDLES): `register_versioned(authorized, artifact,
+        # artifact_class)` — the key becomes `authorized.resource`. Left on
+        # today's signature; `authorized.resource == body.key` by the gate.
+        assert authorized.resource == body.key
         outcome = deps.control_plane.register_versioned(
-            request.key, artifact, artifact_class
+            body.key, artifact, artifact_class
         )
         if isinstance(outcome, RegistrationRefusal):
             # wrapped with the refusal type name so a wire consumer can
@@ -151,6 +167,6 @@ def build_router(deps: ApiDependencies) -> APIRouter:
                     "refusal": json.loads(canonical_bytes(outcome)),
                 },
             )
-        return ConfigRegistered(key=request.key, version=outcome)
+        return ConfigRegistered(key=body.key, version=outcome)
 
     return router

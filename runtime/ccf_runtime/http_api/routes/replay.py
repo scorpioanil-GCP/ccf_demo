@@ -34,6 +34,7 @@ from fastapi.responses import Response
 from starlette.requests import Request
 
 from ccf.artifacts.protocol import MovingTargetRefused
+from ccf.authz.capability import ReplayRead
 from ccf.products.refusal import RefusalEnvelope
 from ccf_runtime.authz.delivery_boundary import (
     SURFACE_HTTP_REPLAY_READ,
@@ -51,7 +52,7 @@ from ccf_runtime.http_api.errors import (
     ERROR_PRODUCT_DOOR_UNGOVERNED,
     refusal_detail,
 )
-from ccf_runtime.http_api.grants import grant_from_request
+from ccf_runtime.http_api.grants import authorized_from_request, grant_from_request
 from ccf_runtime.http_api.routes import (
     canonical_response,
     governed_refusal_response,
@@ -106,6 +107,11 @@ def build_router(
         request: Request, reference: DereferenceRequest
     ) -> Response:
         """Authenticate, govern, encode. The route's whole job."""
+        # D-IMPL-353 §1.4: the capability for THIS action, or nothing.
+        authorized_from_request(request, kind=ReplayRead)
+        # JOIN (§1.2, Lane HANDLES/MCP): `govern_dereference(authorized, ...)`
+        # replaces `grant=`; until then the governed step takes the verified
+        # grant the gate stashed beside the capability.
         grant = grant_from_request(request)
         if grant is None:
             # Unreachable behind the total gate, which refuses 401 before any

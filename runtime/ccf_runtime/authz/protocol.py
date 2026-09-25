@@ -41,15 +41,19 @@ job is to constrain the people who can write artifacts. Resolution is still
 read*, so a Control Plane that can no longer resolve the pinned version denies
 rather than serving a remembered copy.
 
-**Both outcomes are audited (D-09/D-10; T-10-03).** Every decision —
-allow and deny alike — appends one ``authz_decision`` event to the one
-Control Plane audit log (WR-07), carrying the decision tuple: principal
-(``actor``), tenant (``key``), action id, decision, matched tenant pattern or
-``None``, artifact version, injected timestamp. The **resource** and the
-resource pattern that matched are on :class:`AuthzDecision` but are not yet on
-the audit event: that contract is :class:`~ccf.controlplane.audit
-.AuthzDecisionAuditEvent` in ``/src``, and widening it is a change outside
-this module's tree. Recorded here so the gap is visible where it is caused.
+**Both outcomes are audited (D-09/D-10; T-10-03), and a deny says what it
+denied (D-IMPL-353 §3).** Every decision — allow and deny alike — appends one
+``authz_decision`` event to the one Control Plane audit log (WR-07), carrying
+the whole decision tuple: principal (``actor``), tenant (``key``), action id,
+decision, matched tenant pattern or ``None``, **the resource, the matched
+resource pattern or ``None``, and on a deny the axis that refused**, artifact
+version, injected timestamp.
+
+**The decision names its own record.** :attr:`AuthzDecision.decision_id` is
+the content address of the event this authorizer appended for it, so a
+capability minted from an allow (:mod:`ccf_runtime.authz.capability`) is
+traceable to exactly one audit record — and to no other, because the address
+is over the event's own bytes.
 
 Scope strings, tenant names, resource names, mapping keys, and clock values
 are all deployment values supplied by the caller (CINV-01).
@@ -63,7 +67,8 @@ from collections.abc import Callable
 from datetime import datetime
 from typing import Protocol, runtime_checkable
 
-from ccf.contracts.base import CCFContract
+from ccf.contracts.canonical import content_hash
+from ccf.controlplane.audit import AuthzFailingAxis
 from ccf.controlplane.registry import ControlPlaneMissing, ControlPlaneRegistry
 from ccf_runtime.authz.artifact import (
     SCOPE_MAPPING,
@@ -193,6 +198,8 @@ class ControlPlaneTenantAuthorizer:
         version = self._scope_mapping_version
         matched_tenant: str | None = None
         matched_resource: str | None = None
+        # Until a mapping resolves, a deny is one nothing decided (§3).
+        failing_axis: AuthzFailingAxis | None = "mapping"
         artifact: ScopeMappingArtifact | None = None
         try:
             # `resolve`, never `resolve_latest` (SEC-002; the D-IMPL-26 replay
@@ -220,6 +227,9 @@ class ControlPlaneTenantAuthorizer:
                     allowed=False,
                     action_id=action_id,
                     matched=None,
+                    resource=resource,
+                    matched_resource=None,
+                    failing_axis="mapping",
                 )
                 raise TypeError(
                     f"artifact under {self._scope_mapping_key!r} at version"
@@ -229,7 +239,7 @@ class ControlPlaneTenantAuthorizer:
                 )
             artifact = resolved
         if artifact is not None:
-            matched_tenant, matched_resource = self._match(
+            matched_tenant, matched_resource, failing_axis = self._match(
                 artifact=artifact,
                 grant=grant,
                 tenant=tenant,
@@ -237,7 +247,18 @@ class ControlPlaneTenantAuthorizer:
                 resource=resource,
             )
         allowed = matched_tenant is not None and matched_resource is not None
-        decision = AuthzDecision(
+        decision_id = self._audit(
+            grant=grant,
+            tenant=tenant,
+            version=version,
+            allowed=allowed,
+            action_id=action_id,
+            matched=matched_tenant,
+            resource=resource,
+            matched_resource=matched_resource,
+            failing_axis=None if allowed else failing_axis,
+        )
+        return AuthzDecision(
             allowed=allowed,
             matched_scope_pattern=matched_tenant,
             matched_resource_pattern=matched_resource,
@@ -245,16 +266,8 @@ class ControlPlaneTenantAuthorizer:
             action_id=action_id,
             tenant=tenant,
             resource=resource,
+            decision_id=decision_id,
         )
-        self._audit(
-            grant=grant,
-            tenant=tenant,
-            version=version,
-            allowed=allowed,
-            action_id=action_id,
-            matched=matched_tenant,
-        )
-        return decision
 
     @staticmethod
     def _match(
@@ -264,8 +277,9 @@ class ControlPlaneTenantAuthorizer:
         tenant: str,
         action_id: str,
         resource: str,
-    ) -> tuple[str | None, str | None]:
-        """The tenant and resource patterns that jointly allow, or two ``None``s.
+    ) -> tuple[str | None, str | None, AuthzFailingAxis | None]:
+        """The tenant and resource patterns that jointly allow, or two
+        ``None``s and the axis that refused.
 
         **One scope entry has to satisfy every axis.** Returning the first
         tenant match and the first resource match found across *different*
@@ -273,8 +287,21 @@ class ControlPlaneTenantAuthorizer:
         reaching tenant X for any resource, scope B reaching resource Y for
         any tenant, and the pair authorizing X×Y that neither states. So the
         search returns only where one entry matched on its own, and an entry
-        that matches the tenant but not the resource contributes nothing.
+        that matches the tenant but not the resource contributes nothing to
+        the allow.
+
+        **The failing axis is the deepest any held entry reached** (§3):
+        ``action`` when no entry the grant holds names the action (which
+        covers a grant holding none of the mapping's scopes at all),
+        ``tenant`` when one did but matched no tenant pattern, ``resource``
+        when one matched action and tenant and no resource pattern. An
+        examiner reads *how close* the credential came, which is what tells a
+        mis-scoped credential apart from a mis-addressed request.
         """
+        depth: dict[AuthzFailingAxis, int] = {
+            "mapping": 0, "action": 1, "tenant": 2, "resource": 3,
+        }
+        deepest: AuthzFailingAxis = "action"
         for scope, entry in artifact.scopes.items():
             if scope not in grant.scopes:
                 continue
@@ -289,6 +316,8 @@ class ControlPlaneTenantAuthorizer:
                 None,
             )
             if tenant_hit is None:
+                if depth["tenant"] > depth[deepest]:
+                    deepest = "tenant"
                 continue
             resource_hit = next(
                 (
@@ -299,9 +328,10 @@ class ControlPlaneTenantAuthorizer:
                 None,
             )
             if resource_hit is None:
+                deepest = "resource"
                 continue
-            return tenant_hit, resource_hit
-        return None, None
+            return tenant_hit, resource_hit, None
+        return None, None, deepest
 
     def _audit(
         self,
@@ -312,9 +342,20 @@ class ControlPlaneTenantAuthorizer:
         allowed: bool,
         action_id: str,
         matched: str | None,
-    ) -> None:
-        """Append the one ``authz_decision`` event this decision produces."""
-        self._control_plane.audit_log.append(
+        resource: str,
+        matched_resource: str | None,
+        failing_axis: AuthzFailingAxis | None,
+    ) -> str:
+        """Append the one ``authz_decision`` event this decision produces.
+
+        Returns:
+            The event's content address — the ``decision_id`` the decision
+            carries and a capability minted from it is bound to. Computed over
+            the appended event's own canonical bytes (``sequence`` included),
+            so two decisions never share an id and an id cannot be reattached
+            to a different record.
+        """
+        event = self._control_plane.audit_log.append(
             action="authz_decision",
             key=tenant,
             version=version,
@@ -324,4 +365,8 @@ class ControlPlaneTenantAuthorizer:
             artifact_class=SCOPE_MAPPING.class_id,
             authz_action_id=action_id,
             authz_matched_pattern=matched,
+            authz_resource=resource,
+            authz_matched_resource_pattern=matched_resource,
+            authz_failing_axis=failing_axis,
         )
+        return content_hash(event)

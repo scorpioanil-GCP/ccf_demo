@@ -39,6 +39,7 @@ from fastapi.responses import Response
 from starlette.requests import Request
 
 from ccf.artifacts.protocol import ArtifactRef
+from ccf.authz.capability import ArtifactRead, ArtifactWrite
 from ccf.contracts.base import CCFContract
 from ccf.products.refusal import RefusalEnvelope
 from ccf_runtime.authz.delivery_boundary import (
@@ -57,7 +58,7 @@ from ccf_runtime.http_api.errors import (
     ERROR_PRODUCT_DOOR_UNGOVERNED,
     refusal_detail,
 )
-from ccf_runtime.http_api.grants import grant_from_request, tenant_from_request
+from ccf_runtime.http_api.grants import authorized_from_request, grant_from_request
 from ccf_runtime.http_api.routes import (
     CONTENT_ADDRESS_HEADER,
     governed_refusal_response,
@@ -93,11 +94,12 @@ class ArtifactPutRequest(CCFContract):
     (``SEC-002``). The field used to be the caller's, which made the tenant an
     artifact was filed under a thing the caller wrote — so a recognized bearer
     could file into any tenant's namespace and the store faithfully obliged.
-    The tenant now comes from the verified grant
-    (:func:`~ccf_runtime.http_api.grants.tenant_from_request`) and from nothing
-    else. Deleted rather than kept-and-checked: a field that must equal a value
-    the door already holds is a field with no readings left, and every one it
-    could still have is wrong.
+    The tenant is the **capability's** — selected by the gate from the
+    verified grant's set and read here as ``authorized.tenant``
+    (:func:`~ccf_runtime.http_api.grants.authorized_from_request`; D-IMPL-353
+    §1.3) — and comes from nothing else. Deleted rather than kept-and-checked:
+    a field that must equal a value the door already holds is a field with no
+    readings left, and every one it could still have is wrong.
 
     Attributes:
         artifact_class: The class the bytes are filed under.
@@ -139,12 +141,16 @@ def build_router(
     )
     @authorizes(ACTION_ARTIFACT_WRITE, resource=ResourceBinding.body("name"))
     def put(body: ArtifactPutRequest, request: Request) -> ArtifactRef:
+        # D-IMPL-353 §1.4: `Authorized[ArtifactWrite]` for THIS name, or
+        # nothing. The gate resolved the resource from the body's `name`.
+        authorized = authorized_from_request(request, kind=ArtifactWrite)
+        assert authorized.resource == body.name
+        # JOIN (§1.2, Lane HANDLES): `put(authorized, artifact)` — `tenant_id`,
+        # `artifact_class` and `name` are deleted from the store's signature;
+        # class and name become `authorized.resource` ("<class>/<name>"). Left
+        # on today's signature; the tenant is already the capability's.
         return deps.artifact_store.put(
-            # `SEC-002`: the grant's, never the body's. The parameter renamed
-            # to `body` so the live `Request` can be taken under its usual
-            # name — and so nothing in this handler can read a tenant from the
-            # thing the caller sent.
-            tenant_id=tenant_from_request(request),
+            tenant_id=authorized.tenant,
             artifact_class=body.artifact_class,
             name=body.name,
             artifact=body.artifact,
@@ -155,6 +161,11 @@ def build_router(
         ACTION_ARTIFACT_READ, resource=ResourceBinding.path("content_address")
     )
     def get(content_address: str, request: Request) -> Response:
+        # D-IMPL-353 §1.4: the capability for THIS action, or nothing.
+        authorized_from_request(request, kind=ArtifactRead)
+        # JOIN (§1.2, Lane HANDLES/MCP): `govern_dereference(authorized, ...)`
+        # replaces `grant=`; until then the governed step takes the verified
+        # grant the gate stashed beside the capability.
         grant = grant_from_request(request)
         if grant is None:
             # Unreachable behind the total gate (401 before any handler);

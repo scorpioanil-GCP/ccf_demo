@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1549 entries**, of which **1296** name a public Python surface.
+**1566 entries**, of which **1313** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-909 entries — 867 public Python surface, 42 not public Python API.
+920 entries — 878 public Python surface, 42 not public Python API.
 
 ### Public Python surface
 
@@ -14230,6 +14230,138 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `353-01-the-authorized-capability.md`.*
 
+#### ccf_runtime.authz.tenancy.tenants_of_grant
+
+- Surface: ccf_runtime.authz.tenancy.tenants_of_grant
+- Public surface: true
+- Change type: added
+- Before: absent; `tenant_of_grant` read a `.tenant` scalar the shipped contract does not carry
+- After: `tenants_of_grant(grant: object) -> frozenset[str]` — the ONE reader, over the ONE field `TokenGrant.tenants`; refuses a non-`TokenGrant`, an empty set, and an empty-string member (whole)
+- Why: D-IMPL-353 §1.3 / `SEC-002`: one reader over one field means no fixture can mint a shape production cannot (P1)
+- Migration: a door or wrapper that read `tenant_of_grant(grant)` reads `tenants_of_grant(grant)` and selects with `acting_tenant`; credentials must carry `tenants`
+
+*Recorded by `353-02-the-gate-mints-the-capability.md`.*
+
+#### ccf_runtime.authz.tenancy.acting_tenant
+
+- Surface: ccf_runtime.authz.tenancy.acting_tenant
+- Public surface: true
+- Change type: added
+- Before: absent; the tenant was a scalar and nothing selected
+- After: `acting_tenant(*, tenants: frozenset[str], named: str | None) -> str` — a named member, or the only member, else `AmbiguousTenantRefused`; a named non-member is `TenantNotGrantedRefused`; an empty set is `UntenantedGrantRefused`
+- Why: D-IMPL-353 §1.3: a decision is about one tenant, selected from the grant's set; the gate does not pick
+- Migration: the MCP `TenantGuardedServer` wrapper selects through the same function so both mint sites share one rule
+
+*Recorded by `353-02-the-gate-mints-the-capability.md`.*
+
+#### ccf_runtime.authz.tenancy.AmbiguousTenantRefused
+
+- Surface: ccf_runtime.authz.tenancy.AmbiguousTenantRefused
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `RuntimeError` raised by `acting_tenant` when the grant spans several tenants and the route named none; rendered by the gate as `403 ambiguous-tenant`
+- Why: D-IMPL-353 §1.3 — refusing is the alternative to the gate writing half of the decision itself
+- Migration: none for a single-tenant credential; a multi-tenant credential addresses a route that names the tenant, or is re-scoped
+
+*Recorded by `353-02-the-gate-mints-the-capability.md`.*
+
+#### ccf_runtime.authz.tenancy.TenantNotGrantedRefused
+
+- Surface: ccf_runtime.authz.tenancy.TenantNotGrantedRefused
+- Public surface: true
+- Change type: added
+- Before: absent; the gate compared the path segment to the scalar inline
+- After: `RuntimeError` raised by `acting_tenant` when the route names a tenant the grant does not hold; rendered by the gate as the constant `request-unauthorized` denial
+- Why: a path segment may agree with the credential and may never supply a tenant it lacks (`SEC-002`)
+- Migration: none
+
+*Recorded by `353-02-the-gate-mints-the-capability.md`.*
+
+#### ccf_runtime.http_api.grants.authorized_from_request
+
+- Surface: ccf_runtime.http_api.grants.authorized_from_request
+- Public surface: true
+- Change type: added
+- Before: absent; handlers read a grant and derived a tenant from it
+- After: `authorized_from_request(request) -> Authorized[ActionKind]` and `authorized_from_request(request, *, kind=K) -> Authorized[K]` — verifies the mint and every field against the minted tuple, holds the kind to the route's declared action (read from the resolved endpoint) and to `kind=`; refuses `403 no-capability` for absent, fabricated, retargeted or wrong-action objects
+- Why: D-IMPL-353 §1.4 — a handler holds the capability the gate minted or it holds nothing
+- Migration: every route body calls it and passes `authorized` to the handles it calls; `authorized.tenant` and `authorized.principal` replace every tenant and actor derivation
+
+*Recorded by `353-02-the-gate-mints-the-capability.md`.*
+
+#### ccf_runtime.http_api.app.GovernedWiringError
+
+- Surface: ccf_runtime.http_api.app.GovernedWiringError
+- Public surface: true
+- Change type: added
+- Before: absent; a recorder filing a governed class through a store that governs it, with no minting authority, built cleanly and failed at its first denial
+- After: `ValueError` raised by `create_app` at construction in that configuration
+- Why: D-IMPL-353 §3 / `D-IMPL-256` (2): a door that cannot record what it decides is not a valid governed door, and that is decided at boot, not when a denial happens
+- Migration: hand the recorder `GovernedWriteHandle(store)` or do not declare the class governed on the store the doors serve from; the second direction (a store declaring a write kind no door can mint) lands with the per-class write-kind mapping
+
+*Recorded by `353-02-the-gate-mints-the-capability.md`.*
+
+#### ccf_runtime.http_api.errors.ERROR_AMBIGUOUS_TENANT
+
+- Surface: ccf_runtime.http_api.errors.ERROR_AMBIGUOUS_TENANT
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `"ambiguous-tenant"` — 403 when the grant spans several tenants and the route names none
+- Why: its own code on the `ERROR_UNTENANTED_GRANT` reasoning: the answer is a function of the credential and the template, which a caller cannot vary, so distinguishing it discloses nothing and an operator reads the cause
+- Migration: none
+
+*Recorded by `353-02-the-gate-mints-the-capability.md`.*
+
+#### ccf_runtime.http_api.errors.ERROR_NO_CAPABILITY
+
+- Surface: ccf_runtime.http_api.errors.ERROR_NO_CAPABILITY
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `"no-capability"` — 403 from `authorized_from_request` for an absent, fabricated, retargeted or wrong-action object; unreachable behind the gate
+- Why: one code for all four — there is nothing useful for a caller to learn from which
+- Migration: none
+
+*Recorded by `353-02-the-gate-mints-the-capability.md`.*
+
+#### ccf_runtime.http_api.errors.ERROR_DECISION_UNMINTABLE
+
+- Surface: ccf_runtime.http_api.errors.ERROR_DECISION_UNMINTABLE
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `"decision-unmintable"` — 503 when the bound authorizer's allow carries no `decision_id` or answers a different question
+- Why: a deployment fault, not the caller's; the gate refuses rather than minting an authority traceable to nothing
+- Migration: a custom `TenantAuthorizerProtocol` implementation populates `decision_id` and decides about the tuple it was asked
+
+*Recorded by `353-02-the-gate-mints-the-capability.md`.*
+
+#### ccf.controlplane.audit.AuthzFailingAxis
+
+- Surface: ccf.controlplane.audit.AuthzFailingAxis
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `Literal["tenant", "action", "resource", "mapping"]` — the deepest axis a held scope entry reached before failing, or `mapping` when no scope mapping decided (nothing at the pinned version, or a near-miss artifact)
+- Why: three states, not two — refused on an axis, refused because nothing could decide, and (on an allow) no axis refused; recording a mapping-less deny as an axis would name a rule that never ran
+- Migration: none
+
+*Recorded by `353-02-the-gate-mints-the-capability.md`.*
+
+#### ccf.authz.decision.AuthzDecision
+
+- Surface: ccf.authz.decision.AuthzDecision
+- Public surface: true
+- Change type: added
+- Before: `ccf_runtime.authz.protocol.AuthzDecision` with `allowed`, `matched_scope_pattern`, `matched_resource_pattern`, `artifact_version`, `action_id`, `tenant`, `resource` — the relocation itself is `353-01`'s
+- After: the relocated contract with one more field, this lane's: `decision_id: str | None = None` (hash-transparent at the sentinel) — the content address of the `authz_decision` event recording the decision; the SDK's authorizer always supplies it and the gate mints no capability from an allow without one
+- Why: D-IMPL-353 §1.5(a): a capability is evidence of exactly one audit record
+- Migration: a custom authorizer returns `decision_id`; a decision constructed with none is refused by the gate as `decision-unmintable`
+
+*Recorded by `353-02-the-gate-mints-the-capability.md`.*
+
 #### ccf.workflow.factory.WorkflowTenantMismatchError
 
 - Surface: ccf.workflow.factory.WorkflowTenantMismatchError
@@ -14951,7 +15083,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-447 entries — 261 public Python surface, 186 not public Python API.
+451 entries — 265 public Python surface, 186 not public Python API.
 
 ### Public Python surface
 
@@ -19919,6 +20051,54 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `350-05-default-deny-at-every-door.md`.*
 
+#### ccf_runtime.http_api.gate.AuthorizationGate
+
+- Surface: ccf_runtime.http_api.gate.AuthorizationGate
+- Public surface: true
+- Change type: reshaped
+- Before: decided `(grant, tenant, action, resource)` with `tenant := grant.tenant`, held a path tenant equal to it, and stashed `token_grant`
+- After: reads `tenants_of_grant`, selects with `acting_tenant` (403 `ambiguous-tenant` / constant denial), decides once, refuses `503 decision-unmintable` unless the allow carries a `decision_id` and answers the question asked, then mints `Authorized[kind_for_action(action_id)]` and stashes it as `request.state.authorized` beside `token_grant`
+- Why: D-IMPL-353 §1.1 (the gate is one of two mint sites) and §1.3 (the tenant is selected, never picked)
+- Migration: deployments whose credentials span tenants scope them or address tenant-naming routes; custom authorizers must return `decision_id` and decide about the tuple asked
+
+*Recorded by `353-02-the-gate-mints-the-capability.md`.*
+
+#### ccf_runtime.http_api.gate.build_route_table
+
+- Surface: ccf_runtime.http_api.gate.build_route_table
+- Public surface: true
+- Change type: reshaped
+- Before: refused a route with no declaration or a path-sourced resource its template lacks
+- After: additionally refuses a route whose declared action id no capability kind exists for (`src/ccf/authz/capability.py::kind_for_action`), naming it in `UndeclaredRouteError`
+- Why: the gate mints for the route's action after an allow; an action with no kind is an allow the gate could not mint from, decided at boot rather than on the first allowed request
+- Migration: a new route's action id must be one `kind_for_action` resolves
+
+*Recorded by `353-02-the-gate-mints-the-capability.md`.*
+
+#### ccf.controlplane.audit.AuthzDecisionAuditEvent
+
+- Surface: ccf.controlplane.audit.AuthzDecisionAuditEvent
+- Public surface: true
+- Change type: reshaped
+- Before: `authz_action_id`, `authz_matched_pattern`
+- After: adds `authz_resource: str | None`, `authz_matched_resource_pattern: str | None`, `authz_failing_axis: AuthzFailingAxis | None`, all hash-transparent at the sentinel (`D-IMPL-243`), so events appended before the fields existed and events appended now with them at `None` canonicalize identically
+- Why: D-IMPL-353 §3 — every refusal says what it refused; the A2 byte-pin on plain events is untouched
+- Migration: none for readers; an examiner filtering denies reads `authz_failing_axis`
+
+*Recorded by `353-02-the-gate-mints-the-capability.md`.*
+
+#### ccf_runtime.authz.protocol.ControlPlaneTenantAuthorizer
+
+- Surface: ccf_runtime.authz.protocol.ControlPlaneTenantAuthorizer
+- Public surface: true
+- Change type: reshaped
+- Before: `authorize(...)` returned a decision with no record id and audited tenant pattern and action only
+- After: `authorize(...)` returns `AuthzDecision` with `decision_id = content_hash(event)`; the appended event carries the resource, the matched resource pattern and, on a deny, the failing axis (`action` when no held entry names the action, `tenant`, `resource`, or `mapping` when nothing resolved at the pin)
+- Why: D-IMPL-353 §1.5(a) and §3
+- Migration: none; the constructor is unchanged
+
+*Recorded by `353-02-the-gate-mints-the-capability.md`.*
+
 #### ccf.workflow.factory.Workflow
 
 - Surface: ccf.workflow.factory.Workflow
@@ -22259,7 +22439,7 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 Surfaces that no longer exist. Each entry names what replaces it.
 
-21 entries — 21 public Python surface, 0 not public Python API.
+23 entries — 23 public Python surface, 0 not public Python API.
 
 ### Public Python surface
 
@@ -22564,6 +22744,30 @@ Surfaces that no longer exist. Each entry names what replaces it.
 - Migration: none for a caller. A deployment binds the five seams
 
 *Recorded by `350-05-default-deny-at-every-door.md`.*
+
+#### ccf_runtime.authz.tenancy.tenant_of_grant
+
+- Surface: ccf_runtime.authz.tenancy.tenant_of_grant
+- Public surface: true
+- Change type: removed
+- Before: `tenant_of_grant(grant: object) -> str`, reading a `.tenant` attribute
+- After: deleted; `tenants_of_grant` + `acting_tenant` replace it
+- Why: the shipped `TokenGrant` has no `.tenant` — the reader was satisfiable only by a test-only subclass, so every real credential was refused `untenanted-grant` (P1, D-IMPL-353 §2)
+- Migration: `tenant = acting_tenant(tenants=tenants_of_grant(grant), named=<path tenant or None>)`
+
+*Recorded by `353-02-the-gate-mints-the-capability.md`.*
+
+#### ccf_runtime.authz.tenancy.TenantedGrant
+
+- Surface: ccf_runtime.authz.tenancy.TenantedGrant
+- Public surface: true
+- Change type: removed
+- Before: a `runtime_checkable` Protocol with a single `tenant: str` attribute
+- After: deleted; there is no Protocol a subclass can satisfy by adding a scalar
+- Why: the Protocol was the shape the P1 fixture satisfied; the only credential shape is `TokenGrant` with its `tenants` set
+- Migration: type against `TokenGrant`
+
+*Recorded by `353-02-the-gate-mints-the-capability.md`.*
 
 ## Behavior changes
 
