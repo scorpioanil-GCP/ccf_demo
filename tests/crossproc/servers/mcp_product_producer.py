@@ -59,6 +59,7 @@ for _root in (_REPO_ROOT / "src", _REPO_ROOT / "runtime", _TESTS_ROOT, _REPO_ROO
 if TYPE_CHECKING:
     from mcp.server.fastmcp import FastMCP
 
+from crossproc.servers.wide_authorizer import wide_authorizer  # noqa: E402
 from tests.crossproc.servers.product_producer_identity import (  # noqa: E402
     DEV_TOKEN,
     PRODUCER_ID,
@@ -290,6 +291,7 @@ def build_server(workspace: Path) -> FastMCP:
             resource_server_url=AnyHttpUrl(RESOURCE_SERVER_URL),
             required_scopes=[SCOPE],
         ),
+        authorizer=wide_authorizer(scopes=(SCOPE,)),
         entitlement_source=entitlement_source,
         perspective_resolver=resolve_perspective,
         refusal_recorder=arguments["refusal_recorder"],

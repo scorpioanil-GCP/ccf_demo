@@ -50,6 +50,8 @@ import httpx  # noqa: E402
 from mcp.server.auth.settings import AuthSettings  # noqa: E402
 from pydantic import AnyHttpUrl  # noqa: E402
 
+from crossproc.servers.wide_authorizer import wide_authorizer  # noqa: E402
+
 from ccf.artifacts.file_store import FileArtifactStore  # noqa: E402
 from ccf.controlplane.registry import ControlPlaneRegistry  # noqa: E402
 from ccf.products.resolver import ReplayRefusalRecorder  # noqa: E402
@@ -569,6 +571,7 @@ def build_server(*, workspace: Path) -> FastMCP:
             resource_server_url=AnyHttpUrl(RESOURCE_SERVER_URL),
             required_scopes=[SCOPE],
         ),
+        authorizer=wide_authorizer(scopes=(SCOPE,)),
         entitlement_source=ControlPlaneProductEntitlementSource(
             control_plane=registry, clock=lambda: AUDIT_INSTANT
         ),

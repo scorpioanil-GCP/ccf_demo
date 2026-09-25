@@ -90,6 +90,9 @@ from ccf_runtime.authz.product_entitlement import (
 )
 from ccf_runtime.mcp.auth import FileTokenSource, SourceBackedTokenVerifier
 from ccf_runtime.mcp.egress import build_egress_server
+from ccf.authz.actions import ACTION_PRODUCT_RETRIEVE
+from ccf_runtime.authz.artifact import SCOPE_MAPPING, ScopeEntry, ScopeMappingArtifact
+from ccf_runtime.authz.protocol import ControlPlaneTenantAuthorizer
 
 #: The prose this deployment's tool advertises — a deployment value the SDK
 #: holds no default for, and the one string here this deployment must write.
@@ -158,6 +161,33 @@ def serve(root: Path) -> None:
         encoding="utf-8",
     )
 
+    # The door's authorizer (`D-IMPL-353` §1.1): this deployment's one scope
+    # reaches this deployment's one tenant for the retrieve action on any
+    # class it serves, registered into the SAME Control Plane the
+    # entitlement reads from and pinned at the version returned.
+    scope_mapping_key = f"{SCOPE_MAPPING.class_id}/{booted.fabric.tenant_id}"
+    mapping_version = booted.control_plane.register_typed(
+        scope_mapping_key,
+        ScopeMappingArtifact(
+            semver="1.0.0",
+            scopes={
+                SCOPE: ScopeEntry(
+                    tenant_patterns=(booted.fabric.tenant_id,),
+                    action_ids=(ACTION_PRODUCT_RETRIEVE,),
+                    resource_patterns=tuple(
+                        f"{c}*" for c in "abcdefghijklmnopqrstuvwxyz0123456789._-"
+                    ),
+                )
+            },
+        ),
+        SCOPE_MAPPING,
+    )
+    authorizer = ControlPlaneTenantAuthorizer(
+        control_plane=booted.control_plane,
+        scope_mapping_key=scope_mapping_key,
+        scope_mapping_version=mapping_version,
+        clock=lambda: stamped,
+    )
     server = build_egress_server(
         server_name=booted.fabric.tenant_id,
         resolver=booted.resolver,
@@ -169,6 +199,7 @@ def serve(root: Path) -> None:
             resource_server_url=AnyHttpUrl("https://stdio.invalid/mcp"),
             required_scopes=[SCOPE],
         ),
+        authorizer=authorizer,
         entitlement_source=ControlPlaneProductEntitlementSource(
             control_plane=booted.control_plane, clock=lambda: stamped
         ),

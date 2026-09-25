@@ -56,6 +56,8 @@ import yaml  # noqa: E402
 from mcp.server.auth.settings import AuthSettings  # noqa: E402
 from pydantic import AnyHttpUrl  # noqa: E402
 
+from crossproc.servers.wide_authorizer import wide_authorizer  # noqa: E402
+
 from ccf.agents.factory import AgentFactory  # noqa: E402
 from ccf.artifacts.file_store import FileArtifactStore  # noqa: E402
 from ccf.contracts.canonical import canonical_bytes, content_hash  # noqa: E402
@@ -597,6 +599,7 @@ def build_server(
     return build_experience_server(
         server_name=SERVER_NAME,
         product_resolver=resolve_product,
+        authorizer=wide_authorizer(scopes=(SCOPE,)),
         entitlement_source=entitlement_source,
         perspective_resolver=resolve_perspective,
         # `D-IMPL-256` (2): this door entitles on three paths, so it holds a
