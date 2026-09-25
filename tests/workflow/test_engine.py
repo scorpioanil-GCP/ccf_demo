@@ -174,6 +174,17 @@ def registry() -> ControlPlaneRegistry:
     return plane
 
 
+def _workflow_definition_document(
+    workflow_fixture: str, **mutations: Any
+) -> WorkflowDefinition:
+    """Parse one fixture workflow definition, with optional mutations."""
+    document = _load(workflow_fixture)["workflow_definition"]
+    document.update(mutations)
+    definition = parse_artifact(document, WORKFLOW_DEFINITION)
+    assert isinstance(definition, WorkflowDefinition)
+    return definition
+
+
 def _construct(
     registry: ControlPlaneRegistry,
     workflow_fixture: str,
