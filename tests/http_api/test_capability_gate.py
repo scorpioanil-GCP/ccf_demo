@@ -822,3 +822,91 @@ class TestCreateAppRefusesMismatchedWiring:
             ),
         )
         assert app is not None
+
+
+# --- a definition of another tenant answers exactly as an absent one ----------
+
+
+class TestADefinitionOfAnotherTenantAnswersAsAbsent:
+    """D-IMPL-353 §1.3 at the workflow door, with Lane ENGINE's factory.
+
+    The factory refuses to construct a handle whose artifact declares a tenant
+    other than the capability's (``WorkflowTenantMismatchError``). This door
+    renders that refusal as the ``404`` an unregistered key receives — the same
+    status and the same sentence — because a caller authorized for tenant A who
+    could tell *forbidden* from *absent* at tenant B's key would learn that B
+    has a definition there. And no execution state exists under either tenant
+    afterwards: the refusal is at construction, before any handle.
+    """
+
+    TEMPLATE = (
+        "no workflow definition resolves under ({key!r}, {version!r}) for the"
+        " tenant this capability acts under"
+    )
+
+    def test_the_mismatch_and_the_absence_are_one_observation(
+        self, gate_app: GateApp, fabric: Fabric
+    ) -> None:
+        from ccf_runtime.workflow.state import WORKFLOW_STATE
+
+        key, version = fabric.covenant
+        crossed_id = "cap-gate-cross-tenant"
+        crossed = probe(
+            gate_app.app,
+            "POST",
+            "/workflow/invocations",
+            headers=gate_app.auth(gate_app.token_other_tenant),
+            json={
+                "definition_key": key,
+                "definition_version": version,
+                "execution_id": crossed_id,
+            },
+        )
+        absent = probe(
+            gate_app.app,
+            "POST",
+            "/workflow/invocations",
+            headers=gate_app.auth(gate_app.token_other_tenant),
+            json={
+                "definition_key": key,
+                "definition_version": "0.0.0-absent",
+                "execution_id": crossed_id + "-absent",
+            },
+        )
+        assert crossed.status_code == 404, crossed.text
+        assert absent.status_code == 404, absent.text
+        assert crossed.json()["detail"] == self.TEMPLATE.format(
+            key=key, version=version
+        )
+        assert absent.json()["detail"] == self.TEMPLATE.format(
+            key=key, version="0.0.0-absent"
+        )
+        # The factory's refusal names the caller's tenant; the door's does not
+        # (the definition key legitimately carries the definition's own).
+        assert gate_app.other_tenant not in crossed.text
+        # No state under the definition's tenant and none under the caller's.
+        for tenant in (gate_app.tenant, gate_app.other_tenant):
+            assert (
+                fabric.registry.state_store.get(
+                    WORKFLOW_STATE, f"{tenant}/{crossed_id}"
+                )
+                is None
+            )
+
+    def test_the_definitions_own_tenant_still_runs_it(
+        self, gate_app: GateApp, fabric: Fabric
+    ) -> None:
+        """The positive control: the refusal above is about the tenant pairing."""
+        key, version = fabric.refresh
+        own = probe(
+            gate_app.app,
+            "POST",
+            "/workflow/invocations",
+            headers=gate_app.auth(),
+            json={
+                "definition_key": key,
+                "definition_version": version,
+                "execution_id": "cap-gate-own-tenant",
+            },
+        )
+        assert own.status_code == 200, own.text

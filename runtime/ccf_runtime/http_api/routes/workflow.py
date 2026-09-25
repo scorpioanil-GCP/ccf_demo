@@ -10,10 +10,28 @@ resource.
 Invocation goes through the WorkflowFactory handle path and nothing else:
 the route resolves the pinned definition through the factory (ORCH-01 "via
 the Task Factory", held at the HTTP boundary too) and delegates to the
-injected :class:`~ccf_runtime.workflow.engine.WorkflowEngine`. Suspension
-is a typed 200 response — a suspended workflow is an expected outcome, not
-an error — and the engine's typed refusals map to 409 with the refusal
-body. Broken wiring raises and surfaces as an opaque 500 (T-07-26).
+injected :class:`~ccf_runtime.workflow.engine.WorkflowEngine`. **Both take
+the capability** (D-IMPL-353 §1.2): the definition key is
+``authorized.resource`` — the gate resolved it from the body's
+``definition_key`` and the authorizer decided on it — and the factory and
+engine have no parameter to supply another. Suspension is a typed 200
+response — a suspended workflow is an expected outcome, not an error — and
+the engine's typed refusals map to 409 with the refusal body. Broken wiring
+raises and surfaces as an opaque 500 (T-07-26).
+
+**A definition declared for another tenant answers exactly as an absent
+one** (D-IMPL-353 §1.3; the D-27 posture of ``D-IMPL-253`` amendment 2 (4)).
+The factory refuses to construct a handle whose artifact declares a tenant
+other than the capability's — one refusal, at construction, before any
+state exists — and this door renders that refusal as the same ``404`` a key
+nobody registered receives, byte for byte. Not ``422``: the request is
+well-formed and the definition is not malformed, so a malformed-body status
+would misattribute a governed refusal. Not a distinguishable ``403``: a
+caller authorized for tenant A who could tell *forbidden* from *absent* at
+tenant B's key would learn that B has a definition there — a cross-tenant
+existence oracle. From A's point of view there is no such definition, and
+the response says exactly that. The refusal's own text — which names both
+tenants and the key — is deliberately not returned.
 
 Algorithmic module (CINV-03).
 """
@@ -25,10 +43,14 @@ from typing import Union
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 
-from ccf.authz.capability import Execute, Resume, WorkflowStatusRead
+from ccf.authz.capability import Authorized, Execute, Resume, WorkflowStatusRead
 from ccf.contracts.base import CCFContract
 from ccf.controlplane.registry import ControlPlaneMissing
-from ccf.workflow.factory import Workflow, WorkflowConstructionError
+from ccf.workflow.factory import (
+    Workflow,
+    WorkflowConstructionError,
+    WorkflowTenantMismatchError,
+)
 from ccf_runtime.authz.refusals import (
     ACTION_WORKFLOW_INVOKE,
     ACTION_WORKFLOW_RESUME,
@@ -75,29 +97,39 @@ def build_router(deps: ApiDependencies) -> APIRouter:
     """The workflow router over the injected factory and engine."""
     router = APIRouter()
 
-    def _construct(definition_key: str, definition_version: str) -> Workflow:
+    def _construct(
+        authorized: Authorized[Execute] | Authorized[Resume],
+        *,
+        definition_version: str,
+    ) -> Workflow:
         # Narrowed once per body (D-IMPL-126 item (3)): a deployment that
         # exposes no workflow invocation wired no factory, and this route
         # refuses with a typed 503 naming the field rather than dereferencing
         # `None`. `_construct` is the shared body both invoking routes reach
         # the factory through, so one call here covers both.
-        #
-        # JOIN (§1.2/§1.3, Lane ENGINE): `factory.construct(authorized,
-        # definition_version)` — the key becomes `authorized.resource` and the
-        # factory checks the artifact's tenant against `authorized.tenant`
-        # once. Left on today's signature.
         factory = _required_handle(
             deps.workflow_factory,
             field="workflow_factory",
             routes="workflow invocation or resumption",
         )
+        # The key is `authorized.resource` (D-IMPL-353 §1.2); there is no
+        # parameter to hand the factory another. An absent key and a key
+        # whose artifact declares another tenant are ONE observation from
+        # this caller's side: the same status and the same sentence.
+        absent_detail = (
+            "no workflow definition resolves under"
+            f" ({authorized.resource!r}, {definition_version!r}) for the tenant"
+            " this capability acts under"
+        )
         try:
             return factory.construct(
-                definition_key=definition_key,
-                definition_version=definition_version,
+                authorized, definition_version=definition_version
             )
         except ControlPlaneMissing as absent:
-            raise HTTPException(status_code=404, detail=str(absent)) from absent
+            raise HTTPException(status_code=404, detail=absent_detail) from absent
+        except WorkflowTenantMismatchError as elsewhere:
+            # Before the generic construction error, which it subclasses.
+            raise HTTPException(status_code=404, detail=absent_detail) from elsewhere
         except WorkflowConstructionError as bad:
             raise HTTPException(status_code=422, detail=str(bad)) from bad
 
@@ -121,7 +153,9 @@ def build_router(deps: ApiDependencies) -> APIRouter:
         # D-IMPL-353 §1.4: the capability for THIS action, or nothing.
         authorized = authorized_from_request(request, kind=Execute)
         assert authorized.resource == body.definition_key
-        workflow = _construct(body.definition_key, body.definition_version)
+        workflow = _construct(
+            authorized, definition_version=body.definition_version
+        )
         # Narrowed after the construction, not before: the refusals are read in
         # the order the route needs the handles, so an operator wiring a
         # workflow door is told about the factory before the engine.
@@ -130,9 +164,9 @@ def build_router(deps: ApiDependencies) -> APIRouter:
             field="workflow_engine",
             routes="workflow invocation",
         )
-        # JOIN (§1.2, Lane ENGINE): `engine.execute(authorized, workflow, *,
-        # execution_id=...)`. Left on today's signature.
-        outcome = await engine.execute(workflow, execution_id=body.execution_id)
+        outcome = await engine.execute(
+            authorized, workflow, execution_id=body.execution_id
+        )
         return _respond(outcome)
 
     @router.post(
@@ -154,15 +188,16 @@ def build_router(deps: ApiDependencies) -> APIRouter:
         # — starting a workflow is not approving one.
         authorized = authorized_from_request(request, kind=Resume)
         assert authorized.resource == body.definition_key
-        workflow = _construct(body.definition_key, body.definition_version)
+        workflow = _construct(
+            authorized, definition_version=body.definition_version
+        )
         engine = _required_handle(
             deps.workflow_engine,
             field="workflow_engine",
             routes="workflow resumption",
         )
-        # JOIN (§1.2, Lane ENGINE): `engine.resume(authorized, workflow, *,
-        # execution_id=..., decision=...)`. Left on today's signature.
         outcome = await engine.resume(
+            authorized,
             workflow,
             execution_id=body.execution_id,
             decision=body.decision,
