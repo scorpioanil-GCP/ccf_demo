@@ -104,6 +104,8 @@ from pathlib import Path
 from typing import TypeVar
 
 from ccf.artifacts.file_store import FileArtifactStore
+from ccf.artifacts.protocol import WriteKinds
+from ccf.authz.capability import ReplayMint
 from ccf.client.adapters.binding_document import (
     BINDING_DOCUMENT_NAME,
     BindingDocument,
@@ -119,6 +121,7 @@ from ccf.controlplane.artifacts import ProductClassDeclaration
 from ccf.controlplane.registry import ControlPlaneProtocol, ControlPlaneRegistry
 from ccf.deployment import BootedFabric
 from ccf.deployment.config import load_config_and_boot
+from ccf.products.composite import ADMITTED_CHILD_CONTRACT_CLASS
 from ccf.products.door import door_answer, door_question
 from ccf.products.request import ProductRequest
 from ccf.products.resolver import (
@@ -286,7 +289,22 @@ def _boot(document: BindingDocument) -> _BootedDeployment:
             operator_parameter_keys=document.operator_parameter_keys,
             policy_bundle_key=document.policy_bundle_key,
             plan_factory=plan_factory,
-            artifact_store=FileArtifactStore(root=document.artifact_store),
+            # The deployment's declaration of what its own mechanism writes and
+            # under which kind (D-IMPL-353 §1.2): the two classes the binding
+            # document names and the SDK's admitted-child class, all
+            # `ReplayMint`. This adapter is a composition site; the resolver it
+            # builds mints its own capabilities against this declaration and
+            # refuses at construction if a class it files is missing.
+            artifact_store=FileArtifactStore(
+                root=document.artifact_store,
+                write_kinds=WriteKinds.declare(
+                    {
+                        document.replay_record_class: (ReplayMint,),
+                        document.query_pin_class: (ReplayMint,),
+                        ADMITTED_CHILD_CONTRACT_CLASS: (ReplayMint,),
+                    }
+                ),
+            ),
             replay_record_class=document.replay_record_class,
             query_pin_class=document.query_pin_class,
             max_ttl_seconds=document.max_ttl_seconds,

@@ -48,9 +48,10 @@ from ccf.products.payload import (
     ProductPayloadSchema,
     refuse_payload,
 )
+from tests.composition import register_at_composition
 
-MAX_TTL_KEY = "fixture.max-ttl"
-PAYLOAD_SCHEMA_KEY = "fixture.payload-schema"
+MAX_TTL_KEY = "fixture/max-ttl"
+PAYLOAD_SCHEMA_KEY = "fixture/payload-schema"
 
 
 def _schema() -> ProductPayloadSchema:
@@ -78,7 +79,7 @@ def _registered(
     *, declare_schema: bool = True
 ) -> tuple[RegisteredProductClass, ControlPlaneRegistry]:
     registry = ControlPlaneRegistry()
-    ttl_version = registry.register(MAX_TTL_KEY, MaxTTL(seconds=3600))
+    ttl_version = register_at_composition(registry, MAX_TTL_KEY, MaxTTL(seconds=3600))
     arguments: dict[str, object] = {
         "registry": registry,
         "schema_name": "fixture.bind",
@@ -89,7 +90,7 @@ def _registered(
         "max_ttl_version": ttl_version,
     }
     if declare_schema:
-        schema_version = registry.register(PAYLOAD_SCHEMA_KEY, _schema())
+        schema_version = register_at_composition(registry, PAYLOAD_SCHEMA_KEY, _schema())
         arguments["payload_schema_key"] = PAYLOAD_SCHEMA_KEY
         arguments["payload_schema_version"] = schema_version
     registered = register_product_class(**arguments)  # type: ignore[arg-type]
@@ -221,7 +222,7 @@ class TestABadProductIsReturnedAndABrokenDeploymentIsRaised:
     def test_a_vanished_pin_raises_control_plane_missing(self) -> None:
         registered, _ = _registered()
         empty = ControlPlaneRegistry()
-        empty.register(MAX_TTL_KEY, MaxTTL(seconds=3600))
+        register_at_composition(empty, MAX_TTL_KEY, MaxTTL(seconds=3600))
         with pytest.raises(ControlPlaneMissing):
             refuse_bound_payload(
                 payload={"alpha": "a"},
@@ -232,8 +233,8 @@ class TestABadProductIsReturnedAndABrokenDeploymentIsRaised:
     def test_a_pin_holding_the_wrong_artifact_raises_type_error(self) -> None:
         registered, _ = _registered()
         other = ControlPlaneRegistry()
-        other.register(MAX_TTL_KEY, MaxTTL(seconds=3600))
-        other.register(PAYLOAD_SCHEMA_KEY, MaxTTL(seconds=60))
+        register_at_composition(other, MAX_TTL_KEY, MaxTTL(seconds=3600))
+        register_at_composition(other, PAYLOAD_SCHEMA_KEY, MaxTTL(seconds=60))
         substituted = registered.model_copy(
             update={
                 "payload_schema_version": other.resolve_latest(

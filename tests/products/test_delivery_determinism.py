@@ -119,6 +119,7 @@ from tests.products.test_resolver_seam import (
     _request,
     _resolver,
 )
+from tests.composition import register_typed_at_composition
 
 # --- this module's own vocabulary -------------------------------------------
 
@@ -134,8 +135,8 @@ BEFORE_BOUNDARY = BOUNDARY - timedelta(days=1)
 #: the policy id each artifact carries. Key and policy id are deliberately
 #: different strings, so a test that confused them fails rather than passing by
 #: coincidence.
-KEY_EARLY = "policy_constraints.early"
-KEY_LATE = "policy_constraints.late"
+KEY_EARLY = "fixture/policy_constraints/early"
+KEY_LATE = "fixture/policy_constraints/late"
 POLICY_EARLY = "early"
 POLICY_LATE = "late"
 
@@ -150,7 +151,7 @@ CALLER_TOLERANCE = Decimal("0.30")
 #: The key the version control registers a threshold ceiling under, and the two
 #: values it is registered at. A changed value is a changed content address, so
 #: the second registration is a new VERSION of the same key.
-KEY_THRESHOLD = "policy_constraints.threshold"
+KEY_THRESHOLD = "fixture/policy_constraints/threshold"
 POLICY_THRESHOLD = "threshold"
 THRESHOLD_MAXIMUM_FIRST = Decimal(500)
 THRESHOLD_MAXIMUM_SECOND = Decimal(400)
@@ -173,8 +174,8 @@ BACKEND_IDENTITY = "fixture-backend"
 #: The two admitted sets whose intersection is empty — the deployment's own
 #: Control Plane contradicting itself, which is a governed
 #: ``policy-resolution-conflict`` rather than a silent pick.
-KEY_SET_A = "policy_constraints.set_a"
-KEY_SET_B = "policy_constraints.set_b"
+KEY_SET_A = "fixture/policy_constraints/set_a"
+KEY_SET_B = "fixture/policy_constraints/set_b"
 POLICY_SET_A = "set-a"
 POLICY_SET_B = "set-b"
 ADMITTED_A = ("alpha",)
@@ -561,8 +562,7 @@ def test_a_refused_request_records_the_override_it_attempted(
     attempt at all.
     """
     with _deployment(tmp_path / "override", **_depth_documents()) as booted:
-        booted.control_plane.register_typed(
-            KEY_THRESHOLD,
+        register_typed_at_composition(booted.control_plane, KEY_THRESHOLD,
             _constraint(
                 policy_id=POLICY_THRESHOLD,
                 parameter=THRESHOLD_PARAMETER,
@@ -652,8 +652,7 @@ def test_a_refusal_minted_by_resolution_carries_the_partial_resolution_and_the_c
     }
     contract["capability_bindings"] = {DEPTH_PARAMETER: CAPABILITY_TRAVERSAL_DEPTH}
     with _deployment(tmp_path / "partial", **documents) as booted:
-        booted.control_plane.register_typed(
-            KEY_THRESHOLD,
+        register_typed_at_composition(booted.control_plane, KEY_THRESHOLD,
             _constraint(
                 policy_id=POLICY_THRESHOLD,
                 parameter=THRESHOLD_PARAMETER,
@@ -755,8 +754,7 @@ def test_a_policy_resolution_conflict_is_the_same_determination_twice(
             (KEY_SET_A, POLICY_SET_A, ADMITTED_A),
             (KEY_SET_B, POLICY_SET_B, ADMITTED_B),
         ):
-            booted.control_plane.register_typed(
-                key,
+            register_typed_at_composition(booted.control_plane, key,
                 _constraint(
                     policy_id=policy_id,
                     parameter=THRESHOLD_PARAMETER,
@@ -954,8 +952,7 @@ def test_moving_asked_at_across_the_effectivity_boundary_changes_the_determinati
     with _deployment(
         tmp_path / "effectivity", **_tolerance_documents()
     ) as booted:
-        version_early = booted.control_plane.register_typed(
-            KEY_EARLY,
+        version_early = register_typed_at_composition(booted.control_plane, KEY_EARLY,
             _constraint(
                 policy_id=POLICY_EARLY,
                 parameter=DEBT_TOLERANCE_PARAMETER,
@@ -966,8 +963,7 @@ def test_moving_asked_at_across_the_effectivity_boundary_changes_the_determinati
             ),
             POLICY_CONSTRAINT,
         )
-        version_late = booted.control_plane.register_typed(
-            KEY_LATE,
+        version_late = register_typed_at_composition(booted.control_plane, KEY_LATE,
             _constraint(
                 policy_id=POLICY_LATE,
                 parameter=DEBT_TOLERANCE_PARAMETER,
@@ -1058,8 +1054,7 @@ def test_a_new_constraint_version_changes_the_determination_at_the_same_instant(
         (THRESHOLD_MAXIMUM_FIRST, THRESHOLD_MAXIMUM_SECOND)
     ):
         with _deployment(tmp_path / f"version-{index}") as booted:
-            version = booted.control_plane.register_typed(
-                KEY_THRESHOLD,
+            version = register_typed_at_composition(booted.control_plane, KEY_THRESHOLD,
                 _constraint(
                     policy_id=POLICY_THRESHOLD,
                     parameter=THRESHOLD_PARAMETER,

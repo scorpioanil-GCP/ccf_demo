@@ -75,6 +75,7 @@ from ccf.products.gates import (
     run_gates,
 )
 from ccf.products.refusal import REFUSAL_KINDS
+from tests.composition import register_at_composition
 
 TENANT = "tenant-fixture"
 NOW = datetime(2026, 3, 2, 12, 0, 0, tzinfo=UTC)
@@ -110,7 +111,7 @@ GATES_SOURCE = GATES_PATH.read_bytes()
 
 
 def _class(registry: ControlPlaneRegistry) -> RegisteredProductClass:
-    max_ttl_version = registry.register(MAX_TTL_KEY, MaxTTL(seconds=MAX_TTL_SECONDS))
+    max_ttl_version = register_at_composition(registry, MAX_TTL_KEY, MaxTTL(seconds=MAX_TTL_SECONDS))
     return register_product_class(
         registry=registry,
         schema_name=SCHEMA_NAME,

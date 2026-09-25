@@ -280,7 +280,7 @@ def _wired(
 
 def _record(booted: _Booted, address: str) -> DecisionReplayRecord:
     """Off a FRESH store instance — nothing the serving path held in memory."""
-    fresh = FileArtifactStore(root=booted.store.root)
+    fresh = FileArtifactStore(root=booted.store.root, write_kinds=booted.store.write_kinds)
     return DecisionReplayRecord.model_validate_json(fresh.get(content_address=address))
 
 
@@ -292,7 +292,7 @@ def _served(booted: _Booted, outcome: Any) -> tuple[ContextProductContract, Deci
 def _refused(booted: _Booted, outcome: Any, kind: str) -> DecisionReplayRecord:
     assert not isinstance(outcome, ServedProduct), outcome
     assert outcome.kind == kind, outcome.kind
-    fresh = FileArtifactStore(root=booted.store.root)
+    fresh = FileArtifactStore(root=booted.store.root, write_kinds=booted.store.write_kinds)
     return DecisionReplayRecord.model_validate_json(
         fresh.get(content_address=fresh.resolve_uri(uri=outcome.replay_reference))
     )
@@ -357,7 +357,7 @@ def test_the_child_is_acquired_ONCE_and_that_instance_serves_both_content_and_go
     (row,) = record.content_generation_path.child_resolutions
     assert row.outcome_status == "admitted"
     # The retained contract the parent read IS the admitted product on the row.
-    fresh = FileArtifactStore(root=booted.store.root)
+    fresh = FileArtifactStore(root=booted.store.root, write_kinds=booted.store.write_kinds)
     assert row.child_content_address is not None
     retained = ContextProductContract.model_validate_json(
         fresh.get(content_address=row.child_content_address)
@@ -561,7 +561,7 @@ def test_a_fresh_environment_reconstructs_the_parent_with_providers_disabled(
     product, record = _served(booted, served)
     assert product.payload[CHILD_VALUE_KEY] == "1000"
 
-    fresh_store = FileArtifactStore(root=booted.store.root)
+    fresh_store = FileArtifactStore(root=booted.store.root, write_kinds=booted.store.write_kinds)
     path = record.content_generation_path
     # Operators come from the deployment's registry builder, as every replay
     # environment supplies them — from the RECORDED request and the recorded

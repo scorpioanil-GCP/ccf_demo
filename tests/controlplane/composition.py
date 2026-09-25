@@ -46,52 +46,39 @@ __all__ = [
 COMPOSED_AT = datetime(2026, 9, 24, 12, 0, tzinfo=UTC)
 
 
-def composition_register_capability(
-    registry: ControlPlaneRegistry, key: str, *, tenant: str | None = None
-) -> Authorized[Register]:
-    """``Authorized[Register]`` for exactly ``key``, recorded on ``registry``'s audit log.
+# The canonical recipe lives in ``tests/composition.py`` (Lane J-SRC's shared
+# fixture module). These names stay for the files that import them and
+# DELEGATE — one implementation of the composition recipe in tests/, not two.
+from tests.composition import (  # noqa: E402
+    composition_register as _composition_register,
+    register_at_composition as _register_at_composition,
+    register_typed_at_composition as _register_typed_at_composition,
+    register_versioned_at_composition as _register_versioned_at_composition,
+    tenant_of_key as _tenant_of_key,
+)
 
-    The tenant defaults to the key's own tenant segment — the text before the
-    first ``/`` of the ``{tenant}/{class}/{name}`` grammar — because a
-    composition root registers under the tenant it composes for, and the
-    registry's one tenant comparison (§1.3) refuses anything else. A caller
-    that wants the *disagreeing* case passes ``tenant`` explicitly.
+
+def composition_register_capability(
+    registry: ControlPlaneRegistry, key: str, tenant: str
+) -> Authorized[Register]:
+    """A genuine ``Authorized[Register]`` for ``key`` — the canonical recipe.
+
+    ``tenant`` must be the key's own tenant segment (the registry refuses any
+    other); it is kept as a parameter so a caller's expectation is checked
+    rather than silently replaced.
     """
-    if tenant is None:
-        segment, separator, _ = key.partition("/")
-        tenant = segment if separator and segment else key
-    event = registry.audit_log.append(
-        action="composition",
-        key=key,
-        version=Register.action_id,
-        resolved=True,
-        occurred_at=COMPOSED_AT,
-        actor=COMPOSITION_PRINCIPAL,
-    )
-    return mint_at_composition(
-        Register,
-        tenant=tenant,
-        principal=COMPOSITION_PRINCIPAL,
-        resource=key,
-        decision_id=content_hash(event),
-    )
+    assert tenant == _tenant_of_key(key), (tenant, key)
+    return _composition_register(registry, key)
 
 
 def compose_register(registry: ControlPlaneRegistry, key: str, artifact: object) -> str:
-    """``registry.register`` under a composition-minted capability for ``key``."""
-    return registry.register(composition_register_capability(registry, key), artifact)
+    return _register_at_composition(registry, key, artifact)
 
 
 def compose_register_typed(
-    registry: ControlPlaneRegistry,
-    key: str,
-    artifact: object,
-    artifact_class: ArtifactClass,
+    registry: ControlPlaneRegistry, key: str, artifact: object, artifact_class: ArtifactClass
 ) -> str:
-    """``registry.register_typed`` under a composition-minted capability for ``key``."""
-    return registry.register_typed(
-        composition_register_capability(registry, key), artifact, artifact_class
-    )
+    return _register_typed_at_composition(registry, key, artifact, artifact_class)
 
 
 def compose_register_versioned(
@@ -99,18 +86,8 @@ def compose_register_versioned(
     key: str,
     artifact: object,
     artifact_class: ArtifactClass,
-    *,
     reissuable: bool = False,
-) -> str | RegistrationRefusal:
-    """``registry.register_versioned`` under a composition-minted capability for ``key``.
-
-    Returns the handle's own outcome unchanged — a version, or the typed
-    refusal the D-05 bump check produces — so a test asserting a refusal
-    asserts the registry's, not the helper's.
-    """
-    return registry.register_versioned(
-        composition_register_capability(registry, key),
-        artifact,
-        artifact_class,
-        reissuable=reissuable,
+) -> object:
+    return _register_versioned_at_composition(
+        registry, key, artifact, artifact_class, reissuable=reissuable
     )

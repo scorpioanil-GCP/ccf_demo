@@ -105,6 +105,7 @@ def test_boot_refuses_another_substrates_connection_setting() -> None:
             resolution_spec_version="never",
             policy_bundle_key="never",
             policy_bundle_version="never",
+            tenant_ids=(TENANT,),
         )
     assert BACKEND_NAME in str(caught.value)
     assert "database_path" in str(caught.value)
@@ -138,6 +139,7 @@ def test_boot_refuses_to_infer_a_substrate() -> None:
             resolution_spec_version="never",
             policy_bundle_key="never",
             policy_bundle_version="never",
+            tenant_ids=(TENANT,),
         )
 
 

@@ -38,6 +38,7 @@ from ccf.hitl.principal import (
 from ccf.hitl.transport import InMemoryHitlTransport, PendingHitlEvent
 from ccf.skills.grants import ApprovalOutcome, ApprovalSink, SkillGrant
 from skills.sinks import ScriptedApprovalSink
+from tests.hitl.capabilities import submit_capability
 
 pytestmark = pytest.mark.conformance
 
@@ -111,7 +112,11 @@ def sink_factory(request: pytest.FixtureRequest) -> Iterator[SinkFactory]:
             transport.enqueue(event=event)
             approver = hitl["approvers"]["credit_officer"]
             resolution = gate.resolve(
-                tenant=event.tenant,
+                submit_capability(
+                    tenant=event.tenant,
+                    principal=approver["identity"]["subject_id"],
+                    event_key=event.event_key,
+                ),
                 event_key=event.event_key,
                 action="approve" if approve else "reject",
                 principal=HumanPrincipalBinding(

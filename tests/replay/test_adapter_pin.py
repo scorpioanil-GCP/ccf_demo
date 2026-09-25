@@ -217,6 +217,7 @@ def test_a_resolved_credential_reaches_no_rendering_of_the_record(
         resolution_spec_version=spec_version,
         policy_bundle_key="probe/policy",
         policy_bundle_version=policy_version,
+        tenant_ids=("probe-tenant",),
     )
     try:
         record = _build(adapter=handle.adapter)

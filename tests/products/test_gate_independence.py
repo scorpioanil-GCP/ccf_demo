@@ -97,6 +97,7 @@ from ccf.products.gates import (
     ServableProductNotAModel,
     run_gates,
 )
+from tests.composition import register_at_composition
 
 # Fixture values (test-side vocabulary, never SDK values).
 TENANT = "tenant-fixture"
@@ -177,7 +178,7 @@ def _registry() -> ControlPlaneRegistry:
 
 
 def _product_class(registry: ControlPlaneRegistry) -> RegisteredProductClass:
-    version = registry.register(MAX_TTL_KEY, MaxTTL(seconds=MAX_TTL_SECONDS))
+    version = register_at_composition(registry, MAX_TTL_KEY, MaxTTL(seconds=MAX_TTL_SECONDS))
     return register_product_class(
         registry=registry,
         schema_name="fixture.gate-independence",

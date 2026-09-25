@@ -92,6 +92,7 @@ from tests.deployment.conftest import POLICY_BUNDLE_KEY, TENANT
 # particular has to declare the tolerance argument on the request contract as
 # well as the default on the class, and a hand-rolled copy that forgot the
 # first would fail deep inside the Authority layer for the wrong reason.
+from tests.composition import composition_replay_mint
 from tests.products.test_resolver_seam import (  # noqa: F401
     ASKED_AT,
     MAX_TTL_SECONDS,
@@ -681,9 +682,10 @@ def test_a_failed_append_yields_no_shell_at_all(
     """
     store = _RefusingStore(tmp_path / "refusing-artifacts")
     recorder = ReplayRefusalRecorder(
+        authorized=composition_replay_mint(
+            booted.control_plane, tenant=TENANT, artifact_class=REPLAY_RECORD_CLASS
+        ),
         artifact_store=store,
-        replay_record_class=REPLAY_RECORD_CLASS,
-        tenant_id=TENANT,
         assembly_mode="algorithmic",
     )
     resolver = _resolver(booted, artifact_store=store, refusal_recorder=recorder)
@@ -756,9 +758,10 @@ def test_the_recorder_answers_a_caller_with_a_principal_and_no_role(
     )
     shell = _a_shell().model_copy(update={"resource": resource})
     recorder = ReplayRefusalRecorder(
+        authorized=composition_replay_mint(
+            booted.control_plane, tenant=TENANT, artifact_class=REPLAY_RECORD_CLASS
+        ),
         artifact_store=booted.store,
-        replay_record_class=REPLAY_RECORD_CLASS,
-        tenant_id=TENANT,
         assembly_mode="algorithmic",
     )
 
@@ -818,9 +821,10 @@ def test_a_recorder_with_no_bundle_pin_records_exactly_the_callers_bindings(
     the deployment's behalf.
     """
     recorder = ReplayRefusalRecorder(
+        authorized=composition_replay_mint(
+            booted.control_plane, tenant=TENANT, artifact_class=REPLAY_RECORD_CLASS
+        ),
         artifact_store=booted.store,
-        replay_record_class=REPLAY_RECORD_CLASS,
-        tenant_id=TENANT,
         assembly_mode="algorithmic",
     )
     passed = (PolicyBinding(key="fixture.entitlement", version="v7"),)
@@ -839,9 +843,10 @@ def test_a_recorder_holding_a_bundle_pin_prepends_it(booted: _Booted) -> None:
     """The control for the posture above: the pin is prepended, not merged."""
     pin = PolicyBinding(key=POLICY_BUNDLE_KEY, version="v-fixture")
     recorder = ReplayRefusalRecorder(
+        authorized=composition_replay_mint(
+            booted.control_plane, tenant=TENANT, artifact_class=REPLAY_RECORD_CLASS
+        ),
         artifact_store=booted.store,
-        replay_record_class=REPLAY_RECORD_CLASS,
-        tenant_id=TENANT,
         assembly_mode="algorithmic",
         policy_bundle_pin=pin,
     )

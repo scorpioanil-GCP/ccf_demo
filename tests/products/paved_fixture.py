@@ -190,11 +190,17 @@ def questions(requirement: ChildRequirement, request: ProductRequest) -> ChildQu
 # --- the documents ------------------------------------------------------------------
 
 
+#: The two replay classes every paved fixture's `replay:` section declares —
+#: named once so a test declaring a store of its own names the same classes.
+RECORD_CLASS = "ccf.replay-record"
+QUERY_PIN_CLASS = "ccf.graph-query"
+
+
 def _paved_sections(*, producer_id: str, tenant: str) -> dict[str, Any]:
     return {
         "replay": {
-            "record_class": "ccf.replay-record",
-            "query_pin_class": "ccf.graph-query",
+            "record_class": RECORD_CLASS,
+            "query_pin_class": QUERY_PIN_CLASS,
             "store_dirname": "artifact-store",
         },
         "ttl": {"max_ttl_seconds": 3600, "product_ttl_seconds": 600},

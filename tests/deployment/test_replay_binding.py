@@ -63,6 +63,8 @@ from ccf.replay.serve import ServedProduct
 from ccf.signal.envelope import SignalEnvelope
 
 from tests.deployment.conftest import write_artifact
+from tests.composition import declaring_store
+from ccf.products.composite import ADMITTED_CHILD_CONTRACT_CLASS
 
 # --- cp-05's three declared values, used as inputs and never edited ----------
 #
@@ -557,7 +559,7 @@ def test_a_served_products_record_lands_where_the_control_plane_said(
     where_the_declaration_said = root / CP05_STORE_DIRNAME
     assert where_the_declaration_said.is_dir(), sorted(root.iterdir())
 
-    audit = FileArtifactStore(root=where_the_declaration_said)
+    audit = declaring_store(where_the_declaration_said)
     address = audit.resolve_uri(uri=served.replay_ref.uri)
     assert address == served.replay_ref.content_address
     assert audit.exists(content_address=address)
@@ -581,7 +583,7 @@ def test_the_landing_control_fires_on_a_store_rooted_anywhere_else(
         )
     )
 
-    elsewhere = FileArtifactStore(root=root / "somewhere-else")
+    elsewhere = declaring_store(root / "somewhere-else")
     with pytest.raises(ArtifactUriUnresolvable):
         elsewhere.resolve_uri(uri=served.replay_ref.uri)
     assert not elsewhere.exists(
@@ -652,7 +654,12 @@ def test_a_deployment_with_no_replay_section_is_untouched(
         undeclared.fabric.artifacts
     )
 
-    store = FileArtifactStore(root=tmp_path / "explicitly-chosen")
+    store = declaring_store(
+        tmp_path / "explicitly-chosen",
+        EXPLICIT_RECORD_CLASS,
+        "fixture.explicit-graph-query",
+        ADMITTED_CHILD_CONTRACT_CLASS,
+    )
     served = _serve(
         build_governed_resolver(
             **_resolver_arguments(

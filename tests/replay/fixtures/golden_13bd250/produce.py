@@ -228,6 +228,7 @@ def boot_fabric(*, database_path: Path, bindings: Bindings) -> FabricHandle:
         resolution_spec_version=bindings.spec_version,
         policy_bundle_key=POLICY_BUNDLE_KEY,
         policy_bundle_version=bindings.policy_version,
+        tenant_ids=(TENANT,),
     )
 
 

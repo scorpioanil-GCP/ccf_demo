@@ -38,12 +38,14 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from ccf.controlplane.invalidation import (
+    KEY_PREFIX,
     ControlPlaneInvalidationSink,
     EntityInvalidation,
     EntityInvalidationRegister,
     register_key,
     resolve_register,
 )
+from ccf.authz.capability import COMPOSITION_PRINCIPAL
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.halflife.assessment import DebtAssessment, DebtFactors, DebtSignal
 from ccf.products.contract import (
@@ -58,6 +60,8 @@ from ccf.products.gates import (
     ServableProduct,
     run_gates,
 )
+from tests.composition import register_at_composition
+from tests.composition import composition_register, register_at_composition
 
 TENANT_A = "tenant-alpha"
 TENANT_B = "tenant-beta"
@@ -92,7 +96,7 @@ def registry() -> ControlPlaneRegistry:
 
 
 def _registered(registry: ControlPlaneRegistry) -> object:
-    version = registry.register(MAX_TTL_KEY, MaxTTL(seconds=MAX_TTL_SECONDS))
+    version = register_at_composition(registry, MAX_TTL_KEY, MaxTTL(seconds=MAX_TTL_SECONDS))
     return register_product_class(
         registry=registry,
         schema_name=SCHEMA,
@@ -149,12 +153,22 @@ def _serve(
     )
 
 
+def _sink(registry: ControlPlaneRegistry) -> ControlPlaneInvalidationSink:
+    """The sink as `ccf.boot` composes it: one `Register` per tenant, minted by the recipe (D-IMPL-354)."""
+    return ControlPlaneInvalidationSink(
+        registry=registry,
+        authorities=tuple(
+            composition_register(registry, register_key(tenant)) for tenant in (TENANT_A, TENANT_B)
+        ),
+    )
+
+
 def _supersede(
     registry: ControlPlaneRegistry, *, tenant_id: str, entity_uri: str,
     at: datetime,
 ) -> None:
     """What the graph writer does when a claim on ``entity_uri`` is superseded."""
-    ControlPlaneInvalidationSink(registry=registry).record(
+    _sink(registry).record(
         tenant_id=tenant_id,
         entity_uri=entity_uri,
         invalidated_from=at,
@@ -368,7 +382,7 @@ def test_a_boundary_never_moves_backward(
     slots into history rather than displacing it. Moving the boundary back
     would make eligible again a product a later change had ruled out.
     """
-    sink = ControlPlaneInvalidationSink(registry=registry)
+    sink = _sink(registry)
     sink.record(
         tenant_id=TENANT_A, entity_uri=ENTITY_X, invalidated_from=T2,
         reason="entity-claim-superseded", source="later",
@@ -395,7 +409,7 @@ def test_the_register_is_append_only_and_versioned(
     appends is recoverable from the version chain even though one version holds
     only the current boundaries.
     """
-    sink = ControlPlaneInvalidationSink(registry=registry)
+    sink = _sink(registry)
     sink.record(
         tenant_id=TENANT_A, entity_uri=ENTITY_X, invalidated_from=T2,
         reason="entity-claim-superseded", source="x",
@@ -422,7 +436,7 @@ def test_a_register_holding_the_wrong_type_is_refused_by_name() -> None:
     indistinguishable from an empty one, and every product would serve.
     """
     registry = ControlPlaneRegistry()
-    registry.register(register_key(TENANT_A), MaxTTL(seconds=1))
+    register_at_composition(registry, register_key(TENANT_A), MaxTTL(seconds=1))
 
     with pytest.raises(TypeError, match="EntityInvalidationRegister"):
         resolve_register(registry, tenant_id=TENANT_A)
@@ -455,11 +469,9 @@ def _boot(registry: ControlPlaneRegistry) -> object:
 
     import conftest as harness
 
-    spec_version = registry.register(
-        harness.RESOLUTION_SPEC_KEY, harness._resolution_spec()
+    spec_version = register_at_composition(registry, harness.RESOLUTION_SPEC_KEY, harness._resolution_spec()
     )
-    policy_version = registry.register(
-        harness.POLICY_BUNDLE_KEY, harness._policy_bundle()
+    policy_version = register_at_composition(registry, harness.POLICY_BUNDLE_KEY, harness._policy_bundle()
     )
     return boot(
         backend="memory",
@@ -469,6 +481,7 @@ def _boot(registry: ControlPlaneRegistry) -> object:
         resolution_spec_version=spec_version,
         policy_bundle_key=harness.POLICY_BUNDLE_KEY,
         policy_bundle_version=policy_version,
+        tenant_ids=(TENANT_A, TENANT_B),
     )
 
 
@@ -660,3 +673,118 @@ def test_the_composition_root_binds_the_sink_and_a_deployment_need_not() -> None
             writer.attach_invalidation_sink(sink)
     finally:
         fabric.close()
+
+
+# =========================================================================
+# D-IMPL-354 — the sink holds what its composition root minted, and no more.
+# =========================================================================
+
+
+def test_the_sink_refuses_construction_with_no_authority_or_a_duplicate_tenant(
+    registry: ControlPlaneRegistry,
+) -> None:
+    from ccf.controlplane.invalidation import InvalidationUnauthorized
+
+    with pytest.raises(InvalidationUnauthorized, match="no Register capability"):
+        ControlPlaneInvalidationSink(registry=registry, authorities=())
+    twice = composition_register(registry, register_key(TENANT_A))
+    with pytest.raises(InvalidationUnauthorized, match="two Register"):
+        ControlPlaneInvalidationSink(
+            registry=registry,
+            authorities=(twice, composition_register(registry, register_key(TENANT_A))),
+        )
+
+
+def test_the_sink_refuses_a_capability_for_another_key_and_every_fabrication(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """A `Register` for some other key opens nothing here; a forgery opens nothing anywhere."""
+    from ccf.authz.capability import CapabilityBypassError, Register
+
+    from tests.controlplane.capabilities import fabrications
+
+    with pytest.raises(CapabilityBypassError):
+        ControlPlaneInvalidationSink(
+            registry=registry, authorities=(composition_register(registry, MAX_TTL_KEY),)
+        )
+    for label, forged in fabrications(Register, tenant=TENANT_A, resource=register_key(TENANT_A)):
+        with pytest.raises(CapabilityBypassError):
+            ControlPlaneInvalidationSink(registry=registry, authorities=(forged,))  # type: ignore[arg-type]
+        assert resolve_register(registry, tenant_id=TENANT_A) is None, label
+
+
+def test_a_supersession_under_a_tenant_the_fabric_was_not_composed_for_is_refused_and_writes_nothing(
+    registry: ControlPlaneRegistry,
+) -> None:
+    from ccf.controlplane.invalidation import InvalidationUnauthorized
+
+    sink = ControlPlaneInvalidationSink(
+        registry=registry, authorities=(composition_register(registry, register_key(TENANT_A)),)
+    )
+    assert sink.tenants == frozenset({TENANT_A})
+    events_before = len(registry.audit_events())
+    with pytest.raises(InvalidationUnauthorized, match=TENANT_B):
+        sink.record(
+            tenant_id=TENANT_B, entity_uri=ENTITY_X, invalidated_from=T1,
+            reason="entity-claim-superseded", source="x",
+        )
+    # Count FIRST: `resolve_register` below is itself an audited read (a
+    # `resolve_latest` miss), and it must not be mistaken for the refusal's.
+    assert len(registry.audit_events()) == events_before, "a refused record audited nothing"
+    assert resolve_register(registry, tenant_id=TENANT_B) is None
+    # And the held tenant still records, under the composition principal.
+    sink.record(
+        tenant_id=TENANT_A, entity_uri=ENTITY_X, invalidated_from=T1,
+        reason="entity-claim-superseded", source="x",
+    )
+    registered = [e for e in registry.audit_events() if e.key == register_key(TENANT_A) and e.action == "register_typed"]
+    assert registered and registered[-1].actor == COMPOSITION_PRINCIPAL
+
+
+def test_boot_refuses_an_empty_or_repeated_tenant_list_before_touching_any_store() -> None:
+    """`boot(tenant_ids=...)` is required and non-empty: a fabric composed for nobody could record no supersession."""
+    from ccf.boot import boot
+
+    registry = ControlPlaneRegistry()
+    spec_version = register_at_composition(registry, __import__("conftest").RESOLUTION_SPEC_KEY, __import__("conftest")._resolution_spec())
+    policy_version = register_at_composition(registry, __import__("conftest").POLICY_BUNDLE_KEY, __import__("conftest")._policy_bundle())
+    for tenants, why in (((), "empty"), ((TENANT_A, TENANT_A), "twice"), (("",), "not a tenant id")):
+        with pytest.raises(ValueError, match=why):
+            boot(
+                backend="memory", connection={}, registry=registry,
+                resolution_spec_key=__import__("conftest").RESOLUTION_SPEC_KEY, resolution_spec_version=spec_version,
+                policy_bundle_key=__import__("conftest").POLICY_BUNDLE_KEY, policy_bundle_version=policy_version,
+                tenant_ids=tenants,
+            )
+    assert not [e for e in registry.audit_events() if e.action == "composition" and e.key.endswith(KEY_PREFIX)]
+
+
+def test_the_writer_refuses_a_supersession_under_an_uncomposed_tenant_and_the_composed_one_lands() -> None:
+    """End to end through the real writer: `boot` minted for TENANT_A and TENANT_B only."""
+    from ccf.contracts.claims import EntityClaim, LineageEntry
+    from ccf.controlplane.invalidation import InvalidationUnauthorized
+    from ccf.signal.envelope import SourceIdentity
+
+    registry = ControlPlaneRegistry()
+    fabric = _boot(registry)
+    writer = _writer_of(fabric)
+    policy_version = registry.versions(__import__("conftest").POLICY_BUNDLE_KEY)[-1]
+
+    def _claim(tenant: str, observed_at: datetime, rating: str) -> EntityClaim:
+        return EntityClaim(
+            tenant_id=tenant, entity_uri=ENTITY_X, entity_class="obligor",
+            attributes={"name": "fixture", "rating": rating}, observed_at=observed_at,
+            lineage=frozenset((LineageEntry(source=SourceIdentity(system_id="fixture-source"), envelope_id=f"e-{observed_at.isoformat()}", observed_at=observed_at),)),
+        )
+
+    try:
+        writer.upsert_entity(tenant_id=TENANT_A, claim=_claim(TENANT_A, T1, "BB"), policy_bundle_version=policy_version)
+        writer.upsert_entity(tenant_id=TENANT_A, claim=_claim(TENANT_A, T2, "BB-"), policy_bundle_version=policy_version)
+        assert resolve_register(registry, tenant_id=TENANT_A) is not None
+        other = "tenant-nobody-composed-for"
+        writer.upsert_entity(tenant_id=other, claim=_claim(other, T1, "BB"), policy_bundle_version=policy_version)
+        with pytest.raises(InvalidationUnauthorized, match=other):
+            writer.upsert_entity(tenant_id=other, claim=_claim(other, T2, "BB-"), policy_bundle_version=policy_version)
+        assert resolve_register(registry, tenant_id=other) is None
+    finally:
+        fabric.close()  # type: ignore[attr-defined]

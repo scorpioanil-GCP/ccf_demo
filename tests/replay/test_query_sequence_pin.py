@@ -149,6 +149,7 @@ def fabric(
         resolution_spec_version=spec_version,
         policy_bundle_key=keys["policy_bundle"],
         policy_bundle_version=policy_version,
+        tenant_ids=(ontology["tenant_id"],),
     )
     try:
         yield _Fabric(

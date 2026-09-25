@@ -47,6 +47,7 @@ from typing import Protocol, runtime_checkable
 
 from pydantic import Field
 
+from ccf.authz.capability import Authorized, Register, verify
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import HASH_TRANSPARENT_KEY
 # `artifact_base`, NOT `artifacts`: the latter imports `ccf.products.contract`,
@@ -56,9 +57,16 @@ from ccf.contracts.canonical import HASH_TRANSPARENT_KEY
 from ccf.controlplane.artifact_base import ArtifactClass, VersionedArtifact
 from ccf.controlplane.registry import ControlPlaneMissing, ControlPlaneProtocol
 
-#: The Control Plane key a tenant's register lives under. One register per
-#: tenant, because eligibility is tenant-scoped and a shared key would let one
-#: tenant's supersession refuse another tenant's product.
+#: The class segment of the Control Plane key a tenant's register lives
+#: under. One register per tenant, because eligibility is tenant-scoped and a
+#: shared key would let one tenant's supersession refuse another tenant's
+#: product. **The tenant is the key's FIRST segment** (``{tenant}/{class}``):
+#: the registry's one tenant comparison (``D-IMPL-353`` §1.3,
+#: :class:`~ccf.controlplane.registry.CrossTenantKeyRefused`) reads the text
+#: before the first ``/`` as the key's tenant, so a class-first key could be
+#: registered only by a capability whose tenant was the class name — a lie on
+#: the capability. The grammar moved to tenant-first for that reason; the
+#: name of the constant is kept because every reader of this module knows it.
 KEY_PREFIX = "ccf.entity-invalidation"
 
 #: The register's own lane. Stated rather than defaulted, because
@@ -68,8 +76,22 @@ REGISTER_SEMVER = "1.0.0"
 
 
 def register_key(tenant_id: str) -> str:
-    """The Control Plane key holding ``tenant_id``'s invalidation register."""
-    return f"{KEY_PREFIX}/{tenant_id}"
+    """The Control Plane key holding ``tenant_id``'s invalidation register: ``{tenant}/ccf.entity-invalidation``."""
+    return f"{tenant_id}/{KEY_PREFIX}"
+
+
+class InvalidationUnauthorized(PermissionError):
+    """The sink holds no ``Register`` capability for the tenant a supersession names (D-IMPL-353 §1.6; D-IMPL-354).
+
+    A :class:`ControlPlaneInvalidationSink` records boundaries only for the
+    tenants its composition root minted a capability for — one capability,
+    one key, one tenant, handed to it at construction. A supersession under
+    any other tenant is not written under a fallback and not skipped: it is
+    refused here, before the standing register is even read, because a
+    fabric that was not composed for a tenant has no authority to move that
+    tenant's boundary. Raised, never returned — this is wiring (the fabric's
+    ``tenant_ids`` omit a tenant its claims carry), not a governance outcome.
+    """
 
 
 class EntityInvalidation(CCFContract):
@@ -215,8 +237,56 @@ class ControlPlaneInvalidationSink:
     nothing else acquires a handle, and no second process observes the write.
     """
 
-    def __init__(self, *, registry: ControlPlaneProtocol) -> None:
+    def __init__(
+        self,
+        *,
+        registry: ControlPlaneProtocol,
+        authorities: tuple[Authorized[Register], ...],
+    ) -> None:
+        """Hold one ``Register`` capability per tenant this sink may record for.
+
+        **Not a composition root** (D-IMPL-354): the sink mints nothing. Its
+        composer — :func:`ccf.boot.boot` — mints ``Register`` for
+        :func:`register_key` of each tenant it composes the fabric for and
+        hands the capabilities here. Each is verified at construction, by the
+        seam's own :func:`~ccf.authz.capability.verify`, against exactly the
+        key it must open, so a capability for another key, another kind, or
+        no mint at all is refused before the sink exists.
+
+        Raises:
+            ccf.authz.capability.CapabilityBypassError: a capability is
+                fabricated, retargeted, not ``Register``, or not for its own
+                tenant's register key.
+            InvalidationUnauthorized: two capabilities name one tenant, or
+                none was handed in — a sink for no tenant records nothing and
+                is a misconfiguration, refused at composition rather than at
+                the first supersession.
+        """
+        held: dict[str, Authorized[Register]] = {}
+        for authorized in authorities:
+            tenant = getattr(authorized, "tenant", None)
+            expected = register_key(tenant) if isinstance(tenant, str) and tenant else ""
+            verify(authorized, kind=Register, resource=expected)
+            if authorized.tenant in held:
+                raise InvalidationUnauthorized(
+                    f"two Register capabilities were handed in for tenant"
+                    f" {authorized.tenant!r}'s invalidation register; a"
+                    " composition mints one per tenant (D-IMPL-354)"
+                )
+            held[authorized.tenant] = authorized
+        if not held:
+            raise InvalidationUnauthorized(
+                "no Register capability was handed to the invalidation sink; a"
+                " fabric is composed for at least one tenant, and a sink for no"
+                " tenant could record no supersession (D-IMPL-354)"
+            )
         self._registry = registry
+        self._authorities = held
+
+    @property
+    def tenants(self) -> frozenset[str]:
+        """The tenants this sink holds a capability for — the fabric's composed tenants."""
+        return frozenset(self._authorities)
 
     def register(self, tenant_id: str) -> EntityInvalidationRegister | None:
         """This tenant's register at its latest version, or ``None``.
@@ -235,7 +305,26 @@ class ControlPlaneInvalidationSink:
         reason: str,
         source: str,
     ) -> None:
-        """Append one boundary, as a new audited register version."""
+        """Append one boundary, as a new audited register version.
+
+        The capability is looked up FIRST — before the standing register is
+        read — so a tenant this fabric was not composed for is refused with
+        nothing read and nothing written.
+
+        Raises:
+            InvalidationUnauthorized: this sink holds no capability for
+                ``tenant_id``.
+        """
+        authorized = self._authorities.get(tenant_id)
+        if authorized is None:
+            raise InvalidationUnauthorized(
+                f"a supersession under tenant {tenant_id!r} reached the"
+                " invalidation sink, and this fabric holds a Register"
+                f" capability only for {sorted(self._authorities)!r}; the"
+                " composition root mints one per tenant it composes for"
+                " (`boot(..., tenant_ids=...)`), and a tenant it did not name"
+                " cannot have its boundary moved (D-IMPL-353 §1.6; D-IMPL-354)"
+            )
         standing = self.register(tenant_id) or EntityInvalidationRegister(
             semver=REGISTER_SEMVER, tenant_id=tenant_id
         )
@@ -253,9 +342,7 @@ class ControlPlaneInvalidationSink:
             # changed nothing, and an auditor counting versions would read
             # activity that never happened.
             return
-        self._registry.register_typed(
-            register_key(tenant_id), moved, ENTITY_INVALIDATION_REGISTER
-        )
+        self._registry.register_typed(authorized, moved, ENTITY_INVALIDATION_REGISTER)
 
 
 def resolve_register(

@@ -67,19 +67,31 @@ from __future__ import annotations
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 
 from pydantic import SecretStr
 
+from ccf.authz.capability import (
+    COMPOSITION_PRINCIPAL,
+    Authorized,
+    Register,
+    mint_at_composition,
+)
 from ccf.boot import FabricHandle, boot
 from ccf.contracts.base import CCFContract
+from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifacts import (
     DEPLOYMENT_MANIFEST,
     DeploymentManifest,
     ManifestEntry,
     load_artifact,
 )
-from ccf.controlplane.registry import ControlPlaneProtocol, RegistrationRefusal
+from ccf.controlplane.registry import (
+    ControlPlaneProtocol,
+    CrossTenantKeyRefused,
+    RegistrationRefusal,
+)
 from ccf.deployment.classes import (
     refuse_registration_the_sdk_fixes,
     refuse_role_the_sdk_fixes,
@@ -469,6 +481,60 @@ def _preflight_entries(manifest: DeploymentManifest, root: Path) -> dict[str, Pa
     return document_paths
 
 
+def _utc_now() -> datetime:
+    return datetime.now(tz=UTC)
+
+
+def _tenant_of_key(key: str) -> str:
+    """The tenant segment of a manifest key, derived exactly as the registry derives it.
+
+    The Control Plane key grammar is ``{tenant}/{class}/{name}`` and the
+    registry's one tenant comparison (``D-IMPL-353`` §1.3) reads the text
+    before the first ``/``. This module derives the same segment to mint for
+    — it invents no tenant — and a key with no segment is refused here with
+    the registry's own error, before anything is minted, because a key that
+    names no tenant belongs to nobody.
+    """
+    tenant, separator, _ = key.partition("/")
+    if not separator or not tenant:
+        raise CrossTenantKeyRefused(
+            f"manifest key {key!r} has no tenant segment; a Control Plane key is"
+            " `{tenant}/{class}/{name}`, and a composition root mints Register"
+            " for the key's own tenant and no other (D-IMPL-353 §1.3;"
+            " D-IMPL-354)"
+        )
+    return tenant
+
+
+def _mint_register(registry: ControlPlaneProtocol, key: str) -> Authorized[Register]:
+    """The composition recipe for ONE manifest entry (D-IMPL-354).
+
+    This module is a composition root: the deployment's own registrations at
+    boot are the deployment acting on its own fabric, and no served caller
+    requests them, so no door can mint for them. The decision is recorded on
+    the Control Plane's own audit log as a ``composition`` event and the
+    capability carries that event's content address as its ``decision_id``.
+    One key per capability; the registry then takes the key FROM the
+    capability and compares its tenant segment once.
+    """
+    tenant = _tenant_of_key(key)
+    event = registry.audit_log.append(
+        action="composition",
+        key=key,
+        version=Register.action_id,
+        resolved=True,
+        occurred_at=_utc_now(),
+        actor=COMPOSITION_PRINCIPAL,
+    )
+    return mint_at_composition(
+        Register,
+        tenant=tenant,
+        principal=COMPOSITION_PRINCIPAL,
+        resource=key,
+        decision_id=content_hash(event),
+    )
+
+
 def _register_and_boot(
     manifest: DeploymentManifest,
     parsed: Mapping[str, CCFContract],
@@ -509,6 +575,10 @@ def _register_and_boot(
         resolution_spec_version=pins.version_for(manifest.resolution_spec_key),
         policy_bundle_key=manifest.policy_bundle_key,
         policy_bundle_version=pins.version_for(manifest.policy_bundle_key),
+        # D-IMPL-354: the one tenant this deployment runs as is the one tenant
+        # the fabric is composed for; `boot` mints its invalidation-register
+        # capability from this and nothing else.
+        tenant_ids=(resolved_tenant,),
     )
     return BootedFabric(
         handle=handle,
@@ -561,6 +631,10 @@ def register_manifest_entries(
             # Plane state and therefore into Decision Replay dimension 2.
             continue
         artifact_class = resolve_artifact_class(entry.class_id)
+        # D-IMPL-354: one `Register` capability per entry, for exactly this
+        # key, minted by the recipe above. The registry takes the key from the
+        # capability; nothing below passes a key.
+        authorized = _mint_register(registry, entry.key)
         if entry.registration == "versioned":
             # `register_versioned` RETURNS its D-05 refusals rather than raising
             # them (the GateRefusal discipline), so a bare assignment here would
@@ -581,7 +655,7 @@ def register_manifest_entries(
             # `refuse_registration_the_sdk_fixes` refuses in preflight, before
             # any document is read.
             outcome = registry.register_versioned(
-                entry.key, parsed[entry.key], artifact_class
+                authorized, parsed[entry.key], artifact_class
             )
             if isinstance(outcome, RegistrationRefusal):
                 raise ValueError(
@@ -594,7 +668,7 @@ def register_manifest_entries(
             version = outcome
         else:
             version = registry.register_typed(
-                entry.key, parsed[entry.key], artifact_class
+                authorized, parsed[entry.key], artifact_class
             )
         pinned.append(
             ArtifactPin(

@@ -126,7 +126,10 @@ def _door_outcome_by_a_second_dispatch(opened: Any, *, parameters: dict[str, Any
 
 
 def _fresh(opened: Any) -> FileArtifactStore:
-    return FileArtifactStore(root=opened.scratch / opened.replay.store_dirname)
+    return FileArtifactStore(
+        root=opened.scratch / opened.replay.store_dirname,
+        write_kinds=opened.artifact_store.write_kinds,
+    )
 
 
 # --- C-A1 -----------------------------------------------------------------------------

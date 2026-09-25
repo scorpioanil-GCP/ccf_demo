@@ -102,6 +102,7 @@ from ccf.products.provenance import (
     ProvenanceSource,
 )
 from ccf.products.refusal import REFUSAL_KINDS
+from tests.composition import register_at_composition
 
 TENANT = "tenant-fixture"
 NOW = datetime(2026, 3, 2, 12, 0, 0, tzinfo=UTC)
@@ -197,7 +198,7 @@ def _class(
     registry: ControlPlaneRegistry, *, serve_obligations: ServeObligations
 ) -> RegisteredProductClass:
     """The rehydration ``_Deployment.product_class`` shape, plus the obligations."""
-    max_ttl_version = registry.register(MAX_TTL_KEY, MaxTTL(seconds=MAX_TTL_SECONDS))
+    max_ttl_version = register_at_composition(registry, MAX_TTL_KEY, MaxTTL(seconds=MAX_TTL_SECONDS))
     return register_product_class(
         registry=registry,
         schema_name=SCHEMA_NAME,

@@ -97,6 +97,8 @@ from ccf.replay.record import (
 from ccf.replay.serve import ReplayWriter, ServedProduct, serve
 from ccf.signal.envelope import SignalEnvelope, SourceIdentity
 from ccf.similarity.protocol import TokenOverlapIndex
+from tests.composition import register_at_composition
+from tests.composition import composition_replay_mint, declaring_store
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "banking"
 
@@ -202,10 +204,9 @@ def fabric(
     """Boot a fabric from the fixtures and ingest the whole event stream."""
     keys = control["keys"]
     registry = ControlPlaneRegistry()
-    spec_version = registry.register(
-        keys["resolution_spec"], _resolution_spec(ontology)
+    spec_version = register_at_composition(registry, keys["resolution_spec"], _resolution_spec(ontology)
     )
-    policy_version = registry.register(keys["policy_bundle"], control["policy_bundle"])
+    policy_version = register_at_composition(registry, keys["policy_bundle"], control["policy_bundle"])
     handle = boot(
         backend="sqlite",
         connection={"database_path": tmp_path / "acme-bank.sqlite3"},
@@ -214,6 +215,7 @@ def fabric(
         resolution_spec_version=spec_version,
         policy_bundle_key=keys["policy_bundle"],
         policy_bundle_version=policy_version,
+        tenant_ids=(ontology["tenant_id"],),
     )
     try:
         for envelope in _envelopes(ontology, events):
@@ -382,8 +384,7 @@ def _execute(fabric: _Fabric) -> ExecutionResult:
 
 def _product_class(fabric: _Fabric) -> RegisteredProductClass:
     declared = fabric.control["product_class"]
-    max_ttl_version = fabric.registry.register(
-        fabric.control["keys"]["max_ttl"],
+    max_ttl_version = register_at_composition(fabric.registry, fabric.control["keys"]["max_ttl"],
         MaxTTL(seconds=fabric.control["max_ttl_seconds"]),
     )
     return register_product_class(
@@ -461,8 +462,14 @@ def _serve(fabric: _Fabric, store: FileArtifactStore) -> tuple[
         product=gated,
         record=record,
         replay_writer=ReplayWriter(
+            # D-IMPL-354: the test is this fabric's composition root and mints
+            # the ReplayMint for the class its control document declares.
+            authorized=composition_replay_mint(
+                fabric.registry,
+                tenant=fabric.tenant_id,
+                artifact_class=fabric.control["artifacts"]["replay_record_class"],
+            ),
             store=store,
-            artifact_class=fabric.control["artifacts"]["replay_record_class"],
         ),
     )
     return execution, served, record
@@ -687,7 +694,7 @@ def test_each_gate_refuses_its_own_bad_candidate(fabric: _Fabric) -> None:
 def test_the_served_product_has_a_replay_record_in_the_store(
     fabric: _Fabric, tmp_path: Path
 ) -> None:
-    store = FileArtifactStore(root=tmp_path / "artifacts")
+    store = declaring_store(tmp_path / "artifacts", fabric.control["artifacts"]["replay_record_class"])
     _execution, served, record = _serve(fabric, store)
     assert store.exists(content_address=served.replay_ref.content_address)
     assert served.replay_ref.content_address == content_hash(record)
@@ -697,7 +704,7 @@ def test_the_replay_record_round_trips_with_a_matching_content_hash(
     fabric: _Fabric, tmp_path: Path
 ) -> None:
     """D-IMPL-26: a replay resolves the exact artifact, byte for byte."""
-    store = FileArtifactStore(root=tmp_path / "artifacts")
+    store = declaring_store(tmp_path / "artifacts", fabric.control["artifacts"]["replay_record_class"])
     _execution, served, record = _serve(fabric, store)
     restored = DecisionReplayRecord.model_validate_json(
         store.get(content_address=served.replay_ref.content_address)
@@ -709,7 +716,7 @@ def test_the_replay_record_round_trips_with_a_matching_content_hash(
 def test_the_record_carries_the_five_dimensions_of_this_decision(
     fabric: _Fabric, tmp_path: Path
 ) -> None:
-    store = FileArtifactStore(root=tmp_path / "artifacts")
+    store = declaring_store(tmp_path / "artifacts", fabric.control["artifacts"]["replay_record_class"])
     execution, _served, record = _serve(fabric, store)
 
     snapshot = record.context_fabric_snapshot  # 1
@@ -742,7 +749,7 @@ def test_serving_twice_converges_on_one_immutable_record(
     fabric: _Fabric, tmp_path: Path
 ) -> None:
     """Same decision, same state, same record — content addressing, not luck."""
-    store = FileArtifactStore(root=tmp_path / "artifacts")
+    store = declaring_store(tmp_path / "artifacts", fabric.control["artifacts"]["replay_record_class"])
     _e1, first, _r1 = _serve(fabric, store)
     _e2, second, _r2 = _serve(fabric, store)
     assert first.replay_ref.content_address == second.replay_ref.content_address

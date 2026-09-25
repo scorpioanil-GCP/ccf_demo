@@ -92,6 +92,9 @@ from ccf.skills.grants import GrantLedger, SkillGrant
 from _pytest.outcomes import Failed, Skipped
 from conftest import HARNESS_REQUIRED_ENV, harness_unavailable
 from skills.sinks import ScriptedApprovalSink
+from tests.composition import register_typed_at_composition, register_versioned_at_composition
+from tests.composition import register_skill_entry
+from tests.skills.authority import grant_capability, revoke_capability
 
 pytestmark = [pytest.mark.conformance, pytest.mark.harness]
 
@@ -204,8 +207,7 @@ class World:
         self.prompt: PromptArtifact = _parsed(
             prompt_fixture["prompt_artifact"], PROMPT_ARTIFACT
         )
-        self.registry.register_typed(
-            prompt_fixture["keys"]["prompt_artifact"], self.prompt, PROMPT_ARTIFACT
+        register_typed_at_composition(self.registry, prompt_fixture["keys"]["prompt_artifact"], self.prompt, PROMPT_ARTIFACT
         )
         for reference in agent_fixture["referenced_artifacts"].values():
             self._register_declared(reference)
@@ -218,7 +220,7 @@ class World:
             tool_fixture["variants"]["local_callable"],
         ):
             entry: SkillCatalogEntry = _parsed(document, SKILL_CATALOG_ENTRY)
-            assert isinstance(self.catalog.register(entry), str)
+            assert isinstance(register_skill_entry(self.catalog, self.registry, entry), str)
 
         self.ledger = GrantLedger(
             control_plane=self.registry,
@@ -263,10 +265,10 @@ class World:
             },
             artifact_class,
         )
-        self.registry.register_typed(reference["key"], declared, artifact_class)
+        register_typed_at_composition(self.registry, reference["key"], declared, artifact_class)
 
     def _construct(self, definition: AgentDefinition, key: str) -> Agent:
-        version = self.registry.register_versioned(key, definition, AGENT_DEFINITION)
+        version = register_versioned_at_composition(self.registry, key, definition, AGENT_DEFINITION)
         assert isinstance(version, str)
         return AgentFactory(control_plane=self.registry).construct(
             definition_key=key,
@@ -282,7 +284,9 @@ class World:
         )
 
     def bind(self, grant: SkillGrant, definition: AgentDefinition) -> str:
-        outcome = self.ledger.request(grant, definition=definition, actor=self.actor)
+        outcome = self.ledger.request(
+            grant_capability(definition, principal=self.actor), grant, definition=definition
+        )
         assert isinstance(outcome, str), outcome
         return outcome
 
@@ -858,7 +862,9 @@ def test_seam_2_follows_a_revocation_without_re_declaring_the_agent(
     grant_hash = world.bind(world.grant_a, world.definition_a)
     assert world.grant_a.skill_name in adapter.expose_skills(agent=world.agent_a)
 
-    world.ledger.revoke(grant_hash, actor=world.actor)
+    world.ledger.revoke(
+        revoke_capability(grant_hash, tenant=world.definition_a.tenant, principal=world.actor)
+    )
     assert adapter.expose_skills(agent=world.agent_a) == ()
     assert set(adapter.expose_skills(agent=world.agent_a)) == set(
         world.agent_a.bound_skill_names

@@ -120,6 +120,12 @@ from tests.deployment.conftest import (
     manifest_document,
     write_artifact,
 )
+from tests.composition import register_at_composition, register_typed_at_composition
+from tests.composition import composition_replay_mint, declaring_store
+from ccf.products.composite import ADMITTED_CHILD_CONTRACT_CLASS
+from ccf.artifacts.protocol import WriteKinds
+from tests.composition import register_skill_entry
+from tests.skills.authority import grant_capability, revoke_capability
 
 # --- the fixture deployment's vocabulary ------------------------------------
 #
@@ -327,12 +333,16 @@ class _RefusingStore:
     """
 
     def __init__(self, root: pathlib.Path) -> None:
-        self._inner = FileArtifactStore(root=root)
+        self._inner = declaring_store(
+            root, REPLAY_RECORD_CLASS, QUERY_PIN_CLASS, ADMITTED_CHILD_CONTRACT_CLASS
+        )
         self.attempts = 0
 
-    def put(
-        self, *, tenant_id: str, artifact_class: str, name: str, artifact: object
-    ) -> ArtifactRef:
+    @property
+    def write_kinds(self) -> WriteKinds:
+        return self._inner.write_kinds
+
+    def put(self, authorized: object, artifact: object) -> ArtifactRef:
         self.attempts += 1
         raise OSError("the artifact substrate refused the append (fixture)")
 
@@ -518,7 +528,9 @@ def _boot(
         yield _Booted(
             fabric=fabric,
             control_plane=control_plane,
-            store=FileArtifactStore(root=tmp_path / "artifacts"),
+            store=declaring_store(
+                tmp_path / "artifacts", REPLAY_RECORD_CLASS, QUERY_PIN_CLASS, ADMITTED_CHILD_CONTRACT_CLASS
+            ),
             root=tmp_path,
         )
     finally:
@@ -2036,7 +2048,10 @@ DEPLOYMENT_OWNED_ARGUMENTS: tuple[str, ...] = (
 
 def test_the_argument_enumeration_is_exhaustive() -> None:
     """A guard over a sample is a guard that stops covering what it names."""
-    declared = tuple(f.name for f in dataclasses.fields(GovernedResolver))
+    # `init=False` fields are what the composition minted for itself
+    # (D-IMPL-354), not arguments anyone supplies; the enumeration is of
+    # arguments.
+    declared = tuple(f.name for f in dataclasses.fields(GovernedResolver) if f.init)
     assert set(declared) == set(DEPLOYMENT_OWNED_ARGUMENTS)
 
 
@@ -2178,9 +2193,10 @@ def _arguments(booted: _Booted) -> dict[str, Any]:
         # second writer to the graph — with the four required inputs and no
         # bundle pin, which is the shape a door-side helper wires too.
         "refusal_recorder": ReplayRefusalRecorder(
+            authorized=composition_replay_mint(
+                booted.control_plane, tenant=TENANT, artifact_class=REPLAY_RECORD_CLASS
+            ),
             artifact_store=booted.store,
-            replay_record_class=REPLAY_RECORD_CLASS,
-            tenant_id=TENANT,
             assembly_mode="algorithmic",
             # The bundle the manifest put in force, read the way
             # `build_governed_resolver` reads it — so this fixture wires the
@@ -2436,7 +2452,7 @@ def _real_child(
     registry = booted.control_plane
     child_class = "fixture.child"
     ttl_key = "fixture/seam/child-max-ttl"
-    ttl_version = registry.register(ttl_key, MaxTTL(seconds=86400))
+    ttl_version = register_at_composition(registry, ttl_key, MaxTTL(seconds=86400))
     registered_child = register_product_class(
         registry=registry,
         schema_name=child_class,
@@ -2513,8 +2529,7 @@ def _real_child(
     if "child" not in producers:
         regime_class = declared_artifact_class("policy-bundle")
         regime_key = f"{TENANT}/policy-bundle/seam-composite"
-        registry.register_typed(
-            regime_key,
+        register_typed_at_composition(registry, regime_key,
             parse_artifact(
                 {
                     "class_id": "policy-bundle",
@@ -2548,7 +2563,7 @@ def _real_child(
             instruction_bindings=(),
         )
         catalog = SkillCatalog(registry)
-        catalog.register(entry)
+        register_skill_entry(catalog, registry, entry)
         ledger = GrantLedger(
             control_plane=registry,
             catalog=catalog,
@@ -2557,6 +2572,7 @@ def _real_child(
         )
         assert isinstance(
             ledger.request(
+                grant_capability(definition),
                 SkillGrant(
                     schema_version="1.0.0",
                     artifact_version="1.0.0",
@@ -2567,7 +2583,6 @@ def _real_child(
                     skill_version="1.0.0",
                 ),
                 definition=definition,
-                actor="seam-operator",
             ),
             str,
         )

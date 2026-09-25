@@ -80,6 +80,7 @@ from tests.products.paved_fixture import (
     SKILL,
     THRESHOLD_PARAMETER,
 )
+from tests.composition import register_typed_at_composition
 
 pytestmark = [pytest.mark.crossproc]
 
@@ -506,8 +507,7 @@ def _low_road_children(context: ConsumerContext) -> QuestionBoundChildResolver:
     opened_registry = context.control_plane
     regime_key = f"{CONSUMER_TENANT}/policy-bundle/low-road"
     regime_class = declared_artifact_class("policy-bundle")
-    opened_registry.register_typed(
-        regime_key,
+    register_typed_at_composition(opened_registry, regime_key,
         parse_artifact({"class_id": "policy-bundle", "semver": "1.0.0", "declaration": {"regime": "low-road", "skill_governance": {"grant_requires_approval": False, "permitted_scopes": []}}}, regime_class),
         regime_class,
     )
