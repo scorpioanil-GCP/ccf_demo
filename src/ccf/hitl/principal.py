@@ -19,6 +19,19 @@ primitives (07-07/07-08) take the binding as a required field, so an
 unattributed human action is unrepresentable through the typed surface
 rather than merely discouraged.
 
+**Where a binding's values come from, and where they may not (D-IMPL-353
+§2 P6).** At every served door the binding is *minted by the door*, never
+described by the caller: the subject is the capability's principal
+(:class:`~ccf.authz.capability.Authorized`), the identity-provider
+reference and the authentication context are the verified credential's
+:class:`AuthenticationClaims` carried verbatim, and the action time is the
+door's injected clock. The request contract at the doors
+(:class:`~ccf.hitl.transport.HitlActionRequest`) carries none of those
+fields, so a caller-typed step-up-MFA claim is unrepresentable, not refused.
+:class:`AuthenticationClaims` is the shape the deployment's credential
+verifier states those facts in; it travels on the verified grant and, on
+the MCP transports, in the token's claims under :data:`AUTHENTICATION_CLAIM`.
+
 **The action time is injected, never read from a wall clock inside the
 type**, in the registry's injected-clock discipline: the caller that
 observed the action supplies the time, and the canonical serializer refuses
@@ -32,6 +45,7 @@ from __future__ import annotations
 
 import string
 from datetime import datetime
+from typing import Final
 
 from pydantic import field_validator
 
@@ -40,14 +54,49 @@ from ccf.contracts.base import CCFContract
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "AUTHENTICATION_CLAIM",
     "ApproverIdentity",
+    "AuthenticationClaims",
     "AuthenticationContext",
     "HumanPrincipalBinding",
+    "validate_content_hash",
 ]
 
 #: The length of a lowercase sha256 hex digest — the shape
 #: :func:`ccf.contracts.canonical.content_hash` produces (D-IMPL-26).
 _SHA256_HEX_LENGTH = 64
+
+#: Where a verified caller's :class:`AuthenticationClaims` travel inside the
+#: MCP library's ``AccessToken.claims`` (D-IMPL-353 §2 P6) — the sibling of
+#: :data:`ccf_runtime.mcp.auth.TENANT_CLAIM`. A wire-format constant of the
+#: SDK, not a deployment value: it names no provider, method or level.
+AUTHENTICATION_CLAIM: Final[str] = "ccf.authentication"
+
+
+def validate_content_hash(value: str) -> str:
+    """Return ``value`` if it is a lowercase sha256 hex digest, else raise.
+
+    The one reading of *what a product identity looks like*, shared by
+    :class:`HumanPrincipalBinding` and by the door-facing
+    :class:`~ccf.hitl.transport.HitlActionRequest`, so the request a human
+    sends and the binding the door mints from it cannot disagree about the
+    shape (D-IMPL-26; D-IMPL-21).
+
+    Raises:
+        ValueError: ``value`` is not the shape
+            :func:`ccf.contracts.canonical.content_hash` produces.
+    """
+    if len(value) != _SHA256_HEX_LENGTH or any(
+        character not in string.hexdigits[:16] for character in value
+    ):
+        raise ValueError(
+            "product_content_hash must be the lowercase sha256 content hash"
+            " of the Context Product the approver saw"
+            " (ccf.contracts.canonical.content_hash; D-IMPL-26, D-IMPL-21)"
+            " — a decision replays against what the human actually reviewed,"
+            " not a paraphrase of it"
+        )
+    return value
 
 
 class ApproverIdentity(CCFContract):
@@ -81,6 +130,33 @@ class AuthenticationContext(CCFContract):
     session_ref: str
 
 
+class AuthenticationClaims(CCFContract):
+    """What the credential verifier states about HOW a bearer authenticated
+    (D-IMPL-353 §2 P6; D-IMPL-21).
+
+    SDK-defined. The four provider statements a
+    :class:`HumanPrincipalBinding` carries besides the subject — which
+    provider, by what method, at what assurance, in which session — as the
+    deployment's token source attested them when it recognized the
+    credential. **This is the doors' only source for those four values.** A
+    request body or tool argument that named an assurance level would make
+    step-up MFA a thing the caller types into its own audit record, which
+    is the finding this contract closes; so the door copies these verbatim
+    and the request contracts have no such field.
+
+    Every axis is required and none has a default (CINV-01: the SDK
+    enumerates no provider vocabulary, and a verifier that has not stated an
+    axis has not attested the authentication — the door refuses rather than
+    fills the blank; see
+    :func:`ccf_runtime.identity_binding.attested_authentication`).
+    """
+
+    identity_provider_ref: str
+    method: str
+    assurance_level: str
+    session_ref: str
+
+
 class HumanPrincipalBinding(CCFContract):
     """One human action's complete principal binding (D-IMPL-21; CLAUDE.md §8.2).
 
@@ -91,6 +167,11 @@ class HumanPrincipalBinding(CCFContract):
     because the HITL action contracts require this type as a field —
     omission is a validation error at the boundary, never a null in the
     replay record.
+
+    At the served doors this is minted by
+    :func:`ccf_runtime.identity_binding.principal_from_authorized` from the
+    capability, the verified :class:`AuthenticationClaims` and the door's
+    clock — the caller supplies only the product hash (D-IMPL-353 §2 P6).
     """
 
     approver: ApproverIdentity
@@ -101,14 +182,4 @@ class HumanPrincipalBinding(CCFContract):
     @field_validator("product_content_hash")
     @classmethod
     def _product_hash_is_a_content_hash(cls, value: str) -> str:
-        if len(value) != _SHA256_HEX_LENGTH or any(
-            character not in string.hexdigits[:16] for character in value
-        ):
-            raise ValueError(
-                "product_content_hash must be the lowercase sha256 content"
-                " hash of the Context Product the approver saw"
-                " (ccf.contracts.canonical.content_hash; D-IMPL-26,"
-                " D-IMPL-21) — a decision replays against what the human"
-                " actually reviewed, not a paraphrase of it"
-            )
-        return value
+        return validate_content_hash(value)

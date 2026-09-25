@@ -202,6 +202,59 @@ def test_the_verifier_carries_tenants_into_the_access_token() -> None:
     assert granted_tenants(token) == frozenset({TENANT, FOREIGN})
 
 
+def test_the_verifier_carries_what_it_attested_about_authentication() -> None:
+    """``D-IMPL-353`` §2 P6: the approver's assurance comes from the VERIFIED
+    credential, never from a request body. The grant states how its bearer
+    authenticated; the verifier carries that statement verbatim into the
+    token's claims under ``AUTHENTICATION_CLAIM``, where the HITL doors read
+    it — and only there.
+    """
+    from ccf.hitl.principal import AUTHENTICATION_CLAIM, AuthenticationClaims
+
+    attested = AuthenticationClaims(
+        identity_provider_ref="idp-guard",
+        method="webauthn",
+        assurance_level="aal3",
+        session_ref="session-guard-1",
+    )
+    verifier = SourceBackedTokenVerifier(
+        source=StaticTokenSource(
+            grants={
+                "tok": TokenGrant(
+                    client_id=PRINCIPAL,
+                    scopes=(SCOPE,),
+                    tenants=frozenset({TENANT}),
+                    authentication=attested,
+                )
+            }
+        )
+    )
+    token = anyio.run(verifier.verify_token, "tok")
+    assert token is not None
+    assert (token.claims or {})[AUTHENTICATION_CLAIM] == attested.model_dump(mode="json")
+    # The tenant axis is untouched by the second claim.
+    assert granted_tenants(token) == frozenset({TENANT})
+
+
+def test_a_grant_stating_no_authentication_writes_no_claim() -> None:
+    """A credential whose verifier said nothing carries nothing — the doors
+    refuse to mint a binding from silence rather than fill the blank. The
+    sentinel is hash-transparent: every grant minted before the field existed
+    said nothing, and its canonical bytes do not move."""
+    from ccf.contracts.canonical import canonical_bytes
+    from ccf.hitl.principal import AUTHENTICATION_CLAIM
+
+    silent = _grant(TENANT)
+    assert silent.authentication is None
+    verifier = SourceBackedTokenVerifier(
+        source=StaticTokenSource(grants={"tok": silent})
+    )
+    token = anyio.run(verifier.verify_token, "tok")
+    assert token is not None
+    assert AUTHENTICATION_CLAIM not in (token.claims or {})
+    assert b"authentication" not in canonical_bytes(silent)
+
+
 # --- the guard -------------------------------------------------------------
 
 

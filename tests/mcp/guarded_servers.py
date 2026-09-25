@@ -238,6 +238,9 @@ def build_for(builder: str, tmp_path: pathlib.Path) -> FastMCP:
             token_verifier=_verifier(),
             auth_settings=_auth(),
             authorizer=authorizer_granting(),
+            # Lane HITL-DOOR's builder takes the door's clock beside the
+            # authorizer (D-IMPL-353 §2 P6 — the action time is the door's).
+            clock=lambda: AUDIT_INSTANT,
         )
 
     if builder == "experience":

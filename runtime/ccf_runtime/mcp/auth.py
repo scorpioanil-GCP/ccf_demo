@@ -45,6 +45,7 @@ from pydantic import Field
 
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import HASH_TRANSPARENT_KEY
+from ccf.hitl.principal import AUTHENTICATION_CLAIM, AuthenticationClaims
 
 __ccf_mode__ = "algorithmic"
 
@@ -56,6 +57,7 @@ __all__ = [
     "TENANT_CLAIM",
     "TokenGrant",
     "TokenSourceProtocol",
+    "authentication_claims",
     "granted_tenants",
     "is_ambient_stdio",
     "tenant_claims",
@@ -125,6 +127,31 @@ class TokenGrant(CCFContract):
     tenants: frozenset[str] = Field(
         default=frozenset(), json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
+    #: What the token source verified about HOW the bearer authenticated
+    #: (``D-IMPL-353`` §2 P6) — the four provider statements a
+    #: :class:`~ccf.hitl.principal.HumanPrincipalBinding` carries besides the
+    #: subject. **The HITL doors' only source for the approver's assurance**:
+    #: they read it from the verified credential, never from a request body,
+    #: so step-up MFA is not a thing a caller types into its own audit record.
+    #: ``None`` — the default — is a credential whose verifier said nothing,
+    #: and a door refuses to mint a binding from it rather than fill the blank.
+    #: Hash-transparent at the sentinel: every grant minted before the field
+    #: existed said nothing, and its canonical bytes do not move.
+    authentication: AuthenticationClaims | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+
+
+def authentication_claims(grant: TokenGrant) -> Mapping[str, Any]:
+    """Render ``grant``'s authentication statement for :attr:`AccessToken.claims`.
+
+    Empty when the grant states nothing, so a silent credential carries no
+    claim rather than an empty one — the doors distinguish *unattested* from
+    *attested*, and an empty mapping would blur that into a third state.
+    """
+    if grant.authentication is None:
+        return {}
+    return {AUTHENTICATION_CLAIM: grant.authentication.model_dump(mode="json")}
 
 
 def tenant_claims(grant: TokenGrant) -> Mapping[str, Any]:
@@ -275,6 +302,13 @@ class SourceBackedTokenVerifier:
         A remote caller presents a token string and nothing else. It cannot
         author a claim, which is what makes the tenant read here trustworthy in
         a way a wire field never is.
+
+        **The grant's authentication statement travels the same way**
+        (``D-IMPL-353`` §2 P6): what the source attested about how the bearer
+        authenticated is rendered under
+        :data:`~ccf.hitl.principal.AUTHENTICATION_CLAIM`, verbatim, and the
+        HITL doors read the approver's assurance from there and from nowhere
+        else. A grant that states nothing writes no claim.
         """
         grant = self._source.grant_for(token=token)
         if grant is None:
@@ -283,7 +317,7 @@ class SourceBackedTokenVerifier:
             token=token,
             client_id=grant.client_id,
             scopes=list(grant.scopes),
-            claims=dict(tenant_claims(grant)),
+            claims={**tenant_claims(grant), **authentication_claims(grant)},
         )
 
 

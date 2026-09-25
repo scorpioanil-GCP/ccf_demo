@@ -255,3 +255,23 @@ handle. Nothing is minted on any refusal.
 - After: `_authorizer: TenantAuthorizerProtocol` sits between `_token_verifier` and `_entitlement_source`; `server()` passes it to `build_egress_server`
 - Why: the door holds the authorizer `open_door` derived, as it holds the verifier
 - Migration: none; the class is constructed by `open_door` and `open_door_with_verifier`
+
+## ccf_runtime.mcp.auth.TokenGrant
+
+- Surface: ccf_runtime.mcp.auth.TokenGrant
+- Public surface: true
+- Change type: reshaped
+- Before: fields `client_id`, `scopes`, `tenants`
+- After: adds `authentication: AuthenticationClaims | None = None` (hash-transparent at the sentinel) — what the token source verified about HOW the bearer authenticated: provider, method, assurance level, session
+- Why: `D-IMPL-353` §2 P6 — the HITL doors read the approver's assurance from the verified credential and from nowhere else; a caller-typed assurance is unrepresentable once the request contracts carry none
+- Migration: a token source that attests authentication states it on the grant; a grant stating nothing is refused by the HITL doors (`ERROR_AUTHENTICATION_UNATTESTED`), which is the fail-closed direction
+
+## ccf_runtime.mcp.auth.authentication_claims
+
+- Surface: ccf_runtime.mcp.auth.authentication_claims
+- Public surface: true
+- Change type: added
+- Before: absent — `SourceBackedTokenVerifier.verify_token` wrote the tenant claim alone
+- After: renders `grant.authentication` under `ccf.hitl.principal.AUTHENTICATION_CLAIM` for `AccessToken.claims`, empty when the grant states nothing; the verifier merges it beside `tenant_claims`
+- Why: one flow — the deployment's token source, to the grant, to the claim, to the door — for the authentication statement exactly as for the tenants (`SEC-018`)
+- Migration: none
