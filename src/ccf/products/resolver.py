@@ -155,14 +155,6 @@ from typing import Final, Protocol, TypeVar, runtime_checkable
 
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.artifacts.protocol import ArtifactStoreProtocol, DerivedWrite, WriteKinds
-from ccf.authz.capability import (
-    COMPOSITION_PRINCIPAL,
-    Authorized,
-    Register,
-    ReplayMint,
-    mint_at_composition,
-    verify,
-)
 from ccf.contracts.base import CCFContract
 from ccf.controlplane.artifacts import (
     DebtProfile,
@@ -288,6 +280,14 @@ from ccf.replay.serve import (
     ServedProduct,
     record_refusal,
     serve,
+)
+from ccf.authz.capability import (
+    COMPOSITION_PRINCIPAL,
+    Authorized,
+    Register,
+    ReplayMint,
+    mint_at_composition,
+    verify,
 )
 
 __ccf_mode__ = "algorithmic"
@@ -1242,16 +1242,13 @@ class ReplayRefusalRecorder:
     nothing below reaches one.
 
     Attributes:
-        authorized: The composition-minted ``Authorized[ReplayMint]`` this
-            recorder writes under (D-IMPL-353 §2 P3; D-IMPL-354). **The record
-            class IS its resource and the tenant IS its tenant** — there is no
-            ``replay_record_class`` and no ``tenant_id`` field, so no second
-            source for either (§1.2, §1.3); both are exposed as read-only
-            properties for readers. Minted by the composition that builds the
-            recorder — :func:`declared_refusal_recorder` and
-            :func:`build_governed_resolver` here, a test or example composing
-            by hand — and verified again at construction so a mis-wired
-            composition fails before any refusal is recorded.
+        authorized: The composition-minted ``ReplayMint`` capability for the
+            record class this recorder files (D-IMPL-353 §2 P3; D-IMPL-354).
+            Handed by the deployment at composition — the same object its
+            :class:`~ccf.replay.serve.ReplayWriter` is built over — and
+            verified here at construction. The tenant and the record class are
+            READ off it (:attr:`tenant_id`, :attr:`replay_record_class`);
+            there is no second source for either (§1.2, §1.3).
         artifact_store: Where the record lands. A substrate reached *through*
             mechanism. Must declare the capability's class under ``ReplayMint``
             (:class:`UndeclaredMechanismClass` otherwise, at construction).
@@ -1301,16 +1298,21 @@ class ReplayRefusalRecorder:
     ] = field(default_factory=lambda: _minimal_disclosure)
 
     def __post_init__(self) -> None:
+        # Verified where it is handed over (§1.5c, g): a fabricated,
+        # retargeted or wrong-kind capability dies at composition, not at the
+        # first denial a bank would rather have had recorded.
         verify(
             self.authorized,
             kind=ReplayMint,
             resource=getattr(self.authorized, "resource", ""),
         )
+        # And the store must declare the class, or the first denial would be
+        # refused as a wrong-kind write instead of recorded (fail closed at boot).
         _require_declared(self.artifact_store, (self.authorized.resource,))
 
     @property
     def replay_record_class(self) -> str:
-        """The artifact class refusal records are filed under — the capability's resource."""
+        """The artifact class replay records are filed under — the capability's resource."""
         return self.authorized.resource
 
     @property

@@ -421,15 +421,15 @@ class TestCapability:
     """D-IMPL-353 §1.2 / §1.5f: `register` takes the capability for exactly the entry's key."""
 
     def test_a_capability_for_another_key_is_refused_before_anything_is_registered(self) -> None:
-        from ccf.authz.capability import CapabilityBypassError
-
         from tests.composition import composition_register
 
         registry = ControlPlaneRegistry()
         catalog = SkillCatalog(registry)
         entry = SkillCatalogEntry.model_validate(_tool_fixture()["entry"])
         other = f"{entry.tenant}/{SKILL_CATALOG_ENTRY.class_id}/not-this-entry"
-        with pytest.raises(CapabilityBypassError, match="resource"):
+        # The catalog refuses the disagreement itself, typed, before the
+        # registry is touched (J-RUNTIME's shape, taken verbatim at the join).
+        with pytest.raises(ValueError, match="minted for"):
             catalog.register(composition_register(registry, other), entry)
         assert registry.versions(skill_catalog_key(entry)) == ()
         assert registry.versions(other) == ()
@@ -444,8 +444,11 @@ class TestCapability:
         catalog = SkillCatalog(registry)
         entry = SkillCatalogEntry.model_validate(_tool_fixture()["entry"])
         key = skill_catalog_key(entry)
+        # A forgery carrying the right `resource` reaches the registry and dies
+        # at its `verify_any`; one carrying no `resource` at all dies at the
+        # catalog's own key check. Either way: a typed refusal, nothing filed.
         for label, forged in fabrications(SkillCatalogRegister, tenant=entry.tenant, resource=key):
-            with pytest.raises(CapabilityBypassError):
+            with pytest.raises((CapabilityBypassError, ValueError)):
                 catalog.register(forged, entry)  # type: ignore[arg-type]
             assert registry.versions(key) == (), label
         assert isinstance(catalog.register(register_capability(key, SkillCatalogRegister), entry), str)

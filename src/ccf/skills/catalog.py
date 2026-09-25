@@ -55,10 +55,10 @@ from typing import Any, Final, Literal, get_args
 
 from pydantic import Field, field_validator, model_validator
 
-from ccf.authz.capability import Authorized, Register, SkillCatalogRegister, verify_any
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import HASH_TRANSPARENT_KEY, content_hash
 from ccf.controlplane.artifact_base import ArtifactClass, validate_semver
+from ccf.authz.capability import Authorized, Register, SkillCatalogRegister
 from ccf.controlplane.registry import ControlPlaneRegistry, RegistrationRefusal
 
 __ccf_mode__ = "algorithmic"
@@ -704,16 +704,15 @@ class SkillCatalog:
     ) -> str | RegistrationRefusal:
         """Register ``entry`` through the D-05 versioned path, under the capability for its key.
 
-        **Requires the capability for its own action** (D-IMPL-353 §1.2): the
-        ``skill.catalog.register`` door's ``Authorized[SkillCatalogRegister]``,
-        or the composition root's ``Authorized[Register]`` for a catalog entry
-        the deployment declares at boot (D-IMPL-354). Either way the
-        capability's resource must BE :func:`skill_catalog_key` of ``entry``:
-        the catalog derives the key from the entry and the class identity —
-        never from a caller — and binds the capability to it by the seam's
-        own resource check (§1.5f) **before** anything reaches the registry.
-        The audit actor is ``authorized.principal``; there is no ``actor``
-        parameter.
+        **Requires the capability for its own action** (D-IMPL-353 §1.2):
+        ``Authorized[SkillCatalogRegister]`` minted by the catalog-register
+        door for exactly :func:`skill_catalog_key` of ``entry``, or the
+        ``Register`` a composition root minted for that key (D-IMPL-354). The
+        registry takes the key from the capability and the audit actor from
+        its principal — there is no ``actor`` parameter and no key parameter.
+        The entry's own key may only *agree* with the capability's resource,
+        never supply it: a disagreement is refused here before the registry
+        is touched, so a caller cannot register one entry under another's key.
 
         Returns the content-hash version on success, or the registry's typed
         refusal (unbumped change / empty bump) unchanged — a refused entry is
@@ -721,12 +720,19 @@ class SkillCatalog:
         audited by the registry (I.1 refusal-vs-exception line).
 
         Raises:
+            ValueError: the entry's derived key is not the capability's
+                resource.
             ccf.authz.capability.CapabilityBypassError: fabricated,
-                retargeted, of another kind, or minted for a key other than
-                this entry's.
+                retargeted, or wrong-kind capability — from the registry.
         """
         key = skill_catalog_key(entry)
-        verify_any(authorized, kinds=(SkillCatalogRegister, Register), resource=key)
+        if getattr(authorized, "resource", None) != key:
+            raise ValueError(
+                f"the catalog entry derives key {key!r} but the capability is"
+                f" for {getattr(authorized, 'resource', None)!r}; an entry"
+                " registers under the key its capability was minted for and"
+                " nothing else may name one (D-IMPL-353 §1.2, §1.5f)"
+            )
         return self._control_plane.register_versioned(
             authorized, entry, SKILL_CATALOG_ENTRY
         )
