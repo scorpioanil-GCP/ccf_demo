@@ -140,6 +140,11 @@ where = ["src", "runtime"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Rootdir-relative, so pytest run inside ANY git worktree imports THAT tree's
+# src/ and runtime/. Without it the venv's editable install resolves `ccf` and
+# `ccf_runtime` to /home/parkave/ccf_code from every cwd, and a lane's tests
+# silently measure the main checkout instead of the lane (found 2026-09-24).
+pythonpath = ["src", "runtime"]
 markers = [
   "postgres: requires a Postgres backend (service container in CI, testcontainers locally) — D-10",
   "chroma: requires the optional `chroma` extra — D-13",
