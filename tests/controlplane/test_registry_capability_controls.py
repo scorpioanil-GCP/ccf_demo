@@ -221,6 +221,53 @@ class TestWrongKind:
         _nothing_registered(registry, KEY)
 
 
+# --- the derived path has its own tooth ------------------------------------------------
+
+
+class TestDerivedPath:
+    """``register_versioned`` under ``SkillGrant`` verifies before it derives a
+    key. Sabotage S5 (dropping that ``verify_any`` alone) reddened nothing in
+    the first pass — the fabrication and retargeting controls above all mint
+    door kinds and so travel the door path. These travel the derived one."""
+
+    DEFINITION_KEY = f"{TENANT}/ccf.agent-definition/analyst"
+    DERIVED_KEY = f"{TENANT}/{NAMED.class_id}/grant-1"
+
+    @pytest.mark.parametrize(
+        "label,fake",
+        list(fabrications(SkillGrant, tenant=TENANT, resource=f"{TENANT}/ccf.agent-definition/analyst")),
+        ids=lambda v: v if isinstance(v, str) else "",
+    )
+    def test_a_fabricated_grant_capability_dies_on_the_derived_path(
+        self, label: str, fake: object
+    ) -> None:
+        registry = ControlPlaneRegistry()
+        with pytest.raises(CapabilityBypassError):
+            registry.register_versioned(cast(Any, fake), _named(name="grant-1"), NAMED)
+        _nothing_registered(registry, self.DERIVED_KEY, self.DEFINITION_KEY)
+        assert registry.audit_events() == ()
+
+    @pytest.mark.parametrize("field", sorted(RETARGETS))
+    def test_a_retargeted_grant_capability_registers_nothing_on_the_derived_path(
+        self, field: str
+    ) -> None:
+        registry = ControlPlaneRegistry()
+        cap = capability(SkillGrant, tenant=TENANT, resource=self.DEFINITION_KEY)
+        retarget(cap, field, RETARGETS[field])
+        with pytest.raises(CapabilityBypassError):
+            registry.register_versioned(cap, _named(name="grant-1"), NAMED)
+        _nothing_registered(registry, self.DERIVED_KEY, f"other-bank/{NAMED.class_id}/grant-1")
+
+    def test_a_kind_retargeted_to_skill_grant_confers_no_derived_registration(self) -> None:
+        registry = ControlPlaneRegistry()
+        cap = capability(ArtifactWrite, tenant=TENANT, resource=self.DEFINITION_KEY)
+        retarget(cap, "kind", SkillGrant)
+        assert getattr(cap, "kind") is SkillGrant  # selects the derived path; the naive check WOULD pass
+        with pytest.raises(CapabilityBypassError):
+            registry.register_versioned(cast(Any, cap), _named(name="grant-1"), NAMED)
+        _nothing_registered(registry, self.DERIVED_KEY)
+
+
 # --- fabrication ------------------------------------------------------------------
 
 
