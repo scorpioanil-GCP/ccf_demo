@@ -81,6 +81,9 @@ from ccf.products.gates import (
     GATE_LINEAGE_ATTRIBUTABILITY,
     LineageAttributionRefusal,
 )
+from tests.composition import register_at_composition, register_typed_at_composition
+from tests.composition import composition_replay_mint, declaring_store
+from ccf.peering.admission import ADMISSION_RECORD
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "banking"
 
@@ -180,7 +183,7 @@ def registry() -> ControlPlaneRegistry:
 
 @pytest.fixture
 def product_class(registry: ControlPlaneRegistry) -> RegisteredProductClass:
-    version = registry.register(MAX_TTL_KEY, MaxTTL(seconds=300))
+    version = register_at_composition(registry, MAX_TTL_KEY, MaxTTL(seconds=300))
     return register_product_class(
         registry=registry,
         schema_name=PRODUCT_CLASS["schema_name"],
@@ -200,7 +203,7 @@ def artifact_store(tmp_path: Path) -> FileArtifactStore:
     the sensitivity guard in this file would otherwise fail for a reason that has
     nothing to do with attributability.
     """
-    return FileArtifactStore(root=tmp_path / "admission-records")
+    return declaring_store(tmp_path / "admission-records", ADMISSION_RECORD.class_id)
 
 
 @pytest.fixture
@@ -211,8 +214,7 @@ def gate(
     product_class: RegisteredProductClass,
     artifact_store: FileArtifactStore,
 ) -> PeeringAdmissionGate:
-    policy_version = registry.register_typed(
-        trust_policy_key(tenant_id=TENANT),
+    policy_version = register_typed_at_composition(registry, trust_policy_key(tenant_id=TENANT),
         PeeringTrustPolicy(
             semver=POLICY_SEMVER,
             tenant_id=TENANT,
@@ -229,8 +231,7 @@ def gate(
         ),
         PEERING_TRUST_POLICY,
     )
-    ceiling_version = registry.register_typed(
-        payload_ceiling_key(tenant_id=TENANT),
+    ceiling_version = register_typed_at_composition(registry, payload_ceiling_key(tenant_id=TENANT),
         InboundPayloadCeiling(
             semver=POLICY_SEMVER, max_payload_bytes=CEILING_BYTES
         ),
@@ -241,7 +242,9 @@ def gate(
         control_plane=registry,
         audit_log=registry.audit_log,
         artifact_store=artifact_store,
-        tenant_id=TENANT,
+        authorized=composition_replay_mint(
+            registry, tenant=TENANT, artifact_class=ADMISSION_RECORD.class_id
+        ),
         trust_policy_version=policy_version,
         payload_ceiling_version=ceiling_version,
         product_classes={PRODUCT_CLASS["schema_name"]: product_class},

@@ -52,6 +52,7 @@ from ccf.replay.serve import ServedProduct
 from ccf.signal.envelope import SignalEnvelope
 from ccf_runtime.mcp.product_door import open_door
 
+from tests.products.paved_fixture import granted_control_plane
 from tests.deployment.conftest import write_artifact
 from tests.deployment.test_replay_binding import (
     ENTITY_CLASS,
@@ -167,6 +168,10 @@ def _open(root: pathlib.Path, scratch: pathlib.Path, *, acquire: _Acquire | None
         "clock": lambda: ASKED_AT + timedelta(minutes=7),
     }
     arguments.update(overrides)
+    if "control_plane" not in arguments:
+        # The declared skills are granted through the ledger by an authorized
+        # principal BEFORE opening: the paved road requests no grant (D-IMPL-354).
+        arguments["control_plane"] = granted_control_plane(root)
     return open_product(**arguments)
 
 
@@ -461,4 +466,6 @@ def test_the_facade_holds_no_fabric_between_questions_and_boots_nothing_at_open(
     with _open(root, scratch) as opened:
         assert sorted(scratch.glob("paved_fixture_*.sqlite3")) == []
         assert isinstance(opened.control_plane, ControlPlaneRegistry)
-        assert opened.keys.replay == "replay" and opened.ttl.product_ttl_seconds == 600
+        # `keys` are the strings the Control Plane holds: the bare `replay:` section
+        # key placed under the deployment's tenant (D-IMPL-354).
+        assert opened.keys.replay == f"{opened.tenant_id}/replay" and opened.ttl.product_ttl_seconds == 600

@@ -159,6 +159,8 @@ from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp.exceptions import ToolError
 from pydantic import ValidationError, field_validator
 
+from ccf.authz.actions import ACTION_PRODUCT_RETRIEVE
+from ccf.authz.capability import Authorized, ProductRetrieve
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes
 from ccf.products.door import (
@@ -183,6 +185,8 @@ from ccf_runtime.authz.delivery_boundary import (
     govern_raised_refusal,
     recorded_boundary,
 )
+from ccf_runtime.authz.protocol import TenantAuthorizerProtocol
+from ccf_runtime.mcp.tenancy import TenantGuardedServer
 from ccf_runtime.authz.product_entitlement import (
     PerspectiveResolverProtocol,
     ProductEntitlementSourceProtocol,
@@ -782,6 +786,7 @@ def build_egress_server(
     resolver: ProductResolverProtocol,
     token_verifier: TokenVerifier,
     auth_settings: AuthSettings,
+    authorizer: TenantAuthorizerProtocol,
     entitlement_source: ProductEntitlementSourceProtocol,
     perspective_resolver: PerspectiveResolverProtocol,
     refusal_recorder: RefusalRecorderProtocol | None = None,
@@ -951,20 +956,37 @@ def build_egress_server(
         if producer_id is None or producer_tenant is None
         else ProducerAssertion(producer_id=producer_id, tenant_id=producer_tenant)
     )
-    server = FastMCP(
-        server_name,
-        stateless_http=True,
-        json_response=True,
-        token_verifier=token_verifier,
-        auth=auth_settings,
+    door = TenantGuardedServer(
+        FastMCP(
+            server_name,
+            stateless_http=True,
+            json_response=True,
+            token_verifier=token_verifier,
+            auth=auth_settings,
+        ),
+        authorizer=authorizer,
     )
 
     # 24.5-L-09: the resource is optional. Nothing inside the guard moved;
     # a deployment naming no flag registers exactly what it always did.
     if expose_product_resource:
-        @server.resource(PRODUCT_URI_TEMPLATE, mime_type=PRODUCT_MIME_TYPE)
-        def context_product(tenant: str, product_class: str, version: str) -> str:
+        @door.resource(
+            PRODUCT_URI_TEMPLATE,
+            action=ACTION_PRODUCT_RETRIEVE,
+            subject=door.from_argument("tenant"),
+            resource=door.resource_argument("product_class"),
+            mutating=False,
+            mime_type=PRODUCT_MIME_TYPE,
+        )
+        def context_product(
+            authorized: Authorized[ProductRetrieve], product_class: str, version: str
+        ) -> str:
             """Serve one gate-admitted Context Product as canonical JSON.
+
+            **The tenant is the capability's** (``D-IMPL-353`` §1.2). The URI's
+            ``{tenant}`` segment is decided against the grant by the wrapper
+            and consumed there; this body reads ``authorized.tenant`` and has
+            no second source.
 
             Authenticate, then entitle, then resolve — and never the other way
             round. The auth middleware rejects an unverified caller before this
@@ -1038,6 +1060,7 @@ def build_egress_server(
             surface genuinely establishes — no parameters were supplied, and no
             temporal boundary was asked for — and invents nothing else.
             """
+            tenant = authorized.tenant
             decided = govern_entitlement(
                 grant=verified_grant(),
                 tenant=tenant,
@@ -1297,11 +1320,19 @@ def build_egress_server(
 
     if expose_product_tool:
 
-        @server.tool(
-            name=PRODUCT_REQUEST_TOOL, description=product_tool_description
+        @door.tool(
+            name=PRODUCT_REQUEST_TOOL,
+            action=ACTION_PRODUCT_RETRIEVE,
+            subject=door.from_argument("tenant"),
+            resource=door.resource_argument("product_class"),
+            # A read: this tool answers a question, it does not write. The
+            # reading is stated at the site rather than assumed from the
+            # protocol's tool/resource split (`SEC-018`).
+            mutating=False,
+            description=product_tool_description,
         )
         def request_context_product(
-            tenant: str,
+            authorized: Authorized[ProductRetrieve],
             product_class: str,
             version: str,
             request: str,
@@ -1634,7 +1665,9 @@ def build_egress_server(
                 )
             return _answer_question(
                 asked_wire,
-                tenant=tenant,
+                # The capability's tenant: the `tenant` wire argument was
+                # decided and consumed by the wrapper (D-IMPL-353 §1.2).
+                tenant=authorized.tenant,
                 product_class=product_class,
                 version=version,
                 subject=subject,
@@ -1643,13 +1676,25 @@ def build_egress_server(
                 asked_at=asked_at,
                 surface=SURFACE_MCP_TOOL,
                 address=product_uri(
-                    tenant=tenant, product_class=product_class, version=version
+                    tenant=authorized.tenant,
+                    product_class=product_class,
+                    version=version,
                 ),
             ).decode("utf-8")
 
-        @server.resource(PRODUCT_ADDRESS_TEMPLATE, mime_type=PRODUCT_MIME_TYPE)
+        @door.resource(
+            PRODUCT_ADDRESS_TEMPLATE,
+            action=ACTION_PRODUCT_RETRIEVE,
+            subject=door.from_argument("tenant"),
+            resource=door.resource_argument("product_class"),
+            mutating=False,
+            mime_type=PRODUCT_MIME_TYPE,
+        )
         def addressed_context_product(
-            tenant: str, product_class: str, version: str, q: str
+            authorized: Authorized[ProductRetrieve],
+            product_class: str,
+            version: str,
+            q: str,
         ) -> str:
             """Answer a PARAMETERIZED product at its address, through the tool's own path.
 
@@ -1681,19 +1726,23 @@ def build_egress_server(
             temporal boundary against ``asked_at`` — run inside
             :func:`_answer_question`, identically for both surfaces.
             """
+            # Rebuilt from the CAPABILITY's tenant (D-IMPL-353 §1.2): the
+            # `{tenant}` segment was decided against the grant and consumed by
+            # the wrapper, so the address re-parsed below carries the decided
+            # tenant and no other.
             addressed_uri = PRODUCT_ADDRESS_TEMPLATE.format(
-                tenant=tenant,
+                tenant=authorized.tenant,
                 product_class=product_class,
                 version=version,
                 q=q,
             )
-            parsed_tenant, parsed_class, parsed_version, addressed = (
+            _parsed_tenant, parsed_class, parsed_version, addressed = (
                 parse_product_address(addressed_uri)
             )
             asked_wire = door_question(addressed.request)
             return _answer_question(
                 asked_wire,
-                tenant=parsed_tenant,
+                tenant=authorized.tenant,
                 product_class=parsed_class,
                 version=parsed_version,
                 subject=addressed.subject,
@@ -1706,4 +1755,4 @@ def build_egress_server(
                 address=addressed_uri,
             ).decode("utf-8")
 
-    return server
+    return door.build()

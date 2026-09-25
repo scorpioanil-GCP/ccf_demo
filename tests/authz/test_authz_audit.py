@@ -24,8 +24,15 @@ from __future__ import annotations
 import hashlib
 from datetime import UTC, datetime
 
+import pytest
+from pydantic import ValidationError
+
 from ccf.contracts.canonical import canonical_bytes
-from ccf.controlplane.audit import AuditEvent, AuditLog
+from ccf.controlplane.audit import (
+    AuditEvent,
+    AuditLog,
+    AuthzDecisionAuditEvent,
+)
 
 #: The canonical bytes of a fully-populated, no-authz-fields AuditEvent,
 #: pinned before the 10-01 Task 2 audit-contract change (assumption A2).
@@ -159,3 +166,118 @@ def test_authz_events_and_plain_events_share_one_log_sequence() -> None:
     )
     assert (plain.sequence, decision.sequence) == (0, 1)
     assert log.events() == (plain, decision)
+
+
+# --- D-IMPL-353 §3: a deny says what it denied ------------------------------
+
+
+def test_an_authz_event_carries_the_resource_and_the_failing_axis() -> None:
+    """§3: ``resource``, the resource pattern that matched, and — on a deny —
+    which axis refused. Three derived-class fields, so the A2 pin above is
+    untouched: a plain event still renders none of them."""
+    log = AuditLog()
+    deny = log.append(
+        action="authz_decision",
+        key="tenant-b",
+        version="2.0.0",
+        resolved=False,
+        occurred_at=datetime(2026, 8, 1, 12, 0, 1, tzinfo=UTC),
+        actor="caller-1",
+        artifact_class="ccf.scope-mapping",
+        authz_action_id="config.register",
+        authz_matched_pattern="tenant-*",
+        authz_resource="prompts/underwriting",
+        authz_matched_resource_pattern=None,
+        authz_failing_axis="resource",
+    )
+    assert isinstance(deny, AuthzDecisionAuditEvent)
+    assert deny.authz_resource == "prompts/underwriting"
+    assert deny.authz_matched_resource_pattern is None
+    assert deny.authz_failing_axis == "resource"
+    allow = log.append(
+        action="authz_decision",
+        key="tenant-b",
+        version="2.0.0",
+        resolved=True,
+        occurred_at=datetime(2026, 8, 1, 12, 0, 2, tzinfo=UTC),
+        actor="caller-1",
+        artifact_class="ccf.scope-mapping",
+        authz_action_id="config.register",
+        authz_matched_pattern="tenant-*",
+        authz_resource="prompts/permitted",
+        authz_matched_resource_pattern="prompts/*",
+        authz_failing_axis=None,
+    )
+    assert isinstance(allow, AuthzDecisionAuditEvent)
+    assert allow.authz_matched_resource_pattern == "prompts/*"
+    assert allow.authz_failing_axis is None
+    # The three new names render when SET, are absent at their sentinel
+    # (hash-transparent, D-IMPL-243: an authz event appended before they
+    # existed and one appended now with them at None are the same bytes),
+    # and never appear on a plain event.
+    plain = log.append(
+        action="resolve",
+        key="k",
+        version="1",
+        resolved=True,
+        occurred_at=datetime(2026, 8, 1, 12, 0, 3, tzinfo=UTC),
+    )
+    plain_body = canonical_bytes(plain).decode("utf-8")
+    deny_body = canonical_bytes(deny).decode("utf-8")
+    allow_body = canonical_bytes(allow).decode("utf-8")
+    for name in (
+        "authz_resource",
+        "authz_matched_resource_pattern",
+        "authz_failing_axis",
+    ):
+        assert name not in plain_body
+    assert "authz_resource" in deny_body and "authz_failing_axis" in deny_body
+    assert "authz_matched_resource_pattern" not in deny_body  # None: silent
+    assert "authz_matched_resource_pattern" in allow_body
+    assert "authz_failing_axis" not in allow_body  # None on an allow: silent
+    # And the bytes of an event that sets none of the three are exactly the
+    # bytes of the same event before the fields existed.
+    legacy = log.append(
+        action="authz_decision",
+        key="tenant-c",
+        version="2.0.0",
+        resolved=True,
+        occurred_at=datetime(2026, 8, 1, 12, 0, 4, tzinfo=UTC),
+        actor="caller-1",
+        artifact_class="ccf.scope-mapping",
+        authz_action_id="hitl.queue.read",
+        authz_matched_pattern="tenant-*",
+    )
+    assert canonical_bytes(legacy).decode("utf-8") == (
+        '{"action":"authz_decision","actor":"caller-1",'
+        '"artifact_class":"ccf.scope-mapping","authz_action_id":"hitl.queue.read",'
+        '"authz_matched_pattern":"tenant-*","key":"tenant-c",'
+        '"occurred_at":"2026-08-01T12:00:04.000000Z","resolved":true,'
+        '"sequence":3,"version":"2.0.0"}'
+    )
+
+
+def test_the_failing_axis_vocabulary_is_closed() -> None:
+    """``tenant | action | resource | mapping`` and nothing else. ``mapping``
+    exists because a deny with no resolvable scope mapping failed on NO axis,
+    and recording it as one of the other three would be a lie about why."""
+    from typing import get_args
+
+    from ccf.controlplane.audit import AuthzFailingAxis
+
+    assert set(get_args(AuthzFailingAxis)) == {
+        "tenant",
+        "action",
+        "resource",
+        "mapping",
+    }
+    with pytest.raises(ValidationError):
+        AuthzDecisionAuditEvent(
+            sequence=0,
+            action="authz_decision",
+            key="t",
+            version="1",
+            resolved=False,
+            occurred_at=datetime(2026, 8, 1, tzinfo=UTC),
+            authz_failing_axis="somewhere-else",  # type: ignore[arg-type]
+        )

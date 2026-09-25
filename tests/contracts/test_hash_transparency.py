@@ -328,6 +328,27 @@ _MARKED_IN_THE_TREE = frozenset(
         "ccf.products.contract.ContextProductContract.ttl_anchor_at",
         "ccf.replay.record.ContentGenerationPath.ttl_anchor_at",
         "ccf.replay.record.ChildResolution.child_ttl_anchor",
+        # `D-IMPL-353` — seven marks, ticked deliberately. The authorization
+        # capability's evidence on the objects that predate it: the audit id
+        # of the decision an `AuthzDecision` was minted from, the resource
+        # axes a deny names on its `AuthzDecisionAuditEvent`, the annotation
+        # and signed binding an `HitlActionRequest` carries, and the decision
+        # id an `HitlActionSubmission` was authorized under. Each is `None`
+        # on every decision, event, request and submission recorded before
+        # the capability existed, so an examiner's hash of an old record does
+        # not move; a real value is a real claim and is rendered. Each is
+        # declared `json_schema_extra={HASH_TRANSPARENT_KEY: True}` at its
+        # field (`src/ccf/authz/decision.py::AuthzDecision`,
+        # `src/ccf/controlplane/audit.py::AuthzDecisionAuditEvent`,
+        # `src/ccf/hitl/transport.py::HitlActionRequest`,
+        # `src/ccf/hitl/transport.py::HitlActionSubmission`).
+        "ccf.authz.decision.AuthzDecision.decision_id",
+        "ccf.controlplane.audit.AuthzDecisionAuditEvent.authz_resource",
+        "ccf.controlplane.audit.AuthzDecisionAuditEvent.authz_matched_resource_pattern",
+        "ccf.controlplane.audit.AuthzDecisionAuditEvent.authz_failing_axis",
+        "ccf.hitl.transport.HitlActionRequest.annotation",
+        "ccf.hitl.transport.HitlActionRequest.signed_binding",
+        "ccf.hitl.transport.HitlActionSubmission.authorizing_decision_id",
         "ccf.replay.record.ChildResolution.child_ttl_anchor_at",
         "ccf.controlplane.artifacts.DeploymentConfig.producers",
         # `D-IMPL-343` — nine marks, ticked deliberately. The four paved-road
@@ -619,6 +640,18 @@ _MARKED_IN_THE_TREE = frozenset(
         "ccf.replay.record.PackagingTrace.prompt_artifact_uri",
         "ccf.replay.record.PackagingTrace.prompt_artifact_hash",
         "ccf.replay.record.PackagingTrace.output_hash",
+        # `SEC-001` Tier 0 — which primitive answered a HITL gate. Two marks,
+        # both ADDITIVE and both sentinel-silent (`str | None = None`), so a
+        # submission recorded before the transport could stamp a claim
+        # canonicalizes exactly as it did. The tick is correct rather than
+        # merely recorded because the sentinel is the RESTRICTIVE reading
+        # wherever the pair is consumed: an unstamped submission fails the
+        # gate check's stamped leg and the escalation authority join outright,
+        # so `None` never reads as "unconstrained". Ticked here at the join
+        # rather than by the lane that added them, which is exactly the
+        # arrival this set-equality test exists to report.
+        "ccf.hitl.transport.HitlActionSubmission.answered_event_class",
+        "ccf.hitl.transport.HitlActionSubmission.answered_workflow_state_ref",
     }
 )
 

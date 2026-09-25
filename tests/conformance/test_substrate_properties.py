@@ -119,6 +119,7 @@ from tests.properties.strategies import (
     banking_graph_states,
     shipped_operators,
 )
+from tests.composition import register_at_composition
 
 pytestmark = pytest.mark.conformance
 

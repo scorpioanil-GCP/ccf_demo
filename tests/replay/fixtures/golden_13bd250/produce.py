@@ -69,6 +69,9 @@ from ccf.replay.record import (
 )
 from ccf.replay.serve import ReplayWriter, serve
 from ccf.signal.envelope import SignalEnvelope, SourceIdentity
+from ccf.authz.capability import Register
+from tests.controlplane.capabilities import register_capability
+from tests.replay.authority import replay_store, replay_writer
 
 TENANT = "tenant-golden"
 T_MARCH = datetime(2026, 3, 1, tzinfo=UTC)
@@ -199,9 +202,9 @@ class Bindings:
 
     def __init__(self, registry: ControlPlaneRegistry) -> None:
         self.registry = registry
-        self.spec_version = registry.register(RESOLUTION_SPEC_KEY, resolution_spec())
-        self.policy_version = registry.register(POLICY_BUNDLE_KEY, policy_bundle())
-        self.max_ttl_version = registry.register(MAX_TTL_KEY, MaxTTL(seconds=3600))
+        self.spec_version = registry.register(register_capability(RESOLUTION_SPEC_KEY, Register), resolution_spec())
+        self.policy_version = registry.register(register_capability(POLICY_BUNDLE_KEY, Register), policy_bundle())
+        self.max_ttl_version = registry.register(register_capability(MAX_TTL_KEY, Register), MaxTTL(seconds=3600))
 
     def product_class(self) -> RegisteredProductClass:
         return register_product_class(
@@ -225,6 +228,7 @@ def boot_fabric(*, database_path: Path, bindings: Bindings) -> FabricHandle:
         resolution_spec_version=bindings.spec_version,
         policy_bundle_key=POLICY_BUNDLE_KEY,
         policy_bundle_version=bindings.policy_version,
+        tenant_ids=(TENANT,),
     )
 
 
@@ -347,8 +351,8 @@ def produce(fixture_dir: Path) -> dict[str, Any]:
         served = serve(
             product=gated,
             record=record,
-            replay_writer=ReplayWriter(
-                store=FileArtifactStore(root=artifacts), artifact_class=ARTIFACT_CLASS
+            replay_writer=replay_writer(
+                replay_store(artifacts, ARTIFACT_CLASS), tenant=TENANT, artifact_class=ARTIFACT_CLASS
             ),
         )
     finally:

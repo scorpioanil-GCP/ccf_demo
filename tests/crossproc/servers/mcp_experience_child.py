@@ -47,7 +47,9 @@ _REPO_ROOT = _TESTS_ROOT.parent
 # The child is spawned as a bare `python <file>`, so it gets none of pytest's
 # sys.path work. Resolving the roots from __file__ is what makes it runnable
 # from anywhere, which the fixture depends on.
-for _root in (_REPO_ROOT / "src", _REPO_ROOT / "runtime", _TESTS_ROOT):
+# The repo root too (last on the path): the shared test helpers import as
+# `tests.composition`, which resolves only from there (D-IMPL-354).
+for _root in (_REPO_ROOT, _REPO_ROOT / "src", _REPO_ROOT / "runtime", _TESTS_ROOT):
     if str(_root) not in sys.path:
         sys.path.insert(0, str(_root))
 
@@ -56,7 +58,19 @@ import yaml  # noqa: E402
 from mcp.server.auth.settings import AuthSettings  # noqa: E402
 from pydantic import AnyHttpUrl  # noqa: E402
 
+from crossproc.servers.wide_authorizer import wide_authorizer  # noqa: E402
+from controlplane.capabilities import capability  # noqa: E402
+from http_api.composition_authority import (  # noqa: E402
+    composition_register,
+    composition_replay_mint,
+    deployment_store,
+    refusal_recorder,
+    register_typed_at_composition,
+    register_versioned_at_composition,
+)
+
 from ccf.agents.factory import AgentFactory  # noqa: E402
+from ccf.authz.capability import SkillGrant as SkillGrantKind  # noqa: E402
 from ccf.artifacts.file_store import FileArtifactStore  # noqa: E402
 from ccf.contracts.canonical import canonical_bytes, content_hash  # noqa: E402
 from ccf.controlplane.artifacts import (  # noqa: E402
@@ -87,6 +101,7 @@ from ccf.skills.catalog import (  # noqa: E402
     SKILL_CATALOG_ENTRY,
     SkillCatalog,
     SkillCatalogEntry,
+    skill_catalog_key,
 )
 from ccf.skills.grants import GrantLedger, SkillGrant  # noqa: E402
 from ccf.agents.definitions import AGENT_DEFINITION, AgentDefinition  # noqa: E402
@@ -170,6 +185,7 @@ ASSEMBLY_MODE: AssemblyMode = "algorithmic"
 
 def experience_refusal_recorder(
     *,
+    registry: ControlPlaneRegistry,
     store: FileArtifactStore,
     tenant: str,
     disclosure_level_for: Any,
@@ -189,10 +205,11 @@ def experience_refusal_recorder(
     same terms as :func:`build_world` and ``build_servable_product``: two
     copies of a recorder's wiring would agree only until someone edited one.
     """
-    return ReplayRefusalRecorder(
-        artifact_store=store,
+    return refusal_recorder(
+        registry,
+        store=store,
+        tenant=tenant,
         replay_record_class=REPLAY_ARTIFACT_CLASS,
-        tenant_id=tenant,
         assembly_mode=ASSEMBLY_MODE,
         # No bundle key at a delivery boundary, and saying so positively is
         # the honest posture: the record's bindings are exactly what the
@@ -207,7 +224,7 @@ def authorized_http_client(token: str = DEV_TOKEN) -> httpx.AsyncClient:
     return httpx.AsyncClient(headers={"Authorization": f"Bearer {token}"})
 
 
-def write_token_file(*, workspace: Path) -> Path:
+def write_token_file(*, workspace: Path, tenants: frozenset[str]) -> Path:
     """Write the child's token file and return its path.
 
     Two credentials, both genuinely recognised: one whose principal the
@@ -219,10 +236,20 @@ def write_token_file(*, workspace: Path) -> Path:
     token_file.write_text(
         json.dumps(
             {
-                DEV_TOKEN: {"client_id": CLIENT_ID, "scopes": [SCOPE]},
+                # Both credentials carry the SAME tenants, because what this
+                # child exists to demonstrate is that verification and
+                # entitlement are two different decisions (`SEC-018` is a
+                # third). An unentitled caller refused for *tenancy* would go
+                # red for the wrong reason and stop testing the subject.
+                DEV_TOKEN: {
+                    "client_id": CLIENT_ID,
+                    "scopes": [SCOPE],
+                    "tenants": sorted(tenants),
+                },
                 UNENTITLED_TOKEN: {
                     "client_id": UNENTITLED_CLIENT_ID,
                     "scopes": [SCOPE],
+                    "tenants": sorted(tenants),
                 },
             }
         ),
@@ -283,14 +310,16 @@ def build_world() -> AgentWorld:
             },
             artifact_class,
         )
-        registry.register_typed(reference["key"], declared, artifact_class)
+        register_typed_at_composition(registry, reference["key"], declared, artifact_class)
 
     catalog = SkillCatalog(registry)
     entry = parse_artifact(
         dict(tool_fixture["variants"]["local_callable"]), SKILL_CATALOG_ENTRY
     )
     assert isinstance(entry, SkillCatalogEntry)
-    assert isinstance(catalog.register(entry), str)
+    assert isinstance(
+        catalog.register(composition_register(registry, skill_catalog_key(entry)), entry), str
+    )
 
     ledger = GrantLedger(
         control_plane=registry,
@@ -307,8 +336,10 @@ def build_world() -> AgentWorld:
         dict(grants_fixture["agents"]["auto"]), AGENT_DEFINITION
     )
     assert isinstance(definition, AgentDefinition)
-    definition_key = grants_fixture["policy_regimes"]["auto"]["key"] + "/agent"
-    definition_version = registry.register_versioned(
+    # The `{tenant}/{class}/{name}` key convention, so the grant capability's
+    # resource binds to the definition's own name at the ledger (§1.5f).
+    definition_key = f"{definition.tenant}/agents/{definition.name}"
+    definition_version = register_versioned_at_composition(registry, 
         definition_key, definition, AGENT_DEFINITION
     )
     assert isinstance(definition_version, str)
@@ -317,10 +348,19 @@ def build_world() -> AgentWorld:
         agent_definition_hash=content_hash(definition),
         **dict(grants_fixture["grants"]["metrics_local"]),
     )
+    # A composition-time grant: a GENUINE `Authorized[SkillGrant]` for the
+    # definition key, minted the way the door mints one, for the requesting
+    # actor the fixture declares (D-IMPL-353 §1.2 — the actor is the
+    # capability's principal, never a parameter).
     outcome = ledger.request(
+        capability(
+            SkillGrantKind,
+            tenant=definition.tenant,
+            resource=definition_key,
+            principal=grants_fixture["approval"]["requesting_actor"],
+        ),
         grant,
         definition=definition,
-        actor=grants_fixture["approval"]["requesting_actor"],
     )
     assert isinstance(outcome, str), outcome
 
@@ -406,9 +446,12 @@ def build_server(
         database_path=workspace / "experience-child.sqlite3"
     )
     world = build_world()
-    replay_store = FileArtifactStore(root=workspace / REPLAY_DIRNAME)
+    replay_store = deployment_store(workspace / REPLAY_DIRNAME, REPLAY_ARTIFACT_CLASS)
     writer = ReplayWriter(
-        store=replay_store, artifact_class=REPLAY_ARTIFACT_CLASS
+        authorized=composition_replay_mint(
+            world.registry, tenant=world.tenant, artifact_class=REPLAY_ARTIFACT_CLASS
+        ),
+        store=replay_store,
     )
     latest_record: dict[str, str | None] = {"record": None}
 
@@ -549,7 +592,7 @@ def build_server(
     # assembly conditioned on, so an entitlement cannot name something this
     # deployment does not serve.
     door_registry = ControlPlaneRegistry()
-    door_registry.register_typed(
+    register_typed_at_composition(door_registry, 
         product_entitlement_key(tenant_id=assembled.address.tenant),
         ProductEntitlementPolicy(
             tenant_id=assembled.address.tenant,
@@ -587,6 +630,7 @@ def build_server(
     return build_experience_server(
         server_name=SERVER_NAME,
         product_resolver=resolve_product,
+        authorizer=wide_authorizer(scopes=(SCOPE,)),
         entitlement_source=entitlement_source,
         perspective_resolver=resolve_perspective,
         # `D-IMPL-256` (2): this door entitles on three paths, so it holds a
@@ -594,6 +638,7 @@ def build_server(
         # agent leg already writes its records to — so one deployment keeps
         # one audit trail rather than two.
         refusal_recorder=experience_refusal_recorder(
+            registry=door_registry,
             store=replay_store,
             tenant=assembled.address.tenant,
             disclosure_level_for=entitlement_source.disclosure_level_for,
@@ -612,9 +657,34 @@ def build_server(
         get_context_description=GET_CONTEXT_DESCRIPTION,
         get_lineage_description=GET_LINEAGE_DESCRIPTION,
         get_replay_record_description=GET_REPLAY_RECORD_DESCRIPTION,
+        # The tool carries no arguments, so its tenant is declared rather than
+        # named by the caller (`SEC-018`).
+        replay_record_tenant=world.tenant,
         tool_allowlist=tool_allowlist,
         token_verifier=SourceBackedTokenVerifier(
-            source=FileTokenSource(path=write_token_file(workspace=workspace))
+            source=FileTokenSource(path=write_token_file(
+                workspace=workspace,
+                # This child serves TWO tenants: the agent world's and the
+                # assembled product's. They coincide in the shipped fixture,
+                # and the union is passed rather than either one so that a
+                # fixture change separating them does not silently lock the
+                # credential out of half this server (`SEC-018`).
+                tenants=frozenset(
+                    {
+                        world.tenant,
+                        assembled.address.tenant,
+                        # # The neighbouring tenant is in the credential DELIBERATELY. These
+                        # suites test what the ENTITLEMENT (and the per-tenant queue
+                        # partition) decides about a tenant the caller can reach; a
+                        # credential stopped by the tenancy floor first would make the
+                        # entitlement untested. The floor itself is proven in
+                        # `tests/mcp/test_tenant_guard.py`, against these same shipped
+                        # servers (`SEC-018`).
+                        f"{world.tenant}-not-this-one",
+                        f"{assembled.address.tenant}-not-this-one",
+                    }
+                ),
+            ))
         ),
         auth_settings=AuthSettings(
             issuer_url=AnyHttpUrl(ISSUER_URL),

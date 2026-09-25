@@ -22,6 +22,25 @@ the Decision Replay record — is discharged by the HITL primitives
 recorded replay dimensions itself would be a second writer to the replay
 surface.
 
+**The authority path requires the capability for its own action (D-IMPL-353
+§1.2, §2 P6).** :meth:`HITLTransportProtocol.submit` takes an
+``Authorized[HitlSubmit]`` and :meth:`HITLTransportProtocol.view` an
+``Authorized[HitlQueueRead]`` — each verified by
+:func:`~ccf.authz.capability.verify` for its kind and for the event
+it acts on before the handle's first real statement. The tenant a
+submission is filed under and the tenant a view reads are the capability's,
+and only the capability's: :class:`HitlActionSubmission` carries no tenant
+field, so there is no second source. The recorded actor is the capability's
+principal — a binding over anyone else is refused
+(:class:`PrincipalMismatchRefused`) — and the record names the authorizer's
+decision (``authorizing_decision_id``), transport-stamped like the claim
+stamp. The in-process reads the primitives and the workflow engine use
+(``pending``, ``submissions``, ``remove``, ``dequeue``) keep their tenant
+parameter: those callers hold ``Execute``/``Resume``/``HitlSubmit``
+capabilities, not a queue-read one, and in-process trust is the deployment's
+(design §5 — the same limit single-writer states). The served doors call
+``view`` and ``submit`` and nothing else.
+
 :class:`InMemoryHitlTransport` ships in this module per CLAUDE.md §11
 (reference implementations alongside Protocols): it is a reference
 implementation, not a placeholder for one — the in-process queue matches
@@ -39,10 +58,11 @@ from collections import deque
 from collections.abc import Mapping
 from typing import Literal, Protocol, runtime_checkable
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 
 from ccf.artifacts.protocol import ArtifactStoreError, parse_artifact_uri
 from ccf.contracts.base import CCFContract
+from ccf.contracts.canonical import HASH_TRANSPARENT_KEY
 from ccf.controlplane.artifact_base import ArtifactClass, validate_semver
 from ccf.controlplane.registry import ControlPlaneProtocol
 from ccf.hitl.identity_binding import (
@@ -50,8 +70,14 @@ from ccf.hitl.identity_binding import (
     SignedPrincipalBinding,
     verify_principal_binding,
 )
-from ccf.hitl.principal import HumanPrincipalBinding
+from ccf.hitl.principal import HumanPrincipalBinding, validate_content_hash
 from ccf.peering.identity import IdentityProvider, JsonWebKey
+from ccf.authz.capability import (
+    Authorized,
+    HitlQueueRead,
+    HitlSubmit,
+    verify,
+)
 
 __ccf_mode__ = "algorithmic"
 
@@ -61,10 +87,12 @@ __all__ = [
     "HITL_POLICY",
     "HITLTransportProtocol",
     "HitlActionReceipt",
+    "HitlActionRequest",
     "HitlActionSubmission",
     "HitlPolicy",
     "InMemoryHitlTransport",
     "PendingHitlEvent",
+    "PrincipalMismatchRefused",
     "SignedBindingInvalidRefused",
     "SignedBindingRequiredRefused",
     "enforce_signed_binding",
@@ -157,6 +185,22 @@ class SignedBindingInvalidRefused(PermissionError):
     validly signed binding over someone else's identity binds nothing
     here (spoofing, T-08-06). Maps to ``ERROR_SIGNED_BINDING_INVALID``
     at the doors.
+    """
+
+
+class PrincipalMismatchRefused(PermissionError):
+    """The submission's binding names a subject other than the capability's principal.
+
+    SDK-defined (CLAUDE.md §8.2; D-IMPL-353 §2 P6). The actor of a recorded
+    human action is the principal the authorizer decided *allowed* for —
+    ``authorized.principal`` — and the binding is the record of that actor.
+    A binding over anyone else binds nothing here, in the same sense a
+    validly signed binding over someone else's identity binds nothing
+    (:class:`SignedBindingInvalidRefused`). Unreachable from the served doors,
+    which mint the binding from the capability; raised for an in-process
+    caller that built one for the wrong subject. Refused rather than
+    rewritten, because a signed binding covers the subject and a transport
+    that overwrote it would record a signature over someone else.
     """
 
 
@@ -282,6 +326,54 @@ def enforce_signed_binding(
         )
 
 
+class HitlActionRequest(CCFContract):
+    """What a caller may say about a human action at a served door (D-IMPL-353 §2 P6).
+
+    SDK-defined (CLAUDE.md §8.2/§8.3). The request half of the authority
+    path — the HTTP ``POST /hitl/actions`` body, and the field set the MCP
+    ``submit_hitl_action`` tool takes as arguments. Deliberately **not** the
+    submission: the :class:`~ccf.hitl.principal.HumanPrincipalBinding` is
+    minted by the door from the capability, the verified credential's
+    :class:`~ccf.hitl.principal.AuthenticationClaims` and the door's clock
+    (:func:`ccf_runtime.identity_binding.principal_from_authorized`), so this
+    contract has no ``principal``, no ``subject_id``, no
+    ``identity_provider_ref``, no ``method``, no ``assurance_level``, no
+    ``session_ref``, no ``action_time`` and no ``tenant``. ``extra=forbid``
+    makes a body that still sends any of them a boundary refusal — and a
+    caller-typed step-up-MFA claim unrepresentable rather than refused.
+
+    What remains is what only the human can state: which event, which
+    action, the content hash of what they actually saw, an optional
+    annotation, and — where the HITL policy requires non-repudiation — a
+    signed copy of the binding the door will mint (D-16).
+    """
+
+    event_key: str
+    action: str
+    product_content_hash: str
+    annotation: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    signed_binding: SignedPrincipalBinding | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+
+    @field_validator("action")
+    @classmethod
+    def _action_is_known(cls, value: str) -> str:
+        if value not in HITL_ACTIONS:
+            raise ValueError(
+                f"unknown HITL action {value!r}; the typed queue carries"
+                f" {sorted(HITL_ACTIONS)} (D-IMPL-20)"
+            )
+        return value
+
+    @field_validator("product_content_hash")
+    @classmethod
+    def _product_hash_is_a_content_hash(cls, value: str) -> str:
+        return validate_content_hash(value)
+
+
 class HitlActionSubmission(CCFContract):
     """One human action returning through the authority path (D-IMPL-20/21).
 
@@ -290,10 +382,15 @@ class HitlActionSubmission(CCFContract):
     :class:`~ccf.hitl.principal.HumanPrincipalBinding`, which is how the
     no-unrecorded-human-action commitment (CLAUDE.md §8.2) is enforced at
     the contract boundary rather than audited after the fact.
+
+    **No tenant field (D-IMPL-353 §1.3).** The tenant a submission is filed
+    under is the capability's — ``authorized.tenant`` at
+    :meth:`HITLTransportProtocol.submit` — and a second source on the
+    contract would be a value a door could forget to compare. Deleted, not
+    deprecated: a document that still carries one is refused at the boundary.
     """
 
     event_key: str
-    tenant: str
     action: str
     principal: HumanPrincipalBinding
     annotation: str | None = None
@@ -304,6 +401,55 @@ class HitlActionSubmission(CCFContract):
     #: never a code constant. When present it travels on the recorded
     #: submission, so the audit/receipt surface carries it verbatim.
     signed_binding: SignedPrincipalBinding | None = None
+    #: **Transport-stamped, never caller-authored** (SEC-001 Tier 0; the
+    #: 2026-09-24 follow-up read). The :data:`HITL_EVENT_CLASSES` member of
+    #: the pending event this action was recorded as answering, and that
+    #: event's ``workflow_state_ref``. A submitter cannot decide either:
+    #: :meth:`HITLTransportProtocol.submit` overwrites both from the event
+    #: the transport ITSELF observed being claimed through
+    #: :meth:`HITLTransportProtocol.remove`, and writes ``None`` when no
+    #: claim exists. Declared on the contract rather than kept in a
+    #: side-table because the stamp travels with the action wherever the
+    #: recorded submission travels.
+    #:
+    #: They are what lets a consumer of
+    #: :meth:`HITLTransportProtocol.submissions` ask **which primitive
+    #: answered, and about which execution** — questions a submission could
+    #: not answer before, so an approval-gate authority check could be
+    #: satisfied by an action taken against an escalation, an override or a
+    #: review item that happened to name the same event key.
+    #:
+    #: **Hash-transparent at the sentinel (CINV-06; D-IMPL-243).** ``None``
+    #: here is not "an older record that did not declare" — it is a live,
+    #: current state the transport writes on purpose: *this submitter
+    #: claimed nothing*. That is exactly what was true of every submission
+    #: recorded before the stamp existed, so "silence equals yesterday"
+    #: holds literally and the two fields render into
+    #: :func:`~ccf.contracts.canonical.canonical_bytes` only once a claim
+    #: was actually observed. Note the direction, because it is what
+    #: separates this from the ``False`` cases: the sentinel is the
+    #: RESTRICTIVE reading everywhere it is consumed — an unstamped
+    #: submission fails the gate check's stamped leg and the escalation
+    #: authority join outright — so an unset value never means
+    #: "unconstrained".
+    answered_event_class: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    answered_workflow_state_ref: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    #: **Transport-stamped, never caller-authored** (D-IMPL-353 §2 P6; design
+    #: §3, *deny audit contents*). The ``decision_id`` of the authorizer's
+    #: *allow* the capability presented at :meth:`HITLTransportProtocol.submit`
+    #: is evidence of — so every recorded human action is traceable to the
+    #: decision that authorized it. Overwritten from ``authorized`` on every
+    #: submit, exactly as the claim stamp is; a caller-supplied value is
+    #: discarded. Hash-transparent at the sentinel (CINV-06; D-IMPL-243):
+    #: ``None`` is what was true of every submission recorded before the
+    #: capability existed.
+    authorizing_decision_id: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
     @field_validator("action")
     @classmethod
@@ -374,11 +520,23 @@ class HITLTransportProtocol(Protocol):
     """
 
     def enqueue(self, *, event: PendingHitlEvent) -> None:
-        """Queue ``event`` for its tenant, preserving arrival order."""
+        """Queue ``event`` for its tenant, preserving arrival order.
+
+        An enqueue discards any outstanding claim (see :meth:`remove`) for
+        the same ``(tenant, event_key)``: a re-enqueued event is pending
+        again, so nothing has answered it. That is what keeps the
+        primitives' give-the-claim-back rollback honest — a refused
+        authority submission must leave no residue that a later bare
+        submission could inherit as a stamp.
+        """
         ...
 
     def dequeue(self, *, tenant: str) -> PendingHitlEvent | None:
-        """Pop the oldest pending event for ``tenant``, or ``None``."""
+        """Pop the oldest pending event for ``tenant``, or ``None``.
+
+        A drain, not a resolution: it records no claim, so a submission
+        made against a drained event carries no stamp (see :meth:`submit`).
+        """
         ...
 
     def pending(self, *, tenant: str) -> tuple[PendingHitlEvent, ...]:
@@ -399,11 +557,57 @@ class HITLTransportProtocol(Protocol):
         relative order of every event not removed is preserved. Exactly
         one of any number of concurrent ``remove`` calls for the same
         event receives it; the rest receive ``None``.
+
+        **Removal is a claim, and the transport records it** (SEC-001 Tier
+        0). The winning caller is the primitive that is about to resolve
+        this event, so the transport retains the removed event against
+        ``(tenant, event_key)`` and stamps the next :meth:`submit` for that
+        pair with its class and ``workflow_state_ref``. The claim is
+        consumed by that submit and discarded by a re-:meth:`enqueue`;
+        conforming implementations must do both, because a consumer asking
+        "which primitive answered this?" gets ``None`` — and must fail
+        closed — from an implementation that stamps nothing.
         """
         ...
 
-    def submit(self, *, submission: HitlActionSubmission) -> None:
-        """Record one human action returning through the authority path."""
+    def view(
+        self, authorized: Authorized[HitlQueueRead]
+    ) -> tuple[PendingHitlEvent, ...]:
+        """The served queue view: the capability's tenant's pending events.
+
+        The read the Experience-Layer doors make (D-IMPL-353 §1.2). Requires
+        an ``Authorized[HitlQueueRead]`` — verified for its kind and for the
+        door's own action id as resource, since a queue is addressed by
+        tenant alone and the tenant is the capability's — and returns what
+        :meth:`pending` would for ``authorized.tenant``. There is no tenant
+        parameter: whose queue is read is not a thing the door decides.
+        """
+        ...
+
+    def submit(
+        self,
+        authorized: Authorized[HitlSubmit],
+        *,
+        submission: HitlActionSubmission,
+    ) -> HitlActionSubmission:
+        """Record one human action returning through the authority path.
+
+        Requires an ``Authorized[HitlSubmit]`` for exactly
+        ``submission.event_key`` (D-IMPL-353 §1.2, §1.5f), verified before
+        the handle's first real statement; files the record under
+        ``authorized.tenant``; refuses a binding whose subject is not
+        ``authorized.principal`` (:class:`PrincipalMismatchRefused`).
+
+        The recorded submission is stamped with the class and
+        ``workflow_state_ref`` of the event this action claimed — taken
+        from the transport's own :meth:`remove` observation, never from
+        ``submission`` — stamped ``None`` when this submitter claimed
+        nothing, and stamped with the capability's ``decision_id``.
+        ``submission`` itself is not mutated (it is a frozen contract); the
+        stamped copy is what :meth:`submissions` returns, and it is returned
+        here so a door can answer with what was recorded rather than with
+        an echo of what was sent.
+        """
         ...
 
     def submissions(self, *, tenant: str) -> tuple[HitlActionSubmission, ...]:
@@ -465,6 +669,11 @@ class InMemoryHitlTransport:
         self._lock = threading.Lock()
         self._pending: dict[str, deque[PendingHitlEvent]] = {}
         self._submissions: dict[str, list[HitlActionSubmission]] = {}
+        #: Events claimed through :meth:`remove` and not yet answered or
+        #: given back, keyed ``(tenant, event_key)`` — the transport's own
+        #: record of which primitive is resolving what (SEC-001 Tier 0).
+        #: Guarded by the same lock as the queues.
+        self._claims: dict[tuple[str, str], PendingHitlEvent] = {}
         self._control_plane = control_plane
         self._hitl_policy_key = hitl_policy_key
         self._identity_provider = identity_provider
@@ -504,8 +713,16 @@ class InMemoryHitlTransport:
         )
 
     def enqueue(self, *, event: PendingHitlEvent) -> None:
-        """Queue ``event`` for its tenant, preserving arrival order."""
+        """Queue ``event`` for its tenant, preserving arrival order.
+
+        Any outstanding claim for the same ``(tenant, event_key)`` is
+        discarded: the event is pending again, so nothing has answered it.
+        This is what makes the primitives' rollback path
+        (``remove`` → failed ``submit`` → ``enqueue``) leave no stamp
+        behind for a later bare submission to inherit.
+        """
         with self._lock:
+            self._claims.pop((event.tenant, event.event_key), None)
             self._pending.setdefault(event.tenant, deque()).append(event)
 
     def dequeue(self, *, tenant: str) -> PendingHitlEvent | None:
@@ -532,6 +749,11 @@ class InMemoryHitlTransport:
         and exactly one of any number of racing removals for the same
         event key receives the event. Every retained event keeps its
         relative order.
+
+        The removal is recorded as a claim in the same lock acquisition
+        (SEC-001 Tier 0), so the next :meth:`submit` for this pair is
+        stamped with what was actually claimed. Only the winner records a
+        claim, because only the winner removes anything.
         """
         with self._lock:
             queue = self._pending.get(tenant)
@@ -540,27 +762,108 @@ class InMemoryHitlTransport:
             for index, event in enumerate(queue):
                 if event.event_key == event_key:
                     del queue[index]
+                    self._claims[(tenant, event_key)] = event
                     return event
             return None
 
-    def submit(self, *, submission: HitlActionSubmission) -> None:
+    def view(
+        self, authorized: Authorized[HitlQueueRead]
+    ) -> tuple[PendingHitlEvent, ...]:
+        """The capability's tenant's pending events, oldest first.
+
+        :func:`~ccf.authz.capability.verify` first: the kind by
+        identity, and the resource against the queue-read action id — the
+        one honest resource for a read addressed by tenant alone (the HTTP
+        door's ``ResourceBinding.route()`` semantics). After that line the
+        tenant is ``authorized.tenant`` and nothing else.
+        """
+        verify(authorized, kind=HitlQueueRead, resource=HitlQueueRead.action_id)
+        return self.pending(tenant=authorized.tenant)
+
+    def submit(
+        self,
+        authorized: Authorized[HitlSubmit],
+        *,
+        submission: HitlActionSubmission,
+    ) -> HitlActionSubmission:
         """Record one human action returning through the authority path.
+
+        **The capability first (D-IMPL-353 §1.5c/f).** A fabricated
+        capability, a genuine one of another kind, or a submit capability
+        minted for some other event dies at
+        :func:`~ccf.authz.capability.verify` before anything below
+        runs — before the binding is compared, before the policy is
+        resolved, before the lock is taken. Then the binding's subject must
+        be the capability's principal: the recorded actor has one source.
 
         When the Control Plane HITL policy in force requires a signed
         principal binding, the submission is verified before anything is
         recorded (D-16): a refused submission never lands on the queue.
+        Verification runs outside the lock and before the claim is
+        consumed, so a refusal leaves both the pending event and its claim
+        untouched (D-IMPL-69; Pitfall 4).
+
+        What is recorded is a copy stamped with the claim this submitter
+        actually made — ``answered_event_class`` and
+        ``answered_workflow_state_ref`` come from the event the transport
+        observed being :meth:`remove`\\ d, never from ``submission``, and
+        are stamped ``None`` when nothing was claimed. A caller-supplied
+        value on either field is therefore discarded rather than trusted
+        (SEC-001 Tier 0: a guard whose input the caller supplies is not a
+        guard).
+
+        **Residual: the claim is addressed, not held.** A claim is keyed
+        ``(tenant, event_key)`` and consumed by whichever submission for
+        that pair arrives first, because ``submit`` has no caller identity
+        to bind it to. A submitter that races the window a primitive opens
+        between its ``remove`` and its ``submit`` — the two adjacent
+        statements in
+        :meth:`~ccf.hitl.approval_gate.ApprovalGate.resolve` — therefore
+        takes the stamp, and the primitive's own submission is recorded
+        unstamped. Closing it means ``remove`` minting an opaque claim
+        token that ``submit`` requires, which is a
+        :class:`HITLTransportProtocol` signature change and belongs with
+        the D-IMPL-62 door ruling rather than here. Recorded because it
+        NARROWS an existing hole rather than opening one: a submit-only
+        submission that wins no race is still admitted by the engine's
+        unstamped fallback leg today, with no race at all.
 
         Raises:
+            CapabilityBypassError: ``authorized`` is not a genuine
+                ``Authorized[HitlSubmit]`` for ``submission.event_key``.
+            PrincipalMismatchRefused: the binding's subject is not
+                ``authorized.principal``.
             SignedBindingRequiredRefused: binding required and absent.
             SignedBindingInvalidRefused: binding invalid or its verified
                 principal mismatches the submission's.
         """
+        verify(authorized, kind=HitlSubmit, resource=submission.event_key)
+        if submission.principal.approver.subject_id != authorized.principal:
+            raise PrincipalMismatchRefused(
+                "the submission's binding names a subject other than the"
+                " capability's principal; the actor of a recorded human"
+                " action is the principal the authorizer decided for, and a"
+                " binding over anyone else binds nothing here"
+                " (D-IMPL-353 §2 P6; D-IMPL-21)"
+            )
         if self._signed_binding_required():
             self._enforce_signed_binding(submission)
+        tenant = authorized.tenant
         with self._lock:
-            self._submissions.setdefault(submission.tenant, []).append(
-                submission
+            claimed = self._claims.pop((tenant, submission.event_key), None)
+            recorded = submission.model_copy(
+                update={
+                    "answered_event_class": (
+                        None if claimed is None else claimed.event_class
+                    ),
+                    "answered_workflow_state_ref": (
+                        None if claimed is None else claimed.workflow_state_ref
+                    ),
+                    "authorizing_decision_id": authorized.decision_id,
+                }
             )
+            self._submissions.setdefault(tenant, []).append(recorded)
+        return recorded
 
     def submissions(self, *, tenant: str) -> tuple[HitlActionSubmission, ...]:
         """The tenant's recorded actions, oldest first."""

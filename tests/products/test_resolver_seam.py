@@ -52,7 +52,7 @@ import copy
 import dataclasses
 import inspect
 import pathlib
-from collections.abc import Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
@@ -120,6 +120,12 @@ from tests.deployment.conftest import (
     manifest_document,
     write_artifact,
 )
+from tests.composition import register_at_composition, register_typed_at_composition
+from tests.composition import composition_replay_mint, declaring_store
+from ccf.products.composite import ADMITTED_CHILD_CONTRACT_CLASS
+from ccf.artifacts.protocol import WriteKinds
+from tests.composition import register_skill_entry
+from tests.skills.authority import grant_capability, revoke_capability
 
 # --- the fixture deployment's vocabulary ------------------------------------
 #
@@ -128,7 +134,7 @@ from tests.deployment.conftest import (
 # none of them.
 
 #: The manifest key the request contract is authored under.
-REQUEST_CONTRACT_KEY = "fixture/request-contract"
+REQUEST_CONTRACT_KEY = "tenant-fixture/request-contract"
 
 #: The class id it is declared as — an adopter namespace, so a manifest
 #: resolves it to a `DeclaredArtifact` and the resolver reads it through
@@ -144,7 +150,7 @@ THRESHOLD_PARAMETER = "revenue_threshold"
 #: that the obligation seam has a *declaration* to read, which is the whole
 #: subject: `DebtProfile.obligation_for` is the extract half `D-IMPL-117` says
 #: the SDK owes, and the resolver composing it is the populate half.
-DEBT_PROFILE_KEY = "fixture/debt-profile"
+DEBT_PROFILE_KEY = "tenant-fixture/debt-profile"
 
 #: What this deployment binds to the routing state its scorer lands in.
 #:
@@ -327,12 +333,16 @@ class _RefusingStore:
     """
 
     def __init__(self, root: pathlib.Path) -> None:
-        self._inner = FileArtifactStore(root=root)
+        self._inner = declaring_store(
+            root, REPLAY_RECORD_CLASS, QUERY_PIN_CLASS, ADMITTED_CHILD_CONTRACT_CLASS
+        )
         self.attempts = 0
 
-    def put(
-        self, *, tenant_id: str, artifact_class: str, name: str, artifact: object
-    ) -> ArtifactRef:
+    @property
+    def write_kinds(self) -> WriteKinds:
+        return self._inner.write_kinds
+
+    def put(self, authorized: object, artifact: object) -> ArtifactRef:
         self.attempts += 1
         raise OSError("the artifact substrate refused the append (fixture)")
 
@@ -518,7 +528,9 @@ def _boot(
         yield _Booted(
             fabric=fabric,
             control_plane=control_plane,
-            store=FileArtifactStore(root=tmp_path / "artifacts"),
+            store=declaring_store(
+                tmp_path / "artifacts", REPLAY_RECORD_CLASS, QUERY_PIN_CLASS, ADMITTED_CHILD_CONTRACT_CLASS
+            ),
             root=tmp_path,
         )
     finally:
@@ -2036,7 +2048,10 @@ DEPLOYMENT_OWNED_ARGUMENTS: tuple[str, ...] = (
 
 def test_the_argument_enumeration_is_exhaustive() -> None:
     """A guard over a sample is a guard that stops covering what it names."""
-    declared = tuple(f.name for f in dataclasses.fields(GovernedResolver))
+    # `init=False` fields are what the composition minted for itself
+    # (D-IMPL-354), not arguments anyone supplies; the enumeration is of
+    # arguments.
+    declared = tuple(f.name for f in dataclasses.fields(GovernedResolver) if f.init)
     assert set(declared) == set(DEPLOYMENT_OWNED_ARGUMENTS)
 
 
@@ -2112,23 +2127,31 @@ def test_a_call_carrying_no_request_raises_rather_than_guessing(
 # --- helpers ----------------------------------------------------------------
 
 
-def _arguments(booted: _Booted) -> dict[str, Any]:
+def _arguments(booted: _Booted, *, key: Callable[[str], str] = lambda name: name) -> dict[str, Any]:
+    """The seam's resolver arguments over ``booted``.
+
+    ``key`` maps each fixture key to the string the fabric was booted under —
+    identity here, where the fixture IS the tenant; a program that re-tenanted
+    the fixture's documents (``tests/crossproc/servers/mcp_product_producer.py``)
+    passes the same move, so the keys it resolves by are the keys it registered
+    (D-IMPL-354).
+    """
     return {
         "fabric": booted.fabric,
         "control_plane": booted.control_plane,
-        "product_class_key": PRODUCT_CLASS_KEY,
-        "request_contract_key": REQUEST_CONTRACT_KEY,
+        "product_class_key": key(PRODUCT_CLASS_KEY),
+        "request_contract_key": key(REQUEST_CONTRACT_KEY),
         # `24.11-02b` / `D-IMPL-292`: naming the similarity key is now the WHOLE
         # of wiring similarity — the artifact it resolves to carries its own
         # `index_version`, and there is no companion argument to keep in step
         # with it. The default wiring names no similarity artifact; the test
         # below adds the key and nothing else.
-        "operator_parameter_keys": (TRAVERSAL_KEY,),
-        "policy_bundle_key": POLICY_BUNDLE_KEY,
+        "operator_parameter_keys": (key(TRAVERSAL_KEY),),
+        "policy_bundle_key": key(POLICY_BUNDLE_KEY),
         # `24.11-03` / `24.10-F-08`: the deployment's D_c bands, named the
         # way every other declaration is named — by key, so the profile the
         # resolver reads is provably the manifest's.
-        "debt_profile_key": DEBT_PROFILE_KEY,
+        "debt_profile_key": key(DEBT_PROFILE_KEY),
         # This fixture's class declares no child requirements, so it wires no
         # child resolver — the state every product shipped before D-IMPL-336
         # was in, stated rather than defaulted.
@@ -2178,9 +2201,10 @@ def _arguments(booted: _Booted) -> dict[str, Any]:
         # second writer to the graph — with the four required inputs and no
         # bundle pin, which is the shape a door-side helper wires too.
         "refusal_recorder": ReplayRefusalRecorder(
+            authorized=composition_replay_mint(
+                booted.control_plane, tenant=TENANT, artifact_class=REPLAY_RECORD_CLASS
+            ),
             artifact_store=booted.store,
-            replay_record_class=REPLAY_RECORD_CLASS,
-            tenant_id=TENANT,
             assembly_mode="algorithmic",
             # The bundle the manifest put in force, read the way
             # `build_governed_resolver` reads it — so this fixture wires the
@@ -2188,8 +2212,8 @@ def _arguments(booted: _Booted) -> dict[str, Any]:
             # way that would leave dimension 2 thinner on the refusal path
             # than on the served one.
             policy_bundle_pin=PolicyBinding(
-                key=POLICY_BUNDLE_KEY,
-                version=booted.fabric.pins.version_for(POLICY_BUNDLE_KEY),
+                key=key(POLICY_BUNDLE_KEY),
+                version=booted.fabric.pins.version_for(key(POLICY_BUNDLE_KEY)),
             ),
         ),
         "artifact_store": booted.store,
@@ -2435,8 +2459,8 @@ def _real_child(
 
     registry = booted.control_plane
     child_class = "fixture.child"
-    ttl_key = "fixture/seam/child-max-ttl"
-    ttl_version = registry.register(ttl_key, MaxTTL(seconds=86400))
+    ttl_key = "tenant-fixture/seam/child-max-ttl"
+    ttl_version = register_at_composition(registry, ttl_key, MaxTTL(seconds=86400))
     registered_child = register_product_class(
         registry=registry,
         schema_name=child_class,
@@ -2513,8 +2537,7 @@ def _real_child(
     if "child" not in producers:
         regime_class = declared_artifact_class("policy-bundle")
         regime_key = f"{TENANT}/policy-bundle/seam-composite"
-        registry.register_typed(
-            regime_key,
+        register_typed_at_composition(registry, regime_key,
             parse_artifact(
                 {
                     "class_id": "policy-bundle",
@@ -2548,7 +2571,7 @@ def _real_child(
             instruction_bindings=(),
         )
         catalog = SkillCatalog(registry)
-        catalog.register(entry)
+        register_skill_entry(catalog, registry, entry)
         ledger = GrantLedger(
             control_plane=registry,
             catalog=catalog,
@@ -2557,6 +2580,7 @@ def _real_child(
         )
         assert isinstance(
             ledger.request(
+                grant_capability(definition),
                 SkillGrant(
                     schema_version="1.0.0",
                     artifact_version="1.0.0",
@@ -2567,7 +2591,6 @@ def _real_child(
                     skill_version="1.0.0",
                 ),
                 definition=definition,
-                actor="seam-operator",
             ),
             str,
         )

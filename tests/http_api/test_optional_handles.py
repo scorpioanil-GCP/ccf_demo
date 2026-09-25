@@ -73,6 +73,9 @@ from ccf_runtime.mcp.auth import FileTokenSource, TokenGrant
 from tests.http_api.test_product_declared_obligation_409 import _recorder
 
 from http_api.conftest import Fabric, call
+from http_api.composition_authority import (
+    register_typed_at_composition,
+)
 
 #: Test deployment vocabulary; the SDK ships none of it.
 TOKEN = "optional-handles-token"
@@ -90,7 +93,7 @@ EXECUTION_ID = "optional-handles-execution"
 #: useful app omits any of them.
 REQUIRED_FIELDS = ("control_plane", "artifact_store", "product_resolver")
 
-#: The five that default to ``None``. ``None`` is the positive assertion *this
+#: The six that default to ``None``. ``None`` is the positive assertion *this
 #: deployment exposes no such route*, not an omission.
 OPTIONAL_FIELDS = (
     "workflow_factory",
@@ -98,6 +101,7 @@ OPTIONAL_FIELDS = (
     "hitl_transport",
     "skill_catalog",
     "grant_ledger",
+    "clock",
 )
 
 #: Each of the eight fields against the router module that consumes it. This
@@ -112,6 +116,7 @@ FIELD_TO_ROUTER = {
     "hitl_transport": ("hitl",),
     "skill_catalog": ("skill",),
     "grant_ledger": ("skill",),
+    "clock": ("hitl",),
 }
 
 
@@ -126,6 +131,7 @@ def _full_deps(fabric: Fabric) -> ApiDependencies:
         hitl_transport=fabric.hitl,
         skill_catalog=fabric.catalog,
         grant_ledger=fabric.ledger,
+        clock=lambda: datetime(2026, 7, 30, 12, tzinfo=UTC),
     )
 
 
@@ -136,6 +142,12 @@ def _partial_deps(fabric: Fabric) -> ApiDependencies:
         artifact_store=fabric.store,
         product_resolver=fabric.product_resolver,
     )
+
+
+from .gate_fixtures import (  # noqa: E402
+    SCOPE_EVERYTHING,
+    wide_authorizer,
+)
 
 
 def _resolver(
@@ -156,14 +168,25 @@ def _app(fabric: Fabric, tmp_path: Path, deps: ApiDependencies) -> Any:
     from ccf_runtime.http_api.auth import BearerTokenAuth
 
     tmp_path.mkdir(parents=True, exist_ok=True)
+    # The REAL dev token file, `tenants` included, read through the REAL
+    # `FileTokenSource` (D-IMPL-353 §2 P1). This file used to be written and
+    # then ignored in favour of a test-only grant subclass.
     token_file = tmp_path / "optional-handles-tokens.json"
     token_file.write_text(
-        json.dumps({TOKEN: {"client_id": PRINCIPAL, "scopes": [SCOPE]}}),
+        json.dumps(
+            {
+                TOKEN: {
+                    "client_id": PRINCIPAL,
+                    "scopes": [SCOPE_EVERYTHING],
+                    "tenants": [fabric.product_address.tenant],
+                }
+            }
+        ),
         encoding="utf-8",
     )
     address = fabric.product_address
     registry = ControlPlaneRegistry()
-    registry.register_typed(
+    register_typed_at_composition(registry, 
         product_entitlement_key(tenant_id=address.tenant),
         ProductEntitlementPolicy(
             tenant_id=address.tenant,
@@ -182,7 +205,13 @@ def _app(fabric: Fabric, tmp_path: Path, deps: ApiDependencies) -> Any:
     )
     return create_app(
         deps,
+        # `SEC-001`/`SEC-002`: every app binds an authorizer, and the
+        # tenant is the credential's. This module's subject is elsewhere,
+        # so the mapping is registered wide and visibly so.
         auth=BearerTokenAuth(token_source=FileTokenSource(path=token_file)),
+        authorizer=wide_authorizer(
+            tenant=fabric.product_address.tenant, key="optional-handles/mapping"
+        ),
         product_entitlement=source,
         perspective_resolver=_resolver,
         # `24.6-09` / `D-IMPL-256` (2): from this wave an entitling door that
@@ -344,7 +373,7 @@ def test_a_fully_wired_bundle_reaches_the_route_it_always_reached(
 
 
 def test_the_class_docstring_names_every_field_and_the_router_it_gates() -> None:
-    """Eight fields, and for each one the router module that consumes it."""
+    """Nine fields, and for each one the router module that consumes it."""
     doc = ApiDependencies.__doc__
     assert doc is not None
     for field, routers in FIELD_TO_ROUTER.items():
@@ -371,7 +400,7 @@ def test_the_module_docstring_no_longer_claims_every_handle_is_required() -> Non
     assert "CINV-01" in doc
 
 
-def test_the_optional_fields_are_exactly_the_five_measured() -> None:
+def test_the_optional_fields_are_exactly_the_six_measured() -> None:
     """Neither more nor fewer defaults than the ruling admits.
 
     ``control_plane``, ``artifact_store`` and ``product_resolver`` stay

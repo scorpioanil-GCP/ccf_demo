@@ -34,6 +34,7 @@ from fastapi.responses import Response
 from starlette.requests import Request
 
 from ccf.artifacts.protocol import MovingTargetRefused
+from ccf.authz.capability import ReplayRead, kind_for_action
 from ccf.products.refusal import RefusalEnvelope
 from ccf_runtime.authz.delivery_boundary import (
     SURFACE_HTTP_REPLAY_READ,
@@ -44,12 +45,10 @@ from ccf_runtime.authz.delivery_boundary import (
 from ccf_runtime.authz.product_entitlement import (
     ProductEntitlementSourceProtocol,
 )
+from ccf_runtime.authz.refusals import ACTION_REPLAY_READ
+from ccf_runtime.authz.route_declaration import ResourceBinding, authorizes
 from ccf_runtime.http_api.dependencies import ApiDependencies
-from ccf_runtime.http_api.errors import (
-    ERROR_PRODUCT_DOOR_UNGOVERNED,
-    refusal_detail,
-)
-from ccf_runtime.http_api.grants import grant_from_request
+from ccf_runtime.http_api.grants import authorized_from_request
 from ccf_runtime.http_api.routes import (
     canonical_response,
     governed_refusal_response,
@@ -58,6 +57,11 @@ from ccf_runtime.http_api.routes import (
 __ccf_mode__ = "algorithmic"
 
 __all__ = ["build_router"]
+
+# The kind these two doors dereference under is the kind their declared action
+# mints — the same lookup the gate performs; `kind_for_action` is the proof
+# that `ReplayRead` is `replay.read`'s kind rather than an assumption of it.
+assert kind_for_action(ACTION_REPLAY_READ) is ReplayRead
 
 
 def _route_path(request: Request, reference: str) -> str:
@@ -79,20 +83,23 @@ def _route_path(request: Request, reference: str) -> str:
 def build_router(
     deps: ApiDependencies,
     *,
-    entitlement_source: ProductEntitlementSourceProtocol | None = None,
-    refusal_recorder: DisclosingRecorderProtocol | None = None,
+    entitlement_source: ProductEntitlementSourceProtocol,
+    refusal_recorder: DisclosingRecorderProtocol,
 ) -> APIRouter:
     """The replay router over the injected artifact store and governance seams.
 
     Args:
         deps: The named provider bundle carrying the artifact store and the
             Control Plane whose audit log every dereference appends to.
-        entitlement_source: The deployment's entitlement seam. ``None`` — the
-            posture of an app built without it — makes every dereference a
-            ``503``: the routes are mounted, and they refuse to read governed
-            evidence ungoverned (``D-IMPL-345`` R-1).
+        entitlement_source: The deployment's entitlement seam. **Required**
+            (``SEC-001``): ``D-IMPL-345`` R-1 said a surface that cannot
+            decide does not answer from the store, and it used to say that
+            with a per-request ``503`` because ``create_app`` could be built
+            without the seam. It cannot any more, so the rule is now held by
+            the signature instead of by a branch.
         refusal_recorder: The ONE minting seam, which also states the
-            disclosure level. Checked at construction by the app's
+            disclosure level. **Required**, checked at construction by the
+            app's
             :func:`~ccf_runtime.authz.delivery_boundary.disclosing_boundary`.
     """
     router = APIRouter()
@@ -101,28 +108,13 @@ def build_router(
         request: Request, reference: DereferenceRequest
     ) -> Response:
         """Authenticate, govern, encode. The route's whole job."""
-        grant = grant_from_request(request)
-        if entitlement_source is None or refusal_recorder is None or grant is None:
-            # The product route's own posture for an ungoverned door, in its
-            # own words and with its own code: a surface that cannot decide
-            # does not answer from the store (D-IMPL-345 R-1). Refusing here
-            # rather than serving is also what keeps unauthorized and
-            # nonexistent from diverging through a configuration path.
-            raise HTTPException(
-                status_code=503,
-                detail=refusal_detail(
-                    error_code=ERROR_PRODUCT_DOOR_UNGOVERNED,
-                    message=(
-                        "this door dereferences governed evidence without a"
-                        " bound entitlement source, recorder and verified"
-                        " caller; bind auth=, product_entitlement= and"
-                        " refusal_recorder= at create_app (D-IMPL-345 R-1)"
-                    ),
-                ),
-            )
+        # D-IMPL-353 §1.4: `Authorized[ReplayRead]` for THIS reference, or
+        # nothing — and the governed step verifies it again, bound to the
+        # reference, before its first real statement (§1.2).
+        authorized = authorized_from_request(request, kind=ReplayRead)
         try:
             decided = govern_dereference(
-                grant=grant,
+                authorized,
                 reference=reference,
                 store=deps.artifact_store,
                 entitlement_source=entitlement_source,
@@ -141,6 +133,9 @@ def build_router(
         return canonical_response(decided.record)
 
     @router.get("/decisions", summary="Replay decision (D-IMPL-23)")
+    @authorizes(
+        ACTION_REPLAY_READ, resource=ResourceBinding.query("content_address")
+    )
     def decision(content_address: str, request: Request) -> Response:
         return _dereferenced(
             request,
@@ -150,6 +145,7 @@ def build_router(
         )
 
     @router.get("/resolutions", summary="Replay resolve (D-IMPL-23)")
+    @authorizes(ACTION_REPLAY_READ, resource=ResourceBinding.query("uri"))
     def resolution(uri: str, request: Request) -> Response:
         return _dereferenced(
             request,

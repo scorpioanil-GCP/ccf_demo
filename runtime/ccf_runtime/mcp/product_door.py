@@ -34,6 +34,19 @@ client spawned, under the same user, on the same host. So
 serving: the deployment's declared principal, under the declared scope. On
 the loopback transport bearer auth is REAL and the identity is NOT pre-set.
 
+**What that statement is now bounded by** (``SEC-018``). Reviewers were right
+that an ambient identity is an identity nobody presented, and the answer is to
+bound its warrant rather than to remove the only identity stdio can have. The
+stated identity is built by
+:func:`~ccf_runtime.mcp.tenancy.ambient_stdio_identity`, which scopes it to
+**exactly this door's own tenant** — before the tenant axis existed it carried
+none, so its reach was unbounded — and marks it *ambient*, which makes every
+surface registered ``mutating`` refuse it outright. Process ownership warrants
+reading what the child was spawned to serve; it does not warrant writing on an
+authority nobody presented. None of this touches the loopback transport, whose
+bearer authentication is real and whose identity is not ambient — keeping those
+two transports distinguishable is the point of having both.
+
 Where the URLs come from (Dave, `D-IMPL-343` GO: *"Do not put URLs or tokens
 in configuration."*)
 --------------------------------------------------------------------------
@@ -60,11 +73,20 @@ from typing import Protocol, runtime_checkable
 
 from mcp.server.auth.middleware.auth_context import auth_context_var
 from mcp.server.auth.middleware.bearer_auth import AuthenticatedUser
-from mcp.server.auth.provider import AccessToken, TokenVerifier
+from mcp.server.auth.provider import TokenVerifier
 from mcp.server.auth.settings import AuthSettings
 from mcp.server.fastmcp import FastMCP
 from pydantic import AnyHttpUrl
 
+from ccf.authz.actions import ACTION_PRODUCT_RETRIEVE
+from ccf.authz.capability import (
+    CompositionRegister,
+    COMPOSITION_PRINCIPAL,
+    Authorized,
+    Register,
+    mint_at_composition,
+)
+from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifacts import EgressDoorBinding, ProductClassDeclaration
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.deployment.environment import EnvironmentDocument, resolve_value
@@ -77,16 +99,28 @@ from ccf.products.entitlement import (
 from ccf.products.resolver import RefusalRecorderProtocol, ResolverOutcome
 from ccf.products.request import ProductRequest
 from ccf.projection.plan import Perspective
+from ccf_runtime.authz.artifact import SCOPE_MAPPING, ScopeEntry, ScopeMappingArtifact
 from ccf_runtime.authz.product_entitlement import (
     ControlPlaneProductEntitlementSource,
     PerspectiveResolverProtocol,
     ProductEntitlementSourceProtocol,
     TokenGrant,
 )
+from ccf_runtime.authz.protocol import (
+    ControlPlaneTenantAuthorizer,
+    TenantAuthorizerProtocol,
+)
 from ccf_runtime.mcp.auth import SourceBackedTokenVerifier, StaticTokenSource
+from ccf_runtime.mcp.tenancy import ambient_stdio_identity
 from ccf_runtime.mcp.egress import build_egress_server
 
-__all__ = ["ProductDoor", "ServesProducts", "open_door"]
+__all__ = [
+    "ProductDoor",
+    "ServesProducts",
+    "open_door",
+    "open_door_with_verifier",
+    "scope_mapping_key",
+]
 
 
 @runtime_checkable
@@ -159,6 +193,7 @@ class ProductDoor:
     tenant_id: str
     producer_id: str
     _token_verifier: TokenVerifier
+    _authorizer: TenantAuthorizerProtocol
     _entitlement_source: ProductEntitlementSourceProtocol
     _perspective_resolver: PerspectiveResolverProtocol
     _environ: Mapping[str, str]
@@ -189,6 +224,9 @@ class ProductDoor:
                 resource_server_url=AnyHttpUrl(resource_server_url),
                 required_scopes=[self.scope],
             ),
+            # The MCP mint site decides every surface against this
+            # authorizer before its body runs (D-IMPL-353 §1.1).
+            authorizer=self._authorizer,
             entitlement_source=self._entitlement_source,
             perspective_resolver=self._perspective_resolver,
             refusal_recorder=self.product.refusal_recorder,
@@ -216,7 +254,15 @@ class ProductDoor:
         )
         auth_context_var.set(
             AuthenticatedUser(
-                AccessToken(token=self.credential, client_id=self.principal_id, scopes=[self.scope])
+                ambient_stdio_identity(
+                    credential=self.credential,
+                    principal_id=self.principal_id,
+                    scope=self.scope,
+                    # Exactly the tenant this door was opened to serve. Before
+                    # the tenant axis existed the stated identity carried none,
+                    # so nothing about its reach was bounded (`SEC-018`).
+                    tenant=self.tenant_id,
+                )
             )
         )
         server.run(transport="stdio")
@@ -257,12 +303,25 @@ class ProductDoor:
         anyio.run(run)
 
 
+def scope_mapping_key(*, tenant_id: str) -> str:
+    """Return the Control Plane key one tenant's door scope mapping registers under.
+
+    A derivation rather than a table, on the terms of
+    :func:`~ccf.products.entitlement.product_entitlement_key`: the SDK
+    supplies the shape of the key so the door and its authorizer cannot
+    disagree about where a tenant's mapping lives, and supplies no tenant, so
+    it holds no deployment's vocabulary (CINV-01).
+    """
+    # `{tenant}/{class}` — the grammar the registry reads the tenant from
+    # (D-IMPL-353 §1.3); class-first until the D-IMPL-353 join corrected it.
+    return f"{tenant_id}/{SCOPE_MAPPING.class_id}"
+
+
 def open_door(
     product: ServesProducts,
     *,
     environ: Mapping[str, str] | None = None,
     perspective_resolver: PerspectiveResolverProtocol | None = None,
-    token_verifier: TokenVerifier | None = None,
     entitlement_source: ProductEntitlementSourceProtocol | None = None,
 ) -> ProductDoor:
     """Compose the standard door over ``product``; choose the transport afterwards.
@@ -273,12 +332,17 @@ def open_door(
     shape — never restated in a second document); the entitlement source over
     that registry with a wall clock (a door decision happens when it happens;
     the audit instant is never the question's); a static token source holding
-    this boot's one credential; and a perspective resolver serving the
-    VERIFIED caller under the declared role. Each of the last three is a typed
-    override for the common partial departures — an identity provider, a
-    role derived from scopes, several principals — and a deployment that
-    departs further calls :func:`build_egress_server` with ``product.resolve``
-    itself.
+    this boot's one credential; a perspective resolver serving the VERIFIED
+    caller under the declared role; and — ``D-IMPL-353`` — the scope mapping
+    the door's authorizer decides under, granting the declared scope exactly
+    the retrieve action on exactly the declared class for the declared tenant,
+    registered into the same Control Plane and **pinned at the version that
+    registration returns**, so a later registration under the key cannot
+    widen a running door (``SEC-002``). The two seams that remain overridable
+    are typed for the common partial departures — a role derived from scopes,
+    several principals; a deployment with its own identity provider opens the
+    same door through :func:`open_door_with_verifier`, and one that departs
+    further calls :func:`build_egress_server` with ``product.resolve`` itself.
 
     Args:
         product: What to serve. Its ``door`` binding and its environment's
@@ -287,13 +351,82 @@ def open_door(
         environ: Where the environment's names are resolved from;
             ``os.environ`` when omitted.
         perspective_resolver: Replaces the declared-role resolver.
-        token_verifier: Replaces the static-credential verifier.
         entitlement_source: Replaces the Control Plane source.
 
     Raises:
         ValueError: the product declares no ``door:`` section, or its
             environment document names no door.
     """
+    resolved_environ, credential = _boot_credential(product, environ)
+    door = product.door
+    assert door is not None  # checked by `_boot_credential`
+    return _compose(
+        product,
+        environ=resolved_environ,
+        credential=credential,
+        token_verifier=SourceBackedTokenVerifier(
+            source=StaticTokenSource(
+                grants={
+                    credential: TokenGrant(
+                        client_id=product.default_perspective.principal_id,
+                        scopes=(door.required_scope,),
+                        # The one tenant this door serves (`SEC-018`).
+                        tenants=frozenset({product.tenant_id}),
+                    )
+                }
+            )
+        ),
+        perspective_resolver=perspective_resolver,
+        entitlement_source=entitlement_source,
+    )
+
+
+def open_door_with_verifier(
+    product: ServesProducts,
+    *,
+    token_verifier: TokenVerifier,
+    environ: Mapping[str, str] | None = None,
+    perspective_resolver: PerspectiveResolverProtocol | None = None,
+    entitlement_source: ProductEntitlementSourceProtocol | None = None,
+) -> ProductDoor:
+    """The same door, verifying credentials through the deployment's own identity provider.
+
+    A second constructor rather than an optional parameter on
+    :func:`open_door` (``D-IMPL-353`` §4): an authority-typed parameter that
+    admits ``None`` says an absent verifier is representable, and the lint
+    refuses that shape whether or not ``None`` happened to mean *mint one*.
+    Here the verifier is **required**; on :func:`open_door` it is the paved
+    road's own static credential. Everything else — the entitlement policy,
+    the scope mapping, the pinned authorizer, the declared-role resolver — is
+    derived identically.
+
+    The boot credential is still read or minted, because the stdio transport
+    states it as the ambient identity's token and :class:`ProductDoor` exposes
+    it; whether the deployment's verifier recognizes it is the deployment's
+    statement, as every token it recognizes is.
+
+    Args:
+        product: What to serve, on :func:`open_door`'s terms.
+        token_verifier: The deployment's verifier. Required.
+        environ: Where the environment's names are resolved from.
+        perspective_resolver: Replaces the declared-role resolver.
+        entitlement_source: Replaces the Control Plane source.
+    """
+    resolved_environ, credential = _boot_credential(product, environ)
+    return _compose(
+        product,
+        environ=resolved_environ,
+        credential=credential,
+        token_verifier=token_verifier,
+        perspective_resolver=perspective_resolver,
+        entitlement_source=entitlement_source,
+    )
+
+
+def _boot_credential(
+    product: ServesProducts, environ: Mapping[str, str] | None
+) -> tuple[Mapping[str, str], str]:
+    """Refuse a product with no door, then read or mint this boot's credential."""
     door = product.door
     if door is None:
         raise ValueError(
@@ -311,19 +444,72 @@ def open_door(
         )
     resolved_environ = os.environ if environ is None else environ
     credential = resolved_environ.get(names.credential.from_env) or secrets.token_urlsafe(32)
+    return resolved_environ, credential
 
+
+def _registration(
+    control_plane: ControlPlaneRegistry, *, tenant: str, key: str, clock: Callable[[], datetime]
+) -> Authorized[CompositionRegister]:
+    """The composition recipe for ONE of the door's own keys (D-IMPL-354).
+
+    The door is a composition root (§1.6): it records a ``composition`` event
+    on the product's Control Plane audit log naming the key, and mints
+    ``Register`` for exactly that key from that event's content address —
+    for the tenant the door composes for. Both keys the door registers
+    (:func:`~ccf.products.entitlement.product_entitlement_key`,
+    :func:`scope_mapping_key`) are ``{tenant}/{class}``, so the registry's
+    own tenant-segment check (§1.3) is a real check here, not a tautology:
+    a key that did not belong to this tenant would be refused at the write.
+    """
+    event = control_plane.audit_log.append(
+        action="composition",
+        key=key,
+        version=CompositionRegister.action_id,
+        resolved=True,
+        occurred_at=clock(),
+        actor=COMPOSITION_PRINCIPAL,
+    )
+    return mint_at_composition(
+        CompositionRegister,
+        tenant=tenant,
+        principal=COMPOSITION_PRINCIPAL,
+        resource=key,
+        decision_id=content_hash(event),
+    )
+
+
+def _compose(
+    product: ServesProducts,
+    *,
+    environ: Mapping[str, str],
+    credential: str,
+    token_verifier: TokenVerifier,
+    perspective_resolver: PerspectiveResolverProtocol | None,
+    entitlement_source: ProductEntitlementSourceProtocol | None,
+) -> ProductDoor:
+    """The composition both constructors share, over a verifier already chosen."""
+    door = product.door
+    assert door is not None  # checked by `_boot_credential`
     tenant = product.tenant_id
     principal = product.default_perspective.principal_id
     role = product.default_perspective.role
     scope = door.required_scope
 
+    def now() -> datetime:
+        return datetime.now(UTC)
+
     # The permitted class and role are the ones this deployment serves and
     # assembles under — off the declaration and the declared perspective,
     # never restated — so an entitlement cannot name a class this fabric does
     # not serve. Into the product's ONE registry: the per-question resolver
-    # and the door read the same policy.
+    # and the door read the same policy. Under a `Register` minted by this
+    # composition root for exactly that key (D-IMPL-354).
     product.control_plane.register_typed(
-        product_entitlement_key(tenant_id=tenant),
+        _registration(
+            product.control_plane,
+            tenant=tenant, key=product_entitlement_key(tenant_id=tenant),
+            clock=now,
+        ),
         ProductEntitlementPolicy(
             tenant_id=tenant,
             policy_version=product.declaration.schema_version,
@@ -335,6 +521,31 @@ def open_door(
             },
         ),
         PRODUCT_ENTITLEMENT_POLICY,
+    )
+
+    # The scope mapping the door's authorizer decides under (`D-IMPL-353`):
+    # the declared scope reaches the declared tenant for exactly the retrieve
+    # action on exactly the declared class — the same three facts the
+    # entitlement above is derived from, in the authorizer's vocabulary. The
+    # mapping's own semver lane rides the declaration's, and the authorizer
+    # is pinned to the version this registration returns (`SEC-002`).
+    mapping_version = product.control_plane.register_typed(
+        _registration(
+            product.control_plane,
+            tenant=tenant, key=scope_mapping_key(tenant_id=tenant),
+            clock=now,
+        ),
+        ScopeMappingArtifact(
+            semver=product.declaration.schema_version,
+            scopes={
+                scope: ScopeEntry(
+                    tenant_patterns=(tenant,),
+                    action_ids=(ACTION_PRODUCT_RETRIEVE,),
+                    resource_patterns=(product.declaration.schema_name,),
+                )
+            },
+        ),
+        SCOPE_MAPPING,
     )
 
     def declared_role(
@@ -351,14 +562,12 @@ def open_door(
         scope=scope,
         tenant_id=tenant,
         producer_id=door.producer_id,
-        _token_verifier=(
-            token_verifier
-            if token_verifier is not None
-            else SourceBackedTokenVerifier(
-                source=StaticTokenSource(
-                    grants={credential: TokenGrant(client_id=principal, scopes=(scope,))}
-                )
-            )
+        _token_verifier=token_verifier,
+        _authorizer=ControlPlaneTenantAuthorizer(
+            control_plane=product.control_plane,
+            scope_mapping_key=scope_mapping_key(tenant_id=tenant),
+            scope_mapping_version=mapping_version,
+            clock=lambda: datetime.now(UTC),
         ),
         _entitlement_source=(
             entitlement_source
@@ -370,5 +579,5 @@ def open_door(
         _perspective_resolver=(
             perspective_resolver if perspective_resolver is not None else declared_role
         ),
-        _environ=resolved_environ,
+        _environ=environ,
     )

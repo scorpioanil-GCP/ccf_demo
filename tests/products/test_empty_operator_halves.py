@@ -75,6 +75,7 @@ from ccf.products.gates import (
     run_gates,
 )
 from ccf.products.refusal import REFUSAL_KINDS
+from tests.composition import register_at_composition
 
 TENANT = "tenant-fixture"
 NOW = datetime(2026, 3, 2, 12, 0, 0, tzinfo=UTC)
@@ -83,7 +84,7 @@ POLICY_VERSION = "policy-version-fixture"
 OPERATOR_KEY = "traversal.typed-neighborhood"
 SECOND_OPERATOR_KEY = "policy.principal-subgraph"
 OPERATORS = frozenset({OPERATOR_KEY, SECOND_OPERATOR_KEY})
-MAX_TTL_KEY = "fixture/max-ttl"
+MAX_TTL_KEY = "tenant-fixture/max-ttl"
 MAX_TTL_SECONDS = 3600
 CANDIDATE_TTL_SECONDS = 600
 SCHEMA_NAME = "fixture.empty-operator-halves"
@@ -110,7 +111,7 @@ GATES_SOURCE = GATES_PATH.read_bytes()
 
 
 def _class(registry: ControlPlaneRegistry) -> RegisteredProductClass:
-    max_ttl_version = registry.register(MAX_TTL_KEY, MaxTTL(seconds=MAX_TTL_SECONDS))
+    max_ttl_version = register_at_composition(registry, MAX_TTL_KEY, MaxTTL(seconds=MAX_TTL_SECONDS))
     return register_product_class(
         registry=registry,
         schema_name=SCHEMA_NAME,

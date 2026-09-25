@@ -33,6 +33,7 @@ import json
 import socket
 import sys
 import tempfile
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -42,7 +43,9 @@ _REPO_ROOT = _TESTS_ROOT.parent
 # The child is spawned as a bare `python <file>`, so it gets none of pytest's
 # sys.path work. Resolving the roots from __file__ is what makes it runnable
 # from anywhere, which the fixture depends on.
-for _root in (_REPO_ROOT / "src", _REPO_ROOT / "runtime", _TESTS_ROOT):
+# The repo root too (last on the path): the shared test helpers import as
+# `tests.composition`, which resolves only from there (D-IMPL-354).
+for _root in (_REPO_ROOT, _REPO_ROOT / "src", _REPO_ROOT / "runtime", _TESTS_ROOT):
     if str(_root) not in sys.path:
         sys.path.insert(0, str(_root))
 
@@ -50,7 +53,23 @@ import httpx  # noqa: E402
 from mcp.server.auth.settings import AuthSettings  # noqa: E402
 from pydantic import AnyHttpUrl  # noqa: E402
 
-from ccf.artifacts.file_store import FileArtifactStore  # noqa: E402
+from crossproc.servers.wide_authorizer import wide_authorizer  # noqa: E402
+from ccf.controlplane.registry import ControlPlaneRegistry  # noqa: E402
+from ccf.products.entitlement import (  # noqa: E402
+    PRODUCT_ENTITLEMENT_POLICY,
+    ProductEntitlementGrant,
+    ProductEntitlementPolicy,
+    product_entitlement_key,
+)
+from ccf_runtime.authz.product_entitlement import (  # noqa: E402
+    ControlPlaneProductEntitlementSource,
+)
+from http_api.composition_authority import (  # noqa: E402
+    deployment_store,
+    refusal_recorder,
+    register_typed_at_composition,
+)
+
 from ccf_runtime.mcp.artifact_server import build_artifact_server  # noqa: E402
 from ccf_runtime.mcp.auth import (  # noqa: E402
     FileTokenSource,
@@ -69,6 +88,12 @@ REJECTED_TOKEN = "ccf-conformance-not-a-token"
 
 #: Deployment vocabulary, chosen here because a test *is* the deployment.
 CLIENT_ID = "ccf-conformance-client"
+
+#: The one tenant this child serves. Its credential is scoped to exactly
+#: this (``SEC-018``), and `tests/conformance/test_artifactstore.py` imports
+#: it rather than keeping a second copy of the same literal — two spellings
+#: of one deployment value is how a fixture drifts from the server it drives.
+TENANT = "tenant-conformance"
 SCOPE = "ccf:artifact"
 SERVER_NAME = "ccf-artifact-conformance"
 
@@ -80,6 +105,12 @@ RESOURCE_SERVER_URL = "https://artifact-server.invalid/mcp"
 
 TOKEN_FILENAME = "tokens.json"
 ARTIFACTS_DIRNAME = "artifacts"
+
+#: The one governed evidence class this child's substrate declares — the
+#: class its refusal recorder files records into, under ``ReplayMint``.
+#: Every other class a client puts is the client lane, served tenant-scoped
+#: through the blob resource (the D-IMPL-353 join's split, §7.4).
+REPLAY_RECORD_CLASS = "ccf.decision-replay-record"
 
 
 def authorized_http_client(token: str = DEV_TOKEN) -> httpx.AsyncClient:
@@ -98,21 +129,60 @@ def rejected_http_client() -> httpx.AsyncClient:
     return authorized_http_client(REJECTED_TOKEN)
 
 
-def write_token_file(*, workspace: Path) -> Path:
-    """Write the child's token file and return its path."""
+def write_token_file(*, workspace: Path, tenant: str = TENANT) -> Path:
+    """Write the child's token file and return its path.
+
+    The credential is scoped to the one tenant this child serves
+    (``SEC-018``); an unscoped grant reaches nothing.
+    """
     token_file = workspace / TOKEN_FILENAME
     token_file.write_text(
-        json.dumps({DEV_TOKEN: {"client_id": CLIENT_ID, "scopes": [SCOPE]}}),
+        json.dumps(
+            {
+                DEV_TOKEN: {
+                    "client_id": CLIENT_ID,
+                    "scopes": [SCOPE],
+                    "tenants": [tenant],
+                }
+            }
+        ),
         encoding="utf-8",
     )
     return token_file
 
 
 def build_server(*, workspace: Path) -> FastMCP:
-    """Build the authenticated artifact server over a file substrate."""
+    """Build the authenticated, authorized artifact server over a file substrate.
+
+    ``D-IMPL-353`` §2 P5: the blob and presence resources read through the
+    governed dereference, so the builder composes the dereference's three
+    seams — an entitlement source, a disclosing recorder over the same
+    store, and the Control Plane audit log — beside the authorizer every
+    MCP builder now takes.
+    """
+    store = deployment_store(workspace / ARTIFACTS_DIRNAME, REPLAY_RECORD_CLASS)
+    registry = ControlPlaneRegistry()
+    register_typed_at_composition(
+        registry,
+        product_entitlement_key(tenant_id=TENANT),
+        ProductEntitlementPolicy(
+            tenant_id=TENANT,
+            policy_version="1.0.0",
+            principals={
+                CLIENT_ID: ProductEntitlementGrant(
+                    permitted_schema_names=frozenset({"artifact-child-class"}),
+                    permitted_roles=frozenset({"artifact-child-role"}),
+                )
+            },
+        ),
+        PRODUCT_ENTITLEMENT_POLICY,
+    )
+    source = ControlPlaneProductEntitlementSource(
+        control_plane=registry, clock=lambda: datetime.now(UTC)
+    )
     return build_artifact_server(
         server_name=SERVER_NAME,
-        store=FileArtifactStore(root=workspace / ARTIFACTS_DIRNAME),
+        store=store,
         token_verifier=SourceBackedTokenVerifier(
             source=FileTokenSource(path=write_token_file(workspace=workspace))
         ),
@@ -121,6 +191,17 @@ def build_server(*, workspace: Path) -> FastMCP:
             resource_server_url=AnyHttpUrl(RESOURCE_SERVER_URL),
             required_scopes=[SCOPE],
         ),
+        authorizer=wide_authorizer(scopes=(SCOPE,)),
+        entitlement_source=source,
+        refusal_recorder=refusal_recorder(
+            registry,
+            store=store,
+            tenant=TENANT,
+            replay_record_class=REPLAY_RECORD_CLASS,
+            assembly_mode="algorithmic",
+            disclosure_level_for=source.disclosure_level_for,
+        ),
+        audit_log=registry.audit_log,
     )
 
 

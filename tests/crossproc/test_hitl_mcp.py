@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import inspect
 import json
+from datetime import UTC, datetime
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -56,6 +57,7 @@ from crossproc.servers.mcp_hitl_child import (
     pending_event,
     principal_binding,
 )
+from crossproc.servers.wide_authorizer import wide_authorizer
 
 pytestmark = pytest.mark.crossproc
 
@@ -120,16 +122,12 @@ def _action_arguments() -> dict[str, Any]:
     """The complete action-tool argument set, from the shared builders."""
     event = pending_event()
     binding = principal_binding(product_content_hash=event.product_content_hash)
+    # D-IMPL-353 §2 P6: the wire carries no subject, assurance or time — the
+    # door mints those from the capability, the verified claims and its clock.
     return {
         "tenant": event.tenant,
         "event_key": event.event_key,
         "action": "approve",
-        "subject_id": binding.approver.subject_id,
-        "identity_provider_ref": binding.approver.identity_provider_ref,
-        "method": binding.authentication.method,
-        "assurance_level": binding.authentication.assurance_level,
-        "session_ref": binding.authentication.session_ref,
-        "action_time": binding.action_time.isoformat(),
         "product_content_hash": binding.product_content_hash,
     }
 
@@ -236,21 +234,35 @@ def test_a_bound_action_lands_on_replay_dimension_two(
     assert payload["refused"] is False
     assert payload["approved"] is True
 
+    record = json.loads(payload["replay_record"])
+    block = record["policy_bindings"]["hitl_actions"]
+    # The door minted the binding from the token's claims and its clock — both
+    # the fixture's, so the recorded binding IS `binding`. The one value a
+    # test cannot precompute is the authorizer's decision id (a content
+    # address of its audit event); it is read back, shape-checked, and the
+    # block is then recomputed byte for byte around it — the event class and
+    # state ref the action answered are the fixture event's own.
+    decision_id = json.loads(block)["submission"]["authorizing_decision_id"]
+    assert isinstance(decision_id, str) and len(decision_id) == 64, decision_id
     expected_block = canonical_bytes(
         HitlActionRecord(
             event=event,
             submission=HitlActionSubmission(
                 event_key=event.event_key,
-                tenant=event.tenant,
                 action="approve",
                 principal=binding,
                 annotation=None,
+                # The transport's recorded copy: which event the action
+                # answered (the Tier-0 verdict→target stamps) and which
+                # authorization produced it (D-IMPL-353 §9).
+                answered_event_class=event.event_class,
+                answered_workflow_state_ref=event.workflow_state_ref,
+                authorizing_decision_id=decision_id,
             ),
             approved=True,
         )
     ).decode("utf-8")
-    record = json.loads(payload["replay_record"])
-    assert record["policy_bindings"]["hitl_actions"] == expected_block
+    assert block == expected_block
 
 
 @with_child
@@ -271,7 +283,7 @@ def test_an_action_missing_a_binding_field_is_refused_typed(
     url = f"http://127.0.0.1:{child_server_port}/mcp"
     event = pending_event()
     incomplete = _action_arguments()
-    del incomplete["session_ref"]
+    del incomplete["product_content_hash"]
 
     is_error, body = _call_tool(
         bridge, url, SUBMIT_HITL_ACTION_TOOL, incomplete
@@ -284,38 +296,37 @@ def test_an_action_missing_a_binding_field_is_refused_typed(
 
 
 @with_child
-def test_a_conflicting_subject_claim_is_a_tool_error(
+def test_a_caller_typed_subject_has_no_effect_on_the_recorded_binding(
     child_server_port: int, bridge: SyncMcpBridge
 ) -> None:
-    """D-IMPL-67 item 2, across the wire: a foreign subject claim is refused.
+    """D-IMPL-353 §2 P6, across the wire: the subject is the capability's.
 
-    The token the client presents verifies to the fixture credit officer's
-    identity; a call claiming a different ``subject_id`` surfaces as a tool
-    error carrying the refusal, and the event survives untouched.
+    The tool has no ``subject_id`` argument. **Measured at the join:** FastMCP's
+    argument model DROPS unknown wire arguments rather than refusing them, so
+    a call naming one is not a tool error — it is a valid approval by the
+    verified officer in which the typed value reaches nothing. What this
+    test therefore holds is the security property: the recorded binding's
+    subject is the verified identity, and the caller-typed value appears
+    nowhere in the replay record. Refusing unknown arguments at the MCP
+    boundary (``extra=forbid`` on the tool's argument model) is recorded as
+    join finding ``SEC353-J-01`` for a ruling; the HTTP door already refuses
+    them (``extra=forbid`` on ``HitlActionRequest``).
     """
-    from ccf_runtime.mcp.hitl_server import (
-        SUBMIT_HITL_ACTION_TOOL,
-        hitl_queue_uri,
-    )
+    from ccf_runtime.mcp.hitl_server import SUBMIT_HITL_ACTION_TOOL
 
     url = f"http://127.0.0.1:{child_server_port}/mcp"
     event = pending_event()
-    conflicting = _action_arguments()
-    conflicting["subject_id"] = "someone-else-entirely"
-
-    is_error, body = _call_tool(
-        bridge, url, SUBMIT_HITL_ACTION_TOOL, conflicting
-    )
-
-    assert is_error, body
-    assert "identity" in body.lower()
-    view = json.loads(
-        _read_text(bridge, url, hitl_queue_uri(tenant=event.tenant))
-    )
-    assert [item["event_key"] for item in view["events"]] == [event.event_key]
-
-
-# --- the in-process identity-binding seam (D-IMPL-67 item 2) -----------------
+    binding = principal_binding(product_content_hash=event.product_content_hash)
+    typed = _action_arguments()
+    typed["subject_id"] = "someone-else-entirely"
+    is_error, body = _call_tool(bridge, url, SUBMIT_HITL_ACTION_TOOL, typed)
+    assert not is_error, body
+    payload = json.loads(body)
+    record = json.loads(payload["replay_record"])
+    block = record["policy_bindings"]["hitl_actions"]
+    recorded = json.loads(block)["submission"]["principal"]["approver"]
+    assert recorded["subject_id"] == binding.approver.subject_id
+    assert "someone-else-entirely" not in payload["replay_record"]
 
 
 def _unit_server(tmp_path: Path, action_route: Any) -> Any:
@@ -329,11 +340,20 @@ def _unit_server(tmp_path: Path, action_route: Any) -> Any:
 
     token_file = tmp_path / "tokens.json"
     token_file.write_text(
-        json.dumps({"unit-token": {"client_id": "auditor-1", "scopes": ["h"]}}),
+        json.dumps(
+            {
+                "unit-token": {
+                    "client_id": "auditor-1",
+                    "scopes": ["h"],
+                    "tenants": [UNIT_TENANT],
+                    "authentication": {"method": "bearer-token", "assurance_level": "dev", "identity_provider_ref": "idp://unit/dev-token-file", "session_ref": "unit-session-1"},
+                }
+            }
+        ),
         encoding="utf-8",
     )
 
-    def queue_view(*, tenant: str) -> tuple[PendingHitlEvent, ...]:
+    def queue_view(authorized: Any) -> tuple[PendingHitlEvent, ...]:
         return ()
 
     return build_hitl_server(
@@ -348,20 +368,25 @@ def _unit_server(tmp_path: Path, action_route: Any) -> Any:
             resource_server_url=AnyHttpUrl("https://unit.invalid/mcp"),
             required_scopes=["h"],
         ),
+        authorizer=wide_authorizer(scopes=["h"]),
+        clock=lambda: UNIT_CLOCK,
     )
 
 
-def _unit_arguments(*, subject_id: str) -> dict[str, Any]:
+#: The instant the unit door stamps on every action (D-IMPL-353 §2 P6).
+UNIT_CLOCK = datetime(2026, 7, 30, 12, tzinfo=UTC)
+
+
+#: The tenant the unit-level HITL fixtures act on. One spelling, so the
+#: credential's scope and the tool argument cannot drift apart (`SEC-018`).
+UNIT_TENANT = "unit-tenant"
+
+
+def _unit_arguments() -> dict[str, Any]:
     return {
-        "tenant": "unit-tenant",
+        "tenant": UNIT_TENANT,
         "event_key": "unit-event-1",
         "action": "approve",
-        "subject_id": subject_id,
-        "identity_provider_ref": "idp://unit/dev-token-file",
-        "method": "bearer-token",
-        "assurance_level": "dev",
-        "session_ref": "unit-session-1",
-        "action_time": "2026-07-30T12:00:00+00:00",
         "product_content_hash": "c" * 64,
     }
 
@@ -375,64 +400,89 @@ def _tool_fn(server: Any) -> Any:
 def _access_token(client_id: str) -> Any:
     from mcp.server.auth.provider import AccessToken
 
-    return AccessToken(token="unit-token", client_id=client_id, scopes=["h"])
+    from ccf.hitl.principal import AuthenticationClaims
+    from ccf_runtime.mcp.auth import TokenGrant, authentication_claims, tenant_claims
+
+    grant = TokenGrant(
+        client_id=client_id,
+        scopes=("h",),
+        tenants=frozenset({UNIT_TENANT}),
+        authentication=AuthenticationClaims(
+            method="bearer-token",
+            assurance_level="dev",
+            identity_provider_ref="idp://unit/dev-token-file",
+            session_ref="unit-session-1",
+        ),
+    )
+    return AccessToken(
+        token="unit-token",
+        client_id=client_id,
+        scopes=["h"],
+        claims={**tenant_claims(grant), **authentication_claims(grant)},
+    )
 
 
-def test_a_conflicting_subject_is_a_typed_refusal(
+def _verified_as(monkeypatch: Any, client_id: str) -> None:
+    """Stand in for the bearer middleware on BOTH readers of the identity.
+
+    Two modules read ``get_access_token``: the HITL door, for the subject
+    binding, and :mod:`ccf_runtime.mcp.tenancy`, for the tenancy floor. Each
+    imported the name into its own namespace, so patching one leaves the other
+    reading the real (empty) context — which fails closed, but for a reason
+    that has nothing to do with what these tests are about.
+    """
+    import ccf_runtime.mcp.hitl_server as hitl_server
+    import ccf_runtime.mcp.tenancy as tenancy
+
+    token = _access_token(client_id)
+    monkeypatch.setattr(hitl_server, "get_access_token", lambda: token)
+    monkeypatch.setattr(tenancy, "get_access_token", lambda: token)
+
+
+def test_a_caller_typed_subject_is_a_type_error_at_the_boundary(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A caller-typed subject conflicting with the verified token identity."""
-    import ccf_runtime.mcp.hitl_server as hitl_server
-    from ccf_runtime.mcp.hitl_server import SubjectIdentityConflictRefused
-
+    """The subject is the capability's (D-IMPL-353 §2 P6): the tool has no
+    ``subject_id`` argument, so a caller typing one is refused by the wire
+    signature itself and nothing is routed."""
     routed: list[HitlActionSubmission] = []
 
-    def action_route(*, submission: HitlActionSubmission) -> str:
+    def action_route(authorized: Any, *, submission: HitlActionSubmission) -> str:
         routed.append(submission)
         return "{}"
 
     server = _unit_server(tmp_path, action_route)
-    monkeypatch.setattr(
-        hitl_server, "get_access_token", lambda: _access_token("auditor-1")
-    )
-
-    with pytest.raises(SubjectIdentityConflictRefused) as excinfo:
-        _tool_fn(server)(**_unit_arguments(subject_id="someone-else"))
-
-    assert "unit-token" not in str(excinfo.value)
+    _verified_as(monkeypatch, "auditor-1")
+    with pytest.raises(TypeError):
+        _tool_fn(server)(**_unit_arguments(), subject_id="someone-else")
     assert routed == []
 
 
 def test_a_matching_subject_binds_the_verified_identity(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The routed submission's subject IS the verified client_id, derived
-    through ``principal_from_token_grant`` (one mechanism for both doors)."""
+    """The routed submission's subject IS the capability's principal — the
+    verified client_id — and its provider is the verified claim, minted
+    through ``principal_from_authorized`` (one mechanism for both doors)."""
     import ccf_runtime.mcp.hitl_server as hitl_server
 
     routed: list[HitlActionSubmission] = []
 
-    def action_route(*, submission: HitlActionSubmission) -> str:
+    def action_route(authorized: Any, *, submission: HitlActionSubmission) -> str:
         routed.append(submission)
         return "{}"
 
     server = _unit_server(tmp_path, action_route)
-    monkeypatch.setattr(
-        hitl_server, "get_access_token", lambda: _access_token("auditor-1")
-    )
-
-    _tool_fn(server)(**_unit_arguments(subject_id="auditor-1"))
-
+    _verified_as(monkeypatch, "auditor-1")
+    _tool_fn(server)(**_unit_arguments())
     (submission,) = routed
     assert submission.principal.approver.subject_id == "auditor-1"
     assert (
         submission.principal.approver.identity_provider_ref
         == "idp://unit/dev-token-file"
     )
-    # The shared derivation mechanism serves this door too: the server no
-    # longer constructs a binding inline from the caller's claim.
     source = inspect.getsource(hitl_server)
-    assert "principal_from_token_grant" in source
+    assert "principal_from_authorized" in source
 
 
 def test_a_missing_access_token_is_a_typed_refusal(
@@ -444,16 +494,22 @@ def test_a_missing_access_token_is_a_typed_refusal(
 
     routed: list[HitlActionSubmission] = []
 
-    def action_route(*, submission: HitlActionSubmission) -> str:
+    def action_route(authorized: Any, *, submission: HitlActionSubmission) -> str:
         routed.append(submission)
         return "{}"
 
+    import ccf_runtime.mcp.tenancy as tenancy
+    from ccf_runtime.mcp.tenancy import UnverifiedTenantCallerRefused
+
     server = _unit_server(tmp_path, action_route)
     monkeypatch.setattr(hitl_server, "get_access_token", lambda: None)
-
+    monkeypatch.setattr(tenancy, "get_access_token", lambda: None)
+    with pytest.raises(UnverifiedTenantCallerRefused):
+        _tool_fn(server)(**_unit_arguments())
+    assert routed == []
+    monkeypatch.setattr(tenancy, "get_access_token", lambda: _access_token("auditor-1"))
     with pytest.raises(UnverifiedCallerRefused):
-        _tool_fn(server)(**_unit_arguments(subject_id="auditor-1"))
-
+        _tool_fn(server)(**_unit_arguments())
     assert routed == []
 
 

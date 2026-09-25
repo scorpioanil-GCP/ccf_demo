@@ -1757,6 +1757,7 @@ def test_boot_threads_the_bearer_token_to_the_store(
             resolution_spec_version="never",
             policy_bundle_key="never",
             policy_bundle_version="never",
+            tenant_ids=(TENANT,),
         )
 
     assert seen, "construction issued no request"
@@ -1930,6 +1931,7 @@ def test_a_credential_for_an_adapter_that_declares_none_is_refused() -> None:
             resolution_spec_version="never",
             policy_bundle_key="never",
             policy_bundle_version="never",
+            tenant_ids=(TENANT,),
         )
     message = str(caught.value)
     assert subject in message
@@ -2086,6 +2088,7 @@ def test_boot_refuses_this_adapter_plus_another_substrates_setting() -> None:
             resolution_spec_version="never",
             policy_bundle_key="never",
             policy_bundle_version="never",
+            tenant_ids=(TENANT,),
         )
     assert FLUREE_REGISTRATION.name in str(caught.value)
     assert "database_path" in str(caught.value)

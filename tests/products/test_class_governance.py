@@ -52,14 +52,15 @@ from ccf.products.contract import (
     register_product_class,
 )
 from ccf.products.payload import ProductPayloadSchema
+from tests.composition import register_at_composition
 
-MAX_TTL_KEY = "fixture.max-ttl"
-PAYLOAD_SCHEMA_KEY = "fixture.payload-schema"
+MAX_TTL_KEY = "tenant-fixture/max-ttl"
+PAYLOAD_SCHEMA_KEY = "tenant-fixture/payload-schema"
 
 
 def _registry_with_ceiling() -> tuple[ControlPlaneRegistry, str]:
     registry = ControlPlaneRegistry()
-    version = registry.register(MAX_TTL_KEY, MaxTTL(seconds=3600))
+    version = register_at_composition(registry, MAX_TTL_KEY, MaxTTL(seconds=3600))
     return registry, version
 
 
@@ -134,7 +135,7 @@ class TestTheThreeAbsentElementsAreBorne:
     def test_addressability_carries_the_address_the_class_answers_at(self) -> None:
         """§6.3 at ``:1465``, whose worked pattern is a path plus arguments."""
         address = ProductAddress(
-            address_template="/context-products/fixture/{subject}"
+            address_template="/context-products/tenant-fixture/{subject}"
         )
         assert _register(addressability=address).addressability == address
 
@@ -202,7 +203,7 @@ class TestThePayloadSchemaIsPinnedAndResolvedAtRegistration:
 
     def test_a_declared_schema_is_resolved_and_pinned(self) -> None:
         registry, ttl_version = _registry_with_ceiling()
-        schema_version = registry.register(PAYLOAD_SCHEMA_KEY, _payload_schema())
+        schema_version = register_at_composition(registry, PAYLOAD_SCHEMA_KEY, _payload_schema())
         registered = _register(
             registry=registry,
             max_ttl_version=ttl_version,
@@ -226,7 +227,7 @@ class TestThePayloadSchemaIsPinnedAndResolvedAtRegistration:
 
     def test_a_wrongly_typed_schema_artifact_raises_naming_both_sides(self) -> None:
         registry, ttl_version = _registry_with_ceiling()
-        wrong_version = registry.register(PAYLOAD_SCHEMA_KEY, MaxTTL(seconds=1))
+        wrong_version = register_at_composition(registry, PAYLOAD_SCHEMA_KEY, MaxTTL(seconds=1))
         with pytest.raises(ProductClassRegistrationError) as raised:
             _register(
                 registry=registry,

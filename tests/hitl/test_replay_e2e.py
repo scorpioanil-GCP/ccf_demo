@@ -25,6 +25,7 @@ from typing import Any
 import yaml
 
 from ccf.contracts.base import CCFContract
+from ccf.authz.capability import Authorized, HitlSubmit
 from ccf.contracts.canonical import content_hash
 from ccf.contracts.claims import LineageEntry
 from ccf.controlplane.audit import AuditLog
@@ -64,6 +65,8 @@ from ccf.replay.record import (
     build_replay_record,
 )
 
+from .capabilities import submit_capability
+
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "banking"
 
 
@@ -79,6 +82,17 @@ def _hitl() -> dict[str, Any]:
         (FIXTURES / "hitl.yaml").read_text()
     )
     return loaded
+
+
+def _authorized(tenant: str, event_key: str) -> Authorized[HitlSubmit]:
+    """The capability a resolver presents (D-IMPL-353 §1.2): minted for
+    exactly this tenant and event, for the fixture's credit officer — the
+    subject every binding below names, so the transport's actor check and
+    the capability agree."""
+    subject = _hitl()["approvers"]["credit_officer"]["identity"]["subject_id"]
+    return submit_capability(
+        tenant=tenant, principal=subject, event_key=event_key
+    )
 
 
 def _clock() -> Any:
@@ -173,7 +187,7 @@ def _resolve_escalation(fixture: dict[str, Any]) -> EscalationResolution:
     )
     assert isinstance(hand_off, EscalationHandOff)
     resolution = escalation.resolve(
-        tenant=document["tenant"],
+        _authorized(document["tenant"], document["event_key"]),
         event_key=document["event_key"],
         action="approve",
         principal=_principal(
@@ -227,7 +241,7 @@ def test_an_override_resolution_lands_on_dimension_2_verbatim() -> None:
         policy_ref=document["policy_ref"],
     )
     resolution = boundary.resolve(
-        tenant=document["tenant"],
+        _authorized(document["tenant"], document["event_key"]),
         event_key=document["event_key"],
         principal=_principal(
             fixture, product_content_hash=pending.product_content_hash
@@ -277,7 +291,7 @@ def _reviewed(
     )
     action = queue.release if released else queue.reject
     resolution = action(
-        tenant=document["tenant"],
+        _authorized(document["tenant"], document["event_key"]),
         event_key=document["event_key"],
         principal=principal,
     )

@@ -69,12 +69,13 @@ from ccf.skills.catalog import SkillArgumentProperty, SkillArgumentSchema
 
 from tests.deployment.conftest import PRODUCT_CLASS_KEY
 from tests.products.test_resolver_defaults import _Booted, _arguments, _boot
+from tests.composition import register_at_composition
 
 #: Test fixture vocabulary.
 CLASS_NAME = "fixture.class-default-declaration"
 CLASS_VERSION = "1.0.0"
-CONTRACT_KEY = "fixture.request-contract"
-MAX_TTL_KEY = "fixture.max-ttl"
+CONTRACT_KEY = "tenant-fixture/request-contract"
+MAX_TTL_KEY = "tenant-fixture/max-ttl"
 OTHER_PARAMETER = "fixture_threshold"
 
 #: The number a class declares. Authored here, in a test, never in ``src/``
@@ -108,7 +109,7 @@ def _register(
 ) -> Any:
     """Register through the real factory, with a valid MAX_TTL and pin."""
     registry = ControlPlaneRegistry()
-    max_ttl_version = registry.register(MAX_TTL_KEY, MaxTTL(seconds=600))
+    max_ttl_version = register_at_composition(registry, MAX_TTL_KEY, MaxTTL(seconds=600))
     pin: dict[str, str] = {
         "request_contract_key": NO_REQUEST_CONTRACT,
         "request_contract_version": NO_REQUEST_CONTRACT,
@@ -116,7 +117,7 @@ def _register(
     if contract is not None:
         pin = {
             "request_contract_key": CONTRACT_KEY,
-            "request_contract_version": registry.register(CONTRACT_KEY, contract),
+            "request_contract_version": register_at_composition(registry, CONTRACT_KEY, contract),
         }
     return register_product_class(
         registry=registry,

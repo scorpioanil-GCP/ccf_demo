@@ -82,6 +82,7 @@ from tests.integration.test_proto_quickstart import (
     _resolution_spec,
 )
 from tests.properties.strategies import BOUNDARY, TENANT, shipped_operators
+from tests.composition import register_at_composition
 
 FOUR_OPERATORS = (
     PolicyFilter.key,
@@ -117,11 +118,9 @@ def fabric(
     """Boot a fabric from the fixtures and ingest the whole event stream."""
     keys = control["keys"]
     registry = ControlPlaneRegistry()
-    spec_version = registry.register(
-        keys["resolution_spec"], _resolution_spec(ontology)
+    spec_version = register_at_composition(registry, keys["resolution_spec"], _resolution_spec(ontology)
     )
-    policy_version = registry.register(
-        keys["policy_bundle"], control["policy_bundle"]
+    policy_version = register_at_composition(registry, keys["policy_bundle"], control["policy_bundle"]
     )
     database_path = tmp_path / "acme-bank.sqlite3"
     handle = boot(
@@ -132,6 +131,7 @@ def fabric(
         resolution_spec_version=spec_version,
         policy_bundle_key=keys["policy_bundle"],
         policy_bundle_version=policy_version,
+        tenant_ids=(ontology["tenant_id"],),
     )
     try:
         for envelope in _envelopes(ontology, events):

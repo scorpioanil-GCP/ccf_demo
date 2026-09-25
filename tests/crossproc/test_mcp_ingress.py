@@ -66,6 +66,9 @@ from ccf.signal.mcp_source import MCPSourceAdapter
 from ccf.signal.source import SignalSourceProtocol
 
 from crossproc.servers.mcp_ingress_child import load
+from http_api.composition_authority import (
+    register_at_composition,
+)
 
 pytestmark = pytest.mark.crossproc
 
@@ -256,11 +259,11 @@ def test_acquired_signal_reaches_the_graph_only_through_l2(
     control = load("controlplane.yaml")
     keys = control["keys"]
     registry = ControlPlaneRegistry()
-    spec_version = registry.register(
+    spec_version = register_at_composition(registry, 
         keys["resolution_spec"],
         _resolution_spec(ontology),
     )
-    policy_version = registry.register(
+    policy_version = register_at_composition(registry, 
         keys["policy_bundle"], control["policy_bundle"]
     )
     handle = boot(
@@ -271,6 +274,8 @@ def test_acquired_signal_reaches_the_graph_only_through_l2(
         resolution_spec_version=spec_version,
         policy_bundle_key=keys["policy_bundle"],
         policy_bundle_version=policy_version,
+        # D-IMPL-354: the tenant(s) this test composes the fabric for.
+        tenant_ids=(ontology["tenant_id"],),
     )
     try:
         boundary = datetime(2100, 1, 1, tzinfo=UTC)

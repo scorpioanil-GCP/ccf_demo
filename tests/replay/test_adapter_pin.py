@@ -51,6 +51,9 @@ from ccf.replay.record import (
     PolicyBinding,
     PolicyBindingsSnapshot,
 )
+from ccf.authz.capability import Register
+from tests.controlplane.capabilities import register_capability
+from tests.replay.authority import replay_store
 
 # The probe adapter that declares a credential field, and the three names that
 # go with it. Imported rather than rebuilt: a second copy would drift, and the
@@ -197,8 +200,8 @@ def test_a_resolved_credential_reaches_no_rendering_of_the_record(
     from ccf.controlplane.registry import ControlPlaneRegistry
 
     registry = ControlPlaneRegistry()
-    spec_version = registry.register("probe/spec", banking_spec)
-    policy_version = registry.register("probe/policy", {"regime": "probe"})
+    spec_version = registry.register(register_capability("probe/spec", Register), banking_spec)
+    policy_version = registry.register(register_capability("probe/policy", Register), {"regime": "probe"})
 
     handle = boot(
         backend=secretful_adapter,
@@ -214,6 +217,7 @@ def test_a_resolved_credential_reaches_no_rendering_of_the_record(
         resolution_spec_version=spec_version,
         policy_bundle_key="probe/policy",
         policy_bundle_version=policy_version,
+        tenant_ids=("probe-tenant",),
     )
     try:
         record = _build(adapter=handle.adapter)
@@ -253,7 +257,7 @@ def test_a_pinned_record_round_trips_through_the_resolver(tmp_path: Any) -> None
     ``model_validate`` shortcut — so a pin that failed to serialize, or that
     serialized to something the contract will not accept, fails here.
     """
-    store = FileArtifactStore(root=tmp_path / "artifacts")
+    store = replay_store(tmp_path / "artifacts")
     record = _build(adapter=PIN)
 
     payload = canonical_bytes(record)

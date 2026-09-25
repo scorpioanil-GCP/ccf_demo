@@ -84,6 +84,7 @@ from tests.products.test_resolver_seam import (
     _request,
     _resolver,
 )
+from tests.composition import register_typed_at_composition
 
 # --- the deployment's own vocabulary ----------------------------------------
 #
@@ -598,7 +599,7 @@ def test_the_resolution_reads_the_pinned_lane_and_not_the_latest(
             schema_version=LATER_PRODUCT_VERSION, gate_id=LATER_GATE_ID
         )
     )
-    declaring.control_plane.register_typed(
+    register_typed_at_composition(declaring.control_plane, 
         PRODUCT_CLASS_KEY, later, PRODUCT_CLASS_ARTIFACT
     )
 

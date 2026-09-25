@@ -169,7 +169,7 @@ import pytest
 import yaml
 
 from ccf.controlplane.artifacts import HalfLifeTable, PolicyFilterParametersArtifact
-from ccf.controlplane.registry import ControlPlaneRegistry
+from ccf.controlplane.registry import ControlPlaneRegistry, namespaced_key
 from ccf.deployment import BootedFabric, load_config_and_boot
 from ccf.halflife.debt import DebtAssessment
 from ccf.products.contract import ContextProductContract
@@ -189,6 +189,7 @@ from tests.signal_layer.test_cp05_acquisition_boundary import (
     counts_off_l3,
     drive_into_l2,
 )
+from tests.composition import declaring_store
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 
@@ -223,6 +224,16 @@ PERSPECTIVE_KEY = "default_perspective"
 POLICY_OPERATOR_KEY = "policy.principal-subgraph"
 TRAVERSAL_OPERATOR_KEY = "traversal.typed-neighborhood"
 OPERATOR_PARAMETER_KEYS = (POLICY_OPERATOR_KEY, TRAVERSAL_OPERATOR_KEY)
+
+
+def _placed(booted: BootedFabric, section_key: str) -> str:
+    """The Control Plane key the loader placed a bare section key under.
+
+    ``load_config_and_boot`` places every key a deployment names under the
+    deployment's tenant (D-IMPL-354; ``namespaced_key`` is the one derivation),
+    so the resolver is handed the placed strings, never the section names.
+    """
+    return namespaced_key(tenant=booted.tenant_id, key=section_key)
 
 # --------------------------------------------------------------------------
 # The config delta — the measurement of what adoption still costs
@@ -470,14 +481,14 @@ def declared_debt_scorer(booted: BootedFabric) -> AssemblyDebtScorer:
     measurement for either, and this harness is measuring the resolver's path
     rather than cp-05's confidence in an estate it cannot reach offline.
     """
-    table = booted.artifacts[HALF_LIFE_KEY]
+    table = booted.artifacts[_placed(booted, HALF_LIFE_KEY)]
     assert isinstance(table, HalfLifeTable)
     entries = dict(table.entries)
     entries["exposure_anchor"] = entries["ownership_edges"]
     entries["exposure_member"] = entries["ownership_edges"]
     return AssemblyDebtScorer(
         table=table.model_copy(update={"entries": entries}),
-        profile=booted.artifacts[DEBT_PROFILE_KEY],  # type: ignore[arg-type]
+        profile=booted.artifacts[_placed(booted, DEBT_PROFILE_KEY)],  # type: ignore[arg-type]
         completeness=DeclaredFactor(value=Decimal("1")),
         semantic_consistency=DeclaredFactor(value=Decimal("1")),
     )
@@ -533,10 +544,12 @@ def _resolver(
     return build_governed_resolver(
         fabric=fabric.booted,
         control_plane=fabric.control_plane,
-        product_class_key=PRODUCT_CLASS_KEY,
-        request_contract_key=REQUEST_CONTRACT_KEY,
-        operator_parameter_keys=OPERATOR_PARAMETER_KEYS,
-        policy_bundle_key=POLICY_BUNDLE_KEY,
+        # The keys the loader PLACED, not the section names cp-05 wrote: a
+        # deployment's bare keys live under its tenant (D-IMPL-354).
+        product_class_key=_placed(fabric.booted, PRODUCT_CLASS_KEY),
+        request_contract_key=_placed(fabric.booted, REQUEST_CONTRACT_KEY),
+        operator_parameter_keys=tuple(_placed(fabric.booted, key) for key in OPERATOR_PARAMETER_KEYS),
+        policy_bundle_key=_placed(fabric.booted, POLICY_BUNDLE_KEY),
         plan_factory=plan_factory,
         debt_scorer=declared_debt_scorer(fabric.booted),
         product_gate=reconciliation_gate,
@@ -550,7 +563,7 @@ def _ask(fabric: Fabric, resolver: GovernedResolver, *, subject: str | None = No
     """cp-05's declared question, put to the resolver."""
     config = shipped_config()
     question = _load(QUESTION_ARTIFACT)[DECLARATION]
-    perspective_artifact = fabric.booted.artifacts[PERSPECTIVE_KEY]
+    perspective_artifact = fabric.booted.artifacts[_placed(fabric.booted, PERSPECTIVE_KEY)]
     parameters: dict[str, Any] = {
         name: value
         for name, value in question["parameters"].items()
@@ -717,7 +730,13 @@ def test_cp05s_declarations_boot_and_populate_offline(fabric: Fabric) -> None:
     plan's own ``drive_into_l2``.
     """
     assert fabric.booted.tenant_id == shipped_config()["tenant_id"]
-    assert set(OPERATOR_PARAMETER_KEYS) <= set(fabric.booted.artifacts)
+    # D-IMPL-354: cp-05's bare section keys were placed under its tenant by the
+    # loader — the placed keys are on the fabric, the bare ones are not, and the
+    # loader's own `keys` record agrees with the derivation this module applies.
+    placed = tuple(_placed(fabric.booted, key) for key in OPERATOR_PARAMETER_KEYS)
+    assert set(placed) <= set(fabric.booted.artifacts)
+    assert not set(OPERATOR_PARAMETER_KEYS) & set(fabric.booted.artifacts), "a bare section key reached the Control Plane"
+    assert fabric.booted.keys is not None and fabric.booted.keys.operator_parameters == placed
     assert (fabric.entities, fabric.relationships) == (
         DECLARED_FAMILY_SIZE,
         DECLARED_RELATIONSHIP_CLAIMS,
@@ -867,8 +886,8 @@ def _recorded_refusal(fabric: Fabric, envelope: RefusalEnvelope) -> dict[str, An
 
     reference = envelope.replay_reference
     assert reference, "a governed refusal was released with no replay reference"
-    store = FileArtifactStore(
-        root=fabric.root / _load(REPLAY_ARTIFACT)[DECLARATION]["store_dirname"]
+    store = declaring_store(
+        fabric.root / _load(REPLAY_ARTIFACT)[DECLARATION]["store_dirname"]
     )
     document = json.loads(store.get(content_address=str(reference).split("@")[-1]))
     recorded = json.loads(document["content_generation_path"]["assembly_refusal"])

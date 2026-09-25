@@ -35,6 +35,7 @@ import pytest
 
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.artifacts.protocol import artifact_uri
+from ccf.authz.capability import ArtifactWrite
 from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.products.disclosure import DISCLOSURE_FULL, DISCLOSURE_MINIMAL
@@ -78,6 +79,13 @@ from ccf_runtime.http_api.errors import (
 from ccf_runtime.http_api.refusal_status import STATUS_BY_KIND
 from ccf_runtime.mcp.auth import FileTokenSource, TokenGrant
 from http_api.conftest import Fabric, call
+from http_api.composition_authority import (
+    composition_replay_mint,
+    deployment_store,
+    refusal_recorder,
+    register_typed_at_composition,
+)
+from tests.controlplane.capabilities import capability
 
 SUBJECT_UNAVAILABLE = REFUSAL_KINDS[SubjectUnavailableRefusal]
 REPLAY_RECORD_CLASS = "ccf.decision-replay-record"
@@ -180,27 +188,33 @@ def _policy(
     )
 
 
-def _governed(
-    fabric: Fabric, tmp_path: Path, *, entitling: bool = True
-) -> Governed:
-    """One app whose evidence routes read the store its recorder writes."""
+def _governed(fabric: Fabric, tmp_path: Path) -> Governed:
+    """One app whose evidence routes read the store its recorder writes.
+
+    The ``entitling=False`` arm is gone with ``SEC-001``: ``create_app`` has
+    no configuration in which the entitlement seams are unbound, so the door
+    this helper builds is the only kind there is.
+    """
     from ccf_runtime.http_api.auth import BearerTokenAuth
 
-    token_file = tmp_path / "evidence-tokens.json"
-    token_file.write_text(
-        json.dumps(
-            {
-                A_TOKEN: {"client_id": A, "scopes": [SCOPE]},
-                B_TOKEN: {"client_id": B, "scopes": [SCOPE]},
-                C_TOKEN: {"client_id": C, "scopes": [SCOPE]},
-                STRANGER_TOKEN: {"client_id": STRANGER, "scopes": [SCOPE]},
-            }
-        ),
-        encoding="utf-8",
+    from .gate_fixtures import (
+        SCOPE_EVERYTHING,
+        tenanted_source,
+        wide_authorizer,
     )
+
     address = fabric.product_address
+    token_source = tenanted_source(
+        {
+            A_TOKEN: (A, (SCOPE_EVERYTHING,)),
+            B_TOKEN: (B, (SCOPE_EVERYTHING,)),
+            C_TOKEN: (C, (SCOPE_EVERYTHING,)),
+            STRANGER_TOKEN: (STRANGER, (SCOPE_EVERYTHING,)),
+        },
+        tenant=address.tenant,
+    )
     registry = ControlPlaneRegistry()
-    registry.register_typed(
+    register_typed_at_composition(registry, 
         product_entitlement_key(tenant_id=address.tenant),
         _policy(address.tenant, address.product_class),
         PRODUCT_ENTITLEMENT_POLICY,
@@ -211,10 +225,11 @@ def _governed(
     # THE difference from every other module here: the recorder's store IS
     # the store the API serves from, so a reference a refusal hands back is
     # resolvable through the door that produced it.
-    recorder = ReplayRefusalRecorder(
-        artifact_store=fabric.store,
+    recorder = refusal_recorder(
+        registry,
+        store=fabric.store,
+        tenant=address.tenant,
         replay_record_class=REPLAY_RECORD_CLASS,
-        tenant_id=address.tenant,
         assembly_mode="algorithmic",
         policy_bundle_pin=None,
         disclosure_level_for=source.disclosure_level_for,
@@ -226,20 +241,18 @@ def _governed(
     )
     app = create_app(
         deps,
-        auth=BearerTokenAuth(token_source=FileTokenSource(path=token_file)),
-        product_entitlement=source if entitling else None,
-        perspective_resolver=(
-            (
-                lambda *, grant, tenant, requested_role: Perspective(
-                    principal_id=grant.client_id,
-                    role=requested_role if requested_role is not None else ROLE,
-                )
-            )
-            if entitling
-            else None
+        auth=BearerTokenAuth(token_source=token_source),
+        authorizer=wide_authorizer(
+            tenant=address.tenant, key="evidence/scope-mapping"
         ),
-        refusal_recorder=recorder if entitling else None,
-        acknowledge_insecure_default=not entitling,
+        product_entitlement=source,
+        perspective_resolver=(
+            lambda *, grant, tenant, requested_role: Perspective(
+                principal_id=grant.client_id,
+                role=requested_role if requested_role is not None else ROLE,
+            )
+        ),
+        refusal_recorder=recorder,
     )
     return Governed(
         app=app,
@@ -291,7 +304,12 @@ def _served_record(
         }
     )
     return (
-        ReplayWriter(store=governed.store, artifact_class=REPLAY_RECORD_CLASS)
+        ReplayWriter(
+            authorized=composition_replay_mint(
+                governed.registry, tenant=governed.tenant, artifact_class=REPLAY_RECORD_CLASS
+            ),
+            store=governed.store,
+        )
         .write_replay_record(record=record)
         .replay_ref.content_address
     )
@@ -312,7 +330,12 @@ def _requestless_record(governed: Governed, *, principal: str) -> str:
     )
     assert record.content_generation_path.request is None
     return (
-        ReplayWriter(store=governed.store, artifact_class=REPLAY_RECORD_CLASS)
+        ReplayWriter(
+            authorized=composition_replay_mint(
+                governed.registry, tenant=governed.tenant, artifact_class=REPLAY_RECORD_CLASS
+            ),
+            store=governed.store,
+        )
         .write_replay_record(record=record)
         .replay_ref.content_address
     )
@@ -552,11 +575,12 @@ def test_c3_a_pin_named_by_another_principals_record_is_withheld(
     governed: Governed
 ) -> None:
     """Non-record bytes are not dereferenceable, whoever asks (R-3)."""
+    # A client-lane write under a genuine `Authorized[ArtifactWrite]` for
+    # exactly this class and name (D-IMPL-353 §1.2): the class is undeclared
+    # on this fabric's store, so the door's kind is what writes it.
     pin = governed.store.put(
-        tenant_id=governed.tenant,
-        artifact_class="ccf.graph-query",
-        name="a-query",
-        artifact={"tenant_id": governed.tenant, "seeds": ["subject-1"]},
+        capability(ArtifactWrite, tenant=governed.tenant, resource="ccf.graph-query/a-query"),
+        {"tenant_id": governed.tenant, "seeds": ["subject-1"]},
     )
     missing = _get_artifact(governed, NOWHERE, token=A_TOKEN)
 
@@ -696,7 +720,7 @@ def test_c10_a_grant_revoked_after_the_serve_stops_the_read(
     owned = _served_record(governed, principal=A)
     assert _get_record(governed, owned, token=A_TOKEN).status_code == 200
 
-    governed.registry.register_typed(
+    register_typed_at_composition(governed.registry, 
         product_entitlement_key(tenant_id=governed.tenant),
         _policy(
             governed.tenant,
@@ -742,12 +766,19 @@ def test_c19_the_level_is_read_through_the_recorder_not_the_source(
     """
     from ccf_runtime.http_api.auth import BearerTokenAuth
 
+    from .gate_fixtures import (
+        SCOPE_EVERYTHING,
+        tenanted_source,
+        wide_authorizer,
+    )
+
     door = _governed(fabric, tmp_path)
-    token_file = tmp_path / "evidence-tokens.json"
-    default_reader = ReplayRefusalRecorder(
-        artifact_store=fabric.store,
+    # The recorder holds the composition-minted ReplayMint for its class (D-IMPL-354).
+    default_reader = refusal_recorder(
+        fabric.registry,
+        store=fabric.store,
+        tenant=door.tenant,
         replay_record_class=REPLAY_RECORD_CLASS,
-        tenant_id=door.tenant,
         assembly_mode="algorithmic",
         policy_bundle_pin=None,
     )
@@ -760,7 +791,14 @@ def test_c19_the_level_is_read_through_the_recorder_not_the_source(
             artifact_store=fabric.store,
             product_resolver=fabric.product_resolver,
         ),
-        auth=BearerTokenAuth(token_source=FileTokenSource(path=token_file)),
+        auth=BearerTokenAuth(
+            token_source=tenanted_source(
+                {A_TOKEN: (A, (SCOPE_EVERYTHING,))}, tenant=door.tenant
+            )
+        ),
+        authorizer=wide_authorizer(
+            tenant=door.tenant, key="evidence/recorder-level"
+        ),
         product_entitlement=source,
         perspective_resolver=(
             lambda *, grant, tenant, requested_role: Perspective(
@@ -811,10 +849,8 @@ def test_c17_non_record_bytes_on_a_record_ask_are_absence_not_a_500(
 ) -> None:
     """A valid address holding a blob answers the shell, never a fault."""
     blob = governed.store.put(
-        tenant_id=governed.tenant,
-        artifact_class="ccf.test-blob",
-        name="b",
-        artifact={"field": "value"},
+        capability(ArtifactWrite, tenant=governed.tenant, resource="ccf.test-blob/b"),
+        {"field": "value"},
     )
     missing = _get_record(governed, NOWHERE, token=A_TOKEN)
 
@@ -911,8 +947,8 @@ def test_c18_the_mcp_artifact_resource_inherits_the_same_refusal(
         " the store, or two implementations will disagree"
     )
 
-    store = FileArtifactStore(root=tmp_path / "mcp-store")
-    store.put(tenant_id="t", artifact_class="c", name="n", artifact={"k": "v"})
+    store = deployment_store(tmp_path / "mcp-store")
+    store.put(capability(ArtifactWrite, tenant="t", resource="c/n"), {"k": "v"})
     for malformed in MALFORMED:
         with pytest.raises(MalformedContentAddress):
             store.get(content_address=malformed)
@@ -932,30 +968,38 @@ def test_c13_a_moving_target_is_still_a_409(governed: Governed) -> None:
     assert refused.status_code == 409
 
 
-def test_c14_an_unbound_entitlement_seam_refuses_every_evidence_get(
+def test_c14_an_unbound_entitlement_seam_is_no_longer_a_configuration(
     fabric: Fabric, tmp_path: Path
 ) -> None:
-    """R-1: the product route's posture, on the evidence nouns."""
-    ungoverned = _governed(fabric, tmp_path, entitling=False)
-    owned = _served_record(ungoverned, principal=A)
+    """R-1, answered by construction instead of per request (``SEC-001``).
 
-    for response in (
-        _get_record(ungoverned, owned, token=A_TOKEN),
-        _get_uri(ungoverned, _uri_for(ungoverned, owned), token=A_TOKEN),
-        _get_artifact(ungoverned, owned, token=A_TOKEN),
-    ):
-        assert response.status_code == 503
-        assert response.json()["detail"]["error_code"] == (
-            ERROR_PRODUCT_DOOR_UNGOVERNED
+    It used to build a door with ``entitling=False`` and assert that all three
+    evidence reads answered ``503 product-door-ungoverned`` — the posture
+    ``D-IMPL-345`` R-1 could only hold per request, because ``create_app``
+    could be built without the seams. It cannot, so the rule moved into the
+    signature and the honest assertion is about the constructor.
+
+    The ``PUT`` half of the original test is kept as-is below: it says
+    something ``SEC-001`` did not change, except that the tenant an artifact
+    is filed under is now the grant's rather than a body field.
+    """
+    governed = _governed(fabric, tmp_path)
+
+    with pytest.raises(TypeError):
+        create_app(  # type: ignore[call-arg]
+            ApiDependencies(
+                control_plane=fabric.registry,
+                artifact_store=fabric.store,
+                product_resolver=fabric.product_resolver,
+            )
         )
 
     # PUT is untouched by D-IMPL-345 and still stores (R-3, §7).
     stored = call(
-        ungoverned.app,
+        governed.app,
         "POST",
         "/artifact",
         json={
-            "tenant_id": ungoverned.tenant,
             "artifact_class": "ccf.test-blob",
             "name": "still-writable",
             "artifact": {"k": "v"},
@@ -963,12 +1007,19 @@ def test_c14_an_unbound_entitlement_seam_refuses_every_evidence_get(
         headers={"Authorization": f"Bearer {A_TOKEN}"},
     )
     assert stored.status_code == 200
+    assert stored.json()["uri"].startswith(
+        f"ccf-artifact://{governed.tenant}/ccf.test-blob/still-writable@"
+    )
 
 
 def test_the_door_refuses_to_build_with_a_recorder_that_cannot_disclose(
     fabric: Fabric, tmp_path: Path
 ) -> None:
     """A door that cannot say what it may disclose does not open."""
+    from ccf_runtime.http_api.auth import BearerTokenAuth
+
+    from .gate_fixtures import tenanted_source, wide_authorizer
+
 
     class _RecordOnly:
         def record(self, envelope: Any, **_: Any) -> Any:
@@ -984,7 +1035,15 @@ def test_the_door_refuses_to_build_with_a_recorder_that_cannot_disclose(
                 artifact_store=fabric.store,
                 product_resolver=fabric.product_resolver,
             ),
-            auth=None,
+            # Any conforming authority: the subject here is the recorder,
+            # and a door that cannot say what it may disclose does not open
+            # whatever else is bound.
+            auth=BearerTokenAuth(
+                token_source=tenanted_source({}, tenant="unreachable")
+            ),
+            authorizer=wide_authorizer(
+                tenant="unreachable", key="evidence/no-disclose"
+            ),
             product_entitlement=source,
             perspective_resolver=(
                 lambda *, grant, tenant, requested_role: Perspective(
@@ -992,7 +1051,6 @@ def test_the_door_refuses_to_build_with_a_recorder_that_cannot_disclose(
                 )
             ),
             refusal_recorder=_RecordOnly(),
-            acknowledge_insecure_default=True,
         )
 
 
@@ -1066,30 +1124,64 @@ def test_c21_a_denial_is_re_decided_under_the_tenant_that_decided_it(
     at ``assembly_refusal.resource.tenant_id``; the record's own ``tenant_id``
     is the recorder's. Re-deciding under the recorder's tenant would answer a
     different question from the one the serve asked.
+
+    **``SEC-002`` changed how this is reached, and both halves are asserted.**
+    The HTTP path segment can no longer name a tenant other than the verified
+    grant's — a cross-tenant address is refused at the gate before the door is
+    entered, which is the finding's own repair — so the boundary's behavior is
+    exercised by calling the ONE governed step directly, with the addressed
+    tenant it would have received.
     """
+    from ccf_runtime.authz.delivery_boundary import (
+        SURFACE_HTTP_ROUTE,
+        govern_entitlement,
+    )
+
     address = fabric.product_address
+
+    # (a) The gate refuses the cross-tenant address outright.
     refused = call(
         governed.app,
         "GET",
         f"/product/other-tenant/{address.product_class}/{address.version}",
         headers={"Authorization": f"Bearer {A_TOKEN}"},
     )
-    assert refused.status_code == STATUS_BY_KIND[SUBJECT_UNAVAILABLE]
-    reference = refused.json()["refusal"]["replay_reference"]
-    internal = governed.internal(reference)
+    assert refused.status_code == 403
+    assert refused.json()["detail"]["error_code"] == "request-unauthorized"
+
+    # (b) The boundary, asked the question the door would have asked, still
+    # decides under the ADDRESSED tenant.
+    source = ControlPlaneProductEntitlementSource(
+        control_plane=governed.registry, clock=lambda: AUDIT_INSTANT
+    )
+    decided = govern_entitlement(
+        grant=TokenGrant(client_id=A, scopes=(SCOPE,)),
+        tenant="other-tenant",
+        product_class=address.product_class,
+        product_version=address.version,
+        requested_role=None,
+        parameters={},
+        asked_at=None,
+        surface=SURFACE_HTTP_ROUTE,
+        address=f"/product/other-tenant/{address.product_class}",
+        entitlement_source=source,
+        perspective_resolver=(
+            lambda *, grant, tenant, requested_role: Perspective(
+                principal_id=grant.client_id, role=ROLE
+            )
+        ),
+        refusal_recorder=governed.recorder,
+    )
+    assert isinstance(decided, RefusalEnvelope)
+    record = governed.record_at(
+        governed.store.resolve_uri(uri=decided.replay_reference)
+    )
+    internal = RefusalEnvelope.model_validate_json(
+        record.content_generation_path.assembly_refusal
+    )
     assert internal.resource is not None
     assert internal.resource.tenant_id == "other-tenant"
-
-    # `A` holds a grant under the recorder's tenant and none under the one
-    # that decided, so its own denial does not cross.
-    withheld = _get_uri(governed, reference, token=A_TOKEN)
-
-    assert withheld.status_code == STATUS_BY_KIND[SUBJECT_UNAVAILABLE]
-    assert json.loads(
-        governed.internal(
-            withheld.json()["refusal"]["replay_reference"]
-        ).fields["error_code"]
-    ) in {ERROR_PRINCIPAL_NOT_ENTITLED, "product-policy-absent"}
+    assert record.tenant_id == governed.tenant
 
 
 # =========================================================================
@@ -1135,10 +1227,12 @@ def test_c23_a_computed_pin_address_is_indistinguishable_from_nothing(
     """
     query = {"tenant_id": governed.tenant, "seeds": ["subject-1"]}
     governed.store.put(
-        tenant_id=governed.tenant,
-        artifact_class="ccf.graph-query",
-        name=content_hash(query),
-        artifact=query,
+        capability(
+            ArtifactWrite,
+            tenant=governed.tenant,
+            resource=f"ccf.graph-query/{content_hash(query)}",
+        ),
+        query,
     )
     computed = content_hash(query)
 

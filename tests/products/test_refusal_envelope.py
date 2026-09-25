@@ -1906,7 +1906,7 @@ def test_envelope_for_carries_the_four_governance_members_it_is_given() -> None:
     )
     resource = ResourceRequestIdentity(
         surface="fixture-surface",
-        address="ccf-product://fixture/1.0.0",
+        address="ccf-product://tenant-fixture/1.0.0",
         tenant_id="tenant-a",
         determined_at=datetime(2026, 3, 1, tzinfo=UTC),
     )
@@ -1933,7 +1933,7 @@ def test_a_naive_determination_instant_is_refused_by_name() -> None:
     with pytest.raises(ValidationError) as caught:
         ResourceRequestIdentity(
             surface="fixture-surface",
-            address="ccf-product://fixture/1.0.0",
+            address="ccf-product://tenant-fixture/1.0.0",
             tenant_id="tenant-a",
             determined_at=datetime(2026, 3, 1),
         )
@@ -1944,7 +1944,7 @@ def test_an_aware_determination_instant_is_admitted() -> None:
     """The control: the refusal above is about the offset and nothing else."""
     identity = ResourceRequestIdentity(
         surface="fixture-surface",
-        address="ccf-product://fixture/1.0.0",
+        address="ccf-product://tenant-fixture/1.0.0",
         tenant_id="tenant-a",
         determined_at=datetime(2026, 3, 1, tzinfo=UTC),
     )

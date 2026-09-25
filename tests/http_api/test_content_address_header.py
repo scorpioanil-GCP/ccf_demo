@@ -93,6 +93,9 @@ from ccf_runtime.mcp.auth import FileTokenSource, TokenGrant
 from tests.http_api.test_product_declared_obligation_409 import _recorder
 
 from http_api.conftest import Fabric, call
+from http_api.composition_authority import (
+    register_typed_at_composition,
+)
 
 #: Test deployment vocabulary; the SDK ships none of it.
 TOKEN = "content-address-token"
@@ -118,6 +121,12 @@ PARAMETERS: dict[str, Any] = {
 }
 
 
+from .gate_fixtures import (  # noqa: E402
+    SCOPE_EVERYTHING,
+    wide_authorizer,
+)
+
+
 def _resolver(
     *, grant: TokenGrant, tenant: str, requested_role: str | None
 ) -> Perspective:
@@ -130,14 +139,25 @@ def _resolver(
 def _app(fabric: Fabric, tmp_path: Path) -> Any:
     from ccf_runtime.http_api.auth import BearerTokenAuth
 
+    # The REAL dev token file, `tenants` included, read through the REAL
+    # `FileTokenSource` (D-IMPL-353 §2 P1). This file used to be written and
+    # then ignored in favour of a test-only grant subclass.
     token_file = tmp_path / "content-address-tokens.json"
     token_file.write_text(
-        json.dumps({TOKEN: {"client_id": PRINCIPAL, "scopes": [SCOPE]}}),
+        json.dumps(
+            {
+                TOKEN: {
+                    "client_id": PRINCIPAL,
+                    "scopes": [SCOPE_EVERYTHING],
+                    "tenants": [fabric.product_address.tenant],
+                }
+            }
+        ),
         encoding="utf-8",
     )
     address = fabric.product_address
     registry = ControlPlaneRegistry()
-    registry.register_typed(
+    register_typed_at_composition(registry, 
         product_entitlement_key(tenant_id=address.tenant),
         ProductEntitlementPolicy(
             tenant_id=address.tenant,
@@ -165,7 +185,13 @@ def _app(fabric: Fabric, tmp_path: Path) -> Any:
             skill_catalog=fabric.catalog,
             grant_ledger=fabric.ledger,
         ),
+        # `SEC-001`/`SEC-002`: every app binds an authorizer, and the
+        # tenant is the credential's. This module's subject is elsewhere,
+        # so the mapping is registered wide and visibly so.
         auth=BearerTokenAuth(token_source=FileTokenSource(path=token_file)),
+        authorizer=wide_authorizer(
+            tenant=fabric.product_address.tenant, key="content-address/mapping"
+        ),
         product_entitlement=source,
         perspective_resolver=_resolver,
         # `24.6-09` / `D-IMPL-256` (2): an entitling door that cannot record a

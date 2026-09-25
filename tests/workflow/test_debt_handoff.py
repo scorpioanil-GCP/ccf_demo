@@ -34,6 +34,7 @@ from pathlib import Path
 import pytest
 
 from ccf.artifacts.file_store import FileArtifactStore
+from http_api.composition_authority import deployment_store
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.halflife.debt import DebtAssessment, DebtFactors, DebtSignal
 from ccf.hitl.transport import InMemoryHitlTransport
@@ -48,6 +49,12 @@ from ccf_runtime.workflow.engine import (
 )
 from ccf_runtime.workflow.state import WORKFLOW_STATE, WorkflowStateRecord
 
+
+from tests.workflow.capabilities import (
+    execute_as,
+    execute_capability,
+    resume_as,
+)
 from tests.workflow.test_engine import (  # the established fixture surface
     _Bindings,
     _covenant,
@@ -94,7 +101,9 @@ def _bound_engine(
     bindings = _Bindings()
     engine = WorkflowEngine(
         control_plane=registry,
-        artifact_store=FileArtifactStore(root=tmp_path / "artifacts"),
+        # The trace class declared under Execute | Resume (D-IMPL-353 §1.2):
+        # what this deployment's engine writes for itself.
+        artifact_store=deployment_store(tmp_path / "artifacts", workflow_traces=True),
         hitl_transport=InMemoryHitlTransport(),
         skill_binding=bindings,
         agent_binding=bindings,
@@ -114,7 +123,7 @@ def test_an_unbound_engine_refuses_an_agent_node_handoff(
     engine, _, bindings = _engine(registry, tmp_path, debt=False)
     workflow = _covenant(registry)  # reaches the `analyze-covenants` agent node
     with pytest.raises(UnboundDebtAssessmentError, match="analyze-covenants"):
-        asyncio.run(engine.execute(workflow, execution_id="exec-debt-1"))
+        asyncio.run(engine.execute(execute_as(workflow), workflow, execution_id="exec-debt-1"))
     assert isinstance(UnboundDebtAssessmentError("x"), WorkflowWiringError)
     # The refusal fires BEFORE the handoff: the agent never ran.
     assert "agent:analyze-covenants" not in bindings.ran
@@ -129,7 +138,7 @@ def test_a_skill_only_workflow_needs_no_debt_binding(
     """The refusal is per-agent-handoff, not engine-wide (D-IMPL-65)."""
     engine, _, _ = _engine(registry, tmp_path, debt=False)
     workflow = _refresh(registry)  # skills only, no agent node
-    outcome = asyncio.run(engine.execute(workflow, execution_id="exec-debt-2"))
+    outcome = asyncio.run(engine.execute(execute_as(workflow), workflow, execution_id="exec-debt-2"))
     assert isinstance(outcome, WorkflowCompleted)
     assert outcome.terminal_state == "refreshed"
 
@@ -143,7 +152,7 @@ def test_a_bound_clean_assessment_precedes_each_agent_handoff(
     debt = _StubDebtBinding(DebtSignal.OK)
     engine, bindings = _bound_engine(registry, tmp_path, debt)
     workflow = _covenant(registry)
-    outcome = asyncio.run(engine.execute(workflow, execution_id="exec-debt-3"))
+    outcome = asyncio.run(engine.execute(execute_as(workflow), workflow, execution_id="exec-debt-3"))
     assert isinstance(outcome, WorkflowSuspended)  # reached the hitl gate
     assert "agent:analyze-covenants" in bindings.ran
     assert debt.calls == [
@@ -177,7 +186,7 @@ def test_a_breach_routes_a_declared_exception_ref_without_running_the_agent(
             "analyze-covenants": handler,
         },
     )
-    outcome = asyncio.run(engine.execute(workflow, execution_id="exec-debt-4"))
+    outcome = asyncio.run(engine.execute(execute_as(workflow), workflow, execution_id="exec-debt-4"))
     assert isinstance(outcome, WorkflowExceptionRouted)
     assert outcome.node == "analyze-covenants"
     assert outcome.handler_ref == handler
@@ -197,7 +206,7 @@ def test_a_breach_with_no_ref_propagates_to_the_failed_terminal(
     debt = _StubDebtBinding(DebtSignal.FAIL_CLOSED)
     engine, bindings = _bound_engine(registry, tmp_path, debt)
     workflow = _covenant(registry)  # analyze-covenants declares no ref
-    outcome = asyncio.run(engine.execute(workflow, execution_id="exec-debt-5"))
+    outcome = asyncio.run(engine.execute(execute_as(workflow), workflow, execution_id="exec-debt-5"))
     assert isinstance(outcome, WorkflowCompleted)
     assert outcome.terminal_state == WORKFLOW_FAILED_STATE
     assert [c for c in bindings.ran if c.startswith("agent:")] == []

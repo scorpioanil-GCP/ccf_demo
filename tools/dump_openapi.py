@@ -42,6 +42,31 @@ dataclass accepts rather than duplicating the whole fabric wiring of
 `tests/http_api/conftest.py` — the drift test runs against that fixture's
 fully-wired app, so any divergence between the two constructions would
 fail the check rather than hide in it.
+
+Why the five authority seams cannot be `None`, and what they are here
+---------------------------------------------------------------------
+
+`SEC-002`. `create_app` used to accept `acknowledge_insecure_default=True`
+and build an application with no authentication at all; that keyword is
+deleted and the five seams — auth, authorizer, product entitlement,
+perspective resolution, refusal recording — are required, because a guard
+whose applicability the caller decides is not a guard.
+
+That applies to this tool too, and the resolution here is not a permissive
+stand-in. The app this module builds is never served: it is constructed,
+asked for `openapi()`, and discarded. So it binds the **narrowest real
+authority the types allow** — a real `BearerTokenAuth` over a token table
+holding no tokens, and a real `ControlPlaneTenantAuthorizer` over a real
+registered scope-mapping artifact declaring no scopes, pinned at the exact
+version it was registered at. Every credential is unrecognised and every
+scope lookup misses, so the application refuses everything. A stub that
+allowed everything would emit the same document and would be a permissive
+authority sitting in the tree waiting to be copied.
+
+The document does not depend on any of this. The gate is pure-ASGI
+middleware wrapped around the application rather than a route dependency,
+so it contributes no parameters, no responses and no schemas, and
+`openapi()` walks the same routes whatever the seams decide.
 """
 
 from __future__ import annotations
@@ -50,6 +75,8 @@ import argparse
 import json
 import pathlib
 import sys
+import tempfile
+from datetime import UTC, datetime
 from typing import Any
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -58,15 +85,129 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 OPENAPI_PATH = REPO_ROOT / "openapi.json"
 
 
-def build_app() -> Any:
-    """Construct the app whose `openapi()` output is the contract."""
+#: Vocabulary this tool owns. None of it is reachable — no token maps to the
+#: grant, and the scope mapping declares nothing — so these names exist only
+#: because the seams are typed and an untyped hole is what `SEC-002` was.
+_SCRATCH_TENANT = "openapi-document-tenant"
+_SCRATCH_PRINCIPAL = "openapi-document-principal"
+_SCRATCH_ROLE = "openapi-document-role"
+_SCRATCH_CLASS = "openapi-document-class"
+_SCRATCH_MAPPING_KEY = "openapi-document/scope-mapping"
+_SCRATCH_RECORD_CLASS = "ccf.decision-replay-record"
+
+
+class _NoTokens:
+    """A token source whose table is empty, so no credential is recognised.
+
+    Conforms to
+    :class:`~ccf_runtime.mcp.auth.TokenSourceProtocol`. The narrowest real
+    source there is: every lookup misses, so the application this tool builds
+    authenticates nobody.
+    """
+
+    def grant_for(self, *, token: str) -> None:
+        return None
+
+
+def build_app(scratch: pathlib.Path) -> Any:
+    """Construct the app whose `openapi()` output is the contract.
+
+    Args:
+        scratch: A writable directory for the refusal recorder's artifact
+            store. Nothing is ever written to it — the app is never served —
+            but :class:`~ccf.artifacts.file_store.FileArtifactStore` creates
+            its root eagerly, so the caller owns a real path and its cleanup.
+
+    Returns:
+        The application, bound to the deny-everything authority the module
+        docstring describes.
+    """
+    from ccf.artifacts.file_store import FileArtifactStore
+    from ccf.artifacts.protocol import WriteKinds
+    from ccf.authz.capability import (
+        COMPOSITION_PRINCIPAL,
+        Register,
+        ReplayMint,
+        mint_at_composition,
+    )
+    from ccf.contracts.canonical import content_hash
+    from ccf.controlplane.registry import ControlPlaneRegistry
+    from ccf.products.entitlement import (
+        PRODUCT_ENTITLEMENT_POLICY,
+        ProductEntitlementGrant,
+        ProductEntitlementPolicy,
+        product_entitlement_key,
+    )
+    from ccf.products.resolver import ReplayRefusalRecorder
+    from ccf.projection.plan import Perspective
+    from ccf_runtime.authz.artifact import SCOPE_MAPPING, ScopeMappingArtifact
+    from ccf_runtime.authz.product_entitlement import (
+        ControlPlaneProductEntitlementSource,
+    )
+    from ccf_runtime.authz.protocol import ControlPlaneTenantAuthorizer
     from ccf_runtime.http_api.app import create_app
+    from ccf_runtime.http_api.auth import BearerTokenAuth
     from ccf_runtime.http_api.dependencies import ApiDependencies
 
     # Not read at construction time (see module docstring); the routers
     # merely close over the bundle. Typed as Any so the absence of real
     # handles is explicit rather than smuggled through a fake object.
     unused: Any = None
+
+    # Every Control Plane registration this tool performs, and the recorder's
+    # own ReplayMint, are minted through the D-IMPL-354 composition recipe —
+    # the decision recorded on the registry's own audit log, then the mint for
+    # exactly that one key or class. This tool IS the composition root of the
+    # deployment it builds; nothing here is a door and nothing here is ambient.
+    def registered(plane: ControlPlaneRegistry, key: str) -> Any:
+        event = plane.audit_log.append(
+            action="composition",
+            key=key,
+            version=Register.action_id,
+            resolved=True,
+            occurred_at=datetime.now(UTC),
+            actor=COMPOSITION_PRINCIPAL,
+        )
+        return mint_at_composition(
+            Register,
+            tenant=key.partition("/")[0],
+            principal=COMPOSITION_PRINCIPAL,
+            resource=key,
+            decision_id=content_hash(event),
+        )
+
+    # A real artifact at a real key, pinned at the exact version it was
+    # registered at — never "latest", which would let a later write change
+    # what a past decision meant.
+    authz_plane = ControlPlaneRegistry()
+    mapping_version = authz_plane.register_typed(
+        registered(authz_plane, _SCRATCH_MAPPING_KEY),
+        ScopeMappingArtifact(semver="1.0.0", scopes={}),
+        SCOPE_MAPPING,
+    )
+
+    entitlement_plane = ControlPlaneRegistry()
+    entitlement_key = product_entitlement_key(tenant_id=_SCRATCH_TENANT)
+    entitlement_plane.register_typed(
+        registered(entitlement_plane, entitlement_key),
+        ProductEntitlementPolicy(
+            tenant_id=_SCRATCH_TENANT,
+            policy_version="1.0.0",
+            # The table may not be empty, so it holds one principal for whom
+            # no token exists.
+            principals={
+                _SCRATCH_PRINCIPAL: ProductEntitlementGrant(
+                    permitted_schema_names=frozenset({_SCRATCH_CLASS}),
+                    permitted_roles=frozenset({_SCRATCH_ROLE}),
+                )
+            },
+        ),
+        PRODUCT_ENTITLEMENT_POLICY,
+    )
+    entitlement = ControlPlaneProductEntitlementSource(
+        control_plane=entitlement_plane,
+        clock=lambda: datetime.now(UTC),
+    )
 
     return create_app(
         ApiDependencies(
@@ -79,9 +220,47 @@ def build_app() -> Any:
             skill_catalog=unused,
             grant_ledger=unused,
         ),
-        # This tool is about the document, not the posture; the D-IMPL-73
-        # warning has its own dedicated suite.
-        acknowledge_insecure_default=True,
+        auth=BearerTokenAuth(token_source=_NoTokens()),
+        authorizer=ControlPlaneTenantAuthorizer(
+            control_plane=authz_plane,
+            scope_mapping_key=_SCRATCH_MAPPING_KEY,
+            scope_mapping_version=str(mapping_version),
+            clock=lambda: datetime.now(UTC),
+        ),
+        product_entitlement=entitlement,
+        perspective_resolver=(
+            lambda *, grant, tenant, requested_role: Perspective(
+                principal_id=grant.client_id, role=_SCRATCH_ROLE
+            )
+        ),
+        refusal_recorder=ReplayRefusalRecorder(
+            # The recorder's writer: a ReplayMint for the one record class,
+            # minted at composition; the store declares that class under
+            # ReplayMint, which is what `create_app`'s boot check reads.
+            authorized=mint_at_composition(
+                ReplayMint,
+                tenant=_SCRATCH_TENANT,
+                principal=COMPOSITION_PRINCIPAL,
+                resource=_SCRATCH_RECORD_CLASS,
+                decision_id=content_hash(
+                    entitlement_plane.audit_log.append(
+                        action="composition",
+                        key=_SCRATCH_RECORD_CLASS,
+                        version=ReplayMint.action_id,
+                        resolved=True,
+                        occurred_at=datetime.now(UTC),
+                        actor=COMPOSITION_PRINCIPAL,
+                    )
+                ),
+            ),
+            artifact_store=FileArtifactStore(
+                root=scratch / "artifacts",
+                write_kinds=WriteKinds.declare({_SCRATCH_RECORD_CLASS: (ReplayMint,)}),
+            ),
+            assembly_mode="algorithmic",
+            policy_bundle_pin=None,
+            disclosure_level_for=entitlement.disclosure_level_for,
+        ),
     )
 
 
@@ -111,7 +290,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    emitted = serialize(build_app().openapi())
+    # The recorder's store needs a real root it never writes to; the app
+    # is discarded with the directory the moment the document is out.
+    with tempfile.TemporaryDirectory(prefix="ccf-openapi-") as scratch:
+        emitted = serialize(build_app(pathlib.Path(scratch)).openapi())
 
     if args.check:
         on_disk = (

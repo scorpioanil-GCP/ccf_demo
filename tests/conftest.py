@@ -40,6 +40,38 @@ if TYPE_CHECKING:
 RESOLUTION_SPEC_KEY = "test/entity-resolution-spec"
 POLICY_BUNDLE_KEY = "test/policy-bundle"
 
+#: The tenants the shared fixture fabric is COMPOSED FOR (D-IMPL-354): `boot`
+#: mints, per tenant, the `Register` capability under which a supersession
+#: moves that tenant's invalidation boundary, and a supersession under any
+#: other tenant is refused by the sink, typed. These are the tenant ids the
+#: fixture-driven suites (conformance, assembly, graph, projection, products)
+#: ingest and supersede under — fixture values, in test code. A test that
+#: writes under another tenant passes `tenant_ids=` to the factory.
+FIXTURE_TENANTS: tuple[str, ...] = (
+    "tenant-a",
+    "tenant-b",
+    "tenant-c",
+    "tenant-alpha",
+    "tenant-beta",
+    "tenant-fixture",
+    "fixture-tenant",
+    "tenant-conformance",
+    "tenant-composite",
+    "tenant-under-test",
+    "tenant-replay",
+    "acme-bank",
+    "beta-bank",
+    "other-bank",
+    "borealis-bank",
+    "other-tenant",
+    "another-tenant",
+    "globex",
+    "acme",
+    "t",
+    "t1",
+    "t-1",
+)
+
 
 def _resolution_spec() -> Any:
     """The fixture ontology mapping: source payload vocabulary -> E and R.
@@ -355,16 +387,29 @@ def fabric_boot(
     from ccf.boot import boot
     from ccf.controlplane.registry import ControlPlaneRegistry
 
+    from tests.composition import register_at_composition
+
     handles: list[FabricHandle] = []
     counter = {"n": 0}
 
     def factory(
-        *, database_path: Path | None = None, backend: str = "sqlite"
+        *,
+        database_path: Path | None = None,
+        backend: str = "sqlite",
+        tenant_ids: tuple[str, ...] = FIXTURE_TENANTS,
     ) -> "FabricHandle":
         counter["n"] += 1
         registry = ControlPlaneRegistry()
-        spec_version = registry.register(RESOLUTION_SPEC_KEY, _resolution_spec())
-        policy_version = registry.register(POLICY_BUNDLE_KEY, _policy_bundle())
+        # This factory IS the test suite's composition root (D-IMPL-354): the
+        # two artifacts the fabric resolves at boot are registered under a
+        # `Register` capability minted by the recipe in `tests/composition.py`,
+        # one per key, each audited on this registry's own log.
+        spec_version = register_at_composition(
+            registry, RESOLUTION_SPEC_KEY, _resolution_spec()
+        )
+        policy_version = register_at_composition(
+            registry, POLICY_BUNDLE_KEY, _policy_bundle()
+        )
         # The keys are the field names on the adapter's own connection
         # contract (plan 15.4-04), not `boot`'s — `boot` has no per-database
         # parameter left to name.
@@ -432,6 +477,7 @@ def fabric_boot(
             resolution_spec_version=spec_version,
             policy_bundle_key=POLICY_BUNDLE_KEY,
             policy_bundle_version=policy_version,
+            tenant_ids=tenant_ids,
         )
         handles.append(handle)
         return handle

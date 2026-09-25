@@ -42,13 +42,24 @@ _REPO_ROOT = _TESTS_ROOT.parent
 # sys.path work and cannot rely on a relative PYTHONPATH surviving a cwd
 # change. Resolving the three roots from __file__ is what makes the child
 # runnable from anywhere, which is a property the fixture depends on.
-for _root in (_REPO_ROOT / "src", _REPO_ROOT / "runtime", _TESTS_ROOT):
+# The repo root too (last on the path): the shared test helpers import as
+# `tests.composition`, which resolves only from there (D-IMPL-354).
+for _root in (_REPO_ROOT, _REPO_ROOT / "src", _REPO_ROOT / "runtime", _TESTS_ROOT):
     if str(_root) not in sys.path:
         sys.path.insert(0, str(_root))
 
 import httpx  # noqa: E402
 from mcp.server.auth.settings import AuthSettings  # noqa: E402
 from pydantic import AnyHttpUrl  # noqa: E402
+
+from crossproc.servers.wide_authorizer import wide_authorizer  # noqa: E402
+from http_api.composition_authority import (  # noqa: E402
+    composition_replay_mint,
+    deployment_store,
+    refusal_recorder,
+    register_at_composition,
+    register_typed_at_composition,
+)
 
 from ccf.artifacts.file_store import FileArtifactStore  # noqa: E402
 from ccf.controlplane.registry import ControlPlaneRegistry  # noqa: E402
@@ -145,11 +156,24 @@ def authorized_http_client(token: str = DEV_TOKEN) -> httpx.AsyncClient:
     return httpx.AsyncClient(headers={"Authorization": f"Bearer {token}"})
 
 
-def write_token_file(*, workspace: Path, client_id: str) -> Path:
-    """Write the child's token file for ``client_id`` and return its path."""
+def write_token_file(
+    *, workspace: Path, client_id: str, tenants: frozenset[str]
+) -> Path:
+    """Write the child's token file for ``client_id``, scoped to ``tenant``.
+
+    The tenant is required (``SEC-018``): an unscoped grant reaches nothing.
+    """
     token_file = workspace / TOKEN_FILENAME
     token_file.write_text(
-        json.dumps({DEV_TOKEN: {"client_id": client_id, "scopes": [SCOPE]}}),
+        json.dumps(
+            {
+                DEV_TOKEN: {
+                    "client_id": client_id,
+                    "scopes": [SCOPE],
+                    "tenants": sorted(tenants),
+                }
+            }
+        ),
         encoding="utf-8",
     )
     return token_file
@@ -242,10 +266,10 @@ def build_servable_product(*, database_path: Path) -> AssembledProduct:
 
     keys = control["keys"]
     registry = ControlPlaneRegistry()
-    spec_version = registry.register(
+    spec_version = register_at_composition(registry, 
         keys["resolution_spec"], _resolution_spec(ontology)
     )
-    policy_version = registry.register(keys["policy_bundle"], control["policy_bundle"])
+    policy_version = register_at_composition(registry, keys["policy_bundle"], control["policy_bundle"])
     handle = boot(
         backend="sqlite",
         connection={"database_path": database_path},
@@ -254,6 +278,8 @@ def build_servable_product(*, database_path: Path) -> AssembledProduct:
         resolution_spec_version=spec_version,
         policy_bundle_key=keys["policy_bundle"],
         policy_bundle_version=policy_version,
+        # D-IMPL-354: the tenant(s) this test composes the fabric for.
+        tenant_ids=(ontology["tenant_id"],),
     )
     try:
         for envelope in _envelopes(ontology, events):
@@ -281,9 +307,14 @@ def build_servable_product(*, database_path: Path) -> AssembledProduct:
         raise AssertionError(
             f"the fixture product did not pass the gates: {gated}"
         )
+    # The fixture's replay writer holds the ReplayMint this composition root
+    # minted for its record class, over a store declaring that class
+    # (D-IMPL-353 §2 P3; D-IMPL-354).
     replay_writer = ReplayWriter(
-        store=FileArtifactStore(root=database_path.parent / "fixture-replay"),
-        artifact_class=REPLAY_RECORD_CLASS,
+        authorized=composition_replay_mint(
+            registry, tenant=fabric.tenant_id, artifact_class=REPLAY_RECORD_CLASS
+        ),
+        store=deployment_store(database_path.parent / "fixture-replay", REPLAY_RECORD_CLASS),
     )
     policy_binding = PolicyBinding(key=keys["policy_bundle"], version=policy_version)
     served = _served(
@@ -435,7 +466,7 @@ def build_entitlement_registry(assembled: AssembledProduct) -> ControlPlaneRegis
     first served call.
     """
     registry = ControlPlaneRegistry()
-    registry.register_typed(
+    register_typed_at_composition(registry, 
         product_entitlement_key(tenant_id=assembled.address.tenant),
         ProductEntitlementPolicy(
             tenant_id=assembled.address.tenant,
@@ -463,10 +494,11 @@ def _recorder(root: Path, *, tenant: str) -> ReplayRefusalRecorder:
     `GovernedResolver`, so there is none to take the recorder off; the tenant
     and the record class come from the values the fixture already holds.
     """
-    return ReplayRefusalRecorder(
-        artifact_store=FileArtifactStore(root=root / ARTIFACT_STORE_DIRNAME),
+    return refusal_recorder(
+        ControlPlaneRegistry(),
+        store=deployment_store(root / ARTIFACT_STORE_DIRNAME, REPLAY_RECORD_CLASS),
+        tenant=tenant,
         replay_record_class=REPLAY_RECORD_CLASS,
-        tenant_id=tenant,
         assembly_mode="algorithmic",
     )
 
@@ -535,7 +567,19 @@ def build_server(*, workspace: Path) -> FastMCP:
         token_verifier=SourceBackedTokenVerifier(
             source=FileTokenSource(
                 path=write_token_file(
-                    workspace=workspace, client_id=assembled.principal_id
+                    workspace=workspace,
+                    client_id=assembled.principal_id,
+                    # The neighbour is included DELIBERATELY: the parent
+                    # asserts what the ENTITLEMENT decides about a foreign
+                    # address the caller can reach. The tenancy floor is
+                    # proven separately (`SEC-018`).
+                    tenants=frozenset(
+                        {
+                            assembled.tenant_id,
+                            f"{assembled.tenant_id}-not-this-one",
+                            f"{assembled.tenant_id}-no-policy",
+                        }
+                    ),
                 )
             )
         ),
@@ -544,6 +588,7 @@ def build_server(*, workspace: Path) -> FastMCP:
             resource_server_url=AnyHttpUrl(RESOURCE_SERVER_URL),
             required_scopes=[SCOPE],
         ),
+        authorizer=wide_authorizer(scopes=(SCOPE,)),
         entitlement_source=ControlPlaneProductEntitlementSource(
             control_plane=registry, clock=lambda: AUDIT_INSTANT
         ),

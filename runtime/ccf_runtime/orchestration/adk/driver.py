@@ -38,6 +38,14 @@ Not an algorithmic module: it imports an orchestrator SDK, which is exactly
 what the CINV-02 carve-out for ``ccf_runtime.orchestration`` exists to
 permit here and nowhere else.
 
+**The capability travels in the closure, not the driver (D-IMPL-353 §1.2).**
+``start_execution`` and ``resume_execution`` take the ``Authorized`` for
+their own action and close the engine call over it; the ``_EngineSegment``
+sub-agent runs that closure and nothing else. The driver holds no capability
+in any field and mints nothing — the engine verifies. Position (session id,
+outcome key) is keyed by ``authorized.tenant``, the tenant the engine files
+under (§1.3), and the introspection seam takes that tenant.
+
 **Loop-safety (WR-03; Phase-9 CONTEXT D-09..D-11).** The sync introspection
 seam dispatches through :func:`~ccf_runtime.orchestration.common.
 run_coroutine_sync` — never a direct ``asyncio.run`` — so callers hosted
@@ -62,6 +70,7 @@ from google.genai import types as genai_types
 
 from ccf.contracts.base import CCFContract
 from ccf.workflow.factory import Workflow
+from ccf.authz.capability import Authorized, Execute, Resume
 from ccf_runtime.orchestration.common import (
     DriverStateRetrievalError,
     SegmentNotExecutedError,
@@ -191,10 +200,12 @@ class AdkWorkflowDriver:
     # -- the topology, authored here against the engine's public surface ------
 
     async def _run(
-        self, workflow: Workflow, execution_id: str, sequence: AdkWorkflow
+        self, tenant: str, execution_id: str, sequence: AdkWorkflow
     ) -> CCFContract:
-        """One real ``Runner`` run of the driver's own sequence, no model."""
-        tenant = workflow.definition.tenant
+        """One real ``Runner`` run of the driver's own sequence, no model.
+
+        ``tenant`` is the capability's — the engine's own key (§1.3).
+        """
         session_id = f"{tenant}/{execution_id}"
         existing = await self._sessions.get_session(
             app_name=_APP_NAME, user_id=tenant, session_id=session_id
@@ -226,17 +237,23 @@ class AdkWorkflowDriver:
     # -- OrchestrationProtocol -------------------------------------------------
 
     async def start_execution(
-        self, *, workflow: Workflow, execution_id: str
+        self,
+        *,
+        authorized: Authorized[Execute],
+        workflow: Workflow,
+        execution_id: str,
     ) -> CCFContract:
         """Drive to the gate through an ADK ``Workflow`` chain; if the
         engine suspends, the gate segment parks the position and control
-        returns to CCF; the engine's own typed outcome comes back verbatim."""
-        tenant = workflow.definition.tenant
+        returns to CCF; the engine's own typed outcome comes back verbatim.
+        The ``Execute`` capability is closed over by the drive segment and
+        handed to the engine, which verifies it (D-IMPL-353 §1.2)."""
+        tenant = authorized.tenant
         key = (tenant, execution_id)
 
         async def advance() -> CCFContract:
             outcome = await self._engine.execute(
-                workflow, execution_id=execution_id
+                authorized, workflow, execution_id=execution_id
             )
             self._outcomes[key] = outcome
             return outcome
@@ -260,20 +277,26 @@ class AdkWorkflowDriver:
                 )
             ],
         )
-        return await self._run(workflow, execution_id, sequence)
+        return await self._run(tenant, execution_id, sequence)
 
     async def resume_execution(
-        self, *, workflow: Workflow, execution_id: str, decision: str
+        self,
+        *,
+        authorized: Authorized[Resume],
+        workflow: Workflow,
+        execution_id: str,
+        decision: str,
     ) -> CCFContract:
         """A second ADK run over the resume segment: the externally-bound
-        decision goes to the engine's own resume surface, and the sequence
-        parks again if the engine suspends on a later gate."""
-        tenant = workflow.definition.tenant
+        decision goes to the engine's own resume surface under the
+        ``Resume`` capability this call received, and the sequence parks
+        again if the engine suspends on a later gate."""
+        tenant = authorized.tenant
         key = (tenant, execution_id)
 
         async def advance() -> CCFContract:
             outcome = await self._engine.resume(
-                workflow, execution_id=execution_id, decision=decision
+                authorized, workflow, execution_id=execution_id, decision=decision
             )
             self._outcomes[key] = outcome
             return outcome
@@ -297,23 +320,23 @@ class AdkWorkflowDriver:
                 )
             ],
         )
-        return await self._run(workflow, execution_id, sequence)
+        return await self._run(tenant, execution_id, sequence)
 
     # -- introspection for the conformance suite -------------------------------
 
     def persisted_state(
-        self, *, workflow: Workflow, execution_id: str
+        self, *, tenant: str, execution_id: str
     ) -> tuple[object, ...]:
         """Every value ADK's session machinery persisted for one execution.
 
         The conformance suite's T-07-33 assertion runs over this: the scalar
         position channels are all that may appear — no CCF workflow state.
+        Takes the tenant the engine filed under — the capability's (§1.3).
         Loop-aware (Phase-9 CONTEXT D-09): dispatch goes through
         :func:`run_coroutine_sync`, so a caller hosted inside a running
         event loop gets state, not a nested-run ``RuntimeError``; substrate
         failures surface as :class:`DriverStateRetrievalError` (T-09-05).
         """
-        tenant = workflow.definition.tenant
         try:
             session = run_coroutine_sync(
                 self._sessions.get_session(

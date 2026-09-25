@@ -70,6 +70,8 @@ from tests.products.test_resolver_seam import (
     PERSPECTIVE,
     PRODUCT_CLASS,
     PRODUCT_VERSION,
+    QUERY_PIN_CLASS,
+    REPLAY_RECORD_CLASS,
     REQUEST_CONTRACT_CLASS_ID,
     REQUEST_CONTRACT_DOCUMENT,
     REQUEST_CONTRACT_KEY,
@@ -77,6 +79,11 @@ from tests.products.test_resolver_seam import (
     _Booted,
     _arguments,
 )
+from tests.composition import register_typed_at_composition
+from tests.composition import register_skill_entry
+from tests.skills.authority import grant_capability, revoke_capability
+from tests.composition import declaring_store
+from ccf.products.composite import ADMITTED_CHILD_CONTRACT_CLASS, CHILD_QUESTION_CLASS
 
 CHILD_SKILL = "child-door-skill"
 CHILD_CALLABLE = "fixture.child-door"
@@ -86,10 +93,10 @@ REGIME_KEY = f"{TENANT}/policy-bundle/composite-integration"
 #: point: a composite whose child answers the same question with the same
 #: operators would demonstrate nothing about composition.
 CHILD_CLASS = "fixture.child-product"
-CHILD_CLASS_KEY = "fixture/product-class-child"
+CHILD_CLASS_KEY = "tenant-fixture/product-class-child"
 CHILD_SKILL = "child-door-skill"
 CHILD_CALLABLE = "fixture.child-door"
-CHILD_MAX_TTL_KEY = "fixture/max-ttl"
+CHILD_MAX_TTL_KEY = "tenant-fixture/max-ttl"
 
 #: The regime and the agent the grant hangs off. Test-side values, every one.
 REGIME_KEY = f"{TENANT}/policy-bundle/composite-integration"
@@ -98,7 +105,7 @@ REGIME_KEY = f"{TENANT}/policy-bundle/composite-integration"
 #: `schema_name: fixture.manifest-product`, so a child request validated
 #: against it is a `product-request-violation` — which is what the first run
 #: of this module measured, and correctly: a request contract is per class.
-CHILD_REQUEST_CONTRACT_KEY = "fixture/request-contract-child"
+CHILD_REQUEST_CONTRACT_KEY = "tenant-fixture/request-contract-child"
 CHILD_REQUEST_CONTRACT_DOCUMENT: dict[str, Any] = {
     "semver": "1.0.0",
     "class_id": "fixture.request-contract",
@@ -254,7 +261,13 @@ def boot_composite(
         yield _Booted(
             fabric=fabric,
             control_plane=control_plane,
-            store=FileArtifactStore(root=tmp_path / "artifacts"),
+            store=declaring_store(
+                tmp_path / "artifacts",
+                REPLAY_RECORD_CLASS,
+                QUERY_PIN_CLASS,
+                ADMITTED_CHILD_CONTRACT_CLASS,
+                CHILD_QUESTION_CLASS,
+            ),
             root=root,
         )
     finally:
@@ -331,8 +344,7 @@ def _ledger(
     """A real grant ledger over the deployment's OWN Control Plane."""
     registry = booted.control_plane
     regime_class = declared_artifact_class("policy-bundle")
-    registry.register_typed(
-        REGIME_KEY,
+    register_typed_at_composition(registry, REGIME_KEY,
         parse_artifact(
             {
                 "class_id": "policy-bundle",
@@ -364,7 +376,9 @@ def _ledger(
         instruction_bindings=(),
     )
     catalog = SkillCatalog(registry)
-    catalog.register(
+    register_skill_entry(
+        catalog,
+        registry,
         SkillCatalogEntry(
             schema_version="1.0.0",
             artifact_version="1.0.0",
@@ -445,6 +459,7 @@ def build_composite(
     ledger, agent_hash, definition, catalog = _ledger(booted, binding=binding, resource=resource)
     if grant:
         outcome = ledger.request(
+            grant_capability(definition),
             SkillGrant(
                 schema_version="1.0.0",
                 artifact_version="1.0.0",
@@ -455,7 +470,6 @@ def build_composite(
                 skill_version="1.0.0",
             ),
             definition=definition,
-            actor="composite-operator",
         )
         assert isinstance(outcome, str), outcome
     callables = CallableRegistry()
@@ -510,8 +524,8 @@ def ask_composite(resolver: GovernedResolver) -> Any:
 # --- INT-01b: the nested chain, leaf -> composite -> higher composite --------
 
 HIGHER_CLASS = "fixture.higher-product"
-HIGHER_CLASS_KEY = "fixture/product-class-higher"
-HIGHER_REQUEST_CONTRACT_KEY = "fixture/request-contract-higher"
+HIGHER_CLASS_KEY = "tenant-fixture/product-class-higher"
+HIGHER_REQUEST_CONTRACT_KEY = "tenant-fixture/request-contract-higher"
 HIGHER_SKILL = "composite-door-skill"
 HIGHER_CALLABLE = "fixture.composite-door"
 HIGHER_REGIME_KEY = f"{TENANT}/policy-bundle/higher-composite"
@@ -531,7 +545,7 @@ def higher_product_class() -> dict[str, Any]:
         "schema_version": "1.0.0",
         "ttl_anchor": "from_decision",
         "assembly_mode": "algorithmic",
-        "max_ttl_key": "fixture/max-ttl",
+        "max_ttl_key": "tenant-fixture/max-ttl",
         "required_operator_keys": ["traversal.typed-neighborhood"],
         "requires": [
             {
@@ -609,8 +623,7 @@ def build_higher_composite(
     """The top of the chain, acquiring the middle composite as its child."""
     registry = booted.control_plane
     regime_class = declared_artifact_class("policy-bundle")
-    registry.register_typed(
-        HIGHER_REGIME_KEY,
+    register_typed_at_composition(registry, HIGHER_REGIME_KEY,
         parse_artifact(
             {
                 "class_id": "policy-bundle",
@@ -644,7 +657,9 @@ def build_higher_composite(
         instruction_bindings=(),
     )
     catalog = SkillCatalog(registry)
-    catalog.register(
+    register_skill_entry(
+        catalog,
+        registry,
         SkillCatalogEntry(
             schema_version="1.0.0",
             artifact_version="1.0.0",
@@ -672,6 +687,7 @@ def build_higher_composite(
     )
     assert isinstance(
         ledger.request(
+            grant_capability(definition),
             SkillGrant(
                 schema_version="1.0.0",
                 artifact_version="1.0.0",
@@ -682,7 +698,6 @@ def build_higher_composite(
                 skill_version="1.0.0",
             ),
             definition=definition,
-            actor="higher-operator",
         ),
         str,
     )

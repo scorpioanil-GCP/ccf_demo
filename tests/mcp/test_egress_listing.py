@@ -99,8 +99,15 @@ from ccf_runtime.mcp.egress import (
     product_address,
     product_uri,
 )
+from tests.mcp.guarded_servers import wide_authorizer
 
 from crossproc.servers.mcp_egress_child import ProductAddress, build_servable_product
+from ccf.controlplane.registry import ControlPlaneRegistry
+from http_api.composition_authority import (
+    deployment_store,
+    refusal_recorder,
+    register_typed_at_composition,
+)
 
 #: Test deployment vocabulary; the SDK ships none of it.
 REPLAY_ARTIFACT_CLASS = "egress-listing-replay-record"
@@ -260,9 +267,11 @@ def _refusing(declared: ProductRequestContract) -> Callable[..., object]:
     the verdict is handed through the one minting seam over a per-resolver
     store, exactly as the SDK's own resolver does on every refusal branch.
     """
-    store = FileArtifactStore(
-        root=Path(tempfile.mkdtemp(prefix="egress-listing-refusing-")) / "artifacts"
+    store = deployment_store(
+        Path(tempfile.mkdtemp(prefix="egress-listing-refusing-")) / "artifacts",
+        REPLAY_ARTIFACT_CLASS,
     )
+    composition = ControlPlaneRegistry()
 
     def resolve(
         *,
@@ -278,10 +287,11 @@ def _refusing(declared: ProductRequestContract) -> Callable[..., object]:
             "this leg's caller was built to violate the declared surface and"
             " did not; the fixture, not the door, is what failed"
         )
-        recorder = ReplayRefusalRecorder(
-            artifact_store=store,
+        recorder = refusal_recorder(
+            composition,
+            store=store,
+            tenant=tenant,
             replay_record_class=REPLAY_ARTIFACT_CLASS,
-            tenant_id=tenant,
             assembly_mode="algorithmic",
         )
         return recorder.record(
@@ -308,10 +318,25 @@ def _refusing(declared: ProductRequestContract) -> Callable[..., object]:
 # ---------------------------------------------------------------------------
 
 
-def _token_file(root: Path) -> Path:
+def _token_file(root: Path, *, tenant: str) -> Path:
+    """The door's token file, whose one credential is scoped to ``tenant``.
+
+    ``tenant`` is required rather than defaulted (``SEC-018``): a credential
+    that names no tenant reaches nothing, so a fixture that forgot it would
+    fail loudly instead of quietly minting the unscoped bearer this finding is
+    about.
+    """
     path = root / "egress-listing-tokens.json"
     path.write_text(
-        json.dumps({TOKEN: {"client_id": PRINCIPAL, "scopes": [SCOPE]}}),
+        json.dumps(
+            {
+                TOKEN: {
+                    "client_id": PRINCIPAL,
+                    "scopes": [SCOPE],
+                    "tenants": [tenant],
+                }
+            }
+        ),
         encoding="utf-8",
     )
     return path
@@ -319,7 +344,7 @@ def _token_file(root: Path) -> Path:
 
 def _entitlement(address: ProductAddress) -> ControlPlaneProductEntitlementSource:
     registry = ControlPlaneRegistry()
-    registry.register_typed(
+    register_typed_at_composition(registry, 
         product_entitlement_key(tenant_id=address.tenant),
         ProductEntitlementPolicy(
             tenant_id=address.tenant,
@@ -348,10 +373,11 @@ def _recorder(root: Path, *, tenant: str) -> ReplayRefusalRecorder:
     Nothing here denies — these doors serve — but a door that entitles does not
     build without somewhere to record a denial, and that is the point.
     """
-    return ReplayRefusalRecorder(
-        artifact_store=FileArtifactStore(root=root / "artifacts"),
+    return refusal_recorder(
+        ControlPlaneRegistry(),
+        store=deployment_store(root / "artifacts", REPLAY_RECORD_CLASS),
+        tenant=tenant,
         replay_record_class=REPLAY_RECORD_CLASS,
-        tenant_id=tenant,
         assembly_mode="algorithmic",
     )
 
@@ -373,13 +399,14 @@ def _server(
         server_name=SERVER_NAME,
         resolver=resolver,
         token_verifier=SourceBackedTokenVerifier(
-            source=FileTokenSource(path=_token_file(root))
+            source=FileTokenSource(path=_token_file(root, tenant=address.tenant))
         ),
         auth_settings=AuthSettings(
             issuer_url=AnyHttpUrl("https://issuer.invalid"),
             resource_server_url=AnyHttpUrl(f"{IN_PROCESS_BASE_URL}/mcp"),
             required_scopes=[SCOPE],
         ),
+        authorizer=wide_authorizer(scopes=(SCOPE,)),
         entitlement_source=_entitlement(address),
         perspective_resolver=(
             lambda *, grant, tenant, requested_role: Perspective(
@@ -676,13 +703,14 @@ def test_a_surface_less_door_is_refused(assembled: Any, tmp_path: Path) -> None:
             server_name=SERVER_NAME,
             resolver=_answering(assembled.served),  # type: ignore[arg-type]
             token_verifier=SourceBackedTokenVerifier(
-                source=FileTokenSource(path=_token_file(tmp_path))
+                source=FileTokenSource(path=_token_file(tmp_path, tenant=assembled.address.tenant))
             ),
             auth_settings=AuthSettings(
                 issuer_url=AnyHttpUrl("https://issuer.invalid"),
                 resource_server_url=AnyHttpUrl(f"{IN_PROCESS_BASE_URL}/mcp"),
                 required_scopes=[SCOPE],
             ),
+            authorizer=wide_authorizer(scopes=(SCOPE,)),
             entitlement_source=_entitlement(assembled.address),
             perspective_resolver=(
                 lambda *, grant, tenant, requested_role: Perspective(

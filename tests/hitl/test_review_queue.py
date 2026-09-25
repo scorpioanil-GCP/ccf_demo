@@ -22,6 +22,7 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
+from ccf.authz.capability import Authorized, HitlSubmit
 from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.contracts.claims import LineageEntry, PassageAnchor
 from ccf.controlplane.audit import AuditLog
@@ -37,7 +38,10 @@ from ccf.hitl.review_queue import (
     ReviewResolution,
     UnknownReviewEventError,
 )
-from ccf.hitl.transport import HitlActionSubmission, InMemoryHitlTransport
+from ccf.hitl.transport import PendingHitlEvent, HitlActionSubmission, InMemoryHitlTransport
+from tests.controlplane.composition import compose_register_typed
+
+from .capabilities import submit_capability
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "banking"
 
@@ -47,6 +51,17 @@ def _hitl() -> dict[str, Any]:
         (FIXTURES / "hitl.yaml").read_text()
     )
     return loaded
+
+
+def _authorized(tenant: str, event_key: str) -> Authorized[HitlSubmit]:
+    """The capability a resolver presents (D-IMPL-353 §1.2): minted for
+    exactly this tenant and event, for the fixture's credit officer — the
+    subject every binding below names, so the transport's actor check and
+    the capability agree."""
+    subject = _hitl()["approvers"]["credit_officer"]["identity"]["subject_id"]
+    return submit_capability(
+        tenant=tenant, principal=subject, event_key=event_key
+    )
 
 
 def _clock() -> Any:
@@ -139,7 +154,6 @@ def test_an_unbound_release_is_unrepresentable() -> None:
     with pytest.raises(ValidationError):
         HitlActionSubmission(  # type: ignore[call-arg]
             event_key=document["event_key"],
-            tenant=document["tenant"],
             action="approve",
         )
 
@@ -149,7 +163,7 @@ def test_a_release_is_a_bound_action_on_dimension_two() -> None:
     queue, transport, audit = _queue()
     document, item = _submit(queue, fixture)
     resolution = queue.release(
-        tenant=document["tenant"],
+        _authorized(document["tenant"], document["event_key"]),
         event_key=document["event_key"],
         principal=_principal(
             fixture, "credit_officer", product_content_hash=content_hash(item)
@@ -174,7 +188,7 @@ def test_a_rejection_is_recorded_resolved_false() -> None:
     queue, _, audit = _queue()
     document, item = _submit(queue, fixture)
     resolution = queue.reject(
-        tenant=document["tenant"],
+        _authorized(document["tenant"], document["event_key"]),
         event_key=document["event_key"],
         principal=_principal(
             fixture, "credit_officer", product_content_hash=content_hash(item)
@@ -205,7 +219,7 @@ def test_two_tenants_queues_are_isolated() -> None:
     ((_, theirs),) = queue.items(tenant=other["event"]["tenant"])
     assert theirs == other_item
     queue.release(
-        tenant=document["tenant"],
+        _authorized(document["tenant"], document["event_key"]),
         event_key=document["event_key"],
         principal=_principal(
             fixture, "credit_officer", product_content_hash=content_hash(item)
@@ -228,7 +242,7 @@ def test_releasing_on_a_second_instance_is_typed_and_mutates_nothing() -> None:
     other = ReviewQueue(transport=transport, audit=audit, clock=_clock())
     with pytest.raises(UnknownReviewEventError):
         other.release(
-            tenant=document["tenant"],
+            _authorized(document["tenant"], document["event_key"]),
             event_key=document["event_key"],
             principal=_principal(
                 fixture,
@@ -248,7 +262,7 @@ def test_releasing_an_unknown_event_raises() -> None:
     document = fixture["review"]["event"]
     with pytest.raises(UnknownReviewEventError):
         queue.release(
-            tenant=document["tenant"],
+            _authorized(document["tenant"], "acme-bank/exec-rev/no-such-event"),
             event_key="acme-bank/exec-rev/no-such-event",
             principal=_principal(
                 fixture,
@@ -294,7 +308,7 @@ def _bound_queue(
     provider, kid, trusted = _signing_env(tmp_path)
     plane = ControlPlaneRegistry()
     policy_key = "acme-bank/hitl/policy"
-    plane.register_typed(
+    compose_register_typed(plane,
         policy_key,
         parse_artifact(
             {"semver": "1.0.0", "signed_binding_required": True},
@@ -334,7 +348,7 @@ def test_review_required_and_unsigned_release_is_refused_event_pending(
     )
     with pytest.raises(SignedBindingRequiredRefused):
         queue.release(
-            tenant=document["tenant"],
+            _authorized(document["tenant"], document["event_key"]),
             event_key=document["event_key"],
             principal=principal,
         )
@@ -344,7 +358,7 @@ def test_review_required_and_unsigned_release_is_refused_event_pending(
     # A subsequent valid release of the SAME event succeeds.
     signed = sign_principal_binding(principal, provider=provider, key_id=kid)
     resolution = queue.release(
-        tenant=document["tenant"],
+        _authorized(document["tenant"], document["event_key"]),
         event_key=document["event_key"],
         principal=principal,
         signed_binding=signed,
@@ -370,7 +384,7 @@ def test_review_required_and_tampered_binding_is_refused_event_pending(
     )
     with pytest.raises(SignedBindingInvalidRefused):
         queue.release(
-            tenant=document["tenant"],
+            _authorized(document["tenant"], document["event_key"]),
             event_key=document["event_key"],
             principal=principal,
             signed_binding=tampered,
@@ -393,7 +407,7 @@ def test_review_required_and_valid_binding_passes_both_layers(
     )
     signed = sign_principal_binding(principal, provider=provider, key_id=kid)
     resolution = queue.release(
-        tenant=document["tenant"],
+        _authorized(document["tenant"], document["event_key"]),
         event_key=document["event_key"],
         principal=principal,
         signed_binding=signed,
@@ -410,7 +424,7 @@ def test_review_unbound_kwargs_behave_as_before() -> None:
     queue, transport, _ = _queue()
     document, item = _submit(queue, fixture)
     resolution = queue.release(
-        tenant=document["tenant"],
+        _authorized(document["tenant"], document["event_key"]),
         event_key=document["event_key"],
         principal=_principal(
             fixture,
@@ -419,3 +433,111 @@ def test_review_unbound_kwargs_behave_as_before() -> None:
         ),
     )
     assert isinstance(resolution, ReviewResolution)
+
+
+# --- D-IMPL-353 §1.2: the primitive requires the capability for ITS action ----
+#
+# The resolver mutates (``remove`` claims the event) and audits (a hash
+# mismatch writes ``resolved=False``) BEFORE it submits, so the capability
+# is verified at entry — a wrong kind or a capability minted for another
+# event dies before the queue is read, before anything is audited, and
+# before any claim is taken. Without these controls, severing ``verify`` at
+# the primitive would redden nothing.
+
+
+def test_a_queue_read_capability_dies_at_the_primitive_before_anything_is_touched() -> None:
+    from ccf.authz.capability import CapabilityBypassError
+
+    from .capabilities import queue_read_capability
+
+    fixture = _hitl()
+    queue, transport, audit = _queue()
+    document, _item_queued = _submit(queue, fixture)
+    ((event, _queued),) = queue.items(tenant=document["tenant"])
+    transport.enqueue(
+        event=PendingHitlEvent(
+            event_key=document["event_key"] + "-decoy",
+            event_class="review-queue",
+            tenant=document["tenant"],
+            workflow_state_ref="decoy/exec",
+            product_content_hash="e" * 64,
+        )
+    )
+    # Two events, so a claim taken BEFORE the capability died (and given back
+    # at the tail on rollback) shows up as a reorder rather than as nothing.
+    pending_before = transport.pending(tenant=document["tenant"])
+    assert len(pending_before) == 2
+    audit_before = audit.events()
+    principal = _principal(
+        fixture, "credit_officer", product_content_hash=event.product_content_hash
+    )
+    read = queue_read_capability(
+        tenant=document["tenant"], principal="credit-officer-11", resource=document["event_key"]
+    )
+    with pytest.raises(CapabilityBypassError, match="kind"):
+        queue.release(
+            read,  # type: ignore[arg-type]
+            event_key=document["event_key"],
+            principal=principal,
+        )
+    assert transport.pending(tenant=document["tenant"]) == pending_before
+    assert transport.submissions(tenant=document["tenant"]) == ()
+    assert audit.events() == audit_before
+
+
+def test_a_capability_for_another_event_dies_at_the_primitive() -> None:
+    from ccf.authz.capability import CapabilityBypassError
+
+    fixture = _hitl()
+    queue, transport, audit = _queue()
+    document, _item_queued = _submit(queue, fixture)
+    ((event, _queued),) = queue.items(tenant=document["tenant"])
+    transport.enqueue(
+        event=PendingHitlEvent(
+            event_key=document["event_key"] + "-decoy",
+            event_class="review-queue",
+            tenant=document["tenant"],
+            workflow_state_ref="decoy/exec",
+            product_content_hash="e" * 64,
+        )
+    )
+    # Two events, so a claim taken BEFORE the capability died (and given back
+    # at the tail on rollback) shows up as a reorder rather than as nothing.
+    pending_before = transport.pending(tenant=document["tenant"])
+    assert len(pending_before) == 2
+    audit_before = audit.events()
+    principal = _principal(
+        fixture, "credit_officer", product_content_hash=event.product_content_hash
+    )
+    with pytest.raises(CapabilityBypassError, match="resource"):
+        queue.reject(
+            _authorized(document["tenant"], "some-other-event"),
+            event_key=document["event_key"],
+            principal=principal,
+        )
+    assert transport.pending(tenant=document["tenant"]) == pending_before
+    assert transport.submissions(tenant=document["tenant"]) == ()
+    assert audit.events() == audit_before
+
+
+def test_the_record_carries_the_authorizing_decision_id() -> None:
+    """The recorded submission is the transport's stamped copy: the replay
+    block names the authorization that produced the action (D-IMPL-353 §9),
+    never the primitive's pre-stamp input."""
+    fixture = _hitl()
+    queue, transport, _ = _queue()
+    document, item = _submit(queue, fixture)
+    authorized = _authorized(document["tenant"], document["event_key"])
+    resolution = queue.release(
+        authorized,
+        event_key=document["event_key"],
+        principal=_principal(
+            fixture, "credit_officer", product_content_hash=content_hash(item)
+        ),
+    )
+    assert isinstance(resolution, ReviewResolution)
+    assert (
+        resolution.record.submission.authorizing_decision_id
+        == authorized.decision_id
+    )
+    assert authorized.decision_id in resolution.hitl_actions_block

@@ -66,7 +66,6 @@ from ccf_runtime.authz.delivery_boundary import (
 )
 from ccf_runtime.http_api import app as app_module
 from ccf_runtime.http_api.app import (
-    CcfInsecureDefaultWarning,
     create_app,
 )
 from ccf_runtime.http_api.dependencies import ApiDependencies
@@ -116,19 +115,21 @@ APP_SOURCE = pathlib.Path(app_module.__file__)
 
 #: The one line in ``create_app`` that refuses to build an unrecordable
 #: entitling door. The sabotage removes it from a scratch copy.
+#: Re-anchored by ``SEC-001``: the two checks used to sit inside
+#: ``if product_entitlement is not None:``. That branch is gone — the seam is
+#: required — so both lines de-indented by four. The ``count(...) == 1``
+#: assertions below are what turn a stale anchor into a red test rather than a
+#: silently vacuous sabotage.
 CHECK_LINES = (
-    "        recorded_boundary(\n"
-    "            refusal_recorder=refusal_recorder, builder=\"create_app\"\n"
-    "        )\n"
-    "        # `D-IMPL-345` R-2, in the same breath and for the same reason: the\n"
-    "        # two evidence-read routes disclose at the level the recorder that\n"
-    "        # disclosed the serve would state, so a recorder that cannot state one\n"
-    "        # cannot govern them. Kept beside the check above rather than folded\n"
-    "        # into it — that one is the product door's, in its own words and with\n"
-    "        # its own sabotage, and this one is the evidence doors'.\n"
-    "        evidence_recorder = disclosing_boundary(\n"
-    "            refusal_recorder=refusal_recorder, builder=\"create_app\"\n"
-    "        )\n"
+    "    recorded_boundary(refusal_recorder=refusal_recorder,"
+    " builder=\"create_app\")\n"
+    "    # `D-IMPL-345` R-2, in the same breath and for the same reason: the two\n"
+    "    # evidence-read routes disclose at the level the recorder that disclosed\n"
+    "    # the serve would state, so a recorder that cannot state one cannot govern\n"
+    "    # them.\n"
+    "    evidence_recorder = disclosing_boundary(\n"
+    "        refusal_recorder=refusal_recorder, builder=\"create_app\"\n"
+    "    )\n"
 )
 
 #: The transport trees this plan's half of the no-transport-mint gate walks.
@@ -141,9 +142,8 @@ ROUTE_SOURCE = HTTP_TREE / "routes" / "product.py"
 #: The one line in ``build_router`` that refuses an unrecordable entitling
 #: router. Removed together with ``CHECK_LINES`` by the both-checks-gone leg.
 ROUTE_CHECK_LINES = (
-    "        recorded_boundary(\n"
-    "            refusal_recorder=refusal_recorder, builder=\"build_router\"\n"
-    "        )\n"
+    "    recorded_boundary(refusal_recorder=refusal_recorder,"
+    " builder=\"build_router\")\n"
 )
 
 #: What a transport must never call, and what it must never catch.
@@ -502,42 +502,38 @@ def test_a_non_conforming_recorder_is_refused_the_same_way(
     assert "RefusalRecorderProtocol" in str(refused.value)
 
 
-def test_a_recorder_with_no_entitlement_builds_and_serves(
+def test_a_recorder_with_no_entitlement_is_no_longer_a_configuration(
     fabric: Fabric, tmp_path: pathlib.Path
 ) -> None:
-    """Inert by construction, and accepted: nothing at that door can deny.
+    """The over-supply this asserted was harmless is now unbuildable.
 
-    The asymmetry is the ruling's: the recorder is required *because* the door
-    entitles. A door that does not entitle has no governed determination to
-    record, so a bound recorder is a harmless over-supply rather than a
-    half-bound configuration.
+    It used to build an app with a recorder and **no** entitlement source and
+    assert it served — the asymmetry was the ruling's: the recorder is
+    required *because* the door entitles, so a door that does not entitle has
+    nothing to record. ``SEC-001`` removed the *does not entitle* arm, so the
+    only thing left to assert is that the pairing is held by the signature.
     """
     source = _source_over(fabric, tmp_path)
-    app = create_app(
-        ApiDependencies(
-            control_plane=fabric.registry,
-            artifact_store=fabric.store,
-            product_resolver=fabric.product_resolver,
-        ),
-        refusal_recorder=_recorder(fabric, tmp_path, source=source),
-        acknowledge_insecure_default=True,
-    )
-
-    from http_api.conftest import call
-
-    assert call(app, "GET", "/health").status_code == 200
+    with pytest.raises(TypeError):
+        create_app(  # type: ignore[call-arg]
+            ApiDependencies(
+                control_plane=fabric.registry,
+                artifact_store=fabric.store,
+                product_resolver=fabric.product_resolver,
+            ),
+            refusal_recorder=_recorder(fabric, tmp_path, source=source),
+        )
 
 
-def test_neither_bound_is_the_d_impl_73_posture_unchanged(
-    fabric: Fabric,
-) -> None:
-    """The acknowledged insecure default still builds, and still warns.
+def test_neither_bound_is_no_longer_a_posture(fabric: Fabric) -> None:
+    """``D-IMPL-73`` is withdrawn, and this is where that is asserted here.
 
-    ``D-IMPL-73`` is a supported posture and this plan did not narrow it: with
-    no entitlement source there is no governed determination at that door, so
-    there is nothing for a recorder to record. What would fail here: a
-    construction check that fired on the posture the SDK explicitly still
-    supports, which would make the whole insecure default unbuildable.
+    The predecessor read ``test_neither_bound_is_the_d_impl_73_posture_unchanged``
+    and proved the acknowledged insecure default still built and still warned.
+    It no longer builds, and nothing warns, because there is nothing to warn
+    about: see ``tests/http_api/test_required_authority.py`` for the whole of
+    that argument, including the measurement that the warning was never
+    escalated anywhere in CI.
     """
     deps = ApiDependencies(
         control_plane=fabric.registry,
@@ -545,12 +541,31 @@ def test_neither_bound_is_the_d_impl_73_posture_unchanged(
         product_resolver=fabric.product_resolver,
     )
 
-    # Acknowledged: builds, no warning.
-    assert create_app(deps, acknowledge_insecure_default=True) is not None
+    with pytest.raises(TypeError):
+        create_app(deps)  # type: ignore[call-arg]
 
-    # Unacknowledged: builds, and warns exactly as it always did.
-    with pytest.warns(CcfInsecureDefaultWarning):
-        create_app(deps)
+
+def _gate_auth(fabric: Fabric) -> Any:
+    """An auth hook minting tenanted grants, for the sabotage legs."""
+    from .gate_fixtures import SCOPE_EVERYTHING, tenanted_source
+
+    return BearerTokenAuth(
+        token_source=tenanted_source(
+            {TOKEN: (PRINCIPAL, (SCOPE_EVERYTHING,))},
+            tenant=fabric.product_address.tenant,
+        )
+    )
+
+
+def _gate_authorizer(fabric: Fabric, label: str) -> Any:
+    """A wide authorizer, so a sabotage leg measures the recorder not the gate."""
+    from .gate_fixtures import wide_authorizer
+
+    return wide_authorizer(
+        tenant=fabric.product_address.tenant,
+        key=f"refusal-statuses/{label}",
+        clock_at=DETERMINED_AT,
+    )
 
 
 def _scratch_app(root: pathlib.Path, *, mutate: bool) -> Any:
@@ -563,7 +578,7 @@ def _scratch_app(root: pathlib.Path, *, mutate: bool) -> Any:
     if mutate:
         source = source.replace(
             CHECK_LINES,
-            "        evidence_recorder = refusal_recorder"
+            "    evidence_recorder = refusal_recorder"
             "  # sabotaged (D-IMPL-256 (2))\n",
         )
     name = "scratch_http_app_" + ("sabotaged" if mutate else "control")
@@ -601,23 +616,23 @@ def test_a_builder_that_skips_the_recorder_check_is_red_sabotage(
     scratch = _scratch_app(tmp_path, mutate=mutate)
 
     def build() -> Any:
-        with warnings.catch_warnings():
-            # The sabotaged leg gets FURTHER into `create_app` than the
-            # shipped one does — far enough to reach the dead-entitlement
-            # warning, which is a property of the mutation rather than of the
-            # subject. `filterwarnings` cannot name the class here: each
-            # scratch module defines its own.
-            warnings.simplefilter("ignore", UserWarning)
-            return scratch.create_app(
-                ApiDependencies(
-                    control_plane=fabric.registry,
-                    artifact_store=fabric.store,
-                    product_resolver=fabric.product_resolver,
-                ),
-                product_entitlement=_source_over(fabric, tmp_path),
-                perspective_resolver=lambda **_: None,
-                acknowledge_insecure_default=True,
-            )
+        # `refusal_recorder=None` is what the subject of this sabotage is: a
+        # door asked to entitle with nothing to record its determinations.
+        # It is now an explicit argument rather than an omitted default,
+        # because `SEC-001` made every seam required — which makes the
+        # unrecordable configuration something a caller has to *state*.
+        return scratch.create_app(
+            ApiDependencies(
+                control_plane=fabric.registry,
+                artifact_store=fabric.store,
+                product_resolver=fabric.product_resolver,
+            ),
+            auth=_gate_auth(fabric),
+            authorizer=_gate_authorizer(fabric, "sabotage-a"),
+            product_entitlement=_source_over(fabric, tmp_path),
+            perspective_resolver=lambda **_: None,
+            refusal_recorder=None,
+        )
 
     if mutate:
         # The check is gone, so `create_app` builds an entitling door with no
@@ -643,7 +658,7 @@ def _scratch_route_without_its_check(root: pathlib.Path) -> Any:
         f" this sabotage removes ({ROUTE_CHECK_LINES!r}); fix the anchor"
     )
     source = source.replace(
-        ROUTE_CHECK_LINES, "        pass  # sabotaged (D-IMPL-256 (2))\n"
+        ROUTE_CHECK_LINES, "    pass  # sabotaged (D-IMPL-256 (2))\n"
     )
     path = root / "scratch_product_route_uncheck.py"
     path.write_text(source, encoding="utf-8")
@@ -679,15 +694,6 @@ def test_a_door_built_with_no_check_at_all_still_releases_nothing(
     scratch_route = _scratch_route_without_its_check(tmp_path)
     monkeypatch.setattr(scratch_app, "product", scratch_route)
 
-    # Authenticated, so the request reaches the delivery boundary rather than
-    # stopping at the ungoverned-door 503 — otherwise this leg would prove
-    # nothing about the recorder.
-    token_file = tmp_path / "no-check-tokens.json"
-    token_file.write_text(
-        json.dumps({TOKEN: {"client_id": PRINCIPAL, "scopes": ["product"]}}),
-        encoding="utf-8",
-    )
-
     # It BUILDS. That is the sabotage landing.
     app = scratch_app.create_app(
         ApiDependencies(
@@ -695,9 +701,11 @@ def test_a_door_built_with_no_check_at_all_still_releases_nothing(
             artifact_store=fabric.store,
             product_resolver=_serving_or_absent(fabric),
         ),
-        auth=BearerTokenAuth(token_source=FileTokenSource(path=token_file)),
+        auth=_gate_auth(fabric),
+        authorizer=_gate_authorizer(fabric, "sabotage-both"),
         product_entitlement=_source_over(fabric, tmp_path),
         perspective_resolver=_perspective,
+        refusal_recorder=None,
     )
     assert app is not None
 

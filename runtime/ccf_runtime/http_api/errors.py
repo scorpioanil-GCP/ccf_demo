@@ -25,11 +25,14 @@ from typing import Final
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "ERROR_AMBIGUOUS_TENANT",
+    "ERROR_DECISION_UNMINTABLE",
     "ERROR_EVIDENCE_ABSENT",
     "ERROR_EVIDENCE_CLASS_UNRECOVERABLE",
     "ERROR_EVIDENCE_DISCLOSURE_WITHHELD",
     "ERROR_EVIDENCE_PRINCIPAL_MISMATCH",
     "ERROR_INVALID_GRANT",
+    "ERROR_NO_CAPABILITY",
     "ERROR_PRINCIPAL_NOT_ENTITLED",
     "ERROR_PRODUCT_CLASS_UNENTITLED",
     "ERROR_PRODUCT_DOOR_UNGOVERNED",
@@ -37,17 +40,86 @@ __all__ = [
     "ERROR_PRODUCT_POLICY_ABSENT",
     "ERROR_PRODUCT_REQUEST_INCOMPLETE",
     "ERROR_PRODUCT_ROLE_UNGRANTED",
+    "ERROR_REQUEST_UNAUTHORIZED",
     "ERROR_ROUTE_HANDLE_ABSENT",
     "ERROR_SIGNED_BINDING_INVALID",
     "ERROR_SIGNED_BINDING_REQUIRED",
     "ERROR_SUBJECT_CONFLICT",
     "ERROR_TENANT_UNAUTHORIZED",
     "ERROR_UNAUTHENTICATED",
+    "ERROR_UNTENANTED_GRANT",
     "refusal_detail",
 ]
 
 #: The request carried no credential the bound auth hook recognises (401).
 ERROR_UNAUTHENTICATED: Final[str] = "unauthenticated"
+
+#: The verified grant does not authorize this request (403; ``SEC-001``/
+#: ``SEC-002``). The **one** code the total gate
+#: (:mod:`ccf_runtime.http_api.gate`) emits for every denial it makes, and the
+#: message beside it is one constant sentence that names neither the action
+#: nor the resource nor which axis failed.
+#:
+#: One code and one sentence, deliberately. The gate denies for five distinct
+#: internal reasons — no declaration covers the request line, the path's tenant
+#: segment disagrees with the grant's, the declared resource could not be read
+#: out of the request, the scope mapping said no, or no mapping resolved at the
+#: pinned version — and a caller able to tell those apart could enumerate which
+#: routes exist, which tenants it is near, and which of its own parameters the
+#: door reads. The full decision tuple goes to the **audit plane**, where an
+#: operator can read it and a caller cannot: that is the split, not a silence.
+ERROR_REQUEST_UNAUTHORIZED: Final[str] = "request-unauthorized"
+
+#: The verified grant names no tenant, so no door can act on one (403;
+#: ``SEC-002``; :class:`~ccf_runtime.authz.tenancy.UntenantedGrantRefused`).
+#:
+#: **Its own code rather than** :data:`ERROR_REQUEST_UNAUTHORIZED`, and the
+#: reason is the oracle test rather than tidiness: a caller cannot change what
+#: its own credential carries, so this answer is constant for a given
+#: credential across every route and every parameter, and distinguishing it
+#: discloses nothing a caller could probe with. What it buys is an operator
+#: who wired a token source that mints untenanted grants reading the cause
+#: instead of an opaque refusal on every route at once.
+ERROR_UNTENANTED_GRANT: Final[str] = "untenanted-grant"
+
+#: The verified grant spans several tenants and the route names none, so
+#: there is no one tenant to decide about — and the gate does not pick (403;
+#: D-IMPL-353 §1.3;
+#: :class:`~ccf_runtime.authz.tenancy.AmbiguousTenantRefused`).
+#:
+#: Its own code on the same oracle reasoning as :data:`ERROR_UNTENANTED_GRANT`:
+#: the answer is a function of the credential's own set and the route's own
+#: template, neither of which a caller can vary per request, so distinguishing
+#: it discloses nothing — and an operator holding a multi-tenant credential
+#: learns to present one scoped to a tenant, or to address a route that names
+#: one. A named tenant the grant does **not** hold is not this code: that is
+#: the constant :data:`ERROR_REQUEST_UNAUTHORIZED`, because telling it apart
+#: would let a caller enumerate which tenants it is near.
+ERROR_AMBIGUOUS_TENANT: Final[str] = "ambiguous-tenant"
+
+#: No capability accompanies this call, or the object where one should be is
+#: not a genuine, unretargeted capability for this route's action (403;
+#: D-IMPL-353 §1.4; :func:`~ccf_runtime.http_api.grants.authorized_from_request`).
+#:
+#: Unreachable behind the total gate, which mints the capability before any
+#: handler exists. It exists for a handler reached some other way — a test, a
+#: future in-process composition, an object planted on ``request.state`` —
+#: where refusing beats acting on an authority nobody minted. One code for
+#: *absent*, *fabricated*, *retargeted* and *wrong action*: there is nothing
+#: useful for a caller to learn from which.
+ERROR_NO_CAPABILITY: Final[str] = "no-capability"
+
+#: The bound authorizer returned an *allow* the gate cannot mint a capability
+#: from (503; D-IMPL-353 §1.5a): it carries no ``decision_id``, so no audit
+#: record names it, or it answers a different question — another tenant,
+#: action or resource — from the one the gate asked.
+#:
+#: A 503 and not a 403, for the :data:`ERROR_PRODUCT_DOOR_UNGOVERNED` reason:
+#: the fault is the deployment's authorizer, not the caller's request. The
+#: SDK's own authorizer can never produce this; a deployment's conforming
+#: implementation can, and the gate refuses rather than minting an authority
+#: that is traceable to nothing or that authorizes something nobody asked.
+ERROR_DECISION_UNMINTABLE: Final[str] = "decision-unmintable"
 
 #: The caller asked to dereference a governed record that belongs to another
 #: principal (``D-IMPL-345`` R-2/R-4). Internal truth only: the shell a

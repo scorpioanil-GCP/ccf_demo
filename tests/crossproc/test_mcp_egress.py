@@ -138,10 +138,17 @@ from ccf_runtime.mcp.egress import (
     product_uri,
 )
 
+from crossproc.servers.wide_authorizer import wide_authorizer
 from crossproc.servers.mcp_egress_child import (
     ProductAddress,
     authorized_http_client,
     build_servable_product,
+)
+from ccf.controlplane.registry import ControlPlaneRegistry
+from http_api.composition_authority import (
+    deployment_store,
+    refusal_recorder,
+    register_typed_at_composition,
 )
 
 pytestmark = pytest.mark.crossproc
@@ -519,10 +526,11 @@ def _recorder(root: Path, *, tenant: str) -> ReplayRefusalRecorder:
     is a stub — so there is none to take a recorder off, and the tenant comes
     from the address the fixture already holds.
     """
-    return ReplayRefusalRecorder(
-        artifact_store=FileArtifactStore(root=root / "artifacts"),
+    return refusal_recorder(
+        ControlPlaneRegistry(),
+        store=deployment_store(root / "artifacts", LOCAL_REPLAY_RECORD_CLASS),
+        tenant=tenant,
         replay_record_class=LOCAL_REPLAY_RECORD_CLASS,
-        tenant_id=tenant,
         assembly_mode="algorithmic",
     )
 
@@ -555,20 +563,47 @@ def _local_world(
     token_file.write_text(
         json.dumps(
             {
+                # Both are scoped to the address's tenant: what these tests
+                # vary is ENTITLEMENT, so a stranger refused for tenancy would
+                # go red for the wrong reason (`SEC-018`).
                 LOCAL_TOKEN: {
                     "client_id": LOCAL_PRINCIPAL,
                     "scopes": [LOCAL_SCOPE],
+                    "tenants": [
+                        address.tenant,
+                        # The neighbour is in the credential DELIBERATELY:
+                        # what these suites test is what the ENTITLEMENT
+                        # decides about a tenant the caller can reach. A
+                        # credential stopped by the tenancy floor first
+                        # would leave the entitlement untested; the floor
+                        # is proven in `tests/mcp/test_tenant_guard.py`
+                        # against these same shipped servers (`SEC-018`).
+                        f"{address.tenant}-not-this-one",
+                        f"{address.tenant}-no-policy",
+                    ],
                 },
                 LOCAL_STRANGER_TOKEN: {
                     "client_id": LOCAL_STRANGER,
                     "scopes": [LOCAL_SCOPE],
+                    "tenants": [
+                        address.tenant,
+                        # The neighbour is in the credential DELIBERATELY:
+                        # what these suites test is what the ENTITLEMENT
+                        # decides about a tenant the caller can reach. A
+                        # credential stopped by the tenancy floor first
+                        # would leave the entitlement untested; the floor
+                        # is proven in `tests/mcp/test_tenant_guard.py`
+                        # against these same shipped servers (`SEC-018`).
+                        f"{address.tenant}-not-this-one",
+                        f"{address.tenant}-no-policy",
+                    ],
                 },
             }
         ),
         encoding="utf-8",
     )
     registry = ControlPlaneRegistry()
-    registry.register_typed(
+    register_typed_at_composition(registry, 
         product_entitlement_key(tenant_id=address.tenant),
         ProductEntitlementPolicy(
             tenant_id=address.tenant,
@@ -625,6 +660,7 @@ def _local_world(
             resource_server_url=AnyHttpUrl(f"{IN_PROCESS_BASE_URL}/mcp"),
             required_scopes=[LOCAL_SCOPE],
         ),
+        authorizer=wide_authorizer(scopes=(LOCAL_SCOPE,)),
         entitlement_source=entitlement,  # type: ignore[arg-type]
         perspective_resolver=resolve_perspective,
         refusal_recorder=_recorder(tmp_path, tenant=address.tenant),
@@ -889,6 +925,7 @@ def test_the_builder_refuses_to_build_without_any_governance_seam(
             resource_server_url=AnyHttpUrl(f"{IN_PROCESS_BASE_URL}/mcp"),
             required_scopes=[LOCAL_SCOPE],
         ),
+        "authorizer": wide_authorizer(scopes=(LOCAL_SCOPE,)),
         "entitlement_source": ControlPlaneProductEntitlementSource(
             control_plane=ControlPlaneRegistry(),
             clock=lambda: LOCAL_AUDIT_INSTANT,
@@ -1112,7 +1149,24 @@ def test_a_tenant_with_no_registered_policy_is_refused_not_served(
     token_file = tmp_path / "empty-policy-tokens.json"
     token_file.write_text(
         json.dumps(
-            {LOCAL_TOKEN: {"client_id": LOCAL_PRINCIPAL, "scopes": [LOCAL_SCOPE]}}
+            {
+                LOCAL_TOKEN: {
+                    "client_id": LOCAL_PRINCIPAL,
+                    "scopes": [LOCAL_SCOPE],
+                    "tenants": [
+                        assembled.address.tenant,
+                        # The neighbour is in the credential DELIBERATELY:
+                        # what these suites test is what the ENTITLEMENT
+                        # decides about a tenant the caller can reach. A
+                        # credential stopped by the tenancy floor first
+                        # would leave the entitlement untested; the floor
+                        # is proven in `tests/mcp/test_tenant_guard.py`
+                        # against these same shipped servers (`SEC-018`).
+                        f"{assembled.address.tenant}-not-this-one",
+                        f"{assembled.address.tenant}-no-policy",
+                    ],
+                }
+            }
         ),
         encoding="utf-8",
     )
@@ -1128,6 +1182,7 @@ def test_a_tenant_with_no_registered_policy_is_refused_not_served(
             resource_server_url=AnyHttpUrl(f"{IN_PROCESS_BASE_URL}/mcp"),
             required_scopes=[LOCAL_SCOPE],
         ),
+        authorizer=wide_authorizer(scopes=(LOCAL_SCOPE,)),
         entitlement_source=ControlPlaneProductEntitlementSource(
             control_plane=registry, clock=lambda: LOCAL_AUDIT_INSTANT
         ),

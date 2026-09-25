@@ -100,6 +100,7 @@ from tests.products.test_resolver_seam import (
     _request,
     _resolver,
 )
+from tests.composition import register_typed_at_composition
 
 CONSTRAINTS_PATH = pathlib.Path(constraints_module.__file__)
 CONSTRAINTS_SOURCE = CONSTRAINTS_PATH.read_bytes()
@@ -117,8 +118,8 @@ BEFORE_T1 = T1 - timedelta(days=1)
 #: is where the artifact lives; the policy id is what a caller would name in an
 #: override. They are deliberately different strings, so a test that confused
 #: them would fail rather than pass by coincidence.
-KEY_A = "policy_constraints.a"
-KEY_B = "policy_constraints.b"
+KEY_A = "tenant-fixture/policy_constraints/a"
+KEY_B = "tenant-fixture/policy_constraints/b"
 POLICY_A = "a"
 POLICY_B = "b"
 
@@ -138,7 +139,7 @@ UNENTITLED = Perspective(principal_id=UNENTITLED_PRINCIPAL, role=ROLE)
 
 #: The request contract's own pin, as the governed resolver mints it.
 DECLARED_SOURCE = ProvenanceSource(
-    kind="artifact", identity="fixture/request-contract", version="1"
+    kind="artifact", identity="tenant-fixture/request-contract", version="1"
 )
 
 #: The needle the C-10 sabotage cuts, and the marker that makes it findable.
@@ -203,8 +204,7 @@ def _register_two_windows(
     registry: ControlPlaneRegistry, *, overridable: bool = False
 ) -> tuple[str, str]:
     """``a`` in force over ``[T0, T1)`` and ``b`` from ``T1``; their versions."""
-    version_a = registry.register_typed(
-        KEY_A,
+    version_a = register_typed_at_composition(registry, KEY_A,
         _constraint(
             policy_id=POLICY_A,
             value=MAXIMUM_EARLY,
@@ -214,8 +214,7 @@ def _register_two_windows(
         ),
         POLICY_CONSTRAINT,
     )
-    version_b = registry.register_typed(
-        KEY_B,
+    version_b = register_typed_at_composition(registry, KEY_B,
         _constraint(
             policy_id=POLICY_B,
             value=MAXIMUM_LATE,
@@ -229,8 +228,7 @@ def _register_two_windows(
 
 def _register_entitlement(registry: ControlPlaneRegistry) -> str:
     """One tenant policy: the entitled principal may override ``a``, the other may not."""
-    return registry.register_typed(
-        product_entitlement_key(tenant_id=TENANT),
+    return register_typed_at_composition(registry, product_entitlement_key(tenant_id=TENANT),
         ProductEntitlementPolicy(
             tenant_id=TENANT,
             policy_version="1.0.0",
@@ -349,7 +347,7 @@ def _scratch_constraints(
 #: A presence constraint on the threshold, which the fixture question never
 #: supplies and the fixture contract never defaults — so the seam REFUSES
 #: after the tolerance ceiling in force has already folded.
-KEY_PRESENCE = "policy_constraints.presence"
+KEY_PRESENCE = "tenant-fixture/policy_constraints/presence"
 POLICY_PRESENCE = "presence"
 
 
@@ -365,8 +363,7 @@ def test_a_refused_resolution_still_carries_the_evidence_at_the_seam(
     beside the refusal, at the seam and not only in the pure function.
     """
     version_a, _version_b = _register_two_windows(registry)
-    version_presence = registry.register_typed(
-        KEY_PRESENCE,
+    version_presence = register_typed_at_composition(registry, KEY_PRESENCE,
         PolicyConstraint(
             semver="1.0.0",
             policy_id=POLICY_PRESENCE,
@@ -529,8 +526,7 @@ def test_two_versions_of_one_key_in_force_at_once_is_a_conflict(
     tolerance is bounded two ways at once. Picking either would make one
     decision replayable two ways, so neither is picked.
     """
-    first = registry.register_typed(
-        KEY_A,
+    first = register_typed_at_composition(registry, KEY_A,
         _constraint(
             policy_id=POLICY_A,
             value=MAXIMUM_EARLY,
@@ -539,8 +535,7 @@ def test_two_versions_of_one_key_in_force_at_once_is_a_conflict(
         ),
         POLICY_CONSTRAINT,
     )
-    second = registry.register_typed(
-        KEY_A,
+    second = register_typed_at_composition(registry, KEY_A,
         _constraint(
             policy_id=POLICY_A,
             value=MAXIMUM_LATE,
@@ -568,8 +563,7 @@ def test_a_superseded_version_of_one_key_is_not_a_conflict(
     two versions existing. A registry whose windows do not overlap resolves
     cleanly however many versions it holds.
     """
-    registry.register_typed(
-        KEY_A,
+    register_typed_at_composition(registry, KEY_A,
         _constraint(
             policy_id=POLICY_A,
             value=MAXIMUM_EARLY,
@@ -578,8 +572,7 @@ def test_a_superseded_version_of_one_key_is_not_a_conflict(
         ),
         POLICY_CONSTRAINT,
     )
-    later = registry.register_typed(
-        KEY_A,
+    later = register_typed_at_composition(registry, KEY_A,
         _constraint(
             policy_id=POLICY_A,
             value=MAXIMUM_LATE,
@@ -848,8 +841,7 @@ def test_the_constraint_pin_and_the_resolution_reach_replay_dimension_two(
     bindings, and ``request_resolution`` round-trips to the very
     ``EffectiveRequest`` that produced the answer.
     """
-    version_a = booted_with_tolerance.control_plane.register_typed(
-        KEY_A,
+    version_a = register_typed_at_composition(booted_with_tolerance.control_plane, KEY_A,
         _constraint(
             policy_id=POLICY_A,
             value=MAXIMUM_EARLY,
@@ -921,8 +913,7 @@ def test_the_recorded_question_is_the_callers_and_the_resolution_is_its_sibling(
     ``GovernedResolver.__call__`` and this goes RED on the dimension-5
     assertion while every other test in this module stays green.
     """
-    booted_with_tolerance.control_plane.register_typed(
-        KEY_A,
+    register_typed_at_composition(booted_with_tolerance.control_plane, KEY_A,
         _constraint(
             policy_id=POLICY_A,
             value=MAXIMUM_EARLY,
@@ -1014,8 +1005,7 @@ def test_a_refusal_carries_the_callers_parameters_not_the_effective_ones(
     point — and the envelope's identity still carries the number the caller
     supplied, so the refusal can say what was asked for.
     """
-    booted_with_tolerance.control_plane.register_typed(
-        KEY_A,
+    register_typed_at_composition(booted_with_tolerance.control_plane, KEY_A,
         _constraint(
             policy_id=POLICY_A,
             value=MAXIMUM_EARLY,

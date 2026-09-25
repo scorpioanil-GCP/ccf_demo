@@ -74,6 +74,7 @@ from tests.projection.test_segmentation import (
     _perspective,
     _plan,
 )
+from tests.composition import register_at_composition
 
 #: The three well-known attestation values (D-09): three values of one schema.
 TIER_1 = SourceAttestation(
@@ -110,11 +111,9 @@ def fabric(
     """Boot a fabric from the fixtures and ingest the whole event stream."""
     keys = control["keys"]
     registry = ControlPlaneRegistry()
-    spec_version = registry.register(
-        keys["resolution_spec"], _resolution_spec(ontology)
+    spec_version = register_at_composition(registry, keys["resolution_spec"], _resolution_spec(ontology)
     )
-    policy_version = registry.register(
-        keys["policy_bundle"], control["policy_bundle"]
+    policy_version = register_at_composition(registry, keys["policy_bundle"], control["policy_bundle"]
     )
     handle = boot(
         backend="sqlite",
@@ -124,6 +123,7 @@ def fabric(
         resolution_spec_version=spec_version,
         policy_bundle_key=keys["policy_bundle"],
         policy_bundle_version=policy_version,
+        tenant_ids=(ontology["tenant_id"],),
     )
     try:
         for envelope in _envelopes(ontology, events):
@@ -183,8 +183,7 @@ def _engine(fabric: _Fabric, source: _StubSource) -> ProjectionEngine:
 def _tier2_accepting_class(fabric: _Fabric) -> RegisteredProductClass:
     """Register the fixture class with the explicit tier-2 opt-in (D-09)."""
     declared = fabric.control["product_class"]
-    max_ttl_version = fabric.registry.register(
-        fabric.control["keys"]["max_ttl"],
+    max_ttl_version = register_at_composition(fabric.registry, fabric.control["keys"]["max_ttl"],
         MaxTTL(seconds=fabric.control["max_ttl_seconds"]),
     )
     return register_product_class(
@@ -250,8 +249,7 @@ def test_the_refusal_names_the_lineage_dimension_when_that_is_the_gap(
 ) -> None:
     """The failing dimension is a per-dimension fact, not an aggregate."""
     declared = fabric.control["product_class"]
-    max_ttl_version = fabric.registry.register(
-        fabric.control["keys"]["max_ttl"],
+    max_ttl_version = register_at_composition(fabric.registry, fabric.control["keys"]["max_ttl"],
         MaxTTL(seconds=fabric.control["max_ttl_seconds"]),
     )
     # Policy binding accepts both modes; lineage keeps the tier-1 default —

@@ -50,6 +50,7 @@ from ccf.products.contract import (
     register_product_class,
 )
 from ccf.products.gates import GATE_TTL_BOUNDS, ServableProduct, TTLRefusal, run_gates
+from tests.composition import register_at_composition
 
 TENANT = "tenant-fixture"
 NOW = datetime(2026, 3, 2, 12, 0, 0, tzinfo=UTC)
@@ -73,7 +74,7 @@ def _declaration() -> ProductClassDeclaration:
             "schema_version": "1.0.0",
             "ttl_anchor": "from_decision",
             "assembly_mode": "algorithmic",
-            "max_ttl_key": "fixture/max-ttl",
+            "max_ttl_key": "tenant-fixture/max-ttl",
             "required_operator_keys": sorted(OPERATORS),
         },
         PRODUCT_CLASS,
@@ -89,7 +90,7 @@ def _register(
     seconds: int,
 ) -> RegisteredProductClass:
     """The deployment supplies the number under the class's key, then registers the class."""
-    version = registry.register(declaration.max_ttl_key, MaxTTL(seconds=seconds))
+    version = register_at_composition(registry, declaration.max_ttl_key, MaxTTL(seconds=seconds))
     return register_product_class(
         registry=registry,
         schema_name=declaration.schema_name,

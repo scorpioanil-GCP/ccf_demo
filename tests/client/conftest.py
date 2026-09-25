@@ -26,6 +26,7 @@ fail for a reason belonging to it.
 
 from __future__ import annotations
 
+import os
 import shutil
 from collections.abc import Iterator, Mapping
 from datetime import UTC, datetime
@@ -91,6 +92,28 @@ def _empty_boot_cache() -> Iterator[None]:
     reset_boot_cache()
     yield
     reset_boot_cache()
+
+
+_TREE = Path(__file__).resolve().parents[2]
+
+
+@pytest.fixture(autouse=True)
+def _children_import_this_tree(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Put THIS tree's ``src``, ``runtime`` and ``tests`` on every child's path.
+
+    The stdio child is spawned as a bare ``python <program>`` with this
+    process's environment (``mcp_stdio`` passes ``os.environ`` through), so
+    none of pytest's ``sys.path`` work reaches it. ``src`` and ``runtime``
+    make a worktree's child import the worktree's SDK rather than whatever
+    ``pip install -e`` last pointed at; ``tests`` lets a program that was
+    copied beside a deployment import the composition recipe
+    (``http_api.composition_authority``, D-IMPL-354) — a child that runs in
+    place resolves its roots from ``__file__`` (``tests/crossproc/servers``),
+    which a copy cannot.
+    """
+    inherited = os.environ.get("PYTHONPATH", "")
+    roots = [str(_TREE / part) for part in ("src", "runtime", "tests")]
+    monkeypatch.setenv("PYTHONPATH", os.pathsep.join([*roots, *([inherited] if inherited else [])]))
 
 
 @pytest.fixture()

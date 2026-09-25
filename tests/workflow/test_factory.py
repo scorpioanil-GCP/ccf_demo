@@ -9,7 +9,10 @@ see locally — a declared node absent from the resolved TaskDefinition's
 steps (D-12), a gate policy on a step that is not hitl-gate-kind, an
 exception ref that resolves to nothing (D-13); and the CINV-01c
 factory-bypass coverage extends to the workflow surface (the lint cases
-live in ``tests/lints/test_cinv01c_behavioral.py``).
+live in ``tests/lints/test_cinv01c_behavioral.py``); and, from D-IMPL-353,
+``construct`` takes the definition key from an ``Execute``/``Resume``
+capability's resource — there is no key parameter — and compares the
+artifact's declared tenant with the capability's exactly once (§1.2/§1.3).
 
 Every workflow in this module is constructed **via the factory from the
 banking fixture artifacts** (CLAUDE.md §6.4); mutants are fixture
@@ -34,12 +37,32 @@ from ccf.agents.definitions import (
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifacts import declared_artifact_class, parse_artifact
 from ccf.controlplane.registry import ControlPlaneRegistry
+from ccf.authz.actions import ACTION_ARTIFACT_READ
+from ccf.authz.capability import (
+    ArtifactRead,
+    Authorized,
+    CapabilityBypassError,
+    Execute,
+    mint,
+)
 from ccf.workflow.definitions import WORKFLOW_DEFINITION, WorkflowDefinition
 from ccf.workflow.factory import (
     Workflow,
     WorkflowConstructionError,
     WorkflowFactory,
     WorkflowIdentity,
+    WorkflowTenantMismatchError,
+)
+
+from tests.workflow.capabilities import (
+    PRINCIPAL,
+    decision,
+    execute_capability,
+    resume_capability,
+)
+from http_api.composition_authority import (
+    register_typed_at_composition,
+    register_versioned_at_composition,
 )
 
 FIXTURES = Path(__file__).parent.parent / "fixtures" / "banking"
@@ -75,7 +98,7 @@ def _register_declared(
             },
             artifact_class,
         )
-        registry.register_typed(reference["key"], declared, artifact_class)
+        register_typed_at_composition(registry, reference["key"], declared, artifact_class)
 
 
 @pytest.fixture
@@ -88,14 +111,14 @@ def registry() -> ControlPlaneRegistry:
     agent_fixture = _load("agents/covenant_analytics.yaml")
     prompt_fixture = _load("prompts/covenant_summary.yaml")
     prompt = parse_artifact(prompt_fixture["prompt_artifact"], PROMPT_ARTIFACT)
-    plane.register_typed(
+    register_typed_at_composition(plane, 
         prompt_fixture["keys"]["prompt_artifact"], prompt, PROMPT_ARTIFACT
     )
     _register_declared(plane, agent_fixture["referenced_artifacts"])
     agent = parse_artifact(agent_fixture["agent_definition"], AGENT_DEFINITION)
     assert isinstance(agent, AgentDefinition)
     task_fixture = _load("tasks/covenant_review_task.yaml")
-    plane.register_versioned(
+    register_versioned_at_composition(plane, 
         task_fixture["keys"]["referenced_agent_definition"],
         agent,
         AGENT_DEFINITION,
@@ -104,7 +127,7 @@ def registry() -> ControlPlaneRegistry:
     task = parse_artifact(task_fixture["task_definition"], TASK_DEFINITION)
     assert isinstance(task, TaskDefinition)
     # Registered at the URI-derived key the wrapper's ref names.
-    plane.register_versioned(
+    register_versioned_at_composition(plane, 
         _workflow_fixture()["keys"]["task_definition"], task, TASK_DEFINITION
     )
     # The wrapper's own refs: exception handler and approval policy.
@@ -116,10 +139,11 @@ def _construct(
     registry: ControlPlaneRegistry, definition: WorkflowDefinition
 ) -> Workflow:
     key = _workflow_fixture()["keys"]["workflow_definition"]
-    version = registry.register_versioned(key, definition, WORKFLOW_DEFINITION)
+    version = register_versioned_at_composition(registry, key, definition, WORKFLOW_DEFINITION)
     assert isinstance(version, str)
     return WorkflowFactory(control_plane=registry).construct(
-        definition_key=key, definition_version=version
+        execute_capability(tenant=definition.tenant, resource=key),
+        definition_version=version,
     )
 
 
@@ -264,4 +288,119 @@ def test_the_handle_refuses_a_forged_identity(
             definition=definition,
             task_definition=workflow.task_definition,
             identity=forged,
+            definition_key=workflow.definition_key,
+        )
+
+
+# --- the capability at the factory (D-IMPL-353 §1.2/§1.3) ---------------------
+
+
+def _registered(registry: ControlPlaneRegistry) -> tuple[WorkflowDefinition, str, str]:
+    """The fixture definition registered under its fixture key; returns
+    ``(definition, key, version)`` for tests that mint their own capability."""
+    definition = _workflow_definition()
+    key = _workflow_fixture()["keys"]["workflow_definition"]
+    version = register_versioned_at_composition(registry, key, definition, WORKFLOW_DEFINITION)
+    assert isinstance(version, str)
+    return definition, key, version
+
+
+def test_construct_takes_the_definition_key_from_the_capability(
+    registry: ControlPlaneRegistry,
+) -> None:
+    definition, key, version = _registered(registry)
+    authorized = execute_capability(tenant=definition.tenant, resource=key)
+    workflow = WorkflowFactory(control_plane=registry).construct(
+        authorized, definition_version=version
+    )
+    assert workflow.definition_key == key == authorized.resource
+    assert workflow.definition == definition
+
+
+def test_a_resume_capability_constructs_too(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """Both door-declared actions whose resource is a workflow key reach the
+    factory; a ``Resume`` holder must be able to rebuild the handle."""
+    definition, key, version = _registered(registry)
+    workflow = WorkflowFactory(control_plane=registry).construct(
+        resume_capability(tenant=definition.tenant, resource=key),
+        definition_version=version,
+    )
+    assert workflow.definition_key == key
+
+
+def test_a_tenant_mismatch_is_refused_once_at_construction(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """The ONE tenant comparison (§1.3): the artifact declares acme-bank; a
+    capability for beta-bank on its key constructs nothing, and the typed
+    refusal names both tenants and the key. It is a construction refusal,
+    so existing ``WorkflowConstructionError`` handlers still catch it."""
+    definition, key, version = _registered(registry)
+    assert definition.tenant == "acme-bank"
+    with pytest.raises(WorkflowTenantMismatchError) as refused:
+        WorkflowFactory(control_plane=registry).construct(
+            execute_capability(tenant="beta-bank", resource=key),
+            definition_version=version,
+        )
+    assert isinstance(refused.value, WorkflowConstructionError)
+    text = str(refused.value)
+    assert "beta-bank" in text and "acme-bank" in text and key in text
+
+
+def test_a_capability_of_another_kind_is_refused_at_construction(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """A genuine ``Authorized[ArtifactRead]`` for the very same key and
+    tenant is the wrong kind: the factory performs Execute/Resume and
+    nothing else (§1.5c)."""
+    definition, key, version = _registered(registry)
+    read = mint(
+        ArtifactRead,
+        decision=decision(
+            tenant=definition.tenant, action=ACTION_ARTIFACT_READ, resource=key
+        ),
+        principal=PRINCIPAL,
+        decision_id="authz-decision-read",
+    )
+    with pytest.raises(CapabilityBypassError, match="kind"):
+        WorkflowFactory(control_plane=registry).construct(
+            read,  # type: ignore[arg-type]
+            definition_version=version,
+        )
+
+
+def test_a_retargeted_capability_cannot_dodge_the_tenant_comparison(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """§1.5g: a genuine acme-bank capability whose ``tenant`` is forced to
+    beta-bank by ``object.__setattr__`` is refused by ``verify`` before the
+    comparison runs — so the comparison can never see a tenant the mint did
+    not bind."""
+    definition, key, version = _registered(registry)
+    retargeted: Authorized[Execute] = execute_capability(
+        tenant=definition.tenant, resource=key
+    )
+    object.__setattr__(retargeted, "tenant", "beta-bank")
+    with pytest.raises(CapabilityBypassError):
+        WorkflowFactory(control_plane=registry).construct(
+            retargeted, definition_version=version
+        )
+
+
+def test_the_handle_refuses_an_empty_definition_key(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """The handle carries the key it was resolved from; the empty string
+    names no key (§1.2)."""
+    definition = _workflow_definition()
+    workflow = _construct(registry, definition)
+    factory_only = type(workflow)
+    with pytest.raises(WorkflowConstructionError, match="key"):
+        factory_only(
+            definition=definition,
+            task_definition=workflow.task_definition,
+            identity=workflow.identity,
+            definition_key="",
         )

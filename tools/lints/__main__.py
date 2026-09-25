@@ -1,4 +1,4 @@
-"""`python -m tools.lints` — the blocking CI gate for CINV-01/02/03/04/06 (D-07).
+"""`python -m tools.lints` — the blocking CI gate for CINV-01/02/03/04/06 and D-IMPL-353 (D-07).
 
 Walks the linted trees (`src/`, `runtime/`, `examples/`, `tests/`), derives
 each file's dotted module name from its path, runs the selected checkers,
@@ -62,6 +62,7 @@ from typing import Callable, Iterator, Sequence
 
 from tools.lints import (
     algorithmic,
+    authorization_invariant,
     backend_imports,
     citations,
     guarded_provenance,
@@ -147,6 +148,17 @@ LINTED_TREES: tuple[str, ...] = ("src", "runtime", "examples", "tests", "archive
 #: package-level exemptions live in ``tools/lints/substrate_names.py`` rather
 #: than here, because they are about packages *inside* ``src``, not trees.
 #:
+#: ``authorization-invariant`` (D-IMPL-353 §4) takes ``("src", "runtime")``,
+#: the design's own wording — *"refuses, in ``runtime/`` and ``src/``"*. Off
+#: ``tests`` deliberately: the §9 fabrication and retargeting controls build
+#: impostor capabilities and stub sentinels on purpose, and a rule that fired
+#: on the control would be measuring the proof rather than the product. Off
+#: ``examples`` and ``archive`` because the specimens are frozen (D-IMPL-261)
+#: and the seven example servers that register raw MCP surfaces are recorded
+#: in the gap ledger under §7 rather than rewritten. Rule 3's residual is
+#: stated in the checker: §1.1 says nothing in ``examples/`` or ``tools/`` may
+#: name the sentinel either, and this scope does not enforce that half.
+#:
 #: ``no-hardcoding`` also covers ``archive`` (plan ``23-03``). **This mapping is
 #: a POSITIVE scope** — read the paragraph above: rules absent from it inherit
 #: every linted tree, but a rule PRESENT in it names its trees and inherits
@@ -170,6 +182,7 @@ RULE_TREE_SCOPE: dict[str, tuple[str, ...]] = {
     "orchestration-imports": ("src", "runtime"),
     "backend-imports": ("src", "runtime"),
     "substrate-names": ("src",),
+    "authorization-invariant": ("src", "runtime"),
 }
 
 #: Directories never worth walking.
@@ -192,6 +205,7 @@ CHECKERS: dict[str, Checker] = {
     "orchestration-imports": orchestration_imports.check,
     "backend-imports": backend_imports.check,
     "substrate-names": substrate_names.check,
+    "authorization-invariant": authorization_invariant.check,
 }
 
 #: Checkers that take the repo root rather than one module. `citations` is
@@ -309,6 +323,18 @@ def build_parser() -> argparse.ArgumentParser:
         action="append_const",
         const="substrate-names",
         help="CINV-04 no substrate name in core (D-IMPL-93 property (2))",
+    )
+    parser.add_argument(
+        "--authorization-invariant",
+        dest="selected",
+        action="append_const",
+        const="authorization-invariant",
+        help=(
+            "D-IMPL-353 §4 authorization as a capability: no defaulted or"
+            " None-admitting authority parameter, one mint site, no raw MCP"
+            " registration, no undeclared route, no type-ignore beside an"
+            " authority argument"
+        ),
     )
     parser.add_argument(
         "--citations",

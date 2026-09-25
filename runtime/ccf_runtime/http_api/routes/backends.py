@@ -95,6 +95,8 @@ from ccf.graph.registry import (
     ReservedBackendName,
     declared_names,
 )
+from ccf_runtime.authz.refusals import ACTION_BACKENDS_READ
+from ccf_runtime.authz.route_declaration import ResourceBinding, authorizes
 from ccf_runtime.http_api.dependencies import ApiDependencies
 from ccf_runtime.http_api.errors import refusal_detail
 
@@ -133,6 +135,7 @@ def build_router(deps: ApiDependencies) -> APIRouter:
         response_model=dict[str, list[str]],
         summary="Installed adapter names (D-15)",
     )
+    @authorizes(ACTION_BACKENDS_READ, resource=ResourceBinding.route())
     def backends() -> dict[str, list[str]]:
         try:
             names = declared_names()

@@ -68,6 +68,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from mcp.server.auth.middleware.auth_context import auth_context_var
+from ccf_runtime.mcp.tenancy import ambient_stdio_identity
 from mcp.server.auth.middleware.bearer_auth import AuthenticatedUser
 from mcp.server.auth.provider import AccessToken
 from mcp.server.auth.settings import AuthSettings
@@ -89,6 +90,13 @@ from ccf_runtime.authz.product_entitlement import (
 )
 from ccf_runtime.mcp.auth import FileTokenSource, SourceBackedTokenVerifier
 from ccf_runtime.mcp.egress import build_egress_server
+from ccf.authz.actions import ACTION_PRODUCT_RETRIEVE
+from ccf.controlplane.registry import namespaced_key
+from ccf_runtime.authz.artifact import SCOPE_MAPPING, ScopeEntry, ScopeMappingArtifact
+from ccf_runtime.authz.protocol import ControlPlaneTenantAuthorizer
+from http_api.composition_authority import (
+    register_typed_at_composition,
+)
 
 #: The prose this deployment's tool advertises — a deployment value the SDK
 #: holds no default for, and the one string here this deployment must write.
@@ -108,11 +116,13 @@ def serve(root: Path) -> None:
     document = load_binding_document(root)
     booted = _boot(document)
     perspective = document.perspective
-    declaration = booted.fabric.artifacts[document.product_class_key]
+    # The binding names the deployment's bare section key; the loader placed it
+    # under the deployment's tenant (D-IMPL-354), so the fabric is read by the
+    # placed key — the same derivation the in-process adapter applies.
+    product_class_key = namespaced_key(tenant=booted.fabric.tenant_id, key=document.product_class_key)
+    declaration = booted.fabric.artifacts[product_class_key]
     if not isinstance(declaration, ProductClassDeclaration):  # pragma: no cover
-        raise TypeError(
-            f"`{document.product_class_key}` is not a product class declaration"
-        )
+        raise TypeError(f"`{product_class_key}` is not a product class declaration")
 
     # The clock is this deployment's DECLARED instant, not a wall-clock read.
     # The entitlement source stamps an audit event per decision, and a fixture
@@ -120,7 +130,7 @@ def serve(root: Path) -> None:
     # target for anything that reads it back.
     stamped = document.question.asked_at or datetime.now(UTC)
 
-    booted.control_plane.register_typed(
+    register_typed_at_composition(booted.control_plane, 
         product_entitlement_key(tenant_id=booted.fabric.tenant_id),
         ProductEntitlementPolicy(
             tenant_id=booted.fabric.tenant_id,
@@ -144,11 +154,46 @@ def serve(root: Path) -> None:
     tokens = root / TOKEN_FILE
     tokens.write_text(
         json.dumps(
-            {"stdio": {"client_id": perspective.principal_id, "scopes": [SCOPE]}}
+            {
+                "stdio": {
+                    "client_id": perspective.principal_id,
+                    "scopes": [SCOPE],
+                    # The one tenant this door serves (`SEC-018`); an
+                    # unscoped credential reaches nothing.
+                    "tenants": [booted.fabric.tenant_id],
+                }
+            }
         ),
         encoding="utf-8",
     )
 
+    # The door's authorizer (`D-IMPL-353` §1.1): this deployment's one scope
+    # reaches this deployment's one tenant for the retrieve action on any
+    # class it serves, registered into the SAME Control Plane the
+    # entitlement reads from and pinned at the version returned.
+    scope_mapping_key = f"{SCOPE_MAPPING.class_id}/{booted.fabric.tenant_id}"
+    mapping_version = register_typed_at_composition(booted.control_plane, 
+        scope_mapping_key,
+        ScopeMappingArtifact(
+            semver="1.0.0",
+            scopes={
+                SCOPE: ScopeEntry(
+                    tenant_patterns=(booted.fabric.tenant_id,),
+                    action_ids=(ACTION_PRODUCT_RETRIEVE,),
+                    resource_patterns=tuple(
+                        f"{c}*" for c in "abcdefghijklmnopqrstuvwxyz0123456789._-"
+                    ),
+                )
+            },
+        ),
+        SCOPE_MAPPING,
+    )
+    authorizer = ControlPlaneTenantAuthorizer(
+        control_plane=booted.control_plane,
+        scope_mapping_key=scope_mapping_key,
+        scope_mapping_version=mapping_version,
+        clock=lambda: stamped,
+    )
     server = build_egress_server(
         server_name=booted.fabric.tenant_id,
         resolver=booted.resolver,
@@ -160,6 +205,7 @@ def serve(root: Path) -> None:
             resource_server_url=AnyHttpUrl("https://stdio.invalid/mcp"),
             required_scopes=[SCOPE],
         ),
+        authorizer=authorizer,
         entitlement_source=ControlPlaneProductEntitlementSource(
             control_plane=booted.control_plane, clock=lambda: stamped
         ),
@@ -178,12 +224,17 @@ def serve(root: Path) -> None:
     # See the module docstring: stdio carries no bearer channel, and a
     # deployment that left this unstated would refuse every caller as
     # unverified rather than serve the process that spawned it.
+    # Built by the shipped helper rather than hand-rolled here, so this
+    # fixture gets the same bounds `ProductDoor.serve_stdio` does: scoped to
+    # this door's one tenant, and marked ambient so no MUTATING surface will
+    # accept it (`SEC-018`).
     auth_context_var.set(
         AuthenticatedUser(
-            AccessToken(
-                token="stdio",
-                client_id=perspective.principal_id,
-                scopes=[SCOPE],
+            ambient_stdio_identity(
+                credential="stdio",
+                principal_id=perspective.principal_id,
+                scope=SCOPE,
+                tenant=booted.fabric.tenant_id,
             )
         )
     )

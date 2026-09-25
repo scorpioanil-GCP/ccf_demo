@@ -21,9 +21,11 @@ T-15.5-20 (per-class disclosure)           an authenticated caller would
                                            name
 T-15.5-19 (caller-asserted role)           ``?role=`` would be threaded to the
                                            engine without meeting the grant
-T-15.5-21 (dead configuration)             entitlement seams could be bound
-                                           with no auth hook, enforcing
-                                           nothing, with no signal
+T-15.5-21, as ``SEC-001`` closed it        entitlement seams could be bound
+                                           with no auth hook at all — the
+                                           dead configuration is now
+                                           unbuildable rather than warned
+                                           about
 D-08 (one vocabulary, two renderings)      the refusal would carry free text a
                                            client had to parse
 =========================================  ===================================
@@ -59,11 +61,7 @@ from ccf.replay.record import DecisionReplayRecord
 from ccf_runtime.authz.product_entitlement import (
     ControlPlaneProductEntitlementSource,
 )
-from ccf_runtime.http_api.app import (
-    CcfDeadEntitlementWarning,
-    CcfInsecureDefaultWarning,
-    create_app,
-)
+from ccf_runtime.http_api.app import create_app
 from ccf_runtime.http_api.dependencies import ApiDependencies
 from ccf_runtime.http_api.errors import (
     ERROR_PRINCIPAL_NOT_ENTITLED,
@@ -76,6 +74,11 @@ from ccf_runtime.http_api.refusal_status import STATUS_BY_KIND
 from ccf_runtime.mcp.auth import FileTokenSource, TokenGrant
 
 from http_api.conftest import Fabric, call
+from http_api.composition_authority import (
+    deployment_store,
+    refusal_recorder,
+    register_typed_at_composition,
+)
 
 #: The ONE outcome an unauthorized principal and a nonexistent subject share
 #: (``D-IMPL-253`` Q27), read from the mapping and never spelled here.
@@ -94,6 +97,48 @@ UNGRANTED_ROLE = "product-door-role-ungranted"
 SCOPE = "product"
 POLICY_VERSION = "1.0.0"
 AUDIT_INSTANT = datetime(2026, 8, 11, tzinfo=UTC)
+
+
+def _wide_authorizer(*, tenant: str) -> Any:
+    """The real authorizer, registered wide, so this suite stays about entitlement.
+
+    Every app now binds one. This module's subject is the *entitlement*
+    decision at the product door, which is a different question from the
+    gate's ``(grant, tenant, action, resource)`` one, so the mapping here
+    authorizes the whole action vocabulary for this tenant — visibly, with
+    the ``WIDE_RESOURCES`` spelling the D-01 grammar forces.
+    """
+    from ccf_runtime.authz.artifact import (
+        SCOPE_MAPPING,
+        ScopeEntry,
+        ScopeMappingArtifact,
+    )
+    from ccf_runtime.authz.protocol import ControlPlaneTenantAuthorizer
+
+    from .gate_fixtures import ALL_ACTIONS, WIDE_RESOURCES
+
+    registry = ControlPlaneRegistry()
+    version = register_typed_at_composition(registry, 
+        "product-door/scope-mapping",
+        ScopeMappingArtifact(
+            semver="1.0.0",
+            scopes={
+                SCOPE: ScopeEntry(
+                    tenant_patterns=(tenant,),
+                    action_ids=ALL_ACTIONS,
+                    resource_patterns=WIDE_RESOURCES,
+                )
+            },
+        ),
+        SCOPE_MAPPING,
+    )
+    assert isinstance(version, str)
+    return ControlPlaneTenantAuthorizer(
+        control_plane=registry,
+        scope_mapping_key="product-door/scope-mapping",
+        scope_mapping_version=version,
+        clock=lambda: AUDIT_INSTANT,
+    )
 
 
 def _deps(fabric: Fabric) -> ApiDependencies:
@@ -153,19 +198,28 @@ def _entitled(
     """An app whose product door is authenticated *and* entitled."""
     from ccf_runtime.http_api.auth import BearerTokenAuth
 
-    token_file = tmp_path / "product-tokens.json"
-    token_file.write_text(
-        json.dumps(
-            {
-                TOKEN: {"client_id": PRINCIPAL, "scopes": [SCOPE]},
-                STRANGER_TOKEN: {"client_id": STRANGER, "scopes": [SCOPE]},
-            }
-        ),
-        encoding="utf-8",
-    )
+    from ccf_runtime.mcp.auth import StaticTokenSource
+
     address = fabric.product_address
+    # `SEC-002` / D-IMPL-353 §2 P1: the tenant is the credential's `tenants`
+    # set, minted on the base contract through the real per-boot source.
+    source_of_tokens = StaticTokenSource(
+        grants={
+            TOKEN: TokenGrant(
+                client_id=PRINCIPAL,
+                scopes=(SCOPE,),
+                tenants=frozenset({address.tenant}),
+            ),
+            STRANGER_TOKEN: TokenGrant(
+                client_id=STRANGER,
+                scopes=(SCOPE,),
+                tenants=frozenset({address.tenant}),
+            ),
+        }
+    )
+
     registry = ControlPlaneRegistry()
-    registry.register_typed(
+    register_typed_at_composition(registry, 
         product_entitlement_key(tenant_id=address.tenant),
         ProductEntitlementPolicy(
             tenant_id=address.tenant,
@@ -194,10 +248,11 @@ def _entitled(
     # it decides is not built at all, so every app in this module binds the one
     # minting seam. Built the way `build_governed_resolver` builds its own —
     # one writer, one store, one record form.
-    recorder = ReplayRefusalRecorder(
-        artifact_store=FileArtifactStore(root=tmp_path / "artifacts"),
+    recorder = refusal_recorder(
+        registry,
+        store=deployment_store(tmp_path / "artifacts", REPLAY_RECORD_CLASS),
+        tenant=address.tenant,
         replay_record_class=REPLAY_RECORD_CLASS,
-        tenant_id=address.tenant,
         assembly_mode="algorithmic",
         policy_bundle_pin=None,
         disclosure_level_for=source.disclosure_level_for,
@@ -205,7 +260,8 @@ def _entitled(
     return Entitled(
         app=create_app(
             _deps(fabric),
-            auth=BearerTokenAuth(token_source=FileTokenSource(path=token_file)),
+            auth=BearerTokenAuth(token_source=source_of_tokens),
+            authorizer=_wide_authorizer(tenant=address.tenant),
             product_entitlement=source,
             perspective_resolver=_resolver,
             refusal_recorder=recorder,
@@ -597,58 +653,62 @@ def test_the_refusal_body_is_the_one_shape_and_never_free_text(
     assert json.loads(body["refusal"]["fields"]["cause"]) == "undisclosed"
 
 
-# --- the dead configurations -----------------------------------------------
+# --- the dead configurations, now unbuildable (``SEC-001``) -----------------
 
 
-def test_entitlement_without_an_auth_hook_warns_loudly(
+def test_entitlement_without_an_auth_hook_cannot_be_built(
     fabric: Fabric, tmp_path: Path
 ) -> None:
-    """T-15.5-21: intent to gate plus zero enforcement must not be silent.
+    """T-15.5-21, closed one level harder than it was.
 
-    What would fail here: the seams accepted with no auth hook and no signal.
-    The deployment then serves every class to every caller while believing it
-    is gated — the WR-05 failure, on a wider surface.
+    It used to be a ``CcfDeadEntitlementWarning``: the seams were accepted
+    with no auth hook, the deployment served every class to every caller, and
+    the only thing standing between it and that was a warning nothing in CI
+    escalated. The configuration is now a ``TypeError`` at the composition
+    root, which is the same finding answered by construction.
+
+    What would fail here: ``auth`` regaining a default under any spelling.
     """
     source = ControlPlaneProductEntitlementSource(
         control_plane=ControlPlaneRegistry(), clock=lambda: AUDIT_INSTANT
     )
-    with pytest.warns(CcfDeadEntitlementWarning):
-        with pytest.warns(CcfInsecureDefaultWarning):
-            create_app(
-                _deps(fabric),
-                product_entitlement=source,
-                perspective_resolver=_resolver,
-                # `24.6-09`: an entitling door binds the recorder or is not
-                # built. The dead-entitlement posture is unchanged by that —
-                # both warnings still fire — and this keyword is what proves
-                # the two rulings compose rather than one having eaten the
-                # other.
-                refusal_recorder=ReplayRefusalRecorder(
-                    artifact_store=FileArtifactStore(root=tmp_path / "dead"),
-                    replay_record_class=REPLAY_RECORD_CLASS,
-                    tenant_id=fabric.product_address.tenant,
-                    assembly_mode="algorithmic",
-                    policy_bundle_pin=None,
-                    disclosure_level_for=source.disclosure_level_for,
-                ),
-            )
+    with pytest.raises(TypeError):
+        create_app(  # type: ignore[call-arg]
+            _deps(fabric),
+            product_entitlement=source,
+            perspective_resolver=_resolver,
+            refusal_recorder=refusal_recorder(
+                ControlPlaneRegistry(),
+                store=deployment_store(tmp_path / "dead", REPLAY_RECORD_CLASS),
+                tenant=fabric.product_address.tenant,
+                replay_record_class=REPLAY_RECORD_CLASS,
+                assembly_mode="algorithmic",
+                policy_bundle_pin=None,
+                disclosure_level_for=source.disclosure_level_for,
+            ),
+        )
 
 
-def test_half_a_governance_pair_is_refused_at_build_time(
-    fabric: Fabric,
-) -> None:
-    """An entitlement with nothing to decide about is not a configuration.
+def test_half_a_governance_pair_is_unrepresentable(fabric: Fabric) -> None:
+    """The ``ValueError`` became a signature.
 
-    What would fail here: one seam accepted alone, producing a door that looks
-    governed in the composition root and enforces half a decision — or none.
+    ``build_router`` used to refuse *"together or not at all"* at runtime,
+    because ``create_app`` had an arm in which neither seam was bound. It has
+    no such arm now, so both seams are required parameters and the pairing is
+    held by the call rather than by a check inside it.
+
+    What would fail here: either seam regaining a default, which would put the
+    half-bound configuration back and take the runtime check with it.
     """
     import ccf_runtime.http_api.routes.product as route
 
-    with pytest.raises(ValueError, match="together"):
-        route.build_router(_deps(fabric), perspective_resolver=_resolver)
+    with pytest.raises(TypeError):
+        route.build_router(  # type: ignore[call-arg]
+            _deps(fabric), perspective_resolver=_resolver
+        )
 
-    with pytest.raises(ValueError, match="together"):
-        route.build_router(
+    with pytest.raises(TypeError):
+        route.build_router(  # type: ignore[call-arg]
             _deps(fabric),
             entitlement_source=ControlPlaneProductEntitlementSource(
                 control_plane=ControlPlaneRegistry(),
@@ -657,41 +717,28 @@ def test_half_a_governance_pair_is_refused_at_build_time(
         )
 
 
-def test_the_unbound_posture_no_longer_serves_and_says_which_seam_is_missing(
-    fabric: Fabric,
-) -> None:
-    """The T-07-24 preservation is **superseded by D-IMPL-108**, deliberately.
+def test_there_is_no_unbound_posture_to_serve_from(fabric: Fabric) -> None:
+    """``D-IMPL-108``'s per-request ``503`` had one reachable cause, and it is gone.
 
-    This test previously asserted 200: with no seams bound, ``GET /product``
-    served a gate-admitted product to anyone who asked, on the reasoning that
-    the acknowledged insecure posture (D-IMPL-73) is a supported one and a
-    required seam would make it unbuildable. That reasoning still holds for
-    ``create_app`` — the app builds, and every other noun answers exactly as
-    it did — but it no longer reaches the product door, because the resolver
-    seam now requires the authorized
-    :class:`~ccf.projection.plan.Perspective`.
+    The predecessor of this test built ``create_app(deps,
+    acknowledge_insecure_default=True)`` and asserted that ``GET /product``
+    answered ``503 ERROR_PRODUCT_DOOR_UNGOVERNED`` naming the seam to bind.
+    That was correct while an app could be built with no seams. ``SEC-001``
+    deleted that arm, so the branch is unreachable from the front door and the
+    honest assertion is about the constructor rather than about the route.
 
-    The trade is stated plainly rather than smuggled: the ungoverned posture
-    gives up **one route**, and gains the property that no product this fabric
-    serves over HTTP was ever shaped under a perspective nobody named. The
-    optional-here / required-on-MCP split survives at the level it was about —
-    ``create_app`` still accepts no seams and still builds.
-
-    What would fail here: a default sneaking back onto the perspective
-    argument, or the route quietly reverting to serving without one.
+    The ``503`` itself is **not** deleted: the handler keeps a narrow
+    fail-closed arm for a grant that is somehow absent, which matters for a
+    handler reached in process rather than through the gate.
     """
-    app = create_app(_deps(fabric), acknowledge_insecure_default=True)
-    address = fabric.product_address
+    from ccf_runtime.http_api.dependencies import ApiDependencies
 
-    response = call(
-        app,
-        "GET",
-        f"/product/{address.tenant}/{address.product_class}/{address.version}",
-    )
+    with pytest.raises(TypeError):
+        create_app(  # type: ignore[call-arg]
+            ApiDependencies(
+                control_plane=fabric.registry,
+                artifact_store=fabric.store,
+                product_resolver=fabric.product_resolver,
+            )
+        )
 
-    assert response.status_code == 503
-    body = response.json()["detail"]
-    assert body["error_code"] == ERROR_PRODUCT_DOOR_UNGOVERNED
-    # The prose names the seam to bind — an operator reading a refusal should
-    # not have to read the source to learn what to configure (D-08's shape).
-    assert "product_entitlement=" in body["message"]

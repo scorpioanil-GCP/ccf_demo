@@ -92,6 +92,8 @@ from tests.peering.test_admission import (
     consumer_lineage,
 )
 from tests.properties.strategies import ENTITY_POOL, TENANT
+from tests.composition import declaring_store, register_at_composition
+from ccf.peering.admission import ADMISSION_RECORD
 
 if TYPE_CHECKING:
     from ccf.contracts.claims import EntityClaim, RelationshipClaim
@@ -121,7 +123,7 @@ def admit_product(
         key_source=FileBackedKeySource(directory=key_dir)
     )
     registry = ControlPlaneRegistry()
-    registry.register("max-ttl/fixture", MaxTTL(seconds=300))
+    register_at_composition(registry, "max-ttl/fixture", MaxTTL(seconds=300))
     version, _ = registry.resolve_latest("max-ttl/fixture")
     product_class = register_product_class(
         registry=registry,
@@ -149,7 +151,7 @@ def admit_product(
         tenant_id=product.tenant_id,
         policy_version=policy_version,
         ceiling_version=ceiling_version,
-        artifact_store=FileArtifactStore(root=work_dir / "admission-records"),
+        artifact_store=declaring_store(work_dir / "admission-records", ADMISSION_RECORD.class_id),
     )
     return gate.admit(
         inbound=_inbound(

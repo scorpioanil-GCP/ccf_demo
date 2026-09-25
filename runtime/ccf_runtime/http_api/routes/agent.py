@@ -12,13 +12,23 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
 
 from ccf.agents.definitions import AGENT_DEFINITION, AgentDefinition
+from ccf.authz.capability import AgentDeclare, AgentList, AgentRead, AgentVersions
 from ccf.contracts.base import CCFContract
 from ccf.controlplane.registry import ControlPlaneMissing, RegistrationRefusal
+from ccf_runtime.authz.refusals import (
+    ACTION_AGENT_DECLARE,
+    ACTION_AGENT_LIST,
+    ACTION_AGENT_READ,
+    ACTION_AGENT_VERSIONS,
+)
+from ccf_runtime.authz.route_declaration import ResourceBinding, authorizes
 from ccf_runtime.http_api.dependencies import ApiDependencies
+from ccf_runtime.http_api.grants import absent as absent_response
+from ccf_runtime.http_api.grants import authorized_from_request, within_tenant
 from ccf_runtime.http_api.routes import canonical_response, refusal_response
 
 __ccf_mode__ = "algorithmic"
@@ -49,26 +59,51 @@ def build_router(deps: ApiDependencies) -> APIRouter:
         response_model=AgentDeclared,
         summary="Agent declare (D-IMPL-23)",
     )
-    def declare(request: AgentDeclarationRequest) -> AgentDeclared | JSONResponse:
+    @authorizes(ACTION_AGENT_DECLARE, resource=ResourceBinding.body("key"))
+    def declare(
+        body: AgentDeclarationRequest, request: Request
+    ) -> AgentDeclared | JSONResponse:
+        # D-IMPL-353 §1.4: the handler holds the capability the gate minted
+        # for THIS action, or it holds nothing and refuses. §1.2: the key the
+        # registry writes IS `authorized.resource` — the gate resolved it from
+        # the body's `key` and the registry takes it from the capability; the
+        # handler supplies no key, and the registry compares the key's tenant
+        # segment to the capability's tenant once (§1.3).
+        authorized = authorized_from_request(request, kind=AgentDeclare)
         outcome = deps.control_plane.register_versioned(
-            request.key, request.definition, AGENT_DEFINITION
+            authorized, body.definition, AGENT_DEFINITION
         )
         if isinstance(outcome, RegistrationRefusal):
             return refusal_response(outcome, status_code=409)
-        return AgentDeclared(key=request.key, version=outcome)
+        return AgentDeclared(key=authorized.resource, version=outcome)
 
     @router.get(
         "/declarations",
         response_model=list[str],
         summary="Agent list (D-IMPL-23)",
     )
-    def declarations() -> list[str]:
-        return list(deps.control_plane.keys_of_class(AGENT_DEFINITION.class_id))
+    @authorizes(ACTION_AGENT_LIST, resource=ResourceBinding.route())
+    def declarations(request: Request) -> list[str]:
+        authorized = authorized_from_request(request, kind=AgentList)
+        # The capability's tenant's declarations, and no other tenant's
+        # (panel F-READ-01 at the D-IMPL-353 join).
+        return [
+            key
+            for key in deps.control_plane.keys_of_class(AGENT_DEFINITION.class_id)
+            if within_tenant(tenant=authorized.tenant, key=key)
+        ]
 
     @router.get("/declaration", summary="Agent show (D-IMPL-23)")
-    def declaration(key: str, version: str) -> Response:
+    @authorizes(ACTION_AGENT_READ, resource=ResourceBinding.query("key"))
+    def declaration(key: str, version: str, request: Request) -> Response:
+        authorized = authorized_from_request(request, kind=AgentRead)
+        # One resource source (pre-merge check R11): the gate minted from this
+        # request's `key`; the handle reads the CAPABILITY's resource, and a
+        # parameter that differs from it is refused before the first read.
+        if key != authorized.resource or not within_tenant(tenant=authorized.tenant, key=authorized.resource):
+            raise absent_response(key, version)
         try:
-            artifact = deps.control_plane.resolve(key, version)
+            artifact = deps.control_plane.resolve(authorized.resource, version)
         except ControlPlaneMissing as absent:
             raise HTTPException(status_code=404, detail=str(absent)) from absent
         return canonical_response(AGENT_DEFINITION.validate(artifact))
@@ -78,7 +113,11 @@ def build_router(deps: ApiDependencies) -> APIRouter:
         response_model=list[str],
         summary="Agent versions (D-IMPL-23)",
     )
-    def versions(key: str) -> list[str]:
-        return list(deps.control_plane.versions(key))
+    @authorizes(ACTION_AGENT_VERSIONS, resource=ResourceBinding.query("key"))
+    def versions(key: str, request: Request) -> list[str]:
+        authorized = authorized_from_request(request, kind=AgentVersions)
+        if key != authorized.resource or not within_tenant(tenant=authorized.tenant, key=authorized.resource):
+            return []  # a differing parameter or another tenant's key: no versions, exactly like an absent one
+        return list(deps.control_plane.versions(authorized.resource))
 
     return router

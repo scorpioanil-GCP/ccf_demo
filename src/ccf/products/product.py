@@ -93,7 +93,14 @@ from typing import Any, Protocol, runtime_checkable
 
 from ccf.agents.definitions import AgentDefinition
 from ccf.artifacts.file_store import FileArtifactStore
-from ccf.artifacts.protocol import ArtifactStoreProtocol
+from ccf.artifacts.protocol import ArtifactStoreProtocol, WriteKinds
+from ccf.authz.capability import (
+    COMPOSITION_PRINCIPAL,
+    Authorized,
+    ReplayMint,
+    SkillGrant as SkillGrantKind,
+    mint_at_composition,
+)
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifacts import (
     DEPLOYMENT_CONFIG,
@@ -125,12 +132,18 @@ from ccf.deployment.environment import (
     resolve_values,
 )
 from ccf.deployment.keys import DeploymentKeys
-from ccf.deployment.manifest import register_manifest_entries
+from ccf.deployment.manifest import (
+    keys_under_tenant,
+    manifest_under_tenant,
+    register_manifest_entries,
+)
 from ccf.graph.protocols import GraphView
 from ccf.halflife.debt import DebtAssessment
 from ccf.mcp.client import SyncMcpBridge, bearer_client_factory
 from ccf.products.child_resolver import ChildQuestions, QuestionBoundChildResolver
 from ccf.products.composite import (
+    ADMITTED_CHILD_CONTRACT_CLASS,
+    CHILD_QUESTION_CLASS,
     ChildContractView,
     CompositeAdmissionGate,
     CompositeChildResolverProtocol,
@@ -163,7 +176,6 @@ from ccf.skills.grants import (
     ApprovalSink,
     GrantLedger,
     RefusingApprovalSink,
-    SkillGrant,
 )
 from ccf.skills.producers import register_declared_producer
 
@@ -176,9 +188,36 @@ __all__ = [
     "AssessmentContext",
     "ChildResolverFactory",
     "ConsumerContext",
+    "GrantNotInForce",
     "OpenedProduct",
     "open_product",
 ]
+
+
+class GrantNotInForce(PermissionError):
+    """A declared skill is not granted to the composing agent, and the paved road cannot grant it (D-IMPL-353 §1.6; D-IMPL-354).
+
+    Until D-IMPL-353, :func:`open_product` derived the consumer chain by
+    **requesting one grant per declared skill on the deployment's behalf** —
+    the agent granting itself, under ``actor=agent.name``. A grant is a
+    ``skill.grant`` door action: :meth:`~ccf.skills.grants.GrantLedger.request`
+    requires ``Authorized[SkillGrant]``, a door kind that
+    :func:`~ccf.authz.capability.mint_at_composition` refuses by overload and
+    at runtime, because the composition root may mint exactly ``ReplayMint``
+    and ``Register`` and nothing else. So the paved road **cannot** grant, and
+    does not pretend to: it registers the declared agent, skills and regime
+    (composition-time registrations, under ``Register``), reads which skills
+    are already bound to the agent on this Control Plane, and refuses — by
+    name, before anything is composed — when one the class needs is not. A
+    grant made through a governed door by an authorized principal is what
+    puts it in force; a deployment that could grant itself skills at open was
+    the ambient authority the capability removes.
+
+    **Standing limitation, recorded rather than worked around.** Whether the
+    deployment's declared grants are a third composition-time write the
+    composition root may make is a question for D-IMPL-354's ruling; this
+    refusal is the faithful reading of the clause as it stands.
+    """
 
 
 def _utc_now() -> datetime:
@@ -941,6 +980,11 @@ def open_product(
     derived = derive_deployment(config, config_filename=config_path.name)
     keys = derived.keys
     documents = derived.documents
+    # The strings on the Control Plane: every per-question boot places the derived
+    # keys under the deployment's tenant (D-IMPL-354), so what this product exposes,
+    # pins and resolves by is the placed key — the bare `keys` above index only the
+    # derivation's own documents.
+    placed = keys_under_tenant(keys, tenant=config.tenant_id)
 
     declaration = parse_artifact(documents[keys.product_class], PRODUCT_CLASS)
     assert isinstance(declaration, ProductClassDeclaration)
@@ -991,7 +1035,22 @@ def open_product(
     store: ArtifactStoreProtocol = (
         artifact_store
         if artifact_store is not None
-        else FileArtifactStore(root=scratch_root / replay.store_dirname)
+        # The deployment's declaration of what its own mechanism writes and
+        # under which kind (D-IMPL-353 §1.2): the two replay classes the
+        # `replay:` binding names, and the SDK's two composite evidence
+        # classes, all `ReplayMint`. A caller-supplied store carries its own
+        # declaration; the resolver refuses one that omits a class it files.
+        else FileArtifactStore(
+            root=scratch_root / replay.store_dirname,
+            write_kinds=WriteKinds.declare(
+                {
+                    replay.record_class: (ReplayMint,),
+                    replay.query_pin_class: (ReplayMint,),
+                    ADMITTED_CHILD_CONTRACT_CLASS: (ReplayMint,),
+                    CHILD_QUESTION_CLASS: (ReplayMint,),
+                }
+            ),
+        )
     )
     # The bundle pin the boot WILL mint, computed the way the registry mints
     # it — the content address of the parsed artifact (`D-IMPL-26`) — so the
@@ -1010,7 +1069,7 @@ def open_product(
         tenant_id=config.tenant_id,
         assembly_mode=declaration.assembly_mode,
         policy_bundle_pin=PolicyBinding(
-            key=keys.policy_bundle, version=content_hash(policy_artifact)
+            key=placed.policy_bundle, version=content_hash(policy_artifact)
         ),
     )
 
@@ -1038,6 +1097,7 @@ def open_product(
             assert questions is not None  # `_refuse_half_wired_composite` held it
             agent, child_resolver = _derive_consumer_chain(
                 derived,
+                tenant=config.tenant_id,
                 declaration=declaration,
                 registry=registry,
                 store=store,
@@ -1057,7 +1117,7 @@ def open_product(
         scratch=scratch_root,
         config=config,
         environment=environment,
-        keys=keys,
+        keys=placed,
         tenant_id=config.tenant_id,
         declaration=declaration,
         replay=replay,
@@ -1229,9 +1289,39 @@ def _register_declared_producers(
     return bridge, mcp_skills
 
 
+def _mint_child_question_authority(
+    registry: ControlPlaneRegistry, *, tenant: str, clock: Callable[[], datetime]
+) -> Authorized[ReplayMint]:
+    """The composition recipe (D-IMPL-354) for the consumer's child-question class.
+
+    :func:`open_product` is a composition root (`COMPOSITION_MINT_SITES`); the
+    :class:`~ccf.products.child_resolver.QuestionBoundChildResolver` it
+    composes is not, and receives this at construction. The decision is
+    recorded on the Control Plane's own audit log and the capability carries
+    that event's content address as its ``decision_id``; one class, one
+    tenant — the consumer tenant the gate admits for.
+    """
+    event = registry.audit_log.append(
+        action="composition",
+        key=CHILD_QUESTION_CLASS,
+        version=ReplayMint.action_id,
+        resolved=True,
+        occurred_at=clock(),
+        actor=COMPOSITION_PRINCIPAL,
+    )
+    return mint_at_composition(
+        ReplayMint,
+        tenant=tenant,
+        principal=COMPOSITION_PRINCIPAL,
+        resource=CHILD_QUESTION_CLASS,
+        decision_id=content_hash(event),
+    )
+
+
 def _derive_consumer_chain(
     derived: DerivedDeployment,
     *,
+    tenant: str,
     declaration: ProductClassDeclaration,
     registry: ControlPlaneRegistry,
     store: ArtifactStoreProtocol,
@@ -1243,30 +1333,43 @@ def _derive_consumer_chain(
     """The declared chain: agent → catalog → grant → question-bound resolver → gate.
 
     Registers what the ledger resolves — the policy regime, the agent and the
-    skill entries — through the manifest's ONE register loop
+    skill entries — placed under ``tenant`` (D-IMPL-354) and registered
+    through the manifest's ONE register loop
     (:func:`~ccf.deployment.manifest.register_manifest_entries`; every
     question's boot registers the same content again, idempotently), then
-    requests one grant per skill entry for the agent under the deployment's
-    regime. The grant is derived from the entry it binds and nothing else:
-    its lanes are the entry's own two, its name is the entry's, and its agent
-    is the agent's content hash (`D-IMPL-26`). A skill already bound to this
-    agent on the registry is not re-requested.
+    **reads** which declared skills are bound to the agent on this Control
+    Plane and refuses, by name, any that is not (:class:`GrantNotInForce`).
+    It requests no grant: a grant is a ``skill.grant`` door action requiring
+    ``Authorized[SkillGrant]``, which a composition root cannot mint
+    (D-IMPL-353 §1.6; D-IMPL-354). A skill bound at another version than the
+    one declared is refused rather than superseded, as before.
     """
-    keys = derived.keys
-    assert keys.agent is not None and keys.skills and keys.policy_bundle  # held by the caller
+    declared_keys = derived.keys
+    assert declared_keys.agent is not None and declared_keys.skills and declared_keys.policy_bundle  # held by the caller
     if mcp_skills is None:
         raise ValueError(
             "the product class declares `requires` and the config declares no"
             " `producers:`; a derived chain asks declared producers and none"
             " are declared (D-IMPL-343; D-IMPL-340)"
         )
-    wanted = frozenset({keys.policy_bundle, keys.agent, *keys.skills})
-    parsed = {
+    declared_wanted = frozenset({declared_keys.policy_bundle, declared_keys.agent, *declared_keys.skills})
+    declared = {
         entry.key: parse_artifact(derived.documents[entry.key], resolve_artifact_class(entry.class_id))
         for entry in derived.manifest.artifacts
-        if entry.key in wanted
+        if entry.key in declared_wanted
     }
-    register_manifest_entries(derived.manifest, parsed, registry=registry, only=wanted)
+    # This is the consumer's composition root: every key the derived manifest
+    # names is placed under the deployment's own tenant BEFORE the one register
+    # loop mints for it — the same derivation `load_config_and_boot` applies to
+    # the paved road, so the key an artifact registers under and the key this
+    # chain reads it back by are one string by construction (D-IMPL-354;
+    # D-IMPL-353 §1.3). The loop itself admits no key outside a tenant.
+    manifest, parsed, keys = manifest_under_tenant(
+        derived.manifest, declared, declared_keys, tenant=tenant
+    )
+    assert keys is not None and keys.agent is not None  # every field kept; `agent` held above
+    wanted = frozenset({keys.policy_bundle, keys.agent, *keys.skills})
+    register_manifest_entries(manifest, parsed, registry=registry, tenant=tenant, only=wanted)
 
     agent = parsed[keys.agent]
     assert isinstance(agent, AgentDefinition)  # its entry names AGENT_DEFINITION
@@ -1279,6 +1382,7 @@ def _derive_consumer_chain(
     )
     bound = ledger.bound_view(agent_hash)
     produced: set[str] = set()
+    not_in_force: list[str] = []
     for key in keys.skills:
         entry = parsed[key]
         assert isinstance(entry, SkillCatalogEntry)  # its entry names SKILL_CATALOG_ENTRY
@@ -1300,28 +1404,18 @@ def _derive_consumer_chain(
                     " force, or restore the declared version — a bound skill is"
                     " never superseded by an edit (D-IMPL-343; D-IMPL-29)"
                 )
-            continue  # idempotent over a shared registry: this grant is in force
-        outcome = ledger.request(
-            SkillGrant(
-                schema_version=entry.schema_version,
-                artifact_version=entry.artifact_version,
-                name=entry.name,
-                tenant=entry.tenant,
-                agent_definition_hash=agent_hash,
-                skill_name=entry.name,
-                skill_version=entry.artifact_version,
-            ),
-            definition=agent,
-            actor=agent.name,
+            continue  # in force on this Control Plane: composes
+        not_in_force.append(entry.name)
+    if not_in_force:
+        raise GrantNotInForce(
+            f"skill(s) {not_in_force!r} declared in `skills:` are not granted to"
+            f" agent {agent.name!r} (tenant {agent.tenant!r}) on this Control"
+            " Plane, and the paved road cannot grant them: a grant is the"
+            f" {SkillGrantKind.action_id!r} door action, requiring"
+            " Authorized[SkillGrant], which a composition root may not mint"
+            " (D-IMPL-353 §1.6; D-IMPL-354). Grant them through a governed door"
+            " as an authorized principal, then open the product"
         )
-        if not isinstance(outcome, str):
-            raise ValueError(
-                f"the grant derived for skill {entry.name!r} was refused by the"
-                f" Control Plane ({type(outcome).__name__}):"
-                f" {getattr(outcome, 'detail', outcome)!s}; a composite whose"
-                " agent may not bind the skill that produces a required class"
-                " cannot compose it (D-IMPL-343 R-7; D-IMPL-29)"
-            )
     for requirement in declaration.requires:
         if requirement.required and requirement.product_class not in produced:
             raise ValueError(
@@ -1340,6 +1434,9 @@ def _derive_consumer_chain(
         ledger=ledger,
         agent_definition_hash=agent_hash,
         gate=gate,
+        # D-IMPL-354: minted HERE, by the composition root, for the consumer
+        # tenant the gate admits for; the resolver holds it and mints nothing.
+        authorized=_mint_child_question_authority(registry, tenant=agent.tenant, clock=clock),
         child_questions=questions,
         callable_registry=CallableRegistry(),
         artifact_store=store,

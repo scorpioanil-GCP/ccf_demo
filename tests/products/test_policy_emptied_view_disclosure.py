@@ -117,6 +117,8 @@ from tests.products.test_resolver_seam import (
     REQUEST_CONTRACT_KEY,
     THRESHOLD_PARAMETER,
 )
+from tests.composition import composition_replay_mint, declaring_store
+from ccf.products.composite import ADMITTED_CHILD_CONTRACT_CLASS
 
 # --- fixture vocabulary --------------------------------------------------------
 
@@ -257,7 +259,11 @@ def _boot(tmp_path: pathlib.Path, *, name: str, envelopes: Sequence[SignalEnvelo
     )
     for envelope in envelopes:
         fabric.handle.worker.ingest(envelope)
-    return (fabric, control_plane, FileArtifactStore(root=root / "artifacts"))
+    return (
+        fabric,
+        control_plane,
+        declaring_store(root / "artifacts", REPLAY_RECORD_CLASS, QUERY_PIN_CLASS, ADMITTED_CHILD_CONTRACT_CLASS),
+    )
 
 
 @pytest.fixture()
@@ -332,9 +338,10 @@ def _serve(booted: Any, subject: str) -> Any:
         ),
         capabilities=(),
         refusal_recorder=ReplayRefusalRecorder(
+            authorized=composition_replay_mint(
+                control_plane, tenant=TENANT, artifact_class=REPLAY_RECORD_CLASS
+            ),
             artifact_store=store,
-            replay_record_class=REPLAY_RECORD_CLASS,
-            tenant_id=TENANT,
             assembly_mode="algorithmic",
         ),
         artifact_store=store,

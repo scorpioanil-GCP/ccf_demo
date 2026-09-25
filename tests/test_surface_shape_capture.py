@@ -570,6 +570,18 @@ def test_every_moved_name_is_a_call_protocol_or_a_type_alias(
 #: ``__init__``. The claim is therefore amended in reach rather than withdrawn:
 #: every *unlisted* shape must still read identically.
 _SHAPE_MOVED_BY_FRAGMENT = {
+    # `SEC-004` — governed record classes are not client-writable. Both stores
+    # gain a `governed=NOTHING_GOVERNED` constructor keyword and a defaulted,
+    # keyword-only `minted` on `put`: additive and behavior-preserving at every
+    # existing call site, which is exactly the case this allowance was written
+    # for. The fragment names both and says why the refusal is at the store
+    # rather than at a door.
+    "ccf.artifacts.file_store.FileArtifactStore": (
+        "350-04-governed-record-classes-are-not-client-writable.md"
+    ),
+    "ccf.artifacts.mcp_store.McpArtifactStore": (
+        "350-04-governed-record-classes-are-not-client-writable.md"
+    ),
     # `PKG-F-08` — §7.10.4's Mode 2 footprint reaching replay dimension 3.
     # Five shapes, one parameter: `packaging_trace`. Additive and keyword-only
     # on all four helpers, so every existing call site reads identically at
@@ -774,6 +786,43 @@ _SHAPE_MOVED_BY_FRAGMENT = {
     # fragment claims under `behavior`.
     "ccf.products.resolver.GovernedResolver": (
         "24.11-03-the-resolver-carries-the-declared-obligation.md"
+    ),
+    # `D-IMPL-353` (the join, 2026-09-24) — the handles and the composition
+    # roots take the capability for their own action. Each constructor gains a
+    # keyword-only `authorized: Authorized[<Kind>]` (or, for `boot`, the
+    # `tenant_ids` the fabric composes for) and the fragment named here claims
+    # the name `reshaped` and says what the capability replaces.
+    "ccf.boot.boot": (
+        "353-07-the-composition-roots-mint-for-their-own-writes.md"
+    ),
+    "ccf.peering.admission.PeeringAdmissionGate": (
+        "353-07-the-composition-roots-mint-for-their-own-writes.md"
+    ),
+    "ccf.products.child_resolver.QuestionBoundChildResolver": (
+        "353-07-the-composition-roots-mint-for-their-own-writes.md"
+    ),
+    "ccf.products.resolver.ReplayRefusalRecorder": (
+        "353-07-the-composition-roots-mint-for-their-own-writes.md"
+    ),
+    "ccf.replay.serve.ReplayWriter": (
+        "353-03-the-handles-require-the-capability-for-their-own-action.md"
+    ),
+    "ccf.replay.serve.QueryPinWriter": (
+        "353-09-the-join.md"
+    ),
+    # `D-IMPL-353` (the join, after its panel, 2026-09-25) — the register loop
+    # takes the composition's tenant explicitly (codex HIGH): `tenant=` is a new
+    # required keyword on the function and on its package re-export.
+    "ccf.deployment.manifest.register_manifest_entries": (
+        "353-09-the-join.md"
+    ),
+    "ccf.deployment.register_manifest_entries": (
+        "353-09-the-join.md"
+    ),
+    # Pre-merge check R6 (2026-09-25): the reader loses its kind-less overload;
+    # `kind` is a required keyword.
+    "ccf_runtime.http_api.grants.authorized_from_request": (
+        "353-09-the-join.md"
     ),
 }
 

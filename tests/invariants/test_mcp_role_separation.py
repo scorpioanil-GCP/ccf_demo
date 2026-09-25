@@ -48,12 +48,18 @@ import ccf.artifacts.protocol
 import ccf_runtime.mcp.artifact_server as artifact_server
 import ccf_runtime.mcp.egress as egress
 from ccf.artifacts.mcp_store import McpArtifactStore
+from ccf.artifacts.protocol import WriteKinds
+from ccf.authz.capability import ArtifactWrite
 from ccf.contracts.claims import EntityClaim, LineageEntry
 from ccf.mcp.client import SyncMcpBridge
 from ccf.signal.envelope import SourceIdentity
 
 from crossproc.conftest import spawn_child_server
+from crossproc.servers.mcp_artifact_child import (
+    TENANT as ARTIFACT_SERVER_TENANT,
+)
 from crossproc.servers.mcp_artifact_child import authorized_http_client
+from tests.controlplane.capabilities import capability
 
 if TYPE_CHECKING:
     from ccf.boot import FabricHandle
@@ -328,7 +334,9 @@ def test_the_mcp_store_holds_no_fabric_write_surface() -> None:
     walk of the class's own source.
     """
     with SyncMcpBridge(call_timeout_seconds=CALL_TIMEOUT_SECONDS) as bridge:
-        store = McpArtifactStore(url="http://127.0.0.1:1/mcp", bridge=bridge)
+        store = McpArtifactStore(
+            url="http://127.0.0.1:1/mcp", bridge=bridge, write_kinds=WriteKinds({})
+        )
         for name in dir(store):
             if name.startswith("__"):
                 continue
@@ -383,10 +391,18 @@ def test_a_full_store_cycle_leaves_the_fabric_byte_identical(
 
         with _mcp_store() as store:
             ref = store.put(
-                tenant_id="tenant-invariant",
-                artifact_class="invariant-artifact",
-                name="the-artifact",
-                artifact={"label": "alpha", "ordinal": 1},
+                # A client-lane write under a genuine capability for exactly
+                # this class and name, under the tenant the child's credential
+                # is scoped to (D-IMPL-353 §1.2). Writing under an arbitrary
+                # tenant used to work because the credential named none at
+                # all, which is `SEC-018` in one line; now the tenant is the
+                # capability's and never crosses the wire (§1.3).
+                capability(
+                    ArtifactWrite,
+                    tenant=ARTIFACT_SERVER_TENANT,
+                    resource="invariant-artifact/the-artifact",
+                ),
+                {"label": "alpha", "ordinal": 1},
             )
             assert store.exists(content_address=ref.content_address) is True
             assert store.resolve_uri(uri=ref.uri) == ref.content_address
@@ -475,6 +491,7 @@ def _mcp_store() -> Any:
                 yield McpArtifactStore(
                     url=f"http://127.0.0.1:{port}/mcp",
                     bridge=bridge,
+                    write_kinds=WriteKinds({}),
                     http_client_factory=authorized_http_client,
                 )
 

@@ -28,6 +28,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from ccf.artifacts.file_store import FileArtifactStore
+from ccf.artifacts.protocol import WriteKinds
+from ccf.authz.capability import Execute, Resume
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.hitl.approval_gate import ApprovalSinkAdapter
 from ccf.hitl.transport import InMemoryHitlTransport
@@ -40,7 +42,7 @@ from ccf.skills.grants import GrantLedger
 from ccf.workflow.factory import WorkflowFactory
 from ccf_runtime.http_api.dependencies import ApiDependencies
 from ccf_runtime.mcp.egress import ProductNotServable
-from ccf_runtime.workflow.engine import WorkflowEngine
+from ccf_runtime.workflow.engine import WORKFLOW_TRACE_ARTIFACT_CLASS, WorkflowEngine
 
 __ccf_mode__ = "algorithmic"
 
@@ -118,7 +120,19 @@ def build_local_dependencies(*, root: Path) -> ApiDependencies:
     registry = ControlPlaneRegistry(clock=_utc_now)
     catalog = SkillCatalog(registry)
     unwired = _UnwiredNodeBinding()
-    store = FileArtifactStore(root=root / "artifacts")
+    # What THIS deployment's own mechanism writes (D-IMPL-353 §1.2): the
+    # workflow engine's trace, under the kinds that authorize a run. The local
+    # fabric composes no resolver and no refusal recorder, so it declares no
+    # replay class — declaring one it does not write would open a lane nothing
+    # here holds a ReplayMint for. Everything undeclared is the client lane.
+    # This composition root performs no Control Plane registration of its own
+    # (the registry starts empty by design — D-IMPL-38), so it mints no
+    # `Register`; a registration added here goes through the D-IMPL-354
+    # recipe, never a bare key.
+    store = FileArtifactStore(
+        root=root / "artifacts",
+        write_kinds=WriteKinds.declare({WORKFLOW_TRACE_ARTIFACT_CLASS: (Execute, Resume)}),
+    )
     hitl = InMemoryHitlTransport()
     return ApiDependencies(
         control_plane=registry,

@@ -62,6 +62,9 @@ from ccf.skills.dispatch import ChildQuestionIdentity, ProductQuestion, question
 from tests.products import paved_fixture as fixture
 from tests.products.paved_fixture import ASKED_AT, CHILD_CLASS, CONSUMER_TENANT, THRESHOLD_PARAMETER
 from tests.products.test_paved_consumer import _open, _producer, _question, _the_row, _tree
+from tests.composition import declaring_store
+from tests.replay.authority import mechanism_put
+from ccf.products.composite import ADMITTED_CHILD_CONTRACT_CLASS
 
 pytestmark = [pytest.mark.crossproc]
 
@@ -103,7 +106,10 @@ def _predicted_request() -> str:
 
 
 def _fresh(opened: Any) -> FileArtifactStore:
-    return FileArtifactStore(root=opened.scratch / opened.replay.store_dirname)
+    return FileArtifactStore(
+        root=opened.scratch / opened.replay.store_dirname,
+        write_kinds=opened.artifact_store.write_kinds,
+    )
 
 
 def _lane_floor_config() -> dict[str, Any]:
@@ -279,7 +285,10 @@ def test_c_b9_a_pre_342_record_reconstructs_unheld_and_the_audit_read_refuses_by
     fresh = _fresh(opened)
     # even with the artifact gone: a row that never referenced one is not held to it
     (fresh.root / rows[0].child_question_address).unlink()
-    filed = fresh.put(tenant_id=record.tenant_id, artifact_class="ccf.replay-record", name="pre-342", artifact=older)
+    # A doctored legacy record is planted the way the real writer files one —
+    # under the capability for the declared class (D-IMPL-353 §1.2), never by an
+    # open lane the test happens to hold.
+    filed = mechanism_put(fresh, tenant=record.tenant_id, artifact_class="ccf.replay-record", name="pre-342", artifact=older)
     reconstructed = replay_refusal(
         record_address=filed.content_address, store=fresh,
         reader=_NeverConsulted(), control_plane=opened.control_plane, environment=_NeverConsulted(),  # type: ignore[arg-type]
@@ -300,11 +309,20 @@ class _RefusingStore:
         self._refuse = refuse_class
         self.puts: list[str] = []
 
-    def put(self, *, tenant_id: str, artifact_class: str, name: str, artifact: Any) -> Any:
+    @property
+    def write_kinds(self) -> Any:
+        return self._inner.write_kinds
+
+    def put(self, authorized: Any, artifact: Any) -> Any:
+        # The class is the DerivedWrite's (mechanism-written) or the
+        # capability's resource prefix (an addressed write).
+        artifact_class = getattr(artifact, "artifact_class", None) or str(
+            getattr(authorized, "resource", "")
+        ).partition("/")[0]
         self.puts.append(artifact_class)
         if artifact_class == self._refuse:
             raise OSError(f"the store refused to file {artifact_class!r}")
-        return self._inner.put(tenant_id=tenant_id, artifact_class=artifact_class, name=name, artifact=artifact)
+        return self._inner.put(authorized, artifact)
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._inner, name)
@@ -345,7 +363,16 @@ class _ConnectionCounter:
 def test_c_b10_a_store_that_cannot_file_the_question_leaves_the_producer_unasked_and_no_record(tmp_path: pathlib.Path) -> None:
     counter = _ConnectionCounter()
     try:
-        store = _RefusingStore(FileArtifactStore(root=tmp_path / "store"), refuse_class=CHILD_QUESTION_CLASS)
+        store = _RefusingStore(
+            declaring_store(
+                tmp_path / "store",
+                fixture.RECORD_CLASS,
+                fixture.QUERY_PIN_CLASS,
+                ADMITTED_CHILD_CONTRACT_CLASS,
+                CHILD_QUESTION_CLASS,
+            ),
+            refuse_class=CHILD_QUESTION_CLASS,
+        )
         root = _tree(tmp_path)
         with _open(root, tmp_path / "scratch", counter.url, artifact_store=store) as opened:
             before = counter.connections

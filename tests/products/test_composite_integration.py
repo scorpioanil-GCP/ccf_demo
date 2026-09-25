@@ -66,6 +66,9 @@ from tests.products.test_resolver_seam import (
     PRODUCT_VERSION,
     _Booted,
 )
+from tests.composition import composition_register
+from ccf.controlplane.invalidation import register_key
+from tests.skills.authority import revoke_capability
 
 
 @pytest.fixture()
@@ -164,7 +167,7 @@ def test_int01a_a_REVOKED_grant_refuses_the_same_way(booted: _Booted) -> None:
     ledger, agent_hash, _definition, _catalog = _ledger(booted)
     effective = ledger.effective_hashes(agent_hash)
     assert len(effective) == 1, effective
-    ledger.revoke(next(iter(effective)), actor="composite-operator")
+    ledger.revoke(revoke_capability(next(iter(effective)), tenant=TENANT))
 
     after = _ask(resolver)
     assert not isinstance(after, ServedProduct), after
@@ -644,7 +647,10 @@ def test_int01b_a_real_L2_change_invalidates_the_NESTED_composite_chain(
     )
 
     # 4. the initial dependent state: no boundary exists yet.
-    sink = ControlPlaneInvalidationSink(registry=booted.control_plane)
+    sink = ControlPlaneInvalidationSink(
+        registry=booted.control_plane,
+        authorities=(composition_register(booted.control_plane, register_key(TENANT)),),
+    )
     assert sink.register(TENANT) is None
 
     # 5-6. the world changes, through the real boot-bound writer and nothing

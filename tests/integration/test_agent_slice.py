@@ -90,6 +90,9 @@ from integration.test_proto_quickstart import (
     _resolution_spec,
 )
 from ccf.projection.plan import Perspective
+from tests.composition import register_at_composition, register_typed_at_composition, register_versioned_at_composition
+from tests.composition import register_skill_entry
+from tests.skills.authority import grant_capability, revoke_capability
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "banking"
 
@@ -130,11 +133,9 @@ def fabric(
     """The I.1 banking fabric, booted and ingested exactly as in I.1."""
     keys = control["keys"]
     registry = ControlPlaneRegistry()
-    spec_version = registry.register(
-        keys["resolution_spec"], _resolution_spec(ontology)
+    spec_version = register_at_composition(registry, keys["resolution_spec"], _resolution_spec(ontology)
     )
-    policy_version = registry.register(
-        keys["policy_bundle"], control["policy_bundle"]
+    policy_version = register_at_composition(registry, keys["policy_bundle"], control["policy_bundle"]
     )
     handle = boot(
         backend="sqlite",
@@ -144,6 +145,7 @@ def fabric(
         resolution_spec_version=spec_version,
         policy_bundle_key=keys["policy_bundle"],
         policy_bundle_version=policy_version,
+        tenant_ids=(ontology["tenant_id"],),
     )
     try:
         for envelope in _envelopes(ontology, events):
@@ -165,8 +167,7 @@ def _register_agent_artifacts(fabric: _Fabric) -> tuple[str, str, AgentDefinitio
     prompt_fixture = _prompt_fixture()
     registry = fabric.registry
     prompt = parse_artifact(prompt_fixture["prompt_artifact"], PROMPT_ARTIFACT)
-    registry.register_typed(
-        prompt_fixture["keys"]["prompt_artifact"], prompt, PROMPT_ARTIFACT
+    register_typed_at_composition(registry, prompt_fixture["keys"]["prompt_artifact"], prompt, PROMPT_ARTIFACT
     )
     for reference in agent_fixture["referenced_artifacts"].values():
         artifact_class = declared_artifact_class(reference["class_id"])
@@ -178,13 +179,13 @@ def _register_agent_artifacts(fabric: _Fabric) -> tuple[str, str, AgentDefinitio
             },
             artifact_class,
         )
-        registry.register_typed(reference["key"], declared, artifact_class)
+        register_typed_at_composition(registry, reference["key"], declared, artifact_class)
     definition = parse_artifact(
         agent_fixture["agent_definition"], AGENT_DEFINITION
     )
     assert isinstance(definition, AgentDefinition)
     key = agent_fixture["keys"]["agent_definition"]
-    version = registry.register_versioned(key, definition, AGENT_DEFINITION)
+    version = register_versioned_at_composition(registry, key, definition, AGENT_DEFINITION)
     assert isinstance(version, str)
     return key, version, definition
 
@@ -305,7 +306,7 @@ def _granted_agent(
     )
     entry = parse_artifact(tool_fixture["entry"], SKILL_CATALOG_ENTRY)
     assert isinstance(entry, SkillCatalogEntry)
-    assert isinstance(catalog.register(entry), str)
+    assert isinstance(register_skill_entry(catalog, fabric.registry, entry), str)
     ledger = GrantLedger(
         control_plane=fabric.registry,
         catalog=catalog,
@@ -322,7 +323,9 @@ def _granted_agent(
         **granted_values["grant"],
     )
     outcome = ledger.request(
-        grant, definition=definition, actor=granted_values["requesting_actor"]
+        grant_capability(definition, principal=granted_values["requesting_actor"]),
+        grant,
+        definition=definition,
     )
     assert isinstance(outcome, str)
     factory = AgentFactory(control_plane=fabric.registry)
@@ -372,7 +375,7 @@ def _mcp_granted_agent(
     catalog = SkillCatalog(fabric.registry)
     entry = parse_artifact(declared["entry"], SKILL_CATALOG_ENTRY)
     assert isinstance(entry, SkillCatalogEntry)
-    assert isinstance(catalog.register(entry), str)
+    assert isinstance(register_skill_entry(catalog, fabric.registry, entry), str)
     ledger = GrantLedger(
         control_plane=fabric.registry,
         catalog=catalog,
@@ -386,7 +389,9 @@ def _mcp_granted_agent(
         agent_definition_hash=content_hash(definition), **declared["grant"]
     )
     outcome = ledger.request(
-        grant, definition=definition, actor=declared["requesting_actor"]
+        grant_capability(definition, principal=declared["requesting_actor"]),
+        grant,
+        definition=definition,
     )
     assert isinstance(outcome, str), outcome
 
@@ -494,7 +499,7 @@ def _peering_granted_agent(
     catalog = SkillCatalog(fabric.registry)
     entry = parse_artifact(declared["entry"], SKILL_CATALOG_ENTRY)
     assert isinstance(entry, SkillCatalogEntry)
-    assert isinstance(catalog.register(entry), str)
+    assert isinstance(register_skill_entry(catalog, fabric.registry, entry), str)
     ledger = GrantLedger(
         control_plane=fabric.registry,
         catalog=catalog,
@@ -508,7 +513,9 @@ def _peering_granted_agent(
         agent_definition_hash=content_hash(definition), **declared["grant"]
     )
     outcome = ledger.request(
-        grant, definition=definition, actor=declared["requesting_actor"]
+        grant_capability(definition, principal=declared["requesting_actor"]),
+        grant,
+        definition=definition,
     )
     assert isinstance(outcome, str), outcome
 
@@ -682,7 +689,11 @@ def test_a_granted_decision_captures_the_grant_set_hash_in_dimension_4(
         agent_definition_hash=content_hash(definition),
         **granted_values["grant"],
     )
-    ledger.revoke(content_hash(grant), actor=granted_values["requesting_actor"])
+    ledger.revoke(
+        revoke_capability(
+            content_hash(grant), tenant=definition.tenant, principal=granted_values["requesting_actor"]
+        )
+    )
     revoked_record = _record()
     assert revoked_record.perspective_conditioning.grant_set_hash == (
         NO_GRANTS_SET_HASH

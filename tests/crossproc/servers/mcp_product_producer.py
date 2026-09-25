@@ -59,6 +59,12 @@ for _root in (_REPO_ROOT / "src", _REPO_ROOT / "runtime", _TESTS_ROOT, _REPO_ROO
 if TYPE_CHECKING:
     from mcp.server.fastmcp import FastMCP
 
+from crossproc.servers.wide_authorizer import wide_authorizer  # noqa: E402
+from http_api.composition_authority import (  # noqa: E402
+    deployment_store,
+    refusal_recorder,
+    register_typed_at_composition,
+)
 from tests.crossproc.servers.product_producer_identity import (  # noqa: E402
     DEV_TOKEN,
     PRODUCER_ID,
@@ -107,6 +113,7 @@ def build_server(workspace: Path) -> FastMCP:
     from ccf.artifacts.file_store import FileArtifactStore  # noqa: PLC0415
     from ccf.controlplane.registry import ControlPlaneRegistry  # noqa: PLC0415
     from ccf.deployment import load_and_boot  # noqa: PLC0415
+    from ccf.products.composite import ADMITTED_CHILD_CONTRACT_CLASS  # noqa: PLC0415
     from ccf.products.entitlement import (  # noqa: PLC0415
         PRODUCT_ENTITLEMENT_POLICY,
         ProductEntitlementGrant,
@@ -142,6 +149,7 @@ def build_server(workspace: Path) -> FastMCP:
     )
     from tests.products.test_resolver_seam import (  # noqa: PLC0415
         DEBT_PROFILE_KEY,
+        QUERY_PIN_CLASS,
         OBLIGATION_ON_OK,
         REPLAY_RECORD_CLASS,
         REQUEST_CONTRACT_CLASS_ID,
@@ -151,6 +159,14 @@ def build_server(workspace: Path) -> FastMCP:
 
     def retenant(document: Any) -> Any:
         return _retenanted(document, from_tenant=TENANT, to_tenant=PRODUCER_TENANT)
+
+    def rekey(key: str) -> str:
+        """The fixture's key under THIS producer's tenant — the same move the
+        documents just made, applied to the constants the fixture names them by.
+        A key left under the fixture tenant would be confined under this tenant
+        by the loader (D-IMPL-354) and read back by nobody."""
+        prefix = f"{TENANT}/"
+        return f"{PRODUCER_TENANT}/{key[len(prefix):]}" if key.startswith(prefix) else key
 
     root = workspace / "deployment"
     root.mkdir(parents=True, exist_ok=True)
@@ -176,21 +192,21 @@ def build_server(workspace: Path) -> FastMCP:
         *body["artifacts"],
         {
             "path": "product-class-child.yaml",
-            "key": CHILD_CLASS_KEY,
+            "key": rekey(CHILD_CLASS_KEY),
             "class_id": "ccf.product-class",
             "role": "register",
             "registration": "typed",
         },
         {
             "path": "request-contract-child.yaml",
-            "key": CHILD_REQUEST_CONTRACT_KEY,
+            "key": rekey(CHILD_REQUEST_CONTRACT_KEY),
             "class_id": REQUEST_CONTRACT_CLASS_ID,
             "role": "load",
             "registration": "typed",
         },
         {
             "path": "debt-profile.yaml",
-            "key": DEBT_PROFILE_KEY,
+            "key": rekey(DEBT_PROFILE_KEY),
             "class_id": "ccf.debt-profile",
             "role": "register",
             "registration": "typed",
@@ -203,32 +219,42 @@ def build_server(workspace: Path) -> FastMCP:
         registry=control_plane,
         connection={"database_path": str(workspace / "producer.sqlite3")},
     )
-    for envelope in fabric.artifacts[SIGNAL_BATCH_KEY].envelopes:
+    for envelope in fabric.artifacts[rekey(SIGNAL_BATCH_KEY)].envelopes:
         fabric.handle.worker.ingest(envelope)
-    store = FileArtifactStore(root=workspace / "artifacts")
+    # The record class this producer's recorder files into, declared under
+    # ReplayMint; every other class is the client lane (D-IMPL-353 §1.2).
+    # The three evidence classes the resolver files under its composition-minted
+    # ReplayMint — record, query pin, admitted child contract — declared, exactly
+    # as the seam declares them (D-IMPL-353 §1.2).
+    store = deployment_store(
+        workspace / "artifacts", REPLAY_RECORD_CLASS, QUERY_PIN_CLASS, ADMITTED_CHILD_CONTRACT_CLASS
+    )
     booted = _Booted(fabric=fabric, control_plane=control_plane, store=store, root=root)
 
     # The fixture resolver wiring, with the two tenant-bound members re-homed.
-    arguments = _arguments(booted)
+    # Every key the seam's `_arguments` names is the fixture's; under THIS
+    # producer's tenant it is the re-tenanted string, like the documents.
+    arguments = _arguments(booted, key=rekey)
     arguments.update(
-        product_class_key=CHILD_CLASS_KEY,
-        request_contract_key=CHILD_REQUEST_CONTRACT_KEY,
-        operator_parameter_keys=(SIMILARITY_KEY,),
+        product_class_key=rekey(CHILD_CLASS_KEY),
+        request_contract_key=rekey(CHILD_REQUEST_CONTRACT_KEY),
+        operator_parameter_keys=(rekey(SIMILARITY_KEY),),
         composite_children=None,
         constraint_resolver=ReferencePolicyConstraintResolver(
             control_plane=control_plane,
             entitlement_key=product_entitlement_key(tenant_id=PRODUCER_TENANT),
         ),
-        refusal_recorder=ReplayRefusalRecorder(
-            artifact_store=store,
+        refusal_recorder=refusal_recorder(
+            control_plane,
+            store=store,
+            tenant=PRODUCER_TENANT,
             replay_record_class=REPLAY_RECORD_CLASS,
-            tenant_id=PRODUCER_TENANT,
             assembly_mode="algorithmic",
         ),
     )
     resolver = GovernedResolver(**arguments)
 
-    control_plane.register_typed(
+    register_typed_at_composition(control_plane, 
         product_entitlement_key(tenant_id=PRODUCER_TENANT),
         ProductEntitlementPolicy(
             tenant_id=PRODUCER_TENANT,
@@ -247,7 +273,23 @@ def build_server(workspace: Path) -> FastMCP:
     )
     tokens = workspace / TOKEN_FILENAME
     tokens.write_text(
-        json.dumps({DEV_TOKEN: {"client_id": PRINCIPAL, "scopes": [SCOPE]}}),
+        json.dumps(
+            {
+                DEV_TOKEN: {
+                    "client_id": PRINCIPAL,
+                    "scopes": [SCOPE],
+                    # The producer's OWN tenant, plus the two neighbours this
+                    # suite addresses to prove what the door refuses about
+                    # them. The tenancy floor would otherwise stop those calls
+                    # first and the door's own refusals would go untested; the
+                    # floor is proven in `tests/mcp/test_tenant_guard.py`
+                    # (`SEC-018`).
+                    "tenants": sorted(
+                        {PRODUCER_TENANT, TENANT, "some-other-tenant"}
+                    ),
+                }
+            }
+        ),
         encoding="utf-8",
     )
 
@@ -274,6 +316,7 @@ def build_server(workspace: Path) -> FastMCP:
             resource_server_url=AnyHttpUrl(RESOURCE_SERVER_URL),
             required_scopes=[SCOPE],
         ),
+        authorizer=wide_authorizer(scopes=(SCOPE,)),
         entitlement_source=entitlement_source,
         perspective_resolver=resolve_perspective,
         refusal_recorder=arguments["refusal_recorder"],

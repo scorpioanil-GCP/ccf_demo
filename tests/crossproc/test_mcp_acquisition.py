@@ -47,6 +47,9 @@ from ccf.projection import acquisition as seam_module
 from ccf.projection.acquisition import AcquiredContent, ContentRequest
 from ccf.projection.engine import ExecutionResult, ProjectionEngine
 from ccf.projection.plan import Perspective, ProjectionOutput
+from http_api.composition_authority import (
+    register_at_composition,
+)
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -142,10 +145,10 @@ def fabric(tmp_path: Path) -> Iterator[Any]:
 
     keys = control["keys"]
     registry = ControlPlaneRegistry()
-    spec_version = registry.register(
+    spec_version = register_at_composition(registry, 
         keys["resolution_spec"], _resolution_spec(ontology)
     )
-    policy_version = registry.register(keys["policy_bundle"], control["policy_bundle"])
+    policy_version = register_at_composition(registry, keys["policy_bundle"], control["policy_bundle"])
     handle = boot(
         backend="sqlite",
         connection={"database_path": tmp_path / "acquisition.sqlite3"},
@@ -154,6 +157,8 @@ def fabric(tmp_path: Path) -> Iterator[Any]:
         resolution_spec_version=spec_version,
         policy_bundle_key=keys["policy_bundle"],
         policy_bundle_version=policy_version,
+        # D-IMPL-354: the tenant(s) this test composes the fabric for.
+        tenant_ids=(PRIMARY, SECONDARY),
     )
     try:
         for envelope in _envelopes(ontology, events):

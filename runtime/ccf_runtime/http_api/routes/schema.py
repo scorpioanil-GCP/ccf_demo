@@ -47,6 +47,8 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 
 from ccf.deployment.classes import SDK_ARTIFACT_CLASSES
+from ccf_runtime.authz.refusals import ACTION_SCHEMA_LIST, ACTION_SCHEMA_READ
+from ccf_runtime.authz.route_declaration import ResourceBinding, authorizes
 from ccf_runtime.http_api.dependencies import ApiDependencies
 
 __ccf_mode__ = "algorithmic"
@@ -71,10 +73,12 @@ def build_router(deps: ApiDependencies) -> APIRouter:
         response_model=list[str],
         summary="Schema classes (ERGO-12)",
     )
+    @authorizes(ACTION_SCHEMA_LIST, resource=ResourceBinding.route())
     def classes() -> list[str]:
         return sorted(SDK_ARTIFACT_CLASSES)
 
     @router.get("/{class_id}", summary="Schema export (ERGO-12)")
+    @authorizes(ACTION_SCHEMA_READ, resource=ResourceBinding.path("class_id"))
     def schema(class_id: str) -> dict[str, Any]:
         artifact_class = SDK_ARTIFACT_CLASSES.get(class_id)
         if artifact_class is None:

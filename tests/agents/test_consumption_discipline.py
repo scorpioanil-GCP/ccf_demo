@@ -46,6 +46,7 @@ from ccf.agents.factory import AgentFactory
 from ccf.controlplane.artifacts import declared_artifact_class, parse_artifact
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.products.contract import ContextProductContract
+from tests.controlplane.composition import compose_register_typed, compose_register_versioned
 
 AGENTS_PACKAGE = Path("src/ccf/agents")
 FIXTURES = Path(__file__).parent.parent / "fixtures" / "banking"
@@ -278,7 +279,7 @@ def _constructed_fixture_agent() -> Agent:
     prompt_fixture: dict[str, Any] = yaml.safe_load(
         (FIXTURES / "prompts" / "covenant_summary.yaml").read_text()
     )
-    plane.register_typed(
+    compose_register_typed(plane,
         prompt_fixture["keys"]["prompt_artifact"],
         parse_artifact(prompt_fixture["prompt_artifact"], PROMPT_ARTIFACT),
         PROMPT_ARTIFACT,
@@ -288,7 +289,7 @@ def _constructed_fixture_agent() -> Agent:
     )
     for reference in agent_fixture["referenced_artifacts"].values():
         artifact_class = declared_artifact_class(reference["class_id"])
-        plane.register_typed(
+        compose_register_typed(plane,
             reference["key"],
             parse_artifact(
                 {
@@ -305,7 +306,7 @@ def _constructed_fixture_agent() -> Agent:
     )
     assert isinstance(definition, AgentDefinition)
     key = agent_fixture["keys"]["agent_definition"]
-    version = plane.register_versioned(key, definition, AGENT_DEFINITION)
+    version = compose_register_versioned(plane, key, definition, AGENT_DEFINITION)
     assert isinstance(version, str)
     return AgentFactory(control_plane=plane).construct(
         definition_key=key, definition_version=version

@@ -58,7 +58,19 @@ from ccf_runtime.workflow.engine import (
 )
 from ccf_runtime.workflow.state import WORKFLOW_STATE, WorkflowStateRecord
 
+
+from tests.hitl.capabilities import submit_capability
+from tests.workflow.capabilities import (
+    execute_as,
+    execute_capability,
+    resume_as,
+)
 from tests.workflow.test_engine import _PermissiveDebt
+from http_api.composition_authority import (
+    deployment_store,
+    register_typed_at_composition,
+    register_versioned_at_composition,
+)
 
 FIXTURES = Path(__file__).parent.parent / "fixtures" / "banking"
 
@@ -91,14 +103,14 @@ def _register_declared(
             },
             artifact_class,
         )
-        registry.register_typed(reference["key"], declared, artifact_class)
+        register_typed_at_composition(registry, reference["key"], declared, artifact_class)
 
 
 def _registry() -> ControlPlaneRegistry:
     plane = ControlPlaneRegistry(clock=_ticking_clock())
     prompt_fixture = _load("prompts/covenant_summary.yaml")
     prompt = parse_artifact(prompt_fixture["prompt_artifact"], PROMPT_ARTIFACT)
-    plane.register_typed(
+    register_typed_at_composition(plane, 
         prompt_fixture["keys"]["prompt_artifact"], prompt, PROMPT_ARTIFACT
     )
     agent_fixture = _load("agents/covenant_analytics.yaml")
@@ -106,7 +118,7 @@ def _registry() -> ControlPlaneRegistry:
     agent = parse_artifact(agent_fixture["agent_definition"], AGENT_DEFINITION)
     assert isinstance(agent, AgentDefinition)
     task_fixture = _load("tasks/covenant_review_task.yaml")
-    plane.register_versioned(
+    register_versioned_at_composition(plane, 
         task_fixture["keys"]["referenced_agent_definition"],
         agent,
         AGENT_DEFINITION,
@@ -115,7 +127,7 @@ def _registry() -> ControlPlaneRegistry:
     task = parse_artifact(task_fixture["task_definition"], TASK_DEFINITION)
     assert isinstance(task, TaskDefinition)
     workflow_fixture = _load("workflows/covenant_review_workflow.yaml")
-    plane.register_versioned(
+    register_versioned_at_composition(plane, 
         workflow_fixture["keys"]["task_definition"], task, TASK_DEFINITION
     )
     _register_declared(plane, workflow_fixture["referenced_artifacts"])
@@ -129,10 +141,11 @@ def _covenant(registry: ControlPlaneRegistry) -> Workflow:
     )
     assert isinstance(definition, WorkflowDefinition)
     key = fixture["keys"]["workflow_definition"]
-    version = registry.register_versioned(key, definition, WORKFLOW_DEFINITION)
+    version = register_versioned_at_composition(registry, key, definition, WORKFLOW_DEFINITION)
     assert isinstance(version, str)
     return WorkflowFactory(control_plane=registry).construct(
-        definition_key=key, definition_version=version
+        execute_capability(tenant=definition.tenant, resource=key),
+        definition_version=version,
     )
 
 
@@ -178,7 +191,9 @@ def test_an_exception_ref_routes_into_an_escalation_end_to_end(
     bindings = _Bindings(failing={"fetch-certificates"})
     engine = WorkflowEngine(
         control_plane=registry,
-        artifact_store=FileArtifactStore(root=tmp_path / "artifacts"),
+        # The trace class declared under Execute | Resume (D-IMPL-353 §1.2):
+        # what this deployment's engine writes for itself.
+        artifact_store=deployment_store(tmp_path / "artifacts", workflow_traces=True),
         hitl_transport=transport,
         skill_binding=bindings,
         agent_binding=bindings,
@@ -190,7 +205,7 @@ def test_an_exception_ref_routes_into_an_escalation_end_to_end(
 
     # 1. The failing node routes to its artifact-declared handler ref — a
     #    first-class recorded transition (D-13).
-    routed = asyncio.run(engine.execute(workflow, execution_id="exec-esc"))
+    routed = asyncio.run(engine.execute(execute_as(workflow), workflow, execution_id="exec-esc"))
     assert isinstance(routed, WorkflowExceptionRouted)
     key = f"{tenant}/exec-esc"
     record = registry.state_store.get(WORKFLOW_STATE, key)
@@ -220,11 +235,16 @@ def test_an_exception_ref_routes_into_an_escalation_end_to_end(
     assert pending.workflow_state_ref == key
 
     # 3. Resolution is a bound human action landing on dimension 2.
+    binding = _principal(product_content_hash=state_hash)
     resolution = escalation.resolve(
-        tenant=tenant,
+        submit_capability(
+            tenant=tenant,
+            principal=binding.approver.subject_id,
+            event_key=f"{key}/{routed.node}",
+        ),
         event_key=f"{key}/{routed.node}",
         action="approve",
-        principal=_principal(product_content_hash=state_hash),
+        principal=binding,
     )
     assert isinstance(resolution, EscalationResolution)
     assert resolution.hitl_actions_block
@@ -233,24 +253,27 @@ def test_an_exception_ref_routes_into_an_escalation_end_to_end(
     #    the gate resolves, and the terminal step sequence (dimension 5)
     #    carries the exception transition verbatim.
     suspended = asyncio.run(
-        engine.resume(workflow, execution_id="exec-esc", decision="retry")
+        engine.resume(resume_as(workflow), workflow, execution_id="exec-esc", decision="retry")
     )
     assert isinstance(suspended, WorkflowSuspended)
     gate = ApprovalGate(
         transport=transport, audit=registry.audit_log, clock=_ticking_clock()
     )
     (gate_event,) = transport.pending(tenant=tenant)
+    gate_binding = _principal(product_content_hash=gate_event.product_content_hash)
     gate_resolution = gate.resolve(
-        tenant=tenant,
+        submit_capability(
+            tenant=tenant,
+            principal=gate_binding.approver.subject_id,
+            event_key=suspended.event_key,
+        ),
         event_key=suspended.event_key,
         action="approve",
-        principal=_principal(
-            product_content_hash=gate_event.product_content_hash
-        ),
+        principal=gate_binding,
     )
     assert isinstance(gate_resolution, GateResolution)
     completed = asyncio.run(
-        engine.resume(workflow, execution_id="exec-esc", decision="approved")
+        engine.resume(resume_as(workflow), workflow, execution_id="exec-esc", decision="approved")
     )
     assert isinstance(completed, WorkflowCompleted)
     assert '"kind":"exception"' in completed.step_sequence_block

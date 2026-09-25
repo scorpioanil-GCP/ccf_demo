@@ -133,8 +133,12 @@ And the admitted case, for contrast:
 ## Step 5 — resume
 
 Resumption picks the suspended state back up and runs to a terminal state.
-Exception paths are ordinary transitions here, not error handling bolted on
-afterwards, so an escalation route is as inspectable as the happy path:
+**The human action is a precondition, not a convention:** the engine reads the
+HITL authority path and refuses to leave a gate unless a recorded action for
+that exact suspension is on it, so the decision string names the route and
+never supplies the permission. Exception paths are ordinary transitions here,
+not error handling bolted on afterwards, so an escalation route is as
+inspectable as the happy path:
 
 ```py
 --8<-- "archive/examples/05-workflow-hitl/run.py:workflow-resume"

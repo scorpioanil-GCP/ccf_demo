@@ -152,7 +152,9 @@ from ccf.artifacts.protocol import (
     ArtifactRef,
     ArtifactStoreError,
     ArtifactStoreProtocol,
+    DerivedWrite,
 )
+from ccf.authz.capability import Authorized, ReplayMint, verify
 from ccf.contracts.base import CCFContract
 from ccf.controlplane.artifact_base import ArtifactClass, validate_semver
 from ccf.controlplane.audit import AuditAction, AuditLog
@@ -263,7 +265,11 @@ def payload_ceiling_key(*, tenant_id: str) -> str:
     the shape so two components cannot disagree about where the value lives,
     and supplies no tenant, so it holds no deployment's vocabulary (CINV-01).
     """
-    return f"{INBOUND_PAYLOAD_CEILING.class_id}/{tenant_id}"
+    # Tenant-first (``{tenant}/{class}``): the registry's one tenant comparison
+    # reads the segment before the first ``/`` (D-IMPL-353 §1.3), so a
+    # class-first key could be registered only by a capability whose tenant
+    # was the class name.
+    return f"{tenant_id}/{INBOUND_PAYLOAD_CEILING.class_id}"
 
 
 class AdmissionRefusal(GateRefusal):
@@ -666,7 +672,15 @@ class PeeringAdmissionGate:
             Single-writer is preserved because the store is a persistence
             substrate reached through mechanism, never a second writer to L3
             (T-06-101).
-        tenant_id: The tenant this gate admits for.
+        authorized: The composition-minted ``Authorized[ReplayMint]`` for
+            :data:`ADMISSION_RECORD`'s class (D-IMPL-353 §1.2, §2 P3;
+            D-IMPL-354). **The tenant this gate admits for IS the capability's
+            tenant** — there is no ``tenant_id`` parameter and no second
+            source (§1.3). Verified here, at construction, against exactly the
+            admission-record class, so a capability for another class or
+            tenant, or no genuine capability, refuses the gate before it
+            exists. This gate is not a composition root: the deployment that
+            composes it mints this and hands it in.
         trust_policy_version: Pinned version of that tenant's policy.
         payload_ceiling_version: Pinned version of that tenant's ceiling.
         product_classes: The product classes this consumer serves, by
@@ -681,11 +695,17 @@ class PeeringAdmissionGate:
         control_plane: ControlPlaneProtocol,
         audit_log: AuditLog,
         artifact_store: ArtifactStoreProtocol,
-        tenant_id: str,
+        authorized: Authorized[ReplayMint],
         trust_policy_version: str,
         payload_ceiling_version: str,
         product_classes: Mapping[str, RegisteredProductClass],
     ) -> None:
+        # The capability first, before anything about this gate exists: the
+        # kind, the mint and the resource — the admission-record class, which
+        # is the SDK's, never a caller's — by identity (D-IMPL-353 §1.5).
+        verify(authorized, kind=ReplayMint, resource=ADMISSION_RECORD.class_id)
+        tenant_id = authorized.tenant
+        self._authorized = authorized
         self._identity = identity
         self._control_plane = control_plane
         self._audit = audit_log
@@ -792,11 +812,18 @@ class PeeringAdmissionGate:
             admitted_at=occurred_at,
         )
         try:
+            # A derived write (D-IMPL-353 §1.2): the composition decision could
+            # not name a record that did not exist, so the gate names it — by
+            # the admitted product's content address — and the store files it
+            # under the capability's tenant after verifying the capability
+            # against the kinds the deployment declared for the class.
             return self._artifact_store.put(
-                tenant_id=self._tenant_id,
-                artifact_class=ADMISSION_RECORD.class_id,
-                name=content_address,
-                artifact=record,
+                self._authorized,
+                DerivedWrite(
+                    artifact_class=ADMISSION_RECORD.class_id,
+                    name=content_address,
+                    artifact=record,
+                ),
             )
         except ArtifactStoreError as unreachable:
             raise AdmissionNotRecorded(

@@ -32,6 +32,7 @@ from pathlib import Path
 import pytest
 from joserfc.jwk import ECKey
 
+from ccf.authz.capability import Authorized, HitlSubmit
 from ccf.controlplane.artifacts import parse_artifact
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.hitl.identity_binding import (
@@ -58,12 +59,15 @@ from ccf.peering.identity import (
     FileBackedKeySource,
     JsonWebKey,
 )
+from tests.controlplane.composition import compose_register, compose_register_typed
 
 APPROVER_KID = "hitl-approver-signing-key"
 
 #: Deployment vocabulary chosen by this test-as-deployment (CINV-01): the
 #: Control Plane key the composition root binds its HITL policy under.
 POLICY_KEY = "acme-bank/hitl/policy"
+
+from .capabilities import submit_capability
 
 _TENANT = "acme-bank"
 
@@ -98,10 +102,33 @@ def _submission(
 ) -> HitlActionSubmission:
     return HitlActionSubmission(
         event_key="event-1",
-        tenant=_TENANT,
         action="approve",
         principal=principal,
         signed_binding=signed,
+    )
+
+
+def _authorized(
+    tenant: str, event_key: str, *, principal: str = "approver-1"
+) -> Authorized[HitlSubmit]:
+    """The capability a submitter presents (D-IMPL-353 §1.2), minted for
+    exactly this tenant, event and subject."""
+    return submit_capability(
+        tenant=tenant, principal=principal, event_key=event_key
+    )
+
+
+def _submit(
+    transport: InMemoryHitlTransport,
+    principal: HumanPrincipalBinding,
+    signed: SignedPrincipalBinding | None = None,
+) -> HitlActionSubmission:
+    """Submit through the authority path under a capability minted for the
+    binding's own subject — so what these tests exercise is the signed-
+    binding leg, not the actor check."""
+    return transport.submit(
+        _authorized(_TENANT, "event-1", principal=principal.approver.subject_id),
+        submission=_submission(principal, signed),
     )
 
 
@@ -166,13 +193,13 @@ def test_required_and_validly_signed_submission_is_admitted(
     trusted_keys: Mapping[str, JsonWebKey],
 ) -> None:
     """A verified binding whose principal matches is admitted, binding kept."""
-    plane.register_typed(POLICY_KEY, _policy(required=True), HITL_POLICY)
+    compose_register_typed(plane, POLICY_KEY, _policy(required=True), HITL_POLICY)
     transport = _transport(plane, provider, trusted_keys)
     binding = _binding()
     signed = sign_principal_binding(
         binding, provider=provider, key_id=APPROVER_KID
     )
-    transport.submit(submission=_submission(binding, signed))
+    _submit(transport, binding, signed)
     recorded = transport.submissions(tenant=_TENANT)
     assert len(recorded) == 1
     # The binding lands on the recorded (audited) submission itself.
@@ -187,10 +214,10 @@ def test_required_and_unsigned_submission_is_a_typed_refusal(
     provider: DetachedJwsIdentityProvider,
     trusted_keys: Mapping[str, JsonWebKey],
 ) -> None:
-    plane.register_typed(POLICY_KEY, _policy(required=True), HITL_POLICY)
+    compose_register_typed(plane, POLICY_KEY, _policy(required=True), HITL_POLICY)
     transport = _transport(plane, provider, trusted_keys)
     with pytest.raises(SignedBindingRequiredRefused):
-        transport.submit(submission=_submission(_binding(), None))
+        _submit(transport, _binding(), None)
     assert transport.submissions(tenant=_TENANT) == ()
 
 
@@ -202,7 +229,7 @@ def test_required_and_invalid_or_mismatched_binding_is_refused(
     provider: DetachedJwsIdentityProvider,
     trusted_keys: Mapping[str, JsonWebKey],
 ) -> None:
-    plane.register_typed(POLICY_KEY, _policy(required=True), HITL_POLICY)
+    compose_register_typed(plane, POLICY_KEY, _policy(required=True), HITL_POLICY)
     transport = _transport(plane, provider, trusted_keys)
     binding = _binding()
     signed = sign_principal_binding(
@@ -213,7 +240,7 @@ def test_required_and_invalid_or_mismatched_binding_is_refused(
         update={"signature": signed.signature[:-4] + "AAAA"}
     )
     with pytest.raises(SignedBindingInvalidRefused):
-        transport.submit(submission=_submission(binding, tampered))
+        _submit(transport, binding, tampered)
     # (b) valid signature over a DIFFERENT principal than the submission's
     # (spoofing, T-08-06) — principal-match enforcement refuses it.
     other = _binding("approver-2")
@@ -221,7 +248,7 @@ def test_required_and_invalid_or_mismatched_binding_is_refused(
         other, provider=provider, key_id=APPROVER_KID
     )
     with pytest.raises(SignedBindingInvalidRefused):
-        transport.submit(submission=_submission(binding, signed_other))
+        _submit(transport, binding, signed_other)
     assert transport.submissions(tenant=_TENANT) == ()
 
 
@@ -233,14 +260,14 @@ def test_not_required_admits_unsigned_submissions_unchanged(
     provider: DetachedJwsIdentityProvider,
     trusted_keys: Mapping[str, JsonWebKey],
 ) -> None:
-    plane.register_typed(POLICY_KEY, _policy(required=False), HITL_POLICY)
+    compose_register_typed(plane, POLICY_KEY, _policy(required=False), HITL_POLICY)
     transport = _transport(plane, provider, trusted_keys)
-    transport.submit(submission=_submission(_binding(), None))
+    _submit(transport, _binding(), None)
     assert len(transport.submissions(tenant=_TENANT)) == 1
     # An entirely unconfigured transport (no Control Plane bound) is the
     # pre-08-03 posture and admits exactly as before.
     bare = InMemoryHitlTransport()
-    bare.submit(submission=_submission(_binding(), None))
+    _submit(bare, _binding(), None)
     assert len(bare.submissions(tenant=_TENANT)) == 1
 
 
@@ -253,16 +280,16 @@ def test_requiredness_is_a_control_plane_value_not_a_code_constant(
     trusted_keys: Mapping[str, JsonWebKey],
 ) -> None:
     """Flipping the registered value flips behavior with zero code change."""
-    plane.register_typed(POLICY_KEY, _policy(required=False), HITL_POLICY)
+    compose_register_typed(plane, POLICY_KEY, _policy(required=False), HITL_POLICY)
     transport = _transport(plane, provider, trusted_keys)
-    transport.submit(submission=_submission(_binding(), None))
+    _submit(transport, _binding(), None)
     assert len(transport.submissions(tenant=_TENANT)) == 1
     # Flip the Control Plane value — same transport object, no code change.
-    plane.register_typed(
+    compose_register_typed(plane,
         POLICY_KEY, _policy(required=True, semver="1.0.1"), HITL_POLICY
     )
     with pytest.raises(SignedBindingRequiredRefused):
-        transport.submit(submission=_submission(_binding(), None))
+        _submit(transport, _binding(), None)
 
 
 def test_absent_key_in_the_policy_document_defaults_to_false() -> None:
@@ -292,14 +319,14 @@ def test_helper_signed_binding_required_unbound_is_false() -> None:
 def test_helper_signed_binding_required_resolves_per_call(
     plane: ControlPlaneRegistry,
 ) -> None:
-    plane.register_typed(POLICY_KEY, _policy(required=False), HITL_POLICY)
+    compose_register_typed(plane, POLICY_KEY, _policy(required=False), HITL_POLICY)
     assert (
         signed_binding_required(
             control_plane=plane, hitl_policy_key=POLICY_KEY
         )
         is False
     )
-    plane.register_typed(
+    compose_register_typed(plane,
         POLICY_KEY, _policy(required=True, semver="1.0.1"), HITL_POLICY
     )
     assert (
@@ -314,7 +341,7 @@ def test_helper_signed_binding_required_rejects_non_hitl_policy(
     plane: ControlPlaneRegistry,
 ) -> None:
     """A key naming a non-HitlPolicy artifact is a TypeError, not a refusal."""
-    plane.register(POLICY_KEY, {"not": "a-policy"})
+    compose_register(plane, POLICY_KEY, {"not": "a-policy"})
     with pytest.raises(TypeError):
         signed_binding_required(
             control_plane=plane, hitl_policy_key=POLICY_KEY
@@ -434,7 +461,7 @@ def _both_layers_bound(
     provider: DetachedJwsIdentityProvider,
     trusted_keys: Mapping[str, JsonWebKey],
 ) -> InMemoryHitlTransport:
-    plane.register_typed(POLICY_KEY, _policy(required=True), HITL_POLICY)
+    compose_register_typed(plane, POLICY_KEY, _policy(required=True), HITL_POLICY)
     return _transport(plane, provider, trusted_keys)
 
 
@@ -483,7 +510,7 @@ def test_approval_gate_double_verification_is_idempotent(
     # touched — no submission recorded, event still pending.
     with pytest.raises(SignedBindingRequiredRefused):
         gate.resolve(
-            tenant=_TENANT,
+            _authorized(_TENANT, event.event_key),
             event_key=event.event_key,
             action="approve",
             principal=principal,
@@ -496,7 +523,7 @@ def test_approval_gate_double_verification_is_idempotent(
         principal, provider=provider, key_id=APPROVER_KID
     )
     resolution = gate.resolve(
-        tenant=_TENANT,
+        _authorized(_TENANT, event.event_key),
         event_key=event.event_key,
         action="approve",
         principal=principal,
@@ -565,7 +592,7 @@ def test_review_queue_double_verification_is_idempotent(
     )
     with pytest.raises(SignedBindingRequiredRefused):
         queue.release(
-            tenant=_TENANT,
+            _authorized(_TENANT, "acme-bank/exec-rev/idempotency-review"),
             event_key="acme-bank/exec-rev/idempotency-review",
             principal=principal,
         )
@@ -575,7 +602,7 @@ def test_review_queue_double_verification_is_idempotent(
         principal, provider=provider, key_id=APPROVER_KID
     )
     resolution = queue.release(
-        tenant=_TENANT,
+        _authorized(_TENANT, "acme-bank/exec-rev/idempotency-review"),
         event_key="acme-bank/exec-rev/idempotency-review",
         principal=principal,
         signed_binding=signed,

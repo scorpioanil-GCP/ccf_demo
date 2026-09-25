@@ -81,6 +81,7 @@ from ccf.artifacts.protocol import (
     held_content_address,
     parse_artifact_uri,
 )
+from ccf.authz.capability import ArtifactRead, Authorized, ReplayRead, verify_any
 from ccf.controlplane.audit import AuditLog
 from ccf.products.disclosure import DISCLOSURE_FULL, DisclosureLevel
 from ccf.products.provenance import EffectiveRequest, ProvenanceSource
@@ -108,10 +109,6 @@ from ccf.replay.record import (
     PolicyBinding,
     ResolutionNotApplicable,
 )
-from ccf_runtime.authz.refusals import (
-    ACTION_ARTIFACT_READ,
-    ACTION_REPLAY_READ,
-)
 from ccf_runtime.http_api.errors import (
     ERROR_EVIDENCE_ABSENT,
     ERROR_EVIDENCE_CLASS_UNRECOVERABLE,
@@ -130,7 +127,9 @@ __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "DEREFERENCE_PRODUCT_ID",
+    "EVIDENCE_READ_KINDS",
     "EVIDENCE_SURFACES",
+    "EvidenceReadAuthority",
     "SURFACE_HTTP_ARTIFACT_READ",
     "SURFACE_HTTP_REPLAY_READ",
     "SURFACE_HTTP_ROUTE",
@@ -170,9 +169,32 @@ SURFACE_HTTP_ARTIFACT_READ: Final[str] = "http-artifact-read"
 #: constants that together identify such a record (:data:`DEREFERENCE_PRODUCT_ID`
 #: is the other) — both, never either, so a record forged through the open
 #: write path cannot present one and borrow the other's meaning.
+#:
+#: :data:`SURFACE_MCP_RESOURCE` is a member since the D-IMPL-353 join: the MCP
+#: artifact server's blob and presence resources dereference through
+#: :func:`govern_dereference` under that surface identity (§2 P5), so the
+#: read-refusal records they mint must be recognized as read refusals — Lane
+#: MCP measured that without this member an MCP-minted read refusal was
+#: withheld from its own principal at hold 2 as a record with no recoverable
+#: class.
 EVIDENCE_SURFACES: Final[frozenset[str]] = frozenset(
-    {SURFACE_HTTP_REPLAY_READ, SURFACE_HTTP_ARTIFACT_READ}
+    {SURFACE_HTTP_REPLAY_READ, SURFACE_HTTP_ARTIFACT_READ, SURFACE_MCP_RESOURCE}
 )
+
+#: The two kinds under which governed evidence is dereferenced (D-IMPL-353
+#: §1.2): the artifact door's ``artifact.read`` and the replay doors'
+#: ``replay.read``. :func:`govern_dereference` verifies the capability against
+#: whichever it was minted for, by identity, before its first real statement.
+EVIDENCE_READ_KINDS: Final[tuple[type[ArtifactRead] | type[ReplayRead], ...]] = (
+    ArtifactRead,
+    ReplayRead,
+)
+
+#: The static type of :func:`govern_dereference`'s first parameter. A handler
+#: holding any other kind — a write capability, a product-retrieve capability —
+#: is a ``mypy --strict`` error at the call (§1.5b), and a forced call dies at
+#: ``verify_any`` (§1.5c).
+EvidenceReadAuthority = Authorized[ArtifactRead] | Authorized[ReplayRead]
 
 #: The ``product_id`` every dereference refusal carries in its request
 #: identity, for every outcome (``D-IMPL-345`` R-4). A mechanism constant, not
@@ -718,7 +740,12 @@ class DisclosingRecorderProtocol(RefusalRecorderProtocol, Protocol):
     ``record`` — the base Protocol's only member — plus the two below.
     """
 
-    tenant_id: str
+    @property
+    def tenant_id(self) -> str:
+        """The tenant this recorder writes under (read-only: the SDK's recorder
+        derives it from its composition-minted capability, D-IMPL-353 §1.3)."""
+        ...
+
     disclosure_level_for: Callable[
         ..., tuple[DisclosureLevel, ProvenanceSource | None]
     ]
@@ -861,8 +888,8 @@ def _decided_identity(
 
 
 def govern_dereference(
+    authorized: EvidenceReadAuthority,
     *,
-    grant: TokenGrant,
     reference: DereferenceRequest,
     store: ArtifactStoreProtocol,
     entitlement_source: ProductEntitlementSourceProtocol,
@@ -920,9 +947,26 @@ def govern_dereference(
     constant plus the caller's own reference, never anything recovered from
     the target.
 
+    **The capability first** (D-IMPL-353 §1.2, §1.5). ``authorized`` is the
+    ``Authorized[ArtifactRead]`` or ``Authorized[ReplayRead]`` the HTTP gate or
+    the MCP wrapper minted for THIS ask, and ``verify_any`` against it is the
+    first statement of this function: the mint by identity, every field against
+    the minted tuple, the kind by identity, and the resource bound to
+    ``reference.reference`` — the string the door's declaration named as the
+    resource the authorizer decided on (the path or query parameter on HTTP,
+    the wire argument on MCP). After that line the principal is
+    ``authorized.principal`` and the tenant is ``authorized.tenant``; there is
+    no grant parameter and no tenant parameter, and nothing here is the
+    caller's. The one seam below that still takes a
+    :class:`~ccf_runtime.authz.product_entitlement.TokenGrant` — the
+    entitlement source's ``authorize``, hold 2 — is handed a grant carrying
+    the capability's principal and tenant and nothing else; the seam reads the
+    principal (``client_id``) and nothing more.
+
     Args:
-        grant: The verified caller. Never a caller's claim.
-        reference: What was asked for, verbatim.
+        authorized: The capability for this read. Verified first.
+        reference: What was asked for, verbatim — and the resource the
+            capability is bound to.
         store: The artifact store the door was built over.
         entitlement_source: The deployment's entitlement seam and the holder
             of the determination clock.
@@ -940,6 +984,10 @@ def govern_dereference(
         The evidence, or the disclosed shell carrying its own record's address.
 
     Raises:
+        ccf.authz.capability.CapabilityBypassError: ``authorized`` is
+            fabricated, retargeted, of a kind other than the two evidence-read
+            kinds, or bound to a resource other than ``reference.reference``.
+            Raised before the clock is read and before anything is recorded.
         ccf.artifacts.protocol.MovingTargetRefused: the URI asks for
             ``@latest``. A request-shape refusal raised by the shared parser
             before any lookup, which reveals nothing and which the route
@@ -947,12 +995,17 @@ def govern_dereference(
         Exception: whatever the artifact store raises on append, deliberately
             uncaught — a failure to record is a failure to decide.
     """
-    determined_at = _determined_at(entitlement_source)
-    action_id = (
-        ACTION_ARTIFACT_READ
-        if reference.wants_bytes
-        else ACTION_REPLAY_READ
+    kind = verify_any(
+        authorized, kinds=EVIDENCE_READ_KINDS, resource=reference.reference
     )
+    principal = authorized.principal
+    # The one seam that still takes a grant: handed the capability's principal
+    # and tenant, nothing the caller supplied.
+    grant = TokenGrant(
+        client_id=principal, scopes=(), tenants=frozenset({authorized.tenant})
+    )
+    determined_at = _determined_at(entitlement_source)
+    action_id = kind.action_id
 
     def audited(*, delivered: str, allowed: bool) -> None:
         audit_log.append(
@@ -961,7 +1014,7 @@ def govern_dereference(
             version=delivered,
             resolved=allowed,
             occurred_at=determined_at,
-            actor=grant.client_id,
+            actor=principal,
             artifact_class=DEREFERENCE_PRODUCT_ID,
             authz_action_id=action_id,
             authz_matched_pattern=None,
@@ -1004,7 +1057,7 @@ def govern_dereference(
         return refusal_recorder.record(
             envelope,
             perspective=Perspective(
-                principal_id=grant.client_id,
+                principal_id=principal,
                 # No perspective is resolved on a read: the positive absence,
                 # never a role borrowed from the record being asked for.
                 role=NO_ROLE_RESOLVED,
@@ -1054,7 +1107,7 @@ def govern_dereference(
         )
 
     # --- hold 1: the record's own principal ---------------------------------
-    if grant.client_id != record.perspective_conditioning.principal_id:
+    if principal != record.perspective_conditioning.principal_id:
         return refuse(
             cause="unauthorized",
             error_code=ERROR_EVIDENCE_PRINCIPAL_MISMATCH,
@@ -1096,7 +1149,7 @@ def govern_dereference(
 
     # --- hold 3: the level that disclosed the serve -------------------------
     level, _policy = refusal_recorder.disclosure_level_for(
-        tenant=refusal_recorder.tenant_id, principal_id=grant.client_id
+        tenant=refusal_recorder.tenant_id, principal_id=principal
     )
     if level != DISCLOSURE_FULL:
         return refuse(

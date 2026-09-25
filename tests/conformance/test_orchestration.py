@@ -17,11 +17,20 @@ here is written under.
 Everything domain-specific — the payment-release workflow, its task, its
 gate policy, the approvers — comes from ``tests/fixtures/banking``. This
 module holds mechanism only (CLAUDE.md §6.4).
+
+**The capability crosses the seam (D-IMPL-353 §1.2).** Every leg's
+``start_execution``/``resume_execution`` takes the ``Authorized`` for its own
+verb and hands it to the engine, which verifies it; the leg mints nothing
+and holds it in no field. The shared bodies here mint through the real
+``mint`` (``tests.workflow.capabilities``) and pass it through, and two
+tests assert the negative space: a wrong-kind capability reaches no engine
+state through any leg, and no driver retains a capability after a drive.
 """
 
 from __future__ import annotations
 
 import asyncio
+import inspect
 from collections.abc import Callable, Mapping
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -55,6 +64,18 @@ from ccf_runtime.workflow.engine import (
 )
 from ccf_runtime.workflow.state import WORKFLOW_STATE, WorkflowStateRecord
 from conftest import HARNESS_REQUIRED_ENV, harness_unavailable
+
+from ccf.authz.capability import Authorized, CapabilityBypassError, Execute
+from tests.hitl.capabilities import submit_capability
+from tests.workflow.capabilities import (
+    execute_as,
+    execute_capability,
+    resume_as,
+)
+from tests.composition import register_typed_at_composition, register_versioned_at_composition
+from ccf.artifacts.protocol import WriteKinds
+from ccf.authz.capability import Execute, Resume
+from ccf_runtime.workflow.engine import WORKFLOW_TRACE_ARTIFACT_CLASS
 
 pytestmark = [pytest.mark.conformance]
 
@@ -94,7 +115,7 @@ def _register_declared(
             },
             artifact_class,
         )
-        registry.register_typed(reference["key"], declared, artifact_class)
+        register_typed_at_composition(registry, reference["key"], declared, artifact_class)
 
 
 class _Bindings:
@@ -130,8 +151,7 @@ class World:
         task = parse_artifact(task_fixture["task_definition"], TASK_DEFINITION)
         assert isinstance(task, TaskDefinition)
         workflow_fixture = _load("workflows/payment_release_workflow.yaml")
-        self.registry.register_versioned(
-            workflow_fixture["keys"]["task_definition"], task, TASK_DEFINITION
+        register_versioned_at_composition(self.registry, workflow_fixture["keys"]["task_definition"], task, TASK_DEFINITION
         )
         _register_declared(
             self.registry, workflow_fixture["referenced_artifacts"]
@@ -140,7 +160,10 @@ class World:
         self.bindings = _Bindings()
         self.engine = WorkflowEngine(
             control_plane=self.registry,
-            artifact_store=FileArtifactStore(root=tmp_path / "artifacts"),
+            artifact_store=FileArtifactStore(
+                root=tmp_path / "artifacts",
+                write_kinds=WriteKinds.declare({WORKFLOW_TRACE_ARTIFACT_CLASS: (Execute, Resume)}),
+            ),
             hitl_transport=self.transport,
             skill_binding=self.bindings,
             agent_binding=self.bindings,
@@ -161,12 +184,12 @@ class World:
         key = fixture["keys"]["workflow_definition"]
         if mutations:
             key = f"{definition.tenant}/workflows/{definition.name}"
-        version = self.registry.register_versioned(
-            key, definition, WORKFLOW_DEFINITION
+        version = register_versioned_at_composition(self.registry, key, definition, WORKFLOW_DEFINITION
         )
         assert isinstance(version, str)
         return WorkflowFactory(control_plane=self.registry).construct(
-            definition_key=key, definition_version=version
+            execute_capability(tenant=definition.tenant, resource=key),
+            definition_version=version,
         )
 
     def approve(self, suspended: WorkflowSuspended) -> GateResolution:
@@ -183,7 +206,11 @@ class World:
         ]
         approver = _load("hitl.yaml")["approvers"]["credit_officer"]
         resolution = self.gate.resolve(
-            tenant=suspended.tenant,
+            submit_capability(
+                tenant=suspended.tenant,
+                principal=approver["identity"]["subject_id"],
+                event_key=suspended.event_key,
+            ),
             event_key=suspended.event_key,
             action="approve",
             principal=HumanPrincipalBinding(
@@ -207,11 +234,13 @@ class World:
 DriverFactory = Callable[[WorkflowEngine], OrchestrationProtocol]
 
 #: Leg-specific introspection of the orchestrator's own persisted position
-#: for one execution, or ``None`` for a leg with no external position to
-#: hold (the in-SDK reference adapter). Returns every value the orchestrator
-#: persisted, so the shared body can assert that none of it is CCF workflow
-#: state — the checkpointer holds graph position only (T-07-30).
-PositionProbe = Callable[[OrchestrationProtocol, Workflow, str], tuple[object, ...]]
+#: for one execution — ``(driver, tenant, execution_id)``, the tenant being
+#: the capability's, which is the engine's key (§1.3) — or ``None`` for a
+#: leg with no external position to hold (the in-SDK reference adapter).
+#: Returns every value the orchestrator persisted, so the shared body can
+#: assert that none of it is CCF workflow state — the checkpointer holds
+#: graph position only (T-07-30).
+PositionProbe = Callable[[OrchestrationProtocol, str, str], tuple[object, ...]]
 
 
 class OrchestrationLeg(NamedTuple):
@@ -247,11 +276,11 @@ def build_orchestration_leg(param: str) -> OrchestrationLeg:
         )
 
         def positions(
-            driver: OrchestrationProtocol, workflow: Workflow, execution_id: str
+            driver: OrchestrationProtocol, tenant: str, execution_id: str
         ) -> tuple[object, ...]:
             assert isinstance(driver, LangGraphWorkflowDriver)
             return driver.checkpointed_values(
-                workflow=workflow, execution_id=execution_id
+                tenant=tenant, execution_id=execution_id
             )
 
         return OrchestrationLeg(
@@ -265,11 +294,11 @@ def build_orchestration_leg(param: str) -> OrchestrationLeg:
         from ccf_runtime.orchestration.adk.driver import AdkWorkflowDriver
 
         def adk_positions(
-            driver: OrchestrationProtocol, workflow: Workflow, execution_id: str
+            driver: OrchestrationProtocol, tenant: str, execution_id: str
         ) -> tuple[object, ...]:
             assert isinstance(driver, AdkWorkflowDriver)
             return driver.persisted_state(
-                workflow=workflow, execution_id=execution_id
+                tenant=tenant, execution_id=execution_id
             )
 
         return OrchestrationLeg(
@@ -285,11 +314,11 @@ def build_orchestration_leg(param: str) -> OrchestrationLeg:
         )
 
         def claude_positions(
-            driver: OrchestrationProtocol, workflow: Workflow, execution_id: str
+            driver: OrchestrationProtocol, tenant: str, execution_id: str
         ) -> tuple[object, ...]:
             assert isinstance(driver, ClaudeAgentWorkflowDriver)
             return driver.session_transcript(
-                workflow=workflow, execution_id=execution_id
+                tenant=tenant, execution_id=execution_id
             )
 
         return OrchestrationLeg(
@@ -378,6 +407,12 @@ def test_the_protocol_methods_are_keyword_only_and_typed() -> None:
         workflow_parameter = signature.parameters["workflow"]
         assert workflow_parameter.annotation in (Workflow, "Workflow")
         assert signature.return_annotation in (CCFContract, "CCFContract")
+        # D-IMPL-353 §1.2: the capability is a parameter of both verbs, typed
+        # for that verb's own kind and with no default (§4 refuses one).
+        authorized = signature.parameters["authorized"]
+        assert authorized.default is inspect.Parameter.empty
+        expected = "Authorized[Execute]" if name == "start_execution" else "Authorized[Resume]"
+        assert str(authorized.annotation).endswith(expected)
 
 
 # --- the shared end-to-end body (Task 3) --------------------------------------
@@ -389,13 +424,20 @@ def _drive_to_terminal(
     """Suspend on the real gate, approve, resume to terminal — via the leg."""
     driver = leg.driver(world.engine)
     suspended = asyncio.run(
-        driver.start_execution(workflow=workflow, execution_id=execution_id)
+        driver.start_execution(
+            authorized=execute_as(workflow),
+            workflow=workflow,
+            execution_id=execution_id,
+        )
     )
     assert isinstance(suspended, WorkflowSuspended)
     world.approve(suspended)
     outcome = asyncio.run(
         driver.resume_execution(
-            workflow=workflow, execution_id=execution_id, decision="released"
+            authorized=resume_as(workflow),
+            workflow=workflow,
+            execution_id=execution_id,
+            decision="released",
         )
     )
     assert isinstance(outcome, WorkflowCompleted)
@@ -458,15 +500,17 @@ def test_the_ccf_engine_stays_authoritative_for_suspended_state(
     workflow = world.workflow()
     driver = leg.driver(world.engine)
     suspended = asyncio.run(
-        driver.start_execution(workflow=workflow, execution_id="exec-1")
+        driver.start_execution(
+            authorized=execute_as(workflow), workflow=workflow, execution_id="exec-1"
+        )
     )
     assert isinstance(suspended, WorkflowSuspended)
-    key = f"{workflow.definition.tenant}/exec-1"
+    key = f"{suspended.tenant}/exec-1"  # the capability's tenant (§1.3)
     record = world.registry.state_store.get(WORKFLOW_STATE, key)
     assert isinstance(record, WorkflowStateRecord)
     assert record.status == "suspended"
     if leg.positions is not None:
-        persisted = leg.positions(driver, workflow, "exec-1")
+        persisted = leg.positions(driver, suspended.tenant, "exec-1")
         assert persisted  # the orchestrator did persist a position
         for value in persisted:
             assert not isinstance(value, (WorkflowStateRecord, CCFContract)), (
@@ -488,12 +532,12 @@ def test_a_never_executed_segment_raises_the_same_typed_error_on_every_leg(
     if leg.positions is None:
         pytest.skip("in-sdk reference adapter holds no outcome store")
     driver = leg.driver(world.engine)
-    workflow = world.workflow()
+    tenant = execute_as(world.workflow()).tenant
     with pytest.raises(SegmentNotExecutedError) as raised:
-        driver._outcome(workflow.definition.tenant, "never-ran")  # type: ignore[attr-defined]
+        driver._outcome(tenant, "never-ran")  # type: ignore[attr-defined]
     assert not isinstance(raised.value, KeyError)
     assert "never-ran" in str(raised.value)
-    assert workflow.definition.tenant in str(raised.value)
+    assert tenant in str(raised.value)
 
 
 def test_the_introspection_seam_is_loop_safe(
@@ -508,16 +552,18 @@ def test_the_introspection_seam_is_loop_safe(
     workflow = world.workflow()
     driver = leg.driver(world.engine)
     suspended = asyncio.run(
-        driver.start_execution(workflow=workflow, execution_id="exec-1")
+        driver.start_execution(
+            authorized=execute_as(workflow), workflow=workflow, execution_id="exec-1"
+        )
     )
     assert isinstance(suspended, WorkflowSuspended)
     probe = leg.positions
-    from_sync = probe(driver, workflow, "exec-1")
+    from_sync = probe(driver, suspended.tenant, "exec-1")
 
     async def hosted() -> tuple[object, ...]:
         # The probe call happens while THIS loop runs in THIS thread —
         # exactly the WR-03 defect scenario the fix removes.
-        return probe(driver, workflow, "exec-1")
+        return probe(driver, suspended.tenant, "exec-1")
 
     from_inside_a_loop = asyncio.run(hosted())
     assert from_sync  # the orchestrator did persist a position
@@ -532,10 +578,14 @@ def test_two_tenants_do_not_collide_through_the_leg(
     acme = world.workflow()
     beta = world.workflow(tenant="beta-bank", artifact_version="1.1.0")
     first = asyncio.run(
-        driver.start_execution(workflow=acme, execution_id="exec-1")
+        driver.start_execution(
+            authorized=execute_as(acme), workflow=acme, execution_id="exec-1"
+        )
     )
     second = asyncio.run(
-        driver.start_execution(workflow=beta, execution_id="exec-1")
+        driver.start_execution(
+            authorized=execute_as(beta), workflow=beta, execution_id="exec-1"
+        )
     )
     assert isinstance(first, WorkflowSuspended)
     assert isinstance(second, WorkflowSuspended)
@@ -549,3 +599,94 @@ def test_two_tenants_do_not_collide_through_the_leg(
     assert isinstance(beta_record, WorkflowStateRecord)
     assert acme_record.tenant == "acme-bank"
     assert beta_record.tenant == "beta-bank"
+
+
+# --- D-IMPL-353: the capability crosses the seam, and only the capability ----
+
+
+def _holds_a_capability(value: object) -> bool:
+    if isinstance(value, Authorized):
+        return True
+    if isinstance(value, dict):
+        return any(_holds_a_capability(v) for v in value.values())
+    if isinstance(value, (list, tuple, set, frozenset)):
+        return any(_holds_a_capability(v) for v in value)
+    return False
+
+
+def test_a_wrong_kind_capability_reaches_no_engine_state_through_the_leg(
+    leg: OrchestrationLeg, world: World
+) -> None:
+    """§1.5 across the seam: a genuine ``Resume`` handed to ``start_execution``
+    is the wrong kind for the engine's ``execute``. Every leg surfaces the
+    engine's own typed refusal VERBATIM — the LangGraph and ADK topologies
+    propagate node exceptions natively, and the Claude leg re-raises the
+    exception its guarded tool kept — and the observable is the same on every
+    leg: no state under the tenant, nothing on the queue, no node ran."""
+    driver = leg.driver(world.engine)
+    workflow = world.workflow()
+    wrong = resume_as(workflow)
+    with pytest.raises(CapabilityBypassError, match="kind"):
+        asyncio.run(
+            driver.start_execution(
+                authorized=wrong,  # type: ignore[arg-type]
+                workflow=workflow,
+                execution_id="exec-wk",
+            )
+        )
+    assert (
+        world.registry.state_store.get(WORKFLOW_STATE, f"{wrong.tenant}/exec-wk")
+        is None
+    )
+    assert world.transport.pending(tenant=wrong.tenant) == ()
+    assert world.bindings.ran == []
+
+
+def test_the_driver_retains_no_capability_after_a_drive(
+    leg: OrchestrationLeg, world: World
+) -> None:
+    """The capability lives in the closure of the call that received it and
+    dies with it (§1.2): after a full drive no attribute of the driver — nor
+    anything a dict/list attribute holds — is an ``Authorized``."""
+    driver = leg.driver(world.engine)
+    workflow = world.workflow()
+    _drive_to_terminal(leg, world, workflow, "exec-1")
+    retained = {
+        name: value
+        for name, value in vars(driver).items()
+        if _holds_a_capability(value)
+    }
+    assert retained == {}
+    # And the positive control: a capability IS an Authorized, so the walk
+    # would have found one had the driver kept it.
+    assert _holds_a_capability({"k": [execute_as(workflow)]})
+
+
+def test_the_engine_files_under_the_capabilitys_tenant_through_the_leg(
+    leg: OrchestrationLeg, world: World
+) -> None:
+    """§1.3 across the seam: the state key, the suspend handle and the HITL
+    event carry the capability's tenant. The handle is acme-bank's; the run
+    is under a beta-bank capability for the same key; everything lands under
+    beta-bank and nothing under acme-bank."""
+    driver = leg.driver(world.engine)
+    workflow = world.workflow()
+    as_beta: Authorized[Execute] = execute_capability(
+        tenant="beta-bank", resource=workflow.definition_key
+    )
+    suspended = asyncio.run(
+        driver.start_execution(
+            authorized=as_beta, workflow=workflow, execution_id="exec-b"
+        )
+    )
+    assert isinstance(suspended, WorkflowSuspended)
+    assert suspended.tenant == "beta-bank"
+    assert world.registry.state_store.get(WORKFLOW_STATE, "acme-bank/exec-b") is None
+    record = world.registry.state_store.get(WORKFLOW_STATE, "beta-bank/exec-b")
+    assert isinstance(record, WorkflowStateRecord)
+    assert record.tenant == "beta-bank"
+    assert world.transport.pending(tenant="acme-bank") == ()
+    (pending,) = world.transport.pending(tenant="beta-bank")
+    assert pending.tenant == "beta-bank"
+    if leg.positions is not None:
+        assert leg.positions(driver, "beta-bank", "exec-b")

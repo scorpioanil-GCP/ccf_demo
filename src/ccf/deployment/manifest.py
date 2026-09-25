@@ -64,22 +64,40 @@ is not a contradiction.
 
 from __future__ import annotations
 
+from typing import Any, cast
+
+import dataclasses
+
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 
 from pydantic import SecretStr
 
+from ccf.authz.capability import (
+    CompositionRegister,
+    COMPOSITION_PRINCIPAL,
+    Authorized,
+    Register,
+    mint_at_composition,
+)
 from ccf.boot import FabricHandle, boot
 from ccf.contracts.base import CCFContract
+from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifacts import (
     DEPLOYMENT_MANIFEST,
     DeploymentManifest,
     ManifestEntry,
     load_artifact,
 )
-from ccf.controlplane.registry import ControlPlaneProtocol, RegistrationRefusal
+from ccf.controlplane.registry import (
+    namespaced_key,
+    ControlPlaneProtocol,
+    CrossTenantKeyRefused,
+    RegistrationRefusal,
+)
 from ccf.deployment.classes import (
     refuse_registration_the_sdk_fixes,
     refuse_role_the_sdk_fixes,
@@ -98,7 +116,7 @@ from ccf.graph.registry import (
 
 __ccf_mode__ = "algorithmic"
 
-__all__ = ["BootedFabric", "load_and_boot", "register_manifest_entries"]
+__all__ = ["BootedFabric", "load_and_boot", "register_manifest_entries", "manifest_under_tenant", "keys_under_tenant"]
 
 
 @dataclass(frozen=True)
@@ -469,6 +487,73 @@ def _preflight_entries(manifest: DeploymentManifest, root: Path) -> dict[str, Pa
     return document_paths
 
 
+def _utc_now() -> datetime:
+    return datetime.now(tz=UTC)
+
+
+def _tenant_of_key(key: str) -> str:
+    """The tenant segment of a manifest key, derived exactly as the registry derives it.
+
+    The Control Plane key grammar is ``{tenant}/{class}/{name}`` and the
+    registry's one tenant comparison (``D-IMPL-353`` §1.3) reads the text
+    before the first ``/``. This module derives the same segment to mint for
+    — it invents no tenant — and a key with no segment is refused here with
+    the registry's own error, before anything is minted, because a key that
+    names no tenant belongs to nobody.
+    """
+    tenant, separator, _ = key.partition("/")
+    if not separator or not tenant:
+        raise CrossTenantKeyRefused(
+            f"manifest key {key!r} has no tenant segment; a Control Plane key is"
+            " `{tenant}/{class}/{name}`, and a composition root mints Register"
+            " for the key's own tenant and no other (D-IMPL-353 §1.3;"
+            " D-IMPL-354)"
+        )
+    return tenant
+
+
+def _mint_register(registry: ControlPlaneProtocol, key: str, *, tenant: str) -> Authorized[CompositionRegister]:
+    """The composition recipe for ONE manifest entry (D-IMPL-354).
+
+    This module is a composition root: the deployment's own registrations at
+    boot are the deployment acting on its own fabric, and no served caller
+    requests them, so no door can mint for them. The decision is recorded on
+    the Control Plane's own audit log as a ``composition`` event and the
+    capability carries that event's content address as its ``decision_id``.
+    One key per capability; the registry then takes the key FROM the
+    capability and compares its tenant segment once.
+    """
+    segment = _tenant_of_key(key)
+    if segment != tenant:
+        # The composition root says which tenant it composes for; the key's own
+        # segment is checked AGAINST that, never read as it. A key under another
+        # tenant is refused before anything is appended or minted — the loader
+        # placed every key it derived under the resolved tenant, so this fires
+        # only for a caller that skipped that placement (D-IMPL-354; the
+        # D-IMPL-353 join's panel).
+        raise CrossTenantKeyRefused(
+            f"manifest key {key!r} is under tenant {segment!r} and this"
+            f" composition mints for {tenant!r}; a composition root places its"
+            " keys under its own tenant (`manifest_under_tenant`) before the"
+            " register loop, and the loop mints for no other (D-IMPL-354)"
+        )
+    event = registry.audit_log.append(
+        action="composition",
+        key=key,
+        version=CompositionRegister.action_id,
+        resolved=True,
+        occurred_at=_utc_now(),
+        actor=COMPOSITION_PRINCIPAL,
+    )
+    return mint_at_composition(
+        CompositionRegister,
+        tenant=tenant,
+        principal=COMPOSITION_PRINCIPAL,
+        resource=key,
+        decision_id=content_hash(event),
+    )
+
+
 def _register_and_boot(
     manifest: DeploymentManifest,
     parsed: Mapping[str, CCFContract],
@@ -497,8 +582,15 @@ def _register_and_boot(
     its declared class; this function is what decides which of them enter
     the Control Plane.
     """
+    # D-IMPL-354 (join): every key the deployment derived or authored lives under
+    # the tenant it resolved — a bare `product_class` becomes
+    # `{tenant}/product_class` here, once, before anything is minted,
+    # registered or composed; a key an author placed under another tenant is
+    # refused here, before minting. The registry's tenant-segment check
+    # (§1.3) then holds for the manifest root as a real check.
+    manifest, parsed, keys = manifest_under_tenant(manifest, parsed, keys, tenant=resolved_tenant)
     # Phase two: register the ones the manifest marks `role: register`.
-    pinned = register_manifest_entries(manifest, parsed, registry=registry)
+    pinned = register_manifest_entries(manifest, parsed, registry=registry, tenant=resolved_tenant)
     pins = ResolvedPins(entries=pinned)
     handle = boot(
         backend=manifest.backend,
@@ -509,6 +601,10 @@ def _register_and_boot(
         resolution_spec_version=pins.version_for(manifest.resolution_spec_key),
         policy_bundle_key=manifest.policy_bundle_key,
         policy_bundle_version=pins.version_for(manifest.policy_bundle_key),
+        # D-IMPL-354: the one tenant this deployment runs as is the one tenant
+        # the fabric is composed for; `boot` mints its invalidation-register
+        # capability from this and nothing else.
+        tenant_ids=(resolved_tenant,),
     )
     return BootedFabric(
         handle=handle,
@@ -520,14 +616,82 @@ def _register_and_boot(
     )
 
 
+def keys_under_tenant(keys: DeploymentKeys, *, tenant: str) -> DeploymentKeys:
+    """The resolver's :class:`~ccf.deployment.keys.DeploymentKeys`, every key placed under ``tenant``.
+
+    Every ``str`` field and every member of every ``tuple`` field goes through
+    :func:`~ccf.controlplane.registry.namespaced_key`; a ``None`` stays ``None``.
+    Idempotent — a key already under ``{tenant}/`` comes back unchanged — so the
+    keys a deployment authored in the full grammar are exactly the keys it
+    resolves by, and a bare section name resolves by the string the loader
+    registered it under (D-IMPL-354). :func:`open_product` computes these once
+    and exposes them as :attr:`OpenedProduct.keys`; the loader applies them
+    through :func:`manifest_under_tenant`.
+    """
+    moved: dict[str, object] = {}
+    for field in dataclasses.fields(keys):
+        value = getattr(keys, field.name)
+        if isinstance(value, str):
+            moved[field.name] = namespaced_key(tenant=tenant, key=value)
+        elif isinstance(value, tuple):
+            moved[field.name] = tuple(namespaced_key(tenant=tenant, key=item) for item in value)
+    return dataclasses.replace(keys, **cast(dict[str, Any], moved))
+
+
+def manifest_under_tenant(
+    manifest: DeploymentManifest,
+    parsed: Mapping[str, CCFContract],
+    keys: DeploymentKeys | None,
+    *,
+    tenant: str,
+) -> tuple[DeploymentManifest, Mapping[str, CCFContract], DeploymentKeys | None]:
+    """Place every Control Plane key the deployment names under ``tenant``.
+
+    The derivation a composition root applies to a derived manifest BEFORE
+    handing it to :func:`register_manifest_entries` — the loader here and the
+    consumer chain :func:`ccf.products.product.open_product` derives both call
+    it; a direct caller of the register loop calls it too, because the loop
+    itself admits only keys already under a tenant (D-IMPL-354).
+
+    One derivation, :func:`~ccf.controlplane.registry.namespaced_key`, applied
+    to the manifest's entries and its two boot keys, to the parsed-artifact
+    mapping keyed by those entries, and to the resolver's
+    :class:`~ccf.deployment.keys.DeploymentKeys` — so the key an artifact is
+    registered under and the key the resolver later resolves are the same
+    string by construction (D-IMPL-354; D-IMPL-353 §1.3).
+    """
+
+    def under(key: str) -> str:
+        return namespaced_key(tenant=tenant, key=key)
+
+    entries = tuple(entry.model_copy(update={"key": under(entry.key)}) for entry in manifest.artifacts)
+    renamed = manifest.model_copy(
+        update={
+            "artifacts": entries,
+            "resolution_spec_key": under(manifest.resolution_spec_key),
+            "policy_bundle_key": under(manifest.policy_bundle_key),
+        }
+    )
+    rekeyed = {under(key): artifact for key, artifact in parsed.items()}
+    return renamed, rekeyed, None if keys is None else keys_under_tenant(keys, tenant=tenant)
+
+
 def register_manifest_entries(
     manifest: DeploymentManifest,
     parsed: Mapping[str, CCFContract],
     *,
     registry: ControlPlaneProtocol,
+    tenant: str,
     only: frozenset[str] | None = None,
 ) -> tuple[ArtifactPin, ...]:
     """Register the ``role: register`` entries through the path each declares — ONE loop.
+
+    ``tenant`` is the tenant this composition root composes for: every entry's
+    key must be under it (the loader's ``manifest_under_tenant`` puts it there),
+    and the loop mints ``Register`` for that tenant and no other. A key under
+    another tenant is refused by name before anything is minted or registered
+    (D-IMPL-354; the D-IMPL-353 join's panel finding that a tenant read off the
+    key and then checked against the key was no check).
 
     Phase two of :func:`load_and_boot`'s ordering, as a function of its own so
     that the one other caller with a reason to register manifest entries
@@ -561,6 +725,10 @@ def register_manifest_entries(
             # Plane state and therefore into Decision Replay dimension 2.
             continue
         artifact_class = resolve_artifact_class(entry.class_id)
+        # D-IMPL-354: one `Register` capability per entry, for exactly this
+        # key, minted by the recipe above. The registry takes the key from the
+        # capability; nothing below passes a key.
+        authorized = _mint_register(registry, entry.key, tenant=tenant)
         if entry.registration == "versioned":
             # `register_versioned` RETURNS its D-05 refusals rather than raising
             # them (the GateRefusal discipline), so a bare assignment here would
@@ -581,7 +749,7 @@ def register_manifest_entries(
             # `refuse_registration_the_sdk_fixes` refuses in preflight, before
             # any document is read.
             outcome = registry.register_versioned(
-                entry.key, parsed[entry.key], artifact_class
+                authorized, parsed[entry.key], artifact_class
             )
             if isinstance(outcome, RegistrationRefusal):
                 raise ValueError(
@@ -594,7 +762,7 @@ def register_manifest_entries(
             version = outcome
         else:
             version = registry.register_typed(
-                entry.key, parsed[entry.key], artifact_class
+                authorized, parsed[entry.key], artifact_class
             )
         pinned.append(
             ArtifactPin(

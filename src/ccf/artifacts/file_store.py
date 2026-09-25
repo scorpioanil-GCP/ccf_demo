@@ -16,6 +16,19 @@ for writing, and none that removes one: an artifact that a decision was
 recorded against cannot be edited out from under the replay that will look for
 it years later.
 
+**A write requires the capability for its own action (D-IMPL-353 §1.2).**
+``put(authorized, artifact)`` takes no tenant, class or name from its caller:
+:func:`~ccf.artifacts.protocol.authorized_write_target` runs first — before
+canonicalization, before the address is derived, before any file is opened —
+verifies the capability against the kinds the deployment's
+:class:`~ccf.artifacts.protocol.WriteKinds` declaration names for the target
+class, and resolves the target from the capability (or from the mechanism's
+:class:`~ccf.artifacts.protocol.DerivedWrite`). A refused write leaves the
+substrate byte-for-byte as it was: no artifact file, no naming-index entry.
+The tenant is the capability's (§1.3); ``SEC-004``'s naming-lane forgery is
+inexpressible rather than refused, because there is no name parameter to
+forge into.
+
 Suitable for development, tests, and single-node deployments. Concurrency
 posture is the filesystem's: the write is done to a temporary file and moved
 into place, so a reader never observes a partial artifact.
@@ -30,11 +43,15 @@ import os
 from pathlib import Path
 
 from ccf.artifacts.protocol import (
+    ArtifactName,
     ArtifactNotFound,
     ArtifactRef,
     ArtifactUriUnresolvable,
+    ArtifactWriteAuthority,
     MalformedContentAddress,
+    WriteKinds,
     artifact_uri,
+    authorized_write_target,
     held_content_address,
     parse_artifact_uri,
 )
@@ -56,15 +73,27 @@ class FileArtifactStore:
         root: Directory the artifacts live in. Created if absent — a store
             that refused to initialize its own directory would push that
             concern into every caller's setup path for no gain.
+        write_kinds: The deployment's declaration of which artifact classes
+            are mechanism-written and under which kinds (D-IMPL-353 §1.2).
+            **Required, no default**: a store whose replay class is
+            undeclared refuses the fabric's own writer at first use, loudly,
+            rather than leaving the lane open. Everything undeclared is the
+            client lane under ``ArtifactWrite``.
     """
 
-    def __init__(self, *, root: Path | str) -> None:
+    def __init__(self, *, root: Path | str, write_kinds: WriteKinds) -> None:
         self._root = Path(root)
         self._root.mkdir(parents=True, exist_ok=True)
+        self._write_kinds = write_kinds
 
     @property
     def root(self) -> Path:
         return self._root
+
+    @property
+    def write_kinds(self) -> WriteKinds:
+        """Which artifact classes are mechanism-written here, and by which kinds."""
+        return self._write_kinds
 
     def _path(self, content_address: str) -> Path:
         """The file one content address names, and no other path.
@@ -153,6 +182,44 @@ class FileArtifactStore:
             )
         return parsed.artifact_version
 
+    def names_at(self, *, content_address: str) -> tuple[ArtifactName, ...]:
+        """Every ``(tenant, class, name)`` this address was filed under, index order.
+
+        The reverse of the naming index, for the one reader that has to know
+        WHAT an address is before deciding HOW to read it: the MCP artifact
+        server's hash-addressed resources (``D-IMPL-353`` §2 P5, the join's
+        split) route a governed evidence class through the governed dereference
+        and serve every other class tenant-scoped, and a bare content address
+        says nothing about class or tenant on its own. Content addressing means
+        one address may legitimately be filed under several names — the same
+        bytes put twice under two names, or by two tenants — so this returns
+        all of them and lets the reader take the safe direction over the set.
+
+        Empty for an address nothing was filed under, and empty — never a
+        path read — for a string that is not a content address
+        (``D-IMPL-345`` `S-02`): the shape is checked before the index is
+        opened, exactly as :meth:`exists` checks it before the filesystem.
+        Introspection only: holding the names confers no read of the bytes.
+        """
+        try:
+            address = held_content_address(content_address)
+        except MalformedContentAddress:
+            return ()
+        found: list[ArtifactName] = []
+        for key, versions in self._read_index().items():
+            if address not in versions:
+                continue
+            tenant_id, artifact_class, name = key.split("/", 2)
+            found.append(
+                ArtifactName(
+                    tenant_id=tenant_id,
+                    artifact_class=artifact_class,
+                    name=name,
+                    artifact_version=address,
+                )
+            )
+        return tuple(found)
+
     def versions(self, *, tenant_id: str, artifact_class: str, name: str) -> tuple[
         str, ...
     ]:
@@ -167,37 +234,53 @@ class FileArtifactStore:
         )
         return tuple(self._read_index().get(key, []))
 
-    def put(
-        self, *, tenant_id: str, artifact_class: str, name: str, artifact: object
-    ) -> ArtifactRef:
-        """Store ``artifact``; return its content-addressed reference."""
-        payload = canonical_bytes(artifact)
-        address = content_hash(artifact)
-        target = self._path(address)
-        if not target.exists():
+    def put(self, authorized: ArtifactWriteAuthority, artifact: object) -> ArtifactRef:
+        """Store ``artifact`` under the capability's tenant; return its content-addressed reference.
+
+        :func:`~ccf.artifacts.protocol.authorized_write_target` runs FIRST —
+        before canonicalization, before the address is derived, and before
+        any file is opened — so a refused write leaves the substrate
+        byte-for-byte as it was: no artifact file, no entry in the naming
+        index, and nothing for a later reader to resolve. A refusal that
+        wrote the bytes and declined only the name would still leave the
+        plant retrievable by address, which is half of ``SEC-004``.
+
+        Raises:
+            ccf.authz.capability.CapabilityBypassError: the capability is
+                fabricated, retargeted, or not of a kind that writes the
+                target class.
+            ccf.artifacts.protocol.ArtifactWriteRefused: the target shape.
+        """
+        target, payload_artifact = authorized_write_target(
+            authorized, artifact, write_kinds=self._write_kinds
+        )
+        payload = canonical_bytes(payload_artifact)
+        address = content_hash(payload_artifact)
+        file = self._path(address)
+        if not file.exists():
             # Write-then-move: a reader either sees no artifact or sees the
             # whole one. A half-written replay record is worse than a missing
             # one, because it looks answerable.
-            staging = target.with_name(f".{address}.{os.getpid()}.partial")
+            staging = file.with_name(f".{address}.{os.getpid()}.partial")
             staging.write_bytes(payload)
-            staging.replace(target)
+            staging.replace(file)
         self._register_name(
-            tenant_id=tenant_id,
-            artifact_class=artifact_class,
-            name=name,
+            tenant_id=target.tenant_id,
+            artifact_class=target.artifact_class,
+            name=target.name,
             address=address,
         )
         return ArtifactRef(
             content_address=address,
             uri=artifact_uri(
-                tenant_id=tenant_id,
-                artifact_class=artifact_class,
-                name=name,
+                tenant_id=target.tenant_id,
+                artifact_class=target.artifact_class,
+                name=target.name,
                 artifact_version=address,
             ),
-            tenant_id=tenant_id,
-            artifact_class=artifact_class,
-            name=name,
+            tenant_id=target.tenant_id,
+            artifact_class=target.artifact_class,
+            name=target.name,
         )
 
     def get(self, *, content_address: str) -> bytes:

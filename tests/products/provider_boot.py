@@ -20,8 +20,8 @@ from pathlib import Path
 from typing import Any
 
 CHILD_CLASS = "fixture.child-product"
-CHILD_CLASS_KEY = "fixture/product-class-child"
-CHILD_REQUEST_CONTRACT_KEY = "fixture/request-contract-child"
+CHILD_CLASS_KEY = "tenant-fixture/product-class-child"
+CHILD_REQUEST_CONTRACT_KEY = "tenant-fixture/request-contract-child"
 
 
 def child_product_class() -> dict[str, Any]:
@@ -36,7 +36,7 @@ def child_product_class() -> dict[str, Any]:
         "schema_version": "1.0.0",
         "ttl_anchor": "from_decision",
         "assembly_mode": "algorithmic",
-        "max_ttl_key": "fixture/max-ttl",
+        "max_ttl_key": "tenant-fixture/max-ttl",
         "required_operator_keys": ["similarity.corpus-select"],
     }
 
@@ -159,10 +159,22 @@ def serve_atomic_child(workspace: Path) -> str:
     )
     for envelope in fabric.artifacts[SIGNAL_BATCH_KEY].envelopes:
         fabric.handle.worker.ingest(envelope)
+    from ccf.products.composite import ADMITTED_CHILD_CONTRACT_CLASS, CHILD_QUESTION_CLASS
+
+    from tests.composition import declaring_store
+    from tests.products.test_resolver_seam import QUERY_PIN_CLASS, REPLAY_RECORD_CLASS
+
     booted = _Booted(
         fabric=fabric,
         control_plane=control_plane,
-        store=FileArtifactStore(root=workspace / "artifacts"),
+        # The provider's declaration of what its own resolver files (D-IMPL-353 §1.2).
+        store=declaring_store(
+            workspace / "artifacts",
+            REPLAY_RECORD_CLASS,
+            QUERY_PIN_CLASS,
+            ADMITTED_CHILD_CONTRACT_CLASS,
+            CHILD_QUESTION_CLASS,
+        ),
         root=root,
     )
     try:

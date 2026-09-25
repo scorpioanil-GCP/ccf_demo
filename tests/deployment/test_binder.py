@@ -69,7 +69,7 @@ def _product_class_text(operator_keys: Sequence[str]) -> str:
         "schema_version: 1.0.0\n"
         "ttl_anchor: from_decision\n"
         "assembly_mode: algorithmic\n"
-        "max_ttl_key: fixture/binder/max-ttl\n"
+        "max_ttl_key: tenant-fixture/binder/max-ttl\n"
         "required_operator_keys:\n"
     ) + body
 

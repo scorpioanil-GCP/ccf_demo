@@ -40,6 +40,7 @@ from hypothesis.stateful import (
 from hypothesis import strategies as st
 
 from ccf.artifacts.file_store import FileArtifactStore
+from http_api.composition_authority import deployment_store
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.hitl.transport import InMemoryHitlTransport
 from ccf.workflow.factory import Workflow
@@ -52,6 +53,12 @@ from ccf_runtime.workflow.engine import (
 )
 from ccf_runtime.workflow.state import WORKFLOW_STATE, WorkflowStateRecord
 
+from tests.workflow.capabilities import (
+    execute_as,
+    execute_capability,
+    resume_as,
+)
+
 from tests.workflow.test_engine import (
     _Bindings,
     _PermissiveDebt,
@@ -59,6 +66,7 @@ from tests.workflow.test_engine import (
     _refresh,
     _register_covenant_closure,
     _register_refresh_closure,
+    _resolve_gate,
     _ticking_clock,
 )
 
@@ -86,10 +94,11 @@ class WorkflowEngineMachine(RuleBasedStateMachine):
         _register_refresh_closure(self.registry)
         self.bindings = _Bindings()
         self._tmp = tempfile.TemporaryDirectory()
+        self.transport = InMemoryHitlTransport()
         self.engine = WorkflowEngine(
             control_plane=self.registry,
-            artifact_store=FileArtifactStore(root=self._tmp.name),
-            hitl_transport=InMemoryHitlTransport(),
+            artifact_store=deployment_store(self._tmp.name, workflow_traces=True),
+            hitl_transport=self.transport,
             skill_binding=self.bindings,
             agent_binding=self.bindings,
             clock=_ticking_clock(),
@@ -132,7 +141,7 @@ class WorkflowEngineMachine(RuleBasedStateMachine):
             frozenset({"fetch-certificates"}) if fail else frozenset()
         )
         outcome = asyncio.run(
-            self.engine.execute(workflow, execution_id=execution_id)
+            self.engine.execute(execute_as(workflow), workflow, execution_id=execution_id)
         )
         self.bindings.failing = frozenset()
         if fail and shape == "covenant":
@@ -159,13 +168,24 @@ class WorkflowEngineMachine(RuleBasedStateMachine):
     @precondition(lambda self: bool(self._keys_in("suspended")))
     @rule(data=st.data(), decision=st.sampled_from(["approved", "rejected"]))
     def resume_suspended(self, data: st.DataObject, decision: str) -> None:
-        """A declared decision drives a suspended execution to terminal."""
+        """A declared decision drives a suspended execution to terminal.
+
+        The human acts first: a gate opens on a recorded action returned
+        through the HITL authority path, never on the decision string
+        alone (SEC-001).
+        """
         key = data.draw(st.sampled_from(self._keys_in("suspended")))
         tenant, shape = self._shapes[key]
         workflow = self.workflows[(tenant, shape)]
+        _resolve_gate(
+            self.registry,
+            self.transport,
+            tenant=tenant,
+            event_key=f"{key}/credit-officer-approval",
+        )
         outcome = asyncio.run(
             self.engine.resume(
-                workflow,
+                resume_as(workflow), workflow,
                 execution_id=key.split("/", 1)[1],
                 decision=decision,
             )
@@ -183,7 +203,7 @@ class WorkflowEngineMachine(RuleBasedStateMachine):
         workflow = self.workflows[(tenant, shape)]
         outcome = asyncio.run(
             self.engine.resume(
-                workflow,
+                resume_as(workflow), workflow,
                 execution_id=key.split("/", 1)[1],
                 decision="retry",
             )
@@ -201,7 +221,7 @@ class WorkflowEngineMachine(RuleBasedStateMachine):
         before = self.registry.state_store.get(WORKFLOW_STATE, key)
         outcome = asyncio.run(
             self.engine.resume(
-                workflow,
+                resume_as(workflow), workflow,
                 execution_id=key.split("/", 1)[1],
                 decision="approved",
             )
@@ -214,7 +234,7 @@ class WorkflowEngineMachine(RuleBasedStateMachine):
         workflow = self.workflows[(tenant, "covenant")]
         outcome = asyncio.run(
             self.engine.resume(
-                workflow, execution_id="never-started", decision="approved"
+                resume_as(workflow), workflow, execution_id="never-started", decision="approved"
             )
         )
         assert isinstance(outcome, WorkflowResumeRefused)

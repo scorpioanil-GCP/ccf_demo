@@ -85,6 +85,9 @@ from ccf.skills.grants import (
 from ccf_runtime.peering.typed_http import PeerUnreachable
 
 from skills.sinks import ScriptedApprovalSink
+from ccf.authz.capability import Register
+from tests.controlplane.capabilities import register_capability
+from tests.skills.authority import grant_capability, register_entry
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "banking" / "skills"
 
@@ -403,7 +406,7 @@ def test_an_ungranted_mcp_skill_is_refused_with_zero_network_calls() -> None:
     regime = grants["policy_regimes"]["auto"]
     artifact_class = declared_artifact_class(regime["class_id"])
     control.register_typed(
-        regime["key"],
+        register_capability(regime["key"], Register),
         parse_artifact(
             {
                 "class_id": regime["class_id"],
@@ -416,7 +419,7 @@ def test_an_ungranted_mcp_skill_is_refused_with_zero_network_calls() -> None:
     )
     catalog = SkillCatalog(control)
     entry = _entry(mcp["entry"])
-    assert isinstance(catalog.register(entry), str)
+    assert isinstance(register_entry(control, entry), str)
 
     definition = parse_artifact(grants["agents"]["auto"], AGENT_DEFINITION)
     assert isinstance(definition, AgentDefinition)
@@ -439,12 +442,12 @@ def test_an_ungranted_mcp_skill_is_refused_with_zero_network_calls() -> None:
     )
 
     outcome = ledger.request(
+        grant_capability(definition, principal=grants["approval"]["requesting_actor"]),
         SkillGrant(
             agent_definition_hash=content_hash(definition),
             **mcp["grant"],
         ),
         definition=definition,
-        actor=grants["approval"]["requesting_actor"],
     )
 
     assert isinstance(outcome, RequirementsExceedRegime)
@@ -727,7 +730,7 @@ def test_an_ungranted_peering_skill_is_refused_with_zero_network_calls() -> None
     regime = grants["policy_regimes"]["auto"]
     artifact_class = declared_artifact_class(regime["class_id"])
     control.register_typed(
-        regime["key"],
+        register_capability(regime["key"], Register),
         parse_artifact(
             {
                 "class_id": regime["class_id"],
@@ -740,7 +743,7 @@ def test_an_ungranted_peering_skill_is_refused_with_zero_network_calls() -> None
     )
     catalog = SkillCatalog(control)
     entry = _entry(denied["entry"])
-    assert isinstance(catalog.register(entry), str)
+    assert isinstance(register_entry(control, entry), str)
 
     definition = parse_artifact(grants["agents"]["auto"], AGENT_DEFINITION)
     assert isinstance(definition, AgentDefinition)
@@ -761,12 +764,12 @@ def test_an_ungranted_peering_skill_is_refused_with_zero_network_calls() -> None
     )
 
     outcome = ledger.request(
+        grant_capability(definition, principal=grants["approval"]["requesting_actor"]),
         SkillGrant(
             agent_definition_hash=content_hash(definition),
             **denied["grant"],
         ),
         definition=definition,
-        actor=grants["approval"]["requesting_actor"],
     )
 
     assert isinstance(outcome, RequirementsExceedRegime)

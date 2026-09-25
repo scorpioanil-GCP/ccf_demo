@@ -42,6 +42,9 @@ from ccf.replay.record import (
     PolicyBindingsSnapshot,
 )
 from ccf.replay.serve import DeliveryCapability, ReplayWriter, serve
+from ccf.authz.capability import Register
+from tests.controlplane.capabilities import register_capability
+from tests.replay.authority import mechanism_put, replay_store, replay_writer
 
 TENANT = "tenant-fixture"
 NOW = datetime(2026, 3, 2, 12, 0, 0, tzinfo=UTC)
@@ -81,7 +84,7 @@ def _servable() -> ServableProduct:
 
     registry = ControlPlaneRegistry()
     key = "test/product/max-ttl"
-    version = registry.register(key, MaxTTL(seconds=900))
+    version = registry.register(register_capability(key, Register), MaxTTL(seconds=900))
     product_class = register_product_class(
         registry=registry,
         schema_name="fixture.exposure-summary",
@@ -142,9 +145,7 @@ class _FailingStore:
     def __init__(self) -> None:
         self.attempts = 0
 
-    def put(
-        self, *, tenant_id: str, artifact_class: str, name: str, artifact: object
-    ) -> ArtifactRef:
+    def put(self, authorized: object, artifact: object) -> ArtifactRef:
         self.attempts += 1
         raise OSError("artifact store unavailable")
 
@@ -243,14 +244,9 @@ def test_a_different_watermark_yields_a_different_snapshot_id() -> None:
 
 
 def test_put_addresses_by_content_hash_and_get_round_trips(tmp_path: Path) -> None:
-    store = FileArtifactStore(root=tmp_path)
+    store = replay_store(tmp_path, ARTIFACT_CLASS)
     record = _record()
-    ref = store.put(
-        tenant_id=TENANT,
-        artifact_class=ARTIFACT_CLASS,
-        name="decision-1",
-        artifact=record,
-    )
+    ref = mechanism_put(store, tenant=TENANT, artifact_class=ARTIFACT_CLASS, name="decision-1", artifact=record)
     assert ref.content_address == content_hash(record)
     assert store.get(content_address=ref.content_address) == canonical_bytes(record)
     assert store.exists(content_address=ref.content_address)
@@ -258,27 +254,18 @@ def test_put_addresses_by_content_hash_and_get_round_trips(tmp_path: Path) -> No
 
 def test_the_versioned_uri_names_the_hash_never_latest(tmp_path: Path) -> None:
     """D-IMPL-26: a replay reference stores the hash, never a moving target."""
-    store = FileArtifactStore(root=tmp_path)
-    ref = store.put(
-        tenant_id=TENANT,
-        artifact_class=ARTIFACT_CLASS,
-        name="decision-1",
-        artifact=_record(),
-    )
+    store = replay_store(tmp_path, ARTIFACT_CLASS)
+    ref = mechanism_put(store, tenant=TENANT, artifact_class=ARTIFACT_CLASS, name="decision-1", artifact=_record())
     assert ref.uri.startswith("ccf-artifact://")
     assert ref.uri.endswith(f"@{ref.content_address}")
     assert "latest" not in ref.uri
 
 
 def test_identical_content_yields_one_immutable_artifact(tmp_path: Path) -> None:
-    store = FileArtifactStore(root=tmp_path)
-    first = store.put(
-        tenant_id=TENANT, artifact_class=ARTIFACT_CLASS, name="d", artifact=_record()
-    )
+    store = replay_store(tmp_path, ARTIFACT_CLASS)
+    first = mechanism_put(store, tenant=TENANT, artifact_class=ARTIFACT_CLASS, name="d", artifact=_record())
     before = store.get(content_address=first.content_address)
-    second = store.put(
-        tenant_id=TENANT, artifact_class=ARTIFACT_CLASS, name="d", artifact=_record()
-    )
+    second = mechanism_put(store, tenant=TENANT, artifact_class=ARTIFACT_CLASS, name="d", artifact=_record())
     assert second.content_address == first.content_address
     assert store.get(content_address=first.content_address) == before
     # Content-addressed artifacts only: the naming index is store bookkeeping
@@ -289,19 +276,19 @@ def test_identical_content_yields_one_immutable_artifact(tmp_path: Path) -> None
 
 def test_getting_an_unknown_address_raises(tmp_path: Path) -> None:
     with pytest.raises(KeyError):
-        FileArtifactStore(root=tmp_path).get(content_address="0" * 64)
+        replay_store(tmp_path, ARTIFACT_CLASS).get(content_address="0" * 64)
 
 
 # --- serve: the replay append gates delivery -------------------------------
 
 
 def test_serve_writes_the_record_then_delivers(tmp_path: Path) -> None:
-    store = FileArtifactStore(root=tmp_path)
+    store = replay_store(tmp_path, ARTIFACT_CLASS)
     record = _record()
     served = serve(
         product=_servable(),
         record=record,
-        replay_writer=ReplayWriter(store=store, artifact_class=ARTIFACT_CLASS),
+        replay_writer=replay_writer(store, tenant=TENANT, artifact_class=ARTIFACT_CLASS),
     )
     assert served.product.schema_name == "fixture.exposure-summary"
     # The record is in the store, addressed by its own content, before the
@@ -322,7 +309,7 @@ def test_a_failing_store_yields_no_delivery(tmp_path: Path) -> None:
         serve(
             product=_servable(),
             record=_record(),
-            replay_writer=ReplayWriter(store=store, artifact_class=ARTIFACT_CLASS),
+            replay_writer=replay_writer(store, tenant=TENANT, artifact_class=ARTIFACT_CLASS),
         )
     assert store.attempts == 1
 
@@ -346,12 +333,12 @@ def test_the_stored_record_round_trips_to_the_same_content_hash(
     tmp_path: Path,
 ) -> None:
     """A replay resolves the exact bytes the decision was recorded against."""
-    store = FileArtifactStore(root=tmp_path)
+    store = replay_store(tmp_path, ARTIFACT_CLASS)
     record = _record()
     served = serve(
         product=_servable(),
         record=record,
-        replay_writer=ReplayWriter(store=store, artifact_class=ARTIFACT_CLASS),
+        replay_writer=replay_writer(store, tenant=TENANT, artifact_class=ARTIFACT_CLASS),
     )
     raw = store.get(content_address=served.replay_ref.content_address)
     restored: Any = DecisionReplayRecord.model_validate_json(raw)

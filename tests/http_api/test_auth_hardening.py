@@ -31,6 +31,7 @@ import pytest
 from ccf_runtime.mcp.auth import FileTokenSource, TokenGrant
 
 from .conftest import Fabric, call
+from .gate_fixtures import probe
 
 _VALID_HASH = "c" * 64
 _AWARE_TIME = datetime(2026, 7, 30, 12, 0, tzinfo=UTC)
@@ -107,23 +108,74 @@ def token_file(tmp_path_factory: pytest.TempPathFactory) -> Path:
     return path
 
 
+#: The tenants this suite keeps its tests apart with, one credential each
+#: (``SEC-002``: a credential names exactly one tenant).
+_SUFFIXES = ("impostor", "conflict", "unauth")
+_TOKENS = {
+    f"{_TOKEN}-{suffix}": (
+        _CLIENT_ID,
+        ("gate:everything",),
+        f"{_TENANT}-{suffix}",
+    )
+    for suffix in _SUFFIXES
+}
+
+
+def _seams(fabric: Fabric, root: Path, **overrides: Any) -> dict[str, Any]:
+    """Everything ``create_app`` requires, with this suite's credentials."""
+    from datetime import UTC, datetime
+
+    from ccf.projection.plan import Perspective
+    from ccf_runtime.authz.product_entitlement import (
+        ControlPlaneProductEntitlementSource,
+    )
+
+    from .gate_fixtures import authority
+    from .test_product_declared_obligation_409 import (
+        _entitlement_registry,
+        _recorder,
+    )
+
+    source = ControlPlaneProductEntitlementSource(
+        control_plane=_entitlement_registry(fabric),
+        clock=lambda: datetime(2026, 8, 11, tzinfo=UTC),
+    )
+    seams = authority(
+        tenant=tuple(f"{_TENANT}-{suffix}" for suffix in _SUFFIXES),
+        key="auth-hardening/mapping",
+        grants=_TOKENS,
+        product_entitlement=source,
+        perspective_resolver=(
+            lambda *, grant, tenant, requested_role: Perspective(
+                principal_id=grant.client_id, role="auth-hardening-role"
+            )
+        ),
+        refusal_recorder=_recorder(fabric, root, source=source),
+    )
+    seams.update(overrides)
+    return seams
+
+
 class TestFailClosedGrantBranch:
     """Test 1: a non-TokenGrant grant object is refused, never fallen through."""
 
     def test_non_token_grant_object_is_refused_and_nothing_lands(
-        self, fabric: Fabric
+        self, fabric: Fabric, tmp_path: Path
     ) -> None:
         from ccf_runtime.http_api.app import create_app
         from ccf_runtime.http_api.errors import ERROR_INVALID_GRANT
 
         tenant = f"{_TENANT}-impostor"
-        app = create_app(_deps(fabric), auth=_ImpostorAuth())
+        app = create_app(
+            _deps(fabric),
+            **_seams(fabric, tmp_path, auth=_ImpostorAuth()),
+        )
         response = call(
             app,
             "POST",
             "/hitl/actions",
             json=_submission_body(subject_id="anyone-at-all", tenant=tenant),
-            headers={"Authorization": f"Bearer {_TOKEN}"},
+            headers={"Authorization": f"Bearer {_TOKEN}-impostor"},
         )
         # Refused — the caller-supplied principal is NEVER used.
         assert response.status_code == 403
@@ -140,49 +192,43 @@ class TestTypedErrorCodes:
     """Test 2: each refusal carries a distinct constant-valued error_code."""
 
     def test_unauthenticated_refusal_carries_its_code(
-        self, fabric: Fabric, token_file: Path
+        self, fabric: Fabric, tmp_path: Path
     ) -> None:
         from ccf_runtime.http_api.app import create_app
         from ccf_runtime.http_api.auth import BearerTokenAuth
         from ccf_runtime.http_api.errors import ERROR_UNAUTHENTICATED
 
-        app = create_app(
-            _deps(fabric),
-            auth=BearerTokenAuth(
-                token_source=FileTokenSource(path=token_file)
-            ),
-        )
-        response = call(app, "GET", "/hitl/queue?tenant=t")
+        app = create_app(_deps(fabric), **_seams(fabric, tmp_path))
+        # `SEC-002` deleted the `?tenant=` parameter; the credential names the
+        # tenant. What this leg is about is unchanged: no credential, 401, and
+        # the typed code rather than prose.
+        response = probe(app, "GET", "/hitl/queue")
         assert response.status_code == 401
         assert (
             response.json()["detail"]["error_code"] == ERROR_UNAUTHENTICATED
         )
 
-    def test_subject_conflict_refusal_carries_its_code(
-        self, fabric: Fabric, token_file: Path
+    def test_a_caller_typed_subject_is_unrepresentable_at_the_body(
+        self, fabric: Fabric, tmp_path: Path
     ) -> None:
+        """D-IMPL-353 §2 P6 superseded the subject-conflict refusal: the body
+        (:class:`ccf.hitl.transport.HitlActionRequest`) carries no
+        ``principal`` at all, so a caller naming a subject is refused as a
+        malformed body that names the field — there is no value that reaches
+        a comparison, and nothing lands."""
         from ccf_runtime.http_api.app import create_app
-        from ccf_runtime.http_api.auth import BearerTokenAuth
-        from ccf_runtime.http_api.errors import ERROR_SUBJECT_CONFLICT
 
         tenant = f"{_TENANT}-conflict"
-        app = create_app(
-            _deps(fabric),
-            auth=BearerTokenAuth(
-                token_source=FileTokenSource(path=token_file)
-            ),
-        )
+        app = create_app(_deps(fabric), **_seams(fabric, tmp_path))
         response = call(
             app,
             "POST",
             "/hitl/actions",
             json=_submission_body(subject_id="someone-else", tenant=tenant),
-            headers={"Authorization": f"Bearer {_TOKEN}"},
+            headers={"Authorization": f"Bearer {_TOKEN}-conflict"},
         )
-        assert response.status_code == 403
-        assert (
-            response.json()["detail"]["error_code"] == ERROR_SUBJECT_CONFLICT
-        )
+        assert response.status_code == 422
+        assert "principal" in response.text
         # The refusal never echoes the credential.
         assert _TOKEN not in response.text
         assert fabric.hitl.submissions(tenant=tenant) == ()

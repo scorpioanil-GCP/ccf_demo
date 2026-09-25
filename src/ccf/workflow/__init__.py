@@ -27,6 +27,7 @@ from ccf.workflow.factory import (
     WorkflowConstructionError,
     WorkflowFactory,
     WorkflowIdentity,
+    WorkflowTenantMismatchError,
 )
 
 __ccf_mode__ = "algorithmic"
@@ -39,5 +40,6 @@ __all__ = [
     "WorkflowDefinition",
     "WorkflowFactory",
     "WorkflowIdentity",
+    "WorkflowTenantMismatchError",
     "WorkflowTransition",
 ]

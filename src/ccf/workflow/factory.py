@@ -28,6 +28,20 @@ The audit scope is D-22's: refusals here are typed construction errors
 draws it), and replay capture belongs to the engine that executes, not the
 factory that constructs.
 
+**The definition key is the capability's resource, and the tenant is checked
+here, once (D-IMPL-353 §1.2/§1.3).** ``construct`` takes an
+:class:`~ccf.authz.capability.Authorized` for ``Execute`` or
+``Resume`` — the two door-declared actions whose resource is a workflow
+definition key — and resolves the key the capability was minted for; there
+is no ``definition_key`` parameter, so a caller cannot name one the
+authorizer did not decide on. The artifact's declared ``tenant`` is compared
+with ``authorized.tenant`` exactly once, at construction, and a mismatch is a
+typed refusal (:class:`WorkflowTenantMismatchError`) before any handle — and
+therefore any state — exists. After construction nothing consults
+``workflow.definition.tenant`` for authority: the engine files under the
+capability's tenant and nothing else. This is what makes a cross-tenant
+invocation *inexpressible* rather than refused downstream (§2 P2).
+
 Algorithmic module (CINV-03).
 """
 
@@ -39,6 +53,13 @@ from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.resolution import ControlPlaneResolution, resolve_pinned
 from ccf.workflow.definitions import WORKFLOW_DEFINITION, WorkflowDefinition
+from ccf.authz.capability import (
+    ActionKind,
+    Authorized,
+    Execute,
+    Resume,
+    verify,
+)
 
 __ccf_mode__ = "algorithmic"
 
@@ -47,6 +68,7 @@ __all__ = [
     "WorkflowConstructionError",
     "WorkflowFactory",
     "WorkflowIdentity",
+    "WorkflowTenantMismatchError",
 ]
 
 
@@ -58,6 +80,41 @@ class WorkflowConstructionError(ValueError):
     names steps its task does not declare is a broken definition, never an
     expected artifact outcome.
     """
+
+
+class WorkflowTenantMismatchError(WorkflowConstructionError):
+    """The capability's tenant is not the tenant the definition declares.
+
+    D-IMPL-353 §1.3 — the ONE tenant comparison in the workflow surface,
+    made at construction. A capability for tenant B minted on a key whose
+    artifact declares tenant A constructs nothing: no handle, so no
+    execution, so no state and no HITL event can ever exist under A on B's
+    authority (§2 P2). Raised before any handle exists; the message names
+    both tenants and the key so the refusal is answerable from the text.
+    """
+
+
+def _verify_run_capability(
+    authorized: Authorized[Execute] | Authorized[Resume],
+) -> None:
+    """Refuse unless ``authorized`` is a genuine ``Execute`` or ``Resume``.
+
+    :func:`~ccf.authz.capability.verify` takes exactly one kind; the
+    factory accepts the two whose doors reach it. The *current* ``kind``
+    attribute selects which check runs and is then held to the mint by
+    ``verify`` itself, so a capability whose ``kind`` was reassigned dies
+    inside ``verify`` (§1.5g) rather than steering this selection anywhere.
+    The resource passed is the capability's own: the key IS the resource
+    (§1.2), so this axis is the retarget check and nothing more.
+    """
+    kind: type[ActionKind] = (
+        Execute if getattr(authorized, "kind", None) is Execute else Resume
+    )
+    verify(
+        authorized,
+        kind=kind,
+        resource=str(getattr(authorized, "resource", "")),
+    )
 
 
 def _resolve(control_plane: ControlPlaneResolution, uri: str, *, ruling: str) -> object:
@@ -110,11 +167,16 @@ class Workflow:
         task_definition: The resolved TaskDefinition the wrapper pins.
         identity: The construction-time provenance block; must describe
             both artifacts, or construction is refused.
+        definition_key: The Control Plane key the handle was resolved from
+            — the capability's resource (D-IMPL-353 §1.2). The engine binds
+            the capability it is handed to this key, so a handle built for
+            definition X cannot be run under a capability minted for Y
+            (§1.5f).
 
     Raises:
         WorkflowConstructionError: the identity block does not describe the
             supplied artifacts (content identity is workflow identity,
-            D-IMPL-26).
+            D-IMPL-26), or ``definition_key`` is empty.
     """
 
     def __init__(
@@ -123,7 +185,14 @@ class Workflow:
         definition: WorkflowDefinition,
         task_definition: TaskDefinition,
         identity: WorkflowIdentity,
+        definition_key: str,
     ) -> None:
+        if not definition_key:
+            raise WorkflowConstructionError(
+                "a workflow handle carries the Control Plane key it was"
+                " resolved from, and the empty string names no key; the key"
+                " is the capability's resource (D-IMPL-353 §1.2)"
+            )
         expected = content_hash(definition)
         if identity.definition_hash != expected:
             raise WorkflowConstructionError(
@@ -144,11 +213,17 @@ class Workflow:
         self._definition = definition
         self._task_definition = task_definition
         self._identity = identity
+        self._definition_key = definition_key
 
     @property
     def definition(self) -> WorkflowDefinition:
         """The semantically validated workflow wrapper."""
         return self._definition
+
+    @property
+    def definition_key(self) -> str:
+        """The Control Plane key this handle was resolved from (§1.2)."""
+        return self._definition_key
 
     @property
     def task_definition(self) -> TaskDefinition:
@@ -181,30 +256,53 @@ class WorkflowFactory:
         self._control_plane = control_plane
 
     def construct(
-        self, *, definition_key: str, definition_version: str
+        self,
+        authorized: Authorized[Execute] | Authorized[Resume],
+        *,
+        definition_version: str,
     ) -> Workflow:
         """Resolve, semantically validate, and return one workflow handle.
 
-        Steps in order: (1) resolve the wrapper at its pinned version and
-        hold it to ``ccf.workflow-definition``; (2) resolve the wrapped
-        TaskDefinition through the same surface and hold its Control Plane
-        binding to ``ccf.task-definition``; (3) run the registry-backed
-        semantic layer — declared-node/step-name agreement (D-12),
-        gate-policy step-kind agreement, exception-ref and gate-policy-ref
-        resolvability (D-13). Only then is the provenance block computed
-        and the ``Workflow`` instantiated.
+        The definition key is ``authorized.resource`` — the key the
+        authorizer decided on — and there is no parameter to supply another
+        (D-IMPL-353 §1.2). Steps in order: (0) verify the capability is a
+        genuine, unretargeted ``Execute`` or ``Resume`` (§1.5); (1) resolve
+        the wrapper at its pinned version and hold it to
+        ``ccf.workflow-definition``; (2) **the one tenant comparison** —
+        refuse unless the artifact declares ``authorized.tenant`` (§1.3);
+        (3) resolve the wrapped TaskDefinition through the same surface and
+        hold its Control Plane binding to ``ccf.task-definition``; (4) run
+        the registry-backed semantic layer — declared-node/step-name
+        agreement (D-12), gate-policy step-kind agreement, exception-ref and
+        gate-policy-ref resolvability (D-13). Only then is the provenance
+        block computed and the ``Workflow`` instantiated, carrying the key.
 
         Raises:
+            CapabilityBypassError: ``authorized`` is fabricated, retargeted,
+                or of a kind other than ``Execute``/``Resume``.
+            WorkflowTenantMismatchError: the artifact under the key declares
+                a tenant other than ``authorized.tenant``.
             WorkflowConstructionError: a semantic check fails, or a
                 reference resolves to nothing.
             TypeError: a resolved artifact does not satisfy its declared
                 artifact class.
             ControlPlaneMissing: no definition is registered as
-                ``(definition_key, definition_version)``.
+                ``(authorized.resource, definition_version)``.
         """
+        _verify_run_capability(authorized)
+        definition_key = authorized.resource
         resolved = self._control_plane.resolve(definition_key, definition_version)
         definition = WORKFLOW_DEFINITION.validate(resolved)
         assert isinstance(definition, WorkflowDefinition)
+        if definition.tenant != authorized.tenant:
+            raise WorkflowTenantMismatchError(
+                f"the capability is for tenant {authorized.tenant!r} and the"
+                f" workflow definition registered under {definition_key!r}"
+                f" declares tenant {definition.tenant!r}; a handle is"
+                " constructed only under a capability for the tenant the"
+                " artifact declares, so no execution can be filed under a"
+                " tenant the caller was not authorized for (D-IMPL-353 §1.3)"
+            )
 
         task_ref = definition.task_definition_ref
         task_name = parse_artifact_uri(task_ref)
@@ -276,7 +374,10 @@ class WorkflowFactory:
             task_definition_uri=task_ref,
         )
         return Workflow(
-            definition=definition, task_definition=task, identity=identity
+            definition=definition,
+            task_definition=task,
+            identity=identity,
+            definition_key=definition_key,
         )
 
     def _resolve_bound_ref(self, uri: str, *, ruling: str) -> object:

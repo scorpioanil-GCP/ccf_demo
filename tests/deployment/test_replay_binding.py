@@ -63,6 +63,8 @@ from ccf.replay.serve import ServedProduct
 from ccf.signal.envelope import SignalEnvelope
 
 from tests.deployment.conftest import write_artifact
+from tests.composition import declaring_store
+from ccf.products.composite import ADMITTED_CHILD_CONTRACT_CLASS
 
 # --- cp-05's three declared values, used as inputs and never edited ----------
 #
@@ -109,7 +111,7 @@ def _config_document(**overrides: Any) -> dict[str, Any]:
             "schema_version": "1.0.0",
             "ttl_anchor": "from_decision",
             "assembly_mode": "algorithmic",
-            "max_ttl_key": "fixture/max-ttl",
+            "max_ttl_key": "tenant-fixture/max-ttl",
             "required_operator_keys": [],
         },
         "resolution": {"entity_rules": [dict(_RESOLUTION_RULE)]},
@@ -307,7 +309,7 @@ def _servable_config(**overrides: Any) -> dict[str, Any]:
             "schema_version": PRODUCT_VERSION,
             "ttl_anchor": "from_decision",
             "assembly_mode": "algorithmic",
-            "max_ttl_key": "fixture/max-ttl",
+            "max_ttl_key": "tenant-fixture/max-ttl",
             "required_operator_keys": [OPERATOR_ID],
         },
         "operators": {
@@ -469,15 +471,17 @@ def _resolver_arguments(booted: _Booted, **overrides: Any) -> dict[str, Any]:
     arguments: dict[str, Any] = {
         "fabric": booted.fabric,
         "control_plane": booted.control_plane,
-        "product_class_key": "product_class",
-        "request_contract_key": "request_contract",
-        "operator_parameter_keys": (OPERATOR_ID,),
-        "policy_bundle_key": "policy",
+        # The loader placed every derived key under the tenant (D-IMPL-354);
+        # the resolver resolves the same strings.
+        "product_class_key": f"{TENANT}/product_class",
+        "request_contract_key": f"{TENANT}/request_contract",
+        "operator_parameter_keys": (f"{TENANT}/{OPERATOR_ID}",),
+        "policy_bundle_key": f"{TENANT}/policy",
         "plan_factory": _plan_factory,
         "max_ttl_seconds": MAX_TTL_SECONDS,
         "product_ttl_seconds": PRODUCT_TTL_SECONDS,
-        "half_life_key": "half_life",
-        "debt_profile_key": "debt_profile",
+        "half_life_key": f"{TENANT}/half_life",
+        "debt_profile_key": f"{TENANT}/debt_profile",
         "declared_completeness": Decimal("1"),
         "declared_semantic_consistency": Decimal("1"),
     }
@@ -515,7 +519,7 @@ def test_the_replay_section_boots_and_the_binding_is_readable(
     """The honest subject, first. cp-05 measured this exact section refused by
     name; here it boots, and the parsed binding is on the fabric under the key
     the section name derives."""
-    binding = declared.fabric.artifacts["replay"]
+    binding = declared.fabric.artifacts[f"{TENANT}/replay"]
 
     assert isinstance(binding, ReplayBinding), binding
     assert binding.record_class == CP05_RECORD_CLASS
@@ -557,7 +561,7 @@ def test_a_served_products_record_lands_where_the_control_plane_said(
     where_the_declaration_said = root / CP05_STORE_DIRNAME
     assert where_the_declaration_said.is_dir(), sorted(root.iterdir())
 
-    audit = FileArtifactStore(root=where_the_declaration_said)
+    audit = declaring_store(where_the_declaration_said)
     address = audit.resolve_uri(uri=served.replay_ref.uri)
     assert address == served.replay_ref.content_address
     assert audit.exists(content_address=address)
@@ -581,7 +585,7 @@ def test_the_landing_control_fires_on_a_store_rooted_anywhere_else(
         )
     )
 
-    elsewhere = FileArtifactStore(root=root / "somewhere-else")
+    elsewhere = declaring_store(root / "somewhere-else")
     with pytest.raises(ArtifactUriUnresolvable):
         elsewhere.resolve_uri(uri=served.replay_ref.uri)
     assert not elsewhere.exists(
@@ -652,7 +656,12 @@ def test_a_deployment_with_no_replay_section_is_untouched(
         undeclared.fabric.artifacts
     )
 
-    store = FileArtifactStore(root=tmp_path / "explicitly-chosen")
+    store = declaring_store(
+        tmp_path / "explicitly-chosen",
+        EXPLICIT_RECORD_CLASS,
+        "fixture.explicit-graph-query",
+        ADMITTED_CHILD_CONTRACT_CLASS,
+    )
     served = _serve(
         build_governed_resolver(
             **_resolver_arguments(

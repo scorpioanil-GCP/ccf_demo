@@ -115,6 +115,8 @@ from tests.products.test_resolver_seam import (
     REQUEST_CONTRACT_KEY,
     THRESHOLD_PARAMETER,
 )
+from tests.composition import declaring_store
+from ccf.products.composite import ADMITTED_CHILD_CONTRACT_CLASS
 
 # --- what this module adds to the fixture deployment ------------------------
 #
@@ -129,11 +131,11 @@ ENTITY_CLASS = "account"
 #: Two ``λ_c`` tables differing **only** in how fast one class decays. The pair
 #: is what makes property 2 observable: a scorer that never opened the artifact
 #: reports the same number for both.
-HALF_LIFE_KEY = "fixture/half-life/account"
-FAST_HALF_LIFE_KEY = "fixture/half-life/account-decays-faster"
+HALF_LIFE_KEY = "tenant-fixture/half-life/account"
+FAST_HALF_LIFE_KEY = "tenant-fixture/half-life/account-decays-faster"
 
 #: The bands this fixture routes on. A profile, not a threshold the SDK chose.
-DEBT_PROFILE_KEY = "fixture/debt-profile"
+DEBT_PROFILE_KEY = "tenant-fixture/debt-profile"
 
 #: The two factors the SDK has no measurement for, as this deployment declares
 #: them. ``1`` so freshness is the only factor that moves, which keeps property
@@ -509,7 +511,16 @@ def _boot(
         yield _Booted(
             fabric=fabric,
             control_plane=control_plane,
-            store=FileArtifactStore(root=root / "artifacts"),
+            store=declaring_store(
+                root / "artifacts",
+                REPLAY_RECORD_CLASS,
+                QUERY_PIN_CLASS,
+                DECLARED_RECORD_CLASS,
+                DECLARED_QUERY_PIN_CLASS,
+                "fixture.explicit-replay-record",
+                "fixture.explicit-graph-query",
+                ADMITTED_CHILD_CONTRACT_CLASS,
+            ),
         )
     finally:
         fabric.handle.close()
@@ -1074,11 +1085,11 @@ def test_a_half_life_key_naming_no_artifact_is_refused_naming_both_sides(
     """A key is a string, and a mistyped one must not surface three frames on."""
     with pytest.raises(ProductNotResolvable) as fired:
         build_governed_resolver(
-            **_arguments(booted, half_life_key="fixture/nothing-is-here")
+            **_arguments(booted, half_life_key="tenant-fixture/nothing-is-here")
         )
 
     message = str(fired.value)
-    assert "fixture/nothing-is-here" in message
+    assert "tenant-fixture/nothing-is-here" in message
     assert HALF_LIFE_KEY in message, "the refusal does not list what is declared"
 
 
@@ -1186,8 +1197,8 @@ def test_the_disclosure_reader_treats_only_a_missing_key_as_no_policy() -> None:
 #: The manifest key the fixture deployment declares its binding under, and the
 #: three values it declares. Test-side vocabulary (CINV-01); the values are
 #: shaped like cp-05's so the two modules read as the same subject.
-REPLAY_BINDING_KEY = "fixture/replay-binding"
-SECOND_REPLAY_BINDING_KEY = "fixture/replay-binding-also"
+REPLAY_BINDING_KEY = "tenant-fixture/replay-binding"
+SECOND_REPLAY_BINDING_KEY = "tenant-fixture/replay-binding-also"
 DECLARED_RECORD_CLASS = "fixture.declared-replay-record"
 DECLARED_QUERY_PIN_CLASS = "fixture.declared-graph-query"
 DECLARED_STORE_DIRNAME = "declared-artifacts-store"

@@ -91,6 +91,11 @@ from ccf_runtime.authz.product_entitlement import (
 )
 from ccf_runtime.authz.refusals import ACTION_PRODUCT_RETRIEVE
 from ccf_runtime.http_api.errors import ERROR_PRODUCT_POLICY_ABSENT
+from http_api.composition_authority import (
+    deployment_store,
+    refusal_recorder,
+    register_typed_at_composition,
+)
 
 BOUNDARY_PATH = (
     pathlib.Path(__file__).parent.parent.parent
@@ -148,12 +153,12 @@ def _registry() -> ControlPlaneRegistry:
     D-34 pin assertion measure something.
     """
     registry = ControlPlaneRegistry()
-    registry.register_typed(
+    register_typed_at_composition(registry, 
         product_entitlement_key(tenant_id=TENANT),
         _policy(),
         PRODUCT_ENTITLEMENT_POLICY,
     )
-    registry.register_typed(
+    register_typed_at_composition(registry, 
         product_entitlement_key(tenant_id=FOREIGN_TENANT),
         _policy(
             tenant=FOREIGN_TENANT,
@@ -206,15 +211,16 @@ class _Fixture:
         self.source = ControlPlaneProductEntitlementSource(
             control_plane=self.registry, clock=clock
         )
-        self.store = FileArtifactStore(root=tmp_path / "artifacts")
+        self.store = deployment_store(tmp_path / "artifacts", REPLAY_RECORD_CLASS)
         # Built with the keyword list `build_governed_resolver` uses for its
         # own, so the door's recorder and the resolver's are the same shape —
         # one writer, one store, one record form ("do not create second-class
         # replay").
-        self.recorder = ReplayRefusalRecorder(
-            artifact_store=self.store,
+        self.recorder = refusal_recorder(
+            self.registry,
+            store=self.store,
+            tenant=TENANT,
             replay_record_class=REPLAY_RECORD_CLASS,
-            tenant_id=TENANT,
             assembly_mode="algorithmic",
             policy_bundle_pin=None,
             disclosure_level_for=self.source.disclosure_level_for,

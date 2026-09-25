@@ -48,22 +48,41 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
-from typing import Protocol, runtime_checkable
+from typing import Final, Protocol, TypeAlias, cast, runtime_checkable
 
+from ccf.authz.capability import (
+    CompositionRegister,
+    ActionKind,
+    AgentDeclare,
+    Authorized,
+    Register,
+    SkillCatalogRegister,
+    SkillGrant,
+)
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifact_base import ArtifactClass
 from ccf.controlplane.audit import AuditAction, AuditEvent, AuditLog
-from ccf.controlplane.state import ControlPlaneStateStore, InMemoryStateStore
+from ccf.controlplane.state import (
+    ControlPlaneStateStore,
+    InMemoryStateStore,
+    verify_any,
+)
 
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "namespaced_key",
+    "DERIVED_REGISTER_KINDS",
+    "REGISTER_KINDS",
     "AmbiguousPinnedVersionError",
     "AuditEvent",
     "ControlPlaneMissing",
     "ControlPlaneProtocol",
     "ControlPlaneRegistry",
+    "CrossTenantKeyRefused",
+    "DerivedRegisterAuthority",
+    "RegisterAuthority",
     "RefuseEmptyBump",
     "RefuseUnbumpedChange",
     "RegistrationRefusal",
@@ -122,6 +141,143 @@ class ControlPlaneMissing(LookupError):
     Raised instead of returning a default. See the module docstring
     (D-IMPL-38, no-silent-default).
     """
+
+
+class CrossTenantKeyRefused(PermissionError):
+    """The registration key does not belong to the capability's tenant (D-IMPL-353 §1.3).
+
+    The ONE tenant comparison the design places on the registry, and it is
+    inside the handle that holds the capability rather than in a door that
+    might forget: the key's tenant segment — the text before the first
+    ``/`` of the ``{tenant}/{class}/{name}`` grammar — must equal
+    ``authorized.tenant``. A key with no tenant segment fails the same way,
+    because a key that names no tenant cannot be shown to be this one's.
+
+    Raised, never returned: after ``verify`` the capability is known genuine
+    and for this key, so a disagreement between the key's tenant and the
+    capability's is the authorizer's mapping having allowed a cross-tenant
+    resource — broken wiring or an attack, not a governance outcome (the I.1
+    line). Nothing is appended and nothing is audited here; the gate audited
+    the decision.
+    """
+
+
+#: The kinds under which a *door* registers — three doors, three declared
+#: actions (§1.2, the registry-union clarification). The handle verifies
+#: against whichever the capability was minted for, and the key IS the
+#: capability's resource. Policy granularity is preserved: a mapping can
+#: grant ``agent.declare`` without ``config.register``.
+REGISTER_KINDS: Final[tuple[type[ActionKind], ...]] = (
+    Register,
+    CompositionRegister,
+    AgentDeclare,
+    SkillCatalogRegister,
+)
+
+#: The kinds under which registration is a *derived write* (§1.2): the
+#: decision named something else — for ``SkillGrant``, the agent definition —
+#: and the artifact registered is a record that decision created. The key is
+#: derived from the capability's tenant, the declared class and the
+#: artifact's own ``name``; a caller supplies none of it. Admitted by
+#: :meth:`ControlPlaneRegistry.register_versioned` alone, the author-versioned
+#: path the grant ledger uses.
+DERIVED_REGISTER_KINDS: Final[tuple[type[ActionKind], ...]] = (SkillGrant,)
+
+#: The static type of the door registration handles' first parameter.
+RegisterAuthority: TypeAlias = (
+    Authorized[Register]
+    | Authorized[CompositionRegister]
+    | Authorized[AgentDeclare]
+    | Authorized[SkillCatalogRegister]
+)
+
+#: What ``register_versioned`` accepts: the door kinds, or the derived kind.
+DerivedRegisterAuthority: TypeAlias = RegisterAuthority | Authorized[SkillGrant]
+
+#: The separator of the ``{tenant}/{class}/{name}`` Control Plane key grammar.
+_KEY_SEPARATOR: Final[str] = "/"
+
+
+def _tenant_segment(key: str) -> str | None:
+    tenant, separator, _ = key.partition(_KEY_SEPARATOR)
+    return tenant if separator and tenant else None
+
+
+def namespaced_key(*, tenant: str, key: str) -> str:
+    """Confine a deployment's own key to its tenant — the one derivation (D-IMPL-354).
+
+    The grammar is ``{tenant}/{class}[/{name}]`` and :func:`_tenant_segment`
+    reads the tenant as the text before the first separator. A key already
+    under ``tenant`` is returned unchanged; every other key — bare (the config
+    loader's ``product_class``, a binding document's ``policy``) or prefixed
+    by anything else — is placed under ``tenant``. Confinement rather than
+    refusal, deliberately: a section label may legitimately contain ``/`` (a
+    policy constraint named by a path), so a leading segment is not evidence
+    of an author's tenant claim, and a deployment composed through the loader
+    can never register outside its own tenant either way (§1.3). The
+    registry's own tenant-segment check remains the guard for every direct
+    caller.
+
+    Raises:
+        ValueError: ``tenant`` or ``key`` is empty, has surrounding
+            whitespace, or has an empty segment; ``tenant`` contains ``/``.
+    """
+    for label, value in (("tenant", tenant), ("key", key)):
+        if not value or value != value.strip():
+            raise ValueError(f"{label} {value!r} is not a usable Control Plane key part")
+    if _KEY_SEPARATOR in tenant:
+        raise ValueError(f"tenant {tenant!r} may not contain {_KEY_SEPARATOR!r}")
+    if any(not segment for segment in key.split(_KEY_SEPARATOR)):
+        raise ValueError(f"key {key!r} has an empty segment")
+    prefix = f"{tenant}{_KEY_SEPARATOR}"
+    return key if key.startswith(prefix) else prefix + key
+
+
+def _door_key(authorized: DerivedRegisterAuthority) -> str:
+    """The key a door registration acts on: the capability's resource, verified.
+
+    ``verify_any`` runs FIRST — against the resource the capability itself
+    carries, so a retargeted resource dies on the mint tuple before it is
+    read as a key — then the one tenant comparison (§1.3).
+    """
+    resource = getattr(authorized, "resource", "")
+    verify_any(authorized, kinds=REGISTER_KINDS, resource=resource)
+    if _tenant_segment(resource) != authorized.tenant:
+        raise CrossTenantKeyRefused(
+            f"registration key {resource!r} does not belong to tenant"
+            f" {authorized.tenant!r}: the key's tenant segment must equal the"
+            " capability's tenant, and a key with no tenant segment belongs to"
+            " nobody (D-IMPL-353 §1.3)"
+        )
+    return resource
+
+
+def _derived_key(
+    authorized: Authorized[SkillGrant], artifact_class: ArtifactClass, validated: object
+) -> str:
+    """The key a derived registration lands under: ``{authorized.tenant}/{class}/{artifact.name}``.
+
+    The artifact's own ``name`` is the only part not already fixed by the
+    capability or the declared class. An artifact that also declares a
+    ``tenant`` must agree with the capability's; one that declares no string
+    ``name`` cannot be filed as a derived registration at all.
+    """
+    name = getattr(validated, "name", None)
+    if not isinstance(name, str) or not name:
+        raise CrossTenantKeyRefused(
+            f"an artifact of class {artifact_class.class_id!r} registered as a"
+            f" consequence of {authorized.kind.__name__} must carry a string"
+            " `name`; without one there is no key to derive and no caller may"
+            " supply one (D-IMPL-353 §1.2)"
+        )
+    claimed = getattr(validated, "tenant", authorized.tenant)
+    if claimed != authorized.tenant or _tenant_segment(f"{authorized.tenant}/") is None:
+        raise CrossTenantKeyRefused(
+            f"the artifact claims tenant {claimed!r} but the capability is for"
+            f" {authorized.tenant!r}; a derived registration is filed under the"
+            " capability's tenant and nothing else may name one (D-IMPL-353 §1.3)"
+        )
+    return f"{authorized.tenant}{_KEY_SEPARATOR}{artifact_class.class_id}{_KEY_SEPARATOR}{name}"
 
 
 class AmbiguousPinnedVersionError(RuntimeError):
@@ -183,23 +339,25 @@ class ControlPlaneProtocol(Protocol):
     manifest boot.
     """
 
-    def register(self, key: str, artifact: object) -> str:
-        """Append ``artifact`` under ``key``; return its version."""
+    def register(self, authorized: RegisterAuthority, artifact: object) -> str:
+        """Append ``artifact`` under ``authorized.resource``; return its version."""
         ...
 
     def register_typed(
-        self, key: str, artifact: object, artifact_class: ArtifactClass
+        self,
+        authorized: RegisterAuthority,
+        artifact: object,
+        artifact_class: ArtifactClass,
     ) -> str:
         """Append ``artifact`` after validating it against ``artifact_class``."""
         ...
 
     def register_versioned(
         self,
-        key: str,
+        authorized: DerivedRegisterAuthority,
         artifact: object,
         artifact_class: ArtifactClass,
         *,
-        actor: str | None = None,
         reissuable: bool = False,
     ) -> str | RegistrationRefusal:
         """Register an author-versioned artifact under the D-05 bump check."""
@@ -215,6 +373,22 @@ class ControlPlaneProtocol(Protocol):
 
     def audit_events(self) -> tuple[AuditEvent, ...]:
         """Return the append-only audit log, oldest first."""
+        ...
+
+    @property
+    def audit_log(self) -> AuditLog:
+        """The append-only log this plane records into — the composition root's audit surface (D-IMPL-354).
+
+        On the Protocol, not only on the in-process registry, because a
+        composition root records its own decision to mint on THIS log
+        (``action="composition"``) before it mints, and takes the event's
+        content address as the capability's ``decision_id``: a plane that
+        offered no appendable log could not host a composition at all. The
+        obligation sits on the surface for the reason :meth:`register_versioned`
+        does — so a remote plane cannot conform while quietly dropping it.
+        Holding the reference confers no rewrite capability; the log is
+        append-only.
+        """
         ...
 
 
@@ -311,8 +485,17 @@ class ControlPlaneRegistry:
             artifact_class=artifact_class or self._classes.get(key),
         )
 
-    def register(self, key: str, artifact: object, *, actor: str | None = None) -> str:
-        """Append ``artifact`` under ``key`` and return its content version.
+    def register(self, authorized: RegisterAuthority, artifact: object) -> str:
+        """Append ``artifact`` under ``authorized.resource`` and return its content version.
+
+        **The key is the capability's resource** (D-IMPL-353 §1.2): the
+        authorizer decided *this principal may register this key for this
+        tenant*, and the handle acts on exactly that, taking the key, the
+        tenant and the audit actor from the capability. There is no key
+        parameter and no actor parameter — no second source for any of them.
+        The capability is verified before anything is touched; the key's
+        tenant segment is compared to the capability's tenant once, here
+        (§1.3).
 
         The artifact must be canonically serializable; anything that is not
         (a float, a naive datetime, an unsupported type) is refused at the
@@ -322,9 +505,15 @@ class ControlPlaneRegistry:
         version is returned and no duplicate is appended.
 
         Raises:
+            ccf.authz.capability.CapabilityBypassError: ``authorized`` is
+                fabricated, retargeted, or not one of :data:`REGISTER_KINDS`.
+            CrossTenantKeyRefused: the key's tenant segment is not the
+                capability's tenant.
             ccf.contracts.canonical.CanonicalizationError: the artifact has no
                 canonical form.
         """
+        key = _door_key(authorized)
+        actor = authorized.principal
         version = content_hash(artifact)
         versions = self._versions.setdefault(key, [])
         if version not in versions:
@@ -337,13 +526,14 @@ class ControlPlaneRegistry:
 
     def register_typed(
         self,
-        key: str,
+        authorized: RegisterAuthority,
         artifact: object,
         artifact_class: ArtifactClass,
-        *,
-        actor: str | None = None,
     ) -> str:
-        """Validate ``artifact`` against ``artifact_class``, then register it.
+        """Validate ``artifact`` against ``artifact_class``, then register it under ``authorized.resource``.
+
+        The key, the tenant and the audit actor come from the capability and
+        from nowhere else (D-IMPL-353 §1.2; see :meth:`register`).
 
         The typed path exists because a key is only a string: a mapping stored
         under a λ_c key is indistinguishable from a λ_c table until something
@@ -357,11 +547,17 @@ class ControlPlaneRegistry:
         which contract to read the older versions under.
 
         Raises:
+            ccf.authz.capability.CapabilityBypassError: ``authorized`` is
+                fabricated, retargeted, or not one of :data:`REGISTER_KINDS`.
+            CrossTenantKeyRefused: the key's tenant segment is not the
+                capability's tenant.
             TypeError: the artifact does not satisfy the class contract, or the
                 key is already bound to a different artifact class.
             ccf.contracts.canonical.CanonicalizationError: the artifact has no
                 canonical form.
         """
+        key = _door_key(authorized)
+        actor = authorized.principal
         bound = self._classes.get(key)
         if bound is not None and bound != artifact_class.class_id:
             raise TypeError(
@@ -387,14 +583,26 @@ class ControlPlaneRegistry:
 
     def register_versioned(
         self,
-        key: str,
+        authorized: DerivedRegisterAuthority,
         artifact: object,
         artifact_class: ArtifactClass,
         *,
-        actor: str | None = None,
         reissuable: bool = False,
     ) -> str | RegistrationRefusal:
         """Register an author-versioned artifact under the D-05 bump check.
+
+        **Two shapes of key, decided by the capability's kind, neither
+        caller-supplied** (D-IMPL-353 §1.2):
+
+        * under a door kind (:data:`REGISTER_KINDS`) the key IS
+          ``authorized.resource``, exactly as :meth:`register`;
+        * under the derived kind (:data:`DERIVED_REGISTER_KINDS`) — the grant
+          ledger registering the grant artifact its ``skill.grant`` decision
+          created — the key is derived from ``authorized.tenant``, the
+          declared class and the validated artifact's own ``name``.
+
+        Either way the tenant is the capability's and the audit actor is
+        ``authorized.principal``.
 
         The path for artifacts carrying D-IMPL-28 two-field versioning (agent
         definitions, prompt artifacts, …). On top of :meth:`register_typed`'s
@@ -428,27 +636,50 @@ class ControlPlaneRegistry:
         way (CLAUDE.md §11: mechanism, not values).
 
         Args:
-            key: The Control Plane key to append under.
+            authorized: The capability for the registration — a door kind, or
+                the derived ``SkillGrant``.
             artifact: The artifact to validate and register.
             artifact_class: The class the artifact must satisfy.
-            actor: Who is registering, for the audit record.
             reissuable: Admit a bump over byte-identical content as a new
                 request instead of refusing it as an empty bump.
 
         Raises:
+            ccf.authz.capability.CapabilityBypassError: ``authorized`` is
+                fabricated, retargeted, or of a kind this handle does not
+                admit.
+            CrossTenantKeyRefused: the key (given or derived) is not the
+                capability's tenant's, or a derived artifact cannot name
+                itself.
             TypeError: the artifact fails the class contract, the key is bound
                 to a different class, or the artifact declares no string
                 ``artifact_version``.
             ccf.contracts.canonical.CanonicalizationError: the artifact has no
                 canonical form.
         """
+        # The derived shape is checked for FIRST only in the sense of kind
+        # selection; verification itself is one call either way, and it runs
+        # before the artifact is validated or any key exists.
+        current = getattr(authorized, "kind", None)
+        if any(current is kind for kind in DERIVED_REGISTER_KINDS):
+            derived_kind = verify_any(
+                authorized,
+                kinds=DERIVED_REGISTER_KINDS,
+                resource=getattr(authorized, "resource", ""),
+            )
+            assert derived_kind is SkillGrant  # the only member, proven by verify_any
+            derived = cast(Authorized[SkillGrant], authorized)
+            validated = artifact_class.validate(artifact)
+            key = _derived_key(derived, artifact_class, validated)
+        else:
+            key = _door_key(authorized)
+            validated = artifact_class.validate(artifact)
+        actor = authorized.principal
         bound_class = self._classes.get(key)
         if bound_class is not None and bound_class != artifact_class.class_id:
             raise TypeError(
                 f"key {key!r} is already bound to artifact class {bound_class!r};"
                 f" refusing to rebind it to {artifact_class.class_id!r}"
             )
-        validated = artifact_class.validate(artifact)
         declared = getattr(validated, "artifact_version", None)
         if not isinstance(declared, str):
             raise TypeError(

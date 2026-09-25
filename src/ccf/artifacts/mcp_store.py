@@ -38,6 +38,36 @@ taken as absence: the store asks the presence resource, which answers
 dangerous direction, because absence is what a replay writes down as a fact
 about the past. There is no ``except McpError`` handler in this file.
 
+**A write requires the capability for its own action, here AND at the
+server (D-IMPL-353 §1.2).** :func:`~ccf.artifacts.protocol.authorized_write_target`
+runs before the payload is even encoded, so a fabricated, retargeted or
+wrong-kind capability never reaches the wire and the refusal is this store's
+own; the store the artifact server holds runs the identical check over the
+capability the server's wrapper minted for the remote caller — so a remote
+client that skips this class entirely and speaks to the server directly meets
+the same rule. That is the property that makes the rule the store's rather
+than any transport's. The capability itself never crosses the wire — the
+server mints its own for the caller it authenticated.
+
+**What crosses the wire is the class, the name and the bytes — never the
+tenant** (``D-IMPL-353`` §1.2, §1.3). The tenant travels in the credential the
+server verifies and is the server-minted capability's, exactly as it is this
+store's; a wire argument for it would be a second source, and
+``put_artifact(artifact_class, name, canonical_b64)`` takes none.
+
+**A governed refusal on the read path is a shell, and this store reads it as
+absence** (``D-IMPL-353`` §2 P5; the join's split). The server's blob and
+presence resources answer a refusal — a missing address, an address filed
+under another tenant, a governed record the caller may not read — as the
+canonical bytes of an already-recorded, already-disclosed refusal shell rather
+than as a transport error, so a client can tell a governed *no* from an
+outage. On the blob the shell cannot hash to the address asked for, so
+:meth:`get` verifies ``sha256(bytes)`` against the address and refuses to
+hand back bytes that are not the artifact; on the presence resource the shell
+stands where ``found: false`` would and is read as exactly that. Nothing here
+parses the shell's cause — what a consumer may learn of it is the disclosure
+layer's decision, made at the server.
+
 **The naming index is the server's.** This store holds none. Two stores
 pointed at one server therefore resolve identically, which is what makes a URI
 recorded years ago resolvable by a process that never wrote it — and it is why
@@ -58,6 +88,7 @@ Algorithmic module (CINV-03).
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 from collections.abc import Coroutine
 from typing import Any, TypeVar
@@ -71,12 +102,16 @@ from ccf.artifacts.protocol import (
     ArtifactRef,
     ArtifactStoreError,
     ArtifactUriUnresolvable,
+    ArtifactWriteAuthority,
     MalformedContentAddress,
+    WriteKinds,
     artifact_uri,
+    authorized_write_target,
     held_content_address,
     parse_artifact_uri,
 )
 from ccf.contracts.canonical import canonical_bytes
+from ccf.products.refusal import RefusalEnvelope
 from ccf.mcp.client import (
     HttpClientFactory,
     SessionOperation,
@@ -115,6 +150,13 @@ class McpArtifactStore:
             server; a deployment that omits it against an authenticated one
             gets :class:`~ccf.mcp.errors.McpServerUnreachable`, not silent
             anonymous access.
+        write_kinds: The deployment's declaration of which artifact classes
+            are mechanism-written and under which kinds (D-IMPL-353 §1.2).
+            **Required, no default.** Enforced *before the call leaves this
+            process*, exactly as ``@latest`` is, so the refusal is this
+            store's own and a server outage cannot turn it into something
+            else. The server behind the URL runs the identical check over its
+            own store's declaration.
     """
 
     def __init__(
@@ -122,16 +164,23 @@ class McpArtifactStore:
         *,
         url: str,
         bridge: SyncMcpBridge,
+        write_kinds: WriteKinds,
         http_client_factory: HttpClientFactory | None = None,
     ) -> None:
         self._url = url
         self._bridge = bridge
         self._http_client_factory = http_client_factory
+        self._write_kinds = write_kinds
 
     @property
     def url(self) -> str:
         """The server this store reads and writes through."""
         return self._url
+
+    @property
+    def write_kinds(self) -> WriteKinds:
+        """Which artifact classes are mechanism-written here, and by which kinds."""
+        return self._write_kinds
 
     # --- transport ---------------------------------------------------------
 
@@ -179,17 +228,22 @@ class McpArtifactStore:
 
     # --- the four Protocol methods -----------------------------------------
 
-    def put(
-        self, *, tenant_id: str, artifact_class: str, name: str, artifact: object
-    ) -> ArtifactRef:
-        """Store ``artifact`` and return its reference.
+    def put(self, authorized: ArtifactWriteAuthority, artifact: object) -> ArtifactRef:
+        """Store ``artifact`` under the capability's tenant and return its reference.
 
-        The canonical bytes are computed here, by the same serializer the
-        content address is defined over, and carried as base64. The server
+        :func:`~ccf.artifacts.protocol.authorized_write_target` runs before the
+        payload is even encoded, so a refused write never reaches the wire and
+        the refusal is typed rather than whatever a remote server happened to
+        answer. The canonical bytes are computed here, by the same serializer
+        the content address is defined over, and carried as base64; the server
         re-derives them from what it parses and refuses the write if the two
         disagree, so neither side has to trust the other's serializer.
 
         Raises:
+            ccf.authz.capability.CapabilityBypassError: the capability is
+                fabricated, retargeted, or not of a kind that writes the
+                target class. Raised before the call leaves this process.
+            ccf.artifacts.protocol.ArtifactWriteRefused: the target shape.
             ccf.contracts.canonical.CanonicalizationError: the artifact has no
                 canonical form and therefore no stable identity. Raised before
                 anything reaches the wire.
@@ -197,21 +251,26 @@ class McpArtifactStore:
                 or refused the credentials.
             ArtifactStoreError: the server declined the write.
         """
-        payload = base64.b64encode(canonical_bytes(artifact)).decode("ascii")
+        target, payload_artifact = authorized_write_target(
+            authorized, artifact, write_kinds=self._write_kinds
+        )
+        payload = base64.b64encode(canonical_bytes(payload_artifact)).decode("ascii")
 
         async def operation(session: ClientSession) -> ArtifactRef:
+            # Exactly what `put_artifact(artifact_class, name, canonical_b64)`
+            # takes: the tenant is the credential's, never a wire argument
+            # (D-IMPL-353 §1.2, §1.3).
             result = await session.call_tool(
                 _PUT_TOOL,
                 {
-                    "tenant_id": tenant_id,
-                    "artifact_class": artifact_class,
-                    "name": name,
+                    "artifact_class": target.artifact_class,
+                    "name": target.name,
                     "canonical_b64": payload,
                 },
             )
             if result.isError or result.structuredContent is None:
                 raise ArtifactStoreError(
-                    f"the artifact server declined to store {name!r}"
+                    f"the artifact server declined to store {target.name!r}"
                 )
             return ArtifactRef.model_validate(result.structuredContent)
 
@@ -221,18 +280,20 @@ class McpArtifactStore:
         """Return the exact canonical bytes stored at ``content_address``.
 
         Raises:
-            ArtifactNotFound: the server answered, on the presence resource,
-                that it holds nothing at that address. Only that structured
-                answer produces this error.
+            ArtifactNotFound: the server answered a governed refusal shell
+                where the bytes would be — nothing at that address is
+                available to this credential — or answered, on the presence
+                resource, that it holds nothing there. Only those structured
+                answers produce this error; the bytes are verified against the
+                address, so a shell is never mistaken for the artifact.
             ccf.mcp.errors.McpServerUnreachable: the read failed and the server
                 did not say the artifact was absent — so it is an outage, which
                 invites a retry, rather than an absence, which gets written
                 down.
         """
+        address = held_content_address(content_address)
         try:
-            return self._read_blob(
-                f"{_BLOB_SCHEME}://{held_content_address(content_address)}"
-            )
+            payload = self._read_blob(f"{_BLOB_SCHEME}://{address}")
         except McpServerUnreachable:
             # The failed read tells us nothing typed; the presence resource
             # does. Asking costs a round trip only on the failure path, which
@@ -240,6 +301,11 @@ class McpArtifactStore:
             if not self.exists(content_address=content_address):
                 raise ArtifactNotFound(content_address) from None
             raise
+        if hashlib.sha256(payload).hexdigest() != address:
+            # Not the artifact: a governed refusal shell standing where the
+            # bytes would (D-IMPL-353 §2 P5). Absence to this credential.
+            raise ArtifactNotFound(content_address)
+        return payload
 
     def exists(self, *, content_address: str) -> bool:
         """Whether an artifact is stored at ``content_address``.
@@ -299,16 +365,34 @@ def _presence_of(answer: str) -> bool:
 
     Parsed structurally, with a hard failure when the shape is wrong: a
     malformed answer coerced to ``False`` would be this module reporting an
-    absence it was never told about.
+    absence it was never told about. A governed refusal shell — the server's
+    positive statement that nothing at the address is available to this
+    credential (``D-IMPL-353`` §2 P5) — is the one other structured answer,
+    and it is read as ``False``: the server SAID so, and the shell's cause is
+    the disclosure layer's business, not this store's.
 
     Raises:
-        McpServerUnreachable: the answer is not the presence contract, which
-            means the thing on the other end is not an artifact server.
+        McpServerUnreachable: the answer is neither the presence contract nor
+            a refusal shell, which means the thing on the other end is not an
+            artifact server.
     """
     try:
         parsed = json.loads(answer)
+    except ValueError as error:
+        raise McpServerUnreachable(
+            f"artifact server returned a non-presence answer: {answer!r}"
+        ) from error
+    if isinstance(parsed, dict) and "found" not in parsed and "kind" in parsed:
+        try:
+            RefusalEnvelope.model_validate(parsed)
+        except ValueError as error:
+            raise McpServerUnreachable(
+                f"artifact server returned a non-presence answer: {answer!r}"
+            ) from error
+        return False
+    try:
         found = parsed["found"]
-    except (ValueError, KeyError, TypeError) as error:
+    except (KeyError, TypeError) as error:
         raise McpServerUnreachable(
             f"artifact server returned a non-presence answer: {answer!r}"
         ) from error

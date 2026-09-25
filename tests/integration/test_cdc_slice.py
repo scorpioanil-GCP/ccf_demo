@@ -53,6 +53,7 @@ from ccf.signal.source import SignalSourceProtocol
 
 from ccf_runtime.cdc.adapter import CDCSourceAdapter
 from ccf_runtime.cdc.envelope_map import CDCMappingError, to_envelope
+from tests.composition import register_at_composition
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "banking"
 CDC_FEED = FIXTURES / "cdc_events.jsonl"
@@ -142,8 +143,8 @@ def tenant_id(ontology: Any) -> str:
 def fabric(tmp_path: Path, ontology: Any) -> Iterator[FabricHandle]:
     """A fabric booted through the real composition root, as always."""
     registry = ControlPlaneRegistry()
-    spec_version = registry.register(RESOLUTION_SPEC_KEY, _resolution_spec(ontology))
-    policy_version = registry.register(POLICY_BUNDLE_KEY, {"regime": "cdc-fixture"})
+    spec_version = register_at_composition(registry, RESOLUTION_SPEC_KEY, _resolution_spec(ontology))
+    policy_version = register_at_composition(registry, POLICY_BUNDLE_KEY, {"regime": "cdc-fixture"})
     handle = boot(
         backend="sqlite",
         connection={"database_path": tmp_path / "cdc.sqlite3"},
@@ -152,6 +153,7 @@ def fabric(tmp_path: Path, ontology: Any) -> Iterator[FabricHandle]:
         resolution_spec_version=spec_version,
         policy_bundle_key=POLICY_BUNDLE_KEY,
         policy_bundle_version=policy_version,
+        tenant_ids=(ontology["tenant_id"],),
     )
     try:
         yield handle

@@ -108,6 +108,9 @@ from ccf.replay.snapshots import (
     SnapshotScopeViolation,
 )
 from ccf.signal.envelope import SignalEnvelope, SourceIdentity
+from ccf.authz.capability import Register
+from tests.controlplane.capabilities import register_capability
+from tests.replay.authority import mechanism_put, replay_store, replay_writer
 
 if TYPE_CHECKING:
     from ccf.boot import FabricHandle
@@ -326,7 +329,7 @@ class _Deployment:
         )
 
     def product_class(self) -> RegisteredProductClass:
-        max_ttl_version = self.registry.register(MAX_TTL_KEY, MaxTTL(seconds=3600))
+        max_ttl_version = self.registry.register(register_capability(MAX_TTL_KEY, Register), MaxTTL(seconds=3600))
         return register_product_class(
             registry=self.registry,
             schema_name=SCHEMA_NAME,
@@ -503,11 +506,11 @@ def deployment(
         )
     )
     policy_version = handle.registry.register(
-        POLICY_BUNDLE_KEY, {"regime": "replay-fixture"}
+        register_capability(POLICY_BUNDLE_KEY, Register), {"regime": "replay-fixture"}
     )
     yield _Deployment(
         handle=handle,
-        store=FileArtifactStore(root=tmp_path / "artifacts"),
+        store=replay_store(tmp_path / "artifacts", ARTIFACT_CLASS),
         policy_version=policy_version,
     )
 
@@ -570,9 +573,7 @@ def _serve(
     served = serve(
         product=gated,
         record=record,
-        replay_writer=ReplayWriter(
-            store=deployment.store, artifact_class=ARTIFACT_CLASS
-        ),
+        replay_writer=replay_writer(deployment.store, tenant=TENANT, artifact_class=ARTIFACT_CLASS),
     )
     return served.replay_ref.content_address, record
 
@@ -808,9 +809,7 @@ def test_a_record_written_before_the_debt_seam_still_replays(
     served = serve(
         product=gated,
         record=record,
-        replay_writer=ReplayWriter(
-            store=deployment.store, artifact_class=ARTIFACT_CLASS
-        ),
+        replay_writer=replay_writer(deployment.store, tenant=TENANT, artifact_class=ARTIFACT_CLASS),
     )
 
     assert record.content_generation_path.debt is None
@@ -990,9 +989,7 @@ def test_a_record_written_before_the_evidence_seam_still_replays(
     served = serve(
         product=gated,
         record=record,
-        replay_writer=ReplayWriter(
-            store=deployment.store, artifact_class=ARTIFACT_CLASS
-        ),
+        replay_writer=replay_writer(deployment.store, tenant=TENANT, artifact_class=ARTIFACT_CLASS),
     )
 
     assert record.content_generation_path.debt_evidence == NO_DEBT_EVIDENCE
@@ -1332,9 +1329,7 @@ def test_a_record_written_before_the_recency_seam_still_replays(
     served = serve(
         product=gated,
         record=record,
-        replay_writer=ReplayWriter(
-            store=deployment.store, artifact_class=ARTIFACT_CLASS
-        ),
+        replay_writer=replay_writer(deployment.store, tenant=TENANT, artifact_class=ARTIFACT_CLASS),
     )
 
     assert (
@@ -1492,7 +1487,7 @@ def test_a_replay_reproduces_the_obligation_in_force_at_decision_time(
     """
     address, record = _serve(deployment)
     rebound_version = deployment.registry.register(
-        "test/debt-profile", REBOUND_PROFILE.model_dump()
+        register_capability("test/debt-profile", Register), REBOUND_PROFILE.model_dump()
     )
 
     outcome = _replay(deployment, address)
@@ -1604,9 +1599,7 @@ def test_a_record_written_before_the_obligation_seam_still_replays(
     served = serve(
         product=gated,
         record=record,
-        replay_writer=ReplayWriter(
-            store=deployment.store, artifact_class=ARTIFACT_CLASS
-        ),
+        replay_writer=replay_writer(deployment.store, tenant=TENANT, artifact_class=ARTIFACT_CLASS),
     )
 
     assert (
@@ -1733,9 +1726,7 @@ def test_a_replay_that_re_seeds_from_another_question_diverges(
         }
     )
     assert content_hash(twin) != address
-    ReplayWriter(
-        store=deployment.store, artifact_class=ARTIFACT_CLASS
-    ).write_replay_record(record=twin)
+    replay_writer(deployment.store, tenant=TENANT, artifact_class=ARTIFACT_CLASS).write_replay_record(record=twin)
 
     with pytest.raises(ReplayDivergence, match="questions asked of the substrate"):
         _replay(deployment, content_hash(twin))
@@ -1998,9 +1989,7 @@ def test_a_record_written_before_the_pin_seam_still_replays(
     served = serve(
         product=gated,
         record=record,
-        replay_writer=ReplayWriter(
-            store=deployment.store, artifact_class=ARTIFACT_CLASS
-        ),
+        replay_writer=replay_writer(deployment.store, tenant=TENANT, artifact_class=ARTIFACT_CLASS),
     )
 
     assert record.context_fabric_snapshot.store_snapshot_pin == NO_STORE_SNAPSHOT_PIN
@@ -2110,12 +2099,7 @@ def test_a_rehydration_whose_reader_cannot_resolve_the_recorded_pin_refuses(
         )
     # And the whole replay reports it as unresolvable, never as a product.
     unresolvable = record.model_copy(update={"context_fabric_snapshot": pinned})
-    address = deployment.store.put(
-        tenant_id=TENANT,
-        artifact_class=ARTIFACT_CLASS,
-        name="pinned-past-the-memory-reader",
-        artifact=unresolvable,
-    ).content_address
+    address = mechanism_put(deployment.store, tenant=TENANT, artifact_class=ARTIFACT_CLASS, name="pinned-past-the-memory-reader", artifact=unresolvable).content_address
     with pytest.raises(SnapshotPinUnresolvable):
         _replay(deployment, address)
 
@@ -2294,9 +2278,7 @@ def _serve_claiming(
     served = serve(
         product=gated,
         record=record,
-        replay_writer=ReplayWriter(
-            store=deployment.store, artifact_class=ARTIFACT_CLASS
-        ),
+        replay_writer=replay_writer(deployment.store, tenant=TENANT, artifact_class=ARTIFACT_CLASS),
     )
     return served.replay_ref.content_address, record
 
@@ -2322,7 +2304,7 @@ def test_a_false_not_applicable_claim_is_refused_against_the_pinned_contract(
     re-executed differed), not unresolvable (the pin resolves — that is the
     point): its own finding, its own token.
     """
-    version = deployment.registry.register(key, artifact)
+    version = deployment.registry.register(register_capability(key, Register), artifact)
     address, _record = _serve_claiming(
         deployment,
         bindings=(PolicyBinding(key=key, version=version),),
@@ -2348,7 +2330,7 @@ def test_the_same_bindings_with_a_resolution_replay(
     resolution that consulted it replays. The check reads the pair, not the
     pin alone — a record that pins a contract AND says it resolved against
     it is exactly what the governed resolver writes."""
-    version = deployment.registry.register(REQUEST_CONTRACT_KEY, _request_contract())
+    version = deployment.registry.register(register_capability(REQUEST_CONTRACT_KEY, Register), _request_contract())
     resolution = EffectiveRequest(
         parameters=(),
         guidance=(),
@@ -2404,7 +2386,7 @@ def test_a_marker_beside_only_a_class_declaration_pin_is_not_refused(
     replay. Sabotage: add ``ProductClassDeclaration`` to the engine's trigger
     tuple and this test reds while the false-claim test stays green.
     """
-    version = deployment.registry.register(CLASS_DECLARATION_KEY, _class_declaration())
+    version = deployment.registry.register(register_capability(CLASS_DECLARATION_KEY, Register), _class_declaration())
     address, record = _serve_claiming(
         deployment,
         bindings=(PolicyBinding(key=CLASS_DECLARATION_KEY, version=version),),
@@ -2424,7 +2406,7 @@ def test_a_legacy_sentinel_record_is_exempt(deployment: _Deployment) -> None:
     *"Do not retroactively declare previously valid replay artifacts
     defective because the SDK acquired a stronger contract."*
     """
-    version = deployment.registry.register(REQUEST_CONTRACT_KEY, _request_contract())
+    version = deployment.registry.register(register_capability(REQUEST_CONTRACT_KEY, Register), _request_contract())
     _address, record = _serve_claiming(
         deployment,
         bindings=(PolicyBinding(key=REQUEST_CONTRACT_KEY, version=version),),
@@ -2438,12 +2420,7 @@ def test_a_legacy_sentinel_record_is_exempt(deployment: _Deployment) -> None:
         }
     )
     assert legacy.policy_bindings.request_resolution == NO_REQUEST_RESOLUTION
-    address = deployment.store.put(
-        tenant_id=TENANT,
-        artifact_class=ARTIFACT_CLASS,
-        name="written-before-the-marker-existed",
-        artifact=legacy,
-    ).content_address
+    address = mechanism_put(deployment.store, tenant=TENANT, artifact_class=ARTIFACT_CLASS, name="written-before-the-marker-existed", artifact=legacy).content_address
 
     outcome = _replay(deployment, address)
 

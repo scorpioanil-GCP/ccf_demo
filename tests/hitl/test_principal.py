@@ -107,3 +107,74 @@ def test_a_naive_action_time_cannot_reach_canonical_serialization() -> None:
     binding = _binding(action_time=datetime(2026, 7, 30, 12, 0, 0))
     with pytest.raises(CanonicalizationError):
         canonical_bytes(binding)
+
+
+# --- D-IMPL-353 §2 P6: the claims a binding is minted FROM ----------------------
+#
+# ``AuthenticationClaims`` is what the deployment's credential verifier states
+# about HOW a bearer authenticated. It travels on the verified grant and in the
+# token's claims under ``AUTHENTICATION_CLAIM``; the doors mint the binding's
+# identity-provider reference and authentication context from it and from
+# nothing else. These tests pin the contract's shape and its wire key.
+
+
+def test_authentication_claims_carry_the_four_provider_statements() -> None:
+    from ccf.hitl.principal import AuthenticationClaims
+
+    claims = AuthenticationClaims(
+        identity_provider_ref="oidc:acme-bank-sso",
+        method="oidc",
+        assurance_level="aal2",
+        session_ref="session-01HZX",
+    )
+    assert set(AuthenticationClaims.model_fields) == {
+        "identity_provider_ref",
+        "method",
+        "assurance_level",
+        "session_ref",
+    }
+    # No default on any of them: a verifier that says nothing about one axis
+    # has not attested the authentication, and the door must refuse rather
+    # than fill the blank.
+    assert all(
+        field.is_required() for field in AuthenticationClaims.model_fields.values()
+    )
+    assert claims.assurance_level == "aal2"
+
+
+def test_authentication_claims_refuse_extra_and_missing_fields() -> None:
+    from ccf.hitl.principal import AuthenticationClaims
+
+    with pytest.raises(ValidationError):
+        AuthenticationClaims.model_validate(
+            {"identity_provider_ref": "x", "method": "m", "assurance_level": "a"}
+        )
+    with pytest.raises(ValidationError):
+        AuthenticationClaims.model_validate(
+            {
+                "identity_provider_ref": "x",
+                "method": "m",
+                "assurance_level": "a",
+                "session_ref": "s",
+                "subject_id": "not-a-claim-axis",
+            }
+        )
+
+
+def test_the_authentication_claim_key_is_a_stable_wire_constant() -> None:
+    from ccf.hitl.principal import AUTHENTICATION_CLAIM
+
+    assert AUTHENTICATION_CLAIM == "ccf.authentication"
+
+
+def test_the_content_hash_validator_is_shared_and_refuses_non_hashes() -> None:
+    """One validator for the binding and for the door-facing request
+    (:class:`~ccf.hitl.transport.HitlActionRequest`), so the two cannot
+    disagree about what a product identity looks like."""
+    from ccf.hitl.principal import validate_content_hash
+
+    good = content_hash({"product": "seen"})
+    assert validate_content_hash(good) == good
+    for bad in ("", "not-a-hash", "B" * 64, "a" * 63, "a" * 65):
+        with pytest.raises(ValueError, match="content hash"):
+            validate_content_hash(bad)

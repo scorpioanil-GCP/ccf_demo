@@ -42,7 +42,9 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime
 
 from ccf.artifacts.protocol import ArtifactStoreProtocol
 from ccf.controlplane.registry import ControlPlaneRegistry
@@ -100,6 +102,9 @@ class ApiDependencies:
             **Optional, default ``None``.** Gates the ``skill`` router's
             ``GET /catalog`` and ``POST /catalog``; ``None`` asserts *this
             deployment publishes no skill catalog*.
+        clock: The injected clock the hitl noun's action route stamps
+            ``action_time`` from (D-IMPL-353 §2 P6); ``None`` gates that route
+            with the typed 503 like every other optional handle.
         grant_ledger: The two-tier grant machinery the skill noun's
             mutating verb routes through (CLAUDE.md §6.2 channel 2).
             **Optional, default ``None``.** Gates the ``skill`` router's
@@ -115,3 +120,9 @@ class ApiDependencies:
     hitl_transport: HITLTransportProtocol | None = None
     skill_catalog: SkillCatalog | None = None
     grant_ledger: GrantLedger | None = None
+    #: The injected clock the hitl noun's ``POST /actions`` stamps
+    #: ``action_time`` from (D-IMPL-353 §2 P6) — never a wall clock in the
+    #: handler and never the body. Optional like every other handle here:
+    #: ``None`` asserts this deployment routes no human-in-the-loop traffic
+    #: through this API, and the route refuses with the typed 503.
+    clock: Callable[[], datetime] | None = None

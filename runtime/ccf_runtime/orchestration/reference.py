@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from ccf.contracts.base import CCFContract
 from ccf.workflow.factory import Workflow
+from ccf.authz.capability import Authorized, Execute, Resume
 from ccf_runtime.workflow.engine import WorkflowEngine
 
 __ccf_mode__ = "algorithmic"
@@ -41,15 +42,27 @@ class WorkflowEngineOrchestrationAdapter:
         self._engine = engine
 
     async def start_execution(
-        self, *, workflow: Workflow, execution_id: str
+        self,
+        *,
+        authorized: Authorized[Execute],
+        workflow: Workflow,
+        execution_id: str,
     ) -> CCFContract:
-        """Delegate to the engine's execute surface, verbatim."""
-        return await self._engine.execute(workflow, execution_id=execution_id)
+        """Delegate to the engine's execute surface, verbatim — the
+        capability travels through untouched (D-IMPL-353 §1.2)."""
+        return await self._engine.execute(
+            authorized, workflow, execution_id=execution_id
+        )
 
     async def resume_execution(
-        self, *, workflow: Workflow, execution_id: str, decision: str
+        self,
+        *,
+        authorized: Authorized[Resume],
+        workflow: Workflow,
+        execution_id: str,
+        decision: str,
     ) -> CCFContract:
         """Delegate to the engine's resume surface, verbatim."""
         return await self._engine.resume(
-            workflow, execution_id=execution_id, decision=decision
+            authorized, workflow, execution_id=execution_id, decision=decision
         )

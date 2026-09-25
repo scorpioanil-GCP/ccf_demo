@@ -10,11 +10,19 @@ list/grant/revoke, artifact inspect/put, product get (D-IMPL-22).
 **No inline definitions.** ``ccf agent declare`` takes an artifact file;
 no inline definition flag exists to parse (T-07-29; No-Hardcoding §6.4).
 
-**Shared bundle, by type.** ``--local`` constructs the SAME
-``ApiDependencies`` type ``create_app`` consumes — asserted by type, not
-by intent (T-07-27; the Codex shared-abstraction finding) — and the
+**Shared bundle, by type.** ``build_local_dependencies`` constructs the
+SAME ``ApiDependencies`` type ``create_app`` consumes — asserted by type,
+not by intent (T-07-27; the Codex shared-abstraction finding) — and the
 injected path produces output identical to a real HTTP server over the
 same bundle.
+
+**Governed on every leg (`SEC-002`).** ``create_app`` has no arm that skips
+authentication, so the in-process leg these tests drive binds the same five
+seams a deployment does and presents a real credential; the equivalence
+test hosts a real server built the same way. ``--local`` is **suspended**
+and refuses, because the empty Control Plane it mints leaves the SDK's one
+deny-by-default authorizer nothing to decide against — asserted below
+rather than deleted with the flag.
 
 **Exit codes.** Typed refusals are nonzero with the refusal body printed;
 wiring errors are a distinct nonzero code on stderr.
@@ -36,7 +44,7 @@ import yaml
 
 from ccf.contracts.canonical import content_hash
 
-from cli.conftest import Fabric, run_cli
+from cli.conftest import CLI_PRINCIPAL, CLI_ROLE, CLI_TOKEN, Fabric, run_cli
 
 CLI_SOURCE = (
     Path(__file__).resolve().parents[2]
@@ -54,7 +62,7 @@ INVENTORY: tuple[tuple[str, ...], ...] = (
     ("agent", "versions", "--key", "k"),
     ("skill", "list"),
     ("skill", "grant", "--file", "f"),
-    ("skill", "revoke", "--grant-hash", "h", "--actor", "a"),
+    ("skill", "revoke", "--grant-hash", "h"),  # no --actor (SEC-012)
     (
         "workflow",
         "invoke",
@@ -162,8 +170,32 @@ def test_agent_declare_takes_an_artifact_file(
 # --- read verbs dispatch against the same routes any client reaches --------
 
 
+def _internal_determination(authority_bundle: Any, uri: str) -> Any:
+    """The whole internal refusal a disclosed shell withheld.
+
+    A governed door discloses at the level its entitlement policy states and
+    records at full fidelity regardless: dimension 5 of the replay record the
+    door minted carries the determination entire. ``uri`` is the shell's own
+    ``replay_reference``, so the record read here is the one the caller was
+    handed the address of — not one this test went looking for.
+    """
+    from ccf.products.refusal import RefusalEnvelope
+    from ccf.replay.record import DecisionReplayRecord
+
+    store = authority_bundle["refusal_recorder"].artifact_store
+    record = DecisionReplayRecord.model_validate_json(
+        store.get(content_address=store.resolve_uri(uri=uri))
+    )
+    return RefusalEnvelope.model_validate_json(
+        record.content_generation_path.assembly_refusal
+    )
+
+
 def test_read_verbs_dispatch(
-    fabric: Fabric, deps: Any, capsys: pytest.CaptureFixture[str]
+    fabric: Fabric,
+    deps: Any,
+    authority_bundle: Any,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     code, out, _ = run_cli(["skill", "list"], capsys, dependencies=deps)
     assert code == 0
@@ -202,42 +234,71 @@ def test_read_verbs_dispatch(
     )
     assert code == 0 and json.loads(out)["name"] == fabric.auto_agent.name
 
-    # The three evidence reads reach the same HTTP door every other client
-    # reaches, and that door now refuses to hand over governed evidence it
-    # cannot decide about (`D-IMPL-345` R-1, the `D-IMPL-108` precedent
-    # directly below applied to the replay and artifact nouns). `ccf`'s app is
-    # built with `acknowledge_insecure_default=True`, binds no entitlement
-    # seams, and carries no credential in either mode, so the CLI is in
-    # exactly the posture the refusal describes.
+    # --- the governed nouns, now that the CLI carries a credential ---------
     #
-    # These three assertions changed from `code == 0` deliberately, and the
-    # change is the honest report of a real consequence rather than a test
-    # made to pass: `S-01` measured a replay record and the evidence it names
-    # crossing to a caller with no entitlement at all, and the repair cannot
-    # keep an unauthenticated local path around it. Restoring these reads is a
-    # matter of giving `ccf` a credential to present — a `D-IMPL-22` amendment
-    # named in `docs/D-IMPL-345-DESIGN.md` §9.2 and not made here.
+    # `SEC-002` deleted the posture the assertions below were written against.
+    # There is no app built with `acknowledge_insecure_default` any more, no
+    # arm of the gate that skips authentication, and no in-process leg that
+    # travels anonymously: `ccf` presents a bearer, the door verifies it, and
+    # every read here is DECIDED rather than declined for want of an identity.
+    # The old `product-door-ungoverned` answer is unreachable by construction
+    # — that 503 fires only where no verified grant accompanies the call, and
+    # the total gate refuses such a call before any handler exists.
+    #
+    # The two nouns then part company, and the split is the evidence: a
+    # credential is not an entitlement.
+    #
+    # The evidence nouns are refused, and refused ON THE MERITS. The
+    # `D-IMPL-345` dereference boundary's first hold is that the verified
+    # `client_id` equals the record's own
+    # `perspective_conditioning.principal_id`. This suite's caller is
+    # `CLI_PRINCIPAL`; the stored record was determined for another principal,
+    # so the read stops at hold 1 — before `authorize` is called and before
+    # anything about the target is read.
     for verb in (
         ["replay", "query", "--content-address", fabric.replay_ref.content_address],
         ["replay", "resolve", "--uri", fabric.replay_ref.uri],
         ["artifact", "inspect", fabric.replay_ref.content_address],
     ):
         code, out, err = run_cli(verb, capsys, dependencies=deps)
-        assert code != 0, verb
-        assert "product-door-ungoverned" in (out + err), verb
+        # A typed refusal on stdout, not a wiring error on stderr (T-07-26):
+        # the door answered, so nothing about it is a wiring problem.
+        assert (code, err) == (1, ""), verb
+        body = json.loads(out)
+        assert body["kind"] == "subject-unavailable", verb
+        refusal = body["refusal"]
+        # Disclosed at the level this suite's entitlement policy states, and
+        # `minimal` withholds the cause: the caller learns that the subject is
+        # unavailable, never which hold said so.
+        assert refusal["disclosure"] == "minimal", verb
+        assert refusal["fields"] == {
+            "cause": '"undisclosed"',
+            "error_code": '"undisclosed"',
+        }, verb
+        # Recorded, not merely refused — the shell names the replay record the
+        # boundary minted for this determination (audit by construction).
+        assert refusal["replay_reference"].startswith("ccf-artifact://"), verb
 
-    # `product get` reaches the same HTTP door every other client reaches, and
-    # that door now refuses to serve a product it cannot name a Perspective for
-    # (D-IMPL-108, closing DI-15.5-03). `ccf`'s app is built with
-    # `acknowledge_insecure_default=True` and binds no entitlement seams, so
-    # the CLI is in exactly the posture the refusal describes.
-    #
-    # This assertion changed from `code == 0` deliberately, and the change is
-    # the honest report of a real consequence rather than a test being made to
-    # pass: reading a governed Context Product with no identity at all is the
-    # thing the fabric exists to refuse, and `--local` never served one anyway
-    # (`_no_products_resolver` refuses every address). What the CLI keeps is
-    # every other read verb above, unchanged.
+    # The reason survives inside the fabric even though it does not cross the
+    # wire: dimension 5 of the minted record retains the whole internal
+    # determination. Read back through the recorder the door was built with,
+    # because a refusal nobody can account for afterwards is exactly what
+    # `SEC-002` exists to prevent — and because taking the shell's word for
+    # the reason would assert the disclosure rule, not the decision.
+    internal = _internal_determination(
+        authority_bundle, refusal["replay_reference"]
+    )
+    assert internal.fields["cause"] == '"unauthorized"'
+    assert internal.fields["error_code"] == '"evidence-principal-mismatch"'
+
+    # `product get` is SERVED, and that is what the credential bought. It
+    # answered `product-door-ungoverned` while `ccf` had no identity at all;
+    # the verified principal is now one this deployment's entitlement policy
+    # grants the class and the role, so the door serves it the same bytes it
+    # serves any other authorized client. The assertion moved back to `code ==
+    # 0` because the posture changed, not because the test was relaxed: the
+    # entitlement is declared in `cli_entitlement_source`, and deleting the
+    # grant there turns this line red again.
     address = fabric.product_address
     code, out, err = run_cli(
         [
@@ -253,8 +314,16 @@ def test_read_verbs_dispatch(
         capsys,
         dependencies=deps,
     )
-    assert code != 0
-    assert "product-door-ungoverned" in (out + err)
+    assert code == 0, err
+    served = json.loads(out)
+    assert served["schema_name"] == address.product_class
+    assert served["tenant_id"] == address.tenant
+    # The Perspective the door forwarded is DERIVED from the verified grant,
+    # never manufactured at the resolver seam (D-IMPL-108): a door that had
+    # invented one would be indistinguishable here at the response body, so
+    # the value the resolver actually received is what gets asserted.
+    forwarded, _request = fabric.resolver_calls[-1]
+    assert (forwarded.principal_id, forwarded.role) == (CLI_PRINCIPAL, CLI_ROLE)
 
 
 # --- workflow: invoke / status / resume ------------------------------------
@@ -313,7 +382,8 @@ def test_workflow_invoke_status_resume(
     )
     assert code == 0 and json.loads(out)["status"] == "suspended"
 
-    # an undeclared decision is a typed refusal → exit 1, body printed
+    # resuming the gate with nothing on the HITL authority path is a typed
+    # refusal → exit 1, body printed (SEC-001, security review 2026-09-23).
     code, out, _ = run_cli(
         [
             "workflow",
@@ -325,12 +395,26 @@ def test_workflow_invoke_status_resume(
             "--execution-id",
             "cli-covenant-1",
             "--decision",
-            "no-such-transition",
+            "approved",
         ],
         capsys,
         dependencies=deps,
     )
-    assert code == 1 and "declared transition" in out
+    assert code == 1 and "authority path" in out
+    # and the execution is where it was: still waiting on its human
+    code, out, _ = run_cli(
+        [
+            "workflow",
+            "status",
+            "--tenant",
+            suspended["tenant"],
+            "--execution-id",
+            "cli-covenant-1",
+        ],
+        capsys,
+        dependencies=deps,
+    )
+    assert code == 0 and json.loads(out)["status"] == "suspended"
 
 
 # --- hitl submit travels the typed authority path --------------------------
@@ -342,23 +426,13 @@ def test_hitl_submit_submits_the_typed_action(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    # The five-field body of D-IMPL-353 §2 P6: subject, assurance and time
+    # are the door's to state (capability, verified claims, injected clock),
+    # so the document carries none of them.
     submission = {
         "event_key": "acme-bank/cli-covenant-1/gate",
-        "tenant": "acme-bank",
         "action": "approve",
-        "principal": {
-            "approver": {
-                "subject_id": "risk-officer-7",
-                "identity_provider_ref": "idp:acme-sso",
-            },
-            "authentication": {
-                "method": "sso",
-                "assurance_level": "aal2",
-                "session_ref": "session-1",
-            },
-            "action_time": "2026-07-30T12:00:00+00:00",
-            "product_content_hash": "0" * 64,
-        },
+        "product_content_hash": "0" * 64,
         "annotation": None,
     }
     action_file = tmp_path / "action.yaml"
@@ -381,23 +455,13 @@ def test_hitl_submit_output_states_submitted_with_disposition(
 ) -> None:
     """D-IMPL-62 hardening: the CLI output states ``submitted`` — never
     implies resolution — and carries the honest disposition state."""
+    # The five-field body of D-IMPL-353 §2 P6: subject, assurance and time
+    # are the door's to state (capability, verified claims, injected clock),
+    # so the document carries none of them.
     submission = {
         "event_key": "acme-bank/cli-receipt-1/gate",
-        "tenant": "acme-bank",
         "action": "approve",
-        "principal": {
-            "approver": {
-                "subject_id": "risk-officer-7",
-                "identity_provider_ref": "idp:acme-sso",
-            },
-            "authentication": {
-                "method": "sso",
-                "assurance_level": "aal2",
-                "session_ref": "session-1",
-            },
-            "action_time": "2026-07-30T12:00:00+00:00",
-            "product_content_hash": "0" * 64,
-        },
+        "product_content_hash": "0" * 64,
         "annotation": None,
     }
     action_file = tmp_path / "receipt-action.yaml"
@@ -493,13 +557,26 @@ def test_skill_grant_and_revoke(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """The two halves of `SEC-012` have met, so this is a plain pass.
+
+    It carried an ``xfail(strict=False)`` while the lanes were apart: the CLI
+    had already stopped sending a caller-typed actor, but
+    ``GrantRequest.actor`` and ``GrantRevocationRequest.actor`` in
+    ``runtime/ccf_runtime/http_api/routes/skill.py`` were still required
+    fields on ``extra=forbid`` contracts, so the bodies this CLI builds were
+    rejected with 422. That lane has since deleted them and derives the
+    principal from the authenticated identity, which is what the marker was
+    written to detect — it XPASSed at the join, and a marker kept past the
+    condition it describes is a marker that hides the next regression.
+    """
     grant = dict(fabric.grants_fixture["grants"]["metrics_tool"])
     grant["agent_definition_hash"] = content_hash(fabric.auto_agent)
+    # No `actor` key: the ledger's principal comes from the credential
+    # the request carries, never from this document (SEC-012).
     request = {
         "grant": grant,
         "definition_key": fabric.auto_agent_key,
         "definition_version": fabric.auto_agent_version,
-        "actor": fabric.actor,
     }
     grant_file = tmp_path / "grant.yaml"
     grant_file.write_text(yaml.safe_dump(request))
@@ -513,7 +590,7 @@ def test_skill_grant_and_revoke(
     assert grant_hash
 
     code, _, _ = run_cli(
-        ["skill", "revoke", "--grant-hash", grant_hash, "--actor", fabric.actor],
+        ["skill", "revoke", "--grant-hash", grant_hash],
         capsys,
         dependencies=deps,
     )
@@ -521,7 +598,7 @@ def test_skill_grant_and_revoke(
 
     # revoking a revoked grant is a typed 4xx → exit 1
     code, out, _ = run_cli(
-        ["skill", "revoke", "--grant-hash", grant_hash, "--actor", fabric.actor],
+        ["skill", "revoke", "--grant-hash", grant_hash],
         capsys,
         dependencies=deps,
     )
@@ -562,15 +639,23 @@ def test_refusal_exits_1_with_the_body_printed(
 
 def test_wiring_error_exits_2_on_stderr(
     capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     probe = socket.socket()
     probe.bind(("127.0.0.1", 0))
     port = probe.getsockname()[1]
     probe.close()  # nothing answers here
+    # The remote leg is authenticated (SEC-016), so reaching the transport
+    # at all now requires a credential — the claim under test is still the
+    # transport failure, which is why one is supplied rather than the test
+    # being allowed to pass on the credential refusal (a different exit 2).
+    monkeypatch.setenv("CCF_TEST_WIRING_TOKEN", "t")
     code, out, err = run_cli(
         [
             "--base-url",
             f"http://127.0.0.1:{port}",
+            "--token-env",
+            "CCF_TEST_WIRING_TOKEN",
             "config",
             "keys",
             "--class-id",
@@ -604,43 +689,88 @@ def test_local_bundle_is_the_api_dependencies_type(tmp_path: Path) -> None:
     assert type(bundle) is ApiDependencies
 
 
-def test_local_flag_runs_without_infra(
+def test_local_is_suspended_and_names_what_reviving_it_would_cost(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    code, out, _ = run_cli(
-        [
-            "--local",
-            "--local-root",
-            str(tmp_path),
-            "config",
-            "keys",
-            "--class-id",
-            "ccf.agent-definition",
-        ],
-        capsys,
-    )
-    assert code == 0 and json.loads(out) == []
+    """`--local` REFUSES, and the refusal names the gap (`SEC-002`).
+
+    This test asserted ``code == 0`` for a `--local` read until Tier 1
+    deleted the posture beneath it. `--local` built its app by passing
+    ``acknowledge_insecure_default=True``; there is no such arm any more, the
+    gate has no arm in which authentication is skipped, and the SDK ships
+    exactly one authorizer — ``ControlPlaneTenantAuthorizer``, deny-by-default
+    against a scope mapping registered at a pinned version — while
+    ``build_local_dependencies`` mints a fresh, EMPTY Control Plane per
+    invocation. There is nothing there for that authorizer to decide against.
+
+    The mode therefore fails closed rather than quietly building a weaker
+    app, and the refusal is asserted rather than deleted along with the flag:
+    what `--local` MEANS under a total gate is an unmade design decision, and
+    a suite that tested nothing here would not notice it being answered by
+    accident. Exit status 2 on stderr — deployment wiring, the same status a
+    missing base URL takes (T-07-26).
+    """
+    with pytest.raises(SystemExit) as suspended:
+        run_cli(
+            [
+                "--local",
+                "--local-root",
+                str(tmp_path),
+                "config",
+                "keys",
+                "--class-id",
+                "ccf.agent-definition",
+            ],
+            capsys,
+        )
+    assert suspended.value.code == 2
+    err = " ".join(capsys.readouterr().err.split())  # wrap-tolerant
+    assert "`--local` is suspended" in err
+    # Each of the five seams a local deployment would have to declare, so the
+    # message cannot decay into "not supported" without reddening this.
+    for seam in (
+        "scope mapping",
+        "token source",
+        "entitlement source",
+        "perspective resolver",
+        "refusal recorder",
+    ):
+        assert seam in err, seam
+    assert "SEC-002" in err
 
 
 def test_local_requires_a_root(capsys: pytest.CaptureFixture[str]) -> None:
-    with pytest.raises(SystemExit):
+    """The root is still checked FIRST, before the suspension above.
+
+    Both refusals are exit 2 on stderr, so the status alone cannot tell them
+    apart — the message is asserted so this test cannot start passing for the
+    other reason (`SEC-002` made that a live possibility rather than a
+    hypothetical one).
+    """
+    with pytest.raises(SystemExit) as refused:
         run_cli(["--local", "config", "keys", "--class-id", "x"], capsys)
+    assert refused.value.code == 2
+    assert "--local requires --local-root" in capsys.readouterr().err
 
 
 # --- backends: the adapter names, over the route, with no local path -------
 
 
 def test_backends_list_reports_every_declared_name(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    deps: Any, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """`--local` answers about the CLI's own process — the first case an
-    adopter runs, and an honest answer to "what is installed here"."""
+    """The route answers about the process hosting it — "what is installed
+    here", the first question an adopter asks.
+
+    Driven over the in-process governed app rather than over `--local`, which
+    is suspended (`SEC-002`, and the test directly above). The *route* is
+    unchanged and is the one any remote client reaches; the only thing that
+    moved is which app hosts it, and this one is built with a real authority
+    and reached with a real credential.
+    """
     from ccf.graph.registry import declared_names
 
-    code, out, _ = run_cli(
-        ["--local", "--local-root", str(tmp_path), "backends", "list"],
-        capsys,
-    )
+    code, out, _ = run_cli(["backends", "list"], capsys, dependencies=deps)
     assert code == 0
     assert json.loads(out)["backends"] == sorted(declared_names())
 
@@ -671,14 +801,17 @@ def test_backends_command_holds_no_local_generation_path() -> None:
 
 
 def test_backends_list_surfaces_the_registry_refusal_not_a_traceback(
-    tmp_path: Path,
+    deps: Any,
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A packaging conflict reaches the operator with the name in it.
 
-    `--local` runs the app in-process rather than around it, so the typed
-    503 the route builds travels the same path a remote client sees.
+    The app runs in-process rather than around the CLI, so the typed 503 the
+    route builds travels the same path a remote client sees. It used to run
+    under `--local`; that leg is suspended (`SEC-002`), and the injected leg
+    that replaced it is in-process the same way — what the test measures is
+    the route's own answer, which no part of the gate change touched.
     """
     from ccf.graph.registry import DuplicateBackendName
     from ccf_runtime.http_api.routes import backends as backends_route
@@ -692,10 +825,7 @@ def test_backends_list_surfaces_the_registry_refusal_not_a_traceback(
 
     monkeypatch.setattr(backends_route, "declared_names", _conflicted)
 
-    code, out, err = run_cli(
-        ["--local", "--local-root", str(tmp_path), "backends", "list"],
-        capsys,
-    )
+    code, out, err = run_cli(["backends", "list"], capsys, dependencies=deps)
     assert code != 0
     assert "acme-adapters" in err and "beta-adapters" in err
     assert "Traceback" not in err and "Traceback" not in out
@@ -704,9 +834,25 @@ def test_backends_list_surfaces_the_registry_refusal_not_a_traceback(
 # --- HTTP-vs-injected equivalence over one real hosted server --------------
 
 
-def test_local_and_http_paths_produce_identical_output(
-    deps: Any, fabric: Fabric, capsys: pytest.CaptureFixture[str]
+def test_injected_and_http_paths_produce_identical_output(
+    deps: Any,
+    fabric: Fabric,
+    authority_bundle: Any,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """One bundle, two transports, identical bytes — now THROUGH the gate.
+
+    The equivalence claim is unchanged; the application under it is not.
+    ``create_app`` had an ``acknowledge_insecure_default=True`` arm when this
+    test was written and the hosted leg used it, so the two legs were
+    compared with authentication turned off. That arm is deleted (`SEC-002`),
+    and the server below is built with the SAME five-seam authority the
+    in-process leg binds, reached with the same credential the CLI resolves
+    from a named source. The comparison is strictly stronger than before: it
+    now holds through the total gate rather than around it, and a gate that
+    answered differently on the two transports would show up right here.
+    """
     import uvicorn
 
     from ccf_runtime.http_api.app import create_app
@@ -724,8 +870,7 @@ def test_local_and_http_paths_produce_identical_output(
     port = bound.getsockname()[1]
     server = uvicorn.Server(
         uvicorn.Config(
-            create_app(deps, acknowledge_insecure_default=True),
-            log_level="error",
+            create_app(deps, **authority_bundle), log_level="error"
         )
     )
     thread = threading.Thread(
@@ -736,10 +881,16 @@ def test_local_and_http_paths_produce_identical_output(
         while not server.started:
             if not thread.is_alive():
                 raise AssertionError("the HTTP server failed to start")
+        # The remote leg resolves its credential from a NAMED source
+        # (SEC-016), and the value it finds there is the one this suite's
+        # token source recognises — the hosted app verifies it for real.
+        monkeypatch.setenv("CCF_TEST_EQUIVALENCE_TOKEN", CLI_TOKEN)
         code, http_out, _ = run_cli(
             [
                 "--base-url",
                 f"http://127.0.0.1:{port}",
+                "--token-env",
+                "CCF_TEST_EQUIVALENCE_TOKEN",
                 "config",
                 "versions",
                 "--key",

@@ -34,10 +34,17 @@ from ccf.controlplane.artifacts import (
     load_artifact,
 )
 from ccf.controlplane.registry import ControlPlaneRegistry
+from ccf.authz.capability import Authorized, Register
+from tests.controlplane.capabilities import register_capability
 
 _FROM = datetime(2026, 1, 1, tzinfo=UTC)
 _UNTIL = datetime(2027, 1, 1, tzinfo=UTC)
 
+
+
+def _cap(key: str) -> Authorized[Register]:
+    """A ``config.register`` capability for ``key``, minted as the gate would."""
+    return register_capability(key, Register)
 
 def _constraint(**overrides: object) -> PolicyConstraint:
     """A constraint that validates, with one field swapped per call."""
@@ -202,14 +209,13 @@ def test_the_same_document_with_a_zone_loads(
 def test_registering_a_constraint_mints_a_content_hash_version() -> None:
     registry = ControlPlaneRegistry()
     constraint = _constraint()
-    version = registry.register_typed(
-        "policy_constraints.fixture", constraint, POLICY_CONSTRAINT
+    version = registry.register_typed(_cap("acme/policy_constraints.fixture"), constraint, POLICY_CONSTRAINT
     )
     assert version == content_hash(constraint)
     assert registry.keys_of_class("ccf.policy-constraint") == (
-        "policy_constraints.fixture",
+        "acme/policy_constraints.fixture",
     )
-    assert registry.resolve("policy_constraints.fixture", version) == constraint
+    assert registry.resolve("acme/policy_constraints.fixture", version) == constraint
 
 
 def test_two_constraints_of_one_policy_id_are_two_artifacts() -> None:
@@ -223,19 +229,17 @@ def test_two_constraints_of_one_policy_id_are_two_artifacts() -> None:
     )
     assert ceiling.policy_id == floor.policy_id
 
-    ceiling_version = registry.register_typed(
-        "policy_constraints.ceiling", ceiling, POLICY_CONSTRAINT
+    ceiling_version = registry.register_typed(_cap("acme/policy_constraints.ceiling"), ceiling, POLICY_CONSTRAINT
     )
-    floor_version = registry.register_typed(
-        "policy_constraints.floor", floor, POLICY_CONSTRAINT
+    floor_version = registry.register_typed(_cap("acme/policy_constraints.floor"), floor, POLICY_CONSTRAINT
     )
 
     assert ceiling_version != floor_version
     assert set(registry.keys_of_class("ccf.policy-constraint")) == {
-        "policy_constraints.ceiling",
-        "policy_constraints.floor",
+        "acme/policy_constraints.ceiling",
+        "acme/policy_constraints.floor",
     }
-    assert registry.resolve("policy_constraints.floor", floor_version) == floor
+    assert registry.resolve("acme/policy_constraints.floor", floor_version) == floor
 
 
 def test_the_product_class_declaration_names_no_policy_constraint() -> None:

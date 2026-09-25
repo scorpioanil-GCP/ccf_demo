@@ -46,6 +46,7 @@ from typing import Any
 import pytest
 
 from ccf.artifacts.file_store import FileArtifactStore
+from tests.composition import declaring_store
 from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.signal.envelope import SignalEnvelope
 from ccf.controlplane.artifacts import HalfLifeTable
@@ -119,6 +120,9 @@ def _config(*, ttl_anchor: str, decay_basis: str | None) -> dict[str, Any]:
 def _open(tmp_path: pathlib.Path, *, ttl_anchor: str, decay_basis: str | None, observed: Mapping[str, datetime | None]) -> OpenedProduct:
     root = fixture.write_tree(tmp_path / "producer", config=_config(ttl_anchor=ttl_anchor, decay_basis=decay_basis), environment=fixture.producer_environment_text())
     return open_product(
+        # The declared skills are granted through the ledger by an authorized principal
+        # BEFORE opening: the paved road requests no grant (D-IMPL-354).
+        control_plane=fixture.granted_control_plane(root),
         config_root=root, scratch=tmp_path / "scratch", acquire=_Acquire(observed), project=fixture.plan_factory,
         assess=fixture.assess, environ={fixture.CHILD_DSN_VAR: "postgresql://fixture"}, clock=lambda: ADMITTED_AT,
     )
@@ -129,7 +133,9 @@ def _ask(opened: OpenedProduct) -> Any:
 
 
 def _record(opened: OpenedProduct, outcome: Any) -> tuple[DecisionReplayRecord, FileArtifactStore, str]:
-    fresh = FileArtifactStore(root=opened.scratch / opened.replay.store_dirname)
+    # A read-back store declaring nothing writable: the test reads what the
+    # product's own writer filed and files nothing itself (D-IMPL-353 §1.2).
+    fresh = declaring_store(opened.scratch / opened.replay.store_dirname)
     address = outcome.replay_ref.content_address if isinstance(outcome, ServedProduct) else fresh.resolve_uri(uri=outcome.replay_reference)
     return DecisionReplayRecord.model_validate_json(fresh.get(content_address=address)), fresh, address
 
@@ -267,6 +273,7 @@ def test_c8_an_evidence_anchored_composite_floors_on_its_anchor_and_its_children
     config["ttl"] = {"max_ttl_seconds": int(CEILING.total_seconds()), "product_ttl_seconds": int(parent_window.total_seconds())}
     root = fixture.write_tree(tmp_path / "consumer", config=config, environment=fixture.consumer_environment_text())
     with _producer() as url, open_product(
+        control_plane=fixture.granted_control_plane(root),  # grants in force before opening (D-IMPL-354)
         config_root=root, scratch=tmp_path / "scratch", acquire=_Acquire({"acct-1": parent_observed}), project=fixture.plan_factory,
         assess=fixture.assess, questions=fixture.questions, environ=_environ(url), clock=lambda: ADMITTED_AT,
     ) as opened:
@@ -327,6 +334,7 @@ def test_c4c_the_road_refuses_an_evidence_anchor_with_no_half_life_section_at_op
     root = fixture.write_tree(tmp_path / "producer", config=document, environment=fixture.producer_environment_text())
     with pytest.raises(TTLAnchorUndeclared, match="no half_life section"):
         open_product(
+            control_plane=fixture.granted_control_plane(root),  # grants in force before opening (D-IMPL-354)
             config_root=root, scratch=tmp_path / "scratch", acquire=_Acquire({"acct-1": OBSERVED}),
             project=fixture.plan_factory, assess=fixture.assess,
             environ={fixture.CHILD_DSN_VAR: "postgresql://fixture"}, clock=lambda: ADMITTED_AT,
@@ -376,6 +384,7 @@ def test_c11_a_composites_mixing_floor_is_measured_from_the_decision_instant(
     config["ttl"] = {"max_ttl_seconds": int(CEILING.total_seconds()), "product_ttl_seconds": int(parent_window.total_seconds())}
     root = fixture.write_tree(tmp_path / "consumer", config=config, environment=fixture.consumer_environment_text())
     with _producer() as url, open_product(
+        control_plane=fixture.granted_control_plane(root),  # grants in force before opening (D-IMPL-354)
         config_root=root, scratch=tmp_path / "scratch", acquire=_Acquire({"acct-1": parent_observed}), project=fixture.plan_factory,
         assess=fixture.assess, questions=fixture.questions, environ=_environ(url), clock=lambda: ADMITTED_AT,
     ) as opened:

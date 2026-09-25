@@ -84,10 +84,10 @@ Surface                       Client-supplied arguments  Reaches               V
 ``context_product`` resource  tenant, class, version     the product resolver  entitled (15.5-06)
 ``get_context`` tool          tenant, entity             the context provider  entitled (D-IMPL-128 limb 1)
 ``get_lineage`` tool          none                       the lineage provider  entitled (D-IMPL-129)
-``list_agents`` tool          tenant                     the agent directory   authenticated, NOT entitled
-``invoke_agent`` tool         tenant, key, version,      the agent invoker     authenticated, NOT entitled
+``list_agents`` tool          tenant                     the agent directory   tenant-decided (``SEC-018``)
+``invoke_agent`` tool         tenant, key, version,      the agent invoker     tenant-decided (``SEC-018``)
                               skill, arguments
-``get_replay_record`` tool    none                       the replay reader     authenticated, NOT entitled
+``get_replay_record`` tool    none                       the replay reader     tenant-decided (``SEC-018``)
 ============================  =========================  ====================  ===============================
 
 **Why the two gated ones could be gated.** ``get_context`` reaches Context
@@ -101,42 +101,45 @@ who may receive a field of it — no new vocabulary is invented, and because tha
 tool carries no arguments at all its address is deployment-declared
 (``lineage_tenant``, ``entitled_product_class``).
 
-**Why the other three are not, stated unhedged.** The artifact these doors
-would be decided against is ``ProductEntitlementPolicy``, whose grants are
-``permitted_schema_names`` and ``permitted_roles``
-(``runtime/ccf_runtime/authz/product_entitlement.py::ProductEntitlementSourceProtocol``)
-and which says
-nothing about agents and nothing about replay records. Deciding an agent
-invocation against it would assert *entitlement to receive product class C
-implies permission to invoke any agent in tenant T* — a semantic the SDK would
-be **inventing**, which CLAUDE.md §11 forbids in those words. So each of the
-three asserts verified identity and decides nothing:
+**Tenancy and product entitlement are different questions, and only one of
+them was ever open** (``SEC-018``). The three tools above are now
+**tenant-decided**: :class:`~ccf_runtime.mcp.tenancy.TenantGuardedServer`
+installs the decision at registration, so each refuses a caller whose verified
+grant does not carry the tenant the call acts on. That needed no new
+vocabulary — :class:`~ccf_runtime.mcp.auth.TokenGrant` now says which tenants
+its bearer may reach, and *whose agents, whose dispatch, whose replay record*
+is answerable from it directly.
 
-* ``list_agents`` discloses a **client-chosen** tenant's agent population with
-  declared versions, archetype compositions and bound skill tool surfaces.
-* ``invoke_agent`` is the sharpest of the three: every argument is the
-  client's, the tenant included, and it dispatches a declared agent's bound
-  skill through the deployment's injected invoker.
+**What ``D-IMPL-129`` declined is still declined, and deliberately.** The
+artifact these doors would be decided against for *product* entitlement is
+``ProductEntitlementPolicy``, whose grants are ``permitted_schema_names`` and
+``permitted_roles``
+(``runtime/ccf_runtime/authz/product_entitlement.py::ProductEntitlementSourceProtocol``)
+and which says nothing about agents and nothing about replay records. Deciding
+an agent invocation against it would assert *entitlement to receive product
+class C implies permission to invoke any agent in tenant T* — a semantic the
+SDK would be **inventing**, which CLAUDE.md §11 forbids in those words. So
+within the caller's own tenant these three still assert verified identity and
+decide nothing further:
+
+* ``list_agents`` discloses that tenant's agent population with declared
+  versions, archetype compositions and bound skill tool surfaces.
+* ``invoke_agent`` dispatches a declared agent's bound skill through the
+  deployment's injected invoker. It is registered ``mutating``.
 * ``get_replay_record`` serves the five-dimension Decision Replay record — the
   widest disclosure on this server, dimension 4 carrying perspective
   conditioning and principal identity.
 
-**What would close them, named so a later phase completes a design rather than
-reopening one:**
+**What would close the remaining limb**, named so a later phase completes a
+design rather than reopening one:
 ``runtime/ccf_runtime/authz/protocol.py::TenantAuthorizerProtocol``
 with new action ids beside
-``runtime/ccf_runtime/authz/refusals.py::ACTION_PRODUCT_RETRIEVE``
-and an adopter-registered policy artifact — the shape the HITL door already
-carries at ``runtime/ccf_runtime/mcp/hitl_server.py::_enforce_tenant_authz``.
-That is a new
-required builder seam and a new artifact type; ``D-IMPL-129`` assigns no owner,
-and until a concrete harm or an authorised authorization workstream opens it,
-**no plan may cite these three tools' shipping as evidence that agent-scoped
-entitlement is unnecessary.** The gap is not described here and left to rot: it
-is pinned by
-``tests/crossproc/test_experience_edge.py::test_the_agent_and_replay_tools_are_authenticated_but_not_entitled_open_gap``,
-which asserts the three **succeed** for an unentitled credential and whose
-inversion is the signature of the fix.
+``src/ccf/authz/actions.py::ACTION_PRODUCT_RETRIEVE``
+and an adopter-registered policy artifact. That is a new required builder seam
+and a new artifact type; ``D-IMPL-129`` assigns no owner, and until an
+authorised authorization workstream opens it, **no plan may cite these three
+tools' shipping as evidence that agent-scoped entitlement is unnecessary.**
+The residual is bounded by the caller's own tenant, which it was not before.
 
 **The three entitlement paths are delivery boundaries, and this module only
 encodes them** (``D-IMPL-254``; ``D-IMPL-256`` (3), Dave: *"leaving them
@@ -173,6 +176,19 @@ from mcp.server.auth.provider import TokenVerifier
 from mcp.server.auth.settings import AuthSettings
 from mcp.server.fastmcp import FastMCP
 
+from ccf.authz.actions import (
+    ACTION_AGENT_LIST,
+    ACTION_PRODUCT_RETRIEVE,
+    ACTION_REPLAY_READ,
+    ACTION_WORKFLOW_INVOKE,
+)
+from ccf.authz.capability import (
+    AgentList,
+    Authorized,
+    Execute,
+    ProductRetrieve,
+    ReplayRead,
+)
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes
 from ccf.products.door import door_refusal, served_answer
@@ -190,6 +206,8 @@ from ccf_runtime.authz.delivery_boundary import (
     govern_entitlement,
     recorded_boundary,
 )
+from ccf_runtime.authz.protocol import TenantAuthorizerProtocol
+from ccf_runtime.mcp.tenancy import TenantGuardedServer
 from ccf_runtime.authz.product_entitlement import (
     PerspectiveResolverProtocol,
     ProductEntitlementSourceProtocol,
@@ -727,11 +745,13 @@ def build_experience_server(
     product_resource_description: str | None = None,
     token_verifier: TokenVerifier,
     auth_settings: AuthSettings,
+    authorizer: TenantAuthorizerProtocol,
     entitlement_source: ProductEntitlementSourceProtocol,
     perspective_resolver: PerspectiveResolverProtocol,
     refusal_recorder: RefusalRecorderProtocol | None = None,
     entitled_product_class: str | None = None,
     lineage_tenant: str | None = None,
+    replay_record_tenant: str | None = None,
     tool_allowlist: frozenset[str] | None = None,
 ) -> FastMCP:
     """Build the authenticated Experience-surface server over six seams.
@@ -885,6 +905,11 @@ def build_experience_server(
             the class the injected providers actually serve. Required when
             :data:`GET_CONTEXT_TOOL` or :data:`GET_LINEAGE_TOOL` is
             allowlisted; refused when neither is.
+        replay_record_tenant: The tenant :data:`GET_REPLAY_RECORD_TOOL` is
+            decided under. Required exactly when that tool is allowlisted, on
+            ``lineage_tenant``'s terms and for the same reason: the tool takes
+            no arguments, so its tenant is the deployment's to declare and
+            there is no client value that could stand in for it (``SEC-018``).
         lineage_tenant: The tenant :data:`GET_LINEAGE_TOOL` is decided under,
             since that tool carries no arguments to decide against. Required
             when it is allowlisted; refused when it is not.
@@ -943,17 +968,28 @@ def build_experience_server(
         raise ValueError(
             _unexposed_address(GET_LINEAGE_TOOL, "lineage_tenant")
         )
+    if replay_record_tenant is not None and GET_REPLAY_RECORD_TOOL not in allowed:
+        raise ValueError(
+            _unexposed_address(GET_REPLAY_RECORD_TOOL, "replay_record_tenant")
+        )
 
-    server = FastMCP(
-        server_name,
-        stateless_http=True,
-        json_response=True,
-        token_verifier=token_verifier,
-        auth=auth_settings,
+    door = TenantGuardedServer(
+        FastMCP(
+            server_name,
+            stateless_http=True,
+            json_response=True,
+            token_verifier=token_verifier,
+            auth=auth_settings,
+        ),
+        authorizer=authorizer,
     )
 
-    @server.resource(
+    @door.resource(
         EXPERIENCE_PRODUCT_URI_TEMPLATE,
+        action=ACTION_PRODUCT_RETRIEVE,
+        subject=door.from_argument("tenant"),
+        resource=door.resource_argument("product_class"),
+        mutating=False,
         mime_type=PRODUCT_MIME_TYPE,
         description=(
             product_resource_description
@@ -961,8 +997,15 @@ def build_experience_server(
             else DEFAULT_PRODUCT_RESOURCE_DESCRIPTION
         ),
     )
-    def context_product(tenant: str, product_class: str, version: str) -> str:
+    def context_product(
+        authorized: Authorized[ProductRetrieve], product_class: str, version: str
+    ) -> str:
         """Serve one gate-admitted Context Product as canonical JSON.
+
+        **The tenant is the capability's** (``D-IMPL-353`` §1.2). The URI's
+        ``{tenant}`` segment is decided against the grant by the wrapper and
+        consumed there; this body reads ``authorized.tenant`` and has no
+        second source.
 
         Authenticate, then entitle, then resolve. The auth middleware refuses
         an unverified caller before this body runs;
@@ -992,6 +1035,7 @@ def build_experience_server(
         ``mime_type`` carrying two shapes, told apart by the top-level
         ``kind`` key a product does not have.
         """
+        tenant = authorized.tenant
         decided = govern_entitlement(
             grant=verified_grant(),
             tenant=tenant,
@@ -1060,25 +1104,39 @@ def build_experience_server(
             raise ValueError(_missing(LIST_AGENTS_TOOL))
         directory_seam = agent_directory
 
-        @server.tool(
+        @door.tool(
             name=LIST_AGENTS_TOOL,
+            action=ACTION_AGENT_LIST,
+            subject=door.from_argument("tenant"),
+            # Enumeration acts on no addressable subject: the door names itself,
+            # exactly as the HTTP `GET /agent/declarations` route does.
+            resource=door.resource_route(),
+            mutating=False,
             description=(
                 list_agents_description
                 if list_agents_description is not None
                 else DEFAULT_LIST_AGENTS_DESCRIPTION
             ),
         )
-        def list_agents(tenant: str) -> str:
+        def list_agents(authorized: Authorized[AgentList]) -> str:
             """List one tenant's exposed agents with their rendered tool surfaces.
 
-            **This asserts verified identity and decides nothing. This tool is
-            authenticated and NOT entitled** — ``D-IMPL-129``, and the gap is
-            recorded in the module docstring's audit. A ``client-chosen``
-            tenant's agent population, declared versions, archetype
-            compositions and bound skill tool surfaces go to any verified
-            caller.
+            **The tenant is the capability's** (``D-IMPL-353`` §1.2): the
+            ``tenant`` wire argument is decided and consumed by the wrapper,
+            and the directory is asked for ``authorized.tenant``.
+
+            **Tenant-decided, product-entitlement-undecided** — and the two
+            halves are different questions (``SEC-018``; ``D-IMPL-129``). The
+            ``tenant`` argument stays the caller's and is now decided against
+            the verified grant before this body runs, so a client-chosen
+            foreign tenant's agent population is no longer disclosed. What
+            ``D-IMPL-129`` declined remains declined: this tool is still not
+            decided against ``ProductEntitlementPolicy``, whose grants name
+            schemas and roles and say nothing about agents, because inventing
+            that semantic is what CLAUDE.md §11 forbids. Within the caller's
+            own tenant, any verified caller still receives the listing.
             """
-            verified_grant()
+            tenant = authorized.tenant
             catalog = AgentToolCatalog(
                 tenant=tenant,
                 agents=tuple(
@@ -1093,8 +1151,19 @@ def build_experience_server(
             raise ValueError(_missing(INVOKE_AGENT_TOOL))
         invoker_seam = agent_invoker
 
-        @server.tool(
+        @door.tool(
             name=INVOKE_AGENT_TOOL,
+            # HANDOFF (D-IMPL-353, Lane CAP-GATE): no door-declared action id
+            # names an agent-skill dispatch. `workflow.invoke` is the nearest
+            # declared invocation — a definition-keyed dispatch through the
+            # factory path, decided on the same `definition_key` resource the
+            # HTTP `POST /workflow/executions` route binds — and stands here
+            # until an `agent.invoke` id and kind exist in `ccf.authz`; the
+            # change is this one constant.
+            action=ACTION_WORKFLOW_INVOKE,
+            subject=door.from_argument("tenant"),
+            resource=door.resource_argument("definition_key"),
+            mutating=True,
             description=(
                 invoke_agent_description
                 if invoke_agent_description is not None
@@ -1102,7 +1171,7 @@ def build_experience_server(
             ),
         )
         def invoke_agent(
-            tenant: str,
+            authorized: Authorized[Execute],
             definition_key: str,
             definition_version: str,
             skill: str,
@@ -1114,16 +1183,23 @@ def build_experience_server(
             what the wire carries — this module adds nothing and interprets
             nothing (T-07-20).
 
-            **This asserts verified identity and decides nothing. This tool is
-            authenticated and NOT entitled** — ``D-IMPL-129``, and the gap is
-            recorded in the module docstring's audit. It is the sharpest of
-            the three: every argument here is the client's, the ``tenant``
-            included, and the call reaches a declared agent's bound skill
-            through the deployment's invoker.
+            **The sharpest of the three, and the one that most needed the
+            tenant axis** (``SEC-018``; ``D-IMPL-129``). Every argument here is
+            still the client's — but ``tenant`` is no longer *trusted*: it is
+            decided against the verified grant before the invoker is reached,
+            so a verified caller can no longer dispatch a declared agent's
+            bound skill inside a tenant it holds no grant for. Registered
+            ``mutating``, because an agent dispatch is not a read: a stated
+            stdio identity cannot reach it at all.
+
+            What ``D-IMPL-129`` declined remains declined — this is not
+            decided against ``ProductEntitlementPolicy``, for the reason that
+            ruling gives — and the remaining gap is now bounded by the
+            caller's own tenant rather than unbounded.
             """
-            verified_grant()
             return invoker_seam(
-                tenant=tenant,
+                # The capability's tenant, never a wire value (D-IMPL-353 §1.2).
+                tenant=authorized.tenant,
                 definition_key=definition_key,
                 definition_version=definition_version,
                 skill=skill,
@@ -1145,10 +1221,17 @@ def build_experience_server(
         context_seam = context_provider
         context_class = entitled_product_class
 
-        @server.tool(
-            name=GET_CONTEXT_TOOL, description=get_context_description
+        @door.tool(
+            name=GET_CONTEXT_TOOL,
+            action=ACTION_PRODUCT_RETRIEVE,
+            subject=door.from_argument("tenant"),
+            # The class is the deployment's, never the caller's — so the
+            # resource decided on is the declared one.
+            resource=door.resource_declared(context_class),
+            mutating=False,
+            description=get_context_description,
         )
-        def get_context(tenant: str, entity: str) -> str:
+        def get_context(authorized: Authorized[ProductRetrieve], entity: str) -> str:
             """Serve one tenant's entity-scoped product via the injected seam.
 
             Authenticate, then entitle, then resolve — and **the order is the
@@ -1181,6 +1264,7 @@ def build_experience_server(
             the shell's canonical bytes are what the tool answers, so the
             refusal is a governed response rather than a tool error.
             """
+            tenant = authorized.tenant
             decided = govern_entitlement(
                 grant=verified_grant(),
                 tenant=tenant,
@@ -1224,10 +1308,19 @@ def build_experience_server(
         lineage_class = entitled_product_class
         lineage_address_tenant = lineage_tenant
 
-        @server.tool(
-            name=GET_LINEAGE_TOOL, description=get_lineage_description
+        @door.tool(
+            name=GET_LINEAGE_TOOL,
+            # No tenant on the wire — this tool takes no arguments at all — so
+            # the decision is against the tenant the deployment declared the
+            # tool's address under. The same value the entitlement is already
+            # decided against, read once (`SEC-018`).
+            action=ACTION_PRODUCT_RETRIEVE,
+            subject=door.declared(lineage_address_tenant),
+            resource=door.resource_declared(lineage_class),
+            mutating=False,
+            description=get_lineage_description,
         )
-        def get_lineage() -> str:
+        def get_lineage(authorized: Authorized[ProductRetrieve]) -> str:
             """Serve the product's lineage via the injected seam, once entitled.
 
             Same sequence as :data:`GET_CONTEXT_TOOL`, decided against the
@@ -1249,9 +1342,9 @@ def build_experience_server(
             deployment declared — the only address a tool with no wire
             arguments has — and disclosed it before returning.
             """
-            authorized = govern_entitlement(
+            decided = govern_entitlement(
                 grant=verified_grant(),
-                tenant=lineage_address_tenant,
+                tenant=authorized.tenant,
                 product_class=lineage_class,
                 product_version=None,
                 requested_role=None,
@@ -1269,34 +1362,58 @@ def build_experience_server(
                 perspective_resolver=perspective_resolver,
                 refusal_recorder=recorder,
             )
-            if isinstance(authorized, RefusalEnvelope):
-                return canonical_bytes(authorized).decode("utf-8")
+            if isinstance(decided, RefusalEnvelope):
+                return canonical_bytes(decided).decode("utf-8")
             # Bound, and then deliberately dropped in the open rather than
             # discarded silently: `LineageProviderProtocol` was not widened,
             # and its docstring says why. The decision is what mattered here,
             # not the conditioning.
-            del authorized
+            del decided
             return lineage_seam()
 
     if GET_REPLAY_RECORD_TOOL in allowed:
         if replay_record_reader is None or get_replay_record_description is None:
             raise ValueError(_missing(GET_REPLAY_RECORD_TOOL))
+        # STRICTLY AFTER the D-03 check and with its own wording, for the
+        # reason `_missing_address` gives.
+        if replay_record_tenant is None:
+            raise ValueError(
+                _missing_address(
+                    GET_REPLAY_RECORD_TOOL, "replay_record_tenant"
+                )
+            )
         replay_seam = replay_record_reader
+        replay_tenant = replay_record_tenant
 
-        @server.tool(
+        @door.tool(
             name=GET_REPLAY_RECORD_TOOL,
+            action=ACTION_REPLAY_READ,
+            subject=door.declared(replay_tenant),
+            # No arguments at all: the door names itself, as the HTTP replay
+            # routes name the address they are asked for and this one is not.
+            resource=door.resource_route(),
+            mutating=False,
             description=get_replay_record_description,
         )
-        def get_replay_record() -> str:
+        def get_replay_record(authorized: Authorized[ReplayRead]) -> str:
             """Serve the most-recent replay record via the injected seam.
 
-            **This asserts verified identity and decides nothing. This tool is
-            authenticated and NOT entitled** — ``D-IMPL-129``, and the module
-            docstring's audit is where the gap is recorded rather than hedged.
-            The five-dimension record is the widest disclosure on this server
-            and any verified caller receives it.
+            The five-dimension record is the widest disclosure on this server,
+            which is why it is decided rather than merely authenticated
+            (``SEC-018``). This tool carries no arguments, so the decision is
+            against the tenant the deployment declared it under
+            (``replay_record_tenant``) — absence of a client parameter reduces
+            steerability and never disclosure, so a caller holding no grant for
+            that tenant is refused.
+
+            What ``D-IMPL-129`` declined remains declined: no replay-scoped
+            entitlement vocabulary is invented here. Within the declared
+            tenant, any verified caller still receives the record.
             """
-            verified_grant()
+            # The seam takes no capability: the decision is what mattered, and
+            # it was made — for `replay.read` under the declared tenant —
+            # before this body ran (D-IMPL-353 §1.2).
+            del authorized
             return replay_seam()
 
-    return server
+    return door.build()

@@ -74,6 +74,18 @@ from ccf_runtime.workflow.engine import (
 )
 from ccf_runtime.workflow.state import WORKFLOW_STATE, WorkflowStateRecord
 
+from tests.hitl.capabilities import submit_capability
+from tests.workflow.capabilities import (
+    execute_as,
+    execute_capability,
+    resume_as,
+)
+from http_api.composition_authority import (
+    deployment_store,
+    register_typed_at_composition,
+    register_versioned_at_composition,
+)
+
 FIXTURES = Path(__file__).parent.parent / "fixtures" / "banking"
 
 
@@ -105,7 +117,7 @@ def _register_declared(
             },
             artifact_class,
         )
-        registry.register_typed(reference["key"], declared, artifact_class)
+        register_typed_at_composition(registry, reference["key"], declared, artifact_class)
 
 
 @pytest.fixture
@@ -117,7 +129,7 @@ def registry() -> ControlPlaneRegistry:
     task = parse_artifact(task_fixture["task_definition"], TASK_DEFINITION)
     assert isinstance(task, TaskDefinition)
     workflow_fixture = _load("workflows/payment_release_workflow.yaml")
-    plane.register_versioned(
+    register_versioned_at_composition(plane, 
         workflow_fixture["keys"]["task_definition"], task, TASK_DEFINITION
     )
     _register_declared(plane, workflow_fixture["referenced_artifacts"])
@@ -131,12 +143,13 @@ def _workflow(registry: ControlPlaneRegistry) -> Workflow:
     )
     assert isinstance(definition, WorkflowDefinition)
     key = fixture["keys"]["workflow_definition"]
-    version = registry.register_versioned(
+    version = register_versioned_at_composition(registry, 
         key, definition, WORKFLOW_DEFINITION
     )
     assert isinstance(version, str)
     return WorkflowFactory(control_plane=registry).construct(
-        definition_key=key, definition_version=version
+        execute_capability(tenant=definition.tenant, resource=key),
+        definition_version=version,
     )
 
 
@@ -165,7 +178,9 @@ def _world(
     bindings = _Bindings()
     engine = WorkflowEngine(
         control_plane=registry,
-        artifact_store=FileArtifactStore(root=tmp_path / "artifacts"),
+        # The trace class declared under Execute | Resume (D-IMPL-353 §1.2):
+        # what this deployment's engine writes for itself.
+        artifact_store=deployment_store(tmp_path / "artifacts", workflow_traces=True),
         hitl_transport=transport,
         skill_binding=bindings,
         agent_binding=bindings,
@@ -200,7 +215,7 @@ def _run_to_approval(
     action: str = "approve",
 ) -> tuple[WorkflowSuspended, GateResolution]:
     suspended = asyncio.run(
-        engine.execute(workflow, execution_id=execution_id)
+        engine.execute(execute_as(workflow), workflow, execution_id=execution_id)
     )
     assert isinstance(suspended, WorkflowSuspended)
     (pending,) = [
@@ -208,13 +223,18 @@ def _run_to_approval(
         for event in transport.pending(tenant=workflow.definition.tenant)
         if event.event_key == suspended.event_key
     ]
+    binding = _principal(
+        approver_key, product_content_hash=pending.product_content_hash
+    )
     resolution = gate.resolve(
-        tenant=workflow.definition.tenant,
+        submit_capability(
+            tenant=workflow.definition.tenant,
+            principal=binding.approver.subject_id,
+            event_key=suspended.event_key,
+        ),
         event_key=suspended.event_key,
         action=action,
-        principal=_principal(
-            approver_key, product_content_hash=pending.product_content_hash
-        ),
+        principal=binding,
     )
     assert isinstance(resolution, GateResolution)
     return suspended, resolution
@@ -292,7 +312,7 @@ def test_the_slice_suspends_on_the_real_gate_and_resumes_to_terminal(
     assert suspended.gate == "treasury-approval"
     assert resolution.outcome.approved is True
     outcome = asyncio.run(
-        engine.resume(workflow, execution_id="exec-1", decision="released")
+        engine.resume(resume_as(workflow), workflow, execution_id="exec-1", decision="released")
     )
     assert isinstance(outcome, WorkflowCompleted)
     assert outcome.terminal_state == "released"
@@ -304,7 +324,7 @@ def test_the_gate_event_binds_the_suspend_time_product_hash(
     """What the approver is shown IS the suspended state, by content hash."""
     engine, _, transport, _ = _world(registry, tmp_path)
     workflow = _workflow(registry)
-    suspended = asyncio.run(engine.execute(workflow, execution_id="exec-1"))
+    suspended = asyncio.run(engine.execute(execute_as(workflow), workflow, execution_id="exec-1"))
     assert isinstance(suspended, WorkflowSuspended)
     key = f"{workflow.definition.tenant}/exec-1"
     record = registry.state_store.get(WORKFLOW_STATE, key)
@@ -325,7 +345,7 @@ def test_the_human_action_lands_on_dimension_2_verbatim(
         engine, gate, transport, workflow, execution_id="exec-1"
     )
     outcome = asyncio.run(
-        engine.resume(workflow, execution_id="exec-1", decision="released")
+        engine.resume(resume_as(workflow), workflow, execution_id="exec-1", decision="released")
     )
     assert isinstance(outcome, WorkflowCompleted)
     replay = _replay_record(
@@ -352,7 +372,7 @@ def test_the_step_sequence_lands_on_dimension_5_verbatim(
         engine, gate, transport, workflow, execution_id="exec-1"
     )
     outcome = asyncio.run(
-        engine.resume(workflow, execution_id="exec-1", decision="released")
+        engine.resume(resume_as(workflow), workflow, execution_id="exec-1", decision="released")
     )
     assert isinstance(outcome, WorkflowCompleted)
     replay = _replay_record(
@@ -380,7 +400,7 @@ def test_a_mutation_between_suspend_and_action_is_detected(
     mutated between suspend and the human action mismatches and is refused."""
     engine, gate, transport, _ = _world(registry, tmp_path)
     workflow = _workflow(registry)
-    suspended = asyncio.run(engine.execute(workflow, execution_id="exec-1"))
+    suspended = asyncio.run(engine.execute(execute_as(workflow), workflow, execution_id="exec-1"))
     assert isinstance(suspended, WorkflowSuspended)
     key = f"{workflow.definition.tenant}/exec-1"
     record = registry.state_store.get(WORKFLOW_STATE, key)
@@ -390,13 +410,18 @@ def test_a_mutation_between_suspend_and_action_is_detected(
     # is not the hash bound at suspend time.
     mutated = record.model_copy(update={"execution_id": "exec-1-tampered"})
     assert content_hash(mutated) != content_hash(record)
+    binding = _principal(
+        "credit_officer", product_content_hash=content_hash(mutated)
+    )
     refusal = gate.resolve(
-        tenant=workflow.definition.tenant,
+        submit_capability(
+            tenant=workflow.definition.tenant,
+            principal=binding.approver.subject_id,
+            event_key=suspended.event_key,
+        ),
         event_key=suspended.event_key,
         action="approve",
-        principal=_principal(
-            "credit_officer", product_content_hash=content_hash(mutated)
-        ),
+        principal=binding,
     )
     assert isinstance(refusal, GateResolutionRefused)
     assert "suspend" in refusal.reason
@@ -430,7 +455,7 @@ def test_two_approvers_are_distinguishable_in_replay(
         )
         outcome = asyncio.run(
             engine.resume(
-                workflow, execution_id=execution_id, decision="released"
+                resume_as(workflow), workflow, execution_id=execution_id, decision="released"
             )
         )
         assert isinstance(outcome, WorkflowCompleted)
@@ -462,7 +487,7 @@ def test_a_rejected_approval_routes_as_a_recorded_transition(
     )
     assert resolution.outcome.approved is False
     outcome = asyncio.run(
-        engine.resume(workflow, execution_id="exec-1", decision="rejected")
+        engine.resume(resume_as(workflow), workflow, execution_id="exec-1", decision="rejected")
     )
     assert isinstance(outcome, WorkflowCompleted)
     assert outcome.terminal_state == "rejected"
@@ -496,7 +521,7 @@ def test_a_resolution_that_skips_the_dim_2_landing_is_detectable(
         engine, gate, transport, workflow, execution_id="exec-1"
     )
     outcome = asyncio.run(
-        engine.resume(workflow, execution_id="exec-1", decision="released")
+        engine.resume(resume_as(workflow), workflow, execution_id="exec-1", decision="released")
     )
     assert isinstance(outcome, WorkflowCompleted)
     skipped = _replay_record(
@@ -521,7 +546,7 @@ def test_a_completion_that_skips_the_dim_5_landing_is_detectable(
         engine, gate, transport, workflow, execution_id="exec-1"
     )
     outcome = asyncio.run(
-        engine.resume(workflow, execution_id="exec-1", decision="released")
+        engine.resume(resume_as(workflow), workflow, execution_id="exec-1", decision="released")
     )
     assert isinstance(outcome, WorkflowCompleted)
     skipped = _replay_record(

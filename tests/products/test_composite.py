@@ -99,6 +99,11 @@ from ccf.skills.dispatch import (
     SkillInvocation,
 )
 from ccf.skills.grants import BoundSkillView, GrantLedger, SkillGrant
+from tests.composition import register_at_composition, register_typed_at_composition
+from tests.composition import composition_register
+from ccf.controlplane.invalidation import register_key
+from tests.composition import register_skill_entry
+from tests.skills.authority import grant_capability, revoke_capability
 
 TENANT = "tenant-composite"
 CONSUMER_SCOPE = "consumer://memo-desk"
@@ -120,7 +125,7 @@ PEERS = "fixture.peer-benchmark"
 ENTITY_OBLIGOR = "entity://obligor-alpha"
 ENTITY_UNRELATED = "entity://obligor-beta"
 
-MAX_TTL_KEY = "fixture/composite/max-ttl"
+MAX_TTL_KEY = "tenant-fixture/composite/max-ttl"
 OPERATORS = frozenset({"Resolve", "Traversal"})
 POLICY_VERSION = "fixture-policy-v1"
 
@@ -213,7 +218,7 @@ def _registered(registry: ControlPlaneRegistry, schema: str) -> object:
     )
     if schema not in cache:
         key = f"{MAX_TTL_KEY}/{schema}"
-        version = registry.register(key, MaxTTL(seconds=86400))
+        version = register_at_composition(registry, key, MaxTTL(seconds=86400))
         cache[schema] = register_product_class(
             registry=registry,
             schema_name=schema,
@@ -292,8 +297,7 @@ def _ledger(registry: ControlPlaneRegistry) -> GrantLedger:
     )
     if "ledger" not in cache:
         regime_class = declared_artifact_class("policy-bundle")
-        registry.register_typed(
-            f"{TENANT}/policy-bundle/composite-auto",
+        register_typed_at_composition(registry, f"{TENANT}/policy-bundle/composite-auto",
             parse_artifact(
                 {
                     "class_id": "policy-bundle",
@@ -345,10 +349,13 @@ def granted(
     """
     ledger = _ledger(registry)
     for name, produces in producers:
-        ledger._catalog.register(
+        register_skill_entry(
+            ledger._catalog,
+            registry,
             skill(name, produces=produces, skill_type=skill_type)
         )
         outcome = ledger.request(
+            grant_capability(_AGENT),
             SkillGrant(
                 schema_version="1.0.0",
                 artifact_version="1.0.0",
@@ -359,7 +366,6 @@ def granted(
                 skill_version="1.0.0",
             ),
             definition=_AGENT,
-            actor="composite-operator",
         )
         assert isinstance(outcome, str), outcome
     return ledger.bound_view(_AGENT_HASH)
@@ -735,7 +741,9 @@ def test_f3_a_superseded_child_is_now_refused_whatever_the_caller_omits(
     honest one refuses.
     """
     child = served(deliver(registry, _contract(schema=FAMILY)))
-    ControlPlaneInvalidationSink(registry=registry).record(
+    ControlPlaneInvalidationSink(
+        registry=registry, authorities=(composition_register(registry, register_key(TENANT)),)
+    ).record(
         tenant_id=TENANT,
         entity_uri=ENTITY_OBLIGOR,
         invalidated_from=SUPERSEDED_AT,
@@ -1108,7 +1116,7 @@ def test_positive_control_producer_substitution_leaves_the_contract_alone(
         rows.append(composed.resolutions[0])
         # ...and it goes out of force before the next one comes in, which is
         # what makes the second resolution unambiguous.
-        ledger.revoke(resolved.grant_hash, actor="composite-operator")
+        ledger.revoke(revoke_capability(resolved.grant_hash, tenant=TENANT))
         assert resolve_producing_grant(req, view) is None
 
     assert rows[0].producing_skill_name != rows[1].producing_skill_name
@@ -1134,7 +1142,7 @@ def test_o2_a_revoked_grant_cannot_initiate_a_child(
     view = granted(registry, ("family-live", FAMILY))
     resolved = resolve_producing_grant(require(FAMILY), view)
     assert resolved is not None
-    _ledger(registry).revoke(resolved.grant_hash, actor="composite-operator")
+    _ledger(registry).revoke(revoke_capability(resolved.grant_hash, tenant=TENANT))
     assert resolve_producing_grant(require(FAMILY), view) is None
 
 
@@ -1148,7 +1156,7 @@ def test_o2_an_ungranted_entry_produces_nothing_however_real_it_is(
     resolve, and there is no supported path to an invocation naming it.
     """
     ledger = _ledger(registry)
-    ledger._catalog.register(skill("family-ungranted", produces=FAMILY))
+    register_skill_entry(ledger._catalog, registry, skill("family-ungranted", produces=FAMILY))
     view = ledger.bound_view(_AGENT_HASH)
     assert "family-ungranted" not in view
     assert resolve_producing_grant(require(FAMILY), view) is None
@@ -1362,7 +1370,9 @@ def test_f3_REOPENED_a_local_child_with_no_execution_record_REFUSES(
     case would pass against a register that refuses everything.
     """
     child = served(deliver(registry, _contract(schema=FAMILY)))
-    ControlPlaneInvalidationSink(registry=registry).record(
+    ControlPlaneInvalidationSink(
+        registry=registry, authorities=(composition_register(registry, register_key(TENANT)),)
+    ).record(
         tenant_id=TENANT,
         entity_uri=ENTITY_OBLIGOR,
         invalidated_from=SUPERSEDED_AT,

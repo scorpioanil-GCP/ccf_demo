@@ -55,9 +55,14 @@ from ccf_runtime.mcp.auth import FileTokenSource
 # imported rather than copied (`24.6-09`).
 from tests.http_api.test_product_declared_obligation_409 import _recorder
 
+from .gate_fixtures import SCOPE_EVERYTHING, wide_authorizer
+
 from ccf.contracts.canonical import content_hash
 from ccf_runtime.http_api.errors import ERROR_PRODUCT_DOOR_UNGOVERNED
 from http_api.conftest import Fabric, call
+from http_api.composition_authority import (
+    register_typed_at_composition,
+)
 
 DECISIONS = Path(__file__).resolve().parents[2] / "docs" / "DECISIONS.md"
 
@@ -150,9 +155,12 @@ def test_an_ungoverned_product_door_refuses_rather_than_serving(
     at ``test_product_entitlement.py``, against the door's *governed*
     configuration, where they assert something.
 
-    The refusal is a 503 and not a 403 because the fault is the deployment's:
-    ``create_app`` already warns about exactly this configuration, and the
-    typed code names which of the two states the operator is in.
+    ``SEC-001`` changed what this module's app IS: there is no ungoverned
+    ``create_app`` any more, so the fixture app is a governed one and this
+    route serves. The 503 that used to be asserted here now has exactly one
+    reachable cause — a handler called with no verified grant — and it is
+    asserted where that is the subject
+    (``test_product_declared_obligation_409.py``).
     """
     address = fabric.product_address
 
@@ -163,8 +171,7 @@ def test_an_ungoverned_product_door_refuses_rather_than_serving(
         f"{address.version}",
     )
 
-    assert response.status_code == 503
-    assert response.json()["detail"]["error_code"] == "product-door-ungoverned"
+    assert response.status_code == 200
 
 
 # --- product: the request echo is ABSENT when no question was posed (C-09) --
@@ -177,10 +184,43 @@ def test_an_ungoverned_product_door_refuses_rather_than_serving(
 # deployment vocabulary; the SDK ships none of it (CINV-01).
 
 ECHO_TOKEN = "routes-echo-token"
+#: The shared credential ``conftest.call`` supplies. The HITL submissions
+#: below name it as their approver subject because the audited subject is
+#: **derived** from the verified grant and a conflicting claim is refused
+#: (``D-IMPL-67``) — so a body naming anyone else is a 403, not a 200.
+GATE_CLIENT_ID = "gate-caller"
+#: The tenant that credential acts for — the fabric's own product tenant.
+GATE_TENANT = "acme-bank"
 ECHO_PRINCIPAL = "routes-echo-caller"
 ECHO_ROLE = "routes-echo-role"
 ECHO_AUDIT_INSTANT = datetime(2026, 8, 19, tzinfo=UTC)
 ECHO_BOUNDARY = datetime(2026, 3, 1, tzinfo=UTC)
+
+
+def _echo_auth(fabric: Any, token_file: Path) -> Any:
+    """The echo door's auth hook — the REAL dev token file (D-IMPL-353 §2 P1).
+
+    Before D-IMPL-353 this helper wrote nothing and minted a test-only
+    subclass; the file it was handed was never read. It now writes the
+    grant, ``tenants`` included, and the door reads it through
+    :class:`~ccf_runtime.mcp.auth.FileTokenSource` — exactly what a
+    deployment on the dev source does.
+    """
+    from ccf_runtime.http_api.auth import BearerTokenAuth
+
+    token_file.write_text(
+        json.dumps(
+            {
+                ECHO_TOKEN: {
+                    "client_id": ECHO_PRINCIPAL,
+                    "scopes": [SCOPE_EVERYTHING],
+                    "tenants": [fabric.product_address.tenant],
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    return BearerTokenAuth(token_source=FileTokenSource(path=token_file))
 
 
 def _echo_perspective(
@@ -192,22 +232,11 @@ def _echo_perspective(
     )
 
 
-def _governed_app(fabric: Fabric, tmp_path: Path) -> Any:
-    """A product door that serves, so an absent header means something."""
-    from ccf_runtime.http_api.app import create_app
-    from ccf_runtime.http_api.auth import BearerTokenAuth
-    from ccf_runtime.http_api.dependencies import ApiDependencies
-
-    token_file = tmp_path / "routes-echo-tokens.json"
-    token_file.write_text(
-        json.dumps(
-            {ECHO_TOKEN: {"client_id": ECHO_PRINCIPAL, "scopes": ["product"]}}
-        ),
-        encoding="utf-8",
-    )
+def _echo_entitlement(fabric: Fabric) -> Any:
+    """The echo door's entitlement source over its own policy."""
     address = fabric.product_address
     registry = ControlPlaneRegistry()
-    registry.register_typed(
+    register_typed_at_composition(registry, 
         product_entitlement_key(tenant_id=address.tenant),
         ProductEntitlementPolicy(
             tenant_id=address.tenant,
@@ -216,14 +245,27 @@ def _governed_app(fabric: Fabric, tmp_path: Path) -> Any:
                 ECHO_PRINCIPAL: ProductEntitlementGrant(
                     permitted_schema_names=frozenset({address.product_class}),
                     permitted_roles=frozenset({ECHO_ROLE}),
-                )
+                ),
+                "alice": ProductEntitlementGrant(
+                    permitted_schema_names=frozenset({address.product_class}),
+                    permitted_roles=frozenset({ECHO_ROLE}),
+                ),
             },
         ),
         PRODUCT_ENTITLEMENT_POLICY,
     )
-    source = ControlPlaneProductEntitlementSource(
+    return ControlPlaneProductEntitlementSource(
         control_plane=registry, clock=lambda: ECHO_AUDIT_INSTANT
     )
+
+
+def _governed_app(fabric: Fabric, tmp_path: Path) -> Any:
+    """A product door that serves, so an absent header means something."""
+    from ccf_runtime.http_api.app import create_app
+    from ccf_runtime.http_api.dependencies import ApiDependencies
+
+    token_file = tmp_path / "routes-echo-tokens.json"
+    source = _echo_entitlement(fabric)
     return create_app(
         ApiDependencies(
             control_plane=fabric.registry,
@@ -235,7 +277,10 @@ def _governed_app(fabric: Fabric, tmp_path: Path) -> Any:
             skill_catalog=fabric.catalog,
             grant_ledger=fabric.ledger,
         ),
-        auth=BearerTokenAuth(token_source=FileTokenSource(path=token_file)),
+        auth=_echo_auth(fabric, token_file),
+        authorizer=wide_authorizer(
+            tenant=fabric.product_address.tenant, key="routes-echo/mapping"
+        ),
         product_entitlement=source,
         perspective_resolver=_echo_perspective,
         # `24.6-09` / `D-IMPL-256` (2): an entitling door that cannot record a
@@ -396,7 +441,6 @@ def test_skill_grant_routes_through_the_ledger(
             "grant": grant,
             "definition_key": fabric.auto_agent_key,
             "definition_version": fabric.auto_agent_version,
-            "actor": fabric.actor,
         },
     )
     assert response.status_code == 200
@@ -415,7 +459,6 @@ def test_skill_grant_refusal_is_a_typed_4xx(app: Any, fabric: Fabric) -> None:
             "grant": grant,
             "definition_key": fabric.auto_agent_key,
             "definition_version": fabric.auto_agent_version,
-            "actor": fabric.actor,
         },
     )
     assert response.status_code == 409
@@ -496,20 +539,101 @@ def test_workflow_duplicate_invocation_is_a_typed_409(
     assert "already exists" in second.json()["reason"]
 
 
-def test_workflow_resume_with_an_undeclared_decision_is_refused(
-    app: Any, fabric: Fabric
-) -> None:
+def _suspend_over_http(
+    app: Any, fabric: Fabric, execution_id: str
+) -> dict[str, Any]:
     key, version = fabric.covenant
-    call(
+    body: dict[str, Any] = call(
         app,
         "POST",
         "/workflow/invocations",
         json={
             "definition_key": key,
             "definition_version": version,
-            "execution_id": "http-covenant-resume",
+            "execution_id": execution_id,
+        },
+    ).json()
+    return body
+
+
+def _approve_over_http(app: Any, fabric: Fabric, body: dict[str, Any]) -> None:
+    """Put a human action on the authority path for this suspension."""
+    pending = next(
+        event
+        for event in fabric.hitl.pending(tenant=body["tenant"])
+        if event.event_key == body["event_key"]
+    )
+    submission = _bound_submission(body["event_key"])
+    submission["product_content_hash"] = pending.product_content_hash
+    assert call(
+        app, "POST", "/hitl/actions", json=submission
+    ).status_code == 200
+
+
+def test_workflow_resume_of_a_gate_without_a_human_action_is_refused(
+    app: Any, fabric: Fabric
+) -> None:
+    """SEC-001 at the door. ``POST /workflow/resumptions`` is the reachable
+    path the security review of 2026-09-23 named: with nothing on the HITL
+    authority path, naming a declared transition does not open the gate."""
+    key, version = fabric.covenant
+    body = _suspend_over_http(app, fabric, "http-covenant-unapproved")
+    response = call(
+        app,
+        "POST",
+        "/workflow/resumptions",
+        json={
+            "definition_key": key,
+            "definition_version": version,
+            "execution_id": "http-covenant-unapproved",
+            "decision": "approved",
         },
     )
+    assert response.status_code == 409
+    assert "authority path" in response.json()["reason"]
+    status = call(
+        app,
+        "GET",
+        "/workflow/execution",
+        params={
+            "tenant": body["tenant"],
+            "execution_id": "http-covenant-unapproved",
+        },
+    )
+    assert status.json()["status"] == "suspended"
+
+
+def test_workflow_resume_refusal_does_not_enumerate_the_declared_targets(
+    app: Any, fabric: Fabric
+) -> None:
+    """SEC-001 remedy 3: the 409 must not hand the caller the transitions
+    it would have accepted."""
+    key, version = fabric.covenant
+    body = _suspend_over_http(app, fabric, "http-covenant-noleak")
+    # Approve first, or the authority refusal answers and this test never
+    # reaches the branch that could leak.
+    _approve_over_http(app, fabric, body)
+    response = call(
+        app,
+        "POST",
+        "/workflow/resumptions",
+        json={
+            "definition_key": key,
+            "definition_version": version,
+            "execution_id": "http-covenant-noleak",
+            "decision": "no-such-transition",
+        },
+    )
+    assert response.status_code == 409
+    assert "approved" not in response.json()["reason"]
+
+
+def test_workflow_resume_with_an_undeclared_decision_is_refused(
+    app: Any, fabric: Fabric
+) -> None:
+    key, version = fabric.covenant
+    body = _suspend_over_http(app, fabric, "http-covenant-resume")
+    _approve_over_http(app, fabric, body)
     response = call(
         app,
         "POST",
@@ -530,7 +654,7 @@ def test_workflow_status_of_nothing_is_a_404(app: Any) -> None:
         app,
         "GET",
         "/workflow/execution",
-        params={"tenant": "acme-bank", "execution_id": "never-started"},
+        params={"execution_id": "never-started"},
     )
     assert response.status_code == 404
 
@@ -544,21 +668,8 @@ def test_hitl_action_submission_travels_the_typed_queue(
     product_hash = "0" * 64
     submission = {
         "event_key": "acme-bank/http-covenant-1/gate",
-        "tenant": "acme-bank",
         "action": "approve",
-        "principal": {
-            "approver": {
-                "subject_id": "risk-officer-7",
-                "identity_provider_ref": "idp:acme-sso",
-            },
-            "authentication": {
-                "method": "sso",
-                "assurance_level": "aal2",
-                "session_ref": "session-1",
-            },
-            "action_time": "2026-07-30T12:00:00+00:00",
-            "product_content_hash": product_hash,
-        },
+        "product_content_hash": product_hash,
         "annotation": None,
     }
     response = call(app, "POST", "/hitl/actions", json=submission)
@@ -570,21 +681,8 @@ def test_hitl_action_submission_travels_the_typed_queue(
 def test_hitl_action_with_an_extra_field_is_refused(app: Any) -> None:
     submission = {
         "event_key": "acme-bank/x/gate",
-        "tenant": "acme-bank",
         "action": "approve",
-        "principal": {
-            "approver": {
-                "subject_id": "risk-officer-7",
-                "identity_provider_ref": "idp:acme-sso",
-            },
-            "authentication": {
-                "method": "sso",
-                "assurance_level": "aal2",
-                "session_ref": "session-1",
-            },
-            "action_time": "2026-07-30T12:00:00+00:00",
-            "product_content_hash": "0" * 64,
-        },
+        "product_content_hash": "0" * 64,
         "not_a_field": True,
     }
     assert call(app, "POST", "/hitl/actions", json=submission).status_code == 422
@@ -593,21 +691,8 @@ def test_hitl_action_with_an_extra_field_is_refused(app: Any) -> None:
 def _bound_submission(event_key: str) -> dict[str, Any]:
     return {
         "event_key": event_key,
-        "tenant": "acme-bank",
         "action": "approve",
-        "principal": {
-            "approver": {
-                "subject_id": "risk-officer-7",
-                "identity_provider_ref": "idp:acme-sso",
-            },
-            "authentication": {
-                "method": "sso",
-                "assurance_level": "aal2",
-                "session_ref": "session-1",
-            },
-            "action_time": "2026-07-30T12:00:00+00:00",
-            "product_content_hash": "0" * 64,
-        },
+        "product_content_hash": "0" * 64,
         "annotation": None,
     }
 
@@ -677,15 +762,29 @@ def test_hitl_action_receipt_for_an_unqueued_event_is_not_pending(
 # seams to decide.
 
 
-def _ungoverned(response: Any) -> None:
-    assert response.status_code == 503, response.text
-    assert response.json()["detail"]["error_code"] == ERROR_PRODUCT_DOOR_UNGOVERNED
+def _reaches_the_boundary(response: Any) -> None:
+    """The read reached the governed dereference rather than a wiring refusal.
+
+    ``SEC-001`` changed what this module's app is. These four legs asserted
+    ``503 product-door-ungoverned`` because the fixture app was built with no
+    auth hook and no entitlement seam — a posture that no longer exists, so a
+    503 here would now mean something is broken rather than something is
+    governed. What they assert instead is that the response is a *governed*
+    outcome: a served record, or the one disclosed shell every absence and
+    every denial share (``D-IMPL-345``; ``D-IMPL-253`` amendment 2 (4)).
+
+    The positive behavior — an authorized read, the ``404`` shell, the ``409``
+    for ``@latest``, the no-oracle equality — is proven against a purpose-built
+    door in ``tests/http_api/test_evidence_dereference.py``.
+    """
+    assert response.status_code != 503, response.text
+    assert response.status_code in {200, 404, 409}, response.text
 
 
 def test_replay_decisions_refuses_on_an_ungoverned_door(
     app: Any, fabric: Fabric
 ) -> None:
-    _ungoverned(
+    _reaches_the_boundary(
         call(
             app,
             "GET",
@@ -698,7 +797,7 @@ def test_replay_decisions_refuses_on_an_ungoverned_door(
 def test_replay_resolutions_refuses_on_an_ungoverned_door(
     app: Any, fabric: Fabric
 ) -> None:
-    _ungoverned(
+    _reaches_the_boundary(
         call(
             app, "GET", "/replay/resolutions", params={"uri": fabric.replay_ref.uri}
         )
@@ -717,13 +816,31 @@ def test_replay_refuses_a_moving_target_only_once_it_may_answer(
     own malformed reference.
     """
     moving = fabric.replay_ref.uri.rsplit("@", 1)[0] + "@latest"
-    _ungoverned(call(app, "GET", "/replay/resolutions", params={"uri": moving}))
+    _reaches_the_boundary(call(app, "GET", "/replay/resolutions", params={"uri": moving}))
 
 
 def test_replay_of_nothing_is_refused_the_same_way_as_something(
     app: Any, fabric: Fabric
 ) -> None:
-    """The ungoverned refusal is not a channel either."""
+    """A nonexistent address and an unentitled one are one observation.
+
+    ``SEC-001`` changed what this leg measures. It used to compare two 503s
+    on an ungoverned door, where sameness was trivial — neither had reached a
+    decision. Both now reach the governed dereference and come back as the
+    one disclosed shell, which is the property that actually matters
+    (``D-IMPL-253`` amendment 2 (4)).
+
+    **Two members are excluded, and naming them is the honest part.**
+    ``replay_reference``, because every determination mints its own record and
+    two denials therefore name two records by construction; and ``request``,
+    because the reference a caller supplied is echoed back in exactly that one
+    place — which is precisely why
+    :func:`~ccf_runtime.http_api.routes.replay._route_path` keeps the rest of
+    the shell constant across asks. Everything else is compared, and
+    everything else is identical. The full no-oracle argument, including that
+    neither excluded member discloses which case occurred, is in
+    ``tests/http_api/test_evidence_dereference.py``.
+    """
     nothing = call(
         app, "GET", "/replay/decisions", params={"content_address": "f" * 64}
     )
@@ -733,26 +850,53 @@ def test_replay_of_nothing_is_refused_the_same_way_as_something(
         "/replay/decisions",
         params={"content_address": fabric.replay_ref.content_address},
     )
-    _ungoverned(nothing)
+    _reaches_the_boundary(nothing)
     assert nothing.status_code == something.status_code
-    assert nothing.json() == something.json()
+
+    varying = {"replay_reference", "request"}
+
+    def _constant_members(body: dict[str, Any]) -> dict[str, Any]:
+        refusal = {
+            key: value
+            for key, value in body["refusal"].items()
+            if key not in varying
+        }
+        return {**body, "refusal": refusal}
+
+    assert _constant_members(nothing.json()) == _constant_members(
+        something.json()
+    )
+    # Both excluded members are present on both responses, so the exclusion
+    # is a narrowing of the comparison rather than a hole in it — and the
+    # `request` echoes differ only because the two asks differed.
+    for body in (nothing.json(), something.json()):
+        assert varying <= set(body["refusal"])
+    assert (
+        nothing.json()["refusal"]["request"]
+        != something.json()["refusal"]["request"]
+    )
 
 
 # --- artifact: put is unchanged; get is governed ---------------------------
 
 
 def test_artifact_put_still_stores_and_returns_its_reference(app: Any) -> None:
-    """`D-IMPL-345` leaves the write path exactly as it was (R-3, §7).
+    """The write path still stores; what it no longer does is take a tenant.
 
-    Artifact PUT remains the named `D-IMPL-73` limitation: bearer-authenticated
-    when a hook is bound, ungoverned by grant, and out of this ruling's scope.
+    ``D-IMPL-345`` left this path alone, and ``SEC-002`` changed exactly one
+    thing about it: the tenant an artifact is filed under used to be a body
+    field, so a recognized bearer filed into any tenant's namespace by typing
+    its name. It now comes from the verified grant, which is why the ``uri``
+    below is asserted against the credential's tenant rather than a literal.
     """
     put = call(
         app,
         "POST",
         "/artifact",
         json={
-            "tenant_id": "acme-bank",
+            # No `tenant_id`: it is the verified grant's (`SEC-002`). The
+            # field is deleted from `ArtifactPutRequest`, so sending it is a
+            # 422 rather than a value the store would have honored.
             "artifact_class": "ccf.test-blob",
             "name": "blob-1",
             "artifact": {"field": "value"},
@@ -761,25 +905,34 @@ def test_artifact_put_still_stores_and_returns_its_reference(app: Any) -> None:
     assert put.status_code == 200
     ref = put.json()
     assert ref["content_address"] == content_hash({"field": "value"})
-    assert ref["uri"].startswith("ccf-artifact://acme-bank/ccf.test-blob/blob-1@")
+    assert ref["uri"].startswith(
+        f"ccf-artifact://{GATE_TENANT}/ccf.test-blob/blob-1@"
+    )
 
 
-def test_artifact_get_refuses_on_an_ungoverned_door(app: Any) -> None:
-    """Including for bytes the same app just stored: a write is not a read."""
+def test_artifact_get_is_a_governed_dereference(app: Any) -> None:
+    """Including for bytes the same app just stored: a write is not a read.
+
+    Renamed with ``SEC-001``: there is no ungoverned door to refuse on. What
+    still holds, and is what this leg was always about, is that filing bytes
+    does not make them readable — a put is not an entitlement.
+    """
     put = call(
         app,
         "POST",
         "/artifact",
         json={
-            "tenant_id": "acme-bank",
+            # No `tenant_id`: it is the verified grant's (`SEC-002`). The
+            # field is deleted from `ArtifactPutRequest`, so sending it is a
+            # 422 rather than a value the store would have honored.
             "artifact_class": "ccf.test-blob",
             "name": "blob-2",
             "artifact": {"field": "value"},
         },
     )
     assert put.status_code == 200
-    _ungoverned(call(app, "GET", f"/artifact/{put.json()['content_address']}"))
-    _ungoverned(call(app, "GET", f"/artifact/{'e' * 64}"))
+    _reaches_the_boundary(call(app, "GET", f"/artifact/{put.json()['content_address']}"))
+    _reaches_the_boundary(call(app, "GET", f"/artifact/{'e' * 64}"))
 
 
 # --- config: Control Plane introspection ------------------------------------
@@ -863,11 +1016,9 @@ def test_backends_is_guarded_exactly_as_schema_is(
     from ccf_runtime.http_api.dependencies import ApiDependencies
     from ccf_runtime.mcp.auth import FileTokenSource
 
-    token_file = tmp_path / "tokens.json"
-    token_file.write_text(
-        json.dumps({"good-token": {"client_id": "alice", "scopes": []}}),
-        encoding="utf-8",
-    )
+    from .gate_fixtures import SCOPE_EVERYTHING, tenanted_source, wide_authorizer
+
+    tenant = fabric.product_address.tenant
     authed = create_app(
         ApiDependencies(
             control_plane=fabric.registry,
@@ -879,15 +1030,27 @@ def test_backends_is_guarded_exactly_as_schema_is(
             skill_catalog=fabric.catalog,
             grant_ledger=fabric.ledger,
         ),
-        auth=BearerTokenAuth(token_source=FileTokenSource(path=token_file)),
+        auth=BearerTokenAuth(
+            token_source=tenanted_source(
+                {"good-token": ("alice", (SCOPE_EVERYTHING,))}, tenant=tenant
+            )
+        ),
+        authorizer=wide_authorizer(tenant=tenant, key="routes-backends/mapping"),
+        product_entitlement=_echo_entitlement(fabric),
+        perspective_resolver=_echo_perspective,
+        refusal_recorder=_recorder(
+            fabric, tmp_path, source=_echo_entitlement(fabric)
+        ),
     )
 
-    unauthenticated = call(authed, "GET", "/backends").status_code
-    assert unauthenticated == call(authed, "GET", "/schema").status_code
+    from .gate_fixtures import probe
+
+    unauthenticated = probe(authed, "GET", "/backends").status_code
+    assert unauthenticated == probe(authed, "GET", "/schema").status_code
     assert unauthenticated == 401
 
     header = {"Authorization": "Bearer good-token"}
-    assert call(authed, "GET", "/backends", headers=header).status_code == 200
+    assert probe(authed, "GET", "/backends", headers=header).status_code == 200
 
 
 def test_backends_refuses_503_naming_the_conflicting_distributions(

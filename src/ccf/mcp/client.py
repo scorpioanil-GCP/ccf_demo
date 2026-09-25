@@ -54,7 +54,12 @@ from mcp.client.streamable_http import streamable_http_client
 from mcp.types import TextContent, TextResourceContents
 from pydantic import AnyUrl
 
-from ccf.mcp.errors import McpServerUnreachable, McpTimeout, McpToolFailed
+from ccf.mcp.errors import (
+    McpClientError,
+    McpServerUnreachable,
+    McpTimeout,
+    McpToolFailed,
+)
 
 __ccf_mode__ = "algorithmic"
 
@@ -84,6 +89,35 @@ SessionOperation = Callable[[ClientSession], Awaitable[T]]
 #: an ``Authorization`` default header on the client the deployment builds
 #: here. No token, header, or credential is held in this module (CINV-01).
 HttpClientFactory = Callable[[], httpx.AsyncClient]
+
+
+def _unwrap_exception_group(error: BaseException) -> BaseException:
+    """The single exception an ``ExceptionGroup`` stands for, or ``error``.
+
+    anyio's task groups wrap whatever a task raised, sometimes twice, so an
+    error that arrived through a session reads as
+    ``ExceptionGroup: unhandled errors in a TaskGroup`` — a sentence that
+    names nothing. Tier 1 made that visible: the MCP servers gained a
+    mandatory tenancy floor that RAISES a named refusal, and the operator
+    saw the wrapper instead.
+
+    A group carrying exactly ONE member is that member, recursively. A group
+    carrying several is left whole on purpose: two concurrent failures have
+    no single cause to name, and picking one would be a guess presented as a
+    fact — which is the defect this function exists to stop, not a licence
+    to commit it more precisely.
+
+    This changes what the fallback branch *says*, never what it decides:
+    :class:`~ccf.mcp.errors.McpServerUnreachable` remains the classification
+    for anything the client cannot classify, deliberately (see
+    :mod:`ccf.mcp.errors`).
+    """
+    while (
+        isinstance(error, BaseExceptionGroup)
+        and len(error.exceptions) == 1
+    ):
+        error = error.exceptions[0]
+    return error
 
 
 async def run_with_session(
@@ -134,9 +168,19 @@ async def run_with_session(
     except asyncio.CancelledError:
         raise
     except Exception as error:
+        named = _unwrap_exception_group(error)
+        if isinstance(named, McpClientError):
+            # An error the client CAN classify is the answer, not a symptom: a
+            # tool that reported an error (a door refusing at its tenancy
+            # floor), a call that timed out. It keeps its type — unwrapped from
+            # the single-member group the transport's task group puts it in —
+            # so a caller's `except McpToolFailed` / `except McpTimeout` fires.
+            # Before SEC353-J-02 this arm did not exist and every such error
+            # was reported as unreachability.
+            raise named from error
         raise McpServerUnreachable(
             f"MCP call against {url!r} did not complete: "
-            f"{type(error).__name__}: {error}"
+            f"{type(named).__name__}: {named}"
         ) from error
     raise AssertionError("unreachable")  # pragma: no cover
 

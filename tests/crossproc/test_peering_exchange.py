@@ -92,6 +92,7 @@ from fastapi import FastAPI
 from joserfc.jwk import ECKey
 
 from ccf.peering.admission import (
+    ADMISSION_RECORD,
     INBOUND_PAYLOAD_CEILING,
     PeeringAdmissionGate,
     AdmissionRefusal,
@@ -133,6 +134,12 @@ from ccf_runtime.peering.typed_http import TypedHttpWire
 from crossproc.conftest import spawn_child_server
 from crossproc.servers import a2a_producer_child as child
 from integration.test_proto_quickstart import _instant, _resolution_spec
+from http_api.composition_authority import (
+    composition_replay_mint,
+    deployment_store,
+    register_at_composition,
+    register_typed_at_composition,
+)
 
 pytestmark = pytest.mark.crossproc
 
@@ -361,7 +368,7 @@ def _grant(key: ECKey, declared: Any) -> PeerTrustGrant:
 
 
 def _product_class(registry: ControlPlaneRegistry) -> RegisteredProductClass:
-    max_ttl_version = registry.register(
+    max_ttl_version = register_at_composition(registry, 
         CONTROL["keys"]["max_ttl"], MaxTTL(seconds=CONTROL["max_ttl_seconds"])
     )
     return register_product_class(
@@ -473,15 +480,15 @@ def consumer(tmp_path: Path, transport: TransportLeg) -> Iterator[Consumer]:
     }
 
     registry = ControlPlaneRegistry()
-    spec_version = registry.register(
+    spec_version = register_at_composition(registry, 
         CONTROL["keys"]["resolution_spec"], _consumer_resolution_spec()
     )
-    policy_version = registry.register(
+    policy_version = register_at_composition(registry, 
         CONTROL["keys"]["policy_bundle"], CONTROL["policy_bundle"]
     )
     assert policy_version == PRODUCER_POLICY_VERSION
 
-    trust_version = registry.register_typed(
+    trust_version = register_typed_at_composition(registry, 
         trust_policy_key(tenant_id=TENANT),
         PeeringTrustPolicy(
             semver=CONSUMER["semver"],
@@ -493,7 +500,7 @@ def consumer(tmp_path: Path, transport: TransportLeg) -> Iterator[Consumer]:
         ),
         PEERING_TRUST_POLICY,
     )
-    ceiling_version = registry.register_typed(
+    ceiling_version = register_typed_at_composition(registry, 
         payload_ceiling_key(tenant_id=TENANT),
         InboundPayloadCeiling(
             semver=CONSUMER["semver"],
@@ -511,6 +518,8 @@ def consumer(tmp_path: Path, transport: TransportLeg) -> Iterator[Consumer]:
         resolution_spec_version=spec_version,
         policy_bundle_key=CONTROL["keys"]["policy_bundle"],
         policy_bundle_version=policy_version,
+        # D-IMPL-354: the tenant(s) this test composes the fabric for.
+        tenant_ids=(TENANT,),
     )
     gate = PeeringAdmissionGate(
         identity=_verifier(key_dir),
@@ -519,8 +528,10 @@ def consumer(tmp_path: Path, transport: TransportLeg) -> Iterator[Consumer]:
         # Where each admitted crossing's ``AdmissionRecord`` lands (D-IMPL-58
         # reading (d)). A real reference store, so this end-to-end exchange
         # exercises the same persistence path a deployment would.
-        artifact_store=FileArtifactStore(root=tmp_path / "admission-records"),
-        tenant_id=TENANT,
+        # Declared for the admission-record class, and the gate holds the
+        # ReplayMint its composition root minted for it (D-IMPL-354).
+        artifact_store=deployment_store(tmp_path / "admission-records", ADMISSION_RECORD.class_id),
+        authorized=composition_replay_mint(registry, tenant=TENANT, artifact_class=ADMISSION_RECORD.class_id),
         trust_policy_version=trust_version,
         payload_ceiling_version=ceiling_version,
         product_classes={PRODUCT_CLASS["schema_name"]: _product_class(registry)},

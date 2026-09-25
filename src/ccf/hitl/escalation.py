@@ -62,6 +62,7 @@ from datetime import datetime
 
 from pydantic import field_validator
 
+from ccf.authz.capability import Authorized, HitlSubmit, verify
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes
 from ccf.controlplane.audit import AuditLog
@@ -83,6 +84,7 @@ __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "ESCALATION_ACTIONS",
+    "ESCALATION_EVENT_CLASS",
     "EscalationActionError",
     "EscalationActionRecord",
     "EscalationHandOff",
@@ -99,6 +101,14 @@ __all__ = [
 #: identifiers, never routing rules — *who* the designated role is comes
 #: from the pinned ``policy_ref`` artifact (CINV-01).
 ESCALATION_ACTIONS: frozenset[str] = frozenset({"approve", "reject"})
+
+#: The :data:`~ccf.hitl.transport.HITL_EVENT_CLASSES` member this primitive
+#: owns. A mechanism identifier, named here for the same reason
+#: :data:`~ccf.hitl.approval_gate.GATE_EVENT_CLASS` is named there: the
+#: workflow engine has to ask whether a routed execution is waiting on an
+#: escalation, and reaching for a bare ``"exception-escalation"`` literal
+#: in ``/runtime`` would put this module's vocabulary outside it.
+ESCALATION_EVENT_CLASS = "exception-escalation"
 
 
 class UnknownEscalationEventError(LookupError):
@@ -324,7 +334,7 @@ class ExceptionEscalation:
             )
         event = PendingHitlEvent(
             event_key=event_key,
-            event_class="exception-escalation",
+            event_class=ESCALATION_EVENT_CLASS,
             tenant=tenant,
             workflow_state_ref=workflow_state_ref,
             product_content_hash=product_content_hash,
@@ -338,8 +348,8 @@ class ExceptionEscalation:
 
     def resolve(
         self,
+        authorized: Authorized[HitlSubmit],
         *,
-        tenant: str,
         event_key: str,
         action: str,
         principal: HumanPrincipalBinding,
@@ -352,6 +362,16 @@ class ExceptionEscalation:
         resolution is unrepresentable through this signature (D-IMPL-21;
         the D-22 type-unrepresentable leg). The TOCTOU guard runs before
         anything is consumed or submitted.
+
+        **The capability first (D-IMPL-353 §1.2).** ``authorized`` is the
+        ``Authorized[HitlSubmit]`` the gate minted for exactly this event;
+        :func:`~ccf.authz.capability.verify` runs before the handle's first
+        real statement, so a fabricated capability, one of another kind, or
+        one minted for another event dies before the queue is read, before
+        anything is audited, and before the claim is taken. The tenant is
+        ``authorized.tenant`` and nothing else — there is no tenant
+        parameter (§1.3) — and the transport records the action under the
+        capability's principal.
 
         **Signed-binding verification (D-IMPL-69; SDK-defined, CLAUDE.md
         §8.2).** When a Control Plane is bound and the HitlPolicy in force
@@ -369,8 +389,10 @@ class ExceptionEscalation:
             :class:`EscalationResolutionRefused` on a hash mismatch.
 
         Raises:
+            ccf.authz.capability.CapabilityBypassError: ``authorized`` is
+                not a genuine ``Authorized[HitlSubmit]`` for ``event_key``.
             UnknownEscalationEventError: ``event_key`` names no pending
-                escalation for ``tenant``, this instance holds no
+                escalation for the capability's tenant, this instance holds no
                 hand-off trigger for the pending event (WR-01 — the
                 transport may be shared while side-band state is
                 per-instance), or a concurrent resolve won the claim
@@ -379,6 +401,8 @@ class ExceptionEscalation:
                 mutation, so no authority action lands unresolved.
             EscalationActionError: ``action`` is not an escalation verdict.
         """
+        verify(authorized, kind=HitlSubmit, resource=event_key)
+        tenant = authorized.tenant
         if action not in ESCALATION_ACTIONS:
             raise EscalationActionError(
                 f"action {action!r} is not an escalation-resolution verdict;"
@@ -391,7 +415,7 @@ class ExceptionEscalation:
                 pending
                 for pending in self._transport.pending(tenant=tenant)
                 if pending.event_key == event_key
-                and pending.event_class == "exception-escalation"
+                and pending.event_class == ESCALATION_EVENT_CLASS
             ),
             None,
         )
@@ -441,7 +465,6 @@ class ExceptionEscalation:
             )
         submission = HitlActionSubmission(
             event_key=event_key,
-            tenant=tenant,
             action=action,
             principal=principal,
             annotation=annotation,
@@ -470,7 +493,10 @@ class ExceptionEscalation:
                 " the claim; this one lost)"
             )
         try:
-            self._transport.submit(submission=submission)
+            # The transport returns the RECORDED copy — stamped with the
+            # authorizing decision id (D-IMPL-353 §9) — and that copy, not
+            # this primitive's input, is what the replay block carries.
+            recorded = self._transport.submit(authorized, submission=submission)
         except BaseException:
             # A refused authority submission never consumes the pending
             # event: the claim is given back (re-enqueued at the tail).
@@ -488,7 +514,7 @@ class ExceptionEscalation:
         record = EscalationActionRecord(
             event=event,
             trigger=trigger,
-            submission=submission,
+            submission=recorded,
             accepted=accepted,
         )
         return EscalationResolution(

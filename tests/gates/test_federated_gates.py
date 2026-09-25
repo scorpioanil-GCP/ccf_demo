@@ -44,6 +44,7 @@ from ccf.products.gates import (
     TTLRefusal,
     run_federated_gates,
 )
+from tests.controlplane.composition import compose_register
 
 TENANT = "tenant-fixture"
 MAX_TTL_KEY = "test/federated/max-ttl"
@@ -64,7 +65,7 @@ def registry() -> ControlPlaneRegistry:
 
 @pytest.fixture
 def product_class(registry: ControlPlaneRegistry) -> RegisteredProductClass:
-    version = registry.register(MAX_TTL_KEY, MaxTTL(seconds=MAX_TTL_SECONDS))
+    version = compose_register(registry, MAX_TTL_KEY, MaxTTL(seconds=MAX_TTL_SECONDS))
     return register_product_class(
         registry=registry,
         schema_name="fixture.federated-exposure-summary",

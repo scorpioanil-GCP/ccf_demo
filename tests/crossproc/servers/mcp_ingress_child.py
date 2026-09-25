@@ -34,7 +34,9 @@ _REPO_ROOT = _TESTS_ROOT.parent
 # Spawned as a bare `python <file>`, so it inherits none of pytest's sys.path
 # work. Resolving the roots from __file__ is what makes the child runnable
 # from any cwd — a property the shared fixture depends on.
-for _root in (_REPO_ROOT / "src", _REPO_ROOT / "runtime", _TESTS_ROOT):
+# The repo root too (last on the path): the shared test helpers import as
+# `tests.composition`, which resolves only from there (D-IMPL-354).
+for _root in (_REPO_ROOT, _REPO_ROOT / "src", _REPO_ROOT / "runtime", _TESTS_ROOT):
     if str(_root) not in sys.path:
         sys.path.insert(0, str(_root))
 

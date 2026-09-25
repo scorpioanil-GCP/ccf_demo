@@ -23,22 +23,26 @@ address — and, because the store performed no shape check, a read path for the
 store's naming index and for paths outside it (`S-02`, closed in
 :func:`~ccf.artifacts.protocol.held_content_address`).
 
-Put is unchanged and remains ungoverned by grant: it stores through the same
-content-addressed, idempotent
-:class:`~ccf.artifacts.protocol.ArtifactStoreProtocol` any client uses. The
-store is a persistence substrate behind mechanism, never a second writer to
-the graph (CLAUDE.md §7.4).
+Put stores through the same content-addressed, idempotent
+:class:`~ccf.artifacts.protocol.ArtifactStoreProtocol` any client uses, under
+the capability the gate minted (``D-IMPL-353`` §1.2): the route's declared
+resource is the store's own target, ``"{artifact_class}/{name}"`` composed
+from the body, so the authorizer decides on exactly the string the store files
+under and ``put(authorized, artifact)`` takes class, name and tenant from the
+capability alone. The store is a persistence substrate behind mechanism, never
+a second writer to the graph (CLAUDE.md §7.4).
 
 Algorithmic module (CINV-03).
 """
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from fastapi.responses import Response
 from starlette.requests import Request
 
 from ccf.artifacts.protocol import ArtifactRef
+from ccf.authz.capability import ArtifactRead, ArtifactWrite
 from ccf.contracts.base import CCFContract
 from ccf.products.refusal import RefusalEnvelope
 from ccf_runtime.authz.delivery_boundary import (
@@ -50,12 +54,10 @@ from ccf_runtime.authz.delivery_boundary import (
 from ccf_runtime.authz.product_entitlement import (
     ProductEntitlementSourceProtocol,
 )
+from ccf_runtime.authz.refusals import ACTION_ARTIFACT_READ, ACTION_ARTIFACT_WRITE
+from ccf_runtime.authz.route_declaration import ResourceBinding, authorizes
 from ccf_runtime.http_api.dependencies import ApiDependencies
-from ccf_runtime.http_api.errors import (
-    ERROR_PRODUCT_DOOR_UNGOVERNED,
-    refusal_detail,
-)
-from ccf_runtime.http_api.grants import grant_from_request
+from ccf_runtime.http_api.grants import authorized_from_request
 from ccf_runtime.http_api.routes import (
     CONTENT_ADDRESS_HEADER,
     governed_refusal_response,
@@ -63,9 +65,15 @@ from ccf_runtime.http_api.routes import (
 
 __ccf_mode__ = "algorithmic"
 
-__all__ = ["ArtifactPutRequest", "build_router"]
+__all__ = ["ARTIFACT_WRITE_RESOURCE", "ArtifactPutRequest", "build_router"]
 
 _JSON = "application/json"
+
+#: The resource an artifact write is decided on: the store's own target,
+#: ``"<class>/<name>"`` — the same segments the naming key uses and the same
+#: template the MCP artifact server's ``put_artifact`` composes (``D-IMPL-353``
+#: §1.2), so a scope mapping names artifacts in one vocabulary at both doors.
+ARTIFACT_WRITE_RESOURCE = "{artifact_class}/{name}"
 
 
 def _route_path(request: Request, reference: str) -> str:
@@ -85,9 +93,30 @@ def _route_path(request: Request, reference: str) -> str:
 
 
 class ArtifactPutRequest(CCFContract):
-    """One put: the addressing facts and the canonicalizable payload."""
+    """One put: the addressing facts and the canonicalizable payload.
 
-    tenant_id: str
+    **There is no ``tenant_id`` here, and its absence is the contract**
+    (``SEC-002``). The field used to be the caller's, which made the tenant an
+    artifact was filed under a thing the caller wrote — so a recognized bearer
+    could file into any tenant's namespace and the store faithfully obliged.
+    The tenant is the **capability's** — selected by the gate from the
+    verified grant's set and read here as ``authorized.tenant``
+    (:func:`~ccf_runtime.http_api.grants.authorized_from_request`; D-IMPL-353
+    §1.3) — and comes from nothing else. Deleted rather than kept-and-checked:
+    a field that must equal a value the door already holds is a field with no
+    readings left, and every one it could still have is wrong.
+
+    Attributes:
+        artifact_class: The class the bytes are filed under.
+        name: The artifact's name within that class. Together with
+            ``artifact_class`` it spells this route's **authorization
+            resource**, :data:`ARTIFACT_WRITE_RESOURCE`, so a deployment states
+            which classes and names a scope may write rather than granting the
+            write verb whole — and the store files under exactly the string
+            the authorizer decided on.
+        artifact: The canonicalizable payload.
+    """
+
     artifact_class: str
     name: str
     artifact: dict[str, object]
@@ -96,19 +125,20 @@ class ArtifactPutRequest(CCFContract):
 def build_router(
     deps: ApiDependencies,
     *,
-    entitlement_source: ProductEntitlementSourceProtocol | None = None,
-    refusal_recorder: DisclosingRecorderProtocol | None = None,
+    entitlement_source: ProductEntitlementSourceProtocol,
+    refusal_recorder: DisclosingRecorderProtocol,
 ) -> APIRouter:
     """The artifact router over the injected store and governance seams.
 
     Args:
         deps: The named provider bundle carrying the artifact store and the
             Control Plane whose audit log every dereference appends to.
-        entitlement_source: The deployment's entitlement seam. ``None`` makes
-            every ``GET`` a ``503`` (``D-IMPL-345`` R-1); ``put`` is
-            unaffected, as that path makes no governed determination.
+        entitlement_source: The deployment's entitlement seam. **Required**
+            (``SEC-001``): there is no longer a configuration of
+            ``create_app`` that omits it, so the rule ``D-IMPL-345`` R-1 used
+            to hold with a per-request ``503`` is held by the signature.
         refusal_recorder: The ONE minting seam, which also states the
-            disclosure level.
+            disclosure level. **Required**, same reason.
     """
     router = APIRouter()
 
@@ -117,32 +147,28 @@ def build_router(
         response_model=ArtifactRef,
         summary="Artifact put (D-IMPL-23)",
     )
-    def put(request: ArtifactPutRequest) -> ArtifactRef:
-        return deps.artifact_store.put(
-            tenant_id=request.tenant_id,
-            artifact_class=request.artifact_class,
-            name=request.name,
-            artifact=request.artifact,
-        )
+    @authorizes(
+        ACTION_ARTIFACT_WRITE,
+        resource=ResourceBinding.body_composed(ARTIFACT_WRITE_RESOURCE),
+    )
+    def put(body: ArtifactPutRequest, request: Request) -> ArtifactRef:
+        # D-IMPL-353 §1.4: `Authorized[ArtifactWrite]` for THIS "<class>/<name>",
+        # or nothing. §1.2: the store takes the tenant, the class and the name
+        # from the capability — the handler hands it the payload and nothing
+        # about where it lands.
+        authorized = authorized_from_request(request, kind=ArtifactWrite)
+        return deps.artifact_store.put(authorized, body.artifact)
 
     @router.get("/{content_address}", summary="Artifact get (D-IMPL-23)")
+    @authorizes(
+        ACTION_ARTIFACT_READ, resource=ResourceBinding.path("content_address")
+    )
     def get(content_address: str, request: Request) -> Response:
-        grant = grant_from_request(request)
-        if entitlement_source is None or refusal_recorder is None or grant is None:
-            raise HTTPException(
-                status_code=503,
-                detail=refusal_detail(
-                    error_code=ERROR_PRODUCT_DOOR_UNGOVERNED,
-                    message=(
-                        "this door dereferences governed evidence without a"
-                        " bound entitlement source, recorder and verified"
-                        " caller; bind auth=, product_entitlement= and"
-                        " refusal_recorder= at create_app (D-IMPL-345 R-1)"
-                    ),
-                ),
-            )
+        # D-IMPL-353 §1.4: `Authorized[ArtifactRead]` for THIS address, or
+        # nothing — and the governed step verifies it again, bound to the
+        # reference, before its first real statement (§1.2).
         decided = govern_dereference(
-            grant=grant,
+            authorized_from_request(request, kind=ArtifactRead),
             reference=DereferenceRequest(
                 reference=content_address, by_uri=False, wants_bytes=True
             ),

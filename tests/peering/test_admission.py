@@ -79,6 +79,9 @@ from ccf.products.contract import (
     register_product_class,
 )
 from ccf.products.gates import TTLRefusal
+from tests.composition import register_at_composition, register_typed_at_composition
+from tests.composition import composition_replay_mint, declaring_store
+from ccf.peering.admission import ADMISSION_RECORD
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "banking"
 
@@ -208,7 +211,7 @@ def registry() -> ControlPlaneRegistry:
 
 @pytest.fixture
 def product_class(registry: ControlPlaneRegistry) -> RegisteredProductClass:
-    registry.register("max-ttl/fixture", MaxTTL(seconds=300))
+    register_at_composition(registry, "max-ttl/fixture", MaxTTL(seconds=300))
     version, _ = registry.resolve_latest("max-ttl/fixture")
     return register_product_class(
         registry=registry,
@@ -224,8 +227,7 @@ def product_class(registry: ControlPlaneRegistry) -> RegisteredProductClass:
 def _register_ceiling(
     registry: ControlPlaneRegistry, *, tenant_id: str, max_bytes: int = CEILING_BYTES
 ) -> str:
-    return registry.register_typed(
-        payload_ceiling_key(tenant_id=tenant_id),
+    return register_typed_at_composition(registry, payload_ceiling_key(tenant_id=tenant_id),
         InboundPayloadCeiling(semver=POLICY_SEMVER, max_payload_bytes=max_bytes),
         INBOUND_PAYLOAD_CEILING,
     )
@@ -237,8 +239,7 @@ def _register_policy(
     tenant_id: str,
     peers: Mapping[str, PeerTrustGrant],
 ) -> str:
-    return registry.register_typed(
-        trust_policy_key(tenant_id=tenant_id),
+    return register_typed_at_composition(registry, trust_policy_key(tenant_id=tenant_id),
         PeeringTrustPolicy(semver=POLICY_SEMVER, tenant_id=tenant_id, peers=dict(peers)),
         PEERING_TRUST_POLICY,
     )
@@ -252,7 +253,7 @@ def artifact_store(tmp_path: Path) -> FileArtifactStore:
     depends on a successful ``put``, and a double that silently accepted anything
     would make every admission in this file pass for the wrong reason.
     """
-    return FileArtifactStore(root=tmp_path / "admission-records")
+    return declaring_store(tmp_path / "admission-records", ADMISSION_RECORD.class_id)
 
 
 def _gate(
@@ -270,7 +271,11 @@ def _gate(
         control_plane=registry,
         audit_log=registry.audit_log,
         artifact_store=artifact_store,
-        tenant_id=tenant_id,
+        # D-IMPL-354: the test is the gate's composition root; it mints the
+        # ReplayMint for the admission-record class under the gate's tenant.
+        authorized=composition_replay_mint(
+            registry, tenant=tenant_id, artifact_class=ADMISSION_RECORD.class_id
+        ),
         trust_policy_version=policy_version,
         payload_ceiling_version=ceiling_version,
         product_classes={PRODUCT_CLASS["schema_name"]: product_class},
@@ -906,3 +911,59 @@ def test_a_wire_protocol_implementation_can_name_no_write_surface() -> None:
             ), f"PeeringProtocol.{name} names a fabric write surface: {annotation}"
         for forbidden in ("L2", "assembly", "graph", "Graph"):
             assert forbidden not in str(signature.return_annotation)
+
+
+# --- D-IMPL-353 §1.2 / D-IMPL-354: the gate holds the admission-record capability --------
+
+
+def test_the_gate_admits_for_the_capabilitys_tenant_and_refuses_another_class_or_a_forgery(
+    provider: DetachedJwsIdentityProvider,
+    keys: dict[str, ECKey],
+    registry: ControlPlaneRegistry,
+    product_class: RegisteredProductClass,
+    artifact_store: FileArtifactStore,
+) -> None:
+    from ccf.authz.capability import CapabilityBypassError, ReplayMint
+
+    from tests.controlplane.capabilities import fabrications
+
+    policy_version = _register_policy(
+        registry, tenant_id=TENANT,
+        peers={PEER_A: _grant(kid=PEER_A_KID, key=keys[PEER_A_KID], producer=PEER_A_PRODUCER)},
+    )
+    ceiling_version = _register_ceiling(registry, tenant_id=TENANT)
+
+    def _build(authorized: object) -> PeeringAdmissionGate:
+        return PeeringAdmissionGate(
+            identity=provider, control_plane=registry, audit_log=registry.audit_log,
+            artifact_store=artifact_store, authorized=authorized,  # type: ignore[arg-type]
+            trust_policy_version=policy_version, payload_ceiling_version=ceiling_version,
+            product_classes={PRODUCT_CLASS["schema_name"]: product_class},
+        )
+
+    # The tenant is the capability's — there is no parameter for it.
+    gate = _build(composition_replay_mint(registry, tenant=TENANT, artifact_class=ADMISSION_RECORD.class_id))
+    assert gate.tenant_id == TENANT
+    # A ReplayMint for some OTHER evidence class does not build an admission gate.
+    with pytest.raises(CapabilityBypassError, match="resource"):
+        _build(composition_replay_mint(registry, tenant=TENANT, artifact_class="ccf.replay-record"))
+    for label, forged in fabrications(ReplayMint, tenant=TENANT, resource=ADMISSION_RECORD.class_id):
+        with pytest.raises(CapabilityBypassError):
+            _build(forged)
+    assert not list(artifact_store.root.glob("[0-9a-f]" * 64)), "a refused gate filed nothing"
+
+
+def test_an_admission_record_is_filed_under_the_capabilitys_tenant(
+    provider: DetachedJwsIdentityProvider,
+    two_peer_gate: PeeringAdmissionGate,
+    artifact_store: FileArtifactStore,
+) -> None:
+    outcome = two_peer_gate.admit(
+        inbound=_inbound(provider, peer_id=PEER_A, kid=PEER_A_KID, producer=PEER_A_PRODUCER),
+        consumer_lineage=consumer_lineage(),
+        now=_now(),
+    )
+    assert isinstance(outcome, AdmittedProduct)
+    filed = [e for e in two_peer_gate._audit.events() if e.action == "peering_admitted"]
+    assert filed, "the admission was audited"
+    assert artifact_store.versions(tenant_id=TENANT, artifact_class=ADMISSION_RECORD.class_id, name=filed[-1].key)

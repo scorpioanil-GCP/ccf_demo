@@ -51,6 +51,8 @@ from ccf.products.composite import (
 )
 from ccf.skills.dispatch import PeeringInvocation
 
+from tests.composition import register_skill_entry, register_typed_at_composition
+from tests.skills.authority import grant_capability, revoke_capability
 from tests.peering.test_admission_attributability import (  # noqa: F401
     PEER,
     PEER_KID,
@@ -177,8 +179,7 @@ def test_r1_an_honest_signed_envelope_reaches_COMPOSITION(
     assert isinstance(admitted, AdmittedProduct), admitted
 
     # The consumer declares how old a producer's check may be (`F7`).
-    registry.register_typed(
-        eligibility_evidence_policy_key(tenant_id=TENANT),
+    register_typed_at_composition(registry, eligibility_evidence_policy_key(tenant_id=TENANT),
         EligibilityEvidencePolicy(
             max_evidence_age_seconds=3600, permitted_clock_skew_seconds=60
         ),
@@ -323,8 +324,7 @@ def test_r1_a_stale_producer_check_still_refuses_on_the_real_envelope(
         now=now,
     )
     assert isinstance(admitted, AdmittedProduct), admitted
-    registry.register_typed(
-        eligibility_evidence_policy_key(tenant_id=TENANT),
+    register_typed_at_composition(registry, eligibility_evidence_policy_key(tenant_id=TENANT),
         EligibilityEvidencePolicy(
             max_evidence_age_seconds=3600, permitted_clock_skew_seconds=60
         ),
@@ -383,7 +383,7 @@ def _granted_producer(registry: object, requirement: object) -> object:
 
     regime_key = f"{TENANT}/policy-bundle/peered-composite"
     regime_class = declared_artifact_class("policy-bundle")
-    registry.register_typed(  # type: ignore[attr-defined]
+    register_typed_at_composition(registry, # type: ignore[attr-defined]
         regime_key,
         parse_artifact(
             {
@@ -421,7 +421,9 @@ def _granted_producer(registry: object, requirement: object) -> object:
         instruction_bindings=(),
     )
     catalog = SkillCatalog(registry)
-    catalog.register(
+    register_skill_entry(
+        catalog,
+        registry,
         SkillCatalogEntry(
             schema_version="1.0.0",
             artifact_version="1.0.0",
@@ -442,6 +444,7 @@ def _granted_producer(registry: object, requirement: object) -> object:
     )
     assert isinstance(
         ledger.request(
+            grant_capability(definition),
             SkillGrant(
                 schema_version="1.0.0",
                 artifact_version="1.0.0",
@@ -452,7 +455,6 @@ def _granted_producer(registry: object, requirement: object) -> object:
                 skill_version="1.0.0",
             ),
             definition=definition,
-            actor="peered-operator",
         ),
         str,
     )

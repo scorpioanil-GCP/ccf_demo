@@ -53,6 +53,7 @@ from ccf.peering.identity import (
     FileBackedKeySource,
     JsonWebKey,
 )
+from tests.controlplane.composition import compose_register_typed
 
 ACTION_TIME = datetime(2026, 7, 30, 12, 0, 0, tzinfo=UTC)
 
@@ -64,6 +65,8 @@ OPS_PER_THREAD = 300
 JOIN_TIMEOUT_SECONDS = 30.0
 #: Deterministic base seed — per-thread seed is BASE_SEED + thread index.
 BASE_SEED = 90_302
+
+from .capabilities import submit_capability
 
 TENANTS = ("acme-bank", "globex", "initech")
 
@@ -105,7 +108,6 @@ def _event(**mutations: Any) -> PendingHitlEvent:
 def _submission(**mutations: Any) -> HitlActionSubmission:
     document: dict[str, Any] = {
         "event_key": "acme-bank/approvals/1",
-        "tenant": "acme-bank",
         "action": "approve",
         "principal": _binding(),
         "annotation": None,
@@ -167,11 +169,15 @@ def test_mixed_op_hammer_loses_and_duplicates_nothing() -> None:
                     snapshot = transport.pending(tenant=tenant)
                     assert isinstance(snapshot, tuple)
                 elif op == 3:
+                    key = f"{tenant}/hammer/{index}/{i}"
+                    # A capability per submit, minted for exactly this
+                    # tenant and event (D-IMPL-353 §1.2) — the tenant the
+                    # record files under is the capability's.
                     transport.submit(
-                        submission=_submission(
-                            event_key=f"{tenant}/hammer/{index}/{i}",
-                            tenant=tenant,
-                        )
+                        submit_capability(
+                            tenant=tenant, principal="approver-1", event_key=key
+                        ),
+                        submission=_submission(event_key=key),
                     )
                     submitted[index] += 1
                 else:
@@ -307,7 +313,7 @@ def test_d16_wired_submit_path_hammers_without_lock_ordering_issues(
         {"semver": "1.0.0", "signed_binding_required": True}, HITL_POLICY
     )
     assert isinstance(policy, HitlPolicy)
-    plane.register_typed(POLICY_KEY, policy, HITL_POLICY)
+    compose_register_typed(plane, POLICY_KEY, policy, HITL_POLICY)
     transport = InMemoryHitlTransport(
         control_plane=plane,
         hitl_policy_key=POLICY_KEY,
@@ -329,12 +335,18 @@ def test_d16_wired_submit_path_hammers_without_lock_ordering_issues(
         try:
             barrier.wait(timeout=JOIN_TIMEOUT_SECONDS)
             for i in range(submits_per_thread):
+                key = f"acme-bank/hammer/{index}/{i}"
                 transport.submit(
+                    submit_capability(
+                        tenant="acme-bank",
+                        principal=binding.approver.subject_id,
+                        event_key=key,
+                    ),
                     submission=_submission(
-                        event_key=f"acme-bank/hammer/{index}/{i}",
+                        event_key=key,
                         principal=binding,
                         signed_binding=signed,
-                    )
+                    ),
                 )
         except BaseException as error:  # noqa: BLE001
             errors.append(error)

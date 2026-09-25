@@ -135,8 +135,9 @@ from ccf_runtime.authz.product_entitlement import (
     ControlPlaneProductEntitlementSource,
 )
 from ccf_runtime.http_api.app import create_app
-from ccf_runtime.http_api.auth import BearerTokenAuth
 from ccf_runtime.http_api.dependencies import ApiDependencies
+
+from http_api.gate_fixtures import SCOPE_EVERYTHING, authority
 from ccf_runtime.mcp.auth import (
     FileTokenSource,
     SourceBackedTokenVerifier,
@@ -145,14 +146,25 @@ from ccf_runtime.mcp.auth import (
 from ccf.contracts.canonical import canonical_bytes
 from ccf.products.door import WireRequest
 from ccf_runtime.mcp.egress import PRODUCT_REQUEST_TOOL, build_egress_server
+from tests.mcp.guarded_servers import wide_authorizer
 
 from crossproc.servers.mcp_egress_child import ProductAddress, build_servable_product
+from ccf.controlplane.registry import ControlPlaneRegistry
+from http_api.composition_authority import (
+    deployment_store,
+    refusal_recorder,
+    register_typed_at_composition,
+)
 
 #: Test deployment vocabulary; the SDK ships none of it.
 TOKEN = "egress-parameters-token"
 PRINCIPAL = "egress-parameters-caller"
 SCOPE = "ccf:egress-parameters"
 ROLE = "egress-parameters-role"
+#: This suite's own scope-mapping key. The authorizer pins one version at
+#: one key, so a key of its own is what keeps another suite's mapping from
+#: deciding about this suite's vocabulary.
+MAPPING_KEY = "egress-parameters/scope-mapping"
 SERVER_NAME = "ccf-egress-parameters"
 
 #: The artifact class this module's doors file a denial under. Nothing here
@@ -396,10 +408,25 @@ def _verdict(
 # ---------------------------------------------------------------------------
 
 
-def _token_file(root: Path) -> Path:
+def _token_file(root: Path, *, tenant: str) -> Path:
+    """The door's token file, whose one credential is scoped to ``tenant``.
+
+    ``tenant`` is required rather than defaulted (``SEC-018``): a credential
+    that names no tenant reaches nothing, so a fixture that forgot it would
+    fail loudly instead of quietly minting the unscoped bearer this finding is
+    about.
+    """
     path = root / "egress-parameters-tokens.json"
     path.write_text(
-        json.dumps({TOKEN: {"client_id": PRINCIPAL, "scopes": [SCOPE]}}),
+        json.dumps(
+            {
+                TOKEN: {
+                    "client_id": PRINCIPAL,
+                    "scopes": [SCOPE],
+                    "tenants": [tenant],
+                }
+            }
+        ),
         encoding="utf-8",
     )
     return path
@@ -407,7 +434,7 @@ def _token_file(root: Path) -> Path:
 
 def _entitlement(address: ProductAddress) -> ControlPlaneProductEntitlementSource:
     registry = ControlPlaneRegistry()
-    registry.register_typed(
+    register_typed_at_composition(registry, 
         product_entitlement_key(tenant_id=address.tenant),
         ProductEntitlementPolicy(
             tenant_id=address.tenant,
@@ -461,10 +488,11 @@ def _recorder(root: Path, *, tenant: str) -> ReplayRefusalRecorder:
     Nothing here denies — these doors serve — but a door that entitles does not
     build without somewhere to record a denial, and that is the point.
     """
-    return ReplayRefusalRecorder(
-        artifact_store=FileArtifactStore(root=root / "artifacts"),
+    return refusal_recorder(
+        ControlPlaneRegistry(),
+        store=deployment_store(root / "artifacts", REPLAY_RECORD_CLASS),
+        tenant=tenant,
         replay_record_class=REPLAY_RECORD_CLASS,
-        tenant_id=tenant,
         assembly_mode="algorithmic",
     )
 
@@ -477,13 +505,14 @@ def _mcp_server(
         server_name=SERVER_NAME,
         resolver=_recording_resolver(servable, carried),  # type: ignore[arg-type]
         token_verifier=SourceBackedTokenVerifier(
-            source=FileTokenSource(path=_token_file(root))
+            source=FileTokenSource(path=_token_file(root, tenant=address.tenant))
         ),
         auth_settings=AuthSettings(
             issuer_url=AnyHttpUrl("https://issuer.invalid"),
             resource_server_url=AnyHttpUrl(f"{IN_PROCESS_BASE_URL}/mcp"),
             required_scopes=[SCOPE],
         ),
+        authorizer=wide_authorizer(scopes=(SCOPE,)),
         entitlement_source=_entitlement(address),
         perspective_resolver=(
             lambda *, grant, tenant, requested_role: Perspective(
@@ -630,27 +659,43 @@ def _ask_mcp(assembled: Any, tmp_path: Path) -> AskDoor:
 def _http_app(
     root: Path, *, servable: object, address: ProductAddress, carried: list[Any]
 ) -> Any:
-    """The real HTTP product door, authenticated and entitled."""
+    """The real HTTP product door, authenticated, authorized and entitled.
+
+    The five authority seams come from
+    :func:`~http_api.gate_fixtures.authority` as one bundle. None of them is
+    this module's subject — it compares the width of two doors — and building
+    five seams by hand in a module that is about something else is five
+    chances to build a permissive one.
+
+    The credential is the tenanted one that helper mints, not the dev
+    ``FileTokenSource`` beside it: that source mints a grant with no scalar
+    ``tenant``, and the HTTP door refuses it (``SEC-002``). The MCP leg keeps
+    the token file, because the MCP tenancy floor reads the plural ``tenants``
+    claim instead — the two doors read different shapes of the same fact, and
+    that asymmetry is the SDK's, not this fixture's.
+    """
     return create_app(
         ApiDependencies(
             control_plane=ControlPlaneRegistry(),
-            artifact_store=FileArtifactStore(root=root / "artifacts"),
+            artifact_store=deployment_store(root / "artifacts", REPLAY_RECORD_CLASS),
             product_resolver=_recording_resolver(servable, carried),  # type: ignore[arg-type]
         ),
-        auth=BearerTokenAuth(
-            token_source=FileTokenSource(path=_token_file(root))
+        **authority(
+            tenant=address.tenant,
+            key=MAPPING_KEY,
+            grants={TOKEN: (PRINCIPAL, (SCOPE_EVERYTHING,), address.tenant)},
+            product_entitlement=_entitlement(address),
+            perspective_resolver=(
+                lambda *, grant, tenant, requested_role: Perspective(
+                    principal_id=grant.client_id, role=ROLE
+                )
+            ),
+            # The HTTP twin binds the same seam on the same rule
+            # (`D-IMPL-256` (2)). `create_app`'s own keyword and its
+            # construction-time check are plan `24.6-09`'s, in this same wave;
+            # this call site is plan `24.6-10`'s.
+            refusal_recorder=_recorder(root, tenant=address.tenant),
         ),
-        product_entitlement=_entitlement(address),
-        perspective_resolver=(
-            lambda *, grant, tenant, requested_role: Perspective(
-                principal_id=grant.client_id, role=ROLE
-            )
-        ),
-        # The HTTP twin binds the same seam on the same rule
-        # (`D-IMPL-256` (2)). `create_app`'s own keyword and its
-        # construction-time check are plan `24.6-09`'s, in this same wave; this
-        # call site is plan `24.6-10`'s.
-        refusal_recorder=_recorder(root, tenant=address.tenant),
     )
 
 

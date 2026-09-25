@@ -124,7 +124,7 @@
       },
       "ArtifactPutRequest": {
         "additionalProperties": false,
-        "description": "One put: the addressing facts and the canonicalizable payload.",
+        "description": "One put: the addressing facts and the canonicalizable payload.\n\n**There is no ``tenant_id`` here, and its absence is the contract**\n(``SEC-002``). The field used to be the caller's, which made the tenant an\nartifact was filed under a thing the caller wrote \u2014 so a recognized bearer\ncould file into any tenant's namespace and the store faithfully obliged.\nThe tenant is the **capability's** \u2014 selected by the gate from the\nverified grant's set and read here as ``authorized.tenant``\n(:func:`~ccf_runtime.http_api.grants.authorized_from_request`; D-IMPL-353\n\u00a71.3) \u2014 and comes from nothing else. Deleted rather than kept-and-checked:\na field that must equal a value the door already holds is a field with no\nreadings left, and every one it could still have is wrong.\n\nAttributes:\n    artifact_class: The class the bytes are filed under.\n    name: The artifact's name within that class. Together with\n        ``artifact_class`` it spells this route's **authorization\n        resource**, :data:`ARTIFACT_WRITE_RESOURCE`, so a deployment states\n        which classes and names a scope may write rather than granting the\n        write verb whole \u2014 and the store files under exactly the string\n        the authorizer decided on.\n    artifact: The canonicalizable payload.",
         "properties": {
           "artifact": {
             "additionalProperties": true,
@@ -138,14 +138,9 @@
           "name": {
             "title": "Name",
             "type": "string"
-          },
-          "tenant_id": {
-            "title": "Tenant Id",
-            "type": "string"
           }
         },
         "required": [
-          "tenant_id",
           "artifact_class",
           "name",
           "artifact"
@@ -342,12 +337,8 @@
       },
       "GrantRequest": {
         "additionalProperties": false,
-        "description": "One grant request: the grant artifact plus its pinned definition ref.",
+        "description": "One grant request: the grant artifact plus its pinned definition ref.\n\nNo ``actor``: the audited requester is the verified caller (``SEC-002``;\nthe ``D-IMPL-67`` derivation precedent). ``definition_key`` is this\nroute's authorization resource, so a deployment states which agent\ndefinitions a scope may skill rather than granting the verb whole.",
         "properties": {
-          "actor": {
-            "title": "Actor",
-            "type": "string"
-          },
           "definition_key": {
             "title": "Definition Key",
             "type": "string"
@@ -363,28 +354,22 @@
         "required": [
           "grant",
           "definition_key",
-          "definition_version",
-          "actor"
+          "definition_version"
         ],
         "title": "GrantRequest",
         "type": "object"
       },
       "GrantRevocationRequest": {
         "additionalProperties": false,
-        "description": "One revocation: the grant's D-07 identity and the acting principal.\n\nAdded for the D-IMPL-22 CLI surface (07-11): \u00a78.3 rules \"skill\ngrant/revoke\" for the CLI, the CLI is a thin client with zero\nprivileged paths, so the revoke verb requires this route \u2014 the same\naudited :meth:`~ccf.skills.grants.GrantLedger.revoke` transition any\nin-process client takes.",
+        "description": "One revocation: the grant's D-07 identity, and nothing else.\n\nAdded for the D-IMPL-22 CLI surface (07-11): \u00a78.3 rules \"skill\ngrant/revoke\" for the CLI, the CLI is a thin client with zero\nprivileged paths, so the revoke verb requires this route \u2014 the same\naudited :meth:`~ccf.skills.grants.GrantLedger.revoke` transition any\nin-process client takes.\n\nNo ``actor``: the audited revoker is the verified caller (``SEC-002``).",
         "properties": {
-          "actor": {
-            "title": "Actor",
-            "type": "string"
-          },
           "grant_hash": {
             "title": "Grant Hash",
             "type": "string"
           }
         },
         "required": [
-          "grant_hash",
-          "actor"
+          "grant_hash"
         ],
         "title": "GrantRevocationRequest",
         "type": "object"
@@ -432,9 +417,57 @@
         "title": "HitlActionReceipt",
         "type": "object"
       },
+      "HitlActionRequest": {
+        "additionalProperties": false,
+        "description": "What a caller may say about a human action at a served door (D-IMPL-353 \u00a72 P6).\n\nSDK-defined (CLAUDE.md \u00a78.2/\u00a78.3). The request half of the authority\npath \u2014 the HTTP ``POST /hitl/actions`` body, and the field set the MCP\n``submit_hitl_action`` tool takes as arguments. Deliberately **not** the\nsubmission: the :class:`~ccf.hitl.principal.HumanPrincipalBinding` is\nminted by the door from the capability, the verified credential's\n:class:`~ccf.hitl.principal.AuthenticationClaims` and the door's clock\n(:func:`ccf_runtime.identity_binding.principal_from_authorized`), so this\ncontract has no ``principal``, no ``subject_id``, no\n``identity_provider_ref``, no ``method``, no ``assurance_level``, no\n``session_ref``, no ``action_time`` and no ``tenant``. ``extra=forbid``\nmakes a body that still sends any of them a boundary refusal \u2014 and a\ncaller-typed step-up-MFA claim unrepresentable rather than refused.\n\nWhat remains is what only the human can state: which event, which\naction, the content hash of what they actually saw, an optional\nannotation, and \u2014 where the HITL policy requires non-repudiation \u2014 a\nsigned copy of the binding the door will mint (D-16).",
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "annotation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "ccf_hash_transparent": true,
+            "title": "Annotation"
+          },
+          "event_key": {
+            "title": "Event Key",
+            "type": "string"
+          },
+          "product_content_hash": {
+            "title": "Product Content Hash",
+            "type": "string"
+          },
+          "signed_binding": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SignedPrincipalBinding"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "ccf_hash_transparent": true
+          }
+        },
+        "required": [
+          "event_key",
+          "action",
+          "product_content_hash"
+        ],
+        "title": "HitlActionRequest",
+        "type": "object"
+      },
       "HitlActionSubmission": {
         "additionalProperties": false,
-        "description": "One human action returning through the authority path (D-IMPL-20/21).\n\nSDK-defined. ``principal`` is required by type: there is no way to\nconstruct a submission without a complete\n:class:`~ccf.hitl.principal.HumanPrincipalBinding`, which is how the\nno-unrecorded-human-action commitment (CLAUDE.md \u00a78.2) is enforced at\nthe contract boundary rather than audited after the fact.",
+        "description": "One human action returning through the authority path (D-IMPL-20/21).\n\nSDK-defined. ``principal`` is required by type: there is no way to\nconstruct a submission without a complete\n:class:`~ccf.hitl.principal.HumanPrincipalBinding`, which is how the\nno-unrecorded-human-action commitment (CLAUDE.md \u00a78.2) is enforced at\nthe contract boundary rather than audited after the fact.\n\n**No tenant field (D-IMPL-353 \u00a71.3).** The tenant a submission is filed\nunder is the capability's \u2014 ``authorized.tenant`` at\n:meth:`HITLTransportProtocol.submit` \u2014 and a second source on the\ncontract would be a value a door could forget to compare. Deleted, not\ndeprecated: a document that still carries one is refused at the boundary.",
         "properties": {
           "action": {
             "title": "Action",
@@ -450,6 +483,42 @@
               }
             ],
             "title": "Annotation"
+          },
+          "answered_event_class": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "ccf_hash_transparent": true,
+            "title": "Answered Event Class"
+          },
+          "answered_workflow_state_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "ccf_hash_transparent": true,
+            "title": "Answered Workflow State Ref"
+          },
+          "authorizing_decision_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "ccf_hash_transparent": true,
+            "title": "Authorizing Decision Id"
           },
           "event_key": {
             "title": "Event Key",
@@ -467,15 +536,10 @@
                 "type": "null"
               }
             ]
-          },
-          "tenant": {
-            "title": "Tenant",
-            "type": "string"
           }
         },
         "required": [
           "event_key",
-          "tenant",
           "action",
           "principal"
         ],
@@ -484,7 +548,7 @@
       },
       "HumanPrincipalBinding": {
         "additionalProperties": false,
-        "description": "One human action's complete principal binding (D-IMPL-21; CLAUDE.md \u00a78.2).\n\nSDK-defined. The four D-IMPL-21 fields, all required: approver identity,\nauthentication context, action time (injected), and the content hash of\nthe Context Product the approver saw. Audit-by-construction holds\nregardless of identity provider: no HITL action lands without a binding,\nbecause the HITL action contracts require this type as a field \u2014\nomission is a validation error at the boundary, never a null in the\nreplay record.",
+        "description": "One human action's complete principal binding (D-IMPL-21; CLAUDE.md \u00a78.2).\n\nSDK-defined. The four D-IMPL-21 fields, all required: approver identity,\nauthentication context, action time (injected), and the content hash of\nthe Context Product the approver saw. Audit-by-construction holds\nregardless of identity provider: no HITL action lands without a binding,\nbecause the HITL action contracts require this type as a field \u2014\nomission is a validation error at the boundary, never a null in the\nreplay record.\n\nAt the served doors this is minted by\n:func:`ccf_runtime.identity_binding.principal_from_authorized` from the\ncapability, the verified :class:`AuthenticationClaims` and the door's\nclock \u2014 the caller supplies only the product hash (D-IMPL-353 \u00a72 P6).",
         "properties": {
           "action_time": {
             "format": "date-time",
@@ -1278,7 +1342,7 @@
       },
       "WorkflowStateRecord": {
         "additionalProperties": false,
-        "description": "One execution's live state on the Control Plane seam (D-IMPL-18/27).\n\nSDK-defined. The typed, opaque record the engine writes through the\naudited surface and validates on read (isinstance, foreign-record typed\nerror) \u2014 the ``GrantStateRecord`` discipline applied to workflows. Keyed\n``(tenant, execution_id)`` so two tenants running the same workflow\ndefinition concurrently never collide (D-23).\n\nAttributes:\n    tenant: Owning tenant of this execution.\n    execution_id: Caller-supplied execution identity within the tenant.\n    current_state: The node the machine is at.\n    status: Where the machine is in its lifecycle\n        (:data:`WORKFLOW_STATUSES`).\n    trace: Every transition recorded so far, in order.\n    workflow_definition_uri: The pinned versioned URI of the workflow\n        definition this execution runs (D-IMPL-26) \u2014 resume validates\n        the supplied handle against it, so an execution never continues\n        under a definition it was not started with.",
+        "description": "One execution's live state on the Control Plane seam (D-IMPL-18/27).\n\nSDK-defined. The typed, opaque record the engine writes through the\naudited surface and validates on read (isinstance, foreign-record typed\nerror) \u2014 the ``GrantStateRecord`` discipline applied to workflows. Keyed\n``(tenant, execution_id)`` so two tenants running the same workflow\ndefinition concurrently never collide (D-23).\n\nAttributes:\n    tenant: Owning tenant of this execution.\n    execution_id: Caller-supplied execution identity within the tenant.\n    current_state: The node the machine is at.\n    status: Where the machine is in its lifecycle\n        (:data:`WORKFLOW_STATUSES`).\n    trace: Every transition recorded so far, in order.\n    workflow_definition_uri: The pinned versioned URI of the workflow\n        definition this execution runs (D-IMPL-26).\n    workflow_definition_hash: The content hash of that definition \u2014\n        what actually binds the execution to it. The URI alone does\n        not: it is built from the artifact's OWN declared tenant, name\n        and artifact_version, so a second definition registered under a\n        different Control Plane key carries an identical URI while\n        declaring different routing. Resume compares this, so an\n        execution never continues under a definition it was not started\n        with \u2014 the thing the URI check already claimed and could not\n        deliver (SEC-001, security review 2026-09-23).",
         "properties": {
           "current_state": {
             "title": "Current State",
@@ -1303,6 +1367,10 @@
             "title": "Trace",
             "type": "array"
           },
+          "workflow_definition_hash": {
+            "title": "Workflow Definition Hash",
+            "type": "string"
+          },
           "workflow_definition_uri": {
             "title": "Workflow Definition Uri",
             "type": "string"
@@ -1314,7 +1382,8 @@
           "current_state",
           "status",
           "trace",
-          "workflow_definition_uri"
+          "workflow_definition_uri",
+          "workflow_definition_hash"
         ],
         "title": "WorkflowStateRecord",
         "type": "object"
@@ -1356,7 +1425,7 @@
     }
   },
   "info": {
-    "description": "Typed HTTP front door over the fabric's existing extra=forbid contracts, mirroring the D-IMPL-22/23 ruled noun set (CLAUDE.md \u00a78.3; EXPR-03). This API performs no authentication or authorization in v0: every request acts with the full authority of the injected fabric handles, it must be deployed inside the tenant trust boundary, and any future authentication is a new contract, not a configuration of this one. A deployment may bind an optional bearer-auth hook at create_app (ccf_runtime.http_api.auth); when no hook is bound, the sentence above is the posture in force.",
+    "description": "Typed HTTP front door over the fabric's existing extra=forbid contracts, mirroring the D-IMPL-22/23 ruled noun set (CLAUDE.md \u00a78.3; EXPR-03). Every request to this API is authenticated and authorized before it is routed: there is no unauthenticated arm, no path is exempt, every route declares the action identifier its authorization is decided under, and what each action reaches is the deployment's own versioned scope mapping rather than any default this API ships.",
     "title": "CCF HTTP API",
     "version": "0.1.0"
   },
@@ -1808,7 +1877,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/HitlActionSubmission"
+                "$ref": "#/components/schemas/HitlActionRequest"
               }
             }
           },
@@ -1842,17 +1911,6 @@
     "/hitl/queue": {
       "get": {
         "operationId": "queue_hitl_queue_get",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "tenant",
-            "required": true,
-            "schema": {
-              "title": "Tenant",
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "content": {
@@ -1867,16 +1925,6 @@
               }
             },
             "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
           }
         },
         "summary": "HITL queue view (D-IMPL-23)"
@@ -2307,15 +2355,6 @@
       "get": {
         "operationId": "execution_workflow_execution_get",
         "parameters": [
-          {
-            "in": "query",
-            "name": "tenant",
-            "required": true,
-            "schema": {
-              "title": "Tenant",
-              "type": "string"
-            }
-          },
           {
             "in": "query",
             "name": "execution_id",

@@ -102,9 +102,16 @@ from ccf_runtime.mcp.egress import (
     build_egress_server,
     product_uri,
 )
+from tests.mcp.guarded_servers import wide_authorizer
 
 from ccf_runtime.mcp.egress import ProductNotServable
 from crossproc.servers.mcp_egress_child import ProductAddress, build_servable_product
+from ccf.controlplane.registry import ControlPlaneRegistry
+from http_api.composition_authority import (
+    deployment_store,
+    refusal_recorder,
+    register_typed_at_composition,
+)
 
 #: Test deployment vocabulary; the SDK ships none of it.
 TOKEN = "egress-channels-token"
@@ -155,10 +162,25 @@ def assembled(tmp_path_factory: pytest.TempPathFactory) -> Any:
     )
 
 
-def _token_file(root: Path) -> Path:
+def _token_file(root: Path, *, tenant: str) -> Path:
+    """The door's token file, whose one credential is scoped to ``tenant``.
+
+    ``tenant`` is required rather than defaulted (``SEC-018``): a credential
+    that names no tenant reaches nothing, so a fixture that forgot it would
+    fail loudly instead of quietly minting the unscoped bearer this finding is
+    about.
+    """
     path = root / "egress-channels-tokens.json"
     path.write_text(
-        json.dumps({TOKEN: {"client_id": PRINCIPAL, "scopes": [SCOPE]}}),
+        json.dumps(
+            {
+                TOKEN: {
+                    "client_id": PRINCIPAL,
+                    "scopes": [SCOPE],
+                    "tenants": [tenant],
+                }
+            }
+        ),
         encoding="utf-8",
     )
     return path
@@ -184,7 +206,7 @@ class _World:
     ) -> None:
         self.address = address
         self.registry = ControlPlaneRegistry()
-        self.registry.register_typed(
+        register_typed_at_composition(self.registry, 
             product_entitlement_key(tenant_id=address.tenant),
             ProductEntitlementPolicy(
                 tenant_id=address.tenant,
@@ -201,11 +223,12 @@ class _World:
         self.source = ControlPlaneProductEntitlementSource(
             control_plane=self.registry, clock=lambda: DETERMINED_AT
         )
-        self.store = FileArtifactStore(root=root / "artifacts")
-        self.recorder = ReplayRefusalRecorder(
-            artifact_store=self.store,
+        self.store = deployment_store(root / "artifacts", REPLAY_ARTIFACT_CLASS)
+        self.recorder = refusal_recorder(
+            self.registry,
+            store=self.store,
+            tenant=address.tenant,
             replay_record_class=REPLAY_ARTIFACT_CLASS,
-            tenant_id=address.tenant,
             assembly_mode="algorithmic",
             disclosure_level_for=self.source.disclosure_level_for,
         )
@@ -213,13 +236,14 @@ class _World:
             server_name=SERVER_NAME,
             resolver=resolver,  # type: ignore[arg-type]
             token_verifier=SourceBackedTokenVerifier(
-                source=FileTokenSource(path=_token_file(root))
+                source=FileTokenSource(path=_token_file(root, tenant=address.tenant))
             ),
             auth_settings=AuthSettings(
                 issuer_url=AnyHttpUrl("https://issuer.invalid"),
                 resource_server_url=AnyHttpUrl(f"{IN_PROCESS_BASE_URL}/mcp"),
                 required_scopes=[SCOPE],
             ),
+            authorizer=wide_authorizer(scopes=(SCOPE,)),
             entitlement_source=self.source,
             perspective_resolver=(
                 lambda *, grant, tenant, requested_role: Perspective(
@@ -847,13 +871,14 @@ def _builder_kwargs(address: ProductAddress, root: Path) -> dict[str, Any]:
         "server_name": SERVER_NAME,
         "resolver": _answering(None),
         "token_verifier": SourceBackedTokenVerifier(
-            source=FileTokenSource(path=_token_file(root))
+            source=FileTokenSource(path=_token_file(root, tenant=address.tenant))
         ),
         "auth_settings": AuthSettings(
             issuer_url=AnyHttpUrl("https://issuer.invalid"),
             resource_server_url=AnyHttpUrl(f"{IN_PROCESS_BASE_URL}/mcp"),
             required_scopes=[SCOPE],
         ),
+        "authorizer": wide_authorizer(scopes=(SCOPE,)),
         "entitlement_source": ControlPlaneProductEntitlementSource(
             control_plane=ControlPlaneRegistry(), clock=lambda: DETERMINED_AT
         ),
@@ -896,10 +921,11 @@ def test_a_conforming_recorder_builds_the_door(
     """The vacuity guard: without it, the two raises pass against a dead builder."""
     server = build_egress_server(
         **_builder_kwargs(assembled.address, tmp_path),
-        refusal_recorder=ReplayRefusalRecorder(
-            artifact_store=FileArtifactStore(root=tmp_path / "artifacts"),
+        refusal_recorder=refusal_recorder(
+            ControlPlaneRegistry(),
+            store=deployment_store(tmp_path / "artifacts", REPLAY_ARTIFACT_CLASS),
+            tenant=assembled.address.tenant,
             replay_record_class=REPLAY_ARTIFACT_CLASS,
-            tenant_id=assembled.address.tenant,
             assembly_mode="algorithmic",
         ),
     )

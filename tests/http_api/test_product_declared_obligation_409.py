@@ -108,6 +108,11 @@ from ccf_runtime.mcp.egress import ProductNotServable
 from tests.products.test_disclosure import _internal as _internal_envelope
 
 from http_api.conftest import Fabric, call
+from http_api.composition_authority import (
+    deployment_store,
+    refusal_recorder,
+    register_typed_at_composition,
+)
 
 TOKEN = "declared-obligation-token"
 PRINCIPAL = "declared-obligation-caller"
@@ -353,7 +358,7 @@ def _entitlement_registry(
     """
     address = fabric.product_address
     registry = ControlPlaneRegistry()
-    registry.register_typed(
+    register_typed_at_composition(registry, 
         product_entitlement_key(tenant_id=address.tenant),
         ProductEntitlementPolicy(
             tenant_id=address.tenant,
@@ -396,10 +401,11 @@ def _recorder(
             disclosure posture in force — the *same* reader a resolver refusal
             for this principal would disclose under (``24.6-08``).
     """
-    return ReplayRefusalRecorder(
-        artifact_store=FileArtifactStore(root=root / "artifacts"),
+    return refusal_recorder(
+        fabric.registry,
+        store=deployment_store(root / "artifacts", REPLAY_RECORD_CLASS),
+        tenant=fabric.product_address.tenant,
         replay_record_class=REPLAY_RECORD_CLASS,
-        tenant_id=fabric.product_address.tenant,
         assembly_mode="algorithmic",
         policy_bundle_pin=None,
         disclosure_level_for=source.disclosure_level_for,
@@ -461,10 +467,19 @@ def _governed(
     instance the door was built with (the D-27 control), and passes ``None``
     explicitly when the subject is the construction-time refusal itself.
     """
-    token_file = root / "declared-obligation-tokens.json"
-    token_file.write_text(
-        json.dumps({TOKEN: {"client_id": PRINCIPAL, "scopes": ["product"]}}),
-        encoding="utf-8",
+    # `SEC-001`/`SEC-002`: every app binds an authorizer, and the tenant is
+    # the credential's. This suite's subject is the declared-obligation
+    # refusal rather than the gate, so the mapping is registered wide and the
+    # token source mints tenanted grants.
+    from .gate_fixtures import (
+        SCOPE_EVERYTHING,
+        tenanted_source,
+        wide_authorizer,
+    )
+
+    tenant = fabric.product_address.tenant
+    token_source = tenanted_source(
+        {TOKEN: (PRINCIPAL, (SCOPE_EVERYTHING,))}, tenant=tenant
     )
     source = ControlPlaneProductEntitlementSource(
         control_plane=_entitlement_registry(
@@ -484,7 +499,10 @@ def _governed(
                 artifact_store=fabric.store,
                 product_resolver=resolver,  # type: ignore[arg-type]
             ),
-            auth=BearerTokenAuth(token_source=FileTokenSource(path=token_file)),
+            auth=BearerTokenAuth(token_source=token_source),
+            authorizer=wide_authorizer(
+                tenant=tenant, key="declared-obligation/scope-mapping"
+            ),
             product_entitlement=source,
             perspective_resolver=_perspective,
             refusal_recorder=recorder,
@@ -847,15 +865,73 @@ def test_the_existing_refusal_statuses_are_unchanged(
     )
     assert absent.status == 404
 
-    # 503 — the module fixture's ungoverned door refuses before any resolver.
+    # 503 — **no longer reachable from the front door** (`SEC-001`). This leg
+    # used to call the module fixture's app, which was built with no seams and
+    # refused `product-door-ungoverned` before any resolver. `create_app` has
+    # no such arm now, so the honest subject is the handler reached outside
+    # the gate. Under D-IMPL-353 §1.4 the FIRST thing such a handler does is
+    # refuse for holding no capability (403 `no-capability`); the 503 branch
+    # survives for the one shape that gets past that — a capability stashed
+    # with no verified grant beside it — which is why the branch is kept in
+    # the route rather than deleted, and why both refusals are asserted here.
+    from fastapi import HTTPException
+    from starlette.requests import Request
+
+    from ccf.authz.capability import ProductRetrieve, mint
+    from ccf.authz.decision import AuthzDecision
+    from ccf_runtime.authz.refusals import ACTION_PRODUCT_RETRIEVE
+    from ccf_runtime.http_api.errors import ERROR_NO_CAPABILITY
+    from ccf_runtime.http_api.gate import mounted_routes
+
     address = fabric.product_address
-    ungoverned = call(
-        app,
-        "GET",
-        f"/product/{address.tenant}/{address.product_class}/{address.version}",
+    (handler_route,) = [
+        route
+        for template, route in mounted_routes(governed)
+        if template.startswith("/product/")
+    ]
+    handler = handler_route.endpoint
+
+    def _outside_the_gate(state: dict[str, Any]) -> HTTPException:
+        with pytest.raises(HTTPException) as refused:
+            handler(
+                tenant=address.tenant,
+                product_class=address.product_class,
+                version=address.version,
+                request=Request(
+                    {
+                        "type": "http",
+                        "method": "GET",
+                        "path": "/product",
+                        "headers": [],
+                        "query_string": b"",
+                        "endpoint": handler,
+                        "state": state,
+                    }
+                ),
+            )
+        return refused.value
+
+    no_capability = _outside_the_gate({})
+    assert no_capability.status_code == 403
+    assert no_capability.detail["error_code"] == ERROR_NO_CAPABILITY
+
+    capability = mint(
+        ProductRetrieve,
+        decision=AuthzDecision(
+            allowed=True,
+            matched_scope_pattern=address.tenant,
+            matched_resource_pattern=address.product_class,
+            artifact_version="1",
+            action_id=ACTION_PRODUCT_RETRIEVE,
+            tenant=address.tenant,
+            resource=address.product_class,
+        ),
+        principal=PRINCIPAL,
+        decision_id="0" * 64,
     )
+    ungoverned = _outside_the_gate({"authorized": capability})
     assert ungoverned.status_code == 503
-    assert ungoverned.json()["detail"]["error_code"] == "product-door-ungoverned"
+    assert ungoverned.detail["error_code"] == "product-door-ungoverned"
 
 
 # ---------------------------------------------------------------------------

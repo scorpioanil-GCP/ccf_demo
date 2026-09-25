@@ -20,6 +20,8 @@ import json
 import pathlib
 from typing import Any
 
+import pytest
+
 from ccf_runtime.http_api.app import AUTH_POSTURE_SENTENCE
 from tools.dump_openapi import serialize
 
@@ -87,12 +89,20 @@ def test_every_contract_bearing_route_lands_a_schema(app: Any) -> None:
 
 
 def test_the_exact_auth_posture_sentence_is_served(app: Any) -> None:
-    """String-equality against the constant, not a loose grep (D-22)."""
+    """String-equality against the constant, not a loose grep (D-22).
+
+    ``SEC-001`` replaced what the constant says — it used to state that the
+    API performs no authentication or authorization — so the two content
+    assertions below move with it. What does not move is the shape of the
+    claim: the exact constant is served verbatim, and it is one statement an
+    adopter can read rather than a paragraph.
+    """
     description = _document(app)["info"]["description"]
     assert AUTH_POSTURE_SENTENCE in description
-    # and the constant is the honest, single-sentence statement it claims
+    # one sentence, one full stop
     assert AUTH_POSTURE_SENTENCE.count(".") == 1
-    assert "no authentication" in AUTH_POSTURE_SENTENCE
+    assert "authenticated and authorized" in AUTH_POSTURE_SENTENCE
+    assert "no unauthenticated arm" in AUTH_POSTURE_SENTENCE
 
 
 def test_extra_forbid_surfaces_as_additional_properties_false(
@@ -104,6 +114,9 @@ def test_extra_forbid_surfaces_as_additional_properties_false(
         assert schemas[contract].get("additionalProperties") is False, contract
 
 
+# The strict xfail that stood here between SEC-001 and the D-IMPL-353 join
+# ("regenerated ONCE when the parallel lanes join") went red on the join's
+# regeneration, exactly as it said it would, and was removed there.
 def test_the_committed_spec_matches_what_the_app_emits(app: Any) -> None:
     """D-12: the baseline external integrators consume is not stale.
 

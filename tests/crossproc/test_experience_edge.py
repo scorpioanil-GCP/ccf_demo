@@ -54,11 +54,17 @@ from ccf.products.refusal import NO_REPLAY_REFERENCE, RefusalEnvelope
 from ccf.skills.toolsurface import render_tool_surface
 from ccf_runtime.http_api.errors import ERROR_PRODUCT_POLICY_ABSENT
 
+from crossproc.servers.wide_authorizer import wide_authorizer
 from crossproc.servers.mcp_experience_child import (
     DEV_TOKEN,
     authorized_http_client,
     build_servable_product,
     build_world,
+)
+from crossproc.servers import mcp_experience_child as _child
+from http_api.composition_authority import (
+    deployment_store,
+    register_typed_at_composition,
 )
 
 pytestmark = pytest.mark.crossproc
@@ -404,13 +410,16 @@ def _builder_kwargs(tmp_path: Path) -> dict[str, Any]:
         # The agent seams are conditional like every other provider (D-03).
         "product_resolver": unreachable,
         "token_verifier": SourceBackedTokenVerifier(
-            source=FileTokenSource(path=write_token_file(workspace=tmp_path))
+            source=FileTokenSource(path=write_token_file(
+                workspace=tmp_path, tenants=frozenset({build_world().tenant})
+            ))
         ),
         "auth_settings": AuthSettings(
             issuer_url=AnyHttpUrl(ISSUER_URL),
             resource_server_url=AnyHttpUrl(RESOURCE_SERVER_URL),
             required_scopes=[SCOPE],
         ),
+        "authorizer": wide_authorizer(scopes=(SCOPE,)),
         # Unconditionally required from 15.5-06 on, like the auth pair and
         # for the same reason: the product resource is not allowlist-gated,
         # so its governance seams are never dead configuration. These are
@@ -425,7 +434,10 @@ def _builder_kwargs(tmp_path: Path) -> dict[str, Any]:
         # child's own wiring, not a second copy of it; `_in_process_door`
         # replaces it with one bound to that test's own tenant and reader.
         "refusal_recorder": experience_refusal_recorder(
-            store=FileArtifactStore(root=tmp_path / "builder-kwargs-replay"),
+            registry=ControlPlaneRegistry(),
+            store=deployment_store(
+                tmp_path / "builder-kwargs-replay", _child.REPLAY_ARTIFACT_CLASS
+            ),
             tenant=BUILDER_KWARGS_TENANT,
             disclosure_level_for=entitlement_source.disclosure_level_for,
         ),
@@ -480,7 +492,7 @@ def _in_process_door(
     )
 
     registry = ControlPlaneRegistry()
-    registry.register_typed(
+    register_typed_at_composition(registry, 
         product_entitlement_key(tenant_id=tenant),
         ProductEntitlementPolicy(
             tenant_id=tenant,
@@ -519,7 +531,8 @@ def _in_process_door(
     # THIS registry's policy, so a recorder still bound to `_builder_kwargs`'
     # placeholder would disclose against a tenant nothing here registered.
     kwargs["refusal_recorder"] = experience_refusal_recorder(
-        store=FileArtifactStore(root=tmp_path / "in-process-replay"),
+        registry=registry,
+        store=deployment_store(tmp_path / "in-process-replay", _child.REPLAY_ARTIFACT_CLASS),
         tenant=tenant,
         disclosure_level_for=source.disclosure_level_for,
     )
@@ -550,10 +563,35 @@ def _call_in_process(server: Any, arguments: dict[str, Any]) -> str:
 
     from crossproc.servers.mcp_experience_child import CLIENT_ID, SCOPE
 
+    from ccf_runtime.mcp.auth import TokenGrant, tenant_claims
+
     reset = auth_context_var.set(
         AuthenticatedUser(
             AccessToken(
-                token="in-process", client_id=CLIENT_ID, scopes=[SCOPE]
+                token="in-process",
+                client_id=CLIENT_ID,
+                scopes=[SCOPE],
+                # The tenant claim the bearer middleware would carry, composed
+                # through the shipped renderer so this stand-in cannot drift
+                # from a real verification (`SEC-018`).
+                claims=dict(
+                    tenant_claims(
+                        TokenGrant(
+                            client_id=CLIENT_ID,
+                            scopes=(SCOPE,),
+                            # The neighbour too: this helper drives the
+                            # foreign-tenant case, whose subject is what the
+                            # ENTITLEMENT decides (`SEC-018` floor is proven in
+                            # `tests/mcp/test_tenant_guard.py`).
+                            tenants=frozenset(
+                                {
+                                    build_world().tenant,
+                                    f"{build_world().tenant}-not-this-one",
+                                }
+                            ),
+                        )
+                    )
+                ),
             )
         )
     )

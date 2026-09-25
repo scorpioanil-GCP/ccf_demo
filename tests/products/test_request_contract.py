@@ -71,6 +71,7 @@ from ccf.skills.catalog import (
     SkillArgumentProperty,
     SkillArgumentSchema,
 )
+from tests.composition import register_at_composition
 
 #: Every field name fragment that would let a caller assert *who they are* in
 #: the request body. The door resolves identity from a verified grant; a
@@ -93,7 +94,7 @@ CLOCK_CALLS = ("now", "utcnow", "today", "time", "monotonic")
 
 CLASS_NAME = "fixture.request"
 CLASS_VERSION = "1.0.0"
-CONTRACT_KEY = "fixture.request-contract"
+CONTRACT_KEY = "tenant-fixture/request-contract"
 INSTANT = datetime(2026, 8, 11, 12, 0, tzinfo=timezone.utc)
 
 
@@ -455,7 +456,7 @@ def test_a_declaration_written_before_this_plan_still_parses() -> None:
         schema_version=CLASS_VERSION,
         ttl_anchor="from_decision",
         assembly_mode="algorithmic",
-        max_ttl_key="fixture.max-ttl",
+        max_ttl_key="tenant-fixture/max-ttl",
         required_operator_keys=("fixture.operator",),
     )
     assert declaration.request_contract_key == NO_REQUEST_CONTRACT
@@ -467,7 +468,7 @@ def test_a_declaration_written_before_this_plan_still_parses() -> None:
 
 def _registry_with_contract() -> tuple[ControlPlaneRegistry, str]:
     registry = ControlPlaneRegistry()
-    version = registry.register(CONTRACT_KEY, _contract())
+    version = register_at_composition(registry, CONTRACT_KEY, _contract())
     return registry, version
 
 
@@ -504,7 +505,7 @@ def test_a_pin_naming_nothing_registered_is_refused() -> None:
 
 def test_a_pin_naming_something_that_is_not_a_request_contract_is_refused() -> None:
     registry = ControlPlaneRegistry()
-    version = registry.register(CONTRACT_KEY, _arguments())
+    version = register_at_composition(registry, CONTRACT_KEY, _arguments())
     with pytest.raises(ProductClassRegistrationError, match="not a request contract"):
         _pin(pair=(registry, version))
 
@@ -512,8 +513,7 @@ def test_a_pin_naming_something_that_is_not_a_request_contract_is_refused() -> N
 def test_a_contract_declared_for_another_class_is_refused() -> None:
     """The cross-check a payload schema cannot make, because it names no class."""
     registry = ControlPlaneRegistry()
-    version = registry.register(
-        CONTRACT_KEY, _contract(schema_name="fixture.other")
+    version = register_at_composition(registry, CONTRACT_KEY, _contract(schema_name="fixture.other")
     )
     with pytest.raises(ProductClassRegistrationError, match="fixture.other"):
         _pin(pair=(registry, version))
@@ -521,7 +521,7 @@ def test_a_contract_declared_for_another_class_is_refused() -> None:
 
 def test_a_contract_declared_for_another_lane_is_refused() -> None:
     registry = ControlPlaneRegistry()
-    version = registry.register(CONTRACT_KEY, _contract(schema_version="2.0.0"))
+    version = register_at_composition(registry, CONTRACT_KEY, _contract(schema_version="2.0.0"))
     with pytest.raises(ProductClassRegistrationError, match="2.0.0"):
         _pin(pair=(registry, version))
 
@@ -541,14 +541,14 @@ def _register(**overrides: Any) -> Any:
     from ccf.products.contract import MaxTTL, register_product_class
 
     registry, version = overrides.pop("pair", _registry_with_contract())
-    max_ttl_version = registry.register("fixture.max-ttl", MaxTTL(seconds=600))
+    max_ttl_version = register_at_composition(registry, "tenant-fixture/max-ttl", MaxTTL(seconds=600))
     fields: dict[str, Any] = {
         "registry": registry,
         "schema_name": CLASS_NAME,
         "schema_version": CLASS_VERSION,
         "ttl_anchor": "from_decision",
         "assembly_mode": "algorithmic",
-        "max_ttl_key": "fixture.max-ttl",
+        "max_ttl_key": "tenant-fixture/max-ttl",
         "max_ttl_version": max_ttl_version,
         "request_contract_key": CONTRACT_KEY,
         "request_contract_version": version,
@@ -574,8 +574,7 @@ def test_registration_refuses_a_half_declared_request_contract_pin() -> None:
 def test_registration_refuses_a_contract_pinned_onto_another_class() -> None:
     """The cross-check no payload schema can make, now made at wiring time."""
     registry = ControlPlaneRegistry()
-    version = registry.register(
-        CONTRACT_KEY, _contract(schema_name="fixture.other")
+    version = register_at_composition(registry, CONTRACT_KEY, _contract(schema_name="fixture.other")
     )
     with pytest.raises(ProductClassRegistrationError, match="fixture.other"):
         _register(pair=(registry, version))

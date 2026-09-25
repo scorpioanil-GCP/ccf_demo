@@ -31,6 +31,18 @@ Not an algorithmic module: it imports an orchestrator SDK, which is exactly
 what the CINV-02 carve-out for ``ccf_runtime.orchestration`` exists to
 permit here and nowhere else.
 
+**The capability travels in the closure, not the driver (D-IMPL-353 §1.2).**
+``start_execution`` and ``resume_execution`` take the ``Authorized`` for
+their own action and close the engine call over it; the graph's node
+functions are those closures, built per call. The driver holds no capability
+in any field and mints nothing — the engine verifies. Position is keyed by
+``authorized.tenant``, the tenant the engine files under (§1.3), and the
+introspection seam takes that tenant rather than a handle to read one from.
+A run presents ONE capability: the ``drive`` node in a start run, the
+post-interrupt half of ``gate`` in a resume run; the node a run did not
+present a capability for raises the typed driver error if it is ever
+reached, which the topology does not do.
+
 **Loop-safety (WR-03; Phase-9 CONTEXT D-10/D-11).** Outcome lookups raise
 the shared typed hierarchy
 (:class:`~ccf_runtime.orchestration.common.SegmentNotExecutedError`), never
@@ -40,6 +52,7 @@ a bare ``KeyError``; the sync introspection seam holds no direct
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from typing import TypedDict
 
 from langchain_core.runnables import RunnableConfig
@@ -50,6 +63,7 @@ from langgraph.types import Command, interrupt
 
 from ccf.contracts.base import CCFContract
 from ccf.workflow.factory import Workflow
+from ccf.authz.capability import Authorized, Execute, Resume
 from ccf_runtime.orchestration.common import (
     SegmentNotExecutedError,
     WorkflowDriverError,
@@ -57,6 +71,32 @@ from ccf_runtime.orchestration.common import (
 from ccf_runtime.workflow.engine import WorkflowEngine, WorkflowSuspended
 
 __all__ = ["LangGraphWorkflowDriver"]
+
+#: The engine call a start run closes over the capability: ``execution_id``
+#: in, the engine's typed outcome out.
+_StartCall = Callable[[str], Awaitable[CCFContract]]
+
+#: The engine call a resume run closes over: ``(execution_id, decision)``.
+_ResumeCall = Callable[[str, str], Awaitable[CCFContract]]
+
+
+def _not_presented(verb: str) -> Callable[..., Awaitable[CCFContract]]:
+    """The node a run presented no capability for — typed on reach.
+
+    A start run carries ``Execute`` and never reaches the post-interrupt
+    half of ``gate``; a resume run carries ``Resume`` and never re-runs
+    ``drive``. The topology guarantees that; this makes reaching the other
+    node a :class:`WorkflowDriverError` rather than a silent ``None``.
+    """
+
+    async def absent(*_: str) -> CCFContract:
+        raise WorkflowDriverError(
+            f"no capability was presented for {verb} in this run; a run"
+            " carries the capability for its own verb and nothing else"
+            " (D-IMPL-353 §1.2)"
+        )
+
+    return absent
 
 
 class _Position(TypedDict):
@@ -86,13 +126,13 @@ class LangGraphWorkflowDriver:
         self._engine = engine
         self._checkpointer = InMemorySaver()
         #: The engine's typed outcomes, held driver-side keyed by
-        #: ``(tenant, execution_id)`` — deliberately NOT a graph state
-        #: channel, so nothing CCF-typed reaches the checkpointer.
-        #: Retention is the driver instance's lifetime (one entry per
-        #: execution, no eviction — Phase-9 review IN-04): sized for
-        #: conformance-suite and per-composition lifetimes; a long-lived
-        #: composition root should recycle the driver, not hold one
-        #: forever.
+        #: ``(tenant, execution_id)`` — the capability's tenant (§1.3) —
+        #: deliberately NOT a graph state channel, so nothing CCF-typed
+        #: reaches the checkpointer. Retention is the driver instance's
+        #: lifetime (one entry per execution, no eviction — Phase-9 review
+        #: IN-04): sized for conformance-suite and per-composition
+        #: lifetimes; a long-lived composition root should recycle the
+        #: driver, not hold one forever.
         self._outcomes: dict[tuple[str, str], CCFContract] = {}
 
     def _outcome(self, tenant: str, execution_id: str) -> CCFContract:
@@ -112,16 +152,23 @@ class LangGraphWorkflowDriver:
 
     # -- the topology, authored here against the engine's public surface ------
 
-    def _graph(self, workflow: Workflow) -> CompiledStateGraph[_Position]:
+    def _graph(
+        self,
+        *,
+        tenant: str,
+        on_start: _StartCall,
+        on_resume: _ResumeCall,
+    ) -> CompiledStateGraph[_Position]:
         """One compiled StateGraph per drive — the driver's own topology.
 
-        Two nodes. ``drive`` starts the execution through the engine;
+        Two nodes. ``drive`` starts the execution through ``on_start``;
         ``gate`` parks on :func:`interrupt` and, on ``Command(resume=...)``,
-        hands the decision to the engine's ``resume``. The conditional edge
-        loops back to ``gate`` while the engine keeps suspending — a
-        workflow with several gates parks once per gate, LangGraph-natively.
+        hands the decision to ``on_resume``. Both are closures the calling
+        verb built over the engine and the capability it received — the
+        graph itself names neither. The conditional edge loops back to
+        ``gate`` while the engine keeps suspending — a workflow with several
+        gates parks once per gate, LangGraph-natively.
         """
-        tenant = workflow.definition.tenant
 
         def _park(outcome: CCFContract, execution_id: str) -> _Position:
             self._outcomes[(tenant, execution_id)] = outcome
@@ -131,9 +178,7 @@ class LangGraphWorkflowDriver:
             }
 
         async def drive(state: _Position) -> _Position:
-            outcome = await self._engine.execute(
-                workflow, execution_id=state["execution_id"]
-            )
+            outcome = await on_start(state["execution_id"])
             return _park(outcome, state["execution_id"])
 
         async def gate(state: _Position) -> _Position:
@@ -146,11 +191,7 @@ class LangGraphWorkflowDriver:
             decision = interrupt(
                 {"gate": suspended.gate, "event_key": suspended.event_key}
             )
-            outcome = await self._engine.resume(
-                workflow,
-                execution_id=state["execution_id"],
-                decision=str(decision),
-            )
+            outcome = await on_resume(state["execution_id"], str(decision))
             return _park(outcome, state["execution_id"])
 
         def route(state: _Position) -> str:
@@ -165,50 +206,87 @@ class LangGraphWorkflowDriver:
         return builder.compile(checkpointer=self._checkpointer)
 
     @staticmethod
-    def _config(workflow: Workflow, execution_id: str) -> RunnableConfig:
+    def _config(tenant: str, execution_id: str) -> RunnableConfig:
         """Thread identity mirrors the engine's own (tenant, execution_id) key."""
-        return {
-            "configurable": {
-                "thread_id": f"{workflow.definition.tenant}/{execution_id}"
-            }
-        }
+        return {"configurable": {"thread_id": f"{tenant}/{execution_id}"}}
 
     # -- OrchestrationProtocol -------------------------------------------------
 
     async def start_execution(
-        self, *, workflow: Workflow, execution_id: str
+        self,
+        *,
+        authorized: Authorized[Execute],
+        workflow: Workflow,
+        execution_id: str,
     ) -> CCFContract:
         """Run the graph from the top; park on the gate node if the engine
-        suspends; return the engine's own typed outcome, verbatim."""
-        graph = self._graph(workflow)
+        suspends; return the engine's own typed outcome, verbatim. The
+        ``Execute`` capability is closed over by the ``drive`` node and
+        handed to the engine, which verifies it (D-IMPL-353 §1.2)."""
+        tenant = authorized.tenant
+
+        async def on_start(execution_id: str) -> CCFContract:
+            return await self._engine.execute(
+                authorized, workflow, execution_id=execution_id
+            )
+
+        graph = self._graph(
+            tenant=tenant,
+            on_start=on_start,
+            on_resume=_not_presented("resume_execution"),
+        )
         entry: _Position = {"execution_id": execution_id, "suspended": False}
-        await graph.ainvoke(entry, self._config(workflow, execution_id))
-        return self._outcome(workflow.definition.tenant, execution_id)
+        await graph.ainvoke(entry, self._config(tenant, execution_id))
+        return self._outcome(tenant, execution_id)
 
     async def resume_execution(
-        self, *, workflow: Workflow, execution_id: str, decision: str
+        self,
+        *,
+        authorized: Authorized[Resume],
+        workflow: Workflow,
+        execution_id: str,
+        decision: str,
     ) -> CCFContract:
         """Resume the parked graph with ``Command(resume=decision)``; the gate
-        node hands the decision to the engine's own resume surface."""
-        graph = self._graph(workflow)
-        await graph.ainvoke(
-            Command(resume=decision), self._config(workflow, execution_id)
+        node hands the decision to the engine's own resume surface under the
+        ``Resume`` capability this call received."""
+        tenant = authorized.tenant
+
+        async def on_resume(execution_id: str, decision: str) -> CCFContract:
+            return await self._engine.resume(
+                authorized,
+                workflow,
+                execution_id=execution_id,
+                decision=decision,
+            )
+
+        graph = self._graph(
+            tenant=tenant,
+            on_start=_not_presented("start_execution"),
+            on_resume=on_resume,
         )
-        return self._outcome(workflow.definition.tenant, execution_id)
+        await graph.ainvoke(
+            Command(resume=decision), self._config(tenant, execution_id)
+        )
+        return self._outcome(tenant, execution_id)
 
     # -- introspection for the conformance suite -------------------------------
 
     def checkpointed_values(
-        self, *, workflow: Workflow, execution_id: str
+        self, *, tenant: str, execution_id: str
     ) -> tuple[object, ...]:
         """Every value the checkpointer persisted for one execution.
 
         The conformance suite's T-07-30 assertion runs over this: graph
         position (the parked node names) and the two scalar channels are all
-        that may appear — no CCF workflow state.
+        that may appear — no CCF workflow state. Takes the tenant the engine
+        filed under — the capability's — never a handle to read one from.
+        No node runs here, so no capability is presented.
         """
-        snapshot = self._graph(workflow).get_state(
-            self._config(workflow, execution_id)
-        )
+        snapshot = self._graph(
+            tenant=tenant,
+            on_start=_not_presented("start_execution"),
+            on_resume=_not_presented("resume_execution"),
+        ).get_state(self._config(tenant, execution_id))
         values: dict[str, object] = dict(snapshot.values)
         return tuple(values.values()) + tuple(snapshot.next)

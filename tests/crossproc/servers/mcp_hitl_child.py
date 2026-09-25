@@ -43,7 +43,9 @@ _REPO_ROOT = _TESTS_ROOT.parent
 # The child is spawned as a bare `python <file>`, so it gets none of pytest's
 # sys.path work. Resolving the roots from __file__ is what makes it runnable
 # from anywhere, which the fixture depends on.
-for _root in (_REPO_ROOT / "src", _REPO_ROOT / "runtime", _TESTS_ROOT):
+# The repo root too (last on the path): the shared test helpers import as
+# `tests.composition`, which resolves only from there (D-IMPL-354).
+for _root in (_REPO_ROOT, _REPO_ROOT / "src", _REPO_ROOT / "runtime", _TESTS_ROOT):
     if str(_root) not in sys.path:
         sys.path.insert(0, str(_root))
 
@@ -55,6 +57,11 @@ from pydantic import AnyHttpUrl  # noqa: E402
 from ccf.artifacts.file_store import FileArtifactStore  # noqa: E402
 from ccf.contracts.canonical import canonical_bytes, content_hash  # noqa: E402
 from ccf.controlplane.audit import AuditLog  # noqa: E402
+from ccf.controlplane.registry import ControlPlaneRegistry  # noqa: E402
+from http_api.composition_authority import (  # noqa: E402
+    composition_replay_mint,
+    deployment_store,
+)
 from ccf.graph.protocols import GraphView  # noqa: E402
 from ccf.hitl.approval_gate import ApprovalGate, GateResolution  # noqa: E402
 from ccf.hitl.principal import (  # noqa: E402
@@ -84,6 +91,9 @@ from ccf_runtime.mcp.auth import (  # noqa: E402
     SourceBackedTokenVerifier,
 )
 from ccf_runtime.mcp.hitl_server import build_hitl_server  # noqa: E402
+
+from ccf.authz.capability import Authorized, HitlQueueRead, HitlSubmit  # noqa: E402
+from crossproc.servers.wide_authorizer import wide_authorizer  # noqa: E402
 
 if TYPE_CHECKING:
     from mcp.server.fastmcp import FastMCP
@@ -117,14 +127,51 @@ def authorized_http_client(token: str = DEV_TOKEN) -> httpx.AsyncClient:
     return httpx.AsyncClient(headers={"Authorization": f"Bearer {token}"})
 
 
-def write_token_file(*, workspace: Path) -> Path:
-    """Write the child's token file and return its path."""
+def write_token_file(*, workspace: Path, tenants: frozenset[str]) -> Path:
+    """Write the child's token file, scoped to ``tenant``.
+    Args:
+        workspace: Where the file is written.
+        tenant: The one tenant this child's credential is scoped to. Required
+            rather than defaulted (``SEC-018``): a grant naming no tenant
+            reaches nothing, so a fixture that omitted it would fail loudly
+            rather than mint the unscoped bearer the finding is about.
+    """
     token_file = workspace / TOKEN_FILENAME
     token_file.write_text(
-        json.dumps({DEV_TOKEN: {"client_id": CLIENT_ID, "scopes": [SCOPE]}}),
+        json.dumps(
+            {
+                DEV_TOKEN: {
+                    "client_id": CLIENT_ID,
+                    "scopes": [SCOPE],
+                    "tenants": sorted(tenants),
+                    # What the verifier attests about this credential: the
+                    # door mints the approver binding from these claims and
+                    # the parent recomputes the replay block from the same
+                    # fixture (D-IMPL-353 §2 P6).
+                    "authentication": authentication_claims_of_fixture(),
+                }
+            }
+        ),
         encoding="utf-8",
     )
     return token_file
+
+
+def authentication_claims_of_fixture() -> dict[str, str]:
+    """The fixture credit officer's authentication, as the token's claims."""
+    binding = principal_binding(product_content_hash="0" * 64)
+    return {
+        "method": binding.authentication.method,
+        "assurance_level": binding.authentication.assurance_level,
+        "session_ref": binding.authentication.session_ref,
+        "identity_provider_ref": binding.approver.identity_provider_ref,
+    }
+
+
+def door_clock() -> datetime:
+    """The instant the door stamps on every action: the fixture approver's
+    ``action_time``, so a door-minted binding equals the fixture binding."""
+    return principal_binding(product_content_hash="0" * 64).action_time
 
 
 def _hitl_fixture() -> dict[str, Any]:
@@ -218,16 +265,21 @@ def build_server(*, workspace: Path) -> FastMCP:
     transport.enqueue(event=event)
 
     gate = ApprovalGate(transport=transport, audit=AuditLog(), clock=_clock())
+    # The writer holds the ReplayMint this deployment's composition root
+    # minted for its record class, for the tenant the event belongs to, over
+    # a store declaring that class (D-IMPL-353 §2 P3; D-IMPL-354).
     writer = ReplayWriter(
-        store=FileArtifactStore(root=workspace / REPLAY_DIRNAME),
-        artifact_class=REPLAY_ARTIFACT_CLASS,
+        authorized=composition_replay_mint(
+            ControlPlaneRegistry(), tenant=event.tenant, artifact_class=REPLAY_ARTIFACT_CLASS
+        ),
+        store=deployment_store(workspace / REPLAY_DIRNAME, REPLAY_ARTIFACT_CLASS),
     )
 
-    def queue_view(*, tenant: str) -> tuple[PendingHitlEvent, ...]:
-        """The tenant's pending events, straight off the typed transport."""
-        return transport.pending(tenant=tenant)
+    def queue_view(authorized: Authorized[HitlQueueRead]) -> tuple[PendingHitlEvent, ...]:
+        """The capability's tenant's pending events, off the typed transport."""
+        return transport.pending(tenant=authorized.tenant)
 
-    def route_action(*, submission: HitlActionSubmission) -> str:
+    def route_action(authorized: Authorized[HitlSubmit], *, submission: HitlActionSubmission) -> str:
         """Resolve through the real gate; land the action on replay dim 2.
 
         The recording obligation belongs to the primitive-consuming
@@ -237,7 +289,7 @@ def build_server(*, workspace: Path) -> FastMCP:
         append.
         """
         resolution = gate.resolve(
-            tenant=submission.tenant,
+            authorized,
             event_key=submission.event_key,
             action=submission.action,
             principal=submission.principal,
@@ -281,13 +333,25 @@ def build_server(*, workspace: Path) -> FastMCP:
         queue_view=queue_view,
         action_route=route_action,
         token_verifier=SourceBackedTokenVerifier(
-            source=FileTokenSource(path=write_token_file(workspace=workspace))
+            source=FileTokenSource(path=write_token_file(
+                workspace=workspace,
+                # The neighbour is included DELIBERATELY: the parent asserts
+                # that one tenant's queue never shows another's events, which
+                # is a QUEUE-PARTITION property and only observable if the
+                # caller can reach the neighbouring queue at all. The tenancy
+                # floor is proven separately (`SEC-018`).
+                tenants=frozenset(
+                    {event.tenant, f"{event.tenant}-not-this-one"}
+                ),
+            ))
         ),
         auth_settings=AuthSettings(
             issuer_url=AnyHttpUrl(ISSUER_URL),
             resource_server_url=AnyHttpUrl(RESOURCE_SERVER_URL),
             required_scopes=[SCOPE],
         ),
+        authorizer=wide_authorizer(scopes=[SCOPE]),
+        clock=door_clock,
     )
 
 

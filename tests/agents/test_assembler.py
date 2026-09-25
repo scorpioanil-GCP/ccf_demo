@@ -79,6 +79,9 @@ from ccf.skills.grants import (
     PolicyRegimeGovernance,
     SkillGrant,
 )
+from tests.controlplane.composition import compose_register_typed, compose_register_versioned
+from tests.composition import register_skill_entry
+from tests.skills.authority import grant_capability, revoke_capability
 from skills.sinks import ScriptedApprovalSink
 
 FIXTURES = Path(__file__).parent.parent / "fixtures" / "banking"
@@ -116,7 +119,7 @@ def registry() -> ControlPlaneRegistry:
     prompt_fixture = _prompt_fixture()
     prompt = parse_artifact(prompt_fixture["prompt_artifact"], PROMPT_ARTIFACT)
     assert isinstance(prompt, PromptArtifact)
-    plane.register_typed(
+    compose_register_typed(plane,
         prompt_fixture["keys"]["prompt_artifact"], prompt, PROMPT_ARTIFACT
     )
     for name in ("deal_monitor_assembler.yaml", "covenant_analytics.yaml"):
@@ -130,7 +133,7 @@ def registry() -> ControlPlaneRegistry:
                 },
                 artifact_class,
             )
-            plane.register_typed(reference["key"], declared, artifact_class)
+            compose_register_typed(plane, reference["key"], declared, artifact_class)
     return plane
 
 
@@ -145,7 +148,7 @@ def _construct(
 ) -> Agent:
     """Build one agent the only supported way — through the factory (§6.4)."""
     definition = _definition(document)
-    version = plane.register_versioned(key, definition, AGENT_DEFINITION)
+    version = compose_register_versioned(plane, key, definition, AGENT_DEFINITION)
     assert isinstance(version, str)
     return AgentFactory(control_plane=plane).construct(
         definition_key=key, definition_version=version
@@ -160,7 +163,7 @@ def _construct_with_classes(
 ) -> Agent:
     """The same supported path, with the deployment's registered classes wired."""
     definition = _definition(document)
-    version = plane.register_versioned(key, definition, AGENT_DEFINITION)
+    version = compose_register_versioned(plane, key, definition, AGENT_DEFINITION)
     assert isinstance(version, str)
     return AgentFactory(
         control_plane=plane, product_classes=product_classes
@@ -1049,11 +1052,11 @@ def test_channel_2_governs_enlistment_and_the_outcome_records_it(
     document = _wide_regime_document(artifact_version="2.1.0")
     definition = _definition(document)
     key = _assembler_fixture()["keys"]["agent_definition"]
-    version = registry.register_versioned(key, definition, AGENT_DEFINITION)
+    version = compose_register_versioned(registry, key, definition, AGENT_DEFINITION)
     assert isinstance(version, str)
 
     catalog = SkillCatalog(registry)
-    assert isinstance(catalog.register(_skill_entry()), str)
+    assert isinstance(register_skill_entry(catalog, registry, _skill_entry()), str)
     ledger = GrantLedger(
         control_plane=registry,
         catalog=catalog,
@@ -1068,7 +1071,9 @@ def test_channel_2_governs_enlistment_and_the_outcome_records_it(
         agent_definition_hash=definition_hash, **granted_values["grant"]
     )
     grant_hash = ledger.request(
-        grant, definition=definition, actor=granted_values["requesting_actor"]
+        grant_capability(definition, principal=granted_values["requesting_actor"]),
+        grant,
+        definition=definition,
     )
     assert isinstance(grant_hash, str), grant_hash
 
@@ -1089,7 +1094,11 @@ def test_channel_2_governs_enlistment_and_the_outcome_records_it(
     # The agent can enlist it while it is bound.
     assert agent.invoke_skill(grant.skill_name) is not None
 
-    ledger.revoke(grant_hash, actor=granted_values["requesting_actor"])
+    ledger.revoke(
+        revoke_capability(
+            grant_hash, tenant=definition.tenant, principal=granted_values["requesting_actor"]
+        )
+    )
 
     revoked_outcome = assembler.assemble(
         request=_request(agent),

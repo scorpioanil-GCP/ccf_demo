@@ -48,7 +48,7 @@ from ccf.controlplane.artifacts import MCP_PRODUCER, parse_artifact
 from ccf.deployment.operators import build_operator_registry
 from ccf.mcp.client import SyncMcpBridge
 from ccf.products.child_resolver import ChildQuestion, QuestionBoundChildResolver
-from ccf.products.composite import CompositeAdmissionGate
+from ccf.products.composite import CHILD_QUESTION_CLASS, CompositeAdmissionGate
 from ccf.products.contract import ChildRequirement, ContextProductContract
 from ccf.products.request import ProductRequest
 from ccf.products.resolver import GovernedResolver
@@ -59,6 +59,7 @@ from ccf.skills.callables import CallableRegistry
 from ccf.skills.dispatch import McpSkillRegistry, McpSkillUnregistered, ProducerDoesNotOffer
 from ccf.skills.producers import register_declared_producer
 
+from tests.composition import composition_replay_mint
 from tests.crossproc.conftest import spawn_child_server
 from tests.crossproc.servers.product_producer_identity import (
     DEV_TOKEN,
@@ -190,6 +191,9 @@ def consumer(
     children = QuestionBoundChildResolver(
         ledger=ledger,
         agent_definition_hash=agent_hash,
+        # D-IMPL-354: this test is the composition root; it mints for the child
+        # questions the resolver files, under the consumer tenant.
+        authorized=composition_replay_mint(booted.control_plane, tenant=TENANT, artifact_class=CHILD_QUESTION_CLASS),
         gate=CompositeAdmissionGate(
             tenant_id=TENANT,
             consumer_scope="consumer://d-impl-340",
@@ -226,7 +230,7 @@ def ask(resolver: GovernedResolver, *, threshold: int = 1000, subject: str = "ac
 
 
 def record_of(booted: _Booted, outcome: Any) -> DecisionReplayRecord:
-    fresh = FileArtifactStore(root=booted.store.root)
+    fresh = FileArtifactStore(root=booted.store.root, write_kinds=booted.store.write_kinds)
     if isinstance(outcome, ServedProduct):
         return DecisionReplayRecord.model_validate_json(
             fresh.get(content_address=outcome.replay_ref.content_address)
@@ -243,7 +247,7 @@ def the_row(booted: _Booted, outcome: Any) -> Any:
 
 
 def retained_child(booted: _Booted, address: str) -> ContextProductContract:
-    fresh = FileArtifactStore(root=booted.store.root)
+    fresh = FileArtifactStore(root=booted.store.root, write_kinds=booted.store.write_kinds)
     return ContextProductContract.model_validate_json(fresh.get(content_address=address))
 
 
@@ -321,7 +325,7 @@ def test_the_consumer_process_runs_no_producer_assembler(
     assert row.child_replay_ref is not None
     assert row.child_replay_ref.startswith(f"ccf-artifact://{PRODUCER_TENANT}/")
     with pytest.raises(Exception):  # the producer's record is its own, unresolvable here
-        FileArtifactStore(root=booted.store.root).resolve_uri(uri=row.child_replay_ref)
+        FileArtifactStore(root=booted.store.root, write_kinds=booted.store.write_kinds).resolve_uri(uri=row.child_replay_ref)
 
 
 # --- proof 4 -----------------------------------------------------------------
@@ -504,7 +508,7 @@ def test_replay_names_the_producer_relationship_and_calls_no_producer(
     )
     outcome = replay(
         record_address=served.replay_ref.content_address,
-        store=FileArtifactStore(root=booted.store.root),
+        store=FileArtifactStore(root=booted.store.root, write_kinds=booted.store.write_kinds),
         reader=booted.fabric.handle.reader,
         control_plane=booted.control_plane,
         environment=environment,
@@ -576,6 +580,9 @@ def test_an_unregistered_producer_is_a_wiring_error_before_any_socket(
     children = QuestionBoundChildResolver(
         ledger=ledger,
         agent_definition_hash=agent_hash,
+        # D-IMPL-354: this test is the composition root; it mints for the child
+        # questions the resolver files, under the consumer tenant.
+        authorized=composition_replay_mint(booted.control_plane, tenant=TENANT, artifact_class=CHILD_QUESTION_CLASS),
         gate=CompositeAdmissionGate(
             tenant_id=TENANT, consumer_scope="consumer://d-impl-340", registry=booted.control_plane
         ),

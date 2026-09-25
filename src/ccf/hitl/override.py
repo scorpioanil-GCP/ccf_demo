@@ -50,6 +50,7 @@ from collections.abc import Callable, Mapping
 from datetime import datetime
 from typing import Generic, TypeVar
 
+from ccf.authz.capability import Authorized, HitlSubmit, verify
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.controlplane.audit import AuditLog
@@ -223,8 +224,8 @@ class OverrideBoundary(Generic[ProductT]):
 
     def resolve(
         self,
+        authorized: Authorized[HitlSubmit],
         *,
-        tenant: str,
         event_key: str,
         principal: HumanPrincipalBinding,
         override: ProductT | None = None,
@@ -237,6 +238,16 @@ class OverrideBoundary(Generic[ProductT]):
         override is unrepresentable through this signature (D-IMPL-21; the
         D-22 type-unrepresentable leg). The TOCTOU guard runs before
         anything is consumed or submitted.
+
+        **The capability first (D-IMPL-353 §1.2).** ``authorized`` is the
+        ``Authorized[HitlSubmit]`` the gate minted for exactly this event;
+        :func:`~ccf.authz.capability.verify` runs before the handle's first
+        real statement, so a fabricated capability, one of another kind, or
+        one minted for another event dies before the queue is read, before
+        anything is audited, and before the claim is taken. The tenant is
+        ``authorized.tenant`` and nothing else — there is no tenant
+        parameter (§1.3) — and the transport records the action under the
+        capability's principal.
 
         **Signed-binding verification (D-IMPL-69; SDK-defined, CLAUDE.md
         §8.2).** When a Control Plane is bound and the HitlPolicy in force
@@ -258,8 +269,10 @@ class OverrideBoundary(Generic[ProductT]):
             :class:`OverrideResolutionRefused` on a hash mismatch.
 
         Raises:
+            ccf.authz.capability.CapabilityBypassError: ``authorized`` is
+                not a genuine ``Authorized[HitlSubmit]`` for ``event_key``.
             UnknownOverrideEventError: ``event_key`` names no pending
-                override for ``tenant``, this instance holds no
+                override for the capability's tenant, this instance holds no
                 proposal-time original for the pending event (WR-01 —
                 the transport may be shared while side-band state is
                 per-instance), or a concurrent resolve won the claim
@@ -267,6 +280,8 @@ class OverrideBoundary(Generic[ProductT]):
                 governance outcome. Checked before any transport
                 mutation, so no authority action lands unresolved.
         """
+        verify(authorized, kind=HitlSubmit, resource=event_key)
+        tenant = authorized.tenant
         event = next(
             (
                 pending
@@ -322,7 +337,6 @@ class OverrideBoundary(Generic[ProductT]):
         overridden = override is not None
         submission = HitlActionSubmission(
             event_key=event_key,
-            tenant=tenant,
             action="override" if overridden else "approve",
             principal=principal,
             annotation=annotation,
@@ -351,7 +365,10 @@ class OverrideBoundary(Generic[ProductT]):
                 " the claim; this one lost)"
             )
         try:
-            self._transport.submit(submission=submission)
+            # The transport returns the RECORDED copy — stamped with the
+            # authorizing decision id (D-IMPL-353 §9) — and that copy, not
+            # this primitive's input, is what the replay block carries.
+            recorded = self._transport.submit(authorized, submission=submission)
         except BaseException:
             # A refused authority submission never consumes the pending
             # event: the claim is given back (re-enqueued at the tail).
@@ -368,7 +385,7 @@ class OverrideBoundary(Generic[ProductT]):
         )
         record: OverrideActionRecord[ProductT] = OverrideActionRecord(
             event=event,
-            submission=submission,
+            submission=recorded,
             original=original,
             final=final,
             overridden=overridden,

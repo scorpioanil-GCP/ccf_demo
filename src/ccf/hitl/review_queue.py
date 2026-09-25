@@ -56,6 +56,7 @@ from datetime import datetime
 from pydantic import Field, field_validator
 
 from ccf.artifacts.protocol import ArtifactStoreError, parse_artifact_uri
+from ccf.authz.capability import Authorized, HitlSubmit, verify
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.contracts.claims import LineageEntry
@@ -269,8 +270,8 @@ class ReviewQueue:
 
     def release(
         self,
+        authorized: Authorized[HitlSubmit],
         *,
-        tenant: str,
         event_key: str,
         principal: HumanPrincipalBinding,
         annotation: str | None = None,
@@ -283,6 +284,16 @@ class ReviewQueue:
         pre-serialized dimension-2 block, or a typed refusal on a TOCTOU
         hash mismatch.
 
+        **The capability first (D-IMPL-353 §1.2).** ``authorized`` is the
+        ``Authorized[HitlSubmit]`` the gate minted for exactly this event;
+        :func:`~ccf.authz.capability.verify` runs before the handle's first
+        real statement, so a fabricated capability, one of another kind, or
+        one minted for another event dies before the queue is read, before
+        anything is audited, and before the claim is taken. The tenant is
+        ``authorized.tenant`` and nothing else — there is no tenant
+        parameter (§1.3) — and the transport records the action under the
+        capability's principal.
+
         **Signed-binding verification (D-IMPL-69; SDK-defined, CLAUDE.md
         §8.2).** When a Control Plane is bound and the HitlPolicy in force
         declares ``signed_binding_required``, this surface verifies
@@ -293,7 +304,7 @@ class ReviewQueue:
         D-13).
         """
         return self._resolve(
-            tenant=tenant,
+            authorized,
             event_key=event_key,
             principal=principal,
             annotation=annotation,
@@ -303,8 +314,8 @@ class ReviewQueue:
 
     def reject(
         self,
+        authorized: Authorized[HitlSubmit],
         *,
-        tenant: str,
         event_key: str,
         principal: HumanPrincipalBinding,
         annotation: str | None = None,
@@ -315,7 +326,7 @@ class ReviewQueue:
         applies exactly as at :meth:`release` (D-IMPL-69; D-12 — every
         authority-bearing surface verifies)."""
         return self._resolve(
-            tenant=tenant,
+            authorized,
             event_key=event_key,
             principal=principal,
             annotation=annotation,
@@ -327,14 +338,19 @@ class ReviewQueue:
 
     def _resolve(
         self,
+        authorized: Authorized[HitlSubmit],
         *,
-        tenant: str,
         event_key: str,
         principal: HumanPrincipalBinding,
         annotation: str | None,
         released: bool,
         signed_binding: SignedPrincipalBinding | None = None,
     ) -> ReviewResolution | ReviewResolutionRefused:
+        # The capability first (D-IMPL-353 §1.2): verified for its kind and
+        # for THIS event before the queue is read; the tenant is the
+        # capability's and nothing else (§1.3).
+        verify(authorized, kind=HitlSubmit, resource=event_key)
+        tenant = authorized.tenant
         event = next(
             (
                 pending
@@ -388,7 +404,6 @@ class ReviewQueue:
             )
         submission = HitlActionSubmission(
             event_key=event_key,
-            tenant=tenant,
             action="approve" if released else "reject",
             principal=principal,
             annotation=annotation,
@@ -417,7 +432,10 @@ class ReviewQueue:
                 " the claim; this one lost)"
             )
         try:
-            self._transport.submit(submission=submission)
+            # The transport returns the RECORDED copy — stamped with the
+            # authorizing decision id (D-IMPL-353 §9) — and that copy, not
+            # this primitive's input, is what the replay block carries.
+            recorded = self._transport.submit(authorized, submission=submission)
         except BaseException:
             # A refused authority submission never consumes the pending
             # event: the claim is given back (re-enqueued at the tail).
@@ -432,7 +450,7 @@ class ReviewQueue:
             actor=principal.approver.subject_id,
         )
         record = ReviewActionRecord(
-            event=event, item=item, submission=submission, released=released
+            event=event, item=item, submission=recorded, released=released
         )
         return ReviewResolution(
             record=record,

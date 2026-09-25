@@ -14,7 +14,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
 
 from ccf.agents.definitions import (
@@ -22,12 +22,27 @@ from ccf.agents.definitions import (
     PROMPT_ARTIFACT,
     TASK_DEFINITION,
 )
+from ccf.authz.capability import (
+    ConfigKeysRead,
+    ConfigRegister,
+    ConfigResolve,
+    ConfigVersionsRead,
+)
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes
 from ccf.controlplane.artifacts import ArtifactClass, ArtifactLoadError, parse_artifact
 from ccf.controlplane.registry import ControlPlaneMissing, RegistrationRefusal
 from ccf.workflow.definitions import WORKFLOW_DEFINITION
+from ccf_runtime.authz.refusals import (
+    ACTION_CONFIG_KEYS_READ,
+    ACTION_CONFIG_REGISTER,
+    ACTION_CONFIG_RESOLVE,
+    ACTION_CONFIG_VERSIONS_READ,
+)
+from ccf_runtime.authz.route_declaration import ResourceBinding, authorizes
 from ccf_runtime.http_api.dependencies import ApiDependencies
+from ccf_runtime.http_api.grants import absent as absent_response
+from ccf_runtime.http_api.grants import authorized_from_request, within_tenant
 from ccf_runtime.http_api.routes import canonical_response
 
 __ccf_mode__ = "algorithmic"
@@ -78,21 +93,45 @@ def build_router(deps: ApiDependencies) -> APIRouter:
         response_model=list[str],
         summary="Config keys (D-IMPL-23)",
     )
-    def keys(class_id: str) -> list[str]:
-        return list(deps.control_plane.keys_of_class(class_id))
+    @authorizes(
+        ACTION_CONFIG_KEYS_READ, resource=ResourceBinding.query("class_id")
+    )
+    def keys(class_id: str, request: Request) -> list[str]:
+        authorized = authorized_from_request(request, kind=ConfigKeysRead)
+        if class_id != authorized.resource:
+            return []  # one resource source (R11): the class the gate minted for, or nothing
+        # The capability's tenant's keys, and no other tenant's (F-READ-03).
+        return [
+            key
+            for key in deps.control_plane.keys_of_class(authorized.resource)
+            if within_tenant(tenant=authorized.tenant, key=key)
+        ]
 
     @router.get(
         "/versions",
         response_model=list[str],
         summary="Config versions (D-IMPL-23)",
     )
-    def versions(key: str) -> list[str]:
-        return list(deps.control_plane.versions(key))
+    @authorizes(
+        ACTION_CONFIG_VERSIONS_READ, resource=ResourceBinding.query("key")
+    )
+    def versions(key: str, request: Request) -> list[str]:
+        authorized = authorized_from_request(request, kind=ConfigVersionsRead)
+        if key != authorized.resource or not within_tenant(tenant=authorized.tenant, key=authorized.resource):
+            return []  # a differing parameter or another tenant's key: no versions, exactly like an absent one
+        return list(deps.control_plane.versions(authorized.resource))
 
     @router.get("/resolution", summary="Config resolve (D-IMPL-23)")
-    def resolution(key: str, version: str) -> Response:
+    @authorizes(ACTION_CONFIG_RESOLVE, resource=ResourceBinding.query("key"))
+    def resolution(key: str, version: str, request: Request) -> Response:
+        authorized = authorized_from_request(request, kind=ConfigResolve)
+        # One resource source (pre-merge check R11): the gate minted from this
+        # request's `key`; the handle reads the CAPABILITY's resource, and a
+        # parameter that differs from it is refused before the first read.
+        if key != authorized.resource or not within_tenant(tenant=authorized.tenant, key=authorized.resource):
+            raise absent_response(key, version)
         try:
-            artifact = deps.control_plane.resolve(key, version)
+            artifact = deps.control_plane.resolve(authorized.resource, version)
         except ControlPlaneMissing as absent:
             raise HTTPException(status_code=404, detail=str(absent)) from absent
         return canonical_response(artifact)
@@ -102,24 +141,32 @@ def build_router(deps: ApiDependencies) -> APIRouter:
         response_model=ConfigRegistered,
         summary="Config register (D-IMPL-22)",
     )
+    # The ``SEC-002`` door, and the reason the resource axis exists: the key
+    # this registration writes is the prompt artifact an agent then runs on,
+    # so the decision is about WHICH key, not only about who is recognized.
+    @authorizes(ACTION_CONFIG_REGISTER, resource=ResourceBinding.body("key"))
     def registration(
-        request: ConfigRegistrationRequest,
+        body: ConfigRegistrationRequest, request: Request
     ) -> ConfigRegistered | JSONResponse:
-        artifact_class = _TYPED_CLASSES.get(request.class_id)
+        # D-IMPL-353 §1.4: the capability for THIS action, or nothing.
+        authorized = authorized_from_request(request, kind=ConfigRegister)
+        artifact_class = _TYPED_CLASSES.get(body.class_id)
         if artifact_class is None:
             raise HTTPException(
                 status_code=422,
                 detail=(
-                    f"{request.class_id!r} is not an SDK-typed artifact"
+                    f"{body.class_id!r} is not an SDK-typed artifact"
                     " class this route interprets"
                 ),
             )
         try:
-            artifact = parse_artifact(request.artifact, artifact_class)
+            artifact = parse_artifact(body.artifact, artifact_class)
         except (ArtifactLoadError, ValueError) as bad:
             raise HTTPException(status_code=422, detail=str(bad)) from bad
+        # §1.2: the key the registry writes IS `authorized.resource` — the
+        # gate resolved it from the body's `key`; the handler supplies none.
         outcome = deps.control_plane.register_versioned(
-            request.key, artifact, artifact_class
+            authorized, artifact, artifact_class
         )
         if isinstance(outcome, RegistrationRefusal):
             # wrapped with the refusal type name so a wire consumer can
@@ -133,6 +180,6 @@ def build_router(deps: ApiDependencies) -> APIRouter:
                     "refusal": json.loads(canonical_bytes(outcome)),
                 },
             )
-        return ConfigRegistered(key=request.key, version=outcome)
+        return ConfigRegistered(key=authorized.resource, version=outcome)
 
     return router

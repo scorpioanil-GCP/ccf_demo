@@ -40,6 +40,9 @@ from ccf.products.entitlement import (
     ProductEntitlementViolation,
     product_entitlement_key,
 )
+from http_api.composition_authority import (
+    register_typed_at_composition,
+)
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "banking"
 
@@ -242,7 +245,9 @@ def test_neither_resolution_surface_returns_a_boolean() -> None:
 def test_the_key_derivation_is_a_pure_function_of_its_argument() -> None:
     key = product_entitlement_key(tenant_id=TENANT_ONE)
     assert key == product_entitlement_key(tenant_id=TENANT_ONE)
-    assert key.startswith(f"{PRODUCT_ENTITLEMENT_POLICY.class_id}/")
+    # `{tenant}/{class}` — the Control Plane key grammar (D-IMPL-353 §1.3); the
+    # derivation was class-first until the D-IMPL-353 join corrected it.
+    assert key == f"{TENANT_ONE}/{PRODUCT_ENTITLEMENT_POLICY.class_id}"
     assert TENANT_ONE in key
 
 
@@ -283,7 +288,7 @@ def test_registering_a_bare_mapping_under_the_class_is_refused(
     one — the whole argument for a typed artifact class."""
     key = product_entitlement_key(tenant_id=TENANT_ONE)
     with pytest.raises(TypeError):
-        registry.register_typed(key, {"principals": {}}, PRODUCT_ENTITLEMENT_POLICY)
+        register_typed_at_composition(registry, key, {"principals": {}}, PRODUCT_ENTITLEMENT_POLICY)
 
 
 def test_a_registered_policy_resolves_by_pinned_key_and_version(
@@ -291,7 +296,7 @@ def test_a_registered_policy_resolves_by_pinned_key_and_version(
 ) -> None:
     key = product_entitlement_key(tenant_id=TENANT_ONE)
     registered = policy()
-    version = registry.register_typed(key, registered, PRODUCT_ENTITLEMENT_POLICY)
+    version = register_typed_at_composition(registry, key, registered, PRODUCT_ENTITLEMENT_POLICY)
     assert registry.resolve(key, version) == registered
 
 
@@ -339,8 +344,8 @@ def test_two_tenant_policies_resolve_independently(
     )
     key_one = product_entitlement_key(tenant_id=TENANT_ONE)
     key_two = product_entitlement_key(tenant_id=TENANT_TWO)
-    version_one = registry.register_typed(key_one, one, PRODUCT_ENTITLEMENT_POLICY)
-    version_two = registry.register_typed(key_two, two, PRODUCT_ENTITLEMENT_POLICY)
+    version_one = register_typed_at_composition(registry, key_one, one, PRODUCT_ENTITLEMENT_POLICY)
+    version_two = register_typed_at_composition(registry, key_two, two, PRODUCT_ENTITLEMENT_POLICY)
 
     assert key_one != key_two
     assert version_one != version_two
@@ -359,6 +364,6 @@ def test_a_second_tenant_never_entitles_an_unconfigured_principal(
     fell back to "any registered policy" would quietly start working."""
     key_two = product_entitlement_key(tenant_id=TENANT_TWO)
     two = policy(tenant_id=TENANT_TWO)
-    registry.register_typed(key_two, two, PRODUCT_ENTITLEMENT_POLICY)
+    register_typed_at_composition(registry, key_two, two, PRODUCT_ENTITLEMENT_POLICY)
     with pytest.raises(PrincipalNotEntitled):
         two.grant_for(principal_id=OTHER_PRINCIPAL)
