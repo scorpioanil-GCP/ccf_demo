@@ -408,12 +408,14 @@ CVE cannot. v1.0.0 and v1.0.1 both shipped it.
    `importlib.metadata.version(SDK_DISTRIBUTION) == tag.lstrip("v")` before the
    TAG GO, and a CI job on `v*` tags fails when they differ.
 3. **`SEC-027` coupling.** `SDK_DISTRIBUTION = "ccf"` (`src/ccf/graph/registry.py:188`) is
-   the name `importlib.metadata` reads. If the PyPI name `ccf-sdk` is claimed
-   (Dave's check before wave 1 closes, §0 #5), the distribution is renamed in
-   the same wave — `pyproject.toml` `name`, `SDK_DISTRIBUTION`, the
-   qualification venv recipe — or the runtime stamp breaks at the rename. If the
-   check is not done by wave-1 close, the rename is a named carry and the stamp
-   ships under `ccf`.
+   the name `importlib.metadata` reads. **Measured 2026-09-25:** `pypi.org/pypi/ccf-sdk/json`
+   returns 404 (unclaimed); `pypi.org/pypi/ccf/json` is Microsoft's
+   Confidential Consortium Framework tooling at 7.0.17 (`CCF-Sec@microsoft.com`).
+   Claiming `ccf-sdk` is Dave's outward-facing action (§0 #5). If it is claimed
+   before wave 1 closes, the distribution is renamed in the same wave —
+   `pyproject.toml` `name`, `SDK_DISTRIBUTION`, the qualification venv recipe —
+   or the runtime stamp breaks at the rename. If it is not, the rename is a
+   named carry and the stamp ships under `ccf`.
 4. **Tag text:** the annotated `v1.0.2` tag carries the security-review map
    (§8.4): every `SEC` id with its status and the `D-IMPL` that closed it; the
    `TP` and `EX` rows; what is carried.
