@@ -625,7 +625,7 @@ way `govern_entitlement` and `govern_absence` build theirs:
   appends one `authz_decision` event to the door's Control Plane audit log —
   the shape the entitlement source and the HITL authorizer already write —
   with `authz_action_id` one of two new ids declared beside
-  `runtime/ccf_runtime/authz/refusals.py::ACTION_PRODUCT_RETRIEVE`
+  `src/ccf/authz/actions.py::ACTION_PRODUCT_RETRIEVE`
   (`ACTION_REPLAY_READ = "replay.read"`, `ACTION_ARTIFACT_READ =
   "artifact.read"`; the seam `D-IMPL-129` named for exactly this), `actor` the
   caller, `key` the reference as asked, `version` the content address
