@@ -34,6 +34,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import re
 import pytest
 
 from ccf.agents.definitions import AGENT_DEFINITION, PROMPT_ARTIFACT
@@ -468,3 +469,112 @@ def test_the_reverse_index_answers_nothing_for_a_string_that_is_not_an_address(t
     store = deployment_store(tmp_path / "names")
     for malformed in ("../../../../etc/hostname", "/etc/hostname", ".artifact-names.json", "e" * 63, "E" * 64, ""):
         assert store.names_at(content_address=malformed) == ()
+
+
+# --- the served-surface claim, measured on every mounted route -----------------------
+
+
+def _seams_with_a_foreign_tenant(tmp_path: Path, recorder: Any) -> dict[str, Any]:
+    """`_seams_over`, plus a second credential that holds ONLY another tenant."""
+    entitlements = ControlPlaneRegistry()
+    register_typed_at_composition(
+        entitlements,
+        product_entitlement_key(tenant_id=TENANT),
+        ProductEntitlementPolicy(
+            tenant_id=TENANT,
+            policy_version="1.0.0",
+            principals={
+                CLIENT: ProductEntitlementGrant(
+                    permitted_schema_names=frozenset({"join.product"}),
+                    permitted_roles=frozenset({ROLE}),
+                )
+            },
+        ),
+        PRODUCT_ENTITLEMENT_POLICY,
+    )
+    source = ControlPlaneProductEntitlementSource(control_plane=entitlements, clock=lambda: INSTANT)
+    return authority(
+        tenant=(TENANT, "other-tenant"),
+        key="join-wiring/mapping",
+        grants={
+            TOKEN: (CLIENT, (SCOPE_EVERYTHING,), TENANT),
+            "foreign-token": ("foreign-client", (SCOPE_EVERYTHING,), "other-tenant"),
+        },
+        product_entitlement=source,
+        perspective_resolver=lambda *, grant, tenant, requested_role: Perspective(
+            principal_id=grant.client_id, role=ROLE
+        ),
+        refusal_recorder=recorder,
+        clock_at=INSTANT,
+    )
+
+
+def test_on_every_mounted_route_no_credential_mints_nothing_and_a_foreign_one_mints_only_for_itself(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """D-IMPL-353 §9, the served-surface claim, measured rather than argued.
+
+    For EVERY route the app mounts (the route table, plus whatever FastAPI adds
+    beside it), a request carrying no credential or a malformed one is refused by
+    the gate before anything is minted — so no handle can have been reached,
+    because every handle requires the capability only the gate mints — and a
+    request carrying a credential for another tenant is minted, if at all, for
+    THAT tenant and never for this deployment's. The mint is the one seam every
+    capability passes, so counting mints counts reaches.
+    """
+    import ccf_runtime.http_api.gate as gate_module
+    from fastapi.testclient import TestClient
+
+    registry = ControlPlaneRegistry()
+    store = deployment_store(tmp_path / "store", REPLAY_RECORD_CLASS)
+    app = create_app(
+        _deps(registry, store),
+        **_seams_with_a_foreign_tenant(tmp_path, _recorder_over(store, registry)),
+    )
+    minted: list[dict[str, Any]] = []
+    real_mint = gate_module.mint
+
+    def spying_mint(*args: Any, **kwargs: Any) -> Any:
+        minted.append(kwargs)
+        return real_mint(*args, **kwargs)
+
+    monkeypatch.setattr(gate_module, "mint", spying_mint)
+    client = TestClient(app, raise_server_exceptions=False)
+    # The served paths, from the document the app itself publishes about them
+    # (every included router lands there; the doc routes FastAPI adds do not),
+    # plus those doc routes: the whole mounted surface, whatever the framework's
+    # internal route objects look like.
+    documented = {
+        (path, method.upper())
+        for path, operations in app.openapi()["paths"].items()
+        for method in operations
+    }
+    doc_routes = {
+        (route.path, "GET")
+        for route in app.routes
+        if getattr(route, "path", None) in {"/openapi.json", "/docs", "/docs/oauth2-redirect", "/redoc"}
+    }
+    routes = sorted(documented | doc_routes)
+    assert len(routes) >= 20, routes
+    legs = (
+        ("no credential", {}),
+        ("malformed credential", {"Authorization": "Bearer not-a-token-anyone-issued"}),
+    )
+    unexpected: list[tuple[str, str, str, int]] = []
+    for path, method in routes:
+        url = re.sub(r"\{[^}]+\}", "x", path)
+        body = {} if method in {"POST", "PUT", "PATCH"} else None
+        for label, headers in legs:
+            before = len(minted)
+            response = client.request(method, url, headers=headers, json=body)
+            if len(minted) != before or response.status_code not in {401, 403}:
+                unexpected.append((path, method, label, response.status_code))
+        before = len(minted)
+        response = client.request(
+            method, url, headers={"Authorization": "Bearer foreign-token"}, json=body
+        )
+        assert response.status_code != 500, (path, method, response.text[:200])
+        for mint_call in minted[before:]:
+            assert mint_call["decision"].tenant == "other-tenant", (path, method, mint_call)
+            assert mint_call["decision"].tenant != TENANT
+    assert unexpected == [], unexpected

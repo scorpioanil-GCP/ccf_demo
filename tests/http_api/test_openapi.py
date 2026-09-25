@@ -114,20 +114,9 @@ def test_extra_forbid_surfaces_as_additional_properties_false(
         assert schemas[contract].get("additionalProperties") is False, contract
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "SEC-001 changed the served contract — deleted body fields"
-        " (ArtifactPutRequest.tenant_id, GrantRequest.actor,"
-        " GrantRevocationRequest.actor), deleted query parameters (the hitl"
-        " and workflow `tenant`), and new docstrings that FastAPI publishes"
-        " as schema descriptions. `openapi.json`, `docs/schemas/` and the"
-        " surface log are regenerated ONCE when the parallel lanes join;"
-        " regenerating them per lane guarantees a merge conflict in a"
-        " generated file. strict=True so this turns red the moment the"
-        " regeneration lands, which is exactly when this marker must go."
-    ),
-)
+# The strict xfail that stood here between SEC-001 and the D-IMPL-353 join
+# ("regenerated ONCE when the parallel lanes join") went red on the join's
+# regeneration, exactly as it said it would, and was removed there.
 def test_the_committed_spec_matches_what_the_app_emits(app: Any) -> None:
     """D-12: the baseline external integrators consume is not stale.
 

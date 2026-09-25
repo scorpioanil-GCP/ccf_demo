@@ -281,3 +281,23 @@ class TestMintAtComposition:
 
     def test_the_composition_kinds_are_exactly_two(self) -> None:
         assert COMPOSITION_KINDS == (ReplayMint, Register)
+
+
+class TestNoDoorMintsTheGovernedRecord:
+    """D-IMPL-353 §2 P3: a served surface cannot obtain ``Authorized[ReplayMint]``.
+
+    Written at the join when merged-tree sabotage M18 (delete the by-name
+    refusal in ``kind_for_action``) reddened nothing: the invariant was carried
+    only by what happened not to be in the action map. Two controls now hold it
+    — the map's content, and the by-name refusal that says WHY.
+    """
+
+    def test_replay_mint_is_not_a_door_action(self) -> None:
+        from ccf.authz.capability import _KINDS_BY_ACTION
+
+        assert ReplayMint not in _KINDS_BY_ACTION.values()
+        assert ReplayMint.action_id not in _KINDS_BY_ACTION
+
+    def test_kind_for_action_refuses_the_governed_record_mint_by_name(self) -> None:
+        with pytest.raises(CapabilityBypassError, match="governed-record mint"):
+            kind_for_action(ReplayMint.action_id)
