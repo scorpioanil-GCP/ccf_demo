@@ -8,8 +8,8 @@ The retirement inventory in `16-RESEARCH.md` § A.1/§ A.2 swept `examples/`, `t
 
 The walk covers the whole repository from the sweep's own location. The number of files it read is printed by the command rather than recorded here, so that adding an unrelated file to the tree does not make this inventory stale; what does make it stale is a change to a coupling, which is the thing later waves must re-measure.
 
-- Coupling rows: **309** across **98** files
-- Rows outside `examples/`, `tests/examples/` and `public/`: **157** across **55** files
+- Coupling rows: **310** across **98** files
+- Rows outside `examples/`, `tests/examples/` and `public/`: **158** across **55** files
 - References from inside a retiring path to a path that retires no earlier, dropped because they are deleted with their source: **248**
 
 Rows by owning plan:
@@ -17,7 +17,7 @@ Rows by owning plan:
 | Owning plan | Rows |
 | --- | --- |
 | 16-02 | 10 |
-| 17-08 | 103 |
+| 17-08 | 104 |
 | 23-04 | 184 |
 | 23-10 | 12 |
 
@@ -36,7 +36,7 @@ Rows by coupling shape:
 | `markdown-link` | 8 |
 | `module-constant` | 1 |
 | `path-construction` | 11 |
-| `prose` | 84 |
+| `prose` | 85 |
 | `snippet-include` | 56 |
 | `string-literal` | 16 |
 | `tmp_path-synthetic` | 13 |
@@ -78,8 +78,9 @@ Rows by coupling shape:
 | `docs/D-IMPL-353-EXAMPLES-GAP-LEDGER.md` | 67 | `tests/examples/test_s1_00_config_equivalence.py` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/D-IMPL-353-EXAMPLES-GAP-LEDGER.md` | 69 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/D-IMPL-353-EXAMPLES-GAP-LEDGER.md` | 69 | `tests/examples/test_s1_00_output.py` | `prose` | documentary | - | - | 17-08 |  |
-| `docs/D-IMPL-353-EXAMPLES-GAP-LEDGER.md` | 146 | `archive/examples/05-workflow-hitl` | `prose` | documentary | - | - | 23-04 |  |
-| `docs/D-IMPL-353-EXAMPLES-GAP-LEDGER.md` | 158 | `tests/examples/test_s1_00_config_equivalence.py` | `prose` | documentary | - | - | 17-08 |  |
+| `docs/D-IMPL-353-EXAMPLES-GAP-LEDGER.md` | 89 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
+| `docs/D-IMPL-353-EXAMPLES-GAP-LEDGER.md` | 148 | `archive/examples/05-workflow-hitl` | `prose` | documentary | - | - | 23-04 |  |
+| `docs/D-IMPL-353-EXAMPLES-GAP-LEDGER.md` | 160 | `tests/examples/test_s1_00_config_equivalence.py` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/DEBT_COMPLETENESS_RULING_EVIDENCE.md` | 159 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/DEBT_COMPLETENESS_RULING_EVIDENCE.md` | 163 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/DEBT_COMPLETENESS_RULING_EVIDENCE.md` | 221 | `examples/00-quickstart` | `prose` | documentary | - | - | 23-04 |  |
@@ -286,9 +287,9 @@ Rows by coupling shape:
 | `tests/examples/test_hw1_harness_clients_retirement.py` | 542 | `examples/external/00-hello-context` | `string-literal` | live | - | - | 23-04 |  |
 | `tests/examples/test_hw1_harness_clients_retirement.py` | 606 | `examples/external/00-hello-context` | `tmp_path-synthetic` | survives | - | - | 23-04 |  |
 | `tests/examples/test_hw1_harness_clients_retirement.py` | 627 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
-| `tests/examples/test_s1_01_governed_resolver_adoption.py` | 139 | `examples/s1-01-hello-context-product` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-01-hello-context-product` |
-| `tests/examples/test_s1_01_governed_resolver_adoption.py` | 397 | `tests/examples/test_s1_01_output.py` | `docstring` | documentary | - | - | 17-08 |  |
-| `tests/examples/test_s1_01_governed_resolver_adoption.py` | 526 | `tests/examples/test_s1_01_output.py` | `docstring` | documentary | - | - | 17-08 |  |
+| `tests/examples/test_s1_01_governed_resolver_adoption.py` | 142 | `examples/s1-01-hello-context-product` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-01-hello-context-product` |
+| `tests/examples/test_s1_01_governed_resolver_adoption.py` | 428 | `tests/examples/test_s1_01_output.py` | `docstring` | documentary | - | - | 17-08 |  |
+| `tests/examples/test_s1_01_governed_resolver_adoption.py` | 557 | `tests/examples/test_s1_01_output.py` | `docstring` | documentary | - | - | 17-08 |  |
 | `tests/examples/test_source_estate.py` | 50 | `examples/s1-01-hello-context-product` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-01-hello-context-product` |
 | `tests/examples/test_spine_separation.py` | 60 | `archive/examples/00-quickstart` | `docstring` | documentary | - | - | 23-04 |  |
 | `tests/halflife/test_debt.py` | 707 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |

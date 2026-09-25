@@ -44,6 +44,7 @@ import yaml
 
 import spine
 from ccf.contracts.canonical import content_hash
+from ccf.controlplane.registry import namespaced_key
 
 EXAMPLE_DIR = Path(__file__).resolve().parent
 
@@ -188,7 +189,12 @@ def _fabric_section(assembled: spine.Assembled) -> list[str]:
     lines = _heading(HEADING_FABRIC)
     for key in sorted(assembled.operators_invoked):
         category = key.split(".", 1)[0]
-        artifact = scenario.operator_parameters.get(category)
+        # `operator_parameters` is keyed by the manifest key the loader
+        # registered — the category placed under this deployment's tenant
+        # (D-IMPL-353 §1.3) — so the lookup derives that key the same way.
+        artifact = scenario.operator_parameters.get(
+            namespaced_key(tenant=assembled.tenant_id, key=category)
+        )
         lines.append(_field(f"{category} operator", key))
         if artifact is not None:
             lines.extend(_parameters(artifact))

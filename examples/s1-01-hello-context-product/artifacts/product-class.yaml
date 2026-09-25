@@ -55,8 +55,13 @@ ttl_anchor: from_decision
 assembly_mode: algorithmic
 
 # The Control Plane key this class's MAX_TTL ceiling is registered under. The
-# key is authored; the version pinning it is not.
-max_ttl_key: fibo-kyc/product/ultimate-beneficial-ownership/max-ttl
+# key is authored; the version pinning it is not. It is authored in the full
+# `{tenant}/{class}/{name}` grammar under THIS deployment's tenant
+# (`manifest.yaml`'s `tenant_id`): the resolver's composition root mints the
+# ceiling's register authority for the segment the key names (D-IMPL-353
+# §1.3), so a key under any other segment would put this deployment's ceiling
+# in another tenant's Control Plane.
+max_ttl_key: meridian-bank/product/ultimate-beneficial-ownership/max-ttl
 
 required_operator_keys:
   - traversal.typed-neighborhood

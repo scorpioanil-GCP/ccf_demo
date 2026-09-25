@@ -102,6 +102,7 @@ import pytest
 import yaml
 
 from ccf.contracts.canonical import content_hash
+from ccf.controlplane.registry import namespaced_key
 from ccf.replay.record import NO_GRAPH_QUERIES, DecisionReplayRecord
 
 #: The leg this module runs on. The marker selects it (`make leg-fluree`); the
@@ -237,7 +238,7 @@ def expected(example: Any, result: Any) -> Any:
     file, so the expectation is the same parsed artifact the fabric booted
     against and cannot drift from it.
     """
-    return example.deployment.expectation(result.scenario.artifacts)
+    return example.deployment.expectation(result.scenario)
 
 
 @pytest.fixture(scope="module")
@@ -385,6 +386,41 @@ def test_the_run_serves_the_tenant_and_class_the_artifacts_name(
     assert result.product.schema_name == declared.schema_name
     assert result.product.schema_version == declared.schema_version
     assert result.product.tenant_id == result.tenant_id
+
+
+def test_every_key_the_run_put_in_force_is_under_the_deployments_tenant(
+    example: Any, result: Any
+) -> None:
+    """D-IMPL-353 §1.3: the fabric holds this deployment's keys under its tenant, and nothing else.
+
+    Every artifact key the loader registered is ``{tenant}/…``; the keys the
+    scenario hands the resolver are those placed keys, and so is the MAX_TTL
+    key the class declares; the bare section name is not a key the fabric
+    holds, and the same name placed under another tenant is not either. The
+    control is exact on both sides: the placed key resolves, the two others do
+    not. An SDK mechanism claim, so the names are the deployment's own
+    vocabulary (``KEY_EVENTS``) rather than literals.
+    """
+    tenant = result.tenant_id
+    scenario = result.scenario
+    prefix = f"{tenant}/"
+    keys = tuple(scenario.artifacts)
+    assert keys and all(key.startswith(prefix) for key in keys), keys
+    handed_to_the_resolver = (
+        scenario.product_class_key,
+        scenario.debt_profile_key,
+        scenario.request_contract_artifact_key,
+        scenario.policy_bundle_key,
+        *scenario.operator_parameters,
+        scenario.product_class.max_ttl_key,
+    )
+    assert all(key.startswith(prefix) for key in handed_to_the_resolver), (
+        handed_to_the_resolver
+    )
+    bare = example.deployment.KEY_EVENTS
+    assert namespaced_key(tenant=tenant, key=bare) in scenario.artifacts
+    assert bare not in scenario.artifacts
+    assert namespaced_key(tenant=f"not-{tenant}", key=bare) not in scenario.artifacts
 
 
 def test_the_served_shape_matches_the_declared_expectation(
@@ -1060,7 +1096,7 @@ def test_the_report_shows_the_refresh_window_and_names_no_source(
 
     deployment = example.deployment
     governance = result.scenario.artifacts[
-        deployment.KEY_PRODUCT_GOVERNANCE
+        namespaced_key(tenant=result.tenant_id, key=deployment.KEY_PRODUCT_GOVERNANCE)
     ].declaration
     declared = [
         entry[deployment.GOVERNANCE_SOURCE_REF]
