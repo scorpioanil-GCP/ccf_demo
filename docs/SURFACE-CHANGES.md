@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1538 entries**, of which **1285** name a public Python surface.
+**1549 entries**, of which **1296** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-907 entries — 865 public Python surface, 42 not public Python API.
+909 entries — 867 public Python surface, 42 not public Python API.
 
 ### Public Python surface
 
@@ -14230,6 +14230,40 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `353-01-the-authorized-capability.md`.*
 
+#### ccf.workflow.factory.WorkflowTenantMismatchError
+
+- Surface: ccf.workflow.factory.WorkflowTenantMismatchError
+- Public surface: true
+- Change type: added
+- Before: absent — a capability for one tenant could construct another tenant's
+  handle, and the execution was then filed under the artifact's tenant
+- After: a `WorkflowConstructionError` subclass raised by `construct` when the
+  artifact under `authorized.resource` declares a tenant other than
+  `authorized.tenant`. The message names both tenants and the key
+- Why: §1.3 — the refusal is typed and happens at construction, before any
+  handle and therefore before any state. It subclasses the existing
+  construction error so handlers that already catch that class keep catching
+  this one; the HTTP route currently maps it to 422 through that base and may
+  choose a distinct status at the join
+- Migration: none required; catch it specifically where a cross-tenant
+  attempt should be distinguished from a broken definition
+
+*Recorded by `353-04-the-engine-runs-under-a-capability.md`.*
+
+#### ccf.workflow.WorkflowTenantMismatchError
+
+- Surface: ccf.workflow.WorkflowTenantMismatchError
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the package re-export, beside `WorkflowConstructionError`, so a caller
+  importing the workflow contracts from `ccf.workflow` sees both refusals
+- Why: the package already re-exports the construction error family; a new
+  member of that family belongs on the same import path
+- Migration: none
+
+*Recorded by `353-04-the-engine-runs-under-a-capability.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -14917,7 +14951,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-445 entries — 259 public Python surface, 186 not public Python API.
+447 entries — 261 public Python surface, 186 not public Python API.
 
 ### Public Python surface
 
@@ -19885,6 +19919,39 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `350-05-default-deny-at-every-door.md`.*
 
+#### ccf.workflow.factory.Workflow
+
+- Surface: ccf.workflow.factory.Workflow
+- Public surface: true
+- Change type: reshaped
+- Before: `Workflow(*, definition, task_definition, identity)`
+- After: `Workflow(*, definition, task_definition, identity, definition_key:
+  str)` — a required keyword; the empty string is refused — and a read-only
+  `definition_key` property carrying the Control Plane key the handle was
+  resolved from
+- Why: §1.5(f). The engine is handed a handle by its caller, so it binds the
+  capability's resource to the handle's own key: an `Execute` minted for
+  definition X cannot run a handle built for definition Y. Without the key on
+  the handle that bind has nothing to compare against
+- Migration: none for callers — the factory is the only construction path
+  (CINV-01c) and it supplies the key from `authorized.resource`
+
+*Recorded by `353-04-the-engine-runs-under-a-capability.md`.*
+
+#### ccf.workflow.Workflow
+
+- Surface: ccf.workflow.Workflow
+- Public surface: true
+- Change type: reshaped
+- Before: the package re-export of `ccf.workflow.factory.Workflow`, same shape
+- After: the same re-export; the constructor and `definition_key` property
+  described under `ccf.workflow.factory.Workflow`
+- Why: one name, two import paths; the record carries both so neither is an
+  unclaimed move
+- Migration: none
+
+*Recorded by `353-04-the-engine-runs-under-a-capability.md`.*
+
 ### Not public Python API
 
 #### tools/lints/__main__.py
@@ -22502,7 +22569,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-165 entries — 140 public Python surface, 25 not public Python API.
+172 entries — 147 public Python surface, 25 not public Python API.
 
 ### Public Python surface
 
@@ -25627,6 +25694,176 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none
 
 *Recorded by `343-01-paved-road.md`.*
+
+#### ccf.workflow.factory.WorkflowFactory
+
+- Surface: ccf.workflow.factory.WorkflowFactory
+- Public surface: true
+- Change type: behavior
+- Before: `construct(*, definition_key: str, definition_version: str)` — the
+  caller named the Control Plane key to resolve; no capability was involved and
+  the artifact's declared tenant was never compared with anything
+- After: `construct(authorized: Authorized[Execute] | Authorized[Resume], *,
+  definition_version: str)`. The key IS `authorized.resource`; there is no
+  `definition_key` parameter. The capability is verified first (mint, kind,
+  retarget, resource — the runtime tooth), then the artifact's declared
+  `tenant` is compared with `authorized.tenant` exactly once and a mismatch
+  raises `WorkflowTenantMismatchError` before any handle exists
+- Why: §1.2 — a handle whose target is the resource the authorizer decided on
+  takes it from the capability and has no caller-supplied parameter for it;
+  §1.3 — the one tenant comparison lives inside the handle that holds the
+  capability, not in a door that might forget. A fabricated, retargeted or
+  wrong-kind capability dies in `verify` before the comparison can see it
+- Migration: obtain the capability from the gate for `workflow.invoke` or
+  `workflow.resume` (both doors already bind their resource to the request's
+  `definition_key`, so the value the door decided on is the value the factory
+  reads) and pass it first; drop `definition_key=`. A handler with nothing to
+  pass is a `mypy --strict` error, pinned by
+  `tests/workflow/test_workflow_static.py::test_a_handler_with_no_capability_does_not_type_check`
+
+*Recorded by `353-04-the-engine-runs-under-a-capability.md`.*
+
+#### ccf_runtime.workflow.engine.WorkflowEngine
+
+- Surface: ccf_runtime.workflow.engine.WorkflowEngine
+- Public surface: true
+- Change type: behavior
+- Before: `execute(workflow, *, execution_id)` and
+  `resume(workflow, *, execution_id, decision)`; the state key was
+  `f"{workflow.definition.tenant}/{execution_id}"`, and the HITL pending event,
+  the trace artifact and every typed outcome carried the artifact's tenant
+- After: `execute(authorized: Authorized[Execute], workflow, *, execution_id)`
+  and `resume(authorized: Authorized[Resume], workflow, *, execution_id,
+  decision)`. `verify(authorized, kind=<its own>,
+  resource=workflow.definition_key)` is the first statement after the handle
+  type check. The state key is derived from `authorized.tenant` and
+  `execution_id`; every state-store and trace-store write receives the
+  capability and that derived key (the §1.2 derived-writes rule); the pending
+  HITL event, the trace artifact and every outcome carry `authorized.tenant`.
+  No statement in the module reads the artifact's tenant
+- Why: §1.3 verbatim — the engine receives `authorized` for tenant X and files
+  under X. `Resume` is its own kind: a deployment that granted *start a
+  workflow* has not granted *carry a human decision past its gate* (§1.5), so
+  a genuine `Authorized[Execute]` handed to `resume` dies at `verify` before
+  the state store is read, and a genuine capability for definition X dies at
+  `verify` on a handle for definition Y
+- Migration: pass the door's capability first, then the handle. In-process
+  callers that constructed and executed with one key now construct and execute
+  with one capability; the `tests/workflow/capabilities.py` helpers show the
+  minting shape (through the real `mint` over an allowed `AuthzDecision`)
+
+*Recorded by `353-04-the-engine-runs-under-a-capability.md`.*
+
+#### ccf.orchestration.protocol.OrchestrationProtocol
+
+- Surface: ccf.orchestration.protocol.OrchestrationProtocol
+- Public surface: true
+- Change type: behavior
+- Before: `start_execution(*, workflow, execution_id)` and
+  `resume_execution(*, workflow, execution_id, decision)`
+- After: `start_execution(*, authorized: Authorized[Execute], workflow,
+  execution_id)` and `resume_execution(*, authorized: Authorized[Resume],
+  workflow, execution_id, decision)`; still keyword-only throughout, and the
+  `authorized` parameter carries no default. The capability type is named
+  under `TYPE_CHECKING` from `ccf.authz.capability` — `src` never imports
+  `runtime` (D-29)
+- Why: a driver threads the capability from whoever invoked it to the engine,
+  which verifies it; a driver mints nothing and holds it in no field. The
+  Protocol is how a driver receives it
+- Migration: an external orchestrator implementing the Protocol adds the
+  `authorized` keyword to both verbs and passes it through to the engine
+  unchanged. `tests/conformance/test_orchestration.py::test_the_protocol_methods_are_keyword_only_and_typed`
+  pins the shape
+
+*Recorded by `353-04-the-engine-runs-under-a-capability.md`.*
+
+#### ccf_runtime.orchestration.reference.WorkflowEngineOrchestrationAdapter
+
+- Surface: ccf_runtime.orchestration.reference.WorkflowEngineOrchestrationAdapter
+- Public surface: true
+- Change type: behavior
+- Before: the two verbs delegated `(workflow, execution_id[, decision])` to the
+  engine
+- After: the two verbs take `authorized` and delegate it first, verbatim; the
+  adapter reads nothing out of it
+- Why: the reference leg is the byte-for-byte comparison target for every
+  driver's replay landing; it passes the capability through and adds nothing
+- Migration: pass `authorized=` to both verbs
+
+*Recorded by `353-04-the-engine-runs-under-a-capability.md`.*
+
+#### ccf_runtime.orchestration.langgraph.driver.LangGraphWorkflowDriver
+
+- Surface: ccf_runtime.orchestration.langgraph.driver.LangGraphWorkflowDriver
+- Public surface: true
+- Change type: behavior
+- Before: `start_execution(*, workflow, execution_id)`,
+  `resume_execution(*, workflow, execution_id, decision)`,
+  `checkpointed_values(*, workflow, execution_id)`; graph position and the
+  driver's outcome key used the artifact's tenant
+- After: both verbs take `authorized` and close the engine call over it — the
+  `drive` node in a start run, the post-interrupt half of `gate` in a resume
+  run; the node a run presented no capability for raises the typed driver
+  error if reached, which the topology does not do. Position is keyed by
+  `authorized.tenant`; `checkpointed_values(*, tenant, execution_id)` takes
+  that tenant rather than a handle to read one from
+- Why: the capability lives in the closure of the call that received it and
+  dies with it — no driver field holds one, pinned by
+  `tests/conformance/test_orchestration.py::test_the_driver_retains_no_capability_after_a_drive`
+  — and the driver's own position key is the engine's key (§1.3)
+- Migration: pass `authorized=` to both verbs; introspection callers pass the
+  tenant the engine filed under (the suspend handle's `tenant`)
+
+*Recorded by `353-04-the-engine-runs-under-a-capability.md`.*
+
+#### ccf_runtime.orchestration.adk.driver.AdkWorkflowDriver
+
+- Surface: ccf_runtime.orchestration.adk.driver.AdkWorkflowDriver
+- Public surface: true
+- Change type: behavior
+- Before: `start_execution(*, workflow, execution_id)`,
+  `resume_execution(*, workflow, execution_id, decision)`,
+  `persisted_state(*, workflow, execution_id)`; the ADK session id and the
+  outcome key used the artifact's tenant
+- After: both verbs take `authorized` and the `_EngineSegment` sub-agent runs
+  the closure built over it; session id and outcome key use
+  `authorized.tenant`; `persisted_state(*, tenant, execution_id)`
+- Why: as for the LangGraph leg — the capability travels in the closure, and
+  position is keyed by the tenant the engine files under
+- Migration: pass `authorized=` to both verbs; introspection callers pass the
+  tenant
+
+*Recorded by `353-04-the-engine-runs-under-a-capability.md`.*
+
+#### ccf_runtime.orchestration.claude_agent.driver.ClaudeAgentWorkflowDriver
+
+- Surface: ccf_runtime.orchestration.claude_agent.driver.ClaudeAgentWorkflowDriver
+- Public surface: true
+- Change type: behavior
+- Before: `start_execution(*, workflow, execution_id)`,
+  `resume_execution(*, workflow, execution_id, decision)`,
+  `session_transcript(*, workflow, execution_id)`; the session's two tools
+  called the engine directly, and an engine exception inside a tool was
+  converted by the SDK-MCP server into an `isError` result carrying only
+  `str(e)`, after which the turn ended looking successful and the driver
+  raised `SegmentNotExecutedError` — the engine's refusal reported as a
+  segment that never ran
+- After: both verbs take `authorized`; the tools are guarded closures built per
+  turn over the engine and the capability; a tool that raises keeps the
+  exception in the turn's own box and answers an error result, the scripted
+  transport fails the turn visibly, and `_drive` re-raises the engine's
+  exception **verbatim** — so a `CapabilityBypassError` surfaces from this leg
+  exactly as the other legs propagate it natively. Session id, outcome key and
+  transcript use `authorized.tenant`; `session_transcript(*, tenant,
+  execution_id)`
+- Why: the capability travels in the closure; and a leg must not report the
+  engine's refusal as absence of execution. Pinned on every leg by
+  `tests/conformance/test_orchestration.py::test_a_wrong_kind_capability_reaches_no_engine_state_through_the_leg`
+- Migration: pass `authorized=` to both verbs; introspection callers pass the
+  tenant; callers that matched `SegmentNotExecutedError` for an engine failure
+  now receive the engine's own exception
+
+*Recorded by `353-04-the-engine-runs-under-a-capability.md`.*
 
 ### Not public Python API
 

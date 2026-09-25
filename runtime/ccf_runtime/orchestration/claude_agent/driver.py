@@ -50,6 +50,16 @@ Not an algorithmic module: it imports an orchestrator SDK, which is exactly
 what the CINV-02 carve-out for ``ccf_runtime.orchestration`` exists to
 permit here and nowhere else.
 
+**The capability travels in the closure, not the driver (D-IMPL-353 §1.2).**
+``start_execution`` and ``resume_execution`` take the ``Authorized`` for
+their own action and close the engine call over it; the session's two tools
+are those closures, built per turn. The driver holds no capability in any
+field and mints nothing — the engine verifies. A turn presents ONE
+capability: the tool a turn did not present one for raises the typed driver
+error if the scripted transport ever calls it, which it does not. Position
+(session id, outcome key, transcript) is keyed by ``authorized.tenant``, the
+tenant the engine files under (§1.3), and the introspection seam takes it.
+
 **Loop-safety (WR-03; Phase-9 CONTEXT D-10/D-11).** Outcome lookups raise
 the shared typed hierarchy
 (:class:`~ccf_runtime.orchestration.common.SegmentNotExecutedError`), never
@@ -61,7 +71,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Any
 
 from claude_agent_sdk import (
@@ -81,6 +91,7 @@ from claude_agent_sdk.types import HookInput, HookJSONOutput
 
 from ccf.contracts.base import CCFContract
 from ccf.workflow.factory import Workflow
+from ccf.authz.capability import Authorized, Execute, Resume
 from ccf_runtime.orchestration.common import (
     SegmentNotExecutedError,
     WorkflowDriverError,
@@ -88,6 +99,32 @@ from ccf_runtime.orchestration.common import (
 from ccf_runtime.workflow.engine import WorkflowEngine, WorkflowSuspended
 
 __all__ = ["ClaudeAgentWorkflowDriver"]
+
+#: The engine call a start turn closes over the capability: ``execution_id``
+#: in, the engine's typed outcome out.
+_StartCall = Callable[[str], Awaitable[CCFContract]]
+
+#: The engine call a resume turn closes over: ``(execution_id, decision)``.
+_ResumeCall = Callable[[str, str], Awaitable[CCFContract]]
+
+
+def _not_presented(verb: str) -> Callable[..., Awaitable[CCFContract]]:
+    """The tool a turn presented no capability for — typed on reach.
+
+    A start turn carries ``Execute`` and scripts only the advance tool; a
+    resume turn carries ``Resume`` and scripts only the resume tool. The
+    other tool is registered so the session's tool set is the same every
+    turn, and calling it is a :class:`WorkflowDriverError`.
+    """
+
+    async def absent(*_: str) -> CCFContract:
+        raise WorkflowDriverError(
+            f"no capability was presented for {verb} in this turn; a turn"
+            " carries the capability for its own verb and nothing else"
+            " (D-IMPL-353 §1.2)"
+        )
+
+    return absent
 
 #: The SDK-MCP server the driver's node-advancement tools live on — driver
 #: plumbing, not deployment vocabulary: it never leaves the session.
@@ -258,8 +295,19 @@ class _ScriptedSessionTransport(Transport):
                 },
             }
         )
-        content = called["response"]["mcp_response"]["result"]["content"]
-        text = str(content[0]["text"])
+        mcp_response = called["response"]["mcp_response"]
+        if "error" in mcp_response:
+            raise RuntimeError(
+                f"tools/call {tool_name!r} failed at the SDK-MCP layer:"
+                f" {mcp_response['error'].get('message')}"
+            )
+        result = mcp_response["result"]
+        text = str(result["content"][0]["text"])
+        if result.get("isError"):
+            # The tool answered with an error result (the driver's guarded
+            # tool did, keeping the exception for _drive); the turn fails
+            # visibly rather than ending in a success frame nothing parked.
+            raise RuntimeError(f"tool {tool_name!r} failed: {text}")
 
         if text == "suspended":
             for callback_id in self._hook_ids:
@@ -333,11 +381,28 @@ class ClaudeAgentWorkflowDriver:
     # -- the session choreography, authored against the engine's surface ------
 
     def _options(
-        self, workflow: Workflow, key: tuple[str, str]
+        self,
+        key: tuple[str, str],
+        *,
+        on_start: _StartCall,
+        on_resume: _ResumeCall,
+        failures: list[BaseException],
     ) -> ClaudeAgentOptions:
         """One session's options: the two node-advancement tools, the gate
-        hook, and the permission callback — all closing over the engine's
-        public surface and this driver's scalar transcript, nothing else."""
+        hook, and the permission callback. The tools are the closures the
+        calling verb built over the engine and the capability it received;
+        this method names neither, and holds only the scalar transcript.
+
+        ``failures`` is the turn's own box for an engine exception. The
+        SDK-MCP server converts a raising tool into an ``isError`` result
+        carrying only ``str(e)``, which would let a refusal the engine raised
+        — a :class:`~ccf.authz.capability.CapabilityBypassError`, a wiring
+        error — end the turn looking like a completed tool call with nothing
+        parked. The tool keeps the exception object here and answers with an
+        error result, and :meth:`_drive` re-raises it verbatim: the other
+        legs propagate node exceptions natively, and this leg must not
+        report the engine's refusal as a segment that never ran.
+        """
 
         def _park(outcome: CCFContract) -> str:
             self._outcomes[key] = outcome
@@ -347,12 +412,22 @@ class ClaudeAgentWorkflowDriver:
                 else "completed"
             )
 
+        async def _guarded(call: Awaitable[CCFContract]) -> dict[str, Any]:
+            try:
+                outcome = await call
+            except Exception as error:  # noqa: BLE001 — kept, re-raised by _drive
+                failures.append(error)
+                return {
+                    "content": [
+                        {"type": "text", "text": f"{type(error).__name__}: {error}"}
+                    ],
+                    "is_error": True,
+                }
+            return {"content": [{"type": "text", "text": _park(outcome)}]}
+
         @tool(_ADVANCE_TOOL, "Advance one CCF workflow run", {"execution_id": str})
         async def advance(args: dict[str, Any]) -> dict[str, Any]:
-            outcome = await self._engine.execute(
-                workflow, execution_id=str(args["execution_id"])
-            )
-            return {"content": [{"type": "text", "text": _park(outcome)}]}
+            return await _guarded(on_start(str(args["execution_id"])))
 
         @tool(
             _RESUME_TOOL,
@@ -360,12 +435,9 @@ class ClaudeAgentWorkflowDriver:
             {"execution_id": str, "decision": str},
         )
         async def resume(args: dict[str, Any]) -> dict[str, Any]:
-            outcome = await self._engine.resume(
-                workflow,
-                execution_id=str(args["execution_id"]),
-                decision=str(args["decision"]),
+            return await _guarded(
+                on_resume(str(args["execution_id"]), str(args["decision"]))
             )
-            return {"content": [{"type": "text", "text": _park(outcome)}]}
 
         async def gate_hook(
             input_data: HookInput,
@@ -401,16 +473,24 @@ class ClaudeAgentWorkflowDriver:
 
     async def _drive(
         self,
-        workflow: Workflow,
+        *,
+        tenant: str,
         execution_id: str,
         instruction: dict[str, Any],
+        on_start: _StartCall,
+        on_resume: _ResumeCall,
     ) -> CCFContract:
-        """One session turn against the engine; the SDK machinery is real."""
-        tenant = workflow.definition.tenant
+        """One session turn against the engine; the SDK machinery is real.
+
+        ``tenant`` is the capability's — the engine's own key (§1.3).
+        """
         key = (tenant, execution_id)
         session_id = f"{tenant}/{execution_id}"
+        failures: list[BaseException] = []
         client = ClaudeSDKClient(
-            options=self._options(workflow, key),
+            options=self._options(
+                key, on_start=on_start, on_resume=on_resume, failures=failures
+            ),
             transport=_ScriptedSessionTransport(),
         )
         await client.connect()
@@ -419,6 +499,10 @@ class ClaudeAgentWorkflowDriver:
             async for message in client.receive_response():
                 if isinstance(message, ResultMessage):
                     if message.is_error:
+                        if failures:
+                            # The engine's own exception, verbatim — the
+                            # typed refusal the other legs propagate natively.
+                            raise failures[0]
                         raise WorkflowDriverError(
                             f"scripted session turn failed for"
                             f" {session_id!r}: {message.result}"
@@ -433,53 +517,81 @@ class ClaudeAgentWorkflowDriver:
     # -- OrchestrationProtocol -------------------------------------------------
 
     async def start_execution(
-        self, *, workflow: Workflow, execution_id: str
+        self,
+        *,
+        authorized: Authorized[Execute],
+        workflow: Workflow,
+        execution_id: str,
     ) -> CCFContract:
         """Drive the session's advance turn; if the engine suspends, the
         gate hook records the park and the session yields control back to
-        CCF; the engine's own typed outcome comes back verbatim."""
+        CCF; the engine's own typed outcome comes back verbatim. The
+        ``Execute`` capability is closed over by the advance tool and handed
+        to the engine, which verifies it (D-IMPL-353 §1.2)."""
+
+        async def on_start(execution_id: str) -> CCFContract:
+            return await self._engine.execute(
+                authorized, workflow, execution_id=execution_id
+            )
+
         return await self._drive(
-            workflow,
-            execution_id,
-            {
+            tenant=authorized.tenant,
+            execution_id=execution_id,
+            instruction={
                 "tool": _ADVANCE_TOOL,
                 "arguments": {"execution_id": execution_id},
             },
+            on_start=on_start,
+            on_resume=_not_presented("resume_execution"),
         )
 
     async def resume_execution(
-        self, *, workflow: Workflow, execution_id: str, decision: str
+        self,
+        *,
+        authorized: Authorized[Resume],
+        workflow: Workflow,
+        execution_id: str,
+        decision: str,
     ) -> CCFContract:
         """Continue under the same session identity (same ``session_id``)
         with the resume turn — a fresh client over a fresh scripted
         transport; continuity lives in the engine: the externally-bound
-        decision goes to the engine's own resume surface, and the session
-        parks again on a later gate if the engine suspends."""
+        decision goes to the engine's own resume surface under the
+        ``Resume`` capability this call received, and the session parks
+        again on a later gate if the engine suspends."""
+
+        async def on_resume(execution_id: str, decision: str) -> CCFContract:
+            return await self._engine.resume(
+                authorized,
+                workflow,
+                execution_id=execution_id,
+                decision=decision,
+            )
+
         return await self._drive(
-            workflow,
-            execution_id,
-            {
+            tenant=authorized.tenant,
+            execution_id=execution_id,
+            instruction={
                 "tool": _RESUME_TOOL,
                 "arguments": {
                     "execution_id": execution_id,
                     "decision": decision,
                 },
             },
+            on_start=_not_presented("start_execution"),
+            on_resume=on_resume,
         )
 
     # -- introspection for the conformance suite -------------------------------
 
     def session_transcript(
-        self, *, workflow: Workflow, execution_id: str
+        self, *, tenant: str, execution_id: str
     ) -> tuple[object, ...]:
         """Every value the session machinery carried for one execution.
 
         The conformance suite's T-07-33 assertion runs over this: session
         identity, turn results, and parked-gate names — scalar strings all
-        the way down, no CCF workflow state.
+        the way down, no CCF workflow state. Takes the tenant the engine
+        filed under — the capability's (§1.3).
         """
-        return tuple(
-            self._transcripts.get(
-                (workflow.definition.tenant, execution_id), ()
-            )
-        )
+        return tuple(self._transcripts.get((tenant, execution_id), ()))

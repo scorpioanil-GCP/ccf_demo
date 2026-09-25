@@ -70,6 +70,7 @@ from ccf_runtime.workflow.engine import (  # noqa: E402
     WorkflowSuspended,
 )
 from conformance.test_orchestration import World  # noqa: E402
+from tests.workflow.capabilities import execute_as, resume_as  # noqa: E402
 
 #: The SDK-MCP server name the scripted transport addresses tool calls to.
 SERVER_NAME = "ccf-probe"
@@ -264,7 +265,9 @@ def test_the_claude_sdk_can_express_the_driver_seam(tmp_path: Path) -> None:
     @tool("advance", "Advance the CCF workflow execution", {"execution_id": str})
     async def advance(args: dict[str, Any]) -> dict[str, Any]:
         outcome = await adapter.start_execution(
-            workflow=workflow, execution_id=args["execution_id"]
+            authorized=execute_as(workflow),
+            workflow=workflow,
+            execution_id=args["execution_id"],
         )
         outcomes["last"] = outcome
         text = "suspended" if isinstance(outcome, WorkflowSuspended) else "completed"
@@ -277,6 +280,7 @@ def test_the_claude_sdk_can_express_the_driver_seam(tmp_path: Path) -> None:
     )
     async def resume(args: dict[str, Any]) -> dict[str, Any]:
         outcome = await adapter.resume_execution(
+            authorized=resume_as(workflow),
             workflow=workflow,
             execution_id=args["execution_id"],
             decision=args["decision"],

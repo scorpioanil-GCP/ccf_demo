@@ -41,6 +41,21 @@ native Control Plane state seam, written exclusively through
 execution trace writes through to the injected ArtifactStore at each
 suspend and at terminal as content-addressed canonical bytes.
 
+**The tenant is the capability's (D-IMPL-353 §1.3).** ``execute`` and
+``resume`` each require the :class:`~ccf.authz.capability.Authorized` for
+their own action — ``Execute`` and ``Resume`` respectively — and
+:func:`~ccf.authz.capability.verify` it against the handle's definition key
+before anything else. From that line on the only tenant in the engine is
+``authorized.tenant``: the state key is derived from it and the execution
+id, every state-store and trace-store write carries the capability and that
+derived key (the §1.2 derived-writes rule), and the HITL pending event is
+filed under it. Nothing here reads the tenant the artifact declares; the
+factory compared it with the capability once, at construction, and that is
+the whole of the tenant check. A capability for tenant B therefore cannot
+produce state under tenant A — not because a comparison refuses it, but
+because no expression of the engine files anywhere but under
+``authorized.tenant`` (§2 P2).
+
 **Refusal doctrine (I.1 line).** Expected outcomes — gate suspension,
 exception-path routing, a resume of a terminal or unknown execution, an
 undeclared decision — are typed returned values, audited (refusals as
@@ -58,6 +73,7 @@ from datetime import datetime
 from typing import Protocol, Union, runtime_checkable
 
 from ccf.artifacts.protocol import ArtifactRef, ArtifactStoreProtocol
+from ccf.authz.capability import Authorized, Execute, Resume, verify
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.controlplane.audit import AuditAction, AuditEvent, AuditLog
@@ -350,29 +366,39 @@ class WorkflowEngine:
     # -- the execution surfaces (factory handles only, ORCH-01) --------------
 
     async def execute(
-        self, workflow: Workflow, *, execution_id: str
+        self,
+        authorized: Authorized[Execute],
+        workflow: Workflow,
+        *,
+        execution_id: str,
     ) -> WorkflowOutcome:
         """Run one execution from its start node.
 
         Args:
+            authorized: The ``Execute`` capability the gate minted for this
+                handle's definition key (D-IMPL-353 §1.2). Verified first;
+                its tenant is the tenant the execution is filed under.
             workflow: A WorkflowFactory-built handle — the ONLY accepted
                 input type (ORCH-01).
             execution_id: Caller-supplied execution identity; state is keyed
-                ``(tenant, execution_id)`` (D-23).
+                ``(authorized.tenant, execution_id)`` (D-23; §1.3).
 
         Raises:
             WorkflowExecutionTypeError: ``workflow`` is not a factory-built
                 handle.
+            CapabilityBypassError: ``authorized`` is fabricated, retargeted,
+                not an ``Execute``, or minted for another definition key.
             WorkflowWiringError: a step ref resolves to nothing, or nominal
                 routing is ambiguous.
         """
         self._require_handle(workflow)
-        tenant = workflow.definition.tenant
+        verify(authorized, kind=Execute, resource=workflow.definition_key)
+        tenant = authorized.tenant
         key = self._key(tenant, execution_id)
         if self._control_plane.state_store.get(WORKFLOW_STATE, key) is not None:
             return self._refuse(
+                authorized,
                 workflow,
-                tenant=tenant,
                 execution_id=execution_id,
                 reason=(
                     f"execution {key!r} already exists; an execution id is"
@@ -380,17 +406,29 @@ class WorkflowEngine:
                 ),
             )
         return await self._advance(
+            authorized,
             workflow,
-            tenant=tenant,
             execution_id=execution_id,
             state=workflow.definition.start,
             trace=(),
         )
 
     async def resume(
-        self, workflow: Workflow, *, execution_id: str, decision: str
+        self,
+        authorized: Authorized[Resume],
+        workflow: Workflow,
+        *,
+        execution_id: str,
+        decision: str,
     ) -> WorkflowOutcome:
         """Continue a suspended execution under ``decision``.
+
+        ``authorized`` is the ``Resume`` capability — its own kind, never
+        ``Execute``: a deployment that granted *start a workflow* has not
+        granted *carry a human decision past its gate* (D-IMPL-353 §1.5).
+        Verified first against the handle's definition key; the state key
+        is derived from ``authorized.tenant`` and ``execution_id``, so a
+        capability for another tenant reads and writes nothing of this one.
 
         ``decision`` must name a transition target the artifact declares
         from the suspended node (CINV-01 — routing is the artifact's
@@ -399,17 +437,20 @@ class WorkflowEngine:
         Raises:
             WorkflowExecutionTypeError: ``workflow`` is not a factory-built
                 handle.
+            CapabilityBypassError: ``authorized`` is fabricated, retargeted,
+                not a ``Resume``, or minted for another definition key.
             ForeignStateRecordError: the state store returned a record this
                 machine did not write.
         """
         self._require_handle(workflow)
-        tenant = workflow.definition.tenant
+        verify(authorized, kind=Resume, resource=workflow.definition_key)
+        tenant = authorized.tenant
         key = self._key(tenant, execution_id)
         record = self._control_plane.state_store.get(WORKFLOW_STATE, key)
         if record is None:
             return self._refuse(
+                authorized,
                 workflow,
-                tenant=tenant,
                 execution_id=execution_id,
                 reason=f"no execution exists under {key!r}",
             )
@@ -423,8 +464,8 @@ class WorkflowEngine:
             )
         if record.status == "terminal":
             return self._refuse(
+                authorized,
                 workflow,
-                tenant=tenant,
                 execution_id=execution_id,
                 reason=(
                     f"execution {key!r} is terminal; a terminal execution"
@@ -437,8 +478,8 @@ class WorkflowEngine:
             != workflow.identity.definition_hash
         ):
             return self._refuse(
+                authorized,
                 workflow,
-                tenant=tenant,
                 execution_id=execution_id,
                 reason=(
                     f"execution {key!r} was started under"
@@ -484,8 +525,8 @@ class WorkflowEngine:
             )
             if authority is None:
                 return self._refuse(
+                    authorized,
                     workflow,
-                    tenant=tenant,
                     execution_id=execution_id,
                     reason=(
                         f"execution {key!r} is suspended on HITL gate"
@@ -500,8 +541,8 @@ class WorkflowEngine:
             targets = self._targets(workflow, record.current_state)
             if decision not in targets:
                 return self._refuse(
+                    authorized,
                     workflow,
-                    tenant=tenant,
                     execution_id=execution_id,
                     reason=(
                         f"decision {decision!r} names no declared transition"
@@ -524,15 +565,15 @@ class WorkflowEngine:
             )
             if decision in workflow.definition.effective_terminal_states:
                 return self._complete(
+                    authorized,
                     workflow,
-                    tenant=tenant,
                     execution_id=execution_id,
                     terminal_state=decision,
                     trace=trace,
                 )
             return await self._advance(
+                authorized,
                 workflow,
-                tenant=tenant,
                 execution_id=execution_id,
                 state=decision,
                 trace=trace,
@@ -559,8 +600,8 @@ class WorkflowEngine:
         # has no such event and is unaffected.
         if self._escalation_pending(tenant=tenant, key=key):
             return self._refuse(
+                authorized,
                 workflow,
-                tenant=tenant,
                 execution_id=execution_id,
                 reason=(
                     f"execution {key!r} was routed to an exception path and"
@@ -585,8 +626,8 @@ class WorkflowEngine:
             ),
         )
         return await self._advance(
+            authorized,
             workflow,
-            tenant=tenant,
             execution_id=execution_id,
             state=record.current_state,
             trace=record.trace,
@@ -596,14 +637,18 @@ class WorkflowEngine:
 
     async def _advance(
         self,
+        authorized: Authorized[Execute] | Authorized[Resume],
         workflow: Workflow,
         *,
-        tenant: str,
         execution_id: str,
         state: str,
         trace: tuple[TraceEntry, ...],
     ) -> WorkflowOutcome:
-        """Drive the machine from ``state`` until suspend or terminal."""
+        """Drive the machine from ``state`` until suspend or terminal.
+
+        The tenant is read from the capability and nowhere else (§1.3).
+        """
+        tenant = authorized.tenant
         key = self._key(tenant, execution_id)
         step_kinds = {
             step.name: step for step in workflow.task_definition.steps
@@ -618,8 +663,8 @@ class WorkflowEngine:
                 )
             if step.kind == "hitl-gate":
                 return self._suspend(
+                    authorized,
                     workflow,
-                    tenant=tenant,
                     execution_id=execution_id,
                     gate=state,
                     trace=trace,
@@ -653,8 +698,8 @@ class WorkflowEngine:
                     # handoff: route the node's exception path without
                     # ever invoking the agent (fail-closed, DESIGN.md §4).
                     return self._route_exception(
+                        authorized,
                         workflow,
-                        tenant=tenant,
                         execution_id=execution_id,
                         node=state,
                         trace=trace,
@@ -670,8 +715,8 @@ class WorkflowEngine:
                     )
             except Exception:
                 return self._route_exception(
+                    authorized,
                     workflow,
-                    tenant=tenant,
                     execution_id=execution_id,
                     node=state,
                     trace=trace,
@@ -695,8 +740,8 @@ class WorkflowEngine:
             )
             if target in workflow.definition.effective_terminal_states:
                 return self._complete(
+                    authorized,
                     workflow,
-                    tenant=tenant,
                     execution_id=execution_id,
                     terminal_state=target,
                     trace=trace,
@@ -705,14 +750,19 @@ class WorkflowEngine:
 
     def _suspend(
         self,
+        authorized: Authorized[Execute] | Authorized[Resume],
         workflow: Workflow,
         *,
-        tenant: str,
         execution_id: str,
         gate: str,
         trace: tuple[TraceEntry, ...],
     ) -> WorkflowSuspended:
-        """Suspend on a hitl-gate: persist, enqueue, return a typed handle."""
+        """Suspend on a hitl-gate: persist, enqueue, return a typed handle.
+
+        The record, the state key, the trace artifact and the pending HITL
+        event are all filed under ``authorized.tenant`` (§1.3).
+        """
+        tenant = authorized.tenant
         key = self._key(tenant, execution_id)
         trace = trace + (self._entry(trace, gate, gate, "suspend"),)
         record = self._record(
@@ -723,8 +773,10 @@ class WorkflowEngine:
             status="suspended",
             trace=trace,
         )
-        self._persist(workflow, key, record, action="workflow_suspended")
-        trace_artifact = self._write_trace(tenant, execution_id, trace)
+        self._persist(
+            authorized, workflow, key, record, action="workflow_suspended"
+        )
+        trace_artifact = self._write_trace(authorized, key, execution_id, trace)
         event_key = self._event_key(key, gate)
         self._hitl_transport.enqueue(
             event=PendingHitlEvent(
@@ -746,14 +798,15 @@ class WorkflowEngine:
 
     def _route_exception(
         self,
+        authorized: Authorized[Execute] | Authorized[Resume],
         workflow: Workflow,
         *,
-        tenant: str,
         execution_id: str,
         node: str,
         trace: tuple[TraceEntry, ...],
     ) -> WorkflowOutcome:
         """Take ``node``'s exception path (D-13; D-IMPL-61 option-a)."""
+        tenant = authorized.tenant
         key = self._key(tenant, execution_id)
         handler_ref = workflow.definition.exception_refs.get(node)
         if handler_ref is not None:
@@ -768,8 +821,12 @@ class WorkflowEngine:
                 status="exception-routed",
                 trace=trace,
             )
-            self._persist(workflow, key, record, action="workflow_exception")
-            trace_artifact = self._write_trace(tenant, execution_id, trace)
+            self._persist(
+                authorized, workflow, key, record, action="workflow_exception"
+            )
+            trace_artifact = self._write_trace(
+                authorized, key, execution_id, trace
+            )
             return WorkflowExceptionRouted(
                 tenant=tenant,
                 execution_id=execution_id,
@@ -790,8 +847,8 @@ class WorkflowEngine:
             actor=None,
         )
         return self._complete(
+            authorized,
             workflow,
-            tenant=tenant,
             execution_id=execution_id,
             terminal_state=WORKFLOW_FAILED_STATE,
             trace=trace,
@@ -799,14 +856,15 @@ class WorkflowEngine:
 
     def _complete(
         self,
+        authorized: Authorized[Execute] | Authorized[Resume],
         workflow: Workflow,
         *,
-        tenant: str,
         execution_id: str,
         terminal_state: str,
         trace: tuple[TraceEntry, ...],
     ) -> WorkflowCompleted:
         """Reach a terminal condition: persist, write through, hand to replay."""
+        tenant = authorized.tenant
         key = self._key(tenant, execution_id)
         record = self._record(
             workflow,
@@ -816,8 +874,10 @@ class WorkflowEngine:
             status="terminal",
             trace=trace,
         )
-        self._persist(workflow, key, record, action="workflow_completed")
-        trace_artifact = self._write_trace(tenant, execution_id, trace)
+        self._persist(
+            authorized, workflow, key, record, action="workflow_completed"
+        )
+        trace_artifact = self._write_trace(authorized, key, execution_id, trace)
         visited = {entry.source for entry in trace} | {
             entry.target for entry in trace
         }
@@ -1129,13 +1189,30 @@ class WorkflowEngine:
 
     def _persist(
         self,
+        authorized: Authorized[Execute] | Authorized[Resume],
         workflow: Workflow,
         key: str,
         record: WorkflowStateRecord,
         *,
         action: AuditAction,
     ) -> None:
-        """Write state through the audited surface — one write, one event."""
+        """Write state through the audited surface — one write, one event.
+
+        A DERIVED write (D-IMPL-353 §1.2, derived-writes rule): ``key`` was
+        derived from ``authorized.tenant`` and the execution id by
+        :meth:`_key`, and the capability that authorized the run travels
+        with it. The state store's ``put`` binds the write to that derived
+        key and to the capability's tenant; the engine supplies both and
+        chooses neither.
+
+        JOIN (Lane HANDLES, ``ccf.controlplane.state``): the audited writer
+        and ``ControlPlaneStateStore.put`` take ``authorized`` first once
+        that lane lands — ``self._writer.write(authorized, WORKFLOW_STATE,
+        key, record, event=...)``. Until then the call below is the
+        pre-353 shape; the capability and the derived key are already at
+        this line, so the join is the argument list and nothing else.
+        """
+        del authorized  # presented at the join — see the docstring
         self._writer.write(
             WORKFLOW_STATE,
             key,
@@ -1181,13 +1258,14 @@ class WorkflowEngine:
 
     def _refuse(
         self,
+        authorized: Authorized[Execute] | Authorized[Resume],
         workflow: Workflow,
         *,
-        tenant: str,
         execution_id: str,
         reason: str,
     ) -> WorkflowResumeRefused:
         """Return a typed refusal, audited ``resolved=False``."""
+        tenant = authorized.tenant
         self._append(
             workflow,
             self._key(tenant, execution_id),
@@ -1201,13 +1279,28 @@ class WorkflowEngine:
 
     def _write_trace(
         self,
-        tenant: str,
+        authorized: Authorized[Execute] | Authorized[Resume],
+        key: str,
         execution_id: str,
         trace: tuple[TraceEntry, ...],
     ) -> ArtifactRef:
-        """Write the trace through to the ArtifactStore (D-IMPL-18)."""
+        """Write the trace through to the ArtifactStore (D-IMPL-18).
+
+        A DERIVED write (D-IMPL-353 §1.2): the trace is filed under
+        ``authorized.tenant`` and bound to the derived state ``key``; the
+        engine's own trace class maps to ``Execute | Resume`` at the store,
+        and the capability that authorized the run is what it presents.
+
+        JOIN (Lane HANDLES, ``ccf.artifacts``): ``ArtifactStoreProtocol.put``
+        takes ``authorized`` first and derives tenant, class and name once
+        that lane lands — ``self._artifact_store.put(authorized, trace,
+        ...)`` with ``key`` as the derived resource bind. Until then the
+        call below is the pre-353 shape with the tenant taken from the
+        capability; the join is the argument list and nothing else.
+        """
+        del key  # the derived resource bind — presented at the join
         return self._artifact_store.put(
-            tenant_id=tenant,
+            tenant_id=authorized.tenant,
             artifact_class=WORKFLOW_TRACE_ARTIFACT_CLASS,
             name=execution_id,
             artifact=trace,
