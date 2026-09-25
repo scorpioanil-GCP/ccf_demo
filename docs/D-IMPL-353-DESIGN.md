@@ -39,7 +39,7 @@ expressed. **Authorization gets the identical shape.**
 
 ### 1.1 `Authorized` is not constructible outside the gate module
 
-A new type, `ccf_runtime.authz.capability.Authorized`, mirroring
+A new type, `ccf.authz.capability.Authorized` — in `src/`, because the handles that REQUIRE it live in `src/` and `src` may not import `runtime` (D-29; found by Lane HANDLES, 2026-09-24; `ccf_runtime.authz.capability` re-exports it for the gate and the wrapper) — mirroring
 `StateWriteToken` line for line:
 
 - `__slots__`; a constructor that demands a **module-private sentinel** and
@@ -66,7 +66,7 @@ handle, its action, and the signature before and after.
 
 | handle | action type required | today | after |
 |---|---|---|---|
-| `ControlPlaneRegistry.register` / `register_typed` / `register_versioned` | `Authorized[Register]` | `(key, artifact, ...)` | `(authorized, artifact, ...)` — **`key` is `authorized.resource`** |
+| `ControlPlaneRegistry.register` / `register_typed` / `register_versioned` | `Authorized[Register] \| Authorized[AgentDeclare] \| Authorized[SkillCatalogRegister]` — three doors register under three declared actions; the handle accepts the union and `verify`s against the kind the capability was MINTED for (the same union shape as the trace class). Policy granularity is preserved: a mapping can grant `agent.declare` without `config.register` | `(key, artifact, ...)` | `(authorized, artifact, ...)` — **`key` is `authorized.resource`** |
 | `ControlPlaneStateStore.put` (both implementations) | `Authorized[StateWrite]` | `(record_class, key, record, token)` | `(authorized, record_class, record, token)` — **`key` is derived from `authorized.tenant` + `authorized.resource`** |
 | `ArtifactStoreProtocol.put` (both implementations) | `Authorized[ArtifactWrite]` | `(tenant_id, artifact_class, name, artifact, *, minted)` | `(authorized, artifact)` — **`tenant_id`, `minted`, `artifact_class` and `name` are deleted**; class and name are `authorized.resource` (`"<class>/<name>"`, the same segments the naming key already uses) |
 | `ArtifactStoreProtocol.get` / `govern_dereference` / every tenant-scoped read | `Authorized[ArtifactRead]` | `(grant, ...)` / `(content_address)` | `(authorized, ...)` |

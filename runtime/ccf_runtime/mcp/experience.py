@@ -134,7 +134,7 @@ decide nothing further:
 design rather than reopening one:
 ``runtime/ccf_runtime/authz/protocol.py::TenantAuthorizerProtocol``
 with new action ids beside
-``runtime/ccf_runtime/authz/refusals.py::ACTION_PRODUCT_RETRIEVE``
+``src/ccf/authz/actions.py::ACTION_PRODUCT_RETRIEVE``
 and an adopter-registered policy artifact. That is a new required builder seam
 and a new artifact type; ``D-IMPL-129`` assigns no owner, and until an
 authorised authorization workstream opens it, **no plan may cite these three
