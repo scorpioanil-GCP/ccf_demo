@@ -1,9 +1,10 @@
 """No route takes a tenant or an actor from the caller (``SEC-002``, Task 4).
 
-``tenant := grant.tenant``, and nothing else is a source. A path segment may
-**assert equality** with the verified grant's tenant — the segment is part of a
-product's address and a URI has to keep meaning what it meant — but it may
-never **supply** the value. The same holds for the acting principal: the
+The tenant is selected from the verified grant's ``tenants`` set
+(D-IMPL-353 §1.3), and nothing else is a source. A path segment may **assert**
+a tenant the grant holds — the segment is part of a product's address and a
+URI has to keep meaning what it meant — but it may never **supply** one the
+grant lacks. The same holds for the acting principal: the
 audited author of a ledger transition is the verified caller, never a string in
 the body (the ``D-IMPL-67`` derivation precedent, applied to the two skill
 verbs).

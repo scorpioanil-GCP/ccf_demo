@@ -862,37 +862,70 @@ def test_the_existing_refusal_statuses_are_unchanged(
     # 503 — **no longer reachable from the front door** (`SEC-001`). This leg
     # used to call the module fixture's app, which was built with no seams and
     # refused `product-door-ungoverned` before any resolver. `create_app` has
-    # no such arm now, so the honest subject is the handler reached with no
-    # verified grant — the one path that can still produce the status, and the
-    # reason the branch is kept in the route rather than deleted.
+    # no such arm now, so the honest subject is the handler reached outside
+    # the gate. Under D-IMPL-353 §1.4 the FIRST thing such a handler does is
+    # refuse for holding no capability (403 `no-capability`); the 503 branch
+    # survives for the one shape that gets past that — a capability stashed
+    # with no verified grant beside it — which is why the branch is kept in
+    # the route rather than deleted, and why both refusals are asserted here.
     from fastapi import HTTPException
     from starlette.requests import Request
 
+    from ccf.authz.capability import ProductRetrieve, mint
+    from ccf.authz.decision import AuthzDecision
+    from ccf_runtime.authz.refusals import ACTION_PRODUCT_RETRIEVE
+    from ccf_runtime.http_api.errors import ERROR_NO_CAPABILITY
     from ccf_runtime.http_api.gate import mounted_routes
 
     address = fabric.product_address
-    (handler,) = [
-        route.endpoint
+    (handler_route,) = [
+        route
         for template, route in mounted_routes(governed)
         if template.startswith("/product/")
     ]
-    with pytest.raises(HTTPException) as ungoverned:
-        handler(
+    handler = handler_route.endpoint
+
+    def _outside_the_gate(state: dict[str, Any]) -> HTTPException:
+        with pytest.raises(HTTPException) as refused:
+            handler(
+                tenant=address.tenant,
+                product_class=address.product_class,
+                version=address.version,
+                request=Request(
+                    {
+                        "type": "http",
+                        "method": "GET",
+                        "path": "/product",
+                        "headers": [],
+                        "query_string": b"",
+                        "endpoint": handler,
+                        "state": state,
+                    }
+                ),
+            )
+        return refused.value
+
+    no_capability = _outside_the_gate({})
+    assert no_capability.status_code == 403
+    assert no_capability.detail["error_code"] == ERROR_NO_CAPABILITY
+
+    capability = mint(
+        ProductRetrieve,
+        decision=AuthzDecision(
+            allowed=True,
+            matched_scope_pattern=address.tenant,
+            matched_resource_pattern=address.product_class,
+            artifact_version="1",
+            action_id=ACTION_PRODUCT_RETRIEVE,
             tenant=address.tenant,
-            product_class=address.product_class,
-            version=address.version,
-            request=Request(
-                {
-                    "type": "http",
-                    "method": "GET",
-                    "path": "/product",
-                    "headers": [],
-                    "query_string": b"",
-                }
-            ),
-        )
-    assert ungoverned.value.status_code == 503
-    assert ungoverned.value.detail["error_code"] == "product-door-ungoverned"
+            resource=address.product_class,
+        ),
+        principal=PRINCIPAL,
+        decision_id="0" * 64,
+    )
+    ungoverned = _outside_the_gate({"authorized": capability})
+    assert ungoverned.status_code == 503
+    assert ungoverned.detail["error_code"] == "product-door-ungoverned"
 
 
 # ---------------------------------------------------------------------------

@@ -34,6 +34,7 @@ from datetime import UTC, datetime
 
 import pytest
 
+from ccf.contracts.canonical import content_hash
 from ccf.controlplane.audit import AuthzDecisionAuditEvent
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf_runtime.authz.artifact import (
@@ -139,6 +140,7 @@ def test_a_matching_grant_is_allowed_and_audited() -> None:
 
     decision = _decide(authorizer)
 
+    (event,) = _authz_events(registry)
     assert decision == AuthzDecision(
         allowed=True,
         matched_scope_pattern="tenant-*",
@@ -147,8 +149,11 @@ def test_a_matching_grant_is_allowed_and_audited() -> None:
         action_id=ACTION_HITL_QUEUE_READ,
         tenant="tenant-a",
         resource=RESOURCE,
+        # D-IMPL-353 §1.5(a): the decision names the audit event it IS, by
+        # that event's content address, so a capability minted from it is
+        # traceable to exactly one record and to no other.
+        decision_id=content_hash(event),
     )
-    (event,) = _authz_events(registry)
     assert event.action == "authz_decision"
     assert event.resolved is True
     assert event.key == "tenant-a"
@@ -157,29 +162,43 @@ def test_a_matching_grant_is_allowed_and_audited() -> None:
     assert event.authz_action_id == ACTION_HITL_QUEUE_READ
     assert event.authz_matched_pattern == "tenant-*"
     assert event.occurred_at == INSTANT
+    # §3: the allow says what it allowed, on the resource axis too.
+    assert event.authz_resource == RESOURCE
+    assert event.authz_matched_resource_pattern == RESOURCE
+    assert event.authz_failing_axis is None
 
 
 # --- deny-by-default (T-10-01) ----------------------------------------------
 
 
 @pytest.mark.parametrize(
-    ("grant_scopes", "tenant", "action_id", "resource"),
+    ("grant_scopes", "tenant", "action_id", "resource", "failing_axis"),
     [
         # tenant mismatch
-        ((SCOPE,), "other-tenant", ACTION_HITL_QUEUE_READ, RESOURCE),
+        ((SCOPE,), "other-tenant", ACTION_HITL_QUEUE_READ, RESOURCE, "tenant"),
         # action mismatch
-        ((SCOPE,), "tenant-a", ACTION_HITL_ACTION_SUBMIT, RESOURCE),
-        # scope absent
-        (("some:other",), "tenant-a", ACTION_HITL_QUEUE_READ, RESOURCE),
+        ((SCOPE,), "tenant-a", ACTION_HITL_ACTION_SUBMIT, RESOURCE, "action"),
+        # scope absent: no entry the grant holds names the action
+        (("some:other",), "tenant-a", ACTION_HITL_QUEUE_READ, RESOURCE, "action"),
         # empty grant
-        ((), "tenant-a", ACTION_HITL_QUEUE_READ, RESOURCE),
+        ((), "tenant-a", ACTION_HITL_QUEUE_READ, RESOURCE, "action"),
         # `SEC-002`: everything matches EXCEPT the resource. Without the
         # fourth axis this leg is an allow, which is the finding.
-        ((SCOPE,), "tenant-a", ACTION_HITL_QUEUE_READ, "another-resource"),
+        (
+            (SCOPE,),
+            "tenant-a",
+            ACTION_HITL_QUEUE_READ,
+            "another-resource",
+            "resource",
+        ),
     ],
 )
 def test_an_unmatched_grant_is_denied_and_audited(
-    grant_scopes: tuple[str, ...], tenant: str, action_id: str, resource: str
+    grant_scopes: tuple[str, ...],
+    tenant: str,
+    action_id: str,
+    resource: str,
+    failing_axis: str,
 ) -> None:
     from ccf_runtime.authz.artifact import SCOPE_MAPPING
 
@@ -205,6 +224,12 @@ def test_an_unmatched_grant_is_denied_and_audited(
     (event,) = _authz_events(registry)
     assert event.resolved is False
     assert event.version == version
+    # §3: the deny says WHAT it denied and WHICH axis refused — the resource
+    # asked about, no matched resource pattern, and the deepest axis reached.
+    assert event.authz_resource == resource
+    assert event.authz_matched_resource_pattern is None
+    assert event.authz_failing_axis == failing_axis
+    assert decision.decision_id == content_hash(event)
 
 
 def test_two_narrow_entries_never_compose_into_a_wide_one() -> None:
@@ -403,3 +428,95 @@ def test_the_shared_constants_exist_for_both_doors() -> None:
     assert ACTION_HITL_QUEUE_READ == "hitl.queue.read"
     assert ACTION_HITL_ACTION_SUBMIT == "hitl.action.submit"
     assert ERROR_TENANT_UNAUTHORIZED == "tenant-unauthorized"
+
+
+# --- D-IMPL-353 §3: the failing axis when no mapping decided -----------------
+
+
+def test_no_mapping_and_a_near_miss_both_record_the_mapping_axis() -> None:
+    """A deny that no scope mapping decided failed on NO axis. Recording it
+    as ``tenant``, ``action`` or ``resource`` would name a rule that never
+    ran, so it is its own value."""
+    empty = _registry()
+    absent = _authorizer(empty, version="1")
+    decision = _decide(absent)
+    (event,) = _authz_events(empty)
+    assert decision.allowed is False
+    assert event.authz_failing_axis == "mapping"
+    assert event.authz_resource == RESOURCE
+    assert decision.decision_id == content_hash(event)
+
+    misregistered, near_miss = _near_miss()
+    with pytest.raises(TypeError):
+        _decide(near_miss)
+    (attempt,) = _authz_events(misregistered)
+    assert attempt.resolved is False
+    assert attempt.authz_failing_axis == "mapping"
+
+
+def test_the_deepest_axis_reached_is_the_one_recorded() -> None:
+    """Two entries the grant holds: one names the action but not the tenant,
+    the other names action and tenant but not the resource. The deny records
+    ``resource`` — the furthest any entry got — not the first miss."""
+    registry = _registry()
+    version = registry.register_typed(
+        MAPPING_KEY,
+        ScopeMappingArtifact(
+            semver="1.0.0",
+            scopes={
+                "scope:tenant-miss": ScopeEntry(
+                    tenant_patterns=("tenant-z",),
+                    action_ids=(ACTION_HITL_QUEUE_READ,),
+                    resource_patterns=(RESOURCE,),
+                ),
+                "scope:resource-miss": ScopeEntry(
+                    tenant_patterns=("tenant-a",),
+                    action_ids=(ACTION_HITL_QUEUE_READ,),
+                    resource_patterns=("resource-elsewhere",),
+                ),
+            },
+        ),
+        SCOPE_MAPPING,
+    )
+    assert isinstance(version, str)
+    authorizer = _authorizer(registry, version=version)
+    decision = authorizer.authorize(
+        grant=_grant("scope:tenant-miss", "scope:resource-miss"),
+        tenant="tenant-a",
+        action_id=ACTION_HITL_QUEUE_READ,
+        resource=RESOURCE,
+    )
+    (event,) = _authz_events(registry)
+    assert decision.allowed is False
+    assert event.authz_failing_axis == "resource"
+
+
+def test_the_decision_id_is_the_allow_events_content_address() -> None:
+    """§1.5(a): the id a capability carries resolves to exactly one event.
+    Two allows for the same tuple at different instants are two events with
+    two ids — an id is never reusable across decisions."""
+    from datetime import timedelta
+
+    ticks = {"n": 0}
+
+    def clock() -> datetime:
+        ticks["n"] += 1
+        return INSTANT + timedelta(seconds=ticks["n"])
+
+    registry = ControlPlaneRegistry(clock=clock)
+    version = registry.register_typed(MAPPING_KEY, _mapping(), SCOPE_MAPPING)
+    assert isinstance(version, str)
+    authorizer = ControlPlaneTenantAuthorizer(
+        control_plane=registry,
+        scope_mapping_key=MAPPING_KEY,
+        scope_mapping_version=version,
+        clock=clock,
+    )
+    first = _decide(authorizer)
+    second = _decide(authorizer)
+    events = _authz_events(registry)
+    assert len(events) == 2
+    assert first.decision_id == content_hash(events[0])
+    assert second.decision_id == content_hash(events[1])
+    assert first.decision_id != second.decision_id
+    assert first.decision_id is not None and len(first.decision_id) == 64

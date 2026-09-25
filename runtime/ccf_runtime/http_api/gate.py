@@ -35,12 +35,29 @@ did not run the sweeper, which is the same class of hole one level up.
 **What the caller can decide, exhaustively.** The caller chooses the method,
 the path, the query string, the headers and the body. Every one of those
 choices leads to the check running: an unmatched request line denies, an
-unreadable resource denies, a grant with no tenant denies, and a tenant
-segment that disagrees with the grant denies. There is no value a caller can
-send, omit or malform that makes the gate not run, and no value a caller
-supplies that the gate compares *against itself* — the tenant comes from the
-grant (:mod:`ccf_runtime.authz.tenancy`) and the patterns come from a
-registered artifact.
+unreadable resource denies, a grant with no tenant denies, a grant spanning
+several tenants on a route that names none denies, and a tenant segment
+naming a tenant the grant does not hold denies. There is no value a caller
+can send, omit or malform that makes the gate not run, and no value a caller
+supplies that the gate compares *against itself* — the tenant is **selected
+from the grant's set** (:mod:`ccf_runtime.authz.tenancy`; D-IMPL-353 §1.3)
+and the patterns come from a registered artifact.
+
+**The gate MINTS** (D-IMPL-353 §1.1). After the authorizer returns *allowed*
+— and only then — the gate calls :func:`~ccf_runtime.authz.capability.mint`
+for the route's declared action, the selected tenant, the verified principal,
+the resolved resource and the id of the allow's own audit event, and parks
+the result on ``request.state.authorized``. That capability is the only thing
+a handler can hold (:func:`~ccf_runtime.http_api.grants.authorized_from_request`)
+and the only thing a handle will accept (§1.2). On every refusal the gate mints
+nothing, so a handler that runs holds proof, and a handler that holds no proof
+did not run behind this gate. This is one of the two mint sites in the tree;
+the other is the MCP ``TenantGuardedServer`` wrapper.
+
+**An action no kind exists for cannot be mounted.** :func:`build_route_table`
+resolves every declared action id to its capability kind at boot and refuses
+the application otherwise, so the gate can never reach an allow it has no kind
+to mint.
 
 Algorithmic module (CINV-03).
 """
@@ -63,6 +80,11 @@ from urllib.parse import parse_qs
 
 from starlette.responses import JSONResponse
 
+from ccf.authz.capability import (
+    CapabilityBypassError,
+    kind_for_action,
+    mint,
+)
 from ccf_runtime.authz.protocol import TenantAuthorizerProtocol
 from ccf_runtime.authz.route_declaration import (
     TENANT_PATH_PARAM,
@@ -70,9 +92,17 @@ from ccf_runtime.authz.route_declaration import (
     RouteAuthorization,
     route_authorization,
 )
-from ccf_runtime.authz.tenancy import UntenantedGrantRefused, tenant_of_grant
+from ccf_runtime.authz.tenancy import (
+    AmbiguousTenantRefused,
+    TenantNotGrantedRefused,
+    UntenantedGrantRefused,
+    acting_tenant,
+    tenants_of_grant,
+)
 from ccf_runtime.http_api.auth import HttpAuthProtocol
 from ccf_runtime.http_api.errors import (
+    ERROR_AMBIGUOUS_TENANT,
+    ERROR_DECISION_UNMINTABLE,
     ERROR_INVALID_GRANT,
     ERROR_REQUEST_UNAUTHORIZED,
     ERROR_UNAUTHENTICATED,
@@ -142,6 +172,18 @@ _IMPOSTOR: Final[str] = (
     "the bound auth hook returned an object that is not a TokenGrant; the"
     " gate refuses rather than reading a tenant or an identity off something"
     " it cannot trust"
+)
+
+#: The bound authorizer said *allowed* and the gate cannot mint from it: the
+#: decision names no audit record, or it answers a different (tenant, action,
+#: resource) from the one asked (D-IMPL-353 §1.5a). A deployment fault, so a
+#: 503 — the SDK's own authorizer cannot produce it.
+_UNMINTABLE: Final[str] = (
+    "the bound authorizer returned an allow the gate cannot mint a capability"
+    " from: it carries no decision id, or it decides about a tenant, action or"
+    " resource other than the one this request asked about. No capability is"
+    " minted from a partial or misdirected decision; fix the authorizer"
+    " (D-IMPL-353 §1.5a)"
 )
 
 #: ``{name}`` or ``{name:converter}`` inside a route path template.
@@ -285,6 +327,18 @@ def build_route_table(app: object) -> tuple[RouteEntry, ...]:
             undeclared.append(f"{sorted(methods) or ['*']} {template}")
             continue
         matcher, parameters = _compile(template)
+        try:
+            # The gate mints for this action after an allow; an action with
+            # no kind is an allow the gate could not mint from, and that is
+            # decided here, once, rather than on the first allowed request.
+            kind_for_action(declaration.action_id)
+        except CapabilityBypassError as no_kind:
+            undeclared.append(
+                f"{sorted(methods) or ['*']} {template} declares action"
+                f" {declaration.action_id!r}, for which no capability kind"
+                f" exists: {no_kind}"
+            )
+            continue
         if (
             declaration.resource.source is ResourceSource.PATH
             and declaration.resource.name not in parameters
@@ -312,9 +366,11 @@ def build_route_table(app: object) -> tuple[RouteEntry, ...]:
             f"{listed}\n"
             "Every route declares its action id and its resource at its own"
             " definition, with @authorizes(...) from"
-            " ccf_runtime.authz.route_declaration. A route with no declaration"
-            " would be a route the gate could only deny or only allow, and"
-            " both of those are decided by whoever forgot (SEC-001)"
+            " ccf_runtime.authz.route_declaration, and every action id names"
+            " a capability kind (ccf_runtime.authz.capability). A route with"
+            " no usable declaration would be a route the gate could only deny"
+            " or only allow, and both of those are decided by whoever forgot"
+            " (SEC-001; D-IMPL-353 §1.1)"
         )
     return tuple(entries)
 
@@ -384,7 +440,7 @@ class AuthorizationGate:
             )
             return
         try:
-            tenant = tenant_of_grant(grant)
+            tenants = tenants_of_grant(grant)
         except UntenantedGrantRefused as untenanted:
             await _refuse(
                 scope,
@@ -405,16 +461,36 @@ class AuthorizationGate:
             await _refuse(scope, receive, send, 403, ERROR_REQUEST_UNAUTHORIZED, _DENIED)
             return
         entry, path_parameters = matched
-        if TENANT_PATH_PARAM in entry.parameters:
-            # The segment may AGREE with the grant; it may never supply the
-            # value (SEC-002). A disagreement is a deny and not a redirect to
-            # the grant's own tenant: silently serving a different address
-            # from the one asked for is its own defect.
-            if path_parameters.get(TENANT_PATH_PARAM) != tenant:
-                await _refuse(
-                    scope, receive, send, 403, ERROR_REQUEST_UNAUTHORIZED, _DENIED
-                )
-                return
+        # The route names a tenant only through its own template (SEC-002):
+        # a segment may AGREE with the credential and may never supply a
+        # tenant it lacks. The query string and the body are not sources.
+        named = (
+            path_parameters.get(TENANT_PATH_PARAM)
+            if TENANT_PATH_PARAM in entry.parameters
+            else None
+        )
+        try:
+            # D-IMPL-353 §1.3: one decision is about one tenant, SELECTED from
+            # the grant's set — named and held, or the only one held. Several
+            # held and none named is refused; the gate does not pick.
+            tenant = acting_tenant(tenants=tenants, named=named)
+        except TenantNotGrantedRefused:
+            # The constant denial, not its own code: which tenants a
+            # credential is near is not a caller's to learn from a refusal.
+            await _refuse(
+                scope, receive, send, 403, ERROR_REQUEST_UNAUTHORIZED, _DENIED
+            )
+            return
+        except AmbiguousTenantRefused as ambiguous:
+            await _refuse(
+                scope, receive, send, 403, ERROR_AMBIGUOUS_TENANT, str(ambiguous)
+            )
+            return
+        except UntenantedGrantRefused as untenanted:
+            await _refuse(
+                scope, receive, send, 403, ERROR_UNTENANTED_GRANT, str(untenanted)
+            )
+            return
         resource, replay = await self._resource(
             scope, receive, entry=entry, path_parameters=path_parameters
         )
@@ -423,10 +499,11 @@ class AuthorizationGate:
                 scope, replay or receive, send, 403, ERROR_REQUEST_UNAUTHORIZED, _DENIED
             )
             return
+        action_id = entry.declaration.action_id
         decision = self._authorizer.authorize(
             grant=grant,
             tenant=tenant,
-            action_id=entry.declaration.action_id,
+            action_id=action_id,
             resource=resource,
         )
         if not decision.allowed:
@@ -434,11 +511,36 @@ class AuthorizationGate:
                 scope, replay or receive, send, 403, ERROR_REQUEST_UNAUTHORIZED, _DENIED
             )
             return
-        # The verified grant, where every downstream composition already reads
-        # it: `request.state` is backed by `scope["state"]`, so this is the
-        # same stash `grant_from_request` has always read — the gate replaces
-        # where it is set, not how it is found.
-        scope.setdefault("state", {})["token_grant"] = grant
+        # §1.5(a): the mint binds the authorizer's WHOLE decision, and the
+        # decision must be the answer to the question this gate asked. An
+        # allow that names no record, or decides about some other tenant,
+        # action or resource, is not minted from — it is a deployment fault.
+        if (
+            decision.decision_id is None
+            or decision.tenant != tenant
+            or decision.action_id != action_id
+            or decision.resource != resource
+        ):
+            await _refuse(
+                scope, replay or receive, send, 503, ERROR_DECISION_UNMINTABLE, _UNMINTABLE
+            )
+            return
+        # THE mint (§1.1). The kind is the route's declared action's — resolved
+        # at boot by `build_route_table`, so this cannot fail on the kind — and
+        # every other field is the decision's. Nothing here is the caller's.
+        authorized = mint(
+            kind_for_action(action_id),
+            decision=decision,
+            principal=grant.client_id,
+            decision_id=decision.decision_id,
+        )
+        # `request.state` is backed by `scope["state"]`. The capability is
+        # what a handler holds (`authorized_from_request`); the verified grant
+        # stays stashed beside it for the handles that still take `grant=`
+        # until the §1.2 signatures land (a join item, listed by the lane).
+        state = scope.setdefault("state", {})
+        state["authorized"] = authorized
+        state["token_grant"] = grant
         await self._app(scope, replay or receive, send)
 
     def _match(

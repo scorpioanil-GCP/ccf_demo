@@ -25,6 +25,7 @@ from typing import Union
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 
+from ccf.authz.capability import Execute, Resume, WorkflowStatusRead
 from ccf.contracts.base import CCFContract
 from ccf.controlplane.registry import ControlPlaneMissing
 from ccf.workflow.factory import Workflow, WorkflowConstructionError
@@ -35,7 +36,7 @@ from ccf_runtime.authz.refusals import (
 )
 from ccf_runtime.authz.route_declaration import ResourceBinding, authorizes
 from ccf_runtime.http_api.dependencies import ApiDependencies
-from ccf_runtime.http_api.grants import tenant_from_request
+from ccf_runtime.http_api.grants import authorized_from_request
 from ccf_runtime.http_api.routes import _required_handle, refusal_response
 from ccf_runtime.workflow.engine import (
     WorkflowCompleted,
@@ -80,6 +81,11 @@ def build_router(deps: ApiDependencies) -> APIRouter:
         # refuses with a typed 503 naming the field rather than dereferencing
         # `None`. `_construct` is the shared body both invoking routes reach
         # the factory through, so one call here covers both.
+        #
+        # JOIN (§1.2/§1.3, Lane ENGINE): `factory.construct(authorized,
+        # definition_version)` — the key becomes `authorized.resource` and the
+        # factory checks the artifact's tenant against `authorized.tenant`
+        # once. Left on today's signature.
         factory = _required_handle(
             deps.workflow_factory,
             field="workflow_factory",
@@ -110,11 +116,12 @@ def build_router(deps: ApiDependencies) -> APIRouter:
         resource=ResourceBinding.body("definition_key"),
     )
     async def invoke(
-        request: WorkflowInvocationRequest,
+        body: WorkflowInvocationRequest, request: Request
     ) -> WorkflowOutcome | JSONResponse:
-        workflow = _construct(
-            request.definition_key, request.definition_version
-        )
+        # D-IMPL-353 §1.4: the capability for THIS action, or nothing.
+        authorized = authorized_from_request(request, kind=Execute)
+        assert authorized.resource == body.definition_key
+        workflow = _construct(body.definition_key, body.definition_version)
         # Narrowed after the construction, not before: the refusals are read in
         # the order the route needs the handles, so an operator wiring a
         # workflow door is told about the factory before the engine.
@@ -123,9 +130,9 @@ def build_router(deps: ApiDependencies) -> APIRouter:
             field="workflow_engine",
             routes="workflow invocation",
         )
-        outcome = await engine.execute(
-            workflow, execution_id=request.execution_id
-        )
+        # JOIN (§1.2, Lane ENGINE): `engine.execute(authorized, workflow, *,
+        # execution_id=...)`. Left on today's signature.
+        outcome = await engine.execute(workflow, execution_id=body.execution_id)
         return _respond(outcome)
 
     @router.post(
@@ -141,20 +148,24 @@ def build_router(deps: ApiDependencies) -> APIRouter:
         resource=ResourceBinding.body("definition_key"),
     )
     async def resume(
-        request: WorkflowResumptionRequest,
+        body: WorkflowResumptionRequest, request: Request
     ) -> WorkflowOutcome | JSONResponse:
-        workflow = _construct(
-            request.definition_key, request.definition_version
-        )
+        # D-IMPL-353 §1.4: `Authorized[Resume]`, and never `Authorized[Execute]`
+        # — starting a workflow is not approving one.
+        authorized = authorized_from_request(request, kind=Resume)
+        assert authorized.resource == body.definition_key
+        workflow = _construct(body.definition_key, body.definition_version)
         engine = _required_handle(
             deps.workflow_engine,
             field="workflow_engine",
             routes="workflow resumption",
         )
+        # JOIN (§1.2, Lane ENGINE): `engine.resume(authorized, workflow, *,
+        # execution_id=..., decision=...)`. Left on today's signature.
         outcome = await engine.resume(
             workflow,
-            execution_id=request.execution_id,
-            decision=request.decision,
+            execution_id=body.execution_id,
+            decision=body.decision,
         )
         return _respond(outcome)
 
@@ -168,11 +179,11 @@ def build_router(deps: ApiDependencies) -> APIRouter:
         resource=ResourceBinding.query("execution_id"),
     )
     def execution(execution_id: str, request: Request) -> WorkflowStateRecord:
-        # `SEC-002`: the tenant half of the state key is the verified grant's.
+        # `SEC-002` / D-IMPL-353 §1.3: the tenant half of the state key is the
+        # CAPABILITY's — selected by the gate from the verified grant's set.
         # There is no `tenant` parameter to supply one, which is why reading
-        # another tenant's execution is now unrepresentable rather than merely
-        # refused.
-        tenant = tenant_from_request(request)
+        # another tenant's execution is unrepresentable rather than refused.
+        tenant = authorized_from_request(request, kind=WorkflowStatusRead).tenant
         record = deps.control_plane.state_store.get(
             WORKFLOW_STATE, f"{tenant}/{execution_id}"
         )

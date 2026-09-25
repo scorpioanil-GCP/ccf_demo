@@ -46,7 +46,10 @@ import threading
 from datetime import datetime
 from typing import Literal
 
+from pydantic import Field
+
 from ccf.contracts.base import CCFContract
+from ccf.contracts.canonical import HASH_TRANSPARENT_KEY
 
 __ccf_mode__ = "algorithmic"
 
@@ -55,6 +58,7 @@ __all__ = [
     "AuditEvent",
     "AuditLog",
     "AuthzDecisionAuditEvent",
+    "AuthzFailingAxis",
 ]
 
 #: The Control Plane interactions worth a record. Registration and resolution
@@ -148,6 +152,17 @@ AuditAction = Literal[
 ]
 
 
+#: Which axis of a four-axis ``(grant, tenant, action, resource)`` decision
+#: refused, as recorded on a deny (D-IMPL-353 §3). Closed on purpose: the
+#: fourth member, ``mapping``, is the honest record of a deny that no scope
+#: mapping decided — nothing resolved at the pinned version, or a near-miss
+#: artifact was found there — because writing ``tenant``, ``action`` or
+#: ``resource`` for it would name a rule that never ran. Three states, not
+#: two: *refused on axis X*, *refused because nothing could decide*, and (on
+#: an allow) *no axis refused*.
+AuthzFailingAxis = Literal["tenant", "action", "resource", "mapping"]
+
+
 class AuditEvent(CCFContract):
     """One audit-plane record of a Control Plane interaction (INV-CH7-71).
 
@@ -195,6 +210,15 @@ class AuthzDecisionAuditEvent(AuditEvent):
     3). Events without authz semantics stay :class:`AuditEvent` and stay
     byte-identical.
 
+    **A deny says what it denied** (D-IMPL-353 §3). Three further fields,
+    added on this derived class for the same byte-stability reason: the
+    resource the action was to be performed on, the resource pattern that
+    granted an allow, and — on a deny — the axis that refused. A capability
+    (:class:`~ccf_runtime.authz.capability.Authorized`) carries the content
+    address of the *allow* event as its ``decision_id``, so every action taken
+    under it is traceable to this one record, and every refusal on the log
+    says which rule refused it.
+
     Attributes:
         authz_action_id: The door-declared action identifier the decision
             concerned (D-02) — e.g. the constants in
@@ -203,10 +227,42 @@ class AuthzDecisionAuditEvent(AuditEvent):
             authorizer always supplies it.
         authz_matched_pattern: The tenant pattern that granted the allow,
             or ``None`` when nothing matched (D-09).
+        authz_resource: The resource the decision was about — the Control
+            Plane key, the content address, the product class, or the door's
+            own action id (``SEC-002``). ``None`` only on events appended by
+            a decision surface that has no resource axis.
+        authz_matched_resource_pattern: The resource pattern that granted
+            the allow, or ``None`` when nothing matched. Separate from the
+            tenant pattern so an examiner asking *which rule let this
+            through* gets both halves.
+        authz_failing_axis: On a deny, the deepest axis any scope entry the
+            grant held reached before failing — ``"action"`` when no held
+            entry names the action, ``"tenant"`` when one did but its tenant
+            patterns matched nothing, ``"resource"`` when action and tenant
+            matched and no resource pattern did — or ``"mapping"`` when no
+            scope mapping resolved at the pinned version (or a near-miss
+            artifact was found there), so that a deny nothing decided is
+            never recorded as a rule that never ran. ``None`` on an allow.
     """
 
     authz_action_id: str | None = None
     authz_matched_pattern: str | None = None
+    #: ``True`` — hash-transparent at the sentinel (``D-IMPL-243``: *"silence
+    #: equals yesterday"*). An ``authz_decision`` event appended before these
+    #: three fields existed carried none of them, and one appended now with
+    #: any of them at ``None`` renders byte-identically to it; a set value is
+    #: a real claim and is rendered. So the events already on a deployment's
+    #: log and the events the same authorizer appends today canonicalize the
+    #: same way, and no examiner's hash of an old event moves.
+    authz_resource: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    authz_matched_resource_pattern: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    authz_failing_axis: AuthzFailingAxis | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
 
 class AuditLog:
@@ -246,13 +302,18 @@ class AuditLog:
         artifact_class: str | None = None,
         authz_action_id: str | None = None,
         authz_matched_pattern: str | None = None,
+        authz_resource: str | None = None,
+        authz_matched_resource_pattern: str | None = None,
+        authz_failing_axis: AuthzFailingAxis | None = None,
     ) -> AuditEvent:
         """Append one event and return it, sequence number assigned.
 
-        When either authz keyword is supplied the appended event is an
+        When any authz keyword is supplied the appended event is an
         :class:`AuthzDecisionAuditEvent`; otherwise it is a plain
         :class:`AuditEvent` whose canonical bytes are unchanged by the
-        HARD-04 extension (the A2 stability commitment).
+        HARD-04 extension (the A2 stability commitment). The three
+        D-IMPL-353 §3 keywords are additive and default to ``None``, so
+        every pre-existing call shape appends exactly what it appended.
 
         Sequence assignment and the append happen under the log's lock,
         so concurrent appends from door threads can neither duplicate nor
@@ -260,7 +321,13 @@ class AuditLog:
         """
         event: AuditEvent
         with self._lock:
-            if authz_action_id is not None or authz_matched_pattern is not None:
+            if (
+                authz_action_id is not None
+                or authz_matched_pattern is not None
+                or authz_resource is not None
+                or authz_matched_resource_pattern is not None
+                or authz_failing_axis is not None
+            ):
                 event = AuthzDecisionAuditEvent(
                     sequence=len(self._events),
                     action=action,
@@ -272,6 +339,9 @@ class AuditLog:
                     artifact_class=artifact_class,
                     authz_action_id=authz_action_id,
                     authz_matched_pattern=authz_matched_pattern,
+                    authz_resource=authz_resource,
+                    authz_matched_resource_pattern=authz_matched_resource_pattern,
+                    authz_failing_axis=authz_failing_axis,
                 )
             else:
                 event = AuditEvent(

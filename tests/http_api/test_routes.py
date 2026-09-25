@@ -195,17 +195,29 @@ ECHO_BOUNDARY = datetime(2026, 3, 1, tzinfo=UTC)
 
 
 def _echo_auth(fabric: Any, token_file: Path) -> Any:
-    """The echo door's auth hook, minting tenanted grants (``SEC-002``)."""
+    """The echo door's auth hook — the REAL dev token file (D-IMPL-353 §2 P1).
+
+    Before D-IMPL-353 this helper wrote nothing and minted a test-only
+    subclass; the file it was handed was never read. It now writes the
+    grant, ``tenants`` included, and the door reads it through
+    :class:`~ccf_runtime.mcp.auth.FileTokenSource` — exactly what a
+    deployment on the dev source does.
+    """
     from ccf_runtime.http_api.auth import BearerTokenAuth
 
-    from .gate_fixtures import tenanted_source
-
-    return BearerTokenAuth(
-        token_source=tenanted_source(
-            {ECHO_TOKEN: (ECHO_PRINCIPAL, (SCOPE_EVERYTHING,))},
-            tenant=fabric.product_address.tenant,
-        )
+    token_file.write_text(
+        json.dumps(
+            {
+                ECHO_TOKEN: {
+                    "client_id": ECHO_PRINCIPAL,
+                    "scopes": [SCOPE_EVERYTHING],
+                    "tenants": [fabric.product_address.tenant],
+                }
+            }
+        ),
+        encoding="utf-8",
     )
+    return BearerTokenAuth(token_source=FileTokenSource(path=token_file))
 
 
 def _echo_perspective(

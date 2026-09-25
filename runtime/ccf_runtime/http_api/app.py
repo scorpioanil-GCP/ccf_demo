@@ -55,6 +55,7 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 
+from ccf.artifacts.protocol import GovernedRecordClasses, GovernedWriteHandle
 from ccf.products.resolver import RefusalRecorderProtocol
 from ccf_runtime.authz.delivery_boundary import (
     disclosing_boundary,
@@ -93,7 +94,7 @@ from ccf_runtime.http_api.routes import (
 
 __ccf_mode__ = "algorithmic"
 
-__all__ = ["AUTH_POSTURE_SENTENCE", "create_app"]
+__all__ = ["AUTH_POSTURE_SENTENCE", "GovernedWiringError", "create_app"]
 
 #: What the surface is, mechanism only (CINV-01 — no deployment vocabulary).
 _MECHANISM_LINE = (
@@ -114,6 +115,71 @@ AUTH_POSTURE_SENTENCE = (
     " what each action reaches is the deployment's own versioned scope"
     " mapping rather than any default this API ships."
 )
+
+
+class GovernedWiringError(ValueError):
+    """The recorder and the store it writes through disagree about authority.
+
+    D-IMPL-353 §3: ``create_app`` refuses mismatched wiring at boot rather than
+    at the first denial. A recorder naming a governed record class over a
+    store that **governs** that class, while holding no minting authority for
+    it, would build cleanly and then fail to record the first governed
+    determination it is asked to record — which ``D-IMPL-256`` (2) names as
+    *not a valid governed door*, and which would surface only when a denial
+    happened, making auditability contingent on outcome.
+
+    A :class:`ValueError`, on this codebase's construction-refusal posture
+    (*"prefer fail-at-construction/boot where practical"*).
+    """
+
+
+def governed_wiring(*, refusal_recorder: object, builder: str) -> None:
+    """Refuse a recorder whose store governs its class without minting for it.
+
+    Reads the two facts the SDK's own recorder states about itself —
+    ``replay_record_class`` and ``artifact_store`` — and the declaration the
+    store carries. A recorder that states neither names no class over no
+    store, so there is nothing to mismatch and nothing is checked; a store
+    that exposes no ``governed`` declaration is outside what this reads.
+
+    **What this is, and what it is not yet.** This is the half of §3's check
+    expressible against today's store surface (``GovernedRecordClasses`` +
+    ``GovernedWriteHandle``). The other half — *a store declaring a write
+    action no door can mint*, and *a recorder over a store with no declared
+    write kind for its class* — needs the per-class write-kind mapping §1.2
+    puts on the artifact store, which is Lane HANDLES' surface; when it lands,
+    this function reads that mapping instead of ``governed`` and the second
+    direction is added here. Recorded as a join item by the lane.
+
+    Args:
+        refusal_recorder: What the builder was handed.
+        builder: The builder's own name, for the message.
+
+    Raises:
+        GovernedWiringError: the store governs the recorder's class and the
+            recorder holds no minting authority for it.
+    """
+    record_class = getattr(refusal_recorder, "replay_record_class", None)
+    store = getattr(refusal_recorder, "artifact_store", None)
+    if not isinstance(record_class, str) or store is None:
+        return
+    minted = isinstance(store, GovernedWriteHandle)
+    substrate = store.store if minted else store
+    declaration = getattr(substrate, "governed", None)
+    if not isinstance(declaration, GovernedRecordClasses):
+        return
+    if declaration.governs(record_class) and not minted:
+        raise GovernedWiringError(
+            f"{builder} was handed a refusal_recorder that files"
+            f" {record_class!r} through a store declaring that class governed,"
+            " and the recorder holds no minting authority for it: its first"
+            " governed determination would fail to record, and a door that"
+            " cannot record what it decides is not a valid governed door"
+            " (D-IMPL-256 (2); D-IMPL-353 §3). Hand the recorder"
+            " `GovernedWriteHandle(store)` — the fabric's own write handle —"
+            " or do not declare the class governed on the store the doors"
+            " serve from"
+        )
 
 
 def create_app(
@@ -168,8 +234,12 @@ def create_app(
     Raises:
         UnrecordableDeliveryBoundaryError: ``refusal_recorder`` cannot record
             a governed determination, or cannot state a disclosure level.
+        GovernedWiringError: ``refusal_recorder`` files a class its store
+            declares governed and holds no minting authority for it
+            (D-IMPL-353 §3).
         ~ccf_runtime.http_api.gate.UndeclaredRouteError: a mounted route
-            declares no action id. The message names every one of them.
+            declares no action id, or declares an action no capability kind
+            exists for. The message names every one of them.
     """
     # `D-IMPL-256` (2), before anything else is built: an entitling door with
     # no way to record what it decides is not built at all.
@@ -181,6 +251,13 @@ def create_app(
     evidence_recorder = disclosing_boundary(
         refusal_recorder=refusal_recorder, builder="create_app"
     )
+    # D-IMPL-353 §3, still before anything is built: a recorder that could
+    # not record its first governed determination — its store governs the
+    # class and it holds no minting authority — is refused here, not there.
+    # (Placed after the two `D-IMPL-345` checks so their anchored text, which
+    # `tests/http_api/test_product_refusal_statuses.py` severs by literal, is
+    # unchanged.)
+    governed_wiring(refusal_recorder=refusal_recorder, builder="create_app")
 
     app = FastAPI(
         title="CCF HTTP API",
