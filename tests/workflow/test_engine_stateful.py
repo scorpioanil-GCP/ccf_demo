@@ -52,6 +52,12 @@ from ccf_runtime.workflow.engine import (
 )
 from ccf_runtime.workflow.state import WORKFLOW_STATE, WorkflowStateRecord
 
+from tests.workflow.capabilities import (
+    execute_as,
+    execute_capability,
+    resume_as,
+)
+
 from tests.workflow.test_engine import (
     _Bindings,
     _PermissiveDebt,
@@ -134,7 +140,7 @@ class WorkflowEngineMachine(RuleBasedStateMachine):
             frozenset({"fetch-certificates"}) if fail else frozenset()
         )
         outcome = asyncio.run(
-            self.engine.execute(workflow, execution_id=execution_id)
+            self.engine.execute(execute_as(workflow), workflow, execution_id=execution_id)
         )
         self.bindings.failing = frozenset()
         if fail and shape == "covenant":
@@ -178,7 +184,7 @@ class WorkflowEngineMachine(RuleBasedStateMachine):
         )
         outcome = asyncio.run(
             self.engine.resume(
-                workflow,
+                resume_as(workflow), workflow,
                 execution_id=key.split("/", 1)[1],
                 decision=decision,
             )
@@ -196,7 +202,7 @@ class WorkflowEngineMachine(RuleBasedStateMachine):
         workflow = self.workflows[(tenant, shape)]
         outcome = asyncio.run(
             self.engine.resume(
-                workflow,
+                resume_as(workflow), workflow,
                 execution_id=key.split("/", 1)[1],
                 decision="retry",
             )
@@ -214,7 +220,7 @@ class WorkflowEngineMachine(RuleBasedStateMachine):
         before = self.registry.state_store.get(WORKFLOW_STATE, key)
         outcome = asyncio.run(
             self.engine.resume(
-                workflow,
+                resume_as(workflow), workflow,
                 execution_id=key.split("/", 1)[1],
                 decision="approved",
             )
@@ -227,7 +233,7 @@ class WorkflowEngineMachine(RuleBasedStateMachine):
         workflow = self.workflows[(tenant, "covenant")]
         outcome = asyncio.run(
             self.engine.resume(
-                workflow, execution_id="never-started", decision="approved"
+                resume_as(workflow), workflow, execution_id="never-started", decision="approved"
             )
         )
         assert isinstance(outcome, WorkflowResumeRefused)

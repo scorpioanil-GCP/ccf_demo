@@ -40,9 +40,20 @@ routing, refusal) live beside the machine in ``/runtime``
 (:mod:`ccf_runtime.workflow.engine`) per the record-next-to-the-machine
 doctrine; this ``/src`` module therefore types them at the
 :class:`~ccf.contracts.base.CCFContract` boundary — every outcome is a
-typed, canonical-serializable contract — and imports nothing from
-``/runtime`` and no orchestrator SDK (CINV-02 holds: zero harness imports
-in ``/src``).
+typed, canonical-serializable contract — and imports no orchestrator SDK
+(CINV-02 holds: zero harness imports in ``/src``). The
+:class:`~ccf.authz.capability.Authorized` capability type it names in its
+signatures is ``/src``'s own (D-29 — ``src`` never imports ``runtime``) and
+is imported under ``TYPE_CHECKING`` only: named, never executed here.
+
+**A driver threads the capability; it mints nothing (D-IMPL-353 §1.2).**
+Both verbs take the ``Authorized`` for their own action — ``Execute`` to
+start, ``Resume`` to continue — from whoever invoked the driver, and hand it
+to the engine's own surface, which verifies it. A driver holds no
+capability in any field: it lives in the closure of the call that received
+it and dies with it. The engine files under ``authorized.tenant`` (§1.3), so
+a driver's own position key is that tenant too, and its introspection
+seams take the tenant, never a handle to read one out of.
 
 Citation: CLAUDE.md §8.1 (SDK-defined extension); D-IMPL-17 (seam scope and
 the identical-replay-obligations condition); D-IMPL-60 (three driver legs,
@@ -53,10 +64,13 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
-from typing import Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 from ccf.contracts.base import CCFContract
 from ccf.workflow.factory import Workflow
+
+if TYPE_CHECKING:
+    from ccf.authz.capability import Authorized, Execute, Resume
 
 __ccf_mode__ = "algorithmic"
 
@@ -79,11 +93,18 @@ class OrchestrationProtocol(Protocol):
     """
 
     async def start_execution(
-        self, *, workflow: Workflow, execution_id: str
+        self,
+        *,
+        authorized: Authorized[Execute],
+        workflow: Workflow,
+        execution_id: str,
     ) -> CCFContract:
         """Start one execution from a WorkflowFactory-built handle.
 
-        The handle is the ONLY accepted description of what to run
+        ``authorized`` is the ``Execute`` capability the gate minted for the
+        handle's definition key; the driver passes it to the engine, which
+        verifies it (D-IMPL-353 §1.2). The handle is the ONLY accepted
+        description of what to run
         (ORCH-01 — "via the Task Factory" holds at this seam exactly as it
         holds at the engine's own boundary). Runs until the CCF engine
         suspends on a hitl-gate or reaches a terminal condition, and
@@ -95,11 +116,18 @@ class OrchestrationProtocol(Protocol):
         ...
 
     async def resume_execution(
-        self, *, workflow: Workflow, execution_id: str, decision: str
+        self,
+        *,
+        authorized: Authorized[Resume],
+        workflow: Workflow,
+        execution_id: str,
+        decision: str,
     ) -> CCFContract:
         """Continue a suspended execution under a bound decision.
 
-        ``decision`` must name a transition target the workflow artifact
+        ``authorized`` is the ``Resume`` capability — its own kind, never
+        ``Execute`` (§1.5); the driver passes it to the engine's own resume
+        surface. ``decision`` must name a transition target the workflow artifact
         declares from the suspended node — routing is the artifact's
         statement, and a decision the artifact declares no transition for
         comes back as the engine's typed refusal, never as orchestrator

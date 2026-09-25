@@ -58,6 +58,12 @@ from ccf_runtime.workflow.engine import (
 )
 from ccf_runtime.workflow.state import WORKFLOW_STATE, WorkflowStateRecord
 
+
+from tests.workflow.capabilities import (
+    execute_as,
+    execute_capability,
+    resume_as,
+)
 from tests.workflow.test_engine import _PermissiveDebt
 
 FIXTURES = Path(__file__).parent.parent / "fixtures" / "banking"
@@ -132,7 +138,8 @@ def _covenant(registry: ControlPlaneRegistry) -> Workflow:
     version = registry.register_versioned(key, definition, WORKFLOW_DEFINITION)
     assert isinstance(version, str)
     return WorkflowFactory(control_plane=registry).construct(
-        definition_key=key, definition_version=version
+        execute_capability(tenant=definition.tenant, resource=key),
+        definition_version=version,
     )
 
 
@@ -190,7 +197,7 @@ def test_an_exception_ref_routes_into_an_escalation_end_to_end(
 
     # 1. The failing node routes to its artifact-declared handler ref — a
     #    first-class recorded transition (D-13).
-    routed = asyncio.run(engine.execute(workflow, execution_id="exec-esc"))
+    routed = asyncio.run(engine.execute(execute_as(workflow), workflow, execution_id="exec-esc"))
     assert isinstance(routed, WorkflowExceptionRouted)
     key = f"{tenant}/exec-esc"
     record = registry.state_store.get(WORKFLOW_STATE, key)
@@ -233,7 +240,7 @@ def test_an_exception_ref_routes_into_an_escalation_end_to_end(
     #    the gate resolves, and the terminal step sequence (dimension 5)
     #    carries the exception transition verbatim.
     suspended = asyncio.run(
-        engine.resume(workflow, execution_id="exec-esc", decision="retry")
+        engine.resume(resume_as(workflow), workflow, execution_id="exec-esc", decision="retry")
     )
     assert isinstance(suspended, WorkflowSuspended)
     gate = ApprovalGate(
@@ -250,7 +257,7 @@ def test_an_exception_ref_routes_into_an_escalation_end_to_end(
     )
     assert isinstance(gate_resolution, GateResolution)
     completed = asyncio.run(
-        engine.resume(workflow, execution_id="exec-esc", decision="approved")
+        engine.resume(resume_as(workflow), workflow, execution_id="exec-esc", decision="approved")
     )
     assert isinstance(completed, WorkflowCompleted)
     assert '"kind":"exception"' in completed.step_sequence_block
