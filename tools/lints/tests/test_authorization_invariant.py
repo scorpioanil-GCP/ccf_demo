@@ -1035,3 +1035,29 @@ def _roster(findings: list[str], base: pathlib.Path) -> set[tuple[str, str, str]
 def test_at_head_the_lint_reports_exactly_the_named_seam_reds() -> None:
     findings = run(REPO, ["authorization-invariant"])
     assert _roster(findings, REPO) == set(EXPECTED_SEAM_REDS), "\n".join(findings)
+
+
+@pytest.mark.parametrize(
+    "module_name",
+    sorted(mod.COMPOSITION_MINT_SITES - {mod.CAPABILITY_MODULE}),
+)
+def test_rule3_every_composition_root_may_mint_the_composition_kinds(module_name: str) -> None:
+    """D-IMPL-354 (PROPOSED): the composition roots — and only they — call
+    ``mint_at_composition``. Each listed module is clean; the HTTP gate, a
+    route module and the shim are refused for the same source."""
+    source = (
+        "from ccf.authz.capability import Register, ReplayMint, mint_at_composition\n"
+        "def compose(tenant):\n"
+        "    a = mint_at_composition(ReplayMint, tenant=tenant, principal='deployment',"
+        " resource='ccf.decision-replay', decision_id='d')\n"
+        "    b = mint_at_composition(Register, tenant=tenant, principal='deployment',"
+        " resource=f'{tenant}/policy/bundle', decision_id='d')\n"
+        "    return a, b\n"
+    )
+    path = pathlib.Path(*module_name.split(".")).with_suffix(".py")
+    root = pathlib.Path("src" if module_name.startswith("ccf.") else "runtime")
+    assert check_source(source, root / path, module_name) == []
+    routes = pathlib.Path("runtime/ccf_runtime/http_api/routes/artifact.py")
+    for other_path, other_module in ((GATE, GATE_MOD), (SHIM, SHIM_MOD), (routes, "ccf_runtime.http_api.routes.artifact")):
+        findings = check_source(source, other_path, other_module)
+        assert _rules(findings) == [RULE_MINT_SITE, RULE_MINT_SITE], other_module

@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1612 entries**, of which **1357** name a public Python surface.
+**1614 entries**, of which **1359** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-945 entries — 903 public Python surface, 42 not public Python API.
+947 entries — 905 public Python surface, 42 not public Python API.
 
 ### Public Python surface
 
@@ -14227,6 +14227,30 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - After: a `TypedDict` naming exactly `create_app`'s five required keyword seams (`auth`, `authorizer`, `product_entitlement`, `perspective_resolver`, `refusal_recorder`); `main(authority=)` takes it and the ignore is gone
 - Why: `D-IMPL-353` §4 rule 6 (`d353-authz-type-ignore`): an untyped authority bag forced past the type checker is the shape the lint refuses; `tests/cli/test_authority_bundle.py::test_the_bundle_names_exactly_create_apps_keyword_seams` holds the bundle's keys and types equal to `create_app`'s so they cannot drift
 - Migration: an embedder calling `main(dependencies=..., authority=...)` supplies an `HttpAuthority`; an incomplete bundle is a mypy error where it is written
+
+*Recorded by `353-01-the-authorized-capability.md`.*
+
+#### ccf.authz.capability.COMPOSITION_KINDS
+
+- Surface: ccf.authz.capability.COMPOSITION_KINDS
+- Public surface: true
+- Change type: added
+- Before: absent — `mint_at_composition` minted `ReplayMint` and took no kind
+- After: the closed pair `(ReplayMint, Register)` a composition root may mint through `mint_at_composition(kind, …)`; any other kind is a `mypy --strict` error (overloads) and a runtime refusal
+- Why: `D-IMPL-354` (PROPOSED at the join, awaiting Dave): the deployment's own registrations and evidence writes had no sanctioned minter once every handle required a capability
+- Migration: composition roots pass the kind first — `mint_at_composition(ReplayMint, …)` for an evidence class, `mint_at_composition(Register, …)` for one Control Plane key; the §4 lint holds callers to `COMPOSITION_MINT_SITES`
+
+*Recorded by `353-01-the-authorized-capability.md`.*
+
+#### ccf_runtime.authz.capability.COMPOSITION_KINDS
+
+- Surface: ccf_runtime.authz.capability.COMPOSITION_KINDS
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a named re-export of `ccf.authz.capability.COMPOSITION_KINDS`
+- Why: runtime callers reach the capability through the runtime package (`D-29`)
+- Migration: none
 
 *Recorded by `353-01-the-authorized-capability.md`.*
 

@@ -20,22 +20,26 @@ authority, and that is a different failure from a stub sentinel.
 
 from __future__ import annotations
 
-from typing import cast
+from typing import Any, cast
 from unittest.mock import Mock
 
 import pytest
 
 from ccf_runtime.authz.capability import (
+    ActionKind,
+    AgentDeclare,
     ArtifactRead,
     ArtifactWrite,
     Authorized,
     CapabilityBypassError,
+    COMPOSITION_KINDS,
     Execute,
     HitlSubmit,
     Register,
     ReplayMint,
     kind_for_action,
     mint,
+    mint_at_composition,
     verify,
 )
 from ccf_runtime.authz.protocol import AuthzDecision
@@ -242,3 +246,38 @@ class TestRetargeting:
         assert getattr(retargeted, "kind") is ArtifactWrite  # the naive check WOULD pass
         with pytest.raises(CapabilityBypassError):
             verify(retargeted, kind=ArtifactWrite, resource=RESOURCE_X)
+
+
+# --- D-IMPL-354 (PROPOSED): the composition kinds, and nothing else ---------
+
+
+class TestMintAtComposition:
+    def test_replay_mint_at_composition_verifies_for_its_evidence_class(self) -> None:
+        cap = mint_at_composition(
+            ReplayMint, tenant=TENANT, principal=PRINCIPAL, resource="ccf.decision-replay", decision_id=DECISION
+        )
+        verify(cap, kind=ReplayMint, resource="ccf.decision-replay")  # no raise
+        assert cap.kind is ReplayMint and cap.tenant == TENANT
+
+    def test_register_at_composition_is_bound_to_one_key(self) -> None:
+        cap = mint_at_composition(
+            Register, tenant=TENANT, principal=PRINCIPAL, resource=f"{TENANT}/policy/bundle", decision_id=DECISION
+        )
+        verify(cap, kind=Register, resource=f"{TENANT}/policy/bundle")  # no raise
+        with pytest.raises(CapabilityBypassError):
+            verify(cap, kind=Register, resource=f"{TENANT}/policy/other")
+        # and it is Register, not any other registration kind
+        with pytest.raises(CapabilityBypassError):
+            verify(cap, kind=AgentDeclare, resource=f"{TENANT}/policy/bundle")
+
+    @pytest.mark.parametrize("door_kind", [ArtifactWrite, HitlSubmit, Execute, AgentDeclare, ArtifactRead])
+    def test_a_door_kind_cannot_be_minted_at_composition(self, door_kind: Any) -> None:
+        # `Any` on purpose: the static tooth for this is the committed control
+        # in static_controls/composition_kind.py; this is the runtime tooth.
+        with pytest.raises(CapabilityBypassError, match="composition kind"):
+            mint_at_composition(
+                door_kind, tenant=TENANT, principal=PRINCIPAL, resource="x", decision_id=DECISION
+            )
+
+    def test_the_composition_kinds_are_exactly_two(self) -> None:
+        assert COMPOSITION_KINDS == (ReplayMint, Register)

@@ -267,6 +267,33 @@ on every field, by both `setattr` and `object.__setattr__`.
 
 ---
 
+### 1.6 Composition authority — PROPOSED at the join (D-IMPL-354, awaiting Dave)
+
+§2 P3 gives the composition root one kind, `ReplayMint`. Implementing §1.2 showed
+two more classes of write that no served caller requests and no door can mint
+for: the deployment's own registrations at composition (manifest entries, a
+resolver's governed defaults, a door's own entitlement and scope mapping, a
+tenant's invalidation register) and the fabric's own evidence writes (admitted
+child contracts, child questions, admission records — the same class as replay
+records and query pins). The provisional clause, in the design's own shape:
+
+- **The composition root mints exactly two kinds and nothing else** —
+  `ReplayMint` on one evidence class, `Register` on one Control Plane key —
+  through `mint_at_composition(kind, …)`, whose overloads make any other kind a
+  `mypy --strict` error and whose runtime check refuses it (`COMPOSITION_KINDS`).
+- **A composition capability is bound like every other** (§1.5): one tenant, one
+  principal, one resource, one decision id. A boot-minted `Register` opens one
+  key; it is not a wildcard and cannot be widened.
+- **Only composition roots may call it.** The §4 lint's `COMPOSITION_MINT_SITES`
+  names them (`ccf.boot`, `ccf.deployment.manifest`, `ccf.products.resolver`,
+  `ccf.products.product`, `ccf.client.adapters.inprocess`,
+  `ccf_runtime.mcp.product_door`, `ccf_runtime.cli.local`); a route, body,
+  handle or adapter is never on the list.
+- **What this does not settle** (Dave's ruling, `D-IMPL-354`): whether `Register`
+  at composition should be a distinct kind the door handles refuse, and whether
+  the roster of composition roots is the intended one. Reversal is one function
+  and its call sites.
+
 ## 2. What becomes inexpressible
 
 Stated as consequences of §1, so a reader can check each against the mechanism
@@ -485,4 +512,4 @@ finding whose closure in §2 reads as a *check* is a defect in this document.
 
 ---
 
-**Next free decision id after this: `D-IMPL-354`.**
+**Next free decision id after this: `D-IMPL-355`** (`D-IMPL-354` is the composition-authority clause proposed at the join, §1.6).

@@ -86,3 +86,28 @@ def test_a_right_kind_call_type_checks_clean(tmp_path: Path) -> None:
     )
     out = _mypy(ok)
     assert "error:" not in out, out
+
+
+COMPOSITION_CONTROL = Path(__file__).parent / "static_controls" / "composition_kind.py"
+
+
+def test_the_composition_control_carries_no_suppression() -> None:
+    text = COMPOSITION_CONTROL.read_text()
+    assert "type: ignore" not in text
+    assert "cast(" not in text
+
+
+def test_a_door_kind_at_composition_is_a_type_error_and_the_two_kinds_are_clean() -> None:
+    """D-IMPL-354's static tooth: the overloads admit ReplayMint and Register
+    only. Both marked lines are reported; the two composition-kind calls
+    above them are not — the error is the kind, not the file."""
+    out = _mypy(COMPOSITION_CONTROL)
+    lines = COMPOSITION_CONTROL.read_text().splitlines()
+    marked = {i + 1 for i, line in enumerate(lines) if "# COMPOSITION-KIND-" in line}
+    assert len(marked) == 2
+    reported = {
+        int(m.group(1))
+        for m in re.finditer(rf"{re.escape(COMPOSITION_CONTROL.name)}:(\d+): error:", out)
+    }
+    assert marked <= reported, f"the static tooth did not fire on {sorted(marked - reported)}:\n{out}"
+    assert reported <= marked, f"unexpected errors:\n{out}"

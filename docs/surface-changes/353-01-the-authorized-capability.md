@@ -1058,3 +1058,22 @@ spelling to the definer and treats the shim as a mint site in neither.
 - Why: `D-IMPL-353` §4 rule 6 (`d353-authz-type-ignore`): an untyped authority bag forced past the type checker is the shape the lint refuses; `tests/cli/test_authority_bundle.py::test_the_bundle_names_exactly_create_apps_keyword_seams` holds the bundle's keys and types equal to `create_app`'s so they cannot drift
 - Migration: an embedder calling `main(dependencies=..., authority=...)` supplies an `HttpAuthority`; an incomplete bundle is a mypy error where it is written
 
+## ccf.authz.capability.COMPOSITION_KINDS
+
+- Surface: ccf.authz.capability.COMPOSITION_KINDS
+- Public surface: true
+- Change type: added
+- Before: absent — `mint_at_composition` minted `ReplayMint` and took no kind
+- After: the closed pair `(ReplayMint, Register)` a composition root may mint through `mint_at_composition(kind, …)`; any other kind is a `mypy --strict` error (overloads) and a runtime refusal
+- Why: `D-IMPL-354` (PROPOSED at the join, awaiting Dave): the deployment's own registrations and evidence writes had no sanctioned minter once every handle required a capability
+- Migration: composition roots pass the kind first — `mint_at_composition(ReplayMint, …)` for an evidence class, `mint_at_composition(Register, …)` for one Control Plane key; the §4 lint holds callers to `COMPOSITION_MINT_SITES`
+
+## ccf_runtime.authz.capability.COMPOSITION_KINDS
+
+- Surface: ccf_runtime.authz.capability.COMPOSITION_KINDS
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a named re-export of `ccf.authz.capability.COMPOSITION_KINDS`
+- Why: runtime callers reach the capability through the runtime package (`D-29`)
+- Migration: none

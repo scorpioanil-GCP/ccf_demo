@@ -191,7 +191,22 @@ MINT_SITES: frozenset[str] = frozenset(
 #: a gate calling this would hand a served surface the governed-record mint,
 #: so the gate modules are deliberately absent. A second root here is a
 #: reviewed edit.
-COMPOSITION_MINT_SITES: frozenset[str] = frozenset({CAPABILITY_MODULE, "ccf.boot"})
+COMPOSITION_MINT_SITES: frozenset[str] = frozenset(
+    {
+        CAPABILITY_MODULE,
+        # The composition roots of this codebase (D-IMPL-354, PROPOSED): each
+        # composes a fabric, a deployment, a resolver or a door and mints the
+        # two composition kinds for what it composes. A route, a body, a
+        # handle or an adapter is not on this list and never will be.
+        "ccf.boot",
+        "ccf.deployment.manifest",
+        "ccf.products.resolver",
+        "ccf.products.product",
+        "ccf.client.adapters.inprocess",
+        "ccf_runtime.mcp.product_door",
+        "ccf_runtime.cli.local",
+    }
+)
 
 #: The wrapper module and class. Inside the module, registration on the raw
 #: server is the wrapper doing its job; everywhere else it is rule 4's subject.

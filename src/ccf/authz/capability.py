@@ -48,7 +48,7 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
-from typing import Any, Final, Generic, TypeVar
+from typing import Any, Final, Generic, overload, TypeVar
 
 from ccf.authz.decision import AuthzDecision
 from ccf.authz.actions import (
@@ -84,6 +84,7 @@ from ccf.authz.actions import (
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "COMPOSITION_KINDS",
     "ActionKind",
     "AgentDeclare",
     "AgentList",
@@ -370,27 +371,60 @@ def mint(
     )
 
 
+#: The kinds a composition root may mint for the deployment it composes,
+#: and no others (D-IMPL-354, PROPOSED at the join — Dave's ruling pending):
+#: ``ReplayMint`` per evidence class the fabric writes for itself, and
+#: ``Register`` per Control Plane key the deployment registers at boot. Both
+#: are the deployment acting on its own fabric; neither is an action a served
+#: caller can request, and a ``Register`` minted here is bound to ONE key, so
+#: a composition root cannot hand a served surface a wildcard.
+COMPOSITION_KINDS: Final[tuple[type[ActionKind], ...]] = (ReplayMint, Register)
+
+
+@overload
 def mint_at_composition(
-    *, tenant: str, principal: str, resource: str, decision_id: str
-) -> Authorized[ReplayMint]:
-    """Mint the one kind no door can: ``ReplayMint``, at composition (§2 P3).
+    kind: type[ReplayMint], *, tenant: str, principal: str, resource: str, decision_id: str
+) -> Authorized[ReplayMint]: ...
+
+
+@overload
+def mint_at_composition(
+    kind: type[Register], *, tenant: str, principal: str, resource: str, decision_id: str
+) -> Authorized[Register]: ...
+
+
+def mint_at_composition(
+    kind: type[A], *, tenant: str, principal: str, resource: str, decision_id: str
+) -> Authorized[A]:
+    """Mint one of the composition kinds, at composition (§2 P3; D-IMPL-354).
 
     The deployment's own statement, made once at boot by the composition
-    root that wires the fabric's replay writer, that THIS process may mint
-    governed records for ``tenant`` under ``resource`` (the governed record
-    class). Not a gate's act — there is no request, no authorizer, and no
-    caller — which is why it takes no :class:`AuthzDecision`: the decision is
-    the deployment's, recorded under ``decision_id`` on the Control Plane
-    audit log by the caller before this is called.
+    root that wires the fabric, that THIS process may act as ``kind`` for
+    ``tenant`` on ``resource``: ``ReplayMint`` on a governed evidence class
+    (the replay writer, the query-pin writer, the admitted-child and
+    admission-record writers), or ``Register`` on one Control Plane key (a
+    manifest entry, a resolver's governed default, a door's own entitlement
+    and scope mapping, a tenant's invalidation register). Not a gate's act —
+    there is no request, no authorizer, and no caller — which is why it takes
+    no :class:`AuthzDecision`: the decision is the deployment's, recorded
+    under ``decision_id`` on the Control Plane audit log by the caller.
 
     Every other kind is minted by :func:`mint` from an allowed decision and
-    only there. This function mints ``ReplayMint`` and only that; it cannot
-    be asked for another kind, so a composition root cannot use it to hand a
-    served surface a door capability.
+    only there. The overloads make a door kind here a type error and the
+    runtime check refuses it, so a composition root cannot use this to hand a
+    served surface a door capability; the §4 lint holds the callers to the
+    composition modules (``COMPOSITION_MINT_SITES``).
     """
+    if kind not in COMPOSITION_KINDS:
+        names = ", ".join(k.__name__ for k in COMPOSITION_KINDS)
+        raise CapabilityBypassError(
+            f"{kind.__name__} is not a composition kind: a composition root"
+            f" mints {names} and nothing else; every door kind is minted by"
+            " mint() from an allowed decision (D-IMPL-353 §1.1; D-IMPL-354)"
+        )
     return Authorized(
         _SENTINEL,
-        kind=ReplayMint,
+        kind=kind,
         tenant=tenant,
         principal=principal,
         resource=resource,
