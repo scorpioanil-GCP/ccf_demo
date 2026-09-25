@@ -112,7 +112,7 @@ seven, including the eighth `create_app` caller in Appendix A.
 | `examples/cp-21-large-exposure/server/serve.py` | +9 −1 | yes | yes | **reverted** |
 | `examples/cp-23-portfolio-early-warning/server/serve.py` | +9 −1 | yes | yes | **reverted** |
 | `examples/cp-24-portfolio-what-if/server/serve.py` | +9 −1 | yes | yes | **reverted** |
-| `examples/cp-15-kyc-refresh-beneficial-ownership/server/serve.py` | +8 −1 | **no** | **no** | **still edited** (`a11d2a75`, the same `tenants=` hunk); a frozen `cp-*` specimen; calls `create_app` without `authorizer=` (`examples/cp-15-kyc-refresh-beneficial-ownership/server/serve.py::http_app`), so it is in G-01's and G-02's populations and does not build under Tier 1 either. **Needs the same ruling.** If the ruling is §7's, the revert is one `git checkout d895d889 -- <path>` by whoever owns the file; this lane did not make it because the file is outside its ownership and "while I was here" is the move `D-IMPL-261` refuses |
+| `examples/cp-15-kyc-refresh-beneficial-ownership/server/serve.py` | +8 −1 | **no** (found by this lane) | **yes — at the join**, `c9da1c80`, byte-identical to `d895d889` | **reverted at the join** under the same §7 ruling (the enumeration was short by one); the lane's finding stands as written: it carried `a11d2a75`'s `tenants=` hunk; a frozen `cp-*` specimen; calls `create_app` without `authorizer=` (`examples/cp-15-kyc-refresh-beneficial-ownership/server/serve.py::http_app`), so it is in G-01's and G-02's populations and does not build under Tier 1 either. **Needs the same ruling.** If the ruling is §7's, the revert is one `git checkout d895d889 -- <path>` by whoever owns the file; this lane did not make it because the file is outside its ownership and "while I was here" is the move `D-IMPL-261` refuses |
 | `examples/hw1-companies-over-revenue/server/serve.py` | +14 −4 | yes — **stays** | no | untouched by this lane; not a `cp-*` specimen, has no HTTP door (does not call `create_app`), and its tenancy edit is what `D-IMPL-261`'s exception clause permits (§7). Not a row |
 
 ---
@@ -120,5 +120,5 @@ seven, including the eighth `create_app` caller in Appendix A.
 ## Roster check
 
 Summary: `G-01`, `G-02`. Ledger: `SEC353-G-01`, `SEC353-G-02`. Same two, same order. Appendix A rows are not gap
-rows and carry no id; the one that needs a ruling (`cp-15`) is named in the STATUS paragraph as well, so it cannot be
+rows and carry no id; the eighth door (`cp-15`) is named in the STATUS paragraph as well and was reverted at the join (`c9da1c80`), so it cannot be
 missed by a reader who stops there.
