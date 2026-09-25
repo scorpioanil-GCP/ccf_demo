@@ -91,6 +91,7 @@ from __future__ import annotations
 from typing import Final, Protocol, TypeAlias, runtime_checkable
 
 from ccf.authz.capability import (
+    verify_any,
     ActionKind,
     Authorized,
     Execute,
@@ -216,42 +217,6 @@ StateWriteAuthority: TypeAlias = (
     | Authorized[SkillGrant]
     | Authorized[SkillRevoke]
 )
-
-
-def verify_any(
-    authorized: object,
-    *,
-    kinds: tuple[type[ActionKind], ...],
-    resource: str,
-) -> type[ActionKind]:
-    """:func:`~ccf.authz.capability.verify` against whichever of ``kinds`` the capability was minted for.
-
-    The seam's ``verify`` takes exactly one kind. A handle whose action is
-    legitimately reached under more than one — the state store under
-    ``Execute | Resume | SkillGrant | SkillRevoke``, the registry under its
-    three registering doors — selects the kind to verify against by reading
-    ``authorized.kind`` and checking membership **by identity**; ``verify``
-    then proves that reading against the mint tuple, so a capability whose
-    ``kind`` was reassigned dies there exactly as it would have with one kind
-    (§1.5g). Nothing is trusted from the read: if the current kind is not a
-    member, the first member is passed so the failure is the wrong-kind
-    diagnostic naming the kind actually minted.
-
-    Returns:
-        The kind the capability was minted for, after verification.
-
-    Raises:
-        CapabilityBypassError: fabricated, retargeted, wrong kind, or wrong
-            resource — from ``verify``, unchanged.
-    """
-    current = getattr(authorized, "kind", None)
-    selected = kinds[0]
-    for kind in kinds:
-        if current is kind:
-            selected = kind
-            break
-    verify(authorized, kind=selected, resource=resource)
-    return selected
 
 
 #: The one character between the tenant and the record id in a state key.

@@ -149,6 +149,7 @@ AuditAction = Literal[
     "workflow_completed",
     "hitl_action",
     "authz_decision",
+    "composition"
 ]
 
 

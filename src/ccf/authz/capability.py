@@ -84,6 +84,8 @@ from ccf.authz.actions import (
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "COMPOSITION_PRINCIPAL",
+    "verify_any",
     "COMPOSITION_KINDS",
     "ActionKind",
     "AgentDeclare",
@@ -380,6 +382,11 @@ def mint(
 #: a composition root cannot hand a served surface a wildcard.
 COMPOSITION_KINDS: Final[tuple[type[ActionKind], ...]] = (ReplayMint, Register)
 
+#: The principal a composition root mints under — the SDK's own name for a
+#: deployment acting on the fabric it composes (D-IMPL-354). Wire vocabulary
+#: of the SDK, like the surface identifiers; it names no tenant and no person.
+COMPOSITION_PRINCIPAL: Final[str] = "ccf.composition-root"
+
 
 @overload
 def mint_at_composition(
@@ -489,3 +496,39 @@ def verify(authorized: object, *, kind: type[ActionKind], resource: str) -> None
             f" capability was minted for {m_resource!r}; the target is the"
             " capability's, never the caller's (D-IMPL-353 §1.5f)"
         )
+
+
+def verify_any(
+    authorized: object,
+    *,
+    kinds: tuple[type[ActionKind], ...],
+    resource: str,
+) -> type[ActionKind]:
+    """:func:`~ccf.authz.capability.verify` against whichever of ``kinds`` the capability was minted for.
+
+    The seam's ``verify`` takes exactly one kind. A handle whose action is
+    legitimately reached under more than one — the state store under
+    ``Execute | Resume | SkillGrant | SkillRevoke``, the registry under its
+    three registering doors — selects the kind to verify against by reading
+    ``authorized.kind`` and checking membership **by identity**; ``verify``
+    then proves that reading against the mint tuple, so a capability whose
+    ``kind`` was reassigned dies there exactly as it would have with one kind
+    (§1.5g). Nothing is trusted from the read: if the current kind is not a
+    member, the first member is passed so the failure is the wrong-kind
+    diagnostic naming the kind actually minted.
+
+    Returns:
+        The kind the capability was minted for, after verification.
+
+    Raises:
+        CapabilityBypassError: fabricated, retargeted, wrong kind, or wrong
+            resource — from ``verify``, unchanged.
+    """
+    current = getattr(authorized, "kind", None)
+    selected = kinds[0]
+    for kind in kinds:
+        if current is kind:
+            selected = kind
+            break
+    verify(authorized, kind=selected, resource=resource)
+    return selected

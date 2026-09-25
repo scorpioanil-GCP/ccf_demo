@@ -429,7 +429,7 @@ ArtifactWriteAuthority: TypeAlias = (
 
 
 def authorized_write_target(
-    authorized: object, artifact: object, *, write_kinds: WriteKinds
+    authorized: ArtifactWriteAuthority, artifact: object, *, write_kinds: WriteKinds
 ) -> tuple[WriteTarget, object]:
     """Verify the capability and resolve the write's target — the first statement of every ``put``.
 

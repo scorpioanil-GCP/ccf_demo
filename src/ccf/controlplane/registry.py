@@ -197,7 +197,7 @@ def _tenant_segment(key: str) -> str | None:
     return tenant if separator and tenant else None
 
 
-def _door_key(authorized: object) -> str:
+def _door_key(authorized: DerivedRegisterAuthority) -> str:
     """The key a door registration acts on: the capability's resource, verified.
 
     ``verify_any`` runs FIRST — against the resource the capability itself
@@ -206,7 +206,6 @@ def _door_key(authorized: object) -> str:
     """
     resource = getattr(authorized, "resource", "")
     verify_any(authorized, kinds=REGISTER_KINDS, resource=resource)
-    assert isinstance(authorized, Authorized)  # proven by verify_any
     if _tenant_segment(resource) != authorized.tenant:
         raise CrossTenantKeyRefused(
             f"registration key {resource!r} does not belong to tenant"

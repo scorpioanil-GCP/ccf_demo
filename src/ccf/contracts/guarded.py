@@ -159,49 +159,51 @@ GUARDED_TYPES: Final[tuple[GuardedTypeDeclaration, ...]] = (
         ),
     ),
     GuardedTypeDeclaration(
-        type_path="ccf.artifacts.protocol:GovernedWriteToken",
+        type_path="ccf.authz.capability:Authorized",
         authority=(
-            "this artifact write is the fabric's own and not a client's, so it"
-            " may file under an artifact class the deployment reserved for"
-            " mechanism — typically its Decision Replay records (SEC-004;"
-            " CLAUDE.md §7.4)"
+            "this caller was authorized for exactly this action on exactly this"
+            " resource in exactly this tenant — a served surface's decision"
+            " (the HTTP gate, the MCP wrapper) or the composition root's own"
+            " statement for the two composition kinds (D-IMPL-353 §1; D-IMPL-354)"
         ),
-        mint="ccf.artifacts.protocol:GovernedWriteHandle",
-        verifier="ccf.artifacts.protocol:held_writable_class",
+        mint="ccf.authz.capability:mint",
+        verifier="ccf.authz.capability:verify",
+        # The verifier reaches the boundaries directly or through the three
+        # helpers below, each of which calls it first and by identity.
+        verifier_aliases=(
+            "ccf.authz.capability:verify_any",
+            "ccf.controlplane.registry:_door_key",
+            "ccf.artifacts.protocol:authorized_write_target",
+        ),
         boundaries=(
+            "ccf.controlplane.registry:ControlPlaneRegistry.register",
+            "ccf.controlplane.state:InMemoryStateStore.put",
             "ccf.artifacts.file_store:FileArtifactStore.put",
             "ccf.artifacts.mcp_store:McpArtifactStore.put",
+            # The replay writers verify ONCE, at construction, and hold the
+            # capability for every record they file (D-IMPL-353 §2 P3).
+            "ccf.replay.serve:ReplayWriter.__init__",
+            "ccf.skills.grants:GrantLedger.request",
+            "ccf.hitl.transport:InMemoryHitlTransport.submit",
+            "ccf_runtime.workflow.engine:WorkflowEngine.execute",
+            "ccf_runtime.workflow.engine:WorkflowEngine.resume",
         ),
         propagation=(
-            "verified at the write, on every store, before canonicalization and"
-            " before the substrate is touched; no internal propagation —"
-            " `GovernedWriteHandle` holds one token and attaches it to the one"
-            " call that needs it"
+            "verified at every handle, first statement, by mint identity and"
+            " the minted tuple — never by isinstance; carried by value from the"
+            " gate's stash or the wrapper's injection to the handle; the"
+            " engine threads it per call and no driver retains it"
         ),
         residual=(
-            "`ArtifactStoreProtocol` is a Protocol the SDK invites third"
-            " parties to implement (CLAUDE.md §7.4: adopters point at their own"
-            " MCP artifact server). The SDK can require the check of the two"
-            " stores it ships and CANNOT compel a third-party one. Separately:"
-            " Python has no barrier that stops a transport door's AUTHOR from"
-            " importing `GovernedWriteHandle`; what it stops is a *remote*"
-            " caller, because no JSON body, MCP tool argument or query string"
-            " can produce a Python object. The author case is CI-covered"
-            " (`tests/artifacts/test_governed_artifact_classes.py"
-            "::test_no_transport_door_mints_a_governed_write` asserts no module"
-            " under `runtime/ccf_runtime` names either symbol), never claimed"
-            " impossible — the `StateWriteToken` posture"
+            "the second mint site, mint_at_composition, is held to the"
+            " composition roots by the §4 lint rather than by the type system;"
+            " D-IMPL-354 (OPEN) asks whether Register at composition should be"
+            " a distinct kind the door handles refuse"
         ),
         notes=(
-            "the measured defect: with the four values an HTTP request body"
-            " supplies, a client filed bytes under `ccf.replay-record` and"
-            " `resolve_uri` resolved the forged URI. Content addressing proves"
-            " INTEGRITY and never PROVENANCE, so a replay would have"
-            " reproduced the plant and validated it as genuine",
-            "the mint check is identity against a module-private sentinel, not"
-            " truthiness: a door forwarding a request-body field would present"
-            " `True`, `1`, `\"minted\"` or `{\"_minted\": true}`, and every one"
-            " of those satisfies `if minted:`",
+            "THE PATTERN GENERALIZED. `StateWriteToken` (above) was the"
+            " precedent; `Authorized` is the same shape for every governed"
+            " write and tenant read (D-IMPL-353 §1.1, §1.5).",
         ),
     ),
     GuardedTypeDeclaration(
