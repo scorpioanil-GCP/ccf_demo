@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import pytest
 
-from ccf.authz.capability import COMPOSITION_PRINCIPAL, Register, verify
+from ccf.authz.capability import COMPOSITION_PRINCIPAL, CompositionRegister, Register, verify
 from ccf.controlplane.registry import ControlPlaneRegistry, CrossTenantKeyRefused
 from ccf.products.resolver import _mint_register_at_composition
 
@@ -31,7 +31,7 @@ def test_the_mint_is_for_whatever_segment_the_max_ttl_key_names_recorded_hazard(
     registry = ControlPlaneRegistry()
     key = "some-other-segment/product/max-ttl"
     authorized = _mint_register_at_composition(registry, key=key)
-    verify(authorized, kind=Register, resource=key)
+    verify(authorized, kind=CompositionRegister, resource=key)
     # The hazard, stated as the assertion the ruling will flip: the tenant is the
     # key's first segment, whatever fabric this resolver composes for.
     assert authorized.tenant == "some-other-segment"

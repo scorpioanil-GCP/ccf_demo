@@ -49,6 +49,7 @@ from pathlib import Path
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.artifacts.protocol import WriteKinds
 from ccf.authz.capability import (
+    CompositionRegister,
     COMPOSITION_PRINCIPAL,
     Authorized,
     Register,
@@ -103,19 +104,19 @@ def composition_register(
     key: str,
     *,
     clock: Callable[[], datetime] = _utc_now,
-) -> Authorized[Register]:
-    """``Authorized[Register]`` for exactly ``key``, minted by the recipe."""
+) -> Authorized[CompositionRegister]:
+    """``Authorized[CompositionRegister]`` for exactly ``key``, minted by the recipe."""
     tenant = tenant_of_key(key)
     event = registry.audit_log.append(
         action="composition",
         key=key,
-        version=Register.action_id,
+        version=CompositionRegister.action_id,
         resolved=True,
         occurred_at=clock(),
         actor=COMPOSITION_PRINCIPAL,
     )
     return mint_at_composition(
-        Register,
+        CompositionRegister,
         tenant=tenant,
         principal=COMPOSITION_PRINCIPAL,
         resource=key,

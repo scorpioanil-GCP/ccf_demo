@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1721 entries**, of which **1463** name a public Python surface.
+**1729 entries**, of which **1471** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-989 entries — 946 public Python surface, 43 not public Python API.
+991 entries — 948 public Python surface, 43 not public Python API.
 
 ### Public Python surface
 
@@ -15276,6 +15276,30 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `353-09-the-join.md`.*
 
+#### ccf.authz.capability.CompositionRegister
+
+- Surface: ccf.authz.capability.CompositionRegister
+- Public surface: true
+- Change type: added
+- Before: absent — a composition root minted the DOOR's `Register` (`ConfigRegister` by identity) for its own Control Plane registrations, so a composition capability was a `config.register` wand by type and the two paths could not be told apart by kind
+- After: `CompositionRegister(ActionKind, action_id="composition.register")` — the kind a composition root registers under. No door declares it (`kind_for_action` refuses its id by name; `mint()` therefore cannot produce it); `mint_at_composition` mints it and refuses the door's `Register`; the registry's register handles admit it beside the door kinds (`REGISTER_KINDS`, `RegisterAuthority`); `SkillCatalog.register` and `ControlPlaneInvalidationSink` take it; the recipe's audit event carries `composition.register` as its version
+- Why: Dave's ruling of 2026-09-25 inside `D-IMPL-353`, after both panel rounds recommended a distinct kind (cursor F-KIND-01; codex): one new kind, one mint path, the same static tooth, the same runtime `verify` tooth, the same kind/resource/tenant controls (`tests/authz/test_capability.py::TestCompositionKindIsDistinct`, `tests/authz/static_controls/composition_kind.py`)
+- Migration: a composition root that called `mint_at_composition(Register, …)` calls `mint_at_composition(CompositionRegister, …)`; a reader that asserted a composition event's version as `config.register` reads `composition.register`; a type that named `Authorized[Register]` for a composition-minted value names `Authorized[CompositionRegister]`
+
+*Recorded by `353-09-the-join.md`.*
+
+#### ccf_runtime.authz.capability.CompositionRegister
+
+- Surface: ccf_runtime.authz.capability.CompositionRegister
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the runtime shim's re-export of `ccf.authz.capability.CompositionRegister`
+- Why: the shim re-exports every kind
+- Migration: none
+
+*Recorded by `353-09-the-join.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -24246,7 +24270,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-213 entries — 185 public Python surface, 28 not public Python API.
+219 entries — 191 public Python surface, 28 not public Python API.
 
 ### Public Python surface
 
@@ -27983,6 +28007,78 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - After: same signature; `catalog` returns the entries whose `tenant` is the capability's; `grant` reads a definition key under another tenant as absent (the same 404 as a key that does not exist) BEFORE resolving it, so a write door is not an existence oracle either
 - Why: F-READ-02 (see `within_tenant`); the grant guard is the second panel's (codex, cursor F-READ-05)
 - Migration: none for a caller reading its own tenant
+
+*Recorded by `353-09-the-join.md`.*
+
+#### ccf.authz.capability.COMPOSITION_KINDS
+
+- Surface: ccf.authz.capability.COMPOSITION_KINDS
+- Public surface: true
+- Change type: behavior
+- Before: `(ReplayMint, Register)` — the door's registration kind was a composition kind
+- After: `(ReplayMint, CompositionRegister)`
+- Why: see `CompositionRegister`
+- Migration: as for `CompositionRegister`
+
+*Recorded by `353-09-the-join.md`.*
+
+#### ccf.authz.capability.mint_at_composition
+
+- Surface: ccf.authz.capability.mint_at_composition
+- Public surface: true
+- Change type: behavior
+- Before: overloads admitted `ReplayMint` and `Register`; the runtime check refused every other kind
+- After: same signature; overloads admit `ReplayMint` and `CompositionRegister`; the door's `Register`/`ConfigRegister` is a `mypy --strict` error and a `CapabilityBypassError` at runtime
+- Why: see `CompositionRegister`
+- Migration: as for `CompositionRegister`
+
+*Recorded by `353-09-the-join.md`.*
+
+#### ccf.authz.capability.kind_for_action
+
+- Surface: ccf.authz.capability.kind_for_action
+- Public surface: true
+- Change type: behavior
+- Before: refused `replay.mint` by name and any id no door declares
+- After: also refuses `composition.register` by name, so a served surface cannot obtain `Authorized[CompositionRegister]`
+- Why: see `CompositionRegister`
+- Migration: none
+
+*Recorded by `353-09-the-join.md`.*
+
+#### ccf.controlplane.registry.REGISTER_KINDS
+
+- Surface: ccf.controlplane.registry.REGISTER_KINDS
+- Public surface: true
+- Change type: behavior
+- Before: `(Register, AgentDeclare, SkillCatalogRegister)`
+- After: `(Register, CompositionRegister, AgentDeclare, SkillCatalogRegister)` — the register handles admit the composition kind beside the three door kinds; the key is still the capability's resource and the tenant segment is still checked once
+- Why: see `CompositionRegister`
+- Migration: none for a door caller
+
+*Recorded by `353-09-the-join.md`.*
+
+#### ccf.controlplane.registry.RegisterAuthority
+
+- Surface: ccf.controlplane.registry.RegisterAuthority
+- Public surface: true
+- Change type: behavior
+- Before: `Authorized[Register] | Authorized[AgentDeclare] | Authorized[SkillCatalogRegister]`
+- After: the union also names `Authorized[CompositionRegister]`
+- Why: see `CompositionRegister`
+- Migration: none
+
+*Recorded by `353-09-the-join.md`.*
+
+#### ccf.skills.catalog.SkillCatalog
+
+- Surface: ccf.skills.catalog.SkillCatalog
+- Public surface: true
+- Change type: behavior
+- Before: `register(authorized: Authorized[SkillCatalogRegister] | Authorized[Register], entry)`
+- After: the union also names `Authorized[CompositionRegister]` — a deployment declaring a catalog entry at boot registers it under the composition kind
+- Why: see `CompositionRegister`
+- Migration: none
 
 *Recorded by `353-09-the-join.md`.*
 

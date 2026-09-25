@@ -58,7 +58,7 @@ from pydantic import Field, field_validator, model_validator
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import HASH_TRANSPARENT_KEY, content_hash
 from ccf.controlplane.artifact_base import ArtifactClass, validate_semver
-from ccf.authz.capability import Authorized, Register, SkillCatalogRegister
+from ccf.authz.capability import Authorized, CompositionRegister, Register, SkillCatalogRegister
 from ccf.controlplane.registry import ControlPlaneRegistry, RegistrationRefusal
 
 __ccf_mode__ = "algorithmic"
@@ -699,7 +699,7 @@ class SkillCatalog:
 
     def register(
         self,
-        authorized: Authorized[SkillCatalogRegister] | Authorized[Register],
+        authorized: Authorized[SkillCatalogRegister] | Authorized[Register] | Authorized[CompositionRegister],
         entry: SkillCatalogEntry,
     ) -> str | RegistrationRefusal:
         """Register ``entry`` through the D-05 versioned path, under the capability for its key.

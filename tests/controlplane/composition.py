@@ -5,7 +5,7 @@ bundle, an HITL policy, a MAX_TTL, or a fixture agent's referenced artifacts
 — is standing in for the deployment's composition root. Under ``D-IMPL-353``
 §1.2 the registry's handles REQUIRE a capability for their own action, and
 under ``D-IMPL-354`` (PROPOSED, awaiting Dave) the composition root is the
-one caller that may mint ``Register`` — for ONE Control Plane key at a time,
+one caller that may mint ``CompositionRegister`` — for ONE Control Plane key at a time,
 after recording that decision on the audit log the registry itself keeps.
 These helpers do exactly that: the audit event is appended first, the
 capability is minted from its content hash, and the handle is called with
@@ -23,6 +23,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from ccf.authz.capability import (
+    CompositionRegister,
     COMPOSITION_PRINCIPAL,
     Authorized,
     Register,
@@ -60,8 +61,8 @@ from tests.composition import (  # noqa: E402
 
 def composition_register_capability(
     registry: ControlPlaneRegistry, key: str, tenant: str
-) -> Authorized[Register]:
-    """A genuine ``Authorized[Register]`` for ``key`` — the canonical recipe.
+) -> Authorized[CompositionRegister]:
+    """A genuine ``Authorized[CompositionRegister]`` for ``key`` — the canonical recipe.
 
     ``tenant`` must be the key's own tenant segment (the registry refuses any
     other); it is kept as a parameter so a caller's expectation is checked

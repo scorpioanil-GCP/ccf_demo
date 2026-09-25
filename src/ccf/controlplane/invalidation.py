@@ -47,7 +47,7 @@ from typing import Protocol, runtime_checkable
 
 from pydantic import Field
 
-from ccf.authz.capability import Authorized, Register, verify
+from ccf.authz.capability import Authorized, CompositionRegister, Register, verify
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import HASH_TRANSPARENT_KEY
 # `artifact_base`, NOT `artifacts`: the latter imports `ccf.products.contract`,
@@ -241,7 +241,7 @@ class ControlPlaneInvalidationSink:
         self,
         *,
         registry: ControlPlaneProtocol,
-        authorities: tuple[Authorized[Register], ...],
+        authorities: tuple[Authorized[CompositionRegister], ...],
     ) -> None:
         """Hold one ``Register`` capability per tenant this sink may record for.
 
@@ -262,11 +262,11 @@ class ControlPlaneInvalidationSink:
                 is a misconfiguration, refused at composition rather than at
                 the first supersession.
         """
-        held: dict[str, Authorized[Register]] = {}
+        held: dict[str, Authorized[CompositionRegister]] = {}
         for authorized in authorities:
             tenant = getattr(authorized, "tenant", None)
             expected = register_key(tenant) if isinstance(tenant, str) and tenant else ""
-            verify(authorized, kind=Register, resource=expected)
+            verify(authorized, kind=CompositionRegister, resource=expected)
             if authorized.tenant in held:
                 raise InvalidationUnauthorized(
                     f"two Register capabilities were handed in for tenant"

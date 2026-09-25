@@ -747,6 +747,7 @@ def test_every_exported_kind_is_classified_read_or_mutating() -> None:
         capability.Execute,
         capability.Resume,
         capability.ReplayMint,
+        capability.CompositionRegister,
     }
     assert READ_KINDS & mutating == frozenset()
     unclassified = exported - READ_KINDS - mutating

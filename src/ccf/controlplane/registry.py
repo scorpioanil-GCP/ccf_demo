@@ -51,6 +51,7 @@ from datetime import UTC, datetime
 from typing import Final, Protocol, TypeAlias, cast, runtime_checkable
 
 from ccf.authz.capability import (
+    CompositionRegister,
     ActionKind,
     AgentDeclare,
     Authorized,
@@ -168,6 +169,7 @@ class CrossTenantKeyRefused(PermissionError):
 #: grant ``agent.declare`` without ``config.register``.
 REGISTER_KINDS: Final[tuple[type[ActionKind], ...]] = (
     Register,
+    CompositionRegister,
     AgentDeclare,
     SkillCatalogRegister,
 )
@@ -183,7 +185,10 @@ DERIVED_REGISTER_KINDS: Final[tuple[type[ActionKind], ...]] = (SkillGrant,)
 
 #: The static type of the door registration handles' first parameter.
 RegisterAuthority: TypeAlias = (
-    Authorized[Register] | Authorized[AgentDeclare] | Authorized[SkillCatalogRegister]
+    Authorized[Register]
+    | Authorized[CompositionRegister]
+    | Authorized[AgentDeclare]
+    | Authorized[SkillCatalogRegister]
 )
 
 #: What ``register_versioned`` accepts: the door kinds, or the derived kind.

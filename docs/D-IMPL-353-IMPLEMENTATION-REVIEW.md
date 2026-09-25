@@ -141,12 +141,41 @@ loop, the read routes, the lint rule, the new controls) and five scoped question
 | finding | who | disposition |
 |---|---|---|
 | the three round-1 fixes (sentinel off the instance, register loop `tenant=`, read routes) hold; both round-1 rejections verified (each named what it re-read) | all three | recorded |
-| **F-FORGE-02 — the issuance table is a module global reachable by introspection** (`verify.__globals__`, `vars(sys.modules[...])`, `gc.get_referrers`) without naming it; an exact-type instance inserted there is honored; equally, the sentinel via `Authorized.__init__.__globals__` | codex (CRITICAL), cursor (CRITICAL), gemini | **CONFIRMED (measured) — and it is the stated limit, not a defect the language lets us close.** The same power replaces `verify` itself; Python keeps no secret from code in its own interpreter. What F-FORGE-01 removed is the cheap path (one held capability → all). The module now states this precisely; the trust boundary against arbitrary in-process code is the process. **RULING for Dave** (§8 item 11): narrow the brief explicitly, or fund a non-Python issuer |
+| **F-FORGE-02 — the issuance table is a module global reachable by introspection** (`verify.__globals__`, `vars(sys.modules[...])`, `gc.get_referrers`) without naming it; an exact-type instance inserted there is honored; equally, the sentinel via `Authorized.__init__.__globals__` | codex (CRITICAL), cursor (CRITICAL), gemini | **CONFIRMED (measured) — RULED OUTSIDE THE THREAT MODEL (Dave, 2026-09-25).** Arbitrary code already executing inside the same interpreter is outside `D-IMPL-353`; the claim is that governed served surfaces cannot mint, forge or use a protected capability for the wrong kind, resource or tenant. Stated in `StateWriteToken`'s words in `ccf.authz.capability`; no hiding machinery added; residual R2 below |
 | F-COMP-01 — `ccf.products.resolver._mint_register_at_composition` still reads its tenant off the key | cursor HIGH | **CONFIRMED — NOT fixed at the join; a RULING** (§8 item 10). The same fix was tried (tell the mint the fabric's tenant, refuse any other) and 159 tests went red: `ProductClassDeclaration.max_ttl_key` is authored inside the declaration and is not tenant-keyed by any enforced grammar (fixtures name `tenant-fixture/max-ttl` under other tenants; cp-05's frozen declaration names `cp-05/product/…/max-ttl` under `cp-05-demo`), so the MAX_TTL artifact registers under a pseudo-tenant segment two deployments could share. Reverted to the pre-panel behavior; pinned by `tests/products/test_resolver_composition_tenant.py` so the ruling's implementation turns it red |
 | F-READ-05 — `skill.grant` resolved a caller-named `definition_key` before the ledger's tenant binding (an existence oracle through a write door) | codex HIGH, cursor advisory | **CONFIRMED and FIXED**: `within_tenant` before the resolve, the absent 404, no audit `resolve` of the foreign key; M30 |
 | `__reduce__` refusing pickle | codex, cursor, gemini | no legitimate SDK path serializes a capability (crossproc children re-mint in their own process); a future worker pool must re-decide at the gate — by design (§1.5g) |
 | `tests/composition.py::composition_register` reads the tenant off the key | cursor | test helper; the `http_api` spelling already takes `tenant=`; noted |
 
+
+## 7a. The distinct composition kind (ruled 2026-09-25, done inside D-IMPL-353)
+
+`CompositionRegister` (`composition.register`) replaces the door's `Register` on every composition path: `boot`, the
+config loader's register loop, the resolver's own two registrations, the MCP product door's registration, the test
+recipe helpers. One new kind; one mint path (`mint_at_composition`, whose overloads and runtime check now refuse the
+door's `Register`/`ConfigRegister`); the same static tooth (`RegisterAuthority`, `SkillCatalog.register`,
+`ControlPlaneInvalidationSink` name it; the static control `tests/authz/static_controls/composition_kind.py` marks the
+door kind as the type error); the same runtime tooth (`verify` by identity: a composition capability is not a
+`ConfigRegister` one and vice versa; `kind_for_action` refuses `composition.register` by name, so `mint()` cannot
+produce it; the registry's `REGISTER_KINDS` admit it beside the three door kinds with the same one tenant-segment
+check). Controls: `tests/authz/test_capability.py::TestCompositionKindIsDistinct` (three), the roster and static
+tests updated; severings M31 (runtime check gone) and M32 (a door declares it) redden them. Fragment entries: eight,
+in `353-09-the-join.md`.
+
+## 7b. Residuals (explicit; none is hidden beside a green gate)
+
+| # | residual | where it is visible |
+|---|---|---|
+| R1 | **composition key grammar** — max-TTL resource identity (`ProductClassDeclaration.max_ttl_key`) is not tenant-keyed by an enforced grammar; the resolver's composition root mints `CompositionRegister` for whatever segment the declaration names. Ruled: not retuned in this phase; cp-05 stays frozen | `tests/products/test_resolver_composition_tenant.py` pins the current behavior and flips when ruled; `D-IMPL-354` ruling (2) |
+| R2 | **arbitrary in-process Python introspection** of the module-private issuance table / sentinel (F-FORGE-02) — outside the threat model by ruling; the process is the boundary | `ccf.authz.capability` module docstring ("Scope, ruled"); `D-IMPL-354` ruling (1) |
+| R3 | the authorization lint's tree scope is `src/` + `runtime/`; `examples/` and `tools/` may name the private names, register a raw FastMCP body, or pass a weak authority — examples are frozen specimens | `tools/lints/__main__.py::RULE_TREE_SCOPE`; §9 item 1 |
+| R4 | SEC353-J-01 — FastMCP drops unknown wire arguments rather than refusing them (HTTP refuses via `extra=forbid`) | `tests/mcp` assert no effect; ruling owed |
+| R5 | SEC353-J-02 (half) — a producer that REFUSED by error at its tenancy floor reads `producer-unavailable` in the child-admission row (the client classification itself is fixed) | `tests/products/test_d_impl_342_producer_refusal_evidence.py::test_c_a4a_a_door_refusal_whose_claims_fail_carries_no_producer_refusal` asserts the vocabulary and says so; ruling owed |
+| R6 | `authorized_from_request`'s kind-less overload returns `Authorized[ActionKind]` (no route uses it) | advisory; `runtime/ccf_runtime/http_api/grants.py` |
+| R7 | `open_product(approval_sink=)` is vestigial now that the road requests no grant | ruling owed on the paved road's posture (panel: keep) |
+| R8 | two spellings of the test recipe helper (`tests/composition.py`, `tests/http_api/composition_authority.py`) | test infrastructure |
+| R9 | `register_manifest_entries` requires `tenant=`: the frozen `cp-20` deployment's direct call raises `TypeError` | gap ledger `SEC353-G-05` |
+| R10 | 25 `tests/examples` reds, all pre-existing at the census base, 0 new | gap ledger, §10 |
 
 ## 8. Rulings owed to Dave
 

@@ -49,6 +49,7 @@ from ccf.assembly.worker import (
     SpecDrivenEntityResolution,
 )
 from ccf.authz.capability import (
+    CompositionRegister,
     COMPOSITION_PRINCIPAL,
     Authorized,
     Register,
@@ -234,7 +235,7 @@ def _utc_now() -> datetime:
 
 def _mint_invalidation_register(
     registry: ControlPlaneProtocol, *, tenant_id: str
-) -> Authorized[Register]:
+) -> Authorized[CompositionRegister]:
     """The composition recipe, for one tenant's invalidation register (D-IMPL-354).
 
     This module is a composition root — the one place the fabric's own
@@ -249,13 +250,13 @@ def _mint_invalidation_register(
     event = registry.audit_log.append(
         action="composition",
         key=key,
-        version=Register.action_id,
+        version=CompositionRegister.action_id,
         resolved=True,
         occurred_at=_utc_now(),
         actor=COMPOSITION_PRINCIPAL,
     )
     return mint_at_composition(
-        Register,
+        CompositionRegister,
         tenant=tenant_id,
         principal=COMPOSITION_PRINCIPAL,
         resource=key,

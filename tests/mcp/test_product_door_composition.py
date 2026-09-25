@@ -6,13 +6,13 @@ the two registrations that composition performs — the entitlement policy and
 the scope mapping — are the deployment's own act: no served caller requests
 them and no gate can mint for them. So the root records each decision on the
 Control Plane's own audit log as a ``composition`` event naming the key, and
-mints ``Register`` for exactly that key from that event. Measured here over a
+mints ``CompositionRegister`` for exactly that key from that event. Measured here over a
 structural :class:`~ccf_runtime.mcp.product_door.ServesProducts` stand-in, so
 the proof needs no paved-road product (whose composition root is J-SRC's).
 
 What would fail here: a door that registered with a bare key (the registry
 refuses — the negative half is the registry's own test), or one that minted
-one wildcard ``Register`` for both keys (each capability is bound to ONE key,
+one wildcard ``CompositionRegister`` for both keys (each capability is bound to ONE key,
 and the two audit events name two keys).
 """
 
@@ -22,7 +22,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from ccf.authz.capability import COMPOSITION_PRINCIPAL, Register
+from ccf.authz.capability import COMPOSITION_PRINCIPAL, CompositionRegister
 from ccf.controlplane.artifacts import (
     EgressDoorBinding,
     ProductClassDeclaration,
@@ -106,7 +106,7 @@ def test_the_doors_two_registrations_are_each_minted_from_a_recorded_composition
         scope_mapping_key(tenant_id=TENANT),
     ]
     assert all(e.actor == COMPOSITION_PRINCIPAL for e in compositions)
-    assert all(e.version == Register.action_id for e in compositions)
+    assert all(e.version == CompositionRegister.action_id for e in compositions)
     # Each decision precedes its own registration, and each registration was
     # audited under the composition principal — the registry read the actor
     # off the capability, never off a parameter.
@@ -126,7 +126,7 @@ def test_the_doors_two_registrations_are_each_minted_from_a_recorded_composition
 def test_the_decision_id_of_each_registration_is_its_own_composition_event(
     tmp_path: Path,
 ) -> None:
-    """Two keys, two events, two capabilities: a boot-minted `Register` opens
+    """Two keys, two events, two capabilities: a boot-minted `CompositionRegister` opens
     one key and is not a wildcard (§1.5). Measured by the registry's audit
     trail: each `register_typed` event follows exactly one `composition` event
     for the same key."""

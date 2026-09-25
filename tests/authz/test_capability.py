@@ -26,6 +26,8 @@ from unittest.mock import Mock
 import pytest
 
 from ccf_runtime.authz.capability import (
+    CompositionRegister,
+    ConfigRegister,
     ActionKind,
     AgentDeclare,
     ArtifactRead,
@@ -319,12 +321,12 @@ class TestMintAtComposition:
 
     def test_register_at_composition_is_bound_to_one_key(self) -> None:
         cap = mint_at_composition(
-            Register, tenant=TENANT, principal=PRINCIPAL, resource=f"{TENANT}/policy/bundle", decision_id=DECISION
+            CompositionRegister, tenant=TENANT, principal=PRINCIPAL, resource=f"{TENANT}/policy/bundle", decision_id=DECISION
         )
-        verify(cap, kind=Register, resource=f"{TENANT}/policy/bundle")  # no raise
+        verify(cap, kind=CompositionRegister, resource=f"{TENANT}/policy/bundle")  # no raise
         with pytest.raises(CapabilityBypassError):
-            verify(cap, kind=Register, resource=f"{TENANT}/policy/other")
-        # and it is Register, not any other registration kind
+            verify(cap, kind=CompositionRegister, resource=f"{TENANT}/policy/other")
+        # and it is CompositionRegister, not the door's Register nor any other registration kind
         with pytest.raises(CapabilityBypassError):
             verify(cap, kind=AgentDeclare, resource=f"{TENANT}/policy/bundle")
 
@@ -338,7 +340,7 @@ class TestMintAtComposition:
             )
 
     def test_the_composition_kinds_are_exactly_two(self) -> None:
-        assert COMPOSITION_KINDS == (ReplayMint, Register)
+        assert COMPOSITION_KINDS == (ReplayMint, CompositionRegister)
 
 
 class TestNoDoorMintsTheGovernedRecord:
@@ -359,3 +361,42 @@ class TestNoDoorMintsTheGovernedRecord:
     def test_kind_for_action_refuses_the_governed_record_mint_by_name(self) -> None:
         with pytest.raises(CapabilityBypassError, match="governed-record mint"):
             kind_for_action(ReplayMint.action_id)
+
+
+class TestCompositionKindIsDistinct:
+    """Dave's ruling (2026-09-25), inside D-IMPL-353: composition mints a DISTINCT
+    kind. The door's `Register` (`ConfigRegister`) is refused at composition by
+    overload and at runtime, so a composition root can no longer hand anything a
+    `config.register` wand and a leaked composition capability is not one by
+    type; no door declares the composition kind, so no served surface obtains it.
+    """
+
+    def test_the_door_register_kind_cannot_be_minted_at_composition(self) -> None:
+        for door_kind in (Register, ConfigRegister):
+            with pytest.raises(CapabilityBypassError, match="not a composition kind"):
+                mint_at_composition(door_kind, tenant=TENANT, principal=PRINCIPAL, resource=RESOURCE_X, decision_id=DECISION)  # type: ignore[call-overload]
+
+    def test_composition_register_is_minted_here_and_declared_by_no_door(self) -> None:
+        from ccf.authz.capability import _KINDS_BY_ACTION
+
+        minted = mint_at_composition(
+            CompositionRegister, tenant=TENANT, principal=PRINCIPAL, resource=RESOURCE_X, decision_id=DECISION
+        )
+        verify(minted, kind=CompositionRegister, resource=RESOURCE_X)
+        with pytest.raises(CapabilityBypassError, match="wrong kind"):
+            verify(minted, kind=ConfigRegister, resource=RESOURCE_X)
+        assert CompositionRegister not in _KINDS_BY_ACTION.values()
+        with pytest.raises(CapabilityBypassError, match="composition"):
+            kind_for_action(CompositionRegister.action_id)
+
+    def test_the_door_mint_refuses_the_composition_kinds(self) -> None:
+        """The other direction: a gate's `mint()` cannot produce a composition kind,
+        so no door — however its authorizer decided — hands out a
+        `CompositionRegister` or a `ReplayMint`."""
+        for composition_kind in (CompositionRegister, ReplayMint):
+            decision = AuthzDecision(
+                allowed=True, matched_scope_pattern=TENANT, matched_resource_pattern=RESOURCE_X,
+                artifact_version="1.0.0", action_id=composition_kind.action_id, tenant=TENANT, resource=RESOURCE_X,
+            )
+            with pytest.raises(CapabilityBypassError):
+                mint(composition_kind, decision=decision, principal=PRINCIPAL, decision_id=DECISION)  # type: ignore[type-var]

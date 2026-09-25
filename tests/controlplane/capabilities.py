@@ -23,6 +23,7 @@ from typing import Any, TypeVar
 from unittest.mock import Mock
 
 from ccf.authz.capability import (
+    COMPOSITION_KINDS,
     ActionKind,
     Authorized,
     ReplayMint,
@@ -55,7 +56,16 @@ def capability(
     principal: str = PRINCIPAL,
     decision_id: str = DECISION_ID,
 ) -> Authorized[A]:
-    """A genuine capability of ``kind`` for ``(tenant, resource)``."""
+    """A genuine capability of ``kind`` for ``(tenant, resource)``.
+
+    A door kind is minted the way the gate mints it, from an allowed decision;
+    a composition kind (`COMPOSITION_KINDS`) is minted the way a composition
+    root mints it — `mint()` refuses those by design.
+    """
+    if kind in COMPOSITION_KINDS:
+        return mint_at_composition(
+            kind, tenant=tenant, principal=principal, resource=resource, decision_id=decision_id
+        )
     decision = AuthzDecision(
         allowed=True,
         matched_scope_pattern=tenant,

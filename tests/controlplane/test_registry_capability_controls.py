@@ -26,6 +26,7 @@ from typing import Any, cast
 import pytest
 
 from ccf.authz.capability import (
+    CompositionRegister,
     ActionKind,
     AgentDeclare,
     ArtifactWrite,
@@ -87,8 +88,8 @@ def _nothing_registered(registry: ControlPlaneRegistry, *keys: str) -> None:
 
 
 class TestPositive:
-    def test_the_registering_kinds_are_the_three_doors_and_the_one_derived_writer(self) -> None:
-        assert REGISTER_KINDS == (Register, AgentDeclare, SkillCatalogRegister)
+    def test_the_registering_kinds_are_the_three_doors_the_composition_root_and_the_one_derived_writer(self) -> None:
+        assert REGISTER_KINDS == (Register, CompositionRegister, AgentDeclare, SkillCatalogRegister)
         assert DERIVED_REGISTER_KINDS == (SkillGrant,)
 
     @pytest.mark.parametrize("kind", REGISTER_KINDS)

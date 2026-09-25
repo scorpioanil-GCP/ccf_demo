@@ -1199,7 +1199,7 @@ def test_every_registered_entry_is_preceded_by_its_own_composition_event(
             mine = [e for e in events if e.key == pin.key]
             assert mine[0].action == "composition", pin.key
             assert mine[0].actor == COMPOSITION_PRINCIPAL
-            assert mine[0].version == "config.register"
+            assert mine[0].version == "composition.register"
             assert any(e.action in ("register_typed", "register_versioned") and e.actor == COMPOSITION_PRINCIPAL for e in mine[1:]), pin.key
     finally:
         booted.handle.close()

@@ -135,8 +135,8 @@ def test_a_resolver_mints_exactly_its_five_authorities_at_composition_and_audits
             (REPLAY_RECORD_CLASS, ReplayMint.action_id),
             (QUERY_PIN_CLASS, ReplayMint.action_id),
             (ADMITTED_CHILD_CONTRACT_CLASS, ReplayMint.action_id),
-            (resolver.request_contract_key, "config.register"),
-            (resolver._declaration().max_ttl_key, "config.register"),
+            (resolver.request_contract_key, "composition.register"),
+            (resolver._declaration().max_ttl_key, "composition.register"),
         ]
     )
     held = resolver._authorities

@@ -43,6 +43,7 @@ from typing import Any
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.artifacts.protocol import ArtifactStoreProtocol, WriteKinds
 from ccf.authz.capability import (
+    CompositionRegister,
     COMPOSITION_PRINCIPAL,
     ActionKind,
     Authorized,
@@ -108,19 +109,19 @@ def composition_register(
     *,
     tenant: str | None = None,
     clock: Clock | None = None,
-) -> Authorized[Register]:
+) -> Authorized[CompositionRegister]:
     """The recipe for ``Register`` on exactly ``key`` — the decision recorded, then the mint."""
     acting_for = _tenant_of(key, tenant)
     event = registry.audit_log.append(
         action="composition",
         key=key,
-        version=Register.action_id,
+        version=CompositionRegister.action_id,
         resolved=True,
         occurred_at=(clock or _now)(),
         actor=COMPOSITION_PRINCIPAL,
     )
     return mint_at_composition(
-        Register,
+        CompositionRegister,
         tenant=acting_for,
         principal=COMPOSITION_PRINCIPAL,
         resource=key,

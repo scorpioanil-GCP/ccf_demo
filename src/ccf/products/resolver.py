@@ -282,6 +282,7 @@ from ccf.replay.serve import (
     serve,
 )
 from ccf.authz.capability import (
+    CompositionRegister,
     COMPOSITION_PRINCIPAL,
     Authorized,
     Register,
@@ -1143,8 +1144,8 @@ def _mint_replay_at_composition(
 
 def _mint_register_at_composition(
     control_plane: ControlPlaneProtocol, *, key: str
-) -> Authorized[Register]:
-    """``Authorized[Register]`` for exactly ``key``, for the key's own tenant, audited."""
+) -> Authorized[CompositionRegister]:
+    """``Authorized[CompositionRegister]`` for exactly ``key``, for the key's own tenant, audited."""
     tenant, separator, _ = key.partition("/")
     if not separator or not tenant:
         raise CrossTenantKeyRefused(
@@ -1153,12 +1154,12 @@ def _mint_register_at_composition(
             " names no tenant belongs to nobody (D-IMPL-353 §1.3; D-IMPL-354)"
         )
     return mint_at_composition(
-        Register,
+        CompositionRegister,
         tenant=tenant,
         principal=COMPOSITION_PRINCIPAL,
         resource=key,
         decision_id=_composition_decision(
-            control_plane, key=key, action_id=Register.action_id
+            control_plane, key=key, action_id=CompositionRegister.action_id
         ),
     )
 
@@ -1177,8 +1178,8 @@ class _ComposedAuthorities:
     replay: Authorized[ReplayMint]
     query_pin: Authorized[ReplayMint]
     admitted_child: Authorized[ReplayMint]
-    max_ttl: Authorized[Register]
-    request_contract: Authorized[Register]
+    max_ttl: Authorized[CompositionRegister]
+    request_contract: Authorized[CompositionRegister]
 
 
 class UndeclaredMechanismClass(TypeError):

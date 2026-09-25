@@ -98,13 +98,13 @@ def test_the_composition_control_carries_no_suppression() -> None:
 
 
 def test_a_door_kind_at_composition_is_a_type_error_and_the_two_kinds_are_clean() -> None:
-    """D-IMPL-354's static tooth: the overloads admit ReplayMint and Register
+    """The static tooth: the overloads admit ReplayMint and CompositionRegister
     only. Both marked lines are reported; the two composition-kind calls
     above them are not — the error is the kind, not the file."""
     out = _mypy(COMPOSITION_CONTROL)
     lines = COMPOSITION_CONTROL.read_text().splitlines()
     marked = {i + 1 for i, line in enumerate(lines) if "# COMPOSITION-KIND-" in line}
-    assert len(marked) == 2
+    assert len(marked) == 3
     reported = {
         int(m.group(1))
         for m in re.finditer(rf"{re.escape(COMPOSITION_CONTROL.name)}:(\d+): error:", out)

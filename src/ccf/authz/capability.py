@@ -42,18 +42,17 @@ surface** — HTTP, MCP over HTTP or stdio, the CLI's remote leg, the
 orchestration drivers — can perform an operation without a capability for
 exactly that operation.
 
-**And its shape, precisely (the D-IMPL-353 join's second panel).** Python keeps no
-secret from code running in the same interpreter: ``verify.__globals__``,
-``gc.get_referrers`` or ``sys.modules`` reach this module's table and sentinel
-without spelling their names, and code that can do that can as easily replace
-``verify`` itself. What the capability model removes is the CHEAP path — the one
-where holding a capability a handle was legitimately handed was enough to mint
-another (F-FORGE-01, fixed by moving the mint record off the object). The trust
-boundary against arbitrary in-process code is the process: a served surface
-re-decides in its own process (the MCP and HTTP doors mint from their own
-authorizer), the lint keeps the private names out of every first-party module,
-and a deployment that runs hostile code inside the fabric's interpreter has
-already lost more than a capability.
+**Scope, ruled (Dave, 2026-09-25).** Arbitrary code already executing inside
+the same Python interpreter is OUTSIDE the D-IMPL-353 threat model. The claim
+is: *governed served surfaces cannot mint, forge or use a protected capability
+for the wrong kind, resource or tenant.* As for :class:`~ccf.controlplane.state.StateWriteToken`:
+this makes an unauthorized act unrepresentable through the *served surface*;
+reflection and private-construction bypasses — ``verify.__globals__``,
+``gc.get_referrers``, ``sys.modules``, a write into the issuance table, a
+replaced ``verify`` — are lint- and CI-covered, never claimed impossible, and
+no hiding machinery is added for them. What F-FORGE-01 removed is the cheap
+path, where holding a capability a handle was legitimately handed was enough
+to mint another.
 
 Algorithmic module (CINV-03).
 """
@@ -97,6 +96,7 @@ from ccf.authz.actions import (
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "CompositionRegister",
     "COMPOSITION_PRINCIPAL",
     "verify_any",
     "COMPOSITION_KINDS",
@@ -256,6 +256,20 @@ class ReplayMint(ActionKind, action_id="replay.mint"):
     """
 
 
+class CompositionRegister(ActionKind, action_id="composition.register"):
+    """The kind a composition root registers its own Control Plane entries under.
+
+    **No door declares this action**, so no served surface can obtain one;
+    :func:`kind_for_action` refuses its id by name. The registry's register
+    handles admit it beside the door's ``ConfigRegister`` (`REGISTER_KINDS`),
+    and the two are DISTINCT by identity: a composition root cannot mint the
+    door's kind (`mint_at_composition` refuses it), a door cannot mint this
+    one, and a capability of either kind is not the other to `verify`. Ruled
+    by Dave on 2026-09-25 inside D-IMPL-353, after the join's panel found the
+    composition path minting the door's `Register` by identity.
+    """
+
+
 _KINDS_BY_ACTION: Final[dict[str, type[ActionKind]]] = {
     kind.action_id: kind
     for kind in (
@@ -281,6 +295,12 @@ def kind_for_action(action_id: str) -> type[ActionKind]:
             f"{action_id!r} is the governed-record mint and no door declares"
             " it: a served surface cannot obtain Authorized[ReplayMint]"
             " (D-IMPL-353 §2 P3)"
+        )
+    if action_id == CompositionRegister.action_id:
+        raise CapabilityBypassError(
+            f"{action_id!r} is the composition root's registration kind and no"
+            " door declares it: a served surface cannot obtain"
+            " Authorized[CompositionRegister] (D-IMPL-353; ruled 2026-09-25)"
         )
     try:
         return _KINDS_BY_ACTION[action_id]
@@ -421,9 +441,9 @@ def mint(
 #: ``ReplayMint`` per evidence class the fabric writes for itself, and
 #: ``Register`` per Control Plane key the deployment registers at boot. Both
 #: are the deployment acting on its own fabric; neither is an action a served
-#: caller can request, and a ``Register`` minted here is bound to ONE key, so
+#: caller can request, and a ``CompositionRegister`` minted here is bound to ONE key, so
 #: a composition root cannot hand a served surface a wildcard.
-COMPOSITION_KINDS: Final[tuple[type[ActionKind], ...]] = (ReplayMint, Register)
+COMPOSITION_KINDS: Final[tuple[type[ActionKind], ...]] = (ReplayMint, CompositionRegister)
 
 #: The principal a composition root mints under — the SDK's own name for a
 #: deployment acting on the fabric it composes (D-IMPL-354). Wire vocabulary
@@ -439,8 +459,8 @@ def mint_at_composition(
 
 @overload
 def mint_at_composition(
-    kind: type[Register], *, tenant: str, principal: str, resource: str, decision_id: str
-) -> Authorized[Register]: ...
+    kind: type[CompositionRegister], *, tenant: str, principal: str, resource: str, decision_id: str
+) -> Authorized[CompositionRegister]: ...
 
 
 def mint_at_composition(
@@ -452,7 +472,7 @@ def mint_at_composition(
     root that wires the fabric, that THIS process may act as ``kind`` for
     ``tenant`` on ``resource``: ``ReplayMint`` on a governed evidence class
     (the replay writer, the query-pin writer, the admitted-child and
-    admission-record writers), or ``Register`` on one Control Plane key (a
+    admission-record writers), or ``CompositionRegister`` on one Control Plane key (a
     manifest entry, a resolver's governed default, a door's own entitlement
     and scope mapping, a tenant's invalidation register). Not a gate's act —
     there is no request, no authorizer, and no caller — which is why it takes

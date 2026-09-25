@@ -77,6 +77,7 @@ from pathlib import Path
 from pydantic import SecretStr
 
 from ccf.authz.capability import (
+    CompositionRegister,
     COMPOSITION_PRINCIPAL,
     Authorized,
     Register,
@@ -511,7 +512,7 @@ def _tenant_of_key(key: str) -> str:
     return tenant
 
 
-def _mint_register(registry: ControlPlaneProtocol, key: str, *, tenant: str) -> Authorized[Register]:
+def _mint_register(registry: ControlPlaneProtocol, key: str, *, tenant: str) -> Authorized[CompositionRegister]:
     """The composition recipe for ONE manifest entry (D-IMPL-354).
 
     This module is a composition root: the deployment's own registrations at
@@ -539,13 +540,13 @@ def _mint_register(registry: ControlPlaneProtocol, key: str, *, tenant: str) -> 
     event = registry.audit_log.append(
         action="composition",
         key=key,
-        version=Register.action_id,
+        version=CompositionRegister.action_id,
         resolved=True,
         occurred_at=_utc_now(),
         actor=COMPOSITION_PRINCIPAL,
     )
     return mint_at_composition(
-        Register,
+        CompositionRegister,
         tenant=tenant,
         principal=COMPOSITION_PRINCIPAL,
         resource=key,

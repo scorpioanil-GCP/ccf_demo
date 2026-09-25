@@ -88,7 +88,7 @@ import tempfile
 from datetime import UTC, datetime
 
 from ccf.assembly.worker import EntityResolutionRule, EntityResolutionSpec
-from ccf.authz.capability import COMPOSITION_PRINCIPAL, Register, mint_at_composition
+from ccf.authz.capability import COMPOSITION_PRINCIPAL, CompositionRegister, Register, mint_at_composition
 from ccf.boot import boot
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.registry import ControlPlaneRegistry
@@ -101,11 +101,10 @@ def register_at_composition(registry, key, artifact):
     # This child process is its own composition root (D-IMPL-354): the recipe,
     # inline, because `tests.composition` is not on the child's path.
     event = registry.audit_log.append(
-        action="composition", key=key, version=Register.action_id, resolved=True,
+        action="composition", key=key, version=CompositionRegister.action_id, resolved=True,
         occurred_at=datetime.now(tz=UTC), actor=COMPOSITION_PRINCIPAL,
     )
-    capability = mint_at_composition(
-        Register, tenant=key.partition("/")[0], principal=COMPOSITION_PRINCIPAL,
+    capability = mint_at_composition(CompositionRegister, tenant=key.partition("/")[0], principal=COMPOSITION_PRINCIPAL,
         resource=key, decision_id=content_hash(event),
     )
     return registry.register(capability, artifact)

@@ -47,7 +47,7 @@ def _composition_capability(registry: Any, kind: Any, *, tenant: str, resource: 
 
     The perf tree boots its fabrics as a deployment would: it is the
     composition root of the graphs it times, and a composition root registers
-    its own Control Plane entries under ``Register`` minted for ONE key — and
+    its own Control Plane entries under ``CompositionRegister`` minted for ONE key — and
     hands its replay writer ``ReplayMint`` for ONE evidence class — after
     recording the decision on the registry's audit log (D-IMPL-354). The
     capability comes from :func:`ccf.authz.capability.mint_at_composition`,
@@ -74,29 +74,29 @@ def _composition_capability(registry: Any, kind: Any, *, tenant: str, resource: 
 
 
 def _register_capability(registry: Any, key: str) -> Any:
-    from ccf.authz.capability import Register
+    from ccf.authz.capability import CompositionRegister
 
     return _composition_capability(
-        registry, Register, tenant=key.partition("/")[0], resource=key
+        registry, CompositionRegister, tenant=key.partition("/")[0], resource=key
     )
 
 
 def register_at_composition(registry: Any, key: str, artifact: object) -> str:
-    """``registry.register`` under a composition-minted ``Register`` for ``key``."""
+    """``registry.register`` under a composition-minted ``CompositionRegister`` for ``key``."""
     return registry.register(_register_capability(registry, key), artifact)
 
 
 def register_typed_at_composition(
     registry: Any, key: str, artifact: object, artifact_class: Any
 ) -> str:
-    """``registry.register_typed`` under a composition-minted ``Register`` for ``key``."""
+    """``registry.register_typed`` under a composition-minted ``CompositionRegister`` for ``key``."""
     return registry.register_typed(_register_capability(registry, key), artifact, artifact_class)
 
 
 def register_versioned_at_composition(
     registry: Any, key: str, artifact: object, artifact_class: Any
 ) -> Any:
-    """``registry.register_versioned`` under a composition-minted ``Register`` for ``key``."""
+    """``registry.register_versioned`` under a composition-minted ``CompositionRegister`` for ``key``."""
     return registry.register_versioned(
         _register_capability(registry, key), artifact, artifact_class
     )

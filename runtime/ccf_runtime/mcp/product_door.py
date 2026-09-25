@@ -80,6 +80,7 @@ from pydantic import AnyHttpUrl
 
 from ccf.authz.actions import ACTION_PRODUCT_RETRIEVE
 from ccf.authz.capability import (
+    CompositionRegister,
     COMPOSITION_PRINCIPAL,
     Authorized,
     Register,
@@ -448,7 +449,7 @@ def _boot_credential(
 
 def _registration(
     control_plane: ControlPlaneRegistry, *, tenant: str, key: str, clock: Callable[[], datetime]
-) -> Authorized[Register]:
+) -> Authorized[CompositionRegister]:
     """The composition recipe for ONE of the door's own keys (D-IMPL-354).
 
     The door is a composition root (§1.6): it records a ``composition`` event
@@ -463,13 +464,13 @@ def _registration(
     event = control_plane.audit_log.append(
         action="composition",
         key=key,
-        version=Register.action_id,
+        version=CompositionRegister.action_id,
         resolved=True,
         occurred_at=clock(),
         actor=COMPOSITION_PRINCIPAL,
     )
     return mint_at_composition(
-        Register,
+        CompositionRegister,
         tenant=tenant,
         principal=COMPOSITION_PRINCIPAL,
         resource=key,
