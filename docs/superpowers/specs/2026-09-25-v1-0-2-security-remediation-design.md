@@ -63,7 +63,7 @@ Three build waves, one decision-only wave, one release:
 - **No example edits.** Frozen specimens (`D-IMPL-261`) that go red under a wave become gap-ledger rows censused from the estate-gated run. The one repair sitting after wave 2 touches living reference trees only (§4.6).
 - **No `archive/` fixes** (`D-IMPL-351`). Nine `archive/` callers of `run_gates(` go dead under wave 2's required argument; a published tutorial's `sign_principal_binding` run command breaks under wave 3. Both are recorded, neither is repaired there.
 - **No stdio composition control.** The "one identity for every caller" transport class (`EX-03`, `EX-04`) is documented on the SDK door page in 1.0.2 and designed with the adapters in 1.0.3 (§7.3).
-- **No L2 clock.** The single writer stays clock-free; the paved-road ingestion stamp is carved out and named (§4.3, item 8).
+- **An L2 clock only as a refusal guard** (§4.3 item 8, D6): the single writer may read a clock to refuse an out-of-window envelope, never to stamp; replay never ingests. The paved-road ingestion stamp itself is carved out and named.
 - **Mediums not taken:** `SEC-013`, `SEC-014`, `SEC-017`, `SEC-020`–`SEC-028` except `SEC-019` and `SEC-029`. Each stays open in the map the tag carries (§8.4).
 
 ### 1.3 The roster, verified on `main` @ `a5b0f691`
@@ -272,7 +272,7 @@ relay nulls verbatim to the same mint.
 | # | Question | Options | Recommendation |
 |---|---|---|---|
 | B1 | Refusal set | `None` only · + empty/whitespace · + bool + float + non-scalar | **widest** |
-| B2 | Coercion of `int`/`Decimal` | positional-string (URIs stable) · canonical typed (moves every int-identity URI; crosses `D-IMPL-316`) | **positional-string** |
+| B2 | Coercion of `int`/`Decimal` | positional-string (URIs stable; keeps the `1.5`/`1.50` split) · canonical typed (moves every int-identity URI; crosses `D-IMPL-316`) · positional-string plus trailing-zero normalization for `Decimal` only (zero measured population moves) | **positional-string**; (c) if Dave wants the split closed |
 | B3 | Semantics on the canonical path | raise, undeclared (HTTP 500 today) · record-and-continue (no L2 audit seam) · raise **and** declare in the paved road's `seam_refusals` | **raise + declare**; which of the three closed `RefusalCause`s (`src/ccf/products/contract.py:306`) it maps to is the ruling — recommend `nonexistent` (a record whose identity cannot be minted names no entity) |
 | B4 | Attribute twin (`src/ccf/assembly/worker.py:369`, null attribute → `"None"`) | omit (absent-not-null, `cp-01`'s posture) · leave · refuse | **omit**, after measuring the null-attribute population (78 `or ""` coercion sites across 21 example trees already pre-empt it; CDC rows are the reachable source) |
 | B5 | Write-path generation change vs `docs/DESIGN.md` §2A.5.4 / `D-IMPL-44` re-hydration | dispose under the `D-IMPL-243` precedent | **dispose** |
@@ -305,11 +305,14 @@ the mechanism it lacks is a shape.
 **Design — two layers, two placements.**
 
 1. **The mechanism floor** (undeclared state = the floor, never unconstrained):
-   a bounded length and a character grammar — no whitespace or control
-   characters, none of `"<>{}|\^` and backtick — what the fabric can place in a
+   a bounded length and an **allowlist** grammar —
+   `^[A-Za-z0-9][A-Za-z0-9:/._~@+=-]{0,N}$` — what the fabric can place in a
    URL path segment (whitepaper §6.3's `{counterparty-id}` slot,
-   `docs/CCF_Whitepaper_1-2.md:1465`), a SPARQL IRI position and a string
-   literal. It is a **compiled mechanism constant in the register of
+   `docs/CCF_Whitepaper_1-2.md:1465`), a SPARQL IRI position and a quoted
+   literal. An allowlist, not a denylist, because a denylist that admitted `'`
+   would leave a single-quoted literal splice open; this grammar excludes both
+   quote characters, `%`, `;`, `#`, whitespace, control characters and every
+   bracket, and every subject literal measured in the tree passes it. It is a **compiled mechanism constant in the register of
    `CANONICAL_DECIMAL`** (`src/ccf/products/request.py:1847`) and `MAX_REFERENCE_BYTES`
    (`SEC-003`), versioned by name (`SUBJECT_FLOOR_V1`); a change is a new name.
    It is judged in `ProductResolver.resolve` **beside `refuse_intent`
@@ -352,7 +355,10 @@ the mechanism it lacks is a shape.
    would refuse. Measured today on literals: zero fail.
 6. **Both subject residuals are cited, not conflated:** `D-IMPL-128` limb 2
    already holds the client-chosen subject as a named residual; this entry
-   closes the *shape* half only.
+   closes the *shape* half only. The floor is necessary, not sufficient: an
+   adopter who concatenates instead of binding can still be broken by text
+   inside the grammar. The tag map says "shape half", never
+   "injection-complete".
 7. **stdio half:** not code in 1.0.2 (§7.3). The SDK door page discloses that
    `ProductDoor.serve_stdio` (`runtime/ccf_runtime/mcp/product_door.py:240-268`)
    serves one pre-set identity for every caller (`public/` has zero mentions
@@ -548,10 +554,21 @@ component agreed on the caller's clock.
    `product_class.max_ttl_key`, `:1376-1378`). `expires_at`, `ttl_anchor_at` and
    `temporal_boundary` — the addressed content — are untouched (Q23 kept). A
    one-sided lower bound would leave forward-dating able to mint validity past
-   `MAX_TTL`; the whitepaper invariant is two-sided. `served_at` is a
+   `MAX_TTL`; the whitepaper invariant is two-sided. This **amends the
+   `D-IMPL-308` reading that Gate 3 runs at the decision instant**
+   (`src/ccf/products/resolver.py:2908-2911`: "within bounds OF THE MOMENT IT WAS
+   DECIDED … (`D-IMPL-308`)"), and the entry says so; `D-IMPL-308`'s fence — the
+   decision instant is never collapsed onto the graph boundary — is untouched,
+   because `served_at` is a third instant. `served_at` is a
    **required** argument on `run_gates` and `run_federated_gates` (§2, rule 4:
    a keyword-only `None`-passes default is the caller-supplied-applicability
-   shape). The federated leg passes `admitted_at` as it already does.
+   shape). The federated leg passes `admitted_at` as it already does. The
+   threat-model boundary is stated in the entry: the fabric clock is a control
+   on the **governed served surfaces**, where `GovernedResolver` alone supplies
+   `served_at`; a direct caller of `run_gates` — a frozen `produce.py`, an
+   adopter's own runner — is in-process code outside the model (`D-IMPL-354`
+   ruling 1), and the required argument stops `None`-passes there, not a
+   caller-typed instant.
    `TTLRefusal` gains `served_at` (the census at
    `tests/products/test_structural_gates.py:1103` and the fields pin at
    `tests/products/test_refusal_envelope.py:431` are rewritten by design). The
@@ -567,7 +584,13 @@ component agreed on the caller's clock.
    (`src/ccf/products/constraints.py:1395-1415`) gains an explicit instant keyword; the reference
    resolver evaluates `constraints_in_force(at=served_at)`; the pure functions
    keep their instant parameter (their 20 keyword call sites in the constraint
-   tests are untouched). Q6's reason survives: replay resolves the pinned
+   tests are untouched). One instant keyword flows through `resolve` →
+   `applicable` → `_in_window`, so no call site is left on `request.asked_at`
+   (a split-brain effectivity is the failure the control tests for), and the
+   "never a clock" docstring at `src/ccf/products/constraints.py:1404` is
+   rewritten in the same change. `D-IMPL-308` (the decision instant is never
+   collapsed onto the graph boundary) is untouched by this: `served_at` is a
+   third instant, and neither of the other two is substituted for it. Q6's reason survives: replay resolves the pinned
    `(key, version)` bindings from dimension 2 and never re-evaluates
    effectivity. A constraint in force **now** applies to any question asked
    **now**, whatever instant it asks as-of.
@@ -585,9 +608,22 @@ component agreed on the caller's clock.
    (`ResourceRequestIdentity.determined_at` exists at `:403`/`:500`/`:658`; the
    module's one-clock AST test at `tests/authz/test_delivery_boundary.py:793-820`
    is unaffected because the bound lives in the resolver, not there).
-   **Transparent, not addressed**, in 1.0.2: one record address per question;
-   the "two serves = two decisions" reading is revisited after the
-   qualification census has run.
+   **Hash-transparent means the sentinel, not the value** (`D-IMPL-243`,
+   `docs/DECISIONS.md:649`; `src/ccf/replay/engine.py:379`: "only the `None`
+   sentinel is hash-transparent"): every pre-1.0.2 record, whose `served_at` is
+   `None`, rehydrates to its recorded address unchanged — Dave's ruling — and
+   every new record's populated `served_at` is rendered into the address, so
+   **two serves of one question are two records**. That is the audit reading a
+   bank wants (which determination, produced when), and it is the posture O3
+   already chose for `child_admitted_at` (`src/ccf/replay/record.py:1117-1119`,
+   a generation boundary). Every "same determination twice" assertion therefore
+   runs under a pinned clock, which is what proves the clock is the only
+   difference. The rule applies to **every** refusal recorder call, including
+   the door's own address refusal, which today stamps
+   `recorded_at=self._clock()` (`src/ccf/products/product.py:746-749`) and so
+   lets a wall clock into that refusal's dimension-1 identity: it passes
+   `request.asked_at` as the boundary and carries the clock reading as
+   `served_at`.
 5. **The temporal bound is an artifact.** `TemporalBoundaryPolicy`, a
    per-tenant Control Plane artifact in `EligibilityEvidencePolicy`'s shape
    (`src/ccf/peering/eligibility.py:255-300`): `max_past_seconds` and
@@ -598,7 +634,14 @@ component agreed on the caller's clock.
    precedent (`src/ccf/peering/eligibility.py:440-468`) — no SDK number (§0, #3; CINV-01).
    Checked in `GovernedResolver` **before the graph read**, so HTTP, MCP,
    in-process and every composite child are covered by one check and replay is
-   exempt by construction. Refused as a governed refusal with a replay record
+   exempt by construction. Coverage of a composition is by inheritance: every
+   child — in-process, MCP or peered — is asked at the parent's bounded
+   `asked_at` (`src/ccf/products/child_resolver.py:164`, `:241`, `:277`, `:458`);
+   the peered leg's admission and Gate 3 run at the fabric's `admitted_at` as
+   today (`:463-468`, `:554-585`); a peer producer applies its own tenant's
+   bound to the same instant. A control asserts that a child cannot be asked at
+   any other instant and that an admitted child's answered question echoes the
+   inherited one. Refused as a governed refusal with a replay record
    (the D-27 channel), not a request-shape 400. The artifact's key and version
    are pinned on dimension 2 (`policy_bindings`) exactly as
    `EligibilityEvidencePolicy` is today, so replay can state the window that
@@ -640,12 +683,38 @@ component agreed on the caller's clock.
    opened in the same sitting** so `SEC-008` is not silently half-closed: a
    bitemporal as-of read (valid-time `asked_at`, transaction-time `served_at`;
    INV-CH7-03/14 territory) and an opt-in L2 clock guard on `ingest` /
-   `ingest_admitted` for long-lived fabrics. The tag text says which half is
-   closed (audit) and which is bounded (write).
+   `ingest_admitted` for long-lived fabrics. The exposure, stated
+   precisely: the SDK's own ingress adapters stamp from an injected clock that
+   defaults to the wall clock (`runtime/ccf_runtime/cdc/adapter.py:104`;
+   `src/ccf/signal/acquisition.py:145`; `src/ccf/signal/mcp_source.py:112`), so
+   the caller-controlled write stamp exists only where a deployment authors
+   envelopes itself into a long-lived fabric (32 example files do, on the low
+   road) or calls `ingest_admitted(ingested_at=…)`. **Option (d), now
+   recommended after the external panel:** ship the L2 guard in this wave —
+   `AssemblyWorker.ingest` and `ingest_admitted` refuse an envelope whose
+   `ingestion_timestamp` lies outside the same `TemporalBoundaryPolicy` window
+   around an injected clock; the paved road's per-question stamp is inside the
+   window by construction (its `asked_at` already passed the bound); replay
+   never ingests and `D-IMPL-44` re-hydration is not built, so nothing
+   replayable reads the clock; the writer reads a clock only to **refuse**,
+   never to stamp. Under (d) the bitemporal read is the one follow-on row;
+   under (a) the L2 guard is a second row and the tag text says the write half
+   is **open and carried** — never "bounded", because nothing bounds it.
 9. **Context Debt** (`src/ccf/products/resolver.py:2626-2631`; `src/ccf/products/product.py:361-373`) is a fact
    about evidence freshness **at the decision instant** and stays there; the
    temporal bound caps how far a caller can move that instant. Named as the
    fourth control on the same instant; ruled, not slipped.
+   **The composite mixing law is different**: how much validity a child has
+   LEFT "is a fact about now, not about the parent's evidence"
+   (`src/ccf/products/resolver.py:2704-2707`, the comment's own words), yet it is
+   evaluated at `decided_at` (`src/ccf/products/composite.py:2120-2124`,
+   `evaluated_at=decided_at`). With the bound permitting a two-hour look-back, a
+   caller asking as-of `served_at − 2h` makes a child with thirty minutes left
+   read as having two and a half hours, so a composite that breaches its
+   validity floor at the fabric's serve instant is still served while its
+   absolute `expires_at` passes the two-sided gate. **The mixing law moves to
+   `served_at`** in this wave (`refuse_mixing(..., evaluated_at=served_at)`);
+   `ttl_anchor_at` is untouched.
 10. **The in-process composite child** runs its Gate 3 at `served_at` like the
     parent; the asymmetry with the peered leg (already at `admitted_at`)
     closes because both are now the same read.
@@ -655,13 +724,13 @@ component agreed on the caller's clock.
 | # | Question | Options | Recommendation |
 |---|---|---|---|
 | D1 | Policy effectivity instant (amend `D-IMPL-253` Q6) | (a) `served_at`, `asked_at` is the as-of read · (b) keep Q6, rely on the bound · (c) both must admit | **(a)** as a bitemporal amendment with a named field |
-| D2 | Where the fabric's instant lands | (a) `served_at` inside `ContentGenerationPath`, hash-transparent at `None`; `recorded_at` unchanged; refusal boundary explicit from `asked_at` · (b) `recorded_at := served_at` (refuted: breaks the anchor hold, moves refusal identity) | **(a)**, transparent not addressed in 1.0.2 |
-| D3 | Gate 3 comparand and `served_at` posture | two-sided at `served_at`, **required** on the gate runners (74 call sites rewritten; 9 `archive/` callers go dead; 5 frozen `cp-00..04 produce.py` become rows) · keyword-only `None`-passes | **required** |
-| D4 | The no-parameter majority (`D-IMPL-308` fallback) | keep the fallback + two-sided gate + bound · default the decision instant to the fabric clock (a `D-IMPL-308` revision) | **keep** |
+| D2 | Where the fabric's instant lands | (a) `served_at` inside `ContentGenerationPath`, hash-transparent at `None`; `recorded_at` unchanged; refusal boundary explicit from `asked_at` · (b) `recorded_at := served_at` (refuted: breaks the anchor hold, moves refusal identity) | **(a)**; the `None` sentinel keeps pre-1.0.2 addresses, a populated value is addressed (two serves = two records) |
+| D3 | Gate 3 comparand and `served_at` posture | two-sided at `served_at`, **required** on the gate runners (74 call sites rewritten; 9 `archive/` callers go dead; 5 frozen `cp-00..04 produce.py` become rows), with the threat-model boundary stated · keyword-only `None`-passes | **required, boundary stated** |
+| D4 | The no-parameter majority (`D-IMPL-308`'s fallback is kept; its Gate-3-at-decision reading is amended under D3) | keep the fallback + two-sided gate + bound · default the decision instant to the fabric clock (a `D-IMPL-308` revision) | **keep** |
 | D5 | Temporal bound artifact | per-tenant, both bounds, refuse-when-undeclared, checked in the resolver, governed refusal, pinned on dim 2 · undeclared = unbounded · SDK default | **per-tenant, refuse** (ruled §0 #3) |
-| D6 | `SEC-008` write half | (a) carve out + two follow-on entries · (b) stamp at `served_at` and change the reader's cut in the same wave · (c) stamp at `served_at`, keep the cut (every historical paved-road read returns nothing) | **(a)** |
+| D6 | `SEC-008` write half | (a) carve out + two follow-on rows; the write half recorded OPEN · (b) stamp at `served_at` and change the reader's cut in the same wave · (c) stamp at `served_at`, keep the cut (every historical paved-road read returns nothing) · (d) carve out the stamp, ship the L2 refusal guard on the same policy with an injected clock | **(d)**; all three external reviewers read (a) as under-remediation for a bank; (a) only if Dave rules an L2 clock out |
 | D7 | `D-IMPL-159` | reopen under this entry; deferred instant resolves off the producer's clock; HTTP keeps 400-incomplete | **reopen** |
-| D8 | Context Debt instant | decision instant + bound · `served_at` | **decision instant** |
+| D8 | Context Debt and the composite mixing law | debt at the decision instant + bound, mixing at `served_at` · both at `served_at` · both at the decision instant (leaves the mixing floor caller-applicable) | **debt at the decision instant, mixing at `served_at`** |
 | D9 | Hand-over freshness ownership | producer serve (Gate 3) · consumer consume (`src/ccf/agents/agent.py:349`) · both, named in the controls register | **both, named** |
 | D10 | `SEC-011` Gate 2 | (a) NOT-A-GAP under `D-IMPL-86`/`300`; fix `public/concepts/invariants.md:82-84`; ship the controls register · (b) promote the binder's bare `ValueError` to a governed refusal (contradicts `D-IMPL-253` Q15) · (c) reopen `D-IMPL-86` | **(a)** |
 | D11 | `SEC-019` rider | absent constrained parameter under a policy `maximum` → refusal · keep the skip | **refusal** |
@@ -680,8 +749,8 @@ a clock, run a gate, evaluate effectivity, or cross `GovernedResolver`. A
 `served_at` that is **carried** is therefore reproducible; a `served_at` that
 were **re-derived** would not be, which is why the sabotage that proves the
 design is a second clock read in the resolver, not anything in replay. Two
-serves of one question now legitimately carry two `served_at` values under one
-record address; every "same determination twice" assertion runs under a pinned
+serves of one question at two instants are two records with two addresses (a
+populated `served_at` is rendered; only the `None` sentinel is transparent); every "same determination twice" assertion runs under a pinned
 clock so it proves the clock is the only difference.
 
 ### 4.6 Example disposition and the repair sitting
@@ -805,11 +874,12 @@ carve-out in §4.3 item 8; the refuse-when-undeclared example reds as rows.
 One neighbourhood (`src/ccf/hitl/*`, both HITL doors, the engine's authority
 joins, the HITL policy artifacts), one adversary model (a bearer-session holder,
 or an eligible-but-wrong officer, at a bank gate), one panel with the
-cross-process reference root inlined. Depends on wave 2's one-clock rule (the
-freshness window compares against the **recorded** door-minted instant, never
-a verifier clock) and on wave 1's conflicting-verdict refusal in
-`_gate_authority` (the eligibility predicate layers on the same join; the second
-touch is named).
+cross-process reference root inlined. Depends on wave 1's conflicting-verdict
+refusal in `_gate_authority` (the eligibility predicate layers on the same
+join; the second touch is named) and on the one-clock rule wave 2's entry
+states (the freshness window compares against the **recorded** door-minted
+instant, never a verifier clock). It needs none of wave 2's code, so it is
+sequenced after wave 2 for panel load, not as a prerequisite.
 
 ### 5.1 `SEC-005` — the signature binds the gate, the tenant, the verdict, the subject and the time
 
@@ -859,8 +929,10 @@ every door test uses (`tests/http_api/test_signed_binding_door.py:67`;
    `claims.subject_id == authorized.principal == submission.principal.approver.subject_id`;
    `claims.action == submission.action`;
    `claims.product_content_hash == submission.principal.product_content_hash`;
-   and `|submission.principal.action_time − claims.issued_at| <=
-   policy.signature_max_age_seconds`. The window compares against the
+   and, **directionally**, `claims.issued_at <= submission.principal.action_time
+   + policy.permitted_clock_skew_seconds` and `submission.principal.action_time
+   − claims.issued_at <= policy.signature_max_age_seconds` (an absolute delta
+   would admit a claim issued after the door recorded the action). The window compares against the
    **recorded, door-minted `action_time`** (already read once from
    `deps.clock` / the MCP clock), so the check is a pure function of the
    recorded submission plus the pinned policy: `D-IMPL-69` idempotent double
@@ -875,14 +947,28 @@ every door test uses (`tests/http_api/test_signed_binding_door.py:67`;
    limit: the client signs what it can see from the served queue view
    (`PendingHitlEvent`: `event_key`, `tenant`, `product_content_hash`;
    `src/ccf/hitl/transport.py:122-138`) plus its own action, subject, `issued_at` and nonce.
-4. **`HitlPolicy.signature_max_age_seconds`** is **required** whenever
-   `signed_binding_required` is true; unset + required refuses as broken
+4. **`HitlPolicy.signature_max_age_seconds` and `permitted_clock_skew_seconds`**
+   are **required** whenever `signed_binding_required` is true; unset + required refuses as broken
    wiring (the `src/ccf/hitl/transport.py:267-270` `TypeError` precedent). No SDK default
    (CINV-01). `docs/schemas/ccf.hitl-policy.json` regenerated. **`HitlPolicy`'s
    key and version are pinned into dimension 2's `policy_bindings`** (today
    zero references to it in `src/ccf/replay` or the workflow engine) — a
    record-builder change, because a policy parameter that decides admission
-   must be replayable (whitepaper §7.10).
+   must be replayable (whitepaper §7.10). **The trusted keys move into the
+   pinned policy:** `HitlPolicy.trusted_keys` maps each approver subject to the
+   public JWKs that may sign for it, so one pin covers keys, subjects and
+   window, and replay re-verifies against the set in force (today
+   `trusted_keys` is a raw map handed to the verifier,
+   `src/ccf/hitl/transport.py:276-281`, pinned nowhere). **The submission carries
+   the policy that admitted it:** `HitlActionSubmission.hitl_policy_ref`
+   (pinned `key@version`, hash-transparent at `None`), stamped by
+   `transport.submit` when a Control Plane is bound, so the submit-only door's
+   recorded submission — which the engine's join consumes later — says which
+   window decided its admission. The pin makes replay honest; it does not make
+   admission immutable: the policy is still resolved latest at submit
+   (`src/ccf/hitl/transport.py:266`), and a bearer able to register artifacts
+   can widen the window before signing — the `SEC-002`-class row in §7.4, not
+   closed here.
 5. **Nonce.** Single-use per `(tenant, event_key)` on `InMemoryHitlTransport`'s
    existing claim table now. Because the submit-only door (`D-IMPL-62`) leaves
    the event pending and records N submissions (`src/ccf/hitl/transport.py:865`), "an event
@@ -890,10 +976,14 @@ every door test uses (`tests/http_api/test_signed_binding_door.py:67`;
    transport enforces single-use, a user-implemented transport stays as
    replayable as today until `HITLTransportProtocol` gains a seen-nonce or the
    claim-token residual (`src/ccf/hitl/transport.py:815-829`) lands as the `D-IMPL-62`
-   amendment. **Named residual, own entry, 1.0.3** (§7.4).
-6. **Subject ↔ key binding.** Each trusted-key entry declares the subject it
-   may sign for (`trusted_keys` becomes subject-aware); the verifier refuses a
-   `kid` whose declared subject ≠ `claims.subject_id`. Closes the wider hole
+   amendment. **Named residual, own entry, 1.0.3** (§7.4). In the reference
+   stack a restart loses pending events and submissions together
+   (`src/ccf/hitl/transport.py:670-671`), so a replayed attestation after a
+   restart matches no suspension; single-use that survives a restart on a
+   durable transport is exactly what the Protocol amendment adds.
+6. **Subject ↔ key binding.** Each entry of the pinned per-subject map (item
+   4) declares the subject its key may sign for; the verifier refuses a `kid`
+   whose declared subject ≠ `claims.subject_id`. Closes the wider hole
    with no second JOSE surface (the `IdentityProvider.sign(assertions=)` seam
    at `src/ccf/peering/identity.py:365` is a signed **carrier** only — `verify` compares no
    assertion — so claims live in the signed body, not the header).
@@ -912,6 +1002,11 @@ every door test uses (`tests/http_api/test_signed_binding_door.py:67`;
 10. **The cross-process reference root** (`tests/crossproc/servers/mcp_hitl_child.py:291-297`)
     drives `gate.resolve` with no attestation; the route Protocol carries the
     attestation by type so a signed submission at that door is not dropped.
+    The MCP door today signs the binding it minted
+    (`runtime/ccf_runtime/mcp/hitl_server.py:377-378`); it, the HTTP door and
+    the reference root are all in the red-when-fixed set — shipping one door
+    under the new shape and leaving another on the old one is the failure the
+    panel is briefed to look for.
 11. **Dimension 2 bytes change for signed resolutions** — `HitlActionRecord`
     embeds the whole submission (`src/ccf/hitl/approval_gate.py:160-173`) — and are
     unchanged for unsigned ones (`cp-15`, the `hitl.yaml` readers). Any golden
@@ -930,9 +1025,9 @@ every door test uses (`tests/http_api/test_signed_binding_door.py:67`;
 |---|---|---|---|
 | E1 | The signed object | widen `HumanPrincipalBinding` (A) · **distinct claims + `SignedHitlAction` (B)** · two-phase challenge door (C; new action kind; reopens `D-IMPL-62`) | **B** |
 | E2 | `action_time` | stays signed (signer predicts the clock) · **`issued_at` windowed against the recorded `action_time`, no verifier clock** · a verifier clock (refuted) | **`issued_at` + window** |
-| E3 | `signature_max_age_seconds` | required, no default, pinned on dim 2 · SDK default · no window (nonce only) | **required, pinned** |
+| E3 | The window | `signature_max_age_seconds` + `permitted_clock_skew_seconds`, both required, no defaults, directional, pinned on dim 2 with the per-subject trusted keys · SDK default · no window (nonce only) | **required, directional, pinned** |
 | E4 | Nonce | claim-table single-use now + Protocol amendment as own entry · seen-nonce on the Protocol now (user transports change) · claim-token now | **claim-table now, Protocol 1.0.3** |
-| E5 | Subject ↔ key | subject-aware trusted keys · a subject→kid registry · leave (any key signs as any approver) | **subject-aware trusted keys** |
+| E5 | Subject ↔ key | a per-subject trusted-key map inside the pinned `HitlPolicy` · a separate subject→kid registry · leave (any key signs as any approver) | **per-subject map in the pinned policy** |
 | E6 | Codes | fold under `signed-binding-invalid` · **two new codes** | **two codes** |
 | E7 | Kinds | one `HitlSubmit` · per-verdict kinds now | **one** |
 | E8 | CLI door | unsigned-only, stated · attestation args now | **stated** |
@@ -980,9 +1075,11 @@ approve and resume an execution alone.
 **Design.**
 
 1. **`ApprovalPolicy`** (`ccf.approval-policy`), a typed SDK class in
-   `ccf.hitl`: `semver`, `eligible_principals: frozenset[str]`,
-   `self_approval_permitted: bool = False`. **No `quorum` field and no
-   `eligible_roles` field in 1.0.2** — a field nothing enforces is
+   `ccf.hitl`: `semver`, `eligible_principals: frozenset[str]`. **No
+   `self_approval_permitted` switch, no `quorum` field and no `eligible_roles`
+   field in 1.0.2** — requester ≠ approver is unconditional whenever a policy is
+   bound (Dave: *no self-approval*; a policy-author switch on a ruled control is
+   the caller-supplied-applicability shape), and a field nothing enforces is
    documentation, not control (Dave, on `cp-08`'s unread λ_c). Registered the
    way `ccf.hitl-policy` is — adopter-registered against the real contract,
    deliberately **not** manifest-addressable
@@ -997,8 +1094,10 @@ approve and resume an execution alone.
    approval-gate class only in 1.0.2. It resolves `event.policy_ref` through
    `resolve_pinned` (`src/ccf/controlplane/resolution.py:69`, as the factory
    already does), then refuses — typed `ApproverNotEligible`, non-enumerating —
-   when `submission.principal.approver.subject_id ∉ eligible_principals`, or
-   when it equals `event.requested_by` and `self_approval_permitted` is false.
+   when `submission.principal.approver.subject_id ∉ eligible_principals`, when
+   it equals `event.requested_by`, **or when `event.requested_by` is absent** on
+   a bound approval-gate event (an unset requester would let the real starter
+   approve; the same fail-closed posture as a missing `policy_ref`, item 3).
    Invoked at `InMemoryHitlTransport.submit` (the served doors' only path), the
    four primitives' `resolve`, and `_gate_authority`. `_escalation_authority`
    and the escalation primitive's routing artifact are of another class and are
@@ -1045,7 +1144,7 @@ approve and resume an execution alone.
 | F2 | Manifest-addressable | no (the `ccf.hitl-policy` precedent) · yes (a new addressability ruling) | **no** |
 | F3 | Axes in 1.0.2 | `eligible_principals` + requester≠approver · + roles via a Protocol source with a version pin · roles as an `AuthenticationClaims` axis | **principals + requester≠approver** |
 | F4 | Dispatch | approval gates only; escalation join as a row · rule escalation in now | **approval gates only** |
-| F5 | Posture when bound and policy-less | fail-closed at factory **and** runtime · factory only · admit | **both** |
+| F5 | Posture when bound and policy-less, or requester-less | fail-closed at factory **and** runtime, including an absent `requested_by` · factory only · admit | **both, incl. absent requester** |
 | F6 | Requester | starter (`started_by`) · the principal that reached the gate · starter plus every prior human actor | **starter** |
 | F7 | Codes | distinct non-enumerating · reuse `principal-not-entitled` · byte-identical to the signed-binding refusal | **distinct** |
 
@@ -1061,8 +1160,9 @@ rewritten to register a typed policy. 9 files name `approval-policy` (the
 ninth is comment-only). Workflow fixtures' `class_id: approval-policy`
 `DeclaredArtifact` registrations become typed registrations
 (`tests/workflow/test_engine.py:127-139` `_register_declared`). 18
-`PendingHitlEvent(` sites in 12 files are unaffected by the additive
-hash-transparent field.
+`PendingHitlEvent(` sites in 12 files stay constructible (the field is additive
+and hash-transparent); a bound approval-gate event enqueued without
+`requested_by` now refuses at resolution, so the bound-plane fixtures set it.
 
 **Red when fixed (rewrite, never delete).**
 `tests/hitl/test_approval_gate.py::test_gate_required_and_valid_binding_passes_both_layers`
@@ -1233,7 +1333,7 @@ plain-HTTP A2A server with a fixed principal (`examples/cp-22-agent-internal-ass
 | Removing `decision` from `resume` | §3.1 | The seam-clean shape (3b); five public surfaces; own wave, own panel. |
 | L2 partial admission | §3.2 | One transaction per claim; a refused envelope leaves its predecessors written. |
 | Bitemporal as-of read | §4.3 (8) | Valid-time `asked_at`, transaction-time `served_at`; INV-CH7-03/14. |
-| Opt-in L2 clock guard | §4.3 (8) | `ingest` / `ingest_admitted` for long-lived fabrics; replay/re-hydration exempt by construction. |
+| L2 clock guard (only if D6 is ruled (a)) | §4.3 (8) | `ingest` / `ingest_admitted` for long-lived fabrics; replay/re-hydration exempt by construction. Ships in wave 2 under (d). |
 | `served_at` addressed vs transparent | §4.3 (4) | Revisit after the qualification census. |
 | `HITLTransportProtocol` nonce / claim token | §5.1 (5) | The `D-IMPL-62` amendment; user transports. |
 | CLI attestation arguments | §5.1 (9) | `D-IMPL-22`. |
@@ -1309,13 +1409,20 @@ every run.
 The annotated `v1.0.2` tag carries the **security-review map**, which v1.0.1's
 tag did not:
 
-- Closed in 1.0.2, by entry: `SEC-001` residual (`D-IMPL-357`), `SEC-007`
-  (`D-IMPL-357`), `EX-01`/`EX-02` root cause (`D-IMPL-357`), `SEC-029`
-  (`D-IMPL-357`), `SEC-010` (`D-IMPL-358`), `SEC-011` Gate 3 (`D-IMPL-358`)
-  with Gate 2 recorded NOT-A-GAP under `D-IMPL-86`/`300`, `SEC-019`
-  (`D-IMPL-358`), `SEC-008` **audit half closed, write half bounded and carved
-  out** (`D-IMPL-358`), `SEC-005` (`D-IMPL-359`), `SEC-006` single approver
-  and no self-approval (`D-IMPL-359`).
+- Closed in 1.0.2, by entry, each with its residual named where one exists:
+  `SEC-001` residual (`D-IMPL-357`); `SEC-007` (`D-IMPL-357`); `EX-01`/`EX-02`
+  root cause, **the shape half** (`D-IMPL-357`; the floor is necessary, not
+  sufficient, for an adopter who concatenates); `SEC-029` (`D-IMPL-357`);
+  `SEC-010` (`D-IMPL-358`); `SEC-011` Gate 3 (`D-IMPL-358`), with Gate 2
+  recorded NOT-A-GAP as **assembly-path integrity, not an independent forgery
+  witness** (`D-IMPL-86`/`300`); `SEC-019` (`D-IMPL-358`); `SEC-008`
+  (`D-IMPL-358`): the served/audit half closed, the write half closed for
+  governed ingress and deployment-authored envelopes under D6 (d) — or, under
+  D6 (a), **OPEN and carried**, never "bounded"; `SEC-005` (`D-IMPL-359`),
+  single-use that survives a restart on a user transport carried as the
+  `D-IMPL-62` amendment; `SEC-006` (`D-IMPL-359`) as **single eligible
+  approver and no self-approval** — not a four-eyes regime: N-of-M, roles, the
+  escalation join and cross-action exclusivity are carried.
 - Closed before 1.0.2: `SEC-001`, `SEC-003` (`D-IMPL-350`); `SEC-002`,
   `SEC-004`, `SEC-012`, `SEC-016`, `SEC-018` (`D-GATE-353`).
 - Entered, not built: `SEC-009` (`D-IMPL-360`); `TP-01`…`TP-05` rated HIGH
@@ -1337,7 +1444,7 @@ tag did not:
 2. Two null-identity envelopes through `AssemblyWorker.ingest` produce two
    `IdentityRefused` and zero entities **and** zero relationships; the paved
    road records the refusal as a governed determination with a replay record.
-3. A subject carrying `"` (and a `type: string` argument carrying `<`) refuses
+3. A subject carrying `"` or `'` (and a `type: string` argument carrying `<`) refuses
    as a governed `ProductRequestViolation` at the in-process, MCP and HTTP
    doors before any acquisition runs, with a replay record; a
    `PolicyConstraintResolver` override does not remove it; a declared
@@ -1349,26 +1456,31 @@ tag did not:
    (AST or spy control) on the non-composite and composite paths; Gate 3
    refuses a product with `expires_at <= served_at` **and** one with
    `expires_at > served_at + MAX_TTL`; a peered child and an in-process child
-   are judged at the same instant.
+   are judged at the same instant; the composite mixing law judges remaining
+   validity at `served_at`.
 6. A question outside the tenant's declared temporal bound refuses by name
    with a replay record; a tenant with no bound refuses by name; the admitting
-   bound's key and version appear in dimension 2.
+   bound's key and version appear in dimension 2; under D6 (d), an envelope
+   stamped outside the window is refused at L2 and the paved road's
+   per-question stamp is not.
 7. A constraint effective after `asked_at` but before `served_at` applies to
    the served product; replay of that record reproduces its address and its
    bindings.
 8. Every pre-1.0.2 golden record (`tests/replay/fixtures/golden_13bd250`)
    rehydrates to its recorded address unchanged.
 9. A signature presented on another `event_key`, another tenant, the opposite
-   verdict, past the window, with a reused nonce, or under a key not declared
-   for its subject refuses with `signed-binding-mismatch` / `-stale` at both
+   verdict, past the window, with a reused nonce (on the reference transport),
+   post-dated beyond the declared skew, or under a key not declared for its
+   subject in the pinned policy refuses with `signed-binding-mismatch` / `-stale` at both
    doors; a signed submission succeeds under a **wall clock** on both doors
    (the 353-06 limit is closed); `HitlPolicy`'s key and version appear in
    dimension 2.
 10. A requester's own approval refuses; a principal outside
     `eligible_principals` refuses; a routed gate with no `ccf.approval-policy`
     refuses at construction; a bound gate whose `policy_ref` does not resolve
-    refuses at runtime; the four `SEC-001` authority conditions still hold on
-    the merged tree.
+    refuses at runtime; a bound approval-gate event with no recorded requester
+    refuses; the four `SEC-001` authority conditions still hold on the merged
+    tree.
 11. Each of waves 1–3 closed with a codex + cursor + gemini panel on inlined
     source; every finding and retraction verified against the tree; zero
     unverified findings acted on; the erasure design reviewed by the same
