@@ -39,16 +39,25 @@ FORK_POINT = "d895d889"
 RUNTIME = pathlib.Path("runtime/ccf_runtime/http_api/app.py")
 SRC = pathlib.Path("src/ccf/controlplane/registry.py")
 ROUTES = pathlib.Path("runtime/ccf_runtime/http_api/routes/hitl.py")
-CAPABILITY = pathlib.Path("runtime/ccf_runtime/authz/capability.py")
+#: The DEFINER of the capability (D-29 moved it into ``src/`` so library
+#: handles can require it without importing ``runtime/``).
+CAPABILITY = pathlib.Path("src/ccf/authz/capability.py")
+#: The runtime re-export shim: an allowed IMPORTER, never an allowed MINTER.
+SHIM = pathlib.Path("runtime/ccf_runtime/authz/capability.py")
 TENANCY = pathlib.Path("runtime/ccf_runtime/mcp/tenancy.py")
 GATE = pathlib.Path("runtime/ccf_runtime/http_api/gate.py")
+BOOT = pathlib.Path("src/ccf/boot.py")
+DEPLOYMENT = pathlib.Path("src/ccf/deployment/config.py")
 
 RUNTIME_MOD = "ccf_runtime.http_api.app"
 SRC_MOD = "ccf.controlplane.registry"
 ROUTES_MOD = "ccf_runtime.http_api.routes.hitl"
-CAPABILITY_MOD = "ccf_runtime.authz.capability"
+CAPABILITY_MOD = "ccf.authz.capability"
+SHIM_MOD = "ccf_runtime.authz.capability"
 TENANCY_MOD = "ccf_runtime.mcp.tenancy"
 GATE_MOD = "ccf_runtime.http_api.gate"
+BOOT_MOD = "ccf.boot"
+DEPLOYMENT_MOD = "ccf.deployment.config"
 
 
 def _rules(findings: list[str]) -> list[str]:
@@ -346,41 +355,97 @@ def test_rule3_naming_the_sentinel_is_flagged_in_every_spelling() -> None:
     assert _lines(findings) == [1, 3, 4, 5]
 
 
-def test_rule3_calling_mint_from_a_module_that_is_not_a_gate_is_flagged() -> None:
+#: The two spellings of the capability module: the definer in ``src/`` and the
+#: runtime re-export shim. A mint reached through either is the same mint.
+CAPABILITY_SPELLINGS = [CAPABILITY_MOD, SHIM_MOD]
+
+
+@pytest.mark.parametrize("spelling", CAPABILITY_SPELLINGS)
+def test_rule3_calling_mint_from_a_module_that_is_not_a_gate_is_flagged(spelling: str) -> None:
+    """The positive control the relocation demands, once per spelling: a
+    ``mint`` imported from the definer AND one imported from the shim both
+    redden a non-mint-site module."""
     source = (
-        "from ccf_runtime.authz.capability import mint, Execute\n"
+        f"from {spelling} import mint, Execute\n"
         "def handler(decision, principal):\n"
         "    return mint(Execute, decision=decision, principal=principal, decision_id='d')\n"
     )
     findings = check_source(source, RUNTIME, RUNTIME_MOD)
     assert _rules(findings) == [RULE_MINT_SITE]
-    assert "mint" in findings[0]
+    assert "mint" in findings[0] and _lines(findings) == [3]
 
 
-def test_rule3_calling_mint_through_a_module_alias_is_flagged() -> None:
+@pytest.mark.parametrize("spelling", CAPABILITY_SPELLINGS)
+def test_rule3_calling_mint_through_a_module_alias_is_flagged(spelling: str) -> None:
+    package, _, leaf = spelling.rpartition(".")
     source = (
-        "import ccf_runtime.authz.capability as cap\n"
-        "from ccf_runtime.authz import capability\n"
+        f"import {spelling} as cap\n"
+        f"from {package} import {leaf}\n"
         "x = cap.mint(None, decision=None, principal='', decision_id='')\n"
-        "y = capability.mint(None, decision=None, principal='', decision_id='')\n"
-        "z = ccf_runtime.authz.capability.mint(None, decision=None, principal='', decision_id='')\n"
+        f"y = {leaf}.mint(None, decision=None, principal='', decision_id='')\n"
+        f"z = {spelling}.mint(None, decision=None, principal='', decision_id='')\n"
     )
     assert _rules(check_source(source, SRC, SRC_MOD)) == [RULE_MINT_SITE] * 3
 
 
+@pytest.mark.parametrize("spelling", CAPABILITY_SPELLINGS)
 @pytest.mark.parametrize(
     ("path", "module_name"),
     [(CAPABILITY, CAPABILITY_MOD), (GATE, GATE_MOD), (TENANCY, TENANCY_MOD)],
 )
-def test_rule3_the_two_gates_and_the_capability_module_may_mint(
-    path: pathlib.Path, module_name: str
+def test_rule3_the_two_gates_and_the_definer_may_mint(
+    path: pathlib.Path, module_name: str, spelling: str
 ) -> None:
     source = (
-        "from ccf_runtime.authz.capability import mint, Execute\n"
+        f"from {spelling} import mint, Execute\n"
         "def gate(decision, principal):\n"
         "    return mint(Execute, decision=decision, principal=principal, decision_id='d')\n"
     )
     assert check_source(source, path, module_name) == []
+
+
+def test_rule3_the_shim_is_an_allowed_importer_and_not_an_allowed_minter() -> None:
+    """The shim's real shape — named re-exports — is clean; the same module
+    CALLING what it re-exports is a third mint site like any other."""
+    reexport = (
+        "from ccf.authz.capability import (\n"
+        "    Authorized as Authorized,\n"
+        "    mint as mint,\n"
+        "    mint_at_composition as mint_at_composition,\n"
+        "    verify as verify,\n"
+        ")\n"
+    )
+    assert check_source(reexport, SHIM, SHIM_MOD) == []
+    minting = reexport + "cap = mint(None, decision=None, principal='', decision_id='')\n"
+    findings = check_source(minting, SHIM, SHIM_MOD)
+    assert _rules(findings) == [RULE_MINT_SITE]
+    assert _lines(findings) == [7]
+
+
+@pytest.mark.parametrize("spelling", CAPABILITY_SPELLINGS)
+def test_rule3_mint_at_composition_belongs_to_the_composition_root_alone(spelling: str) -> None:
+    """``ccf.boot`` is the composition root and may mint ``ReplayMint`` at
+    boot; the HTTP gate may not (no door declares that action — §2 P3), and
+    neither may the adopter-facing wiring package."""
+    source = (
+        f"from {spelling} import mint_at_composition\n"
+        "def wire(tenant):\n"
+        "    return mint_at_composition(tenant=tenant, principal='deployment',"
+        " resource='replay.record', decision_id='d')\n"
+    )
+    assert check_source(source, BOOT, BOOT_MOD) == []
+    assert check_source(source, CAPABILITY, CAPABILITY_MOD) == []
+    for path, module_name in ((GATE, GATE_MOD), (DEPLOYMENT, DEPLOYMENT_MOD), (SHIM, SHIM_MOD)):
+        findings = check_source(source, path, module_name)
+        assert _rules(findings) == [RULE_MINT_SITE], module_name
+        assert "mint_at_composition" in findings[0]
+
+
+def test_rule3_the_definer_and_the_shim_at_head_are_clean() -> None:
+    """The real files, not fixtures: the definer names its own sentinel and
+    constructs its own capability; the shim re-exports and mints nothing."""
+    assert mod.check(REPO / CAPABILITY, CAPABILITY_MOD) == []
+    assert mod.check(REPO / SHIM, SHIM_MOD) == []
 
 
 def test_rule3_the_capability_module_constructs_and_names_its_own_sentinel() -> None:
@@ -788,6 +853,29 @@ def test_widening_the_mint_sites_admits_a_third_site(monkeypatch: pytest.MonkeyP
     assert _rules(check_source(source, RUNTIME, RUNTIME_MOD)) == [RULE_MINT_SITE]
     monkeypatch.setattr(mod, "MINT_SITES", mod.MINT_SITES | {RUNTIME_MOD})
     assert check_source(source, RUNTIME, RUNTIME_MOD) == []
+
+
+def test_widening_the_composition_mint_sites_admits_a_third_root(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = (
+        "from ccf.authz.capability import mint_at_composition\n"
+        "x = mint_at_composition(tenant='t', principal='p', resource='r', decision_id='d')\n"
+    )
+    assert _rules(check_source(source, DEPLOYMENT, DEPLOYMENT_MOD)) == [RULE_MINT_SITE]
+    monkeypatch.setattr(
+        mod, "COMPOSITION_MINT_SITES", mod.COMPOSITION_MINT_SITES | {DEPLOYMENT_MOD}
+    )
+    assert check_source(source, DEPLOYMENT, DEPLOYMENT_MOD) == []
+
+
+def test_the_shim_is_not_in_either_mint_site_set() -> None:
+    """A constant-level guard beside the behavioral ones: adding the shim to a
+    site set would let a call that reaches the real mint through the shim
+    pass, which is the hole the relocation notice names."""
+    assert mod.CAPABILITY_SHIM not in mod.MINT_SITES
+    assert mod.CAPABILITY_SHIM not in mod.COMPOSITION_MINT_SITES
+    assert mod.CAPABILITY_MODULE == "ccf.authz.capability"
 
 
 def test_emptying_the_registration_methods_blinds_rule_4(

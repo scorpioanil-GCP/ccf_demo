@@ -30,20 +30,32 @@ Six rules, one AST walk, ``src/`` and ``runtime/`` (``RULE_TREE_SCOPE``):
     under D-IMPL-353 §1.5(b) is a wand rather than a proof. ``verify`` in the
     capability module takes ``authorized: object`` *by design* (§1.5c — "a
     handle must not trust its annotation"), so the ``object``/``Any`` arm is
-    exempt in :data:`CAPABILITY_MODULE` and nowhere else. The other arms apply
-    there too.
+    exempt in :data:`CAPABILITY_MODULE` — the definer, not the shim — and
+    nowhere else. The other arms apply there too.
 
 ``d353-authz-mint-site``  (rule 3)
-    A third producer. Outside :data:`CAPABILITY_MODULE`: any construction of
-    ``Authorized(...)`` in any spelling; any reference to the module-private
-    sentinel ``_SENTINEL`` — as a name, an attribute, an import, or the string
-    ``"_SENTINEL"`` (which is what ``getattr(capability, "_SENTINEL")`` looks
-    like). And, from any module not in :data:`MINT_SITES`, any call to the
-    capability module's ``mint`` — §1.1 commits to *exactly two mint sites*
-    (the HTTP gate and the MCP wrapper), and a call to ``mint`` from a third
-    module is a third site whatever it is named. ``mint`` is resolved through
-    its import: a ``mint`` method on some other object is not this rule's
-    subject.
+    A third producer. The capability is DEFINED once, in
+    :data:`CAPABILITY_MODULE` (``src/ccf/authz/capability.py`` — D-29 moved it
+    into ``src/`` so library handles can require it without importing
+    ``runtime/``); :data:`CAPABILITY_SHIM` (``ccf_runtime.authz.capability``)
+    re-exports every public name and defines nothing. Outside the definer:
+    any construction of ``Authorized(...)`` in any spelling; any reference to
+    the module-private sentinel ``_SENTINEL`` — as a name, an attribute, an
+    import, or the string ``"_SENTINEL"`` (which is what ``getattr(capability,
+    "_SENTINEL")`` looks like). And two call rules, each resolved through the
+    import so that ``mint`` reached through the shim is the same symbol as
+    ``mint`` reached from the definer (:data:`CAPABILITY_SPELLINGS`): a call to
+    ``mint`` from any module not in :data:`MINT_SITES` — §1.1 commits to
+    *exactly two mint sites*, the HTTP gate and the MCP wrapper — and a call
+    to ``mint_at_composition`` from any module not in
+    :data:`COMPOSITION_MINT_SITES` — §2 P3: ``ReplayMint`` is "handed to the
+    fabric's replay writer at composition by the deployment", made once at
+    boot by the composition root, which in this codebase is ``ccf.boot``
+    (``harness_imports.py`` names it so for single-writer). **The shim is in
+    neither site set**: an allowed importer is not an allowed minter, and a
+    rule keyed on the runtime path would pass a call that reaches the real
+    mint through it. A ``mint`` method on some other object is not this
+    rule's subject.
 
 ``d353-authz-raw-registration``  (rule 4)
     An MCP surface registered on anything but the ``TenantGuardedServer``
@@ -148,19 +160,38 @@ WEAK_HEADS: frozenset[str] = frozenset({"object", "Any"})
 #: Type arguments that make ``Authorized[...]`` kind-less (§1.5b).
 KINDLESS_SLICES: frozenset[str] = frozenset({"Any", "ActionKind"})
 
-#: The gate module — the one producer of ``Authorized`` and the one owner of
-#: its sentinel. Exempt from rule 3 and from rule 2's ``object``/``Any`` arm.
-CAPABILITY_MODULE = "ccf_runtime.authz.capability"
+#: The module that DEFINES ``Authorized``, its sentinel, ``mint`` and
+#: ``mint_at_composition`` — the one owner of the sentinel. Exempt from rule 3
+#: and from rule 2's ``object``/``Any`` arm, and from nothing else.
+CAPABILITY_MODULE = "ccf.authz.capability"
+#: The runtime re-export shim. It re-exports the public names so the gate, the
+#: wrapper and the engine keep their import path; it defines nothing and it
+#: is deliberately in NEITHER site set below.
+CAPABILITY_SHIM = "ccf_runtime.authz.capability"
+#: Both spellings resolve to the same symbols: a ``mint`` imported from
+#: either is the capability's ``mint``.
+CAPABILITY_SPELLINGS: frozenset[str] = frozenset({CAPABILITY_MODULE, CAPABILITY_SHIM})
 AUTHORIZED_NAME = "Authorized"
 SENTINEL_NAME = "_SENTINEL"
 MINT_NAME = "mint"
+COMPOSITION_MINT_NAME = "mint_at_composition"
+#: The two capability producers rule 3 resolves calls to.
+MINT_SYMBOLS: frozenset[str] = frozenset({MINT_NAME, COMPOSITION_MINT_NAME})
 
 #: The modules that may call ``mint`` — §1.1's two producers, plus the module
 #: that defines it. A third member here is a third mint site and is reviewed
-#: as one.
+#: as one. The shim is not a member: an allowed importer is not an allowed
+#: minter.
 MINT_SITES: frozenset[str] = frozenset(
     {CAPABILITY_MODULE, "ccf_runtime.http_api.gate", "ccf_runtime.mcp.tenancy"}
 )
+
+#: The modules that may call ``mint_at_composition`` — the definer and the
+#: composition root. ``ReplayMint`` is the one kind no door declares (§2 P3);
+#: a gate calling this would hand a served surface the governed-record mint,
+#: so the gate modules are deliberately absent. A second root here is a
+#: reviewed edit.
+COMPOSITION_MINT_SITES: frozenset[str] = frozenset({CAPABILITY_MODULE, "ccf.boot"})
 
 #: The wrapper module and class. Inside the module, registration on the raw
 #: server is the wrapper doing its job; everywhere else it is rule 4's subject.
@@ -205,8 +236,9 @@ class _Module:
     names: dict[str, str] = field(default_factory=dict)
     #: local name -> the dotted module it may denote (``cap`` -> ``…capability``).
     modules: dict[str, str] = field(default_factory=dict)
-    #: local names bound by ``from <capability module> import mint [as …]``.
-    mint_names: set[str] = field(default_factory=set)
+    #: local name -> the capability producer it was imported as, for
+    #: ``from <either capability spelling> import mint|mint_at_composition [as …]``.
+    capability_names: dict[str, str] = field(default_factory=dict)
     #: receiver name -> one flag per binding in the module: is it the wrapper?
     bindings: dict[str, list[bool]] = field(default_factory=dict)
 
@@ -312,8 +344,8 @@ def _resolve_imports(ctx: _Module) -> None:
                 ctx.names[local] = alias.name
                 if source:
                     ctx.modules[local] = f"{source}.{alias.name}"
-                    if source == CAPABILITY_MODULE and alias.name == MINT_NAME:
-                        ctx.mint_names.add(local)
+                    if source in CAPABILITY_SPELLINGS and alias.name in MINT_SYMBOLS:
+                        ctx.capability_names[local] = alias.name
 
 
 def _import_source(node: ast.ImportFrom, package: str) -> str | None:
@@ -515,9 +547,13 @@ def _rule_mint_site(ctx: _Module) -> list[tuple[int, str]]:
     if ctx.module_name == CAPABILITY_MODULE:
         return []
     findings: list[tuple[int, str]] = []
-    may_mint = ctx.module_name in MINT_SITES
+    permitted = {
+        MINT_NAME: ctx.module_name in MINT_SITES,
+        COMPOSITION_MINT_NAME: ctx.module_name in COMPOSITION_MINT_SITES,
+    }
     for node in ast.walk(ctx.tree):
         if isinstance(node, ast.Call):
+            symbol = _capability_producer(ctx, node.func)
             if ctx.head(node.func) == AUTHORIZED_NAME:
                 findings.append(
                     (
@@ -527,14 +563,26 @@ def _rule_mint_site(ctx: _Module) -> list[tuple[int, str]]:
                         " capability (D-IMPL-353 §1.1)",
                     )
                 )
-            elif not may_mint and _is_capability_mint(ctx, node.func):
+            elif symbol == MINT_NAME and not permitted[symbol]:
                 findings.append(
                     (
                         node.lineno,
                         f"calls {CAPABILITY_MODULE}.{MINT_NAME} from"
                         f" {ctx.module_name}, a third mint site; exactly two"
-                        " exist, the HTTP gate and the MCP wrapper"
+                        " exist, the HTTP gate and the MCP wrapper, and the"
+                        " runtime shim that re-exports the name is neither"
                         " (D-IMPL-353 §1.1)",
+                    )
+                )
+            elif symbol == COMPOSITION_MINT_NAME and not permitted[symbol]:
+                findings.append(
+                    (
+                        node.lineno,
+                        f"calls {CAPABILITY_MODULE}.{COMPOSITION_MINT_NAME} from"
+                        f" {ctx.module_name}; the governed-record mint is the"
+                        " composition root's act at boot, and no door and no"
+                        " wiring package may hand a served surface a ReplayMint"
+                        " (D-IMPL-353 §2 P3)",
                     )
                 )
         if isinstance(node, _SENTINEL_HOSTS) and _names_sentinel(node):
@@ -549,12 +597,22 @@ def _rule_mint_site(ctx: _Module) -> list[tuple[int, str]]:
     return findings
 
 
-def _is_capability_mint(ctx: _Module, func: ast.expr) -> bool:
+def _capability_producer(ctx: _Module, func: ast.expr) -> str | None:
+    """Which capability producer ``func`` denotes — ``"mint"``,
+    ``"mint_at_composition"`` — or ``None`` when it is neither.
+
+    Resolved through the import, under either spelling of the capability
+    module: a bare name bound by ``from … import mint [as m]``, or an
+    attribute on a name bound to the definer or the shim (``cap.mint``,
+    ``capability.mint``, ``ccf.authz.capability.mint``). A ``mint`` attribute
+    on any other receiver is some other object's method.
+    """
     if isinstance(func, ast.Name):
-        return func.id in ctx.mint_names
-    if isinstance(func, ast.Attribute) and func.attr == MINT_NAME:
-        return ctx.dotted(func.value) == CAPABILITY_MODULE
-    return False
+        return ctx.capability_names.get(func.id)
+    if isinstance(func, ast.Attribute) and func.attr in MINT_SYMBOLS:
+        if ctx.dotted(func.value) in CAPABILITY_SPELLINGS:
+            return func.attr
+    return None
 
 
 #: The node kinds a sentinel reference can live in — each carries a line.
