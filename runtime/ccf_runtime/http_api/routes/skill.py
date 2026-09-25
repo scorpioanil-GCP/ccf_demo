@@ -60,7 +60,8 @@ from ccf_runtime.authz.refusals import (
 from ccf_runtime.authz.route_declaration import ResourceBinding, authorizes
 from ccf_runtime.http_api.dependencies import ApiDependencies
 from ccf_runtime.http_api.errors import ERROR_TENANT_UNAUTHORIZED, refusal_detail
-from ccf_runtime.http_api.grants import authorized_from_request
+from ccf_runtime.http_api.grants import absent as absent_response
+from ccf_runtime.http_api.grants import authorized_from_request, within_tenant
 from ccf_runtime.http_api.routes import _required_handle
 
 __ccf_mode__ = "algorithmic"
@@ -231,6 +232,11 @@ def build_router(deps: ApiDependencies) -> APIRouter:
             field="grant_ledger",
             routes="skill grant issuance",
         )
+        if not within_tenant(tenant=authorized.tenant, key=body.definition_key):
+            # Another tenant's definition key reads as absent BEFORE it is
+            # resolved: no read of another tenant's artifact, and no existence
+            # oracle through a write door (the join's second panel, codex).
+            raise absent_response(body.definition_key, body.definition_version)
         try:
             artifact = deps.control_plane.resolve(
                 body.definition_key, body.definition_version

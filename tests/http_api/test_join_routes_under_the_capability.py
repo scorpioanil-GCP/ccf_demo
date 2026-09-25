@@ -660,8 +660,14 @@ def test_a_read_after_an_allow_sees_only_the_capabilitys_tenant(tmp_path: Path) 
                 produces="fixture.product",
             ),
         )
+    from ccf.skills.grants import GrantLedger, RefusingApprovalSink
+
     deps = ApiDependencies(
-        control_plane=registry, artifact_store=store, product_resolver=_resolver, skill_catalog=catalog
+        control_plane=registry,
+        artifact_store=store,
+        product_resolver=_resolver,
+        skill_catalog=catalog,
+        grant_ledger=GrantLedger(control_plane=registry, catalog=catalog, sink=RefusingApprovalSink(), clock=lambda: INSTANT),
     )
     app = create_app(deps, **_seams_over(tmp_path, _recorder_over(store, registry)))
     client = TestClient(app, raise_server_exceptions=True)
@@ -696,3 +702,34 @@ def test_a_read_after_an_allow_sees_only_the_capabilitys_tenant(tmp_path: Path) 
     # And the capability's own tenant still reads its own.
     own = client.get("/config/resolution", params={"key": keys[TENANT], "version": registry.versions(keys[TENANT])[0]}, headers=headers)
     assert own.status_code == 200, own.text
+
+    # A write door that READS a definition by a caller-named key first (panel
+    # round 2, codex): a grant naming another tenant's definition key is the
+    # absent 404 before the key is resolved — no read, no existence oracle.
+    from ccf.contracts.canonical import content_hash
+    from ccf.skills.grants import SkillGrant
+
+    other_agent = registry.resolve(agent_keys[other], other_agent_version)
+    grant = SkillGrant(
+        schema_version="1.0.0", artifact_version="1.0.0", name="reads-grant", tenant=TENANT,
+        agent_definition_hash=content_hash(other_agent), skill_name=f"{TENANT}-skill", skill_version="1.0.0",
+    )
+    body = {
+        "grant": grant.model_dump(mode="json"),
+        "definition_key": agent_keys[other],
+        "definition_version": other_agent_version,
+    }
+    events_before = len(registry.audit_events())
+    foreign_grant = client.post("/skill/grants", json=body, headers=headers)
+    absent_grant = client.post(
+        "/skill/grants",
+        json={**body, "definition_key": f"{TENANT}/{AGENT_DEFINITION.class_id}/absent"},
+        headers=headers,
+    )
+    assert foreign_grant.status_code == 404 and absent_grant.status_code == 404, (foreign_grant.text, absent_grant.text)
+    assert foreign_grant.content.replace(agent_keys[other].encode(), b"K") == absent_grant.content.replace(
+        f"{TENANT}/{AGENT_DEFINITION.class_id}/absent".encode(), b"K"
+    )
+    assert not [
+        event for event in registry.audit_events()[events_before:] if event.key == agent_keys[other]
+    ], "the foreign key was never resolved"

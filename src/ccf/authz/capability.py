@@ -42,6 +42,19 @@ surface** — HTTP, MCP over HTTP or stdio, the CLI's remote leg, the
 orchestration drivers — can perform an operation without a capability for
 exactly that operation.
 
+**And its shape, precisely (the D-IMPL-353 join's second panel).** Python keeps no
+secret from code running in the same interpreter: ``verify.__globals__``,
+``gc.get_referrers`` or ``sys.modules`` reach this module's table and sentinel
+without spelling their names, and code that can do that can as easily replace
+``verify`` itself. What the capability model removes is the CHEAP path — the one
+where holding a capability a handle was legitimately handed was enough to mint
+another (F-FORGE-01, fixed by moving the mint record off the object). The trust
+boundary against arbitrary in-process code is the process: a served surface
+re-decides in its own process (the MCP and HTTP doors mint from their own
+authorizer), the lint keeps the private names out of every first-party module,
+and a deployment that runs hostile code inside the fabric's interpreter has
+already lost more than a capability.
+
 Algorithmic module (CINV-03).
 """
 

@@ -156,8 +156,8 @@ reconciling them — nothing a lane claimed in `353-01` … `353-08`.
 - Public surface: true
 - Change type: behavior
 - Before: `catalog` returned every tenant's catalog entries after the gate's allow
-- After: same signature; `catalog` returns the entries whose `tenant` is the capability's
-- Why: F-READ-02 (see `within_tenant`)
+- After: same signature; `catalog` returns the entries whose `tenant` is the capability's; `grant` reads a definition key under another tenant as absent (the same 404 as a key that does not exist) BEFORE resolving it, so a write door is not an existence oracle either
+- Why: F-READ-02 (see `within_tenant`); the grant guard is the second panel's (codex, cursor F-READ-05)
 - Migration: none for a caller reading its own tenant
 
 ## ccf_runtime.http_api.grants.tenant_from_request
