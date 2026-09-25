@@ -102,7 +102,7 @@ below, reviewed with the code, on the same principle as ``harness_imports.py``
 Fork-point red is the acceptance test (§4). Against ``d895d889`` this lint
 reports ``create_app(deps, *, auth: HttpAuthProtocol | None = None,
 authorizer: TenantAuthorizerProtocol | None = None, ...)`` at
-``runtime/ccf_runtime/http_api/app.py:193-194`` under rules 1 and 2;
+``runtime/ccf_runtime/http_api/app.py::create_app (lines 193-194 at d895d889)`` under rules 1 and 2;
 ``tools/lints/tests/test_authorization_invariant.py`` checks the commit out
 and asserts it.
 

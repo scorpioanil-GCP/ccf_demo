@@ -138,6 +138,7 @@ from ccf_runtime.mcp.egress import (
     product_uri,
 )
 
+from crossproc.servers.wide_authorizer import wide_authorizer
 from crossproc.servers.mcp_egress_child import (
     ProductAddress,
     authorized_http_client,
@@ -652,6 +653,7 @@ def _local_world(
             resource_server_url=AnyHttpUrl(f"{IN_PROCESS_BASE_URL}/mcp"),
             required_scopes=[LOCAL_SCOPE],
         ),
+        authorizer=wide_authorizer(scopes=(LOCAL_SCOPE,)),
         entitlement_source=entitlement,  # type: ignore[arg-type]
         perspective_resolver=resolve_perspective,
         refusal_recorder=_recorder(tmp_path, tenant=address.tenant),
@@ -916,6 +918,7 @@ def test_the_builder_refuses_to_build_without_any_governance_seam(
             resource_server_url=AnyHttpUrl(f"{IN_PROCESS_BASE_URL}/mcp"),
             required_scopes=[LOCAL_SCOPE],
         ),
+        "authorizer": wide_authorizer(scopes=(LOCAL_SCOPE,)),
         "entitlement_source": ControlPlaneProductEntitlementSource(
             control_plane=ControlPlaneRegistry(),
             clock=lambda: LOCAL_AUDIT_INSTANT,
@@ -1172,6 +1175,7 @@ def test_a_tenant_with_no_registered_policy_is_refused_not_served(
             resource_server_url=AnyHttpUrl(f"{IN_PROCESS_BASE_URL}/mcp"),
             required_scopes=[LOCAL_SCOPE],
         ),
+        authorizer=wide_authorizer(scopes=(LOCAL_SCOPE,)),
         entitlement_source=ControlPlaneProductEntitlementSource(
             control_plane=registry, clock=lambda: LOCAL_AUDIT_INSTANT
         ),

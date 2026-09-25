@@ -146,6 +146,7 @@ from ccf_runtime.mcp.auth import (
 from ccf.contracts.canonical import canonical_bytes
 from ccf.products.door import WireRequest
 from ccf_runtime.mcp.egress import PRODUCT_REQUEST_TOOL, build_egress_server
+from tests.mcp.guarded_servers import wide_authorizer
 
 from crossproc.servers.mcp_egress_child import ProductAddress, build_servable_product
 
@@ -504,6 +505,7 @@ def _mcp_server(
             resource_server_url=AnyHttpUrl(f"{IN_PROCESS_BASE_URL}/mcp"),
             required_scopes=[SCOPE],
         ),
+        authorizer=wide_authorizer(scopes=(SCOPE,)),
         entitlement_source=_entitlement(address),
         perspective_resolver=(
             lambda *, grant, tenant, requested_role: Perspective(

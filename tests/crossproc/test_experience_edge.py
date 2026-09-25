@@ -54,6 +54,7 @@ from ccf.products.refusal import NO_REPLAY_REFERENCE, RefusalEnvelope
 from ccf.skills.toolsurface import render_tool_surface
 from ccf_runtime.http_api.errors import ERROR_PRODUCT_POLICY_ABSENT
 
+from crossproc.servers.wide_authorizer import wide_authorizer
 from crossproc.servers.mcp_experience_child import (
     DEV_TOKEN,
     authorized_http_client,
@@ -413,6 +414,7 @@ def _builder_kwargs(tmp_path: Path) -> dict[str, Any]:
             resource_server_url=AnyHttpUrl(RESOURCE_SERVER_URL),
             required_scopes=[SCOPE],
         ),
+        "authorizer": wide_authorizer(scopes=(SCOPE,)),
         # Unconditionally required from 15.5-06 on, like the auth pair and
         # for the same reason: the product resource is not allowlist-gated,
         # so its governance seams are never dead configuration. These are

@@ -33,6 +33,7 @@ import json
 import socket
 import sys
 import tempfile
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -49,6 +50,19 @@ for _root in (_REPO_ROOT / "src", _REPO_ROOT / "runtime", _TESTS_ROOT):
 import httpx  # noqa: E402
 from mcp.server.auth.settings import AuthSettings  # noqa: E402
 from pydantic import AnyHttpUrl  # noqa: E402
+
+from crossproc.servers.wide_authorizer import wide_authorizer  # noqa: E402
+from ccf.controlplane.registry import ControlPlaneRegistry  # noqa: E402
+from ccf.products.entitlement import (  # noqa: E402
+    PRODUCT_ENTITLEMENT_POLICY,
+    ProductEntitlementGrant,
+    ProductEntitlementPolicy,
+    product_entitlement_key,
+)
+from ccf.products.resolver import ReplayRefusalRecorder  # noqa: E402
+from ccf_runtime.authz.product_entitlement import (  # noqa: E402
+    ControlPlaneProductEntitlementSource,
+)
 
 from ccf.artifacts.file_store import FileArtifactStore  # noqa: E402
 from ccf_runtime.mcp.artifact_server import build_artifact_server  # noqa: E402
@@ -127,10 +141,36 @@ def write_token_file(*, workspace: Path, tenant: str = TENANT) -> Path:
 
 
 def build_server(*, workspace: Path) -> FastMCP:
-    """Build the authenticated artifact server over a file substrate."""
+    """Build the authenticated, authorized artifact server over a file substrate.
+
+    ``D-IMPL-353`` §2 P5: the blob and presence resources read through the
+    governed dereference, so the builder composes the dereference's three
+    seams — an entitlement source, a disclosing recorder over the same
+    store, and the Control Plane audit log — beside the authorizer every
+    MCP builder now takes.
+    """
+    store = FileArtifactStore(root=workspace / ARTIFACTS_DIRNAME)
+    registry = ControlPlaneRegistry()
+    registry.register_typed(
+        product_entitlement_key(tenant_id=TENANT),
+        ProductEntitlementPolicy(
+            tenant_id=TENANT,
+            policy_version="1.0.0",
+            principals={
+                CLIENT_ID: ProductEntitlementGrant(
+                    permitted_schema_names=frozenset({"artifact-child-class"}),
+                    permitted_roles=frozenset({"artifact-child-role"}),
+                )
+            },
+        ),
+        PRODUCT_ENTITLEMENT_POLICY,
+    )
+    source = ControlPlaneProductEntitlementSource(
+        control_plane=registry, clock=lambda: datetime.now(UTC)
+    )
     return build_artifact_server(
         server_name=SERVER_NAME,
-        store=FileArtifactStore(root=workspace / ARTIFACTS_DIRNAME),
+        store=store,
         token_verifier=SourceBackedTokenVerifier(
             source=FileTokenSource(path=write_token_file(workspace=workspace))
         ),
@@ -139,6 +179,16 @@ def build_server(*, workspace: Path) -> FastMCP:
             resource_server_url=AnyHttpUrl(RESOURCE_SERVER_URL),
             required_scopes=[SCOPE],
         ),
+        authorizer=wide_authorizer(scopes=(SCOPE,)),
+        entitlement_source=source,
+        refusal_recorder=ReplayRefusalRecorder(
+            artifact_store=store,
+            replay_record_class="ccf.decision-replay-record",
+            tenant_id=TENANT,
+            assembly_mode="algorithmic",
+            disclosure_level_for=source.disclosure_level_for,
+        ),
+        audit_log=registry.audit_log,
     )
 
 

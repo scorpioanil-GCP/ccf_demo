@@ -14,6 +14,18 @@ each server is built with its surfaces **maximally exposed** — every allowlist
 opened, every optional flag on — since a surface that is not registered cannot
 be found unguarded.
 
+**Every builder now takes an authorizer, and this module builds a real one**
+(``D-IMPL-353``). The wrapper is the MCP mint site: it asks the deployment's
+:class:`~ccf_runtime.authz.protocol.TenantAuthorizerProtocol` before any body
+runs and mints an ``Authorized`` from the *allowed* decision. The SDK ships no
+permissive authorizer, and neither does this module — :func:`authorizer_granting`
+registers a real :class:`~ccf_runtime.authz.artifact.ScopeMappingArtifact` at a
+real pinned version and interprets it through the real
+:class:`~ccf_runtime.authz.protocol.ControlPlaneTenantAuthorizer`. The mapping
+is wide, and having to spell it out is the point: the D-01 grammar refuses the
+bare ``"*"``, so *everything* costs :data:`WIDE_RESOURCES` and a reader can see
+this is a fixture posture rather than a shipped one.
+
 Tenant, principal, class, scope and token names are test deployment
 vocabulary, meaningful nowhere else (CINV-01 applied to test data).
 """
@@ -21,6 +33,8 @@ vocabulary, meaningful nowhere else (CINV-01 applied to test data).
 from __future__ import annotations
 
 import pathlib
+import string
+from collections.abc import Iterable
 from datetime import UTC, datetime
 from typing import Any
 
@@ -28,6 +42,14 @@ from mcp.server.auth.settings import AuthSettings
 from mcp.server.fastmcp import FastMCP
 from pydantic import AnyHttpUrl
 
+from ccf.controlplane.registry import ControlPlaneRegistry
+from ccf.authz import actions
+from ccf_runtime.authz.artifact import (
+    SCOPE_MAPPING,
+    ScopeEntry,
+    ScopeMappingArtifact,
+)
+from ccf_runtime.authz.protocol import ControlPlaneTenantAuthorizer
 from ccf_runtime.mcp.auth import (
     SourceBackedTokenVerifier,
     StaticTokenSource,
@@ -35,9 +57,28 @@ from ccf_runtime.mcp.auth import (
 )
 
 TENANT = "tenant-guard-own"
+FOREIGN = "tenant-guard-foreign"
 PRINCIPAL = "principal-guard"
 SCOPE = "ccf:tenant-guard"
 PRODUCT_CLASS = "class-guard"
+MAPPING_KEY = "guard/scope-mapping"
+AUDIT_INSTANT = datetime(2026, 5, 12, tzinfo=UTC)
+
+#: Every action identifier the SDK's doors declare, read off the vocabulary
+#: module rather than re-typed, so a door added with a new id joins the grant.
+ALL_ACTIONS: tuple[str, ...] = tuple(
+    getattr(actions, name) for name in actions.__all__
+)
+
+#: *Everything*, spelled out, because the D-01 grammar will not let it be
+#: spelled short (WR-03): one single-character prefix glob per character a
+#: test resource can begin with.
+WIDE_RESOURCES: tuple[str, ...] = tuple(
+    f"{character}*"
+    for character in (
+        string.ascii_lowercase + string.ascii_uppercase + string.digits + "._-/"
+    )
+)
 
 
 def _auth() -> AuthSettings:
@@ -62,10 +103,67 @@ def _verifier() -> SourceBackedTokenVerifier:
     )
 
 
+def authorizer_granting(
+    *,
+    tenants: Iterable[str] = (TENANT, FOREIGN),
+    scopes: Iterable[str] = (SCOPE,),
+    actions: Iterable[str] = ALL_ACTIONS,
+    resources: Iterable[str] = WIDE_RESOURCES,
+    registry: ControlPlaneRegistry | None = None,
+) -> ControlPlaneTenantAuthorizer:
+    """A real, deny-by-default authorizer whose one mapping grants what is named.
+
+    Wide by default so a roster test exercises every registration; narrowed by
+    a test that wants a deny, by naming fewer tenants, actions or resources —
+    never by a flag, because there is no flag.
+
+    Args:
+        tenants: The tenant patterns each named scope reaches.
+        scopes: The scope strings the mapping recognizes.
+        actions: The door-declared action ids each scope may perform.
+        resources: The resource patterns each scope reaches.
+        registry: The Control Plane to register the mapping in; a fresh one
+            when omitted, so a test's own registry is never the authorizer's
+            unless the test says so.
+    """
+    control_plane = ControlPlaneRegistry() if registry is None else registry
+    entry = ScopeEntry(
+        tenant_patterns=tuple(tenants),
+        action_ids=tuple(actions),
+        resource_patterns=tuple(resources),
+    )
+    version = control_plane.register_typed(
+        MAPPING_KEY,
+        ScopeMappingArtifact(
+            semver="1.0.0", scopes={scope: entry for scope in scopes}
+        ),
+        SCOPE_MAPPING,
+    )
+    assert isinstance(version, str)
+    return ControlPlaneTenantAuthorizer(
+        control_plane=control_plane,
+        scope_mapping_key=MAPPING_KEY,
+        scope_mapping_version=version,
+        clock=lambda: AUDIT_INSTANT,
+    )
+
+
+def wide_authorizer(*, scopes: Iterable[str]) -> ControlPlaneTenantAuthorizer:
+    """An authorizer that grants ``scopes`` every tenant, action and resource.
+
+    For fixtures whose subject is entitlement, disclosure or the wire shape —
+    never authorization: the door must be authorized so the test reaches the
+    thing it measures. Spelled out as prefix globs on both axes because the
+    grammar refuses ``"*"``; a reader can see at a glance that this is a
+    fixture posture and not one anybody would ship. A test about the
+    authorizer itself narrows with :func:`authorizer_granting`.
+    """
+    return authorizer_granting(tenants=WIDE_RESOURCES, scopes=scopes)
+
+
 def _entitlement_world(tmp_path: pathlib.Path) -> tuple[Any, Any]:
     """An entitlement source and a refusal recorder over a scratch store."""
     from ccf.artifacts.file_store import FileArtifactStore
-    from ccf.controlplane.registry import ControlPlaneRegistry
     from ccf.products.entitlement import (
         PRODUCT_ENTITLEMENT_POLICY,
         ProductEntitlementGrant,
@@ -93,7 +191,7 @@ def _entitlement_world(tmp_path: pathlib.Path) -> tuple[Any, Any]:
         PRODUCT_ENTITLEMENT_POLICY,
     )
     source = ControlPlaneProductEntitlementSource(
-        control_plane=registry, clock=lambda: datetime(2026, 5, 12, tzinfo=UTC)
+        control_plane=registry, clock=lambda: AUDIT_INSTANT
     )
     recorder = ReplayRefusalRecorder(
         artifact_store=FileArtifactStore(root=tmp_path / "replay"),
@@ -118,11 +216,16 @@ def build_for(builder: str, tmp_path: pathlib.Path) -> FastMCP:
         from ccf.artifacts.file_store import FileArtifactStore
         from ccf_runtime.mcp.artifact_server import build_artifact_server
 
+        source, recorder = _entitlement_world(tmp_path)
         return build_artifact_server(
             server_name="guard-artifact",
             store=FileArtifactStore(root=tmp_path / "artifacts"),
             token_verifier=_verifier(),
             auth_settings=_auth(),
+            authorizer=authorizer_granting(),
+            entitlement_source=source,
+            refusal_recorder=recorder,
+            audit_log=ControlPlaneRegistry().audit_log,
         )
 
     if builder == "hitl":
@@ -134,6 +237,10 @@ def build_for(builder: str, tmp_path: pathlib.Path) -> FastMCP:
             action_route=lambda *, submission: "{}",
             token_verifier=_verifier(),
             auth_settings=_auth(),
+            authorizer=authorizer_granting(),
+            # Lane HITL-DOOR's builder takes the door's clock beside the
+            # authorizer (D-IMPL-353 §2 P6 — the action time is the door's).
+            clock=lambda: AUDIT_INSTANT,
         )
 
     if builder == "experience":
@@ -174,6 +281,7 @@ def build_for(builder: str, tmp_path: pathlib.Path) -> FastMCP:
             ),
             token_verifier=_verifier(),
             auth_settings=_auth(),
+            authorizer=authorizer_granting(),
             entitlement_source=source,
             perspective_resolver=_perspective,
             refusal_recorder=recorder,
@@ -188,6 +296,7 @@ def build_for(builder: str, tmp_path: pathlib.Path) -> FastMCP:
             resolver=lambda **kw: None,
             token_verifier=_verifier(),
             auth_settings=_auth(),
+            authorizer=authorizer_granting(),
             entitlement_source=source,
             perspective_resolver=_perspective,
             refusal_recorder=recorder,

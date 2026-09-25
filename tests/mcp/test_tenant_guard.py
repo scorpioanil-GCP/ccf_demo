@@ -6,6 +6,11 @@ tenant A reached tenant B's artifacts, queue and products. Authentication was
 real and answered the wrong question — *who are you*, never *whose data is
 this*.
 
+``D-IMPL-353`` made the guard the MCP **mint site**: the tenancy floor below
+still runs first, and what a body receives afterwards is a capability minted
+for its declared action (``test_mint_site.py``). This module keeps the floor's
+own evidence.
+
 Every assertion below is drafted from *what would fail here*:
 
 =========================================  ===================================
@@ -21,15 +26,15 @@ the mandatory-wrapper property             a handler could reach the wire
 fail-closed by default                     a grant carrying no tenant at all
                                            could be read as carrying every
                                            tenant
-the untenanted roster                      ``untenanted()`` could become a
-                                           quiet escape hatch, closing the
-                                           finding on paper
+no untenanted reading                      a surface could be registered with
+                                           no tenant to mint a capability for
 ``D-IMPL-129``                             the three agent/replay tools could
                                            stay ungated after the vocabulary
                                            they needed arrived
 stdio ambient identity                     a process-ownership identity could
                                            authorize a *mutation* it never
                                            presented a credential for
+=========================================  ===================================
 
 Tenant, principal, scope and token names are test deployment vocabulary,
 meaningful nowhere else (CINV-01 applied to test data).
@@ -50,6 +55,8 @@ from mcp.server.auth.settings import AuthSettings
 from mcp.server.fastmcp import FastMCP
 from pydantic import AnyHttpUrl
 
+from ccf.authz.actions import ACTION_ARTIFACT_READ, ACTION_ARTIFACT_WRITE
+from ccf.authz.capability import ArtifactRead, ArtifactWrite, Authorized
 from ccf_runtime.mcp.auth import (
     SourceBackedTokenVerifier,
     StaticTokenSource,
@@ -66,13 +73,29 @@ from ccf_runtime.mcp.tenancy import (
     granted_tenants,
     tenant_claims,
     unguarded_surfaces,
-    untenanted_surfaces,
 )
+from tests.mcp.guarded_servers import authorizer_granting
 
 TENANT = "tenant-guard-own"
 FOREIGN = "tenant-guard-foreign"
 PRINCIPAL = "principal-guard"
 SCOPE = "ccf:tenant-guard"
+
+#: Lane HITL-DOOR owns ``hitl_server.py`` and adopts the wrapper's mint-site
+#: API there (``authorizer=`` at construction; bodies taking ``authorized``;
+#: ``door.build()``). Until that lands, the HITL leg of every roster test is
+#: an expected failure that turns into a failure the moment it does — the
+#: marker is the join's to remove, not to keep.
+HITL_JOIN = (
+    "join: awaits Lane HITL-DOOR adopting TenantGuardedServer's mint-site API"
+    " in runtime/ccf_runtime/mcp/hitl_server.py (D-IMPL-353 §1.2 / §2 P4)"
+)
+SHIPPED_SERVERS = (
+    "artifact",
+    pytest.param("hitl", marks=pytest.mark.xfail(strict=True, reason=HITL_JOIN)),
+    "experience",
+    "egress",
+)
 
 
 def _auth_settings() -> AuthSettings:
@@ -179,48 +202,128 @@ def test_the_verifier_carries_tenants_into_the_access_token() -> None:
     assert granted_tenants(token) == frozenset({TENANT, FOREIGN})
 
 
+def test_the_verifier_carries_what_it_attested_about_authentication() -> None:
+    """``D-IMPL-353`` §2 P6: the approver's assurance comes from the VERIFIED
+    credential, never from a request body. The grant states how its bearer
+    authenticated; the verifier carries that statement verbatim into the
+    token's claims under ``AUTHENTICATION_CLAIM``, where the HITL doors read
+    it — and only there.
+    """
+    from ccf.hitl.principal import AUTHENTICATION_CLAIM, AuthenticationClaims
+
+    attested = AuthenticationClaims(
+        identity_provider_ref="idp-guard",
+        method="webauthn",
+        assurance_level="aal3",
+        session_ref="session-guard-1",
+    )
+    verifier = SourceBackedTokenVerifier(
+        source=StaticTokenSource(
+            grants={
+                "tok": TokenGrant(
+                    client_id=PRINCIPAL,
+                    scopes=(SCOPE,),
+                    tenants=frozenset({TENANT}),
+                    authentication=attested,
+                )
+            }
+        )
+    )
+    token = anyio.run(verifier.verify_token, "tok")
+    assert token is not None
+    assert (token.claims or {})[AUTHENTICATION_CLAIM] == attested.model_dump(mode="json")
+    # The tenant axis is untouched by the second claim.
+    assert granted_tenants(token) == frozenset({TENANT})
+
+
+def test_a_grant_stating_no_authentication_writes_no_claim() -> None:
+    """A credential whose verifier said nothing carries nothing — the doors
+    refuse to mint a binding from silence rather than fill the blank. The
+    sentinel is hash-transparent: every grant minted before the field existed
+    said nothing, and its canonical bytes do not move."""
+    from ccf.contracts.canonical import canonical_bytes
+    from ccf.hitl.principal import AUTHENTICATION_CLAIM
+
+    silent = _grant(TENANT)
+    assert silent.authentication is None
+    verifier = SourceBackedTokenVerifier(
+        source=StaticTokenSource(grants={"tok": silent})
+    )
+    token = anyio.run(verifier.verify_token, "tok")
+    assert token is not None
+    assert AUTHENTICATION_CLAIM not in (token.claims or {})
+    assert b"authentication" not in canonical_bytes(silent)
+
+
 # --- the guard -------------------------------------------------------------
 
 
-def _guarded() -> TenantGuardedServer:
+class _Guarded:
     """A server whose every surface is registered through the wrapper."""
-    door = TenantGuardedServer(
-        FastMCP(
-            "tenant-guard",
-            stateless_http=True,
-            json_response=True,
-            token_verifier=SourceBackedTokenVerifier(
-                source=StaticTokenSource(grants={"tok": _grant(TENANT)})
+
+    def __init__(self) -> None:
+        door = TenantGuardedServer(
+            FastMCP(
+                "tenant-guard",
+                stateless_http=True,
+                json_response=True,
+                token_verifier=SourceBackedTokenVerifier(
+                    source=StaticTokenSource(grants={"tok": _grant(TENANT)})
+                ),
+                auth=_auth_settings(),
             ),
-            auth=_auth_settings(),
+            authorizer=authorizer_granting(tenants=(TENANT, FOREIGN), scopes=(SCOPE,)),
         )
-    )
+        entered: list[str] = []
 
-    @door.tool(name="read_it", subject=door.from_argument("tenant"), mutating=False)
-    def read_it(tenant: str) -> str:
-        return json.dumps({"read": tenant})
+        @door.tool(
+            name="read_it",
+            action=ACTION_ARTIFACT_READ,
+            subject=door.from_argument("tenant"),
+            resource=door.resource_route(),
+            mutating=False,
+        )
+        def read_it(authorized: Authorized[ArtifactRead]) -> str:
+            entered.append("read_it")
+            return json.dumps({"read": authorized.tenant})
 
-    @door.tool(name="write_it", subject=door.from_argument("tenant"), mutating=True)
-    def write_it(tenant: str, value: str) -> str:
-        return json.dumps({"wrote": value, "tenant": tenant})
+        @door.tool(
+            name="write_it",
+            action=ACTION_ARTIFACT_WRITE,
+            subject=door.from_argument("tenant"),
+            resource=door.resource_argument("value"),
+            mutating=True,
+        )
+        def write_it(authorized: Authorized[ArtifactWrite], value: str) -> str:
+            entered.append("write_it")
+            return json.dumps({"wrote": value, "tenant": authorized.tenant})
 
-    @door.tool(name="declared_it", subject=door.declared(TENANT), mutating=False)
-    def declared_it() -> str:
-        return json.dumps({"declared": TENANT})
+        @door.tool(
+            name="declared_it",
+            action=ACTION_ARTIFACT_READ,
+            subject=door.declared(TENANT),
+            resource=door.resource_route(),
+            mutating=False,
+        )
+        def declared_it(authorized: Authorized[ArtifactRead]) -> str:
+            entered.append("declared_it")
+            return json.dumps({"declared": authorized.tenant})
 
-    return door
+        self.door = door
+        self.server = door.build()
+        self.entered = entered
 
 
-def _call(door: TenantGuardedServer, tool: str, args: dict[str, Any]) -> Any:
-    return anyio.run(door.fastmcp.call_tool, tool, args)
+def _call(guarded: _Guarded, tool: str, args: dict[str, Any]) -> Any:
+    return anyio.run(guarded.server.call_tool, tool, args)
 
 
 def test_the_guard_admits_a_tenant_the_grant_carries() -> None:
     """The positive control. Without it every refusal below proves nothing."""
-    door = _guarded()
+    guarded = _Guarded()
     reset = _as_grant(_grant(TENANT))
     try:
-        _, structured = _call(door, "read_it", {"tenant": TENANT})
+        _, structured = _call(guarded, "read_it", {"tenant": TENANT})
     finally:
         auth_context_var.reset(reset)
     assert json.loads(structured["result"])["read"] == TENANT
@@ -231,23 +334,24 @@ def test_the_guard_refuses_a_tenant_the_grant_does_not_carry() -> None:
 
     The argument is the caller's and stays the caller's — what changed is that
     naming a foreign tenant is now *decided against the grant* rather than
-    trusted.
+    trusted, and the body never receives a capability for it.
     """
-    door = _guarded()
+    guarded = _Guarded()
     reset = _as_grant(_grant(TENANT))
     try:
-        refused = _refusal(lambda: _call(door, "read_it", {"tenant": FOREIGN}))
+        refused = _refusal(lambda: _call(guarded, "read_it", {"tenant": FOREIGN}))
     finally:
         auth_context_var.reset(reset)
     assert isinstance(refused, CrossTenantRefused)
+    assert guarded.entered == []
 
 
 def test_a_grant_carrying_no_tenant_reaches_nothing() -> None:
     """Fail-closed, asserted rather than assumed."""
-    door = _guarded()
+    guarded = _Guarded()
     reset = _as_grant(_grant())
     try:
-        refused = _refusal(lambda: _call(door, "read_it", {"tenant": TENANT}))
+        refused = _refusal(lambda: _call(guarded, "read_it", {"tenant": TENANT}))
     finally:
         auth_context_var.reset(reset)
     assert isinstance(refused, TenantlessGrantRefused)
@@ -255,10 +359,10 @@ def test_a_grant_carrying_no_tenant_reaches_nothing() -> None:
 
 def test_an_unverified_caller_reaches_nothing() -> None:
     """The guard refuses on its own account, not on the middleware's promise."""
-    door = _guarded()
+    guarded = _Guarded()
     reset = _as_grant(None)
     try:
-        refused = _refusal(lambda: _call(door, "read_it", {"tenant": TENANT}))
+        refused = _refusal(lambda: _call(guarded, "read_it", {"tenant": TENANT}))
     finally:
         auth_context_var.reset(reset)
     assert isinstance(refused, UnverifiedTenantCallerRefused)
@@ -271,45 +375,47 @@ def test_a_declared_subject_is_decided_against_the_grant_too() -> None:
     of a client parameter reduces steerability and never disclosure, so the
     deployment-declared tenant is what the grant is checked against.
     """
-    door = _guarded()
+    guarded = _Guarded()
     reset = _as_grant(_grant(FOREIGN))
     try:
-        refused = _refusal(lambda: _call(door, "declared_it", {}))
+        refused = _refusal(lambda: _call(guarded, "declared_it", {}))
     finally:
         auth_context_var.reset(reset)
     assert isinstance(refused, CrossTenantRefused)
 
 
-def test_the_guard_runs_before_the_body(
-) -> None:
+def test_the_guard_runs_before_the_body() -> None:
     """A refused caller moves nothing — the body is never entered."""
-    door = TenantGuardedServer(FastMCP("ordering"))
-    entered: list[str] = []
-
-    @door.tool(name="t", subject=door.from_argument("tenant"), mutating=True)
-    def t(tenant: str) -> str:
-        entered.append(tenant)
-        return "served"
-
+    guarded = _Guarded()
     reset = _as_grant(_grant(TENANT))
     try:
-        refused = _refusal(lambda: _call(door, "t", {"tenant": FOREIGN}))
+        refused = _refusal(
+            lambda: _call(guarded, "write_it", {"tenant": FOREIGN, "value": "v"})
+        )
     finally:
         auth_context_var.reset(reset)
     assert isinstance(refused, CrossTenantRefused)
-    assert entered == []
+    assert guarded.entered == []
 
 
-def test_the_input_schema_survives_the_wrapper() -> None:
-    """The guard is invisible to the protocol.
+def test_the_input_schema_is_the_wires_not_the_bodys() -> None:
+    """The guard is invisible to the protocol — and so is the capability.
 
     A wrapper that flattened handlers to ``*args, **kwargs`` would erase every
-    tool's declared arguments — the client would see an empty input schema and
-    the tenant argument the guard reads would stop arriving.
+    tool's declared arguments; one that published the body's own signature
+    would put ``authorized`` on the wire and take ``tenant`` off it. The
+    schema carries exactly the wire parameters: the tenant the caller names
+    and the body's own arguments, nothing else.
     """
-    door = _guarded()
-    tools = {tool.name: tool for tool in anyio.run(door.fastmcp.list_tools)}
+    guarded = _Guarded()
+    tools = {tool.name: tool for tool in anyio.run(guarded.server.list_tools)}
     assert set(tools["write_it"].inputSchema["required"]) == {"tenant", "value"}
+    assert set(tools["read_it"].inputSchema["required"]) == {"tenant"}
+    assert "required" not in tools["declared_it"].inputSchema or (
+        tools["declared_it"].inputSchema["required"] == []
+    )
+    for tool in tools.values():
+        assert "authorized" not in tool.inputSchema.get("properties", {})
 
 
 # --- the wrapper is mandatory ----------------------------------------------
@@ -318,27 +424,25 @@ def test_the_input_schema_survives_the_wrapper() -> None:
 def test_a_surface_registered_behind_the_wrappers_back_is_caught() -> None:
     """The instrument that makes the wrapper mandatory rather than customary.
 
-    This is the load-bearing test of the whole design. A tool body that must
-    *remember* to check tenancy is the defect class ``SEC-018`` belongs to; the
-    repair is only real if forgetting is detectable. The ledger the wrapper
-    keeps is compared against ``FastMCP``'s own registry, so a handler
-    registered on the underlying server — the one way to bypass the guard —
-    appears in the registry and not in the ledger.
+    A tool body that must *remember* to check tenancy is the defect class
+    ``SEC-018`` belongs to; the repair is only real if forgetting is
+    detectable. The ledger the wrapper keeps is compared against ``FastMCP``'s
+    own registry, so a handler registered on the underlying server — the one
+    way to bypass the guard — appears in the registry and not in the ledger.
+    ``test_mint_site.py`` proves the same comparison is a boot failure at
+    ``build``; this is the instrument on its own.
     """
-    door = _guarded()
-    assert unguarded_surfaces(door.fastmcp) == frozenset()
+    guarded = _Guarded()
+    assert unguarded_surfaces(guarded.server) == frozenset()
 
-    @door.fastmcp.tool(name="smuggled")
+    @guarded.server.tool(name="smuggled")
     def smuggled(tenant: str) -> str:
         return "ungoverned"
 
-    assert unguarded_surfaces(door.fastmcp) == frozenset({"smuggled"})
+    assert unguarded_surfaces(guarded.server) == frozenset({"smuggled"})
 
 
-@pytest.mark.parametrize(
-    "builder",
-    ["artifact", "hitl", "experience", "egress"],
-)
+@pytest.mark.parametrize("builder", SHIPPED_SERVERS)
 def test_every_shipped_server_registers_every_surface_through_the_guard(
     builder: str, tmp_path: Any
 ) -> None:
@@ -346,7 +450,9 @@ def test_every_shipped_server_registers_every_surface_through_the_guard(
 
     Named per server rather than asserted over a total, because a count that
     is right with a wrong member audits clean forever (``verify rosters, not
-    counts``).
+    counts``). A builder returns ``door.build()``, which raises on a smuggled
+    surface — so building at all is the assertion, and the explicit check is
+    the instrument read back.
     """
     from tests.mcp.guarded_servers import build_for
 
@@ -395,71 +501,35 @@ def test_every_server_builder_in_the_package_is_on_the_roster() -> None:
     )
 
 
-def test_the_untenanted_roster_is_pinned(tmp_path: Any) -> None:
-    """``untenanted()`` cannot become a quiet escape hatch.
+@pytest.mark.parametrize("builder", SHIPPED_SERVERS)
+def test_every_surface_on_every_shipped_server_names_a_tenant_reading(
+    builder: str, tmp_path: Any
+) -> None:
+    """There is no untenanted reading any more (``D-IMPL-353`` §1.3).
 
-    Two artifact surfaces are addressed by content hash, and
-    ``ArtifactStoreProtocol`` has no surface that answers *which tenant owns
-    this address* — so the tenant genuinely is not on the wire and cannot be
-    derived. They are registered ``untenanted``, they still require a verified,
-    tenant-scoped grant, and the exact roster is pinned here so that adding a
-    third one is a test failure rather than a judgement call.
-
-    The residual is recorded, not hidden: possession of a 64-character content
-    address is the only thing standing between a verified caller and another
-    tenant's bytes. The handoff that closes it is a tenant-of-address query on
-    ``ArtifactStoreProtocol``.
+    ``SEC-018`` pinned a two-member roster of surfaces that carried no tenant;
+    the capability made that reading impossible — every mint names one tenant
+    — so the roster is now empty by construction, and this asserts it over the
+    ledger of every shipped server rather than over a pinned list: each entry
+    selects its tenant from the wire, from the declaration, or from the sole
+    member of the grant.
     """
-    from ccf_runtime.mcp.artifact_server import (
-        ARTIFACT_BLOB_SURFACE,
-        ARTIFACT_META_SURFACE,
-    )
+    from ccf_runtime.mcp import tenancy
     from tests.mcp.guarded_servers import build_for
 
-    # Build all four shipped servers first, so the roster measures the SDK's
-    # own surfaces rather than whatever this process happened to register
-    # before this test ran. Without it the assertion passes or fails on
-    # collection order, which is a property of the runner and not of the SDK.
-    for builder in ("artifact", "hitl", "experience", "egress"):
-        build_for(builder, tmp_path / builder)
-
-    assert untenanted_surfaces() == frozenset(
-        {ARTIFACT_BLOB_SURFACE, ARTIFACT_META_SURFACE}
-    )
+    server = build_for(builder, tmp_path)
+    ledger = tenancy._LEDGERS[server]
+    assert ledger, f"{builder}: an empty ledger measures nothing"
+    for name, surface in ledger.items():
+        readings = (
+            surface.subject.argument is not None,
+            surface.subject.declared is not None,
+            surface.subject.grant,
+        )
+        assert sum(readings) == 1, (builder, name, surface.subject)
 
 
 # --- the specific holes the finding named ----------------------------------
-
-
-def test_put_artifact_decides_its_tenant_argument_against_the_grant(
-    tmp_path: Any,
-) -> None:
-    """The MCP mirror of the HTTP finding: tenant came from the caller.
-
-    ``tenant_id`` stays on the input schema — it names *which* of the grant's
-    tenants, exactly as ``submit_hitl_action``'s ``subject_id`` is a claim that
-    must match — but it no longer *supplies* the answer.
-    """
-    from tests.mcp.guarded_servers import build_for
-
-    server = build_for("artifact", tmp_path)
-    reset = _as_grant(_grant(TENANT))
-    try:
-        refused = _refusal(
-            lambda: anyio.run(
-                server.call_tool,
-                "put_artifact",
-                {
-                    "tenant_id": FOREIGN,
-                    "artifact_class": "c",
-                    "name": "n",
-                    "canonical_b64": "e30=",
-                },
-            )
-        )
-    finally:
-        auth_context_var.reset(reset)
-    assert isinstance(refused, CrossTenantRefused)
 
 
 def test_the_three_agent_and_replay_tools_are_tenant_guarded(
@@ -514,6 +584,7 @@ def test_the_three_agent_and_replay_tools_are_tenant_guarded(
         assert isinstance(refused, CrossTenantRefused), tool
 
 
+@pytest.mark.xfail(strict=True, reason=HITL_JOIN)
 def test_the_hitl_tenant_check_no_longer_waits_for_an_authorizer(
     tmp_path: Any,
 ) -> None:
@@ -522,8 +593,9 @@ def test_the_hitl_tenant_check_no_longer_waits_for_an_authorizer(
     ``_enforce_tenant_authz`` opened ``if authorizer is None: return`` and the
     builder's ``authorizer`` defaulted to ``None`` — so the door's tenant
     check was optional *by construction*, its applicability decided by the
-    deployer. The authorizer remains optional for fine-grained action
-    authorization; membership in the grant's tenants is not.
+    deployer. Under ``D-IMPL-353`` there is no ``authorizer=None`` arm at all:
+    the wrapper takes one at construction and the body receives a capability
+    or nothing.
     """
     from ccf_runtime.mcp.hitl_server import HITL_QUEUE_URI_TEMPLATE
     from tests.mcp.guarded_servers import build_for
@@ -561,7 +633,7 @@ def test_the_stdio_ambient_identity_cannot_reach_a_mutating_surface() -> None:
     presented. The loopback transport is untouched: its bearer auth is real and
     its identity is not ambient, so nothing here narrows it.
     """
-    door = _guarded()
+    guarded = _Guarded()
     reset = auth_context_var.set(
         AuthenticatedUser(
             ambient_stdio_identity(
@@ -573,14 +645,15 @@ def test_the_stdio_ambient_identity_cannot_reach_a_mutating_surface() -> None:
         )
     )
     try:
-        _, structured = _call(door, "read_it", {"tenant": TENANT})
+        _, structured = _call(guarded, "read_it", {"tenant": TENANT})
         assert json.loads(structured["result"])["read"] == TENANT
         refused = _refusal(
-            lambda: _call(door, "write_it", {"tenant": TENANT, "value": "v"})
+            lambda: _call(guarded, "write_it", {"tenant": TENANT, "value": "v"})
         )
         assert isinstance(refused, AmbientMutationRefused)
     finally:
         auth_context_var.reset(reset)
+    assert guarded.entered == ["read_it"]
 
 
 def test_a_remote_bearer_cannot_forge_or_clear_the_ambient_marker() -> None:

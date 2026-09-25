@@ -968,7 +968,7 @@ def _findings_at(commit: str, tmp_path: pathlib.Path) -> tuple[list[str], int]:
 def test_the_lint_is_red_at_the_fork_point_on_create_app(tmp_path: pathlib.Path) -> None:
     """``create_app(deps, *, auth: HttpAuthProtocol | None = None, authorizer:
     TenantAuthorizerProtocol | None = None, ...)`` at ``d895d889:runtime/
-    ccf_runtime/http_api/app.py:193-194`` — D-IMPL-73's own signature. A lint
+    runtime/ccf_runtime/http_api/app.py::create_app (lines 193-194 at d895d889)`` — D-IMPL-73's own signature. A lint
     that would not have reported it is not the lint."""
     findings, population = _findings_at(FORK_POINT, tmp_path)
     assert population > 0, "the fork-point tree was read"
@@ -1019,8 +1019,6 @@ EXPECTED_SEAM_REDS: frozenset[tuple[str, str, str]] = frozenset(
         # 3729ada6); the four below fall when Lane MCP and Lane HITL-DOOR land.
         ("runtime/ccf_runtime/mcp/hitl_server.py", RULE_DEFAULT, "'authorizer'"),
         ("runtime/ccf_runtime/mcp/hitl_server.py", RULE_WEAK_TYPE, "'authorizer'"),
-        ("runtime/ccf_runtime/mcp/product_door.py", RULE_DEFAULT, "'token_verifier'"),
-        ("runtime/ccf_runtime/mcp/product_door.py", RULE_WEAK_TYPE, "'token_verifier'"),
     }
 )
 

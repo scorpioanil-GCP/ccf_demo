@@ -176,6 +176,19 @@ from mcp.server.auth.provider import TokenVerifier
 from mcp.server.auth.settings import AuthSettings
 from mcp.server.fastmcp import FastMCP
 
+from ccf.authz.actions import (
+    ACTION_AGENT_LIST,
+    ACTION_PRODUCT_RETRIEVE,
+    ACTION_REPLAY_READ,
+    ACTION_WORKFLOW_INVOKE,
+)
+from ccf.authz.capability import (
+    AgentList,
+    Authorized,
+    Execute,
+    ProductRetrieve,
+    ReplayRead,
+)
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes
 from ccf.products.door import door_refusal, served_answer
@@ -193,6 +206,7 @@ from ccf_runtime.authz.delivery_boundary import (
     govern_entitlement,
     recorded_boundary,
 )
+from ccf_runtime.authz.protocol import TenantAuthorizerProtocol
 from ccf_runtime.mcp.tenancy import TenantGuardedServer
 from ccf_runtime.authz.product_entitlement import (
     PerspectiveResolverProtocol,
@@ -731,6 +745,7 @@ def build_experience_server(
     product_resource_description: str | None = None,
     token_verifier: TokenVerifier,
     auth_settings: AuthSettings,
+    authorizer: TenantAuthorizerProtocol,
     entitlement_source: ProductEntitlementSourceProtocol,
     perspective_resolver: PerspectiveResolverProtocol,
     refusal_recorder: RefusalRecorderProtocol | None = None,
@@ -965,13 +980,15 @@ def build_experience_server(
             json_response=True,
             token_verifier=token_verifier,
             auth=auth_settings,
-        )
+        ),
+        authorizer=authorizer,
     )
-    server = door.fastmcp
 
     @door.resource(
         EXPERIENCE_PRODUCT_URI_TEMPLATE,
+        action=ACTION_PRODUCT_RETRIEVE,
         subject=door.from_argument("tenant"),
+        resource=door.resource_argument("product_class"),
         mutating=False,
         mime_type=PRODUCT_MIME_TYPE,
         description=(
@@ -980,8 +997,15 @@ def build_experience_server(
             else DEFAULT_PRODUCT_RESOURCE_DESCRIPTION
         ),
     )
-    def context_product(tenant: str, product_class: str, version: str) -> str:
+    def context_product(
+        authorized: Authorized[ProductRetrieve], product_class: str, version: str
+    ) -> str:
         """Serve one gate-admitted Context Product as canonical JSON.
+
+        **The tenant is the capability's** (``D-IMPL-353`` §1.2). The URI's
+        ``{tenant}`` segment is decided against the grant by the wrapper and
+        consumed there; this body reads ``authorized.tenant`` and has no
+        second source.
 
         Authenticate, then entitle, then resolve. The auth middleware refuses
         an unverified caller before this body runs;
@@ -1011,6 +1035,7 @@ def build_experience_server(
         ``mime_type`` carrying two shapes, told apart by the top-level
         ``kind`` key a product does not have.
         """
+        tenant = authorized.tenant
         decided = govern_entitlement(
             grant=verified_grant(),
             tenant=tenant,
@@ -1081,7 +1106,11 @@ def build_experience_server(
 
         @door.tool(
             name=LIST_AGENTS_TOOL,
+            action=ACTION_AGENT_LIST,
             subject=door.from_argument("tenant"),
+            # Enumeration acts on no addressable subject: the door names itself,
+            # exactly as the HTTP `GET /agent/declarations` route does.
+            resource=door.resource_route(),
             mutating=False,
             description=(
                 list_agents_description
@@ -1089,8 +1118,12 @@ def build_experience_server(
                 else DEFAULT_LIST_AGENTS_DESCRIPTION
             ),
         )
-        def list_agents(tenant: str) -> str:
+        def list_agents(authorized: Authorized[AgentList]) -> str:
             """List one tenant's exposed agents with their rendered tool surfaces.
+
+            **The tenant is the capability's** (``D-IMPL-353`` §1.2): the
+            ``tenant`` wire argument is decided and consumed by the wrapper,
+            and the directory is asked for ``authorized.tenant``.
 
             **Tenant-decided, product-entitlement-undecided** — and the two
             halves are different questions (``SEC-018``; ``D-IMPL-129``). The
@@ -1103,7 +1136,7 @@ def build_experience_server(
             that semantic is what CLAUDE.md §11 forbids. Within the caller's
             own tenant, any verified caller still receives the listing.
             """
-            verified_grant()
+            tenant = authorized.tenant
             catalog = AgentToolCatalog(
                 tenant=tenant,
                 agents=tuple(
@@ -1120,7 +1153,16 @@ def build_experience_server(
 
         @door.tool(
             name=INVOKE_AGENT_TOOL,
+            # HANDOFF (D-IMPL-353, Lane CAP-GATE): no door-declared action id
+            # names an agent-skill dispatch. `workflow.invoke` is the nearest
+            # declared invocation — a definition-keyed dispatch through the
+            # factory path, decided on the same `definition_key` resource the
+            # HTTP `POST /workflow/executions` route binds — and stands here
+            # until an `agent.invoke` id and kind exist in `ccf.authz`; the
+            # change is this one constant.
+            action=ACTION_WORKFLOW_INVOKE,
             subject=door.from_argument("tenant"),
+            resource=door.resource_argument("definition_key"),
             mutating=True,
             description=(
                 invoke_agent_description
@@ -1129,7 +1171,7 @@ def build_experience_server(
             ),
         )
         def invoke_agent(
-            tenant: str,
+            authorized: Authorized[Execute],
             definition_key: str,
             definition_version: str,
             skill: str,
@@ -1155,9 +1197,9 @@ def build_experience_server(
             ruling gives — and the remaining gap is now bounded by the
             caller's own tenant rather than unbounded.
             """
-            verified_grant()
             return invoker_seam(
-                tenant=tenant,
+                # The capability's tenant, never a wire value (D-IMPL-353 §1.2).
+                tenant=authorized.tenant,
                 definition_key=definition_key,
                 definition_version=definition_version,
                 skill=skill,
@@ -1181,10 +1223,15 @@ def build_experience_server(
 
         @door.tool(
             name=GET_CONTEXT_TOOL,
+            action=ACTION_PRODUCT_RETRIEVE,
             subject=door.from_argument("tenant"),
-            mutating=False, description=get_context_description
+            # The class is the deployment's, never the caller's — so the
+            # resource decided on is the declared one.
+            resource=door.resource_declared(context_class),
+            mutating=False,
+            description=get_context_description,
         )
-        def get_context(tenant: str, entity: str) -> str:
+        def get_context(authorized: Authorized[ProductRetrieve], entity: str) -> str:
             """Serve one tenant's entity-scoped product via the injected seam.
 
             Authenticate, then entitle, then resolve — and **the order is the
@@ -1217,6 +1264,7 @@ def build_experience_server(
             the shell's canonical bytes are what the tool answers, so the
             refusal is a governed response rather than a tool error.
             """
+            tenant = authorized.tenant
             decided = govern_entitlement(
                 grant=verified_grant(),
                 tenant=tenant,
@@ -1266,11 +1314,13 @@ def build_experience_server(
             # the decision is against the tenant the deployment declared the
             # tool's address under. The same value the entitlement is already
             # decided against, read once (`SEC-018`).
+            action=ACTION_PRODUCT_RETRIEVE,
             subject=door.declared(lineage_address_tenant),
+            resource=door.resource_declared(lineage_class),
             mutating=False,
             description=get_lineage_description,
         )
-        def get_lineage() -> str:
+        def get_lineage(authorized: Authorized[ProductRetrieve]) -> str:
             """Serve the product's lineage via the injected seam, once entitled.
 
             Same sequence as :data:`GET_CONTEXT_TOOL`, decided against the
@@ -1292,9 +1342,9 @@ def build_experience_server(
             deployment declared — the only address a tool with no wire
             arguments has — and disclosed it before returning.
             """
-            authorized = govern_entitlement(
+            decided = govern_entitlement(
                 grant=verified_grant(),
-                tenant=lineage_address_tenant,
+                tenant=authorized.tenant,
                 product_class=lineage_class,
                 product_version=None,
                 requested_role=None,
@@ -1312,13 +1362,13 @@ def build_experience_server(
                 perspective_resolver=perspective_resolver,
                 refusal_recorder=recorder,
             )
-            if isinstance(authorized, RefusalEnvelope):
-                return canonical_bytes(authorized).decode("utf-8")
+            if isinstance(decided, RefusalEnvelope):
+                return canonical_bytes(decided).decode("utf-8")
             # Bound, and then deliberately dropped in the open rather than
             # discarded silently: `LineageProviderProtocol` was not widened,
             # and its docstring says why. The decision is what mattered here,
             # not the conditioning.
-            del authorized
+            del decided
             return lineage_seam()
 
     if GET_REPLAY_RECORD_TOOL in allowed:
@@ -1337,11 +1387,15 @@ def build_experience_server(
 
         @door.tool(
             name=GET_REPLAY_RECORD_TOOL,
+            action=ACTION_REPLAY_READ,
             subject=door.declared(replay_tenant),
+            # No arguments at all: the door names itself, as the HTTP replay
+            # routes name the address they are asked for and this one is not.
+            resource=door.resource_route(),
             mutating=False,
             description=get_replay_record_description,
         )
-        def get_replay_record() -> str:
+        def get_replay_record(authorized: Authorized[ReplayRead]) -> str:
             """Serve the most-recent replay record via the injected seam.
 
             The five-dimension record is the widest disclosure on this server,
@@ -1356,7 +1410,10 @@ def build_experience_server(
             entitlement vocabulary is invented here. Within the declared
             tenant, any verified caller still receives the record.
             """
-            verified_grant()
+            # The seam takes no capability: the decision is what mattered, and
+            # it was made — for `replay.read` under the declared tenant —
+            # before this body ran (D-IMPL-353 §1.2).
+            del authorized
             return replay_seam()
 
-    return server
+    return door.build()
