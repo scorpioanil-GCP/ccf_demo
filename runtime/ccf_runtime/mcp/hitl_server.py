@@ -1,58 +1,67 @@
 """The HITL MCP transport — queues as Resources, human authority as Tools.
 
 CLAUDE.md §8.2 (SDK-defined — an extension beyond the whitepaper, and it
-says so); D-IMPL-20/21. **This is the D-IMPL-20 PRIMARY authority channel**:
-MCP server endpoints exposing the HITL queues are the Experience-Layer
-primary, and the action Tools on this surface are how a human's decision
-returns through the typed queue. The notification/authority separation the
-ruling draws holds here structurally: webhooks and every other notification
-leg are notify-only — a notification can tell a human something is pending,
-but the *action* flows back only through this surface's Tools, each of which
-requires the complete :class:`~ccf.hitl.principal.HumanPrincipalBinding`
-field set in its input schema. An unbound action is therefore
-unrepresentable through the MCP surface, exactly as it is unrepresentable
-through the in-process typed contract — the MCP surface cannot bypass audit.
+says so); D-IMPL-20/21; D-IMPL-353 §2 P4/P6. **This is the D-IMPL-20 PRIMARY
+authority channel**: MCP server endpoints exposing the HITL queues are the
+Experience-Layer primary, and the action Tool on this surface is how a
+human's decision returns through the typed queue. The notification/authority
+separation the ruling draws holds here structurally: webhooks and every
+other notification leg are notify-only — a notification can tell a human
+something is pending, but the *action* flows back only through this
+surface's Tool, and the binding it carries is minted by this door.
+
+**The bodies receive the capability; they hold no authorizer (§2 P4).** Both
+handlers take ``authorized`` as their first argument — an
+``Authorized[HitlQueueRead]`` for the queue resource, an
+``Authorized[HitlSubmit]`` for the action tool — minted by the
+:class:`~ccf_runtime.mcp.tenancy.TenantGuardedServer` wrapper for the action
+each registration declares, after the deployment's
+:class:`~ccf_runtime.authz.protocol.TenantAuthorizerProtocol` returns
+*allowed*, and stripped from the wire schema so a caller cannot supply one
+(a caller-supplied object would die at the handle's
+:func:`~ccf.authz.capability.verify` anyway). There is no ``authorizer``
+parameter on either body and no early-return arm for an absent one — this
+builder takes the authorizer, **required**, and hands it to the wrapper; the
+bodies see only the capability. What the earlier per-body helper did — ask
+an *optional* authorizer inside the body, when someone remembered to bind one
+— is the D-IMPL-73 shape, and it is gone rather than made mandatory.
+
+**The door mints the binding; the caller does not describe it (§2 P6).**
+``submit_hitl_action`` used to take every
+:class:`~ccf.hitl.principal.HumanPrincipalBinding` field as a tool argument
+— ``subject_id``, ``identity_provider_ref``, ``method``, ``assurance_level``,
+``session_ref``, ``action_time`` — compared the subject with the verified
+identity, and passed the rest through. The tool now takes the
+:class:`~ccf.hitl.transport.HitlActionRequest` field set and nothing else:
+event key, action, the content hash of what the human saw, an optional
+annotation, an optional detached signature. The binding is minted by
+:func:`~ccf_runtime.identity_binding.principal_from_authorized` from
+``authorized.principal``, the verified token's
+:class:`~ccf.hitl.principal.AuthenticationClaims`
+(:func:`~ccf_runtime.identity_binding.authentication_of_token`; a token that
+carries none is refused with ``ERROR_AUTHENTICATION_UNATTESTED``), and the
+injected ``clock`` — so a caller-typed step-up-MFA claim is unrepresentable
+on this surface, and a naive action time can no longer be presented because
+no action time can be presented.
 
 **The D-22 scope of that claim.** What this module guarantees is the
 *binding-by-construction* leg: no tool call reaches the deployment's action
-route without a complete, validated binding, because the tool signature
-requires every field and the typed contracts refuse partial or malformed
-values at the boundary. The *recording* obligation — landing the completed
-action on Decision Replay dimension 2 — belongs to the HITL primitives the
-deployment's injected route composes (the same scoping as
-:mod:`ccf.hitl.transport`), and it is demonstrated across a real process
-boundary by ``tests/crossproc/test_hitl_mcp.py``, not asserted here.
+route without a complete, door-minted binding. The *recording* obligation —
+landing the completed action on Decision Replay dimension 2 — belongs to
+the HITL primitives the deployment's injected route composes (the same
+scoping as :mod:`ccf.hitl.transport`), and it is demonstrated across a real
+process boundary by ``tests/crossproc/test_hitl_mcp.py``, not asserted here.
 
-**What this server holds: two Protocol callables, nothing else.** The queue
-view and the action route are injected; the server holds no HITL primitive,
-no transport instance, no replay writer, no graph handle, and no Control
-Plane handle — the same posture as every sibling MCP role, and the
+**What this server holds: two Protocol callables, a clock, nothing else.**
+The queue view and the action route are injected; the server holds no HITL
+primitive, no transport instance, no replay writer, no graph handle, and no
+Control Plane handle — the same posture as every sibling MCP role, and the
 role-separation suite greps this source to keep it that way (T-07-22).
 
-**Tenancy is a URI segment, resolved per call** (INV-CH7-16; D-23): one
-server over a shared deployment must not be able to show one tenant's
-pending events to another by positional accident, and the per-tenant queue
-partitioning of the typed transport carries through to this surface intact.
-
-**The subject is the verified identity (D-IMPL-67 item 2).** The action
-Tool binds the submission's subject to the server's *verified* token
-identity through the shared derivation
-(:func:`~ccf_runtime.identity_binding.principal_from_token_grant`): a
-caller-typed ``subject_id`` is a claim that must match the verified
-``client_id``, a conflicting claim is a typed refusal
-(:class:`SubjectIdentityConflictRefused`), and an unverifiable call is
-refused outright (:class:`UnverifiedCallerRefused`) — never trusted.
-
-**The HARD-04 tenant-authz composition (D-IMPL-68; 10-03).** When the
-caller binds a :class:`~ccf_runtime.authz.protocol.TenantAuthorizerProtocol`,
-both the queue resource (``hitl.queue.read`` with the URI tenant segment —
-the A1-verified ``get_access_token()`` mechanism) and the action tool
-(``hitl.action.submit`` with its ``tenant`` parameter, after identity
-verification) ask it before any seam is touched. A deny is the SAME shared
-constant the HTTP door carries (``ERROR_TENANT_UNAUTHORIZED``), rendered
-protocol-natively as a ``ValueError`` whose payload is the one
-refusal-body shape (D-08); the authorizer audits both outcomes itself
-(D-09/D-10). Unbound, behavior is unchanged.
+**Tenancy is a URI segment, resolved per call** (INV-CH7-16; D-23), decided
+against the verified grant by the wrapper (``SEC-018``) and thereafter read
+only as ``authorized.tenant``: the per-tenant queue partitioning of the typed
+transport carries through to this surface intact.
 
 **Authenticated (D-26).** The verifier/settings pair is required, and
 required together, per the artifact-server precedent — this is the surface
@@ -60,8 +69,9 @@ human authority crosses, and it is the last place an unauthenticated
 configuration should be reachable.
 
 Server name, bind address, token values, tenant identifiers, event
-vocabulary, and approver identities are all deployment values supplied by
-the caller or carried on the wire. This module holds none of them (CINV-01).
+vocabulary, approver identities and the clock are all deployment values
+supplied by the caller or carried on the wire. This module holds none of
+them (CINV-01).
 
 Algorithmic module (CINV-03).
 """
@@ -69,6 +79,7 @@ Algorithmic module (CINV-03).
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from datetime import datetime
 from typing import Protocol, runtime_checkable
 
@@ -77,9 +88,12 @@ from mcp.server.auth.provider import TokenVerifier
 from mcp.server.auth.settings import AuthSettings
 from mcp.server.fastmcp import FastMCP
 
+from ccf.authz.actions import ACTION_HITL_ACTION_SUBMIT, ACTION_HITL_QUEUE_READ
+from ccf.authz.capability import Authorized, HitlQueueRead, HitlSubmit
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes
 from ccf.hitl.identity_binding import SignedPrincipalBinding
+from ccf.hitl.principal import AuthenticationClaims
 from ccf.hitl.transport import (
     HitlActionSubmission,
     PendingHitlEvent,
@@ -87,18 +101,18 @@ from ccf.hitl.transport import (
     SignedBindingRequiredRefused,
 )
 from ccf_runtime.authz.protocol import TenantAuthorizerProtocol
-from ccf_runtime.authz.refusals import (
-    ACTION_HITL_ACTION_SUBMIT,
-    ACTION_HITL_QUEUE_READ,
-)
 from ccf_runtime.http_api.errors import (
     ERROR_SIGNED_BINDING_INVALID,
     ERROR_SIGNED_BINDING_REQUIRED,
-    ERROR_TENANT_UNAUTHORIZED,
     refusal_detail,
 )
-from ccf_runtime.identity_binding import principal_from_token_grant
-from ccf_runtime.mcp.auth import TokenGrant, granted_tenants
+from ccf_runtime.identity_binding import (
+    ERROR_AUTHENTICATION_UNATTESTED,
+    AuthenticationUnattested,
+    attested_authentication,
+    authentication_of_token,
+    principal_from_authorized,
+)
 from ccf_runtime.mcp.tenancy import TenantGuardedServer
 
 __ccf_mode__ = "algorithmic"
@@ -110,8 +124,6 @@ __all__ = [
     "HitlActionRouteProtocol",
     "HitlQueueView",
     "HitlQueueViewProtocol",
-    "NaiveActionTimeRefused",
-    "SubjectIdentityConflictRefused",
     "UnverifiedCallerRefused",
     "build_hitl_server",
     "hitl_queue_uri",
@@ -130,37 +142,21 @@ HITL_QUEUE_URI_TEMPLATE = f"{HITL_QUEUE_URI_SCHEME}://{{tenant}}"
 #: Media type of the served queue view — canonical JSON.
 QUEUE_MIME_TYPE = "application/json"
 
-#: The one authority Tool. Its input schema requires every
-#: ``HumanPrincipalBinding`` field; there is no reduced variant.
+#: The one authority Tool. Its input schema is the
+#: :class:`~ccf.hitl.transport.HitlActionRequest` field set — what only the
+#: human can state — and no binding field (D-IMPL-353 §2 P6).
 SUBMIT_HITL_ACTION_TOOL = "submit_hitl_action"
-
-
-class NaiveActionTimeRefused(ValueError):
-    """An action time without a UTC offset was presented to the authority tool.
-
-    Refused at the boundary rather than passed on: the canonical serializer
-    would refuse a naive datetime anyway (D-IMPL-38), and refusing it here
-    keeps the ambiguity out of the submission before anything is routed —
-    a replay must never have to guess which wall a human's clock hung on.
-    """
 
 
 class UnverifiedCallerRefused(RuntimeError):
     """No verified access token was present for the in-flight tool call.
 
-    The D-26 auth middleware should make this unreachable — the server is
-    authenticated by construction — but the tool refuses rather than trusts
-    the caller's claim when the precondition fails (D-IMPL-67 item 2): a
-    subject the deployment did not verify never binds a human action.
-    """
-
-
-class SubjectIdentityConflictRefused(ValueError):
-    """The caller-typed ``subject_id`` conflicts with the verified identity.
-
-    The audited subject is the server's verified token identity, never the
-    caller's claim (D-IMPL-67; D-IMPL-21). The refusal names the conflict
-    without echoing token values.
+    The D-26 auth middleware and the tenancy wrapper should make this
+    unreachable — the server is authenticated by construction — but the
+    body refuses rather than trusts when the precondition fails: the
+    authentication claims a binding is minted from are read off the verified
+    token, and a token nobody verified attests nothing (D-IMPL-67 item 2;
+    D-IMPL-353 §2 P6).
     """
 
 
@@ -169,7 +165,7 @@ class HitlQueueView(CCFContract):
 
     A read of the typed queue, never a consumption: the events remain
     pending — resolving one is the action Tool's business, through the
-    deployment's route, under a complete binding.
+    deployment's route, under a door-minted binding.
     """
 
     tenant: str
@@ -180,14 +176,17 @@ class HitlQueueView(CCFContract):
 class HitlQueueViewProtocol(Protocol):
     """Where this server reads one tenant's pending events.
 
-    A Protocol over the queue-view slice of
-    :class:`~ccf.hitl.transport.HITLTransportProtocol`: the deployment
-    supplies a callable over its transport, and the server holds no
-    primitive handle of its own (the 07-09 key link).
+    A Protocol over the served-view slice of
+    :class:`~ccf.hitl.transport.HITLTransportProtocol` — ``view`` — taking
+    the capability the wrapper minted: the deployment supplies a callable
+    over its transport, and the server holds no primitive handle of its own
+    (the 07-09 key link). Whose queue is read is ``authorized.tenant``.
     """
 
-    def __call__(self, *, tenant: str) -> tuple[PendingHitlEvent, ...]:
-        """The tenant's pending events, oldest first, without consuming."""
+    def __call__(
+        self, authorized: Authorized[HitlQueueRead]
+    ) -> tuple[PendingHitlEvent, ...]:
+        """The capability's tenant's pending events, oldest first, without consuming."""
         ...
 
 
@@ -197,12 +196,18 @@ class HitlActionRouteProtocol(Protocol):
 
     The callable a deployment supplies here composes the HITL primitives —
     resolving the gate, auditing the outcome, landing the action on replay
-    dimension 2 — none of which this module can reach itself. The submission
-    it receives is complete by construction: the tool signature and the
-    typed contracts refuse anything less before this seam is called.
+    dimension 2 — none of which this module can reach itself, and each of
+    which requires the ``Authorized[HitlSubmit]`` this door received, so the
+    route takes it too. The submission it receives is complete by
+    construction: its binding was minted by this door.
     """
 
-    def __call__(self, *, submission: HitlActionSubmission) -> str:
+    def __call__(
+        self,
+        authorized: Authorized[HitlSubmit],
+        *,
+        submission: HitlActionSubmission,
+    ) -> str:
         """Route one bound action; return the canonical-JSON result verbatim."""
         ...
 
@@ -223,7 +228,8 @@ def build_hitl_server(
     action_route: HitlActionRouteProtocol,
     token_verifier: TokenVerifier,
     auth_settings: AuthSettings,
-    authorizer: TenantAuthorizerProtocol | None = None,
+    authorizer: TenantAuthorizerProtocol,
+    clock: Callable[[], datetime],
 ) -> FastMCP:
     """Build the authenticated HITL server over the two injected seams.
 
@@ -238,25 +244,24 @@ def build_hitl_server(
 
     Args:
         server_name: The name this server advertises. Deployment identity.
-        queue_view: The deployment's read of its typed HITL queue.
+        queue_view: The deployment's served read of its typed HITL queue —
+            ``transport.view`` under the capability the wrapper minted.
         action_route: The deployment's authority route — gate resolution,
-            audit, and the dimension-2 replay landing all live behind it.
+            audit, and the dimension-2 replay landing all live behind it,
+            under the same capability.
         token_verifier: Verifies presented bearer tokens
             (:mod:`ccf_runtime.mcp.auth` ships the reference implementation).
         auth_settings: Issuer, resource-server identity, required scopes —
             deployment values in their entirety.
-        authorizer: Optional HARD-04 **per-action** authorizer (D-IMPL-68).
-            When bound, the queue resource and the action tool additionally
-            enforce the door-declared action IDs, denying with the shared
-            ``ERROR_TENANT_UNAUTHORIZED`` constant rendered protocol-natively
-            (D-08).
-
-            **It is no longer what decides tenancy, and leaving it optional
-            no longer leaves this door open** (``SEC-018``). Membership in the
-            verified grant's tenants is decided by
-            :class:`~ccf_runtime.mcp.tenancy.TenantGuardedServer` on every
-            call, bound authorizer or not; an action vocabulary is a
-            deployment's to declare and stays optional on top of that floor.
+        authorizer: The deployment's per-action authorizer. **Required, no
+            default** (D-IMPL-353 §4): the wrapper mints each body's
+            capability from its *allowed* decision, and a door whose
+            authorizer could be absent is a door whose bodies could receive
+            nothing.
+        clock: The injected clock the action tool stamps ``action_time``
+            from. **Required, no default**: an approval's time is the
+            deployment's statement, never a wall clock read here and never
+            a value the caller sends.
 
     Returns:
         A configured ``FastMCP``. Deliberately *not* started, and no bind
@@ -270,194 +275,107 @@ def build_hitl_server(
             json_response=True,
             token_verifier=token_verifier,
             auth=auth_settings,
-        )
+        ),
+        authorizer=authorizer,
     )
-    server = door.fastmcp
+    def _verified_authentication() -> AuthenticationClaims:
+        """The verified token's authentication claims, or refuse.
 
-    def _enforce_tenant_authz(*, tenant: str, action_id: str) -> None:
-        """Ask the bound authorizer before any injected seam is touched.
-
-        **This function is no longer where tenancy is decided, and it never
-        should have been the only place** (``SEC-018``). It opened
-        ``if authorizer is None: return`` and the builder's ``authorizer``
-        defaulted to ``None``, so the door's tenant check was optional *by
-        construction* — its applicability decided by the deployer, which is the
-        same defect class as a guard whose applicability the caller decides. A
-        deployment that bound no authorizer served every tenant's queue to any
-        verified bearer.
-
-        Membership in the verified grant's tenants is now decided by
-        :class:`~ccf_runtime.mcp.tenancy.TenantGuardedServer` at registration,
-        unconditionally, before either body below runs. What remains here is
-        what an authorizer was actually for: **fine-grained per-action**
-        authorization, which is legitimately optional because an action
-        vocabulary is a deployment's to declare. Optional detail on top of a
-        mandatory floor, rather than an optional floor.
-
-        Inert when no authorizer is bound. The verified identity comes
-        from ``get_access_token()`` — available in tool AND resource
-        handlers on this authenticated server (A1 spike verdict,
-        ``tests/crossproc/test_fastmcp_resource_token_spike.py``). A deny
-        is the shared constant, rendered protocol-natively (D-08); the
-        authorizer audits both outcomes itself (D-09/D-10).
+        Read off ``get_access_token()`` — the same verified context the
+        wrapper decided tenancy on (A1 spike verdict). A refusal for absent
+        claims is the shared constant, rendered protocol-natively (D-08).
         """
-        if authorizer is None:
-            return
         token = get_access_token()
         if token is None:
             raise UnverifiedCallerRefused(
-                "no verified access token accompanies this call; the"
-                " tenant-authorized surface decides on verified"
-                " identities only (D-IMPL-68; D-26)"
+                "no verified access token accompanies this tool call; the"
+                " authority surface mints bindings from verified credentials"
+                " only (D-IMPL-67; D-26; D-IMPL-353 §2 P6)"
             )
-        decision = authorizer.authorize(
-            grant=TokenGrant(
-                client_id=token.client_id,
-                scopes=tuple(token.scopes),
-                # The tenants the token was VERIFIED carrying (`SEC-018`).
-                # Rebuilding the grant without them would hand the authorizer
-                # a weaker claim than the one the caller actually presented.
-                tenants=granted_tenants(token),
-            ),
-            tenant=tenant,
-            action_id=action_id,
-            # ROUTE semantics: this door IS the resource, so its action id
-            # names it (`ccf_runtime.authz.route_declaration.ResourceBinding
-            # .route`). The MCP surface has no path template to bind a
-            # finer resource from, and inventing one here would put a
-            # resource vocabulary in the door rather than in the policy.
-            resource=action_id,
-        )
-        if not decision.allowed:
+        try:
+            return attested_authentication(authentication_of_token(token))
+        except AuthenticationUnattested as error:
             raise ValueError(
                 json.dumps(
                     refusal_detail(
-                        error_code=ERROR_TENANT_UNAUTHORIZED,
-                        message=(
-                            "the verified caller's grant does not"
-                            f" authorize action {action_id!r} on tenant"
-                            f" {tenant!r} under the scope mapping in"
-                            " force (HARD-04; D-IMPL-68 —"
-                            " deny-by-default)"
-                        ),
+                        error_code=ERROR_AUTHENTICATION_UNATTESTED,
+                        message=str(error),
                     )
                 )
-            )
+            ) from error
 
     @door.resource(
         HITL_QUEUE_URI_TEMPLATE,
         subject=door.from_argument("tenant"),
         mutating=False,
+        action=ACTION_HITL_QUEUE_READ,
+        resource=door.resource_route(),
         mime_type=QUEUE_MIME_TYPE,
     )
-    def hitl_queue(tenant: str) -> str:
-        """Serve one tenant's pending HITL events as canonical JSON.
+    def hitl_queue(authorized: Authorized[HitlQueueRead]) -> str:
+        """Serve the capability's tenant's pending HITL events as canonical JSON.
 
-        The ``tenant`` segment is decided against the verified grant before
-        this body runs (``SEC-018``), whether or not an authorizer is bound.
+        ``tenant`` is the wire segment the wrapper decided against the
+        verified grant and minted the capability for; this body reads the
+        tenant back off ``authorized`` and nothing else (D-IMPL-353 §1.3).
         """
-        _enforce_tenant_authz(
-            tenant=tenant, action_id=ACTION_HITL_QUEUE_READ
+        view = HitlQueueView(
+            tenant=authorized.tenant, events=queue_view(authorized)
         )
-        view = HitlQueueView(tenant=tenant, events=queue_view(tenant=tenant))
         return canonical_bytes(view).decode("utf-8")
 
     @door.tool(
         name=SUBMIT_HITL_ACTION_TOOL,
         subject=door.from_argument("tenant"),
         mutating=True,
+        action=ACTION_HITL_ACTION_SUBMIT,
+        resource=door.resource_argument("event_key"),
     )
     def submit_hitl_action(
-        tenant: str,
+        authorized: Authorized[HitlSubmit],
         event_key: str,
         action: str,
-        subject_id: str,
-        identity_provider_ref: str,
-        method: str,
-        assurance_level: str,
-        session_ref: str,
-        action_time: str,
         product_content_hash: str,
         annotation: str | None = None,
         signed_binding_signature: str | None = None,
         signed_binding_key_id: str | None = None,
     ) -> str:
-        """Submit one human action under a verified principal binding.
+        """Submit one human action under a door-minted principal binding.
 
-        Every ``HumanPrincipalBinding`` field is a required parameter of
-        this tool — the input schema *is* the D-IMPL-21 field set, so a call
-        missing any of them is refused by the tool boundary before a
-        submission can exist, and a malformed value (a non-hash product
-        identity, an unknown action, a naive action time) is refused by the
-        typed contracts.
-
-        **The subject is the server's verified token identity, never the
-        caller's claim (D-IMPL-67 item 2).** ``subject_id`` remains a
-        required parameter — the D-IMPL-21 field-set input schema is
-        preserved — but it is a *claim that must match*: a value conflicting
-        with the verified identity is a typed refusal, and the binding that
-        reaches the deployment's authority route is derived through
-        :func:`~ccf_runtime.identity_binding.principal_from_token_grant`,
-        which has no caller subject parameter.
+        The input schema is what only the human can state (D-IMPL-353 §2
+        P6): the event, the verdict, the content hash of what they saw, an
+        optional annotation and an optional detached signature. No binding
+        field is a parameter — ``subject_id``, ``identity_provider_ref``,
+        ``method``, ``assurance_level``, ``session_ref`` and ``action_time``
+        do not exist on this tool — so a caller cannot describe their own
+        authentication. The binding is minted from ``authorized.principal``,
+        the verified token's claims and the injected clock.
 
         Raises:
-            NaiveActionTimeRefused: ``action_time`` carries no UTC offset.
             UnverifiedCallerRefused: no verified access token in context.
-            SubjectIdentityConflictRefused: ``subject_id`` conflicts with
-                the verified token identity.
+            ValueError: the credential states no authentication context
+                (``ERROR_AUTHENTICATION_UNATTESTED``), the signature pair is
+                half-presented, or the transport refused the signed binding
+                (``ERROR_SIGNED_BINDING_REQUIRED`` /
+                ``ERROR_SIGNED_BINDING_INVALID``) — each carrying the one
+                refusal-body shape (D-08).
         """
-        parsed_time = datetime.fromisoformat(action_time)
-        if parsed_time.tzinfo is None:
-            raise NaiveActionTimeRefused(
-                f"action_time {action_time!r} carries no UTC offset; an"
-                " ambiguous instant cannot bind a human action (D-IMPL-38,"
-                " D-IMPL-21)"
-            )
-        token = get_access_token()
-        if token is None:
-            raise UnverifiedCallerRefused(
-                "no verified access token accompanies this tool call; the"
-                " authority surface binds subjects to verified identities"
-                " only (D-IMPL-67; D-26)"
-            )
-        if subject_id != token.client_id:
-            raise SubjectIdentityConflictRefused(
-                "identity conflict: the claimed subject_id does not match"
-                " the verified token identity; the audited subject is the"
-                " server's verified identity, never the caller's claim"
-                " (D-IMPL-67; D-IMPL-21)"
-            )
-        _enforce_tenant_authz(
-            tenant=tenant, action_id=ACTION_HITL_ACTION_SUBMIT
-        )
-        derived = principal_from_token_grant(
-            grant=TokenGrant(
-                client_id=token.client_id,
-                scopes=tuple(token.scopes),
-                # The tenants the token was VERIFIED carrying (`SEC-018`).
-                # Rebuilding the grant without them would hand the authorizer
-                # a weaker claim than the one the caller actually presented.
-                tenants=granted_tenants(token),
-            ),
-            identity_provider_ref=identity_provider_ref,
-            method=method,
-            assurance_level=assurance_level,
-            session_ref=session_ref,
-            action_time=parsed_time,
+        authentication = _verified_authentication()
+        derived = principal_from_authorized(
+            authorized,
+            authentication=authentication,
+            action_time=clock(),
             product_content_hash=product_content_hash,
         )
-        signed_binding: SignedPrincipalBinding | None = None
-        if (signed_binding_signature is None) != (
-            signed_binding_key_id is None
-        ):
+        if (signed_binding_signature is None) != (signed_binding_key_id is None):
             raise ValueError(
                 "signed_binding_signature and signed_binding_key_id are"
                 " presented together or not at all (D-16; D-IMPL-21)"
             )
-        if (
-            signed_binding_signature is not None
-            and signed_binding_key_id is not None
-        ):
+        signed_binding: SignedPrincipalBinding | None = None
+        if signed_binding_signature is not None and signed_binding_key_id is not None:
+            # The signature is over the binding THIS door minted — a signer
+            # attests the server's statement of the action, not its own.
             signed_binding = SignedPrincipalBinding(
                 binding=derived,
                 signature=signed_binding_signature,
@@ -465,14 +383,13 @@ def build_hitl_server(
             )
         submission = HitlActionSubmission(
             event_key=event_key,
-            tenant=tenant,
             action=action,
             principal=derived,
             annotation=annotation,
             signed_binding=signed_binding,
         )
         try:
-            return action_route(submission=submission)
+            return action_route(authorized, submission=submission)
         except SignedBindingRequiredRefused as error:
             # D-16 door mapping (08-03): the MCP door carries the SAME
             # shared error-code constants as the HTTP door — single
@@ -496,4 +413,4 @@ def build_hitl_server(
                 )
             ) from error
 
-    return server
+    return door.build()

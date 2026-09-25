@@ -24,6 +24,7 @@ import yaml
 from pydantic import ValidationError
 
 from ccf.contracts.base import CCFContract
+from ccf.authz.capability import Authorized, HitlSubmit
 from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.controlplane.audit import AuditLog
 from ccf.hitl.override import (
@@ -37,7 +38,9 @@ from ccf.hitl.principal import (
     AuthenticationContext,
     HumanPrincipalBinding,
 )
-from ccf.hitl.transport import HitlActionSubmission, InMemoryHitlTransport
+from ccf.hitl.transport import PendingHitlEvent, HitlActionSubmission, InMemoryHitlTransport
+
+from .capabilities import submit_capability
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "banking"
 
@@ -54,6 +57,17 @@ def _hitl() -> dict[str, Any]:
         (FIXTURES / "hitl.yaml").read_text()
     )
     return loaded
+
+
+def _authorized(tenant: str, event_key: str) -> Authorized[HitlSubmit]:
+    """The capability a resolver presents (D-IMPL-353 §1.2): minted for
+    exactly this tenant and event, for the fixture's credit officer — the
+    subject every binding below names, so the transport's actor check and
+    the capability agree."""
+    subject = _hitl()["approvers"]["credit_officer"]["identity"]["subject_id"]
+    return submit_capability(
+        tenant=tenant, principal=subject, event_key=event_key
+    )
 
 
 def _clock() -> Any:
@@ -113,7 +127,7 @@ def test_an_override_records_both_values_byte_assertably() -> None:
     document = fixture["override"]["event"]
     substitute = _Determination(**fixture["override"]["substitute"])
     resolution = boundary.resolve(
-        tenant=document["tenant"],
+        _authorized(document["tenant"], document["event_key"]),
         event_key=document["event_key"],
         principal=_principal(
             fixture, product_content_hash=content_hash(original)
@@ -145,7 +159,6 @@ def test_an_unbound_override_is_unrepresentable() -> None:
     with pytest.raises(ValidationError):
         HitlActionSubmission(  # type: ignore[call-arg]
             event_key=document["event_key"],
-            tenant=document["tenant"],
             action="override",
         )
 
@@ -159,7 +172,7 @@ def test_a_hash_mismatch_is_refused_and_the_event_stays_pending() -> None:
     document = fixture["override"]["event"]
     stale = content_hash({"stale": "output"})
     refused = boundary.resolve(
-        tenant=document["tenant"],
+        _authorized(document["tenant"], document["event_key"]),
         event_key=document["event_key"],
         principal=_principal(fixture, product_content_hash=stale),
         override=_Determination(**fixture["override"]["substitute"]),
@@ -178,7 +191,7 @@ def test_a_declined_override_is_a_recorded_action() -> None:
     original = _propose(boundary, fixture)
     document = fixture["override"]["event"]
     resolution = boundary.resolve(
-        tenant=document["tenant"],
+        _authorized(document["tenant"], document["event_key"]),
         event_key=document["event_key"],
         principal=_principal(
             fixture, product_content_hash=content_hash(original)
@@ -214,7 +227,7 @@ def test_resolving_on_a_second_instance_is_typed_and_mutates_nothing() -> None:
     )
     with pytest.raises(UnknownOverrideEventError):
         other.resolve(
-            tenant=document["tenant"],
+            _authorized(document["tenant"], document["event_key"]),
             event_key=document["event_key"],
             principal=_principal(
                 fixture, product_content_hash=content_hash(original)
@@ -232,7 +245,7 @@ def test_resolving_an_unknown_event_raises() -> None:
     document = fixture["override"]["event"]
     with pytest.raises(UnknownOverrideEventError):
         boundary.resolve(
-            tenant=document["tenant"],
+            _authorized(document["tenant"], "acme-bank/exec-ovr/no-such-event"),
             event_key="acme-bank/exec-ovr/no-such-event",
             principal=_principal(
                 fixture, product_content_hash=content_hash({"any": "thing"})
@@ -318,7 +331,7 @@ def test_override_required_and_unsigned_resolve_is_refused_event_pending(
     )
     with pytest.raises(SignedBindingRequiredRefused):
         boundary.resolve(
-            tenant=document["tenant"],
+            _authorized(document["tenant"], document["event_key"]),
             event_key=document["event_key"],
             principal=principal,
             override=None,
@@ -329,7 +342,7 @@ def test_override_required_and_unsigned_resolve_is_refused_event_pending(
     # A subsequent valid resolve of the SAME event succeeds.
     signed = sign_principal_binding(principal, provider=provider, key_id=kid)
     resolution = boundary.resolve(
-        tenant=document["tenant"],
+        _authorized(document["tenant"], document["event_key"]),
         event_key=document["event_key"],
         principal=principal,
         override=None,
@@ -357,7 +370,7 @@ def test_override_required_and_tampered_binding_is_refused_event_pending(
     )
     with pytest.raises(SignedBindingInvalidRefused):
         boundary.resolve(
-            tenant=document["tenant"],
+            _authorized(document["tenant"], document["event_key"]),
             event_key=document["event_key"],
             principal=principal,
             override=None,
@@ -383,7 +396,7 @@ def test_override_required_and_valid_binding_passes_both_layers(
     )
     signed = sign_principal_binding(principal, provider=provider, key_id=kid)
     resolution = boundary.resolve(
-        tenant=document["tenant"],
+        _authorized(document["tenant"], document["event_key"]),
         event_key=document["event_key"],
         principal=principal,
         override=substitute,
@@ -402,7 +415,7 @@ def test_override_unbound_kwargs_behave_as_before() -> None:
     original = _propose(boundary, fixture)
     document = fixture["override"]["event"]
     resolution = boundary.resolve(
-        tenant=document["tenant"],
+        _authorized(document["tenant"], document["event_key"]),
         event_key=document["event_key"],
         principal=_principal(
             fixture, product_content_hash=content_hash(original)
@@ -410,3 +423,98 @@ def test_override_unbound_kwargs_behave_as_before() -> None:
         override=None,
     )
     assert isinstance(resolution, OverrideResolution)
+
+
+# --- D-IMPL-353 §1.2: the primitive requires the capability for ITS action ----
+#
+# The resolver mutates (``remove`` claims the event) and audits (a hash
+# mismatch writes ``resolved=False``) BEFORE it submits, so the capability
+# is verified at entry — a wrong kind or a capability minted for another
+# event dies before the queue is read, before anything is audited, and
+# before any claim is taken. Without these controls, severing ``verify`` at
+# the primitive would redden nothing.
+
+
+def test_a_queue_read_capability_dies_at_the_primitive_before_anything_is_touched() -> None:
+    from ccf.authz.capability import CapabilityBypassError
+
+    from .capabilities import queue_read_capability
+
+    fixture = _hitl()
+    boundary, transport, audit = _boundary()
+    document = fixture["override"]["event"]
+    original = _Determination(**fixture["override"]["original"])
+    pending = boundary.propose(
+        tenant=document["tenant"],
+        event_key=document["event_key"],
+        workflow_state_ref=document["workflow_state_ref"],
+        original=original,
+        policy_ref=document["policy_ref"],
+    )
+    transport.enqueue(
+        event=PendingHitlEvent(
+            event_key=document["event_key"] + "-decoy",
+            event_class="override-boundary",
+            tenant=document["tenant"],
+            workflow_state_ref="decoy/exec",
+            product_content_hash="e" * 64,
+        )
+    )
+    # Two events, so a claim taken BEFORE the capability died (and given back
+    # at the tail on rollback) shows up as a reorder rather than as nothing.
+    pending_before = transport.pending(tenant=document["tenant"])
+    assert len(pending_before) == 2
+    audit_before = audit.events()
+    principal = _principal(fixture, product_content_hash=pending.product_content_hash)
+    read = queue_read_capability(
+        tenant=document["tenant"], principal="credit-officer-11", resource=document["event_key"]
+    )
+    with pytest.raises(CapabilityBypassError, match="kind"):
+        boundary.resolve(
+            read,  # type: ignore[arg-type]
+            event_key=document["event_key"],
+            principal=principal,
+        )
+    assert transport.pending(tenant=document["tenant"]) == pending_before
+    assert transport.submissions(tenant=document["tenant"]) == ()
+    assert audit.events() == audit_before
+
+
+def test_a_capability_for_another_event_dies_at_the_primitive() -> None:
+    from ccf.authz.capability import CapabilityBypassError
+
+    fixture = _hitl()
+    boundary, transport, audit = _boundary()
+    document = fixture["override"]["event"]
+    original = _Determination(**fixture["override"]["original"])
+    pending = boundary.propose(
+        tenant=document["tenant"],
+        event_key=document["event_key"],
+        workflow_state_ref=document["workflow_state_ref"],
+        original=original,
+        policy_ref=document["policy_ref"],
+    )
+    transport.enqueue(
+        event=PendingHitlEvent(
+            event_key=document["event_key"] + "-decoy",
+            event_class="override-boundary",
+            tenant=document["tenant"],
+            workflow_state_ref="decoy/exec",
+            product_content_hash="e" * 64,
+        )
+    )
+    # Two events, so a claim taken BEFORE the capability died (and given back
+    # at the tail on rollback) shows up as a reorder rather than as nothing.
+    pending_before = transport.pending(tenant=document["tenant"])
+    assert len(pending_before) == 2
+    audit_before = audit.events()
+    principal = _principal(fixture, product_content_hash=pending.product_content_hash)
+    with pytest.raises(CapabilityBypassError, match="resource"):
+        boundary.resolve(
+            _authorized(document["tenant"], "some-other-event"),
+            event_key=document["event_key"],
+            principal=principal,
+        )
+    assert transport.pending(tenant=document["tenant"]) == pending_before
+    assert transport.submissions(tenant=document["tenant"]) == ()
+    assert audit.events() == audit_before

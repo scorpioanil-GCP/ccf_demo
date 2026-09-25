@@ -78,7 +78,6 @@ def _is_identity_name(name: str) -> bool:
 #: declared **outside** this tree. Named one by one, never by wildcard: a
 #: third contract growing one is a red test, which is the whole point.
 EXCEPTED: tuple[tuple[str, str, str], ...] = (
-    ("/hitl/actions", "HitlActionSubmission", "tenant"),
     ("/skill/catalog", "SkillCatalogEntry", "tenant"),
 )
 
@@ -293,7 +292,11 @@ class TestEveryExceptionIsEnforcedAtItsDoor:
                 "annotation": None,
             },
         )
-        assert response.status_code == 403
+        # D-IMPL-353 §1.3: the body has no tenant field at all (the tenant is
+        # the capability's), so naming one is a malformed body that names the
+        # field — refused before any comparison, and nothing lands.
+        assert response.status_code == 422
+        assert "tenant" in response.text
         assert fabric.hitl.submissions(tenant="some-other-tenant") == ()
 
     def test_a_catalog_entry_naming_another_tenant_is_refused(

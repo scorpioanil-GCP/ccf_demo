@@ -66,6 +66,7 @@ from ccf_runtime.workflow.state import WORKFLOW_STATE, WorkflowStateRecord
 from conftest import HARNESS_REQUIRED_ENV, harness_unavailable
 
 from ccf.authz.capability import Authorized, CapabilityBypassError, Execute
+from tests.hitl.capabilities import submit_capability
 from tests.workflow.capabilities import (
     execute_as,
     execute_capability,
@@ -200,7 +201,11 @@ class World:
         ]
         approver = _load("hitl.yaml")["approvers"]["credit_officer"]
         resolution = self.gate.resolve(
-            tenant=suspended.tenant,
+            submit_capability(
+                tenant=suspended.tenant,
+                principal=approver["identity"]["subject_id"],
+                event_key=suspended.event_key,
+            ),
             event_key=suspended.event_key,
             action="approve",
             principal=HumanPrincipalBinding(

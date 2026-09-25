@@ -59,6 +59,7 @@ from ccf_runtime.workflow.engine import (
 from ccf_runtime.workflow.state import WORKFLOW_STATE, WorkflowStateRecord
 
 
+from tests.hitl.capabilities import submit_capability
 from tests.workflow.capabilities import (
     execute_as,
     execute_capability,
@@ -227,11 +228,16 @@ def test_an_exception_ref_routes_into_an_escalation_end_to_end(
     assert pending.workflow_state_ref == key
 
     # 3. Resolution is a bound human action landing on dimension 2.
+    binding = _principal(product_content_hash=state_hash)
     resolution = escalation.resolve(
-        tenant=tenant,
+        submit_capability(
+            tenant=tenant,
+            principal=binding.approver.subject_id,
+            event_key=f"{key}/{routed.node}",
+        ),
         event_key=f"{key}/{routed.node}",
         action="approve",
-        principal=_principal(product_content_hash=state_hash),
+        principal=binding,
     )
     assert isinstance(resolution, EscalationResolution)
     assert resolution.hitl_actions_block
@@ -247,13 +253,16 @@ def test_an_exception_ref_routes_into_an_escalation_end_to_end(
         transport=transport, audit=registry.audit_log, clock=_ticking_clock()
     )
     (gate_event,) = transport.pending(tenant=tenant)
+    gate_binding = _principal(product_content_hash=gate_event.product_content_hash)
     gate_resolution = gate.resolve(
-        tenant=tenant,
+        submit_capability(
+            tenant=tenant,
+            principal=gate_binding.approver.subject_id,
+            event_key=suspended.event_key,
+        ),
         event_key=suspended.event_key,
         action="approve",
-        principal=_principal(
-            product_content_hash=gate_event.product_content_hash
-        ),
+        principal=gate_binding,
     )
     assert isinstance(gate_resolution, GateResolution)
     completed = asyncio.run(

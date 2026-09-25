@@ -561,9 +561,7 @@ def _approve_over_http(app: Any, fabric: Fabric, body: dict[str, Any]) -> None:
         if event.event_key == body["event_key"]
     )
     submission = _bound_submission(body["event_key"])
-    submission["principal"]["product_content_hash"] = (
-        pending.product_content_hash
-    )
+    submission["product_content_hash"] = pending.product_content_hash
     assert call(
         app, "POST", "/hitl/actions", json=submission
     ).status_code == 200
@@ -667,21 +665,8 @@ def test_hitl_action_submission_travels_the_typed_queue(
     product_hash = "0" * 64
     submission = {
         "event_key": "acme-bank/http-covenant-1/gate",
-        "tenant": "acme-bank",
         "action": "approve",
-        "principal": {
-            "approver": {
-                "subject_id": GATE_CLIENT_ID,
-                "identity_provider_ref": "idp:acme-sso",
-            },
-            "authentication": {
-                "method": "sso",
-                "assurance_level": "aal2",
-                "session_ref": "session-1",
-            },
-            "action_time": "2026-07-30T12:00:00+00:00",
-            "product_content_hash": product_hash,
-        },
+        "product_content_hash": product_hash,
         "annotation": None,
     }
     response = call(app, "POST", "/hitl/actions", json=submission)
@@ -693,21 +678,8 @@ def test_hitl_action_submission_travels_the_typed_queue(
 def test_hitl_action_with_an_extra_field_is_refused(app: Any) -> None:
     submission = {
         "event_key": "acme-bank/x/gate",
-        "tenant": "acme-bank",
         "action": "approve",
-        "principal": {
-            "approver": {
-                "subject_id": GATE_CLIENT_ID,
-                "identity_provider_ref": "idp:acme-sso",
-            },
-            "authentication": {
-                "method": "sso",
-                "assurance_level": "aal2",
-                "session_ref": "session-1",
-            },
-            "action_time": "2026-07-30T12:00:00+00:00",
-            "product_content_hash": "0" * 64,
-        },
+        "product_content_hash": "0" * 64,
         "not_a_field": True,
     }
     assert call(app, "POST", "/hitl/actions", json=submission).status_code == 422
@@ -716,21 +688,8 @@ def test_hitl_action_with_an_extra_field_is_refused(app: Any) -> None:
 def _bound_submission(event_key: str) -> dict[str, Any]:
     return {
         "event_key": event_key,
-        "tenant": "acme-bank",
         "action": "approve",
-        "principal": {
-            "approver": {
-                "subject_id": GATE_CLIENT_ID,
-                "identity_provider_ref": "idp:acme-sso",
-            },
-            "authentication": {
-                "method": "sso",
-                "assurance_level": "aal2",
-                "session_ref": "session-1",
-            },
-            "action_time": "2026-07-30T12:00:00+00:00",
-            "product_content_hash": "0" * 64,
-        },
+        "product_content_hash": "0" * 64,
         "annotation": None,
     }
 

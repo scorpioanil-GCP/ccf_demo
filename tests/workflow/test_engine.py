@@ -103,6 +103,7 @@ from ccf_runtime.workflow.engine import (
 )
 from ccf_runtime.workflow.state import WORKFLOW_STATE, WorkflowStateRecord
 
+from tests.hitl.capabilities import submit_capability
 from tests.workflow.capabilities import (
     execute_as,
     execute_capability,
@@ -745,7 +746,7 @@ def _resolve_gate(
         clock=_ticking_clock(),
     )
     resolution = gate.resolve(
-        tenant=tenant,
+        submit_capability(tenant=tenant, principal=subject_id, event_key=event_key),
         event_key=event_key,
         action=action,
         principal=_binding(
@@ -923,12 +924,16 @@ def test_a_submission_that_never_saw_this_suspension_is_not_authority(
     suspended = asyncio.run(engine.execute(execute_as(workflow), workflow, execution_id="exec-1"))
     assert isinstance(suspended, WorkflowSuspended)
     transport.submit(
+        submit_capability(
+            tenant=workflow.definition.tenant,
+            principal="impostor",
+            event_key=suspended.event_key,
+        ),
         submission=HitlActionSubmission(
             event_key=suspended.event_key,
-            tenant=workflow.definition.tenant,
             action="approve",
             principal=_binding("0" * 64, subject_id="impostor"),
-        )
+        ),
     )
     # It really is on the authority path — the refusal below is the hash
     # binding refusing it, not an empty queue.
@@ -1136,7 +1141,7 @@ def _resolve_escalation(
 ) -> None:
     """Put a real human action through the real ExceptionEscalation."""
     resolution = escalation.resolve(
-        tenant=tenant,
+        submit_capability(tenant=tenant, principal=subject_id, event_key=event_key),
         event_key=event_key,
         action="approve",
         principal=_binding(product_content_hash, subject_id=subject_id),
@@ -1399,12 +1404,14 @@ def test_a_bare_submission_needs_this_gate_to_still_be_pending(
     record = registry.state_store.get(WORKFLOW_STATE, key)
     assert isinstance(record, WorkflowStateRecord)
     transport.submit(
+        submit_capability(
+            tenant=tenant, principal="officer-3", event_key=suspended.event_key
+        ),
         submission=HitlActionSubmission(
             event_key=suspended.event_key,
-            tenant=tenant,
             action="approve",
             principal=_binding(content_hash(record), subject_id="officer-3"),
-        )
+        ),
     )
     # Drained rather than resolved: no primitive claimed it, so no recorded
     # fact says which primitive this submission answered.

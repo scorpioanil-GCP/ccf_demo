@@ -208,12 +208,15 @@ class TestTypedErrorCodes:
             response.json()["detail"]["error_code"] == ERROR_UNAUTHENTICATED
         )
 
-    def test_subject_conflict_refusal_carries_its_code(
+    def test_a_caller_typed_subject_is_unrepresentable_at_the_body(
         self, fabric: Fabric, tmp_path: Path
     ) -> None:
+        """D-IMPL-353 §2 P6 superseded the subject-conflict refusal: the body
+        (:class:`ccf.hitl.transport.HitlActionRequest`) carries no
+        ``principal`` at all, so a caller naming a subject is refused as a
+        malformed body that names the field — there is no value that reaches
+        a comparison, and nothing lands."""
         from ccf_runtime.http_api.app import create_app
-        from ccf_runtime.http_api.auth import BearerTokenAuth
-        from ccf_runtime.http_api.errors import ERROR_SUBJECT_CONFLICT
 
         tenant = f"{_TENANT}-conflict"
         app = create_app(_deps(fabric), **_seams(fabric, tmp_path))
@@ -224,10 +227,8 @@ class TestTypedErrorCodes:
             json=_submission_body(subject_id="someone-else", tenant=tenant),
             headers={"Authorization": f"Bearer {_TOKEN}-conflict"},
         )
-        assert response.status_code == 403
-        assert (
-            response.json()["detail"]["error_code"] == ERROR_SUBJECT_CONFLICT
-        )
+        assert response.status_code == 422
+        assert "principal" in response.text
         # The refusal never echoes the credential.
         assert _TOKEN not in response.text
         assert fabric.hitl.submissions(tenant=tenant) == ()

@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1587 entries**, of which **1334** name a public Python surface.
+**1612 entries**, of which **1357** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-930 entries — 888 public Python surface, 42 not public Python API.
+945 entries — 903 public Python surface, 42 not public Python API.
 
 ### Public Python surface
 
@@ -14516,6 +14516,250 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `353-05-the-mcp-wrapper-is-the-second-mint-site.md`.*
 
+#### ccf.hitl.principal.AuthenticationClaims
+
+- Surface: ccf.hitl.principal.AuthenticationClaims
+- Public surface: true
+- Change type: added
+- Before: absent — the identity-provider reference, method, assurance level
+  and session reference on a binding had no source in the SDK's contracts
+  other than whatever the request carried
+- After: a `CCFContract` of exactly those four required fields: what the
+  deployment's credential verifier states about HOW a bearer authenticated.
+  Carried on the verified grant and, on the MCP transports, in
+  `AccessToken.claims` under `AUTHENTICATION_CLAIM`
+- Why: P6. The doors' ONLY source for those four values must be something the
+  caller cannot author. A request body or tool argument naming an assurance
+  level makes step-up MFA a thing the caller types into their own audit record
+- Migration: a deployment's token source attaches one to each grant it mints
+  (`TokenGrant.authentication`, Lane MCP's fragment). A credential without one
+  cannot approve anything — the doors refuse rather than fill the blank
+
+*Recorded by `353-06-the-approval-record-is-server-attested.md`.*
+
+#### ccf.hitl.principal.AUTHENTICATION_CLAIM
+
+- Surface: ccf.hitl.principal.AUTHENTICATION_CLAIM
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `"ccf.authentication"` — where a verified caller's
+  `AuthenticationClaims` travel inside the MCP library's `AccessToken.claims`;
+  the sibling of `ccf_runtime.mcp.auth.TENANT_CLAIM`
+- Why: the MCP door reads the claims off the verified token, and the token
+  verifier writes them; one wire key, held beside the contract it carries,
+  keeps the writer and the single reader
+  (`runtime/ccf_runtime/identity_binding.py::authentication_of_token`) agreeing
+- Migration: none for a caller — nothing on the wire can author this claim
+
+*Recorded by `353-06-the-approval-record-is-server-attested.md`.*
+
+#### ccf.hitl.principal.validate_content_hash
+
+- Surface: ccf.hitl.principal.validate_content_hash
+- Public surface: true
+- Change type: added
+- Before: the lowercase-sha256 check lived only inside
+  `HumanPrincipalBinding`'s private field validator
+- After: a module function both `HumanPrincipalBinding` and the door-facing
+  `HitlActionRequest` validate through
+- Why: the request a human sends and the binding the door mints from it must
+  agree about what a product identity looks like; one function cannot drift
+  into two readings
+- Migration: none
+
+*Recorded by `353-06-the-approval-record-is-server-attested.md`.*
+
+#### ccf.hitl.transport.HitlActionRequest
+
+- Surface: ccf.hitl.transport.HitlActionRequest
+- Public surface: true
+- Change type: added
+- Before: absent — `POST /hitl/actions` took a `HitlActionSubmission`, binding
+  included, and the MCP tool took every binding field as an argument
+- After: the caller-facing half of the authority path: `event_key`, `action`,
+  `product_content_hash` (validated), `annotation` and `signed_binding` — and
+  nothing else. No `principal`, no `subject_id`, no `identity_provider_ref`,
+  no `method`, no `assurance_level`, no `session_ref`, no `action_time`, no
+  `tenant`. `extra=forbid` makes a body that still sends any of them a 422
+- Why: P6 — what only the human can state is the event, the verdict, the hash
+  of what they saw, a note, and (where policy requires it) a signature. A
+  caller-typed step-up claim becomes unrepresentable, not refused
+- Migration: an HTTP client or `ccf hitl submit` document drops the
+  `principal` object and the `tenant` field and sends the five fields above.
+  A document that still carries them is refused with 422 naming the field
+
+*Recorded by `353-06-the-approval-record-is-server-attested.md`.*
+
+#### ccf.hitl.transport.PrincipalMismatchRefused
+
+- Surface: ccf.hitl.transport.PrincipalMismatchRefused
+- Public surface: true
+- Change type: added
+- Before: absent — the transport recorded whatever subject the submission's
+  binding named
+- After: a `PermissionError` raised by `submit` when the binding's
+  `approver.subject_id` is not `authorized.principal`, before anything is
+  recorded and before the claim is consumed
+- Why: the recorded actor has ONE source — the principal the authorizer
+  decided *allowed* for. Unreachable from the doors (they mint the binding from
+  the capability); it exists for an in-process caller that built a binding for
+  the wrong subject. Refused rather than rewritten because a signed binding
+  covers the subject, and a transport that overwrote it would record a
+  signature over someone else
+- Migration: an in-process caller of `resolve`/`submit` mints its capability
+  for the subject its binding names
+
+*Recorded by `353-06-the-approval-record-is-server-attested.md`.*
+
+#### ccf.hitl.AuthenticationClaims
+
+- Surface: ccf.hitl.AuthenticationClaims
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: re-export of `ccf.hitl.principal.AuthenticationClaims`
+- Why: the package surface mirrors the module surface, as it does for every
+  other principal contract
+- Migration: none
+
+*Recorded by `353-06-the-approval-record-is-server-attested.md`.*
+
+#### ccf.hitl.AUTHENTICATION_CLAIM
+
+- Surface: ccf.hitl.AUTHENTICATION_CLAIM
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: re-export of `ccf.hitl.principal.AUTHENTICATION_CLAIM`
+- Why: package surface mirrors module surface
+- Migration: none
+
+*Recorded by `353-06-the-approval-record-is-server-attested.md`.*
+
+#### ccf.hitl.HitlActionRequest
+
+- Surface: ccf.hitl.HitlActionRequest
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: re-export of `ccf.hitl.transport.HitlActionRequest`
+- Why: package surface mirrors module surface
+- Migration: none
+
+*Recorded by `353-06-the-approval-record-is-server-attested.md`.*
+
+#### ccf.hitl.PrincipalMismatchRefused
+
+- Surface: ccf.hitl.PrincipalMismatchRefused
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: re-export of `ccf.hitl.transport.PrincipalMismatchRefused`
+- Why: package surface mirrors module surface
+- Migration: none
+
+*Recorded by `353-06-the-approval-record-is-server-attested.md`.*
+
+#### ccf_runtime.identity_binding.principal_from_authorized
+
+- Surface: ccf_runtime.identity_binding.principal_from_authorized
+- Public surface: true
+- Change type: added
+- Before: absent — see `principal_from_token_grant`, removed below
+- After: `(authorized: Authorized[HitlSubmit], *, authentication:
+  AuthenticationClaims, action_time: datetime, product_content_hash: str) ->
+  HumanPrincipalBinding`. The subject is `authorized.principal`; the four
+  claim axes are copied verbatim from `authentication`; the time is the
+  caller's injected clock reading; the hash is the one value the human states.
+  There is no parameter for the subject and none for any claim axis
+- Why: P6, as mechanism: a binding minted from what the door verified, with
+  no slot a caller could write an audit fact into. Both doors call it and
+  nothing else constructs a binding on a served path
+- Migration: a composition that called `principal_from_token_grant(grant=...,
+  assurance_level=..., ...)` now holds the capability the gate minted and the
+  grant's `authentication`, and calls this with the door's clock
+
+*Recorded by `353-06-the-approval-record-is-server-attested.md`.*
+
+#### ccf_runtime.identity_binding.attested_authentication
+
+- Surface: ccf_runtime.identity_binding.attested_authentication
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `(claims: AuthenticationClaims | None) -> AuthenticationClaims` —
+  returns the claims or raises `AuthenticationUnattested`; the one place
+  "the verifier said nothing" becomes a refusal
+- Why: both doors call it on what their reader returned, so the refusal's
+  shape and prose are one thing that cannot drift between them (the D-16
+  door-mapping pattern)
+- Migration: none
+
+*Recorded by `353-06-the-approval-record-is-server-attested.md`.*
+
+#### ccf_runtime.identity_binding.authentication_of_grant
+
+- Surface: ccf_runtime.identity_binding.authentication_of_grant
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `(grant: TokenGrant) -> AuthenticationClaims | None` — the HTTP
+  door's single read of the claims off the verified grant
+- Why: one reader per stash, as `granted_tenants` is for the tenant claim.
+  **Depends on `TokenGrant.authentication`, owed by Lane MCP** (their
+  fragment); until it lands this function is the one `mypy --strict`
+  `attr-defined` site in this lane
+- Migration: none
+
+*Recorded by `353-06-the-approval-record-is-server-attested.md`.*
+
+#### ccf_runtime.identity_binding.authentication_of_token
+
+- Surface: ccf_runtime.identity_binding.authentication_of_token
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `(token: AccessToken) -> AuthenticationClaims | None` — the MCP
+  door's single read of the claims off the verified token, under
+  `AUTHENTICATION_CLAIM`; an absent or malformed claim reads as `None`
+- Why: mirrors `ccf_runtime.mcp.auth.granted_tenants` — unparseable is not
+  permissive, and `None` is refused by `attested_authentication`
+- Migration: none
+
+*Recorded by `353-06-the-approval-record-is-server-attested.md`.*
+
+#### ccf_runtime.identity_binding.AuthenticationUnattested
+
+- Surface: ccf_runtime.identity_binding.AuthenticationUnattested
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a `PermissionError`: the verified credential states nothing about
+  how its bearer authenticated, so no binding can be minted from it
+- Why: a deployment posture rather than a caller fault — the token source
+  decides what a grant carries — and refused rather than defaulted because
+  the only alternative is the server inventing an assurance level
+- Migration: mint credentials that carry `authentication` claims
+
+*Recorded by `353-06-the-approval-record-is-server-attested.md`.*
+
+#### ccf_runtime.identity_binding.ERROR_AUTHENTICATION_UNATTESTED
+
+- Surface: ccf_runtime.identity_binding.ERROR_AUTHENTICATION_UNATTESTED
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `"authentication-unattested"` — the error code both doors carry for
+  `AuthenticationUnattested` (HTTP: 403 detail; MCP: the `ValueError` JSON
+  payload)
+- Why: raised here, once, and mapped by each door into its own shell. Lives
+  beside the mechanism rather than in `ccf_runtime.http_api.errors`; moving
+  it there is a one-line join item if the door-shared vocabulary is preferred
+- Migration: none
+
+*Recorded by `353-06-the-approval-record-is-server-attested.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -15203,7 +15447,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-459 entries — 273 public Python surface, 186 not public Python API.
+464 entries — 278 public Python surface, 186 not public Python API.
 
 ### Public Python surface
 
@@ -20348,6 +20592,93 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `353-05-the-mcp-wrapper-is-the-second-mint-site.md`.*
 
+#### ccf_runtime.mcp.hitl_server.build_hitl_server
+
+- Surface: ccf_runtime.mcp.hitl_server.build_hitl_server
+- Public surface: true
+- Change type: reshaped
+- Before: `(*, server_name, queue_view, action_route, token_verifier,
+  auth_settings, authorizer: TenantAuthorizerProtocol | None = None)`
+- After: `(*, server_name, queue_view, action_route, token_verifier,
+  auth_settings, authorizer: TenantAuthorizerProtocol, clock: Callable[[],
+  datetime])` — the authorizer **required** and handed to the tenancy wrapper,
+  which mints each body's capability from its decision; the clock **required**
+  and the only source of `action_time`
+- Why: P4 — `authorizer: ... | None = None` is `D-IMPL-73`'s signature and §4's
+  lint refuses it; P6 — an approval's time is the deployment's statement, never
+  a wall clock read in the body and never a value the caller sends
+- Migration: every builder call passes `authorizer=` and `clock=`. In-tree:
+  `tests/crossproc/servers/mcp_hitl_child.py`, `tests/crossproc/test_hitl_mcp.py`,
+  `tests/crossproc/test_mcp_tenant_authz.py`,
+  `tests/crossproc/test_fastmcp_resource_token_spike.py`,
+  `tests/mcp/guarded_servers.py` — join items, listed in the lane report
+
+*Recorded by `353-06-the-approval-record-is-server-attested.md`.*
+
+#### ccf.hitl.transport.HitlActionSubmission
+
+- Surface: ccf.hitl.transport.HitlActionSubmission
+- Public surface: true
+- Change type: reshaped
+- Before: `event_key, tenant, action, principal, annotation, signed_binding,
+  answered_event_class, answered_workflow_state_ref`
+- After: `tenant` **deleted**; `authorizing_decision_id: str | None`
+  **added**, transport-stamped from `authorized.decision_id` on every submit
+  and hash-transparent at its sentinel (CINV-06)
+- Why: §1.3 — the tenant a record is filed under is the capability's, and a
+  second source on the contract is a value a door could forget to compare;
+  design §3 — every recorded human action names the decision that authorized
+  it
+- Migration: constructors drop `tenant=`. Consumers that matched on
+  `submission.tenant` — the workflow engine's `_gate_authority` and
+  `_escalation_authority` (`runtime/ccf_runtime/workflow/engine.py`) — read the
+  tenant they already hold instead; a join item for Lane ENGINE
+
+*Recorded by `353-06-the-approval-record-is-server-attested.md`.*
+
+#### ccf.hitl.HitlActionSubmission
+
+- Surface: ccf.hitl.HitlActionSubmission
+- Public surface: true
+- Change type: reshaped
+- Before: as the module entry
+- After: as the module entry (re-export)
+- Why: package surface mirrors module surface
+- Migration: as the module entry
+
+*Recorded by `353-06-the-approval-record-is-server-attested.md`.*
+
+#### ccf_runtime.mcp.hitl_server.HitlQueueViewProtocol
+
+- Surface: ccf_runtime.mcp.hitl_server.HitlQueueViewProtocol
+- Public surface: true
+- Change type: reshaped
+- Before: `__call__(self, *, tenant: str) -> tuple[PendingHitlEvent, ...]`
+- After: `__call__(self, authorized: Authorized[HitlQueueRead]) ->
+  tuple[PendingHitlEvent, ...]` — the deployment's callable is
+  `transport.view` under the capability the wrapper minted
+- Why: §1.2 — whose queue is read is `authorized.tenant`, not a parameter the
+  server decides
+- Migration: a deployment's queue view takes the capability and calls
+  `transport.view(authorized)`
+
+*Recorded by `353-06-the-approval-record-is-server-attested.md`.*
+
+#### ccf_runtime.mcp.hitl_server.HitlActionRouteProtocol
+
+- Surface: ccf_runtime.mcp.hitl_server.HitlActionRouteProtocol
+- Public surface: true
+- Change type: reshaped
+- Before: `__call__(self, *, submission) -> str`
+- After: `__call__(self, authorized: Authorized[HitlSubmit], *, submission)
+  -> str`
+- Why: the route composes the primitives, each of which now requires the
+  capability this door received
+- Migration: a deployment's route takes the capability first and passes it to
+  the primitive it resolves through
+
+*Recorded by `353-06-the-approval-record-is-server-attested.md`.*
+
 ### Not public Python API
 
 #### tools/lints/__main__.py
@@ -22655,7 +22986,7 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 Surfaces that no longer exist. Each entry names what replaces it.
 
-26 entries — 26 public Python surface, 0 not public Python API.
+29 entries — 29 public Python surface, 0 not public Python API.
 
 ### Public Python surface
 
@@ -23021,11 +23352,61 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 *Recorded by `353-05-the-mcp-wrapper-is-the-second-mint-site.md`.*
 
+#### ccf_runtime.identity_binding.principal_from_token_grant
+
+- Surface: ccf_runtime.identity_binding.principal_from_token_grant
+- Public surface: true
+- Change type: removed
+- Before: `(grant, identity_provider_ref, method, assurance_level,
+  session_ref, action_time, product_content_hash)` — the subject fixed to
+  `grant.client_id`, every other axis of the binding taken from its caller
+- After: gone. Replaced by `principal_from_authorized`
+- Why: its signature IS the P6 hole. The doors passed those parameters through
+  from the request, and a function that accepts a caller's assurance level
+  cannot be made safe by asking its callers to be careful
+- Migration: `principal_from_authorized` (above). `tests/http_api/test_auth.py`
+  still imports the old name — a join item, not a compatibility shim
+
+*Recorded by `353-06-the-approval-record-is-server-attested.md`.*
+
+#### ccf_runtime.mcp.hitl_server.NaiveActionTimeRefused
+
+- Surface: ccf_runtime.mcp.hitl_server.NaiveActionTimeRefused
+- Public surface: true
+- Change type: removed
+- Before: raised when the caller's `action_time` argument carried no UTC
+  offset
+- After: gone. `action_time` is not a tool argument; the door stamps it from
+  the injected clock, and an injected clock that returned a naive instant is
+  refused by the contract's own canonicalizer (D-IMPL-38) as before
+- Why: a refusal for a value that can no longer be presented would be dead
+  code carrying a live-looking name
+- Migration: none for a caller. Two docstrings in
+  `runtime/ccf_runtime/mcp/egress.py` cite it as precedent — prose only, a
+  join nit
+
+*Recorded by `353-06-the-approval-record-is-server-attested.md`.*
+
+#### ccf_runtime.mcp.hitl_server.SubjectIdentityConflictRefused
+
+- Surface: ccf_runtime.mcp.hitl_server.SubjectIdentityConflictRefused
+- Public surface: true
+- Change type: removed
+- Before: raised when the caller-typed `subject_id` argument did not match the
+  verified token identity (D-IMPL-67 item 2)
+- After: gone. There is no `subject_id` argument; the subject is
+  `authorized.principal` and nothing can conflict with it
+- Why: the conflict is unrepresentable, and a refusal for an unrepresentable
+  input is the checklist shape the design rejects
+- Migration: `tests/crossproc/test_hitl_mcp.py` imports it — a join item
+
+*Recorded by `353-06-the-approval-record-is-server-attested.md`.*
+
 ## Behavior changes
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-172 entries — 147 public Python surface, 25 not public Python API.
+174 entries — 147 public Python surface, 27 not public Python API.
 
 ### Public Python surface
 
@@ -27062,3 +27443,64 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: a package that wants a file's contents ships the file
 
 *Recorded by `351-01-an-imported-skill-package-is-untrusted-input.md`.*
+
+#### runtime/ccf_runtime/http_api/routes/hitl.py
+
+- Surface: runtime/ccf_runtime/http_api/routes/hitl.py
+- Public surface: false
+- Change type: behavior
+- Before: `POST /hitl/actions` took a `HitlActionSubmission` — binding
+  included — compared `submission.tenant` with the grant's tenant (403
+  `ERROR_TENANT_UNAUTHORIZED`), compared `principal.approver.subject_id` with
+  `grant.client_id` (403 `ERROR_SUBJECT_CONFLICT`), and derived the recorded
+  binding through `principal_from_token_grant` with the body's identity
+  provider, method, assurance level, session and action time passed through.
+  `GET /hitl/queue` read `transport.pending(tenant=grant tenant)`
+- After: the body is `HitlActionRequest`. The handler reads the capability the
+  gate minted (`request.state.authorized`, narrowed to `HitlSubmit`), the
+  verified grant's `authentication` claims (403
+  `ERROR_AUTHENTICATION_UNATTESTED` when absent) and the bundle's injected
+  `clock`, mints the binding through `principal_from_authorized`, and calls
+  `transport.submit(authorized, submission=...)`. The receipt's `submission`
+  is the RECORDED copy the transport returned. `GET /hitl/queue` calls
+  `transport.view(authorized)` under `HitlQueueRead`. Neither route calls
+  `tenant_from_request` any more. Both routes declare their action as the
+  kind's own `action_id`, so the declared action and the kind the handler asks
+  for are one symbol
+- Why: P6 and §1.2. The two 403 refusals are gone because the things they
+  refused are unrepresentable
+- Migration: an HTTP client sends the five `HitlActionRequest` fields. The
+  bundle grows `ApiDependencies.clock` (owed at the join — this lane codes
+  against it; without it the route module type-checks red at one line and the
+  route refuses with the typed 503 for an absent handle)
+
+*Recorded by `353-06-the-approval-record-is-server-attested.md`.*
+
+#### runtime/ccf_runtime/mcp/hitl_server.py
+
+- Surface: runtime/ccf_runtime/mcp/hitl_server.py
+- Public surface: false
+- Change type: behavior
+- Before: `submit_hitl_action(tenant, event_key, action, subject_id,
+  identity_provider_ref, method, assurance_level, session_ref, action_time,
+  product_content_hash, annotation=None, signed_binding_signature=None,
+  signed_binding_key_id=None)`; `hitl_queue(tenant)`; a per-body
+  `_enforce_tenant_authz` helper asked an optional authorizer and returned
+  early when none was bound
+- After: `submit_hitl_action(authorized: Authorized[HitlSubmit], tenant,
+  event_key, action, product_content_hash, annotation=None,
+  signed_binding_signature=None, signed_binding_key_id=None)` and
+  `hitl_queue(authorized: Authorized[HitlQueueRead], tenant)`. Each body
+  receives its capability from the tenancy wrapper as its first argument —
+  stripped from the wire schema, minted for the action each registration
+  declares (`action=HitlSubmit, resource=door.from_argument("event_key")`;
+  `action=HitlQueueRead, resource=door.route()`) — and holds no authorizer.
+  The binding is minted from `authorized.principal`, the verified token's
+  claims (`ValueError` carrying `ERROR_AUTHENTICATION_UNATTESTED` when absent)
+  and the injected `clock`. The route receives `(authorized, *, submission)`
+- Why: P4 and P6
+- Migration: the wrapper wiring — `TenantGuardedServer` taking the authorizer,
+  `tool`/`resource` taking `action=`/`resource=`, the guard minting and
+  injecting — is Lane MCP's and is a join item; this module codes against it
+
+*Recorded by `353-06-the-approval-record-is-server-attested.md`.*

@@ -90,7 +90,7 @@ EXECUTION_ID = "optional-handles-execution"
 #: useful app omits any of them.
 REQUIRED_FIELDS = ("control_plane", "artifact_store", "product_resolver")
 
-#: The five that default to ``None``. ``None`` is the positive assertion *this
+#: The six that default to ``None``. ``None`` is the positive assertion *this
 #: deployment exposes no such route*, not an omission.
 OPTIONAL_FIELDS = (
     "workflow_factory",
@@ -98,6 +98,7 @@ OPTIONAL_FIELDS = (
     "hitl_transport",
     "skill_catalog",
     "grant_ledger",
+    "clock",
 )
 
 #: Each of the eight fields against the router module that consumes it. This
@@ -112,6 +113,7 @@ FIELD_TO_ROUTER = {
     "hitl_transport": ("hitl",),
     "skill_catalog": ("skill",),
     "grant_ledger": ("skill",),
+    "clock": ("hitl",),
 }
 
 
@@ -126,6 +128,7 @@ def _full_deps(fabric: Fabric) -> ApiDependencies:
         hitl_transport=fabric.hitl,
         skill_catalog=fabric.catalog,
         grant_ledger=fabric.ledger,
+        clock=lambda: datetime(2026, 7, 30, 12, tzinfo=UTC),
     )
 
 
@@ -367,7 +370,7 @@ def test_a_fully_wired_bundle_reaches_the_route_it_always_reached(
 
 
 def test_the_class_docstring_names_every_field_and_the_router_it_gates() -> None:
-    """Eight fields, and for each one the router module that consumes it."""
+    """Nine fields, and for each one the router module that consumes it."""
     doc = ApiDependencies.__doc__
     assert doc is not None
     for field, routers in FIELD_TO_ROUTER.items():
@@ -394,7 +397,7 @@ def test_the_module_docstring_no_longer_claims_every_handle_is_required() -> Non
     assert "CINV-01" in doc
 
 
-def test_the_optional_fields_are_exactly_the_five_measured() -> None:
+def test_the_optional_fields_are_exactly_the_six_measured() -> None:
     """Neither more nor fewer defaults than the ruling admits.
 
     ``control_plane``, ``artifact_store`` and ``product_resolver`` stay

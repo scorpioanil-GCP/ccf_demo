@@ -1031,7 +1031,6 @@ class WorkflowEngine:
                     tenant=tenant
                 )
                 if submission.event_key == event_key
-                and submission.tenant == tenant
                 and submission.principal.product_content_hash == suspension
                 and submission.action in GATE_ACTIONS
                 and (
@@ -1136,8 +1135,7 @@ class WorkflowEngine:
                 for submission in self._hitl_transport.submissions(
                     tenant=tenant
                 )
-                if submission.tenant == tenant
-                and submission.answered_event_class == ESCALATION_EVENT_CLASS
+                if submission.answered_event_class == ESCALATION_EVENT_CLASS
                 and submission.answered_workflow_state_ref == key
                 and submission.principal.product_content_hash == routing
             ),

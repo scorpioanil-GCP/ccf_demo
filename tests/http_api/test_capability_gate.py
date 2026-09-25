@@ -645,13 +645,12 @@ class TestAHandlerHoldsTheCapabilityOrNothing:
         # And through the real gate: the route's own handler names the wrong kind.
         assert echo.get("/wrong-kind", token=TOKEN_A).status_code == 403
 
-    def test_the_join_shim_has_exactly_one_caller_and_it_is_the_hitl_door(
+    def test_the_join_shim_is_gone_and_no_route_reads_a_tenant_off_a_grant(
         self,
     ) -> None:
-        """``tenant_from_request`` survives ONLY as ``authorized.tenant`` for
-        ``routes/hitl.py`` (Lane HITL-DOOR's file) until that lane migrates;
-        it is deleted at join. Population: every ``.py`` under
-        ``runtime/ccf_runtime``."""
+        """``tenant_from_request`` survived only for ``routes/hitl.py`` until
+        Lane HITL-DOOR migrated; it was deleted at the join. Population: every
+        ``.py`` under ``runtime/ccf_runtime``."""
         files = sorted(_RUNTIME.rglob("*.py"))
         assert len(files) > 50
         callers = sorted(
@@ -660,7 +659,7 @@ class TestAHandlerHoldsTheCapabilityOrNothing:
             if "tenant_from_request(" in path.read_text(encoding="utf-8")
             and path.name != "grants.py"
         )
-        assert callers == ["http_api/routes/hitl.py"]
+        assert callers == []
         # And no route this lane owns reads a tenant from anything but the
         # capability: the old reader is gone from the tree entirely.
         readers = [

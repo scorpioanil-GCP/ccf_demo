@@ -1017,8 +1017,6 @@ EXPECTED_SEAM_REDS: frozenset[tuple[str, str, str]] = frozenset(
     {
         # The CLI entry that stood here was closed at the join (HttpAuthority,
         # 3729ada6); the four below fall when Lane MCP and Lane HITL-DOOR land.
-        ("runtime/ccf_runtime/mcp/hitl_server.py", RULE_DEFAULT, "'authorizer'"),
-        ("runtime/ccf_runtime/mcp/hitl_server.py", RULE_WEAK_TYPE, "'authorizer'"),
     }
 )
 

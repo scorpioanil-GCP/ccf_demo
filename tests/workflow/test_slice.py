@@ -74,6 +74,7 @@ from ccf_runtime.workflow.engine import (
 )
 from ccf_runtime.workflow.state import WORKFLOW_STATE, WorkflowStateRecord
 
+from tests.hitl.capabilities import submit_capability
 from tests.workflow.capabilities import (
     execute_as,
     execute_capability,
@@ -215,13 +216,18 @@ def _run_to_approval(
         for event in transport.pending(tenant=workflow.definition.tenant)
         if event.event_key == suspended.event_key
     ]
+    binding = _principal(
+        approver_key, product_content_hash=pending.product_content_hash
+    )
     resolution = gate.resolve(
-        tenant=workflow.definition.tenant,
+        submit_capability(
+            tenant=workflow.definition.tenant,
+            principal=binding.approver.subject_id,
+            event_key=suspended.event_key,
+        ),
         event_key=suspended.event_key,
         action=action,
-        principal=_principal(
-            approver_key, product_content_hash=pending.product_content_hash
-        ),
+        principal=binding,
     )
     assert isinstance(resolution, GateResolution)
     return suspended, resolution
@@ -397,13 +403,18 @@ def test_a_mutation_between_suspend_and_action_is_detected(
     # is not the hash bound at suspend time.
     mutated = record.model_copy(update={"execution_id": "exec-1-tampered"})
     assert content_hash(mutated) != content_hash(record)
+    binding = _principal(
+        "credit_officer", product_content_hash=content_hash(mutated)
+    )
     refusal = gate.resolve(
-        tenant=workflow.definition.tenant,
+        submit_capability(
+            tenant=workflow.definition.tenant,
+            principal=binding.approver.subject_id,
+            event_key=suspended.event_key,
+        ),
         event_key=suspended.event_key,
         action="approve",
-        principal=_principal(
-            "credit_officer", product_content_hash=content_hash(mutated)
-        ),
+        principal=binding,
     )
     assert isinstance(refusal, GateResolutionRefused)
     assert "suspend" in refusal.reason

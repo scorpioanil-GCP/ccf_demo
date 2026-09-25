@@ -92,7 +92,7 @@ HITL_JOIN = (
 )
 SHIPPED_SERVERS = (
     "artifact",
-    pytest.param("hitl", marks=pytest.mark.xfail(strict=True, reason=HITL_JOIN)),
+    "hitl",
     "experience",
     "egress",
 )
@@ -584,7 +584,6 @@ def test_the_three_agent_and_replay_tools_are_tenant_guarded(
         assert isinstance(refused, CrossTenantRefused), tool
 
 
-@pytest.mark.xfail(strict=True, reason=HITL_JOIN)
 def test_the_hitl_tenant_check_no_longer_waits_for_an_authorizer(
     tmp_path: Any,
 ) -> None:

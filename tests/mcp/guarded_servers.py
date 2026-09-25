@@ -233,8 +233,8 @@ def build_for(builder: str, tmp_path: pathlib.Path) -> FastMCP:
 
         return build_hitl_server(
             server_name="guard-hitl",
-            queue_view=lambda *, tenant: (),
-            action_route=lambda *, submission: "{}",
+            queue_view=lambda authorized: (),
+            action_route=lambda authorized, *, submission: "{}",
             token_verifier=_verifier(),
             auth_settings=_auth(),
             authorizer=authorizer_granting(),

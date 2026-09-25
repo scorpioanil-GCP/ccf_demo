@@ -65,6 +65,7 @@ from ccf_runtime.authz.product_entitlement import (
 from ccf_runtime.authz.protocol import ControlPlaneTenantAuthorizer
 from ccf_runtime.authz import refusals
 from ccf_runtime.http_api.auth import BearerTokenAuth
+from ccf.hitl.principal import AuthenticationClaims
 from ccf_runtime.mcp.auth import StaticTokenSource, TokenGrant, TokenSourceProtocol
 
 #: Test vocabulary.
@@ -118,6 +119,15 @@ def grant(
         client_id=client_id,
         scopes=tuple(scopes),
         tenants=frozenset(tenants),
+        # What the verifier attests about how this credential authenticated —
+        # the HITL doors mint the approver binding from these claims and refuse
+        # a credential stating nothing (D-IMPL-353 §2 P6). Test vocabulary.
+        authentication=AuthenticationClaims(
+            method="bearer-token",
+            assurance_level="dev",
+            identity_provider_ref="idp://gate-fixtures/dev-token-source",
+            session_ref=f"session:{client_id}",
+        ),
     )
 
 
@@ -272,6 +282,9 @@ def build_gate_app(fabric: Any, root: Path) -> GateApp:
             hitl_transport=fabric.hitl,
             skill_catalog=fabric.catalog,
             grant_ledger=fabric.ledger,
+            # The hitl noun's action route stamps `action_time` from this,
+            # never from the body (D-IMPL-353 §2 P6).
+            clock=lambda: AUDIT_INSTANT,
         ),
         auth=BearerTokenAuth(token_source=source),
         authorizer=authorizer,

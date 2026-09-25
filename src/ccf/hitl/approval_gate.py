@@ -66,6 +66,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from datetime import datetime
 
+from ccf.authz.capability import Authorized, HitlSubmit, verify
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes
 from ccf.controlplane.audit import AuditLog
@@ -252,8 +253,8 @@ class ApprovalGate:
 
     def resolve(
         self,
+        authorized: Authorized[HitlSubmit],
         *,
-        tenant: str,
         event_key: str,
         action: str,
         principal: HumanPrincipalBinding,
@@ -268,6 +269,16 @@ class ApprovalGate:
         anything is consumed or submitted: the binding's
         ``product_content_hash`` must equal the hash the pending event
         bound at suspend time.
+
+        **The capability first (D-IMPL-353 §1.2).** ``authorized`` is the
+        ``Authorized[HitlSubmit]`` the gate minted for exactly this event;
+        :func:`~ccf.authz.capability.verify` runs before the handle's first
+        real statement, so a fabricated capability, one of another kind, or
+        one minted for another event dies before the queue is read, before
+        anything is audited, and before the claim is taken. The tenant is
+        ``authorized.tenant`` and nothing else — there is no tenant
+        parameter (§1.3) — and the transport records the action under the
+        capability's principal.
 
         **Signed-binding verification (D-IMPL-69; SDK-defined, CLAUDE.md
         §8.2).** When a Control Plane is bound and the HitlPolicy in force
@@ -286,14 +297,19 @@ class ApprovalGate:
             :class:`GateResolutionRefused` on a TOCTOU hash mismatch.
 
         Raises:
+            ccf.authz.capability.CapabilityBypassError: ``authorized`` is
+                not a genuine ``Authorized[HitlSubmit]`` for ``event_key``.
             UnknownGateEventError: ``event_key`` names no pending event for
-                ``tenant`` — broken wiring, not a governance outcome.
+                the capability's tenant — broken wiring, not a governance
+                outcome.
             GateActionError: ``action`` is not an approval-gate verdict.
             ccf.hitl.transport.SignedBindingRequiredRefused: the policy in
                 force requires a signed binding and none was presented.
             ccf.hitl.transport.SignedBindingInvalidRefused: the presented
                 binding fails verification or names another principal.
         """
+        verify(authorized, kind=HitlSubmit, resource=event_key)
+        tenant = authorized.tenant
         if action not in GATE_ACTIONS:
             raise GateActionError(
                 f"action {action!r} is not an approval-gate verdict; this"
@@ -337,7 +353,6 @@ class ApprovalGate:
             )
         submission = HitlActionSubmission(
             event_key=event_key,
-            tenant=tenant,
             action=action,
             principal=principal,
             annotation=annotation,
@@ -367,7 +382,7 @@ class ApprovalGate:
                 " the claim; this one lost)"
             )
         try:
-            self._transport.submit(submission=submission)
+            self._transport.submit(authorized, submission=submission)
         except BaseException:
             # The claim precedes the submit so a failed submit must give
             # the event back — a refused authority submission never

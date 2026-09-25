@@ -24,6 +24,7 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
+from ccf.authz.capability import Authorized, HitlSubmit
 from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.controlplane.artifacts import DEBT_PROFILE, parse_artifact
 from ccf.controlplane.audit import AuditLog
@@ -42,7 +43,9 @@ from ccf.hitl.principal import (
     AuthenticationContext,
     HumanPrincipalBinding,
 )
-from ccf.hitl.transport import HitlActionSubmission, InMemoryHitlTransport
+from ccf.hitl.transport import PendingHitlEvent, HitlActionSubmission, InMemoryHitlTransport
+
+from .capabilities import submit_capability
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "banking"
 
@@ -52,6 +55,17 @@ def _hitl() -> dict[str, Any]:
         (FIXTURES / "hitl.yaml").read_text()
     )
     return loaded
+
+
+def _authorized(tenant: str, event_key: str) -> Authorized[HitlSubmit]:
+    """The capability a resolver presents (D-IMPL-353 §1.2): minted for
+    exactly this tenant and event, for the fixture's credit officer — the
+    subject every binding below names, so the transport's actor check and
+    the capability agree."""
+    subject = _hitl()["approvers"]["credit_officer"]["identity"]["subject_id"]
+    return submit_capability(
+        tenant=tenant, principal=subject, event_key=event_key
+    )
 
 
 def _halflife() -> dict[str, Any]:
@@ -182,7 +196,6 @@ def test_a_resolution_without_a_binding_is_unrepresentable() -> None:
     with pytest.raises(ValidationError):
         HitlActionSubmission(  # type: ignore[call-arg]
             event_key=document["event_key"],
-            tenant=document["tenant"],
             action="approve",
         )
 
@@ -199,7 +212,7 @@ def test_a_resolution_lands_on_dimension_two() -> None:
     assert isinstance(hand_off, EscalationHandOff)
     document = _event_document(fixture)
     resolution = escalation.resolve(
-        tenant=document["tenant"],
+        _authorized(document["tenant"], document["event_key"]),
         event_key=document["event_key"],
         action="approve",
         principal=_principal(
@@ -233,7 +246,7 @@ def test_a_declined_resolution_is_audited_resolved_false() -> None:
     assert isinstance(hand_off, EscalationHandOff)
     document = _event_document(fixture)
     resolution = escalation.resolve(
-        tenant=document["tenant"],
+        _authorized(document["tenant"], document["event_key"]),
         event_key=document["event_key"],
         action="reject",
         principal=_principal(
@@ -258,7 +271,7 @@ def test_a_toctou_mismatch_is_refused_and_the_event_stays_pending() -> None:
     document = _event_document(fixture)
     stale = content_hash({"stale": "state"})
     refused = escalation.resolve(
-        tenant=document["tenant"],
+        _authorized(document["tenant"], document["event_key"]),
         event_key=document["event_key"],
         action="approve",
         principal=_principal(fixture, product_content_hash=stale),
@@ -288,7 +301,7 @@ def test_resolving_on_a_second_instance_is_typed_and_mutates_nothing() -> None:
     )
     with pytest.raises(UnknownEscalationEventError):
         other.resolve(
-            tenant=document["tenant"],
+            _authorized(document["tenant"], document["event_key"]),
             event_key=document["event_key"],
             action="approve",
             principal=_principal(
@@ -307,7 +320,7 @@ def test_resolving_an_unknown_event_raises() -> None:
     document = _event_document(fixture)
     with pytest.raises(UnknownEscalationEventError):
         escalation.resolve(
-            tenant=document["tenant"],
+            _authorized(document["tenant"], "acme-bank/exec-esc/no-such-event"),
             event_key="acme-bank/exec-esc/no-such-event",
             action="approve",
             principal=_principal(
@@ -395,7 +408,7 @@ def test_escalation_required_and_unsigned_resolve_is_refused_event_pending(
     )
     with pytest.raises(SignedBindingRequiredRefused):
         escalation.resolve(
-            tenant=document["tenant"],
+            _authorized(document["tenant"], document["event_key"]),
             event_key=document["event_key"],
             action="approve",
             principal=principal,
@@ -406,7 +419,7 @@ def test_escalation_required_and_unsigned_resolve_is_refused_event_pending(
     # A subsequent valid resolve of the SAME event succeeds.
     signed = sign_principal_binding(principal, provider=provider, key_id=kid)
     resolution = escalation.resolve(
-        tenant=document["tenant"],
+        _authorized(document["tenant"], document["event_key"]),
         event_key=document["event_key"],
         action="approve",
         principal=principal,
@@ -437,7 +450,7 @@ def test_escalation_required_and_tampered_binding_is_refused_event_pending(
     )
     with pytest.raises(SignedBindingInvalidRefused):
         escalation.resolve(
-            tenant=document["tenant"],
+            _authorized(document["tenant"], document["event_key"]),
             event_key=document["event_key"],
             action="approve",
             principal=principal,
@@ -465,7 +478,7 @@ def test_escalation_required_and_valid_binding_passes_both_layers(
     )
     signed = sign_principal_binding(principal, provider=provider, key_id=kid)
     resolution = escalation.resolve(
-        tenant=document["tenant"],
+        _authorized(document["tenant"], document["event_key"]),
         event_key=document["event_key"],
         action="approve",
         principal=principal,
@@ -487,7 +500,7 @@ def test_escalation_unbound_kwargs_behave_as_before() -> None:
     _hand_off(escalation, fixture, trigger)
     document = _event_document(fixture)
     resolution = escalation.resolve(
-        tenant=document["tenant"],
+        _authorized(document["tenant"], document["event_key"]),
         event_key=document["event_key"],
         action="approve",
         principal=_principal(
@@ -495,3 +508,112 @@ def test_escalation_unbound_kwargs_behave_as_before() -> None:
         ),
     )
     assert isinstance(resolution, EscalationResolution)
+
+
+# --- D-IMPL-353 §1.2: the primitive requires the capability for ITS action ----
+#
+# The resolver mutates (``remove`` claims the event) and audits (a hash
+# mismatch writes ``resolved=False``) BEFORE it submits, so the capability
+# is verified at entry — a wrong kind or a capability minted for another
+# event dies before the queue is read, before anything is audited, and
+# before any claim is taken. Without these controls, severing ``verify`` at
+# the primitive would redden nothing.
+
+
+def test_a_queue_read_capability_dies_at_the_primitive_before_anything_is_touched() -> None:
+    from ccf.authz.capability import CapabilityBypassError
+
+    from .capabilities import queue_read_capability
+
+    fixture = _hitl()
+    transport = InMemoryHitlTransport()
+    audit = AuditLog()
+    escalation = ExceptionEscalation(transport=transport, audit=audit, clock=_clock())
+    document = fixture["escalation"]["event"]
+    trigger = ExplicitEscalation(reason=fixture["escalation"]["explicit_reason"])
+    hand_off = escalation.escalate(
+        tenant=document["tenant"],
+        event_key=document["event_key"],
+        workflow_state_ref=document["workflow_state_ref"],
+        product_content_hash=content_hash(trigger),
+        policy_ref=document["policy_ref"],
+        trigger=trigger,
+    )
+    assert isinstance(hand_off, EscalationHandOff)
+    transport.enqueue(
+        event=PendingHitlEvent(
+            event_key=document["event_key"] + "-decoy",
+            event_class="exception-escalation",
+            tenant=document["tenant"],
+            workflow_state_ref="decoy/exec",
+            product_content_hash="e" * 64,
+        )
+    )
+    # Two events, so a claim taken BEFORE the capability died (and given back
+    # at the tail on rollback) shows up as a reorder rather than as nothing.
+    pending_before = transport.pending(tenant=document["tenant"])
+    assert len(pending_before) == 2
+    audit_before = audit.events()
+    principal = _principal(
+        fixture, product_content_hash=hand_off.event.product_content_hash
+    )
+    read = queue_read_capability(
+        tenant=document["tenant"], principal="credit-officer-11", resource=document["event_key"]
+    )
+    with pytest.raises(CapabilityBypassError, match="kind"):
+        escalation.resolve(
+            read,  # type: ignore[arg-type]
+            event_key=document["event_key"],
+            action="approve",
+            principal=principal,
+        )
+    assert transport.pending(tenant=document["tenant"]) == pending_before
+    assert transport.submissions(tenant=document["tenant"]) == ()
+    assert audit.events() == audit_before
+
+
+def test_a_capability_for_another_event_dies_at_the_primitive() -> None:
+    from ccf.authz.capability import CapabilityBypassError
+
+    fixture = _hitl()
+    transport = InMemoryHitlTransport()
+    audit = AuditLog()
+    escalation = ExceptionEscalation(transport=transport, audit=audit, clock=_clock())
+    document = fixture["escalation"]["event"]
+    trigger = ExplicitEscalation(reason=fixture["escalation"]["explicit_reason"])
+    hand_off = escalation.escalate(
+        tenant=document["tenant"],
+        event_key=document["event_key"],
+        workflow_state_ref=document["workflow_state_ref"],
+        product_content_hash=content_hash(trigger),
+        policy_ref=document["policy_ref"],
+        trigger=trigger,
+    )
+    assert isinstance(hand_off, EscalationHandOff)
+    transport.enqueue(
+        event=PendingHitlEvent(
+            event_key=document["event_key"] + "-decoy",
+            event_class="exception-escalation",
+            tenant=document["tenant"],
+            workflow_state_ref="decoy/exec",
+            product_content_hash="e" * 64,
+        )
+    )
+    # Two events, so a claim taken BEFORE the capability died (and given back
+    # at the tail on rollback) shows up as a reorder rather than as nothing.
+    pending_before = transport.pending(tenant=document["tenant"])
+    assert len(pending_before) == 2
+    audit_before = audit.events()
+    principal = _principal(
+        fixture, product_content_hash=hand_off.event.product_content_hash
+    )
+    with pytest.raises(CapabilityBypassError, match="resource"):
+        escalation.resolve(
+            _authorized(document["tenant"], "some-other-event"),
+            event_key=document["event_key"],
+            action="approve",
+            principal=principal,
+        )
+    assert transport.pending(tenant=document["tenant"]) == pending_before
+    assert transport.submissions(tenant=document["tenant"]) == ()
+    assert audit.events() == audit_before

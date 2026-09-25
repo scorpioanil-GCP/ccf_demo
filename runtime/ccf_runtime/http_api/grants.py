@@ -184,16 +184,3 @@ def authorized_from_request(
     return cast(Authorized[Any], found)
 
 
-def tenant_from_request(request: Request) -> str:
-    """``authorized.tenant`` — under the old name, for one caller, until join.
-
-    **Not a second reader of the tenant.** There is no grant read here: the
-    value is the capability's, which the gate selected from the verified
-    grant's set (D-IMPL-353 §1.3). The name survives only because
-    ``routes/hitl.py`` belongs to Lane HITL-DOOR and still imports it; that
-    lane's migration to :func:`authorized_from_request` makes this function
-    unreferenced, and it is deleted at join.
-    ``tests/http_api/test_capability_gate.py`` pins that ``hitl.py`` is its
-    only caller, so a second one cannot appear meanwhile.
-    """
-    return authorized_from_request(request).tenant

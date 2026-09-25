@@ -62,6 +62,7 @@ from datetime import datetime
 
 from pydantic import field_validator
 
+from ccf.authz.capability import Authorized, HitlSubmit, verify
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes
 from ccf.controlplane.audit import AuditLog
@@ -347,8 +348,8 @@ class ExceptionEscalation:
 
     def resolve(
         self,
+        authorized: Authorized[HitlSubmit],
         *,
-        tenant: str,
         event_key: str,
         action: str,
         principal: HumanPrincipalBinding,
@@ -361,6 +362,16 @@ class ExceptionEscalation:
         resolution is unrepresentable through this signature (D-IMPL-21;
         the D-22 type-unrepresentable leg). The TOCTOU guard runs before
         anything is consumed or submitted.
+
+        **The capability first (D-IMPL-353 §1.2).** ``authorized`` is the
+        ``Authorized[HitlSubmit]`` the gate minted for exactly this event;
+        :func:`~ccf.authz.capability.verify` runs before the handle's first
+        real statement, so a fabricated capability, one of another kind, or
+        one minted for another event dies before the queue is read, before
+        anything is audited, and before the claim is taken. The tenant is
+        ``authorized.tenant`` and nothing else — there is no tenant
+        parameter (§1.3) — and the transport records the action under the
+        capability's principal.
 
         **Signed-binding verification (D-IMPL-69; SDK-defined, CLAUDE.md
         §8.2).** When a Control Plane is bound and the HitlPolicy in force
@@ -378,8 +389,10 @@ class ExceptionEscalation:
             :class:`EscalationResolutionRefused` on a hash mismatch.
 
         Raises:
+            ccf.authz.capability.CapabilityBypassError: ``authorized`` is
+                not a genuine ``Authorized[HitlSubmit]`` for ``event_key``.
             UnknownEscalationEventError: ``event_key`` names no pending
-                escalation for ``tenant``, this instance holds no
+                escalation for the capability's tenant, this instance holds no
                 hand-off trigger for the pending event (WR-01 — the
                 transport may be shared while side-band state is
                 per-instance), or a concurrent resolve won the claim
@@ -388,6 +401,8 @@ class ExceptionEscalation:
                 mutation, so no authority action lands unresolved.
             EscalationActionError: ``action`` is not an escalation verdict.
         """
+        verify(authorized, kind=HitlSubmit, resource=event_key)
+        tenant = authorized.tenant
         if action not in ESCALATION_ACTIONS:
             raise EscalationActionError(
                 f"action {action!r} is not an escalation-resolution verdict;"
@@ -450,7 +465,6 @@ class ExceptionEscalation:
             )
         submission = HitlActionSubmission(
             event_key=event_key,
-            tenant=tenant,
             action=action,
             principal=principal,
             annotation=annotation,
@@ -479,7 +493,7 @@ class ExceptionEscalation:
                 " the claim; this one lost)"
             )
         try:
-            self._transport.submit(submission=submission)
+            self._transport.submit(authorized, submission=submission)
         except BaseException:
             # A refused authority submission never consumes the pending
             # event: the claim is given back (re-enqueued at the tail).
