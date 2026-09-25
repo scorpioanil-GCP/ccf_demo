@@ -102,6 +102,12 @@ from ccf_runtime.mcp.egress import (
 from tests.mcp.guarded_servers import wide_authorizer
 
 from crossproc.servers.mcp_egress_child import ProductAddress, build_servable_product
+from ccf.controlplane.registry import ControlPlaneRegistry
+from http_api.composition_authority import (
+    deployment_store,
+    refusal_recorder,
+    register_typed_at_composition,
+)
 
 #: Test deployment vocabulary; the SDK ships none of it.
 REPLAY_ARTIFACT_CLASS = "egress-listing-replay-record"
@@ -261,9 +267,11 @@ def _refusing(declared: ProductRequestContract) -> Callable[..., object]:
     the verdict is handed through the one minting seam over a per-resolver
     store, exactly as the SDK's own resolver does on every refusal branch.
     """
-    store = FileArtifactStore(
-        root=Path(tempfile.mkdtemp(prefix="egress-listing-refusing-")) / "artifacts"
+    store = deployment_store(
+        Path(tempfile.mkdtemp(prefix="egress-listing-refusing-")) / "artifacts",
+        REPLAY_ARTIFACT_CLASS,
     )
+    composition = ControlPlaneRegistry()
 
     def resolve(
         *,
@@ -279,10 +287,11 @@ def _refusing(declared: ProductRequestContract) -> Callable[..., object]:
             "this leg's caller was built to violate the declared surface and"
             " did not; the fixture, not the door, is what failed"
         )
-        recorder = ReplayRefusalRecorder(
-            artifact_store=store,
+        recorder = refusal_recorder(
+            composition,
+            store=store,
+            tenant=tenant,
             replay_record_class=REPLAY_ARTIFACT_CLASS,
-            tenant_id=tenant,
             assembly_mode="algorithmic",
         )
         return recorder.record(
@@ -335,7 +344,7 @@ def _token_file(root: Path, *, tenant: str) -> Path:
 
 def _entitlement(address: ProductAddress) -> ControlPlaneProductEntitlementSource:
     registry = ControlPlaneRegistry()
-    registry.register_typed(
+    register_typed_at_composition(registry, 
         product_entitlement_key(tenant_id=address.tenant),
         ProductEntitlementPolicy(
             tenant_id=address.tenant,
@@ -364,10 +373,11 @@ def _recorder(root: Path, *, tenant: str) -> ReplayRefusalRecorder:
     Nothing here denies — these doors serve — but a door that entitles does not
     build without somewhere to record a denial, and that is the point.
     """
-    return ReplayRefusalRecorder(
-        artifact_store=FileArtifactStore(root=root / "artifacts"),
+    return refusal_recorder(
+        ControlPlaneRegistry(),
+        store=deployment_store(root / "artifacts", REPLAY_RECORD_CLASS),
+        tenant=tenant,
         replay_record_class=REPLAY_RECORD_CLASS,
-        tenant_id=tenant,
         assembly_mode="algorithmic",
     )
 

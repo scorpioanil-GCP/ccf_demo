@@ -57,7 +57,8 @@ from typing import TypedDict
 
 from fastapi import FastAPI
 
-from ccf.artifacts.protocol import GovernedRecordClasses, GovernedWriteHandle
+from ccf.artifacts.protocol import WriteKinds
+from ccf.authz.capability import ReplayMint
 from ccf.products.resolver import RefusalRecorderProtocol
 from ccf_runtime.authz.delivery_boundary import (
     disclosing_boundary,
@@ -146,12 +147,13 @@ class GovernedWiringError(ValueError):
     """The recorder and the store it writes through disagree about authority.
 
     D-IMPL-353 §3: ``create_app`` refuses mismatched wiring at boot rather than
-    at the first denial. A recorder naming a governed record class over a
-    store that **governs** that class, while holding no minting authority for
-    it, would build cleanly and then fail to record the first governed
-    determination it is asked to record — which ``D-IMPL-256`` (2) names as
-    *not a valid governed door*, and which would surface only when a denial
-    happened, making auditability contingent on outcome.
+    at the first denial. A recorder naming a replay record class over a store
+    whose :class:`~ccf.artifacts.protocol.WriteKinds` declaration does **not**
+    name that class under ``ReplayMint`` — or over a store exposing no
+    declaration at all — would build cleanly and then fail to record the first
+    governed determination it is asked to record — which ``D-IMPL-256`` (2)
+    names as *not a valid governed door*, and which would surface only when a
+    denial happened, making auditability contingent on outcome.
 
     A :class:`ValueError`, on this codebase's construction-refusal posture
     (*"prefer fail-at-construction/boot where practical"*).
@@ -159,51 +161,63 @@ class GovernedWiringError(ValueError):
 
 
 def governed_wiring(*, refusal_recorder: object, builder: str) -> None:
-    """Refuse a recorder whose store governs its class without minting for it.
+    """Refuse a recorder whose store does not admit its writer (D-IMPL-353 §3).
 
     Reads the two facts the SDK's own recorder states about itself —
-    ``replay_record_class`` and ``artifact_store`` — and the declaration the
-    store carries. A recorder that states neither names no class over no
-    store, so there is nothing to mismatch and nothing is checked; a store
-    that exposes no ``governed`` declaration is outside what this reads.
+    ``replay_record_class`` and ``artifact_store`` — and the
+    :class:`~ccf.artifacts.protocol.WriteKinds` declaration the store carries.
+    The recorder's writer holds ``Authorized[ReplayMint]`` for its record class
+    (§2 P3), and a store admits a write to a class only under the kinds the
+    deployment declared for it: a class the store does not declare is the
+    client lane and requires ``ArtifactWrite``, which the fabric's own writer
+    never holds. So a recorder naming a replay class over a store that has not
+    declared that class under ``ReplayMint`` would build cleanly and then fail
+    to record the first governed determination it is asked to record — which
+    ``D-IMPL-256`` (2) names as *not a valid governed door*, and which would
+    surface only when a denial happened, making auditability contingent on
+    outcome. It is refused here, at boot, instead — the join's reading of the
+    "second direction" Lane CAP-GATE left for the per-class write-kind mapping.
 
-    **What this is, and what it is not yet.** This is the half of §3's check
-    expressible against today's store surface (``GovernedRecordClasses`` +
-    ``GovernedWriteHandle``). The other half — *a store declaring a write
-    action no door can mint*, and *a recorder over a store with no declared
-    write kind for its class* — needs the per-class write-kind mapping §1.2
-    puts on the artifact store, which is Lane HANDLES' surface; when it lands,
-    this function reads that mapping instead of ``governed`` and the second
-    direction is added here. Recorded as a join item by the lane.
+    A recorder that states neither fact names no class over no store, so there
+    is nothing to mismatch and nothing is checked (a third-party recorder
+    conforming to the Protocol alone). A store that exposes **no** declaration
+    is refused: the app cannot show the recorder's writer is admitted, and
+    *don't know* is not *pass*.
 
     Args:
         refusal_recorder: What the builder was handed.
         builder: The builder's own name, for the message.
 
     Raises:
-        GovernedWiringError: the store governs the recorder's class and the
-            recorder holds no minting authority for it.
+        GovernedWiringError: the store exposes no write-kinds declaration, or
+            its declaration does not name the recorder's class under
+            ``ReplayMint``.
     """
     record_class = getattr(refusal_recorder, "replay_record_class", None)
     store = getattr(refusal_recorder, "artifact_store", None)
     if not isinstance(record_class, str) or store is None:
         return
-    minted = isinstance(store, GovernedWriteHandle)
-    substrate = store.store if minted else store
-    declaration = getattr(substrate, "governed", None)
-    if not isinstance(declaration, GovernedRecordClasses):
-        return
-    if declaration.governs(record_class) and not minted:
+    declaration = getattr(store, "write_kinds", None)
+    if not isinstance(declaration, WriteKinds):
         raise GovernedWiringError(
             f"{builder} was handed a refusal_recorder that files"
-            f" {record_class!r} through a store declaring that class governed,"
-            " and the recorder holds no minting authority for it: its first"
-            " governed determination would fail to record, and a door that"
-            " cannot record what it decides is not a valid governed door"
-            " (D-IMPL-256 (2); D-IMPL-353 §3). Hand the recorder"
-            " `GovernedWriteHandle(store)` — the fabric's own write handle —"
-            " or do not declare the class governed on the store the doors"
-            " serve from"
+            f" {record_class!r} through a store of type"
+            f" {type(store).__name__} exposing no `write_kinds` declaration;"
+            " the app cannot show the recorder's ReplayMint writer is"
+            " admitted, and a door that cannot record what it decides is not"
+            " a valid governed door (D-IMPL-256 (2); D-IMPL-353 §3). Both"
+            " shipped stores take `write_kinds=` at construction and expose it"
+        )
+    if ReplayMint not in declaration.for_class(record_class):
+        raise GovernedWiringError(
+            f"{builder} was handed a refusal_recorder that files"
+            f" {record_class!r} through a store whose write-kinds declaration"
+            f" does not name that class under ReplayMint ({declaration!r});"
+            " its first governed determination would fail to record, and a"
+            " door that cannot record what it decides is not a valid governed"
+            " door (D-IMPL-256 (2); D-IMPL-353 §3). Declare the class at"
+            " composition — WriteKinds.declare({" + repr(record_class)
+            + ": (ReplayMint,)}) — on the store the doors serve from"
         )
 
 
@@ -259,9 +273,9 @@ def create_app(
     Raises:
         UnrecordableDeliveryBoundaryError: ``refusal_recorder`` cannot record
             a governed determination, or cannot state a disclosure level.
-        GovernedWiringError: ``refusal_recorder`` files a class its store
-            declares governed and holds no minting authority for it
-            (D-IMPL-353 §3).
+        GovernedWiringError: ``refusal_recorder`` files a class its store has
+            not declared under ``ReplayMint``, or its store exposes no
+            write-kinds declaration (D-IMPL-353 §3).
         ~ccf_runtime.http_api.gate.UndeclaredRouteError: a mounted route
             declares no action id, or declares an action no capability kind
             exists for. The message names every one of them.
@@ -277,8 +291,8 @@ def create_app(
         refusal_recorder=refusal_recorder, builder="create_app"
     )
     # D-IMPL-353 §3, still before anything is built: a recorder that could
-    # not record its first governed determination — its store governs the
-    # class and it holds no minting authority — is refused here, not there.
+    # not record its first governed determination — its store has not
+    # declared its class under ReplayMint — is refused here, not there.
     # (Placed after the two `D-IMPL-345` checks so their anchored text, which
     # `tests/http_api/test_product_refusal_statuses.py` severs by literal, is
     # unchanged.)

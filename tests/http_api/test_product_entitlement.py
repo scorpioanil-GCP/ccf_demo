@@ -74,6 +74,11 @@ from ccf_runtime.http_api.refusal_status import STATUS_BY_KIND
 from ccf_runtime.mcp.auth import FileTokenSource, TokenGrant
 
 from http_api.conftest import Fabric, call
+from http_api.composition_authority import (
+    deployment_store,
+    refusal_recorder,
+    register_typed_at_composition,
+)
 
 #: The ONE outcome an unauthorized principal and a nonexistent subject share
 #: (``D-IMPL-253`` Q27), read from the mapping and never spelled here.
@@ -113,7 +118,7 @@ def _wide_authorizer(*, tenant: str) -> Any:
     from .gate_fixtures import ALL_ACTIONS, WIDE_RESOURCES
 
     registry = ControlPlaneRegistry()
-    version = registry.register_typed(
+    version = register_typed_at_composition(registry, 
         "product-door/scope-mapping",
         ScopeMappingArtifact(
             semver="1.0.0",
@@ -214,7 +219,7 @@ def _entitled(
     )
 
     registry = ControlPlaneRegistry()
-    registry.register_typed(
+    register_typed_at_composition(registry, 
         product_entitlement_key(tenant_id=address.tenant),
         ProductEntitlementPolicy(
             tenant_id=address.tenant,
@@ -243,10 +248,11 @@ def _entitled(
     # it decides is not built at all, so every app in this module binds the one
     # minting seam. Built the way `build_governed_resolver` builds its own —
     # one writer, one store, one record form.
-    recorder = ReplayRefusalRecorder(
-        artifact_store=FileArtifactStore(root=tmp_path / "artifacts"),
+    recorder = refusal_recorder(
+        registry,
+        store=deployment_store(tmp_path / "artifacts", REPLAY_RECORD_CLASS),
+        tenant=address.tenant,
         replay_record_class=REPLAY_RECORD_CLASS,
-        tenant_id=address.tenant,
         assembly_mode="algorithmic",
         policy_bundle_pin=None,
         disclosure_level_for=source.disclosure_level_for,
@@ -671,10 +677,11 @@ def test_entitlement_without_an_auth_hook_cannot_be_built(
             _deps(fabric),
             product_entitlement=source,
             perspective_resolver=_resolver,
-            refusal_recorder=ReplayRefusalRecorder(
-                artifact_store=FileArtifactStore(root=tmp_path / "dead"),
+            refusal_recorder=refusal_recorder(
+                ControlPlaneRegistry(),
+                store=deployment_store(tmp_path / "dead", REPLAY_RECORD_CLASS),
+                tenant=fabric.product_address.tenant,
                 replay_record_class=REPLAY_RECORD_CLASS,
-                tenant_id=fabric.product_address.tenant,
                 assembly_mode="algorithmic",
                 policy_bundle_pin=None,
                 disclosure_level_for=source.disclosure_level_for,

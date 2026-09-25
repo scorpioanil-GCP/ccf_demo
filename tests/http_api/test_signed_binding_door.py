@@ -56,6 +56,9 @@ from ccf.peering.identity import (
 from ccf_runtime.mcp.auth import StaticTokenSource, TokenGrant
 
 from .conftest import Fabric, call
+from http_api.composition_authority import (
+    register_typed_at_composition,
+)
 
 APPROVER_KID = "door-approver-signing-key"
 POLICY_KEY = "acme-bank/hitl/door-policy"
@@ -135,7 +138,7 @@ def enforcing_transport(
     """A fresh transport bound to a signed-binding-required policy."""
     policy = parse_artifact({"semver": "1.0.0", "signed_binding_required": True}, HITL_POLICY)
     assert isinstance(policy, HitlPolicy)
-    fabric.registry.register_typed(POLICY_KEY, policy, HITL_POLICY)
+    register_typed_at_composition(fabric.registry, POLICY_KEY, policy, HITL_POLICY)
     return InMemoryHitlTransport(
         control_plane=fabric.registry,
         hitl_policy_key=POLICY_KEY,

@@ -106,6 +106,12 @@ from tests.mcp.guarded_servers import wide_authorizer
 
 from ccf_runtime.mcp.egress import ProductNotServable
 from crossproc.servers.mcp_egress_child import ProductAddress, build_servable_product
+from ccf.controlplane.registry import ControlPlaneRegistry
+from http_api.composition_authority import (
+    deployment_store,
+    refusal_recorder,
+    register_typed_at_composition,
+)
 
 #: Test deployment vocabulary; the SDK ships none of it.
 TOKEN = "egress-channels-token"
@@ -200,7 +206,7 @@ class _World:
     ) -> None:
         self.address = address
         self.registry = ControlPlaneRegistry()
-        self.registry.register_typed(
+        register_typed_at_composition(self.registry, 
             product_entitlement_key(tenant_id=address.tenant),
             ProductEntitlementPolicy(
                 tenant_id=address.tenant,
@@ -217,11 +223,12 @@ class _World:
         self.source = ControlPlaneProductEntitlementSource(
             control_plane=self.registry, clock=lambda: DETERMINED_AT
         )
-        self.store = FileArtifactStore(root=root / "artifacts")
-        self.recorder = ReplayRefusalRecorder(
-            artifact_store=self.store,
+        self.store = deployment_store(root / "artifacts", REPLAY_ARTIFACT_CLASS)
+        self.recorder = refusal_recorder(
+            self.registry,
+            store=self.store,
+            tenant=address.tenant,
             replay_record_class=REPLAY_ARTIFACT_CLASS,
-            tenant_id=address.tenant,
             assembly_mode="algorithmic",
             disclosure_level_for=self.source.disclosure_level_for,
         )
@@ -914,10 +921,11 @@ def test_a_conforming_recorder_builds_the_door(
     """The vacuity guard: without it, the two raises pass against a dead builder."""
     server = build_egress_server(
         **_builder_kwargs(assembled.address, tmp_path),
-        refusal_recorder=ReplayRefusalRecorder(
-            artifact_store=FileArtifactStore(root=tmp_path / "artifacts"),
+        refusal_recorder=refusal_recorder(
+            ControlPlaneRegistry(),
+            store=deployment_store(tmp_path / "artifacts", REPLAY_ARTIFACT_CLASS),
+            tenant=assembled.address.tenant,
             replay_record_class=REPLAY_ARTIFACT_CLASS,
-            tenant_id=assembled.address.tenant,
             assembly_mode="algorithmic",
         ),
     )

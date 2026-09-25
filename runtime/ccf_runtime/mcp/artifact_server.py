@@ -17,12 +17,14 @@ egress scheme does not appear anywhere in this module and must not — that
 invariant test greps this very source for it, so naming it here even in prose
 would defeat the check.
 
-**What this server is.** A transport in front of an
-:class:`~ccf.artifacts.protocol.ArtifactStoreProtocol` the deployment supplies.
-The substrate owns the bytes and owns the naming index; this module owns only
-the mapping from four Protocol methods onto MCP surfaces. Two stores pointed at
-one of these servers therefore share one index, which is the property that
-makes a versioned URI resolvable by a process that never wrote it.
+**What this server is.** A transport in front of an artifact substrate the
+deployment supplies (:class:`ArtifactSubstrate` — the four
+:class:`~ccf.artifacts.protocol.ArtifactStoreProtocol` methods plus the two
+readings the split below needs). The substrate owns the bytes and owns the
+naming index; this module owns only the mapping from Protocol methods onto MCP
+surfaces. Two stores pointed at one of these servers therefore share one index,
+which is the property that makes a versioned URI resolvable by a process that
+never wrote it.
 
 **What this server cannot do.** It is a persistence substrate reached *through*
 Control Plane and L2 mechanism, never a participant in the fabric. It holds no
@@ -46,10 +48,10 @@ that — and nothing else it could have chosen — to the handle it acts through
                               ``Authorized[ArtifactWrite]`` for
                               ``"<class>/<name>"``; **no ``tenant_id``
                               argument**, the tenant is the capability's
-``govern_dereference(...)``   Resource ``ccf-artifact-blob://{address}``,
+the split (below)             Resource ``ccf-artifact-blob://{address}``,
                               handler returning ``bytes`` —
                               ``Authorized[ArtifactRead]`` for the address
-``govern_dereference(...)``   Resource ``ccf-artifact-meta://{address}`` —
+the split (below)             Resource ``ccf-artifact-meta://{address}`` —
                               the same capability; a bit about the address
 ``resolve_uri(uri)``          Resource ``ccf-artifact://{tenant}/{class}/
                               {name}@{version}`` —
@@ -60,14 +62,45 @@ that — and nothing else it could have chosen — to the handle it acts through
 **There is no untenanted read of artifact bytes.** The two hash-addressed
 resources carry no tenant on the wire; their capability's tenant is the
 verified grant's **sole** tenant, and a grant spanning several is refused as
-ambiguous rather than picked for (§1.3). Their reads go through
-:func:`~ccf_runtime.authz.delivery_boundary.govern_dereference` — the one
-governed evidence read, with its three holds — because after §1.2 there is no
-other way to call the store's read. **A consequence, stated rather than
-hidden:** that dereference resolves its target as a Decision Replay record, so
-a stored artifact of any other class answers the ``nonexistent`` shell through
-the blob resource. The HTTP artifact GET has had this property since
-``D-IMPL-345``; the MCP blob now has it too.
+ambiguous rather than picked for (§1.3).
+
+THE SPLIT — how a hash-addressed read is decided (the D-IMPL-353 join)
+----------------------------------------------------------------------
+Lane MCP routed every blob and presence read through
+:func:`~ccf_runtime.authz.delivery_boundary.govern_dereference`, which resolves
+its target as a Decision Replay record — so the §7.4 persistence transport
+could round-trip **only** replay records, and every other artifact class
+answered the ``nonexistent`` shell. Lane MCP flagged it; the join implements
+the split so §7.4 holds for EVERY artifact class. For a bare content address,
+in this order:
+
+1. **The capability, first.** ``verify(authorized, kind=ArtifactRead,
+   resource=content_address)`` — the address IS the resource the wrapper
+   decided on. Nothing below runs on a fabricated, retargeted or wrong-kind
+   capability.
+2. **What the address is**, from the substrate's own naming index
+   (:meth:`ArtifactSubstrate.names_at`): every ``(tenant, class, name)`` the
+   address was filed under. Content addressing means one address may be filed
+   under several names, by several tenants; the decision is taken over the
+   whole set, in the safe direction.
+3. **Governed evidence goes through the governed dereference.** If ANY name's
+   class is one the substrate's :class:`~ccf.artifacts.protocol.WriteKinds`
+   declares under ``ReplayMint`` — a replay record, a query pin, an admitted
+   child contract, whatever the deployment declared as fabric-written
+   evidence — the read is a ``D-IMPL-345`` dereference: entitlement re-decided,
+   refusal recorded, disclosed, the ``nonexistent`` shell for anything that is
+   not a readable record. So a query pin under ``ReplayMint`` is
+   indistinguishable from nothing here exactly as it is on the HTTP door
+   (``D-IMPL-345`` C23).
+4. **Everything else is served tenant-scoped.** An address filed under the
+   capability's tenant in an undeclared (client-lane) class — or the workflow
+   engine's trace class, declared under ``Execute | Resume`` — is served: the
+   exact stored bytes, with one ``authz_decision`` audit event naming the read.
+   An address filed under **no** name of the capability's tenant — another
+   tenant's, or nothing at all — goes through the governed dereference too and
+   answers the ``nonexistent`` shell: byte-identical, up to the reference asked
+   and the record it produced, to a missing address. A caller cannot learn
+   from this door that another tenant holds bytes at an address it names.
 
 The blob handler's ``-> bytes`` annotation is load-bearing: it produces
 ``BlobResourceContents`` (base64) and preserves canonical bytes exactly, where
@@ -94,6 +127,7 @@ from __future__ import annotations
 
 import base64
 import json
+from typing import Protocol, runtime_checkable
 
 from mcp.server.auth.provider import TokenVerifier
 from mcp.server.auth.settings import AuthSettings
@@ -101,13 +135,15 @@ from mcp.server.fastmcp import FastMCP
 
 from ccf.artifacts.protocol import (
     ARTIFACT_URI_SCHEME,
+    ArtifactName,
     ArtifactRef,
     ArtifactStoreProtocol,
     ArtifactUriUnresolvable,
+    WriteKinds,
     artifact_uri,
 )
 from ccf.authz.actions import ACTION_ARTIFACT_READ, ACTION_ARTIFACT_WRITE
-from ccf.authz.capability import ArtifactRead, ArtifactWrite, Authorized
+from ccf.authz.capability import ArtifactRead, ArtifactWrite, Authorized, ReplayMint, verify
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes
 from ccf.controlplane.audit import AuditLog
@@ -133,6 +169,7 @@ __all__ = [
     "PUT_ARTIFACT_TOOL",
     "ArtifactPresence",
     "ArtifactResolution",
+    "ArtifactSubstrate",
     "NonCanonicalPayload",
     "artifact_blob_uri",
     "artifact_meta_uri",
@@ -171,6 +208,38 @@ _CLASS_AND_NAME = "{artifact_class}/{name}"
 
 _BLOB_MIME_TYPE = "application/octet-stream"
 _JSON_MIME_TYPE = "application/json"
+
+
+@runtime_checkable
+class ArtifactSubstrate(ArtifactStoreProtocol, Protocol):
+    """What this server needs of its substrate: the Protocol, plus the split's two readings.
+
+    The four :class:`~ccf.artifacts.protocol.ArtifactStoreProtocol` methods
+    are inherited. On top of them, the hash-addressed resources have to know
+    **what** an address is before deciding **how** to read it, and a bare
+    content address says nothing about class or tenant on its own:
+
+    * :attr:`write_kinds` — the deployment's declaration of which classes are
+      fabric-written and under which kinds, so a class declared under
+      ``ReplayMint`` is recognized as governed evidence;
+    * :meth:`names_at` — the reverse of the naming index, every
+      ``(tenant, class, name)`` an address was filed under.
+
+    The shipped :class:`~ccf.artifacts.file_store.FileArtifactStore` conforms.
+    Structural, so a deployment's own substrate conforms by carrying the two
+    members; a store carrying neither cannot be put behind this server, which
+    is the honest posture — without them the server could not tell a
+    tenant's own blob from governed evidence or from another tenant's bytes.
+    """
+
+    @property
+    def write_kinds(self) -> WriteKinds:
+        """Which artifact classes are fabric-written here, and by which kinds."""
+        ...
+
+    def names_at(self, *, content_address: str) -> tuple[ArtifactName, ...]:
+        """Every ``(tenant, class, name)`` this address was filed under."""
+        ...
 
 
 class NonCanonicalPayload(ValueError):
@@ -232,7 +301,7 @@ def artifact_meta_uri(*, content_address: str) -> str:
 def build_artifact_server(
     *,
     server_name: str,
-    store: ArtifactStoreProtocol,
+    store: ArtifactSubstrate,
     token_verifier: TokenVerifier,
     auth_settings: AuthSettings,
     authorizer: TenantAuthorizerProtocol,
@@ -256,9 +325,9 @@ def build_artifact_server(
 
     Args:
         server_name: The name this server advertises. Deployment identity.
-        store: The persistence substrate. Owns the bytes and the naming index —
-            this server owns neither, which is why two clients against one
-            server see one index.
+        store: The persistence substrate (:class:`ArtifactSubstrate`). Owns
+            the bytes and the naming index — this server owns neither, which
+            is why two clients against one server see one index.
         token_verifier: Verifies presented bearer tokens. See
             :mod:`ccf_runtime.mcp.auth` for the reference implementation and
             for what a deployment must supply instead of it.
@@ -270,12 +339,13 @@ def build_artifact_server(
             skipped.
         entitlement_source: The deployment's entitlement seam and the holder of
             the determination clock, for the governed dereference's second
-            hold.
+            hold and for the instant a client-lane read is audited at.
         refusal_recorder: The ONE minting seam, which also states the
             disclosure level, for the dereference's third hold and for the
             shell it records on every refusal.
         audit_log: The Control Plane's own append-only log, where every
-            dereference appends the trail of its read (``D-IMPL-345`` R-5).
+            dereference — governed or client-lane — appends the trail of its
+            read (``D-IMPL-345`` R-5).
 
     Returns:
         A configured ``FastMCP``. Deliberately *not* started, and no bind
@@ -296,28 +366,59 @@ def build_artifact_server(
     def dereference(
         authorized: Authorized[ArtifactRead], *, content_address: str, address: str
     ) -> bytes | RefusalEnvelope:
-        """The one governed read both hash-addressed resources make.
+        """THE SPLIT — the one governed read both hash-addressed resources make.
 
-        A bytes ask under this surface's identity and the URI the caller
-        read; what comes back is either the exact stored bytes or an
+        See the module docstring. Returns the exact stored bytes, or an
         already-recorded, already-disclosed shell.
         """
-        decided = govern_dereference(
-            authorized,
-            reference=DereferenceRequest(
-                reference=content_address, by_uri=False, wants_bytes=True
-            ),
-            store=store,
-            entitlement_source=entitlement_source,
-            refusal_recorder=refusal_recorder,
-            audit_log=audit_log,
-            surface=SURFACE_MCP_RESOURCE,
-            address=address,
+        # (1) The capability first, bound to the address the wrapper decided
+        # on. The wrapper minted it for this address; a body reached any other
+        # way holds proof or holds nothing (D-IMPL-353 §1.5c, f).
+        verify(authorized, kind=ArtifactRead, resource=content_address)
+        # (2) What the address IS, over every name it was filed under.
+        names = store.names_at(content_address=content_address)
+        governed = any(
+            ReplayMint in store.write_kinds.for_class(named.artifact_class)
+            for named in names
         )
-        if isinstance(decided, RefusalEnvelope):
-            return decided
-        assert decided.payload is not None  # a bytes ask always carries them
-        return decided.payload
+        own = [named for named in names if named.tenant_id == authorized.tenant]
+        if governed or not own:
+            # (3) Governed evidence, another tenant's bytes, or nothing at all:
+            # the governed dereference decides, records and discloses — and
+            # answers the nonexistent shell for everything that is not a
+            # record this principal may read.
+            decided = govern_dereference(
+                authorized,
+                reference=DereferenceRequest(
+                    reference=content_address, by_uri=False, wants_bytes=True
+                ),
+                store=store,
+                entitlement_source=entitlement_source,
+                refusal_recorder=refusal_recorder,
+                audit_log=audit_log,
+                surface=SURFACE_MCP_RESOURCE,
+                address=address,
+            )
+            if isinstance(decided, RefusalEnvelope):
+                return decided
+            assert decided.payload is not None  # a bytes ask always carries them
+            return decided.payload
+        # (4) The client lane: filed under the capability's tenant in a class
+        # the deployment did not declare governed. Served tenant-scoped, and
+        # the read leaves the same trail a governed one does (D-IMPL-345 R-5).
+        audit_log.append(
+            action="authz_decision",
+            key=content_address,
+            version=content_address,
+            resolved=True,
+            occurred_at=entitlement_source.clock(),
+            actor=authorized.principal,
+            artifact_class=own[0].artifact_class,
+            authz_action_id=ArtifactRead.action_id,
+            authz_matched_pattern=None,
+            authz_resource=content_address,
+        )
+        return store.get(content_address=content_address)
 
     @door.resource(
         BLOB_URI_TEMPLATE,
@@ -335,15 +436,11 @@ def build_artifact_server(
         difference is byte fidelity for every artifact the fabric will ever
         replay against (06-RESEARCH.md Pitfall 4).
 
-        **Through the governed dereference, under a read capability**
-        (``D-IMPL-353`` §2 P5). No tenant appears on this surface, so the
+        **Under a read capability, through the split** (``D-IMPL-353`` §2 P5;
+        the module docstring). No tenant appears on this surface, so the
         capability's tenant is the verified grant's sole tenant — a grant
-        spanning several is refused as ambiguous before this body runs. What
-        ``SEC-018`` recorded as a residual (possession of a 64-character
-        address as the last thing between a verified caller and another
-        tenant's bytes) is now the dereference's three holds: the record's own
-        principal, the grant that governed its serve, and the disclosure level
-        in force. A refusal crosses as the shell's canonical bytes.
+        spanning several is refused as ambiguous before this body runs. A
+        refusal crosses as the shell's canonical bytes.
         """
         served = dereference(
             authorized,
@@ -363,14 +460,14 @@ def build_artifact_server(
         mime_type=_JSON_MIME_TYPE,
     )
     def artifact_presence(authorized: Authorized[ArtifactRead], content_address: str) -> str:
-        """Answer whether the substrate holds ``content_address``.
+        """Answer whether the substrate holds ``content_address`` for this caller.
 
         A successful read either way, and the structured signal the client
         discriminates absence from outage on. Decided exactly as
-        :func:`artifact_blob` is — the same capability, the same three holds —
-        and strictly less disclosing: one bit about an address the caller
-        already holds. A refusal, absence included, crosses as the shell,
-        which the ``kind`` key tells apart from a presence answer.
+        :func:`artifact_blob` is — the same capability, the same split — and
+        strictly less disclosing: one bit about an address the caller already
+        holds. A refusal, absence included, crosses as the shell, which the
+        ``kind`` key tells apart from a presence answer.
         """
         served = dereference(
             authorized,

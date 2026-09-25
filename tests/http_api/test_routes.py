@@ -60,6 +60,9 @@ from .gate_fixtures import SCOPE_EVERYTHING, wide_authorizer
 from ccf.contracts.canonical import content_hash
 from ccf_runtime.http_api.errors import ERROR_PRODUCT_DOOR_UNGOVERNED
 from http_api.conftest import Fabric, call
+from http_api.composition_authority import (
+    register_typed_at_composition,
+)
 
 DECISIONS = Path(__file__).resolve().parents[2] / "docs" / "DECISIONS.md"
 
@@ -233,7 +236,7 @@ def _echo_entitlement(fabric: Fabric) -> Any:
     """The echo door's entitlement source over its own policy."""
     address = fabric.product_address
     registry = ControlPlaneRegistry()
-    registry.register_typed(
+    register_typed_at_composition(registry, 
         product_entitlement_key(tenant_id=address.tenant),
         ProductEntitlementPolicy(
             tenant_id=address.tenant,

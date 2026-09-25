@@ -171,6 +171,12 @@ class _RecordingAuthorizer:
             action_id=action_id,
             tenant=tenant,
             resource=resource,
+            # What the SDK's authorizer always supplies: the id of the audit
+            # event this decision is evidence of. Deterministic per ask here,
+            # so a test that recomputes the decision recomputes the id.
+            decision_id=content_hash(
+                {"tenant": tenant, "action_id": action_id, "resource": resource}
+            ),
         )
 
 
@@ -275,9 +281,12 @@ def test_the_body_receives_a_genuine_capability_for_its_declared_action() -> Non
 
 
 def test_the_mint_carries_the_decisions_identity() -> None:
-    """``decision_id`` is the content address of the very decision the
-    authorizer returned, so a replay reader can tie the capability to the
-    allow it is evidence of and to nothing else."""
+    """``decision_id`` is the decision's OWN id — the audit event the
+    authorizer appended for this allow (D-IMPL-353 §1.5a; the join) — so a
+    replay reader can tie the capability to the record it is evidence of and
+    to nothing else. Not a content hash of the decision tuple, which names no
+    record at all; ``tests/mcp/test_decision_unmintable.py`` carries the
+    refusal for a decision that names none."""
     probe = _probe()
     reset = _as_grant(_grant(TENANT))
     try:
@@ -286,7 +295,9 @@ def test_the_mint_carries_the_decisions_identity() -> None:
         auth_context_var.reset(reset)
     (asked,) = probe.authorizer.asked
     decision = probe.authorizer.authorize(**asked)
-    assert probe.received[0].decision_id == content_hash(decision)
+    assert decision.decision_id is not None
+    assert probe.received[0].decision_id == decision.decision_id
+    assert probe.received[0].decision_id != content_hash(decision)
 
 
 def test_the_authorizer_is_asked_for_the_declared_action_and_resource() -> None:

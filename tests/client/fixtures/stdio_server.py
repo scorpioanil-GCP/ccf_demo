@@ -93,6 +93,9 @@ from ccf_runtime.mcp.egress import build_egress_server
 from ccf.authz.actions import ACTION_PRODUCT_RETRIEVE
 from ccf_runtime.authz.artifact import SCOPE_MAPPING, ScopeEntry, ScopeMappingArtifact
 from ccf_runtime.authz.protocol import ControlPlaneTenantAuthorizer
+from http_api.composition_authority import (
+    register_typed_at_composition,
+)
 
 #: The prose this deployment's tool advertises — a deployment value the SDK
 #: holds no default for, and the one string here this deployment must write.
@@ -124,7 +127,7 @@ def serve(root: Path) -> None:
     # target for anything that reads it back.
     stamped = document.question.asked_at or datetime.now(UTC)
 
-    booted.control_plane.register_typed(
+    register_typed_at_composition(booted.control_plane, 
         product_entitlement_key(tenant_id=booted.fabric.tenant_id),
         ProductEntitlementPolicy(
             tenant_id=booted.fabric.tenant_id,
@@ -166,7 +169,7 @@ def serve(root: Path) -> None:
     # class it serves, registered into the SAME Control Plane the
     # entitlement reads from and pinned at the version returned.
     scope_mapping_key = f"{SCOPE_MAPPING.class_id}/{booted.fabric.tenant_id}"
-    mapping_version = booted.control_plane.register_typed(
+    mapping_version = register_typed_at_composition(booted.control_plane, 
         scope_mapping_key,
         ScopeMappingArtifact(
             semver="1.0.0",

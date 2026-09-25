@@ -55,6 +55,14 @@ from ccf_runtime.mcp.auth import (
     StaticTokenSource,
     TokenGrant,
 )
+from tests.http_api.composition_authority import (
+    deployment_store,
+    refusal_recorder,
+    register_typed_at_composition,
+)
+
+#: The record class this fixture's recorders file into. Test vocabulary.
+REPLAY_RECORD_CLASS = "ccf.decision-replay-record"
 
 TENANT = "tenant-guard-own"
 FOREIGN = "tenant-guard-foreign"
@@ -132,7 +140,8 @@ def authorizer_granting(
         action_ids=tuple(actions),
         resource_patterns=tuple(resources),
     )
-    version = control_plane.register_typed(
+    version = register_typed_at_composition(
+        control_plane,
         MAPPING_KEY,
         ScopeMappingArtifact(
             semver="1.0.0", scopes={scope: entry for scope in scopes}
@@ -163,20 +172,19 @@ def wide_authorizer(*, scopes: Iterable[str]) -> ControlPlaneTenantAuthorizer:
 
 def _entitlement_world(tmp_path: pathlib.Path) -> tuple[Any, Any]:
     """An entitlement source and a refusal recorder over a scratch store."""
-    from ccf.artifacts.file_store import FileArtifactStore
     from ccf.products.entitlement import (
         PRODUCT_ENTITLEMENT_POLICY,
         ProductEntitlementGrant,
         ProductEntitlementPolicy,
         product_entitlement_key,
     )
-    from ccf.products.resolver import ReplayRefusalRecorder
     from ccf_runtime.authz.product_entitlement import (
         ControlPlaneProductEntitlementSource,
     )
 
     registry = ControlPlaneRegistry()
-    registry.register_typed(
+    register_typed_at_composition(
+        registry,
         product_entitlement_key(tenant_id=TENANT),
         ProductEntitlementPolicy(
             tenant_id=TENANT,
@@ -193,10 +201,11 @@ def _entitlement_world(tmp_path: pathlib.Path) -> tuple[Any, Any]:
     source = ControlPlaneProductEntitlementSource(
         control_plane=registry, clock=lambda: AUDIT_INSTANT
     )
-    recorder = ReplayRefusalRecorder(
-        artifact_store=FileArtifactStore(root=tmp_path / "replay"),
-        replay_record_class="ccf.decision-replay-record",
-        tenant_id=TENANT,
+    recorder = refusal_recorder(
+        registry,
+        store=deployment_store(tmp_path / "replay", REPLAY_RECORD_CLASS),
+        tenant=TENANT,
+        replay_record_class=REPLAY_RECORD_CLASS,
         assembly_mode="algorithmic",
         policy_bundle_pin=None,
         disclosure_level_for=source.disclosure_level_for,
@@ -213,13 +222,12 @@ def _perspective(*, grant: Any, tenant: str, requested_role: str | None) -> Any:
 def build_for(builder: str, tmp_path: pathlib.Path) -> FastMCP:
     """Build one shipped server by name, with every surface exposed."""
     if builder == "artifact":
-        from ccf.artifacts.file_store import FileArtifactStore
         from ccf_runtime.mcp.artifact_server import build_artifact_server
 
         source, recorder = _entitlement_world(tmp_path)
         return build_artifact_server(
             server_name="guard-artifact",
-            store=FileArtifactStore(root=tmp_path / "artifacts"),
+            store=deployment_store(tmp_path / "artifacts", REPLAY_RECORD_CLASS),
             token_verifier=_verifier(),
             auth_settings=_auth(),
             authorizer=authorizer_granting(),

@@ -80,6 +80,11 @@ from tests.workflow.capabilities import (
     execute_capability,
     resume_as,
 )
+from http_api.composition_authority import (
+    deployment_store,
+    register_typed_at_composition,
+    register_versioned_at_composition,
+)
 
 FIXTURES = Path(__file__).parent.parent / "fixtures" / "banking"
 
@@ -112,7 +117,7 @@ def _register_declared(
             },
             artifact_class,
         )
-        registry.register_typed(reference["key"], declared, artifact_class)
+        register_typed_at_composition(registry, reference["key"], declared, artifact_class)
 
 
 @pytest.fixture
@@ -124,7 +129,7 @@ def registry() -> ControlPlaneRegistry:
     task = parse_artifact(task_fixture["task_definition"], TASK_DEFINITION)
     assert isinstance(task, TaskDefinition)
     workflow_fixture = _load("workflows/payment_release_workflow.yaml")
-    plane.register_versioned(
+    register_versioned_at_composition(plane, 
         workflow_fixture["keys"]["task_definition"], task, TASK_DEFINITION
     )
     _register_declared(plane, workflow_fixture["referenced_artifacts"])
@@ -138,7 +143,7 @@ def _workflow(registry: ControlPlaneRegistry) -> Workflow:
     )
     assert isinstance(definition, WorkflowDefinition)
     key = fixture["keys"]["workflow_definition"]
-    version = registry.register_versioned(
+    version = register_versioned_at_composition(registry, 
         key, definition, WORKFLOW_DEFINITION
     )
     assert isinstance(version, str)
@@ -173,7 +178,9 @@ def _world(
     bindings = _Bindings()
     engine = WorkflowEngine(
         control_plane=registry,
-        artifact_store=FileArtifactStore(root=tmp_path / "artifacts"),
+        # The trace class declared under Execute | Resume (D-IMPL-353 §1.2):
+        # what this deployment's engine writes for itself.
+        artifact_store=deployment_store(tmp_path / "artifacts", workflow_traces=True),
         hitl_transport=transport,
         skill_binding=bindings,
         agent_binding=bindings,

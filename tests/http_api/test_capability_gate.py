@@ -54,7 +54,7 @@ from fastapi import APIRouter, FastAPI, HTTPException
 from starlette.requests import Request
 
 from ccf.artifacts.file_store import FileArtifactStore
-from ccf.artifacts.protocol import GovernedRecordClasses, GovernedWriteHandle
+from ccf.artifacts.protocol import WriteKinds
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.audit import AuthzDecisionAuditEvent
@@ -111,6 +111,11 @@ from .gate_fixtures import (
     wide_authorizer,
 )
 from .test_product_declared_obligation_409 import _entitlement_registry, _recorder
+from http_api.composition_authority import (
+    deployment_store,
+    refusal_recorder,
+    register_typed_at_composition,
+)
 
 #: Test vocabulary.
 A = "cap-gate-tenant-a"
@@ -143,7 +148,7 @@ class _Echo:
 
     def __init__(self, *, authorizer: Any | None = None) -> None:
         self.registry = ControlPlaneRegistry()
-        version = self.registry.register_typed(
+        version = register_typed_at_composition(self.registry, 
             MAPPING_KEY,
             ScopeMappingArtifact(
                 semver="1.0.0",
@@ -772,53 +777,86 @@ class TestCreateAppRefusesMismatchedWiring:
         }
 
     def _recorder_over(self, store: Any, fabric: Fabric) -> ReplayRefusalRecorder:
-        return ReplayRefusalRecorder(
-            artifact_store=store,
+        return refusal_recorder(
+            fabric.registry,
+            store=store,
+            tenant=fabric.product_address.tenant,
             replay_record_class=REPLAY_RECORD_CLASS,
-            tenant_id=fabric.product_address.tenant,
             assembly_mode="algorithmic",
             policy_bundle_pin=None,
         )
 
-    def test_a_governed_class_with_no_minting_authority_is_refused_at_boot(
-        self, fabric: Fabric, tmp_path: pathlib.Path
-    ) -> None:
-        from ccf_runtime.http_api.app import GovernedWiringError, create_app
+    def _deps(self, fabric: Fabric) -> Any:
         from ccf_runtime.http_api.dependencies import ApiDependencies
 
-        governed = FileArtifactStore(
-            root=tmp_path / "governed",
-            governed=GovernedRecordClasses.declare(REPLAY_RECORD_CLASS),
-        )
-        deps = ApiDependencies(
+        return ApiDependencies(
             control_plane=fabric.registry,
             artifact_store=fabric.store,
             product_resolver=fabric.product_resolver,
+        )
+
+    def test_a_recorder_over_a_store_that_does_not_declare_its_class_is_refused_at_boot(
+        self, fabric: Fabric, tmp_path: pathlib.Path
+    ) -> None:
+        """D-IMPL-353 §3, the join's reading over `WriteKinds`: the recorder's
+        writer holds `ReplayMint` for its class; a store that has not declared
+        that class under `ReplayMint` treats it as the client lane, so the
+        first governed determination would fail to record. Refused before it
+        can, and the refusal names the class."""
+        from ccf_runtime.http_api.app import GovernedWiringError, create_app
+
+        undeclared = FileArtifactStore(
+            root=tmp_path / "undeclared", write_kinds=WriteKinds({})
         )
         with pytest.raises(GovernedWiringError, match=REPLAY_RECORD_CLASS):
-            create_app(deps, **self._seams(fabric, tmp_path, self._recorder_over(governed, fabric)))
+            create_app(
+                self._deps(fabric),
+                **self._seams(fabric, tmp_path, self._recorder_over(undeclared, fabric)),
+            )
 
-    def test_the_same_recorder_over_the_minting_handle_builds(
+    def test_a_recorder_over_a_store_exposing_no_declaration_is_refused_at_boot(
         self, fabric: Fabric, tmp_path: pathlib.Path
     ) -> None:
-        """The positive control: the refusal is about authority, not class."""
-        from ccf_runtime.http_api.app import create_app
-        from ccf_runtime.http_api.dependencies import ApiDependencies
+        """*Don't know* is not *pass*: a store the app cannot read a
+        `write_kinds` declaration off cannot be shown to admit the recorder's
+        writer, and the app refuses rather than assuming."""
+        from ccf_runtime.http_api.app import GovernedWiringError, create_app
 
-        governed = FileArtifactStore(
-            root=tmp_path / "governed",
-            governed=GovernedRecordClasses.declare(REPLAY_RECORD_CLASS),
-        )
-        deps = ApiDependencies(
-            control_plane=fabric.registry,
-            artifact_store=fabric.store,
-            product_resolver=fabric.product_resolver,
-        )
+        class _Undeclaring:
+            """The four Protocol methods and no declaration."""
+
+            def __init__(self, inner: Any) -> None:
+                self._inner = inner
+
+            def put(self, authorized: Any, artifact: Any) -> Any:
+                return self._inner.put(authorized, artifact)
+
+            def get(self, *, content_address: str) -> bytes:
+                return bytes(self._inner.get(content_address=content_address))
+
+            def exists(self, *, content_address: str) -> bool:
+                return bool(self._inner.exists(content_address=content_address))
+
+            def resolve_uri(self, *, uri: str) -> str:
+                return str(self._inner.resolve_uri(uri=uri))
+
+        opaque = _Undeclaring(deployment_store(tmp_path / "opaque", REPLAY_RECORD_CLASS))
+        with pytest.raises(GovernedWiringError, match="write_kinds"):
+            create_app(
+                self._deps(fabric),
+                **self._seams(fabric, tmp_path, self._recorder_over(opaque, fabric)),
+            )
+
+    def test_the_same_recorder_over_a_store_declaring_its_class_builds(
+        self, fabric: Fabric, tmp_path: pathlib.Path
+    ) -> None:
+        """The positive control: the refusal is about the declaration, not the class."""
+        from ccf_runtime.http_api.app import create_app
+
+        declared = deployment_store(tmp_path / "declared", REPLAY_RECORD_CLASS)
         app = create_app(
-            deps,
-            **self._seams(
-                fabric, tmp_path, self._recorder_over(GovernedWriteHandle(governed), fabric)
-            ),
+            self._deps(fabric),
+            **self._seams(fabric, tmp_path, self._recorder_over(declared, fabric)),
         )
         assert app is not None
 

@@ -57,8 +57,18 @@ from mcp.server.auth.settings import AuthSettings  # noqa: E402
 from pydantic import AnyHttpUrl  # noqa: E402
 
 from crossproc.servers.wide_authorizer import wide_authorizer  # noqa: E402
+from controlplane.capabilities import capability  # noqa: E402
+from http_api.composition_authority import (  # noqa: E402
+    composition_register,
+    composition_replay_mint,
+    deployment_store,
+    refusal_recorder,
+    register_typed_at_composition,
+    register_versioned_at_composition,
+)
 
 from ccf.agents.factory import AgentFactory  # noqa: E402
+from ccf.authz.capability import SkillGrant as SkillGrantKind  # noqa: E402
 from ccf.artifacts.file_store import FileArtifactStore  # noqa: E402
 from ccf.contracts.canonical import canonical_bytes, content_hash  # noqa: E402
 from ccf.controlplane.artifacts import (  # noqa: E402
@@ -89,6 +99,7 @@ from ccf.skills.catalog import (  # noqa: E402
     SKILL_CATALOG_ENTRY,
     SkillCatalog,
     SkillCatalogEntry,
+    skill_catalog_key,
 )
 from ccf.skills.grants import GrantLedger, SkillGrant  # noqa: E402
 from ccf.agents.definitions import AGENT_DEFINITION, AgentDefinition  # noqa: E402
@@ -172,6 +183,7 @@ ASSEMBLY_MODE: AssemblyMode = "algorithmic"
 
 def experience_refusal_recorder(
     *,
+    registry: ControlPlaneRegistry,
     store: FileArtifactStore,
     tenant: str,
     disclosure_level_for: Any,
@@ -191,10 +203,11 @@ def experience_refusal_recorder(
     same terms as :func:`build_world` and ``build_servable_product``: two
     copies of a recorder's wiring would agree only until someone edited one.
     """
-    return ReplayRefusalRecorder(
-        artifact_store=store,
+    return refusal_recorder(
+        registry,
+        store=store,
+        tenant=tenant,
         replay_record_class=REPLAY_ARTIFACT_CLASS,
-        tenant_id=tenant,
         assembly_mode=ASSEMBLY_MODE,
         # No bundle key at a delivery boundary, and saying so positively is
         # the honest posture: the record's bindings are exactly what the
@@ -295,14 +308,16 @@ def build_world() -> AgentWorld:
             },
             artifact_class,
         )
-        registry.register_typed(reference["key"], declared, artifact_class)
+        register_typed_at_composition(registry, reference["key"], declared, artifact_class)
 
     catalog = SkillCatalog(registry)
     entry = parse_artifact(
         dict(tool_fixture["variants"]["local_callable"]), SKILL_CATALOG_ENTRY
     )
     assert isinstance(entry, SkillCatalogEntry)
-    assert isinstance(catalog.register(entry), str)
+    assert isinstance(
+        catalog.register(composition_register(registry, skill_catalog_key(entry)), entry), str
+    )
 
     ledger = GrantLedger(
         control_plane=registry,
@@ -319,8 +334,10 @@ def build_world() -> AgentWorld:
         dict(grants_fixture["agents"]["auto"]), AGENT_DEFINITION
     )
     assert isinstance(definition, AgentDefinition)
-    definition_key = grants_fixture["policy_regimes"]["auto"]["key"] + "/agent"
-    definition_version = registry.register_versioned(
+    # The `{tenant}/{class}/{name}` key convention, so the grant capability's
+    # resource binds to the definition's own name at the ledger (§1.5f).
+    definition_key = f"{definition.tenant}/agents/{definition.name}"
+    definition_version = register_versioned_at_composition(registry, 
         definition_key, definition, AGENT_DEFINITION
     )
     assert isinstance(definition_version, str)
@@ -329,10 +346,19 @@ def build_world() -> AgentWorld:
         agent_definition_hash=content_hash(definition),
         **dict(grants_fixture["grants"]["metrics_local"]),
     )
+    # A composition-time grant: a GENUINE `Authorized[SkillGrant]` for the
+    # definition key, minted the way the door mints one, for the requesting
+    # actor the fixture declares (D-IMPL-353 §1.2 — the actor is the
+    # capability's principal, never a parameter).
     outcome = ledger.request(
+        capability(
+            SkillGrantKind,
+            tenant=definition.tenant,
+            resource=definition_key,
+            principal=grants_fixture["approval"]["requesting_actor"],
+        ),
         grant,
         definition=definition,
-        actor=grants_fixture["approval"]["requesting_actor"],
     )
     assert isinstance(outcome, str), outcome
 
@@ -418,9 +444,12 @@ def build_server(
         database_path=workspace / "experience-child.sqlite3"
     )
     world = build_world()
-    replay_store = FileArtifactStore(root=workspace / REPLAY_DIRNAME)
+    replay_store = deployment_store(workspace / REPLAY_DIRNAME, REPLAY_ARTIFACT_CLASS)
     writer = ReplayWriter(
-        store=replay_store, artifact_class=REPLAY_ARTIFACT_CLASS
+        authorized=composition_replay_mint(
+            world.registry, tenant=world.tenant, artifact_class=REPLAY_ARTIFACT_CLASS
+        ),
+        store=replay_store,
     )
     latest_record: dict[str, str | None] = {"record": None}
 
@@ -561,7 +590,7 @@ def build_server(
     # assembly conditioned on, so an entitlement cannot name something this
     # deployment does not serve.
     door_registry = ControlPlaneRegistry()
-    door_registry.register_typed(
+    register_typed_at_composition(door_registry, 
         product_entitlement_key(tenant_id=assembled.address.tenant),
         ProductEntitlementPolicy(
             tenant_id=assembled.address.tenant,
@@ -607,6 +636,7 @@ def build_server(
         # agent leg already writes its records to — so one deployment keeps
         # one audit trail rather than two.
         refusal_recorder=experience_refusal_recorder(
+            registry=door_registry,
             store=replay_store,
             tenant=assembled.address.tenant,
             disclosure_level_for=entitlement_source.disclosure_level_for,

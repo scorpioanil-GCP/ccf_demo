@@ -144,6 +144,12 @@ from crossproc.servers.mcp_egress_child import (
     authorized_http_client,
     build_servable_product,
 )
+from ccf.controlplane.registry import ControlPlaneRegistry
+from http_api.composition_authority import (
+    deployment_store,
+    refusal_recorder,
+    register_typed_at_composition,
+)
 
 pytestmark = pytest.mark.crossproc
 
@@ -520,10 +526,11 @@ def _recorder(root: Path, *, tenant: str) -> ReplayRefusalRecorder:
     is a stub — so there is none to take a recorder off, and the tenant comes
     from the address the fixture already holds.
     """
-    return ReplayRefusalRecorder(
-        artifact_store=FileArtifactStore(root=root / "artifacts"),
+    return refusal_recorder(
+        ControlPlaneRegistry(),
+        store=deployment_store(root / "artifacts", LOCAL_REPLAY_RECORD_CLASS),
+        tenant=tenant,
         replay_record_class=LOCAL_REPLAY_RECORD_CLASS,
-        tenant_id=tenant,
         assembly_mode="algorithmic",
     )
 
@@ -596,7 +603,7 @@ def _local_world(
         encoding="utf-8",
     )
     registry = ControlPlaneRegistry()
-    registry.register_typed(
+    register_typed_at_composition(registry, 
         product_entitlement_key(tenant_id=address.tenant),
         ProductEntitlementPolicy(
             tenant_id=address.tenant,

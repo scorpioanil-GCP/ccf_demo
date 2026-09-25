@@ -61,6 +61,11 @@ from crossproc.servers.mcp_experience_child import (
     build_servable_product,
     build_world,
 )
+from crossproc.servers import mcp_experience_child as _child
+from http_api.composition_authority import (
+    deployment_store,
+    register_typed_at_composition,
+)
 
 pytestmark = pytest.mark.crossproc
 
@@ -429,7 +434,10 @@ def _builder_kwargs(tmp_path: Path) -> dict[str, Any]:
         # child's own wiring, not a second copy of it; `_in_process_door`
         # replaces it with one bound to that test's own tenant and reader.
         "refusal_recorder": experience_refusal_recorder(
-            store=FileArtifactStore(root=tmp_path / "builder-kwargs-replay"),
+            registry=ControlPlaneRegistry(),
+            store=deployment_store(
+                tmp_path / "builder-kwargs-replay", _child.REPLAY_ARTIFACT_CLASS
+            ),
             tenant=BUILDER_KWARGS_TENANT,
             disclosure_level_for=entitlement_source.disclosure_level_for,
         ),
@@ -484,7 +492,7 @@ def _in_process_door(
     )
 
     registry = ControlPlaneRegistry()
-    registry.register_typed(
+    register_typed_at_composition(registry, 
         product_entitlement_key(tenant_id=tenant),
         ProductEntitlementPolicy(
             tenant_id=tenant,
@@ -523,7 +531,8 @@ def _in_process_door(
     # THIS registry's policy, so a recorder still bound to `_builder_kwargs`'
     # placeholder would disclose against a tenant nothing here registered.
     kwargs["refusal_recorder"] = experience_refusal_recorder(
-        store=FileArtifactStore(root=tmp_path / "in-process-replay"),
+        registry=registry,
+        store=deployment_store(tmp_path / "in-process-replay", _child.REPLAY_ARTIFACT_CLASS),
         tenant=tenant,
         disclosure_level_for=source.disclosure_level_for,
     )

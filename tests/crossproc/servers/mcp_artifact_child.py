@@ -59,12 +59,15 @@ from ccf.products.entitlement import (  # noqa: E402
     ProductEntitlementPolicy,
     product_entitlement_key,
 )
-from ccf.products.resolver import ReplayRefusalRecorder  # noqa: E402
 from ccf_runtime.authz.product_entitlement import (  # noqa: E402
     ControlPlaneProductEntitlementSource,
 )
+from http_api.composition_authority import (  # noqa: E402
+    deployment_store,
+    refusal_recorder,
+    register_typed_at_composition,
+)
 
-from ccf.artifacts.file_store import FileArtifactStore  # noqa: E402
 from ccf_runtime.mcp.artifact_server import build_artifact_server  # noqa: E402
 from ccf_runtime.mcp.auth import (  # noqa: E402
     FileTokenSource,
@@ -100,6 +103,12 @@ RESOURCE_SERVER_URL = "https://artifact-server.invalid/mcp"
 
 TOKEN_FILENAME = "tokens.json"
 ARTIFACTS_DIRNAME = "artifacts"
+
+#: The one governed evidence class this child's substrate declares — the
+#: class its refusal recorder files records into, under ``ReplayMint``.
+#: Every other class a client puts is the client lane, served tenant-scoped
+#: through the blob resource (the D-IMPL-353 join's split, §7.4).
+REPLAY_RECORD_CLASS = "ccf.decision-replay-record"
 
 
 def authorized_http_client(token: str = DEV_TOKEN) -> httpx.AsyncClient:
@@ -149,9 +158,10 @@ def build_server(*, workspace: Path) -> FastMCP:
     store, and the Control Plane audit log — beside the authorizer every
     MCP builder now takes.
     """
-    store = FileArtifactStore(root=workspace / ARTIFACTS_DIRNAME)
+    store = deployment_store(workspace / ARTIFACTS_DIRNAME, REPLAY_RECORD_CLASS)
     registry = ControlPlaneRegistry()
-    registry.register_typed(
+    register_typed_at_composition(
+        registry,
         product_entitlement_key(tenant_id=TENANT),
         ProductEntitlementPolicy(
             tenant_id=TENANT,
@@ -181,10 +191,11 @@ def build_server(*, workspace: Path) -> FastMCP:
         ),
         authorizer=wide_authorizer(scopes=(SCOPE,)),
         entitlement_source=source,
-        refusal_recorder=ReplayRefusalRecorder(
-            artifact_store=store,
-            replay_record_class="ccf.decision-replay-record",
-            tenant_id=TENANT,
+        refusal_recorder=refusal_recorder(
+            registry,
+            store=store,
+            tenant=TENANT,
+            replay_record_class=REPLAY_RECORD_CLASS,
             assembly_mode="algorithmic",
             disclosure_level_for=source.disclosure_level_for,
         ),

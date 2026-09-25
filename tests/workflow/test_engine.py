@@ -109,6 +109,11 @@ from tests.workflow.capabilities import (
     execute_capability,
     resume_as,
 )
+from http_api.composition_authority import (
+    deployment_store,
+    register_typed_at_composition,
+    register_versioned_at_composition,
+)
 
 FIXTURES = Path(__file__).parent.parent / "fixtures" / "banking"
 
@@ -131,14 +136,14 @@ def _register_declared(
             },
             artifact_class,
         )
-        registry.register_typed(reference["key"], declared, artifact_class)
+        register_typed_at_composition(registry, reference["key"], declared, artifact_class)
 
 
 def _register_covenant_closure(plane: ControlPlaneRegistry) -> None:
     """Register everything the covenant-review workflow's refs resolve to."""
     prompt_fixture = _load("prompts/covenant_summary.yaml")
     prompt = parse_artifact(prompt_fixture["prompt_artifact"], PROMPT_ARTIFACT)
-    plane.register_typed(
+    register_typed_at_composition(plane, 
         prompt_fixture["keys"]["prompt_artifact"], prompt, PROMPT_ARTIFACT
     )
     agent_fixture = _load("agents/covenant_analytics.yaml")
@@ -146,7 +151,7 @@ def _register_covenant_closure(plane: ControlPlaneRegistry) -> None:
     agent = parse_artifact(agent_fixture["agent_definition"], AGENT_DEFINITION)
     assert isinstance(agent, AgentDefinition)
     task_fixture = _load("tasks/covenant_review_task.yaml")
-    plane.register_versioned(
+    register_versioned_at_composition(plane, 
         task_fixture["keys"]["referenced_agent_definition"],
         agent,
         AGENT_DEFINITION,
@@ -155,7 +160,7 @@ def _register_covenant_closure(plane: ControlPlaneRegistry) -> None:
     task = parse_artifact(task_fixture["task_definition"], TASK_DEFINITION)
     assert isinstance(task, TaskDefinition)
     workflow_fixture = _load("workflows/covenant_review_workflow.yaml")
-    plane.register_versioned(
+    register_versioned_at_composition(plane, 
         workflow_fixture["keys"]["task_definition"], task, TASK_DEFINITION
     )
     _register_declared(plane, workflow_fixture["referenced_artifacts"])
@@ -168,7 +173,7 @@ def _register_refresh_closure(plane: ControlPlaneRegistry) -> None:
     task = parse_artifact(task_fixture["task_definition"], TASK_DEFINITION)
     assert isinstance(task, TaskDefinition)
     workflow_fixture = _load("workflows/certificate_refresh_workflow.yaml")
-    plane.register_versioned(
+    register_versioned_at_composition(plane, 
         workflow_fixture["keys"]["task_definition"], task, TASK_DEFINITION
     )
 
@@ -205,7 +210,7 @@ def _construct(
     key = fixture["keys"]["workflow_definition"]
     if mutations:
         key = f"{definition.tenant}/workflows/{definition.name}"
-    version = registry.register_versioned(key, definition, WORKFLOW_DEFINITION)
+    version = register_versioned_at_composition(registry, key, definition, WORKFLOW_DEFINITION)
     assert isinstance(version, str)
     return WorkflowFactory(control_plane=registry).construct(
         execute_capability(tenant=definition.tenant, resource=key),
@@ -345,7 +350,9 @@ def _engine(
     bindings = _Bindings(failing=failing)
     engine = WorkflowEngine(
         control_plane=registry,
-        artifact_store=FileArtifactStore(root=tmp_path / "artifacts"),
+        # The trace class declared under Execute | Resume (D-IMPL-353 §1.2):
+        # what this deployment's engine writes for itself.
+        artifact_store=deployment_store(tmp_path / "artifacts", workflow_traces=True),
         hitl_transport=transport,
         skill_binding=bindings,
         agent_binding=bindings,
@@ -977,7 +984,7 @@ def test_a_substituted_handle_cannot_turn_a_gate_into_an_ordinary_node(
             step["ref"] = borrowed_ref
     task_document["artifact_version"] = "9.9.9"
     substitute_task = parse_artifact(task_document, TASK_DEFINITION)
-    registry.register_versioned(
+    register_versioned_at_composition(registry, 
         "acme-bank/ccf.task-definition/covenant-review-substitute",
         substitute_task,
         TASK_DEFINITION,
@@ -994,7 +1001,7 @@ def test_a_substituted_handle_cannot_turn_a_gate_into_an_ordinary_node(
     )
     workflow_document["gate_policies"] = {}
     substitute = parse_artifact(workflow_document, WORKFLOW_DEFINITION)
-    version = registry.register_versioned(
+    version = register_versioned_at_composition(registry, 
         "attacker/covenant-review", substitute, WORKFLOW_DEFINITION
     )
     handle = WorkflowFactory(control_plane=registry).construct(
@@ -1053,7 +1060,7 @@ def test_a_substituted_definition_is_refused_even_with_a_real_approval(
         "elsewhere"
     ]
     substitute = parse_artifact(document, WORKFLOW_DEFINITION)
-    version = registry.register_versioned(
+    version = register_versioned_at_composition(registry, 
         "attacker/covenant-review-routes", substitute, WORKFLOW_DEFINITION
     )
     handle = WorkflowFactory(control_plane=registry).construct(

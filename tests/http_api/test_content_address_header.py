@@ -93,6 +93,9 @@ from ccf_runtime.mcp.auth import FileTokenSource, TokenGrant
 from tests.http_api.test_product_declared_obligation_409 import _recorder
 
 from http_api.conftest import Fabric, call
+from http_api.composition_authority import (
+    register_typed_at_composition,
+)
 
 #: Test deployment vocabulary; the SDK ships none of it.
 TOKEN = "content-address-token"
@@ -154,7 +157,7 @@ def _app(fabric: Fabric, tmp_path: Path) -> Any:
     )
     address = fabric.product_address
     registry = ControlPlaneRegistry()
-    registry.register_typed(
+    register_typed_at_composition(registry, 
         product_entitlement_key(tenant_id=address.tenant),
         ProductEntitlementPolicy(
             tenant_id=address.tenant,

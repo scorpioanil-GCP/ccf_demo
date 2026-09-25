@@ -41,6 +41,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+from string import Formatter
 from typing import Any, Callable, Final, TypeVar
 
 __ccf_mode__ = "algorithmic"
@@ -52,6 +53,7 @@ __all__ = [
     "ResourceSource",
     "RouteAuthorization",
     "authorizes",
+    "composed_fields",
     "route_authorization",
 ]
 
@@ -76,7 +78,8 @@ ROUTE_AUTHORIZATION_ATTRIBUTE: Final[str] = "__ccf_route_authorization__"
 class ResourceSource(Enum):
     """Which part of the request supplies the resource a route acts on.
 
-    Four members, and the fourth is the one that keeps the axis total:
+    Five members; the fourth keeps the axis total and the fifth names a
+    resource spelled from more than one body field:
 
     * :attr:`PATH` — a named path parameter (an artifact's content address, a
       product's class). Present by construction once the route matched.
@@ -91,6 +94,14 @@ class ResourceSource(Enum):
       still authorized against a pattern, so the axis has no exempt member and
       a deployment can still say *this scope reaches liveness and nothing
       else*.
+    * :attr:`BODY_COMPOSED` — a ``str.format`` template over named top-level
+      body fields, for a resource the handle acts on that is spelled from
+      several of them: the artifact store's ``"{artifact_class}/{name}"``
+      (D-IMPL-353 §1.2 — the store takes class and name from the capability's
+      resource, so the gate must decide on exactly that string). The MCP
+      wrapper's ``resource_composed`` reading, on the HTTP side. Every field
+      the template names must be a non-empty string in the body, or the
+      extraction is a deny.
 
     An extraction that cannot produce a value — an absent query parameter, a
     body that is not a JSON object, a field that is not a string — is a
@@ -102,6 +113,7 @@ class ResourceSource(Enum):
     QUERY = "query"
     BODY = "body"
     ROUTE = "route"
+    BODY_COMPOSED = "body-composed"
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -111,7 +123,8 @@ class ResourceBinding:
     Attributes:
         source: The request part that carries it.
         name: The parameter or field name within that part; the empty string
-            for :attr:`ResourceSource.ROUTE`, which names no part.
+            for :attr:`ResourceSource.ROUTE`, which names no part; the
+            ``str.format`` template for :attr:`ResourceSource.BODY_COMPOSED`.
     """
 
     source: ResourceSource
@@ -123,6 +136,15 @@ class ResourceBinding:
                 raise ValueError(
                     "a ROUTE-sourced resource names no request part, so it"
                     f" carries no name; got {self.name!r}"
+                )
+            return
+        if self.source is ResourceSource.BODY_COMPOSED:
+            if not composed_fields(self.name):
+                raise ValueError(
+                    "a BODY_COMPOSED resource is a str.format template naming"
+                    " at least one top-level body field, each by name; got"
+                    f" {self.name!r} — a template naming nothing would let the"
+                    " request pick the resource (SEC-002)"
                 )
             return
         if not self.name:
@@ -151,6 +173,37 @@ class ResourceBinding:
     def route(cls) -> ResourceBinding:
         """The route itself is the resource; its action id names it."""
         return cls(source=ResourceSource.ROUTE, name="")
+
+    @classmethod
+    def body_composed(cls, template: str) -> ResourceBinding:
+        """The resource is ``template`` formatted over named top-level body fields."""
+        return cls(source=ResourceSource.BODY_COMPOSED, name=template)
+
+
+def composed_fields(template: str) -> tuple[str, ...]:
+    """The body fields a :attr:`ResourceSource.BODY_COMPOSED` template names, in order.
+
+    Empty — the refusal signal — when the template names no field, names a
+    positional (``{}``) or indexed (``{0}``) field, reaches into a field
+    (``{a.b}``, ``{a[0]}``), or is not a template at all. The gate formats the
+    template over exactly these names and nothing else, so a name this
+    function does not return is a name the request cannot influence.
+    """
+    try:
+        parsed = tuple(Formatter().parse(template))
+    except ValueError:
+        return ()
+    names: list[str] = []
+    for _literal, field_name, _spec, _conversion in parsed:
+        if field_name is None:
+            continue
+        if (
+            not field_name
+            or not field_name.isidentifier()
+        ):
+            return ()
+        names.append(field_name)
+    return tuple(names)
 
 
 @dataclass(frozen=True, kw_only=True)

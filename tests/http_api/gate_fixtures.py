@@ -44,7 +44,6 @@ from typing import Any
 
 import httpx
 
-from ccf.artifacts.file_store import FileArtifactStore
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.products.entitlement import (
     PRODUCT_ENTITLEMENT_POLICY,
@@ -67,6 +66,11 @@ from ccf_runtime.authz import refusals
 from ccf_runtime.http_api.auth import BearerTokenAuth
 from ccf.hitl.principal import AuthenticationClaims
 from ccf_runtime.mcp.auth import StaticTokenSource, TokenGrant, TokenSourceProtocol
+from http_api.composition_authority import (
+    deployment_store,
+    refusal_recorder,
+    register_typed_at_composition,
+)
 
 #: Test vocabulary.
 SCOPE_EVERYTHING = "gate:everything"
@@ -206,7 +210,10 @@ def build_gate_app(fabric: Any, root: Path) -> GateApp:
     # authorizer pins one version, and a module-scoped fabric other tests
     # register into must not be able to shift what is at that key.
     registry = ControlPlaneRegistry()
-    mapping_version = registry.register_typed(
+    # Every registration a fixture performs is the composition root's act,
+    # minted through the D-IMPL-354 recipe for exactly that key.
+    mapping_version = register_typed_at_composition(
+        registry,
         MAPPING_KEY,
         ScopeMappingArtifact(
             semver="1.0.0",
@@ -238,7 +245,8 @@ def build_gate_app(fabric: Any, root: Path) -> GateApp:
 
     address = fabric.product_address
     entitlements = ControlPlaneRegistry()
-    entitlements.register_typed(
+    register_typed_at_composition(
+        entitlements,
         product_entitlement_key(tenant_id=address.tenant),
         ProductEntitlementPolicy(
             tenant_id=address.tenant,
@@ -255,10 +263,11 @@ def build_gate_app(fabric: Any, root: Path) -> GateApp:
     entitlement_source = ControlPlaneProductEntitlementSource(
         control_plane=entitlements, clock=lambda: AUDIT_INSTANT
     )
-    recorder = ReplayRefusalRecorder(
-        artifact_store=FileArtifactStore(root=root / "gate-artifacts"),
+    recorder = refusal_recorder(
+        entitlements,
+        store=deployment_store(root / "gate-artifacts", REPLAY_RECORD_CLASS),
+        tenant=address.tenant,
         replay_record_class=REPLAY_RECORD_CLASS,
-        tenant_id=address.tenant,
         assembly_mode="algorithmic",
         policy_bundle_pin=None,
         disclosure_level_for=entitlement_source.disclosure_level_for,
@@ -378,7 +387,8 @@ def wide_authorizer(
     costs for *everything*, since the bare ``"*"`` is refused (WR-03).
     """
     registry = ControlPlaneRegistry()
-    version = registry.register_typed(
+    version = register_typed_at_composition(
+        registry,
         key,
         ScopeMappingArtifact(
             semver="1.0.0",

@@ -62,6 +62,10 @@ from ccf_runtime.http_api.errors import (
     ERROR_SUBJECT_CONFLICT,
 )
 from ccf_runtime.mcp.auth import TokenGrant
+from http_api.composition_authority import (
+    register_at_composition,
+    register_typed_at_composition,
+)
 
 #: Test deployment vocabulary. The SDK ships none of these values.
 TENANT = "tenant-entitlement-door"
@@ -103,7 +107,7 @@ def _registry_with(
     policy: ProductEntitlementPolicy, *, tenant: str = TENANT
 ) -> ControlPlaneRegistry:
     registry = ControlPlaneRegistry()
-    registry.register_typed(
+    register_typed_at_composition(registry, 
         product_entitlement_key(tenant_id=tenant),
         policy,
         PRODUCT_ENTITLEMENT_POLICY,
@@ -282,7 +286,7 @@ def test_a_near_miss_artifact_is_audited_as_a_deny_before_it_raises() -> None:
     misconfiguration window an examiner cares about is the one with no record.
     """
     registry = ControlPlaneRegistry()
-    registry.register(product_entitlement_key(tenant_id=TENANT), {"not": "a policy"})
+    register_at_composition(registry, product_entitlement_key(tenant_id=TENANT), {"not": "a policy"})
 
     with pytest.raises(TypeError):
         _source(registry).authorize(
@@ -359,7 +363,7 @@ def test_the_policy_is_re_resolved_on_every_call_with_no_cache(
         grant=_grant(), tenant=TENANT, product_class=PRODUCT_CLASS, role=ROLE
     )
 
-    registry.register_typed(
+    register_typed_at_composition(registry, 
         product_entitlement_key(tenant_id=TENANT),
         _policy(schemas=frozenset({OTHER_PRODUCT_CLASS})),
         PRODUCT_ENTITLEMENT_POLICY,

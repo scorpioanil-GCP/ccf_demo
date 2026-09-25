@@ -55,6 +55,11 @@ from pydantic import AnyHttpUrl  # noqa: E402
 from ccf.artifacts.file_store import FileArtifactStore  # noqa: E402
 from ccf.contracts.canonical import canonical_bytes, content_hash  # noqa: E402
 from ccf.controlplane.audit import AuditLog  # noqa: E402
+from ccf.controlplane.registry import ControlPlaneRegistry  # noqa: E402
+from http_api.composition_authority import (  # noqa: E402
+    composition_replay_mint,
+    deployment_store,
+)
 from ccf.graph.protocols import GraphView  # noqa: E402
 from ccf.hitl.approval_gate import ApprovalGate, GateResolution  # noqa: E402
 from ccf.hitl.principal import (  # noqa: E402
@@ -258,9 +263,14 @@ def build_server(*, workspace: Path) -> FastMCP:
     transport.enqueue(event=event)
 
     gate = ApprovalGate(transport=transport, audit=AuditLog(), clock=_clock())
+    # The writer holds the ReplayMint this deployment's composition root
+    # minted for its record class, for the tenant the event belongs to, over
+    # a store declaring that class (D-IMPL-353 §2 P3; D-IMPL-354).
     writer = ReplayWriter(
-        store=FileArtifactStore(root=workspace / REPLAY_DIRNAME),
-        artifact_class=REPLAY_ARTIFACT_CLASS,
+        authorized=composition_replay_mint(
+            ControlPlaneRegistry(), tenant=event.tenant, artifact_class=REPLAY_ARTIFACT_CLASS
+        ),
+        store=deployment_store(workspace / REPLAY_DIRNAME, REPLAY_ARTIFACT_CLASS),
     )
 
     def queue_view(authorized: Authorized[HitlQueueRead]) -> tuple[PendingHitlEvent, ...]:

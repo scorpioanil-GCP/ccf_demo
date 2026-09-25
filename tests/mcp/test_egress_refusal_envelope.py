@@ -131,6 +131,12 @@ from ccf_runtime.mcp.egress import (
 from tests.mcp.guarded_servers import wide_authorizer
 
 from crossproc.servers.mcp_egress_child import ProductAddress, build_servable_product
+from ccf.controlplane.registry import ControlPlaneRegistry
+from http_api.composition_authority import (
+    deployment_store,
+    refusal_recorder,
+    register_typed_at_composition,
+)
 
 #: Test deployment vocabulary; the SDK ships none of it.
 TOKEN = "egress-refusal-token"
@@ -448,9 +454,12 @@ def _refusing(
     directory otherwise — a fixture that needs to read the record back passes
     its own root.
     """
-    store = FileArtifactStore(
-        root=(root or Path(tempfile.mkdtemp(prefix="egress-refusing-"))) / "artifacts"
+    store = deployment_store(
+        (root or Path(tempfile.mkdtemp(prefix="egress-refusing-"))) / "artifacts",
+        REPLAY_ARTIFACT_CLASS,
     )
+    # Where this stub deployment's composition decisions are recorded.
+    composition = ControlPlaneRegistry()
 
     def resolve(
         *,
@@ -466,10 +475,11 @@ def _refusing(
             "this leg's caller was built to violate the declared surface and"
             " did not; the fixture, not the door, is what failed"
         )
-        recorder = ReplayRefusalRecorder(
-            artifact_store=store,
+        recorder = refusal_recorder(
+            composition,
+            store=store,
+            tenant=tenant,
             replay_record_class=REPLAY_ARTIFACT_CLASS,
-            tenant_id=tenant,
             assembly_mode="algorithmic",
         )
         return recorder.record(
@@ -504,10 +514,11 @@ def _minted(
     ``"full"`` and gets exactly what the recorder would return under a policy
     declaring it.
     """
-    recorder = ReplayRefusalRecorder(
-        artifact_store=FileArtifactStore(root=root / "artifacts"),
+    recorder = refusal_recorder(
+        ControlPlaneRegistry(),
+        store=deployment_store(root / "artifacts", REPLAY_ARTIFACT_CLASS),
+        tenant=address.tenant,
         replay_record_class=REPLAY_ARTIFACT_CLASS,
-        tenant_id=address.tenant,
         assembly_mode="algorithmic",
         disclosure_level_for=lambda *, tenant, principal_id: (level, None),
     )
@@ -542,10 +553,11 @@ def _refusing_and_recording(
     ``door_refusal`` passes an envelope through untouched, so the two doors
     below compare exactly what the resolver produced.
     """
-    recorder = ReplayRefusalRecorder(
-        artifact_store=store,
+    recorder = refusal_recorder(
+        ControlPlaneRegistry(),
+        store=store,
+        tenant=tenant,
         replay_record_class=REPLAY_ARTIFACT_CLASS,
-        tenant_id=tenant,
         assembly_mode="algorithmic",
     )
 
@@ -597,10 +609,11 @@ def _recorder(root: Path, *, tenant: str) -> ReplayRefusalRecorder:
     register an entitlement policy that declares no level, and ``minimal`` is
     what that policy is in force at.
     """
-    return ReplayRefusalRecorder(
-        artifact_store=FileArtifactStore(root=root / "artifacts"),
+    return refusal_recorder(
+        ControlPlaneRegistry(),
+        store=deployment_store(root / "artifacts", REPLAY_ARTIFACT_CLASS),
+        tenant=tenant,
         replay_record_class=REPLAY_ARTIFACT_CLASS,
-        tenant_id=tenant,
         assembly_mode="algorithmic",
     )
 
@@ -633,7 +646,7 @@ def _entitlement(
     address: ProductAddress, *, classes: frozenset[str] | None = None
 ) -> ControlPlaneProductEntitlementSource:
     registry = ControlPlaneRegistry()
-    registry.register_typed(
+    register_typed_at_composition(registry, 
         product_entitlement_key(tenant_id=address.tenant),
         ProductEntitlementPolicy(
             tenant_id=address.tenant,
@@ -809,7 +822,7 @@ def _http_app(
     return create_app(
         ApiDependencies(
             control_plane=ControlPlaneRegistry(),
-            artifact_store=FileArtifactStore(root=root / "artifacts"),
+            artifact_store=deployment_store(root / "artifacts", REPLAY_ARTIFACT_CLASS),
             product_resolver=resolver,  # type: ignore[arg-type]
         ),
         **authority(
@@ -931,7 +944,7 @@ def test_a_tier_refusal_arrives_as_a_typed_verdict_not_tool_error_prose(
     # declared reason prose — is on the RECORD; the wire carries the external
     # statement at this tenant's level (`D-IMPL-260` P-A: what crosses is the
     # recorded, disclosed shell, never the resolver's bare value).
-    store = FileArtifactStore(root=tmp_path / "artifacts")
+    store = deployment_store(tmp_path / "artifacts", REPLAY_ARTIFACT_CLASS)
     record = DecisionReplayRecord.model_validate_json(
         store.get(
             content_address=store.resolve_uri(uri=outcome.refusal.replay_reference)
@@ -1110,7 +1123,7 @@ def test_the_mcp_refusal_is_field_identical_to_the_in_process_one(
     declared = _contract(address)
     resolver = _refusing_and_recording(
         declared,
-        store=FileArtifactStore(root=tmp_path / "refusal-records"),
+        store=deployment_store(tmp_path / "refusal-records", REPLAY_ARTIFACT_CLASS),
         tenant=address.tenant,
     )
 

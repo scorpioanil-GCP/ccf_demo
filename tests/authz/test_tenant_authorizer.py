@@ -53,6 +53,10 @@ from ccf_runtime.authz.refusals import (
 )
 from ccf_runtime.http_api.errors import ERROR_TENANT_UNAUTHORIZED
 from ccf_runtime.mcp.auth import TokenGrant
+from http_api.composition_authority import (
+    register_at_composition,
+    register_typed_at_composition,
+)
 
 MAPPING_KEY = "test/scope-mapping"
 SCOPE = "test:hitl"
@@ -134,7 +138,7 @@ def _authz_events(
 
 def test_a_matching_grant_is_allowed_and_audited() -> None:
     registry = _registry()
-    version = registry.register_typed(MAPPING_KEY, _mapping(), SCOPE_MAPPING)
+    version = register_typed_at_composition(registry, MAPPING_KEY, _mapping(), SCOPE_MAPPING)
     assert isinstance(version, str)
     authorizer = _authorizer(registry, version=version)
 
@@ -203,7 +207,7 @@ def test_an_unmatched_grant_is_denied_and_audited(
     from ccf_runtime.authz.artifact import SCOPE_MAPPING
 
     registry = _registry()
-    version = registry.register_typed(MAPPING_KEY, _mapping(), SCOPE_MAPPING)
+    version = register_typed_at_composition(registry, MAPPING_KEY, _mapping(), SCOPE_MAPPING)
     assert isinstance(version, str)
     authorizer = _authorizer(registry, version=version)
 
@@ -242,7 +246,7 @@ def test_two_narrow_entries_never_compose_into_a_wide_one() -> None:
     entry states.
     """
     registry = _registry()
-    version = registry.register_typed(
+    version = register_typed_at_composition(registry, 
         MAPPING_KEY,
         ScopeMappingArtifact(
             semver="1.0.0",
@@ -314,14 +318,14 @@ def test_a_later_registration_does_not_change_the_decided_version() -> None:
     from ccf_runtime.authz.artifact import SCOPE_MAPPING
 
     registry = _registry()
-    v1 = registry.register_typed(MAPPING_KEY, _mapping(), SCOPE_MAPPING)
+    v1 = register_typed_at_composition(registry, MAPPING_KEY, _mapping(), SCOPE_MAPPING)
     assert isinstance(v1, str)
     authorizer = _authorizer(registry, version=v1)
 
     first = _decide(authorizer, tenant="tenant-a")
     # A WIDER mapping, registered after the authorizer was built: it reaches
     # a tenant v1 does not, under the same scope and action.
-    v2 = registry.register_typed(
+    v2 = register_typed_at_composition(registry, 
         MAPPING_KEY,
         _mapping(patterns=("tenant-*", "escalated-*"), semver="2.0.0"),
         SCOPE_MAPPING,
@@ -347,7 +351,7 @@ def test_the_authorizer_never_calls_resolve_latest() -> None:
     from ccf_runtime.authz.artifact import SCOPE_MAPPING
 
     registry = _registry()
-    version = registry.register_typed(MAPPING_KEY, _mapping(), SCOPE_MAPPING)
+    version = register_typed_at_composition(registry, MAPPING_KEY, _mapping(), SCOPE_MAPPING)
     assert isinstance(version, str)
 
     def explode(key: str) -> tuple[str, object]:
@@ -379,7 +383,7 @@ def test_an_empty_pin_is_refused_at_construction(
 
 def _near_miss() -> tuple[ControlPlaneRegistry, ControlPlaneTenantAuthorizer]:
     registry = _registry()
-    version = registry.register(
+    version = register_at_composition(registry, 
         MAPPING_KEY, {"semver": "1.0.0", "scopes": {}}
     )
     assert isinstance(version, str)
@@ -459,7 +463,7 @@ def test_the_deepest_axis_reached_is_the_one_recorded() -> None:
     the other names action and tenant but not the resource. The deny records
     ``resource`` — the furthest any entry got — not the first miss."""
     registry = _registry()
-    version = registry.register_typed(
+    version = register_typed_at_composition(registry, 
         MAPPING_KEY,
         ScopeMappingArtifact(
             semver="1.0.0",
@@ -504,7 +508,7 @@ def test_the_decision_id_is_the_allow_events_content_address() -> None:
         return INSTANT + timedelta(seconds=ticks["n"])
 
     registry = ControlPlaneRegistry(clock=clock)
-    version = registry.register_typed(MAPPING_KEY, _mapping(), SCOPE_MAPPING)
+    version = register_typed_at_composition(registry, MAPPING_KEY, _mapping(), SCOPE_MAPPING)
     assert isinstance(version, str)
     authorizer = ControlPlaneTenantAuthorizer(
         control_plane=registry,

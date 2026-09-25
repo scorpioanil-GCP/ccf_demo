@@ -34,6 +34,9 @@ import pytest
 from http_api.conftest import Fabric
 from ccf.products.disclosure import DISCLOSURE_MINIMAL
 from http_api.gate_fixtures import SCOPE_EVERYTHING
+from http_api.composition_authority import (
+    register_typed_at_composition,
+)
 
 #: The CLI suite's tenant and its per-boot credential. Deployment values in a
 #: test's clothing: named here once so no CLI test invents a second one.
@@ -149,7 +152,7 @@ def cli_entitlement_source(fabric: Fabric) -> Any:
 
     address = fabric.product_address
     registry = ControlPlaneRegistry()
-    registry.register_typed(
+    register_typed_at_composition(registry, 
         product_entitlement_key(tenant_id=address.tenant),
         ProductEntitlementPolicy(
             tenant_id=address.tenant,
@@ -180,10 +183,9 @@ def cli_authority(fabric: Fabric, root: Path) -> Any:
     needed another member of a contract it was pretending to satisfy, which
     is the shape of a test that has started lying.
     """
-    from ccf.artifacts.file_store import FileArtifactStore
-    from ccf.products.resolver import ReplayRefusalRecorder
     from ccf.projection.plan import Perspective
 
+    from http_api.composition_authority import deployment_store, refusal_recorder
     from http_api.gate_fixtures import authority
 
     source = cli_entitlement_source(fabric)
@@ -206,10 +208,11 @@ def cli_authority(fabric: Fabric, root: Path) -> Any:
         grants=CLI_TOKENS,
         product_entitlement=source,
         perspective_resolver=perspective_resolver,
-        refusal_recorder=ReplayRefusalRecorder(
-            artifact_store=FileArtifactStore(root=root / "cli-refusals"),
+        refusal_recorder=refusal_recorder(
+            fabric.registry,
+            store=deployment_store(root / "cli-refusals", CLI_REPLAY_RECORD_CLASS),
+            tenant=fabric.product_address.tenant,
             replay_record_class=CLI_REPLAY_RECORD_CLASS,
-            tenant_id=fabric.product_address.tenant,
             assembly_mode="algorithmic",
             policy_bundle_pin=None,
             disclosure_level_for=source.disclosure_level_for,
