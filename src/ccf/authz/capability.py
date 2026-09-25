@@ -19,16 +19,15 @@ decision — plus the ``decision_id`` of the audit event it is evidence of.
   :func:`verify`. That is the *runtime* tooth. It exists because types do not
   run: a ``cast``, a ``# type: ignore``, an untyped caller, or a dynamically
   built argument list all reach the handle with whatever object they carry.
-* **The mint is OVER the fields (§1.5g).** ``_minted`` is an immutable tuple of
-  the sentinel and every authorization field, captured at mint. :func:`verify`
-  compares the *current* attributes against it, so a genuine capability whose
-  ``kind`` has been reassigned to the legitimate ``ArtifactWrite`` identity —
-  which would pass a naive sentinel-plus-current-kind check — dies at use in
-  the same line as a fabrication. Assignment after mint is also refused, as
-  defense in depth; ``object.__setattr__`` bypasses that, and the tuple is what
-  makes the bypass die.
-* **Reuse across actions or targets is therefore unrepresentable, not refused
-  later.** No handle contains an authorization check after :func:`verify`.
+* **The mint is OVER the fields (§1.5g).** What was authorized — kind, tenant,
+  principal, resource, decision id — is recorded at mint in a module-private
+  table keyed by the capability's identity (``_ISSUED``), never on the object.
+  :func:`verify` reads the record from the table and compares the object's
+  current fields against it, so a retargeted field, a stand-in with the right
+  fields, an instance built around ``__init__``, a copy or a pickle round-trip
+  all die at use — and nothing a holder can read off one capability names the
+  table or the sentinel, so holding one is not a way to mint another (panel
+  finding F-FORGE-01 at the D-IMPL-353 join).
 
 **Two producers, and no third.** The HTTP :class:`AuthorizationGate` and the MCP
 ``TenantGuardedServer`` wrapper call :func:`mint` after
@@ -48,6 +47,7 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
+import weakref
 from typing import Any, Final, Generic, overload, TypeVar
 
 from ccf.authz.decision import AuthzDecision
@@ -139,6 +139,30 @@ class CapabilityBypassError(PermissionError):
 #: value is. Not exported, not importable by name from anywhere that matters
 #: — the lint refuses a reference to it outside this module.
 _SENTINEL: Final = object()
+
+#: Every capability this module minted, by identity, with the record of what
+#: was minted. A ``WeakKeyDictionary`` so a capability that goes out of scope
+#: takes its record with it. This table — not any attribute of the object — is
+#: what :func:`verify` reads; a stand-in with the right fields, an instance
+#: built around ``__init__``, a copy, or a pickle round-trip is not a key here.
+_ISSUED: weakref.WeakKeyDictionary[
+    "Authorized[Any]", tuple[type["ActionKind"], str, str, str, str]
+] = weakref.WeakKeyDictionary()
+
+
+def _issued(candidate: object) -> tuple[type["ActionKind"], str, str, str, str] | None:
+    """The mint record of ``candidate``, or ``None`` if this module never minted it.
+
+    Exact type first (a subclass is not a capability), then identity membership
+    in :data:`_ISSUED`. Nothing about the candidate's fields is trusted here;
+    :func:`verify` compares them against the record afterwards.
+    """
+    if type(candidate) is not Authorized:
+        return None
+    try:
+        return _ISSUED.get(candidate)
+    except TypeError:  # an unhashable impostor of the exact type is not possible, but fail closed
+        return None
 
 
 class ActionKind:
@@ -270,7 +294,7 @@ class Authorized(Generic[A]):
     other kind is a ``mypy --strict`` error at the call site.
     """
 
-    __slots__ = ("_minted", "kind", "tenant", "principal", "resource", "decision_id")
+    __slots__ = ("__weakref__", "kind", "tenant", "principal", "resource", "decision_id")
 
     kind: type[A]
     tenant: str
@@ -300,17 +324,23 @@ class Authorized(Generic[A]):
         object.__setattr__(self, "principal", principal)
         object.__setattr__(self, "resource", resource)
         object.__setattr__(self, "decision_id", decision_id)
-        # The mint is OVER the fields (§1.5g): what was authorized, frozen.
-        object.__setattr__(
-            self,
-            "_minted",
-            (_SENTINEL, kind, tenant, principal, resource, decision_id),
-        )
+        # The mint is OVER the fields (§1.5g): what was authorized, frozen — and
+        # held by THIS MODULE, keyed by the object's identity, never on the
+        # object. Nothing a holder can read off a capability names the table
+        # or the sentinel, so holding one capability is not a way to mint
+        # another (panel finding F-FORGE-01 at the D-IMPL-353 join).
+        _ISSUED[self] = (kind, tenant, principal, resource, decision_id)
 
     def __setattr__(self, name: str, value: object) -> None:
         raise CapabilityBypassError(
             f"Authorized.{name} is fixed at mint; a capability is not"
             " retargeted, it is re-decided (D-IMPL-353 §1.5g)"
+        )
+
+    def __reduce__(self) -> tuple[object, ...]:
+        raise CapabilityBypassError(
+            "a capability is not copied or serialized; it is re-decided by the"
+            " gate that minted it (D-IMPL-353 §1.5g)"
         )
 
     def __delattr__(self, name: str) -> None:
@@ -457,17 +487,13 @@ def verify(authorized: object, *, kind: type[ActionKind], resource: str) -> None
         CapabilityBypassError: fabricated, retargeted, wrong kind, or wrong
             resource.
     """
-    minted = getattr(authorized, "_minted", None)
-    if not isinstance(minted, tuple) or len(minted) != 6 or minted[0] is not _SENTINEL:
+    minted = _issued(authorized)
+    if minted is None:
         raise CapabilityBypassError(
             "no genuine capability accompanies this call; the handle is"
             " reached only through the authorization gate (D-IMPL-353 §1.1)"
         )
-    m_kind: type[ActionKind] = minted[1]
-    m_tenant: str = minted[2]
-    m_principal: str = minted[3]
-    m_resource: str = minted[4]
-    m_decision: str = minted[5]
+    m_kind, m_tenant, m_principal, m_resource, m_decision = minted
     # (g) the CURRENT fields must be what was MINTED — a retarget dies here,
     # whichever route it took, before the kind or resource is even considered.
     if (

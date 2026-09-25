@@ -117,11 +117,8 @@ def fabrications(
         ("decision_id", DECISION_ID),
     ):
         object.__setattr__(forged, name, value)
-    object.__setattr__(
-        forged,
-        "_minted",
-        (object(), kind, tenant, PRINCIPAL, resource, DECISION_ID),
-    )
+    # `_minted` is no longer a slot: the mint record is the module's, keyed by
+    # identity (F-FORGE-01) — an object built around the mint has no record.
     yield "stub-sentinel forgery", forged
 
     fake = Mock()

@@ -27,7 +27,8 @@ from ccf_runtime.authz.refusals import (
 )
 from ccf_runtime.authz.route_declaration import ResourceBinding, authorizes
 from ccf_runtime.http_api.dependencies import ApiDependencies
-from ccf_runtime.http_api.grants import authorized_from_request
+from ccf_runtime.http_api.grants import absent as absent_response
+from ccf_runtime.http_api.grants import authorized_from_request, within_tenant
 from ccf_runtime.http_api.routes import canonical_response, refusal_response
 
 __ccf_mode__ = "algorithmic"
@@ -83,13 +84,21 @@ def build_router(deps: ApiDependencies) -> APIRouter:
     )
     @authorizes(ACTION_AGENT_LIST, resource=ResourceBinding.route())
     def declarations(request: Request) -> list[str]:
-        authorized_from_request(request, kind=AgentList)
-        return list(deps.control_plane.keys_of_class(AGENT_DEFINITION.class_id))
+        authorized = authorized_from_request(request, kind=AgentList)
+        # The capability's tenant's declarations, and no other tenant's
+        # (panel F-READ-01 at the D-IMPL-353 join).
+        return [
+            key
+            for key in deps.control_plane.keys_of_class(AGENT_DEFINITION.class_id)
+            if within_tenant(tenant=authorized.tenant, key=key)
+        ]
 
     @router.get("/declaration", summary="Agent show (D-IMPL-23)")
     @authorizes(ACTION_AGENT_READ, resource=ResourceBinding.query("key"))
     def declaration(key: str, version: str, request: Request) -> Response:
-        authorized_from_request(request, kind=AgentRead)
+        authorized = authorized_from_request(request, kind=AgentRead)
+        if not within_tenant(tenant=authorized.tenant, key=key):
+            raise absent_response(key, version)  # another tenant's key reads as absent (F-READ-04)
         try:
             artifact = deps.control_plane.resolve(key, version)
         except ControlPlaneMissing as absent:
@@ -103,7 +112,9 @@ def build_router(deps: ApiDependencies) -> APIRouter:
     )
     @authorizes(ACTION_AGENT_VERSIONS, resource=ResourceBinding.query("key"))
     def versions(key: str, request: Request) -> list[str]:
-        authorized_from_request(request, kind=AgentVersions)
+        authorized = authorized_from_request(request, kind=AgentVersions)
+        if not within_tenant(tenant=authorized.tenant, key=key):
+            return []  # another tenant's key has no versions here, exactly like an absent one
         return list(deps.control_plane.versions(key))
 
     return router

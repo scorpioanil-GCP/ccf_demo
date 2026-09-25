@@ -342,6 +342,23 @@ def test_rule3_an_aliased_or_qualified_construction_is_flagged() -> None:
     assert _rules(check_source(source, SRC, SRC_MOD)) == [RULE_MINT_SITE, RULE_MINT_SITE]
 
 
+def test_rule3_naming_the_mint_table_is_flagged_like_the_sentinel() -> None:
+    """F-FORGE-01 (the D-IMPL-353 join): the mint record moved off the object
+    into the module-private table ``_ISSUED`` (read through ``_issued``), so the
+    table — not the sentinel — is now what a forger would reach for. The rule
+    that keeps the sentinel's name out of every other module keeps these too."""
+    source = (
+        "from ccf.authz.capability import _ISSUED\n"
+        "from ccf.authz import capability\n"
+        "capability._ISSUED[x] = record\n"
+        'getattr(capability, "_ISSUED")\n'
+        "capability._issued(x)\n"
+    )
+    findings = check_source(source, SRC, SRC_MOD)
+    assert _rules(findings) == [RULE_MINT_SITE] * 4
+    assert _lines(findings) == [1, 3, 4, 5]
+
+
 def test_rule3_naming_the_sentinel_is_flagged_in_every_spelling() -> None:
     source = (
         "from ccf_runtime.authz.capability import _SENTINEL\n"

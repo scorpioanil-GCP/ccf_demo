@@ -179,11 +179,8 @@ class TestFabrication:
         object.__setattr__(forged, "principal", PRINCIPAL)
         object.__setattr__(forged, "resource", RESOURCE_X)
         object.__setattr__(forged, "decision_id", DECISION)
-        object.__setattr__(
-            forged,
-            "_minted",
-            (stub_sentinel, ArtifactWrite, TENANT, PRINCIPAL, RESOURCE_X, DECISION),
-        )
+        # `_minted` is no longer a slot: the mint record is the module's, keyed by
+        # identity (F-FORGE-01) — an object built around the mint has no record.
         # Every field agrees with its mint tuple; only the sentinel is wrong.
         with pytest.raises(CapabilityBypassError, match="genuine"):
             verify(forged, kind=ArtifactWrite, resource=RESOURCE_X)
@@ -192,6 +189,67 @@ class TestFabrication:
         cap = Authorized.__new__(Authorized)
         with pytest.raises(CapabilityBypassError):
             verify(cap, kind=ArtifactRead, resource=RESOURCE_X)
+
+
+    def test_a_forgery_carrying_the_real_sentinel_dies_at_use(self) -> None:
+        """Panel F-FORGE-01 (codex, cursor, gemini — reproduced at the D-IMPL-353 join).
+
+        The mint sentinel used to travel on every instance as ``_minted[0]``, so
+        one genuine capability was a master key: read the sentinel off it, build
+        any object with matching fields, pass ``verify``. The strongest forger —
+        one holding the module's private sentinel itself — now dies at use on
+        both shapes, and no attribute of a genuine capability reaches the
+        sentinel or the mint record: the record is the module's, keyed by the
+        object's identity, and nothing on the object names it.
+        """
+        from types import SimpleNamespace
+
+        from ccf.authz import capability as module
+        from tests.controlplane.capabilities import capability
+
+        sentinel = module._SENTINEL
+        genuine = capability(ArtifactRead, tenant=TENANT, resource=RESOURCE_X, principal=PRINCIPAL)
+        assert not hasattr(genuine, "_minted")
+        for slot in Authorized.__slots__:
+            value = getattr(genuine, slot, None)
+            assert value is not sentinel, slot
+            assert not (isinstance(value, tuple) and any(item is sentinel for item in value)), slot
+        stolen = (sentinel, ArtifactWrite, TENANT, PRINCIPAL, RESOURCE_X, DECISION)
+        stand_in = SimpleNamespace(
+            _minted=stolen, kind=ArtifactWrite, tenant=TENANT, principal=PRINCIPAL, resource=RESOURCE_X, decision_id=DECISION
+        )
+        with pytest.raises(CapabilityBypassError, match="genuine"):
+            verify(stand_in, kind=ArtifactWrite, resource=RESOURCE_X)
+        forged = Authorized.__new__(Authorized)
+        for name, value in (
+            ("kind", ArtifactWrite), ("tenant", TENANT), ("principal", PRINCIPAL), ("resource", RESOURCE_X), ("decision_id", DECISION)
+        ):
+            object.__setattr__(forged, name, value)
+        try:
+            object.__setattr__(forged, "_minted", stolen)
+        except AttributeError:
+            pass  # no such slot once the mint record left the instance
+        with pytest.raises(CapabilityBypassError, match="genuine"):
+            verify(forged, kind=ArtifactWrite, resource=RESOURCE_X)
+
+    def test_a_copy_or_a_pickle_of_a_capability_is_not_the_capability(self) -> None:
+        """A capability is re-decided, never duplicated (§1.5g): copying or
+        serializing one either refuses outright or yields an object no handle
+        honors. Either way nothing minted leaves the process by that route."""
+        import copy
+        import pickle
+
+        from tests.controlplane.capabilities import capability
+
+        genuine = capability(ArtifactRead, tenant=TENANT, resource=RESOURCE_X, principal=PRINCIPAL)
+        for attempt in (
+            lambda: copy.copy(genuine),
+            lambda: copy.deepcopy(genuine),
+            lambda: pickle.loads(pickle.dumps(genuine)),
+        ):
+            with pytest.raises(CapabilityBypassError):
+                clone = attempt()
+                verify(clone, kind=ArtifactRead, resource=RESOURCE_X)
 
 
 # --- (g) retargeting: separate from fabrication, every field, both routes -----

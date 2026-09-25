@@ -578,3 +578,121 @@ def test_on_every_mounted_route_no_credential_mints_nothing_and_a_foreign_one_mi
             assert mint_call["decision"].tenant == "other-tenant", (path, method, mint_call)
             assert mint_call["decision"].tenant != TENANT
     assert unexpected == [], unexpected
+
+
+# --- reads after an allow see the capability's tenant and nothing else ----------------
+
+
+def test_a_read_after_an_allow_sees_only_the_capabilitys_tenant(tmp_path: Path) -> None:
+    """Panel F-READ-01..04 (cursor, at the D-IMPL-353 join): the write handles
+    took the tenant from the capability, but the read routes listed every
+    tenant's keys and resolved any key the caller named. A hostile tenant whose
+    mapping allowed the read actions had cross-tenant reconnaissance. Now every
+    list is the capability's tenant's, and a key under another tenant reads as
+    absent — byte-identical, so the door is not an existence oracle either.
+    """
+    from fastapi.testclient import TestClient
+    from http_api.conftest import _load, _register_declared
+
+    from ccf.agents.definitions import AGENT_DEFINITION, AgentDefinition
+    from ccf.skills.catalog import (
+        McpProductBinding,
+        SkillArgumentSchema,
+        SkillCatalog,
+        SkillCatalogEntry,
+        SkillRequirements,
+    )
+    from ccf_runtime.http_api.dependencies import ApiDependencies
+    from tests.composition import register_skill_entry, register_versioned_at_composition
+
+    other = "other-tenant"
+    registry = ControlPlaneRegistry()
+    store = deployment_store(tmp_path / "store", REPLAY_RECORD_CLASS)
+    # One typed config artifact per tenant, in one class.
+    policy_class = PRODUCT_ENTITLEMENT_POLICY
+    keys = {}
+    for tenant in (TENANT, other):
+        key = f"{tenant}/{policy_class.class_id}/reads"
+        keys[tenant] = key
+        register_typed_at_composition(
+            registry,
+            key,
+            ProductEntitlementPolicy(
+                tenant_id=tenant,
+                policy_version="1.0.0",
+                principals={
+                    CLIENT: ProductEntitlementGrant(
+                        permitted_schema_names=frozenset({"join.product"}), permitted_roles=frozenset({ROLE})
+                    )
+                },
+            ),
+            policy_class,
+        )
+    # One agent definition per tenant.
+    agent_fixture = _load("agents/covenant_analytics.yaml")
+    _register_declared(registry, agent_fixture["referenced_artifacts"])
+    from ccf.controlplane.artifacts import parse_artifact
+
+    template = parse_artifact(agent_fixture["agent_definition"], AGENT_DEFINITION)
+    assert isinstance(template, AgentDefinition)
+    agent_keys = {}
+    for tenant in (TENANT, other):
+        agent = template.model_copy(update={"tenant": tenant})
+        key = f"{tenant}/{AGENT_DEFINITION.class_id}/{agent.name}"
+        agent_keys[tenant] = key
+        register_versioned_at_composition(registry, key, agent, AGENT_DEFINITION)
+    # One skill catalog entry per tenant.
+    catalog = SkillCatalog(registry)
+    for tenant in (TENANT, other):
+        register_skill_entry(
+            catalog,
+            registry,
+            SkillCatalogEntry(
+                schema_version="1.0.0",
+                artifact_version="1.0.0",
+                name=f"{tenant}-skill",
+                tenant=tenant,
+                skill_type="mcp_product",
+                description="a read-visibility fixture",
+                argument_schema=SkillArgumentSchema(properties={}, required=()),
+                binding=McpProductBinding(server="fixture", product_class="fixture.product", product_version="1.0.0"),
+                requirements=SkillRequirements(required_scopes=frozenset(), required_context_products=frozenset()),
+                produces="fixture.product",
+            ),
+        )
+    deps = ApiDependencies(
+        control_plane=registry, artifact_store=store, product_resolver=_resolver, skill_catalog=catalog
+    )
+    app = create_app(deps, **_seams_over(tmp_path, _recorder_over(store, registry)))
+    client = TestClient(app, raise_server_exceptions=True)
+    headers = {"Authorization": f"Bearer {TOKEN}"}
+
+    # Lists: the capability's tenant's, and nothing else.
+    listed = client.get("/config/keys", params={"class_id": policy_class.class_id}, headers=headers)
+    assert listed.status_code == 200 and listed.json() == [keys[TENANT]], listed.text
+    agents = client.get("/agent/declarations", headers=headers)
+    assert agents.status_code == 200 and agents.json() == [agent_keys[TENANT]], agents.text
+    skills = client.get("/skill/catalog", headers=headers)
+    assert skills.status_code == 200, skills.text
+    assert {entry["tenant"] for entry in skills.json()} == {TENANT}, skills.text
+
+    # Keyed reads: another tenant's key reads exactly as an absent one.
+    other_version = registry.versions(keys[other])[0]
+    foreign = client.get("/config/resolution", params={"key": keys[other], "version": other_version}, headers=headers)
+    absent = client.get(
+        "/config/resolution", params={"key": f"{TENANT}/{policy_class.class_id}/absent", "version": other_version}, headers=headers
+    )
+    assert foreign.status_code == 404 and absent.status_code == 404
+    assert foreign.content.replace(keys[other].encode(), b"K") == absent.content.replace(
+        f"{TENANT}/{policy_class.class_id}/absent".encode(), b"K"
+    ), (foreign.text, absent.text)
+    assert client.get("/config/versions", params={"key": keys[other]}, headers=headers).json() == []
+    other_agent_version = registry.versions(agent_keys[other])[0]
+    foreign_agent = client.get(
+        "/agent/declaration", params={"key": agent_keys[other], "version": other_agent_version}, headers=headers
+    )
+    assert foreign_agent.status_code == 404, foreign_agent.text
+    assert client.get("/agent/versions", params={"key": agent_keys[other]}, headers=headers).json() == []
+    # And the capability's own tenant still reads its own.
+    own = client.get("/config/resolution", params={"key": keys[TENANT], "version": registry.versions(keys[TENANT])[0]}, headers=headers)
+    assert own.status_code == 200, own.text

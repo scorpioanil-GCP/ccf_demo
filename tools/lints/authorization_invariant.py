@@ -173,6 +173,12 @@ CAPABILITY_SHIM = "ccf_runtime.authz.capability"
 CAPABILITY_SPELLINGS: frozenset[str] = frozenset({CAPABILITY_MODULE, CAPABILITY_SHIM})
 AUTHORIZED_NAME = "Authorized"
 SENTINEL_NAME = "_SENTINEL"
+
+#: The module-private names a forger would reach for: the sentinel, and — since
+#: the D-IMPL-353 join moved the mint record off the object (F-FORGE-01) — the
+#: identity table the record lives in and the reader that resolves it. Rule 3
+#: keeps every one of them out of every module but the definer.
+PRIVATE_MINT_NAMES: Final = frozenset({SENTINEL_NAME, "_ISSUED", "_issued"})
 MINT_NAME = "mint"
 COMPOSITION_MINT_NAME = "mint_at_composition"
 #: The two capability producers rule 3 resolves calls to.
@@ -202,9 +208,7 @@ COMPOSITION_MINT_SITES: frozenset[str] = frozenset(
         "ccf.deployment.manifest",
         "ccf.products.resolver",
         "ccf.products.product",
-        "ccf.client.adapters.inprocess",
         "ccf_runtime.mcp.product_door",
-        "ccf_runtime.cli.local",
     }
 )
 
@@ -604,9 +608,10 @@ def _rule_mint_site(ctx: _Module) -> list[tuple[int, str]]:
             findings.append(
                 (
                     node.lineno,
-                    f"names {SENTINEL_NAME} outside {CAPABILITY_MODULE}; the"
-                    " mint is module-private and its identity is the proof"
-                    " (D-IMPL-353 §1.1)",
+                    f"names {_private_name(node)} outside {CAPABILITY_MODULE};"
+                    " the mint is module-private — its sentinel and the table"
+                    " that records what was minted are the proof (D-IMPL-353"
+                    " §1.1; F-FORGE-01)",
                 )
             )
     return findings
@@ -634,14 +639,24 @@ def _capability_producer(ctx: _Module, func: ast.expr) -> str | None:
 _SENTINEL_HOSTS = (ast.Name, ast.Attribute, ast.ImportFrom, ast.Constant)
 
 
+def _private_name(node: ast.Name | ast.Attribute | ast.ImportFrom | ast.Constant) -> str:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    if isinstance(node, ast.ImportFrom):
+        return next(alias.name for alias in node.names if alias.name in PRIVATE_MINT_NAMES)
+    return str(node.value)
+
+
 def _names_sentinel(node: ast.Name | ast.Attribute | ast.ImportFrom | ast.Constant) -> bool:
     if isinstance(node, ast.Name):
-        return node.id == SENTINEL_NAME
+        return node.id in PRIVATE_MINT_NAMES
     if isinstance(node, ast.Attribute):
-        return node.attr == SENTINEL_NAME
+        return node.attr in PRIVATE_MINT_NAMES
     if isinstance(node, ast.ImportFrom):
-        return any(alias.name == SENTINEL_NAME for alias in node.names)
-    return node.value == SENTINEL_NAME
+        return any(alias.name in PRIVATE_MINT_NAMES for alias in node.names)
+    return isinstance(node.value, str) and node.value in PRIVATE_MINT_NAMES
 
 
 # --- rule 4: raw MCP registration ----------------------------------------------

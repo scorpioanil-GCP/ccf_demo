@@ -61,7 +61,7 @@ from ccf_runtime.mcp.auth import TokenGrant
 
 __ccf_mode__ = "algorithmic"
 
-__all__ = ["authorized_from_request", "grant_from_request"]
+__all__ = ["absent", "authorized_from_request", "grant_from_request", "within_tenant"]
 
 A = TypeVar("A", bound=ActionKind)
 
@@ -183,3 +183,29 @@ def authorized_from_request(
     return cast(Authorized[Any], found)
 
 
+def within_tenant(*, tenant: str, key: str) -> bool:
+    """Whether ``key`` is under ``tenant`` — the first segment of the Control Plane grammar.
+
+    The read routes apply this with the CAPABILITY's tenant (panel F-READ-01..04
+    at the D-IMPL-353 join): a list shows the capability's tenant's keys and no
+    other tenant's, and a keyed read of another tenant's key reads as absent.
+    A key with no segment belongs to nobody and is never within a tenant.
+    """
+    segment, separator, _ = key.partition("/")
+    return bool(separator) and segment == tenant
+
+
+def absent(key: str, version: str) -> HTTPException:
+    """The 404 an absent registration gets, spelled once.
+
+    A key under another tenant is refused with THIS response, byte-identical to
+    the one a key that does not exist gets, so a read door is not an existence
+    oracle across tenants (the same reasoning as ``WorkflowTenantMismatchError``
+    → 404). The phrase is the registry's own
+    (:class:`~ccf.controlplane.registry.ControlPlaneMissing`), and the door's
+    test holds the two bodies equal.
+    """
+    return HTTPException(
+        status_code=404,
+        detail=f"no Control Plane artifact registered as ({key!r}, {version!r})",
+    )

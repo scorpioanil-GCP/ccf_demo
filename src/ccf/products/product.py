@@ -1369,7 +1369,7 @@ def _derive_consumer_chain(
     )
     assert keys is not None and keys.agent is not None  # every field kept; `agent` held above
     wanted = frozenset({keys.policy_bundle, keys.agent, *keys.skills})
-    register_manifest_entries(manifest, parsed, registry=registry, only=wanted)
+    register_manifest_entries(manifest, parsed, registry=registry, tenant=tenant, only=wanted)
 
     agent = parsed[keys.agent]
     assert isinstance(agent, AgentDefinition)  # its entry names AGENT_DEFINITION

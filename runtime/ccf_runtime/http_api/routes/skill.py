@@ -164,7 +164,7 @@ def build_router(deps: ApiDependencies) -> APIRouter:
     )
     @authorizes(ACTION_SKILL_CATALOG_READ, resource=ResourceBinding.route())
     def catalog(request: Request) -> list[SkillCatalogEntry]:
-        authorized_from_request(request, kind=SkillCatalogRead)
+        authorized = authorized_from_request(request, kind=SkillCatalogRead)
         # Narrowed once per body (D-IMPL-126 item (3)): a deployment that
         # publishes no skill catalog wired none, and this route refuses with a
         # typed 503 naming the field rather than dereferencing `None`.
@@ -173,7 +173,8 @@ def build_router(deps: ApiDependencies) -> APIRouter:
             field="skill_catalog",
             routes="skill catalog discovery",
         )
-        return list(catalog_handle.discover())
+        # The capability's tenant's entries, and no other tenant's (F-READ-02).
+        return [entry for entry in catalog_handle.discover() if entry.tenant == authorized.tenant]
 
     @router.post(
         "/catalog",

@@ -105,7 +105,7 @@ def test_a_skill_granted_through_the_ledger_by_an_authorized_principal_composes(
     manifest, parsed, keys = manifest_under_tenant(derived.manifest, declared, declared_keys, tenant=CONSUMER_TENANT)
     assert keys is not None and keys.agent is not None
     wanted = frozenset({keys.policy_bundle, keys.agent, *keys.skills})
-    register_manifest_entries(manifest, parsed, registry=registry, only=wanted)
+    register_manifest_entries(manifest, parsed, registry=registry, tenant=CONSUMER_TENANT, only=wanted)
     agent = parsed[keys.agent]
     assert isinstance(agent, AgentDefinition)
     entry = parsed[keys.skills[0]]
@@ -127,3 +127,37 @@ def test_a_skill_granted_through_the_ledger_by_an_authorized_principal_composes(
     composed_agent, children = _chain(derived, registry, _store(tmp_path))
     assert composed_agent == agent
     assert isinstance(children, QuestionBoundChildResolver)
+
+
+def test_the_register_loop_mints_for_the_tenant_it_is_given_and_refuses_a_key_under_another() -> None:
+    """Panel (codex, cursor) at the D-IMPL-353 join: the loop used to mint for
+    the tenant it READ off each key, so its tenant check was the same string
+    compared with itself. The composition root now says which tenant it is
+    composing for; a key under any other tenant is refused by name BEFORE
+    anything is minted, appended or registered."""
+    from ccf.authz.capability import COMPOSITION_PRINCIPAL
+    from ccf.controlplane.registry import CrossTenantKeyRefused
+
+    derived = _derived()
+    registry = ControlPlaneRegistry()
+    declared_keys = derived.keys
+    declared_wanted = frozenset({declared_keys.policy_bundle, declared_keys.agent, *declared_keys.skills})
+    declared = {
+        entry.key: parse_artifact(derived.documents[entry.key], resolve_artifact_class(entry.class_id))
+        for entry in derived.manifest.artifacts
+        if entry.key in declared_wanted
+    }
+    manifest, parsed, keys = manifest_under_tenant(derived.manifest, declared, declared_keys, tenant=CONSUMER_TENANT)
+    assert keys is not None and keys.agent is not None
+    wanted = frozenset({keys.policy_bundle, keys.agent, *keys.skills})
+
+    with pytest.raises(CrossTenantKeyRefused, match="another-tenant"):
+        register_manifest_entries(manifest, parsed, registry=registry, tenant="another-tenant", only=wanted)
+    assert registry.audit_events() == (), "a refused composition minted or appended nothing"
+    assert registry.versions(keys.agent) == ()
+
+    register_manifest_entries(manifest, parsed, registry=registry, tenant=CONSUMER_TENANT, only=wanted)
+    events = registry.audit_events()
+    assert registry.versions(keys.agent) != ()
+    compositions = [e for e in events if e.action == "composition"]
+    assert compositions and all(e.actor == COMPOSITION_PRINCIPAL and e.key.startswith(f"{CONSUMER_TENANT}/") for e in compositions)

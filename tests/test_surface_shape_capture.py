@@ -810,6 +810,15 @@ _SHAPE_MOVED_BY_FRAGMENT = {
     "ccf.replay.serve.QueryPinWriter": (
         "353-09-the-join.md"
     ),
+    # `D-IMPL-353` (the join, after its panel, 2026-09-25) — the register loop
+    # takes the composition's tenant explicitly (codex HIGH): `tenant=` is a new
+    # required keyword on the function and on its package re-export.
+    "ccf.deployment.manifest.register_manifest_entries": (
+        "353-09-the-join.md"
+    ),
+    "ccf.deployment.register_manifest_entries": (
+        "353-09-the-join.md"
+    ),
 }
 
 

@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1712 entries**, of which **1454** name a public Python surface.
+**1721 entries**, of which **1463** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-987 entries — 944 public Python surface, 43 not public Python API.
+989 entries — 946 public Python surface, 43 not public Python API.
 
 ### Public Python surface
 
@@ -15252,6 +15252,30 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `353-09-the-join.md`.*
 
+#### ccf_runtime.http_api.grants.within_tenant
+
+- Surface: ccf_runtime.http_api.grants.within_tenant
+- Public surface: true
+- Change type: added
+- Before: absent — the read routes listed every tenant's keys (`keys_of_class`, `SkillCatalog.discover`) and resolved any key the caller named, checking only that the gate had allowed the read action
+- After: `within_tenant(*, tenant, key) -> bool` — whether `key` is under `tenant` (the first segment of the Control Plane grammar); the agent, config and skill read routes apply it with the CAPABILITY's tenant: a list is the capability's tenant's keys/entries and no other tenant's; a keyed read (`resolution`, `declaration`) of another tenant's key reads as absent; `versions` of another tenant's key is `[]`, exactly as for an absent key
+- Why: panel finding F-READ-01..04 (cursor, HIGH) at the join — a hostile authenticated tenant whose mapping allowed the read actions had cross-tenant reconnaissance after the allow; `D-IMPL-353` §1.3 puts the tenant on the capability for writes, and a read that names data must read the same tenant. `tests/http_api/test_join_routes_under_the_capability.py::test_a_read_after_an_allow_sees_only_the_capabilitys_tenant` holds it; severings M26 and M27 redden it
+- Migration: a caller listing or reading its own tenant's artifacts sees no change; one that read another tenant's key sees the absent response
+
+*Recorded by `353-09-the-join.md`.*
+
+#### ccf_runtime.http_api.grants.absent
+
+- Surface: ccf_runtime.http_api.grants.absent
+- Public surface: true
+- Change type: added
+- Before: absent — each read route raised its own 404 from `ControlPlaneMissing`
+- After: `absent(key, version) -> HTTPException` — the 404 an absent registration gets, spelled once, so a key under another tenant is refused with a response byte-identical to the one a key that does not exist gets (no existence oracle across tenants; the same reasoning as `WorkflowTenantMismatchError` → 404). The door's test holds the two bodies equal
+- Why: F-READ-04 (above)
+- Migration: none
+
+*Recorded by `353-09-the-join.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -15951,7 +15975,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-479 entries — 292 public Python surface, 187 not public Python API.
+481 entries — 294 public Python surface, 187 not public Python API.
 
 ### Public Python surface
 
@@ -21351,6 +21375,30 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `353-09-the-join.md`.*
 
+#### ccf.deployment.manifest.register_manifest_entries
+
+- Surface: ccf.deployment.manifest.register_manifest_entries
+- Public surface: true
+- Change type: reshaped
+- Before: `register_manifest_entries(manifest, parsed, *, registry, only=None)` — the loop minted `Register` for the tenant it READ off each key (`_tenant_of_key`), so the registry's tenant-segment check compared the key's segment with itself
+- After: `register_manifest_entries(manifest, parsed, *, registry, tenant, only=None)` — `tenant` is the tenant the composition root composes for; a key under any other tenant is refused by name (`CrossTenantKeyRefused`) BEFORE anything is appended or minted, and the loop mints for `tenant` and no other. The loader passes its resolved tenant; the consumer chain passes its deployment's; a direct caller says whose fabric it composes
+- Why: panel (codex HIGH, cursor) at the join: a tenant derived from the key and then checked against the key is no check; `D-IMPL-354`'s composition authority must be a statement by the root, not a reading of the data. `tests/products/test_paved_road_grants.py::test_the_register_loop_mints_for_the_tenant_it_is_given_and_refuses_a_key_under_another` holds it; severing M28 reddens it
+- Migration: add `tenant=<the deployment's resolved tenant>` (the frozen `examples/cp-20-syndicated-lending-co-lender/deployment.py` call now raises `TypeError`, recorded in the gap ledger under `SEC353-G-05`/`G-07`)
+
+*Recorded by `353-09-the-join.md`.*
+
+#### ccf.deployment.register_manifest_entries
+
+- Surface: ccf.deployment.register_manifest_entries
+- Public surface: true
+- Change type: reshaped
+- Before: the package re-export of `ccf.deployment.manifest.register_manifest_entries` — `(manifest, parsed, *, registry, only=None)`
+- After: the same re-export, now `(manifest, parsed, *, registry, tenant, only=None)`; see the entry for `ccf.deployment.manifest.register_manifest_entries`
+- Why: one function, two names on the surface manifest
+- Migration: as for `ccf.deployment.manifest.register_manifest_entries`
+
+*Recorded by `353-09-the-join.md`.*
+
 ### Not public Python API
 
 #### tools/lints/__main__.py
@@ -24198,7 +24246,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-208 entries — 180 public Python surface, 28 not public Python API.
+213 entries — 185 public Python surface, 28 not public Python API.
 
 ### Public Python surface
 
@@ -27875,6 +27923,66 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - After: same signature; an error that is already a `McpClientError` — bare, or the member of the single-member exception group the transport's task group wraps it in — propagates as itself (`raise named from error`); only an error the client cannot classify becomes `McpServerUnreachable`, as before. Found at the join by `tests/products/test_d_impl_342_producer_refusal_evidence.py::test_c_a4a_a_door_refusal_whose_claims_fail_carries_no_producer_refusal`, whose door started refusing by error under `SEC-018`; the wrap predates the phase (`SEC353-J-02`)
 - Why: `D-IMPL-353` §1.1 made doors refuse a tenant the grant does not carry; a refusal reported as an outage is the wrong fact in an audit row, and it hid two dead classification arms. The row vocabulary still has no reason for a producer that REFUSED by error rather than answered (`producer-unavailable` is what the slot reads) — reported for ruling
 - Migration: a caller that caught `McpServerUnreachable` to mean "any failure" now sees `McpToolFailed` and `McpTimeout` by their own types; `McpTimeout` remains a subclass of `McpServerUnreachable`, so an `except McpServerUnreachable` still catches a timeout and no longer catches a tool error
+
+*Recorded by `353-09-the-join.md`.*
+
+#### ccf.authz.capability.verify
+
+- Surface: ccf.authz.capability.verify
+- Public surface: true
+- Change type: behavior
+- Before: the mint record `(sentinel, kind, tenant, principal, resource, decision_id)` lived on every instance as `_minted`, and `verify` accepted ANY object whose `_minted` began with the module's sentinel and whose fields matched — so a holder of one genuine capability could read the sentinel off it and forge a capability for any kind, tenant or resource (`SimpleNamespace` or `Authorized.__new__` + `object.__setattr__`), and every handle honored it
+- After: same signature; the mint record is held by the module in a private identity-keyed table (`_ISSUED`, a `WeakKeyDictionary`), never on the object; `verify` reads the record through `_issued(candidate)` — exact type `Authorized`, then identity membership — and only then compares the fields. A stand-in, an instance built around `__init__`, a copy, a pickle round-trip or an object carrying a stolen mint tuple is not a key and confers nothing; nothing a holder can read off a capability names the table or the sentinel
+- Why: panel finding F-FORGE-01 at the join (codex, cursor and gemini independently; reproduced against the tree before the fix) — a CRITICAL under the brief's own threat model, fixed in-phase per `D-IMPL-352`; `tests/authz/test_capability.py::TestFabrication::test_a_forgery_carrying_the_real_sentinel_dies_at_use` and `test_a_copy_or_a_pickle_of_a_capability_is_not_the_capability` hold it; severings M4 and M25 (S-FORGE) redden them
+- Migration: none for a holder that uses a capability; code that read `_minted` off a capability (nothing in `src/` or `runtime/` did; four test fixtures built forgeries through it) has no slot to read
+
+*Recorded by `353-09-the-join.md`.*
+
+#### ccf.authz.capability.Authorized
+
+- Surface: ccf.authz.capability.Authorized
+- Public surface: true
+- Change type: behavior
+- Before: `__slots__` carried `_minted`; a capability could be `copy.copy`'d, `deepcopy`'d or pickled into an object `verify` then honored
+- After: same constructor signature (the sentinel first, five keyword fields); `__slots__` carries `__weakref__` instead of `_minted`; `__reduce__` refuses copy and pickle by name (`CapabilityBypassError`: a capability is re-decided, never duplicated, §1.5g); `__setattr__`/`__delattr__` unchanged
+- Why: F-FORGE-01 (above) — the record off the object, and no duplication path that would yield an object outside the table
+- Migration: none; a capability is passed by reference and never copied
+
+*Recorded by `353-09-the-join.md`.*
+
+#### ccf_runtime.http_api.routes.agent.build_router
+
+- Surface: ccf_runtime.http_api.routes.agent.build_router
+- Public surface: true
+- Change type: behavior
+- Before: `declarations` listed every tenant's agent keys; `declaration` and `versions` served any key the caller named after the gate's allow
+- After: same signature; `declarations` lists the capability's tenant's keys; `declaration` of another tenant's key is the absent 404 (`absent`); `versions` of another tenant's key is `[]`
+- Why: F-READ-01/-04 (see `within_tenant`)
+- Migration: none for a caller reading its own tenant
+
+*Recorded by `353-09-the-join.md`.*
+
+#### ccf_runtime.http_api.routes.config.build_router
+
+- Surface: ccf_runtime.http_api.routes.config.build_router
+- Public surface: true
+- Change type: behavior
+- Before: `keys` listed every tenant's keys in a class; `resolution` and `versions` served any key the caller named after the gate's allow
+- After: same signature; `keys` lists the capability's tenant's; `resolution` of another tenant's key is the absent 404 (`absent`); `versions` of another tenant's key is `[]`
+- Why: F-READ-03/-04 (see `within_tenant`)
+- Migration: none for a caller reading its own tenant
+
+*Recorded by `353-09-the-join.md`.*
+
+#### ccf_runtime.http_api.routes.skill.build_router
+
+- Surface: ccf_runtime.http_api.routes.skill.build_router
+- Public surface: true
+- Change type: behavior
+- Before: `catalog` returned every tenant's catalog entries after the gate's allow
+- After: same signature; `catalog` returns the entries whose `tenant` is the capability's
+- Why: F-READ-02 (see `within_tenant`)
+- Migration: none for a caller reading its own tenant
 
 *Recorded by `353-09-the-join.md`.*
 

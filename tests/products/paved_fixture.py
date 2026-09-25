@@ -404,7 +404,7 @@ def grants_in_force(
     }
     manifest, parsed, keys = manifest_under_tenant(derived.manifest, declared, declared_keys, tenant=config.tenant_id)
     assert keys is not None and keys.agent is not None
-    register_manifest_entries(manifest, parsed, registry=registry, only=frozenset({keys.policy_bundle, keys.agent, *keys.skills}))
+    register_manifest_entries(manifest, parsed, registry=registry, tenant=config.tenant_id, only=frozenset({keys.policy_bundle, keys.agent, *keys.skills}))
     agent = parsed[keys.agent]
     assert isinstance(agent, AgentDefinition)
     ledger = GrantLedger(

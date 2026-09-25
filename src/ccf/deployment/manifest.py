@@ -511,7 +511,7 @@ def _tenant_of_key(key: str) -> str:
     return tenant
 
 
-def _mint_register(registry: ControlPlaneProtocol, key: str) -> Authorized[Register]:
+def _mint_register(registry: ControlPlaneProtocol, key: str, *, tenant: str) -> Authorized[Register]:
     """The composition recipe for ONE manifest entry (D-IMPL-354).
 
     This module is a composition root: the deployment's own registrations at
@@ -522,7 +522,20 @@ def _mint_register(registry: ControlPlaneProtocol, key: str) -> Authorized[Regis
     One key per capability; the registry then takes the key FROM the
     capability and compares its tenant segment once.
     """
-    tenant = _tenant_of_key(key)
+    segment = _tenant_of_key(key)
+    if segment != tenant:
+        # The composition root says which tenant it composes for; the key's own
+        # segment is checked AGAINST that, never read as it. A key under another
+        # tenant is refused before anything is appended or minted — the loader
+        # placed every key it derived under the resolved tenant, so this fires
+        # only for a caller that skipped that placement (D-IMPL-354; the
+        # D-IMPL-353 join's panel).
+        raise CrossTenantKeyRefused(
+            f"manifest key {key!r} is under tenant {segment!r} and this"
+            f" composition mints for {tenant!r}; a composition root places its"
+            " keys under its own tenant (`manifest_under_tenant`) before the"
+            " register loop, and the loop mints for no other (D-IMPL-354)"
+        )
     event = registry.audit_log.append(
         action="composition",
         key=key,
@@ -576,7 +589,7 @@ def _register_and_boot(
     # (§1.3) then holds for the manifest root as a real check.
     manifest, parsed, keys = manifest_under_tenant(manifest, parsed, keys, tenant=resolved_tenant)
     # Phase two: register the ones the manifest marks `role: register`.
-    pinned = register_manifest_entries(manifest, parsed, registry=registry)
+    pinned = register_manifest_entries(manifest, parsed, registry=registry, tenant=resolved_tenant)
     pins = ResolvedPins(entries=pinned)
     handle = boot(
         backend=manifest.backend,
@@ -667,9 +680,17 @@ def register_manifest_entries(
     parsed: Mapping[str, CCFContract],
     *,
     registry: ControlPlaneProtocol,
+    tenant: str,
     only: frozenset[str] | None = None,
 ) -> tuple[ArtifactPin, ...]:
     """Register the ``role: register`` entries through the path each declares — ONE loop.
+
+    ``tenant`` is the tenant this composition root composes for: every entry's
+    key must be under it (the loader's ``manifest_under_tenant`` puts it there),
+    and the loop mints ``Register`` for that tenant and no other. A key under
+    another tenant is refused by name before anything is minted or registered
+    (D-IMPL-354; the D-IMPL-353 join's panel finding that a tenant read off the
+    key and then checked against the key was no check).
 
     Phase two of :func:`load_and_boot`'s ordering, as a function of its own so
     that the one other caller with a reason to register manifest entries
@@ -706,7 +727,7 @@ def register_manifest_entries(
         # D-IMPL-354: one `Register` capability per entry, for exactly this
         # key, minted by the recipe above. The registry takes the key from the
         # capability; nothing below passes a key.
-        authorized = _mint_register(registry, entry.key)
+        authorized = _mint_register(registry, entry.key, tenant=tenant)
         if entry.registration == "versioned":
             # `register_versioned` RETURNS its D-05 refusals rather than raising
             # them (the GateRefusal discipline), so a bare assignment here would

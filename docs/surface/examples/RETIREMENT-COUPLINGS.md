@@ -8,8 +8,8 @@ The retirement inventory in `16-RESEARCH.md` § A.1/§ A.2 swept `examples/`, `t
 
 The walk covers the whole repository from the sweep's own location. The number of files it read is printed by the command rather than recorded here, so that adding an unrelated file to the tree does not make this inventory stale; what does make it stale is a change to a coupling, which is the thing later waves must re-measure.
 
-- Coupling rows: **307** across **98** files
-- Rows outside `examples/`, `tests/examples/` and `public/`: **155** across **55** files
+- Coupling rows: **309** across **98** files
+- Rows outside `examples/`, `tests/examples/` and `public/`: **157** across **55** files
 - References from inside a retiring path to a path that retires no earlier, dropped because they are deleted with their source: **248**
 
 Rows by owning plan:
@@ -17,7 +17,7 @@ Rows by owning plan:
 | Owning plan | Rows |
 | --- | --- |
 | 16-02 | 10 |
-| 17-08 | 101 |
+| 17-08 | 103 |
 | 23-04 | 184 |
 | 23-10 | 12 |
 
@@ -36,7 +36,7 @@ Rows by coupling shape:
 | `markdown-link` | 8 |
 | `module-constant` | 1 |
 | `path-construction` | 11 |
-| `prose` | 82 |
+| `prose` | 84 |
 | `snippet-include` | 56 |
 | `string-literal` | 16 |
 | `tmp_path-synthetic` | 13 |
@@ -76,8 +76,10 @@ Rows by coupling shape:
 | `docs/CONTEXT_PRODUCT_RULING_EVIDENCE.md` | 229 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/D-IMPL-353-EXAMPLES-GAP-LEDGER.md` | 65 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/D-IMPL-353-EXAMPLES-GAP-LEDGER.md` | 67 | `tests/examples/test_s1_00_config_equivalence.py` | `prose` | documentary | - | - | 17-08 |  |
-| `docs/D-IMPL-353-EXAMPLES-GAP-LEDGER.md` | 129 | `archive/examples/05-workflow-hitl` | `prose` | documentary | - | - | 23-04 |  |
-| `docs/D-IMPL-353-EXAMPLES-GAP-LEDGER.md` | 141 | `tests/examples/test_s1_00_config_equivalence.py` | `prose` | documentary | - | - | 17-08 |  |
+| `docs/D-IMPL-353-EXAMPLES-GAP-LEDGER.md` | 69 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
+| `docs/D-IMPL-353-EXAMPLES-GAP-LEDGER.md` | 69 | `tests/examples/test_s1_00_output.py` | `prose` | documentary | - | - | 17-08 |  |
+| `docs/D-IMPL-353-EXAMPLES-GAP-LEDGER.md` | 146 | `archive/examples/05-workflow-hitl` | `prose` | documentary | - | - | 23-04 |  |
+| `docs/D-IMPL-353-EXAMPLES-GAP-LEDGER.md` | 158 | `tests/examples/test_s1_00_config_equivalence.py` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/DEBT_COMPLETENESS_RULING_EVIDENCE.md` | 159 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/DEBT_COMPLETENESS_RULING_EVIDENCE.md` | 163 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/DEBT_COMPLETENESS_RULING_EVIDENCE.md` | 221 | `examples/00-quickstart` | `prose` | documentary | - | - | 23-04 |  |

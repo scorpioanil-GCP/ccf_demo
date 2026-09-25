@@ -41,7 +41,8 @@ from ccf_runtime.authz.refusals import (
 )
 from ccf_runtime.authz.route_declaration import ResourceBinding, authorizes
 from ccf_runtime.http_api.dependencies import ApiDependencies
-from ccf_runtime.http_api.grants import authorized_from_request
+from ccf_runtime.http_api.grants import absent as absent_response
+from ccf_runtime.http_api.grants import authorized_from_request, within_tenant
 from ccf_runtime.http_api.routes import canonical_response
 
 __ccf_mode__ = "algorithmic"
@@ -96,8 +97,13 @@ def build_router(deps: ApiDependencies) -> APIRouter:
         ACTION_CONFIG_KEYS_READ, resource=ResourceBinding.query("class_id")
     )
     def keys(class_id: str, request: Request) -> list[str]:
-        authorized_from_request(request, kind=ConfigKeysRead)
-        return list(deps.control_plane.keys_of_class(class_id))
+        authorized = authorized_from_request(request, kind=ConfigKeysRead)
+        # The capability's tenant's keys, and no other tenant's (F-READ-03).
+        return [
+            key
+            for key in deps.control_plane.keys_of_class(class_id)
+            if within_tenant(tenant=authorized.tenant, key=key)
+        ]
 
     @router.get(
         "/versions",
@@ -108,13 +114,17 @@ def build_router(deps: ApiDependencies) -> APIRouter:
         ACTION_CONFIG_VERSIONS_READ, resource=ResourceBinding.query("key")
     )
     def versions(key: str, request: Request) -> list[str]:
-        authorized_from_request(request, kind=ConfigVersionsRead)
+        authorized = authorized_from_request(request, kind=ConfigVersionsRead)
+        if not within_tenant(tenant=authorized.tenant, key=key):
+            return []  # another tenant's key has no versions here, exactly like an absent one
         return list(deps.control_plane.versions(key))
 
     @router.get("/resolution", summary="Config resolve (D-IMPL-23)")
     @authorizes(ACTION_CONFIG_RESOLVE, resource=ResourceBinding.query("key"))
     def resolution(key: str, version: str, request: Request) -> Response:
-        authorized_from_request(request, kind=ConfigResolve)
+        authorized = authorized_from_request(request, kind=ConfigResolve)
+        if not within_tenant(tenant=authorized.tenant, key=key):
+            raise absent_response(key, version)  # another tenant's key reads as absent (F-READ-04)
         try:
             artifact = deps.control_plane.resolve(key, version)
         except ControlPlaneMissing as absent:

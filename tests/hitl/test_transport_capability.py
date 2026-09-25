@@ -245,10 +245,8 @@ def _forged() -> Any:
         ("principal", PRINCIPAL),
         ("resource", EVENT_E),
         ("decision_id", "authz-decision-forged"),
-        (
-            "_minted",
-            (object(), HitlSubmit, TENANT, PRINCIPAL, EVENT_E, "authz-decision-forged"),
-        ),
+        # `_minted` is no longer a slot: the mint record is the module's, keyed
+        # by identity (F-FORGE-01) — an object built around the mint has none.
     ):
         object.__setattr__(forged, name, value)
     return forged
