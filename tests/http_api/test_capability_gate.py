@@ -148,8 +148,13 @@ class _Echo:
             ScopeMappingArtifact(
                 semver="1.0.0",
                 scopes={
+                    # C is in the MAPPING and in no grant: the only thing that
+                    # can refuse `/tenanted/C` for a grant holding {A, B} is
+                    # the gate's own membership check, not the tenant axis of
+                    # the scope mapping. Without C here that control measured
+                    # the authorizer instead of the gate (sabotage S4).
                     SCOPE_ALL: ScopeEntry(
-                        tenant_patterns=(A, B),
+                        tenant_patterns=(A, B, C),
                         action_ids=(ACTION_HEALTH_READ, ACTION_CONFIG_REGISTER),
                         resource_patterns=WIDE_RESOURCES,
                     ),
