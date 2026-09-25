@@ -26,6 +26,7 @@ from ccf.authz import actions
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf_runtime.authz.artifact import SCOPE_MAPPING, ScopeEntry, ScopeMappingArtifact
 from ccf_runtime.authz.protocol import ControlPlaneTenantAuthorizer
+from http_api.composition_authority import register_typed_at_composition
 
 MAPPING_KEY = "crossproc/scope-mapping"
 ALL_ACTIONS: tuple[str, ...] = tuple(getattr(actions, name) for name in actions.__all__)
@@ -39,7 +40,8 @@ def wide_authorizer(*, scopes: Iterable[str]) -> ControlPlaneTenantAuthorizer:
     """Grant ``scopes`` every tenant, every door action and every resource."""
     registry = ControlPlaneRegistry()
     entry = ScopeEntry(tenant_patterns=WIDE, action_ids=ALL_ACTIONS, resource_patterns=WIDE)
-    version = registry.register_typed(
+    version = register_typed_at_composition(
+        registry,
         MAPPING_KEY,
         ScopeMappingArtifact(semver="1.0.0", scopes={scope: entry for scope in scopes}),
         SCOPE_MAPPING,

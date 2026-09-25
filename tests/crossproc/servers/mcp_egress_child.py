@@ -51,6 +51,13 @@ from mcp.server.auth.settings import AuthSettings  # noqa: E402
 from pydantic import AnyHttpUrl  # noqa: E402
 
 from crossproc.servers.wide_authorizer import wide_authorizer  # noqa: E402
+from http_api.composition_authority import (  # noqa: E402
+    composition_replay_mint,
+    deployment_store,
+    refusal_recorder,
+    register_at_composition,
+    register_typed_at_composition,
+)
 
 from ccf.artifacts.file_store import FileArtifactStore  # noqa: E402
 from ccf.controlplane.registry import ControlPlaneRegistry  # noqa: E402
@@ -257,10 +264,10 @@ def build_servable_product(*, database_path: Path) -> AssembledProduct:
 
     keys = control["keys"]
     registry = ControlPlaneRegistry()
-    spec_version = registry.register(
+    spec_version = register_at_composition(registry, 
         keys["resolution_spec"], _resolution_spec(ontology)
     )
-    policy_version = registry.register(keys["policy_bundle"], control["policy_bundle"])
+    policy_version = register_at_composition(registry, keys["policy_bundle"], control["policy_bundle"])
     handle = boot(
         backend="sqlite",
         connection={"database_path": database_path},
@@ -296,9 +303,14 @@ def build_servable_product(*, database_path: Path) -> AssembledProduct:
         raise AssertionError(
             f"the fixture product did not pass the gates: {gated}"
         )
+    # The fixture's replay writer holds the ReplayMint this composition root
+    # minted for its record class, over a store declaring that class
+    # (D-IMPL-353 §2 P3; D-IMPL-354).
     replay_writer = ReplayWriter(
-        store=FileArtifactStore(root=database_path.parent / "fixture-replay"),
-        artifact_class=REPLAY_RECORD_CLASS,
+        authorized=composition_replay_mint(
+            registry, tenant=fabric.tenant_id, artifact_class=REPLAY_RECORD_CLASS
+        ),
+        store=deployment_store(database_path.parent / "fixture-replay", REPLAY_RECORD_CLASS),
     )
     policy_binding = PolicyBinding(key=keys["policy_bundle"], version=policy_version)
     served = _served(
@@ -450,7 +462,7 @@ def build_entitlement_registry(assembled: AssembledProduct) -> ControlPlaneRegis
     first served call.
     """
     registry = ControlPlaneRegistry()
-    registry.register_typed(
+    register_typed_at_composition(registry, 
         product_entitlement_key(tenant_id=assembled.address.tenant),
         ProductEntitlementPolicy(
             tenant_id=assembled.address.tenant,
@@ -478,10 +490,11 @@ def _recorder(root: Path, *, tenant: str) -> ReplayRefusalRecorder:
     `GovernedResolver`, so there is none to take the recorder off; the tenant
     and the record class come from the values the fixture already holds.
     """
-    return ReplayRefusalRecorder(
-        artifact_store=FileArtifactStore(root=root / ARTIFACT_STORE_DIRNAME),
+    return refusal_recorder(
+        ControlPlaneRegistry(),
+        store=deployment_store(root / ARTIFACT_STORE_DIRNAME, REPLAY_RECORD_CLASS),
+        tenant=tenant,
         replay_record_class=REPLAY_RECORD_CLASS,
-        tenant_id=tenant,
         assembly_mode="algorithmic",
     )
 

@@ -58,6 +58,7 @@ from pydantic import Field, field_validator, model_validator
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import HASH_TRANSPARENT_KEY, content_hash
 from ccf.controlplane.artifact_base import ArtifactClass, validate_semver
+from ccf.authz.capability import Authorized, Register, SkillCatalogRegister
 from ccf.controlplane.registry import ControlPlaneRegistry, RegistrationRefusal
 
 __ccf_mode__ = "algorithmic"
@@ -697,18 +698,43 @@ class SkillCatalog:
         self._control_plane = control_plane
 
     def register(
-        self, entry: SkillCatalogEntry, *, actor: str | None = None
+        self,
+        authorized: Authorized[SkillCatalogRegister] | Authorized[Register],
+        entry: SkillCatalogEntry,
     ) -> str | RegistrationRefusal:
-        """Register ``entry`` through the D-05 versioned path.
+        """Register ``entry`` through the D-05 versioned path, under the capability for its key.
+
+        **Requires the capability for its own action** (D-IMPL-353 §1.2):
+        ``Authorized[SkillCatalogRegister]`` minted by the catalog-register
+        door for exactly :func:`skill_catalog_key` of ``entry``, or the
+        ``Register`` a composition root minted for that key (D-IMPL-354). The
+        registry takes the key from the capability and the audit actor from
+        its principal — there is no ``actor`` parameter and no key parameter.
+        The entry's own key may only *agree* with the capability's resource,
+        never supply it: a disagreement is refused here before the registry
+        is touched, so a caller cannot register one entry under another's key.
 
         Returns the content-hash version on success, or the registry's typed
         refusal (unbumped change / empty bump) unchanged — a refused entry is
         a bad artifact, not a broken fabric, and the refusal is already
         audited by the registry (I.1 refusal-vs-exception line).
+
+        Raises:
+            ValueError: the entry's derived key is not the capability's
+                resource.
+            ccf.authz.capability.CapabilityBypassError: fabricated,
+                retargeted, or wrong-kind capability — from the registry.
         """
         key = skill_catalog_key(entry)
+        if getattr(authorized, "resource", None) != key:
+            raise ValueError(
+                f"the catalog entry derives key {key!r} but the capability is"
+                f" for {getattr(authorized, 'resource', None)!r}; an entry"
+                " registers under the key its capability was minted for and"
+                " nothing else may name one (D-IMPL-353 §1.2, §1.5f)"
+            )
         return self._control_plane.register_versioned(
-            key, entry, SKILL_CATALOG_ENTRY, actor=actor
+            authorized, entry, SKILL_CATALOG_ENTRY
         )
 
     def discover(

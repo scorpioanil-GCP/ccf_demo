@@ -226,7 +226,7 @@ def ask(resolver: GovernedResolver, *, threshold: int = 1000, subject: str = "ac
 
 
 def record_of(booted: _Booted, outcome: Any) -> DecisionReplayRecord:
-    fresh = FileArtifactStore(root=booted.store.root)
+    fresh = FileArtifactStore(root=booted.store.root, write_kinds=booted.store.write_kinds)
     if isinstance(outcome, ServedProduct):
         return DecisionReplayRecord.model_validate_json(
             fresh.get(content_address=outcome.replay_ref.content_address)
@@ -243,7 +243,7 @@ def the_row(booted: _Booted, outcome: Any) -> Any:
 
 
 def retained_child(booted: _Booted, address: str) -> ContextProductContract:
-    fresh = FileArtifactStore(root=booted.store.root)
+    fresh = FileArtifactStore(root=booted.store.root, write_kinds=booted.store.write_kinds)
     return ContextProductContract.model_validate_json(fresh.get(content_address=address))
 
 
@@ -321,7 +321,7 @@ def test_the_consumer_process_runs_no_producer_assembler(
     assert row.child_replay_ref is not None
     assert row.child_replay_ref.startswith(f"ccf-artifact://{PRODUCER_TENANT}/")
     with pytest.raises(Exception):  # the producer's record is its own, unresolvable here
-        FileArtifactStore(root=booted.store.root).resolve_uri(uri=row.child_replay_ref)
+        FileArtifactStore(root=booted.store.root, write_kinds=booted.store.write_kinds).resolve_uri(uri=row.child_replay_ref)
 
 
 # --- proof 4 -----------------------------------------------------------------
@@ -504,7 +504,7 @@ def test_replay_names_the_producer_relationship_and_calls_no_producer(
     )
     outcome = replay(
         record_address=served.replay_ref.content_address,
-        store=FileArtifactStore(root=booted.store.root),
+        store=FileArtifactStore(root=booted.store.root, write_kinds=booted.store.write_kinds),
         reader=booted.fabric.handle.reader,
         control_plane=booted.control_plane,
         environment=environment,

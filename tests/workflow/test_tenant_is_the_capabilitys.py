@@ -69,6 +69,9 @@ from tests.workflow.test_engine import (  # noqa: F401 — `registry` is the fix
     _workflow_definition_document,
     registry,
 )
+from http_api.composition_authority import (
+    register_versioned_at_composition,
+)
 
 ACME = "acme-bank"
 BETA = "beta-bank"
@@ -81,7 +84,7 @@ def _register_acme_covenant(registry: ControlPlaneRegistry) -> str:
         "workflows/covenant_review_workflow.yaml"
     )
     assert definition.tenant == ACME
-    version = registry.register_versioned(ACME_KEY, definition, WORKFLOW_DEFINITION)
+    version = register_versioned_at_composition(registry, ACME_KEY, definition, WORKFLOW_DEFINITION)
     assert isinstance(version, str)
     return version
 

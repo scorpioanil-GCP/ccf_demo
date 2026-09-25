@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1647 entries**, of which **1392** name a public Python surface.
+**1676 entries**, of which **1421** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-969 entries — 927 public Python surface, 42 not public Python API.
+976 entries — 934 public Python surface, 42 not public Python API.
 
 ### Public Python surface
 
@@ -15048,6 +15048,90 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `353-06-the-approval-record-is-server-attested.md`.*
 
+#### ccf_runtime.authz.delivery_boundary.EVIDENCE_READ_KINDS
+
+- Surface: ccf_runtime.authz.delivery_boundary.EVIDENCE_READ_KINDS
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `(ArtifactRead, ReplayRead)` — the two kinds a governed evidence read is verified against, by identity
+- Why: one roster for `verify_any`, beside the surfaces roster, so the dereference's kinds are a fact stated once
+- Migration: none
+
+*Recorded by `353-08-the-runtime-callers-hold-the-capability.md`.*
+
+#### ccf_runtime.authz.delivery_boundary.EvidenceReadAuthority
+
+- Surface: ccf_runtime.authz.delivery_boundary.EvidenceReadAuthority
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the alias `Authorized[ArtifactRead] | Authorized[ReplayRead]`, the static type of `govern_dereference`'s first parameter
+- Why: a handler holding any other kind is a `mypy --strict` error at the call (§1.5b); `tests/authz/test_dereference_static.py` is the committed negative control
+- Migration: none
+
+*Recorded by `353-08-the-runtime-callers-hold-the-capability.md`.*
+
+#### ccf_runtime.authz.route_declaration.composed_fields
+
+- Surface: ccf_runtime.authz.route_declaration.composed_fields
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `composed_fields(template) -> tuple[str, ...]` — the body fields a composed template names, in order; empty for a template naming nothing usable (positional, indexed, attribute or non-identifier fields)
+- Why: the gate formats the template over exactly these names and nothing else, so a field the declaration did not name cannot reach the resource (`SEC-002`)
+- Migration: none
+
+*Recorded by `353-08-the-runtime-callers-hold-the-capability.md`.*
+
+#### ccf_runtime.http_api.routes.artifact.ARTIFACT_WRITE_RESOURCE
+
+- Surface: ccf_runtime.http_api.routes.artifact.ARTIFACT_WRITE_RESOURCE
+- Public surface: true
+- Change type: added
+- Before: absent — the write was decided on the body's `name` alone
+- After: `"{artifact_class}/{name}"`, the template the artifact PUT route declares through `ResourceBinding.body_composed`
+- Why: one vocabulary for artifact resources at the HTTP door and the MCP tool, the store's own target
+- Migration: a scope mapping that granted `artifact.write` on a name pattern now names `"<class>/<name>"` patterns
+
+*Recorded by `353-08-the-runtime-callers-hold-the-capability.md`.*
+
+#### ccf_runtime.http_api.routes.skill.CATALOG_REGISTER_RESOURCE
+
+- Surface: ccf_runtime.http_api.routes.skill.CATALOG_REGISTER_RESOURCE
+- Public surface: true
+- Change type: added
+- Before: absent — the catalog register route was decided on the entry's `name`
+- After: `"{tenant}/ccf.skill-catalog-entry/{name}"`, the entry's own Control Plane key as `skill_catalog_key` derives it, declared through `ResourceBinding.body_composed`
+- Why: the registry files under the capability's resource, so the gate must decide on exactly that key
+- Migration: a scope mapping that granted `skill.catalog.register` on a name now names the key
+
+*Recorded by `353-08-the-runtime-callers-hold-the-capability.md`.*
+
+#### ccf_runtime.mcp.tenancy.DecisionUnmintableRefused
+
+- Surface: ccf_runtime.mcp.tenancy.DecisionUnmintableRefused
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the `TenantGuardViolation` raised when the authorizer answered allowed with a decision the wrapper cannot mint from; its message is the shared `decision-unmintable` refusal body rendered protocol-natively
+- Why: the HTTP gate's `ERROR_DECISION_UNMINTABLE`, mirrored at the MCP mint site
+- Migration: none
+
+*Recorded by `353-08-the-runtime-callers-hold-the-capability.md`.*
+
+#### ccf_runtime.mcp.artifact_server.ArtifactSubstrate
+
+- Surface: ccf_runtime.mcp.artifact_server.ArtifactSubstrate
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a structural Protocol — `ArtifactStoreProtocol` plus `write_kinds` and `names_at(*, content_address)`
+- Why: what the split needs of its substrate beyond the four Protocol methods
+- Migration: none for `FileArtifactStore`; a deployment's own substrate carries the two members
+
+*Recorded by `353-08-the-runtime-callers-hold-the-capability.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -15735,7 +15819,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-467 entries — 281 public Python surface, 186 not public Python API.
+471 entries — 285 public Python surface, 186 not public Python API.
 
 ### Public Python surface
 
@@ -21003,6 +21087,54 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `353-06-the-approval-record-is-server-attested.md`.*
 
+#### ccf_runtime.authz.delivery_boundary.govern_dereference
+
+- Surface: ccf_runtime.authz.delivery_boundary.govern_dereference
+- Public surface: true
+- Change type: reshaped
+- Before: `govern_dereference(*, grant: TokenGrant, reference, store, entitlement_source, refusal_recorder, audit_log, surface, address)` — the principal was `grant.client_id`, the audited action was chosen by `reference.wants_bytes`
+- After: `govern_dereference(authorized: Authorized[ArtifactRead] | Authorized[ReplayRead], *, reference, store, entitlement_source, refusal_recorder, audit_log, surface, address)` — `verify_any(authorized, kinds=EVIDENCE_READ_KINDS, resource=reference.reference)` is the first statement; the principal is `authorized.principal`; the audited action is the verified kind's; hold 2's entitlement seam is handed a grant carrying the capability's principal and tenant and nothing else
+- Why: `D-IMPL-353` §1.2 — the governed evidence read takes the capability for its own action and has no grant or tenant parameter; the resource bind is the reference the door's declaration named, which is what the gate or wrapper decided on
+- Migration: pass the capability from `authorized_from_request(request, kind=ArtifactRead|ReplayRead)` or the wrapper's first argument; drop `grant=`
+
+*Recorded by `353-08-the-runtime-callers-hold-the-capability.md`.*
+
+#### ccf_runtime.mcp.artifact_server.build_artifact_server
+
+- Surface: ccf_runtime.mcp.artifact_server.build_artifact_server
+- Public surface: true
+- Change type: reshaped
+- Before: `store: ArtifactStoreProtocol`; the blob and presence resources dereferenced every address as a Decision Replay record
+- After: `store: ArtifactSubstrate`; the blob and presence resources take THE SPLIT (posture changes above)
+- Why: §7.4 — the persistence transport must round-trip every artifact class; the split needs the substrate's `write_kinds` and reverse index
+- Migration: pass a store carrying `write_kinds` and `names_at` (the shipped `FileArtifactStore` does)
+
+*Recorded by `353-08-the-runtime-callers-hold-the-capability.md`.*
+
+#### ccf.products.resolver.ReplayRefusalRecorder
+
+- Surface: ccf.products.resolver.ReplayRefusalRecorder
+- Public surface: true
+- Change type: reshaped
+- Before: `ReplayRefusalRecorder(*, artifact_store, replay_record_class, tenant_id, assembly_mode, policy_bundle_pin=None, disclosure_level_for=...)`; `record()` built `ReplayWriter(store=, artifact_class=)` — red at the join base
+- After: `ReplayRefusalRecorder(*, authorized: Authorized[ReplayMint], artifact_store, assembly_mode, policy_bundle_pin=None, disclosure_level_for=...)`; verifies the capability at construction; `replay_record_class` and `tenant_id` are read-only properties off it; `record()` builds `ReplayWriter(authorized=, store=)`
+- Why: `D-IMPL-353` §1.2, §1.3, §2 P3 — the fabric's own writer is handed a `ReplayMint` at composition and there is no second source for the tenant or the class; the join's bridge, J-SRC owns the final shape
+- Migration: mint `ReplayMint` for the record class at composition and pass `authorized=`; drop `replay_record_class=` and `tenant_id=`
+
+*Recorded by `353-08-the-runtime-callers-hold-the-capability.md`.*
+
+#### ccf.artifacts.file_store.FileArtifactStore
+
+- Surface: ccf.artifacts.file_store.FileArtifactStore
+- Public surface: true
+- Change type: reshaped
+- Before: no reverse lookup over the naming index
+- After: adds `names_at(*, content_address) -> tuple[ArtifactName, ...]` — every `(tenant, class, name)` an address was filed under; empty for an address nothing was filed under and for a string that is not an address
+- Why: the artifact server's split has to know what an address IS before deciding how to read it
+- Migration: none
+
+*Recorded by `353-08-the-runtime-callers-hold-the-capability.md`.*
+
 ### Not public Python API
 
 #### tools/lints/__main__.py
@@ -23826,7 +23958,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-174 entries — 147 public Python surface, 27 not public Python API.
+192 entries — 165 public Python surface, 27 not public Python API.
 
 ### Public Python surface
 
@@ -27121,6 +27253,222 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   now receive the engine's own exception
 
 *Recorded by `353-04-the-engine-runs-under-a-capability.md`.*
+
+#### ccf_runtime.authz.delivery_boundary.EVIDENCE_SURFACES
+
+- Surface: ccf_runtime.authz.delivery_boundary.EVIDENCE_SURFACES
+- Public surface: true
+- Change type: behavior
+- Before: `{SURFACE_HTTP_REPLAY_READ, SURFACE_HTTP_ARTIFACT_READ}`
+- After: adds `SURFACE_MCP_RESOURCE`, so a read-refusal record minted at the MCP blob or presence resource is recognized by `_is_read_refusal`
+- Why: Lane MCP measured that an MCP-minted read refusal was withheld from its own principal at hold 2 as a record with no recoverable class
+- Migration: none
+
+*Recorded by `353-08-the-runtime-callers-hold-the-capability.md`.*
+
+#### ccf_runtime.authz.delivery_boundary.DisclosingRecorderProtocol
+
+- Surface: ccf_runtime.authz.delivery_boundary.DisclosingRecorderProtocol
+- Public surface: true
+- Change type: behavior
+- Before: `tenant_id: str` declared as a settable data member
+- After: `tenant_id` declared as a read-only property, so a recorder that derives its tenant from a composition-minted capability conforms
+- Why: the SDK's recorder reads its tenant off `Authorized[ReplayMint]` (§1.3) and exposes it as a property
+- Migration: none for conformers carrying a field; a conformer carrying a settable attribute still conforms
+
+*Recorded by `353-08-the-runtime-callers-hold-the-capability.md`.*
+
+#### ccf_runtime.authz.route_declaration.ResourceSource
+
+- Surface: ccf_runtime.authz.route_declaration.ResourceSource
+- Public surface: true
+- Change type: behavior
+- Before: four members — `PATH`, `QUERY`, `BODY`, `ROUTE`
+- After: five — adds `BODY_COMPOSED`, a `str.format` template over named top-level body fields
+- Why: the artifact store takes class and name from the capability's resource, so the gate must decide on exactly `"<class>/<name>"` spelled from two body fields (`D-IMPL-353` §1.2)
+- Migration: none; a route that needs it declares `ResourceBinding.body_composed(template)`
+
+*Recorded by `353-08-the-runtime-callers-hold-the-capability.md`.*
+
+#### ccf_runtime.authz.route_declaration.ResourceBinding
+
+- Surface: ccf_runtime.authz.route_declaration.ResourceBinding
+- Public surface: true
+- Change type: behavior
+- Before: constructors `path`, `query`, `body`, `route`
+- After: adds `body_composed(template)`; a template naming no usable field is refused at declaration
+- Why: as `ResourceSource.BODY_COMPOSED`
+- Migration: none
+
+*Recorded by `353-08-the-runtime-callers-hold-the-capability.md`.*
+
+#### ccf_runtime.http_api.gate.AuthorizationGate
+
+- Surface: ccf_runtime.http_api.gate.AuthorizationGate
+- Public surface: true
+- Change type: behavior
+- Before: a `BODY`-sourced resource was one top-level string field
+- After: a `BODY_COMPOSED`-sourced resource is the template formatted over its named fields; any named field absent, empty or not a string is a deny
+- Why: the composed reading (above) has to be extracted by the gate, and the caller chooses what to send, so every choice leads to the check running
+- Migration: none
+
+*Recorded by `353-08-the-runtime-callers-hold-the-capability.md`.*
+
+#### ccf_runtime.http_api.routes.artifact.build_router
+
+- Surface: ccf_runtime.http_api.routes.artifact.build_router
+- Public surface: true
+- Change type: behavior
+- Before: PUT called `store.put(tenant_id=authorized.tenant, artifact_class=body.artifact_class, name=body.name, artifact=body.artifact)`; GET called `govern_dereference(grant=grant_from_request(request), ...)` with a 503 arm for a missing grant
+- After: PUT calls `store.put(authorized_from_request(request, kind=ArtifactWrite), body.artifact)`; GET calls `govern_dereference(authorized_from_request(request, kind=ArtifactRead), ...)`; the 503 arm is gone with the grant
+- Why: `D-IMPL-353` §1.2 — the handles take the capability; the tenant, class and name are the capability's
+- Migration: none on the wire
+
+*Recorded by `353-08-the-runtime-callers-hold-the-capability.md`.*
+
+#### ccf_runtime.http_api.routes.replay.build_router
+
+- Surface: ccf_runtime.http_api.routes.replay.build_router
+- Public surface: true
+- Change type: behavior
+- Before: both reads called `govern_dereference(grant=grant_from_request(request), ...)` with a 503 arm for a missing grant
+- After: both reads call `govern_dereference(authorized_from_request(request, kind=ReplayRead), ...)`; the module asserts `kind_for_action(ACTION_REPLAY_READ) is ReplayRead`
+- Why: as the artifact route
+- Migration: none on the wire
+
+*Recorded by `353-08-the-runtime-callers-hold-the-capability.md`.*
+
+#### ccf_runtime.http_api.routes.agent.build_router
+
+- Surface: ccf_runtime.http_api.routes.agent.build_router
+- Public surface: true
+- Change type: behavior
+- Before: `register_versioned(body.key, body.definition, AGENT_DEFINITION)` behind an `assert authorized.resource == body.key`
+- After: `register_versioned(authorized, body.definition, AGENT_DEFINITION)` — the key is the capability's resource, the actor its principal; the response echoes `authorized.resource`
+- Why: `D-IMPL-353` §1.2
+- Migration: none on the wire
+
+*Recorded by `353-08-the-runtime-callers-hold-the-capability.md`.*
+
+#### ccf_runtime.http_api.routes.config.build_router
+
+- Surface: ccf_runtime.http_api.routes.config.build_router
+- Public surface: true
+- Change type: behavior
+- Before: `register_versioned(body.key, artifact, artifact_class)`
+- After: `register_versioned(authorized, artifact, artifact_class)`
+- Why: `D-IMPL-353` §1.2
+- Migration: none on the wire
+
+*Recorded by `353-08-the-runtime-callers-hold-the-capability.md`.*
+
+#### ccf_runtime.http_api.routes.skill.build_router
+
+- Surface: ccf_runtime.http_api.routes.skill.build_router
+- Public surface: true
+- Change type: behavior
+- Before: `catalog.register(entry)`; `ledger.request(body.grant, definition=..., actor=authorized.principal)`; `ledger.revoke(body.grant_hash, actor=authorized.principal)`
+- After: `catalog.register(authorized, entry)`; `ledger.request(authorized, body.grant, definition=...)`; `ledger.revoke(authorized)` — the actor is the capability's principal, the grant hash its resource
+- Why: `D-IMPL-353` §1.2
+- Migration: none on the wire
+
+*Recorded by `353-08-the-runtime-callers-hold-the-capability.md`.*
+
+#### ccf_runtime.http_api.app.create_app
+
+- Surface: ccf_runtime.http_api.app.create_app
+- Public surface: true
+- Change type: behavior
+- Before: refused at boot a recorder over a store declaring its class governed (`GovernedRecordClasses`) without a `GovernedWriteHandle`
+- After: refuses at boot a recorder whose store's `WriteKinds` does not name the recorder's class under `ReplayMint`, or exposes no `write_kinds` declaration
+- Why: `D-IMPL-353` §3 read over the per-class write kinds Lane HANDLES put on the store; the retired names are gone
+- Migration: declare the replay record class under `ReplayMint` on the store the doors serve from
+
+*Recorded by `353-08-the-runtime-callers-hold-the-capability.md`.*
+
+#### ccf_runtime.http_api.app.GovernedWiringError
+
+- Surface: ccf_runtime.http_api.app.GovernedWiringError
+- Public surface: true
+- Change type: behavior
+- Before: raised for a governed class with no minting handle
+- After: raised for an undeclared class or an undeclaring store; the message names the class and the store's declaration
+- Why: as `create_app`
+- Migration: none
+
+*Recorded by `353-08-the-runtime-callers-hold-the-capability.md`.*
+
+#### ccf_runtime.mcp.tenancy.TenantGuardedServer
+
+- Surface: ccf_runtime.mcp.tenancy.TenantGuardedServer
+- Public surface: true
+- Change type: behavior
+- Before: minted `decision_id=content_hash(decision)`
+- After: refuses, typed, an allow with no `decision_id` or one deciding about another tenant, action or resource, and mints `decision_id=decision.decision_id`
+- Why: `D-IMPL-353` §1.5a — the capability names the audit event it is evidence of; a hash of the decision tuple named no record
+- Migration: a deployment's own authorizer must populate `AuthzDecision.decision_id`; the SDK's does
+
+*Recorded by `353-08-the-runtime-callers-hold-the-capability.md`.*
+
+#### ccf_runtime.mcp.product_door.open_door
+
+- Surface: ccf_runtime.mcp.product_door.open_door
+- Public surface: true
+- Change type: behavior
+- Before: registered the entitlement policy and the scope mapping with bare keys
+- After: registers each under a `Register` minted through the D-IMPL-354 recipe — a `composition` audit event on the product's Control Plane naming the key, then `mint_at_composition(Register, ...)` for exactly that key
+- Why: `D-IMPL-354` — the door is a composition root and its own registrations are the deployment's act on its fabric
+- Migration: none
+
+*Recorded by `353-08-the-runtime-callers-hold-the-capability.md`.*
+
+#### ccf_runtime.workflow.engine.WorkflowEngine
+
+- Surface: ccf_runtime.workflow.engine.WorkflowEngine
+- Public surface: true
+- Change type: behavior
+- Before: `_persist` wrote `(WORKFLOW_STATE, key, record)` through the audited writer without the capability; `_write_trace` called `put(tenant_id=, artifact_class=, name=, artifact=)`; `_key` was an f-string
+- After: `_persist` calls `write(authorized, WORKFLOW_STATE, record, record_id=execution_id, event=...)`; `_write_trace` calls `put(authorized, DerivedWrite(artifact_class=WORKFLOW_TRACE_ARTIFACT_CLASS, name=execution_id, artifact=trace))`; `_key` is `state_key(tenant=, record_id=)`
+- Why: `D-IMPL-353` §1.2 derived writes — the deployment must declare the trace class under `(Execute, Resume)` or the first trace write fails closed
+- Migration: declare `WORKFLOW_TRACE_ARTIFACT_CLASS: (Execute, Resume)` in the store's `WriteKinds`
+
+*Recorded by `353-08-the-runtime-callers-hold-the-capability.md`.*
+
+#### ccf_runtime.cli.local.build_local_dependencies
+
+- Surface: ccf_runtime.cli.local.build_local_dependencies
+- Public surface: true
+- Change type: behavior
+- Before: `FileArtifactStore(root=root / "artifacts")`
+- After: the store declares `WORKFLOW_TRACE_ARTIFACT_CLASS` under `(Execute, Resume)` and nothing else
+- Why: the local fabric composes an engine and no resolver; it declares what it writes and no lane it holds no capability for
+- Migration: none
+
+*Recorded by `353-08-the-runtime-callers-hold-the-capability.md`.*
+
+#### ccf.skills.catalog.SkillCatalog
+
+- Surface: ccf.skills.catalog.SkillCatalog
+- Public surface: true
+- Change type: behavior
+- Before: `register(entry, *, actor=None)` calling `register_versioned(key, entry, ..., actor=actor)` — red at the join base
+- After: `register(authorized: Authorized[SkillCatalogRegister] | Authorized[Register], entry)`; the entry's derived key must equal the capability's resource or the call is refused before the registry is touched
+- Why: `D-IMPL-353` §1.2 — the join's bridge for the catalog route and the fixtures; J-SRC owns the final shape
+- Migration: pass the door's capability, or a composition-minted `Register` for `skill_catalog_key(entry)`
+
+*Recorded by `353-08-the-runtime-callers-hold-the-capability.md`.*
+
+#### ccf.artifacts.mcp_store.McpArtifactStore
+
+- Surface: ccf.artifacts.mcp_store.McpArtifactStore
+- Public surface: true
+- Change type: behavior
+- Before: `put` sent `tenant_id` on the wire; `get` returned whatever bytes the blob resource answered; `exists` raised `McpServerUnreachable` on a refusal shell
+- After: `put` sends exactly `artifact_class`, `name`, `canonical_b64`; `get` verifies `sha256(bytes)` against the address and raises `ArtifactNotFound` for a shell; `exists` reads a shell as `False`
+- Why: the tenant travels in the credential, never the wire (§1.3); a governed refusal is a shell, and this store reads it as absence rather than as the artifact or an outage
+- Migration: none
+
+*Recorded by `353-08-the-runtime-callers-hold-the-capability.md`.*
 
 ### Not public Python API
 

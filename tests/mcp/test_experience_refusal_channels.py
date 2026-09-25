@@ -118,6 +118,12 @@ from ccf_runtime.mcp.experience import (
     experience_product_uri,
 )
 from tests.mcp.guarded_servers import wide_authorizer
+from ccf.controlplane.registry import ControlPlaneRegistry
+from http_api.composition_authority import (
+    deployment_store,
+    refusal_recorder,
+    register_typed_at_composition,
+)
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 EXPERIENCE_PATH = REPO_ROOT / "runtime/ccf_runtime/mcp/experience.py"
@@ -160,7 +166,7 @@ class _Door:
 
     def __init__(self, tmp_path: pathlib.Path, *, entitled_class: str = PRODUCT_CLASS) -> None:
         registry = ControlPlaneRegistry()
-        registry.register_typed(
+        register_typed_at_composition(registry, 
             product_entitlement_key(tenant_id=TENANT),
             ProductEntitlementPolicy(
                 tenant_id=TENANT,
@@ -178,11 +184,12 @@ class _Door:
         self.source = ControlPlaneProductEntitlementSource(
             control_plane=registry, clock=lambda: DETERMINED_AT
         )
-        self.store = FileArtifactStore(root=tmp_path / "replay")
-        self.recorder = ReplayRefusalRecorder(
-            artifact_store=self.store,
+        self.store = deployment_store(tmp_path / "replay", REPLAY_RECORD_CLASS)
+        self.recorder = refusal_recorder(
+            registry,
+            store=self.store,
+            tenant=TENANT,
             replay_record_class=REPLAY_RECORD_CLASS,
-            tenant_id=TENANT,
             assembly_mode="algorithmic",
             policy_bundle_pin=None,
             disclosure_level_for=self.source.disclosure_level_for,

@@ -32,8 +32,7 @@ from ccf.agents.definitions import (
     AgentDefinition,
     TaskDefinition,
 )
-from ccf.artifacts.file_store import FileArtifactStore
-from ccf.artifacts.protocol import ArtifactRef
+from ccf.artifacts.protocol import ArtifactRef, DerivedWrite
 from ccf.controlplane.artifacts import declared_artifact_class, parse_artifact
 from ccf.controlplane.audit import AuditLog
 from ccf.controlplane.registry import ControlPlaneRegistry
@@ -51,13 +50,33 @@ from ccf.replay.record import (
     ResolutionNotApplicable,
     build_replay_record,
 )
-from ccf.skills.catalog import SKILL_CATALOG_ENTRY, SkillCatalog, SkillCatalogEntry
+from ccf.skills.catalog import (
+    SKILL_CATALOG_ENTRY,
+    SkillCatalog,
+    SkillCatalogEntry,
+    skill_catalog_key,
+)
 from ccf.skills.grants import GrantLedger
 from ccf.workflow.definitions import WORKFLOW_DEFINITION, WorkflowDefinition
 from ccf.workflow.factory import WorkflowFactory
 from ccf_runtime.mcp.egress import ProductNotServable
-from ccf_runtime.workflow.engine import WorkflowEngine
+from ccf_runtime.workflow.engine import WORKFLOW_TRACE_ARTIFACT_CLASS, WorkflowEngine
+from http_api.composition_authority import (
+    WORKFLOW_TRACE_CLASS,
+    composition_register,
+    composition_replay_mint,
+    deployment_store,
+    register_typed_at_composition,
+    register_versioned_at_composition,
+)
 from skills.sinks import ScriptedApprovalSink
+
+#: The engine's trace class and the helper's spelling of it are one string.
+assert WORKFLOW_TRACE_CLASS == WORKFLOW_TRACE_ARTIFACT_CLASS
+
+#: The record class this fabric's replay noun serves, and the class its
+#: evidence tests write records into. Deployment vocabulary.
+REPLAY_RECORD_CLASS = "ccf.decision-replay-record"
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "banking"
 
@@ -85,22 +104,25 @@ def _register_declared(
             },
             artifact_class,
         )
-        registry.register_typed(reference["key"], declared, artifact_class)
+        register_typed_at_composition(
+            registry, reference["key"], declared, artifact_class
+        )
 
 
 def _register_covenant_closure(plane: ControlPlaneRegistry) -> None:
     """Register everything the covenant-review workflow's refs resolve to."""
     prompt_fixture = _load("prompts/covenant_summary.yaml")
     prompt = parse_artifact(prompt_fixture["prompt_artifact"], PROMPT_ARTIFACT)
-    plane.register_typed(
-        prompt_fixture["keys"]["prompt_artifact"], prompt, PROMPT_ARTIFACT
+    register_typed_at_composition(
+        plane, prompt_fixture["keys"]["prompt_artifact"], prompt, PROMPT_ARTIFACT
     )
     agent_fixture = _load("agents/covenant_analytics.yaml")
     _register_declared(plane, agent_fixture["referenced_artifacts"])
     agent = parse_artifact(agent_fixture["agent_definition"], AGENT_DEFINITION)
     assert isinstance(agent, AgentDefinition)
     task_fixture = _load("tasks/covenant_review_task.yaml")
-    plane.register_versioned(
+    register_versioned_at_composition(
+        plane,
         task_fixture["keys"]["referenced_agent_definition"],
         agent,
         AGENT_DEFINITION,
@@ -109,8 +131,8 @@ def _register_covenant_closure(plane: ControlPlaneRegistry) -> None:
     task = parse_artifact(task_fixture["task_definition"], TASK_DEFINITION)
     assert isinstance(task, TaskDefinition)
     workflow_fixture = _load("workflows/covenant_review_workflow.yaml")
-    plane.register_versioned(
-        workflow_fixture["keys"]["task_definition"], task, TASK_DEFINITION
+    register_versioned_at_composition(
+        plane, workflow_fixture["keys"]["task_definition"], task, TASK_DEFINITION
     )
     _register_declared(plane, workflow_fixture["referenced_artifacts"])
 
@@ -122,8 +144,8 @@ def _register_refresh_closure(plane: ControlPlaneRegistry) -> None:
     task = parse_artifact(task_fixture["task_definition"], TASK_DEFINITION)
     assert isinstance(task, TaskDefinition)
     workflow_fixture = _load("workflows/certificate_refresh_workflow.yaml")
-    plane.register_versioned(
-        workflow_fixture["keys"]["task_definition"], task, TASK_DEFINITION
+    register_versioned_at_composition(
+        plane, workflow_fixture["keys"]["task_definition"], task, TASK_DEFINITION
     )
 
 
@@ -136,7 +158,9 @@ def _register_workflow(
     )
     assert isinstance(definition, WorkflowDefinition)
     key = fixture["keys"]["workflow_definition"]
-    version = plane.register_versioned(key, definition, WORKFLOW_DEFINITION)
+    version = register_versioned_at_composition(
+        plane, key, definition, WORKFLOW_DEFINITION
+    )
     assert isinstance(version, str)
     return key, version
 
@@ -263,8 +287,8 @@ class Fabric:
                 },
                 artifact_class,
             )
-            self.registry.register_typed(
-                regime["key"], declared, artifact_class
+            register_typed_at_composition(
+                self.registry, regime["key"], declared, artifact_class
             )
         self.catalog = SkillCatalog(self.registry)
         tool_fixture = _load("skills/covenant_metrics_tool.yaml")
@@ -274,7 +298,12 @@ class Fabric:
         ):
             entry = parse_artifact(document, SKILL_CATALOG_ENTRY)
             assert isinstance(entry, SkillCatalogEntry)
-            outcome = self.catalog.register(entry)
+            # The catalog registers under the capability for the entry's own
+            # key — here the composition root's `Register` for exactly it.
+            outcome = self.catalog.register(
+                composition_register(self.registry, skill_catalog_key(entry)),
+                entry,
+            )
             assert isinstance(outcome, str)
         self.sink = ScriptedApprovalSink(
             approve=True,
@@ -294,14 +323,20 @@ class Fabric:
         assert isinstance(auto_agent, AgentDefinition)
         self.auto_agent = auto_agent
         self.auto_agent_key = f"{auto_agent.tenant}/agents/{auto_agent.name}"
-        version = self.registry.register_versioned(
-            self.auto_agent_key, auto_agent, AGENT_DEFINITION
+        version = register_versioned_at_composition(
+            self.registry, self.auto_agent_key, auto_agent, AGENT_DEFINITION
         )
         assert isinstance(version, str)
         self.auto_agent_version = version
 
         # -- runtime substrates ---------------------------------------------
-        self.store = FileArtifactStore(root=root / "artifacts")
+        # What this deployment's own mechanism writes (D-IMPL-353 §1.2): the
+        # replay record class its recorders and evidence tests file into,
+        # under ReplayMint; the engine's trace class under Execute | Resume.
+        # Everything else is the client lane.
+        self.store = deployment_store(
+            root / "artifacts", REPLAY_RECORD_CLASS, workflow_traces=True
+        )
         self.hitl = InMemoryHitlTransport()
         self.engine = WorkflowEngine(
             control_plane=self.registry,
@@ -315,12 +350,18 @@ class Fabric:
         self.factory = WorkflowFactory(control_plane=self.registry)
 
         # -- a stored replay record the replay noun resolves ----------------
+        # Filed the way the fabric's own mechanism files one: a derived write
+        # under the composition-minted ReplayMint for the record class.
         self.replay_record = _replay_record()
         self.replay_ref: ArtifactRef = self.store.put(
-            tenant_id="acme-bank",
-            artifact_class="ccf.decision-replay-record",
-            name="e-replay",
-            artifact=self.replay_record,
+            composition_replay_mint(
+                self.registry, tenant="acme-bank", artifact_class=REPLAY_RECORD_CLASS
+            ),
+            DerivedWrite(
+                artifact_class=REPLAY_RECORD_CLASS,
+                name="e-replay",
+                artifact=self.replay_record,
+            ),
         )
 
         # -- one gate-admitted product the product noun serves --------------

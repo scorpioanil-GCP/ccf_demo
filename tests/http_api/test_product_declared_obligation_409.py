@@ -108,6 +108,11 @@ from ccf_runtime.mcp.egress import ProductNotServable
 from tests.products.test_disclosure import _internal as _internal_envelope
 
 from http_api.conftest import Fabric, call
+from http_api.composition_authority import (
+    deployment_store,
+    refusal_recorder,
+    register_typed_at_composition,
+)
 
 TOKEN = "declared-obligation-token"
 PRINCIPAL = "declared-obligation-caller"
@@ -353,7 +358,7 @@ def _entitlement_registry(
     """
     address = fabric.product_address
     registry = ControlPlaneRegistry()
-    registry.register_typed(
+    register_typed_at_composition(registry, 
         product_entitlement_key(tenant_id=address.tenant),
         ProductEntitlementPolicy(
             tenant_id=address.tenant,
@@ -396,10 +401,11 @@ def _recorder(
             disclosure posture in force — the *same* reader a resolver refusal
             for this principal would disclose under (``24.6-08``).
     """
-    return ReplayRefusalRecorder(
-        artifact_store=FileArtifactStore(root=root / "artifacts"),
+    return refusal_recorder(
+        fabric.registry,
+        store=deployment_store(root / "artifacts", REPLAY_RECORD_CLASS),
+        tenant=fabric.product_address.tenant,
         replay_record_class=REPLAY_RECORD_CLASS,
-        tenant_id=fabric.product_address.tenant,
         assembly_mode="algorithmic",
         policy_bundle_pin=None,
         disclosure_level_for=source.disclosure_level_for,

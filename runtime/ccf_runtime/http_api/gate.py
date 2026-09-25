@@ -90,6 +90,7 @@ from ccf_runtime.authz.route_declaration import (
     TENANT_PATH_PARAM,
     ResourceSource,
     RouteAuthorization,
+    composed_fields,
     route_authorization,
 )
 from ccf_runtime.authz.tenancy import (
@@ -612,6 +613,21 @@ class AuthorizationGate:
             return None, replay
         if not isinstance(decoded, dict):
             return None, replay
+        if binding.source is ResourceSource.BODY_COMPOSED:
+            # The resource is spelled from several body fields (the artifact
+            # store's "<class>/<name>"). Every named field must be a non-empty
+            # string, or the resource cannot be spelled and the deny stands;
+            # the template is formatted over exactly the declared names, so a
+            # field the declaration did not name cannot reach the resource.
+            fields: dict[str, str] = {}
+            for name in composed_fields(binding.name):
+                part = decoded.get(name)
+                if not isinstance(part, str) or not part:
+                    return None, replay
+                fields[name] = part
+            if not fields:
+                return None, replay
+            return binding.name.format(**fields), replay
         value = decoded.get(binding.name)
         if not isinstance(value, str) or not value:
             return None, replay

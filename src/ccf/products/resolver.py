@@ -281,6 +281,7 @@ from ccf.replay.serve import (
     record_refusal,
     serve,
 )
+from ccf.authz.capability import Authorized, ReplayMint, verify
 
 __ccf_mode__ = "algorithmic"
 
@@ -1110,14 +1111,15 @@ class ReplayRefusalRecorder:
     nothing below reaches one.
 
     Attributes:
+        authorized: The composition-minted ``ReplayMint`` capability for the
+            record class this recorder files (D-IMPL-353 §2 P3; D-IMPL-354).
+            Handed by the deployment at composition — the same object its
+            :class:`~ccf.replay.serve.ReplayWriter` is built over — and
+            verified here at construction. The tenant and the record class are
+            READ off it (:attr:`tenant_id`, :attr:`replay_record_class`);
+            there is no second source for either (§1.2, §1.3).
         artifact_store: Where the record lands. A substrate reached *through*
             mechanism.
-        replay_record_class: The artifact class replay records are filed under.
-            Deployment vocabulary, supplied rather than assumed.
-        tenant_id: The tenant every determination this recorder writes was made
-            under. A refusal carries no vessel to read it off, so it is stated
-            once here rather than at each call — a recorder is bound to a
-            deployment exactly as its resolver is.
         assembly_mode: The mode dimension 3 records.
             :func:`~ccf.replay.record.build_replay_record` takes it with no
             default, so it is held here rather than defaulted into existence.
@@ -1147,9 +1149,8 @@ class ReplayRefusalRecorder:
             reader over the deployment's own registry.
     """
 
+    authorized: Authorized[ReplayMint]
     artifact_store: ArtifactStoreProtocol
-    replay_record_class: str
-    tenant_id: str
     assembly_mode: AssemblyMode
     policy_bundle_pin: PolicyBinding | None = None
     # A `default_factory` rather than a bare `default`, and the reason is a
@@ -1163,6 +1164,26 @@ class ReplayRefusalRecorder:
     disclosure_level_for: Callable[
         ..., tuple[DisclosureLevel, ProvenanceSource | None]
     ] = field(default_factory=lambda: _minimal_disclosure)
+
+    def __post_init__(self) -> None:
+        # Verified where it is handed over (§1.5c, g): a fabricated,
+        # retargeted or wrong-kind capability dies at composition, not at the
+        # first denial a bank would rather have had recorded.
+        verify(
+            self.authorized,
+            kind=ReplayMint,
+            resource=getattr(self.authorized, "resource", ""),
+        )
+
+    @property
+    def replay_record_class(self) -> str:
+        """The artifact class replay records are filed under — the capability's resource."""
+        return self.authorized.resource
+
+    @property
+    def tenant_id(self) -> str:
+        """The tenant every determination this recorder writes was made under — the capability's."""
+        return self.authorized.tenant
 
     def record(
         self,
@@ -1259,8 +1280,7 @@ class ReplayRefusalRecorder:
         reference = record_refusal(
             record=record,
             replay_writer=ReplayWriter(
-                store=self.artifact_store,
-                artifact_class=self.replay_record_class,
+                authorized=self.authorized, store=self.artifact_store
             ),
         )
         return disclosed.model_copy(update={"replay_reference": reference.uri})

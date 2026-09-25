@@ -63,18 +63,18 @@ def build_router(deps: ApiDependencies) -> APIRouter:
         body: AgentDeclarationRequest, request: Request
     ) -> AgentDeclared | JSONResponse:
         # D-IMPL-353 §1.4: the handler holds the capability the gate minted
-        # for THIS action, or it holds nothing and refuses.
+        # for THIS action, or it holds nothing and refuses. §1.2: the key the
+        # registry writes IS `authorized.resource` — the gate resolved it from
+        # the body's `key` and the registry takes it from the capability; the
+        # handler supplies no key, and the registry compares the key's tenant
+        # segment to the capability's tenant once (§1.3).
         authorized = authorized_from_request(request, kind=AgentDeclare)
-        # JOIN (§1.2, Lane HANDLES): `register_versioned(authorized, artifact,
-        # artifact_class)` — the key becomes `authorized.resource`. Left on
-        # today's signature; `authorized.resource == body.key` by the gate.
-        assert authorized.resource == body.key
         outcome = deps.control_plane.register_versioned(
-            body.key, body.definition, AGENT_DEFINITION
+            authorized, body.definition, AGENT_DEFINITION
         )
         if isinstance(outcome, RegistrationRefusal):
             return refusal_response(outcome, status_code=409)
-        return AgentDeclared(key=body.key, version=outcome)
+        return AgentDeclared(key=authorized.resource, version=outcome)
 
     @router.get(
         "/declarations",

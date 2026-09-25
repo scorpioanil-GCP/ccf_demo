@@ -29,6 +29,9 @@ from ccf_runtime.authz.artifact import (
     ScopeMappingArtifact,
     pattern_matches,
 )
+from http_api.composition_authority import (
+    register_typed_at_composition,
+)
 
 #: A conforming value for whichever axis a test is not the subject of.
 _CONFORMING = ("a-resource",)
@@ -153,7 +156,7 @@ def test_the_artifact_registers_and_resolves_through_the_control_plane() -> (
     registry = ControlPlaneRegistry()
     artifact = _mapping("tenant-*")
 
-    version = registry.register_typed(
+    version = register_typed_at_composition(registry, 
         "test/scope-mapping", artifact, SCOPE_MAPPING
     )
     resolved_version, resolved = registry.resolve_latest("test/scope-mapping")
@@ -165,6 +168,6 @@ def test_the_artifact_registers_and_resolves_through_the_control_plane() -> (
 def test_a_wrong_class_registration_is_refused_typed() -> None:
     registry = ControlPlaneRegistry()
     with pytest.raises(TypeError):
-        registry.register_typed(
+        register_typed_at_composition(registry, 
             "test/scope-mapping", {"semver": "1.0.0"}, SCOPE_MAPPING
         )

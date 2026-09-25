@@ -43,6 +43,7 @@ import os
 from pathlib import Path
 
 from ccf.artifacts.protocol import (
+    ArtifactName,
     ArtifactNotFound,
     ArtifactRef,
     ArtifactUriUnresolvable,
@@ -180,6 +181,44 @@ class FileArtifactStore:
                 f"{uri!r} names no version this store registered under {key!r}"
             )
         return parsed.artifact_version
+
+    def names_at(self, *, content_address: str) -> tuple[ArtifactName, ...]:
+        """Every ``(tenant, class, name)`` this address was filed under, index order.
+
+        The reverse of the naming index, for the one reader that has to know
+        WHAT an address is before deciding HOW to read it: the MCP artifact
+        server's hash-addressed resources (``D-IMPL-353`` §2 P5, the join's
+        split) route a governed evidence class through the governed dereference
+        and serve every other class tenant-scoped, and a bare content address
+        says nothing about class or tenant on its own. Content addressing means
+        one address may legitimately be filed under several names — the same
+        bytes put twice under two names, or by two tenants — so this returns
+        all of them and lets the reader take the safe direction over the set.
+
+        Empty for an address nothing was filed under, and empty — never a
+        path read — for a string that is not a content address
+        (``D-IMPL-345`` `S-02`): the shape is checked before the index is
+        opened, exactly as :meth:`exists` checks it before the filesystem.
+        Introspection only: holding the names confers no read of the bytes.
+        """
+        try:
+            address = held_content_address(content_address)
+        except MalformedContentAddress:
+            return ()
+        found: list[ArtifactName] = []
+        for key, versions in self._read_index().items():
+            if address not in versions:
+                continue
+            tenant_id, artifact_class, name = key.split("/", 2)
+            found.append(
+                ArtifactName(
+                    tenant_id=tenant_id,
+                    artifact_class=artifact_class,
+                    name=name,
+                    artifact_version=address,
+                )
+            )
+        return tuple(found)
 
     def versions(self, *, tenant_id: str, artifact_class: str, name: str) -> tuple[
         str, ...

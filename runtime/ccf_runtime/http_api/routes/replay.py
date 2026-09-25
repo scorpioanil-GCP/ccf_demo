@@ -34,7 +34,7 @@ from fastapi.responses import Response
 from starlette.requests import Request
 
 from ccf.artifacts.protocol import MovingTargetRefused
-from ccf.authz.capability import ReplayRead
+from ccf.authz.capability import ReplayRead, kind_for_action
 from ccf.products.refusal import RefusalEnvelope
 from ccf_runtime.authz.delivery_boundary import (
     SURFACE_HTTP_REPLAY_READ,
@@ -48,11 +48,7 @@ from ccf_runtime.authz.product_entitlement import (
 from ccf_runtime.authz.refusals import ACTION_REPLAY_READ
 from ccf_runtime.authz.route_declaration import ResourceBinding, authorizes
 from ccf_runtime.http_api.dependencies import ApiDependencies
-from ccf_runtime.http_api.errors import (
-    ERROR_PRODUCT_DOOR_UNGOVERNED,
-    refusal_detail,
-)
-from ccf_runtime.http_api.grants import authorized_from_request, grant_from_request
+from ccf_runtime.http_api.grants import authorized_from_request
 from ccf_runtime.http_api.routes import (
     canonical_response,
     governed_refusal_response,
@@ -61,6 +57,11 @@ from ccf_runtime.http_api.routes import (
 __ccf_mode__ = "algorithmic"
 
 __all__ = ["build_router"]
+
+# The kind these two doors dereference under is the kind their declared action
+# mints — the same lookup the gate performs; `kind_for_action` is the proof
+# that `ReplayRead` is `replay.read`'s kind rather than an assumption of it.
+assert kind_for_action(ACTION_REPLAY_READ) is ReplayRead
 
 
 def _route_path(request: Request, reference: str) -> str:
@@ -107,31 +108,13 @@ def build_router(
         request: Request, reference: DereferenceRequest
     ) -> Response:
         """Authenticate, govern, encode. The route's whole job."""
-        # D-IMPL-353 §1.4: the capability for THIS action, or nothing.
-        authorized_from_request(request, kind=ReplayRead)
-        # JOIN (§1.2, Lane HANDLES/MCP): `govern_dereference(authorized, ...)`
-        # replaces `grant=`; until then the governed step takes the verified
-        # grant the gate stashed beside the capability.
-        grant = grant_from_request(request)
-        if grant is None:
-            # Unreachable behind the total gate, which refuses 401 before any
-            # handler exists. Kept for the handler reached some other way — a
-            # test, a future in-process composition — where refusing beats
-            # dereferencing governed evidence for nobody (D-IMPL-345 R-1).
-            raise HTTPException(
-                status_code=503,
-                detail=refusal_detail(
-                    error_code=ERROR_PRODUCT_DOOR_UNGOVERNED,
-                    message=(
-                        "this door dereferences governed evidence and no"
-                        " verified caller accompanies the call; it refuses"
-                        " rather than reading ungoverned (D-IMPL-345 R-1)"
-                    ),
-                ),
-            )
+        # D-IMPL-353 §1.4: `Authorized[ReplayRead]` for THIS reference, or
+        # nothing — and the governed step verifies it again, bound to the
+        # reference, before its first real statement (§1.2).
+        authorized = authorized_from_request(request, kind=ReplayRead)
         try:
             decided = govern_dereference(
-                grant=grant,
+                authorized,
                 reference=reference,
                 store=deps.artifact_store,
                 entitlement_source=entitlement_source,

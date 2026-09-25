@@ -72,14 +72,14 @@ from collections.abc import Callable, Mapping
 from datetime import datetime
 from typing import Protocol, Union, runtime_checkable
 
-from ccf.artifacts.protocol import ArtifactRef, ArtifactStoreProtocol
+from ccf.artifacts.protocol import ArtifactRef, ArtifactStoreProtocol, DerivedWrite
 from ccf.authz.capability import Authorized, Execute, Resume, verify
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.controlplane.audit import AuditAction, AuditEvent, AuditLog
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.controlplane.resolution import resolve_pinned
-from ccf.controlplane.state import AuditedStateWriter
+from ccf.controlplane.state import AuditedStateWriter, state_key
 from ccf.halflife.debt import DebtAssessment, DebtSignal
 from ccf.hitl.approval_gate import GATE_ACTIONS, GATE_EVENT_CLASS
 from ccf.hitl.escalation import ESCALATION_EVENT_CLASS
@@ -911,7 +911,17 @@ class WorkflowEngine:
 
     @staticmethod
     def _key(tenant: str, execution_id: str) -> str:
-        return f"{tenant}/{execution_id}"
+        """The state key an execution lives under — the seam's own derivation.
+
+        :func:`~ccf.controlplane.state.state_key` rather than a local
+        f-string (D-IMPL-353 §1.3): the state store derives the key it writes
+        under from the capability's tenant and the record id, and the engine's
+        reads must derive the same key the same way or a suspended execution
+        could be written under one key and looked for under another. Every
+        caller passes ``authorized.tenant``; the injectivity rules (a tenant
+        may not carry the separator) are the seam's, stated once.
+        """
+        return state_key(tenant=tenant, record_id=execution_id)
 
     @staticmethod
     def _event_key(key: str, gate: str) -> str:
@@ -1196,25 +1206,21 @@ class WorkflowEngine:
     ) -> None:
         """Write state through the audited surface — one write, one event.
 
-        A DERIVED write (D-IMPL-353 §1.2, derived-writes rule): ``key`` was
-        derived from ``authorized.tenant`` and the execution id by
-        :meth:`_key`, and the capability that authorized the run travels
-        with it. The state store's ``put`` binds the write to that derived
-        key and to the capability's tenant; the engine supplies both and
-        chooses neither.
-
-        JOIN (Lane HANDLES, ``ccf.controlplane.state``): the audited writer
-        and ``ControlPlaneStateStore.put`` take ``authorized`` first once
-        that lane lands — ``self._writer.write(authorized, WORKFLOW_STATE,
-        key, record, event=...)``. Until then the call below is the
-        pre-353 shape; the capability and the derived key are already at
-        this line, so the join is the argument list and nothing else.
+        A DERIVED write (D-IMPL-353 §1.2, derived-writes rule): the state
+        store derives the key it writes under from ``authorized.tenant`` and
+        the execution id — the engine hands it the record id and the
+        capability that authorized the run, and names no key and no tenant.
+        ``key`` here is the engine's own reading of that same derivation
+        (:meth:`_key`), used for the audit event and asserted equal to what
+        the store derives, so the two cannot drift apart silently.
         """
-        del authorized  # presented at the join — see the docstring
+        execution_id = key[len(authorized.tenant) + 1 :]
+        assert self._key(authorized.tenant, execution_id) == key
         self._writer.write(
+            authorized,
             WORKFLOW_STATE,
-            key,
             record,
+            record_id=execution_id,
             event=AuditEvent(
                 sequence=0,  # reassigned by the log; sequencing is its own
                 action=action,
@@ -1284,22 +1290,25 @@ class WorkflowEngine:
     ) -> ArtifactRef:
         """Write the trace through to the ArtifactStore (D-IMPL-18).
 
-        A DERIVED write (D-IMPL-353 §1.2): the trace is filed under
-        ``authorized.tenant`` and bound to the derived state ``key``; the
-        engine's own trace class maps to ``Execute | Resume`` at the store,
-        and the capability that authorized the run is what it presents.
-
-        JOIN (Lane HANDLES, ``ccf.artifacts``): ``ArtifactStoreProtocol.put``
-        takes ``authorized`` first and derives tenant, class and name once
-        that lane lands — ``self._artifact_store.put(authorized, trace,
-        ...)`` with ``key`` as the derived resource bind. Until then the
-        call below is the pre-353 shape with the tenant taken from the
-        capability; the join is the argument list and nothing else.
+        A DERIVED write (D-IMPL-353 §1.2): the engine names the record it
+        produced — the trace class and the execution id — in a
+        :class:`~ccf.artifacts.protocol.DerivedWrite`, presents the capability
+        that authorized the run, and the store files it under
+        ``authorized.tenant`` after verifying the capability against the kinds
+        the deployment declared for the trace class. **The deployment must
+        declare** :data:`WORKFLOW_TRACE_ARTIFACT_CLASS` **under**
+        ``(Execute, Resume)`` in the store's
+        :class:`~ccf.artifacts.protocol.WriteKinds`: a store that has not makes
+        the class the client lane, and the engine's ``Execute``/``Resume``
+        capability dies at the store's ``verify_any`` on the first trace write
+        — fail closed, nothing filed, no execution reported as run.
         """
-        del key  # the derived resource bind — presented at the join
+        del key  # the state key; the trace is named by the execution id alone
         return self._artifact_store.put(
-            tenant_id=authorized.tenant,
-            artifact_class=WORKFLOW_TRACE_ARTIFACT_CLASS,
-            name=execution_id,
-            artifact=trace,
+            authorized,
+            DerivedWrite(
+                artifact_class=WORKFLOW_TRACE_ARTIFACT_CLASS,
+                name=execution_id,
+                artifact=trace,
+            ),
         )

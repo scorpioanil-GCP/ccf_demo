@@ -40,6 +40,7 @@ from hypothesis.stateful import (
 from hypothesis import strategies as st
 
 from ccf.artifacts.file_store import FileArtifactStore
+from http_api.composition_authority import deployment_store
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.hitl.transport import InMemoryHitlTransport
 from ccf.workflow.factory import Workflow
@@ -96,7 +97,7 @@ class WorkflowEngineMachine(RuleBasedStateMachine):
         self.transport = InMemoryHitlTransport()
         self.engine = WorkflowEngine(
             control_plane=self.registry,
-            artifact_store=FileArtifactStore(root=self._tmp.name),
+            artifact_store=deployment_store(self._tmp.name, workflow_traces=True),
             hitl_transport=self.transport,
             skill_binding=self.bindings,
             agent_binding=self.bindings,

@@ -34,6 +34,7 @@ from pathlib import Path
 import pytest
 
 from ccf.artifacts.file_store import FileArtifactStore
+from http_api.composition_authority import deployment_store
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.halflife.debt import DebtAssessment, DebtFactors, DebtSignal
 from ccf.hitl.transport import InMemoryHitlTransport
@@ -100,7 +101,9 @@ def _bound_engine(
     bindings = _Bindings()
     engine = WorkflowEngine(
         control_plane=registry,
-        artifact_store=FileArtifactStore(root=tmp_path / "artifacts"),
+        # The trace class declared under Execute | Resume (D-IMPL-353 §1.2):
+        # what this deployment's engine writes for itself.
+        artifact_store=deployment_store(tmp_path / "artifacts", workflow_traces=True),
         hitl_transport=InMemoryHitlTransport(),
         skill_binding=bindings,
         agent_binding=bindings,

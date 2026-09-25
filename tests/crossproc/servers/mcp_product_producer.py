@@ -60,6 +60,11 @@ if TYPE_CHECKING:
     from mcp.server.fastmcp import FastMCP
 
 from crossproc.servers.wide_authorizer import wide_authorizer  # noqa: E402
+from http_api.composition_authority import (  # noqa: E402
+    deployment_store,
+    refusal_recorder,
+    register_typed_at_composition,
+)
 from tests.crossproc.servers.product_producer_identity import (  # noqa: E402
     DEV_TOKEN,
     PRODUCER_ID,
@@ -206,7 +211,9 @@ def build_server(workspace: Path) -> FastMCP:
     )
     for envelope in fabric.artifacts[SIGNAL_BATCH_KEY].envelopes:
         fabric.handle.worker.ingest(envelope)
-    store = FileArtifactStore(root=workspace / "artifacts")
+    # The record class this producer's recorder files into, declared under
+    # ReplayMint; every other class is the client lane (D-IMPL-353 §1.2).
+    store = deployment_store(workspace / "artifacts", REPLAY_RECORD_CLASS)
     booted = _Booted(fabric=fabric, control_plane=control_plane, store=store, root=root)
 
     # The fixture resolver wiring, with the two tenant-bound members re-homed.
@@ -220,16 +227,17 @@ def build_server(workspace: Path) -> FastMCP:
             control_plane=control_plane,
             entitlement_key=product_entitlement_key(tenant_id=PRODUCER_TENANT),
         ),
-        refusal_recorder=ReplayRefusalRecorder(
-            artifact_store=store,
+        refusal_recorder=refusal_recorder(
+            control_plane,
+            store=store,
+            tenant=PRODUCER_TENANT,
             replay_record_class=REPLAY_RECORD_CLASS,
-            tenant_id=PRODUCER_TENANT,
             assembly_mode="algorithmic",
         ),
     )
     resolver = GovernedResolver(**arguments)
 
-    control_plane.register_typed(
+    register_typed_at_composition(control_plane, 
         product_entitlement_key(tenant_id=PRODUCER_TENANT),
         ProductEntitlementPolicy(
             tenant_id=PRODUCER_TENANT,

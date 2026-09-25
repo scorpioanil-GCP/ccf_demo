@@ -60,6 +60,10 @@ from tests.workflow.capabilities import (
     execute_capability,
     resume_capability,
 )
+from http_api.composition_authority import (
+    register_typed_at_composition,
+    register_versioned_at_composition,
+)
 
 FIXTURES = Path(__file__).parent.parent / "fixtures" / "banking"
 
@@ -94,7 +98,7 @@ def _register_declared(
             },
             artifact_class,
         )
-        registry.register_typed(reference["key"], declared, artifact_class)
+        register_typed_at_composition(registry, reference["key"], declared, artifact_class)
 
 
 @pytest.fixture
@@ -107,14 +111,14 @@ def registry() -> ControlPlaneRegistry:
     agent_fixture = _load("agents/covenant_analytics.yaml")
     prompt_fixture = _load("prompts/covenant_summary.yaml")
     prompt = parse_artifact(prompt_fixture["prompt_artifact"], PROMPT_ARTIFACT)
-    plane.register_typed(
+    register_typed_at_composition(plane, 
         prompt_fixture["keys"]["prompt_artifact"], prompt, PROMPT_ARTIFACT
     )
     _register_declared(plane, agent_fixture["referenced_artifacts"])
     agent = parse_artifact(agent_fixture["agent_definition"], AGENT_DEFINITION)
     assert isinstance(agent, AgentDefinition)
     task_fixture = _load("tasks/covenant_review_task.yaml")
-    plane.register_versioned(
+    register_versioned_at_composition(plane, 
         task_fixture["keys"]["referenced_agent_definition"],
         agent,
         AGENT_DEFINITION,
@@ -123,7 +127,7 @@ def registry() -> ControlPlaneRegistry:
     task = parse_artifact(task_fixture["task_definition"], TASK_DEFINITION)
     assert isinstance(task, TaskDefinition)
     # Registered at the URI-derived key the wrapper's ref names.
-    plane.register_versioned(
+    register_versioned_at_composition(plane, 
         _workflow_fixture()["keys"]["task_definition"], task, TASK_DEFINITION
     )
     # The wrapper's own refs: exception handler and approval policy.
@@ -135,7 +139,7 @@ def _construct(
     registry: ControlPlaneRegistry, definition: WorkflowDefinition
 ) -> Workflow:
     key = _workflow_fixture()["keys"]["workflow_definition"]
-    version = registry.register_versioned(key, definition, WORKFLOW_DEFINITION)
+    version = register_versioned_at_composition(registry, key, definition, WORKFLOW_DEFINITION)
     assert isinstance(version, str)
     return WorkflowFactory(control_plane=registry).construct(
         execute_capability(tenant=definition.tenant, resource=key),
@@ -296,7 +300,7 @@ def _registered(registry: ControlPlaneRegistry) -> tuple[WorkflowDefinition, str
     ``(definition, key, version)`` for tests that mint their own capability."""
     definition = _workflow_definition()
     key = _workflow_fixture()["keys"]["workflow_definition"]
-    version = registry.register_versioned(key, definition, WORKFLOW_DEFINITION)
+    version = register_versioned_at_composition(registry, key, definition, WORKFLOW_DEFINITION)
     assert isinstance(version, str)
     return definition, key, version
 

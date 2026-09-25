@@ -35,6 +35,7 @@ import pytest
 
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.artifacts.protocol import artifact_uri
+from ccf.authz.capability import ArtifactWrite
 from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.products.disclosure import DISCLOSURE_FULL, DISCLOSURE_MINIMAL
@@ -78,6 +79,13 @@ from ccf_runtime.http_api.errors import (
 from ccf_runtime.http_api.refusal_status import STATUS_BY_KIND
 from ccf_runtime.mcp.auth import FileTokenSource, TokenGrant
 from http_api.conftest import Fabric, call
+from http_api.composition_authority import (
+    composition_replay_mint,
+    deployment_store,
+    refusal_recorder,
+    register_typed_at_composition,
+)
+from tests.controlplane.capabilities import capability
 
 SUBJECT_UNAVAILABLE = REFUSAL_KINDS[SubjectUnavailableRefusal]
 REPLAY_RECORD_CLASS = "ccf.decision-replay-record"
@@ -206,7 +214,7 @@ def _governed(fabric: Fabric, tmp_path: Path) -> Governed:
         tenant=address.tenant,
     )
     registry = ControlPlaneRegistry()
-    registry.register_typed(
+    register_typed_at_composition(registry, 
         product_entitlement_key(tenant_id=address.tenant),
         _policy(address.tenant, address.product_class),
         PRODUCT_ENTITLEMENT_POLICY,
@@ -217,10 +225,11 @@ def _governed(fabric: Fabric, tmp_path: Path) -> Governed:
     # THE difference from every other module here: the recorder's store IS
     # the store the API serves from, so a reference a refusal hands back is
     # resolvable through the door that produced it.
-    recorder = ReplayRefusalRecorder(
-        artifact_store=fabric.store,
+    recorder = refusal_recorder(
+        registry,
+        store=fabric.store,
+        tenant=address.tenant,
         replay_record_class=REPLAY_RECORD_CLASS,
-        tenant_id=address.tenant,
         assembly_mode="algorithmic",
         policy_bundle_pin=None,
         disclosure_level_for=source.disclosure_level_for,
@@ -295,7 +304,12 @@ def _served_record(
         }
     )
     return (
-        ReplayWriter(store=governed.store, artifact_class=REPLAY_RECORD_CLASS)
+        ReplayWriter(
+            authorized=composition_replay_mint(
+                governed.registry, tenant=governed.tenant, artifact_class=REPLAY_RECORD_CLASS
+            ),
+            store=governed.store,
+        )
         .write_replay_record(record=record)
         .replay_ref.content_address
     )
@@ -316,7 +330,12 @@ def _requestless_record(governed: Governed, *, principal: str) -> str:
     )
     assert record.content_generation_path.request is None
     return (
-        ReplayWriter(store=governed.store, artifact_class=REPLAY_RECORD_CLASS)
+        ReplayWriter(
+            authorized=composition_replay_mint(
+                governed.registry, tenant=governed.tenant, artifact_class=REPLAY_RECORD_CLASS
+            ),
+            store=governed.store,
+        )
         .write_replay_record(record=record)
         .replay_ref.content_address
     )
@@ -556,11 +575,12 @@ def test_c3_a_pin_named_by_another_principals_record_is_withheld(
     governed: Governed
 ) -> None:
     """Non-record bytes are not dereferenceable, whoever asks (R-3)."""
+    # A client-lane write under a genuine `Authorized[ArtifactWrite]` for
+    # exactly this class and name (D-IMPL-353 §1.2): the class is undeclared
+    # on this fabric's store, so the door's kind is what writes it.
     pin = governed.store.put(
-        tenant_id=governed.tenant,
-        artifact_class="ccf.graph-query",
-        name="a-query",
-        artifact={"tenant_id": governed.tenant, "seeds": ["subject-1"]},
+        capability(ArtifactWrite, tenant=governed.tenant, resource="ccf.graph-query/a-query"),
+        {"tenant_id": governed.tenant, "seeds": ["subject-1"]},
     )
     missing = _get_artifact(governed, NOWHERE, token=A_TOKEN)
 
@@ -700,7 +720,7 @@ def test_c10_a_grant_revoked_after_the_serve_stops_the_read(
     owned = _served_record(governed, principal=A)
     assert _get_record(governed, owned, token=A_TOKEN).status_code == 200
 
-    governed.registry.register_typed(
+    register_typed_at_composition(governed.registry, 
         product_entitlement_key(tenant_id=governed.tenant),
         _policy(
             governed.tenant,
@@ -827,10 +847,8 @@ def test_c17_non_record_bytes_on_a_record_ask_are_absence_not_a_500(
 ) -> None:
     """A valid address holding a blob answers the shell, never a fault."""
     blob = governed.store.put(
-        tenant_id=governed.tenant,
-        artifact_class="ccf.test-blob",
-        name="b",
-        artifact={"field": "value"},
+        capability(ArtifactWrite, tenant=governed.tenant, resource="ccf.test-blob/b"),
+        {"field": "value"},
     )
     missing = _get_record(governed, NOWHERE, token=A_TOKEN)
 
@@ -927,8 +945,8 @@ def test_c18_the_mcp_artifact_resource_inherits_the_same_refusal(
         " the store, or two implementations will disagree"
     )
 
-    store = FileArtifactStore(root=tmp_path / "mcp-store")
-    store.put(tenant_id="t", artifact_class="c", name="n", artifact={"k": "v"})
+    store = deployment_store(tmp_path / "mcp-store")
+    store.put(capability(ArtifactWrite, tenant="t", resource="c/n"), {"k": "v"})
     for malformed in MALFORMED:
         with pytest.raises(MalformedContentAddress):
             store.get(content_address=malformed)
@@ -1207,10 +1225,12 @@ def test_c23_a_computed_pin_address_is_indistinguishable_from_nothing(
     """
     query = {"tenant_id": governed.tenant, "seeds": ["subject-1"]}
     governed.store.put(
-        tenant_id=governed.tenant,
-        artifact_class="ccf.graph-query",
-        name=content_hash(query),
-        artifact=query,
+        capability(
+            ArtifactWrite,
+            tenant=governed.tenant,
+            resource=f"ccf.graph-query/{content_hash(query)}",
+        ),
+        query,
     )
     computed = content_hash(query)
 

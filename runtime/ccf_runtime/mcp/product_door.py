@@ -79,6 +79,13 @@ from mcp.server.fastmcp import FastMCP
 from pydantic import AnyHttpUrl
 
 from ccf.authz.actions import ACTION_PRODUCT_RETRIEVE
+from ccf.authz.capability import (
+    COMPOSITION_PRINCIPAL,
+    Authorized,
+    Register,
+    mint_at_composition,
+)
+from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifacts import EgressDoorBinding, ProductClassDeclaration
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.deployment.environment import EnvironmentDocument, resolve_value
@@ -437,6 +444,54 @@ def _boot_credential(
     return resolved_environ, credential
 
 
+def _registration(
+    control_plane: ControlPlaneRegistry, *, key: str, clock: Callable[[], datetime]
+) -> Authorized[Register]:
+    """The D-IMPL-354 composition recipe for ONE Control Plane key, verbatim.
+
+    This module is a composition root (the §4 lint's ``COMPOSITION_MINT_SITES``
+    names it): opening the paved-road door composes a deployment's door, and
+    the two registrations that composition performs — the entitlement policy
+    and the scope mapping — are the deployment's own act on its own fabric,
+    which no served caller requests and no gate can mint for. So the root
+    records the decision on the Control Plane's own audit log, as a
+    ``composition`` event naming the key, and mints ``Register`` for exactly
+    that key from that event's content address. A boot-minted ``Register``
+    opens one key; it is not a wildcard and cannot be widened (§1.5).
+
+    **The capability's tenant is the key's tenant segment as the Control Plane
+    defines it** — the segment before the first ``/``
+    (:mod:`ccf.controlplane.registry`, §1.3: *"the key's tenant segment must
+    equal the capability's tenant"*). Stated rather than assumed because the
+    two keys this door registers do not put the tenant there:
+    :func:`~ccf.products.entitlement.product_entitlement_key` and
+    :func:`scope_mapping_key` both derive ``{class}/{tenant}``, so under the
+    registry's rule their tenant segment is the class id. A ``Register``
+    minted for the door's own ``tenant_id`` is refused as cross-tenant; one
+    minted for the segment is admitted. That disagreement between two key
+    derivations and the registry's grammar is a finding of the D-IMPL-353
+    join, recorded in the join report and owed a ruling — it is not resolved
+    here, and this function encodes no opinion about which side moves: it
+    mints for what the Control Plane will read the key as, and says so.
+    """
+    tenant_segment, _, _ = key.partition("/")
+    event = control_plane.audit_log.append(
+        action="composition",
+        key=key,
+        version=Register.action_id,
+        resolved=True,
+        occurred_at=clock(),
+        actor=COMPOSITION_PRINCIPAL,
+    )
+    return mint_at_composition(
+        Register,
+        tenant=tenant_segment,
+        principal=COMPOSITION_PRINCIPAL,
+        resource=key,
+        decision_id=content_hash(event),
+    )
+
+
 def _compose(
     product: ServesProducts,
     *,
@@ -454,13 +509,21 @@ def _compose(
     role = product.default_perspective.role
     scope = door.required_scope
 
+    def now() -> datetime:
+        return datetime.now(UTC)
+
     # The permitted class and role are the ones this deployment serves and
     # assembles under — off the declaration and the declared perspective,
     # never restated — so an entitlement cannot name a class this fabric does
     # not serve. Into the product's ONE registry: the per-question resolver
-    # and the door read the same policy.
+    # and the door read the same policy. Under a `Register` minted by this
+    # composition root for exactly that key (D-IMPL-354).
     product.control_plane.register_typed(
-        product_entitlement_key(tenant_id=tenant),
+        _registration(
+            product.control_plane,
+            key=product_entitlement_key(tenant_id=tenant),
+            clock=now,
+        ),
         ProductEntitlementPolicy(
             tenant_id=tenant,
             policy_version=product.declaration.schema_version,
@@ -481,7 +544,11 @@ def _compose(
     # mapping's own semver lane rides the declaration's, and the authorizer
     # is pinned to the version this registration returns (`SEC-002`).
     mapping_version = product.control_plane.register_typed(
-        scope_mapping_key(tenant_id=tenant),
+        _registration(
+            product.control_plane,
+            key=scope_mapping_key(tenant_id=tenant),
+            clock=now,
+        ),
         ScopeMappingArtifact(
             semver=product.declaration.schema_version,
             scopes={

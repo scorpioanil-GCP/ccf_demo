@@ -96,6 +96,12 @@ from ccf_runtime.mcp.egress import (
 from tests.mcp.guarded_servers import wide_authorizer
 
 from crossproc.servers.mcp_egress_child import ProductAddress, build_servable_product
+from ccf.controlplane.registry import ControlPlaneRegistry
+from http_api.composition_authority import (
+    deployment_store,
+    refusal_recorder,
+    register_typed_at_composition,
+)
 
 #: Test deployment vocabulary; the SDK ships none of it.
 TOKEN = "egress-disclosure-token"
@@ -180,7 +186,7 @@ class _World:
         self.address = address
         self.level = level
         self.registry = ControlPlaneRegistry()
-        self.registry.register_typed(
+        register_typed_at_composition(self.registry, 
             product_entitlement_key(tenant_id=address.tenant),
             ProductEntitlementPolicy(
                 tenant_id=address.tenant,
@@ -198,11 +204,12 @@ class _World:
         self.source = ControlPlaneProductEntitlementSource(
             control_plane=self.registry, clock=lambda: DETERMINED_AT
         )
-        self.store = FileArtifactStore(root=root / "artifacts")
-        self.recorder = ReplayRefusalRecorder(
-            artifact_store=self.store,
+        self.store = deployment_store(root / "artifacts", REPLAY_RECORD_CLASS)
+        self.recorder = refusal_recorder(
+            self.registry,
+            store=self.store,
+            tenant=address.tenant,
             replay_record_class=REPLAY_RECORD_CLASS,
-            tenant_id=address.tenant,
             assembly_mode="algorithmic",
             disclosure_level_for=self.source.disclosure_level_for,
         )

@@ -87,7 +87,6 @@ from mcp.server.auth.middleware.auth_context import get_access_token
 from mcp.server.auth.provider import AccessToken
 from mcp.server.fastmcp import FastMCP
 
-from ccf.contracts.canonical import content_hash
 from ccf.authz.capability import (
     ActionKind,
     AgentList,
@@ -113,7 +112,11 @@ from ccf.authz.capability import (
     mint,
 )
 from ccf_runtime.authz.protocol import TenantAuthorizerProtocol
-from ccf_runtime.http_api.errors import ERROR_TENANT_UNAUTHORIZED, refusal_detail
+from ccf_runtime.http_api.errors import (
+    ERROR_DECISION_UNMINTABLE,
+    ERROR_TENANT_UNAUTHORIZED,
+    refusal_detail,
+)
 from ccf_runtime.mcp.auth import (
     AMBIENT_STDIO_CLAIM,
     TENANT_CLAIM,
@@ -132,6 +135,7 @@ __all__ = [
     "AmbientMutationRefused",
     "AmbiguousTenantRefused",
     "CrossTenantRefused",
+    "DecisionUnmintableRefused",
     "GuardedSurface",
     "ResourceSubject",
     "ResourceUnreadableRefused",
@@ -257,6 +261,22 @@ class ActionUnauthorizedRefused(TenantGuardViolation):
     (D-08): ``json.dumps(refusal_detail(ERROR_TENANT_UNAUTHORIZED, ...))``, the
     same body the HTTP door's 403 carries, so a client parses either door's
     denial the same way. **Nothing is minted on this path.**
+    """
+
+
+class DecisionUnmintableRefused(TenantGuardViolation):
+    """The authorizer answered *allowed* with a decision the wrapper cannot mint from.
+
+    ``D-IMPL-353`` §1.5(a): the mint binds the authorizer's WHOLE decision,
+    and the capability's ``decision_id`` is the audit event that decision is
+    evidence of. An allow carrying no ``decision_id``, or deciding about a
+    tenant, action or resource other than the one this wrapper asked about,
+    is not minted from — the same refusal the HTTP gate makes as
+    ``decision-unmintable`` (a ``503``, a deployment fault, never a ``403``
+    the caller could read as a verdict). **Nothing is minted on this path and
+    the body never runs.** The message is the shared refusal constant
+    rendered protocol-natively (D-08), as :class:`ActionUnauthorizedRefused`'s
+    is.
     """
 
 
@@ -755,13 +775,44 @@ class TenantGuardedServer:
                         )
                     )
                 )
+            # §1.5(a): the mint binds the authorizer's WHOLE decision, and the
+            # decision must be the answer to the question this wrapper asked.
+            # An allow naming no record, or deciding about some other tenant,
+            # action or resource, is not minted from — mirror of the HTTP
+            # gate's `decision-unmintable`.
+            if (
+                decision.decision_id is None
+                or decision.tenant != tenant
+                or decision.action_id != action
+                or decision.resource != target
+            ):
+                raise DecisionUnmintableRefused(
+                    json.dumps(
+                        refusal_detail(
+                            error_code=ERROR_DECISION_UNMINTABLE,
+                            message=(
+                                "the bound authorizer returned an allow the"
+                                " wrapper cannot mint a capability from: it"
+                                " carries no decision id, or it decides about"
+                                " a tenant, action or resource other than the"
+                                " one this surface asked about. No capability"
+                                " is minted from a partial or misdirected"
+                                " decision; fix the authorizer (D-IMPL-353"
+                                " §1.5a)"
+                            ),
+                        )
+                    )
+                )
             authorized: Authorized[ActionKind] = mint(
                 kind,
                 decision=decision,
                 principal=token.client_id,
-                # The decision's own identity: the content address of the
-                # exact tuple the authorizer returned *allowed* for.
-                decision_id=content_hash(decision),
+                # The decision's own identity: the audit event the authorizer
+                # appended for exactly this allow (D-IMPL-353 §1.5a). Lane
+                # CAP-GATE's `ControlPlaneTenantAuthorizer` populates it; a
+                # content hash of the decision tuple would have named no
+                # record at all.
+                decision_id=decision.decision_id,
             )
             if subject.argument is not None:
                 del arguments[subject.argument]

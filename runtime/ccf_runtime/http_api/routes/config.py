@@ -148,12 +148,10 @@ def build_router(deps: ApiDependencies) -> APIRouter:
             artifact = parse_artifact(body.artifact, artifact_class)
         except (ArtifactLoadError, ValueError) as bad:
             raise HTTPException(status_code=422, detail=str(bad)) from bad
-        # JOIN (§1.2, Lane HANDLES): `register_versioned(authorized, artifact,
-        # artifact_class)` — the key becomes `authorized.resource`. Left on
-        # today's signature; `authorized.resource == body.key` by the gate.
-        assert authorized.resource == body.key
+        # §1.2: the key the registry writes IS `authorized.resource` — the
+        # gate resolved it from the body's `key`; the handler supplies none.
         outcome = deps.control_plane.register_versioned(
-            body.key, artifact, artifact_class
+            authorized, artifact, artifact_class
         )
         if isinstance(outcome, RegistrationRefusal):
             # wrapped with the refusal type name so a wire consumer can
@@ -167,6 +165,6 @@ def build_router(deps: ApiDependencies) -> APIRouter:
                     "refusal": json.loads(canonical_bytes(outcome)),
                 },
             )
-        return ConfigRegistered(key=body.key, version=outcome)
+        return ConfigRegistered(key=authorized.resource, version=outcome)
 
     return router

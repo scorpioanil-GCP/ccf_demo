@@ -85,6 +85,9 @@ from .test_product_declared_obligation_409 import (
     _entitlement_registry,
     _recorder,
 )
+from http_api.composition_authority import (
+    register_typed_at_composition,
+)
 
 #: Test deployment vocabulary.
 MAPPING_KEY = "gate-authz/scope-mapping"
@@ -142,7 +145,7 @@ def door(fabric: Fabric, tmp_path_factory: pytest.TempPathFactory) -> Any:
     root = tmp_path_factory.mktemp("gate-authz")
     tenant = fabric.product_address.tenant
     registry = ControlPlaneRegistry()
-    version = registry.register_typed(
+    version = register_typed_at_composition(registry, 
         MAPPING_KEY, _mapping(tenant), SCOPE_MAPPING
     )
     assert isinstance(version, str)

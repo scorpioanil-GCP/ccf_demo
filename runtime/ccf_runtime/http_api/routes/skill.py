@@ -49,7 +49,7 @@ from ccf.authz.capability import (
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes
 from ccf.controlplane.registry import ControlPlaneMissing, RegistrationRefusal
-from ccf.skills.catalog import SkillCatalogEntry
+from ccf.skills.catalog import SKILL_CATALOG_ENTRY, SkillCatalogEntry
 from ccf.skills.grants import GrantRefusal, GrantTransitionError, SkillGrant
 from ccf_runtime.authz.refusals import (
     ACTION_SKILL_CATALOG_READ,
@@ -66,11 +66,21 @@ from ccf_runtime.http_api.routes import _required_handle
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "CATALOG_REGISTER_RESOURCE",
     "GrantIssued",
     "GrantRequest",
     "GrantRevocationRequest",
     "build_router",
 ]
+
+#: The resource a catalog registration is decided on: the Control Plane key
+#: the entry registers under, ``{tenant}/{class}/{name}`` — spelled from the
+#: body's own ``tenant`` and ``name`` exactly as
+#: :func:`~ccf.skills.catalog.skill_catalog_key` derives it (D-IMPL-353 §1.2:
+#: the registry takes the key from the capability, so the gate must decide on
+#: exactly that string). A scope mapping therefore states which entries a
+#: scope may register, in the same key grammar the registry files under.
+CATALOG_REGISTER_RESOURCE = "{tenant}/" + SKILL_CATALOG_ENTRY.class_id + "/{name}"
 
 
 class GrantRequest(CCFContract):
@@ -170,11 +180,16 @@ def build_router(deps: ApiDependencies) -> APIRouter:
         summary="Skill catalog register (D-IMPL-22)",
     )
     @authorizes(
-        ACTION_SKILL_CATALOG_REGISTER, resource=ResourceBinding.body("name")
+        ACTION_SKILL_CATALOG_REGISTER,
+        resource=ResourceBinding.body_composed(CATALOG_REGISTER_RESOURCE),
     )
     def register_entry(
         entry: SkillCatalogEntry, request: Request
     ) -> JSONResponse:
+        # D-IMPL-353 §1.4: `Authorized[SkillCatalogRegister]` for THIS entry's
+        # key, or nothing. §1.2: the catalog hands the registry the capability
+        # and the registry files under its resource; the entry's own derived
+        # key may agree with it and never supply it.
         authorized = authorized_from_request(request, kind=SkillCatalogRegister)
         _own_tenant(authorized, entry.tenant)
         catalog_handle = _required_handle(
@@ -182,7 +197,7 @@ def build_router(deps: ApiDependencies) -> APIRouter:
             field="skill_catalog",
             routes="skill catalog registration",
         )
-        outcome = catalog_handle.register(entry)
+        outcome = catalog_handle.register(authorized, entry)
         if isinstance(outcome, RegistrationRefusal):
             return JSONResponse(
                 status_code=409,
@@ -206,8 +221,10 @@ def build_router(deps: ApiDependencies) -> APIRouter:
         body: GrantRequest, request: Request
     ) -> GrantIssued | JSONResponse:
         # D-IMPL-353 §1.4: `Authorized[SkillGrant]` for THIS definition key.
+        # The ledger binds the capability's resource to the definition it is
+        # handed (§1.5f), so a definition resolved under another key than the
+        # one the gate decided on dies at the ledger's own line.
         authorized = authorized_from_request(request, kind=SkillGrantKind)
-        assert authorized.resource == body.definition_key
         ledger = _required_handle(
             deps.grant_ledger,
             field="grant_ledger",
@@ -221,12 +238,9 @@ def build_router(deps: ApiDependencies) -> APIRouter:
             raise HTTPException(status_code=404, detail=str(absent)) from absent
         definition = AGENT_DEFINITION.validate(artifact)
         assert isinstance(definition, AgentDefinition)
-        # JOIN (§1.2, Lane HANDLES): `ledger.request(authorized, grant,
-        # definition=...)` — `actor` is deleted; the actor is
-        # `authorized.principal`. Left on today's signature with that value.
-        outcome = ledger.request(
-            body.grant, definition=definition, actor=authorized.principal
-        )
+        # §1.2: the audited actor is `authorized.principal`; there is no
+        # `actor` parameter and nothing the body could have said about it.
+        outcome = ledger.request(authorized, body.grant, definition=definition)
         if isinstance(outcome, (GrantRefusal, RegistrationRefusal)):
             kind = (
                 "grant-refusal"
@@ -255,19 +269,17 @@ def build_router(deps: ApiDependencies) -> APIRouter:
         body: GrantRevocationRequest, request: Request
     ) -> GrantRevocationRequest:
         # D-IMPL-353 §1.4: `Authorized[SkillRevoke]`, its own kind — revoking
-        # is deliberately not the granting action (see `refusals`).
+        # is deliberately not the granting action (see `refusals`). §1.2: the
+        # grant hash the ledger revokes IS `authorized.resource`, which the
+        # gate resolved from the body's `grant_hash`; the handler supplies none.
         authorized = authorized_from_request(request, kind=SkillRevoke)
-        assert authorized.resource == body.grant_hash
         ledger = _required_handle(
             deps.grant_ledger,
             field="grant_ledger",
             routes="skill grant revocation",
         )
         try:
-            # JOIN (§1.2, Lane HANDLES): `ledger.revoke(authorized, grant_hash)`
-            # — `actor` is deleted. Left on today's signature with the
-            # capability's principal.
-            ledger.revoke(body.grant_hash, actor=authorized.principal)
+            ledger.revoke(authorized)
         except GrantTransitionError as refused:
             raise HTTPException(
                 status_code=409, detail=str(refused)

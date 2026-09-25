@@ -46,8 +46,10 @@ from ccf.artifacts.protocol import (
     ArtifactStoreProtocol,
     ArtifactUriUnresolvable,
     MovingTargetRefused,
+    WriteKinds,
     artifact_uri,
 )
+from ccf.authz.capability import ArtifactWrite
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.mcp.client import SyncMcpBridge
@@ -65,6 +67,7 @@ pytestmark = pytest.mark.conformance
 #: is the server's own deployment value, and its credential is scoped to it
 #: (``SEC-018``).
 from crossproc.servers.mcp_artifact_child import TENANT  # noqa: E402
+from tests.controlplane.capabilities import capability  # noqa: E402
 ARTIFACT_CLASS = "conformance-artifact"
 NAME = "the-artifact"
 
@@ -124,7 +127,9 @@ def store_factory(
         root = tmp_path / "artifacts"
 
         def factory() -> ArtifactStoreProtocol:
-            return FileArtifactStore(root=root)
+            # The client lane only: this suite is a client, and a client
+            # declares no class as fabric-written (D-IMPL-353 §1.2).
+            return FileArtifactStore(root=root, write_kinds=WriteKinds({}))
 
         yield factory
         return
@@ -137,6 +142,7 @@ def store_factory(
                     return McpArtifactStore(
                         url=url,
                         bridge=bridge,
+                        write_kinds=WriteKinds({}),
                         http_client_factory=authorized_http_client,
                     )
 
@@ -182,8 +188,15 @@ def store(store_factory: StoreFactory) -> ArtifactStoreProtocol:
 
 
 def _put(store: ArtifactStoreProtocol, artifact: object, *, name: str = NAME):  # noqa: ANN202
+    """A client-lane write: a genuine ``Authorized[ArtifactWrite]`` for exactly
+    ``"<class>/<name>"`` under the tenant the child's credential is scoped to
+    (D-IMPL-353 §1.2) — the kind a door mints, minted the way the gate mints it.
+    The store takes the tenant, the class and the name from it and from
+    nothing else; the MCP store sends the class and the name over the wire
+    and never the tenant (§1.3)."""
     return store.put(
-        tenant_id=TENANT, artifact_class=ARTIFACT_CLASS, name=name, artifact=artifact
+        capability(ArtifactWrite, tenant=TENANT, resource=f"{ARTIFACT_CLASS}/{name}"),
+        artifact,
     )
 
 
@@ -452,6 +465,7 @@ def test_a_missing_artifact_and_an_unreachable_server_are_distinct_types(
     live = McpArtifactStore(
         url=artifact_server_url,
         bridge=bridge,
+        write_kinds=WriteKinds({}),
         http_client_factory=authorized_http_client,
     )
     with pytest.raises(ArtifactNotFound) as absence:
@@ -460,6 +474,7 @@ def test_a_missing_artifact_and_an_unreachable_server_are_distinct_types(
     dead = McpArtifactStore(
         url=closed_url,
         bridge=bridge,
+        write_kinds=WriteKinds({}),
         http_client_factory=authorized_http_client,
     )
     with pytest.raises(McpServerUnreachable) as outage:
@@ -478,7 +493,9 @@ def test_a_store_presenting_no_credential_is_refused(
     verifier its settings never install as middleware. Then the anonymous
     store reads and writes freely and this call returns instead of raising.
     """
-    anonymous = McpArtifactStore(url=artifact_server_url, bridge=bridge)
+    anonymous = McpArtifactStore(
+        url=artifact_server_url, bridge=bridge, write_kinds=WriteKinds({})
+    )
     with pytest.raises(McpServerUnreachable):
         anonymous.exists(content_address=content_hash(_Artifact(label="x", ordinal=1)))
 
@@ -495,14 +512,13 @@ def test_a_store_presenting_a_rejected_token_is_refused_as_an_outage(
     impostor = McpArtifactStore(
         url=artifact_server_url,
         bridge=bridge,
+        write_kinds=WriteKinds({}),
         http_client_factory=rejected_http_client,
     )
     with pytest.raises(McpServerUnreachable) as refusal:
         impostor.put(
-            tenant_id=TENANT,
-            artifact_class=ARTIFACT_CLASS,
-            name=NAME,
-            artifact=_Artifact(label="alpha", ordinal=1),
+            capability(ArtifactWrite, tenant=TENANT, resource=f"{ARTIFACT_CLASS}/{NAME}"),
+            _Artifact(label="alpha", ordinal=1),
         )
     assert not isinstance(refusal.value, ArtifactNotFound)
 
@@ -522,6 +538,7 @@ def test_non_ascii_canonical_bytes_survive_the_wire_exactly(
     store = McpArtifactStore(
         url=artifact_server_url,
         bridge=bridge,
+        write_kinds=WriteKinds({}),
         http_client_factory=authorized_http_client,
     )
     ref = _put(store, artifact)

@@ -123,6 +123,14 @@ def build_app(scratch: pathlib.Path) -> Any:
         docstring describes.
     """
     from ccf.artifacts.file_store import FileArtifactStore
+    from ccf.artifacts.protocol import WriteKinds
+    from ccf.authz.capability import (
+        COMPOSITION_PRINCIPAL,
+        Register,
+        ReplayMint,
+        mint_at_composition,
+    )
+    from ccf.contracts.canonical import content_hash
     from ccf.controlplane.registry import ControlPlaneRegistry
     from ccf.products.entitlement import (
         PRODUCT_ENTITLEMENT_POLICY,
@@ -146,19 +154,42 @@ def build_app(scratch: pathlib.Path) -> Any:
     # handles is explicit rather than smuggled through a fake object.
     unused: Any = None
 
+    # Every Control Plane registration this tool performs, and the recorder's
+    # own ReplayMint, are minted through the D-IMPL-354 composition recipe —
+    # the decision recorded on the registry's own audit log, then the mint for
+    # exactly that one key or class. This tool IS the composition root of the
+    # deployment it builds; nothing here is a door and nothing here is ambient.
+    def registered(plane: ControlPlaneRegistry, key: str) -> Any:
+        event = plane.audit_log.append(
+            action="composition",
+            key=key,
+            version=Register.action_id,
+            resolved=True,
+            occurred_at=datetime.now(UTC),
+            actor=COMPOSITION_PRINCIPAL,
+        )
+        return mint_at_composition(
+            Register,
+            tenant=key.partition("/")[0],
+            principal=COMPOSITION_PRINCIPAL,
+            resource=key,
+            decision_id=content_hash(event),
+        )
+
     # A real artifact at a real key, pinned at the exact version it was
     # registered at — never "latest", which would let a later write change
     # what a past decision meant.
     authz_plane = ControlPlaneRegistry()
     mapping_version = authz_plane.register_typed(
-        _SCRATCH_MAPPING_KEY,
+        registered(authz_plane, _SCRATCH_MAPPING_KEY),
         ScopeMappingArtifact(semver="1.0.0", scopes={}),
         SCOPE_MAPPING,
     )
 
     entitlement_plane = ControlPlaneRegistry()
+    entitlement_key = product_entitlement_key(tenant_id=_SCRATCH_TENANT)
     entitlement_plane.register_typed(
-        product_entitlement_key(tenant_id=_SCRATCH_TENANT),
+        registered(entitlement_plane, entitlement_key),
         ProductEntitlementPolicy(
             tenant_id=_SCRATCH_TENANT,
             policy_version="1.0.0",
@@ -203,9 +234,29 @@ def build_app(scratch: pathlib.Path) -> Any:
             )
         ),
         refusal_recorder=ReplayRefusalRecorder(
-            artifact_store=FileArtifactStore(root=scratch / "artifacts"),
-            replay_record_class=_SCRATCH_RECORD_CLASS,
-            tenant_id=_SCRATCH_TENANT,
+            # The recorder's writer: a ReplayMint for the one record class,
+            # minted at composition; the store declares that class under
+            # ReplayMint, which is what `create_app`'s boot check reads.
+            authorized=mint_at_composition(
+                ReplayMint,
+                tenant=_SCRATCH_TENANT,
+                principal=COMPOSITION_PRINCIPAL,
+                resource=_SCRATCH_RECORD_CLASS,
+                decision_id=content_hash(
+                    entitlement_plane.audit_log.append(
+                        action="composition",
+                        key=_SCRATCH_RECORD_CLASS,
+                        version=ReplayMint.action_id,
+                        resolved=True,
+                        occurred_at=datetime.now(UTC),
+                        actor=COMPOSITION_PRINCIPAL,
+                    )
+                ),
+            ),
+            artifact_store=FileArtifactStore(
+                root=scratch / "artifacts",
+                write_kinds=WriteKinds.declare({_SCRATCH_RECORD_CLASS: (ReplayMint,)}),
+            ),
             assembly_mode="algorithmic",
             policy_bundle_pin=None,
             disclosure_level_for=entitlement.disclosure_level_for,

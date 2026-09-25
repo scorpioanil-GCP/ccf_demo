@@ -76,6 +76,11 @@ from ccf_runtime.mcp.hitl_server import (
     build_hitl_server,
     hitl_queue_uri,
 )
+from http_api.composition_authority import (
+    deployment_store,
+    refusal_recorder,
+    register_typed_at_composition,
+)
 
 MAPPING_KEY = "authz-mcp/scope-mapping"
 SCOPE_EXACT = "authz:hitl-exact"
@@ -167,7 +172,7 @@ class Harness:
 
     def __init__(self, tmp_path: Path) -> None:
         self.registry = ControlPlaneRegistry(clock=_clock)
-        self.mapping_version = self.registry.register_typed(
+        self.mapping_version = register_typed_at_composition(self.registry, 
             MAPPING_KEY, _mapping(), SCOPE_MAPPING
         )
         # The version is pinned, not resolved at decision time (``SEC-002``):
@@ -479,7 +484,7 @@ def _http_outcome(
     # no principal grants: nothing here asks for a product, and borrowing
     # another suite's registry would decide about another suite's vocabulary.
     entitlements = ControlPlaneRegistry()
-    entitlements.register_typed(
+    register_typed_at_composition(entitlements, 
         product_entitlement_key(tenant_id=tenant),
         ProductEntitlementPolicy(
             tenant_id=tenant,
@@ -513,10 +518,11 @@ def _http_outcome(
                 principal_id=grant.client_id, role=ROLE
             )
         ),
-        refusal_recorder=ReplayRefusalRecorder(
-            artifact_store=FileArtifactStore(root=root / "artifacts"),
+        refusal_recorder=refusal_recorder(
+            entitlements,
+            store=deployment_store(root / "artifacts", "ccf.decision-replay-record"),
+            tenant=tenant,
             replay_record_class="ccf.decision-replay-record",
-            tenant_id=tenant,
             assembly_mode="algorithmic",
             policy_bundle_pin=None,
             disclosure_level_for=source.disclosure_level_for,
