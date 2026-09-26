@@ -41,6 +41,7 @@ from hypothesis import strategies as st
 
 from ccf.artifacts.file_store import FileArtifactStore
 from http_api.composition_authority import deployment_store
+from ccf.contracts.canonical import content_hash
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.hitl.transport import InMemoryHitlTransport
 from ccf.workflow.factory import Workflow
@@ -67,6 +68,7 @@ from tests.workflow.test_engine import (
     _register_covenant_closure,
     _register_refresh_closure,
     _resolve_gate,
+    _submit_only,
     _ticking_clock,
 )
 
@@ -262,6 +264,82 @@ class WorkflowEngineMachine(RuleBasedStateMachine):
         )
         assert isinstance(outcome, WorkflowResumeRefused)
         assert self.registry.state_store.get(WORKFLOW_STATE, key) is before
+
+    @precondition(lambda self: bool(self._keys_in("suspended")))
+    @rule(
+        data=st.data(),
+        first=st.sampled_from(["approve", "reject"]),
+        second_mover=st.sampled_from(["officer-2", "officer-3"]),
+    )
+    def conflicting_verdicts_on_one_suspension_refuse(
+        self, data: st.DataObject, first: str, second_mover: str
+    ) -> None:
+        """Two distinct verdicts on ONE suspension refuse, in either order.
+
+        D-IMPL-357 A4's guard, generatively. The lesson this rule exists to
+        honor is one task old: A3's review found that a rule which read the
+        decision out of ``gate_routes[gate][verdict]`` could not produce the
+        input A3's compare guarded against, so the machine's entire
+        generated space — every tenant and shape it explores — was
+        unexercised for that guard. A4 adds a guard of its own, so the
+        machine must be able to produce ITS violating input too: two
+        recorded verdicts in disagreement on one suspension.
+
+        Both verdicts go through the submit-only door (D-IMPL-62), which
+        resolves nothing, so the gate stays pending and both stay
+        eligible — and the ARRIVAL ORDER is drawn, because the defect this
+        closes was order-dependent: selection took the oldest, so the shape
+        that reached an approving terminal after a recorded rejection was
+        specifically approval-first.
+
+        **The key is retired to its own lifecycle state, and that is a fact
+        about the SDK rather than test bookkeeping.** Nothing removes a
+        recorded submission, so the conflict is permanent: this suspension
+        can never resume, in either direction, until a human reconciles the
+        authority path — and the SDK ships no reconciliation primitive. A
+        rule that returned the key to the suspended pool would be asserting
+        the opposite, and ``resume_suspended``'s biconditional would then be
+        false for it.
+        """
+        key = data.draw(st.sampled_from(self._keys_in("suspended")))
+        tenant, shape = self._shapes[key]
+        workflow = self.workflows[(tenant, shape)]
+        gate = "credit-officer-approval"
+        record = self.registry.state_store.get(WORKFLOW_STATE, key)
+        assert isinstance(record, WorkflowStateRecord)
+        assert record.current_state == gate
+        bound = content_hash(record)
+        second = "reject" if first == "approve" else "approve"
+        for action, subject in ((first, "officer-1"), (second, second_mover)):
+            _submit_only(
+                self.transport,
+                tenant=tenant,
+                event_key=f"{key}/{gate}",
+                product_content_hash=bound,
+                action=action,
+                subject_id=subject,
+            )
+        routes = workflow.definition.gate_routes[gate]
+        # Either declared target: the refusal is about the recorded verdicts,
+        # not about which target the caller named, so BOTH must refuse — and
+        # drawing the decision keeps the assertion from passing because the
+        # decision happened to be undeclared.
+        decision = data.draw(st.sampled_from(sorted(set(routes.values()))))
+        outcome = asyncio.run(
+            self.engine.resume(
+                resume_as(workflow), workflow,
+                execution_id=key.split("/", 1)[1], decision=decision,
+            )
+        )
+        assert isinstance(outcome, WorkflowResumeRefused)
+        assert "carries conflicting human verdicts" in outcome.reason
+        assert "does not agree with the route" not in outcome.reason
+        # Still suspended: a refusal spends nothing.
+        after = self.registry.state_store.get(WORKFLOW_STATE, key)
+        assert isinstance(after, WorkflowStateRecord)
+        assert after.status == "suspended"
+        assert after.current_state == gate
+        self.observed[key] = "deadlocked"
 
     @rule(tenant=st.sampled_from(TENANTS))
     def resume_unknown_is_refused(self, tenant: str) -> None:
