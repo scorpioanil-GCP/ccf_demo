@@ -458,9 +458,18 @@ class SpecDrivenEntityResolution:
                     # otherwise correctly identified node, and PolicyFilter
                     # (and any other attribute-keyed consumer) reads a stored
                     # string as an answered value, not as "unknown"
-                    # (D-IMPL-357 B4, measured population: zero committed
-                    # fixture rows carry a null under a declared
-                    # attribute_keys name — tools/measure_null_attributes.py).
+                    # (D-IMPL-357 B4).
+                    #
+                    # NO COUNT LIVES HERE. B4 conditioned this change on a
+                    # measurement of the population it moves, and that
+                    # population belongs where it can go stale visibly:
+                    # tools/measure_null_attributes.py prints it with its
+                    # per-source denominators, and the decision entry dates the
+                    # run. An earlier revision of this comment asserted a
+                    # tree-wide count in this spot; no gate checked it, and it
+                    # was wrong on the day it was written — committed SQL seed
+                    # rows carry nulls under declared attribute keys, in a
+                    # fixture format that count's scan never opened.
                     attributes={
                         key: str(payload[key])
                         for key in rule.attribute_keys
