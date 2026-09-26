@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import pathlib
 import types
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
@@ -774,3 +775,96 @@ def test_a_DIFFERENT_sdk_exception_at_a_seam_is_not_converted(
     with _open(root, scratch, project=_other_sdk_error) as opened:
         with pytest.raises(SeamRefusalWidening, match="did not bind"):
             opened.answer(_question(opened))
+
+
+# --------------------------------------------------------------------------
+# The REAL route. Everything above raises `IdentityRefused` synthetically from a
+# seam; this drives the actual producer — an acquisition whose source record
+# carries an identity value that names no entity — through the real mint site.
+# --------------------------------------------------------------------------
+
+#: A fixed instant. NOT a clock read: a test that read the wall clock would make
+#: its own evidence unreproducible.
+_ACQUIRED_AT = datetime(2026, 2, 1, tzinfo=UTC)
+
+
+@pytest.mark.parametrize(
+    ("value", "reason"),
+    [
+        (None, "null"),
+        ("", "empty"),
+        ("   ", "empty"),
+        (True, "bool"),
+        (1.5, "float"),
+    ],
+    ids=["null", "empty", "whitespace", "bool", "float"],
+)
+def test_the_REAL_route_converts_at_the_acquisition_seam_with_the_workers_own_reason(
+    tmp_path: pathlib.Path,
+    value: object,
+    reason: str,
+) -> None:
+    """An acquisition reading a record whose identity value names no entity.
+
+    The positive tests above raise ``IdentityRefused`` from a seam by hand, which
+    proves the CONVERSION and says nothing about whether anything real produces
+    the exception there. This drives the producer:
+    :class:`~ccf.assembly.worker.SpecDrivenEntityResolution` over an envelope
+    whose declared identity field holds each member of B1's inadmissible set, at
+    the ``acquisition`` seam a deployment actually supplies. All five convert,
+    and the worker's OWN reason — not a reason this test invented — reaches the
+    record's refusal detail, because the SDK carries the exception's message
+    unedited.
+
+    **The whitespace case's reason is ``empty``, and the null case's is
+    ``null``.** Absence and blankness are separate reasons at the mint site (the
+    presence check answers ``None`` before the scalar checks are reached), which
+    is exactly the distinction the held question for the project owner is about,
+    so the parametrization states each one rather than matching loosely.
+    """
+    from ccf.assembly.worker import (
+        EntityResolutionRule,
+        EntityResolutionSpec,
+        SpecDrivenEntityResolution,
+    )
+    from ccf.signal.envelope import SignalEnvelope, SourceIdentity
+
+    spec = EntityResolutionSpec(
+        semver="1.0.0",
+        entity_rules=(
+            EntityResolutionRule(
+                match_key="counterparty_lei",
+                entity_class="company",
+                identity_keys=("counterparty_lei",),
+            ),
+        ),
+    )
+    root = _write_tree(tmp_path / f"b3real-{reason}", config=_config())
+    scratch = tmp_path / f"b3real-{reason}" / "scratch"
+
+    def _acquire_a_bad_record(context: Any) -> Any:
+        """Read one source record and resolve it, exactly as a deployment would."""
+        return SpecDrivenEntityResolution(spec=spec).resolve(
+            envelope=SignalEnvelope(
+                tenant_id="tenant-a",
+                envelope_id="env-source-1",
+                source=SourceIdentity(system_id="core-banking"),
+                ingestion_timestamp=_ACQUIRED_AT,
+                raw_payload={"counterparty_lei": value},
+            )
+        )
+
+    with _open(root, scratch, acquire=_acquire_a_bad_record) as opened:
+        outcome = opened.answer(_question(opened))
+        assert isinstance(outcome, RefusalEnvelope), outcome
+        assert _seam_of(opened, outcome) == "acquisition"
+        block = str(opened.record_of(outcome).content_generation_path.assembly_refusal)
+        assert "identity-refused" in block and "nonexistent" in block, block
+        assert f"({reason})" in block, (reason, block)
+        # The reason is asserted EXACTLY, not loosely: every other reason the
+        # mint site can name must be absent, so a test that merely saw "some
+        # refusal happened" cannot pass. That is what keeps `null` distinct from
+        # `non-scalar`, which is the distinction the held question turns on.
+        for other in ("null", "empty", "bool", "float", "non-scalar", "non-finite"):
+            if other != reason:
+                assert f"({other})" not in block, (other, block)
