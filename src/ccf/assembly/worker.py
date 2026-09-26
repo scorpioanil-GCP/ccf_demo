@@ -39,6 +39,7 @@ with the Pattern 5 pipeline and will live in their own, untagged modules.
 
 from __future__ import annotations
 
+import numbers
 from collections.abc import Mapping, Sequence
 from datetime import datetime
 from decimal import Decimal
@@ -344,27 +345,48 @@ class IdentityRefused(ValueError):
 
 
 def _identity_text(value: object) -> tuple[str | None, str]:
-    """The positional-string form of an admissible identity value, or the refusal reason.
+    """The text bare ``str()`` produced for an admissible identity value, or the refusal reason.
 
-    ``int`` and ``Decimal`` render exactly as ``str()`` rendered them before
-    D-IMPL-357, so every URI minted from a numeric identifier is byte-identical
-    (D-IMPL-316: the global hashing model is untouched); a ``str`` is taken as
-    is — untrimmed, unfolded. ``bool`` is checked before ``int`` because it is
-    an ``int``; ``float`` is refused here because ``str()`` ran before the
-    canonical form's own float refusal and would have minted ``"1.5"``.
+    ``numbers.Integral`` and a finite ``Decimal`` render exactly as ``str()``
+    rendered them before D-IMPL-357, so every URI minted from a numeric
+    identifier is byte-identical (D-IMPL-316: the global hashing model is
+    untouched); a ``str`` is taken as is — untrimmed, unfolded. This is
+    byte-identity with the historic coercion, not literally "positional": a
+    ``Decimal``'s exponent form is not repositioned, e.g. ``Decimal('1E+2')``
+    still renders ``'1E+2'`` and ``Decimal('0.0000001')`` still renders
+    ``'1E-7'`` — what B2 requires is that the rendering does not move, not
+    that it takes one particular shape.
+
+    ``bool`` is checked before ``numbers.Integral`` because ``bool`` is
+    registered under it. ``numbers.Integral`` — not the narrower ``int`` — is
+    the check: a pandas-backed L1 adapter (``DataFrame.itertuples``) yields
+    ``numpy.int64``, which is ``Integral`` without subclassing ``int``, and
+    ruling B2 exists so a numeric identity keeps minting the URI it always
+    minted, not so it stops minting because a numeric library boxed it
+    differently. The value is coerced through ``int()`` rather than rendered
+    by its own ``__str__``, so the canonical decimal form is what is hashed
+    regardless of the ``Integral`` subtype's own string form. ``float`` is
+    refused here because ``str()`` ran before the canonical form's own float
+    refusal and would have minted ``"1.5"``. A non-finite ``Decimal`` (NaN,
+    ±Infinity) gets its own reason, ``non-finite``, rather than being folded
+    into ``non-scalar`` — it IS a scalar, just not one that names an entity.
+
+    The ``str`` blank check calls ``str.strip`` on the type rather than
+    ``value.strip()`` on the instance, so a ``str`` subclass overriding
+    ``strip()`` cannot pass a blank value through by shadowing it.
     """
     if value is None:
         return None, "null"
     if isinstance(value, bool):
         return None, "bool"
+    if isinstance(value, numbers.Integral):
+        return str(int(value)), ""
     if isinstance(value, float):
         return None, "float"
     if isinstance(value, str):
-        return (value, "") if value.strip() else (None, "empty")
-    if isinstance(value, int):
-        return str(value), ""
-    if isinstance(value, Decimal) and value.is_finite():
-        return str(value), ""
+        return (value, "") if str.strip(value) else (None, "empty")
+    if isinstance(value, Decimal):
+        return (str(value), "") if value.is_finite() else (None, "non-finite")
     return None, "non-scalar"
 
 

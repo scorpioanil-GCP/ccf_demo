@@ -8,6 +8,7 @@ E and R under a stated temporal rule, with policy bound on the way in.
 
 from __future__ import annotations
 
+import numbers
 from collections.abc import Callable, Iterator
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -938,13 +939,19 @@ def _lei_rule() -> EntityResolutionSpec:
         ("   ", "empty"),
         (True, "bool"),
         (1.5, "float"),
+        (Decimal("NaN"), "non-finite"),
         ({"lei": "x"}, "non-scalar"),
         (["x"], "non-scalar"),
         (b"x", "non-scalar"),
     ],
 )
 def test_an_inadmissible_identity_value_is_refused_by_name(value: object, reason: str) -> None:
-    """D-IMPL-357 B1 (SEC-007): presence is not admissibility."""
+    """D-IMPL-357 B1 (SEC-007): presence is not admissibility.
+
+    A non-finite ``Decimal`` (NaN here) carries its own reason,
+    ``non-finite``, rather than ``non-scalar`` — Fable fix round 1, finding 2:
+    it IS a scalar, just not one that names an entity.
+    """
     strategy = SpecDrivenEntityResolution(spec=_lei_rule())
     with pytest.raises(IdentityRefused) as caught:
         strategy.resolve(envelope=envelope(payload={"lei": value}))
@@ -952,11 +959,41 @@ def test_an_inadmissible_identity_value_is_refused_by_name(value: object, reason
     assert caught.value.key == "lei" and caught.value.entity_class == "company"
 
 
+class _FakeNumpyInt:
+    """A stand-in for ``numpy.int64`` — registers as ``Integral`` without
+    subclassing ``int`` (Fable fix round 1, finding 2). No numpy dependency:
+    a stdlib ``int`` subclass would already pass the old check, and
+    ``fractions.Fraction`` registers as ``Rational``, not ``Integral``
+    (measured), so neither stands in for the actual gap.
+    """
+
+    def __init__(self, value: int) -> None:
+        self._value = value
+
+    def __int__(self) -> int:
+        return self._value
+
+
+numbers.Integral.register(_FakeNumpyInt)
+
+
 def test_int_and_decimal_identities_keep_their_positional_string_uris() -> None:
     """D-IMPL-357 B2 / D-IMPL-316: the coercion is what bare str() did, so no
-    existing URI moves."""
+    existing URI moves.
+
+    ``_FakeNumpyInt`` proves a pandas/numpy-backed ``Integral`` that is not an
+    ``int`` subclass still mints (Fable fix round 1, finding 2).
+    ``Decimal('1E+2')`` proves the exponent form is not repositioned — it is
+    byte-identity with bare ``str()``, not literal "positional-ness" (finding
+    4a).
+    """
     strategy = SpecDrivenEntityResolution(spec=_lei_rule())
-    for value, text in ((7, "7"), (Decimal("1.50"), "1.50")):
+    for value, text in (
+        (7, "7"),
+        (Decimal("1.50"), "1.50"),
+        (_FakeNumpyInt(7), "7"),
+        (Decimal("1E+2"), "1E+2"),
+    ):
         (resolved,) = strategy.resolve(envelope=envelope(payload={"lei": value}))
         assert resolved.entity_uri == f"company://{content_hash({'lei': text})}"
 
@@ -966,15 +1003,24 @@ def test_two_null_identity_envelopes_mint_nothing_and_no_edge(
 ) -> None:
     """THE NEGATIVE CONTROL (SEC-007). Before B1, both envelopes minted ONE
     phantom node (`company://<hash of {"lei": "None"}>`) and the owns rule
-    minted a real edge onto it. Re-enable bare str() and this reddens on both
-    counts — the second assertion is the one that proves the false edge."""
+    minted a real edge onto it.
+
+    The count assertions below are the discriminator, not the refusal
+    (Fable fix round 1, finding 4b): each ingest is wrapped in
+    ``try/except IdentityRefused: pass`` so that a sabotaged mint site which
+    stops refusing nulls does not abort the test at ``pytest.raises`` before
+    the counts — and the false edge — are ever checked. Re-enable bare
+    ``str()`` and this reddens on the entity count.
+    """
     handle = spec_fabric(_positional_spec(remap=True, rules=(_OWNS,)))
     for envelope_id, payload in (
         ("e1", {"parent_lei": None, "lei": LEI}),
         ("e2", {"parent_lei": None, "lei": PARENT_LEI}),
     ):
-        with pytest.raises(IdentityRefused):
+        try:
             handle.worker.ingest(envelope(envelope_id=envelope_id, payload=payload))
+        except IdentityRefused:
+            pass
     view = handle.reader.as_of(tenant_id=TENANT, at=INGESTED_AT)
     assert len(view.entities) == 0
     assert len(view.relationships) == 0

@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1731 entries**, of which **1473** name a public Python surface.
+**1732 entries**, of which **1474** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-991 entries — 948 public Python surface, 43 not public Python API.
+992 entries — 949 public Python surface, 43 not public Python API.
 
 ### Public Python surface
 
@@ -286,6 +286,30 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
   absence on surfaces that could not ask for one
 
 *Recorded by `24.6-D-IMPL-260-the-bound-carries-its-reason-and-crosses-without-its-provenance.md`.*
+
+#### ccf.assembly.worker.IdentityRefused
+
+- Surface: ccf.assembly.worker.IdentityRefused
+- Public surface: true
+- Change type: added
+- Before: absent — an inadmissible identity value rendered through bare
+  `str()` and silently minted a shared phantom URI (SEC-007)
+- After: `class IdentityRefused(ValueError)`, raised by
+  `SpecDrivenEntityResolution.resolve` with `envelope_id`, `entity_class`,
+  `key`, `field` and `reason` (`reason ∈ {"null", "empty", "bool", "float",
+  "non-finite", "non-scalar"}` — the widest refusal set ruling B1 declares,
+  plus the `non-finite` reason added in fix round 1 for a non-finite
+  `Decimal`, which is a scalar and was previously misnamed `non-scalar`)
+- Why: presence is not admissibility (D-IMPL-357 B1); the class is public so
+  a caller can catch it by name, and B3 converts the SDK's own seam class by
+  exactly this qualified string (`ccf.assembly.worker.IdentityRefused`)
+- Migration: none for existing deployments — every value that minted before
+  this change still mints the identical URI (D-IMPL-357 B2 / D-IMPL-316,
+  including `numbers.Integral` values such as `numpy.int64` after fix round
+  1); a caller that wants to catch the refusal imports
+  `ccf.assembly.worker.IdentityRefused`
+
+*Recorded by `357-B1-identity-refused.md`.*
 
 #### ccf.deployment.classes.resolve_artifact_class
 
