@@ -41,6 +41,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from datetime import datetime
+from decimal import Decimal
 from typing import Protocol, runtime_checkable
 
 from pydantic import Field, model_validator
@@ -62,6 +63,7 @@ __all__ = [
     "EntityResolutionSpec",
     "EntityResolutionStrategy",
     "FederatedIngestSpec",
+    "IdentityRefused",
     "IngestResult",
     "NO_RESOLVING_RULE",
     "RelationshipResolutionRule",
@@ -111,6 +113,10 @@ class EntityResolutionRule(CCFContract):
             Hash-transparent when empty (``D-IMPL-243``): every rule written
             before this field keeps the canonical form and the URIs it
             already had.
+
+    A ``*_ref: True`` presence-flag ``match_key`` (the SDK's own acquisition
+    idiom) cannot also be an identity key: a boolean identity value is refused
+    at the mint (D-IMPL-357 B1).
     """
 
     match_key: str
@@ -314,6 +320,54 @@ class EntityResolutionStrategy(Protocol):
         ...
 
 
+class IdentityRefused(ValueError):
+    """An identity component's value cannot name an entity (D-IMPL-357 B1; SEC-007).
+
+    Raised, never swallowed, at the ONE mint site: a null, blank, boolean,
+    float or non-scalar value would render through ``str()`` into a string
+    every such record shares, minting one phantom node and, through the
+    relationship rules, false edges onto it. The reason is named so an
+    operator can tell which it was. Presence is checked before this
+    (partial identity), admissibility here.
+    """
+
+    def __init__(self, *, envelope_id: str, entity_class: str, key: str, field: str, reason: str) -> None:
+        self.envelope_id, self.entity_class, self.key, self.field, self.reason = (
+            envelope_id, entity_class, key, field, reason
+        )
+        super().__init__(
+            f"envelope {envelope_id!r} presents an inadmissible identity value"
+            f" ({reason}) for {entity_class!r} key {key!r} read from payload"
+            f" field {field!r}; the fabric refuses to mint a URI from a value"
+            " that names no entity (D-IMPL-357 B1)"
+        )
+
+
+def _identity_text(value: object) -> tuple[str | None, str]:
+    """The positional-string form of an admissible identity value, or the refusal reason.
+
+    ``int`` and ``Decimal`` render exactly as ``str()`` rendered them before
+    D-IMPL-357, so every URI minted from a numeric identifier is byte-identical
+    (D-IMPL-316: the global hashing model is untouched); a ``str`` is taken as
+    is — untrimmed, unfolded. ``bool`` is checked before ``int`` because it is
+    an ``int``; ``float`` is refused here because ``str()`` ran before the
+    canonical form's own float refusal and would have minted ``"1.5"``.
+    """
+    if value is None:
+        return None, "null"
+    if isinstance(value, bool):
+        return None, "bool"
+    if isinstance(value, float):
+        return None, "float"
+    if isinstance(value, str):
+        return (value, "") if value.strip() else (None, "empty")
+    if isinstance(value, int):
+        return str(value), ""
+    if isinstance(value, Decimal) and value.is_finite():
+        return str(value), ""
+    return None, "non-scalar"
+
+
 class SpecDrivenEntityResolution:
     """Deterministic attribute-correlation strategy over a declared spec.
 
@@ -358,9 +412,21 @@ class SpecDrivenEntityResolution:
             # field supplied. The payload field's name never enters the
             # identity, so one entity named `parent_uri` here and `child_uri`
             # there is ONE entity (`CP04C-F-01`).
-            identity = {
-                key: str(payload[field]) for key, field in source_of.items()
-            }
+            #
+            # Presence was checked above; admissibility is checked here
+            # (D-IMPL-357 B1, SEC-007) — a null, blank, boolean, float or
+            # non-scalar value would otherwise render through bare `str()`
+            # into a string every such record shares, minting one phantom
+            # node and, through the relationship rules, false edges onto it.
+            identity: dict[str, str] = {}
+            for key, field in source_of.items():
+                text, reason = _identity_text(payload[field])
+                if text is None:
+                    raise IdentityRefused(
+                        envelope_id=envelope.envelope_id, entity_class=rule.entity_class,
+                        key=key, field=field, reason=reason,
+                    )
+                identity[key] = text
             resolved.append(
                 ResolvedEntity(
                     entity_uri=f"{rule.entity_class}://{content_hash(identity)}",

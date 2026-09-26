@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterator
 from datetime import UTC, datetime
+from decimal import Decimal
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -20,10 +21,12 @@ from ccf.assembly.worker import (
     NO_RESOLVING_RULE,
     EntityResolutionRule,
     EntityResolutionSpec,
+    IdentityRefused,
     RelationshipResolutionRule,
     ResolvedEntity,
     SpecDrivenEntityResolution,
 )
+from ccf.contracts.canonical import content_hash
 from ccf.controlplane.registry import ControlPlaneMissing, ControlPlaneRegistry
 from ccf.signal.envelope import SignalEnvelope, SourceIdentity
 from tests.composition import register_at_composition
@@ -913,3 +916,65 @@ def test_a_source_field_cannot_supply_an_undeclared_identity_key() -> None:
             identity_keys=("entity_lei",),
             identity_sources={"typo_lei": "parent_lei"},
         )
+
+
+# --- SEC-007 / D-IMPL-357 B1 / B2: identity admissibility at the mint site --
+
+
+def _lei_rule() -> EntityResolutionSpec:
+    return EntityResolutionSpec(
+        semver="1.0.0",
+        entity_rules=(
+            EntityResolutionRule(match_key="lei", entity_class="company", identity_keys=("lei",)),
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    ("value", "reason"),
+    [
+        (None, "null"),
+        ("", "empty"),
+        ("   ", "empty"),
+        (True, "bool"),
+        (1.5, "float"),
+        ({"lei": "x"}, "non-scalar"),
+        (["x"], "non-scalar"),
+        (b"x", "non-scalar"),
+    ],
+)
+def test_an_inadmissible_identity_value_is_refused_by_name(value: object, reason: str) -> None:
+    """D-IMPL-357 B1 (SEC-007): presence is not admissibility."""
+    strategy = SpecDrivenEntityResolution(spec=_lei_rule())
+    with pytest.raises(IdentityRefused) as caught:
+        strategy.resolve(envelope=envelope(payload={"lei": value}))
+    assert caught.value.reason == reason
+    assert caught.value.key == "lei" and caught.value.entity_class == "company"
+
+
+def test_int_and_decimal_identities_keep_their_positional_string_uris() -> None:
+    """D-IMPL-357 B2 / D-IMPL-316: the coercion is what bare str() did, so no
+    existing URI moves."""
+    strategy = SpecDrivenEntityResolution(spec=_lei_rule())
+    for value, text in ((7, "7"), (Decimal("1.50"), "1.50")):
+        (resolved,) = strategy.resolve(envelope=envelope(payload={"lei": value}))
+        assert resolved.entity_uri == f"company://{content_hash({'lei': text})}"
+
+
+def test_two_null_identity_envelopes_mint_nothing_and_no_edge(
+    spec_fabric: Callable[[EntityResolutionSpec], "FabricHandle"],
+) -> None:
+    """THE NEGATIVE CONTROL (SEC-007). Before B1, both envelopes minted ONE
+    phantom node (`company://<hash of {"lei": "None"}>`) and the owns rule
+    minted a real edge onto it. Re-enable bare str() and this reddens on both
+    counts — the second assertion is the one that proves the false edge."""
+    handle = spec_fabric(_positional_spec(remap=True, rules=(_OWNS,)))
+    for envelope_id, payload in (
+        ("e1", {"parent_lei": None, "lei": LEI}),
+        ("e2", {"parent_lei": None, "lei": PARENT_LEI}),
+    ):
+        with pytest.raises(IdentityRefused):
+            handle.worker.ingest(envelope(envelope_id=envelope_id, payload=payload))
+    view = handle.reader.as_of(tenant_id=TENANT, at=INGESTED_AT)
+    assert len(view.entities) == 0
+    assert len(view.relationships) == 0
