@@ -416,12 +416,29 @@ def test_a_gate_route_on_a_non_hitl_gate_step_is_refused(
     """Symmetric to ``test_a_gate_policy_on_a_non_hitl_gate_step_is_refused``
     above: A1's review noted that nothing refused a ``gate_routes`` key
     naming a step that is not a ``hitl-gate`` (D-IMPL-357 A2 — the same
-    place, the same style, as the ``gate_policies`` check)."""
+    place, the same style, as the ``gate_policies`` check).
+
+    The document declares a COMPLETE map for the real gate alongside the
+    stray key, and the match is on the kind check's own distinctive words.
+    Round 1 of review proved both are necessary: the completeness refusal
+    below also contains the literal ``hitl-gate``, so a document that left
+    ``credit-officer-approval`` unrouted kept this test green with the kind
+    check deleted outright — and the kind check is the one guard in the A2
+    diff that exists because A1's review found a live bypass. With the map
+    complete the completeness loop cannot fire, so the kind check is the
+    only refusal this construction can produce.
+    """
     definition = _workflow_definition(
         artifact_version="1.0.6",
-        gate_routes={"analyze-covenants": {"approve": "credit-officer-approval"}},
+        gate_routes={
+            "analyze-covenants": {"approve": "credit-officer-approval"},
+            "credit-officer-approval": {"approve": "approved", "reject": "rejected"},
+        },
     )
-    with pytest.raises(WorkflowConstructionError, match="hitl-gate"):
+    with pytest.raises(
+        WorkflowConstructionError,
+        match="verdict routes bind to gates exclusively",
+    ):
         _construct(registry, definition)
 
 
