@@ -20,6 +20,18 @@ of `src/ccf/products/request.py` — no `subprocess`, no `socket`, no HTTP
 client, no database driver and no `datetime`. Nothing it does can reach
 `192.168.4.76` or any other estate host.
 
+**The import list is why one name is derived by PARSING rather than by
+importing.** `question_constructor_name` needs the name of the SDK's own
+question constructor and takes it from the SDK rather than spelling it here
+(round-2 item 3). Importing `ccf.products.product` to read
+`OpenedProduct.question.__name__` would be the obvious route and is refused:
+measured, that import pulls **511** further modules into this process,
+including `httpx`, `ssl`, `socketserver`, `subprocess`, `asyncio` and the MCP
+client transports. The probe would then be read-only by intention rather than
+structurally, and the static verification of this section could no longer be
+done. Parsing `src/**/*.py` with `ast` is one more `read_text` and costs the
+claim nothing.
+
 THE MODE IT RUNS IN, STATED RATHER THAN LEFT TO A READER TO GUESS
 ----------------------------------------------------------------
 There are two subjects an example can ask with: the **literal** declared in
@@ -46,6 +58,15 @@ REFUSE IS WORTHLESS
   the matcher's verdict on them is reported and is not a finding. Every such
   verdict is printed in full with the evidence for its classification, so a
   reader can overturn the author's call rather than take it on trust.
+* **The judged callee set is TWO names, and both come from the SDK.**
+  `ProductRequest(...)` and the SDK's own question constructor
+  (`OpenedProduct.question`, derived by `question_constructor_name`). Round-1
+  judged only the first, and a reviewer planted an out-of-grammar literal at
+  `question(subject=…)` — the door path the examples actually use — and got
+  `PASS` with the value listed among the NON-findings. A callee whose name
+  matches the constructor's is judged even when it is a local helper that
+  merely shares the name: over-judging reports a value a reader can overturn,
+  under-judging reports nothing at all.
 * **It reads declarations, not effective requests.** A default the resolution
   stage supplies, a policy-narrowed value and a relative default never appear
   as a declared literal, and `refuse_floor` does not judge them either — its
@@ -54,21 +75,43 @@ REFUSE IS WORTHLESS
   parameter or a live store at run time has no literal to match. Where the
   name resolves to a module-level string binding the probe folds it and judges
   the value; where it does not, the position is reported as an UNRESOLVED
-  residual with the node type that defeated it, and is never counted among the
-  values that passed.
+  residual **with a reason that names the node shape that defeated it**, and
+  is never counted among the values that passed. A boolean expression
+  (`subject=anchor or ""`) is folded per OPERAND and reported once per branch,
+  because the literal operand IS what the request carries whenever the left
+  one is falsy. Round-1 filed all three instances of that shape as *"not a
+  literal and not bound to one in this module"*, which is false about a node
+  that contains one. A conditional expression (`x if cond else SUBJECT`) is
+  folded the same way and for the same reason; its condition is not a subject
+  position and is not collected.
+* **Command-line defaults are collected only at subject-shaped OPTION names.**
+  `add_argument("--subject", default="…")` is collected and judged: the
+  literal is what the example asks with when the flag is omitted. An option
+  under any other name — `--lei`, `--anchor`, `--facility`, `--deal` — is NOT
+  collected here, and reaches this report only when its default folds from a
+  module binding the binding collector already names. **That is a stated
+  residual**, not a silent gap: a string-literal default at such an option is
+  invisible to this instrument.
 * **An empty glob is a failure, not a clean run.** A source glob that matches
   no files means the probe has stopped looking at something, which reads
-  exactly like a tree with nothing to find. That exits 2 by itself.
+  exactly like a tree with nothing to find. That exits 2 by itself. So does a
+  glob that matched files and yielded no VALUES, and so does a failure to
+  derive the question constructor's name.
 
 THREE EXIT CODES, BECAUSE THERE ARE THREE ANSWERS
 -------------------------------------------------
 ``0`` **PASS** — the population is non-empty, the control fired, and no value
 at a position `refuse_floor` judges lies outside the grammar. ``1``
 **REFUSED** — at least one judged value is outside the grammar; the report
-names it. ``2`` **COULD-NOT-TELL** — a source glob matched nothing, a file
-failed to parse, or the positive control did not fire, so the instrument
-cannot be trusted and its zero means nothing. Collapsing ``2`` into ``0`` is
-the specific failure this module is built against.
+names it. ``2`` **COULD-NOT-TELL** — a source glob matched nothing, a source
+glob COLLECTED NO VALUES, a file failed to parse, the question constructor's
+name could not be derived, or the positive control did not fire, so the
+instrument cannot be trusted and its zero means nothing. Collapsing ``2``
+into ``0`` is the specific failure this module is built against.
+
+**"The population is non-empty" means COLLECTED VALUES, not files** (round-2
+item 3). A glob matching 205 files and yielding no value is an instrument that
+has stopped seeing, and it read as a clean run until this was fixed.
 
 THE POSITIVE CONTROL
 --------------------
@@ -127,6 +170,27 @@ PARAMETERS_KEY: str = "parameters"
 #: The call whose `subject=` and `parameters=` keywords are the judged
 #: positions in Python. Taken from the class, not spelled again.
 REQUEST_CALLEE: str = ProductRequest.__name__
+
+#: The keyword-only parameters that identify the SDK's own question
+#: constructor STRUCTURALLY: the request axes a caller supplies, which is
+#: `ProductRequest`'s own field set minus the two the declaration supplies and
+#: the one no constructor takes. Derived from the contract, so a field added to
+#: the request moves this with it.
+QUESTION_CONSTRUCTOR_AXES: frozenset[str] = REQUEST_FIELDS - {
+    "schema_name",
+    "schema_version",
+    "policy_overrides",
+}
+
+#: Where the constructor is looked for. A tree, not a file, so a move inside
+#: the library does not silently narrow the judged set.
+LIBRARY_GLOB: str = "src/**/*.py"
+
+#: The `argparse` call that declares a command-line option. Its `default=` at a
+#: subject-shaped option name is a literal an example asks with whenever the
+#: flag is omitted. Classification vocabulary for this instrument, not fabric
+#: mechanism.
+OPTION_DECLARING_CALLEE: str = "add_argument"
 
 #: Mapping keys whose child mapping is a question or a request by name, used
 #: as one of the three request-shaped tests below. These are classification
@@ -377,6 +441,141 @@ def _string_constant(node: ast.expr) -> str | None:
     return None
 
 
+def question_constructor_name(root: pathlib.Path) -> tuple[str | None, str]:
+    """The SDK's own question-constructor method name, and how it was found.
+
+    Round-2 item 3. The name is taken FROM THE SDK rather than spelled in this
+    module, and it is taken by parsing rather than by importing for the reason
+    the module docstring measures: importing `ccf.products.product` would pull
+    `httpx`, `ssl`, sockets and `subprocess` into a process whose whole value
+    is that it demonstrably holds none of them.
+
+    The derivation is STRUCTURAL, not by spelling: the one function under
+    :data:`LIBRARY_GLOB` whose keyword-only parameters are exactly
+    :data:`QUESTION_CONSTRUCTOR_AXES` and whose return annotation names
+    :class:`~ccf.products.request.ProductRequest`. A rename moves with it; a
+    signature change breaks it LOUDLY.
+
+    Returns `(name, why)`. A `None` name is a COULD-NOT-TELL and the caller
+    must exit 2 on it: zero candidates or two are both a derivation that has
+    stopped working, and silently narrowing the judged set back to
+    `ProductRequest` alone would restore exactly the blind spot this closes.
+    """
+    found: list[str] = []
+    for path in sorted(root.glob(LIBRARY_GLOB)):
+        if any(part in SKIP_DIRS for part in path.parts):
+            continue
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        except (SyntaxError, UnicodeDecodeError, ValueError):
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            if {arg.arg for arg in node.args.kwonlyargs} != QUESTION_CONSTRUCTOR_AXES:
+                continue
+            returns = node.returns
+            returned = (
+                returns.id
+                if isinstance(returns, ast.Name)
+                else returns.attr
+                if isinstance(returns, ast.Attribute)
+                else None
+            )
+            if returned != REQUEST_CALLEE:
+                continue
+            rel = path.relative_to(root).as_posix()
+            found.append(f"{node.name} at {rel}:{node.lineno}")
+    names = sorted({entry.split(" at ", 1)[0] for entry in found})
+    if len(names) == 1:
+        return names[0], (
+            f"derived structurally from {LIBRARY_GLOB}: the one function taking"
+            f" exactly {sorted(QUESTION_CONSTRUCTOR_AXES)} as keyword-only"
+            f" parameters and returning {REQUEST_CALLEE} — {', '.join(found)}"
+        )
+    return None, (
+        f"could not derive the question constructor from {LIBRARY_GLOB}:"
+        f" {len(names)} candidate name(s) took exactly"
+        f" {sorted(QUESTION_CONSTRUCTOR_AXES)} and returned {REQUEST_CALLEE}"
+        f" ({', '.join(found) or 'none'}); exactly one is required"
+    )
+
+
+def _option_name(call: ast.Call) -> str | None:
+    """The parameter name an `add_argument` call declares, or `None`.
+
+    `add_argument("--subject", …)` -> `subject`; `add_argument("-s",
+    "--facility-id", …)` -> `facility_id` (the longest option wins, which is
+    the one `argparse` itself derives the destination from). A positional
+    `add_argument("subject")` yields `subject` too. `dest=` overrides both,
+    because that is what `argparse` does.
+    """
+    for keyword in call.keywords:
+        if keyword.arg == "dest":
+            return _string_constant(keyword.value)
+    options = [
+        text
+        for text in (_string_constant(arg) for arg in call.args)
+        if text is not None
+    ]
+    if not options:
+        return None
+    longest = max(options, key=len)
+    return longest.lstrip("-").replace("-", "_")
+
+
+def _why_unresolved(
+    node: ast.expr, literals: dict[str, str], expressions: dict[str, str]
+) -> str:
+    """Why this node yielded no value — NAMING THE SHAPE, not a blanket reason.
+
+    Round-2 item 4. The single blanket reason round-1 printed — *"not a literal
+    and not bound to one in this module"* — was applied to 229 positions and
+    was FALSE about three of them, which carried a literal inside a boolean
+    expression. Folding don't-know into a confident statement is the failure
+    this module's own docstring warns against, so each shape now says what it
+    actually is.
+    """
+    if isinstance(node, ast.Name):
+        if node.id in literals:
+            return f"the module binding {node.id} is a literal (folded above)"
+        if node.id in expressions:
+            return (
+                f"the module binding {node.id} is not a literal — it is bound"
+                f" to {expressions[node.id]}, whose value is not in this source"
+            )
+        return (
+            f"the name {node.id} has no module-level binding in this file at"
+            " all — a function parameter, an import, or a value assigned inside"
+            " a function body"
+        )
+    if isinstance(node, ast.Subscript):
+        return (
+            f"a subscript ({ast.unparse(node)}) — the value lives in the"
+            " subscripted object, not in this source"
+        )
+    if isinstance(node, ast.Attribute):
+        return (
+            f"an attribute access ({ast.unparse(node)}) — the value lives on"
+            " the object, not in this source"
+        )
+    if isinstance(node, ast.Call):
+        return f"the result of calling {_callee_name(node)}() at run time"
+    if isinstance(node, ast.JoinedStr):
+        return "an f-string assembled at run time from values not in this source"
+    if isinstance(node, ast.BinOp):
+        return "a binary expression whose operands are not both literals here"
+    if isinstance(node, ast.Constant):
+        return (
+            f"a {type(node.value).__name__}, not a string — refuse_floor walks"
+            " declared string positions only"
+        )
+    return (
+        f"a {type(node).__name__} expression this probe does not fold — a"
+        " fixture, a parameter or an estate-resolved value"
+    )
+
+
 def _root_name(node: ast.expr) -> str | None:
     """The `NAME` at the base of `NAME`, `NAME[...]` or `NAME[...][...]`."""
     current = node
@@ -385,17 +584,39 @@ def _root_name(node: ast.expr) -> str | None:
     return current.id if isinstance(current, ast.Name) else None
 
 
-def _module_bindings(tree: ast.Module) -> tuple[dict[str, str], frozenset[str]]:
-    """Module-level `NAME = "text"` bindings, and the names loaded out of YAML.
+def _module_bindings(
+    tree: ast.Module,
+) -> tuple[dict[str, str], frozenset[str], dict[str, str]]:
+    """Module-level bindings: the literal ones, the YAML-backed ones, the rest.
 
-    Both are what makes an indirection resolvable. A `subject=SUBJECT` whose
-    `SUBJECT` is a module-level literal is folded and judged; a
-    `subject=QUESTION["question"]["subject"]` whose `QUESTION` came out of
-    `yaml.safe_load` is a value this probe already judges at its YAML source,
-    so the position is reported as that rather than as an unknown.
+    All three are what makes an indirection resolvable, or says precisely why
+    it is not. A `subject=SUBJECT` whose `SUBJECT` is a module-level literal is
+    folded and judged. A `subject=QUESTION["question"]["subject"]` whose
+    `QUESTION` came out of `yaml.safe_load` is a value this probe already
+    judges at its YAML source, so the position is reported as that rather than
+    as an unknown. Everything else is returned as the unparsed expression it is
+    bound to, so the residual can name the shape instead of claiming the name
+    has no binding at all.
+
+    **YAML-backing is TRANSITIVE, and that is what put an instance behind the
+    branch** (round-2 item 4). Round-1 marked only the name the loader call was
+    assigned to, so `QUESTION = yaml.safe_load(...)` was YAML-backed and
+    `SUBJECT = QUESTION["question"]["subject"]` was not — and the shape the
+    example tests actually write is the second one. Measured then: the
+    YAML-backed branch produced **zero** reports over the whole source set, so
+    it was a capability rather than a demonstrated one. Following the binding
+    one hop makes it reachable: measured after this change, **23** positions
+    now report as judged at their YAML source instead of as a name with no
+    binding. Module body order does the work — a name is bound before it is
+    read — so one forward pass suffices and no fixpoint is needed.
+
+    A branch nothing reaches has the same evidentiary weight as a branch that
+    does not work, which is why both counts above are stated rather than the
+    capability asserted.
     """
     literals: dict[str, str] = {}
     yaml_backed: set[str] = set()
+    expressions: dict[str, str] = {}
     for statement in tree.body:
         if isinstance(statement, ast.Assign):
             targets: list[ast.expr] = list(statement.targets)
@@ -413,34 +634,58 @@ def _module_bindings(tree: ast.Module) -> tuple[dict[str, str], frozenset[str]]:
             for name in names:
                 literals[name] = text
             continue
+        for name in names:
+            expressions[name] = ast.unparse(value)
         if any(
             isinstance(inner, ast.Call) and _callee_name(inner) in YAML_LOADERS
             for inner in ast.walk(value)
-        ):
+        ) or (_root_name(value) in yaml_backed and _root_name(value) is not None):
             yaml_backed.update(names)
-    return literals, frozenset(yaml_backed)
+    return literals, frozenset(yaml_backed), expressions
 
 
 def scan_python(
-    path: pathlib.Path, rel: str, kind: str
+    path: pathlib.Path,
+    rel: str,
+    kind: str,
+    *,
+    judged_callees: frozenset[str],
 ) -> tuple[list[Value], list[Unresolved], list[Error]]:
-    """`subject=` / `parameters=` call keywords and subject-named module bindings."""
+    """`subject=` / `parameters=` call keywords, subject-named module bindings,
+    and string-literal defaults at subject-shaped command-line options.
+
+    `judged_callees` is the set of callee names whose `subject=`/`parameters=`
+    keyword IS a position `refuse_floor` reaches — `ProductRequest` and the
+    SDK's own question constructor, both taken from the SDK (round-2 item 3).
+    It is a PARAMETER rather than a module constant so the classifier can be
+    exercised over a stated set in a test, and so a failure to derive the
+    constructor's name cannot quietly narrow it.
+    """
     try:
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     except (SyntaxError, UnicodeDecodeError, ValueError) as exc:
         return [], [], [Error(path=rel, line=1, detail=f"unparsed: {type(exc).__name__}")]
-    literals, yaml_backed = _module_bindings(tree)
+    literals, yaml_backed, expressions = _module_bindings(tree)
     values: list[Value] = []
     unresolved: list[Unresolved] = []
 
-    def _record(*, callee: str, name: str, node: ast.expr, suffix: str) -> None:
-        """One `subject=`/`parameters=` position, folded where the source allows."""
-        judged = callee == REQUEST_CALLEE
+    def _record(
+        *, callee: str, name: str, node: ast.expr, suffix: str, branch: str = ""
+    ) -> None:
+        """One `subject=`/`parameters=` position, folded where the source allows.
+
+        `branch` labels one operand of a boolean expression, so a
+        `subject=anchor or ""` reports twice — once per operand — and each
+        report carries the branch it is about rather than a verdict about the
+        whole expression.
+        """
+        judged = callee in judged_callees
         why = (
-            f"callee is {REQUEST_CALLEE}"
+            f"callee {callee} is a judged request constructor"
             if judged
-            else f"callee is {callee}, not {REQUEST_CALLEE}"
+            else f"callee is {callee}, not one of {sorted(judged_callees)}"
         )
+        position = f"{callee}({name}={branch})" if branch else f"{callee}({name}=)"
         text = _string_constant(node)
         if text is not None:
             values.append(
@@ -448,10 +693,10 @@ def scan_python(
                     kind=f"{kind}-{suffix}",
                     path=rel,
                     line=node.lineno,
-                    key=f"{callee}({name}=)",
+                    key=position,
                     value=text,
                     judged=judged,
-                    why=f"a source literal; {why}",
+                    why=f"a source literal{f' ({branch})' if branch else ''}; {why}",
                 )
             )
             return
@@ -469,13 +714,38 @@ def scan_python(
                 )
             )
             return
+        if isinstance(node, (ast.BoolOp, ast.IfExp)):
+            # Round-2 item 4. `subject=anchor or ""` carries the RIGHT operand
+            # whenever the left one is falsy, and the right operand is a
+            # literal. Judging the operands one at a time is the only reading
+            # that is true of both branches; judging the `BoolOp` as one node
+            # is how three real out-of-grammar literals were filed as "not a
+            # literal". `IfExp` (`x if cond else SUBJECT`) is the same shape
+            # with the same failure and is folded the same way — the condition
+            # itself is not a subject position and is not collected.
+            if isinstance(node, ast.BoolOp):
+                operator = "or" if isinstance(node.op, ast.Or) else "and"
+                operands: list[ast.expr] = list(node.values)
+            else:
+                operator = "conditional"
+                operands = [node.body, node.orelse]
+            for index, operand in enumerate(operands):
+                _record(
+                    callee=callee,
+                    name=name,
+                    node=operand,
+                    suffix=suffix,
+                    branch=f"{operator}-branch {index + 1}/{len(operands)}:"
+                    f" {ast.unparse(operand)}",
+                )
+            return
         if isinstance(node, ast.Constant):
             unresolved.append(
                 Unresolved(
                     cls=NOT_A_STRING,
                     path=rel,
                     line=node.lineno,
-                    detail=f"{callee}({name}=) holds {node.value!r}",
+                    detail=f"{position} holds {node.value!r}",
                     why=(
                         f"a {type(node.value).__name__}, not a string —"
                         " refuse_floor walks declared string positions only"
@@ -502,13 +772,76 @@ def scan_python(
                 cls=UNRESOLVED,
                 path=rel,
                 line=node.lineno,
-                detail=f"{callee}({name}=) is {type(node).__name__}",
-                why=(
-                    "not a literal and not bound to one in this module — a"
-                    " fixture, a parameter or an estate-resolved value"
-                ),
+                detail=f"{position} is {type(node).__name__}",
+                why=_why_unresolved(node, literals, expressions),
             )
         )
+
+    def _record_option_default(call: ast.Call) -> None:
+        """A string-literal `default=` at a subject-shaped command-line option.
+
+        Round-2 item 3. `add_argument("--subject", default="FAC-5B8418")` is a
+        literal the example asks with whenever the flag is omitted, and
+        `examples/dr-01-replay-a-governed-determination/replay.py` runs exactly
+        that way. Round-1 collected nothing from this class at all and did not
+        disclose it as a residual.
+        """
+        option = _option_name(call)
+        if option is None:
+            return
+        if not (option == "subject" or option.endswith("_subject")):
+            return  # the stated residual: other option names are not collected
+        for keyword in call.keywords:
+            if keyword.arg != "default":
+                continue
+            text = _string_constant(keyword.value)
+            if text is not None:
+                values.append(
+                    Value(
+                        kind=f"{kind}-option-default",
+                        path=rel,
+                        line=keyword.value.lineno,
+                        key=f"add_argument(--{option}, default=)",
+                        value=text,
+                        judged=True,
+                        why=(
+                            "a string-literal default at a subject-shaped"
+                            " command-line option — what the example asks with"
+                            " when the flag is omitted"
+                        ),
+                    )
+                )
+            elif isinstance(keyword.value, ast.Constant):
+                unresolved.append(
+                    Unresolved(
+                        cls=NOT_A_STRING,
+                        path=rel,
+                        line=keyword.value.lineno,
+                        detail=(
+                            f"add_argument(--{option}, default=)"
+                            f" holds {keyword.value.value!r}"
+                        ),
+                        why=(
+                            f"a {type(keyword.value.value).__name__}, not a"
+                            " string — the option has no literal default and"
+                            " the subject comes from somewhere else"
+                        ),
+                    )
+                )
+            else:
+                unresolved.append(
+                    Unresolved(
+                        cls=UNRESOLVED,
+                        path=rel,
+                        line=keyword.value.lineno,
+                        detail=(
+                            f"add_argument(--{option}, default="
+                            f"{ast.unparse(keyword.value)})"
+                        ),
+                        why=_why_unresolved(keyword.value, literals, expressions),
+                    )
+                )
+            return
 
     def _record_parameter(*, callee: str, name: str, node: ast.expr) -> None:
         """A `parameters=` mapping value, descending through nested containers.
@@ -550,6 +883,8 @@ def scan_python(
         if not isinstance(node, ast.Call):
             continue
         callee = _callee_name(node)
+        if callee == OPTION_DECLARING_CALLEE:
+            _record_option_default(node)
         for keyword in node.keywords:
             name = keyword.arg
             if name is None:
@@ -634,6 +969,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         " subjects are DON'T KNOW here and are covered by the wave's"
         " estate-gated example run."
     )
+    constructor, derivation = question_constructor_name(root)
+    judged_callees = frozenset(
+        {REQUEST_CALLEE} | ({constructor} if constructor is not None else set())
+    )
+    print("=== judged callees, derived from the SDK rather than spelled here ===")
+    print(f"  {sorted(judged_callees)}")
+    print(f"  {derivation}")
     print()
 
     print("=== population ===")
@@ -641,6 +983,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     residual: list[Unresolved] = []
     errors: list[Error] = []
     empty: list[str] = []
+    valueless: list[str] = []
     for kind, glob in SOURCES:
         files = iter_source_files(root, glob)
         if not files:
@@ -652,12 +995,20 @@ def main(argv: Sequence[str] | None = None) -> int:
             if path.suffix in {".yaml", ".yml"}:
                 got, open_ended, bad = scan_yaml(path, rel)
             else:
-                got, open_ended, bad = scan_python(path, rel, kind)
+                got, open_ended, bad = scan_python(
+                    path, rel, kind, judged_callees=judged_callees
+                )
             found.extend(got)
             unknown.extend(open_ended)
             errors.extend(bad)
         values.extend(found)
         residual.extend(unknown)
+        if files and not found:
+            # Round-2 item 3: a glob that matched files and yielded no VALUE is
+            # an instrument that has stopped seeing, and it read exactly like a
+            # clean run. "The population is non-empty" is a statement about
+            # collected values, never about files opened.
+            valueless.append(glob)
         judged = sum(1 for v in found if v.judged)
         print(
             f"  {kind:22s} {glob:24s} files={len(files):4d}"
@@ -753,14 +1104,30 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"  MISSED {line}")
     print()
 
+    passed_judged = [v for v in passed if v.judged]
+    passed_unjudged = [v for v in passed if not v.judged]
+
     print("=== counts ===")
     print(
-        f"  passed={len(passed)} failed={len(findings)}"
+        f"  judged={len(judged_values)}"
+        f" passed={len(passed)} (judged {len(passed_judged)},"
+        f" not-judged {len(passed_unjudged)})"
+        f" failed={len(findings)}"
         f" errors={len(errors)} skipped={len(classified) + len(non_strings)}"
         f" unresolved={len(unknown_values)}"
     )
     print("  legend:")
-    print("    passed     — the value lies inside the floor")
+    print(
+        f"    judged     — {len(judged_values)} of {len(values)} collected values"
+        " sit at a position refuse_floor judges. THIS is the denominator the"
+        " adoption answer rests on (round-2 item 6): `passed` below counts"
+        " every collected value, judged or not, and reading it as the judged"
+        " population overstates the coverage."
+    )
+    print(
+        "    passed     — the value lies inside the floor; split into judged"
+        " and not-judged so neither number can be read as the other"
+    )
     print("    failed     — outside the floor at a position refuse_floor judges")
     print("    errors     — a file the probe could not parse at all")
     print(
@@ -780,6 +1147,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         untrustworthy.append(
             f"source glob(s) matched no files: {', '.join(empty)}"
         )
+    if valueless:
+        untrustworthy.append(
+            "source glob(s) matched files and collected NO VALUES:"
+            f" {', '.join(valueless)} — the population is non-empty only if"
+            " values were collected, never merely if files were opened"
+        )
+    if constructor is None:
+        untrustworthy.append(derivation)
     if missed:
         untrustworthy.append(f"positive control did not fire: {len(missed)} of 6")
     if errors:
@@ -791,21 +1166,35 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 2
     if findings:
         print(
-            f"VERDICT: REFUSED — {len(findings)} value(s) the example suite"
-            f" carries lie outside {SUBJECT_FLOOR_VERSION} at a position"
-            " refuse_floor judges. Each is named above."
+            f"VERDICT: REFUSED — {len(findings)} of {len(judged_values)} judged"
+            f" value(s) the example suite carries lie outside"
+            f" {SUBJECT_FLOOR_VERSION}. Each is named above."
         )
+        conditional = [v for v in findings if "-branch " in v.key]
+        if conditional:
+            print(
+                f"  {len(conditional)} of them are ONE BRANCH of a boolean"
+                " expression, not the value the example asks with on every run:"
+                " the left operand carries the request whenever it is truthy and"
+                " the literal branch carries it otherwise. That is still a"
+                " finding — a caller omitting the optional argument gets the"
+                " literal, and the literal is outside the grammar — and it is"
+                " reported as the branch it is rather than as the whole"
+                " expression."
+            )
         return 1
     print(
         "VERDICT: PASS — every literal subject and declared string parameter the"
         " example suite carries at a position refuse_floor judges lies inside"
-        f" {SUBJECT_FLOOR_VERSION}; the population above is non-empty; the"
-        " matcher demonstrated it can refuse."
+        f" {SUBJECT_FLOOR_VERSION}; {len(values)} value(s) were collected and"
+        f" {len(judged_values)} of them judged, so the population is non-empty"
+        " in the sense that matters; the matcher demonstrated it can refuse."
     )
     print(
         f"  Residual, stated: {len(unknown_values)} position(s) whose value is"
-        " not in the source, and the whole of the estate-resolved population."
-        " This probe does not cover those."
+        " not in the source, every command-line default at an option name that"
+        " is not subject-shaped, and the whole of the estate-resolved"
+        " population. This probe does not cover those."
     )
     return 0
 
