@@ -68,6 +68,18 @@ goes where.
   missing is that an author met it as two refusals from two modules with the
   rule stated nowhere. It is now one clause on the `gate_routes` field
   docstring (`src/ccf/workflow/definitions.py`).
+- A `hitl-gate`-kind step is never a declared terminal state. `A2`'s factory
+  refuses any step whose kind in the resolved TaskDefinition is `hitl-gate`
+  and whose name appears in `effective_terminal_states`. Review measured both
+  shapes this closes: named in `terminal_states` and reached as a transition
+  target, the execution COMPLETES at the gate's name with no suspension and no
+  human action; as the START node, it suspends and can never resume. Neither
+  was reached by the completeness check, because `routable` subtracts the
+  terminal states — so "gate" silently meant two different no-ops depending on
+  how it was reached. A gate is a place a human acts, never a terminal
+  condition. A deployment whose workflow declares such a step is refused at
+  construction, which is a behavior change to `WorkflowFactory.construct` on a
+  shape that could not have worked as its author intended.
 - Migration: none required for an existing deployment — the field defaults
   to `{}` and every `WorkflowDefinition` document written before this
   change validates unchanged. A workflow author who wants the new refusal

@@ -91,7 +91,11 @@ from ccf.workflow.definitions import (
     WORKFLOW_FAILED_STATE,
     WorkflowDefinition,
 )
-from ccf.workflow.factory import Workflow, WorkflowFactory
+from ccf.workflow.factory import (
+    Workflow,
+    WorkflowConstructionError,
+    WorkflowFactory,
+)
 from ccf_runtime.workflow.engine import (
     WorkflowCompleted,
     WorkflowEngine,
@@ -908,61 +912,58 @@ def test_a_recorded_rejection_cannot_be_routed_down_the_approving_branch(
     assert completed.terminal_state == "rejected"
 
 
-def test_a_terminal_gate_with_no_route_map_refuses_rather_than_raising(
-    registry: ControlPlaneRegistry, tmp_path: Path
+def test_a_terminal_gate_with_no_route_map_cannot_be_constructed(
+    registry: ControlPlaneRegistry,
 ) -> None:
-    """A2's review found the one gate shape the boot-time completeness check
-    does not cover, and it can suspend today: a START node that is both a
-    declared terminal state and a ``hitl-gate`` step in the resolved task.
-    The factory's completeness population subtracts terminal states, so that
-    gate drops out and no route map is required; the A1 validator then
-    forbids declaring one; and ``execute`` hands the start node straight to
-    ``_advance``, which suspends on the step's kind before any terminal test.
+    """The one gate shape the boot-time completeness check did not cover is
+    now refused at construction, so the engine can never be handed it
+    (D-IMPL-357 A2, review round 1, item 7).
 
-    So ``gate_routes`` can legitimately hold nothing for the node a resume
-    arrives on, and the route lookup is written ``.get(state, {}).get(
-    action)`` for exactly that reason — a direct index would raise
-    ``KeyError`` on a path where a typed refusal is required.
+    **What this test used to assert, and why it changed.** A2's review found
+    that a START node which is both a declared terminal state and a
+    ``hitl-gate``-kind step in the resolved task escapes the factory's
+    completeness population — ``routable`` subtracts the terminal states, the
+    A1 validator then forbids declaring a map for it, and ``execute`` hands
+    the start node straight to ``_advance``, which suspends on the step's
+    kind before any terminal test. So ``gate_routes`` could legitimately hold
+    nothing for the node a resume arrived on, and this test pinned that the
+    shape resolved to a typed refusal rather than an exception. A3's review
+    then found the mirror shape — the same kind of step listed in
+    ``terminal_states`` and reached as a transition target — which COMPLETES
+    with no human action at all. Item 7 took one change for both: the factory
+    refuses any step whose resolved kind is ``hitl-gate`` and whose name
+    appears in ``effective_terminal_states``, because a gate is a place a
+    human acts and is never a terminal condition.
 
-    Stated honestly, because a test that claims more than it shows is the
-    defect this file has already paid for once: in THIS shape the refusal is
-    decided by the declared-target check, not by the route compare, because
-    a terminal state carries no outgoing transitions (``_terminals_are_
-    declared_and_terminal``) and so ``_targets`` is empty. What this pins is
-    that the shape resolves to a typed refusal instead of an exception, and
-    that no later edit of the resume path may reach an unguarded index on
-    it.
+    **So the property strengthened rather than weakened: the shape is now
+    inexpressible instead of refused late.** Nothing is lost that can still
+    be reached — the factory is the only construction path to an executable
+    handle (CINV-01c), so no test may manufacture the shape to drive the
+    resume path with it.
+
+    **The disclosure that goes with it.** ``resume``'s route lookup is still
+    written ``.get(state, {}).get(action)`` rather than an index, and the
+    ``route is None`` half of that guard is now structurally unreachable with
+    a usable target rather than merely improbable. It stands as
+    defense-in-depth, disclosed here and in the method's own comment: no
+    behavioral test can distinguish it from a plain index, and no later edit
+    of the resume path may reach an unguarded index on a gate's route map.
+
+    Both refusals are pinned at the construction boundary by
+    ``tests/workflow/test_factory.py::
+    test_a_gate_that_is_the_start_node_and_terminal_is_refused_at_construction``
+    and its sibling for the transition-target shape.
     """
-    engine, transport, _ = _engine(registry, tmp_path)
-    workflow = _covenant(
-        registry,
-        name="terminal-gate-workflow",
-        start="credit-officer-approval",
-        transitions=[],
-        terminal_states=["credit-officer-approval"],
-        exception_refs={},
-        gate_routes={},
-    )
-    # The shape really is the one described: a routed-nothing gate the
-    # factory accepted, with no route map at all.
-    assert workflow.definition.gate_routes == {}
-    suspended = asyncio.run(
-        engine.execute(execute_as(workflow), workflow, execution_id="exec-1")
-    )
-    assert isinstance(suspended, WorkflowSuspended)
-    assert suspended.gate == "credit-officer-approval"
-    _resolve_gate(
-        registry, transport,
-        tenant=workflow.definition.tenant,
-        event_key=suspended.event_key,
-    )
-    outcome = asyncio.run(
-        engine.resume(
-            resume_as(workflow), workflow, execution_id="exec-1", decision="approved"
+    with pytest.raises(WorkflowConstructionError, match="never a terminal condition"):
+        _covenant(
+            registry,
+            name="terminal-gate-workflow",
+            start="credit-officer-approval",
+            transitions=[],
+            terminal_states=["credit-officer-approval"],
+            exception_refs={},
+            gate_routes={},
         )
-    )
-    assert isinstance(outcome, WorkflowResumeRefused)
-    assert "names no declared transition" in outcome.reason
 
 
 def test_another_executions_approval_does_not_open_this_gate(

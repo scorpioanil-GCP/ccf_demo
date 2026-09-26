@@ -23,7 +23,12 @@ the wrapper's graph routes every ``GATE_ACTIONS`` verdict to a target
 (D-IMPL-357 A2 — the wrapper's local validators can restrict a route's key
 to a declared node and its target to a declared edge, but only the resolved
 task tells this module which nodes are gates at all, and whether the map is
-complete); every exception ref and gate-policy ref resolves in the registry
+complete); **no ``hitl-gate``-kind step is a declared terminal state** (A2
+review round 1, item 7 — a gate named terminal escapes the completeness
+population, which subtracts terminal states, and becomes a silent completion
+in one position and an unresumable suspension in the other; a gate is a place
+a human acts, never a terminal condition); every exception ref and
+gate-policy ref resolves in the registry
 at its pinned version (D-13; D-IMPL-26). The D-IMPL-61 propagate-to-terminal
 semantics need nothing resolved — absence is defined locally — so nothing
 about them is re-checked here.
@@ -349,6 +354,37 @@ class WorkflowFactory:
                 f" {sorted(step_kinds)}); the wrapper routes over the"
                 " wrapped task's own step names, never steps of its own"
                 " (D-12; CLAUDE.md §8.1)"
+            )
+
+        # D-IMPL-357 A2 (review round 1, item 7) — A GATE IS A PLACE A HUMAN
+        # ACTS; IT IS NEVER A TERMINAL CONDITION. A `hitl-gate`-kind step the
+        # wrapper also declares terminal is silently two different no-ops
+        # depending on how it is reached, and the completeness check below
+        # reaches neither, because `routable` subtracts the terminal states:
+        #   * named in `terminal_states` AND reached as a transition target —
+        #     the execution completes at the gate's name with no suspension,
+        #     no human action and no route map required; the gate is reduced
+        #     to a label;
+        #   * the same step as the START node — `_advance` suspends on the
+        #     step's kind before any terminal test, so the execution suspends
+        #     and can never resume, since a terminal state carries no
+        #     outgoing transitions.
+        # Only the resolved task says which names are gates, so the check
+        # lives here, and it refuses both shapes at construction rather than
+        # leaving one consumer to paper over them.
+        gate_terminals = sorted(
+            name
+            for name in definition.effective_terminal_states
+            if step_kinds.get(name) == "hitl-gate"
+        )
+        if gate_terminals:
+            raise WorkflowConstructionError(
+                f"step(s) {gate_terminals!r} are declared terminal states and"
+                " their kind in the resolved task definition is 'hitl-gate';"
+                " a gate is a place a human acts and is never a terminal"
+                " condition, so a gate named as one is either a silent"
+                " completion with no human action or a suspension that can"
+                " never resume (D-IMPL-357 A2; CLAUDE.md §8.1/§8.2)"
             )
 
         # Gate bindings target hitl-gate-kind steps — the kind lives in the

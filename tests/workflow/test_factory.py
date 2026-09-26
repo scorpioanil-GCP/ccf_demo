@@ -442,6 +442,72 @@ def test_a_gate_route_on_a_non_hitl_gate_step_is_refused(
         _construct(registry, definition)
 
 
+def test_a_gate_named_as_a_terminal_state_is_refused_at_construction(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """A gate is a place a human acts; it is never a terminal condition
+    (D-IMPL-357 A2, review round 1, item 7).
+
+    Shape one of two: a ``hitl-gate``-kind step listed in ``terminal_states``
+    and reached as a transition target. Measured by review before this check
+    existed: the execution COMPLETES at the gate's name with no suspension,
+    no human action and no route map required — the gate silently reduced to
+    a label — because ``routable`` subtracts the terminal states, so the
+    completeness check never reaches it, and the A1 validator then forbids
+    declaring a map for it.
+    """
+    definition = _workflow_definition(
+        artifact_version="1.0.8",
+        transitions=[
+            {"source": "fetch-certificates", "target": "analyze-covenants"},
+            {"source": "analyze-covenants", "target": "credit-officer-approval"},
+        ],
+        terminal_states=["credit-officer-approval"],
+        gate_routes={},
+    )
+    # The shape really is the one described: the gate is a declared terminal
+    # and it is a transition target, so nothing else in the graph is wrong.
+    assert "credit-officer-approval" in definition.effective_terminal_states
+    with pytest.raises(
+        WorkflowConstructionError,
+        match="never a terminal condition",
+    ):
+        _construct(registry, definition)
+
+
+def test_a_gate_that_is_the_start_node_and_terminal_is_refused_at_construction(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """Shape two of two, and the mirror of the one above (D-IMPL-357 A2,
+    review round 1, items 2 and 7).
+
+    The same ``hitl-gate``-kind step as the START node *and* a declared
+    terminal state. Measured by review before this check existed: the
+    completeness population is empty, ``execute`` hands the start node
+    straight to ``_advance``, which suspends on the step's kind before any
+    terminal test — so the execution suspends and can NEVER resume, because a
+    terminal state carries no outgoing transitions and every resume is
+    refused after the authority check. So "gate" meant two different no-ops
+    depending on how it was reached; one check at construction closes both.
+    """
+    definition = _workflow_definition(
+        artifact_version="1.0.9",
+        start="credit-officer-approval",
+        transitions=[],
+        terminal_states=["credit-officer-approval"],
+        exception_refs={},
+        gate_routes={},
+    )
+    # The shape review constructed: an empty routed population, so the
+    # completeness check above cannot be what refuses this.
+    assert definition.start in definition.effective_terminal_states
+    with pytest.raises(
+        WorkflowConstructionError,
+        match="never a terminal condition",
+    ):
+        _construct(registry, definition)
+
+
 def test_a_routed_gate_without_a_complete_route_map_is_refused_at_construction(
     registry: ControlPlaneRegistry,
 ) -> None:
@@ -471,8 +537,9 @@ def test_a_routed_gate_without_a_complete_route_map_is_refused_at_construction(
     assert "reject" in message
     # ...and does NOT echo back what the caller declared. A refusal that
     # answers the caller's own question for them is the shape this project
-    # forbids everywhere (cf. tests/workflow/test_engine.py::test_a_refused_
-    # gate_resume_does_not_enumerate_the_declared_targets). The behavior was
+    # forbids everywhere (cf. tests/workflow/test_engine.py::
+    # test_a_refused_gate_resume_does_not_enumerate_the_declared_targets).
+    # The behavior was
     # already right; nothing held it there, so an edit that dumped the whole
     # map into the message would have reddened no test.
     assert "approved" not in message
