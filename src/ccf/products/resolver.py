@@ -370,17 +370,23 @@ _SCORER_ONLY_INPUTS: Final[tuple[str, ...]] = (
 #: it (B1 introduced the type; no product class mentions it), so the SDK's own
 #: refusal escaped the paved road as an untyped error carrying no record.
 #:
-#: **A deployment cannot widen this map, by three separate mechanisms.**
+#: **A deployment cannot widen this map, by two separate mechanisms.**
+#:
+#: A third was claimed here and is STRUCK, because nothing calls it.
+#: ``refuse_seam_refusal_widening`` holds a deployment to a subset of its
+#: product class's map, and a whole-tree read finds its definition, its
+#: re-export and one unit test — no door in ``src/`` or ``runtime/`` invokes it,
+#: and no deployment artifact carries a field naming seam-refusal types that
+#: could ever supply its argument. Citing it as a mechanism made this map look
+#: narrower than it is: *declaration is not a door* (``D-IMPL-324``). Whether
+#: that helper gets a door is a surface question for the project owner, not a
+#: claim this constant may rest on.
 #:
 #: 1. It is a :func:`~types.MappingProxyType`, so a write raises rather than
 #:    succeeding. A roster test alone would only catch an edit to this file; the
 #:    proxy also refuses a ``conftest`` or a deployment reaching in at import
 #:    time to add its own type and inherit the SDK's authority for it.
-#: 2. :func:`~ccf.deployment.binder.refuse_seam_refusal_widening` is untouched
-#:    and still holds a deployment to a SUBSET of its product CLASS's map. A
-#:    class declares none of these, so a deployment naming one is refused there
-#:    exactly as it was before.
-#: 3. Every entry names a type inside the ``ccf`` package, and a test resolves
+#: 2. Every entry names a type inside the ``ccf`` package, and a test resolves
 #:    each name to a real exception class to prove the string is not merely
 #:    plausible. The SDK still **matches, never imports** (B2): the name is
 #:    compared against the raised value's own ``module.QualName``, so nothing
