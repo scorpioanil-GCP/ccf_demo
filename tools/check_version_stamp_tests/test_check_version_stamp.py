@@ -142,6 +142,29 @@ def test_matching_tag_is_a_pass(tmp_path: Path) -> None:
     assert "v2.0.0 == 2.0.0" in result.stdout
 
 
+def test_matching_annotated_tag_is_a_pass(tmp_path: Path) -> None:
+    """The suite otherwise proves only LIGHTWEIGHT tags; every real release tag here is annotated.
+
+    Fix round 2, finding 5 (minor): `git cat-file -t v1.0.1` in this actual
+    repository reports `tag`, not `commit` — every real release this project
+    has cut used an annotated tag. `git tag -l` and `git tag --points-at`
+    (what this gate's own `_run_git` calls use) resolve an annotated tag's
+    name identically to a lightweight one, but the suite had never exercised
+    that shape until now.
+    """
+    repo = _make_repo(tmp_path)
+    _git(repo, "tag", "-a", "v3.0.0", "-m", "annotated release tag")
+    assert (
+        _git(repo, "cat-file", "-t", "v3.0.0").stdout.strip() == "tag"
+    ), "fixture is not actually annotated"
+    _write_distribution(repo, "3.0.0", kind="dist-info")
+
+    result = _run_gate(repo)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "v3.0.0 == 3.0.0" in result.stdout
+
+
 def test_mismatching_tag_is_refused(tmp_path: Path) -> None:
     """HEAD is an exact release tag but the installed stamp disagrees: REFUSE.
 
@@ -256,6 +279,32 @@ def test_ambiguous_metadata_on_sys_path_is_refused(tmp_path: Path) -> None:
     assert "ambiguous" in result.stdout
     assert "2.0.0" in result.stdout
     assert "0.1.0" in result.stdout
+
+
+def test_unreadable_metadata_is_a_named_refusal_not_a_traceback(tmp_path: Path) -> None:
+    """A metadata directory with no `METADATA`/`PKG-INFO` inside: a NAMED refusal, never a bare traceback.
+
+    Fix round 2, finding 4/minor, MEASURED: `importlib.metadata` reports a
+    distribution directory that matches the discovery glob but carries no
+    metadata FILE inside it as `dist.version is None` — not an exception.
+    Before this fix, `sorted(set(versions.values()))` then raised
+    `TypeError: '<' not supported between instances of 'str' and
+    'NoneType'` the moment a real, readable distribution was ALSO present:
+    still a non-zero exit (fails closed), but a traceback rather than the
+    refusal line every other posture in this suite prints, leaving an
+    operator unable to tell "broken environment" from "version mismatch".
+    """
+    repo = _make_repo(tmp_path)
+    _git(repo, "tag", "v1.0.0")
+    _write_distribution(repo, "1.0.0", kind="dist-info")
+    (repo / "ccf-2.0.0.dist-info").mkdir()  # exists, but no METADATA inside
+
+    result = _run_gate(repo)
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "Traceback" not in result.stderr, result.stderr
+    assert "unreadable" in result.stdout
+    assert "ccf-2.0.0.dist-info" in result.stdout
 
 
 def test_no_distribution_found_is_refused(tmp_path: Path) -> None:

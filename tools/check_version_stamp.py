@@ -40,6 +40,15 @@ round 1 and each with its own posture below:
    — scoped with ``v[0-9]*`` so this project's own non-release tag
    convention (``phase-N-base``, CLAUDE.md §3.1) is never mistaken for a
    release. Every path prints the installed stamp it read.
+4. **Unreadable metadata read as a crash, not a refusal.** A distribution
+   directory can exist — matching the discovery glob — while carrying no
+   ``METADATA``/``PKG-INFO`` inside it (a botched or partial build).
+   ``importlib.metadata`` reports this as a version of ``None`` rather than
+   raising, and comparing ``None`` to a real version string during the
+   ambiguity check (item 1) raised ``TypeError`` — still a non-zero exit,
+   but a bare traceback rather than a named refusal (fix round 2, finding
+   4/minor, measured). Checked first and refused by name, listing every
+   unreadable path.
 """
 from __future__ import annotations
 
@@ -65,7 +74,7 @@ _RELEASE_TAG_GLOB = "v[0-9]*"
 _GIT_TIMEOUT_SECONDS = 10
 
 
-def _discover_versions() -> dict[str, str]:
+def _discover_versions() -> dict[str, str | None]:
     """Every ``ccf`` distribution visible on ``sys.path``, keyed by its own
     metadata directory (its ``*.dist-info`` or ``*.egg-info``), never by the
     distribution's root.
@@ -90,7 +99,7 @@ def _discover_versions() -> dict[str, str]:
     cwd = os.getcwd()
     if cwd not in sys.path:
         sys.path.insert(0, cwd)
-    found: dict[str, str] = {}
+    found: dict[str, str | None] = {}
     for dist in importlib.metadata.Distribution.discover(name=DISTRIBUTION):
         key = str(getattr(dist, "_path", None) or id(dist))
         found[key] = dist.version
@@ -118,6 +127,26 @@ def _run_git(args: list[str]) -> subprocess.CompletedProcess[str]:
 
 def main() -> int:
     versions = _discover_versions()
+
+    # A metadata directory that exists but carries no `METADATA`/`PKG-INFO`
+    # inside it (a botched or partial build) makes `dist.version` `None`,
+    # not an exception — measured (fix round 2, finding 4/minor). Left
+    # unchecked, `sorted(set(versions.values()))` below raises `TypeError`
+    # comparing `None` to `str` the moment a real distribution is ALSO
+    # present, which still exits non-zero (fails closed) but as a bare
+    # traceback rather than the named refusal every other posture prints —
+    # an operator reading it cannot tell "broken environment" from "version
+    # mismatch". Named and refused here, before that comparison ever runs.
+    unreadable = sorted(path for path, version in versions.items() if version is None)
+    if unreadable:
+        print(
+            f"check_version_stamp: {DISTRIBUTION!r} metadata is present but "
+            "unreadable (no version recorded) at:"
+        )
+        for path in unreadable:
+            print(f"  {path}")
+        return 1
+
     distinct = sorted(set(versions.values()))
 
     if not distinct:
