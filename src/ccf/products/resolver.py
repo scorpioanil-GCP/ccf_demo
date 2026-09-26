@@ -151,6 +151,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
+from types import MappingProxyType
 from typing import Final, Protocol, TypeVar, runtime_checkable
 
 from ccf.artifacts.file_store import FileArtifactStore
@@ -195,6 +196,7 @@ from ccf.products.contract import (
     ComputedEmptyFinding,
     ContextProductContract,
     MaxTTL,
+    ProductClassRegistrationError,
     ProductLineage,
     RegisteredProductClass,
     register_product_class,
@@ -355,6 +357,178 @@ _SCORER_ONLY_INPUTS: Final[tuple[str, ...]] = (
     "declared_completeness",
     "declared_semantic_consistency",
 )
+
+
+#: The seam exceptions the SDK ITSELF raises, and therefore knows the meaning of.
+#:
+#: `D-IMPL-357` B3 — amends `D-IMPL-347` B2 for **SDK-raised** seam classes only.
+#: B2's reasoning was that the SDK cannot know whether a deployment's
+#: ``ControlRoomUnreachable`` means *the subject is unavailable* or *this
+#: deployment is broken*, so only the product may say, in a declared artifact.
+#: That reasoning does not reach the SDK's own exceptions: it knows what
+#: ``IdentityRefused`` means, because it is the thing that raises it — a source
+#: record whose identity value names no entity. Nothing declared a binding for
+#: it (B1 introduced the type; no product class mentions it), so the SDK's own
+#: refusal escaped the paved road as an untyped error carrying no record.
+#:
+#: **WHAT THIS MAP IS NOT: A TRUST BOUNDARY.** An earlier revision of this
+#: comment claimed a deployment "cannot widen this map, by three separate
+#: mechanisms". That was false twice over, and the false half mattered more than
+#: the true half, because a guarantee documented wider than it is implemented
+#: removes the reader's reason to check. Measured, one line each:
+#:
+#: * **A module-attribute rebind widens it.** ``ccf.products.resolver`` is an
+#:   ordinary module and :data:`Final` is a type-checker annotation with no
+#:   runtime force, so ``resolver.SDK_SEAM_REFUSALS = dict(...) | {...}`` simply
+#:   rebinds the name.
+#: * **A write through the wrapped dictionary widens it.** A
+#:   :func:`~types.MappingProxyType` is a view: the garbage collector hands back
+#:   its one referent, an in-place insert succeeds, and the proxy then reports
+#:   the smuggled key itself.
+#:
+#: **No in-process mechanism can close either route, and none is attempted.**
+#: Both require code already executing in this process, which is inside the
+#: trust boundary; the seam callable is deployment code and can obtain the same
+#: conversion by importing :class:`~ccf.assembly.worker.IdentityRefused` and
+#: raising it. **The match authenticates nothing** — it compares the raised
+#: value's own self-reported ``module.QualName``, which any object may spell as
+#: it likes — and the authority it grants is exactly the authority of raising
+#: the SDK's class directly, which every seam callable already has. Nothing here
+#: defends the SDK against its own deployment, and nothing here needs to.
+#:
+#: **What the three real mechanisms do, stated at their true width:**
+#:
+#: 1. The :func:`~types.MappingProxyType` refuses **accidental and typed**
+#:    mutation — ``SDK_SEAM_REFUSALS[...] = ...`` raises, ``.clear()`` does not
+#:    exist — which is what makes the roster assertion in the tests meaningful
+#:    rather than a snapshot of whatever the last importer left behind. It is a
+#:    hygiene barrier, not a boundary.
+#: 2. The bindings **inside** the map are :class:`~ccf.contracts.base.CCFContract`
+#:    instances and therefore frozen, so no entry can be retargeted in place:
+#:    assigning to ``binding.cause`` raises. Even code that reaches the referent
+#:    has to replace a whole entry rather than quietly change what an existing
+#:    SDK-owned name means. This is the one mechanism the earlier revision did
+#:    not claim, and it is the one that survives the routes above.
+#: 3. Every entry names a type inside the ``ccf`` package, and a test resolves
+#:    each name to a real exception class to prove the string is not merely
+#:    plausible. The SDK still **matches, never imports** (B2): the name is
+#:    compared against the raised value's own ``module.QualName``, so nothing
+#:    here resolves a dotted path and a misspelling never matches rather than
+#:    executing something. The importing is the test's job, not this module's.
+#:
+#: A fourth mechanism was claimed and is STRUCK, because nothing calls it.
+#: ``refuse_seam_refusal_widening`` holds a deployment to a subset of its
+#: product class's map, and a whole-tree read finds its definition, its
+#: re-export and one unit test — no door in ``src/`` or ``runtime/`` invokes it,
+#: and no deployment artifact carries a field naming seam-refusal types that
+#: could ever supply its argument. Citing it as a mechanism made this map look
+#: narrower than it is: *declaration is not a door* (``D-IMPL-324``). Whether
+#: that helper gets a door is a surface question for the project owner, not a
+#: claim this constant may rest on.
+#:
+#: Consulted BEFORE a product class's declared map, so the SDK's meaning is the
+#: one minted for its own type: a class cannot restate "this record names no
+#: entity" as "you may not see it" and borrow the SDK's authority for it — and a
+#: class that declares one of these types is refused at registration rather than
+#: quietly overridden (:func:`_refuse_sdk_owned_seam_refusal`).
+SDK_SEAM_REFUSALS: Final[Mapping[str, SeamRefusalBinding]] = MappingProxyType(
+    {
+        "ccf.assembly.worker.IdentityRefused": SeamRefusalBinding(
+            exception="ccf.assembly.worker.IdentityRefused",
+            cause="nonexistent",
+            error_code="identity-refused",
+        ),
+    }
+)
+
+
+def _refuse_sdk_owned_seam_refusal(
+    declaration: ProductClassDeclaration,
+    *,
+    _sdk_seam_refusals: Mapping[str, SeamRefusalBinding] = SDK_SEAM_REFUSALS,
+) -> None:
+    """Raise unless the class leaves the SDK's own seam classes alone.
+
+    `D-IMPL-357` B3, round 3. A class may declare a binding for any exception
+    type it owns the meaning of; it may not declare one for a type in
+    :data:`SDK_SEAM_REFUSALS`, because the SDK consults its own map first and
+    the declaration would therefore do **nothing at all**.
+
+    **Why it is refused rather than ignored.** This project's own doctrine,
+    written one function away for the deployment-narrowing case: *an ignored
+    widening and an honored narrowing are the same green build, and the operator
+    who wrote the extra name would never learn it did nothing.* The class
+    declaration is the **control evidence** — reviewed, versioned,
+    content-hashed and shown to an examiner — so a class saying that an identity
+    failure means *"you may not see it"* while the fabric mints *"does not
+    exist"* is a deployed behavior that disagrees with its own approved control
+    document, with nothing in the record admitting it. A silently inert control
+    is worse than a rejected one.
+
+    **Why REGISTRATION and not the seam.** Refusing when the exception is
+    actually raised would turn a governance mistake into precisely the runtime
+    failure B3 exists to remove — an untyped error mid-assembly, after a seam the
+    deployment supplied had already run. Here both documents are in hand before
+    any of that, so the failure names the two things that disagree and the author
+    can still fix it.
+
+    **WHEN "at registration" IS PRE-QUESTION, AND WHEN IT IS THE FIRST
+    QUESTION.** Both, depending on the caller, and the difference is worth
+    stating rather than implying:
+
+    * :mod:`ccf.client.adapters.inprocess` and :mod:`ccf.replay.environment`
+      build their resolver while OPENING, so no request exists yet and the
+      refusal is genuinely **before any question**;
+    * the **paved road** boots a fresh fabric per question and builds the
+      resolver inside :meth:`~ccf.products.product.OpenedProduct.answer`, so the
+      refusal lands **on the first question asked** — the answering call is
+      already in flight. What holds there is the part that matters: it runs
+      before the acquisition seam, before the plan, before the gates and before
+      any delivery, so nothing is half-assembled, no product is served, and no
+      refusal record is minted for what is a governance mistake rather than a
+      determination. A later signal than the other two callers get, not a
+      different kind of one.
+
+    The check is NOT on
+    :class:`~ccf.controlplane.artifacts.ProductClassDeclaration` itself: that
+    module cannot import this one (the import direction this module's own
+    ``register_product_class`` neighbours already document as a cycle), and a
+    model validator is the wrong altitude for a question about a mapping that
+    lives here.
+
+    The SDK-first consult order stays as the runtime backstop for anything that
+    reaches a resolver by another route, and a control keeps proving it holds.
+
+    **ONE MAP, TWO READERS, THE SAME OBJECT.** ``_sdk_seam_refusals`` is never
+    passed by a caller; its default binds the same mapping object
+    :meth:`GovernedResolver._declared_seam_refusal` binds, at definition time.
+    That is a coherence requirement rather than a hardening one: while this
+    function read the module-level NAME and dispatch read the bound OBJECT, a
+    rebind made the two disagree — measured — and the refusal then PERMITTED a
+    declaration that dispatch still converted under the SDK's cause. A permitted
+    declaration that does nothing is precisely the silently-inert control this
+    function exists to refuse, so the refusal reproducing it was the worst
+    possible place for the inconsistency to live.
+    """
+    conflicting = [
+        binding
+        for binding in declaration.seam_refusals
+        if binding.exception in _sdk_seam_refusals
+    ]
+    if not conflicting:
+        return
+    named = conflicting[0]
+    owned = _sdk_seam_refusals[named.exception]
+    raise ProductClassRegistrationError(
+        f"product class {declaration.schema_name!r} declares a seam refusal for"
+        f" {named.exception!r}, which is an exception the SDK RAISES and whose"
+        f" meaning the SDK owns: it is bound to cause {owned.cause!r} / code"
+        f" {owned.error_code!r} and that binding is consulted first, so this"
+        f" declaration's cause {named.cause!r} / code {named.error_code!r} could"
+        " never be minted. Drop it from `seam_refusals`. A class declaration is"
+        " control evidence, and a control that silently does nothing is worse"
+        " than one that is refused (D-IMPL-357 B3)"
+    )
 
 
 #: What a resolver returns: a served product, or the refusal that stands
@@ -3195,21 +3369,47 @@ class GovernedResolver:
     # --- the one minting seam ----------------------------------------------
 
     def _declared_seam_refusal(
-        self, error: BaseException
+        self,
+        error: BaseException,
+        *,
+        _sdk_seam_refusals: Mapping[str, SeamRefusalBinding] = SDK_SEAM_REFUSALS,
     ) -> SeamRefusalBinding | None:
-        """The class's binding for ``error``'s type, or ``None`` to re-raise.
+        """The binding for ``error``'s type, or ``None`` to re-raise.
 
-        `D-IMPL-347` B2. **Matched, never imported**: the raised value's own
-        ``module.QualName`` is compared against the declared string, so a
-        declaration cannot cause an import and a misspelled one never matches
-        rather than executing something.
+        `D-IMPL-347` B2, amended by `D-IMPL-357` B3. **Matched, never imported**:
+        the raised value's own ``module.QualName`` is compared against the
+        declared string, so a declaration cannot cause an import and a misspelled
+        one never matches rather than executing something.
 
         **Exact type, never a subclass walk.** A subclass of a declared type is
         a DIFFERENT failure the product has not spoken about, and silently
         inheriting a parent's cause is how a narrow declaration becomes a wide
         one without anybody widening it. The deployment declares what it means.
+        That holds for the mechanism map below too: it is consulted by exact
+        name, so a subclass of an SDK seam class is not converted either.
+
+        :data:`SDK_SEAM_REFUSALS` is consulted **first**, because the SDK owns
+        the meaning of the exceptions the SDK raises — that is the whole of B3's
+        amendment. Read that constant for what its narrowness is and is not: it
+        is not a trust boundary, and the honest statement of its three real
+        mechanisms is there. A class that declares a binding for one of those
+        types does not override it: the SDK's cause and code are minted, and the
+        class's restatement is not reachable.
+
+        **The map is bound at DEFINITION time, not read at call time.** The
+        private ``_sdk_seam_refusals`` parameter is never passed by any caller;
+        its default captures the mapping object once, when this method is
+        defined, so rebinding ``ccf.products.resolver.SDK_SEAM_REFUSALS`` after
+        import cannot change what this dispatch consults. That closes the one
+        widening route a module global has and costs nothing — the matching
+        semantics are unchanged, and it is deliberately NOT presented as a trust
+        boundary: code inside this process can still reach the bound object
+        itself, and the constant's own comment says so. A control pins the
+        rebind.
         """
         raised = f"{type(error).__module__}.{type(error).__qualname__}"
+        if (mechanism := _sdk_seam_refusals.get(raised)) is not None:
+            return mechanism
         for binding in self._declaration().seam_refusals:
             if binding.exception == raised:
                 return binding
@@ -4237,7 +4437,11 @@ def build_governed_resolver(
         ProductClassRegistrationError: the product class declares a default for
             a parameter its request contract does not declare as an argument —
             an internally inconsistent declaration, refused at boot under
-            ``D-IMPL-258`` (5) rather than in front of a caller.
+            ``D-IMPL-258`` (5) rather than in front of a caller. Also raised
+            when the class declares a ``seam_refusals`` binding for an exception
+            in :data:`SDK_SEAM_REFUSALS`, whose meaning the SDK owns and
+            consults first, so the declaration could never be minted
+            (:func:`_refuse_sdk_owned_seam_refusal`).
         ValueError: a declared factor lies outside ``[0, 1]``. Raised by
             :class:`~ccf.products.debt_scorer.DeclaredFactor`, where the value
             was authored, rather than three frames later.
@@ -4314,6 +4518,20 @@ def build_governed_resolver(
         serve_obligations=boot_declaration.serve_obligations,
         declared=_request_contract_on(fabric, key=request_contract_key),
     )
+    # `D-IMPL-357` B3 round 3, in the same breath and for the same reason: a
+    # class declaring a seam refusal for one of the SDK's OWN seam exceptions
+    # has authored a control that can never fire, because the SDK's map is
+    # consulted first. Refused HERE — where both documents are in hand, and
+    # before the acquisition seam, the plan, the gates or any delivery — rather
+    # than at the seam, which would turn a governance mistake into the very
+    # runtime failure B3 removed.
+    #
+    # "Before any question" is true of the in-process adapter and the replay
+    # environment, which build while opening. It is NOT true of the paved road,
+    # which boots per question and builds inside `answer()`: there this is the
+    # FIRST QUESTION's refusal, with the answering call already in flight. See
+    # `_refuse_sdk_owned_seam_refusal` for why that is still the right site.
+    _refuse_sdk_owned_seam_refusal(boot_declaration)
 
     # `24.11-04` / `D-IMPL-295`, immediately after and for the same reason: a
     # request-bound operator parameter naming an argument the contract does not
