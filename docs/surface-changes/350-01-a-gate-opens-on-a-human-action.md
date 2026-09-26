@@ -175,12 +175,20 @@ because it happens where the fabric is not, and it is the honest price of
 refusing rather than routing. The stamp race named at the end of this section is
 what can put a gate into this state without two officers ever disagreeing.
 
-The verdict→target residual, by contrast, is closed. It was pinned by a test
-written to go RED the moment a verdict→target binding was declared and enforced.
-**That moment arrived, and the residual is now CLOSED — unconditionally, not for
-a single recorded verdict.** `D-IMPL-357` A1 declares `gate_routes` on the
-workflow definition, A3 enforces it in `resume`, and A4 closes verdict
-SELECTION: a recorded rejection cannot reach the approving terminal.
+The verdict→target residual, by contrast, is closed **to a stated bound**. It was
+pinned by a test written to go RED the moment a verdict→target binding was
+declared and enforced. **That moment arrived: a verdict RECORDED BEFORE THE
+RESUMPTION READS THE CONFLICT POPULATION cannot reach the approving terminal** —
+whatever it contradicts, in either arrival order, stamped or not. `D-IMPL-357` A1
+declares `gate_routes` on the workflow definition, A3 enforces it in `resume`,
+and A4 closes verdict SELECTION over that population.
+
+**The bound is not a formality, and it is why nothing here reads
+unconditionally.** A verdict recorded *concurrently with* a resumption — after
+the conflict read and before the attributed commit — is not in the population the
+check saw, and the execution then completes at the approving terminal with both
+verdicts standing in the record. That is the third residual at the end of this
+section.
 
 Two questions had to be separated to get there, and conflating them is what
 left the first fix incomplete. **Which verdict routes** keeps the eligibility
@@ -261,18 +269,49 @@ which locked A1–A5 and named `gate_routes` the generation boundary; `D-IMPL-35
 is the wave that implemented it.
 
 **What else is NOT closed, stated because a governance record that overclaims is
-worse than one that is stale.** Neither item can route a rejection down an
-approving branch. **The stamp race itself remains in the transport** — the
-claim is address-keyed, so an attacker with submit authority can still cause
-an officer's verdict to be recorded unstamped; what changed is that the pair
-now refuses instead of routing, which makes the race an availability problem
-rather than an integrity one, and closing it is a `HITLTransportProtocol`
-signature change belonging with the `D-IMPL-62` door ruling. Because there is no
-reconciliation primitive, the availability half is the standing limit above: the
-parked gate needs an intervention the fabric does not offer. And **two
-concurrent resumes of one suspension** both pass the authority read and the
-conflict check and execute the downstream node twice from one human action —
-measured, pre-existing, carried as a named residual.
+worse than one that is stale.** Two residuals, and the second one **can** put a
+rejection at an approving terminal — no sentence in this record may reassure a
+reader otherwise, because a reassurance is exactly what stops a maintainer
+looking for the shape.
+
+**1. The stamp race itself remains in the transport.** The claim is
+address-keyed, so an attacker with submit authority can still cause an officer's
+verdict to be recorded unstamped; what changed is that the pair now refuses
+instead of routing, which makes the race an availability problem rather than an
+integrity one, and closing it is a `HITLTransportProtocol` signature change
+belonging with the `D-IMPL-62` door ruling. Because there is no reconciliation
+primitive, the availability half is the standing limit above: the parked gate
+needs an intervention the fabric does not offer.
+
+**2. Nothing makes the resumption's read-decide-commit atomic**, and two shapes
+fall out of that one absence. `resume` takes no per-execution lock and performs
+no compare-and-set: it reads the state record, reads the authority and conflict
+populations, decides, and only then writes. So **(a)** two concurrent resumes of
+one suspension both pass the authority read *and* the conflict check and execute
+the downstream node twice from one human action, writing two attributed
+resumption rows; and **(b)** a verdict recorded *inside that window* is not seen
+at all — a rejection submitted after the conflict read and before the attributed
+commit leaves both verdicts standing while the execution completes at the
+approving terminal, the outcome the check refuses when the same rejection lands
+first. **These are one defect with one fix: one per-execution lock, or one
+compare-and-set on the state record, closes both.** A second read before the
+commit is deliberately *not* that fix — it narrows the window and invites a
+reader to think the class is handled. **Nothing in this record may be read as
+closing the concurrency class**; closing it needs the serialization ruling.
+
+*The probe shape, carried so it is not re-derived.* No engine logic is altered: a
+pure helper on the resumption's read path is wrapped with a tenth-of-a-second
+sleep purely to widen a window that is already there, and a real second
+operating-system thread submits the rejection through the real transport with a
+real capability. Both verdicts end up recorded and the execution completes
+approved. **The window is reachable in the shipped server topology** — the
+resumption endpoint is asynchronous on the event loop, the human-action endpoint
+is a synchronous handler the server runs on a worker thread, and the unwidened
+window spans the target lookup, the route lookup, the trace serialization and the
+audit construction with its canonical hashing: thousands of operations against a
+five-millisecond thread-switch interval. An in-process sweep landed zero times in
+480 trials, which is the honest counterweight — **structurally open, not
+demonstrated in process, and given true concurrency by the served doors.**
 
 ## Regression evidence
 

@@ -1119,13 +1119,17 @@ class WorkflowEngine:
         with the target the artifact declares for the verdict that action
         carries.
 
-        **A RECORDED REJECTION CANNOT REACH THE APPROVING TERMINAL. The
-        D-IMPL-350 residual is CLOSED — unconditionally, not for a single
-        recorded verdict** (D-IMPL-357 A3 + A4). Routing is the compare
-        above; selection integrity is the conflict refusal in
-        :meth:`resume` over :meth:`_recorded_gate_verdicts`. Both of the
-        paths A3's review measured are shut, and each was measured again
-        going red:
+        **A VERDICT RECORDED BEFORE THIS RESUMPTION READS THE CONFLICT
+        POPULATION CANNOT REACH THE APPROVING TERMINAL** — whatever it
+        contradicts, in either arrival order, stamped or not (D-IMPL-357
+        A3 + A4). **That bound is the claim, and it is deliberately not
+        unconditional:** a verdict recorded *concurrently with* a
+        resumption, after the read and before the attributed commit, is
+        not in the population this check saw, which is the third residual
+        below. Routing is the compare above; selection integrity is the
+        conflict refusal in :meth:`resume` over
+        :meth:`_recorded_gate_verdicts`. Both of the paths A3's review
+        measured are shut, and each was measured again going red:
 
         * **Two distinct verdicts on one suspension** no longer resolve to
           the oldest and route on it. They refuse, in either arrival order,
@@ -1141,8 +1145,11 @@ class WorkflowEngine:
 
         **What remains OPEN, stated here because this docstring is the
         residual ledger a close panel, an adopter and the next maintainer
-        read.** Neither item below can route a rejection down an approving
-        branch; both are real and neither may be read as closed.
+        read.** Both items are real and neither may be read as closed. The
+        second one **can** put a rejection at an approving terminal — no
+        sentence here may reassure a reader otherwise, because a
+        reassurance is exactly what stops a maintainer looking for the
+        shape.
 
         * **The stamp race itself is still there, in the transport.** A
           claim is keyed ``(tenant, event_key)`` and consumed by whichever
@@ -1157,18 +1164,50 @@ class WorkflowEngine:
           ``remove`` minting an opaque claim token that ``submit``
           requires, a :class:`~ccf.hitl.transport.HITLTransportProtocol`
           signature change that belongs with the D-IMPL-62 door ruling.
-        * **Two concurrent resumes of one suspension both pass** the
-          authority read and the conflict check, execute the downstream
-          node twice from one human action, and write two attributed
-          resumption rows. Measured, pre-existing, and carried as a named
-          residual: one human decision became two passages. Not a
-          wrong-target path — the target is the declared one both times.
+        * **NOTHING MAKES THIS RESUMPTION'S READ-DECIDE-COMMIT ATOMIC**,
+          and two shapes fall out of that one absence. :meth:`resume`
+          takes no per-execution lock and performs no compare-and-set: it
+          reads the state record, reads the authority and conflict
+          populations, decides, and only then writes. So **(a)** two
+          concurrent resumes of one suspension both pass the authority
+          read AND the conflict check, execute the downstream node twice
+          from one human action, and write two attributed resumption rows
+          — one human decision became two passages; and **(b)** a verdict
+          recorded *inside that window* is not seen at all, so a rejection
+          submitted after the conflict read and before the attributed
+          commit leaves BOTH verdicts standing in the record while the
+          execution completes at the approving terminal — the outcome the
+          check above refuses when the same rejection lands first.
+          **These are one defect with one fix: one per-execution lock, or
+          one compare-and-set on the state record, closes both.** A second
+          read before the commit is NOT that fix — it narrows the window
+          and invites a reader to think the class is handled — and
+          **nothing in this docstring may be read as closing the
+          concurrency class.** Closing it needs the serialization ruling.
 
-        The wording above is deliberate about which half is unconditional,
-        because this project has already paid once for getting it wrong: an
-        earlier fix on this same vulnerability was reported complete, and
-        the close panel on the follow-on work reproduced the CRITICAL
-        finding with that fix in place.
+          **The probe shape, carried so it is not re-derived.** No engine
+          logic is altered: a pure helper on this read path is wrapped
+          with a tenth-of-a-second sleep purely to widen a window that is
+          already there, and a real second operating-system thread submits
+          the rejection through the real transport with a real capability.
+          Both verdicts end up recorded and the execution completes
+          approved. **The window is reachable in the shipped server
+          topology** — the resumption endpoint is asynchronous on the
+          event loop, the human-action endpoint is a synchronous handler
+          the server runs on a worker thread, and the unwidened window
+          spans the target lookup, the route lookup, the trace
+          serialization and the audit construction with its canonical
+          hashing: thousands of operations against a five-millisecond
+          thread-switch interval. An in-process sweep landed zero times in
+          480 trials, which is the honest counterweight — **structurally
+          open, not demonstrated in process, and given true concurrency by
+          the served doors.**
+
+        The bound on the claim above is deliberate, because this project
+        has already paid once for stating it wider: an earlier fix on this
+        same vulnerability was reported complete, and the close panel on
+        the follow-on work reproduced the CRITICAL finding with that fix
+        in place.
 
         Note the direction of trust: the engine *reads* the authority path
         and never writes a verdict to it. Resolution stays the gate
@@ -1294,10 +1333,13 @@ class WorkflowEngine:
         escalation_is_unaffected``.
 
         **The escalation leg's OWN remaining gap — no longer the gate's**
-        (D-IMPL-357 A4). The gate's verdict→target residual is closed:
+        (D-IMPL-357 A4). The gate's verdict→target residual is closed to
+        the bound :meth:`_gate_authority`'s ledger states — read it there
+        rather than inferring an unconditional close from this sentence:
         ``gate_routes`` declares where each verdict goes (A1), the route
-        compare enforces it (A3), and conflicting verdicts on one
-        suspension refuse (A4). None of that reaches here, because
+        compare enforces it (A3), and conflicting verdicts recorded before
+        the resumption's own read refuse (A4). None of that reaches here,
+        because
         ``gate_routes`` is keyed by the two
         :data:`~ccf.hitl.approval_gate.GATE_ACTIONS` verdicts on a gate
         NODE, and an escalation is a hold on an exception-routed state
