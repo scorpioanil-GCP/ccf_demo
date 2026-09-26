@@ -23,6 +23,7 @@ the whole reason their refusals are data rather than defects.
 from __future__ import annotations
 
 import pathlib
+import types
 from typing import Any
 
 import pytest
@@ -685,4 +686,91 @@ def test_a_subclass_of_an_SDK_seam_class_is_NOT_converted_either(
 
     with _open(root, scratch, project=_subclassed) as opened:
         with pytest.raises(_DeploymentsOwnIdentityProblem, match="env-sub"):
+            opened.answer(_question(opened))
+
+
+# The DEPLOYMENT's own module, built at import time so the class defined in it
+# genuinely reports `acme.identity` as its `__module__` — a class statement reads
+# `__name__` out of the namespace it executes in, so this is the real thing
+# rather than an attribute set after the fact. It stands for a deployment that
+# happens to name its own exception `IdentityRefused`, which is not a contrived
+# coincidence: it is the obvious name for the failure.
+_DEPLOYMENT_MODULE = types.ModuleType("acme.identity")
+exec(  # noqa: S102 — a class STATEMENT is the point; `type()` would set __module__ by hand
+    compile(
+        "class IdentityRefused(Exception):\n"
+        "    '''A deployment's own identity failure, in a deployment's own module.'''\n",
+        "<acme.identity>",
+        "exec",
+    ),
+    _DEPLOYMENT_MODULE.__dict__,
+)
+_ForeignIdentityRefused: type[Exception] = _DEPLOYMENT_MODULE.IdentityRefused
+
+
+def test_the_match_is_MODULE_QUALIFIED_so_a_look_alike_name_is_not_converted(
+    tmp_path: pathlib.Path,
+) -> None:
+    """A class merely NAMED like the SDK's, in its own module, is not converted.
+
+    The shipped lookup compares the full ``module.QualName``. Nothing held that:
+    replacing the exact lookup with a match on the bare type name left every one
+    of the tree's tests green, and under that mutant a deployment's own
+    ``IdentityRefused`` — a name any deployment might reasonably choose for the
+    same failure — would be converted under the SDK's cause and code, carrying
+    the SDK's authority for a diagnosis the SDK never made.
+
+    The class is defined inside a synthetic module, so its ``__module__`` is
+    ``acme.identity`` rather than this test module's name; if it were defined
+    here the mutant and the shipped code would disagree for the wrong reason.
+    """
+    assert _ForeignIdentityRefused.__module__ == "acme.identity"
+    assert _ForeignIdentityRefused.__qualname__ == IdentityRefused.__qualname__
+    assert _ForeignIdentityRefused is not IdentityRefused
+    assert not issubclass(_ForeignIdentityRefused, IdentityRefused), (
+        "this must not be the subclass case; that is pinned separately"
+    )
+
+    root = _write_tree(tmp_path / "b3qual", config=_config())  # declares NO seam_refusals
+    scratch = tmp_path / "b3qual" / "scratch"
+
+    def _look_alike(**_: Any) -> Any:
+        raise _ForeignIdentityRefused("a deployment's own identity failure")
+
+    with _open(root, scratch, project=_look_alike) as opened:
+        with pytest.raises(_ForeignIdentityRefused, match="a deployment's own"):
+            opened.answer(_question(opened))
+
+
+def test_a_DIFFERENT_sdk_exception_at_a_seam_is_not_converted(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The map names ONE type, not "anything the SDK raises".
+
+    A mutant converting every exception whose module starts with the package
+    prefix survived this module's own suite and was caught only incidentally, by
+    six tests elsewhere that happen to raise SDK errors at a seam. Incidental
+    coverage is not evidence: nothing here said the scope was one named type.
+
+    ``SeamRefusalWidening`` is deliberately the SDK exception chosen — it is
+    about seam refusals, so it is the most plausible thing to be swept in by a
+    subject-matter-shaped widening, and it is still a DEFECT rather than a
+    determination when it escapes a seam.
+    """
+    from ccf.deployment import SeamRefusalWidening
+    from ccf.products.resolver import SDK_SEAM_REFUSALS
+
+    assert SeamRefusalWidening.__module__.split(".")[0] == "ccf"
+    assert f"{SeamRefusalWidening.__module__}.{SeamRefusalWidening.__qualname__}" not in (
+        SDK_SEAM_REFUSALS
+    )
+
+    root = _write_tree(tmp_path / "b3other", config=_config())
+    scratch = tmp_path / "b3other" / "scratch"
+
+    def _other_sdk_error(**_: Any) -> Any:
+        raise SeamRefusalWidening("an SDK error the SDK did not bind")
+
+    with _open(root, scratch, project=_other_sdk_error) as opened:
+        with pytest.raises(SeamRefusalWidening, match="did not bind"):
             opened.answer(_question(opened))
