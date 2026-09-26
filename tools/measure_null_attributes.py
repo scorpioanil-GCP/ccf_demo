@@ -1989,7 +1989,13 @@ def main() -> int:
             " by construction. Nothing could be reachable."
         )
         exit_code = 1
-    elif not builder.trees_in_map:
+    # `builder_files` guards the drift diagnosis, because DRIFT AND AN EMPTY SCAN
+    # ARE DIFFERENT FAILURES and only one of them can be true. Without the guard
+    # the no-files mutation printed both lines, telling a reader the tree keys had
+    # drifted when in fact nothing had been scanned — a right exit code with a
+    # wrong reason, which is the narrow cousin of every overclaim this round
+    # corrected. The exit code is already 1 from the no-files branch above.
+    elif builder_files and not builder.trees_in_map:
         print(
             "  ! NO SCANNED BUILDER FILE'S TREE APPEARS IN THE DECLARATION MAP:"
             " the map is non-empty but its keys have drifted away from the trees"
