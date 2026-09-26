@@ -139,8 +139,8 @@ These are the project's rules, restated because each has already been paid for o
 
 1. **Sequence per wave:** the wave's `D-IMPL` entry records the locked rulings (§0.1; reopened only on contradicting implementation evidence) → build in worktrees → red-when-fixed tests rewritten (never deleted) → sabotage on the merged tree (a named severing per guard, each reddening a named test) → the estate-gated example run, read-only against `.76` (§8.3) → the cross-AI panel → every finding and every retraction verified against the tree → blocking findings fixed in-wave → STOP for Dave. A wave is closed by Dave's ruling and a `D-GATE` line, never by execution completing.
 2. **The panel is codex + cursor + gemini** (§0, #6), briefed with the known findings and told not to re-derive them, told the SDK is destined for a **bank**, with the source **inlined on stdin** in bundles of at most ~150 KB each (a single argv string caps at 131,072 bytes and all three CLIs then exit 0 having read nothing). Each wave's phase record names its bundles and their exclusions. Wave 1's named ranges measure 53,530 bytes and fit in one bundle; waves 2 and 3 do not and are split (§4.9, §5.3).
-3. **"Nothing has shipped" governs** (`D-IMPL-351`, `docs/DECISIONS.md:4661`, restated by Dave past v1.0.1 in §0 #4): a remedy argued down because a change would move a hash, break a fixture or alter a committed expectation is re-argued without that premise. Security defaults are generation boundaries (`HASH_TRANSPARENT_KEY: False`), not hash-transparent silence, **except** where a stated reason makes silence safe, and each such field names its reason at its site: `served_at` (Dave, §0 #4: pre-1.0.2 addresses rehydrate; a populated value is addressed), `pattern`/`subject_domain` (the floor governs silence, §3.3), `attestation` (an unsigned submission is refused wherever signing is required, §5.1), `hitl_policy_ref` (§5.1), `started_by`/`requested_by` (an absent requester is refused at resolution, §5.2). A field marked `True` by silence is a defect.
-4. **A guard whose applicability the caller supplies is not a guard** (`D-IMPL-350`, `docs/DECISIONS.md:4637`). Every comparand in this document is taken from what the fabric recorded or what an artifact declares, never from what the caller presents.
+3. **"Nothing has shipped" governs** (`D-IMPL-351`, `docs/DECISIONS.md:4647`, restated by Dave past v1.0.1 in §0 #4): a remedy argued down because a change would move a hash, break a fixture or alter a committed expectation is re-argued without that premise. Security defaults are generation boundaries (`HASH_TRANSPARENT_KEY: False`), not hash-transparent silence, **except** where a stated reason makes silence safe, and each such field names its reason at its site: `served_at` (Dave, §0 #4: pre-1.0.2 addresses rehydrate; a populated value is addressed), `pattern`/`subject_domain` (the floor governs silence, §3.3), `attestation` (an unsigned submission is refused wherever signing is required, §5.1), `hitl_policy_ref` (§5.1), `started_by`/`requested_by` (an absent requester is refused at resolution, §5.2). A field marked `True` by silence is a defect.
+4. **A guard whose applicability the caller supplies is not a guard** (`D-IMPL-350`, `docs/DECISIONS.md:4617`). Every comparand in this document is taken from what the fabric recorded or what an artifact declares, never from what the caller presents.
 5. **Examples are probes, not repair targets** (`D-IMPL-261`). A red example is an SDK finding or a gap-ledger row. The eight doors `D-IMPL-353` left crashing are ledgered in wave 1 (§7.2) and are not unfrozen (§0, L2).
 6. **Decision ids are allocated in this document (§10), provisionally.** Every parallel investigation read "next free id `D-IMPL-356`" and claimed it; the planner allocates, the investigations do not.
 7. **Read `docs/EXAMPLE-EVALUATION-CRITERIA.md` in full** in any session that touches an example, including the wave-2 repair sitting and every gap-ledger row.
@@ -191,7 +191,7 @@ rejected}`, `{accepted, declined}` — so the mapping cannot live in code.
    map covering **every** `GATE_ACTIONS` verdict, else `WorkflowConstructionError`.
 4. **Engine:** after the existing declared-target check (so
    `tests/http_api/test_routes.py:650`'s "declared transition" reason keeps its
-   subject), `resume` refuses through `_refuse` (`runtime/ccf_runtime/workflow/engine.py:1263-1281`) when
+   subject), `resume` refuses through `_refuse` (`runtime/ccf_runtime/workflow/engine.py::WorkflowEngine._refuse`) when
    `decision != gate_routes[gate][authority.action]`. The reason names **neither**
    the verdict nor the expected target. `decision` stays a required double-entry
    in 1.0.2 (A3(a)); removing it is the seam-clean shape and is
@@ -258,7 +258,7 @@ semver-validated only, `src/ccf/workflow/definitions.py:103-109`) — the
 generation boundary is `gate_routes` itself. Public surfaces otherwise
 byte-stable. Live examples: zero.
 
-**Red when fixed.** `tests/workflow/test_engine.py::test_a_rejection_authorizes_resumption_but_does_not_bind_the_target`
+**Red when fixed.** `tests/workflow/test_engine.py::test_a_recorded_rejection_cannot_be_routed_down_the_approving_branch` (A3 step 1 renames it from `test_a_rejection_authorizes_resumption_but_does_not_bind_the_target`; the line spans below are the pre-fix file's)
 (`:856-895`, incl. `resumed[0].actor == "officer-2"` at `:895` — the refusal
 audits `actor=None`); `tests/workflow/test_engine_stateful.py:169-195` (the rule
 draws `"rejected"` after an always-approve `_resolve_gate`; rewrite so it draws
@@ -295,7 +295,7 @@ relay nulls verbatim to the same mint.
    declared key, source field and reason.
 2. `int` and `Decimal` are coerced by an explicit positional-string branch (the
    documented form of what `str()` does today), so **every existing URI stays
-   byte-identical** (`D-IMPL-316`, `docs/DECISIONS.md:2385`: the global
+   byte-identical** (`D-IMPL-316`, `docs/DECISIONS.md:2383`: the global
    content-hash semantics are not retuned). The entry states that this also
    preserves the `'1.5'`/`'1.50'` split; typed hashing is the stricter option
    and is recorded as declined.
@@ -397,7 +397,7 @@ the mechanism it lacks is a shape.
    floor is applied, so the claim stands. The verdict is recorded through the
    same `_record_refusal` path (`src/ccf/products/resolver.py:3320`), as a governed
    `ProductRequestViolation` with one new reason appended **last** to
-   `ProductRequestViolationReason` (`src/ccf/products/request.py:232-242`; the roster pin at
+   `ProductRequestViolationReason` (`src/ccf/products/request.py::ProductRequestViolationReason`; the roster pin at
    `tests/products/test_request_contract.py:1011-1016` is rewritten to ten
    members). The violation names the field (`subject` or the argument) and the
    floor's version name in `detail`, which pins the floor on the record.
@@ -405,7 +405,7 @@ the mechanism it lacks is a shape.
    shape** — an **amendment** to `D-IMPL-264` D-03 (`docs/DECISIONS.md:742`),
    said so in the entry — plus `ProductRequestContract.subject_domain:
    ArgumentDomain | None` (members-shape and pattern-shape legal; numeric
-   refused). Judged inside `refuse_request` (`src/ccf/products/request.py:1920`) through the one
+   refused). Judged inside `refuse_request` (`src/ccf/products/request.py::refuse_request`) through the one
    membership judgment (`ArgumentDomain.refuses` / `_refuse_domain`,
    `:348-516`, `:1768-1841`). A declared pattern **cannot widen past the floor**.
    Compiled with `re.fullmatch` at construction; a non-compiling pattern is
@@ -813,7 +813,7 @@ component agreed on the caller's clock.
    (`src/ccf/products/product.py:778-787` mints a uuid-named fabric per question), so the
    persistent "time bomb" has zero shipped instances on the paved road; it is a
    mechanism exposure of the low road (`AssemblyWorker.ingest` and
-   `ingest_admitted(ingested_at=…)`, `src/ccf/assembly/worker.py:597-602`, a second
+   `ingest_admitted(ingested_at=…)`, `src/ccf/assembly/worker.py::ingest_admitted`, a second
    caller-stamped write path). In 1.0.2: the stamp stays as the documented
    per-question-fabric convention; the `AcquisitionContext.instant` docstring
    (`src/ccf/products/product.py:243-246`, "the clock") is corrected to "the bounded as-of
@@ -991,7 +991,7 @@ naming the changed symbols: 49.
   with `asked_at`; it becomes the positive control for §9 criterion 7.
 - `tests/replay/test_refusal_replay_record.py:706/:725` (refusal
   record-address equality) — pinned clock.
-- `tests/products/test_d_impl_341_ttl_anchor.py::test_c6…` (`:244`; the
+- `tests/products/test_d_impl_341_ttl_anchor.py::test_c6_evidence_older_than_the_window_refuses_ttl_bounds_naming_the_anchored_expiry` (`:244`; the
   refusal's `now` is `ASKED_AT` at `:254` — `TTLRefusal` gains `served_at`;
   keep `now` as the decision instant) and `::test_c7…` (`:174`;
   `ttl_anchor_at == ASKED_AT == record.recorded_at` at `:182` **stays true**),
@@ -1227,7 +1227,7 @@ tenant, opposite verdict, stale `issued_at`, reused nonce, wrong key for the
 subject), `tests/http_api/test_signed_binding_door.py` (5), the four primitive
 suites (3 signed tests each = 12: `test_approval_gate.py:303/339/368`,
 `test_escalation.py:394/432/464`, `test_override.py:320/355/384`,
-`test_review_queue.py:337/369/396`), `tests/hitl/test_transport_concurrency.py::test_d16…`
+`test_review_queue.py:337/369/396`), `tests/hitl/test_transport_concurrency.py::test_d16_wired_submit_path_hammers_without_lock_ordering_issues`
 (`:289`; asserts `entry.signed_binding == signed` at `:367`),
 `tests/mcp/test_hitl_server_door.py:156-183` (tool argument names),
 `tests/crossproc/test_mcp_tenant_authz.py:574` (body literal),
@@ -1382,7 +1382,7 @@ fixtures set it.
 **Red when fixed (rewrite, never delete).**
 `tests/hitl/test_approval_gate.py::test_gate_required_and_valid_binding_passes_both_layers`
 and its unsigned/tampered siblings (bound plane, unregistered policy ref);
-`tests/hitl/test_transport_concurrency.py::test_d16…`;
+`tests/hitl/test_transport_concurrency.py::test_d16_wired_submit_path_hammers_without_lock_ordering_issues`;
 `tests/workflow/test_engine.py::test_reaching_a_hitl_gate_suspends_with_a_typed_handle`
 (`:487-507`) and every test through `_register_declared`;
 `tests/workflow/test_engine.py::test_a_substituted_handle_cannot_turn_a_gate_into_an_ordinary_node`
