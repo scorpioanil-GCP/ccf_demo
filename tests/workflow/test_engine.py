@@ -910,6 +910,19 @@ def test_a_recorded_rejection_cannot_be_routed_down_the_approving_branch(
     )
     assert isinstance(completed, WorkflowCompleted)
     assert completed.terminal_state == "rejected"
+    # RESTORED from the test this one replaced, which asserted
+    # ``resumed[0].actor == "officer-2"``: the audit names the human whose
+    # REJECTION opened the gate. That is the exact remedy this
+    # vulnerability's own fix introduced, and nothing else pins it — one
+    # sibling asserts the actor for an APPROVAL, another asserts the
+    # rejection's action row rather than the resumption's actor. Dropping it
+    # was a weakening, and "rewritten, never weakened" is binding.
+    attributed = [
+        event
+        for event in registry.audit_log.events()
+        if event.action == "workflow_resumed" and event.resolved
+    ]
+    assert attributed[-1].actor == "officer-2"
 
 
 def test_a_terminal_gate_with_no_route_map_cannot_be_constructed(
