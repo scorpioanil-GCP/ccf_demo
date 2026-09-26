@@ -391,7 +391,7 @@ def test_a_deployment_cannot_widen_the_sdk_seam_map_and_its_own_undeclared_types
     assert set(SDK_SEAM_REFUSALS) == {"ccf.assembly.worker.IdentityRefused"}
 
 
-def test_the_sdk_seam_map_refuses_a_deployment_supplied_type_at_runtime() -> None:
+def test_the_sdk_seam_map_refuses_a_TYPED_WRITE_and_claims_nothing_wider() -> None:
     """THE TYPED WRITE, and nothing wider than that.
 
     What this proves, exactly: ``SDK_SEAM_REFUSALS[...] = ...`` raises and
