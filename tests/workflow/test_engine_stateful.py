@@ -168,15 +168,31 @@ class WorkflowEngineMachine(RuleBasedStateMachine):
     @precondition(lambda self: bool(self._keys_in("suspended")))
     @rule(data=st.data(), verdict=st.sampled_from(["approve", "reject"]))
     def resume_suspended(self, data: st.DataObject, verdict: str) -> None:
-        """The recorded VERDICT drives a suspended execution to terminal.
+        """The recorded VERDICT decides where a suspended execution may go.
 
         The human acts first: a gate opens on a recorded action returned
-        through the HITL authority path, never on the decision string
-        alone (SEC-001). The machine now draws the verdict rather than the
-        decision, and reads the decision off the artifact's declared route
-        for it — so every generated resume carries the decision the
-        artifact says that verdict takes, which is the only decision the
-        engine accepts (D-IMPL-357 A3).
+        through the HITL authority path, never on the decision string alone
+        (SEC-001).
+
+        **The verdict and the decision are drawn INDEPENDENTLY, and the rule
+        asserts the biconditional** — a completion whose terminal state
+        equals the decision if and only if the decision equals the target
+        the artifact declares for the verdict actually recorded, and a
+        typed refusal otherwise (D-IMPL-357 A3). Round 1 of review found
+        why that matters: an earlier version of this rule read the decision
+        out of ``gate_routes[gate][verdict]``, so every generated resume was
+        an AGREEING pair and the machine could not produce the input the
+        compare guards against. Measured: under the one-hunk sabotage that
+        deletes the route lookup, the compare and its refusal, the machine
+        stayed GREEN. A property machine over a newly guarded surface that
+        cannot produce the violating input leaves its entire generated space
+        — every tenant and shape it explores — unexercised for that guard.
+
+        The disagreeing draw is then followed by the agreeing one, which
+        both keeps the lifecycle bookkeeping honest and pins that the gate
+        is STILL OPEN after a refusal: one recorded verdict has exactly one
+        declared destination, and a disagreeing resume neither takes it nor
+        consumes it.
         """
         key = data.draw(st.sampled_from(self._keys_in("suspended")))
         tenant, shape = self._shapes[key]
@@ -185,15 +201,31 @@ class WorkflowEngineMachine(RuleBasedStateMachine):
             self.registry, self.transport, tenant=tenant,
             event_key=f"{key}/credit-officer-approval", action=verdict,
         )
-        decision = workflow.definition.gate_routes["credit-officer-approval"][verdict]
+        routes = workflow.definition.gate_routes["credit-officer-approval"]
+        declared = routes[verdict]
+        # Drawn from the gate's own declared targets, independently of the
+        # verdict: half the draws disagree with what was recorded.
+        decision = data.draw(st.sampled_from(sorted(set(routes.values()))))
         outcome = asyncio.run(
             self.engine.resume(
                 resume_as(workflow), workflow,
                 execution_id=key.split("/", 1)[1], decision=decision,
             )
         )
-        assert isinstance(outcome, WorkflowCompleted)
-        assert outcome.terminal_state == decision
+        if decision == declared:
+            assert isinstance(outcome, WorkflowCompleted)
+            assert outcome.terminal_state == decision
+        else:
+            assert isinstance(outcome, WorkflowResumeRefused)
+            # Still open, and only the declared route closes it.
+            outcome = asyncio.run(
+                self.engine.resume(
+                    resume_as(workflow), workflow,
+                    execution_id=key.split("/", 1)[1], decision=declared,
+                )
+            )
+            assert isinstance(outcome, WorkflowCompleted)
+            assert outcome.terminal_state == declared
         self.observed[key] = "terminal"
 
     @precondition(lambda self: bool(self._keys_in("exception")))
