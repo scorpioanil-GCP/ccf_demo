@@ -14,8 +14,8 @@ is genuinely required.
 
 ## Worked example
 
-(Pre-`gate_routes` shape, archived under `D-IMPL-351`: this document declares no verdict
-routes and would be refused by the factory since `D-IMPL-357`. The current shape is
+(Pre-`gate_routes` shape, archived 2026-09-24 under `D-IMPL-351`: this document declares no
+verdict routes and would be refused by the factory since `D-IMPL-357`. The current shape is
 `tests/fixtures/banking/workflows/covenant_review_workflow.yaml`.)
 
 ```yaml
