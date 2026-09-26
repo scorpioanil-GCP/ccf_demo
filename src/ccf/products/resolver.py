@@ -463,10 +463,29 @@ def _refuse_sdk_owned_seam_refusal(declaration: ProductClassDeclaration) -> None
 
     **Why REGISTRATION and not the seam.** Refusing when the exception is
     actually raised would turn a governance mistake into precisely the runtime
-    failure B3 exists to remove — an untyped error in front of a caller, at the
-    moment a question was being answered. Here, nobody has asked anything yet
-    and both documents are in hand, so the failure names the two things that
-    disagree and the author can still fix it. The check is NOT on
+    failure B3 exists to remove — an untyped error mid-assembly, after a seam the
+    deployment supplied had already run. Here both documents are in hand before
+    any of that, so the failure names the two things that disagree and the author
+    can still fix it.
+
+    **WHEN "at registration" IS PRE-QUESTION, AND WHEN IT IS THE FIRST
+    QUESTION.** Both, depending on the caller, and the difference is worth
+    stating rather than implying:
+
+    * :mod:`ccf.client.adapters.inprocess` and :mod:`ccf.replay.environment`
+      build their resolver while OPENING, so no request exists yet and the
+      refusal is genuinely **before any question**;
+    * the **paved road** boots a fresh fabric per question and builds the
+      resolver inside :meth:`~ccf.products.product.OpenedProduct.answer`, so the
+      refusal lands **on the first question asked** — the answering call is
+      already in flight. What holds there is the part that matters: it runs
+      before the acquisition seam, before the plan, before the gates and before
+      any delivery, so nothing is half-assembled, no product is served, and no
+      refusal record is minted for what is a governance mistake rather than a
+      determination. A later signal than the other two callers get, not a
+      different kind of one.
+
+    The check is NOT on
     :class:`~ccf.controlplane.artifacts.ProductClassDeclaration` itself: that
     module cannot import this one (the import direction this module's own
     ``register_product_class`` neighbours already document as a cycle), and a
@@ -4487,9 +4506,16 @@ def build_governed_resolver(
     # `D-IMPL-357` B3 round 3, in the same breath and for the same reason: a
     # class declaring a seam refusal for one of the SDK's OWN seam exceptions
     # has authored a control that can never fire, because the SDK's map is
-    # consulted first. Refused HERE — where both documents are in hand and
-    # nobody has asked a question — rather than at the seam, which would turn a
-    # governance mistake into the very runtime failure B3 removed.
+    # consulted first. Refused HERE — where both documents are in hand, and
+    # before the acquisition seam, the plan, the gates or any delivery — rather
+    # than at the seam, which would turn a governance mistake into the very
+    # runtime failure B3 removed.
+    #
+    # "Before any question" is true of the in-process adapter and the replay
+    # environment, which build while opening. It is NOT true of the paved road,
+    # which boots per question and builds inside `answer()`: there this is the
+    # FIRST QUESTION's refusal, with the answering call already in flight. See
+    # `_refuse_sdk_owned_seam_refusal` for why that is still the right site.
     _refuse_sdk_owned_seam_refusal(boot_declaration)
 
     # `24.11-04` / `D-IMPL-295`, immediately after and for the same reason: a

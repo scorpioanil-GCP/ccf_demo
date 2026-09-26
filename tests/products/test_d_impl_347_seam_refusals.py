@@ -565,9 +565,23 @@ def test_a_class_declaring_an_SDK_OWNED_seam_type_is_REFUSED_at_registration(
             envelope_id="env-null", entity_class="company", key="lei", field="lei", reason="blank"
         )
 
-    with _open(root, scratch, project=_null_identity) as opened:
+    # The load-bearing half of "at registration" on the PAVED ROAD, where the
+    # answering call is already in flight: the refusal must still precede every
+    # deployment-supplied seam, so nothing is half-assembled and no acquisition
+    # has read a source. Asserted rather than asserted-in-prose.
+    reached: list[str] = []
+
+    def _acquire(context: Any) -> Any:
+        reached.append("acquisition")
+        return None
+
+    with _open(root, scratch, project=_null_identity, acquire=_acquire) as opened:
         with pytest.raises(ProductClassRegistrationError) as refused:
             opened.answer(_question(opened))
+    assert reached == [], (
+        "the acquisition seam ran before the registration refusal; the refusal"
+        " must precede every deployment-supplied seam"
+    )
     message = str(refused.value)
     for named in (
         "ccf.assembly.worker.IdentityRefused",  # the SDK-owned key
