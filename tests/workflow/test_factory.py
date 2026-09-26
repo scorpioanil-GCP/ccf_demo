@@ -529,7 +529,7 @@ def test_a_routed_gate_without_a_complete_route_map_is_refused_at_construction(
         gate_routes={"credit-officer-approval": {"approve": "approved"}},
     )
     with pytest.raises(WorkflowConstructionError) as refusal:
-        _construct(registry, definition)   # tests/workflow/test_factory.py:138 — registers, then constructs
+        _construct(registry, definition)   # `tests/workflow/test_factory.py::_construct` — registers, then constructs
     message = str(refusal.value)
     # Both directions, because only one of them was held. The refusal names
     # the GAP...
