@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=77"]
+requires = ["setuptools>=77", "setuptools_scm>=8"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "ccf"
-version = "0.1.0"
+dynamic = ["version"]          # was: version = "0.1.0"  (SEC-029; D-IMPL-357 §D)
 description = "Cognitive Context Fabric SDK — governed, typed, replay-ready context for AI agents"
 requires-python = ">=3.12"
 license = "LicenseRef-Proprietary"
@@ -132,6 +132,38 @@ dev = [
   # existing CI job's `pip install -e ".[dev]"` step changes to gain `make docs`.
   "ccf[docs]",
 ]
+
+[tool.setuptools_scm]
+# The tag is the single source: `v1.0.2` → "1.0.2"; a commit past a tag renders
+# `1.0.2.devN+gSHA`, which is the honest stamp for a record produced by
+# unreleased code. A checkout with no git history builds as the fallback and
+# says so, rather than as a plausible release number. (SEC-029; D-IMPL-357 §D)
+fallback_version = "0.0.0+no-git-metadata"
+# Scoped to release tags ONLY (D-IMPL-357 fix round 1, finding 4, MEASURED):
+# the default `git describe --match '*[0-9]*'` also matches this project's own
+# non-release tag convention (`phase-N-base`, `phase-N.M-base`, one cut per
+# phase per CLAUDE.md §3.1). Left unscoped, `setuptools_scm` raises
+# `ValueError: Can't parse version from tag 'phase-26-base'` the moment such a
+# tag is nearer than the last `v*` release — which fails `pip install -e .`
+# outright for every clone until the next release tag. `--match 'v[0-9]*'`
+# makes only release tags feed the version; a phase-base tag nearer HEAD is
+# invisible to this command and the derivation falls through to the last
+# `v*` tag plus distance, exactly as before this fix.
+# `--abbrev=40` (fix round 2, finding 3, MEASURED): `vcs_versioning`'s own
+# DEFAULT describe command pins `--abbrev=40` and then truncates the node to
+# a stable 10 characters (`g` + 9 hex) itself, regardless of how many objects
+# are in the repository. Overriding `git_describe_command` at all — as the
+# line above does, to add `--match` — drops that default, so without
+# `--abbrev=40` here git falls back to ITS OWN auto-abbreviation instead.
+# Measured directly (three consecutive reinstalls each way, same commit): the
+# node was a CONSISTENT 8 hex characters without this flag and a CONSISTENT 9
+# with it — not run-to-run instability as fix round 1 mistakenly concluded,
+# but a real, repeatable one-character shortfall caused by dropping this
+# default. `--abbrev=40` restores the full sha to `git describe`'s output so
+# `vcs_versioning`'s own fixed-width truncation determines the node's length
+# again, not git's own auto-sizing (which DOES vary with repository size,
+# just not between these two back-to-back probes).
+git_describe_command = "git describe --dirty --tags --long --match 'v[0-9]*' --abbrev=40"
 
 # Single distribution for v0 shipping two packages: the `ccf` library (src layout,
 # CLAUDE.md §10 L1–L6) and the `ccf_runtime` host package (CLAUDE.md §14) — D-05.

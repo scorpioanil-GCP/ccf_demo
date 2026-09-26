@@ -54,6 +54,16 @@ jobs:
       - name: Product-gate checker unit tests (D-IMPL-224)
         run: pytest tools/product_gates_tests -q
 
+      # SEC-029 / D-IMPL-357 §D, fix round 2 finding 2: the version-stamp
+      # gate (`tools/check_version_stamp.py`, run for real at TAG GO by
+      # `release-stamp.yml`) is itself tested here so a regression in its
+      # LOGIC is caught by ordinary CI rather than by a release. The suite
+      # builds its own throwaway git repositories (`git init`/`commit`/`tag`)
+      # and needs no history from THIS checkout, so it does not depend on
+      # `fetch-depth: 0` above the way the CINV-06 base-roster test does.
+      - name: Version-stamp gate unit tests (SEC-029, D-IMPL-357 §D)
+        run: pytest tools/check_version_stamp_tests -q
+
       - name: CCF invariant lints (No-Hardcoding, harness imports, @algorithmic, substrate names, hash-transparent key, citations)
         run: python -m tools.lints --all
 
