@@ -115,10 +115,11 @@ import re
 # `importlib.import_module` site across `src/` and `runtime/` — it is the
 # compensating control for `cinv02-backend-import`, which cannot read a
 # dynamically-constructed module name. Two `import_module` calls here were
-# measured to break that invariant
-# (`tests/graph/test_backend_registry.py::test_exactly_one_dynamic_import_site_
-# exists_across_both_linted_trees`), so these are `import` statements the lint
-# can see, which is what the invariant is protecting.
+# measured to break that invariant: the one-dynamic-import-site control in
+# `tests/graph/test_backend_registry.py` reported
+# `{'src/ccf/graph/registry.py': 1, 'src/ccf/products/request.py': 2}` against
+# the required single entry. So these are `import` statements the lint can see,
+# which is what the invariant is protecting.
 import re._constants as _sre_constants
 import re._parser as _sre_parse
 from decimal import Decimal
