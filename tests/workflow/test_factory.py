@@ -443,13 +443,24 @@ def test_a_gate_route_on_a_non_hitl_gate_step_is_refused(
 
 
 def test_a_routed_gate_without_a_complete_route_map_is_refused_at_construction(
-    registry, tmp_path
+    registry: ControlPlaneRegistry,
 ) -> None:
     """D-IMPL-357 A2: silence must not mean unconstrained. A gate the wrapper
-    routes to must say where each verdict goes, or the workflow is not built."""
-    document = _workflow_fixture()["workflow_definition"]      # the module's own loader
-    definition = WorkflowDefinition.model_validate(
-        {**document, "gate_routes": {"credit-officer-approval": {"approve": "approved"}}}
+    routes to must say where each verdict goes, or the workflow is not built.
+
+    Built through this module's own ``_workflow_definition`` helper and
+    registered under its OWN artifact version, per the rule this file's
+    docstring states at :17-19 — every sibling mutation test bumps the
+    version precisely so a mutant is never registered as the real artifact.
+    The inline ``model_validate`` shape this replaces registered changed
+    content under the unchanged 1.0.0; it was harmless only because each
+    test gets a fresh registry, and the first test to share one — or any
+    move to a session-scoped plane — would have registered a fabricated
+    document as the real artifact.
+    """
+    definition = _workflow_definition(
+        artifact_version="1.0.7",
+        gate_routes={"credit-officer-approval": {"approve": "approved"}},
     )
     with pytest.raises(WorkflowConstructionError) as refusal:
         _construct(registry, definition)   # tests/workflow/test_factory.py:138 — registers, then constructs
